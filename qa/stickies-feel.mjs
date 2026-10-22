@@ -1,6 +1,6 @@
 // How stickies move and answer, checked off screen: every window stays parked
-// (MINDFLOW_QA_AWAY) while keeping the place Haligtree gives it as its own
-// (MINDFLOW_QA_VIRTUAL), so glides, fades and placing can be read back.
+// (HALIGTREE_QA_AWAY) while keeping the place Haligtree gives it as its own
+// (HALIGTREE_QA_VIRTUAL), so glides, fades and placing can be read back.
 //
 // Coming in (fade, drop, stagger), taking down (⌘W asks as X does, the peel,
 // "Put it back"), picked up and let go (lift, settle, tap), the slide back from
@@ -11,12 +11,12 @@
 // a note gone to the Bin, an empty note's words, and glides paced on frames.
 //
 //   npx electron-vite build --outDir out-stickies
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-stickies/main/index.js MINDFLOW_QA_AWAY=1 MINDFLOW_QA_VIRTUAL=1 node qa/stickies-feel.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-stickies/main/index.js HALIGTREE_QA_AWAY=1 HALIGTREE_QA_VIRTUAL=1 node qa/stickies-feel.mjs
 import { mkdirSync, readFileSync, existsSync } from 'fs'
 import { join } from 'path'
 import { sandbox } from './sandbox-lib.mjs'
 
-process.env.MINDFLOW_QA_VIRTUAL ??= '1'
+process.env.HALIGTREE_QA_VIRTUAL ??= '1'
 const SHOTS = process.env.QA_SHOTS ?? 'scratchpad/round/stickies'
 mkdirSync(SHOTS, { recursive: true })
 const results = []
@@ -71,7 +71,7 @@ try {
     const file = [join(dir, 'sandbox', 'stickies.json'), join(dir, 'stickies.json')].find((f) => existsSync(f))
     return file ? JSON.parse(readFileSync(file, 'utf8')) : []
   }
-  const v = (channel, ...args) => h.evaluate(([c, a]) => window.api.vigil(c, ...a), [channel, args])
+  const v = (channel, ...args) => h.evaluate(([c, a]) => window.api.haligtree(c, ...a), [channel, args])
 
   // The sandbox's own stickies taken down, then notes of our own stuck, as paper first.
   await v('settings:set', { stickiesGlass: false })
@@ -151,8 +151,8 @@ try {
   await electron.evaluate(() => (globalThis.qaButton = false))
   // Settled only once the hand has let go: the Mac is asked whether the button is up (hand.ts), so a moment later.
   for (let i = 0; i < 20 && (await pa.evaluate(() => document.querySelector('[data-held]') !== null)); i++) await wait(100)
-  for (let i = 0; i < 10 && !(await pa.evaluate(() => (window.vigilHeard ?? []).includes('paper-tap'))); i++) await wait(100)
-  const set = await pa.evaluate(() => ({ held: document.querySelector('[data-held]') !== null, heard: [...(window.vigilHeard ?? [])] }))
+  for (let i = 0; i < 10 && !(await pa.evaluate(() => (window.haligtreeHeard ?? []).includes('paper-tap'))); i++) await wait(100)
+  const set = await pa.evaluate(() => ({ held: document.querySelector('[data-held]') !== null, heard: [...(window.haligtreeHeard ?? [])] }))
   check('K3 picked up: the card is held (deeper shadow, straightened)', lifted)
   check('K3 let go: it settles, with the paper tap', !set.held && set.heard.includes('paper-tap'), set.heard.slice(-3).join(','))
 
@@ -219,7 +219,7 @@ try {
   await electron.evaluate(() => globalThis.qaMenu.find((one) => one.label === 'Sky').click())
   await wait(600)
   const pb = pageOf(B)
-  const painted = await pb.evaluate(() => ({ tint: document.documentElement.hasAttribute('data-tint') ? document.documentElement.style.getPropertyValue('--mf-tint-hue') : '', heard: [...(window.vigilHeard ?? [])] }))
+  const painted = await pb.evaluate(() => ({ tint: document.documentElement.hasAttribute('data-tint') ? document.documentElement.style.getPropertyValue('--mf-tint-hue') : '', heard: [...(window.haligtreeHeard ?? [])] }))
   check('K11 Sky: painted on the paper, with a paper sound', painted.tint.includes('blue') && painted.heard.includes('paper-slide'), painted.tint)
   check('K11 Sky: kept in stickies.json', (await kept()).find((one) => `${one.type}:${one.id}` === B)?.tint === 'sky')
   await pb.screenshot({ path: join(SHOTS, 'k11-sky-paper.png') }).catch(() => {})

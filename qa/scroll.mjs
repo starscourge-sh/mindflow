@@ -10,7 +10,7 @@ import { open } from './harness.mjs'
 const app = await open()
 await app.reset()
 await app.type(Array.from({ length: 40 }, (_, i) => `line ${i + 1}`))
-await app.page.$eval('.mindflow-editor-content', (box) => (box.scrollTop = 0))
+await app.page.$eval('.haligtree-editor-content', (box) => (box.scrollTop = 0))
 await app.page.waitForTimeout(150)
 
 await app.dragToEdge(0, { hold: 1800 })

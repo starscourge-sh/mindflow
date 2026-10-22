@@ -595,7 +595,7 @@ function load(context: BaseAudioContext, url: string): Promise<AudioBuffer | nul
  * read to see a sound fire (or not, with Sounds off). A few dozen at most.
  */
 const heard: string[] = []
-;(window as unknown as { vigilHeard?: string[] }).vigilHeard = heard
+;(window as unknown as { haligtreeHeard?: string[] }).haligtreeHeard = heard
 const hear = (name: string): void => void (heard.push(name), heard.length > 50 && heard.shift())
 
 /**

@@ -21,8 +21,8 @@ test('pictures stored, unknown ones counted', () => {
   const a = 'data:image/png;base64,AAAA'
   const html = `<div>Look</div><div><img src="${a}"></div><div><img src="data:image/png;base64,BBBB"></div>`
   assert.deepEqual(dataPictures(html), [a, 'data:image/png;base64,BBBB'])
-  const { markdown, missing } = notesMarkdown(html, 'x', new Map([[a, 'mindflow://assets/a.png']]))
-  assert.equal(markdown, 'Look\n\n![](mindflow://assets/a.png)')
+  const { markdown, missing } = notesMarkdown(html, 'x', new Map([[a, 'haligtree://assets/a.png']]))
+  assert.equal(markdown, 'Look\n\n![](haligtree://assets/a.png)')
   assert.equal(missing, 1)
 })
 

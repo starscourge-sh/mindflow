@@ -12,10 +12,10 @@ const run = async (fn) => {
   const qa = await open()
   try {
     await qa.page.waitForTimeout(2500)
-    return await fn((channel, ...args) => qa.page.evaluate(([c, a]) => window.api.vigil(c, ...a), [channel, args]))
+    return await fn((channel, ...args) => qa.page.evaluate(([c, a]) => window.api.haligtree(c, ...a), [channel, args]))
   } finally { await qa.close() }
 }
-const file = () => join(DATA, 'mindflow.db')
+const file = () => join(DATA, 'haligtree.db')
 
 // A fresh start is a new book, whose sidebar grows with it (sidebar-first); an older book shows every page (24 and up, as pages are added).
 await run(async (v) => { const s = await v('settings'); check('a fresh start is a new book, its sidebar growing', s.sidebarGrows === true && s.sidebarShown.length < 24, String(s.sidebarShown.length)) })

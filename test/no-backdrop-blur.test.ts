@@ -14,7 +14,7 @@ const renderer = join(root, 'src/renderer/src')
 
 // Only windows made with `vibrancy` in src/main/index.ts: the box (App.tsx)
 // and the Look window over a sticky (look-window.tsx).
-const ALLOWED = new Set(['src/renderer/src/App.tsx', 'src/renderer/src/components/vigil/look-window.tsx'])
+const ALLOWED = new Set(['src/renderer/src/App.tsx', 'src/renderer/src/components/haligtree/look-window.tsx'])
 
 const BLUR = /backdrop-(blur|filter|saturate)|backdropFilter/
 

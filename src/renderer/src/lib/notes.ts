@@ -2,12 +2,12 @@ import { useEffect, useState, useSyncExternalStore } from 'react'
 import { moveToBin } from './to-bin'
 
 import { fieldKeys } from '@/components/capture-kinds/kind-fields'
-import { refuse, toast, waiting, quietly } from '@/components/vigil/ui'
+import { refuse, toast, waiting, quietly } from '@/components/haligtree/ui'
 import type { Action } from '@/components/search'
 import { chime } from '@/lib/sound'
 import { detailsShown, fullWidth, setFullWidth, showDetails } from '@/lib/reading'
-import { call, useLive, vigil } from '@/lib/vigil'
-import { addToQuestion } from '@/components/vigil/questions-view'
+import { call, useLive, haligtree } from '@/lib/haligtree'
+import { addToQuestion } from '@/components/haligtree/questions-view'
 import { dayKey, num } from '../../../main/dates'
 import { canSplit, frontPane, usePane } from '@/lib/split'
 import { openApart } from '@/lib/apart'
@@ -68,7 +68,7 @@ let showThumbs = true
 const listeners = new Set<() => void>()
 let started = false
 const loadThumbs = (): void =>
-  void Promise.all([notes.thumbs(), vigil.settings()]).then(([found, settings]) => {
+  void Promise.all([notes.thumbs(), haligtree.settings()]).then(([found, settings]) => {
     thumbs = found
     showThumbs = (settings as { thumbnails?: boolean }).thumbnails !== false
     listeners.forEach((listen) => listen())
@@ -146,10 +146,10 @@ export function useOpenNote(note: OpenNote | null): void {
   useEffect(() => {
     if (note) opened.set(pane, note)
     else opened.delete(pane)
-    window.dispatchEvent(new Event('vigil:note-open'))
+    window.dispatchEvent(new Event('haligtree:note-open'))
     // Home's "Jump back in" reads these.
     if (note) void call('home:opened', note.type, note.id)
-    return () => void (opened.get(pane) === note && (opened.delete(pane), window.dispatchEvent(new Event('vigil:note-open'))))
+    return () => void (opened.get(pane) === note && (opened.delete(pane), window.dispatchEvent(new Event('haligtree:note-open'))))
   }, [note?.id, note?.kind, note?.archived]) // eslint-disable-line react-hooks/exhaustive-deps
 }
 
@@ -159,8 +159,8 @@ export function useAnyNoteOpen(): boolean {
   useEffect(() => {
     const read = (): void => setOpen(opened.size > 0)
     read()
-    window.addEventListener('vigil:note-open', read)
-    return () => window.removeEventListener('vigil:note-open', read)
+    window.addEventListener('haligtree:note-open', read)
+    return () => window.removeEventListener('haligtree:note-open', read)
   }, [])
   return open
 }
@@ -169,7 +169,7 @@ export function useAnyNoteOpen(): boolean {
 
 /** Ask for a kind, in the small list the Kind picker has. Null if let go. */
 export const pickKind = (current: string): Promise<string | null> =>
-  new Promise((answer) => void window.dispatchEvent(new CustomEvent('vigil:pick-kind', { detail: { current, answer } })))
+  new Promise((answer) => void window.dispatchEvent(new CustomEvent('haligtree:pick-kind', { detail: { current, answer } })))
 
 /** A new kind for a note: fields it has no room for are held out of sight and come back with a kind that has. Undoable. */
 export async function changeKind(table: NoteTable, id: string, from: string, to?: string): Promise<void> {
@@ -233,8 +233,8 @@ export function noteActions({ day = true }: { day?: boolean } = {}): Action[] {
       { label: note.archived ? 'Unarchive this note' : 'Archive this note', hint: note.archived ? 'Back in sight' : 'Kept, out of sight', cue: null, run: () => void archive(note.table, [note.id], !note.archived) },
       { label: 'Move to the Bin', hint: 'This note', cue: null, run: () => void moveToBin([{ type: note.type, id: note.id }]) },
       { label: 'Open in a new window', hint: 'This note, in its own window', ...(canSplit() ? { keys: '⌘O' } : {}), cue: null, run: () => openApart(note.type, note.id) },
-      { label: 'Set a word aim', hint: 'For this note: 800 words, or 800 by Friday', cue: null, run: () => void window.dispatchEvent(new CustomEvent('mindflow:aim')) },
-      { label: 'Version history', hint: 'Of this note', cue: null, run: () => window.dispatchEvent(new CustomEvent('vigil:versions', { detail: note.id })) },
+      { label: 'Set a word aim', hint: 'For this note: 800 words, or 800 by Friday', cue: null, run: () => void window.dispatchEvent(new CustomEvent('haligtree:aim')) },
+      { label: 'Version history', hint: 'Of this note', cue: null, run: () => window.dispatchEvent(new CustomEvent('haligtree:versions', { detail: note.id })) },
       { label: detailsShown(frontPane()) ? "Hide this note's details" : "Show this note's details", cue: null, run: () => showDetails(!detailsShown(frontPane()), frontPane()) },
       { label: 'Save attachments', hint: "This note's pictures and files", cue: null, run: () => void saveAttachments([{ table: note.table, id: note.id }]) },
     ] as Action[]).map((one) => ({ ...one, own: true })),

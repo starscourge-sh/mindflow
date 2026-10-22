@@ -5,22 +5,22 @@ import { chime } from '@/lib/sound'
 import type { JSONContent } from '@tiptap/core'
 
 import { noteLinkText } from '@/lib/capture-links'
-import { TagRow, decideDay, openPass } from './vigil/pass'
-import { clueInto } from './vigil/pinned-questions'
+import { TagRow, decideDay, openPass } from './haligtree/pass'
+import { clueInto } from './haligtree/pinned-questions'
 import { wordsOf } from '../../../main/import'
-import { AskWho, Rolling, Typed, pin, toast, Pressed } from './vigil/ui'
+import { AskWho, Rolling, Typed, pin, toast, Pressed } from './haligtree/ui'
 import { AnimatePresence, motion } from 'motion/react'
 import { EASE, byKeys, shift } from '@/lib/motion'
-import { unloaded, unread, useLive, vigil, type PinnedQuestion } from '@/lib/vigil'
-import { RowMenu, copy } from './vigil/row-menu'
+import { unloaded, unread, useLive, haligtree, type PinnedQuestion } from '@/lib/haligtree'
+import { RowMenu, copy } from './haligtree/row-menu'
 import { ageTint } from './capture-list'
-import { Tip, quietly } from '@/components/vigil/ui'
+import { Tip, quietly } from '@/components/haligtree/ui'
 import { Button } from '@/components/ui/button'
-import { Rest } from './vigil/scenery'
-import { ComingBack } from './vigil/coming-back'
-import { GlossButton, GlossLine, openGloss } from './vigil/gloss-line'
+import { Rest } from './haligtree/scenery'
+import { ComingBack } from './haligtree/coming-back'
+import { GlossButton, GlossLine, openGloss } from './haligtree/gloss-line'
 import { ago, daysSince } from '../../../main/dates'
-import { Signed } from './vigil/signature'
+import { Signed } from './haligtree/signature'
 import { tagsIn } from '../../../main/tag-words'
 import { quoted } from '../../../main/clip'
 import { ChevronRight } from '@/components/ui/icons'
@@ -112,9 +112,9 @@ export function Waiting({ onOpen, onOpenAny }: { onOpen: (id: string) => void; o
   // The header's chip waits for this panel to be on show: while it waits, unseen, its cards are still being dealt and measured.
   const seen = useSeen()
   useLayoutEffect(() => void (room.seen !== seen && ((room.seen = seen), room.tell.forEach((one) => one()))), [seen])
-  const pinRead = useLive(vigil.pins, [] as Awaited<ReturnType<typeof vigil.pins>>)
+  const pinRead = useLive(haligtree.pins, [] as Awaited<ReturnType<typeof haligtree.pins>>)
   const pins = Math.min(BOX_PINS, pinRead.length)
-  const oldRead = useLive(vigil.rotWaiting, null as number | null)
+  const oldRead = useLive(haligtree.rotWaiting, null as number | null)
   const old = oldRead ?? 0
   // The panel waits for these (lib/reads-in.tsx): the old captures and pins came in over the Inbox and pushed it down.
   useReading(unloaded(pinRead) || oldRead === null)
@@ -162,14 +162,14 @@ export function RotCards({ onOpen, room: space = null }: {
   // with a chord, once, as the line arrives.
   const [left, setLeft] = useState<number | null>(null)
   // Cards turned off in Settings: no area, so no all-clear either.
-  const settings = useLive(vigil.settings, null as Awaited<ReturnType<typeof vigil.settings>> | null)
+  const settings = useLive(haligtree.settings, null as Awaited<ReturnType<typeof haligtree.settings>> | null)
   const off = settings?.rotCount === 0
   // The questions kept in view, offered in each card's menu: a row of them
   // on every card only pushed the cards apart.
-  const pinned = useLive(vigil.pinnedQuestions, [] as PinnedQuestion[])
+  const pinned = useLive(haligtree.pinnedQuestions, [] as PinnedQuestion[])
   const clues = settings?.pinnedQuestions === false ? [] : pinned
   const count = (): void =>
-    void vigil.rotLeft().then((n) => {
+    void haligtree.rotLeft().then((n) => {
       if (n === 0 && was !== 0 && !off) chime('clear')
       was = n
       setLeft(n)
@@ -219,15 +219,15 @@ export function RotCards({ onOpen, room: space = null }: {
     const here = all.findIndex((one) => one.dataset.id === card.id)
     const after = document.activeElement === all[here] ? all[here + 1] ?? all[here - 1] : null
     chime('back')
-    void vigil.comeBack(card.id, true).then(() => {
+    void haligtree.comeBack(card.id, true).then(() => {
       drop(card.id)
       after?.focus({ focusVisible: true } as FocusOptions)
-      toast(`Set aside for ${day}`, () => void vigil.comeBack(card.id, false).then(() => (chime('undo'), putBack(card))))
+      toast(`Set aside for ${day}`, () => void haligtree.comeBack(card.id, false).then(() => (chime('undo'), putBack(card))))
     })
   }
   // A tag on or off, in its words; the card shows them at once.
   const retag = (card: Capture, name: string, on: boolean, quiet = false): void =>
-    void vigil.passTag(card.id, name, on).then((body) => {
+    void haligtree.passTag(card.id, name, on).then((body) => {
       if (body === null) return chime('nope')
       setCards((all) => all.map((one) => (one.id === card.id ? { ...one, body } : one)))
       if (quiet) return

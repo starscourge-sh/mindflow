@@ -7,7 +7,7 @@ import { join } from 'path'
 import { DatabaseSync } from 'node:sqlite'
 import { open } from './harness.mjs'
 
-const data = process.env.QA_DATA ?? mkdtempSync(join(tmpdir(), 'mindflow-types-'))
+const data = process.env.QA_DATA ?? mkdtempSync(join(tmpdir(), 'haligtree-types-'))
 process.env.QA_DATA = data
 let failed = 0
 const check = (what, ok, detail = '') => { console.log(`${ok ? 'PASS' : 'FAIL'} ${what}${detail ? `: ${detail}` : ''}`); if (!ok) failed++ }
@@ -16,7 +16,7 @@ const stop = async (qa) => { try { await qa.electron.close() } catch {} ; try { 
 
 // 1. A fresh file, made by the app.
 await stop(await start())
-const file = join(data, 'mindflow.db')
+const file = join(data, 'haligtree.db')
 console.log('database:', file)
 
 // 2. Put it back as an older Haligtree left it: no kind_was, version 4, one of each old kind.
@@ -61,7 +61,7 @@ db.close()
 
 // 4. And the one after changes nothing.
 const qa = await start()
-const recap = await qa.page.evaluate(() => window.api.vigil('recap', 'year'))
+const recap = await qa.page.evaluate(() => window.api.haligtree('recap', 'year'))
 console.log('recap books:', JSON.stringify(recap?.books))
 await stop(qa)
 db = new DatabaseSync(file)

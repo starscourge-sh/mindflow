@@ -7,7 +7,7 @@
 // 3. Today's newer parts (the hour timeline, “For tomorrow”, “I have 15
 //    minutes”, goals, the brief) sit together without overlapping, at
 //    1100x700 and 1600x1000, light and dark.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-sweepc/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=<dir> node qa/sweep-c.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-sweepc/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=<dir> node qa/sweep-c.mjs
 // PART=notes|labels|today runs one part.
 import { mkdirSync, readdirSync, readFileSync, statSync } from 'fs'
 import { createRequire } from 'module'
@@ -233,10 +233,10 @@ try {
       await c.go('all'); await wait(1000); await shot(`everything-${theme}`)
       await c.go('week'); await wait(1500); await shot(`week-${theme}`)
       await c.go('weekpage'); await wait(1500); await shot(`weekpage-${theme}`)
-      await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:close-day'))); await wait(1500); await shot(`close-day-${theme}`)
+      await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:close-day'))); await wait(1500); await shot(`close-day-${theme}`)
       await h.mouse.wheel(0, 900); await wait(600); await shot(`close-day-2-${theme}`)
       await h.keyboard.press('Escape'); await wait(600)
-      await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:close-week'))); await wait(1500); await shot(`close-week-${theme}`)
+      await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:close-week'))); await wait(1500); await shot(`close-week-${theme}`)
       await h.mouse.wheel(0, 900); await wait(600); await shot(`close-week-2-${theme}`)
       await h.keyboard.press('Escape'); await wait(600)
       await c.go('settings'); await h.click('[data-section="Appearance"]'); await wait(600); await into('[data-setting-title="App icon"]'); await shot(`settings-icon-${theme}`)

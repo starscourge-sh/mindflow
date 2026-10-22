@@ -4,7 +4,7 @@
 // what it did (C3).
 //
 //   npx electron-vite build --outDir out-centre
-//   QA_DATA=$(mktemp -d) QA_ENTRY=out-centre/main/index.js MINDFLOW_QA_AWAY=1 node qa/centre-inbox.mjs
+//   QA_DATA=$(mktemp -d) QA_ENTRY=out-centre/main/index.js HALIGTREE_QA_AWAY=1 node qa/centre-inbox.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const results = []
@@ -69,7 +69,7 @@ try {
   check('the last one leaving brings Inbox zero', /Inbox zero/.test(zero ?? ''), zero ?? 'none')
   check('it says where everything went, and where the next one goes', /Everything you caught has a place/.test(zero ?? ''))
   if (shots) await h.screenshot({ path: `${shots}/inbox-zero.png` })
-  const heard = await h.evaluate(() => (window.vigilHeard ?? []).slice(-5))
+  const heard = await h.evaluate(() => (window.haligtreeHeard ?? []).slice(-5))
   console.log('      (recordings heard:', heard.join(', ') || 'none', ')')
   // Arriving at an empty Inbox is quiet, not the moment again.
   await go('home')
@@ -97,7 +97,7 @@ try {
   // C3: the tidy pass ends saying what it did.
   const a = await make('First to tidy')
   const b = await make('Second to tidy')
-  await h.evaluate((ids) => window.dispatchEvent(new CustomEvent('vigil:pass', { detail: { mode: 'tidy', ids } })), [a, b])
+  await h.evaluate((ids) => window.dispatchEvent(new CustomEvent('haligtree:pass', { detail: { mode: 'tidy', ids } })), [a, b])
   await h.waitForTimeout(1200)
   await h.keyboard.press('t')
   await h.keyboard.type('errands', { delay: 20 })

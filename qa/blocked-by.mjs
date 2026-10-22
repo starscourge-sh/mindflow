@@ -2,7 +2,7 @@
 // matched by name, never the task itself or one that would make a loop.
 // Enter links it, the row then names it and opens it, Esc keeps the words,
 // words that match none stay a plain note, and a done blocker says it is free.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-blk/main/index.js MINDFLOW_QA_AWAY=1 node qa/blocked-by.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-blk/main/index.js HALIGTREE_QA_AWAY=1 node qa/blocked-by.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const results = []

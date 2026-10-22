@@ -28,7 +28,7 @@ writeFileSync(config, JSON.stringify({ vaults: {
   b: { path: work, ts: 5, open: true },
   c: { path: join(root, 'Gone vault'), ts: 20 }
 } }))
-process.env.MINDFLOW_OBSIDIAN_CONFIG = config
+process.env.HALIGTREE_OBSIDIAN_CONFIG = config
 
 const results = []
 const check = (name, ok, detail = '') => { results.push(ok); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`) }
@@ -81,7 +81,7 @@ try {
   await h.keyboard.press('Enter')
   // Then which of its folders (note-imports.mjs walks that sheet): all of them, into Writing.
   await h.waitForSelector('[data-import-folders="choose"]', { timeout: 8000 })
-  const writing = async () => (await h.evaluate(() => window.api.vigil('items', 'article'))).length
+  const writing = async () => (await h.evaluate(() => window.api.haligtree('items', 'article'))).length
   const was = await writing()
   await h.click('[data-folders-bring]')
   let after = was

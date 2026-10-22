@@ -3,7 +3,7 @@
 // along the row's rounded side any more. Checked in Soft, Paper and Brutal, on a light theme and a dark
 // one, with a picture of the rows each time in SHOTS.
 //   npx electron-vite build --outDir out-x
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 [SHOTS=<dir>] node qa/voice-dot.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 [SHOTS=<dir>] node qa/voice-dot.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 

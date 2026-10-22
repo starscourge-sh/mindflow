@@ -17,7 +17,7 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { deflateSync, crc32 } from 'zlib'
 
-const OUT = process.env.OUT ?? mkdtempSync(join(tmpdir(), 'vigil-placeholders-'))
+const OUT = process.env.OUT ?? mkdtempSync(join(tmpdir(), 'haligtree-placeholders-'))
 const LABEL = process.env.LABEL ?? 'run'
 mkdirSync(OUT, { recursive: true })
 
@@ -72,18 +72,18 @@ function note() {
   return out.join('\n')
 }
 
-const vault = mkdtempSync(join(tmpdir(), 'vigil-placeholders-vault-'))
+const vault = mkdtempSync(join(tmpdir(), 'haligtree-placeholders-vault-'))
 mkdirSync(join(vault, 'attachments'))
 for (let i = 0; i < 40; i++) writeFileSync(join(vault, 'attachments', `slide-${i}.png`), slide(i + 1, ...SHAPES[i % SHAPES.length]))
 for (let i = 0; i < 3; i++) writeFileSync(join(vault, 'attachments', `cell-${i}.png`), slide(50 + i, 1200, 800))
 // 1280x960 with 120 black rows over and under: a 16:9 picture in a 4:3 frame.
 writeFileSync(join(vault, 'attachments', 'banded.png'), slide(77, 1280, 960, 120))
 writeFileSync(join(vault, 'Lecture slides.md'), note())
-process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'vigil-placeholders-data-'))
-process.env.MINDFLOW_QA_VAULT = vault
+process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'haligtree-placeholders-data-'))
+process.env.HALIGTREE_QA_VAULT = vault
 
 const { open } = await import('./harness.mjs')
-const ED = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+const ED = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 const home = async (qa) => {
   let h
   for (let i = 0; i < 100 && !h; i++) {
@@ -103,14 +103,14 @@ let id = null
       await h.waitForTimeout(1000)
       id = await h.evaluate(async () => {
         const one = (await window.api.captures.list()).find((row) => /Lecture slides/.test(row.label ?? ''))
-        return one && !(await window.api.vigil('imports:pending')).length ? one.id : null
+        return one && !(await window.api.haligtree('imports:pending')).length ? one.id : null
       })
     }
     if (!id) throw new Error('the note never finished importing')
-    await h.evaluate(() => window.api.vigil('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true }))
+    await h.evaluate(() => window.api.haligtree('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true }))
     // Every picture's size and colours worked out, as they are soon after an import (a build without them goes on at once).
     for (let i = 0; i < 120; i++) {
-      const known = await h.evaluate(async () => Object.keys((await window.api.vigil('pictures:looks').catch(() => null)) ?? {}).length)
+      const known = await h.evaluate(async () => Object.keys((await window.api.haligtree('pictures:looks').catch(() => null)) ?? {}).length)
       if (!known || known >= 45) break
       await h.waitForTimeout(500)
     }
@@ -125,12 +125,12 @@ let id = null
 // before this existed, so the note works them out as it is opened.
 if (process.env.BACKFILL) {
   const { DatabaseSync } = await import('node:sqlite')
-  const db = new DatabaseSync(join(process.env.QA_DATA, 'mindflow.db'))
+  const db = new DatabaseSync(join(process.env.QA_DATA, 'haligtree.db'))
   db.exec('delete from picture_looks')
   db.close()
 }
 // Second run, the app started afresh, so nothing is in its memory yet: the note opened.
-delete process.env.MINDFLOW_QA_VAULT
+delete process.env.HALIGTREE_QA_VAULT
 const qa = await open()
 const { electron } = qa
 try {
@@ -144,8 +144,8 @@ try {
   await electron.evaluate(({ app, net, protocol }, slow) => {
     const { pathToFileURL } = process.mainModule.require('url')
     const { join } = process.mainModule.require('path')
-    protocol.unhandle('mindflow')
-    protocol.handle('mindflow', async (request) => {
+    protocol.unhandle('haligtree')
+    protocol.handle('haligtree', async (request) => {
       const { host, pathname } = new URL(request.url)
       const name = pathname.replace(/^\/+/, '')
       if (host !== 'assets' || !/^[a-f0-9]{64}\.[a-z0-9]+$/.test(name)) return new Response('not found', { status: 404 })
@@ -195,7 +195,7 @@ try {
   await cdp.send('Network.enable')
   await cdp.send('Network.setCacheDisabled', { cacheDisabled: true })
   await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 70, everyNthFrame: 1 })
-  const knownLooks = await h.evaluate(async () => Object.keys((await window.api.vigil('pictures:looks').catch(() => ({}))) ?? {}).length)
+  const knownLooks = await h.evaluate(async () => Object.keys((await window.api.haligtree('pictures:looks').catch(() => ({}))) ?? {}).length)
   // How long the main process is ever held up while the note opens.
   await electron.evaluate(() => {
     globalThis.__lag = 0
@@ -283,7 +283,7 @@ try {
   await h.evaluate((sel) => [...document.querySelectorAll(sel)].find((one) => one.textContent.includes('Slide 1')).querySelector('table').scrollIntoView({ block: 'center', behavior: 'instant' }), ED)
   await h.waitForTimeout(400)
   await h.screenshot({ path: join(OUT, `${LABEL}-table.png`) })
-  console.log(`LOOKS  ${await h.evaluate(async () => Object.keys((await window.api.vigil('pictures:looks').catch(() => ({}))) ?? {}).length)} known once opened and scrolled`)
+  console.log(`LOOKS  ${await h.evaluate(async () => Object.keys((await window.api.haligtree('pictures:looks').catch(() => ({}))) ?? {}).length)} known once opened and scrolled`)
   console.log(`MAIN   ${knownLooks} looks known as it opened; held up at most ${await electron.evaluate(() => globalThis.__lag)} ms`)
   console.log(`BANDED ${JSON.stringify(banded)} (16:9 is 1.778)`)
   console.log(`OPEN   words on screen ${opened.shown} ms (pictures drawn by then: ${opened.drawnThen}); done ${opened.done} ms`)

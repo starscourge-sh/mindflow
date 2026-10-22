@@ -7,15 +7,15 @@
 // page (30); the Graph beside the kinds (24); captures as marks on the
 // Calendar's Day (45b); ⇧⌘.'s area pick lands in the box under a picture (18);
 // the box thrown to an edge by ⌃⌥ and an arrow, and back there next time (40).
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 [SHOT=<dir>] [THEME=dark] [WIDTH=900 HEIGHT=700] node qa/inbox-wave.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 [SHOT=<dir>] [THEME=dark] [WIDTH=900 HEIGHT=700] node qa/inbox-wave.mjs
 import { mkdirSync, writeFileSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
 
 // The area pick needs a stand-in screen, and the throws read where each parked
 // window was put: set here, so the usual run line is enough.
-process.env.MINDFLOW_QA_FAKE_SCREEN ??= '1'
-process.env.MINDFLOW_QA_VIRTUAL ??= '1'
+process.env.HALIGTREE_QA_FAKE_SCREEN ??= '1'
+process.env.HALIGTREE_QA_VIRTUAL ??= '1'
 
 const SHOT = process.env.SHOT ?? ''
 if (SHOT) mkdirSync(SHOT, { recursive: true })
@@ -126,7 +126,7 @@ try {
   await step('tidy keys', async () => {
     await make('A capture to tidy, with a line to bold')
     await page.evaluate(() => localStorage.setItem('vim', 'off'))
-    await page.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:pass', { detail: { mode: 'tidy' } })))
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:pass', { detail: { mode: 'tidy' } })))
     await wait(1500)
     // Read without spaces: the labels roll letter by letter.
     const bar = () => page.evaluate(() => document.querySelector('[data-pass] footer, footer')?.innerText.replace(/\s+/g, '') ?? '')

@@ -1,4 +1,4 @@
-import { interval } from '@/lib/vigil'
+import { interval } from '@/lib/haligtree'
 
 /** When something comes back, as a time you would say: "in 9 min", "in 4 days". */
 const WORD: Record<string, [string, string]> = { m: ['min', 'min'], h: ['hour', 'hours'], d: ['day', 'days'], w: ['week', 'weeks'], mo: ['month', 'months'], y: ['year', 'years'] }

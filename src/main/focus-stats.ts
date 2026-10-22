@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron'
 
 import { database } from './captures'
-import { plain } from './vigil'
+import { plain } from './haligtree'
 import { focusStats, streaks, taskFocus, type BreakRow, type FocusRow } from './focus-numbers'
 import { tagsIn } from './tag-words'
 
@@ -36,9 +36,9 @@ export function registerFocusStats(): void {
     db.prepare(`select ${ROW} from sessions s left join tasks t on t.id = s.task_id
       where (s.task_id != '' or s.kind = 'focus') and s.ended_at is not null ${where} order by s.started_at`).all(...args) as FocusRow[]
 
-  ipcMain.handle('vigil:focus:task', (_event, taskId: string) => taskFocus(rows('and s.task_id = ?', String(taskId))))
+  ipcMain.handle('haligtree:focus:task', (_event, taskId: string) => taskFocus(rows('and s.task_id = ?', String(taskId))))
   // The other things done again and again, for Stats: routines (their count this week and the best run going) and the reading queue.
-  ipcMain.handle('vigil:habits:stats', () => {
+  ipcMain.handle('haligtree:habits:stats', () => {
     const local = (iso: string): string => { const at = new Date(iso); return `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, '0')}-${String(at.getDate()).padStart(2, '0')}` }
     const since = (days: number): string => new Date(Date.now() - days * 86400000).toISOString()
     const routines = db.prepare("select id, title from tasks where coalesce(recurrence, '') != '' and status = 'open'").all() as { id: string; title: string }[]
@@ -74,5 +74,5 @@ export function registerFocusStats(): void {
       readAll: read('0')
     }
   })
-  ipcMain.handle('vigil:focus:stats', () => focusStats(rows("and (t.id is not null or s.kind = 'focus')"), db.prepare('select at, ms from focus_breaks').all() as BreakRow[]))
+  ipcMain.handle('haligtree:focus:stats', () => focusStats(rows("and (t.id is not null or s.kind = 'focus')"), db.prepare('select at, ms from focus_breaks').all() as BreakRow[]))
 }

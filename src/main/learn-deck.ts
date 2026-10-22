@@ -1,7 +1,7 @@
 /**
  * Learn the app by reviewing it: a deck of gems tagged with LEARN_TAG, each a
  * question about something the app does without showing it. Added only when
- * asked (Getting started, What Vigil can do, or the sandbox's seed), never on
+ * asked (Getting started, What Haligtree can do, or the sandbox's seed), never on
  * its own. Each answer is checked against the code it describes; when a key
  * or a word changes there, it changes here too (src/renderer/src/lib/shortcuts.ts
  * lists the keys).

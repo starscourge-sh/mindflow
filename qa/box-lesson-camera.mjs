@@ -2,7 +2,7 @@
 // ("guessed from your words") has the row to itself; the camera steps out of
 // its way and is back once the lesson is over. And the tour, once Getting
 // started has gone, leaves that stop out rather than point at nothing.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/box-lesson-camera.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/box-lesson-camera.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const c = await sandbox({ width: 1200, height: 800 })
@@ -32,7 +32,7 @@ try {
   const { h } = c
   await c.go('home')
   await h.evaluate(() => document.querySelector('[data-tour="started"]')?.remove())
-  await h.evaluate(() => window.dispatchEvent(new Event('vigil:tour-stops'))); await h.waitForTimeout(500)
+  await h.evaluate(() => window.dispatchEvent(new Event('haligtree:tour-stops'))); await h.waitForTimeout(500)
   let titles = []
   for (let i = 0; i < 6; i++) {
     const t = await h.evaluate(() => document.querySelector('[role=dialog][aria-label="Where things are"]')?.innerText ?? '')

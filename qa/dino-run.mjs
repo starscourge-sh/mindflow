@@ -1,7 +1,7 @@
 // The Dino run bar: the ground and cacti slide by at one speed, a cactus is
 // always on its way, and the dinosaur is in the air whenever one is under its
 // feet. Sampled every frame for 4 seconds from the Settings thumbnail.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-dino/main/index.js MINDFLOW_QA_AWAY=1 node qa/dino-run.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-dino/main/index.js HALIGTREE_QA_AWAY=1 node qa/dino-run.mjs
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
 

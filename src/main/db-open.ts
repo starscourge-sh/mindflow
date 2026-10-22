@@ -2,7 +2,7 @@ import { DatabaseSync } from 'node:sqlite'
 
 /**
  * The database, opened for speed: each save is written to a log beside the
- * file (mindflow.db-wal) and folded into the file in batches, so a save no
+ * file (haligtree.db-wal) and folded into the file in batches, so a save no
  * longer rewrites the file and waits for the disk twice. A crash of the app
  * loses nothing; only a power cut can lose the last moment's saves, never
  * the file itself. Anything that copies the database must read it through

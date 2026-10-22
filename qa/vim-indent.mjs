@@ -6,7 +6,7 @@
 //   while the rest move, one u puts it all back, a code block gets two spaces.
 //   ⌥⌘9 with nothing selected starts a new formula instead of taking the word,
 //   a formula copies as its text, and "$20 and $500" pasted stays money.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/vim-indent.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/vim-indent.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const c = await sandbox({ width: 1000, height: 700 })
@@ -14,7 +14,7 @@ const { page, v } = c
 const results = []
 const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`))
 await v('settings:set', { hintRate: 0, rotCount: 0, motion: false })
-const ED = '.tiptap.ProseMirror.mindflow-editor[contenteditable=true]:not(.is-line)'
+const ED = '.tiptap.ProseMirror.haligtree-editor[contenteditable=true]:not(.is-line)'
 
 const LIST = '- top\n  - sub\n    - aa\n    - bb\n    - cc\n    - dd\n'
 /** The list as indented names, one line each, formulas as [x]. */
@@ -136,7 +136,7 @@ try {
 
   await start('', '')
   await keys('i')
-  await page.evaluate((value) => { const t = document.querySelector('.tiptap.ProseMirror.mindflow-editor:not(.is-line)'); t.focus(); const d = new DataTransfer(); d.setData('text/plain', value); t.dispatchEvent(new ClipboardEvent('paste', { clipboardData: d, bubbles: true, cancelable: true })) }, '- costs $20 and $500 in all\n- and $x^2$ is a formula')
+  await page.evaluate((value) => { const t = document.querySelector('.tiptap.ProseMirror.haligtree-editor:not(.is-line)'); t.focus(); const d = new DataTransfer(); d.setData('text/plain', value); t.dispatchEvent(new ClipboardEvent('paste', { clipboardData: d, bubbles: true, cancelable: true })) }, '- costs $20 and $500 in all\n- and $x^2$ is a formula')
   await page.waitForTimeout(300)
   check('pasted money stays words, a written formula is still one', (await outline()) === 'costs $20 and $500 in all|and [x^2] is a formula', await outline())
 } finally {

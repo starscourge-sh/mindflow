@@ -19,7 +19,7 @@ export type { Dayjs }
 
 // Times on the Mac's own clock: 12-hour ("9:05 PM") when it is set so. The
 // main process asks the Mac (mac-clock.ts) and tells each window through its
-// preload (window.api.twelveHour), so every time Vigil writes reads the same.
+// preload (window.api.twelveHour), so every time Haligtree writes reads the same.
 let twelveHour = (globalThis as { api?: { twelveHour?: boolean } }).api?.twelveHour === true
 /** Set once by the main process as it starts, from the Mac's setting. */
 export const useTwelveHour = (on: boolean): void => void (twelveHour = on)

@@ -285,7 +285,7 @@ function leftGhost(documentId: string, editor: Editor): void {
   setTimeout(() => {
     if (showing.has(documentId)) return
     ghosts.delete(documentId)
-    void window.api?.vigil?.("ghost:drop", ghost.id, ghost.name).catch(() => undefined)
+    void window.api?.haligtree?.("ghost:drop", ghost.id, ghost.name).catch(() => undefined)
   }, 1500)
 }
 

@@ -12,7 +12,7 @@ import { join } from 'path'
 
 const dir = process.env.SHOTS ?? join(tmpdir(), 'study-shots')
 mkdirSync(dir, { recursive: true })
-process.env.QA_DATA = mkdtempSync(join(tmpdir(), 'vigil-study-'))
+process.env.QA_DATA = mkdtempSync(join(tmpdir(), 'haligtree-study-'))
 process.env.QA_ARGS = ''
 const { sandbox } = await import('./sandbox-lib.mjs')
 
@@ -465,7 +465,7 @@ try {
 
   // --- fit the scheduler to you -----------------------------------------------------------------
   check('fitting waits for a thousand reviews', (await v('review:fit')) === null)
-  for (let i = 0; i < 1000; i += 50) await h.evaluate(async ([id, n]) => { for (let k = 0; k < n; k++) await window.api.vigil('review:grade', id, 3, 4000) }, [peru, 50])
+  for (let i = 0; i < 1000; i += 50) await h.evaluate(async ([id, n]) => { for (let k = 0; k < n; k++) await window.api.haligtree('review:grade', id, 3, 4000) }, [peru, 50])
   const fit = await v('review:fit')
   check('Fit now fits and keeps it', !!fit && (await v('settings')).fsrsFirst?.length === 4, JSON.stringify(fit))
   await h.evaluate(() => localStorage.setItem('settings:section', 'Review'))
@@ -501,14 +501,14 @@ try {
   await go('powers')
   await wait(1500)
   const powers = await h.evaluate(() => [...document.querySelectorAll('[data-power]')].map((one) => one.getAttribute('data-power')))
-  check('each feature is on What Haligtree can do', ['linecards', 'slipping', 'practice', 'blurt', 'reviewreminder', 'learnvigil', 'learnmode', 'typed', 'practisetag', 'star', 'howitdecides', 'tagpriority', 'listcards', 'strength', 'fit', 'daysinarow'].every((id) => powers.includes(id)))
+  check('each feature is on What Haligtree can do', ['linecards', 'slipping', 'practice', 'blurt', 'reviewreminder', 'learnhaligtree', 'learnmode', 'typed', 'practisetag', 'star', 'howitdecides', 'tagpriority', 'listcards', 'strength', 'fit', 'daysinarow'].every((id) => powers.includes(id)))
   check('no page errors', !c.errors.some((one) => one.includes('PAGEERROR')), c.errors.filter((one) => one.includes('PAGEERROR')).join(' | '))
 } finally {
   await c.close()
 }
 
 // --- the sandbox: the examples are there ------------------------------------------------------
-process.env.QA_DATA = mkdtempSync(join(tmpdir(), 'vigil-study-sb-'))
+process.env.QA_DATA = mkdtempSync(join(tmpdir(), 'haligtree-study-sb-'))
 process.env.QA_ARGS = '--sandbox'
 c = await sandbox({ width: 1280, height: 860 })
 ;({ h, v, go, send } = c)

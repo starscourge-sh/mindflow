@@ -1,12 +1,12 @@
 // Sources page keys, Gems filtered by status and rating, source dots' icons, and the editor's menus at each window size.
-// Run: QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-notes/main/index.js MINDFLOW_QA_AWAY=1 node qa/notes-polish.mjs
+// Run: QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-notes/main/index.js HALIGTREE_QA_AWAY=1 node qa/notes-polish.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const { h, v, go, send, size, close, errors } = await sandbox({ width: 1200, height: 800 })
 const fails = []
 const check = (ok, said) => (ok ? console.log('ok  ', said) : (fails.push(said), console.log('FAIL', said)))
 const doc = (text) => ({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] })
-const ED = '.note-pane .tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+const ED = '.note-pane .tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 const SHOT = process.env.QA_SHOTS
 
 try {

@@ -2,8 +2,8 @@ import { seeTheBin } from './to-bin'
 import { via } from './usage'
 import { CircleArrowUp, CircleCheck, CircleDashed, CircleX, FileText, Flag, Gem, Hash, ListChecks, Orbit, UserRound } from 'lucide-react'
 
-import { Avatar } from '@/components/vigil/avatar'
-import { ask, askQuestion, refuse, toast } from '@/components/vigil/ui'
+import { Avatar } from '@/components/haligtree/avatar'
+import { ask, askQuestion, refuse, toast } from '@/components/haligtree/ui'
 import { chime, tear } from '@/lib/sound'
 import { lift, shred, type Home } from '@/lib/fly-home'
 import { readTags, setLinkKinds, showHeading, type LinkKind, type NoteSuggestion } from '@/extensions/note-link'
@@ -12,8 +12,8 @@ import { openApart } from '@/lib/apart'
 import { headingsIn } from '@/components/toc/headings'
 import { linesIn } from '../../../main/blocks'
 import type { JSONContent } from '@tiptap/core'
-import { vigil } from '@/lib/vigil'
-import { TagIcon } from '@/components/vigil/tag-icon'
+import { haligtree } from '@/lib/haligtree'
+import { TagIcon } from '@/components/haligtree/tag-icon'
 import type { SaveResult } from '../../../main/captures'
 import { clip, cut, quoted } from '../../../main/clip'
 import { dayKey, num } from '../../../main/dates'
@@ -26,7 +26,7 @@ import { dayKey, num } from '../../../main/dates'
 export const recallOffered = (capturedAt: string | null | undefined, now = new Date()): boolean => !!capturedAt && dayKey(new Date(capturedAt)) === dayKey(now)
 
 /** The short handle a capture goes by, like Linear's `REE-30`. */
-// V for Vigil. Notes from before keep their number; an old `MF-30` still finds `V-30`.
+// V for Haligtree. Notes from before keep their number; an old `MF-30` still finds `V-30`.
 export const captureKey = (number: number): string => `V-${number}`
 
 /** A link to a note that any note reads as one when it is pasted in: `[[@id|its words]]`. */
@@ -79,10 +79,10 @@ export async function exit(id: string, status: string, onUndo?: () => void): Pro
   const one = EXITS.find((e) => e.status === status)
   // Held as a question: one made from it, taken back by the undo.
   if (status === 'question') {
-    const question = await flying(id, 'question', () => vigil.newQuestion('', id))
+    const question = await flying(id, 'question', () => haligtree.newQuestion('', id))
     if (!question) return refuse(NOT_OPEN)
     chime('hold')
-    return toast('Now a question: it is in Questions', () => void vigil.dropQuestion(question).then(() => onUndo?.()), 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('question', question) })
+    return toast('Now a question: it is in Questions', () => void haligtree.dropQuestion(question).then(() => onUndo?.()), 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('question', question) })
   }
   const result = status === 'promoted' ? await flying(id, 'nugget', () => takeExit(id, status)) : status === 'discarded' ? await flying(id, 'away', () => takeExit(id, status)) : await takeExit(id, status)
   if (result === 'cancelled' || !one) return
@@ -112,7 +112,7 @@ const askedWho = new Set<string>()
 /** A promotion taken back: the nugget goes, and a source asked for while promoting goes with it. */
 export const unpromote = (id: string, nugget: string): Promise<boolean> => {
   const forget = askedWho.delete(id)
-  return vigil.unpromote(id, nugget, forget)
+  return haligtree.unpromote(id, nugget, forget)
 }
 
 /**
@@ -132,7 +132,7 @@ export async function flying<T>(id: string, home: Home | 'away', work: () => Pro
 export async function takeExit(id: string, status: string): Promise<unknown> {
   if (status !== 'promoted') return window.api.captures.save(id, { status })
   askedWho.delete(id)
-  let result = await vigil.promote(id)
+  let result = await haligtree.promote(id)
   // A quote needs who said it: asked here, so the prompt is never a dead end.
   if (result === 'needs-source') {
     // A name already in the words ("…" - Alan Kay, or Alan Kay: "…") is the
@@ -141,19 +141,19 @@ export async function takeExit(id: string, status: string): Promise<unknown> {
     const guess = /["”']\s*[-—–]\s*([^"“”]{2,60})$/.exec(title)?.[1]?.trim() ?? /^([^:"“]{2,40}):/.exec(title)?.[1]?.trim() ?? ''
     const who = await ask('Who said it? A quote is kept with its source.', 'e.g. Alan Kay, or a colleague in standup', 'attribution', guess)
     if (!who) return 'cancelled'
-    await vigil.setCapture(id, 'attribution', who)
+    await haligtree.setCapture(id, 'attribution', who)
     askedWho.add(id)
-    result = await vigil.promote(id)
+    result = await haligtree.promote(id)
   }
   // A word is tested on its meaning: asked for here, so its card can be answered.
   if (result === 'needs-meaning') {
     const meaning = await ask(`What does ${quoted((await window.api.captures.get(id))?.label ?? 'it', 60)} mean?`, 'Its meaning, in a line')
-    return meaning ? vigil.promote(id, meaning) : 'cancelled'
+    return meaning ? haligtree.promote(id, meaning) : 'cancelled'
   }
   if (result !== 'needs-words') return result
   // A quote is kept with a line of yours beside it, or not at all.
   const words = await ask('A quote keeps a line in your own words. What does it say to you?', 'Why it is worth keeping…')
-  return words ? vigil.promote(id, words) : 'cancelled'
+  return words ? haligtree.promote(id, words) : 'cancelled'
 }
 
 /**
@@ -184,7 +184,7 @@ const row = (kind: string, one: Omit<NoteSuggestion, 'kind' | 'icon' | 'group'>)
 setLinkKinds({
   kinds: linkKinds,
   // Links made before links kept their kind: a bare id is a capture, all of a note's asked about at once.
-  find: (ids) => window.api.vigil<Record<string, string>>('notes:kinds', ids.filter((id) => !id.includes(':'))),
+  find: (ids) => window.api.haligtree<Record<string, string>>('notes:kinds', ids.filter((id) => !id.includes(':'))),
   // A new window of its own, for the notes that can have one.
   aside: (link) => {
     const [type, id] = link.includes(':') ? link.split(':') : ['capture', link]
@@ -194,13 +194,13 @@ setLinkKinds({
   },
   // The lines of a note a link can land on, and one given its lasting name (block-ids.ts).
   lines: async (link) => linesIn(await bodyOf(link)),
-  anchor: (link, index, text) => window.api.vigil<string | null>('notes:anchor', link, index, text)
+  anchor: (link, index, text) => window.api.haligtree<string | null>('notes:anchor', link, index, text)
 })
 
 /** What a link points at, as stored: a capture's body, or a gem's, an article's or a question's. */
 export async function bodyOf(link: string): Promise<unknown> {
   const [type, id] = link.includes(':') ? [link.slice(0, link.indexOf(':')), link.slice(link.indexOf(':') + 1)] : ['capture', link]
-  return type === 'capture' ? (await window.api.captures.get(id))?.body : (await vigil.item(id))?.body
+  return type === 'capture' ? (await window.api.captures.get(id))?.body : (await haligtree.item(id))?.body
 }
 
 /**
@@ -210,11 +210,11 @@ export async function bodyOf(link: string): Promise<unknown> {
  */
 if (typeof window !== 'undefined' && !(window as { linksRenamedHeard?: boolean }).linksRenamedHeard) {
   ;(window as { linksRenamedHeard?: boolean }).linksRenamedHeard = true
-  window.addEventListener('vigil:links-renamed', (event) => {
+  window.addEventListener('haligtree:links-renamed', (event) => {
     const { token, count, to } = (event as CustomEvent<{ token: string; count: number; from: string; to: string }>).detail
     chime('settled')
     toast(`${count === 1 ? 'The link' : `${num(count)} links`} to it now ${count === 1 ? 'says' : 'say'} ${quoted(to, 60)}`, () =>
-      void window.api.vigil<number>('links:rename:undo', token).then((back) => chime(back ? 'back' : 'nope')))
+      void window.api.haligtree<number>('links:rename:undo', token).then((back) => chime(back ? 'back' : 'nope')))
   })
 }
 
@@ -223,10 +223,10 @@ export async function findCaptures(query: string): Promise<NoteSuggestion[]> {
   const words = query.trim().toLowerCase()
   const [captures, items, tasks, people, tags] = await Promise.all([
     window.api.captures.search(query),
-    vigil.findItems(query),
-    vigil.tasks().catch(() => []),
+    haligtree.findItems(query),
+    haligtree.tasks().catch(() => []),
     // Names and tags only once something is typed: the open menu stays short.
-    words ? vigil.values('attribution').catch(() => []) : [],
+    words ? haligtree.values('attribution').catch(() => []) : [],
     words ? readTags().catch(() => []) : []
   ])
   const rows = [
@@ -247,7 +247,7 @@ export async function findCaptures(query: string): Promise<NoteSuggestion[]> {
 /** The headings in what an @ link points at, for `@Note#` to offer. */
 export async function findHeadings(link: string): Promise<string[]> {
   const [type, id] = link.includes(':') ? link.split(':') : ['capture', link]
-  const body = type === 'capture' ? (await window.api.captures.get(id))?.body : (await vigil.item(id))?.body
+  const body = type === 'capture' ? (await window.api.captures.get(id))?.body : (await haligtree.item(id))?.body
   return headingsIn(body as JSONContent | string | null)
 }
 

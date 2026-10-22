@@ -1,7 +1,7 @@
 // In Brutal, Settings' small pictures stay drawings: their thin bars and
 // frames get no hard shadow or card fill, which turned them into black
 // blocks and doubled edges.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/brutal-previews.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/brutal-previews.mjs
 import { sandbox } from './sandbox-lib.mjs'
 const results = []
 const check = (name, ok, detail = '') => { results.push(ok); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`) }

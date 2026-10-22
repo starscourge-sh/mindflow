@@ -5,7 +5,7 @@
 // and a session left while away ends at the right time and says so.
 //
 //   npx electron-vite build --outDir out-pill
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-pill/main/index.js MINDFLOW_QA_AWAY=1 SHOT=<dir> node qa/pill-more.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-pill/main/index.js HALIGTREE_QA_AWAY=1 SHOT=<dir> node qa/pill-more.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -26,7 +26,7 @@ const pillWindow = async () => {
   throw new Error('no pill')
 }
 const idle = (seconds) => electron.evaluate(({ ipcMain }, s) => { ipcMain.removeHandler('idle:seconds'); ipcMain.handle('idle:seconds', () => s) }, seconds)
-const heard = (pill) => pill.evaluate(() => [...(window.vigilHeard ?? [])])
+const heard = (pill) => pill.evaluate(() => [...(window.haligtreeHeard ?? [])])
 const attr = (pill, name) => pill.$eval('[data-island]', (one, n) => one.getAttribute(n), name).catch(() => null)
 const timeShown = (pill) => pill.$eval('[data-island] [role=img]', (one) => one.getAttribute('aria-label')).catch(() => null)
 const secs = (text) => { if (!text) return null; const p = text.split(':').map(Number); return p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : p[0] * 60 + p[1] }
@@ -71,7 +71,7 @@ try {
   await pill.waitForTimeout(1200)
 
   // --- Time's up asks, then nudges, capped.
-  await pill.evaluate(() => (window.vigilNudges = [0.04, 0.08, 0.12]))
+  await pill.evaluate(() => (window.haligtreeNudges = [0.04, 0.08, 0.12]))
   id = await begin('Draft the intro', 2500)
   await pill.waitForTimeout(5200)
   check('time up: the pill opens on its own to ask', (await attr(pill, 'data-island')) === 'open' && (await attr(pill, 'data-over')) !== null)
@@ -168,8 +168,8 @@ try {
   await pill.waitForTimeout(1500)
 
   // --- Sweep: a plain timer over offers Again; a round of a set can have ten more minutes too.
-  await pill.evaluate(() => (window.vigilNudges = [60, 60, 60]))
-  await h.evaluate(() => window.api.vigil('timer:start', 'tea', 2500))
+  await pill.evaluate(() => (window.haligtreeNudges = [60, 60, 60]))
+  await h.evaluate(() => window.api.haligtree('timer:start', 'tea', 2500))
   await h.evaluate(() => window.api.showFocus(true))
   await pill.waitForTimeout(5000)
   await pill.click('[data-timer-again]')
@@ -210,7 +210,7 @@ try {
     await h.evaluate(([t, s]) => { localStorage.setItem('theme', t); if (s) localStorage.setItem('style', s); else localStorage.removeItem('style') }, [theme, style])
     await pill.reload()
     await pill.waitForTimeout(1500)
-    await pill.evaluate(() => (window.vigilNudges = [60, 60, 60]))
+    await pill.evaluate(() => (window.haligtreeNudges = [60, 60, 60]))
     id = await begin('Write the chapter on rivers')
     await pill.waitForTimeout(3200)
     await pill.hover('[data-island] button >> nth=0')

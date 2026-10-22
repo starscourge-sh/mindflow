@@ -3,7 +3,7 @@
 // while zoomed in (the picture may reach the top then). The same for the
 // other full-window views that once covered the window's own strip: Deciding
 // and an expanded note. Paper and Dark, at 900x700 and 1600x1000.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/look-drag.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/look-drag.mjs
 // SHOTS=dir keeps pictures.
 import { mkdirSync } from 'node:fs'
 import { sandbox } from './sandbox-lib.mjs'

@@ -4,7 +4,7 @@
 // the pointer rests on each and kept per tag. Every tag, in paper and dark.
 //
 //   npx electron-vite build --outDir out-x
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=<dir> node qa/tag-page.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=<dir> node qa/tag-page.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 

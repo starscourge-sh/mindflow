@@ -2,7 +2,7 @@
 // off), with or without its side panel, and it comes back there next time.
 //
 //   npx electron-vite build --outDir out-bc
-//   QA_DATA=$(mktemp -d) QA_ENTRY=out-bc/main/index.js MINDFLOW_QA_AWAY=1 MINDFLOW_QA_VIRTUAL=1 node qa/box-centre.mjs
+//   QA_DATA=$(mktemp -d) QA_ENTRY=out-bc/main/index.js HALIGTREE_QA_AWAY=1 HALIGTREE_QA_VIRTUAL=1 node qa/box-centre.mjs
 const { open } = await import('./harness.mjs')
 const results = []
 const check = (name, ok, detail = '') => {

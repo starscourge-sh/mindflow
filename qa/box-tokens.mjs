@@ -4,7 +4,7 @@
 // and sent, it does. Read back through the app's own API, not the screen.
 //
 //   npx electron-vite build --outDir out-tokens
-//   QA_DATA=$(mktemp -d) QA_ENTRY=out-tokens/main/index.js MINDFLOW_QA_AWAY=1 node qa/box-tokens.mjs
+//   QA_DATA=$(mktemp -d) QA_ENTRY=out-tokens/main/index.js HALIGTREE_QA_AWAY=1 node qa/box-tokens.mjs
 //
 // SHOTS=dir saves light and dark pictures of the box with tokens lit.
 import { mkdirSync, mkdtempSync } from 'fs'
@@ -14,19 +14,19 @@ import { join } from 'path'
 import { open } from './harness.mjs'
 
 // One data folder for the whole run, so a quit and relaunch comes back to the same box.
-process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'vigil-tokens-'))
+process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'haligtree-tokens-'))
 
-const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 // Under load the first window can be slow to show its box: tried again, a few times.
 // The welcome is marked done, so the box is the everyday one: the welcome holds ⌘K back.
 async function launch() {
   for (let i = 0; ; i++) {
     try {
       const first = await open()
-      const welcomed = await first.page.evaluate(() => window.api.vigil('onboarding:state').then((state) => !!state?.welcomed))
+      const welcomed = await first.page.evaluate(() => window.api.haligtree('onboarding:state').then((state) => !!state?.welcomed))
       if (welcomed) return first
       // Marked welcomed, then opened again: the welcome no longer starts.
-      await first.page.evaluate(() => window.api.vigil('onboarding:set', { welcomed: new Date().toISOString(), welcoming: false }))
+      await first.page.evaluate(() => window.api.haligtree('onboarding:set', { welcomed: new Date().toISOString(), welcoming: false }))
       const child = first.electron.process()
       await first.close?.()
       try { child.kill('SIGKILL') } catch {}
@@ -50,7 +50,7 @@ const warnings = []
 page.on('console', (message) => ['error', 'warning'].includes(message.type()) && warnings.push(message.text().slice(0, 240)))
 const results = []
 const wait = (ms = 300) => page.waitForTimeout(ms)
-const v = (channel, ...args) => page.evaluate(([c, a]) => window.api.vigil(c, ...a), [channel, args])
+const v = (channel, ...args) => page.evaluate(([c, a]) => window.api.haligtree(c, ...a), [channel, args])
 // The timers are read only with the focus timer turned on (Settings, Tasks); a new book starts with it off.
 await v('settings:set', { focusTools: true })
 const captures = async () => (await page.evaluate(() => window.api.captures.list())) ?? []

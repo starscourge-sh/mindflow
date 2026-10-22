@@ -5,7 +5,7 @@
 // a 24px click, important notes are body-size words, faint words reach 4.5:1,
 // the page previews head their groups in plain words, and a restore asks in
 // Haligtree's own sheet.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/sim-two.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/sim-two.mjs
 // SHOTS=dir keeps pictures.
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
@@ -104,7 +104,7 @@ try {
 
     // Close the day: a long task wraps instead of being cut.
     await go('today')
-    await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:close-day')))
+    await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:close-day')))
     await h.waitForTimeout(700)
     const closing = await h.evaluate(() => {
       const row = [...document.querySelectorAll('[data-close-task]')].find((one) => one.textContent.includes('fragment seven'))
@@ -175,7 +175,7 @@ try {
   await v('settings:set', { safeMode: false })
 
   // Pickers stay inside the window: the question picker's list is capped.
-  await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:pick-question', { detail: { answer: () => {} } })))
+  await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:pick-question', { detail: { answer: () => {} } })))
   await h.waitForTimeout(500)
   const capped = await h.evaluate(() => { const list = document.querySelector('[role=dialog][aria-label="Add to a question"] [cmdk-list]'); return list ? { max: parseFloat(getComputedStyle(list).maxHeight), room: innerHeight } : null })
   check('“Add to a question” lists at most half the window, so its foot stays in view', capped !== null && capped.max <= capped.room * 0.5 + 1, JSON.stringify(capped))
@@ -185,7 +185,7 @@ try {
   // A restore asks in Haligtree's own sheet, and Escape says no.
   const sheet = await h.evaluate(async () => {
     if (!window.api.answerRestore) return null
-    window.dispatchEvent(new CustomEvent('vigil:restore-ask', { detail: { name: 'mindflow-2026-10-14.db', token: 'probe' } }))
+    window.dispatchEvent(new CustomEvent('haligtree:restore-ask', { detail: { name: 'haligtree-2026-10-14.db', token: 'probe' } }))
     await new Promise((done) => setTimeout(done, 400))
     const one = document.querySelector('[data-restore-ask]')
     return one ? { text: one.textContent, bold: [...one.querySelectorAll('strong')].map((el) => el.textContent) } : null

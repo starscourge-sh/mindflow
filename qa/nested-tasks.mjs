@@ -2,7 +2,7 @@
 // with five indented under two of them offer "7 tasks, 5 steps", not "12
 // tasks"; each indented line becomes a step of the line above, and "camping:"
 // over its steps is a task named "camping". A pasted nested list offers the same.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 [SHOT=<file.png>] node qa/nested-tasks.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 [SHOT=<file.png>] node qa/nested-tasks.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const results = []

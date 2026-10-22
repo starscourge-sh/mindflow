@@ -3,7 +3,7 @@
 // 20ms (a dropped frame at 60Hz), and the worst. Prints a line per step and a
 // total; fails when a step drops more than 5% of its frames.
 //
-//   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/welcome-smooth.mjs [json-out]
+//   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/welcome-smooth.mjs [json-out]
 import { writeFileSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -14,7 +14,7 @@ const steps = ['Why', 'You', 'Catch', 'Write', 'Remember', 'Make it yours']
 const rows = []
 let failed = 0
 try {
-  await h.waitForSelector('.mf-welcome', { timeout: 8000 }).catch(() => h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:welcome'))))
+  await h.waitForSelector('.mf-welcome', { timeout: 8000 }).catch(() => h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:welcome'))))
   await h.waitForSelector('.mf-welcome', { timeout: 8000 })
   // The app under the welcome is covered whole, so it is not drawn or restyled while the welcome runs (a theme change on the dial restyles only the welcome).
   const under = await h.evaluate(() => [...document.querySelectorAll('body *')].filter((el) => !el.closest('.mf-welcome') && el.checkVisibility({ contentVisibilityAuto: true })).length)

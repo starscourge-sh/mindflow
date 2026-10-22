@@ -10,7 +10,7 @@
 // opens its own.
 //
 //   npx electron-vite build --outDir out-calcmd
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-calcmd/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=dir node qa/cal-commands.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-calcmd/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=dir node qa/cal-commands.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const c = await sandbox({ width: 1300, height: 900 })
@@ -191,7 +191,7 @@ try {
   check('the Day view shows it too', (await h.locator(`[data-cal-block="${block}"] [data-plan-did]`).innerText().catch(() => '')).includes('did 3h') && /today$/.test(await h.locator('[data-plan-total]').innerText().catch(() => '')))
   await shot('day-planned-did')
   await h.keyboard.press('w'); await h.waitForTimeout(400)
-  await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:close-week'))); await h.waitForTimeout(1200)
+  await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:close-week'))); await h.waitForTimeout(1200)
   const gaps = await h.locator('[data-close-week] [data-planned-vs-did]').innerText().catch(() => '')
   check('Close the week lists the biggest gaps', gaps.includes('Planned vs did') && gaps.includes('calcmd block'), gaps.replace(/\n/g, ' | ').slice(0, 200))
   await h.locator('[data-close-week] [data-planned-vs-did]').screenshot({ path: shots ? `${shots}/close-week-gaps.png` : undefined }).catch(() => {})

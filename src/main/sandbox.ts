@@ -28,13 +28,13 @@ import { dayKey } from './dates'
 export const SANDBOX = process.argv.includes('--sandbox')
 
 /** Your own data folder: a test run's, or the one the app has always used. */
-export const realRoot = (): string => process.env.MINDFLOW_USER_DATA ?? join(app.getPath('appData'), 'mindflow')
+export const realRoot = (): string => process.env.HALIGTREE_USER_DATA ?? join(app.getPath('appData'), 'haligtree')
 /** The sandbox's folder, inside yours, which never reads it. */
 export const sandboxRoot = (): string => join(realRoot(), 'sandbox')
 
 /**
- * Books: more than one Vigil of your own, each a data folder like the
- * sandbox's. Your first one, "My book", is the folder Vigil has always used
+ * Books: more than one Haligtree of your own, each a data folder like the
+ * sandbox's. Your first one, "My book", is the folder Haligtree has always used
  * and never moves; every other lives in `<your data>/books/<id>/`. Which
  * books there are, their names and the one last open are kept in
  * `<your data>/books.json`, read here before the app is ready.
@@ -72,7 +72,7 @@ export const BOOK = pickBook()
 /** Where this run keeps everything. */
 export const dataRoot = (): string => (SANDBOX ? sandboxRoot() : BOOK ? bookRoot(BOOK) : realRoot())
 /** A test run or the sandbox: no iCloud, no login item, no copies anywhere else. */
-export const apart = (): boolean => SANDBOX || !!process.env.MINDFLOW_USER_DATA
+export const apart = (): boolean => SANDBOX || !!process.env.HALIGTREE_USER_DATA
 
 const CARRY = 'carry.json'
 const OUT = 'sandbox-carry-out.json'
@@ -82,7 +82,7 @@ const OUT = 'sandbox-carry-out.json'
  * sandbox's folder here, while nothing has it open, keeping only the look
  * that was carried in. Gives back whether this run holds the one-copy lock
  * (always, for a test run), taken on your own folder so a normal launch while
- * the sandbox runs comes to the sandbox rather than starting a second Vigil.
+ * the sandbox runs comes to the sandbox rather than starting a second Haligtree.
  */
 export function useDataFolder(): boolean {
   if (SANDBOX && process.argv.includes('--sandbox-reset')) {
@@ -99,14 +99,14 @@ export function useDataFolder(): boolean {
     }
   }
   app.setPath('userData', realRoot())
-  const locked = !!process.env.MINDFLOW_USER_DATA || app.requestSingleInstanceLock()
+  const locked = !!process.env.HALIGTREE_USER_DATA || app.requestSingleInstanceLock()
   app.setPath('userData', dataRoot())
   return locked
 }
 
 /**
  * Start again, into the sandbox or back to your notes, without a gap: this run
- * lets go of what only one Vigil may hold (the menu bar icon, the keys, the
+ * lets go of what only one Haligtree may hold (the menu bar icon, the keys, the
  * one-copy lock) but keeps its windows up, showing the moment,
  * until the new run says its main window is on screen. Only then does this
  * one go, so the main window is never simply gone for a while.
@@ -118,7 +118,7 @@ export function relaunch(into: 'sandbox' | 'real' | { book: string }, reset = fa
   if (HANDED) return void process.send?.({ next: to })
   if (DEV) return start(to)
   const marker = arrival()
-  spawn(process.execPath, argsFor(to), { detached: true, stdio: 'ignore', env: { ...process.env, MINDFLOW_ARRIVAL: marker } }).unref()
+  spawn(process.execPath, argsFor(to), { detached: true, stdio: 'ignore', env: { ...process.env, HALIGTREE_ARRIVAL: marker } }).unref()
   // app.exit skips will-quit, so the book left is shut here: no -wal left beside it.
   whenArrived(marker, () => (shutDatabase(), app.exit(0)))
 }
@@ -148,7 +148,7 @@ export function restartNow(): void {
  */
 type Target = 'real' | 'sandbox' | 'reset' | `book:${string}`
 const DEV = !app.isPackaged && !!process.env.ELECTRON_RENDERER_URL
-const HANDED = process.env.MINDFLOW_DEV_RELAUNCHED === '1'
+const HANDED = process.env.HALIGTREE_DEV_RELAUNCHED === '1'
 const CODES: Record<'real' | 'sandbox' | 'reset', number> = { real: 75, sandbox: 76, reset: 77 }
 const letGo: (() => void)[] = []
 /** Something only the app itself holds (the menu bar icon), let go of before a dev restart. */
@@ -173,7 +173,7 @@ export function windingDown(): void {
   })
 }
 
-/** Let go of everything only one Vigil may hold, keeping the windows. */
+/** Let go of everything only one Haligtree may hold, keeping the windows. */
 let released = false
 function release(): void {
   if (released) return
@@ -190,12 +190,12 @@ function release(): void {
 }
 
 /** A fresh file for a new run to write once its main window shows. */
-const arrival = (): string => join(app.getPath('temp'), `vigil-arrived-${randomUUID()}`)
+const arrival = (): string => join(app.getPath('temp'), `haligtree-arrived-${randomUUID()}`)
 /** Called by a run started this way, once its main window is on screen. */
 export function arrived(): void {
-  const file = process.env.MINDFLOW_ARRIVAL
+  const file = process.env.HALIGTREE_ARRIVAL
   if (!file) return
-  delete process.env.MINDFLOW_ARRIVAL
+  delete process.env.HALIGTREE_ARRIVAL
   try {
     writeFileSync(file, '')
   } catch {
@@ -220,12 +220,12 @@ function whenArrived(file: string, then: () => void): void {
  */
 let current: ChildProcess | null = null
 function start(to: Target): void {
-  console.log(`[vigil] dev restart: ${to}`)
+  console.log(`[haligtree] dev restart: ${to}`)
   const before = current
   const marker = arrival()
   // The waiting process keeps its debugging ports; the new run must not ask for them again.
   const args = argsFor(to).filter((arg) => !/^--(inspect|remote-debugging-port)/.test(arg))
-  const run = spawn(process.execPath, args, { stdio: ['inherit', 'inherit', 'inherit', 'ipc'], env: { ...process.env, MINDFLOW_DEV_RELAUNCHED: '1', MINDFLOW_ARRIVAL: marker } })
+  const run = spawn(process.execPath, args, { stdio: ['inherit', 'inherit', 'inherit', 'ipc'], env: { ...process.env, HALIGTREE_DEV_RELAUNCHED: '1', HALIGTREE_ARRIVAL: marker } })
   current = run
   run.on('message', (message: { next?: Target }) => message?.next && start(message.next))
   run.on('exit', (status) => {
@@ -278,7 +278,7 @@ type Age =
 
 export function registerSandbox(): void {
   const handle = (channel: string, run: (...args: never[]) => unknown): void =>
-    void ipcMain.handle(`vigil:sandbox:${channel}`, (_event, ...args) => run(...(args as never[])))
+    void ipcMain.handle(`haligtree:sandbox:${channel}`, (_event, ...args) => run(...(args as never[])))
 
   handle('state', () => ({
     on: SANDBOX,
@@ -392,7 +392,7 @@ export function registerSandbox(): void {
 
   // The bundled landscapes, written into the sandbox's own folder for
   // Scenery to read like any folder of yours. Only plain names, only webp.
-  // Vigil's own landscapes, written where this run keeps its things: the
+  // Haligtree's own landscapes, written where this run keeps its things: the
   // sandbox's, or yours on a first start with no folder of your own chosen.
   handle('scenery', async (files: unknown) => {
     if (!Array.isArray(files)) return ''
@@ -422,7 +422,7 @@ export function registerSandbox(): void {
       const db = database()
       for (const one of all) {
         const body = JSON.stringify(one.body ?? null)
-        for (const [, name] of body.matchAll(/mindflow:\/\/assets\/([a-f0-9]{64}\.[a-z0-9]+)/g)) {
+        for (const [, name] of body.matchAll(/haligtree:\/\/assets\/([a-f0-9]{64}\.[a-z0-9]+)/g)) {
           const from = join(sandboxRoot(), 'assets', name)
           // Into whichever book you came back to.
           const to = join(dataRoot(), 'assets', name)
@@ -433,7 +433,7 @@ export function registerSandbox(): void {
           .run(randomUUID(), one.title ?? '', String(one.kind || 'note'), body, isIso(one.capturedAt) ? one.capturedAt : new Date().toISOString(), one.private ? 1 : 0, one.attribution ?? null)
         made++
       }
-      // Carried by an older Vigil, a bit, an excerpt or a book: what it is now.
+      // Carried by an older Haligtree, a bit, an excerpt or a book: what it is now.
       if (made) (retireKinds(db), changed())
     }
     await rm(file, { force: true })

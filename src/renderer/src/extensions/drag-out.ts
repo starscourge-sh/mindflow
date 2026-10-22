@@ -3,7 +3,7 @@ import { NodeSelection, Plugin, PluginKey } from "@tiptap/pm/state"
 import type { EditorView } from "@tiptap/pm/view"
 import { host } from "@/lib/host"
 
-const STORED = /^mindflow:\/\/assets\//
+const STORED = /^haligtree:\/\/assets\//
 
 type Api = { dragOut?: (src: string, name: string) => void; pathOf?: (file: File) => string }
 const api = (): Api | undefined => (window as { api?: Api }).api
@@ -29,14 +29,14 @@ function blockAt(view: EditorView, dom: Element, type: string): number | null {
 /**
  * The file a drop brings is the one carried out of this note: the system
  * drag lands it as a file, which would otherwise read as a new one from
- * Finder. Main writes it to vigil-drag/<first 12 of its stored name>/.
+ * Finder. Main writes it to haligtree-drag/<first 12 of its stored name>/.
  */
 function isCarried(data: DataTransfer | null, src: string): boolean {
   const files = [...(data?.files ?? [])]
   if (files.length !== 1) return false
   const stored = src.replace(STORED, "")
   const path = api()?.pathOf?.(files[0]) ?? ""
-  if (path) return path.includes(`/vigil-drag/${stored.slice(0, 12)}/`)
+  if (path) return path.includes(`/haligtree-drag/${stored.slice(0, 12)}/`)
   // No path on disk (made in the page itself): known by its kind of file.
   return files[0].name.toLowerCase().endsWith(`.${stored.split(".").pop()}`)
 }
@@ -88,7 +88,7 @@ export const DragOut = Extension.create({
         props: {
           handleDOMEvents: {
             dragstart: (view, event) => {
-              // The page's own host, or Vigil's bridge where an editor (the box, a sticky) was given none.
+              // The page's own host, or Haligtree's bridge where an editor (the box, a sticky) was given none.
               const out = host().dragOut ?? api()?.dragOut
               const target = event.target instanceof Element ? event.target : null
               if (!out || !target || target.closest(".tiptap-drag-handle")) return false

@@ -2,7 +2,7 @@
 // line's date is lit, not only the first, and "This will" never says the
 // first line's day as if it were all of them. A date kept as plain text on
 // one line is kept on that line only, and Create gives each task its own day.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-ld/main/index.js MINDFLOW_QA_AWAY=1 node qa/box-list-dates.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-ld/main/index.js HALIGTREE_QA_AWAY=1 node qa/box-list-dates.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const c = await sandbox({ width: 1100, height: 760 })
@@ -10,7 +10,7 @@ const { page, v } = c
 const results = []
 const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`))
 await v('settings:set', { hintRate: 0, rotCount: 0, motion: false })
-const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 const will = () => page.evaluate(() => document.querySelector('[data-will-do]')?.innerText.replace(/\s+/g, ' ').trim() ?? '')
 const dates = (line) => page.evaluate(([s, n]) => [...document.querySelectorAll(`${s} > *`)].filter((one) => one.textContent.trim())[n]?.querySelectorAll('.box-token[data-box-token="date"]').length ?? 0, [EDITOR, line])
 const named = async (title) => (await v('tasks')).find((one) => one.title === title && one.status === 'open')

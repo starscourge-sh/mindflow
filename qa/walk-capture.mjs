@@ -3,14 +3,14 @@
 // the box with ⌘ and two fingers, Esc, the pill; the Inbox page's Tidy,
 // Decide, sorting, the Bin and Archive; a note opened in its own window. A
 // picture of each screen goes to SHOTS.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 MINDFLOW_QA_VIRTUAL=1 SHOTS=<dir> node qa/walk-capture.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 HALIGTREE_QA_VIRTUAL=1 SHOTS=<dir> node qa/walk-capture.mjs
 // ONLY_PAGE=1 skips the box and walks the Inbox page, the Bin, Archived and the note window alone.
 import { mkdirSync, mkdtempSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { sandbox } from './sandbox-lib.mjs'
 
-process.env.MINDFLOW_QA_VIRTUAL ??= '1'
+process.env.HALIGTREE_QA_VIRTUAL ??= '1'
 const SHOTS = process.env.SHOTS ?? mkdtempSync(join(tmpdir(), 'walk-capture-'))
 mkdirSync(SHOTS, { recursive: true })
 const results = []

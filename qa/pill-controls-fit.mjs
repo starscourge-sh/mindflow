@@ -1,7 +1,7 @@
 // The session bubble's buttons, open at their fullest (past halfway: Pause,
 // +10 min, Stop and Break early), each on one line and all inside the bubble,
 // under the notch and floating free.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 MINDFLOW_QA_NOTCH=1 SHOT=<dir> node qa/pill-controls-fit.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 HALIGTREE_QA_NOTCH=1 SHOT=<dir> node qa/pill-controls-fit.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const results = []

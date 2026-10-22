@@ -1,5 +1,5 @@
 Paper drawings: the covers a note with no picture of its own wears when
-Settings > Appearance > Covers is Paper drawings (components/vigil/grain.tsx).
+Settings > Appearance > Covers is Paper drawings (components/haligtree/grain.tsx).
 
 Source: the developer's own folder of drawings, ~/Documents/img/drawings, as
 supplied by the user. Copied out, trimmed about 5% on each side so no mount

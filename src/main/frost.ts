@@ -1,7 +1,7 @@
 import { execFile } from 'child_process'
 import { stat } from 'fs/promises'
 import { BrowserWindow, ipcMain, nativeImage, nativeTheme, screen, type Display } from 'electron'
-import { stickyFrost, stickyGlass } from './vigil'
+import { stickyFrost, stickyGlass } from './haligtree'
 import type { Frost } from '../preload/index.d'
 
 /**

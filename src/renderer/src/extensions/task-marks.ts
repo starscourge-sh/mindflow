@@ -5,9 +5,9 @@ import { Decoration, DecorationSet } from "@tiptap/pm/view"
 import { createElement } from "react"
 import { createRoot, type Root } from "react-dom/client"
 
-import { vigil, type Task } from "@/lib/vigil"
+import { haligtree, type Task } from "@/lib/haligtree"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { PriorityMark } from "@/components/vigil/task-input"
+import { PriorityMark } from "@/components/haligtree/task-input"
 
 /**
  * A task in a note carries its priority as it does on every list: a linked
@@ -72,7 +72,7 @@ export const TaskMarks = Extension.create({
     let last = ""
     const load = async (): Promise<void> => {
       if (editor.isDestroyed || !hasTasks(editor.state.doc)) return
-      const tasks = await vigil.tasks().catch(() => [] as Task[])
+      const tasks = await haligtree.tasks().catch(() => [] as Task[])
       if (editor.isDestroyed) return
       const levels = new Map(tasks.filter((task) => task.priority && task.status === "open").map((task) => [task.id, task.priority]))
       const said = JSON.stringify([...levels])

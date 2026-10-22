@@ -6,7 +6,7 @@
 // row of chips and fewer old cards show, never under 1; each card's words
 // stop at 2 lines. The header's "old captures · pinned" chip says what is
 // shown. Every other tab keeps its list at least 55% too.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 [SHOT=<dir>] node qa/box-panel-room.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 [SHOT=<dir>] node qa/box-panel-room.mjs
 import { mkdirSync, writeFileSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 

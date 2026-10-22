@@ -2,19 +2,19 @@
 // started, it says "Allowed. Restart Haligtree to use it" with a "Restart Haligtree"
 // button; refused, it says so with plain help for a switch already on (off and
 // on again); and it asks again while shown, so it clears once allowed.
-// macOS is played by MINDFLOW_QA_FAKE_SCREEN, changed while the app runs.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/screen-access.mjs
+// macOS is played by HALIGTREE_QA_FAKE_SCREEN, changed while the app runs.
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/screen-access.mjs
 // SHOTS=dir keeps pictures.
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
 
-process.env.MINDFLOW_QA_FAKE_SCREEN = 'denied'
+process.env.HALIGTREE_QA_FAKE_SCREEN = 'denied'
 const shots = process.env.SHOTS
 const { check, done } = checks()
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 const c = await sandbox({ width: 1280, height: 800 })
 const { electron, h, v } = c
-const fake = (value) => electron.evaluate((_, value) => (process.env.MINDFLOW_QA_FAKE_SCREEN = value), value)
+const fake = (value) => electron.evaluate((_, value) => (process.env.HALIGTREE_QA_FAKE_SCREEN = value), value)
 try {
   check('refused: the check says off', (await h.evaluate(() => window.api.screenAccess())) === 'off')
   await fake('restart')

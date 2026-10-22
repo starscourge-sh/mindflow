@@ -5,7 +5,7 @@
 // ⇧⌘O, folds where the room beside the column is short (the column giving a
 // little way, as a note does for its outline) and never makes the page scroll sideways.
 // "Bubble sits" is always listed, saying when it shows.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-toc/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=<dir> node qa/settings-contents.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-toc/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=<dir> node qa/settings-contents.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 

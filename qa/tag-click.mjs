@@ -11,13 +11,13 @@ import { mkdtempSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
-process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'vigil-tags-'))
+process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'haligtree-tags-'))
 process.env.QA_ARGS ??= '--sandbox'
 const { sandbox } = await import('./sandbox-lib.mjs')
 
 const c = await sandbox({ width: 1300, height: 860 })
 const { h, page, v, go, send, electron } = c
-const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 const BODY = { type: 'doc', content: [
   { type: 'paragraph', content: [{ type: 'text', text: 'take a sad song' }] },
   { type: 'paragraph', content: [{ type: 'text', text: '#boom #tip #tip' }] }
@@ -109,7 +109,7 @@ const surfaces = {
   // A note in a window of its own: the tag opens in the main window.
   async window() {
     await go('home')
-    await h.evaluate((id) => window.api.vigil('notes:window', 'capture', id), other.id)
+    await h.evaluate((id) => window.api.haligtree('notes:window', 'capture', id), other.id)
     let win
     for (let i = 0; i < 50 && !win; i++) { win = electron.windows().find((w) => w.url().includes('note=')); if (!win) await h.waitForTimeout(200) }
     await win.waitForLoadState('domcontentloaded')
@@ -118,7 +118,7 @@ const surfaces = {
   },
   // The box: a tag opens search for it.
   async box() {
-    await page.evaluate(() => window.api.vigil && localStorage.clear())
+    await page.evaluate(() => window.api.haligtree && localStorage.clear())
     await fill(page, 'body')
     const opened = async (name) => { const values = await page.evaluate(() => [...document.querySelectorAll('input')].map((one) => one.value)); if (process.env.DEBUG) console.log('inputs', values); return values.some((one) => one.trim() === `#${name}`) }
     // Search closed again: Escape from its own field.

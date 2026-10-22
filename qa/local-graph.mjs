@@ -3,7 +3,7 @@
 // for names that overlap, a hover, ⌘-scroll zoom and a click that opens; then
 // "Show on the Map", the Map fading in, and the same with Motion off.
 //   npx electron-vite build --outDir out-graph
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-graph/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=<dir> node qa/local-graph.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-graph/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=<dir> node qa/local-graph.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 

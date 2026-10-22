@@ -3,11 +3,11 @@
  * rest (and ip), round the cursor or the next pair along the line, as vim does.
  *
  *   npx electron-vite build --outDir out-vim
- *   QA_DATA=$(mktemp -d) QA_ENTRY=out-vim/main/index.js MINDFLOW_QA_AWAY=1 node qa/vim-pairs.mjs
+ *   QA_DATA=$(mktemp -d) QA_ENTRY=out-vim/main/index.js HALIGTREE_QA_AWAY=1 node qa/vim-pairs.mjs
  */
 import { open } from './harness.mjs'
 
-const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 const qa = await open()
 const { page } = qa
 const results = []
@@ -52,7 +52,7 @@ for (const [line, at, keys, want] of cases) {
 }
 // ci[ leaves you typing inside.
 const changed = await run('[libra] fix it', 2, ['c', 'i', '[', 'v', 'i', 'g', 'i', 'l'])
-check(changed === '[vigil] fix it', `ci[ then typing → ${JSON.stringify(changed)}`)
+check(changed === '[haligtree] fix it', `ci[ then typing → ${JSON.stringify(changed)}`)
 
 console.log(`${results.filter(Boolean).length}/${results.length} passed`)
 await qa.close?.()

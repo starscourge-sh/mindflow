@@ -38,7 +38,7 @@ try {
     const sabers = await h.locator('[data-style="saber"]').count()
     check('Home shows saber bars', sabers > 0, `${sabers}`)
     await rest()
-    const heard = await h.evaluate(() => window.vigilHeard ?? [])
+    const heard = await h.evaluate(() => window.haligtreeHeard ?? [])
     check('resting on a blade hums it', heard.includes('saber-touch'), heard.slice(-4).join(' '))
     const hint = await text()
     check('the hint shows', hint.includes('Like these? Your own bars can be lightsabers too'))

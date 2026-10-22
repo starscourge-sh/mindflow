@@ -5,7 +5,7 @@
 // page hidden after it joined stays hidden. An older book moves to the same
 // order once, keeping what it hid and the task pages it uses. Run with
 // QA_ARGS=--sandbox: the sandbox shows every page, writing first.
-//   QA_DATA=$(mktemp -d) QA_ENTRY=out-side/main/index.js MINDFLOW_QA_AWAY=1 [SHOT=<dir>] node qa/sidebar-first.mjs
+//   QA_DATA=$(mktemp -d) QA_ENTRY=out-side/main/index.js HALIGTREE_QA_AWAY=1 [SHOT=<dir>] node qa/sidebar-first.mjs
 import { mkdirSync, mkdtempSync, rmSync } from 'fs'
 import { DatabaseSync } from 'node:sqlite'
 import { tmpdir } from 'os'
@@ -134,8 +134,8 @@ try {
 // with something on it (a routine, so Routines; a task with no day, so Later)
 // stays shown, and Tasks' pages with nothing on them wait under "More".
 const EVERY = ['home', 'inbox', 'all', 'review', 'day', 'weekpage', 'monthpage', 'today', 'week', 'calendar', 'upcoming', 'matrix', 'routines', 'later', 'tomorrow', 'nuggets', 'articles', 'questions', 'goals', 'queue', 'tags', 'stats', 'map', 'discarded', 'archived', 'powers']
-const old = mkdtempSync(join(tmpdir(), 'mindflow-qa-'))
-const db = new DatabaseSync(join(old, 'mindflow.db'))
+const old = mkdtempSync(join(tmpdir(), 'haligtree-qa-'))
+const db = new DatabaseSync(join(old, 'haligtree.db'))
 const set = (key, value) => db.prepare('insert into settings values (?, ?)').run(key, JSON.stringify(value))
 db.exec(`create table settings (key text primary key, value text not null);
   create table tasks (id text primary key, number integer, title text not null, notes text, status text not null default 'open', due_at text, all_day integer not null default 0,

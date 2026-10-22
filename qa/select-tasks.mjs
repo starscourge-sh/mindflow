@@ -10,7 +10,7 @@
 // never one to-do wrapping the list. The box with its side panel fills its
 // width, both columns with even margins, after the box was promoted (⌘O) too.
 //   npx electron-vite build --outDir out-x
-//   QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=<dir> node qa/select-tasks.mjs
+//   QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=<dir> node qa/select-tasks.mjs
 import { mkdirSync, mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join, resolve } from 'path'
@@ -23,9 +23,9 @@ const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok 
 const folders = []
 
 async function launch(sandbox) {
-  const data = mkdtempSync(join(tmpdir(), 'mindflow-seltasks-'))
+  const data = mkdtempSync(join(tmpdir(), 'haligtree-seltasks-'))
   folders.push(data)
-  const app = await _electron.launch({ args: [resolve(process.env.QA_ENTRY ?? '.'), ...(sandbox ? ['--sandbox'] : [])], env: { ...process.env, MINDFLOW_QA_AWAY: '1', MINDFLOW_USER_DATA: data } })
+  const app = await _electron.launch({ args: [resolve(process.env.QA_ENTRY ?? '.'), ...(sandbox ? ['--sandbox'] : [])], env: { ...process.env, HALIGTREE_QA_AWAY: '1', HALIGTREE_USER_DATA: data } })
   let box, home
   for (let i = 0; i < 80 && !(box && home); i++) {
     await new Promise((r) => setTimeout(r, 250))
@@ -35,7 +35,7 @@ async function launch(sandbox) {
   const errors = []
   for (const [name, page] of [['box', box], ['home', home]]) page.on('pageerror', (e) => errors.push(`${name}: ${e.message}`))
   await box.waitForSelector('.tiptap.ProseMirror', { timeout: 20000 })
-  const v = (channel, ...args) => home.evaluate(([c, a]) => window.api.vigil(c, ...a), [channel, args])
+  const v = (channel, ...args) => home.evaluate(([c, a]) => window.api.haligtree(c, ...a), [channel, args])
   if (sandbox) for (let i = 0; i < 150; i++) { const s = await v('sandbox:state').catch(() => null); if (s?.seeded) break; await home.waitForTimeout(200) }
   const boxShown = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => !w.webContents.getURL().includes('view='))?.isVisible())
   const close = () => { try { app.process().kill('SIGKILL') } catch {} }

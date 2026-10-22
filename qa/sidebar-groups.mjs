@@ -5,7 +5,7 @@
 // right click hides it (said, with Undo) and "Show hidden pages" brings one
 // back. A sidebar saved with pages switched off keeps the same pages shown.
 // Customize lists every page in its group, each with a switch.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 [SHOT=<dir>] node qa/sidebar-groups.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 [SHOT=<dir>] node qa/sidebar-groups.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -51,7 +51,7 @@ const fill = () => h.evaluate(() => {
   return row?.getAttribute('aria-label') ?? 'nothing'
 })
 const go = async (letter) => { await h.locator('main').first().click({ position: { x: 5, y: 5 } }).catch(() => {}); await h.keyboard.press('Escape'); await h.keyboard.press('g'); await h.keyboard.press(letter); await wait(1100) }
-// Every page shows from the start now (main/vigil.ts): this runs on a sidebar with some switched off, the old usual one.
+// Every page shows from the start now (main/haligtree.ts): this runs on a sidebar with some switched off, the old usual one.
 const SOME = ['inbox', 'all', 'review', 'day', 'today', 'week', 'upcoming', 'nuggets', 'articles', 'questions', 'goals', 'queue', 'discarded']
 const toastSays = (words) => h.evaluate((words) => document.body.innerText.includes(words), words)
 

@@ -8,7 +8,7 @@
 // carries the note into the main window with its caret (J1).
 //
 //   npx electron-vite build --outDir out-centre
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-centre/main/index.js MINDFLOW_QA_AWAY=1 node qa/centre-search.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-centre/main/index.js HALIGTREE_QA_AWAY=1 node qa/centre-search.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const results = []
@@ -118,21 +118,21 @@ try {
   await keepAs('zzqv ring the plumber', 1)
   await h.keyboard.press('Enter')
   await h.waitForTimeout(900)
-  const task = await h.evaluate(async () => (await window.api.vigil('tasks')).find((one) => one.title.includes('zzqv ring the plumber')))
+  const task = await h.evaluate(async () => (await window.api.haligtree('tasks')).find((one) => one.title.includes('zzqv ring the plumber')))
   check('the second row keeps it as a task', !!task, task?.title ?? 'none')
 
   const asked = await keepAs('why do qzzv owls hoot?', 0)
   check('words ending in ? offer a question first', /as a question/.test(asked[0] ?? ''), asked[0])
   await h.keyboard.press('Enter')
   await h.waitForTimeout(900)
-  const question = await h.evaluate(async () => (await window.api.vigil('items', 'question')).find((one) => one.title.includes('qzzv owls')))
+  const question = await h.evaluate(async () => (await window.api.haligtree('items', 'question')).find((one) => one.title.includes('qzzv owls')))
   check('Enter keeps it as a question', !!question)
 
   // H4: carried into quick capture.
   await keepAs('qvvz fold the laundry', 3)
   await h.keyboard.press('Enter')
   await box.waitForTimeout(1200)
-  const inBox = await box.evaluate(() => document.querySelector('.tiptap.ProseMirror.mindflow-editor')?.textContent ?? '')
+  const inBox = await box.evaluate(() => document.querySelector('.tiptap.ProseMirror.haligtree-editor')?.textContent ?? '')
   check('"in quick capture" writes the words into the box', inBox.includes('qvvz fold the laundry'), inBox.slice(0, 60))
 
   // J1: ⌘O in the box carries the note into the main window, the caret where it was.
@@ -147,7 +147,7 @@ try {
   check('and opens it in the main window', promoted.open)
   check('with the caret in it', promoted.focused)
   check('and says "Opened in Haligtree"', promoted.said)
-  const boxAfter = await box.evaluate(() => document.querySelector('.tiptap.ProseMirror.mindflow-editor')?.textContent ?? '')
+  const boxAfter = await box.evaluate(() => document.querySelector('.tiptap.ProseMirror.haligtree-editor')?.textContent ?? '')
   check('the box is fresh afterwards', !boxAfter.includes('qvvz'), boxAfter.slice(0, 40))
   const boxHidden = await electron.evaluate(({ BrowserWindow }) => { const win = BrowserWindow.getAllWindows().find((w) => !w.webContents.getURL().includes('view=')); return win ? { visible: win.isVisible(), opacity: win.qaOpacity ?? win.getOpacity() } : null })
   // (Its opacity is not read here: test runs park every window at opacity 0. arrive() sets 1 on every show.)
@@ -175,11 +175,11 @@ try {
   check('Fold every heading answers in words', folded)
 
   // J2: a pinned question's chip nods when the box's words are about it.
-  const pinned = await box.evaluate(async () => (await window.api.vigil('questions:pinned')) ?? [])
+  const pinned = await box.evaluate(async () => (await window.api.haligtree('questions:pinned')) ?? [])
   if (pinned?.length) {
     await electron.evaluate(({ BrowserWindow }) => { const win = BrowserWindow.getAllWindows().find((w) => !w.webContents.getURL().includes('view=')); win?.show() })
     await box.waitForTimeout(400)
-    await box.click('.tiptap.ProseMirror.mindflow-editor')
+    await box.click('.tiptap.ProseMirror.haligtree-editor')
     // A question is offered once half its words are written (box-offers.tsx): its longer words, then.
     const word = (pinned[0].title.match(/\p{L}{4,}/gu) ?? ['']).join(' ')
     await box.keyboard.type(`thinking of ${word}`, { delay: 20 })

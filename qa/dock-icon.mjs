@@ -1,7 +1,7 @@
 // Quick capture steps out of the Dock while it is up (so AeroSpace leaves it
 // where you are); back in the Dock, macOS shows the bundle's own icon, so
 // Haligtree's chosen icon is put on again each time.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/dock-icon.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/dock-icon.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const c = await sandbox({ width: 1000, height: 700 })

@@ -46,7 +46,7 @@ test('a checkbox keeps its tick when moved', async (app) => {
 test('a list item in a callout can be reached and moved', async (app) => {
   const { page } = app
   const p = (text) => ({ type: 'paragraph', content: [{ type: 'text', text }] })
-  await page.$eval('.tiptap.ProseMirror.mindflow-editor:not(.is-line)', (root, items) =>
+  await page.$eval('.tiptap.ProseMirror.haligtree-editor:not(.is-line)', (root, items) =>
     root.editor.commands.setContent({ type: 'doc', content: [{ type: 'callout', content: [items[0],
       { type: 'bulletList', content: [{ type: 'listItem', content: [items[1]] }, { type: 'listItem', content: [items[2]] }] }] }] }),
     [p('intro'), p('one'), p('two')])
@@ -77,9 +77,9 @@ test('a list item in a callout can be reached and moved', async (app) => {
 const app = await open()
 // Past the welcome: in it, a lone Enter on a one-line note sends the note,
 // which took the first case's lines away before the drag.
-await app.page.evaluate(() => window.api.vigil('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false }))
+await app.page.evaluate(() => window.api.haligtree('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false }))
 await app.page.reload()
-await app.page.waitForSelector('.tiptap.ProseMirror.mindflow-editor:not(.is-line)', { timeout: 15000 })
+await app.page.waitForSelector('.tiptap.ProseMirror.haligtree-editor:not(.is-line)', { timeout: 15000 })
 for (const { name, run } of cases) {
   await app.reset()
   let out

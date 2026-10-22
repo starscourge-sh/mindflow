@@ -7,7 +7,7 @@
 //  - Write opens on that same thought, already there, and it grows into the note (with the film's quote in it); the
 //    note and its cards fit the window at three sizes and nothing in them takes focus
 //
-//   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/welcome-write.mjs [shots-dir]
+//   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/welcome-write.mjs [shots-dir]
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -23,7 +23,7 @@ const check = (name, ok, more = '') => {
 // (opened again from a menu it is whole). So wait for that, and open it by hand only if it never comes.
 const open = async (h) => {
   const own = await h.waitForSelector('.mf-welcome', { timeout: 8000 }).then(() => true, () => false)
-  if (!own) await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:welcome')))
+  if (!own) await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:welcome')))
   await h.waitForSelector('.mf-welcome', { timeout: 8000 })
   return own
 }

@@ -2,7 +2,7 @@
 // taken back (⌘Z or its button), a saved Why is changed where it is read, a
 // card opens beside to be edited, a gem's menu offers a link and a pin in
 // plain words, one set aside says why it is dimmed, and an Undo is one sound.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/keep-gaps.mjs [shots-folder]
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/keep-gaps.mjs [shots-folder]
 import { sandbox } from './sandbox-lib.mjs'
 
 const c = await sandbox({ width: 1200, height: 800 })
@@ -10,7 +10,7 @@ const { h, go, v } = c
 const shots = process.argv[2]
 const results = []
 const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`))
-const heard = () => h.evaluate(() => (window.vigilHeard ?? []).splice(0))
+const heard = () => h.evaluate(() => (window.haligtreeHeard ?? []).splice(0))
 try {
   await v('settings:set', { sounds: true, hintRate: 0, rotCount: 0 })
 

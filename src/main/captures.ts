@@ -10,7 +10,7 @@ import { hostname } from 'os'
 import { backUpWatched, checkMarkdown, writeMarkdown } from './backup'
 import { openDatabase } from './db-open'
 import { busy } from './busy'
-import { markdown } from './vigil'
+import { markdown } from './haligtree'
 import { celebrateAfter } from './celebrate'
 import { syncLineCards } from './line-cards'
 import { RETIRED, tagged, withTag } from './kinds'
@@ -286,7 +286,7 @@ export const changed = (what?: Change): void => {
 }
 
 export function registerCaptures(): void {
-  db = openDatabase(join(app.getPath('userData'), 'mindflow.db'))
+  db = openDatabase(join(app.getPath('userData'), 'haligtree.db'))
   // Worked out once per wording and remembered: every list asks for every
   // name, and reading each body again on every change made a big inbox slow.
   // Capped, since a name is a line in a list, not the whole of a long one.
@@ -379,7 +379,7 @@ export function registerCaptures(): void {
   // One row each time a window is shown: the only measure that notices the
   // app has stopped being opened at all.
   db.exec('create table if not exists app_opens (opened_at text not null, surface text not null)')
-  // Old captures put away together, each run kept (vigil.ts); the dated folder a run by hand puts them in.
+  // Old captures put away together, each run kept (haligtree.ts); the dated folder a run by hand puts them in.
   db.exec('create table if not exists put_away (id text primary key, at text not null)')
   try {
     db.exec('alter table put_away add column folder text')
@@ -901,7 +901,7 @@ export function linkImported(made: Imported[], byName: Map<string, string>, know
           // A page that did not come in, embedded or not, stays a link to it by its name alone.
           return to(page, heading, shown ?? name, inTable) ?? (page.includes('/') ? `[[${name}${shown ? `${inTable ? '\\|' : '|'}${shown}` : ''}]]` : whole.replace(/^!/, ''))
         })
-        .replace(/(?<!!)\[([^\]]*)\]\((?!https?:|mindflow:)([^)]+?\.md)(#[^)]*)?\)/g, (whole, shown: string, page: string, heading?: string) =>
+        .replace(/(?<!!)\[([^\]]*)\]\((?!https?:|haligtree:)([^)]+?\.md)(#[^)]*)?\)/g, (whole, shown: string, page: string, heading?: string) =>
           to(decoded(page), heading && decoded(heading), shown || decoded(page), inTable) ?? whole)
     }).join('\n')
     if (next === body) continue
@@ -927,14 +927,14 @@ export const setImporting = (on: boolean): void => {
 }
 
 export function registerImportConversion(): void {
-  ipcMain.handle('vigil:imports:pending', () => importing ? [] : [
+  ipcMain.handle('haligtree:imports:pending', () => importing ? [] : [
     ...db.prepare("select 'captures' as tbl, id from captures where named = 1 and body like '\"%'").all(),
     ...db.prepare("select 'nuggets' as tbl, id from nuggets where tier = 'article' and source != '' and body like '\"%'").all()
   ])
-  ipcMain.handle('vigil:imports:body', (_event, tbl: unknown, id: unknown) =>
+  ipcMain.handle('haligtree:imports:body', (_event, tbl: unknown, id: unknown) =>
     (db.prepare(`select body from ${tbl === 'nuggets' ? 'nuggets' : 'captures'} where id = ?`).get(String(id)) as { body: string } | undefined)?.body ?? null)
   // Only over the Markdown it was made from: a note edited meanwhile keeps its edit.
-  ipcMain.handle('vigil:imports:converted', (_event, tbl: unknown, id: unknown, markdown: unknown, doc: unknown) => {
+  ipcMain.handle('haligtree:imports:converted', (_event, tbl: unknown, id: unknown, markdown: unknown, doc: unknown) => {
     const table = tbl === 'nuggets' ? 'nuggets' : 'captures'
     const last = (db.prepare('select coalesce(max(id), 0) as n from versions').get() as { n: number }).n
     db.prepare(`update ${table} set body = ? where id = ? and body = ?`).run(JSON.stringify(doc), String(id), JSON.stringify(String(markdown)))

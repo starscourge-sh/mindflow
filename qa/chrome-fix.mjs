@@ -8,7 +8,7 @@
 // pointer, only a ring from the keyboard. Then the keys: ⌘A in the Queue
 // goes to the list the pointer is over (Read too), and in the Recent panel
 // with the pointer over it, with the focus elsewhere.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/chrome-fix.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/chrome-fix.mjs
 // SHOTS=dir keeps pictures.
 import { mkdirSync } from 'node:fs'
 import { sandbox } from './sandbox-lib.mjs'
@@ -132,7 +132,7 @@ async function keys() {
   await v('queue:add', gems.map((one) => one.id), false)
   await go('queue')
   const rowIds = await h.evaluate(() => [...document.querySelectorAll('[data-queue-row]')].map((one) => one.dataset.queueRow).slice(0, 3))
-  for (const id of rowIds) await h.evaluate((id) => window.api.vigil('queue:done', id).catch(() => {}), id)
+  for (const id of rowIds) await h.evaluate((id) => window.api.haligtree('queue:done', id).catch(() => {}), id)
   await h.waitForTimeout(600)
   let read = await h.locator('[data-read-row]').count()
   if (!read) {

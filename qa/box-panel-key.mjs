@@ -1,6 +1,6 @@
 // ⌘\ shows and hides quick capture's side panel, with the caret in the note
 // and with it in the panel's list.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/box-panel-key.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/box-panel-key.mjs
 import { sandbox } from './sandbox-lib.mjs'
 const results = []
 const check = (name, ok, detail = '') => { results.push(!!ok); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`) }

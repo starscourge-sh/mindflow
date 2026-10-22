@@ -6,7 +6,7 @@ import { useCounts } from './word-count'
 import { parseAim } from './aim-words'
 import { dated, num } from '../../../../main/dates'
 import { chime } from '@/lib/sound'
-import { ask, toast } from '@/components/vigil/ui'
+import { ask, toast } from '@/components/haligtree/ui'
 import { frontPane } from '@/lib/split'
 import { still } from '@/lib/motion'
 
@@ -36,7 +36,7 @@ const write = (id: string, aim: Aim | null): void => {
   } catch {
     // Storage refused: the aim lasts while the note is open.
   }
-  window.dispatchEvent(new CustomEvent('mindflow:aim-changed', { detail: id }))
+  window.dispatchEvent(new CustomEvent('haligtree:aim-changed', { detail: id }))
 }
 
 /** "Friday", "tomorrow", "3 June": how the day reads from today. */
@@ -50,8 +50,8 @@ export function WordAim({ editor, id }: { editor: Editor | null; id: string }): 
   useEffect(() => {
     setAim(read(id))
     const changed = (event: Event): void => void ((event as CustomEvent<string>).detail === id && setAim(read(id)))
-    window.addEventListener('mindflow:aim-changed', changed)
-    return () => window.removeEventListener('mindflow:aim-changed', changed)
+    window.addEventListener('haligtree:aim-changed', changed)
+    return () => window.removeEventListener('haligtree:aim-changed', changed)
   }, [id])
   const counts = useCounts(aim ? editor : null)
 
@@ -64,8 +64,8 @@ export function WordAim({ editor, id }: { editor: Editor | null; id: string }): 
       if (pane && frontPane() && pane !== frontPane()) return
       void setOrChange()
     }
-    window.addEventListener('mindflow:aim', onAsk)
-    return () => window.removeEventListener('mindflow:aim', onAsk)
+    window.addEventListener('haligtree:aim', onAsk)
+    return () => window.removeEventListener('haligtree:aim', onAsk)
   })
   const setOrChange = async (): Promise<void> => {
     const now = read(id)

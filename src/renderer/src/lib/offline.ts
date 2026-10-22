@@ -14,7 +14,7 @@ export const offline = (): boolean => typeof navigator !== 'undefined' && naviga
 export function noteOffline(): void {
   if (said || !offline()) return
   said = true
-  void import('@/components/vigil/ui').then(({ toast }) => toast("Offline: definitions and link previews will fill in when you're back.", undefined, 'info'))
+  void import('@/components/haligtree/ui').then(({ toast }) => toast("Offline: definitions and link previews will fill in when you're back.", undefined, 'info'))
 }
 
 /** Runs once the connection is back (at once when it is up). */

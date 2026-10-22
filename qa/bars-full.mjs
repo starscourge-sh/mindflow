@@ -2,13 +2,13 @@
 // end brightens from 90% and glows once at 100%, the dinosaur hops; seen in
 // Settings' tiles, whose bars fill on a loop.
 //
-//   QA_ENTRY=out-x/main/index.js QA_ARGS=--sandbox MINDFLOW_QA_AWAY=1 node qa/bars-full.mjs [shots]
+//   QA_ENTRY=out-x/main/index.js QA_ARGS=--sandbox HALIGTREE_QA_AWAY=1 node qa/bars-full.mjs [shots]
 import { mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { sandbox } from './sandbox-lib.mjs'
 
-const root = mkdtempSync(join(tmpdir(), 'vigil-bars-'))
+const root = mkdtempSync(join(tmpdir(), 'haligtree-bars-'))
 process.env.QA_DATA = root
 process.env.QA_ARGS ??= '--sandbox'
 const shots = process.argv[2]

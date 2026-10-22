@@ -48,7 +48,7 @@ const run = async (name, setup) => {
   return out
 }
 try {
-  await h.evaluate(() => window.api.vigil('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true }))
+  await h.evaluate(() => window.api.haligtree('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true }))
   const shown = await run('fly-shown', async () => { await c.size(1000, 900); await h.evaluate(() => document.querySelector('aside [data-home~="nugget"]')?.scrollIntoView({ block: 'center' })) })
   check('Gems in view: its row nods', shown.nodded.includes('row'), JSON.stringify(shown.nodded))
   const scrolled = await run('fly-scrolled', async () => { await c.size(1000, 460); await h.evaluate(() => (document.querySelector('aside .overflow-y-auto').scrollTop = 0)) })

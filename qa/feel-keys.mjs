@@ -4,7 +4,7 @@
 // the frame after Esc; a Matrix task sent to another box with 1-4 does not
 // tilt; a menu item chosen with Enter does not blink first; a celebration put away by hand
 // leaves in well under half a second.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/feel-keys.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/feel-keys.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const results = []
@@ -13,7 +13,7 @@ const c = await sandbox({ width: 1300, height: 860 })
 const { h, go, v } = c
 const frame = (fn) => h.evaluate(`new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => done((${fn})()))))`)
 const toastUp = () => h.locator('[role="status"]', { hasText: 'Probe toast' }).count()
-const fire = (text) => h.evaluate((t) => window.dispatchEvent(new CustomEvent('vigil:toast', { detail: { text: t, undo: () => {} } })), text)
+const fire = (text) => h.evaluate((t) => window.dispatchEvent(new CustomEvent('haligtree:toast', { detail: { text: t, undo: () => {} } })), text)
 
 try {
   await v('settings:set', { sounds: false, hintRate: 0, motion: true })

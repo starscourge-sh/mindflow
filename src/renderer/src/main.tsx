@@ -105,7 +105,7 @@ class Broken extends Component<{ children: ReactNode }, { error: Error | null }>
 // Reduce motion reaches a whole `transform: '...'` too, not only x, y and scale.
 stillTransforms()
 
-// Each time Vigil opens, a note's details start put away.
+// Each time Haligtree opens, a note's details start put away.
 if (params.get('view') === 'home') putDetailsAway()
 
 /**

@@ -1,10 +1,10 @@
 // The app is called Haligtree everywhere a person reads its name (53): the app
 // and its menu, the main window, the menu bar's menu, Settings and What
-// Haligtree can do; no "Vigil" left on those pages. Notes stay where they were: a data
+// Haligtree can do; no "Haligtree" left on those pages. Notes stay where they were: a data
 // folder copied to another place opens with its notes in it, and the folder
 // is the one asked for, never one named after the new name.
 //   npx electron-vite build --outDir out-x
-//   QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/haligtree-name.mjs   (no sandbox: it makes its own folders)
+//   QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/haligtree-name.mjs   (no sandbox: it makes its own folders)
 import { cpSync, mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -38,7 +38,7 @@ try {
   check('the app menu is Haligtree', main.menu === 'Haligtree', main.menu)
   check('its folder is the one it was given, not one named Haligtree', main.data === copy, main.data)
   const notes = await h.evaluate(() => window.api.captures.list?.() ?? [])
-  const found = JSON.stringify(notes).includes(WORDS) || (await h.evaluate((w) => window.api.vigil('search', w).then((r) => JSON.stringify(r)).catch(() => ''), WORDS)).includes(WORDS)
+  const found = JSON.stringify(notes).includes(WORDS) || (await h.evaluate((w) => window.api.haligtree('search', w).then((r) => JSON.stringify(r)).catch(() => ''), WORDS)).includes(WORDS)
   check('the copied folder opens with its note', found)
   check('the main window says Haligtree', (await h.title()) === 'Haligtree', await h.title())
   let tray = []

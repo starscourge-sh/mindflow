@@ -8,7 +8,7 @@
 // Queue; Still wondering on Home; and no screen saying "nugget".
 //
 //   npx electron-vite build --outDir out-recall
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-recall/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=<dir> THEME=paper node qa/recall.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-recall/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=<dir> THEME=paper node qa/recall.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 

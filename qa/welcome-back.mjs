@@ -10,7 +10,7 @@
 //  - the selection bar in Write (and every other demo) takes no pointer and nothing in it can be focused
 //  - Ready's other two ways in are cards with a line each and their key, reached by Tab; the sandbox one marked Recommended
 //
-//   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/welcome-back.mjs [shots-dir]
+//   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/welcome-back.mjs [shots-dir]
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -23,7 +23,7 @@ const check = (name, ok, more = '') => {
 }
 const open = async (h) => {
   const own = await h.waitForSelector('.mf-welcome', { timeout: 8000 }).then(() => true, () => false)
-  if (!own) await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:welcome')))
+  if (!own) await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:welcome')))
   await h.waitForSelector('.mf-welcome', { timeout: 8000 })
 }
 const chapter = (h) => h.evaluate(() => document.querySelector('.mf-welcome footer .sr-only')?.textContent ?? '')

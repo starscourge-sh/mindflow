@@ -6,7 +6,7 @@
 // board open the same panel, and D, W and M typed there stay in the words.
 //
 //   npx electron-vite build --outDir out-cal3
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-cal3/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=dir node qa/cal3.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-cal3/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=dir node qa/cal3.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const c = await sandbox({ width: 1400, height: 900 })

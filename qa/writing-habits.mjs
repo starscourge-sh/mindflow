@@ -6,7 +6,7 @@
 // pointed at showing that night's own words. No reminders, no streak shame.
 //
 //   npx electron-vite build --outDir out-x
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=<dir> node qa/writing-habits.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=<dir> node qa/writing-habits.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -58,7 +58,7 @@ try {
   // A few nights before: read on most, missed one, with a line written that night.
   for (const ago of [1, 2, 4, 5, 6]) await v('habits:tick', day(ago), 'Read twenty pages', true)
   await v('journal:save', day(3), 'well', 'Dad was in the hospital')
-  await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:close-day')))
+  await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:close-day')))
   await wait(1200)
   const boxes = await h.locator('[data-close-habits] [role=checkbox]').count()
   check('Close the day has a tick for each of the season\'s habits', boxes === 2, String(boxes))

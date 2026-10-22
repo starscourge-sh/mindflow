@@ -13,11 +13,11 @@ import { lookAhead } from './pictures'
 /**
  * Apple Notes, read through the Notes app itself with Apple's scripting
  * (JavaScript for Automation): folder by folder, each note's name, words,
- * pictures and dates. macOS asks once whether Vigil may control Notes; only
+ * pictures and dates. macOS asks once whether Haligtree may control Notes; only
  * reading is ever asked of it, and nothing in Notes is changed.
  *
  * The reading is behind `NotesReader`, so a test stands in a made-up export
- * (MINDFLOW_QA_APPLE_NOTES, a JSON file) where the real Notes cannot be driven.
+ * (HALIGTREE_QA_APPLE_NOTES, a JSON file) where the real Notes cannot be driven.
  */
 
 export type NotesFolder = { id: string; name: string; count: number }
@@ -138,7 +138,7 @@ const real: NotesReader = {
 const fake = (file: string): NotesReader => {
   type Export = { denied?: boolean; folders: { id: string; name: string; notes: Omit<NotesNote, 'folder'>[] }[] }
   const load = async (): Promise<Export> => JSON.parse(await readFile(file, 'utf8')) as Export
-  const pause = Number(process.env.MINDFLOW_QA_APPLE_NOTES_WAIT) || 0
+  const pause = Number(process.env.HALIGTREE_QA_APPLE_NOTES_WAIT) || 0
   return {
     folders: async () => {
       const said = await load()
@@ -159,11 +159,11 @@ const fake = (file: string): NotesReader => {
   }
 }
 
-export const notesReader = (): NotesReader => (process.env.MINDFLOW_QA_APPLE_NOTES ? fake(process.env.MINDFLOW_QA_APPLE_NOTES) : real)
+export const notesReader = (): NotesReader => (process.env.HALIGTREE_QA_APPLE_NOTES ? fake(process.env.HALIGTREE_QA_APPLE_NOTES) : real)
 
 const EXT: Record<string, string> = { png: 'png', jpeg: 'jpg', jpg: 'jpg', gif: 'gif', webp: 'webp', heic: 'heic', tiff: 'tiff', 'svg+xml': 'svg' }
 
-/** A picture written into a note as data, kept in Vigil's store by the hash of its bytes, as a pasted one is. */
+/** A picture written into a note as data, kept in Haligtree's store by the hash of its bytes, as a pasted one is. */
 async function keepPicture(data: string): Promise<string | null> {
   const match = /^data:image\/([\w+.-]+);base64,(.*)$/s.exec(data)
   const ext = match && EXT[match[1].toLowerCase()]
@@ -177,7 +177,7 @@ async function keepPicture(data: string): Promise<string | null> {
   const temporary = join(dir, `${name}.${randomUUID()}.tmp`)
   await stat(join(dir, name)).catch(() => writeFile(temporary, bytes).then(() => rename(temporary, join(dir, name))))
   lookAhead(name)
-  return `mindflow://assets/${name}`
+  return `haligtree://assets/${name}`
 }
 
 export type NotesBrought = { made: string[]; byFolder: Map<string, string[]>; already: number; locked: number; empty: number; pictures: number; missing: number; stopped: boolean; denied: boolean }

@@ -2,7 +2,7 @@
 // the kind picker, the gear menu), the sidebar (left, right, peek, Customize),
 // ⌘K, the shortcut sheet, Settings, the welcome and a tip, small and large,
 // light and dark. Also lists every control under 24px tall or wide.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=<dir> node qa/shell-walk.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=<dir> node qa/shell-walk.mjs
 import { mkdirSync } from 'node:fs'
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -40,7 +40,7 @@ try {
       await h.keyboard.press('Meta+k'); await shot(h, `${t}-cmdk`)
       await h.keyboard.type('set'); await shot(h, `${t}-cmdk-typed`); await esc(h); await esc(h)
       // The shortcut sheet.
-      await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:shortcuts'))); await shot(h, `${t}-shortcuts`)
+      await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:shortcuts'))); await shot(h, `${t}-shortcuts`)
       for (const one of await small(h, 'shortcuts')) tiny.add(one)
       await esc(h)
       // Settings, down the page.
@@ -62,7 +62,7 @@ try {
       const wrench = h.locator('button:has(svg.lucide-wrench)').first()
       if (await wrench.count()) { await wrench.click({ force: true }); await shot(h, `${t}-customize`); for (const one of await small(h, 'customize')) tiny.add(one); await esc(h) }
       // The welcome.
-      await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:welcome'))); await h.waitForTimeout(1500); await shot(h, `${t}-welcome`)
+      await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:welcome'))); await h.waitForTimeout(1500); await shot(h, `${t}-welcome`)
       for (const one of await small(h, 'welcome')) tiny.add(one)
       await esc(h); await h.reload(); await h.waitForTimeout(1500)
     }

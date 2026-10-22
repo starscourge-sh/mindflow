@@ -1,5 +1,5 @@
 import { startTransition, useEffect, useState } from 'react'
-import { vigil } from './vigil'
+import { haligtree } from './haligtree'
 import { lookUpKindsIn } from '../extensions/note-link'
 
 /**
@@ -10,11 +10,11 @@ import { lookUpKindsIn } from '../extensions/note-link'
  */
 const READERS: Record<string, (id: string) => Promise<unknown>> = {
   capture: (id) => window.api.captures.get(id),
-  task: (id) => vigil.task(id),
-  nugget: (id) => vigil.item(id),
-  article: (id) => vigil.item(id),
-  question: (id) => vigil.item(id),
-  goal: (id) => vigil.item(id)
+  task: (id) => haligtree.task(id),
+  nugget: (id) => haligtree.item(id),
+  article: (id) => haligtree.item(id),
+  question: (id) => haligtree.item(id),
+  goal: (id) => haligtree.item(id)
 }
 
 const FRESH_MS = 2000

@@ -3,7 +3,7 @@
 // into Next, a line that was already a task, one from before brought in, a
 // line taken out and put back, ten-plus, and the whole list done. Each stage
 // is saved as a picture in light, dark and Brutal.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-plan/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=<dir> node qa/day-list.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-plan/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=<dir> node qa/day-list.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -202,7 +202,7 @@ await shot('6-all-done')
 // 14. Close the day shows done and left, and carries the rest.
 await v('task:undone', (await lineOf('Small thing 6')).id, { dueAt: new Date().toISOString(), doneAt: new Date().toISOString(), notifiedAt: null })
 await wait(600)
-await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:close-day')))
+await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:close-day')))
 await wait(900)
 check('Close the day counts done against left', /\d+ of \d+ done/.test(await h.locator('[data-close-tally]').innerText().catch(() => '')))
 await shot('7-close-day')

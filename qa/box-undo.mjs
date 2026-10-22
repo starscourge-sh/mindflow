@@ -2,7 +2,7 @@
 // exactly what was sent in it (its tags too), the caret at the end, and what
 // the send made (a capture, a task, a timer, a clue, a marked day) is gone.
 // Every send that offers an undo is tried.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/box-undo.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/box-undo.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const c = await sandbox({ width: 1100, height: 760 })
@@ -11,7 +11,7 @@ const results = []
 const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`))
 await v('settings:set', { hintRate: 0, rotCount: 0, motion: false })
 const box = () => electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().filter((w) => !/view=/.test(w.webContents.getURL())).some((w) => w.isVisible()))
-const words = () => page.evaluate(() => document.querySelector('.tiptap.ProseMirror.mindflow-editor')?.innerText.trim())
+const words = () => page.evaluate(() => document.querySelector('.tiptap.ProseMirror.haligtree-editor')?.innerText.trim())
 const captured = async (bit) => (await page.evaluate(() => window.api.captures.list())).some((one) => (one.label ?? '').includes(bit))
 const tasked = async (bit) => (await v('tasks')).some((one) => one.status === 'open' && (one.title ?? '').includes(bit))
 const question = (await v('questions:pinned').catch(() => []))?.[0]

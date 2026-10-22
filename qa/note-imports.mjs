@@ -3,11 +3,11 @@
 //
 // Real Notes cannot be driven here: a made-up export (50 notes over 3 folders,
 // with pictures, a checklist and a locked note) stands in for it through
-// MINDFLOW_QA_APPLE_NOTES. A made-up Obsidian config points at a vault of three
+// HALIGTREE_QA_APPLE_NOTES. A made-up Obsidian config points at a vault of three
 // folders. Neither the real Notes nor the real Obsidian is touched.
 //
 //   npx electron-vite build --outDir out-imports
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-imports/main/index.js MINDFLOW_QA_AWAY=1 node qa/note-imports.mjs [shots folder]
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-imports/main/index.js HALIGTREE_QA_AWAY=1 node qa/note-imports.mjs [shots folder]
 import { mkdirSync, mkdtempSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -34,8 +34,8 @@ const note = (folder, n) => ({
 const folders = [['Recipes', 20], ['Trips', 18], ['Work', 12]].map(([name, count]) => ({ id: `folder-${name}`, name, notes: Array.from({ length: count }, (_, n) => note(name, n)) }))
 const notesFile = join(root, 'apple-notes.json')
 writeFileSync(notesFile, JSON.stringify({ folders }))
-process.env.MINDFLOW_QA_APPLE_NOTES = notesFile
-process.env.MINDFLOW_QA_APPLE_NOTES_WAIT = '35'
+process.env.HALIGTREE_QA_APPLE_NOTES = notesFile
+process.env.HALIGTREE_QA_APPLE_NOTES_WAIT = '35'
 
 // --- a made-up Obsidian vault: Daily (3), Projects (4), Archive (2), and one at the top
 const vault = join(root, 'Garden')
@@ -46,7 +46,7 @@ for (const [folder, count] of [['Daily', 3], ['Projects', 4], ['Archive', 2]]) {
 }
 writeFileSync(join(vault, 'Top note.md'), 'At the top of the vault.\n')
 writeFileSync(join(root, 'obsidian.json'), JSON.stringify({ vaults: { a: { path: vault, ts: 1, open: true } } }))
-process.env.MINDFLOW_OBSIDIAN_CONFIG = join(root, 'obsidian.json')
+process.env.HALIGTREE_OBSIDIAN_CONFIG = join(root, 'obsidian.json')
 
 const results = []
 const check = (name, ok, detail = '') => { results.push(ok); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`) }
@@ -107,7 +107,7 @@ try {
   check('the checklist, the link and the words came through', ticks.join() === 'true:Bought flour,false:Bake bread' && body.includes('"href":"https://example.com/0"') && /"text":"recipes","marks":\[\{"type":"bold"/.test(body), ticks.join())
   check('the title line is not said twice', !/Recipes note 1\\n/.test(body.slice(0, 30)))
   const second = await v('imports:body', 'nuggets', fromNotes.find((one) => one.title === 'Recipes note 2')?.id)
-  check('the picture is copied into Haligtree', /mindflow:\/\/assets\/[0-9a-f]{64}\.png/.test(second ?? ''), second)
+  check('the picture is copied into Haligtree', /haligtree:\/\/assets\/[0-9a-f]{64}\.png/.test(second ?? ''), second)
   const named = (await groups()).map((one) => `${one.name}:${one.members.length}`)
   check('a group per folder, named Apple Notes / Folder', ['Apple Notes / Recipes:20', 'Apple Notes / Trips:18', 'Apple Notes / Work:11'].every((one) => named.includes(one)), named.join(', '))
 

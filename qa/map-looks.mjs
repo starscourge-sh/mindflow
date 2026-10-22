@@ -48,8 +48,8 @@ try {
     for (let i = 0; i < 300; i++) edges.push([`n${Math.floor(random() * 600)}`, `n${Math.floor(random() * 600)}`, 1])
     const ok = edges.filter(([a, b]) => a !== b)
     for (const [a, b] of ok) (nodes[+a.slice(1)].links++, nodes[+b.slice(1)].links++)
-    ipcMain.removeHandler('vigil:notes:graph:all')
-    ipcMain.handle('vigil:notes:graph:all', () => ({ nodes, edges: ok, alone: 0 }))
+    ipcMain.removeHandler('haligtree:notes:graph:all')
+    ipcMain.handle('haligtree:notes:graph:all', () => ({ nodes, edges: ok, alone: 0 }))
   })
   // How long each drawing takes, timed from the canvas's clear to the end of that task.
   await h.evaluate(() => {

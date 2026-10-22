@@ -8,7 +8,7 @@
 //  7. "Create more" is off again once the box is put away
 // The dictionary is a local server and YouTube is blocked, so nothing reaches the internet.
 //   npx electron-vite build --outDir out-eight
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-eight/main/index.js MINDFLOW_QA_AWAY=1 node qa/eight-fixes.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-eight/main/index.js HALIGTREE_QA_AWAY=1 node qa/eight-fixes.mjs
 import { createServer } from 'http'
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -20,14 +20,14 @@ const server = createServer((req, res) => {
 })
 await new Promise((done) => server.listen(0, '127.0.0.1', done))
 server.unref()
-process.env.MINDFLOW_QA_DICT = `http://127.0.0.1:${server.address().port}/api/v2/entries/en/`
+process.env.HALIGTREE_QA_DICT = `http://127.0.0.1:${server.address().port}/api/v2/entries/en/`
 
 const results = []
 const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`))
 const c = await sandbox({ width: 1200, height: 800 })
 const { page, h, electron, v, go } = c
 const wait = (ms) => page.waitForTimeout(ms)
-const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 const boxUp = () => electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().filter((w) => !/view=/.test(w.webContents.getURL())).some((w) => w.isVisible()))
 const show = async () => { await page.evaluate(() => window.api.showPrompt()); await wait(700) }
 const clear = async () => { await page.$eval(EDITOR, (el) => el.editor.chain().clearContent(true).focus().run()); await wait(300) }
@@ -77,7 +77,7 @@ try {
   await page.keyboard.type('Serendipity', { delay: 20 })
   let ghost = false
   for (let i = 0; i < 60 && !ghost; i++) (await wait(100), (ghost = (await page.evaluate(() => document.querySelector('[data-define]')?.getAttribute('data-define'))) === 'ghost'))
-  check('5. the meaning shows', ghost, await page.evaluate(() => (document.querySelector('[data-define]')?.getAttribute('data-define') ?? 'none') + ' | ' + document.querySelector('.tiptap.ProseMirror.mindflow-editor')?.innerText))
+  check('5. the meaning shows', ghost, await page.evaluate(() => (document.querySelector('[data-define]')?.getAttribute('data-define') ?? 'none') + ' | ' + document.querySelector('.tiptap.ProseMirror.haligtree-editor')?.innerText))
   await wait(1500)
   const heights = []
   for (let i = 0; i < 30; i++) (heights.push(await page.evaluate(() => innerHeight)), await wait(100))

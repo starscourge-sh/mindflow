@@ -8,14 +8,14 @@
 //   6. split view opens a fourth pane.
 //
 //   npx electron-vite build --outDir out-blocks
-//   QA_ENTRY=out-blocks/main/index.js MINDFLOW_QA_AWAY=1 node qa/block-gestures.mjs
+//   QA_ENTRY=out-blocks/main/index.js HALIGTREE_QA_AWAY=1 node qa/block-gestures.mjs
 import { mkdtempSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
-process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'vigil-blocks-'))
+process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'haligtree-blocks-'))
 process.env.QA_ARGS ??= '--sandbox'
-process.env.MINDFLOW_QA_AWAY ??= '1'
+process.env.HALIGTREE_QA_AWAY ??= '1'
 const { sandbox } = await import('./sandbox-lib.mjs')
 
 const results = []
@@ -23,7 +23,7 @@ const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok 
 const c = await sandbox({ width: 1500, height: 950 })
 const { h, electron, send, v } = c
 const wait = (ms = 600) => h.waitForTimeout(ms)
-const ED = '.note-pane .tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+const ED = '.note-pane .tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 const p = (text) => ({ type: 'paragraph', content: [{ type: 'text', text }] })
 const doc = () => h.$eval(ED, (root) => root.editor.getJSON())
 const tops = async () => (await doc()).content.map((one) => one.type === 'details' ? `[toggle:${one.content[1].content.map((x) => x.content?.[0]?.text ?? '').join(',')}]` : one.content?.[0]?.text ?? one.content?.[0]?.attrs?.label ?? '')

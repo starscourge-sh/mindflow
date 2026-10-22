@@ -5,8 +5,8 @@ import { ipcMain, shell } from 'electron'
  * Your Mac's calendar, read only: the events of a few days, for Today's brief
  * and the week. Read through EventKit, so macOS asks once, in its own words,
  * for access to Calendars (never Calendar.app itself, which is left closed),
- * and Vigil only ever reads. Off until turned on in Settings; asked for only
- * then. MINDFLOW_QA_CALENDAR stands a list of events in, for tests.
+ * and Haligtree only ever reads. Off until turned on in Settings; asked for only
+ * then. HALIGTREE_QA_CALENDAR stands a list of events in, for tests.
  */
 export type MacEvent = { title: string; start: string; end: string; allDay: boolean; calendar: string; color: string | null }
 export type MacCalendar = { status: 'on' | 'denied' | 'unasked' | 'none'; events: MacEvent[] }
@@ -44,10 +44,10 @@ function run(argv) {
 const cache = new Map<string, { at: number; said: MacCalendar }>()
 
 function read(from: string, to: string, ask: boolean): Promise<MacCalendar> {
-  // A QA run can stand in a refusal too: MINDFLOW_QA_CALENDAR=denied.
-  if (process.env.MINDFLOW_QA_CALENDAR === 'denied') return Promise.resolve({ status: 'denied', events: [] })
-  if (process.env.MINDFLOW_QA_CALENDAR) {
-    const events = (JSON.parse(process.env.MINDFLOW_QA_CALENDAR) as MacEvent[]).filter((one) => one.end > from && one.start < to)
+  // A QA run can stand in a refusal too: HALIGTREE_QA_CALENDAR=denied.
+  if (process.env.HALIGTREE_QA_CALENDAR === 'denied') return Promise.resolve({ status: 'denied', events: [] })
+  if (process.env.HALIGTREE_QA_CALENDAR) {
+    const events = (JSON.parse(process.env.HALIGTREE_QA_CALENDAR) as MacEvent[]).filter((one) => one.end > from && one.start < to)
     return Promise.resolve({ status: 'on', events })
   }
   if (process.platform !== 'darwin') return Promise.resolve({ status: 'none', events: [] })
@@ -70,8 +70,8 @@ function read(from: string, to: string, ask: boolean): Promise<MacCalendar> {
 }
 
 export function registerMacCalendar(): void {
-  ipcMain.handle('vigil:calendar:events', (_event, from: unknown, to: unknown) => read(String(from), String(to), false))
+  ipcMain.handle('haligtree:calendar:events', (_event, from: unknown, to: unknown) => read(String(from), String(to), false))
   // Turned on in Settings: macOS asks, once, in its own words.
-  ipcMain.handle('vigil:calendar:ask', (_event, from: unknown, to: unknown) => (cache.clear(), read(String(from), String(to), true)))
-  ipcMain.handle('vigil:calendar:privacy', () => void shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars'))
+  ipcMain.handle('haligtree:calendar:ask', (_event, from: unknown, to: unknown) => (cache.clear(), read(String(from), String(to), true)))
+  ipcMain.handle('haligtree:calendar:privacy', () => void shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars'))
 }

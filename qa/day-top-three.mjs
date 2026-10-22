@@ -1,7 +1,7 @@
 // Today's page, written out: the line under the first three says what it
 // parts, and a ticked line keeps its #tag tinted where it was written, as the
 // open lines show theirs.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/day-top-three.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/day-top-three.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const results = []

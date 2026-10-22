@@ -3,7 +3,7 @@
 // question, the skipped routine's question, lengths in pomodoros against the
 // time left and the focus taken, the strike through a ticked task, a fresh
 // start, and old captures put away in one dated folder.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-calm/main/index.js MINDFLOW_QA_AWAY=1 node qa/task-calm.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-calm/main/index.js HALIGTREE_QA_AWAY=1 node qa/task-calm.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const results = []

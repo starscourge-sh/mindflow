@@ -6,13 +6,13 @@
 import { mkdirSync, writeFileSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 
-process.env.MINDFLOW_QA_FAKE_SCREEN = '1'
-process.env.MINDFLOW_QA_FAKE_AREA_MS = '600'
+process.env.HALIGTREE_QA_FAKE_SCREEN = '1'
+process.env.HALIGTREE_QA_FAKE_AREA_MS = '600'
 const SHOTS = process.env.QA_SHOTS
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
 const results = []
 const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`))
-const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 const CAMERA = '[data-shot-button] button[aria-label="Take a screenshot"]'
 
 const c = await sandbox({ width: 1200, height: 820 })

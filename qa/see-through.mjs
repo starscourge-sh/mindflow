@@ -2,7 +2,7 @@
 // the main window, a note window and the box, anything that floats (fixed,
 // sticky, or absolute above the page) with a see-through background is listed
 // by its classes. A dimming scrim behind a dialog is meant to be see-through.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 THEME=paper [STYLE=brutal] [SHOTS=<dir>] node qa/see-through.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 THEME=paper [STYLE=brutal] [SHOTS=<dir>] node qa/see-through.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -90,7 +90,7 @@ add('note', await scan(h))
 await scrollAll(h, 'mid'); await h.waitForTimeout(500)
 add('note scrolled', await scan(h))
 if (shots) await h.screenshot({ path: `${shots}/note-${theme}.png` })
-await h.evaluate((id) => window.api.vigil('notes:window', 'capture', id), id)
+await h.evaluate((id) => window.api.haligtree('notes:window', 'capture', id), id)
 let w
 for (let i = 0; i < 30 && !w; i++) { w = c.electron.windows().find((x) => x.url().includes('note=')); if (!w) await h.waitForTimeout(300) }
 if (w) {

@@ -1,6 +1,6 @@
 import type { Editor, JSONContent } from '@tiptap/core'
 import { chime } from './sound'
-import { toast } from '@/components/vigil/ui'
+import { toast } from '@/components/haligtree/ui'
 
 /**
  * "Move to a new page": the words picked become a note of their own, and a link

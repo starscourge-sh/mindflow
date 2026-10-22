@@ -6,23 +6,23 @@ import { chime } from '@/lib/sound'
 
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
 import { EXITS, exit, noteLinkText, statusSaid } from '@/lib/capture-links'
-import { splitTags, together, unread, vigil } from '@/lib/vigil'
+import { splitTags, together, unread, haligtree } from '@/lib/haligtree'
 import { backSaid, makeTask, snoozeItems } from '@/lib/tasks'
-import { Tip, ask, pin, toast, quietly } from './vigil/ui'
-import { copy, type RowItem } from './vigil/row-menu'
-import { stickOnDesktop } from './vigil/sticky-note'
-import { NoteList, type Entry } from './vigil/note-list'
-import type { Density } from './vigil/display'
+import { Tip, ask, pin, toast, quietly } from './haligtree/ui'
+import { copy, type RowItem } from './haligtree/row-menu'
+import { stickOnDesktop } from './haligtree/sticky-note'
+import { NoteList, type Entry } from './haligtree/note-list'
+import type { Density } from './haligtree/display'
 import { archive, changeKind, saveAttachments } from '@/lib/notes'
 import { openApart } from '@/lib/apart'
 import { asideItem } from '@/lib/split'
 import { binItem } from '@/lib/to-bin'
 import { queueItems } from '@/lib/reading-queue'
 import { copyToBookItem } from '@/lib/books'
-import { addToQuestion } from './vigil/questions-view'
+import { addToQuestion } from './haligtree/questions-view'
 import { age, dayKey, daysSince, num, whenInLine } from '../../../main/dates'
 import { EyeOff, Bookmark as Pin } from '@/components/ui/icons'
-import type { IslandState } from './vigil/islands'
+import type { IslandState } from './haligtree/islands'
 
 /** One property out of a capture's fields, or null. */
 export const fieldOf = (fields: string | null | undefined, key: string): string | null => {
@@ -105,11 +105,11 @@ export async function tagCaptures(ids: string[]): Promise<void> {
   const tag = (await ask(`Tag ${ids.length === 1 ? 'it' : `these ${ids.length}`} with`, 'thesis', 'tag'))?.trim().replace(/^#/, '')
   if (!tag) return
   const before = (await Promise.all(ids.map((id) => window.api.captures.get(id)))).flatMap((one) => (one ? [one] : []))
-  await vigil.bulk(ids, { tag })
+  await haligtree.bulk(ids, { tag })
   chime('tag')
   void (ids.length === 1 ? quietly : (undo: () => void) => toast(`Tagged ${num(ids.length)} with #${tag}`, undo))(() => void Promise.all(before.map((one) => Promise.all([
     window.api.captures.save(one.id, { body: one.body, fetched: true }),
-    !one.private ? vigil.setPrivate('captures', one.id, false, true) : undefined
+    !one.private ? haligtree.setPrivate('captures', one.id, false, true) : undefined
   ]))).then(() => chime('undo')))
 }
 
@@ -129,7 +129,7 @@ export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void)
   'separator',
   { label: 'Add a tag…', run: () => void tagCaptures([capture.id]) },
   { label: capture.pinnedAt ? 'Unpin' : 'Pin to the sidebar', run: () => pin('captures', capture.id, !capture.pinnedAt) },
-  { label: capture.private ? 'Make it not private' : 'Make it private', run: () => void vigil.setPrivate('captures', capture.id, !capture.private) },
+  { label: capture.private ? 'Make it not private' : 'Make it private', run: () => void haligtree.setPrivate('captures', capture.id, !capture.private) },
   { label: 'Stick on the desktop', run: () => stickOnDesktop('capture', capture.id) },
   { label: 'Open in a new window', keys: '⌥⌘-click', run: () => openApart('capture', capture.id) },
   { label: 'Expanded view', hint: 'The whole article in one scroll, its linked notes too', run: () => openExpanded(capture.id) },

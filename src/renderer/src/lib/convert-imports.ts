@@ -1,4 +1,4 @@
-import { readMarkdown } from '../components/mindflow'
+import { readMarkdown } from '../components/haligtree'
 
 let running = false
 
@@ -13,14 +13,14 @@ export function convertImports(): void {
   running = true
   void (async () => {
     try {
-      const pending = await window.api.vigil<{ tbl: string; id: string }[]>('imports:pending')
+      const pending = await window.api.haligtree<{ tbl: string; id: string }[]>('imports:pending')
       for (const { tbl, id } of pending) {
-        const raw = await window.api.vigil<string | null>('imports:body', tbl, id)
+        const raw = await window.api.haligtree<string | null>('imports:body', tbl, id)
         const markdown: unknown = raw ? JSON.parse(raw) : null
         if (typeof markdown !== 'string') continue
         const doc = readMarkdown(markdown)
         if (!doc) return
-        await window.api.vigil('imports:converted', tbl, id, markdown, doc)
+        await window.api.haligtree('imports:converted', tbl, id, markdown, doc)
         await new Promise((breathe) => setTimeout(breathe, 0))
       }
     } finally {

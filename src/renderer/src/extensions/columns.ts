@@ -32,7 +32,7 @@ const CLOSE = "<!-- /columns -->"
 
 /**
  * Blocks side by side. Markdown has no columns, so a row is written as its
- * sections between comment marks that only Vigil reads. The outer element is
+ * sections between comment marks that only Haligtree reads. The outer element is
  * what the stylesheet measures, so a narrow pane stacks them.
  */
 export const Columns = Node.create({

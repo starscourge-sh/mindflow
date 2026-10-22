@@ -4,13 +4,13 @@
 // keeps what it lands on; a theme tried under the pointer glides; offline is
 // said once, and a word asked about is looked up again when back.
 //
-//   QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/found-motion.mjs [shots]
+//   QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/found-motion.mjs [shots]
 import { mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { sandbox } from './sandbox-lib.mjs'
 
-const root = mkdtempSync(join(tmpdir(), 'vigil-fm-'))
+const root = mkdtempSync(join(tmpdir(), 'haligtree-fm-'))
 process.env.QA_DATA = root
 process.env.QA_ARGS ??= '--sandbox'
 const shots = process.argv[2]
@@ -115,8 +115,8 @@ try {
   // --- Offline, said once ------------------------------------------------------------------------
   await electron.evaluate(({ ipcMain }) => {
     globalThis.__defines = 0
-    ipcMain.removeHandler('vigil:define')
-    ipcMain.handle('vigil:define', () => (globalThis.__defines++, null))
+    ipcMain.removeHandler('haligtree:define')
+    ipcMain.handle('haligtree:define', () => (globalThis.__defines++, null))
   })
   await page.evaluate(() => Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => false }))
   await page.evaluate(() => window.api.showPrompt())

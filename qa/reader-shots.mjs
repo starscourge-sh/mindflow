@@ -27,25 +27,25 @@ try {
   const open = async () => { await s.send('capture', id); await h.waitForTimeout(1500) }
   for (const theme of ['light', 'dark']) {
     await s.theme(theme)
-    await h.evaluate(() => window.api.vigil('settings:set', { linkPictures: 'fill', pageWidth: 'narrow' }))
+    await h.evaluate(() => window.api.haligtree('settings:set', { linkPictures: 'fill', pageWidth: 'narrow' }))
     await open()
     await shot(`1-card-fill-${theme}`)
     log(theme, 'fit', await h.evaluate(() => getComputedStyle(document.querySelector('.tiptap-bookmark-image')).objectFit))
-    await h.evaluate(() => window.api.vigil('settings:set', { linkPictures: 'whole' }))
+    await h.evaluate(() => window.api.haligtree('settings:set', { linkPictures: 'whole' }))
     await h.waitForTimeout(600)
     log(theme, 'fit whole', await h.evaluate(() => getComputedStyle(document.querySelector('.tiptap-bookmark-image')).objectFit))
     await shot(`1-card-whole-${theme}`)
-    await h.evaluate(() => window.api.vigil('settings:set', { linkPictures: 'fill' }))
+    await h.evaluate(() => window.api.haligtree('settings:set', { linkPictures: 'fill' }))
     // Page width from the header's ⋯ menu.
     for (const w of ['Narrow', 'Wide', 'Full']) {
       await widthMenu(h)
       if (w === 'Wide') await shot(`2-width-menu-${theme}`)
       await h.getByRole('menuitemradio', { name: w }).click()
       await h.waitForTimeout(600)
-      log(theme, w, await h.evaluate(() => [document.documentElement.dataset.width, Math.round(document.querySelector('.note-pane .tiptap.ProseMirror.mindflow-editor').getBoundingClientRect().width)]))
+      log(theme, w, await h.evaluate(() => [document.documentElement.dataset.width, Math.round(document.querySelector('.note-pane .tiptap.ProseMirror.haligtree-editor').getBoundingClientRect().width)]))
       await shot(`2-width-${w}-${theme}`)
     }
-    await h.evaluate(() => window.api.vigil('settings:set', { pageWidth: 'narrow' }))
+    await h.evaluate(() => window.api.haligtree('settings:set', { pageWidth: 'narrow' }))
     // Read, and out of it.
     await h.evaluate(() => localStorage.removeItem('readExitTold'))
     await h.click('button[aria-label="Read"]')
@@ -68,7 +68,7 @@ try {
   await h.waitForTimeout(500)
   await shot('4-settings-dark')
   // The note window.
-  await h.evaluate((id) => window.api.vigil('notes:window', 'capture', id), id)
+  await h.evaluate((id) => window.api.haligtree('notes:window', 'capture', id), id)
   let w
   for (let i = 0; i < 30 && !w; i++) { w = electron.windows().find((x) => x.url().includes('note=')); if (!w) await h.waitForTimeout(300) }
   await w.waitForTimeout(1800)
@@ -83,6 +83,6 @@ try {
   await w.keyboard.press('Escape')
   await w.waitForTimeout(500)
   log('note window esc closes read', await w.evaluate(() => !document.querySelector('[aria-label="Reading"]')))
-  await h.evaluate(() => window.api.vigil('settings:set', { pageWidth: 'narrow' }))
+  await h.evaluate(() => window.api.haligtree('settings:set', { pageWidth: 'narrow' }))
   log('errors', errors.slice(0, 5))
 } catch (e) { console.error(e) } finally { await s.close() }

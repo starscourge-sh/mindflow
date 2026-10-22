@@ -4,16 +4,16 @@
 //
 // On a Mac, Electron sends 'moved' at every step of a drag, as 'move'. This
 // drives a drag the way the Mac does (will-move, then move + moved each frame)
-// on a parked window that keeps its place as its own (MINDFLOW_QA_VIRTUAL),
+// on a parked window that keeps its place as its own (HALIGTREE_QA_VIRTUAL),
 // with the pointer and the mouse button played by the probe, and samples the
 // window's bounds every few milliseconds from main. Motion on and off.
 //
 //   npx electron-vite build --outDir out-x
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/sticky-drag.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/sticky-drag.mjs
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
 
-process.env.MINDFLOW_QA_VIRTUAL ??= '1'
+process.env.HALIGTREE_QA_VIRTUAL ??= '1'
 const { check, done } = checks()
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 
@@ -56,7 +56,7 @@ try {
   await wait(1200)
   const winId = (await stickyWins()).find((one) => one.url.includes(`id=${id}`)).id
   const info = () => electron.evaluate(({ BrowserWindow, screen }, id) => { const w = BrowserWindow.fromId(id); return { b: w.getBounds(), work: screen.getDisplayMatching(w.getBounds()).workArea } }, winId)
-  const taps = () => page.evaluate(() => (window.vigilHeard ?? []).filter((one) => one === 'paper-tap').length)
+  const taps = () => page.evaluate(() => (window.haligtreeHeard ?? []).filter((one) => one === 'paper-tap').length)
   const isHeld = () => page.evaluate(() => !!document.querySelector('[data-held]'))
 
   // One drag, as the Mac does it: will-move, then each frame the window and pointer move together with move + moved.

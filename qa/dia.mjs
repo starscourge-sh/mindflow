@@ -5,12 +5,12 @@
 // panes. Light and dark screenshots go to SHOTS (default scratchpad/dia).
 //
 //   npx electron-vite build --outDir out-dia
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-dia/main/index.js MINDFLOW_QA_AWAY=1 node qa/dia.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-dia/main/index.js HALIGTREE_QA_AWAY=1 node qa/dia.mjs
 import { mkdirSync, mkdtempSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
-process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'vigil-dia-'))
+process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'haligtree-dia-'))
 process.env.QA_ARGS ??= '--sandbox'
 const dir = process.env.SHOTS ?? 'scratchpad/dia'
 mkdirSync(dir, { recursive: true })

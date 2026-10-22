@@ -1,4 +1,4 @@
-// Run with: QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out/main/index.js MINDFLOW_QA_AWAY=1 node qa/sidebar-recent.mjs
+// Run with: QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out/main/index.js HALIGTREE_QA_AWAY=1 node qa/sidebar-recent.mjs
 // Recent lives in ⌘K now, not the sidebar: no Recent section under Pinned, no
 // switch for it in Customize or Settings, and ⌘K, before anything is typed,
 // lists the notes you opened last first, newest on top, under “Recent”.

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { call, useLive } from './vigil'
+import { call, useLive } from './haligtree'
 import type { Setup } from '../../../main/onboarding'
 export type { Setup }
 
@@ -53,7 +53,7 @@ export function useOnboarding(): Onboarding | null {
   return useLive(onboarding.state, null as Onboarding | null, [nonce])
 }
 
-/** The welcome, from anywhere: the Vigil menu, ⌘K, Settings. */
-export const playWelcome = (): void => void window.dispatchEvent(new CustomEvent('vigil:welcome'))
+/** The welcome, from anywhere: the Haligtree menu, ⌘K, Settings. */
+export const playWelcome = (): void => void window.dispatchEvent(new CustomEvent('haligtree:welcome'))
 
 export const NO_SETUP: Setup = { use: null, from: [], space: null, exam: null, goal: null, goalBy: null }

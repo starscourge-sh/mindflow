@@ -7,47 +7,47 @@ import { glide } from './glide'
 import { outQuart, tween } from './sticky-place'
 
 /**
- * Pictures Vigil takes for you: a screenshot of a screen without any of
- * Vigil's own windows in it, and the camera for a selfie in a session's log.
+ * Pictures Haligtree takes for you: a screenshot of a screen without any of
+ * Haligtree's own windows in it, and the camera for a selfie in a session's log.
  * Both need a macOS permission, asked for the way macOS expects; refused,
  * the window says so in plain words and offers the Privacy settings.
  *
  * For test runs, which have no camera or screen to look at:
- * MINDFLOW_QA_FAKE_SCREEN=1 answers with a made-up picture of a desktop, and
- * MINDFLOW_QA_FAKE_CAMERA=1 hands the windows Chromium's own pretend camera.
+ * HALIGTREE_QA_FAKE_SCREEN=1 answers with a made-up picture of a desktop, and
+ * HALIGTREE_QA_FAKE_CAMERA=1 hands the windows Chromium's own pretend camera.
  * Either set to "denied" answers as a refused permission does.
  */
 
-const FAKE_SCREEN = process.env.MINDFLOW_QA_FAKE_SCREEN
-const FAKE_CAMERA = process.env.MINDFLOW_QA_FAKE_CAMERA
+const FAKE_SCREEN = process.env.HALIGTREE_QA_FAKE_SCREEN
+const FAKE_CAMERA = process.env.HALIGTREE_QA_FAKE_CAMERA
 // Chromium's pretend camera, with no "allow" question: set before the app is ready.
 if (FAKE_CAMERA && FAKE_CAMERA !== 'denied') {
   app.commandLine.appendSwitch('use-fake-device-for-media-stream')
   app.commandLine.appendSwitch('use-fake-ui-for-media-stream')
 }
 
-/** Refused: `asked` when macOS has just asked; `restart` when allowed since Vigil started, so usable once it starts again. */
+/** Refused: `asked` when macOS has just asked; `restart` when allowed since Haligtree started, so usable once it starts again. */
 export type ScreenShot = { png: Buffer; app: string } | { denied: true; asked: boolean; restart?: boolean }
 
 const screenAllowed = (): string => (process.platform === 'darwin' ? systemPreferences.getMediaAccessStatus('screen') : 'granted')
 
 /**
- * Screen Recording as it was when Vigil started. macOS lets a running app use
+ * Screen Recording as it was when Haligtree started. macOS lets a running app use
  * the permission only once it has started again, so a switch turned on since
  * reads as granted while the screen still cannot be seen.
  */
 let startedWith: string | null = null
 export const noteScreenAtStart = (): void => void (startedWith ??= screenAllowed())
 /**
- * Whether Vigil can see the screen, asked again each time (a window coming to
+ * Whether Haligtree can see the screen, asked again each time (a window coming to
  * the front asks, so the notice follows System Settings): 'on'; 'restart',
- * allowed since Vigil started and live once it starts again; or 'off', not
- * allowed, which is also how a switch left on for an older build of Vigil reads.
- * MINDFLOW_QA_FAKE_SCREEN=restart stands in for the middle one.
+ * allowed since Haligtree started and live once it starts again; or 'off', not
+ * allowed, which is also how a switch left on for an older build of Haligtree reads.
+ * HALIGTREE_QA_FAKE_SCREEN=restart stands in for the middle one.
  */
 export function screenAccess(): 'on' | 'restart' | 'off' {
   // Read each time, so a test run can turn the switch while the app runs.
-  const fake = process.env.MINDFLOW_QA_FAKE_SCREEN
+  const fake = process.env.HALIGTREE_QA_FAKE_SCREEN
   if (fake === 'denied') return 'off'
   if (fake === 'restart') return 'restart'
   const now = fake ? 'granted' : screenAllowed()
@@ -79,12 +79,12 @@ function fakeDesktop(width: number, height: number): Electron.NativeImage {
 }
 
 /**
- * The app whose window is frontmost on that screen, Vigil's own left out: from
+ * The app whose window is frontmost on that screen, Haligtree's own left out: from
  * the window list, which says whose each window is without needing Screen
  * Recording. Empty when it cannot be told.
  */
 function frontApp(display: Display): Promise<string> {
-  if (FAKE_SCREEN) return Promise.resolve(process.env.MINDFLOW_QA_FAKE_APP ?? 'Safari')
+  if (FAKE_SCREEN) return Promise.resolve(process.env.HALIGTREE_QA_FAKE_APP ?? 'Safari')
   if (process.platform !== 'darwin') return Promise.resolve('')
   const { x, y, width, height } = display.bounds
   const script = `ObjC.import('CoreGraphics'); ObjC.import('Foundation')
@@ -100,12 +100,12 @@ function run(argv) {
 }
 
 /**
- * The screen `display` as it is, with every one of Vigil's windows out of it:
+ * The screen `display` as it is, with every one of Haligtree's windows out of it:
  * each is made see-through for the moment the picture is taken, then back.
  * Never wider than 2880 pixels, plenty to read and not a huge file.
  */
 export async function shootScreen(display: Display, protectedWin?: BrowserWindow | null): Promise<ScreenShot> {
-  if (screenAccess() === 'off' && process.env.MINDFLOW_QA_FAKE_SCREEN) return { denied: true, asked: false }
+  if (screenAccess() === 'off' && process.env.HALIGTREE_QA_FAKE_SCREEN) return { denied: true, asked: false }
   if (screenAccess() === 'restart') return { denied: true, asked: false, restart: true }
   const before = screenAllowed()
   if (before === 'denied' || before === 'restricted') return { denied: true, asked: false }
@@ -154,7 +154,7 @@ const fade = (win: BrowserWindow, from: number, to: number): Promise<void> =>
   new Promise((done) => void tween(160, (t) => void (!win.isDestroyed() && win.setOpacity(from + (to - from) * outQuart(t))), done))
 
 type Box = Electron.Rectangle
-const say = (line: string): void => void (!app.isPackaged && console.log(`[vigil] area pick: ${line}`))
+const say = (line: string): void => void (!app.isPackaged && console.log(`[haligtree] area pick: ${line}`))
 const at = (b: Box): string => `${b.x},${b.y} ${b.width}x${b.height}`
 
 /**
@@ -174,7 +174,7 @@ export async function tuckAway(win: BrowserWindow | null): Promise<{ look: (when
   if (!win || win.isDestroyed() || !win.isVisible()) return { look: () => {}, back: async () => {} }
   const from = win.getBounds()
   const opacity = win.getOpacity()
-  const mark = (edge: string | null): void => void ((tucked = edge), ((globalThis as { vigilTucked?: string | null }).vigilTucked = edge), (tuckedWindow = edge ? win : null))
+  const mark = (edge: string | null): void => void ((tucked = edge), ((globalThis as { haligtreeTucked?: string | null }).haligtreeTucked = edge), (tuckedWindow = edge ? win : null))
   let hidden = false
   const hide = (why: string): void => {
     if (hidden || win.isDestroyed()) return
@@ -238,11 +238,11 @@ export let tuckedWindow: BrowserWindow | null = null
 /**
  * Just an area: the Mac's own crosshair (screencapture -i) over every screen,
  * with the box tucked away and kept out of the picture. Esc there is no
- * picture and no complaint. MINDFLOW_QA_FAKE_SCREEN stands in for the real
- * tool (it waits MINDFLOW_QA_FAKE_AREA_MS, or 400ms), so tests never start it.
+ * picture and no complaint. HALIGTREE_QA_FAKE_SCREEN stands in for the real
+ * tool (it waits HALIGTREE_QA_FAKE_AREA_MS, or 400ms), so tests never start it.
  */
 export async function shootArea(box: BrowserWindow | null): Promise<ScreenShot | { cancelled: true }> {
-  if (screenAccess() === 'off' && process.env.MINDFLOW_QA_FAKE_SCREEN) return { denied: true, asked: false }
+  if (screenAccess() === 'off' && process.env.HALIGTREE_QA_FAKE_SCREEN) return { denied: true, asked: false }
   if (screenAccess() === 'restart') return { denied: true, asked: false, restart: true }
   if (!FAKE_SCREEN) {
     const before = screenAllowed()
@@ -250,14 +250,14 @@ export async function shootArea(box: BrowserWindow | null): Promise<ScreenShot |
   }
   return unseen(box, async () => {
     const { look, back } = await tuckAway(box)
-    const file = join(app.getPath('temp'), `vigil-area-${process.pid}-${Date.now()}.png`)
+    const file = join(app.getPath('temp'), `haligtree-area-${process.pid}-${Date.now()}.png`)
     // Looked at again just before the crosshair comes up, and once it is up.
     look('before the crosshair')
     const soon = setTimeout(() => look('100ms into the pick'), 100)
     try {
       if (FAKE_SCREEN) {
-        await new Promise((done) => setTimeout(done, Number(process.env.MINDFLOW_QA_FAKE_AREA_MS ?? 400)))
-        return process.env.MINDFLOW_QA_FAKE_AREA === 'cancel' ? { cancelled: true as const } : { png: fakeDesktop(320, 200).toPNG(), app: '' }
+        await new Promise((done) => setTimeout(done, Number(process.env.HALIGTREE_QA_FAKE_AREA_MS ?? 400)))
+        return process.env.HALIGTREE_QA_FAKE_AREA === 'cancel' ? { cancelled: true as const } : { png: fakeDesktop(320, 200).toPNG(), app: '' }
       }
       await new Promise<void>((done) => execFile('/usr/sbin/screencapture', ['-i', '-x', file], () => done()))
       const png = await readFile(file).catch(() => null)

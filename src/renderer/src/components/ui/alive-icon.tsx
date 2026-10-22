@@ -7,7 +7,7 @@ import { still } from '@/lib/motion'
 /**
  * One of itshover's animated icons, moving when the button it sits in is
  * pointed at, not only the few pixels of the drawing itself. Still when
- * Motion is off. Kept here rather than with Vigil's views so the editor's own
+ * Motion is off. Kept here rather than with Haligtree's views so the editor's own
  * node views can use it too.
  */
 export function AliveIcon({ icon: Icon, size = 16, className, style, play = false }: {

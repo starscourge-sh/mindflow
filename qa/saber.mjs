@@ -1,6 +1,6 @@
 // The lightsaber, every way in and out of the sandbox (and another book):
-// each one runs the one shared saber (window.vigilSaber gets a line), plays
-// the same recording (window.vigilHeard), and its blade lasts no longer than
+// each one runs the one shared saber (window.haligtreeSaber gets a line), plays
+// the same recording (window.haligtreeHeard), and its blade lasts no longer than
 // the sound, within 50ms. The blade is read every 30ms to see the curve: lit
 // fast first then settling (ease-out), put away slow first (ease-in). With
 // Motion off there is no blade but the same length; with Sounds off, no sound.
@@ -14,8 +14,8 @@ const check = (name, ok, detail = '') => { results.push(!!ok); console.log(`${ok
 const wait = (ms) => new Promise((done) => setTimeout(done, ms))
 
 // Nothing plays the saber's sound or draws its overlay but the one shared function.
-const callers = execSync(String.raw`grep -rnE "\bhum\(|'vigil:going'" src/renderer/src || true`, { encoding: 'utf8' }).trim().split('\n').filter(Boolean)
-const stray = callers.filter((line) => !line.startsWith('src/renderer/src/lib/sandbox.ts') && !line.startsWith('src/renderer/src/lib/sound.ts') && !line.includes("addEventListener('vigil:going'") && !line.includes("removeEventListener('vigil:going'"))
+const callers = execSync(String.raw`grep -rnE "\bhum\(|'haligtree:going'" src/renderer/src || true`, { encoding: 'utf8' }).trim().split('\n').filter(Boolean)
+const stray = callers.filter((line) => !line.startsWith('src/renderer/src/lib/sandbox.ts') && !line.startsWith('src/renderer/src/lib/sound.ts') && !line.includes("addEventListener('haligtree:going'") && !line.includes("removeEventListener('haligtree:going'"))
 check('only lib/sandbox.ts plays the hum or raises the overlay', stray.length === 0, stray.join(' | '))
 
 // A restart is caught, never made.
@@ -50,20 +50,20 @@ async function trial(c, name, trigger, { up, blade = true, sound = true } = {}) 
   await h.reload()
   await h.waitForTimeout(1800)
   await sample(h)
-  const swung = await h.evaluate(() => (window.vigilSaber ?? []).length)
+  const swung = await h.evaluate(() => (window.haligtreeSaber ?? []).length)
   // Emptied rather than counted: the page keeps the last 50 sounds, so once it is full a count no longer marks where this trial's begin.
-  const heard = await h.evaluate(() => (window.vigilHeard && (window.vigilHeard.length = 0), 0))
+  const heard = await h.evaluate(() => (window.haligtreeHeard && (window.haligtreeHeard.length = 0), 0))
   await trigger()
   let entry = null
   for (let i = 0; i < 80 && !entry; i++) {
     await h.waitForTimeout(100)
-    entry = await h.evaluate((n) => (window.vigilSaber ?? [])[n] ?? null, swung)
+    entry = await h.evaluate((n) => (window.haligtreeSaber ?? [])[n] ?? null, swung)
   }
   if (!entry) return check(`${name}: runs the shared saber`, false, 'no saber')
   await h.waitForTimeout(entry.soundMs + 400)
-  entry = await h.evaluate((n) => window.vigilSaber[n], swung)
+  entry = await h.evaluate((n) => window.haligtreeSaber[n], swung)
   const frames = await h.evaluate(() => (clearInterval(window.__sampler), window.__frames))
-  const played = (await h.evaluate(() => [...(window.vigilHeard ?? [])])).slice(heard)
+  const played = (await h.evaluate(() => [...(window.haligtreeHeard ?? [])])).slice(heard)
   const want = up ? 'saber-on' : 'saber-off'
   check(`${name}: runs the shared saber, ${up ? 'lit' : 'put away'}`, entry.up === up, `"${entry.text}"`)
   check(`${name}: ${sound ? `plays ${want}` : 'no sound'}`, sound ? played.includes(want) : !played.some((one) => one.startsWith('saber')), played.join(' ') || 'none')
@@ -91,7 +91,7 @@ const command = async (h, words) => {
   await h.waitForTimeout(700)
   await h.keyboard.press('Enter')
 }
-const vigilMenu = async (h, item) => {
+const haligtreeMenu = async (h, item) => {
   await h.locator('button[aria-label="Haligtree menu"]').first().click()
   await h.waitForTimeout(400)
   await h.getByRole('menuitem', { name: item }).first().click()
@@ -124,11 +124,11 @@ const menuBar = (c, name) => c.electron.evaluate(({ BrowserWindow }, n) => {
     await trial(c, 'pill, Back to my notes', () => click(c.h, '[data-sandbox-pill] button', 'notes'), { up: false })
     await trial(c, 'pill, Reset then Hold to start over', async () => { await click(c.h, '[data-sandbox-pill] button', 'Reset'); await c.h.waitForTimeout(400); await hold(c.h, 'Hold to start over') }, { up: true })
     await trial(c, '⌘K, Back to my notes', () => command(c.h, 'Back to my notes'), { up: false })
-    await trial(c, 'Haligtree menu, Back to my notes', () => vigilMenu(c.h, 'Back to my notes'), { up: false })
+    await trial(c, 'Haligtree menu, Back to my notes', () => haligtreeMenu(c.h, 'Back to my notes'), { up: false })
     await trial(c, 'Settings, Back to my notes', async () => { await settingsPage(c); await toSandboxCard(c.h); await c.h.locator('button', { hasText: /^Back to my notes$/ }).first().click() }, { up: false })
     await trial(c, 'Settings, Hold to reset', async () => { await settingsPage(c); await toSandboxCard(c.h); await hold(c.h, 'Hold to reset') }, { up: true })
-    await trial(c, 'menu bar, Back to my notes', () => menuBar(c, 'vigil:sandbox-leave'), { up: false })
-    await trial(c, 'book switch, out of the sandbox', () => event(c.h, 'vigil:book-switch', 'default'), { up: false })
+    await trial(c, 'menu bar, Back to my notes', () => menuBar(c, 'haligtree:sandbox-leave'), { up: false })
+    await trial(c, 'book switch, out of the sandbox', () => event(c.h, 'haligtree:book-switch', 'default'), { up: false })
     // Cramped: the pill is only the flask, and its menu has the way out.
     await c.size(560, 700)
     await trial(c, 'cramped pill menu, Back to my notes', async () => { await c.h.locator('[data-sandbox-pill] button[aria-label="Sandbox"]').click(); await c.h.waitForTimeout(400); await c.h.getByRole('menuitem', { name: 'Back to my notes' }).click() }, { up: false })
@@ -149,15 +149,15 @@ const menuBar = (c, name) => c.electron.evaluate(({ BrowserWindow }, n) => {
     const id = await c.v('books:create', 'Scratch')
     await stub(c)
     await trial(c, '⌘K, Open the sandbox', () => command(c.h, 'Open the sandbox examples'), { up: true })
-    await trial(c, 'Haligtree menu, Open the sandbox', () => vigilMenu(c.h, 'Open the sandbox…'), { up: true })
+    await trial(c, 'Haligtree menu, Open the sandbox', () => haligtreeMenu(c.h, 'Open the sandbox…'), { up: true })
     await trial(c, 'Settings, Open the sandbox', async () => { await settingsPage(c); await toSandboxCard(c.h); await c.h.locator('button', { hasText: /^Open the sandbox$/ }).first().click() }, { up: true })
-    await trial(c, 'menu bar, Open the sandbox', () => menuBar(c, 'vigil:sandbox-enter'), { up: true })
-    await trial(c, 'book switch, to the sandbox', () => event(c.h, 'vigil:book-switch', 'sandbox'), { up: true })
-    await trial(c, 'book switch, to another book', () => event(c.h, 'vigil:book-switch', id), { up: true })
+    await trial(c, 'menu bar, Open the sandbox', () => menuBar(c, 'haligtree:sandbox-enter'), { up: true })
+    await trial(c, 'book switch, to the sandbox', () => event(c.h, 'haligtree:book-switch', 'sandbox'), { up: true })
+    await trial(c, 'book switch, to another book', () => event(c.h, 'haligtree:book-switch', id), { up: true })
     await c.v('settings:set', { motion: false })
-    await trial(c, 'Motion off', () => event(c.h, 'vigil:sandbox-enter'), { up: true, blade: false })
+    await trial(c, 'Motion off', () => event(c.h, 'haligtree:sandbox-enter'), { up: true, blade: false })
     await c.v('settings:set', { motion: true, sounds: false })
-    const frames = await trial(c, 'Sounds off', () => event(c.h, 'vigil:sandbox-enter'), { up: true, sound: false })
+    const frames = await trial(c, 'Sounds off', () => event(c.h, 'haligtree:sandbox-enter'), { up: true, sound: false })
     if (frames) console.log('  lit, by the ms:', frames.filter((_, i) => i % 3 === 0).map(([t, p]) => `${t}:${p}`).join(' '))
     await c.v('settings:set', { sounds: true })
     check('no page errors at home', !c.errors.some((one) => one.startsWith('PAGEERROR')), c.errors.filter((one) => one.startsWith('PAGEERROR')).join(' | '))

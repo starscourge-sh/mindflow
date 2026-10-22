@@ -5,7 +5,7 @@
 //   2. a note made into a live task shows once, as the task, unless the chip asks for it;
 //   3. the page's “N items” matches the rows on show;
 //   4. the Inbox, search, tags and Recent leave out what is in the Bin; the Bin lists it.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/bin-hidden.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/bin-hidden.mjs
 // SHOTS=dir keeps a picture of each step.
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'

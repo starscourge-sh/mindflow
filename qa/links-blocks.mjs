@@ -1,5 +1,5 @@
 // Links that behave, on sandbox data:
-//  63. "the.re" typed is no link; "vigil.app" is; ⌘Z straight after takes the link and keeps the words;
+//  63. "the.re" typed is no link; "haligtree.app" is; ⌘Z straight after takes the link and keeps the words;
 //      the bar's "Remove link" and "Edit link" (⌘K) work; a link's words edited into a non-address unlink.
 //  22. a [[link]] to nothing makes no page until clicked; clicked, the page is made and opened; left
 //      empty, it goes; renaming a note rewrites ten links to it, one notice, one Undo; export says [[Title]].
@@ -7,7 +7,7 @@
 //  28. "Copy embed of this line" pasted elsewhere shows the line live: edited there, saved in its note;
 //      changed in its note, it changes there. A gem shown so stays one gem.
 //   npx electron-vite build --outDir out-links
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-links/main/index.js MINDFLOW_QA_AWAY=1 node qa/links-blocks.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-links/main/index.js HALIGTREE_QA_AWAY=1 node qa/links-blocks.mjs
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -16,7 +16,7 @@ import { sandbox } from './sandbox-lib.mjs'
 
 const SHOTS = process.env.QA_SHOTS ?? '/private/tmp/claude-501/-Users-starscourge-Documents-forge-mindflow/703b99ba-c755-40e3-a385-896560d19061/scratchpad/shots/editor-links'
 mkdirSync(SHOTS, { recursive: true })
-const ED = '.note-pane .tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+const ED = '.note-pane .tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 const { check, done } = checks()
 const c = await sandbox({ width: 1200, height: 860 })
 const { h, electron, send, close, errors, v } = c
@@ -50,12 +50,12 @@ try {
   check('63. "the.re" typed is not made a link', !linksIn(await json()).length, JSON.stringify(linksIn(await json())))
   await h.keyboard.type('and a.b and x.c ', { delay: 20 }); await wait(300)
   check('63. nor "a.b" or "x.c"', !linksIn(await json()).length)
-  await h.keyboard.type('see vigil.app ', { delay: 20 }); await wait(300)
+  await h.keyboard.type('see haligtree.app ', { delay: 20 }); await wait(300)
   const made = linksIn(await json())
-  check('63. "vigil.app" is made a link', made.length === 1 && made[0].text === 'vigil.app', JSON.stringify(made))
+  check('63. "haligtree.app" is made a link', made.length === 1 && made[0].text === 'haligtree.app', JSON.stringify(made))
   await h.keyboard.press('Meta+z'); await wait(300)
   const after = await json()
-  check('63. ⌘Z straight after takes the link back, the words stay', !linksIn(after).length && JSON.stringify(after).includes('see vigil.app '), JSON.stringify(linksIn(after)))
+  check('63. ⌘Z straight after takes the link back, the words stay', !linksIn(after).length && JSON.stringify(after).includes('see haligtree.app '), JSON.stringify(linksIn(after)))
   await h.keyboard.type('and www.example.com ', { delay: 20 }); await wait(300)
   check('63. "www.example.com" is a link', linksIn(await json()).some((one) => one.text === 'www.example.com'))
   // Picked: the bar offers Edit and Remove.
@@ -139,7 +139,7 @@ try {
   check('22. its one Undo puts every link back', back.every((one) => one === 'Rename target old'), JSON.stringify(back))
 
   // Export: [[Title]], files named by title.
-  const folder = mkdtempSync(join(tmpdir(), 'vigil-export-'))
+  const folder = mkdtempSync(join(tmpdir(), 'haligtree-export-'))
   await electron.evaluate(({ dialog }, dir) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] }) }, folder)
   await v('export')
   const sub = readdirSync(folder)[0]
@@ -212,7 +212,7 @@ try {
   const before = await gems().catch(() => null)
   const gem = await v('nugget:from', 'A gem line worth keeping in an article', {})
   const gemBody = (await v('item', gem)).body
-  const gemNamed = await h.evaluate(([id]) => window.api.vigil('notes:anchor', `nugget:${id}`, 0, 'A gem line'), [gem])
+  const gemNamed = await h.evaluate(([id]) => window.api.haligtree('notes:anchor', `nugget:${id}`, 0, 'A gem line'), [gem])
   check('28. a gem\'s line is given a name in the gem', !!gemNamed, String(gemNamed))
   const article = await make({ kind: 'note', body: doc(p('Article with a gem'), { type: 'noteEmbed', attrs: { id: `nugget:${gem}`, block: gemNamed, label: 'A gem line' } }, p('')) })
   await open(article); await wait(1500)

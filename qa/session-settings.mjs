@@ -4,7 +4,7 @@
 // lets a sticky kept out of shares show, even for a moment.
 //
 //   npx electron-vite build --outDir out-ts
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-ts/main/index.js MINDFLOW_QA_AWAY=1 node qa/session-settings.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-ts/main/index.js HALIGTREE_QA_AWAY=1 node qa/session-settings.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const results = []
@@ -54,7 +54,7 @@ try {
   await chip('Pocket watch').click()
   await h.waitForTimeout(700)
   check('picking a tick keeps it', (await v('settings')).sessionTickSound === 'watch')
-  const sampled = await h.evaluate(() => [...(window.vigilHeard ?? [])])
+  const sampled = await h.evaluate(() => [...(window.haligtreeHeard ?? [])])
   check('picking a tick plays a sample of it', sampled.includes('tick-sample watch'), sampled.join(' '))
   await v('settings:set', { sessionTick: false })
   await h.waitForTimeout(600)

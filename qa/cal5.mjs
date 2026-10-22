@@ -6,7 +6,7 @@
 // same page. A Calendar slot says its time and length before it is made.
 //
 //   npx electron-vite build --outDir out-cal5
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-cal5/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=dir node qa/cal5.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-cal5/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=dir node qa/cal5.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const c = await sandbox({ width: 1400, height: 900 })

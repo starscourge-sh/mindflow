@@ -3,7 +3,7 @@ import { decodeHTML } from "entities"
 import { NodeViewWrapper, useEditorState, type NodeViewProps } from "@tiptap/react"
 
 import type { BookmarkAttributes } from "@/extensions/bookmark"
-import { Orb } from "@/components/vigil/orb"
+import { Orb } from "@/components/haligtree/orb"
 import { isYouTube, wideThumb } from "../../../../main/video-thumbs"
 import { lookOf, paintWhileLoading, withoutBands } from "@/lib/pictures"
 import { said } from "@/lib/host"
@@ -86,7 +86,7 @@ export function BookmarkView(props: NodeViewProps): React.JSX.Element {
       onClick={() => !loading && window.open(href, "_blank", "noopener")}
     >
       {/* No grey block pulsing where the picture will be: the orb below is
-          the one sign of a wait, the same one every wait in Vigil uses. */}
+          the one sign of a wait, the same one every wait in Haligtree uses. */}
       {/* The picture whole, over itself blurred: a picture of another shape
           leaves no empty bands, only its own colours carried to the edges. */}
       {image && !loading && (

@@ -4,7 +4,7 @@ import type { Editor } from '@tiptap/core'
 import { AppWindowIcon, CornerDownLeftIcon } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { Pressed, Tip } from '@/components/vigil/ui'
+import { Pressed, Tip } from '@/components/haligtree/ui'
 import { EASE, shift, still } from '@/lib/motion'
 import { chime } from '@/lib/sound'
 import { keysHere, usePane } from '@/lib/split'
@@ -12,7 +12,7 @@ import { keysHere, usePane } from '@/lib/split'
 /**
  * A note moving between the main window and a small window of its own, as
  * one page (Arc's Little Arc): ⌘O sends the open note out, and ⌘O in its
- * window ("Open in Vigil") brings it back. Going out, the window grows from
+ * window ("Open in Haligtree") brings it back. Going out, the window grows from
  * where the note was and the note lifts off the page, leaving a trace that
  * says where it went; coming back, the window glides onto the note's place
  * and fades into it. The caret and the place in the words go along both ways.
@@ -46,12 +46,12 @@ if (typeof window !== 'undefined') {
     const el = event.target instanceof Element ? event.target.closest('[data-row], [data-id], [role="option"], [role="row"], li, a, button') : null
     pressed = el ? { at: Date.now(), el } : null
   }, true)
-  addEventListener('vigil:opened-apart', (event) => mark((event as CustomEvent<string>).detail, true))
-  addEventListener('vigil:apart', (event) => {
+  addEventListener('haligtree:opened-apart', (event) => mark((event as CustomEvent<string>).detail, true))
+  addEventListener('haligtree:apart', (event) => {
     const { what, link } = (event as CustomEvent<{ what: string; link: string }>).detail
     if (what === 'closed') mark(idOf(link), false)
     else if (what === 'carry') void land(link)
-    else if (what === 'promote' && link === noteWindowLink()) void openInVigil()
+    else if (what === 'promote' && link === noteWindowLink()) void openInHaligtree()
   })
 }
 
@@ -117,22 +117,22 @@ export function openApart(type: string, id: string): void {
   const page = holderOf(id)
   const row = pressed && Date.now() - pressed.at < 2000 && pressed.el.isConnected ? pressed.el : null
   const from = (page ?? row)?.getBoundingClientRect()
-  window.dispatchEvent(new Event('mindflow:flush'))
+  window.dispatchEvent(new Event('haligtree:flush'))
   const carry = carryOf(page)
   chime('window')
-  void window.api.vigil('notes:window', type === 'capture' ? 'capture' : type, id, from ? { x: from.x, y: from.y, width: from.width, height: from.height } : null, carry)
-  const gone = (): void => void window.dispatchEvent(new CustomEvent('vigil:opened-apart', { detail: id }))
+  void window.api.haligtree('notes:window', type === 'capture' ? 'capture' : type, id, from ? { x: from.x, y: from.y, width: from.width, height: from.height } : null, carry)
+  const gone = (): void => void window.dispatchEvent(new CustomEvent('haligtree:opened-apart', { detail: id }))
   if (!page || still()) return gone()
   page.animate([{ opacity: 1, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(0.97) translateY(-6px)' }], { duration: 150, easing: `cubic-bezier(${EASE.join(',')})`, fill: 'forwards' })
     .finished.then(gone, gone)
 }
 
 /** ⌘O in a note's own window: back into the main window, the same page, caret and all. */
-export async function openInVigil(): Promise<void> {
-  window.dispatchEvent(new Event('mindflow:flush'))
+export async function openInHaligtree(): Promise<void> {
+  window.dispatchEvent(new Event('haligtree:flush'))
   const carry = carryOf(document.querySelector('.note-pane'))
   chime('homeward')
-  await window.api.vigil('notes:promote', carry)
+  await window.api.haligtree('notes:promote', carry)
 }
 
 /** The main window, sent a note that came back: says where it sits, for its window to glide onto, then takes the caret. */
@@ -145,15 +145,15 @@ async function land(link: string): Promise<void> {
     const rect = page?.getBoundingClientRect()
     if (rect && rect.width > 40) box = { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
   }
-  void window.api.vigil('notes:landed', link, box)
-  const carry = await window.api.vigil<Carry | null>('notes:carried', link)
+  void window.api.haligtree('notes:landed', link, box)
+  const carry = await window.api.haligtree<Carry | null>('notes:carried', link)
   if (carry) await putBack(() => holderOf(id), carry)
 }
 
 /** A note's own window, just opened: the caret and the place it was carried with. */
 export function useCarriedHere(link: string): void {
   useEffect(() => {
-    void window.api.vigil<Carry | null>('notes:carried', link).then((carry) => carry && putBack(() => document.querySelector('.note-pane'), carry))
+    void window.api.haligtree<Carry | null>('notes:carried', link).then((carry) => carry && putBack(() => document.querySelector('.note-pane'), carry))
   }, [link])
   // ⌘O: back into the main window.
   useEffect(() => {
@@ -162,7 +162,7 @@ export function useCarriedHere(link: string): void {
       if (document.querySelector('[role="dialog"][aria-modal="true"]')) return
       event.preventDefault()
       event.stopPropagation()
-      void openInVigil()
+      void openInHaligtree()
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
@@ -228,7 +228,7 @@ export function Apart({ type, id, title, hidden = false, onBack, children }: {
 }
 
 const bringBack = (type: string, id: string): void =>
-  void window.api.vigil<boolean>('notes:bring-back', `${type === 'capture' ? 'capture' : type}:${id}`).then((sent) => sent || mark(id, false))
+  void window.api.haligtree<boolean>('notes:bring-back', `${type === 'capture' ? 'capture' : type}:${id}`).then((sent) => sent || mark(id, false))
 
 function Trace({ type, id, title, hidden }: { type: string; id: string; title: string | null; hidden: boolean }): React.JSX.Element {
   return (
@@ -248,7 +248,7 @@ function Trace({ type, id, title, hidden }: { type: string; id: string; title: s
       </div>
       <div className="flex flex-wrap items-center justify-center gap-2">
         <Tip label="Bring its window to the front">
-          <Button variant="outline" size="lg" data-apart-show onClick={() => (chime('tap'), void window.api.vigil('notes:window', type === 'capture' ? 'capture' : type, id))}>
+          <Button variant="outline" size="lg" data-apart-show onClick={() => (chime('tap'), void window.api.haligtree('notes:window', type === 'capture' ? 'capture' : type, id))}>
             <AppWindowIcon />Show its window
           </Button>
         </Tip>

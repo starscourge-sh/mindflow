@@ -1,7 +1,7 @@
 // Nothing that matters is small and grey, every mark and icon button has a
 // name, every hover-only action is reachable without hovering, and no menu
 // scrolls in a 1100x600 window (the quick capture box is 600 high).
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 [SHOT=<dir>] [AUDIT=1] node qa/sweep-b.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 [SHOT=<dir>] [AUDIT=1] node qa/sweep-b.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 

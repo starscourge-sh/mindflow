@@ -5,9 +5,9 @@ import { Decoration, DecorationSet } from "@tiptap/pm/view"
 import { createElement } from "react"
 import { createRoot, type Root } from "react-dom/client"
 
-import { vigil } from "@/lib/vigil"
+import { haligtree } from "@/lib/haligtree"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { Tip } from "@/components/vigil/ui"
+import { Tip } from "@/components/haligtree/ui"
 
 /**
  * Words in a note made into something (a gem, a capture, a task) stay where
@@ -117,14 +117,14 @@ function decorate(doc: PMNode, known: Map<string, State>): DecorationSet {
 /** Whether it is still there, in the Bin, or gone for good. */
 async function stateOf(kind: KeptKind, id: string): Promise<State> {
   if (kind === "nugget") {
-    const item = await vigil.item(id)
+    const item = await haligtree.item(id)
     return !item ? "gone" : (item as { binnedAt?: string | null }).binnedAt ? "bin" : "live"
   }
   if (kind === "capture") {
     const capture = await window.api.captures.get(id)
     return !capture ? "gone" : capture.status === "discarded" ? "bin" : "live"
   }
-  const task = await vigil.task(id)
+  const task = await haligtree.task(id)
   return !task ? "gone" : task.status === "dropped" ? "bin" : "live"
 }
 

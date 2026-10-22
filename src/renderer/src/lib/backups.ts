@@ -1,6 +1,6 @@
-import { refuse, toast } from '@/components/vigil/ui'
+import { refuse, toast } from '@/components/haligtree/ui'
 import { chime } from '@/lib/sound'
-import { vigil } from '@/lib/vigil'
+import { haligtree } from '@/lib/haligtree'
 import { ago } from '../../../main/dates'
 
 /** "just now", "12 minutes ago", "2 hours ago", then by the calendar: "yesterday", "3 days ago". */
@@ -19,13 +19,13 @@ export const backedUpAgo = (at: number): string => {
  * Settings and the "Backups have stopped" toast both come here.
  */
 export async function chooseBackupFolder(usual = false): Promise<{ at: number | null; failing: string | null; chosen: boolean } | null> {
-  const status = await vigil.chooseBackups(usual)
+  const status = await haligtree.chooseBackups(usual)
   if (!status) return null
   if (status.failing) refuse(`That folder didn't work either: ${status.failing}. Choose another`, 'error')
   else {
     chime('saved')
     toast(usual ? 'Backups go to the usual place again. A copy was made there just now' : 'Backups go to the new folder. A copy was made there just now')
   }
-  window.dispatchEvent(new CustomEvent('vigil:backups'))
+  window.dispatchEvent(new CustomEvent('haligtree:backups'))
   return status
 }

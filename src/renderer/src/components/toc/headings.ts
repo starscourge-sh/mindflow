@@ -105,7 +105,7 @@ function lineStarting(doc: ProseMirrorNode, wanted: string): number | undefined 
 }
 
 /** Asks the outline beside this editor to take the keys. */
-export const OPEN = "mindflow-outline"
+export const OPEN = "haligtree-outline"
 
 /**
  * The outline's keys, bound to the editor so they only act on the one being

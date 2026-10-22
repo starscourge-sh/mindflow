@@ -1,4 +1,4 @@
-import { vigil } from '@/lib/vigil'
+import { haligtree } from '@/lib/haligtree'
 
 /**
  * A break is the one moment you are told to stop working, so it is a good
@@ -31,7 +31,7 @@ const wordsOf = (title: string | undefined, body: unknown): string => {
 
 /** A line from a year ago (or this week in another year, or one source's things): Photos' memories. */
 const memory: BreakSource = async () => {
-  const one = await vigil.memory().catch(() => null)
+  const one = await haligtree.memory().catch(() => null)
   const text = one ? wordsOf(one.title, one.body) : ''
   return one && text ? { label: one.memory, text, open: { type: one.id === one.captureId ? 'capture' : 'nugget', id: one.id }, event: one.event } : null
 }

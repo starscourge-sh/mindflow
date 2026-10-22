@@ -6,7 +6,7 @@
 // A line still up when the chapter ends waits for Next: the reader's pace.
 // It fails only when one of the welcome's own lines (19px and up) goes too soon.
 //
-//   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/welcome-read.mjs [shots-dir] [json-out]
+//   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/welcome-read.mjs [shots-dir] [json-out]
 import { mkdirSync, writeFileSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -24,7 +24,7 @@ const rows = []
 try {
   await c.theme(THEME)
   await h.waitForTimeout(1500)
-  if (!(await h.$('.mf-welcome'))) await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:welcome')))
+  if (!(await h.$('.mf-welcome'))) await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:welcome')))
   await h.waitForSelector('.mf-welcome', { timeout: 8000 })
   // Every line of words in the welcome's stage, as a reader would see it: on screen, not faded out, its size.
   const sample = () => h.evaluate(() => {

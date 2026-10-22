@@ -5,7 +5,7 @@
 // window, a note's own window and the box; screenshots in light and dark.
 //
 //   npx electron-vite build --outDir out-reword
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-reword/main/index.js MINDFLOW_QA_AWAY=1 SHOT=<dir> node qa/reword.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-reword/main/index.js HALIGTREE_QA_AWAY=1 SHOT=<dir> node qa/reword.mjs
 import { mkdirSync, writeFileSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 

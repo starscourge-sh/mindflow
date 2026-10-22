@@ -3,7 +3,7 @@
 // gap between frames (and the long tasks) over the next two seconds is
 // reported. Passes when no frame gap is over 200ms (it was 900 to 2,300ms
 // when every element glided its colours; a crossfade's capture costs about 150).
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/theme-switch-timing.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/theme-switch-timing.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const c = await sandbox({ width: 1100, height: 760 })

@@ -2,7 +2,7 @@
 // Settings is silent under the pointer and slams when chosen, and a sweep
 // over every button in Settings and on Home plays no press sound (a tick, a
 // slam, a chime). Rows may still give their soft hover click.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/hover-sounds.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/hover-sounds.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const c = await sandbox({ width: 1100, height: 760 })
@@ -11,7 +11,7 @@ const results = []
 const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`))
 await v('settings:set', { sounds: true, hintRate: 0, rotCount: 0 })
 await h.waitForTimeout(400)
-const heard = () => h.evaluate(() => (window.vigilHeard ?? []).splice(0))
+const heard = () => h.evaluate(() => (window.haligtreeHeard ?? []).splice(0))
 // Hover sounds: the soft row click and its kin. Anything else under a still hand is a press sound.
 const HOVER = new Set(['click:soft', 'click:tock', 'click:knock'])
 

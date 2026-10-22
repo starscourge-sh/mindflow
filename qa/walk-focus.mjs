@@ -7,13 +7,13 @@
 // themes. Each step is shot, so the screens can be looked at by eye.
 //
 //   npx electron-vite build --outDir out-walk4
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-walk4/main/index.js MINDFLOW_QA_AWAY=1 SHOT=<dir> node qa/walk-focus.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-walk4/main/index.js HALIGTREE_QA_AWAY=1 SHOT=<dir> node qa/walk-focus.mjs
 import { mkdirSync } from 'fs'
 import { sandbox, shiftClock } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
 
 // A notch stood in, so "Under the notch" can be walked on any Mac.
-process.env.MINDFLOW_QA_NOTCH = '1'
+process.env.HALIGTREE_QA_NOTCH = '1'
 const SHOT = process.env.SHOT ?? 'scratchpad/walk-focus'
 mkdirSync(SHOT, { recursive: true })
 const { check, done } = checks()

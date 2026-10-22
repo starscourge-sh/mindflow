@@ -9,14 +9,14 @@
 // Picking a picture up still hands the system drag its file (startDrag, stubbed here).
 //
 //   npx electron-vite build --outDir out-imgdrag
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-imgdrag/main/index.js MINDFLOW_QA_AWAY=1 node qa/image-drag.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-imgdrag/main/index.js HALIGTREE_QA_AWAY=1 node qa/image-drag.mjs
 import { mkdtempSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
-process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'vigil-imgdrag-'))
+process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'haligtree-imgdrag-'))
 process.env.QA_ARGS ??= '--sandbox'
-process.env.MINDFLOW_QA_AWAY ??= '1'
+process.env.HALIGTREE_QA_AWAY ??= '1'
 const { sandbox } = await import('./sandbox-lib.mjs')
 
 const results = []
@@ -64,7 +64,7 @@ async function run(win, ED, label) {
   await win.waitForTimeout(900)
   const before = await shape()
   const out0 = await drags()
-  await dragDrop('img[src^="mindflow://assets/"]', 'third line')
+  await dragDrop('img[src^="haligtree://assets/"]', 'third line')
   await win.waitForTimeout(400)
   const moved = await shape()
   check(`${label}: a picture dragged below a paragraph moves there, one picture, same file`, moved === `first line | second line | third line | IMAGE:${tail}`, moved)
@@ -73,7 +73,7 @@ async function run(win, ED, label) {
   check(`${label}: ⌘Z puts it back where it was`, (await shape()) === before, await shape())
 
   // 3. Copy with ⌥, then undo.
-  await dragDrop('img[src^="mindflow://assets/"]', 'third line', { alt: true })
+  await dragDrop('img[src^="haligtree://assets/"]', 'third line', { alt: true })
   await win.waitForTimeout(400)
   const copied = await shape()
   check(`${label}: ⌥-drag leaves the original and adds a copy of the same file`, copied === `first line | IMAGE:${tail} | second line | third line | IMAGE:${tail}`, copied)
@@ -91,7 +91,7 @@ async function run(win, ED, label) {
   // 5. Out and let go elsewhere, then a file from Finder: a new one, the old kept.
   await set([p('first line'), { type: 'image', attrs: { src } }, p('second line'), p('third line')])
   await win.waitForTimeout(400)
-  await dragDrop('img[src^="mindflow://assets/"]', 'third line', { out: true })
+  await dragDrop('img[src^="haligtree://assets/"]', 'third line', { out: true })
   await win.waitForTimeout(1500)
   const finder = await shape()
   check(`${label}: a file dropped from Finder after a drag went out is added, the picture kept`, finder.split('IMAGE').length - 1 === 2 && finder.startsWith(`first line | IMAGE:${tail} | second line | third line`), finder)
@@ -119,21 +119,21 @@ async function run(win, ED, label) {
 
 try {
   await v('settings:set', { sounds: false })
-  await page.evaluate(() => window.api.vigil('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false }))
+  await page.evaluate(() => window.api.haligtree('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false }))
   await page.reload()
-  await page.waitForSelector('.tiptap.ProseMirror.mindflow-editor:not(.is-line)', { timeout: 15000 })
+  await page.waitForSelector('.tiptap.ProseMirror.haligtree-editor:not(.is-line)', { timeout: 15000 })
   await electron.evaluate(({ BrowserWindow }) => {
     const box = BrowserWindow.getAllWindows().find((one) => !one.webContents.getURL().includes('view='))
     box?.setBounds({ x: 60, y: 60, width: 800, height: 700 })
     box?.showInactive()
   })
   await page.waitForTimeout(500)
-  await run(page, '.tiptap.ProseMirror.mindflow-editor:not(.is-line)', 'box')
+  await run(page, '.tiptap.ProseMirror.haligtree-editor:not(.is-line)', 'box')
 
   const id = await h.evaluate(() => window.api.captures.create({ kind: 'note', body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Picture probe' }] }] } }))
   await send('capture', id)
   await h.waitForTimeout(1500)
-  const ED = '.note-pane .tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+  const ED = '.note-pane .tiptap.ProseMirror.haligtree-editor:not(.is-line)'
   await h.locator(ED).waitFor({ timeout: 8000 })
   await run(h, ED, 'main window')
   if (c.errors.length) console.log('errors:', c.errors.slice(0, 5).join('\n'))

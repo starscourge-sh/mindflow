@@ -52,7 +52,7 @@ for (const theme of list) {
 
   const read = await page.evaluate(() => {
     const root = document.documentElement
-    const editor = document.querySelector('.tiptap.ProseMirror.mindflow-editor:not(.is-line)')
+    const editor = document.querySelector('.tiptap.ProseMirror.haligtree-editor:not(.is-line)')
     const body = editor.querySelector('p')
     const heading = editor.querySelector('h1')
     const style = getComputedStyle(root)

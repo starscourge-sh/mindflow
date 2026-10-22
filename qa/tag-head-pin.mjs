@@ -1,6 +1,6 @@
 // A tag's big heading keeps the tails of g, p and y; the tag page has no pin
 // button; Home shows the month only once "Show the month on Home" is on.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 [QA_SHOTS=dir] node qa/tag-head-pin.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 [QA_SHOTS=dir] node qa/tag-head-pin.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 

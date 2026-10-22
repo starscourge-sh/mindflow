@@ -8,58 +8,58 @@ import CameraOffIcon from '@/components/ui/camera-off-icon'
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { AnimatePresence, motion } from 'motion/react'
 import { EASE, byKeys, keyedMotion, shift, spring } from './lib/motion'
-import { Highlight, Unfold, useChosen, useFluidHover, Weighted } from './components/vigil/glide'
+import { Highlight, Unfold, useChosen, useFluidHover, Weighted } from './components/haligtree/glide'
 import { chime, chimedWithin, pageTurn, paper, soundOn, tickedWithin, turnedNow } from './lib/sound'
 import { peekRead, readOnPress, whenRead } from './lib/early-read'
-import { WarmEditor } from './components/vigil/warm-editor'
-import { PageSwap } from './components/vigil/page-swap'
+import { WarmEditor } from './components/haligtree/warm-editor'
+import { PageSwap } from './components/haligtree/page-swap'
 import { foldEverything } from './extensions/heading-fold'
-import { NotePreview } from './components/vigil/note-preview'
-import { TASK_KIND } from './components/vigil/everything'
-import { PickDays } from './components/vigil/late-tasks'
+import { NotePreview } from './components/haligtree/note-preview'
+import { TASK_KIND } from './components/haligtree/everything'
+import { PickDays } from './components/haligtree/late-tasks'
 
 import { CAPTURE_TYPES } from './components/capture-kinds/capture-kind-picker'
 import { useCaptures, type CaptureMeta } from './components/capture-list'
 import { Search, type Action } from './components/search'
 import { keepTyped } from './lib/keep-typed'
 import { landPromoted } from './lib/promote'
-import { CapturesView } from './components/vigil/captures-view'
-import { ItemsView } from './components/vigil/items-view'
-import { QuestionsView, startQuestion } from './components/vigil/questions-view'
-import { GoalsView, startGoal } from './components/vigil/goals-view'
-import { QueueReader, QueueView } from './components/vigil/queue-view'
+import { CapturesView } from './components/haligtree/captures-view'
+import { ItemsView } from './components/haligtree/items-view'
+import { QuestionsView, startQuestion } from './components/haligtree/questions-view'
+import { GoalsView, startGoal } from './components/haligtree/goals-view'
+import { QueueReader, QueueView } from './components/haligtree/queue-view'
 import { useQueue } from './lib/reading-queue'
-import { ReviewView } from './components/vigil/review-view'
-import { HomeView } from './components/vigil/home-view'
-import { SettingsView } from './components/vigil/settings-view'
-import { StatsView } from './components/vigil/stats-view'
-import { PracticesView } from './components/vigil/practices-view'
+import { ReviewView } from './components/haligtree/review-view'
+import { HomeView } from './components/haligtree/home-view'
+import { SettingsView } from './components/haligtree/settings-view'
+import { StatsView } from './components/haligtree/stats-view'
+import { PracticesView } from './components/haligtree/practices-view'
 import { usePracticeActions } from '@/lib/practices'
-import { MapView } from './components/vigil/map-view'
-import { PowersView } from './components/vigil/powers-view'
-import { TagsView } from './components/vigil/tags-view'
-import { SourcePageView, SourcesView } from './components/vigil/source-page'
-import { TagIcon } from './components/vigil/tag-icon'
-import { prefetchTag, renameTag } from './components/vigil/tag-read'
-import { TasksView, askDate, askSessions } from './components/vigil/tasks-view'
-import { WeekView } from './components/vigil/week-view'
-import { CalendarView } from './components/vigil/calendar-view'
-import { MatrixView } from './components/vigil/matrix-view'
+import { MapView } from './components/haligtree/map-view'
+import { PowersView } from './components/haligtree/powers-view'
+import { TagsView } from './components/haligtree/tags-view'
+import { SourcePageView, SourcesView } from './components/haligtree/source-page'
+import { TagIcon } from './components/haligtree/tag-icon'
+import { prefetchTag, renameTag } from './components/haligtree/tag-read'
+import { TasksView, askDate, askSessions } from './components/haligtree/tasks-view'
+import { WeekView } from './components/haligtree/week-view'
+import { CalendarView } from './components/haligtree/calendar-view'
+import { MatrixView } from './components/haligtree/matrix-view'
 import { bucket, onToday, picked, taskName } from './lib/tasks'
-import { stickOnDesktop } from './components/vigil/sticky-note'
-import { Count, Toaster, toast, refuse, typing, HELD, FocusNote, useFocusMode, SoundToggle, quietly } from './components/vigil/ui'
-import { GrowFrom } from './components/vigil/grow-from'
-import { FocusScenery } from './components/vigil/scenery'
+import { stickOnDesktop } from './components/haligtree/sticky-note'
+import { Count, Toaster, toast, refuse, typing, HELD, FocusNote, useFocusMode, SoundToggle, quietly } from './components/haligtree/ui'
+import { GrowFrom } from './components/haligtree/grow-from'
+import { FocusScenery } from './components/haligtree/scenery'
 import { TooltipProvider } from './components/ui/tooltip'
-import { SidePeek } from './components/vigil/page-peeks'
-import { MenuPeek } from './components/vigil/menu-peeks'
+import { SidePeek } from './components/haligtree/page-peeks'
+import { MenuPeek } from './components/haligtree/menu-peeks'
 import { useStickiesOut } from './lib/stickies-out'
 import { useReadsIn } from './lib/reads-in'
-import { call, unloaded, useAppearance, useLive, vigil, type Item, type Pin, type Settings, type Task } from './lib/vigil'
+import { call, unloaded, useAppearance, useLive, haligtree, type Item, type Pin, type Settings, type Task } from './lib/haligtree'
 import { Button } from '@/components/ui/button'
 import { allRecorded, recordAll } from './lib/recordings'
-import { Tip, showTopTitle, useTopTitle, Pressed, useEscapeLeavesEditor } from '@/components/vigil/ui'
-import { Celebrations, tryCelebration } from '@/components/vigil/celebrate'
+import { Tip, showTopTitle, useTopTitle, Pressed, useEscapeLeavesEditor } from '@/components/haligtree/ui'
+import { Celebrations, tryCelebration } from '@/components/haligtree/celebrate'
 import MagnifierIcon from '@/components/ui/magnifier-icon'
 import ExpandIcon from '@/components/ui/expand-icon'
 import GearIcon from '@/components/ui/gear-icon'
@@ -70,58 +70,58 @@ import PenIcon from '@/components/ui/pen-icon'
 import ShieldCheck from '@/components/ui/shield-check'
 import DownChevron from '@/components/ui/down-chevron'
 import { AliveIcon } from '@/components/ui/alive-icon'
-import { ShortcutSheet } from '@/components/vigil/shortcut-sheet'
-import { UnusedFiles } from '@/components/vigil/unused-files'
-import { Tour } from '@/components/vigil/tour'
-import { SandboxHost, SandboxPill } from '@/components/vigil/sandbox'
+import { ShortcutSheet } from '@/components/haligtree/shortcut-sheet'
+import { UnusedFiles } from '@/components/haligtree/unused-files'
+import { Tour } from '@/components/haligtree/tour'
+import { SandboxHost, SandboxPill } from '@/components/haligtree/sandbox'
 import { SANDBOX, enterSandbox, leaveSandbox, resetSandbox } from '@/lib/sandbox'
 import { askBook } from '@/lib/books'
-import { BookName, askNewBook } from '@/components/vigil/books'
-import { Welcome } from '@/components/vigil/welcome'
-import { PageHint } from '@/components/vigil/page-hint'
+import { BookName, askNewBook } from '@/components/haligtree/books'
+import { Welcome } from '@/components/haligtree/welcome'
+import { PageHint } from '@/components/haligtree/page-hint'
 import { onboarding, playWelcome } from '@/lib/onboarding'
-import { DayView } from '@/components/vigil/day-view'
-import { MonthPage, SCALE_VIEW, WeekPage, YearPage, mondayOf, type Scale } from '@/components/vigil/periods-view'
-import { RecentPanel } from '@/components/vigil/recent-panel'
-import { Passes, openPass } from '@/components/vigil/pass'
+import { DayView } from '@/components/haligtree/day-view'
+import { MonthPage, SCALE_VIEW, WeekPage, YearPage, mondayOf, type Scale } from '@/components/haligtree/periods-view'
+import { RecentPanel } from '@/components/haligtree/recent-panel'
+import { Passes, openPass } from '@/components/haligtree/pass'
 import { noteActions } from '@/lib/notes'
 import { headingIn } from '@/lib/capture-links'
 import { openApart } from '@/lib/apart'
-import { PlaceIcon, SECTIONS, ShowList, dropOrder, earn, orderItems, risen, showWords, sidebarParts, useInOrder, useOrder, useSections, useShown, useWaiting, type Group } from '@/components/vigil/places'
-import { SortableList, SortableRow } from '@/components/vigil/sortable'
+import { PlaceIcon, SECTIONS, ShowList, dropOrder, earn, orderItems, risen, showWords, sidebarParts, useInOrder, useOrder, useSections, useShown, useWaiting, type Group } from '@/components/haligtree/places'
+import { SortableList, SortableRow } from '@/components/haligtree/sortable'
 import { pageTravel } from '@/lib/page-travel'
-import { Branches } from '@/components/vigil/branches'
-import { Term, WordNotes } from '@/components/vigil/term'
+import { Branches } from '@/components/haligtree/branches'
+import { Term, WordNotes } from '@/components/haligtree/term'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
-import { RowMenu } from '@/components/vigil/row-menu'
-import { onRemoveKey, pinFromSide, sideMenu, useFullMenu } from '@/components/vigil/side-menu'
+import { RowMenu } from '@/components/haligtree/row-menu'
+import { onRemoveKey, pinFromSide, sideMenu, useFullMenu } from '@/components/haligtree/side-menu'
 import { touch as touchOpen } from '@/lib/open-today'
 import { useStoredFlag } from '@/lib/use-stored-flag'
 import { NavContext, type Nav, type Step } from '@/lib/nav'
-import { SplitPanes, type PaneApi } from '@/components/vigil/panes'
-import { SplitDrop, type Carried, type Side } from '@/components/vigil/split-drop'
-import { rowOf } from '@/components/vigil/row-card'
-import { PairRow, pinLayout, sameLayout, unpinLayout, usePinnedLayouts, type PaneName } from '@/components/vigil/split-pairs'
+import { SplitPanes, type PaneApi } from '@/components/haligtree/panes'
+import { SplitDrop, type Carried, type Side } from '@/components/haligtree/split-drop'
+import { rowOf } from '@/components/haligtree/row-card'
+import { PairRow, pinLayout, sameLayout, unpinLayout, usePinnedLayouts, type PaneName } from '@/components/haligtree/split-pairs'
 import type { BookRef } from '@/lib/books'
-import type { RowItem } from '@/components/vigil/row-menu'
+import type { RowItem } from '@/components/haligtree/row-menu'
 import { MAX_PANES, asideClick, asideItem, keepTitle, roomFor, setPaneNotes, setPanes, spendAsideClick, titleOf, type PaneWidth } from '@/lib/split'
 import XIcon from '@/components/ui/x-icon'
-import { WhatsNewPage, openWhatsNew } from '@/components/vigil/whats-new'
-import { BinView } from '@/components/vigil/bin-view'
-import { CloseDaySheet, openCloseDay } from '@/components/vigil/close-day'
-import { writeOutDay } from '@/components/vigil/day-list'
-import { SortSheet } from '@/components/vigil/sort-out'
+import { WhatsNewPage, openWhatsNew } from '@/components/haligtree/whats-new'
+import { BinView } from '@/components/haligtree/bin-view'
+import { CloseDaySheet, openCloseDay } from '@/components/haligtree/close-day'
+import { writeOutDay } from '@/components/haligtree/day-list'
+import { SortSheet } from '@/components/haligtree/sort-out'
 import { openInboxSort } from '@/lib/sort-out'
 import { ExpandedSheet } from '@/components/note-link/expanded-note'
-import { openCloseWeek } from '@/components/vigil/close-week'
-import { FIT_CHOICES, FitsSheet, fitsHeard, openFits } from '@/components/vigil/fits'
+import { openCloseWeek } from '@/components/haligtree/close-week'
+import { FIT_CHOICES, FitsSheet, fitsHeard, openFits } from '@/components/haligtree/fits'
 import { openPlaybook } from '@/lib/playbook'
 import { menuShowing } from '@/lib/menu-keys'
 import { ChevronRight, CircleHelp } from '@/components/ui/icons'
 import { still } from '@/lib/motion'
 import { calendarAside, calendarPalette, revealOnCalendar } from '@/lib/calendar-scope'
 import { dated, dayjs, dayKey, daysFromToday, noon, num } from '../../main/dates'
-import { WrapOffer, WrapSheet, monthToWrap, openWrap } from '@/components/vigil/wrap-story'
+import { WrapOffer, WrapSheet, monthToWrap, openWrap } from '@/components/haligtree/wrap-story'
 import { caretInLink } from './extensions/link-tidy'
 import { APP_NAME } from '../../main/name'
 import { countUse, takeWay, via, type Via } from '@/lib/usage'
@@ -292,7 +292,7 @@ export function Home(): React.JSX.Element {
     const there = one.trail.views[one.trail.at]
     return holdsNotes(there.id) ? there.focus ?? null : null
   })), [split])
-  // Kept across launches while the page is split; on its own, Vigil opens on Home as always.
+  // Kept across launches while the page is split; on its own, Haligtree opens on Home as always.
   useEffect(() => saveSplit(split), [split])
   // Back returns to exactly what you saw: each step keeps how far its page
   // was scrolled, read as you leave it and put back when you return (panes.tsx).
@@ -500,14 +500,14 @@ export function Home(): React.JSX.Element {
   // A person's or a source's page, asked for from a note's who or where anywhere in the window.
   useEffect(() => {
     const onSource = (event: Event): void => setView({ id: 'source', focus: (event as CustomEvent<string>).detail })
-    window.addEventListener('vigil:source', onSource)
-    return () => window.removeEventListener('vigil:source', onSource)
+    window.addEventListener('haligtree:source', onSource)
+    return () => window.removeEventListener('haligtree:source', onSource)
   })
-  // What's new, asked for by the card, ⌘K or the Vigil menu: its built-in pages.
+  // What's new, asked for by the card, ⌘K or the Haligtree menu: its built-in pages.
   useEffect(() => {
     const onNews = (): void => (chime('page'), setView({ id: 'whatsnew' }))
-    window.addEventListener('vigil:whats-new', onNews)
-    return () => window.removeEventListener('vigil:whats-new', onNews)
+    window.addEventListener('haligtree:whats-new', onNews)
+    return () => window.removeEventListener('haligtree:whats-new', onNews)
   })
   // Opened to the side from anywhere in the window: a row's menu, a note's ⋯, an @ link's card.
   useEffect(() => {
@@ -515,8 +515,8 @@ export function Home(): React.JSX.Element {
       const { type, id, from } = (event as CustomEvent<{ type: string; id: string; from?: string | null }>).detail
       asideRef.current(stepOf(type, id), from ?? undefined)
     }
-    window.addEventListener('vigil:aside', onAside)
-    return () => window.removeEventListener('vigil:aside', onAside)
+    window.addEventListener('haligtree:aside', onAside)
+    return () => window.removeEventListener('haligtree:aside', onAside)
   }, [])
   // ⌥-click on a row of a list: that note to the side, the list it is in around it.
   useEffect(() => {
@@ -591,7 +591,7 @@ export function Home(): React.JSX.Element {
   const [pinsOpen, setPinsOpen] = useRemembered('sidebar:pinned', true)
   const [tasksOpen, setTasksOpen] = useRemembered('sidebar:tasks', true)
   const [notesOpen, setNotesOpen] = useRemembered('sidebar:notes', true)
-  // Tasks' pages not used yet, under a quiet "More": shut to start, and each time Vigil opens.
+  // Tasks' pages not used yet, under a quiet "More": shut to start, and each time Haligtree opens.
   const [moreOpen, setMoreOpen] = useState(false)
   const [keptOpen, setKeptOpen] = useRemembered('sidebar:kept', true)
   const [customizing, setCustomizing] = useState(false)
@@ -620,26 +620,26 @@ export function Home(): React.JSX.Element {
   const waiting = useWaiting()
   const ordered = useInOrder(sections, 'sidebarOrder', (section) => section.id)
   const pinSaved = useOrder('pinOrder')
-  const pinsUsual = useLive(vigil.pins, [] as Pin[])
+  const pinsUsual = useLive(haligtree.pins, [] as Pin[])
   const pins = useInOrder(pinsUsual, 'pinOrder', (pin) => `${pin.type}:${pin.id}`)
   const fullMenu = useFullMenu()
-  const tags = useLive(vigil.tags, [] as Awaited<ReturnType<typeof vigil.tags>>)
+  const tags = useLive(haligtree.tags, [] as Awaited<ReturnType<typeof haligtree.tags>>)
   // Pinned from a tag's page: those first, then the most used.
   const sideTags = tags.slice(0, 8)
   // The Tags heading is marked on the Tags page, and on a tag's page whose own row is folded away or not among these.
   const onTags = view.id === 'tags' && (!view.focus || !tagsOpen || !sideTags.some(({ tag }) => tag === view.focus))
   const captures = useCaptures()
-  const dueRead = useLive(vigil.dueCount, null as number | null, [], ['item'])
+  const dueRead = useLive(haligtree.dueCount, null as number | null, [], ['item'])
   const due = dueRead ?? 0
-  const tasks = useLive(vigil.tasks, [] as Task[])
+  const tasks = useLive(haligtree.tasks, [] as Task[])
   // What ⌘K offers for the Calendar, read once as it opens: the task picked on it, the day it shows.
   const palette = useMemo(() => (searching ? calendarPalette((day) => setView({ id: 'calendar', focus: day })) : null), [searching]) // eslint-disable-line react-hooks/exhaustive-deps
-  const nuggets = useLive(() => vigil.items('nugget'), [] as Item[], [], ['item'])
-  const articles = useLive(() => vigil.items('article'), [] as Item[], [], ['item'])
-  const questions = useLive(() => vigil.items('question'), [] as Item[], [], ['item'])
-  const goals = useLive(() => vigil.items('goal'), [] as Item[], [], ['item'])
+  const nuggets = useLive(() => haligtree.items('nugget'), [] as Item[], [], ['item'])
+  const articles = useLive(() => haligtree.items('article'), [] as Item[], [], ['item'])
+  const questions = useLive(() => haligtree.items('question'), [] as Item[], [], ['item'])
+  const goals = useLive(() => haligtree.items('goal'), [] as Item[], [], ['item'])
   const queued = useQueue()
-  const settings = useLive(vigil.settings, null as Settings | null)
+  const settings = useLive(haligtree.settings, null as Settings | null)
   // A new book's sidebar grows as it is used: a page opened any way (a row,
   // "More", ⌘K, G and its letter, a link) joins it for good, and so does a
   // page once the book has one of its things.
@@ -655,7 +655,7 @@ export function Home(): React.JSX.Element {
   const newPage = settings?.newMakes === 'page'
   const makeNew = (): void => {
     if (!newPage) return void (chime('open'), window.api.showPrompt())
-    void vigil.newArticle().then((id) => (chime('promote'), open('article', id)))
+    void haligtree.newArticle().then((id) => (chime('promote'), open('article', id)))
   }
   // Tags switched on for the sidebar (here or in Settings) unfold your tags under
   // their heading, so the switch shows them at once instead of only a folded name.
@@ -696,10 +696,10 @@ export function Home(): React.JSX.Element {
       if (type === 'task' || !id) return void chime('nope')
       if (to === 'pinned') void pinFromSide(type, id)
     }
-    window.addEventListener('vigil:side-drop', onDrop)
-    return () => window.removeEventListener('vigil:side-drop', onDrop)
+    window.addEventListener('haligtree:side-drop', onDrop)
+    return () => window.removeEventListener('haligtree:side-drop', onDrop)
   }, [])
-  // The page Vigil opens on (Settings, Layout): read once settings arrive, and only while nothing has been opened yet.
+  // The page Haligtree opens on (Settings, Layout): read once settings arrive, and only while nothing has been opened yet.
   const started = useRef(false)
   useEffect(() => {
     // Back after a long gap, Today wins for that run (above): the page you chose is for every other start.
@@ -786,7 +786,7 @@ export function Home(): React.JSX.Element {
   const safeMode = (): void => {
     const on = !settings?.safeMode
     chime(on ? 'on' : 'off')
-    void vigil.setSettings({ safeMode: on }).then(() => toast(on ? 'Safe mode on: nothing comes up on its own' : 'Safe mode off', () => void vigil.setSettings({ safeMode: !on })))
+    void haligtree.setSettings({ safeMode: on }).then(() => toast(on ? 'Safe mode on: nothing comes up on its own' : 'Safe mode off', () => void haligtree.setSettings({ safeMode: !on })))
   }
 
   // Blurring, beside Safe mode: private words blurred, the dim when you leave
@@ -794,7 +794,7 @@ export function Home(): React.JSX.Element {
   const blurring = (): void => {
     const on = settings?.blur === false
     chime(on ? 'on' : 'off')
-    void vigil.setSettings({ blur: on }).then(() => toast(on ? 'Blurring on: notes marked “Private” stay blurred until you point at them' : 'Blurring off: everything plain and sharp', () => void vigil.setSettings({ blur: !on })))
+    void haligtree.setSettings({ blur: on }).then(() => toast(on ? 'Blurring on: notes marked “Private” stay blurred until you point at them' : 'Blurring off: everything plain and sharp', () => void haligtree.setSettings({ blur: !on })))
   }
 
   // The keyboard, Linear's way: G then a letter goes somewhere, C captures.
@@ -938,16 +938,16 @@ export function Home(): React.JSX.Element {
     // "Pick a date…" from another window: the task, its calendar open.
     else if (type === 'task-date') (askDate(id), setView({ id: 'today', focus: id }))
     // A page to sort, sent from the box or a note's window; Today written out, from anywhere.
-    else if (type === 'sort') window.dispatchEvent(new CustomEvent('vigil:sort-out', { detail: JSON.parse(id) }))
+    else if (type === 'sort') window.dispatchEvent(new CustomEvent('haligtree:sort-out', { detail: JSON.parse(id) }))
     // The expanded view of a note, asked for in another window.
-    else if (type === 'expand') window.dispatchEvent(new CustomEvent('vigil:expand', { detail: id }))
+    else if (type === 'expand') window.dispatchEvent(new CustomEvent('haligtree:expand', { detail: id }))
     else if (type === 'write') (setView({ id: 'today' }), writeOutDay())
     else if (type === 'person') (setSearchFor(id), setSearching('all'))
     // A capture's version history, asked for in the box: opened, then once
     // its page is up, its history.
     else if (type === 'versions') {
       open('capture', id)
-      setTimeout(() => window.dispatchEvent(new CustomEvent('vigil:versions', { detail: id })), 600)
+      setTimeout(() => window.dispatchEvent(new CustomEvent('haligtree:versions', { detail: id })), 600)
     } else open(type, id)
     if (heading && type !== 'view' && !(type === 'task' && heading === 'sessions')) headingIn(type, id, heading)
     // Promoted from quick capture with ⌘O: the caret lands where it was.
@@ -1037,7 +1037,7 @@ export function Home(): React.JSX.Element {
   /**
    * The menu of a split pair, the same wherever it is opened (the pair's row,
    * the page's name in the top bar, a pane's tab), Dia's menu for a split
-   * with what Vigil has: its layout, the notes in it, and its panes.
+   * with what Haligtree has: its layout, the notes in it, and its panes.
    */
   const pairMenu = (views: View[], live: { key?: string } | null, pinnedId?: string): RowItem[] => {
     const notes = views.map(noteIn).filter((one): one is NonNullable<ReturnType<typeof noteIn>> => !!one)
@@ -1217,14 +1217,14 @@ export function Home(): React.JSX.Element {
                 const said = (mode: string): string => (mode === 'always' ? 'always on screen' : mode === 'sometimes' ? 'on screen now and then' : 'off screen')
                 return (['always', 'sometimes', 'off'] as const).filter((mode) => mode !== now).map((mode) => ({
                   label: `${said(mode).charAt(0).toUpperCase()}${said(mode).slice(1)}: ${goal.title}`, note: `now ${said(now)}`,
-                  run: () => void vigil.setBeacon(goal.id, mode).then(() => {
+                  run: () => void haligtree.setBeacon(goal.id, mode).then(() => {
                     chime(mode === 'off' ? 'unstick' : 'stick')
-                    toast(mode === 'always' ? 'On screen, on every Space' : mode === 'sometimes' ? 'On screen now and then: it comes out a few times a day' : 'Off screen: the menu bar and Home still show it', () => void vigil.setBeacon(goal.id, goal.beacon))
+                    toast(mode === 'always' ? 'On screen, on every Space' : mode === 'sometimes' ? 'On screen now and then: it comes out a few times a day' : 'Off screen: the menu bar and Home still show it', () => void haligtree.setBeacon(goal.id, goal.beacon))
                   })
                 }))
               })
             }] : []),
-            ...(picked.ids.length > 1 ? [{ label: 'Make one task', hint: `From the ${num(picked.ids.length)} selected captures`, cue: null, run: () => window.dispatchEvent(new CustomEvent('vigil:one-task')) }] : []),
+            ...(picked.ids.length > 1 ? [{ label: 'Make one task', hint: `From the ${num(picked.ids.length)} selected captures`, cue: null, run: () => window.dispatchEvent(new CustomEvent('haligtree:one-task')) }] : []),
             { label: 'Keep Today on screen', hint: "Today's tasks on the desktop", cue: null, run: () => stickOnDesktop('today', 'today') },
             { label: 'Show all goals on one sticky', hint: 'Each goal in its own colour, with a legend', cue: null, run: () => stickOnDesktop('goals', 'all') },
             { label: 'Write out my day', hint: 'Today as a list you write', cue: null, run: () => (setView({ id: 'today' }), writeOutDay()) },
@@ -1280,14 +1280,14 @@ export function Home(): React.JSX.Element {
             { label: settings?.sounds ? 'Turn sounds off' : 'Turn sounds on', cue: null, run: () => {
               soundOn(!settings?.sounds)
               chime(settings?.sounds ? 'off' : 'on')
-              void vigil.setSettings({ sounds: !settings?.sounds })
+              void haligtree.setSettings({ sounds: !settings?.sounds })
               const was = !!settings?.sounds
-              toast(was ? 'Sounds off' : 'Sounds on', () => (soundOn(was), void vigil.setSettings({ sounds: was })))
+              toast(was ? 'Sounds off' : 'Sounds on', () => (soundOn(was), void haligtree.setSettings({ sounds: was })))
             } },
             { label: settings?.safeMode ? 'Turn safe mode off' : 'Turn safe mode on', keys: '⌥⌘S', cue: null, run: safeMode },
             { label: settings?.stickiesShown === false ? 'Show sticky notes' : 'Hide sticky notes', keys: '⌃⌥⌘N', cue: null, run: () => {
               const show = settings?.stickiesShown === false
-              void vigil.setSettings({ stickiesShown: show }).then(() => (show ? quietly : (undo: () => void) => toast('Sticky notes hidden. ⌃⌥⌘N brings them back', undo))(() => void vigil.setSettings({ stickiesShown: !show })))
+              void haligtree.setSettings({ stickiesShown: show }).then(() => (show ? quietly : (undo: () => void) => toast('Sticky notes hidden. ⌃⌥⌘N brings them back', undo))(() => void haligtree.setSettings({ stickiesShown: !show })))
             } },
             { label: recordable ? 'Hide from recordings' : 'Show in recordings', hint: `${APP_NAME} in screen recordings and shares`, cue: recordable ? 'off' : 'on', icon: recordable ? CameraOffIcon : CameraIcon, run: () => recordAll(!recordable, settings?.inRecordings) },
             // Not in safe mode: the notes it would bring are meant to be put away then.
@@ -1301,8 +1301,8 @@ export function Home(): React.JSX.Element {
             } },
             ...abandonAction,
             ...practiceActions,
-            { label: 'Keyboard shortcuts', keys: '?', cue: null, run: () => window.dispatchEvent(new CustomEvent('vigil:shortcuts')) },
-            { label: 'Clear unused pictures…', cue: null, run: () => window.dispatchEvent(new CustomEvent('vigil:unused')) },
+            { label: 'Keyboard shortcuts', keys: '?', cue: null, run: () => window.dispatchEvent(new CustomEvent('haligtree:shortcuts')) },
+            { label: 'Clear unused pictures…', cue: null, run: () => window.dispatchEvent(new CustomEvent('haligtree:unused')) },
             ...themeActions((text, undo) => toast(text, undo)),
             { label: settings?.blur === false ? 'Turn blurring on' : 'Turn blurring off', cue: null, run: blurring },
             { label: 'Settings', keys: '⌘,', run: () => setView({ id: 'settings' }) },
@@ -1387,10 +1387,10 @@ export function Home(): React.JSX.Element {
             const homesIn = (list: typeof SECTIONS): string | undefined => list.map((section) => homeOf(section.id)).filter(Boolean).join(' ') || undefined
             // Shown or hidden from a row's right click, said with a way back.
             const showIt = async (section: (typeof SECTIONS)[number], on: boolean): Promise<void> => {
-              const was = (await vigil.settings()).sidebarShown ?? shown
+              const was = (await haligtree.settings()).sidebarShown ?? shown
               chime(on ? 'on' : 'off')
-              await vigil.setSettings({ sidebarShown: on ? [...was.filter((one) => one !== section.id), section.id] : was.filter((one) => one !== section.id) })
-              toast(showWords(section, !on).said, () => void vigil.setSettings({ sidebarShown: was }).then(() => chime(on ? 'off' : 'on')))
+              await haligtree.setSettings({ sidebarShown: on ? [...was.filter((one) => one !== section.id), section.id] : was.filter((one) => one !== section.id) })
+              toast(showWords(section, !on).said, () => void haligtree.setSettings({ sidebarShown: was }).then(() => chime(on ? 'off' : 'on')))
             }
             // What a right click on a place offers: go there (here or beside), move it, hide it, or bring back one hidden.
             const placeMenu = (section: (typeof SECTIONS)[number], among: string[]): RowItem[] => {
@@ -1706,7 +1706,7 @@ export function Home(): React.JSX.Element {
 
         </div>
         {/* One row at the foot, the way Notion keeps its workspace menu: Settings,
-            Safe mode, Blurring, the keys and the tour wait behind Vigil's name.
+            Safe mode, Blurring, the keys and the tour wait behind Haligtree's name.
             Safe mode on still shows, since a quiet box should say why. */}
         <div className={`mx-2 mb-2 flex shrink-0 items-center gap-1 border-t pt-2 ${narrow ? 'flex-col' : ''}`}>
           <DropdownMenu modal={false}>
@@ -1742,7 +1742,7 @@ export function Home(): React.JSX.Element {
               {/* Every sticky down the right middle of its screen, clear of other apps' buttons at the top right. Only with one out to tidy. */}
               {!settings?.safeMode && stickiesOut > 0 && <DropdownMenuItem data-peek="tidy" onSelect={() => window.api.tidyStickies()}>Tidy stickies<DropdownMenuShortcut>⌃⌥⌘T</DropdownMenuShortcut></DropdownMenuItem>}
               <DropdownMenuSeparator />
-              <DropdownMenuItem data-peek="shortcuts" onSelect={() => window.dispatchEvent(new CustomEvent('vigil:shortcuts'))}>Keyboard shortcuts<DropdownMenuShortcut>?</DropdownMenuShortcut></DropdownMenuItem>
+              <DropdownMenuItem data-peek="shortcuts" onSelect={() => window.dispatchEvent(new CustomEvent('haligtree:shortcuts'))}>Keyboard shortcuts<DropdownMenuShortcut>?</DropdownMenuShortcut></DropdownMenuItem>
               <DropdownMenuItem data-peek="welcome" onSelect={playWelcome}>Show the welcome again</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem data-peek="switch" onSelect={() => askBook('switch')}>Switch book…</DropdownMenuItem>
@@ -1765,7 +1765,7 @@ export function Home(): React.JSX.Element {
             </Tip>
           )}
           <Tip label="Keyboard shortcuts  ?">
-            <button type="button" aria-label="Keyboard shortcuts" onClick={() => window.dispatchEvent(new CustomEvent('vigil:shortcuts'))}
+            <button type="button" aria-label="Keyboard shortcuts" onClick={() => window.dispatchEvent(new CustomEvent('haligtree:shortcuts'))}
               className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground">
               <CircleHelp className="size-4" strokeWidth={2} />
             </button>

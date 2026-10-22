@@ -4,7 +4,7 @@
 // log and on the day's page.
 //
 //   npx electron-vite build --outDir out-island
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-island/main/index.js MINDFLOW_QA_AWAY= SHOT=<dir> node qa/island.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-island/main/index.js HALIGTREE_QA_AWAY= SHOT=<dir> node qa/island.mjs
 //
 // COST_ONLY=1 measures only what the pill costs at rest, to compare builds.
 import { mkdirSync, writeFileSync } from 'fs'
@@ -201,7 +201,7 @@ try {
     await pill.screenshot({ path: `${SHOT}/log-dark.png` })
     const entries = await v('session-log', id)
     check('four entries are kept against the session', entries.length === 4 && entries.every((one) => one.sessionId === id), `${entries.length}`)
-    check('the pasted picture is kept as an asset', entries.some((one) => /^mindflow:\/\/assets\/[a-f0-9]{64}\.png$/.test(one.asset ?? '') && one.text.includes('Figure 2')))
+    check('the pasted picture is kept as an asset', entries.some((one) => /^haligtree:\/\/assets\/[a-f0-9]{64}\.png$/.test(one.asset ?? '') && one.text.includes('Figure 2')))
     // Esc closes it, the pointer still on it.
     await pill.focus(FIELD)
     await pill.keyboard.press('Escape')

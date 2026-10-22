@@ -9,7 +9,7 @@ import { setCalc } from '@/extensions/calc'
 import { setFoldHeadings } from '@/extensions/heading-fold'
 import { setTagSource } from '@/extensions/note-link'
 import { chime, step, type Cue } from './sound'
-import { vigil, type Settings } from './vigil'
+import { haligtree, type Settings } from './haligtree'
 
 /**
  * What the editor's moments sound like here. Stepping through matches or the
@@ -80,13 +80,13 @@ export function useEditorSetup(settings: Settings | null): void {
   // note, so they are kept between openings and read again only once
   // something has changed, and not more than every half minute while you type.
   useEffect(() => {
-    let tags: ReturnType<typeof vigil.tags> | null = null
+    let tags: ReturnType<typeof haligtree.tags> | null = null
     let stale = false
     let at = 0
     const stop = window.api.captures.onChange(() => (stale = true))
     setTagSource(() => {
       if (!tags || (stale && Date.now() - at > 30_000)) {
-        tags = vigil.tags()
+        tags = haligtree.tags()
         stale = false
         at = Date.now()
       }
@@ -117,7 +117,7 @@ export function useEditorSetup(settings: Settings | null): void {
       if (!event.metaKey || event.ctrlKey || event.altKey || !settings || event.defaultPrevented) return
       // Only where a note is on screen: the drawing window and the like keep
       // ⌘+ ⌘− for their own zoom.
-      if (!document.querySelector('.mindflow-editor-wrapper')) return
+      if (!document.querySelector('.haligtree-editor-wrapper')) return
       const at = TEXT_SIZES.indexOf(TEXT_SIZES.reduce((near, size) => (Math.abs(size - settings.textSize) < Math.abs(near - settings.textSize) ? size : near)))
       const to = ['=', '+'].includes(event.key) ? at + 1 : event.key === '-' ? at - 1 : event.key === '0' ? TEXT_SIZES.indexOf(1) : null
       if (to === null) return
@@ -125,7 +125,7 @@ export function useEditorSetup(settings: Settings | null): void {
       const size = TEXT_SIZES[Math.max(0, Math.min(TEXT_SIZES.length - 1, to))]
       if (size === settings.textSize) return chime('nope')
       step(TEXT_SIZES.indexOf(size))
-      void vigil.setSettings({ textSize: size })
+      void haligtree.setSettings({ textSize: size })
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)

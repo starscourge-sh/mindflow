@@ -17,13 +17,13 @@ import { macLookUp, readMac } from './mac-dictionary'
  */
 
 // A test run on a data folder of its own may point at a dictionary of its own.
-const BASE = (process.env.MINDFLOW_USER_DATA && process.env.MINDFLOW_QA_DICT) || 'https://api.dictionaryapi.dev/api/v2/entries/en/'
+const BASE = (process.env.HALIGTREE_USER_DATA && process.env.HALIGTREE_QA_DICT) || 'https://api.dictionaryapi.dev/api/v2/entries/en/'
 const AUDIO = /^https:\/\/(api\.dictionaryapi\.dev|ssl\.gstatic\.com)\//
 const QA_DICT = BASE.startsWith('http://127.0.0.1') ? new URL(BASE).origin : null
 const sound = (url: string): boolean => AUDIO.test(url) || (!!QA_DICT && url.startsWith(QA_DICT))
 const WORD = /^\p{L}[\p{L}'-]{1,40}$/u
 // A run with its own dictionary server asks only that, so what it sees is the same on every Mac.
-const MAC = !QA_DICT || process.env.MINDFLOW_QA_MAC_DICT === 'on'
+const MAC = !QA_DICT || process.env.HALIGTREE_QA_MAC_DICT === 'on'
 
 /** `source`: where the meaning came from, said under it. `also`: a second sense, when there is one. */
 export type Defined = { word: string; phonetic: string; audio: string; part: string; definition: string; example: string; also?: string; source?: 'mac' | 'web' }
@@ -108,7 +108,7 @@ export function registerDefine(): void {
     }
   }
 
-  ipcMain.handle('vigil:define', async (_event, raw: unknown) => {
+  ipcMain.handle('haligtree:define', async (_event, raw: unknown) => {
     const word = typeof raw === 'string' ? raw.trim().toLowerCase() : ''
     if (!WORD.test(word)) return null
     const known = kept(word)
@@ -135,13 +135,13 @@ export function registerDefine(): void {
   })
 
   // The whole entry in the Dictionary app, from the meaning's right-click menu.
-  ipcMain.handle('vigil:define:open', (_event, raw: unknown) => {
+  ipcMain.handle('haligtree:define:open', (_event, raw: unknown) => {
     const word = typeof raw === 'string' ? raw.trim() : ''
     if (WORD.test(word.toLowerCase())) void shell.openExternal(`dict://${encodeURIComponent(word)}`)
   })
 
   // Its sound, fetched here on a click: the page may not reach the internet itself.
-  ipcMain.handle('vigil:define:audio', async (_event, url: unknown) => {
+  ipcMain.handle('haligtree:define:audio', async (_event, url: unknown) => {
     if (typeof url !== 'string' || !sound(url)) return null
     try {
       const response = await net.fetch(url, { signal: AbortSignal.timeout(6000) })

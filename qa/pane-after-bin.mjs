@@ -6,7 +6,7 @@
 //      they are in the Bin, with Undo; the pane closes; the page does not swap
 //      in its made-up example rows as if they had stayed; ⌘Z brings them back.
 // The Bin itself: “Delete for good” on the open one, and on every one.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/pane-after-bin.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/pane-after-bin.mjs
 // SHOTS=dir keeps a picture of each page after ⌘A, ⌫.
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
@@ -68,7 +68,7 @@ async function surface(name, w, root, open, { bin = /to the Bin/, all = true, un
     return check(`${name}: its right-click menu has a way to the Bin`, false, lines.join(' / '))
   }
   // Heard as it is said: ⌘Z is pressed once the notice with its Undo is up, as a person would.
-  await w.evaluate(() => { window.__binSaid = false; addEventListener('vigil:toast', () => ((window.__binSaid = true), (window.__binAt = Date.now())), { once: true }) })
+  await w.evaluate(() => { window.__binSaid = false; addEventListener('haligtree:toast', () => ((window.__binSaid = true), (window.__binAt = Date.now())), { once: true }) })
   await item.click()
   // The Bin asks before deleting for good.
   await w.waitForTimeout(300)
@@ -95,7 +95,7 @@ async function surface(name, w, root, open, { bin = /to the Bin/, all = true, un
   const back = s.rows.includes(first) || await w.evaluate(async (id) => {
     const capture = await window.api.captures.get(id).catch(() => null)
     if (capture) return capture.status !== 'discarded'
-    const item = await window.api.vigil('item', id).catch(() => null)
+    const item = await window.api.haligtree('item', id).catch(() => null)
     return !!item && !item.binnedAt
   }, first)
   // Missed: what was on screen, so a slip can be told from a bug.
@@ -136,7 +136,7 @@ try {
   for (const w of [h, box]) await w.evaluate(() => localStorage.setItem('saber-offered', new Date().toISOString()))
   // Something in every list: an archived pair, a later task, a dated and an undated one in Upcoming.
   const caps = (await h.evaluate(() => window.api.captures.list())).filter((one) => one.status === 'open')
-  for (const one of caps.slice(-2)) await h.evaluate((id) => window.api.vigil('notes:archive', 'captures', [id], true), one.id).catch(() => {})
+  for (const one of caps.slice(-2)) await h.evaluate((id) => window.api.haligtree('notes:archive', 'captures', [id], true), one.id).catch(() => {})
   const page = (id) => `[data-page="${id}"]`
   const main = (id) => async () => { await go(id); await h.waitForTimeout(500) }
   for (const [name, id] of [

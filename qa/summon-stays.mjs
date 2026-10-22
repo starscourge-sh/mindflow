@@ -6,7 +6,7 @@
 // window put away, open behind other apps, and in full screen, from the key
 // (and the Dock menu, the same path) and from the main window's own button.
 //
-// Off screen: the test windows are parked (MINDFLOW_QA_AWAY), and the checks
+// Off screen: the test windows are parked (HALIGTREE_QA_AWAY), and the checks
 // read what the code asked for (bringing Haligtree forward, showing or focusing
 // the main window), plus, where AeroSpace runs, which windows it has filed.
 // The cause, for the record: AeroSpace leaves a buttonless window alone only
@@ -15,13 +15,13 @@
 // workspace it was last closed on. So the box is up as a menu bar app's.
 //
 //   npx electron-vite build --outDir out-qc
-//   QA_DATA=$(mktemp -d) QA_ENTRY=out-qc/main/index.js MINDFLOW_QA_AWAY=1 node qa/summon-stays.mjs
+//   QA_DATA=$(mktemp -d) QA_ENTRY=out-qc/main/index.js HALIGTREE_QA_AWAY=1 node qa/summon-stays.mjs
 import { execFileSync } from 'child_process'
 import { mkdtempSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
-process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'vigil-summon-'))
+process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'haligtree-summon-'))
 const { open } = await import('./harness.mjs')
 
 const results = []
@@ -54,7 +54,7 @@ try {
     throw new Error('no main window')
   })()
   await home.waitForLoadState('domcontentloaded')
-  await home.evaluate(() => window.api.vigil('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false }))
+  await home.evaluate(() => window.api.haligtree('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false }))
 
   // Everything that would bring Haligtree forward or the main window with it,
   // written down as it is asked for. The test run's own stand-ins (no window

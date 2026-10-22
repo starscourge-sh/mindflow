@@ -1,9 +1,9 @@
 import { Extension } from "@tiptap/core"
 import { Plugin, PluginKey } from "@tiptap/pm/state"
-import { vigil, type Task } from "@/lib/vigil"
+import { haligtree, type Task } from "@/lib/haligtree"
 import { boxKind, boxList, linkedItems, makeLineTasks } from "@/lib/line-tasks"
 import { openSort } from "@/lib/sort-out"
-import { toast } from "@/components/vigil/ui"
+import { toast } from "@/components/haligtree/ui"
 import { isList, readLines, tasksOf, tasksSaid, worthSorting } from "../../../main/day-lines"
 import { APP_NAME } from '../../../main/name'
 
@@ -73,7 +73,7 @@ export const LinkedTasks = Extension.create<{ origin: () => string | null; box: 
     const sync = async (): Promise<void> => {
       if (editor.isDestroyed || !editor.isEditable) return
       if (!linkedItems(editor.state.doc).size) return
-      const tasks = await vigil.tasks().catch(() => [] as Task[])
+      const tasks = await haligtree.tasks().catch(() => [] as Task[])
       if (editor.isDestroyed) return
       const byId = new Map(tasks.map((task) => [task.id, task]))
       const tr = editor.state.tr
@@ -103,8 +103,8 @@ export const LinkedTasks = Extension.create<{ origin: () => string | null; box: 
     for (const [id, item] of linkedItems(transaction.doc)) {
       const was = before.get(id)
       if (!was || was.checked === item.checked) continue
-      if (item.checked) void vigil.doneTask(id)
-      else void vigil.task(id).then((task) => task && task.status === "done" && vigil.undoneTask(id, { dueAt: task.dueAt, doneAt: task.completedAt ?? new Date().toISOString(), notifiedAt: new Date().toISOString(), deadlineAt: task.deadline }))
+      if (item.checked) void haligtree.doneTask(id)
+      else void haligtree.task(id).then((task) => task && task.status === "done" && haligtree.undoneTask(id, { dueAt: task.dueAt, doneAt: task.completedAt ?? new Date().toISOString(), notifiedAt: new Date().toISOString(), deadlineAt: task.deadline }))
     }
   },
 

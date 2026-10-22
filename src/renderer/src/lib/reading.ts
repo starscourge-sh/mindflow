@@ -2,7 +2,7 @@ import { useSyncExternalStore } from 'react'
 
 import { chime } from '@/lib/sound'
 import { isSplit, usePane } from '@/lib/split'
-import { vigil } from '@/lib/vigil'
+import { haligtree } from '@/lib/haligtree'
 
 /**
  * How an open note is laid out for reading: its details beside it or put
@@ -10,7 +10,7 @@ import { vigil } from '@/lib/vigil'
  *
  * Details start put away, so a note opens as a page to read rather than a
  * form to fill. Opened, they stay open everywhere until put away again: one
- * choice for every note and every window, until Vigil is next opened, when
+ * choice for every note and every window, until Haligtree is next opened, when
  * they start put away again.
  *
  * Split, each pane keeps its own: details brought out beside the note in
@@ -24,7 +24,7 @@ const CHANGED = 'mf:details'
 // it changes here or in another window.
 let stored: boolean | null = null
 
-/** Called once as the main window first loads: each time Vigil opens, details start put away. */
+/** Called once as the main window first loads: each time Haligtree opens, details start put away. */
 export function putDetailsAway(): void {
   stored = null
   try {
@@ -105,7 +105,7 @@ export const fullWidth = (): boolean => document.documentElement.dataset.width =
 /** The page's width, for every page and every window. The old switch follows, for anything still reading it. */
 export function setPageWidth(width: PageWidth): void {
   chime(width === 'narrow' ? 'fold' : 'slide')
-  void vigil.setSettings({ pageWidth: width, fullWidth: width === 'full' })
+  void haligtree.setSettings({ pageWidth: width, fullWidth: width === 'full' })
 }
 
 /** Full width on or off, for every page: the same choice as the one in Settings. */

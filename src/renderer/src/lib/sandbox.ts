@@ -1,5 +1,5 @@
 import { hum, saberLength } from './sound'
-import { vigil } from './vigil'
+import { haligtree } from './haligtree'
 import { still } from '@/lib/motion'
 
 /**
@@ -10,7 +10,7 @@ import { still } from '@/lib/motion'
 export const SANDBOX = new URLSearchParams(location.search).has('sandbox')
 
 /**
- * What comes along into the sandbox: how Vigil feels to you (sounds, motion,
+ * What comes along into the sandbox: how Haligtree feels to you (sounds, motion,
  * your keys, margin marks, the sizes you read at, your progress bars) and
  * your celebrations, the GIFs and pictures that make a milestone yours. Its
  * scenery stays its own public-domain landscapes, and its bars are always
@@ -38,7 +38,7 @@ export type Going = { text: string; up: boolean; ms: number }
 /** Each saber moment, newest last: what the QA runs read to see one ran, and how long its sound and blade took. */
 type Swung = { up: boolean; text: string; soundMs: number; bladeMs: number | null; blade: boolean }
 const swung: Swung[] = []
-;(window as unknown as { vigilSaber?: Swung[] }).vigilSaber = swung
+;(window as unknown as { haligtreeSaber?: Swung[] }).haligtreeSaber = swung
 
 /** A frame, or a moment when the window is hidden and frames do not come. */
 const frame = (): Promise<void> => new Promise((done) => (requestAnimationFrame(() => done()), setTimeout(done, 60)))
@@ -60,7 +60,7 @@ async function saber(up: boolean, text: string): Promise<void> {
   // The screen goes up on this very frame, before the sound is even read: the
   // page it leaves (the welcome) is never followed by a glimpse of the one
   // under it. Its length (-1, not known yet) follows once the sound says.
-  const going = (ms: number): boolean => window.dispatchEvent(new CustomEvent<Going>('vigil:going', { detail: { text, up, ms } }))
+  const going = (ms: number): boolean => window.dispatchEvent(new CustomEvent<Going>('haligtree:going', { detail: { text, up, ms } }))
   going(-1)
   const ms = await saberLength(up)
   going(ms)
@@ -89,7 +89,7 @@ export const saberOff = (text: string): Promise<void> => saber(false, text)
 
 /** Your look, written down to carry: into the sandbox, or into another book with `more` (its scenery too). */
 export async function gatherCarry(more: readonly string[] = []): Promise<Carry> {
-  const settings = (await vigil.settings()) as unknown as Record<string, unknown>
+  const settings = (await haligtree.settings()) as unknown as Record<string, unknown>
   // Celebration files you chose yourself, never the ones a run from source adds for the developer.
   if ('ownPicks' in settings) settings.celebrationPicks = settings.ownPicks
   const local: Record<string, string> = {}
@@ -105,9 +105,9 @@ export async function gatherCarry(more: readonly string[] = []): Promise<Carry> 
 }
 
 /**
- * Into the sandbox: your look written down for it, then Vigil starts again
+ * Into the sandbox: your look written down for it, then Haligtree starts again
  * there. The onboarding's last screen calls this; so do Settings, ⌘K, the
- * Vigil menu and the menu bar.
+ * Haligtree menu and the menu bar.
  */
 let opening = false
 export async function enterSandbox(): Promise<void> {
@@ -119,7 +119,7 @@ export async function enterSandbox(): Promise<void> {
     const said = saberOn('Opening the sandbox')
     const carry = await gatherCarry()
     await said
-    await window.api.vigil('sandbox:enter', carry)
+    await window.api.haligtree('sandbox:enter', carry)
   } catch (error) {
     opening = false
     throw error
@@ -133,24 +133,24 @@ export async function leaveSandbox(): Promise<void> {
   // At 11:11 exactly, one more line.
   const wish = now.getHours() % 12 === 11 && now.getMinutes() === 11 ? '. Make a wish' : ''
   await saberOff(`Back to your notes${wish}`)
-  await window.api.vigil('sandbox:leave')
+  await window.api.haligtree('sandbox:leave')
 }
 
 /**
- * Asked for from ⌘K, the Vigil menu, the menu bar or an old example's
+ * Asked for from ⌘K, the Haligtree menu, the menu bar or an old example's
  * Freshen: the pill up top asks, and Start over there is held, since nothing
  * brings back what was there.
  */
 export async function resetSandbox(): Promise<void> {
-  window.dispatchEvent(new CustomEvent('vigil:sandbox-reset'))
+  window.dispatchEvent(new CustomEvent('haligtree:sandbox-reset'))
 }
 
 /** The sandbox as it began: its folder cleared, and the examples set out again. Only from a held button. */
 export async function startSandboxOver(): Promise<void> {
   if (!SANDBOX) return
   await saberOn('Starting the sandbox over')
-  await window.api.vigil('sandbox:reset')
+  await window.api.haligtree('sandbox:reset')
 }
 
 export type SandboxState = { on: boolean; seeded: boolean; seededOn: string | null }
-export const sandboxState = (): Promise<SandboxState> => window.api.vigil<SandboxState>('sandbox:state')
+export const sandboxState = (): Promise<SandboxState> => window.api.haligtree<SandboxState>('sandbox:state')

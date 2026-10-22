@@ -1,6 +1,6 @@
 import { screen, systemPreferences, type BrowserWindow } from 'electron'
 
-import { motionOn } from './vigil'
+import { motionOn } from './haligtree'
 import { outQuart, tween } from './sticky-place'
 
 /**

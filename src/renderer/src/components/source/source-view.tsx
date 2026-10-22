@@ -31,8 +31,8 @@ export function SourceView({
   if (!editor || !state) return null
 
   return (
-    <aside className="mindflow-source" aria-label="Document source">
-      <header className="mindflow-source-head">
+    <aside className="haligtree-source" aria-label="Document source">
+      <header className="haligtree-source-head">
         <span>{num(state.characters)} characters</span>
         <span>
           {num(state.assets.length)} asset{state.assets.length === 1 ? "" : "s"}
@@ -41,17 +41,17 @@ export function SourceView({
       </header>
 
       {state.assets.length ? (
-        <ul className="mindflow-source-assets">
+        <ul className="haligtree-source-assets">
           {state.assets.map((asset) => (
             <li key={asset.src}>
-              <span className="mindflow-source-kind">{asset.kind}</span>
-              {asset.name ?? asset.src.replace("mindflow://assets/", "")}
+              <span className="haligtree-source-kind">{asset.kind}</span>
+              {asset.name ?? asset.src.replace("haligtree://assets/", "")}
             </li>
           ))}
         </ul>
       ) : null}
 
-      <pre className="mindflow-source-json">{state.json}</pre>
+      <pre className="haligtree-source-json">{state.json}</pre>
     </aside>
   )
 }

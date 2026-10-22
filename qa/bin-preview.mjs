@@ -8,7 +8,7 @@
 //   4. a row still called “Untitled” shows its first line, in muted ink;
 //   5. pointing at a title shows the hover card an @ link shows.
 // SHOTS=dir keeps pictures at 900x700 and 1600x1000, light and dark.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/bin-preview.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/bin-preview.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -181,7 +181,7 @@ try {
   const qbox = c.page
   await qbox.evaluate(() => window.api.showPrompt())
   await qbox.waitForTimeout(700)
-  await qbox.locator('.tiptap.ProseMirror.mindflow-editor').first().click()
+  await qbox.locator('.tiptap.ProseMirror.haligtree-editor').first().click()
   await qbox.keyboard.press('Meta+a')
   await qbox.keyboard.press('Backspace')
   await qbox.keyboard.type('@the', { delay: 30 })

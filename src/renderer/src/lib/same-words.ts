@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
 
-import { toast } from '@/components/vigil/ui'
+import { toast } from '@/components/haligtree/ui'
 import { notes, type NoteTable } from '@/lib/notes'
 import { forget } from '@/lib/early-read'
 import { retryIn, saveFailed, saveLanded } from '@/lib/save-trouble'

@@ -6,7 +6,7 @@
 // SHOTS=dir keeps pictures of the bar and the notice in Paper and Dark.
 //
 //   npx electron-vite build --outDir out-x
-//   QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=… node qa/select-all.mjs
+//   QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=… node qa/select-all.mjs
 import { mkdirSync, mkdtempSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -14,7 +14,7 @@ import { sandbox } from './sandbox-lib.mjs'
 
 const SHOTS = process.env.SHOTS
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
-process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'mindflow-select-'))
+process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'haligtree-select-'))
 process.env.QA_ARGS ??= '--sandbox'
 const results = []
 const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`))

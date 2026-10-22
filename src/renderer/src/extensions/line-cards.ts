@@ -28,15 +28,15 @@ function marks(doc: ProseMirrorNode): DecorationSet {
   return DecorationSet.create(doc, found)
 }
 
-/** The toast after a pasted list: Make 12 cards, then Undo. Said the way every toast is (components/vigil/ui.tsx). */
+/** The toast after a pasted list: Make 12 cards, then Undo. Said the way every toast is (components/haligtree/ui.tsx). */
 function offerCards(pairs: { term: string; meaning: string }[]): void {
   const say = (text: string, undo?: () => void, action?: { label: string; key: string; run: () => void }): void =>
-    void window.dispatchEvent(new CustomEvent("vigil:toast", { detail: { text, undo, tone: "info", action } }))
+    void window.dispatchEvent(new CustomEvent("haligtree:toast", { detail: { text, undo, tone: "info", action } }))
   say(`That reads as a list of ${num(pairs.length)} terms`, undefined, {
     label: `Make ${num(pairs.length)} cards`,
     key: "M",
-    run: () => void window.api.vigil<string[]>("cards:list", pairs).then((ids) =>
-      say(`${num(ids.length)} cards made: Review asks each term`, () => void window.api.vigil("cards:list:undo", ids))),
+    run: () => void window.api.haligtree<string[]>("cards:list", pairs).then((ids) =>
+      say(`${num(ids.length)} cards made: Review asks each term`, () => void window.api.haligtree("cards:list:undo", ids))),
   })
 }
 

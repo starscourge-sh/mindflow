@@ -30,7 +30,7 @@ const POPS = [
 
 /** How tall the window has to be to show the whole note without scrolling, two lines at least; null with no note in it. */
 function needed(column: HTMLElement | null): number | null {
-  const scroller = column?.querySelector<HTMLElement>('.mf-faded .mindflow-editor-content')
+  const scroller = column?.querySelector<HTMLElement>('.mf-faded .haligtree-editor-content')
   const doc = scroller?.querySelector<HTMLElement>(':scope > .ProseMirror')
   if (!scroller || !doc) return null
   const style = getComputedStyle(doc)

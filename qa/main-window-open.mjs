@@ -4,12 +4,12 @@
 // opens where it was left. A place on a screen that is gone is not used.
 //
 //   npx electron-vite build --outDir out-x
-//   QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/main-window-open.mjs   (no sandbox)
+//   QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/main-window-open.mjs   (no sandbox)
 import { writeFileSync } from 'fs'
 import { join } from 'path'
 import { open, checks } from './harness.mjs'
 
-process.env.MINDFLOW_QA_VIRTUAL ??= '1'
+process.env.HALIGTREE_QA_VIRTUAL ??= '1'
 const { check, done } = checks()
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 const home = (electron) => electron.evaluate(({ BrowserWindow, screen }) => {

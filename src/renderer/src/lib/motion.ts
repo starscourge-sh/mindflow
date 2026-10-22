@@ -55,7 +55,7 @@ export function useStill(): boolean {
  * arrive at once, but not a `transform: '...'` written out whole (as this file
  * asks, for the compositor), so a slide or a grow still played. Listing
  * `transform` among those keys makes it arrive at once too, while opacity
- * still fades. Motion off is already the global skip (lib/vigil.ts). `shift`
+ * still fades. Motion off is already the global skip (lib/haligtree.ts). `shift`
  * stays for the start of a move, so nothing even begins away from its place.
  */
 export function stillTransforms(): void {

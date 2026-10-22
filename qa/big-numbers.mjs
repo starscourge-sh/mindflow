@@ -9,7 +9,7 @@
 //     long lengths read "11 h 20 min", never "680 min"
 //
 //   npx electron-vite build --outDir out-bignum
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-bignum/main/index.js MINDFLOW_QA_AWAY=1 node qa/big-numbers.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-bignum/main/index.js HALIGTREE_QA_AWAY=1 node qa/big-numbers.mjs
 // KEEP the data folder to skip seeding on a second run; SHOTS=<folder> keeps a picture of each place; THEMES=light,dark.
 import { build } from 'esbuild'
 import { mkdirSync } from 'fs'

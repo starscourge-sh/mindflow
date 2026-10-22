@@ -6,19 +6,19 @@
 // window to be on screen.
 //
 //   npx electron-vite build --outDir out-x
-//   QA_DATA=$(mktemp -d) QA_ARGS="--sandbox --show-home" QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/sandbox-open.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS="--sandbox --show-home" QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/sandbox-open.mjs
 // QA_OPEN_BUDGET (ms, 4000 by default): from the start of the run to the window on screen.
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
 
-process.env.MINDFLOW_QA_VIRTUAL ??= '1'
+process.env.HALIGTREE_QA_VIRTUAL ??= '1'
 const BUDGET = Number(process.env.QA_OPEN_BUDGET ?? 4000)
 const { check, done } = checks()
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 const c = await sandbox({ width: 1280, height: 800 })
 const { electron, h } = c
 try {
-  const times = await electron.evaluate(() => globalThis.vigilHomeTimes)
+  const times = await electron.evaluate(() => globalThis.haligtreeHomeTimes)
   check('the window is shown only after its page has drawn itself', times.drawn && times.shown >= times.drawn, JSON.stringify(times))
   check(`and it is on screen within ${BUDGET}ms of the start`, times.shown && times.shown <= BUDGET, `${times.shown}ms (made ${times.made}, painted ${times.painted}, drawn ${times.drawn})`)
   check('arriving, it opens on the opening screen, not a bare page', await h.evaluate(() => new URLSearchParams(location.search).has('arrived')))
@@ -43,11 +43,11 @@ try {
 
   // The blade's sound waits for the window: hidden, asked from the menu bar, it hums only once shown.
   await electron.evaluate(({ BrowserWindow }) => { const w = BrowserWindow.getAllWindows().find((one) => one.webContents.getURL().includes('view=home')); w.hide(); globalThis.qaShownAt = null; w.once('show', () => (globalThis.qaShownAt = Date.now())) })
-  await h.evaluate(() => { window.__humAt = null; const list = window.vigilSaber; const push = list.push.bind(list); list.push = (...a) => ((window.__humAt = Date.now()), push(...a)) })
+  await h.evaluate(() => { window.__humAt = null; const list = window.haligtreeSaber; const push = list.push.bind(list); list.push = (...a) => ((window.__humAt = Date.now()), push(...a)) })
   // Out of the sandbox is the same blade (saberOff), and stops short of the restart here.
-  await electron.evaluate(({ ipcMain }) => { ipcMain.removeHandler('vigil:sandbox:leave'); ipcMain.handle('vigil:sandbox:leave', () => 0) })
+  await electron.evaluate(({ ipcMain }) => { ipcMain.removeHandler('haligtree:sandbox:leave'); ipcMain.handle('haligtree:sandbox:leave', () => 0) })
   await electron.evaluate(({ BrowserWindow }) => setTimeout(() => BrowserWindow.getAllWindows().find((one) => one.webContents.getURL().includes('view=home')).show(), 600))
-  await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:sandbox-leave')))
+  await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:sandbox-leave')))
   await wait(2500)
   const humAt = await h.evaluate(() => window.__humAt)
   const shownAt = await electron.evaluate(() => globalThis.qaShownAt)

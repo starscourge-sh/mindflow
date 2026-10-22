@@ -1,6 +1,6 @@
 // Settings, Colours: “App icon” offers Leaves and Gold leaves only, each shown as itself;
 // Leaves is chosen to start, a click on Gold leaves keeps it and changes the Dock's icon without an error,
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/app-icon.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/app-icon.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const c = await sandbox({ width: 1100, height: 800 })

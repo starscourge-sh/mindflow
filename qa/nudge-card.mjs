@@ -5,7 +5,7 @@
 // spring and the cup popping in; under the notch a break glows mint.
 //
 //   npx electron-vite build --outDir out-pill
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-pill/main/index.js MINDFLOW_QA_AWAY=1 MINDFLOW_QA_NOTCH=1 SHOT=<dir> node qa/nudge-card.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-pill/main/index.js HALIGTREE_QA_AWAY=1 HALIGTREE_QA_NOTCH=1 SHOT=<dir> node qa/nudge-card.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -46,7 +46,7 @@ try {
   const said = await card.$eval('[data-nudge="task"]', (one) => one.textContent).catch(() => '')
   check('it says “Due now” and the task', said.includes('Due now') && said.includes('Call the dentist'), said)
   check('with Done, In 10 min and Open', ['Done', 'In 10 min', 'Open'].every((one) => said.includes(one)))
-  check('and its sound', (await card.evaluate(() => [...(window.vigilHeard ?? [])])).includes('cue:hint'))
+  check('and its sound', (await card.evaluate(() => [...(window.haligtreeHeard ?? [])])).includes('cue:hint'))
   for (const theme of ['light', 'dark']) {
     await h.evaluate((t) => localStorage.setItem('theme', t), theme)
     await card.evaluate(() => window.dispatchEvent(new StorageEvent('storage', { key: 'theme' })))
@@ -157,7 +157,7 @@ try {
   }
 
   // --- Under the notch, a break glows mint from its lower edge, and its sparks burst from the notch.
-  if (process.env.MINDFLOW_QA_NOTCH) {
+  if (process.env.HALIGTREE_QA_NOTCH) {
     await v('settings:set', { pillSits: 'notch' })
     await pill.waitForTimeout(800)
     check('under the notch, sparks too', await burst('notch', async () => {

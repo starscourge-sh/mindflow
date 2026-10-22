@@ -1,7 +1,7 @@
 import { chime } from './sound'
-import { call, useLive } from './vigil'
-import { toast, refuse } from '@/components/vigil/ui'
-import type { MenuItem } from '@/components/vigil/row-menu'
+import { call, useLive } from './haligtree'
+import { toast, refuse } from '@/components/haligtree/ui'
+import type { MenuItem } from '@/components/haligtree/row-menu'
 import { num } from '../../../main/dates'
 import { clip } from '../../../main/clip'
 import type { QueueRow } from '../../../main/reading-queue'
@@ -11,7 +11,7 @@ export type { QueueRow }
  * The reading queue, as the windows see it: what you mean to read next, in
  * order, Spotify's way. Add to queue puts something at the end, Read next at
  * the front. The table is src/main/reading-queue.ts; the page is
- * components/vigil/queue-view.tsx.
+ * components/haligtree/queue-view.tsx.
  */
 
 export type Queue = { queue: QueueRow[]; read: QueueRow[] }
@@ -79,11 +79,11 @@ export const queueItems = (id: string): MenuItem[] => [
 ]
 
 /** Read the queue from `start`, in read mode, wherever the main window is. */
-export const readQueue = (start = 0): void => void window.dispatchEvent(new CustomEvent('vigil:queue-read', { detail: { start } }))
+export const readQueue = (start = 0): void => void window.dispatchEvent(new CustomEvent('haligtree:queue-read', { detail: { start } }))
 
 /**
  * A link that is only a link: its page in the browser, and once you come
- * back to Vigil it counts as read (with an Undo). `then` runs on the way back.
+ * back to Haligtree it counts as read (with an Undo). `then` runs on the way back.
  */
 export function openLink(row: QueueRow, then?: () => void): void {
   if (!row.url) return

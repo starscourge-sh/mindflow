@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { tear } from './sound'
-import { vigil } from './vigil'
-import { refuse, toast } from '@/components/vigil/ui'
+import { haligtree } from './haligtree'
+import { refuse, toast } from '@/components/haligtree/ui'
 import { num } from '../../../main/dates'
 import { shred } from './fly-home'
 
@@ -22,14 +22,14 @@ export type BinKind = 'task' | 'capture' | 'item'
 /** Whether one is in the Bin now (or gone for good). */
 export async function inBin(kind: BinKind, id: string): Promise<boolean> {
   if (kind === 'task') {
-    const task = await vigil.task(id)
+    const task = await haligtree.task(id)
     return !task || task.status === 'dropped'
   }
   if (kind === 'capture') {
     const capture = await window.api.captures.get(id)
     return !capture || capture.status === 'discarded'
   }
-  const item = await vigil.item(id)
+  const item = await haligtree.item(id)
   return !item || !!(item as { binnedAt?: string | null }).binnedAt
 }
 
@@ -58,12 +58,12 @@ export async function moveToBin(refs: BinRef[], onUndo?: () => void): Promise<nu
     if (one.type === 'task') {
       const was = one.status && one.status !== 'dropped' ? one.status : 'open'
       // A done one comes back done at the time it was done, not now.
-      const doneAt = was === 'done' ? ((await vigil.task(one.id))?.completedAt ?? null) : null
-      await vigil.saveTask(one.id, { status: 'dropped' })
-      return () => vigil.saveTask(one.id, { status: was, ...(doneAt ? { completedAt: doneAt } : {}) })
+      const doneAt = was === 'done' ? ((await haligtree.task(one.id))?.completedAt ?? null) : null
+      await haligtree.saveTask(one.id, { status: 'dropped' })
+      return () => haligtree.saveTask(one.id, { status: was, ...(doneAt ? { completedAt: doneAt } : {}) })
     }
-    await vigil.toBin(one.id)
-    return () => vigil.restore(one.type, one.id)
+    await haligtree.toBin(one.id)
+    return () => haligtree.restore(one.type, one.id)
   }))
   for (const land of shreds) land?.()
   // Paper through the shredder, from every list and every kind.
@@ -76,7 +76,7 @@ export async function moveToBin(refs: BinRef[], onUndo?: () => void): Promise<nu
   ].filter(Boolean).join('; ')
   const undo = (): void => {
     if (last?.undo === undo) last = null
-    void Promise.all(undos.map((one) => one())).then(() => (onUndo?.(), window.dispatchEvent(new CustomEvent('vigil:came-back', { detail: going.map((one) => one.id) }))))
+    void Promise.all(undos.map((one) => one())).then(() => (onUndo?.(), window.dispatchEvent(new CustomEvent('haligtree:came-back', { detail: going.map((one) => one.id) }))))
   }
   last = { ids: going.map((one) => one.id), undo, at: Date.now(), page: pageInFront() }
   toast(`${saidOf(going.length)}${extra ? `: ${extra}` : ''}`, undo, 'success', seeTheBin)
@@ -108,8 +108,8 @@ export function useCameBack(ids: string[], land: (id: string) => void): void {
   const waiting = useRef<{ ids: string[]; until: number } | null>(null)
   useEffect(() => {
     const heard = (event: Event): void => void (waiting.current = { ids: (event as CustomEvent<string[]>).detail, until: Date.now() + 4000 })
-    window.addEventListener('vigil:came-back', heard)
-    return () => window.removeEventListener('vigil:came-back', heard)
+    window.addEventListener('haligtree:came-back', heard)
+    return () => window.removeEventListener('haligtree:came-back', heard)
   }, [])
   useEffect(() => {
     const now = waiting.current

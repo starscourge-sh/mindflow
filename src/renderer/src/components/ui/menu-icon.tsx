@@ -113,7 +113,7 @@ const RULES: [RegExp, LucideIcon][] = [
   [/keyboard|shortcut|vim/i, Keyboard],
   [/welcome/i, DoorOpen],
   [/celebrat|wrapped/i, Gift],
-  [/^what .*vigil|power/i, Sparkles],
+  [/^what .*haligtree|power/i, Sparkles],
   [/words|meaning/i, Type],
   [/safe mode/i, ShieldCheck],
   [/screen recording/i, CameraOff],

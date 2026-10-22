@@ -4,14 +4,14 @@
 // line, === makes one, and the Read view of a tag draws it the same.
 // Screenshots under a heading, above a picture, in four themes.
 //   npx electron-vite build --outDir out-rib
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-rib/main/index.js MINDFLOW_QA_AWAY=1 node qa/ribbon-rule.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-rib/main/index.js HALIGTREE_QA_AWAY=1 node qa/ribbon-rule.mjs
 import { mkdirSync } from 'fs'
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 
 const SHOTS = process.env.QA_SHOTS ?? '/private/tmp/claude-501/-Users-starscourge-Documents-forge-mindflow/703b99ba-c755-40e3-a385-896560d19061/scratchpad/ribbon-shots'
 mkdirSync(SHOTS, { recursive: true })
-const ED = '.note-pane .tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+const ED = '.note-pane .tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 const { check, done } = checks()
 const c = await sandbox({ width: 1200, height: 900 })
 const { h, send, theme, close, errors } = c
@@ -110,7 +110,7 @@ try {
   await send('capture', id); await wait(1500)
   await h.locator(ED).waitFor({ timeout: 8000 })
   check('it survives a reload', (await rules()).includes('ribbon'), JSON.stringify(await rules()))
-  const saved = await h.evaluate((id) => window.api.vigil('capture', id).catch(() => null), id)
+  const saved = await h.evaluate((id) => window.api.haligtree('capture', id).catch(() => null), id)
   if (saved) check('the saved note keeps the style', JSON.stringify(saved).includes('"variant":"ribbon"'))
 
   // 4. Markdown export writes ---; HTML keeps the class.

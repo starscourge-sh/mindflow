@@ -9,7 +9,7 @@
 //       "tomorow" is lit as a guess there and in Today's add field.
 //
 //   npx electron-vite build --outDir out-cal
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-cal/main/index.js MINDFLOW_QA_AWAY=1 node qa/haligtree-today.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-cal/main/index.js HALIGTREE_QA_AWAY=1 node qa/haligtree-today.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const c = await sandbox({ width: 1600, height: 1000 })
@@ -123,7 +123,7 @@ try {
   // 55. The box: "this week" is due by its end; "tomorow" is lit as a guess.
   await h.evaluate(() => window.api.showPrompt())
   await page.waitForTimeout(2500)
-  const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+  const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
   await page.click(EDITOR)
   await page.keyboard.type('Create 2 framer websites and deploy them this week', { delay: 5 }); await page.waitForTimeout(900)
   const week = await page.evaluate(() => [...document.querySelectorAll('[data-will-do] [data-will]')].map((one) => one.textContent).join(' | '))

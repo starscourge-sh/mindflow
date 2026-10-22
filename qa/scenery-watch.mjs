@@ -1,6 +1,6 @@
 // A picture added to a scenery folder turns up within a few seconds, without
 // waiting for the ten-minute look; one taken out goes.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/scenery-watch.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/scenery-watch.mjs
 import { mkdtempSync, copyFileSync, rmSync, readdirSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'

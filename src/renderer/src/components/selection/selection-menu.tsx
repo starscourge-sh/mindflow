@@ -69,7 +69,7 @@ function useFloat(editor: Editor | null) {
   const bar = useRef<HTMLDivElement>(null)
   const [tight, setTight] = useState(false)
   const full = useRef(0)
-  const box = editor && !editor.isDestroyed ? (editor.view.dom.closest('.mindflow-editor-wrapper') as HTMLElement | null) : null
+  const box = editor && !editor.isDestroyed ? (editor.view.dom.closest('.haligtree-editor-wrapper') as HTMLElement | null) : null
   // Held for the editor's life: a new object each render would make the menu
   // reconfigure its plugin on every keystroke.
   const [held] = useState(() => {

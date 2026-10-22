@@ -1,8 +1,8 @@
-// The keys Vigil takes from anywhere stay clear of the Mac's own: none is one
+// The keys Haligtree takes from anywhere stay clear of the Mac's own: none is one
 // macOS keeps (full screen, emoji, Spotlight, screenshots, Force Quit, Lock
 // Screen), Start focus is ⌃⌥⌘S rather than ⌃⌥⌘F (one slip from ⌃⌘F, full
 // screen), and a note's find bar leaves ⌃⌘F to the menu.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/keys-anywhere.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/keys-anywhere.mjs
 import { sandbox } from './sandbox-lib.mjs'
 const results = []
 const check = (name, ok, detail = '') => { results.push(!!ok); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`) }

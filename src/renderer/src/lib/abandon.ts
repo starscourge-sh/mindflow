@@ -1,6 +1,6 @@
-import { refuse, toast } from '@/components/vigil/ui'
+import { refuse, toast } from '@/components/haligtree/ui'
 import { abandoned, chime } from '@/lib/sound'
-import { isSession, useLive, vigil, type Focus, type Settings } from '@/lib/vigil'
+import { isSession, useLive, haligtree, type Focus, type Settings } from '@/lib/haligtree'
 import type { Choice } from '@/components/search'
 
 /**
@@ -10,16 +10,16 @@ import type { Choice } from '@/components/search'
  * it simply stops.
  */
 export async function abandonNow(focus?: Focus | null): Promise<void> {
-  const now = focus ?? (await vigil.focusNow())
+  const now = focus ?? (await haligtree.focusNow())
   if (!now) return refuse('No session is running')
   // The time it had left, read before it stops, so Undo can start it again from there.
   const ran = Date.now() - new Date(now.startedAt).getTime() - (now.pausedMs ?? 0) - (now.pausedAt ? Date.now() - new Date(now.pausedAt).getTime() : 0)
   const left = now.plannedMs ? now.plannedMs - ran : 0
-  const how = await vigil.abandonSession(now.id)
+  const how = await haligtree.abandonSession(now.id)
   if (how === 'gone') {
     chime('done')
     const again = left >= 1000 && !now.rounds
-      ? () => void (now.kind === 'break' ? vigil.startBreak(null, left) : vigil.startTimer(now.goal || 'Timer', left)).then(() => (chime('back'), window.api.showFocus(true)))
+      ? () => void (now.kind === 'break' ? haligtree.startBreak(null, left) : haligtree.startTimer(now.goal || 'Timer', left)).then(() => (chime('back'), window.api.showFocus(true)))
       : undefined
     return void toast(now.kind === 'break' ? 'Break over' : 'Timer stopped', again)
   }
@@ -27,7 +27,7 @@ export async function abandonNow(focus?: Focus | null): Promise<void> {
   abandoned()
   window.api.glow('cancel')
   toast('Session abandoned, not counted', () =>
-    void vigil.unabandonSession(now.id).then((back) => (back ? (chime('back'), window.api.showFocus(true)) : chime('nope'))))
+    void haligtree.unabandonSession(now.id).then((back) => (back ? (chime('back'), window.api.showFocus(true)) : chime('nope'))))
 }
 
 /**
@@ -37,14 +37,14 @@ export async function abandonNow(focus?: Focus | null): Promise<void> {
  */
 type SessionAction = { label: string; hint?: string; keys?: string; cue: null; run: () => void; choices?: () => Choice[]; typedChoice?: (typed: string) => Choice | null; heard?: (typed: string) => SessionAction | null }
 export function useAbandonAction(): SessionAction[] {
-  const focus = useLive(vigil.focusNow, null as Focus | null)
-  const last = useLive(vigil.lastSession, null as Awaited<ReturnType<typeof vigil.lastSession>>)
-  const settings = useLive(vigil.settings, null as Settings | null)
+  const focus = useLive(haligtree.focusNow, null as Focus | null)
+  const last = useLive(haligtree.lastSession, null as Awaited<ReturnType<typeof haligtree.lastSession>>)
+  const settings = useLive(haligtree.settings, null as Settings | null)
   // The focus timer turned off (Settings, Tasks): nothing to start. One still running can still be ended.
   if (!focus && settings?.focusTools !== true) return []
   if (!focus) {
     const length = last?.plannedMs ? `, ${Math.max(1, Math.round(last.plannedMs / 60_000))} min` : ''
-    return [startFocusAction(false), ...(last ? [{ label: `Go again: ${last.goal}${length}`, cue: null, run: () => void vigil.againSession().then((id) => (id ? (chime('anew'), window.api.showFocus(true)) : chime('nope'))) }] : [])]
+    return [startFocusAction(false), ...(last ? [{ label: `Go again: ${last.goal}${length}`, cue: null, run: () => void haligtree.againSession().then((id) => (id ? (chime('anew'), window.api.showFocus(true)) : chime('nope'))) }] : [])]
   }
   return [...sessionLines(focus), startFocusAction(true)]
 }
@@ -55,7 +55,7 @@ export const START_FOCUS = 'Start focus…'
 export const FOCUS_LENGTHS = [25, 45, 60]
 /** A bare session, no task: as long as asked, with the bubble up. Named while it runs, or after. */
 export const startBareFocus = (ms: number): void =>
-  void vigil.startFocus(ms).then(() => (chime('slide'), window.api.showFocus(true)))
+  void haligtree.startFocus(ms).then(() => (chime('slide'), window.api.showFocus(true)))
 /** A typed length as minutes: “40”, “40 min”, “1h30”, “1:30”, between 1 minute and 8 hours. */
 export const minutesTyped = (typed: string): number | null => {
   const words = typed.trim().toLowerCase().replace(/^(start\s+)?focus\s*(for\s*)?/, '')
@@ -95,9 +95,9 @@ export function startFocusAction(running: boolean): SessionAction {
  */
 export function sessionLines(focus: Focus): { label: string; keys?: string; cue: null; run: () => void }[] {
   return [
-    ...(focus.plannedMs ? [{ label: focus.kind === 'break' ? 'Add 10 minutes to the break' : isSession(focus) ? 'Add 10 minutes to the session' : 'Add 10 minutes to the timer', keys: '⌃⌥⌘=', cue: null, run: () => void vigil.extendSession(focus.id, 10 * 60_000).then((ok) => ok === false && chime('nope')) }] : []),
+    ...(focus.plannedMs ? [{ label: focus.kind === 'break' ? 'Add 10 minutes to the break' : isSession(focus) ? 'Add 10 minutes to the session' : 'Add 10 minutes to the timer', keys: '⌃⌥⌘=', cue: null, run: () => void haligtree.extendSession(focus.id, 10 * 60_000).then((ok) => ok === false && chime('nope')) }] : []),
     // The pill's Stop asks the same two things, in the same words.
-    ...(isSession(focus) ? [{ label: 'End session early, count it', cue: null, run: () => void vigil.endSession(focus.id, '', false).then(() => (chime('resolve'), toast('Session ended early, counted', () => void vigil.unendSession(focus.id).then((back) => (back ? (chime('back'), window.api.showFocus(true)) : chime('nope')))))) }] : []),
+    ...(isSession(focus) ? [{ label: 'End session early, count it', cue: null, run: () => void haligtree.endSession(focus.id, '', false).then(() => (chime('resolve'), toast('Session ended early, counted', () => void haligtree.unendSession(focus.id).then((back) => (back ? (chime('back'), window.api.showFocus(true)) : chime('nope')))))) }] : []),
     { label: isSession(focus) ? "Abandon session, don't count it" : focus.kind === 'break' ? 'End the break' : 'Stop the timer', cue: null, run: () => void abandonNow(focus) }
   ]
 }

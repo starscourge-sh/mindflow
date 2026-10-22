@@ -20,7 +20,7 @@ import { changed } from './captures'
 export type Mood = 'day' | 'dusk' | 'night' | 'interior'
 export type Scene = {
   id: string
-  /** What the windows load: mindflow://scenery/<id>.<ext>. */
+  /** What the windows load: haligtree://scenery/<id>.<ext>. */
   url: string
   mood: Mood
   width: number
@@ -36,7 +36,7 @@ export type Scene = {
   folder?: string
   /** The chosen folder it was found in (the folder itself, or one it holds). */
   root?: string
-  /** A copy small enough for a list's tiles: mindflow://scenery/<id>-s.jpg. */
+  /** A copy small enough for a list's tiles: haligtree://scenery/<id>-s.jpg. */
   small?: string
 }
 type Entry = Scene & { path: string; key: string }
@@ -148,7 +148,7 @@ function seeThrough(image: Electron.NativeImage): boolean {
 async function decode(path: string): Promise<Electron.NativeImage> {
   const image = nativeImage.createFromPath(path)
   if (!image.isEmpty() || !/\.webp$/i.test(path) || process.platform !== 'darwin') return image
-  const out = join(tmpdir(), `vigil-scene-${randomUUID()}.png`)
+  const out = join(tmpdir(), `haligtree-scene-${randomUUID()}.png`)
   try {
     await promisify(execFile)('sips', ['-s', 'format', 'png', path, '--out', out], { timeout: 20000 })
     return nativeImage.createFromPath(out)
@@ -174,7 +174,7 @@ async function prepare(path: string): Promise<Entry | null> {
   const clear = /\.(png|webp)$/i.test(path) && seeThrough(image)
   // A small copy too, for covers in lists.
   const tiny = clear ? 'png' : 'jpg'
-  const small = `mindflow://scenery/${key}-s.${tiny}`
+  const small = `haligtree://scenery/${key}-s.${tiny}`
   const shrunk = width > SMALL ? image.resize({ width: SMALL, quality: 'good' }) : image
   await writeFile(join(sceneryDir(), `${key}-s.${tiny}`), clear ? shrunk.toPNG() : shrunk.toJPEG(82))
   const pixel = blocky(image, path)
@@ -184,7 +184,7 @@ async function prepare(path: string): Promise<Entry | null> {
   const ext = pixel || clear ? 'png' : 'jpg'
   await writeFile(join(sceneryDir(), `${key}.${ext}`), ext === 'png' ? copy.toPNG() : copy.toJPEG(80))
   const size = copy.getSize()
-  return { id: key, key, path, url: `mindflow://scenery/${key}.${ext}`, small, width: size.width, height: size.height, pixel, ...read(copy) }
+  return { id: key, key, path, url: `haligtree://scenery/${key}.${ext}`, small, width: size.width, height: size.height, pixel, ...read(copy) }
 }
 
 /**
@@ -305,10 +305,10 @@ async function list(folders: string[], use = 'scenery'): Promise<{ scenes: Scene
 }
 
 export function registerScenery(): void {
-  ipcMain.handle('vigil:scenery', (_event, folders: unknown, use: unknown) =>
+  ipcMain.handle('haligtree:scenery', (_event, folders: unknown, use: unknown) =>
     // Whole folders only, named from the top of the disk: nothing relative to wherever the app runs.
     list(Array.isArray(folders) ? folders.filter((one): one is string => typeof one === 'string' && isAbsolute(one)) : [], use === 'covers' ? 'covers' : 'scenery'))
-  ipcMain.handle('vigil:scenery:folder', async () => {
+  ipcMain.handle('haligtree:scenery:folder', async () => {
     const { filePaths } = await dialog.showOpenDialog({ title: 'Choose a folder of pictures', buttonLabel: 'Use this folder', properties: ['openDirectory'] })
     return filePaths[0] ?? null
   })

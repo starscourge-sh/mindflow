@@ -1,5 +1,5 @@
 // Close the day at a small and a full window, light and dark: the sheet stays inside the window.
-// Run: QA_SHOTS=dir QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-notes/main/index.js MINDFLOW_QA_AWAY=1 node qa/close-day-sizes.mjs
+// Run: QA_SHOTS=dir QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-notes/main/index.js HALIGTREE_QA_AWAY=1 node qa/close-day-sizes.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const { h, size, theme, close } = await sandbox({ width: 760, height: 540 })
@@ -10,7 +10,7 @@ try {
     await theme(t)
     for (const [w, hh] of [[760, 540], [1680, 1050]]) {
       await size(w, hh)
-      await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:close-day')))
+      await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:close-day')))
       await h.waitForTimeout(1500)
       if (S) await h.screenshot({ path: `${S}/closeday-${w}-${t}.png` })
       const fits = await h.evaluate(() => {

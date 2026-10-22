@@ -167,7 +167,7 @@ export function applyTheme(theme: Theme, remember = true): void {
     // A sticky note is paper on the desktop: always solid. Frosted, it showed
     // whatever was behind it through its words, text over text, and macOS
     // blurs nothing behind a window this small and tilted. Its frost is drawn
-    // instead, from the desktop picture (components/vigil/frost.tsx).
+    // instead, from the desktop picture (components/haligtree/frost.tsx).
     const sticky = new URLSearchParams(location.search).get("view") === "sticky" && !new URLSearchParams(location.search).has("glass")
     if ((theme.startsWith("custom-") && isLight(theme)) || sticky) document.documentElement.dataset.solid = ""
     else delete document.documentElement.dataset.solid
@@ -303,7 +303,7 @@ export function importTheme(fileName: string, text: string): (CustomTheme & { un
   const name = cut(String(given.name ?? fileName.replace(/\.[^.]+$/, "")), 40)
   const vars = { ...fromPalette(given), ...Object.fromEntries(Object.entries(given).filter(([key]) => key.startsWith("--")).map(([key, value]) => [key, String(value)])) }
   if (!Object.keys(vars).length) return "No colours found: a theme file needs bg, ink and accent"
-  // Named in part, the page would mix with the theme worn: all three, or none (Vigil's own --variables only).
+  // Named in part, the page would mix with the theme worn: all three, or none (Haligtree's own --variables only).
   const missing = ["bg", "ink", "accent"].filter((key) => given[key] === undefined)
   if (missing.length && missing.length < 3) return `The theme file is missing ${missing.join(" and ")}: bg, ink and accent are all needed`
   const id = `custom-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || Date.now()}` as const
@@ -396,7 +396,7 @@ export function themeActions(said: (text: string, undo?: () => void) => void): {
     const was = currentStyle()
     setStyle(style)
     // The look changes in front of you: nothing to read, but ⌘Z still puts it back (ui.tsx, quietly).
-    if (was !== style) window.dispatchEvent(new CustomEvent('vigil:undoable', { detail: { undo: () => setStyle(was) } }))
+    if (was !== style) window.dispatchEvent(new CustomEvent('haligtree:undoable', { detail: { undo: () => setStyle(was) } }))
   }
   const all = allThemes()
   return [

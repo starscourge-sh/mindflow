@@ -5,7 +5,7 @@ import { join } from 'path'
 import { LABEL, atomically, changed, database } from './captures'
 import { celebrateAfter, watches } from './celebrate'
 import { known } from './pictures'
-import { gate, plain, tellGoals } from './vigil'
+import { gate, plain, tellGoals } from './haligtree'
 import { syncLineCards } from './line-cards'
 import { centredOn, glide, onScreen, stillNow } from './glide'
 import { tagsIn } from './tag-words'
@@ -17,7 +17,7 @@ import { cut } from './clip'
  * asks for, whether it is archived, the versions it has been, its links as a
  * small map, its files to take away, and the page each day keeps.
  *
- * Every channel here starts `vigil:`, so the preload passes it through
+ * Every channel here starts `haligtree:`, so the preload passes it through
  * without a line of its own.
  */
 
@@ -32,15 +32,15 @@ const parse = (text: string | null | undefined): unknown => {
 }
 const assets = (): string => join(app.getPath('userData'), 'assets')
 /** A stored picture's address: the first one in a body is its thumbnail. */
-const PICTURE = /mindflow:\/\/assets\/[a-f0-9]{64}\.(?:png|jpe?g|gif|webp|avif|bmp|heic|svg)/
+const PICTURE = /haligtree:\/\/assets\/[a-f0-9]{64}\.(?:png|jpe?g|gif|webp|avif|bmp|heic|svg)/
 /** A stored video: a note with no picture shows its first frame instead. */
-const VIDEO = /mindflow:\/\/assets\/[a-f0-9]{64}\.(?:mp4|m4v|mov|webm)/
+const VIDEO = /haligtree:\/\/assets\/[a-f0-9]{64}\.(?:mp4|m4v|mov|webm)/
 /**
  * A stored file's name in the store, from its address, or null: only a bare
  * hash and extension, so an address cannot lead anywhere outside the store.
  */
 const stored = (src: unknown): string | null => {
-  const name = String(src ?? '').replace(/^mindflow:\/\/assets\//, '')
+  const name = String(src ?? '').replace(/^haligtree:\/\/assets\//, '')
   return /^[a-f0-9]{64}\.[a-z0-9]+$/.test(name) ? name : null
 }
 
@@ -70,9 +70,9 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
     }
   }
   // Archiving the last capture can empty the inbox, so a watched write is
-  // looked at once it is done, as in vigil.ts.
+  // looked at once it is done, as in haligtree.ts.
   const handle = (channel: string, run: (...args: never[]) => unknown): void =>
-    void ipcMain.handle(`vigil:${channel}`, (event, ...args) => {
+    void ipcMain.handle(`haligtree:${channel}`, (event, ...args) => {
       const result = run(...(args as never[]))
       if (watches(channel)) void Promise.resolve(result).then((done) => celebrateAfter(channel, event.sender, args, done), () => undefined)
       return result
@@ -145,7 +145,7 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
   // The first stored picture in each note, worked out once per wording.
   const firsts: Kept<string> = new Map()
   handle('notes:thumbs', () => {
-    const rows = db.prepare(`select id, body from captures where body like '%mindflow://assets/%' union all select id, body from nuggets where body like '%mindflow://assets/%'`).all() as { id: string; body: string }[]
+    const rows = db.prepare(`select id, body from captures where body like '%haligtree://assets/%' union all select id, body from nuggets where body like '%haligtree://assets/%'`).all() as { id: string; body: string }[]
     return Object.fromEntries(rows.map((row) => [row.id, remember(firsts, row.id, row.body, () => PICTURE.exec(row.body)?.[0] ?? VIDEO.exec(row.body)?.[0] ?? '')]).filter(([, src]) => src))
   })
   // Small and kept: a list shows dozens at once, and the full picture is
@@ -397,7 +397,7 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
     return {
       nodes: linked.map(({ type, id, title, kind, body }) => {
         const tag = mains.get(id)
-        const picture = body?.includes('mindflow://assets/') ? PICTURE.exec(body)?.[0] : undefined
+        const picture = body?.includes('haligtree://assets/') ? PICTURE.exec(body)?.[0] : undefined
         return { type, id, title, kind, links: links.get(id)!, ...(tag ? { tag, tint: hue.get(tag)! } : {}), ...(picture ? { picture } : {}) }
       }),
       edges: [...pairs.values()],
@@ -410,8 +410,8 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
   handle('notes:attachments', async (notes?: { table: string; id: string }[]) => {
     const rows = (notes?.length
       ? notes.map(({ table: name, id }) => db.prepare(`select id, ${table(name) === 'captures' ? `'V-' || number || ' ' || ${LABEL}` : "coalesce(nullif(title, ''), label('', body))"} as name, body from ${table(name)} where id = ?`).get(id))
-      : [...db.prepare(`select id, 'V-' || number || ' ' || ${LABEL} as name, body from captures where body like '%mindflow://assets/%'`).all(),
-         ...db.prepare("select id, coalesce(nullif(title, ''), label('', body)) as name, body from nuggets where body like '%mindflow://assets/%'").all()]
+      : [...db.prepare(`select id, 'V-' || number || ' ' || ${LABEL} as name, body from captures where body like '%haligtree://assets/%'`).all(),
+         ...db.prepare("select id, coalesce(nullif(title, ''), label('', body)) as name, body from nuggets where body like '%haligtree://assets/%'").all()]
     ).filter(Boolean) as { id: string; name: string; body: string }[]
     // The store names each file by its hash; the note is what remembers what
     // it was called: an attachment's name, a picture's description.
@@ -420,9 +420,9 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
       const walk = (node: Doc | string | null): void => {
         if (!node) return
         if (typeof node === 'string')
-          return void [...node.matchAll(/!\[([^\]]*)\]\((mindflow:\/\/assets\/[^)\s]+)\)/g)].forEach(([, alt, src]) => found.push({ src, name: alt }))
+          return void [...node.matchAll(/!\[([^\]]*)\]\((haligtree:\/\/assets\/[^)\s]+)\)/g)].forEach(([, alt, src]) => found.push({ src, name: alt }))
         const src = String(node.attrs?.src ?? '')
-        if (src.startsWith('mindflow://assets/') && (node.type === 'attachment' || node.type === 'image'))
+        if (src.startsWith('haligtree://assets/') && (node.type === 'attachment' || node.type === 'image'))
           found.push({ src, name: String(node.attrs?.name || node.attrs?.alt || node.attrs?.title || '') })
         node.content?.forEach(walk)
       }
@@ -528,7 +528,7 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
     const page = win.getContentBounds()
     return { x: Math.round(page.x + box.x), y: Math.round(page.y + box.y), width: Math.round(box.width), height: Math.round(box.height) }
   }
-  ipcMain.handle('vigil:notes:window', (event, type: string, id: string, from?: Box | null, carry?: Carry | null) => {
+  ipcMain.handle('haligtree:notes:window', (event, type: string, id: string, from?: Box | null, carry?: Carry | null) => {
     const link = `${type}:${id}`
     const was = open.get(link)
     if (was && !was.isDestroyed()) return void (gate().blackout || was.focus())
@@ -585,12 +585,12 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
     carried.delete(link)
     return carry
   })
-  // ⌘O in a note's own window, "Open in Vigil": the note goes back into the
+  // ⌘O in a note's own window, "Open in Haligtree": the note goes back into the
   // main window as the same page. The small window stays on top while the
   // main window opens the note under it, glides to exactly where the note now
   // sits, and fades into it.
   let landing: { link: string; done: (box: Box | null) => void } | null = null
-  ipcMain.handle('vigil:notes:promote', async (event, carry?: Carry | null) => {
+  ipcMain.handle('haligtree:notes:promote', async (event, carry?: Carry | null) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     const link = [...open].find(([, one]) => one === win)?.[0]
     if (!win || !link) return false

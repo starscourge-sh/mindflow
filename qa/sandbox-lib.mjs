@@ -48,7 +48,7 @@ export async function sandbox({ width = 1000, height = 700, seeded = true, at } 
     // renderer down inside Electron itself (about one run in eight), which no
     // person does and no app code causes.
     for (let i = 0; i < 150; i++) {
-      const state = await h.evaluate(() => window.api.vigil('sandbox:state')).catch(() => null)
+      const state = await h.evaluate(() => window.api.haligtree('sandbox:state')).catch(() => null)
       if (state?.seeded || (state && !state.on)) break
       await h.waitForTimeout(200)
     }
@@ -60,7 +60,7 @@ export async function sandbox({ width = 1000, height = 700, seeded = true, at } 
   h.on('console', (m) => m.type() === 'error' && errors.push(m.text().slice(0, 300)))
   page.on('pageerror', (e) => errors.push('BOX PAGEERROR ' + e.message))
   await h.waitForLoadState('domcontentloaded')
-  const v = (channel, ...args) => h.evaluate(([c, a]) => window.api.vigil(c, ...a), [channel, args])
+  const v = (channel, ...args) => h.evaluate(([c, a]) => window.api.haligtree(c, ...a), [channel, args])
   if (seeded) {
     for (let i = 0; i < 150; i++) {
       const state = await v('sandbox:state').catch(() => null)

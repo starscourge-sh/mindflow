@@ -1,10 +1,10 @@
-import { toast } from '@/components/vigil/ui'
+import { toast } from '@/components/haligtree/ui'
 import { SANDBOX } from './sandbox'
-import { vigil, type Settings } from './vigil'
+import { haligtree, type Settings } from './haligtree'
 import { APP_NAME } from '../../../main/name'
 
 /**
- * Which of Vigil's windows show in screen shares, recordings and screenshots.
+ * Which of Haligtree's windows show in screen shares, recordings and screenshots.
  * Each kind has its own switch in Settings (all hidden to start); ⌘K and the
  * box's menu turn them all on or off at once.
  */
@@ -18,12 +18,12 @@ export const allRecorded = (seen: Recordings | undefined): boolean => RECORDING_
 /** All shown or all hidden, at once, saying so, undoable back to how each was. */
 export function recordAll(on: boolean, was: Recordings | undefined): void {
   const all = Object.fromEntries(RECORDING_KINDS.map((kind) => [kind, on])) as Recordings
-  void vigil.setSettings({ inRecordings: all })
-  toast(on ? `All of ${APP_NAME} shows in screen recordings` : `All of ${APP_NAME} is hidden from screen recordings`, () => void vigil.setSettings({ inRecordings: { ...HIDDEN, ...was } }))
+  void haligtree.setSettings({ inRecordings: all })
+  toast(on ? `All of ${APP_NAME} shows in screen recordings` : `All of ${APP_NAME} is hidden from screen recordings`, () => void haligtree.setSettings({ inRecordings: { ...HIDDEN, ...was } }))
 }
 
 /**
- * Once: the one switch this used to be ("Show Vigil in screen recordings",
+ * Once: the one switch this used to be ("Show Haligtree in screen recordings",
  * kept in the window's own storage) and its "Except sticky notes", moved
  * into the settings as a switch for each kind of window, so nothing you
  * chose changes. Hidden stays hidden; shown stays shown, sticky notes as
@@ -39,11 +39,11 @@ export async function moveOldRecordable(): Promise<void> {
   if (old === null) return
   // The sandbox wears what it was given when it was set out, not an old flag of its own.
   if (old === 'on' && !SANDBOX) {
-    const now = (await vigil.settings()) as Settings & { stickiesUnshared?: boolean }
-    await vigil.setSettings({ inRecordings: { main: true, box: true, bubble: true, stickies: now.stickiesUnshared === false } })
+    const now = (await haligtree.settings()) as Settings & { stickiesUnshared?: boolean }
+    await haligtree.setSettings({ inRecordings: { main: true, box: true, bubble: true, stickies: now.stickiesUnshared === false } })
   }
   // Off was hidden from everything: kept so, now that a new book starts shown.
-  if (old === 'off' && !SANDBOX) await vigil.setSettings({ inRecordings: HIDDEN })
+  if (old === 'off' && !SANDBOX) await haligtree.setSettings({ inRecordings: HIDDEN })
   try {
     localStorage.removeItem('recordable')
   } catch {

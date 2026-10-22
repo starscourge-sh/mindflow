@@ -2,7 +2,7 @@ import type * as Emoji from '@tiptap/extension-emoji'
 
 // What main reads of the editor's emoji extension (import.ts: an emoji's
 // character from its name), loaded the first time it is needed or soon after
-// Vigil opens, rather than as it opens: it takes about 25ms. It is bundled
+// Haligtree opens, rather than as it opens: it takes about 25ms. It is bundled
 // into main, so it comes as a piece of its own. electron.vite.config.ts
 // points main's import of it here; the tests and the windows import the real one.
 let real: typeof Emoji | undefined

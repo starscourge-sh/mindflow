@@ -4,13 +4,13 @@
 // the welcome a note beside them says what happened, never over Create.
 //
 //   npx electron-vite build --outDir out-qf
-//   QA_DATA=$(mktemp -d) QA_ENTRY=out-qf/main/index.js MINDFLOW_QA_AWAY=1 node qa/quote-format.mjs [shots-dir]
+//   QA_DATA=$(mktemp -d) QA_ENTRY=out-qf/main/index.js HALIGTREE_QA_AWAY=1 node qa/quote-format.mjs [shots-dir]
 import { mkdirSync } from 'fs'
 import { open, checks } from './harness.mjs'
 
 const SHOTS = process.argv[2] ?? ''
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
-const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 const QUOTE = '“No, Luke, I am your father” - Darth Vader, Empire Strikes Back'
 const { check, done } = checks()
 
@@ -19,7 +19,7 @@ const { page, electron } = qa
 const errors = []
 page.on('pageerror', (error) => errors.push(error.message))
 const wait = (ms = 300) => page.waitForTimeout(ms)
-const v = (channel, ...args) => page.evaluate(([c, a]) => window.api.vigil(c, ...a), [channel, args])
+const v = (channel, ...args) => page.evaluate(([c, a]) => window.api.haligtree(c, ...a), [channel, args])
 const boxSize = (width, height) => electron.evaluate(({ BrowserWindow }, [w, h]) => {
   const win = BrowserWindow.getAllWindows().find((one) => !one.webContents.getURL().includes('view='))
   win.setSize(w, h)
@@ -127,7 +127,7 @@ seen = await look()
 check('a who you wrote is never tied', !seen.tied.length, seen.tied.join('|'))
 
 // --- the ? sheet lists the words the box reads ---------------------------------------
-await page.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:shortcuts')))
+await page.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:shortcuts')))
 await wait(500)
 const sheet = await page.evaluate(() => document.querySelector('[role="dialog"][aria-label="Keyboard shortcuts"]')?.textContent ?? '')
 check('the ? sheet lists the words quick capture reads', sheet.includes('Words quick capture reads') && sheet.includes('After a quote: fills who said it'), sheet.slice(0, 80))

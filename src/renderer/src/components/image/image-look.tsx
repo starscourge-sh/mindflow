@@ -5,7 +5,7 @@ import { createRoot } from "react-dom/client"
 import { NodeSelection } from "@tiptap/pm/state"
 import type { Editor } from "@tiptap/react"
 import { animate, motion, useMotionTemplate, useMotionValue, useSpring } from "motion/react"
-import { useFollowLabel, useTilt } from "@/components/vigil/tilt"
+import { useFollowLabel, useTilt } from "@/components/haligtree/tilt"
 import { Check, FolderOpen } from "lucide-react"
 import { AliveIcon } from "@/components/ui/alive-icon"
 import ExpandIcon from "@/components/ui/expand-icon"
@@ -14,7 +14,7 @@ import { Button } from "@/components/tiptap-ui-primitive/button"
 import { host } from "@/lib/host"
 import { chime } from "@/lib/sound"
 import { byKeys, still } from "@/lib/motion"
-import { useLive, vigil, type Settings } from "@/lib/vigil"
+import { useLive, haligtree, type Settings } from "@/lib/haligtree"
 import { ChevronLeft, ChevronRight, Copy, X } from "@/components/ui/icons"
 
 /** Asked for by the image menu's own Look button. */
@@ -199,7 +199,7 @@ const TYPED = 900
  */
 function PictureTilt({ editor }: { editor: Editor }): React.ReactNode {
   const tilt = useTilt(6, 1.015)
-  const settings = useLive(vigil.settings, null as Settings | null)
+  const settings = useLive(haligtree.settings, null as Settings | null)
   const tilting = useRef(false)
   tilting.current = !!settings?.tiltPictures
   const following = useRef(true)
@@ -390,7 +390,7 @@ export function Viewer({ pictures, start, onClose, awayRef }: {
   const img = picture.el
   const fit = fitOf(picture)
   const src = picture.src
-  const stored = src.startsWith("mindflow://assets/")
+  const stored = src.startsWith("haligtree://assets/")
   const caption = picture.caption
   const most = Math.max(4, 2 / fit.scale)
 

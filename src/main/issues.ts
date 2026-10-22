@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto'
 
 import { LABEL, changed, database } from './captures'
 import { dayjs, num } from './dates'
-import { gate, plain } from './vigil'
+import { gate, plain } from './haligtree'
 
 /**
  * Weeks and months read back like issues of a magazine you wrote without
@@ -12,7 +12,7 @@ import { gate, plain } from './vigil'
  * idea you keep catching again, which the app says out loud, since
  * repetition means unfinished, not important.
  *
- * Every channel here starts `vigil:`, so the preload passes it through.
+ * Every channel here starts `haligtree:`, so the preload passes it through.
  */
 
 const now = (): string => new Date().toISOString()
@@ -43,7 +43,7 @@ export type Repeat = { n: number; ids: { id: string; number: number; title: stri
 export function registerIssues(): void {
   const db = database()
   const handle = (channel: string, run: (...args: never[]) => unknown): void =>
-    void ipcMain.handle(`vigil:${channel}`, (_event, ...args) => run(...(args as never[])))
+    void ipcMain.handle(`haligtree:${channel}`, (_event, ...args) => run(...(args as never[])))
 
   // --- a week or a month, and the ones before it
 

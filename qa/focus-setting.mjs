@@ -11,7 +11,7 @@
 // its own two-second ask) on to the page that was asked for.
 //
 //   npx electron-vite build --outDir out-fu
-//   QA_DATA=$(mktemp -d) QA_ENTRY=out-fu/main/index.js MINDFLOW_QA_AWAY=1 node qa/focus-setting.mjs
+//   QA_DATA=$(mktemp -d) QA_ENTRY=out-fu/main/index.js HALIGTREE_QA_AWAY=1 node qa/focus-setting.mjs
 import { mkdtempSync } from 'fs'
 import { DatabaseSync } from 'node:sqlite'
 import { tmpdir } from 'os'
@@ -19,13 +19,13 @@ import { join } from 'path'
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
 
-const root = process.env.QA_DATA ?? mkdtempSync(join(tmpdir(), 'vigil-focusset-'))
+const root = process.env.QA_DATA ?? mkdtempSync(join(tmpdir(), 'haligtree-focusset-'))
 if (root.includes('Application Support')) throw new Error('never the real data folder')
 process.env.QA_DATA = root
 process.env.QA_ARGS = ''
 const { check, done } = checks()
 const wait = (ms) => new Promise((go) => setTimeout(go, ms))
-const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 
 const launch = async () => {
   const c = await sandbox({ seeded: false, width: 1200, height: 800 })
@@ -132,11 +132,11 @@ const settingsTasks = async (c) => {
     await c.electron.evaluate((_, f) => void (globalThis.siteBlockFake = f), { app: 'com.google.Chrome', url: 'https://x.com/home?tab=1', win: 1, tab: 7 })
     await wait(2600)
     const sent = await c.electron.evaluate(() => (globalThis.siteBlockAway ?? []).at(-1))
-    check('a blocked tab is sent to Haligtree’s own page, carrying its address', /^http:\/\/127\.0\.0\.1:\d+\/vigil-blocked\?/.test(sent?.page ?? '') && sent.page.includes(encodeURIComponent('https://x.com/home?tab=1')), sent?.page)
+    check('a blocked tab is sent to Haligtree’s own page, carrying its address', /^http:\/\/127\.0\.0\.1:\d+\/haligtree-blocked\?/.test(sent?.page ?? '') && sent.page.includes(encodeURIComponent('https://x.com/home?tab=1')), sent?.page)
     const during = await fetch(sent.page, { redirect: 'manual' })
     const page = await during.text()
     check('while the round runs, the page says it is blocked and until when', during.status === 200 && page.includes('is blocked until') && page.includes('a refresh then takes you there'), String(during.status))
-    const state = await (await fetch(sent.page.replace('/vigil-blocked?', '/vigil-blocked/state?'))).json()
+    const state = await (await fetch(sent.page.replace('/haligtree-blocked?', '/haligtree-blocked/state?'))).json()
     check('its two-second ask hears “still blocked”', state.blocked === true, JSON.stringify(state))
     const other = await fetch(sent.page.replace(encodeURIComponent('https://x.com/home?tab=1'), encodeURIComponent('https://example.org/')), { redirect: 'manual' })
     check('a page that is not blocked is sent straight on', other.status === 302 && other.headers.get('location') === 'https://example.org/')
@@ -161,7 +161,7 @@ const settingsTasks = async (c) => {
     check('the round over, the open page goes on to the address by itself, no refresh', went === 'https://x.com/home?tab=1', String(went))
     const refresh = await fetch(sent.page, { redirect: 'manual' })
     check('the round over, a refresh goes on to the page asked for', refresh.status === 302 && refresh.headers.get('location') === 'https://x.com/home?tab=1', `${refresh.status} ${refresh.headers.get('location')}`)
-    const ask = await (await fetch(sent.page.replace('/vigil-blocked?', '/vigil-blocked/state?'))).json()
+    const ask = await (await fetch(sent.page.replace('/haligtree-blocked?', '/haligtree-blocked/state?'))).json()
     check('and the page’s own ask hears it may go on', ask.blocked === false)
     const back = await c.electron.evaluate(() => (globalThis.siteBlockBack ?? []).at(-1))
     check('the tab is put back too', back?.url === 'https://x.com/home?tab=1' && back.result === 'restored', JSON.stringify(back))
@@ -175,7 +175,7 @@ await wait(1200)
 
 // --- 2. A book that already ran sessions, never asked: on.
 {
-  const db = new DatabaseSync(join(root, 'mindflow.db'))
+  const db = new DatabaseSync(join(root, 'haligtree.db'))
   db.prepare("delete from settings where key = 'focusTools'").run()
   const sessions = db.prepare('select count(*) as n from sessions').get().n
   db.close()

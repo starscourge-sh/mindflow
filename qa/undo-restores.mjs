@@ -5,7 +5,7 @@
 // a read undone keeps its place in the queue; a monthly task moved and moved
 // back keeps its day; a task added from the line comes back into it; an Inbox
 // exit undone opens that capture again.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/undo-restores.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/undo-restores.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const c = await sandbox({ width: 1180, height: 820 })
@@ -39,11 +39,11 @@ try {
   const second = gems.find((one) => one !== first && !one.pinnedAt)
   if (first && second) {
     if (!first.pinnedAt) await v('pin', 'nuggets', first.id, true)
-    await h.evaluate((id) => window.api.vigil('notes:archive', 'nuggets', [id], true), second.id)
+    await h.evaluate((id) => window.api.haligtree('notes:archive', 'nuggets', [id], true), second.id)
     const before = (await v('items', 'nugget')).find((one) => one.id === first.id)
     await v('bin:put', first.id); await v('bin:put', second.id)
     await v('bin:restore', 'nugget', first.id); await v('bin:restore', 'nugget', second.id)
-    const after = await h.evaluate(() => window.api.vigil('bin:list'))
+    const after = await h.evaluate(() => window.api.haligtree('bin:list'))
     const all = (await v('items', 'nugget'))
     const one = all.find((x) => x.id === first.id)
     check('a gem out of the Bin is pinned again if it was', !!before?.pinnedAt && !!one?.pinnedAt, `before ${before?.pinnedAt} after ${one?.pinnedAt}`)

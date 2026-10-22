@@ -11,7 +11,7 @@
 // 10. the expanded view: a note, its embeds and the notes it links to, in one scroll
 // Link pages are answered by a stub in the main process and the dictionary is a local server: nothing reaches the internet.
 //   npx electron-vite build --outDir out-ten
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-ten/main/index.js MINDFLOW_QA_AWAY=1 node qa/ten-asks.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-ten/main/index.js HALIGTREE_QA_AWAY=1 node qa/ten-asks.mjs
 import { createServer } from 'http'
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -23,14 +23,14 @@ const server = createServer((req, res) => {
 })
 await new Promise((done) => server.listen(0, '127.0.0.1', done))
 server.unref()
-process.env.MINDFLOW_QA_DICT = `http://127.0.0.1:${server.address().port}/api/v2/entries/en/`
+process.env.HALIGTREE_QA_DICT = `http://127.0.0.1:${server.address().port}/api/v2/entries/en/`
 
 const results = []
 const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`))
 const c = await sandbox({ width: 1200, height: 820 })
 const { page, h, electron, v, send, go, errors } = c
 const wait = (ms) => h.waitForTimeout(ms)
-const BOX = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+const BOX = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 const doc = (...lines) => ({ type: 'doc', content: lines.map((text) => ({ type: 'paragraph', content: [{ type: 'text', text }] })) })
 const make = (patch) => h.evaluate((p) => window.api.captures.create(p), patch)
 const get = (id) => h.evaluate((id) => window.api.captures.get(id), id)

@@ -1,5 +1,5 @@
 // Sources and people as pages, the source map, voices, role tags and properties.
-// Run: QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-sources/main/index.js MINDFLOW_QA_AWAY=1 node qa/sources.mjs
+// Run: QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-sources/main/index.js HALIGTREE_QA_AWAY=1 node qa/sources.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const { h, v, go, send, close, errors } = await sandbox({ width: 1200, height: 800 })
@@ -44,7 +44,7 @@ try {
   check(book.items.find((one) => one.id === para)?.voice === 'understood', '(p131) counts as a paraphrase')
   check(book.items.find((one) => one.id === quote)?.voice === 'theirs', 'the quote counts as their words')
   // Empty page opens too.
-  await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:source', { detail: 'attribution:Nobody Yet' })))
+  await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:source', { detail: 'attribution:Nobody Yet' })))
   await h.waitForTimeout(900)
   check(await h.locator('[data-source-name]').textContent() === 'Nobody Yet', 'an empty page opens')
 

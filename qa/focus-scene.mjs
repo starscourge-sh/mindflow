@@ -2,7 +2,7 @@
 import { open } from './harness.mjs'
 const qa = await open()
 const { electron, page } = qa
-await page.evaluate(() => window.api.vigil('scenery').catch(() => null))
+await page.evaluate(() => window.api.haligtree('scenery').catch(() => null))
 await page.waitForTimeout(25000) // first scan of the picture folders
 await electron.evaluate(({ BrowserWindow }) => { const w = BrowserWindow.getAllWindows().find((w) => w.webContents.getURL().includes('home')); w?.setBounds({ width: 1200, height: 800 }); w?.show() })
 const home = electron.windows().find((w) => w.url().includes('home'))

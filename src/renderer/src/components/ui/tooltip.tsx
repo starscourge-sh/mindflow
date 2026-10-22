@@ -26,7 +26,7 @@ const watchOpened = (): void => {
   if (watching) return
   watching = true
   new MutationObserver(() => {
-    if (document.querySelector(OPENED)) window.dispatchEvent(new Event("vigil:opened"))
+    if (document.querySelector(OPENED)) window.dispatchEvent(new Event("haligtree:opened"))
   }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-state"] })
 }
 // One tip at a time: a tip opening shuts the one before it. Going straight
@@ -64,11 +64,11 @@ function Tooltip({
     // The pointer left the window (off its edge, or the window lost the keys):
     // no move comes after to close the tip, so it goes now.
     const gone = (): void => changeNow.current(false)
-    window.addEventListener("vigil:opened", shut)
+    window.addEventListener("haligtree:opened", shut)
     document.documentElement.addEventListener("mouseleave", gone)
     window.addEventListener("blur", gone)
     return () => {
-      window.removeEventListener("vigil:opened", shut)
+      window.removeEventListener("haligtree:opened", shut)
       document.documentElement.removeEventListener("mouseleave", gone)
       window.removeEventListener("blur", gone)
       if (showing === mine) showing = null

@@ -11,7 +11,7 @@
 // Each measure has a limit that fails the probe.
 //
 //   npx electron-vite build --outDir out-scale
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-scale/main/index.js MINDFLOW_QA_AWAY=1 node qa/scale-book.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-scale/main/index.js HALIGTREE_QA_AWAY=1 node qa/scale-book.mjs
 // PAGES=all,inbox,... runs only those pages; KEEP=1 keeps the data folder's book for a second run (skips seeding when it is there).
 import { DatabaseSync } from 'node:sqlite'
 import { randomUUID } from 'crypto'
@@ -24,7 +24,7 @@ import { mkdirSync } from 'fs'
 const { check, done } = checks()
 const DATA = process.env.QA_DATA
 if (!DATA) throw new Error('QA_DATA is needed: the book is written into it between two runs')
-const FILE = join(DATA, 'sandbox', 'mindflow.db')
+const FILE = join(DATA, 'sandbox', 'haligtree.db')
 // SHOTS=<folder>: a picture of each page and thing as it opened.
 const SHOTS = process.env.SHOTS
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })

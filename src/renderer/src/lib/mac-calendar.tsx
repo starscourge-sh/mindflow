@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { unread, useLive, vigil, type Settings } from './vigil'
+import { unread, useLive, haligtree, type Settings } from './haligtree'
 import { clock } from '@/lib/clock'
 import type { MacEvent, MacCalendar } from '../../../main/mac-calendar'
 export type { MacEvent, MacCalendar }
@@ -11,12 +11,12 @@ export type { MacEvent, MacCalendar }
 const NONE: MacCalendar = { status: 'none', events: [] }
 
 export const calendar = {
-  events: (from: string, to: string) => window.api.vigil<MacCalendar>('calendar:events', from, to),
-  ask: (from: string, to: string) => window.api.vigil<MacCalendar>('calendar:ask', from, to)
+  events: (from: string, to: string) => window.api.haligtree<MacCalendar>('calendar:events', from, to),
+  ask: (from: string, to: string) => window.api.haligtree<MacCalendar>('calendar:ask', from, to)
 }
 
 export function useMacEvents(from: Date, to: Date): MacCalendar {
-  const settings = useLive(vigil.settings, null as Settings | null)
+  const settings = useLive(haligtree.settings, null as Settings | null)
   const on = !!settings?.macCalendar
   // Not read yet until the settings say whether it is on, and if on, until it answers (`unloaded` says so).
   // Already known to be off: nothing to wait for, from the first frame.

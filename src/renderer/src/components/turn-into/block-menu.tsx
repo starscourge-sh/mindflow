@@ -22,9 +22,9 @@ import { host, said } from "@/lib/host"
 import { listDirection } from "@/lib/menu-keys"
 import { fitToWidth } from "@/lib/table"
 import { SpellingRows, type Misspelling } from "./spelling"
-import { Kbd } from "@/components/vigil/ui"
+import { Kbd } from "@/components/haligtree/ui"
 import { BLOCK_TYPES, nameBlock } from "@/extensions/block-ids"
-import { vigil } from "@/lib/vigil"
+import { haligtree } from "@/lib/haligtree"
 
 /**
  * What belongs to the whole table rather than to a row or a column.
@@ -275,7 +275,7 @@ export function BlockMenu({
     const [, type, id] = lineOf
     const note = type === "capture"
       ? await window.api.captures.get(id).then((one) => one && { link: id, title: one.label || one.title || "Untitled" })
-      : await vigil.item(id).then((one) => one && { link: `${one.tier}:${id}`, title: one.title || "Untitled" })
+      : await haligtree.item(id).then((one) => one && { link: `${one.tier}:${id}`, title: one.title || "Untitled" })
     if (!block || !note) return said("Could not copy it", false)
     const text = `${embed ? "!" : ""}[[@${note.link}#^${block}|${note.title.replace(/[[\]|\n]+/g, " ").trim().slice(0, 80)}]]`
     await navigator.clipboard.writeText(text).then(
@@ -427,7 +427,7 @@ export function BlockMenu({
             </button>
           </DropdownMenuItem>
         ) : null}
-        {imageSrc?.startsWith("mindflow://assets/") && host().saveFileAs && matches("Download") ? (
+        {imageSrc?.startsWith("haligtree://assets/") && host().saveFileAs && matches("Download") ? (
           <DropdownMenuItem asChild>
             <button type="button" onClick={() => void host().saveFileAs?.(imageSrc, thing?.attrs.alt ? `${thing.attrs.alt}.${imageSrc.split(".").pop()}` : imageSrc.split("/").pop() ?? "Picture")}>
               <span className="tiptap-slash-menu-title">Download</span>

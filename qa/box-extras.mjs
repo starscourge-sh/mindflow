@@ -1,11 +1,11 @@
 // The box's extras: a face for each person, a Word's meaning looked up as you
 // write it, and the light round the box's edge that says what it is doing.
-// The dictionary is a small server here (MINDFLOW_QA_DICT, honoured only on a
+// The dictionary is a small server here (HALIGTREE_QA_DICT, honoured only on a
 // QA data folder), so nothing reaches the internet. Read back through the
 // app's own API and the page, not by eye.
 //
 //   npx electron-vite build --outDir out-boxplus
-//   QA_DATA=$(mktemp -d) QA_ENTRY=out-boxplus/main/index.js MINDFLOW_QA_AWAY=1 node qa/box-extras.mjs
+//   QA_DATA=$(mktemp -d) QA_ENTRY=out-boxplus/main/index.js HALIGTREE_QA_AWAY=1 node qa/box-extras.mjs
 //   QA_ARGS=--sandbox ... node qa/box-extras.mjs   (the practice copy: its seeded quotes signed with faces)
 //
 // SHOTS=dir saves light and dark pictures.
@@ -16,7 +16,7 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { open } from './harness.mjs'
 
-process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'vigil-extras-'))
+process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'haligtree-extras-'))
 const SANDBOX = (process.env.QA_ARGS ?? '').includes('--sandbox')
 
 // --- the dictionary, played by a local server -----------------------------------
@@ -50,9 +50,9 @@ const server = createServer((req, res) => {
 })
 await new Promise((done) => server.listen(0, '127.0.0.1', done))
 server.unref()
-process.env.MINDFLOW_QA_DICT = `http://127.0.0.1:${server.address().port}/api/v2/entries/en/`
+process.env.HALIGTREE_QA_DICT = `http://127.0.0.1:${server.address().port}/api/v2/entries/en/`
 
-const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 // Under load a window can be slow to show its box: tried again, a few times.
 const launch = async () => {
   for (let i = 0; ; i++) {
@@ -66,8 +66,8 @@ const launch = async () => {
 let qa = await launch()
 let { page } = qa
 // The welcome holds keys back: marked done, and opened again.
-if (!(await page.evaluate(() => window.api.vigil('onboarding:state').then((s) => !!s?.welcomed)))) {
-  await page.evaluate(() => window.api.vigil('onboarding:set', { welcomed: new Date().toISOString(), welcoming: false }))
+if (!(await page.evaluate(() => window.api.haligtree('onboarding:state').then((s) => !!s?.welcomed)))) {
+  await page.evaluate(() => window.api.haligtree('onboarding:set', { welcomed: new Date().toISOString(), welcoming: false }))
   const child = qa.electron.process()
   await qa.close?.()
   try { child.kill('SIGKILL') } catch {}
@@ -82,7 +82,7 @@ const warnings = []
 page.on('console', (message) => ['error', 'warning'].includes(message.type()) && warnings.push(message.text().slice(0, 240)))
 const results = []
 const wait = (ms = 300) => page.waitForTimeout(ms)
-const v = (channel, ...args) => page.evaluate(([c, a]) => window.api.vigil(c, ...a), [channel, args])
+const v = (channel, ...args) => page.evaluate(([c, a]) => window.api.haligtree(c, ...a), [channel, args])
 const captures = async () => (await page.evaluate(() => window.api.captures.list())) ?? []
 const capture = async (words) => {
   for (let i = 0; i < 15; i++) {
@@ -94,7 +94,7 @@ const capture = async (words) => {
 const define = () => page.evaluate(() => document.querySelector('[data-define]')?.getAttribute('data-define') ?? null)
 // A wait told to the beam as any work tells it (beam.tsx): the box itself no
 // longer turns it for a word or a link, which say their waits in place.
-const holdBeam = (on) => page.evaluate((n) => window.dispatchEvent(new CustomEvent('vigil:beam-wait', { detail: n })), on ? 1 : 0)
+const holdBeam = (on) => page.evaluate((n) => window.dispatchEvent(new CustomEvent('haligtree:beam-wait', { detail: n })), on ? 1 : 0)
 const beamNow = () => page.evaluate(() => document.querySelector('.mf-beam')?.getAttribute('data-beam') ?? null)
 /** The first beam state seen within ms, polled every frame in the page. */
 const beamSeen = (state, ms = 2000) => page.evaluate(([s, ms]) => new Promise((done) => {
@@ -327,7 +327,7 @@ await check('faces: initials at first, a picture picked by right click, kept onc
   await (await chooser).setFiles(picture)
   expect(await until(() => page.locator('[data-who-avatar] .mf-avatar[data-avatar="picture"] img').count()), 'no picture in the chip')
   const people = await v('people')
-  expect(/^mindflow:\/\/assets\/[a-f0-9]{64}\.webp$/.test(people['marcus aurelius']?.avatar ?? ''), `people: ${JSON.stringify(people)}`)
+  expect(/^haligtree:\/\/assets\/[a-f0-9]{64}\.webp$/.test(people['marcus aurelius']?.avatar ?? ''), `people: ${JSON.stringify(people)}`)
 })
 await check('faces: a picture pasted into the who field replaces it; another spelling is the same person', async () => {
   const was = (await v('people'))['marcus aurelius']?.avatar

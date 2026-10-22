@@ -3,7 +3,7 @@
 // that is remembered.
 //
 //   npx electron-vite build --outDir out-bp
-//   QA_DATA=$(mktemp -d) QA_ENTRY=out-bp/main/index.js MINDFLOW_QA_AWAY=1 node qa/box-panel-default.mjs
+//   QA_DATA=$(mktemp -d) QA_ENTRY=out-bp/main/index.js HALIGTREE_QA_AWAY=1 node qa/box-panel-default.mjs
 const { open } = await import('./harness.mjs')
 const results = []
 const check = (name, ok, detail = '') => {

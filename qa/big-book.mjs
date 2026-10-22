@@ -19,7 +19,7 @@ const word = (i) => ['river', 'lamp', 'orchard', 'quill', 'harbour', 'meadow', '
 const doc = (text) => JSON.stringify({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] })
 
 /** The book's file in a data folder made for the sandbox. */
-export const bookFile = (data) => join(data, 'sandbox', 'mindflow.db')
+export const bookFile = (data) => join(data, 'sandbox', 'haligtree.db')
 export const seeded = (data) => existsSync(bookFile(data)) && new DatabaseSync(bookFile(data)).prepare("select count(*) as n from nuggets where body like '%Big gem%'").get().n >= BIG.gems
 
 export async function seedBig(data) {

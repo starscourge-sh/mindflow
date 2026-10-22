@@ -1,0 +1,357 @@
+import { useMemo, useState } from 'react'
+import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
+import type { CaptureMeta } from '../capture-list'
+import { unloaded, useLive, haligtree, when, whenInLine, type Settings, type Task } from '@/lib/haligtree'
+import { BUCKETS, bucket, placed, taskName } from '@/lib/tasks'
+import { chime } from '@/lib/sound'
+import { num, startOfDay } from '../../../../main/dates'
+import { TaskDate, TaskLength, TaskPriority, completeTask, dayTone, notDone, taskMenu, type TaskNow } from './tasks-view'
+import type { Choice } from './display'
+import type { Entry } from './note-list'
+import type { RowItem } from './row-menu'
+import { Count, Rolling, Tip, toast, quietly } from './ui'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { deadlineLoud, loudOf } from '@/lib/loud'
+import { clipMiddle, quoted } from '../../../../main/clip'
+import { Check, ListTodo as Checked, ChevronDown as Down, Link as Linked } from '@/components/ui/icons'
+import { still } from '@/lib/motion'
+
+/**
+ * Everything (the page at G L): every capture and every task in one list, a
+ * filter over it to choose what shows. A task rides in the captures' list as
+ * a row of its own kind, `task`, so the kind chips, the tag and date filters,
+ * the sorts and the groups all take it as they take a note.
+ */
+export type Row = CaptureMeta & { task?: Task }
+
+/** The kind a task goes by in the chips, the Display menu, its rows, search, Recent and the sidebar: one mark, one green. */
+export const TASK_KIND = { id: 'task', label: 'Task', icon: Checked, tint: 'var(--tt-color-text-green)' } satisfies Choice
+
+/** A task as a row of the list: its words, when it was made, and done or not. */
+export const taskRow = (task: Task): Row => ({
+  id: task.id, number: task.number, title: task.title, label: task.title, kind: 'task',
+  status: task.status, source: '', private: 0, pinnedAt: null, remindAt: null,
+  capturedAt: task.createdAt, editedAt: task.completedAt, attribution: null, device: null, elapsedMs: null,
+  weather: null, medium: null, closedAt: task.completedAt, archivedAt: null, importedAt: null, task
+} as unknown as Row)
+
+/** Which tasks show: the ones still to do, the done ones, or both. */
+export type TaskState = 'open' | 'done' | 'all'
+const STATES: Choice[] = [
+  { id: 'open', label: 'Open', tip: 'Tasks not done yet' },
+  { id: 'done', label: 'Done', tip: 'Tasks you have ticked off' },
+  { id: 'all', label: 'Both', tip: 'Tasks to do and done' }
+]
+export const showsTask = (state: TaskState) => (task: Task): boolean =>
+  task.status !== 'dropped' && (state === 'all' || (state === 'done' ? task.status === 'done' : task.status === 'open'))
+
+/** A choice kept in this browser, as every list keeps its Display: how you look, not data. */
+function useKept<T extends string>(key: string, read: (kept: string | null) => T): [T, (next: T) => void] {
+  const [state, setState] = useState<T>(() => {
+    try {
+      return read(localStorage.getItem(key))
+    } catch {
+      return read(null)
+    }
+  })
+  return [state, (next) => {
+    setState(next)
+    try {
+      localStorage.setItem(key, next)
+    } catch {
+      // Not kept, but still applied.
+    }
+  }]
+}
+
+/** Open, Done or Both, kept. */
+export const useTaskState = (): [TaskState, (state: TaskState) => void] =>
+  useKept<TaskState>('view:everything:tasks', (kept) => (kept === 'done' || kept === 'all' ? kept : 'open'))
+
+/**
+ * Notes made into tasks: hidden at first, since the task stands for them and
+ * the same thing twice in a row reads as a mistake; one chip shows them again.
+ */
+export const useMadeShown = (): [boolean, (on: boolean) => void] => {
+  const [kept, keep] = useKept<'shown' | 'hidden'>('view:everything:made', (one) => (one === 'shown' ? 'shown' : 'hidden'))
+  return [kept === 'shown', (on) => keep(on ? 'shown' : 'hidden')]
+}
+
+/** The words of the box that brings captures made into tasks back into the list. */
+export const MADE_SAID = 'Also show captures already made into tasks'
+
+/**
+ * A box to tick under the kind chips, worded as what it does to the list:
+ * captures you already made into tasks, hidden for their tasks, shown again.
+ * Not a chip, so it never reads as one more kind.
+ */
+export function MadeChip({ on, hidden, onChange }: { on: boolean; hidden: number; onChange: (on: boolean) => void }): React.JSX.Element {
+  const tip = on
+    ? 'Each shows beside the task it became. Untick to hide them again'
+    : `${num(hidden)} ${hidden === 1 ? 'capture is' : 'captures are'} hidden, since the task shows instead`
+  return (
+    <span data-made-chip className="flex shrink-0 items-center">
+      <Tip label={tip}>
+        <button type="button" aria-pressed={on} onClick={() => (chime(on ? 'off' : 'on'), onChange(!on))}
+          className="group/made flex min-h-6 items-center gap-2 rounded-md py-0.5 pr-1.5 text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 aria-pressed:text-foreground">
+          <span className={`flex size-3.5 shrink-0 items-center justify-center rounded-[4px] border transition-colors ${on ? 'border-[var(--tt-brand-color-400)] bg-[var(--tt-brand-color-400)] mf-on-accent' : 'border-input group-hover/made:border-foreground/40'}`}>
+            {on && <Check className="size-2.5" />}
+          </span>
+          {MADE_SAID}
+          {!on && hidden > 0 && <Count n={hidden} className="rounded bg-accent px-1" />}
+        </button>
+      </Tip>
+    </span>
+  )
+}
+
+/**
+ * The box that brings tasks and notes hidden until a later day back into
+ * every list, as the one above does for captures made into tasks. Only there
+ * while something is hidden, or while it is ticked.
+ */
+export function SnoozedChip(): React.JSX.Element | null {
+  const hidden = useLive(haligtree.snoozed, [] as string[]).length
+  const on = !!useLive(haligtree.settings, null as Settings | null)?.showSnoozed
+  if (!on && !hidden) return null
+  return (
+    <span data-snoozed-chip className="flex shrink-0 items-center">
+      <Tip label={on ? 'Each says the day it comes back. Untick to hide them again' : `${num(hidden)} hidden until a later day`}>
+        <button type="button" aria-pressed={on} onClick={() => (chime(on ? 'off' : 'on'), void haligtree.setSettings({ showSnoozed: !on }))}
+          className="group/made flex min-h-6 items-center gap-2 rounded-md py-0.5 pr-1.5 text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 aria-pressed:text-foreground">
+          <span className={`flex size-3.5 shrink-0 items-center justify-center rounded-[4px] border transition-colors ${on ? 'border-[var(--tt-brand-color-400)] bg-[var(--tt-brand-color-400)] text-[var(--on-brand,white)]' : 'border-input group-hover/made:border-foreground/40'}`}>
+            {on && <Check className="size-2.5" />}
+          </span>
+          {SNOOZED_SAID}
+          {!on && hidden > 0 && <Count n={hidden} className="rounded bg-accent px-1" />}
+        </button>
+      </Tip>
+    </span>
+  )
+}
+/** The words of that box. */
+export const SNOOZED_SAID = 'Also show what is hidden until a later day'
+
+/** What each task was made from, and what each capture became: one read for the whole list. */
+/** `binned`: notes made only into tasks now in the Bin. */
+export type Sources = { from: Map<string, string[]>; became: Map<string, string[]>; binned: Set<string>; /** Read at least once: before then, nothing is known to be made into a task. */ ready: boolean }
+export function useSources(on: boolean): Sources {
+  // Kept by name, so Everything opened again starts knowing which captures became tasks.
+  const pairs = useLive(() => (on ? haligtree.taskSources() : Promise.resolve([])), [] as { task: string; capture: string; binned: number }[], [on], undefined, 'task-sources')
+  return useMemo(() => {
+    const from = new Map<string, string[]>()
+    const became = new Map<string, string[]>()
+    const inBin = new Set<string>()
+    for (const { task, capture, binned } of pairs) {
+      if (binned) {
+        inBin.add(capture)
+        continue
+      }
+      from.set(task, [...(from.get(task) ?? []), capture])
+      became.set(capture, [...(became.get(capture) ?? []), task])
+    }
+    // Made into tasks that are all in the Bin now: gone there with them.
+    const binned = new Set([...inBin].filter((capture) => !became.has(capture)))
+    return { from, became, binned, ready: !unloaded(pairs) }
+  }, [pairs])
+}
+
+/** The words of the cue: where a task came from, or what a note became. */
+export const fromSaid = (n: number): string => (n === 1 ? 'from a capture' : `from ${num(n)} captures`)
+export const becameSaid = (n: number): string => (n === 1 ? 'became a task' : `became ${num(n)} tasks`)
+
+/**
+ * A quiet "this came from that" in a row's line: a task made from captures,
+ * or a capture made into tasks. One opens it at a click; several list
+ * themselves in a small menu, each opening at a click. Inside the row's own
+ * button, so every press stops here and never opens the row as well.
+ */
+export function MadeCue({ kin, said, way, onOpen }: { kin: { id: string; title: string }[]; said: string; way: 'from' | 'became'; onOpen: (id: string) => void }): React.JSX.Element {
+  const stop = (event: React.SyntheticEvent): void => event.stopPropagation()
+  const lead = way === 'from' ? 'Made from' : 'Became'
+  const named = (title: string): string => quoted(title, 60, clipMiddle)
+  const face = (click?: () => void): React.JSX.Element => (
+    <span role="button" tabIndex={0} data-made-cue={way} data-made-n={kin.length}
+      onPointerDown={stop} onMouseDown={stop} onDoubleClick={stop}
+      onClick={(event) => (stop(event), click?.())}
+      // Reached by Tab and pressed by Enter or Space, as a button is; the row's own keys never see it.
+      onKeyDown={(event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return
+        stop(event)
+        // With several, the menu opens on its own keys.
+        if (click) (event.preventDefault(), click())
+      }}
+      className="-my-1 inline-flex items-center gap-1 rounded-sm py-1 whitespace-nowrap text-muted-foreground decoration-muted-foreground/50 underline-offset-2 transition-colors hover:text-foreground hover:underline data-[state=open]:text-foreground">
+      <Linked className="size-3 shrink-0" />{said}
+    </span>
+  )
+  if (kin.length === 1) return <Tip label={`${lead} ${named(kin[0].title)}. Click to open it`}>{face(() => onOpen(kin[0].id))}</Tip>
+  return (
+    <DropdownMenu modal={false}>
+      <Tip label={`${lead} ${kin.slice(0, 3).map((one) => named(one.title)).join(', ')}${kin.length > 3 ? ` and ${num(kin.length - 3)} more` : ''}`}>
+        <DropdownMenuTrigger asChild>{face()}</DropdownMenuTrigger>
+      </Tip>
+      <DropdownMenuContent align="start" className="w-auto max-w-[min(20rem,calc(100vw-24px))]" onClick={stop} onPointerDown={stop} onDoubleClick={stop} onContextMenu={stop}>
+        <DropdownMenuLabel>{lead}</DropdownMenuLabel>
+        {kin.map((one) => (
+          <DropdownMenuItem key={one.id} data-made-pick={one.id} onSelect={() => onOpen(one.id)}>
+            {/* Cut in the middle: titles made from one source often differ only at the end. */}
+            <span className="block max-w-[18rem] min-w-0 truncate">{clipMiddle(one.title, Math.max(12, 38 - (one.title.match(/\p{Extended_Pictographic}/gu)?.length ?? 0))) || 'Untitled'}</span>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+/**
+ * Open, Done or Both, inside the Task chip itself, after its name: "Task ·
+ * Open ⌄". It belongs to tasks, so it sits on them, and it goes when tasks
+ * are not on show. A click opens the three, the one chosen ticked.
+ */
+export function TaskStateMenu({ state, onState }: { state: TaskState; onState: (state: TaskState) => void }): React.JSX.Element {
+  const now = STATES.find((one) => one.id === state)!
+  return (
+    <DropdownMenu modal={false}>
+      <Tip label="Which tasks show: open, done or both">
+        <DropdownMenuTrigger asChild>
+          <button type="button" data-task-state={state} aria-label={`Which tasks: ${now.label}`}
+            className="group/state mf-hit relative flex h-full items-center gap-0.5 rounded-full pr-2 pl-1 text-foreground/85 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 data-[state=open]:text-foreground">
+            <span aria-hidden className="text-muted-foreground">·</span>
+            <span className="pl-0.5 font-medium"><Rolling text={now.label} /></span>
+            <Down className="size-3 text-muted-foreground transition-transform duration-150 group-data-[state=open]/state:rotate-180" />
+          </button>
+        </DropdownMenuTrigger>
+      </Tip>
+      <DropdownMenuContent align="start" className="min-w-52">
+        <DropdownMenuLabel>Which tasks show</DropdownMenuLabel>
+        {STATES.map((one) => (
+          <DropdownMenuItem key={one.id} role="menuitemradio" aria-checked={one.id === state} data-task-state-pick={one.id}
+            onSelect={() => (chime('tap'), onState(one.id as TaskState))} className="items-start gap-2 text-control">
+            <Check className={`mt-0.5 size-3.5 shrink-0 ${one.id === state ? '' : 'invisible'}`} />
+            <span className="flex flex-col">
+              <span>{one.label}</span>
+              <span className="text-xs text-muted-foreground">{one.tip}</span>
+            </span>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+/** The circle a task is ticked with, the same as Today's; a done one filled, a click opens it again. */
+function TaskTick({ task }: { task: Task }): React.JSX.Element {
+  const [going, setGoing] = useState(false)
+  const done = task.status === 'done'
+  const calm = still()
+  return (
+    <Tip label={done ? 'Not done after all: back on your list' : 'Mark it done  E'}>
+      <button type="button" data-task-tick aria-label={done ? 'Not done' : 'Complete'}
+        onClick={(event) => {
+          event.stopPropagation()
+          if (done) return notDone(task)
+          // The circle fills first, then the row goes: the click is answered before the list changes.
+          if (going) return
+          chime('done')
+          setGoing(true)
+          setTimeout(() => void completeTask(task, true).finally(() => setGoing(false)), calm ? 0 : 280)
+        }}
+        className="group/tick relative flex size-[18px] shrink-0 after:absolute after:-inset-[3px] after:rounded-full items-center justify-center rounded-full border-[1.5px] border-muted-foreground/60 transition-colors hover:bg-accent"
+        style={going || done ? { background: 'var(--tt-color-text-green)', borderColor: 'var(--tt-color-text-green)' } : { borderColor: dayTone(task.dueAt) }}>
+        <Check className={`size-3 transition-opacity ${going || done ? 'text-background opacity-100' : 'opacity-0 group-hover/tick:opacity-60'}`} />
+      </button>
+    </Tip>
+  )
+}
+
+/** A task as the list draws it: its tick, its words and tags, when, its priority and its steps, and its usual menu. */
+export function taskEntry(task: Task, { open, now, done }: { open: () => void; now: TaskNow; done?: () => void }): Entry {
+  const { text, tags } = taskName(task.title)
+  const steps = task.subtasks ?? []
+  const later = bucket(task)
+  const finished = task.status === 'done'
+  return {
+    id: task.id,
+    type: 'task',
+    title: text || task.title,
+    tags,
+    icon: TASK_KIND.icon,
+    tint: TASK_KIND.tint,
+    lead: <TaskTick task={task} />,
+    // When it is to be done, in Today's colours; a done one says when it was.
+    // Late said in words as well as red: a colour alone is a code to learn.
+    age: finished ? (task.completedAt ? `Done ${whenInLine(task.completedAt)}` : 'Done') : task.dueAt ? `${loudOf(task.dueAt) === 'late' ? 'Late · ' : ''}${when(task.dueAt, !!task.allDay)}` : undefined,
+    ageTint: finished ? undefined : dayTone(task.dueAt),
+    ageLoud: finished ? undefined : loudOf(task.dueAt),
+    ageEdit: finished || !task.dueAt ? undefined : (age) => <TaskDate task={task} tip={loudOf(task.dueAt) === 'late' ? 'Late: the day you meant to do it has passed' : 'When you mean to do it'} className="shrink-0">{age}</TaskDate>,
+    alert: !finished && task.deadline ? { text: `Due by ${whenInLine(task.deadline, !task.deadlineTimed)}`, kind: deadlineLoud(task.deadline)! } : undefined,
+    sub: finished ? undefined : [
+      later && BUCKETS[later],
+      !task.dueAt && !task.deadline && !later && 'No date',
+      task.recurrence && `Repeats ${task.recurrence}`,
+      task.waitingOn && `Waiting on ${task.waitingOn}`,
+      steps.length > 0 && `${steps.filter((one) => one.done).length}/${num(steps.length)} steps`
+    ].filter(Boolean).join(' · ') || undefined,
+    marks: (
+      <>
+        <TaskPriority task={task} className="size-3.5 shrink-0" />
+        <TaskLength task={task} />
+      </>
+    ),
+    dim: finished,
+    done: finished,
+    menu: taskMenu(task, { open, now, ...(done ? { complete: done } : {}) }) as RowItem[]
+  }
+}
+
+/**
+ * Tasks alone, grouped as Today and Upcoming group them: what is late, today,
+ * the days ahead, the later lists, what has no date, and what is done.
+ */
+export function taskGroups(rows: Row[]): [string, Row[]][] {
+  const open = rows.filter((one) => one.task?.status === 'open')
+  const day = (one: Row): number => placed(one.task!) ?? Infinity
+  const byDay = (a: Row, b: Row): number => day(a) - day(b) || (a.task!.priority || 5) - (b.task!.priority || 5)
+  const later = (one: Row): boolean => !!bucket(one.task!) && !one.task!.deadline
+  return ([
+    ['Overdue', open.filter((one) => day(one) < startOfDay()).sort(byDay)],
+    ['Today', open.filter((one) => day(one) >= startOfDay() && day(one) < startOfDay(1)).sort(byDay)],
+    ['Upcoming', open.filter((one) => day(one) >= startOfDay(1) && day(one) < Infinity).sort(byDay)],
+    ['Later', open.filter((one) => day(one) === Infinity && later(one))],
+    // Caught as a task in the box but not on a list yet: no date either.
+    ['No date', [...open.filter((one) => day(one) === Infinity && !later(one)), ...rows.filter((one) => !one.task && one.kind === 'todo')]],
+    ['Done', rows.filter((one) => one.task?.status === 'done').sort((a, b) => (b.task!.completedAt ?? '').localeCompare(a.task!.completedAt ?? ''))]
+  ] as [string, Row[]][]).filter(([, list]) => list.length)
+}
+
+/** What a kind is called, many of it: for the empty page of a filter. */
+const many = (id: string): string => (id === 'task' ? 'tasks' : `${(CAPTURE_TYPES.find((type) => type.id === id)?.label ?? 'note').toLowerCase()}s`)
+
+/** The empty page for what the filter chose: what it would hold, and how to get some. */
+export function emptyFor(kinds: string[], state: TaskState, filtered: boolean, made = 0): { title: string; body: string } {
+  const onlyTasks = kinds.length === 1 && kinds[0] === 'task'
+  // All that is left are notes made into tasks, hidden for their tasks: say so, and how to see them.
+  if (made && !onlyTasks) return { title: 'Nothing else here', body: `${num(made)} ${made === 1 ? 'capture you made into a task is' : 'captures you made into tasks are'} hidden, since the task shows instead. Tick “${MADE_SAID}” above to see ${made === 1 ? 'it' : 'them'}.` }
+  if (onlyTasks && state === 'done') return { title: 'Nothing done yet', body: 'Tick a task off, here or on Today, and it shows here with the day you did it.' }
+  if (onlyTasks && state === 'open') return { title: 'Nothing to do', body: 'Every task is done. Choose “Done” on the “Task” chip above to see them, or add one in Today or Upcoming.' }
+  if (onlyTasks) return { title: 'No tasks yet', body: 'Add one in Today or Upcoming, or press ⌘. anywhere and write it with a day: “call the dentist Friday”.' }
+  if (filtered) return { title: 'Nothing matches', body: 'The other filters hide everything here. Clear them in Display (F), or choose another kind above.' }
+  if (kinds.length) {
+    const names = kinds.map(many)
+    const said = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} or ${names.at(-1)}`
+    return { title: `No ${said} yet`, body: `${kinds.includes('task') ? 'Add a task in Today or Upcoming. ' : ''}Press ⌘. in any app to catch a thought; change its kind in quick capture. Click a chosen kind above to show the rest again.` }
+  }
+  return { title: 'Nothing here yet', body: 'Press ⌘. in any app to catch a thought, or add a task in Today. Everything you keep shows here.' }
+}
+
+/** Done, many at once: one notice, one sound and one Undo for the lot. */
+export async function doneTasks(tasks: Task[]): Promise<void> {
+  if (!tasks.length) return
+  const was = await Promise.all(tasks.map((task) => haligtree.doneTask(task.id)))
+  chime('done')
+  const undo = (): void => void Promise.all(tasks.map((task, at) => haligtree.undoneTask(task.id, was[at])))
+  // One tick shows itself; many at once are counted, with the way back.
+  if (tasks.length === 1) quietly(undo)
+  else toast(`${num(tasks.length)} done`, undo)
+}

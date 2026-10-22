@@ -7,7 +7,7 @@ const log = (...a) => console.log(...a)
 const step = async (name, fn) => { try { await fn() } catch (e) { log('STEP FAIL', name, e.message.slice(0, 300)) } }
 await c.v('settings:set', { safeMode: false, motion: true, quietStart: '03:00', quietEnd: '03:01', weeklyDay: new Date().getDay(), dailyTidy: true, hintRate: 0 })
 await c.theme(T)
-await page.evaluate(() => { window.__toasts = []; window.addEventListener('vigil:toast', (e) => window.__toasts.push(e.detail.text + (e.detail.undo ? ' [undo]' : ''))) })
+await page.evaluate(() => { window.__toasts = []; window.addEventListener('haligtree:toast', (e) => window.__toasts.push(e.detail.text + (e.detail.undo ? ' [undo]' : ''))) })
 const toasts = () => page.evaluate(() => window.__toasts.splice(0))
 const shown = () => electron.evaluate(({ BrowserWindow }) => { for (const w of BrowserWindow.getAllWindows()) if (!w.webContents.getURL().includes('home')) w.webContents.send('window:shown') })
 const doc = (...blocks) => ({ type: 'doc', content: blocks })
@@ -44,7 +44,7 @@ await step('box panel', async () => {
 })
 
 await step('tidy', async () => {
-  await page.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:pass', { detail: { mode: 'tidy' } })))
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:pass', { detail: { mode: 'tidy' } })))
   await page.waitForTimeout(1500)
   await c.shot(page, `tp-${T}-tidy-1`)
   // Walk to our first seeded one.
@@ -86,7 +86,7 @@ await step('tidy', async () => {
 
 await step('decide', async () => {
   log('decide list', (await c.v('pass:decide')).map((x) => x.why).join(','))
-  await page.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:pass', { detail: { mode: 'decide' } })))
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:pass', { detail: { mode: 'decide' } })))
   await page.waitForTimeout(1500)
   await c.shot(page, `tp-${T}-decide-1`)
   const first = (await c.v('pass:decide'))[0]
@@ -120,7 +120,7 @@ await step('home', async () => {
   await home.locator('article [role="link"]').first().click(); await home.waitForTimeout(1200)
   await c.shot(home, `tp-${T}-tag-open`)
   // The pass over the main window.
-  await home.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:pass', { detail: { mode: 'decide' } })))
+  await home.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:pass', { detail: { mode: 'decide' } })))
   await home.waitForTimeout(1500)
   await c.shot(home, `tp-${T}-home-decide`)
   await home.keyboard.press('Escape')

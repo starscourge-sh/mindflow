@@ -9,17 +9,17 @@ console.log('electron says', await page.evaluate(() => [new Date(2025, 8, 5).toL
 const have = (await page.evaluate(() => window.api.captures.list())).length
 for (let i = have; i < 1050; i++) await page.evaluate((i) => window.api.captures.create({ kind: 'note', body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: `filler ${i}` }] }] } }), i)
 // A big note in the box: the word count at its foot.
-const editor = page.locator('.tiptap.ProseMirror.mindflow-editor:not(.is-line)')
+const editor = page.locator('.tiptap.ProseMirror.haligtree-editor:not(.is-line)')
 await editor.click()
 await page.evaluate((text) => {
-  const target = document.querySelector('.tiptap.ProseMirror.mindflow-editor:not(.is-line)')
+  const target = document.querySelector('.tiptap.ProseMirror.haligtree-editor:not(.is-line)')
   const data = new DataTransfer(); data.setData('text/plain', text)
   target.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }))
 }, Array.from({ length: 300 }, () => 'word '.repeat(100)).join('\n\n'))
 await page.waitForTimeout(1500)
 await c.shot(page, 'num-bignote')
 console.log('word count:', await page.evaluate(() => document.querySelector('.tiptap-word-count')?.textContent))
-await page.evaluate(() => { const t = document.querySelector('.tiptap.ProseMirror.mindflow-editor:not(.is-line)'); t.focus(); document.execCommand('selectAll'); document.execCommand('delete') })
+await page.evaluate(() => { const t = document.querySelector('.tiptap.ProseMirror.haligtree-editor:not(.is-line)'); t.focus(); document.execCommand('selectAll'); document.execCommand('delete') })
 const home = await c.showHome(1180, 900)
 for (const view of ['inbox', 'stats', 'review']) {
   await c.send('view', view); await home.waitForTimeout(2500)

@@ -1,6 +1,6 @@
 // A short toast in quick capture sits centred under the writing, panel open or shut,
 // and a theme picked by name brings no toast at all.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/box-toast-centre.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/box-toast-centre.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const c = await sandbox({ width: 1100, height: 600 })
@@ -31,7 +31,7 @@ try {
   await c.electron.evaluate(({ BrowserWindow }) => { const box = BrowserWindow.getAllWindows().find((w) => w.isVisible() && w.getBounds().width >= 1000 && w.getBounds().height <= 700); box?.setSize(680, 600) })
   await page.waitForTimeout(600)
   // A style change no longer says anything (you can see it), so the long words are sent as the app sends any toast.
-  await page.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:toast', { detail: { text: 'That waits until the welcome is done', tone: 'info' } })))
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:toast', { detail: { text: 'That waits until the welcome is done', tone: 'info' } })))
   await page.waitForTimeout(500)
   const long = await page.evaluate(() => {
     const t = document.querySelector('[role=status]'); const row = document.querySelector('footer') ?? document.querySelector('[data-toast-up]')

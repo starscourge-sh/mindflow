@@ -43,7 +43,7 @@
   width: min(100%, var(--mf-pic-w)) !important;
 }
 
-:is(.note-pane, .mf-read) .tiptap.ProseMirror.mindflow-editor:not(.is-line) > img[data-held]:not([style*="width"]) {
+:is(.note-pane, .mf-read) .tiptap.ProseMirror.haligtree-editor:not(.is-line) > img[data-held]:not([style*="width"]) {
   width: min(100%, var(--mf-pic-w), min(80vh, 100vh - 18rem) * var(--mf-pic-r)) !important;
 }
 

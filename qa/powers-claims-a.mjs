@@ -7,7 +7,7 @@
 // checked instead, and the line says what.
 //
 //   npx electron-vite build --outDir out-pw
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-pw/main/index.js MINDFLOW_QA_AWAY=1 node qa/powers-claims-a.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-pw/main/index.js HALIGTREE_QA_AWAY=1 node qa/powers-claims-a.mjs
 //
 // ONLY=timer,clue runs just those cards.
 import { mkdtempSync, writeFileSync, mkdirSync, readFileSync } from 'fs'
@@ -16,12 +16,12 @@ import { join } from 'path'
 import { sandbox } from './sandbox-lib.mjs'
 
 // Pasted embeds are looked for in the vaults Obsidian knows: a made-up list, never yours.
-process.env.MINDFLOW_OBSIDIAN_CONFIG = join(mkdtempSync(join(tmpdir(), 'powers-claims-obsidian-')), 'obsidian.json')
+process.env.HALIGTREE_OBSIDIAN_CONFIG = join(mkdtempSync(join(tmpdir(), 'powers-claims-obsidian-')), 'obsidian.json')
 const s = await sandbox({ width: 1200, height: 820 })
 const { h, page: box, electron } = s
-const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 const wait = (ms = 300) => h.waitForTimeout(ms)
-const v = (channel, ...args) => h.evaluate(([c, a]) => window.api.vigil(c, ...a), [channel, args])
+const v = (channel, ...args) => h.evaluate(([c, a]) => window.api.haligtree(c, ...a), [channel, args])
 const captures = () => h.evaluate(() => window.api.captures.list())
 const only = (process.env.ONLY ?? '').split(',').filter(Boolean)
 const results = []
@@ -244,7 +244,7 @@ await card('comingback', async () => {
     for (const words of ['Take a long walk after dinner', 'A lunch walk helps me think', 'Walking clears my head nicely']) ids.push((await window.api.captures.create({ body: words })).id ?? null)
     const all = await window.api.captures.list()
     const mine = all.filter((one) => /long walk after dinner|lunch walk helps|clears my head nicely/.test(one.label)).map((one) => one.id)
-    return Object.keys(await window.api.vigil('repeats', mine)).length
+    return Object.keys(await window.api.haligtree('repeats', mine)).length
   })
   return `nearly the same words three times: shown on Home; three in other words found as repeats: ${other}; the fresh sandbox's Home ${seeded ? 'has' : 'has NO'} example of it`
 })
@@ -390,7 +390,7 @@ await card('aliases', async () => {
   if (!found) console.log('   ⌘K for Zorblax shows:', said.replace(/\n/g, ' | ').slice(0, 300))
   await h.keyboard.press('Escape')
   expect(found, '⌘K does not find the gem by its other name')
-  const linked = await h.evaluate(() => window.api.vigil('search', 'Zorblax').then((r) => JSON.stringify(r).length > 10).catch(() => null))
+  const linked = await h.evaluate(() => window.api.haligtree('search', 'Zorblax').then((r) => JSON.stringify(r).length > 10).catch(() => null))
   return `found by its other name; Also called is in Details${before ? '' : ', put away until you click Details'}`
 })
 
@@ -528,7 +528,7 @@ await card('safe', async () => {
   const was = (await v('settings')).safeMode
   expect(await palette('safe mode on'), '⌘K offers no safe mode')
   const on = (await v('settings')).safeMode
-  const repeats = await h.evaluate(async () => Object.keys(await window.api.vigil('repeats', (await window.api.captures.list()).map((one) => one.id))).length)
+  const repeats = await h.evaluate(async () => Object.keys(await window.api.haligtree('repeats', (await window.api.captures.list()).map((one) => one.id))).length)
   await palette('safe mode off')
   expect(!was && on, `safe mode ${was} -> ${on}`)
   expect(repeats === 0, `in safe mode, ideas still come back: ${repeats}`)
@@ -545,7 +545,7 @@ await card('notch', async () => {
   const sits = (await v('settings')).pillSits
   await row.locator('[data-choice="free"]').click() // Where I put it
   expect(sits === 'notch', `Under the notch stored ${sits}; buttons: ${JSON.stringify(await row.evaluate((el) => [...el.querySelectorAll('button')].map((b) => b.textContent)))}`)
-  partly('the choice is kept; how the bubble sits around a real notch needs a Mac with one (qa/glide-pill and MINDFLOW_QA_NOTCH cover the placing)')
+  partly('the choice is kept; how the bubble sits around a real notch needs a Mac with one (qa/glide-pill and HALIGTREE_QA_NOTCH cover the placing)')
 })
 
 await card('news', async () => {
@@ -642,7 +642,7 @@ await card('vault', async () => {
   await wait(400)
   expect(!(await said.count()), 'Escape does not put away what came in')
   const body = JSON.stringify(await v('item', made.id))
-  const fields = await h.evaluate((id) => window.api.vigil('notes:fields', 'articles', id).catch(() => null), made.id)
+  const fields = await h.evaluate((id) => window.api.haligtree('notes:fields', 'articles', id).catch(() => null), made.id)
   expect(/Compost/.test(body) && /noteLink|V-\d+|MF-\d+|\[\[/.test(body), `the [[Compost]] link was not kept: ${body.slice(0, 200)}`)
   expect(hashOf() === before, 'the vault files were changed')
   const tags = (await v('tags')).some((one) => one.tag === 'garden')
@@ -672,7 +672,7 @@ await card('files', async () => {
 })
 
 await card('embeds', async () => {
-  writeFileSync(process.env.MINDFLOW_OBSIDIAN_CONFIG, JSON.stringify({ vaults: { a: { path: vault, ts: 1, open: true } } }))
+  writeFileSync(process.env.HALIGTREE_OBSIDIAN_CONFIG, JSON.stringify({ vaults: { a: { path: vault, ts: 1, open: true } } }))
   await dayPage()
   await h.evaluate((value) => {
     const target = document.querySelector('[class*="@container/page"] .tiptap.ProseMirror')

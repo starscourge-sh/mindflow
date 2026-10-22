@@ -14,10 +14,10 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useShortcut } from "@/lib/use-shortcut"
 import { byFrecency } from "@/lib/frecency"
-import { call } from "@/lib/vigil"
+import { call } from "@/lib/haligtree"
 
 import type { BlockColor } from "@/extensions/block-color"
-import { Tip } from '@/components/vigil/ui'
+import { Tip } from '@/components/haligtree/ui'
 import { Bookmark, Check, Link, ListTodo, NotebookText, Quote } from '@/components/ui/icons'
 
 /**

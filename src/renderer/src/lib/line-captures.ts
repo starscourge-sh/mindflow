@@ -1,10 +1,10 @@
 import type { Editor, JSONContent } from '@tiptap/core'
 import { chime } from './sound'
-import { vigil } from './vigil'
+import { haligtree } from './haligtree'
 import { linesIn } from './line-tasks'
 import { guessKind } from '../../../main/import'
 import { num } from '../../../main/dates'
-import { refuse, toast } from '@/components/vigil/ui'
+import { refuse, toast } from '@/components/haligtree/ui'
 
 /**
  * Dump mode: many lines, pasted or typed, each its own capture. A line keeps
@@ -60,7 +60,7 @@ export async function makeLineCaptures(editor: Editor, from: number, to: number,
   const after = editor.state.doc
   chime('promote')
   toast(`${num(made.length)} captures, one a line, in your Inbox`, () => {
-    void Promise.all(made.map((id) => vigil.unlift('capture', id))).then(() => chime('undo'))
+    void Promise.all(made.map((id) => haligtree.unlift('capture', id))).then(() => chime('undo'))
     if (!takeOut || editor.isDestroyed) return
     // Taken out of quick capture: the lines come back, as they were if nothing was written since.
     if (editor.state.doc.eq(after)) editor.commands.setContent(before.toJSON())

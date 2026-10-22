@@ -1,4 +1,4 @@
-import { call, useLive } from '@/lib/vigil'
+import { call, useLive } from '@/lib/haligtree'
 import type { Layout } from '@/lib/group-layout'
 
 /**

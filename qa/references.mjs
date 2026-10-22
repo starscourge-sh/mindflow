@@ -27,19 +27,19 @@ const DUP = 'data:image/gif;base64,R0lGODlhAQABAPAAAP///wAAACH5BAAAAAAALAAAAAABA
 const built = await page.evaluate(({ png, gif, dup }) => {
   // Tiptap hangs the editor off its own DOM node, which is the only handle
   // this harness has on it from outside.
-  const editor = document.querySelector('.tiptap.ProseMirror.mindflow-editor:not(.is-line)').editor
+  const editor = document.querySelector('.tiptap.ProseMirror.haligtree-editor:not(.is-line)').editor
   if (!editor) return null
 
   const doc = {
     type: 'doc',
     content: [
       { type: 'paragraph', content: [{ type: 'text', text: 'a note with things in it' }] },
-      { type: 'image', attrs: { src: 'mindflow://assets/aaaa.png' } },
+      { type: 'image', attrs: { src: 'haligtree://assets/aaaa.png' } },
       // The same picture twice, side by side: siblings are walked together, so
       // this is where a cache that remembers an unfinished answer shows up.
       { type: 'image', attrs: { src: dup } },
       { type: 'image', attrs: { src: dup } },
-      { type: 'attachment', attrs: { src: 'mindflow://assets/bbbb.pdf', name: 'spec.pdf', size: 1234 } },
+      { type: 'attachment', attrs: { src: 'haligtree://assets/bbbb.pdf', name: 'spec.pdf', size: 1234 } },
       {
         type: 'excalidraw',
         attrs: { height: 300, scene: { elements: [], files: { f1: { dataURL: png, mimeType: 'image/png' } } } }
@@ -83,7 +83,7 @@ const module = outputFiles[0].text
 const stored = await page.evaluate(
   ({ code }) => {
     const doc = document
-      .querySelector('.tiptap.ProseMirror.mindflow-editor:not(.is-line)')
+      .querySelector('.tiptap.ProseMirror.haligtree-editor:not(.is-line)')
       .pmViewDesc.node.toJSON()
     // eslint-disable-next-line no-new-func
     const run = new Function(`${code}; return documentModule`)()
@@ -109,7 +109,7 @@ console.log(`\nRESULT every kind found: ${JSON.stringify(kinds) === JSON.stringi
 const after = await page.evaluate(
   async ({ code }) => {
     const doc = document
-      .querySelector('.tiptap.ProseMirror.mindflow-editor:not(.is-line)')
+      .querySelector('.tiptap.ProseMirror.haligtree-editor:not(.is-line)')
       .pmViewDesc.node.toJSON()
     // eslint-disable-next-line no-new-func
     const run = new Function(`${code}; return documentModule`)()
@@ -128,7 +128,7 @@ const after = await page.evaluate(
       .referencesOf(moved)
       .find((r) => r.kind === 'diagram-image')
     const loads = await new Promise((resolve) => {
-      if (!wasDiagram || !wasDiagram.src.startsWith('mindflow://')) return resolve(false)
+      if (!wasDiagram || !wasDiagram.src.startsWith('haligtree://')) return resolve(false)
       const img = new Image()
       img.onload = () => resolve(true)
       img.onerror = () => resolve(false)
@@ -146,11 +146,11 @@ console.log(`and Excalidraw can still load it where it landed: ${after.loads}`)
 // The bookmark's images point at a host that does not exist here, so they stay
 // put - which is the behaviour: anything that cannot be moved is left alone.
 const icon = after.refs.find((r) => r.kind === 'bookmark-icon')
-console.log(`the card's inline icon moved too: ${icon?.src.startsWith('mindflow://')}`)
+console.log(`the card's inline icon moved too: ${icon?.src.startsWith('haligtree://')}`)
 console.log(`the unreachable one was left alone: ${
   after.refs.find((r) => r.kind === 'bookmark-image')?.src.startsWith('https://')
 }`)
-const twice = after.refs.filter((r) => r.kind === 'image' && r.src.startsWith('mindflow://'))
+const twice = after.refs.filter((r) => r.kind === 'image' && r.src.startsWith('haligtree://'))
 console.log(`the same picture in two places moved once, for both: ${twice.length === 2}`)
 console.log(`RESULT nothing is left inside the document: ${after.inline === 0 && after.loads}`)
 

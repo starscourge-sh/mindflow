@@ -2,7 +2,7 @@
 // "N items" and Often with. Each counts what the page shows at first: open and
 // resolved notes, gems, open tasks. A task done and a to-do dealt with wait
 // under "N more resolved or done"; archived and binned ones are out of it.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/tag-counts.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/tag-counts.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const c = await sandbox({ width: 1300, height: 900 })
@@ -46,7 +46,7 @@ try {
   check('the page reads the same notes the count counts', read.length === SHOWN + LATER && read.filter((one) => !one.later).length === SHOWN, `${read.length} read, ${read.filter((one) => !one.later).length} shown`)
 
   // The sidebar: pinned so it is listed whatever else the sandbox holds.
-  await h.evaluate(() => (localStorage.setItem('tags:pinned', JSON.stringify(['countz'])), window.dispatchEvent(new Event('vigil:tag-pins'))))
+  await h.evaluate(() => (localStorage.setItem('tags:pinned', JSON.stringify(['countz'])), window.dispatchEvent(new Event('haligtree:tag-pins'))))
   const shownIn = (await v('settings')).sidebarShown
   await v('settings:set', { sidebarShown: [...new Set([...shownIn, 'tags'])] })
   await h.reload(); await wait(2500)

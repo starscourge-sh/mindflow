@@ -5,7 +5,7 @@
 // Off screen, in a fresh data folder. SHOTS=dir keeps a picture of Home in Paper.
 //
 //   npx electron-vite build --outDir out-x
-//   QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=… node qa/home-snippets.mjs
+//   QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=… node qa/home-snippets.mjs
 import { mkdirSync, mkdtempSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -13,7 +13,7 @@ import { sandbox } from './sandbox-lib.mjs'
 
 const SHOTS = process.env.SHOTS
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
-process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'mindflow-snippets-'))
+process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'haligtree-snippets-'))
 const results = []
 const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`))
 

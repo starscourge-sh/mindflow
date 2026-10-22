@@ -1,7 +1,7 @@
 /**
- * Vigil's own words: the names it gives things in a sense nobody would guess
+ * Haligtree's own words: the names it gives things in a sense nobody would guess
  * from the word alone. Each one, wherever it is a heading, is a door to a
- * short note (components/vigil/term.tsx): a line on hover, the note on a click,
+ * short note (components/haligtree/term.tsx): a line on hover, the note on a click,
  * and `gloss?` in ⌘K reaches the same note without one on screen.
  *
  * A note reads like something found in a margin, not a manual: what it means
@@ -18,7 +18,7 @@ export type Word = {
   line: string
   /** Where it came from, in a few words, under its name. */
   origin: string
-  /** What it is here: a bold lead-in (`**…**`, components/vigil/lead.tsx), then one plain sentence. */
+  /** What it is here: a bold lead-in (`**…**`, components/haligtree/lead.tsx), then one plain sentence. */
   here: string
   /** One thing to try, the note's italic line. */
   try: string
@@ -30,7 +30,7 @@ export type Word = {
 
 export const WORDS: Word[] = [
   {
-    id: 'vigil',
+    id: 'haligtree',
     forms: [APP_NAME],
     line: 'This app: a tree that holds what you notice and grows it',
     origin: 'Old English hālig, holy, and trēow, tree',
@@ -237,7 +237,7 @@ export const WORDS: Word[] = [
     here: "**A peek into someone else's book: their reading, films, questions and goals.** Try anything there; your own notes are never touched.",
     try: 'Open it from ⌘K, and come back the same way.',
     history: 'A sandbox was a box of sand for children to dig in, safely inside its edges. Programmers borrowed the word for a place to try things that cannot harm the real system.',
-    see: ['vigil', 'capture', 'scenery']
+    see: ['haligtree', 'capture', 'scenery']
   }
 ]
 

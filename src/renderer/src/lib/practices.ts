@@ -1,6 +1,6 @@
 import { chime } from '@/lib/sound'
-import { toast } from '@/components/vigil/ui'
-import { call, useLive } from '@/lib/vigil'
+import { toast } from '@/components/haligtree/ui'
+import { call, useLive } from '@/lib/haligtree'
 import { addBreakSource } from '@/lib/break-moment'
 import type { Ended, LoadKind, Loaded, Offer, Practice, PracticeRow } from '../../../main/practices'
 import { START_MIN, minutesOf, offerDue } from '../../../main/practice-rules'

@@ -1,16 +1,16 @@
 // Each goal's card on the desktop shows that goal alone, and "Show all goals
 // on one sticky" shows every open goal together, each in its own colour, with
 // a legend whose entries bring one goal forward. Windows stay parked off
-// screen (MINDFLOW_QA_VIRTUAL) and are never focused; the run is silent.
+// screen (HALIGTREE_QA_VIRTUAL) and are never focused; the run is silent.
 //
 //   npx electron-vite build --outDir out-goal-stickies
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-goal-stickies/main/index.js MINDFLOW_QA_AWAY=1 node qa/goal-stickies.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-goal-stickies/main/index.js HALIGTREE_QA_AWAY=1 node qa/goal-stickies.mjs
 import { mkdirSync } from 'fs'
 import { join } from 'path'
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
 
-process.env.MINDFLOW_QA_VIRTUAL ??= '1'
+process.env.HALIGTREE_QA_VIRTUAL ??= '1'
 const SHOTS = process.env.QA_SHOTS ?? 'scratchpad/stickies'
 mkdirSync(SHOTS, { recursive: true })
 const { check, done } = checks()

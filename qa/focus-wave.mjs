@@ -11,13 +11,13 @@
 // as on or offered, Manage, and “Block the big three”.
 //
 //   npx electron-vite build --outDir out-focus
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-focus/main/index.js MINDFLOW_QA_AWAY=1 SHOT=<dir> node qa/focus-wave.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-focus/main/index.js HALIGTREE_QA_AWAY=1 SHOT=<dir> node qa/focus-wave.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
 
 // A notch stood in, so the notch's ways and the rounded glow can be seen on any Mac.
-process.env.MINDFLOW_QA_NOTCH = '1'
+process.env.HALIGTREE_QA_NOTCH = '1'
 const SHOT = process.env.SHOT ?? 'scratchpad/focus-wave'
 mkdirSync(SHOT, { recursive: true })
 const { check, done } = checks()
@@ -33,7 +33,7 @@ const windowOf = async (part) => {
   }
   throw new Error(`no window ${part}`)
 }
-const heard = (win) => win.evaluate(() => [...(window.vigilHeard ?? [])])
+const heard = (win) => win.evaluate(() => [...(window.haligtreeHeard ?? [])])
 const island = (pill) => pill.$eval('[data-island]', (one) => one.getAttribute('data-island')).catch(() => null)
 const pointer = (inside) => electron.evaluate((_, on) => void (globalThis.pillPointer = on), inside)
 const theme = async (name) => {
@@ -249,7 +249,7 @@ try {
   // --- 38, 29: a break: no ticking, one card, then Go again or Done for now.
   await v('session:end', (await v('focus:now')).id, '', false)
   await pill.waitForTimeout(1500)
-  await pill.evaluate(() => (window.vigilHeard.length = 0))
+  await pill.evaluate(() => (window.haligtreeHeard.length = 0))
   await v('break:start', null, 9000)
   await h.evaluate(() => window.api.showFocus(true))
   await pill.waitForTimeout(2500)

@@ -5,7 +5,7 @@
 // its calendar up. A line on Today's written page has the task's menu, with
 // Cut, Copy and Paste after it; a step and a line being written have their
 // own few lines and the same three. Shots in Paper and in a dark theme.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 [SHOT=<dir>] node qa/task-links.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 [SHOT=<dir>] node qa/task-links.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 

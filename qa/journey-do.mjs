@@ -5,7 +5,7 @@
 // page opening a line's task and ticking one "Still open from before"; the
 // day page naming states in words and leaving out empty sections; Close the
 // day heard once.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 [SHOT=<dir>] node qa/journey-do.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 [SHOT=<dir>] node qa/journey-do.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -16,7 +16,7 @@ const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok 
 const c = await sandbox({ width: 1300, height: 900 })
 const { h, v, go, send } = c
 const wait = (ms) => h.waitForTimeout(ms)
-const heard = () => h.evaluate(() => (window.vigilHeard ?? []).splice(0))
+const heard = () => h.evaluate(() => (window.haligtreeHeard ?? []).splice(0))
 const text = () => h.evaluate(() => document.body.innerText)
 try {
   await v('settings:set', { sounds: true, hintRate: 0 })
@@ -24,12 +24,12 @@ try {
   const made = await v('task:add', 'Water the ferns every week', undefined, true)
   await v('task:save', made.id, { subtasks: [{ text: 'fill the can', done: false }, { text: 'check the soil', done: false }] })
   const gem = (await v('items', 'nugget'))[0]
-  await h.evaluate(([task, item]) => window.api.vigil('task:link', task, item).catch(() => null), [made.id, gem?.id])
+  await h.evaluate(([task, item]) => window.api.haligtree('task:link', task, item).catch(() => null), [made.id, gem?.id])
   await go('today')
   await send('task', made.id)
   await wait(1200)
   check('a repeating task shows when it stops repeating', await h.locator('[data-repeat-until]').count() === 1)
-  await h.evaluate((id) => window.api.vigil('task:save', id, { until: new Date(Date.now() + 30 * 86400000).toISOString() }), made.id)
+  await h.evaluate((id) => window.api.haligtree('task:save', id, { until: new Date(Date.now() + 30 * 86400000).toISOString() }), made.id)
   await wait(800)
   check('and it can be set', ((await h.locator('[data-repeat-until]').innerText()) ?? '').startsWith('Ends'), await h.locator('[data-repeat-until]').innerText())
   const step = h.locator('[data-subtask="1"]')
@@ -84,7 +84,7 @@ try {
 
   // --- Close the day, heard once
   await heard()
-  await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:close-day')))
+  await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:close-day')))
   await wait(800)
   const opened = (await heard()).filter((one) => one === 'cue:open').length
   check('Close the day opens with one sound', opened === 1, String(opened))

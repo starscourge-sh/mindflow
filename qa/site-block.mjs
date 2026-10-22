@@ -9,13 +9,13 @@
 // session keeps how often each site was sent away, said on the day's page.
 //
 //   npx electron-vite build --outDir out-siteblock
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-siteblock/main/index.js MINDFLOW_QA_AWAY=1 SHOT=<dir> node qa/site-block.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-siteblock/main/index.js HALIGTREE_QA_AWAY=1 SHOT=<dir> node qa/site-block.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
 
 // Each window keeps the place it was given while really parked, so where the notice sits can be checked.
-process.env.MINDFLOW_QA_VIRTUAL = '1'
+process.env.HALIGTREE_QA_VIRTUAL = '1'
 const SHOT = process.env.SHOT ?? 'scratchpad/site-block'
 mkdirSync(SHOT, { recursive: true })
 const { check, done } = checks()
@@ -103,7 +103,7 @@ try {
   await h.fill(field, '')
 
   // --- × and ⌘Z.
-  await h.evaluate(() => { window.__toasts = []; addEventListener('vigil:toast', (event) => window.__toasts.push(event.detail.text)) })
+  await h.evaluate(() => { window.__toasts = []; addEventListener('haligtree:toast', (event) => window.__toasts.push(event.detail.text)) })
   await h.click('[data-site-chip="link.com"] [data-site-remove]')
   await h.waitForTimeout(400)
   check('× takes a chip off', JSON.stringify(await list()) === '["youtube.com"]')
@@ -224,7 +224,7 @@ try {
   const said = await card?.$eval('[data-nudge="blocked"]', (one) => one.textContent).catch(() => '')
   check('Haligtree says “x.com” is blocked until the round ends', /“x\.com” is blocked until \d{1,2}:\d{2}/.test(said ?? ''), said)
   check('with “Allow 5 min”', (said ?? '').includes('Allow 5 min'))
-  check('and a soft sound', (await card.evaluate(() => [...(window.vigilHeard ?? [])])).includes('cue:nope'))
+  check('and a soft sound', (await card.evaluate(() => [...(window.haligtreeHeard ?? [])])).includes('cue:nope'))
   for (const one of ['paper', 'dark']) {
     await theme(card, one)
     await card.screenshot({ path: `${SHOT}/notice-${one}.png` })

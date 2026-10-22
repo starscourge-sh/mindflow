@@ -4,7 +4,7 @@
 // G keys, the new pages have their sidebar previews, quick capture's tabs say
 // which is chosen, and the box's filter chips and title bar buttons are at
 // least 24px to the pointer.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/shell-fixes.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/shell-fixes.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const results = []
@@ -40,7 +40,7 @@ try {
   check('the top bar names Calendar', (await title()) === 'Calendar', `“${await title()}”`)
   // Toasts beside a right-hand sidebar.
   await v('settings:set', { sidebarSide: 'right' }); await h.waitForTimeout(700)
-  await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:toast', { detail: { text: 'Probe notice', tone: 'info' } })))
+  await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:toast', { detail: { text: 'Probe notice', tone: 'info' } })))
   await h.waitForTimeout(500)
   const lane = await h.evaluate(() => {
     const said = [...document.querySelectorAll('[role=status][aria-live]')].find((one) => one.textContent.includes('Probe notice'))
@@ -52,7 +52,7 @@ try {
   check('with the sidebar on the right, a notice is centred on the page beside it', lane.centre !== null && Math.abs(lane.centre - (lane.width - 240) / 2) < 12, `${JSON.stringify(lane)}, page centre ${(lane.width - 240) / 2}`)
   await v('settings:set', { sidebarSide: 'left' }); await h.waitForTimeout(500)
   // The shortcut sheet.
-  await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:shortcuts'))); await h.waitForTimeout(600)
+  await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:shortcuts'))); await h.waitForTimeout(600)
   const sheet = await h.evaluate(() => document.querySelector('[role=dialog]')?.textContent ?? '')
   for (const name of ['Calendar', 'Tomorrow', 'Sources', 'Lookups']) check(`the shortcut sheet lists “Go to ${name}”`, sheet.includes(`Go to ${name}`))
   check('the shortcut sheet says ⌘1 to ⌘8 for the kinds', sheet.includes('⌘1 to ⌘8'))

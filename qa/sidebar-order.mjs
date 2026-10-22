@@ -3,7 +3,7 @@
 // click offers Move up, Move down, Hide from the sidebar, Open to the side and Customize;
 // "Back to the usual order" puts it back, with Undo. Customize lists the same
 // order the sidebar shows. The box's tabs and the pins move the same way.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 [SHOT=<dir>] node qa/sidebar-order.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 [SHOT=<dir>] node qa/sidebar-order.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 

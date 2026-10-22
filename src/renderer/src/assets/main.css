@@ -618,7 +618,7 @@ html[data-width='wide'] {
   --mf-col-sheet: 72rem;
   --mf-col-narrow: 60rem;
 }
-html:is([data-width='page'], [data-width='wide']) .mindflow-editor-wrapper:not(.is-line) .tiptap.ProseMirror.mindflow-editor {
+html:is([data-width='page'], [data-width='wide']) .haligtree-editor-wrapper:not(.is-line) .tiptap.ProseMirror.haligtree-editor {
   width: 100%;
   max-width: var(--mf-col-editor);
   margin-inline: auto;
@@ -629,7 +629,7 @@ html:is([data-width='page'], [data-width='wide']) .mindflow-editor-wrapper:not(.
    the margins either side left empty. The pane's gutters (4.75rem a side)
    are on top of the column, so the drag grip keeps its room. Full width lets
    it run edge to edge. Read sets its column itself, Full width or not. */
-html:is([data-width='page'], [data-width='wide']) .note-pane .mindflow-editor-wrapper:not(.is-line) .tiptap.ProseMirror.mindflow-editor {
+html:is([data-width='page'], [data-width='wide']) .note-pane .haligtree-editor-wrapper:not(.is-line) .tiptap.ProseMirror.haligtree-editor {
   max-width: calc(var(--mf-col-note) + 9.5rem);
 }
 /* An open note's writing column is measured on its own: beside a list and
@@ -641,7 +641,7 @@ html:is([data-width='page'], [data-width='wide']) .note-pane .mindflow-editor-wr
   container: note / inline-size;
 }
 @container note (max-width: 34rem) {
-  .mindflow-editor-wrapper:not(.is-line) .tiptap.ProseMirror.mindflow-editor,
+  .haligtree-editor-wrapper:not(.is-line) .tiptap.ProseMirror.haligtree-editor,
   .note-column {
     --mf-padding: 1rem 1.5rem 1rem 3.25rem;
   }
@@ -649,10 +649,10 @@ html:is([data-width='page'], [data-width='wide']) .note-pane .mindflow-editor-wr
 /* A column as narrow as a phone's sets its big headings smaller, as a phone
    does, so a title still reads in a line or two. */
 @container note (max-width: 26rem) {
-  .note-pane .tiptap.ProseMirror.mindflow-editor h1 {
+  .note-pane .tiptap.ProseMirror.haligtree-editor h1 {
     font-size: 1.5em;
   }
-  .note-pane .tiptap.ProseMirror.mindflow-editor h2 {
+  .note-pane .tiptap.ProseMirror.haligtree-editor h2 {
     font-size: 1.3em;
   }
 }
@@ -668,7 +668,7 @@ html:is([data-width='page'], [data-width='wide']) .note-pane .mindflow-editor-wr
 html:is([data-width='page'], [data-width='wide']) .note-pane .note-column {
   max-width: calc(var(--mf-col-note) + 9.5rem);
 }
-.mf-read .mindflow-editor-wrapper:not(.is-line) .tiptap.ProseMirror.mindflow-editor {
+.mf-read .haligtree-editor-wrapper:not(.is-line) .tiptap.ProseMirror.haligtree-editor {
   width: 100%;
   max-width: 36em;
   margin-inline: auto;
@@ -679,7 +679,7 @@ html:is([data-width='page'], [data-width='wide']) .note-pane .note-column {
    encyclopedia's are, pictures held inside the column and never taller than
    the window, quotes and lists with space to breathe. Only where a note is
    read (an open note, Read): the box and the day's page keep their own. */
-:is(.note-pane, .mf-read) .tiptap.ProseMirror.mindflow-editor:not(.is-line) {
+:is(.note-pane, .mf-read) .tiptap.ProseMirror.haligtree-editor:not(.is-line) {
   > p {
     line-height: 1.7;
   }
@@ -951,7 +951,7 @@ body {
 }
 
 /* The prompt's note fades at its edges as it scrolls, Raycast Notes' way. */
-.mf-faded .mindflow-editor-content {
+.mf-faded .haligtree-editor-content {
   mask-image: linear-gradient(to bottom, transparent 0, #000 0.75rem, #000 calc(100% - 2.5rem), transparent 100%);
 }
 
@@ -1300,7 +1300,7 @@ input[type='number']::-webkit-outer-spin-button {
    keys, the word count, the field for a new thought) is there while the
    pointer moves or rests on it, and settles away while you read. Quick to
    come, slow to go. With Motion off it simply shows and hides. */
-.mf-read .mindflow-editor-wrapper:not(.is-line) .tiptap.ProseMirror.mindflow-editor {
+.mf-read .haligtree-editor-wrapper:not(.is-line) .tiptap.ProseMirror.haligtree-editor {
   font-size: calc(1.125rem * var(--mf-text-scale, 1));
 }
 .mf-read :is(.mf-fade, .tiptap-word-count, [data-gloss] .group\/field) {
@@ -1325,7 +1325,7 @@ input[type='number']::-webkit-outer-spin-button {
   filter: saturate(0.4);
 }
 
-/* The welcome (components/vigil/welcome.tsx). A caret in the accent: solid
+/* The welcome (components/haligtree/welcome.tsx). A caret in the accent: solid
    while letters arrive, blinking at the Mac's rate once they stop, and gone
    when the line has rested, as a real caret does when you look away. */
 .mf-caret {
@@ -1360,7 +1360,7 @@ input[type='number']::-webkit-outer-spin-button {
 }
 /* A pen's stroke drawn once (.mf-pen below). */
 @keyframes mf-ink { to { stroke-dashoffset: 0; } }
-/* Margin marks (components/vigil/marks.tsx): a pen's speed, written once.
+/* Margin marks (components/haligtree/marks.tsx): a pen's speed, written once.
    Along a path for a ring or an arrow; left to right for a strike, which
    is stretched to its words, so it is uncovered rather than traced. */
 .mf-pen { animation: mf-ink 340ms cubic-bezier(0.33, 0.1, 0.25, 1) both; }
@@ -1378,13 +1378,13 @@ input[type='number']::-webkit-outer-spin-button {
    (OFL, assets/fonts), so nothing is fetched. Off with the marks: the name
    goes back to the app's own font. */
 @font-face {
-  font-family: 'Vigil Signature';
+  font-family: 'Haligtree Signature';
   font-display: block;
   src: url('./fonts/la-belle-aurore-latin-400-normal.woff2') format('woff2');
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 @font-face {
-  font-family: 'Vigil Signature';
+  font-family: 'Haligtree Signature';
   font-display: block;
   src: url('./fonts/la-belle-aurore-latin-ext-400-normal.woff2') format('woff2');
   unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
@@ -1413,7 +1413,7 @@ button.mf-signed:hover .mf-signature { text-decoration: underline; text-decorati
    header's "3 / 152", where it read as a stray cursor. */
 [data-voice-edge] { position: relative; }
 /* The note's own words only: not a line editor, nor a note embedded in them. */
-[data-voice-edge] .mindflow-editor-wrapper:not(.is-line):not(.ProseMirror *)::before {
+[data-voice-edge] .haligtree-editor-wrapper:not(.is-line):not(.ProseMirror *)::before {
   content: ''; position: absolute; top: 1.2rem; height: 1.4rem; inset-inline-start: 0.6rem; width: 2px; border-radius: 2px;
   background: color-mix(in oklab, var(--voice) 65%, transparent); pointer-events: none;
 }
@@ -1425,7 +1425,7 @@ button.mf-signed:hover .mf-signature { text-decoration: underline; text-decorati
   font-size: 1.2em; line-height: 1.25; padding-block-end: 0.12em; padding-inline-end: 0.15em;
   unicode-bidi: plaintext;
 }
-:root:not([data-marks='off']) .mf-signature { font-family: 'Vigil Signature', var(--mf-app-font, 'Fraunces Variable', Georgia, serif); font-weight: 400; font-style: normal; letter-spacing: 0; word-spacing: -0.12em; }
+:root:not([data-marks='off']) .mf-signature { font-family: 'Haligtree Signature', var(--mf-app-font, 'Fraunces Variable', Georgia, serif); font-weight: 400; font-style: normal; letter-spacing: 0; word-spacing: -0.12em; }
 :root[data-marks='off'] .mf-signature { font-size: 1em; padding: 0; }
 /* A note's rule, in Read mode and wherever a note is only read: a pen line
    across, not a hairline. A mask, so it keeps the rule's own colour. */
@@ -1454,7 +1454,7 @@ button.mf-signed:hover .mf-signature { text-decoration: underline; text-decorati
 }
 /* The box while the welcome waits on it: a warmer line than "Type / for
    commands…", typed in and turned over every few seconds (App.tsx). */
-:root[data-welcome-ph] .tiptap.ProseMirror.mindflow-editor:not(.is-line) > .is-empty[data-placeholder]:first-child:has(> .ProseMirror-trailingBreak:only-child)::before {
+:root[data-welcome-ph] .tiptap.ProseMirror.haligtree-editor:not(.is-line) > .is-empty[data-placeholder]:first-child:has(> .ProseMirror-trailingBreak:only-child)::before {
   content: var(--mf-welcome-ph, attr(data-placeholder));
 }
 /* Lesson mode: what the welcome is not teaching is calm and out of reach,
@@ -1552,7 +1552,7 @@ button.mf-signed:hover .mf-signature { text-decoration: underline; text-decorati
   pointer-events: none;
 }
 
-/* Progress bars, playful (components/vigil/progress-bar.tsx). The blade: a
+/* Progress bars, playful (components/haligtree/progress-bar.tsx). The blade: a
    pale core, its colour as a glow; a slow hum while the window is looked at. */
 .pb-core {
   position: relative;
@@ -1662,7 +1662,7 @@ button.mf-signed:hover .mf-signature { text-decoration: underline; text-decorati
 }
 
 
-/* Tape (vigil/tape.tsx): a matte strip, torn at its ends, with a fine grain
+/* Tape (haligtree/tape.tsx): a matte strip, torn at its ends, with a fine grain
    and a glint that crosses it every so often. Still with Motion off. */
 .mf-tape {
   width: 4.5rem;
@@ -1744,7 +1744,7 @@ html[data-dragging], html[data-dragging] * { cursor: grabbing !important; }
 
 /* Explaining text, the way Dia writes its changelog: the serif at a reading
    size with room between the lines, a bold lead-in in the same face that
-   carries the message (components/vigil/lead.tsx), and a short italic aside.
+   carries the message (components/haligtree/lead.tsx), and a short italic aside.
    Always Fraunces, whatever font the app's lists are in. */
 @layer components {
 .mf-prose {
@@ -1790,7 +1790,7 @@ html[data-dragging], html[data-dragging] * { cursor: grabbing !important; }
    on a dark page it dims, like paper in a low room, so it does not glare. */
 :root:not([data-light]) .mf-paper-cover { filter: brightness(0.8); }
 
-/* A preview card (components/vigil/peek.tsx): nothing to preview while something is carried. */
+/* A preview card (components/haligtree/peek.tsx): nothing to preview while something is carried. */
 html:is([data-dragging], [data-split-drag]) :is([data-peek-card], [data-slash-peek]) { display: none; }
 /* The `/` menu's preview fades in the first time only; moving through the menu swaps it at once. */
 @keyframes mf-peek-in { from { opacity: 0; transform: translateX(-3px); } }
@@ -1932,22 +1932,22 @@ html[data-book-hue] [data-book-tint] {
   .note-pane > :first-child {
     flex: none;
   }
-  .note-pane > :first-child .mindflow-editor-wrapper:not(.is-line) {
+  .note-pane > :first-child .haligtree-editor-wrapper:not(.is-line) {
     flex: 1 0 auto;
     height: auto;
     overflow: clip visible;
   }
-  .note-pane > :first-child .mindflow-editor-wrapper:not(.is-line) .mindflow-editor-content {
+  .note-pane > :first-child .haligtree-editor-wrapper:not(.is-line) .haligtree-editor-content {
     height: auto;
     overflow: clip visible;
   }
 }
-[data-grow] .mindflow-editor-wrapper:not(.is-line) {
+[data-grow] .haligtree-editor-wrapper:not(.is-line) {
   flex: 1 0 auto;
   height: auto;
   overflow: clip visible;
 }
-[data-grow] .mindflow-editor-wrapper:not(.is-line) .mindflow-editor-content {
+[data-grow] .haligtree-editor-wrapper:not(.is-line) .haligtree-editor-content {
   height: auto;
   overflow: clip visible;
 }

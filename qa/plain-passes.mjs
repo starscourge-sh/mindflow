@@ -4,7 +4,7 @@
 // its box from the start. Their keys still work, unsaid: ↓ turns Read
 // through's page, Esc leaves.
 //   npx electron-vite build --outDir out-x
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 [SHOTS=<dir>] node qa/plain-passes.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 [SHOTS=<dir>] node qa/plain-passes.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -47,7 +47,7 @@ try {
   // Tidy and Decide.
   const ids = (await h.evaluate(() => window.api.captures.list())).filter((one) => one.status === 'open').slice(0, 3).map((one) => one.id)
   for (const mode of ['tidy', 'decide']) {
-    await h.evaluate(([m, list]) => window.dispatchEvent(new CustomEvent('vigil:pass', { detail: { mode: m, ids: list } })), [mode, ids]); await wait(1200)
+    await h.evaluate(([m, list]) => window.dispatchEvent(new CustomEvent('haligtree:pass', { detail: { mode: m, ids: list } })), [mode, ids]); await wait(1200)
     m = await plain('[data-pass]')
     check(`${mode}: plain buttons, no keycaps, no "?"`, m && !m.caps && !m.talk && !(await h.locator('[data-pass-all-keys]').count()), JSON.stringify(m))
     await shoot(mode)
@@ -56,7 +56,7 @@ try {
 
   // The morning sort.
   await go('home'); await wait(600)
-  await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:sort-out', { detail: { text: '', origin: null, inbox: true } }))); await wait(1200)
+  await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:sort-out', { detail: { text: '', origin: null, inbox: true } }))); await wait(1200)
   m = await plain('[data-sort-out]')
   check('Sort this out: a close button, no Esc or ⌘↵ keycaps', m && !m.caps && (await h.locator('[data-sort-out] button[aria-label="Close"]').count()) === 1 && !(await h.evaluate(() => [...document.querySelectorAll('[data-sort-out] kbd')].length)), JSON.stringify(m))
   await shoot('sort-out')

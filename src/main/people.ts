@@ -13,18 +13,18 @@ import { personKey } from './names'
 
 
 /** Only a picture already in the store: its hash and a picture's ending. */
-const STORED = /^mindflow:\/\/assets\/[a-f0-9]{64}\.(png|jpg|jpeg|webp|gif|avif)$/
+const STORED = /^haligtree:\/\/assets\/[a-f0-9]{64}\.(png|jpg|jpeg|webp|gif|avif)$/
 
 export type Person = { name: string; avatar: string | null }
 
 export function registerPeople(): void {
   const db = database()
   db.exec('create table if not exists people (key text primary key, name text not null, avatar text, updated_at text not null)')
-  ipcMain.handle('vigil:people', () => {
+  ipcMain.handle('haligtree:people', () => {
     const rows = db.prepare('select key, name, avatar from people where avatar is not null').all() as { key: string; name: string; avatar: string }[]
     return Object.fromEntries(rows.map((row) => [row.key, { name: row.name, avatar: row.avatar }]))
   })
-  ipcMain.handle('vigil:people:set', (_event, name: unknown, avatar: unknown) => {
+  ipcMain.handle('haligtree:people:set', (_event, name: unknown, avatar: unknown) => {
     if (typeof name !== 'string' || !personKey(name)) return false
     if (avatar !== null && (typeof avatar !== 'string' || !STORED.test(avatar))) return false
     db.prepare('insert into people (key, name, avatar, updated_at) values (?, ?, ?, ?) on conflict(key) do update set name = excluded.name, avatar = excluded.avatar, updated_at = excluded.updated_at')

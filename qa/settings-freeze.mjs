@@ -2,7 +2,7 @@
 // window: the longest gap between frames over the next 1.5s is the stall
 // you would feel. Opening Settings and each page is timed the same way.
 // Passes when no change stalls longer than 400ms (the machine running it adds noise).
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/settings-freeze.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/settings-freeze.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const LIMIT = Number(process.env.LIMIT ?? 400)

@@ -1,6 +1,6 @@
 import { shownEditor } from '@/extensions/note-link'
 import { chime } from './sound'
-import { toast } from '@/components/vigil/ui'
+import { toast } from '@/components/haligtree/ui'
 import { APP_NAME } from '../../../main/name'
 
 /**

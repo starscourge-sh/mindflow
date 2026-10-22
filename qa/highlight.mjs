@@ -16,13 +16,13 @@ for (const line of [
   'Not marked at all',
   'A line with ==only some words== marked'
 ]) {
-  if (await page.locator('.mindflow-editor p').count()) await page.keyboard.press('Enter')
+  if (await page.locator('.haligtree-editor p').count()) await page.keyboard.press('Enter')
   await page.keyboard.type(line, { delay: 30 })
   await page.waitForTimeout(250)
 }
 
 const band = page.locator('.mf-line-highlight')
-const mark = page.locator('.mindflow-editor mark')
+const mark = page.locator('.haligtree-editor mark')
 console.log(`full-line bands: ${await band.count()} (expect 3)`)
 console.log(`marks: ${await mark.count()} (expect 4)`)
 console.log('band is the block width:', await band.first().evaluate((e) => {
@@ -37,7 +37,7 @@ console.log('a partial highlight stays inline:', await mark.last().evaluate((e) 
 console.log('the card takes a pointer:', await page.evaluate(() => {
   const probe = document.createElement('a')
   probe.className = 'tiptap-bookmark'
-  document.querySelector('.tiptap.ProseMirror.mindflow-editor').append(probe)
+  document.querySelector('.tiptap.ProseMirror.haligtree-editor').append(probe)
   const out = getComputedStyle(probe).cursor
   probe.remove()
   return out

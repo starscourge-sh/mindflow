@@ -4,7 +4,7 @@
 // short one, opened cold (first time) and warm (again). Then a task, a gem, a tag's page, the
 // Calendar and a sidebar page each, the same way. Fails when a note's words take longer than
 // QA_BUDGET ms (150 by default) to be drawn.
-// Run: QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-open/main/index.js MINDFLOW_QA_AWAY=1 node qa/open-speed.mjs
+// Run: QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-open/main/index.js HALIGTREE_QA_AWAY=1 node qa/open-speed.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const BUDGET = Number(process.env.QA_BUDGET ?? 150)
@@ -20,7 +20,7 @@ const arm = (want) => h.evaluate((want) => {
   const marks = {}
   const long = []
   let t0 = null
-  const heard = window.vigilHeard ?? []
+  const heard = window.haligtreeHeard ?? []
   const push = heard.push
   heard.push = function (...names) {
     if (t0 !== null) for (const name of names) {

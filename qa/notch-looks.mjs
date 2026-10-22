@@ -4,7 +4,7 @@
 // row repeated, one shared left edge, and a filled button whose words read.
 //
 //   npx electron-vite build --outDir out-pill
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-pill/main/index.js MINDFLOW_QA_AWAY=1 MINDFLOW_QA_NOTCH=1 SHOT=<dir> node qa/notch-looks.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-pill/main/index.js HALIGTREE_QA_AWAY=1 HALIGTREE_QA_NOTCH=1 SHOT=<dir> node qa/notch-looks.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -65,7 +65,7 @@ try {
     await pill.reload()
     await pill.waitForTimeout(1200)
     if (accent) await pill.evaluate((a) => document.documentElement.style.setProperty('--tt-brand-color-400', a), accent)
-    await pill.evaluate(() => (window.vigilNudges = [60, 60, 60]))
+    await pill.evaluate(() => (window.haligtreeNudges = [60, 60, 60]))
     const open = async () => { await pill.hover('[data-island]', { position: { x: 160, y: 10 } }); await pill.waitForTimeout(900) }
     const shoot = async (state) => {
       const m = await measure(pill)

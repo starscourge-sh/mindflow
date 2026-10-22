@@ -2,7 +2,7 @@
 // (560x400), about 900x640, and full-screen sizes (1920x1200, 2560x1440), with
 // the sidebar open and closed: no sideways scroll, no row whose details stack
 // one per line, no box clipped without a fade, and a sensible width on wide screens.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/ui-tasks.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/ui-tasks.mjs
 // SHOTS=<folder> saves a picture of each page at each size; THEME=dark runs it dark.
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'

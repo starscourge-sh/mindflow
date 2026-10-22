@@ -10,7 +10,7 @@
 //   - a button, chip or menu item whose label wraps inside itself
 //   - a control smaller than 24px to press
 //   - a short note's "Add a thought" bar not at the foot of the view
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/final-editor.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/final-editor.mjs
 // SHOTS=<folder> saves a picture of each; ONLY=soft-paper (style-theme) runs one pair.
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
@@ -22,7 +22,7 @@ const { h, electron, v, send, size, errors } = c
 const wait = (ms = 500) => h.waitForTimeout(ms)
 const found = []
 const flag = (where, list) => list.forEach((one) => found.push(`${where}: ${one}`))
-const ED = '.note-pane .tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+const ED = '.note-pane .tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 const p = (text) => ({ type: 'paragraph', content: [{ type: 'text', text }] })
 const hd = (level, text) => ({ type: 'heading', attrs: { level }, content: [{ type: 'text', text }] })
 const li = (text) => ({ type: 'listItem', content: [p(text)] })

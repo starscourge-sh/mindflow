@@ -6,7 +6,7 @@
 // Each picture has bright strips along its edges and grey inside. What is
 // on the screen is read back: the strips must all be there, as thick as they
 // should be, and the drawn picture the shape of the real one.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-imgclip/main/index.js MINDFLOW_QA_AWAY=1 SHOT=<dir> TAG=after node qa/img-clip.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-imgclip/main/index.js HALIGTREE_QA_AWAY=1 SHOT=<dir> TAG=after node qa/img-clip.mjs
 // READ=1 checks the same in Read; LONG=1 in a note long enough to be drawn a band at a time.
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -17,7 +17,7 @@ const { h } = c
 let failed = 0
 try {
   // No page hint over the note: the sandbox's line takes room a tall picture needs to be seen whole.
-  await h.evaluate(() => window.api.vigil('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, pageHints: false }))
+  await h.evaluate(() => window.api.haligtree('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, pageHints: false }))
   // Made in the page: each stored as a pasted picture would be.
   const pictures = await h.evaluate(async () => {
     const STRIP = 0.08
@@ -78,10 +78,10 @@ try {
   ] }
   const id = await h.evaluate((b) => window.api.captures.create({ kind: 'note', body: b }).then((one) => one.id ?? one), body)
   await c.send('capture', id); await h.waitForTimeout(2500)
-  console.log('long note:', await h.evaluate(() => document.querySelector('.tiptap.ProseMirror.mindflow-editor:not(.is-line)').hasAttribute('data-long')))
+  console.log('long note:', await h.evaluate(() => document.querySelector('.tiptap.ProseMirror.haligtree-editor:not(.is-line)').hasAttribute('data-long')))
 
   // READ=1: the same pictures in Read, the page that is only for reading.
-  const EDITOR = process.env.READ ? '.mf-read .tiptap.ProseMirror.mindflow-editor:not(.is-line)' : '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+  const EDITOR = process.env.READ ? '.mf-read .tiptap.ProseMirror.haligtree-editor:not(.is-line)' : '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
   if (process.env.READ) { await h.evaluate(() => document.querySelector('button[aria-label="Read"]').click()); await h.waitForTimeout(2000) }
   const size = (width) => h.evaluate(([width, EDITOR]) => {
     const ed = document.querySelector(EDITOR).editor
@@ -129,7 +129,7 @@ try {
     return { at, seen, png }
   }
   for (const postcards of [false, true]) {
-    await h.evaluate((on) => window.api.vigil('settings:set', { postcards: on }), postcards); await h.waitForTimeout(500)
+    await h.evaluate((on) => window.api.haligtree('settings:set', { postcards: on }), postcards); await h.waitForTimeout(500)
     for (const [label, width] of [['auto', null], ['S', '35%'], ['M', '60%'], ['L', '100%']]) {
       await size(width); await h.waitForTimeout(500)
       for (const [index, p] of pictures.entries()) {
@@ -157,7 +157,7 @@ try {
       }
     }
   }
-  await h.evaluate(() => window.api.vigil('settings:set', { postcards: false }))
+  await h.evaluate(() => window.api.haligtree('settings:set', { postcards: false }))
   // Tilt and the following caption, two switches in Settings: tilt off by
   // default (always on in Focus), the caption following on by default, and
   // each working without the other.
@@ -183,14 +183,14 @@ try {
     ['tilt off, in Focus', { tiltPictures: false, captionFollows: true }, true, true, true],
   ]
   for (const [what, set, focus, tips, follows] of cases) {
-    if (Object.keys(set).length) await h.evaluate((set) => window.api.vigil('settings:set', set), set)
+    if (Object.keys(set).length) await h.evaluate((set) => window.api.haligtree('settings:set', set), set)
     await h.evaluate((on) => (document.documentElement.dataset.focus = on ? 'on' : 'off'), focus); await h.waitForTimeout(400)
     const got = await hover()
     const right = got.tips === tips && got.follows === follows
     if (!right) failed++
     console.log(`${what}: ${got.tips ? 'tips' : 'flat'}, caption ${got.follows ? 'follows' : 'stays'} ${right ? 'ok' : 'WRONG'}`)
   }
-  await h.evaluate(() => { document.documentElement.dataset.focus = 'off'; return window.api.vigil('settings:set', { tiltPictures: false, captionFollows: true }) })
+  await h.evaluate(() => { document.documentElement.dataset.focus = 'off'; return window.api.haligtree('settings:set', { tiltPictures: false, captionFollows: true }) })
   console.log(failed ? `FAILED ${failed}` : 'ALL OK', 'errors', c.errors.length, c.errors.slice(0, 3))
 } finally { await c.close() }
 process.exit(failed ? 1 : 0)

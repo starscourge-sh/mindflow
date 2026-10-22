@@ -1,11 +1,11 @@
-import { toast } from '@/components/vigil/ui'
+import { toast } from '@/components/haligtree/ui'
 import { chime } from './sound'
 import { makeTask } from './tasks'
-import { useLive, vigil, whenInLine, type Task } from './vigil'
+import { useLive, haligtree, whenInLine, type Task } from './haligtree'
 import { dayjs, dayKey } from '../../../main/dates'
 
 /** A task or note hidden until a later day, and that day. */
-export type Back = Awaited<ReturnType<typeof vigil.snoozedBack>>[number]
+export type Back = Awaited<ReturnType<typeof haligtree.snoozedBack>>[number]
 /** What a day holds: planned for it, due by it, getting ready from it, and coming back on it. */
 export type OnDay = { planned: Task[]; due: Task[]; ready: Task[]; back: Back[] }
 
@@ -38,13 +38,13 @@ export function moveToDay(task: Pick<Task, 'id' | 'dueAt' | 'allDay' | 'planFor'
   const to = dayjs(day).hour(time.hour()).minute(time.minute()).startOf('minute').toISOString()
   if (which === 'due') {
     const was = task.deadline
-    void vigil.saveTask(task.id, { deadline: to }).then(() => (chime('tap'), toast(`Due by ${whenInLine(to)}`, () => void vigil.saveTask(task.id, { deadline: was }))))
+    void haligtree.saveTask(task.id, { deadline: to }).then(() => (chime('tap'), toast(`Due by ${whenInLine(to)}`, () => void haligtree.saveTask(task.id, { deadline: was }))))
     return
   }
   const was = { due: task.dueAt, plan: task.planFor }
-  void vigil.saveTask(task.id, { due: to }).then((before) => {
+  void haligtree.saveTask(task.id, { due: to }).then((before) => {
     chime('tap')
-    toast(`Moved to ${whenInLine(to, !task.dueAt || !!task.allDay)}`, () => void vigil.saveTask(task.id, { ...was, ...(before === true ? {} : before) }))
+    toast(`Moved to ${whenInLine(to, !task.dueAt || !!task.allDay)}`, () => void haligtree.saveTask(task.id, { ...was, ...(before === true ? {} : before) }))
   })
 }
 
@@ -53,12 +53,12 @@ export async function addForDay(text: string, day: string): Promise<boolean> {
   if (!text.trim()) return false
   const made = await makeTask({ text: text.trim() }, 'Added', { quiet: true })
   if (!made) return false
-  const task = (await vigil.tasks()).find((one) => one.id === made.id)
+  const task = (await haligtree.tasks()).find((one) => one.id === made.id)
   if (made.existed && task) return (sameTask(task, { due: dayjs(day).hour(9).minute(0).startOf('minute').toISOString(), allDay: 1 }), true)
   // Words that named a day of their own ("call mum friday") keep it; otherwise it is for this day.
-  if (!task?.dueAt) await vigil.saveTask(made.id, { due: dayjs(day).hour(9).minute(0).startOf('minute').toISOString() })
+  if (!task?.dueAt) await haligtree.saveTask(made.id, { due: dayjs(day).hour(9).minute(0).startOf('minute').toISOString() })
   chime('noted')
-  toast(`Added for ${whenInLine(task?.dueAt ?? dayjs(day).hour(9).toISOString())}`, () => void vigil.unmakeTask(made.id, made.existed, [], []))
+  toast(`Added for ${whenInLine(task?.dueAt ?? dayjs(day).hour(9).toISOString())}`, () => void haligtree.unmakeTask(made.id, made.existed, [], []))
   return true
 }
 
@@ -86,13 +86,13 @@ export type Placed = { due: string | null; allDay: number; estimate: number | nu
 export function placeTask(task: Pick<Task, 'id' | 'dueAt' | 'allDay' | 'estimate' | 'planFor'>, to: Placed, said: string): void {
   const was = { due: task.dueAt, allDay: task.allDay, estimate: task.estimate, plan: task.planFor }
   if (was.due === to.due && was.allDay === to.allDay && was.estimate === to.estimate) return chime('stay')
-  void vigil.saveTask(task.id, to).then((before) => {
+  void haligtree.saveTask(task.id, to).then((before) => {
     chime('tap')
-    toast(said, () => void vigil.saveTask(task.id, { ...was, ...(before === true ? {} : before) }).then(() => chime('undo')))
+    toast(said, () => void haligtree.saveTask(task.id, { ...was, ...(before === true ? {} : before) }).then(() => chime('undo')))
   })
 }
 
-// --- the day marks: days you opened Vigil, and how much you captured (with the gaps)
+// --- the day marks: days you opened Haligtree, and how much you captured (with the gaps)
 
 /** How strong a captures mark is: 1 for one or two, 2 for three to five, 3 for six or more. */
 export const caughtLevel = (n: number): 1 | 2 | 3 => (n >= 6 ? 3 : n >= 3 ? 2 : 1)
@@ -103,7 +103,7 @@ export const caughtLevel = (n: number): 1 | 2 | 3 => (n >= 6 ? 3 : n >= 3 ? 2 : 
  * no mark at all are missing from the map.
  */
 export function useCaptureMarks(from: string, to: string, on: boolean): Map<string, number> {
-  const read = useLive(() => (on ? vigil.dayCaptures(from, to) : Promise.resolve(null)), null as { first: string | null; counts: Record<string, number> } | null, [from, to, on])
+  const read = useLive(() => (on ? haligtree.dayCaptures(from, to) : Promise.resolve(null)), null as { first: string | null; counts: Record<string, number> } | null, [from, to, on])
   const marks = new Map<string, number>()
   if (!on || !read) return marks
   const today = dayKey()

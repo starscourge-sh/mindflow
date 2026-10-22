@@ -1,9 +1,9 @@
-// Times follow the Mac's clock: run as a 12-hour Mac (MINDFLOW_QA_CLOCK=12),
+// Times follow the Mac's clock: run as a 12-hour Mac (HALIGTREE_QA_CLOCK=12),
 // each window is told so by its preload and Today's line by the hour says a
 // running session as "2:00 PM to 2:25 PM"; as a 24-hour Mac, "14:00 to 14:25".
 //
 //   npx electron-vite build --outDir out-x
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/mac-clock.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/mac-clock.mjs
 import { mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -15,7 +15,7 @@ const base = process.env.QA_DATA
 
 const wait = (ms) => new Promise((ok) => setTimeout(ok, ms))
 for (const [hours, want, from] of [['12', '2:00 PM to 2:25 PM', '2:00 PM'], ['24', '14:00 to 14:25', '14:00']]) {
-  process.env.MINDFLOW_QA_CLOCK = hours
+  process.env.HALIGTREE_QA_CLOCK = hours
   // A fresh data folder each run (inside the one given, if any).
   process.env.QA_DATA = mkdtempSync(join(base ?? tmpdir(), `clock-${hours}-`))
   const c = await sandbox({ width: 1100, height: 800, at: '14:00' })

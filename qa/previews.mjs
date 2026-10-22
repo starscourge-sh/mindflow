@@ -1,7 +1,7 @@
 // The preview cards: a sidebar row's page preview, and the `/` menu's block
 // preview. Hovers every sidebar entry and every slash item and checks the card
 // shows, fits the window, never covers what it is about, and swaps at once.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-preview/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=<dir> node qa/previews.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-preview/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=<dir> node qa/previews.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -116,7 +116,7 @@ async function sidebar(label) {
 
 async function slash(label, win, shot) {
   // A line to write in, on Today's page in the main window or the box.
-  const editor = win.locator('.tiptap.ProseMirror.mindflow-editor:not(.is-line)').first()
+  const editor = win.locator('.tiptap.ProseMirror.haligtree-editor:not(.is-line)').first()
   await editor.click()
   await win.keyboard.press('Meta+ArrowDown')
   await win.keyboard.press('Enter')
@@ -166,7 +166,7 @@ async function slash(label, win, shot) {
 }
 
 /** The Haligtree menu at the sidebar's foot: a card for each row, and Tidy stickies only with a sticky out. */
-async function vigilMenu(label, shots) {
+async function haligtreeMenu(label, shots) {
   await go('home')
   await h.mouse.move(700, 400)
   const openMenu = async () => {
@@ -232,13 +232,13 @@ async function vigilMenu(label, shots) {
 
 try {
   await c.theme('paper')
-  await vigilMenu('light menu', { safe: 'menu-safe-light.png', blur: 'menu-blur-light.png', tidy: 'menu-tidy-light.png' })
+  await haligtreeMenu('light menu', { safe: 'menu-safe-light.png', blur: 'menu-blur-light.png', tidy: 'menu-tidy-light.png' })
   await sidebar('light')
   await go('day')
   await h.waitForTimeout(1200)
   await slash('light, main window', h, 'slash-callout-light.png')
   await c.theme('github')
-  await vigilMenu('dark menu', { safe: 'menu-safe-dark.png', tidy: 'menu-tidy-dark.png' })
+  await haligtreeMenu('dark menu', { safe: 'menu-safe-dark.png', tidy: 'menu-tidy-dark.png' })
   await sidebar('dark')
   await go('day')
   await h.waitForTimeout(1200)

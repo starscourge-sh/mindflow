@@ -59,7 +59,7 @@ function nearScreen(view: EditorView, name: string): { ahead: (state: EditorStat
   let spaced: [number, number] = [0, 0]
   let leap = false
   let last: EditorState | null = null
-  const at = `.tiptap.ProseMirror.mindflow-editor[data-long="${name}"]`
+  const at = `.tiptap.ProseMirror.haligtree-editor[data-long="${name}"]`
   const blocks = (): HTMLCollection => view.dom.children
   // A block never drawn is taken to be as tall as the drawn ones are on average.
   let sum = 0

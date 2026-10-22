@@ -1,18 +1,18 @@
 import type { Action } from '@/components/search'
-import { toast } from '@/components/vigil/ui'
-import { setRepeat } from '@/components/vigil/tasks-view'
+import { toast } from '@/components/haligtree/ui'
+import { setRepeat } from '@/components/haligtree/tasks-view'
 import { chime } from './sound'
 import { taskName } from './tasks'
 import { moveToBin } from './to-bin'
 import { addForDay, placeTask } from './calendar'
-import { vigil, whenInLine, type Task } from './vigil'
+import { haligtree, whenInLine, type Task } from './haligtree'
 import { commandFor, daySaid, type Command } from '../../../main/task-words'
 import { lengthSaid } from '../../../main/day-load'
 import { dayjs, dayKey } from '../../../main/dates'
 import { RECURRENCE } from '../../../main/task-words'
 import { repeatOf } from '../../../main/event-words'
 import { changeEvent, events, type EventPatch, type Occurrence } from './events'
-import { changeOne, dropOne } from '@/components/vigil/calendar-events'
+import { changeOne, dropOne } from '@/components/haligtree/calendar-events'
 
 /**
  * ⌘K with the Calendar in front: what it knows (the task picked on it, the
@@ -78,7 +78,7 @@ async function apply(task: Task, said: Command, calendar: CalendarHere | null): 
   if (said.kind === 'bin') return void moveToBin([{ type: 'task', id: task.id, status: task.status }])
   if (said.kind === 'length') return placeTask(task, { due: task.dueAt, allDay: task.allDay, estimate: said.minutes }, `Takes ${lengthSaid(said.minutes)} now`)
   if (said.kind === 'repeat') {
-    if (said.rule && !task.dueAt && said.due) await vigil.saveTask(task.id, { due: said.due })
+    if (said.rule && !task.dueAt && said.due) await haligtree.saveTask(task.id, { due: said.due })
     return setRepeat(task, said.rule)
   }
   if (said.kind === 'move') {
@@ -88,10 +88,10 @@ async function apply(task: Task, said: Command, calendar: CalendarHere | null): 
     return
   }
   // A copy: its day written into the words, so it is never taken for the same task again, then everything as the first.
-  const made = await vigil.addTask(`${task.title} on ${dayjs(said.due).format('D MMMM YYYY')}`)
-  await vigil.saveTask(made.id, { title: task.title, due: said.due, allDay: said.allDay ? 1 : 0, estimate: task.estimate, priority: task.priority, recurrence: null })
+  const made = await haligtree.addTask(`${task.title} on ${dayjs(said.due).format('D MMMM YYYY')}`)
+  await haligtree.saveTask(made.id, { title: task.title, due: said.due, allDay: said.allDay ? 1 : 0, estimate: task.estimate, priority: task.priority, recurrence: null })
   chime('noted')
-  toast(`Copied to ${whenInLine(said.due, said.allDay)}`, () => void vigil.unmakeTask(made.id, false, [], []).then(() => chime('undo')))
+  toast(`Copied to ${whenInLine(said.due, said.allDay)}`, () => void haligtree.unmakeTask(made.id, false, [], []).then(() => chime('undo')))
   if (calendar) calendar.go(dayKey(said.due))
 }
 

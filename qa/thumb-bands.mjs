@@ -21,13 +21,13 @@ try {
   for (const theme of ['light', 'dark']) {
     await s.theme(theme)
     for (const pics of ['fill', 'whole']) {
-      await h.evaluate((p) => window.api.vigil('settings:set', { linkPictures: p }), pics)
+      await h.evaluate((p) => window.api.haligtree('settings:set', { linkPictures: p }), pics)
       await s.send('capture', id); await h.waitForTimeout(2500)
       const info = await h.evaluate(() => [...document.querySelectorAll('.tiptap-bookmark-image')].map((i) => [i.src.slice(0, 50), i.closest('.tiptap-bookmark-frame').hasAttribute('data-banded'), getComputedStyle(i).objectViewBox, getComputedStyle(i).objectFit]))
       console.log(theme, pics, JSON.stringify(info))
       await h.screenshot({ path: `${OUT}/6-bands-${pics}-${theme}.png` })
     }
   }
-  await h.evaluate(() => window.api.vigil('settings:set', { linkPictures: 'fill' }))
+  await h.evaluate(() => window.api.haligtree('settings:set', { linkPictures: 'fill' }))
   console.log('errors', errors.slice(0, 5))
 } catch (e) { console.error(e) } finally { await s.close() }

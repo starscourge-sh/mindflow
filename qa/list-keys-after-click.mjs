@@ -3,7 +3,7 @@
 // list and is lit), press ⌫, and it is in the Bin with a notice; ⌘Z brings it
 // back. ↓ after a click moves on from the clicked row. And ⌫ typed inside an
 // open note's editor deletes a letter, never the note.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-keys/main/index.js MINDFLOW_QA_AWAY=1 node qa/list-keys-after-click.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-keys/main/index.js HALIGTREE_QA_AWAY=1 node qa/list-keys-after-click.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const results = []
@@ -26,9 +26,9 @@ const binned = (w, key) => w.evaluate(async (key) => {
   const id = key.includes(':') ? key.split(':').slice(1).join(':') : key
   const capture = await window.api.captures.get(id).catch(() => null)
   if (capture) return capture.status === 'discarded'
-  const item = await window.api.vigil('item', id).catch(() => null)
+  const item = await window.api.haligtree('item', id).catch(() => null)
   if (item) return !!item.binnedAt
-  const task = await window.api.vigil('task', id).catch(() => null)
+  const task = await window.api.haligtree('task', id).catch(() => null)
   return task ? task.status === 'dropped' : null
 }, key)
 

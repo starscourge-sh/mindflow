@@ -15,7 +15,7 @@ export type KeyChanges = Record<string, string | null>
 let changes: KeyChanges = {}
 const told = new Set<() => void>()
 const load = (): void =>
-  void (window.api.vigil<{ keys?: KeyChanges }>('settings')).then((settings) => {
+  void (window.api.haligtree<{ keys?: KeyChanges }>('settings')).then((settings) => {
     const next = settings.keys ?? {}
     if (JSON.stringify(next) === JSON.stringify(changes)) return
     changes = next
@@ -47,7 +47,7 @@ export function useKeyChanges(): KeyChanges {
 export const saveKeys = (next: KeyChanges): void => {
   changes = next
   told.forEach((tell) => tell())
-  void window.api.vigil('settings:set', { keys: next })
+  void window.api.haligtree('settings:set', { keys: next })
 }
 
 /**

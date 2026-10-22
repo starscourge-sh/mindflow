@@ -8,7 +8,7 @@
 //      off are not in its tiles or rows, even though they were opened last; a pinned one stays.
 //   4. A note with a picture and more lines, made a task, gives the task those lines and the
 //      picture in its notes; so does one made from a single capture by “tasks:from”.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/four-asks.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/four-asks.mjs
 import { existsSync, readdirSync } from 'fs'
 import { join } from 'path'
 import { sandbox } from './sandbox-lib.mjs'
@@ -32,7 +32,7 @@ try {
     const g = canvas.getContext('2d'); g.fillStyle = '#4a8'; g.fillRect(0, 0, 120, 80)
     return window.api.saveImage('image/png', new Uint8Array(await (await canvas.convertToBlob({ type: 'image/png' })).arrayBuffer()))
   })
-  check('a picture is stored', /^mindflow:\/\/assets\/[a-f0-9]{64}\.png$/.test(src), src)
+  check('a picture is stored', /^haligtree:\/\/assets\/[a-f0-9]{64}\.png$/.test(src), src)
 
   // --- 4. the task carries the note's body
   const N = await create('note', { type: 'doc', content: [p('Fix the garden shed door'), { type: 'image', attrs: { src, alt: 'Shed door' } }, p('The hinge on the left is loose.')] })
@@ -62,7 +62,7 @@ try {
   await wait(600)
   const tmp = await electron.evaluate(({ app }) => app.getPath('temp'))
   const hash = src.split('/').pop().slice(0, 12)
-  const dir = join(tmp, 'vigil-drag', hash)
+  const dir = join(tmp, 'haligtree-drag', hash)
   check('as a real file under its own name', existsSync(join(dir, 'Green card.png')), existsSync(dir) ? readdirSync(dir).join(', ') : 'no folder')
   // A picture from the web is the editor's own business.
   const W = await create('note', { type: 'doc', content: [p('Web picture page'), { type: 'image', attrs: { src: 'https://example.com/a.png', alt: 'web' } }] })

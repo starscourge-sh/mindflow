@@ -9,7 +9,7 @@
 // shows in Writing, a cleared search finds the one looked at, quick
 // capture's list does the same, and the sidebar marks the page and the
 // pinned note open.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/open-shows-row.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/open-shows-row.mjs
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
 
@@ -18,8 +18,8 @@ const c = await sandbox({ width: 1300, height: 860 })
 const { h, go, v, send } = c
 const wait = (ms) => h.waitForTimeout(ms)
 // The sounds heard are emptied before each route (the list keeps only its last fifty), so what follows is the route's alone.
-const heard = () => h.evaluate(() => ((window.vigilHeard ?? []).length = 0))
-const said = () => h.evaluate(() => [...(window.vigilHeard ?? [])])
+const heard = () => h.evaluate(() => ((window.haligtreeHeard ?? []).length = 0))
+const said = () => h.evaluate(() => [...(window.haligtreeHeard ?? [])])
 
 // Where the row is: drawn, inside the box that scrolls it, marked open, the keyboard on it.
 const look = (page, id) => h.evaluate(([page, id]) => {
@@ -292,7 +292,7 @@ try {
     await b.locator(`[data-row][data-id="${Y}"]`).first().click(); await b.waitForTimeout(900)
     await boxHead.click(); await b.waitForTimeout(500)
     check('box: starts hidden, its island folded', !(await b.evaluate((id) => !!document.querySelector(`[data-row][data-id="${id}"]`), X)))
-    const before = await b.evaluate(() => ((window.vigilHeard ?? []).length = 0))
+    const before = await b.evaluate(() => ((window.haligtreeHeard ?? []).length = 0))
     await b.evaluate(() => (document.activeElement)?.blur?.())
     await b.keyboard.press('Meta+BracketLeft'); await b.waitForTimeout(1500)
     const seen = await b.evaluate((id) => {
@@ -303,7 +303,7 @@ try {
       const at = row.getBoundingClientRect(), view = box?.getBoundingClientRect() ?? { top: 0, bottom: innerHeight }
       return { drawn: true, inView: at.top >= view.top - 1 && at.bottom <= view.bottom + 1, open: row.hasAttribute('data-open'), cursor: row.hasAttribute('data-cursor') }
     }, X)
-    const sounds = (await b.evaluate(() => [...(window.vigilHeard ?? [])])).slice(before)
+    const sounds = (await b.evaluate(() => [...(window.haligtreeHeard ?? [])])).slice(before)
     check('box: back to it, its row drawn, in view, marked open, under the keyboard', seen.drawn && seen.inView && seen.open && seen.cursor, JSON.stringify(seen))
     check('box: one sound at most', sounds.length <= 1, sounds.join(', '))
   } else check('box: its Inbox list has a Note island', false)

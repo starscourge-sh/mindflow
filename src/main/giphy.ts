@@ -2,7 +2,7 @@ import { app, net } from 'electron'
 import { createHash } from 'crypto'
 import { mkdir, readFile, readdir, rename, stat, unlink, writeFile } from 'fs/promises'
 import { join } from 'path'
-import { celebrationPrefs, type Pin } from './vigil'
+import { celebrationPrefs, type Pin } from './haligtree'
 import { cut } from './clip'
 
 /**
@@ -28,10 +28,10 @@ const listFile = (): string => join(dir(), 'results.json')
  * committed). A test run (a data folder of its own) never uses either: each
  * starts with no cached list and would ask Giphy afresh, and hundreds of runs
  * an hour use up the key's 100 calls. It asks only when given a key in its
- * environment (MINDFLOW_GIPHY_KEY), as qa/giphy.mjs does.
+ * environment (HALIGTREE_GIPHY_KEY), as qa/giphy.mjs does.
  */
 const keyOf = (saved: string): string =>
-  process.env.MINDFLOW_USER_DATA ? process.env.MINDFLOW_GIPHY_KEY ?? '' : saved.trim() || import.meta.env.MAIN_VITE_GIPHY_KEY || ''
+  process.env.HALIGTREE_USER_DATA ? process.env.HALIGTREE_GIPHY_KEY ?? '' : saved.trim() || import.meta.env.MAIN_VITE_GIPHY_KEY || ''
 
 export const giphyPrefs = (): { on: boolean; key: string; words: string; stars: string[] } => {
   const prefs = celebrationPrefs()
@@ -45,7 +45,7 @@ export const giphyFile = (name: string): string | null => served.get(name) ?? nu
 const serve = (path: string, ext: string): string => {
   const name = nameFor(path, ext)
   served.set(name, path)
-  return `mindflow://celebrate/${name}`
+  return `haligtree://celebrate/${name}`
 }
 
 let kept: Kept | null = null

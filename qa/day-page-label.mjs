@@ -3,7 +3,7 @@
 // Asking for that row by name from another day goes to now; Back returns.
 //
 //   npx electron-vite build --outDir out-x
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/day-page-label.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/day-page-label.mjs
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 

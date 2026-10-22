@@ -6,7 +6,7 @@
 // of Today's page, a wider target on the tick circle, one light that never
 // goes dark between rows, an App icon picker that never nudges, and the
 // wording the glossary settles.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/audit-fixes.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/audit-fixes.mjs
 // SHOTS=dir keeps pictures.
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'

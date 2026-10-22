@@ -1,7 +1,7 @@
-import { unloaded, useLive, vigil, type Settings } from './vigil'
+import { unloaded, useLive, haligtree, type Settings } from './haligtree'
 import { useMacEvents, type MacEvent } from './mac-calendar'
 import { chime } from './sound'
-import { toast } from '@/components/vigil/ui'
+import { toast } from '@/components/haligtree/ui'
 import type { Calendar, EventPatch, Occurrence, Scope } from '../../../main/events'
 import { dayjs } from '../../../main/dates'
 export type { Calendar, EventPatch, Occurrence, Scope }
@@ -12,7 +12,7 @@ export type { Repeat } from '../../../main/event-repeat'
  * span, the calendars and which are shown, and each change said with an
  * Undo, which ⌘Z reaches too.
  */
-const call = <T>(channel: string, ...args: unknown[]): Promise<T> => window.api.vigil<T>(channel, ...args)
+const call = <T>(channel: string, ...args: unknown[]): Promise<T> => window.api.haligtree<T>(channel, ...args)
 type Made = { key: string; undo: string }
 
 export const events = {
@@ -83,7 +83,7 @@ export function useLayers(from: Date, to: Date): {
   ready: boolean
 } {
   const calendars = useCalendars()
-  const settings = useLive(vigil.settings, null as Settings | null)
+  const settings = useLive(haligtree.settings, null as Settings | null)
   const hidden = new Set(settings?.calendarHidden ?? [])
   const read = useMacEvents(from, to)
   const named = [...new Set(read.events.map((one) => one.calendar || 'Calendar'))]
@@ -94,7 +94,7 @@ export function useLayers(from: Date, to: Date): {
       const next = new Set(hidden)
       if (on) next.delete(id)
       else next.add(id)
-      void vigil.setSettings({ calendarHidden: [...next] })
+      void haligtree.setSettings({ calendarHidden: [...next] })
     } else void events.setCalendar({ id, hidden: !on })
   }
   return {

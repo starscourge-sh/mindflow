@@ -8,7 +8,7 @@
 //   6. "get ready 3 days before" with a due-by date two days off: on Today, "Get ready: due …", its steps listed;
 //      one due in ten days is not; the menu changes the lead, ⌘Z puts it back; the details offer both.
 // The day is moved by setting the day it comes back to today, as the clock reaching it would.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/snooze.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/snooze.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const results = []

@@ -115,13 +115,13 @@ export function lookOf(name: string): Promise<PictureLook | null> {
 }
 
 /** For a picture just stored: its look worked out now, in the background. */
-export const lookAhead = (url: string): void => void lookOf(url.replace(/^mindflow:\/\/assets\//, ''))
+export const lookAhead = (url: string): void => void lookOf(url.replace(/^haligtree:\/\/assets\//, ''))
 
 export function registerPictures(): void {
   // Every look known so far, at once, so a note opened later has them all to hand.
-  ipcMain.handle('vigil:pictures:looks', () =>
+  ipcMain.handle('haligtree:pictures:looks', () =>
     Object.fromEntries((db().prepare('select name, width, height, hash, top, bottom from picture_looks').all() as (Row & { name: string })[]).map((row) => [row.name, lookFrom(row)])))
   // The ones a note shows that are not known yet, each answered as it is worked out.
-  ipcMain.handle('vigil:pictures:look', (_event, names: unknown) =>
+  ipcMain.handle('haligtree:pictures:look', (_event, names: unknown) =>
     Promise.all((Array.isArray(names) ? names : []).slice(0, 500).map((name) => lookOf(String(name)))))
 }

@@ -1,6 +1,6 @@
 /**
  * What a kind of celebration plays, as chosen in Settings › “What plays for
- * each”: Vigil's own paper drawing, your own file, or a GIF from Giphy (the
+ * each”: Haligtree's own paper drawing, your own file, or a GIF from Giphy (the
  * one pinned, else a random one for your search words). A kind never chosen
  * plays your files if it has some, then its pinned GIF, then Giphy: Giphy is
  * on to start. A task done is the one exception: never chosen, it gets just

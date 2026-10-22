@@ -10,7 +10,7 @@ import { mkdtempSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
-process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'vigil-dock-'))
+process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'haligtree-dock-'))
 const { open } = await import('./harness.mjs')
 
 const results = []
@@ -57,7 +57,7 @@ const launch = async (args) => {
   const first = await launch('')
   const now = await until(first.electron, (s) => s.home === 'shown')
   check('a brand-new Haligtree opens the main window for the welcome', now.home === 'shown', now.home)
-  await first.page.evaluate(() => window.api.vigil('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false }))
+  await first.page.evaluate(() => window.api.haligtree('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false }))
   await first.close()
 }
 

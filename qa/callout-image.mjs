@@ -13,14 +13,14 @@
  * mixed in. Every press must change what it says it changes.
  *
  *   npx electron-vite build --outDir out-callout
- *   QA_DATA=$(mktemp -d) QA_ENTRY=out-callout/main/index.js MINDFLOW_QA_AWAY=1 node qa/callout-image.mjs
+ *   QA_DATA=$(mktemp -d) QA_ENTRY=out-callout/main/index.js HALIGTREE_QA_AWAY=1 node qa/callout-image.mjs
  */
 import { mkdirSync } from 'fs'
 import { open } from './harness.mjs'
 
 const SHOTS = process.env.QA_SHOTS ?? '/private/tmp/claude-501/-Users-starscourge-Documents-forge-mindflow/703b99ba-c755-40e3-a385-896560d19061/scratchpad/callout'
 mkdirSync(SHOTS, { recursive: true })
-const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 
 const qa = await open()
 const { page, electron } = qa

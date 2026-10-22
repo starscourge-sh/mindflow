@@ -7,7 +7,7 @@ import { join } from 'path'
 
 import { changed, database } from './captures'
 import type { Nudge } from './nudge'
-import { blockPrefs } from './vigil'
+import { blockPrefs } from './haligtree'
 import { dueAt } from './session-log'
 import { blockedSite, hostOf } from './site-hosts'
 import { onHandOff, realRoot } from './sandbox'
@@ -15,19 +15,19 @@ import { onHandOff, realRoot } from './sandbox'
 /**
  * Websites blocked while a focus round runs. About once a second, while a
  * session is running (not paused, not a break), the app in front is looked
- * at; if it is a browser Vigil can read, so is the address of its tab, and a
- * blocked site is sent away with Vigil's own notice under the pill:
+ * at; if it is a browser Haligtree can read, so is the address of its tab, and a
+ * blocked site is sent away with Haligtree's own notice under the pill:
  * "“x.com” is blocked until 21:49", with “Allow 5 min”.
  *
- * The tab is sent to a small page Vigil serves itself, on this Mac only
- * (http://127.0.0.1:port/vigil-blocked?site=x.com&to=<the address>). It says
- * what is blocked and until when, and asks Vigil every two seconds whether the
+ * The tab is sent to a small page Haligtree serves itself, on this Mac only
+ * (http://127.0.0.1:port/haligtree-blocked?site=x.com&to=<the address>). It says
+ * what is blocked and until when, and asks Haligtree every two seconds whether the
  * site may open yet; the moment it may, it goes on to the page that was asked
- * for. A refresh does the same: once the block is over, Vigil answers the
+ * for. A refresh does the same: once the block is over, Haligtree answers the
  * page's address with the one it carries. The address each tab was on is kept
  * too, and the tab is put back on it the moment the site may open again:
  * allowed, a break, a pause, the session ended (from anywhere), or the site
- * taken off the list. Vigil going (a quit, a switch to another book or the
+ * taken off the list. Haligtree going (a quit, a switch to another book or the
  * sandbox) puts them all back first, and they are written down beside the
  * books, so a run after a crash puts back any it finds still on the page.
  *
@@ -73,11 +73,11 @@ const BROWSERS: Record<string, { name: string; kind: Kind }> = {
 /** The browsers named, each with how to ask it, for the script. */
 const kindsOf = (ids: Iterable<string>): string => JSON.stringify(Object.fromEntries([...ids].filter((id) => BROWSERS[id]).map((id) => [id, BROWSERS[id].kind])))
 
-const TEST = !!(process.env.MINDFLOW_USER_DATA || process.env.MINDFLOW_QA_AWAY)
+const TEST = !!(process.env.HALIGTREE_USER_DATA || process.env.HALIGTREE_QA_AWAY)
 /** “Allow 5 min”: how long a site is let through, this round only. The card is told it with each notice. */
 const ALLOW_MINUTES = 5
 
-/** A browser's front tab: its address, or that the Mac refused to let Vigil read it. */
+/** A browser's front tab: its address, or that the Mac refused to let Haligtree read it. */
 type Tab = { url: string | null; denied?: boolean }
 /** The app in front, and its front tab if it is one of the browsers asked about. */
 type Look = { app: string | null; tab: Tab | null }
@@ -134,7 +134,7 @@ function back(sent, kind, open) {
           // Gone on by itself (the block page does once the site may open): back already.
           if (now === sent.url) return 'restored'
           // Still on the block page (this run's or an earlier one's) or blank: put back. Anything else: moved on.
-          if (now && now !== 'about:blank' && !/^http:\\/\\/127\\.0\\.0\\.1:\\d+\\/vigil-blocked/.test(now)) break
+          if (now && now !== 'about:blank' && !/^http:\\/\\/127\\.0\\.0\\.1:\\d+\\/haligtree-blocked/.test(now)) break
           t.url = sent.url
           return 'restored'
         } catch (e) {}
@@ -168,7 +168,7 @@ const ask = (args: string[], timeout: number): Promise<Record<string, unknown> |
   }))
 
 const realLayer: Layer = {
-  // The first ask of a browser may bring the Mac's "allow Vigil to control" question: waited on, not cut off.
+  // The first ask of a browser may bring the Mac's "allow Haligtree to control" question: waited on, not cut off.
   look: async (browsers, patient) => {
     const said = await ask(['tab', browsers], patient ? 90_000 : 2500)
     const app = typeof said?.app === 'string' ? said.app : null
@@ -215,12 +215,12 @@ const fakeLayer: Layer = {
 const layer = TEST ? fakeLayer : realLayer
 
 /** The block page's address, this run's or an earlier run's (another port). */
-const isBlockPage = (url: string | null | undefined): boolean => /^http:\/\/127\.0\.0\.1:\d+\/vigil-blocked/.test(url ?? '')
+const isBlockPage = (url: string | null | undefined): boolean => /^http:\/\/127\.0\.0\.1:\d+\/haligtree-blocked/.test(url ?? '')
 const escape = (text: string): string => text.replace(/[&<>"']/g, (one) => `&#${one.charCodeAt(0)};`)
 /**
  * The block page: what is blocked and until when, and a quiet line saying the
  * tab goes on by itself. It asks every two seconds; told the site may open, or
- * not answered at all (Vigil quit, so nothing blocks it), it goes on to the
+ * not answered at all (Haligtree quit, so nothing blocks it), it goes on to the
  * page asked for. Light or dark as the Mac is.
  */
 const blockPage = (site: string, until: string | null): string => `<!doctype html><html><head><meta charset="utf-8"><title>${escape(site)} is blocked</title>
@@ -237,7 +237,7 @@ var u = document.getElementById('until')
 if (u && until) u.textContent = new Date(until).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 function go() { var to = q.get('to'); if (/^https?:/i.test(to || '')) location.replace(to) }
 function ask() {
-  fetch('/vigil-blocked/state' + location.search, { cache: 'no-store' }).then(function (r) { return r.json() })
+  fetch('/haligtree-blocked/state' + location.search, { cache: 'no-store' }).then(function (r) { return r.json() })
     .then(function (s) { if (!s.blocked) go(); else setTimeout(ask, 2000) }, go)
 }
 setTimeout(ask, 2000)
@@ -333,9 +333,9 @@ export function registerSiteBlock({ notify }: { notify: (notice: BlockNotice) =>
     const asked = new URL(request.url ?? '/', 'http://127.0.0.1')
     const site = asked.searchParams.get('site') ?? ''
     const to = asked.searchParams.get('to') ?? ''
-    if (!asked.pathname.startsWith('/vigil-blocked') || !/^https?:\/\//i.test(to)) return void answer.writeHead(404).end()
+    if (!asked.pathname.startsWith('/haligtree-blocked') || !/^https?:\/\//i.test(to)) return void answer.writeHead(404).end()
     const now = stillBlocked(site, to)
-    if (asked.pathname === '/vigil-blocked/state') return void answer.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }).end(JSON.stringify(now))
+    if (asked.pathname === '/haligtree-blocked/state') return void answer.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }).end(JSON.stringify(now))
     // A refresh once the block is over: straight on to the page asked for.
     if (!now.blocked) return void answer.writeHead(302, { location: to, 'cache-control': 'no-store' }).end()
     answer.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' }).end(blockPage(site, now.until))
@@ -343,7 +343,7 @@ export function registerSiteBlock({ notify }: { notify: (notice: BlockNotice) =>
   server.on('error', () => undefined)
   server.listen(0, '127.0.0.1', () => {
     const where = server.address()
-    if (where && typeof where === 'object') pageBase = `http://127.0.0.1:${where.port}/vigil-blocked`
+    if (where && typeof where === 'object') pageBase = `http://127.0.0.1:${where.port}/haligtree-blocked`
   })
   app.on('will-quit', () => server.close())
   const pageFor = (site: string, url: string): string => (pageBase ? `${pageBase}?${new URLSearchParams({ site, to: url })}` : 'about:blank')
@@ -391,8 +391,8 @@ export function registerSiteBlock({ notify }: { notify: (notice: BlockNotice) =>
   loop()
 
   const handle = (channel: string, run: (...args: never[]) => unknown): void =>
-    void ipcMain.handle(`vigil:${channel}`, (_event, ...args) => run(...(args as never[])))
-  // For Settings: the browsers the Mac would not let Vigil read.
+    void ipcMain.handle(`haligtree:${channel}`, (_event, ...args) => run(...(args as never[])))
+  // For Settings: the browsers the Mac would not let Haligtree read.
   handle('site-block:state', () => ({ denied: [...denied] }))
   // Let through for a while, its tab put straight back on the page it was on
   // (a new tab if that one was closed or moved on). Gives back until when, for
@@ -414,7 +414,7 @@ export function registerSiteBlock({ notify }: { notify: (notice: BlockNotice) =>
 
 /**
  * A site's small picture, fetched once from the site itself (its
- * favicon.ico, or the icon its front page names) and kept in Vigil's folder.
+ * favicon.ico, or the icon its front page names) and kept in Haligtree's folder.
  * Never in a test run, and a site with none is asked again only after a week.
  * Null: the field draws the site's first letter instead.
  */

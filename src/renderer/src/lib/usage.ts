@@ -18,8 +18,8 @@ export function takeWay(): Via | null {
   return said && Date.now() - said.at < 3000 ? said.way : null
 }
 /** One page opened (null: only the way counts, another note on the same page), and how. */
-export const countUse = (page: string | null, way: Via): void => void window.api.vigil('usage:count', page, way).catch(() => undefined)
-export const usage = (days = 30): Promise<Usage> => window.api.vigil<Usage>('usage', days)
+export const countUse = (page: string | null, way: Via): void => void window.api.haligtree('usage:count', page, way).catch(() => undefined)
+export const usage = (days = 30): Promise<Usage> => window.api.haligtree<Usage>('usage', days)
 
 /** Each way said plainly, for Stats. */
 export const WAY_NAMES: Record<Via, string> = {

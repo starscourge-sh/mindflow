@@ -2,7 +2,7 @@
 // to put itself away ("Auto-close quick capture", off to start).
 //
 //   npx electron-vite build --outDir out-bb
-//   QA_DATA=$(mktemp -d) QA_ENTRY=out-bb/main/index.js MINDFLOW_QA_AWAY=1 MINDFLOW_QA_AUTOHIDE=1 node qa/box-blur.mjs
+//   QA_DATA=$(mktemp -d) QA_ENTRY=out-bb/main/index.js HALIGTREE_QA_AWAY=1 HALIGTREE_QA_AUTOHIDE=1 node qa/box-blur.mjs
 const { open } = await import('./harness.mjs')
 const results = []
 const check = (name, ok, detail = '') => {
@@ -23,10 +23,10 @@ try {
     await wait(800)
     return app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((one) => !one.webContents.getURL().includes('view='))?.isVisible())
   }
-  const first = await page.evaluate(() => window.api.vigil('settings'))
+  const first = await page.evaluate(() => window.api.haligtree('settings'))
   check('off to start', first.boxAutoHide === false, String(first.boxAutoHide))
   check('off: clicking away leaves the box up', (await shownAfterBlur()) === true)
-  await page.evaluate(() => window.api.vigil('settings:set', { boxAutoHide: true }))
+  await page.evaluate(() => window.api.haligtree('settings:set', { boxAutoHide: true }))
   check('on: clicking away puts the box away', (await shownAfterBlur()) === false)
 } finally {
   await run.close().catch(() => {})

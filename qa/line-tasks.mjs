@@ -2,7 +2,7 @@
 // a to-do linked to its task, ticking either ticks the other; a pasted list
 // offers “Make 3 tasks”; a pasted mixed page offers “Sort this out”, whose
 // sheet sorts it into tasks, a link, a word, a saying and notes, with one Undo.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-plan/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=<dir> node qa/line-tasks.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-plan/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=<dir> node qa/line-tasks.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 

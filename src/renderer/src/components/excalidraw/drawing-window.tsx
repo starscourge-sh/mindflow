@@ -1,7 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 
 import type { DiagramScene } from '@/extensions/excalidraw'
-import { useAppearance } from '@/lib/vigil'
+import { useAppearance } from '@/lib/haligtree'
 import { TooltipProvider } from '@/components/ui/tooltip'
 
 const ExcalidrawCanvas = lazy(() => import('@/components/excalidraw/excalidraw-canvas'))

@@ -1,12 +1,12 @@
 // A selfie in a study session's log, and a screenshot in quick capture's note.
 // No real camera or screen off screen, so both are stood in for:
-// MINDFLOW_QA_FAKE_CAMERA=1 gives the windows Chromium's pretend camera, and
-// MINDFLOW_QA_FAKE_SCREEN=1 a made-up desktop ("denied" for either answers as
+// HALIGTREE_QA_FAKE_CAMERA=1 gives the windows Chromium's pretend camera, and
+// HALIGTREE_QA_FAKE_SCREEN=1 a made-up desktop ("denied" for either answers as
 // a refused permission). Checks: the selfie is taken, kept in the session's
 // log and shown in the task's log; the screenshot goes into the note with its
 // caption; both refused states say so and open Privacy settings; the action
 // is in the gear menu and ⌘K. Run twice inside: allowed, then refused.
-//   QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/attach-camera.mjs
+//   QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/attach-camera.mjs
 // QA_SHOTS=dir saves light and dark pictures.
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
@@ -16,12 +16,12 @@ if (shots) mkdirSync(shots, { recursive: true })
 const results = []
 const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`))
 const wait = (ms) => new Promise((done) => setTimeout(done, ms))
-const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 const FIELD = '[aria-label="Add a thought to this session\'s log"]'
 
 async function launch(fake) {
-  process.env.MINDFLOW_QA_FAKE_CAMERA = fake
-  process.env.MINDFLOW_QA_FAKE_SCREEN = fake
+  process.env.HALIGTREE_QA_FAKE_CAMERA = fake
+  process.env.HALIGTREE_QA_FAKE_SCREEN = fake
   delete process.env.QA_DATA
   const c = await sandbox({ width: 1100, height: 820 })
   await c.electron.evaluate(({ ipcMain, shell }) => {
@@ -153,9 +153,9 @@ const freshBox = async (page) => {
     await page.keyboard.type('What the lecture slide said', { delay: 8 })
     await page.keyboard.press('Shift+Meta+2')
     await page.waitForTimeout(1500)
-    const doc = await page.evaluate(() => document.querySelector('.tiptap.ProseMirror.mindflow-editor:not(.is-line)')?.editor?.getJSON())
+    const doc = await page.evaluate(() => document.querySelector('.tiptap.ProseMirror.haligtree-editor:not(.is-line)')?.editor?.getJSON())
     const image = JSON.stringify(doc ?? {}).match(/"type":"image","attrs":\{[^}]*\}/)?.[0] ?? ''
-    check('⇧⌘2 puts a screenshot in the note', /mindflow:\/\/assets\/[a-f0-9]{64}\.png/.test(image), image.slice(0, 160))
+    check('⇧⌘2 puts a screenshot in the note', /haligtree:\/\/assets\/[a-f0-9]{64}\.png/.test(image), image.slice(0, 160))
     check('captioned with when and the app in front', /"caption":"Screen, [^"]+ · Safari"/.test(image), image.match(/"caption":"[^"]*"/)?.[0])
     check('the words typed before it stay', JSON.stringify(doc ?? {}).includes('What the lecture slide said'))
     const toastSaid = await page.evaluate(() => [...document.querySelectorAll('[role=status]')].map((one) => one.textContent).join(' | '))
@@ -177,7 +177,7 @@ const freshBox = async (page) => {
     if (shots) await page.screenshot({ path: `${shots}/box-gear-dark.png` })
     await page.getByRole('menuitem', { name: 'Attach a screenshot' }).click()
     await page.waitForTimeout(1500)
-    const count = await page.evaluate(() => (JSON.stringify(document.querySelector('.tiptap.ProseMirror.mindflow-editor:not(.is-line)')?.editor?.getJSON() ?? {}).match(/"type":"image"/g) ?? []).length)
+    const count = await page.evaluate(() => (JSON.stringify(document.querySelector('.tiptap.ProseMirror.haligtree-editor:not(.is-line)')?.editor?.getJSON() ?? {}).match(/"type":"image"/g) ?? []).length)
     check('choosing it adds another', count === 2, `${count} pictures`)
     // In ⌘K.
     await page.keyboard.press('Meta+k')

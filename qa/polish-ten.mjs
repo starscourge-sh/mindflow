@@ -5,14 +5,14 @@
 // place switched from its own menu (main process), Home's Inbox, month and days.
 //
 //   npx electron-vite build --outDir out-polish
-//   QA_ARGS=--sandbox QA_ENTRY=out-polish/main/index.js MINDFLOW_QA_AWAY=1 node qa/polish-ten.mjs
+//   QA_ARGS=--sandbox QA_ENTRY=out-polish/main/index.js HALIGTREE_QA_AWAY=1 node qa/polish-ten.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const c = await sandbox({ width: 1200, height: 860 })
 const { h, page, v, go, send, electron } = c
 const results = []
 const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`))
-const E = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+const E = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 try {
   await v('settings:set', { hintRate: 0, homeCalendar: true })
 

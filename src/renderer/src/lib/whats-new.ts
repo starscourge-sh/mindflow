@@ -3,7 +3,7 @@ import { APP_NAME } from '../../../main/name'
 
 /**
  * What's new, newest first: the one place the built-in What's new pages read
- * from (components/vigil/whats-new.tsx). Each release is a dated page of its
+ * from (components/haligtree/whats-new.tsx). Each release is a dated page of its
  * own, shipped with the app and read only; add an entry at the top for
  * anything worth telling, with a bold lead-in, one sentence and where Show me
  * points. A new top entry is what makes the card come back on Home, once.

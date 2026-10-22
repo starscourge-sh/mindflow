@@ -3,7 +3,7 @@
 // Show me, checked to land on its page and point at something.
 //
 //   npx electron-vite build --outDir out-pw
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-pw/main/index.js MINDFLOW_QA_AWAY=1 node qa/powers-claims-b.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-pw/main/index.js HALIGTREE_QA_AWAY=1 node qa/powers-claims-b.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const s = await sandbox({ width: 1280, height: 860 })
@@ -366,8 +366,8 @@ try {
     say('reviewreminder', ok ? 'CHECKED-PARTLY' : 'FAIL', `setting in Settings, Review: ${setting}; in quiet hours: ${quiet}; says "${said}" (the clock time itself not waited for; silent-when-none is in qa/study.mjs)`)
   })
 
-  // --- learnvigil: the deck, about twenty, tagged #learn-haligtree ------------------------------------------
-  await card('learnvigil', async () => {
+  // --- learnhaligtree: the deck, about twenty, tagged #learn-haligtree ------------------------------------------
+  await card('learnhaligtree', async () => {
     const count = await v('learn:count')
     const again = await v('learn:add')
     await go('powers')
@@ -375,7 +375,7 @@ try {
     const offer = await has('[data-learn]')
     const fresh = (await v('items', 'nugget')).filter((one) => String(one.body ?? '').includes('#learn-haligtree') || one.title).length
     const perDay = (await v('settings')).newPerDay
-    say('learnvigil', count >= 18 && count <= 26 && again === 0 && offer ? 'PASS' : 'FAIL', `${count} cards tagged #learn-haligtree (sandbox has it added); a second add adds ${again}; offered on this page: ${offer}; new cards a day: ${perDay} (shared with all new cards, so "a few a day")`)
+    say('learnhaligtree', count >= 18 && count <= 26 && again === 0 && offer ? 'PASS' : 'FAIL', `${count} cards tagged #learn-haligtree (sandbox has it added); a second add adds ${again}; offered on this page: ${offer}; new cards a day: ${perDay} (shared with all new cards, so "a few a day")`)
     void fresh
   })
 
@@ -528,7 +528,7 @@ try {
     const waiting = await text('[data-fit]')
     const disabled = await h.evaluate(() => [...document.querySelectorAll('[data-fit] button')].some((one) => one.textContent?.includes('Fit now') && one.disabled))
     const state = await v('review:fit:state')
-    for (let i = state.reviews; i < 1000; i += 50) await h.evaluate(async ([id, n]) => { for (let k = 0; k < n; k++) await window.api.vigil('review:grade', id, 3, 4000) }, [peru, 50])
+    for (let i = state.reviews; i < 1000; i += 50) await h.evaluate(async ([id, n]) => { for (let k = 0; k < n; k++) await window.api.haligtree('review:grade', id, 3, 4000) }, [peru, 50])
     await go('home')
     await go('settings')
     await wait(1200)
@@ -540,7 +540,7 @@ try {
   })
 
   // --- every card's Show me ----------------------------------------------------------------------
-  const ids = ['review', 'cloze', 'context', 'readthrough', 'queue', 'wrong', 'suspend', 'questions', 'linecards', 'slipping', 'practice', 'blurt', 'reviewreminder', 'learnvigil', 'learnmode', 'typed', 'practisetag', 'star', 'howitdecides', 'tagpriority', 'listcards', 'strength', 'fit', 'daysinarow']
+  const ids = ['review', 'cloze', 'context', 'readthrough', 'queue', 'wrong', 'suspend', 'questions', 'linecards', 'slipping', 'practice', 'blurt', 'reviewreminder', 'learnhaligtree', 'learnmode', 'typed', 'practisetag', 'star', 'howitdecides', 'tagpriority', 'listcards', 'strength', 'fit', 'daysinarow']
   for (const id of ids) {
     await card(`show:${id}`, async () => {
       await go('home')
@@ -548,7 +548,7 @@ try {
       await wait(600)
       const box = h.locator(`[data-power="${id}"]`)
       await box.scrollIntoViewIfNeeded()
-      await h.evaluate(() => { window.__toasts = []; if (!window.__listening) { window.__listening = true; addEventListener('vigil:toast', (event) => window.__toasts.push(event.detail.text)) } })
+      await h.evaluate(() => { window.__toasts = []; if (!window.__listening) { window.__listening = true; addEventListener('haligtree:toast', (event) => window.__toasts.push(event.detail.text)) } })
       await box.getByRole('button', { name: /Show me/ }).click()
       await wait(3200)
       const title = (await h.locator('header h1').first().textContent().catch(() => ''))?.trim()

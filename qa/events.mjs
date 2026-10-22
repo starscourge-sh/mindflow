@@ -9,7 +9,7 @@
 // with Sam fri 1-2pm @Cafe" are read; ⌫, right-click, ⌘Z and the Bin.
 //
 //   npx electron-vite build --outDir out-events
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-events/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=dir node qa/events.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-events/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=dir node qa/events.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const pad = (n) => String(n).padStart(2, '0')
@@ -18,7 +18,7 @@ const hm = (iso) => { const d = new Date(iso); return `${pad(d.getHours())}:${pa
 // Your Mac's calendar, stood in: one event today on "Family".
 const today = new Date(); today.setHours(0, 0, 0, 0)
 const macStart = new Date(today); macStart.setHours(7, 0, 0, 0)
-process.env.MINDFLOW_QA_CALENDAR = JSON.stringify([{ title: 'Mac breakfast', start: macStart.toISOString(), end: new Date(macStart.getTime() + 3600000).toISOString(), allDay: false, calendar: 'Family', color: '#2a9d8f' }])
+process.env.HALIGTREE_QA_CALENDAR = JSON.stringify([{ title: 'Mac breakfast', start: macStart.toISOString(), end: new Date(macStart.getTime() + 3600000).toISOString(), allDay: false, calendar: 'Family', color: '#2a9d8f' }])
 
 const c = await sandbox({ width: 1400, height: 950 })
 const { h, v, go } = c

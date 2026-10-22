@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useRef, useState, useSyncExternalStore, type ComponentProps } from 'react'
-import { TASK_KIND } from './vigil/everything'
+import { TASK_KIND } from './haligtree/everything'
 import { FLOAT } from '@/lib/float'
 import { motion, useIsPresent } from 'motion/react'
 import { byKeys, sheetMotion } from '@/lib/motion'
@@ -10,36 +10,36 @@ import type { JSONContent } from '@tiptap/core'
 
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
 import { whereFrom } from './capture-list'
-import { MindflowEditor } from './mindflow'
-import { AskWho, Kbd, Rolling, Tags, Typed, Pressed } from './vigil/ui'
-import { useWorking } from './vigil/beam'
+import { HaligtreeEditor } from './haligtree'
+import { AskWho, Kbd, Rolling, Tags, Typed, Pressed } from './haligtree/ui'
+import { useWorking } from './haligtree/beam'
 import { AliveIcon } from '@/components/ui/alive-icon'
-import { Orb } from './vigil/orb'
+import { Orb } from './haligtree/orb'
 import MagnifierIcon from '@/components/ui/magnifier-icon'
 import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
-import { Chips } from './vigil/display'
-import { Highlight, useChosen } from './vigil/glide'
-import { Tip } from '@/components/vigil/ui'
-import { useLive, vigil, whenInLine, type Pin, type Task, type TaskFull } from '@/lib/vigil'
-import { RowMenu, type RowItem } from './vigil/row-menu'
-import { taskMenu, useTaskNow } from './vigil/tasks-view'
-import { sideMenu, useFullMenu } from './vigil/side-menu'
+import { Chips } from './haligtree/display'
+import { Highlight, useChosen } from './haligtree/glide'
+import { Tip } from '@/components/haligtree/ui'
+import { useLive, haligtree, whenInLine, type Pin, type Task, type TaskFull } from '@/lib/haligtree'
+import { RowMenu, type RowItem } from './haligtree/row-menu'
+import { taskMenu, useTaskNow } from './haligtree/tasks-view'
+import { sideMenu, useFullMenu } from './haligtree/side-menu'
 import { recentlyOpened } from '@/lib/open-today'
-import { PriorityMark } from './vigil/task-input'
+import { PriorityMark } from './haligtree/task-input'
 import { BUCKETS, bucket, taskName } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../main/task-words'
-import { GlossLine, openGloss } from './vigil/gloss-line'
+import { GlossLine, openGloss } from './haligtree/gloss-line'
 import { dayjs, daysSince } from '../../../main/dates'
 import { keyFor } from '@/lib/keys'
 import { wordFor } from '@/lib/words'
-import { ALL_WORDS, openWord } from './vigil/term'
+import { ALL_WORDS, openWord } from './haligtree/term'
 import { realMove } from '@/lib/real-move'
 import { typeSaid } from '@/lib/capture-links'
-import { EVENT_KIND, EventPeek } from './vigil/calendar-events'
-import { PICKED_MARK, usePickMixed } from './vigil/pick-mixed'
+import { EVENT_KIND, EventPeek } from './haligtree/calendar-events'
+import { PICKED_MARK, usePickMixed } from './haligtree/pick-mixed'
 import { clip } from '../../../main/clip'
 import { APP_NAME } from '../../../main/name'
-import { hoverNote } from './vigil/note-preview'
+import { hoverNote } from './haligtree/note-preview'
 
 type Capture = Awaited<ReturnType<typeof window.api.captures.find>>[number]
 
@@ -116,7 +116,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
   // then what you have written. One list, one cursor.
   // Typed, the open note's own actions come before places to go: "Archive"
   // with a note open means archive it, not the Archived list.
-  // A word of Vigil's own and a ?, "gloss?", asks what it means here: its
+  // A word of Haligtree's own and a ?, "gloss?", asks what it means here: its
   // note comes first. A ? alone is left to search as before.
   const asked = query.trim().endsWith('?') ? wordFor(query.trim().slice(0, -1)) : undefined
   // Searched, and nothing anywhere has those words: Arc's command bar never
@@ -144,8 +144,8 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
   // The box keeps ⌘A for its words: the first press selects them, the next picks every result.
   const several = usePickMixed(results.map((one) => ({ type: one.type, id: one.id, title: one.label, status: one.status })), { keys: false })
   // A result's right click: a task's menu as on Today, a note's as in the sidebar.
-  const tasks = useLive(vigil.tasks, [] as Task[])
-  const pins = useLive(vigil.pins, [] as Pin[])
+  const tasks = useLive(haligtree.tasks, [] as Task[])
+  const pins = useLive(haligtree.pins, [] as Pin[])
   const fullMenu = useFullMenu()
   const taskNow = useTaskNow()
   const menuOf = (one: Capture): RowItem[] => {
@@ -579,7 +579,7 @@ function NotePreview({ type, id }: { type: string; id: string }): React.JSX.Elem
   if (!shown) return null
   return (
     <div key={shown.id}>
-      <MindflowEditor defaultContent={(shown.body as JSONContent | string | null) ?? ''} readOnly toolbar={false} handles={false} slash={false} outline={false} search={false} autofocus={false} />
+      <HaligtreeEditor defaultContent={(shown.body as JSONContent | string | null) ?? ''} readOnly toolbar={false} handles={false} slash={false} outline={false} search={false} autofocus={false} />
     </div>
   )
 }
@@ -593,7 +593,7 @@ function TaskPreview({ id }: { id: string }): React.JSX.Element | null {
   const [task, setTask] = useState<TaskFull | null>(null)
   useEffect(() => {
     let old = false
-    void vigil.task(id).then((found) => !old && setTask(found))
+    void haligtree.task(id).then((found) => !old && setTask(found))
     return () => void (old = true)
   }, [id])
   if (!task) return null
@@ -623,7 +623,7 @@ function TaskPreview({ id }: { id: string }): React.JSX.Element | null {
       )}
       {notes && (
         <div className="-mx-4 border-t pt-1">
-          <MindflowEditor defaultContent={task.notes as JSONContent} readOnly toolbar={false} handles={false} slash={false} outline={false} search={false} autofocus={false} />
+          <HaligtreeEditor defaultContent={task.notes as JSONContent} readOnly toolbar={false} handles={false} slash={false} outline={false} search={false} autofocus={false} />
         </div>
       )}
     </div>

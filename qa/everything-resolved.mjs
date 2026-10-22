@@ -5,7 +5,7 @@
 //      capture says “became a task” / “became 3 tasks”; a task typed straight in says nothing;
 //   4. a click on the cue opens what it names: one at once, several from a small menu;
 //   5. the gestures still work with the chip on: ⌘A, right-click the picked, ⌫, ⌘Z, Esc.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/everything-resolved.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/everything-resolved.mjs
 // SHOTS=dir keeps a picture of each step.
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'

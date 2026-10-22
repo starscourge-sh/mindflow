@@ -3,7 +3,7 @@
 // Close the day pass (T, M, W, a line for the day's page, tomorrow's first
 // task), task lengths ("~30m") and Today's planned-against-left line, the
 // Month page's calendar with its key, and the session pill tucked under the
-// notch (MINDFLOW_QA_NOTCH stands one in). Read back through the app's own API
+// notch (HALIGTREE_QA_NOTCH stands one in). Read back through the app's own API
 // and the page; SHOTS=dir keeps pictures in light, dark and Brutal.
 //
 //   npx electron-vite build --outDir out-plan2
@@ -15,10 +15,10 @@ import { join } from 'path'
 import { _electron } from 'playwright'
 import { sandbox } from './sandbox-lib.mjs'
 
-process.env.MINDFLOW_QA_NOTCH ??= '1'
+process.env.HALIGTREE_QA_NOTCH ??= '1'
 // A stand-in for the Mac's calendar: one event today.
-{ const at = new Date(); at.setHours(15, 0, 0, 0); process.env.MINDFLOW_QA_CALENDAR ??= JSON.stringify([{ title: 'Dentist', start: at.toISOString(), end: new Date(at.getTime() + 3600000).toISOString(), allDay: false, calendar: 'Home', color: '#3b82f6' }]) }
-process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'vigil-plan2-'))
+{ const at = new Date(); at.setHours(15, 0, 0, 0); process.env.HALIGTREE_QA_CALENDAR ??= JSON.stringify([{ title: 'Dentist', start: at.toISOString(), end: new Date(at.getTime() + 3600000).toISOString(), allDay: false, calendar: 'Home', color: '#3b82f6' }]) }
+process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'haligtree-plan2-'))
 const SANDBOXED = (process.env.QA_ARGS ?? '').includes('--sandbox')
 const SHOTS = process.env.SHOTS
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
@@ -28,13 +28,13 @@ const NEWEST = (() => { const m = readFileSync(new URL('../src/renderer/src/lib/
 // A fresh install opens on the welcome: its first look is taken here, then
 // the welcome is marked done and the app opened again for everything else.
 if (!SANDBOXED) {
-  const app = await _electron.launch({ args: [process.env.QA_ENTRY ?? '.'], env: { MINDFLOW_QA_AWAY: '1', ...process.env, MINDFLOW_USER_DATA: process.env.QA_DATA } })
+  const app = await _electron.launch({ args: [process.env.QA_ENTRY ?? '.'], env: { HALIGTREE_QA_AWAY: '1', ...process.env, HALIGTREE_USER_DATA: process.env.QA_DATA } })
   let home
   for (let i = 0; i < 100 && !home; i++) (home = app.windows().find((one) => one.url().includes('view=home'))) || (await new Promise((done) => setTimeout(done, 200)))
   await home.waitForTimeout(4000)
   early.push(['a fresh install starts up to date: no What\'s new card', (await home.locator('[data-whats-new-card]').count()) === 0])
   early.push(['and the newest entry is counted as seen', (await home.evaluate(() => localStorage.getItem('whats-new:seen'))) === NEWEST.id])
-  await home.evaluate(() => window.api.vigil('onboarding:set', { welcomed: new Date(Date.now() - 40 * 86400000).toISOString(), welcoming: false }))
+  await home.evaluate(() => window.api.haligtree('onboarding:set', { welcomed: new Date(Date.now() - 40 * 86400000).toISOString(), welcoming: false }))
   await home.evaluate(() => localStorage.setItem('whats-new:seen', 'split'))
   await home.waitForTimeout(500)
   // Quit, not killed: a kill can beat the page's storage to the disk, and the next run would read the old "seen".
@@ -99,7 +99,7 @@ try {
   await wait(500)
   check('another release is its own dated page', (await text('[data-release-page] h1'))[0] === 'Groups, books and thoughts on a note' && (await h.locator('[data-whats-new] [data-news]').count()) === 3)
   check("no em dashes in What's new", !(await h.evaluate(() => document.querySelector('[data-whats-new]')?.textContent ?? '')).includes('—'))
-  check('its pages are not notes: search does not find them', !(await h.evaluate(() => window.api.vigil('recent', 365).then((all) => all.some((one) => /One Bin for everything|Focus rounds\./.test(one.title))))))
+  check('its pages are not notes: search does not find them', !(await h.evaluate(() => window.api.haligtree('recent', 365).then((all) => all.some((one) => /One Bin for everything|Focus rounds\./.test(one.title))))))
   for (const [style, theme] of [['soft', 'paper'], ['soft', 'github'], ['brutal', 'paper']]) {
     await looks(style, theme)
     await c.go('whatsnew')
@@ -109,7 +109,7 @@ try {
   await looks('soft', 'paper')
   await c.go('home')
   // The Haligtree menu's entry asks the main window the same way.
-  await electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((one) => one.webContents.getURL().includes('view=home'))?.webContents.executeJavaScript("window.dispatchEvent(new CustomEvent('vigil:whats-new'))"))
+  await electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((one) => one.webContents.getURL().includes('view=home'))?.webContents.executeJavaScript("window.dispatchEvent(new CustomEvent('haligtree:whats-new'))"))
   await wait(800)
   check("the Haligtree menu's What's new opens it too", (await h.locator('[data-whats-new]').count()) === 1)
 
@@ -169,17 +169,17 @@ try {
   // One more open task, so the dark and Brutal pictures show a row and its keys.
   await v('task:add', 'sort the post', undefined, true)
   await looks('soft', 'github')
-  await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:close-day')))
+  await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:close-day')))
   await wait(900)
   await shot('close-day-github')
   await h.keyboard.press('Escape')
   await looks('brutal', 'paper')
-  await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:close-day')))
+  await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:close-day')))
   await wait(900)
   await shot('close-day-brutal')
   await h.keyboard.press('Escape')
   await looks('soft', 'github')
-  await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:close-day')))
+  await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:close-day')))
   await wait(900)
   check('every row shows its keys on its chips', (await h.locator('[data-close-task] kbd').count()) === 3 * (await h.locator('[data-close-task]').count()))
   await h.keyboard.press('Meta+Enter')
@@ -229,7 +229,7 @@ try {
   check("a click on a day opens its page", (await text('[data-today-line]')).length > 0 || (await h.locator('.tiptap', { hasText: 'Written today' }).count()) > 0)
 
   // --- Pomodoro rounds --------------------------------------------------------
-  const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+  const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
   const box = async (words) => {
     await page.evaluate(() => window.api.showPrompt())
     await page.waitForTimeout(300)
@@ -376,7 +376,7 @@ try {
   await wait(900)
   check('held, Empty lets everything in the Bin go for good', (await v('bin:list')).length === 0)
 
-  // --- Your Mac's calendar (stood in by MINDFLOW_QA_CALENDAR) ----------------
+  // --- Your Mac's calendar (stood in by HALIGTREE_QA_CALENDAR) ----------------
   await v('settings:set', { macCalendar: true })
   await c.go('day')
   await wait(1500)

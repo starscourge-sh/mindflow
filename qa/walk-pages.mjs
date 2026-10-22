@@ -14,8 +14,8 @@
 //   empty  (run without the sandbox) a new book: every page empty, then with one note.
 // Every screen is checked for text past an edge, a page that scrolls sideways,
 // a button whose label wraps or is cut, an em dash and the word "Discard".
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=<dir> [MODE=looks] node qa/walk-pages.mjs
-//   QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=<dir> MODE=empty node qa/walk-pages.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=<dir> [MODE=looks] node qa/walk-pages.mjs
+//   QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=<dir> MODE=empty node qa/walk-pages.mjs
 import { mkdirSync } from 'node:fs'
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -253,7 +253,7 @@ try {
     for (let i = 1; i <= 6; i++) await v('task:add', `Walk keys ${i} in ${i + 3} days`).catch(() => {})
     // Something archived, for Archived.
     const toArchive = (await h.evaluate(() => window.api.captures.list())).filter((one) => one.status === 'open').slice(-4)
-    for (const one of toArchive) await h.evaluate((id) => window.api.vigil('notes:archive', 'captures', [id], true), one.id).catch(() => {})
+    for (const one of toArchive) await h.evaluate((id) => window.api.haligtree('notes:archive', 'captures', [id], true), one.id).catch(() => {})
     for (const [name, id] of [['Inbox', 'inbox'], ['Everything', 'all'], ['Archived', 'archived'], ['Gems', 'nuggets'], ['Writing', 'articles'], ['Questions', 'questions'], ['Goals', 'goals'], ['Today', 'today'], ['Upcoming', 'upcoming']])
       await keys(name, id).catch((e) => check(`${name}: ran`, false, e.message.split('\n')[0]))
     // The Bin needs a few things in it.

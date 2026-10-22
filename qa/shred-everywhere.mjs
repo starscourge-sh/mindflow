@@ -1,7 +1,7 @@
 // Moving to the Bin by pointer shreds the row wherever it is binned from, in
 // the main window as in quick capture: a note in Everything, a task on Today,
 // an article in Writing. By a key it simply goes.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/shred-everywhere.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/shred-everywhere.mjs
 import { sandbox } from './sandbox-lib.mjs'
 const results = []
 const check = (name, ok, detail = '') => { results.push(!!ok); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`) }

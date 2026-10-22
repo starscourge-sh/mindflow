@@ -17,7 +17,7 @@ type Kept = Shelf & { backupFolder?: string }
  * Where copies of everything go: iCloud Drive when there is one, so the copies
  * leave this machine, and beside the app's data when there is not.
  *
- *   database/   a full copy of mindflow.db per day, the last 30 kept
+ *   database/   a full copy of haligtree.db per day, the last 30 kept
  *   assets/     every picture and file, copied once and never removed
  *   captures/   every capture as Markdown, readable without the app; never
  *               a private or discarded one, and off in Settings
@@ -29,7 +29,7 @@ export const backupBase = (): string =>
   // keeps its own data, and its backups with it, off iCloud.
   chosenFolder() ??
   (existsSync(ICLOUD) && !apart()
-    ? join(ICLOUD, 'mindflow')
+    ? join(ICLOUD, 'haligtree')
     : join(realRoot(), 'backups'))
 /** The backup folder chosen in Settings, kept with the list of books so every book uses it; null for the usual place. */
 export const chosenFolder = (): string | null => {
@@ -88,7 +88,7 @@ export async function backupStatus(): Promise<{ at: number | null; failing: stri
   let at = last.at
   if (!at) {
     const dir = join(backupDir(), 'database')
-    const copies = existsSync(dir) ? (await readdir(dir).catch(() => [])).filter((name) => /^mindflow-\d{4}-\d{2}-\d{2}\.db$/.test(name)).sort() : []
+    const copies = existsSync(dir) ? (await readdir(dir).catch(() => [])).filter((name) => /^haligtree-\d{4}-\d{2}-\d{2}\.db$/.test(name)).sort() : []
     if (copies.length) at = (await stat(join(dir, copies.at(-1)!)).catch(() => null))?.mtimeMs ?? null
   }
   return { at, failing: last.failures ? last.reason : null, chosen: !!chosenFolder() && !SANDBOX }
@@ -102,11 +102,11 @@ export async function backUp(db: DatabaseSync): Promise<void> {
   // `vacuum into` writes a clean, complete copy even while the app is using
   // the file, which copying the file itself does not promise. Local date, so a
   // day is the day you lived: 2026-10-02.
-  const today = join(dir, `mindflow-${dayKey()}.db`)
+  const today = join(dir, `haligtree-${dayKey()}.db`)
   if (!existsSync(today)) db.prepare('vacuum into ?').run(today)
 
   // Only copies this made, oldest first, past the newest 30.
-  const copies = (await readdir(dir)).filter((name) => /^mindflow-\d{4}-\d{2}-\d{2}\.db$/.test(name))
+  const copies = (await readdir(dir)).filter((name) => /^haligtree-\d{4}-\d{2}-\d{2}\.db$/.test(name))
   for (const name of copies.sort().slice(0, -KEEP)) await rm(join(dir, name))
 
   // Every other book has its copy for today too, though it is not open.
@@ -121,7 +121,7 @@ export async function backUp(db: DatabaseSync): Promise<void> {
   await mkdir(to, { recursive: true })
   const have = new Set(await readdir(to))
   for (const name of existsSync(from) ? await readdir(from) : []) {
-    // Copied beside and renamed in: a copy cut short (Vigil quit mid-way) would
+    // Copied beside and renamed in: a copy cut short (Haligtree quit mid-way) would
     // otherwise count as backed up and never be copied again.
     if (!have.has(name)) await copyFile(join(from, name), join(to, `${name}.part`)).then(() => rename(join(to, `${name}.part`), join(to, name)))
   }

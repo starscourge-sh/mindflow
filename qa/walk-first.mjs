@@ -3,7 +3,7 @@
 // real box, the Ready page, and bringing notes in from Obsidian (a copy of a
 // few real notes, pointed at by a made-up Obsidian config) and from Apple Notes
 // (a made-up export). The real data folder, vault and Notes are never touched.
-//   QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=<dir> VAULT=<copy of a vault> node qa/walk-first.mjs
+//   QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=<dir> VAULT=<copy of a vault> node qa/walk-first.mjs
 // No sandbox: QA_ARGS stays empty.
 import { mkdirSync, mkdtempSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
@@ -22,11 +22,11 @@ if (!vault) {
   writeFileSync(join(vault, 'Daily', 'Monday.md'), '# Monday\n\nA long walk. #walks\n')
 }
 writeFileSync(join(root, 'obsidian.json'), JSON.stringify({ vaults: { a: { path: vault, ts: 1, open: true } } }))
-process.env.MINDFLOW_OBSIDIAN_CONFIG = join(root, 'obsidian.json')
+process.env.HALIGTREE_OBSIDIAN_CONFIG = join(root, 'obsidian.json')
 const notesFile = join(root, 'apple-notes.json')
 writeFileSync(notesFile, JSON.stringify({ folders: [{ id: 'f1', name: 'Recipes', notes: [1, 2, 3].map((n) => ({ id: `x-coredata://fake/ICNote/p${n}`, title: `Bread ${n}`, html: `<div><h1>Bread ${n}</h1></div><div>Flour, water, salt, ${n} hours.</div>`, created: '2021-01-01T09:00:00Z', modified: '2021-02-01T09:00:00Z' })) }] }))
-process.env.MINDFLOW_QA_APPLE_NOTES = notesFile
-process.env.MINDFLOW_QA_APPLE_NOTES_WAIT = '10'
+process.env.HALIGTREE_QA_APPLE_NOTES = notesFile
+process.env.HALIGTREE_QA_APPLE_NOTES_WAIT = '10'
 
 const results = []
 const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${String(detail).slice(0, 300)})` : ''}`))

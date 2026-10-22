@@ -1,10 +1,10 @@
 # Captures
 
 Every capture is a row in one SQLite file:
-`~/Library/Application Support/mindflow/mindflow.db` on macOS, and the
+`~/Library/Application Support/haligtree/haligtree.db` on macOS, and the
 equivalent user data directory elsewhere. Pictures and files are not in it.
 They sit in `assets/` beside it, named by the hash of their bytes, and a
-capture points at them with a `mindflow://assets/<hash>.<ext>` URL.
+capture points at them with a `haligtree://assets/<hash>.<ext>` URL.
 
 ```sql
 create table captures (
@@ -45,14 +45,14 @@ new window only has to listen for the same message.
 ## Backups
 
 `src/main/backup.ts` copies everything to iCloud Drive
-(`~/Library/Mobile Documents/com~apple~CloudDocs/mindflow/`), or to `backups/`
+(`~/Library/Mobile Documents/com~apple~CloudDocs/haligtree/`), or to `backups/`
 beside the database when there is no iCloud Drive.
 
 ```
-database/   mindflow-2026-10-02.db, one a day, the last 30 kept
+database/   haligtree-2026-10-02.db, one a day, the last 30 kept
 assets/     every picture and file, copied once and never removed
 captures/   V-30.md, each capture as Markdown, rewritten on every save
 ```
 
 The database copy is made with `vacuum into`, on start and checked hourly. To
-restore one, quit the app and copy it over `mindflow.db`.
+restore one, quit the app and copy it over `haligtree.db`.

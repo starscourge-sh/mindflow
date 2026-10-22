@@ -1,7 +1,7 @@
 // Settings show what they change: each look, motion or sound setting has a
 // preview, thumbnails or a sample right in its row, and each answers its
 // control. Rows are shot in Paper and a dark theme (GitHub).
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-show/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=<dir> node qa/settings-show.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-show/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=<dir> node qa/settings-show.mjs
 import { mkdirSync, writeFileSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 

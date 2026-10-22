@@ -6,7 +6,7 @@
 // asks “Delete N for good?” first. All captures is the first row, the page
 // the user hit it on. The Queue answers the same keys, but what leaves it only
 // leaves the queue; an Inbox emptied into the Bin is not “Inbox zero”.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/gestures.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/gestures.mjs
 // SURVEY=1 only says what each gesture does, for a build from before.
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -112,7 +112,7 @@ try {
   const caps = await h.evaluate(() => window.api.captures.list())
   const open = caps.filter((one) => one.status === 'open')
   if (open[0]) await h.evaluate((id) => window.api.captures.save(id, { status: 'resolved' }), open[0].id)
-  for (const one of open.slice(-2)) await h.evaluate((id) => window.api.vigil('notes:archive', 'captures', [id], true), one.id).catch(() => {})
+  for (const one of open.slice(-2)) await h.evaluate((id) => window.api.haligtree('notes:archive', 'captures', [id], true), one.id).catch(() => {})
   const page = (id) => `[data-page="${id}"]`
   const main = async (id) => { await go(id); await h.waitForTimeout(400) }
   const MAIN = [

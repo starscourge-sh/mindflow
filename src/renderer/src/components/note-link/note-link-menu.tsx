@@ -8,8 +8,8 @@ import {
 import { linkKind, noteLinkPluginKey, tagPluginKey, wikiPluginKey, type NoteSuggestion } from "@/extensions/note-link"
 import { listDirection, step } from "@/lib/menu-keys"
 import { realMove } from "@/lib/real-move"
-import { TagIcon } from "@/components/vigil/tag-icon"
-import { hoverNote } from "@/components/vigil/note-preview"
+import { TagIcon } from "@/components/haligtree/tag-icon"
+import { hoverNote } from "@/components/haligtree/note-preview"
 
 /** The `@` menu: which note to link to. */
 const NoteList = forwardRef<SuggestionListHandle, SuggestionProps<NoteSuggestion>>(

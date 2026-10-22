@@ -15,11 +15,11 @@ const c = await sandbox({ width: Number(process.env.W ?? 1100), height: 800 })
 const { h, send } = c
 const SHOT = process.env.SHOT
 try {
-  await h.evaluate(() => window.api.vigil('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true }))
+  await h.evaluate(() => window.api.haligtree('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true }))
   const rows = await h.evaluate(() => window.api.captures.list())
   const id = rows.find((row) => (row.label ?? '').startsWith("Leonardo's"))?.id
   await send('capture', id); await h.waitForTimeout(2500)
-  const measure = () => h.evaluate(() => [...document.querySelectorAll('.tiptap.ProseMirror.mindflow-editor:not(.is-line) img + .mf-caption')].map((cap) => {
+  const measure = () => h.evaluate(() => [...document.querySelectorAll('.tiptap.ProseMirror.haligtree-editor:not(.is-line) img + .mf-caption')].map((cap) => {
     const img = cap.previousElementSibling
     const box = img.getBoundingClientRect()
     const r = img.naturalWidth / img.naturalHeight
@@ -30,12 +30,12 @@ try {
   }))
   // A banded thumbnail at the top, captioned.
   await h.evaluate((src) => {
-    const ed = document.querySelector('.tiptap.ProseMirror.mindflow-editor:not(.is-line)').editor
+    const ed = document.querySelector('.tiptap.ProseMirror.haligtree-editor:not(.is-line)').editor
     ed.view.dispatch(ed.state.tr.insert(ed.state.doc.child(0).nodeSize, ed.schema.nodes.image.create({ src, caption: 'hey jude' })))
   }, banded()); await h.waitForTimeout(800)
   console.log('as seeded', JSON.stringify(await measure(), null, 1))
   const size = (width, align) => h.evaluate(([width, align]) => {
-    const ed = document.querySelector('.tiptap.ProseMirror.mindflow-editor:not(.is-line)').editor
+    const ed = document.querySelector('.tiptap.ProseMirror.haligtree-editor:not(.is-line)').editor
     const tr = ed.state.tr
     ed.state.doc.descendants((node, pos) => { if (node.type.name === 'image') { tr.setNodeAttribute(pos, 'width', width); tr.setNodeAttribute(pos, 'align', align) } })
     ed.view.dispatch(tr)

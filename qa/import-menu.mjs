@@ -1,6 +1,6 @@
 // The sidebar's foot menu has one "Import" line, opening on Apple Notes,
 // Obsidian or Notion, and highlights and files: not two bare lines at the top.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/import-menu.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/import-menu.mjs
 import { sandbox } from './sandbox-lib.mjs'
 const results = []
 const check = (name, ok, detail = '') => { results.push(!!ok); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`) }

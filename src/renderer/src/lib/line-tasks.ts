@@ -3,10 +3,10 @@ import { Fragment, type Node as PMNode } from '@tiptap/pm/model'
 import { TextSelection, type Transaction } from '@tiptap/pm/state'
 import { canJoin } from '@tiptap/pm/transform'
 import { chime } from './sound'
-import { vigil } from './vigil'
+import { haligtree } from './haligtree'
 import { num } from '../../../main/dates'
 import { docList, tasksSaid, type ListTask } from '../../../main/day-lines'
-import { refuse, toast } from '@/components/vigil/ui'
+import { refuse, toast } from '@/components/haligtree/ui'
 
 /**
  * Lines in a note made tasks, one a line, each linked to its line: the line
@@ -140,8 +140,8 @@ export async function makeLineTasks(editor: Editor, from: number, to: number, or
   }
   const made: { id: string; existed: boolean; text: string }[] = []
   for (const task of todo) {
-    const one = await vigil.addTask(task.text, origin ?? undefined)
-    if (!one.existed && task.steps.length) await vigil.saveTask(one.id, { subtasks: task.steps })
+    const one = await haligtree.addTask(task.text, origin ?? undefined)
+    if (!one.existed && task.steps.length) await haligtree.saveTask(one.id, { subtasks: task.steps })
     // Matched to its line by the line's own words, colon and all.
     made.push({ id: one.id, existed: one.existed, text: task.line.text })
   }
@@ -187,13 +187,13 @@ export async function makeLineTasks(editor: Editor, from: number, to: number, or
   }).run()
   const after = editor.state.doc
   // Lines ticked already are tasks done already.
-  for (const [id, item] of linkedItems(after)) if (item.checked && made.some((one) => one.id === id && !one.existed)) await vigil.doneTask(id)
-  if (takeOut) for (const [at, task] of todo.entries()) if (task.line.done && !made[at].existed) await vigil.doneTask(made[at].id)
+  for (const [id, item] of linkedItems(after)) if (item.checked && made.some((one) => one.id === id && !one.existed)) await haligtree.doneTask(id)
+  if (takeOut) for (const [at, task] of todo.entries()) if (task.line.done && !made[at].existed) await haligtree.doneTask(made[at].id)
   const joined = made.filter((one) => one.existed).length
   chime(made.length === 1 ? 'noted' : 'promote')
   // Counts only, so a private note's words never show in the notice.
   toast(`${takeOut ? (made.length === 1 ? 'Made a task' : `Made ${num(made.length)} tasks`) : made.length === 1 ? 'A task, linked to its line' : `${num(made.length)} tasks, linked to their lines`}${steps ? `, with ${num(steps)} ${steps === 1 ? 'step' : 'steps'}` : ''}${joined ? `. ${num(joined)} joined ${joined === 1 ? 'a task' : 'tasks'} already there` : ''}`, () => {
-    void Promise.all(made.map((one) => vigil.unmakeTask(one.id, one.existed, origin ? [origin] : [], [])))
+    void Promise.all(made.map((one) => haligtree.unmakeTask(one.id, one.existed, origin ? [origin] : [], [])))
     // Nothing written since: the note goes back exactly. Otherwise the lines keep their words and lose their links.
     if (editor.isDestroyed) return
     if (editor.state.doc.eq(after)) editor.commands.undo()

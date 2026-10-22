@@ -1,12 +1,12 @@
 // Focus numbers from nothing: a fresh install's Stats shows its made-up
 // example; with a capture of your own and no sessions, one plain line saying
 // how to start; after the first session, the task and Stats say it is the first.
-//   QA_ENTRY=out-stats/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=<dir> node qa/focus-stats-first.mjs
+//   QA_ENTRY=out-stats/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=<dir> node qa/focus-stats-first.mjs
 import { mkdirSync, mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
-const data = mkdtempSync(join(tmpdir(), 'vigil-focus-first-'))
+const data = mkdtempSync(join(tmpdir(), 'haligtree-focus-first-'))
 process.env.QA_DATA = data
 process.env.QA_ARGS = ''
 const { sandbox } = await import('./sandbox-lib.mjs')

@@ -23,8 +23,8 @@ export type MonthTold = {
 }
 
 export const issues = {
-  past: (scale: 'week' | 'month', before: string, count = 3) => window.api.vigil<PastIssue[]>('issues:past', scale, before, count),
-  month: (month: string) => window.api.vigil<MonthTold>('issues:month', month),
-  repeats: (ids: string[]) => window.api.vigil<Record<string, Repeat>>('repeats', ids),
-  repeatArticle: (ids: string[]) => window.api.vigil<string>('repeats:article', ids)
+  past: (scale: 'week' | 'month', before: string, count = 3) => window.api.haligtree<PastIssue[]>('issues:past', scale, before, count),
+  month: (month: string) => window.api.haligtree<MonthTold>('issues:month', month),
+  repeats: (ids: string[]) => window.api.haligtree<Record<string, Repeat>>('repeats', ids),
+  repeatArticle: (ids: string[]) => window.api.haligtree<string>('repeats:article', ids)
 }

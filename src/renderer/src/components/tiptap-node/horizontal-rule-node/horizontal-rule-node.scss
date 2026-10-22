@@ -78,7 +78,7 @@ $mf-ribbon-noise: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w
 }
 
 /* More room than a plain line gets: the ribbon marks a new part. */
-.tiptap.ProseMirror.mindflow-editor [data-type="horizontalRule"][data-variant="ribbon"] {
+.tiptap.ProseMirror.haligtree-editor [data-type="horizontalRule"][data-variant="ribbon"] {
   margin: 1.5em 0;
   padding-block: 0.5rem;
 }

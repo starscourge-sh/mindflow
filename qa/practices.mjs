@@ -5,7 +5,7 @@
 // stuck?" making a gem, the honest average, and the move after 5 skips.
 //
 //   npx electron-vite build --outDir out-practices
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-practices/main/index.js MINDFLOW_QA_AWAY=1 SHOT=<dir> node qa/practices.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-practices/main/index.js HALIGTREE_QA_AWAY=1 SHOT=<dir> node qa/practices.mjs
 import { mkdirSync } from 'fs'
 import { sandbox, shiftClock } from './sandbox-lib.mjs'
 
@@ -164,7 +164,7 @@ try {
   await pill.waitForTimeout(1200)
   const at5 = await bar()
   check('5. at 5: gold to the notch, a quiet tick', at5?.stage === 'min' && Math.abs(at5.first - 5 / 30) < 0.001 && at5.tick, JSON.stringify(at5))
-  check('5. no prompt and no sound at 5', (await pill.$('[data-practice-still]')) === null && !(await pill.evaluate(() => [...(window.vigilHeard ?? [])].slice(-3).some((one) => /nudge|alarm|done/.test(one)))))
+  check('5. no prompt and no sound at 5', (await pill.$('[data-practice-still]')) === null && !(await pill.evaluate(() => [...(window.haligtreeHeard ?? [])].slice(-3).some((one) => /nudge|alarm|done/.test(one)))))
   await shot(pill, '5-bar-5')
   await windowBy(pill, 30 * MIN + 2000)
   await pill.waitForTimeout(1200)

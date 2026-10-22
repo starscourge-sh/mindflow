@@ -16,7 +16,7 @@ let people: People = {}
 let asked = false
 const listeners = new Set<() => void>()
 const load = (): void =>
-  void (window.api.vigil<People>('people')).then((next) => {
+  void (window.api.haligtree<People>('people')).then((next) => {
     if (JSON.stringify(next) === JSON.stringify(people)) return
     people = next ?? {}
     listeners.forEach((listen) => listen())
@@ -76,7 +76,7 @@ async function shrink(blob: Blob): Promise<string | null> {
 export async function setAvatar(name: string, picture: Blob | null): Promise<boolean> {
   const url = picture ? await shrink(picture) : null
   if (picture && !url) return false
-  const done = await window.api.vigil<boolean>('people:set', name, url)
+  const done = await window.api.haligtree<boolean>('people:set', name, url)
   if (done) {
     // This window at once; the others when the save is told.
     people = { ...people }

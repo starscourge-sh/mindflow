@@ -2,7 +2,7 @@
 // and on top inside the box's own window, however short the box is (280, its
 // smallest, and a few others), right-clicked near the top or the bottom.
 // Each line can be reached: seen, or scrolled to inside the menu.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 [SHOT=<dir>] node qa/box-menu-fit.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 [SHOT=<dir>] node qa/box-menu-fit.mjs
 import { mkdirSync, writeFileSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 

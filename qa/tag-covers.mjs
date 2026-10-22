@@ -1,7 +1,7 @@
 // A tag's name on its cover, big and in Often with's tiles: it breaks only
 // after a hyphen, never mid word, and a single long word shrinks to fit
 // rather than running off the edge. At 900 and 1600 wide, paper and dark.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 QA_SHOTS=dir node qa/tag-covers.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_SHOTS=dir node qa/tag-covers.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 

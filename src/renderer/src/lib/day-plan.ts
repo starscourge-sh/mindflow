@@ -1,6 +1,6 @@
-import { vigil, type Settings, type Task } from './vigil'
+import { haligtree, type Settings, type Task } from './haligtree'
 import { chime } from './sound'
-import { toast } from '@/components/vigil/ui'
+import { toast } from '@/components/haligtree/ui'
 import { dayKey, howLong } from '../../../main/dates'
 
 /**
@@ -40,7 +40,7 @@ export const frogFirst = <T extends { id: string }>(list: T[], frog: string | nu
 
 /** Eat the frog: this task leads Today (and the day brief) for the rest of today, or no task does. */
 export async function markFrog(id: string | null, was: string | null): Promise<void> {
-  await vigil.setSettings({ frog: id ? { id, day: dayKey() } : null })
+  await haligtree.setSettings({ frog: id ? { id, day: dayKey() } : null })
   chime(id ? 'pin' : 'unpin')
-  toast(id ? 'The frog: it leads Today' : 'No frog today', () => void vigil.setSettings({ frog: was ? { id: was, day: dayKey() } : null }))
+  toast(id ? 'The frog: it leads Today' : 'No frog today', () => void haligtree.setSettings({ frog: was ? { id: was, day: dayKey() } : null }))
 }

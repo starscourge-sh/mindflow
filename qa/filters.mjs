@@ -1,4 +1,4 @@
-// Run with: QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out/main/index.js MINDFLOW_QA_AWAY=1 node qa/filters.mjs
+// Run with: QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out/main/index.js HALIGTREE_QA_AWAY=1 node qa/filters.mjs
 // A choice sits on the thing it is about, and only while that thing is on screen:
 //   1. Everything: which tasks show (Open, Done, Both) rides on the Task chip,
 //      a menu reached by click or keys; no bare "Tasks" label; gone with only Note picked.

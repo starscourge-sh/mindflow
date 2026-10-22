@@ -2,7 +2,7 @@
 import { open } from './harness.mjs'
 const qa = await open()
 const { electron, page } = qa
-await page.evaluate(() => window.api.vigil('timer:start', 'ask for task 2', 6000))
+await page.evaluate(() => window.api.haligtree('timer:start', 'ask for task 2', 6000))
 await page.evaluate(() => window.api.showFocus(true))
 await page.waitForTimeout(2500)
 const pill = electron.windows().find((w) => w.url().includes('view=focus'))

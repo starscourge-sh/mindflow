@@ -5,7 +5,7 @@
 // and a calendar macOS refused.
 //
 //   npx electron-vite build --outDir out-weekfit
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-weekfit/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=<folder> node qa/week-fit.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-weekfit/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=<folder> node qa/week-fit.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -42,7 +42,7 @@ const check = (name, ok, detail = '') => {
 }
 
 async function run(calendarEnv, part) {
-  process.env.MINDFLOW_QA_CALENDAR = calendarEnv
+  process.env.HALIGTREE_QA_CALENDAR = calendarEnv
   const c = await sandbox({ width: 1280, height: 900 })
   const { h, v, go } = c
   const wait = (ms = 400) => h.waitForTimeout(ms)
@@ -127,7 +127,7 @@ await run(JSON.stringify(EVENTS), async ({ c, h, v, go, wait, text, shot }) => {
   await shot('today-light')
 
   // Close the week: does next week fit?
-  await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:close-week')))
+  await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:close-week')))
   await wait(900)
   const row = (await text(`[data-fit-day="${TUE}"]`))[0] ?? ''
   check('close: Tuesday over-full, 2h 30m over', (await h.locator(`[data-fit-day="${TUE}"][data-over]`).count()) === 1 && flat(row).includes('2h30minover'), row)
@@ -177,7 +177,7 @@ await run(JSON.stringify(EVENTS), async ({ c, h, v, go, wait, text, shot }) => {
   await go('day'); await wait(1500)
   await h.evaluate(() => document.querySelector('[data-day-timeline]')?.scrollIntoView({ block: 'center' }))
   await wait(300); await shot('today-dark')
-  await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:close-week')))
+  await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:close-week')))
   await wait(900)
   await h.evaluate(() => document.querySelector('[data-week-fit]')?.scrollIntoView({ block: 'start' }))
   await wait(300); await shot('close-week-dark')
@@ -207,13 +207,13 @@ await run('denied', async ({ h, v, go, wait, shot }) => {
   check('denied: the week says so', (await h.locator('[data-calendar-note="denied"]').count()) === 1)
   check('denied: the week still counts tasks', (await h.locator('[data-day-load]').count()) >= 1)
   await shot('week-denied-light')
-  await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:close-week')))
+  await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:close-week')))
   await wait(900)
   check('denied: Close the week says only tasks count', (await h.locator('[data-week-fit] [data-calendar-note="denied"]').count()) === 1 && (await h.locator('[data-fit-day]').count()) === 7)
   await h.keyboard.press('Escape'); await wait(300)
   await v('settings:set', { macCalendar: false })
   await wait(500)
-  await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:close-week')))
+  await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:close-week')))
   await wait(900)
   check('off: Close the week offers to use the calendar', (await h.locator('[data-week-fit] [data-calendar-note="off"]').count()) === 1 && (await h.getByRole('button', { name: 'Use my calendar' }).count()) === 1)
   await h.evaluate(() => document.querySelector('[data-week-fit]')?.scrollIntoView({ block: 'start' }))

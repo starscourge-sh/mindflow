@@ -1,6 +1,6 @@
 import type { JSONContent } from '@tiptap/core'
 import { EXAMPLES, STARTERS } from '@/lib/welcome-box'
-import { FLOW_WORDS } from '@/components/vigil/welcome-flow'
+import { FLOW_WORDS } from '@/components/haligtree/welcome-flow'
 // The same desert the welcome's Dune card shows (welcome-reel.tsx).
 import dunesUrl from '@/assets/welcome/dunes.webp'
 
@@ -33,12 +33,12 @@ import mananUrl from '@/assets/sandbox/scenery/grand-manan.webp'
 import lucerneUrl from '@/assets/sandbox/scenery/lake-lucerne.webp'
 import penobscotUrl from '@/assets/sandbox/scenery/penobscot-bay.webp'
 import { clip } from '../../../main/clip'
-import { call } from '@/lib/vigil'
+import { call } from '@/lib/haligtree'
 import { APP_NAME } from '../../../main/name'
 
 /**
  * What the sandbox holds when it opens: about fifty examples, each teaching
- * one thing Vigil does, in the voice of Nisaba, the Sumerian goddess of
+ * one thing Haligtree does, in the voice of Nisaba, the Sumerian goddess of
  * writing and keeper of the scribes' tablets.
  *
  * Every rule of the sandbox's writing is here in one place: each note says
@@ -1596,7 +1596,7 @@ host: en.wikipedia.org
   await call('item:save', perfection, { title: FLOW_WORDS.gem, prompt: FLOW_WORDS.question })
   nuggets++
 
-  // The deck that teaches Vigil itself, tagged with LEARN_TAG: a few new cards a day in Review.
+  // The deck that teaches Haligtree itself, tagged with LEARN_TAG: a few new cards a day in Review.
   nuggets += await call<number>('learn:add')
 
   // Opened this morning, so Home's first tiles are the Matrix piece and the card it grew from.
@@ -1607,7 +1607,7 @@ host: en.wikipedia.org
 }
 
 /** The four landscapes Scenery shows in a sandbox when you have no folder of your own. */
-/** The public-domain landscapes Vigil ships with, written to a folder of its own; that folder's path. */
+/** The public-domain landscapes Haligtree ships with, written to a folder of its own; that folder's path. */
 export async function builtInScenery(): Promise<string> {
   const files = await Promise.all(([['wanderer.webp', wandererUrl], ['mont-blanc.webp', montBlancUrl], ['lake-tahoe.webp', tahoeUrl], ['landers-peak.webp', landersUrl], ['bernina.webp', berninaUrl], ['evening-prairie.webp', prairieUrl], ['jungfrau.webp', jungfrauUrl], ['harbor-entrance.webp', harborUrl], ['grand-manan.webp', mananUrl], ['lake-lucerne.webp', lucerneUrl], ['penobscot-bay.webp', penobscotUrl]] as const)
     .map(async ([name, url]) => ({ name, bytes: new Uint8Array(await (await fetch(url)).arrayBuffer()) })))

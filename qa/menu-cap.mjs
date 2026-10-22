@@ -4,14 +4,14 @@
 // FAILS if any menu's foot is below the window's, at 900x700 and 1600x1000.
 // Also: the two page buttons on the selection bar have their own icons and names.
 //   npx electron-vite build --outDir out-links
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-links/main/index.js MINDFLOW_QA_AWAY=1 node qa/menu-cap.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-links/main/index.js HALIGTREE_QA_AWAY=1 node qa/menu-cap.mjs
 import { mkdirSync } from 'fs'
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 
 const SHOTS = process.env.QA_SHOTS ?? '/private/tmp/claude-501/-Users-starscourge-Documents-forge-mindflow/703b99ba-c755-40e3-a385-896560d19061/scratchpad/shots/editor-links'
 mkdirSync(SHOTS, { recursive: true })
-const ED = '.note-pane .tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+const ED = '.note-pane .tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 const { check, done } = checks()
 const c = await sandbox({ width: 900, height: 700 })
 const { h, page: box, send, size, theme, close, errors, v } = c
@@ -101,7 +101,7 @@ try {
   const task = await v('task:add', 'Menu cap probe task', undefined, true)
   await send('task', task.id)
   await wait(1500)
-  const DESC = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+  const DESC = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
   const desc = h.locator(DESC).last()
   await desc.click()
   await h.keyboard.type('First line of the details')
@@ -117,7 +117,7 @@ try {
   } else check("a task's details editor found", false)
 
   // The box.
-  const BOX = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+  const BOX = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
   await box.evaluate(() => window.api.showPrompt?.())
   await box.waitForTimeout(800)
   await box.locator(BOX).first().click().catch(() => {})

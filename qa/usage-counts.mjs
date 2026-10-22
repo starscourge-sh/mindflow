@@ -4,7 +4,7 @@
 // in percent, every sidebar page listed even at zero.
 //
 //   npx electron-vite build --outDir out-fu
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-fu/main/index.js MINDFLOW_QA_AWAY=1 node qa/usage-counts.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-fu/main/index.js HALIGTREE_QA_AWAY=1 node qa/usage-counts.mjs
 import { DatabaseSync } from 'node:sqlite'
 import { readdirSync } from 'fs'
 import { join } from 'path'
@@ -99,8 +99,8 @@ try {
   check('asked for the page you are on: nothing counted', !Object.keys(one.pages).length && !Object.keys(one.ways).length, said(one))
 
   // Kept small: one row a day for each page and each way.
-  const file = readdirSync(process.env.QA_DATA, { recursive: true }).map(String).find((name) => name.endsWith('mindflow.db') && name.includes('sandbox'))
-    ?? readdirSync(process.env.QA_DATA, { recursive: true }).map(String).find((name) => name.endsWith('mindflow.db'))
+  const file = readdirSync(process.env.QA_DATA, { recursive: true }).map(String).find((name) => name.endsWith('haligtree.db') && name.includes('sandbox'))
+    ?? readdirSync(process.env.QA_DATA, { recursive: true }).map(String).find((name) => name.endsWith('haligtree.db'))
   if (file) {
     const db = new DatabaseSync(join(process.env.QA_DATA, file), { readOnly: true })
     try {

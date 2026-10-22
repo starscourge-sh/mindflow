@@ -1,10 +1,10 @@
-// Quitting closes the database cleanly: its log of saves (mindflow.db-wal) is
+// Quitting closes the database cleanly: its log of saves (haligtree.db-wal) is
 // folded into the file and removed, so the folder copies whole and the
 // other-book backup does not see a change every day. A save made just before
 // quitting is in the file afterwards.
 //
 //   npx electron-vite build --outDir out-x
-//   QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/db-quit.mjs
+//   QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/db-quit.mjs
 import { existsSync } from 'fs'
 import { join } from 'path'
 import { DatabaseSync } from 'node:sqlite'
@@ -16,8 +16,8 @@ const c = await sandbox({ seeded: false })
 let folder = ''
 try {
   folder = await c.electron.evaluate(({ app }) => app.getPath('userData'))
-  if (folder.includes('Application Support/mindflow')) throw new Error('never the real data folder')
-  const file = join(folder, 'mindflow.db')
+  if (['haligtree', 'mindflow'].some((name) => folder.includes(`Application Support/${name}`))) throw new Error('never the real data folder')
+  const file = join(folder, 'haligtree.db')
   await c.v('settings:set', { quitProbe: 'kept' })
   check('the log of saves is there while the app runs', existsSync(`${file}-wal`))
   const gone = new Promise((done) => c.electron.process().once('exit', done))

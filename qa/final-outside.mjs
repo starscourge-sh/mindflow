@@ -10,13 +10,13 @@
 // control under 24px to press.
 //
 //   npx electron-vite build --outDir out-x
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/final-outside.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/final-outside.mjs
 // LOOKS=soft/paper,brutal/dark picks looks; ONLY=box,pill,... picks surfaces;
 // SHOTS=<dir> keeps a picture of each.
 import { mkdirSync } from 'fs'
 import { measure } from './final-measure.mjs'
 
-process.env.MINDFLOW_QA_NOTCH ??= '1'
+process.env.HALIGTREE_QA_NOTCH ??= '1'
 const { sandbox } = await import('./sandbox-lib.mjs')
 const SHOTS = process.env.SHOTS
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
@@ -208,7 +208,7 @@ try {
         }
       }
       if (want('welcome')) {
-        await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:welcome')))
+        await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:welcome')))
         await h.waitForSelector('.mf-welcome', { timeout: 6000 }).catch(() => {})
         await wait(800)
         let last = ''
@@ -218,11 +218,11 @@ try {
           if (chapter === last) break
           last = chapter
           await look(h, `${tag} welcome ${w}x${hh} ${i + 1} ${chapter}`, { root: ".mf-welcome" })
-          await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:welcome-step', { detail: 1 })))
+          await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:welcome-step', { detail: 1 })))
           await wait(1200)
           if (!(await h.$('.mf-welcome'))) break
         }
-        await h.evaluate(() => window.api.vigil('onboarding:set', { welcomed: new Date().toISOString(), welcoming: false })).catch(() => {})
+        await h.evaluate(() => window.api.haligtree('onboarding:set', { welcomed: new Date().toISOString(), welcoming: false })).catch(() => {})
         await h.reload()
         await wait(1500)
       }
@@ -235,7 +235,7 @@ try {
       await look(note, `${tag} note window`)
       // One row of controls: Open in the main window sits in the header's row, clear of the traffic lights.
       const row = await note?.evaluate(() => {
-        const open = document.querySelector('[data-open-in-vigil]')?.getBoundingClientRect()
+        const open = document.querySelector('[data-open-in-haligtree]')?.getBoundingClientRect()
         const head = document.querySelector('[data-note-head]')?.getBoundingClientRect()
         return open && head ? { inHead: open.top >= head.top - 1 && open.bottom <= head.bottom + 1, top: Math.round(head.top), left: Math.round(open.left) } : null
       })

@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto'
 import type { DatabaseSync } from 'node:sqlite'
 
 import { atomically, changed, database, setting } from './captures'
-import { gate } from './vigil'
+import { gate } from './haligtree'
 import { dayjs } from './dates'
 import { remindSaid } from './event-said'
 import { occurrences, readRepeat, repeatSaid, splitAt, type Repeat } from './event-repeat'
@@ -18,7 +18,7 @@ import { occurrences, readRepeat, repeatSaid, splitAt, type Repeat } from './eve
  * remind you before it starts, as a Mac notification, held in quiet hours
  * like a task's alert. Meeting notes are notes linked to one time of an event.
  *
- * Every channel starts `vigil:`, so the preload passes it through.
+ * Every channel starts `haligtree:`, so the preload passes it through.
  */
 
 export type Calendar = { id: string; name: string; color: string; hidden: boolean }
@@ -448,7 +448,7 @@ export function registerEvents(open: (type: string, id: string) => void): void {
   home = open
   tables()
   const handle = (channel: string, run: (...args: never[]) => unknown): void =>
-    void ipcMain.handle(`vigil:${channel}`, (_event, ...args) => run(...(args as never[])))
+    void ipcMain.handle(`haligtree:${channel}`, (_event, ...args) => run(...(args as never[])))
 
   handle('calendars', () => calendars())
   // Made or changed: name, colour, shown or hidden. Gives back what it was, for an undo.

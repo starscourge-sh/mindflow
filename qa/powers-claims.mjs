@@ -2,7 +2,7 @@
 // Show me in the sandbox, in three parts (a: Catching, Writing, Windows,
 // Bringing notes in; b: Remembering; c: Planning, Seeing your year), each
 // in a fresh app with a fresh data folder. Same env as the parts: QA_ARGS,
-// QA_ENTRY, MINDFLOW_QA_AWAY. PARTS=a,c runs only some.
+// QA_ENTRY, HALIGTREE_QA_AWAY. PARTS=a,c runs only some.
 import { spawnSync } from 'child_process'
 import { mkdtempSync } from 'fs'
 import { tmpdir } from 'os'

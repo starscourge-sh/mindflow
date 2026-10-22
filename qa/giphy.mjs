@@ -3,18 +3,18 @@
 // with Reduce motion it is a still frame; Settings shows the day's results to
 // star. Then, in fresh folders, with Giphy's addresses blocked and with no key,
 // the card still comes, playing what it would anyway, with no Giphy mark.
-// The key is read from MINDFLOW_GIPHY_KEY only, never written down here.
+// The key is read from HALIGTREE_GIPHY_KEY only, never written down here.
 // SHOTS=dir keeps pictures.
 //
 //   npx electron-vite build --outDir out-giphy
-//   QA_ARGS=--sandbox QA_ENTRY=out-giphy/main/index.js MINDFLOW_QA_AWAY=1 MINDFLOW_GIPHY_KEY=… node qa/giphy.mjs
+//   QA_ARGS=--sandbox QA_ENTRY=out-giphy/main/index.js HALIGTREE_QA_AWAY=1 HALIGTREE_GIPHY_KEY=… node qa/giphy.mjs
 import { mkdirSync, mkdtempSync, existsSync, readdirSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { sandbox } from './sandbox-lib.mjs'
 
-const KEY = process.env.MINDFLOW_GIPHY_KEY
-if (!KEY) throw new Error('Set MINDFLOW_GIPHY_KEY')
+const KEY = process.env.HALIGTREE_GIPHY_KEY
+if (!KEY) throw new Error('Set HALIGTREE_GIPHY_KEY')
 const SHOTS = process.env.SHOTS
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
 const results = []
@@ -22,9 +22,9 @@ const check = (name, ok, detail = '') => (results.push({ name, ok: !!ok }), cons
 
 /** One run in a fresh folder: Giphy on, a task added and done, and what the card shows. */
 async function run({ key, block, label }) {
-  const data = mkdtempSync(join(tmpdir(), 'mindflow-giphy-'))
+  const data = mkdtempSync(join(tmpdir(), 'haligtree-giphy-'))
   process.env.QA_DATA = data
-  process.env.MINDFLOW_GIPHY_KEY = key
+  process.env.HALIGTREE_GIPHY_KEY = key
   const c = await sandbox({ width: 1100, height: 760 })
   const { h, v, electron } = c
   const shot = async (name) => SHOTS && h.screenshot({ path: `${SHOTS}/${name}.png` })
@@ -60,7 +60,7 @@ async function run({ key, block, label }) {
     const cache = join(await electron.evaluate(({ app }) => app.getPath('userData')), 'giphy-cache')
     const files = existsSync(cache) ? readdirSync(cache) : []
     if (label === 'giphy') {
-      check('giphy: the card plays a GIF from Giphy', seen.mark && seen.video.startsWith('mindflow://celebrate/') && seen.playing, JSON.stringify({ ...seen, text: undefined }))
+      check('giphy: the card plays a GIF from Giphy', seen.mark && seen.video.startsWith('haligtree://celebrate/') && seen.playing, JSON.stringify({ ...seen, text: undefined }))
       check('giphy: "Powered by GIPHY" is on it', seen.text.includes('Powered by GIPHY'))
       check('giphy: it is sized to its own shape', seen.height >= 130 && seen.height <= 222, `${seen.height}px`)
       check('giphy: the list and the clip are kept in the cache', files.includes('results.json') && files.some((f) => f.endsWith('.mp4')), files.length + ' files')

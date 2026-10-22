@@ -5,11 +5,11 @@
  * the older keys once over, so nothing they share broke.
  *
  *   npx electron-vite build --outDir out-vim
- *   QA_DATA=$(mktemp -d) QA_ENTRY=out-vim/main/index.js MINDFLOW_QA_AWAY=1 node qa/vim-more.mjs
+ *   QA_DATA=$(mktemp -d) QA_ENTRY=out-vim/main/index.js HALIGTREE_QA_AWAY=1 node qa/vim-more.mjs
  */
 import { open } from './harness.mjs'
 
-const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 const qa = await open()
 const { page } = qa
 const results = []

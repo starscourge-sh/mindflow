@@ -1,6 +1,6 @@
 // A group's "Change icon…" opens the emoji panel and it stays open, by the
 // pointer and by the keys, until an icon is picked or Esc is pressed.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=<dir> node qa/icon-picker-stays.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=<dir> node qa/icon-picker-stays.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 const dir = process.env.SHOTS ?? `${process.env.QA_DATA}/shots`

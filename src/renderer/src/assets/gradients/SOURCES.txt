@@ -1,6 +1,6 @@
 Gradients: the soft covers a note with no picture of its own wears when
 Settings > Appearance > Covers is Gradients and no folder of your own is
-chosen (components/vigil/grain.tsx, GRADIENTS). The app lays a tint of the
+chosen (components/haligtree/grain.tsx, GRADIENTS). The app lays a tint of the
 note's colour and a film grain over them, so the files themselves stay plain.
 
 Source: the user's own folder of gradients, ~/Documents/img/gradients. Copied

@@ -28,10 +28,10 @@ const renderer = join(root, 'src/renderer/src')
 // window over a sticky, the sticky notes (Glass mode) and a goal's beacon on
 // the desktop. (The box's own glass pill in App.tsx is solid on solid themes.)
 const ALLOWED = new Set([
-  'src/renderer/src/components/vigil/look-window.tsx',
-  'src/renderer/src/components/vigil/sticky-note.tsx',
-  'src/renderer/src/components/vigil/today-sticky.tsx',
-  'src/renderer/src/components/vigil/goal-beacon.tsx'
+  'src/renderer/src/components/haligtree/look-window.tsx',
+  'src/renderer/src/components/haligtree/sticky-note.tsx',
+  'src/renderer/src/components/haligtree/today-sticky.tsx',
+  'src/renderer/src/components/haligtree/goal-beacon.tsx'
 ])
 
 /** A class with no state in front of it, or only `dark:` (the root always carries .dark). */

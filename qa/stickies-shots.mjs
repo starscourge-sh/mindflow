@@ -3,12 +3,12 @@
 // and a dark theme and in Brutal. Each sticky's own page is captured and laid
 // on a desk-like backdrop (the windows themselves stay parked off screen).
 //
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-stickies/main/index.js MINDFLOW_QA_AWAY=1 MINDFLOW_QA_VIRTUAL=1 node qa/stickies-shots.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-stickies/main/index.js HALIGTREE_QA_AWAY=1 HALIGTREE_QA_VIRTUAL=1 node qa/stickies-shots.mjs
 import { mkdirSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { sandbox } from './sandbox-lib.mjs'
 
-process.env.MINDFLOW_QA_VIRTUAL ??= '1'
+process.env.HALIGTREE_QA_VIRTUAL ??= '1'
 const SHOTS = process.env.QA_SHOTS ?? 'scratchpad/round/stickies'
 mkdirSync(SHOTS, { recursive: true })
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -19,7 +19,7 @@ try {
     const build = Menu.buildFromTemplate
     Menu.buildFromTemplate = (template) => { globalThis.qaMenu = template; const menu = build(template); menu.popup = () => {}; return menu }
   })
-  const v = (channel, ...args) => h.evaluate(([c, a]) => window.api.vigil(c, ...a), [channel, args])
+  const v = (channel, ...args) => h.evaluate(([c, a]) => window.api.haligtree(c, ...a), [channel, args])
   const stickyWins = () => electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed() && w.webContents.getURL().includes('view=sticky')).map((w) => ({ id: w.id, url: w.webContents.getURL() })))
   await wait(2500)
   for (let i = 0; i < 20 && (await stickyWins()).length; i++) {

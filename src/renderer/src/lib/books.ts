@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 
 import { SANDBOX, enterSandbox, gatherCarry, leaveSandbox, saberOn } from './sandbox'
-import { vigil } from './vigil'
+import { haligtree } from './haligtree'
 import { still } from '@/lib/motion'
 import { num } from '../../../main/dates'
 
 /**
- * Books, as a window sees them: more than one Vigil of your own, each its own
+ * Books, as a window sees them: more than one Haligtree of your own, each its own
  * folder (see src/main/books.ts). Switching is the sandbox's restart, so it
  * looks and sounds the same.
  */
@@ -15,7 +15,7 @@ export type Shelf = { current: string; name: string; books: Book[]; color: Hue |
 /** A capture or a note (captures), or an idea, article, question or goal (nuggets). */
 export type BookRef = { table: 'captures' | 'nuggets'; id: string }
 
-export const shelf = (): Promise<Shelf> => window.api.vigil<Shelf>('books:list')
+export const shelf = (): Promise<Shelf> => window.api.haligtree<Shelf>('books:list')
 
 // --- a book's colour: Arc's spaces, each with its own ------------------------------------
 
@@ -48,7 +48,7 @@ const wear = (hue: Hue | null): void => {
 export function washTo(hue: Hue | null, always = false): void {
   if (hue === worn() && !always) return
   if (still() || document.hidden) return wear(hue)
-  ;((window as unknown as { vigilWashes?: string[] }).vigilWashes ??= []).push(hue ?? 'none')
+  ;((window as unknown as { haligtreeWashes?: string[] }).haligtreeWashes ??= []).push(hue ?? 'none')
   const band = document.createElement('div')
   band.dataset.bookWash = hue ?? 'none'
   band.setAttribute('aria-hidden', 'true')
@@ -60,7 +60,7 @@ export function washTo(hue: Hue | null, always = false): void {
 }
 
 /** A book's colour, chosen in the switcher or in Settings. The open book washes into it. */
-export const setBookColor = (id: string, hue: Hue | null): Promise<boolean> => window.api.vigil<boolean>('books:color', id, hue)
+export const setBookColor = (id: string, hue: Hue | null): Promise<boolean> => window.api.haligtree<boolean>('books:color', id, hue)
 
 // Before the first paint: the colour this book wore last time, so the window never flashes the theme's.
 if (!SANDBOX) {
@@ -87,8 +87,8 @@ export function followBookHue(): void {
     if (!document.hidden) go()
     else document.addEventListener('visibilitychange', go, { once: true })
   })
-  void window.api.vigil<boolean>('books:arrived').then(look, () => look(false))
-  window.addEventListener('vigil:books-changed', () => look(false))
+  void window.api.haligtree<boolean>('books:arrived').then(look, () => look(false))
+  window.addEventListener('haligtree:books-changed', () => look(false))
   window.addEventListener('storage', (event) => event.key === HUE_KEY && !document.hasFocus() && wear((event.newValue as Hue | null) ?? null))
 }
 
@@ -98,8 +98,8 @@ export function useShelf(): Shelf | null {
   useEffect(() => {
     const load = (): void => void shelf().then(setNow)
     load()
-    window.addEventListener('vigil:books-changed', load)
-    return () => window.removeEventListener('vigil:books-changed', load)
+    window.addEventListener('haligtree:books-changed', load)
+    return () => window.removeEventListener('haligtree:books-changed', load)
   }, [])
   return now
 }
@@ -116,7 +116,7 @@ export async function switchBook(id: string, then?: 'vault' | 'files'): Promise<
   if (id === 'sandbox') return enterSandbox()
   if (SANDBOX) {
     // The sandbox's own way out, to the book asked for.
-    await window.api.vigil('books:last', id)
+    await window.api.haligtree('books:last', id)
     return leaveSandbox()
   }
   const now = await shelf()
@@ -126,7 +126,7 @@ export async function switchBook(id: string, then?: 'vault' | 'files'): Promise<
   const said = saberOn(`Opening ${name}`)
   const carry = await gatherCarry(CARRY_MORE)
   await said
-  await window.api.vigil('books:switch', id, carry, then)
+  await window.api.haligtree('books:switch', id, carry, then)
 }
 
 /** What the main window's book asker is told when a session is running as you switch: answered with the choice, or null to stay. */
@@ -139,7 +139,7 @@ export type RunningAsk = { book: string; goal: string; answer: (choice: 'end' | 
  * the next book's pill names it. False: stay here.
  */
 async function leaveSession(to: string): Promise<boolean> {
-  const running = await vigil.focusNow().catch(() => null)
+  const running = await haligtree.focusNow().catch(() => null)
   const now = await shelf()
   // Already in that book: nothing to leave.
   if (!running || now.current === to) return true
@@ -147,36 +147,36 @@ async function leaveSession(to: string): Promise<boolean> {
   const ask: Partial<RunningAsk> = { book: here, goal: running.goal }
   const choice = await new Promise<'end' | 'keep' | null>((answer) => {
     ask.answer = answer
-    window.dispatchEvent(new CustomEvent('vigil:book-running', { detail: ask }))
+    window.dispatchEvent(new CustomEvent('haligtree:book-running', { detail: ask }))
     // Asked from a window without the book asker (the box): the main window asks instead.
-    if (!ask.heard) (answer(null), void window.api.vigil('books:go', to))
+    if (!ask.heard) (answer(null), void window.api.haligtree('books:go', to))
   })
-  if (choice === 'keep') await window.api.vigil('books:keep')
+  if (choice === 'keep') await window.api.haligtree('books:keep')
   if (choice === 'end')
     for (let i = 0; i < 3; i++) {
-      const now = await vigil.focusNow().catch(() => null)
+      const now = await haligtree.focusNow().catch(() => null)
       if (!now) break
-      await (now.taskId === '' && now.kind !== 'focus' ? window.api.vigil('session:cancel', now.id) : window.api.vigil('session:end', now.id, '', false))
+      await (now.taskId === '' && now.kind !== 'focus' ? window.api.haligtree('session:cancel', now.id) : window.api.haligtree('session:end', now.id, '', false))
     }
   return choice !== null
 }
 
 /** A new, empty book by this name, and straight into it. */
 export async function newBook(name: string): Promise<void> {
-  const id = await window.api.vigil<string | null>('books:create', name)
+  const id = await window.api.haligtree<string | null>('books:create', name)
   if (id) await switchBook(id)
 }
 
-export const renameBook = (id: string, name: string): Promise<boolean> => window.api.vigil<boolean>('books:rename', id, name)
-export const revealBook = (id: string): Promise<boolean> => window.api.vigil<boolean>('books:reveal', id)
+export const renameBook = (id: string, name: string): Promise<boolean> => window.api.haligtree<boolean>('books:rename', id, name)
+export const revealBook = (id: string): Promise<boolean> => window.api.haligtree<boolean>('books:reveal', id)
 /** Where its full copy was kept, or null when it was not deleted. */
-export const deleteBook = (id: string): Promise<string | null> => window.api.vigil<string | null>('books:delete', id)
+export const deleteBook = (id: string): Promise<string | null> => window.api.haligtree<string | null>('books:delete', id)
 /** How many were copied into that book. */
-export const copyToBook = (refs: BookRef[], id: string): Promise<number> => window.api.vigil<number>('books:copy', refs, id)
+export const copyToBook = (refs: BookRef[], id: string): Promise<number> => window.api.haligtree<number>('books:copy', refs, id)
 
 /** The pickers, over the page: which book to go to, copy into, or import into. */
 export const askBook = (mode: 'switch' | 'copy' | 'import', detail: { refs?: BookRef[]; what?: 'vault' | 'files' } = {}): void =>
-  void window.dispatchEvent(new CustomEvent('vigil:book-ask', { detail: { mode, ...detail } }))
+  void window.dispatchEvent(new CustomEvent('haligtree:book-ask', { detail: { mode, ...detail } }))
 
 /** The row menus' line: copies of these, with their pictures and files, into another book. */
 export const copyToBookItem = (refs: BookRef[]): { label: string; run: () => void } | false =>

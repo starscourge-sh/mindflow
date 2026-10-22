@@ -1,6 +1,6 @@
 // Quick capture's "Change type…" list is three and a half rows tall: the half
 // row says there are more below, and the list scrolls to the rest.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=<dir> node qa/kind-picker-rows.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=<dir> node qa/kind-picker-rows.mjs
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
 

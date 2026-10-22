@@ -63,7 +63,7 @@ export function registerSources(): void {
   const pages = (): { field: SourceField; key: string; name: string; thoughts: string }[] =>
     db.prepare('select field, key, name, thoughts from source_pages').all() as never
 
-  ipcMain.handle('vigil:sources', (): SourceSummary[] => {
+  ipcMain.handle('haligtree:sources', (): SourceSummary[] => {
     const items = everything()
     const out: SourceSummary[] = []
     for (const field of FIELDS) {
@@ -80,7 +80,7 @@ export function registerSources(): void {
     return out.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
   })
 
-  ipcMain.handle('vigil:source', (_event, field: unknown, name: unknown): SourcePage | null => {
+  ipcMain.handle('haligtree:source', (_event, field: unknown, name: unknown): SourcePage | null => {
     if (!isField(field) || typeof name !== 'string' || !personKey(name)) return null
     const key = personKey(name)
     const items = everything().filter((one) => personKey(one[field] ?? '') === key).sort((a, b) => b.at.localeCompare(a.at))
@@ -89,7 +89,7 @@ export function registerSources(): void {
   })
 
   // A page made by hand, or your thoughts on it saved: kept by its name, whether or not anything is from it yet.
-  ipcMain.handle('vigil:source:set', (_event, field: unknown, name: unknown, thoughts: unknown) => {
+  ipcMain.handle('haligtree:source:set', (_event, field: unknown, name: unknown, thoughts: unknown) => {
     if (!isField(field) || typeof name !== 'string' || !personKey(name)) return false
     const was = pages().find((one) => one.field === field && one.key === personKey(name))
     db.prepare('insert into source_pages (field, key, name, thoughts, updated_at) values (?, ?, ?, ?, ?) on conflict(field, key) do update set thoughts = excluded.thoughts, updated_at = excluded.updated_at')
@@ -99,7 +99,7 @@ export function registerSources(): void {
   })
 
   // A page made by hand and left empty can go again; one with notes from it is there because of them.
-  ipcMain.handle('vigil:source:drop', (_event, field: unknown, name: unknown) => {
+  ipcMain.handle('haligtree:source:drop', (_event, field: unknown, name: unknown) => {
     if (!isField(field) || typeof name !== 'string') return false
     db.prepare('delete from source_pages where field = ? and key = ?').run(field, personKey(name))
     changed()
@@ -107,7 +107,7 @@ export function registerSources(): void {
   })
 
   // Quotes and sourced-looking gems that have lost their source, or never had one: each is nudged to get one.
-  ipcMain.handle('vigil:sources:missing', () => [
+  ipcMain.handle('haligtree:sources:missing', () => [
     ...db.prepare(`select 'capture' as type, id, kind, ${LABEL} as label, captured_at as at from captures
       where status != 'discarded' and kind = 'quote' and coalesce(trim(attribution), '') = '' and coalesce(trim(medium), '') = '' order by captured_at desc limit 200`).all(),
     ...db.prepare(`select tier as type, id, kind, coalesce(nullif(title, ''), label('', body)) as label, created_at as at from nuggets
@@ -116,7 +116,7 @@ export function registerSources(): void {
 
   // The source-centred map: each who and where as a dot, joined to every note from it,
   // and a person joined to the book or show they said things in.
-  ipcMain.handle('vigil:sources:graph', (): SourceGraph => {
+  ipcMain.handle('haligtree:sources:graph', (): SourceGraph => {
     const items = everything()
     const nodes = new Map<string, SourceGraph['nodes'][number]>()
     const edges = new Map<string, number>()

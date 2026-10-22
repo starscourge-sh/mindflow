@@ -1,5 +1,5 @@
 import type { CaptureMeta } from '@/components/capture-list'
-import type { Item, Stats, Task } from './vigil'
+import type { Item, Stats, Task } from './haligtree'
 import type { Day, NoteMap } from './notes'
 
 /**

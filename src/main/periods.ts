@@ -3,7 +3,7 @@ import { ipcMain } from 'electron'
 import { LABEL, changed, database } from './captures'
 import { dayjs } from './dates'
 import { tagsIn } from './tag-words'
-import { plain } from './vigil'
+import { plain } from './haligtree'
 
 /**
  * Looking back over stretches of time, and the small things that make a note
@@ -11,7 +11,7 @@ import { plain } from './vigil'
  * page a week and a page a month, the questions kept in view while you
  * capture, and decisions that say whether they are settled.
  *
- * Every channel here starts `vigil:`, so the preload passes it through
+ * Every channel here starts `haligtree:`, so the preload passes it through
  * without a line of its own.
  */
 
@@ -38,7 +38,7 @@ export function registerPeriods(): void {
     }
   }
   const handle = (channel: string, run: (...args: never[]) => unknown): void =>
-    void ipcMain.handle(`vigil:${channel}`, (_event, ...args) => run(...(args as never[])))
+    void ipcMain.handle(`haligtree:${channel}`, (_event, ...args) => run(...(args as never[])))
 
   // Other names a note goes by, as a JSON list: the word you think in, not
   // the one you titled it with. Search, ⌘K and links read them.

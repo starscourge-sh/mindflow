@@ -1,7 +1,7 @@
 // The lists that a mark brings up ("/", ":", "@", "#") open as you type the
 // mark, and only then: not when you click into "/endpoint" or "#work" already
 // written, not after pasting them, and never inside code.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/suggest-typed.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/suggest-typed.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const c = await sandbox({ width: 1000, height: 700 })
@@ -15,7 +15,7 @@ const clear = async () => { await page.keyboard.press('Escape'); await page.keyb
 // The caret put just after the given words, by a click there.
 const clickAfter = async (words) => {
   const at = await page.evaluate((w) => {
-    const root = document.querySelector('.tiptap.ProseMirror.mindflow-editor[contenteditable=true]')
+    const root = document.querySelector('.tiptap.ProseMirror.haligtree-editor[contenteditable=true]')
     const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
     for (let n = walk.nextNode(); n; n = walk.nextNode()) {
       const i = n.textContent.indexOf(w)
@@ -46,11 +46,11 @@ try {
   check('clicking into "/endpoint" opens nothing', !(await menu()))
   await clickAfter('#work')
   check('clicking into "#work" opens nothing', !(await menu()))
-  await page.locator('.tiptap.ProseMirror.mindflow-editor[contenteditable=true]').focus()
+  await page.locator('.tiptap.ProseMirror.haligtree-editor[contenteditable=true]').focus()
   await page.keyboard.press('Meta+ArrowDown')
   await page.keyboard.type(' #bo', { delay: 30 })
   await page.waitForTimeout(500)
-  check('typing "#bo" after it still offers tags', await menu(), await page.evaluate(() => document.querySelector('.tiptap.ProseMirror.mindflow-editor[contenteditable=true]')?.innerText + ' | ' + [...document.querySelectorAll('[class*=menu],[class*=suggest]')].map((e) => e.className.slice(0, 40)).join(',')))
+  check('typing "#bo" after it still offers tags', await menu(), await page.evaluate(() => document.querySelector('.tiptap.ProseMirror.haligtree-editor[contenteditable=true]')?.innerText + ' | ' + [...document.querySelectorAll('[class*=menu],[class*=suggest]')].map((e) => e.className.slice(0, 40)).join(',')))
   await clear()
   // Inside code: `api` made code by its backticks, then a "/" typed inside it.
   await page.keyboard.type('see `api` ', { delay: 30 })
@@ -59,7 +59,7 @@ try {
   await page.keyboard.type('/', { delay: 30 })
   await page.waitForTimeout(400)
   const inCode = await page.evaluate(() => !!window.getSelection()?.anchorNode?.parentElement?.closest('code'))
-  check('typing "/" inside code opens nothing', inCode && !(await menu()), `in code: ${inCode}; ${await page.evaluate(() => document.querySelector('.mindflow-editor[contenteditable=true]')?.innerHTML.slice(0, 200))}`)
+  check('typing "/" inside code opens nothing', inCode && !(await menu()), `in code: ${inCode}; ${await page.evaluate(() => document.querySelector('.haligtree-editor[contenteditable=true]')?.innerHTML.slice(0, 200))}`)
   // Your case: a "/word" written as code, the caret left at its end, and the box left and come back to.
   await clear()
   await page.keyboard.type('`/things` endpoint', { delay: 30 })
@@ -67,7 +67,7 @@ try {
   await page.waitForTimeout(300)
   for (let i = 0; i < ' endpoint'.length + 1; i++) await page.keyboard.press('ArrowLeft')
   await page.waitForTimeout(400)
-  check('the caret come to the end of "/things" in code opens nothing', !(await menu()), await page.evaluate(() => document.querySelector('.mindflow-editor[contenteditable=true]')?.innerHTML.slice(0, 120)))
+  check('the caret come to the end of "/things" in code opens nothing', !(await menu()), await page.evaluate(() => document.querySelector('.haligtree-editor[contenteditable=true]')?.innerHTML.slice(0, 120)))
   await page.evaluate(() => window.dispatchEvent(new Event('blur')))
   await page.evaluate(() => window.api.showPrompt())
   await page.waitForTimeout(400)

@@ -5,14 +5,14 @@
 // two lines looking back.
 //
 //   npx electron-vite build --outDir out-spaces
-//   QA_DATA=$(mktemp -d) QA_ENTRY=out-spaces/main/index.js MINDFLOW_QA_AWAY=1 node qa/spaces.mjs
+//   QA_DATA=$(mktemp -d) QA_ENTRY=out-spaces/main/index.js HALIGTREE_QA_AWAY=1 node qa/spaces.mjs
 //   QA_SHOTS=<folder> for pictures.
 import { mkdirSync, mkdtempSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { _electron as electron } from 'playwright'
 
-const root = process.env.QA_DATA ?? mkdtempSync(join(tmpdir(), 'vigil-spaces-'))
+const root = process.env.QA_DATA ?? mkdtempSync(join(tmpdir(), 'haligtree-spaces-'))
 if (root.includes('Application Support')) throw new Error('never the real data folder')
 process.env.QA_DATA = root
 const shots = process.env.QA_SHOTS
@@ -28,7 +28,7 @@ const doc = (text) => ({ type: 'doc', content: [{ type: 'paragraph', content: [{
  * longer shows (it opens the main window, as any app does).
  */
 async function open(args) {
-  const app = await electron.launch({ args: [process.env.QA_ENTRY ?? '.', ...args.split(' ').filter(Boolean)], env: { ...process.env, MINDFLOW_QA_AWAY: '1', MINDFLOW_USER_DATA: root } })
+  const app = await electron.launch({ args: [process.env.QA_ENTRY ?? '.', ...args.split(' ').filter(Boolean)], env: { ...process.env, HALIGTREE_QA_AWAY: '1', HALIGTREE_USER_DATA: root } })
   const child = app.process()
   process.on('exit', () => { try { child.kill('SIGKILL') } catch {} })
   let h
@@ -41,7 +41,7 @@ async function open(args) {
   h.on('console', (m) => m.type() === 'error' && !theirs(m.text()) && errors.push(m.text().slice(0, 300)))
   await h.waitForLoadState('domcontentloaded')
   await h.waitForTimeout(1200)
-  const v = (channel, ...rest) => h.evaluate(([c, a]) => window.api.vigil(c, ...a), [channel, rest])
+  const v = (channel, ...rest) => h.evaluate(([c, a]) => window.api.haligtree(c, ...a), [channel, rest])
   const size = async (w, hh) => {
     await app.evaluate(({ BrowserWindow }, [w, hh]) => { const win = BrowserWindow.getAllWindows().find((one) => one.webContents.getURL().includes('view=home')); win?.setBounds({ x: 40, y: 40, width: w, height: hh }); win?.show() }, [w, hh])
     await h.waitForTimeout(500)
@@ -66,7 +66,7 @@ const launch = async (args = '') => {
 }
 const css = (c, name) => c.h.evaluate((n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim(), name)
 const hueNow = (c) => c.h.evaluate(() => document.documentElement.dataset.bookHue ?? null)
-const washes = (c) => c.h.evaluate(() => [...(window.vigilWashes ?? [])])
+const washes = (c) => c.h.evaluate(() => [...(window.haligtreeWashes ?? [])])
 const theme = process.env.QA_THEME
 
 let bookId
@@ -78,7 +78,7 @@ let bookId
   check('a book starts with no colour: the theme as drawn', first.color === null && first.books.every((one) => one.color === null) && (await hueNow(c)) === null)
   const accent = await css(c, '--tt-brand-color-400')
   // The switcher: every book with a dot, and the open book's colour row.
-  await c.h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:book-ask', { detail: { mode: 'switch' } })))
+  await c.h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:book-ask', { detail: { mode: 'switch' } })))
   await c.h.waitForSelector('[data-book-colour]', { timeout: 4000 })
   check('the switcher offers the open book\'s colour, ten choices', (await c.h.$$('[data-book-colour] [role="radio"]')).length === 9)
   await shot(c, 'switcher-none')
@@ -99,7 +99,7 @@ let bookId
   // A second book, shown in the switcher with its own dot.
   bookId = await c.v('books:create', 'Work')
   await c.v('books:color', bookId, 'green')
-  await c.h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:book-ask', { detail: { mode: 'switch' } })))
+  await c.h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:book-ask', { detail: { mode: 'switch' } })))
   await c.h.waitForSelector(`[data-book="${bookId}"]`, { timeout: 4000 })
   const dots = await c.h.$$eval('[data-book] span[aria-hidden]', (all) => all.map((one) => one.getAttribute('style') ?? ''))
   check('the switcher shows each book\'s colour as a dot', dots.some((one) => one.includes('pink')) && dots.some((one) => one.includes('green')), JSON.stringify(dots))
@@ -119,7 +119,7 @@ let bookId
   check('a colour picked in Settings is worn at once', (await hueNow(c)) === 'purple' && (await c.v('books:list')).color === 'purple')
   await shot(c, 'settings-books')
   // Motion off: the colour is simply there, with no band.
-  await c.h.evaluate(() => (document.documentElement.dataset.motion = 'off', window.vigilWashes = []))
+  await c.h.evaluate(() => (document.documentElement.dataset.motion = 'off', window.haligtreeWashes = []))
   await c.v('books:color', 'default', 'orange')
   await c.h.waitForTimeout(500)
   check('with Motion off, no wash: the colour is simply there', (await hueNow(c)) === 'orange' && (await washes(c)).length === 0)
@@ -190,7 +190,7 @@ let bookId
   })
   const day = await c.v('digest:day')
   check('today in four numbers', day.caught >= 3 && day.kept === 0 && day.reviewed === 0 && day.finished === 0, JSON.stringify(day))
-  await c.h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:close-day')))
+  await c.h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:close-day')))
   await c.h.waitForSelector('[data-close-look]', { timeout: 4000 })
   const lines = await c.h.$$eval('[data-close-look-line]', (all) => all.map((one) => one.textContent))
   check('Close the day opens on two lines of your day in Haligtree', lines.length === 2 && /You caught \d+ things\./.test(lines[0]) && lines[1] === 'No reviews or tasks finished today.', JSON.stringify(lines))

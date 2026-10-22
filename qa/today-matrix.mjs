@@ -3,7 +3,7 @@
 // put it in; a task dragged to another box changes as on the Matrix page, with
 // Undo; the choice is kept after a reload; the link opens the full Matrix,
 // which still shows every open task.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/today-matrix.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/today-matrix.mjs
 // SHOTS=dir keeps pictures in Paper and Dark.
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'

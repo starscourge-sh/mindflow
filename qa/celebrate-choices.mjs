@@ -6,7 +6,7 @@
 // is never written here. SHOTS=dir keeps pictures.
 //
 //   npx electron-vite build --outDir out-celebrate
-//   QA_ENTRY=out-celebrate/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=… node qa/celebrate-choices.mjs
+//   QA_ENTRY=out-celebrate/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=… node qa/celebrate-choices.mjs
 import { copyFileSync, mkdirSync, mkdtempSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -14,12 +14,12 @@ import { sandbox } from './sandbox-lib.mjs'
 
 const SHOTS = process.env.SHOTS
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
-process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'mindflow-choices-'))
+process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'haligtree-choices-'))
 const results = []
 const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`))
 
 // A picture of our own to pick: one of the bundled drawings, copied out, so its thumbnail is plainly a picture.
-const files = mkdtempSync(join(tmpdir(), 'mindflow-choices-files-'))
+const files = mkdtempSync(join(tmpdir(), 'haligtree-choices-files-'))
 const GIF = join(files, 'cheer.webp')
 copyFileSync(join(import.meta.dirname, '../src/renderer/src/assets/drawings/38199.webp'), GIF)
 
@@ -92,7 +92,7 @@ try {
   }
 
   // ⌘K: all at once, saying so; undo puts each back as it was.
-  await h.evaluate(() => { window.__toasts = []; addEventListener('vigil:toast', (event) => window.__toasts.push(event.detail.text)) })
+  await h.evaluate(() => { window.__toasts = []; addEventListener('haligtree:toast', (event) => window.__toasts.push(event.detail.text)) })
   const command = async (words) => {
     await h.keyboard.press('Meta+k')
     await wait(500)
@@ -124,11 +124,11 @@ try {
   }
   let moved = await migrate('on', true)
   const same = (a, b) => ['main', 'box', 'stickies', 'bubble'].every((kind) => a?.[kind] === b[kind])
-  check('old “Show Vigil” on with “Except sticky notes”: all show but sticky notes', same(moved.seen, { main: true, box: true, stickies: false, bubble: true }) && moved.left === null, JSON.stringify(moved))
+  check('old “Show Haligtree” on with “Except sticky notes”: all show but sticky notes', same(moved.seen, { main: true, box: true, stickies: false, bubble: true }) && moved.left === null, JSON.stringify(moved))
   moved = await migrate('on', false)
-  check('old “Show Vigil” on without the exception: all show', same(moved.seen, { main: true, box: true, stickies: true, bubble: true }) && moved.left === null, JSON.stringify(moved))
+  check('old “Show Haligtree” on without the exception: all show', same(moved.seen, { main: true, box: true, stickies: true, bubble: true }) && moved.left === null, JSON.stringify(moved))
   moved = await migrate('off', false)
-  check('old “Show Vigil” off: all stay hidden', JSON.stringify(moved.seen) === JSON.stringify(HIDDEN) && moved.left === null, JSON.stringify(moved))
+  check('old “Show Haligtree” off: all stay hidden', JSON.stringify(moved.seen) === JSON.stringify(HIDDEN) && moved.left === null, JSON.stringify(moved))
   now = await guarded()
   check('…and the windows match', now.filter((one) => one.kind !== 'other').every((one) => one.on), JSON.stringify(now))
 
@@ -140,7 +140,7 @@ try {
     await h.mouse.click(5, 5)
     await h.keyboard.press('Escape')
     await wait(500)
-    await h.evaluate((kind) => window.dispatchEvent(new CustomEvent('vigil:celebrate', { detail: { id: `qa:${Math.random()}`, kind, rank: 0, headline: 'Inbox empty', line: 'A check.', mark: '0', tint: 'green' } })), kind)
+    await h.evaluate((kind) => window.dispatchEvent(new CustomEvent('haligtree:celebrate', { detail: { id: `qa:${Math.random()}`, kind, rank: 0, headline: 'Inbox empty', line: 'A check.', mark: '0', tint: 'green' } })), kind)
     await h.waitForSelector('[data-celebration] [role=status]', { timeout: 8000 }).catch(() => undefined)
     await wait(1200)
     return h.evaluate(() => {
@@ -159,7 +159,7 @@ try {
   check('…with a beam round the card', drawn.beam)
 
   const search = await v('celebrations:giphy:search', 'thumbs up')
-  check('Giphy can be searched with words of your own', search.gifs.length > 0 && search.gifs[0].still.startsWith('mindflow://celebrate/'), `${search.gifs.length} found${search.why ? `, ${search.why}` : ''}`)
+  check('Giphy can be searched with words of your own', search.gifs.length > 0 && search.gifs[0].still.startsWith('haligtree://celebrate/'), `${search.gifs.length} found${search.why ? `, ${search.why}` : ''}`)
   const picked = search.gifs.length ? await v('celebrations:giphy:pick', search.gifs[0].id) : null
   check('one picked is downloaded, with what to pin', !!picked?.pin?.id && picked.media.url.endsWith('.mp4'))
   await v('settings:set', { celebrationSources: {}, celebrationPicks: { inbox: [GIF] }, giphyPins: picked ? { inbox: picked.pin } : {} })
@@ -249,8 +249,8 @@ try {
   check('no Giphy switch any more; its search words stay', (await h.getByText('Celebrate with a GIF from Giphy').count()) === 0 && (await h.getByText('Giphy search words', { exact: true }).count()) === 1)
   check('“A task done” says just the tick by default', (await status('taskDone')) === 'Just the tick, no card')
   check('the others say a random GIF for your words by default', /^A random GIF for “/.test(await status('inbox')), await status('inbox'))
-  await h.waitForFunction(() => document.querySelector('[data-moment="inbox"] [data-moment-thumb] img')?.getAttribute('src')?.startsWith('mindflow://'), null, { timeout: 30000 }).catch(() => undefined)
-  check('…and show one of today’s GIFs as their picture', (await row('inbox').locator('[data-moment-thumb] img').getAttribute('src').catch(() => '') ?? '').startsWith('mindflow://celebrate/'))
+  await h.waitForFunction(() => document.querySelector('[data-moment="inbox"] [data-moment-thumb] img')?.getAttribute('src')?.startsWith('haligtree://'), null, { timeout: 30000 }).catch(() => undefined)
+  check('…and show one of today’s GIFs as their picture', (await row('inbox').locator('[data-moment-thumb] img').getAttribute('src').catch(() => '') ?? '').startsWith('haligtree://celebrate/'))
   await row('inbox').getByRole('button', { name: 'Haligtree’s drawing', exact: true }).click()
   await wait(700)
   check('“Haligtree’s drawing” chosen: the row says so, its picture is the drawing', (await status('inbox')) === 'Haligtree’s paper drawing' && /\.webp|drawings/.test(await row('inbox').locator('[data-moment-thumb] img').getAttribute('src')))

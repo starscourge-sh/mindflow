@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { X } from "lucide-react"
 
 import { EmbeddedNote } from "./note-embed-view"
-import { vigil } from "@/lib/vigil"
+import { haligtree } from "@/lib/haligtree"
 import { chime } from "@/lib/sound"
 
 /**
@@ -13,7 +13,7 @@ import { chime } from "@/lib/sound"
  * window shows it; another asks it to (home.tsx, `expand`).
  */
 export function openExpanded(link: string): void {
-  if (new URLSearchParams(location.search).get("view") === "home") window.dispatchEvent(new CustomEvent("vigil:expand", { detail: link }))
+  if (new URLSearchParams(location.search).get("view") === "home") window.dispatchEvent(new CustomEvent("haligtree:expand", { detail: link }))
   else window.api.openInHome("expand", link)
 }
 
@@ -38,8 +38,8 @@ export function ExpandedSheet(): React.JSX.Element | null {
   const [link, setLink] = useState<string | null>(null)
   useEffect(() => {
     const open = (event: Event): void => (chime("open"), setLink((event as CustomEvent<string>).detail))
-    window.addEventListener("vigil:expand", open)
-    return () => window.removeEventListener("vigil:expand", open)
+    window.addEventListener("haligtree:expand", open)
+    return () => window.removeEventListener("haligtree:expand", open)
   }, [])
   if (!link) return null
   return <Sheet key={link} link={link} onClose={() => (chime("fold"), setLink(null))} />
@@ -50,7 +50,7 @@ function Sheet({ link, onClose }: { link: string; onClose: () => void }): React.
   useEffect(() => {
     const capture = !link.includes(":")
     const id = capture ? link : link.slice(link.indexOf(":") + 1)
-    void (capture ? window.api.captures.get(id).then((found) => found && { title: found.label || found.title, body: found.body }) : vigil.item(id).then((found) => found && { title: (found as { title?: string }).title ?? "", body: found.body }))
+    void (capture ? window.api.captures.get(id).then((found) => found && { title: found.label || found.title, body: found.body }) : haligtree.item(id).then((found) => found && { title: (found as { title?: string }).title ?? "", body: found.body }))
       .then((found) => setRead(found ? { title: found.title || "Untitled", linked: linkedIn(found.body, link) } : { title: "Not here any more", linked: [] }))
   }, [link])
   useEffect(() => {

@@ -12,7 +12,7 @@
 //    the footer at 900 by 700 and 1600 by 1000
 //  Light, then dark with a tag given. A screenshot of each beat. Then Motion off: both whole at once.
 //
-//   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/welcome-flow.mjs [shots-dir]
+//   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/welcome-flow.mjs [shots-dir]
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -36,7 +36,7 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
   try {
     if (tag) await c.v('onboarding:set', { setup: { use: 'writing', from: [], space: tag, exam: null, goal: null, goalBy: null } })
     await c.theme(theme)
-    if (!(await h.waitForSelector('.mf-welcome', { timeout: 8000 }).then(() => true, () => false))) await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:welcome')))
+    if (!(await h.waitForSelector('.mf-welcome', { timeout: 8000 }).then(() => true, () => false))) await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:welcome')))
     await h.waitForSelector('.mf-welcome', { timeout: 8000 })
     // Pressed on to Write, and played as it comes.
     for (let i = 0; i < 20 && !(await chapter(h)).includes('Write'); i++) (await next(h), await h.waitForTimeout(600))
@@ -237,7 +237,7 @@ for (const [w, hh, theme] of [[900, 700, 'light'], [1600, 1000, 'dark'], [900, 7
   const { h } = c
   try {
     await c.theme(theme)
-    if (!(await h.waitForSelector('.mf-welcome', { timeout: 8000 }).then(() => true, () => false))) await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:welcome')))
+    if (!(await h.waitForSelector('.mf-welcome', { timeout: 8000 }).then(() => true, () => false))) await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:welcome')))
     await h.waitForSelector('.mf-welcome', { timeout: 8000 })
     for (let i = 0; i < 12 && !(await chapter(h)).includes('Catch'); i++) (await next(h), await h.waitForTimeout(600))
     const spreads = []
@@ -280,7 +280,7 @@ for (const [w, hh, theme] of [[900, 700, 'light'], [1600, 1000, 'dark'], [900, 7
   try {
     await h.emulateMedia({ reducedMotion: 'reduce' })
     await h.reload()
-    if (!(await h.waitForSelector('.mf-welcome', { timeout: 8000 }).then(() => true, () => false))) await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:welcome')))
+    if (!(await h.waitForSelector('.mf-welcome', { timeout: 8000 }).then(() => true, () => false))) await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:welcome')))
     await h.waitForSelector('.mf-welcome', { timeout: 8000 })
     for (let i = 0; i < 8 && !(await chapter(h)).includes('Write'); i++) (await next(h), await h.waitForTimeout(600))
     await h.waitForTimeout(400)

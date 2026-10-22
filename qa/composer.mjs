@@ -6,7 +6,7 @@
 // SHOTS=dir keeps pictures in light and dark.
 //
 //   npx electron-vite build --outDir out-reading
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-reading/main/index.js MINDFLOW_QA_AWAY=1 node qa/composer.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-reading/main/index.js HALIGTREE_QA_AWAY=1 node qa/composer.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -61,7 +61,7 @@ try {
     const covered = await overlap()
     check(`${theme}: the "kept" toast does not cover the composer`, covered === false, String(covered))
     // The composer sits under the editor, never over its words.
-    const editorBox = await h.locator('[data-pane] .mindflow-editor-wrapper').first().boundingBox()
+    const editorBox = await h.locator('[data-pane] .haligtree-editor-wrapper').first().boundingBox()
     const barBox = await composer().boundingBox()
     check(`${theme}: the composer sits below the words, not over them`, editorBox && barBox && barBox.y >= editorBox.y + editorBox.height - 1, `${editorBox?.y + editorBox?.height} <= ${barBox?.y}`)
     // ↑ in the empty field opens the history, newest at the foot.

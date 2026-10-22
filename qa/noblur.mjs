@@ -11,7 +11,7 @@ const probe = (p) => p.evaluate(() => {
   return `${f} / ${o}`
 })
 console.log('on :', await probe(page), '|', await probe(home))
-await page.evaluate(() => window.api.vigil('settings:set', { blur: false })); await page.waitForTimeout(800)
+await page.evaluate(() => window.api.haligtree('settings:set', { blur: false })); await page.waitForTimeout(800)
 console.log('off:', await probe(page), '|', await probe(home))
-await page.evaluate(() => window.api.vigil('settings:set', { blur: true }))
+await page.evaluate(() => window.api.haligtree('settings:set', { blur: true }))
 process.exit(0)

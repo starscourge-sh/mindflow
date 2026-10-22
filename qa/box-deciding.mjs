@@ -4,7 +4,7 @@
 // the box is empty again). A quote's source is said once, in its Who and
 // Where fields, not again under "This will".
 //
-//   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/box-deciding.mjs [shots-dir]
+//   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/box-deciding.mjs [shots-dir]
 import { mkdirSync } from 'fs'
 import { sandbox, shiftClock } from './sandbox-lib.mjs'
 
@@ -15,10 +15,10 @@ const check = (name, ok, more = '') => {
   if (!ok) failed++
   console.log(`${ok ? 'PASS' : 'FAIL'} ${name}${more ? `  (${more})` : ''}`)
 }
-const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 const c = await sandbox({ width: 1000, height: 700 })
 const { h, page, v } = c
-// The notice comes once a day (vigil.ts, nudge), and the box opening at launch may already have had today's:
+// The notice comes once a day (haligtree.ts, nudge), and the box opening at launch may already have had today's:
 // the app's clock goes to tomorrow at noon, a fresh day and out of quiet hours (22:00 to 07:00), when nothing is offered unasked.
 const noon = new Date()
 noon.setDate(noon.getDate() + 1)

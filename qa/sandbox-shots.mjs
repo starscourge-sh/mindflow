@@ -46,7 +46,7 @@ if (want('tag-album')) {
   await h.evaluate(() => [...document.querySelectorAll('button, a')].find((b) => /renaissance/.test(b.textContent ?? ''))?.click())
   await shot('tag-album')
 }
-const items = async (tier) => h.evaluate((t) => window.api.vigil('items', t), tier)
+const items = async (tier) => h.evaluate((t) => window.api.haligtree('items', t), tier)
 if (want('goal')) { const goal = (await items('goal')).find((one) => one.title.startsWith('Get to Mars')); await send('goal', goal.id); await h.waitForTimeout(1300); await shot('goal') }
 if (want('question')) { const q = (await items('question')).find((one) => one.title.startsWith('Is the top')); await send('question', q.id); await h.waitForTimeout(1300); await shot('question') }
 if (want('article')) { const a = (await items('article'))[0]; await send('article', a.id); await h.waitForTimeout(1300); await shot('article') }

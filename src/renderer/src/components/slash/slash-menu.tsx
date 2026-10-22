@@ -9,7 +9,7 @@ import {
 } from "react"
 import { exitSuggestion, type SuggestionProps } from "@tiptap/suggestion"
 
-import { Kbd } from "@/components/vigil/ui"
+import { Kbd } from "@/components/haligtree/ui"
 
 import {
   createSuggestionRenderer,

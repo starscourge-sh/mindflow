@@ -1,7 +1,7 @@
 // Hiding a sticky is never only gone: Haligtree's nudge card says "Sticky hidden"
 // with "Bring it back", which puts it on the desktop again. And a page shows
 // one guide at a time: with an example on it, its first-visit line steps aside.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 [SHOT=<dir>] node qa/sticky-hide.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 [SHOT=<dir>] node qa/sticky-hide.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const results = []
@@ -33,7 +33,7 @@ try {
   const said = await card?.$eval('[data-nudge="sticky"]', (one) => one.textContent).catch(() => '')
   check('the nudge card says “Sticky hidden”', said?.includes('Sticky hidden') && said.includes('Today'), said)
   if (process.env.SHOT) await card.screenshot({ path: `${process.env.SHOT}/sticky-hidden.png` })
-  const heard = await card.evaluate(() => [...(window.vigilHeard ?? [])])
+  const heard = await card.evaluate(() => [...(window.haligtreeHeard ?? [])])
   check('the card makes no second sound', !heard.includes('cue:hint'), heard.join(','))
   await card.click('[data-nudge-unhide]')
   await wait(1500)
@@ -41,8 +41,8 @@ try {
   check('and the card goes', !(await card.$('[data-nudge="sticky"]')))
 
   // One guide at a time: an example on the page, so no first-visit line saying the same.
-  await h.evaluate(() => window.api.vigil('settings:set', { hintRate: 0 }))
-  await h.evaluate(async () => { for (const task of await window.api.vigil('tasks')) if (task.recurrence) await window.api.vigil('task:save', task.id, { status: 'dropped' }) })
+  await h.evaluate(() => window.api.haligtree('settings:set', { hintRate: 0 }))
+  await h.evaluate(async () => { for (const task of await window.api.haligtree('tasks')) if (task.recurrence) await window.api.haligtree('task:save', task.id, { status: 'dropped' }) })
   await c.go('routines'); await wait(1200)
   const notes = await h.evaluate(() => ({ example: !!document.querySelector('[data-example-frame]'), hint: [...document.querySelectorAll('[role=note]')].some((one) => one.textContent.includes('again and again')) }))
   check('a page with an example shows no first-visit line beside it', notes.example && !notes.hint, JSON.stringify(notes))

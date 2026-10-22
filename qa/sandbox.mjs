@@ -10,7 +10,7 @@ import { tmpdir } from 'os'
 import { join, relative } from 'path'
 import { sandbox } from './sandbox-lib.mjs'
 
-const root = mkdtempSync(join(tmpdir(), 'vigil-sandbox-real-'))
+const root = mkdtempSync(join(tmpdir(), 'haligtree-sandbox-real-'))
 process.env.QA_DATA = root
 const results = []
 const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail }); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`) }
@@ -38,7 +38,7 @@ const launch = async (args, options) => {
 
 /** The seeded world, without ids or times of day: what has to be the same after every reset. */
 const snapshot = (c) => c.h.evaluate(async () => {
-  const v = (channel, ...args) => window.api.vigil(channel, ...args)
+  const v = (channel, ...args) => window.api.haligtree(channel, ...args)
   const day = (iso) => Math.round((new Date(iso).setHours(12, 0, 0, 0) - new Date().setHours(12, 0, 0, 0)) / 86400000)
   const captures = (await window.api.captures.list()).map((one) => `${one.kind}|${one.status}|${one.label}|${day(one.capturedAt)}`).sort()
   const items = []
@@ -76,7 +76,7 @@ const click = (c, selector, text) => c.h.evaluate(([s, t]) => {
   const c = await launch('', { seeded: false })
   await c.h.evaluate(async () => {
     await window.api.captures.create({ body: 'My real thought: renew the passport' })
-    await window.api.vigil('task:add', 'Call the dentist tomorrow', undefined, false)
+    await window.api.haligtree('task:add', 'Call the dentist tomorrow', undefined, false)
   })
   const state = await c.v('sandbox:state')
   check('your own Haligtree is not the sandbox', !state.on)
@@ -85,7 +85,7 @@ const click = (c, selector, text) => c.h.evaluate(([s, t]) => {
   await c.h.evaluate(() => localStorage.setItem('theme', 'paper'))
   await c.v('settings:set', { motion: false, inRecordings: { main: true, box: false, stickies: false, bubble: false }, sceneryFolders: ['/Users/somebody/Pictures/Game art'], coversFolder: '/Users/somebody/Pictures/Covers', celebrationsFolder: '/Users/somebody/Pictures/GIFs' })
   await stub(c)
-  await c.h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:sandbox-enter')))
+  await c.h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:sandbox-enter')))
   const enterArgs = await relaunched(c)
   check('Open the sandbox restarts with --sandbox', enterArgs?.includes('--sandbox') && !enterArgs.includes('--sandbox-reset'), JSON.stringify(enterArgs))
   const carry = JSON.parse(readFileSync(join(root, 'sandbox', 'carry.json'), 'utf8'))
@@ -95,7 +95,7 @@ const click = (c, selector, text) => c.h.evaluate(([s, t]) => {
 }
 await new Promise((done) => setTimeout(done, 1500))
 const before = fingerprint()
-check('your data folder has a database', !!before['mindflow.db'], `${Object.keys(before).length} files`)
+check('your data folder has a database', !!before['haligtree.db'], `${Object.keys(before).length} files`)
 
 // --- 2. The sandbox, set out ---------------------------------------------------------------
 let first
@@ -104,7 +104,7 @@ let first
   const c = await launch('--sandbox')
   const state = await c.v('sandbox:state')
   check('the sandbox seeds itself', state.on && state.seeded, `${Date.now() - started}ms`)
-  check('its database is its own', existsSync(join(root, 'sandbox', 'mindflow.db')))
+  check('its database is its own', existsSync(join(root, 'sandbox', 'haligtree.db')))
   check('it wears the look you carried in', (await c.h.evaluate(() => localStorage.getItem('theme'))) === 'paper' && (await c.v('settings')).motion === false)
   const pictures = await c.v('settings')
   check('its own landscapes and no covers folder, but your celebrations come along', pictures.sceneryFolders.length === 1 && pictures.sceneryFolders[0].includes('Sandbox scenery') && pictures.coversFolder === '' && pictures.celebrationsFolder === '/Users/somebody/Pictures/GIFs', JSON.stringify([pictures.sceneryFolders, pictures.coversFolder, pictures.celebrationsFolder]))
@@ -125,7 +125,7 @@ let first
   check('the question holds 3 clues', (await c.v('item', top.id)).glosses.length === 3)
   const album = await c.v('tag:read', 'renaissance')
   // The four picture notes, and the Renaissance thread around them (qa/sandbox-renaissance.mjs).
-  const pictured = album.filter((one) => JSON.stringify(one.body).includes('mindflow://assets/'))
+  const pictured = album.filter((one) => JSON.stringify(one.body).includes('haligtree://assets/'))
   check('#renaissance has its pictures and the thread', pictured.length >= 4 && album.length >= 8, `${pictured.length} with pictures, ${album.length} in all`)
   const urls = c.electron.windows().map((one) => one.url())
   const cards = urls.filter((one) => one.includes('view=sticky') && one.includes('type=goal&')).map((one) => new URL(one).searchParams.get('id'))
@@ -200,7 +200,7 @@ for (const round of [1, 2]) {
 await new Promise((done) => setTimeout(done, 1000))
 const after = fingerprint()
 const changed = [...new Set([...Object.keys(before), ...Object.keys(after)])].filter((path) => before[path] !== after[path])
-check('your own data folder is byte-for-byte unchanged', changed.length === 0, changed.length ? changed.join(', ') : `${Object.keys(after).length} files, mindflow.db ${after['mindflow.db'].slice(0, 12)}`)
+check('your own data folder is byte-for-byte unchanged', changed.length === 0, changed.length ? changed.join(', ') : `${Object.keys(after).length} files, haligtree.db ${after['haligtree.db'].slice(0, 12)}`)
 
 // --- 5. Back home: the offer -------------------------------------------------------------
 {

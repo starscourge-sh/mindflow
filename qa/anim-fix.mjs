@@ -5,7 +5,7 @@
 // ease-in in the stylesheets or in any animation played; Motion off and
 // Reduce motion leave nothing moving, Brutal's buttons included; Radix menus
 // fade out on close.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/anim-fix.mjs [shots]
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/anim-fix.mjs [shots]
 import { sandbox } from './sandbox-lib.mjs'
 
 const shots = process.argv[2]

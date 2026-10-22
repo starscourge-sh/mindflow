@@ -1,7 +1,7 @@
 // Clarity checks: the Map on a big vault, the Stats preview's colours, inner
 // scroll boxes taking the wheel, and Settings' visual choices (Dimness preview,
 // Covers, Scenery folders). Paper and a dark theme shot for each.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-clarity/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=<dir> TAG=after ONLY=map,stats,scroll,settings,covers PICS=<folder of pictures> node qa/clarity.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-clarity/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=<dir> TAG=after ONLY=map,stats,scroll,settings,covers PICS=<folder of pictures> node qa/clarity.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -38,8 +38,8 @@ const bigMap = () => c.electron.evaluate(({ ipcMain }) => {
   const seen = new Set()
   const ok = edges.filter(([a, b]) => a !== b && !seen.has(`${a} ${b}`) && seen.add(`${a} ${b}`))
   for (const [a, b] of ok) (nodes[+a.slice(1)].links++, nodes[+b.slice(1)].links++)
-  ipcMain.removeHandler('vigil:notes:graph:all')
-  ipcMain.handle('vigil:notes:graph:all', () => ({ nodes, edges: ok, alone: 12, lonely: [] }))
+  ipcMain.removeHandler('haligtree:notes:graph:all')
+  ipcMain.handle('haligtree:notes:graph:all', () => ({ nodes, edges: ok, alone: 12, lonely: [] }))
   return [nodes.length, ok.length]
 })
 

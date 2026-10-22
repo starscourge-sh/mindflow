@@ -11,7 +11,7 @@ import { mkdtempSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
-process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'vigil-esc-'))
+process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'haligtree-esc-'))
 process.env.QA_ARGS ??= '--sandbox'
 const { sandbox } = await import('./sandbox-lib.mjs')
 

@@ -6,13 +6,13 @@
  * (live collaboration behind the drag handle, find's regex engine) is not
  * missed, and that a window opened later still shows with its page drawn.
  *
- *   QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/speed-split.mjs
+ *   QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/speed-split.mjs
  */
 import { readFileSync, readdirSync } from 'fs'
 import { basename, dirname, join } from 'path'
 import { open, checks } from './harness.mjs'
 
-const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 const { check, done } = checks()
 
 const app = await open()
@@ -104,7 +104,7 @@ try {
   })
   if (home) {
     const id = await home.evaluate(() => window.api.captures.create({ kind: 'note', body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'A note in its own window' }] }] } }))
-    await home.evaluate((one) => window.api.vigil('notes:window', 'capture', one), id)
+    await home.evaluate((one) => window.api.haligtree('notes:window', 'capture', one), id)
     await home.evaluate((one) => window.api.stick('capture', one, true), id)
     await home.evaluate(() => window.api.openDrawing('speed-split-drawing', { elements: [], appState: {}, files: {} }, 'A drawing'))
     for (let i = 0; i < 40; i++) {
@@ -148,8 +148,8 @@ try {
   }
   check('both are read soon after the window is up', bothIn(inMain), `${inMain.length} modules`)
   if (home) {
-    await home.evaluate(() => window.api.vigil('task:add', 'Return the library book tomorrow at 3pm'))
-    const task = (await home.evaluate(() => window.api.vigil('tasks'))).find((one) => /library book/.test(one.title))
+    await home.evaluate(() => window.api.haligtree('task:add', 'Return the library book tomorrow at 3pm'))
+    const task = (await home.evaluate(() => window.api.haligtree('tasks'))).find((one) => /library book/.test(one.title))
     const when = task && new Date(task.due ?? task.dueAt ?? '')
     const tomorrow = new Date()
     tomorrow.setDate(tomorrow.getDate() + 1)

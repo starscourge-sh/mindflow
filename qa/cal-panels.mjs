@@ -8,7 +8,7 @@
 //      says its whole time, "06:30 – 07:30" (kept clear of the sandbox's own events).
 //
 //   npx electron-vite build --outDir out-cal-panels
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-cal-panels/main/index.js MINDFLOW_QA_AWAY=1 node qa/cal-panels.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-cal-panels/main/index.js HALIGTREE_QA_AWAY=1 node qa/cal-panels.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const c = await sandbox({ width: 1600, height: 900 })

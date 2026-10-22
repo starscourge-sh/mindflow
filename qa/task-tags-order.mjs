@@ -4,7 +4,7 @@
 // quick capture's Tasks tab, the desktop Today sticky and search. Then the
 // Matrix keeps your own order inside a box: a card dragged up its box stays
 // there, ⌥↑ moves the picked one up, and both outlast a reload.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/task-tags-order.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/task-tags-order.mjs
 // SHOTS=dir keeps a picture of each list.
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
@@ -123,7 +123,7 @@ try {
 
   // Today written out as a page: the tag stays where it is typed, tinted as a note tints it.
   await go('today'); await h.waitForTimeout(700)
-  await h.evaluate(() => window.dispatchEvent(new Event('vigil:write-day'))); await h.waitForTimeout(1000)
+  await h.evaluate(() => window.dispatchEvent(new Event('haligtree:write-day'))); await h.waitForTimeout(1000)
   const tint = (pick) => h.evaluate(([pick, tag]) => {
     const field = pick === 'new' ? document.querySelector('textarea[data-new="now"]') : [...document.querySelectorAll('textarea[data-line]')].find((one) => one.value.includes(pick))
     if (!field) return { found: false }

@@ -5,7 +5,7 @@
 // over a switch, and My book's database never changed by any of it.
 //
 //   npx electron-vite build --outDir out-books
-//   QA_DATA=$(mktemp -d) QA_ENTRY=out-books/main/index.js MINDFLOW_QA_AWAY=1 node qa/books.mjs
+//   QA_DATA=$(mktemp -d) QA_ENTRY=out-books/main/index.js HALIGTREE_QA_AWAY=1 node qa/books.mjs
 import { createHash } from 'crypto'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
@@ -13,11 +13,11 @@ import { join } from 'path'
 import { sandbox } from './sandbox-lib.mjs'
 
 process.setMaxListeners(40)
-const root = process.env.QA_DATA ?? mkdtempSync(join(tmpdir(), 'vigil-books-'))
+const root = process.env.QA_DATA ?? mkdtempSync(join(tmpdir(), 'haligtree-books-'))
 if (root.includes('Application Support')) throw new Error('never the real data folder')
 process.env.QA_DATA = root
 // No Obsidian here: the import asks the folder dialog (stubbed), not the picker of the Mac's own vaults.
-process.env.MINDFLOW_OBSIDIAN_CONFIG = join(root, 'no-obsidian.json')
+process.env.HALIGTREE_OBSIDIAN_CONFIG = join(root, 'no-obsidian.json')
 const results = []
 const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail }); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`) }
 const wait = (ms) => new Promise((done) => setTimeout(done, ms))
@@ -44,7 +44,7 @@ const argsOf = (args) => (args ?? []).filter((one) => one.startsWith('--book=') 
 const shelf = (c) => c.v('books:list')
 const labels = async (c) => (await c.h.evaluate(() => window.api.captures.list())).map((one) => one.label)
 const fileHash = (path) => existsSync(path) ? createHash('sha256').update(readFileSync(path)).digest('hex') : 'none'
-const mine = join(root, 'mindflow.db')
+const mine = join(root, 'haligtree.db')
 const print = () => ({ hash: fileHash(mine), journal: fileHash(`${mine}-journal`), wal: fileHash(`${mine}-wal`), mtime: existsSync(mine) ? statSync(mine).mtimeMs : 0 })
 
 // A 1x1 PNG, to be the picture.
@@ -73,13 +73,13 @@ let book, pictureCapture, linkCapture, draftWords = 'Unsent draft words kept ove
   // Copy the picture capture and the linked one: the link to the map comes along, the one to the passport becomes words.
   const copied = await c.v('books:copy', [{ table: 'captures', id: made.picture }, { table: 'captures', id: made.linked }], id)
   check('Copy to book copies both', copied === 2, `${copied}`)
-  const asset = made.src.replace('mindflow://assets/', '')
+  const asset = made.src.replace('haligtree://assets/', '')
   check('the picture is copied into the book\'s own store', existsSync(join(root, 'books', id, 'assets', asset)))
   // Something being typed in the box, then the switch at once, as the Haligtree menu does it.
-  await c.page.click('.tiptap.ProseMirror.mindflow-editor').catch(() => undefined)
+  await c.page.click('.tiptap.ProseMirror.haligtree-editor').catch(() => undefined)
   await c.page.keyboard.type(draftWords)
   await stub(c)
-  await c.h.evaluate((one) => window.dispatchEvent(new CustomEvent('vigil:book-switch', { detail: one })), id)
+  await c.h.evaluate((one) => window.dispatchEvent(new CustomEvent('haligtree:book-switch', { detail: one })), id)
   const args = await relaunched(c)
   check('switching restarts into the book', argsOf(args) === `--book=${id}`, JSON.stringify(args))
   check('the book is remembered as the last open', JSON.parse(readFileSync(join(root, 'books.json'), 'utf8')).last === id)
@@ -96,10 +96,10 @@ const before = print()
   await c.h.waitForTimeout(800)
   const list = await labels(c)
   check('it is empty but for the two copies', list.length === 2 && list.includes('Wall map of Rome') && !list.includes('My real thought: renew the passport'), JSON.stringify(list))
-  check('its own database', existsSync(join(root, 'books', book, 'mindflow.db')))
+  check('its own database', existsSync(join(root, 'books', book, 'haligtree.db')))
   const all = await c.h.evaluate(() => window.api.captures.list())
   const map = await c.h.evaluate((id) => window.api.captures.get(id), all.find((one) => one.label === 'Wall map of Rome').id)
-  const src = JSON.stringify(map.body).match(/mindflow:\/\/assets\/[a-f0-9]{64}\.png/)?.[0]
+  const src = JSON.stringify(map.body).match(/haligtree:\/\/assets\/[a-f0-9]{64}\.png/)?.[0]
   const loads = src && await c.h.evaluate((s) => new Promise((done) => { const img = new Image(); img.onload = () => done(img.naturalWidth === 1); img.onerror = () => done(false); img.src = s }), src)
   check('the copy has its picture, and it loads', !!loads, src)
   const linked = await c.h.evaluate((id) => window.api.captures.get(id), all.find((one) => one.label !== 'Wall map of Rome').id)
@@ -112,7 +112,7 @@ const before = print()
   check('the sidebar says Scratch', (await c.h.$eval('[aria-label="Haligtree menu"]', (one) => one.textContent).catch(() => '')).includes('Scratch'))
   await c.h.evaluate(() => window.api.captures.create({ body: 'Scratch thought' }))
   await c.h.waitForTimeout(1500)
-  check('a backup of the book, in its own place', existsSync(join(root, 'backups', 'books', book, 'database', `mindflow-${day()}.db`)))
+  check('a backup of the book, in its own place', existsSync(join(root, 'backups', 'books', book, 'database', `haligtree-${day()}.db`)))
   await c.close()
 }
 await wait(1200)
@@ -124,7 +124,7 @@ await wait(1200)
   check('with what was caught there', (await labels(c)).includes('Scratch thought'))
   await stub(c)
   // Back to My book from ⌘K's picker, the way a person does it.
-  await c.h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:book-ask', { detail: { mode: 'switch' } })))
+  await c.h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:book-ask', { detail: { mode: 'switch' } })))
   await c.h.waitForSelector('[data-book="default"]', { timeout: 4000 })
   check('Switch book lists every book and the Sandbox', (await c.h.$$('[data-book]')).length === 3)
   await c.h.click('[data-book="default"]')
@@ -140,7 +140,7 @@ check('My book\'s database was not changed by any switch or book run', before.ha
 let second
 {
   // Today's copy of the book taken away: My book's run makes it again, though the book is not open.
-  rmSync(join(root, 'backups', 'books', book, 'database', `mindflow-${day()}.db`), { force: true })
+  rmSync(join(root, 'backups', 'books', book, 'database', `haligtree-${day()}.db`), { force: true })
   const c = await launch('')
   const now = await shelf(c)
   check('My book again', now.current === 'default')
@@ -149,14 +149,14 @@ let second
   const draft = await c.page.evaluate(() => localStorage.getItem('capture-draft') ?? '')
   check('the box\'s draft was kept over the switch', draft.includes('Unsent draft words'), draft.slice(0, 80))
   await c.h.waitForTimeout(1500)
-  check('every book is backed up, even one not open', existsSync(join(root, 'backups', 'books', book, 'database', `mindflow-${day()}.db`)) && existsSync(join(root, 'backups', 'database', `mindflow-${day()}.db`)))
+  check('every book is backed up, even one not open', existsSync(join(root, 'backups', 'books', book, 'database', `haligtree-${day()}.db`)) && existsSync(join(root, 'backups', 'database', `haligtree-${day()}.db`)))
   check('Rename works', await c.v('books:rename', book, 'Notion test') && (await shelf(c)).books.some((one) => one.id === book && one.name === 'Notion test'))
   check('My book can be renamed too', await c.v('books:rename', 'default', 'Main notes') && (await shelf(c)).name === 'Main notes')
   await c.v('books:rename', 'default', 'My book')
   check('My book cannot be deleted', (await c.v('books:delete', 'default')) === null)
   second = await c.v('books:create', 'Apple Notes test')
   await stub(c)
-  await c.h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:book-switch', { detail: 'sandbox' })))
+  await c.h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:book-switch', { detail: 'sandbox' })))
   const args = await relaunched(c)
   check('Sandbox from Switch book', argsOf(args) === '--sandbox', JSON.stringify(args))
   await c.close()
@@ -167,7 +167,7 @@ await wait(1200)
   check('in the sandbox', (await shelf(c)).current === 'sandbox')
   await stub(c)
   // From the sandbox straight to the second book: its own way out, to that book.
-  await c.h.evaluate((one) => window.dispatchEvent(new CustomEvent('vigil:book-switch', { detail: one })), second)
+  await c.h.evaluate((one) => window.dispatchEvent(new CustomEvent('haligtree:book-switch', { detail: one })), second)
   const args = await relaunched(c)
   check('leaving the sandbox goes back with no book named', argsOf(args) === '', JSON.stringify(args))
   await c.close()
@@ -179,10 +179,10 @@ await wait(1200)
   check('which is empty', (await labels(c)).length === 0)
   check('the open book cannot be deleted', (await c.v('books:delete', second)) === null)
   const kept = await c.v('books:delete', book)
-  check('Delete keeps a whole copy first', !!kept && existsSync(join(kept, 'mindflow.db')) && existsSync(join(kept, 'assets')), kept)
+  check('Delete keeps a whole copy first', !!kept && existsSync(join(kept, 'haligtree.db')) && existsSync(join(kept, 'assets')), kept)
   check('then the book is gone', !existsSync(join(root, 'books', book)) && !(await shelf(c)).books.some((one) => one.id === book))
   await stub(c)
-  await c.h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:book-switch', { detail: 'default' })))
+  await c.h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:book-switch', { detail: 'default' })))
   check('and back to My book', argsOf(await relaunched(c)) === '--book=default')
   await c.close()
 }
@@ -253,12 +253,12 @@ let throwaway
 }
 await wait(1200)
 {
-  const folder = mkdtempSync(join(tmpdir(), 'vigil-books-md-'))
+  const folder = mkdtempSync(join(tmpdir(), 'haligtree-books-md-'))
   writeFileSync(join(folder, 'Lecture one.md'), '# Lecture one\n\nNotes from the first lecture.\n')
   writeFileSync(join(folder, 'Reading list.md'), 'Books to read this term.\n')
-  process.env.MINDFLOW_QA_PICK = folder
+  process.env.HALIGTREE_QA_PICK = folder
   const c = await launch(`--book=${throwaway}`)
-  delete process.env.MINDFLOW_QA_PICK
+  delete process.env.HALIGTREE_QA_PICK
   let list = []
   for (let i = 0; i < 40 && list.length < 2; i++) (await c.h.waitForTimeout(250), (list = await labels(c)))
   check('the import ran in the throwaway book', list.length === 2 && list.some((one) => one.includes('Lecture one')), JSON.stringify(list))

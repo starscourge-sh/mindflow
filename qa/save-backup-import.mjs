@@ -6,13 +6,13 @@
 // "Imported" dialog, naming the pictures it could not find; a restore is said
 // after the restart.
 //
-//   npx electron-vite build --outDir out-x && QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/save-backup-import.mjs
+//   npx electron-vite build --outDir out-x && QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/save-backup-import.mjs
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { sandbox } from './sandbox-lib.mjs'
 
-const root = mkdtempSync(join(tmpdir(), 'vigil-sbi-'))
+const root = mkdtempSync(join(tmpdir(), 'haligtree-sbi-'))
 process.env.QA_DATA = root
 process.env.QA_ARGS = ''
 const shots = process.env.SHOTS
@@ -21,7 +21,7 @@ const check = (name, ok, detail = '') => { results.push(!!ok); console.log(`${ok
 
 // The backup folder is a file, so every backup fails; and a restore was just done.
 writeFileSync(join(root, 'backups'), 'not a folder')
-writeFileSync(join(root, 'restored.json'), JSON.stringify({ made: new Date(Date.now() - 86400000 * 2).toISOString(), name: 'mindflow-x.db' }))
+writeFileSync(join(root, 'restored.json'), JSON.stringify({ made: new Date(Date.now() - 86400000 * 2).toISOString(), name: 'haligtree-x.db' }))
 
 const c = await sandbox({ seeded: false, width: 1100, height: 760 })
 const { h, electron, v } = c
@@ -87,7 +87,7 @@ try {
   check('the words typed while it failed are saved', body.includes('and more words'), body.slice(0, 120))
 
   // --- An import -----------------------------------------------------------------------------
-  const vault = mkdtempSync(join(tmpdir(), 'vigil-sbi-vault-'))
+  const vault = mkdtempSync(join(tmpdir(), 'haligtree-sbi-vault-'))
   mkdirSync(join(vault, 'Codex'))
   for (let i = 1; i <= 240; i++) writeFileSync(join(vault, 'Codex', `Note ${i}.md`), `# Note ${i}\n\nSome words about ${i}, linking [[Note ${i + 1}]].\n`)
   writeFileSync(join(vault, 'Diagram.md'), '# Diagram\n\n![[missing.png]] and ![[gone.jpg]]\n')
@@ -117,7 +117,7 @@ try {
   await h.keyboard.press('Escape')
   check('Esc puts it away', await waitFor(() => h.evaluate(() => !document.querySelector('[data-import-done]'))))
   await c.theme('dark')
-  await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:import-done', { detail: { from: 'Engineering Codex', made: 1240, inbox: 1240, pictures: 212, files: 14, links: 3020, missing: [{ link: 'x', title: 'Diagram', names: ['missing.png'] }], notes: ['18 were already here, from an earlier import, and were left as they were.'] } })))
+  await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:import-done', { detail: { from: 'Engineering Codex', made: 1240, inbox: 1240, pictures: 212, files: 14, links: 3020, missing: [{ link: 'x', title: 'Diagram', names: ['missing.png'] }], notes: ['18 were already here, from an earlier import, and were left as they were.'] } })))
   await h.waitForTimeout(700)
   await shot('import-done-dark')
   rmSync(vault, { recursive: true, force: true })

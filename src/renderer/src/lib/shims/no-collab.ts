@@ -7,7 +7,7 @@ import { APP_NAME } from '../../../../main/name'
  * config).
  *
  * The handle only uses them when an editor is shared live, which it finds out
- * by looking for the sync plugin. Vigil's editors never are, so the plugin is
+ * by looking for the sync plugin. Haligtree's editors never are, so the plugin is
  * never there and the rest is never called; standing in for them keeps that
  * library (and Yjs behind it) out of every window.
  */

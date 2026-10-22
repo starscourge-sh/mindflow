@@ -19,13 +19,13 @@ const SANDBOX = process.argv.includes('--sandbox')
 type Marks = Record<string, string>
 type Progress = { marks: Marks; hidden: boolean; doneAt: string | null }
 /**
- * What the welcome asked before anything else: what Vigil is for, what you
+ * What the welcome asked before anything else: what Haligtree is for, what you
  * used before, your first space (a #tag, with an exam date for a course) and
  * a goal. Each is optional; what was answered shapes the sidebar, Getting
  * started and the importer offered.
  */
 export type Setup = { use: 'study' | 'work' | 'writing' | 'life' | null; from: string[]; space: string | null; exam: string | null; goal: string | null; goalBy: string | null
-  /** What Vigil made from them (welcome-you.tsx, applySetup), so each is made once and can be taken back. */
+  /** What Haligtree made from them (welcome-you.tsx, applySetup), so each is made once and can be taken back. */
   made?: { sidebarWas?: string[] | null; sidebarFor?: Setup['use']; examTag?: string | null; goalId?: string | null; goalTitle?: string | null; goalBy?: string | null; /** The first capture, from “What's on your mind?” */ firstId?: string | null }
   /** The things made that were undone, left alone from then on. */
   undone?: ('sidebar' | 'exam' | 'goal')[]
@@ -54,7 +54,7 @@ const any = (sql: string): boolean => {
 const hasData = (): boolean =>
   any('select 1 from captures limit 1') || any('select 1 from nuggets limit 1') || any('select 1 from tasks limit 1')
 
-/** A brand-new Vigil: never welcomed and nothing in it. Never the sandbox, which has its own way in. */
+/** A brand-new Haligtree: never welcomed and nothing in it. Never the sandbox, which has its own way in. */
 export const firstRun = (): boolean => !SANDBOX && !read<string | null>('welcomed', null) && (!hasData() || read<boolean>('welcomeBegun', false))
 
 // --- the one key --------------------------------------------------------------
@@ -67,7 +67,7 @@ export function noteChord(made: string, now: string | null, ok: boolean): void {
   else taken.set(made, now)
 }
 /** For a test: pretend another app holds these keys (as Settings writes them). */
-export const pretendTaken = (now: string | null): boolean => !!now && (process.env.MINDFLOW_QA_TAKEN ?? '').split(',').includes(now)
+export const pretendTaken = (now: string | null): boolean => !!now && (process.env.HALIGTREE_QA_TAKEN ?? '').split(',').includes(now)
 
 let trayBounds: () => Electron.Rectangle | null = () => null
 export const whereTray = (find: () => Electron.Rectangle | null): void => void (trayBounds = find)
@@ -155,8 +155,8 @@ export const whenWelcoming = (watch: (on: boolean) => void): void => void welcom
 hushWhile(isWelcoming)
 
 export function registerOnboarding(): void {
-  ipcMain.handle('vigil:onboarding:state', () => state())
-  ipcMain.handle('vigil:onboarding:set', (_event, patch: Record<string, unknown>) => {
+  ipcMain.handle('haligtree:onboarding:state', () => state())
+  ipcMain.handle('haligtree:onboarding:set', (_event, patch: Record<string, unknown>) => {
     for (const [key, value] of Object.entries(patch ?? {})) {
       if (!PATCHABLE.has(key)) continue
       if (key === 'welcoming') {
@@ -171,7 +171,7 @@ export function registerOnboarding(): void {
     if ('hidden' in (patch ?? {})) write('onboarding', { ...read<Progress>('onboarding', { marks: {}, hidden: false, doneAt: null }), hidden: !!patch.hidden })
     return state()
   })
-  ipcMain.handle('vigil:onboarding:mark', (_event, step: unknown) => {
+  ipcMain.handle('haligtree:onboarding:mark', (_event, step: unknown) => {
     if (typeof step !== 'string') return state()
     const now = read<Progress>('onboarding', { marks: {}, hidden: false, doneAt: null })
     if (!now.marks?.[step]) write('onboarding', { ...now, marks: { ...now.marks, [step]: new Date().toISOString() } })
@@ -179,10 +179,10 @@ export function registerOnboarding(): void {
   })
   // Every step done: the day is written down once, and the celebration given
   // if one may play now (it waits, never lost, if another just played).
-  ipcMain.handle('vigil:onboarding:finish', (_event, name?: unknown) => {
+  ipcMain.handle('haligtree:onboarding:finish', (_event, name?: unknown) => {
     const now = read<Progress>('onboarding', { marks: {}, hidden: false, doneAt: null })
     if (!now.doneAt) write('onboarding', { ...now, doneAt: new Date().toISOString() })
     return startedMoment(typeof name === 'string' ? name : '')
   })
-  ipcMain.handle('vigil:onboarding:welcoming', () => welcoming)
+  ipcMain.handle('haligtree:onboarding:welcoming', () => welcoming)
 }

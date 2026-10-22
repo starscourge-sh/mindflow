@@ -1,4 +1,4 @@
-// Vigil's icon vocabulary, written once: each name is a moving drawing in
+// Haligtree's icon vocabulary, written once: each name is a moving drawing in
 // lucide's shape (alive), one name per drawing. A file that means something
 // else by it names it so on import: `import { Bookmark as Pin }`.
 // Each is marked pure so a window's code keeps only the icons it shows.

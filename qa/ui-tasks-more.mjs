@@ -6,8 +6,8 @@
 // PART=welcome runs the welcome instead (no --sandbox: a first run).
 // Each: no sideways scroll, nothing cut off without an ellipsis or fade,
 // no menu or popover off the window.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 MINDFLOW_QA_MAC_DICT=on node qa/ui-tasks-more.mjs
-//   QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 PART=welcome node qa/ui-tasks-more.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 HALIGTREE_QA_MAC_DICT=on node qa/ui-tasks-more.mjs
+//   QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 PART=welcome node qa/ui-tasks-more.mjs
 // SHOTS=<folder> keeps a picture of each; THEME=dark runs it dark.
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
@@ -62,7 +62,7 @@ const SIZES = process.env.QUICK ? [[900, 640]] : [[560, 400], [900, 640], [1920,
 try {
   if (welcome) {
     if (process.env.THEME) await c.theme(process.env.THEME)
-    if (!(await h.waitForSelector('.mf-welcome', { timeout: 8000 }).then(() => true, () => false))) await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:welcome')))
+    if (!(await h.waitForSelector('.mf-welcome', { timeout: 8000 }).then(() => true, () => false))) await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:welcome')))
     await h.waitForSelector('.mf-welcome', { timeout: 8000 })
     // Each chapter at every size, pressed on as a reader would.
     for (let step = 0; step < 14; step++) {
@@ -147,7 +147,7 @@ try {
       await boxSize(bw, bh); await page.waitForTimeout(600)
       const at = `box ${bw}x${bh}`
       // The tabs live in the side panel, shown once the box is wide enough for it.
-      const writing = await page.evaluate(() => document.querySelector('.tiptap.ProseMirror.mindflow-editor:not(.is-line)')?.getBoundingClientRect().height ?? 0)
+      const writing = await page.evaluate(() => document.querySelector('.tiptap.ProseMirror.haligtree-editor:not(.is-line)')?.getBoundingClientRect().height ?? 0)
       check(`${at}: the writing keeps room for a line (${Math.round(writing)}px)`, writing >= 24)
       for (let tab = 1; tab <= 5; tab++) { await page.keyboard.press(`Control+${tab}`); await page.waitForTimeout(600); await look(`${at} tab ${tab}`, page) }
       const kind = page.getByRole('button', { name: /^Note/ }).first()
@@ -155,7 +155,7 @@ try {
       const gear = page.getByRole('button', { name: 'Actions' }).first()
       if (await gear.count()) { await gear.click(); await page.waitForTimeout(600); await look(`${at} gear menu`, page); await page.mouse.click(5, 5); await page.waitForTimeout(300) }
       // A word's meaning.
-      await page.click('.tiptap.ProseMirror.mindflow-editor:not(.is-line)').catch(() => {})
+      await page.click('.tiptap.ProseMirror.haligtree-editor:not(.is-line)').catch(() => {})
       await page.keyboard.press('Meta+a'); await page.keyboard.press('Backspace')
       await page.keyboard.type('serendipity', { delay: 20 }); await page.waitForTimeout(2500)
       await look(`${at} word meaning`, page)
@@ -167,7 +167,7 @@ try {
         const blob = await new Promise((done) => canvas.toBlob(done, 'image/png'))
         const data = new DataTransfer()
         data.items.add(new File([blob], 'a-very-long-screenshot-name-from-the-lecture-on-the-romantic-sublime.png', { type: 'image/png' }))
-        document.querySelector('.tiptap.ProseMirror.mindflow-editor:not(.is-line)')?.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }))
+        document.querySelector('.tiptap.ProseMirror.haligtree-editor:not(.is-line)')?.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }))
       })
       await page.waitForTimeout(1500)
       await look(`${at} attachment`, page)

@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto'
 
 import { LABEL, atomically, changed, database, like } from './captures'
 import { writeMarkdown } from './backup'
-import { markdown } from './vigil'
+import { markdown } from './haligtree'
 import { renameLinks } from './link-rename'
 import { nameLineIn } from './blocks'
 
@@ -101,7 +101,7 @@ export function rewrite(link: string, from: string, to: string): { count: number
 export function registerRenames(): void {
   // A link made to one line of a note: that line is given its lasting name
   // where it lives, saved like any edit, and the name handed back.
-  ipcMain.handle('vigil:notes:anchor', (_event, link: string, index: number, text: string) => {
+  ipcMain.handle('haligtree:notes:anchor', (_event, link: string, index: number, text: string) => {
     const { table, id } = partsOf(String(link))
     const db = database()
     const row = db.prepare(`select body${table === 'captures' ? ', number' : ''} from ${table} where id = ?`).get(id) as { body: string | null; number?: number } | undefined
@@ -123,7 +123,7 @@ export function registerRenames(): void {
   // A page made by following a link to nothing, opened and left with nothing
   // but its name: not kept, as Obsidian keeps none. Anything written in it, a
   // tag, a picture, a second line, and it stays.
-  ipcMain.handle('vigil:ghost:drop', (_event, id: string, name: string) => {
+  ipcMain.handle('haligtree:ghost:drop', (_event, id: string, name: string) => {
     const db = database()
     const row = db.prepare(`select body, status, ${LABEL} as label from captures where id = ?`).get(String(id)) as { body: string | null; status: string; label: string } | undefined
     if (!row || row.status !== 'open') return false
@@ -143,7 +143,7 @@ export function registerRenames(): void {
   })
 
   // Undo: each note put back as it was, unless it has been written since.
-  ipcMain.handle('vigil:links:rename:undo', (_event, token: string) => {
+  ipcMain.handle('haligtree:links:rename:undo', (_event, token: string) => {
     const done = undos.get(String(token))
     undos.delete(String(token))
     if (!done) return 0

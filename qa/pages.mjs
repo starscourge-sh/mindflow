@@ -1,6 +1,6 @@
 // Note windows, split panes and peeks, and a piece's word aim: each move
 // played in the sandbox and checked, with pictures of each state.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-pages/main/index.js MINDFLOW_QA_AWAY=1 MINDFLOW_QA_VIRTUAL=1 SHOTS=<dir> THEME=paper node qa/pages.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-pages/main/index.js HALIGTREE_QA_AWAY=1 HALIGTREE_QA_VIRTUAL=1 SHOTS=<dir> THEME=paper node qa/pages.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -62,7 +62,7 @@ await win.waitForSelector('.ProseMirror', { timeout: 8000 })
 await win.waitForTimeout(600)
 const carried = await win.evaluate(() => document.querySelector('.note-pane .ProseMirror').editor.state.selection.from)
 check(carried === startAt, 'the caret arrives where it was', `${carried} vs ${startAt}`)
-check(await win.locator('[data-open-in-vigil]').count() === 1, 'the note window has Open in Haligtree')
+check(await win.locator('[data-open-in-haligtree]').count() === 1, 'the note window has Open in Haligtree')
 await shot(win, 'note-window')
 
 // --- F4 back: ⌘O in the note window, the caret moved first
@@ -102,7 +102,7 @@ check((await h.locator('[data-apart-trace]').count()) === 0 && (await h.locator(
 
 // --- F1: a word aim, through ⌘K's own question
 const words = await h.evaluate((sel) => window.__vis(sel).editor.getText().split(/\s+/).filter(Boolean).length, editor)
-await h.evaluate(() => window.dispatchEvent(new CustomEvent('mindflow:aim')))
+await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:aim')))
 await wait(400)
 const askBox = h.locator('[role="dialog"] input, [role="dialog"] textarea').first()
 await askBox.fill(`${words + 400} by friday`)
@@ -116,7 +116,7 @@ const counted = Number(((await aim.innerText()).match(/([\d,]+) of/) ?? ['', '0'
 await h.evaluate(([sel, n]) => {
   const id = window.__vis(sel).closest('[data-apart-note]').getAttribute('data-apart-note')
   localStorage.setItem(`mf:aim:capture-${id}`, JSON.stringify({ words: n, by: null }))
-  window.dispatchEvent(new CustomEvent('mindflow:aim-changed', { detail: `capture-${id}` }))
+  window.dispatchEvent(new CustomEvent('haligtree:aim-changed', { detail: `capture-${id}` }))
 }, [editor, Math.ceil(counted / 0.93)])
 await wait(500)
 check((await aim.getAttribute('data-word-aim')) === 'charging' && /Nearly there/.test(await aim.innerText()), 'from 90% it charges and says how many are left', await aim.innerText())

@@ -1,6 +1,6 @@
 # Haligtree
 
-(The repository, the package and the data folder keep their first name, `mindflow`.)
+(It was called Vigil, and mindflow before that. Only the repository folder keeps the name `mindflow`.)
 
 A capture box you summon with a key, and the editor inside it.
 
@@ -33,13 +33,13 @@ npm run dev
 
 ```
 src/main/        the Electron side: the windows, the global key, the capture store
-src/preload/     the bridge, which is what `MindflowHost` is implemented over
+src/preload/     the bridge, which is what `HaligtreeHost` is implemented over
 src/renderer/
-  components/mindflow/   the editor, and its public surface in `index.ts`
+  components/haligtree/   the editor, and its public surface in `index.ts`
   extensions/            one file per block or behaviour
   lib/                   host, theme, vim, and the pure functions over a document
 qa/              Playwright suites, run with `node qa/<name>.mjs` after a build
 ```
 
-Anything not named in `components/mindflow/index.ts` is the component's own
+Anything not named in `components/haligtree/index.ts` is the component's own
 business and may move.

@@ -1,6 +1,6 @@
 // Back after a long time away: Haligtree opens with only capture and Today, and
 // "Show everything" brings the rest back for this run.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-calm/main/index.js MINDFLOW_QA_AWAY=1 node qa/back-after-gap.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-calm/main/index.js HALIGTREE_QA_AWAY=1 node qa/back-after-gap.mjs
 import { readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
@@ -10,7 +10,7 @@ const results = []
 const check = (name, ok, detail = '') => { results.push(!!ok); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`) }
 const dbs = (dir) => readdirSync(dir).flatMap((name) => {
   const path = join(dir, name)
-  return statSync(path).isDirectory() ? dbs(path) : name === 'mindflow.db' ? [path] : []
+  return statSync(path).isDirectory() ? dbs(path) : name === 'haligtree.db' ? [path] : []
 })
 const rows = (h) => h.evaluate(() => [...document.querySelectorAll('nav [data-side-row]')].map((row) => row.textContent.trim()).filter((t) => t && !['Tasks', 'Saved'].includes(t)))
 

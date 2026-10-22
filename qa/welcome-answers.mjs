@@ -8,7 +8,7 @@
 //    in shows the card filled with it, beside the questions, with a line saying where it goes, and never over them
 //  - the postcard floats with Motion on, keeps floating under the pointer here, and is still with Motion off
 //
-//   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/welcome-answers.mjs [shots-dir] [light|dark]
+//   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/welcome-answers.mjs [shots-dir] [light|dark]
 import { mkdirSync, mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -26,7 +26,7 @@ const check = (name, ok, more = '') => {
 }
 const open = async (h) => {
   const own = await h.waitForSelector('.mf-welcome', { timeout: 8000 }).then(() => true, () => false)
-  if (!own) await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:welcome')))
+  if (!own) await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:welcome')))
   await h.waitForSelector('.mf-welcome', { timeout: 8000 })
 }
 const NEXT = 'footer button:has-text("Next"), footer button:has-text("Show me")'
@@ -311,7 +311,7 @@ try {
 // --- nothing answered: it flows straight on ---
 {
   // A fresh install of its own: a first run, nothing answered.
-  const fresh = mkdtempSync(join(tmpdir(), 'mindflow-qa-'))
+  const fresh = mkdtempSync(join(tmpdir(), 'haligtree-qa-'))
   process.env.QA_DATA = fresh
   const d = await sandbox({ width: 1280, height: 800, seeded: false })
   try {

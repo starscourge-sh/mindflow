@@ -1,6 +1,6 @@
 import { chime } from './sound'
-import { toast } from '@/components/vigil/ui'
-import { call, useLive, vigil } from './vigil'
+import { toast } from '@/components/haligtree/ui'
+import { call, useLive, haligtree } from './haligtree'
 import { follow } from './capture-links'
 import { dayKey, dayMonth, num } from '../../../main/dates'
 import { daysBetween } from '../../../main/goal-days'
@@ -53,7 +53,7 @@ export async function markDay(day: string, existing?: Milestone | null): Promise
   // A tag's exam is changed on its tag.
   if (existing?.exam) return void window.api.openInHome('tag', existing.exam)
   const asked = await new Promise<(Partial<Milestone> & { day: string; title: string }) | 'drop' | null>((answer) =>
-    window.dispatchEvent(new CustomEvent('vigil:mark-day', { detail: { answer, day, existing: existing ?? null } })))
+    window.dispatchEvent(new CustomEvent('haligtree:mark-day', { detail: { answer, day, existing: existing ?? null } })))
   if (!asked) return
   if (asked === 'drop') {
     if (!existing) return
@@ -75,9 +75,9 @@ export async function moveMark(one: Milestone, day: string): Promise<void> {
   const said = `${one.title} moved to ${dayMonth(`${day}T12:00`)}`
   if (one.exam) {
     const tag = one.exam
-    await vigil.setTag(tag, { examAt: day })
+    await haligtree.setTag(tag, { examAt: day })
     chime('tap')
-    return toast(said, () => void vigil.setTag(tag, { examAt: one.day }))
+    return toast(said, () => void haligtree.setTag(tag, { examAt: one.day }))
   }
   const made = await marks.set({ ...one, day })
   if (!made) return

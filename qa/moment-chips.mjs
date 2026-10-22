@@ -1,7 +1,7 @@
-// Settings, Celebrations: each moment's three choices ("Vigil's drawing" or
+// Settings, Celebrations: each moment's three choices ("Haligtree's drawing" or
 // "Just the tick", "Your file", "Giphy") are whole at every width, wrapping to
 // a second line rather than running past the row's edge.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/moment-chips.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/moment-chips.mjs
 import { sandbox } from './sandbox-lib.mjs'
 const results = []
 const check = (name, ok, detail = '') => { results.push(!!ok); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`) }

@@ -2,7 +2,7 @@
 // focus sections, read from the sandbox's ten weeks of seeded sessions. Then
 // a break taken from the pill's way ("Break" timer) leaves a row behind, and
 // a task with no sessions shows nothing. Pictures in paper, dark and Brutal.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-stats/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=<dir> node qa/focus-stats.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-stats/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=<dir> node qa/focus-stats.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 

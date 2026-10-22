@@ -78,7 +78,7 @@ async function switchTo(id: BookId, carry: unknown, then?: unknown): Promise<boo
 
 type Row = Record<string, unknown>
 type Parcel = { from: string; at: string; items: { table: 'captures' | 'nuggets'; row: Row; glosses: Row[] }[] }
-const ASSET = /mindflow:\/\/assets\/([a-f0-9]{64}\.[a-z0-9]+)/g
+const ASSET = /haligtree:\/\/assets\/([a-f0-9]{64}\.[a-z0-9]+)/g
 
 /** Copies of these notes, written down for another book with their pictures and files. The count copied. */
 async function copyInto(refs: unknown, id: BookId): Promise<number> {
@@ -204,13 +204,13 @@ export async function backUpOthers(dirFor: (id: string | null) => string): Promi
   for (const book of books()) {
     if (book.current) continue
     const folder = folderOf(book.id)
-    const file = folder && join(folder, 'mindflow.db')
+    const file = folder && join(folder, 'haligtree.db')
     if (!file || !existsSync(file)) continue
     const dir = join(dirFor(book.id === 'default' ? null : book.id), 'database')
-    const today = join(dir, `mindflow-${dayKey()}.db`)
+    const today = join(dir, `haligtree-${dayKey()}.db`)
     if (existsSync(today)) continue
     await mkdir(dir, { recursive: true })
-    const copies = (await readdir(dir)).filter((name) => /^mindflow-\d{4}-\d{2}-\d{2}\.db$/.test(name)).sort()
+    const copies = (await readdir(dir)).filter((name) => /^haligtree-\d{4}-\d{2}-\d{2}\.db$/.test(name)).sort()
     const latest = copies.at(-1)
     // Saves not yet folded into the file wait in its log, so the newer of the
     // two says when it last changed; a log written before the last copy (or
@@ -233,7 +233,7 @@ export async function backUpOthers(dirFor: (id: string | null) => string): Promi
 
 export function registerBooks(backupBase: () => string, onChange: () => void): void {
   const handle = (channel: string, run: (...args: never[]) => unknown): void =>
-    void ipcMain.handle(`vigil:books:${channel}`, (_event, ...args) => run(...(args as never[])))
+    void ipcMain.handle(`haligtree:books:${channel}`, (_event, ...args) => run(...(args as never[])))
   const tell = (): void => {
     for (const win of BrowserWindow.getAllWindows()) if (!win.isDestroyed()) win.webContents.send('books:changed')
     onChange()
@@ -309,7 +309,7 @@ export function registerBooks(backupBase: () => string, onChange: () => void): v
       await mkdir(kept, { recursive: true })
       await cp(folder, kept, { recursive: true })
       // Only once the copy is there in full.
-      if (!existsSync(join(folder, 'mindflow.db')) || existsSync(join(kept, 'mindflow.db'))) await rm(folder, { recursive: true, force: true })
+      if (!existsSync(join(folder, 'haligtree.db')) || existsSync(join(kept, 'haligtree.db'))) await rm(folder, { recursive: true, force: true })
       else return null
     }
     const shelf = readShelf()
@@ -330,7 +330,7 @@ export function registerBooks(backupBase: () => string, onChange: () => void): v
     const forget = (): null => (writeShelf({ ...readShelf(), kept: undefined }), null)
     if (kept === here()) return forget()
     const folder = folderOf(kept)
-    const file = folder && join(folder, 'mindflow.db')
+    const file = folder && join(folder, 'haligtree.db')
     if (!file || !existsSync(file)) return forget()
     let other: DatabaseSync | null = null
     try {

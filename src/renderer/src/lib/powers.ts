@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
-import { vigil, type Item } from './vigil'
+import { haligtree, type Item } from './haligtree'
 import { notes } from './notes'
 import { onboarding } from './onboarding'
 import { SANDBOX } from './sandbox'
 import { APP_NAME, LEARN_TAG } from '../../../main/name'
 
 /**
- * What Vigil can do, one card each: the powers the app never shows until you
+ * What Haligtree can do, one card each: the powers the app never shows until you
  * need them, grouped by what they are for. The page that lists them is
- * components/vigil/powers-view.tsx; each card's moving picture is in
+ * components/haligtree/powers-view.tsx; each card's moving picture is in
  * power-demos.tsx, under the same id.
  */
 export type Group = 'Catching' | 'Writing' | 'Remembering' | 'Planning' | 'Seeing your year' | 'Windows' | 'Bringing notes in'
@@ -127,7 +127,7 @@ export const POWERS: Power[] = [
     show: { view: 'tags', at: ROW, text: 'Open a tag and choose “Blurt” at the top. What you write is kept on today’s page.' } },
   { id: 'reviewreminder', group: 'Remembering', name: 'A reminder to review', tryIt: 'In Settings, turn on “Review reminder” and pick a time.', line: 'At the time you pick, a notification says how many cards are due and about how long they take; it stays quiet when none are.',
     show: { view: 'settings', settings: 'Review', find: 'Review reminder', at: '[data-setting]', text: 'Turn it on and pick a time. Never in quiet hours.' } },
-  { id: 'learnvigil', group: 'Remembering', name: `Learn ${APP_NAME} by reviewing it`, line: `One click adds about twenty cards on what ${APP_NAME} does without showing it, tagged #${LEARN_TAG}; they come a few a day.`,
+  { id: 'learnhaligtree', group: 'Remembering', name: `Learn ${APP_NAME} by reviewing it`, line: `One click adds about twenty cards on what ${APP_NAME} does without showing it, tagged #${LEARN_TAG}; they come a few a day.`,
     show: { view: 'powers', at: '[data-learn]', text: 'Add the deck here, or from Getting started.' }, used: (s) => s.tags.includes(LEARN_TAG) },
   { id: 'learnmode', group: 'Remembering', name: 'Learn mode', tryIt: 'In Review, choose “Learn 8 new” at the top, beside “Practise”; it says how many new cards wait.', line: 'New cards asked twice, first as a choice of answers and then written out, with a bar that fills, until each is learnt and joins the schedule.', keys: ['1', '2', '3', '4'],
     show: { view: 'review', at: '[data-learn-new]', text: 'Learn the new cards before they join the schedule.' } },
@@ -144,7 +144,7 @@ export const POWERS: Power[] = [
   { id: 'listcards', group: 'Remembering', name: 'Paste a list, get cards', tryIt: 'Paste a few lines like Ephemeral - lasting a very short time.', line: 'Paste lines of “term - meaning” into any note and a toast offers to make each one a card.',
     show: { view: 'day', at: '.tiptap.ProseMirror', text: 'Paste three lines of term - meaning, then choose “Make 3 cards”.' } },
   { id: 'strength', group: 'Remembering', name: 'A card’s own history', tryIt: 'Open a gem you have reviewed, click “Details”, and open “Comes back”.', line: 'Every gem you review keeps its dated grades, and a line of how long it would hold after each one.',
-    show: { view: 'nuggets', focus: async () => (await vigil.items('nugget')).find((item) => item.prompt && item.reviewed > 0 && !item.suspended)?.id, at: '[data-strength]', text: 'Its dated grades and strength line, under “Comes back” in “Details”.' } },
+    show: { view: 'nuggets', focus: async () => (await haligtree.items('nugget')).find((item) => item.prompt && item.reviewed > 0 && !item.suspended)?.id, at: '[data-strength]', text: 'Its dated grades and strength line, under “Comes back” in “Details”.' } },
   { id: 'fit', group: 'Remembering', name: 'Review fitted to your memory', tryIt: 'In Settings, Review, choose “Fit now” once you have a thousand reviews.', line: `After a thousand reviews, ${APP_NAME} works out how long a new card lasts for you, from whether you remembered it next time.`,
     show: { view: 'settings', settings: 'Review', find: 'Fit to my memory', at: '[data-setting]', text: 'It counts your reviews until there are enough.' } },
   { id: 'daysinarow', group: 'Remembering', name: 'Days in a row, rest days banked', line: 'Review quietly counts the days in a row you reviewed; each full week banks a rest day, up to three, and a day off spends one instead of ending the run.',
@@ -247,11 +247,11 @@ export type Signs = {
 async function read(): Promise<Signs> {
   const [state, items, tasks, tags, captures, year] = await Promise.all([
     onboarding.state(),
-    Promise.all((['nugget', 'article', 'question', 'goal'] as const).map((tier) => vigil.items(tier))).then((all) => all.flat()),
-    vigil.tasks(),
-    vigil.tags(),
+    Promise.all((['nugget', 'article', 'question', 'goal'] as const).map((tier) => haligtree.items(tier))).then((all) => all.flat()),
+    haligtree.tasks(),
+    haligtree.tags(),
     window.api.captures.list(),
-    vigil.year(String(new Date().getFullYear())).catch(() => [])
+    haligtree.year(String(new Date().getFullYear())).catch(() => [])
   ])
   let board = false
   try {
@@ -265,7 +265,7 @@ async function read(): Promise<Signs> {
   // A #book rated: only the books, and at most a few dozen of them.
   let rated = false
   if (tags.some((one) => one.tag === 'book')) {
-    const books = (await vigil.tag('book')).slice(0, 40)
+    const books = (await haligtree.tag('book')).slice(0, 40)
     for (const book of books) {
       const fields = await notes.fields(book.type === 'capture' ? 'captures' : 'nuggets', book.id).catch(() => ({}) as Record<string, unknown>)
       if (Number(fields.rating) > 0) {

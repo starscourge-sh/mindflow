@@ -9,7 +9,7 @@
 //   - nothing has scrollTop > 0 just after opening.
 //
 //   npx electron-vite build --outDir out-scroll
-//   QA_ENTRY=out-scroll/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=<dir> node qa/no-needless-scroll.mjs
+//   QA_ENTRY=out-scroll/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=<dir> node qa/no-needless-scroll.mjs
 import { mkdtempSync, mkdirSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -153,7 +153,7 @@ async function walk(c, state) {
 }
 
 async function run(state, args) {
-  const data = mkdtempSync(join(tmpdir(), 'mindflow-scroll-'))
+  const data = mkdtempSync(join(tmpdir(), 'haligtree-scroll-'))
   process.env.QA_DATA = data
   process.env.QA_ARGS = args
   const c = await sandbox({ width: SIZES[0][0], height: SIZES[0][1], seeded: args.includes('--sandbox') })
@@ -173,7 +173,7 @@ async function run(state, args) {
     if (state === 'full') {
       // Many of each, so every list runs well past its fold.
       await c.h.evaluate(async () => {
-        const v = window.api.vigil
+        const v = window.api.haligtree
         for (let i = 0; i < 30; i++) await v('task:add', `Check the shelf number ${i + 1}`, null, i % 2 === 0)
         for (let i = 0; i < 24; i++) {
           const id = await window.api.captures.create({ body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: `A thought worth keeping, number ${i + 1}` }] }] } })

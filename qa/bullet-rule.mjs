@@ -1,6 +1,6 @@
 // Typing "---" in a bullet (or a checkbox line) in quick capture turns the
 // bullet into one full-width rule, out of the list, not a marker with a line.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/bullet-rule.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/bullet-rule.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const results = []

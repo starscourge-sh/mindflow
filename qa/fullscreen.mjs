@@ -1,7 +1,7 @@
 // The main window's full screen, checked without ever entering it (that
 // would take over a Space on the screen of whoever runs this): the Mac's own
 // calls are stood in for, and the window's events are sent by hand.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out/main/index.js MINDFLOW_QA_AWAY=1 node qa/fullscreen.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out/main/index.js HALIGTREE_QA_AWAY=1 node qa/fullscreen.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const { electron, h, errors, close } = await sandbox()

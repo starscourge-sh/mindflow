@@ -1,7 +1,7 @@
 import type * as Chrono from 'chrono-node'
 
 // What main reads of chrono-node (task-words.ts), read the first time a date
-// is asked for rather than as Vigil opens: it takes about 30ms to load.
+// is asked for rather than as Haligtree opens: it takes about 30ms to load.
 // electron.vite.config.ts points main's import of it here; the tests and the
 // windows import the real one. It stays outside main's bundle (a dependency),
 // so it can be required the moment it is needed, with nothing to wait for.

@@ -4,7 +4,7 @@ import { readdir, realpath, stat } from 'fs/promises'
 import { basename, extname, isAbsolute, join } from 'path'
 import { database } from './captures'
 import { dayjs, dayKey, num, startOfDay } from './dates'
-import { celebrationPrefs, gate, openGoals } from './vigil'
+import { celebrationPrefs, gate, openGoals } from './haligtree'
 import { daysBetween, daysLeft, wayThrough } from './goal-days'
 import { isSprite } from './sprite'
 import { sourceOf } from './moment-source'
@@ -76,7 +76,7 @@ async function media(folder: string): Promise<Media[]> {
     if (!facts?.size || facts.size > LARGEST) continue
     const name = nameFor(path)
     names.set(name, path)
-    items.push({ url: `mindflow://celebrate/${name}`, video: KINDS[ext] === 'video', name: entry.name, sprite: await spriteAt(path, facts) })
+    items.push({ url: `haligtree://celebrate/${name}`, video: KINDS[ext] === 'video', name: entry.name, sprite: await spriteAt(path, facts) })
   }
   // Another folder (Settings counting one) is only counted, so a card
   // showing now keeps its file.
@@ -105,7 +105,7 @@ async function picks(): Promise<Partial<Record<MomentKind, Media[]>>> {
       if (!facts?.isFile() || !facts.size || facts.size > LARGEST) continue
       const name = nameFor(path)
       names.set(name, path)
-      list.push({ url: `mindflow://celebrate/${name}`, video: KINDS[ext] === 'video', name: basename(path), sprite: await spriteAt(path, facts), path: asked })
+      list.push({ url: `haligtree://celebrate/${name}`, video: KINDS[ext] === 'video', name: basename(path), sprite: await spriteAt(path, facts), path: asked })
     }
     if (list.length) out[kind] = list
   }
@@ -127,7 +127,7 @@ const TINT = { blue: 'var(--tt-color-text-blue)', orange: 'var(--tt-color-text-o
 const count = (sql: string, ...args: (string | number)[]): number => (database().prepare(sql).get(...args) as { n: number }).n
 const fired = (id: string): boolean => !!database().prepare('select 1 from celebrations where id = ?').get(id)
 const today = (): string => new Date(startOfDay()).toISOString()
-/** Typed into Vigil, not brought in by an import. */
+/** Typed into Haligtree, not brought in by an import. */
 const TYPED = "coalesce(source, '') = ''"
 
 // Each milestone is the highest one reached, not an exact count, so one held
@@ -434,22 +434,22 @@ export function registerCelebrations(): void {
   })
   // The files in a folder: the one asked about (Settings' count, never then
   // loadable unless it is the saved one), or the saved one.
-  ipcMain.handle('vigil:celebrations', (_event, folder?: unknown) =>
+  ipcMain.handle('haligtree:celebrations', (_event, folder?: unknown) =>
     media(typeof folder === 'string' ? folder : celebrationPrefs().folder))
   // The files picked for each moment, from the settings, each followed and checked by picks().
-  ipcMain.handle('vigil:celebrations:picks', () => picks())
+  ipcMain.handle('haligtree:celebrations:picks', () => picks())
   // A GIF from Giphy for a card now (null: play what it would anyway), the day's results to star, and one to see.
-  ipcMain.handle('vigil:celebrations:giphy', () => giphyNow().catch(() => null))
-  ipcMain.handle('vigil:celebrations:giphy:list', () => giphyList().catch(() => ({ gifs: [], why: 'offline' as const })))
-  ipcMain.handle('vigil:celebrations:giphy:one', (_event, id: unknown) => giphyOne(id).catch(() => null))
+  ipcMain.handle('haligtree:celebrations:giphy', () => giphyNow().catch(() => null))
+  ipcMain.handle('haligtree:celebrations:giphy:list', () => giphyList().catch(() => ({ gifs: [], why: 'offline' as const })))
+  ipcMain.handle('haligtree:celebrations:giphy:one', (_event, id: unknown) => giphyOne(id).catch(() => null))
   warmGiphy()
   // One GIF pinned for a moment: searched for, picked, and played (from the cache, offline too).
-  ipcMain.handle('vigil:celebrations:giphy:search', (_event, words: unknown) => giphySearch(words).catch(() => ({ gifs: [], why: 'offline' as const })))
-  ipcMain.handle('vigil:celebrations:giphy:pick', (_event, id: unknown) => giphyPick(id).catch(() => null))
-  ipcMain.handle('vigil:celebrations:giphy:pinned', (_event, kind: unknown) => giphyPinned(kind).catch(() => null))
+  ipcMain.handle('haligtree:celebrations:giphy:search', (_event, words: unknown) => giphySearch(words).catch(() => ({ gifs: [], why: 'offline' as const })))
+  ipcMain.handle('haligtree:celebrations:giphy:pick', (_event, id: unknown) => giphyPick(id).catch(() => null))
+  ipcMain.handle('haligtree:celebrations:giphy:pinned', (_event, kind: unknown) => giphyPinned(kind).catch(() => null))
   keepPins()
-  ipcMain.handle('vigil:celebrations:sticky', (_event, id: unknown) => stickyDone(id))
-  ipcMain.handle('vigil:celebrations:choose', async () => {
+  ipcMain.handle('haligtree:celebrations:sticky', (_event, id: unknown) => stickyDone(id))
+  ipcMain.handle('haligtree:celebrations:choose', async () => {
     const { filePaths } = await dialog.showOpenDialog({
       title: 'Choose what plays',
       buttonLabel: 'Use these',

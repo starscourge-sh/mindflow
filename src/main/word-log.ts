@@ -54,7 +54,7 @@ export function registerWordLog(): void {
   }
 
   // Today, this week from Monday, the last seven days before it, a year of days, and today's notes with their words.
-  ipcMain.handle('vigil:words:stats', () => {
+  ipcMain.handle('haligtree:words:stats', () => {
     const today = (db.prepare("select date('now', 'localtime') as d").get() as { d: string }).d
     const monday = (db.prepare("select date('now', 'localtime', '-' || ((cast(strftime('%w', 'now', 'localtime') as integer) + 6) % 7) || ' days') as d").get() as { d: string }).d
     const sum = (from: string, to: string): number => (db.prepare('select coalesce(sum(words), 0) as n from word_days where day >= ? and day <= ?').get(from, to) as { n: number }).n

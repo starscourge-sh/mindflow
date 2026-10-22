@@ -1,6 +1,6 @@
 import { host } from "@/lib/host"
 
-import type { MindflowHost } from "@/lib/host"
+import type { HaligtreeHost } from "@/lib/host"
 import type { JSONContent } from "@tiptap/core"
 
 /**
@@ -167,7 +167,7 @@ function decode(src: string): { mime: string; bytes: Uint8Array } | null {
  */
 export async function localise(
   doc: JSONContent | null | undefined,
-  using: MindflowHost = host()
+  using: HaligtreeHost = host()
 ): Promise<JSONContent | null | undefined> {
   if (!doc || !using.saveImage) return doc
 
@@ -199,7 +199,7 @@ export async function localise(
   /** Swap one attribute for its stored copy, if there is anything to swap. */
   const swap = async (attrs: Record<string, unknown>, key: string): Promise<void> => {
     const src = attrs[key]
-    if (typeof src !== "string" || !src || src.startsWith("mindflow://")) return
+    if (typeof src !== "string" || !src || src.startsWith("haligtree://")) return
     const url = await store(src)
     if (url) attrs[key] = url
   }

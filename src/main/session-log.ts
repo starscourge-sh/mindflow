@@ -25,13 +25,13 @@ export function registerSessionLog(): void {
   db.exec('delete from session_log where session_id not in (select id from sessions)')
 
   const handle = (channel: string, run: (...args: never[]) => unknown): void =>
-    void ipcMain.handle(`vigil:${channel}`, (_event, ...args) => run(...(args as never[])))
+    void ipcMain.handle(`haligtree:${channel}`, (_event, ...args) => run(...(args as never[])))
 
   handle('session-log', (sessionId: string) =>
     db.prepare(`select ${ENTRY} from session_log l where l.session_id = ? order by l.at`).all(String(sessionId)))
   handle('session-log:add', (sessionId: string, text: string, asset?: string | null, assetName?: string | null) => {
     const words = String(text ?? '').trim()
-    const file = typeof asset === 'string' && /^mindflow:\/\/assets\/[a-f0-9]{64}\.[a-z0-9]+$/.test(asset) ? asset : null
+    const file = typeof asset === 'string' && /^haligtree:\/\/assets\/[a-f0-9]{64}\.[a-z0-9]+$/.test(asset) ? asset : null
     if (!words && !file) return null
     if (!db.prepare('select 1 from sessions where id = ?').get(String(sessionId))) return null
     const entry = { id: randomUUID(), sessionId: String(sessionId), at: new Date().toISOString(), text: words, asset: file, assetName: file && assetName ? cut(String(assetName), 200) : null }

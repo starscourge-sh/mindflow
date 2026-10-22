@@ -7,7 +7,7 @@
 // Markdown has no trace of it. The same for a capture and a task made from a
 // line, in a note's own window, and in quick capture (the words stay there,
 // marked, and the gem points back once the note is saved). Shots in light and dark.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 [SHOT=<dir>] node qa/gem-line.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 [SHOT=<dir>] node qa/gem-line.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 

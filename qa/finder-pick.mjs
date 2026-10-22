@@ -5,7 +5,7 @@
 //   Three tasks picked, "Reschedule" then "Tomorrow" from their menu: all three
 //   move to tomorrow, one notice, and ⌘Z puts each back. In Everything, with a
 //   note picked too, the line says "Reschedule 2 tasks…".
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-keys/main/index.js MINDFLOW_QA_AWAY=1 node qa/finder-pick.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-keys/main/index.js HALIGTREE_QA_AWAY=1 node qa/finder-pick.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const results = []
@@ -73,7 +73,7 @@ async function finder(name, w, root, open, { arrows = true, plain = true } = {})
   await w.keyboard.press('Escape'); await w.waitForTimeout(250)
 }
 
-const due = (id) => h.evaluate((id) => window.api.vigil('task', id).then((task) => task?.dueAt ?? null), id)
+const due = (id) => h.evaluate((id) => window.api.haligtree('task', id).then((task) => task?.dueAt ?? null), id)
 const dayOf = (iso) => (iso ? new Date(iso).toDateString() : null)
 async function reschedule(name, root, open, ids, line) {
   if (process.env.ONLY && !name.includes(process.env.ONLY)) return
@@ -146,7 +146,7 @@ try {
   await at(h, page('all'), (await rows(h, page('all')))[0]).hover()
   for (let i = 0; i < 30 && !(await h.locator(`${page('all')} [data-row][data-type="capture"]`).count()); i++) { await h.mouse.wheel(0, 600); await h.waitForTimeout(150) }
   const all = await rows(h, page('all'))
-  const kinds = await h.evaluate((ids) => Promise.all(ids.map((id) => window.api.captures.get(id).then(async (capture) => (capture ? 'note' : (await window.api.vigil('task', id))?.status === 'open' ? 'task' : 'other')))), all)
+  const kinds = await h.evaluate((ids) => Promise.all(ids.map((id) => window.api.captures.get(id).then(async (capture) => (capture ? 'note' : (await window.api.haligtree('task', id))?.status === 'open' ? 'task' : 'other')))), all)
   // The note, and the two tasks nearest it, so all three are in view.
   const noteAt = kinds.indexOf('note')
   const note = all[noteAt]

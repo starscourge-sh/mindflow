@@ -14,7 +14,7 @@ import { atomically, changed, database } from './captures'
  * list in your own order but drawn flat (grouped by kind, say) keeps them
  * together.
  *
- * Every channel here starts `vigil:`, so the preload passes it through.
+ * Every channel here starts `haligtree:`, so the preload passes it through.
  */
 
 export type Group = { id: string; name: string; icon: string | null; color: string | null; folded: number; members: string[]; parent: string | null }
@@ -45,7 +45,7 @@ export function registerGroups(): void {
   db.exec('create index if not exists nuggets_by_group on nuggets(group_id, group_order)')
 
   const handle = (channel: string, run: (...args: never[]) => unknown): void =>
-    void ipcMain.handle(`vigil:${channel}`, (_event, ...args) => run(...(args as never[])))
+    void ipcMain.handle(`haligtree:${channel}`, (_event, ...args) => run(...(args as never[])))
 
   const members = (id: string): string[] =>
     (db.prepare('select id from nuggets where group_id = ? order by group_order, created_at').all(id) as { id: string }[]).map((row) => row.id)

@@ -2,7 +2,7 @@
 // showing: after each move only the tip of the control under the pointer is
 // open, or none. Walks the sidebar (tips to the right) and the top bar (tips
 // below), going on to the neighbour without stopping, and back.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/tip-next.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/tip-next.mjs
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
 

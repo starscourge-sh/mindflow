@@ -1,8 +1,8 @@
 import type { Answer } from '../../../main/define'
 import { chime } from './sound'
 import { notes } from './notes'
-import { call, vigil } from './vigil'
-import { refuse, toast } from '@/components/vigil/ui'
+import { call, haligtree } from './haligtree'
+import { refuse, toast } from '@/components/haligtree/ui'
 
 /**
  * A lookup: a word or a question kept to be answered, as a Word. It is asked
@@ -29,7 +29,7 @@ export async function saveLookup(text: string, origin?: string | null): Promise<
     if (found.example) await notes.setField('captures', id, 'example', found.example)
   }
   chime('saved')
-  toast(found ? `Looked up and kept, answered: ${found.definition}` : 'Kept in Lookups, asked: write the answer when you find it', () => void vigil.unlift('capture', id).then(() => chime('undo')), 'success',
+  toast(found ? `Looked up and kept, answered: ${found.definition}` : 'Kept in Lookups, asked: write the answer when you find it', () => void haligtree.unlift('capture', id).then(() => chime('undo')), 'success',
     // Answered, it is not in Lookups (that lists the ones still asked): no way there to offer.
     found ? undefined : { label: 'Open Lookups', key: 'L', run: () => window.api.openInHome('view', 'lookups') })
   return id

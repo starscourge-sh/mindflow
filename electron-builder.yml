@@ -1,6 +1,6 @@
-# Kept from when the app was called Vigil: macOS knows an app by this, so a
-# new one would ask for every permission again and forget its windows.
-appId: com.starskourge.vigil
+# Was com.starskourge.vigil until the rename: macOS knows an app by this, so a
+# packaged build asks once more for every permission (calendar, camera, Notes).
+appId: com.starskourge.haligtree
 # The name people see; src/main/name.ts says it inside the app.
 productName: Haligtree
 directories:
@@ -16,7 +16,7 @@ files:
 asarUnpack:
   - resources/**
 win:
-  executableName: mindflow
+  executableName: haligtree
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}

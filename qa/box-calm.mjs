@@ -3,7 +3,7 @@
 // are plainly about it ("Helps answer “…” · Add", Tab or a click adds it).
 // A new quote still asks who and where; the gear menu still has
 // “Add to a question or goal…” and “Add where it’s from”.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/box-calm.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/box-calm.mjs
 // QA_SHOTS=dir saves light and dark pictures.
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -11,7 +11,7 @@ const c = await sandbox({ width: 1100, height: 760 })
 const { page, v } = c
 const results = []
 const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`))
-const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 const shots = process.env.QA_SHOTS
 await v('settings:set', { hintRate: 0, rotCount: 0, boxHideButtons: false })
 

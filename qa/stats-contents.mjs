@@ -2,7 +2,7 @@
 // (page-contents.tsx): every section on show, the one in view lit as you
 // scroll, a click bringing its heading into view. Nothing cut off at 900x700
 // or 1600x1000, in a light theme and a dark one.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-toc/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=<dir> node qa/stats-contents.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-toc/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=<dir> node qa/stats-contents.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 

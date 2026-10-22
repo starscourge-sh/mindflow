@@ -4,13 +4,13 @@
 // session again for the time it had left), not Go again; after abandoning,
 // only Undo. Abandon is in the pill's right-click words, ⌘K and the task's page too.
 //
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 [MINDFLOW_QA_NOTCH=1] SHOT=<dir> node qa/stop-ask.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 [HALIGTREE_QA_NOTCH=1] SHOT=<dir> node qa/stop-ask.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 
 const SHOT = process.env.SHOT ?? ''
 if (SHOT) mkdirSync(SHOT, { recursive: true })
-const notch = !!process.env.MINDFLOW_QA_NOTCH
+const notch = !!process.env.HALIGTREE_QA_NOTCH
 const tag = notch ? 'notch' : 'float'
 const results = []
 const check = (name, ok, detail = '') => { results.push(!!ok); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`) }
@@ -40,7 +40,7 @@ try {
   pill.on('pageerror', (error) => c.errors.push('PILL PAGEERROR ' + error.message))
   await pill.waitForLoadState('domcontentloaded')
   await pill.waitForTimeout(3500)
-  const heard = () => pill.evaluate(() => (window.vigilHeard ?? []).splice(0))
+  const heard = () => pill.evaluate(() => (window.haligtreeHeard ?? []).splice(0))
   const stop = async () => {
     await pill.hover('[data-island]', { position: { x: 160, y: 10 } })
     await pill.waitForTimeout(900)

@@ -1,6 +1,6 @@
 // Tidy lets a quote's source be put right: "Who said it" and "Where from"
 // sit under the tags, filled with what it has, and what you type is saved.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/tidy-source.mjs [shot.png]
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/tidy-source.mjs [shot.png]
 import { sandbox } from './sandbox-lib.mjs'
 
 const c = await sandbox({ width: 1100, height: 760 })
@@ -11,7 +11,7 @@ try {
   await v('settings:set', { hintRate: 0 })
   const body = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'The unexamined life is not worth living.' }] }] }
   const id = await h.evaluate((b) => window.api.captures.create({ kind: 'quote', body: b, attribution: 'Socrates' }), body)
-  await h.evaluate((one) => window.dispatchEvent(new CustomEvent('vigil:pass', { detail: { mode: 'tidy', ids: [one] } })), id)
+  await h.evaluate((one) => window.dispatchEvent(new CustomEvent('haligtree:pass', { detail: { mode: 'tidy', ids: [one] } })), id)
   await h.waitForTimeout(900)
   const who = h.locator('[data-pass] input[placeholder="Who said it"]')
   const where = h.locator('[data-pass] input[placeholder="Where from"]')

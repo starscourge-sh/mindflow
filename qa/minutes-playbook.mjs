@@ -2,7 +2,7 @@
 // parked off screen.
 //
 //   npx electron-vite build --outDir out-minutes
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-minutes/main/index.js MINDFLOW_QA_AWAY=1 SHOT=<dir> node qa/minutes-playbook.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-minutes/main/index.js HALIGTREE_QA_AWAY=1 SHOT=<dir> node qa/minutes-playbook.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -135,7 +135,7 @@ try {
   await h.keyboard.press('Escape'); await h.waitForTimeout(400)
 
   // Empty: nothing fits in 1 minute.
-  await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:fits', { detail: 1 })))
+  await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:fits', { detail: 1 })))
   await h.waitForTimeout(800)
   const empty = await h.$eval('[data-fits-empty]', (one) => one.textContent).catch(() => '')
   const bare = (await h.$$('[data-fits-unsized] [data-fit-row]')).length
@@ -176,7 +176,7 @@ try {
   await c.go('home')
   const sheet = async (when) => {
     await h.clock.setFixedTime(new Date(when).getTime())
-    await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:close-week')))
+    await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:close-week')))
     await h.waitForTimeout(900)
     return h.$eval('[data-close-season]', (one) => one.dataset.closeSeason).catch(() => null)
   }

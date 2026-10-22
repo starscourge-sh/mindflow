@@ -17,7 +17,7 @@ const sips = (() => {
     return false
   }
 })()
-const folder = mkdtempSync(join(tmpdir(), 'vigil-letterbox-'))
+const folder = mkdtempSync(join(tmpdir(), 'haligtree-letterbox-'))
 
 /** A 24-bit BMP from a function of (x, y) to [r, g, b]. */
 function bmp(width: number, height: number, colour: (x: number, y: number) => number[]): Buffer {

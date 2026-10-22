@@ -49,7 +49,7 @@ await step('seed', async () => {
 })
 
 const home = await c.showHome(1180, 780)
-const hv = (ch, ...a) => home.evaluate(([ch, a]) => window.api.vigil(ch, ...a), [ch, a])
+const hv = (ch, ...a) => home.evaluate(([ch, a]) => window.api.haligtree(ch, ...a), [ch, a])
 
 await step('decision', async () => {
   await c.send('capture', ids.dec); await home.waitForTimeout(1200)

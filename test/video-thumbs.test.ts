@@ -20,7 +20,7 @@ test('left alone: already wide, or not YouTube', () => {
   assert.equal(wideThumb('https://i.ytimg.com/vi/dQw4w9WgXcQ/hq720.jpg?sqp=abc'), null)
   assert.equal(isBandedThumb('https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg'), false)
   assert.equal(wideThumb('https://example.com/vi/dQw4w9WgXcQ/hqdefault.jpg'), null)
-  assert.equal(wideThumb('mindflow://assets/abc.jpg'), null)
+  assert.equal(wideThumb('haligtree://assets/abc.jpg'), null)
 })
 
 test('YouTube links', () => {

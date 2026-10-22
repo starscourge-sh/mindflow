@@ -3,7 +3,7 @@
 // the pill is checked through its page, never by looking at the screen.
 //
 //   npx electron-vite build --outDir out-days
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-days/main/index.js MINDFLOW_QA_AWAY=1 SHOT=<dir> node qa/days.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-days/main/index.js HALIGTREE_QA_AWAY=1 SHOT=<dir> node qa/days.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -187,7 +187,7 @@ try {
   const progress = await h.$eval('[data-day-progress]', (one) => one.dataset.said).catch(() => '')
   check('Today says how far through the day it is', /\d+ of \d+ done/.test(progress), progress)
   await h.screenshot({ path: `${SHOT}/today-progress-light.png` })
-  await h.evaluate(() => { window.__toasts = []; addEventListener('vigil:toast', (event) => window.__toasts.push(event.detail.text)) })
+  await h.evaluate(() => { window.__toasts = []; addEventListener('haligtree:toast', (event) => window.__toasts.push(event.detail.text)) })
   await h.click('[data-id] button[class*="group/tick"]')
   await h.waitForTimeout(2200)
   const toasts = await h.evaluate(() => window.__toasts)
@@ -204,7 +204,7 @@ try {
   })
   let seen = await apart(h)
   if (!seen.card) {
-    await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:celebrate', { detail: { id: 'qa', kind: 'tasks', rank: 35, headline: "Today's tasks, all done", line: '6 done today.', mark: '6', tint: 'green' } })))
+    await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:celebrate', { detail: { id: 'qa', kind: 'tasks', rank: 35, headline: "Today's tasks, all done", line: '6 done today.', mark: '6', tint: 'green' } })))
     await h.waitForTimeout(1500)
     seen = await apart(h)
   }
@@ -216,8 +216,8 @@ try {
   // The box too, where the card is centred over its footer: the toast sits above it.
   const box = c.page
   await box.evaluate(() => {
-    window.dispatchEvent(new CustomEvent('vigil:celebrate', { detail: { id: 'qa-box', kind: 'tasks', rank: 35, headline: "Today's tasks, all done", line: '6 done today.', mark: '6', tint: 'green' } }))
-    window.dispatchEvent(new CustomEvent('vigil:toast', { detail: { text: 'Tried a toast', tone: 'success' } }))
+    window.dispatchEvent(new CustomEvent('haligtree:celebrate', { detail: { id: 'qa-box', kind: 'tasks', rank: 35, headline: "Today's tasks, all done", line: '6 done today.', mark: '6', tint: 'green' } }))
+    window.dispatchEvent(new CustomEvent('haligtree:toast', { detail: { text: 'Tried a toast', tone: 'success' } }))
   })
   await box.waitForTimeout(1800)
   const inBox = await apart(box)
@@ -281,7 +281,7 @@ try {
 
   // --- Close the week.
   await c.go('home')
-  await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:close-week')))
+  await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:close-week')))
   await h.waitForTimeout(800)
   check('Close the week opens', !!(await h.$('[data-close-week]')))
   await h.fill('[aria-label="What went well"]', 'Shipped the beta and slept well')

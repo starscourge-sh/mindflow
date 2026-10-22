@@ -9,7 +9,7 @@
 //       warm once it runs into the next event.
 //
 //   npx electron-vite build --outDir out-cal
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-cal/main/index.js MINDFLOW_QA_AWAY=1 node qa/haligtree-calendar.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-cal/main/index.js HALIGTREE_QA_AWAY=1 node qa/haligtree-calendar.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const c = await sandbox({ width: 1900, height: 1000 })

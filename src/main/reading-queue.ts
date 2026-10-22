@@ -8,7 +8,7 @@ import { SANDBOX } from './sandbox'
  * The reading queue, Spotify's way: an ordered list of what you mean to read
  * next, any note, idea, piece of writing or link. Add to queue puts one at
  * the end, Read next at the front. Read, it leaves the queue for Read, with
- * the day it was finished. Every channel starts `vigil:`.
+ * the day it was finished. Every channel starts `haligtree:`.
  */
 
 export type QueueRow = {
@@ -70,7 +70,7 @@ export function registerReadingQueue(): void {
     db.prepare("insert or replace into settings (key, value) values ('queueShownOnce', 'true')").run()
   }
   const handle = (channel: string, run: (...args: never[]) => unknown): void =>
-    void ipcMain.handle(`vigil:${channel}`, (_event, ...args) => run(...(args as never[])))
+    void ipcMain.handle(`haligtree:${channel}`, (_event, ...args) => run(...(args as never[])))
   // A queue that is not a list of notes changes no list of notes: only the queue's own views read again.
   const told = (): void => changed()
 

@@ -19,7 +19,7 @@ test('![](path) with spaces written as %20 or in <>', () => {
 
 test('not an embed: addresses, notes, links, headings, other files', () => {
   assert.deepEqual(embedsIn('![](https://example.com/cat.png)'), [])
-  assert.deepEqual(embedsIn('![](mindflow://assets/abc.png)'), [])
+  assert.deepEqual(embedsIn('![](haligtree://assets/abc.png)'), [])
   assert.deepEqual(embedsIn('![[Some note]]'), [])
   assert.deepEqual(embedsIn('![[Some note#Heading]]'), [])
   assert.deepEqual(embedsIn('![[report.docx]]'), [])

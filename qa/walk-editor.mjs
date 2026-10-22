@@ -5,7 +5,7 @@
 // Read view, the note's right-click menu, ⌘Z across blocks, Esc out of each
 // layer, a very long note, and the "Sort these" and Read through passes.
 // Each step takes a picture; each check says what a person would hit.
-//   SHOTS=<folder> QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/walk-editor.mjs
+//   SHOTS=<folder> QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/walk-editor.mjs
 // ONLY=open,slash runs some steps.
 import { mkdirSync } from 'fs'
 import { checks } from './harness.mjs'
@@ -18,7 +18,7 @@ const { check, done } = checks()
 const c = await sandbox({ width: 1280, height: 860 })
 const { h, electron, v, send, go, errors } = c
 const wait = (ms = 500) => h.waitForTimeout(ms)
-const ED = '.note-pane .tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+const ED = '.note-pane .tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 const p = (text) => ({ type: 'paragraph', content: text ? [{ type: 'text', text }] : [] })
 const hd = (level, text) => ({ type: 'heading', attrs: { level }, content: [{ type: 'text', text }] })
 const shoot = async (name) => { if (SHOTS) await h.screenshot({ path: `${SHOTS}/${name}.png` }).catch(() => {}) }
@@ -68,7 +68,7 @@ step('article-title', async () => {
     await openNote(article, 'article')
     const off = await h.evaluate(() => {
       const title = document.querySelector('.note-pane textarea[placeholder="Untitled"]')
-      const line = document.querySelector('.note-pane .tiptap.ProseMirror.mindflow-editor > p')
+      const line = document.querySelector('.note-pane .tiptap.ProseMirror.haligtree-editor > p')
       if (!title || !line) return null
       const range = document.createRange(); range.selectNodeContents(line)
       const pm = line.parentElement.getBoundingClientRect(), t = title.getBoundingClientRect()
@@ -275,7 +275,7 @@ step('details', async () => {
     check(`at ${w}, with Details out, the note's buttons stay clear of it`, Array.isArray(out) && !out.length, JSON.stringify(out))
     // The gutters follow the note's own column: its title never goes a word a line.
     const title = await h.evaluate(() => {
-      const one = document.querySelector('.note-pane .tiptap.ProseMirror.mindflow-editor > h1')
+      const one = document.querySelector('.note-pane .tiptap.ProseMirror.haligtree-editor > h1')
       if (!one) return null
       const range = document.createRange(); range.selectNodeContents(one)
       return { lines: new Set([...range.getClientRects()].filter((b) => b.width > 1).map((b) => Math.round(b.top))).size, pad: getComputedStyle(one.parentElement).paddingRight }

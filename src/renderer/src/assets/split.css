@@ -15,12 +15,12 @@
   --mf-col-sheet: 72rem;
   --mf-col-narrow: 60rem;
 }
-[data-pane]:is([data-width='page'], [data-width='wide']) .mindflow-editor-wrapper:not(.is-line, .mf-read *) .tiptap.ProseMirror.mindflow-editor {
+[data-pane]:is([data-width='page'], [data-width='wide']) .haligtree-editor-wrapper:not(.is-line, .mf-read *) .tiptap.ProseMirror.haligtree-editor {
   width: 100%;
   max-width: var(--mf-col-editor);
   margin-inline: auto;
 }
-[data-pane]:is([data-width='page'], [data-width='wide']) .note-pane .mindflow-editor-wrapper:not(.is-line, .mf-read *) .tiptap.ProseMirror.mindflow-editor {
+[data-pane]:is([data-width='page'], [data-width='wide']) .note-pane .haligtree-editor-wrapper:not(.is-line, .mf-read *) .tiptap.ProseMirror.haligtree-editor {
   max-width: calc(var(--mf-col-note) + 9.5rem);
 }
 [data-pane]:is([data-width='page'], [data-width='wide']) .page-column {
@@ -39,7 +39,7 @@
   max-width: var(--mf-col-narrow);
 }
 /* Full in one pane: its words run edge to edge, whatever Settings says. */
-[data-pane][data-width='full'] .mindflow-editor-wrapper:not(.is-line, .mf-read *) .tiptap.ProseMirror.mindflow-editor,
+[data-pane][data-width='full'] .haligtree-editor-wrapper:not(.is-line, .mf-read *) .tiptap.ProseMirror.haligtree-editor,
 [data-pane][data-width='full'] .page-column,
 [data-pane][data-width='full'] .page-sheet,
 [data-pane][data-width='full'] .page-narrow {

@@ -1,6 +1,6 @@
 # Using the editor components
 
-One component. `MindflowEditor` is the editor; what changes between a whole
+One component. `HaligtreeEditor` is the editor; what changes between a whole
 page, a comment box and a one line title is which parts are switched on, not
 which component you reach for. See **One editor, dressed for the job** below.
 
@@ -26,10 +26,10 @@ and may move.
 
 ```tsx
 import {
-  MindflowEditor, TitleEditor, CommentEditor, LineEditor, DescriptionEditor,
+  HaligtreeEditor, TitleEditor, CommentEditor, LineEditor, DescriptionEditor,
   setHost, TAGS, tagsOf, findTokens, referencesOf, localise, assetsOf, isStored,
-  type MindflowEditorProps, type MindflowHost, type TokenPattern, type Reference
-} from "@/components/mindflow"
+  type HaligtreeEditorProps, type HaligtreeHost, type TokenPattern, type Reference
+} from "@/components/haligtree"
 ```
 
 The editor has no light theme: the tokens it draws from are defined under
@@ -37,7 +37,7 @@ The editor has no light theme: the tokens it draws from are defined under
 nothing to resolve against. Once, before the first paint:
 
 ```tsx
-import { applyTheme, currentTheme } from "@/components/mindflow"
+import { applyTheme, currentTheme } from "@/components/haligtree"
 
 applyTheme(currentTheme())
 ```
@@ -55,10 +55,10 @@ system: none of that is an editor's job, and none of it has one answer. So the
 editor asks the host.
 
 ```tsx
-<MindflowEditor host={window.api} />
+<HaligtreeEditor host={window.api} />
 ```
 
-Every member of `MindflowHost` is optional. Left out, a browser's own answers
+Every member of `HaligtreeHost` is optional. Left out, a browser's own answers
 are used - a dropped picture becomes a data URL, an export downloads - and what
 a browser genuinely cannot do goes **quiet rather than throwing**: no bookmark
 card without `fetchLinkMetadata`, no PDF entry without `exportPdf`. The `/`
@@ -74,15 +74,15 @@ menu hides what the host cannot serve, so nobody is offered a dead end.
 
 ---
 
-## MindflowEditor
+## HaligtreeEditor
 
 The document surface: headings, lists, tables, code blocks, collapsible
 sections, images, embeds, the `/` menu, the drag handle.
 
 ```tsx
-import { MindflowEditor } from "@/components/mindflow/mindflow-editor"
+import { HaligtreeEditor } from "@/components/haligtree/haligtree-editor"
 
-<MindflowEditor
+<HaligtreeEditor
   defaultContent={note.doc}
   placeholder="Write, type '/' for commands…"
   onChange={(doc) => save(note.id, doc)}
@@ -96,7 +96,7 @@ nothing in it changes behaviour, because each line is what you get by leaving
 that line out.
 
 ```tsx
-<MindflowEditor
+<HaligtreeEditor
   // --- what it holds ------------------------------------------------------
   shape="document"         // "document" holds blocks, "line" holds one paragraph
   defaultContent=""        // TipTap JSON or a Markdown string
@@ -154,7 +154,7 @@ that line out.
 | `autofocus` | `boolean \| "start" \| "end"` | `false` |
 | `showSource` | `boolean` | `false` |
 | `readOnly` | `boolean` | `false` |
-| `host` | `MindflowHost` | a browser's own answers |
+| `host` | `HaligtreeHost` | a browser's own answers |
 | `className` | `string` | `""` |
 | `style` | `CSSProperties` | - |
 | `onChange` | `(doc, editor) => void` | - |
@@ -163,7 +163,7 @@ that line out.
 | `onTokenClick` | `(token: TokenMatch) => void` | - |
 | `findNotes` | `(query) => NoteSuggestion[]` | `() => []` |
 
-Each one carries its own `@default` in `MindflowEditorProps`, so your editor
+Each one carries its own `@default` in `HaligtreeEditorProps`, so your editor
 shows it on hover as well.
 
 ### The small types, written out
@@ -251,7 +251,7 @@ else, so validate anything you did not write yourself.
 follow from reading content once:
 
 ```tsx
-<MindflowEditor
+<HaligtreeEditor
   documentId={note?.id ?? null}
   defaultContent={note?.doc}
   onChange={save}
@@ -287,7 +287,7 @@ nothing can change it. Unlike `defaultContent` it is live - flip it and the
 editor follows.
 
 ```tsx
-<MindflowEditor readOnly={!canEdit} defaultContent={note.doc} />
+<HaligtreeEditor readOnly={!canEdit} defaultContent={note.doc} />
 ```
 
 It is not `disabled`, which in a form means unfocusable and skipped over in the
@@ -327,7 +327,7 @@ function NoteView({ id }: { id: string }) {
   }, [id])
 
   return (
-    <MindflowEditor
+    <HaligtreeEditor
       documentId={note ? id : null}
       defaultContent={note?.doc}
       onChange={(doc) => saveNote(id, doc)}
@@ -368,14 +368,14 @@ function NewIssue({ onCreate }: { onCreate: (issue: Issue) => void }) {
 
   return (
     <>
-      <MindflowEditor
+      <HaligtreeEditor
         shape="line"
         placeholder="Issue title"
         autofocus="end"
         onChange={(_doc, editor) => (title.current = editor.getText())}
         onSubmit={submit}          // Return, because a line has nowhere to go
       />
-      <MindflowEditor
+      <HaligtreeEditor
         placeholder="Add description…"
         toolbar={{ fixed: false }} // the bubble only; no bar over a small panel
         outline={false}            // nothing to outline in a few paragraphs
@@ -399,7 +399,7 @@ const ISSUE_TOKENS: TokenPattern[] = [
   { name: "label", pattern: /#([\w-]+)/ }          // colour spread by hash
 ]
 
-<MindflowEditor
+<HaligtreeEditor
   tokens={ISSUE_TOKENS}
   onTokenClick={(token) => {
     if (token.name === "priority") setPriority(Number(token.value))
@@ -423,7 +423,7 @@ function Vault() {
   const { notes, note, open, save } = useVault() // whatever holds your notes
 
   return (
-    <MindflowEditor
+    <HaligtreeEditor
       documentId={note?.id ?? null}
       defaultContent={note?.doc}
       onChange={save}
@@ -468,7 +468,7 @@ handle, block colours, callouts, drawings, tables. The work is not in the
 editor - it is in what you hang off `onChange`.
 
 ```tsx
-<MindflowEditor
+<HaligtreeEditor
   documentId={page.id}
   defaultContent={page.doc}
   onChange={async (doc) => {
@@ -499,7 +499,7 @@ first shared, keeps it off the typing path.
 For a database view, the cells are `shape="line"` editors with most things off:
 
 ```tsx
-<MindflowEditor
+<HaligtreeEditor
   shape="line"
   marks={["bold", "italic", "code"]}
   toolbar={false}
@@ -529,7 +529,7 @@ One line. The limit is the **schema**, not a set of hidden buttons: with
 go and pasting three paragraphs flattens them into one, joined by spaces.
 
 ```tsx
-import { LineEditor } from "@/components/mindflow/presets"
+import { LineEditor } from "@/components/haligtree/presets"
 
 <LineEditor
   placeholder="Task name"
@@ -593,7 +593,7 @@ const MINE: TokenPattern[] = [
   { name: "priority", pattern: /!p([1-4])\b/, color: "orange" }
 ]
 
-<MindflowEditor tokens={MINE} />
+<HaligtreeEditor tokens={MINE} />
 ```
 
 `tokens` replaces the default rather than adding to it, so spread `...TAGS` in
@@ -782,7 +782,7 @@ and hands you the answer:
 ## Images
 
 Every picture that reaches the editor is **copied into the app's own store** and
-the document keeps a `mindflow://assets/<hash>.<ext>` URL. Nothing in a saved
+the document keeps a `haligtree://assets/<hash>.<ext>` URL. Nothing in a saved
 note points at the user's disk, and nothing points at someone else's server.
 
 Four ways in, all ending at the same place:
@@ -974,7 +974,7 @@ The editor does not know what a note is. It holds an id and reports the click,
 and the app decides what to do:
 
 ```tsx
-<MindflowEditor
+<HaligtreeEditor
   findNotes={(query) => notes.filter((n) => n.title.includes(query))}
   onOpenNote={(id) => open(id)}
 />
@@ -1038,11 +1038,11 @@ not been fully localised is visible.
 somewhere else needs:
 
 ```ts
-import { referencesOf, isStored, isInline, inlineBytes } from "@/components/mindflow"
+import { referencesOf, isStored, isInline, inlineBytes } from "@/components/haligtree"
 
 referencesOf(note.doc)
-// [{ src: "mindflow://assets/9f2….png", kind: "image" },
-//  { src: "mindflow://assets/4c1….pdf", kind: "attachment", name: "spec.pdf", size: 83122 },
+// [{ src: "haligtree://assets/9f2….png", kind: "image" },
+//  { src: "haligtree://assets/4c1….pdf", kind: "attachment", name: "spec.pdf", size: 83122 },
 //  { src: "data:image/png;base64,…",    kind: "diagram-image", size: 240110 },
 //  { src: "https://example.com/card.png", kind: "bookmark-image" },
 //  { src: "https://example.com/favicon.ico", kind: "bookmark-icon" },
@@ -1072,7 +1072,7 @@ already yours through `host.saveImage`, and gives back a new document pointing
 at the copies. The one passed in is not touched.
 
 ```ts
-import { localise, inlineBytes } from "@/components/mindflow"
+import { localise, inlineBytes } from "@/components/haligtree"
 
 inlineBytes(note.doc)           // 240110 - a screenshot inside a drawing
 const tidied = await localise(note.doc)
@@ -1089,7 +1089,7 @@ Three rules make it safe to run whenever you like:
   same picture in three places is one object either way.
 
 A drawing keeps working afterwards. Excalidraw puts a file back on the canvas
-by handing `files[id].dataURL` to an `<img>`, and a `mindflow://assets/…` URL
+by handing `files[id].dataURL` to an `<img>`, and a `haligtree://assets/…` URL
 loads there exactly like a `data:` one - which is checked in
 `qa/references.mjs` rather than assumed.
 
@@ -1114,7 +1114,7 @@ reader can simply unlock what was locked for them.
 
 ## One editor, dressed for the job
 
-`MindflowEditor` is the only editor. What changes between a page, a comment box
+`HaligtreeEditor` is the only editor. What changes between a page, a comment box
 and a title is which parts are switched on.
 
 | Prop | Default | What it does |
@@ -1135,7 +1135,7 @@ what it can hold, and either can carry anything the other can:
 toolbar={{ fixed: false, selection: <MarkButton type="bold" /> }}
 ```
 
-Four presets ship in `components/mindflow/presets`, and each is only a set of
+Four presets ship in `components/haligtree/presets`, and each is only a set of
 defaults over the same component: `CommentEditor`, `DescriptionEditor`,
 `LineEditor` and `TitleEditor`. Anything a preset sets can be overridden by
 passing the prop.

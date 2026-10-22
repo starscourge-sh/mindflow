@@ -2,7 +2,7 @@
 // capture is and let it be changed, with its tags and source editable in both
 // and no internal number on show; a right-click offers a tag, a pin and
 // privacy in plain words; an open quote's "said by" is a click from changing.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/journey-capture.mjs [shot-dir]
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/journey-capture.mjs [shot-dir]
 import { sandbox } from './sandbox-lib.mjs'
 
 const c = await sandbox({ width: 1100, height: 760 })
@@ -18,7 +18,7 @@ try {
   const quote = await h.evaluate((b) => window.api.captures.create({ kind: 'quote', body: b, attribution: 'Seneca' }), doc('Luck is what happens when preparation meets opportunity.'))
 
   // Tidy: the kind, said and changeable; no V-number.
-  await h.evaluate((ids) => window.dispatchEvent(new CustomEvent('vigil:pass', { detail: { mode: 'tidy', ids } })), [note])
+  await h.evaluate((ids) => window.dispatchEvent(new CustomEvent('haligtree:pass', { detail: { mode: 'tidy', ids } })), [note])
   await h.waitForTimeout(900)
   const head = await h.locator('[data-pass] article').innerText()
   check('Tidy shows no internal V-number', !/\bV-\d+/.test(head), head.split('\n')[0])
@@ -36,7 +36,7 @@ try {
   await h.waitForTimeout(500)
 
   // Decide: tags and source editable too, plain reasons, a tip on Task.
-  await h.evaluate((ids) => window.dispatchEvent(new CustomEvent('vigil:pass', { detail: { mode: 'decide', ids } })), [quote])
+  await h.evaluate((ids) => window.dispatchEvent(new CustomEvent('haligtree:pass', { detail: { mode: 'decide', ids } })), [quote])
   await h.waitForTimeout(900)
   check('Decide has the tag field', await h.locator('[data-pass] input[aria-label="Add a tag"]').count() === 1)
   check('Decide has who said it, filled', (await h.locator('[data-pass] input[placeholder="Who said it"]').inputValue().catch(() => '')) === 'Seneca')

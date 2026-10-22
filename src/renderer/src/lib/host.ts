@@ -11,7 +11,7 @@ export type { LinkMetadata }
  * Every member is optional. Left out, the feature that needs it goes quiet
  * rather than throwing: no bookmark card, no PDF export, no "copy image".
  */
-export interface MindflowHost {
+export interface HaligtreeHost {
   /** Store image bytes and return a URL that reads them again. */
   saveImage?: (mime: string, bytes: Uint8Array) => Promise<string>
   /** Store any file and return a URL that reads it again. */
@@ -70,7 +70,7 @@ export interface MindflowHost {
  * genuinely cannot do - read another origin's page for a link preview, print
  * to a PDF the user names - is left out, and those features stay quiet.
  */
-const BROWSER: MindflowHost = {
+const BROWSER: HaligtreeHost = {
   saveImage: (mime, bytes) => toDataUrl(new Blob([bytes as BlobPart], { type: mime })),
   saveFile: (name, bytes) =>
     toDataUrl(new File([bytes as BlobPart], name, { type: "application/octet-stream" })),
@@ -123,7 +123,7 @@ function download(name: string, blob: Blob): void {
   URL.revokeObjectURL(url)
 }
 
-let current: MindflowHost = BROWSER
+let current: HaligtreeHost = BROWSER
 
 /**
  * Point the editor at a host.
@@ -133,22 +133,22 @@ let current: MindflowHost = BROWSER
  * and none of which can call a hook. One host per page, which is the number
  * every app has had so far.
  */
-export function setHost(host: MindflowHost | undefined): void {
+export function setHost(host: HaligtreeHost | undefined): void {
   // An editor that names none keeps the page's: otherwise the last plain one
   // drawn would take spelling and the rest from every editor beside it.
   if (host) current = { ...BROWSER, ...host }
 }
 
 /** What the host offers. A missing member means that feature is off. */
-export function host(): MindflowHost {
+export function host(): HaligtreeHost {
   return current
 }
 
 /**
  * Something the editor did that has no mark of its own on the page (a copy):
- * said out loud for whatever app holds the editor to show. Vigil turns it into
- * a toast and a sound (components/vigil/ui.tsx); anywhere else it is quiet.
+ * said out loud for whatever app holds the editor to show. Haligtree turns it into
+ * a toast and a sound (components/haligtree/ui.tsx); anywhere else it is quiet.
  */
 export function said(text: string, ok = true): void {
-  window.dispatchEvent(new CustomEvent("mindflow:said", { detail: { text, ok } }))
+  window.dispatchEvent(new CustomEvent("haligtree:said", { detail: { text, ok } }))
 }

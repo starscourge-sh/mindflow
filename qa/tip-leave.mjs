@@ -1,6 +1,6 @@
 // Tips close when the pointer leaves toward the window's left edge (x=5) or
 // out of the window, and the next tip still opens.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/tip-leave.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/tip-leave.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const results = []

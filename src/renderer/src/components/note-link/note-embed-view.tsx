@@ -2,11 +2,11 @@ import { createContext, useContext, useEffect, useRef, useState } from "react"
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react"
 import type { Editor, JSONContent } from "@tiptap/core"
 
-import { MindflowEditor, TAGS } from "@/components/mindflow"
+import { HaligtreeEditor, TAGS } from "@/components/haligtree"
 import { findCaptures, findHeadings, follow } from "@/lib/capture-links"
 import { useSameWords } from "@/lib/same-words"
 import { toMarkdown } from "@/lib/export"
-import { vigil } from "@/lib/vigil"
+import { haligtree } from "@/lib/haligtree"
 import { chime } from "@/lib/sound"
 import { noteNamed } from "@/extensions/note-link"
 import { ArrowUpRight, Link } from "@/components/ui/icons"
@@ -41,14 +41,14 @@ export function EmbeddedNote({ link, label, header = true, onUnembed }: { link: 
     let live = true
     const read = table === "captures"
       ? window.api.captures.get(id).then((found) => found && found.status !== "discarded" ? { body: found.body, title: found.label || found.title } : null)
-      : vigil.item(id).then((found) => found ? { body: found.body, title: (found as { title?: string }).title || "" } : null)
+      : haligtree.item(id).then((found) => found ? { body: found.body, title: (found as { title?: string }).title || "" } : null)
     void read.then((found) => live && setNote(found), () => live && setNote(null))
     return () => void (live = false)
   }, [table, id])
   const words = useSameWords(table, note ? id : undefined, note?.body, (at, body, base, editor) =>
     table === "captures"
       ? window.api.captures.save(at, { body, base, ...(editor ? { markdown: toMarkdown(editor) } : {}) })
-      : vigil.saveItem(at, { body, base }))
+      : haligtree.saveItem(at, { body, base }))
   const name = note?.title || label || "Untitled"
   const looped = around.includes(link) || around.length >= DEEPEST
   return (
@@ -76,7 +76,7 @@ export function EmbeddedNote({ link, label, header = true, onUnembed }: { link: 
       ) : (
         <div className="note-embed-body [--mf-padding:0.25rem_0.75rem_0.75rem]">
           <Around.Provider value={[...around, link]}>
-            <MindflowEditor
+            <HaligtreeEditor
               host={window.api}
               tokens={TAGS}
               documentId={`embed-${link}-${around.length}`}
@@ -104,7 +104,7 @@ async function readNote(link: string): Promise<{ body: unknown; title: string } 
   const { table, id } = partsOf(link)
   return table === "captures"
     ? window.api.captures.get(id).then((found) => found && found.status !== "discarded" ? { body: found.body, title: found.label || found.title } : null)
-    : vigil.item(id).then((found) => found ? { body: found.body, title: (found as { title?: string }).title || "" } : null)
+    : haligtree.item(id).then((found) => found ? { body: found.body, title: (found as { title?: string }).title || "" } : null)
 }
 
 /** The body with the line named `block` given these words; its kind and marks of its own kept. */
@@ -155,7 +155,7 @@ export function EmbeddedLine({ link, block, label, onUnembed }: { link: string; 
     void readNote(link).then((found) => {
       if (!found || !blockIn(found.body, block)) return
       const body = withLine(found.body, block, content)
-      return table === "captures" ? window.api.captures.save(id, { body, base: found.body }) : vigil.saveItem(id, { body, base: found.body })
+      return table === "captures" ? window.api.captures.save(id, { body, base: found.body }) : haligtree.saveItem(id, { body, base: found.body })
     })
   }
   const name = note?.title || label || "Untitled"
@@ -178,7 +178,7 @@ export function EmbeddedLine({ link, block, label, onUnembed }: { link: string; 
         <div className="px-3 py-2 text-control text-foreground">{note ? "That line is not in the note any more." : "This note is not here any more: it may be in the Bin."}</div>
       ) : (
         <div className="note-embed-body px-3 pb-2 [--mf-padding:0.125rem_0]">
-          <MindflowEditor
+          <HaligtreeEditor
             host={window.api}
             tokens={TAGS}
             shape="line"

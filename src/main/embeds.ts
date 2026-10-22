@@ -7,7 +7,7 @@
  * which finds the file in a vault.
  */
 
-/** Files Vigil can show in a note: pictures, and PDFs and videos as cards. */
+/** Files Haligtree can show in a note: pictures, and PDFs and videos as cards. */
 export const SHOWN = /\.(png|jpe?g|gif|webp|svg|avif|bmp|pdf|mp4|m4v|mov|webm)$/i
 /** Of those, the ones that are pictures. */
 export const PICTURE = /\.(png|jpe?g|gif|webp|svg|avif|bmp)$/i
@@ -29,14 +29,14 @@ const decoded = (text: string): string => {
   }
 }
 
-/** An address with a scheme (https:, mindflow:, data:) is not a file in a vault. */
+/** An address with a scheme (https:, haligtree:, data:) is not a file in a vault. */
 const hasScheme = (text: string): boolean => /^[a-z][a-z0-9+.-]*:/i.test(text)
 
 /** A width the way Obsidian writes one: `300` or `300x200`, as `300`. */
 const widthOf = (text: string | undefined): string | undefined => /^\s*(\d+)(?:x\d+)?\s*$/.exec(text ?? '')?.[1]
 
 /**
- * A reference as a file to look for, or null when it names something Vigil
+ * A reference as a file to look for, or null when it names something Haligtree
  * does not show (a note, a heading, a Word file). `name.pdf#page=3` is the PDF.
  */
 export function cleanRef(raw: string): string | null {
@@ -67,7 +67,7 @@ export function embedsIn(text: string): EmbedAt[] {
 }
 
 /**
- * A whole line that is only a path to a file Vigil shows, with at least one
+ * A whole line that is only a path to a file Haligtree shows, with at least one
  * folder in it: `../../extras/attachments/Screenshot 2026.png`. A bare name
  * ("cat.png") is too likely to be words, so it needs the folder.
  */

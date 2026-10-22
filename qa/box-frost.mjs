@@ -4,7 +4,7 @@
 // dark theme and a light one: one even frost, no solid band, words readable.
 // The desktop blur behind the window itself is the Mac's own (vibrancy) and
 // is never in a page screenshot; this shows everything Haligtree paints over it.
-//   SHOT=dir QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/box-frost.mjs
+//   SHOT=dir QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/box-frost.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const c = await sandbox({ width: 1100, height: 760 })

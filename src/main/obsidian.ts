@@ -9,18 +9,18 @@ import { lookAhead } from './pictures'
 /**
  * Finding a picture a note pasted from Obsidian points at, with no setup:
  * Obsidian's own list of vaults says where to look, and the file is copied
- * into Vigil's store the way a pasted picture is. Read only: nothing in a
+ * into Haligtree's store the way a pasted picture is. Read only: nothing in a
  * vault is ever written to.
  */
 
 /** Obsidian's list of vaults. A test points it at a copy of its own. */
 const configPath = (): string =>
-  process.env.MINDFLOW_OBSIDIAN_CONFIG || join(homedir(), 'Library', 'Application Support', 'obsidian', 'obsidian.json')
+  process.env.HALIGTREE_OBSIDIAN_CONFIG || join(homedir(), 'Library', 'Application Support', 'obsidian', 'obsidian.json')
 
 /** Bigger than this is left where it is: a note is no place for a film. */
 const MAX_BYTES = 100 * 1024 * 1024
 /** How many files one vault's index walks at most, and for how long. */
-const INDEX_CAP = Number(process.env.MINDFLOW_VAULT_INDEX_CAP) || 200_000
+const INDEX_CAP = Number(process.env.HALIGTREE_VAULT_INDEX_CAP) || 200_000
 const INDEX_MS = 4000
 /** A name not found is looked for again, but not more often than this. */
 const STALE_MS = 30_000
@@ -75,11 +75,11 @@ export async function vaultChoices(): Promise<VaultChoice[]> {
 /** Whether a folder is one of Obsidian's vaults: the picker may only import those without the folder dialog. */
 export const isVault = async (path: string): Promise<boolean> => (await vaults()).some((vault) => vault.path === path)
 
-/** Each vault's files Vigil can show, by lowercased name. */
+/** Each vault's files Haligtree can show, by lowercased name. */
 const indexes = new Map<string, { at: number; byName: Map<string, string[]>; capped: boolean }>()
 
 /**
- * Walk a vault for files Vigil shows, folders nearest the top first. Its
+ * Walk a vault for files Haligtree shows, folders nearest the top first. Its
  * settings, trash and hidden folders and any node_modules are stepped over,
  * and a huge one is cut short rather than holding the paste up.
  */
@@ -175,7 +175,7 @@ export async function findEmbed(raw: string): Promise<string | null> {
   return null
 }
 
-/** What a found file became in Vigil's store. */
+/** What a found file became in Haligtree's store. */
 export interface BroughtIn {
   src: string
   name: string
@@ -199,7 +199,7 @@ async function keep(path: string, assets: string): Promise<BroughtIn | null> {
     await rename(temporary, destination)
   }
   if (PICTURE.test(path)) lookAhead(file)
-  return { src: `mindflow://assets/${file}`, name: nameOf(path), size: bytes.byteLength, image: PICTURE.test(path) }
+  return { src: `haligtree://assets/${file}`, name: nameOf(path), size: bytes.byteLength, image: PICTURE.test(path) }
 }
 
 /** Each reference as the stored file it became, or null where none was found. */

@@ -1,7 +1,7 @@
 // The sidebar says "Tags" once: with tags to list, the heading over them opens
 // the Tags page and its chevron folds the list, and the Tags page's own row is
 // not listed a second time, even when switched on.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/sidebar-tags.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/sidebar-tags.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const c = await sandbox({ width: 1100, height: 900 })

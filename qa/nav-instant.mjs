@@ -11,7 +11,7 @@
 //   - its words follow within 150ms
 //   - no frame has an empty page
 //   - from the keyboard, two pages never show over each other longer than 80ms
-//   QA_DATA=<folder kept between runs> QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/nav-instant.mjs
+//   QA_DATA=<folder kept between runs> QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/nav-instant.mjs
 // The same against a dev server: ELECTRON_RENDERER_URL=http://localhost:<port> with the same entry.
 // ROUTES=back,cmdk runs only those (LISTS=Goals,Today: only those of `lists`). SLOW=<ms> makes every read that long, the way a busy big book answers.
 import { checks } from './harness.mjs'
@@ -103,7 +103,7 @@ try {
   await v('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false })
   await wait(1500)
   if (process.env.SLOW) await electron.evaluate(({ ipcMain }, ms) => {
-    for (const name of [...ipcMain._invokeHandlers.keys()].filter((one) => one.startsWith('vigil:') || one.startsWith('captures:'))) {
+    for (const name of [...ipcMain._invokeHandlers.keys()].filter((one) => one.startsWith('haligtree:') || one.startsWith('captures:'))) {
       const was = ipcMain._invokeHandlers.get(name)
       ipcMain.removeHandler(name)
       ipcMain.handle(name, async (...args) => { await new Promise((ok) => setTimeout(ok, ms)); return was(...args) })

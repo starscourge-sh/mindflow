@@ -6,7 +6,7 @@
 // sticky, the session bubble and Settings in Paper, on the Paper
 // theme and GitHub Dark, at 1300x900.
 //   npx electron-vite build --outDir out-styles
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-styles/main/index.js MINDFLOW_QA_AWAY=1 [SHOTS=<dir>] node qa/styles.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-styles/main/index.js HALIGTREE_QA_AWAY=1 [SHOTS=<dir>] node qa/styles.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -95,13 +95,13 @@ try {
   // --- Each style chosen from the picker, as a person would.
   for (const style of ['brutal', 'paper', 'soft']) {
     await go('settings')
-    await h.evaluate(() => { if (window.vigilHeard) window.vigilHeard.length = 0 })
+    await h.evaluate(() => { if (window.haligtreeHeard) window.haligtreeHeard.length = 0 })
     const picker = h.locator(`.mf-style-${style}`).first()
     await picker.scrollIntoViewIfNeeded()
     await picker.click()
     await wait(700)
     const sound = { soft: 'tick', brutal: 'slam', paper: 'leaf' }[style]
-    const heard = await h.evaluate(() => [...(window.vigilHeard ?? [])])
+    const heard = await h.evaluate(() => [...(window.haligtreeHeard ?? [])])
     check(`${style}: choosing it plays its own sound`, heard.includes(`click:${sound}`), heard.join(', '))
     check(`${style}: picker shows it chosen`, (await picker.getAttribute('aria-checked')) === 'true')
     for (const [name, open] of Object.entries(style === 'paper' ? { ...pages, ...more } : pages)) {

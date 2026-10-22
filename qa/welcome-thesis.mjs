@@ -11,7 +11,7 @@
 //  - Raycast is a tool you can say you used: its tip says how quick capture opens and sends, keys as keys, and claims no import
 //  - the newer copy: old notes can wait, write at length, a postcard from your past self, Paper to Gruvbox
 //
-//   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/welcome-thesis.mjs [shots-dir] [light|dark]
+//   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/welcome-thesis.mjs [shots-dir] [light|dark]
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 // A fresh install, always: --sandbox seeds goals and marks the welcome as not the first, which these checks are not about.
@@ -46,7 +46,7 @@ const until = async (name) => {
 const shot = async (name) => SHOTS && h.screenshot({ path: `${SHOTS}/${THEME}-${name}.png` })
 try {
   await c.theme(THEME)
-  if (!(await h.waitForSelector('.mf-welcome', { timeout: 8000 }).then(() => true, () => false))) await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:welcome')))
+  if (!(await h.waitForSelector('.mf-welcome', { timeout: 8000 }).then(() => true, () => false))) await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:welcome')))
   await h.waitForSelector('.mf-welcome', { timeout: 8000 })
   await h.waitForTimeout(800)
   check('the welcome opens on Why, chapter 1', /Chapter 1 of \d+: Why/.test(await chapter()), await chapter())
@@ -151,7 +151,7 @@ try {
   // Replayed, the welcome never touches the sidebar: someone's own arrangement stays theirs.
   const arranged = ['inbox', 'today', 'week', 'upcoming', 'review']
   await c.v('settings:set', { sidebarShown: arranged })
-  await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:welcome')))
+  await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:welcome')))
   await h.waitForTimeout(1200)
   await until('You')
   await h.waitForTimeout(600)

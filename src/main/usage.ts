@@ -26,14 +26,14 @@ export function registerUsage(): void {
   const add = db.prepare('insert into usage_counts (day, kind, what, n) values (?, ?, ?, 1) on conflict (day, kind, what) do update set n = n + 1')
 
   // One page opened (`page` null when only the way is counted: the same page, another note on it), and how.
-  ipcMain.handle('vigil:usage:count', (_event, page: unknown, way: unknown) => {
+  ipcMain.handle('haligtree:usage:count', (_event, page: unknown, way: unknown) => {
     const day = dayKey(new Date())
     const how: Via = WAYS.includes(way as Via) ? (way as Via) : 'other'
     if (typeof page === 'string' && page && page.length < 80) add.run(day, 'page', page)
     add.run(day, 'way', how)
   })
   // The last `days` days, summed: each page and each way with its count, most first.
-  ipcMain.handle('vigil:usage', (_event, days: unknown = 30): Usage => {
+  ipcMain.handle('haligtree:usage', (_event, days: unknown = 30): Usage => {
     const span = Math.max(1, Math.min(400, Number(days) || 30))
     const from = dayKey(new Date(Date.now() - (span - 1) * 86_400_000))
     const sum = (kind: string): { what: string; n: number }[] =>

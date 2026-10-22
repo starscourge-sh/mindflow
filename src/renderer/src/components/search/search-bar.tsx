@@ -69,10 +69,10 @@ export function SearchBar({ editor, open, onOpen, onClose }: SearchBarProps): Re
       if (event.metaKey !== event.ctrlKey && event.code === "KeyF" && !event.shiftKey) {
         // One page can hold several editors, each with a find bar. The one
         // you are typing in answers; with the caret in none, the first does.
-        const mine = barRef.current?.closest(".mindflow-editor-wrapper")
-        const focused = document.activeElement?.closest(".mindflow-editor-wrapper[data-search]")
+        const mine = barRef.current?.closest(".haligtree-editor-wrapper")
+        const focused = document.activeElement?.closest(".haligtree-editor-wrapper[data-search]")
         // Split, the pane in front's note before any other.
-        if ((focused ?? document.querySelector("[data-pane-front] .mindflow-editor-wrapper[data-search]") ?? document.querySelector(".mindflow-editor-wrapper[data-search]")) !== mine) return
+        if ((focused ?? document.querySelector("[data-pane-front] .haligtree-editor-wrapper[data-search]") ?? document.querySelector(".haligtree-editor-wrapper[data-search]")) !== mine) return
         event.preventDefault()
         if (event.altKey && editor?.isEditable) setReplacing(true)
         if (open) inputRef.current?.select()
@@ -91,7 +91,7 @@ export function SearchBar({ editor, open, onOpen, onClose }: SearchBarProps): Re
     if (!open) return
     const onEscape = (event: KeyboardEvent): void => {
       if (event.key !== "Escape") return
-      const mine = barRef.current?.closest(".mindflow-editor-wrapper") ?? barRef.current
+      const mine = barRef.current?.closest(".haligtree-editor-wrapper") ?? barRef.current
       const target = event.target as Node | null
       if (target && target !== document.body && !mine?.contains(target)) return
       if (document.querySelector("[role=menu], [role=listbox], .tiptap-suggestion-popup")) return

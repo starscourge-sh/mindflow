@@ -2,7 +2,7 @@
 // Time's up folded to a band ("+10 min", "Time's up"), pointing at "+10 min"
 // leaves the bubble folded, so the button does not slide away under the
 // pointer; a click adds ten minutes. Resting on the bubble itself still opens it.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/pill-fold-button.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/pill-fold-button.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const results = []

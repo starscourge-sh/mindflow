@@ -10,8 +10,8 @@
 // CDP screencast into the shots folder.
 //
 //   npx electron-vite build --outDir out-x
-//   QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/sandbox-flash.mjs [shots-dir]            (fresh: the welcome's Ready page; FLASH_BY=key: by the 2 key; FLASH_FROM=home: “Open the sandbox” from Home)
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/sandbox-flash.mjs [shots-dir]   (in the sandbox: “My notes”)
+//   QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/sandbox-flash.mjs [shots-dir]            (fresh: the welcome's Ready page; FLASH_BY=key: by the 2 key; FLASH_FROM=home: “Open the sandbox” from Home)
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/sandbox-flash.mjs [shots-dir]   (in the sandbox: “My notes”)
 import { mkdirSync, writeFileSync } from 'fs'
 import { execSync } from 'child_process'
 import { sandbox } from './sandbox-lib.mjs'
@@ -93,7 +93,7 @@ try {
     await h.waitForTimeout(800)
     await h.click('.mf-welcome footer button:has-text("Start without the tour")')
     await h.waitForTimeout(1500)
-    const samples = await record(c, 'home', () => h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:sandbox-enter'))))
+    const samples = await record(c, 'home', () => h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:sandbox-enter'))))
     const seen = samples.find((s) => s.going > 0)
     const up = samples.find((s) => s.going >= 0.98)
     check('home: “Opening the sandbox” starts on the next frames', !!seen && seen.t < 120, seen ? `${seen.t}ms` : 'never')
@@ -123,7 +123,7 @@ try {
   } else {
     // --- In the sandbox: “My notes” ---
     await h.waitForTimeout(1500)
-    const samples = await record(c, 'leave', () => h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:sandbox-leave'))))
+    const samples = await record(c, 'leave', () => h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:sandbox-leave'))))
     const seen = samples.find((s) => s.going > 0)
     const up = samples.find((s) => s.going >= 0.98)
     check('leave: “Back to your notes” starts on the next frames', !!seen && seen.t < 120, seen ? `${seen.t}ms` : 'never')

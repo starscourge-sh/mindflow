@@ -5,7 +5,7 @@
 // "x of y" progress follow. SHOTS=dir keeps pictures in light and dark.
 //
 //   npx electron-vite build --outDir out-plan
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-plan/main/index.js MINDFLOW_QA_AWAY=1 node qa/queue.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-plan/main/index.js HALIGTREE_QA_AWAY=1 node qa/queue.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 

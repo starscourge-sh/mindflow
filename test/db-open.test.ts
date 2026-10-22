@@ -11,8 +11,8 @@ import { join } from 'node:path'
 import { openDatabase } from '../src/main/db-open.ts'
 
 function folder(): { dir: string; file: string; db: DatabaseSync } {
-  const dir = mkdtempSync(join(tmpdir(), 'vigil-db-'))
-  const file = join(dir, 'mindflow.db')
+  const dir = mkdtempSync(join(tmpdir(), 'haligtree-db-'))
+  const file = join(dir, 'haligtree.db')
   const db = openDatabase(file)
   db.exec('create table captures (id text primary key, body text)')
   return { dir, file, db }
@@ -69,9 +69,9 @@ test("another book's backup (read-only, while it is open) has its newest save", 
 test('a copy of the whole data folder, made while the app is open, has the newest save', () => {
   const { dir, db } = folder()
   db.prepare('insert into captures values (?, ?)').run('just-now', 'a thought')
-  const copy = mkdtempSync(join(tmpdir(), 'vigil-db-copy-'))
+  const copy = mkdtempSync(join(tmpdir(), 'haligtree-db-copy-'))
   cpSync(dir, copy, { recursive: true })
-  assert.ok(has(join(copy, 'mindflow.db'), 'just-now'))
+  assert.ok(has(join(copy, 'haligtree.db'), 'just-now'))
   db.close()
   rmSync(dir, { recursive: true })
   rmSync(copy, { recursive: true })

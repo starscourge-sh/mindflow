@@ -6,12 +6,12 @@
 // said as CHECKED-PARTLY.
 //
 //   npx electron-vite build --outDir out-pw-c
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-pw-c/main/index.js MINDFLOW_QA_AWAY=1 node qa/powers-claims-c.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-pw-c/main/index.js HALIGTREE_QA_AWAY=1 node qa/powers-claims-c.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 
 // A stand-in for the Mac's calendar (main/mac-calendar.ts reads it in a QA run): one event today at 3pm.
-{ const at = new Date(); at.setHours(15, 0, 0, 0); process.env.MINDFLOW_QA_CALENDAR ??= JSON.stringify([{ title: 'Dentist', start: at.toISOString(), end: new Date(at.getTime() + 3600000).toISOString(), allDay: false, calendar: 'Home', color: '#3b82f6' }]) }
+{ const at = new Date(); at.setHours(15, 0, 0, 0); process.env.HALIGTREE_QA_CALENDAR ??= JSON.stringify([{ title: 'Dentist', start: at.toISOString(), end: new Date(at.getTime() + 3600000).toISOString(), allDay: false, calendar: 'Home', color: '#3b82f6' }]) }
 const SHOTS = process.env.SHOTS
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
 const c = await sandbox({ width: 1180, height: 860 })
@@ -33,7 +33,7 @@ const details = async () => {
   if (await open.count() && (await open.getAttribute('aria-pressed')) !== 'true') await open.click()
 }
 const shot = async (name, target = h) => SHOTS && target.screenshot({ path: `${SHOTS}/${name}.png` })
-const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 /** Quick capture: opened, emptied, the words typed, then ⌥⌘↵ (saves, and a fresh box for the next). */
 const box = async (words, send = true) => {
   await page.evaluate(() => window.api.showPrompt())
@@ -499,7 +499,7 @@ try {
     await wait(300)
     const card = h.locator(`[data-power="${id}"]`)
     await card.scrollIntoViewIfNeeded()
-    await h.evaluate(() => { window.__toasts = []; if (!window.__toastsOn) { window.__toastsOn = true; window.addEventListener('vigil:toast', (event) => window.__toasts.push(event.detail.text)) } })
+    await h.evaluate(() => { window.__toasts = []; if (!window.__toastsOn) { window.__toastsOn = true; window.addEventListener('haligtree:toast', (event) => window.__toasts.push(event.detail.text)) } })
     await card.getByRole('button', { name: /Show me/ }).click()
     await wait(NO_POINT.has(id) ? 1500 : 3200)
     const pointed = await h.evaluate(() => { const el = document.querySelector('[data-pointed]'); return el ? (el.getAttribute('aria-label') ?? el.textContent ?? '').slice(0, 70) : null })

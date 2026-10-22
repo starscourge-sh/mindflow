@@ -1,6 +1,6 @@
 // A sidebar group's heading lights across the sidebar's width, as its rows
 // do: its right edge lines up with theirs, the wrench inside it.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 [SHOT=<dir>] node qa/side-heading-edge.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 [SHOT=<dir>] node qa/side-heading-edge.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const results = []

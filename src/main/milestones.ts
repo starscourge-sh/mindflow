@@ -8,7 +8,7 @@ import { dayKey, dayjs } from './dates'
  * Marked days: any day given a purpose, a short name and, if you like, an
  * emoji and a colour ("Exam", "Launch", "Mum's birthday"). Each can point at a
  * note. A tag's exam date is one too, read from the tag itself, so it never
- * has to be marked twice. Every channel starts `vigil:`, so the preload
+ * has to be marked twice. Every channel starts `haligtree:`, so the preload
  * passes it through without a line of its own.
  */
 
@@ -53,7 +53,7 @@ export function registerMilestones(): void {
     id text primary key, day text not null, title text not null, icon text, color text, note text, created_at text not null
   ); create index if not exists milestones_by_day on milestones(day)`)
   const handle = (channel: string, run: (...args: never[]) => unknown): void =>
-    void ipcMain.handle(`vigil:${channel}`, (_event, ...args) => run(...(args as never[])))
+    void ipcMain.handle(`haligtree:${channel}`, (_event, ...args) => run(...(args as never[])))
 
   handle('milestones', (from?: string | null, to?: string | null) => milestones(from, to))
   // Made or changed: gives back its id, and what it was before, for an undo.

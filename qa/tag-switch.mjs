@@ -15,7 +15,7 @@ import { mkdtempSync, mkdirSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
-process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'vigil-tagswitch-'))
+process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'haligtree-tagswitch-'))
 process.env.QA_ARGS ??= '--sandbox'
 const { sandbox } = await import('./sandbox-lib.mjs')
 
@@ -56,7 +56,7 @@ try {
   // How long the query itself takes, in the main process, for the biggest tag.
   const timings = []
   for (let i = 0; i < 5; i++) {
-    const t = await h.evaluate(async () => { const at = performance.now(); await window.api.vigil('tag:read', 'bit'); return performance.now() - at })
+    const t = await h.evaluate(async () => { const at = performance.now(); await window.api.haligtree('tag:read', 'bit'); return performance.now() - at })
     timings.push(Math.round(t))
   }
   console.log(`tag:read #bit round trip: ${timings.join(', ')} ms`)

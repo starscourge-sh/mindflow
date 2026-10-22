@@ -2,7 +2,7 @@
 // stays under the heading without flying up and dropping back in. Each frame
 // of the fold, every copy of its row on screen sits no higher than where it
 // ends up, under the heading.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/fold-current.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/fold-current.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const results = []

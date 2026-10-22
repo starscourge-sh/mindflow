@@ -7,7 +7,7 @@
 // the day, a card showing its passage, and a score per sitting charted by tag.
 //
 //   npx electron-vite build --outDir out-rhythm
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-rhythm/main/index.js MINDFLOW_QA_AWAY=1 node qa/review-rhythm.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-rhythm/main/index.js HALIGTREE_QA_AWAY=1 node qa/review-rhythm.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const c = await sandbox({ width: 1280, height: 900, at: '09:30' })
@@ -80,7 +80,7 @@ try {
   await h.waitForTimeout(1500)
 
   // 3. Close the day: today's captures beside the line for today's page.
-  await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:close-day')))
+  await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:close-day')))
   await h.waitForTimeout(800)
   const log = h.locator('[data-close-day] [data-close-line] [data-day-log]')
   check('3. the day\'s captures sit beside the line', await log.count() === 1 && (await log.innerText()).includes('a thought caught this morning'))

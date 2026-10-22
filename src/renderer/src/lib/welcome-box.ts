@@ -33,7 +33,7 @@ export const STORY_DAY = dayjs().add(2, 'day').format('dddd')
 export const STARTERS: Starter[] = [
   // The most common thing caught: a thought of your own, about a book.
   { kind: 'note', text: 'In Frankenstein, Victor never names the creature. Maybe that is the point.' },
-  // A thought first, never a chore: Vigil is a book of things worth keeping before it is a task list.
+  // A thought first, never a chore: Haligtree is a book of things worth keeping before it is a task list.
   // Yoda, to Luke on Dagobah, in The Empire Strikes Back (1980).
   { kind: 'quote', text: '“Do or do not. There is no try.”', who: 'Yoda', where: 'The Empire Strikes Back' },
   // The sandbox keeps the same word in the same words (sandbox-seed.ts).
@@ -145,7 +145,7 @@ const read = <T>(key: string): T | null => {
   }
 }
 
-const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 
 export function useWelcomePlaceholder(onFields?: (who: string, where: string, kind: Starter['kind']) => void): void {
   const fields = useRef(onFields)
@@ -256,7 +256,7 @@ export function useWelcomePlaceholder(onFields?: (who: string, where: string, ki
     window.addEventListener('keydown', onKey, true)
 
     const start = (): void =>
-      void (window.api.vigil<boolean>('onboarding:welcoming')).then((welcoming) => {
+      void (window.api.haligtree<boolean>('onboarding:welcoming')).then((welcoming) => {
         stop()
         if (!welcoming) return
         on = true

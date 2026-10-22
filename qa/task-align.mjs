@@ -5,7 +5,7 @@
 // priorities and again with none: Today, Upcoming, Routines, Later, This
 // week's tasks, the Matrix, Home's Next up, Today's page, quick capture's
 // Tasks tab and the desktop Today sticky.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/task-align.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/task-align.mjs
 // SHOTS=dir keeps a picture of each list.
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'

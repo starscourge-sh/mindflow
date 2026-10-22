@@ -65,7 +65,7 @@ export function filedSaid(from: string, groups: { name: string; count: number }[
 export function registerNoteImports(): void {
   const db = database()
   // Kept, or put back to sort again by Undo.
-  ipcMain.handle('vigil:imports:sorted', (_event, ids: unknown, sorted: unknown) => {
+  ipcMain.handle('haligtree:imports:sorted', (_event, ids: unknown, sorted: unknown) => {
     const list = Array.isArray(ids) ? ids.map(String) : []
     const set = db.prepare('update nuggets set unsorted = ? where id = ?')
     atomically(() => list.forEach((id) => set.run(sorted ? 0 : 1, id)))
@@ -75,7 +75,7 @@ export function registerNoteImports(): void {
   // Moved, which sorts it: into another of Writing's groups, or out of every group (null).
   // What it was comes back, for Undo to put it where it was, not yet sorted again.
   type Was = { id: string; group: string | null; order: number | null; unsorted: number }
-  ipcMain.handle('vigil:imports:move', (_event, id: unknown, group: unknown) => {
+  ipcMain.handle('haligtree:imports:move', (_event, id: unknown, group: unknown) => {
     const was = db.prepare('select id, group_id as "group", group_order as "order", unsorted from nuggets where id = ?').get(String(id)) as Was | undefined
     if (!was) return null
     const into = typeof group === 'string' ? group : null
@@ -84,7 +84,7 @@ export function registerNoteImports(): void {
     changed()
     return was
   })
-  ipcMain.handle('vigil:imports:unmove', (_event, was: Was) => {
+  ipcMain.handle('haligtree:imports:unmove', (_event, was: Was) => {
     db.prepare('update nuggets set group_id = ?, group_order = ?, unsorted = ? where id = ?').run(was.group, was.order, was.unsorted, was.id)
     changed()
     return true

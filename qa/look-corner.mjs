@@ -4,7 +4,7 @@
 // picture's toolbar, double-click and Space). A double-click still opens Look,
 // and the picture stays inside the text column.
 // Paper and Dark, at 1280x800 and 1600x1000.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/look-corner.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/look-corner.mjs
 // SHOTS=dir keeps pictures.
 import { mkdirSync, readFileSync } from 'node:fs'
 import { sandbox } from './sandbox-lib.mjs'

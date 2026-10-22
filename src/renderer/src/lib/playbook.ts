@@ -1,7 +1,7 @@
 import type { JSONContent } from '@tiptap/core'
 import { chime } from './sound'
-import { vigil } from './vigil'
-import { toast } from '@/components/vigil/ui'
+import { haligtree } from './haligtree'
+import { toast } from '@/components/haligtree/ui'
 
 /**
  * The playbook: one pinned piece of writing called “How I work”, a
@@ -41,7 +41,7 @@ export const starter = (): JSONContent => ({
 
 /** The playbook's id, if there is one: the one made here, or one you wrote under that name. */
 export async function findPlaybook(): Promise<string | null> {
-  const [settings, writing] = await Promise.all([vigil.settings(), vigil.items('article')])
+  const [settings, writing] = await Promise.all([haligtree.settings(), haligtree.items('article')])
   if (settings.playbook && writing.some((one) => one.id === settings.playbook)) return settings.playbook
   return writing.find((one) => one.title.trim().toLowerCase() === PLAYBOOK_TITLE.toLowerCase())?.id ?? null
 }
@@ -50,13 +50,13 @@ export async function findPlaybook(): Promise<string | null> {
 export async function ensurePlaybook(): Promise<{ id: string; made: boolean; pinned: boolean }> {
   const found = await findPlaybook()
   if (found) {
-    if ((await vigil.settings()).playbook !== found) await vigil.setSettings({ playbook: found })
+    if ((await haligtree.settings()).playbook !== found) await haligtree.setSettings({ playbook: found })
     return { id: found, made: false, pinned: true }
   }
-  const id = await vigil.newArticle()
-  await vigil.saveItem(id, { title: PLAYBOOK_TITLE, body: starter() })
-  const pinned = await vigil.pin('nuggets', id, true)
-  await vigil.setSettings({ playbook: id })
+  const id = await haligtree.newArticle()
+  await haligtree.saveItem(id, { title: PLAYBOOK_TITLE, body: starter() })
+  const pinned = await haligtree.pin('nuggets', id, true)
+  await haligtree.setSettings({ playbook: id })
   return { id, made: true, pinned }
 }
 
@@ -73,7 +73,7 @@ export async function keepSeasonLine(season: string, line: string): Promise<void
   const words = line.trim()
   if (!words) return
   const { id } = await ensurePlaybook()
-  const item = await vigil.item(id)
+  const item = await haligtree.item(id)
   const body = (item?.body && typeof item.body === 'object' ? item.body : starter()) as JSONContent
   const blocks = [...(body.content ?? [])]
   const said = `${season}: ${words}`
@@ -90,5 +90,5 @@ export async function keepSeasonLine(season: string, line: string): Promise<void
     const old = blocks[at + 1 + list]
     blocks[at + 1 + list] = { ...old, content: [...(old.content ?? []), { type: 'listItem', content: [para(said)] }] }
   } else blocks.splice(end, 0, bullets([said]))
-  await vigil.saveItem(id, { body: { ...body, content: blocks } })
+  await haligtree.saveItem(id, { body: { ...body, content: blocks } })
 }

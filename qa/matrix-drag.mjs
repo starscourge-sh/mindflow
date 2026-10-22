@@ -3,7 +3,7 @@
 // while the pointer is at the page's very edge, as narrow strips, and go again
 // when it comes back in. Let go over another box, it lands there. Checked on
 // the Matrix, the week board, the Inbox and Gems in your own order and the sidebar, out of sight.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/matrix-drag.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/matrix-drag.mjs
 // SHOTS=dir keeps a picture mid-drag and at the edge.
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'

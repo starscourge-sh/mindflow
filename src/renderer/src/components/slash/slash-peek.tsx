@@ -1,6 +1,6 @@
 import type { ReactNode, RefObject } from 'react'
 import { ChevronDown, FileDown, Image as ImageIcon, Paperclip, Play } from 'lucide-react'
-import { BesidePeek, MCard, MCheck, MLines, PeekCard, tinted } from '@/components/vigil/peek'
+import { BesidePeek, MCard, MCheck, MLines, PeekCard, tinted } from '@/components/haligtree/peek'
 
 /**
  * Beside the `/` menu, the block under the pointer or the keys: a small

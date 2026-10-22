@@ -1,22 +1,22 @@
 import { useEffect, useRef, useState } from 'react'
 import { seeTheBin } from '@/lib/to-bin'
 import { shredFrom } from '@/lib/fly-home'
-import { RowMenu } from './vigil/row-menu'
+import { RowMenu } from './haligtree/row-menu'
 import { AnimatePresence, motion } from 'motion/react'
 import { EASE, shift } from '@/lib/motion'
 
 import { shown } from './rot-cards'
 import { chime, tear } from '@/lib/sound'
-import { vigil } from '@/lib/vigil'
-import { Rolling, quietly, refuse, toast, Typed } from './vigil/ui'
+import { haligtree } from '@/lib/haligtree'
+import { Rolling, quietly, refuse, toast, Typed } from './haligtree/ui'
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { QuestionBack } from './vigil/questions-view'
-import { KindBack, backLine, returningHint, type Returning } from './vigil/kind-back'
-import { GlossLine, useGlossKey } from './vigil/gloss-line'
-import { openPass } from './vigil/pass'
-import { Postcarded, usePostcard } from './vigil/memory-postcard'
+import { QuestionBack } from './haligtree/questions-view'
+import { KindBack, backLine, returningHint, type Returning } from './haligtree/kind-back'
+import { GlossLine, useGlossKey } from './haligtree/gloss-line'
+import { openPass } from './haligtree/pass'
+import { Postcarded, usePostcard } from './haligtree/memory-postcard'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import TrashIcon from '@/components/ui/trash-icon'
 import { keyFor } from '@/lib/keys'
@@ -24,7 +24,7 @@ import { ArrowUpRight, EyeOff, Pencil, ThumbsDown, ThumbsUp, Trash2, X } from '@
 
 // A memory is a hint that says what it is: this day last year, one source's things.
 type Hint = NonNullable<Awaited<ReturnType<typeof window.api.hints.next>>> & { memory?: string }
-type Nudge = NonNullable<Awaited<ReturnType<typeof vigil.nudge>>>
+type Nudge = NonNullable<Awaited<ReturnType<typeof haligtree.nudge>>>
 
 /**
  * A hint: one nugget you did not ask for, like a tip on a game's loading
@@ -41,7 +41,7 @@ export function HintCard({ onOpen, writing = false }: { onOpen: (type: string, i
   const [nudge, setNudge] = useState<Nudge | null>(null)
   useEffect(() => void (nudge && chime('hint')), [nudge?.kind]) // eslint-disable-line react-hooks/exhaustive-deps
   // A question you are holding, come back: "Still open: …".
-  const [back, setBack] = useState<Awaited<ReturnType<typeof vigil.questionBack>>>(null)
+  const [back, setBack] = useState<Awaited<ReturnType<typeof haligtree.questionBack>>>(null)
   // A clue kept on the card above and undone: the card back with its words.
   const [backWords, setBackWords] = useState('')
   useEffect(() => void (!back && setBackWords('')), [back])
@@ -95,7 +95,7 @@ export function HintCard({ onOpen, writing = false }: { onOpen: (type: string, i
     const was = hint
     const save = (next: { title: string; body: unknown }): Promise<unknown> => hint.id === hint.captureId
       ? window.api.captures.save(hint.id, { body: next.body as never })
-      : vigil.saveItem(hint.id, { body: next.body as never, title: next.title })
+      : haligtree.saveItem(hint.id, { body: next.body as never, title: next.title })
     setHint({ ...hint, title: words, body })
     chime('noted')
     // The new words are on the card in front of you: no toast, but ⌘Z puts the old ones back.
@@ -111,20 +111,20 @@ export function HintCard({ onOpen, writing = false }: { onOpen: (type: string, i
         setDue(null)
         // A nudge comes at most once a day, so it skips the dice; never in
         // quiet hours or safe mode, which the main process checks.
-        const nudging = await vigil.nudge()
+        const nudging = await haligtree.nudge()
         setNudge(nudging)
         if (nudging) return setHint(null)
         const coming = await returningHint()
         setDue(coming)
         if (coming) return setHint(null)
-        const { rate } = await vigil.hintRate()
+        const { rate } = await haligtree.hintRate()
         if (Math.random() < rate) {
           // Now and then, a question still held instead: low weight, at most
           // once a day, gated and switched off in Settings by the main process.
-          const question = Math.random() < 1 / 4 ? await vigil.questionBack() : null
+          const question = Math.random() < 1 / 4 ? await haligtree.questionBack() : null
           if (question) return (setHint(null), setBack(question))
           // A third of the time, a memory, when there is one to give.
-          const next: Hint | null = (Math.random() < 1 / 3 ? await vigil.memory() : null) ?? (await window.api.hints.next())
+          const next: Hint | null = (Math.random() < 1 / 3 ? await haligtree.memory() : null) ?? (await window.api.hints.next())
           shownAt.current = Date.now()
           setHint(next)
         } else setHint(null)
@@ -201,10 +201,10 @@ export function HintCard({ onOpen, writing = false }: { onOpen: (type: string, i
                   setHint(null)
                   land?.()
                   const was = hint
-                  void (capture ? window.api.captures.save(id, { status: 'discarded', bin: true }) : vigil.saveItem(id, { suspended: true })).then((saved) =>
+                  void (capture ? window.api.captures.save(id, { status: 'discarded', bin: true }) : haligtree.saveItem(id, { suspended: true })).then((saved) =>
                     // Undone: back to the status it had, and the card back where it was.
                     toast(capture ? 'Moved to the Bin' : 'It will not come up again', () =>
-                      void (capture ? window.api.captures.save(id, { status: ((saved as { was?: string } | null)?.was ?? 'open') as 'open', bin: true }) : vigil.saveItem(id, { suspended: false })).then(() => setHint(was)), 'success', capture ? seeTheBin : undefined))
+                      void (capture ? window.api.captures.save(id, { status: ((saved as { was?: string } | null)?.was ?? 'open') as 'open', bin: true }) : haligtree.saveItem(id, { suspended: false })).then(() => setHint(was)), 'success', capture ? seeTheBin : undefined))
                 } }
 ]
   // A memory may be something already dealt with, so it is opened, fixed or
@@ -334,8 +334,8 @@ export function HintCard({ onOpen, writing = false }: { onOpen: (type: string, i
                 if (event.key !== 'Enter' || !event.currentTarget.value.trim()) return
                 const line = event.currentTarget.value.trim()
                 void (hint.id === hint.captureId
-                  ? vigil.promote(hint.id, line).then((result) => (result === 'needs-source' ? refuse('A quote needs to say who said it first') : result === 'not-open' ? refuse('That capture was already dealt with, so it is not saved again') : toast('Saved as a gem, with your line beside it', undefined, 'success', result ? { label: 'Open', key: 'O', run: () => window.api.openInHome('nugget', result) } : undefined)))
-                  : vigil.saveItem(hint.id, { prompt: line }).then(() => toast('Now tested: it will come up in review'))
+                  ? haligtree.promote(hint.id, line).then((result) => (result === 'needs-source' ? refuse('A quote needs to say who said it first') : result === 'not-open' ? refuse('That capture was already dealt with, so it is not saved again') : toast('Saved as a gem, with your line beside it', undefined, 'success', result ? { label: 'Open', key: 'O', run: () => window.api.openInHome('nugget', result) } : undefined)))
+                  : haligtree.saveItem(hint.id, { prompt: line }).then(() => toast('Now tested: it will come up in review'))
                 ).then(() => setHint(null))
               }}
               className="mt-2 w-full h-8"

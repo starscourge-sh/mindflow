@@ -12,7 +12,7 @@ import { mkdirSync, mkdtempSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
-process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'vigil-split-'))
+process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'haligtree-split-'))
 process.env.QA_ARGS ??= '--sandbox'
 const shots = process.env.SHOTS ?? 'scratchpad/split'
 mkdirSync(shots, { recursive: true })
@@ -306,8 +306,8 @@ try {
   /** Every word in each pane, typed fields too, hidden or not. */
   const texts = () => h.evaluate(() => [...document.querySelectorAll('[data-pane]')].map((el) => (el.querySelector('[data-pane-card]') ?? el).textContent + [...el.querySelectorAll('textarea, input')].map((one) => one.value).join(' ')))
   /** The open note's own title as saved: a gem's title is its question, which its page does not repeat. */
-  const titles = () => h.evaluate(() => Promise.all([...document.querySelectorAll('[data-pane]')].map(async (el) => { const id = el.querySelector('.note-pane')?.dataset.open; return id ? ((await window.api.vigil('item', id))?.title ?? '') : '' })))
-  const v = (channel, ...args) => h.evaluate(([ch, a]) => window.api.vigil(ch, ...a), [channel, args])
+  const titles = () => h.evaluate(() => Promise.all([...document.querySelectorAll('[data-pane]')].map(async (el) => { const id = el.querySelector('.note-pane')?.dataset.open; return id ? ((await window.api.haligtree('item', id))?.title ?? '') : '' })))
+  const v = (channel, ...args) => h.evaluate(([ch, a]) => window.api.haligtree(ch, ...a), [channel, args])
   const seen = () => h.evaluate(() => ({
     tabs: [...document.querySelectorAll('[role="tablist"][aria-label="Panes"] [role="tab"]')].map((one) => one.textContent.trim()),
     heads: [...document.querySelectorAll('[data-pane-head]')].map((one) => one.textContent.trim()),

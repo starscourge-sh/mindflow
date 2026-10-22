@@ -95,7 +95,7 @@ const marked = (content: JSONContent[]): JSONContent[] => {
   })
 }
 
-const FILE_LINK = /^mindflow:\/\/assets\/[a-f0-9]{64}\.(?!png|jpe?g|gif|webp|svg|avif|bmp)[a-z0-9]+$/
+const FILE_LINK = /^haligtree:\/\/assets\/[a-f0-9]{64}\.(?!png|jpe?g|gif|webp|svg|avif|bmp)[a-z0-9]+$/
 
 /**
  * What Obsidian writes that plain Markdown has no word for, put right once the

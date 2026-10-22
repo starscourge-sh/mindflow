@@ -15,7 +15,7 @@
 // a note in its own window, and the bubble.
 //
 //   npx electron-vite build --outDir out-x
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 UNEVEN=1 node qa/no-flash.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 UNEVEN=1 node qa/no-flash.mjs
 //   PAGES=home,today ROUNDS=3 ... to run some pages several times (each round its own random speeds).
 //   MOMENTS=0 leaves out the other moments (book switch, sandbox Reset, ⌘Z after a Bin move, sort, theme).
 import { sandbox } from './sandbox-lib.mjs'
@@ -222,7 +222,7 @@ try {
   // A big book answers its reads a beat apart: slowed here, as there.
   await electron.evaluate(({ ipcMain }, uneven) => {
     // UNEVEN=1: every read answers at its own speed, up to 300ms, the way a big book does.
-    const names = uneven ? [...ipcMain._invokeHandlers.keys()].filter((one) => one.startsWith('vigil:')) : ['vigil:groups', 'vigil:tasks:sources']
+    const names = uneven ? [...ipcMain._invokeHandlers.keys()].filter((one) => one.startsWith('haligtree:')) : ['haligtree:groups', 'haligtree:tasks:sources']
     for (const name of names) {
       const was = ipcMain._invokeHandlers?.get(name)
       if (!was) continue

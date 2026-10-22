@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto'
 
 import { LABEL, changed, database } from './captures'
 import { dayKey } from './dates'
-import { gate, plain } from './vigil'
+import { gate, plain } from './haligtree'
 import { tagged } from './kinds'
 import { DECLINES_TO_MOVE, HONEST_AFTER_DAYS, bestHour, logLine, minutesOf, minutesRun, nextProblem, offerDue, partOfDay, stageOf, type Stage } from './practice-rules'
 
@@ -13,7 +13,7 @@ import { DECLINES_TO_MOVE, HONEST_AFTER_DAYS, bestHour, logLine, minutesOf, minu
  * never overdue. At its time it is offered once, gently, for 5 minutes; it
  * never starts by itself. A practice session is a focus session (task_id '',
  * kind 'focus') with `practice_id` set, so it is logged and counted as any
- * session is. Every channel starts `vigil:`.
+ * session is. Every channel starts `haligtree:`.
  */
 
 export type LoadKind = 'tag' | 'source' | 'queue' | 'problems'
@@ -67,7 +67,7 @@ let told: ((offer: Offer) => void) | null = null
 /** Said once a new offer is up, so the main process can bring the bubble (or the nudge card) up for it. */
 export const whenPracticeOffer = (tell: (offer: Offer) => void): void => void (told = tell)
 
-/** The practices in the Bin, for the Bin's list (vigil.ts). */
+/** The practices in the Bin, for the Bin's list (haligtree.ts). */
 export const practicesInBin = (): { type: string; id: string; title: string; kind: string; at: string }[] =>
   database().prepare("select 'practice' as type, id, name as title, 'practice' as kind, binned_at as at from practices where binned_at is not null").all() as never
 export const practiceToBin = (id: string): boolean => database().prepare('update practices set binned_at = ? where id = ? and binned_at is null').run(now(), id).changes > 0
@@ -91,7 +91,7 @@ export function registerPractices(): void {
     db.exec('alter table sessions add column practice_logged integer')
   }
   const handle = (channel: string, run: (...args: never[]) => unknown): void =>
-    void ipcMain.handle(`vigil:${channel}`, (_event, ...args) => run(...(args as never[])))
+    void ipcMain.handle(`haligtree:${channel}`, (_event, ...args) => run(...(args as never[])))
   // Practices change only practice views: never every list of notes.
   const tell = (): void => changed({ kind: 'item', id: 'practices' })
   const write = <T>(result: T): T => (tell(), result)

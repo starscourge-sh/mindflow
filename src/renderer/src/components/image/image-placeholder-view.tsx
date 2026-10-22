@@ -7,7 +7,7 @@ import {
   PopoverTrigger,
 } from "@/components/tiptap-ui-primitive/popover"
 import { saveImage, saveLinkedImage } from "@/extensions/image-drop"
-import { Orb } from "@/components/vigil/orb"
+import { Orb } from "@/components/haligtree/orb"
 
 type Tab = "add" | "link"
 
@@ -15,7 +15,7 @@ type Tab = "add" | "link"
  * The empty image block: a row that opens a small panel.
  *
  * Two ways in, one ending. A file and a link are both copied into the app's own
- * store, and the block keeps a `mindflow://` URL, so the picture survives the
+ * store, and the block keeps a `haligtree://` URL, so the picture survives the
  * original being moved, deleted, or taken off the web.
  */
 export function ImagePlaceholderView({ editor, node, getPos }: NodeViewProps) {

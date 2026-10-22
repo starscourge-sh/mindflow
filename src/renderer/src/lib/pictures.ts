@@ -23,7 +23,7 @@ const waiting = new Map<string, Set<() => void>>()
 const blurs = new Map<string, string>()
 
 /** A stored picture's name in the store, from its address. */
-const nameOf = (src: string | null | undefined): string | null => /^mindflow:\/\/assets\/([a-f0-9]{64}\.[a-z0-9]+)$/.exec(src ?? "")?.[1] ?? null
+const nameOf = (src: string | null | undefined): string | null => /^haligtree:\/\/assets\/([a-f0-9]{64}\.[a-z0-9]+)$/.exec(src ?? "")?.[1] ?? null
 
 const told = (name: string): void => {
   waiting.get(name)?.forEach((then) => then())
@@ -31,7 +31,7 @@ const told = (name: string): void => {
 }
 
 const call = (channel: string, ...args: unknown[]): Promise<unknown> | undefined =>
-  (window as { api?: { vigil?: (channel: string, ...args: unknown[]) => Promise<unknown> } }).api?.vigil?.(channel, ...args)
+  (window as { api?: { haligtree?: (channel: string, ...args: unknown[]) => Promise<unknown> } }).api?.haligtree?.(channel, ...args)
 
 // Everything known so far, as the window opens.
 const all = call("pictures:looks")?.then((found) => {

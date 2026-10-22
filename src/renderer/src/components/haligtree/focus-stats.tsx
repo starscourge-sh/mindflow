@@ -1,0 +1,453 @@
+import { useState, type ReactNode } from 'react'
+import { useReading } from '@/lib/reads-in'
+
+import { call, unloaded, useLive, haligtree, when, whenInLine } from '@/lib/haligtree'
+import { chime } from '@/lib/sound'
+import { cn } from '@/lib/cn'
+import { focusStats, streaks, type FocusRow, type FocusStats, type Outcome, type TaskFocus } from '../../../../main/focus-numbers'
+import { dated, dayjs, howLong, num, plural } from '../../../../main/dates'
+import { moment } from '@/lib/clock'
+import { Chips } from './display'
+import { Island, Rolling, Tags, Tip } from './ui'
+import { RowMenu } from './row-menu'
+import { taskMenu, useTaskNow } from './tasks-view'
+import { taskName } from '@/lib/tasks'
+import type { Task } from '@/lib/haligtree'
+import { N, Section } from './stats-view'
+
+/**
+ * How focus sessions went, in two places: on a task's panel (how many, how
+ * long, the last one, how they ended, a small row of bars) and in Stats (time
+ * a day or a week, the streak, the usual length, the best time of day, how
+ * sessions end, breaks, and where the time went). Worked out in
+ * main/focus-numbers.ts; read here as it changes.
+ */
+
+/** Time, said the way a person says it: 25 min, 11 h 20 min, 2,300 h; a session cut short is "Under a minute", never "0 min". */
+export const timeSaid = (minutes: number): string => (Math.round(minutes) < 1 ? 'Under a minute' : howLong(minutes))
+
+/** One colour a way a session can end: the theme's own accent, a paler one, and the page's line colour. */
+const TINT: Record<Outcome, string> = {
+  finished: 'var(--tt-brand-color-400)',
+  // Halfway to the page's grey ink, so it stays a paler accent on a dark page as on a light one.
+  early: 'color-mix(in oklab, var(--tt-brand-color-400) 50%, var(--muted-foreground))',
+  abandoned: 'color-mix(in oklab, var(--foreground) 30%, var(--background))'
+}
+const SAID: Record<Outcome, string> = { finished: 'ran its full length', early: 'ended early', abandoned: 'abandoned' }
+
+/**
+ * A row of bars, bottom-aligned, each with its own tip; an empty one keeps a
+ * stub so the day is still there. `peak` labels the tallest bar with how much
+ * it stands for, so the heights read without pointing at each one.
+ */
+function Bars({ values, tips, tint, className, highlight, peak }: { values: number[]; tips: string[]; tint?: (index: number) => string; className?: string; highlight?: number; peak?: (value: number) => string }): React.JSX.Element {
+  const max = Math.max(1, ...values)
+  const top = values.indexOf(Math.max(...values))
+  const at = ((top + 0.5) / Math.max(1, values.length)) * 100
+  return (
+    <div className={cn('relative', peak && values[top] > 0 && 'pt-5')}>
+    {peak && values[top] > 0 && (
+      <span data-focus-peak className="pointer-events-none absolute top-0 text-xs font-medium whitespace-nowrap text-foreground tabular-nums"
+        style={{ left: `${at}%`, transform: `translateX(${at < 12 ? '-10%' : at > 88 ? '-90%' : '-50%'})` }}>{peak(values[top])}</span>
+    )}
+    <div data-focus-bars className={cn('flex items-end gap-[3px]', className)}>
+      {values.map((value, index) => (
+        <Tip key={index} label={tips[index]}>
+          {/* Full height, scaled from the foot: a change grows on the compositor, not by laying the row out again each frame. */}
+          <div
+            className="flex-1 origin-bottom rounded-t-[3px] transition-transform duration-240"
+            style={{
+              height: value ? '100%' : '2px',
+              transform: value ? `scaleY(${Math.max(0.06, value / max)})` : undefined,
+              background: value ? (tint?.(index) ?? 'var(--tt-brand-color-400)') : 'color-mix(in oklab, var(--foreground) 14%, var(--background))',
+              opacity: highlight === undefined || highlight === index || !value ? 1 : 0.72
+            }}
+          />
+        </Tip>
+      ))}
+    </div>
+    </div>
+  )
+}
+
+/** The legend of how sessions end: a mark, the words, the count. */
+function Ends({ counts, className }: { counts: Record<Outcome, number>; className?: string }): React.JSX.Element {
+  return (
+    <p className={cn('flex flex-wrap gap-x-4 gap-y-1', className)}>
+      {(['finished', 'early', 'abandoned'] as const).filter((one) => counts[one]).map((one) => (
+        <span key={one} className="inline-flex items-center gap-1.5 text-foreground">
+          <span className="size-2.5 shrink-0 rounded-[2px]" style={{ background: TINT[one] }} />
+          <strong className="font-semibold tabular-nums"><Rolling text={counts[one]} /></strong> {one === 'finished' ? 'finished' : SAID[one]}
+        </span>
+      ))}
+    </p>
+  )
+}
+
+/**
+ * On a task's panel, under Sessions: what its sessions came to. Nothing until
+ * the first one ends; the first says so plainly; from the second, the bars.
+ */
+export function TaskFocusNumbers({ taskId, estimate }: { taskId: string; estimate?: number | null }): React.JSX.Element | null {
+  const focus = useLive(() => call<TaskFocus>('focus:task', taskId), null as TaskFocus | null, [taskId])
+  if (!focus || !focus.recent.length) return null
+  const ran = focus.finished + focus.early + focus.abandoned
+  const first = focus.recent.length === 1
+  return (
+    <Island compact title="Focus so far">
+      <div data-task-focus className="space-y-2 px-2 py-2">
+        <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+          <span className="text-2xl leading-none font-semibold tracking-tight text-foreground tabular-nums"><Rolling text={!focus.minutes && focus.sessions ? 'Under a minute' : timeSaid(focus.minutes)} /></span>
+          <span className="whitespace-nowrap text-control text-muted-foreground">{focus.sessions ? `in ${plural(focus.sessions, 'session', 'sessions')}` : 'kept so far'}</span>
+        </p>
+        {/* What it was meant to take, beside what the sessions took: said plainly, on its own line. */}
+        {!!estimate && (
+          <p data-vs-estimate className="text-[0.9375rem] leading-snug font-medium text-foreground">
+            {timeSaid(focus.minutes)} of ~{timeSaid(estimate)} planned
+            {focus.minutes > estimate ? `, ${timeSaid(focus.minutes - estimate)} over` : focus.minutes < estimate ? `, ${timeSaid(estimate - focus.minutes)} to go` : ', right on it'}
+          </p>
+        )}
+        {first ? (
+          <p className="text-control leading-snug text-foreground">
+            <strong className="font-semibold">Your first session on this task</strong> {SAID[focus.recent[0].outcome]}, {whenInLine(focus.lastAt!, false)}. From the next one, each session shows here as a bar, so you can see how they compare.
+          </p>
+        ) : (
+          <>
+            <Bars
+              className="h-10"
+              values={focus.recent.map((one) => Math.max(1, one.minutes))}
+              tips={focus.recent.map((one) => `${timeSaid(one.minutes)}, ${SAID[one.outcome]} · ${moment(one.at)}`)}
+              tint={(index) => TINT[focus.recent[index].outcome]}
+              peak={timeSaid}
+            />
+            <p className="text-control leading-snug text-foreground">
+              <strong className="font-semibold">Last session</strong> {when(focus.lastAt!, false)}
+            </p>
+            <Ends counts={{ finished: focus.finished, early: focus.early, abandoned: focus.abandoned }} className="text-control" />
+            {ran > focus.recent.length && <p className="text-xs text-muted-foreground">The bars are the last {focus.recent.length} of {ran}.</p>}
+          </>
+        )}
+      </div>
+    </Island>
+  )
+}
+
+/** A number set large over its words, three to a row. */
+function Tile({ value, label, note }: { value: ReactNode; label: string; note?: ReactNode }): React.JSX.Element {
+  return (
+    <div className="min-w-0 rounded-lg bg-accent/40 px-3 py-2.5">
+      <p className="text-[1.375rem] leading-tight font-semibold tracking-tight text-foreground tabular-nums">{value}</p>
+      <p className="text-sm text-foreground">{label}</p>
+      {note && <p className="mt-0.5 text-xs leading-snug">{note}</p>}
+    </div>
+  )
+}
+
+const PART = { morning: 'Mornings', afternoon: 'Afternoons', evening: 'Evenings', night: 'Late at night' }
+
+/** Made up, for Stats' example page: ten weeks of mornings, as the sandbox has. */
+export function exampleFocus(): FocusStats {
+  const rows: FocusRow[] = []
+  for (let n = 60; n >= 1; n--) {
+    if (n > 8 && (n % 7 === 3 || n % 11 === 5)) continue
+    for (let i = 0; i < 1 + Number(n % 3 === 0); i++) {
+      const start = dayjs().subtract(n, 'day').hour(9 + i * 2).minute(n % 4 * 10).startOf('minute')
+      const planned = (n + i) % 3 === 0 ? 50 : 25
+      const worked = (n + i) % 9 === 4 ? 15 : planned
+      rows.push({ id: `${n}-${i}`, taskId: ['a', 'b', 'c'][(n + i) % 3], title: ['Write the budget', 'Draft the repair plan', 'Practise cuneiform'][(n + i) % 3], startedAt: start.toISOString(), endedAt: start.add(worked, 'minute').toISOString(), pausedMs: 0, plannedMs: planned * 60000, abandonedAt: (n * 7 + i) % 17 === 0 ? start.add(worked, 'minute').toISOString() : null })
+    }
+  }
+  return focusStats(rows, rows.slice(0, 20).map((one) => ({ at: one.endedAt, ms: 300000 })))
+}
+
+/**
+ * Stats' focus sections: the time, a day or a week at a glance; how sessions
+ * end and when you work best; where the time went. With none yet, one
+ * section that says what will be here and how to start.
+ */
+export function FocusSections({ example }: { example: boolean }): React.JSX.Element | null {
+  const real = useLive(() => call<FocusStats>('focus:stats'), null as FocusStats | null)
+  const [span, setSpan] = useState<'days' | 'weeks'>('days')
+  // Where the focus went: each task opens, and right-clicks with its own menu, as in every list.
+  const tasks = useLive(haligtree.tasks, [] as Task[])
+  const taskNow = useTaskNow()
+  const focus = example ? exampleFocus() : real
+  // Stats is drawn once every section's read is in (lib/reads-in.tsx), never a section popping in between two others.
+  useReading(!focus || unloaded(tasks))
+  if (!focus) return null
+  const openTask = (id: string): void => (chime('open'), window.api.openInHome('task', id))
+  const ran = focus.outcomes.finished + focus.outcomes.early + focus.outcomes.abandoned
+
+  if (!focus.total.sessions && !ran)
+    return (
+      <Section title="Focus">
+        <p data-focus-empty className="text-foreground">
+          <strong className="font-semibold">No focus sessions yet.</strong> Open a task and choose “Start a focus session”. From the first one, this shows how long you focus each day, your streak, and when you work best.
+        </p>
+      </Section>
+    )
+
+  const days = span === 'days'
+  const values = days ? focus.days.map((one) => one.minutes) : focus.weeks.map((one) => one.minutes)
+  const tips = days
+    ? focus.days.map((one, index) => `${index === 27 ? 'Today' : dated(one.day, 'ddd D MMM')} · ${one.minutes ? `${timeSaid(one.minutes)}, ${plural(one.sessions, 'session', 'sessions')}` : 'no focus'}`)
+    : focus.weeks.map((one, index) => `${index === 11 ? 'This week' : `Week of ${dated(one.start)}`} · ${one.minutes ? timeSaid(one.minutes) : 'no focus'}`)
+  const change = focus.weekBefore ? Math.round(((focus.week - focus.weekBefore) / focus.weekBefore) * 100) : null
+  const finishedShare = ran ? Math.round((focus.outcomes.finished / ran) * 100) : 0
+  const peak = Math.max(1, ...focus.hours)
+  const first = focus.total.sessions <= 1
+
+  return (
+    <>
+      <Section title="Focus" big={{ value: timeSaid(focus.week), label: 'of focus in the last 7 days' }}>
+        <div data-focus-chart>
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <span className="text-sm text-foreground">{days ? 'Each day, the last four weeks' : 'Each week, the last twelve'}</span>
+            <Chips options={[{ id: 'days', label: 'Days' }, { id: 'weeks', label: 'Weeks' }]} on={(id) => id === span} pick={(id) => (chime('tap'), setSpan(id as 'days' | 'weeks'))} className="" />
+          </div>
+          <Bars className="h-24" values={values} tips={tips} highlight={values.length - 1} peak={timeSaid} />
+          <div className="mt-1.5 flex justify-between text-xs tabular-nums">
+            <span>{days ? dated(focus.days[0].day) : dated(focus.weeks[0].start)}</span>
+            <span>{days ? 'Today' : 'This week'}</span>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <Tile value={<Rolling text={focus.streak.now ? plural(focus.streak.now, 'day', 'days') : 'None'} />} label={focus.streak.now ? 'in a row, so far' : 'running right now'} note={focus.streak.best > 1 ? <>Longest run: <N>{plural(focus.streak.best, 'day', 'days')}</N></> : undefined} />
+          <Tile value={<Rolling text={timeSaid(focus.average)} />} label="a session, on average" note={focus.longest > focus.average ? <>Longest: <N>{timeSaid(focus.longest)}</N></> : undefined} />
+          <Tile value={focus.best && focus.sessions >= 3 ? PART[focus.best.part] : 'Not yet'} label={focus.best && focus.sessions >= 3 ? `you focus best, around ${focus.best.hour}:00` : 'your best time of day'} note={focus.best && focus.sessions >= 3 ? undefined : 'Shown after three sessions'} />
+        </div>
+        <p>
+          {first ? (
+            <><strong className="font-semibold text-foreground">Your first session is in.</strong> From the next one, this compares each day and week with the one before.</>
+          ) : (
+            <>
+              {focus.today ? <>Today so far, <N>{timeSaid(focus.today)}</N>. </> : ''}The seven days before these came to <N>{timeSaid(focus.weekBefore)}</N>
+              {change === null || change === 0 ? '.' : <>, so this week is {change > 0 ? 'up' : 'down'} <N>{`${Math.abs(change)}%`}</N>.</>}{' '}
+              <N>{timeSaid(focus.total.minutes)}</N> in <N>{plural(focus.total.sessions, 'session', 'sessions')}</N> since {dayjs(focus.total.since).format('D MMMM YYYY')}.
+            </>
+          )}
+        </p>
+      </Section>
+
+      {ran > 0 && (
+        <Section title="How sessions end" big={{ value: `${finishedShare}%`, label: 'ran their full length' }}>
+          <div data-focus-ends className="flex h-2.5 gap-[2px] overflow-hidden rounded-full">
+            {(['finished', 'early', 'abandoned'] as const).filter((one) => focus.outcomes[one]).map((one) => (
+              <div key={one} style={{ width: `${(focus.outcomes[one] / ran) * 100}%`, background: TINT[one] }} />
+            ))}
+          </div>
+          <Ends counts={focus.outcomes} />
+          <p>
+            Of <N>{plural(ran, 'session', 'sessions')}</N> in the last 12 weeks, <N>{focus.outcomes.finished}</N> ran as long as you planned.
+            {focus.outcomes.early ? <> <N>{focus.outcomes.early}</N> ended early, which still counts as focus.</> : ''}
+            {focus.outcomes.abandoned ? <> <N>{focus.outcomes.abandoned}</N> {focus.outcomes.abandoned === 1 ? 'was' : 'were'} abandoned and count in no total.</> : ''}
+          </p>
+          <p>
+            {focus.breaks.n ? <>You took <N>{plural(focus.breaks.n, 'break', 'breaks')}</N>, <N>{timeSaid(focus.breaks.minutes)}</N> in all. </> : 'No breaks taken yet: “Break” on the session bubble starts five minutes away. '}
+            {focus.pauses.sessions ? <>You paused <N>{plural(focus.pauses.sessions, 'session', 'sessions')}</N>, for <N>{timeSaid(focus.pauses.minutes)}</N>.</> : 'No session was paused.'}
+          </p>
+        </Section>
+      )}
+
+      {focus.sessions >= 3 && focus.best && (
+        <Section title="When you focus" big={{ value: PART[focus.best.part], label: `around ${focus.best.hour}:00` }}>
+          <div>
+            <Bars className="h-14" values={focus.hours} tips={focus.hours.map((n, hour) => `${hour}:00 · ${n ? timeSaid(n) : 'none'}`)} highlight={focus.hours.indexOf(peak)} peak={timeSaid} />
+            <div className="mt-1.5 flex justify-between text-xs tabular-nums"><span>00</span><span>06</span><span>12</span><span>18</span><span>23</span></div>
+          </div>
+        </Section>
+      )}
+
+      {focus.top.length > 0 && (
+        <Section title="Where your focus went" big={{ value: timeSaid(focus.top[0].minutes), label: `on “${taskName(focus.top[0].title).text}”` }}>
+          <div data-focus-top className="space-y-2.5">
+            {focus.top.map((one) => {
+              const task = tasks.find((t) => t.id === one.taskId)
+              return (
+              <RowMenu key={one.taskId} items={example || !task ? [] : taskMenu(task, { open: () => openTask(task.id), now: taskNow })}>
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 text-sm">
+                <button type="button" disabled={example} onClick={() => openTask(one.taskId)} className="flex min-h-6 min-w-0 items-center gap-1.5 text-left text-foreground hover:underline decoration-foreground/30 underline-offset-2 disabled:no-underline">
+                  <span className="truncate">{taskName(one.title).text}</span>
+                  <Tags tags={taskName(one.title).tags} />
+                </button>
+                <span className="text-right tabular-nums text-foreground"><strong className="font-semibold">{timeSaid(one.minutes)}</strong> · {plural(one.sessions, 'session', 'sessions')}</span>
+                <span className="col-span-2 h-1.5 overflow-hidden rounded-full bg-border/60">
+                  <span className="block h-full rounded-full" style={{ width: `${Math.max(2, (one.minutes / focus.top[0].minutes) * 100)}%`, background: 'var(--tt-brand-color-400)' }} />
+                </span>
+              </div>
+              </RowMenu>
+              )
+            })}
+          </div>
+          <p>Your tasks with the most focus in the last 12 weeks.</p>
+        </Section>
+      )}
+
+      {focus.taskTimes.tasks.length > 0 && (() => {
+        const most = Math.max(focus.taskTimes.average, ...focus.taskTimes.tasks.map((one) => one.minutes))
+        const grew = focus.taskTimes.tasks.filter((one) => one.grew).length
+        return (
+          <Section title="How long each task took" big={{ value: timeSaid(focus.taskTimes.average), label: 'a task, on average' }}>
+            {/* One bar a task, the average a line down them all; a task whose sessions got longer says so in words beside it. */}
+            <div data-task-times className="relative space-y-2.5">
+              {focus.taskTimes.tasks.map((one) => (
+                <div key={one.taskId} data-task-time={one.taskId} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 text-sm">
+                  <button type="button" disabled={example} onClick={() => openTask(one.taskId)} className="flex min-h-6 min-w-0 items-center gap-1.5 text-left text-foreground hover:underline decoration-foreground/30 underline-offset-2 disabled:no-underline">
+                    <span className="truncate">{taskName(one.title).text}</span>
+                  </button>
+                  <span className="text-right tabular-nums text-foreground">
+                    <strong className="font-semibold">{timeSaid(one.minutes)}</strong>
+                    {one.grew && <span data-grew className="ml-2 font-medium" style={{ color: 'var(--tt-color-text-orange)' }}>Grew: {timeSaid(one.first)} to {timeSaid(one.last)} a session</span>}
+                  </span>
+                  <span className="relative col-span-2 h-2 rounded-full bg-border/60">
+                    <span className="block h-full rounded-full" style={{ width: `${Math.max(2, (one.minutes / most) * 100)}%`, background: one.minutes > focus.taskTimes.average ? 'var(--tt-color-text-orange)' : 'color-mix(in oklab, var(--tt-brand-color-400) 50%, var(--background))' }} />
+                    <span aria-hidden className="absolute -top-1 -bottom-1 w-0.5 rounded-full bg-foreground/70" style={{ left: `${(focus.taskTimes.average / most) * 100}%` }} />
+                  </span>
+                </div>
+              ))}
+            </div>
+            {/* Said by where a bar ends, which reads in every theme; in some (Paper) orange and the accent are near the same brown. */}
+            <p className="text-foreground">The line is the average: a bar past it took longer, and is drawn deeper{grew ? `; ${plural(grew, 'task', 'tasks')} grew, each session longer than the first` : ''}.</p>
+          </Section>
+        )
+      })()}
+    </>
+  )
+}
+
+/**
+ * A routine's own numbers, over its History on the task's panel: how many
+ * times it was done, the run of days (for a daily one), and the last four
+ * weeks as a row of squares, a filled one for each day it was done.
+ */
+export function RoutineNumbers({ done, recurrence }: { done: { at: string }[]; recurrence: string | null }): React.JSX.Element | null {
+  if (!done.length) return null
+  const days = new Set(done.map((one) => dayjs(one.at).format('YYYY-MM-DD')))
+  const daily = /\b(every!?\s*day|daily|everyday)\b/i.test(recurrence ?? '')
+  const run = streaks(days, dayjs().format('YYYY-MM-DD'))
+  const month = done.filter((one) => dayjs(one.at).isAfter(dayjs().subtract(30, 'day'))).length
+  const grid = Array.from({ length: 28 }, (_, index) => dayjs().subtract(27 - index, 'day').format('YYYY-MM-DD'))
+  return (
+    <Island compact title="Done so far">
+      <div data-routine-numbers className="space-y-2 px-2 py-2">
+        <p className="flex items-baseline gap-2">
+          <span className="text-2xl leading-none font-semibold tracking-tight text-foreground tabular-nums"><Rolling text={done.length === 1 ? 'Once' : `${num(done.length)} times`} /></span>
+          <span className="text-control text-muted-foreground">{month && month !== done.length ? `${num(month)} in the last 30 days` : ''}</span>
+        </p>
+        {daily && run.best > 1 && (
+          <p className="text-control leading-snug text-foreground">
+            {run.now > 1 ? <><strong className="font-semibold">{num(run.now)} days in a row</strong>{run.best > run.now ? `, the longest run ${num(run.best)}` : ', your longest yet'}</> : <>Longest run: <strong className="font-semibold">{num(run.best)} days</strong></>}
+          </p>
+        )}
+        {recurrence && (
+          <div className="grid w-fit grid-flow-col grid-rows-1 gap-[3px]" role="img" aria-label="The last four weeks">
+            {grid.map((day) => (
+              <Tip key={day} label={`${dated(day, 'ddd D MMM')} · ${days.has(day) ? 'done' : 'not done'}`}>
+                <div className="h-3 w-[7px] rounded-[2px]" style={{ background: days.has(day) ? 'var(--tt-brand-color-400)' : 'color-mix(in oklab, var(--foreground) 14%, var(--background))' }} />
+              </Tip>
+            ))}
+          </div>
+        )}
+      </div>
+    </Island>
+  )
+}
+
+type Habits = { goals: { made: number; missed: number; letGo: number; open: number }; tags: { tag: string; dealt: number; waiting: number }[]; routines: number; doneWeek: number; best: { title: string; run: number } | null; read30: number; readAll: number }
+
+/**
+ * Stats' "Kept up": what is done again and again besides focus, each led by
+ * its number. Routines this week and the longest run going, reviews on days
+ * in a row, and what was read from the queue. Shown once any of it has begun.
+ */
+export function HabitSections({ example }: { example: boolean }): React.JSX.Element | null {
+  const real = useLive(() => call<Habits>('habits:stats'), null as Habits | null)
+  const days = useLive(haligtree.daysInARow, null as { run: number; banked: number } | null, [], ['item'])
+  const habits: Habits | null = example ? { ...EXAMPLE_HABITS, routines: 3, doneWeek: 12, best: { title: 'Read twenty pages before bed', run: 9 }, read30: 6, readAll: 23 } : real
+  const reviewRun = example ? 14 : days?.run ?? 0
+  useReading(!habits || (!example && !days))
+  if (!habits || (!habits.routines && !habits.readAll && reviewRun < 2)) return null
+  return (
+    <Section title="Kept up" big={habits.routines ? { value: habits.doneWeek, label: `${habits.doneWeek === 1 ? 'routine' : 'routines'} done in the last 7 days` } : undefined}>
+      <p data-habits>
+        {habits.routines ? (
+          <>
+            You keep <N>{plural(habits.routines, 'routine', 'routines')}</N>
+            {habits.best ? <>; “{taskName(habits.best.title).text}” is on a run of <N>{plural(habits.best.run, 'day', 'days')}</N>.</> : '.'}{' '}
+          </>
+        ) : ''}
+        {reviewRun >= 2 ? <>You have reviewed <N>{plural(reviewRun, 'day', 'days')}</N> in a row. </> : ''}
+        {habits.readAll ? <>From your reading queue you read <N>{num(habits.read30)}</N> in the last 30 days, <N>{num(habits.readAll)}</N> in all.</> : ''}
+      </p>
+    </Section>
+  )
+}
+
+const EXAMPLE_HABITS = {
+  goals: { made: 4, missed: 1, letGo: 1, open: 3 },
+  tags: [{ tag: 'astrophysics', dealt: 14, waiting: 3 }, { tag: 'book', dealt: 9, waiting: 6 }, { tag: 'ideas', dealt: 4, waiting: 7 }, { tag: 'history', dealt: 6, waiting: 1 }]
+}
+
+/** The made-up numbers, or yours: one read for the goal and tag sections both. */
+function useHabits(example: boolean): Habits | null {
+  const real = useLive(() => call<Habits>('habits:stats'), null as Habits | null)
+  return example ? { ...EXAMPLE_HABITS, routines: 3, doneWeek: 12, best: null, read30: 6, readAll: 23 } : real
+}
+
+/** How goals have ended: made it, missed, let go, with those still under way. */
+export function GoalSection({ example }: { example: boolean }): React.JSX.Element | null {
+  const habits = useHabits(example)
+  useReading(!habits)
+  if (!habits) return null
+  const { made, missed, letGo, open } = habits.goals
+  const ended = made + missed + letGo
+  if (!ended && !open) return null
+  const parts = [
+    { n: made, label: 'made it', tint: 'var(--tt-brand-color-400)' },
+    { n: missed, label: 'missed', tint: 'color-mix(in oklab, var(--tt-brand-color-400) 50%, var(--muted-foreground))' },
+    { n: letGo, label: 'given up', tint: 'color-mix(in oklab, var(--foreground) 30%, var(--background))' }
+  ]
+  return (
+    <Section title="Goals" big={ended ? { value: made, label: `made it, of ${plural(ended, 'goal', 'goals')} ended` } : { value: open, label: open === 1 ? 'goal under way' : 'goals under way' }}>
+      {ended > 0 && (
+        <div data-goal-tally className="flex h-2.5 gap-[2px] overflow-hidden rounded-full">
+          {parts.filter((one) => one.n).map((one) => <div key={one.label} style={{ width: `${(one.n / ended) * 100}%`, background: one.tint }} />)}
+        </div>
+      )}
+      <p>
+        {ended ? (
+          <>{parts.filter((one) => one.n).map((one, index, all) => <span key={one.label}><N>{one.n}</N> {one.label}{index < all.length - 2 ? ', ' : index === all.length - 2 ? ' and ' : '. '}</span>)}</>
+        ) : 'None has ended yet. '}
+        {open ? <><N>{plural(open, 'goal is', 'goals are')}</N> still under way.</> : ''} Missing one says as much as making it: what you aim at, and how far.
+      </p>
+    </Section>
+  )
+}
+
+/** Each tag's captures: how many are dealt with, how many still wait in the Inbox. */
+export function TagSection({ example }: { example: boolean }): React.JSX.Element | null {
+  const habits = useHabits(example)
+  if (!habits?.tags.length) return null
+  const top = Math.max(...habits.tags.map((one) => one.dealt + one.waiting))
+  const most = [...habits.tags].sort((a, b) => b.waiting - a.waiting)[0]
+  return (
+    <Section title="By tag" big={{ value: `#${habits.tags[0].tag}`, label: 'your most used tag' }}>
+      <div data-tag-split className="space-y-2.5">
+        {habits.tags.map((one) => (
+          <div key={one.tag} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 text-sm">
+            <span className="truncate font-medium text-foreground">#{one.tag}</span>
+            <span className="text-right text-foreground tabular-nums"><strong className="font-semibold">{num(one.dealt)}</strong> dealt with · <strong className="font-semibold">{num(one.waiting)}</strong> waiting</span>
+            <span className="col-span-2 flex h-1.5 gap-[2px] overflow-hidden rounded-full" style={{ width: `${Math.max(4, ((one.dealt + one.waiting) / top) * 100)}%` }}>
+              {one.dealt > 0 && <span className="h-full" style={{ flex: one.dealt, background: 'var(--tt-brand-color-400)' }} />}
+              {one.waiting > 0 && <span className="h-full" style={{ flex: one.waiting, background: 'color-mix(in oklab, var(--foreground) 30%, var(--background))' }} />}
+            </span>
+          </div>
+        ))}
+      </div>
+      <p>
+        Captures carrying each of your most used tags, dealt with (the accent) or still waiting in your Inbox (grey).
+        {most.waiting ? <> Most are waiting under <N>#{most.tag}</N>.</> : ''}
+      </p>
+    </Section>
+  )
+}

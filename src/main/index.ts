@@ -49,7 +49,7 @@ import { warmChrono } from './lazy/chrono'
 import { warmEmoji } from './lazy/emoji'
 import { backupBase, backupDir } from './backup'
 import { pageFor } from './pages'
-import { activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tuckRules, tempusDots, blurOn, boxAutoHide, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerVigil, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenRecordings, whenIcon, appIcon, recordingPrefs, type Recordings, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, focusToolsOn, whenFocusShows, pillInNotch, sleepChoice } from './vigil'
+import { activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tuckRules, tempusDots, blurOn, boxAutoHide, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerHaligtree, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenRecordings, whenIcon, appIcon, recordingPrefs, type Recordings, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, focusToolsOn, whenFocusShows, pillInNotch, sleepChoice } from './haligtree'
 import { daysLeft, percent, tempus, wayThrough } from './goal-days'
 import { PEEK_OUT_MS, peeksOut, restNow, type Rest } from './goal-tuck'
 import { tap, taps } from './haptic'
@@ -101,9 +101,9 @@ import { APP_NAME } from './name'
 /* The standard electron app file structure:
  * One folder, named after your app
  `app.getPath('userData')` - That is the only place you write. It resolves per machine:
-        macos - `~/Library/Application Support/mindflow`
-        linux - `~/.config/mindflow`
-        windows - `%APPDATA%\mindflow`
+        macos - `~/Library/Application Support/haligtree`
+        linux - `~/.config/haligtree`
+        windows - `%APPDATA%\haligtree`
  `userData` is a label you ask for, not a folder name. The name on disk is your app's name from `package.json`.
  You share it with Chromium
  Chromium writes a bunch of its own housekeeping items/files into that same folder:
@@ -113,7 +113,7 @@ import { APP_NAME } from './name'
  - One clearly-named entry per kind of thing.
  - Note: Renaming after you ship strands data.
 ```
- mindflow/
+ haligtree/
  ├── assets/          ← one entry, holds hundreds of images, audios etc
  ├── {any other custom folder e.g notes/, tasks/ }/           ← one entry, holds every note
  ├── app.db           ← one file, obviously yours
@@ -125,7 +125,7 @@ import { APP_NAME } from './name'
         Answering that by opening every file and checking it works until it does not.
  That is when a database takes over:
  ---
- mindflow/
+ haligtree/
  ├── app.db      ← tasks, projects, labels, notes, all of it
  ├── assets/     ← images stay as files
  └── Cache/  Cookies  …
@@ -143,13 +143,13 @@ import { APP_NAME } from './name'
  ---
  Big files and databases
   A database is one file at the top of `userData`.
-  Keep large binary things out of it. Save the image as a file in `assets/` and store only its name in the database, which is what mindflow already does. Past roughly 100KB a file beats a database row, and it keeps the database small enough to copy and back up.
+  Keep large binary things out of it. Save the image as a file in `assets/` and store only its name in the database, which is what haligtree already does. Past roughly 100KB a file beats a database row, and it keeps the database small enough to copy and back up.
  Two things that will bite you
   Never write next to the app itself.** On a Mac the app bundle is signed and read-only, and the code sits inside a sealed archive. It works while you develop and fails on a real install.
         Renaming the app orphans everyone's data.
         The folder is named after the app. Change the name and every user gets a fresh empty folder, with their old one stranded.
 
- Where mindflow stands:
+ Where haligtree stands:
        You have `assets/` and `notes/`, and nothing else. No database, no settings file.
        If you add either, they go at the top of the same folder as `app.db` and `config.json`, and nothing else moves.
 
@@ -188,19 +188,22 @@ const EXTENSIONS: Record<string, string> = {
   'image/x-icon': 'ico'
 }
 
-// invents custom 'scheme' (address type) like https:// but private to mindflow
+// invents custom 'scheme' (address type) like https:// but private to haligtree
 // allows app to point to assets without specififying absolute locations on disc
-// instead of file:///Users/{username}/Library/Application Support/mindflow/assets/abc.png this allows for
-// mindflow://assets/abc.png
+// instead of file:///Users/{username}/Library/Application Support/haligtree/assets/abc.png this allows for
+// haligtree://assets/abc.png
 // obviously the 'file://' path would only work on my machine
 // when the window asks for an address, app will look up where its data folder lives and read the file
-// `standard: true` - dicates that address is shaped like a normal web address, e.g mindflow://assets/abc.png splits into a part before the slash and a part after
+// `standard: true` - dicates that address is shaped like a normal web address, e.g haligtree://assets/abc.png splits into a part before the slash and a part after
 //                    without it, the string is treated like one lump of text
 // `secure: true` - says treat it as trustworthy (like https) , without it browser will refuse and not trust files from this scheme
 // needs to run before the app (outside of app.whenReady()) is ready because, the browser engine builds its list of known address types once, as it starts
 protocol.registerSchemesAsPrivileged([
   // `stream`, so a stored video or recording can play (and seek) in a note.
-  { scheme: 'mindflow', privileges: { standard: true, secure: true, stream: true } }
+  { scheme: 'haligtree', privileges: { standard: true, secure: true, stream: true } },
+  // The first name, still answered: older backups and exported notes hold
+  // mindflow:// links, and a restored one should still show its pictures.
+  { privileges: { standard: true, secure: true, stream: true }, scheme: 'mindflow' }
 ])
 
 /** The capture box's sizes: the toolbar's expander changes the height, the side panel the width. */
@@ -265,7 +268,7 @@ for (const name of ['showOpenDialog', 'showSaveDialog', 'showMessageBox'] as con
   const real = dialog[name].bind(dialog) as (...args: unknown[]) => Promise<unknown>
   ;(dialog as unknown as Record<string, unknown>)[name] = async (...args: unknown[]) => {
     dialogs += 1
-    // Asked for from the box, which takes the keys without making Vigil the
+    // Asked for from the box, which takes the keys without making Haligtree the
     // active app: brought forward first, or the dialog can open behind.
     if (prompt?.isFocused()) app.focus({ steal: true })
     try {
@@ -276,7 +279,7 @@ for (const name of ['showOpenDialog', 'showSaveDialog', 'showMessageBox'] as con
   }
 }
 
-/** The Vigil window that had the keys when the box was summoned; none when another app had them. */
+/** The Haligtree window that had the keys when the box was summoned; none when another app had them. */
 let cameFrom: BrowserWindow | null = null
 
 /** Put it away, keeping its place. Shared by the key, Escape and the dot. */
@@ -293,7 +296,7 @@ function hideWindow(win: BrowserWindow): void {
   // Put away, the box hands the focus back to the app you came from, not to a
   // sticky: macOS passes it to the app's next window, so for a moment no
   // sticky can take it (the main window still can, if you came from there).
-  // Put away by a key while it had the keys: back to the Vigil window you
+  // Put away by a key while it had the keys: back to the Haligtree window you
   // came from, if you came from one. From another app, there is nothing to
   // hand back: the box never took the focus from it (see `type: 'panel'`).
   const back = win === prompt && win.isFocused() && cameFrom && !cameFrom.isDestroyed() && cameFrom.isVisible() ? cameFrom : null
@@ -301,7 +304,7 @@ function hideWindow(win: BrowserWindow): void {
   const notes = win === prompt ? [...stickies.values()].filter((one) => one !== back && !one.isDestroyed() && one.isFocusable()) : []
   for (const one of notes) one.setFocusable(false)
   win.hide()
-  // Back in the Dock once the box has gone, and before any Vigil window is
+  // Back in the Dock once the box has gone, and before any Haligtree window is
   // given the keys again (see `boxUp`).
   if (win === prompt) boxUp(false)
   back?.focus()
@@ -346,22 +349,22 @@ function arrive(win: BrowserWindow): void {
 }
 
 /**
- * Vigil steps out of the Dock while the box is up, and back in when it goes.
+ * Haligtree steps out of the Dock while the box is up, and back in when it goes.
  *
  * AeroSpace leaves a window alone only when its app is a menu bar app and the
- * window has no buttons. Of an ordinary app (Vigil, since it has a Dock icon)
+ * window has no buttons. Of an ordinary app (Haligtree, since it has a Dock icon)
  * it files every window under a workspace, the box included, and when the box
  * comes back it puts the whole screen back as it was when the box last went:
  * the box took you to the workspace you last closed it on, which was usually
- * where the main window is. Put away, it also handed the keys to a Vigil
- * window, which brought Vigil forward. As a menu bar app for the moment it is
+ * where the main window is. Put away, it also handed the keys to a Haligtree
+ * window, which brought Haligtree forward. As a menu bar app for the moment it is
  * up, the box is never filed, so it opens where you are and leaves you there.
  * Set before the box shows, so AeroSpace never sees it otherwise.
  */
 function boxUp(up: boolean): void {
   if (process.platform !== 'darwin') return
   app.setActivationPolicy(up ? 'accessory' : 'regular')
-  // Back in the Dock, macOS shows the bundle's own icon (Electron's, run from source): Vigil's is put on again.
+  // Back in the Dock, macOS shows the bundle's own icon (Electron's, run from source): Haligtree's is put on again.
   if (!up) setImmediate(wearIcon)
 }
 
@@ -466,7 +469,7 @@ function toggleWindow(): void {
     return
   }
 
-  // Which Vigil window had the keys, if any, before the box takes them.
+  // Which Haligtree window had the keys, if any, before the box takes them.
   const before = BrowserWindow.getFocusedWindow()
   if (before !== win) cameFrom = before
   // Before showing it, or you watch it arrive in one place and move to another.
@@ -491,9 +494,9 @@ function toggleWindow(): void {
   // The welcome listens for the box, so its keycaps press down even when the
   // key went to another app.
   if (home && !home.isDestroyed()) home.webContents.send('onboarding:box')
-  // The keys, without bringing Vigil forward: the box is a panel, so the app
+  // The keys, without bringing Haligtree forward: the box is a panel, so the app
   // you are in stays the active one and the main window stays where it is,
-  // behind it. No `app.focus` here, which would raise every Vigil window.
+  // behind it. No `app.focus` here, which would raise every Haligtree window.
   win.focus()
 }
 
@@ -579,7 +582,7 @@ function openDrawing(id: string, scene: unknown, note: Electron.WebContents, nam
         if (kept) return
         rescueDrawing(entry.scene)
         const said = { text: 'Its note was gone, so the drawing is kept in the Inbox as “Drawing, rescued”', ok: true }
-        void home?.webContents.executeJavaScript(`dispatchEvent(new CustomEvent('mindflow:said', { detail: ${JSON.stringify(said)} }))`).catch(() => undefined)
+        void home?.webContents.executeJavaScript(`dispatchEvent(new CustomEvent('haligtree:said', { detail: ${JSON.stringify(said)} }))`).catch(() => undefined)
       })
     }, 600)
   })
@@ -735,11 +738,11 @@ whenWelcoming((on) => {
 /**
  * The notch, where the screen has one: a Mac's own display whose menu bar is
  * taller than the 24 points a plain one has (37 or so beside the notch).
- * MINDFLOW_QA_NOTCH stands one in, for testing on a Mac without.
+ * HALIGTREE_QA_NOTCH stands one in, for testing on a Mac without.
  */
 function notchOf(display: Electron.Display): { height: number } | null {
   const bar = display.workArea.y - display.bounds.y
-  if (process.env.MINDFLOW_QA_NOTCH) return { height: Math.max(bar, 32) }
+  if (process.env.HALIGTREE_QA_NOTCH) return { height: Math.max(bar, 32) }
   return process.platform === 'darwin' && display.internal && bar >= 30 ? { height: bar } : null
 }
 /** The screen with the notch, if the pill is to sit under one: the Mac's own display. */
@@ -759,7 +762,7 @@ function placeFocus(): { notch: number } {
   if (!focusPill || focusPill.isDestroyed()) return { notch: 0 }
   const placed = placeFocusOn(focusPill)
   // Test runs park windows out of sight: where the pill was put is kept for them to read.
-  if (process.env.MINDFLOW_QA_NOTCH) (globalThis as { pillPlaced?: unknown }).pillPlaced = { ...placed, at: focusPillAt }
+  if (process.env.HALIGTREE_QA_NOTCH) (globalThis as { pillPlaced?: unknown }).pillPlaced = { ...placed, at: focusPillAt }
   return { notch: placed.notch }
 }
 let focusPillAt: Electron.Rectangle | null = null
@@ -881,7 +884,7 @@ function showGlow(tone: string, at?: { x: number; y: number }): void {
   win.setBounds(display.bounds)
   win.showInactive()
   // A Mac's own screen has rounded corners (and a notch): the light follows them rather than being cut off there.
-  const rounded = display.internal || !!process.env.MINDFLOW_QA_NOTCH
+  const rounded = display.internal || !!process.env.HALIGTREE_QA_NOTCH
   if (win.webContents.isLoading()) glowWaiting = at ? null : { tone, rounded }
   else win.webContents.send('glow', tone, at && { x: at.x - display.bounds.x, y: at.y - display.bounds.y }, rounded)
   clearTimeout(glowHide)
@@ -889,7 +892,7 @@ function showGlow(tone: string, at?: { x: number; y: number }): void {
 }
 
 /**
- * The nudge card: Vigil's own small card at the top right of the screen you
+ * The nudge card: Haligtree's own small card at the top right of the screen you
  * are on, over everything, for a task due now, the daily review, or a session
  * that ended while you were away. Its answers are its own buttons (Done, In
  * 10 min, Review now...), not the Mac's notification buttons. Hidden between
@@ -942,8 +945,8 @@ const nudgeHeld = (sender: Electron.WebContents): { win: BrowserWindow; waiting:
  */
 const stickies = new Map<string, BrowserWindow>()
 /**
- * Where Vigil itself last put a sticky (a wiggle, a lift). A window found there
- * was moved by Vigil, not by you: not kept as its place, nor nudged on screen.
+ * Where Haligtree itself last put a sticky (a wiggle, a lift). A window found there
+ * was moved by Haligtree, not by you: not kept as its place, nor nudged on screen.
  */
 const placed = new WeakMap<BrowserWindow, { x: number; y: number }>()
 const ours = (win: BrowserWindow): boolean => {
@@ -1192,7 +1195,7 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     // X takes it down; quitting makes it closable first.
     title: APP_NAME,
     // A panel, like the box: over a full-screen app too, and written in
-    // without bringing Vigil, and its main window, to the front.
+    // without bringing Haligtree, and its main window, to the front.
     type: 'panel',
     closable: false,
     // Not resizable either: a resizable window keeps its zoom button in the
@@ -1209,8 +1212,8 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     show: false,
     webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false }
   })
-  // Its place said again once made: the same, but a QA run's parked window keeps it as its own (MINDFLOW_QA_VIRTUAL).
-  if (process.env.MINDFLOW_QA_VIRTUAL) win.setBounds(place)
+  // Its place said again once made: the same, but a QA run's parked window keeps it as its own (HALIGTREE_QA_VIRTUAL).
+  if (process.env.HALIGTREE_QA_VIRTUAL) win.setBounds(place)
   win.setAlwaysOnTop(true, 'floating')
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true })
   shield(win)
@@ -1226,7 +1229,7 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     keepStuck()
   }
   // Picked up by your hand: the page lifts the card (a deeper shadow; paper
-  // straightens). Any move of Vigil's own (a lift on hover, a glide) stops
+  // straightens). Any move of Haligtree's own (a lift on hover, a glide) stops
   // there, so nothing pulls against your hand.
   win.on('will-move', () => {
     if (win.isDestroyed()) return
@@ -1379,7 +1382,7 @@ function safeWindows(on: boolean): void {
 /**
  * Seen by screen recorders and shares (the default), or kept out of them,
  * each kind of window by its own switch in Settings: the main window (and
- * every other window of Vigil's: a note on its own, a drawing), quick
+ * every other window of Haligtree's: a note on its own, a drawing), quick
  * capture, the stickies and goal cards, and the session bubble with its glow.
  */
 const groupOf = (win: BrowserWindow): keyof Recordings =>
@@ -1412,9 +1415,9 @@ function whenHomeDrawn(then: () => void): void {
 }
 /** When the main window was made, drawn and shown, from the start of this run (ms): what the sandbox's opening probe reads. */
 const homeTimes: { made?: number; painted?: number; drawn?: number; shown?: number } = {}
-;(globalThis as { vigilHomeTimes?: typeof homeTimes }).vigilHomeTimes = homeTimes
+;(globalThis as { haligtreeHomeTimes?: typeof homeTimes }).haligtreeHomeTimes = homeTimes
 /** How many trackpad taps were asked for (haptic.ts): what the stickies' probe reads. */
-;(globalThis as { vigilTaps?: () => number }).vigilTaps = () => taps
+;(globalThis as { haligtreeTaps?: () => number }).haligtreeTaps = () => taps
 /** What the main window was sent to while it was not yet listening. */
 let sentTo: [string, string, string?] | null = null
 let sentVia: Via | null = null
@@ -1426,8 +1429,8 @@ let homeAsked = false
  * the same way as its own buttons do (the blade and its sound, your look
  * carried), so there is one way it happens.
  */
-const openSandbox = (): void => inHome('vigil:sandbox-enter')
-const leaveSandbox = (): void => inHome('vigil:sandbox-leave')
+const openSandbox = (): void => inHome('haligtree:sandbox-enter')
+const leaveSandbox = (): void => inHome('haligtree:sandbox-leave')
 
 /** Something the main window does, asked for from the menu bar: a book switched to, a new one named. */
 function inHome(event: string, detail: unknown = null): void {
@@ -1445,7 +1448,7 @@ function openHome(): void {
   // One window at a time: going to the main app puts the prompt away.
   if (prompt?.isVisible()) hideWindow(prompt)
   // Asked for from the menu bar or the box while another app is in front,
-  // showing the window alone does not always bring Vigil forward: `steal` does.
+  // showing the window alone does not always bring Haligtree forward: `steal` does.
   app.focus({ steal: true })
   // Made ahead of time and kept when closed (see `makeHome`), so this is a
   // show, never a load: no wait, no blank frame.
@@ -1502,8 +1505,8 @@ function parkedBy(win: BrowserWindow): void {
 }
 let following: ReturnType<typeof setTimeout> | null = null
 function followWorkspace(): void {
-  // A test run's windows are parked past the screen's edge on purpose: never sent anywhere, unless the run asks (MINDFLOW_QA_FOLLOW).
-  if (!AEROSPACE || following || (process.env.MINDFLOW_QA_AWAY && !process.env.MINDFLOW_QA_FOLLOW)) return
+  // A test run's windows are parked past the screen's edge on purpose: never sent anywhere, unless the run asks (HALIGTREE_QA_FOLLOW).
+  if (!AEROSPACE || following || (process.env.HALIGTREE_QA_AWAY && !process.env.HALIGTREE_QA_FOLLOW)) return
   following = setTimeout(async () => {
     following = null
     const here = await aerospace('list-workspaces', '--focused')
@@ -1582,7 +1585,7 @@ function putHomeAway(): void {
 /**
  * The main window, made hidden: soon after start, so the first open is as
  * quick as every other, and again only if it is ever really gone. Closing it
- * (the red dot, ⌘W) hides it, as Todoist's does: Vigil keeps running in the
+ * (the red dot, ⌘W) hides it, as Todoist's does: Haligtree keeps running in the
  * Dock and the menu bar, and only quitting closes it for good.
  */
 function makeHome(): BrowserWindow {
@@ -1689,7 +1692,7 @@ function stickySize(width: number, height: number, at: Electron.Rectangle): { wi
 /**
  * A goal's beacon, kept as its goal says. Always: up on every Space. Now and
  * then: tucked away, out at a few moments (the first wake or unlock of the
- * day, the first time Vigil is opened that day, and every three hours or so
+ * day, the first time Haligtree is opened that day, and every three hours or so
  * of being at the Mac), then tucked again a minute later unless the pointer
  * is on it. Off: none. In a goal's last week, or past its day, now and then
  * stays up as always does. Quiet hours, safe mode and the stickies put away
@@ -1808,7 +1811,7 @@ const seenNow = (): Seen => {
   return seen
 }
 /** The record, for the tuck-away probe to age. */
-;(globalThis as { vigilGoalSeen?: () => Seen }).vigilGoalSeen = () => seenNow()
+;(globalThis as { haligtreeGoalSeen?: () => Seen }).haligtreeGoalSeen = () => seenNow()
 const keepSeen = (): void => void ((seenKept = Date.now()), writeFile(seenFile(), JSON.stringify(seenNow())).catch(() => undefined))
 /** Each card's place now, and every card moved to it. */
 function applyRules(): void {
@@ -1942,7 +1945,7 @@ function gatherStickies(): void {
   moveStickies(moves)
 }
 
-/** Stickies Vigil is moving now, and those your hand has picked up: a move of either is never taken for the other. */
+/** Stickies Haligtree is moving now, and those your hand has picked up: a move of either is never taken for the other. */
 const moving = new WeakSet<BrowserWindow>()
 const held = new WeakSet<BrowserWindow>()
 /** A sticky's lift on hover, called off when your hand picks it up. */
@@ -1985,7 +1988,7 @@ function moveStickies(moves: [string, BrowserWindow, { x: number; y: number }][]
     const go = (): void => {
       if (win.isDestroyed()) return
       const from = win.getBounds()
-      // Marked as Vigil's own move first, so the glide is never taken for a drag.
+      // Marked as Haligtree's own move first, so the glide is never taken for a drag.
       placed.set(win, { x: from.x, y: from.y })
       if (deal) win.moveTop()
       if (still) return (placed.set(win, to), win.setPosition(to.x, to.y), land())
@@ -2169,7 +2172,7 @@ function throwBox(win: BrowserWindow, dx: number, dy: number, speed = 0): void {
     lastBounds = { ...from, x: to.x, y: to.y }
     anchor = { y: to.y, became: to.y }
     keepSpot(display.id, to)
-    if (!app.isPackaged) console.log(`[vigil] box thrown to ${to.x},${to.y} on screen ${display.id}`)
+    if (!app.isPackaged) console.log(`[haligtree] box thrown to ${to.x},${to.y} on screen ${display.id}`)
   }
   const far = Math.hypot(to.x - from.x, to.y - from.y)
   if (stillness() || far < 1) return (win.setPosition(to.x, to.y), land())
@@ -2220,13 +2223,13 @@ function createWindow(): void {
 
     resizable: false,
     // A panel, the kind of window Spotlight and Raycast use: it takes the keys
-    // without making Vigil the active app. Summoned over Safari, Safari stays
+    // without making Haligtree the active app. Summoned over Safari, Safari stays
     // in front and the main window stays behind it; put away, the keys are
-    // simply Safari's again. An ordinary window would have to bring Vigil
-    // forward, and with it every Vigil window, the main one included.
+    // simply Safari's again. An ordinary window would have to bring Haligtree
+    // forward, and with it every Haligtree window, the main one included.
     type: 'panel',
     // No window buttons at all which, with being on every Space (below), is
-    // what keeps a tiling window manager's hands off this window. Vigil has a
+    // what keeps a tiling window manager's hands off this window. Haligtree has a
     // Dock icon, so AeroSpace's rule for menu bar apps (a window with no
     // close button is "not even a real window") no longer covers it; measured
     // with AeroSpace 0.20, a window with no buttons that is on every Space is
@@ -2274,7 +2277,7 @@ function createWindow(): void {
   // a window of its own (a picture it opened) or a dialog it asked for, and
   // not in a test run, whose box sits parked while another window is driven.
   mainWindow.on('blur', () => {
-    if (!boxAutoHide() || dialogs > 0 || (process.env.MINDFLOW_QA_AWAY && !process.env.MINDFLOW_QA_AUTOHIDE)) return
+    if (!boxAutoHide() || dialogs > 0 || (process.env.HALIGTREE_QA_AWAY && !process.env.HALIGTREE_QA_AUTOHIDE)) return
     setTimeout(() => {
       if (mainWindow.isDestroyed() || !mainWindow.isVisible() || mainWindow.isFocused() || dialogs > 0) return
       if (BrowserWindow.getFocusedWindow()?.getParentWindow() === mainWindow) return
@@ -2283,7 +2286,7 @@ function createWindow(): void {
     }, 120)
   })
   mainWindow.on('ready-to-show', () => {
-    if (!process.env.MINDFLOW_USER_DATA) return
+    if (!process.env.HALIGTREE_USER_DATA) return
     arrive(mainWindow)
     recordOpen('prompt')
     mainWindow.webContents.send('window:shown')
@@ -2313,7 +2316,7 @@ function createWindow(): void {
     // drags fine; this is the highest of them.
     //
     // `skipTransformProcessType` here and on every window put on all Spaces:
-    // without it Electron turns Vigil into a menu bar app to do this, and the
+    // without it Electron turns Haligtree into a menu bar app to do this, and the
     // Dock icon vanishes. Being a panel is what lets the box over a
     // full-screen app instead (the stickies and the glow are panels too). The
     // session pill is not: as a panel its screenshot button broke, so it no
@@ -2345,7 +2348,7 @@ function createWindow(): void {
 
 // Every web request carries a short line saying what browser is asking. This edits that line to stop announcing Electron.
 // What the line looks like. Electron's default, on your machine:
-// Mozilla/5.0 (Macintosh; …) Chrome/152.0.7977.78 mindflow/1.0.0 Electron/44.3.0 Safari/537.36
+// Mozilla/5.0 (Macintosh; …) Chrome/152.0.7977.78 haligtree/1.0.0 Electron/44.3.0 Safari/537.36
 //                                                 └─ cut ─┘        └──── cut ────┘
 // The two marked pieces come off. What is left is what I measured in the running app:
 // Mozilla/5.0 (Macintosh; …) Chrome/152.0.7977.78 Safari/537.36
@@ -2356,7 +2359,7 @@ function createWindow(): void {
 // Finds a space, then Electron/, then a run of digits and dots, and deletes it. [\d.]+ is the version number, whatever it happens to be, so this keeps working after an upgrade.
 //
 // .replace(new RegExp(` ${app.getName()}\\/[\\d.]+`, 'i'), '')
-// Same shape, but the name has to be built while the app is running, because it comes from package.json and this file cannot know it in advance. That is the only reason one is written as a plain pattern and the other is assembled. The \\/ is an escaped slash, awkward only because it lives inside a string first. The 'i' makes it case-insensitive, so Mindflow and mindflow both go.
+// Same shape, but the name has to be built while the app is running, because it comes from package.json and this file cannot know it in advance. That is the only reason one is written as a plain pattern and the other is assembled. The \\/ is an escaped slash, awkward only because it lives inside a string first. The 'i' makes it case-insensitive, so Haligtree and haligtree both go.
 //
 // Two details worth knowing. Each replace hits only the first match, which is fine since each token appears once. And this must run before the app is ready, like the scheme registration, or requests have already started going out with the old line.
 app.userAgentFallback = app.userAgentFallback
@@ -2364,11 +2367,11 @@ app.userAgentFallback = app.userAgentFallback
   .replace(new RegExp(` ${app.getName()}\\/[\\d.]+`, 'i'), '')
 
 // An ordinary app, the way Todoist is one: a Dock icon, a place in ⌘Tab, the
-// main window opened when you open Vigil and put away (not closed) by the red
+// main window opened when you open Haligtree and put away (not closed) by the red
 // dot, until ⌘Q. Quick capture stays apart from all that: ⌘. and the menu bar
 // icon summon it whether the main window is open or not, and it is a panel
 // that never brings the main window forward or gets tiled (see the box's
-// window). Started at login, Vigil waits in the Dock and the menu bar with
+// window). Started at login, Haligtree waits in the Dock and the menu bar with
 // no window open.
 if (process.platform === 'darwin') app.setActivationPolicy('regular')
 
@@ -2376,7 +2379,7 @@ if (process.platform === 'darwin') app.setActivationPolicy('regular')
 // the launch finishes, while macOS can still say how it was launched. Where
 // it does not say (its newer login items may not), a start in the first three
 // minutes after the Mac booted, with Open at login on, counts too: opened by
-// you that early, Vigil would already be running, and your click reopens it.
+// you that early, Haligtree would already be running, and your click reopens it.
 // `--at-login` says so outright, for the tests.
 let startedAtLogin = process.argv.includes('--at-login')
 app.once('ready', () => {
@@ -2387,10 +2390,9 @@ app.once('ready', () => {
 
 // Somewhere else to keep everything, for the QA runs: they drive this same app,
 // and must never open the database your real captures are in.
-// The app is called Haligtree (it was Vigil, and mindflow before that), but
-// its notes stay where they have always been, in the folder named for what it
-// was first called (realRoot in sandbox.ts): renaming must never look like
-// losing everything.
+// The app is called Haligtree (it was Vigil, and mindflow before that), and
+// so is its data folder (realRoot in sandbox.ts). The old folder,
+// ~/Library/Application Support/mindflow, is left as it was, as a backup.
 app.setName(APP_NAME)
 // The sandbox (a restart with --sandbox) keeps everything in a folder of its
 // own inside this one, so it is apart by path alone: see sandbox.ts.
@@ -2406,7 +2408,7 @@ app.on('browser-window-created', (_, win) => {
 })
 // Test runs only: every window sits past the screen's right edge, unseen,
 // unclickable and never focused, so a run never lands on top of anyone's work.
-if (process.env.MINDFLOW_USER_DATA && process.env.MINDFLOW_QA_AWAY) {
+if (process.env.HALIGTREE_USER_DATA && process.env.HALIGTREE_QA_AWAY) {
   const away = (win: BrowserWindow): void => {
     const { bounds } = screen.getPrimaryDisplay()
     const [width, height] = win.getSize()
@@ -2425,9 +2427,9 @@ if (process.env.MINDFLOW_USER_DATA && process.env.MINDFLOW_QA_AWAY) {
   // Faded in or out, a window stays unseen: what was asked for is kept for the checks to read.
   const setOpacity = proto.setOpacity
   proto.setOpacity = function (this: BrowserWindow, value: number) { (this as { qaOpacity?: number }).qaOpacity = value; setOpacity.call(this, 0) }
-  // MINDFLOW_QA_VIRTUAL: each window keeps the place it was given as its own,
+  // HALIGTREE_QA_VIRTUAL: each window keeps the place it was given as its own,
   // while really parked, so glides and placing can be checked off screen.
-  if (process.env.MINDFLOW_QA_VIRTUAL) {
+  if (process.env.HALIGTREE_QA_VIRTUAL) {
     const virtual = new WeakMap<BrowserWindow, Electron.Rectangle>()
     const getBounds = proto.getBounds
     proto.getBounds = function (this: BrowserWindow) { return { ...(virtual.get(this) ?? getBounds.call(this)) } }
@@ -2445,8 +2447,8 @@ if (process.env.MINDFLOW_USER_DATA && process.env.MINDFLOW_QA_AWAY) {
   app.commandLine.appendSwitch('disable-renderer-backgrounding')
   app.on('web-contents-created', (_, contents) => contents.setBackgroundThrottling(false))
   // Silent too: a run's chimes never reach the speakers (the sounds still
-  // play inside the page, so checks on them hold). MINDFLOW_QA_SOUND=1 to hear them.
-  if (!process.env.MINDFLOW_QA_SOUND) app.on('web-contents-created', (_, contents) => contents.setAudioMuted(true))
+  // play inside the page, so checks on them hold). HALIGTREE_QA_SOUND=1 to hear them.
+  if (!process.env.HALIGTREE_QA_SOUND) app.on('web-contents-created', (_, contents) => contents.setAudioMuted(true))
   // And never a dialog on the screen of whoever is at the Mac: an error in a
   // run goes to the run's output, where the checks read it.
   process.on('uncaughtException', (error) => console.error('Uncaught exception in a test run:', error))
@@ -2459,13 +2461,13 @@ if (process.env.MINDFLOW_USER_DATA && process.env.MINDFLOW_QA_AWAY) {
   shell.showItemInFolder = (path) => void opened.push(path)
 }
 // Test runs only: a folder picked without the dialog, and the report said without a box, for Import into….
-if (process.env.MINDFLOW_USER_DATA && process.env.MINDFLOW_QA_PICK) {
-  const picked = process.env.MINDFLOW_QA_PICK
+if (process.env.HALIGTREE_USER_DATA && process.env.HALIGTREE_QA_PICK) {
+  const picked = process.env.HALIGTREE_QA_PICK
   dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: [picked] })) as typeof dialog.showOpenDialog
   dialog.showMessageBox = (async (...args: unknown[]) => (console.log('[qa] message', JSON.stringify(args.at(-1))), { response: 0, checkboxChecked: false })) as typeof dialog.showMessageBox
 }
 
-// From a terminal, without the window: `open -n -a mindflow --args --capture "buy milk"`,
+// From a terminal, without the window: `open -n -a haligtree --args --capture "buy milk"`,
 // or the binary itself with the same flags. One copy of the app runs; a second
 // launch hands its words to the first and leaves.
 const fromCli = (argv: string[]): string | null => {
@@ -2494,13 +2496,13 @@ async function importVault(given?: string, picked?: string | null): Promise<void
   // dialog is for anything else (picked is null when it asks for it).
   if (given === undefined && picked === undefined) {
     const found = await vaultChoices()
-    if (found.length) return inHome('vigil:vault-pick', { into: SANDBOX ? 'the sandbox' : BOOK ? nameOf(here()) : null, vaults: found })
+    if (found.length) return inHome('haligtree:vault-pick', { into: SANDBOX ? 'the sandbox' : BOOK ? nameOf(here()) : null, vaults: found })
   }
   const root = given ?? picked ?? (await dialog.showOpenDialog({ title: SANDBOX ? 'Import into the sandbox: an Obsidian vault or a Notion export (unzipped)' : BOOK ? `Import into ${nameOf(here())}: an Obsidian vault or a Notion export (unzipped)` : 'Import an Obsidian vault or a Notion export (unzipped)', properties: ['openDirectory'] })).filePaths[0]
   if (!root) return
   // An Obsidian vault: which of its folders, first, each then a group in Writing (see importFolders).
   if (given === undefined && (await stat(join(root, '.obsidian')).then((one) => one.isDirectory(), () => false)))
-    return inHome('vigil:import-folders', { from: 'Obsidian', root, name: basename(root), folders: await vaultFolders(root) })
+    return inHome('haligtree:import-folders', { from: 'Obsidian', root, name: basename(root), folders: await vaultFolders(root) })
   // Its notes wait to become documents until their links are in; then every
   // window hears of it, and one of them turns them into documents.
   setImporting(true)
@@ -2564,8 +2566,8 @@ async function importFolders(from: 'Apple Notes' | 'Obsidian', folders: NotesFol
       importProgress(null)
       const names = new Map(folders.map((one) => [one.id, one.name]))
       const groups = fileIntoGroups('Apple Notes', [...got.byFolder].map(([id, ids]) => ({ name: names.get(id) ?? 'Notes', ids })))
-      if (got.denied && !got.made.length) return inHome('vigil:import-folders', { from: 'Apple Notes', refused: 'denied' })
-      inHome('vigil:import-done', {
+      if (got.denied && !got.made.length) return inHome('haligtree:import-folders', { from: 'Apple Notes', refused: 'denied' })
+      inHome('haligtree:import-done', {
         from: 'Apple Notes',
         made: got.made.length,
         writing: got.made.length,
@@ -2640,13 +2642,13 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
     const name = `${createHash('sha256').update(bytes).digest('hex')}.${extension}`
     await mkdir(assetsDir(), { recursive: true })
     // Written beside and renamed in, as a pasted picture is: a file there only
-    // half written (Vigil quit mid-import) would count as kept and never be
+    // half written (Haligtree quit mid-import) would count as kept and never be
     // written again.
     const temporary = join(assetsDir(), `${name}.${randomUUID()}.tmp`)
     await stat(join(assetsDir(), name)).catch(() => writeFile(temporary, bytes).then(() => rename(temporary, join(assetsDir(), name))))
     if (IMAGE[ending]) (pictures += 1, lookAhead(name))
     else attached += 1
-    return { url: `mindflow://assets/${name}`, size: bytes.byteLength, image: !!IMAGE[ending] }
+    return { url: `haligtree://assets/${name}`, size: bytes.byteLength, image: !!IMAGE[ending] }
   }
   // What a match becomes, worked out one at a time because storing a file waits.
   const swap = async (text: string, pattern: RegExp, to: (match: RegExpMatchArray) => Promise<string | null>): Promise<string> => {
@@ -2736,7 +2738,7 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
       // ![][address]: a video by its address, the way some plugins embed one.
       next = next.replace(/!\[\]\[\]/g, '').replace(/!\[\]\[(https?:[^\]\s]+)\]/g, (_, href: string) => (/youtu\.?be/.test(href) ? `![](${href})` : `[${href}](${href})`))
       // ![](path) and [file](path) beside the note, written with %20 for spaces.
-      next = await swap(next, /(!?)\[([^\]]*)\]\((?!https?:|mindflow:|#)([^)\s]+)\)/g, async (match) => {
+      next = await swap(next, /(!?)\[([^\]]*)\]\((?!https?:|haligtree:|#)([^)\s]+)\)/g, async (match) => {
         let local = match[3]
         try {
           local = decodeURIComponent(local)
@@ -2846,7 +2848,7 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
   if (!quiet) importProgress(null)
   if (quiet) return console.log(`imported ${made.length} new, ${already} already here, ${empty} empty, ${kept.length} left out, ${unshown} pictures of other types skipped, ${marked} marked private, ${pictures} pictures, ${attached} files, ${linked} links${kept.length ? ` [${kept.join(', ')}]` : ''}`)
   // Said in the main window, on a card of its own, while the notes become documents behind it.
-  inHome('vigil:import-done', {
+  inHome('haligtree:import-done', {
     from: basename(root),
     made: made.length,
     inbox,
@@ -2872,7 +2874,7 @@ async function tellRestored(): Promise<void> {
     const at = new Date(made)
     const days = Math.round((new Date().setHours(0, 0, 0, 0) - new Date(at).setHours(0, 0, 0, 0)) / 86400000)
     const day = days === 0 ? 'today' : days === 1 ? 'yesterday' : days < 7 ? at.toLocaleDateString('en-GB', { weekday: 'long' }) : dayName(at)
-    inHome('vigil:restored', `${day}, ${clock(at)}`)
+    inHome('haligtree:restored', `${day}, ${clock(at)}`)
   } catch {
     // Not readable: nothing to say.
   }
@@ -2883,7 +2885,7 @@ async function tellRestored(): Promise<void> {
  * backups, so a restore can itself be undone; then the app starts again on
  * the copy you chose.
  */
-/** "Go back to this copy?", asked in Vigil's own sheet in the main window (restore-ask.tsx): true for Restore. */
+/** "Go back to this copy?", asked in Haligtree's own sheet in the main window (restore-ask.tsx): true for Restore. */
 function askRestore(name: string): Promise<boolean> {
   const token = `${Date.now()}-${Math.random()}`
   return new Promise((resolve) => {
@@ -2893,7 +2895,7 @@ function askRestore(name: string): Promise<boolean> {
       resolve(!!ok)
     }
     ipcMain.on('backup:restore-answer', answer)
-    inHome('vigil:restore-ask', { name, token })
+    inHome('haligtree:restore-ask', { name, token })
   })
 }
 
@@ -2908,7 +2910,7 @@ async function restore(): Promise<void> {
   })
   if (!chosen) return
   if (!(await askRestore(basename(chosen)))) return
-  const live = join(app.getPath('userData'), 'mindflow.db')
+  const live = join(app.getPath('userData'), 'haligtree.db')
   database().prepare('vacuum into ?').run(join(backupDir(), 'database', `before-restore-${Date.now()}.db`))
   // Said once the app is back: which copy it is now on.
   const made = (await stat(chosen).catch(() => null))?.mtime ?? new Date()
@@ -2974,7 +2976,7 @@ async function importFiles(): Promise<void> {
   // Some of them: "1 is", "4 are".
   const some = (n: number): string => (n === total ? (total === 1 ? 'It is' : 'They are') : `${num(n)} ${n === 1 ? 'is' : 'are'}`)
   const went = [inbox ? `${some(inbox)} in your Inbox.` : '', gems ? `${some(gems)} in Gems, as cards to review.` : ''].filter(Boolean)
-  if (lines.length) inHome('vigil:import-done', { from: filePaths.length === 1 ? basename(filePaths[0]) : `${num(filePaths.length)} files`, made: total, inbox, gems, notes: [...went, ...lines] })
+  if (lines.length) inHome('haligtree:import-done', { from: filePaths.length === 1 ? basename(filePaths[0]) : `${num(filePaths.length)} files`, made: total, inbox, gems, notes: [...went, ...lines] })
 }
 
 /**
@@ -3006,7 +3008,7 @@ function quit(): void {
  *
  * Quick capture's way in by mouse, beside the Dock icon: there whether or not
  * the main window is open, with the way to the main window and the way to
- * stop Vigil. Held in a variable because a Tray that nothing
+ * stop Haligtree. Held in a variable because a Tray that nothing
  * refers to is collected, and the icon vanishes a few seconds after launch.
  */
 let tray: Tray | null = null
@@ -3216,22 +3218,22 @@ function updateTray(): void {
       ...(SANDBOX ? [{ label: 'Back to my notes', click: leaveSandbox }, { label: 'Reset the sandbox…', click: () => (openHome(), makeHome().webContents.send('sandbox:ask-reset')) }, { type: 'separator' } as const] : []),
       { label: `Show ${APP_NAME}`, accelerator: chordFor('⌘.'), click: () => toggleWindow() },
       { label: 'Open the main window', click: openHome },
-      { label: 'Close the day…', click: () => inHome('vigil:close-day') },
-      { label: 'What’s new', click: () => inHome('vigil:whats-new') },
+      { label: 'Close the day…', click: () => inHome('haligtree:close-day') },
+      { label: 'What’s new', click: () => inHome('haligtree:whats-new') },
       // The book open now, ticked, and the way to each of the others.
       {
         label: SANDBOX ? 'Book: Sandbox' : `Book: ${nameOf(here())}`,
         submenu: [
-          ...books().map((book) => ({ label: book.name, type: 'radio' as const, checked: book.current, click: () => void (book.current || inHome('vigil:book-switch', book.id)) })),
+          ...books().map((book) => ({ label: book.name, type: 'radio' as const, checked: book.current, click: () => void (book.current || inHome('haligtree:book-switch', book.id)) })),
           { label: 'Sandbox', type: 'radio' as const, checked: SANDBOX, click: () => void (SANDBOX || openSandbox()) },
           { type: 'separator' as const },
-          { label: 'New book…', enabled: !SANDBOX, click: () => inHome('vigil:book-new') }
+          { label: 'New book…', enabled: !SANDBOX, click: () => inHome('haligtree:book-new') }
         ]
       },
       { label: 'Import…', click: () => void importFiles() },
       { label: 'Import from Obsidian or Notion…', click: () => void importVault() },
-      { label: 'Import from Apple Notes…', click: () => inHome('vigil:import-folders', { from: 'Apple Notes' }) },
-      ...(SANDBOX ? [] : [{ label: 'Import into another book…', click: () => inHome('vigil:book-import') }]),
+      { label: 'Import from Apple Notes…', click: () => inHome('haligtree:import-folders', { from: 'Apple Notes' }) },
+      ...(SANDBOX ? [] : [{ label: 'Import into another book…', click: () => inHome('haligtree:book-import') }]),
       ...(SANDBOX ? [] : [{ label: 'Restore from a backup…', click: () => void restore() }, { label: 'Open the sandbox', click: openSandbox }]),
       { type: 'separator' },
       { label: 'Safe mode', type: 'checkbox', checked: safe, accelerator: chordFor('⌥⌘S'), click: () => (toggleSafeMode(), updateTray()) },
@@ -3245,7 +3247,7 @@ function updateTray(): void {
       { label: `Quit ${APP_NAME}`, accelerator: 'Command+Q', click: quit }
   ]
   // A test run keeps the menu's words where a probe can read them.
-  if (process.env.MINDFLOW_QA_AWAY) (globalThis as { trayMenu?: unknown }).trayMenu = template.map((item) => ({ type: item.type ?? 'normal', label: item.label ?? '', sublabel: item.sublabel ?? '', toolTip: item.toolTip ?? '', enabled: item.enabled !== false, drawn: !!item.icon && !item.label }))
+  if (process.env.HALIGTREE_QA_AWAY) (globalThis as { trayMenu?: unknown }).trayMenu = template.map((item) => ({ type: item.type ?? 'normal', label: item.label ?? '', sublabel: item.sublabel ?? '', toolTip: item.toolTip ?? '', enabled: item.enabled !== false, drawn: !!item.icon && !item.label }))
   tray.setContextMenu(Menu.buildFromTemplate(template))
 }
 
@@ -3254,17 +3256,17 @@ let twelve: boolean | null = null
 const twelveHour = (): boolean => (twelve ??= macTwelveHour())
 ipcMain.on('clock:twelve', (event) => void (event.returnValue = twelveHour()))
 app.whenReady().then(() => {
-  // Every time Vigil writes, here and in each window, on the Mac's own clock (12 or 24 hours).
+  // Every time Haligtree writes, here and in each window, on the Mac's own clock (12 or 24 hours).
   useTwelveHour(twelveHour())
   // The marks draw on Noun Project icons used under CC BY 3.0, which asks for this credit.
   app.setAboutPanelOptions({ credits: `${TAGLINE}\n\n` + 'Marks after “Abstract Shape” by Aaron K. Kim and “Abstract Flower” by Kalaakarini, from Noun Project (CC BY 3.0)' })
   // Edit > Select All asks the page first: a list picks every row (app-menu.ts).
   setAppMenu()
   // YouTube will not play an embed that comes from no page at all (its
-  // "Error 153"), and Vigil's pages are files. Say where it is shown from.
+  // "Error 153"), and Haligtree's pages are files. Say where it is shown from.
   session.defaultSession.webRequest.onBeforeSendHeaders({ urls: ['https://www.youtube-nocookie.com/*', 'https://www.youtube.com/embed/*'] }, (details, done) =>
-    done({ requestHeaders: { ...details.requestHeaders, Referer: 'https://vigil.app/' } }))
-  // Vigil never listens, and the built app has no microphone sentence for the
+    done({ requestHeaders: { ...details.requestHeaders, Referer: 'https://haligtree.app/' } }))
+  // Haligtree never listens, and the built app has no microphone sentence for the
   // Mac to show (electron-builder.yml), so a page asking for sound is told no
   // here rather than reaching macOS. The camera (a selfie) still goes through.
   session.defaultSession.setPermissionRequestHandler((_wc, permission, allow, details) =>
@@ -3272,7 +3274,7 @@ app.whenReady().then(() => {
   registerCaptures()
   registerImportConversion()
   registerUsage()
-  registerVigil()
+  registerHaligtree()
   whenIcon(wearIcon)
   registerSessionLog()
   // The Mac slept while this book's session was kept running from another book: the sleep rule applies now, as it would have then.
@@ -3300,7 +3302,7 @@ app.whenReady().then(() => {
   registerReadingQueue()
   // A practice's offer comes up in the bubble: it never starts by itself.
   registerPractices()
-  // With the time kept in the note only (no bubble), Vigil's nudge card offers it instead.
+  // With the time kept in the note only (no bubble), Haligtree's nudge card offers it instead.
   whenPracticeOffer((offer) => (focusBubbleShown() ? showFocus(true) : void showNudge({ kind: 'practice', id: offer.id, offer })))
   registerIssues()
   registerScenery()
@@ -3321,8 +3323,9 @@ app.whenReady().then(() => {
 
   // Serve the asset store. The pathname is the only thing trusted: anything
   // with a separator in it is refused, so a crafted src cannot walk the disk.
-  protocol.handle('mindflow', async (request) => {
-    // A standard scheme parses `mindflow://assets/x.png` as host `assets` and
+  // Both names: see registerSchemesAsPrivileged above.
+  for (const scheme of ['haligtree', 'mindflow']) protocol.handle(scheme, async (request) => {
+    // A standard scheme parses `haligtree://assets/x.png` as host `assets` and
     // path `/x.png`, so the store name is the host, not part of the path.
     const { host, pathname } = new URL(request.url)
     const name = pathname.replace(/^\/+/, '')
@@ -3484,18 +3487,18 @@ app.whenReady().then(() => {
   // The first-run step and Settings import the way the menu bar does.
   // From the vault picker too: one of the vaults it showed, or null for the folder dialog.
   ipcMain.handle('import:run', async (_event, what: unknown, from?: unknown) => {
-    if (what === 'apple-notes') return inHome('vigil:import-folders', { from: 'Apple Notes' })
+    if (what === 'apple-notes') return inHome('haligtree:import-folders', { from: 'Apple Notes' })
     if (what !== 'vault') return importFiles()
     if (from === null) return importVault(undefined, null)
     if (typeof from === 'string') return (await isVault(from)) ? importVault(undefined, from) : undefined
     return importVault()
   })
   // Apple Notes and a vault's folders: asked for, chosen in the main window's sheet, brought in, or stopped.
-  ipcMain.handle('vigil:notes-import:folders', () => notesReader().folders())
-  ipcMain.handle('vigil:notes-import:run', (_event, from: unknown, folders: unknown, root: unknown) =>
+  ipcMain.handle('haligtree:notes-import:folders', () => notesReader().folders())
+  ipcMain.handle('haligtree:notes-import:run', (_event, from: unknown, folders: unknown, root: unknown) =>
     void importFolders(from === 'Obsidian' ? 'Obsidian' : 'Apple Notes', Array.isArray(folders) ? (folders as NotesFolder[]) : [], typeof root === 'string' ? root : undefined))
-  ipcMain.handle('vigil:notes-import:stop', () => void stopping?.abort())
-  ipcMain.handle('vigil:notes-import:privacy', () => void shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Automation'))
+  ipcMain.handle('haligtree:notes-import:stop', () => void stopping?.abort())
+  ipcMain.handle('haligtree:notes-import:privacy', () => void shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Automation'))
   ipcMain.handle('backup:restore', () => restore())
   // The app's theme decides the frosting behind every window, not the system's.
   ipcMain.on('appearance', (_event, mode: string) => void (nativeTheme.themeSource = mode === 'light' ? 'light' : 'dark'))
@@ -3653,7 +3656,7 @@ app.whenReady().then(() => {
   // The pill opening into the island: its window grows down first, from
   // the top it hangs from, and goes back once the pill has closed again.
   // The pill naming a session left running in another book: clicked, back to that book, by the main window's own switch.
-  ipcMain.handle('vigil:books:go', (_event, id: unknown) => inHome('vigil:book-switch', String(id)))
+  ipcMain.handle('haligtree:books:go', (_event, id: unknown) => inHome('haligtree:book-switch', String(id)))
   // Whether the pointer is over the pill's window now: the open island folds
   // itself once the pointer has gone, even when the page never heard it leave
   // (a menu or a tip open as it went, the Mac asleep in between).
@@ -3661,7 +3664,7 @@ app.whenReady().then(() => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win || win !== focusPill || !win.isVisible()) return true
     // Test runs park the pill off screen and point with a pretend pointer: there, on it unless a probe says not.
-    if (process.env.MINDFLOW_QA_AWAY) return (globalThis as { pillPointer?: boolean }).pillPointer ?? true
+    if (process.env.HALIGTREE_QA_AWAY) return (globalThis as { pillPointer?: boolean }).pillPointer ?? true
     const at = screen.getCursorScreenPoint()
     const { x, y, width, height } = win.getBounds()
     return at.x >= x && at.x < x + width && at.y >= y && at.y < y + height
@@ -3675,7 +3678,7 @@ app.whenReady().then(() => {
     return true
   })
   // A screenshot for the session's log: the screen the pill is on, without
-  // the pill or any other window of Vigil's. It needs Screen Recording;
+  // the pill or any other window of Haligtree's. It needs Screen Recording;
   // refused or never granted, the pill says so and offers paste or drop instead.
   ipcMain.handle('focus:shot', async (event) => {
     const shot = await shootScreen(displayOf(BrowserWindow.fromWebContents(event.sender)))
@@ -3727,7 +3730,7 @@ app.whenReady().then(() => {
     }
   }
   // For the probes, which cannot press a key the whole Mac hears.
-  if (process.env.MINDFLOW_QA_AWAY) (globalThis as { areaIntoBox?: () => Promise<void> }).areaIntoBox = areaIntoBox
+  if (process.env.HALIGTREE_QA_AWAY) (globalThis as { areaIntoBox?: () => Promise<void> }).areaIntoBox = areaIntoBox
   let shotWaiting: { url: string; app: string } | { denied: true; asked: boolean } | null = null
   // A picture taken before the box's page could listen: handed over once it asks.
   ipcMain.handle('box:picture', () => {
@@ -3761,7 +3764,7 @@ app.whenReady().then(() => {
     const tucked = notchScreen()
     // Test runs park the pill off screen: there, where it would have been.
     const { workArea, bounds } = tucked?.display ?? screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
-    const at = process.env.MINDFLOW_QA_AWAY ? { x: bounds.x + Math.round(bounds.width / 2) - 170, y: tucked ? bounds.y : workArea.y + 6 } : focusPill.getBounds()
+    const at = process.env.HALIGTREE_QA_AWAY ? { x: bounds.x + Math.round(bounds.width / 2) - 170, y: tucked ? bounds.y : workArea.y + 6 } : focusPill.getBounds()
     // The ring: 8px in from the pill's left (the window is 16px wider), 19px further, centred in the band.
     showGlow('break', { x: at.x + 8 + (tucked ? 23 : 19), y: at.y + (tucked ? Math.round(tucked.height / 2) : 8 + 21) })
   }
@@ -3868,7 +3871,7 @@ app.whenReady().then(() => {
     applyStickies()
   })
   // Shown again, every sticky comes back, those put away on their own too. A quiet
-  // sound whichever way it went, from the window in front if it is Vigil's, else the box: never a sticky being hidden.
+  // sound whichever way it went, from the window in front if it is Haligtree's, else the box: never a sticky being hidden.
   let stickiesShown = stickyPrefs().shown
   whenStickies(() => {
     const { shown } = stickyPrefs()
@@ -3904,7 +3907,7 @@ app.whenReady().then(() => {
     if (!one) return
     one.hidden = true
     keepStuck()
-    // Said in Vigil's own nudge card, with “Bring it back”: a hidden sticky is never only gone.
+    // Said in Haligtree's own nudge card, with “Bring it back”: a hidden sticky is never only gone.
     showNudge({ kind: 'sticky', id: key, title: typeof title === 'string' && title.trim() ? cut(title.trim(), 80) : 'A sticky note' })
     // Put away with a short fade rather than a blink; whole again for when it next comes out.
     const win = stickies.get(key)
@@ -4000,7 +4003,7 @@ app.whenReady().then(() => {
       return true
     }, keep)
   })
-  // A sticky's picture in Vigil's own Quick Look: a see-through window over the
+  // A sticky's picture in Haligtree's own Quick Look: a see-through window over the
   // sticky's screen, there only while it is looked at. The window asks for what
   // it shows, the note's pictures with each one's place given in its own terms.
   type Rect = { x: number; y: number; width: number; height: number }
@@ -4158,7 +4161,7 @@ app.whenReady().then(() => {
     // Its size and colours worked out now, so the note it lands in keeps its place.
     lookAhead(`${hash}.${extension}`)
 
-    return `mindflow://assets/${hash}.${extension}`
+    return `haligtree://assets/${hash}.${extension}`
   }
 
   // The same store, for files that are not pictures. The extension is taken
@@ -4178,7 +4181,7 @@ app.whenReady().then(() => {
     await writeFile(temporary, bytes)
     await rename(temporary, destination)
 
-    return `mindflow://assets/${hash}.${suffix}`
+    return `haligtree://assets/${hash}.${suffix}`
   })
 
   // Write text the renderer produced to a file the user picks: JSON, markdown
@@ -4232,7 +4235,7 @@ app.whenReady().then(() => {
   // Copy a stored file somewhere the user picks. The store names everything by
   // its hash, so the original name has to be handed back in for the dialog.
   ipcMain.handle('save-file-as', async (_event, src: unknown, name: unknown) => {
-    const stored = typeof src === 'string' ? src.replace('mindflow://assets/', '') : ''
+    const stored = typeof src === 'string' ? src.replace('haligtree://assets/', '') : ''
     if (!/^[a-f0-9]{64}\.[a-z0-9]+$/.test(stored)) return false
 
     const { canceled, filePath } = await dialog.showSaveDialog({
@@ -4246,7 +4249,7 @@ app.whenReady().then(() => {
 
   // Hand a stored file to whatever the system opens it with.
   ipcMain.handle('open-file', async (_event, src: unknown) => {
-    const name = typeof src === 'string' ? src.replace('mindflow://assets/', '') : ''
+    const name = typeof src === 'string' ? src.replace('haligtree://assets/', '') : ''
     if (!/^[a-f0-9]{64}\.[a-z0-9]+$/.test(name)) return false
 
     const problem = await shell.openPath(join(assetsDir(), name))
@@ -4256,17 +4259,17 @@ app.whenReady().then(() => {
   // A stored picture or file dragged out of a note to another app (Finder, a
   // chat, a browser): the system drag starts here, with the real file. The
   // store names files by their hash, so a copy under the name it was dropped
-  // with (or "Picture") goes instead, in a folder of Vigil's own.
+  // with (or "Picture") goes instead, in a folder of Haligtree's own.
   const IMAGE_EXT = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'bmp', 'heic', 'svg'])
   ipcMain.on('drag-out', (event, src: unknown, name: unknown) => {
-    const stored = typeof src === 'string' ? src.replace('mindflow://assets/', '') : ''
+    const stored = typeof src === 'string' ? src.replace('haligtree://assets/', '') : ''
     if (!/^[a-f0-9]{64}\.[a-z0-9]+$/.test(stored)) return
     const from = join(assetsDir(), stored)
     if (!existsSync(from)) return
     const extension = stored.split('.').pop()!
     const said = (typeof name === 'string' ? name : '').replace(/[/\\:\0]/g, ' ').trim().slice(0, 120)
     const file = said ? (said.toLowerCase().endsWith(`.${extension}`) || (extension === 'jpg' && /\.jpe?g$/i.test(said)) ? said : `${said}.${extension}`) : `${IMAGE_EXT.has(extension) ? 'Picture' : 'File'}.${extension}`
-    const dir = join(app.getPath('temp'), 'vigil-drag', stored.slice(0, 12))
+    const dir = join(app.getPath('temp'), 'haligtree-drag', stored.slice(0, 12))
     const to = join(dir, file)
     try {
       mkdirSync(dir, { recursive: true })
@@ -4274,7 +4277,7 @@ app.whenReady().then(() => {
     } catch {
       return
     }
-    // What follows the pointer: the picture itself, small, or Vigil's icon for any other file.
+    // What follows the pointer: the picture itself, small, or Haligtree's icon for any other file.
     let face = IMAGE_EXT.has(extension) ? nativeImage.createFromPath(to) : nativeImage.createEmpty()
     if (!face.isEmpty()) face = face.resize({ width: Math.min(96, face.getSize().width) })
     if (face.isEmpty()) face = nativeImage.createFromPath(icon).resize({ width: 64 })
@@ -4284,7 +4287,7 @@ app.whenReady().then(() => {
 
   // The stored file, picked out in a Finder window.
   ipcMain.handle('show-file', (_event, src: unknown) => {
-    const name = typeof src === 'string' ? src.replace('mindflow://assets/', '') : ''
+    const name = typeof src === 'string' ? src.replace('haligtree://assets/', '') : ''
     if (!/^[a-f0-9]{64}\.[a-z0-9]+$/.test(name)) return false
     shell.showItemInFolder(join(assetsDir(), name))
     return true
@@ -4295,7 +4298,7 @@ app.whenReady().then(() => {
   // cannot read the store: its own content policy forbids fetching a custom
   // scheme, and the file is not reachable any other way.
   ipcMain.handle('copy-image', async (_event, src: unknown) => {
-    const name = typeof src === 'string' ? src.replace('mindflow://assets/', '') : ''
+    const name = typeof src === 'string' ? src.replace('haligtree://assets/', '') : ''
     const extension = name.split('.').pop()
     const mime = Object.keys(EXTENSIONS).find((type) => EXTENSIONS[type] === extension)
     if (!/^[a-f0-9]{64}\.[a-z0-9]+$/.test(name) || !mime) return false
@@ -4362,7 +4365,7 @@ app.whenReady().then(() => {
   })
 
   // Set app user model id for windows
-  electronApp.setAppUserModelId('com.starskourge.vigil')
+  electronApp.setAppUserModelId('com.starskourge.haligtree')
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.
@@ -4535,9 +4538,9 @@ app.whenReady().then(() => {
     return { ...found, image, icon }
   })
 
-  // Opening Vigil opens the main window, as any app's does. Started at login
+  // Opening Haligtree opens the main window, as any app's does. Started at login
   // it is made in the background instead, once the prompt is up, and waits
-  // for the Dock icon, the menu bar or ⌘. to be asked for. A brand-new Vigil
+  // for the Dock icon, the menu bar or ⌘. to be asked for. A brand-new Haligtree
   // opens it for the welcome either way, and arriving in or back from the
   // sandbox opens it too: that is where you were.
   // The window you will see is made first; what can wait (the box, the menu
@@ -4565,7 +4568,7 @@ app.whenReady().then(() => {
     setTimeout(makeHome, 1500)
   }
   // The QA harness imports a test vault without the folder dialog.
-  if (process.env.MINDFLOW_QA_VAULT) void importVault(process.env.MINDFLOW_QA_VAULT)
+  if (process.env.HALIGTREE_QA_VAULT) void importVault(process.env.HALIGTREE_QA_VAULT)
   // Arrived by Import into…: the import asked for, once the main window is up.
   void nextImport().then((what) => what && setTimeout(() => void (what === 'vault' ? importVault() : importFiles()), 1200))
 
@@ -4607,7 +4610,7 @@ app.whenReady().then(() => {
   }
   anywhere(whenKeys(anywhere))
 
-  // The Dock icon clicked, or Vigil opened again while it runs: the main
+  // The Dock icon clicked, or Haligtree opened again while it runs: the main
   // window, back from wherever it was put away. The sticky notes and the
   // box count as windows to macOS, so this does not wait for there to be none.
   app.on('activate', () => openHome())

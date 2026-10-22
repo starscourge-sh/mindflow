@@ -10,7 +10,7 @@
 // goes back, and nothing is ever written into the wrong book.
 //
 //   npx electron-vite build --outDir out-siteback
-//   QA_DATA=$(mktemp -d) QA_ENTRY=out-siteback/main/index.js MINDFLOW_QA_AWAY=1 node qa/site-block-back.mjs
+//   QA_DATA=$(mktemp -d) QA_ENTRY=out-siteback/main/index.js HALIGTREE_QA_AWAY=1 node qa/site-block-back.mjs
 import { existsSync, mkdtempSync, readFileSync } from 'fs'
 import { DatabaseSync } from 'node:sqlite'
 import { tmpdir } from 'os'
@@ -19,7 +19,7 @@ import { sandbox, shiftClock } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
 
 process.setMaxListeners(40)
-const root = process.env.QA_DATA ?? mkdtempSync(join(tmpdir(), 'vigil-siteback-'))
+const root = process.env.QA_DATA ?? mkdtempSync(join(tmpdir(), 'haligtree-siteback-'))
 if (root.includes('Application Support')) throw new Error('never the real data folder')
 process.env.QA_DATA = root
 const { check, done } = checks()
@@ -196,7 +196,7 @@ await wait(1200)
   try {
     await stub(c)
     await t.fake({ app: 'com.apple.TextEdit' })
-    const ask = () => c.h.evaluate((one) => window.dispatchEvent(new CustomEvent('vigil:book-switch', { detail: one })), book)
+    const ask = () => c.h.evaluate((one) => window.dispatchEvent(new CustomEvent('haligtree:book-switch', { detail: one })), book)
     await ask()
     await c.h.waitForTimeout(700)
     const words = await c.h.$eval('[data-book-running]', (one) => one.textContent).catch(() => '')
@@ -216,7 +216,7 @@ await wait(1200)
   await c.close()
 }
 await wait(1200)
-const bookDb = join(root, 'books', book, 'mindflow.db')
+const bookDb = join(root, 'books', book, 'haligtree.db')
 const bookBefore = rows(bookDb).length
 
 // --- 4. The second book: its pill names My book's session; a click goes back; nothing written here.
@@ -251,14 +251,14 @@ await wait(1200)
     check('back in My book, its own session is still running', (await c.v('focus:now'))?.id === kept)
     check('and the note of where it was kept is forgotten', !JSON.parse(readFileSync(join(root, 'books.json'), 'utf8')).kept || (await c.v('books:elsewhere')) === null)
     await stub(c)
-    await c.h.evaluate((one) => window.dispatchEvent(new CustomEvent('vigil:book-switch', { detail: one })), book)
+    await c.h.evaluate((one) => window.dispatchEvent(new CustomEvent('haligtree:book-switch', { detail: one })), book)
     await c.h.waitForTimeout(700)
     await c.h.click('[data-running-choice="end"]')
     const args = await relaunched(c)
     check('End it ends the session, then switches', !!args && !(await c.v('focus:now')), JSON.stringify(args))
     await c.close()
     await wait(800)
-    const mine = rows(join(root, 'mindflow.db')).find((one) => one.id === kept)
+    const mine = rows(join(root, 'haligtree.db')).find((one) => one.id === kept)
     check('the ended session is saved in My book, where it ran', !!mine?.endedAt, JSON.stringify(mine))
     check('and never in the second book', !rows(bookDb).some((one) => one.id === kept))
   } catch (error) {

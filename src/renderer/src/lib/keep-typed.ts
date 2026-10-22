@@ -1,7 +1,7 @@
 import { chime } from './sound'
-import { vigil } from './vigil'
+import { haligtree } from './haligtree'
 import { makeTask } from './tasks'
-import { toast } from '@/components/vigil/ui'
+import { toast } from '@/components/haligtree/ui'
 import type { Keep } from '@/components/search'
 
 /**
@@ -19,9 +19,9 @@ export async function keepTyped(as: Keep, text: string, open: (type: string, id:
     return
   }
   if (as === 'question') {
-    const id = await vigil.newQuestion(text)
+    const id = await haligtree.newQuestion(text)
     chime('hold')
-    toast('Kept as a question: add clues as they come', () => void vigil.dropQuestion(id).then(() => back?.(text)))
+    toast('Kept as a question: add clues as they come', () => void haligtree.dropQuestion(id).then(() => back?.(text)))
     return open('question', id)
   }
   const id = await window.api.captures.create({ kind: 'note', body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] } })

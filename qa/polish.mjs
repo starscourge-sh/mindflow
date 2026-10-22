@@ -1,4 +1,4 @@
-// Run with: QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out/main/index.js MINDFLOW_QA_AWAY=1 node qa/polish.mjs
+// Run with: QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out/main/index.js HALIGTREE_QA_AWAY=1 node qa/polish.mjs
 // Small things that looked one way and acted another:
 //  (1, Recent's “Show all” in the sidebar, went with the sidebar's Recent: qa/sidebar-recent.mjs.)
 //  2. A task row's repeat mark and its tag words are pressable: the repeat

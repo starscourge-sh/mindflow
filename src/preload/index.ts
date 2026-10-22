@@ -29,21 +29,21 @@ let listed: { rows: CaptureMeta[]; version: number } | null = null
 // A note opened in a window of its own, told by the main process to every
 // other window, which closes it there: two editors on one note would each
 // save over the other's words.
-ipcRenderer.on('notes:opened-apart', (_event, id: string) => window.dispatchEvent(new CustomEvent('vigil:opened-apart', { detail: id })))
+ipcRenderer.on('notes:opened-apart', (_event, id: string) => window.dispatchEvent(new CustomEvent('haligtree:opened-apart', { detail: id })))
 // A note moving between the main window and its own (lib/apart.ts): its window
 // closed, a caret carried in, or asked to go back home.
-ipcRenderer.on('notes:apart', (_event, what: string, link: string) => window.dispatchEvent(new CustomEvent('vigil:apart', { detail: { what, link } })))
+ipcRenderer.on('notes:apart', (_event, what: string, link: string) => window.dispatchEvent(new CustomEvent('haligtree:apart', { detail: { what, link } })))
 // The menu bar's Reset the sandbox: asked in the pill, where Start over is held.
-ipcRenderer.on('sandbox:ask-reset', () => window.dispatchEvent(new CustomEvent('vigil:sandbox-reset')))
+ipcRenderer.on('sandbox:ask-reset', () => window.dispatchEvent(new CustomEvent('haligtree:sandbox-reset')))
 // Edit > Select All from the menu bar: a list with the focus takes it
 // (lib/select-all.ts cancels the event); otherwise the words, as before.
 ipcRenderer.on('menu:select-all', () => {
-  if (window.dispatchEvent(new Event('vigil:select-all', { cancelable: true }))) document.execCommand('selectAll')
+  if (window.dispatchEvent(new Event('haligtree:select-all', { cancelable: true }))) document.execCommand('selectAll')
 })
 // A note renamed and the links to it written again: the window it was renamed in says so, with an Undo.
-ipcRenderer.on('links:renamed', (_event, info: unknown) => window.dispatchEvent(new CustomEvent('vigil:links-renamed', { detail: info })))
+ipcRenderer.on('links:renamed', (_event, info: unknown) => window.dispatchEvent(new CustomEvent('haligtree:links-renamed', { detail: info })))
 // A book made, renamed or deleted: every list of them looks again.
-ipcRenderer.on('books:changed', () => window.dispatchEvent(new CustomEvent('vigil:books-changed')))
+ipcRenderer.on('books:changed', () => window.dispatchEvent(new CustomEvent('haligtree:books-changed')))
 
 // Custom APIs for renderer
 const api = {
@@ -89,7 +89,7 @@ const api = {
   /** Asked of the page's own spellchecker, which already drew the squiggle. */
   misspelt: (word: string): string[] | null => (webFrame.isWordMisspelled(word) ? webFrame.getWordSuggestions(word) : null),
   /** Keep a word as spelt right, in the Mac's own dictionary too. */
-  learnWord: (word: string): Promise<boolean> => ipcRenderer.invoke('vigil:spelling:learn', word),
+  learnWord: (word: string): Promise<boolean> => ipcRenderer.invoke('haligtree:spelling:learn', word),
 
   /** The picture on the system clipboard, read by the system rather than from a pasted file that may not open. */
   clipboardImage: (): Promise<{ mime: string; bytes: Uint8Array } | null> => ipcRenderer.invoke('clipboard-image'),
@@ -151,15 +151,15 @@ const api = {
   },
   /** A screenshot of the pill's screen for the session's log, stored; denied without Screen Recording. */
   focusShot: (): Promise<{ url: string } | { denied: true; asked?: boolean; restart?: boolean } | null> => ipcRenderer.invoke('focus:shot'),
-  /** A screenshot of the box's screen for its note, without Vigil's windows; with the app in front there. */
+  /** A screenshot of the box's screen for its note, without Haligtree's windows; with the app in front there. */
   screenShot: (area = false): Promise<{ url: string; app: string } | { denied: true; asked: boolean; restart?: boolean } | { cancelled: true } | null> => ipcRenderer.invoke('shots:screen', area),
   /** The camera, asked for before its first use: granted or denied. */
   cameraAccess: (): Promise<'granted' | 'denied'> => ipcRenderer.invoke('shots:camera'),
   /** macOS's Privacy settings, at the camera's page or Screen Recording's. */
   privacySettings: (what: 'camera' | 'screen'): void => ipcRenderer.send('shots:privacy', what),
-  /** Whether Vigil can see the screen now: on, allowed but needing a restart, or off. */
+  /** Whether Haligtree can see the screen now: on, allowed but needing a restart, or off. */
   screenAccess: (): Promise<'on' | 'restart' | 'off'> => ipcRenderer.invoke('shots:access'),
-  /** Vigil started again, as it was (a permission turned on since becomes live). */
+  /** Haligtree started again, as it was (a permission turned on since becomes live). */
   restart: (): void => ipcRenderer.send('app:restart'),
   /** Light around the edge of the screen: a session or timer finished, or called off. */
   glow: (tone: 'done' | 'cancel' | 'break'): void => ipcRenderer.send('glow', tone),
@@ -203,7 +203,7 @@ const api = {
     return () => ipcRenderer.off('stickies:out', relay)
   },
   showFolder: (path: string): void => ipcRenderer.send('folder:show', path),
-  /** A sticky's pictures in Vigil's own Quick Look, in a window over its screen rather than inside the small one. */
+  /** A sticky's pictures in Haligtree's own Quick Look, in a window over its screen rather than inside the small one. */
   look: (pictures: LookPicture[], at: number): void => ipcRenderer.send('look', pictures, at),
   /** The look window's own: what to show, and that it is done. */
   lookWhat: (): Promise<{ pictures: LookPicture[]; at: number } | null> => ipcRenderer.invoke('look:what'),
@@ -379,9 +379,9 @@ const api = {
     return () => ipcRenderer.off('celebrate', relay)
   },
 
-  /** Everything past the capture, by channel. Only `vigil:` channels pass. `T` is what the channel answers with. */
-  vigil: <T = unknown>(channel: string, ...args: unknown[]): Promise<T> =>
-    ipcRenderer.invoke(`vigil:${channel}`, ...args),
+  /** Everything past the capture, by channel. Only `haligtree:` channels pass. `T` is what the channel answers with. */
+  haligtree: <T = unknown>(channel: string, ...args: unknown[]): Promise<T> =>
+    ipcRenderer.invoke(`haligtree:${channel}`, ...args),
 
   /** Bring up the capture prompt, from any window. */
   showPrompt: (text?: string): void => ipcRenderer.send('prompt:show', text),
@@ -422,7 +422,7 @@ const api = {
   importFrom: (what: 'vault' | 'files' | 'apple-notes', from?: string | null): Promise<void> => ipcRenderer.invoke('import:run', what, from),
   /** The menu bar's restore, from a window: pick a day's copy, and the app starts again on it. */
   restoreBackup: (): Promise<void> => ipcRenderer.invoke('backup:restore'),
-  /** The answer to Vigil's own "Go back to this copy?" sheet. */
+  /** The answer to Haligtree's own "Go back to this copy?" sheet. */
   answerRestore: (token: string, ok: boolean): void => ipcRenderer.send('backup:restore-answer', token, ok),
   /** The frosted backing follows the theme: dark under a dark theme. */
   setAppearance: (mode: 'light' | 'dark'): void => ipcRenderer.send('appearance', mode),

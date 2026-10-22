@@ -12,12 +12,12 @@ map between them.
 Two things under Electron's `userData`, and no settings file.
 
 ```
-mindflow.db   every capture: the TipTap document, its title, kind and status
+haligtree.db   every capture: the TipTap document, its title, kind and status
 assets/       one file per picture or attachment, named by the hash of its bytes
 ```
 
 The same picture in three notes is one file, because the name **is** the
-hash. A note points at it with a `mindflow://assets/<hash>.<ext>` URL, which
+hash. A note points at it with a `haligtree://assets/<hash>.<ext>` URL, which
 `src/main/index.ts` serves.
 
 Adding a kind of thing to store? It goes in `assets/` if it is bytes, and in
@@ -37,10 +37,10 @@ the list to check before deleting anything. It walks the JSON, so it works on a
 capture that is not open:
 
 ```ts
-import { assetsOf, isStored } from "@/components/mindflow"
+import { assetsOf, isStored } from "@/components/haligtree"
 
 assetsOf(capture.body).filter(isStored)
-// [{ src: "mindflow://assets/9f2…png", kind: "image" }, …]
+// [{ src: "haligtree://assets/9f2…png", kind: "image" }, …]
 ```
 
 `referencesOf(doc)` is the wider version, and the one to reach for if notes are
@@ -128,7 +128,7 @@ export function StickyView(props: NodeViewProps): React.JSX.Element {
 Then register it and offer it:
 
 ```tsx
-// mindflow-editor.tsx, in the extensions array
+// haligtree-editor.tsx, in the extensions array
 Sticky,
 
 // slash-items.tsx
@@ -187,7 +187,7 @@ Six blocks, all following the ones already there:
 |---|---|
 | `assets/main.css` | the chrome tokens Tailwind reads |
 | `assets/styles/_variables.scss` | surfaces, brand ramp, the nine block colours, their highlights, the vim caret, the prose accents |
-| `components/mindflow/theme-toggle.tsx` | the name and its icon |
+| `components/haligtree/theme-toggle.tsx` | the name and its icon |
 
 Colours are always one of the nine palette **names**, never a hex, so anything
 using them stays readable when the theme changes underneath.

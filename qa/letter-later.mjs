@@ -5,12 +5,12 @@
 // "You wrote this a year ago".
 //
 //   npx electron-vite build --outDir out-x
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/letter-later.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/letter-later.mjs
 import { checks } from './harness.mjs'
 import { sandbox, shiftClock } from './sandbox-lib.mjs'
 
 const { check, done } = checks()
-const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 const c = await sandbox({ width: 1200, height: 820 })
 const { qa, page, h, v, go, send } = c
 const wait = (ms = 450) => page.waitForTimeout(ms)

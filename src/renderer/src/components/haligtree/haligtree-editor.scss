@@ -1,0 +1,3970 @@
+// This component gets dropped into other apps, so nothing here styles the page.
+// Everything hangs off `.haligtree-editor-wrapper`, the component's own root. The
+// only globals are custom-property definitions, which the menus need because
+// they mount on document.body - and which are inert until something reads them.
+// Page-level concerns - the web font, the page background, full-height layout -
+// belong to the host, not here.
+
+.haligtree-editor-wrapper {
+  --tt-theme-text: var(--tt-gray-light-900);
+
+  // The box everything else in the component is measured against. The content
+  // inside it scrolls; this does not, so the outline, the source panel and the
+  // toolbar can sit against its edges instead of the window's. That is what
+  // lets more than one of these share a page.
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  color: var(--tt-theme-text);
+  font-optical-sizing: auto;
+  font-weight: 400;
+  font-style: normal;
+
+  .dark & {
+    --tt-theme-text: var(--tt-gray-dark-900);
+  }
+
+  // Every width below assumes it. The host may not set it, and it is not ours
+  // to set on the page.
+  &,
+  *,
+  ::before,
+  ::after {
+    box-sizing: border-box;
+  }
+
+  // Blink skips custom scrollbar construction entirely once this is set, so
+  // the ::-webkit-scrollbar rules that used to sit here never rendered.
+  &,
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--tt-scrollbar-color) transparent;
+  }
+}
+
+.tiptap.ProseMirror.haligtree-editor {
+  // The host's font for notes, if it picked one, and its text size: a scale
+  // rather than a size, so headings and code keep their proportions.
+  font-family: var(--mf-font, "Fraunces Variable", Georgia, serif);
+  font-size: calc(1rem * var(--mf-text-scale, 1));
+
+  p:not(td p):not(th p) {
+    font-size: 1em;
+  }
+
+  // Each line runs the way its own words do: Hebrew or Arabic from the
+  // right, English from the left, in the same note.
+  :is(p, h1, h2, h3, h4, h5, h6) {
+    unicode-bidi: plaintext;
+  }
+
+  // The quirk in the g, k and y, and softer terminals. Off unless asked for.
+  font-variation-settings:
+    "SOFT" 20,
+    "WONK" 1;
+}
+
+.haligtree-editor-content {
+  width: 100%;
+  margin: 0 auto;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+
+  // `smoothScroll`. Every scroll the editor makes on its own eases; the drag
+  // loop asks for `instant` and so is unaffected. Honoured by the caret being
+  // scrolled back into view, by vim's motions and by the search.
+  &.is-smooth {
+    scroll-behavior: smooth;
+  }
+}
+
+// Somebody who has asked their system not to animate gets no animation, even
+// with the prop on.
+@media (prefers-reduced-motion: reduce) {
+  .haligtree-editor-content.is-smooth {
+    scroll-behavior: auto;
+  }
+}
+
+// Nor anybody with Motion off in Settings: the next heading, the outline and
+// find next jump there at once.
+:root[data-motion='off'] .haligtree-editor-content.is-smooth {
+  scroll-behavior: auto;
+}
+
+.tiptap.ProseMirror.haligtree-editor {
+  flex: 1;
+  // The left gutter holds the `+` and the grip: 24px of clearance past the list
+  // markers plus the 44px cluster itself, so 3rem would clip it. The right side
+  // matches it - the column is centred, so unequal padding puts the text off
+  // centre inside it.
+  // A variable, and no !important: a caller styling this like any other
+  // component has to be able to win. The selector already outranks the
+  // vendored one on its own.
+  padding: var(--mf-padding, 1rem 4.75rem);
+
+}
+
+// Typewriter scrolling: room after the last line, so the line being written
+// can still be held 40% down the view at the very end of a note.
+.haligtree-editor-content.is-typewriter > .tiptap.ProseMirror.haligtree-editor {
+  padding-bottom: 60vh;
+}
+
+// So the cursor line below runs past the text column to the edges of the box
+// that holds it, not stopping short at the column's own edge, and grows no
+// horizontal scrollbar. Clipped here, at the scrolling box, rather than on the
+// document, whose centred column is narrower than what holds it.
+.haligtree-editor-content {
+  overflow-x: hidden;
+}
+
+// Only where the caret actually is. Decorations are drawn whether the editor
+// has the focus or not, so every vim editor on the page lit a line at once -
+// the title carried a band while you were typing in the body.
+//
+// A one-line editor is left out altogether: the band would cover the whole of
+// it, which reads as a selected input rather than as a cursor.
+//
+// The band is a pseudo-element rather than the line's own background, and it
+// takes no pointer events. Widening the line itself - a negative margin with
+// the padding to match - reached into the gutter where the drag handle looks
+// for what you are pointing at, and the handle started answering with the line
+// the caret was on instead of the one under the mouse.
+.tiptap.ProseMirror.haligtree-editor:not(.is-line) .vim-cursor-line {
+  position: relative;
+}
+
+.tiptap.ProseMirror.haligtree-editor:focus-within:not(.is-line) .vim-cursor-line::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  bottom: 0;
+  // More than any indent; the scrolling box's `overflow-x: hidden` takes the rest.
+  left: -50rem;
+  right: -50rem;
+  background-color: var(--mf-cursor-line, color-mix(in srgb, currentColor 7%, transparent));
+  pointer-events: none;
+}
+
+.tiptap.ProseMirror.haligtree-editor [data-type=horizontalRule] {
+  margin: 1rem 0 0;
+}
+
+.tiptap.ProseMirror.haligtree-editor ol,
+.tiptap.ProseMirror.haligtree-editor ul:not([data-type="taskList"]) {
+    margin: 0;
+    padding-left: 1em;
+}
+
+// A marker sits outside the item's own box, in this padding, and the drag grip
+// is parked just left of it. "10." needs more room than a bullet, or the two
+// land on top of each other.
+.tiptap.ProseMirror.haligtree-editor ol {
+    padding-left: 1em;
+}
+
+.tiptap.ProseMirror ul[data-type=taskList] {
+    padding-left: 0;
+}
+
+// A heading opens a section, so it wants more above it than below. Flat rather
+// than the node's own per-level scale, which at 2.5em for an h2 left a page of
+// short sections looking half empty.
+.tiptap.ProseMirror.haligtree-editor :is(h1, h2, h3, h4) {
+  margin-top: 0.9em;
+  margin-bottom: 0.3em;
+}
+
+// Dia's pairing, in the note itself: headings in the heading font, set like a
+// display face (bigger, tighter, a touch heavier), over the text font that
+// lists, tables and quotes keep. With "Same as text" they are the text's.
+// Fraunces sizes its own strokes for the size, and its softer corners and
+// quirkier shapes only show this large, which is where they are wanted.
+.tiptap.ProseMirror.haligtree-editor :is(h1, h2, h3, h4) {
+  font-family: var(--mf-heading-font, inherit);
+  font-optical-sizing: auto;
+  font-variation-settings: "SOFT" 50, "WONK" 1;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.012em;
+}
+
+.tiptap.ProseMirror.haligtree-editor h1 {
+  font-size: 1.875em;
+  letter-spacing: -0.024em;
+}
+
+// A new section in a long imported doc wants a clear breath before it.
+.tiptap.ProseMirror.haligtree-editor h2 {
+  margin-top: 1.25em;
+  font-size: 1.4375em;
+  letter-spacing: -0.018em;
+}
+
+.tiptap.ProseMirror.haligtree-editor h3 {
+  font-size: 1.1875em;
+}
+
+// Folding headings: a view of the note, never a change to it. The section
+// under a folded heading is hidden, and the heading keeps its place.
+.tiptap.ProseMirror.haligtree-editor .mf-fold-hidden {
+  display: none !important;
+}
+
+.tiptap.ProseMirror.haligtree-editor :is(h1, h2, h3, h4, h5, h6) {
+  position: relative;
+}
+
+// The chevron, in the gap between the grip and the words. Only on hover, but
+// a folded heading keeps a faint one so it reads as folded at a glance.
+.tiptap.ProseMirror.haligtree-editor .mf-fold {
+  position: absolute;
+  top: 0;
+  // 24px to press, its right edge where it always was.
+  left: -1.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1lh;
+  color: var(--mf-muted);
+  cursor: pointer;
+  opacity: 0;
+  user-select: none;
+  transition: opacity 140ms var(--mf-ease), color 120ms var(--mf-ease);
+
+  svg {
+    width: 0.875rem;
+    height: 0.875rem;
+    transform: rotate(90deg);
+    transition: transform 160ms var(--mf-ease);
+  }
+
+  &.is-folded {
+    opacity: 0.6;
+
+    svg {
+      transform: none;
+    }
+  }
+
+  &:hover {
+    color: var(--primary, currentColor);
+  }
+}
+
+.tiptap.ProseMirror.haligtree-editor :is(h1, h2, h3, h4, h5, h6):hover > .mf-fold {
+  opacity: 1;
+}
+
+// The level, Obsidian's "H2", in the accent beside a short bar. Where the
+// editor has a grip, the grip shows it instead (below), so the two never
+// stack in the gutter.
+.tiptap.ProseMirror.haligtree-editor .mf-fold-level {
+  position: absolute;
+  right: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding-right: 0.25rem;
+  font: 600 0.625rem/1 var(--mf-app-font, -apple-system, system-ui, sans-serif);
+  letter-spacing: 0.02em;
+  color: var(--primary, currentColor);
+  opacity: 0;
+  transition: opacity 140ms var(--mf-ease);
+
+  &::after {
+    content: "";
+    width: 2px;
+    height: 0.875rem;
+    border-radius: 1px;
+    background-color: currentColor;
+    opacity: 0.6;
+  }
+}
+
+.tiptap.ProseMirror.haligtree-editor :is(h1, h2, h3, h4, h5, h6):hover .mf-fold-level {
+  opacity: 1;
+}
+
+.haligtree-editor-wrapper.has-handles .tiptap.ProseMirror.haligtree-editor .mf-fold-level {
+  display: none;
+}
+
+@for $level from 1 through 6 {
+  .tiptap-drag-handle[data-level="#{$level}"] .tiptap-drag-handle-grip::before {
+    content: "H#{$level}";
+  }
+}
+
+.tiptap-drag-handle[data-level] .tiptap-drag-handle-grip {
+  gap: 0.1875rem;
+  font: 600 0.625rem/1 var(--mf-app-font, -apple-system, system-ui, sans-serif);
+  letter-spacing: 0.02em;
+  color: var(--primary, currentColor);
+  opacity: 1;
+
+  svg {
+    display: none;
+  }
+
+  &::after {
+    content: "";
+    width: 2px;
+    height: 0.875rem;
+    border-radius: 1px;
+    background-color: currentColor;
+    opacity: 0.6;
+  }
+}
+
+// After a folded heading's words: what is hidden, and a click to bring it back.
+.tiptap.ProseMirror.haligtree-editor .mf-fold-more {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.5rem;
+  padding: 0 0.4375rem;
+  height: 1.125rem;
+  vertical-align: middle;
+  border-radius: 999px;
+  font: 600 0.875rem/1 var(--mf-app-font, -apple-system, system-ui, sans-serif);
+  letter-spacing: 0.08em;
+  color: var(--mf-muted);
+  background-color: color-mix(in srgb, currentColor 10%, transparent);
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 120ms var(--mf-ease), color 120ms var(--mf-ease);
+
+  &:hover {
+    color: var(--primary, currentColor);
+    background-color: color-mix(in srgb, var(--primary, currentColor) 14%, transparent);
+  }
+}
+
+// The same one soft layer every other panel here gets. The vendored four-layer
+// shadow reads as a grey box against a frosted window rather than as depth,
+// which is the whole reason `--mf-panel-shadow` exists.
+.tiptap-toolbar[data-variant="floating"] {
+  box-shadow: var(--mf-panel-shadow, 0 8px 24px rgba(0, 0, 0, 0.28));
+}
+
+.haligtree-editor-wrapper .tiptap-toolbar[data-variant="fixed"] {
+    width: fit-content;
+}
+
+// The caret in a place that holds no text - before a drawing that opens the
+// document, or between two cards. A horizontal line is right, since there is
+// no line of text for it to stand in, but the one ProseMirror ships is 1px of
+// black, which on a dark page reads as a stray mark rather than as a cursor.
+.tiptap.ProseMirror.haligtree-editor .ProseMirror-gapcursor::after {
+  border-top-color: var(--tt-cursor-color);
+  border-top-width: 0.125rem;
+}
+
+// Vim mode: the caret is the only cue for which mode you are in.
+// `caret-shape` is native, so unlike a drawn caret it cannot break the line.
+.tiptap.ProseMirror.haligtree-editor[data-vim-mode="normal"] {
+  caret-color: var(--mf-caret-vim);
+  caret-shape: block;
+}
+
+// An emoji or any other inline atom has no character for the native block
+// caret to cover, so it is drawn behind the node instead.
+.tiptap.ProseMirror.haligtree-editor .vim-block-cursor {
+  border-radius: 0.125rem;
+  background-color: var(--mf-caret-vim);
+}
+
+// Everything below is light/dark through these three, so each rule is written
+// once. The vendored variables already establish the :root / .dark convention.
+:root {
+  // The theme's own accent, which is what every hand-written value here used
+  // to be anyway - gruvbox's orange, kanagawa's blue - written once instead of
+  // once per theme, where the two could drift.
+  --mf-caret-vim: var(--tt-brand-color-400);
+  --mf-surface: var(--tt-gray-light-a-100);
+  --mf-muted: var(--tt-gray-light-a-500);
+  --mf-muted-strong: var(--tt-gray-light-a-600);
+}
+
+.dark {
+  --mf-surface: var(--tt-gray-dark-a-100);
+  --mf-muted: var(--tt-gray-dark-a-500);
+  --mf-muted-strong: var(--tt-gray-dark-a-600);
+}
+
+// The suggestion plugin positions this wrapper but sets no z-index, so the
+// toolbar's own stacking order would paint over the popup inside it.
+.tiptap-suggestion-popup {
+  z-index: 50;
+}
+
+// Typed tokens. These are decorations, so the underlying text is untouched;
+// the tint is only a hint that something was recognised.
+// The `/` and whatever is being typed after it, while the menu is open. It is
+// a place you are inside of rather than text you have written - the menu takes
+// the keys, Escape takes the characters back out - and looking like a chip is
+// what says so. The same shape as a tag, in the page's own selection colour
+// because it is not one of the nine and should not read as one.
+.tiptap-slash-token {
+  border-radius: 0.25rem;
+  padding: 0.05em 0.15em;
+  background-color: var(--tt-selection-color);
+}
+
+.tiptap-token {
+  // A tag opens on a click (extensions/tokens.ts): it says so under the
+  // pointer, and gives a little under the press.
+  &[data-token="tag"] { cursor: pointer; }
+  &[data-token="tag"]:active { filter: brightness(0.86) saturate(1.3); }
+  border-radius: 0.25rem;
+  padding: 0.05em 0.15em;
+  background-color: var(--tt-color-highlight-blue);
+  // A chip is a thing, not a run of words: it reports its click through
+  // `onTokenClick`, and the text cursor a contenteditable hands you says the
+  // opposite.
+  cursor: pointer;
+
+  // A colour per token, from the nine each theme already tunes for contrast
+  // against its own page - so a tag stays readable when the palette changes
+  // under it, which a hex would not.
+  //
+  // The tint only. Colouring the text as well took the caret with it, because
+  // `caret-color: auto` follows `color`, and it vanished into the tint it was
+  // sitting on. The text stays the page's, which also keeps every tag the same
+  // weight on the page: the nine are not equally vivid, so tinting the letters
+  // made some shout and others read as grey.
+  @each $name in ("gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red") {
+    &[data-token-color="#{$name}"] {
+      background-color: var(--tt-color-highlight-#{$name});
+    }
+  }
+
+}
+
+// A single line hugs its text rather than filling whatever holds it, and has
+// no toolbar or panel parked against its edges to clip.
+// A signed quote: the signature sits under the words it signs, not at the
+// foot of the column a screenful away.
+.haligtree-editor-content:has(.mf-signed) > .tiptap.ProseMirror.haligtree-editor {
+  flex: none;
+}
+
+.haligtree-editor-wrapper.is-line {
+  height: auto;
+  overflow: visible;
+  // The document editor fills its column, which is what `flex: 1` is for. A
+  // line has one line in it and must not: left on, it stretched to whatever
+  // room the row around it happened to have.
+  .tiptap.ProseMirror.haligtree-editor {
+    flex: none;
+    padding-left:0;
+    padding-right:0;
+  }
+
+  .haligtree-editor-content {
+    height: auto;
+    // A line has nothing to scroll, and the selection menu opens below the
+    // text, past the bottom of a box this short. Scrolling here only clipped
+    // the menu in half.
+    overflow: visible;
+  }
+}
+
+// The floating surface every panel the editor owns is built on. The block menu
+// was missing from this list and fell through to the vendored dropdown styling,
+// which is why it had no border and a rounder corner than everything else.
+.tiptap-slash-menu,
+.tiptap-block-menu,
+.tiptap-emoji-list,
+.tiptap-table-menu,
+.tiptap-find-bar,
+.tiptap-image-panel,
+.tiptap-icon-picker {
+  border: 1px solid var(--tt-border-color);
+  // The `kind` popover is the one to match: it is shadcn's, and every menu in
+  // the app that is not the editor's own looks like it. `rounded-lg`, 8px.
+  border-radius: 0.5rem;
+  // Opaque on purpose. The window behind it is transparent, so a panel with no
+  // background of its own shows the document through it, and then the desktop.
+  background-color: var(--tt-card-bg-color);
+  // A hairline border carries the edge. The four-layer drop shadow this used to
+  // have reads as a smudge now the window behind it is frosted rather than
+  // solid, so it is one soft layer for depth and nothing more. The host can set
+  // the token; the fallback keeps the component standing on its own.
+  box-shadow: var(--mf-panel-shadow, 0 8px 24px rgba(0, 0, 0, 0.28));
+  overflow: hidden;
+}
+
+// Cmd-F. Nothing else styles it, so without this the input and its three
+// buttons render as bare controls over the document. Replace is a second row.
+.tiptap-find-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0.25rem;
+  // The container is sized by the toolbar beside it, which is hidden but still
+  // occupies layout; without this the bar stretches the whole way across.
+  width: fit-content;
+  margin: 0 auto 0.5rem;
+
+  input {
+    width: 10rem;
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    padding: 0.25rem 0.5rem;
+  }
+
+  button {
+    padding: 0.25rem 0.375rem;
+    border-radius: 0.5rem;
+
+    &:hover {
+      background-color: var(--mf-surface);
+    }
+  }
+}
+
+.tiptap-find-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+
+  // The replace row's input lines up under the find one, past the arrow.
+  & + & input {
+    margin-left: 1.625rem;
+  }
+
+  button:not(:has(svg)) {
+    font-size: 0.8125rem;
+    color: var(--mf-muted);
+  }
+}
+
+// A worked answer after a line ending in `=`: faint until Tab writes it in.
+.mf-calc-ghost {
+  color: var(--mf-muted);
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  user-select: none;
+}
+
+.tiptap-find-bar-count {
+  padding: 0 0.25rem;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--mf-muted);
+}
+
+// Tables. Nothing is vendored for these, so this is the minimum that makes
+// cells legible: visible edges, a tinted header, and a resize handle.
+// Resizable tables are rendered inside this wrapper, and the column widths
+// live in a <colgroup>. Forcing the table to 100% would fight those widths, so
+// let it size itself and let the wrapper scroll when it outgrows the page.
+// A table wider than the page scrolls sideways in its own box. The Mac hides
+// a scrollbar until you scroll, so the edge that has more past it fades out,
+// driven by the box's own scroll position: no fade when it all fits.
+@property --mf-table-fade-start {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --mf-table-fade-end {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@keyframes mf-table-fade {
+  from { --mf-table-fade-start: 0px; --mf-table-fade-end: 2.5rem; }
+  4% { --mf-table-fade-start: 2.5rem; }
+  96% { --mf-table-fade-end: 2.5rem; }
+  to { --mf-table-fade-start: 2.5rem; --mf-table-fade-end: 0px; }
+}
+
+.tiptap.ProseMirror.haligtree-editor .tableWrapper {
+  margin: 1.5em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  // Room for the outer borders, which the scrolling box would cut in half,
+  // and for the thin scrollbar under the last row.
+  padding: 1px 1px 0.5rem;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--tt-scrollbar-color) transparent;
+  animation: mf-table-fade linear both;
+  animation-timeline: scroll(self inline);
+  mask-image: linear-gradient(to right, transparent, #000 var(--mf-table-fade-start), #000 calc(100% - var(--mf-table-fade-end)), transparent);
+}
+
+.tiptap.ProseMirror.haligtree-editor table {
+  min-width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+
+  td,
+  th {
+    position: relative;
+    padding: 0.375rem 0.5rem;
+    border: 1px solid var(--tt-border-color);
+    vertical-align: top;
+    // A long path or address breaks inside its cell rather than running
+    // under the next one.
+    overflow-wrap: anywhere;
+  }
+
+  // A picture fills its cell at most, whatever width it was given.
+  td img,
+  th img {
+    max-width: 100% !important;
+  }
+
+  // The header row a fine dot screen over the tint, as Obsidian's Minimal
+  // theme has it: set apart from the rows without a heavier colour.
+  th {
+    background-color: var(--mf-surface);
+    background-image: radial-gradient(color-mix(in oklab, var(--foreground) 14%, transparent) 0.6px, transparent 0.9px);
+    background-size: 4px 4px;
+    font-weight: 600;
+    text-align: left;
+  }
+
+  .selectedCell::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-color: var(--tt-selection-color);
+    pointer-events: none;
+  }
+
+  .column-resize-handle {
+    position: absolute;
+    top: 0;
+    right: -2px;
+    bottom: -2px;
+    width: 4px;
+    background-color: var(--tt-cursor-color);
+    pointer-events: none;
+  }
+}
+
+// The outline, parked against the editor's right edge. Collapsed it is one rule
+// per heading; hovering the strip swaps the rules for the headings themselves.
+.tiptap-toc {
+  position: absolute;
+  top: 50%;
+  // Clear of the edge, so the opened panel does not sit flush against it.
+  right: 0.5rem;
+  z-index: 25;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  // No gap, and no padding between the items: only the items take the pointer,
+  // so any space between them is a hole that drops the hover and collapses the
+  // strip mid-movement. The breathing room lives inside each item instead.
+  gap: 0;
+  padding: 0.25rem;
+  width: max-content;
+  max-width: 17rem;
+  max-height: 60vh;
+  overflow-y: auto;
+  pointer-events: none;
+  border: 1px solid transparent;
+  border-radius: 0.75rem;
+  transition: background-color 120ms var(--mf-ease), border-color 120ms var(--mf-ease);
+
+  // Nothing here may change the layout: a size change under the pointer moves
+  // the items out from under it and the panel flickers open and shut.
+  // Opened by ⇧⌘O it looks the same as hovered.
+  &:hover,
+  &[data-open] {
+    border-color: var(--tt-border-color);
+    background-color: var(--tt-card-bg-color);
+    box-shadow: var(--tt-shadow-elevated-md);
+  }
+}
+
+.tiptap-toc-item {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 100%;
+  // Flex items shrink by default, and a column with a max-height is exactly
+  // where that bites: once the outline outgrows the panel every row squashes
+  // toward its min-height instead of the panel scrolling. That is why a long
+  // outline looked cramped and a short one did not.
+  flex: none;
+  // A 2px rule is not a hover target; the row around it is.
+  min-height: 0.875rem;
+  border-radius: 0.375rem;
+  color: var(--mf-muted);
+
+  // Deeper headings sit further in, which is what makes the collapsed strip
+  // readable as a shape rather than a list.
+  &[data-level="2"] {
+    padding-left: 0.75rem;
+  }
+
+  &[data-level="3"] {
+    padding-left: 1.5rem;
+  }
+
+  &[data-active="true"] {
+    color: var(--tt-cursor-color);
+  }
+
+  // Weight rather than size: a long outline needs the levels to read at a
+  // glance, and changing the size makes the rows jump around.
+  &[data-level="1"] .tiptap-toc-text {
+    font-weight: 600;
+  }
+
+  &[data-level="3"] .tiptap-toc-text {
+    opacity: 0.75;
+  }
+}
+
+.tiptap-toc-rule {
+  height: 2px;
+  width: 1rem;
+  border-radius: 9999px;
+  background-color: currentColor;
+  opacity: 0.5;
+
+  .tiptap-toc-item[data-level="1"] & {
+    width: 1.25rem;
+  }
+
+  .tiptap-toc-item[data-level="3"] & {
+    width: 0.75rem;
+  }
+
+  .tiptap-toc-item[data-active="true"] & {
+    opacity: 1;
+  }
+
+  .tiptap-toc:hover &,
+  .tiptap-toc[data-open] & {
+    display: none;
+  }
+}
+
+.tiptap-toc-text {
+  display: none;
+  padding: 0.1875rem 0.5rem;
+  width: 100%;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  text-align: left;
+  // A long heading takes a second line rather than losing its end.
+  white-space: normal;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+
+  .tiptap-toc:hover &,
+  .tiptap-toc[data-open] & {
+    display: -webkit-box;
+  }
+
+  .tiptap-toc-item:hover &,
+  .tiptap-toc-item[data-keyed] & {
+    background-color: var(--mf-surface);
+    border-radius: 0.375rem;
+  }
+}
+
+// Block colour. The tint runs the full measure, so it needs the padding a
+// Notion block has - and a negative margin to keep the text on the same line it
+// sat on before it was coloured.
+.tiptap.ProseMirror.haligtree-editor {
+  [data-background] {
+    padding: 0.25em 0.5em;
+    margin-inline: -0.5em;
+    background-color: var(--tt-color-highlight-gray);
+  }
+
+  // A marker is drawn against the item's BORDER edge while its text follows the
+  // content edge, so the negative margin that keeps a paragraph's text still
+  // drags the marker left and the list goes ragged the moment one item is
+  // coloured. The item keeps its box; the tint starts at the text instead.
+  li[data-background] {
+    margin-inline: 0;
+    padding-inline: 0;
+  }
+
+  @each $name in ("gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red") {
+    [data-background="#{$name}"] {
+      background-color: var(--tt-color-highlight-#{$name});
+    }
+
+    [data-color="#{$name}"] {
+      color: var(--tt-color-text-#{$name});
+    }
+  }
+}
+
+// The swatch grid in the block menu.
+.tiptap-block-colors {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 0.25rem;
+  padding: 0.5rem;
+
+  button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 1;
+    border: 1px solid var(--tt-border-color);
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+
+    &:hover {
+      border-color: var(--tt-cursor-color);
+    }
+  }
+
+  @each $name in ("gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red") {
+    button[data-background="#{$name}"] {
+      background-color: var(--tt-color-highlight-#{$name});
+    }
+
+    button[data-color="#{$name}"] {
+      color: var(--tt-color-text-#{$name});
+    }
+  }
+}
+
+.tiptap-block-colors-label {
+  grid-column: 1 / -1;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--mf-muted);
+}
+
+.tiptap-block-colors-clear {
+  grid-column: 1 / -1;
+  aspect-ratio: auto !important;
+  padding: 0.25rem;
+  font-size: 0.8125rem;
+}
+
+// Highlights. Nothing styled <mark>, so it fell back to Chromium's UA rule -
+// an opaque `Mark` yellow with `color: MarkText` forcing the text black. That
+// is unreadable in dark mode, and it swallows the caret: the normal-mode caret
+// is orange, which on saturated yellow is effectively invisible.
+//
+// A translucent tint keeps the page's own text and caret colours legible. The
+// extension writes a chosen colour as an inline style, so this only supplies
+// the default.
+.tiptap.ProseMirror.haligtree-editor mark {
+  background-color: color-mix(in srgb, var(--tt-cursor-color) 22%, transparent);
+  color: inherit;
+  // Notion's proportions. The card's own 0.75rem turns a band this short into
+  // a pill, which reads as a tag rather than as marked-up text - the radius
+  // has to scale with the box, not be one number everywhere.
+  border-radius: 0.25rem;
+  // Just enough that the highlight clears the glyphs rather than sitting on
+  // them. More than this and the words stop looking like part of the line.
+  padding: 0.05em 0.15em;
+  // Every line of a wrapped highlight gets the full box. Without it only the
+  // first and last line are rounded and the middle runs corner to corner.
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+// A whole line marked is a band across the line, which the extension spots and
+// the rules here paint. The mark inside stands down: two backgrounds over the
+// same words are darker where the words are, which is the ragged look the band
+// is there to replace.
+.tiptap.ProseMirror.haligtree-editor .mf-line-highlight {
+  background-color: var(
+    --mf-line-highlight,
+    color-mix(in srgb, var(--tt-cursor-color) 22%, transparent)
+  );
+  border-radius: 0.25rem;
+  // Out past the text on both sides, without moving it: the band is the block's
+  // width, not the sentence's.
+  padding-inline: 0.35em;
+  margin-inline: -0.35em;
+
+  mark {
+    background-color: transparent;
+    padding: 0;
+  }
+}
+
+// The insert caret is the brand purple, which sits at 2.3-2.6:1 on a highlight
+// band. Normal mode keeps its orange, which already clears 4.5:1 there.
+.dark .tiptap.ProseMirror.haligtree-editor:not([data-vim-mode="normal"]) mark {
+  caret-color: var(--tt-gray-dark-900);
+}
+
+// Search hits. The extension ships yellow/orange via an injected <style>, which
+// `injectCSS: false` turns off.
+.tiptap.ProseMirror.haligtree-editor {
+  .find-and-replace-result {
+    border-radius: 0.1875rem;
+    background-color: color-mix(in srgb, var(--tt-cursor-color) 30%, transparent);
+  }
+
+  // Solid, so the one you are on reads as the one you are on.
+  .find-and-replace-result-current {
+    background-color: var(--tt-cursor-color);
+    color: #fff;
+    -webkit-text-fill-color: #fff;
+    // The insert-mode caret is this same accent, so it would vanish here.
+    caret-color: #fff;
+  }
+}
+
+// Row and column grips around the table the cursor is in. The overlay sits in
+// the editor's own positioned container, so the coordinates the component
+// measures are relative to that.
+.tiptap-table-controls {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 15;
+
+  button {
+    position: absolute;
+    pointer-events: auto;
+    border-radius: 0.1875rem;
+    background-color: var(--tt-border-color);
+    // No fading in: a grip is only rendered while the pointer is on its row or
+    // column, so being there at all is the cue.
+    transition: background-color 120ms var(--mf-ease);
+
+    &:hover {
+      opacity: 1;
+      background-color: var(--tt-cursor-color);
+    }
+  }
+
+  // A grip is a thin rule alongside its row or column.
+  // Where the dragged row or column would come to rest. Drawn on the leading
+  // edge of the target rather than over it: a filled band hides the very cells
+  // you are judging the move by.
+  .tiptap-table-landing {
+    position: absolute;
+    background-color: var(--tt-brand-color-400);
+    border-radius: 999px;
+    pointer-events: none;
+
+    &.is-column {
+      width: 2px;
+    }
+
+    &.is-row {
+      height: 2px;
+    }
+  }
+
+  // The `+` bars along the bottom and right edges. Thin and quiet until the
+  // pointer is on them: they run the whole length of the table, so anything
+  // louder would read as part of it.
+  .tiptap-table-add {
+    display: grid;
+    place-items: center;
+    color: var(--tt-card-bg-color);
+    font-size: 0.75rem;
+    line-height: 0;
+    opacity: 0.45;
+
+    &:hover {
+      opacity: 1;
+    }
+
+    &.is-row {
+      height: 0.6875rem;
+    }
+
+    &.is-column {
+      width: 0.6875rem;
+    }
+  }
+
+  // A pill with dots in it, so it reads as something to take hold of rather
+  // than a stray rule beside the table. It spans the whole row or column:
+  // a smaller pill looks tidier and is much harder to hit.
+  .tiptap-table-grip {
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    color: var(--tt-card-bg-color);
+    font-size: 0.5rem;
+    line-height: 0;
+    letter-spacing: 0.08em;
+
+    &::after {
+      content: "\2022\2022\2022";
+    }
+
+    &.is-row {
+      width: 0.6875rem;
+      margin-left: -0.9375rem;
+
+      &::after {
+        writing-mode: vertical-rl;
+      }
+    }
+
+    &.is-column {
+      height: 0.6875rem;
+      margin-top: -0.9375rem;
+    }
+
+    // The pointer says what it does: take hold, and hold on while moving.
+    cursor: grab;
+
+    &:active {
+      cursor: grabbing;
+    }
+
+    &:hover {
+      background-color: var(--tt-brand-color-400);
+    }
+  }
+
+}
+
+// Table controls, shown only with the cursor parked in a cell.
+.tiptap-table-menu {
+  // Above the fixed toolbar, which is 50. A bar that is always there should
+  // not cover a menu the user just opened.
+  z-index: 60;
+  // A column of full width rows, not a bar. There are too many of these to sit
+  // side by side, and reading down a list beats reading along one.
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 12rem;
+  // The cap itself comes from the size middleware, which knows how much room
+  // is actually left below the grip.
+  overflow-y: auto;
+  gap: 0.0625rem;
+  padding: 0.25rem;
+
+  hr {
+    height: 1px;
+    margin: 0.25rem 0.5rem;
+    border: 0;
+    background-color: var(--tt-border-color);
+  }
+
+  button {
+    white-space: nowrap;
+    text-align: left;
+    padding: 0.3125rem 0.5rem;
+    border-radius: 0.5rem;
+    font-size: 0.8125rem;
+    line-height: 1.2;
+
+    &:hover {
+      background-color: var(--mf-surface);
+    }
+  }
+}
+
+// The `/` menu.
+.tiptap-slash-menu {
+  display: flex;
+  flex-direction: column;
+  min-width: 15rem;
+  // A long capture name is cut short, not let run off the window.
+  max-width: min(28rem, calc(100vw - 2rem));
+  max-height: min(24rem, 60vh);
+
+  // `h-10 px-3 text-sm` with a rule under it, like `CommandInput`.
+  input {
+    height: 2.5rem;
+    padding: 0 0.75rem;
+    border: 0;
+    border-bottom: 1px solid var(--tt-border-color);
+    outline: none;
+    background: transparent;
+    color: inherit;
+    font-family: inherit;
+    font-size: 0.875rem;
+  }
+}
+
+.tiptap-slash-menu-list,
+.tiptap-block-menu-list {
+  // Shrinks to what the capped panel leaves, and scrolls inside it.
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.25rem;
+
+  // The icon sizing in button.scss is scoped to .tiptap-button, which these
+  // rows are not - without this an SVG with no intrinsic size fills the row.
+  svg {
+    flex: none;
+    width: 1rem;
+    height: 1rem;
+  }
+
+  button,
+  [data-slot="tiptap-dropdown-menu-sub-trigger"] {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    // `px-2 py-1.5`, `rounded-md`, `text-sm` - a cmdk row, to the pixel.
+    padding: 0.375rem 0.5rem;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    text-align: left;
+    cursor: pointer;
+
+    // The same fill a cmdk row takes, rather than the editor's own surface
+    // token: two greys that were nearly the same and never quite matched.
+    &.is-selected,
+    &:hover,
+    &[data-highlighted] {
+      background-color: var(--accent);
+    }
+  }
+}
+
+// The row Enter would take, while the filter box still holds the focus. An
+// arrow key moves focus onto a real row, and Radix's own highlight takes over.
+.tiptap-block-menu input:focus + .tiptap-block-menu-list [data-first] {
+  background-color: var(--accent);
+}
+
+// The last row of the slash and block menus: the way out, as Notion has it.
+.tiptap-menu-close {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  border-top: 1px solid var(--tt-border-color);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.875rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 120ms var(--mf-ease, ease);
+
+  &:hover {
+    background-color: var(--accent);
+  }
+}
+
+// Zero-size: it only anchors the menu, because the grip itself cannot be the
+// trigger without losing its drag.
+.tiptap-block-menu-anchor {
+  display: block;
+  width: 0;
+  height: 0;
+}
+
+// Capped as Notion caps its menu: never more than about 60% of the window,
+// nor past its edge. Two classes, so the dropdown's own rule (its height left
+// to the window's edge, loaded later in some windows) cannot undo the cap.
+.tiptap-block-menu.tiptap-block-menu,
+.tiptap-dropdown-menu-content.tiptap-block-menu {
+  max-height: min(24rem, 60vh, var(--radix-dropdown-menu-content-available-height, 100vh));
+}
+
+.tiptap-block-menu {
+  display: flex;
+  flex-direction: column;
+  min-width: 15rem;
+  // The panel holds still; the list inside it is what scrolls, so the filter
+  // stays put without needing to be sticky.
+  overflow: hidden;
+  padding: 0;
+
+  input {
+    flex: none;
+    width: 100%;
+    padding: 0.375rem 0.5rem;
+    border: 0;
+    border-bottom: 1px solid var(--tt-border-color);
+    border-radius: 0;
+    outline: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 0.875rem;
+
+    &::placeholder {
+      color: var(--mf-muted);
+    }
+  }
+}
+
+// `px-2 py-1.5 text-xs`, the same heading cmdk gives a group. It used to be
+// smaller, upper case and letter-spaced, which read as a different menu.
+.tiptap-slash-menu-group {
+  padding: 0.375rem 0.5rem;
+  font-size: 0.75rem;
+  color: var(--mf-muted);
+}
+
+.tiptap-slash-menu-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.875rem;
+}
+
+.tiptap-slash-menu-hint {
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--mf-muted);
+}
+
+// The `:` emoji list.
+.tiptap-emoji-list {
+  display: flex;
+  padding: 0.25rem;
+  gap: 0.125rem;
+
+  button {
+    padding: 0.25rem 0.375rem;
+    border-radius: 0.5rem;
+    font-size: 1.125rem;
+    line-height: 1.2;
+
+    &.is-selected,
+    &:hover {
+      background-color: var(--mf-surface);
+    }
+  }
+}
+
+// Link preview cards.
+.tiptap.ProseMirror.haligtree-editor .tiptap-bookmark {
+  display: flex;
+  position: relative;
+  // Measured so the picture can be dropped when there is no room for it. The
+  // window, not the card, is what changes width here.
+  container-type: inline-size;
+  margin: 1.25em 0;
+  padding: 0;
+  overflow: hidden;
+  isolation: isolate;
+  border: 1px solid var(--tt-border-color);
+  border-radius: 0.75rem;
+  color: inherit;
+  // A link, not text: inside a contenteditable the text cursor wins unless
+  // something says otherwise, and the card gave no sign it could be clicked.
+  cursor: pointer;
+
+  // The editor underlines links; the card is a block, not a run of text.
+  &,
+  & * {
+    text-decoration: none;
+  }
+
+  &:hover {
+    background-color: var(--mf-surface);
+  }
+}
+
+// Tucked into the bottom corner, and only there once the card is under the
+// pointer: the card's own job is to be read and opened, not to offer controls.
+.tiptap-bookmark-copy {
+  position: absolute;
+  right: 0.625rem;
+  bottom: 0.625rem;
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.375rem;
+  color: var(--mf-muted);
+  opacity: 0;
+  transition: opacity 120ms var(--mf-ease);
+
+  svg {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  &:hover {
+    background-color: var(--mf-surface);
+    color: var(--tt-brand-color-500);
+  }
+}
+
+.tiptap-bookmark:hover .tiptap-bookmark-copy,
+.tiptap-bookmark:focus-within .tiptap-bookmark-copy {
+  opacity: 1;
+}
+
+// The picture's box: a fixed width, and as tall as the card. The picture fills
+// it (`cover`), the way a video's thumbnail is shown everywhere else. With Link
+// pictures set to Whole in Settings it sits in it whole (`contain`) instead,
+// over a blurred, enlarged copy of itself, so a picture of another shape than
+// the box leaves no empty bands, only its own colours carried to the edges.
+.tiptap-bookmark-frame {
+  position: relative;
+  flex: none;
+  width: 12rem;
+  // The ratio decides how tall a short card is; stretch lets a taller card's
+  // box grow with its text.
+  aspect-ratio: 16 / 9;
+  align-self: stretch;
+  overflow: hidden;
+  // Its own corners, the card's less its border: a blurred, scaled layer
+  // inside escapes a parent's rounded clip in Chromium, and showed in the
+  // corners as square bits past the card's curve.
+  border-radius: calc(0.75rem - 1px) 0 0 calc(0.75rem - 1px);
+  isolation: isolate;
+  background-color: var(--mf-surface);
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--bookmark-art) center / cover no-repeat;
+    filter: blur(18px) saturate(1.3);
+    transform: scale(1.25);
+    opacity: 0.85;
+  }
+}
+
+// Through the frame, to outrank the rule that keeps every picture in a note whole.
+.tiptap.ProseMirror.haligtree-editor .tiptap-bookmark-frame .tiptap-bookmark-image {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  // Square inside the frame, which does the rounding: a picture's own
+  // rounding from the note's rules left wedges of the frame showing.
+  border-radius: 0;
+}
+
+html[data-link-pictures="whole"] .tiptap.ProseMirror.haligtree-editor .tiptap-bookmark-frame:not([data-fill]) .tiptap-bookmark-image {
+  object-fit: contain;
+}
+
+// A 4:3 YouTube thumbnail with black bands over and under its 16:9 picture:
+// the bands are cut away first, so Fill and Whole both see only the picture.
+.tiptap.ProseMirror.haligtree-editor .tiptap-bookmark-frame[data-banded] .tiptap-bookmark-image {
+  object-view-box: inset(12.5% 0);
+}
+
+// Near enough the frame's shape: fill it, so no sliver of the blur shows.
+.tiptap.ProseMirror.haligtree-editor .tiptap-bookmark-frame[data-fill] .tiptap-bookmark-image {
+  object-fit: cover;
+}
+
+// No room for both, so the text wins: it is what the card is for. Written
+// through the editor's own selector because a container query adds no
+// specificity of its own.
+.tiptap.ProseMirror.haligtree-editor .tiptap-bookmark-frame {
+  @container (max-width: 20rem) {
+    display: none;
+  }
+}
+
+.tiptap-bookmark-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+  // Its own padding on both sides rather than a gap on the card: a card with
+  // no thumbnail has nothing to its left, and the text ended up against the
+  // border. This way the inset is the same whether the picture loaded or not.
+  padding: 0.875rem 1rem;
+  justify-content: center;
+  font-size: 0.875rem;
+}
+
+.tiptap-bookmark-title {
+  font-weight: 600;
+
+  .tiptap-bookmark[data-loading] & {
+    color: var(--mf-muted);
+  }
+}
+
+.tiptap-bookmark-description {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: var(--mf-muted-strong);
+}
+
+.tiptap-bookmark-site {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  color: var(--mf-muted);
+}
+
+.tiptap-bookmark-icon {
+  width: 0.875rem;
+  height: 0.875rem;
+  border-radius: 0.125rem;
+}
+
+// Collapsible sections. The node view renders a `div[data-type=details]` - not
+// a real <details> - holding a bare <button> and a content wrapper, and puts
+// `is-open` on the outer div. The button has no glyph of its own.
+.tiptap.ProseMirror.haligtree-editor [data-type="details"] {
+  display: flex;
+  gap: 0;
+  margin: 0.75em 0;
+
+  // A full 24px to press; the gap went into it, so the words stay put.
+  > button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 1.5rem;
+    height: 1.5rem;
+    border-radius: 0.25rem;
+    color: var(--mf-muted);
+
+    // Drawn, not typed: U+25B6 carries emoji presentation in most fonts and
+    // renders as a coloured blob rather than a caret.
+    &::before {
+      content: "";
+      width: 0;
+      height: 0;
+      border-left: 0.3125rem solid currentColor;
+      border-top: 0.25rem solid transparent;
+      border-bottom: 0.25rem solid transparent;
+      transition: transform 120ms var(--mf-ease);
+    }
+
+    &:hover {
+      background-color: var(--mf-surface);
+    }
+  }
+
+  &.is-open > button::before {
+    transform: rotate(90deg);
+  }
+
+  > div {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  // The extension only toggles `is-open` on the wrapper; hiding the body is the
+  // stylesheet's job, and without this collapsing does nothing but spin the
+  // arrow.
+  [data-type="detailsContent"] {
+    display: none;
+  }
+
+  &.is-open [data-type="detailsContent"] {
+    display: block;
+  }
+
+  summary {
+    font-weight: 600;
+    // A <summary> is `display: list-item` in the UA stylesheet and draws its
+    // own marker - a bullet here, since the node view uses a div rather than a
+    // real <details>. Verified in the running app: without this you get a dot
+    // beside the caret.
+    display: block;
+    list-style: none;
+
+    &::-webkit-details-marker {
+      display: none;
+    }
+
+    // An empty summary is an invisible line with a stray arrow beside it.
+    // `:empty` never matches - ProseMirror keeps a trailing <br> in one.
+    &:has(> .ProseMirror-trailingBreak:only-child)::before {
+      content: "Toggle";
+      color: var(--mf-muted);
+    }
+  }
+
+  // A folded heading keeps its rank, so it still reads as a heading.
+  &:has([data-level="1"]) summary {
+    font-size: 1.75em;
+    line-height: 1.2;
+  }
+
+  &:has([data-level="2"]) summary {
+    font-size: 1.4em;
+    line-height: 1.25;
+  }
+
+  &:has([data-level="3"]) summary {
+    font-size: 1.15em;
+  }
+}
+
+// The line that shows where a dragged block will land. It appears once and is
+// then MOVED between drop targets (prosemirror-dropcursor rewrites left/top/
+// width rather than recreating it). It fades in once, then snaps to each
+// target: a drop line is exact under the pointer, never trailing it (and the
+// plugin's left/top/width would lay the page out on every frame of a glide).
+//
+// It cannot be scoped like the rest - the element is appended to the editor's
+// offsetParent, outside `.haligtree-editor`.
+.prosemirror-dropcursor-block,
+.prosemirror-dropcursor-inline {
+  transform-origin: left center;
+  animation: mf-dropcursor-in 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+html[data-motion="off"] :is(.prosemirror-dropcursor-block, .prosemirror-dropcursor-inline) {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prosemirror-dropcursor-block,
+  .prosemirror-dropcursor-inline {
+    animation: none;
+    transition: none;
+  }
+}
+
+@keyframes mf-dropcursor-in {
+  from {
+    opacity: 0;
+    transform: scaleX(0.9);
+  }
+}
+
+// The grip that drags a block. The plugin positions it and hides it with inline
+// `visibility`/`pointer-events`; the only attribute it exposes is
+// `data-dragging`. Everything else here is ours.
+.tiptap-drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.125rem;
+  // Two controls now: insert, and the block menu, each a full 24px to press.
+  width: 3rem;
+  height: 1.5rem;
+  cursor: grab;
+  opacity: 0;
+  // The plugin flips inline `visibility` and `pointer-events` the moment the
+  // pointer leaves a block, so crossing the gutter to reach the handle is a
+  // race you have to win. Holding it on screen and fading it ourselves turns
+  // that into a grace period - see HANDLE_GRACE_MS.
+  visibility: visible !important;
+  pointer-events: none !important;
+  transition: opacity 160ms var(--mf-ease);
+
+  &.is-shown {
+    opacity: 0.55;
+    pointer-events: auto !important;
+  }
+
+  // Only the grip drags; the other control inserts.
+  .tiptap-drag-handle-grip {
+    cursor: grab;
+
+    &:active {
+      cursor: grabbing;
+    }
+  }
+
+  &.is-shown:hover {
+    opacity: 1;
+  }
+
+  // Each control is its own target, so each gets its own pill - a background on
+  // the whole cluster would light up both when the pointer is on one.
+  button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1 1 0;
+    height: 100%;
+    border-radius: 0.25rem;
+    // A <button> takes `cursor: default` from the UA sheet, which beats the
+    // `grab` on the wrapper around it.
+    cursor: pointer;
+    transition: background-color 120ms var(--mf-ease);
+
+    &:hover {
+      background-color: var(--mf-surface);
+    }
+
+    &:active {
+      background-color: var(--tt-border-color);
+    }
+  }
+
+  svg {
+    width: 1rem;
+    height: 1rem;
+  }
+}
+
+// A narrow page leaves the words a gutter too slim for both controls: the
+// insert one would hang past the pane's edge, cut in half. The grip stays;
+// a new line and "/" still add a block.
+@container page (width < 40rem) {
+  .tiptap-drag-handle {
+    width: 1.5rem;
+
+    > button:not(.tiptap-drag-handle-grip) {
+      display: none;
+    }
+  }
+}
+
+.tiptap-word-count {
+  z-index: 20;
+  white-space: nowrap;
+}
+
+// Room under the last line for the count, so scrolled to the end no words sit
+// beneath it.
+.haligtree-editor-wrapper:has(> .tiptap-word-count) > .haligtree-editor-content {
+  padding-bottom: 2.5rem;
+}
+
+// The focus session's footer, in the word count's place: room under the last
+// line for it too.
+.haligtree-editor-wrapper:has(> .mf-session-foot) > .haligtree-editor-content {
+  padding-bottom: 2.75rem;
+}
+
+// Find has the bottom while it is open: the count would sit on top of it.
+.haligtree-editor-wrapper:has(.tiptap-find-bar:not([inert])) > :is(.tiptap-word-count, .mf-session-foot) {
+  display: none;
+}
+
+// Embedded videos scale to the column rather than their fixed attributes.
+.tiptap.ProseMirror.haligtree-editor div[data-youtube-video] {
+  margin: 1.25em 0;
+
+  iframe {
+    width: 100%;
+    max-width: 100%;
+    aspect-ratio: 16 / 9;
+    height: auto;
+    border: 0;
+    border-radius: 0.75rem;
+  }
+
+  // Its picture and a play button until it is pressed: never a blank frame.
+  .mf-video-face {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    border-radius: 0.75rem;
+    background: var(--mf-surface);
+    border: 1px solid var(--tt-border-color);
+    display: flex;
+    align-items: flex-end;
+
+    img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      // The 4:3 picture's black bands fall outside the 16:9 frame.
+      object-fit: cover;
+      margin: 0;
+      border-radius: 0;
+    }
+  }
+
+  .mf-video-play {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    translate: -50% -50%;
+    display: grid;
+    place-items: center;
+    width: 4rem;
+    height: 4rem;
+    border-radius: 999px;
+    color: white;
+    background: rgb(0 0 0 / 0.62);
+    cursor: pointer;
+    transition: scale 160ms var(--mf-ease, ease-out), background-color 160ms;
+
+    &:hover { background: rgb(220 0 0 / 0.9); scale: 1.06; }
+    &:active { scale: 0.96; }
+    svg { margin-left: 3px; }
+  }
+
+  .mf-video-words {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    width: 100%;
+    padding: 0.6rem 0.85rem;
+    background: linear-gradient(to top, rgb(0 0 0 / 0.6), transparent);
+    color: white;
+  }
+
+  // No picture: the words sit on the plain surface, in its own colours.
+  &[data-state="no-picture"] .mf-video-words,
+  &[data-state="offline"] .mf-video-words {
+    background: none;
+    color: var(--tt-theme-text, currentColor);
+  }
+
+  .mf-video-title { font-weight: 600; font-size: 0.95em; }
+  .mf-video-note { font-size: 0.9em; cursor: pointer; }
+}
+
+// A caption: the quiet line under a picture or a video, sized and placed like
+// what it names, so a small centred picture has its words centred under it.
+// The media gives up most of its bottom margin to sit close to its words:
+// about 8px from the picture to the caption's letters. Firmer than the note
+// page's own room around pictures (main.css), which left the caption about
+// 30px down, far enough to read as the next paragraph.
+.tiptap.ProseMirror.haligtree-editor {
+  :is(img, div[data-youtube-video]):has(+ .mf-caption),
+  .react-renderer:has(+ .mf-caption) > .tiptap-attachment {
+    margin-bottom: 0.375rem !important;
+  }
+
+  .mf-caption {
+    max-width: 100%;
+    margin-bottom: 1.25rem;
+    font-size: 0.875em;
+    line-height: 1.45;
+    color: var(--mf-muted);
+
+    &[data-align="center"] {
+      margin-inline: auto;
+      text-align: center;
+    }
+
+    &[data-align="right"] {
+      margin-inline-start: auto;
+    }
+  }
+
+  .mf-caption-text {
+    outline: none;
+    cursor: text;
+    overflow-wrap: anywhere;
+
+    &:empty::before {
+      content: attr(data-placeholder);
+      color: var(--placeholder-color);
+      pointer-events: none;
+    }
+  }
+
+  // While the pointer is on its picture the caption rides beside the pointer
+  // (PictureTilt, image-look.tsx): the line here only fades, keeping its room,
+  // and is back by the time the pointer could reach it.
+  .mf-caption {
+    transition: opacity 140ms var(--mf-ease);
+  }
+
+  .mf-caption[data-following] {
+    opacity: 0;
+  }
+
+  // A YouTube video always has its line, since its frame takes every click:
+  // empty, it waits unseen in the margin until the pointer comes near.
+  div[data-youtube-video] + .mf-caption {
+    transition: opacity 160ms var(--mf-ease);
+  }
+
+  div[data-youtube-video]:not(:hover) + .mf-caption:not(:hover):has(> .mf-caption-text:empty:not(:focus)) {
+    opacity: 0;
+  }
+}
+
+html[data-motion="off"] .tiptap.ProseMirror.haligtree-editor .mf-caption {
+  transition: none;
+}
+
+// Blocks side by side. The outer box is what is measured, so a narrow pane
+// stacks the columns instead of crushing them.
+.tiptap.ProseMirror.haligtree-editor .mf-columns {
+  container-type: inline-size;
+  margin: 1rem 0;
+}
+
+.tiptap.ProseMirror.haligtree-editor .mf-columns-row {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: 1.75rem;
+}
+
+// Each column starts level with its neighbours: no first block pushes it down.
+.tiptap.ProseMirror.haligtree-editor .mf-column {
+  min-width: 0;
+
+  > :first-child {
+    margin-top: 0;
+  }
+
+  > :last-child {
+    margin-bottom: 0;
+  }
+}
+
+// Each column keeps room for a few words: two stack under 380px, three under 540px.
+@container (max-width: 380px) {
+  .tiptap.ProseMirror.haligtree-editor .mf-columns-row {
+    grid-auto-flow: row;
+    gap: 1rem;
+  }
+}
+
+@container (max-width: 540px) {
+  .tiptap.ProseMirror.haligtree-editor .mf-columns-row:has(> :nth-child(3)) {
+    grid-auto-flow: row;
+    gap: 1rem;
+  }
+}
+
+// Code block controls, docked in the corner of the block itself. The node view
+// wraps the <pre>, so the spacing code-block-node.scss puts on the <pre> has to
+// move out here - the <pre> itself is the scroller, which keeps the controls
+// put when a long line scrolls sideways.
+.tiptap.ProseMirror.haligtree-editor .tiptap-code-block {
+  position: relative;
+  margin: 1.5em 0;
+
+  pre {
+    margin: 0;
+    overflow-x: auto;
+  }
+
+  // Each line is a block of its own inside the <code>; left inline, the
+  // <code> opened an empty line above the first, a blank band at the top.
+  pre > code {
+    display: block;
+    padding: 0;
+  }
+}
+
+.tiptap-code-controls {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+  padding: 0.125rem;
+  border-radius: 0.625rem;
+  border: 1px solid var(--tt-border-color);
+  background-color: var(--tt-card-bg-color);
+  opacity: 0;
+  transition: opacity 120ms var(--mf-ease);
+
+  // The open menu has taken focus into a portal, so `:focus-within` is false
+  // and the pointer has usually left the block - without the open trigger
+  // keeping these visible, the menu floats with nothing to point back at.
+  .tiptap-code-block:hover &,
+  &:focus-within,
+  &:has([data-state="open"]) {
+    opacity: 1;
+  }
+}
+
+// Rows share a width, so the tick lands in a column rather than beside the
+// label, and sits at the end of the row as a marker rather than a checkbox.
+// The border matters in dark mode: the panel fill is close enough to the page
+// that without an edge the list reads as text floating over the document.
+.tiptap-code-languages {
+  min-width: 11rem;
+  max-height: min(20rem, var(--radix-dropdown-menu-content-available-height));
+  border: 1px solid var(--tt-border-color);
+
+  button {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+// The theme paints the tokens; the block keeps the editor's own shell, so this
+// retints the vendored variable rather than overriding the rule that uses it.
+// Both selectors are needed: the vendored dark value is `.dark &`, which would
+// otherwise outrank a bare `.tiptap.ProseMirror`.
+.tiptap.ProseMirror.haligtree-editor,
+.dark .tiptap.ProseMirror.haligtree-editor {
+  --tt-codeblock-bg: var(--mf-surface);
+}
+
+// Token colours, rather than a highlight.js theme: a bundled theme is one
+// fixed palette, and this editor has a light mode as well as a dark one.
+.tiptap.ProseMirror.haligtree-editor pre {
+  .hljs-comment,
+  .hljs-quote {
+    color: var(--tt-color-text-gray);
+    font-style: italic;
+  }
+
+  .hljs-keyword,
+  .hljs-selector-tag,
+  .hljs-literal,
+  .hljs-type {
+    color: var(--tt-color-text-purple);
+  }
+
+  .hljs-string,
+  .hljs-regexp,
+  .hljs-addition {
+    color: var(--tt-color-text-green);
+  }
+
+  .hljs-number,
+  .hljs-built_in,
+  .hljs-symbol {
+    color: var(--tt-color-text-orange);
+  }
+
+  .hljs-title,
+  .hljs-section,
+  .hljs-name {
+    color: var(--tt-color-text-blue);
+  }
+
+  .hljs-attr,
+  .hljs-attribute,
+  .hljs-variable,
+  .hljs-template-variable {
+    color: var(--tt-color-text-yellow);
+  }
+
+  .hljs-deletion {
+    color: var(--tt-color-text-red);
+  }
+
+  .hljs-emphasis {
+    font-style: italic;
+  }
+
+  .hljs-strong {
+    font-weight: 700;
+  }
+}
+
+// An image block with no image in it yet.
+.tiptap-image-placeholder {
+  margin: 0.5rem 0;
+}
+
+// A picture from Obsidian on its way in: nothing to click while it is looked for.
+.tiptap-image-placeholder[data-embed-waiting] .tiptap-image-placeholder-row {
+  cursor: default;
+}
+
+.tiptap-image-placeholder-row {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.375rem;
+  color: var(--mf-muted);
+  font-size: 0.9375rem;
+  text-align: left;
+  cursor: pointer;
+
+  svg {
+    flex: none;
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  &:hover,
+  &[data-state="open"] {
+    background-color: var(--mf-surface);
+  }
+}
+
+.tiptap-image-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: min(28rem, 90vw);
+  padding: 0.75rem;
+}
+
+.tiptap-image-panel-tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin: -0.25rem -0.25rem 0;
+  border-bottom: 1px solid var(--tt-border-color);
+
+  button {
+    padding: 0.375rem 0.5rem;
+    border-bottom: 2px solid transparent;
+    color: var(--mf-muted);
+    font-size: 0.875rem;
+    cursor: pointer;
+
+    &[data-active] {
+      border-bottom-color: currentcolor;
+      color: inherit;
+    }
+  }
+}
+
+.tiptap-image-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  min-height: 9rem;
+  border: 1px dashed var(--tt-border-color);
+  border-radius: 0.5rem;
+  color: var(--mf-muted);
+  cursor: pointer;
+
+  &:hover {
+    background-color: var(--mf-surface);
+  }
+}
+
+.tiptap-image-dropzone-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: inherit;
+  font-size: 1rem;
+
+  svg {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+}
+
+.tiptap-image-dropzone-hint {
+  font-size: 0.875rem;
+}
+
+.tiptap-image-link {
+  display: flex;
+  gap: 0.5rem;
+
+  input {
+    flex: 1;
+    // Flex items refuse to shrink past their content, which for a long URL
+    // would push the button out of the panel.
+    min-width: 0;
+    padding: 0.375rem 0.5rem;
+    border: 1px solid var(--tt-border-color);
+    border-radius: 0.375rem;
+    outline: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 0.875rem;
+  }
+
+  button {
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.375rem;
+    background-color: var(--mf-surface);
+    font-size: 0.875rem;
+    cursor: pointer;
+
+    &:disabled {
+      opacity: 0.5;
+    }
+  }
+}
+
+.tiptap-image-error {
+  margin: 0;
+  color: var(--tt-color-text-red, #e5484d);
+  font-size: 0.8125rem;
+}
+
+.tiptap.ProseMirror ol, .tiptap.ProseMirror ul {
+    margin-top: 0;
+    margin-bottom: 0;
+}
+.tiptap.ProseMirror p:not(:first-child):not(td p):not(th p) {
+    margin-top: 0;
+}
+
+// A list item holding a toggle shows the triangle instead of its bullet: two
+// markers on one line reads as a mistake, and the triangle is the one that
+// does something. The triangle then sits in the space the bullet gave up, so
+// the title lines up with the items above and below rather than sitting in.
+.tiptap.ProseMirror.haligtree-editor li:has(> [data-type="details"]) {
+  list-style: none;
+
+  > [data-type="details"] {
+    // The button's own width, plus the gap, pulled back into the gutter.
+    margin-left: -1.5rem;
+  }
+}
+
+.tiptap.ProseMirror.haligtree-editor [data-type=details] {
+    margin: 0;
+}
+
+// Reaching a sub item's handle means moving left, which leaves the item's own
+// box and lands in the parent list item that wraps it - so the handle jumps up
+// a line to the parent. Widening the box leftward keeps the pointer on the item
+// it is aiming at, and the padding pays the width straight back so the text does
+// not move.
+//
+// The catch is that a native marker is drawn against the BORDER edge, which
+// just moved, while the text follows the content edge. No pairing of margin and
+// padding separates those two, so the marker is drawn here instead, positioned
+// against the text where it already sat. Nested bullets only: an ordered list
+// would need its numbering rebuilt with counters to survive the same treatment.
+// A task list is a <ul> too, so without excluding it a checklist nested under a
+// bullet was given a bullet of its own next to its checkbox, and shifted by the
+// padding meant for a marker it never had. The exclusion has to apply to the
+// depth counting as well, or a task list in the middle of a nest would push the
+// bullets below it to the wrong shape.
+$nested-ul: "ul:not([data-type='taskList'])";
+
+.tiptap.ProseMirror.haligtree-editor li #{$nested-ul} > li {
+  position: relative;
+  margin-left: -1.5em;
+  padding-left: 1.5em;
+  list-style: none;
+
+  &::before {
+    content: "\25E6"; // circle
+    position: absolute;
+    left: 1.5em;
+    transform: translateX(-1.15em);
+  }
+}
+
+.tiptap.ProseMirror.haligtree-editor li #{$nested-ul} #{$nested-ul} > li::before {
+  content: "\25AA"; // square
+}
+
+.tiptap.ProseMirror.haligtree-editor
+  li
+  #{$nested-ul}
+  #{$nested-ul}
+  #{$nested-ul}
+  > li::before {
+  content: "\2022"; // disc, and the cycle starts again
+}
+
+// An aligned image is pushed by its own margins rather than by the block around
+// it. Left needs no rule: an image with no auto margin is already left, and the
+// centring rule stops matching the moment the attribute changes.
+.tiptap.ProseMirror.haligtree-editor img[data-align="center"] {
+  margin-inline: auto;
+}
+
+.tiptap.ProseMirror.haligtree-editor img[data-align="right"] {
+  margin-inline-start: auto;
+  margin-inline-end: 0;
+}
+
+// A picture whose file is gone is drawn at its note's own size, not stretched
+// to the width the picture had.
+.tiptap.ProseMirror.haligtree-editor img[data-missing] {
+  width: auto !important;
+  max-width: 100%;
+  height: auto;
+}
+
+// Look: a picture lifted out of the note to fill the window, Quick Look's way.
+.mf-look {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  overflow: hidden;
+  // Depth for the lift's slight tilt.
+  perspective: 1400px;
+}
+
+// The page goes nearly dark behind it, its own pictures drained to grey, so
+// the one lifted out is the only colour left (Spotify's cover view). A
+// plain dark layer, no backdrop filter: the main window does not draw one,
+// so the page would show through bright instead of dimmed.
+.mf-look-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgb(0 0 0 / 0.88);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .mf-look-backdrop {
+    background: rgb(0 0 0 / 0.92);
+  }
+}
+
+.mf-look-frame {
+  position: absolute;
+  will-change: transform;
+  perspective: 1200px;
+}
+
+.mf-look-lean {
+  width: 100%;
+  height: 100%;
+  will-change: transform;
+}
+
+.mf-look-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--tt-radius-xs, 0.25rem);
+  box-shadow: 0 18px 48px -12px color-mix(in oklab, var(--mf-shadow-ink, #000) 28%, transparent), 0 4px 12px -4px color-mix(in oklab, var(--mf-shadow-ink, #000) 16%, transparent);
+  cursor: zoom-in;
+  user-select: none;
+
+  // Zoomed in: a click goes back out, a drag looks around.
+  &[data-zoomed] {
+    cursor: zoom-out;
+    border-radius: 0;
+  }
+
+  &[data-zoomed]:active {
+    cursor: grabbing;
+  }
+}
+
+.mf-look-foot {
+  position: absolute;
+  bottom: 1rem;
+  left: 50%;
+  translate: -50% 0;
+  max-width: calc(100% - 2rem);
+}
+
+.mf-look-caption {
+  // The whole caption, up to two lines: it is the picture's own words, not a label to cut.
+  display: -webkit-box;
+  overflow: hidden;
+  max-width: min(40rem, 70vw);
+  padding: 0 0.5rem;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  color: var(--mf-muted-strong);
+  text-wrap: pretty;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.mf-look-count {
+  min-width: 3rem;
+  font-size: 0.8125rem;
+  color: var(--mf-muted);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+// A file the note carries. The card is the whole block, so it takes the width
+// of the column the way an embed card does.
+.tiptap-attachment {
+  margin: 0.75em 0;
+}
+
+// A video is the block itself: a player as wide as it was set, like a picture,
+// with the editor's own controls over its foot while the pointer is on it.
+.tiptap-attachment.is-video {
+  position: relative;
+  max-width: 100%;
+
+  &[data-align="center"] {
+    margin-inline: auto;
+  }
+
+  &[data-align="right"] {
+    margin-inline-start: auto;
+  }
+
+  &.is-selected .tiptap-video-frame {
+    outline: 2px solid var(--tt-brand-color-500, currentColor);
+    outline-offset: 2px;
+  }
+
+  // Shown while the pointer is over it, and always while it is stopped.
+  &:not(.is-playing) .tiptap-media-controls,
+  .tiptap-video-frame:hover .tiptap-media-controls,
+  .tiptap-video-frame:focus-within .tiptap-media-controls {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+// Without a real pointer (a tap fires a hover) the controls only fade, never rise.
+@media not ((hover: hover) and (pointer: fine)) {
+  .tiptap-video-frame .tiptap-media-controls {
+    transform: none;
+  }
+}
+
+.tiptap-video-frame {
+  position: relative;
+  display: block;
+  border-radius: 0.5rem;
+  overflow: hidden;
+
+  .tiptap-media-controls {
+    position: absolute;
+    inset: auto 0.5rem 0.5rem;
+    opacity: 0;
+    transform: translateY(0.25rem);
+    transition: opacity 0.15s cubic-bezier(0.16, 1, 0.3, 1), transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+.tiptap-attachment-video {
+  display: block;
+  width: 100%;
+  background: #000;
+  cursor: pointer;
+}
+
+// Play, the place in it, the time and sound: a quiet pill in the app's own colours.
+.tiptap-media-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--tt-border-color);
+  border-radius: 0.625rem;
+  background: var(--tt-card-bg-color);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
+  color: var(--tt-theme-text);
+  font-size: 0.75rem;
+  user-select: none;
+
+  button {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 0.375rem;
+    color: var(--mf-muted);
+    cursor: pointer;
+
+    &:hover {
+      background: var(--mf-surface);
+      color: var(--tt-theme-text);
+    }
+  }
+
+  svg {
+    width: 0.95rem;
+    height: 0.95rem;
+  }
+
+  input[type="range"] {
+    flex: 1;
+    min-width: 3rem;
+    height: 0.25rem;
+    border-radius: 999px;
+    appearance: none;
+    background: linear-gradient(to right, var(--tt-brand-color-500, currentColor) var(--done), var(--tt-border-color) var(--done));
+    cursor: pointer;
+
+    &::-webkit-slider-thumb {
+      width: 0.75rem;
+      height: 0.75rem;
+      border-radius: 999px;
+      appearance: none;
+      background: var(--tt-brand-color-500, currentColor);
+      box-shadow: 0 0 0 2px var(--tt-card-bg-color);
+      transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+  }
+}
+
+// The player's few moments of life. Play, pause and a seek answer at once:
+// the morph is a glance, never a wait. The first play lights the frame with
+// the app's beam and a soft glow that stays while it plays; the end lands the
+// controls back with a replay in place of play.
+$media-brand: var(--tt-brand-color-500, currentColor);
+
+.tiptap-media-play {
+  svg {
+    grid-area: 1 / 1;
+    opacity: 0;
+    transform: scale(0.9);
+    filter: blur(2px);
+    transition: opacity 0.1s cubic-bezier(0.16, 1, 0.3, 1), transform 0.16s cubic-bezier(0.16, 1, 0.3, 1), filter 0.1s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  &[data-state="paused"] [data-icon="paused"],
+  &[data-state="playing"] [data-icon="playing"],
+  &[data-state="ended"] [data-icon="ended"] {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+// The scrubber thickens under the pointer, a bubble says the time there, and
+// the thumb springs back to size when let go.
+.tiptap-media-scrub {
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  min-width: 3rem;
+  height: 1.25rem;
+
+  // The track thickens at once (a height cannot glide without laying the row
+  // out); the thumb grows on a transform, only under a real pointer, and on
+  // release eases back from 1.25 to 1 on its own transition.
+  input[type="range"] {
+    width: 100%;
+
+    @media (hover: hover) and (pointer: fine) {
+      &:hover {
+        height: 0.4rem;
+
+        &::-webkit-slider-thumb {
+          transform: scale(1.25);
+        }
+      }
+    }
+  }
+}
+
+.tiptap-media-bubble {
+  position: absolute;
+  bottom: calc(100% + 0.25rem);
+  padding: 0.0625rem 0.375rem;
+  border-radius: 0.375rem;
+  background: var(--tt-theme-text);
+  color: var(--tt-card-bg-color);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateX(-50%);
+  animation: mf-media-bubble 0.12s var(--mf-ease);
+}
+
+.tiptap-media-controls .tiptap-media-speed {
+  width: auto;
+  min-width: 2.25rem;
+  height: 1.375rem;
+  padding-inline: 0.375rem;
+  border: 1px solid var(--tt-border-color);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+// While it plays: a quiet edge of the brand colour, breathing slowly.
+.tiptap-attachment.is-video .tiptap-video-frame,
+.tiptap-attachment.is-audio .tiptap-attachment-card {
+  position: relative;
+  transition: box-shadow 0.6s ease, border-color 0.6s ease;
+
+  // The beam, as the app draws it: light along the top edge, in and gone.
+  &::after {
+    position: absolute;
+    inset: 0 0 auto;
+    z-index: 1;
+    height: 2px;
+    border-radius: 999px;
+    background: radial-gradient(closest-side, $media-brand 0%, color-mix(in srgb, $media-brand 40%, transparent) 60%, transparent 100%);
+    content: "";
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
+// The glow while it plays: the quieter shadow on the frame, the brighter one
+// drawn once on a layer under it whose opacity alone breathes (no repaint).
+.tiptap-attachment.is-video.is-playing .tiptap-video-frame {
+  box-shadow: 0 0 0 1px color-mix(in srgb, $media-brand 22%, transparent), 0 6px 18px -10px color-mix(in srgb, $media-brand 35%, transparent);
+}
+
+.tiptap-attachment.is-video.is-playing::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 0.5rem;
+  pointer-events: none;
+  box-shadow: 0 0 0 1px color-mix(in srgb, $media-brand 35%, transparent), 0 6px 24px -8px color-mix(in srgb, $media-brand 50%, transparent);
+  animation: mf-media-breathe 3.4s cubic-bezier(0.77, 0, 0.175, 1) infinite;
+}
+
+.tiptap-attachment.is-audio.is-playing .tiptap-attachment-card {
+  border-color: color-mix(in srgb, $media-brand 45%, transparent);
+  box-shadow: 0 4px 16px -8px color-mix(in srgb, $media-brand 50%, transparent);
+}
+
+.tiptap-attachment[data-state~="is-first"] {
+  .tiptap-video-frame {
+    animation: mf-media-bloom 1.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .tiptap-video-frame::after,
+  .tiptap-attachment-card::after {
+    animation: mf-media-beam 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+}
+
+.tiptap-attachment[data-state~="is-ended"] {
+  .tiptap-media-controls {
+    animation: mf-media-land 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .tiptap-video-frame::after,
+  .tiptap-attachment-card::after {
+    animation: mf-media-beam 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+}
+
+// A small video keeps play, place, time and speed; its own window and full
+// screen wait for a wider one.
+.tiptap-video-frame {
+  container: media / inline-size;
+}
+
+@container media (max-width: 24rem) {
+  .tiptap-media-window {
+    display: none !important;
+  }
+}
+
+@container media (max-width: 17rem) {
+  .tiptap-media-total,
+  .tiptap-media-speed {
+    display: none !important;
+  }
+}
+
+// Full screen is the frame, so the controls come along.
+.tiptap-video-frame:fullscreen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0;
+  background: #000;
+
+  .tiptap-attachment-video {
+    height: 100%;
+    object-fit: contain;
+  }
+}
+
+@keyframes mf-media-bubble {
+  from { opacity: 0; transform: translate(-50%, 0.125rem); }
+}
+
+@keyframes mf-media-breathe {
+  50% { opacity: 0; }
+}
+
+@keyframes mf-media-bloom {
+  0% { box-shadow: 0 0 0 0 transparent; }
+  25% { box-shadow: 0 0 0 2px color-mix(in srgb, $media-brand 55%, transparent), 0 10px 40px -6px color-mix(in srgb, $media-brand 65%, transparent); }
+}
+
+@keyframes mf-media-beam {
+  0% { opacity: 0; transform: scaleX(0.2); }
+  20% { opacity: 1; transform: scaleX(1); }
+  100% { opacity: 0; transform: scaleX(1); }
+}
+
+@keyframes mf-media-land {
+  from { opacity: 0; transform: translateY(4px); }
+}
+
+// Motion off: every state still shows, only without the travel.
+:root[data-motion="off"] .tiptap-attachment,
+:root[data-motion="off"] .tiptap-attachment * {
+  animation: none !important;
+  transition: none !important;
+}
+
+:root[data-motion="off"] .tiptap-attachment input[type="range"]::-webkit-slider-thumb {
+  animation: none !important;
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tiptap-attachment,
+  .tiptap-attachment *,
+  .tiptap-attachment input[type="range"]::-webkit-slider-thumb {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+.tiptap-media-time {
+  flex: none;
+  color: var(--mf-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+// A recording's card carries the controls in its row, no pill of its own.
+.tiptap-attachment.is-audio {
+  position: relative;
+
+  // Beside the name when there is room, on a line of its own when not.
+  .tiptap-attachment-card {
+    flex-wrap: wrap;
+    container: media / inline-size;
+  }
+
+  .tiptap-media-controls {
+    flex: 1 1 15rem;
+    max-width: 24rem;
+    margin-inline-start: auto;
+    border: 0;
+    background: none;
+    box-shadow: none;
+  }
+}
+
+// The picture's toolbar, over the top of a selected video or recording.
+.tiptap-media-toolbar {
+  position: absolute;
+  top: -2.75rem;
+  left: 50%;
+  z-index: 40;
+  transform: translateX(-50%);
+  white-space: nowrap;
+
+  &.is-below {
+    top: calc(100% + 0.5rem);
+  }
+
+  &.is-tight .tiptap-media-name {
+    display: none;
+  }
+}
+
+.tiptap-media-name {
+  display: inline-flex;
+  flex: none;
+  align-items: baseline;
+  gap: 0.375rem;
+  max-width: 14rem;
+  padding-inline: 0.5rem;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+
+  > :first-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.tiptap-media-size {
+  color: var(--mf-muted);
+  font-size: 0.75rem;
+}
+
+.tiptap-attachment-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--tt-border-color);
+  border-radius: 0.625rem;
+  background-color: var(--tt-card-bg-color);
+  text-align: left;
+  cursor: default;
+
+  &:hover {
+    background-color: var(--mf-surface);
+  }
+}
+
+// Round, and on the far right: the card's own action is opening it, so this
+// needs to read as a separate target rather than part of the row.
+.tiptap-attachment-save {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  margin-inline-start: auto;
+  border-radius: 999px;
+  background-color: var(--mf-surface);
+  color: var(--mf-muted);
+  // Everything in here that does something on click says so. A contenteditable
+  // gives you the text cursor by default and a <button> gives you the arrow,
+  // so neither one arrives right.
+  cursor: pointer;
+
+  &:hover {
+    color: var(--tt-theme-text);
+  }
+
+  svg {
+    width: 1rem;
+    height: 1rem;
+  }
+}
+
+.tiptap-attachment-icon {
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  color: var(--mf-muted);
+}
+
+.tiptap-attachment-body {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.tiptap-attachment-name {
+  overflow: hidden;
+  font-size: 0.9375rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tiptap-attachment-size {
+  font-size: 0.8125rem;
+  color: var(--mf-muted);
+}
+
+// Beside the document, not over it: the panel is fixed, so the editor has to
+// give up the width or the text sits underneath and stops taking clicks. The
+// wrapper gives it up rather than the editor's own padding, which is set as a
+// shorthand further up and would win.
+.haligtree-editor-wrapper.has-source {
+  width: calc(100% - min(26rem, 45vw));
+}
+
+// The stored JSON, beside the document rather than over it.
+.haligtree-source {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  display: flex;
+  width: min(26rem, 45vw);
+  flex-direction: column;
+  border-left: 1px solid var(--tt-border-color);
+  background-color: var(--tt-card-bg-color);
+  font-size: 0.75rem;
+}
+
+.haligtree-source-head {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.625rem 0.875rem;
+  border-bottom: 1px solid var(--tt-border-color);
+  color: var(--mf-muted);
+}
+
+.haligtree-source-assets {
+  max-height: 30%;
+  margin: 0;
+  padding: 0.5rem 0.875rem;
+  overflow-y: auto;
+  border-bottom: 1px solid var(--tt-border-color);
+  list-style: none;
+
+  li {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.125rem 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.haligtree-source-kind {
+  flex: none;
+  width: 5rem;
+  color: var(--mf-muted);
+}
+
+.haligtree-source-json {
+  margin: 0;
+  padding: 0.875rem;
+  overflow: auto;
+  font-family: ui-monospace, monospace;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+// A link to another note reads as a link, because following it is what it does.
+.tiptap.ProseMirror.haligtree-editor .tiptap-note-link {
+  border-radius: 0.25rem;
+  padding: 0 0.125rem;
+  background-color: var(--mf-surface);
+  color: var(--tt-brand-color-400);
+  cursor: pointer;
+  text-decoration: none;
+
+  // Keyed, it is a chip like Linear's: muted key, plain title, a hairline.
+  &[data-key] {
+    padding: 0.0625rem 0.375rem;
+    border: 1px solid var(--tt-border-color);
+    color: inherit;
+  }
+
+  // Its words take the link's own line, none or dashed, not the plain links' underline.
+  span {
+    text-decoration: inherit;
+  }
+
+  // What it points at, before its name: small, in its kind's colour.
+  .tiptap-note-link-icon {
+    display: inline-block;
+    width: 0.85em;
+    height: 0.85em;
+    margin-right: 0.25em;
+    vertical-align: -0.1em;
+  }
+
+  // A [[name]] no note answers to yet: still a link, plainly not a live one.
+  &.is-unresolved {
+    background-color: transparent;
+    color: var(--mf-muted);
+    text-decoration: underline dashed;
+    text-underline-offset: 0.2em;
+  }
+}
+
+// The `V-30` in the chip and in the `@` menu.
+.tiptap-note-link-key {
+  margin-right: 0.375rem;
+  color: var(--mf-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+// What a row is, faint at its end: Quote, Task, Question.
+.tiptap-note-link-type {
+  margin-left: auto;
+  padding-left: 0.75rem;
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: var(--mf-muted);
+  opacity: 0.8;
+}
+
+// After a tag's count, beside it rather than pushed apart again.
+.ml-auto + .tiptap-note-link-type {
+  margin-left: 0;
+}
+
+// In the menu the keys line up in a column, the way Linear's do.
+.tiptap-slash-menu .tiptap-note-link-key {
+  min-width: 3.5rem;
+}
+
+// A long title takes a second line before it stops: notes that start alike
+// ("How do you...") differ at their ends, and one line cut them all the same.
+.tiptap-note-link-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.3;
+}
+
+// Where the prose accents above get spent. Each one falls back to the value the
+// element already had, so a theme that defines none of these looks exactly as
+// it did before.
+.tiptap.ProseMirror.haligtree-editor {
+  :is(h1, h2, h3, h4, h5, h6) {
+    color: var(--mf-heading, inherit);
+  }
+
+  // Top-level markers are real list markers; nested ones are drawn with
+  // ::before, further up this file, because ::marker follows the border edge.
+  //
+  // Held back a little, so the item the caret is in can come forward without
+  // the rest having to dim. Mixed towards transparent rather than given an
+  // opacity: ::marker takes a colour and little else.
+  li::marker,
+  li ul > li::before {
+    color: color-mix(in srgb, var(--mf-accent-ink, currentColor) 55%, transparent);
+  }
+
+  li.is-current::marker,
+  li ul > li.is-current::before {
+    color: var(--mf-accent-ink, currentColor);
+  }
+
+  // Not `code` on its own: inside a <pre> it is the syntax colours that have to
+  // win, and they are set on spans within it.
+  :not(pre) > code {
+    color: var(--mf-code-ink, var(--tt-inline-code-text-color));
+  }
+
+  blockquote::before {
+    background-color: var(--mf-quote-ink, var(--blockquote-bg-color));
+  }
+}
+
+// The one accent that lives outside the document, on cards rather than in text.
+// The bookmark's icon is a favicon, so there is nothing there to recolour.
+.tiptap-attachment-icon {
+  color: var(--mf-accent-ink, var(--mf-muted));
+}
+
+// Selected, either on its own or caught inside a range. The outline sits on the
+// card rather than the wrapper so it follows the rounded corners.
+.tiptap.ProseMirror.haligtree-editor .tiptap-attachment.is-selected {
+  .tiptap-attachment-card {
+    border-color: transparent;
+    outline: 0.125rem solid var(--tt-brand-color-500);
+  }
+}
+
+// A link card, selected: calm, not a thick ring. A 1px ring in the border's
+// own colour, a touch stronger, and the surface it gets on hover. No inner
+// frame: the picture and the generic selected-node tint are left alone.
+.tiptap.ProseMirror.haligtree-editor .tiptap-bookmark.is-selected {
+  border-color: color-mix(in srgb, var(--foreground, currentColor) 28%, transparent);
+  outline: none;
+  box-shadow: none;
+  background-color: var(--mf-surface);
+
+  &.ProseMirror-selectednode,
+  .tiptap-bookmark-frame,
+  .tiptap-bookmark-image {
+    outline: none;
+    box-shadow: none;
+  }
+}
+.tiptap.ProseMirror.haligtree-editor .ProseMirror-selectednode:has(> .tiptap-bookmark),
+.tiptap.ProseMirror.haligtree-editor .react-renderer.ProseMirror-selectednode:has(.tiptap-bookmark) {
+  outline: none;
+  box-shadow: none;
+  background-color: transparent;
+}
+
+// A rule divides, so the space around it is the whole of its job. At zero it
+// sat against whatever came next and read as an underline for it.
+.tiptap.ProseMirror.haligtree-editor [data-type=horizontalRule] {
+  margin: 0.75em 0;
+}
+
+// --- Drawings -------------------------------------------------------------
+// A canvas in the flow of the note. The frame is the same card every other
+// block here sits in; what changes is what is inside it.
+
+.tiptap-excalidraw {
+  position: relative;
+  margin: 0.75em 0;
+}
+
+.tiptap-excalidraw-frame {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--tt-border-color);
+  border-radius: 0.625rem;
+  background-color: var(--tt-card-bg-color);
+}
+
+// Excalidraw fills whatever it is given and measures nothing itself. The
+// height is the block's, set by the grip below.
+.tiptap-excalidraw-canvas {
+  height: 100%;
+
+  .excalidraw {
+    --ui-font: inherit;
+
+    // The shape library. It is Excalidraw's own store of reusable pieces,
+    // which a diagram inside a note has no use for, and there is no option to
+    // turn it off - only this trigger to hide. The panel cannot be opened
+    // without it.
+    .default-sidebar-trigger {
+      display: none;
+    }
+
+    // Excalidraw's layer for eraser and laser trails is fixed at the size of
+    // the window. Under a moving parent (Read's page turns) fixed means that
+    // parent's box, so the layer hung past it and Read scrolled sideways. Its
+    // trails are drawn from the drawing's own corner, so it lies over the
+    // drawing and is cut at its edges.
+    .SVGLayer {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    // Excalidraw sizes its chrome for a page, and this is a block a few lines
+    // tall: at full size the toolbar took a third of the drawing. Its own
+    // variables rather than a transform, so only the controls shrink and the
+    // canvas underneath is untouched.
+    //
+    // Not a documented API - these are Excalidraw's internals - so an upgrade
+    // could rename them. The failure is a toolbar back at full size, which is
+    // visible at a glance rather than silent.
+    --default-button-size: 1.375rem;
+    --default-icon-size: 0.6875rem;
+    --lg-button-size: 1.5rem;
+    --lg-icon-size: 0.6875rem;
+  }
+}
+
+// Full screen has a page's worth of room, so the chrome goes back to the size
+// Excalidraw meant it to be.
+.tiptap-excalidraw-frame.is-full .tiptap-excalidraw-canvas .excalidraw {
+  --default-button-size: 2rem;
+  --default-icon-size: 1rem;
+  --lg-button-size: 2.25rem;
+  --lg-icon-size: 1rem;
+}
+
+.tiptap-excalidraw-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  height: 100%;
+  color: var(--mf-muted);
+  cursor: pointer;
+
+  svg {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  &:hover {
+    background-color: var(--mf-surface);
+    color: var(--tt-theme-text);
+  }
+}
+
+// The drawing keeps its own shape inside whatever height the block is given:
+// an SVG with a viewBox letterboxes rather than stretching.
+.tiptap-excalidraw-preview {
+  height: 100%;
+  padding: 1rem;
+  cursor: pointer;
+
+  svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+}
+
+// Notion's pill, under the bottom edge. Invisible until the block is worth
+// resizing, which is when the pointer is on it.
+.tiptap-excalidraw-grip {
+  position: absolute;
+  left: 50%;
+  bottom: 0.125rem;
+  width: 3.5rem;
+  height: 0.375rem;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background-color: var(--mf-muted);
+  opacity: 0;
+  cursor: ns-resize;
+  transition: opacity 0.15s var(--mf-ease);
+}
+
+.tiptap-excalidraw:hover .tiptap-excalidraw-grip,
+.tiptap-excalidraw-grip:active {
+  opacity: 0.6;
+}
+
+// Over the canvas, out of the way of Excalidraw's own toolbars, which sit on
+// the left and along the top.
+// Filling the window. Fixed rather than tall, so it is the same canvas with
+// more room and not a second one - the block underneath keeps its own height.
+.tiptap-excalidraw-frame.is-full {
+  position: fixed;
+  z-index: 100;
+  inset: 1rem;
+  border-radius: 0.875rem;
+  box-shadow: var(--mf-panel-shadow, 0 8px 24px rgba(0, 0, 0, 0.28));
+}
+
+// What says a finished drawing can be opened again. A caption along the foot
+// rather than a scrim over the whole picture: it is a label, and dimming the
+// drawing to say so hid the thing you were looking at.
+//
+// No pointer events: the double-click it is describing has to reach the
+// preview underneath.
+.tiptap-excalidraw-hint {
+  position: absolute;
+  z-index: 4;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: 0.75rem 0.75rem 0.5rem;
+  background-image: linear-gradient(
+    transparent,
+    color-mix(in srgb, var(--tt-bg-color) 75%, transparent)
+  );
+  color: var(--mf-muted-strong);
+  font-size: 0.8125rem;
+  text-align: center;
+  opacity: 0;
+  transition: opacity 150ms var(--mf-ease);
+  pointer-events: none;
+}
+
+.tiptap-excalidraw-frame:hover .tiptap-excalidraw-hint,
+.tiptap-excalidraw-frame:hover .tiptap-excalidraw-tools,
+.tiptap-excalidraw-frame:focus-within .tiptap-excalidraw-hint,
+.tiptap-excalidraw-frame:focus-within .tiptap-excalidraw-tools {
+  opacity: 1;
+}
+
+// The block's own tools: full screen, and the tick that finishes a drawing.
+//
+// One island in the shape Excalidraw gives its own floating tools, on the left
+// wall because theirs are on the right - two panels on the same edge would sit
+// on top of each other on a block only a few lines tall.
+.tiptap-excalidraw-tools {
+  position: absolute;
+  z-index: 5;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  padding: 0.25rem;
+  border-radius: 0.625rem;
+  // The accent rather than a card: this floats over a drawing, and the page's
+  // own panel colour is close enough to the canvas to read as a hole in it.
+  background-color: var(--accent);
+  box-shadow: var(--mf-panel-shadow, 0 8px 24px rgba(0, 0, 0, 0.28));
+  // Out of the way until you reach for it: it floats over the canvas, and a
+  // drawing you are only looking at should be the drawing. The same fade the
+  // caption below uses, so the two arrive together.
+  opacity: 0;
+  transition: opacity 150ms var(--mf-ease);
+
+  button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 0.5rem;
+    color: var(--mf-muted-strong);
+    cursor: pointer;
+
+    &:hover {
+      background-color: var(--tt-card-bg-color);
+      color: inherit;
+    }
+
+    // The one that commits. The accent rather than a filled circle: it is a
+    // row in an island now, and a disc would be the only round thing on it.
+    &.is-done {
+      color: var(--tt-brand-color-500);
+    }
+
+    svg {
+      width: 0.9375rem;
+      height: 0.9375rem;
+    }
+  }
+}
+
+.tiptap.ProseMirror.haligtree-editor .tiptap-excalidraw.is-selected {
+  .tiptap-excalidraw-frame {
+    border-color: transparent;
+    outline: 0.125rem solid var(--tt-brand-color-500);
+  }
+}
+
+.tiptap.ProseMirror > img:not([data-type=emoji] img) {
+    margin: 1rem 0;
+}
+
+// Hidden rather than unmounted: the handle is placed by a positioner that
+// would jump on every remount, and it is on screen constantly.
+.tiptap-drag-handle.is-hidden {
+  visibility: hidden;
+}
+
+// The handle's drag preview: a bare div parked off screen holding a clone of
+// the block, handed to `setDragImage`. A table's clone is full size, so the
+// ghost smeared across the page over the table it came from. A preview only
+// has to say what is being dragged.
+//
+// `!important` because the clone is not styled by any stylesheet: the handle
+// copies every computed property onto it as INLINE style, `max-height: none`
+// and `overflow: visible` among them, and inline beats a rule that does not
+// say this.
+// The drag ghost itself. A block carries no background of its own - the page
+// colour comes from an ancestor the clone leaves behind - so what the handle
+// hands the browser is text floating on nothing. This is the page under it
+// again, a little see-through so you can still see where you are dropping.
+//
+// The wrapper rather than the clone: the clone's every property is written on
+// it as inline style, which no rule here can beat.
+// The `-10000px` is the handle's own doing: it parks the clone off-screen so
+// the browser can photograph it. It is also the only thing telling it apart
+// from every other `div[dir]` on the body - Radix portals its menus into one
+// too, and without this the block menu came up wearing the accent border.
+body > div[dir][style*="-10000px"] {
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.5rem;
+  // The accent, the same one a selected block is outlined in, so what is under
+  // the pointer reads as picked up rather than as a second copy of the page.
+  border: 1px solid color-mix(in srgb, var(--tt-brand-color-500) 45%, transparent);
+  background-color: color-mix(in srgb, var(--tt-brand-color-500) 18%, var(--tt-card-bg-color));
+
+  // A preview of what is being dragged, not the thing itself. The clone is not
+  // clipped by the editor the way the block on the page is, so a long callout
+  // came out taller than the window and covered it. Capped here on the wrapper
+  // because the clone's own overflow is written onto it as inline style.
+  max-width: 22rem;
+  max-height: 7rem;
+  overflow: hidden;
+}
+
+body > div[dir][style*="-10000px"] > .tableWrapper {
+  max-width: 20rem !important;
+  max-height: 6rem !important;
+  overflow: hidden !important;
+}
+
+// --- Long documents ---------------------------------------------------------
+// Blocks far from the screen are not laid out until they come near it. The
+// size each was last drawn at is remembered, so the scrollbar settles.
+
+.tiptap.ProseMirror.haligtree-editor[data-long] > * {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 2.5em;
+}
+
+// --- Callouts -------------------------------------------------------------
+// An aside. One accent does all the work: the tint and the border are mixed
+// from it, the way Linear's are, so a callout is a whisper of colour rather
+// than a highlighted band. The accent itself is the block palette, which each
+// theme already tunes for contrast.
+
+.tiptap.ProseMirror.haligtree-editor .tiptap-callout {
+  --callout-accent: var(--tt-color-text-blue);
+  --callout-tint: color-mix(in srgb, var(--callout-accent) 6%, transparent);
+  --callout-border: color-mix(in srgb, var(--callout-accent) 22%, transparent);
+
+  @each $name in ("gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red") {
+    &[data-accent="#{$name}"] {
+      --callout-accent: var(--tt-color-text-#{$name});
+    }
+  }
+
+  // The icon sits in the padding rather than in a flex row, so the text inside
+  // is ordinary flow: a list indents from the callout's edge as it would
+  // anywhere else, instead of from a flex item's box.
+  position: relative;
+  // The cursor line is drawn behind its own line. Without a stacking context
+  // here, "behind" means behind this box's tint as well, and the band vanished
+  // for every line inside a callout.
+  isolation: isolate;
+  margin: 0.75em 0;
+  padding: 0.625rem 1rem 0.625rem 2.375rem;
+  border: 1px solid var(--callout-border);
+  border-radius: 0.5rem;
+  background: var(--callout-tint);
+
+  // A one line callout should be one line tall.
+  > .tiptap-callout-body > :first-child {
+    margin-top: 0;
+  }
+
+  > .tiptap-callout-body > :last-child {
+    margin-bottom: 0;
+  }
+}
+
+// An Obsidian callout's title, over its words, with the fold at its end.
+.tiptap-callout-title {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 1.6em;
+  font-weight: 600;
+  color: var(--callout-accent);
+  user-select: none;
+
+  + .tiptap-callout-body {
+    margin-top: 0.25rem;
+  }
+}
+
+// The title is written in place: a field that looks like the bold line it
+// was, wrapping as the words do, with the page's own caret and selection.
+.tiptap-callout-title-text {
+  // As wide as its words, so the fold sits just after them as it always has.
+  flex: 0 1 auto;
+  min-width: 2ch;
+  max-width: 100%;
+  field-sizing: content;
+  padding: 0;
+  border: 0;
+  outline: none;
+  resize: none;
+  overflow: hidden;
+  background: transparent;
+  font: inherit;
+  line-height: 1.6;
+  color: inherit;
+  caret-color: var(--tt-cursor-color, currentColor);
+  caret-shape: auto;
+  user-select: text;
+
+  &::placeholder {
+    color: color-mix(in srgb, currentColor 45%, transparent);
+  }
+}
+
+.tiptap-callout-fold {
+  display: grid;
+  place-items: center;
+  width: 1.4em;
+  height: 1.4em;
+  border-radius: 0.25rem;
+  color: inherit;
+
+  &:hover {
+    background-color: var(--callout-border);
+  }
+
+  svg {
+    width: 1em;
+    height: 1em;
+    transform: rotate(90deg);
+    transition: transform 0.15s var(--mf-ease);
+  }
+}
+
+.tiptap-callout[data-folded] {
+  .tiptap-callout-fold svg {
+    transform: none;
+  }
+
+  // Folded: only the title shows, as in Obsidian.
+  > .tiptap-callout-body {
+    display: none;
+  }
+}
+
+.tiptap-callout-icon {
+  position: absolute;
+  // Level with the first line of text, not with the box: the top edge is the
+  // callout's own padding, and the button is one line tall, so the two centre
+  // on each other. A fixed rem height sat a few pixels high of it.
+  top: 0.625rem;
+  left: 0.5rem;
+  height: 1.6em;
+  width: 1.6em;
+  border-radius: 0.25rem;
+  font-size: 0.9375rem;
+  line-height: 1.6em;
+  text-align: center;
+  user-select: none;
+
+  &:hover {
+    background-color: var(--callout-border);
+  }
+}
+
+.tiptap-icon-picker {
+  display: flex;
+  flex-direction: column;
+  // Nine columns rather than Linear's thirteen: this opens beside a note's
+  // title in a window half the width of theirs, and a picker that reaches both
+  // edges of it reads as a takeover rather than a menu.
+  width: 19.5rem;
+  max-width: calc(100vw - 2rem);
+
+  // Borderless and full width, with a rule under it rather than a box around
+  // it: the panel is the box.
+  input {
+    padding: 0.625rem 0.875rem;
+    border: 0;
+    border-bottom: 1px solid var(--tt-border-color);
+    background-color: transparent;
+    color: inherit;
+    font-size: 0.875rem;
+
+    &:focus {
+      outline: none;
+    }
+  }
+
+  h3 {
+    margin: 0;
+    padding: 0.625rem 0.875rem 0.25rem;
+    color: var(--mf-muted);
+    font-size: 0.8125rem;
+    font-weight: 400;
+  }
+}
+
+// The colours the callout can take. Linear keeps these on its Icons tab, which
+// this has no need of - an emoji brings its own colour - so they sit above the
+// search where they are the first thing offered.
+.tiptap-icon-picker-colors {
+  display: flex;
+  gap: 0.375rem;
+  padding: 0.625rem 0.875rem;
+  border-bottom: 1px solid var(--tt-border-color);
+
+  button {
+    width: 1.375rem;
+    height: 1.375rem;
+    border-radius: 999px;
+
+    &[data-active] {
+      outline: 2px solid var(--tt-brand-color-500);
+      outline-offset: 2px;
+    }
+  }
+
+  @each $name in ("gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red") {
+    button[data-color="#{$name}"] {
+      background-color: var(--tt-color-text-#{$name});
+    }
+  }
+}
+
+.tiptap-icon-picker-scroll {
+  height: 13rem;
+  padding-bottom: 0.5rem;
+  overflow-y: auto;
+}
+
+// `align-content: start` with a fixed row height, because the default stretches
+// rows to fill: one result got a row the full height of the grid, and a square
+// button in it came out eleven rems across.
+.tiptap-icon-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  grid-auto-rows: 1.75rem;
+  align-content: start;
+  padding: 0 0.875rem;
+
+  button {
+    border-radius: 0.25rem;
+    font-size: 1.125rem;
+    line-height: 1;
+
+    // `data-active` is the icon already chosen; `data-selected` is where the
+    // keys are. Two different questions, so the second gets the outline the
+    // rest of the menus use rather than a second shade of the same grey.
+    &:hover,
+    &[data-active] {
+      background-color: var(--tt-gray-dark-a-200);
+    }
+
+    &[data-selected] {
+      outline: 2px solid var(--tt-brand-color-500);
+      outline-offset: -2px;
+    }
+  }
+}
+
+// A link is something you can open, so it says so. Mod-click is what actually
+// opens it - a plain click belongs to the caret, because the text is there to
+// be edited - but the hand is the only hint that there is anything to open.
+.tiptap.ProseMirror.haligtree-editor a[href] {
+  cursor: pointer;
+}
+
+// A link that leaves Haligtree carries a small arrow up and out after its last
+// word, so it reads as "opens in your browser" before you hover it. Drawn as a
+// mask in the link's own colour; it never wraps away from the word it ends.
+.tiptap.ProseMirror.haligtree-editor a[href^="http"]::after {
+  content: "";
+  display: inline-block;
+  width: 0.62em;
+  height: 0.62em;
+  margin-left: 0.18em;
+  vertical-align: 0.12em;
+  background-color: currentColor;
+  opacity: 0.7;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 2h6v6M10 2 2.5 9.5'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+// Where a link points, under the link, while the pointer is on it. The one
+// thing it must never do is get in the way of the click that follows, hence no
+// pointer events - the box is a label, not a target.
+
+.tiptap-link-preview {
+  position: fixed;
+  z-index: 60;
+  max-width: 28rem;
+  padding: 0.3rem 0.55rem;
+  border: 1px solid var(--tt-border-color);
+  border-radius: 0.5rem;
+  background-color: var(--tt-card-bg-color);
+  box-shadow: var(--mf-panel-shadow, 0 8px 24px rgba(0, 0, 0, 0.28));
+  color: var(--mf-muted);
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  // A URL has no spaces to break at, so it has to be allowed to break anywhere
+  // - the alternative is one line running off the side of the window.
+  overflow-wrap: anywhere;
+  pointer-events: none;
+  // An animation rather than a transition, because this is mounted when the
+  // pointer arrives and removed when it leaves - there is no earlier state to
+  // move away from. Matches the code block's toolbar, which fades on the same
+  // curve over the same 120ms.
+  animation: mf-fade-in 120ms var(--mf-ease);
+}
+
+@keyframes mf-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+// Where a block dragged to another's side lands: an upright line on that side,
+// the seam the new column will open at. The flat line steps aside meanwhile.
+.mf-drop-beside > .prosemirror-dropcursor-block {
+  opacity: 0;
+}
+
+// Placed and sized by a transform from the corner (extensions/columns.ts):
+// a 100px line moved and stretched to its block, so a glide between targets
+// runs on the compositor. Its entrance grows on `scale`, apart from that.
+.mf-column-drop {
+  position: absolute;
+  z-index: 50;
+  left: 0;
+  top: 0;
+  width: 2px;
+  height: 100px;
+  border-radius: 1px;
+  pointer-events: none;
+  background: currentColor;
+  transform-origin: center top;
+  animation: mf-column-drop-in 160ms cubic-bezier(0.23, 1, 0.32, 1);
+  transition: transform 110ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes mf-column-drop-in {
+  from {
+    opacity: 0;
+    scale: 1 0.85;
+  }
+}
+
+html[data-motion="off"] .mf-column-drop {
+  animation: none;
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mf-column-drop {
+    animation: none;
+    transition: none;
+  }
+}
+
+// A picture, a video or a file card is an object, not text: no I-beam over
+// it. Its caption is text, and keeps the caret's cursor.
+.tiptap.ProseMirror.haligtree-editor :is(img, video, iframe, [data-type="image"], [data-type="youtube"], [data-type="attachment"], .tiptap-bookmark) {
+  cursor: default;
+}
+.tiptap.ProseMirror.haligtree-editor .mf-caption-text {
+  cursor: text;
+}
+
+// A YouTube thumbnail with black bands baked in over and under its 16:9
+// picture (see lib/video-bands.ts): only the picture is shown, so it lays out
+// as 16:9 too.
+// Not only in a note: a list's preview of it is the same picture.
+img[data-banded] {
+  object-view-box: inset(12.5% 0);
+}
+
+// A picture squeezed narrower than the size it was given (a small window, a
+// table cell, a column) keeps its shape, centred in its box, instead of being
+// stretched or cut at one side.
+.tiptap.ProseMirror.haligtree-editor img:not([data-type="emoji"] img) {
+  object-fit: contain;
+  object-position: center;
+}
+
+// --- Table of contents ------------------------------------------------------
+// The note's headings, placed in the note. Quiet like the text around it: muted
+// rows in the text's own font, the accent only under the pointer, and a thin
+// rule down the side of each level, so the nesting reads without bullets.
+
+.tiptap.ProseMirror.haligtree-editor .mf-contents {
+  --contents-step: 0.875rem;
+  --contents-rule: color-mix(in srgb, var(--mf-muted) 45%, transparent);
+  margin: 0.5em 0;
+  padding: 0.25rem 0;
+  border-radius: 0.5rem;
+  font-size: 0.9375em;
+  line-height: 1.4;
+  user-select: none;
+
+  &.is-selected {
+    outline: 0.125rem solid var(--tt-brand-color-500);
+    outline-offset: 0.25rem;
+  }
+}
+
+.mf-contents-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-bottom: 0.125rem;
+}
+
+.mf-contents-head,
+.mf-contents-numbers {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.375rem;
+  margin-left: -0.375rem;
+  border-radius: 0.375rem;
+  color: var(--mf-muted);
+  font: inherit;
+  font-size: 0.8125rem;
+  letter-spacing: 0.01em;
+  transition: color 120ms var(--mf-ease), background-color 120ms var(--mf-ease);
+
+  &:hover,
+  &:focus-visible {
+    color: var(--mf-muted-strong);
+    background-color: var(--mf-surface);
+  }
+
+  &:focus-visible {
+    outline: 0.125rem solid var(--tt-brand-color-500);
+  }
+
+  svg {
+    width: 0.875rem;
+    height: 0.875rem;
+    transform: rotate(90deg);
+    transition: transform 150ms var(--mf-ease);
+  }
+}
+
+.mf-contents[data-collapsed] .mf-contents-head svg {
+  transform: none;
+}
+
+// Only offered under the pointer: how the rows are counted is a setting, not content.
+.mf-contents-numbers {
+  margin-left: auto;
+  opacity: 0;
+
+  .mf-contents:hover &,
+  &:focus-visible,
+  &[aria-pressed="true"]:hover {
+    opacity: 1;
+  }
+
+  &[aria-pressed="true"] {
+    color: var(--mf-accent-ink, var(--tt-brand-color-500));
+  }
+}
+
+.tiptap.ProseMirror.haligtree-editor .mf-contents-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+// One rule per level above this row, a step apart: rows sit flush, so the rules
+// join into lines down the side of each section.
+.tiptap.ProseMirror.haligtree-editor .mf-contents-row {
+  margin: 0;
+  padding: 0 0 0 calc(var(--depth) * var(--contents-step));
+  background-image: repeating-linear-gradient(to right, var(--contents-rule) 0 1px, transparent 1px var(--contents-step));
+  background-size: calc(var(--depth) * var(--contents-step)) 100%;
+  background-repeat: no-repeat;
+
+  &::before {
+    content: none;
+  }
+}
+
+.mf-contents-entry {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0.1875rem 0.5rem;
+  border-radius: 0.375rem;
+  color: var(--mf-muted-strong);
+  font: inherit;
+  text-align: left;
+  transition: color 120ms var(--mf-ease), background-color 120ms var(--mf-ease);
+
+  &[data-level="1"] {
+    color: var(--tt-theme-text);
+    font-weight: 500;
+  }
+
+  &:hover,
+  &:focus-visible {
+    color: var(--mf-accent-ink, var(--tt-brand-color-500));
+    background-color: var(--mf-surface);
+  }
+
+  &:focus-visible {
+    outline: 0.125rem solid var(--tt-brand-color-500);
+    outline-offset: -0.125rem;
+  }
+}
+
+.mf-contents-number {
+  flex: none;
+  color: var(--mf-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.mf-contents-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tiptap.ProseMirror.haligtree-editor .mf-contents-empty {
+  margin: 0;
+  padding: 0.1875rem 0;
+  color: var(--mf-muted);
+  font-size: 0.875rem;
+}
+
+// The heading gone to, lit and let go, so the eye lands on it.
+.tiptap.ProseMirror.haligtree-editor .mf-contents-landed {
+  border-radius: 0.25rem;
+  animation: mf-contents-landed 1.4s var(--mf-ease);
+}
+
+@keyframes mf-contents-landed {
+  from,
+  30% {
+    background-color: color-mix(in srgb, var(--tt-brand-color-500) 16%, transparent);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
+html[data-motion="off"] .tiptap.ProseMirror.haligtree-editor .mf-contents-landed,
+html[data-motion="off"] .mf-contents :is(button, svg) {
+  animation: none;
+  transition: none;
+}
+
+html[data-motion="off"] .tiptap.ProseMirror.haligtree-editor .mf-contents-landed {
+  background-color: color-mix(in srgb, var(--tt-brand-color-500) 12%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tiptap.ProseMirror.haligtree-editor .mf-contents-landed {
+    animation: none;
+    background-color: color-mix(in srgb, var(--tt-brand-color-500) 12%, transparent);
+  }
+}
+
+// A line written as "question :: answer" is a review card: a small card at
+// its end says so (extensions/line-cards.ts). Muted, never a button.
+.tiptap.ProseMirror.haligtree-editor .mf-line-card {
+  display: inline-flex;
+  vertical-align: -0.12em;
+  margin-left: 0.4em;
+  color: var(--tt-color-text-purple, var(--muted-foreground));
+  opacity: 0.8;
+  user-select: none;
+  cursor: default;
+}
+
+// A word aim's hairline over the words (word-aim.tsx): room above the first
+// line for it, a light running along it from 90%, and one flare at the aim.
+.haligtree-editor-wrapper:has(> .mf-aim) > .haligtree-editor-content {
+  padding-top: 2.25rem;
+}
+// The light is a band of its own moved on a transform, so typing near the aim
+// never waits on a repaint of the bar.
+.mf-aim .mf-aim-fill {
+  overflow: hidden;
+}
+.mf-aim[data-word-aim="charging"] .mf-aim-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 45%;
+  background-image: linear-gradient(90deg, transparent, color-mix(in srgb, white 60%, transparent), transparent);
+  animation: mf-aim-charge 1.8s var(--mf-ease) infinite;
+}
+.mf-aim[data-word-aim="done"] .mf-aim-fill {
+  animation: mf-aim-flare 1.1s var(--mf-ease) 1;
+}
+@keyframes mf-aim-charge {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(223%); }
+}
+@keyframes mf-aim-flare {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 0%, transparent); }
+  30% { box-shadow: 0 0 10px 2px color-mix(in srgb, var(--primary) 55%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 0%, transparent); }
+}
+html[data-motion="off"] .mf-aim .mf-aim-fill,
+html[data-motion="off"] .mf-aim .mf-aim-fill::after {
+  animation: none;
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mf-aim .mf-aim-fill,
+  .mf-aim .mf-aim-fill::after {
+    animation: none;
+  }
+}
+
+// Words made into a gem, a capture or a task (extensions/kept.ts): a soft
+// wash and underline in the kind's colour over exactly those words, and the
+// kind's small mark at their end, which opens it.
+.tiptap.ProseMirror [data-kept] {
+  --kept: var(--tt-color-text-purple);
+  &[data-kept="capture"] { --kept: var(--tt-color-text-blue); }
+  &[data-kept="task"] { --kept: var(--tt-color-text-green); }
+}
+.tiptap.ProseMirror .mf-kept {
+  background-color: color-mix(in srgb, var(--kept) 12%, transparent);
+  text-decoration-line: underline;
+  text-decoration-color: color-mix(in srgb, var(--kept) 55%, transparent);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 0.24em;
+  border-radius: 0.2em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  transition: background-color 160ms ease, text-decoration-color 160ms ease;
+
+  // Pointing at its mark lights up the words it stands for.
+  &:has(+ .mf-kept-icon:hover) {
+    background-color: color-mix(in srgb, var(--kept) 18%, transparent);
+  }
+  // In the Bin: the words lose their colour to a dotted grey line; the mark says why.
+  &:has(> .mf-kept-binned) {
+    background-color: transparent;
+    text-decoration-style: dotted;
+    text-decoration-color: color-mix(in srgb, var(--muted-foreground) 70%, transparent);
+  }
+  // Gone for good, in a note that cannot be changed: nothing shows.
+  &:has(> .mf-kept-gone) {
+    background-color: transparent;
+    text-decoration-line: none;
+  }
+}
+.tiptap.ProseMirror .mf-kept-icon {
+  display: inline-flex;
+  vertical-align: -0.14em;
+  margin: 0 0 0 0.16em;
+  user-select: none;
+
+  button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.15em;
+    height: 1.15em;
+    padding: 0;
+    border-radius: 0.3em;
+    color: var(--kept);
+    background: transparent;
+    cursor: pointer;
+    transition: background-color 150ms ease, transform 150ms ease;
+
+    &:hover {
+      background-color: color-mix(in srgb, var(--kept) 16%, transparent);
+    }
+    &:active {
+      transform: scale(0.9);
+    }
+    &:focus-visible {
+      outline: 2px solid color-mix(in srgb, var(--kept) 60%, transparent);
+      outline-offset: 1px;
+    }
+  }
+  svg {
+    width: 0.85em;
+    height: 0.85em;
+  }
+  &[data-kept-state="bin"] button {
+    color: var(--muted-foreground);
+  }
+  // Just made: the mark pops in by the words.
+  &.is-new button {
+    animation: mf-kept-in 360ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+}
+// Ending its line, the mark brings ProseMirror's trailing break, which would push the caret to a line of its own.
+.tiptap.ProseMirror .mf-kept-icon ~ br.ProseMirror-trailingBreak {
+  display: none;
+}
+@keyframes mf-kept-in {
+  from { transform: scale(0.3); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+html[data-motion="off"] .tiptap.ProseMirror :is(.mf-kept, .mf-kept-icon button) {
+  animation: none;
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tiptap.ProseMirror .mf-kept-icon.is-new button {
+    animation: none;
+  }
+}
+
+// A toggle with lines held over its own line: let go and they go inside it.
+.tiptap.ProseMirror.haligtree-editor [data-type="details"].is-drop-into {
+  border-radius: 0.375rem;
+  box-shadow: 0 0 0 2px var(--primary);
+  background-color: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+
+// The box dragged from the margin to pick several blocks.
+.mf-marquee {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  border: 1px solid color-mix(in srgb, var(--primary) 70%, transparent);
+  border-radius: 0.25rem;
+  background-color: color-mix(in srgb, var(--primary) 12%, transparent);
+}

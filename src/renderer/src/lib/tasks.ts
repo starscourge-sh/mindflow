@@ -2,9 +2,9 @@ import { chime, tear } from './sound'
 import { unquoted } from '../../../main/clip'
 import { seeTheBin } from './to-bin'
 import { shred } from './fly-home'
-import { splitTags, taskSaid, vigil, type Made, type Task } from './vigil'
+import { splitTags, taskSaid, haligtree, type Made, type Task } from './haligtree'
 import { flying } from './capture-links'
-import { ask, refuse, toast } from '@/components/vigil/ui'
+import { ask, refuse, toast } from '@/components/haligtree/ui'
 import { bucketOf, monthKey, readySaid } from '../../../main/task-words'
 import { ago, dated, dayjs, dayKey, daysSince, num, startOfDay } from '../../../main/dates'
 import { tasksSaid, type ListTask } from '../../../main/day-lines'
@@ -33,10 +33,10 @@ export async function makeTask(
   { onUndo, quiet = false }: { onUndo?: () => void; /** Made without a word: something else on screen already shows it. */ quiet?: boolean } = {}
 ): Promise<Made | null> {
   const [got, links] =
-    'capture' in from ? [await flying(from.capture, 'task', () => vigil.toTask(from.capture, from.plain, from.whole)), [from.capture]]
-    : 'captures' in from ? [await vigil.taskFrom(from.captures, from.text), from.captures]
-    : 'item' in from ? [await vigil.study(from.item, from.text), [from.item]]
-    : [await vigil.addTask(from.text, from.origin, from.today), from.origin ? [from.origin] : []]
+    'capture' in from ? [await flying(from.capture, 'task', () => haligtree.toTask(from.capture, from.plain, from.whole)), [from.capture]]
+    : 'captures' in from ? [await haligtree.taskFrom(from.captures, from.text), from.captures]
+    : 'item' in from ? [await haligtree.study(from.item, from.text), [from.item]]
+    : [await haligtree.addTask(from.text, from.origin, from.today), from.origin ? [from.origin] : []]
   // A capture that already took an exit (promoted, resolved, let go) keeps it.
   if (got === 'not-open' || (!got && 'captures' in from)) {
     refuse(got === 'not-open' ? 'Only a capture still in the Inbox can become a task' : 'None of those is still in the Inbox, so there is nothing to make a task from')
@@ -61,7 +61,7 @@ export async function makeTask(
   const joined = all.filter((one) => one.existed).length
   chime(made.also?.length ? 'promote' : made.existed ? 'nope' : 'noted')
   const words = made.said ? `Made ${made.said}${joinedSaid(joined)}` : taskSaid(made, typeof said === 'function' ? await said(made) : said)
-  toast(words, () => void Promise.all(all.map((one) => vigil.unmakeTask(one.id, one.existed, links, reopen))).then(() => onUndo?.()), 'success',
+  toast(words, () => void Promise.all(all.map((one) => haligtree.unmakeTask(one.id, one.existed, links, reopen))).then(() => onUndo?.()), 'success',
     made.also?.length ? undefined : { label: 'Open', key: 'O', run: () => window.api.openInHome('task', made.id) })
   return made
 }
@@ -85,15 +85,15 @@ export async function makeListTasks(list: ListTask[], { today = false, onUndo, a
   for (const [index, line] of list.entries()) {
     // The words the box kept plain in this line, if the box read it as this line ("camping:" made "camping").
     const kept = plain?.[index] && plain[index].text.startsWith(line.text) ? plain[index].plain.filter((one) => one.to <= line.text.length) : undefined
-    const one = await vigil.addTask(line.text, undefined, today, kept)
+    const one = await haligtree.addTask(line.text, undefined, today, kept)
     made.push(one)
     if (one.existed) continue
-    if (line.steps.length) await vigil.saveTask(one.id, { subtasks: line.steps })
-    if (line.done) await vigil.saveTask(one.id, { status: 'done' })
+    if (line.steps.length) await haligtree.saveTask(one.id, { subtasks: line.steps })
+    if (line.done) await haligtree.saveTask(one.id, { status: 'done' })
   }
   const joined = made.filter((one) => one.existed).length
   const fresh = new Set(made.filter((one) => !one.existed).map((one) => one.id))
-  const undated = (await vigil.tasks()).filter((task) => fresh.has(task.id) && task.status === 'open' && !task.waitingOn && !task.recurrence && placed(task) === null && !bucket(task)).length
+  const undated = (await haligtree.tasks()).filter((task) => fresh.has(task.id) && task.status === 'open' && !task.waitingOn && !task.recurrence && placed(task) === null && !bucket(task)).length
   chime(made.length === 1 ? 'noted' : 'promote')
   const said: Said = { text: `Made ${tasksSaid(list)}${joinedSaid(joined)}${undatedSaid(undated, fresh.size)}`, undo: made.map((one) => ({ id: one.id, existed: one.existed })), open: undated ? 'upcoming' : made.length === 1 ? made[0].id : null }
   // Said in the box too, where its Undo also puts the list back in the box.
@@ -110,7 +110,7 @@ const undatedSaid = (undated: number, of: number): string =>
 export type Said = { text: string; undo: { id: string; existed: boolean }[]; open: 'upcoming' | string | null }
 function say(said: Said, onUndo?: () => void): void {
   toast(said.text,
-    () => void Promise.all(said.undo.map((one) => vigil.unmakeTask(one.id, one.existed, [], []))).then(() => onUndo?.()),
+    () => void Promise.all(said.undo.map((one) => haligtree.unmakeTask(one.id, one.existed, [], []))).then(() => onUndo?.()),
     'success',
     said.open === 'upcoming' ? { label: 'Show them', key: 'S', run: () => window.api.openInHome('view', 'upcoming', 'No date') }
       : said.open ? { label: 'Open', key: 'O', run: () => window.api.openInHome('task', said.open!) } : undefined)
@@ -141,7 +141,7 @@ export type TaskNote = { id: string; title: string; private?: boolean } & ({ cap
 export async function makeTasks(notes: TaskNote[]): Promise<number> {
   if (!notes.length) return 0
   // A task already open for a note, made from it before: that note is skipped.
-  const tasked = new Set((await vigil.tasks()).filter((task) => task.status === 'open' && task.fromId).map((task) => task.fromId!))
+  const tasked = new Set((await haligtree.tasks()).filter((task) => task.status === 'open' && task.fromId).map((task) => task.fromId!))
   const already = notes.filter((note) => tasked.has(note.id))
   const closed = notes.filter((note) => !tasked.has(note.id) && note.capture && !note.open)
   const todo = notes.filter((note) => !already.includes(note) && !closed.includes(note))
@@ -160,7 +160,7 @@ export async function makeTasks(notes: TaskNote[]): Promise<number> {
   // A page of mixed lines is not made one task: it is left, and the notice offers to sort it.
   const mixed: { id: string; text: string }[] = []
   const made = (await Promise.all(todo.map(async (note, at) => {
-    const work = (): Promise<Made | null | 'not-open' | { mixed: string }> => (note.capture ? vigil.toTask(note.id) : vigil.study(note.id, `Study “${unquoted(note.title)}”`, { from: 7, to: 7 + unquoted(note.title).length }))
+    const work = (): Promise<Made | null | 'not-open' | { mixed: string }> => (note.capture ? haligtree.toTask(note.id) : haligtree.study(note.id, `Study “${unquoted(note.title)}”`, { from: 7, to: 7 + unquoted(note.title).length }))
     const got = note.capture && at < 6 ? await flying(note.id, 'task', work) : await work()
     if (got && got !== 'not-open' && 'mixed' in got) return void mixed.push({ id: note.id, text: got.mixed })
     return got && got !== 'not-open' ? { made: got, note: note.id } : null
@@ -185,7 +185,7 @@ export async function makeTasks(notes: TaskNote[]): Promise<number> {
   chime(all.length === 1 ? 'noted' : 'promote')
   const tail = [skipped, unsorted && unsorted[0].toUpperCase() + unsorted.slice(1)].filter(Boolean).join('. ')
   toast(tail ? `${lead}. ${tail}` : lead,
-    () => void Promise.all(all.map(({ one, note, reopen }) => vigil.unmakeTask(one.id, one.existed, [note], reopen))),
+    () => void Promise.all(all.map(({ one, note, reopen }) => haligtree.unmakeTask(one.id, one.existed, [note], reopen))),
     'success',
     sort ?? (all.length === 1 ? { label: 'Open', key: 'O', run: () => window.api.openInHome('task', made[0].made.id) } : undefined))
   return all.length
@@ -193,7 +193,7 @@ export async function makeTasks(notes: TaskNote[]): Promise<number> {
 
 /**
  * The captures selected in the list on screen now, for ⌘K's "Make one task":
- * the palette asks with `vigil:one-task`, and the list with them answers.
+ * the palette asks with `haligtree:one-task`, and the list with them answers.
  */
 export const picked = { ids: [] as string[] }
 
@@ -254,9 +254,9 @@ export const gettingReady = (task: Pick<Task, 'deadline' | 'status'> & Later): b
 export const setReady = (task: Pick<Task, 'id' | 'getReady'>, days: number | null): void => {
   if ((task.getReady ?? null) === days) return chime('nope')
   const was = task.getReady ?? null
-  void vigil.saveTask(task.id, { getReady: days }).then(() => {
+  void haligtree.saveTask(task.id, { getReady: days }).then(() => {
     chime(days ? 'tap' : 'off')
-    toast(days ? `Get ready ${readySaid(days)} it is due` : 'No get-ready day', () => void vigil.saveTask(task.id, { getReady: was }))
+    toast(days ? `Get ready ${readySaid(days)} it is due` : 'No get-ready day', () => void haligtree.saveTask(task.id, { getReady: was }))
   })
 }
 
@@ -297,7 +297,7 @@ export const backSaid = (one: { capturedAt: string }): string =>
  */
 export function snooze(kind: 'task' | 'capture', one: { id: string; snoozedUntil?: string | null }, day: string | null): void {
   const was = one.snoozedUntil ?? null
-  const save = (to: string | null): Promise<unknown> => (kind === 'task' ? vigil.saveTask(one.id, { snoozedUntil: to }) : vigil.snoozeCapture(one.id, to))
+  const save = (to: string | null): Promise<unknown> => (kind === 'task' ? haligtree.saveTask(one.id, { snoozedUntil: to }) : haligtree.snoozeCapture(one.id, to))
   void save(day).then(() => {
     chime(day ? 'away' : 'back')
     toast(day ? `Hidden until ${hiddenDay(day)}` : 'Showing again now', () => void save(was))
@@ -336,12 +336,12 @@ export function planKey(which: keyof typeof BUCKETS): string {
  */
 export function closeTask(id: string, then?: () => void): void {
   const land = shred(id)
-  void vigil.saveTask(id, { status: 'dropped' }).then(() => {
+  void haligtree.saveTask(id, { status: 'dropped' }).then(() => {
     land?.()
     then?.()
     tear()
     // Said where it went: the Bin, one key away, as every move there says it.
-    toast('Closed without doing: it is in the Bin', () => void vigil.saveTask(id, { status: 'open' }).then(() => window.dispatchEvent(new CustomEvent('vigil:came-back', { detail: [id] }))), 'success', seeTheBin)
+    toast('Closed without doing: it is in the Bin', () => void haligtree.saveTask(id, { status: 'open' }).then(() => window.dispatchEvent(new CustomEvent('haligtree:came-back', { detail: [id] }))), 'success', seeTheBin)
   })
 }
 
@@ -357,11 +357,11 @@ export function todaySaid(left: number, done: number): string {
 
 /** Tasks turned back into notes: each back in the Inbox, one notice and one Undo for the lot. */
 export async function taskToNote(ids: string[], then?: () => void): Promise<void> {
-  const kept = await vigil.taskToNote(ids)
+  const kept = await haligtree.taskToNote(ids)
   if (!kept.length) return refuse(ids.length === 1 ? 'That task no longer exists' : 'None of those tasks exists any more')
   then?.()
   chime('away')
-  toast(kept.length === 1 ? 'Back in your Inbox as a note' : `${num(kept.length)} back in your Inbox as notes`, () => void vigil.unnoteTasks(kept), 'success',
+  toast(kept.length === 1 ? 'Back in your Inbox as a note' : `${num(kept.length)} back in your Inbox as notes`, () => void haligtree.unnoteTasks(kept), 'success',
     { label: 'Open the Inbox', key: 'I', run: () => window.api.openInHome('view', 'inbox') })
 }
 

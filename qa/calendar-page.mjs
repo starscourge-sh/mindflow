@@ -5,7 +5,7 @@
 // cells show chips and "+N more" opens the rest; no sideways page scroll.
 //
 //   npx electron-vite build --outDir out-cal2
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-cal2/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=dir node qa/calendar-page.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-cal2/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=dir node qa/calendar-page.mjs
 import { sandbox } from './sandbox-lib.mjs'
 import { checkInks, dragAcross, monthKey, nextMonth, swipe, where } from './month-lib.mjs'
 

@@ -82,7 +82,7 @@ export async function saveClipboardImage(): Promise<string | null> {
 function sliceHasPicture(slice: Slice): boolean {
   let found = false
   slice.content.descendants((node) => {
-    if (node.type.name === "image" && /^(https?|mindflow|data):/i.test(String(node.attrs.src ?? ""))) found = true
+    if (node.type.name === "image" && /^(https?|haligtree|data):/i.test(String(node.attrs.src ?? ""))) found = true
     return !found
   })
   return found
@@ -202,7 +202,7 @@ async function fill(
  * the note holds a copy rather than a dependency on someone else's server.
  *
  * The bytes go to the main process, which writes them and returns a
- * `mindflow://` URL. That is what the document stores, so it survives the app
+ * `haligtree://` URL. That is what the document stores, so it survives the app
  * moving and never carries a filesystem path.
  */
 export const ImageDrop = Extension.create<ImageDropOptions>({

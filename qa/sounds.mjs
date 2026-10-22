@@ -5,7 +5,7 @@
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-sounds/main/index.js SHOT=<dir> node qa/sounds.mjs
 //
 // Sounds are read back from the page's own list of recordings played
-// (window.vigilHeard), so a sound that fires, and one that must not, both show.
+// (window.haligtreeHeard), so a sound that fires, and one that must not, both show.
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -43,7 +43,7 @@ try {
     }
     throw new Error('no pill')
   }
-  const heard = (pill) => pill.evaluate(() => [...(window.vigilHeard ?? [])])
+  const heard = (pill) => pill.evaluate(() => [...(window.haligtreeHeard ?? [])])
   const start = async (goal, ms) => {
     const id = await v('timer:start', goal, ms)
     await h.evaluate(() => window.api.showFocus(true))
@@ -175,7 +175,7 @@ try {
 
   // --- Writing opened: a page turned; a quick run of them, only the first.
   const writing = await v('items', 'article')
-  const said = async () => h.evaluate(() => (window.vigilHeard ?? []).filter((one) => one === 'page-turn').length)
+  const said = async () => h.evaluate(() => (window.haligtreeHeard ?? []).filter((one) => one === 'page-turn').length)
   const pages = await said()
   await c.send('article', writing[0].id)
   await h.waitForTimeout(1200)
@@ -199,7 +199,7 @@ try {
     check(`opening a ${type === 'nugget' ? 'gem' : type} turns a page`, (await said()) === was + 1, `${(await said()) - was}`)
   }
   // --- The paper sounds: each read back by name, a moment apart.
-  const count = (name) => h.evaluate((n) => (window.vigilHeard ?? []).filter((one) => one === n).length, name)
+  const count = (name) => h.evaluate((n) => (window.haligtreeHeard ?? []).filter((one) => one === n).length, name)
   // The visible one: a list keeps a copy of some buttons out of sight.
   const press = (label) => h.evaluate((l) => [...document.querySelectorAll('button')].find((one) => (one.getAttribute('aria-label') === l || one.textContent.trim() === l) && one.offsetParent)?.click(), label)
   const fired = async (name, act, wait = 1200) => {
@@ -216,7 +216,7 @@ try {
   n = await fired('page-leaf', async () => { for (let i = 0; i < 3; i++) { await h.keyboard.press(i % 2 ? 'ArrowDown' : 'ArrowUp'); await h.waitForTimeout(60) } })
   check('stepping quickly turns no more than one lighter page', n <= 1, `${n}`)
   const gem = (await v('items', 'nugget'))[0]
-  n = await fired('page-turn', () => h.evaluate((id) => window.dispatchEvent(new CustomEvent('vigil:aside', { detail: { type: 'nugget', id } })), gem.id))
+  n = await fired('page-turn', () => h.evaluate((id) => window.dispatchEvent(new CustomEvent('haligtree:aside', { detail: { type: 'nugget', id } })), gem.id))
   check('a note opened in a new split pane turns a page', n === 1, `${n}`)
   await h.screenshot({ path: `${SHOT}/split-open.png` })
   await h.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur())
@@ -263,10 +263,10 @@ try {
   })
   await stub()
   const leave = async () => {
-    const was = (await h.evaluate(() => [...(window.vigilHeard ?? [])])).length
+    const was = (await h.evaluate(() => [...(window.haligtreeHeard ?? [])])).length
     await h.evaluate(() => [...document.querySelectorAll('[data-sandbox-pill] button')].find((one) => (one.textContent ?? '').includes('notes'))?.click())
     await h.waitForTimeout(2500)
-    return (await h.evaluate(() => [...(window.vigilHeard ?? [])])).slice(was)
+    return (await h.evaluate(() => [...(window.haligtreeHeard ?? [])])).slice(was)
   }
   await v('settings:set', { sounds: false })
   await h.reload(); await h.waitForTimeout(1500)
@@ -294,9 +294,9 @@ try {
       app.quit = () => undefined
       app.exit = () => undefined
     })
-    await d.h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:sandbox-enter')))
+    await d.h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:sandbox-enter')))
     await d.h.waitForTimeout(2500)
-    const log = await d.h.evaluate(() => [...(window.vigilHeard ?? [])])
+    const log = await d.h.evaluate(() => [...(window.haligtreeHeard ?? [])])
     check('entering the sandbox swings the saber', log.includes('saber-on'), log.join(' '))
   } finally {
     await d.close()

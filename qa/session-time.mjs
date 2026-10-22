@@ -7,7 +7,7 @@
 // with the Mac's sleep stood in by powerMonitor's own events from main.
 //
 //   npx electron-vite build --outDir out-x
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 [SHOTS=<dir>] node qa/session-time.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 [SHOTS=<dir>] node qa/session-time.mjs
 import { mkdirSync } from 'fs'
 import { sandbox, shiftClock } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
@@ -19,7 +19,7 @@ const wait = (ms) => new Promise((done) => setTimeout(done, ms))
 
 // The day as if it were 14:00: a lecture before, a study group after.
 const at = (hh, mm = 0) => { const one = new Date(); one.setHours(hh, mm, 0, 0); return one.toISOString() }
-process.env.MINDFLOW_QA_CALENDAR = JSON.stringify([
+process.env.HALIGTREE_QA_CALENDAR = JSON.stringify([
   { title: 'Morning lecture', start: at(12), end: at(13), allDay: false, calendar: 'College', color: '#2f80ed' },
   { title: 'Study group', start: at(15), end: at(16), allDay: false, calendar: 'College', color: '#9b51e0' }
 ])

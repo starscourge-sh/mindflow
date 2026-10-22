@@ -7,7 +7,7 @@
 // Run twice on a set clock, whatever the real one says: at 22:00 (the box
 // says “For tomorrow”) and at 01:00 (the small hours: “For the morning”, the
 // lines due today, still shown in the box where they were written).
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=<dir> node qa/tomorrow-lines.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=<dir> node qa/tomorrow-lines.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -130,7 +130,7 @@ await wait(600)
 await shot('3-todays-page')
 
 // 7. Close the day: the step, the same list, a new line, no twin.
-await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:close-day')))
+await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:close-day')))
 await wait(1200)
 const step = '[data-close-day] [data-close-tomorrow]'
 check('Close the day asks “Anything on your mind for tomorrow?”', (await h.locator(step, { hasText: 'Anything on your mind for tomorrow?' }).count()) === 1)
@@ -169,7 +169,7 @@ check('Today shows the two left', (await lines()).length === 2, (await lines()).
 
 // 9. Skippable: on a night with nothing written, “Nothing tonight” folds the step.
 await h.evaluate((k) => localStorage.removeItem(`tomorrow-lines:${k}`), key(night))
-await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:close-day')))
+await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:close-day')))
 await wait(1000)
 await h.locator('[data-close-tomorrow-skip]').click()
 await wait(400)

@@ -7,12 +7,12 @@
 // - each sticky has exactly one window, a stray copy is closed;
 // - dragged by hand into line with the screen's edge, the trackpad taps once,
 //   and again only after leaving the line and coming back (haptic.ts).
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/sticky-follow.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/sticky-follow.mjs
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
 
-process.env.MINDFLOW_QA_VIRTUAL ??= '1'
-process.env.MINDFLOW_QA_FOLLOW ??= '1'
+process.env.HALIGTREE_QA_VIRTUAL ??= '1'
+process.env.HALIGTREE_QA_FOLLOW ??= '1'
 const { check, done } = checks()
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 const c = await sandbox()
@@ -84,7 +84,7 @@ try {
 
   // Dragged by hand toward the right edge: one tap as it comes into line, none while it stays, one more after leaving and coming back.
   const now = await today()
-  const taps0 = await electron.evaluate(() => globalThis.vigilTaps())
+  const taps0 = await electron.evaluate(() => globalThis.haligtreeTaps())
   const tapsAfter = await electron.evaluate(async ({ BrowserWindow }, [id, work]) => {
     const w = BrowserWindow.fromId(id)
     const b = w.getBounds()
@@ -99,7 +99,7 @@ try {
       globalThis.qaCursor = { x: x + 60, y: work.y + 670 }
       w.emit('moved')
       await new Promise((r) => setTimeout(r, 90))
-      counts.push(globalThis.vigilTaps())
+      counts.push(globalThis.haligtreeTaps())
     }
     globalThis.qaButton = false
     return counts

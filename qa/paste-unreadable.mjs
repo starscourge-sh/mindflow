@@ -2,10 +2,10 @@
 // (a pointer into Notes' own folder). The words must land, the browser's long
 // "could not be read" error must never show, the clipboard's own picture is
 // taken instead, and only when there is no picture anywhere is a short notice said.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-paste/main/index.js MINDFLOW_QA_AWAY=1 node qa/paste-unreadable.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-paste/main/index.js HALIGTREE_QA_AWAY=1 node qa/paste-unreadable.mjs
 import { open, checks } from './harness.mjs'
 
-const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 const { check, done } = checks()
 const qa = await open()
 const { page, electron } = qa
@@ -15,13 +15,13 @@ const wait = (ms) => page.waitForTimeout(ms)
 const before = await electron.evaluate(({ clipboard }) => clipboard.readText().catch(() => ''))
 
 try {
-  if (!(await page.evaluate(() => window.api.vigil('onboarding:state').then((s) => !!s?.welcomed))))
-    await page.evaluate(() => window.api.vigil('onboarding:set', { welcomed: new Date().toISOString(), welcoming: false }))
+  if (!(await page.evaluate(() => window.api.haligtree('onboarding:state').then((s) => !!s?.welcomed))))
+    await page.evaluate(() => window.api.haligtree('onboarding:set', { welcomed: new Date().toISOString(), welcoming: false }))
 
   // Everything said, and a File that fails the way a Notes pointer does.
   await page.evaluate(() => {
     window.__said = []
-    addEventListener('mindflow:said', (e) => window.__said.push(e.detail.text))
+    addEventListener('haligtree:said', (e) => window.__said.push(e.detail.text))
     const read = Blob.prototype.arrayBuffer
     File.prototype.arrayBuffer = function () {
       if (this.name === 'notes-pointer.png')
@@ -70,7 +70,7 @@ try {
   await setClipboardPicture(true)
   let got = await paste({ words, html, file: 'notes-pointer.png' })
   check('clipboard picture: the words land', got.text.includes('Silk Road'), got.text)
-  check('clipboard picture: the clipboard picture is used', got.pictures.length === 1 && got.pictures[0]?.startsWith('mindflow://'), got.pictures)
+  check('clipboard picture: the clipboard picture is used', got.pictures.length === 1 && got.pictures[0]?.startsWith('haligtree://'), got.pictures)
   check('clipboard picture: no notice', got.said.length === 0, got.said)
 
   // 2. Unreadable file and no picture anywhere: the words land, the short notice, never the raw error.
@@ -89,7 +89,7 @@ try {
   // 4. A readable picture still pastes as before, with nothing said.
   got = await paste({ words, html, file: 'map.png' })
   check('readable file: the words land', got.text.includes('Silk Road'), got.text)
-  check('readable file: the picture lands', got.pictures.length === 1 && got.pictures[0]?.startsWith('mindflow://'), got.pictures)
+  check('readable file: the picture lands', got.pictures.length === 1 && got.pictures[0]?.startsWith('haligtree://'), got.pictures)
   check('readable file: no notice', got.said.length === 0, got.said)
 } finally {
   await electron.evaluate(({ clipboard }, text) => clipboard.writeText(text), before).catch(() => {})

@@ -3,7 +3,7 @@
 // short inner box, Subtasks sits below them, and Sessions and Log come after
 // in the same scroll. Checked in the box at 300, 360 and 700 tall, and in the
 // main window's task panel, wide and narrow.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 [SHOT=<dir>] node qa/box-task-room.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 [SHOT=<dir>] node qa/box-task-room.mjs
 import { mkdirSync, writeFileSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -43,7 +43,7 @@ const measure = (win) => win.evaluate(() => {
     const atBottom = document.elementFromPoint(r.left + Math.min(30, r.width / 2), r.bottom - 3)
     return { kind: one.tagName === 'IMG' ? 'picture' : 'card', bottom: Math.round(r.bottom), h: Math.round(r.height), inView: r.bottom <= innerHeight - 2, drawn: !!atBottom && (one === atBottom || one.contains(atBottom)), clipper }
   })
-  const notes = pane.querySelector('[data-grow] .mindflow-editor-wrapper')?.getBoundingClientRect()
+  const notes = pane.querySelector('[data-grow] .haligtree-editor-wrapper')?.getBoundingClientRect()
   const subtasks = [...pane.querySelectorAll('h3')].find((one) => one.textContent.startsWith('Subtasks'))?.getBoundingClientRect()
   const reach = (word) => {
     const head = [...pane.querySelectorAll('aside *')].find((one) => one.children.length === 0 && one.textContent.trim().startsWith(word))

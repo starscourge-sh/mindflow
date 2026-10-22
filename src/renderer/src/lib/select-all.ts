@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { chime } from './sound'
-import { refuse, toast, typing } from '@/components/vigil/ui'
+import { refuse, toast, typing } from '@/components/haligtree/ui'
 import { num } from '../../../main/dates'
 import { listInFront } from './list-front'
 
@@ -104,12 +104,12 @@ export function useSelectAll(
     window.addEventListener('keydown', onKey, true)
     window.addEventListener('keydown', onDeleteKey, true)
     window.addEventListener('keydown', onCopy, true)
-    window.addEventListener('vigil:select-all', onMenu)
+    window.addEventListener('haligtree:select-all', onMenu)
     return () => {
       window.removeEventListener('keydown', onDeleteKey, true)
       window.removeEventListener('keydown', onCopy, true)
       window.removeEventListener('keydown', onKey, true)
-      window.removeEventListener('vigil:select-all', onMenu)
+      window.removeEventListener('haligtree:select-all', onMenu)
     }
   }, [enabled]) // eslint-disable-line react-hooks/exhaustive-deps
   return selectAll

@@ -6,7 +6,7 @@
 // all kept, the hand cursors, a dark theme, and the chips another sort shows.
 //
 //   npx electron-vite build --outDir out-groups
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-groups/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=<dir> node qa/groups.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-groups/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=<dir> node qa/groups.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 

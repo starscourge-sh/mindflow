@@ -1,4 +1,4 @@
-import { vigil } from './vigil'
+import { haligtree } from './haligtree'
 import { readLines } from '../../../main/day-lines'
 
 /**
@@ -12,11 +12,11 @@ export async function keepLines(id: string, text: string): Promise<string[] | nu
   if (lines.length < 2) return null
   const made: string[] = []
   for (const line of lines) {
-    const one = await vigil.addClue(id, line.text)
+    const one = await haligtree.addClue(id, line.text)
     if (one) made.push(one)
   }
   return made
 }
 
 /** Every one of them taken back. */
-export const dropLines = (ids: string[]): Promise<unknown> => Promise.all(ids.map((one) => vigil.dropClue(one)))
+export const dropLines = (ids: string[]): Promise<unknown> => Promise.all(ids.map((one) => haligtree.dropClue(one)))

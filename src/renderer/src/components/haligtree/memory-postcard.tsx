@@ -1,0 +1,117 @@
+import { useEffect, useRef, type ReactNode } from 'react'
+
+import { useLive, haligtree, type Settings } from '@/lib/haligtree'
+import { Scenery } from './scenery'
+import { GrainFill, useCover } from './grain'
+import { dayjs } from '../../../../main/dates'
+
+/**
+ * A memory as a postcard from your past self, when Postcards is on: a white
+ * print laid on the desk, the day it was caught franked on it in a postmark,
+ * with the cancel lines running off it, and the day's scene behind the words
+ * when Scenery has pictures. Off, a memory is the hint card it always was.
+ */
+
+/** Whether memories come as postcards: Postcards on in Settings. */
+export const usePostcard = (memory: boolean): boolean => !!useLive(haligtree.settings, null as Settings | null)?.postcards && memory
+
+/**
+ * A postmark: two rings, HALIGTREE and the year around the edge, the day in the
+ * middle, and wavy cancel lines trailing to the left. Drawn in the text's own
+ * ink, faint, so it reads as stamped rather than printed.
+ */
+export function Postmark({ at, className = '' }: { at: string; className?: string }): React.JSX.Element {
+  const day = dayjs(at)
+  const id = `mf-postmark-${day.format('YYYYMMDD')}`
+  return (
+    <svg viewBox="0 0 168 64" aria-label={`Caught ${day.format('D MMMM YYYY')}`} role="img" className={`pointer-events-none text-foreground ${className}`}>
+      <g fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" opacity="0.5">
+        {[14, 22, 30, 38, 46].map((y) => (
+          <path key={y} d={`M2 ${y} q 9 -4 18 0 t 18 0 t 18 0 t 18 0 t 18 0 t 18 0`} />
+        ))}
+      </g>
+      <g transform="translate(134 32) rotate(-9)">
+        <circle r="29" fill="none" stroke="currentColor" strokeWidth="1.3" opacity="0.6" />
+        <circle r="20.5" fill="none" stroke="currentColor" strokeWidth="0.9" opacity="0.45" />
+        <defs>
+          <path id={id} d="M -24.6 0 A 24.6 24.6 0 1 1 24.6 0 A 24.6 24.6 0 1 1 -24.6 0" />
+        </defs>
+        <text fill="currentColor" opacity="0.6" fontSize="6.4" letterSpacing="1.6" className="font-mono">
+          <textPath href={`#${id}`} startOffset="2%">HALIGTREE · {day.format('YYYY')} · HALIGTREE · {day.format('YYYY')} ·</textPath>
+        </text>
+        <text y="-2.5" textAnchor="middle" fill="currentColor" opacity="0.72" fontSize="8.5" letterSpacing="0.8" className="font-mono">{day.format('MMM').toUpperCase()}</text>
+        <text y="9" textAnchor="middle" fill="currentColor" opacity="0.72" fontSize="11" className="font-mono">{day.format('D')}</text>
+      </g>
+    </svg>
+  )
+}
+
+/**
+ * The card itself: the white border of a print with the page's own colour
+ * inside, and top right a stamp (the day's scene, when Scenery has pictures)
+ * franked with the postmark. What it says is the hint card's, unchanged.
+ */
+export function MemoryPostcard({ at, seed, className = '', hold = true, children }: { at?: string; seed: string; /** The print's own frame: its colour and shadow, when a place draws it differently. */ className?: string; /** Still while pointed at (off for one only to look at, as in the welcome). */ hold?: boolean; children: ReactNode }): React.JSX.Element {
+  return (
+    <Float hold={hold}>
+    <div className={`rounded-xl bg-(--mf-postcard) p-1.5 shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent),0_10px_28px_-10px_color-mix(in_oklab,var(--mf-shadow-ink)_35%,transparent)] ${className}`}>
+      <div className="rounded-lg bg-background px-3 pt-3 pb-2.5">
+        <div aria-hidden className="relative float-right -mt-1 -mr-0.5 mb-1 ml-3 h-14 w-[10.5rem]">
+          {/* The stamp: gone, with its border, when there is no scene to put in it. */}
+          <div className="absolute top-0 right-0 h-[3.25rem] w-11 rotate-[4deg] rounded-[3px] bg-white p-[3px] shadow-[0_1px_3px_rgb(0_0_0/0.25)] [&:not(:has(*))]:hidden">
+            <Stamp seed={seed}>
+              <Scenery place="recap" seed={`memory:${seed}`} mood={['day', 'dusk', 'night', 'interior']} wide={false} soft className="relative size-full" rounded="rounded-[1px]" />
+            </Stamp>
+          </div>
+          {at && <Postmark at={at} className="absolute top-0.5 right-6 h-14 w-[9.25rem]" />}
+        </div>
+        {children}
+      </div>
+    </div>
+    </Float>
+  )
+}
+
+/**
+ * The card held up off the desk: a slow float, a few px up and down with a
+ * hair of tilt, while its shadow on the desk below grows softer as it rises
+ * (main.css, .mf-float). Transform and opacity only. Still while pointed at
+ * or worked in, paused off screen or with the window hidden, and never moving
+ * at all with Motion off or Reduce motion.
+ */
+export function Float({ children, hold = true }: { children: ReactNode; /** Still while pointed at, for a card you act on; a card only to look at keeps floating. */ hold?: boolean }): React.JSX.Element {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    let seen = true
+    const set = (): void => void el.toggleAttribute('data-still', !seen || document.hidden)
+    const watch = new IntersectionObserver(([entry]) => ((seen = entry.isIntersecting), set()))
+    watch.observe(el)
+    document.addEventListener('visibilitychange', set)
+    return () => (watch.disconnect(), document.removeEventListener('visibilitychange', set))
+  }, [])
+  return (
+    <div ref={ref} data-float data-hold={hold || undefined} className="mf-float-wrap relative">
+      <div aria-hidden className="mf-float-shadow pointer-events-none absolute inset-x-[8%] -bottom-2 h-6 rounded-[50%] bg-[radial-gradient(closest-side,color-mix(in_oklab,var(--mf-shadow-ink)_22%,transparent),transparent)]" />
+      <div className="mf-float relative">{children}</div>
+    </div>
+  )
+}
+
+/** The stamp's picture: the scene over the memory's grain cover, so with Scenery off it still has one. */
+function Stamp({ seed, children }: { seed: string; children: ReactNode }): React.JSX.Element {
+  const grain = useCover(`memory:${seed}`)
+  if (!grain) return <>{children}</>
+  return (
+    <span className="relative block size-full overflow-hidden rounded-[1px]">
+      {grain && <GrainFill cover={grain} shade="none" />}
+      {children}
+    </span>
+  )
+}
+
+/** The card's words as a postcard when `on`, else just the words. */
+export function Postcarded({ on, at, seed, children }: { on: boolean; at?: string; seed: string; children: ReactNode }): React.JSX.Element {
+  return on ? <MemoryPostcard at={at} seed={seed}>{children}</MemoryPostcard> : <>{children}</>
+}

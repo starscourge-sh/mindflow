@@ -5,14 +5,14 @@
 // Typing fades the footer and the window's buttons out, and they come back
 // when the pointer moves or after a pause; a kind other than Note stays.
 // ⌥⌘, keeps them hidden until pointed at, and ⌘↵ still creates. Motion off: at once.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/box-zen.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/box-zen.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const c = await sandbox({ width: 1100, height: 760 })
 const { page, h, v } = c
 const results = []
 const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`))
-const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 const shots = process.env.QA_SHOTS
 await v('settings:set', { hintRate: 0, rotCount: 0, motion: true, boxHideButtons: false })
 

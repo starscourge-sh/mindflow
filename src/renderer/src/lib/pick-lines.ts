@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { chime } from './sound'
-import { vigil } from './vigil'
-import { toast, typing } from '@/components/vigil/ui'
+import { haligtree } from './haligtree'
+import { toast, typing } from '@/components/haligtree/ui'
 import { num } from '../../../main/dates'
 import { listInFront, useListScope } from './list-front'
 
@@ -36,12 +36,12 @@ export function usePickLines(ids: string[], scope: RefObject<HTMLElement | null>
   }
   const remove = (list: string[]): void => {
     if (!list.length) return
-    void Promise.all(list.map((id) => vigil.cutClue(id))).then((was) => {
+    void Promise.all(list.map((id) => haligtree.cutClue(id))).then((was) => {
       setChosen([])
       chime('away')
       const back = was.filter((one) => !!one)
       toast(list.length === 1 ? `${what.one[0].toUpperCase()}${what.one.slice(1)} removed` : `Removed ${num(list.length)} ${what.many}`,
-        back.length ? () => void Promise.all(back.map((one) => vigil.putClue(one!))).then(() => chime('undo')) : undefined)
+        back.length ? () => void Promise.all(back.map((one) => haligtree.putClue(one!))).then(() => chime('undo')) : undefined)
     })
   }
   useEffect(() => {

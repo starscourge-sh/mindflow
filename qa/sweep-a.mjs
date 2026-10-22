@@ -5,7 +5,7 @@
 // same in every list.
 //
 //   npx electron-vite build --outDir out-sweepa
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-sweepa/main/index.js MINDFLOW_QA_AWAY=1 node qa/sweep-a.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-sweepa/main/index.js HALIGTREE_QA_AWAY=1 node qa/sweep-a.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const results = []
@@ -75,8 +75,8 @@ try {
   await h.evaluate(() => {
     window.__toasts = []
     window.__quiet = 0
-    addEventListener('vigil:toast', (event) => window.__toasts.push(event.detail.text))
-    addEventListener('vigil:undoable', () => window.__quiet++)
+    addEventListener('haligtree:toast', (event) => window.__toasts.push(event.detail.text))
+    addEventListener('haligtree:undoable', () => window.__quiet++)
   })
 
   // 18: the walk. Each of these changes what is in front of you.

@@ -3,7 +3,7 @@
 // From Home's Next up a focus session starts, and once it runs the menu
 // offers the session's own lines instead of a second Start. "Pick a date…"
 // opens the task with its calendar up; "Mark it done" is taken back by ⌘Z.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 [SHOT=<dir>] node qa/context-menus.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 [SHOT=<dir>] node qa/context-menus.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 

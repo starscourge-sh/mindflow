@@ -4,14 +4,14 @@
  * welcome's Write chapter, in light, dark, Paper, GitHub and Midnight.
  *
  *   npx electron-vite build --outDir out-borders
- *   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-borders/main/index.js MINDFLOW_QA_AWAY=1 QA_SHOTS=... node qa/borders.mjs
+ *   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-borders/main/index.js HALIGTREE_QA_AWAY=1 QA_SHOTS=... node qa/borders.mjs
  */
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 
 const SHOTS = process.env.QA_SHOTS ?? 'scratchpad/borders'
 mkdirSync(SHOTS, { recursive: true })
-const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 const para = (text) => ({ type: 'paragraph', content: [{ type: 'text', text }] })
 const callout = (icon, color, type, title, text) => ({ type: 'callout', attrs: { icon, color, type, title, fold: '' }, content: [para(text)] })
 const NOTE = { type: 'doc', content: [
@@ -51,7 +51,7 @@ try {
     await page.waitForTimeout(1800)
     await page.screenshot({ path: `${SHOTS}/box-${theme}.png` }).catch(() => {})
     // The welcome's Write chapter, early, while the callout is on show.
-    await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:welcome')))
+    await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:welcome')))
     await h.waitForSelector('.mf-welcome', { timeout: 5000 })
     await h.waitForTimeout(800)
     for (const wait of [700, 700, 700]) { await h.keyboard.press('ArrowRight'); await h.waitForTimeout(wait) }

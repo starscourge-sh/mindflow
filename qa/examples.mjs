@@ -4,12 +4,12 @@
 // and the side panels show their faint example values until a field is set.
 //
 //   npx electron-vite build --outDir out-examples
-//   QA_DATA=$(mktemp -d) QA_ENTRY=out-examples/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=<dir> node qa/examples.mjs
+//   QA_DATA=$(mktemp -d) QA_ENTRY=out-examples/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=<dir> node qa/examples.mjs
 import { mkdirSync, mkdtempSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
-process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'vigil-examples-'))
+process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'haligtree-examples-'))
 const { sandbox } = await import('./sandbox-lib.mjs')
 
 const dir = process.env.SHOTS ?? '/tmp/examples'

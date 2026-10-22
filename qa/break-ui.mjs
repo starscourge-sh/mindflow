@@ -3,7 +3,7 @@
 // crowded calendar, a task made from twelve captures, a one-minute task, a
 // For tomorrow line that names a past day, tags in other languages, and a
 // 5,000-letter title. Fails on each break the break-ui audit found.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/break-ui.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/break-ui.mjs
 // SHOTS=<folder> also saves a picture of each place.
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
@@ -20,7 +20,7 @@ const TAG = 'comparative-literature-and-critical-theory-seminar'
 const EMOJI = '🎓📚✍️🎉👩🏽‍🎓'
 const ev = (title, from, to) => ({ title, start: on(from), end: on(to), allDay: false, calendar: 'College', color: '#2f80ed' })
 // 22 events today: the first ones in the morning, fourteen short revision blocks after 16:00, one late at night.
-process.env.MINDFLOW_QA_CALENDAR = JSON.stringify([
+process.env.HALIGTREE_QA_CALENDAR = JSON.stringify([
   ev('Overnight shift at the library desk', '22:00', '23:59'),
   ...Array.from({ length: 14 }, (_, i) => ev(`Revision block ${i + 1}`, `${pad(16 + Math.floor(i / 3))}:${pad((i % 3) * 20)}`, `${pad(16 + Math.floor(i / 3))}:${pad((i % 3) * 20 + 15)}`)),
   ev('Lab', '09:00', '09:30'), ev('Tutorial', '09:00', '11:00'), ev('Study group', '09:15', '09:45'), ev('Seminar', '13:00', '14:00'),
@@ -117,7 +117,7 @@ try {
 
     // 2. Close the day: the long-tag task keeps its name, and its buttons stay in the sheet.
     await go('today'); await wait(600)
-    await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:close-day'))); await wait(1600)
+    await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:close-day'))); await wait(1600)
     await shoot(`${width}-close-day`)
     const close = await h.evaluate((id) => {
       const li = document.querySelector(`[data-close-task="${id}"]`)
@@ -246,7 +246,7 @@ try {
   await shoot('sidebar-tags')
 
   // 11, 12, 15. Quick capture: the offers line, Similar to, and a link's site.
-  const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+  const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
   const fresh = async () => { await page.evaluate(() => window.api.showPrompt()); await page.waitForTimeout(700); await page.click(EDITOR); await page.keyboard.press('Meta+a'); await page.keyboard.press('Backspace'); await page.waitForTimeout(300) }
   await fresh()
   await page.keyboard.type('Shelley creature learns from Plutarch and Milton by the fire'); await page.waitForTimeout(1600)

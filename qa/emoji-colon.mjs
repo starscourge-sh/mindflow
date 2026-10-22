@@ -1,7 +1,7 @@
 // The emoji list comes up for a colon that starts a word with two letters
 // after it (":sm", " :tada"), never for a colon at the end of a word ("tldr:",
 // "Note:"), a lone colon, or a time ("10:30").
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/emoji-colon.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/emoji-colon.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const c = await sandbox({ width: 1000, height: 700 })

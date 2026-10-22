@@ -74,7 +74,7 @@ export const asideItem = (type: string, id: string): false | { label: string; ke
 
 /** Open something in a pane beside the one in front (or beside `from`). */
 export const openAside = (type: string, id: string, from?: string | null): void =>
-  void window.dispatchEvent(new CustomEvent('vigil:aside', { detail: { type, id, from } }))
+  void window.dispatchEvent(new CustomEvent('haligtree:aside', { detail: { type, id, from } }))
 
 /**
  * ⌥-click, as Finder and VS Code use it: whatever the click opens goes to the

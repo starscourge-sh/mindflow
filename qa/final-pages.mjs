@@ -16,7 +16,7 @@
 // The sandbox's own pill is hidden, so the top bar has the room it has for a person.
 // SHOTS=<dir> saves a picture of each page in each run.
 //   npx electron-vite build --outDir out-fp
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-fp/main/index.js MINDFLOW_QA_AWAY=1 node qa/final-pages.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-fp/main/index.js HALIGTREE_QA_AWAY=1 node qa/final-pages.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 

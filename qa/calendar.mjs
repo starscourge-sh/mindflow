@@ -5,7 +5,7 @@
 // open their pages. The week board: late tasks in one group, titles on one line.
 //
 //   npx electron-vite build --outDir out-calendar
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-calendar/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=dir node qa/calendar.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-calendar/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=dir node qa/calendar.mjs
 import { sandbox } from './sandbox-lib.mjs'
 import { THEMES, checkInks, dragAcross, monthKey, nextMonth, swipe, where } from './month-lib.mjs'
 

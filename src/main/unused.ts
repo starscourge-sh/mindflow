@@ -87,11 +87,11 @@ async function find(extra: string[]): Promise<Unused[] | { error: string } | nul
 }
 
 export function registerUnused(): void {
-  ipcMain.handle('vigil:unused:find', (_event, extra: unknown) => find(extra as string[]))
+  ipcMain.handle('haligtree:unused:find', (_event, extra: unknown) => find(extra as string[]))
   // The sheet closed while it looked: the scan stops at its next breath.
-  ipcMain.handle('vigil:unused:stop', () => void scan++)
+  ipcMain.handle('haligtree:unused:stop', () => void scan++)
   // Looked for again first, so a file a note took up since the sheet opened stays.
-  ipcMain.handle('vigil:unused:bin', async (_event, names: unknown, extra: unknown) => {
+  ipcMain.handle('haligtree:unused:bin', async (_event, names: unknown, extra: unknown) => {
     const now = await find(extra as string[])
     if (!Array.isArray(now) || !Array.isArray(names)) return { moved: 0, size: 0 }
     const still = new Map(now.map((one) => [one.name, one.size]))

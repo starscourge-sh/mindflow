@@ -4,7 +4,7 @@
 // SHOT=<dir> also takes an article, the Map and Review, light and dark.
 //
 //   npx electron-vite build --outDir out-ren
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-ren/main/index.js MINDFLOW_QA_AWAY=1 node qa/sandbox-renaissance.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-ren/main/index.js HALIGTREE_QA_AWAY=1 node qa/sandbox-renaissance.mjs
 import { mkdirSync, readFileSync } from 'fs'
 import { join } from 'path'
 import { sandbox } from './sandbox-lib.mjs'
@@ -35,7 +35,7 @@ try {
     const resolved = new Set(graph.out.map((one) => one.id))
     const broken = links.filter((id) => !resolved.has(id.includes(':') ? id.split(':')[1] : id))
     check(`${article.title}: ${links.length} links, all resolve`, links.length >= 4 && !broken.length, broken.join(', '))
-    check(`${article.title}: pictures, each captioned and credited`, images.length >= 2 && images.every((one) => one.attrs.src.startsWith('mindflow://assets/') && /Public domain|CC0/.test(one.attrs.caption ?? '')), images.map((one) => one.attrs.caption?.slice(0, 40)).join(' | '))
+    check(`${article.title}: pictures, each captioned and credited`, images.length >= 2 && images.every((one) => one.attrs.src.startsWith('haligtree://assets/') && /Public domain|CC0/.test(one.attrs.caption ?? '')), images.map((one) => one.attrs.caption?.slice(0, 40)).join(' | '))
     check(`${article.title}: headings and a table or list`, nodes.some((one) => one.type === 'heading') && nodes.some((one) => ['table', 'orderedList', 'bulletList'].includes(one.type)))
     check(`${article.title}: no link left as raw text`, !JSON.stringify(full.body).includes('[[@'))
     check(`${article.title}: links back in`, graph.in.length >= 1, `${graph.in.length} in`)

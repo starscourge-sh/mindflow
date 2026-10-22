@@ -128,7 +128,7 @@ export function ImageMenu({ editor }: { editor: Editor | null }): React.JSX.Elem
               <Captions className="tiptap-button-icon" />
             </Button>
             {/* Only a picture kept in the note's own store has a file to copy. */}
-            {attrs.src.startsWith("mindflow://assets/") && host().saveFileAs && (
+            {attrs.src.startsWith("haligtree://assets/") && host().saveFileAs && (
               <Button
                 data-style="ghost"
                 tooltip="Download"

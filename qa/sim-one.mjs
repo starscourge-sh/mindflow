@@ -3,7 +3,7 @@
 // back, every list answering the Mac's gestures, nothing binned still showing,
 // and Esc closing only the top thing. Each check is a person's move in the
 // real app (sandbox), so a build from before the fixes counts what was missing.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/sim-one.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/sim-one.mjs
 // SHOTS=<folder> saves the pictures.
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -17,7 +17,7 @@ const text = (w = h) => w.evaluate(() => document.body.innerText)
 const toast = (w = h) => w.evaluate(() => [...document.querySelectorAll('[role=status][aria-live]')].map((one) => one.textContent.replace(/\s+/g, ' ').trim()).filter(Boolean).join(' | '))
 const menu = (w = h) => w.evaluate(() => [...document.querySelectorAll('[role=menu] [role=menuitem]')].map((one) => one.textContent.trim()))
 const shot = async (name, w = h) => SHOTS && (await w.screenshot({ path: `${SHOTS}/${name}.png` }))
-const quietToasts = () => h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:untoast')))
+const quietToasts = () => h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:untoast')))
 const step = async (name, run) => {
   try { await run() } catch (error) { check(`${name}: ran`, false, String(error?.message ?? error).split('\n')[0].slice(0, 160)) }
   await h.keyboard.press('Escape').catch(() => {}); await wait(150)
@@ -29,7 +29,7 @@ try {
   // --- Words -----------------------------------------------------------------
   await step('words', async () => {
     await go('today'); await wait(500)
-    await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:shortcuts'))); await wait(700)
+    await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:shortcuts'))); await wait(700)
     const sheet = await text()
     check('the shortcut sheet says B moves the task to the Bin, not “Let the task go”', /Move the task to the Bin/.test(sheet) && !/Let the task go/.test(sheet))
     await h.keyboard.press('Escape'); await wait(300)

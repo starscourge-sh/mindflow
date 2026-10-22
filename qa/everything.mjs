@@ -7,7 +7,7 @@
 //   4. a task opens in the same pane Upcoming uses; its right-click is the task's own menu;
 //   5. the gestures: the tick and E mark one done; ⌘-click and ⇧-click pick; ⌫ moves the picked to
 //      the Bin and says so; ⌘Z brings them back; Esc lets the selection go; ⌘A picks all on show.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/everything.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/everything.mjs
 // SHOTS=dir keeps a picture of each step.
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'

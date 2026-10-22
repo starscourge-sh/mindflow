@@ -5,7 +5,7 @@
 // in the main window, every menu on the bar ("Aa", x², the highlighter,
 // alignment) opens next to its own button, inside the window, and what you
 // pick in it applies.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-tb/main/index.js MINDFLOW_QA_AWAY=1 node qa/selection-toolbar.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-tb/main/index.js HALIGTREE_QA_AWAY=1 node qa/selection-toolbar.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const c = await sandbox({ width: 1100, height: 760 })

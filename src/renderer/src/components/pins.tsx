@@ -3,13 +3,13 @@ import { useReading } from '@/lib/reads-in'
 import { EASE, shift } from '@/lib/motion'
 
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
-import { unloaded, useLive, vigil, type Pin as Pinned } from '@/lib/vigil'
+import { unloaded, useLive, haligtree, type Pin as Pinned } from '@/lib/haligtree'
 import { makeTask } from '@/lib/tasks'
-import { RowMenu } from './vigil/row-menu'
-import { Tip, pin as unpin } from '@/components/vigil/ui'
+import { RowMenu } from './haligtree/row-menu'
+import { Tip, pin as unpin } from '@/components/haligtree/ui'
 import { Button } from '@/components/ui/button'
 import { daysSince } from '../../../main/dates'
-import { orderItems, useInOrder, useOrder } from './vigil/places'
+import { orderItems, useInOrder, useOrder } from './haligtree/places'
 import { Bookmark as Pin, X } from '@/components/ui/icons'
 
 /**
@@ -22,7 +22,7 @@ export const BOX_PINS = 3
 
 export function Pins({ onOpen, compact = false }: { onOpen: (type: string, id: string) => void; compact?: boolean }): React.JSX.Element | null {
   // In the order kept in the sidebar's Pinned, where they drag; a step at a time here.
-  const usual = useLive(vigil.pins, [] as Pinned[])
+  const usual = useLive(haligtree.pins, [] as Pinned[])
   useReading(unloaded(usual))
   const every = useInOrder(usual, 'pinOrder', (pin) => `${pin.type}:${pin.id}`)
   const pins = every.slice(0, BOX_PINS)
@@ -55,8 +55,8 @@ export function Pins({ onOpen, compact = false }: { onOpen: (type: string, id: s
               <RowMenu items={[
                 { label: 'Open', run: () => onOpen(pin.type, pin.id) },
                 // Folded to a chip, its "Still relevant?" question is asked here instead.
-                compact && stale && { label: 'Keep it pinned', hint: 'Still relevant', run: () => void vigil.pin(table, pin.id, true) },
-                pin.type === 'capture' && { label: 'Make it a task', run: () => void makeTask({ capture: pin.id }, undefined, { onUndo: () => void vigil.pin(table, pin.id, true) }).then((made) => made && vigil.pin(table, pin.id, false)) },
+                compact && stale && { label: 'Keep it pinned', hint: 'Still relevant', run: () => void haligtree.pin(table, pin.id, true) },
+                pin.type === 'capture' && { label: 'Make it a task', run: () => void makeTask({ capture: pin.id }, undefined, { onUndo: () => void haligtree.pin(table, pin.id, true) }).then((made) => made && haligtree.pin(table, pin.id, false)) },
                 'separator',
                 ...orderItems({ setting: 'pinOrder', usual: usual.map((one) => `${one.type}:${one.id}`), id: `${pin.type}:${pin.id}`, among: every.map((one) => `${one.type}:${one.id}`), what: 'Pinned', name: pin.title || 'Untitled' }, custom),
                 'separator',
@@ -70,9 +70,9 @@ export function Pins({ onOpen, compact = false }: { onOpen: (type: string, id: s
               {stale && !compact && (
                 <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
                   Still relevant?
-                  <Button variant="ghost" size="sm" onClick={() => void vigil.pin(table, pin.id, true)}>Keep</Button>
+                  <Button variant="ghost" size="sm" onClick={() => void haligtree.pin(table, pin.id, true)}>Keep</Button>
                   {pin.type === 'capture' && (
-                    <Button variant="ghost" size="sm" onClick={() => void makeTask({ capture: pin.id }, undefined, { onUndo: () => void vigil.pin(table, pin.id, true) }).then((made) => made && vigil.pin(table, pin.id, false))}>Task</Button>
+                    <Button variant="ghost" size="sm" onClick={() => void makeTask({ capture: pin.id }, undefined, { onUndo: () => void haligtree.pin(table, pin.id, true) }).then((made) => made && haligtree.pin(table, pin.id, false))}>Task</Button>
                   )}
                 </span>
               )}

@@ -6,7 +6,7 @@
 // is named without its #tags; the sidebar's page previews say today's date,
 // week and month; the Week's page and Close the day never flash "nothing"
 // while they read; a resting mouse never takes Close the day's cursor.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/sim-three.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/sim-three.mjs
 // SHOTS=dir keeps pictures.
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
@@ -130,7 +130,7 @@ try {
   await v('task:done', id(done))
   await go('today')
   await h.waitForTimeout(600)
-  const openClose = () => h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:close-day')))
+  const openClose = () => h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:close-day')))
   await openClose()
   check('Close the day never flashes "No tasks ticked off" while it reads', !(await flashed('No tasks ticked off today', 1200)))
   await h.waitForTimeout(400)
@@ -191,7 +191,7 @@ try {
   await h.waitForTimeout(500)
   const scroll = await h.evaluate(() => {
     const probe = document.createElement('div')
-    probe.className = 'mindflow-editor-content is-smooth'
+    probe.className = 'haligtree-editor-content is-smooth'
     document.body.append(probe)
     const said = getComputedStyle(probe).scrollBehavior
     probe.remove()
@@ -254,7 +254,7 @@ try {
       await go('discarded')
       await h.waitForTimeout(800)
       await shot(`bin-${name}`)
-      await h.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:close-week')))
+      await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:close-week')))
       await h.waitForTimeout(1500)
       await h.evaluate(() => document.querySelector('[data-week-fit]')?.scrollIntoView({ block: 'center' }))
       await h.waitForTimeout(600)

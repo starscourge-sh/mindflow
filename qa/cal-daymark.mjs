@@ -16,7 +16,7 @@
 // useful shortcuts. Screenshots in paper, light and dark at 1600 and 1200 wide.
 //
 //   npx electron-vite build --outDir out-calref
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-calref/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=dir node qa/cal-daymark.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-calref/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=dir node qa/cal-daymark.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const c = await sandbox({ width: 1600, height: 1000, at: '10:30' })

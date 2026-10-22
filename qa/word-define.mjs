@@ -5,12 +5,12 @@
 // asked, Tab to keep and to leave out, Esc, the right-click menu, and the
 // “Word meanings” setting. Read back through the page and the app's own API.
 //
-// The Mac's own Dictionary answers as it does for anyone (MINDFLOW_QA_MAC_DICT=on);
-// the web dictionary behind it is a small local server (MINDFLOW_QA_DICT, honoured
+// The Mac's own Dictionary answers as it does for anyone (HALIGTREE_QA_MAC_DICT=on);
+// the web dictionary behind it is a small local server (HALIGTREE_QA_DICT, honoured
 // only on a QA data folder), so a slow or missing answer is the same every run.
 //
 //   npx electron-vite build --outDir out-define
-//   QA_DATA=$(mktemp -d) QA_ENTRY=out-define/main/index.js MINDFLOW_QA_AWAY=1 node qa/word-define.mjs
+//   QA_DATA=$(mktemp -d) QA_ENTRY=out-define/main/index.js HALIGTREE_QA_AWAY=1 node qa/word-define.mjs
 //
 // SHOTS=dir saves light and dark pictures. ONLY=a,b runs the checks whose names hold them.
 import { createServer } from 'http'
@@ -19,8 +19,8 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { open } from './harness.mjs'
 
-process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'vigil-define-'))
-process.env.MINDFLOW_QA_MAC_DICT = 'on'
+process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'haligtree-define-'))
+process.env.HALIGTREE_QA_MAC_DICT = 'on'
 
 // --- the web dictionary, played by a local server: only words the Mac does not know --
 const hits = []
@@ -44,13 +44,13 @@ const server = createServer((req, res) => {
 })
 await new Promise((done) => server.listen(0, '127.0.0.1', done))
 server.unref()
-process.env.MINDFLOW_QA_DICT = `http://127.0.0.1:${server.address().port}/api/v2/entries/en/`
+process.env.HALIGTREE_QA_DICT = `http://127.0.0.1:${server.address().port}/api/v2/entries/en/`
 
-const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 let qa = await open()
 let { page } = qa
-if (!(await page.evaluate(() => window.api.vigil('onboarding:state').then((s) => !!s?.welcomed)))) {
-  await page.evaluate(() => window.api.vigil('onboarding:set', { welcomed: new Date().toISOString(), welcoming: false }))
+if (!(await page.evaluate(() => window.api.haligtree('onboarding:state').then((s) => !!s?.welcomed)))) {
+  await page.evaluate(() => window.api.haligtree('onboarding:set', { welcomed: new Date().toISOString(), welcoming: false }))
   const child = qa.electron.process()
   await qa.close?.()
   try { child.kill('SIGKILL') } catch {}
@@ -62,7 +62,7 @@ const errors = []
 page.on('pageerror', (error) => errors.push(`PAGEERROR ${error.message}`))
 const results = []
 const wait = (ms = 300) => page.waitForTimeout(ms)
-const v = (channel, ...args) => page.evaluate(([c, a]) => window.api.vigil(c, ...a), [channel, args])
+const v = (channel, ...args) => page.evaluate(([c, a]) => window.api.haligtree(c, ...a), [channel, args])
 const define = () => page.evaluate(() => document.querySelector('[data-define]')?.getAttribute('data-define') ?? null)
 const said = () => page.evaluate(() => document.querySelector('[data-define]')?.textContent ?? '')
 const source = () => page.evaluate(() => document.querySelector('[data-define]')?.getAttribute('data-source') ?? null)
@@ -356,26 +356,26 @@ if (process.env.SHOTS) {
     await type('serendipity')
     await until(async () => (await define()) === 'ghost')
     await wait(900)
-    await page.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:untoast')))
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:untoast')))
     await wait(250)
     await page.screenshot({ path: `${process.env.SHOTS}/after-meaning-${name}.png` })
     await page.keyboard.press('Tab')
     await wait(500)
-    await page.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:untoast')))
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:untoast')))
     await wait(250)
     await page.screenshot({ path: `${process.env.SHOTS}/after-kept-${name}.png` })
     await fresh()
     await type(name === 'light' ? 'lanternmoss' : 'emberquill')
     await until(async () => (await define()) === 'looking' && (await page.evaluate(() => getComputedStyle(document.querySelector('[data-define]')).visibility)) === 'visible', 3000)
     await wait(250)
-    await page.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:untoast')))
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:untoast')))
     await wait(250)
     await page.screenshot({ path: `${process.env.SHOTS}/after-waiting-${name}.png` })
     await fresh()
     await type('recieve')
     await until(async () => (await define()) === 'fix')
     await wait(500)
-    await page.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:untoast')))
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:untoast')))
     await wait(250)
     await page.screenshot({ path: `${process.env.SHOTS}/after-fix-${name}.png` })
     await fresh()
@@ -384,7 +384,7 @@ if (process.env.SHOTS) {
     await wait(600)
     await page.click('[data-define] [data-meaning] > button', { button: 'right' })
     await wait(500)
-    await page.evaluate(() => window.dispatchEvent(new CustomEvent('vigil:untoast')))
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:untoast')))
     await wait(250)
     await page.screenshot({ path: `${process.env.SHOTS}/after-menu-${name}.png` })
     await page.keyboard.press('Escape')

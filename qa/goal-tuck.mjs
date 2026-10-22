@@ -4,13 +4,13 @@
 // sight; a focus session tucks it; and one out of sight two days peeks out by
 // itself, once that day. Settings shows the rules, each with a preview.
 // Paper and Dark, 900x700 and 1600x1000 for the settings.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/goal-tuck.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/goal-tuck.mjs
 // SHOTS=dir keeps pictures.
 import { mkdirSync } from 'node:fs'
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
 
-process.env.MINDFLOW_QA_VIRTUAL ??= '1'
+process.env.HALIGTREE_QA_VIRTUAL ??= '1'
 const shots = process.env.SHOTS
 if (shots) mkdirSync(shots, { recursive: true })
 const { check, done } = checks()
@@ -87,12 +87,12 @@ try {
   await v('settings:set', { goalShowUntil: hhmm(-60), goalShowFrom: hhmm(60), goalBetween: 'tuck', goalPeekOut: true })
   await wait(1200)
   check('tucked again', !(await card()).visible)
-  await electron.evaluate((_, key) => { const seen = globalThis.vigilGoalSeen(); seen.last[key] = Date.now() - 3 * 86_400_000; delete seen.nudged[key] }, key)
+  await electron.evaluate((_, key) => { const seen = globalThis.haligtreeGoalSeen(); seen.last[key] = Date.now() - 3 * 86_400_000; delete seen.nudged[key] }, key)
   await v('settings:set', { goalPeekOut: true, goalShowFrom: hhmm(61) })
   await wait(1200)
   now = await card()
   check('out of sight two days, it peeks out by itself as a tab', now.visible && now.b.width === 46, JSON.stringify(now))
-  const nudged = await electron.evaluate((_, key) => globalThis.vigilGoalSeen().nudged[key], key)
+  const nudged = await electron.evaluate((_, key) => globalThis.haligtreeGoalSeen().nudged[key], key)
   check('and is marked as done for today, so not again till tomorrow', nudged === new Date().toLocaleDateString('sv'), String(nudged))
   check('one window for the card, all along', now.count === 1, String(now.count))
   await v('settings:set', { goalTuck: false })

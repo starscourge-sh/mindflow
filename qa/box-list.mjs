@@ -6,7 +6,7 @@
 // the box back as it was. The × keeps it one note. A pasted list in a Note
 // offers the same and makes the box a Task. A page of mixed lines offers
 // "Sort this out" instead, never both.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/box-list.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/box-list.mjs
 import { sandbox } from './sandbox-lib.mjs'
 
 const c = await sandbox({ width: 1100, height: 760 })
@@ -18,7 +18,7 @@ const will = () => page.evaluate(() => document.querySelector('[data-will-do]')?
 const similar = () => page.evaluate(() => /Similar to/.test(document.body.innerText))
 const open = async () => (await v('tasks')).filter((one) => one.status === 'open')
 const named = async (title) => (await open()).find((one) => one.title === title)
-const words = () => page.evaluate(() => document.querySelector('.tiptap.ProseMirror.mindflow-editor')?.innerText.trim() ?? '')
+const words = () => page.evaluate(() => document.querySelector('.tiptap.ProseMirror.haligtree-editor')?.innerText.trim() ?? '')
 const fresh = async () => {
   await page.evaluate(() => window.api.showPrompt())
   await page.waitForTimeout(700)

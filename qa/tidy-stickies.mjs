@@ -4,7 +4,7 @@
 // stickies.json; with Motion off they jump there at once. Real windows.
 //
 //   npx electron-vite build --outDir out-stickies
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-stickies/main/index.js MINDFLOW_QA_AWAY=1 MINDFLOW_QA_VIRTUAL=1 node qa/tidy-stickies.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-stickies/main/index.js HALIGTREE_QA_AWAY=1 HALIGTREE_QA_VIRTUAL=1 node qa/tidy-stickies.mjs
 import { mkdirSync, readFileSync, readdirSync, existsSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { open } from './harness.mjs'
@@ -147,7 +147,7 @@ const dragged = (await stickies())[0]
 check('a drag after a tidy is kept', kept()[dragged.key]?.x === dragged.b.x)
 
 // Motion off: straight there, no glide.
-await page.evaluate(() => window.api.vigil('settings:set', { motion: false }))
+await page.evaluate(() => window.api.haligtree('settings:set', { motion: false }))
 const before2 = await scatter()
 await page.evaluate(() => window.api.tidyStickies())
 await page.waitForTimeout(60)
@@ -156,7 +156,7 @@ check('Motion off: tidied at once', tidy(still), JSON.stringify(still.map((s) =>
 await page.evaluate(() => window.api.untidyStickies())
 await page.waitForTimeout(60)
 check('Motion off: put back at once', sameAs(await stickies(), before2))
-await page.evaluate(() => window.api.vigil('settings:set', { motion: true }))
+await page.evaluate(() => window.api.haligtree('settings:set', { motion: true }))
 
 // Too many for one column: fourteen overlap as a fan, still inside the right middle.
 const more = all.slice(4, 14).map((one) => one.id)

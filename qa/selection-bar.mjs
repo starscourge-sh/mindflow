@@ -6,7 +6,7 @@
 // the words while they scroll, and goes when they scroll out of sight.
 // ⌘A shows it too, once the whole note has stayed selected a moment, but
 // ⌘A then ⌫ never flashes it.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 SHOTS=<dir> node qa/selection-bar.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=<dir> node qa/selection-bar.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 

@@ -3,7 +3,7 @@
 // Drive folder, and that folder brought in whole. The real iCloud Drive is
 // never touched. (Apple Notes is qa/note-imports.mjs; a restore from the
 // daily iCloud backup is qa/save-backup-import.mjs.)
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/icloud-imports.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/icloud-imports.mjs
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -11,7 +11,7 @@ import { sandbox } from './sandbox-lib.mjs'
 const results = []
 const check = (name, ok, detail = '') => { results.push(!!ok); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`) }
 // A stand-in for ~/Library/Mobile Documents/com~apple~CloudDocs, with a folder of notes in it.
-const drive = mkdtempSync(join(tmpdir(), 'vigil-icloud-'))
+const drive = mkdtempSync(join(tmpdir(), 'haligtree-icloud-'))
 const folder = join(drive, 'com~apple~CloudDocs', 'Reading notes')
 mkdirSync(join(folder, 'Books'), { recursive: true })
 for (let i = 1; i <= 12; i++) writeFileSync(join(folder, 'Books', `Book ${i}.md`), `# Book ${i}\n\nWhat stayed with me from book ${i}.\n`)

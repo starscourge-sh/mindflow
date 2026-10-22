@@ -3,7 +3,7 @@
 // is seen at changes by clip and transform only: nothing inside it is laid
 // out again on each frame (its box changes size at most once per change, not
 // every frame). Shots of each stage, free and under the notch.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 SHOT=<dir> node qa/pill-shape.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 SHOT=<dir> node qa/pill-shape.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 

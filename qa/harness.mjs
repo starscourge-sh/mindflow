@@ -14,7 +14,7 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { _electron as electron } from 'playwright'
 
-const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 /** Every line of the document, in the order they are read. */
 const LINES = `${EDITOR} li > p, ${EDITOR} li > div > p, ${EDITOR} > p, ${EDITOR} > h1, ${EDITOR} > h2`
 
@@ -41,7 +41,7 @@ export function checks() {
 export async function open() {
   // A fresh folder for the app's data, so a run never touches your real captures.
   // QA_DATA points a run at a copy of real data, to see it with a real corpus.
-  const data = process.env.QA_DATA ?? mkdtempSync(join(tmpdir(), 'mindflow-qa-'))
+  const data = process.env.QA_DATA ?? mkdtempSync(join(tmpdir(), 'haligtree-qa-'))
   // QA_ENTRY runs a build kept apart from out/, so one test's build does not
   // pull the app out from under another test running at the same time.
   // QA_ARGS adds launch flags, such as --sandbox for the practice copy.
@@ -50,7 +50,7 @@ export async function open() {
   // build is missing stops here instead of opening a bare Electron.
   const entry = process.env.QA_ENTRY ?? join(process.cwd(), 'out/main/index.js')
   if (!existsSync(entry)) throw new Error(`No build at ${entry}: build first (npx electron-vite build --outDir out-x)`)
-  const app = await electron.launch({ args: [entry, ...extra], env: { MINDFLOW_QA_AWAY: '1', ...process.env, MINDFLOW_USER_DATA: data } })
+  const app = await electron.launch({ args: [entry, ...extra], env: { HALIGTREE_QA_AWAY: '1', ...process.env, HALIGTREE_USER_DATA: data } })
   // Never left running: the app keeps its windows when asked to close (a
   // window put away, not quit), so a plain kill can leave it stuck exiting.
   // However the run ends (done, failed, interrupted), it is killed outright.
@@ -58,7 +58,7 @@ export async function open() {
   // A tiling window manager (AeroSpace) would tile the test windows into the
   // workspace in use: float each of this run's windows as it appears, so the
   // app can park it past the screen's edge.
-  if (process.env.MINDFLOW_QA_AWAY !== '0') {
+  if (process.env.HALIGTREE_QA_AWAY !== '0') {
     const floated = new Set()
     // One ask at a time, and none that hangs: a stuck AeroSpace once piled up
     // thousands of waiting calls until no process could start.
@@ -155,7 +155,7 @@ export async function open() {
      */
     async paste(text) {
       await page.evaluate(async (value) => {
-        const target = document.querySelector('.tiptap.ProseMirror.mindflow-editor:not(.is-line)')
+        const target = document.querySelector('.tiptap.ProseMirror.haligtree-editor:not(.is-line)')
         target?.focus()
         const data = new DataTransfer()
         data.setData('text/plain', value)
@@ -211,7 +211,7 @@ export async function open() {
       const grip = page.locator('.tiptap-drag-handle-grip')
       await grip.waitFor({ state: 'visible', timeout: 4000 })
       const from = await grip.boundingBox()
-      const box = await page.locator('.mindflow-editor-content').boundingBox()
+      const box = await page.locator('.haligtree-editor-content').boundingBox()
       if (!from || !box) throw new Error('no box to drag in')
 
       await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
@@ -235,7 +235,7 @@ export async function open() {
 
     /** How far the document has scrolled. */
     scrollTop() {
-      return page.$eval('.mindflow-editor-content', (box) => box.scrollTop)
+      return page.$eval('.haligtree-editor-content', (box) => box.scrollTop)
     },
 
     async press(...keys) {

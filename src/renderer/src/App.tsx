@@ -4,7 +4,7 @@ import { clock } from '@/lib/clock'
 import { useStickiesOut } from '@/lib/stickies-out'
 import { START_FOCUS, useAbandonAction } from '@/lib/abandon'
 import { practices, timeSaid, useOffer, usePracticeActions } from '@/lib/practices'
-import { PracticeOfferCard } from '@/components/vigil/practice-pill'
+import { PracticeOfferCard } from '@/components/haligtree/practice-pill'
 import React, { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { cardUp, cardsUp } from './lib/link-card'
 import { AnimatePresence, motion } from 'motion/react'
@@ -14,54 +14,54 @@ import CameraOffIcon from '@/components/ui/camera-off-icon'
 import type { Editor, JSONContent } from '@tiptap/core'
 
 import { convertImports } from './lib/convert-imports'
-import { MindflowEditor, TAGS, currentVim, foldEverything, goToHeading, onVimChange, setVim } from './components/mindflow'
+import { HaligtreeEditor, TAGS, currentVim, foldEverything, goToHeading, onVimChange, setVim } from './components/haligtree'
 import { settleVim } from './lib/vim'
 import { EXITS, exit, findCaptures, findHeadings, follow } from './lib/capture-links'
 import { toMarkdown } from './lib/export'
 import { useSameWords } from './lib/same-words'
 import { CaptureList, tagCaptures, useCaptures, type CaptureMeta } from './components/capture-list'
-import { Example } from './components/vigil/example'
+import { Example } from './components/haligtree/example'
 import { exampleInbox } from './lib/examples'
 import { Waiting, textOf, useOldDealt, useOldShown } from './components/rot-cards'
 import { BOX_PINS } from './components/pins'
 import { THROWS, comboOf } from './lib/keys'
-import { GraphChip, InboxGraph, useGraphShown } from './components/vigil/inbox-graph'
+import { GraphChip, InboxGraph, useGraphShown } from './components/haligtree/inbox-graph'
 import { HintCard } from './components/hint-card'
-import { TodayPanel } from './components/vigil/today-panel'
-import { selectionActions } from './components/vigil/selection-actions'
-import { ReviewView } from './components/vigil/review-view'
-import { SessionFooter } from './components/vigil/session-footer'
-import { unloaded, useAppearance, useLive } from './lib/vigil'
+import { TodayPanel } from './components/haligtree/today-panel'
+import { selectionActions } from './components/haligtree/selection-actions'
+import { ReviewView } from './components/haligtree/review-view'
+import { SessionFooter } from './components/haligtree/session-footer'
+import { unloaded, useAppearance, useLive } from './lib/haligtree'
 import { allRecorded, moveOldRecordable, recordAll } from './lib/recordings'
-import { BackToTop, Empty, Kbd, Remembered, Strip, StripSlot, typing, useListKeys, useReadKey, useSmooth, FocusNote, useFocusMode, startAt, quietly } from './components/vigil/ui'
+import { BackToTop, Empty, Kbd, Remembered, Strip, StripSlot, typing, useListKeys, useReadKey, useSmooth, FocusNote, useFocusMode, startAt, quietly } from './components/haligtree/ui'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
 import { cn } from '@/lib/cn'
-import { Count, Rolling, Toaster, Typed, refuse, toast, whyFailed } from './components/vigil/ui'
-import { beam } from './components/vigil/beam'
-import { Reader } from './components/vigil/reader'
-import { OptionsMenu, PointMenu, type Section } from './components/vigil/options-menu'
+import { Count, Rolling, Toaster, Typed, refuse, toast, whyFailed } from './components/haligtree/ui'
+import { beam } from './components/haligtree/beam'
+import { Reader } from './components/haligtree/reader'
+import { OptionsMenu, PointMenu, type Section } from './components/haligtree/options-menu'
 import { useZen } from './lib/zen'
-import { ReadThrough, type Readable } from './components/vigil/read-through'
-import { Passes, openPass } from './components/vigil/pass'
+import { ReadThrough, type Readable } from './components/haligtree/read-through'
+import { Passes, openPass } from './components/haligtree/pass'
 import { assetsOf } from './lib/document'
 import { tagsOf, type TokenPattern } from './extensions/tokens'
-import { KeptPanel } from './components/vigil/kept-panel'
-import { startQuestion } from './components/vigil/questions-view'
-import { clueInto } from './components/vigil/pinned-questions'
-import { logInto } from './components/vigil/goals-view'
-import { BoxOffers } from './components/vigil/box-offers'
-import { RecentPanel } from './components/vigil/recent-panel'
-import { BOX_TABS, dropOrder, orderItems, useInOrder, useOrder, useShown, type Place } from './components/vigil/places'
-import { SortableList, SortableRow } from './components/vigil/sortable'
-import { RowMenu } from './components/vigil/row-menu'
-import { CaptureProps, GoThrough, useCaptureDisplay } from './components/vigil/captures-view'
-import { useShowOpen } from './components/vigil/islands'
+import { KeptPanel } from './components/haligtree/kept-panel'
+import { startQuestion } from './components/haligtree/questions-view'
+import { clueInto } from './components/haligtree/pinned-questions'
+import { logInto } from './components/haligtree/goals-view'
+import { BoxOffers } from './components/haligtree/box-offers'
+import { RecentPanel } from './components/haligtree/recent-panel'
+import { BOX_TABS, dropOrder, orderItems, useInOrder, useOrder, useShown, type Place } from './components/haligtree/places'
+import { SortableList, SortableRow } from './components/haligtree/sortable'
+import { RowMenu } from './components/haligtree/row-menu'
+import { CaptureProps, GoThrough, useCaptureDisplay } from './components/haligtree/captures-view'
+import { useShowOpen } from './components/haligtree/islands'
 import { Search } from './components/search'
-import { InboxBinned, InboxZero, useJustCleared } from './components/vigil/inbox-zero'
+import { InboxBinned, InboxZero, useJustCleared } from './components/haligtree/inbox-zero'
 import { keepTyped } from './lib/keep-typed'
 import { notePromoted } from './lib/promote'
 import { noteActions, useOpenNote } from './lib/notes'
-import { vigil, type Item, type PinnedQuestion, type Settings } from './lib/vigil'
+import { haligtree, type Item, type PinnedQuestion, type Settings } from './lib/haligtree'
 import { markFromBox } from './lib/milestones'
 import { makeListTasks, makeTask, makeTasks, oneTask, picked } from './lib/tasks'
 import { boxKind, boxList } from './lib/line-tasks'
@@ -69,16 +69,16 @@ import { openSort } from './lib/sort-out'
 import { tasksSaid } from '../../main/day-lines'
 import { useSelectAll } from './lib/select-all'
 import { usePicking } from './lib/pick-range'
-import { PickDays } from './components/vigil/late-tasks'
+import { PickDays } from './components/haligtree/late-tasks'
 import { binItem, moveToBin } from './lib/to-bin'
 import TrashIcon from './components/ui/trash-icon'
-import { WillDo, TokenHint } from './components/vigil/will-do'
+import { WillDo, TokenHint } from './components/haligtree/will-do'
 import { boxTokensPlugin, withoutWord, keepPlain, keptMessage, planNow, rearm, replan, type BoxContext, type BoxPlan, type BoxToken } from './lib/box-tokens'
 import { chime, soundOn } from './lib/sound'
 import { crumpleFrom, liftFrom } from './lib/fly-home'
 import { lengthSaid } from './lib/timer'
-import { stickOnDesktop } from './components/vigil/sticky-note'
-import { NotePreview } from './components/vigil/note-preview'
+import { stickOnDesktop } from './components/haligtree/sticky-note'
+import { NotePreview } from './components/haligtree/note-preview'
 
 import { CAPTURE_TYPES, CaptureKindPicker, asksFor, type CaptureType } from './components/capture-kinds/capture-kind-picker'
 import { firstLine, kindOf } from '../../main/import'
@@ -95,24 +95,24 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable"
-import { Tip, Pressed, untoast } from '@/components/vigil/ui'
-import { Celebrations } from '@/components/vigil/celebrate'
-import { Mentions } from '@/components/vigil/mentions'
+import { Tip, Pressed, untoast } from '@/components/haligtree/ui'
+import { Celebrations } from '@/components/haligtree/celebrate'
+import { Mentions } from '@/components/haligtree/mentions'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
 import GearIcon from '@/components/ui/gear-icon'
 import PenIcon from '@/components/ui/pen-icon'
 import { AliveIcon } from '@/components/ui/alive-icon'
-import { ShotButton } from '@/components/vigil/shot-button'
+import { ShotButton } from '@/components/haligtree/shot-button'
 import { useStoredFlag } from '@/lib/use-stored-flag'
-import { ShortcutSheet } from '@/components/vigil/shortcut-sheet'
-import { WordNotes } from '@/components/vigil/term'
-import { FocusScenery, Rest } from './components/vigil/scenery'
+import { ShortcutSheet } from '@/components/haligtree/shortcut-sheet'
+import { WordNotes } from '@/components/haligtree/term'
+import { FocusScenery, Rest } from './components/haligtree/scenery'
 import { brief, dayjs, num } from '../../main/dates'
 import { holdKeys, useLesson, useWelcomePlaceholder } from './lib/welcome-box'
-import { SandboxChip } from '@/components/vigil/sandbox'
-import { DefineGhost, defineable, fixIn, useDefinition } from '@/components/vigil/word-define'
+import { SandboxChip } from '@/components/haligtree/sandbox'
+import { DefineGhost, defineable, fixIn, useDefinition } from '@/components/haligtree/word-define'
 import { notes } from './lib/notes'
 import { useFitBox } from './lib/fit-box'
 import { menuShowing, layerOpen } from '@/lib/menu-keys'
@@ -438,7 +438,7 @@ export default function App(): React.JSX.Element {
   const [secret, setSecret] = useState(false)
   // Hidden from screen recordings and shares unless let in, for a demo or a
   // Loom; remembered, and put back on every start.
-  const appSettings = useLive(vigil.settings, null as Settings | null)
+  const appSettings = useLive(haligtree.settings, null as Settings | null)
   // ⌘K's Abandon session, while one runs.
   const abandonAction = useAbandonAction()
   const practiceActions = usePracticeActions()
@@ -451,10 +451,10 @@ export default function App(): React.JSX.Element {
   const stickiesOut = useStickiesOut()
   // What the side panel's Inbox has waiting on you: rot cards (as many as it
   // would show) and pins, for the chip at the top while the panel is shut.
-  const oldRead = useLive(vigil.rotWaiting, null as number | null)
+  const oldRead = useLive(haligtree.rotWaiting, null as number | null)
   const oldCount = useOldShown(oldRead ?? 0)
   const oldDealt = useOldDealt()
-  const pinned = useLive(vigil.pins, [] as Awaited<ReturnType<typeof vigil.pins>>)
+  const pinned = useLive(haligtree.pins, [] as Awaited<ReturnType<typeof haligtree.pins>>)
   // The word count under the note, on unless you would rather not see it.
   const [counting, setCountingState] = useStoredFlag('word-count', true)
   const setCounting = (on: boolean): void => {
@@ -479,8 +479,8 @@ export default function App(): React.JSX.Element {
   const setHideButtons = (on: boolean, byKey = false): void => {
     // A menu's tick makes its own sound; the key needs one of its own.
     if (byKey) chime(on ? 'on' : 'off')
-    void vigil.setSettings({ boxHideButtons: on })
-    void (on ? (undo: () => void) => toast('Buttons hidden until pointed at. ⌥⌘, brings them back.', undo) : quietly)(() => void vigil.setSettings({ boxHideButtons: !on }))
+    void haligtree.setSettings({ boxHideButtons: on })
+    void (on ? (undo: () => void) => toast('Buttons hidden until pointed at. ⌥⌘, brings them back.', undo) : quietly)(() => void haligtree.setSettings({ boxHideButtons: !on }))
   }
   const hideNow = useRef(hideButtons)
   hideNow.current = hideButtons
@@ -500,11 +500,11 @@ export default function App(): React.JSX.Element {
   // day, and a slide seen for the hundredth time only reads as waiting.
   // A focus session left running across a restart brings its timer back.
   // So does one left running in another book by a switch: the pill names that book.
-  useEffect(() => void Promise.all([vigil.focusNow(), vigil.focusElsewhere().catch(() => null)]).then(([focus, elsewhere]) => (focus || elsewhere) && window.api.showFocus(true)), [])
-  // One that ran out while Vigil was closed was ended quietly at start: said
+  useEffect(() => void Promise.all([haligtree.focusNow(), haligtree.focusElsewhere().catch(() => null)]).then(([focus, elsewhere]) => (focus || elsewhere) && window.api.showFocus(true)), [])
+  // One that ran out while Haligtree was closed was ended quietly at start: said
   // once, the first time the box is on screen, rather than ringing late.
   useEffect(() => {
-    const tell = (): void => void vigil.focusMissed().then((said) => said && toast(said, undefined, 'info'))
+    const tell = (): void => void haligtree.focusMissed().then((said) => said && toast(said, undefined, 'info'))
     if (document.visibilityState === 'visible') tell()
     return window.api.onShown(tell)
   }, [])
@@ -570,7 +570,7 @@ export default function App(): React.JSX.Element {
   editingNow.current = editing?.id
   const [sending, setSending] = useState(false)
   const [saved, setSaved] = useState(false)
-  const actionTags = useLive(() => vigil.tagMeta().then((meta) => meta.filter((row) => row.action).map((row) => row.tag)), [] as string[])
+  const actionTags = useLive(() => haligtree.tagMeta().then((meta) => meta.filter((row) => row.action).map((row) => row.tag)), [] as string[])
 
   // Kept as you type, so a half-written note survives quitting.
   // Not while it is being sent: kept, it must not come back as a draft too.
@@ -583,7 +583,7 @@ export default function App(): React.JSX.Element {
   const [like, setLike] = useState<{ id: string; number: number; title: string } | null>(null)
   useEffect(() => {
     if (editing || !first) return setLike(null)
-    void vigil.similar(first).then(setLike)
+    void haligtree.similar(first).then(setLike)
   }, [first, editing])
   // A Todo written as a list: a task a line, its indented lines their steps,
   // said under the box. Its first line alone is not "similar" to anything:
@@ -594,7 +594,7 @@ export default function App(): React.JSX.Element {
   // "+name" on the first line: a clue for a question you are holding, or a
   // log for a goal, not a capture. The open questions and goals, to find
   // which one the name means.
-  const held = useLive(() => Promise.all([vigil.items('question'), vigil.items('goal')]).then((lists) => lists.flat().filter((one) => !one.closedAt && !one.archivedAt)), [] as Item[], [], ['item'])
+  const held = useLive(() => Promise.all([haligtree.items('question'), haligtree.items('goal')]).then((lists) => lists.flat().filter((one) => !one.closedAt && !one.archivedAt)), [] as Item[], [], ['item'])
   boxContext.current = { off: !!editing, kind, chosen, held, actionTags, timers: appSettings?.focusTools === true }
   useEffect(() => void (editorRef.current !== retired.current && replan(editorRef.current)), [editing, kind, chosen, held, actionTags])
   // "+name" read as a clue, or as a name nothing matches yet.
@@ -909,7 +909,7 @@ export default function App(): React.JSX.Element {
     return () => window.removeEventListener('keydown', onKey)
   })
   // ⇧⌘2 (or “Attach a screenshot”): the screen behind the box, with none of
-  // Vigil's windows in it, as a picture in the note where the caret is,
+  // Haligtree's windows in it, as a picture in the note where the caret is,
   // captioned with when and the app in front. Screen Recording refused, it
   // says so and opens the Privacy settings.
   const attachScreenshot = async (area = false, taken?: Awaited<ReturnType<typeof window.api.screenShot>>): Promise<void> => {
@@ -1116,11 +1116,11 @@ export default function App(): React.JSX.Element {
       fresh(true)
       window.api.openInHome('versions', id)
     }
-    window.addEventListener('vigil:opened-apart', onApart)
-    window.addEventListener('vigil:versions', onVersions)
+    window.addEventListener('haligtree:opened-apart', onApart)
+    window.addEventListener('haligtree:versions', onVersions)
     return () => {
-      window.removeEventListener('vigil:opened-apart', onApart)
-      window.removeEventListener('vigil:versions', onVersions)
+      window.removeEventListener('haligtree:opened-apart', onApart)
+      window.removeEventListener('haligtree:versions', onVersions)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   // ⌘N, from anywhere in the window: a fresh box.
@@ -1140,7 +1140,7 @@ export default function App(): React.JSX.Element {
     const draft = latestEditing.current ? readDraft() : editorRef.current?.getJSON()
     const links = [...lifted]
     // Thrown away: the sheet crumples and is tossed, before it goes blank.
-    const land = hasContent(draft ?? null) ? crumpleFrom(document.querySelector<HTMLElement>('.tiptap.ProseMirror.mindflow-editor')) : undefined
+    const land = hasContent(draft ?? null) ? crumpleFrom(document.querySelector<HTMLElement>('.tiptap.ProseMirror.haligtree-editor')) : undefined
     fresh()
     land?.()
     if (!hasContent(draft ?? null)) return
@@ -1176,7 +1176,7 @@ export default function App(): React.JSX.Element {
     try {
       const id = await window.api.captures.create({ kind: chosen && kind !== 'todo' ? kind : 'note', elapsedMs: Date.now() - openedAt.current, body: doc,
         markdown: editor ? toMarkdown(editor) : undefined, attribution: attribution.trim(), medium: medium || undefined, private: secret })
-      await vigil.linkSession(id)
+      await haligtree.linkSession(id)
       localStorage.removeItem('capture-draft')
       notePromoted(id, at)
       window.api.promote('capture', id)
@@ -1240,7 +1240,7 @@ export default function App(): React.JSX.Element {
     if (sent.chosen) (setKind(sent.kind), setChosen(true))
     toEnd.current = true
     // A celebration the send earned ("100 captures kept") goes with it.
-    window.dispatchEvent(new CustomEvent('vigil:uncelebrate'))
+    window.dispatchEvent(new CustomEvent('haligtree:uncelebrate'))
     // Gone already (it leaves as the send lands): summoned back.
     window.api.revealPrompt()
   }
@@ -1281,8 +1281,8 @@ export default function App(): React.JSX.Element {
       if (!clue) return refuse(goal ? 'Write the log after a colon, or on the lines under the goal’s name' : 'Write the clue after a colon, or on the lines under the question’s name')
       chime(goal ? 'mark' : 'clue')
       beam('success')
-      void vigil.addClue(question.id, clue).then((id) => toast(`${goal ? 'Logged to' : 'A clue in'} ${quoted(question.title, 36)}`, () => {
-        if (id) void vigil.dropClue(id)
+      void haligtree.addClue(question.id, clue).then((id) => toast(`${goal ? 'Logged to' : 'A clue in'} ${quoted(question.title, 36)}`, () => {
+        if (id) void haligtree.dropClue(id)
         bringBack(sent)
       }))
       fresh()
@@ -1323,10 +1323,10 @@ export default function App(): React.JSX.Element {
     if (rounds) {
       chime('timer')
       beam('success')
-      void vigil.startRounds(rounds.goal, rounds).then((id) => {
+      void haligtree.startRounds(rounds.goal, rounds).then((id) => {
         window.api.showFocus(true)
         toast(`${rounds.rounds} ${rounds.rounds === 1 ? 'round' : 'rounds'} of ${lengthSaid(rounds.workMs)} started`, () => {
-          void vigil.cancelSession(id)
+          void haligtree.cancelSession(id)
           bringBack(sent)
         })
       })
@@ -1338,11 +1338,11 @@ export default function App(): React.JSX.Element {
     if (timer) {
       chime('timer')
       beam('success')
-      void vigil.startTimer(timer.goal, timer.ms).then((id) => {
+      void haligtree.startTimer(timer.goal, timer.ms).then((id) => {
         window.api.showFocus(true)
         // Undone, the words come back into the box as they were typed.
         toast(`Timer set: ${lengthSaid(timer.ms)}${timer.goal === 'Timer' ? '' : ` for ${timer.goal}`}`, () => {
-          void vigil.cancelSession(id)
+          void haligtree.cancelSession(id)
           bringBack(sent)
         })
       })
@@ -1384,7 +1384,7 @@ export default function App(): React.JSX.Element {
     const written = editorRef.current ? toMarkdown(editorRef.current) : undefined
     const markdown = written && later ? withoutWord(written, later.text) : written
     // With the panel open, the note is seen going into the Inbox tab.
-    const land = panel ? liftFrom(document.querySelector<HTMLElement>('.mindflow-editor-content'), 'capture') : undefined
+    const land = panel ? liftFrom(document.querySelector<HTMLElement>('.haligtree-editor-content'), 'capture') : undefined
     // Taken now: a fresh box clears the list before the save comes back.
     const pieces = [...lifted]
     keepLifted([])
@@ -1409,10 +1409,10 @@ export default function App(): React.JSX.Element {
         attribution: attribution.trim(), medium: where || undefined, private: secret, plainTags: plan?.plainTags.length ? plan.plainTags : undefined })
       .then(async (id) => {
         land?.()
-        await vigil.linkSession(id)
+        await haligtree.linkSession(id)
         // Anything captured out of this note while it was a draft now points
         // back to it, so its lineage holds.
-        for (const piece of pieces) await vigil.setCapture(piece, 'origin', id)
+        for (const piece of pieces) await haligtree.setCapture(piece, 'origin', id)
         // A link shows as its card, filled in once the page answers.
         if (sorted === 'link') void cardUp({ id, kind: sorted, body: hasContent(doc) ? doc : null })
         // Named after the page: its title kept as the source, so it can be renamed after its topic.
@@ -1422,15 +1422,15 @@ export default function App(): React.JSX.Element {
           if (meaning.example) await notes.setField('captures', id, 'example', meaning.example)
         }
         // A letter to future you: out of every list until its day, then back on Home saying when you wrote it.
-        if (later && !action) await vigil.snoozeCapture(id, later.day)
+        if (later && !action) await haligtree.snoozeCapture(id, later.day)
         if (action) {
           // The welcome shows the task it became itself; the box says nothing over it.
           // Undone, the capture goes too and the box comes back as it was sent.
-          await makeTask({ capture: id, plain: plan?.taskPlain, whole: true }, 'Added to your tasks', { quiet: document.documentElement.hasAttribute('data-welcome-ph'), onUndo: () => (void vigil.unlift('capture', id), bringBack(sent)) })
+          await makeTask({ capture: id, plain: plan?.taskPlain, whole: true }, 'Added to your tasks', { quiet: document.documentElement.hasAttribute('data-welcome-ph'), onUndo: () => (void haligtree.unlift('capture', id), bringBack(sent)) })
         } else if (!document.documentElement.hasAttribute('data-welcome-ph')) {
           // A plain note takes back the same way as every other send: the
           // capture goes, and the box comes back as it was sent.
-          toast(page ? 'Page kept in your Inbox. Pick what each line becomes' : later ? `A letter to future you: back ${dayjs(later.day).format('ddd D MMM YYYY')}` : 'Kept in your Inbox', () => (void vigil.unlift('capture', id), bringBack(sent)))
+          toast(page ? 'Page kept in your Inbox. Pick what each line becomes' : later ? `A letter to future you: back ${dayjs(later.day).format('ddd D MMM YYYY')}` : 'Kept in your Inbox', () => (void haligtree.unlift('capture', id), bringBack(sent)))
         }
         if (page) openSort(page, id)
         if (more) return
@@ -1579,7 +1579,7 @@ export default function App(): React.JSX.Element {
     { label: 'Lock', hint: 'Read only until you unlock it', on: locked, set: setLocked },
     { label: 'Private', hint: 'Blurred in lists, never shown as a hint', on: secret, set: (on: boolean) => {
       setSecret(on)
-      if (editing) void vigil.setPrivate('captures', editing.id, on, true)
+      if (editing) void haligtree.setPrivate('captures', editing.id, on, true)
     } },
     { label: 'Outline', hint: 'Its headings, beside the note', on: outline, set: setOutline },
     ...(editing ? [{ label: 'Details', hint: 'Kind, date and where it came from', on: details, keys: '⇧⌘D', set: setDetails }] : []),
@@ -1637,7 +1637,7 @@ export default function App(): React.JSX.Element {
               setTab(one)
               if (!panel) setPanel(true)
             } })),
-            ...(picked.ids.length > 1 ? [{ label: 'Make one task', hint: `From the ${num(picked.ids.length)} selected captures`, cue: null, run: () => window.dispatchEvent(new CustomEvent('vigil:one-task')) }] : []),
+            ...(picked.ids.length > 1 ? [{ label: 'Make one task', hint: `From the ${num(picked.ids.length)} selected captures`, cue: null, run: () => window.dispatchEvent(new CustomEvent('haligtree:one-task')) }] : []),
             { label: 'Keep Today on screen', hint: "Today's tasks on the desktop", cue: null, run: () => stickOnDesktop('today', 'today') },
             { label: 'Show all goals on one sticky', hint: 'Each goal in its own colour, with a legend', cue: null, run: () => stickOnDesktop('goals', 'all') },
             { label: 'Tidy captures', hint: 'Tidy: a few minutes tagging your latest captures', run: () => openPass('tidy') },
@@ -1650,7 +1650,7 @@ export default function App(): React.JSX.Element {
             { label: secret ? 'Make it not private' : 'Make it private', hint: 'This note', cue: secret ? 'off' : 'on', run: () => {
               const set = (on: boolean): void => {
                 setSecret(on)
-                if (editing) void vigil.setPrivate('captures', editing.id, on)
+                if (editing) void haligtree.setPrivate('captures', editing.id, on)
               }
               set(!secret)
               // The footer's “Private” lights or goes out in front of you: ⌘Z still takes it back.
@@ -1667,18 +1667,18 @@ export default function App(): React.JSX.Element {
             { label: appSettings?.sounds ? 'Turn sounds off' : 'Turn sounds on', cue: null, run: () => {
               soundOn(!appSettings?.sounds)
               chime(appSettings?.sounds ? 'off' : 'on')
-              void vigil.setSettings({ sounds: !appSettings?.sounds })
+              void haligtree.setSettings({ sounds: !appSettings?.sounds })
               const was = !!appSettings?.sounds
-              toast(was ? 'Sounds off' : 'Sounds on', () => (soundOn(was), void vigil.setSettings({ sounds: was })))
+              toast(was ? 'Sounds off' : 'Sounds on', () => (soundOn(was), void haligtree.setSettings({ sounds: was })))
             } },
             { label: appSettings?.safeMode ? 'Turn safe mode off' : 'Turn safe mode on', keys: '⌥⌘S', cue: appSettings?.safeMode ? 'off' : 'on', run: () => {
               const on = !appSettings?.safeMode
-              void vigil.setSettings({ safeMode: on }).then(() => toast(on ? 'Safe mode on' : 'Safe mode off', () => void vigil.setSettings({ safeMode: !on })))
+              void haligtree.setSettings({ safeMode: on }).then(() => toast(on ? 'Safe mode on' : 'Safe mode off', () => void haligtree.setSettings({ safeMode: !on })))
             } },
             { label: recordable ? 'Hide from recordings' : 'Show in recordings', hint: `${APP_NAME} in screen recordings and shares`, cue: recordable ? 'off' : 'on', icon: recordable ? CameraOffIcon : CameraIcon, run: () => setRecordable(!recordable) },
             { label: appSettings?.stickiesShown === false ? 'Show sticky notes' : 'Hide sticky notes', keys: '⌃⌥⌘N', cue: null, run: () => {
               const show = appSettings?.stickiesShown === false
-              void vigil.setSettings({ stickiesShown: show }).then(() => (show ? quietly : (undo: () => void) => toast('Sticky notes hidden. ⌃⌥⌘N brings them back', undo))(() => void vigil.setSettings({ stickiesShown: !show })))
+              void haligtree.setSettings({ stickiesShown: show }).then(() => (show ? quietly : (undo: () => void) => toast('Sticky notes hidden. ⌃⌥⌘N brings them back', undo))(() => void haligtree.setSettings({ stickiesShown: !show })))
             } },
             { label: 'Bring sticky notes here', cue: null, run: () => window.api.gatherStickies() },
             ...(stickiesOut > 0 && !appSettings?.safeMode ? [{ label: 'Tidy stickies', keys: '⌃⌥⌘T', cue: null, run: () => window.api.tidyStickies() }] : []),
@@ -1690,14 +1690,14 @@ export default function App(): React.JSX.Element {
             ...noteActions(),
             ...abandonAction,
             ...practiceActions,
-            { label: 'Keyboard shortcuts', keys: '?', run: () => window.dispatchEvent(new CustomEvent('vigil:shortcuts')) },
+            { label: 'Keyboard shortcuts', keys: '?', run: () => window.dispatchEvent(new CustomEvent('haligtree:shortcuts')) },
             { label: 'Import Obsidian or Notion…', hint: 'A vault or a Notion export', cue: null, run: () => void window.api.importFrom('vault') },
             { label: 'Import from Apple Notes…', hint: 'Folder by folder, into Writing, to sort', cue: null, run: () => void window.api.importFrom('apple-notes') },
             { label: 'Import highlights and files…', hint: 'Readwise, Kindle, Markdown, bookmarks or Anki', cue: null, run: () => void window.api.importFrom('files') },
             ...themeActions((text, undo) => toast(text, undo)),
             { label: appSettings?.blur === false ? 'Turn blurring on' : 'Turn blurring off', cue: appSettings?.blur === false ? 'on' : 'off', run: () => {
               const on = appSettings?.blur === false
-              void vigil.setSettings({ blur: on }).then(() => toast(on ? 'Blurring on' : 'Blurring off', () => void vigil.setSettings({ blur: !on })))
+              void haligtree.setSettings({ blur: on }).then(() => toast(on ? 'Blurring on' : 'Blurring off', () => void haligtree.setSettings({ blur: !on })))
             } },
             { label: 'Settings', keys: '⌘,', run: () => window.api.openInHome('view', 'settings') },
             // The recap opens in the main window, over Stats.
@@ -1935,9 +1935,9 @@ export default function App(): React.JSX.Element {
                   editor.view.dispatch(editor.state.tr.replaceWith(card.pos, card.pos + node.nodeSize, schema.nodes.paragraph.create(null, schema.text(card.href))))
                   chime('off')
                 }}
-                onNewQuestion={(name) => void vigil.newQuestion(name).then((id) => {
+                onNewQuestion={(name) => void haligtree.newQuestion(name).then((id) => {
                   chime('hold')
-                  toast(`Saved as a question: ${quoted(name, 36)}`, () => void vigil.dropQuestion(id))
+                  toast(`Saved as a question: ${quoted(name, 36)}`, () => void haligtree.dropQuestion(id))
                 })}
               />
             )}
@@ -1953,7 +1953,7 @@ export default function App(): React.JSX.Element {
                 <Remembered field="attribution" data-read-from={readWho || undefined} complete={!lesson} value={attribution} placeholder={asks.who ?? 'Who'} className={cn(FIELD, readWho && READ)} onChange={(value) => {
                   setAskSource(true)
                   setAttribution(value)
-                  if (editing) void vigil.setCapture(editing.id, 'attribution', value.trim() || null)
+                  if (editing) void haligtree.setCapture(editing.id, 'attribution', value.trim() || null)
                 }} />
                 </ReadFrom>
               )}
@@ -1962,7 +1962,7 @@ export default function App(): React.JSX.Element {
                 <Remembered field="medium" data-box-where data-read-from={readWhere || undefined} complete={!lesson} value={medium} placeholder={asks.where ?? 'Where from'} className={cn(FIELD, readWhere && READ)} onChange={(value) => {
                   setAskSource(true)
                   setMedium(value)
-                  if (editing) void vigil.setCapture(editing.id, 'medium', value.trim() || null)
+                  if (editing) void haligtree.setCapture(editing.id, 'medium', value.trim() || null)
                 }} />
                 </ReadFrom>
               )}
@@ -1971,7 +1971,7 @@ export default function App(): React.JSX.Element {
                 <Tip label="Private: blurred in lists, never shown as a hint. Click to make it not private">
                   <Button variant="ghost" size="icon-sm" aria-label="Private" aria-pressed onClick={() => {
                     setSecret(false)
-                    if (editing) void vigil.setPrivate('captures', editing.id, false)
+                    if (editing) void haligtree.setPrivate('captures', editing.id, false)
                   }}>
                     <EyeOff />
                   </Button>
@@ -2331,7 +2331,7 @@ const CapturePrompt = ({
 
       {/* The same, spelled out. See `docs/components.md` for what each one
           does and what it is when you leave it out. */}
-      <MindflowEditor
+      <HaligtreeEditor
         shape="document"
         placeholder="Write a thought, a quote, a link… or type / for more"
         defaultContent={initial}
@@ -2441,16 +2441,16 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
   }
   // The same easing as the main window's lists.
   useSmooth(scroller)
-  const dueRead = useLive(() => window.api.vigil<number>('review:counts'), null as number | null, [], ['item'])
+  const dueRead = useLive(() => window.api.haligtree<number>('review:counts'), null as number | null, [], ['item'])
   const due = dueRead ?? 0
   // Each tab counts what it holds, so a thing sent there visibly arrives:
   // every open task, dated or not (a list of fourteen made at once reads as
   // fourteen, never as the one due today), every nugget and article.
-  const openRead = useLive(() => vigil.tasks().then((tasks) => tasks.filter((task) => task.status === 'open').length), null as number | null)
+  const openRead = useLive(() => haligtree.tasks().then((tasks) => tasks.filter((task) => task.status === 'open').length), null as number | null)
   const openTasks = openRead ?? 0
   // Archived ones are out of sight, so not counted.
   // Questions held open count as kept too; settled ones do not.
-  const keptRead = useLive(() => Promise.all([vigil.items('nugget'), vigil.items('article'), vigil.items('question')]).then((all) => all.flat().filter((one) => !one.archivedAt && !one.closedAt).length), null as number | null, [], ['item'])
+  const keptRead = useLive(() => Promise.all([haligtree.items('nugget'), haligtree.items('article'), haligtree.items('question')]).then((all) => all.flat().filter((one) => !one.archivedAt && !one.closedAt).length), null as number | null, [], ['item'])
   const kept = keptRead ?? 0
   // The panel is drawn once, with its tabs' counts and what the tab shows (lib/reads-in.tsx): never the counts one by one,
   // or the old captures and pins arriving over the Inbox a beat after it.
@@ -2501,9 +2501,9 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
   useEffect(() => {
     picked.ids = chosen
     const onAsk = (): void => void (chosen.length > 1 && makeOne())
-    window.addEventListener('vigil:one-task', onAsk)
+    window.addEventListener('haligtree:one-task', onAsk)
     return () => {
-      window.removeEventListener('vigil:one-task', onAsk)
+      window.removeEventListener('haligtree:one-task', onAsk)
       picked.ids = []
     }
   })
@@ -2577,7 +2577,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
             'separator',
             ...BOX_TABS.filter((each) => !(shownTabs.length === 1 && shownTabs[0] === each.id)).map((each) => {
               const on = shownTabs.includes(each.id)
-              return { label: `${on ? 'Hide' : 'Show'} ${each.label}`, run: () => void vigil.setSettings({ boxTabs: on ? shownTabs.filter((id) => id !== each.id) : [...shownTabs, each.id] }).then(() => chime(on ? 'off' : 'on')) }
+              return { label: `${on ? 'Hide' : 'Show'} ${each.label}`, run: () => void haligtree.setSettings({ boxTabs: on ? shownTabs.filter((id) => id !== each.id) : [...shownTabs, each.id] }).then(() => chime(on ? 'off' : 'on')) }
             })
           ]}>
           <span className="flex min-w-0 flex-1">

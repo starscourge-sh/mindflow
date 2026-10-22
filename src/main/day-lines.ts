@@ -2,7 +2,7 @@ import { num } from './dates.ts'
 /**
  * Lines of a written list, read the way people write them in Raycast Notes or
  * Apple Notes: "- [ ] call the bank", "  - [x] send the form" (indented: a
- * step of the line above). Tags are Vigil's own #tag, as everywhere. Shared: Today's written page, the box's paste offer and
+ * step of the line above). Tags are Haligtree's own #tag, as everywhere. Shared: Today's written page, the box's paste offer and
  * "Sort this out" all read lines with these, and the tests run them as they are.
  */
 

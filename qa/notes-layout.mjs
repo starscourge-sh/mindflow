@@ -5,7 +5,7 @@
 // page scroll, no text cut off with no ellipsis, nothing past the window's
 // right edge, no line of details folded onto several lines, and, wide, that
 // reading text keeps a sensible width. SHOTS=<dir> keeps a screenshot of each.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-notes/main/index.js MINDFLOW_QA_AWAY=1 node qa/notes-layout.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-notes/main/index.js HALIGTREE_QA_AWAY=1 node qa/notes-layout.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
@@ -16,7 +16,7 @@ const { check, done } = checks()
 const c = await sandbox({ width: 1000, height: 700 })
 const { h, go, send, size } = c
 const only = (process.env.ONLY ?? '').split(',').filter(Boolean)
-const items = (tier) => h.evaluate((t) => window.api.vigil('items', t), tier)
+const items = (tier) => h.evaluate((t) => window.api.haligtree('items', t), tier)
 
 const VIEWS = ['inbox', 'all', 'discarded', 'archived', 'tags', 'review', 'queue', 'map', 'goals', 'stats', 'powers', 'whatsnew', 'today', 'yearpage', 'day', 'nuggets', 'articles', 'questions']
 const SIZES = (process.env.SIZES ?? '560x400,900x640,1920x1200,2560x1440').split(',').map((s) => s.split('x').map(Number))

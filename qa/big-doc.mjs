@@ -80,14 +80,14 @@ function bigNote() {
   return out.join('\n')
 }
 
-const vault = mkdtempSync(join(tmpdir(), 'vigil-bigdoc-vault-'))
+const vault = mkdtempSync(join(tmpdir(), 'haligtree-bigdoc-vault-'))
 mkdirSync(join(vault, 'attachments'))
 for (let i = 0; i < 40; i++) writeFileSync(join(vault, 'attachments', `badge-${i}.png`), png(i + 1))
 writeFileSync(join(vault, 'LIT - Cloud Engineer.md'), bigNote())
 mkdirSync(join(vault, 'inbox'))
 for (let i = 0; i < 1200; i++) writeFileSync(join(vault, 'inbox', `note ${i}.md`), `${sentence(i, 8)}\n\n${sentence(i + 1, 20)}\n`)
-process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'vigil-bigdoc-data-'))
-process.env.MINDFLOW_QA_VAULT = vault
+process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'haligtree-bigdoc-data-'))
+process.env.HALIGTREE_QA_VAULT = vault
 
 const { open } = await import('./harness.mjs')
 
@@ -147,7 +147,7 @@ try {
       const list = await window.api.captures.list()
       const one = list.find((row) => /Cloud Engineer|Certifications/.test(row.label ?? ''))
       if (!one || list.length < 1201) return [null, list.length]
-      const pending = await window.api.vigil('imports:pending')
+      const pending = await window.api.haligtree('imports:pending')
       return [pending.length ? null : one.id, list.length]
     })
   }
@@ -156,7 +156,7 @@ try {
   // marked as seen: a fresh install opens on it whenever the window is up
   // before the import's first note lands, and it then covers the note and
   // takes every click and key, so G and gg never reach the editor.
-  await h.evaluate(() => window.api.vigil('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false }))
+  await h.evaluate(() => window.api.haligtree('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false }))
   await h.evaluate(() => localStorage.setItem('vim', 'on'))
   await h.reload()
   await h.waitForTimeout(2500)
@@ -200,7 +200,7 @@ try {
   // G and gg in vim's normal mode, each from a caret placed by a click on
   // the words on screen: from the first key to the next frame drawn after
   // the last, and the line the caret lands on has to be on screen.
-  const ED = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
+  const ED = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
   const clickOnScreen = async () => {
     const spot = await h.evaluate((sel) => {
       const ed = [...document.querySelectorAll(sel)].find((one) => one.textContent.includes('Exam Prep'))

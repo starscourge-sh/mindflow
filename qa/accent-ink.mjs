@@ -5,7 +5,7 @@
 // each must read at 4.5:1 or better. Before the stylesheet did it, a script
 // picked by contrast (lib/on-accent.ts); this probe showed the two agree.
 //
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/accent-ink.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/accent-ink.mjs
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
 

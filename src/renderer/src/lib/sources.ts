@@ -1,4 +1,4 @@
-import { call } from './vigil'
+import { call } from './haligtree'
 import type { SourceField, SourceGraph, SourcePage, SourceSummary } from '../../../main/sources'
 
 export type { SourceField, SourceGraph, SourceItem, SourcePage, SourceSummary } from '../../../main/sources'
@@ -29,7 +29,7 @@ export const readFocus = (focus: string | undefined): { field: SourceField; name
 
 /** Open a who's or a where's page from anywhere in the window: the main window's page listens. */
 export const openSource = (field: SourceField, name: string): void => {
-  if (name.trim()) window.dispatchEvent(new CustomEvent('vigil:source', { detail: sourceFocus(field, name) }))
+  if (name.trim()) window.dispatchEvent(new CustomEvent('haligtree:source', { detail: sourceFocus(field, name) }))
 }
 
 /** The colour of each voice, from the theme (main.css): subtle, and the same in lists and the editor. */
