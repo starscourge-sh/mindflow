@@ -71,21 +71,27 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
   const [more, setMore] = useState(false)
   const fade = (list: HTMLElement): void => setMore(list.scrollTop + list.clientHeight < list.scrollHeight - 4)
   const watchList = useCallback((list: HTMLDivElement | null) => {
-    const [first, second] = list ? [...list.querySelectorAll<HTMLElement>('[cmdk-item]')] : []
     if (!list) return
-    const watch = new ResizeObserver(() => fade(list))
-    watch.observe(list)
-    if (list.firstElementChild) watch.observe(list.firstElementChild)
-    if (!first || !second) return () => watch.disconnect()
     // Row to row, gaps between them included: three whole rows, then the fourth cut through its words
     // (two thirds of the row: half of one shows only its padding and the tops of its letters).
     // In a short window, as many whole rows as the popover has room for, still with the half row after them.
-    const top = first.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop
-    const pitch = second.getBoundingClientRect().top - first.getBoundingClientRect().top
-    const above = list.getBoundingClientRect().top - (list.closest<HTMLElement>('[data-slot="popover-content"]')?.getBoundingClientRect().top ?? list.getBoundingClientRect().top)
-    const room = (parseFloat(getComputedStyle(list).getPropertyValue('--radix-popover-content-available-height')) || innerHeight) - above
-    const whole = Math.max(1, Math.min(3, Math.floor((room - top - first.offsetHeight * 0.66) / pitch)))
-    list.style.maxHeight = `${top + pitch * whole + first.offsetHeight * 0.66}px`
+    // Measured in the list's own size: while the popover grows in, the screen sizes are scaled down.
+    const size = (): void => {
+      const [first, second] = [...list.querySelectorAll<HTMLElement>('[cmdk-item]')]
+      if (!first || !second) return
+      const box = list.getBoundingClientRect()
+      const scale = box.height / (list.offsetHeight || 1) || 1
+      const top = (first.getBoundingClientRect().top - box.top) / scale + list.scrollTop
+      const pitch = (second.getBoundingClientRect().top - first.getBoundingClientRect().top) / scale
+      const above = (box.top - (list.closest<HTMLElement>('[data-slot="popover-content"]')?.getBoundingClientRect().top ?? box.top)) / scale
+      const room = (parseFloat(getComputedStyle(list).getPropertyValue('--radix-popover-content-available-height')) || innerHeight) - above
+      const whole = Math.max(1, Math.min(3, Math.floor((room - top - first.offsetHeight * 0.66) / pitch)))
+      list.style.maxHeight = `${top + pitch * whole + first.offsetHeight * 0.66}px`
+    }
+    size()
+    const watch = new ResizeObserver(() => (size(), fade(list)))
+    watch.observe(list)
+    if (list.firstElementChild) watch.observe(list.firstElementChild)
     return () => watch.disconnect()
   }, [])
   const current = CAPTURE_TYPES.find((Ctype) => Ctype.id === value) ?? CAPTURE_TYPES[0]
