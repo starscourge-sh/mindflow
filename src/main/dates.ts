@@ -25,12 +25,30 @@ let twelveHour = (globalThis as { api?: { twelveHour?: boolean } }).api?.twelveH
 export const useTwelveHour = (on: boolean): void => void (twelveHour = on)
 /** A time of day: "15:00", "9:05", or "3:00 PM" on a 12-hour Mac. */
 export const clock = (date: ConfigType): string => dayjs(date).format(twelveHour ? 'h:mm A' : 'H:mm')
+/**
+ * Now, a Date, or a moment written out in full ("2026-10-05T09:30:00.000Z"), as a Date; null for
+ * anything else (a day alone, a Day.js), which Day.js reads. Day.js took a tenth of a millisecond
+ * for each, and a goal's thousands of logs and a big book's thousands of tasks are each placed by day.
+ */
+const asDate = (date: ConfigType): Date | null => {
+  const at = date === undefined ? new Date() : date instanceof Date ? date : typeof date === 'string' && /^\d{4}-\d\d-\d\dT/.test(date) ? new Date(date) : null
+  return at && !Number.isNaN(at.getTime()) ? at : null
+}
 /** "2026-10-05": a day as the database files it, the local calendar's date. */
-export const dayKey = (date?: ConfigType): string => dayjs(date).format('YYYY-MM-DD')
+export const dayKey = (date?: ConfigType): string => {
+  const at = asDate(date)
+  if (!at) return dayjs(date).format('YYYY-MM-DD')
+  return `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, '0')}-${String(at.getDate()).padStart(2, '0')}`
+}
 /** A "2026-10-05" day as a moment: its noon, safe from any clock change at midnight. */
 export const noon = (day: string): Dayjs => dayjs(day).hour(12)
 /** Midnight, `offset` days from today (or from `from`), as a number to compare. */
-export const startOfDay = (offset = 0, from?: ConfigType): number => dayjs(from).startOf('day').add(offset, 'day').valueOf()
+export const startOfDay = (offset = 0, from?: ConfigType): number => {
+  // Read straight off the clock for a Date, now or a moment in full, as dayKey is: thousands of tasks are each placed by it.
+  const at = asDate(from)
+  if (!at) return dayjs(from).startOf('day').add(offset, 'day').valueOf()
+  return new Date(at.getFullYear(), at.getMonth(), at.getDate() + offset).getTime()
+}
 /** Whole calendar days from today to a date: 0 today, 1 tomorrow, -1 yesterday. */
 export const daysFromToday = (date: ConfigType): number => dayjs(date).startOf('day').diff(dayjs().startOf('day'), 'day')
 const thisYear = (date: Dayjs): boolean => date.year() === dayjs().year()

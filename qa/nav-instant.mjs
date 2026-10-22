@@ -13,7 +13,7 @@
 //   - from the keyboard, two pages never show over each other longer than 80ms
 //   QA_DATA=<folder kept between runs> QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/nav-instant.mjs
 // The same against a dev server: ELECTRON_RENDERER_URL=http://localhost:<port> with the same entry.
-// ROUTES=back,cmdk runs only those. SLOW=<ms> makes every read that long, the way a busy big book answers.
+// ROUTES=back,cmdk runs only those (LISTS=Goals,Today: only those of `lists`). SLOW=<ms> makes every read that long, the way a busy big book answers.
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 import { seedBig, seeded } from './big-book.mjs'
@@ -46,7 +46,8 @@ const record = (ms = 1500) => h.evaluate((ms) => {
     const pane = document.querySelector('[data-pane-front]') ?? document.querySelector('[data-pane]')
     // A page held unseen until its reads are in (lib/reads-in.tsx) shows nothing: only its seen words count.
     const seen = (page) => page.textContent.length - [...page.querySelectorAll('[style*="visibility: hidden"]')].filter((one) => !one.parentElement.closest('[style*="visibility: hidden"]')).reduce((sum, one) => sum + one.textContent.length, 0)
-    const pages = [...(pane?.querySelectorAll('[data-page]') ?? [])].map((one) => ({ id: one.getAttribute('data-page'), o: +getComputedStyle(one).opacity, text: getComputedStyle(one).visibility === 'hidden' ? 0 : seen(one) }))
+    // A page on its way out is taken out of sight (display: none) the frame the next one shows: not drawn, so not counted.
+    const pages = [...(pane?.querySelectorAll('[data-page]') ?? [])].map((one) => ({ id: one.getAttribute('data-page'), o: +getComputedStyle(one).opacity, text: getComputedStyle(one).visibility === 'hidden' || !one.checkVisibility() ? 0 : seen(one) }))
     const notes = [...(pane?.querySelectorAll('.note-pane[data-open]') ?? [])].filter((one) => +getComputedStyle(one.closest('[data-page]') ?? one).opacity > 0.05 && one.checkVisibility({ visibilityProperty: true })).map((one) => ({ id: one.getAttribute('data-open'), words: one.querySelector('.ProseMirror')?.textContent.length ?? 0, coming: one.hasAttribute('data-coming') }))
     frames.push({ at: performance.now(), side: !!side && box.width > 0 && side.textContent.length > 20, pages, notes, text: pane?.textContent.length ?? 0 })
     if (performance.now() - start < ms) requestAnimationFrame(tick)
@@ -62,7 +63,7 @@ const mark = () => h.evaluate(() => void (window.__nav.t = performance.now()))
  * last frame that says whether the page is where it should be); `keyed`: it
  * came from the keyboard.
  */
-function judge(name, run, { target, keyed = false, words = true, page, cold = false }) {
+function judge(name, run, { target, keyed = false, words = true, page, cold = false, within }) {
   const t = run.t
   if (t == null) return check(`${name}: started`, false, 'no click or key was seen')
   const after = run.frames.filter((one) => one.at > t)
@@ -79,6 +80,8 @@ function judge(name, run, { target, keyed = false, words = true, page, cold = fa
   // A note never read before is read first, the page waiting for it; anything read before is there at once.
   if (!cold) check(`${name}: there within 2 frames`, at >= 0 && at < 2, `${said}; the last before it: ${before}`)
   else check(`${name}: there once read`, at >= 0, `${said}; the last before it: ${before}`)
+  // Shown within this long of the ask, read or not: for one with no words to wait for (a task with no notes).
+  if (within) check(`${name}: open within ${within}ms`, at >= 0 && after[at].at - t <= within, said)
   if (page) {
     // The page it lives on never shows without it: the note is there on the page's first frame.
     const shown = after.findIndex((one) => one.pages.some((one) => one.id === page && one.o > 0.05 && one.text > 0))
@@ -122,6 +125,23 @@ try {
     await send('view', 'today'); await wait(1200)
     await record(); await mark(); await h.evaluate((id) => window.api.openInHome('article', id), florence.id)
     judge('the same link again', await frames(), { target: florence.id, page: 'articles' })
+  }
+  // The same cold link to every other page that lists notes beside the one open (Writing and Gems
+  // have theirs above and on Home): the one sent for never waits for its whole list (Page's `apart`).
+  if (want('lists')) {
+    // One with words of its own, so there are words to wait for.
+    const worded = async (list) => { for (const one of list) if (JSON.stringify((await v('item', one.id))?.body ?? '').includes('"text":')) return one }
+    const question = await worded((await v('items', 'question')).filter((one) => !one.closedAt && !one.archivedAt))
+    const goal = (await v('items', 'goal')).find((one) => !one.closedAt && !one.archivedAt)
+    const capture = (await h.evaluate(() => window.api.captures.list())).find((one) => one.status === 'open' && !one.archivedAt && one.kind !== 'todo')
+    const task = (await v('tasks')).find((one) => one.status === 'open' && !one.recurrence && /^Big task/.test(one.title) && one.dueAt)
+    for (const [label, type, one, page, words] of [['Questions', 'question', question, 'questions', true], ['Goals', 'goal', goal, 'goals', false], ['Everything', 'capture', capture, 'all', true], ['Today', 'task', task, 'today', false]]) {
+      if (process.env.LISTS && !process.env.LISTS.split(',').includes(label)) continue
+      if (!one) { check(`a link from Home to ${label}: found one to open`, false); continue }
+      await send('view', 'home'); await wait(1200)
+      await record(); await mark(); await h.evaluate(([type, id]) => window.api.openInHome(type, id), [type, one.id])
+      judge(`a link from Home to ${label}, never read before`, await frames(), { target: one.id, page, cold: true, words, within: words ? undefined : BODY_MS })
+    }
   }
   // Back and Forward between two Writing notes, both read already.
   if (want('back')) {

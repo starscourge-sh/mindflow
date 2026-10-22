@@ -641,6 +641,24 @@ export function together<T>(read: Promise<T>, apply: (value: T) => void): void {
   void read.then((value) => (mine.apply.push(() => apply(value)), settle()), settle)
 }
 
+/** Runs once the frame being drawn now is painted, with everything else asked for the same frame (so `readOnce` shares one read); returns a way to call it off. */
+let painted: Set<() => void> | null = null
+function afterPaint(run: () => void): () => void {
+  if (!painted) {
+    const now = (painted = new Set())
+    const run = (): void => void setTimeout(() => {
+      if (painted === now) painted = null
+      now.forEach((one) => one())
+    }, 0)
+    // A hidden window draws no frames: there it waits for nothing.
+    if (document.hidden) run()
+    else requestAnimationFrame(run)
+  }
+  const mine = painted
+  mine.add(run)
+  return () => void mine.delete(run)
+}
+
 /**
  * Something read from the main process, read again whenever any window writes.
  * The one way every view stays current without each one wiring it up.
@@ -687,11 +705,15 @@ export function useLive<T>(read: () => Promise<T>, initial: T, deps: unknown[] =
       if (changed && took < SLOW_READ) together(asking, take)
       else void asking.then(take)
     }
-    load()
+    // Started on what it last said, it reads afresh once the page is drawn: asked at once, the
+    // reads of everything a page holds (Today's every task, every tag) went ahead of what the page
+    // is waiting for, and the main process answers one at a time.
+    const later = last !== undefined ? afterPaint(() => load()) : (load(), undefined)
     // `kinds`: what it shows, so a save of something else leaves it be.
     const off = window.api.captures.onChange(() => load(true), kinds)
     return () => {
       gone = true
+      later?.()
       off()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

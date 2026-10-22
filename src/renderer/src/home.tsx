@@ -883,7 +883,13 @@ export function Home(): React.JSX.Element {
     // A wrap, from the Sunday notification or quick capture's menu: the story over the page.
     else if (type === 'wrap') openWrap(id)
     // From the session bubble, at its Sessions part.
-    else if (type === 'task') (setView({ id: 'today', focus: id }), heading === 'sessions' && askSessions(id))
+    // Its words read first, as any note's are (lib/early-read.ts), so Today opens on the task, not on its name while it is read.
+    else if (type === 'task') {
+      const go = (): void => void (setView({ id: 'today', focus: id }), heading === 'sessions' && askSessions(id))
+      const reading = whenRead('task', id)
+      if (reading) void reading.then(go)
+      else go()
+    }
     // "Pick a date…" from another window: the task, its calendar open.
     else if (type === 'task-date') (askDate(id), setView({ id: 'today', focus: id }))
     // A page to sort, sent from the box or a note's window; Today written out, from anywhere.

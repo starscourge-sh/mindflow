@@ -12,7 +12,7 @@ import { noteLinkText, typeSaid } from '@/lib/capture-links'
 import { call, splitTags, unloaded, useLastAsked, useLive, vigil, when, whenInLine, type Focus, type Made, type Session, type Settings, type Task, type TaskFull } from '@/lib/vigil'
 import { useOpened } from '@/lib/nav'
 import { useCameBack } from '@/lib/to-bin'
-import { readAhead, readFresh, readNow } from '@/lib/early-read'
+import { readAhead, readFresh, readNow, useAfterFirstPaint } from '@/lib/early-read'
 import { NoteComing } from './note-coming'
 import { BUCKETS, READY_LEADS, bucket, closeTask, gettingReady, makeTask, onToday, placed, readySaid, setReady, snooze, snoozeDays, snoozeItems, snoozed, taskName, toNoteItem } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../../main/task-words'
@@ -759,6 +759,10 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   const dayDone = dayRead?.done.length ?? 0
   // Every read the list is drawn from: the tasks, those on hold, the settings (the frog, "One big thing") and the day's done.
   const reading = unloaded(real) || unloaded(held) || !settings || dayRead === undefined
+  // Sent here for one task, the list waits for the frame after the task is drawn (`sent`, below).
+  const [listFirst] = useState(!focus)
+  const listLater = useAfterFirstPaint()
+  const listShown = listFirst || listLater
   const leftToday = mode === 'today' ? real.filter(onToday).length : 0
   // Cleared just now, in front of you: the rest rises in rather than being there.
   const [cleared, setCleared] = useState(false)
@@ -858,12 +862,16 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
         </span>
   )
   // The Matrix's own page, kept to the tasks the list would show: the same set, late ones too.
+  // Sent here for one task: the task is drawn first and the list beside it
+  // the frame after, whole (Page's `apart`), so it never waits behind every row.
+  const sent = !!focus && !matrixed && (coming ?? open?.id) === focus
   if (matrixed) return <MatrixView focus={focus} onOpen={onOpen} today={{ ids: base.map((task) => task.id), done: dayDone, actions, onAll: () => onOpen?.('view', 'matrix') }} />
   return (
     // The list and the task open beside it come in together, once both are read (lib/reads-in.tsx).
     <ReadsIn className="contents">
-      {/* Sent here for one task: the page waits for it too, so it opens on the task beside the list, not on the list alone first. */}
-      <Page aside={!!open} waiting={(reading && !example) || (!!focus && !matrixed && (coming ?? open?.id) !== focus)}
+      {/* Sent here for one task: the page waits for it too, so it opens on the task beside the list, not on the list alone first;
+          the task never waits for the list, which comes in whole beside it once drawn. */}
+      <Page aside={!!open || !!coming} waiting={(reading && !example) || (!!focus && !matrixed && (coming ?? open?.id) !== focus) || !listShown} apart={sent}
  title={mode} count={example ? undefined : several.chosen.length || shown.length} unit={several.chosen.length ? ['selected', 'selected'] : ['open', 'open']} actions={several.bar ?? actions}>
         {/* Today, Tomorrow and Later side by side, at the top of each: one click between the three lists. */}
         {(mode === 'today' || mode === 'tomorrow' || mode === 'later') && (
@@ -953,7 +961,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
           )
         })()}
 
-        {shown.length ? (
+        {!listShown ? null : shown.length ? (
           <Example on={example} tryIt={TRY_TASKS[mode]}>
           <div ref={rowsBox} {...rowsHover.handlers} className="relative isolate">
           <Highlight spot={rowsHover.spot} session={rowsHover.session} snap={rowsHover.snap} className="bg-accent/50" />
@@ -1091,7 +1099,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
         {mode === 'today' && !example && <TomorrowBox className="mx-3 mt-6 mb-10 @[44rem]/page:mx-6" />}
         </>)}
       </Page>
-      {coming && coming !== open?.id && !matrixed ? <NoteComing id={coming} title={tasks.find((one) => one.id === coming)?.title} /> : open && <TaskDetail top={<Stepper at={shown.findIndex((one) => one.id === open.id)} total={shown.length} onStep={(to) => pick(shown[to].id)} />} key={open.id} task={open} onClose={() => setOpen(null)} onOpen={onOpen} />}
+      {coming && coming !== open?.id && !matrixed ? <NoteComing id={coming} title={tasks.find((one) => one.id === coming)?.title} /> : open && <TaskDetail top={<ReadsIn apart reading={reading && !example} className="contents" data-apart="stepper"><Stepper at={shown.findIndex((one) => one.id === open.id)} total={shown.length} onStep={(to) => pick(shown[to].id)} /></ReadsIn>} key={open.id} task={open} onClose={() => setOpen(null)} onOpen={onOpen} />}
     </ReadsIn>
   )
 }

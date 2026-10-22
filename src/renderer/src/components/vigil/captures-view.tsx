@@ -399,7 +399,11 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
   // A note opened: a page turned, as a book is (a quick run down the list turns only one).
   useEffect(() => void (open?.id && pageTurn(false, open.id)), [open?.id])
   // The open capture as the list last saw it, so its status follows an exit.
-  const meta = all.find((capture) => capture.id === open?.id)
+  // Until the list is read, the note's own read stands in: sent here for one note, it never waits for the list.
+  const meta = all.find((capture) => capture.id === open?.id) ?? (unloaded(all) ? open ?? undefined : undefined)
+  // Sent here for one note: the list comes in whole beside it once drawn (Page's `apart`).
+  const sent = !!focus && (coming ?? open?.id) === focus
+  const listUnread = unloaded(all) || (everything && (unloaded(tasks) || !sources.ready))
   // What is around a note's words (who links to it, a thought on it) comes the frame after them.
   const later = useAfterFirstPaint()
 
@@ -410,9 +414,10 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
       {open && (boardShown ? !listOut : pane === 'rail') ? (
         <NoteRail entries={shown.map((one) => entryOf?.(one) ?? captureEntry(one, pick))} cursor={cursor} selected={open.id} onPick={pick} onShow={() => (boardShown ? setListOut(true) : setPane('list'))} />
       ) : (
-      <Page aside={!!open || !!task}
+      <Page aside={!!open || !!task || !!coming}
         // Its count and Display come with the list: for Everything, with its tasks and which captures became them too.
-        waiting={unloaded(all) || (everything && (unloaded(tasks) || !sources.ready))}
+        waiting={listUnread || !listShown}
+        apart={sent}
         title={title}
         // The Inbox is a place to set things down, never a queue with a number on it.
         // What is picked always shows: the buttons may fold into ⋯ in a narrow window, the count never does.
@@ -599,7 +604,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
                 setOpen(found)
                 setRev((n) => n + 1)
               })}
-              left={<Stepper turns at={whole.findIndex((one) => one.id === open.id)} total={whole.length} onStep={stepTo} />}
+              left={<ReadsIn apart reading={listUnread} className="contents" data-apart="stepper"><Stepper turns at={whole.findIndex((one) => one.id === open.id)} total={whole.length} onStep={stepTo} /></ReadsIn>}
               edited={meta.editedAt} captured={meta.capturedAt}
               pinned={!!meta.pinnedAt} onPin={() => pin('captures', meta.id, !meta.pinnedAt)} copyKey={noteLinkText(meta.id, meta.label)}
               menu={[

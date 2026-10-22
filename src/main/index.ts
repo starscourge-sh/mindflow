@@ -364,8 +364,15 @@ function boxUp(up: boolean): void {
 
 /** The Dock wears the icon chosen in Settings; run from source, it would otherwise be Electron's own. Not before the settings are open. */
 let iconReady = false
+// Each picture read once, at the Dock's largest size (128 points, 256 pixels on a Retina screen):
+// handed the 1024px file, every putting-on held up the whole app for about 65ms, and it is put on
+// each time the box goes away, so a note opened from the box waited behind it.
+const dockIcons = new Map<string, Electron.NativeImage>()
 function wearIcon(): void {
-  if (iconReady) app.dock?.setIcon(appIcon() === 'gold' ? iconGold : iconBronze)
+  if (!iconReady || !app.dock) return
+  const path = appIcon() === 'gold' ? iconGold : iconBronze
+  if (!dockIcons.has(path)) dockIcons.set(path, nativeImage.createFromPath(path).resize({ width: 256, quality: 'best' }))
+  app.dock.setIcon(dockIcons.get(path)!)
 }
 
 /** Motion off in Settings, or Reduce motion on in the Mac's Accessibility settings. */

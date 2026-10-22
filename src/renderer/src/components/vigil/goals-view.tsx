@@ -1,7 +1,7 @@
 import { dropLines, keepLines } from '@/lib/clue-lines'
 import { ReadsIn, useReading } from '@/lib/reads-in'
 import { binItem } from '@/lib/to-bin'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Archive, CalendarPlus, Flag, Plus, StickyNote, Wind } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
@@ -13,8 +13,9 @@ import { exampleGoals } from '@/lib/examples'
 import { Example } from './example'
 import { archive } from '@/lib/notes'
 import { useKept, useOpened } from '@/lib/nav'
-import { readFresh, readNow } from '@/lib/early-read'
+import { readFresh, readNow, useAfterFirstPaint } from '@/lib/early-read'
 import { NoteComing } from './note-coming'
+import { ShowMore, useShowMore } from './show-more'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Chips } from './display'
@@ -27,7 +28,7 @@ import { reword } from './questions-view'
 import { Term } from './term'
 import { CollectionHeader, Cover, MenuButton, QuietAction, useTint } from './collection-header'
 import { DatePicker } from './date-picker'
-import { ago, dayKey, dayMonth, dayName, num } from '../../../../main/dates'
+import { ago, dayKey, dayMonth, dayName, noon, num } from '../../../../main/dates'
 import { ProgressBar } from './progress-bar'
 import { inkOf, useMilestones, type Milestone } from '@/lib/milestones'
 import { stickOnDesktop } from './sticky-note'
@@ -272,12 +273,19 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
   const go = (type: string, id: string): void => (type === 'goal' ? pick(id) : onOpen?.(type, id))
   // x, ⇧-click and ⌘A pick several, for the queue or the archive together.
   const several = usePickNotes(items.map((one) => one.id), cursor, { here: useHere(), noun: ['goal', 'goals'], tier: 'goal', titleOf: (id) => items.find((one) => one.id === id)?.title })
-  const entries = items.map((one) => goalEntry(one, today, several.menu(one.id) ?? [{ label: 'Open', keys: '↵', run: () => pick(one.id) }, 'separator', ...goalMenu(one), ...several.rowItems(one.id)]))
+  // Sent here for one goal: the goal is drawn first and the list beside it
+  // the frame after, whole (Page's `apart`), so its words never wait behind the list.
+  const sent = !!focus && (coming ?? open?.id) === focus
+  const [listFirst] = useState(!focus)
+  const listLater = useAfterFirstPaint()
+  const listShown = listFirst || listLater
+  const entries = !listShown ? [] : items.map((one) => goalEntry(one, today, several.menu(one.id) ?? [{ label: 'Open', keys: '↵', run: () => pick(one.id) }, 'separator', ...goalMenu(one), ...several.rowItems(one.id)]))
   return (
     // The list and the one open beside it come in together, once both are read (lib/reads-in.tsx).
     <ReadsIn className="contents">
-      {/* Sent here for one goal: the page waits for it too, so it opens on the goal beside the list, not on the list alone first. */}
-      <Page aside={!!open} waiting={unloaded(all) || (!!focus && (coming ?? open?.id) !== focus)} title="Goals" count={several.chosen.length || items.length} unit={several.chosen.length ? ['selected', 'selected'] : ['goal', 'goals']}
+      {/* Sent here for one goal: the page waits for it too, so it opens on the goal beside the list, not on the list alone first;
+          the goal never waits for the list, which comes in whole beside it once drawn. */}
+      <Page aside={!!open || !!coming} waiting={unloaded(all) || (!!focus && (coming ?? open?.id) !== focus) || !listShown} apart={sent} title="Goals" count={several.chosen.length || items.length} unit={several.chosen.length ? ['selected', 'selected'] : ['goal', 'goals']}
         actions={several.bar ??
           <span className="flex items-center gap-2">
             <Chips className="shrink-0" options={[{ id: 'open', label: 'Open' }, { id: 'settled', label: 'Ended' }]} on={(id) => id === show} pick={(id) => switchTo(id as 'open' | 'settled')} />
@@ -287,7 +295,7 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
           </span>
         }
       >
-        {items.length ? (
+        {!listShown ? null : items.length ? (
           <NoteList groups={[['', entries]]} density="list" table="nuggets" selected={coming ?? open?.id} cursor={cursor} onCursor={setCursor} onPick={pick} chosen={several.chosen} picking={several.picking} className="mx-3 my-2" />
         ) : unloaded(all) ? null : !all.length ? (
           // None set yet: the page as it will look, with a few made-up ones.
@@ -305,7 +313,7 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
         )}
       </Page>
       {coming && coming !== open?.id ? <NoteComing id={coming} title={all.find((one) => one.id === coming)?.title} /> : open && <GoalDetail key={open.id} item={open}
-        top={<Stepper at={items.findIndex((one) => one.id === open.id)} total={items.length} onStep={(to) => pick(items[to].id)} />} />}
+        top={<ReadsIn apart reading={unloaded(all)} className="contents" data-apart="stepper"><Stepper at={items.findIndex((one) => one.id === open.id)} total={items.length} onStep={(to) => pick(items[to].id)} /></ReadsIn>} />}
     </ReadsIn>
   )
 }
@@ -543,12 +551,19 @@ const logDays = (logs: Gloss[]): Map<string, Gloss[]> => {
   const days = new Map<string, Gloss[]>()
   for (const log of logs) {
     const day = dayKey(log.createdAt)
-    days.set(day, [...(days.get(day) ?? []), log])
+    const list = days.get(day)
+    if (list) list.push(log)
+    else days.set(day, [log])
   }
   return days
 }
-const logsIn = (days: Map<string, Gloss[]>, dot: Dot): Gloss[] =>
-  dot.day === dot.last ? days.get(dot.day) ?? [] : [...days].filter(([day]) => day >= dot.day && day <= dot.last).flatMap(([, list]) => list)
+/** A dot's logs: its day's, or each day's of its week, looked up a day at a time rather than through every day logged. */
+const logsIn = (days: Map<string, Gloss[]>, dot: Dot): Gloss[] => {
+  if (dot.day === dot.last) return days.get(dot.day) ?? []
+  const out: Gloss[] = []
+  for (let at = noon(dot.day), day = dot.day; day <= dot.last; at = at.add(1, 'day'), day = dayKey(at.toDate())) out.push(...(days.get(day) ?? []))
+  return out
+}
 
 /**
  * The road from the day a goal was set to its day: a dot a day, a column a
@@ -570,7 +585,7 @@ export function Journey({ goal, from, target, today, logs, picked, onPick, compa
   compact?: boolean
 }): React.JSX.Element {
   const road = journey(from, target, today)
-  const days = logDays(logs)
+  const days = useMemo(() => logDays(logs), [logs])
   const [hover, setHover] = useState<Dot | null>(null)
   // The road spans the whole width it is given, like the bars under it: the
   // weeks spread out evenly, each dot as large as reads (22px at most, 12 on
@@ -721,6 +736,9 @@ function Logs({ item, picked, onClear }: { item: ItemFull; picked: Dot | null; o
   // Several logs at once: ⇧- or ⌘-click, x, ⌘A, ⌫ removes them with one Undo, Esc lets go.
   const list = useRef<HTMLOListElement>(null)
   const lines = usePickLines(logs.map((log) => log.id), list, { one: 'log', many: 'logs' })
+  // The newest few, then more a press at a time, as a task's log has them: a goal kept for years
+  // has thousands, and drawing every one held the window for seconds as the goal opened.
+  const few = useShowMore(logs, LOG_FEW, `${item.id} ${picked?.day ?? ''}`)
   const keep = (): void => {
     const text = words.trim()
     if (!text) return
@@ -772,7 +790,7 @@ function Logs({ item, picked, onClear }: { item: ItemFull; picked: Dot | null; o
       {logs.length ? (
         <ol ref={list} className="flex flex-col">
           <AnimatePresence initial={false}>
-            {logs.map((log) => {
+            {few.shown.map((log) => {
               const menu: MenuItem[] = lines.picked(log.id) && lines.count > 1 ? [
                 { label: `Copy ${num(lines.count)} logs`, run: () => copy(logs.filter((one) => lines.picked(one.id)).map((one) => one.body).join('\n')) },
                 'separator',
@@ -822,9 +840,13 @@ function Logs({ item, picked, onClear }: { item: ItemFull; picked: Dot | null; o
           {picked ? 'No log that day.' : item.closedAt ? 'No logs were kept. Open the goal again to add one.' : <Typed text={`Nothing logged yet. Write what you did above, or in quick capture start a line with “+${goalWord(item.title)}:” and what you did.`} step={28} />}
         </p>
       )}
+      <ShowMore total={logs.length} shown={few.shown.length} few={LOG_FEW} onMore={few.onMore} onFewer={few.onFewer} className="mx-1 mb-1" />
     </section>
   )
 }
+
+/** How many logs show before "Show more". */
+const LOG_FEW = 50
 
 /** A goal's road as a bar, one look on Home and the Goals page: its warmth in the last month, plain before. */
 export function GoalBar({ left, way, className = '' }: { left: number; way: number; className?: string }): React.JSX.Element {

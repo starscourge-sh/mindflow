@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { AnimatePresence, motion, useReducedMotion, type Transition } from 'motion/react'
+import { flushSync } from 'react-dom'
 import { cn } from '@/lib/cn'
 import { byKeys, spring, WEIGHT } from '@/lib/motion'
 
@@ -268,10 +269,21 @@ export function useChosen(box: RefObject<HTMLElement | null>, selector: string, 
   }, [box, selector])
   // Where it sits is read once the window has drawn the change, not in the
   // middle of drawing it: reading then would lay out a whole new page twice
-  // (opening a note from the sidebar was held up by it). Only the first is at once.
+  // (opening a note from the sidebar was held up by it). The first is read in
+  // the same frame, but once the window has laid the page out and before it is
+  // painted (a size observer's first say), so the light is there from the first
+  // frame and the page is not laid out an extra time for it (Today's chips, 55ms).
   const drawn = useRef(false)
   useLayoutEffect(() => {
-    if (!drawn.current) return void ((drawn.current = true), read(byKeys()))
+    if (!drawn.current) {
+      drawn.current = true
+      const el = box.current
+      if (!el) return
+      const keyed = byKeys()
+      const laid = new ResizeObserver(() => (laid.disconnect(), flushSync(() => read(keyed))))
+      laid.observe(el)
+      return () => laid.disconnect()
+    }
     const keyed = byKeys()
     let after = 0
     const frame = requestAnimationFrame(() => void (after = window.setTimeout(() => read(keyed), 0)))

@@ -17,7 +17,7 @@ import { openApart } from '@/lib/apart'
 import { asideItem } from '@/lib/split'
 import { queueItems } from '@/lib/reading-queue'
 import { useKept, useOpened } from '@/lib/nav'
-import { readAhead, readFresh, readNow } from '@/lib/early-read'
+import { readAhead, readFresh, readNow, useAfterFirstPaint } from '@/lib/early-read'
 import { NoteComing } from './note-coming'
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { Button } from '@/components/ui/button'
@@ -265,7 +265,14 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
     ...questionMenu(item, inView.has(item.id)),
     ...several.rowItems(item.id)
   ]
-  const entries = items.map((one) => questionEntry(one, inView.has(one.id), menuFor(one)))
+  // Sent here for one question: it is drawn first and the list beside it
+  // the frame after, whole (Page's `apart`), so its words never wait behind the list.
+  const sent = !!focus && (coming ?? open?.id) === focus
+  const [listFirst] = useState(!focus)
+  const listLater = useAfterFirstPaint()
+  const listShown = listFirst || listLater || (!!open && pane === 'rail')
+  const entries = !listShown ? [] : items.map((one) => questionEntry(one, inView.has(one.id), menuFor(one)))
+  const listUnread = unloaded(all) || unloaded(pinned)
   const peeked = spread ? all.find((one) => one.id === peek) : undefined
   return (
     // The list and the one open beside it come in together, once both are read (lib/reads-in.tsx).
@@ -273,7 +280,7 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
       {open && pane === 'rail' ? (
         <NoteRail entries={entries} cursor={cursor} selected={open.id} onPick={pick} onShow={() => setPane('list')} />
       ) : (
-      <Page aside={!!open} waiting={unloaded(all) || unloaded(pinned)} title="Questions" count={several.chosen.length || items.length} unit={several.chosen.length ? ['selected', 'selected'] : ['question', 'questions']}
+      <Page aside={!!open || !!coming} waiting={listUnread || !listShown} apart={sent} title="Questions" count={several.chosen.length || items.length} unit={several.chosen.length ? ['selected', 'selected'] : ['question', 'questions']}
         actions={several.bar ??
           <span className="flex items-center gap-2">
             {spread && <ListSearch value={query} onChange={(words) => (setQuery(words), setCursor(-1))} onDone={() => setCursor(0)} placeholder="Search in Questions" />}
@@ -286,7 +293,7 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
           </span>
         }
       >
-        {items.length ? (
+        {!listShown ? null : items.length ? (
           <NoteList groups={[['', entries]]} density={density} table="nuggets" selected={spread ? peek ?? undefined : coming ?? open?.id} cursor={cursor} onCursor={setCursor}
             onPick={spread ? (id) => (setPeek(id), setCursor(items.findIndex((one) => one.id === id))) : pick} onOpen={spread ? pick : undefined} after={glossAfter}
             chosen={several.chosen} picking={several.picking} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'} />
@@ -310,7 +317,7 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
       )}
       {peeked && <Peek entry={questionEntry(peeked, inView.has(peeked.id))} table="nuggets" onOpen={() => pick(peeked.id)} />}
       {coming && coming !== open?.id ? <NoteComing id={coming} title={all.find((one) => one.id === coming)?.title} /> : open && <Apart type="question" id={open.id} title={open.title} hidden={!!open.private} onBack={() => vigil.item(open.id).then((fresh) => fresh && setOpen(fresh))}><QuestionDetail key={open.id} item={open} onOpen={go}
-        top={<Stepper turns at={items.findIndex((one) => one.id === open.id)} total={items.length} onStep={(to) => pick(items[to].id)} />} /></Apart>}
+        top={<ReadsIn apart reading={listUnread} className="contents" data-apart="stepper"><Stepper turns at={items.findIndex((one) => one.id === open.id)} total={items.length} onStep={(to) => pick(items[to].id)} /></ReadsIn>} /></Apart>}
     </ReadsIn>
   )
 }

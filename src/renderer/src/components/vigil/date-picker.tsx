@@ -11,6 +11,11 @@ import { Island, IslandRow, Tip } from './ui'
 import { TimeField } from './time-field'
 import { dayMonth, dayjs } from '../../../../main/dates'
 
+/** What it holds, worked out only when it is drawn: inside a closed popover, never. */
+function Later({ children }: { children: () => ReactNode }): ReactNode {
+  return children()
+}
+
 /** A day said in words, "in 3 months" or "next friday", or null; "3 months" alone means from now. */
 const said = (words: string): Date | null =>
   words.trim() ? (datesIn(/^\d+ \w+$/.test(words.trim()) ? `in ${words}` : words)[0]?.date ?? null) : null
@@ -130,13 +135,14 @@ export function DatePicker({ value, onChange, time = false, placeholder = 'Pick 
               aria-label="When, in words"
               className="w-full bg-transparent px-2.5 py-1.5 text-control outline-none placeholder:text-foreground/70"
             />
-            {(words.trim() ? (typed ? [[words.trim(), typed] as const] : []) : suggest.flatMap((one) => { const day = said(one); return day ? [[one, day] as const] : [] })).map(([label, day]) => (
+            {/* Worked out only once it is open: read from the words on every draw of a closed picker, they held up the page it is on. */}
+            <Later>{() => (words.trim() ? (typed ? [[words.trim(), typed] as const] : []) : suggest.flatMap((one) => { const day = said(one); return day ? [[one, day] as const] : [] })).map(([label, day]) => (
               <button key={label} type="button" onClick={() => { chime('tap'); onChange(at(day)); setWords(''); setOpen(false) }}
                 className="flex w-full items-center justify-between gap-4 rounded-md px-2.5 py-1.5 text-left text-control hover:bg-accent">
                 <span className="first-letter:uppercase">{label}</span>
                 <span className="text-xs text-muted-foreground tabular-nums">{dayMonth(day)}</span>
               </button>
-            ))}
+            ))}</Later>
             {words.trim() && !typed && <p className="px-2.5 py-1.5 text-xs text-muted-foreground">No day in that yet</p>}
           </Island>
         )}
