@@ -32,7 +32,7 @@ import { binItem, moveToBin, seeTheBin } from '@/lib/to-bin'
 import { useSameWords } from '@/lib/same-words'
 import { Apart } from '@/lib/apart'
 import { chime, tear, pageTurn } from '@/lib/sound'
-import { Empty, Island, Page, Prop, Props, Remembered, Rolling, refuse, toast, useListKeys, useReadKey, typing, pin, askQuestion, Stepper, startAt, showTopTitle, Pressed, quietly, askClearWho } from './ui'
+import { Empty, focusField, Island, Page, Prop, Props, Remembered, Rolling, refuse, toast, useListKeys, useReadKey, typing, pin, askQuestion, Stepper, startAt, showTopTitle, Pressed, quietly, askClearWho } from './ui'
 import { Term } from './term'
 import { GlossTimeline, useRowGloss } from './gloss-line'
 import { ThoughtDock } from './thought-bar'
@@ -504,7 +504,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
               'separator',
               !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
               { label: 'Clear the selection', keys: 'esc', run: () => (chime('off'), setChosen([])) }
-            ] : [...usual, 'separator', { label: chosen.includes(capture.id) ? 'Unselect' : 'Select', keys: 'X', run: () => picking.toggle(capture.id) }, whole.length > 1 && !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll }]}
+            ] : [...usual, 'separator', { label: chosen.includes(capture.id) ? 'Unselect' : 'Select', keys: 'X', run: () => picking.toggle(capture.id) }, !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll }]}
             onMove={(id, target, after) => move(kept.map((one) => one.id), id, target, after)} after={glossAfter} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'} />
         ) : unloaded(all) ? null : examples.length ? (
           <Example tryIt={archived ? 'right-click any note and choose “Archive”. It is kept here, out of sight, never in the Bin.' : 'press ⌘. in any app, write a thought, and send it with ⌘↵. It waits here until you come back to it.'}>
@@ -672,7 +672,8 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
                       <button type="button" data-signed className="-mx-1.5 rounded-md px-1.5 text-left transition-colors hover:bg-accent" onClick={(event) => {
                         const page = event.currentTarget.closest('.note-pane')
                         showDetails(true, inPane)
-                        setTimeout(() => page?.querySelector<HTMLInputElement>(`input[placeholder="${ASKS.quote?.who ?? 'Who'}"]`)?.focus(), 350)
+                        // Opened, and its group unfolded if folded shut, then the caret in it.
+                        focusField(() => page?.querySelector<HTMLInputElement>(`input[placeholder="${ASKS.quote?.who ?? 'Who'}"]`))
                       }}>
                         <Signed who={meta.attribution} className="private-text" />
                       </button>
@@ -710,8 +711,9 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
 /**
  * The Inbox's ways through it, in one button: Tidy and Decide when there is
  * something for them (never with a count of what is left), and Read through.
+ * The same button on the Inbox page and in quick capture's Inbox tab.
  */
-function GoThrough({ compact, canRead, onRead }: { compact: boolean; canRead: boolean; onRead: () => void }): React.JSX.Element {
+export function GoThrough({ compact, canRead, onRead, className = '' }: { compact: boolean; canRead: boolean; onRead: () => void; className?: string }): React.JSX.Element {
   const waiting = useLive(vigil.passWaiting, { tidy: 0, decide: 0 })
   const settings = useLive(vigil.settings, null as Settings | null)
   const today = settings?.weeklyReview !== false && dayjs().day() === settings?.weeklyDay
@@ -719,7 +721,7 @@ function GoThrough({ compact, canRead, onRead }: { compact: boolean; canRead: bo
     <DropdownMenu modal={false}>
       <Tip label={today && waiting.decide ? 'Today is deciding day' : 'Go through them: tag them so they are easy to find (Tidy), choose what to keep (Decide), or read them one at a time'}>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size={compact ? 'icon-sm' : 'sm'} aria-label="Go through…" className={today && waiting.decide ? 'text-[var(--tt-color-text-purple)]' : ''}>
+          <Button variant="ghost" size={compact ? 'icon-sm' : 'sm'} aria-label="Go through…" className={`${today && waiting.decide ? 'text-[var(--tt-color-text-purple)]' : ''} ${className}`}>
             <AliveIcon icon={BookIcon} size={14} />{!compact && ' Go through…'}
           </Button>
         </DropdownMenuTrigger>

@@ -20,7 +20,6 @@ import { enqueue } from '@/lib/reading-queue'
 import { CAPTURE_TYPES, CaptureKindPicker, asksFor, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { age } from '../capture-list'
 import { findCaptures, findHeadings, follow, noteLinkText, recallOffered } from '@/lib/capture-links'
-import { glideWay } from '@/lib/motion'
 import { splitTags, unloaded, useLastAsked, useLive, vigil, whenInLine, type Item, type ItemFull } from '@/lib/vigil'
 import { exampleIdeas, exampleWriting } from '@/lib/examples'
 import { Example } from './example'
@@ -29,7 +28,7 @@ import { useSelectAll } from '@/lib/select-all'
 import { usePicking } from '@/lib/pick-range'
 import { binItem, moveToBin } from '@/lib/to-bin'
 import { useSameWords } from '@/lib/same-words'
-import { Empty, Island, Page, Prop, Props, Remembered, refuse, quietly, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, Typed, showTopTitle, Pressed, askClearWho, Rolling } from './ui'
+import { Empty, focusField, Island, Page, Prop, Props, Remembered, refuse, quietly, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, Typed, showTopTitle, Pressed, askClearWho, Rolling } from './ui'
 import { Term } from './term'
 import { AGES, Chips, Display, FilterChips, arrange, period, useView, type Density, type Facet, type View } from './display'
 import { copy, type MenuItem, type RowItem } from './row-menu'
@@ -392,7 +391,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
     ...itemMenu(item),
     item.unsorted ? { label: 'Mark as sorted', hint: 'Kept where it is', run: () => markSorted([item.id], true) } : null,
     { label: chosen.includes(item.id) ? 'Unselect' : 'Select', keys: 'X', run: () => toggle(item.id) },
-    pickable.length > 1 && !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
+    !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
     'separator',
     ...folding.menu([item.id]),
     'separator',
@@ -694,7 +693,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
               <div data-chrome className="page-narrow mx-auto mt-1 w-full px-[4.5rem] text-control text-muted-foreground">
                 {/* Signed, and changed from the signature: a click goes to “Who said it” beside the page. */}
                 <Tip label="Change who said it">
-                  <button type="button" data-signed-edit className="rounded hover:bg-accent" onClick={() => { const field = document.querySelector<HTMLInputElement>('[data-gem-source]'); field?.scrollIntoView({ block: 'center', behavior: glideWay() }); field?.focus() }}>
+                  <button type="button" data-signed-edit className="rounded hover:bg-accent" onClick={() => focusField(() => document.querySelector<HTMLInputElement>('[data-gem-source]'))}>
                     <Signed who={item.attribution} className="private-text" />
                   </button>
                 </Tip>

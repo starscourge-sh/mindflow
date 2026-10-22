@@ -7,7 +7,7 @@ import { SlotText } from 'slot-text/react'
 import { Check, ChevronRight, CircleX, type LucideIcon } from 'lucide-react'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import { AnimatePresence, motion } from 'motion/react'
-import { byKeys, EASE, hush, shift, speak, speakAfter, spring as springs, still, useFirstVisit } from '@/lib/motion'
+import { byKeys, EASE, glideWay, hush, shift, speak, speakAfter, spring as springs, still, useFirstVisit } from '@/lib/motion'
 import { detent, slotTicker } from '@/lib/proximity'
 import { Arrow } from './marks'
 import Lenis from 'lenis'
@@ -1934,6 +1934,24 @@ export function Island({ title, actions, children, className, compact, name }: {
 }
 const ISLAND = 'mf-island divide-y divide-border/60 overflow-hidden border bg-accent/25'
 const ISLAND_COMPACT = 'rounded-lg [&>*]:rounded-none [&>button]:w-full [&>textarea]:border-0 [&>textarea]:bg-transparent [&>textarea]:shadow-none [&>textarea]:focus-visible:ring-0 [&>input]:border-0 [&>input]:bg-transparent [&>input]:shadow-none [&>input]:focus-visible:ring-0'
+
+/**
+ * Put the caret in a field beside the page, whatever stands between: the
+ * details opening (it may not be drawn yet), or its group folded shut (a
+ * folded group is inert, so focus would quietly do nothing). `find` is asked
+ * again until the field has the caret, for up to two seconds.
+ */
+export function focusField(find: () => HTMLElement | null | undefined): void {
+  const started = performance.now()
+  const ask = (): void => {
+    const field = find()
+    const shut = field?.closest('[data-details-group]:not([data-open])')?.querySelector<HTMLButtonElement>('button[aria-expanded="false"]')
+    if (shut) shut.click()
+    else if (field) (field.scrollIntoView({ block: 'nearest', behavior: glideWay() }), field.focus({ preventScroll: true }))
+    if ((!field || document.activeElement !== field) && performance.now() - started < 2000) setTimeout(ask, 60)
+  }
+  ask()
+}
 
 /** A details group that folds by its heading, remembered per group; Family, Links and Details start open. */
 function FoldingIsland({ title, name, actions, className, children }: { title: ReactNode; name: string; actions?: ReactNode; className?: string; children: ReactNode }): React.JSX.Element {

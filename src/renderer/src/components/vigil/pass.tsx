@@ -580,35 +580,6 @@ export function TagRow({ tags, field, onAdd, onRemove, onDone, autoFocus = false
 }
 
 /**
- * The way into either pass, where the inbox is: offered only when there is
- * something for it, and never with a count of what is left to do.
- */
-export function PassLinks({ className = '' }: { className?: string }): React.JSX.Element | null {
-  const waiting = useLive(vigil.passWaiting, { tidy: 0, decide: 0 })
-  const settings = useLive(vigil.settings, null as Settings | null)
-  if (!waiting.tidy && !waiting.decide) return null
-  const today = settings?.weeklyReview !== false && dayjs().day() === settings?.weeklyDay
-  return (
-    <div className={`flex flex-wrap items-center gap-1 text-xs text-muted-foreground ${className}`}>
-      {waiting.tidy > 0 && (
-        <Tip label="Tidy the last few days: tags and formatting, nothing to decide">
-          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-[var(--tt-color-text-green)]" onClick={() => openPass('tidy')}>
-            <Brush className="size-3.5" /> Tidy
-          </Button>
-        </Tip>
-      )}
-      {waiting.decide > 0 && (
-        <Tip label={`What you set aside, and what has waited longest: keep each, finish it or move it to the Bin. ${today ? 'Today is deciding day.' : `Its day is ${decideDay(settings)}, but any day works.`}`}>
-          <Button variant="ghost" size="sm" className={today ? 'text-[var(--tt-color-text-purple)]' : 'text-muted-foreground hover:text-[var(--tt-color-text-purple)]'} onClick={() => openPass('decide')}>
-            <Scale className="size-3.5" /> {today ? 'Deciding day' : 'Decide'}
-          </Button>
-        </Tip>
-      )}
-    </div>
-  )
-}
-
-/**
  * Who said it and where it came from, for a kind that asks (a quote, a link,
  * a word): put right in passing, as Tidy is for, saved as you type.
  */

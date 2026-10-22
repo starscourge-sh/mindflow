@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { chime } from '@/lib/sound'
 import type { JSONContent } from '@tiptap/core'
 
@@ -23,7 +23,6 @@ import { tagsIn } from '../../../main/tag-words'
 import { quoted } from '../../../main/clip'
 import { ChevronRight } from '@/components/ui/icons'
 import { BOX_PINS, Pins } from './pins'
-import { PassLinks } from './vigil/pass'
 
 type Capture = Awaited<ReturnType<typeof window.api.captures.rot>>[number]
 
@@ -113,9 +112,8 @@ export function Waiting({ onOpen, onOpenAny }: { onOpen: (id: string) => void; o
   return (
     <div ref={box} data-waiting-stack className="relative z-10 shrink-0 border-b border-border/70">
       <div ref={top}><Pins onOpen={onOpenAny} compact={compact} /></div>
-      <RotCards onOpen={onOpen} room={tall.body ? budget - tall.pins : null}
-        aside={<PassLinks className="px-1 pb-2 [&:not(:last-child)]:mb-3 [&:not(:last-child)]:border-b [&:not(:last-child)]:border-border/50" />}
-        inline={<PassLinks className="-my-1 ml-auto" />} />
+      {/* Tidy and Decide are in the Inbox's "Go through…" menu, as on the Inbox page. */}
+      <RotCards onOpen={onOpen} room={tall.body ? budget - tall.pins : null} />
     </div>
   )
 }
@@ -133,14 +131,10 @@ const byAge = (a: Capture, b: Capture): number => a.capturedAt.localeCompare(b.c
  * Drawn each time the window is brought up and after an exit, not on every
  * change elsewhere, or the cards would shuffle under you while you type.
  */
-export function RotCards({ onOpen, room: space = null, aside = null, inline = null }: {
+export function RotCards({ onOpen, room: space = null }: {
   onOpen: (id: string) => void
   /** The height the cards may take, heading and all; null for no limit. */
   room?: number | null
-  /** Shown above the cards' area when there are none (the passes)... */
-  aside?: ReactNode
-  /** ...and beside their heading when there are. */
-  inline?: ReactNode
 }): React.JSX.Element | null {
   const [cards, setCards] = useState<Capture[]>([])
   // The card whose who is being asked, from its w key.
@@ -246,18 +240,16 @@ export function RotCards({ onOpen, room: space = null, aside = null, inline = nu
   if (!cards.length)
     return left === 0 && !off ? (
       <>
-        {aside}
         <Rest compact strip seed="rot">
           <p className="mb-2 px-2 py-1 text-xs text-muted-foreground">
             <Typed text="No old captures waiting: every one has been dealt with." step={28} delay={200} />
           </p>
         </Rest>
       </>
-    ) : <>{aside}</>
+    ) : null
   return (
     // Old captures in a panel of their own, tinted as the pinned note above is, so they read apart from the Inbox under them.
     <section ref={section} className={`rounded-xl bg-foreground/[0.045] px-1 ${folded ? 'mb-1.5 py-0.5' : 'mb-2 pt-1.5 pb-0.5'}`}>
-      {/* The passes sit on the heading's line: a row of their own above it pushed the Inbox down. */}
       <div data-rot-head className={`flex min-h-6 items-center gap-1 px-2 ${folded ? '' : 'pb-1'}`}>
         {folded ? (
           <Tip label={`Tidy them one at a time: there is no room for the cards here. Deciding waits for ${day}.`}>
@@ -272,7 +264,6 @@ export function RotCards({ onOpen, room: space = null, aside = null, inline = nu
             <h3 className="w-fit text-xs text-muted-foreground">Old captures to tidy</h3>
           </Tip>
         )}
-        {inline}
       </div>
       {/* A card that takes an exit leaves sideways, the way it was dealt with,
           and the next one fades into its place. */}

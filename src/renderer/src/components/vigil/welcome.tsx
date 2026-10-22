@@ -462,7 +462,8 @@ export function Welcome(): React.JSX.Element | null {
             <Progress at={at} seen={played} onBack={back} />
             {/* The ways past a page sit with Back and the marks, far from the arrow, so the arrow only ever points from nothing to Next.
                 Worded alike: Skip the welcome, or, on Your turn, Skip trying it. */}
-            {(at === LAST || !caught.length) && !trying && (
+            {/* Always a way out, on every page until the welcome ends, whatever was caught on the way. */}
+            {!trying && (
               <button type="button" data-skip onClick={skip} className={`${QUIET_BUTTON} whitespace-nowrap`}>
                 {at === LAST ? 'Start without the tour' : 'Skip the welcome'}
               </button>

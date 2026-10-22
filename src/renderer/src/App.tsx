@@ -53,7 +53,7 @@ import { RecentPanel } from './components/vigil/recent-panel'
 import { BOX_TABS, dropOrder, orderItems, useInOrder, useOrder, useShown, type Place } from './components/vigil/places'
 import { SortableList, SortableRow } from './components/vigil/sortable'
 import { RowMenu } from './components/vigil/row-menu'
-import { CaptureProps, useCaptureDisplay } from './components/vigil/captures-view'
+import { CaptureProps, GoThrough, useCaptureDisplay } from './components/vigil/captures-view'
 import { Search } from './components/search'
 import { InboxBinned, InboxZero, useJustCleared } from './components/vigil/inbox-zero'
 import { keepTyped } from './lib/keep-typed'
@@ -98,7 +98,6 @@ import { Celebrations } from '@/components/vigil/celebrate'
 import { Mentions } from '@/components/vigil/mentions'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
-import BookIcon from '@/components/ui/book-icon'
 import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
 import GearIcon from '@/components/ui/gear-icon'
 import PenIcon from '@/components/ui/pen-icon'
@@ -2627,11 +2626,8 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                       <Tip label="Every capture still waiting for you; the “Display” menu (F) shows the rest under “Status”. X selects several.">
                         <h3 className="w-fit whitespace-nowrap">{listed === open.length ? 'Inbox' : `${num(listed)} shown`}</h3>
                       </Tip>
-                      <Tip label="One note at a time, full screen, from the highlighted one  ⇧⌘R">
-                        <Button variant="ghost" size="sm" className="ml-auto" onClick={() => onRead(shown.map((one) => ({ type: 'capture', id: one.id })), startAt(shown, editing, cursor))}>
-                          <AliveIcon icon={BookIcon} size={14} /> Read through
-                        </Button>
-                      </Tip>
+                      {/* Tidy, Decide and Read through, in the one menu the Inbox page has. */}
+                      <GoThrough compact={false} className="ml-auto" canRead={shown.length > 0} onRead={() => onRead(shown.map((one) => ({ type: 'capture', id: one.id })), startAt(shown, editing, cursor))} />
                       <span>{display}</span>
                     </>
                   )}
@@ -2653,7 +2649,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                     'separator',
                     !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
                     { label: 'Clear the selection', keys: 'esc', run: () => (chime('off'), setChosen([])) }
-                  ] : [...usual, 'separator', { label: chosen.includes(capture.id) ? 'Unselect' : 'Select', keys: 'X', run: () => choose(capture.id) }, every.length > 1 && !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll }]} />}
+                  ] : [...usual, 'separator', { label: chosen.includes(capture.id) ? 'Unselect' : 'Select', keys: 'X', run: () => choose(capture.id) }, !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll }]} />}
                 {!listed && !unloaded(captures) && (
                   !captures.length ? (
                     <Example compact tryIt="write a thought on the left and send it with ⌘↵. It waits here.">
