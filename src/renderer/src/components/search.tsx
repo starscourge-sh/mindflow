@@ -544,7 +544,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
             </div>
           )}
         </div>
-        {/* How to drive it, always there; the Enter word follows what is highlighted. Each hint on one line; a narrow window puts the rest on a second row. */}
+        {/* How to drive it, always there; the Enter word follows what is highlighted. Each hint on one line; a narrow window puts the rest on a second row, and a short one keeps only navigate, the Enter word and esc. */}
         {several.bar ? (
           // Results picked: the line under the list is what can be done with them.
           <div data-pick-bar className="flex min-h-9 shrink-0 items-center border-t px-3 py-1">{several.bar}</div>
@@ -552,9 +552,9 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
         <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-t px-4 py-1.5 text-xs whitespace-nowrap text-muted-foreground">
           <span className="flex items-center gap-1.5"><span className="flex gap-0.5"><Kbd>↑</Kbd><Kbd>↓</Kbd></span> navigate</span>
           <span className="flex items-center gap-1.5"><Kbd>↵</Kbd> <Rolling text={picking || action?.keep ? 'keep' : choosing ? 'pick' : action ? 'use' : 'open'} /></span>
-          {!picking && !choosing && results.length > 0 && current !== results[0] && <span className="flex items-center gap-1.5"><Kbd>⇧↵</Kbd> open the top result</span>}
-          {onAside && !picking && !choosing && !action && current && <span className="flex items-center gap-1.5"><Kbd>⌥↵</Kbd> to the side</span>}
-          {!picking && !choosing && results.length > 1 && <span className="flex items-center gap-1.5"><Kbd>⇧</Kbd>-click selects</span>}
+          {!picking && !choosing && results.length > 0 && current !== results[0] && <span className="flex items-center gap-1.5 [@media(max-height:520px)]:hidden"><Kbd>⇧↵</Kbd> open the top result</span>}
+          {onAside && !picking && !choosing && !action && current && <span className="flex items-center gap-1.5 [@media(max-height:520px)]:hidden"><Kbd>⌥↵</Kbd> to the side</span>}
+          {!picking && !choosing && results.length > 1 && <span className="flex items-center gap-1.5 [@media(max-height:520px)]:hidden"><Kbd>⌘</Kbd>-click selects</span>}
           <span className="flex items-center gap-1.5"><Kbd>esc</Kbd> <Rolling text={picking || choosing ? 'back' : 'close'} /></span>
         </div>
         )}
