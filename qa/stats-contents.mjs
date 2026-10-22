@@ -38,7 +38,7 @@ try {
   check(JSON.stringify(names) === JSON.stringify(await shown()), 'exactly the sections on show, in order')
   check(await h.locator(`${toc}[data-wide]`).count() === 1, 'at 1600 wide it is open, its words showing')
 
-  for (const name of [names[3], names[names.length - 2]]) {
+  for (const name of [names[3], names[Math.floor(names.length / 2) + 1]]) {
     await h.click(`${toc} .tiptap-toc-item >> text="${name}"`)
     await wait(1100)
     const top = await headingTop(name)

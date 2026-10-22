@@ -254,7 +254,9 @@ try {
       const run = await frames()
       const to = await openNote()
       check(`${key === 'ArrowDown' ? '↓' : '↑'}: moved on`, to && to !== was, `${was?.slice(0, 6)} → ${to?.slice(0, 6)}`)
-      judge(`the stepper's ${key === 'ArrowDown' ? '↓' : '↑'}`, run, { target: to, keyed: true })
+      // Writing holds questions too; a question asked with nothing written under it yet has no words to wait for.
+      const bare = to && (await v('item', to))?.tier === 'question' && !(await h.evaluate(() => document.querySelector('.note-pane[data-open] .ProseMirror')?.textContent.length))
+      judge(`the stepper's ${key === 'ArrowDown' ? '↓' : '↑'}`, run, { target: to, keyed: true, words: !bare })
     }
   }
   // Back and forward on every other kind of page: a task, the calendar, a tag, a day.
