@@ -679,7 +679,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
               findNotes={findCaptures}
               findHeadings={findHeadings}
               onOpenNote={(link, heading) => follow(link, (type, id) => (type === 'capture' ? pick(id) : onOpen?.(type, id)), heading)}
-              after={<ReadsIn reading={!later}>
+              after={<ReadsIn apart reading={!later}>
                 {/* What sits under the words (its source, what links here) comes in whole, once its reads are in: a part arriving a beat late moved the foot from the page's bottom up under the words. */}
                 {/* A quote signed at its foot: who said it, in a pen's hand. */}
                 {meta.kind === 'quote' && meta.attribution && (

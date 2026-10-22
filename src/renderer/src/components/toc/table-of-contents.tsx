@@ -112,7 +112,8 @@ export function TableOfContents({ editor, shown = true }: { editor: Editor | nul
       const over = words + 12 - nav.getBoundingClientRect().left
       if (over > 0) page.style.paddingRight = `${parseFloat(getComputedStyle(page).paddingRight) + over}px`
     }
-    fit()
+    // Measured first by the observer itself, once the frame is laid out and before it is painted:
+    // measured here, in the middle of drawing a note, it laid the whole window out an extra time.
     const watch = new ResizeObserver(fit)
     watch.observe(page.parentElement ?? page)
     return () => {

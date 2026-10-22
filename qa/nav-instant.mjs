@@ -44,8 +44,10 @@ const record = (ms = 1500) => h.evaluate((ms) => {
     const side = document.querySelector('aside[data-chrome][data-book-tint]')
     const box = side?.getBoundingClientRect()
     const pane = document.querySelector('[data-pane-front]') ?? document.querySelector('[data-pane]')
-    const pages = [...(pane?.querySelectorAll('[data-page]') ?? [])].map((one) => ({ id: one.getAttribute('data-page'), o: +getComputedStyle(one).opacity, text: one.textContent.length }))
-    const notes = [...(pane?.querySelectorAll('.note-pane[data-open]') ?? [])].filter((one) => +getComputedStyle(one.closest('[data-page]') ?? one).opacity > 0.05).map((one) => ({ id: one.getAttribute('data-open'), words: one.querySelector('.ProseMirror')?.textContent.length ?? 0, coming: one.hasAttribute('data-coming') }))
+    // A page held unseen until its reads are in (lib/reads-in.tsx) shows nothing: only its seen words count.
+    const seen = (page) => page.textContent.length - [...page.querySelectorAll('[style*="visibility: hidden"]')].filter((one) => !one.parentElement.closest('[style*="visibility: hidden"]')).reduce((sum, one) => sum + one.textContent.length, 0)
+    const pages = [...(pane?.querySelectorAll('[data-page]') ?? [])].map((one) => ({ id: one.getAttribute('data-page'), o: +getComputedStyle(one).opacity, text: getComputedStyle(one).visibility === 'hidden' ? 0 : seen(one) }))
+    const notes = [...(pane?.querySelectorAll('.note-pane[data-open]') ?? [])].filter((one) => +getComputedStyle(one.closest('[data-page]') ?? one).opacity > 0.05 && one.checkVisibility({ visibilityProperty: true })).map((one) => ({ id: one.getAttribute('data-open'), words: one.querySelector('.ProseMirror')?.textContent.length ?? 0, coming: one.hasAttribute('data-coming') }))
     frames.push({ at: performance.now(), side: !!side && box.width > 0 && side.textContent.length > 20, pages, notes, text: pane?.textContent.length ?? 0 })
     if (performance.now() - start < ms) requestAnimationFrame(tick)
   }
@@ -79,7 +81,7 @@ function judge(name, run, { target, keyed = false, words = true, page, cold = fa
   else check(`${name}: there once read`, at >= 0, `${said}; the last before it: ${before}`)
   if (page) {
     // The page it lives on never shows without it: the note is there on the page's first frame.
-    const shown = after.findIndex((one) => one.pages.some((one) => one.id === page && one.o > 0.05))
+    const shown = after.findIndex((one) => one.pages.some((one) => one.id === page && one.o > 0.05 && one.text > 0))
     check(`${name}: on the page's first frame`, shown >= 0 && shown >= at, shown < 0 ? 'the page never showed' : `page at frame ${shown + 1}, note at frame ${at + 1}`)
   }
   if (words && typeof target === 'string') {
@@ -87,7 +89,7 @@ function judge(name, run, { target, keyed = false, words = true, page, cold = fa
     check(`${name}: its words within ${BODY_MS}ms`, read && read.at - t <= BODY_MS, read ? `+${Math.round(read.at - t)}ms` : 'never')
   }
   if (keyed) {
-    const both = after.filter((one) => one.pages.filter((page) => page.o > 0.05).length > 1)
+    const both = after.filter((one) => one.pages.filter((page) => page.o > 0.05 && page.text > 0).length > 1)
     const long = both.length ? both.at(-1).at - both[0].at : 0
     check(`${name}: no two pages over each other past 80ms`, long <= 80, `${Math.round(long)}ms`)
   }
@@ -246,7 +248,7 @@ try {
     await record(); await h.keyboard.press('Meta+BracketRight')
     judge('⌘] between two tasks', await frames(), { target: tasks[1].id, keyed: true, words: false })
     const day = (offset) => { const at = new Date(Date.now() + offset * 86400000); return `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, '0')}-${String(at.getDate()).padStart(2, '0')}` }
-    const shows = (page) => (one) => one.pages.length === 1 && one.pages[0].id === page && one.pages[0].o > 0.5
+    const shows = (page) => (one) => { const on = one.pages.filter((it) => it.o > 0.5 && it.text > 0); return on.length === 1 && on[0].id === page }
     for (const [label, a, b, page] of [['a day\'s page', ['day', day(-1)], ['day', day(-2)], 'day'], ['a tag', ['tag', 'renaissance'], ['tag', 'perspective'], 'tags'], ['the calendar', ['view', 'calendar'], ['view', 'today'], null]]) {
       await h.evaluate(([type, id]) => window.api.openInHome(type, id), a); await wait(1500)
       await h.evaluate(([type, id]) => window.api.openInHome(type, id), b); await wait(1500); await blur()

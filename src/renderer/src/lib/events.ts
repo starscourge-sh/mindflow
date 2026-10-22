@@ -56,7 +56,8 @@ export const inkOf = (color: string | null | undefined): string =>
 
 /** The events of a span, read again on every change. */
 export function useEvents(from: string, to: string): Occurrence[] {
-  return useLive(() => events.between(from, to), [] as Occurrence[], [from, to])
+  // Kept by name, as the lists are: Back to the Calendar draws it at once from what was read last, and reads afresh.
+  return useLive(() => events.between(from, to), [] as Occurrence[], [from, to], undefined, 'events-between')
 }
 export function useCalendars(): Calendar[] {
   return useLive(events.calendars, [] as Calendar[])

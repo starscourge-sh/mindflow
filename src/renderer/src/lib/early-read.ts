@@ -1,5 +1,6 @@
 import { startTransition, useEffect, useState } from 'react'
 import { vigil } from './vigil'
+import { lookUpKindsIn } from '../extensions/note-link'
 
 /**
  * A note's (or task's, or gem's) words asked for the moment it is pressed,
@@ -34,6 +35,9 @@ function remember(type: string, id: string, got: unknown): void {
   const key = keyOf(type, id)
   known.delete(key)
   known.set(key, got)
+  // Its links' kinds asked for now too, so its page has nothing left to wait for once drawn.
+  const body = (got as { body?: unknown; notes?: unknown }).body ?? (got as { notes?: unknown }).notes
+  if (body && typeof body === 'object') lookUpKindsIn(body)
   if (known.size > KNOWN_MAX) known.delete(known.keys().next().value!)
 }
 /** One note's kept words let go: it is being saved, so what was read is old. */

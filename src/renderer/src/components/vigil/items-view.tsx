@@ -254,11 +254,6 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   })
   // Only the last pick lands: a late answer for the gem before is dropped.
   const asked = useLastAsked()
-  // Opened onto one note, the note is drawn first and the list beside it the
-  // frame after, so its words are not kept waiting behind every row.
-  const [listFirst] = useState(!focus)
-  const listLater = useAfterFirstPaint()
-  const listShown = listFirst || listLater
   const pick = (id: string): void => {
     // A folder card opens its group in place.
     if (isGroup(id)) return (chime('untuck'), setInGroup(groupId(id)), setCursor(0))
@@ -576,7 +571,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
         </div>
         {/* A folded group shows as its heading even when nothing loose is left, so the list is not empty then.
             Until your groups are read too, nothing: the notes alone would flash as a plain list first. */}
-        {unloaded(noteGroups) || !listShown ? null : items.length || (folding.rows && noteGroups.some((one) => one.members.some((id) => all.some((item) => item.id === id && !item.archivedAt)))) ? (
+        {unloaded(noteGroups) ? null : items.length || (folding.rows && noteGroups.some((one) => one.members.some((id) => all.some((item) => item.id === id && !item.archivedAt)))) ? (
           <NoteList groups={entries} density={density} table="nuggets" selected={spread ? peek ?? undefined : coming ?? open?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
             onPick={spread ? (id) => (isGroup(id) ? pick(id) : (setPeek(id), setCursor(items.findIndex((one) => one.id === id)))) : pick} onOpen={spread ? pick : undefined}
             picking={picking} onMove={view.sort === 'manual' ? onMove : undefined} after={glossAfter} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'}
@@ -749,7 +744,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
           findNotes={findCaptures}
           findHeadings={findHeadings}
           onOpenNote={(link, heading) => onOpen && follow(link, onOpen, heading)}
-          after={<ReadsIn reading={!later}>
+          after={<ReadsIn apart reading={!later}>
             {/* What sits under the words (its source, what links here) comes in whole, once its reads are in: a part arriving a beat late moved the foot from the page's bottom up under the words. */}
             {/* A quote signed at its foot: who said it, in a pen's hand. */}
             {item.kind === 'quote' && item.attribution && (

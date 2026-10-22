@@ -628,7 +628,8 @@ const byNote = (list: Task[]): [string, Task[], string][] =>
 export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' | 'upcoming' | 'routines' | 'later'; focus?: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   const real = useLive(vigil.tasks, [] as Task[])
   // What a fresh start holds: its own list at the foot of Later, each one back the moment it is opened.
-  const held = useLive(() => (mode === 'later' ? call<Task[]>('tasks:held') : Promise.resolve([] as Task[])), [] as Task[], [mode])
+  // Kept by name, as the lists are: Back to this page draws it at once from what was read last, and reads afresh.
+  const held = useLive(() => (mode === 'later' ? call<Task[]>('tasks:held') : Promise.resolve([] as Task[])), [] as Task[], [mode], undefined, 'tasks-held')
   // Nothing of this list's yet: a few made-up tasks show what it holds, dimmed and out of reach.
   const example = !unloaded(real) && !unloaded(held) && !real.some((task) => task.status === 'open' && (mode === 'routines' ? !!task.recurrence : mode === 'later' ? !!bucket(task) : mode === 'upcoming' ? !task.recurrence : true)) && !held.length
   const examples = useMemo(exampleTasks, [])
@@ -754,7 +755,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
 
   // How far through the day: what was done today (routines too) against that and what is left.
   // Not read yet (undefined) is not none done (null): "2 of 7 done" waits with the list rather than pushing it down a beat later.
-  const dayRead = useLive<Day | null | undefined>(() => (mode === 'today' ? notes.day(dayKey()) : Promise.resolve(null)), undefined, [mode])
+  const dayRead = useLive<Day | null | undefined>(() => (mode === 'today' ? notes.day(dayKey()) : Promise.resolve(null)), undefined, [mode, dayKey()], undefined, 'tasks-day')
   const dayDone = dayRead?.done.length ?? 0
   // Every read the list is drawn from: the tasks, those on hold, the settings (the frog, "One big thing") and the day's done.
   const reading = unloaded(real) || unloaded(held) || !settings || dayRead === undefined

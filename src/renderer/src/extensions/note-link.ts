@@ -98,6 +98,23 @@ function lookUpKinds(ids: Iterable<string>): void {
   }, () => (wanted.forEach((id) => asking.delete(id)), tellAsked()))
 }
 
+/**
+ * The kinds of a note's older links asked for as soon as its words are read,
+ * before its page is drawn (lib/early-read.ts): the page then waits on no
+ * second question once it is up.
+ */
+export function lookUpKindsIn(doc: unknown): void {
+  const unknown = new Set<string>()
+  const walk = (node: unknown): void => {
+    if (!node || typeof node !== "object") return
+    const { type, attrs, content } = node as { type?: string; attrs?: { id?: string; kind?: string | null }; content?: unknown[] }
+    if (type === "noteLink" && attrs?.id && !kindOfLink(attrs.id, attrs.kind) && !knownKinds.has(attrs.id)) unknown.add(attrs.id)
+    if (Array.isArray(content)) content.forEach(walk)
+  }
+  walk(doc)
+  lookUpKinds(unknown)
+}
+
 /** The kind a link was given, the one its id says (`question:…`, `task:…`), or one looked up. */
 export const kindOfLink = (id: string, kind?: string | null): string => {
   if (kind) return kind

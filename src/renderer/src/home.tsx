@@ -12,6 +12,7 @@ import { Highlight, Unfold, useChosen, useFluidHover, Weighted } from './compone
 import { chime, chimedWithin, pageTurn, paper, soundOn, tickedWithin, turnedNow } from './lib/sound'
 import { peekRead, readOnPress, whenRead } from './lib/early-read'
 import { WarmEditor } from './components/vigil/warm-editor'
+import { PageSwap } from './components/vigil/page-swap'
 import { foldEverything } from './extensions/heading-fold'
 import { NotePreview } from './components/vigil/note-preview'
 import { TASK_KIND } from './components/vigil/everything'
@@ -1026,14 +1027,15 @@ export function Home(): React.JSX.Element {
     const go = (type: string, id: string): void => open(type, id, key)
     const scale = (to: Scale): void => toScale(to, key)
     return (
+      // Views are switched all day, as Finder and Mail switch them: the new
+      // one goes on show whole the frame its reads are in, the old one staying
+      // up until then and gone in that same frame (page-swap.tsx), so no frame
+      // shows two pages, two notes, an empty window, or the window through two
+      // faint ones. Clicked to, it only settles in: down the sidebar it comes
+      // up from below, up it from above. A transform string, so it stays
+      // smooth while the view mounts. Each page keeps its own step.
+      <PageSwap id={view.id}>
       <NavContext.Provider value={navFor(key, view)}>
-      {/* Views are switched all day, as Finder and Mail switch them: the new
-          one is there at once, whole, and the old one gone in the same frame,
-          so no frame shows two pages, two notes, or the window through two
-          faint ones. Clicked to, it only settles in: down the sidebar it
-          comes up from below, up it from above. A transform string, so it
-          stays smooth while the view mounts. */}
-      <div className="relative flex min-w-0 flex-1">
       <motion.div
         key={view.id}
         data-page={view.id}
@@ -1097,8 +1099,8 @@ export function Home(): React.JSX.Element {
           <SettingsView />
         )}
       </motion.div>
-      </div>
       </NavContext.Provider>
+      </PageSwap>
     )
   }
 

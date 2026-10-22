@@ -19,7 +19,8 @@ export function useMacEvents(from: Date, to: Date): MacCalendar {
   const settings = useLive(vigil.settings, null as Settings | null)
   const on = !!settings?.macCalendar
   // Not read yet until the settings say whether it is on, and if on, until it answers (`unloaded` says so).
-  const [said, setSaid] = useState<MacCalendar>(() => unread({ ...NONE }))
+  // Already known to be off: nothing to wait for, from the first frame.
+  const [said, setSaid] = useState<MacCalendar>(() => (settings && !settings.macCalendar ? NONE : unread({ ...NONE })))
   const [a, b] = [from.toISOString(), to.toISOString()]
   useEffect(() => {
     if (!settings) return

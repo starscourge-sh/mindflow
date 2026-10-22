@@ -194,9 +194,13 @@ if (!process.env.REPORTS_ONLY) try {
   // --- J in one pane's list never moves another's ---------------------------------------------
   await press('Control+l', 'Control+l')
   await blur()
+  // Where each pane's cursor is: a list with a note open keeps its cursor on that note's row, so
+  // a cursor in another pane is no fault; one that moves is.
+  const cursorsAt = () => h.evaluate(() => [...document.querySelectorAll('[data-pane]')].map((el) => { const at = el.querySelector('[data-cursor]'); return at ? (at.closest('[data-id]')?.getAttribute('data-id') ?? at.textContent.slice(0, 40)) : null }))
+  const was = await cursorsAt()
   await press('j', 'j')
-  const cursors = await h.evaluate(() => [...document.querySelectorAll('[data-pane]')].map((el) => !!el.querySelector('[data-cursor]')))
-  check('J moves the list cursor in the front pane only', cursors[2] && !cursors[0] && !cursors[1], JSON.stringify(cursors))
+  const now = await cursorsAt()
+  check('J moves the list cursor in the front pane only', now[2] && now[2] !== was[2] && now[0] === was[0] && now[1] === was[1], JSON.stringify({ was, now }))
 
   // --- Resize: drag the first divider, then double-click the second ---------------------------
   // The app can put its window back where it was; the test's own size again.

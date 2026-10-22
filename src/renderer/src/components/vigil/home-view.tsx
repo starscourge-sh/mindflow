@@ -685,8 +685,9 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
     .filter((card) => keep(card.type) && (!binned.has(card.id) || (pinned.has(card.id) && captures.find((one) => one.id === card.id)?.status !== 'discarded' && tasks.find((task) => task.id === card.id)?.status !== 'dropped')) && !tileSeen.has(card.id) && (tileSeen.add(card.id), true))
 
   // Most pressing first, as the Tasks page has it, then by day.
-  const nextUp = keep('task') ? tasks.filter((task) => task.status === 'open')
-    .sort((a, b) => byPriority(a, b) || (placed(a) ?? Infinity) - (placed(b) ?? Infinity)).slice(0, chip === 'tasks' ? 12 : 5) : []
+  // Each task's day worked out once, not once per comparison: thousands of open tasks sorted on every draw.
+  const nextUp = keep('task') ? tasks.filter((task) => task.status === 'open').map((task) => ({ task, at: placed(task) ?? Infinity }))
+    .sort((a, b) => byPriority(a.task, b.task) || a.at - b.at).slice(0, chip === 'tasks' ? 12 : 5).map((one) => one.task) : []
   // Show all goes where the list's tasks are: Today when any is due by today, else Upcoming (later days and no date).
 
   const feature = [

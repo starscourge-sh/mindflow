@@ -176,15 +176,18 @@ try {
   // A's card right next to B's card, 8 + 10 points off, 7 points lower.
   // Carried there by hand, as a drag on a Mac says it: picked up, moved, then let go (a move without the pick-up is a window manager's).
   await drag(wa.id, nb.b.x + 20 - 8 - 10 - (wa.b.width - 40) - 20, nb.b.y + 7)
-  await wait(700)
-  const na = await win(A)
+  // Read once the glide has come to rest: on a busy machine 700ms was sometimes mid-glide.
+  const restOf = async (id) => { let last = null; for (let i = 0; i < 30; i++) { await wait(100); const now = JSON.stringify((await win(id)).b); if (now === last) break; last = now } return win(id) }
+  await wait(300)
+  const na = await restOf(A)
   const gap = (nb.b.x + 20) - (na.b.x + na.b.width - 20)
   check('K5 near a neighbour: glides into line 8 points apart', gap === 8, `gap ${gap}`)
   check('K5 near a neighbour: tops lined up', na.b.y === nb.b.y, `${na.b.y} vs ${nb.b.y}`)
   // Carried there by hand, as a drag on a Mac says it: picked up, moved, then let go (a move without the pick-up is a window manager's).
   await drag(wb.id, work.x + 3 - 20, work.y + 500)
-  await wait(700)
-  check('K5 near the screen edge: the card lines up 8 points in', (await win(B)).b.x + 20 === work.x + 8, `${(await win(B)).b.x + 20 - work.x}`)
+  await wait(300)
+  const edged = await restOf(B)
+  check('K5 near the screen edge: the card lines up 8 points in', edged.b.x + 20 === work.x + 8, `${edged.b.x + 20 - work.x}`)
 
   // K4: "Bring sticky notes here" glides each, one after another.
   const t3 = await now()

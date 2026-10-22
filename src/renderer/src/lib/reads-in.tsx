@@ -19,7 +19,11 @@ export const useSeen = (): boolean => useContext(Seen)
 /** A safety net: a read that never answers (an error) never keeps a page unseen. */
 const AT_MOST = 1500
 
-export function useReadsIn(reading = false): { provide: (children: ReactNode) => ReactNode; style: CSSProperties | undefined } {
+/**
+ * `apart`: a part that comes in whole on its own, never holding the page it
+ * is on (what sits under a note's words never keeps the words waiting).
+ */
+export function useReadsIn(reading = false, apart = false): { provide: (children: ReactNode) => ReactNode; style: CSSProperties | undefined } {
   // Kept where a part's say is seen at once: a part that comes in (a section
   // mounted a frame later) says it is reading in its layout effect, which runs
   // before this page's own, so the page never counts itself ready without it.
@@ -38,7 +42,8 @@ export function useReadsIn(reading = false): { provide: (children: ReactNode) =>
   const ready = counted && !reading && waiting.current.size === 0
   useLayoutEffect(() => void (!shown && counted && !reading && waiting.current.size === 0 && setShown(true)))
   // A page inside another (a pane of Tags, Review in quick capture) is one of its parts: the outer one waits for it too.
-  const parent = useContext(Holding)
+  const held = useContext(Holding)
+  const parent = apart ? null : held
   const [me] = useState(() => Symbol('page'))
   // Said after its own parts have had theirs in this frame, so it is never counted ready a frame too soon.
   useLayoutEffect(() => void parent?.(me, !(shown || (counted && !reading && waiting.current.size === 0))))
@@ -62,7 +67,7 @@ export function useReading(reading: boolean): void {
 }
 
 /** A page, or a panel, that waits for every part on it: see `useReadsIn`. */
-export function ReadsIn({ reading = false, className, children, ...rest }: { reading?: boolean; className?: string; children: ReactNode } & Record<`data-${string}`, string | undefined>): React.JSX.Element {
-  const { provide, style } = useReadsIn(reading)
+export function ReadsIn({ reading = false, apart = false, className, children, ...rest }: { reading?: boolean; apart?: boolean; className?: string; children: ReactNode } & Record<`data-${string}`, string | undefined>): React.JSX.Element {
+  const { provide, style } = useReadsIn(reading, apart)
   return <div className={className} style={style} {...rest}>{provide(children)}</div>
 }
