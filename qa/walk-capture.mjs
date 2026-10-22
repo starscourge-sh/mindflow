@@ -229,7 +229,29 @@ try {
     const decide = h.locator('[role=menuitem]', { hasText: 'Decide' }).first()
     console.log('  decide buttons', await decide.count())
     if (await decide.count()) { await decide.click(); await wait(1200); await shot('23-decide'); console.log('  decide:', (await h.evaluate(() => document.querySelector('[data-pass]')?.innerText.replace(/\s+/g, ' ').slice(0, 600)))) }
+    // ⌫ moves the one in front of you to the Bin, as on every list (D too).
+    const binned = async () => (await h.evaluate(() => window.api.captures.list())).filter((one) => one.status === 'discarded').length
+    const before = await binned()
+    await h.locator('[data-pass]').focus().catch(() => {})
+    await h.keyboard.press('Backspace')
+    await wait(1200)
+    check('⌫ in Decide moves it to the Bin', (await binned()) === before + 1, `${before} → ${await binned()}`)
     await h.keyboard.press('Escape'); await wait(400); await h.keyboard.press('Escape')
+  })
+
+  await step('read through', async () => {
+    await go('inbox')
+    await h.getByRole('button', { name: 'Go through…' }).first().click()
+    await wait(500)
+    await h.locator('[role=menuitem]', { hasText: 'Read through' }).first().click()
+    await wait(1500)
+    const binned = async () => (await h.evaluate(() => window.api.captures.list())).filter((one) => one.status === 'discarded').length
+    const before = await binned()
+    await h.keyboard.press('Backspace')
+    await wait(1200)
+    check('⌫ in Read through moves the page to the Bin', (await binned()) === before + 1, `${before} → ${await binned()}`)
+    await h.keyboard.press('Escape')
+    await wait(600)
   })
 
   await step('sorting', async () => {

@@ -6,7 +6,7 @@
 //
 //   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 node qa/box-deciding.mjs [shots-dir]
 import { mkdirSync } from 'fs'
-import { sandbox } from './sandbox-lib.mjs'
+import { sandbox, shiftClock } from './sandbox-lib.mjs'
 
 const SHOTS = process.argv[2] ?? ''
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
@@ -18,10 +18,20 @@ const check = (name, ok, more = '') => {
 const EDITOR = '.tiptap.ProseMirror.mindflow-editor:not(.is-line)'
 const c = await sandbox({ width: 1000, height: 700 })
 const { h, page, v } = c
+// The notice comes once a day (vigil.ts, nudge), and the box opening at launch may already have had today's:
+// the app's clock goes to tomorrow at noon, a fresh day and out of quiet hours (22:00 to 07:00), when nothing is offered unasked.
+const noon = new Date()
+noon.setDate(noon.getDate() + 1)
+noon.setHours(12, 0, 0, 0)
+await c.electron.evaluate((_, [code, by]) => new Function(`(${code})(${by})`)(), [shiftClock.toString(), noon.getTime() - Date.now()])
 try {
   await v('onboarding:set', { welcomed: new Date().toISOString(), welcoming: false })
   // Today is the deciding day, and something waits to be decided.
-  await v('settings:set', { weeklyReview: true, weeklyDay: new Date().getDay() })
+  // The sandbox's exam falling behind is a nudge too, and comes first: off, so deciding day is the one said.
+  await v('settings:set', { weeklyReview: true, weeklyDay: noon.getDay(), examNudges: false })
+  // Put away first: the notice is asked for as the box comes up, and a box already up never comes up again.
+  await h.evaluate(() => window.api.hidePrompt())
+  await page.waitForTimeout(800)
   await h.evaluate(() => window.api.showPrompt())
   await page.waitForTimeout(3500)
   const card = async () => ((await page.locator('text=waits for a keep or the Bin').isVisible().catch(() => false)) ? true : null)
