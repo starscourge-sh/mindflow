@@ -81,7 +81,7 @@ import { Welcome } from '@/components/vigil/welcome'
 import { PageHint } from '@/components/vigil/page-hint'
 import { onboarding, playWelcome } from '@/lib/onboarding'
 import { DayView } from '@/components/vigil/day-view'
-import { MonthPage, SCALE_VIEW, WeekPage, YearPage, type Scale } from '@/components/vigil/periods-view'
+import { MonthPage, SCALE_VIEW, WeekPage, YearPage, mondayOf, type Scale } from '@/components/vigil/periods-view'
 import { RecentPanel } from '@/components/vigil/recent-panel'
 import { Passes, openPass } from '@/components/vigil/pass'
 import { noteActions } from '@/lib/notes'
@@ -120,7 +120,7 @@ import { menuShowing } from '@/lib/menu-keys'
 import { ChevronRight, CircleHelp } from '@/components/ui/icons'
 import { still } from '@/lib/motion'
 import { calendarAside, calendarPalette, revealOnCalendar } from '@/lib/calendar-scope'
-import { dayjs, dayKey, num } from '../../main/dates'
+import { dated, dayjs, dayKey, daysFromToday, noon, num } from '../../main/dates'
 import { WrapOffer, WrapSheet, monthToWrap, openWrap } from '@/components/vigil/wrap-story'
 import { caretInLink } from './extensions/link-tidy'
 import { APP_NAME } from '../../main/name'
@@ -196,6 +196,31 @@ const turnsPage = (view: View): boolean => !!view.focus && holdsNotes(view.id) &
 /** Where one thing opens: a view by name, a day's page, or a note or task in its section. */
 const stepOf = (type: string, id: string): View =>
   type === 'view' ? { id } : type === 'day' ? { id: 'day', focus: id } : type === 'event' ? { id: 'calendar', focus: `event:${id}` } : { id: type === 'capture' ? 'all' : type === 'task' ? 'upcoming' : `${type}s`, focus: id }
+/** Pages that show one day, week, month or year: with no focus, or a focus in the present one, they are on now. */
+const DATED = ['day', 'weekpage', 'monthpage', 'yearpage']
+const atNow = (view: View): boolean => {
+  const at = view.focus
+  if (!DATED.includes(view.id) || !at) return true
+  if (view.id === 'day') return at === dayKey()
+  if (view.id === 'weekpage') return mondayOf(noon(at).toDate()) === mondayOf()
+  if (view.id === 'monthpage') return at.slice(0, 7) === dayKey().slice(0, 7)
+  return at.slice(0, 4) === dayKey().slice(0, 4)
+}
+/** A dated page on another day, week, month or year, named as the app says it elsewhere: "Yesterday", "15 October", "Last week". */
+const datedName = (view: View): string | null => {
+  if (atNow(view)) return null
+  const at = view.focus!
+  if (view.id === 'day') {
+    const by = daysFromToday(noon(at))
+    return by === -1 ? 'Yesterday' : by === 1 ? 'Tomorrow' : dated(noon(at), 'D MMMM')
+  }
+  if (view.id === 'weekpage') {
+    const by = Math.round(noon(mondayOf(noon(at).toDate())).diff(noon(mondayOf()), 'day') / 7)
+    return by === -1 ? 'Last week' : by === 1 ? 'Next week' : `Week of ${dated(noon(mondayOf(noon(at).toDate())), 'D MMMM')}`
+  }
+  if (view.id === 'monthpage') return dated(noon(`${at.slice(0, 7)}-01`), 'MMMM')
+  return at.slice(0, 4)
+}
 function loadSplit(): SplitState {
   try {
     const kept = JSON.parse(localStorage.getItem(SPLIT) ?? 'null') as SplitState | null
@@ -270,7 +295,9 @@ export function Home(): React.JSX.Element {
       const here = trail.views[trail.at]
       // Going where you already are is not a step: Back would have to undo it.
       // Nor is the section you are in, asked for again: what is open stays.
-      if (here.id === next.id && (here.focus === next.focus || next.focus === undefined) && here.nonce === next.nonce) return trail
+      // A day's, week's or month's page asked for by name goes to now, from any other day it is on.
+      if (here.id === next.id && (here.focus === next.focus || (next.focus === undefined && atNow(here))) && here.nonce === next.nonce) return trail
+      if (here.id === next.id && next.focus === undefined && !atNow(here)) chime(here.id === 'day' ? 'page' : 'season')
       // One sound a move: a place reached by something that already spoke (a map dot, ⌘K's Year) stays quiet.
       // A note opened on another page is heard as its page turn alone.
       if (here.id !== next.id && !chimedWithin(150) && !turnedNow(next.focus) && !tickedWithin(200)) chime('tap')
@@ -911,7 +938,9 @@ export function Home(): React.JSX.Element {
 
   const kind = (view: View): (typeof CAPTURE_TYPES)[number] | undefined => CAPTURE_TYPES.find((type) => `kind:${type.id}` === view.id)
   /** A page's name, for the top bar; a pane is named by its note first (paneName). */
-  const labelOf = (view: View): string => SECTIONS.find((section) => section.id === view.id)?.label ?? kind(view)?.label ?? (view.id === 'source' ? view.focus?.slice(view.focus.indexOf(':') + 1) || 'Source' : view.id === 'settings' ? 'Settings' : view.id === 'whatsnew' ? "What's new" : view.id === 'practices' ? 'Practices' : view.id === 'yearpage' ? 'Year' : view.id === 'day' ? 'Day' : view.id === 'weekpage' ? 'Week' : view.id === 'monthpage' ? 'Month' : '')
+  /** A sidebar row lit for the page you are on; a day's, week's or month's row only on today's, this week's or this month's. */
+  const lit = (id: string): boolean => view.id === id && atNow(view)
+  const labelOf = (view: View): string => datedName(view) ?? SECTIONS.find((section) => section.id === view.id)?.label ?? kind(view)?.label ?? (view.id === 'source' ? view.focus?.slice(view.focus.indexOf(':') + 1) || 'Source' : view.id === 'settings' ? 'Settings' : view.id === 'whatsnew' ? "What's new" : view.id === 'practices' ? 'Practices' : view.id === 'yearpage' ? 'Year' : view.id === 'day' ? 'Day' : view.id === 'weekpage' ? 'Week' : view.id === 'monthpage' ? 'Month' : '')
   const paneWidth = (key: string, width: PaneWidth): void => {
     chime(width === 'narrow' ? 'fold' : 'slide')
     setSplit((now) => ({ ...now, panes: now.panes.map((one) => (one.key === key ? { ...one, width } : one)) }))
@@ -1377,14 +1406,14 @@ export function Home(): React.JSX.Element {
                 data-side-row
                 data-queue-drop={section.id === 'queue' ? '' : undefined}
                 aria-label={section.label}
-                aria-current={view.id === section.id ? 'page' : undefined}
+                aria-current={lit(section.id) ? 'page' : undefined}
                 onClick={() => open('view', section.id)}
-                className={`group relative flex items-center gap-2.5 rounded-md py-1.5 transition-colors duration-80 ${narrow ? 'justify-center px-0' : 'px-2'} ${view.id === section.id ? 'text-foreground' : 'text-foreground/80'} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]`}
+                className={`group relative flex items-center gap-2.5 rounded-md py-1.5 transition-colors duration-80 ${narrow ? 'justify-center px-0' : 'px-2'} ${lit(section.id) ? 'text-foreground' : 'text-foreground/80'} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]`}
               >
                 {/* Each icon keeps its colour, softened while at rest so the hues do not
                     shout at once; the one you are on, or reaching for, is in full. */}
-                <PlaceIcon place={section} full={view.id === section.id} />
-                {!narrow && <Weighted on={view.id === section.id} className="flex-1 text-left">{section.label}</Weighted>}
+                <PlaceIcon place={section} full={lit(section.id)} />
+                {!narrow && <Weighted on={lit(section.id)} className="flex-1 text-left">{section.label}</Weighted>}
                 {!narrow && countsIn && counts[section.id] ? (
                   // Each count says what it counts, pointed at: the orange one is what is due today.
                   <Tip label={countSaid(section.id, counts[section.id])}>
@@ -1424,7 +1453,7 @@ export function Home(): React.JSX.Element {
               )
             // Open, a group's rows hang off its heading, the way down to where you are lit.
             const branched = (list: typeof SECTIONS): React.JSX.Element => (
-              <Branches current={list.findIndex((section) => section.id === view.id)} className="flex flex-col gap-px">{sorted(list)}</Branches>
+              <Branches current={list.findIndex((section) => lit(section.id))} className="flex flex-col gap-px">{sorted(list)}</Branches>
             )
             // Not drawn, even unseen, until settings say which rows show: a fold measured with a row
             // the settings then take away held that row's room for a frame once the sidebar showed.
