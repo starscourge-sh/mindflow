@@ -22,7 +22,8 @@ export const groups = {
   note: (id: string) => call<string | null>('groups:note', id)
 }
 
-export const useGroups = (list: string): NoteGroup[] => useLive(() => groups.list(list), [] as NoteGroup[], [list])
+// Kept by name, so a page opened again starts on its groups, not on a plain list that sorts itself a beat later.
+export const useGroups = (list: string): NoteGroup[] => useLive(() => groups.list(list), [] as NoteGroup[], [list], undefined, 'groups')
 
 /** The colours a group can take: the editor's own, light and dark. */
 export const GROUP_COLORS = ['gray', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'] as const

@@ -479,7 +479,8 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
         ) : (
           <div className="px-5 pt-2.5 pb-2 empty:hidden">{title === 'Inbox' && counted > 0 ? cloneElement(chips ?? <span />, { extra: <GraphChip on={graphOn} onChange={setGraphed} /> }) : chips}</div>
         )}
-        {graphed ? (
+        {/* Everything waits for its tasks and for which captures became them: drawn before, the made ones show, then hide, and the box above pops in. */}
+        {everything && (unloaded(tasks) || !sources.ready) ? null : graphed ? (
           <div className="flex min-h-0 flex-1 flex-col px-4 pb-4"><InboxGraph captures={narrowed.flatMap(([, list]) => list)} onOpen={onOpen ?? (() => undefined)} /></div>
         ) : (islands ? groups.length : shown.length) ? (!listShown ? null :
           <CaptureList groups={groups} islands={islands} density={density} selected={spread ? peek ?? undefined : open?.id ?? task?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import type { CaptureMeta } from '../capture-list'
-import { useLive, vigil, when, whenInLine, type Settings, type Task } from '@/lib/vigil'
+import { unloaded, useLive, vigil, when, whenInLine, type Settings, type Task } from '@/lib/vigil'
 import { BUCKETS, bucket, placed, taskName } from '@/lib/tasks'
 import { chime } from '@/lib/sound'
 import { num, startOfDay } from '../../../../main/dates'
@@ -134,9 +134,10 @@ export const SNOOZED_SAID = 'Also show what is hidden until a later day'
 
 /** What each task was made from, and what each capture became: one read for the whole list. */
 /** `binned`: notes made only into tasks now in the Bin. */
-export type Sources = { from: Map<string, string[]>; became: Map<string, string[]>; binned: Set<string> }
+export type Sources = { from: Map<string, string[]>; became: Map<string, string[]>; binned: Set<string>; /** Read at least once: before then, nothing is known to be made into a task. */ ready: boolean }
 export function useSources(on: boolean): Sources {
-  const pairs = useLive(() => (on ? vigil.taskSources() : Promise.resolve([])), [] as { task: string; capture: string; binned: number }[], [on])
+  // Kept by name, so Everything opened again starts knowing which captures became tasks.
+  const pairs = useLive(() => (on ? vigil.taskSources() : Promise.resolve([])), [] as { task: string; capture: string; binned: number }[], [on], undefined, 'task-sources')
   return useMemo(() => {
     const from = new Map<string, string[]>()
     const became = new Map<string, string[]>()
@@ -151,7 +152,7 @@ export function useSources(on: boolean): Sources {
     }
     // Made into tasks that are all in the Bin now: gone there with them.
     const binned = new Set([...inBin].filter((capture) => !became.has(capture)))
-    return { from, became, binned }
+    return { from, became, binned, ready: !unloaded(pairs) }
   }, [pairs])
 }
 
