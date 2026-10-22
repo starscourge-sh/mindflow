@@ -876,17 +876,17 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
  title={mode} count={example ? undefined : several.chosen.length || shown.length} unit={several.chosen.length ? ['selected', 'selected'] : ['open', 'open']} actions={several.bar ?? actions}>
         {/* Today, Tomorrow and Later side by side, at the top of each: one click between the three lists. */}
         {(mode === 'today' || mode === 'tomorrow' || mode === 'later') && (
-          <div data-task-lists className="mx-3 mt-2 flex @[44rem]/page:mx-6">
+          <div data-task-lists className="list-edge mt-2 flex">
             <Chips options={[{ id: 'today', label: 'Today' }, { id: 'tomorrow', label: 'Tomorrow' }, { id: 'later', label: 'Later' }, { id: 'practices', label: 'Practices', tip: 'Things you repeat with no end, each offered at its time' }]} on={(id) => id === mode} pick={(id) => onOpen?.('view', id)} className="flex-nowrap text-sm" />
           </div>
         )}
 
         {/* Nothing on today yet, in either layout: the page to write it on. */}
         {written || (mode === 'today' && !example && !reading && !shown.length && dayDone === 0) ? (
-          <div className="mx-3 mt-5 mb-10 @[44rem]/page:mx-6"><DayList onWrite={writeIt} onOpenTask={pick} openId={open?.id} /></div>
+          <div className="list-edge mt-5 mb-10"><DayList onWrite={writeIt} onOpenTask={pick} openId={open?.id} /></div>
         ) : (<>
         <form
-          className="mx-3 mt-3 flex items-center gap-2 rounded-md border px-2 py-1.5 focus-within:border-ring"
+          className="list-box mt-3 flex items-center gap-2 rounded-md border py-1.5 pr-2 focus-within:border-ring"
           // A pasted list is a task a line, its indented lines their steps; one Undo for all.
           onPasteCapture={(event) => {
             const lines = tasksOf(readLines(event.clipboardData.getData('text/plain')))
@@ -917,7 +917,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
             } })
           }}
         >
-          <Plus className="size-4 text-muted-foreground" />
+          <Plus className="list-plus size-4 text-muted-foreground" />
           <TaskInput
             inputRef={addRef}
             value={draft}
@@ -928,7 +928,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
         </form>
         {/* How far through the day: "2 of 5 done" and a thin bar, which reaches its end on the last one. */}
         {mode === 'today' && !example && !reading && dayDone > 0 && (
-          <div data-day-progress data-said={`${num(dayDone)} of ${dayDone + leftToday} done`} className="mx-3 mt-3 flex items-center gap-3 px-2">
+          <div data-day-progress data-said={`${num(dayDone)} of ${dayDone + leftToday} done`} className="list-words mt-3 flex items-center gap-3">
             <span className="shrink-0 text-[0.9375rem] font-medium tabular-nums text-foreground"><Rolling text={`${num(dayDone)} of ${num(dayDone + leftToday)} done`} by="word" /></span>
             <ProgressBar value={dayDone / (dayDone + leftToday)} label="Today's tasks done" thick={3} className="min-w-16 flex-1" />
           </div>
@@ -940,7 +940,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
           const left = Math.max(0, minutesLeft(settings?.dayEnd) - meetingsLeft)
           const over = planned > left
           return (
-            <p data-day-budget data-said={budgetSaid(planned, left)} className="mx-3 mt-3 px-2 text-[0.9375rem] font-medium tabular-nums" style={{ color: over ? 'var(--tt-color-text-orange)' : 'var(--foreground)' }}>
+            <p data-day-budget data-said={budgetSaid(planned, left)} className="list-words mt-3 text-[0.9375rem] font-medium tabular-nums" style={{ color: over ? 'var(--tt-color-text-orange)' : 'var(--foreground)' }}>
               <Rolling text={budgetSaid(planned, left)} by="word" />
               {meetingsLeft > 0 && <span className="font-normal text-muted-foreground"> after {hoursSaid(meetingsLeft)} of meetings</span>}
               {over && <span className="font-normal text-muted-foreground"> · {hoursSaid(planned - left)} more than is left of today</span>}
@@ -955,7 +955,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
           const over = base.length - (more + 1)
           if (over <= 0) return null
           return (
-            <p data-today-cap className="mx-3 mt-2 px-2 text-[0.9375rem] font-medium text-pretty" style={{ color: 'var(--tt-color-text-orange)' }}>
+            <p data-today-cap className="list-words mt-2 text-[0.9375rem] font-medium text-pretty" style={{ color: 'var(--tt-color-text-orange)' }}>
               {num(base.length)} on Today: {over === 1 ? 'one more' : `${num(over)} more`} than a short day holds (one big thing and {num(more)} others).{' '}
               <span className="text-foreground">A short day gets done; the rest can wait for tomorrow or Later.</span>
             </p>
@@ -970,12 +970,12 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
             items={rows}
             keyOf={(row) => ('id' in row ? row.id : `heading-${row.key}`)}
             cursor={shown[cursor] ? rows.indexOf(shown[cursor]) : undefined}
-            className="mx-3 mb-6"
+            className="list-edge mb-6"
           >
             {(row) => {
               if (!('id' in row))
                 return row.heading ? (
-                  <h2 {...loud(row.heading === 'Overdue' ? 'late' : undefined, 'mt-6 mb-1 truncate border-b px-2 pb-1.5 text-meta font-medium')}>
+                  <h2 {...loud(row.heading === 'Overdue' ? 'late' : undefined, 'list-ink mt-6 mb-1 truncate border-b pb-1.5 text-meta font-medium')}>
                     {row.heading} <span className="font-normal text-muted-foreground"><Rolling text={row.count} /></span>
                     {/* Every late one moved at once, with one Undo. */}
                     {row.heading === 'Overdue' && mode === 'today' && <LateMenu tasks={base} className="float-right -my-1.5" />}
@@ -995,7 +995,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                         data-task-row
                         data-open={task.id === (coming ?? open?.id) || undefined}
                         data-cursor={index === cursor || undefined}
-                        className={`group group/item relative flex items-start gap-3 rounded-md px-2 py-2 transition-colors ${several.chosen.includes(task.id) ? PICKED_ROW : task.id === (coming ?? open?.id) ? 'bg-accent' : index === cursor ? 'bg-accent/40' : ''} ${arrived(task.id) ? 'mf-arrive' : ''}`}
+                        className={`group group/item relative flex items-start gap-3 rounded-md list-ink py-2 transition-colors ${several.chosen.includes(task.id) ? PICKED_ROW : task.id === (coming ?? open?.id) ? 'bg-accent' : index === cursor ? 'bg-accent/40' : ''} ${arrived(task.id) ? 'mf-arrive' : ''}`}
                       >
                         <Tip label="Complete">
                         <button
@@ -1097,7 +1097,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
           </Rest>
         )}
         {/* In the evening: tomorrow written down before bed, a task a line (tomorrow-lines.tsx). */}
-        {mode === 'today' && !example && <TomorrowBox className="mx-3 mt-6 mb-10 @[44rem]/page:mx-6" />}
+        {mode === 'today' && !example && <TomorrowBox className="list-edge mt-6 mb-10" />}
         </>)}
       </Page>
       {coming && coming !== open?.id && !matrixed ? <NoteComing id={coming} title={tasks.find((one) => one.id === coming)?.title} /> : open && <TaskDetail top={<ReadsIn apart reading={reading && !example} className="contents" data-apart="stepper"><Stepper at={shown.findIndex((one) => one.id === open.id)} total={shown.length} onStep={(to) => pick(shown[to].id)} /></ReadsIn>} key={open.id} task={open} onClose={() => setOpen(null)} onOpen={onOpen} />}

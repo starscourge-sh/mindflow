@@ -493,7 +493,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
         {title === 'Inbox' && <PutAwayLine onSee={() => window.api.openInHome('view', 'archived')} />}
         {everything ? (
           // What to see: tasks, notes, quotes… (several at once), and for tasks, to do or done.
-          <div data-everything-filter className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-5 pt-2.5 pb-2">
+          <div data-everything-filter className="list-words flex flex-wrap items-center gap-x-4 gap-y-1.5 pt-2.5 pb-2">
             {/* The kinds on their own line (wrapping when they must), which tasks show on the Task chip itself: nothing cut in half. */}
             <div className="w-full empty:hidden">{chips}</div>
             {/* Under them, what it does to the captures among them, as a box to tick: never one more kind. */}
@@ -501,7 +501,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
             <SnoozedChip />
           </div>
         ) : (
-          <div className="px-5 pt-2.5 pb-2 empty:hidden">{title === 'Inbox' && counted > 0 ? cloneElement(chips ?? <span />, { extra: <GraphChip on={graphOn} onChange={setGraphed} /> }) : chips}</div>
+          <div data-kind-chips className="list-words pt-2.5 pb-2 empty:hidden">{title === 'Inbox' && counted > 0 ? cloneElement(chips ?? <span />, { extra: <GraphChip on={graphOn} onChange={setGraphed} /> }) : chips}</div>
         )}
         {/* Everything waits for its tasks and for which captures became them: drawn before, the made ones show, then hide, and the box above pops in. */}
         {everything && (unloaded(tasks) || !sources.ready) ? null : graphed ? (
@@ -530,10 +530,10 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
               !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
               { label: 'Clear the selection', keys: 'esc', run: () => (chime('off'), setChosen([])) }
             ] : [...usual, 'separator', { label: chosen.includes(capture.id) ? 'Unselect' : 'Select', keys: 'X', run: () => picking.toggle(capture.id) }, !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll }]}
-            onMove={(id, target, after) => move(kept.map((one) => one.id), id, target, after)} after={glossAfter} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'} />
+            onMove={(id, target, after) => move(kept.map((one) => one.id), id, target, after)} after={glossAfter} className={spread ? 'list-edge my-3' : 'list-edge my-2'} />
         ) : unloaded(all) ? null : examples.length ? (
           <Example tryIt={archived ? 'right-click any note and choose “Archive”. It is kept here, out of sight, never in the Bin.' : 'press ⌘. in any app, write a thought, and send it with ⌘↵. It waits here until you come back to it.'}>
-            <CaptureList groups={[['', examples]]} density={density} cursor={-1} onPick={() => undefined} className="mx-3 my-2" />
+            <CaptureList groups={[['', examples]]} density={density} cursor={-1} onPick={() => undefined} className="list-edge my-2" />
           </Example>
         ) : everything && (unloaded(tasks) || !shown.length) && !(spread && query.trim()) ? (unloaded(tasks) ? null : (() => {
           // Each filter's own empty page: what it would hold, and how to get some.

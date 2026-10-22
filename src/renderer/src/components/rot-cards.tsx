@@ -284,7 +284,7 @@ export function RotCards({ onOpen, room: space = null }: {
     ) : null
   return (
     // Old captures in a panel of their own, tinted as the pinned note above is, so they read apart from the Inbox under them.
-    <section ref={section} className={`rounded-xl bg-foreground/[0.045] px-1 ${folded ? 'mb-1.5 py-0.5' : 'mb-2 pt-1.5 pb-0.5'}`}>
+    <section ref={section} className={`rounded-xl bg-foreground/[0.045] ${folded ? 'mb-1.5 py-0.5' : 'mb-2 pt-1.5 pb-0.5'}`}>
       <div data-rot-head className={`flex min-h-6 items-center gap-1 px-2 ${folded ? '' : 'pb-1'}`}>
         {folded ? (
           <Tip label={`Tidy them one at a time: there is no room for the cards here. Deciding waits for ${day}.`}>

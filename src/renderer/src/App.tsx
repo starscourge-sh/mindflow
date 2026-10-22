@@ -2683,7 +2683,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                 </Strip>
                 {/* The kinds on one line that scrolls sideways (wrapped, they took two rows the Inbox needed);
                     at the very shortest they make way for a row, and F (Display) still filters. */}
-                <div className="px-1 pb-2 empty:hidden [@container(max-height:240px)]:hidden">{chips && React.cloneElement(chips, { wrap: false, extra: listed > 0 ? <GraphChip on={graphed} onChange={setGraphed} /> : undefined })}</div>
+                <div data-kind-chips className="px-2 pb-2 empty:hidden [@container(max-height:240px)]:hidden">{chips && React.cloneElement(chips, { wrap: false, extra: listed > 0 ? <GraphChip on={graphed} onChange={setGraphed} /> : undefined })}</div>
                 {graphed && listed > 0 && <InboxGraph compact captures={grouped.flatMap(([, list]) => list)} onOpen={onOpenAny} />}
                 {!(graphed && listed > 0) && (islands ? groups.length > 0 : shown.length > 0) && <CaptureList groups={groups} islands={islands} density={density} selected={editing} cursor={cursor} onCursor={setCursor} chosen={chosen} onPick={(id) => onOpen(id, true)} picking={picking}
                   // Right-clicked among several picked, the menu speaks for all of them.

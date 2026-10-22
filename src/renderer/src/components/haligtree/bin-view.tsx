@@ -166,18 +166,18 @@ export function BinView({ onOpen }: { onOpen?: (type: string, id: string) => voi
         </span>
       ) : binned.length > 0 ? <span className="flex items-center gap-1">{shown.length > 1 && <Button size="sm" variant="ghost" onClick={() => restoreMany(shown)}>Restore {kind ? `these ${num(shown.length)}` : `all ${num(shown.length)}`}</Button>}<HoldButton hint="Everything in the Bin, deleted for good" done="Emptying…" onHold={empty}>Hold to empty</HoldButton></span> : null
     }>
-      <div data-bin className="w-full px-5 pt-5 pb-16">
-        <p className="mb-4 text-[0.9375rem] text-foreground"><strong className="font-semibold">Everything you moved to the Bin, of every kind.</strong> <span className="text-muted-foreground">“Restore” puts one back where it was. Pick some, press ⌫ and hold “Hold to delete” to delete them for good, or hold “Hold to empty” for all of it.</span></p>
+      <div data-bin className="w-full pt-5 pb-16">
+        <p className="list-words mb-4 text-[0.9375rem] text-foreground"><strong className="font-semibold">Everything you moved to the Bin, of every kind.</strong> <span className="text-muted-foreground">“Restore” puts one back where it was. Pick some, press ⌫ and hold “Hold to delete” to delete them for good, or hold “Hold to empty” for all of it.</span></p>
         {/* Several asked about at once: the question over the list, with the count, until a yes or a no. */}
         {many && (
-          <div data-bin-ask className="mb-3 flex flex-wrap items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2">
+          <div data-bin-ask className="list-edge mb-3 flex flex-wrap items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2">
             <span className="mr-auto text-control font-semibold text-foreground">{single ? 'Delete it for good? It cannot come back.' : `Delete ${num(asking.length)} for good? They cannot come back.`}</span>
             <HoldButton variant="destructive" hint={single ? 'This one, deleted for good' : `${num(asking.length)} things, deleted for good`} done="Deleting…" onHold={() => forget(asking)}>{single ? 'Hold to delete' : `Hold to delete ${num(asking.length)}`}</HoldButton>
             <Button size="sm" variant="ghost" onClick={() => (chime('off'), setAsking(null))}>{single ? 'Keep it' : 'Keep them'}</Button>
           </div>
         )}
         {kinds.length > 1 && (
-          <div className="mb-3 flex flex-wrap gap-1.5">
+          <div data-kind-chips className="list-words mb-3 flex flex-wrap gap-1.5">
             {[null, ...kinds].map((one) => (
               <button key={one ?? 'all'} type="button" aria-pressed={kind === one} onClick={() => (chime('tap'), setKind(one))}
                 className={`h-7 rounded-full px-3 text-control transition-colors ${kind === one ? 'bg-foreground text-background' : 'bg-foreground/[0.06] text-foreground/85 hover:bg-foreground/[0.1]'}`}>
@@ -187,7 +187,7 @@ export function BinView({ onOpen }: { onOpen?: (type: string, id: string) => voi
           </div>
         )}
         {shown.length ? (
-          <Rows list={shown} cursor={cursor} chosen={chosen} looked={looked ? keyOf(looked) : null} onLook={look} asking={many ? null : asking?.[0] ?? null} onClick={click} onAsk={ask} onKeep={() => (chime('off'), setAsking(null))}
+          <div className="list-edge"><Rows list={shown} cursor={cursor} chosen={chosen} looked={looked ? keyOf(looked) : null} onLook={look} asking={many ? null : asking?.[0] ?? null} onClick={click} onAsk={ask} onKeep={() => (chime('off'), setAsking(null))}
             onRestore={restore} onForget={(one) => forget([keyOf(one)])}
             // Right-clicked among several picked, the menu speaks for all of them.
             menuFor={(one) => chosen.includes(keyOf(one)) && chosen.length > 1 ? [
@@ -198,11 +198,11 @@ export function BinView({ onOpen }: { onOpen?: (type: string, id: string) => voi
               !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
               { label: 'Clear the selection', keys: 'esc', run: clear }
             ] : null}
-            onToggle={toggle} onSelectAll={allPicked ? undefined : selectAll} />
+            onToggle={toggle} onSelectAll={allPicked ? undefined : selectAll} /></div>
         ) : unloaded(binned) ? null : (
           // Nothing in the Bin yet: a few made-up ones show what waits here, dimmed and out of reach.
           <Example tryIt="choose “Move to the Bin” on any note, or close a task without doing it.">
-            <Rows list={EXAMPLES()} onRestore={() => undefined} />
+            <div className="list-edge"><Rows list={EXAMPLES()} onRestore={() => undefined} /></div>
           </Example>
         )}
       </div>

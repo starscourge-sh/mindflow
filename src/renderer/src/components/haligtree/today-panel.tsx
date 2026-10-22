@@ -155,7 +155,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
       <span className="ml-auto shrink-0"><Display compact view={view} onChange={setView} facets={facets} sorts={[{ id: 'manual', label: 'Your order' }]} /></span>
       </Strip>
       <form
-        className="mb-2 flex items-center gap-2 rounded-md border px-2 py-1.5 focus-within:border-ring"
+        className="list-box mb-2 flex items-center gap-2 rounded-md border py-1.5 pr-2 focus-within:border-ring"
         // A pasted list is a task a line, its indented lines their steps; one Undo for all.
         onPasteCapture={(event) => {
           const list = tasksOf(readLines(event.clipboardData.getData('text/plain')))
@@ -179,7 +179,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
           } })
         }}
       >
-        <Plus className="size-4 text-muted-foreground" />
+        <Plus className="list-plus size-4 text-muted-foreground" />
         <TaskInput
           inputRef={add}
           onKeyDown={(event) => event.key === 'Escape' && (event.preventDefault(), event.currentTarget.blur())}

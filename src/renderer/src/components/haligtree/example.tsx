@@ -43,7 +43,7 @@ export function Example({ on = true, tryIt, children, className, compact = false
   if (emptied) return <div ref={frame} data-emptied className={cn('flex min-w-0 flex-col', className)}><InboxBinned compact={compact} left={emptied} /></div>
   return (
     <div ref={frame} data-example-frame className={cn('flex min-w-0 flex-col', className)}>
-      <div role="note" className={cn('flex shrink-0 items-baseline gap-2 rounded-lg border border-dashed border-foreground/15 text-control text-muted-foreground', compact ? 'mx-1 mt-2 mb-1 px-2.5 py-1.5' : flush ? 'mb-1 px-3 py-2' : 'mx-5 mt-3 mb-1 px-3 py-2')}>
+      <div role="note" className={cn('flex shrink-0 items-baseline gap-2 rounded-lg border border-dashed border-foreground/15 text-control text-muted-foreground', compact ? 'mx-1 mt-2 mb-1 px-2.5 py-1.5' : flush ? 'mb-1 px-3 py-2' : 'list-box mt-3 mb-1 py-2 pr-3')}>
         <span className="shrink-0 rounded-full bg-foreground/[0.06] px-2 py-px text-meta font-medium text-foreground/75">Example</span>
         {/* Dia's way: what to do, in bold, carries it; what then happens is plain. */}
         <span className={cn('mf-prose min-w-0', compact ? 'text-body' : 'text-[0.9375rem]')}>

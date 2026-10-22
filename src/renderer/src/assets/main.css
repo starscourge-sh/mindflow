@@ -35,6 +35,44 @@
   }
 }
 
+/* A list page's two left edges, from its column's left. Boxes and lines sit
+   on the box edge: the add box's border, a tab's pill, the example card, a
+   heading's rule, a row's highlight. Words and marks start on the ink edge,
+   which is also where the page's header line starts its count: the + in the
+   add box, a tab's words, a banner, a heading's words, a row's tick or icon.
+   A task's title and what hangs under it share a third, the text edge, set
+   by the row itself (qa/list-edges.mjs). */
+:root {
+  --list-edge: 0.75rem;
+  --list-ink: 1.25rem;
+}
+/* Quick capture's side panel is narrow: its boxes fill it, its words start 8px in. */
+[data-box-panel] {
+  --list-edge: 0px;
+  --list-ink: 0.5rem;
+}
+/* A box or line on the box edge. */
+@utility list-edge {
+  margin-inline: var(--list-edge);
+}
+/* Words in a block on the box edge, starting on the ink edge. */
+@utility list-ink {
+  padding-inline: calc(var(--list-ink) - var(--list-edge));
+}
+/* Words on the ink edge with no box of their own. */
+@utility list-words {
+  margin-inline: var(--list-ink);
+}
+/* A box with a border on the box edge, its first mark on the ink edge. */
+@utility list-box {
+  margin-inline: var(--list-edge);
+  padding-left: calc(var(--list-ink) - var(--list-edge) - 1px);
+}
+/* A Lucide + leading a line: its drawn cross starts 5/24 into its square. */
+@utility list-plus {
+  margin-left: calc(-5em / 24);
+}
+
 :root {
   --radius: 0.625rem;
   --background: oklch(1 0 0);

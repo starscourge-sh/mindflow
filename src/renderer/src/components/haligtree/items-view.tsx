@@ -565,7 +565,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
               </p>
             </div>
         </Unfold>
-        <div className="px-5 pt-2.5 pb-2 empty:hidden">
+        <div data-kind-chips className="list-words pt-2.5 pb-2 empty:hidden">
           {folder && (
             <Tip label="Back out of the group  ⌘[">
             <button type="button" data-folder-back="" onClick={() => (chime('tuck'), setInGroup(null))}
@@ -585,14 +585,14 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
         {unloaded(noteGroups) || !listShown ? null : items.length || (folding.rows && noteGroups.some((one) => one.members.some((id) => all.some((item) => item.id === id && !item.archivedAt)))) ? (
           <NoteList groups={entries} density={density} table="nuggets" selected={spread ? peek ?? undefined : coming ?? open?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
             onPick={spread ? (id) => (isGroup(id) ? pick(id) : (setPeek(id), setCursor(items.findIndex((one) => one.id === id)))) : pick} onOpen={spread ? pick : undefined}
-            picking={picking} onMove={view.sort === 'manual' ? onMove : undefined} after={glossAfter} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'}
+            picking={picking} onMove={view.sort === 'manual' ? onMove : undefined} after={glossAfter} className={spread ? 'list-edge my-3' : 'list-edge my-2'}
             folds={folding.rows ? { ...folding.folds(menuFor), onNewNote: pick, onSort: setSorting, onSorted: markSorted, onPage: setPageGroup } : undefined} />
         ) : all.length && query.trim() ? (
           <Empty title="Nothing matches">No title here has those words. Escape clears the search.</Empty>
         ) : unloaded(all) ? null : !all.length ? (
           // Nothing kept yet: the page as it will look, with a few made-up ones.
           <Example tryIt={tier === 'nugget' ? 'pick a note in your Inbox list and press P. It lands here, ready to come back to you.' : 'press “New article” above, or pick a few gems with X and choose “Start an article”.'}>
-            <NoteList groups={[['', (tier === 'nugget' ? exampleIdeas() : exampleWriting()).map((one) => itemEntry(one))]]} density={density} table="nuggets" cursor={-1} onPick={() => undefined} className="mx-3 my-2" />
+            <NoteList groups={[['', (tier === 'nugget' ? exampleIdeas() : exampleWriting()).map((one) => itemEntry(one))]]} density={density} table="nuggets" cursor={-1} onPick={() => undefined} className="list-edge my-2" />
           </Example>
         ) : tier === 'nugget' ? (
           <Empty title="No gems yet">
