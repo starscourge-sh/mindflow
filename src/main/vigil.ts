@@ -1866,7 +1866,9 @@ export function registerVigil(): void {
       facts.push(one.allDay ? `${day.format('dddd D MMMM YYYY')}, all day` : `${day.format('dddd D MMMM YYYY')}, ${clock(one.startAt)} to ${clock(one.endAt)}`)
       if (one.repeat) facts.push('Repeats')
       if (one.place) facts.push(`At ${one.place}`)
-      if (one.people) facts.push(`With ${one.people}`)
+      let people: string[] = []
+      try { people = (JSON.parse(one.people ?? '[]') as string[]).filter(Boolean) } catch { /* none */ }
+      if (people.length) facts.push(`With ${people.join(', ')}`)
       if (one.calendar) facts.push(`In the ${one.calendar} calendar`)
       let doc: unknown = one.notes
       try { doc = JSON.parse(one.notes ?? 'null') } catch { /* plain words */ }

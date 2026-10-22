@@ -57,6 +57,14 @@ try {
   await v('task:save', taskId, { notes: doc('Posts from the shed, nails in the blue tin.'), status: 'dropped' })
   made.push({ type: 'task', id: taskId, words: 'nails in the blue tin' })
 
+  // A calendar event and a practice, each binned.
+  const event = await v('event:add', { title: 'Binned probe event: dentist', place: 'High Street', notes: 'Bring the referral letter.' })
+  await v('event:drop', event.key)
+  made.push({ type: 'event', id: event.key, words: 'Bring the referral letter.' })
+  const practice = await v('practices:save', { name: 'Binned probe practice: scales on the piano', days: [1, 3, 5], at: '07:30', targetMin: 20 })
+  await v('practices:bin', practice)
+  made.push({ type: 'practice', id: practice, words: '07:30, 20 minutes' })
+
   const listed = await v('bin:list')
   check('every kind made is in the Bin', made.every((one) => listed.some((row) => row.id === one.id)), `${made.filter((one) => listed.some((row) => row.id === one.id)).length} of ${made.length}`)
 
@@ -71,10 +79,10 @@ try {
     const seen = await h.evaluate(() => {
       const pane = document.querySelector('[data-bin-preview]')
       const editor = pane?.querySelector('.ProseMirror')
-      return { open: pane?.dataset.open, text: pane?.innerText ?? '', editable: editor?.getAttribute('contenteditable'), said: !!pane?.querySelector('[data-bin-readonly]') && /In the Bin\. Restore it to change it\./.test(pane.innerText), dates: /Made .+Moved to the Bin/.test(pane?.innerText ?? ''), pictures: pane?.querySelectorAll('.ProseMirror img').length ?? 0 }
+      return { open: pane?.dataset.open, text: pane?.innerText ?? '', editable: editor ? editor.getAttribute('contenteditable') : 'none', anyEditable: !!pane?.querySelector('[contenteditable="true"], input, textarea'), said: !!pane?.querySelector('[data-bin-readonly]') && /In the Bin\. Restore it to change it\./.test(pane.innerText), dates: /Made .+Moved to the Bin/.test(pane?.innerText ?? ''), pictures: pane?.querySelectorAll('.ProseMirror img').length ?? 0 }
     })
     check(`${one.type}${one.kind ? ` (${one.kind})` : ''}: a click shows its words beside the list`, seen.open === one.id && seen.text.includes(one.words), seen.text.slice(0, 80).replace(/\s+/g, ' '))
-    check(`${one.type}${one.kind ? ` (${one.kind})` : ''}: read only, said so, with its dates`, seen.editable === 'false' && seen.said && seen.dates, `contenteditable=${seen.editable}`)
+    check(`${one.type}${one.kind ? ` (${one.kind})` : ''}: read only, said so, with its dates`, (seen.editable === 'false' || seen.editable === 'none') && !seen.anyEditable && seen.said && seen.dates, `contenteditable=${seen.editable}`)
     if (one.kind === 'note') check('note: its picture shows in the preview', seen.pictures > 0, `${seen.pictures} pictures`)
     // Typing into it changes nothing, on the page or as stored.
     const before = JSON.stringify((await v('bin:peek', one.type === 'capture' ? 'capture' : one.type === 'task' ? 'task' : one.type, one.id))?.body)
