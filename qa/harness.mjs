@@ -10,8 +10,9 @@
  */
 import { existsSync, mkdtempSync } from 'fs'
 import { execFile } from 'child_process'
-import { tmpdir } from 'os'
+import { homedir, tmpdir } from 'os'
 import { join } from 'path'
+import { isRealFolder } from '../src/main/real-folder.ts'
 import { _electron as electron } from 'playwright'
 
 const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
@@ -42,6 +43,9 @@ export async function open() {
   // A fresh folder for the app's data, so a run never touches your real captures.
   // QA_DATA points a run at a copy of real data, to see it with a real corpus.
   const data = process.env.QA_DATA ?? mkdtempSync(join(tmpdir(), 'haligtree-qa-'))
+  // Never your real notes, under the app's new name or its first: the app
+  // refuses them too (src/main/real-folder.ts), this says why before it starts.
+  if (isRealFolder(data, join(homedir(), 'Library', 'Application Support'))) throw new Error(`QA_DATA is your real data folder (${data}): point it at a copy`)
   // QA_ENTRY runs a build kept apart from out/, so one test's build does not
   // pull the app out from under another test running at the same time.
   // QA_ARGS adds launch flags, such as --sandbox for the practice copy.

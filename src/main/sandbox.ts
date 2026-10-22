@@ -8,6 +8,7 @@ import { join } from 'path'
 import { changed, database, shutDatabase } from './captures'
 import { retireKinds } from './kinds'
 import { dayKey } from './dates'
+import { refuseRun } from './real-folder'
 
 /**
  * The sandbox: someone else's book, full of examples, kept apart from
@@ -85,6 +86,12 @@ const OUT = 'sandbox-carry-out.json'
  * the sandbox runs comes to the sandbox rather than starting a second Haligtree.
  */
 export function useDataFolder(): boolean {
+  // A test run never opens your real data folder (real-folder.ts says why).
+  const refused = refuseRun(process.env, app.getPath('appData'))
+  if (refused) {
+    console.error(`Refused to start: ${refused}`)
+    process.exit(1)
+  }
   if (SANDBOX && process.argv.includes('--sandbox-reset')) {
     let carried: string | null = null
     try {

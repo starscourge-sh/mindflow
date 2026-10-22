@@ -20,7 +20,7 @@ export const bytes = (n: number): string => {
 /** Text only a window holds, like the box's unsent draft, so its pictures count as used. */
 const held = (): string[] => {
   try {
-    return Object.values(localStorage).filter((value) => value.includes('mindflow://'))
+    return Object.values(localStorage).filter((value) => value.includes('haligtree://') || value.includes('mindflow://'))
   } catch {
     return []
   }
