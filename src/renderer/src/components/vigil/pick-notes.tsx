@@ -81,6 +81,6 @@ export function usePickNotes(shown: string[], cursor: number, { here, noun, tier
     !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
     { label: 'Clear the selection', keys: 'esc', run: clear }
   ] : null
-  const rowItems = (id: string): MenuItem[] => ['separator', { label: live.includes(id) ? 'Unselect' : 'Select', keys: 'X', run: () => toggle(id) }, shown.length > 1 && !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll }]
+  const rowItems = (id: string): MenuItem[] => ['separator', { label: live.includes(id) ? 'Unselect' : 'Select', keys: 'X', run: () => toggle(id) }, !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll }]
   return { chosen: live, toggle, picking, bar, menu, rowItems }
 }

@@ -774,7 +774,7 @@ function Logs({ item, picked, onClear }: { item: ItemFull; picked: Dot | null; o
                 { label: 'Remove the log', keys: '⌫', danger: true, run: () => lines.remove([log.id]) },
                 'separator',
                 { label: lines.picked(log.id) ? 'Unselect' : 'Select', keys: 'X', run: () => lines.toggle(log.id) },
-                logs.length > 1 && { label: 'Select all', keys: '⌘A', run: lines.all }
+                lines.count < logs.length && { label: 'Select all', keys: '⌘A', run: lines.all }
               ]
               return (
                 <RowMenu key={log.id} items={menu}>

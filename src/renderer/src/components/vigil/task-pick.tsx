@@ -32,6 +32,8 @@ export function useTaskPick(shown: Task[], cursor: number, { here, off = false }
   extend: Picking['extend']
   bar: React.JSX.Element | null
   menu: (task: Task) => RowItem[] | null
+  /** The end of one task's own menu: Select (or Unselect) and Select all, as every list's row menu ends. */
+  rowItems: (id: string) => RowItem[]
 } {
   const [chosen, setChosen] = useState<string[]>([])
   // Only what is still on show stays picked: a task done elsewhere drops out.
@@ -112,5 +114,9 @@ export function useTaskPick(shown: Task[], cursor: number, { here, off = false }
     !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
     { label: 'Clear the selection', keys: 'esc', run: clear }
   ] : null
-  return { chosen: live, toggle, click: picking.click, extend: picking.extend, bar, menu }
+  const rowItems = (id: string): RowItem[] => [
+    { label: live.includes(id) ? 'Unselect' : 'Select', keys: 'X', run: () => toggle(id) },
+    !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll }
+  ]
+  return { chosen: live, toggle, click: picking.click, extend: picking.extend, bar, menu, rowItems }
 }

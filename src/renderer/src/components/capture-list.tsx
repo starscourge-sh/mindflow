@@ -117,7 +117,7 @@ export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void)
   { label: 'Open', run: () => onPick?.(capture.id), keys: '↵' },
   'separator',
   ...(capture.status === 'open'
-    ? EXITS.map((one) => ({ label: one.label, keys: one.key.toUpperCase(), danger: one.status === 'discarded', run: () => void exit(capture.id, one.status) }))
+    ? EXITS.map((one) => ({ label: one.label, keys: one.status === 'discarded' ? '⌫' : one.key.toUpperCase(), danger: one.status === 'discarded', run: () => void exit(capture.id, one.status) }))
     : [
         capture.status !== 'promoted' && { label: 'Back to the Inbox', run: () => void window.api.captures.save(capture.id, { status: 'open' }).then(() => chime('undo')) },
         capture.status !== 'discarded' && binItem([{ type: 'capture', id: capture.id, status: capture.status }])

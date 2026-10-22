@@ -101,6 +101,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
     { label: 'Archive', hint: 'Kept, out of sight', run: () => void archive('nuggets', [item.id], true) },
     binItem(binRefs([item.id])),
     { label: chosen.includes(item.id) ? 'Unselect' : 'Select', keys: 'X', run: () => choose(item.id) },
+    !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
     'separator',
     { label: 'Copy the question', run: () => copy(item.title) }
   ]
@@ -130,7 +131,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
     binItem(binRefs([item.id])),
     'separator',
     { label: chosen.includes(item.id) ? 'Unselect' : 'Select', keys: 'X', run: () => choose(item.id) },
-    items.length > 1 && !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
+    !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
     'separator',
     { label: 'Copy title', run: () => copy(item.title) }
   ]

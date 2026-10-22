@@ -561,7 +561,7 @@ function Clues({ item, onRead }: { item: ItemFull; onRead: (from: number) => voi
                 { label: 'Remove the clue', keys: '⌫', danger: true, run: () => lines.remove([clue.id]) },
                 'separator',
                 { label: lines.picked(clue.id) ? 'Unselect' : 'Select', keys: 'X', run: () => lines.toggle(clue.id) },
-                clues.length > 1 && { label: 'Select all', keys: '⌘A', run: lines.all }
+                lines.count < clues.length && { label: 'Select all', keys: '⌘A', run: lines.all }
               ]
               return (
                 <RowMenu key={clue.id} items={menu}>

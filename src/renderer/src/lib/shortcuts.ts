@@ -157,7 +157,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Lists', keys: '⇧⌘R', does: 'Read through the list, one at a time', where: 'Lists' },
   { group: 'Lists', keys: 'P', does: 'Save it as a gem', where: 'Lists' },
   { group: 'Lists', keys: 'R', does: 'Resolve: done with it', where: 'Lists' },
-  { group: 'Lists', keys: 'D', does: 'On a capture: move it to the Bin', where: 'Lists' },
+  { group: 'Lists', keys: '⌫', does: 'Move it to the Bin (D on a capture too)', where: 'Lists' },
   { group: 'Lists', keys: 'H', does: 'On a capture: make it a new question, its words the first clue', where: 'Lists' },
   { group: 'Lists', keys: 'J', does: 'Next old capture card (K the one before; past the last, on into the list)', where: 'Quick capture' },
   { group: 'Lists', keys: 'W', does: 'On an old capture’s card: say who said it', where: 'Quick capture' },

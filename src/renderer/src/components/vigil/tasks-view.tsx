@@ -959,7 +959,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
               return (
                       <RowMenu items={several.menu(task) ?? [
                         ...taskMenu(task, { open: () => pick(task.id), complete: () => complete(task), frog: frogOn(settings), now, thought: () => setGlossing(task.id) }),
-                        { label: several.chosen.includes(task.id) ? 'Unselect' : 'Select', keys: 'X', run: () => several.toggle(task.id) }
+                        ...several.rowItems(task.id)
                       ]}>
                       <div
                         data-id={task.id}

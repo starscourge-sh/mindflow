@@ -159,7 +159,7 @@ export function BinView({ onOpen }: { onOpen?: (type: string, id: string) => voi
               !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
               { label: 'Clear the selection', keys: 'esc', run: clear }
             ] : null}
-            onToggle={toggle} />
+            onToggle={toggle} onSelectAll={allPicked ? undefined : selectAll} />
         ) : unloaded(binned) ? null : (
           // Nothing in the Bin yet: a few made-up ones show what waits here, dimmed and out of reach.
           <Example tryIt="choose “Move to the Bin” on any note, or close a task without doing it.">
@@ -186,7 +186,7 @@ const EXAMPLES = (): Binned[] => [
   { type: 'nugget', id: 'example:bin-gem', title: 'Every list is a wish', kind: 'note', at: new Date(Date.now() - 6 * 86400000).toISOString() }
 ]
 
-function Rows({ list, onRestore, onForget, cursor = -1, chosen = [], asking = null, onClick, onAsk, onKeep, menuFor, onToggle }: {
+function Rows({ list, onRestore, onForget, cursor = -1, chosen = [], asking = null, onClick, onAsk, onKeep, menuFor, onToggle, onSelectAll }: {
   list: Binned[]
   onRestore: (one: Binned) => void
   onForget?: (one: Binned) => void
@@ -199,6 +199,8 @@ function Rows({ list, onRestore, onForget, cursor = -1, chosen = [], asking = nu
   onKeep?: () => void
   menuFor?: (one: Binned) => MenuItem[] | null
   onToggle?: (key: string) => void
+  /** Every row picked, while some are not: the row menu's "Select all", as every list has. */
+  onSelectAll?: () => void
 }): React.JSX.Element {
   // A long Bin draws only the rows in sight, without the lift-away: hundreds
   // of binned notes each drawn and animated made the page slow to open.
@@ -212,6 +214,7 @@ function Rows({ list, onRestore, onForget, cursor = -1, chosen = [], asking = nu
           { label: 'Restore', keys: '↵', run: () => onRestore(one) },
           { label: 'Copy text', run: () => copy(one.title) },
           !!onToggle && { label: picked ? 'Unselect' : 'Select', keys: 'X', run: () => onToggle(key) },
+          !!onSelectAll && { label: 'Select all', keys: '⌘A', run: onSelectAll },
           'separator',
           !!onForget && { label: 'Delete for good…', keys: '⌫', danger: true, run: () => onAsk?.([key]) }
         ]}>

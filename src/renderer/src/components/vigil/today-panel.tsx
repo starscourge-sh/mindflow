@@ -230,7 +230,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
               {/* The row opens the task where its notes and sessions are. */}
               <RowMenu items={several.menu(task) ?? [
                 ...taskMenu(task, { open: () => onOpen(task.id), complete: () => tick(task), move, frog, now, thought: () => setGlossing(task.id) }),
-                { label: several.chosen.includes(task.id) ? 'Unselect' : 'Select', keys: 'X', run: () => several.toggle(task.id) }
+                ...several.rowItems(task.id)
               ]}>
               <button type="button" data-row data-id={task.id} data-cursor={index === cursor || undefined} data-picked={several.chosen.includes(task.id) || undefined} className={`min-w-0 flex-1 text-left ${task.id === open ? 'font-medium' : ''}`} onClick={(event) => several.click(event, task.id) || onOpen(task.id)}>
                 <p className="flex items-center gap-1.5">

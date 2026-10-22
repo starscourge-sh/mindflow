@@ -260,7 +260,7 @@ export function QueueView(): React.JSX.Element {
       !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
       { label: 'Clear the selection', keys: 'esc', run: clear }
     ] : null,
-    rowItems: ['separator', { label: live.includes(row.id) ? 'Unselect' : 'Select', keys: 'X', run: () => toggle(row.id) }, ids.length > 1 && !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll }]
+    rowItems: ['separator', { label: live.includes(row.id) ? 'Unselect' : 'Select', keys: 'X', run: () => toggle(row.id) }, !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll }]
   })
   return (
     <Page title="Queue" count={live.length || queue.length} unit={live.length ? ['selected', 'selected'] : ['to read', 'to read']}
@@ -343,7 +343,7 @@ export function QueueView(): React.JSX.Element {
                       { label: 'Take out of Read', hint: 'It stays where it is', keys: '⌫', danger: true, run: () => forgetRead([row.id]) },
                       'separator',
                       { label: picked ? 'Unselect' : 'Select', keys: 'X', run: () => readToggle(row.id) },
-                      readIds.length > 1 && readLive.length < readIds.length && { label: 'Select all', keys: '⌘A', run: selectAllRead }
+                      readLive.length < readIds.length && { label: 'Select all', keys: '⌘A', run: selectAllRead }
                     ]
                     return (
                       <RowMenu key={row.id} items={menu}>
