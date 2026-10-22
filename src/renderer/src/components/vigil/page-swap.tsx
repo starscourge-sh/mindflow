@@ -15,8 +15,8 @@ export function PageSwap({ id, children }: { id: string; children: ReactNode }):
   const ready = seen === id
   // The page last on show, as it was last drawn: what stays up while the next one reads.
   const shown = useRef<{ id: string; node: ReactNode }>({ id, node: children })
-  // The page just left: out of sight the frame the next one shows, and taken down once that frame
-  // is painted. Taken down in it, a big page's every menu and motion let go first (Home's took 25ms).
+  // The page just left: out of sight the frame the next one shows (unseen, still laid out where it
+  // was, so nothing on it measures itself afresh), and taken down once that frame is painted. Taken down in it, a big page's every menu and motion let go first (Home's took 25ms).
   const left = useRef<{ id: string; node: ReactNode } | null>(null)
   if (ready && shown.current.id !== id) left.current = shown.current
   if (ready) shown.current = { id, node: children }
@@ -43,7 +43,7 @@ function Held({ over = false, gone = false, onSeen, children }: { over?: boolean
   const on = style === undefined
   useLayoutEffect(() => void (on && onSeen?.()), [on]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <div className={over ? 'pointer-events-none absolute inset-0 flex min-w-0' : 'flex min-w-0 flex-1'} style={gone ? { display: 'none' } : style} inert={gone || undefined}>
+    <div className={over ? 'pointer-events-none absolute inset-0 flex min-w-0' : 'flex min-w-0 flex-1'} style={gone ? { visibility: 'hidden' } : style} inert={gone || undefined}>
       {provide(children)}
     </div>
   )

@@ -46,8 +46,7 @@ const record = (ms = 1500) => h.evaluate((ms) => {
     const pane = document.querySelector('[data-pane-front]') ?? document.querySelector('[data-pane]')
     // A page held unseen until its reads are in (lib/reads-in.tsx) shows nothing: only its seen words count.
     const seen = (page) => page.textContent.length - [...page.querySelectorAll('[style*="visibility: hidden"]')].filter((one) => !one.parentElement.closest('[style*="visibility: hidden"]')).reduce((sum, one) => sum + one.textContent.length, 0)
-    // A page on its way out is taken out of sight (display: none) the frame the next one shows: not drawn, so not counted.
-    const pages = [...(pane?.querySelectorAll('[data-page]') ?? [])].map((one) => ({ id: one.getAttribute('data-page'), o: +getComputedStyle(one).opacity, text: getComputedStyle(one).visibility === 'hidden' || !one.checkVisibility() ? 0 : seen(one) }))
+    const pages = [...(pane?.querySelectorAll('[data-page]') ?? [])].map((one) => ({ id: one.getAttribute('data-page'), o: +getComputedStyle(one).opacity, text: getComputedStyle(one).visibility === 'hidden' ? 0 : seen(one) }))
     const notes = [...(pane?.querySelectorAll('.note-pane[data-open]') ?? [])].filter((one) => +getComputedStyle(one.closest('[data-page]') ?? one).opacity > 0.05 && one.checkVisibility({ visibilityProperty: true })).map((one) => ({ id: one.getAttribute('data-open'), words: one.querySelector('.ProseMirror')?.textContent.length ?? 0, coming: one.hasAttribute('data-coming') }))
     frames.push({ at: performance.now(), side: !!side && box.width > 0 && side.textContent.length > 20, pages, notes, text: pane?.textContent.length ?? 0 })
     if (performance.now() - start < ms) requestAnimationFrame(tick)
