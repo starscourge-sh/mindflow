@@ -2,7 +2,8 @@ import { motion } from 'motion/react'
 import { EASE, shift } from '@/lib/motion'
 
 import { chime } from '@/lib/sound'
-import { useLive, vigil } from '@/lib/vigil'
+import { unloaded, useLive, vigil } from '@/lib/vigil'
+import { useReading } from '@/lib/reads-in'
 import { issues, type Repeat } from '@/lib/issues'
 import { Tip, toast } from './ui'
 import { num } from '../../../../main/dates'
@@ -15,7 +16,11 @@ import { Repeat as Repeat2 } from '@/components/ui/icons'
  * points to it instead.
  */
 export function ComingBack({ id, className = '' }: { id: string; className?: string }): React.JSX.Element | null {
-  const found = useLive(() => issues.repeats([id]), {} as Record<string, Repeat>, [id], ['capture', 'item'])[id]
+  const all = useLive(() => issues.repeats([id]), {} as Record<string, Repeat>, [id], ['capture', 'item'])
+  // The page it is on waits for it: an old card in quick capture grew a line taller once this came in,
+  // and one fewer card had room.
+  useReading(unloaded(all))
+  const found = all[id]
   if (!found) return null
   const write = (): void =>
     void issues.repeatArticle(found.ids.map((one) => one.id)).then((article) => {

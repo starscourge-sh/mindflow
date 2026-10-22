@@ -734,7 +734,7 @@ export function Home(): React.JSX.Element {
   // The counts come in together, once every one is read: never one number, then the next, down the sidebar.
   const countsIn = dueRead !== null && ![tasks, nuggets, articles, questions, goals, queued].some(unloaded)
   // The sidebar is drawn whole, once its rows' reads are in too: before, Pinned and the tags came in a beat late and pushed the places down.
-  const { style: sideStyle } = useReadsIn(!settings || !countsIn || unloaded(pinsUsual) || unloaded(tags))
+  const { style: sideStyle } = useReadsIn(!settings || unloaded(away) || !countsIn || unloaded(pinsUsual) || unloaded(tags))
 
   // Tidy stickies is offered only with a sticky out to tidy.
   const stickiesOut = useStickiesOut()
@@ -1420,7 +1420,9 @@ export function Home(): React.JSX.Element {
             const branched = (list: typeof SECTIONS): React.JSX.Element => (
               <Branches current={list.findIndex((section) => section.id === view.id)} className="flex flex-col gap-px">{sorted(list)}</Branches>
             )
-            const parts = sidebarParts(sections, ordered, shown)
+            // Not drawn, even unseen, until settings say which rows show: a fold measured with a row
+            // the settings then take away held that row's room for a frame once the sidebar showed.
+            const parts = settings && !unloaded(away) ? sidebarParts(sections, ordered, shown) : []
             const folds: Record<Group, [boolean, (open: boolean) => void]> = { Notes: [notesOpen, setNotesOpen], Tasks: [tasksOpen, setTasksOpen], Saved: [keptOpen, setKeptOpen] }
             // Tasks' pages not used yet wait here, quiet and shut; opening one brings it into Tasks for good.
             const more = (): React.JSX.Element | null => !waiting.length || narrow ? null : (

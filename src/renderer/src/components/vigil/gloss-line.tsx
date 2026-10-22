@@ -4,6 +4,7 @@ import { EASE, byKeys, shift } from '@/lib/motion'
 
 import { chime } from '@/lib/sound'
 import { unloaded, useLive, vigil, when, type Gloss } from '@/lib/vigil'
+import { useReading } from '@/lib/reads-in'
 import { cn } from '@/lib/cn'
 import { Island, Kbd, Rolling, Tip, toast, typing, Pressed } from './ui'
 import { Term } from './term'
@@ -142,6 +143,8 @@ export function GlossLine({ id, className, placeholder = 'A thought on it, in yo
   keys?: string
 }): React.JSX.Element {
   const glosses = useLive(() => vigil.glosses(id), [] as Gloss[], [id])
+  // The page it is on waits for its thoughts, so a line never comes in under what was drawn.
+  useReading(unloaded(glosses))
   const last = latest ? glosses[0] : undefined
   const [writing, setWriting] = useState(open)
   const [words, setWords] = useState('')

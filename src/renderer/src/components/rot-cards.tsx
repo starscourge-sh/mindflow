@@ -174,12 +174,17 @@ export function RotCards({ onOpen, room: space = null }: {
       was = n
       setLeft(n)
     })
+  // One deal at a time: the window shown while its first deal was still on its way dealt again,
+  // and the cards drawn first turned into others a moment later.
+  const dealing = useRef(false)
   const reload = (): void => {
+    count()
+    if (dealing.current) return
+    dealing.current = true
     void window.api.captures.rot().then((next) => {
       setCards([...next].sort(byAge))
       setDeal((n) => n + 1)
-    })
-    count()
+    }).finally(() => void (dealing.current = false))
   }
   const drop = (id: string): void => setCards((all) => all.filter((one) => one.id !== id))
   // Dealt afresh as the window goes away, so the next time it is brought up
