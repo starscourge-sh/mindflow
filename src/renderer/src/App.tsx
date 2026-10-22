@@ -22,7 +22,7 @@ import { useSameWords } from './lib/same-words'
 import { CaptureList, tagCaptures, useCaptures, type CaptureMeta } from './components/capture-list'
 import { Example } from './components/haligtree/example'
 import { exampleInbox } from './lib/examples'
-import { Waiting, textOf, useOldDealt, useOldShown } from './components/rot-cards'
+import { Waiting, textOf } from './components/rot-cards'
 import { BOX_PINS } from './components/pins'
 import { THROWS, comboOf } from './lib/keys'
 import { GraphChip, InboxGraph, useGraphShown } from './components/haligtree/inbox-graph'
@@ -449,11 +449,8 @@ export default function App(): React.JSX.Element {
   useEffect(() => window.api.onShown(() => setOfferKeys((n) => n + 1)), [])
   // Tidy stickies only with a sticky out to tidy.
   const stickiesOut = useStickiesOut()
-  // What the side panel's Inbox has waiting on you: rot cards (as many as it
-  // would show) and pins, for the chip at the top while the panel is shut.
-  const oldRead = useLive(haligtree.rotWaiting, null as number | null)
-  const oldCount = useOldShown(oldRead ?? 0)
-  const oldDealt = useOldDealt()
+  // What the side panel's Inbox has waiting on you: pinned notes,
+  // for the chip at the top while the panel is shut.
   const pinned = useLive(haligtree.pins, [] as Awaited<ReturnType<typeof haligtree.pins>>)
   // The word count under the note, on unless you would rather not see it.
   const [counting, setCountingState] = useStoredFlag('word-count', true)
@@ -1740,12 +1737,11 @@ export default function App(): React.JSX.Element {
         startOver()
       }} title={appSettings?.topTitle === false ? null : topTitle}
       // Safe mode says so beside the pill, or the quiet looks like nothing happening.
-      aside={appSettings?.safeMode ? <Tip label="Safe mode: no hints, old captures or pinned notes come up  ⌥⌘S"><span className="flex h-5 items-center rounded-full bg-accent px-2 text-key leading-none text-[color-mix(in_srgb,var(--tt-brand-color-400)_55%,var(--foreground))]">Safe</span></Tip>
-        // Rot cards and reminder pins live in the side panel's Inbox; with the
-        // panel shut, a chip up here says they are there, and opens it on them.
-        // Kept with the panel open too, so it never pops out as the panel slides in.
-        // Once both are read, and with the panel open once it has dealt its cards: the chip says its count once, never 2 and then 1.
-        : (oldCount || pinned.length) && !lesson && oldRead !== null && !unloaded(pinned) && (!panel || oldDealt) ? (
+      aside={appSettings?.safeMode ? <Tip label="Safe mode: no hints or pinned notes come up  ⌥⌘S"><span className="flex h-5 items-center rounded-full bg-accent px-2 text-key leading-none text-[color-mix(in_srgb,var(--tt-brand-color-400)_55%,var(--foreground))]">Safe</span></Tip>
+        // Pinned notes live in the side panel's Inbox; with the panel shut, a
+        // chip up here says they are there, and opens it on them. Kept with
+        // the panel open too, so it never pops out as the panel slides in.
+        : pinned.length > 0 && !lesson && !unloaded(pinned) ? (
           <Tip label={panel ? 'Show the Inbox in the side panel  ⌃1' : 'Open the Inbox in the side panel  ⌘\\'}>
             <button type="button" data-waiting style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
               onMouseDown={(event) => event.preventDefault()}
@@ -1754,9 +1750,7 @@ export default function App(): React.JSX.Element {
                 setPanel(true)
               }}
               className="group/waiting flex h-6 items-center gap-1 rounded-full bg-accent pr-1 pl-2 text-key leading-none text-muted-foreground transition-colors hover:text-foreground">
-              {oldCount > 0 && <span><Rolling text={oldCount} /> {oldCount === 1 ? 'old capture' : 'old captures'}</span>}
-              {oldCount > 0 && pinned.length > 0 && <span>·</span>}
-              {pinned.length > 0 && <span><Rolling text={Math.min(BOX_PINS, pinned.length)} /> pinned</span>}
+              <span><Rolling text={Math.min(BOX_PINS, pinned.length)} /> pinned</span>
               {/* Says it opens something: a chevron that leans on hover. */}
               <ChevronRight aria-hidden className="size-3 transition-transform group-hover/waiting:translate-x-0.5" />
             </button>
@@ -2453,7 +2447,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
   const keptRead = useLive(() => Promise.all([haligtree.items('nugget'), haligtree.items('article'), haligtree.items('question')]).then((all) => all.flat().filter((one) => !one.archivedAt && !one.closedAt).length), null as number | null, [], ['item'])
   const kept = keptRead ?? 0
   // The panel is drawn once, with its tabs' counts and what the tab shows (lib/reads-in.tsx): never the counts one by one,
-  // or the old captures and pins arriving over the Inbox a beat after it.
+  // or the pins arriving over the Inbox a beat after it.
   const { provide, style: readsStyle } = useReadsIn(dueRead === null || openRead === null || keptRead === null || unloaded(captures))
   // The inbox is what has no exit yet; what is handled lives in Everything.
   const open = captures.filter((capture) => capture.status === 'open' && !capture.archivedAt)
@@ -2635,7 +2629,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
             and only your captures scroll under it. A rule between them, not a
             shadow: a shadow on paper read as a smudge. */}
         {/* Kept to about 45% of the tab, so the Inbox under it always shows rows. */}
-        {tab === 'inbox' && <Waiting onOpen={onOpen} onOpenAny={onOpenAny} />}
+        {tab === 'inbox' && <Waiting onOpenAny={onOpenAny} />}
         {/* Each list's top bar lands here, above the scrolling, never over rows. */}
         <div ref={holdSlot} className="shrink-0" />
         <StripSlot.Provider value={stripSlot}>

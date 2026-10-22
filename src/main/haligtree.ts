@@ -2807,19 +2807,14 @@ export function registerHaligtree(): void {
   handle('nudge', () => {
     const { blackout, hidePrivate } = gate()
     if (blackout || hidePrivate) return null
-    const { examNudges, weeklyReview, weeklyDay, dailyTidy } = settings()
+    const { examNudges, dailyTidy } = settings()
     if (examNudges)
       for (const exam of readiness())
         if (exam.behind > 0 && !nudgedToday(`exam:${exam.tag}`))
           return { kind: 'exam', view: 'review', label: `Exam · #${exam.tag}`,
             text: `#${exam.tag} is ${exam.days === 0 ? 'today' : exam.days === 1 ? 'tomorrow' : `in ${num(exam.days)} days`}, and ${num(exam.behind)} ${exam.behind === 1 ? 'card is' : 'cards are'} behind. About ${exam.perDay} a day catches you up.` }
-    // The deciding pass, on its day. No count: what it holds is what you set
-    // aside, and the point of setting it aside was to stop carrying it.
-    if (weeklyReview && dayjs().day() === weeklyDay) {
-      if (decideList().length && !nudgedToday('weekly'))
-        return { kind: 'weekly', view: 'decide', label: 'Deciding day',
-          text: 'Deciding day: what you set aside waits for a keep or the Bin.' }
-    }
+    // The deciding pass is not offered here: quick capture only catches, and
+    // deciding day is a line at the top of the Inbox page (inbox-lines.tsx).
     // A goal gone quiet: a week with no log, then sooner and more plainly as
     // the quiet stretches or the day comes near. One goal a day at most.
     if (settings().goalNudges) {

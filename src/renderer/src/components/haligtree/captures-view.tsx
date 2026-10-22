@@ -44,6 +44,7 @@ import { enqueue, readQueue } from '@/lib/reading-queue'
 import { showDetails } from '@/lib/reading'
 import { MergeInto } from './merge-picker'
 import { decideDay, openPass } from './pass'
+import { InboxLines } from './inbox-lines'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { keyFor } from '@/lib/keys'
 import { selectionActions } from './selection-actions'
@@ -491,6 +492,8 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
       >
         {/* Old captures put away on their own this morning: said here, with Undo. */}
         {title === 'Inbox' && <PutAwayLine onSee={() => window.api.openInHome('view', 'archived')} />}
+        {/* Old captures to tidy and deciding day: quick capture only catches, so they wait here. */}
+        {title === 'Inbox' && <InboxLines />}
         {everything ? (
           // What to see: tasks, notes, quotes… (several at once), and for tasks, to do or done.
           <div data-everything-filter className="list-words flex flex-wrap items-center gap-x-4 gap-y-1.5 pt-2.5 pb-2">

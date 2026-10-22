@@ -172,9 +172,9 @@ export const WORDS: Word[] = [
   {
     id: 'rot',
     forms: ['Old captures', 'Old capture', 'Captures that come back'],
-    line: 'A few old captures you have not dealt with, shown each time you open quick capture',
+    line: 'A few old captures you have not dealt with, offered to tidy in a line at the top of the Inbox',
     origin: 'Old English eald, grown up',
-    here: '**A few old captures that come back each time you open quick capture.** Never the whole pile, and they ask only for a tidy.',
+    here: '**A few old captures offered to tidy, in a line at the top of the Inbox.** Never the whole pile, and they ask only for a tidy.',
     try: 'Settings, What comes back to you, says how many.',
     history: 'Old is Old English eald, which first meant grown or full grown. A note left untouched does not spoil, but it does lose the reason you wrote it.',
     see: ['tidy', 'surfacing', 'inbox']

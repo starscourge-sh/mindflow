@@ -37,7 +37,7 @@ export function HintCard({ onOpen, writing = false }: { onOpen: (type: string, i
   // Two bells once, when a hint arrives: not on every animation the card
   // runs afterwards, which rang them again as the page moved around it.
   useEffect(() => void (hint && chime(hint.memory ? 'memory' : 'hint')), [hint?.id]) // eslint-disable-line react-hooks/exhaustive-deps
-  // A nudge: the weekly walk through the inbox, or an exam falling behind.
+  // A nudge: the daily tidy, a quiet goal, or an exam falling behind.
   const [nudge, setNudge] = useState<Nudge | null>(null)
   useEffect(() => void (nudge && chime('hint')), [nudge?.kind]) // eslint-disable-line react-hooks/exhaustive-deps
   // A question you are holding, come back: "Still open: …".
@@ -265,7 +265,7 @@ export function HintCard({ onOpen, writing = false }: { onOpen: (type: string, i
           <div className="mt-2 flex items-center gap-1 text-muted-foreground">
             {/* Its name, unless its words already start with it. */}
             <span className="mr-auto text-xs">{nudge.text.startsWith(nudge.label) ? '' : nudge.label}</span>
-            <Button variant="ghost" size="sm" onClick={go}>{nudge.kind === 'weekly' ? 'Decide now' : nudge.kind === 'tidy' ? 'Tidy now' : nudge.kind === 'goal' ? 'Open it' : 'Review now'}</Button>
+            <Button variant="ghost" size="sm" onClick={go}>{nudge.kind === 'tidy' ? 'Tidy now' : nudge.kind === 'goal' ? 'Open it' : 'Review now'}</Button>
             <Button variant="ghost" size="sm" onClick={() => (chime('fold'), setNudge(null))}>Not now</Button>
           </div>
         </motion.div>

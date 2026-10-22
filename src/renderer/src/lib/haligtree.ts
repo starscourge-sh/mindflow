@@ -395,7 +395,7 @@ export const haligtree = {
   exams: () => call<Exam[]>('exams'),
   history: (id: string) => call<{ reviews: { at: string; grade: number }[]; dueAt: string | null }>('review:history', id),
   source: (id: string) => call<{ type: string; id: string; title: string; body: unknown } | null>('review:source', id),
-  nudge: () => call<{ kind: 'exam' | 'weekly' | 'tidy' | 'goal'; view: string; id?: string; label: string; text: string } | null>('nudge'),
+  nudge: () => call<{ kind: 'exam' | 'tidy' | 'goal'; view: string; id?: string; label: string; text: string } | null>('nudge'),
   memory: () => call<{ id: string; captureId: string; kind: string; title: string; body: unknown; event: number; memory: string } | null>('memory'),
   /** Old captures still open; -1 when the book has never had one old enough to rot. */
   rotLeft: () => call<number>('rot:left'),
