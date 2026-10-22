@@ -10,7 +10,7 @@
 // Tomorrow, Upcoming, Later, Routines, the Matrix, This week's tasks, the
 // Inbox, Everything, Writing, Gems, Questions, Goals, the Bin, Archived, a
 // tag's page, an empty list's example and quick capture's lists.
-//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js MINDFLOW_QA_AWAY=1 [SHOTS=dir] [REPORT=file.json] node qa/list-edges.mjs
+//   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 [SHOTS=dir] [REPORT=file.json] node qa/list-edges.mjs
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { sandbox } from './sandbox-lib.mjs'
 
