@@ -314,14 +314,16 @@ export function useStickyMotion(card: RefObject<HTMLElement | null>, tilt: numbe
  */
 export function StickyHead({ title, count, controls, open, slot = '', titleClass = '' }: { title: ReactNode; count?: ReactNode; controls: ReactNode; open: boolean; slot?: string; titleClass?: string }): React.JSX.Element {
   return (
-    <div className="flex items-center gap-1 px-3 pt-2">
+    // A control reached by Tab shows them too: focus inside this line, never a
+    // :has() rule, which made every page in every window restyle whole on each change.
+    <div className="group/head flex items-center gap-1 px-3 pt-2">
       <p className={`min-w-0 grow truncate font-medium ${titleClass}`}>{title}</p>
       {/* The practice copy's stamp steps aside while the controls are out, so the title is never cut to "To…". */}
-      <span className={`flex shrink-0 group-hover:hidden group-has-[button:focus-visible]:hidden ${open ? 'hidden' : ''}`}><SandboxStamp inline /></span>
-      <span className={`grid min-w-4 grid-cols-[100%] items-center justify-items-end [grid-template-areas:'slot'] ${open ? 'shrink-0' : `shrink-[1000] group-hover:shrink-0 group-hover:basis-auto group-has-[button:focus-visible]:shrink-0 group-has-[button:focus-visible]:basis-auto ${slot}`}`} style={STILL}>
-        {count && <span className={`flex min-w-0 justify-end justify-self-stretch pl-1 transition-opacity duration-200 ease-out [grid-area:slot] group-hover:opacity-0 group-has-[button:focus-visible]:opacity-0 ${open ? 'opacity-0' : ''}`}>{count}</span>}
-        <span className={`grid [grid-area:slot] group-hover:grid-cols-[1fr] group-has-[button:focus-visible]:grid-cols-[1fr] motion-reduce:transition-none ${open ? 'grid-cols-[1fr]' : 'grid-cols-[0fr]'}`}>
-          <span className={`flex min-w-0 items-center justify-end overflow-hidden transition-[opacity,translate] duration-150 ease-(--mf-ease) group-hover:translate-x-0 group-hover:opacity-100 group-has-[button:focus-visible]:translate-x-0 group-has-[button:focus-visible]:opacity-100 motion-reduce:transition-none ${open ? 'translate-x-0 opacity-100' : 'translate-x-2 opacity-0'}`}>{controls}</span>
+      <span className={`flex shrink-0 group-hover:hidden group-focus-within/head:hidden ${open ? 'hidden' : ''}`}><SandboxStamp inline /></span>
+      <span className={`grid min-w-4 grid-cols-[100%] items-center justify-items-end [grid-template-areas:'slot'] ${open ? 'shrink-0' : `shrink-[1000] group-hover:shrink-0 group-hover:basis-auto group-focus-within/head:shrink-0 group-focus-within/head:basis-auto ${slot}`}`} style={STILL}>
+        {count && <span className={`flex min-w-0 justify-end justify-self-stretch pl-1 transition-opacity duration-200 ease-out [grid-area:slot] group-hover:opacity-0 group-focus-within/head:opacity-0 ${open ? 'opacity-0' : ''}`}>{count}</span>}
+        <span className={`grid [grid-area:slot] group-hover:grid-cols-[1fr] group-focus-within/head:grid-cols-[1fr] motion-reduce:transition-none ${open ? 'grid-cols-[1fr]' : 'grid-cols-[0fr]'}`}>
+          <span className={`flex min-w-0 items-center justify-end overflow-hidden transition-[opacity,translate] duration-150 ease-(--mf-ease) group-hover:translate-x-0 group-hover:opacity-100 group-focus-within/head:translate-x-0 group-focus-within/head:opacity-100 motion-reduce:transition-none ${open ? 'translate-x-0 opacity-100' : 'translate-x-2 opacity-0'}`}>{controls}</span>
         </span>
       </span>
     </div>

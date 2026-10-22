@@ -54,7 +54,8 @@ import { archive, changeKind, saveAttachments, useOpenNote, useOwnOrder } from '
 import { openApart } from '@/lib/apart'
 import { copyToBookItem } from '@/lib/books'
 import { useOpened } from '@/lib/nav'
-import { readFresh, readNow, useAfterFirstPaint } from '@/lib/early-read'
+import { readAhead, readFresh, readNow, useAfterFirstPaint } from '@/lib/early-read'
+import { NoteComing } from './note-coming'
 import { QuestionDetail } from './questions-view'
 import { GlossTimeline, useRowGloss } from './gloss-line'
 import { ThoughtDock } from './thought-bar'
@@ -237,8 +238,10 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   const onMove = (id: string, target: string, after: boolean): void => move(all.map((one) => one.id), id, target, after)
   // Spread out, a click looks at a note beside the list; Enter opens it.
   const [peek, setPeek] = useState<string | null>(null)
+  // The one asked for while its words are read: its pane and name shown at once, never the one before.
+  const [coming, setComing] = useState<string | null>(() => (focus && !open ? focus : null))
   // However it was opened, the open one's row shows: its group opened, or its folder card gone into, quietly.
-  const showing = spread ? peek : open?.id
+  const showing = spread ? peek : coming ?? open?.id
   useReveal(showing, items.some((one) => one.id === showing), () => {
     if (!showing) return false
     if (folding.rows) return folding.reveal(showing)
@@ -251,19 +254,26 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   })
   // Only the last pick lands: a late answer for the gem before is dropped.
   const asked = useLastAsked()
+  // Opened onto one note, the note is drawn first and the list beside it the
+  // frame after, so its words are not kept waiting behind every row.
+  const [listFirst] = useState(!focus)
+  const listLater = useAfterFirstPaint()
+  const listShown = listFirst || listLater
   const pick = (id: string): void => {
     // A folder card opens its group in place.
     if (isGroup(id)) return (chime('untuck'), setInGroup(groupId(id)), setCursor(0))
     // Opening a note brings the list back beside it.
     if (view.pane === 'wide') setView({ ...view, pane: 'list' })
     const ready = readNow<ItemFull>(tier, id)
-    if (ready) return (asked(), setOpen(ready))
-    asked(readFresh(tier, id, vigil.item), setOpen)
+    if (ready) return (asked(), setComing(null), setOpen(ready))
+    if (id !== open?.id) setComing(id)
+    asked(readFresh(tier, id, vigil.item), (got) => (setComing(null), setOpen(got)))
   }
   const setPane = (next: typeof pane): void => {
     if (next === 'wide') {
       setPeek(open?.id ?? items[Math.max(0, cursor)]?.id ?? null)
       asked()
+      setComing(null)
       setOpen(null)
     }
     if (pane === 'wide' && next === 'list' && peek) asked(vigil.item(peek), setOpen)
@@ -277,7 +287,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   }, [])
   const [cursor, setCursor] = useListKeys(items.length, {
     onOpen: (index) => pick(items[index].id),
-    opened: items.findIndex((one) => one.id === open?.id),
+    opened: items.findIndex((one) => one.id === (coming ?? open?.id)),
     onExtend: (from, to) => picking.extend(items[from]?.id, items[to].id),
     // Escape empties the search, and that is all: it never puts the note away,
     // changes the layout or leaves a group's folder. ⌘[ or the back button is the way back.
@@ -394,7 +404,12 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
     return () => window.removeEventListener('keydown', onKey, true)
   })
   // Opening one, or putting it away, is a step Back returns from.
-  const hush = useOpened(open?.id, focus, pick, () => (asked(), setOpen(null)), { shown: items.map((one) => one.id), kind: 'item' })
+  const hush = useOpened(open?.id, focus, pick, () => (asked(), setComing(null), setOpen(null)), { shown: items.map((one) => one.id), kind: 'item' })
+  // The ones either side, read ahead for the stepper's ↓ and ↑.
+  useEffect(() => {
+    const at = items.findIndex((one) => one.id === open?.id)
+    if (at >= 0) readAhead(tier, [items[at - 1]?.id, items[at + 1]?.id].filter((id) => id && !isGroup(id)))
+  }, [open?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   // A gem or a piece of writing opened: a page turned, as a book is. Stepped to
   // with ↓ and ↑ (the Stepper over the page), a lighter page; a quick run turns only one.
   const stepped = useRef(false)
@@ -561,8 +576,8 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
         </div>
         {/* A folded group shows as its heading even when nothing loose is left, so the list is not empty then.
             Until your groups are read too, nothing: the notes alone would flash as a plain list first. */}
-        {unloaded(noteGroups) ? null : items.length || (folding.rows && noteGroups.some((one) => one.members.some((id) => all.some((item) => item.id === id && !item.archivedAt)))) ? (
-          <NoteList groups={entries} density={density} table="nuggets" selected={spread ? peek ?? undefined : open?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
+        {unloaded(noteGroups) || !listShown ? null : items.length || (folding.rows && noteGroups.some((one) => one.members.some((id) => all.some((item) => item.id === id && !item.archivedAt)))) ? (
+          <NoteList groups={entries} density={density} table="nuggets" selected={spread ? peek ?? undefined : coming ?? open?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
             onPick={spread ? (id) => (isGroup(id) ? pick(id) : (setPeek(id), setCursor(items.findIndex((one) => one.id === id)))) : pick} onOpen={spread ? pick : undefined}
             picking={picking} onMove={view.sort === 'manual' ? onMove : undefined} after={glossAfter} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'}
             folds={folding.rows ? { ...folding.folds(menuFor), onNewNote: pick, onSort: setSorting, onSorted: markSorted, onPage: setPageGroup } : undefined} />
@@ -599,7 +614,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
           }}
         />
       )}
-      {open && <Apart type={open.tier} id={open.id} title={open.title} hidden={!!open.private} onBack={() => vigil.item(open.id).then((fresh) => fresh && setOpen(fresh))}><ItemDetail top={<Stepper turns at={items.findIndex((one) => one.id === open.id)} total={items.length} onStep={(to) => ((stepped.current = true), pick(items[to].id))} />} key={open.id} item={open} onOpen={(type, id) => (type === tier ? pick(id) : onOpen?.(type, id))} /></Apart>}
+      {coming && coming !== open?.id ? <NoteComing id={coming} title={all.find((one) => one.id === coming)?.title} /> : open && <Apart type={open.tier} id={open.id} title={open.title} hidden={!!open.private} onBack={() => vigil.item(open.id).then((fresh) => fresh && setOpen(fresh))}><ItemDetail top={<Stepper turns at={items.findIndex((one) => one.id === open.id)} total={items.length} onStep={(to) => ((stepped.current = true), pick(items[to].id))} />} key={open.id} item={open} onOpen={(type, id) => (type === tier ? pick(id) : onOpen?.(type, id))} /></Apart>}
     </ReadsIn>
   )
 }

@@ -13,6 +13,8 @@ import { exampleGoals } from '@/lib/examples'
 import { Example } from './example'
 import { archive } from '@/lib/notes'
 import { useKept, useOpened } from '@/lib/nav'
+import { readFresh, readNow } from '@/lib/early-read'
+import { NoteComing } from './note-coming'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Chips } from './display'
@@ -230,26 +232,34 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
   const all = useLive(() => vigil.items('goal'), [] as Item[], [], ['item'])
   const today = useToday()
   const [show, setShow] = useState<'open' | 'settled'>('open')
-  const [open, setOpen] = useState<ItemFull | null>(null)
+  // Opened from elsewhere with its words already read: on them from the first frame.
+  const [open, setOpen] = useState<ItemFull | null>(() => (focus ? readNow<ItemFull>('goal', focus) ?? null : null))
+  // The one asked for while it is read: its pane and name at once (note-coming.tsx).
+  const [coming, setComing] = useState<string | null>(() => (focus && !open ? focus : null))
   const listOf = (which: 'open' | 'settled'): Item[] => which === 'open' ? openOnes(all) : all.filter((one) => one.closedAt && !one.archivedAt).sort((a, b) => b.closedAt!.localeCompare(a.closedAt!))
   const items = listOf(show)
   // Only the last pick lands: a late answer for the goal before is dropped.
   const asked = useLastAsked()
-  const pick = (id: string): void =>
-    asked(vigil.item(id), (found) => {
+  const pick = (id: string): void => {
+    const ready = readNow<ItemFull>('goal', id)
+    if (ready) return (asked(), setComing(null), setOpen(ready), setShow(ready.closedAt ? 'settled' : 'open'))
+    if (id !== open?.id) setComing(id)
+    asked(readFresh('goal', id, vigil.item), (found) => {
+      setComing(null)
       setOpen(found)
       if (found) setShow(found.closedAt ? 'settled' : 'open')
     })
+  }
   // Open or Settled: the goal beside the list is always one of it, its first, or none.
   const switchTo = (which: 'open' | 'settled'): void => {
     setShow(which)
     if (!open || !!open.closedAt === (which === 'settled')) return
     const first = listOf(which)[0]
     if (first) pick(first.id)
-    else (asked(), setOpen(null))
+    else (asked(), setComing(null), setOpen(null))
   }
   // Opening one is a step Back returns from; Open or Settled is kept in it.
-  useOpened(open?.id, focus, pick, () => (asked(), setOpen(null)), { shown: items.map((one) => one.id), kind: 'item' })
+  useOpened(open?.id, focus, pick, () => (asked(), setComing(null), setOpen(null)), { shown: items.map((one) => one.id), kind: 'item' })
   useKept('tab', show, setShow, 'open')
   // Read again when anything changes, so a log added from the box shows.
   useEffect(() => {
@@ -258,7 +268,7 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
     const off = window.api.captures.onChange(() => open && void vigil.item(open.id).then((found) => void (gone || setOpen(found))))
     return () => void ((gone = true), off())
   }, [open?.id])
-  const [cursor, setCursor] = useListKeys(items.length, { onOpen: (index) => pick(items[index].id), opened: items.findIndex((one) => one.id === open?.id), onExtend: (from, to) => several.picking.extend(items[from]?.id, items[to].id) })
+  const [cursor, setCursor] = useListKeys(items.length, { onOpen: (index) => pick(items[index].id), opened: items.findIndex((one) => one.id === (coming ?? open?.id)), onExtend: (from, to) => several.picking.extend(items[from]?.id, items[to].id) })
   const go = (type: string, id: string): void => (type === 'goal' ? pick(id) : onOpen?.(type, id))
   // x, ⇧-click and ⌘A pick several, for the queue or the archive together.
   const several = usePickNotes(items.map((one) => one.id), cursor, { here: useHere(), noun: ['goal', 'goals'], tier: 'goal', titleOf: (id) => items.find((one) => one.id === id)?.title })
@@ -267,7 +277,7 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
     // The list and the one open beside it come in together, once both are read (lib/reads-in.tsx).
     <ReadsIn className="contents">
       {/* Sent here for one goal: the page waits for it too, so it opens on the goal beside the list, not on the list alone first. */}
-      <Page aside={!!open} waiting={unloaded(all) || (!!focus && open?.id !== focus)} title="Goals" count={several.chosen.length || items.length} unit={several.chosen.length ? ['selected', 'selected'] : ['goal', 'goals']}
+      <Page aside={!!open} waiting={unloaded(all) || (!!focus && (coming ?? open?.id) !== focus)} title="Goals" count={several.chosen.length || items.length} unit={several.chosen.length ? ['selected', 'selected'] : ['goal', 'goals']}
         actions={several.bar ??
           <span className="flex items-center gap-2">
             <Chips className="shrink-0" options={[{ id: 'open', label: 'Open' }, { id: 'settled', label: 'Ended' }]} on={(id) => id === show} pick={(id) => switchTo(id as 'open' | 'settled')} />
@@ -278,7 +288,7 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
         }
       >
         {items.length ? (
-          <NoteList groups={[['', entries]]} density="list" table="nuggets" selected={open?.id} cursor={cursor} onCursor={setCursor} onPick={pick} chosen={several.chosen} picking={several.picking} className="mx-3 my-2" />
+          <NoteList groups={[['', entries]]} density="list" table="nuggets" selected={coming ?? open?.id} cursor={cursor} onCursor={setCursor} onPick={pick} chosen={several.chosen} picking={several.picking} className="mx-3 my-2" />
         ) : unloaded(all) ? null : !all.length ? (
           // None set yet: the page as it will look, with a few made-up ones.
           <Example tryIt={<><strong><button type="button" onClick={() => void startGoal(go)} className="text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">set a goal</button>: a day you are aiming for.</strong> It counts down at the top of Home and keeps a log of the road there.</>}>
@@ -294,7 +304,7 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
           </Empty>
         )}
       </Page>
-      {open && <GoalDetail key={open.id} item={open}
+      {coming && coming !== open?.id ? <NoteComing id={coming} title={all.find((one) => one.id === coming)?.title} /> : open && <GoalDetail key={open.id} item={open}
         top={<Stepper at={items.findIndex((one) => one.id === open.id)} total={items.length} onStep={(to) => pick(items[to].id)} />} />}
     </ReadsIn>
   )

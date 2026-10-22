@@ -11,6 +11,7 @@ import { EASE, byKeys, keyedMotion, shift, spring } from './lib/motion'
 import { Highlight, Unfold, useChosen, useFluidHover, Weighted } from './components/vigil/glide'
 import { chime, chimedWithin, pageTurn, paper, soundOn, tickedWithin, turnedNow } from './lib/sound'
 import { peekRead, readOnPress, whenRead } from './lib/early-read'
+import { WarmEditor } from './components/vigil/warm-editor'
 import { foldEverything } from './extensions/heading-fold'
 import { NotePreview } from './components/vigil/note-preview'
 import { TASK_KIND } from './components/vigil/everything'
@@ -192,8 +193,6 @@ const holdsNotes = (id: string): boolean => !['home', 'day', 'weekpage', 'monthp
 /** A step onto a note (not a task, a day or an event): the page that shows it turns, as a book's does. */
 const turnsPage = (view: View): boolean => !!view.focus && holdsNotes(view.id) && !['today', 'tomorrow', 'upcoming', 'routines', 'later', 'goals', 'week', 'matrix', 'discarded'].includes(view.id)
 /** Where one thing opens: a view by name, a day's page, or a note or task in its section. */
-/** The page left behind fades out under the new one; reached by a key, it simply goes. */
-const PAGE_GONE = { gone: (keyed: boolean) => ({ opacity: 0, transition: { duration: keyed ? 0 : 0.08, ease: EASE } }) }
 const stepOf = (type: string, id: string): View =>
   type === 'view' ? { id } : type === 'day' ? { id: 'day', focus: id } : type === 'event' ? { id: 'calendar', focus: `event:${id}` } : { id: type === 'capture' ? 'all' : type === 'task' ? 'upcoming' : `${type}s`, focus: id }
 function loadSplit(): SplitState {
@@ -718,7 +717,8 @@ export function Home(): React.JSX.Element {
   }
   // No Inbox count: the inbox is a place to set things down, never a queue to clear.
   // Archived ones are out of sight in their lists, so out of the counts too.
-  const counts: Record<string, number> = {
+  const today = dayKey()
+  const counts: Record<string, number> = useMemo(() => ({
     review: due,
     // The one rule the Today list, the desktop Today sticky and Today's brief count by.
     today: tasks.filter(onToday).length,
@@ -728,7 +728,8 @@ export function Home(): React.JSX.Element {
     questions: questions.filter((one) => !one.archivedAt && !one.closedAt).length,
     goals: goals.filter((one) => one.goalAt && !one.archivedAt && !one.closedAt).length,
     queue: queued.queue.length
-  }
+  // Counted again only when a list or the day changes, not on every step.
+  }), [due, tasks, nuggets, articles, questions, goals, queued.queue.length, today]) // eslint-disable-line react-hooks/exhaustive-deps
   // The counts come in together, once every one is read: never one number, then the next, down the sidebar.
   const countsIn = dueRead !== null && ![tasks, nuggets, articles, questions, goals, queued].some(unloaded)
   // The sidebar is drawn whole, once its rows' reads are in too: before, Pinned and the tags came in a beat late and pushed the places down.
@@ -846,7 +847,8 @@ export function Home(): React.JSX.Element {
     const go = (): void => (side ? aside(step(), key) : setView(step(), key))
     // A note's page turns on the click, not once it has loaded (the page then
     // turns no second time), and waits the moment it takes to read its words
-    // (lib/early-read.ts), so it opens on them at once.
+    // (lib/early-read.ts), so its page opens on them at once: no wait at all
+    // for one read before and unchanged, never the page first and the note after.
     if (type === 'capture' || type === 'nugget' || type === 'article' || type === 'question') pageTurn(false, id)
     if (holdsNotes(stepOf(type, id).id)) return void whenRead(type, id).then(go)
     go()
@@ -921,19 +923,25 @@ export function Home(): React.JSX.Element {
   // --- split pairs: the panes as one row in Pinned, and the menu they share (split-pairs.tsx)
   const layouts = usePinnedLayouts()
   /** The note a step has open: where it lives, its name and kind; null for a page with none. */
+  // Every note and task by its id, made once a list changes rather than searched on every render: Back and Forward redraw this page.
+  const known = useMemo(() => {
+    const all = new Map<string, { capture?: (typeof captures)[number]; item?: (typeof nuggets)[number]; task?: (typeof tasks)[number] }>()
+    for (const task of tasks) all.set(task.id, { task })
+    for (const list of [goals, questions, articles, nuggets]) for (const item of list) all.set(item.id, { item })
+    for (const capture of captures) all.set(capture.id, { capture })
+    return all
+  }, [captures, nuggets, articles, questions, goals, tasks])
   const noteIn = (view: View): { type: string; id: string; name: PaneName } | null => {
     if (!view.focus || !holdsNotes(view.id)) return null
-    const capture = captures.find((one) => one.id === view.focus)
+    const { capture, item, task } = known.get(view.focus) ?? {}
     if (capture) {
       const kind = CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]
       return { type: 'capture', id: capture.id, name: { title: taskName(capture.label).text || 'Untitled', icon: kind.icon, tint: kind.tint, private: !!capture.private } }
     }
-    const item = [...nuggets, ...articles, ...questions, ...goals].find((one) => one.id === view.focus)
     if (item) {
       const kind = CAPTURE_TYPES.find((type) => type.id === item.kind)
       return { type: item.tier, id: item.id, name: { title: item.title || 'Untitled', icon: kind?.icon ?? FileText, tint: kind?.tint, private: !!item.private } }
     }
-    const task = tasks.find((one) => one.id === view.focus)
     return task ? { type: 'task', id: task.id, name: { title: taskName(task.title).text || 'Untitled', icon: TASK_KIND.icon, tint: TASK_KIND.tint } } : null
   }
   const paneName = (view: View): PaneName => noteIn(view)?.name ?? { title: labelOf(view) || 'Page', icon: PanelsTopLeft }
@@ -1019,22 +1027,19 @@ export function Home(): React.JSX.Element {
     const scale = (to: Scale): void => toScale(to, key)
     return (
       <NavContext.Provider value={navFor(key, view)}>
-      {/* Views are switched by key all day: the new one is there at once and
-          only settles in, never waiting for the old one to leave first; the
-          old one fades out over it in 80ms, so there is never an empty frame.
-          Down the sidebar the new page comes up from below, up it from above.
-          A transform string, so it stays smooth while the view mounts. */}
+      {/* Views are switched all day, as Finder and Mail switch them: the new
+          one is there at once, whole, and the old one gone in the same frame,
+          so no frame shows two pages, two notes, or the window through two
+          faint ones. Clicked to, it only settles in: down the sidebar it
+          comes up from below, up it from above. A transform string, so it
+          stays smooth while the view mounts. */}
       <div className="relative flex min-w-0 flex-1">
-      <AnimatePresence mode="popLayout" initial={false} custom={byKeys()}>
       <motion.div
         key={view.id}
         data-page={view.id}
-        custom={byKeys()}
         // Keyboard travel (G and a letter, ⌘[ and ⌘]) is done hundreds of times a day: no settle then.
-        initial={byKeys() ? false : { opacity: 0, transform: shift(`translateY(${(pageTravel(key, view.id, ordered.map((section) => section.id)) || 1) * 6}px)`) }}
-        animate={{ opacity: 1, transform: shift('translateY(0px)') }}
-        variants={PAGE_GONE}
-        exit="gone"
+        initial={byKeys() ? false : { transform: shift(`translateY(${(pageTravel(key, view.id, ordered.map((section) => section.id)) || 1) * 6}px)`) }}
+        animate={{ transform: shift('translateY(0px)') }}
         transition={{ duration: 0.16, ease: EASE }}
         className="flex min-w-0 flex-1"
       >
@@ -1092,7 +1097,6 @@ export function Home(): React.JSX.Element {
           <SettingsView />
         )}
       </motion.div>
-      </AnimatePresence>
       </div>
       </NavContext.Provider>
     )
@@ -1108,6 +1112,8 @@ export function Home(): React.JSX.Element {
       <GrowFrom />
       <Celebrations place="home" />
       <NotePreview />
+      {/* The first note opened draws as fast as the rest. */}
+      <WarmEditor />
       <ShortcutSheet />
       <WordNotes />
       <UnusedFiles />

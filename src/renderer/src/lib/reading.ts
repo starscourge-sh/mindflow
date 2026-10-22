@@ -19,8 +19,14 @@ import { vigil } from '@/lib/vigil'
 const KEY = 'noteDetails'
 const CHANGED = 'mf:details'
 
+// The window's choice as last read, so a page drawn many times over (every
+// step of Back and Forward) never reads storage again for it; let go of when
+// it changes here or in another window.
+let stored: boolean | null = null
+
 /** Called once as the main window first loads: each time Vigil opens, details start put away. */
 export function putDetailsAway(): void {
+  stored = null
   try {
     localStorage.removeItem(KEY)
   } catch {
@@ -31,11 +37,17 @@ export function putDetailsAway(): void {
 // Each pane's own choice, made while split; a pane with none follows the window's.
 const inPane = new Map<string, boolean>()
 
+if (typeof window !== 'undefined') {
+  window.addEventListener(CHANGED, () => void (stored = null), true)
+  window.addEventListener('storage', (event) => void (event.key === KEY && (stored = null)), true)
+}
+
 export const detailsShown = (pane?: string | null): boolean => {
   const own = pane ? inPane.get(pane) : undefined
   if (own !== undefined) return own
+  if (stored !== null) return stored
   try {
-    return localStorage.getItem(KEY) === 'open'
+    return (stored = localStorage.getItem(KEY) === 'open')
   } catch {
     return false
   }
@@ -49,6 +61,7 @@ export function showDetails(on: boolean, pane?: string | null): void {
     return void window.dispatchEvent(new Event(CHANGED))
   }
   inPane.clear()
+  stored = null
   try {
     localStorage.setItem(KEY, on ? 'open' : 'closed')
   } catch {

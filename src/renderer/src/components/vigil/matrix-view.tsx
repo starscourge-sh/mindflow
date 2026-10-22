@@ -13,6 +13,7 @@ import { unloaded, useLastAsked, useLive, vigil, whenInLine, type Task, type Tas
 import { exampleTasks } from '@/lib/examples'
 import { Example } from './example'
 import { useOpened } from '@/lib/nav'
+import { readFresh, readNow } from '@/lib/early-read'
 import { isUrgent, quadrantOf, type Quadrant } from '../../../../main/task-words'
 import { dayjs, num } from '../../../../main/dates'
 import { Page, Pressed, Rolling, Tags, toast, typing, quietly } from './ui'
@@ -113,7 +114,12 @@ export function MatrixView({ focus, onOpen, today }: { focus?: string; onOpen?: 
 
   // Only the last pick lands: a late answer for the task before is dropped.
   const asked = useLastAsked()
-  const pick = (id: string): void => asked(vigil.task(id), setOpen)
+  // A task read before and unchanged opens at once; any other is read first (lib/early-read.ts).
+  const pick = (id: string): void => {
+    const ready = readNow<TaskFull>('task', id)
+    if (ready) return (asked(), setOpen(ready))
+    asked(readFresh('task', id, vigil.task), setOpen)
+  }
   // Opening a task is a step Back returns from.
   useOpened(open?.id, focus, pick, () => (asked(), setOpen(null)), { shown: example ? [] : live.map((task) => task.id), kind: 'task' })
 

@@ -17,7 +17,8 @@ import { openApart } from '@/lib/apart'
 import { asideItem } from '@/lib/split'
 import { queueItems } from '@/lib/reading-queue'
 import { useKept, useOpened } from '@/lib/nav'
-import { readFresh, readNow } from '@/lib/early-read'
+import { readAhead, readFresh, readNow } from '@/lib/early-read'
+import { NoteComing } from './note-coming'
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -199,9 +200,15 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
   const [peek, setPeek] = useState<string | null>(null)
   // Only the last pick lands: a late answer for the question before is dropped.
   const asked = useLastAsked()
+  // The one asked for while it is read: its pane and name at once (note-coming.tsx).
+  const [coming, setComing] = useState<string | null>(() => (focus && !open ? focus : null))
   const pick = (id: string): void => {
     if (view.pane === 'wide') setView({ ...view, pane: 'list' })
+    const ready = readNow<ItemFull>('question', id)
+    if (ready) return (asked(), setComing(null), setOpen(ready), setShow(ready.closedAt ? 'answered' : 'open'))
+    if (id !== open?.id) setComing(id)
     asked(readFresh('question', id, vigil.item), (found) => {
+      setComing(null)
       setOpen(found)
       // One sent here that is already settled is found under Answered.
       if (found) setShow(found.closedAt ? 'answered' : 'open')
@@ -211,13 +218,19 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
     if (next === 'wide') {
       setPeek(open?.id ?? items[Math.max(0, cursor)]?.id ?? null)
       asked()
+      setComing(null)
       setOpen(null)
     }
     if (pane === 'wide' && next === 'list' && peek) pick(peek)
     setView({ ...view, pane: next })
   }
   // Opening one is a step Back returns from; Holding or Answered is kept in it.
-  const hush = useOpened(open?.id, focus, pick, () => (asked(), setOpen(null)), { shown: items.map((one) => one.id), kind: 'item' })
+  const hush = useOpened(open?.id, focus, pick, () => (asked(), setComing(null), setOpen(null)), { shown: items.map((one) => one.id), kind: 'item' })
+  // The ones either side, read ahead for the stepper's ↓ and ↑.
+  useEffect(() => {
+    const at = items.findIndex((one) => one.id === open?.id)
+    if (at >= 0) readAhead('question', [items[at - 1]?.id, items[at + 1]?.id])
+  }, [open?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   // A note opened: a page turned, as a book is (a quick run down the list turns only one).
   useEffect(() => void (open?.id && pageTurn(false, open.id)), [open?.id])
   useKept('tab', show, setShow, 'open')
@@ -235,7 +248,7 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
   }, [])
   const [cursor, setCursor] = useListKeys(items.length, {
     onOpen: (index) => pick(items[index].id),
-    opened: items.findIndex((one) => one.id === open?.id),
+    opened: items.findIndex((one) => one.id === (coming ?? open?.id)),
     onExtend: (from, to) => several.picking.extend(items[from]?.id, items[to].id),
     onEscape: () => spread && query && setQuery('')
   })
@@ -274,7 +287,7 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
         }
       >
         {items.length ? (
-          <NoteList groups={[['', entries]]} density={density} table="nuggets" selected={spread ? peek ?? undefined : open?.id} cursor={cursor} onCursor={setCursor}
+          <NoteList groups={[['', entries]]} density={density} table="nuggets" selected={spread ? peek ?? undefined : coming ?? open?.id} cursor={cursor} onCursor={setCursor}
             onPick={spread ? (id) => (setPeek(id), setCursor(items.findIndex((one) => one.id === id))) : pick} onOpen={spread ? pick : undefined} after={glossAfter}
             chosen={several.chosen} picking={several.picking} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'} />
         ) : unloaded(all) ? null : spread && query.trim() ? (
@@ -296,7 +309,7 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
       </Page>
       )}
       {peeked && <Peek entry={questionEntry(peeked, inView.has(peeked.id))} table="nuggets" onOpen={() => pick(peeked.id)} />}
-      {open && <Apart type="question" id={open.id} title={open.title} hidden={!!open.private} onBack={() => vigil.item(open.id).then((fresh) => fresh && setOpen(fresh))}><QuestionDetail key={open.id} item={open} onOpen={go}
+      {coming && coming !== open?.id ? <NoteComing id={coming} title={all.find((one) => one.id === coming)?.title} /> : open && <Apart type="question" id={open.id} title={open.title} hidden={!!open.private} onBack={() => vigil.item(open.id).then((fresh) => fresh && setOpen(fresh))}><QuestionDetail key={open.id} item={open} onOpen={go}
         top={<Stepper turns at={items.findIndex((one) => one.id === open.id)} total={items.length} onStep={(to) => pick(items[to].id)} />} /></Apart>}
     </ReadsIn>
   )

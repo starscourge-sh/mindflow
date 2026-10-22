@@ -12,7 +12,8 @@ import { noteLinkText, typeSaid } from '@/lib/capture-links'
 import { call, splitTags, unloaded, useLastAsked, useLive, vigil, when, whenInLine, type Focus, type Made, type Session, type Settings, type Task, type TaskFull } from '@/lib/vigil'
 import { useOpened } from '@/lib/nav'
 import { useCameBack } from '@/lib/to-bin'
-import { readFresh, readNow } from '@/lib/early-read'
+import { readAhead, readFresh, readNow } from '@/lib/early-read'
+import { NoteComing } from './note-coming'
 import { BUCKETS, READY_LEADS, bucket, closeTask, gettingReady, makeTask, onToday, placed, readySaid, setReady, snooze, snoozeDays, snoozeItems, snoozed, taskName, toNoteItem } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../../main/task-words'
 import { PriorityIcon, PriorityMark, TaskInput, markRoom, planFor, setPriority } from './task-input'
@@ -731,14 +732,22 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   const rows: (Task | { heading: string; count: number; key: string })[] = groups.flatMap(([heading, list, key]) => (list.length ? [{ heading, count: list.length, key: key ?? heading }, ...list] : []))
   // Only the last pick lands: a late answer for the task before is dropped.
   const asked = useLastAsked()
+  // The one asked for while it is read: its pane and name at once, never the task before (note-coming.tsx).
+  const [coming, setComing] = useState<string | null>(() => (focus && !open ? focus : null))
   const pick = (id: string): void => {
     const ready = readNow<TaskFull>('task', id)
-    if (ready) return (asked(), setOpen(ready))
-    asked(readFresh('task', id, vigil.task), setOpen)
+    if (ready) return (asked(), setComing(null), setOpen(ready))
+    if (id !== open?.id) setComing(id)
+    asked(readFresh('task', id, vigil.task), (got) => (setComing(null), setOpen(got)))
   }
   // Sent here for one task, from search or a link: open it. Opening one is a step Back returns from.
-  useOpened(open?.id, matrixed ? undefined : focus, pick, () => (asked(), setOpen(null)), { shown: shown.map((task) => task.id), kind: 'task' })
-  const [cursor, setCursor] = useListKeys(example ? 0 : shown.length, { onOpen: (index) => pick(shown[index].id), enabled: !matrixed, opened: shown.findIndex((one) => one.id === open?.id), onExtend: (from, to) => several.extend(shown[from]?.id, shown[to].id) })
+  useOpened(open?.id, matrixed ? undefined : focus, pick, () => (asked(), setComing(null), setOpen(null)), { shown: shown.map((task) => task.id), kind: 'task' })
+  // The ones either side, read ahead for the stepper's ↓ and ↑.
+  useEffect(() => {
+    const at = shown.findIndex((one) => one.id === open?.id)
+    if (at >= 0 && !example) readAhead('task', [shown[at - 1]?.id, shown[at + 1]?.id])
+  }, [open?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  const [cursor, setCursor] = useListKeys(example ? 0 : shown.length, { onOpen: (index) => pick(shown[index].id), enabled: !matrixed, opened: shown.findIndex((one) => one.id === (coming ?? open?.id)), onExtend: (from, to) => several.extend(shown[from]?.id, shown[to].id) })
   // Back from the Bin by Undo: open again if a task was open, else the keyboard on its row.
   useCameBack(shown.map((one) => one.id), (id) => (open ? pick(id) : setCursor(shown.findIndex((one) => one.id === id))))
   const addRef = useRef<HTMLInputElement>(null)
@@ -853,7 +862,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
     // The list and the task open beside it come in together, once both are read (lib/reads-in.tsx).
     <ReadsIn className="contents">
       {/* Sent here for one task: the page waits for it too, so it opens on the task beside the list, not on the list alone first. */}
-      <Page aside={!!open} waiting={(reading && !example) || (!!focus && !matrixed && open?.id !== focus)}
+      <Page aside={!!open} waiting={(reading && !example) || (!!focus && !matrixed && (coming ?? open?.id) !== focus)}
  title={mode} count={example ? undefined : several.chosen.length || shown.length} unit={several.chosen.length ? ['selected', 'selected'] : ['open', 'open']} actions={several.bar ?? actions}>
         {/* Today, Tomorrow and Later side by side, at the top of each: one click between the three lists. */}
         {(mode === 'today' || mode === 'tomorrow' || mode === 'later') && (
@@ -974,9 +983,9 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                       <div
                         data-id={task.id}
                         data-task-row
-                        data-open={task.id === open?.id || undefined}
+                        data-open={task.id === (coming ?? open?.id) || undefined}
                         data-cursor={index === cursor || undefined}
-                        className={`group group/item relative flex items-start gap-3 rounded-md px-2 py-2 transition-colors ${several.chosen.includes(task.id) ? PICKED_ROW : task.id === open?.id ? 'bg-accent' : index === cursor ? 'bg-accent/40' : ''} ${arrived(task.id) ? 'mf-arrive' : ''}`}
+                        className={`group group/item relative flex items-start gap-3 rounded-md px-2 py-2 transition-colors ${several.chosen.includes(task.id) ? PICKED_ROW : task.id === (coming ?? open?.id) ? 'bg-accent' : index === cursor ? 'bg-accent/40' : ''} ${arrived(task.id) ? 'mf-arrive' : ''}`}
                       >
                         <Tip label="Complete">
                         <button
@@ -1081,7 +1090,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
         {mode === 'today' && !example && <TomorrowBox className="mx-3 mt-6 mb-10 @[44rem]/page:mx-6" />}
         </>)}
       </Page>
-      {open && <TaskDetail top={<Stepper at={shown.findIndex((one) => one.id === open.id)} total={shown.length} onStep={(to) => pick(shown[to].id)} />} key={open.id} task={open} onClose={() => setOpen(null)} onOpen={onOpen} />}
+      {coming && coming !== open?.id && !matrixed ? <NoteComing id={coming} title={tasks.find((one) => one.id === coming)?.title} /> : open && <TaskDetail top={<Stepper at={shown.findIndex((one) => one.id === open.id)} total={shown.length} onStep={(to) => pick(shown[to].id)} />} key={open.id} task={open} onClose={() => setOpen(null)} onOpen={onOpen} />}
     </ReadsIn>
   )
 }

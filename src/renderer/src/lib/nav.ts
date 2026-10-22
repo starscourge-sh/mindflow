@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef } from 'react'
+import { createContext, useContext, useEffect, useLayoutEffect, useRef } from 'react'
 import { inBin, type BinKind } from './to-bin'
 
 /**
@@ -35,7 +35,9 @@ export function useOpened(id: string | undefined, focus: string | undefined, pic
   // What the step already says is open, so following it is never a step too.
   const said = useRef(id)
   const silent = useRef(false)
-  useEffect(() => {
+  // Before the frame is drawn: Back and Forward swap the note in the same
+  // frame as the step, never one frame of the old note under the new step.
+  useLayoutEffect(() => {
     if (focus && focus !== id) pick(focus)
     else if (!focus && id) (silent.current = true, close())
   }, [focus]) // eslint-disable-line react-hooks/exhaustive-deps

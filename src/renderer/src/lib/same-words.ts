@@ -3,6 +3,7 @@ import type { Editor, JSONContent } from '@tiptap/core'
 
 import { toast } from '@/components/vigil/ui'
 import { notes, type NoteTable } from '@/lib/notes'
+import { forget } from '@/lib/early-read'
 import { retryIn, saveFailed, saveLanded } from '@/lib/save-trouble'
 
 /** What a save answers when the words changed elsewhere first. */
@@ -197,6 +198,8 @@ export function useSameWords(table: NoteTable, id: string | undefined, loaded: u
       if (!running.current && !queue.current.some((one) => one.note === note) && JSON.stringify(body) === note.sent) return
       // Only the newest words of a note need sending: older ones waiting are dropped.
       queue.current = [...queue.current.filter((one) => one.note !== note), { note, body }]
+      // What this window read of it before is old now: Back reads it again.
+      forget(note.id)
       void pump()
     }
   }

@@ -10,6 +10,7 @@ import { unloaded, useLastAsked, useLive, vigil, when, whenInLine, type Task, ty
 import { exampleTasks } from '@/lib/examples'
 import { Example } from './example'
 import { useOpened } from '@/lib/nav'
+import { readFresh, readNow } from '@/lib/early-read'
 import { Page, Rolling, Tags, Tip, typing, Pressed, quietly } from './ui'
 import { taskName } from '@/lib/tasks'
 import { markRoom, setPriority } from './task-input'
@@ -191,7 +192,13 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
 
   // Only the last pick lands: a late answer for the task before is dropped.
   const asked = useLastAsked()
-  const pick = (id: string): void => (setAdding(null), asked(vigil.task(id), setOpen))
+  // A task read before and unchanged opens at once; any other is read first (lib/early-read.ts).
+  const pick = (id: string): void => {
+    setAdding(null)
+    const ready = readNow<TaskFull>('task', id)
+    if (ready) return (asked(), setOpen(ready))
+    asked(readFresh('task', id, vigil.task), setOpen)
+  }
   // Opening a task is a step Back returns from.
   // Every task the week shows, once each (a task due and scheduled shows twice), in the order of the days.
   const onShow = example ? [] : [...new Map(days.flatMap((day) => day.cards.map((card) => [card.task.id, card.task] as const))).values()]

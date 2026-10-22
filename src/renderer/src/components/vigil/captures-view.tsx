@@ -56,7 +56,8 @@ import { ListSearch, NoteRail, PaneButtons, Peek, matches } from './note-list'
 import { archive, changeKind, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
 import { askBook } from '@/lib/books'
 import { useOpened } from '@/lib/nav'
-import { readFresh, readNow, useAfterFirstPaint } from '@/lib/early-read'
+import { readAhead, readFresh, readNow, useAfterFirstPaint } from '@/lib/early-read'
+import { NoteComing } from './note-coming'
 import { Rest } from './scenery'
 import { InboxBinned, InboxZero, useJustCleared } from './inbox-zero'
 import { PutAwayLine } from './put-away'
@@ -129,6 +130,8 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
   const [query, setQuery] = useState('')
   // Opened from elsewhere with its words already read (pressed a moment ago): on them from the first frame.
   const [open, setOpen] = useState<Capture | null>(() => (focus ? readNow<Capture>('capture', focus) ?? null : null))
+  // The one asked for while its words are read (note-coming.tsx).
+  const [coming, setComing] = useState<string | null>(() => (focus && !open ? focus : null))
   // A task open in Everything, in the pane Upcoming opens it in.
   const [task, setTask] = useState<TaskFull | null>(null)
   const spread = pane === 'wide' && !open && !task
@@ -149,7 +152,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
   // Spread out, a click looks at a note beside the list; Enter opens it.
   const [peek, setPeek] = useState<string | null>(null)
   // However it was opened, the open one's row shows: its island unfolded, past "Show more".
-  useShowOpen(spread ? peek : open?.id ?? task?.id, narrowed, shown, islands)
+  useShowOpen(spread ? peek : coming ?? open?.id ?? task?.id, narrowed, shown, islands)
   // An earlier version, shown in place of the editor while you look back.
   const [past, setPast] = useState<{ body: unknown; key: string } | null>(null)
   // Bumped when the words change under the editor (a version restored), so it
@@ -166,15 +169,19 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
     // In Everything an id may be a task's: it opens where Upcoming opens one.
     // Read already (the press started it): opened now, not a round trip later.
     const ready = readNow<Capture>('capture', id)
-    const note = (): void => (ready ? (asked(), setTask(null), setOpen(ready)) : asked(readFresh('capture', id, window.api.captures.get), (one) => (setTask(null), setOpen(one))))
+    // Not read yet: its pane and name at once, never the note before under its name.
+    const note = (): void => (ready ? (asked(), setComing(null), setTask(null), setOpen(ready)) : (id !== open?.id && setComing(id), asked(readFresh('capture', id, window.api.captures.get), (one) => (setComing(null), setTask(null), setOpen(one)))))
+    const known = everything && taskOf(id) ? readNow<TaskFull>('task', id) : undefined
+    if (known) return (asked(), setComing(null), setOpen(null), setTask(known))
     if (everything && (taskOf(id) || !all.some((one) => one.id === id)))
-      return asked(vigil.task(id), (found) => (found ? (setOpen(null), setTask(found)) : note()))
+      return asked(readFresh('task', id, vigil.task), (found) => (found ? (setComing(null), setOpen(null), setTask(found)) : note()))
     note()
   }
   const setPane = (next: typeof pane): void => {
     if (next === 'wide') {
       setPeek(open?.id ?? shown[Math.max(0, cursor)]?.id ?? null)
       asked()
+      setComing(null)
       setOpen(null)
     }
     if (pane === 'wide' && next === 'list' && peek) asked(window.api.captures.get(peek), setOpen)
@@ -225,7 +232,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
   }, [boardShown, label])
   const [cursor, setCursor] = useListKeys(shown.length, {
     onOpen: (index) => pick(shown[index].id),
-    opened: shown.findIndex((one) => one.id === (open?.id ?? task?.id)),
+    opened: shown.findIndex((one) => one.id === (coming ?? open?.id ?? task?.id)),
     onExtend: (from, to) => picking.extend(shown[from]?.id, shown[to].id),
     // Spread out, Escape empties the search, and that is all: it never puts
     // the note away or changes the layout. ⌘[ is the way back.
@@ -383,7 +390,12 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
     return { ...captureEntry(one, pick), sub: withCue(<MadeCue way="became" said={becameSaid(became.length)} kin={became.map((id) => ({ id, title: titleOf(id) }))} onOpen={pick} />, rest) }
   } : undefined
   // Opening one, or putting it away, is a step Back returns from.
-  useOpened(open?.id ?? task?.id, focus, pick, () => (asked(), setOpen(null), setTask(null)), { shown: shown.map((one) => one.id), kind: task ? 'task' : 'capture' })
+  useOpened(open?.id ?? task?.id, focus, pick, () => (asked(), setComing(null), setOpen(null), setTask(null)), { shown: shown.map((one) => one.id), kind: task ? 'task' : 'capture' })
+  // The ones either side, read ahead for the stepper's ↓ and ↑.
+  useEffect(() => {
+    const at = whole.findIndex((one) => one.id === open?.id)
+    if (at >= 0) readAhead('capture', [whole[at - 1], whole[at + 1]].filter((one) => one && !one.task).map((one) => one.id))
+  }, [open?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   // A note opened: a page turned, as a book is (a quick run down the list turns only one).
   useEffect(() => void (open?.id && pageTurn(false, open.id)), [open?.id])
   // The open capture as the list last saw it, so its status follows an exit.
@@ -486,7 +498,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
         {everything && (unloaded(tasks) || !sources.ready) ? null : graphed ? (
           <div className="flex min-h-0 flex-1 flex-col px-4 pb-4"><InboxGraph captures={narrowed.flatMap(([, list]) => list)} onOpen={onOpen ?? (() => undefined)} /></div>
         ) : (islands ? groups.length : shown.length) ? (!listShown ? null :
-          <CaptureList groups={groups} islands={islands} density={density} selected={spread ? peek ?? undefined : open?.id ?? task?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
+          <CaptureList groups={groups} islands={islands} density={density} selected={spread ? peek ?? undefined : coming ?? open?.id ?? task?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
             onPick={spread ? (id) => (taskOf(id) ? pick(id) : (setPeek(id), setCursor(shown.findIndex((one) => one.id === id)))) : pick} onOpen={spread ? pick : undefined}
             picking={picking} entryOf={entryOf}
             // Right-clicked among several picked, the menu speaks for all of them.
@@ -569,7 +581,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
           <CaptureProps capture={peeked} onOpen={onOpen} className="border-t pt-3 @[40rem]/page:w-full @[40rem]/page:border-t @[40rem]/page:border-l-0" />
         </Peek>
       )}
-      {open && meta ? (
+      {coming && coming !== open?.id ? <NoteComing id={coming} title={all.find((one) => one.id === coming)?.label} /> : open && meta ? (
         // Opened in a window of its own, its place says so (lib/apart.tsx),
         // and only that window's editor saves it; back, it is read afresh.
         <Apart type="capture" id={open.id} title={meta.label} hidden={!!meta.private}
