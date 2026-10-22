@@ -81,7 +81,11 @@ const RECORDER = () => {
     let last = ''
     const tick = () => {
       // Named by which selector found them, so a root that comes later does not renumber the rest.
-      const found = selector.split(',').flatMap((one, n) => [...document.querySelectorAll(one.trim())].map((el, k) => [`${n}.${k}`, el]))
+      const outer = selector.split(',').flatMap((one, n) => [...document.querySelectorAll(one.trim())].map((el, k) => [`${n}.${k}`, el]))
+      // A part that says it comes in whole on its own (`data-apart`: a list beside the note it was
+      // opened onto, what sits under a note's words) is judged as a root of its own, by its name:
+      // a panel that comes in whole beside what was drawn is one step of its own.
+      const found = [...outer, ...outer.flatMap(([name, root]) => [...root.querySelectorAll('[data-apart]')].map((el) => [`${name}:${el.dataset.apart}`, el]))]
       const roots = found.map(([, el]) => el)
       // The window's own size too: a window that grows or shrinks as it opens moves everything in it.
       const els = [['w', 'window', 0, 0, `${innerWidth}x${innerHeight}`], ...found.flatMap(([name, root]) => shape(root, roots.filter((one) => one !== root && root.contains(one))).map((one) => [name, ...one]))]

@@ -12,7 +12,7 @@ import { detent, slotTicker } from '@/lib/proximity'
 import { Arrow } from './marks'
 import Lenis from 'lenis'
 import { useLive, vigil } from '@/lib/vigil'
-import { useReadsIn } from '@/lib/reads-in'
+import { useReadsIn, useSeen } from '@/lib/reads-in'
 import { chime, quietFor, soundOn } from '@/lib/sound'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/cn'
@@ -140,11 +140,15 @@ function FitActions({ children, room }: { children: ReactNode; /** What sets the
   const need = useRef(0)
   const [folded, setFolded] = useState(false)
   const [open, setOpen] = useState(false)
+  // Not measured while the page it is on waits unseen for its reads: a list
+  // held back beside a note would lay out the whole window in the note's
+  // first frame. Measured in the frame it goes on show, before it is painted.
+  const seen = useSeen()
   // Measured when the line or what is on it changes size, never on every
   // draw: each measure in the middle of a draw lays out the whole window.
   useLayoutEffect(() => {
     const box = line.current
-    if (!box) return
+    if (!box || !seen) return
     const fit = (): void => {
       if (!folded) {
         need.current = box.scrollWidth
@@ -158,7 +162,7 @@ function FitActions({ children, room }: { children: ReactNode; /** What sets the
     watch.observe(box)
     if (box.firstElementChild) watch.observe(box.firstElementChild)
     return () => watch.disconnect()
-  }, [folded, room])
+  }, [folded, room, seen])
   useEffect(() => void (!folded && setOpen(false)), [folded])
   return (
     // Overflowing to the right, never the left, so the line can measure what does not fit.
@@ -184,8 +188,13 @@ function FitActions({ children, room }: { children: ReactNode; /** What sets the
 }
 
 /** A view's frame: title, a muted count, actions on the right, then the body. */
-export function Page({ title, lead, count, unit = ['item', 'items'], actions, children, aside = false, wide = false, fit = false, beside, waiting = false }: {
+export function Page({ title, lead, count, unit = ['item', 'items'], actions, children, aside = false, wide = false, fit = false, beside, waiting = false, apart = false }: {
   title: ReactNode
+  /**
+   * A list beside the note it was opened onto: it comes in whole on its own,
+   * in its own place, and never keeps the note waiting (lib/reads-in.tsx).
+   */
+  apart?: boolean
   /**
    * A read the page is drawn from has not answered yet: the page waits whole,
    * its line and its body, so nothing on it (the count, a box, a sorted list)
@@ -212,9 +221,9 @@ export function Page({ title, lead, count, unit = ['item', 'items'], actions, ch
   // A list never takes more than the drag allows (60%), so a width kept from a wider window cannot squeeze the page.
   const [listWidth, grip] = useListWidth()
   // Drawn once, when its reads and those of every part on it are in (lib/reads-in.tsx).
-  const { provide, style } = useReadsIn(waiting)
+  const { provide, style } = useReadsIn(waiting, apart)
   return provide(
-    <section data-chrome={aside || undefined} className={cn('relative flex min-w-0 flex-1 flex-col', aside && 'hidden flex-none @[56rem]/page:flex')}
+    <section data-chrome={aside || undefined} data-apart={apart ? 'list' : undefined} className={cn('relative flex min-w-0 flex-1 flex-col', aside && 'hidden flex-none @[56rem]/page:flex')}
       style={{ ...(aside ? { width: listWidth, maxWidth: '60%' } : {}), ...style }}>
       {aside && grip}
       {/* The window's toolbar already names the section, so this line only
@@ -225,7 +234,8 @@ export function Page({ title, lead, count, unit = ['item', 'items'], actions, ch
           {lead}
           {/* What is picked is what the buttons act on: said plainly, never in grey. */}
           {count ? <span className={cn('whitespace-nowrap tabular-nums', unit[1] === 'selected' && 'font-medium text-foreground')}><Rolling text={count} /> {count === 1 ? unit[0] : unit[1]}</span> : null}
-          <FitActions room={aside ? listWidth : 'page'}>{actions}</FitActions>
+          {/* The count is on the same line: measured again the moment it comes or changes, not a frame later by the observer. */}
+          <FitActions room={`${aside ? listWidth : 'page'} ${count ?? ''} ${count === 1 ? unit[0] : unit[1]}`}>{actions}</FitActions>
         </header>
       )}
       <SmoothScroll wide={wide} fit={fit} beside={beside}>{children}</SmoothScroll>

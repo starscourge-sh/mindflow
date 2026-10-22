@@ -254,6 +254,13 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   })
   // Only the last pick lands: a late answer for the gem before is dropped.
   const asked = useLastAsked()
+  // Sent here for one note: the note is drawn first and the list beside it
+  // the frame after, whole (Page's `apart`), so the words never wait behind
+  // every row of a big book.
+  const sent = !!focus && (coming ?? open?.id) === focus
+  const [listFirst] = useState(!focus)
+  const listLater = useAfterFirstPaint()
+  const listShown = listFirst || listLater
   const pick = (id: string): void => {
     // A folder card opens its group in place.
     if (isGroup(id)) return (chime('untuck'), setInGroup(groupId(id)), setCursor(0))
@@ -444,7 +451,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   // A group read as a page of its own, in place of the list.
   const [pageGroup, setPageGroup] = useState<string | null>(null)
   const paged = pageGroup ? noteGroups.find((one) => one.id === pageGroup) : undefined
-  const entries: [string, Entry[]][] = tiles || folder
+  const entries: [string, Entry[]][] = !listShown && !(open && pane === 'rail') ? [] : tiles || folder
     ? [['', items.map((one) => {
         const card = folders.get(one.id)
         if (!card) return itemEntry(one, menuFor(one))
@@ -453,16 +460,20 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
           folder: { icon: card.group.icon, color: card.group.color, count: card.items.length, members: card.items.slice(0, 4).map((item) => itemEntry(item)) } }
       })]]
     : groups.map(([name, list]) => [name, list.map((one) => itemEntry(one, menuFor(one)))] as [string, Entry[]])
+  // Until the notes and your groups are read, the list and where a note sits in it are not known.
+  const listUnread = unloaded(all) || unloaded(noteGroups)
   if (paged) return <GroupPage group={paged} parts={folding.partsOf(paged.id, noteGroups)} onClose={() => setPageGroup(null)} onOpen={(id) => (setPageGroup(null), pick(id))} />
   return (
-    // The list and the note open beside it come in together, once both are read (lib/reads-in.tsx): never the note, then the list.
+    // The list and the note open beside it come in together, once both are read (lib/reads-in.tsx); sent here for a note, the note never waits for the list.
     <ReadsIn className="contents">
       {open && pane === 'rail' ? (
         <NoteRail entries={entries.flatMap(([, list]) => list)} cursor={cursor} selected={open.id} onPick={pick} onShow={() => setPane('list')} />
       ) : (
-      <Page aside={!!open}
+      <Page aside={!!open || !!coming}
         // The count, Display's sort and the list come with the notes and your groups, together.
-        waiting={unloaded(all) || unloaded(noteGroups)}
+        waiting={listUnread || !listShown}
+        // Sent here for one note: the note is on show at once, and the list comes in whole beside it once read.
+        apart={sent}
         title={tier === 'nugget' ? 'Gems' : 'Writing'}
         // Every note on show, a folded group's too.
         count={chosen.length || groups.reduce((sum, [, list]) => sum + list.length, 0)}
@@ -571,7 +582,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
         </div>
         {/* A folded group shows as its heading even when nothing loose is left, so the list is not empty then.
             Until your groups are read too, nothing: the notes alone would flash as a plain list first. */}
-        {unloaded(noteGroups) ? null : items.length || (folding.rows && noteGroups.some((one) => one.members.some((id) => all.some((item) => item.id === id && !item.archivedAt)))) ? (
+        {unloaded(noteGroups) || !listShown ? null : items.length || (folding.rows && noteGroups.some((one) => one.members.some((id) => all.some((item) => item.id === id && !item.archivedAt)))) ? (
           <NoteList groups={entries} density={density} table="nuggets" selected={spread ? peek ?? undefined : coming ?? open?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
             onPick={spread ? (id) => (isGroup(id) ? pick(id) : (setPeek(id), setCursor(items.findIndex((one) => one.id === id)))) : pick} onOpen={spread ? pick : undefined}
             picking={picking} onMove={view.sort === 'manual' ? onMove : undefined} after={glossAfter} className={spread ? 'mx-5 my-3' : 'mx-3 my-2'}
@@ -609,7 +620,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
           }}
         />
       )}
-      {coming && coming !== open?.id ? <NoteComing id={coming} title={all.find((one) => one.id === coming)?.title} /> : open && <Apart type={open.tier} id={open.id} title={open.title} hidden={!!open.private} onBack={() => vigil.item(open.id).then((fresh) => fresh && setOpen(fresh))}><ItemDetail top={<Stepper turns at={items.findIndex((one) => one.id === open.id)} total={items.length} onStep={(to) => ((stepped.current = true), pick(items[to].id))} />} key={open.id} item={open} onOpen={(type, id) => (type === tier ? pick(id) : onOpen?.(type, id))} /></Apart>}
+      {coming && coming !== open?.id ? <NoteComing id={coming} title={all.find((one) => one.id === coming)?.title} /> : open && <Apart type={open.tier} id={open.id} title={open.title} hidden={!!open.private} onBack={() => vigil.item(open.id).then((fresh) => fresh && setOpen(fresh))}><ItemDetail top={<ReadsIn apart reading={listUnread} className="contents" data-apart="stepper"><Stepper turns at={items.findIndex((one) => one.id === open.id)} total={items.length} onStep={(to) => ((stepped.current = true), pick(items[to].id))} /></ReadsIn>} key={open.id} item={open} onOpen={(type, id) => (type === tier ? pick(id) : onOpen?.(type, id))} /></Apart>}
     </ReadsIn>
   )
 }
@@ -744,7 +755,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
           findNotes={findCaptures}
           findHeadings={findHeadings}
           onOpenNote={(link, heading) => onOpen && follow(link, onOpen, heading)}
-          after={<ReadsIn apart reading={!later}>
+          after={<ReadsIn apart reading={!later} data-apart="foot">
             {/* What sits under the words (its source, what links here) comes in whole, once its reads are in: a part arriving a beat late moved the foot from the page's bottom up under the words. */}
             {/* A quote signed at its foot: who said it, in a pen's hand. */}
             {item.kind === 'quote' && item.attribution && (

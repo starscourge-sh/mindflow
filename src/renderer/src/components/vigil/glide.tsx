@@ -380,7 +380,14 @@ export function Unfold({ open, children, className }: { open: boolean; children:
     if (open && gone) setGone(false)
   }
   // Read before the first frame shows it, so the fold opens to the right height.
-  useLayoutEffect(() => void (inner.current && setHeight(inner.current.offsetHeight)), [open, gone])
+  // Not as it first comes in: open from the start it is its own height ('auto'),
+  // and measured then it laid out the whole page in the middle of drawing it
+  // (a note's first frame); its observer reads its height before that frame paints.
+  const mounted = useRef(false)
+  useLayoutEffect(() => {
+    if (!mounted.current) return void (mounted.current = true)
+    if (inner.current) setHeight(inner.current.offsetHeight)
+  }, [open, gone])
   useEffect(() => {
     const el = inner.current
     if (!el) return

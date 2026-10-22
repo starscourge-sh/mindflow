@@ -99,12 +99,14 @@ export function readFresh<T>(type: string, id: string, read: (id: string) => Pro
  * empty and again a moment later. Words read before and unchanged need no
  * wait at all. Words slower than that open the page on the note's frame and
  * name, its words filled in as they come (note-coming.tsx).
+ * `null`: read already, so the page can turn in this very step, with
+ * whatever else the same key or click changes (⌘K closing), in one draw.
  */
-export function whenRead(type: string, id: string, most = 400): Promise<void> {
-  if (known.has(keyOf(type, id))) return Promise.resolve()
+export function whenRead(type: string, id: string, most = 400): Promise<void> | null {
+  if (known.has(keyOf(type, id))) return null
   readEarly(type, id)
   const one = early.get(keyOf(type, id))
-  if (!one || one.got !== undefined) return Promise.resolve()
+  if (!one || one.got !== undefined) return null
   return Promise.race([one.read.then(() => undefined, () => undefined), new Promise<void>((done) => setTimeout(done, most))])
 }
 

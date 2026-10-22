@@ -851,7 +851,8 @@ export function Home(): React.JSX.Element {
     // (lib/early-read.ts), so its page opens on them at once: no wait at all
     // for one read before and unchanged, never the page first and the note after.
     if (type === 'capture' || type === 'nugget' || type === 'article' || type === 'question') pageTurn(false, id)
-    if (holdsNotes(stepOf(type, id).id)) return void whenRead(type, id).then(go)
+    const reading = holdsNotes(stepOf(type, id).id) ? whenRead(type, id) : null
+    if (reading) return void reading.then(go)
     go()
   }
   // A page sent with one of its groups named ("Show them" after a list with no dates):
