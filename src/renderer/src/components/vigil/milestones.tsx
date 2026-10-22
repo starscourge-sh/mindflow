@@ -1,8 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactElement } from 'react'
+import { useReading } from '@/lib/reads-in'
 import { FlagTriangleRight } from 'lucide-react'
 
 import { chime } from '@/lib/sound'
-import { useLive, vigil, type Recent } from '@/lib/vigil'
+import { unloaded, useLive, vigil, type Recent } from '@/lib/vigil'
 import { findCaptures, follow } from '@/lib/capture-links'
 import { MARK_COLORS, MARK_ICONS, countdown, inkOf, markDay, marks, nextOf, onDay, openMark, useMilestones, type Milestone } from '@/lib/milestones'
 import { Button } from '@/components/ui/button'
@@ -264,6 +265,8 @@ export function DayGrid({ days, onOpenDay, label, calendar = false }: { days: st
     { pages: [] as string[], reviews: {} as Record<string, number> }, [calendar, days[0], days[days.length - 1]])
   const ahead = days[days.length - 1] >= today ? daysBetween(today, days[days.length - 1]) + 1 : 0
   const load = useLive(() => (calendar && ahead > 0 ? vigil.reviewLoad(ahead) : Promise.resolve([] as number[])), [] as number[], [calendar, ahead], ['item'])
+  // Its page waits for these (lib/reads-in.tsx): before, each day's "6 kept" and its marks came a beat after the days.
+  useReading(unloaded(all) || unloaded(made) || unloaded(marked) || unloaded(load))
   const pages = new Set(marked.pages)
   const most = Math.max(1, ...Object.values(marked.reviews))
   return (
@@ -355,6 +358,7 @@ const labelWidth = (one: Milestone): number => Math.min(150, one.title.length * 
  */
 export function YearMarks({ year, onOpenDay }: { year: string; onOpenDay?: (day: string) => void }): React.JSX.Element {
   const all = useMilestones(`${year}-01-01`, `${year}-12-31`)
+  useReading(unloaded(all))
   const box = useRef<HTMLDivElement>(null)
   const [w, setW] = useState(0)
   const [hover, setHover] = useState<number | null>(null)
@@ -485,6 +489,7 @@ export function NextMark({ className = '', withinDays = 365 }: { className?: str
   const today = dayKey()
   const all = useMilestones(today, dayKey(noon(today).add(withinDays, 'day')))
   const next = nextOf(all, today)
+  useReading(unloaded(all))
   if (!next) return null
   const left = daysBetween(today, next.day)
   return (

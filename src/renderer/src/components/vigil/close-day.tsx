@@ -1,4 +1,5 @@
 import { JournalQuestions } from './journal'
+import { useReading } from '@/lib/reads-in'
 import { HabitTicks } from './habits'
 import { useEffect, useMemo, useState } from 'react'
 import { X } from 'lucide-react'
@@ -62,6 +63,7 @@ export function offerDue(settings: Pick<Settings, 'closeDay' | 'closeDayAt'> | n
 /** On Home in the evening, once: a calm line offering the pass. */
 export function CloseDayOffer(): React.JSX.Element | null {
   const settings = useLive(vigil.settings, null as Settings | null)
+  useReading(!settings)
   const [, tick] = useState(0)
   useEffect(() => {
     const every = setInterval(() => tick((n) => n + 1), 60_000)

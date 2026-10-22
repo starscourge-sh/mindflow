@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useLive, vigil, type Settings } from './vigil'
+import { unread, useLive, vigil, type Settings } from './vigil'
 import { clock } from '@/lib/clock'
 import type { MacEvent, MacCalendar } from '../../../main/mac-calendar'
 export type { MacEvent, MacCalendar }
@@ -18,16 +18,18 @@ export const calendar = {
 export function useMacEvents(from: Date, to: Date): MacCalendar {
   const settings = useLive(vigil.settings, null as Settings | null)
   const on = !!settings?.macCalendar
-  const [said, setSaid] = useState<MacCalendar>(NONE)
+  // Not read yet until the settings say whether it is on, and if on, until it answers (`unloaded` says so).
+  const [said, setSaid] = useState<MacCalendar>(() => unread({ ...NONE }))
   const [a, b] = [from.toISOString(), to.toISOString()]
   useEffect(() => {
+    if (!settings) return
     if (!on) return void setSaid(NONE)
     let live = true
     const read = (): void => void calendar.events(a, b).then((got) => live && setSaid(got), () => undefined)
     read()
     const every = setInterval(read, 5 * 60_000)
     return () => ((live = false), clearInterval(every))
-  }, [on, a, b])
+  }, [!!settings, on, a, b])
   return said
 }
 

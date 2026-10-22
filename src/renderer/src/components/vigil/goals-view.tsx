@@ -1,4 +1,5 @@
 import { dropLines, keepLines } from '@/lib/clue-lines'
+import { ReadsIn, useReading } from '@/lib/reads-in'
 import { binItem } from '@/lib/to-bin'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Archive, CalendarPlus, Flag, Plus, StickyNote, Wind } from 'lucide-react'
@@ -263,8 +264,10 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
   const several = usePickNotes(items.map((one) => one.id), cursor, { here: useHere(), noun: ['goal', 'goals'], tier: 'goal', titleOf: (id) => items.find((one) => one.id === id)?.title })
   const entries = items.map((one) => goalEntry(one, today, several.menu(one.id) ?? [{ label: 'Open', keys: '↵', run: () => pick(one.id) }, 'separator', ...goalMenu(one), ...several.rowItems(one.id)]))
   return (
-    <>
-      <Page aside={!!open} title="Goals" count={several.chosen.length || items.length} unit={several.chosen.length ? ['selected', 'selected'] : ['goal', 'goals']}
+    // The list and the one open beside it come in together, once both are read (lib/reads-in.tsx).
+    <ReadsIn className="contents">
+      {/* Sent here for one goal: the page waits for it too, so it opens on the goal beside the list, not on the list alone first. */}
+      <Page aside={!!open} waiting={unloaded(all) || (!!focus && open?.id !== focus)} title="Goals" count={several.chosen.length || items.length} unit={several.chosen.length ? ['selected', 'selected'] : ['goal', 'goals']}
         actions={several.bar ??
           <span className="flex items-center gap-2">
             <Chips className="shrink-0" options={[{ id: 'open', label: 'Open' }, { id: 'settled', label: 'Ended' }]} on={(id) => id === show} pick={(id) => switchTo(id as 'open' | 'settled')} />
@@ -293,7 +296,7 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
       </Page>
       {open && <GoalDetail key={open.id} item={open}
         top={<Stepper at={items.findIndex((one) => one.id === open.id)} total={items.length} onStep={(to) => pick(items[to].id)} />} />}
-    </>
+    </ReadsIn>
   )
 }
 
@@ -831,6 +834,8 @@ export function GoalBar({ left, way, className = '' }: { left: number; way: numb
 export function GoalStrip({ onOpen, className = '' }: { onOpen?: (type: string, id: string) => void; className?: string }): React.JSX.Element | null {
   const settings = useLive(vigil.settings, null as Settings | null)
   const all = useLive(() => vigil.items('goal'), [] as Item[], [], ['item'])
+  // Whatever page it is on waits for it (lib/reads-in.tsx): never a card popping in over the rest.
+  useReading(!settings || unloaded(all))
   const today = useToday()
   const open = openOnes(all)
   if (!open.length || settings?.goalStrip === false) return null

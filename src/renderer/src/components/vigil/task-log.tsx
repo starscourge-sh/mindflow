@@ -3,7 +3,8 @@ import { AnimatePresence, motion } from 'motion/react'
 import { EASE, shift } from '@/lib/motion'
 
 import { chime } from '@/lib/sound'
-import { useLive, vigil, when, type Gloss, type LogEntry, type Session } from '@/lib/vigil'
+import { unloaded, useLive, vigil, when, type Gloss, type LogEntry, type Session } from '@/lib/vigil'
+import { useReading } from '@/lib/reads-in'
 import { cn } from '@/lib/cn'
 import { GlossLine, useGlossKey } from './gloss-line'
 import { Island, Kbd, Rolling, toast, Typed } from './ui'
@@ -101,6 +102,8 @@ export function TaskLog({ taskId }: { taskId: string }): React.JSX.Element {
   const LOG_FEW = 20
   // What each session logged from the pill while it ran: its timeline, under it.
   const logged = useLive(() => vigil.taskSessionLog(taskId), [] as LogEntry[], [taskId])
+  // The pane it is in waits for these (lib/reads-in.tsx): the "lands here" line came in a beat late and pushed the dates down.
+  useReading(!sessions || !glosses || unloaded(logged))
   useGlossKey(taskId)
   const [asking, setAsking] = useState<string | null>(null)
   // A recap undone: its words, back in its line.

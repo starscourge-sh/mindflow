@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { ReadsIn, useReading } from '@/lib/reads-in'
 import { binItem } from '@/lib/to-bin'
 import type { JSONContent } from '@tiptap/core'
 import { Archive, Calendar, Plus, Wind } from 'lucide-react'
@@ -174,7 +175,8 @@ export function QuestionAsker(): React.JSX.Element | null {
  */
 export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   const all = useLive(() => vigil.items('question'), [] as Item[], [], ['item'], 'questions')
-  const inView = new Set(useLive(vigil.pinnedQuestions, [] as Awaited<ReturnType<typeof vigil.pinnedQuestions>>).map((one) => one.id))
+  const pinned = useLive(vigil.pinnedQuestions, [] as Awaited<ReturnType<typeof vigil.pinnedQuestions>>)
+  const inView = new Set(pinned.map((one) => one.id))
   const [show, setShow] = useState<'open' | 'answered'>('open')
   const [view, setView] = useView('questions', { sort: 'newest', group: 'none' })
   const pane = view.pane ?? 'list'
@@ -253,11 +255,12 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
   const entries = items.map((one) => questionEntry(one, inView.has(one.id), menuFor(one)))
   const peeked = spread ? all.find((one) => one.id === peek) : undefined
   return (
-    <>
+    // The list and the one open beside it come in together, once both are read (lib/reads-in.tsx).
+    <ReadsIn className="contents">
       {open && pane === 'rail' ? (
         <NoteRail entries={entries} cursor={cursor} selected={open.id} onPick={pick} onShow={() => setPane('list')} />
       ) : (
-      <Page aside={!!open} title="Questions" count={several.chosen.length || items.length} unit={several.chosen.length ? ['selected', 'selected'] : ['question', 'questions']}
+      <Page aside={!!open} waiting={unloaded(all) || unloaded(pinned)} title="Questions" count={several.chosen.length || items.length} unit={several.chosen.length ? ['selected', 'selected'] : ['question', 'questions']}
         actions={several.bar ??
           <span className="flex items-center gap-2">
             {spread && <ListSearch value={query} onChange={(words) => (setQuery(words), setCursor(-1))} onDone={() => setCursor(0)} placeholder="Search in Questions" />}
@@ -295,7 +298,7 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
       {peeked && <Peek entry={questionEntry(peeked, inView.has(peeked.id))} table="nuggets" onOpen={() => pick(peeked.id)} />}
       {open && <Apart type="question" id={open.id} title={open.title} hidden={!!open.private} onBack={() => vigil.item(open.id).then((fresh) => fresh && setOpen(fresh))}><QuestionDetail key={open.id} item={open} onOpen={go}
         top={<Stepper turns at={items.findIndex((one) => one.id === open.id)} total={items.length} onStep={(to) => pick(items[to].id)} />} /></Apart>}
-    </>
+    </ReadsIn>
   )
 }
 
@@ -673,6 +676,7 @@ const WEEK_MS = 7 * 86_400_000
  */
 export function StillWondering({ onOpen, className = '' }: { onOpen: (type: string, id: string) => void; className?: string }): React.JSX.Element | null {
   const questions = useLive(() => vigil.items('question'), null as Item[] | null, [], ['item'])
+  useReading(!questions)
   const [gone, setGone] = useState(false)
   const [adding, setAdding] = useState(false)
   // A clue taken back with Undo: its words, in the field again.

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useReading } from '@/lib/reads-in'
 import { chime } from '@/lib/sound'
 import { useLive, vigil, type Settings } from '@/lib/vigil'
 import { useByKeys } from '@/lib/motion'
@@ -411,6 +412,7 @@ function InboxSort({ onClose }: { onClose: () => void }): React.JSX.Element {
 export function MorningSortOffer(): React.JSX.Element | null {
   const settings = useLive(vigil.settings, null as Settings | null)
   const waiting = useLive(() => window.api.captures.list().then((all) => all.filter((one) => one.status === 'open' && !one.archivedAt && !one.keptIn).length), null as number | null)
+  useReading(!settings || waiting === null)
   const [, tick] = useState(0)
   useEffect(() => {
     const again = (): void => tick((n) => n + 1)

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { findCaptures, findHeadings, follow, statusSaid } from '@/lib/capture-links'
 import { dayOf, notes, type Day, type DayEntry } from '@/lib/notes'
 import { chime } from '@/lib/sound'
-import { useLive, vigil, type Pin, type Task } from '@/lib/vigil'
+import { unloaded, useLive, vigil, type Pin, type Task } from '@/lib/vigil'
 import { RowMenu } from './row-menu'
 import { taskMenu, useTaskNow } from './tasks-view'
 import { sideMenu, useFullMenu } from './side-menu'
@@ -112,6 +112,8 @@ export function DayView({ onOpen, start, onScale }: {
 
   return (
     <Page
+      // The day's notes, its tasks and pins, and every part of the brief: drawn once all are in.
+      waiting={!data || unloaded(tasks) || unloaded(pins)}
       title={day === today ? "Today's page" : 'Day page'}
       actions={
         <span className="flex items-center gap-1">

@@ -1,4 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useState, type ReactNode } from 'react'
+import { useReading } from '@/lib/reads-in'
 import { contrast } from '@/lib/on-accent'
 import { AnimatePresence, motion } from 'motion/react'
 import { useLive, vigil, type Mood, type Scene, type Settings } from '@/lib/vigil'
@@ -57,17 +58,22 @@ const decoded = new Set<string>()
 const picked = new Map<string, string>()
 
 /** The settings and the scenes in your folders, while Scenery is on. */
-const NOT_YET = { scenes: [] as Scene[], scanning: false }
-function useScenery(): { settings: Settings | null; scenes: Scene[]; loading: boolean } {
+const NOT_YET = { scenes: [] as Scene[], scanning: false, key: '' }
+function useScenery(): { settings: Settings | null; scenes: Scene[]; loading: boolean; scanning: boolean } {
   const settings = useLive(vigil.settings, null as Settings | null)
   // Off is asked too, with no folders, so the main process stops copying them; only not yet known is not.
   const folders = settings ? (settings.scenery ? settings.sceneryFolders : []) : null
+  const key = JSON.stringify(folders)
+  // Each answer carries the folders it is for: one kept from before the settings were read (no folders) is not
+  // this one's, and counting it as read drew the words plain, then moved them down under the scene once it came.
   const found = useLive(
-    () => (folders ? vigil.scenery(folders) : Promise.resolve({ scenes: [] as Scene[], scanning: false })),
+    () => (folders ? vigil.scenery(folders) : Promise.resolve({ scenes: [] as Scene[], scanning: false })).then((one) => ({ ...one, key })),
     NOT_YET,
-    [JSON.stringify(folders)]
+    [key]
   )
-  return { settings, scenes: folders?.length ? found.scenes : [], loading: !!folders?.length && found === NOT_YET }
+  // `loading`: not answered for these folders yet, which a page waits for. `scanning`: still looking
+  // through them with nothing found yet, which is not "no pictures": the scene's room is kept, unwaited.
+  return { settings, scenes: folders?.length && found.key === key ? found.scenes : [], loading: !!folders?.length && found.key !== key, scanning: !!folders?.length && found.key === key && found.scanning && !found.scenes.length }
 }
 
 /** sRGB colour of any CSS colour, through a canvas, which understands them all. */
@@ -223,7 +229,8 @@ const told = new Set<() => void>()
 function useFirst(wanted: boolean, ahead: boolean): boolean {
   const [me] = useState(() => Symbol('rest'))
   const [, redraw] = useState(0)
-  useEffect(() => {
+  // Said before the first paint, so a rest drawn plain for a frame never then grows its scene above the words.
+  useLayoutEffect(() => {
     if (!wanted) return
     if (ahead) resting.unshift(me)
     else resting.push(me)
@@ -236,7 +243,8 @@ function useFirst(wanted: boolean, ahead: boolean): boolean {
       told.forEach((one) => one())
     }
   }, [wanted, ahead, me])
-  return resting[0] === me
+  // Before it has been counted: first if no other rest is on show.
+  return resting.includes(me) ? resting[0] === me : wanted && (!resting.length || ahead)
 }
 
 /**
@@ -254,9 +262,11 @@ export function Rest({ seed, children, compact = false, strip = false, off = fal
   /** Not a rest moment this time (the same empty state, another list). */
   off?: boolean
 }): React.JSX.Element {
-  const { settings, scenes, loading } = useScenery()
+  const { settings, scenes, loading, scanning } = useScenery()
+  // Its page waits for the settings and the pictures (lib/reads-in.tsx): drawn before, the words sat plain, then moved down under the scene.
+  useReading(!off && (!settings || loading))
   const first = useFirst(!off && !!settings?.scenery && !!settings.sceneryRest, !strip)
-  if (off || !first || !settings?.scenery || !settings.sceneryRest || (!scenes.length && !loading)) return <>{children}</>
+  if (off || !first || !settings?.scenery || !settings.sceneryRest || (!scenes.length && !loading && !scanning)) return <>{children}</>
   const [height, room] = strip ? ['h-24', 'pt-14'] : compact ? ['h-60', 'pt-20'] : ['h-[min(34rem,72vh)]', 'pt-[min(9rem,16vh)]']
   // The pictures still on their way: their room kept, so the words never jump down when the scene fades in.
   if (!scenes.length) return <div className={`relative isolate ${compact || strip ? 'mx-1 mt-1' : 'mx-4 mt-3'}`}><div className={`relative ${room}`}>{children}</div></div>
@@ -305,7 +315,9 @@ export function PictureCredit({ children, className = '' }: { children: ReactNod
  * the same all that day, framed like a print when Postcards is on.
  */
 export function DayBanner({ day, seed = `day:${day}` }: { day: string; /** A week's or a month's own, so it is not the same picture as its first day's. */ seed?: string }): React.JSX.Element | null {
-  const { settings, scenes } = useScenery()
+  const { settings, scenes, loading } = useScenery()
+  // Its page waits for it: a banner arriving a beat late pushed the whole page down.
+  useReading(!settings || (!!settings.scenery && !!settings.sceneryToday && loading))
   if (!settings?.scenery || !settings.sceneryToday || !scenes.length) return null
   const framed = !!settings.postcards
   // Named as the day's own picture is: the same scene the banner below picks.

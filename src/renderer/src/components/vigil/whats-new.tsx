@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useReading } from '@/lib/reads-in'
 import { X } from 'lucide-react'
 import { chime } from '@/lib/sound'
 import { useByKeys } from '@/lib/motion'
@@ -78,6 +79,7 @@ function Timeline({ list, onShow }: { list: News[]; onShow: (news: News) => void
  */
 export function WhatsNewCard({ onView }: { onView: (id: string, focus?: string) => void }): React.JSX.Element | null {
   const state = useOnboarding()
+  useReading(!state)
   const [seen, setSeen] = useState(seenId)
   // First run: nothing was updated, so the newest counts as seen.
   useEffect(() => {

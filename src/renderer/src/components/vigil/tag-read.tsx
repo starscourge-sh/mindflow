@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useReading } from '@/lib/reads-in'
 import { tagTint } from './tag-icon'
 import type { JSONContent } from '@tiptap/core'
 import { AlignJustify, Plus, Shuffle } from 'lucide-react'
@@ -297,6 +298,8 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
     return [...groups]
   }
 
+  // Its page waits for its notes (lib/reads-in.tsx), and the list of tags beside it with it: one step, not the list and then the tag.
+  useReading(!items)
   if (!items) return <Waiting tag={tag} colour={colour} />
   if (!items.length)
     return <Empty title={`Nothing carries #${tag} now`}>Whatever had it was moved to the Bin or archived, or the tag was taken off. Write it into anything and it reads here.</Empty>

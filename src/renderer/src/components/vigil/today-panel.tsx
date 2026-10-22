@@ -87,7 +87,8 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
   // The main window's wording, time kept and undo and all.
   const move = moveTo
   // Today's first task, so the menu can offer it or take it back.
-  const frog = frogOn(useLive(vigil.settings, null as Awaited<ReturnType<typeof vigil.settings>> | null))
+  const settings = useLive(vigil.settings, null as Awaited<ReturnType<typeof vigil.settings>> | null)
+  const frog = frogOn(settings)
   const now = useTaskNow()
   // Split, only the pane in front answers keys.
   const here = useHere()
@@ -118,6 +119,8 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
   // How many open tasks a list holds, counted from yours only, as the Display narrows them: an example never adds to a number.
   const count = (id: Scope): number => narrowed.filter((task) => real.includes(task) && task.status === 'open' && SCOPES[id].test(task)).length
 
+  // Drawn once the tasks are read: before, the list chips showed "Upcoming", then "Upcoming 9", and moved along.
+  if (unloaded(real) || !settings) return <div className="flex flex-col gap-1 text-sm" />
   return (
     <div className="flex flex-col gap-1 text-sm">
       {/* Each list with how many it holds, so a task sent to the backlog is seen landing there. */}

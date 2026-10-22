@@ -76,7 +76,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
     chime('slide')
     setRecap(period)
   }
-  if (!stats) return <Page title="Stats"><div /></Page>
+  if (!stats) return <Page title="Stats" waiting><div /></Page>
 
   const by = Object.fromEntries(stats.exits.map((row) => [row.status, row.n]))
   const total = stats.exits.reduce((sum, row) => sum + row.n, 0)

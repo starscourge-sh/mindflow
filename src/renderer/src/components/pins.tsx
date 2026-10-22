@@ -1,8 +1,9 @@
 import { AnimatePresence, motion } from 'motion/react'
+import { useReading } from '@/lib/reads-in'
 import { EASE, shift } from '@/lib/motion'
 
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
-import { useLive, vigil, type Pin as Pinned } from '@/lib/vigil'
+import { unloaded, useLive, vigil, type Pin as Pinned } from '@/lib/vigil'
 import { makeTask } from '@/lib/tasks'
 import { RowMenu } from './vigil/row-menu'
 import { Tip, pin as unpin } from '@/components/vigil/ui'
@@ -22,6 +23,7 @@ export const BOX_PINS = 3
 export function Pins({ onOpen, compact = false }: { onOpen: (type: string, id: string) => void; compact?: boolean }): React.JSX.Element | null {
   // In the order kept in the sidebar's Pinned, where they drag; a step at a time here.
   const usual = useLive(vigil.pins, [] as Pinned[])
+  useReading(unloaded(usual))
   const every = useInOrder(usual, 'pinOrder', (pin) => `${pin.type}:${pin.id}`)
   const pins = every.slice(0, BOX_PINS)
   const custom = useOrder('pinOrder').length > 0

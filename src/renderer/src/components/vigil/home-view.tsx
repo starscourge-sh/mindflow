@@ -1,4 +1,5 @@
 import { Lean } from './lean'
+import { useReadsIn } from '@/lib/reads-in'
 import { TimeGone } from './time-gone'
 import { Children, isValidElement, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 
@@ -11,7 +12,7 @@ import { smallPicture, useThumb } from '@/lib/notes'
 import { openApart } from '@/lib/apart'
 import { placed, taskName } from '@/lib/tasks'
 import { dayKey, num, startOfDay } from '../../../../main/dates'
-import { splitTags, unloaded, useLive, vigil, whenInLine, type Pin as Pinned, type Settings, type Task } from '@/lib/vigil'
+import { splitTags, unloaded, unread, useLive, vigil, whenInLine, type Pin as Pinned, type Settings, type Task } from '@/lib/vigil'
 import { useKept } from '@/lib/nav'
 import { MenuButton, useTint } from './collection-header'
 import { GrainFill, onPaper, PAPER_INK, useNoteCover } from './grain'
@@ -627,7 +628,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
   const keep = (CHIPS.find((one) => one.id === chip) ?? CHIPS[0]).keep as (type: Kind) => boolean
 
   // Rot, drawn once a visit like the box's cards: never reshuffled under you.
-  const [rot, setRot] = useState<Card[]>([])
+  const [rot, setRot] = useState<Card[]>(() => unread([]))
   useEffect(() => void window.api.captures.rot().then((found) =>
     setRot(found.map((one) => ({ type: 'capture', id: one.id, title: String(one.label || one.title || ''), kind: one.kind, private: Number(one.private ?? 0), at: one.capturedAt, excerpt: textOf(one.body).split('\n').slice(1).join(' ').slice(0, 200) })))), [])
 
@@ -758,6 +759,8 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
   // Not while Home is still loading: an empty page flashed first took the
   // page's one voice from its hint (lib/motion.ts).
   const loading = [data, captures, tasks, pins].some(unloaded)
+  // Drawn once, with every card's read in (lib/reads-in.tsx): before, the goals, the marked day and the cards came in one by one, each pushing the rest down.
+  const { provide, style: readsStyle } = useReadsIn(loading || unloaded(hidden) || unloaded(repeats) || unloaded(rot))
   const empty = !loading && !captures.length && !data.edited.length && !tasks.length && !pins.length
   // Getting started on screen (GettingStarted's own rule): one guide at a time, so no Example under it.
   const guide = useOnboarding()
@@ -773,8 +776,8 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
   const shownTiles = tiles.slice(0, wide ? 8 : 4)
   const nothing = !loading && !feature && !nextUp.length && !jump.length && !back.length && !questions.length && !tidy.length && !again.length && !tagRows.length && !week.length
 
-  return (
-    <div ref={root} className={`relative flex min-w-0 flex-1 flex-col overflow-y-auto ${PICKED_CARD}`}>
+  return provide(
+    <div ref={root} style={readsStyle} className={`relative flex min-w-0 flex-1 flex-col overflow-y-auto ${PICKED_CARD}`}>
       {/* What is picked, and what can be done with it all: held at the top while you scroll. Opaque, never over the cards see-through. */}
       {several.bar && (
         <div data-pick-bar className="sticky top-0 z-30 w-full border-b bg-background">
@@ -927,5 +930,5 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
       )}
       {reading && <ReadThrough items={reading.items} start={reading.start} onClose={() => setReading(null)} />}
     </div>
-  )
+  ) as React.JSX.Element
 }

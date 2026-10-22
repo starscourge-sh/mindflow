@@ -1,4 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useReading, useReadsIn } from '@/lib/reads-in'
 import { createPortal } from 'react-dom'
 import { motion } from 'motion/react'
 import { Check, ChevronDown, PanelRight, Plus, Repeat as RepeatIcon, Search } from 'lucide-react'
@@ -13,7 +14,7 @@ import { moveToBin } from '@/lib/to-bin'
 import { useHere } from '@/lib/split'
 import { clock, useMinute } from '@/lib/clock'
 import { placeTask } from '@/lib/calendar'
-import { useLive, vigil, whenInLine, type Task } from '@/lib/vigil'
+import { unloaded, useLive, vigil, whenInLine, type Task } from '@/lib/vigil'
 import { lengthSaid } from '../../../../main/day-load'
 import { dayjs, dayKey, num, type Dayjs } from '../../../../main/dates'
 import { Count, Rolling, Tip, typing } from './ui'
@@ -199,6 +200,10 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   const own = useEvents(span[0].toISOString(), span[1].toISOString())
   const shownEvents: Shown[] = [...own.filter((one) => layers.shown(one.calendarId)).map((one) => ({ ...one, color: colorFor(one, layers.colorOf(one.calendarId)) })), ...macShown(layers.macEvents)]
   const shownTasks = layers.tasks ? tasks : []
+  // Drawn once every read it is made of has answered: drawn before, the calendars' list comes in above the
+  // unscheduled tasks and pushes them down, and the late count and the blocks fill in a beat apart.
+  const ready = !unloaded(tasks) && !unloaded(captures) && !unloaded(own) && layers.ready
+  const { provide, style: readsStyle } = useReadsIn(!ready)
   // Sent to one event (a note's "From the event"): its day, and it open in the panel.
   useEffect(() => {
     if (!focus?.startsWith('event:')) return
@@ -404,8 +409,8 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
     else setSide(true)
   }
   const goTo = (day: Dayjs): void => void (!days.some((one) => one.isSame(day, 'day')) && setAnchor(day.startOf('day')))
-  return (
-    <section ref={box} data-cal-mode={mode} data-cal-chosen={picked ?? undefined} className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+  return provide(
+    <section ref={box} data-cal-mode={mode} data-cal-chosen={picked ?? undefined} style={readsStyle} className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
       onFocusCapture={(event) => {
         const one = (event.target as HTMLElement).closest<HTMLElement>('[data-cal-block], [data-cal-untimed], [data-cal-loose]')
         if (one) (setChosen(one.dataset.calBlock ?? one.dataset.calUntimed ?? one.dataset.calLoose ?? null), setChosenEvent(null))
@@ -536,7 +541,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
         </div>, document.body)}
       <EventCardLayer peek={peekNow} calendar={peekNow ? calendarName(peekNow.one) : ''} onEdit={pickEvent} onClose={() => setPeek(null)} onNote={onOpen} />
     </section>
-  )
+  ) as React.JSX.Element
 }
 
 /**
@@ -703,6 +708,8 @@ function Upcoming({ tasks, name, onPeek, onTask }: { tasks: Task[]; name: (one: 
   // What is on now or next, with how long until it starts (or ends).
   const next = list.filter((one) => !one.allDay && !one.cancelled && dayjs(one.end).isAfter(now)).sort((a, b) => dayjs(a.start).valueOf() - dayjs(b.start).valueOf())[0]
   const until = next ? dayjs(next.start).diff(now, 'minute') : 0
+  // Its own reads (the week ahead's events, your calendars): its page waits for them, never a day at a time.
+  useReading(!layers.ready || unloaded(own))
   return (
     <>
     <section data-cal-next-up className="flex flex-col gap-1.5">

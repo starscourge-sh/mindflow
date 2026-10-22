@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
+import { useReading } from '@/lib/reads-in'
 import { dayjs } from '../../../../main/dates'
 import { QUESTIONS, type Question } from '../../../../main/journal-words'
 import { Chips } from './display'
 import { Section } from './stats-view'
 import { chime } from '@/lib/sound'
-import { useLive } from '@/lib/vigil'
+import { unloaded, useLive } from '@/lib/vigil'
 
 const call = <T,>(channel: string, ...args: unknown[]): Promise<T> => window.api.vigil(channel, ...args) as Promise<T>
 
@@ -48,6 +49,7 @@ export function YearOfAnswers(): React.JSX.Element | null {
   const [question, setQuestion] = useState<Question>('well')
   const rows = useLive(() => call<{ day: string; question: Question; answer: string }[]>('journal:year', year), [] as { day: string; question: Question; answer: string }[], [year])
   const mine = rows.filter((row) => row.question === question)
+  useReading(unloaded(rows))
   if (!rows.length && year === new Date().getFullYear()) return null
   const months = Object.entries(Object.groupBy(mine, (row) => row.day.slice(0, 7)) as Record<string, typeof mine>)
   return (

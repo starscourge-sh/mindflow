@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useReadsIn } from '@/lib/reads-in'
 import type { JSONContent } from '@tiptap/core'
 import { ArrowLeft } from 'lucide-react'
 
@@ -23,7 +24,9 @@ export type GroupParts = { sub?: NoteGroup; items: Item[] }[]
  */
 export function GroupPage({ group, parts, onOpen, onClose }: { group: NoteGroup; parts: GroupParts; onOpen: (id: string) => void; onClose: () => void }): React.JSX.Element {
   const ids = parts.flatMap((part) => part.items.map((item) => item.id))
-  const [full, setFull] = useState<Map<string, ItemFull>>(new Map())
+  // Not read yet (null): the page waits for its notes' words, so a note's grey bar never turns into its words and pushes the rest down.
+  const [read, setFull] = useState<Map<string, ItemFull> | null>(null)
+  const full = read ?? new Map<string, ItemFull>()
   useEffect(() => {
     let live = true
     void Promise.all(ids.map((id) => vigil.item(id))).then((found) => live && setFull(new Map(found.filter((one): one is ItemFull => !!one).map((one) => [one.id, one]))))
@@ -42,12 +45,13 @@ export function GroupPage({ group, parts, onOpen, onClose }: { group: NoteGroup;
   }, [reading, onClose])
   const readable = parts.flatMap((part) => part.items.filter((item) => !item.private).map((item) => ({ type: item.tier, id: item.id })))
   useReadKey(() => readable.length && setReading(true), readable.length, !reading)
-  const cover = useMemo(() => [...full.values()].filter((one) => !one.private).map((one) => pictureIn(one.body)).find(Boolean) ?? null, [full])
+  const cover = useMemo(() => [...(read ?? new Map<string, ItemFull>()).values()].filter((one) => !one.private).map((one) => pictureIn(one.body)).find(Boolean) ?? null, [read])
   const colour = tintOf(group.color) ?? 'var(--tt-color-text-brown)'
   const tint = useTint(cover, colour)
   const subs = parts.filter((part) => part.sub).length
-  return (
-    <section data-group-page={group.id} className="relative flex min-w-0 flex-1 flex-col">
+  const { provide, style } = useReadsIn(read === null)
+  return provide(
+    <section data-group-page={group.id} style={style} className="relative flex min-w-0 flex-1 flex-col">
       {reading && <ReadThrough items={readable} onClose={() => setReading(false)} />}
       <header className="page-column flex h-10 shrink-0 items-center gap-2 border-b px-5 text-muted-foreground">
         <Tip label="Back to the list  Esc">
@@ -97,5 +101,5 @@ export function GroupPage({ group, parts, onOpen, onClose }: { group: NoteGroup;
         </div>
       </SmoothScroll>
     </section>
-  )
+  ) as React.JSX.Element
 }

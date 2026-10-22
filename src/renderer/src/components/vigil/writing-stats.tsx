@@ -1,4 +1,5 @@
 import { useLive } from '@/lib/vigil'
+import { useReading } from '@/lib/reads-in'
 import { DaysHeatmap } from './days-heatmap'
 import { N, Section } from './stats-view'
 import { num, plural } from '../../../../main/dates'
@@ -31,6 +32,7 @@ const NAMED: Record<string, string> = { day: "Today's page", period: 'A week or 
 export function WritingSection({ example, onOpen }: { example: boolean; onOpen?: (type: string, id: string) => void }): React.JSX.Element | null {
   const real = useLive(() => window.api.vigil('words:stats') as Promise<Written>, null as Written | null)
   const words = example ? EXAMPLE : real
+  useReading(!words)
   if (!words) return null
   const change = words.lastWeek ? Math.round(((words.week - words.lastWeek) / words.lastWeek) * 100) : null
   const amount = Object.fromEntries(words.days.map((one) => [one.day, one.words]))

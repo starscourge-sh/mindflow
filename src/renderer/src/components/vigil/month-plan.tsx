@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useReading } from '@/lib/reads-in'
 import { AnimatePresence, motion } from 'motion/react'
 import { DndContext, MeasuringStrategy, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
@@ -19,7 +20,7 @@ import { moveMark, onDay as marksOn, useMilestones, type Milestone } from '@/lib
 import { byDay, moveToDay, caughtLevel, useCaptureMarks, type Back, type OnDay } from '@/lib/calendar'
 import { DayDots, DotsKey, openedLevel } from './day-dots'
 import { DaySide, type SideAsk } from './day-side'
-import { useLive, vigil, type Settings, type Stats, type Task } from '@/lib/vigil'
+import { unloaded, useLive, vigil, type Settings, type Stats, type Task } from '@/lib/vigil'
 import { dayjs, type Dayjs, dayKey, num } from '../../../../main/dates'
 import { APP_NAME } from '../../../../main/name'
 
@@ -112,6 +113,8 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
   const stats = useLive(vigil.stats, null as Stats | null)
   const back = useLive(vigil.snoozedBack, [] as Back[])
   const marks = useMilestones(dayKey(days[0]), dayKey(days[days.length - 1]))
+  // Its page waits for these too: the marked days, the days opened and those coming back, never a day at a time.
+  useReading(!settings || !stats || unloaded(back) || unloaded(marks))
   const marking = settings?.monthOpened === true
   const opens = new Map((stats?.opens ?? []).map((one) => [one.day, one.n]))
   const counting = settings?.monthCaptures === true

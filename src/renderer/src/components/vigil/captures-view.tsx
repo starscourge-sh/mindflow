@@ -1,4 +1,5 @@
 import { SimilarNotes } from './similar-notes'
+import { ReadsIn } from '@/lib/reads-in'
 import { cloneElement, startTransition, useEffect, useRef, useState } from 'react'
 import { spring, still } from '@/lib/motion'
 import type { Editor, JSONContent } from '@tiptap/core'
@@ -391,12 +392,15 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
   const later = useAfterFirstPaint()
 
   return (
-    <>
+    // The list and the note open beside it come in together, once both are read (lib/reads-in.tsx): never the note, then the list.
+    <ReadsIn className="contents">
       {/* Folded to a rail: by you, or by a board that needs the room. */}
       {open && (boardShown ? !listOut : pane === 'rail') ? (
         <NoteRail entries={shown.map((one) => entryOf?.(one) ?? captureEntry(one, pick))} cursor={cursor} selected={open.id} onPick={pick} onShow={() => (boardShown ? setListOut(true) : setPane('list'))} />
       ) : (
       <Page aside={!!open || !!task}
+        // Its count and Display come with the list: for Everything, with its tasks and which captures became them too.
+        waiting={unloaded(all) || (everything && (unloaded(tasks) || !sources.ready))}
         title={title}
         // The Inbox is a place to set things down, never a queue with a number on it.
         // What is picked always shows: the buttons may fold into ⋯ in a narrow window, the count never does.
@@ -663,7 +667,8 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
               findNotes={findCaptures}
               findHeadings={findHeadings}
               onOpenNote={(link, heading) => follow(link, (type, id) => (type === 'capture' ? pick(id) : onOpen?.(type, id)), heading)}
-              after={<>
+              after={<ReadsIn reading={!later}>
+                {/* What sits under the words (its source, what links here) comes in whole, once its reads are in: a part arriving a beat late moved the foot from the page's bottom up under the words. */}
                 {/* A quote signed at its foot: who said it, in a pen's hand. */}
                 {meta.kind === 'quote' && meta.attribution && (
                   <div data-chrome className="page-narrow mx-auto mt-1 w-full px-[4.5rem] text-control text-muted-foreground">
@@ -684,7 +689,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
                 {/* Named after its page: offered, in place, to be named after its topic. */}
                 {meta.kind === 'link' && <div data-chrome className="page-narrow mx-auto mt-1 w-full px-[4.5rem]"><TopicName id={open.id} /></div>}
                 {later && <Mentions id={open.id} onOpen={(type, id) => (type === 'capture' ? pick(id) : onOpen?.(type, id))} />}
-              </>}
+              </ReadsIn>}
               onReady={(ready) => (words.ready(ready), setEditor(ready))}
               onChange={words.save}
               foot={(editor) => <SessionFooter editor={editor} note={`capture-${open.id}`} />}
@@ -693,7 +698,8 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
             )}
             {boardShown && <Board key={`${open.id}-${rev}`} editor={editor} id={open.id} tools={tools} />}
             {/* A thought on it, pinned under the page, its earlier ones a click away. */}
-            {later && <ThoughtDock id={open.id} hidden={boardShown} />}
+            {/* From the first frame: its height is the same whatever it holds, and coming a frame late it pushed the page up. */}
+            <ThoughtDock id={open.id} hidden={boardShown} />
           </div>
           {(!boardShown || propsOut) && <CaptureProps capture={meta} onOpen={onOpen} fold={!boardShown} onExit={() => {
             const at = shown.findIndex((one) => one.id === meta.id)
@@ -704,7 +710,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
         </motion.div>
         </Apart>
       ) : null}
-    </>
+    </ReadsIn>
   )
 }
 

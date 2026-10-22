@@ -1,4 +1,5 @@
 import { themeActions } from '@/lib/theme'
+import { useReadsIn } from './lib/reads-in'
 import { clock } from '@/lib/clock'
 import { useStickiesOut } from '@/lib/stickies-out'
 import { START_FOCUS, useAbandonAction } from '@/lib/abandon'
@@ -21,7 +22,7 @@ import { useSameWords } from './lib/same-words'
 import { CaptureList, tagCaptures, useCaptures, type CaptureMeta } from './components/capture-list'
 import { Example } from './components/vigil/example'
 import { exampleInbox } from './lib/examples'
-import { Waiting, textOf, useOldShown } from './components/rot-cards'
+import { Waiting, textOf, useOldDealt, useOldShown } from './components/rot-cards'
 import { BOX_PINS } from './components/pins'
 import { THROWS, comboOf } from './lib/keys'
 import { GraphChip, InboxGraph, useGraphShown } from './components/vigil/inbox-graph'
@@ -450,7 +451,9 @@ export default function App(): React.JSX.Element {
   const stickiesOut = useStickiesOut()
   // What the side panel's Inbox has waiting on you: rot cards (as many as it
   // would show) and pins, for the chip at the top while the panel is shut.
-  const oldCount = useOldShown(useLive(vigil.rotWaiting, 0))
+  const oldRead = useLive(vigil.rotWaiting, null as number | null)
+  const oldCount = useOldShown(oldRead ?? 0)
+  const oldDealt = useOldDealt()
   const pinned = useLive(vigil.pins, [] as Awaited<ReturnType<typeof vigil.pins>>)
   // The word count under the note, on unless you would rather not see it.
   const [counting, setCountingState] = useStoredFlag('word-count', true)
@@ -1729,7 +1732,8 @@ export default function App(): React.JSX.Element {
         // Rot cards and reminder pins live in the side panel's Inbox; with the
         // panel shut, a chip up here says they are there, and opens it on them.
         // Kept with the panel open too, so it never pops out as the panel slides in.
-        : (oldCount || pinned.length) && !lesson ? (
+        // Once both are read, and with the panel open once it has dealt its cards: the chip says its count once, never 2 and then 1.
+        : (oldCount || pinned.length) && !lesson && oldRead !== null && !unloaded(pinned) && (!panel || oldDealt) ? (
           <Tip label={panel ? 'Show the Inbox in the side panel  ⌃1' : 'Open the Inbox in the side panel  ⌘\\'}>
             <button type="button" data-waiting style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
               onMouseDown={(event) => event.preventDefault()}
@@ -2405,14 +2409,20 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
   }
   // The same easing as the main window's lists.
   useSmooth(scroller)
-  const due = useLive(() => window.api.vigil<number>('review:counts'), 0, [], ['item'])
+  const dueRead = useLive(() => window.api.vigil<number>('review:counts'), null as number | null, [], ['item'])
+  const due = dueRead ?? 0
   // Each tab counts what it holds, so a thing sent there visibly arrives:
   // every open task, dated or not (a list of fourteen made at once reads as
   // fourteen, never as the one due today), every nugget and article.
-  const openTasks = useLive(() => vigil.tasks().then((tasks) => tasks.filter((task) => task.status === 'open').length), 0)
+  const openRead = useLive(() => vigil.tasks().then((tasks) => tasks.filter((task) => task.status === 'open').length), null as number | null)
+  const openTasks = openRead ?? 0
   // Archived ones are out of sight, so not counted.
   // Questions held open count as kept too; settled ones do not.
-  const kept = useLive(() => Promise.all([vigil.items('nugget'), vigil.items('article'), vigil.items('question')]).then((all) => all.flat().filter((one) => !one.archivedAt && !one.closedAt).length), 0, [], ['item'])
+  const keptRead = useLive(() => Promise.all([vigil.items('nugget'), vigil.items('article'), vigil.items('question')]).then((all) => all.flat().filter((one) => !one.archivedAt && !one.closedAt).length), null as number | null, [], ['item'])
+  const kept = keptRead ?? 0
+  // The panel is drawn once, with its tabs' counts and what the tab shows (lib/reads-in.tsx): never the counts one by one,
+  // or the old captures and pins arriving over the Inbox a beat after it.
+  const { provide, style: readsStyle } = useReadsIn(dueRead === null || openRead === null || keptRead === null || unloaded(captures))
   // The inbox is what has no exit yet; what is handled lives in Everything.
   const open = captures.filter((capture) => capture.status === 'open' && !capture.archivedAt)
   // The Inbox emptied here, in front of you: its moment (inbox-zero.tsx).
@@ -2523,8 +2533,8 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
     })
   }
 
-  return (
-    <div className="relative flex h-full w-full flex-col p-2">
+  return provide(
+    <div data-box-panel className="relative flex h-full w-full flex-col p-2" style={readsStyle}>
       <div data-hover-quiet role="tablist" aria-label="Side panel" className="isolate mb-2 flex gap-1 rounded-lg border border-foreground/10 bg-foreground/[0.045] p-0.5 text-sm">
         {/* Drag a tab along the row into your own order. Right click one to move it a step, or to show or hide a tab; the last one stays. */}
         <SortableList axis="x" items={tabs} keyOf={(one) => one.id} onMove={dropOrder('boxTabsOrder', BOX_TABS.map((one) => one.id), (id) => BOX_TABS.find((one) => one.id === id)?.label)}>
@@ -2545,6 +2555,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
             // Where a promoted capture or a new task flies to.
             data-home={one.id === 'kept' ? 'nugget question' : one.id === 'today' ? 'task' : one.id === 'inbox' ? 'capture' : undefined}
             role="tab"
+            data-box-tab-id={one.id}
             aria-selected={tab === one.id}
             onClick={() => {
               if (tab !== one.id) chime('tap')
@@ -2572,6 +2583,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
       <AnimatePresence mode="popLayout" initial={false} custom={travel.current}>
       <motion.div
         key={tab}
+        data-box-tab={tab}
         custom={travel.current}
         variants={{
           from: (by: number) => ({ opacity: 0, transform: shift(`translateX(${12 * by}px)`) }),
@@ -2686,6 +2698,6 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
       </AnimatePresence>
       <BackToTop target={scroller} />
     </div>
-  )
+  ) as React.JSX.Element
 }
 

@@ -214,9 +214,12 @@ export function WeekPage({ start, onOpen, onScale, onRecent, recentOpen, onDay }
   const before = usePeriod(`week:${addDays(monday, -7)}`)
   const inMonth = addDays(monday, 3).slice(0, 7)
   const monthPage = usePeriod(`month:${inMonth}`)
-  const goals = openOnes(useLive(() => vigil.items('goal'), [] as Item[], [], ['item'])).filter((goal) => goal.goalAt!.slice(0, 7) === inMonth)
+  const goalsRead = useLive(() => vigil.items('goal'), [] as Item[], [], ['item'])
+  const goals = openOnes(goalsRead).filter((goal) => goal.goalAt!.slice(0, 7) === inMonth)
   return (
     <Page
+      // Drawn once its pages (this week's, last week's, the month's) and the goals are in, with its banner: never in pieces.
+      waiting={!page || !before || !monthPage || unloaded(goalsRead)}
       title="Week's page"
       actions={
         <span className="flex items-center gap-1">
@@ -329,6 +332,7 @@ export function MonthPage({ onScale, start, onDay }: { onScale?: (scale: Scale) 
     {/* Over the whole view, its own bar in place of the page's. */}
     {reflect && <MonthReflect start={month} onClose={() => (chime('fold'), setReflect(false))} />}
     <Page
+      waiting={!page || !before}
       title="Month's page"
       actions={
         <span className="flex items-center gap-1">
@@ -408,6 +412,7 @@ export function YearPage({ start, onScale, onMonth, onDay }: { start?: string; o
   const months = example ? exampleYear(year, all.length) : real
   return (
     <Page
+      waiting={unloaded(real)}
       title="Year"
       actions={
         <span className="flex items-center gap-1">

@@ -1,4 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { flushSync } from 'react-dom'
+import { useReading, useSeen } from '@/lib/reads-in'
 import { chime } from '@/lib/sound'
 import type { JSONContent } from '@tiptap/core'
 
@@ -9,7 +11,7 @@ import { wordsOf } from '../../../main/import'
 import { AskWho, Rolling, Typed, pin, toast, Pressed } from './vigil/ui'
 import { AnimatePresence, motion } from 'motion/react'
 import { EASE, byKeys, shift } from '@/lib/motion'
-import { useLive, vigil, type PinnedQuestion } from '@/lib/vigil'
+import { unloaded, unread, useLive, vigil, type PinnedQuestion } from '@/lib/vigil'
 import { RowMenu, copy } from './vigil/row-menu'
 import { ageTint } from './capture-list'
 import { Tip, quietly } from '@/components/vigil/ui'
@@ -61,7 +63,7 @@ export const shown = (title: string, body: unknown): string => {
  * same: `shown` while the cards are on screen, `fit` (how many found room last
  * time) once they are not, so the chip never promises more than will show.
  */
-const room = { shown: null as number | null, fit: null as number | null, tell: new Set<() => void>() }
+const room = { shown: null as number | null, fit: null as number | null, seen: false, tell: new Set<() => void>() }
 const said = (shown: number | null, fit: number | null): void => {
   if (room.shown === shown && room.fit === fit) return
   Object.assign(room, { shown, fit })
@@ -72,6 +74,8 @@ export const useOldShown = (waiting: number): number => {
   const fit = useSyncExternalStore((on) => (room.tell.add(on), () => room.tell.delete(on)), () => room.fit)
   return shown ?? Math.min(waiting, fit ?? waiting)
 }
+/** Whether the side panel has dealt its old cards yet: until then the header's chip cannot say how many will show. */
+export const useOldDealt = (): boolean => useSyncExternalStore((on) => (room.tell.add(on), () => room.tell.delete(on)), () => room.seen && (room.shown !== null || room.fit !== null))
 
 // About how tall a pinned row, a pinned chip row and an old card are, for
 // deciding before anything is drawn (each card's own height is used once seen).
@@ -97,14 +101,23 @@ export function Waiting({ onOpen, onOpenAny }: { onOpen: (id: string) => void; o
       const next = { body: body.clientHeight, pins: top.current?.offsetHeight ?? 0 }
       return was.body === next.body && was.pins === next.pins ? was : next
     })
-    const watch = new ResizeObserver(read)
+    // Measured and redrawn before the frame is painted: a frame later, two old cards were drawn, then one
+    // went for room and the Inbox under them jumped up.
+    const watch = new ResizeObserver(() => flushSync(read))
     watch.observe(body)
     if (top.current) watch.observe(top.current)
     read()
     return () => watch.disconnect()
   }, [])
-  const pins = Math.min(BOX_PINS, useLive(vigil.pins, [] as Awaited<ReturnType<typeof vigil.pins>>).length)
-  const old = useLive(vigil.rotWaiting, 0)
+  // The header's chip waits for this panel to be on show: while it waits, unseen, its cards are still being dealt and measured.
+  const seen = useSeen()
+  useLayoutEffect(() => void (room.seen !== seen && ((room.seen = seen), room.tell.forEach((one) => one()))), [seen])
+  const pinRead = useLive(vigil.pins, [] as Awaited<ReturnType<typeof vigil.pins>>)
+  const pins = Math.min(BOX_PINS, pinRead.length)
+  const oldRead = useLive(vigil.rotWaiting, null as number | null)
+  const old = oldRead ?? 0
+  // The panel waits for these (lib/reads-in.tsx): the old captures and pins came in over the Inbox and pushed it down.
+  useReading(unloaded(pinRead) || oldRead === null)
   // At most 45% of the tab, and never so much that the Inbox loses its third row.
   const budget = Math.round(Math.min(tall.body * 0.45, tall.body - LIST))
   // Listed in full while they and one old card still fit; a row of chips once not.
@@ -128,15 +141,17 @@ const byAge = (a: Capture, b: Capture): number => a.capturedAt.localeCompare(b.c
  * deciding what each becomes is the weekly pass's job, or the note's own,
  * not something to be asked every time the box opens.
  *
- * Drawn each time the window is brought up and after an exit, not on every
- * change elsewhere, or the cards would shuffle under you while you type.
+ * Dealt each time the window goes away (ready for the next time it is
+ * brought up) and after an exit, not on every change elsewhere, or the cards
+ * would shuffle under you while you type.
  */
 export function RotCards({ onOpen, room: space = null }: {
   onOpen: (id: string) => void
   /** The height the cards may take, heading and all; null for no limit. */
   room?: number | null
 }): React.JSX.Element | null {
-  const [cards, setCards] = useState<Capture[]>([])
+  // Not dealt yet (`unloaded`) is not none: the panel it is in waits for the deal.
+  const [cards, setCards] = useState<Capture[]>(() => unread([]))
   // The card whose who is being asked, from its w key.
   const [asking, setAsking] = useState<string | null>(null)
   // A fresh deal arrives whole and still, oldest first: only a card you act on
@@ -167,9 +182,18 @@ export function RotCards({ onOpen, room: space = null }: {
     count()
   }
   const drop = (id: string): void => setCards((all) => all.filter((one) => one.id !== id))
+  // Dealt afresh as the window goes away, so the next time it is brought up
+  // its cards are there from the first frame: dealt as it came up, the last
+  // deal showed for a moment and then turned into the new one.
+  // Brought up with none dealt (none were old enough last time), it looks again then.
+  const empty = useRef(true)
+  empty.current = !cards.length
   useEffect(() => {
     reload()
-    return window.api.onShown(reload)
+    const onHide = (): void => void (document.visibilityState === 'hidden' && reload())
+    document.addEventListener('visibilitychange', onHide)
+    const offShown = window.api.onShown(() => (empty.current ? reload() : count()))
+    return () => (document.removeEventListener('visibilitychange', onHide), offShown())
   }, [])
 
   // The card whose tags are being changed, from its t key.
@@ -234,7 +258,13 @@ export function RotCards({ onOpen, room: space = null }: {
   })
   const folded = fit === 0
   const dealt = folded ? cards : cards.slice(0, fit)
-  useEffect(() => said(dealt.length, cards.length ? dealt.length : null))
+  const seenHere = useSeen()
+  const seenNow = useRef(seenHere)
+  seenNow.current = seenHere
+  useReading(unloaded(cards) || left === null || !settings)
+  // Said before the frame is painted, so the header's chip never shows one count and then another.
+  // Only once the room is known: dealt with no limit first, it said 2 and then, measured, 1.
+  useLayoutEffect(() => void (space !== null && said(dealt.length, cards.length ? dealt.length : null)))
   useEffect(() => () => said(null, room.fit), [])
 
   if (!cards.length)
@@ -277,7 +307,8 @@ export function RotCards({ onOpen, room: space = null }: {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           // Dealt with by a key, it simply goes; by a click it leaves sideways.
-          variants={{ gone: () => (byKeys() ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, transform: shift('translateX(24px)'), transition: { duration: 0.16, ease: EASE } }) }}
+          // Gone for room while the panel is still unseen (lib/reads-in.tsx), it simply goes: easing out, it was still leaving once the panel showed.
+          variants={{ gone: () => (byKeys() || !seenNow.current ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, transform: shift('translateX(24px)'), transition: { duration: 0.16, ease: EASE } }) }}
           exit="gone"
           tabIndex={0}
           data-tone="knock"

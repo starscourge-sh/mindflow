@@ -138,6 +138,8 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
   const minute = useMinute().getTime()
   // A working day's length, for whether each day fits.
   const room = useWorkRoom()
+  // The week is drawn once every read it is made of is in: drawn before, a day's review count, its marks and sessions come a beat late.
+  const reading = unloaded(real) || unloaded(load) || unloaded(marked) || unloaded(mac) || unloaded(sessions)
   const live = tasks.filter((task) => task.status === 'open')
   const lateOf = (card: Card): boolean => new Date((card.kind === 'scheduled' ? card.task.dueAt : card.task.deadline)!).getTime() < dayStart(0)
   // The day a new task is being written for, in the side panel, from its + on hover.
@@ -294,7 +296,7 @@ export function WeekView({ focus, onOpen }: { focus?: string; onOpen?: (type: st
   )
   return (
     <>
-      <Page wide fit title="week" lead={several.bar ? undefined : <>
+      <Page wide fit waiting={reading} title="week" lead={several.bar ? undefined : <>
           {/* The dates, which take you back to this week from any other. */}
           <Tip label="Back to this week">
             <button type="button" onClick={() => (chime('tap'), setFrom(0))} className="-ml-1 rounded px-1 text-body font-semibold text-foreground hover:bg-accent">

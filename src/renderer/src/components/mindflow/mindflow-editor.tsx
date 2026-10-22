@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react"
 import { createPortal } from "react-dom"
 import type { JSONContent } from "@tiptap/core"
 import { Fragment, Slice } from "@tiptap/pm/model"
@@ -250,6 +250,8 @@ import "@/components/mindflow/mindflow-editor.scss"
 import { GripVertical } from '@/components/ui/icons'
 
 /** The page's document editors, any of which can read Markdown for `readMarkdown`. */
+/** Editors whose Markdown is already laid in: a view mounted again keeps what was typed since. */
+const laidIn = new WeakSet<object>()
 const readers = new Set<Editor>()
 
 /**
@@ -682,10 +684,11 @@ function Surface({
   const [sourceOpen, setSourceOpen] = useState(showSource)
   const emptyAtStart = typeof defaultContent === "string" ? !defaultContent.trim() : !JSON.stringify(defaultContent ?? null).includes('"text":"')
   // Through a ref: extensions are built once, and the handler can change.
-  // A place after the document for `after`, appended once the content box exists.
+  // A place after the document for `after`, appended once the content box exists:
+  // before the frame is painted, so what sits under the words comes with them, not a frame after.
   const [contentBox, setContentBox] = useState<HTMLDivElement | null>(null)
   const [afterBox, setAfterBox] = useState<HTMLDivElement | null>(null)
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!contentBox || !after) return
     const box = document.createElement("div")
     contentBox.appendChild(box)
@@ -819,7 +822,8 @@ function Surface({
   }
 
   const editor = useEditor({
-    immediatelyRender: false,
+    // Drawn with its words in the first frame: created after it, a note opened (a page, a window, a tag's stream) showed empty for a frame, then its words, and pushed what was under it down.
+    immediatelyRender: true,
     editable: !readOnly,
     autofocus,
     editorProps: {
@@ -1331,9 +1335,11 @@ function Surface({
     // is. A page's is read once the editor exists, in pieces (see onCreate).
     content: typeof defaultContent === "string" && shape !== "line" ? "" : defaultContent,
     contentType: typeof defaultContent === "string" && shape === "line" ? "markdown" : "json",
-    onCreate: ({ editor: instance }) => {
-      // Let go of when it goes, or every editor ever opened stays in memory.
-      if (shape === "document") (readers.add(instance), instance.on("destroy", () => readers.delete(instance)))
+    // Its Markdown laid in the moment it has a view, before the frame is painted: laid in on create (a
+    // tick later), an imported note showed empty for a frame, then its words, and pushed what was under it down.
+    onMount: ({ editor: instance }) => {
+      if (laidIn.has(instance)) return
+      laidIn.add(instance)
       if (typeof defaultContent === "string" && shape !== "line" && defaultContent.trim()) {
         // Not an edit: nothing to undo back to, and nothing to save.
         try {
@@ -1343,6 +1349,10 @@ function Surface({
           instance.commands.setContent(defaultContent, { contentType: "markdown", emitUpdate: false })
         }
       }
+    },
+    onCreate: ({ editor: instance }) => {
+      // Let go of when it goes, or every editor ever opened stays in memory.
+      if (shape === "document") (readers.add(instance), instance.on("destroy", () => readers.delete(instance)))
       onReady?.(instance)
       // Opened by a link to one of its headings: go there once laid out.
       const heading = shape === "document" ? takePendingHeading() : null

@@ -52,7 +52,8 @@ import { TooltipProvider } from './components/ui/tooltip'
 import { SidePeek } from './components/vigil/page-peeks'
 import { MenuPeek } from './components/vigil/menu-peeks'
 import { useStickiesOut } from './lib/stickies-out'
-import { call, useAppearance, useLive, vigil, type Item, type Pin, type Settings, type Task } from './lib/vigil'
+import { useReadsIn } from './lib/reads-in'
+import { call, unloaded, useAppearance, useLive, vigil, type Item, type Pin, type Settings, type Task } from './lib/vigil'
 import { Button } from '@/components/ui/button'
 import { allRecorded, recordAll } from './lib/recordings'
 import { Tip, showTopTitle, useTopTitle, Pressed, useEscapeLeavesEditor } from '@/components/vigil/ui'
@@ -584,7 +585,8 @@ export function Home(): React.JSX.Element {
   // The Tags heading is marked on the Tags page, and on a tag's page whose own row is folded away or not among these.
   const onTags = view.id === 'tags' && (!view.focus || !tagsOpen || !sideTags.some(({ tag }) => tag === view.focus))
   const captures = useCaptures()
-  const due = useLive(vigil.dueCount, 0, [], ['item'])
+  const dueRead = useLive(vigil.dueCount, null as number | null, [], ['item'])
+  const due = dueRead ?? 0
   const tasks = useLive(vigil.tasks, [] as Task[])
   // What ⌘K offers for the Calendar, read once as it opens: the task picked on it, the day it shows.
   const palette = useMemo(() => (searching ? calendarPalette((day) => setView({ id: 'calendar', focus: day })) : null), [searching]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -727,6 +729,10 @@ export function Home(): React.JSX.Element {
     goals: goals.filter((one) => one.goalAt && !one.archivedAt && !one.closedAt).length,
     queue: queued.queue.length
   }
+  // The counts come in together, once every one is read: never one number, then the next, down the sidebar.
+  const countsIn = dueRead !== null && ![tasks, nuggets, articles, questions, goals, queued].some(unloaded)
+  // The sidebar is drawn whole, once its rows' reads are in too: before, Pinned and the tags came in a beat late and pushed the places down.
+  const { style: sideStyle } = useReadsIn(!settings || !countsIn || unloaded(pinsUsual) || unloaded(tags))
 
   // Tidy stickies is offered only with a sticky out to tidy.
   const stickiesOut = useStickiesOut()
@@ -1283,7 +1289,7 @@ export function Home(): React.JSX.Element {
       {/* Customize opens beside the whole sidebar, just under the window's top bar, so it never hides the bar nor runs off the window. */}
       <Popover open={customizing} onOpenChange={setCustomizing}>
       <PopoverAnchor asChild>
-      <aside data-chrome data-book-tint className={`group/side flex shrink-0 flex-col overflow-hidden rounded-xl border bg-accent/20 ${narrow ? 'w-12' : 'w-56'}`}>
+      <aside data-chrome data-book-tint style={sideStyle} className={`group/side flex shrink-0 flex-col overflow-hidden rounded-xl border bg-accent/20 ${narrow ? 'w-12' : 'w-56'}`}>
         {/* Room for the traffic lights, and somewhere to hold the window by.
             It stays put: only the list under the search scrolls, so nothing
             ever slides under the window's buttons. */}
@@ -1364,7 +1370,7 @@ export function Home(): React.JSX.Element {
                     shout at once; the one you are on, or reaching for, is in full. */}
                 <PlaceIcon place={section} full={view.id === section.id} />
                 {!narrow && <Weighted on={view.id === section.id} className="flex-1 text-left">{section.label}</Weighted>}
-                {!narrow && counts[section.id] ? (
+                {!narrow && countsIn && counts[section.id] ? (
                   // Each count says what it counts, pointed at: the orange one is what is due today.
                   <Tip label={countSaid(section.id, counts[section.id])}>
                     <span data-side-count={section.id}>

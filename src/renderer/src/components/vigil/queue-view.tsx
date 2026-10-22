@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useReading } from '@/lib/reads-in'
 import { X as Clear } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { BookOpen, GripVertical, ListEnd, ListStart, RotateCcw } from 'lucide-react'
@@ -384,6 +385,7 @@ export function QueueView(): React.JSX.Element {
 export function QueuePanel({ onView, className = '' }: { onView: (id: string) => void; className?: string }): React.JSX.Element | null {
   const all = useQueue()
   const { queue } = all
+  useReading(unloaded(all))
   // One light over the rows, gliding to the nearest, as Home's other lists do.
   const rows = useRef<HTMLOListElement>(null)
   const hover = useFluidHover(rows, { items: '[data-queue-next]' })

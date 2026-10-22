@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
+import { useReading } from '@/lib/reads-in'
 import { Check, Plus, X } from 'lucide-react'
 
-import { useLive, vigil, type Settings } from '@/lib/vigil'
+import { unloaded, useLive, vigil, type Settings } from '@/lib/vigil'
 import { chime } from '@/lib/sound'
 import { dayjs, num, plural } from '../../../../main/dates'
 import { Kbd, Tip, toast } from './ui'
@@ -187,6 +188,7 @@ export function HabitGrid({ example }: { example: boolean }): React.JSX.Element 
   const rows = example
     ? names.flatMap((habit, h) => Array.from({ length: 90 }, (_, at) => ((at * (h + 3)) % 7 < 5 ? [{ habit, day: dayjs().subtract(at + 1, 'day').format('YYYY-MM-DD') }] : [])).flat())
     : real
+  useReading(!example && unloaded(real))
   if (!names.length) return null
   const today = dayjs().format('YYYY-MM-DD')
   // Monday-led weeks, the last one this week.

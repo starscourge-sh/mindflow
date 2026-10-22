@@ -1,4 +1,5 @@
 import { chime, step } from '@/lib/sound'
+import { ReadsIn } from '@/lib/reads-in'
 import { useMemo, useState } from 'react'
 import { Count, toast, VirtualList, quietly } from './ui'
 import { RowMenu, copy } from './row-menu'
@@ -112,7 +113,8 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
   }
 
   return (
-    <>
+    // The list of tags and the tag open beside it come in together, once both are read (lib/reads-in.tsx).
+    <ReadsIn className="contents">
       {/* With a tag open, the list narrows to a column and the tag takes the rest. */}
       {/* Narrow, the tag being read takes the whole page; the list is a step back. */}
       <div className={chosen ? 'hidden w-72 shrink-0 border-r @[56rem]/page:flex' : 'contents'}>
@@ -318,6 +320,6 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
           </>)}
         </Page>
       )}
-    </>
+    </ReadsIn>
   )
 }

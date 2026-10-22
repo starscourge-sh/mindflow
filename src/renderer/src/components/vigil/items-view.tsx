@@ -1,4 +1,5 @@
 import { openExpanded } from '../note-link/expanded-note'
+import { ReadsIn } from '@/lib/reads-in'
 import { GroupPage, type GroupParts } from './group-page'
 import { quoted } from '../../../../main/clip'
 import { voiceOf } from '@/lib/sources'
@@ -444,11 +445,14 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
     : groups.map(([name, list]) => [name, list.map((one) => itemEntry(one, menuFor(one)))] as [string, Entry[]])
   if (paged) return <GroupPage group={paged} parts={folding.partsOf(paged.id, noteGroups)} onClose={() => setPageGroup(null)} onOpen={(id) => (setPageGroup(null), pick(id))} />
   return (
-    <>
+    // The list and the note open beside it come in together, once both are read (lib/reads-in.tsx): never the note, then the list.
+    <ReadsIn className="contents">
       {open && pane === 'rail' ? (
         <NoteRail entries={entries.flatMap(([, list]) => list)} cursor={cursor} selected={open.id} onPick={pick} onShow={() => setPane('list')} />
       ) : (
       <Page aside={!!open}
+        // The count, Display's sort and the list come with the notes and your groups, together.
+        waiting={unloaded(all) || unloaded(noteGroups)}
         title={tier === 'nugget' ? 'Gems' : 'Writing'}
         // Every note on show, a folded group's too.
         count={chosen.length || groups.reduce((sum, [, list]) => sum + list.length, 0)}
@@ -596,7 +600,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
         />
       )}
       {open && <Apart type={open.tier} id={open.id} title={open.title} hidden={!!open.private} onBack={() => vigil.item(open.id).then((fresh) => fresh && setOpen(fresh))}><ItemDetail top={<Stepper turns at={items.findIndex((one) => one.id === open.id)} total={items.length} onStep={(to) => ((stepped.current = true), pick(items[to].id))} />} key={open.id} item={open} onOpen={(type, id) => (type === tier ? pick(id) : onOpen?.(type, id))} /></Apart>}
-    </>
+    </ReadsIn>
   )
 }
 
@@ -730,7 +734,8 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
           findNotes={findCaptures}
           findHeadings={findHeadings}
           onOpenNote={(link, heading) => onOpen && follow(link, onOpen, heading)}
-          after={<>
+          after={<ReadsIn reading={!later}>
+            {/* What sits under the words (its source, what links here) comes in whole, once its reads are in: a part arriving a beat late moved the foot from the page's bottom up under the words. */}
             {/* A quote signed at its foot: who said it, in a pen's hand. */}
             {item.kind === 'quote' && item.attribution && (
               <div data-chrome className="page-narrow mx-auto mt-1 w-full px-[4.5rem] text-control text-muted-foreground">
@@ -754,7 +759,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
               }} />
             )}
             {later && <Mentions id={item.id} onOpen={onOpen} />}
-          </>}
+          </ReadsIn>}
           onReady={(instance) => {
             seen.current = { body: JSON.stringify(instance.getJSON()), line: firstLineOf(instance.state.doc)?.text ?? '' }
             words.ready(instance)
@@ -775,7 +780,8 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
         />
         )}
         {/* A thought on it, pinned under the page, its earlier ones a click away. */}
-        {later && <ThoughtDock id={item.id} />}
+        {/* From the first frame: its height is the same whatever it holds, and coming a frame late it pushed the page up. */}
+        <ThoughtDock id={item.id} />
       </div>
 
       <Props fold>

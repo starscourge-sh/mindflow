@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { flushSync } from 'react-dom'
 import { ChevronDown } from 'lucide-react'
 import { chime } from '@/lib/sound'
 import { Rolling } from './ui'
@@ -33,7 +34,9 @@ export function NowSlot({ children }: { children: ReactNode }): React.JSX.Elemen
       setMore(Math.max(0, saying.length - 1))
     }
     sort()
-    const watch = new MutationObserver(sort)
+    // A card that comes in (its read answered) is counted before the frame is painted: counted a frame
+    // later, "2 more" was drawn and then turned into "4 more".
+    const watch = new MutationObserver(() => flushSync(sort))
     watch.observe(el, { childList: true, subtree: true })
     return () => watch.disconnect()
   }, [open])

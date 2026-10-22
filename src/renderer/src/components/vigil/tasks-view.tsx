@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { ReadsIn, useReading } from '@/lib/reads-in'
 import { Highlight, useFluidHover } from './glide'
 import * as chrono from 'chrono-node'
 import type { JSONContent } from '@tiptap/core'
@@ -628,7 +629,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   // What a fresh start holds: its own list at the foot of Later, each one back the moment it is opened.
   const held = useLive(() => (mode === 'later' ? call<Task[]>('tasks:held') : Promise.resolve([] as Task[])), [] as Task[], [mode])
   // Nothing of this list's yet: a few made-up tasks show what it holds, dimmed and out of reach.
-  const example = !unloaded(real) && !real.some((task) => task.status === 'open' && (mode === 'routines' ? !!task.recurrence : mode === 'later' ? !!bucket(task) : mode === 'upcoming' ? !task.recurrence : true)) && !held.length
+  const example = !unloaded(real) && !unloaded(held) && !real.some((task) => task.status === 'open' && (mode === 'routines' ? !!task.recurrence : mode === 'later' ? !!bucket(task) : mode === 'upcoming' ? !task.recurrence : true)) && !held.length
   const examples = useMemo(exampleTasks, [])
   const tasks = example ? examples : real
   // Opened from elsewhere with its words already read: on them from the first frame.
@@ -743,7 +744,11 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   const addRef = useRef<HTMLInputElement>(null)
 
   // How far through the day: what was done today (routines too) against that and what is left.
-  const dayDone = useLive(() => (mode === 'today' ? notes.day(dayKey()) : Promise.resolve(null)), null as Day | null, [mode])?.done.length ?? 0
+  // Not read yet (undefined) is not none done (null): "2 of 7 done" waits with the list rather than pushing it down a beat later.
+  const dayRead = useLive<Day | null | undefined>(() => (mode === 'today' ? notes.day(dayKey()) : Promise.resolve(null)), undefined, [mode])
+  const dayDone = dayRead?.done.length ?? 0
+  // Every read the list is drawn from: the tasks, those on hold, the settings (the frog, "One big thing") and the day's done.
+  const reading = unloaded(real) || unloaded(held) || !settings || dayRead === undefined
   const leftToday = mode === 'today' ? real.filter(onToday).length : 0
   // Cleared just now, in front of you: the rest rises in rather than being there.
   const [cleared, setCleared] = useState(false)
@@ -845,8 +850,10 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   // The Matrix's own page, kept to the tasks the list would show: the same set, late ones too.
   if (matrixed) return <MatrixView focus={focus} onOpen={onOpen} today={{ ids: base.map((task) => task.id), done: dayDone, actions, onAll: () => onOpen?.('view', 'matrix') }} />
   return (
-    <>
-      <Page aside={!!open}
+    // The list and the task open beside it come in together, once both are read (lib/reads-in.tsx).
+    <ReadsIn className="contents">
+      {/* Sent here for one task: the page waits for it too, so it opens on the task beside the list, not on the list alone first. */}
+      <Page aside={!!open} waiting={(reading && !example) || (!!focus && !matrixed && open?.id !== focus)}
  title={mode} count={example ? undefined : several.chosen.length || shown.length} unit={several.chosen.length ? ['selected', 'selected'] : ['open', 'open']} actions={several.bar ?? actions}>
         {/* Today, Tomorrow and Later side by side, at the top of each: one click between the three lists. */}
         {(mode === 'today' || mode === 'tomorrow' || mode === 'later') && (
@@ -856,7 +863,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
         )}
 
         {/* Nothing on today yet, in either layout: the page to write it on. */}
-        {written || (mode === 'today' && !example && !unloaded(tasks) && !shown.length && dayDone === 0) ? (
+        {written || (mode === 'today' && !example && !reading && !shown.length && dayDone === 0) ? (
           <div className="mx-3 mt-5 mb-10 @[44rem]/page:mx-6"><DayList onWrite={writeIt} onOpenTask={pick} openId={open?.id} /></div>
         ) : (<>
         <form
@@ -901,7 +908,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
           <Kbd>↵</Kbd>
         </form>
         {/* How far through the day: "2 of 5 done" and a thin bar, which reaches its end on the last one. */}
-        {mode === 'today' && !example && !unloaded(tasks) && dayDone > 0 && (
+        {mode === 'today' && !example && !reading && dayDone > 0 && (
           <div data-day-progress data-said={`${num(dayDone)} of ${dayDone + leftToday} done`} className="mx-3 mt-3 flex items-center gap-3 px-2">
             <span className="shrink-0 text-[0.9375rem] font-medium tabular-nums text-foreground"><Rolling text={`${num(dayDone)} of ${num(dayDone + leftToday)} done`} by="word" /></span>
             <ProgressBar value={dayDone / (dayDone + leftToday)} label="Today's tasks done" thick={3} className="min-w-16 flex-1" />
@@ -909,7 +916,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
         )}
         {/* The day as a budget: what today's tasks are planned to take, and the time left before the day ends. */}
         {/* Nothing left to plan once the list is done: the ending below says the rest. */}
-        {mode === 'today' && !example && !unloaded(tasks) && !(dayDone > 0 && !leftToday) && (() => {
+        {mode === 'today' && !example && !reading && !(dayDone > 0 && !leftToday) && (() => {
           const planned = plannedMinutes(base)
           const left = Math.max(0, minutesLeft(settings?.dayEnd) - meetingsLeft)
           const over = planned > left
@@ -924,7 +931,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
         })()}
 
         {/* Today kept short: the one big thing and a few more. Past that it says so, plainly, and lets you carry on. */}
-        {mode === 'today' && !example && !unloaded(tasks) && (() => {
+        {mode === 'today' && !example && !reading && (() => {
           const more = Math.min(6, Math.max(3, settings?.todayCap ?? 3))
           const over = base.length - (more + 1)
           if (over <= 0) return null
@@ -1043,7 +1050,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
           </VirtualList>
           </div>
           </Example>
-        ) : unloaded(tasks) ? null : mode === 'today' && dayDone > 0 ? (
+        ) : reading ? null : mode === 'today' && dayDone > 0 ? (
           // Everything for today done: not an empty list but the end of the day's list, said as one.
           <Rest seed="today">
             <motion.div data-day-cleared initial={cleared ? { opacity: 0, transform: shift('translateY(8px)') } : false} animate={{ opacity: 1, transform: shift('translateY(0px)') }} transition={{ duration: 0.3, ease: EASE, delay: 0.12 }}>
@@ -1075,7 +1082,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
         </>)}
       </Page>
       {open && <TaskDetail top={<Stepper at={shown.findIndex((one) => one.id === open.id)} total={shown.length} onStep={(to) => pick(shown[to].id)} />} key={open.id} task={open} onClose={() => setOpen(null)} onOpen={onOpen} />}
-    </>
+    </ReadsIn>
   )
 }
 
@@ -1308,7 +1315,9 @@ function StartFocus({ taskId, title }: { taskId: string; title: string }): React
   // Opening the form winds up; each length has a note of its own, so the
   // choice is heard as well as seen.
   // The last session kept was on this task: go again, same goal and length, in one click.
-  const last = useLive(vigil.lastSession, null as Awaited<ReturnType<typeof vigil.lastSession>>)
+  // Not read yet (undefined) is not none (null): "Go again" comes with the rest of the pane.
+  const last = useLive<Awaited<ReturnType<typeof vigil.lastSession>> | undefined>(vigil.lastSession, undefined)
+  useReading(last === undefined)
   const again = last?.taskId === taskId ? last : null
   const settings = useLive(vigil.settings, null as Settings | null)
   if (!open) return (
@@ -1381,6 +1390,8 @@ function StartFocus({ taskId, title }: { taskId: string; title: string }): React
  */
 function Sessions({ taskId, title }: { taskId: string; title: string }): React.JSX.Element {
   const sessions = useLive(() => vigil.sessions(taskId), [] as Session[], [taskId])
+  // The task's pane waits for its sessions: drawn before, the list came in and pushed its dates down.
+  useReading(unloaded(sessions))
   const running = sessions.find((session) => !session.endedAt)
   // Abandoned ones stay in the Log below, but are not counted here.
   const kept = sessions.filter((session) => !session.abandonedAt).length

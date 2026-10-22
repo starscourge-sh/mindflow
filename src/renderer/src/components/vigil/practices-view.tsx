@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
+import { useReading } from '@/lib/reads-in'
 import { Play, Plus } from 'lucide-react'
 
 import { chime } from '@/lib/sound'
 import { useSelectAll } from '@/lib/select-all'
 import { shredFrom } from '@/lib/fly-home'
-import { useLive, vigil, type Focus } from '@/lib/vigil'
+import { unloaded, useLive, vigil, type Focus } from '@/lib/vigil'
 import { openSource, sources, type SourceField, type SourceSummary } from '@/lib/sources'
 import { DAYS, honestSaid, loadSaid, practices, startPractice, suggestSaid, timeSaid, usePractices, whenSaid, type LoadKind, type Loaded, type Practice, type PracticeRow } from '@/lib/practices'
 import { START_MIN } from '../../../../main/practice-rules'
@@ -336,7 +337,9 @@ function Desk({ practice, running, runningId, onOpen }: { practice: PracticeRow;
 
 /** Stats: the honest record of each practice, "planned 30, averaging 22", once there are a few weeks of it. */
 export function PracticeStats(): React.JSX.Element | null {
-  const all = usePractices().filter((one) => one.honest)
+  const read = usePractices()
+  const all = read.filter((one) => one.honest)
+  useReading(unloaded(read))
   if (!all.length) return null
   return (
     <Island title="Practices" className="mt-8">

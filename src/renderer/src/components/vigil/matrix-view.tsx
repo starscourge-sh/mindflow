@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { moveToBin } from '@/lib/to-bin'
 import { motion } from 'motion/react'
 import { byKeys } from '@/lib/motion'
@@ -401,12 +401,15 @@ function BoxList({ className, undrawn = 0, children }: { className: string; /** 
   const hover = useFluidHover(box, { items: '[data-row]' })
   // How many cards sit below the box's edge: said under it, so a full box reads as one that scrolls.
   const [below, setBelow] = useState(0)
-  useEffect(() => {
+  // Counted before the first paint, from where each card is laid out rather
+  // than where it is drawn: a card still easing in sits lower for a moment,
+  // and the count read then said one more and changed a beat later.
+  useLayoutEffect(() => {
     const list = box.current
     if (!list) return
     const count = (): void => {
-      const edge = list.getBoundingClientRect().bottom
-      setBelow([...list.children].filter((one) => !one.matches('[data-show-more]') && one.getBoundingClientRect().top + 12 > edge).length)
+      const edge = list.scrollTop + list.offsetHeight - list.clientTop
+      setBelow([...list.children].filter((one) => !one.matches('[data-show-more]') && (one as HTMLElement).offsetTop + 12 > edge).length)
     }
     count()
     const watch = new ResizeObserver(count)

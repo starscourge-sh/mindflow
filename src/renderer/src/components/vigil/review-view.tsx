@@ -51,6 +51,9 @@ const GRADES = [
  * when the session starts and capped by the day's limits, so it can always be
  * finished, and an item stays in front of you until you grade it.
  */
+/** How many captures wait in the Inbox: the ending's "Next" line. */
+const inboxOpen = (): Promise<number> => window.api.captures.list().then((all) => all.filter((one) => one.status === 'open' && !one.archivedAt).length)
+
 export function ReviewView({ compact = false }: { compact?: boolean }): React.JSX.Element {
   const [queue, setQueue] = useState<Due[] | null>(null)
   const [reviewed, setReviewed] = useState<Set<string>>(new Set())
@@ -94,6 +97,13 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
   const card = queue?.[at]
   // Exams ahead, nearest first, each with how ready it is.
   const exams = useLive(vigil.exams, [] as Exam[])
+  // What the line over the card, the shelf under it and the ending are drawn from, read here too (each read is
+  // kept, so they start on it): drawn before, "2 days in a row" came a beat late and pushed the card down.
+  const counts = useLive(vigil.buckets, null as Record<Round, number> | null, [], ['item'])
+  const days = useLive(vigil.daysInARow, null as { run: number; banked: number } | null, [], ['item'])
+  const slipping_ = useLive(vigil.slipping, [] as Item[], [], ['item'])
+  const inboxLeft = useLive(inboxOpen, null as number | null, [], undefined, 'review-inbox')
+  const reading = unloaded(ideas) || unloaded(exams) || !counts || !days || unloaded(slipping_) || inboxLeft === null
   // The card you just missed, its source open to reread.
   const [source, setSource] = useState<Source | null>(null)
   // The source of the card just missed, there for R until the next grade.
@@ -314,7 +324,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
     return () => window.removeEventListener('keydown', onKey, true)
   })
 
-  if (!queue) return <Page title="Review"><div /></Page>
+  if (!queue || reading) return <Page title="Review" waiting><div /></Page>
   if (source)
     return (
       <Page title="Review">
@@ -714,7 +724,7 @@ const MILESTONES: Record<number, string> = {
 function Finished({ count, total, later = 0, compact, onPick, onLearn, ids = [] }: { count: number; total: number; /** Cards put off with Not today in this sitting. */ later?: number; compact: boolean; onPick: (bucket: Round) => void; onLearn: () => void; /** The cards graded in this sitting, for its score. */ ids?: string[] }): React.JSX.Element {
   const counts = useLive(vigil.buckets, null as Record<Round, number> | null, [], ['item'])
   const days = useLive(vigil.daysInARow, null as { run: number; banked: number } | null, [], ['item'])
-  const inbox = useLive(() => window.api.captures.list().then((all) => all.filter((one) => one.status === 'open' && !one.archivedAt).length), null as number | null, [])
+  const inbox = useLive(inboxOpen, null as number | null, [], undefined, 'review-inbox')
   const exams = useLive(vigil.exams, [] as Exam[])
   const [practising, setPractising] = useState(false)
   const done = count > 0

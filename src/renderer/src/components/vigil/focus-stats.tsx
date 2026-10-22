@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
+import { useReading } from '@/lib/reads-in'
 
-import { call, useLive, vigil, when, whenInLine } from '@/lib/vigil'
+import { call, unloaded, useLive, vigil, when, whenInLine } from '@/lib/vigil'
 import { chime } from '@/lib/sound'
 import { cn } from '@/lib/cn'
 import { focusStats, streaks, type FocusRow, type FocusStats, type Outcome, type TaskFocus } from '../../../../main/focus-numbers'
@@ -171,6 +172,8 @@ export function FocusSections({ example }: { example: boolean }): React.JSX.Elem
   const tasks = useLive(vigil.tasks, [] as Task[])
   const taskNow = useTaskNow()
   const focus = example ? exampleFocus() : real
+  // Stats is drawn once every section's read is in (lib/reads-in.tsx), never a section popping in between two others.
+  useReading(!focus || unloaded(tasks))
   if (!focus) return null
   const openTask = (id: string): void => (chime('open'), window.api.openInHome('task', id))
   const ran = focus.outcomes.finished + focus.outcomes.early + focus.outcomes.abandoned
@@ -362,6 +365,7 @@ export function HabitSections({ example }: { example: boolean }): React.JSX.Elem
   const days = useLive(vigil.daysInARow, null as { run: number; banked: number } | null, [], ['item'])
   const habits: Habits | null = example ? { ...EXAMPLE_HABITS, routines: 3, doneWeek: 12, best: { title: 'Read twenty pages before bed', run: 9 }, read30: 6, readAll: 23 } : real
   const reviewRun = example ? 14 : days?.run ?? 0
+  useReading(!habits || (!example && !days))
   if (!habits || (!habits.routines && !habits.readAll && reviewRun < 2)) return null
   return (
     <Section title="Kept up" big={habits.routines ? { value: habits.doneWeek, label: `${habits.doneWeek === 1 ? 'routine' : 'routines'} done in the last 7 days` } : undefined}>
@@ -393,6 +397,7 @@ function useHabits(example: boolean): Habits | null {
 /** How goals have ended: made it, missed, let go, with those still under way. */
 export function GoalSection({ example }: { example: boolean }): React.JSX.Element | null {
   const habits = useHabits(example)
+  useReading(!habits)
   if (!habits) return null
   const { made, missed, letGo, open } = habits.goals
   const ended = made + missed + letGo

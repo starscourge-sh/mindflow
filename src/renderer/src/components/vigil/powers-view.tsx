@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useReading } from '@/lib/reads-in'
 import { useInView } from 'motion/react'
 import { useStill } from '@/lib/motion'
 import { CalendarRange, Check, X } from 'lucide-react'
@@ -239,6 +240,7 @@ function Pages({ onView }: { onView: (id: string) => void }): React.JSX.Element 
  */
 export function PowersLine({ onView }: { onView: (id: string) => void }): React.JSX.Element | null {
   const state = useOnboarding()
+  useReading(!state)
   const [gone, setGone] = useState(() => {
     try {
       return !!localStorage.getItem(SEEN_KEY)

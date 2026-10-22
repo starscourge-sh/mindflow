@@ -6,7 +6,7 @@ import { chime } from '@/lib/sound'
 
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
 import { EXITS, exit, noteLinkText, statusSaid } from '@/lib/capture-links'
-import { splitTags, unread, vigil } from '@/lib/vigil'
+import { splitTags, together, unread, vigil } from '@/lib/vigil'
 import { makeTask, snoozeItems } from '@/lib/tasks'
 import { Tip, ask, pin, toast, quietly } from './vigil/ui'
 import { copy, type RowItem } from './vigil/row-menu'
@@ -51,7 +51,7 @@ export function useCaptures(archived = false): CaptureMeta[] {
     // old one, so the lists holding it do not redraw on every pause.
     let last: string | undefined = lastList[which]?.json
     let held: CaptureMeta[] | undefined
-    const reload = (): void => void window.api.captures.list().then((all) => {
+    const take = (all: CaptureMeta[]): void => {
       // The very list held already: the main process said nothing changed.
       if (all === held) return
       held = all
@@ -61,10 +61,11 @@ export function useCaptures(archived = false): CaptureMeta[] {
       const list = archived ? [...all] : all.filter((one) => !one.archivedAt)
       lastList[which] = { json: now, list }
       setCaptures(list)
-    })
-    reload()
+    }
+    void window.api.captures.list().then(take)
     // Captures only: a nugget or an article saved leaves this list as it is.
-    return window.api.captures.onChange(reload, ['capture'])
+    // Read again with every other read the same change starts, and shown with them (`together`).
+    return window.api.captures.onChange(() => together(window.api.captures.list(), take), ['capture'])
   }, [archived])
   return captures
 }

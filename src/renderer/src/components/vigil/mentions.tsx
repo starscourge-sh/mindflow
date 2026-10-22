@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useReading } from '@/lib/reads-in'
 import { enqueue } from '@/lib/reading-queue'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import LinkIcon from '@/components/ui/link-icon'
@@ -12,7 +13,7 @@ import { openApart } from '@/lib/apart'
 import { asideItem, canSplit, openAside } from '@/lib/split'
 import { noteLinkText } from '@/lib/capture-links'
 import { RowMenu, copy, type RowItem } from './row-menu'
-import { vigil } from '@/lib/vigil'
+import { unloaded, unread, vigil } from '@/lib/vigil'
 import { Thumb } from './note-extras'
 import { Count, Tags, Tip, quietly, refuse } from './ui'
 import { taskName } from '@/lib/tasks'
@@ -39,7 +40,7 @@ export function Mentions({ id, onOpen, compact = false }: {
   const [found, setFound] = useState<Found | null>(null)
   const [unfolded, setUnfolded] = useState(false)
   const [namedOpen, setNamedOpen] = useState(false)
-  const [related, setRelated] = useState<Related>([])
+  const [related, setRelated] = useState<Related>(() => unread([]))
   const [shown, setShown] = useState(() => {
     try {
       return localStorage.getItem('mf-box-mentions') === 'open'
@@ -75,6 +76,8 @@ export function Mentions({ id, onOpen, compact = false }: {
       stop()
     }
   }, [id])
+  // Whatever it sits in waits for both (lib/reads-in.tsx): the links, then the related a beat later, moved what was under them.
+  useReading(!found || unloaded(related))
   if (!found || !(found.linked.length || found.unlinked.length || found.out.length || found.named.length || related.length)) return null
 
   // `link` makes the plain mention a link: in the other note, or in this one.

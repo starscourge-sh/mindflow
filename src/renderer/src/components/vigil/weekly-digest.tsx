@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useReading } from '@/lib/reads-in'
 import { X } from 'lucide-react'
 import { chime } from '@/lib/sound'
 import { useLive, vigil, type Settings } from '@/lib/vigil'
@@ -29,6 +30,7 @@ export function WeeklyDigest({ onView, force = false }: { onView: (id: string) =
   const settings = useLive(vigil.settings, null as Settings | null)
   const week = useLive(() => window.api.vigil<Week>('digest:week'), null as Week | null)
   const last = useLive(() => window.api.vigil<Week>('digest:last'), null as Week | null)
+  useReading(!settings || !week || !last)
   // Closed this week: the offer to close it goes.
   const [, heard] = useState(0)
   useEffect(() => {

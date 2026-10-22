@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { useReading } from '@/lib/reads-in'
 import { byKeys } from '@/lib/motion'
 
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
@@ -62,11 +63,18 @@ export function DayBrief({ day, onOpen, onListed }: {
   const taskNow = useTaskNow()
   // Today's weather, from the same source each capture's comes from; asked
   // again every half hour, and simply left out when off or offline.
-  const [sky, setSky] = useState<string | null>(null)
+  // Not asked yet (undefined) is not none (null): the line it ends is centred, so it waits for it.
+  const [sky, setSky] = useState<string | null | undefined>(undefined)
+  // Waited for only a moment: asked of the internet, it can be slow, and the page is not held for it.
+  const [skyWaited, setSkyWaited] = useState(false)
+  useEffect(() => {
+    const enough = setTimeout(() => setSkyWaited(true), 250)
+    return () => clearTimeout(enough)
+  }, [])
   const half = Math.floor(now.getTime() / 1_800_000)
   useEffect(() => {
     let current = true
-    void vigil.weatherNow().then((said) => current && setSky(said), () => undefined)
+    void vigil.weatherNow().then((said) => current && setSky(said), () => current && setSky(null))
     return () => void (current = false)
   }, [half])
   const scene = useDayScene(day)
@@ -75,10 +83,12 @@ export function DayBrief({ day, onOpen, onListed }: {
   const settings = useLive(vigil.settings, null as Settings | null)
   const tasks = useLive(vigil.tasks, [] as Task[])
   const waiting = useLive(vigil.passWaiting, { tidy: 0, decide: 0 })
-  const reviews = useLive(vigil.dueCount, 0)
+  const due = useLive(vigil.dueCount, null as number | null)
+  const reviews = due ?? 0
   const questions = useLive(() => vigil.items('question'), [] as Item[], [], ['item'])
   // Decisions on their look-again day, experiments past their run-until.
-  const backs = useLive(returning, [] as Returning[], [], ['capture', 'item']).filter((one) => !one.private).slice(0, 2)
+  const back = useLive(returning, [] as Returning[], [], ['capture', 'item'])
+  const backs = back.filter((one) => !one.private).slice(0, 2)
   // The same idea caught three times or more, among the last fortnight's captures.
   const repeats = useLive<Record<string, Repeat>>(async () => {
     const ids = (await vigil.recent(14)).filter((one) => one.type === 'capture' && !one.private).map((one) => one.id).slice(0, 80)
@@ -88,7 +98,8 @@ export function DayBrief({ day, onOpen, onListed }: {
   // Today written out as a page: the brief shows that page in place of its own list.
   const written = writtenLayout()
   // The next marked day, said in the line when it is close.
-  const coming = nextOf(useMilestones(dayKey(now), dayjs(now).add(14, 'day').format('YYYY-MM-DD')), dayKey(now))
+  const marks = useMilestones(dayKey(now), dayjs(now).add(14, 'day').format('YYYY-MM-DD'))
+  const coming = nextOf(marks, dayKey(now))
 
   const today = dayKey(now)
   // Your Mac's calendar for the day, read only, when Settings has it on.
@@ -97,6 +108,10 @@ export function DayBrief({ day, onOpen, onListed }: {
   // The day's focus sessions, running or done: blocks in the line by the hour, which they bring even with no calendar.
   const sessions = useSessionsSpan(dayFrom.valueOf(), dayFrom.add(1, 'day').valueOf())
   const lined = mac.events.length > 0 || sessions.length > 0
+  // The day's page is drawn once all of these are in (lib/reads-in.tsx): drawn before, the marked day's line, a question's
+  // clue and the review line came in one by one and pushed the tasks down. The weather too, as it ends the centred date
+  // line and moved it; asked of the internet, it is waited for a quarter of a second at most.
+  useReading((sky === undefined && !skyWaited) || !settings || unloaded(tasks) || unloaded(waiting) || due === null || unloaded(questions) || unloaded(back) || unloaded(repeats) || unloaded(marks) || unloaded(mac) || unloaded(sessions))
   // On Today by the one rule the sidebar and the Today sticky count by: late ones in, "Waiting on" out.
   const open = tasks.filter(onToday)
   const late = open.filter((task) => (dueDay(task) ?? '') < today)

@@ -4,7 +4,7 @@ import { BookOpen, FileText, Quote, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { chime } from '@/lib/sound'
-import { useLive, vigil } from '@/lib/vigil'
+import { unloaded, useLive, vigil } from '@/lib/vigil'
 import { VOICE_SAID, VOICE_TINT, openSource, pageRef, readFocus, sources, type SourceField, type SourceItem, type SourceSummary, type Voice } from '@/lib/sources'
 import { Avatar } from './avatar'
 import { NoteList, type Entry } from './note-list'
@@ -196,7 +196,8 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
   }, [live.length]) // eslint-disable-line react-hooks/exhaustive-deps
   const picking = usePicking(shown, live, setChosen)
   return (
-    <Page title="Sources" count={live.length || list.length} unit={live.length ? ['selected', 'selected'] : ['page', 'pages']} actions={<>
+    // Waits for both its reads: drawn before, "No sources yet" showed for a beat, and the quotes with no source came in above the list.
+    <Page title="Sources" waiting={unloaded(list) || unloaded(missing)} count={live.length || list.length} unit={live.length ? ['selected', 'selected'] : ['page', 'pages']} actions={<>
       <Button variant="ghost" size="sm" data-new-source="attribution" onClick={() => void make('attribution')}>New person</Button>
       <Button variant="ghost" size="sm" data-new-source="medium" onClick={() => void make('medium')}>New source</Button>
     </>}>

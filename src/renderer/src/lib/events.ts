@@ -1,4 +1,4 @@
-import { useLive, vigil, type Settings } from './vigil'
+import { unloaded, useLive, vigil, type Settings } from './vigil'
 import { useMacEvents, type MacEvent } from './mac-calendar'
 import { chime } from './sound'
 import { toast } from '@/components/vigil/ui'
@@ -78,6 +78,8 @@ export function useLayers(from: Date, to: Date): {
   tasks: boolean
   toggle: (id: string, on: boolean) => void
   colorOf: (calendarId: string) => string
+  /** Every read it is made of has answered: the calendars, the settings and your Mac's events. */
+  ready: boolean
 } {
   const calendars = useCalendars()
   const settings = useLive(vigil.settings, null as Settings | null)
@@ -101,7 +103,8 @@ export function useLayers(from: Date, to: Date): {
     shown,
     tasks: !hidden.has('tasks'),
     toggle,
-    colorOf: (id) => inkOf(calendars.find((one) => one.id === id)?.color)
+    colorOf: (id) => inkOf(calendars.find((one) => one.id === id)?.color),
+    ready: !unloaded(calendars) && !!settings && !unloaded(read)
   }
 }
 

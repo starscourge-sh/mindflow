@@ -1,7 +1,7 @@
 import { Children, cloneElement, createContext, isValidElement, useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { layerOpen } from '@/lib/menu-keys'
 import { tagHue } from '@/extensions/tokens'
-import { createPortal } from 'react-dom'
+import { createPortal, flushSync } from 'react-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { SlotText } from 'slot-text/react'
 import { Check, ChevronRight, CircleX, type LucideIcon } from 'lucide-react'
@@ -12,6 +12,7 @@ import { detent, slotTicker } from '@/lib/proximity'
 import { Arrow } from './marks'
 import Lenis from 'lenis'
 import { useLive, vigil } from '@/lib/vigil'
+import { useReadsIn } from '@/lib/reads-in'
 import { chime, quietFor, soundOn } from '@/lib/sound'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/cn'
@@ -133,7 +134,7 @@ function useListWidth(): [string, React.JSX.Element] {
  * than they need: then they wait behind one ⋯ button, in the same order.
  * Measured on the line itself, so it follows the pane, not the window.
  */
-function FitActions({ children }: { children: ReactNode }): React.JSX.Element {
+function FitActions({ children, room }: { children: ReactNode; /** What sets the line's width (the list narrowed beside a note): measured again, at once, when it changes. */ room?: unknown }): React.JSX.Element {
   const line = useRef<HTMLDivElement>(null)
   // The width they took the last time they were all on the line.
   const need = useRef(0)
@@ -150,11 +151,14 @@ function FitActions({ children }: { children: ReactNode }): React.JSX.Element {
         if (box.scrollWidth > box.clientWidth + 1) setFolded(true)
       } else if (box.clientWidth >= need.current) setFolded(false)
     }
-    const watch = new ResizeObserver(fit)
+    // Once now, and again as sizes change, each time before the frame is painted: measured a frame
+    // later, a narrow line drew every button and then folded them into "More".
+    fit()
+    const watch = new ResizeObserver(() => flushSync(fit))
     watch.observe(box)
     if (box.firstElementChild) watch.observe(box.firstElementChild)
     return () => watch.disconnect()
-  }, [folded])
+  }, [folded, room])
   useEffect(() => void (!folded && setOpen(false)), [folded])
   return (
     // Overflowing to the right, never the left, so the line can measure what does not fit.
@@ -180,8 +184,15 @@ function FitActions({ children }: { children: ReactNode }): React.JSX.Element {
 }
 
 /** A view's frame: title, a muted count, actions on the right, then the body. */
-export function Page({ title, lead, count, unit = ['item', 'items'], actions, children, aside = false, wide = false, fit = false, beside }: {
+export function Page({ title, lead, count, unit = ['item', 'items'], actions, children, aside = false, wide = false, fit = false, beside, waiting = false }: {
   title: ReactNode
+  /**
+   * A read the page is drawn from has not answered yet: the page waits whole,
+   * its line and its body, so nothing on it (the count, a box, a sorted list)
+   * comes a beat after the rest. Never longer than its slowest read. A part
+   * on it with reads of its own says so with `useReading`.
+   */
+  waiting?: boolean
   /** On the left of the line, before the count: what the page is showing, like a week's dates. */
   lead?: ReactNode
   /** Drawn over the scrolling body, given it: the page's contents. */
@@ -200,9 +211,11 @@ export function Page({ title, lead, count, unit = ['item', 'items'], actions, ch
 }): React.JSX.Element {
   // A list never takes more than the drag allows (60%), so a width kept from a wider window cannot squeeze the page.
   const [listWidth, grip] = useListWidth()
-  return (
+  // Drawn once, when its reads and those of every part on it are in (lib/reads-in.tsx).
+  const { provide, style } = useReadsIn(waiting)
+  return provide(
     <section data-chrome={aside || undefined} className={cn('relative flex min-w-0 flex-1 flex-col', aside && 'hidden flex-none @[56rem]/page:flex')}
-      style={aside ? { width: listWidth, maxWidth: '60%' } : undefined}>
+      style={{ ...(aside ? { width: listWidth, maxWidth: '60%' } : {}), ...style }}>
       {aside && grip}
       {/* The window's toolbar already names the section, so this line only
           carries the count and the actions, and goes when it has neither. */}
@@ -212,12 +225,12 @@ export function Page({ title, lead, count, unit = ['item', 'items'], actions, ch
           {lead}
           {/* What is picked is what the buttons act on: said plainly, never in grey. */}
           {count ? <span className={cn('whitespace-nowrap tabular-nums', unit[1] === 'selected' && 'font-medium text-foreground')}><Rolling text={count} /> {count === 1 ? unit[0] : unit[1]}</span> : null}
-          <FitActions>{actions}</FitActions>
+          <FitActions room={aside ? listWidth : 'page'}>{actions}</FitActions>
         </header>
       )}
       <SmoothScroll wide={wide} fit={fit} beside={beside}>{children}</SmoothScroll>
     </section>
-  )
+  ) as React.JSX.Element
 }
 
 /**

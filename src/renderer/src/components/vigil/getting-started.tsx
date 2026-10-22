@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useReading } from '@/lib/reads-in'
 import { motion } from 'motion/react'
 import { Check } from 'lucide-react'
 import { chime } from '@/lib/sound'
@@ -46,6 +47,7 @@ export const LINGER = 3 * 86400000
 export function GettingStarted({ onOpen, onView }: { onOpen: (type: string, id: string) => void; onView: (id: string, focus?: string) => void }): React.JSX.Element | null {
   useKeyChanges()
   const state = useOnboarding()
+  useReading(!state)
   const STEPS = stepsFor(state?.setup ?? null)
   const done = Object.fromEntries(STEPS.map((step) => [step.id, !!state?.steps[step.id]])) as Record<Step['id'], boolean>
   // Getting started's own sheet: what each thing from your old app becomes here.

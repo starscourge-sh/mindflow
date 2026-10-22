@@ -598,6 +598,50 @@ function readOnce<T>(by: unknown, key: string | null, read: () => Promise<T>): P
 }
 
 /**
+ * The reads one change starts, answered together. A write anywhere tells
+ * every list at once, and each read again on its own: a page drawn from
+ * several (Everything's captures, its tasks, which became which) changed a
+ * read at a time, its rows back first, then the box above them, then the
+ * count. Every read started in the same moment joins one wave; what they say
+ * is put on screen together, in one frame, once the last has answered (and
+ * never later than AT_MOST, so one slow read cannot hold the rest).
+ */
+type Wave = { pending: number; apply: (() => void)[]; sealed: boolean; done: boolean }
+let wave: Wave | null = null
+const WAVE_AT_MOST = 400
+/** A read slower than this answers on its own, never holding a wave. */
+const SLOW_READ = 120
+const flush = (one: Wave): void => {
+  if (one.done) return
+  one.done = true
+  // One task: React draws every change it is given here as one.
+  for (const apply of one.apply.splice(0)) apply()
+}
+export function together<T>(read: Promise<T>, apply: (value: T) => void): void {
+  if (!wave) {
+    const fresh: Wave = { pending: 0, apply: [], sealed: false, done: false }
+    wave = fresh
+    // Sealed once this moment is over: a read started later begins a wave of its own.
+    setTimeout(() => {
+      fresh.sealed = true
+      if (wave === fresh) wave = null
+      if (!fresh.pending) flush(fresh)
+    }, 0)
+    setTimeout(() => flush(fresh), WAVE_AT_MOST)
+  }
+  const mine = wave
+  mine.pending++
+  const settle = (): void => {
+    mine.pending--
+    if (mine.done) {
+      // Answered after the wave was put on screen: on its own, at once.
+      for (const late of mine.apply.splice(0)) late()
+    } else if (mine.sealed && !mine.pending) flush(mine)
+  }
+  void read.then((value) => (mine.apply.push(() => apply(value)), settle()), settle)
+}
+
+/**
  * Something read from the main process, read again whenever any window writes.
  * The one way every view stays current without each one wiring it up.
  */
@@ -625,18 +669,27 @@ export function useLive<T>(read: () => Promise<T>, initial: T, deps: unknown[] =
     // to the Bin, then Undo) start many reads, and an older one that comes
     // back last would show the list from before the newest change.
     let asked = 0
-    const load = (): void => {
+    // How long its last answer took.
+    let took = 0
+    const load = (changed = false): void => {
       const mine = ++asked
-      void readOnce(by, key, read).then(({ next, json: now }) => {
+      const take = ({ next, json: now }: { next: T; json: string }): void => {
         if (key !== null) (said.get(by) ?? said.set(by, new Map()).get(by)!).set(key, { value: next, json: now })
         if (gone || mine !== asked || now === last) return
         last = now
         setValue(next)
-      })
+      }
+      // Read again for a change: with every other read that change started (`together`), unless this
+      // read is a slow one (a folder of pictures looked through), which would hold the rest back.
+      const t0 = performance.now()
+      const asking = readOnce(by, key, read)
+      void asking.then(() => void (took = performance.now() - t0), () => undefined)
+      if (changed && took < SLOW_READ) together(asking, take)
+      else void asking.then(take)
     }
     load()
     // `kinds`: what it shows, so a save of something else leaves it be.
-    const off = window.api.captures.onChange(load, kinds)
+    const off = window.api.captures.onChange(() => load(true), kinds)
     return () => {
       gone = true
       off()
@@ -671,6 +724,30 @@ export function splitTags(text: string): { text: string; tags: string[] } {
 
 /** The root size for each interface size; small is the size the app was drawn at. */
 export const INTERFACE_SIZES = { small: 16, medium: 17, large: 18.5 } as const
+
+/**
+ * How the app looked when its settings were last read: the interface size,
+ * the page width, postcards, motion. Worn the moment a window's code loads,
+ * before its first frame, so a window opening (or reloading, or a new book)
+ * is never drawn at the default size and then redrawn a step larger once the
+ * settings come back. The settings, once read, still have the last word.
+ */
+const WORN = 'worn-settings'
+;(function wornBefore(): void {
+  try {
+    const worn = JSON.parse(localStorage.getItem(WORN) ?? 'null') as { size?: string; data?: Record<string, string>; postcards?: boolean; noblur?: boolean; still?: boolean } | null
+    if (!worn) return
+    const root = document.documentElement
+    if (worn.size) root.style.fontSize = worn.size
+    // Only what the settings set: a window's own marks (its view, its focus) are its own.
+    for (const key of ['width', 'linkPictures', 'motion', 'postcardBorder', 'marks', 'bars']) if (worn.data?.[key] && !root.dataset[key]) root.dataset[key] = worn.data[key]
+    root.toggleAttribute('data-postcards', !!worn.postcards)
+    root.toggleAttribute('data-noblur', !!worn.noblur)
+    if (worn.still) MotionGlobalConfig.skipAnimations = true
+  } catch {
+    // Nothing worn yet: the first window wears the settings once they are read.
+  }
+})()
 
 /**
  * The settings that change how the whole app looks and sounds, applied the
@@ -713,6 +790,13 @@ export function useAppearance(): void {
     // Off, nothing animates. The system's Reduce motion is the MotionConfig's
     // (main.tsx): things still fade there, but nothing slides or springs.
     MotionGlobalConfig.skipAnimations = !settings.motion
+    // Kept for the next window, or this one reloaded, to wear from its first frame (wornBefore).
+    try {
+      const root = document.documentElement
+      localStorage.setItem(WORN, JSON.stringify({ size: root.style.fontSize, data: { ...root.dataset }, postcards: root.hasAttribute('data-postcards'), noblur: root.hasAttribute('data-noblur'), still: !settings.motion }))
+    } catch {
+      // Not kept: the window wears the settings once they are read, as before.
+    }
     soundOn(settings.sounds)
     setVolume(settings.volume)
     setPack(settings.soundPack)
