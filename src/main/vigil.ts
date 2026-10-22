@@ -440,6 +440,11 @@ const DEFAULTS = {
   // moment (the default, so a session left overnight is not nine hours of
   // focus), abandoned there, or left running on real time.
   sessionSleep: 'finish' as 'nothing' | 'abandon' | 'finish',
+  // The focus timer and website blocking, as one: off, nothing of either shows
+  // (no pill, no ⌘K commands, no "5m tea" in the box, no Home card). Off for a
+  // new book; a book that has ever run a session or listed a site to block
+  // keeps them on (settings() writes that down the first time it reads).
+  focusTools: false,
   // Websites sent away while a focus round runs (site-block.ts): on, with none to start.
   siteBlock: true,
   // The sites blocked: "x.com", a collection ("@social"), or one taken out of it ("-reddit.com").
@@ -629,10 +634,12 @@ export const focusBubbleShown = (): boolean => settings().focusShows !== 'note'
 export const pillInNotch = (): boolean => settings().pillSits === 'notch'
 /** What a session does when the Mac sleeps in it (Settings, “When the Mac sleeps”). */
 export const sleepChoice = (): Settings['sessionSleep'] => settings().sessionSleep
+/** The focus timer and website blocking on (Settings, Tasks): off, nothing of either is offered. */
+export const focusToolsOn = (): boolean => settings().focusTools === true
 /** Whether websites are blocked in a focus round, and which (Settings, “Blocking websites”). */
 export const blockPrefs = (): Pick<Settings, 'siteBlock' | 'blockSites'> => {
-  const { siteBlock, blockSites, alwaysBlock } = settings()
-  return { siteBlock, blockSites: alwaysBlock ? withAlways(blockSites) : blockSites }
+  const { siteBlock, blockSites, alwaysBlock, focusTools } = settings()
+  return { siteBlock: siteBlock && focusTools, blockSites: alwaysBlock ? withAlways(blockSites) : blockSites }
 }
 
 /** Told when the stickies are shown or put away, or kept in or out of screen shares. */
@@ -702,6 +709,23 @@ export const boxPlacement = (): { centred: boolean; place: 'last' | 'top' | 'cen
   return { centred: now.boxCentred !== false, place: now.boxPlace ?? 'last', screen: now.boxScreen ?? 'pointer' }
 }
 
+/**
+ * A book never asked about the focus timer: on if it was ever used here (a
+ * session run, a site listed to block) or it is the sandbox, written down so
+ * the answer stays.
+ */
+function focusToolsUsed(blockSites: unknown): boolean {
+  // The sandbox is a peek at everything, the timer too.
+  let used = SANDBOX || (Array.isArray(blockSites) && blockSites.length > 0)
+  try {
+    used ||= !!database().prepare('select 1 from sessions limit 1').get()
+  } catch {
+    // No sessions table yet: a new book.
+  }
+  database().prepare("insert or replace into settings (key, value) values ('focusTools', ?)").run(JSON.stringify(used))
+  return used
+}
+
 function settings(): Settings {
   const rows = database().prepare('select key, value from settings').all() as { key: string; value: string }[]
   // A row that no longer reads (a damaged file) falls back to its default,
@@ -714,6 +738,7 @@ function settings(): Settings {
     }
   }
   const all: Settings = { ...DEFAULTS, ...Object.fromEntries(rows.map((row) => [row.key, read(row.value)]).filter(([, value]) => value !== undefined)) }
+  if (!rows.some((row) => row.key === 'focusTools')) all.focusTools = focusToolsUsed(all.blockSites)
   // ownPicks: only what was chosen in Settings, without the developer's own files,
   // for the sandbox to carry (it is someone else's book, not the developer's).
   const chosen = rows.find((row) => row.key === 'celebrationPicks')
@@ -1177,7 +1202,7 @@ export function registerVigil(): void {
     if ('spellcheck' in patch || 'spellLanguages' in patch) spelling()
     if ('openAtLogin' in patch) atLogin()
     if ('goalBeacon' in patch || 'tempusDots' in patch || Object.keys(patch).some((key) => /^goal(Tuck|Show|Between|InFocus|PeekOut)/.test(key))) goalsTold()
-    if ('focusShows' in patch || 'pillSits' in patch) focusShowsTold()
+    if ('focusShows' in patch || 'pillSits' in patch || 'focusTools' in patch) focusShowsTold()
     if ('inRecordings' in patch) recordingsTold()
     if ('appIcon' in patch) iconTold()
     // Celebrations turned on, or Giphy asked for other words: a few fetched now, so the next card has one ready.

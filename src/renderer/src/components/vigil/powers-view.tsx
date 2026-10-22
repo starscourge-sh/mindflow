@@ -5,7 +5,8 @@ import { useStill } from '@/lib/motion'
 import { CalendarRange, Check, X } from 'lucide-react'
 import ArrowNarrowRightIcon from '@/components/ui/arrow-narrow-right-icon'
 import { chime } from '@/lib/sound'
-import { GROUPS, POWERS, SEEN_KEY, useUsed, type Power } from '@/lib/powers'
+import { FOCUS_POWERS, GROUPS, POWERS, SEEN_KEY, useUsed, type Power } from '@/lib/powers'
+import { useFocusTools } from '@/lib/vigil'
 import { SANDBOX, enterSandbox } from '@/lib/sandbox'
 import { useOnboarding } from '@/lib/onboarding'
 import { AliveIcon } from '@/components/ui/alive-icon'
@@ -30,6 +31,9 @@ import { num } from '../../../../main/dates'
  */
 export function PowersView({ onView }: { onView: (id: string, focus?: string) => void }): React.JSX.Element {
   const used = useUsed()
+  // The focus timer turned off: its powers are not here, only the line saying where it is turned on.
+  const focusTools = useFocusTools()
+  const powers = focusTools ? POWERS : POWERS.filter((power) => !FOCUS_POWERS.has(power.id))
   useEffect(() => {
     try {
       localStorage.setItem(SEEN_KEY, '1')
@@ -37,10 +41,10 @@ export function PowersView({ onView }: { onView: (id: string, focus?: string) =>
       // Home simply keeps offering the page.
     }
   }, [])
-  const tried = used ? POWERS.filter((power) => used.has(power.id)).length : 0
+  const tried = used ? powers.filter((power) => used.has(power.id)).length : 0
   // Said after each group's name in the contents: how many of its cards you have tried.
   const note = (group: string): string => {
-    const all = POWERS.filter((power) => power.group === group)
+    const all = powers.filter((power) => power.group === group)
     return `${all.filter((power) => used?.has(power.id)).length} of ${all.length}`
   }
   // The column, for the contents beside it to read.
@@ -56,12 +60,21 @@ export function PowersView({ onView }: { onView: (id: string, focus?: string) =>
           {/* How far through, always: from 0, so there is something to fill. */}
           <div data-powers-tried className="mt-4 flex max-w-[22rem] flex-col gap-1.5">
             <p className="flex items-center gap-2 text-control text-muted-foreground">
-              <span className="font-semibold text-foreground tabular-nums">{tried} of {POWERS.length}</span> tried
+              <span className="font-semibold text-foreground tabular-nums">{tried} of {powers.length}</span> tried
             </p>
-            <ProgressBar value={tried / POWERS.length} label={`${tried} of ${num(POWERS.length)} tried`} thick={3} />
+            <ProgressBar value={tried / powers.length} label={`${tried} of ${num(powers.length)} tried`} thick={3} />
           </div>
           {/* The same, as cards: about twenty questions on what is here, asked in Review a few a day. */}
           <LearnOffer className="-ml-2 mt-3" />
+          {!focusTools && (
+            <p data-powers-focus-off className="mt-4 text-body text-muted-foreground">
+              The focus timer and website blocking are turned off.{' '}
+              <button type="button" className="font-medium text-foreground underline decoration-foreground/30 underline-offset-2 hover:decoration-foreground"
+                onClick={() => void showMe({ name: 'Focus timer and site blocking', show: { view: 'settings', settings: 'Tasks', find: 'Focus timer and site blocking', at: '[data-setting]', text: 'Turn it on here.' } }, onView)}>
+                Turn them on in Settings, under Tasks
+              </button>
+            </p>
+          )}
         </header>
         {GROUPS.map((group) => (
           <section key={group.id} id={`powers-${slug(group.id)}`} aria-label={group.id} data-group={group.id} data-group-note={note(group.id)} className="mt-14 scroll-mt-6">
@@ -69,7 +82,7 @@ export function PowersView({ onView }: { onView: (id: string, focus?: string) =>
             <p className="mf-aside mt-1 text-body text-muted-foreground">{group.line}</p>
             {/* One column a group: each card its picture beside its words, read down like a list. */}
             <div className="mt-5 flex flex-col gap-3">
-              {POWERS.filter((power) => power.group === group.id).map((power) => (
+              {powers.filter((power) => power.group === group.id).map((power) => (
                 <Card key={power.id} power={power} used={!!used?.has(power.id)} onView={onView} />
               ))}
             </div>

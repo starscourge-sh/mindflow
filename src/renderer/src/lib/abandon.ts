@@ -1,6 +1,6 @@
 import { refuse, toast } from '@/components/vigil/ui'
 import { abandoned, chime } from '@/lib/sound'
-import { isSession, useLive, vigil, type Focus } from '@/lib/vigil'
+import { isSession, useLive, vigil, type Focus, type Settings } from '@/lib/vigil'
 import type { Choice } from '@/components/search'
 
 /**
@@ -39,6 +39,9 @@ type SessionAction = { label: string; hint?: string; keys?: string; cue: null; r
 export function useAbandonAction(): SessionAction[] {
   const focus = useLive(vigil.focusNow, null as Focus | null)
   const last = useLive(vigil.lastSession, null as Awaited<ReturnType<typeof vigil.lastSession>>)
+  const settings = useLive(vigil.settings, null as Settings | null)
+  // The focus timer turned off (Settings, Tasks): nothing to start. One still running can still be ended.
+  if (!focus && settings?.focusTools !== true) return []
   if (!focus) {
     const length = last?.plannedMs ? `, ${Math.max(1, Math.round(last.plannedMs / 60_000))} min` : ''
     return [startFocusAction(false), ...(last ? [{ label: `Go again: ${last.goal}${length}`, cue: null, run: () => void vigil.againSession().then((id) => (id ? (chime('anew'), window.api.showFocus(true)) : chime('nope'))) }] : [])]

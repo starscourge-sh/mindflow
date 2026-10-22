@@ -45,7 +45,7 @@ const picked = () => h.$$eval('[data-site-chip][data-picked]', (all) => all.map(
 const typeIn = async (text) => { await h.click(field); await h.keyboard.type(text); await h.waitForTimeout(250) }
 
 try {
-  await v('settings:set', { sounds: true, motion: true, countIn: false, focusShows: 'bubble', blockSites: [], siteBlock: true, quietStart: '03:00', quietEnd: '03:01' })
+  await v('settings:set', { sounds: true, motion: true, countIn: false, focusShows: 'bubble', blockSites: [], focusTools: true, siteBlock: true, quietStart: '03:00', quietEnd: '03:01' })
   await c.go('settings')
   await h.click('[data-section="Tasks"]')
   await h.waitForTimeout(600)
@@ -290,7 +290,7 @@ try {
   await v('session:resume', session)
   await v('settings:set', { siteBlock: false })
   await quiet('nor with the switch off', 'https://www.tiktok.com/')
-  await v('settings:set', { siteBlock: true })
+  await v('settings:set', { focusTools: true, siteBlock: true })
   await fake({ app: 'com.apple.Safari', url: 'https://www.tiktok.com/' })
   await wait(2600)
   check('on again, Safari is blocked too', (await sentAway()).includes('https://www.tiktok.com/'))

@@ -595,7 +595,7 @@ export default function App(): React.JSX.Element {
   // log for a goal, not a capture. The open questions and goals, to find
   // which one the name means.
   const held = useLive(() => Promise.all([vigil.items('question'), vigil.items('goal')]).then((lists) => lists.flat().filter((one) => !one.closedAt && !one.archivedAt)), [] as Item[], [], ['item'])
-  boxContext.current = { off: !!editing, kind, chosen, held, actionTags }
+  boxContext.current = { off: !!editing, kind, chosen, held, actionTags, timers: appSettings?.focusTools === true }
   useEffect(() => void (editorRef.current !== retired.current && replan(editorRef.current)), [editing, kind, chosen, held, actionTags])
   // "+name" read as a clue, or as a name nothing matches yet.
   const plus = editing || !plan ? null : plan.clue ?? plan.miss

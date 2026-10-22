@@ -56,6 +56,9 @@ export const GROUPS: { id: Group; line: string }[] = [
 /** The first row of a list on the page. */
 const ROW = '[data-row]'
 
+/** The powers of the focus timer and its bubble: left out while it is turned off (Settings, Tasks). */
+export const FOCUS_POWERS = new Set(['timer', 'rounds', 'focus', 'pickup', 'countin', 'notch'])
+
 export const POWERS: Power[] = [
   // Catching
   { id: 'box', group: 'Catching', name: 'Quick capture, from any app', line: 'One key opens quick capture over whatever you are doing, and ⌘↵ puts it away.', keys: ['⌘.'],

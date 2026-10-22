@@ -51,6 +51,8 @@ page.on('console', (message) => ['error', 'warning'].includes(message.type()) &&
 const results = []
 const wait = (ms = 300) => page.waitForTimeout(ms)
 const v = (channel, ...args) => page.evaluate(([c, a]) => window.api.vigil(c, ...a), [channel, args])
+// The timers are read only with the focus timer turned on (Settings, Tasks); a new book starts with it off.
+await v('settings:set', { focusTools: true })
 const captures = async () => (await page.evaluate(() => window.api.captures.list())) ?? []
 // A save lands a moment after the send: asked again for a few seconds before it counts as missing.
 const capture = async (words) => {

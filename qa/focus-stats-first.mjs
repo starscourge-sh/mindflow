@@ -20,7 +20,7 @@ const { h, v, go, send } = c
 const text = () => h.evaluate(() => document.body.innerText)
 try {
   await v('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, pageHints: false })
-  await v('settings:set', { motion: false, hintRate: 0 })
+  await v('settings:set', { motion: false, hintRate: 0, focusTools: true })
   await h.reload()
   await h.waitForTimeout(1500)
   await go('stats')

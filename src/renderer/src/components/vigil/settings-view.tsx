@@ -410,6 +410,8 @@ export function SettingsView(): React.JSX.Element {
   const [typewriter, setTypewriter] = useStoredFlag('typewriter')
   if (!settings) return <section className="flex-1" />
   const set = (patch: Partial<Settings>): void => void vigil.setSettings(patch)
+  // The focus timer and site blocking turned off: their rows are not here, only the switch (Tasks).
+  const focus = settings.focusTools === true
   // Which windows show in screen recordings, each kind on its own; ⌘K turns them all at once.
   const recorded = settings.inRecordings
   const searching = !!query.trim()
@@ -568,6 +570,7 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
           <Setting title="Progress bars" note="How every bar that fills is drawn, from goals to Getting started." keywords="progress bar lightsaber saber dino dinosaur run fun playful style"
             below={<Choices label="Progress bars" options={barChoices} on={(id) => id === (settings.progressBars ?? 'plain')} pick={(progressBars) => set({ progressBars: progressBars as Settings['progressBars'] })} />} />
+          {focus && <>
           <Setting off={settings.focusShows === 'note' && <BubbleOff set={set} />} title="Session bubble" note="The bubble that floats while you focus, its circle filling as time goes." more="The dinosaur can run beside it, or along a line that ends with the time." keywords="focus session pill bubble timer circle ring dino dinosaur runner run progress fun playful"
             below={<Choices label="Session bubble" min="10rem" options={bubbleChoices} on={(id) => id === (settings.focusBubble ?? 'circle')} pick={(focusBubble) => set({ focusBubble: focusBubble as Settings['focusBubble'] })} />} />
           <Setting title="Session timer shows in" note="Where a focus session's time shows." more="In the note, it is a quiet line at its foot: time left, dots that light up, words written. With the note alone, there is no bubble and no count in." keywords="focus session timer footer note foot dots words count bubble pill where"
@@ -578,6 +581,7 @@ export function SettingsView(): React.JSX.Element {
           {/* With the time in the note alone there is no bubble to place, but it stays here to find and set, saying so. */}
           <Setting off={settings.focusShows === 'note' && <BubbleOff set={set} />} title="Bubble sits" note="On a Mac with a notch, the bubble can wrap round it as a slim black band." more="It opens when you point at it." keywords="focus session pill bubble notch island menu bar top dynamic where place"
             below={<Choices label="Bubble sits" options={pillSitsChoices} on={(id) => id === (settings.pillSits ?? 'free')} pick={(pillSits) => set({ pillSits: pillSits as Settings['pillSits'] })} />} />
+          </>}
           <Setting title="Pictures in lists" note="A note's first picture, small, at the end of its row and on its card.">
             <ListPictureSample on={settings.thumbnails !== false} />
             <Switch checked={settings.thumbnails !== false} onCheckedChange={(thumbnails) => set({ thumbnails })} />
@@ -715,6 +719,7 @@ export function SettingsView(): React.JSX.Element {
           <Setting off={!settings.sounds && 'Turn “Sounds” on to change this.'} title="Volume" note="How loud every sound is; let go of the slider to hear it.">
             <SettingSlider disabled={!settings.sounds} min={0} max={1} step={0.05} value={settings.volume} onSave={(volume) => set({ volume })} sample={(volume) => (setVolume(volume), chime('tap'))} />
           </Setting>
+          {focus && <>
           <Setting off={!settings.sounds && 'Turn “Sounds” on to change this.'} title="Session ticking" note="A clock ticks quietly while you focus, and goes quiet for breaks." more="A little tenser in the last ten seconds. The alarm rings at the end either way. Also in the bubble's right-click menu." keywords="tick while a session runs tick ticking clock focus session timer countdown alarm">
             <Switch disabled={!settings.sounds} checked={settings.sessionTick === true} onCheckedChange={(sessionTick) => {
               if (sessionTick) tickSample(settings.sessionTickSound ?? 'wall', settings.sessionTickVolume ?? 0.5)
@@ -741,6 +746,7 @@ export function SettingsView(): React.JSX.Element {
             <MiniBubble smoke={settings.sessionSmoke !== false} goal="Essay" className="w-44" />
             <Switch checked={settings.sessionSmoke !== false} onCheckedChange={(sessionSmoke) => set({ sessionSmoke })} />
           </Setting>
+          </>}
           <Setting
             off={!settings.sounds && 'Turn “Sounds” on to change this.'}
             title="Sound pack"
@@ -804,10 +810,12 @@ export function SettingsView(): React.JSX.Element {
               <Chips className="shrink-0" options={[{ id: 'peek', label: 'Peek' }, { id: 'tuck', label: 'Out of sight' }]}
                 on={(id) => id === (settings.goalBetween ?? 'peek')} pick={(goalBetween) => set({ goalBetween: goalBetween as Settings['goalBetween'] })} />
             </Setting>
+            {focus && <>
             <Setting under title="During a focus session" note="So the session has your eye to itself, whatever the clock says." keywords="tuck away focus session timer hide peek">
               <Chips className="shrink-0" options={[{ id: 'tuck', label: 'Out of sight' }, { id: 'peek', label: 'Peek' }, { id: 'stay', label: 'As the clock says' }]}
                 on={(id) => id === (settings.goalInFocus ?? 'tuck')} pick={(goalInFocus) => set({ goalInFocus: goalInFocus as Settings['goalInFocus'] })} />
             </Setting>
+            </>}
             <Setting under title="Peek out sometimes" note="A card out of sight for two days peeks out as a tab once a day, with a little wiggle." keywords="tuck away nudge reminder peek out now and then wiggle days hidden forget">
               <Switch checked={settings.goalPeekOut !== false} onCheckedChange={(goalPeekOut) => set({ goalPeekOut })} />
             </Setting>
@@ -976,7 +984,14 @@ export function SettingsView(): React.JSX.Element {
               on={(id) => id === settings.notify} pick={(notify) => set({ notify: notify as Settings['notify'] })} />
           </Setting>
         </Group>
-        <SiteBlockGroup settings={settings} set={set} />
+        <Group section="Tasks" title="Focus timer">
+          <Setting title="Focus timer and site blocking" note="Focus sessions on a task, timers like “5m tea”, rounds like “4x25”, and websites blocked while you focus."
+            more="Off, none of it shows anywhere: no session bubble, no ⌘K commands, no timers in quick capture, nothing to start on a task. What you did before is kept, and comes back when you turn it on."
+            keywords="focus timer session pomodoro rounds bubble pill break website blocker block sites distraction tea">
+            <Switch checked={focus} onCheckedChange={(focusTools) => set({ focusTools })} aria-label="Focus timer and site blocking" />
+          </Setting>
+        </Group>
+        {focus && <SiteBlockGroup settings={settings} set={set} />}
 
         <Group section="Calendar" title="On Home">
           <Setting title="Show the month on Home" note="Home shows this month's calendar, with what is planned on each day." more="The Calendar in the sidebar has it all either way." keywords="home calendar month plan dashboard">
@@ -994,6 +1009,7 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
         </Group>
 
+        {focus && <>
         <Group section="Tasks" title="Breaks and sleep">
           <Setting title="Start the next round by itself" note="When a break ends, the session before it starts again, with no click." more="Off, the bubble asks with “Go again”. On, it still asks if nobody has touched the Mac for two minutes as the break ends. Rounds set as “4x25” go on by themselves the same way, and ask the same way when nobody is there." keywords="auto start next round session after break pomodoro automatic again focus continue">
             <Switch checked={settings.autoNextRound === true} onCheckedChange={(autoNextRound) => set({ autoNextRound })} />
@@ -1003,6 +1019,7 @@ export function SettingsView(): React.JSX.Element {
               on={(id) => id === (settings.sessionSleep ?? 'finish')} pick={(sessionSleep) => set({ sessionSleep: sessionSleep as Settings['sessionSleep'] })} />
           </Setting>
         </Group>
+        </>}
 
         <Group section="Writing" title="With each capture">
           <Setting title="Weather" note="Each capture keeps the weather when you caught it, like 12°C, light rain." more="Today's brief shows it now. It asks wttr.in, which guesses your town from your connection with no account or location permission; left out when offline.">
@@ -1871,7 +1888,7 @@ function SiteBlockGroup({ settings, set }: { settings: Settings; set: (patch: Pa
   const none = !settings.alwaysBlock && !settings.blockSites.some((one) => !one.startsWith('-'))
   return (
     <Group section="Tasks" title="Blocking websites">
-      <Setting title="Block websites in focus sessions" note="While a round runs, a blocked site's tab goes blank and the bubble says why; on breaks they open again."
+      <Setting title="Block websites in focus sessions" note="While a round runs, a blocked site's tab shows a page saying until when. Sites open again on breaks, and the tab goes on to the page you asked for."
         more={`It works in Safari, Chrome, Arc, Dia, Brave, Edge, Vivaldi, Opera and Chromium. Not in Firefox: it does not let other apps read its address. The first time, your Mac asks whether ${APP_NAME} may read that browser's address.`}
         off={(!on && 'Off, every site stays open in sessions.') || (none && 'Add a site below to start.') || undefined}
         keywords="website blocker block sites social media distraction focus session browser safari chrome arc firefox youtube x twitter instagram reddit tiktok">

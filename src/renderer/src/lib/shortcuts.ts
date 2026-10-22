@@ -1,4 +1,5 @@
 import { APP_NAME } from '../../../main/name'
+import { focusToolsShown } from './vigil'
 /**
  * Every shortcut in the app, in one list: what Settings shows under Keys and
  * what ? opens over either window. Only a list - each key is still handled
@@ -334,7 +335,10 @@ export function grouped(list: Shortcut[] = SHORTCUTS): [string, Shortcut[]][] {
 }
 
 /** The ones that match what was typed, by what they do, the keys (as you press them now: `keysOf`), or where. */
-export function findShortcuts(query: string, keysOf = (keys: string): string => keys, list = SHORTCUTS): Shortcut[] {
+/** The focus timer's keys and words: not listed while it is turned off (Settings, Tasks). */
+const FOCUS_KEYS = new Set(['⌃⌥⌘=', '⌃⌥⌘S', '5m', '4x25'])
+export function findShortcuts(query: string, keysOf = (keys: string): string => keys, every = SHORTCUTS): Shortcut[] {
+  const list = focusToolsShown() ? every : every.filter((one) => !FOCUS_KEYS.has(one.keys) && one.where !== 'The session bubble')
   const q = query.trim().toLowerCase()
   if (!q) return list
   return list.filter((one) => `${one.does} ${keysOf(one.keys)} ${one.where} ${one.group}`.toLowerCase().includes(q))

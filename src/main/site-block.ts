@@ -1,4 +1,5 @@
 import { execFile } from 'child_process'
+import { createServer } from 'http'
 import { app, ipcMain, net, shell } from 'electron'
 import { readFileSync, rmSync, writeFileSync } from 'fs'
 import { mkdir, readFile, stat, writeFile } from 'fs/promises'
@@ -15,14 +16,20 @@ import { onHandOff, realRoot } from './sandbox'
  * Websites blocked while a focus round runs. About once a second, while a
  * session is running (not paused, not a break), the app in front is looked
  * at; if it is a browser Vigil can read, so is the address of its tab, and a
- * blocked site is sent away (the tab goes to a blank page) with Vigil's own
- * notice under the pill: "“x.com” is blocked until 21:49", with “Allow 5 min”.
- * The address each tab was on is kept, and the tab is put back on it the
- * moment the site may open again: allowed, a break, a pause, the session
- * ended (from anywhere), or the site taken off the list. Vigil going (a quit,
- * a switch to another book or the sandbox) puts them all back first, and
- * they are written down beside the books, so a run after a crash puts back
- * any it finds still blank.
+ * blocked site is sent away with Vigil's own notice under the pill:
+ * "“x.com” is blocked until 21:49", with “Allow 5 min”.
+ *
+ * The tab is sent to a small page Vigil serves itself, on this Mac only
+ * (http://127.0.0.1:port/vigil-blocked?site=x.com&to=<the address>). It says
+ * what is blocked and until when, and asks Vigil every two seconds whether the
+ * site may open yet; the moment it may, it goes on to the page that was asked
+ * for. A refresh does the same: once the block is over, Vigil answers the
+ * page's address with the one it carries. The address each tab was on is kept
+ * too, and the tab is put back on it the moment the site may open again:
+ * allowed, a break, a pause, the session ended (from anywhere), or the site
+ * taken off the list. Vigil going (a quit, a switch to another book or the
+ * sandbox) puts them all back first, and they are written down beside the
+ * books, so a run after a crash puts back any it finds still on the page.
  *
  * The address is read with AppleScript, which the Mac asks you to allow once
  * for each browser. Refused, that browser is simply not blocked, and Settings
@@ -80,7 +87,8 @@ type Sent = { app: string; win: unknown; tab: unknown; url: string }
 type Back = 'restored' | 'opened' | 'missed'
 type Layer = {
   look: (browsers: string, patient: boolean) => Promise<Look>
-  away: (app: string) => Promise<{ win: unknown; tab: unknown } | null>
+  /** `page`: the block page the tab is sent to. */
+  away: (app: string, page: string) => Promise<{ win: unknown; tab: unknown } | null>
   /** `open`: the tab gone or moved on, open the address in a new tab instead (only when asked to allow it). */
   back: (sent: Sent, open: boolean) => Promise<Back>
 }
@@ -102,7 +110,7 @@ const SCRIPT = `function run(argv) {
     var tab = kind === 'safari' ? win.currentTab : win.activeTab
     if (argv[0] === 'away') {
       var place = kind === 'safari' ? tab.index() : tab.id()
-      tab.url = 'about:blank'
+      tab.url = argv[2]
       return JSON.stringify({ app: id, sent: true, win: win.id(), tab: place })
     }
     return JSON.stringify({ app: id, url: tab.url() })
@@ -123,7 +131,10 @@ function back(sent, kind, open) {
         try {
           if (kind !== 'safari' && String(t.id()) !== String(sent.tab)) continue
           var now = t.url()
-          if (now && now !== 'about:blank') break
+          // Gone on by itself (the block page does once the site may open): back already.
+          if (now === sent.url) return 'restored'
+          // Still on the block page (this run's or an earlier one's) or blank: put back. Anything else: moved on.
+          if (now && now !== 'about:blank' && !/^http:\\/\\/127\\.0\\.0\\.1:\\d+\\/vigil-blocked/.test(now)) break
           t.url = sent.url
           return 'restored'
         } catch (e) {}
@@ -163,8 +174,8 @@ const realLayer: Layer = {
     const app = typeof said?.app === 'string' ? said.app : null
     return { app, tab: said && ('url' in said || said.denied) ? { url: typeof said.url === 'string' ? said.url : null, denied: said.denied === true } : null }
   },
-  away: async (one) => {
-    const said = await ask(['away', kindsOf([one])], 2500)
+  away: async (one, page) => {
+    const said = await ask(['away', kindsOf([one]), page], 2500)
     return said?.sent === true ? { win: said.win, tab: said.tab } : null
   },
   back: async (sent, open) => {
@@ -183,11 +194,11 @@ const fakeLayer: Layer = {
     store.siteBlockLooks = (store.siteBlockLooks ?? 0) + 1
     return { app: now?.app ?? null, tab: now && now.app in JSON.parse(browsers) ? { url: now.url ?? null, denied: now.denied === true } : null }
   },
-  away: async (one) => {
-    const store = globalThis as { siteBlockAway?: { app: string; url: string | null | undefined; at: number }[] }
-    ;(store.siteBlockAway ??= []).push({ app: one, url: fake()?.url, at: Date.now() })
+  away: async (one, page) => {
+    const store = globalThis as { siteBlockAway?: { app: string; url: string | null | undefined; page: string; at: number }[] }
+    ;(store.siteBlockAway ??= []).push({ app: one, url: fake()?.url, page, at: Date.now() })
     const now = fake()
-    if (now?.app === one) now.url = 'about:blank'
+    if (now?.app === one) now.url = page
     return { win: now?.win ?? 1, tab: now?.tab ?? 1 }
   },
   // Each ask kept, with the address it carried, so a test can see where each tab was put back to.
@@ -197,11 +208,40 @@ const fakeLayer: Layer = {
     const result: Back = said === 'restored' ? 'restored' : open && said === 'opened' ? 'opened' : 'missed'
     const store = globalThis as { siteBlockBack?: (Sent & { open: boolean; result: Back; at: number })[] }
     ;(store.siteBlockBack ??= []).push({ ...sent, open, result, at: Date.now() })
-    if (result !== 'missed' && now?.app === sent.app && now.url === 'about:blank') now.url = sent.url
+    if (result !== 'missed' && now?.app === sent.app && (now.url === 'about:blank' || isBlockPage(now.url))) now.url = sent.url
     return result
   }
 }
 const layer = TEST ? fakeLayer : realLayer
+
+/** The block page's address, this run's or an earlier run's (another port). */
+const isBlockPage = (url: string | null | undefined): boolean => /^http:\/\/127\.0\.0\.1:\d+\/vigil-blocked/.test(url ?? '')
+const escape = (text: string): string => text.replace(/[&<>"']/g, (one) => `&#${one.charCodeAt(0)};`)
+/**
+ * The block page: what is blocked and until when, and a quiet line saying the
+ * tab goes on by itself. It asks every two seconds; told the site may open, or
+ * not answered at all (Vigil quit, so nothing blocks it), it goes on to the
+ * page asked for. Light or dark as the Mac is.
+ */
+const blockPage = (site: string, until: string | null): string => `<!doctype html><html><head><meta charset="utf-8"><title>${escape(site)} is blocked</title>
+<meta name="color-scheme" content="light dark"><style>
+body{margin:0;min-height:100vh;display:grid;place-items:center;font:16px/1.5 -apple-system,BlinkMacSystemFont,sans-serif;background:#f6f5f2;color:#1d1c1a}
+@media (prefers-color-scheme:dark){body{background:#1b1a19;color:#ecebe8}p{color:#a9a7a2}}
+main{max-width:30rem;padding:2rem;text-align:center}h1{font-size:1.6rem;font-weight:600;margin:0 0 .6rem}p{margin:.3rem 0;color:#6a6862}
+</style></head><body><main><h1>“${escape(site)}” is blocked${until ? ' until <span id="until"></span>' : ' while you focus'}</h1>
+<p>Haligtree is keeping it closed for this focus round.</p>
+<p>This tab goes on to the page you asked for once the round ends, and a refresh then takes you there too.</p></main>
+<script>
+var q = new URLSearchParams(location.search), until = ${JSON.stringify(until)}
+var u = document.getElementById('until')
+if (u && until) u.textContent = new Date(until).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+function go() { var to = q.get('to'); if (/^https?:/i.test(to || '')) location.replace(to) }
+function ask() {
+  fetch('/vigil-blocked/state' + location.search, { cache: 'no-store' }).then(function (r) { return r.json() })
+    .then(function (s) { if (!s.blocked) go(); else setTimeout(ask, 2000) }, go)
+}
+setTimeout(ask, 2000)
+</script></body></html>`
 
 /** The focus round running now, if one is: its session, and when it ends (null with no length). */
 type Round = { id: string; until: number | null }
@@ -280,6 +320,36 @@ export function registerSiteBlock({ notify }: { notify: (notice: BlockNotice) =>
     event.preventDefault()
     void Promise.race([putAllBack(), new Promise((done) => setTimeout(done, 3000))]).finally(() => app.quit())
   })
+  // Whether a site is still kept closed now, for the block page: a round running, the address on the list, not allowed.
+  const stillBlocked = (site: string, to: string): { blocked: boolean; until: string | null } => {
+    const { siteBlock, blockSites: list } = blockPrefs()
+    const round = siteBlock && list.length ? runningRound() : null
+    const blocked = !!round && blockedSite(to, list) === site && !((allowed.get(site) ?? 0) > Date.now())
+    return { blocked, until: blocked && round?.until ? new Date(round.until).toISOString() : null }
+  }
+  // The block page, served on this Mac only. The address it carries is only ever a web page's.
+  let pageBase: string | null = null
+  const server = createServer((request, answer) => {
+    const asked = new URL(request.url ?? '/', 'http://127.0.0.1')
+    const site = asked.searchParams.get('site') ?? ''
+    const to = asked.searchParams.get('to') ?? ''
+    if (!asked.pathname.startsWith('/vigil-blocked') || !/^https?:\/\//i.test(to)) return void answer.writeHead(404).end()
+    const now = stillBlocked(site, to)
+    if (asked.pathname === '/vigil-blocked/state') return void answer.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }).end(JSON.stringify(now))
+    // A refresh once the block is over: straight on to the page asked for.
+    if (!now.blocked) return void answer.writeHead(302, { location: to, 'cache-control': 'no-store' }).end()
+    answer.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' }).end(blockPage(site, now.until))
+  })
+  server.on('error', () => undefined)
+  server.listen(0, '127.0.0.1', () => {
+    const where = server.address()
+    if (where && typeof where === 'object') pageBase = `http://127.0.0.1:${where.port}/vigil-blocked`
+  })
+  app.on('will-quit', () => server.close())
+  const pageFor = (site: string, url: string): string => (pageBase ? `${pageBase}?${new URLSearchParams({ site, to: url })}` : 'about:blank')
+  // For the probes: the page a site's tab would be sent to.
+  ;(globalThis as { siteBlockPage?: (site: string, url: string) => string }).siteBlockPage = pageFor
+
   // Browsers the Mac refused, by name, for Settings; and those asked at least once.
   const denied = new Set<string>()
   const asked = new Set<string>()
@@ -309,7 +379,7 @@ export function registerSiteBlock({ notify }: { notify: (notice: BlockNotice) =>
     const site = blockedSite(tab.url, list)
     if (!site || (allowed.get(site) ?? 0) > Date.now()) return
     const url = tab.url!
-    const place = await layer.away(front)
+    const place = await layer.away(front, pageFor(site, url))
     if (!place) return
     sent.set(site, [...(sent.get(site) ?? []), { app: front, ...place, url }])
     keep()

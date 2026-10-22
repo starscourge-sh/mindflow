@@ -71,7 +71,7 @@ let book, kept
     book = await c.v('books:create', 'Second book')
     // Welcomed already, as a real My book is: the welcome is not over the switch.
     await c.v('onboarding:set', { welcomed: new Date().toISOString() })
-    await c.v('settings:set', { sounds: true, motion: true, countIn: false, focusShows: 'bubble', siteBlock: true, blockSites: ['x.com', 'youtube.com', 'reddit.com', 'facebook.com'], quietStart: '03:00', quietEnd: '03:01' })
+    await c.v('settings:set', { sounds: true, motion: true, countIn: false, focusShows: 'bubble', focusTools: true, siteBlock: true, blockSites: ['x.com', 'youtube.com', 'reddit.com', 'facebook.com'], quietStart: '03:00', quietEnd: '03:01' })
     const task = await c.v('task:add', 'Write the essay plan')
     const session = await c.v('session:start', task?.id ?? task, 'Write the essay plan', 40 * 60_000)
 
@@ -169,7 +169,7 @@ await wait(1200)
     await wait(3000)
     const after = await lastBack(t, 'https://www.reddit.com/r/crash')
     check('the next launch after a crash puts the blank tab back, in another book too', after?.result === 'restored' && after.tab === 77, JSON.stringify(after))
-    await c.v('settings:set', { countIn: false, focusShows: 'bubble', siteBlock: true, blockSites: ['x.com'], quietStart: '03:00', quietEnd: '03:01' })
+    await c.v('settings:set', { countIn: false, focusShows: 'bubble', focusTools: true, siteBlock: true, blockSites: ['x.com'], quietStart: '03:00', quietEnd: '03:01' })
     const task = await c.v('task:add', 'Plan the trip')
     const id = await c.v('session:start', task?.id ?? task, 'Plan the trip', 30 * 60_000)
     await t.fake({ app: 'com.google.Chrome', url: 'https://x.com/quit', win: 1, tab: 5 })

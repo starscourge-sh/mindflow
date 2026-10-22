@@ -4,7 +4,7 @@ import { ArrowRight, ArrowUpLeft, ChevronRight, GripVertical } from 'lucide-reac
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
 import { chime, tear } from '@/lib/sound'
-import { useLive, unloaded, vigil, when, type Finished, type Task } from '@/lib/vigil'
+import { focusToolsShown, useLive, unloaded, vigil, when, type Finished, type Task } from '@/lib/vigil'
 import { bucket, placed, taskName } from '@/lib/tasks'
 import { byKeys, useByKeys } from '@/lib/motion'
 import { readLines, tasksOf } from '../../../../main/day-lines'
@@ -618,11 +618,11 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
               <span className="pointer-events-none absolute top-0.5 right-0 flex items-center gap-0.5 rounded-md bg-background pl-2 opacity-0 transition-opacity group-focus-within/line:pointer-events-auto group-focus-within/line:opacity-100 group-hover/line:pointer-events-auto group-hover/line:opacity-100">
                 {section === 'now' ? (
                   <>
-                    <Tip label="Start a session on it">
+                    {focusToolsShown() && <Tip label="Start a session on it">
                       <button type="button" aria-label="Start a session on it" onClick={() => startOn(task)} className="flex h-6 items-center gap-1 rounded-md px-1.5 text-control text-muted-foreground hover:bg-accent hover:text-foreground">
                         <Timer className="size-3.5" />Start
                       </button>
-                    </Tip>
+                    </Tip>}
                     <DropdownMenu>
                       <Tip label="How long it takes">
                         <DropdownMenuTrigger asChild>

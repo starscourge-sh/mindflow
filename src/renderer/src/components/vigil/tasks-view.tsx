@@ -9,7 +9,7 @@ import { tagTint } from './tag-icon'
 import { MindflowEditor } from '../mindflow'
 import { chime, step } from '@/lib/sound'
 import { noteLinkText, typeSaid } from '@/lib/capture-links'
-import { call, splitTags, unloaded, useLastAsked, useLive, vigil, when, whenInLine, type Focus, type Made, type Session, type Settings, type Task, type TaskFull } from '@/lib/vigil'
+import { call, focusToolsShown, splitTags, unloaded, useLastAsked, useLive, vigil, when, whenInLine, type Focus, type Made, type Session, type Settings, type Task, type TaskFull } from '@/lib/vigil'
 import { useOpened } from '@/lib/nav'
 import { useCameBack } from '@/lib/to-bin'
 import { readAhead, readFresh, readNow, useAfterFirstPaint } from '@/lib/early-read'
@@ -545,7 +545,7 @@ export function taskMenu(task: Task, { open, complete = () => void completeTask(
           ] },
           'separator' as const
         ]
-      : [open_ && { label: `Start a focus session${task.estimate ? `, ${hoursSaid(task.estimate)}` : ', 25 min'}`, run: () => startOn(task) }, open_ && { label: `Try it for ${TRY_MINUTES} minutes`, run: () => tryFive(task) }]),
+      : !focusToolsShown() ? [] : [open_ && { label: `Start a focus session${task.estimate ? `, ${hoursSaid(task.estimate)}` : ', 25 min'}`, run: () => startOn(task) }, open_ && { label: `Try it for ${TRY_MINUTES} minutes`, run: () => tryFive(task) }]),
     open_ ? { label: 'Mark it done', keys: 'E', run: complete } : task.status === 'done' && !task.recurrence && { label: 'Not done', run: () => notDone(task) },
     open_ && !!task.recurrence && { label: 'Skip this time', hint: 'On to the next date, not counted as done', run: () => skipTask(task) },
     'separator',
@@ -1118,6 +1118,7 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
   // "Pick a date…" from a task's menu: the Scheduled picker opens, here or as this panel first shows.
   const [dating, setDating] = useState(() => (dateWanted(first.id) ? 1 : 0))
   const settings = useLive(vigil.settings, null as Settings | null)
+  const focusTools = settings?.focusTools === true
   useEffect(() => {
     const ask = (event: Event): void => void ((event as CustomEvent<string>).detail === first.id && setDating((n) => n + 1))
     window.addEventListener('vigil:pick-date', ask)
@@ -1165,9 +1166,10 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
         <Checklist key={JSON.stringify(task.subtasks)} task={task} onOpen={onOpen} />
       </div>
       <Props>
-        <Sessions taskId={task.id} title={taskName(task.title).text} />
+        {/* The focus timer turned off (Settings, Tasks): no sessions to start or count. */}
+        {focusTools && <Sessions taskId={task.id} title={taskName(task.title).text} />}
         {/* What its sessions came to: time, the last one, how they ended. */}
-        <TaskFocusNumbers taskId={task.id} estimate={task.estimate} />
+        {focusTools && <TaskFocusNumbers taskId={task.id} estimate={task.estimate} />}
         {/* What happened to it, session by session and thought by thought: never written over. */}
         <TaskLog taskId={task.id} />
         {/* When you mean to do it, Todoist's date: the day it shows on. */}

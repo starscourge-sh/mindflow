@@ -263,7 +263,7 @@ export const vigil = {
   unmakeCapture: (id: string, origin: string) => call('capture:unmake', id, origin),
   /** Words just lifted out of a note as a capture or an idea, taken back: its toast's Undo. */
   unlift: (type: 'capture' | 'nugget', id: string) => call<boolean>('lifted:undo', type, id),
-  settings: () => call<Settings>('settings'),
+  settings: () => call<Settings>('settings').then((now) => ((lastSettings = now), now)),
   setSettings: (patch: Partial<Settings>) => call<Settings>('settings:set', patch),
   /** Every language the spellchecker knows, and the ones it is using. */
   spellingLanguages: () => call<{ all: string[]; on: string[] }>('spelling:languages'),
@@ -824,3 +824,10 @@ export function useAppearance(): void {
     setPack(settings.soundPack)
   }, [settings?.fullWidth, settings?.pageWidth, settings?.linkPictures, settings?.motion, settings?.postcards, settings?.postcardBorder, settings?.marks, settings?.progressBars, settings?.blur, settings?.boxDim, settings?.spellcheck, settings?.interfaceSize, settings?.sounds, settings?.volume, settings?.soundPack])
 }
+
+/** The settings as this window last read them, for code that is not a component (a row's menu). */
+let lastSettings: Settings | null = null
+/** The focus timer and website blocking on (Settings, Tasks): off, nothing offers to start one. */
+export const focusToolsShown = (): boolean => lastSettings?.focusTools === true
+/** The same, for a component: drawn again when it is turned on or off. */
+export const useFocusTools = (): boolean => useLive(vigil.settings, null as Settings | null)?.focusTools === true

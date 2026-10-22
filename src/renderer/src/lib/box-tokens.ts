@@ -55,6 +55,8 @@ export type BoxContext = {
   chosen: boolean
   held: Item[]
   actionTags: string[]
+  /** The focus timer on (Settings): off, "5m tea" and "4x25" are only words. */
+  timers?: boolean
 }
 
 export type BoxPlan = {
@@ -342,7 +344,7 @@ export function planBox(doc: ProseMirrorNode, ctx: BoxContext, kept: Kept[] = []
   let kind: CaptureType = ctx.chosen ? ctx.kind : guessed === 'link' ? (url ? 'link' : 'note') : (guessed ?? 'note')
 
   // "4x25 essay": pomodoro rounds, not a capture. The same rule as a timer below.
-  const rounds = !ctx.chosen && kind !== 'todo' && single ? roundsFrom(full) : null
+  const rounds = ctx.timers !== false && !ctx.chosen && kind !== 'todo' && single ? roundsFrom(full) : null
   if (rounds) {
     const [from, to] = [pos(rounds.span.from), pos(rounds.span.to)]
     if (!isKept('rounds', from, to)) {
@@ -354,7 +356,7 @@ export function planBox(doc: ProseMirrorNode, ctx: BoxContext, kept: Kept[] = []
 
   // "5m tea", "timer 25m": a countdown, not a capture. Not when a kind was
   // picked or it is a todo, nor when the rest has a date, a repeat or a tag.
-  const timed = !ctx.chosen && kind !== 'todo' && single ? timerFrom(full) : null
+  const timed = ctx.timers !== false && !ctx.chosen && kind !== 'todo' && single ? timerFrom(full) : null
   if (timed) {
     const rest = readTask(timed.goal, now)
     const on = !rest.due && !rest.deadline && !rest.recurrence && !rest.plan && !tagsIn(full).length
