@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { ChevronRight } from 'lucide-react'
 
 import { chime } from '@/lib/sound'
@@ -23,6 +23,8 @@ export type IslandState = {
   onWhole: (quiet?: unknown) => void
   /** Back to the first few. */
   onFewer: () => void
+  /** Open and long enough to hold its row at `at`, quietly: the row open beside the list is never out of sight. */
+  onShow: (at: number) => void
 }
 
 /** A kind's icon and colour, by the name its group is given (Tasks, Note, Quote...). */
@@ -74,12 +76,43 @@ export function useIslands(key: string, on: boolean): <T>(groups: [string, T[]][
         whole,
         onFold: (quiet) => (quiet === true || chime(folded ? 'open' : 'fold'), save({ ...kept, folded: flip(kept.folded, name) })),
         onWhole: (quiet) => (quiet === true || chime('open'), set(count + MORE_STEP)),
-        onFewer: () => (chime('fold'), set(ISLAND_FEW))
+        onFewer: () => (chime('fold'), set(ISLAND_FEW)),
+        onShow: (at) => save({ ...kept, folded: kept.folded.filter((one) => one !== name), whole: kept.whole.filter((one) => one !== name), more: { ...kept.more, [name]: at < count ? count : ISLAND_FEW + Math.ceil((at + 1 - ISLAND_FEW) / MORE_STEP) * MORE_STEP } })
       }
       return [name, folded ? [] : list.slice(0, count)] as [string, T[]]
     })
     return { groups: shown, islands }
   }
+}
+
+/**
+ * The row open beside a list shows in it, however it was opened (a link, ⌘K,
+ * Back, the stepper): its island unfolded and opened past "Show more", without
+ * a sound of its own, as Finder shows a file in its folder. Once for each row
+ * opened, so folding its island again afterwards stays folded. `groups` are
+ * the whole list, `shown` what the islands let show.
+ */
+export function useShowOpen(id: string | null | undefined, groups: [string, { id: string }[]][], shown: { id: string }[], islands?: Record<string, IslandState>): void {
+  useReveal(id, shown.some((one) => one.id === id), () => {
+    for (const [name, list] of groups) {
+      const at = list.findIndex((one) => one.id === id)
+      if (at >= 0 && islands?.[name]) return (islands[name].onShow(at), true)
+    }
+    return false
+  })
+}
+
+/**
+ * The same for any list: `shows` whether the open one's row is drawn, and
+ * `reveal` opens whatever hides it (a folded group, a folder card), saying
+ * whether it found it. Once for each row opened.
+ */
+export function useReveal(id: string | null | undefined, shows: boolean, reveal: () => boolean): void {
+  const done = useRef<string | null>(null)
+  useEffect(() => {
+    if (!id || done.current === id) return
+    if (shows || reveal()) done.current = id
+  })
 }
 
 /** The top of an island: the kind's icon, its name and how many, and the fold. */

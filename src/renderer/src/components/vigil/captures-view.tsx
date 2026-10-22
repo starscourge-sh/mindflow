@@ -13,7 +13,7 @@ import { voiceOf } from '@/lib/sources'
 import { CaptureList, fieldOf, captureEntry, captureMenu, tagCaptures, useCaptures, whereFrom, type CaptureMeta } from '../capture-list'
 import { tagTint } from './tag-icon'
 import { AGES, Display, FilterChips, arrange, islandsOn, period, useView, type Density, type Facet, type View } from './display'
-import { useIslands, type IslandState } from './islands'
+import { useIslands, useShowOpen, type IslandState } from './islands'
 import { GraphChip, InboxGraph, useGraphShown } from './inbox-graph'
 import { DatePicker } from './date-picker'
 import { Lineage } from './lineage'
@@ -28,7 +28,7 @@ import { makeTask, makeTasks, oneTask, picked, taskName } from '@/lib/tasks'
 import { useSelectAll } from '@/lib/select-all'
 import { usePicking } from '@/lib/pick-range'
 import { manyTaskItems } from './late-tasks'
-import { binItem, moveToBin, seeTheBin } from '@/lib/to-bin'
+import { binItem, moveToBin, seeTheBin, useCameBack } from '@/lib/to-bin'
 import { useSameWords } from '@/lib/same-words'
 import { Apart } from '@/lib/apart'
 import { chime, tear, pageTurn } from '@/lib/sound'
@@ -142,18 +142,13 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
   // The whole list, rows behind "Show N more" and in a folded island too: what ⌘A,
   // "Select all" and the open note's "6 / 147" count. A step past a group's first few shows more of it.
   const whole: Row[] = narrowed.flatMap(([, list]) => list)
-  const stepTo = (to: number): void => {
-    const one = whole[to]
-    if (!one) return
-    const name = shown.includes(one) ? undefined : narrowed.find(([, list]) => list.includes(one))?.[0]
-    const isle = name === undefined ? undefined : islands?.[name]
-    if (isle) (isle.folded ? isle.onFold(true) : isle.onWhole(true))
-    pick(one.id)
-  }
+  const stepTo = (to: number): void => void (whole[to] && pick(whole[to].id))
   // The Inbox emptied in front of you: its moment, not the quiet empty page.
   const cleared = useJustCleared(title === 'Inbox' ? kept : [], all, !unloaded(all))
   // Spread out, a click looks at a note beside the list; Enter opens it.
   const [peek, setPeek] = useState<string | null>(null)
+  // However it was opened, the open one's row shows: its island unfolded, past "Show more".
+  useShowOpen(spread ? peek : open?.id ?? task?.id, narrowed, shown, islands)
   // An earlier version, shown in place of the editor while you look back.
   const [past, setPast] = useState<{ body: unknown; key: string } | null>(null)
   // Bumped when the words change under the editor (a version restored), so it
@@ -236,6 +231,8 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
     onEscape: () => spread && query && setQuery('')
   })
   useEffect(() => void (spread && shown[cursor] && setPeek(shown[cursor].id)), [cursor, spread]) // eslint-disable-line react-hooks/exhaustive-deps
+  // A search cleared: the keyboard back on the one looked at, and it in view, wherever it is in the whole list.
+  useEffect(() => void (!query && spread && peek && setCursor(shown.findIndex((one) => one.id === peek))), [query]) // eslint-disable-line react-hooks/exhaustive-deps
   // An exit undone: the capture open again, and the cursor on its row once the list has it back.
   const backTo = useRef<string | null>(null)
   const comeBack = (id: string): void => void ((backTo.current = id), pick(id))
@@ -243,6 +240,8 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
     const at = backTo.current ? shown.findIndex((one) => one.id === backTo.current) : -1
     if (at >= 0) (setCursor(at), (backTo.current = null))
   }, [shown]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Back from the Bin by Undo: open again if a note was open, else the keyboard on its row.
+  useCameBack(whole.map((one) => one.id), (id) => (open || task ? pick(id) : setCursor(shown.findIndex((one) => one.id === id))))
   // ; on the row under the cursor, with nothing open: a thought written under it.
   const glossAfter = useRowGloss(shown[cursor]?.id, !open && !task && !shown[cursor]?.task)
   const peeked = spread ? all.find((one) => one.id === peek) : undefined
@@ -385,7 +384,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
   // Opening one, or putting it away, is a step Back returns from.
   useOpened(open?.id ?? task?.id, focus, pick, () => (asked(), setOpen(null), setTask(null)), { shown: shown.map((one) => one.id), kind: task ? 'task' : 'capture' })
   // A note opened: a page turned, as a book is (a quick run down the list turns only one).
-  useEffect(() => void (open?.id && pageTurn()), [open?.id])
+  useEffect(() => void (open?.id && pageTurn(false, open.id)), [open?.id])
   // The open capture as the list last saw it, so its status follows an exit.
   const meta = all.find((capture) => capture.id === open?.id)
   // What is around a note's words (who links to it, a thought on it) comes the frame after them.
@@ -584,7 +583,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
                 setOpen(found)
                 setRev((n) => n + 1)
               })}
-              left={<Stepper at={whole.findIndex((one) => one.id === open.id)} total={whole.length} onStep={stepTo} />}
+              left={<Stepper turns at={whole.findIndex((one) => one.id === open.id)} total={whole.length} onStep={stepTo} />}
               edited={meta.editedAt} captured={meta.capturedAt}
               pinned={!!meta.pinnedAt} onPin={() => pin('captures', meta.id, !meta.pinnedAt)} copyKey={noteLinkText(meta.id, meta.label)}
               menu={[

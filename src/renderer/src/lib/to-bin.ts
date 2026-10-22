@@ -1,4 +1,5 @@
-import { tear } from './sound'
+import { useEffect, useRef } from 'react'
+import { chime, tear } from './sound'
 import { vigil } from './vigil'
 import { refuse, toast } from '@/components/vigil/ui'
 import { num } from '../../../main/dates'
@@ -75,7 +76,7 @@ export async function moveToBin(refs: BinRef[], onUndo?: () => void): Promise<nu
   ].filter(Boolean).join('; ')
   const undo = (): void => {
     if (last?.undo === undo) last = null
-    void Promise.all(undos.map((one) => one())).then(() => onUndo?.())
+    void Promise.all(undos.map((one) => one())).then(() => (onUndo?.(), window.dispatchEvent(new CustomEvent('vigil:came-back', { detail: going.map((one) => one.id) }))))
   }
   last = { ids: going.map((one) => one.id), undo, at: Date.now(), page: pageInFront() }
   toast(`${saidOf(going.length)}${extra ? `: ${extra}` : ''}`, undo, 'success', seeTheBin)
@@ -97,3 +98,24 @@ export const binItem = (refs: BinRef[], after?: () => void): { label: string; ke
   danger: true,
   run: () => void moveToBin(refs).then((n) => n && after?.())
 })
+
+/**
+ * Rows Undo took back out of the Bin, met as they come back into a list, as
+ * Mail selects a message it undeleted: `land` is called once, with the first
+ * of them that `ids` (the list, whole) holds again, within a few seconds.
+ */
+export function useCameBack(ids: string[], land: (id: string) => void): void {
+  const waiting = useRef<{ ids: string[]; until: number } | null>(null)
+  useEffect(() => {
+    const heard = (event: Event): void => void (waiting.current = { ids: (event as CustomEvent<string[]>).detail, until: Date.now() + 4000 })
+    window.addEventListener('vigil:came-back', heard)
+    return () => window.removeEventListener('vigil:came-back', heard)
+  }, [])
+  useEffect(() => {
+    const now = waiting.current
+    if (!now) return
+    if (Date.now() > now.until) return void (waiting.current = null)
+    const back = now.ids.find((id) => ids.includes(id))
+    if (back) (waiting.current = null, land(back))
+  })
+}

@@ -32,6 +32,12 @@ function readEarly(type: string, id: string): void {
   early.set(key, one)
 }
 
+/** The same, looked at without using it up: for where it opens, before its page reads it. */
+export function peekRead<T>(type: string, id: string): T | undefined {
+  const one = early.get(keyOf(type, id))
+  return one?.got && performance.now() - one.at < FRESH_MS ? (one.got as T) : undefined
+}
+
 /** Its words if they are already here (read early and answered), else undefined. Used once. */
 export function readNow<T>(type: string, id: string): T | undefined {
   const key = keyOf(type, id)

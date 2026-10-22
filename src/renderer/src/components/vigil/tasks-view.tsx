@@ -10,6 +10,7 @@ import { chime, step } from '@/lib/sound'
 import { noteLinkText, typeSaid } from '@/lib/capture-links'
 import { call, splitTags, unloaded, useLastAsked, useLive, vigil, when, whenInLine, type Focus, type Made, type Session, type Settings, type Task, type TaskFull } from '@/lib/vigil'
 import { useOpened } from '@/lib/nav'
+import { useCameBack } from '@/lib/to-bin'
 import { readFresh, readNow } from '@/lib/early-read'
 import { BUCKETS, READY_LEADS, bucket, closeTask, gettingReady, makeTask, onToday, placed, readySaid, setReady, snooze, snoozeDays, snoozeItems, snoozed, taskName, toNoteItem } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../../main/task-words'
@@ -737,6 +738,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   // Sent here for one task, from search or a link: open it. Opening one is a step Back returns from.
   useOpened(open?.id, matrixed ? undefined : focus, pick, () => (asked(), setOpen(null)), { shown: shown.map((task) => task.id), kind: 'task' })
   const [cursor, setCursor] = useListKeys(example ? 0 : shown.length, { onOpen: (index) => pick(shown[index].id), enabled: !matrixed, opened: shown.findIndex((one) => one.id === open?.id), onExtend: (from, to) => several.extend(shown[from]?.id, shown[to].id) })
+  // Back from the Bin by Undo: open again if a task was open, else the keyboard on its row.
+  useCameBack(shown.map((one) => one.id), (id) => (open ? pick(id) : setCursor(shown.findIndex((one) => one.id === id))))
   const addRef = useRef<HTMLInputElement>(null)
 
   // How far through the day: what was done today (routines too) against that and what is left.
@@ -964,6 +967,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                       <div
                         data-id={task.id}
                         data-task-row
+                        data-open={task.id === open?.id || undefined}
                         data-cursor={index === cursor || undefined}
                         className={`group group/item relative flex items-start gap-3 rounded-md px-2 py-2 transition-colors ${several.chosen.includes(task.id) ? PICKED_ROW : task.id === open?.id ? 'bg-accent' : index === cursor ? 'bg-accent/40' : ''} ${arrived(task.id) ? 'mf-arrive' : ''}`}
                       >

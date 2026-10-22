@@ -85,6 +85,8 @@ const CHIPS = [
 ] as const
 type Chip = (typeof CHIPS)[number]['id']
 
+/** A note opening turns a page, which is its one sound. */
+const turns = (type: string): boolean => type === 'capture' || type === 'nugget' || type === 'article' || type === 'question'
 const KIND_NAME: Record<Kind, string> = { capture: 'Note', nugget: 'Gem', article: 'Article', question: 'Question', task: 'Task' }
 const kindOf = (card: Pick<Card, 'type' | 'kind'>): (typeof CAPTURE_TYPES)[number] =>
   CAPTURE_TYPES.find((type) => type.id === (card.type === 'task' ? 'todo' : card.kind)) ?? CAPTURE_TYPES[0]
@@ -648,7 +650,8 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
 
   const actions: Actions = {
     // ⇧-click picks, as in every list; a plain click opens.
-    open: (card, event) => (event && several.click(event, card)) || (chime('open'), onOpen(card.type, card.id)),
+    // A note's page turn is its one sound; a task or an event opens with a chime.
+    open: (card, event) => (event && several.click(event, card)) || (turns(card.type) || chime('open'), onOpen(card.type, card.id)),
     picked: (card) => several.picked(card),
     menu: (card, own) => several.menu(card) ?? [...own, ...several.rowItems(card)],
     note: (card) => {

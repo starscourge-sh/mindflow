@@ -17,7 +17,7 @@ import { RowMenu, type RowItem } from './row-menu'
 import { SortableList, SortableRow } from './sortable'
 import { GroupIcon, GroupedList, type Folds } from './kept-groups'
 import { IslandBox, type IslandState } from './islands'
-import { Count, Rolling, Tags, Tip, VirtualList, typing } from './ui'
+import { Count, Rolling, Tags, Tip, VirtualList, showRow, typing } from './ui'
 import { Button } from '@/components/ui/button'
 import type { Density, Pane } from './display'
 import { GrainFill, onPaper, PAPER_INK, useNoteCover } from './grain'
@@ -292,6 +292,16 @@ export function NoteList({
   const grid = density === 'small' || density === 'grid'
   const arrived = useArrivals(groups.flatMap(([, list]) => list.map((one) => one.id)))
   const box = useRef<HTMLDivElement>(null)
+  // The one open is brought into view the first time its row is drawn: when
+  // it is opened, when the list is drawn the frame after its note, when the
+  // island holding it unfolds. Once for each, so scrolling away stays put. A
+  // long list's rows not drawn yet are found by the keyboard's row (VirtualList).
+  const placed = useRef<string | undefined>(undefined)
+  useEffect(() => {
+    if (!selected || placed.current === selected) return
+    const row = box.current?.querySelector(`[data-id="${CSS.escape(selected)}"]`)
+    if (row) (placed.current = selected, showRow(row))
+  })
   // One light over the rows, gliding to the nearest, so the gap between two never goes dark (glide.tsx). Tiles keep their ring.
   const hover = useFluidHover(box, { items: '[data-row]' })
   const glide = grid ? {} : { ...hover.handlers, className: 'relative isolate' }

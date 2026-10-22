@@ -217,7 +217,7 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
   // Opening one is a step Back returns from; Holding or Answered is kept in it.
   const hush = useOpened(open?.id, focus, pick, () => (asked(), setOpen(null)), { shown: items.map((one) => one.id), kind: 'item' })
   // A note opened: a page turned, as a book is (a quick run down the list turns only one).
-  useEffect(() => void (open?.id && pageTurn()), [open?.id])
+  useEffect(() => void (open?.id && pageTurn(false, open.id)), [open?.id])
   useKept('tab', show, setShow, 'open')
   // Read again when anything changes, so a clue added elsewhere shows.
   useEffect(() => {
@@ -238,6 +238,8 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
     onEscape: () => spread && query && setQuery('')
   })
   useEffect(() => void (spread && items[cursor] && setPeek(items[cursor].id)), [cursor, spread]) // eslint-disable-line react-hooks/exhaustive-deps
+  // A search cleared: the keyboard back on the one looked at, and it in view, wherever it is in the whole list.
+  useEffect(() => void (!query && spread && peek && setCursor(items.findIndex((one) => one.id === peek))), [query]) // eslint-disable-line react-hooks/exhaustive-deps
   // ; on the row under the cursor, with nothing open: a clue written under it.
   const glossAfter = useRowGloss(items[cursor]?.id, !open, 'A clue, in your own words')
   const go = (type: string, id: string): void => (type === 'question' ? pick(id) : onOpen?.(type, id))
@@ -292,7 +294,7 @@ export function QuestionsView({ focus, onOpen }: { focus?: string; onOpen?: (typ
       )}
       {peeked && <Peek entry={questionEntry(peeked, inView.has(peeked.id))} table="nuggets" onOpen={() => pick(peeked.id)} />}
       {open && <Apart type="question" id={open.id} title={open.title} hidden={!!open.private} onBack={() => vigil.item(open.id).then((fresh) => fresh && setOpen(fresh))}><QuestionDetail key={open.id} item={open} onOpen={go}
-        top={<Stepper at={items.findIndex((one) => one.id === open.id)} total={items.length} onStep={(to) => pick(items[to].id)} />} /></Apart>}
+        top={<Stepper turns at={items.findIndex((one) => one.id === open.id)} total={items.length} onStep={(to) => pick(items[to].id)} />} /></Apart>}
     </>
   )
 }

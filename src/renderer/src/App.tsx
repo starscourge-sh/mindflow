@@ -54,6 +54,7 @@ import { BOX_TABS, dropOrder, orderItems, useInOrder, useOrder, useShown, type P
 import { SortableList, SortableRow } from './components/vigil/sortable'
 import { RowMenu } from './components/vigil/row-menu'
 import { CaptureProps, GoThrough, useCaptureDisplay } from './components/vigil/captures-view'
+import { useShowOpen } from './components/vigil/islands'
 import { Search } from './components/search'
 import { InboxBinned, InboxZero, useJustCleared } from './components/vigil/inbox-zero'
 import { keepTyped } from './lib/keep-typed'
@@ -2429,6 +2430,8 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
   const shown = groups.flatMap(([, list]) => list)
   // The whole list, rows behind "Show N more" and in a folded island too: what ⌘A and "Select all" pick.
   const every = grouped.flatMap(([, list]) => list)
+  // The capture open in the box shows in the list beside it: its island unfolded, past "Show more", quietly.
+  useShowOpen(editing, grouped, shown, islands)
   // x picks several, the way it does in the main window, for one exit on all.
   const [chosen, setChosen] = useState<string[]>([])
   // Several made one task, from the bar or ⌘K: its name starts as the first one's title.

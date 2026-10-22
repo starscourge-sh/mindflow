@@ -26,7 +26,7 @@ import { Example } from './example'
 import { makeTask, makeTasks } from '@/lib/tasks'
 import { useSelectAll } from '@/lib/select-all'
 import { usePicking } from '@/lib/pick-range'
-import { binItem, moveToBin } from '@/lib/to-bin'
+import { binItem, moveToBin, useCameBack } from '@/lib/to-bin'
 import { useSameWords } from '@/lib/same-words'
 import { Empty, focusField, Island, Page, Prop, Props, Remembered, refuse, quietly, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, Typed, showTopTitle, Pressed, askClearWho, Rolling } from './ui'
 import { Term } from './term'
@@ -61,6 +61,7 @@ import { dayjs, num } from '../../../../main/dates'
 import { moment } from '@/lib/clock'
 import { Signed } from './signature'
 import { groups as noteGroupsApi, tintOf, useGroups, type NoteGroup } from '@/lib/groups'
+import { useReveal } from './islands'
 import { dropMany, flatten, gather, groupId, groupOf, isGroup, KEY, layoutOf, moveTo, step as stepLayout, tidy, type Layout } from '@/lib/group-layout'
 import type { Cue } from '@/lib/sound'
 import { GroupIcon, type Bundle, type Folds, type GroupView } from './kept-groups'
@@ -235,6 +236,18 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   const onMove = (id: string, target: string, after: boolean): void => move(all.map((one) => one.id), id, target, after)
   // Spread out, a click looks at a note beside the list; Enter opens it.
   const [peek, setPeek] = useState<string | null>(null)
+  // However it was opened, the open one's row shows: its group opened, or its folder card gone into, quietly.
+  const showing = spread ? peek : open?.id
+  useReveal(showing, items.some((one) => one.id === showing), () => {
+    if (!showing) return false
+    if (folding.rows) return folding.reveal(showing)
+    if (!tiled) return false
+    const card = folding.tiles(flat).find((one) => 'group' in one && one.items.some((item) => item.id === showing))
+    if (card && 'group' in card) return (setInGroup(card.group.id), true)
+    // In another group's folder: out of it, and looked for again among the cards.
+    if (folder) setInGroup(null)
+    return false
+  })
   // Only the last pick lands: a late answer for the gem before is dropped.
   const asked = useLastAsked()
   const pick = (id: string): void => {
@@ -269,6 +282,8 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
     // changes the layout or leaves a group's folder. ⌘[ or the back button is the way back.
     onEscape: () => void ((spread || folder) && query && setQuery(''))
   })
+  // A search cleared: the keyboard back on the one looked at, and it in view, wherever it is in the whole list.
+  useEffect(() => void (!query && spread && peek && setCursor(items.findIndex((one) => one.id === peek))), [query]) // eslint-disable-line react-hooks/exhaustive-deps
   // ⌘[ inside a group's folder steps back out of it, before the page's own Back hears it.
   useEffect(() => {
     if (!folder) return
@@ -285,6 +300,8 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   useEffect(() => void (spread && items[cursor] && setPeek(items[cursor].id)), [cursor, spread]) // eslint-disable-line react-hooks/exhaustive-deps
   // ; on the row under the cursor, with nothing open: a thought written under it.
   const glossAfter = useRowGloss(items[cursor]?.id, !open)
+  // Back from the Bin by Undo: open again if a note was open, else the keyboard on its row.
+  useCameBack(all.map((one) => one.id), (id) => (open ? pick(id) : setCursor(items.findIndex((one) => one.id === id))))
   const peeked = spread ? all.find((one) => one.id === peek) : undefined
   // ⌥↑ and ⌥↓ (or ⌥K and ⌥J) move the row under the cursor in your own order.
   // Split, only the pane in front answers keys.
@@ -381,7 +398,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
   // with ↓ and ↑ (the Stepper over the page), a lighter page; a quick run turns only one.
   const stepped = useRef(false)
   useEffect(() => {
-    if (open?.id) pageTurn(stepped.current)
+    if (open?.id) pageTurn(stepped.current, open.id)
     stepped.current = false
   }, [tier, open?.id])
   // Re-read the open one when anything changes, so a gloss or a prompt shows.
@@ -578,7 +595,7 @@ export function ItemsView({ tier, focus, onOpen }: { tier: 'nugget' | 'article';
           }}
         />
       )}
-      {open && <Apart type={open.tier} id={open.id} title={open.title} hidden={!!open.private} onBack={() => vigil.item(open.id).then((fresh) => fresh && setOpen(fresh))}><ItemDetail top={<Stepper at={items.findIndex((one) => one.id === open.id)} total={items.length} onStep={(to) => ((stepped.current = true), pick(items[to].id))} />} key={open.id} item={open} onOpen={(type, id) => (type === tier ? pick(id) : onOpen?.(type, id))} /></Apart>}
+      {open && <Apart type={open.tier} id={open.id} title={open.title} hidden={!!open.private} onBack={() => vigil.item(open.id).then((fresh) => fresh && setOpen(fresh))}><ItemDetail top={<Stepper turns at={items.findIndex((one) => one.id === open.id)} total={items.length} onStep={(to) => ((stepped.current = true), pick(items[to].id))} />} key={open.id} item={open} onOpen={(type, id) => (type === tier ? pick(id) : onOpen?.(type, id))} /></Apart>}
     </>
   )
 }
@@ -1176,6 +1193,7 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
   /** A group's notes in order, for its own page: its own, and each subgroup's under its name. */
   partsOf: (id: string, all: NoteGroup[]) => GroupParts
   folds: (menuFor: (item: Item) => RowItem[]) => Omit<Folds, 'onNewNote'>
+  reveal: (id: string) => boolean
 } {
   const list = useGroups(tier)
   const [held, setHeld] = useState<Layout | null>(null)
@@ -1395,5 +1413,14 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
       ...parts.flatMap((part) => ('sub' in part ? [{ sub: all.find((one) => one.id === part.sub), items: part.items }] : []))
     ]
   }
-  return { rows: shown ? rowsOf(layout) : null, tiles, step, menu, gatherNew, folds, partsOf }
+  // The open note's group (and subgroup) opened for now, quietly, when it is shut: its row is never out of sight.
+  const reveal = (id: string): boolean => {
+    const one = blocks(layout).find((block) => block.group && block.items.some((item) => item.id === id))
+    if (!one?.group) return false
+    const sub = one.parts?.find((part): part is { sub: string; items: Item[] } => 'sub' in part && part.items.some((item) => item.id === id))
+    const shutOnes = [one.group, sub?.sub].filter((group): group is string => !!group && !isOpen(group))
+    if (shutOnes.length) setOpened((was) => ({ ...was, ...Object.fromEntries(shutOnes.map((group) => [group, true])) }))
+    return true
+  }
+  return { rows: shown ? rowsOf(layout) : null, tiles, step, menu, gatherNew, folds, partsOf, reveal }
 }

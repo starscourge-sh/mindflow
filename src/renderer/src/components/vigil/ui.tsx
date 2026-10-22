@@ -450,9 +450,9 @@ export const startAt = (list: { id: string }[], open: string | null | undefined,
  * before, the way Linear's issue view has it: "3 / 426 ↓ ↑". ↓ and ↑ step
  * through the list whenever you are not typing.
  */
-export function Stepper({ at, total, onStep }: { at: number; total: number; onStep: (to: number) => void }): React.JSX.Element | null {
-  const latest = useRef({ at, total, onStep })
-  latest.current = { at, total, onStep }
+export function Stepper({ at, total, onStep, turns = false }: { at: number; total: number; onStep: (to: number) => void; /** What it steps to turns a page as it opens: that is the step's one sound. */ turns?: boolean }): React.JSX.Element | null {
+  const latest = useRef({ at, total, onStep, turns })
+  latest.current = { at, total, onStep, turns }
   // Split, only the pane in front steps.
   const here = useHere()
   useEffect(() => {
@@ -460,12 +460,12 @@ export function Stepper({ at, total, onStep }: { at: number; total: number; onSt
       // ⇧↑ and ⇧↓ are the list's, picking a run.
       if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || typing() || event.defaultPrevented || !here()) return
       if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return
-      const { at, total, onStep } = latest.current
+      const { at, total, onStep, turns } = latest.current
       const to = at + (event.key === 'ArrowDown' ? 1 : -1)
       if (to < 0 || to >= total) return
       event.preventDefault()
       event.stopPropagation()
-      chime('tap')
+      if (!turns) chime('tap')
       onStep(to)
     }
     window.addEventListener('keydown', onKey, true)
@@ -473,7 +473,7 @@ export function Stepper({ at, total, onStep }: { at: number; total: number; onSt
   }, [])
   if (at < 0 || total < 2) return null
   const go = (by: 1 | -1): void => {
-    chime('tap')
+    if (!turns) chime('tap')
     onStep(at + by)
   }
   return (
@@ -663,6 +663,32 @@ export const pin = (table: 'captures' | 'nuggets', id: string, on: boolean): voi
   })
 
 /**
+ * How a list brings a row into view, as Finder and Mail do: left still when it
+ * shows already, nudged to the edge when it is the next one past it (a step
+ * with ↓), and centred when it was far off (opened from a link, ⌘K, Back).
+ * `top` and `bottom` are where the row is, `view` the box that scrolls.
+ */
+export function rowPlace(top: number, bottom: number, view: { top: number; bottom: number }): 'still' | 'edge' | 'centre' {
+  if (top >= view.top && bottom <= view.bottom) return 'still'
+  const near = (bottom - top) * 2.5
+  return bottom > view.top - near && top < view.bottom + near ? 'edge' : 'centre'
+}
+
+/** A row drawn on the page, brought into view by the rule above. */
+export function showRow(row: Element | null | undefined): void {
+  if (!row) return
+  let box = row.parentElement
+  while (box && !/auto|scroll/.test(getComputedStyle(box).overflowY)) box = box.parentElement
+  if (!box) return
+  const at = row.getBoundingClientRect()
+  const place = rowPlace(at.top, at.bottom, box.getBoundingClientRect())
+  if (place !== 'still') (row.scrollIntoView({ block: place === 'edge' ? 'nearest' : 'center' }), rowShown())
+}
+
+/** Said when a list scrolls itself to its open row: Back's putting the page where it was lets go then (panes.tsx), so the row stays in sight. */
+const rowShown = (): void => void window.dispatchEvent(new Event('vigil:row-shown'))
+
+/**
  * Moving through a list the way the editor moves through a document: j and k,
  * or the arrows; gg and G for the ends; Enter to open. Escape only lets go of
  * something passing, like the words in a search (onEscape): it never goes
@@ -698,7 +724,7 @@ export function useListKeys(count: number, { onOpen, onEscape, enabled = true, o
   // The row the cursor is on stays in view. Rows mark themselves with
   // data-cursor, since a ref on an animated row is only read once.
   useEffect(() => {
-    if (at >= 0) document.querySelector(pane ? `[data-pane="${pane}"] [data-cursor]` : '[data-cursor]')?.scrollIntoView({ block: 'nearest' })
+    if (at >= 0) showRow(document.querySelector(pane ? `[data-pane="${pane}"] [data-cursor]` : '[data-cursor]'))
   }, [at]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -1782,9 +1808,20 @@ export function VirtualList<T>({ items, keyOf, cursor, estimate = 48, className 
     scrollMargin: margin,
     getItemKey: (index) => keyOf(items[index])
   })
+  // The keyboard's row, drawn or not yet: left still if it shows, to the edge
+  // for a step, centred for a jump. Asked again once the scroller is found, so
+  // a list opened onto a row far down (a link, ⌘K) lands on it too. A frame
+  // later, so where the list starts in its scroller is known by then.
   useEffect(() => {
-    if (cursor !== undefined && cursor >= 0 && cursor < items.length) rows.scrollToIndex(cursor)
-  }, [cursor]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (!scroller || cursor === undefined || cursor < 0 || cursor >= items.length) return
+    const frame = requestAnimationFrame(() => {
+      const row = rows.measurementsCache[cursor]
+      if (!row || !scroller.isConnected) return
+      const place = rowPlace(row.start, row.end, { top: scroller.scrollTop, bottom: scroller.scrollTop + scroller.clientHeight })
+      if (place !== 'still') (rows.scrollToIndex(cursor, { align: place === 'edge' ? 'auto' : 'center' }), rowShown())
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [cursor, scroller]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div ref={box} className={`relative ${className}`} style={{ height: rows.getTotalSize() }}>
       {rows.getVirtualItems().map(({ index, key, start }) => (

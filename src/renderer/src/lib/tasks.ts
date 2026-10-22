@@ -332,7 +332,7 @@ export function closeTask(id: string, then?: () => void): void {
     then?.()
     tear()
     // Said where it went: the Bin, one key away, as every move there says it.
-    toast('Closed without doing: it is in the Bin', () => void vigil.saveTask(id, { status: 'open' }), 'success', seeTheBin)
+    toast('Closed without doing: it is in the Bin', () => void vigil.saveTask(id, { status: 'open' }).then(() => window.dispatchEvent(new CustomEvent('vigil:came-back', { detail: [id] }))), 'success', seeTheBin)
   })
 }
 

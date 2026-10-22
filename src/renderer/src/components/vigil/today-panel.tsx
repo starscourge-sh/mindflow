@@ -205,7 +205,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
               // Done by a key, it simply goes; by a click it slides off the way a tick sends it.
               variants={{ gone: () => (byKeys() ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, transform: shift('translateX(16px)'), transition: { duration: 0.16, ease: EASE } }) }}
               exit="gone"
-              className={`group group/item relative flex flex-wrap items-start gap-2 rounded-sm px-2 py-1.5 pr-8 hover:bg-accent/50 ${several.chosen.includes(task.id) ? PICKED_ROW : index === cursor ? "bg-accent/50" : ""}`}
+              className={`group group/item relative flex flex-wrap items-start gap-2 rounded-sm px-2 py-1.5 pr-8 hover:bg-accent/50 ${several.chosen.includes(task.id) ? PICKED_ROW : task.id === open ? "bg-accent" : index === cursor ? "bg-accent/50" : ""}`}
             >
               <Tip label="Complete">
               <button
@@ -232,7 +232,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
                 ...taskMenu(task, { open: () => onOpen(task.id), complete: () => tick(task), move, frog, now, thought: () => setGlossing(task.id) }),
                 ...several.rowItems(task.id)
               ]}>
-              <button type="button" data-row data-id={task.id} data-cursor={index === cursor || undefined} data-picked={several.chosen.includes(task.id) || undefined} className={`min-w-0 flex-1 text-left ${task.id === open ? 'font-medium' : ''}`} onClick={(event) => several.click(event, task.id) || onOpen(task.id)}>
+              <button type="button" data-row data-id={task.id} data-open={task.id === open || undefined} data-cursor={index === cursor || undefined} data-picked={several.chosen.includes(task.id) || undefined} className={`min-w-0 flex-1 text-left ${task.id === open ? 'font-medium' : ''}`} onClick={(event) => several.click(event, task.id) || onOpen(task.id)}>
                 <p className="flex items-center gap-1.5">
                   <span data-task-title className={`truncate ${ticking(task.id) ? 'mf-strike' : ''}`}>{taskName(task.title).text}</span>
                   <Tags tags={taskName(task.title).tags} />

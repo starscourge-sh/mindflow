@@ -250,6 +250,8 @@ function PaneFrame({ pane, apis, split, front, hidden, head, menu, onClose, shar
     root.addEventListener('wheel', letGo, { passive: true, capture: true })
     root.addEventListener('pointerdown', letGo, true)
     window.addEventListener('keydown', letGo, true)
+    // A list bringing its open row into view (the note Back returned to) wins over where the page was.
+    window.addEventListener('vigil:row-shown', letGo)
     put()
     return () => {
       cancelAnimationFrame(frame)
@@ -257,6 +259,7 @@ function PaneFrame({ pane, apis, split, front, hidden, head, menu, onClose, shar
       root.removeEventListener('wheel', letGo, true)
       root.removeEventListener('pointerdown', letGo, true)
       window.removeEventListener('keydown', letGo, true)
+      window.removeEventListener('vigil:row-shown', letGo)
     }
   }, [pane.at])
   const width = useMemo(() => ({ width: pane.width, set: (next: PaneWidth) => onWidth(pane.key, next) }), [pane.width, pane.key, onWidth])

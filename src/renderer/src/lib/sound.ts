@@ -288,6 +288,9 @@ export const openChime = (node: HTMLElement | null): void => void (node && chime
 export const openCue = (node: HTMLElement | null): void => void (node && (chime('open'), markKeyed(node)))
 
 let chimedAt = -Infinity
+/** When a row's press last ticked: the move it makes says nothing on top. */
+let tickedAt = -Infinity
+export const tickedWithin = (ms: number): boolean => performance.now() - tickedAt < ms
 /** When a cue of its own (not a tap or a step) last played: a page turn right behind one is the same action heard twice. */
 let spokeAt = -Infinity
 /** Whether a cue played in the last `ms`: an answer that follows an action stays quiet when the action already spoke. */
@@ -541,8 +544,9 @@ export function installTicks(): () => void {
     const pressed = downAt
     downAt = -Infinity
     if (pressed === -Infinity) return
+    // Nor on top of a cue the press already set off (a move to another page).
     setTimeout(() => {
-      if (Math.max(turnedAt.soft, turnedAt.full, turnTriedAt) < pressed) click('tick')
+      if (Math.max(turnedAt.soft, turnedAt.full, turnTriedAt, chimedAt) < pressed) (click('tick'), (tickedAt = performance.now()))
     }, 0)
   }
   // A to-do ticked inside a note sounds like a task done, unticked like a switch off.
@@ -629,16 +633,23 @@ export const fold = (): void => void recording(foldUrl, 0.5, 'fold')
 const turnedAt = { soft: -Infinity, full: -Infinity }
 /** When a page turn was last asked for, even one too soon after the last to be heard. */
 let turnTriedAt = -Infinity
+/** The note a page last turned for, and when: its own page, drawn a moment later, turns none for it again. */
+let turnedFor: { id: string; at: number } | null = null
+/** Whether a page has just turned for this note: the move that opened it says nothing on top. */
+export const turnedNow = (id: string | undefined): boolean => !!id && turnedFor?.id === id && performance.now() - turnedFor.at < 1500
 /**
  * An article or a piece of writing opened: a page turned, short and soft.
  * Stepping down a list faster than one every 400ms turns no pages. `soft`
  * is the lighter turn of stepping between pieces with the arrow keys: the
- * same page, quicker and quieter.
+ * same page, quicker and quieter. `id` is the note opened: asked again for
+ * the same one (by the page that shows it, once drawn), it turns no second page.
  */
-export function pageTurn(soft = false): void {
+export function pageTurn(soft = false, id?: string): void {
   const now = performance.now()
-  const key = soft ? 'soft' : 'full'
   turnTriedAt = now
+  if (turnedNow(id)) return
+  if (id) turnedFor = { id, at: now }
+  const key = soft ? 'soft' : 'full'
   const quick = now - turnedAt[key] < 400
   turnedAt[key] = now
   // A note opened by something that already answered (a new article's chime, a peek's open) turns no page on top.

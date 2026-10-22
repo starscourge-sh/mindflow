@@ -9,8 +9,8 @@ import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMe
 import { AnimatePresence, motion } from 'motion/react'
 import { EASE, byKeys, keyedMotion, shift, spring } from './lib/motion'
 import { Highlight, Unfold, useChosen, useFluidHover, Weighted } from './components/vigil/glide'
-import { chime, chimedWithin, pageTurn, paper, soundOn } from './lib/sound'
-import { readOnPress, whenRead } from './lib/early-read'
+import { chime, chimedWithin, pageTurn, paper, soundOn, tickedWithin, turnedNow } from './lib/sound'
+import { peekRead, readOnPress, whenRead } from './lib/early-read'
 import { foldEverything } from './extensions/heading-fold'
 import { NotePreview } from './components/vigil/note-preview'
 import { TASK_KIND } from './components/vigil/everything'
@@ -43,7 +43,7 @@ import { TasksView, askDate, askSessions } from './components/vigil/tasks-view'
 import { WeekView } from './components/vigil/week-view'
 import { CalendarView } from './components/vigil/calendar-view'
 import { MatrixView } from './components/vigil/matrix-view'
-import { onToday, picked, taskName } from './lib/tasks'
+import { bucket, onToday, picked, taskName } from './lib/tasks'
 import { stickOnDesktop } from './components/vigil/sticky-note'
 import { Count, Toaster, toast, refuse, typing, HELD, FocusNote, useFocusMode, SoundToggle, quietly } from './components/vigil/ui'
 import { GrowFrom } from './components/vigil/grow-from'
@@ -188,6 +188,8 @@ let made = 0
 const fresh = (views: View[] = [{ id: 'home' }]): PaneState => ({ key: `p${Date.now().toString(36)}${made++}`, trail: { views, at: views.length - 1 } })
 /** Pages that hold one note open beside their list, its id as the step's focus. */
 const holdsNotes = (id: string): boolean => !['home', 'day', 'weekpage', 'monthpage', 'yearpage', 'tags', 'sources', 'source', 'stats', 'map', 'powers', 'whatsnew', 'settings', 'review', 'queue', 'calendar', 'practices', 'kind:practice'].includes(id)
+/** A step onto a note (not a task, a day or an event): the page that shows it turns, as a book's does. */
+const turnsPage = (view: View): boolean => !!view.focus && holdsNotes(view.id) && !['today', 'tomorrow', 'upcoming', 'routines', 'later', 'goals', 'week', 'matrix', 'discarded'].includes(view.id)
 /** Where one thing opens: a view by name, a day's page, or a note or task in its section. */
 /** The page left behind fades out under the new one; reached by a key, it simply goes. */
 const PAGE_GONE = { gone: (keyed: boolean) => ({ opacity: 0, transition: { duration: keyed ? 0 : 0.08, ease: EASE } }) }
@@ -269,7 +271,8 @@ export function Home(): React.JSX.Element {
       // Nor is the section you are in, asked for again: what is open stays.
       if (here.id === next.id && (here.focus === next.focus || next.focus === undefined) && here.nonce === next.nonce) return trail
       // One sound a move: a place reached by something that already spoke (a map dot, ⌘K's Year) stays quiet.
-      if (here.id !== next.id && !chimedWithin(150)) chime('tap')
+      // A note opened on another page is heard as its page turn alone.
+      if (here.id !== next.id && !chimedWithin(150) && !turnedNow(next.focus) && !tickedWithin(200)) chime('tap')
       return push(trail, next, scroll)
     })
   }
@@ -278,8 +281,8 @@ export function Home(): React.JSX.Element {
     setTrail(key, ({ views, at }) => {
       const next = Math.max(0, Math.min(views.length - 1, at + by))
       if (next === at) return { views, at }
-      // Back and forward sound like any other move between sections.
-      chime('tap')
+      // Back and forward sound like any other move between sections; onto a note, its page turn is the sound.
+      if (!turnsPage(views[next])) chime('tap')
       apis.current.get(key)?.restore(views[next].scroll ?? null)
       return { views: views.map((one, index) => (index === at ? { ...one, scroll } : one)), at: next }
     })
@@ -350,7 +353,7 @@ export function Home(): React.JSX.Element {
     const now = splitRef.current
     const at = Math.max(0, now.panes.findIndex((one) => one.key === from))
     // A note opened beside: a page turned; a list or a page, the panel's slide.
-    if (next.focus) pageTurn()
+    if (next.focus) pageTurn(false, next.focus)
     else chime('slide')
     if (now.panes.length < 2 || (now.panes.length < MAX_PANES && roomFor(now.panes.length + 1))) {
       const made = fresh([next])
@@ -375,7 +378,7 @@ export function Home(): React.JSX.Element {
    */
   const placeAt = (next: View, side: Side): void => {
     const now = splitRef.current
-    if (next.focus) pageTurn()
+    if (next.focus) pageTurn(false, next.focus)
     else chime('slide')
     if (now.panes.length < MAX_PANES) {
       const made = fresh([next])
@@ -578,6 +581,8 @@ export function Home(): React.JSX.Element {
   const tags = useLive(vigil.tags, [] as Awaited<ReturnType<typeof vigil.tags>>)
   // Pinned from a tag's page: those first, then the most used.
   const sideTags = tags.slice(0, 8)
+  // The Tags heading is marked on the Tags page, and on a tag's page whose own row is folded away or not among these.
+  const onTags = view.id === 'tags' && (!view.focus || !tagsOpen || !sideTags.some(({ tag }) => tag === view.focus))
   const captures = useCaptures()
   const due = useLive(vigil.dueCount, 0, [], ['item'])
   const tasks = useLive(vigil.tasks, [] as Task[])
@@ -826,11 +831,17 @@ export function Home(): React.JSX.Element {
     // Which way it goes is read from the click itself, before any wait.
     const side = asideClick()
     if (side) spendAsideClick()
-    const go = (): void => (side ? aside(stepOf(type, id), key) : setView(stepOf(type, id), key))
+    // A task opens in the list that holds it (Today, Routines, Later), so its row is there beside it; Upcoming when it is not known yet.
+    const step = (): View => {
+      const task = type === 'task' ? peekRead<Task>('task', id) : undefined
+      const list = !task || task.status !== 'open' ? null : onToday(task) ? 'today' : task.recurrence ? 'routines' : bucket(task) && !task.deadline ? 'later' : null
+      return list ? { id: list, focus: id } : stepOf(type, id)
+    }
+    const go = (): void => (side ? aside(step(), key) : setView(step(), key))
     // A note's page turns on the click, not once it has loaded (the page then
     // turns no second time), and waits the moment it takes to read its words
     // (lib/early-read.ts), so it opens on them at once.
-    if (type === 'capture' || type === 'nugget' || type === 'article' || type === 'question') pageTurn()
+    if (type === 'capture' || type === 'nugget' || type === 'article' || type === 'question') pageTurn(false, id)
     if (holdsNotes(stepOf(type, id).id)) return void whenRead(type, id).then(go)
     go()
   }
@@ -1477,13 +1488,16 @@ export function Home(): React.JSX.Element {
                         data-private={pin.private ? '' : undefined}
                         data-side-row
                         data-drag-open={`${pin.type}:${pin.id}`}
+                        // The one open now says so, in full ink, as the page you are on does above.
+                        data-open={view.focus === pin.id || undefined}
+                        aria-current={view.focus === pin.id ? 'true' : undefined}
                         onClick={() => open(pin.type, pin.id)}
                         // ⌫ unpins, as the menu's line does.
                         onKeyDown={(event) => onRemoveKey(event, menu, 'Unpin')}
-                        className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-md py-1.5 text-foreground/80 ${narrow ? 'justify-center px-0' : 'px-2'}`}
+                        className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-md py-1.5 ${view.focus === pin.id ? 'bg-accent/60 text-foreground' : 'text-foreground/80'} ${narrow ? 'justify-center px-0' : 'px-2'}`}
                       >
                         <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
-                        {!narrow && <span className="private-text min-w-0 flex-1 truncate text-left">{taskName(pin.title).text || 'Untitled'}</span>}
+                        {!narrow && <Weighted on={view.focus === pin.id} className="private-text min-w-0 flex-1 truncate text-left">{taskName(pin.title).text || 'Untitled'}</Weighted>}
                       </button>
                       </Tip>
                       </span>
@@ -1566,9 +1580,10 @@ export function Home(): React.JSX.Element {
             <button
               type="button"
               data-side-row
-              aria-current={view.id === 'tags' && !view.focus ? 'page' : undefined}
+              // On a tag's page whose own row is folded away or not listed, the heading is the place marked.
+              aria-current={onTags ? 'page' : undefined}
               onClick={() => setView({ id: 'tags' })}
-              className={`absolute inset-0 flex items-center rounded-md px-2 text-left transition-colors duration-80 group-hover/head:text-foreground data-[fluid-hover-active]:text-foreground ${view.id === 'tags' && !view.focus ? 'text-foreground' : 'text-muted-foreground'}`}
+              className={`absolute inset-0 flex items-center rounded-md px-2 text-left transition-colors duration-80 group-hover/head:text-foreground data-[fluid-hover-active]:text-foreground ${onTags ? 'text-foreground' : 'text-muted-foreground'}`}
             >
               Tags
             </button>

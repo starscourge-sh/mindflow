@@ -477,13 +477,13 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
                 {looseShown.map((task) => (
                   <li key={task.id}>
                     <RowMenu items={taskMenu(task, { open: () => pick(task.id), now: taskNow })}>
-                      <button type="button" data-cal-loose={task.id} title={taskName(task.title).text}
+                      <button type="button" data-cal-loose={task.id} data-open={task.id === picked || undefined} title={taskName(task.title).text}
                         onPointerDown={(event) => start(event, (x, y) => ({ kind: 'move', task, grab: 0, length: task.estimate ?? USUAL, x, y, to: null }), () => pick(task.id))}
                         onKeyDown={(event) => {
                           if (event.key === 'Enter') (event.preventDefault(), pick(task.id))
                           if (event.key === 'Backspace' || event.key === 'Delete') (event.preventDefault(), void moveToBin([{ type: 'task', id: task.id, status: task.status }]))
                         }}
-                        className={`flex h-8 w-full touch-none items-center gap-2.5 rounded-md px-2 text-left text-body text-foreground transition-[scale] duration-150 ease-out active:scale-[0.98] motion-reduce:transition-none ${carry?.kind === 'move' && carry.task.id === task.id ? 'opacity-40' : ''}`}>
+                        className={`flex h-8 w-full touch-none items-center gap-2.5 rounded-md px-2 text-left text-body text-foreground transition-[scale] duration-150 ease-out active:scale-[0.98] motion-reduce:transition-none ${task.id === picked ? 'bg-accent' : ''} ${carry?.kind === 'move' && carry.task.id === task.id ? 'opacity-40' : ''}`}>
                         <span aria-hidden className="size-3 shrink-0 rounded-full border-[1.5px]" style={{ borderColor: task.priority === 1 ? 'var(--tt-color-text-orange)' : ACCENT }} />
                         <span className="min-w-0 flex-1 truncate">{taskName(task.title).text}</span>
                       </button>
