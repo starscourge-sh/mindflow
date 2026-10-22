@@ -334,7 +334,8 @@ function Row({ title, onAll, children }: { title: ReactNode; onAll?: () => void;
   const lastLit = useRef(-1)
   const measure = (): void => {
     const box = scroller.current
-    if (!box) return
+    // Out of the layout (Home on its way out as another page shows): nothing slid, so no bead.
+    if (!box || !box.clientWidth) return
     const lit = Math.round((box.scrollLeft / Math.max(1, box.scrollWidth - box.clientWidth)) * 15)
     if (lastLit.current >= 0 && lit !== lastLit.current) chime('bead')
     lastLit.current = lit
