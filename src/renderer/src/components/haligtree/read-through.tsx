@@ -547,7 +547,8 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo, sorting 
       )}
       {/* The way out: unseen while you read, there as soon as the pointer
           comes near the top (or the keys reach it). Esc does the same. */}
-      <div className={cn('absolute top-3 right-3 z-10 flex items-center gap-2 transition-opacity duration-300 ease-out [-webkit-app-region:no-drag] has-focus-visible:opacity-100', near || writing || !told ? 'opacity-100' : 'opacity-0')}>
+      {/* The lock always shows, so it is plain which state the page is in; "Done reading" fades while you read. */}
+      <div className="absolute top-3 right-3 z-10 flex items-center gap-2 [-webkit-app-region:no-drag]">
         {/* Reading or writing, like Obsidian's: one button, the same spot either way, its icon swapped in place. */}
         {own && !ended && (
           <Tip label={writing ? 'Lock: back to reading  ⌘L' : 'Unlock to edit  ⌘L'}>
@@ -563,6 +564,7 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo, sorting 
             </button>
           </Tip>
         )}
+        <span className={cn('transition-opacity duration-300 ease-out has-focus-visible:opacity-100', near || writing || !told ? 'opacity-100' : 'opacity-0')}>
         <Tip label="Stop reading">
           <button
             type="button"
@@ -573,6 +575,7 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo, sorting 
             {sorting ? 'Done sorting' : 'Done reading'}
           </button>
         </Tip>
+        </span>
       </div>
       {ended ? <QueueDone ended={ended} onBack={leave} onPutBack={putBack} /> : <>
       <div ref={scroller} onScroll={measure} className="min-h-0 flex-1 overflow-y-auto">
