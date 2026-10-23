@@ -18,8 +18,18 @@ export type PropertyLinesOptions = {
  */
 function placed(doc: ProseMirrorNode, strip: HTMLElement | null): DecorationSet {
   if (!strip || !doc.firstChild) return DecorationSet.empty
+  // A fresh holder each time, the one strip moved into it: handed the same
+  // element twice, the editor took it out of the page as it put it back in,
+  // read that as the note changing, drew again and froze the page doing so.
+  const holder = (): HTMLElement => {
+    const box = document.createElement("div")
+    box.contentEditable = "false"
+    box.className = "mf-property-holder"
+    box.append(strip)
+    return box
+  }
   return DecorationSet.create(doc, [
-    Decoration.widget(doc.firstChild.nodeSize, () => strip, { side: -1, key: "property-strip", ignoreSelection: true, stopEvent: () => true }),
+    Decoration.widget(doc.firstChild.nodeSize, holder, { side: -1, key: "property-strip", ignoreSelection: true, stopEvent: () => true }),
   ])
 }
 
@@ -44,7 +54,13 @@ export const PropertyLines = Extension.create<PropertyLinesOptions>({
         key,
         state: {
           init: (_, state) => placed(state.doc, options.strip()),
-          apply: (tr, set) => (tr.docChanged ? placed(tr.doc, options.strip()) : set),
+          // Kept while the title's end stays put: a new set for every keystroke redrew the strip each time.
+          apply: (tr, set) => {
+            if (!tr.docChanged) return set
+            const kept = set.map(tr.mapping, tr.doc)
+            const at = kept.find()[0]?.from
+            return at !== undefined && tr.doc.firstChild && at === tr.doc.firstChild.nodeSize ? kept : placed(tr.doc, options.strip())
+          },
         },
         props: {
           decorations: (state) => key.getState(state),

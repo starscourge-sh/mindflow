@@ -3972,7 +3972,7 @@ html[data-motion="off"] .tiptap.ProseMirror :is(.mf-kept, .mf-kept-icon button) 
 /* A note's properties, under its title (property-strip.tsx): quiet, never
    part of the words (extensions/property-lines.ts), the same place whether
    it holds none or many. */
-.tiptap.ProseMirror > .mf-property-strip {
+.tiptap.ProseMirror > .mf-property-holder > .mf-property-strip {
   margin: 0.125rem 0 0.5rem -0.375rem;
   user-select: none;
   white-space: normal;

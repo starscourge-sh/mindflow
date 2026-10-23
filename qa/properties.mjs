@@ -28,7 +28,7 @@ try {
     const one = document.querySelector(sel)
     const page = one?.closest('.tiptap.ProseMirror')
     if (!one || !page) return null
-    const [title, next] = [...page.children].filter((child) => !child.classList.contains('mf-property-strip'))
+    const [title, next] = [...page.children].filter((child) => !child.classList.contains('mf-property-strip') && !child.classList.contains('mf-property-holder'))
     const a = title.getBoundingClientRect(), b = one.getBoundingClientRect(), c = next.getBoundingClientRect()
     // Under the title's words, above the next line, never over either.
     const words = a.bottom - parseFloat(getComputedStyle(title).paddingBottom)
