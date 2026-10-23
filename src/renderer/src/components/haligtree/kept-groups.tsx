@@ -511,8 +511,8 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
           <VirtualList items={lines} keyOf={({ one }) => (one.group ? KEY + one.group.id : one.entries[0].id)} cursor={line >= 0 ? line : undefined} estimate={estimate} className={className}>
             {({ one, start }) =>
               one.group ? (
-                // A little air above and below every group, so two in a row never touch.
-                <div className="py-1">
+                // A little air above and below every group, so two in a row never touch: 6px, the air the drag allows for (its fit), now the block keeps none of its own.
+                <div className="py-1.5">
                 {block(one.group, one.entries, one.parts, start)}
                 </div>
               ) : (
@@ -574,7 +574,15 @@ function Shaped({ aim, keys, hand, many, span, inset, row: mid, snap, blocks, ch
   const from = hand ? keys.indexOf(hand) : -1
   if (gap !== null && from >= 0 && span) {
     const h = span + (aim!.fit ?? 0)
-    const box = (key: string | undefined) => (key === undefined ? undefined : droppableRects.get(key))
+    // Each row's place read off the page as it lies now, its slide left out: dnd-kit's own measures can be from
+    // before a folded group sprang open, and the carried row's room then opened a whole group's rows too low.
+    const box = (key: string | undefined): { top: number; height: number } | undefined => {
+      if (key === undefined) return undefined
+      const node = document.querySelector<HTMLElement>(`[data-sortable-id="${CSS.escape(key)}"]`)
+      if (!node) return droppableRects.get(key)
+      const r = node.getBoundingClientRect()
+      return { top: r.top - new DOMMatrixReadOnly(getComputedStyle(node).transform).m42, height: r.height }
+    }
     const slide = slideOf(from, gap, span, (at) => box(keys[at]), aim!.snug ?? true, inset + (aim!.fit ?? 0) / 2, aim!.until, aim!.fit ?? 0)
     const shift = (key: string): number => slide.other(keys.indexOf(key))
     for (const key of keys) if (key !== hand && shift(key)) ys.set(key, shift(key))

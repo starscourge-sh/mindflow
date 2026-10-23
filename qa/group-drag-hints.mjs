@@ -107,6 +107,11 @@ const watch = () => h.evaluate(() => {
       const bottom = Math.min(room ? box.top + box.height + 2 : box.bottom, clip ? clip.bottom : Infinity)
       return [{ n, name: name(n), top, bottom, riding: n === lifted }]
     }).filter((one) => one.bottom - one.top > 4).sort((a, b) => a.top - b.top)
+    // "A row", measured, not a constant: the tallest row at rest, or the carried thing's own room (a group's is its
+    // folded block, its air included), which may show as a gap while it fades in.
+    if (out.row === undefined) out.row = Math.max(0, ...rows.map((one) => one.bottom - one.top))
+    const room = lifted?.querySelector(':scope > [data-room]')
+    const allow = Math.max(out.row, room ? room.getBoundingClientRect().height + 2 : 0)
     for (let i = 1; i < rows.length; i++) {
       const a = rows[i - 1]
       const b = rows[i]
@@ -114,7 +119,7 @@ const watch = () => h.evaluate(() => {
       const gap = b.top - a.bottom
       const lines = [...document.querySelectorAll('[data-drop-line]')].map((one) => one.getBoundingClientRect())
       // Taller than a row on top of the most air the list has at rest (where groups end), and no line in it.
-      if (out.air !== null && gap > out.air + 54 && !lines.some((one) => one.top >= a.bottom - 2 && one.bottom <= b.top + 2)) say(out.hole, `${Math.round(gap)}px between ${a.name} and ${b.name}`)
+      if (out.air !== null && gap > out.air + allow && !lines.some((one) => one.top >= a.bottom - 2 && one.bottom <= b.top + 2)) say(out.hole, `${Math.round(gap)}px between ${a.name} and ${b.name}, over ${Math.round(out.air + allow)}`)
     }
     // The air between rows at rest, from the first frame, before anything is lifted.
     if (out.air === null) out.air = Math.max(0, ...rows.slice(1).map((one, at) => one.top - rows[at].bottom))
