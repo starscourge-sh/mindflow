@@ -710,8 +710,8 @@ export function SettingsView(): React.JSX.Element {
         <Group section="Sound" title="What you hear">
           <Setting title="Sounds" note="A soft click as you point and scroll, and a sound for each thing you do.">
             <Switch checked={settings.sounds} onCheckedChange={(sounds) => {
+              // The switch plays its own "on" once sound is back on.
               soundOn(sounds)
-              if (sounds) chime('on')
               set({ sounds })
             }} />
           </Setting>

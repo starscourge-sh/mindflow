@@ -165,7 +165,9 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
   const whole: Row[] = narrowed.flatMap(([, list]) => list)
   const stepTo = (to: number): void => void (whole[to] && pick(whole[to].id))
   // The Inbox emptied in front of you: its moment, not the quiet empty page.
-  const cleared = useJustCleared(title === 'Inbox' && !everything ? kept : [], all, !unloaded(all))
+  // Not watched while "Show sorted too" is on: the waiting list is then not on screen, and its
+  // going out of sight is not it emptying (that once played the Inbox-cleared chord).
+  const cleared = useJustCleared(title === 'Inbox' && !everything ? kept : [], all, !unloaded(all) && !everything)
   // Spread out, a click looks at a note beside the list; Enter opens it.
   const [peek, setPeek] = useState<string | null>(null)
   // However it was opened, the open one's row shows: its island unfolded, past "Show more".
@@ -444,7 +446,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
         lead={inboxPage && !chosen.length ? (
           <Tip label={everything ? 'Every note and task, sorted or not. Off: only what waits' : 'What was sorted out of the Inbox too, and every task'}>
             <label data-sorted-too className="-ml-2 flex h-7 cursor-default items-center gap-2 rounded-md px-2 text-control whitespace-nowrap text-foreground/85 hover:bg-accent/60">
-              <Switch checked={everything} onCheckedChange={(on) => (chime(on ? 'on' : 'off'), setChosen([]), setSortedToo(on))} aria-label="Show sorted too" />
+              <Switch checked={everything} onCheckedChange={(on) => (setChosen([]), setSortedToo(on))} aria-label="Show sorted too" />
               {/* Its words only while the list has the page's width: beside a note (or one looked at, spread out) the switch alone. */}
               {!open && !task && !(spread && peek) ? 'Show sorted too' : <span className="sr-only">Show sorted too</span>}
             </label>

@@ -1701,7 +1701,12 @@ export function Home(): React.JSX.Element {
         // Its own row toggles it: a click there is not a click away.
         onInteractOutside={(event) => (event.target as Element | null)?.closest?.('[data-customize]') && event.preventDefault()}
         className="mf-fade-end max-h-[calc(var(--radix-popover-content-available-height)-60px)] w-72 gap-1 overflow-y-auto p-1.5">
-        <p className="px-2 pt-1 pb-1.5 text-meta text-muted-foreground">Shown in the sidebar, in its order: drag one up or down to move it. One switched off leaves the sidebar; G with its letter, or ⌘K, still opens it.</p>
+        {/* A way out in sight: Esc and a click away close it too, but nothing said so. */}
+        <div className="flex items-center justify-between gap-2 pl-2">
+          <span className="text-control font-medium text-foreground">Customize sidebar</span>
+          <Tip label="Close (Esc)"><Button variant="ghost" size="icon-sm" data-customize-close aria-label="Close" onClick={() => (chime('away'), setCustomizing(false))}><AliveIcon icon={XIcon} size={16} /></Button></Tip>
+        </div>
+        <p className="px-2 pt-0.5 pb-1.5 text-meta text-muted-foreground">Shown in the sidebar, in its order: drag one up or down to move it. One switched off leaves the sidebar; G with its letter, or ⌘K, still opens it.</p>
         <ShowList places={SECTIONS} setting="sidebarShown" />
       </PopoverContent>
       </Popover>

@@ -216,7 +216,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
             {/* The switch and the day its tasks land on, one unit that wraps whole: the day never strays from the switch it belongs to. */}
             <span data-tag-becomes className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <label className="flex items-center gap-1.5 text-xs">
-              <Switch checked={!!current?.action} onCheckedChange={(action) => void haligtree.setTag(chosen, { action }).then(() => (chime('settled'), quietly(() => void haligtree.setTag(chosen, { action: !action }))))} />
+              <Switch checked={!!current?.action} onCheckedChange={(action) => void haligtree.setTag(chosen, { action }).then(() => quietly(() => void haligtree.setTag(chosen, { action: !action })))} />
               <span className="whitespace-nowrap">Tagged notes become tasks</span>
             </label>
             {/* Where those tasks land: no date (as always), or a day from now. A date written with it wins. */}
