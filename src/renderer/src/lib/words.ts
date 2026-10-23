@@ -104,7 +104,7 @@ export const WORDS: Word[] = [
     forms: ['Surfacing', 'Surface'],
     line: 'Whether this may come back to you unasked, as a hint or a card',
     origin: 'Rising from below',
-    here: '**Whether a kept thing may come up to meet you, in quick capture and on Home.** Private keeps it out of hints; a pin keeps it in view.',
+    here: '**Whether a kept thing may come up to meet you, in quick capture and on Today.** Private keeps it out of hints; a pin keeps it in view.',
     try: 'Mark something private if you never want it offered as a hint.',
     history: 'To surface is to come up from underneath, as a diver or a whale does. The noun is older: French sur, over, and face, the outer side of a thing.',
     see: ['rot', 'kept', 'review']

@@ -1123,7 +1123,7 @@ export function Home(): React.JSX.Element {
         ) : view.id === 'matrix' ? (
           <MatrixView focus={view.focus} onOpen={go} />
         ) : view.id === 'nuggets' || view.id === 'articles' || view.id === 'questions' ? (
-          // Questions are pages in Writing: sent to one, Writing opens with its "Questions" chip on.
+          // Questions are pages in Pages: sent to one, Writing opens with its "Questions" chip on.
           <ItemsView tier={view.id === 'nuggets' ? 'nugget' : 'article'} only={view.id === 'questions' ? 'questions' : undefined} focus={view.focus} onOpen={go} />
         ) : view.id === 'goals' ? (
           <GoalsView focus={view.focus} onOpen={go} />
@@ -1226,7 +1226,7 @@ export function Home(): React.JSX.Element {
             { label: 'Tidy captures', hint: 'Tidy: a few minutes tagging your latest captures', run: () => openPass('tidy') },
             { label: 'Decide what to keep', hint: 'Decide: once a week, look over what waited', run: () => openPass('decide') },
             { label: 'Import Obsidian or Notion…', hint: 'A vault or a Notion export', cue: null, run: () => void window.api.importFrom('vault') },
-            { label: 'Import from Apple Notes…', hint: 'Folder by folder, into Writing, to sort', cue: null, run: () => void window.api.importFrom('apple-notes') },
+            { label: 'Import from Apple Notes…', hint: 'Folder by folder, into Pages, to sort', cue: null, run: () => void window.api.importFrom('apple-notes') },
             { label: 'Import highlights and files…', hint: 'Readwise, Kindle, Markdown, bookmarks or Anki', cue: null, run: () => void window.api.importFrom('files') },
             { label: 'Switch book…', hint: 'Another book of yours, or the sandbox', cue: null, run: () => askBook('switch') },
             ...(SANDBOX ? [] : [
@@ -1256,6 +1256,8 @@ export function Home(): React.JSX.Element {
             ...([1, 2] as const).map((version) => ({ label: `Show the welcome (version ${version})`, hint: version === 1 ? 'The first welcome, in the sandbox' : 'The short one that starts you writing, in the sandbox', cue: null, run: () => void tryWelcome(version) })),
             { label: 'Try a celebration', cue: null, run: () => tryCelebration() },
             ...SECTIONS.map((section) => ({ label: `Go to ${section.label}`, keys: `G ${section.key.toUpperCase()}`, run: () => setView({ id: section.id }) })),
+            // The Tasks row's other tabs, and the pages that are a chip or a menu line now: still a G and a letter away.
+            ...([['Upcoming', 'upcoming', 'U'], ['Later', 'later', 'Z'], ['Routines', 'routines', 'O'], ['Urgent and important', 'matrix', 'Q'], ['Questions', 'questions', 'H']] as const).map(([name, id, key]) => ({ label: `Go to ${name}`, keys: `G ${key}`, run: () => setView({ id }) })),
             { label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘B', cue: sidebar ? 'fold' : 'slide', run: () => (setSidebar(!sidebar), (sidebar ? toast('Sidebar hidden. ⌘B brings it back', () => setSidebar(sidebar)) : quietly(() => setSidebar(sidebar)))) },
             { label: sidebar || detailsShown() ? 'Hide every sidebar' : 'Show every sidebar', keys: '⇧⌘B', cue: null, run: () => { const open = sidebar || detailsShown(); chime(open ? 'fold' : 'slide'); showDetails(!open); setSidebar(!open); (open ? toast('Every sidebar hidden. ⇧⌘B brings them back', () => (showDetails(open), setSidebar(open))) : quietly(() => (showDetails(open), setSidebar(open)))) } },
             { label: fill ? 'Back to compact' : 'Fill the screen', keys: '⌃⇧F', cue: null, run: () => (setFill(!fill), (fill ? quietly(() => setFill(fill)) : toast('Filling the screen. ⌃⇧F goes back', () => setFill(fill)))) },

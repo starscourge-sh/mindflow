@@ -435,7 +435,7 @@ Once a month and once a year, ${APP_NAME} reads you back: the books you read and
 
 ## Write out your day
 
-Some days are clearer written down as a list. Open Today and choose “Page”: one thing a line, ↵ for the next, ⇥ to make a line a step of the one above, and the top three first. Every line is a task, so it shows everywhere tasks do. Lines in any note can become tasks too: ${link(saturday, 'Saturday errands')}.
+Some days are clearer written down as a list. Open Tasks and choose “Write out my day”: one thing a line, ↵ for the next, ⇥ to make a line a step of the one above, and the top three first. Every line is a task, so it shows everywhere tasks do. Lines in any note can become tasks too: ${link(saturday, 'Saturday errands')}.
 
 **Try it:** press ⌘K and choose “Write out my day”.
 
@@ -458,7 +458,7 @@ Write a task the way you would say it, and the date comes out of the words: *cal
 
 **Try it:** press G then T for Today, press A, and type *feed the cat tomorrow 8am*. Then tick a task off with its circle, or press E on it.
 
-Some days read better written out: choose “Page” at the top of Today and write the day as a list, one task a line, the most important first.
+Some days read better written out: choose “Write out my day” at the top of Tasks and write the day as a list, one task a line, the most important first.
 
 Today is what is due now. Week lays the next seven days side by side, Upcoming lists everything with a date ahead, and Routines hold what comes round again. In Today, open *Run the Voight-Kampff test* to try a focus session.
 `)

@@ -197,27 +197,22 @@ export async function showMe(power: Pick<Power, 'name' | 'keys' | 'show'>, onVie
 
 /** Each page, a line on what it is for. */
 const PAGE_LINES: Record<string, string> = {
-  home: 'What comes back to you today, and shelves of what you kept.',
-  inbox: 'Everything you catch, waiting to be looked at.',
-  review: 'Gems asking to be remembered, a few a day.',
-  day: 'A page to write on for each day.',
-  weekpage: 'The week in a few lines.',
-  monthpage: 'The month, and the season of life it was.',
-  yearpage: 'Your year as seasons of life, month by month.',
-  today: 'What to do today.',
-  week: 'Seven days of tasks side by side.',
-  upcoming: 'Everything with a date, in order.',
-  matrix: 'Tasks by urgent and important.',
-  routines: 'What repeats.',
-  later: 'This month, this year, someday.',
+  day: 'The day\'s writing on top, its tasks under it.',
+  articles: 'What you write, and the questions you hold open.',
+  inbox: 'Everything you catch, waiting to be looked at; “Show sorted too” lists the rest.',
   nuggets: 'What you kept, in your own words.',
-  articles: 'What you write from your gems.',
-  questions: 'Questions you are holding open.',
+  review: 'Gems asking to be remembered, a few a day.',
+  today: 'Today, Upcoming, Later and Routines, as tabs.',
+  calendar: 'Your days by the hour.',
+  weekpage: 'The week in a few lines, then its tasks.',
+  monthpage: 'The month, and the season of life it was.',
+  lookups: 'Words waiting for their meaning.',
   goals: 'Days you are working toward.',
+  queue: 'What you mean to read next.',
   tags: 'Every tag, and what some of them do.',
+  sources: 'The people and works your notes come from.',
   stats: `How you have been using ${APP_NAME}.`,
   map: 'Your linked notes as dots and lines.',
-  all: 'Every note you have caught.',
   discarded: 'What you moved to the Bin, still there to bring back.',
   archived: 'Kept, out of sight. Find it again here.'
 }
@@ -248,7 +243,7 @@ function Pages({ onView }: { onView: (id: string) => void }): React.JSX.Element 
 }
 
 /**
- * One line on Home for someone new: Haligtree does more than it shows. Gone once
+ * One line on Today for someone new: Haligtree does more than it shows. Gone once
  * the page has been opened, or put away by hand.
  */
 export function PowersLine({ onView }: { onView: (id: string) => void }): React.JSX.Element | null {

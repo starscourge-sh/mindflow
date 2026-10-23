@@ -2500,7 +2500,7 @@ async function importVault(given?: string, picked?: string | null): Promise<void
   }
   const root = given ?? picked ?? (await dialog.showOpenDialog({ title: SANDBOX ? 'Import into the sandbox: an Obsidian vault or a Notion export (unzipped)' : BOOK ? `Import into ${nameOf(here())}: an Obsidian vault or a Notion export (unzipped)` : 'Import an Obsidian vault or a Notion export (unzipped)', properties: ['openDirectory'] })).filePaths[0]
   if (!root) return
-  // An Obsidian vault: which of its folders, first, each then a group in Writing (see importFolders).
+  // An Obsidian vault: which of its folders, first, each then a group in Pages (see importFolders).
   if (given === undefined && (await stat(join(root, '.obsidian')).then((one) => one.isDirectory(), () => false)))
     return inHome('haligtree:import-folders', { from: 'Obsidian', root, name: basename(root), folders: await vaultFolders(root) })
   // Its notes wait to become documents until their links are in; then every
@@ -2551,7 +2551,7 @@ async function vaultFolders(root: string): Promise<NotesFolder[]> {
 let stopping: AbortController | null = null
 
 /**
- * The chosen folders of Apple Notes or an Obsidian vault, into Writing: a
+ * The chosen folders of Apple Notes or an Obsidian vault, into Pages: a
  * group for each, every note in it not yet sorted. Stopped from the chip, what
  * came in so far stays and is filed the same way.
  */
@@ -2824,7 +2824,7 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
   }
   const linked = linkImported(made, byName, known)
   const inbox = made.filter((one) => !one.link.startsWith('article:')).length
-  // Chosen folders: each a group in Writing, named for the folder (the top of the vault for the vault's own name).
+  // Chosen folders: each a group in Pages, named for the folder (the top of the vault for the vault's own name).
   const filed = pick
     ? fileIntoGroups('Obsidian', pick.folders.map((folder) => ({
         name: folder || basename(root),
@@ -2843,7 +2843,7 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
     unread.length ? `Left out because ${unread.length === 1 ? 'it could not be read as text' : 'they could not be read as text'}: ${unread.join(', ')}.` : '',
     pick?.signal.aborted ? 'Stopped before the end: bring the same folders in again to carry on. Notes already here are skipped.' : ''
   ].filter(Boolean)
-  // Filed into Writing: said in place of the Inbox's line.
+  // Filed into Pages: said in place of the Inbox's line.
   if (pick) report.splice(1, 0, filedSaid('Obsidian', filed, made.length - inbox))
   if (!quiet) importProgress(null)
   if (quiet) return console.log(`imported ${made.length} new, ${already} already here, ${empty} empty, ${kept.length} left out, ${unshown} pictures of other types skipped, ${marked} marked private, ${pictures} pictures, ${attached} files, ${linked} links${kept.length ? ` [${kept.join(', ')}]` : ''}`)

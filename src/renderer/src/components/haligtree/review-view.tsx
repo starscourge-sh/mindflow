@@ -782,7 +782,7 @@ function Finished({ count, total, later = 0, compact, onPick, onLearn, ids = [] 
                 {next.label}
               </Button>
             ) : (
-              <Button data-onward variant="outline" size="lg" onClick={() => (chime('open'), window.api.openInHome('view', 'home'))}>Back to Home</Button>
+              <Button data-onward variant="outline" size="lg" onClick={() => (chime('open'), window.api.openInHome('view', 'day'))}>Back to Today</Button>
             )}
             <p className="text-control text-muted-foreground">
               {other && <>Or <button type="button" onClick={other.run} className={link}>{other.short}</button>, or </>}

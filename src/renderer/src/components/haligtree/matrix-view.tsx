@@ -234,7 +234,7 @@ export function MatrixView({ focus, onOpen, today }: { focus?: string; onOpen?: 
 
   return (
     <>
-      <Page aside={!!open} wide={!today} fit="columns" title={today ? 'today' : 'matrix'} count={example ? undefined : several.chosen.length || live.length} unit={several.chosen.length ? ['selected', 'selected'] : today ? ['task today', 'tasks today'] : ['task', 'tasks']} actions={several.bar ?? today?.actions ??
+      <Page aside={!!open} wide={!today} fit="columns" title={today ? 'today' : 'matrix'} lead={several.chosen.length ? undefined : today?.lead} count={example ? undefined : several.chosen.length || live.length} unit={several.chosen.length ? ['selected', 'selected'] : today ? ['task today', 'tasks today'] : ['task', 'tasks']} actions={several.bar ?? today?.actions ??
         <span className="hidden text-xs whitespace-nowrap @[52rem]/page:inline">
           Urgent: late, or within two days · {vim ? <><Pressed keys="H" /> <Pressed keys="J" /> <Pressed keys="K" /> <Pressed keys="L" /></> : <><Pressed keys="←" /> <Pressed keys="↓" /> <Pressed keys="↑" /> <Pressed keys="→" /></>} move · <Pressed keys="⌥↑" /> <Pressed keys="⌥↓" /> order · <Pressed keys="1" /> to <Pressed keys="4" /> send to a box
         </span>
@@ -354,7 +354,7 @@ export function MatrixView({ focus, onOpen, today }: { focus?: string; onOpen?: 
 const MATRIX_FEW = 40
 
 /** Today's tasks only, what the Today page passes in: their ids, what is done today, and its own header. */
-type TodayScope = { ids: string[]; done: number; actions: ReactNode; onAll: () => void }
+type TodayScope = { ids: string[]; done: number; actions: ReactNode; /** The Tasks row's tabs, on the left of the bar. */ lead?: ReactNode; onAll: () => void }
 
 /** The two rows of boxes, always equal: a box with more than fits scrolls inside itself (in a short window the page scrolls rather than squash either row below 12rem). */
 export const matrixRows = (): string => 'minmax(12rem, 1fr) minmax(12rem, 1fr)'
@@ -371,8 +371,8 @@ function TodayLine({ left, done, ready, onAll }: { left: number; done: number; r
   return (
     <div data-today-scope data-said={said} className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 px-4 pt-3 text-[0.9375rem]">
       <span className="font-medium text-foreground"><Rolling text={said} by="word" /></span>
-      {ready && !left && !done && <span className="text-muted-foreground">Add one from “List”, or see what is coming in the full Matrix.</span>}
-      <Button data-all-matrix variant="ghost" size="sm" className="ml-auto h-7 gap-2 px-2 text-sm" onClick={onAll}>All tasks in Matrix <Pressed keys="G Q" /></Button>
+      {ready && !left && !done && <span className="text-muted-foreground">Add one from the list, or see every task in four boxes.</span>}
+      <Button data-all-matrix variant="ghost" size="sm" className="ml-auto h-7 gap-2 px-2 text-sm" onClick={onAll}>Every task <Pressed keys="G Q" /></Button>
     </div>
   )
 }

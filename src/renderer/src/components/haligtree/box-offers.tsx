@@ -109,7 +109,7 @@ export function BoxOffers({ words, linked, all, onHidden, onClue, onLog, onAsk }
               <Orbit className="size-3.5 shrink-0" />
               <span className="min-w-0 truncate text-foreground/80">“{short(best.one.title, 48)}”</span>
               <span aria-hidden className="shrink-0">·</span>
-              <Tip label="A question of its own in Writing: it collects dated clues until you know the answer">
+              <Tip label="A question of its own in Pages: it collects dated clues until you know the answer">
                 <button type="button" onClick={take} className="flex shrink-0 cursor-pointer items-center gap-1 rounded-md px-1 py-0.5 font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground">
                   Keep as a question <Kbd>⇥</Kbd>
                 </button>

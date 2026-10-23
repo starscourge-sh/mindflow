@@ -18,7 +18,7 @@ import { atomically, changed, database } from './captures'
 const OTHERS = 'Other folders'
 
 /**
- * Put these articles into Writing's groups, a group for each folder, named
+ * Put these articles into the groups of Pages, a group for each folder, named
  * "<from> / <folder>". A group of that name already there (from an earlier
  * import) takes them in after its own. Folders of a single note share one
  * group, and a lone note left over stays in the list as it is.
@@ -57,9 +57,9 @@ export function filedSaid(from: string, groups: { name: string; count: number }[
   const loose = made - grouped
   const they = made === 1 ? 'It is' : 'They are'
   const where = groups.length === 1 ? `“${groups[0].name}”` : `${groups.length.toLocaleString()} groups named “${from} / …”`
-  if (!groups.length) return `${they} in Writing, marked not yet sorted.`
-  if (loose <= 0) return `${they} in Writing, in ${where}, marked not yet sorted.`
-  return `${they} in Writing, marked not yet sorted: ${grouped.toLocaleString()} in ${where}, ${loose.toLocaleString()} on ${loose === 1 ? 'its' : 'their'} own.`
+  if (!groups.length) return `${they} in Pages, marked not yet sorted.`
+  if (loose <= 0) return `${they} in Pages, in ${where}, marked not yet sorted.`
+  return `${they} in Pages, marked not yet sorted: ${grouped.toLocaleString()} in ${where}, ${loose.toLocaleString()} on ${loose === 1 ? 'its' : 'their'} own.`
 }
 
 export function registerNoteImports(): void {

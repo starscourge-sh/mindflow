@@ -269,7 +269,7 @@ export function ItemsView({ tier, focus, onOpen, only }: { tier: 'nugget' | 'art
   })
   // Only the last pick lands: a late answer for the gem before is dropped.
   const asked = useLastAsked()
-  // A row's own tier, so a question in Writing is read as a question.
+  // A row's own tier, so a question in Pages is read as a question.
   const typeOfRef = useRef<(id: string) => string>(() => tier)
   const typeOf = (id: string): string => typeOfRef.current(id)
   // Sent here for one note: the note is drawn first and the list beside it
@@ -501,7 +501,7 @@ export function ItemsView({ tier, focus, onOpen, only }: { tier: 'nugget' | 'art
         waiting={listUnread || !listShown}
         // Sent here for one note: the note is on show at once, and the list comes in whole beside it once read.
         apart={sent}
-        title={tier === 'nugget' ? 'Gems' : 'Writing'}
+        title={tier === 'nugget' ? 'Gems' : 'Pages'}
         // Every note on show, a folded group's too.
         count={chosen.length || groups.reduce((sum, [, list]) => sum + list.length, 0)}
         // What is picked always shows: the buttons may fold into ⋯ in a narrow window, the count never does.
@@ -528,7 +528,7 @@ export function ItemsView({ tier, focus, onOpen, only }: { tier: 'nugget' | 'art
  pick(id)
  })}
 >
-                Start an article
+                Start a page
               </Button>}
               <Tip label={`Into the Bin, where ${chosen.length === 1 ? 'it' : 'they'} can come back  ⌫`}>
                 <Button variant="ghost" size="sm" onClick={() => toBin(chosen)}>Move to the Bin</Button>
@@ -571,7 +571,7 @@ export function ItemsView({ tier, focus, onOpen, only }: { tier: 'nugget' | 'art
                   onClick={() => (questionsOnly ? void startQuestion((type, id) => (type === 'question' ? pick(id) : onOpen?.(type, id))) : void haligtree.newArticle().then((id) => (chime('promote'), pick(id))))}>
                   <Plus className="size-3.5" />
                   <span className="grid [&>*]:col-start-1 [&>*]:row-start-1">
-                    <span className={questionsOnly ? 'invisible' : undefined}>New article</span>
+                    <span className={questionsOnly ? 'invisible' : undefined}>New page</span>
                     <span className={questionsOnly ? undefined : 'invisible'} aria-hidden={!questionsOnly}>New question</span>
                   </span>
                 </Button>
@@ -630,7 +630,7 @@ export function ItemsView({ tier, focus, onOpen, only }: { tier: 'nugget' | 'art
           <Empty title="Nothing matches">No title here has those words. Escape clears the search.</Empty>
         ) : unloaded(all) ? null : !all.length ? (
           // Nothing kept yet: the page as it will look, with a few made-up ones.
-          <Example tryIt={tier === 'nugget' ? 'pick a note in your Inbox list and press P. It lands here, ready to come back to you.' : 'press “New article” above, or pick a few gems with X and choose “Start an article”.'}>
+          <Example tryIt={tier === 'nugget' ? 'pick a note in your Inbox list and press P. It lands here, ready to come back to you.' : 'press “New page” above, or pick a few gems with X and choose “Start a page”.'}>
             <NoteList groups={[['', (tier === 'nugget' ? exampleIdeas() : exampleWriting()).map((one) => itemEntry(one))]]} density={density} table="nuggets" cursor={-1} onPick={() => undefined} className="list-edge my-2" />
           </Example>
         ) : tier === 'nugget' ? (
@@ -638,8 +638,8 @@ export function ItemsView({ tier, focus, onOpen, only }: { tier: 'nugget' | 'art
             <strong>Your words stick where a copied line slides off.</strong> A gem is a note worth keeping, in your own words. Pick one in your Inbox and press P, and it lands here, ready to come back to you.
           </Empty>
         ) : (
-          <Empty title="No writing yet">
-            Your own words on one idea: notes on a subject, an essay, a guide. Start one from nothing with “New article”, or from your gems with “Start an article”.
+          <Empty title="No pages yet">
+            Your own words on one idea: notes on a subject, an essay, a guide. Start one from nothing with “New page”, or from your gems with “Start a page”.
           </Empty>
         )}
       </Page>
@@ -948,7 +948,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
                 </p>
               )}
               <Prop icon={Plus} onClick={() => void haligtree.article([item.id]).then((id) => { chime('promote'); toast('An article, from this gem'); onOpen?.('article', id) })}>
-                Start an article
+                Start a page
               </Prop>
               <StudyThis item={item} />
             </Island>

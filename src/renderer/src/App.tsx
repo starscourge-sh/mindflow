@@ -673,7 +673,7 @@ export default function App(): React.JSX.Element {
       void haligtree.newQuestion(line, id).then((question) => {
         if (!question) return refuse('That capture was already dealt with. Put it back in the Inbox first')
         chime('hold')
-        toast('Kept as a question in Writing: add clues as they come', () => void haligtree.dropQuestion(question).then(() => chime('undo')), 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('question', question) })
+        toast('Kept as a question in Pages: add clues as they come', () => void haligtree.dropQuestion(question).then(() => chime('undo')), 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('question', question) })
       })
       return
     }
@@ -683,7 +683,7 @@ export default function App(): React.JSX.Element {
     void haligtree.newQuestion(line).then(async (question) => {
       if (rest) await haligtree.addClue(question, rest)
       chime('hold')
-      toast('Kept as a question in Writing: add clues as they come', () => void haligtree.dropQuestion(question).then(() => (chime('undo'), putDraft(doc), fresh(true))), 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('question', question) })
+      toast('Kept as a question in Pages: add clues as they come', () => void haligtree.dropQuestion(question).then(() => (chime('undo'), putDraft(doc), fresh(true))), 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('question', question) })
     })
     fresh()
   }
@@ -1424,7 +1424,7 @@ export default function App(): React.JSX.Element {
           await notes.setField('captures', id, 'definition', meaning.definition)
           if (meaning.example) await notes.setField('captures', id, 'example', meaning.example)
         }
-        // A letter to future you: out of every list until its day, then back on Home saying when you wrote it.
+        // A letter to future you: out of every list until its day, then back on Today saying when you wrote it.
         if (later && !action) await haligtree.snoozeCapture(id, later.day)
         if (action) {
           // The welcome shows the task it became itself; the box says nothing over it.
@@ -1695,7 +1695,7 @@ export default function App(): React.JSX.Element {
             ...practiceActions,
             { label: 'Keyboard shortcuts', keys: '?', run: () => window.dispatchEvent(new CustomEvent('haligtree:shortcuts')) },
             { label: 'Import Obsidian or Notion…', hint: 'A vault or a Notion export', cue: null, run: () => void window.api.importFrom('vault') },
-            { label: 'Import from Apple Notes…', hint: 'Folder by folder, into Writing, to sort', cue: null, run: () => void window.api.importFrom('apple-notes') },
+            { label: 'Import from Apple Notes…', hint: 'Folder by folder, into Pages, to sort', cue: null, run: () => void window.api.importFrom('apple-notes') },
             { label: 'Import highlights and files…', hint: 'Readwise, Kindle, Markdown, bookmarks or Anki', cue: null, run: () => void window.api.importFrom('files') },
             ...themeActions((text, undo) => toast(text, undo)),
             { label: appSettings?.blur === false ? 'Turn blurring on' : 'Turn blurring off', cue: appSettings?.blur === false ? 'on' : 'off', run: () => {
@@ -2561,7 +2561,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
       if (!moved.length) return refuse('Nothing changed: none of the picked captures is still in the Inbox')
       chime('resolve')
       const skipped = ids.length - moved.length
-      toast(`Resolved ${num(moved.length)}: done with, still in Everything${skipped ? `. ${num(skipped)} already dealt with stayed as ${skipped === 1 ? 'it was' : 'they were'}` : ''}`, () => void Promise.all(moved.map((one) => window.api.captures.save(one.id, { status: one.was }))))
+      toast(`Resolved ${num(moved.length)}: done with, still there with “Show sorted too”${skipped ? `. ${num(skipped)} already dealt with stayed as ${skipped === 1 ? 'it was' : 'they were'}` : ''}`, () => void Promise.all(moved.map((one) => window.api.captures.save(one.id, { status: one.was }))))
     })
   }
 

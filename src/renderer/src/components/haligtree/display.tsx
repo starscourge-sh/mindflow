@@ -389,7 +389,13 @@ export function FilterChips<T>({ view, onChange, facets, defaults = {}, quick = 
  * carries a dot, each section counts its changes, and Reset all puts them
  * back. F opens it from anywhere on the list; 1 to 4 pick a view while open.
  */
-export function Display<T>({ view, onChange, facets, sorts: given, groups: offered = [], defaults = {}, compact = false, density, onDensity, count }: {
+const DISPLAY_ASKED = 'haligtree:display'
+/** Open the Display of the page in front, from a menu line where it has no button of its own. */
+export const openDisplay = (): void => void window.dispatchEvent(new CustomEvent(DISPLAY_ASKED))
+
+export function Display<T>({ view, onChange, facets, sorts: given, groups: offered = [], defaults = {}, compact = false, density, onDensity, count, hidden = false }: {
+  /** No button of its own: opened by F, or from a page's ⋯ (openDisplay), as a sheet from the right. */
+  hidden?: boolean
   /** Icon only, where the row beside it needs the room. */
   compact?: boolean
   /** How many the whole list holds, filters aside: with one or none there is nothing to order, so no order is offered or named. */
@@ -437,8 +443,11 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
       event.preventDefault()
       show(!openNow.current)
     }
+    // Asked for from a menu (a page's ⋯), in the pane in front.
+    const onAsk = (): void => void (here() && show(true))
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    window.addEventListener(DISPLAY_ASKED, onAsk)
+    return () => (window.removeEventListener('keydown', onKey), window.removeEventListener(DISPLAY_ASKED, onAsk))
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   // Opening is heard, by F or a click, as every other panel is; a sheet
   // slides in with its own sound instead. Checked a frame later, once the
@@ -573,7 +582,7 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
   if (few && !onDensity && !shownFacets.length && !active) return null
   return (
     <>
-    <Popover open={open && !sheet} onOpenChange={show}>
+    {!hidden && <Popover open={open && !sheet} onOpenChange={show}>
       <Tip label="Display  F">
       <PopoverTrigger asChild>
         <button ref={button} type="button" data-display className={`flex h-7 items-center gap-1.5 rounded-md px-2 text-control whitespace-nowrap hover:bg-accent hover:text-foreground ${open ? 'bg-accent text-foreground' : ''} ${active ? 'text-foreground' : ''}`}>
@@ -603,7 +612,7 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
       >
         {panel}
       </PopoverContent>
-    </Popover>
+    </Popover>}
     <Sheet open={open && sheet} onOpenChange={show}>
       <SheetContent side="right" className="w-80 max-w-[85vw] gap-0 p-0 text-control sm:max-w-80" tabIndex={-1}
         onCloseAutoFocus={(event) => event.preventDefault()}

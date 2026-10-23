@@ -505,7 +505,7 @@ const DEFAULTS = {
   // What "New" at the top of the main window and ⌘N there make: a blank page, or a capture in quick capture.
   newMakes: 'capture' as 'page' | 'capture',
   // The page the main window opens on: Home to start, or any section by its id.
-  startPage: 'home',
+  startPage: 'day',
   // The sidebar on the window's left, as in Finder, or its right.
   sidebarSide: 'left' as 'left' | 'right',
   // With the sidebar hidden, pointing at the window's edge slides it out over the page until you leave.
@@ -2913,7 +2913,7 @@ export function registerHaligtree(): void {
   handle('pass:tag', (id: string, raw: string, on: boolean) => {
     const tag = String(raw).replace(/^#/, '').toLowerCase()
     if (!isTagWord(tag)) return null
-    // A capture, or a note in Writing being sorted (an import's), which a tag sorts.
+    // A capture, or a note in Pages being sorted (an import's), which a tag sorts.
     const table = db.prepare('select 1 from captures where id = ?').get(id) ? 'captures' : 'nuggets'
     const row = db.prepare(`select body from ${table} where id = ?`).get(id) as { body: string } | undefined
     if (!row) return null

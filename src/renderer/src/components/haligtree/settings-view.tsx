@@ -308,7 +308,7 @@ function BubbleOff({ set }: { set: (patch: Partial<Settings>) => void }): React.
  * changes in a sentence, so a setting never needs looking up.
  */
 /** The pages Haligtree can open to, Home first. */
-const START_PAGES = ['home', 'inbox', 'today', 'day', 'all', 'review', 'map', 'goals']
+const START_PAGES = ['day', 'articles', 'inbox', 'today', 'review', 'calendar']
 
 /** A small window with its sidebar on one side, for the side's tiles. */
 function SideSample({ side }: { side: 'left' | 'right' }): React.JSX.Element {
@@ -548,7 +548,7 @@ export function SettingsView(): React.JSX.Element {
             <BlurSample />
             <Switch checked={settings.blur !== false} onCheckedChange={(blur) => set({ blur })} />
           </Setting>
-          <Setting title="Postcards" note="Pictures in notes, and memories on Home, get a border and a soft shadow, like a print on a desk." more="Videos and the pictures on a day's page too." keywords="images pictures photos border frame white memories memory">
+          <Setting title="Postcards" note="Pictures in notes, and memories on Today, get a border and a soft shadow, like a print on a desk." more="Videos and the pictures on a day's page too." keywords="images pictures photos border frame white memories memory">
             <PictureSample caption={null} frame={settings.postcards ? POSTCARD_BORDERS[settings.postcardBorder ?? 'auto']() : undefined} />
             <Switch checked={!!settings.postcards} onCheckedChange={(postcards) => set({ postcards })} />
           </Setting>
@@ -612,7 +612,7 @@ export function SettingsView(): React.JSX.Element {
         </Group>
         <Group section="Appearance" title="Sidebar and tabs">
           <Setting title={`Open ${APP_NAME} to`} note={`The page the main window shows when ${APP_NAME} starts.`} more="Any other page is a G and its letter, or ⌘K, away." keywords="start page open first launch home today inbox map default landing"
-            below={<div data-start-page><Chips options={START_PAGES.map((id) => ({ id, label: PLACES.find((one) => one.id === id)?.label ?? id }))} on={(id) => id === (settings.startPage || 'home')} pick={(startPage) => (chime('tap'), set({ startPage }))} className="mt-3 flex-wrap" /></div>} />
+            below={<div data-start-page><Chips options={START_PAGES.map((id) => ({ id, label: PLACES.find((one) => one.id === id)?.label ?? id }))} on={(id) => id === (!settings.startPage || settings.startPage === 'home' ? 'day' : settings.startPage)} pick={(startPage) => (chime('tap'), set({ startPage }))} className="mt-3 flex-wrap" /></div>} />
           <Setting title="Sidebar side" note="Which side of the main window the sidebar sits on." keywords="sidebar left right side swap flip mirror position"
             below={<Choices label="Sidebar side" min="6rem" options={(['left', 'right'] as const).map((side) => ({ id: side, label: side === 'left' ? 'Left' : 'Right', show: <SideSample side={side} /> }))} on={(id) => id === (settings.sidebarSide ?? 'left')} pick={(sidebarSide) => set({ sidebarSide: sidebarSide as Settings['sidebarSide'] })} />} />
           <Setting title="Peek the hidden sidebar" note="With the sidebar hidden (⌘B), point at the window's edge and it slides out; move away and it goes." more="Point at the edge of this sample to see it." keywords="peek sidebar hover edge slide out reveal hidden dia arc auto hide">
@@ -782,7 +782,7 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
         </Group>
         <Group section="What comes back to you" title="Goals">
-          <Setting title="Goals at the top" note="Open goals in a slim strip on Home and Today's page." more="The days left, a line of the time gone, and when you last logged." keywords="goals strip home today countdown">
+          <Setting title="Goals at the top" note="Open goals in a slim strip on Today." more="The days left, a line of the time gone, and when you last logged." keywords="goals strip home today countdown">
             <Switch checked={settings.goalStrip !== false} onCheckedChange={(goalStrip) => set({ goalStrip })} />
           </Setting>
           <Setting title="Time as dots" note="How far through the day, week, month and year you are, in the menu bar." more="As beads, or as plain bars." keywords="tempus menu bar day week month year dots bars progress">
@@ -1002,13 +1002,13 @@ export function SettingsView(): React.JSX.Element {
         {focus && <SiteBlockGroup settings={settings} set={set} />}
 
         <Group section="Calendar" title="On Home">
-          <Setting title="Show the month on Home" note="Home shows this month's calendar, with what is planned on each day." more="The Calendar in the sidebar has it all either way." keywords="home calendar month plan dashboard">
+          <Setting title="Show the month on Today" note="Today shows this month's calendar, at its foot, with what is planned on each day." more="The Calendar in the sidebar has it all either way." keywords="home calendar month plan dashboard">
             <HomeMonthSample on={settings.homeCalendar === true} />
             <Switch checked={settings.homeCalendar === true} onCheckedChange={(homeCalendar) => set({ homeCalendar })} />
           </Setting>
-          <Setting title="Show the time gone on Home" note="Home shows how much of today, this week, this month and this year has gone." more="The same four bars as “Time gone” in the menu bar." keywords="home memento mori time gone percent day week month year progress">
+          <Setting title="Show the time gone on Today" note="Today shows how much of today, this week, this month and this year has gone." more="The same four bars as “Time gone” in the menu bar." keywords="home memento mori time gone percent day week month year progress">
             <TimeGoneSample on={settings.homeTimeGone === true} />
-            <Switch checked={settings.homeTimeGone === true} onCheckedChange={(homeTimeGone) => set({ homeTimeGone })} aria-label="Show the time gone on Home" />
+            <Switch checked={settings.homeTimeGone === true} onCheckedChange={(homeTimeGone) => set({ homeTimeGone })} aria-label="Show the time gone on Today" />
           </Setting>
         </Group>
         <Group section="Calendar" title="Time zones">
@@ -1058,7 +1058,7 @@ export function SettingsView(): React.JSX.Element {
           <BookRows />
         </Group>
         <Group section="Import and backups" title="Import and export">
-          <Setting title="Import" note="Notes from Apple Notes, Obsidian or Notion, highlights and cards." more="Apple Notes and an Obsidian vault folder by folder, into Writing, to sort. An unzipped Notion export, Readwise or Kindle highlights, Markdown files, bookmarks or Anki cards." keywords="import apple notes obsidian vault notion export readwise kindle markdown bookmarks anki bring move">
+          <Setting title="Import" note="Notes from Apple Notes, Obsidian or Notion, highlights and cards." more="Apple Notes and an Obsidian vault folder by folder, into Pages, to sort. An unzipped Notion export, Readwise or Kindle highlights, Markdown files, bookmarks or Anki cards." keywords="import apple notes obsidian vault notion export readwise kindle markdown bookmarks anki bring move">
             <ImportButton what="apple-notes">Apple Notes…</ImportButton>
             <ImportButton what="vault">Obsidian or Notion…</ImportButton>
             <ImportButton what="files">Files…</ImportButton>
@@ -1431,7 +1431,7 @@ function OnboardingRows(): React.JSX.Element | null {
         <Switch checked={state.pageHints} onCheckedChange={(on) => void onboarding.set({ pageHints: on })} />
       </Setting>
       {!state.sandbox && state.welcomed && !(state.doneAt && Date.now() - new Date(state.doneAt).getTime() > LINGER) && (
-        <Setting title="Getting started" note="A short list of first steps on Home that tick themselves as you go." more="The list goes a few days after the last." keywords="getting started checklist onboarding">
+        <Setting title="Getting started" note="A short list of first steps on Today that tick themselves as you go." more="The list goes a few days after the last." keywords="getting started checklist onboarding">
           {state.hidden ? <Button variant="outline" size="sm" onClick={() => void onboarding.set({ hidden: false }).then(() => toast('Getting started is back on Home'))}>Show it</Button> : <span className="text-control text-muted-foreground">On Home</span>}
         </Setting>
       )}

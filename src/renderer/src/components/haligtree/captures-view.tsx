@@ -380,7 +380,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
       const skipped = chosen.length - moved.length
       setChosen([])
       // Where they went, and why any picked one stayed as it was.
-      toast(`Resolved ${num(moved.length)}: done with, still in Everything${skipped ? `. ${num(skipped)} already dealt with stayed as ${skipped === 1 ? 'it was' : 'they were'}` : ''}`, () => void Promise.all(moved.map((one) => window.api.captures.save(one.id, { status: one.was }))))
+      toast(`Resolved ${num(moved.length)}: done with, still there with “Show sorted too”${skipped ? `. ${num(skipped)} already dealt with stayed as ${skipped === 1 ? 'it was' : 'they were'}` : ''}`, () => void Promise.all(moved.map((one) => window.api.captures.save(one.id, { status: one.was }))))
     })
   }
   // A task's row: its tick, its day, its steps, and the task's own menu.

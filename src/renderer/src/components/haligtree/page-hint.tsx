@@ -26,7 +26,7 @@ const HINTS: Record<string, string> = {
   day: '**A page a day.** Write a line, and what you caught, finished and reviewed today gathers underneath.',
   weekpage: '**One page a week.** What matters this week, and how it went.',
   today: `**Type a task the way you would say it.** ${APP_NAME} reads the when in ‘call Mum friday 6pm’.`,
-  questions: '**Your questions, as pages in Writing.** Add clues as they turn up; “Answered” turns them into writing, oldest first.',
+  questions: '**Your questions, as pages in Pages.** Add clues as they turn up; “Answered” turns them into writing, oldest first.',
   goals: '**A day you are aiming for, and the road of days to it.** Log what you did, and a small card on your screen keeps it in sight.',
   nuggets: '**Gems are the notes you chose to keep.** They come back as hints, and as Review cards once you give one a question.',
   queue: '**What you mean to read next, in order.** Add a note from its menu or drag it onto “Queue” in the sidebar; “Start reading” goes through them one after another.',
@@ -39,7 +39,7 @@ const HINTS: Record<string, string> = {
   stats: `**How you have been using ${APP_NAME}, in sentences.** The few parts that matter most first; “Your month” and “Your year” hold the rest.`,
   map: '**Every note you linked, as dots joined by lines.** Type @ in a note to link it.',
   monthpage: '**One page a month: what to aim for, and a name for it looking back.**',
-  articles: "**Longer pieces in your own words, one idea each.** Start one with “New article”, or in Gems select a few with X, then “Start an article”."
+  articles: "**Longer pieces in your own words, one idea each.** Start one with “New page”, or in Gems select a few with X, then “Start a page”."
 }
 
 /**

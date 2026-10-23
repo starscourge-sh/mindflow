@@ -45,7 +45,7 @@ export function DayAhead({ day, tasks, onOpen, menuFor }: {
           className="min-w-0 flex-1 bg-transparent text-body text-foreground outline-none placeholder:text-foreground/60" />
       </label>
       {several.bar && <div data-pick-bar className="sticky top-0 z-20 flex min-h-11 items-center border-b bg-background py-1.5">{several.bar}</div>}
-      {!shown.length && <p data-day-nothing className="text-body text-foreground/85">Nothing planned for this day yet. Add a task above, or drag one onto it in Home's calendar.</p>}
+      {!shown.length && <p data-day-nothing className="text-body text-foreground/85">Nothing planned for this day yet. Add a task above, or drag one onto it in the Calendar.</p>}
       {sections.filter(([, , rows]) => rows.length).map(([title, Icon, rows]) => (
         <Island key={title} title={<span className="flex items-center gap-2"><Icon className="size-4 text-foreground/70" /> {title} <Count n={rows.length} className="font-normal" /></span>}>
           {rows.map((row) => (

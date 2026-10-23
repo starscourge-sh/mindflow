@@ -25,7 +25,7 @@ import { questionEntry, startQuestion } from './questions-view'
 import { num } from '../../../../main/dates'
 import { useHere } from '@/lib/split'
 
-const TIERS = [{ id: 'nugget', label: 'Gems' }, { id: 'article', label: 'Writing' }, { id: 'question', label: 'Questions' }] as const
+const TIERS = [{ id: 'nugget', label: 'Gems' }, { id: 'article', label: 'Pages' }, { id: 'question', label: 'Questions' }] as const
 
 /**
  * What you kept, in the prompt: nuggets, articles and the questions you are
@@ -113,7 +113,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
   // Right-clicked among several picked: the menu speaks for all of them. Made once, not once a row.
   const manyMenu: MenuItem[] | null = chosen.length > 1 ? [
     { label: `Make ${num(chosen.length)} tasks`, run: makeEach },
-    tier === 'nugget' && { label: 'Start an article', hint: 'From all of them', run: () => article(chosen) },
+    tier === 'nugget' && { label: 'Start a page', hint: 'From all of them', run: () => article(chosen) },
     'separator',
     { label: `Archive ${num(chosen.length)}`, hint: 'Kept, out of sight', run: () => void archive('nuggets', chosen, true).then(() => setChosen([])) },
     binItem(binRefs(chosen), () => setChosen([])),
@@ -125,7 +125,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
     { label: 'Open', keys: '↵', run: () => onOpen(tier, item.id) },
     { label: 'Add a thought', keys: ';', run: () => setGlossing(item.id) },
     { label: item.prompt ? 'Change the question' : 'Test me on this', run: () => void ask('The question it answers', item.prompt ?? 'A question this answers').then((prompt) => { if (prompt) void haligtree.saveItem(item.id, { prompt }).then(() => toast('Now tested: it will come up in review')) }) },
-    ...(tier === 'nugget' ? [{ label: 'Start an article', run: () => article([item.id]) }] : []),
+    ...(tier === 'nugget' ? [{ label: 'Start a page', run: () => article([item.id]) }] : []),
     { label: 'Study this', run: () => void ask('When will you study it?', 'e.g. read it again on Thursday').then((when) => { if (when) void makeTask({ item: item.id, text: `Study ${quoted(item.title, 200)} ${when}` }, 'A task, with this linked') }) },
     'separator',
     { label: item.pinnedAt ? 'Unpin' : 'Pin to the sidebar', run: () => pin('nuggets', item.id, !item.pinnedAt) },
@@ -146,7 +146,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
         {all.length > 0 && <Tip label="One note at a time, full screen, from the highlighted one  ⇧⌘R"><Button variant="ghost" size="sm" className="ml-auto" aria-label="Read through" onClick={read}><AliveIcon icon={BookIcon} size={14} /> <span className="hidden @[27rem]/strip:inline">Read through</span></Button></Tip>}
         {tier !== 'question' && <span className={all.length ? '' : 'ml-auto'}>{display}</span>}
         {tier === 'article' && (
-          <Button variant="ghost" size="sm" onClick={() => void haligtree.newArticle().then((id) => (chime('promote'), onOpen('article', id)))}><Plus className="size-3.5" /> New article</Button>
+          <Button variant="ghost" size="sm" onClick={() => void haligtree.newArticle().then((id) => (chime('promote'), onOpen('article', id)))}><Plus className="size-3.5" /> New page</Button>
         )}
         {tier === 'question' && (
           <Tip label="New question"><Button variant="ghost" size="icon-sm" aria-label="New question" className={all.length ? '' : 'ml-auto'} onClick={() => void startQuestion(onOpen)}><Plus className="size-3.5" /></Button></Tip>
@@ -158,7 +158,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
           <Tip label="A study task for each, linked to its note">
             <Button variant="ghost" size="sm" onClick={makeEach}>{chosen.length === 1 ? 'Make it a task' : `Make ${num(chosen.length)} tasks`}</Button>
           </Tip>
-          {tier === 'nugget' && <Button variant="ghost" size="sm" onClick={() => article(chosen)}>Start an article from {chosen.length === 1 ? 'it' : 'these'}</Button>}
+          {tier === 'nugget' && <Button variant="ghost" size="sm" onClick={() => article(chosen)}>Start a page from {chosen.length === 1 ? 'it' : 'these'}</Button>}
           <Tip label={`Move to the Bin, where ${chosen.length === 1 ? 'it' : 'they'} can come back  ⌫`}>
             <Button variant="ghost" size="sm" aria-label="Move to the Bin" onClick={() => toBin(chosen)}><Trash className="size-3.5" /> Bin</Button>
           </Tip>
@@ -187,13 +187,13 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
         />
       ) : unloaded(all) ? null : !all.length ? (
         // Nothing kept yet: the tab as it will look, with a few made-up ones.
-        <Example compact tryIt={tier === 'nugget' ? 'pick a note in your Inbox list and press P. It lands here, ready to come back to you.' : tier === 'question' ? 'press H on a note in your Inbox. It is held here, gathering clues.' : 'press “New article” above, or start one from a gem.'}>
+        <Example compact tryIt={tier === 'nugget' ? 'pick a note in your Inbox list and press P. It lands here, ready to come back to you.' : tier === 'question' ? 'press H on a note in your Inbox. It is held here, gathering clues.' : 'press “New page” above, or start one from a gem.'}>
           <NoteList groups={[['', (tier === 'nugget' ? exampleIdeas() : tier === 'question' ? exampleQuestions().filter((one) => !one.closedAt) : exampleWriting()).map((one) => (tier === 'question' ? questionEntry(one) : itemEntry(one)))]]}
             density={tier === 'question' ? 'list' : density} table="nuggets" cursor={-1} onPick={() => undefined} />
         </Example>
       ) : (
-        <Empty compact title={tier === 'nugget' ? 'No gems yet' : tier === 'question' ? 'No questions yet' : 'No writing yet'}>
-          {tier === 'nugget' ? 'Keep one from your Inbox with P and it lands here, to come back to you.' : tier === 'question' ? 'For what you keep thinking about and cannot answer yet. Press H on a note in your Inbox to make it a question.' : 'Your own words on one idea. Start one with “New article”, or from one of your gems.'}
+        <Empty compact title={tier === 'nugget' ? 'No gems yet' : tier === 'question' ? 'No questions yet' : 'No pages yet'}>
+          {tier === 'nugget' ? 'Keep one from your Inbox with P and it lands here, to come back to you.' : tier === 'question' ? 'For what you keep thinking about and cannot answer yet. Press H on a note in your Inbox to make it a question.' : 'Your own words on one idea. Start one with “New page”, or from one of your gems.'}
         </Empty>
       )}
     </div>

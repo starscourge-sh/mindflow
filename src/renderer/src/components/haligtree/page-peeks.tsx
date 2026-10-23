@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
-import { Archive, Bell, BookOpen, FileText, Flag, Gem, GripVertical, Hash, Lock, Repeat, Search, Sparkles, Trash2 } from 'lucide-react'
+import { Archive, Bell, BookOpen, FileText, Flag, Gem, GripVertical, Hash, Lock, Sparkles, Trash2 } from 'lucide-react'
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
-import { exampleCard, exampleGoals, exampleIdeas, exampleInbox, exampleMonth, exampleQuestions, exampleTags, exampleTasks, exampleWriting } from '@/lib/examples'
+import { exampleCard, exampleGoals, exampleInbox, exampleMonth, exampleTags, exampleTasks, exampleWriting } from '@/lib/examples'
 import { MCard, MChip, MLabel, MLines, MRow, MTitle, Peek, tinted } from './peek'
 import { taskName } from '@/lib/tasks'
 import dayjs from 'dayjs'
@@ -31,7 +31,6 @@ const thisWeekSpan = (): string => {
 const days = (at: string | null): number => (at ? Math.round((new Date(`${at.slice(0, 10)}T12:00`).getTime() - Date.now()) / 86_400_000) : 0)
 
 const tasks = (): ReturnType<typeof exampleTasks> => exampleTasks()
-const ideas = (): ReturnType<typeof exampleIdeas> => exampleIdeas()
 
 /** Today's tasks, the way the Today page lists them. */
 function TaskRows({ ids, metas }: { ids: number[]; metas: string[] }): React.JSX.Element {
@@ -43,30 +42,7 @@ function TaskRows({ ids, metas }: { ids: number[]; metas: string[] }): React.JSX
   })}</>
 }
 
-/** Two rows of one kind, for the Types entries. */
-const KIND_ROWS: Record<string, [string, string?][]> = {
-  note: [['Frankenstein began as a ghost story, one wet summer by Lake Geneva'], ['Yoda never explains the Force. The best teachers show, then stop'], ['The Rosetta Stone holds one decree in three scripts']],
-  todo: [['Return Frankenstein to the library', 'Today'], ['Book seats for Hamlet at the Globe', 'Fri'], ['Learn the Litany Against Fear by heart']],
-  quote: [['It is a truth universally acknowledged…', 'Jane Austen'], ['To be, or not to be, that is the question', 'Shakespeare'], ['Fear is the mind-killer', 'Frank Herbert']],
-  word: [['Soliloquy: speaking your thoughts aloud, alone'], ['Hubris: pride that invites a fall'], ['Palimpsest: a page written over, the old words showing']],
-  link: [['The Rosetta Stone, found in 1799', 'britishmuseum.org'], ['How Mary Shelley wrote Frankenstein', 'bl.uk'], ['A map of Arrakis', 'dune.fandom.com']],
-  checkback: [['Read Dune before the film: still the right call?', 'In 2 weeks'], ["Hermione's method: did it help?", 'In 9 days']],
-  goal: [['Read twelve classics this year', 'By 31 Dec'], ['Learn the Hamlet soliloquy by heart', 'In 2 weeks']]
-}
-
 const PEEKS: Record<string, PagePeek> = {
-  home: {
-    text: "**Home: what's coming back to you today.** Under it, shelves of what you kept.",
-    art: () => (<>
-      <MTitle>Good morning</MTitle>
-      <MCard className="mb-2"><div className="mb-0.5 text-[9px] text-muted-foreground">Coming back today</div><div className="truncate font-medium">{ideas()[2].title}</div></MCard>
-      <div className="grid grid-cols-3 gap-1.5">
-        {[['Gems', 'pink', '18'], ['Questions', 'gray', '4'], ['Writing', 'brown', '3']].map(([name, tint, count]) => (
-          <MCard key={name} className="px-1.5 py-1"><div className="text-[9.5px] font-medium" style={tinted(tint)}>{name}</div><div className="text-[13px] font-semibold tabular-nums">{count}</div></MCard>
-        ))}
-      </div>
-    </>)
-  },
   inbox: {
     text: '**Inbox: everything you catch lands here first.** Come back to each one when you have a minute: keep it, act on it, or move it to the Bin.',
     art: () => (<>
@@ -91,7 +67,7 @@ const PEEKS: Record<string, PagePeek> = {
     </>)
   },
   day: {
-    text: "**Today's page: one page for the day.** Write a line; what you caught, finished and reviewed gathers underneath.",
+    text: "**Today: the day's writing, then its tasks.** Write a line in the box; today's tasks are under it, and what you caught and finished gathers below.",
     art: () => (<>
       <MTitle>{dayjs().format('dddd, D MMMM')}</MTitle>
       <p className="mb-1 font-serif text-[11px]">Finished Frankenstein on the train. The creature is the one who reads Milton.</p>
@@ -124,74 +100,11 @@ const PEEKS: Record<string, PagePeek> = {
     </>)
   },
   today: {
-    text: "**Today: the tasks for today.** Type one the way you would say it, like 'call Mum friday 6pm'.",
+    text: "**Tasks: today's first, then Upcoming, Later and Routines.** Type one the way you would say it, like 'call Mum friday 6pm'.",
     art: () => (<>
-      <MTitle count={3}>Today</MTitle>
+      <MTitle count={3}>Tasks</MTitle>
       <div className="mb-1.5 rounded border border-foreground/10 px-1.5 py-0.5 text-muted-foreground">Call Mum <span className="rounded bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] px-0.5" style={tinted('blue')}>friday 6pm</span></div>
       <TaskRows ids={[1, 2, 3]} metas={['Yesterday', '18:00', '1 of 3']} />
-    </>)
-  },
-  week: {
-    text: "**This week's tasks: the next seven days, side by side.** Drag a task to another day to move it.",
-    art: () => (
-      <div className="grid grid-cols-3 gap-1.5">
-        {[['Today', [2, 3]], ['Mon', [4, 9]], ['Tue', [5]]].map(([day, ids]) => (
-          <div key={day as string} className="min-w-0">
-            <div className="mb-1 text-[10px] font-semibold">{day as string}</div>
-            {(ids as number[]).map((id) => <MCard key={id} className="mb-1 px-1.5 py-1 text-[9.5px] leading-tight"><span className="line-clamp-2">{tasks()[id - 1].title.replace(/\s#\w+/g, '')}</span></MCard>)}
-          </div>
-        ))}
-      </div>
-    )
-  },
-  upcoming: {
-    text: '**Upcoming: every task after today, day by day.** Then the ones with no date at all.',
-    art: () => (<>
-      <MTitle>Upcoming</MTitle>
-      <MLabel>Tomorrow</MLabel>
-      <TaskRows ids={[8]} metas={['every 3 days']} />
-      <MLabel>Monday</MLabel>
-      <TaskRows ids={[4, 9]} metas={['12:00', '19:00']} />
-      <MLabel>No date</MLabel>
-      <TaskRows ids={[6]} metas={['']} />
-    </>)
-  },
-  matrix: {
-    text: '**Matrix: your tasks by urgent and important.** Drag one to another square to change it.',
-    art: () => (
-      <div className="grid h-full grid-cols-2 grid-rows-2 gap-1">
-        {[['Do first', 'red', 1], ['Plan', 'blue', 14], ['Hand off', 'orange', 2], ['Later', 'gray', 6]].map(([name, tint, id]) => (
-          <div key={name as string} className="rounded-md border border-foreground/10 p-1" style={{ backgroundColor: `color-mix(in oklab, var(--tt-color-text-${tint}) 7%, transparent)` }}>
-            <div className="mb-0.5 text-[9px] font-semibold" style={tinted(tint as string)}>{name as string}</div>
-            <div className="line-clamp-2 text-[9.5px] leading-tight">{tasks()[(id as number) - 1].title}</div>
-          </div>
-        ))}
-      </div>
-    )
-  },
-  routines: {
-    text: "**Routines: what you do again and again.** Type 'every week' as you write a task, and it comes round.",
-    art: () => (<>
-      <MTitle count={3}>Routines</MTitle>
-      {[[8, 'Every 3 days'], [9, 'Every Monday'], [10, 'Every Friday']].map(([id, when]) => (
-        <MRow key={id} icon={Repeat} tint="yellow" meta={when}>{tasks()[(id as number) - 1].title}</MRow>
-      ))}
-    </>)
-  },
-  later: {
-    text: "**Later: tasks with no day yet.** Say 'this month', 'this year' or 'someday' as you type, and it waits here.",
-    art: () => (<>
-      <MTitle>Later</MTitle>
-      <MLabel>This month</MLabel><TaskRows ids={[11]} metas={['']} />
-      <MLabel>This year</MLabel><TaskRows ids={[12]} metas={['']} />
-      <MLabel>Someday</MLabel><TaskRows ids={[13]} metas={['']} />
-    </>)
-  },
-  tomorrow: {
-    text: "**Tomorrow: the tasks for the next day.** Line them up tonight, so the morning starts with a plan.",
-    art: () => (<>
-      <MTitle count={2}>Tomorrow</MTitle>
-      <TaskRows ids={[8, 4]} metas={['every 3 days', '12:00']} />
     </>)
   },
   calendar: {
@@ -247,18 +160,11 @@ const PEEKS: Record<string, PagePeek> = {
     </>)
   },
   articles: {
-    text: '**Writing: your long-form pieces.** Each one starts from a few gems and grows in your own words.',
+    text: '**Pages: your long-form pieces.** Each one starts from a few gems and grows in your own words.',
     art: () => (<>
-      <MTitle count={3}>Writing</MTitle>
+      <MTitle count={3}>Pages</MTitle>
       {exampleWriting().map((one) => <MRow key={one.id} icon={FileText} tint="brown" meta={one.attribution ?? ''}>{one.title}</MRow>)}
       <MCard className="mt-2"><div className="mb-1 font-serif text-[11.5px] font-semibold">Why Hamlet waits</div><MLines widths={[95, 88, 70]} /></MCard>
-    </>)
-  },
-  questions: {
-    text: "**Questions: things you're still working out, with clues.** Add a clue as it turns up; nothing needs settling.",
-    art: () => (<>
-      <MTitle count={4}>Questions</MTitle>
-      {exampleQuestions().slice(0, 4).map((one) => <MRow key={one.id} icon={Search} tint="gray" meta={one.clues ? `${one.clues} clue${one.clues === 1 ? '' : 's'}` : 'new'}>{one.title}</MRow>)}
     </>)
   },
   goals: {
@@ -330,22 +236,6 @@ const PEEKS: Record<string, PagePeek> = {
       )
     }
   },
-  all: {
-    text: '**Everything: your notes and tasks in one list.** Choose what to see above it: tasks, notes, quotes, or several at once.',
-    art: () => {
-      const notes = exampleInbox()
-      const todo = tasks()
-      return (<>
-        <MTitle count={84}>Everything</MTitle>
-        <div className="mb-1 flex gap-1"><MChip tint="green">Task</MChip><MChip>Note</MChip><MChip tint="purple">Quote</MChip><MChip tint="blue">Link</MChip></div>
-        <MRow check tint="orange" meta="Today">{todo[0].title.replace(/\s#\w+/g, '')}</MRow>
-        <Capture kind={notes[1].kind} meta="2h">{notes[1].label}</Capture>
-        <MRow check tint="gray" meta="Fri">{todo[1].title.replace(/\s#\w+/g, '')}</MRow>
-        <Capture kind={notes[2].kind} meta="1d">{notes[2].label}</Capture>
-        <Capture kind={notes[3].kind} meta="3d">{notes[3].label}</Capture>
-      </>)
-    }
-  },
   discarded: {
     text: '**Bin: everything you moved to the Bin.** Restore puts one back; nothing is deleted until you say so.',
     art: () => (<>
@@ -373,23 +263,6 @@ const PEEKS: Record<string, PagePeek> = {
     )
   }
 }
-
-for (const type of CAPTURE_TYPES) {
-  const plural = `${type.label}s`
-  PEEKS[`kind:${type.id}`] = {
-    // Tasks also have their own lists (Today, Upcoming): this one is every task you caught, in the words you caught it.
-    text: type.id === 'todo'
-      ? '**Tasks: every one you caught, as you wrote it.** To tick them off, use Today and Upcoming.'
-      : `**${plural}: ${type.does.charAt(0).toLowerCase()}${type.does.slice(1)}.** Every one you caught, wherever it went.`,
-    art: () => (<>
-      <MTitle count={KIND_ROWS[type.id].length}>{plural}</MTitle>
-      {KIND_ROWS[type.id].map(([title, meta]) => type.id === 'todo'
-        ? <MRow key={title} check tint="orange" meta={meta}>{title}</MRow>
-        : <Capture key={title} kind={type.id} meta={meta}>{title}</Capture>)}
-    </>)
-  }
-}
-
 
 /** A sidebar row with its page's preview, and its keys folded into it. */
 export function SidePeek({ id, keys, children }: { id: string; keys?: string; children: React.ReactElement }): React.JSX.Element {

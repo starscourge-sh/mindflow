@@ -10,7 +10,7 @@ import { tagTint } from './tag-icon'
 import { HaligtreeEditor } from '../haligtree'
 import { chime, step } from '@/lib/sound'
 import { noteLinkText, typeSaid } from '@/lib/capture-links'
-import { call, focusToolsShown, splitTags, unloaded, useLastAsked, useLive, haligtree, when, whenInLine, type Focus, type Made, type Session, type Settings, type Task, type TaskFull } from '@/lib/haligtree'
+import { call, focusToolsShown, useFocusTools, splitTags, unloaded, useLastAsked, useLive, haligtree, when, whenInLine, type Focus, type Made, type Session, type Settings, type Task, type TaskFull } from '@/lib/haligtree'
 import { useOpened } from '@/lib/nav'
 import { useCameBack } from '@/lib/to-bin'
 import { readAhead, readFresh, readNow, useAfterFirstPaint } from '@/lib/early-read'
@@ -21,7 +21,7 @@ import { PriorityIcon, PriorityMark, TaskInput, markRoom, planFor, setPriority }
 import { useArrivals } from './note-list'
 import { TagRow } from './pass'
 import { Empty, Island, Kbd, Page, Prop, PropInput, Props, Rolling, Tags, toast, useListKeys, typing, VirtualList, Stepper, quietly } from './ui'
-import { Chips, Display, arrange, useView, type Facet } from './display'
+import { Chips, Display, arrange, openDisplay, useView, type Facet } from './display'
 import { DayList, writeOutDay } from './day-list'
 import { MatrixView } from './matrix-view'
 import { readLines, tasksOf, tasksSaid } from '../../../../main/day-lines'
@@ -62,7 +62,7 @@ import { useMeetingsLeft } from './week-fit'
 import { dayClosed, openCloseDay } from './close-day'
 import { abandonNow, sessionLines } from '@/lib/abandon'
 import { PICKED_ROW, useTaskPick } from './task-pick'
-import { FitsButton } from './fits'
+import { openFits } from './fits'
 import { Bell, Timer as CalendarClock, Check, FileText, Gem, History, Timer as Hourglass, ListTodo as ListChecks, Repeat, Bookmark as Telescope, Timer, X } from '@/components/ui/icons'
 import { SpanPill, sessionEnd } from './session-span'
 import { useMinute } from '@/lib/clock'
@@ -627,6 +627,9 @@ const byNote = (list: Task[]): [string, Task[], string][] =>
  * you type. A task is not a note with a tickbox: it has a when, a record of each
  * time it was done, and a way back to the capture it came from.
  */
+/** The one Tasks row's tabs: Tomorrow and This week are the top of Upcoming; routines due today are in Today too. */
+const TASK_TABS = [{ id: 'today', label: 'Today' }, { id: 'upcoming', label: 'Upcoming' }, { id: 'later', label: 'Later' }, { id: 'routines', label: 'Routines' }] as const
+
 export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' | 'upcoming' | 'routines' | 'later'; focus?: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   const real = useLive(haligtree.tasks, [] as Task[])
   // What a fresh start holds: its own list at the foot of Later, each one back the moment it is opened.
@@ -644,6 +647,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   const [glossing, setGlossing] = useState<string | null>(null)
 
   const [view, setView] = useView(`tasks:${mode}`, { sort: 'manual', group: 'when' })
+  const focusTools = useFocusTools()
   // Written out: Today as a page you write (day-list.tsx), chosen here, from ⌘K, or by writing on an empty day.
   const written = mode === 'today' && view.group === 'page'
   const writeIt = (): void => void (view.group !== 'page' && setView({ ...view, group: 'page' }))
@@ -843,17 +847,29 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
       quietly(() => void haligtree.saveTask(task.id, { subtasks })))
   }
 
+  // The one row of the bar (tasks-bar.mjs): the tabs on the left, the only choice always on show; then
+  // the count; then "Write out my day", the same button in the same place on every tab (greyed where it
+  // does not apply) reading "Back to the list" while the day is written out; then ⋯ for the rest.
+  // Nothing in it comes or goes after a click, so nothing moves under the pointer.
+  const lead = <Chips options={TASK_TABS} on={(id) => id === mode} pick={(id) => id !== mode && onOpen?.('view', id)} className="flex-nowrap" />
+  const writeOut = (
+    <Tip label={mode !== 'today' ? 'Today’s tasks only: open the Today tab' : written ? 'Back to your tasks as a list' : 'Your tasks as a page you write, a line each'}>
+      {/* Both labels hold the room, so the button is one width whichever it says. */}
+      <Button data-write-day variant="ghost" size="sm" disabled={mode !== 'today'} aria-pressed={written}
+        onClick={() => setView({ ...view, group: written ? 'when' : 'page' })} className="grid">
+        <span aria-hidden className="invisible col-start-1 row-start-1">Write out my day</span>
+        <span aria-hidden className="invisible col-start-1 row-start-1">Back to the list</span>
+        <span className="col-start-1 row-start-1">{written ? 'Back to the list' : 'Write out my day'}</span>
+      </Button>
+    </Tip>
+  )
   const actions = (
-        <span className="flex items-center gap-2">
-          {/* What fits in the time there is: a click from a focus session. */}
-          {mode === 'today' && <FitsButton />}
-          {/* Today as a list, or as a page you write: one set of tasks either way. */}
-          {mode === 'today' && <Chips options={[{ id: 'list', label: 'List' }, { id: 'page', label: 'Page' }, { id: 'matrix', label: 'Matrix' }]} on={(id) => id === (written ? 'page' : matrixed ? 'matrix' : 'list')} pick={(id) => setView({ ...view, group: id === 'list' ? 'when' : id })} className="flex-nowrap" />}
-          {/* The page you write on keeps its own order and shows every task: nothing in Display reaches it, so no Display.
-              The Matrix places each task by itself: only the filters apply, so only they are offered.
-              Page and Matrix are chosen by the chips beside it, never again as a grouping. */}
+        <span className="flex items-center gap-1">
+          {writeOut}
+          {/* Sort, group and filter: F, or from ⋯; no button of its own in the bar. */}
           {!written && (
             <Display
+              hidden
               view={view}
               onChange={setView}
               facets={facets}
@@ -861,28 +877,33 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
               groups={matrixed ? [] : [{ id: 'when', label: mode === 'later' ? 'By list' : 'By date' }, ...(mode === 'today' ? [{ id: '135', label: '1-3-5' }] : []), { id: 'tag', label: 'By how it’s done' }, { id: 'note', label: 'By note' }, { id: 'none', label: 'None' }]}
             />
           )}
-          {/* Today's list on the desktop, ticked off there through the day. */}
-          {mode === 'today' && <OptionsMenu label="More" side="bottom" align="end" options={[]} actions={[{ label: 'Keep Today on screen', run: () => stickOnDesktop('today', 'today') }, { label: 'Fresh start: put every open task on hold', run: freshStart }]} />}
+          <OptionsMenu label="More" side="bottom" align="end" sections={[
+            { items: [
+              // Today's tasks in four boxes; from another tab, every task's.
+              { label: 'Urgent and important', hint: 'Your tasks in four boxes: urgent by date, important by the flag', on: matrixed, set: (on) => (mode === 'today' ? setView({ ...view, group: on ? 'matrix' : 'when' }) : onOpen?.('view', 'matrix')) },
+              { label: 'Your order', hint: 'In the order you dragged them, not by date', on: view.sort === 'manual', set: (on) => setView({ ...view, sort: on ? 'manual' : 'due' }) },
+              ...(focusTools ? [{ label: 'I have 15 min', hint: 'What fits in the time you have, to start one', run: () => openFits() }] : []),
+              { label: 'Sort, group and filter…', keys: 'F', run: () => (written ? setView({ ...view, group: 'when' }) : undefined, setTimeout(openDisplay, 0)) }
+            ] },
+            { items: [
+              { label: 'Keep Today on screen', run: () => stickOnDesktop('today', 'today') },
+              { label: 'Fresh start: put every open task on hold', run: freshStart }
+            ] }
+          ]} />
         </span>
   )
   // The Matrix's own page, kept to the tasks the list would show: the same set, late ones too.
   // Sent here for one task: the task is drawn first and the list beside it
   // the frame after, whole (Page's `apart`), so it never waits behind every row.
   const sent = !!focus && !matrixed && (coming ?? open?.id) === focus
-  if (matrixed) return <MatrixView focus={focus} onOpen={onOpen} today={{ ids: base.map((task) => task.id), done: dayDone, actions, onAll: () => onOpen?.('view', 'matrix') }} />
+  if (matrixed) return <MatrixView focus={focus} onOpen={onOpen} today={{ ids: base.map((task) => task.id), done: dayDone, actions, lead, onAll: () => onOpen?.('view', 'matrix') }} />
   return (
     // The list and the task open beside it come in together, once both are read (lib/reads-in.tsx).
     <ReadsIn className="contents">
       {/* Sent here for one task: the page waits for it too, so it opens on the task beside the list, not on the list alone first;
           the task never waits for the list, which comes in whole beside it once drawn. */}
       <Page aside={!!open || !!coming} waiting={(reading && !example) || (!!focus && !matrixed && (coming ?? open?.id) !== focus) || !listShown} apart={sent}
- title={mode} count={example ? undefined : several.chosen.length || shown.length} unit={several.chosen.length ? ['selected', 'selected'] : ['open', 'open']} actions={several.bar ?? actions}>
-        {/* Today, Tomorrow and Later side by side, at the top of each: one click between the three lists. */}
-        {(mode === 'today' || mode === 'tomorrow' || mode === 'later') && (
-          <div data-task-lists className="list-edge mt-2 flex">
-            <Chips options={[{ id: 'today', label: 'Today' }, { id: 'tomorrow', label: 'Tomorrow' }, { id: 'later', label: 'Later' }]} on={(id) => id === mode} pick={(id) => onOpen?.('view', id)} className="flex-nowrap text-sm" />
-          </div>
-        )}
+ title={mode} lead={several.bar ? undefined : lead} count={example ? undefined : several.chosen.length || shown.length} unit={several.chosen.length ? ['selected', 'selected'] : ['open', 'open']} actions={several.bar ?? actions}>
 
         {/* Nothing on today yet, in either layout: the page to write it on. */}
         {written || (mode === 'today' && !example && !reading && !shown.length && dayDone === 0) ? (

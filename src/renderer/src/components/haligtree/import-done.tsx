@@ -18,7 +18,7 @@ export type ImportDone = {
   from: string
   made: number
   inbox?: number
-  /** Filed into Writing, in a group for each folder, not yet sorted. */
+  /** Filed into Pages, in a group for each folder, not yet sorted. */
   writing?: number
   /** Anki cards, become gems. */
   gems?: number
@@ -212,7 +212,7 @@ export function ImportDoneCard(): React.JSX.Element {
               {done.writing ? (
                 <>
                   <Button variant="ghost" size="lg" onClick={() => (chime('tap'), close())}>Done</Button>
-                  <Button size="lg" data-autofocus="" data-open-writing="" onClick={() => (chime('tap'), close(), window.api.openInHome('view', 'articles'))}>Open Writing</Button>
+                  <Button size="lg" data-autofocus="" data-open-writing="" onClick={() => (chime('tap'), close(), window.api.openInHome('view', 'articles'))}>Open Pages</Button>
                 </>
               ) : done.inbox ? (
                 <>

@@ -46,7 +46,7 @@ const REFUSED: Record<Refused, { head: string; line: string }> = {
  * Bringing in Apple Notes or an Obsidian vault, folder by folder: which
  * folders, each with how many notes it holds, before anything comes in. For
  * Apple Notes it first says plainly what macOS will ask, and what a "no"
- * means. Every folder chosen becomes a group in Writing, its notes "not yet
+ * means. Every folder chosen becomes a group in Pages, its notes "not yet
  * sorted". Main opens it (haligtree:import-folders) from every way in.
  */
 export function ImportFolders(): React.JSX.Element | null {
@@ -145,7 +145,7 @@ export function ImportFolders(): React.JSX.Element | null {
             <h2 className="font-serif text-2xl leading-tight text-foreground">{title}</h2>
             {step.at === 'choose' && (
               <p className="mt-1.5 text-body text-foreground/85">
-                Each folder you choose becomes a group in Writing, named “{where}”. Every note starts as <strong className="font-semibold text-foreground">not yet sorted</strong>.
+                Each folder you choose becomes a group in Pages, named “{where}”. Every note starts as <strong className="font-semibold text-foreground">not yet sorted</strong>.
               </p>
             )}
           </div>

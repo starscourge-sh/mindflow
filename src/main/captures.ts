@@ -843,7 +843,7 @@ export type Imported = { link: string; title: string; path: string; private?: bo
  * A note already imported from the same path is "already here", whatever
  * linking has since done to its words; a file with nothing in it is "empty".
  */
-/** `toWriting`: an article in Writing, not yet sorted, whatever folder it is in (an import that files folders into groups). */
+/** `toWriting`: an article in Pages, not yet sorted, whatever folder it is in (an import that files folders into groups). */
 export function importNote(path: string, text: string, modified: Date, hidden = false, toWriting = false): Imported | 'empty' | 'already here' {
   const front = /^---\n([\s\S]*?)\n---(?:\n|$)/.exec(text)
   const fields = propertiesOf(front?.[1] ?? '')

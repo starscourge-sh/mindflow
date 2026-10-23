@@ -33,8 +33,8 @@ export const NEWS_VERSION = '1.0.0'
 const ROW = '[data-row]'
 
 export const NEWS: News[] = [
-  { id: 'write-day', release: 'planning', day: '2026-10-12', lead: 'Write out your day.', text: 'Choose “Page” at the top of Today and write the day as a list, one task a line, the top three first. Ticked lines stay struck through where they are, and anything left from before waits above with “Bring it”.', keys: ['⌥↑', '⌥↓'],
-    show: { view: 'today', at: 'button[aria-pressed]', find: 'Page', text: 'Choose “Page” here, then write a line and press ↵.' } },
+  { id: 'write-day', release: 'planning', day: '2026-10-12', lead: 'Write out your day.', text: 'Choose “Write out my day” at the top of Tasks and write the day as a list, one task a line, the top three first. Ticked lines stay struck through where they are, and anything left from before waits above with “Bring it”.', keys: ['⌥↑', '⌥↓'],
+    show: { view: 'today', at: '[data-write-day]', find: 'Write out my day', text: 'Choose “Write out my day” here, then write a line and press ↵.' } },
   { id: 'line-tasks', release: 'planning', day: '2026-10-12', lead: 'Lines into tasks.', text: 'Select several lines in a note and choose “3 tasks”: each line gets a box linked to its task, and ticking either ticks both. A long mixed page pasted in offers “Sort this out”.',
     show: { view: 'inbox', text: 'Open a note, select a few lines, and choose “tasks” in the bar that comes up.' } },
   { id: 'bin', release: 'planning', day: '2026-10-10', lead: 'One Bin for everything.', text: 'Captures, tasks closed without doing and notes you move to the Bin wait in one place, each with “Restore”, until you hold to empty it.', keys: ['G D'],
@@ -68,14 +68,14 @@ export const NEWS: News[] = [
   { id: 'brutal', release: 'map-and-gems', day: '2026-10-10', lead: 'The Brutal style.', text: 'Square corners, the theme’s ink as an outline and hard shadows, in light and dark.',
     show: { view: 'settings', settings: 'Appearance', find: 'Style', at: '[data-setting]', text: 'Pick “Brutal”, in any theme.' } },
   { id: 'tidy-stickies', release: 'map-and-gems', day: '2026-10-10', lead: 'Tidy stickies.', text: 'One key gathers every sticky note into a neat column down the right of its screen, and puts them back after.', keys: ['⌃⌥⌘T'],
-    show: { view: 'all', at: ROW, text: 'Stick a note on the desktop from its right-click menu, then press ⌃⌥⌘T.' } },
+    show: { view: 'inbox', at: ROW, text: 'Stick a note on the desktop from its right-click menu, then press ⌃⌥⌘T.' } },
   { id: 'giphy', release: 'map-and-gems', day: '2026-10-10', lead: 'A GIF for a task done.', text: 'With your own Giphy key, finishing a task can celebrate with a GIF found by the words you choose.',
     show: { view: 'settings', settings: 'Scenery', find: 'Giphy', at: '[data-setting]', text: 'Turn it on, then add your Giphy key and the words to search for.' } },
   { id: 'session-log', release: 'map-and-gems', day: '2026-10-10', lead: 'The session log.', text: 'While a focus session runs, add a thought, a picture or a screenshot from the session bubble, and it is kept with the task.',
     show: { view: 'today', at: ROW, text: 'Open a task and start a focus session, then point at its bubble.' } },
   { id: 'queue', release: 'map-and-gems', day: '2026-10-10', lead: 'A reading queue.', text: 'Line up what you mean to read or watch, and Home shows the next few with a way to start.', keys: ['G B'],
     show: { view: 'queue', at: ROW, text: 'Drag a note onto Queue in the sidebar to add it.' } },
-  { id: 'marked-days', release: 'map-and-gems', day: '2026-10-10', lead: 'Marked days.', text: 'Give any day a purpose, like Exam or Launch, and count down to it from Home and the menu bar.',
+  { id: 'marked-days', release: 'map-and-gems', day: '2026-10-10', lead: 'Marked days.', text: 'Give any day a purpose, like Exam or Launch, and count down to it from Today and the menu bar.',
     show: { view: 'yearpage', at: '[data-year-marks]', text: 'Right-click any day to mark it, or type !milestone Exam on 3 Dec in quick capture.' } },
   { id: 'split', release: 'map-and-gems', day: '2026-10-10', lead: 'Split view.', text: 'Open a page again beside itself, or a note beside another, each pane named by what it shows.', keys: ['⌥⌘\\'],
     show: { view: 'inbox', at: ROW, text: 'Press ⌥⌘\\ to open this page again beside it.' } },
@@ -84,7 +84,7 @@ export const NEWS: News[] = [
   { id: 'groups', release: 'groups-and-books', day: '2026-10-08', lead: 'Groups.', text: 'Gather notes in a list into named, coloured groups that fold away.', keys: ['G N'],
     show: { view: 'nuggets', at: ROW, text: 'Select a few rows and press ⌃⌘N, or right-click them and choose “New group”.' } },
   { id: 'books', release: 'groups-and-books', day: '2026-10-08', lead: 'Books.', text: 'Keep a separate book of notes for a project or a test, and switch between them from ⌘K or the menu bar.', keys: ['⌘K'],
-    show: { view: 'home', text: 'Press ⌘K and choose “Switch book” or “New book”.' } }
+    show: { view: 'day', text: 'Press ⌘K and choose “Switch book” or “New book”.' } }
 ]
 
 /** Where the newest entry seen is kept. */

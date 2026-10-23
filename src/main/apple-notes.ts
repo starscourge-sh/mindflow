@@ -183,7 +183,7 @@ async function keepPicture(data: string): Promise<string | null> {
 export type NotesBrought = { made: string[]; byFolder: Map<string, string[]>; already: number; locked: number; empty: number; pictures: number; missing: number; stopped: boolean; denied: boolean }
 
 /**
- * The chosen folders' notes as articles in Writing, each "not yet sorted",
+ * The chosen folders' notes as articles in Pages, each "not yet sorted",
  * dated as Notes has them. A note brought in before (by its id in Notes) is
  * left as it is. `told` hears how far it has got.
  */

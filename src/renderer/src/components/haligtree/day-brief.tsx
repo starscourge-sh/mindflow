@@ -313,7 +313,7 @@ export function DayBrief({ day, onOpen, onListed, between }: {
               </div>
             </div>
             <ul className="min-w-0 divide-y divide-border/50">
-              {/* Written out (Today's Page layout): the same page here, to write on and tick. */}
+              {/* Written out (“Write out my day”): the same page here, to write on and tick. */}
               {written && <li className="py-2"><DayList compact /></li>}
               {!written && shown.map((task) => (
                 <TaskRow key={task.id} task={task} today={today} first={task.id === frog} done={struck(task)} pen={!!ticked[task.id]?.pen} onTick={() => tick(task)} now={taskNow} room={markRoom(shown)} />

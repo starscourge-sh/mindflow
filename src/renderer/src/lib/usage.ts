@@ -28,7 +28,7 @@ export const WAY_NAMES: Record<Via, string> = {
   keys: 'Keys, like G then I',
   link: 'A link in a note',
   search: 'Search results',
-  home: 'A card on Home',
+  home: 'A card on Today',
   back: 'Back and Forward',
   notification: 'A notification',
   capture: 'Quick capture',
