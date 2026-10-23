@@ -4,7 +4,7 @@ import { lineCardsIn, matchLineCards } from './study'
 
 /**
  * Cards written inside a note: every "question :: answer" line in a capture,
- * a gem, an article or a day's page is a review card of its own (a nugget
+ * a gem, a page or a day's page is a review card of its own (a nugget
  * whose tier is 'card'), pointing back at its note by `line_of`
  * (`capture:…`, `nugget:…` or `day:2026-10-10`). Called on every save of
  * the note, it keeps the cards in step with the lines: an edited line keeps

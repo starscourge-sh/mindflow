@@ -25,7 +25,7 @@ export function ComingBack({ id, className = '' }: { id: string; className?: str
   const write = (): void =>
     void issues.repeatArticle(found.ids.map((one) => one.id)).then((article) => {
       chime('promote')
-      toast(`An article, from ${num(found.n)} captures of the same idea`,
+      toast(`A page, from ${num(found.n)} captures of the same idea`,
         () => void haligtree.toBin(article).then(() => haligtree.forgetBinned('article', article)))
       window.api.openInHome('article', article)
     })
@@ -51,7 +51,7 @@ export function ComingBack({ id, className = '' }: { id: string; className?: str
       ) : (
         <>
           You keep coming back to this ({num(found.n)} times). <span className="text-foreground">Write the thing that lets you stop.</span>{' '}
-          <Tip label="A new article, its first lines a link to each time you caught it">
+          <Tip label="A new page, its first lines a link to each time you caught it">
             <button type="button" onClick={write} className="rounded-sm font-medium whitespace-nowrap text-[var(--tt-brand-color-400)] underline decoration-[color-mix(in_srgb,var(--tt-brand-color-400)_35%,transparent)] underline-offset-2 transition-colors hover:decoration-[var(--tt-brand-color-400)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Write it</button>
           </Tip>
         </>

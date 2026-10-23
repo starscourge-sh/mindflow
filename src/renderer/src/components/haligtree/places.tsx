@@ -35,7 +35,7 @@ export type Place = {
 
 /**
  * The main window's sections, each with the key that jumps to it after G, in
- * the order the sidebar lists them: writing first (Today, Pages, Inbox, Gems,
+ * the order the sidebar lists them: writing first (Inbox, Today, Pages, Gems,
  * Review), then a gap, then doing (Tasks, Calendar), then the rest. Each has
  * its own colour from the theme. Which ones show is a setting
  * (`sidebarShown`), the same for every book to start: one switched off is
@@ -44,10 +44,11 @@ export type Place = {
  * yours is kept as `sidebarOrder` (useInOrder).
  */
 export const SECTIONS: (Place & { key: string })[] = [
+  // Where everything you catch lands first: on top.
+  { id: 'inbox', label: 'Inbox', icon: Inbox, key: 'i', tint: 'blue', group: 'Write' },
   // The Day page: the day's writing on top, today's tasks under it. The window opens here.
   { id: 'day', label: 'Today', icon: Sun, key: 'p', tint: 'orange', group: 'Write' },
   { id: 'articles', label: 'Pages', icon: FileText, alive: FileDescriptionIcon, key: 'a', tint: 'brown', group: 'Write' },
-  { id: 'inbox', label: 'Inbox', icon: Inbox, key: 'i', tint: 'blue', group: 'Write' },
   { id: 'nuggets', label: 'Gems', icon: Gem, key: 'n', tint: 'pink', group: 'Write' },
   { id: 'review', label: 'Review', icon: Brain, key: 'r', tint: 'purple', group: 'Write' },
   // One row for every task list: Today, Upcoming, Later and Routines are its tabs (tasks-view.tsx).

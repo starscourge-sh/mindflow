@@ -19,7 +19,7 @@ import { firstLineOf } from '@/extensions/tokens'
 import { selectionActions } from './selection-actions'
 import { ReadThrough } from './read-through'
 import { enqueue } from '@/lib/reading-queue'
-import { CAPTURE_TYPES, CaptureKindPicker, asksFor, type CaptureType } from '../capture-kinds/capture-kind-picker'
+import { CAPTURE_TYPES, CaptureKindPicker, asksFor, byKind, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { age } from '../capture-list'
 import { findCaptures, findHeadings, follow, noteLinkText, recallOffered } from '@/lib/capture-links'
 import { splitTags, unloaded, unread, useLastAsked, useLive, haligtree, whenInLine, type Item, type ItemFull } from '@/lib/haligtree'
@@ -523,7 +523,7 @@ export function ItemsView({ tier, focus, onOpen, only }: { tier: 'nugget' | 'art
  onClick={() => void haligtree.article(chosen).then((id) => {
  // The same words and the same landing as the prompt's: the article opens.
  chime('promote')
- toast(chosen.length > 1 ? `An article, from ${num(chosen.length)} gems` : 'An article, from this gem')
+ toast(chosen.length > 1 ? `A page, from ${num(chosen.length)} gems` : 'A page, from this gem')
  setChosen([])
  pick(id)
  })}
@@ -670,7 +670,7 @@ const itemMenu = (item: Item): MenuItem[] => [
   { label: item.private ? 'Make it not private' : 'Make it private', run: () => void haligtree.setPrivate('nuggets', item.id, !item.private) },
   { label: 'Stick on the desktop', run: () => stickOnDesktop('nugget', item.id) },
   { label: 'Open in a new window', keys: '⌥⌘-click', run: () => openApart(item.tier, item.id) },
-  { label: 'Expanded view', hint: 'The whole article in one scroll, its linked notes too', run: () => openExpanded(`${item.tier}:${item.id}`) },
+  { label: 'Expanded view', hint: 'The whole page in one scroll, its linked notes too', run: () => openExpanded(`${item.tier}:${item.id}`) },
   asideItem(item.tier, item.id),
   ...queueItems(item.id),
   'separator',
@@ -944,10 +944,10 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
                   without noticing: said, never automated. */}
               {glossWords >= 200 && (
                 <p className="px-2 py-1.5 text-xs leading-relaxed text-[var(--tt-color-text-purple)]">
-                  Your thoughts on this gem run to {num(glossWords)} words: that is an article already. Start one and they come with it.
+                  Your thoughts on this gem run to {num(glossWords)} words: that is a page already. Start one and they come with it.
                 </p>
               )}
-              <Prop icon={Plus} onClick={() => void haligtree.article([item.id]).then((id) => { chime('promote'); toast('An article, from this gem'); onOpen?.('article', id) })}>
+              <Prop icon={Plus} onClick={() => void haligtree.article([item.id]).then((id) => { chime('promote'); toast('A page, from this gem'); onOpen?.('article', id) })}>
                 Start a page
               </Prop>
               <StudyThis item={item} />
@@ -1210,7 +1210,7 @@ export function useItemDisplay(name: string, every: Item[]): {
     changed: (a, b) => (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt),
     untouched: (a, b) => (a.updatedAt ?? a.createdAt).localeCompare(b.updatedAt ?? b.createdAt),
     name: (a, b) => a.title.localeCompare(b.title),
-    kind: (a, b) => a.kind.localeCompare(b.kind) || b.createdAt.localeCompare(a.createdAt),
+    kind: (a, b) => byKind(a.kind, b.kind) || b.createdAt.localeCompare(a.createdAt),
     due: (a, b) => (a.dueAt ?? '9').localeCompare(b.dueAt ?? '9'),
     rating: (a, b) => (propOf(b).rating ?? 0) - (propOf(a).rating ?? 0) || b.createdAt.localeCompare(a.createdAt),
     manual: ownOrder

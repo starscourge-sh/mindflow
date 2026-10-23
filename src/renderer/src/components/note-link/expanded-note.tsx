@@ -78,7 +78,7 @@ function Sheet({ link, onClose }: { link: string; onClose: () => void }): React.
             <X className="size-4" /> Close <kbd className="text-meta">Esc</kbd>
           </button>
         </div>
-        <p className="text-control">The whole article in one scroll: edit anything here and it is saved where it lives.</p>
+        <p className="text-control">The whole page in one scroll: edit anything here and it is saved where it lives.</p>
         <EmbeddedNote link={link} label={read?.title ?? ""} header={false} />
         {read && read.linked.length > 0 && <h2 className="mt-4 text-lg font-semibold">Linked from here</h2>}
         {read?.linked.map((one) => <EmbeddedNote key={one} link={one} label="" />)}

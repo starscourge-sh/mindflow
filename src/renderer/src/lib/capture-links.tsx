@@ -54,9 +54,9 @@ export const statusSaid = (status: string, keptIn?: string | null): string => {
   return ({ open: 'Open', promoted: 'Saved as a gem', resolved: 'Resolved', discarded: 'In the Bin' } as Record<string, string>)[status] ?? status
 }
 
-/** What a kind of thing is called on screen: the code's nugget is a gem; one article is an Article (the page of them is Pages). */
+/** What a kind of thing is called on screen: the code's nugget is a gem; one article is a Page (the list of them is Pages). */
 export const typeSaid = (type: string): string =>
-  ({ capture: 'Capture', nugget: 'Gem', article: 'Article', question: 'Question', goal: 'Goal', task: 'Task', card: 'Card', event: 'Event' } as Record<string, string>)[type] ?? type
+  ({ capture: 'Capture', nugget: 'Gem', article: 'Page', question: 'Question', goal: 'Goal', task: 'Task', card: 'Card', event: 'Event' } as Record<string, string>)[type] ?? type
 
 /** The three ways out of a capture, each one key where a card has the focus. */
 export const EXITS = [

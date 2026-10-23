@@ -394,7 +394,7 @@ export function NoteList({
           {(one) => (
             <>
               {one.head && (
-                <div
+                <div data-group-head={one.head[0]}
                   className={`px-2 pb-1 text-xs text-muted-foreground ${one.start === 0 ? 'pt-1' : 'pt-4'}`}
                 >
                   {one.head[0]} <span className="tabular-nums"><Rolling text={one.head[1]} /></span>

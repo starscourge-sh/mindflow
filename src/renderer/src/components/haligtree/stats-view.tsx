@@ -2,7 +2,7 @@ import { YearOfAnswers } from './journal'
 import { HabitGrid } from './habits'
 import { Children, useState, type ReactNode } from 'react'
 
-import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
+import { CAPTURE_TYPES, byKind } from '../capture-kinds/capture-kind-picker'
 import { useFocusTools, useLive, haligtree, type Stats } from '@/lib/haligtree'
 import { exampleStats } from '@/lib/examples'
 import { Example } from './example'
@@ -193,7 +193,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
         <Section title="The doing, this week" big={{ value: stats.lead.exits, label: stats.lead.exits === 1 ? 'thing sorted from your Inbox' : 'things sorted from your Inbox' }}>
           <p>
             No target here, only the trend. This week: <span className="whitespace-nowrap"><N>{`${plural(stats.lead.exits, 'thing', 'things')} sorted`}</N>,</span> <span className="whitespace-nowrap"><N>{`${plural(stats.lead.glosses, 'note', 'notes')} added`}</N>,</span>{' '}
-            reviews on <N>{plural(stats.lead.reviewDays, 'day', 'days')}</N> and <N>{plural(stats.lead.articles, 'article', 'articles')}</N> started.
+            reviews on <N>{plural(stats.lead.reviewDays, 'day', 'days')}</N> and <N>{plural(stats.lead.articles, 'page', 'pages')}</N> started.
           </p>
           <p>
             <N>{stats.unprocessed.now}</N> captures still wait in your Inbox, against <N>{stats.unprocessed.weekAgo}</N> a week ago.
@@ -226,7 +226,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
             )}
           </p>
           <p>
-            You keep <span className="whitespace-nowrap"><N>{plural(stats.nuggets, 'gem', 'gems')}</N>,</span> <N>{stats.recall}</N> of them tested, and <N>{plural(stats.articles, 'article', 'articles')}</N> written from them.
+            You keep <span className="whitespace-nowrap"><N>{plural(stats.nuggets, 'gem', 'gems')}</N>,</span> <N>{stats.recall}</N> of them tested, and <N>{plural(stats.articles, 'page', 'pages')}</N> written from them.
           </p>
         </Section>
 
@@ -236,7 +236,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
         <Section title={`${dayjs().year()} so far`} big={{ value: stats.year.captured, label: stats.year.captured === 1 ? 'capture' : 'captures' }}>
           <p>
             <span className="whitespace-nowrap"><N>{plural(stats.year.captured, 'capture', 'captures')}</N>,</span> <N>{plural(stats.year.nuggets, 'gem', 'gems')}</N> kept and{' '}
-            <N>{plural(stats.year.articles, 'article', 'articles')}</N> written.
+            <N>{plural(stats.year.articles, 'page', 'pages')}</N> written.
             {stats.year.month && <> Your busiest month was <span className="whitespace-nowrap"><N>{monthName(Number(stats.year.month) - 1)}</N>.</span></>}
           </p>
         </Section>
@@ -262,14 +262,15 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
 
         <Section title="What you capture" big={stats.kinds[0] ? { value: stats.kinds[0].n, label: `${(CAPTURE_TYPES.find((one) => one.id === stats.kinds[0].kind) ?? CAPTURE_TYPES[0]).label.toLowerCase()}${stats.kinds[0].n === 1 ? '' : 's'}, the most of any kind` } : undefined}>
           <div className="space-y-2">
-            {stats.kinds.map(({ kind, n }) => {
+            {/* The bars in the one order of kinds, Note first (kindRank); the big number says which is most. */}
+            {[...stats.kinds].sort((a, b) => byKind(a.kind, b.kind)).map(({ kind, n }) => {
               const type = CAPTURE_TYPES.find((one) => one.id === kind) ?? CAPTURE_TYPES[0]
               return (
                 <div key={kind} className="flex items-center gap-3 text-sm">
                   <type.icon className="size-4 shrink-0" style={{ color: type.tint }} />
                   <span className="w-20 text-foreground">{type.label}</span>
                   <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-border/60">
-                    <span className="block h-full rounded-full" style={{ width: percent(n, stats.kinds[0].n), background: type.tint }} />
+                    <span className="block h-full rounded-full" style={{ width: percent(n, Math.max(...stats.kinds.map((one) => one.n))), background: type.tint }} />
                   </span>
                   <span className="min-w-10 shrink-0 text-right font-semibold text-foreground"><Count n={n} /></span>
                 </div>

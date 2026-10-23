@@ -13,8 +13,6 @@ import {
 } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useShortcut } from "@/lib/use-shortcut"
-import { byFrecency } from "@/lib/frecency"
-import { call } from "@/lib/haligtree"
 
 import type { BlockColor } from "@/extensions/block-color"
 import { Tip } from '@/components/haligtree/ui'
@@ -35,7 +33,8 @@ const tint = (color: BlockColor): string => `var(--tt-color-text-${color})`
  *
  * The number beside each is its place here, which is also the key that picks
  * it - so the list is the documentation for the shortcut and cannot drift from
- * it. The open list is ordered by use, each row keeping its number. A joke and a book are tags now (#bit, #book), a long paste a quote.
+ * it. Order implies purpose, and Haligtree is writing first: Note, then Task,
+ * then the rest, here and everywhere kinds are listed (kindRank). A joke and a book are tags now (#bit, #book), a long paste a quote.
  */
 export const CAPTURE_TYPES = [
   { id: "note", label: "Note", icon: NotebookText, tint: tint("gray"), does: "Anything else" },
@@ -48,6 +47,18 @@ export const CAPTURE_TYPES = [
 ] as const
 
 export type CaptureType = (typeof CAPTURE_TYPES)[number]["id"]
+
+/**
+ * A kind's place in every list of kinds (chips, groups, menus): the order of
+ * CAPTURE_TYPES, by id or by name. A list's own tasks ('task', "Tasks") sit
+ * where Task does; anything else after them all.
+ */
+export function kindRank(kind: string): number {
+  const at = CAPTURE_TYPES.findIndex((type) => type.id === kind || type.label === kind || (type.id === "todo" && (kind === "task" || kind === "Tasks")))
+  return at < 0 ? CAPTURE_TYPES.length : at
+}
+/** Two kinds in that order, for a sort. */
+export const byKind = (a: string, b: string): number => kindRank(a) - kindRank(b)
 
 /** The pill, and the list it opens. */
 export function CaptureKindPicker({ value, onChange, suggested = false, flat = false }: {
@@ -92,13 +103,8 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
     return () => watch.disconnect()
   }, [])
   const current = CAPTURE_TYPES.find((Ctype) => Ctype.id === value) ?? CAPTURE_TYPES[0]
-  // The kinds you use most, and most lately, first. Each keeps its own number,
-  // so ⌘1-9 and the digits pick the same kind whatever the order.
-  const [order, setOrder] = useState<CaptureType[]>(() => CAPTURE_TYPES.map((type) => type.id))
-  useEffect(() => {
-    if (!open) return
-    void call<Record<string, number>>('notes:kind-uses').then((scores) => setOrder(byFrecency(CAPTURE_TYPES.map((type) => type.id), scores ?? {})), () => undefined)
-  }, [open])
+  // Always the one order (kindRank), Note first: each kind keeps its own number for ⌘1-9.
+  const order: CaptureType[] = CAPTURE_TYPES.map((type) => type.id)
 
   // ⌃L, for label; ⌃T is a tag in the editor. Opened by the key, it is simply there.
   const [keyed, setKeyed] = useState(false)

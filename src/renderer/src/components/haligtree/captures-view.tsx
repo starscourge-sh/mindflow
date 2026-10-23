@@ -9,12 +9,12 @@ import { AliveIcon } from '@/components/ui/alive-icon'
 import { motion } from 'motion/react'
 
 import { HaligtreeEditor, TAGS } from '../haligtree'
-import { ASKS, CAPTURE_TYPES, CaptureKindPicker, type CaptureType } from '../capture-kinds/capture-kind-picker'
+import { ASKS, CAPTURE_TYPES, CaptureKindPicker, byKind, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { SourceFoot } from './source-page'
 import { voiceOf } from '@/lib/sources'
 import { CaptureList, fieldOf, captureEntry, captureMenu, tagCaptures, useCaptures, whereFrom, type CaptureMeta } from '../capture-list'
 import { tagTint } from './tag-icon'
-import { AGES, Display, FilterChips, arrange, islandsOn, period, useView, type Density, type Facet, type View } from './display'
+import { AGES, Display, FilterChips, arrange, islandsOn, period, useView, type Choice, type Density, type Facet, type View } from './display'
 import { useIslands, useShowOpen, type IslandState } from './islands'
 import { GraphChip, InboxGraph, useGraphShown } from './inbox-graph'
 import { DatePicker } from './date-picker'
@@ -968,7 +968,8 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
   island: <T>(groups: [string, T[]][]) => { groups: [string, T[]][]; islands?: Record<string, IslandState> }
 } {
   // Archived opens in its folders: each "Put away everything before" run is one, by its day.
-  const [view, setView] = useView(name, { sort: 'newest', group: archived ? 'folder' : 'kind', filter })
+  // By date to start, newest first, the way Pages lists: Today, This week, This month, This year. By kind is a choice in Display.
+  const [view, setView] = useView(name, { sort: 'newest', group: archived ? 'folder' : 'date', filter })
   // Archived ones only in the Archived view, or when Display asks for them.
   const showArchived = archived || !!view.filter.flags?.includes('archived')
   const kept = all.filter((one) => !!one.archivedAt === showArchived)
@@ -1007,7 +1008,8 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
     // with every capture handled, a missing facet showed them all again.
     ...(statuses.length > 1 || filter?.status ? [{ key: 'status', label: 'Status', options: ['open', 'promoted', 'resolved', 'discarded'].filter((one) => statuses.includes(one) || filter?.status?.includes(one)).map((id) => ({ id, label: statusSaid(id), icon: STATUS_ICON[id as keyof typeof STATUS_ICON] })), test: (one: CaptureMeta, status: string) => isTask(one) || one.status === status }] : []),
     // Tasks and the tasks caught in quick capture are one chip, "Task": two chips of one name would be a riddle.
-    { key: 'kind', label: 'Kind', options: [...(withTasks ? [TASK_KIND] : []), ...CAPTURE_TYPES.filter((type) => kept.some((one) => one.kind === type.id) && !(withTasks && type.id === 'todo')).map(({ id, label, icon, tint }) => ({ id, label, icon, tint }))], test: (one, kind) => one.kind === kind || (withTasks && kind === 'task' && one.kind === 'todo') },
+    // In the one order, Note first (kindRank): with tasks among them, the tasks' chip stands where Task does.
+    { key: 'kind', label: 'Kind', options: CAPTURE_TYPES.flatMap((type) => (withTasks && type.id === 'todo' ? [TASK_KIND] : kept.some((one) => one.kind === type.id) ? [{ id: type.id, label: type.label, icon: type.icon, tint: type.tint }] : [])) as Choice[], test: (one, kind) => one.kind === kind || (withTasks && kind === 'task' && one.kind === 'todo') },
     // A Word is a lookup: asked until its answer is written. Offered once there is one.
     ...(kept.some((one) => one.lookup) ? [{ key: 'lookup', label: 'Lookup', options: [{ id: 'asked', label: 'Asked, no answer yet' }, { id: 'answered', label: 'Answered' }], test: (one: CaptureMeta, state: string) => one.lookup === state }] : []),
     { key: 'when', label: 'Captured', options: AGES, test: (one, when) => period(one.capturedAt) === when },
@@ -1027,7 +1029,7 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
     changed: (a, b) => (b.editedAt ?? b.capturedAt).localeCompare(a.editedAt ?? a.capturedAt),
     untouched: (a, b) => touched(a).localeCompare(touched(b)),
     name: (a, b) => a.label.localeCompare(b.label),
-    kind: (a, b) => a.kind.localeCompare(b.kind) || b.capturedAt.localeCompare(a.capturedAt),
+    kind: (a, b) => byKind(a.kind, b.kind) || b.capturedAt.localeCompare(a.capturedAt),
     rating: (a, b) => Number(fieldOf(b.fields, 'rating') ?? 0) - Number(fieldOf(a.fields, 'rating') ?? 0) || b.capturedAt.localeCompare(a.capturedAt),
     manual: (a, b) => own.compare(a.id, b.id) || b.capturedAt.localeCompare(a.capturedAt)
   }, {

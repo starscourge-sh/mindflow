@@ -133,7 +133,7 @@ export function DayView({ onOpen, start, onScale, onView }: {
         )}
         {data?.day === day && !past && (
           // A box that reads as a place to type: its own surface and edge, the prompt inside it while empty, a click anywhere on it puts the caret in.
-          <div data-day-write onClick={(event) => void (event.target === event.currentTarget && writer?.commands.focus('end'))}
+          <div data-day-write onClick={(event) => void (event.target === event.currentTarget && writer && !writer.isDestroyed && writer.commands.focus('end'))}
             className="mt-2 min-h-36 cursor-text rounded-xl border border-border bg-background px-4 py-2 shadow-xs transition-colors focus-within:border-ring hover:border-foreground/25 [--mf-padding:0.25rem_0]">
           <HaligtreeEditor
             key={`${day}-${restored?.day === day ? restored.rev : 0}`}
@@ -281,8 +281,10 @@ function CaretIn({ editor, day }: { editor: Editor | null; day: string }): null 
   const placed = useRef('')
   useEffect(() => {
     if (!seen || !editor || editor.isDestroyed || placed.current === day) return
-    placed.current = day
     const frame = requestAnimationFrame(() => {
+      // The day before's editor, already taken down as this day's comes in: wait for this day's.
+      if (editor.isDestroyed || !editor.view.dom.isConnected) return
+      placed.current = day
       const held = document.activeElement
       if (held?.matches('input, textarea, select, [contenteditable="true"]') && !held.closest('[data-day-write]')) return
       editor.commands.focus('end', { scrollIntoView: false })

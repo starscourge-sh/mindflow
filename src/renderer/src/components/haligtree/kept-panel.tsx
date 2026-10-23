@@ -92,7 +92,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
     void haligtree.article(ids).then((id) => {
       chime('promote')
       setChosen([])
-      toast(ids.length > 1 ? `An article, from ${num(ids.length)} gems` : 'An article, from this gem')
+      toast(ids.length > 1 ? `A page, from ${num(ids.length)} gems` : 'A page, from this gem')
       onOpen('article', id)
     })
   // A question is held, not tested: its own short menu.

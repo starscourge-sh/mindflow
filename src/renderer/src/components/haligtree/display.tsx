@@ -1,3 +1,4 @@
+import { byKind } from '@/components/capture-kinds/capture-kind-picker'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { AlignJustify, Grid3x3, X } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -109,6 +110,9 @@ export function arrange<T>(
   for (const item of ordered) out.set(by(item), [...(out.get(by(item)) ?? []), item])
   // Every one the same kind is no grouping: one island would only frame the list.
   if (view.group === 'kind' && out.size < 2) return [['', ordered]]
+  // Kinds in the one order, Note first (kindRank); dates newest first, whatever the sort inside each.
+  if (view.group === 'kind') return [...out].sort(([a], [b]) => byKind(a, b))
+  if (view.group === 'date') return [...out].sort(([a], [b]) => ageRank(a) - ageRank(b))
   return [...out]
 }
 
@@ -120,6 +124,7 @@ export function period(iso: string | null): string {
   return days <= 7 ? 'This week' : days <= 30 ? 'This month' : days <= 365 ? 'This year' : 'Older'
 }
 export const AGES: Choice[] = ['Today', 'This week', 'This month', 'This year', 'Older'].map((id) => ({ id, label: id }))
+const ageRank = (name: string): number => { const at = AGES.findIndex((one) => one.id === name); return at < 0 ? AGES.length : at }
 
 /**
  * A row that scrolls sideways: no scrollbar either way, each edge faded only

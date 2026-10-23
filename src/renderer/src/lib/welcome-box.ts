@@ -58,7 +58,8 @@ export const EXAMPLES: Record<Starter['kind'], string> = {
 }
 /** The examples in order, a note first; with a kind, that kind leads and the rest follow. */
 export const examples = (first: Starter['kind'] = 'note'): string[] => {
-  const order: Starter['kind'][] = ['note', 'quote', 'word', 'link', 'todo']
+  // The one order of kinds (kindRank): Note, Task, then the rest.
+  const order: Starter['kind'][] = ['note', 'todo', 'quote', 'word', 'link']
   return [first, ...order.filter((one) => one !== first)].map((one) => EXAMPLES[one])
 }
 

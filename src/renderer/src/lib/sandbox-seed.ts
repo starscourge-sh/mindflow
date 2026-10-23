@@ -250,7 +250,7 @@ Kepler's three laws, for the #astrophysics exam. A line written as a question, t
   await call('item:save', article, {
     title: "Mnemosyne's problem: how memory fades",
     body: doc(`
-An article is a page of your own, written from things you kept. It links to them, and they link back.
+A page is your own writing, made from things you kept. It links to them, and they link back.
 
 **Try it:** press ⌘K and type *study* to find the task this page made, then tick it off.
 

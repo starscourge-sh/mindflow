@@ -30,7 +30,7 @@ import { IslandBox, useIslands } from './islands'
 import { useFullMenu } from './side-menu'
 
 const ICON = { nugget: Gem, article: FileText, question: Orbit, task: ListTodo }
-const NAME: Record<string, string> = { capture: 'Capture', nugget: 'Gem', article: 'Article', question: 'Question', task: 'Task' }
+const NAME: Record<string, string> = { capture: 'Capture', nugget: 'Gem', article: 'Page', question: 'Question', task: 'Task' }
 
 /** What a tag holds, named once: notes, tasks, or items for both. */
 export const heldSaid = (list: { type: string }[]): [string, string] => {

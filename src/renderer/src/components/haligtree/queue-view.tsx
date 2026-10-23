@@ -32,7 +32,7 @@ import { X } from '@/components/ui/icons'
  * waits under Read, dated.
  */
 
-const TIER: Record<string, string> = { nugget: 'Gem', article: 'Article', question: 'Question' }
+const TIER: Record<string, string> = { nugget: 'Gem', article: 'Page', question: 'Question' }
 /** What it is, in a word: its kind for a capture, its tier for a kept thing. */
 const kindOf = (row: QueueRow): (typeof CAPTURE_TYPES)[number] | undefined => CAPTURE_TYPES.find((one) => one.id === row.kind)
 const saidOf = (row: QueueRow): string => (row.bare && row.url ? hostOf(row.url) : row.type === 'capture' ? kindOf(row)?.label ?? 'Note' : TIER[row.type] ?? 'Note')
@@ -282,7 +282,7 @@ export function QueueView(): React.JSX.Element {
       <div className="w-full px-5 pt-6 pb-16">
         {!loading && !queue.length && !read.length ? (
           <Empty title="Nothing queued yet">
-            Right-click any note, gem or article and choose “Queue”, then “Add to queue”, or “Read next” to read it first. Then read them one after the other.
+            Right-click any note, gem or page and choose “Queue”, then “Add to queue”, or “Read next” to read it first. Then read them one after the other.
           </Empty>
         ) : (
           <>

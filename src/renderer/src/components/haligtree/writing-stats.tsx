@@ -57,7 +57,7 @@ export function WritingSection({ example, onOpen }: { example: boolean; onOpen?:
       )}
       {/* The newest weeks always in view: in a narrow window it is the oldest that go past the edge. */}
       <div data-words-year className="flex justify-end overflow-hidden"><DaysHeatmap amount={amount} weeks={52} className="shrink-0" /></div>
-      <p className="text-control">Counted as you write: words you add to a note, a gem, an article or a day's page. Words taken out never count against you.</p>
+      <p className="text-control">Counted as you write: words you add to a note, a gem, a page or a day's page. Words taken out never count against you.</p>
     </Section>
   )
 }
