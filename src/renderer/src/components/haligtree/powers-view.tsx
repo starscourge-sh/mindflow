@@ -197,6 +197,7 @@ export async function showMe(power: Pick<Power, 'name' | 'keys' | 'show'>, onVie
 
 /** Each page, a line on what it is for. */
 const PAGE_LINES: Record<string, string> = {
+  home: 'What comes back to you, and shelves of what you kept.',
   day: 'The day\'s writing on top, its tasks under it.',
   articles: 'What you write, and the questions you hold open.',
   inbox: 'Everything you catch, waiting to be looked at; “Show sorted too” lists the rest.',

@@ -218,7 +218,13 @@ try {
   check('a new page shows in Pages, in view and marked open', fresh.drawn && fresh.inView && fresh.open, JSON.stringify(fresh))
   if (made) await v('bin:to', made).catch(() => {})
 
-  // 11. (A card on Home: Home and its cards are gone; the Day page lists no note cards.)
+  // 11. A card on Home, onto a note whose island is folded.
+  await go('inbox'); await wait(800)
+  await foldNotes()
+  await go('home'); await wait(1200)
+  const card = await h.evaluate((ids) => [...document.querySelectorAll('[data-page="home"] [data-drag-open^="capture:"]')].map((one) => one.getAttribute('data-drag-open').slice(8)).find((id) => ids.includes(id)), caps.map((one) => one.id))
+  if (card) await shows("a card on Home", 'inbox', card, () => h.locator(`[data-page="home"] [data-drag-open="capture:${card}"]`).first().click(), { keys: false })
+  else check('a note card on Home in this sandbox', false)
 
   // 12. Writing: a note inside a folded group of your own, sent here.
   const arts = (await v('items', 'article')).filter((one) => !one.archivedAt && !one.private).map((one) => one.id)

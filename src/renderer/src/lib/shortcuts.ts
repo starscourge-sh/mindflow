@@ -50,8 +50,9 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Getting around', keys: '⌃⇧F', does: 'Make the window bigger, or back to compact', where: 'Both windows' },
   { group: 'Getting around', keys: '⇧⌘F', does: 'Focus mode on or off', where: 'Both windows' },
   { group: 'Getting around', keys: '⌘Q', does: 'Quit', where: 'Both windows' },
-  // In the sidebar's order: Inbox, Today, Pages, Gems, Review, then Tasks and Calendar, then the rest.
+  // In the sidebar's order: Inbox, Home, Today, Pages, Gems, Review, then Tasks and Calendar, then the rest.
   { group: 'Getting around', keys: 'G I', does: 'Go to Inbox', where: 'Main window' },
+  { group: 'Getting around', keys: 'G Y', does: 'Go to Home: what comes back to you', where: 'Main window' },
   { group: 'Getting around', keys: 'G P', does: 'Go to Today: the day\'s writing, then its tasks', where: 'Main window' },
   { group: 'Getting around', keys: 'G A', does: 'Go to Pages: what you write from your gems', where: 'Main window' },
   { group: 'Getting around', keys: 'G N', does: 'Go to Gems: what you saved, in your own words', where: 'Main window' },
@@ -64,7 +65,6 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Getting around', keys: 'G Q', does: 'Go to Urgent and important: every task in four boxes', where: 'Main window' },
   { group: 'Getting around', keys: 'G W', does: 'Go to Tasks, Upcoming', where: 'Main window' },
   { group: 'Getting around', keys: 'G +', does: 'Go to Tasks, Upcoming: tomorrow is at the top', where: 'Main window' },
-  { group: 'Getting around', keys: 'G Y', does: 'Go to Today (once Home)', where: 'Main window' },
   { group: 'Getting around', keys: 'G H', does: 'Go to your questions: Pages, with “Questions” on', where: 'Main window' },
   { group: 'Getting around', keys: 'G L', does: 'Go to the Inbox with “Show sorted too” on: every note and task', where: 'Main window' },
   { group: 'Getting around', keys: 'G K', does: "Go to the week's page", where: 'Main window' },

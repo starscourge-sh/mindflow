@@ -234,8 +234,8 @@ try {
 
   // Every page of the main window, opened cold. `store`: a remembered choice set first (the calendar's scale).
   const ALL = [
-    // Home, Tomorrow and This week's tasks are the Day page and Upcoming now; Everything (all) is the Inbox with "Show sorted too" on.
-    'inbox', 'all', 'archived', 'lookups', 'articles', 'nuggets', 'questions', 'goals', 'today', 'upcoming', 'routines', 'later',
+    // Tomorrow and This week's tasks are the top of Upcoming now; Everything (all) is the Inbox with "Show sorted too" on.
+    'home', 'inbox', 'all', 'archived', 'lookups', 'articles', 'nuggets', 'questions', 'goals', 'today', 'upcoming', 'routines', 'later',
     'calendar@day', 'calendar@week', 'calendar@month', 'matrix', 'review', 'queue', 'tags', 'tag', 'sources', 'stats', 'map', 'settings', 'practices',
     'day', 'weekpage', 'monthpage', 'yearpage', 'discarded', 'group',
     // A note opened cold, beside its list: one in Pages, a gem, a question, a goal, a capture in the Inbox, a task.

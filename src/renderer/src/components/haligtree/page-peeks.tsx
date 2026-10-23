@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Archive, Bell, BookOpen, FileText, Flag, Gem, GripVertical, Hash, Lock, Sparkles, Trash2 } from 'lucide-react'
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
-import { exampleCard, exampleGoals, exampleInbox, exampleMonth, exampleTags, exampleTasks, exampleWriting } from '@/lib/examples'
+import { exampleCard, exampleGoals, exampleIdeas, exampleInbox, exampleMonth, exampleTags, exampleTasks, exampleWriting } from '@/lib/examples'
 import { MCard, MChip, MLabel, MLines, MRow, MTitle, Peek, tinted } from './peek'
 import { taskName } from '@/lib/tasks'
 import dayjs from 'dayjs'
@@ -31,6 +31,7 @@ const thisWeekSpan = (): string => {
 const days = (at: string | null): number => (at ? Math.round((new Date(`${at.slice(0, 10)}T12:00`).getTime() - Date.now()) / 86_400_000) : 0)
 
 const tasks = (): ReturnType<typeof exampleTasks> => exampleTasks()
+const ideas = (): ReturnType<typeof exampleIdeas> => exampleIdeas()
 
 /** Today's tasks, the way the Today page lists them. */
 function TaskRows({ ids, metas }: { ids: number[]; metas: string[] }): React.JSX.Element {
@@ -43,6 +44,18 @@ function TaskRows({ ids, metas }: { ids: number[]; metas: string[] }): React.JSX
 }
 
 const PEEKS: Record<string, PagePeek> = {
+  home: {
+    text: "**Home: what's coming back to you today.** Under it, shelves of what you kept.",
+    art: () => (<>
+      <MTitle>Good morning</MTitle>
+      <MCard className="mb-2"><div className="mb-0.5 text-[9px] text-muted-foreground">Coming back today</div><div className="truncate font-medium">{ideas()[2].title}</div></MCard>
+      <div className="grid grid-cols-3 gap-1.5">
+        {[['Gems', 'pink', '18'], ['Questions', 'gray', '4'], ['Pages', 'brown', '3']].map(([name, tint, count]) => (
+          <MCard key={name} className="px-1.5 py-1"><div className="text-[9.5px] font-medium" style={tinted(tint)}>{name}</div><div className="text-[13px] font-semibold tabular-nums">{count}</div></MCard>
+        ))}
+      </div>
+    </>)
+  },
   inbox: {
     text: '**Inbox: everything you catch lands here first.** Come back to each one when you have a minute: keep it, act on it, or move it to the Bin.',
     art: () => (<>

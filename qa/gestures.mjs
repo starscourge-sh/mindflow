@@ -117,15 +117,15 @@ try {
   const open = caps.filter((one) => one.status === 'open')
   if (open[0]) await h.evaluate((id) => window.api.captures.save(id, { status: 'resolved' }), open[0].id)
   for (const one of open.slice(-2)) await h.evaluate((id) => window.api.haligtree('notes:archive', 'captures', [id], true), one.id).catch(() => {})
-  // Everything is the Inbox with "Show sorted too" on, Home the Day page: their pages are named so.
-  const page = (id) => `[data-page="${({ all: 'inbox', home: 'day' })[id] ?? id}"]`
+  // Everything is the Inbox with "Show sorted too" on: its page is named so.
+  const page = (id) => `[data-page="${({ all: 'inbox' })[id] ?? id}"]`
   // The Inbox asked for from "Show sorted too" stays as it is (the page you are on); from elsewhere it opens plain.
   const main = async (id) => { if (id === 'inbox') await go('day'); await go(id); await h.waitForTimeout(400) }
   const MAIN = [
     ['Inbox, sorted too', 'all'], ['Inbox', 'inbox'], ['Archived', 'archived'], ['Gems', 'nuggets'], ['Pages', 'articles'],
-    ['Questions', 'questions'], ['Goals', 'goals'], ['Tasks', 'today'], ['Upcoming', 'upcoming'], ['Routines', 'routines'], ['Later', 'later'], ['Today page', 'day']
+    ['Questions', 'questions'], ['Goals', 'goals'], ['Tasks', 'today'], ['Upcoming', 'upcoming'], ['Routines', 'routines'], ['Later', 'later'], ['Today page', 'day'], ['Home', 'home']
   ]
-  for (const [name, id] of MAIN) await surface(name, h, page(id), () => main(id), { click: id !== 'day', emptied: id === 'inbox', kept: id === 'day' })
+  for (const [name, id] of MAIN) await surface(name, h, page(id), () => main(id), { click: id !== 'day' && id !== 'home', emptied: id === 'inbox', kept: id === 'day' })
 
   // Quick capture's lists: its Inbox, and Saved.
   await box.evaluate(() => window.api.showPrompt())

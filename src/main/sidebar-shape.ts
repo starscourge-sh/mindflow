@@ -1,9 +1,9 @@
 /**
  * Every book's sidebar, the same shape: what you write and keep first (Inbox,
- * Today, Pages, Gems, Review), then what you do (Tasks, Calendar), then Tags
+ * Home, Today, Pages, Gems, Review), then what you do (Tasks, Calendar), then Tags
  * and the Bin. Every other page is off to start, a G and its letter or ⌘K
  * away, and can be switched on in "Customize sidebar…". Read by main
  * (haligtree.ts, the default and the once-per-book reset) and the same list
  * as places.tsx's SHAPE.
  */
-export const SIDEBAR_SHAPE = ['inbox', 'day', 'articles', 'nuggets', 'review', 'today', 'calendar', 'tags', 'discarded']
+export const SIDEBAR_SHAPE = ['inbox', 'home', 'day', 'articles', 'nuggets', 'review', 'today', 'calendar', 'tags', 'discarded']

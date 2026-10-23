@@ -11,6 +11,7 @@ import { LayoutGroup } from 'motion/react'
 import { GripVertical } from 'lucide-react'
 import { inOrder, isUsual, moved, stepped } from '@/lib/place-order'
 import type { AnimatedIconHandle, AnimatedIconProps } from '@/components/ui/types'
+import HomeIcon from '@/components/ui/home-icon'
 import FileDescriptionIcon from '@/components/ui/file-description-icon'
 import HashtagIcon from '@/components/ui/hashtag-icon'
 import ChartBarIcon from '@/components/ui/chart-bar-icon'
@@ -19,7 +20,7 @@ import RefreshIcon from '@/components/ui/refresh-icon'
 import EyeIcon from '@/components/ui/eye-icon'
 import HistoryCircleIcon from '@/components/ui/history-circle-icon'
 import LinkIcon from '@/components/ui/link-icon'
-import { BarChart3, Brain, FileText, Gem, History, Inbox, Link as Links, ListTodo as ListChecks, Sun, Tag, Trash2 } from '@/components/ui/icons'
+import { BarChart3, Brain, FileText, Gem, History, House, Inbox, Link as Links, ListTodo as ListChecks, Sun, Tag, Trash2 } from '@/components/ui/icons'
 import { APP_NAME } from '../../../../main/name'
 import { SIDEBAR_SHAPE } from '../../../../main/sidebar-shape'
 import { num } from '../../../../main/dates'
@@ -35,7 +36,7 @@ export type Place = {
 
 /**
  * The main window's sections, each with the key that jumps to it after G, in
- * the order the sidebar lists them: writing first (Inbox, Today, Pages, Gems,
+ * the order the sidebar lists them: writing first (Inbox, Home, Today, Pages, Gems,
  * Review), then a gap, then doing (Tasks, Calendar), then the rest. Each has
  * its own colour from the theme. Which ones show is a setting
  * (`sidebarShown`), the same for every book to start: one switched off is
@@ -46,6 +47,8 @@ export type Place = {
 export const SECTIONS: (Place & { key: string })[] = [
   // Where everything you catch lands first: on top.
   { id: 'inbox', label: 'Inbox', icon: Inbox, key: 'i', tint: 'blue', group: 'Write' },
+  // Where things come back to you: shelves of what you opened and kept, and the card for the moment.
+  { id: 'home', label: 'Home', icon: House, alive: HomeIcon, key: 'y', tint: 'orange', group: 'Write' },
   // The Day page: the day's writing on top, today's tasks under it. The window opens here.
   { id: 'day', label: 'Today', icon: Sun, key: 'p', tint: 'orange', group: 'Write' },
   { id: 'articles', label: 'Pages', icon: FileText, alive: FileDescriptionIcon, key: 'a', tint: 'brown', group: 'Write' },
@@ -81,17 +84,17 @@ export const SECTIONS: (Place & { key: string })[] = [
 export const SHAPE = SIDEBAR_SHAPE
 
 /**
- * G and a letter for pages that are not rows of their own any more: Home and
- * the task lists are parts or tabs of a row now, and still a G away.
+ * G and a letter for pages that are not rows of their own any more: the task
+ * lists are tabs of one row now, and still a G away.
  */
-export const G_ALIASES: Record<string, string> = { y: 'day', u: 'upcoming', w: 'upcoming', '+': 'upcoming', z: 'later', o: 'routines', q: 'matrix', l: 'all', h: 'questions' }
+export const G_ALIASES: Record<string, string> = { u: 'upcoming', w: 'upcoming', '+': 'upcoming', z: 'later', o: 'routines', q: 'matrix', l: 'all', h: 'questions' }
 
 /** The task lists that are tabs of the one Tasks row: on any of them, its row is lit. */
 export const TASK_PAGES = ['today', 'tomorrow', 'week', 'upcoming', 'later', 'routines', 'matrix']
 
 /** The row a page lights: a task list lights Tasks, a question Pages, every capture list the Inbox. */
 export const litRow = (id: string): string =>
-  TASK_PAGES.includes(id) ? 'today' : id === 'questions' ? 'articles' : id === 'all' || id.startsWith('kind:') ? 'inbox' : id === 'home' ? 'day' : id
+  TASK_PAGES.includes(id) ? 'today' : id === 'questions' ? 'articles' : id === 'all' || id.startsWith('kind:') ? 'inbox' : id
 
 /** The sidebar's places, in their usual order: the same in every book. */
 export function useSections(): typeof SECTIONS {

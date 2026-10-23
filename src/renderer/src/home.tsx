@@ -24,6 +24,7 @@ import { Search, type Action } from './components/search'
 import { keepTyped } from './lib/keep-typed'
 import { landPromoted } from './lib/promote'
 import { CapturesView, keepInbox } from './components/haligtree/captures-view'
+import { HomeView } from './components/haligtree/home-view'
 import { ItemsView } from './components/haligtree/items-view'
 import { startQuestion } from './components/haligtree/questions-view'
 import { GoalsView, startGoal } from './components/haligtree/goals-view'
@@ -193,17 +194,16 @@ const fresh = (views: View[] = [{ id: 'day' }]): PaneState => ({ key: `p${Date.n
 let unsorted: (id: string) => boolean = () => false
 /**
  * Pages that are not places of their own any more, sent where they live now:
- * Home is the Day page, Everything the Inbox with "Show sorted too" on (only
+ * Everything is the Inbox with "Show sorted too" on (only
  * when what it opens needs it), Tomorrow and This week the top of Upcoming.
  */
 function landing(view: View): View {
-  if (view.id === 'home') return { ...view, id: 'day', focus: undefined }
   if (view.id === 'all') return { ...view, id: 'inbox', tab: view.focus && unsorted(view.focus) ? undefined : 'sorted' }
   if (view.id === 'tomorrow' || view.id === 'week') return { ...view, id: 'upcoming' }
   return view
 }
 /** Pages that hold one note open beside their list, its id as the step's focus. */
-const holdsNotes = (id: string): boolean => !['day', 'weekpage', 'monthpage', 'yearpage', 'tags', 'sources', 'source', 'stats', 'map', 'powers', 'whatsnew', 'settings', 'review', 'queue', 'calendar', 'practices', 'kind:practice'].includes(id)
+const holdsNotes = (id: string): boolean => !['home', 'day', 'weekpage', 'monthpage', 'yearpage', 'tags', 'sources', 'source', 'stats', 'map', 'powers', 'whatsnew', 'settings', 'review', 'queue', 'calendar', 'practices', 'kind:practice'].includes(id)
 /** A step onto a note (not a task, a day or an event): the page that shows it turns, as a book's does. */
 const turnsPage = (view: View): boolean => !!view.focus && holdsNotes(view.id) && !['today', 'tomorrow', 'upcoming', 'routines', 'later', 'goals', 'week', 'matrix', 'discarded'].includes(view.id)
 /** Where one thing opens: a view by name, a day's page, or a note or task in its section. */
@@ -703,7 +703,7 @@ export function Home(): React.JSX.Element {
     if (!settings || started.current || quiet) return
     started.current = true
     const to = settings.startPage
-    if (!to || to === 'home' || to === 'day' || !SECTIONS.some((one) => one.id === to)) return
+    if (!to || to === 'day' || !SECTIONS.some((one) => one.id === to)) return
     setSplit((now) => now.panes.length === 1 && now.panes[0].trail.views.length === 1 && now.panes[0].trail.views[0].id === 'day'
       ? { ...now, panes: [{ ...now.panes[0], trail: { views: [{ id: to }], at: 0 } }] }
       : now)
@@ -1096,11 +1096,13 @@ export function Home(): React.JSX.Element {
         transition={{ duration: 0.16, ease: EASE }}
         className="flex min-w-0 flex-1"
       >
-        {view.id === 'discarded' ? (
+        {view.id === 'home' ? (
+          <HomeView onOpen={(type, id) => (via('home'), go(type, id))} onView={(id, focus) => (via('home'), setView({ id, focus }, key))} />
+        ) : view.id === 'discarded' ? (
           <BinView onOpen={go} />
         ) : view.id === 'inbox' || view.id === 'archived' || view.id === 'lookups' ? (
           <CapturesView title={SECTIONS.find((section) => section.id === view.id)!.label} keep={keep[view.id]} focus={view.focus} onOpen={go} archived={view.id === 'archived'} inbox={view.id === 'inbox'} />
-        ) : view.id === 'day' || view.id === 'home' ? (
+        ) : view.id === 'day' ? (
           <DayView start={view.focus} onOpen={go} onScale={scale} onView={(id, focus) => setView({ id, focus }, key)} />
         ) : view.id === 'weekpage' ? (
           <WeekPage start={view.focus} onOpen={go} onScale={scale} onRecent={setRecent} recentOpen={!!recent} onDay={(day) => go('day', day)} />
