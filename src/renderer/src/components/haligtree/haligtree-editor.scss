@@ -429,6 +429,10 @@
   // `onTokenClick`, and the text cursor a contenteditable hands you says the
   // opposite.
   cursor: pointer;
+  // An editor with nowhere for a tag to lead (a past version, a card) gives
+  // no pointer: a hand that does nothing on a click is a broken promise.
+  .tags-inert & { cursor: inherit; }
+  .tags-inert &[data-token="tag"]:active { filter: none; }
 
   // A colour per token, from the nine each theme already tunes for contrast
   // against its own page - so a tag stays readable when the palette changes

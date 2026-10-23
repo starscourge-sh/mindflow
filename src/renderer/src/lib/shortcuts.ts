@@ -251,6 +251,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Reading', keys: 'J', does: 'Next', where: 'Reading' },
   { group: 'Reading', keys: 'K', does: 'Back', where: 'Reading' },
   { group: 'Reading', keys: 'E', does: 'Write in it', where: 'Reading' },
+  { group: 'Reading', keys: '⌘L', does: 'Unlock to edit in place, or lock it back to reading (the lock at the top right)', where: 'Reading' },
   { group: 'Reading', keys: 'T', does: 'On a capture: make it a task', where: 'Reading' },
   { group: 'Reading', keys: 'P', does: 'On a capture: save it as a gem', where: 'Reading' },
   { group: 'Reading', keys: 'R', does: 'On a capture: resolve, done with it', where: 'Reading' },

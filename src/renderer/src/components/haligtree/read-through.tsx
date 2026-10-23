@@ -6,7 +6,7 @@ import { toMarkdown } from '@/lib/export'
 import { AnimatePresence, motion } from 'motion/react'
 import { byKeys, EASE, shift, still, TURN } from '@/lib/motion'
 
-import { HaligtreeEditor } from '../haligtree'
+import { HaligtreeEditor, TAGS } from '../haligtree'
 import { useLive, haligtree, when } from '@/lib/haligtree'
 import { cn } from '@/lib/cn'
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
@@ -17,9 +17,9 @@ import { GlossComposer, openGloss } from './gloss-line'
 import { ThoughtBar } from './thought-bar'
 import { Signed } from './signature'
 import { finish, openLink, readingQueue, type QueueRow } from '@/lib/reading-queue'
-import { tagsIn } from '../../../../main/tag-words'
+import { TAG, tagsIn } from '../../../../main/tag-words'
 import { ArrowDown, ArrowUp, X as ReadDone } from '@/components/ui/icons'
-import { ChevronDown, Plus } from 'lucide-react'
+import { ChevronDown, Lock, LockOpen, Plus } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useGroups, type NoteGroup as Group } from '@/lib/groups'
 import { moveToBin } from '@/lib/to-bin'
@@ -85,11 +85,51 @@ const leads = (page: Page): boolean => {
 }
 
 
+/** Words with their #tags as buttons that open the tag's page, the way a tag in the body does. */
+function Tagged({ text, onTag }: { text: string; onTag: (tag: string) => void }): React.JSX.Element {
+  const parts = text.split(new RegExp(`((?:^|(?<=\\s))#${TAG})`, 'u'))
+  return (
+    <>
+      {parts.map((part, n) => (n % 2 === 1
+        ? <button key={n} type="button" data-read-tag={part.slice(1).toLowerCase()} onClick={(event) => (event.stopPropagation(), onTag(part.slice(1).toLowerCase()))}
+            className="cursor-pointer rounded-[0.25rem] decoration-current/40 underline-offset-2 hover:underline">{part}</button>
+        : part))}
+    </>
+  )
+}
+
+/**
+ * With no title, the short first line stands as one and the meta line sits
+ * under it, inside the words' first block (as its ::after, which keeps its
+ * room). Laid over that room here, as real words, so its tags can be clicked.
+ */
+function MetaUnderLead({ host, meta, onTag }: { host: HTMLElement | null; meta: string; onTag: (tag: string) => void }): React.JSX.Element | null {
+  const [top, setTop] = useState<number | null>(null)
+  useEffect(() => {
+    if (!host) return
+    const place = (): void => {
+      const first = host.querySelector('.tiptap.ProseMirror > :first-child')
+      if (!first) return setTop(null)
+      const words = document.createRange()
+      words.selectNodeContents(first)
+      const bottom = words.getBoundingClientRect().bottom
+      setTop(bottom - host.getBoundingClientRect().top + parseFloat(getComputedStyle(first, '::after').marginTop || '0'))
+    }
+    place()
+    const watch = new ResizeObserver(place)
+    watch.observe(host)
+    return () => watch.disconnect()
+  }, [host, meta])
+  if (top === null) return null
+  return <p data-read-meta="" className="absolute inset-x-0 z-[1] truncate text-meta text-muted-foreground" style={{ top }}><Tagged text={meta} onTag={onTag} /></p>
+}
+
 /**
  * Reading, and nothing else: the notes of the list you were on, one at a
  * time, in a quiet column over the whole window. No lists, no panels, no
- * buttons. j and k (or the arrows) turn the page, e opens the one in front of
- * you to change it, Escape goes back to where you were.
+ * buttons. j and k (or the arrows) turn the page, e or the lock at the top
+ * right (⌘L) opens the one in front of you to change it, Escape goes back to
+ * where you were.
  */
 export function ReadThrough({ items, start = 0, onClose, queue, clueTo, sorting }: {
   items: Readable[]
@@ -312,6 +352,34 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo, sorting 
     return () => void (current = false)
   }, [item?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  /**
+   * Locked, the page is only read; unlocked, the same page takes the keys,
+   * at the spot last clicked or at the end, the scroll where it was. Saved as
+   * you go either way; locking again only puts the keys back to reading.
+   */
+  const keptScroll = useRef<number | null>(null)
+  const toggleLock = (): void => {
+    if (!item || item.body !== undefined) return void chime('nope')
+    keptScroll.current = scroller.current?.scrollTop ?? null
+    if (writing) {
+      flush()
+      ;(document.activeElement as HTMLElement | null)?.blur()
+      chime('off')
+      if (sorting) return onClose()
+      return setWriting(false)
+    }
+    chime('on')
+    setWriting(true)
+  }
+  /** A tag in the title, the meta line or the words: reading ends and the tag's page opens. */
+  const openTag = (tag: string): void => {
+    flush()
+    chime('open')
+    onClose()
+    window.api.openInHome('tag', tag)
+  }
+  const [wordsBox, setWordsBox] = useState<HTMLDivElement | null>(null)
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       // The closing page: Enter, Space or Escape go back to the Queue; nothing else reaches underneath.
@@ -321,6 +389,12 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo, sorting 
         event.stopPropagation()
         if (event.key === 'Enter' || event.key === ' ' || event.key === 'Escape') leave()
         return
+      }
+      // ⌘L: the lock at the top right, either way.
+      if (event.metaKey && !event.altKey && !event.ctrlKey && !event.shiftKey && event.code === 'KeyL' && item && item.body === undefined && !document.querySelector('.tiptap-suggestion-popup, [role="menu"]')) {
+        event.preventDefault()
+        event.stopPropagation()
+        return toggleLock()
       }
       // Writing: every key is the note's, but Escape, which stops writing, and ⌥⌘↓ or ⌥⌘↑, which turn the page (sorting writes as it reads).
       if (writing && event.altKey && event.metaKey && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
@@ -385,8 +459,7 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo, sorting 
       else if (event.key === ';' && composerFor) openGloss(composerFor)
       else if ((event.key === 'e' || event.key === 'Enter') && item && item.body === undefined) {
         event.preventDefault()
-        chime('on')
-        setWriting(true)
+        toggleLock()
       }
       // Deal with it while it is in front of you: an exit or a task, then the
       // next page. ⌘Z still takes it back.
@@ -439,13 +512,12 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo, sorting 
   const lead = !!shown && leads(shown)
   // No words of its own yet (a question only asked): the thoughts follow the title closely, with no empty page between.
   const blank = !!shown && (typeof shown.body === 'string' ? !shown.body.trim() : !JSON.stringify(shown.body ?? null).includes('"text":"'))
-  const write = (event?: React.MouseEvent): void => {
+  // A click while locked only marks the spot: unlocking puts the caret there.
+  const mark = (event: React.MouseEvent): void => {
     if (writing || !own) return
-    // Words being selected to copy are being read, not written.
-    if (event && !window.getSelection()?.isCollapsed) return
-    caret.current = event ? (reader.current?.view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos ?? null) : null
-    chime('on')
-    setWriting(true)
+    // Words being selected to copy are being read, not marked.
+    if (!window.getSelection()?.isCollapsed) return
+    caret.current = reader.current?.view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos ?? null
   }
   const meta = shown?.meta?.length ? shown.meta.join(' · ') : ''
   // Over the whole window, not inside the pane it was opened from: no
@@ -475,19 +547,33 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo, sorting 
       )}
       {/* The way out: unseen while you read, there as soon as the pointer
           comes near the top (or the keys reach it). Esc does the same. */}
-      <Tip label="Stop reading">
-        <button
-          type="button"
-          onClick={() => onClose()}
-          className={cn(
-            'absolute top-3 right-3 z-10 flex h-7 items-center gap-1.5 rounded-full border bg-background px-3 text-control text-muted-foreground transition-[opacity,background-color,color] duration-300 ease-out [-webkit-app-region:no-drag] hover:bg-accent hover:text-foreground focus-visible:opacity-100',
-            near || writing || !told ? 'opacity-100' : 'opacity-0'
-          )}
-        >
-          <ReadDone className="size-3.5" />
-          {sorting ? 'Done sorting' : 'Done reading'}
-        </button>
-      </Tip>
+      <div className={cn('absolute top-3 right-3 z-10 flex items-center gap-2 transition-opacity duration-300 ease-out [-webkit-app-region:no-drag] has-focus-visible:opacity-100', near || writing || !told ? 'opacity-100' : 'opacity-0')}>
+        {/* Reading or writing, like Obsidian's: one button, the same spot either way, its icon swapped in place. */}
+        {own && !ended && (
+          <Tip label={writing ? 'Lock: back to reading  ⌘L' : 'Unlock to edit  ⌘L'}>
+            <button
+              type="button"
+              data-read-lock={writing ? 'open' : 'locked'}
+              aria-label={writing ? 'Lock: back to reading' : 'Unlock to edit'}
+              aria-pressed={writing}
+              onClick={toggleLock}
+              className={cn('flex size-7 items-center justify-center rounded-full border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground', writing && 'text-foreground')}
+            >
+              {writing ? <LockOpen className="size-3.5" /> : <Lock className="size-3.5" />}
+            </button>
+          </Tip>
+        )}
+        <Tip label="Stop reading">
+          <button
+            type="button"
+            onClick={() => onClose()}
+            className="flex h-7 items-center gap-1.5 rounded-full border bg-background px-3 text-control text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            <ReadDone className="size-3.5" />
+            {sorting ? 'Done sorting' : 'Done reading'}
+          </button>
+        </Tip>
+      </div>
       {ended ? <QueueDone ended={ended} onBack={leave} onPutBack={putBack} /> : <>
       <div ref={scroller} onScroll={measure} className="min-h-0 flex-1 overflow-y-auto">
         {/* j and k turn the page hundreds of times: by key the next one is
@@ -509,26 +595,28 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo, sorting 
           >
             {/* Sorting: the group it came in with, quietly over the page. */}
             {sorting && group && <p data-sort-group="" className="mb-3 truncate text-meta text-muted-foreground">{group.name}</p>}
-            {shown?.title && <h1 data-private={hidden} className="private-text font-heading text-[2.25rem] leading-[1.15] font-semibold tracking-[-0.022em] text-balance">{shown.title}</h1>}
+            {shown?.title && <h1 data-private={hidden} className="private-text font-heading text-[2.25rem] leading-[1.15] font-semibold tracking-[-0.022em] text-balance"><Tagged text={shown.title} onTag={openTag} /></h1>}
             {/* What it is, when, from where, its tags: under the title. With no
                 title and no short first line to stand as one, above the words. */}
-            {meta && (shown?.title || !lead) && <p className={cn('truncate text-meta text-muted-foreground', shown?.title ? 'mt-3 mb-9' : 'mb-6')}>{meta}</p>}
+            {meta && (shown?.title || !lead) && <p data-read-meta="" className={cn('truncate text-meta text-muted-foreground', shown?.title ? 'mt-3 mb-9' : 'mb-6')}><Tagged text={meta} onTag={openTag} /></p>}
             {shown && (
               <div data-private={hidden}>
                 <div
-                  onClick={write}
+                  ref={setWordsBox}
+                  onClick={mark}
                   // With no title, the short first line is the title: the meta line goes right under it.
                   style={lead && !writing && meta ? ({ '--meta': JSON.stringify(meta) } as React.CSSProperties) : undefined}
                   className={cn(
-                    'private-text',
-                    lead && !writing && !!meta && '[&_.tiptap.ProseMirror>:first-child]:after:mt-3 [&_.tiptap.ProseMirror>:first-child]:after:mb-9 [&_.tiptap.ProseMirror>:first-child]:after:block [&_.tiptap.ProseMirror>:first-child]:after:font-sans [&_.tiptap.ProseMirror>:first-child]:after:text-meta [&_.tiptap.ProseMirror>:first-child]:after:font-normal [&_.tiptap.ProseMirror>:first-child]:after:tracking-normal [&_.tiptap.ProseMirror>:first-child]:after:text-muted-foreground [&_.tiptap.ProseMirror>:first-child]:after:content-[var(--meta)]',
+                    'private-text relative',
+                    // The ::after keeps the meta line's room; MetaUnderLead draws its words over it.
+                    lead && !writing && !!meta && '[&_.tiptap.ProseMirror>:first-child]:after:text-transparent [&_.tiptap.ProseMirror>:first-child]:after:select-none [&_.tiptap.ProseMirror>:first-child]:after:mt-3 [&_.tiptap.ProseMirror>:first-child]:after:mb-9 [&_.tiptap.ProseMirror>:first-child]:after:block [&_.tiptap.ProseMirror>:first-child]:after:font-sans [&_.tiptap.ProseMirror>:first-child]:after:text-meta [&_.tiptap.ProseMirror>:first-child]:after:font-normal [&_.tiptap.ProseMirror>:first-child]:after:tracking-normal [&_.tiptap.ProseMirror>:first-child]:after:content-[var(--meta)]',
                     // The column sets the margins, not the editor's own gutter.
                     '[--mf-padding:0] [&_.haligtree-editor-content]:p-0 [&_.ProseMirror>p:last-child:has(>br:only-child)]:hidden [&_.tiptap.ProseMirror>:first-child]:mt-0!',
                     // The short first line, set as the title is.
                     lead && '[&_.tiptap.ProseMirror>:first-child]:font-heading [&_.tiptap.ProseMirror>:first-child]:text-[2.25rem]! [&_.tiptap.ProseMirror>:first-child]:leading-[1.15]! [&_.tiptap.ProseMirror>:first-child]:font-semibold! [&_.tiptap.ProseMirror>:first-child]:tracking-[-0.022em] [&_.tiptap.ProseMirror>:first-child]:border-0! [&_.tiptap.ProseMirror>:first-child]:p-0! [&_.tiptap.ProseMirror>:first-child]:text-balance',
-                    own && !writing && 'cursor-text'
                   )}
                 >
+                  {lead && !writing && !!meta && <MetaUnderLead host={wordsBox} meta={meta} onTag={openTag} />}
                   <HaligtreeEditor
                     key={`${item.id}-${writing}`}
                     // The note's own files, so its pictures load.
@@ -538,12 +626,18 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo, sorting 
                     typewriter
                     // Where the click was, or the end when E asked.
                     autofocus={writing && caret.current === null ? 'end' : false}
+                    tokens={TAGS}
+                    onTokenClick={(token) => token.name === 'tag' && openTag(token.value)}
                     onReady={(editor) => {
                       reader.current = editor
+                      // Locked or unlocked, the page stays where it was scrolled to.
+                      const kept = keptScroll.current
+                      keptScroll.current = null
+                      if (kept !== null) requestAnimationFrame(() => scroller.current && (scroller.current.scrollTop = kept))
                       if (!writing || caret.current === null) return
                       const at = Math.min(caret.current, editor.state.doc.content.size)
                       caret.current = null
-                      editor.commands.focus(at)
+                      editor.commands.focus(at, { scrollIntoView: false })
                     }}
                     defaultContent={shown.body ?? ''}
                     onChange={(doc, editor) => {

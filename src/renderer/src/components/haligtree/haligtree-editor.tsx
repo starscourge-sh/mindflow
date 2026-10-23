@@ -1809,7 +1809,7 @@ function Surface({
           role="presentation"
           className={`haligtree-editor-content relative p-3 overflow-auto${
             smoothScroll ? " is-smooth" : ""
-          }${typing ? " is-typewriter" : ""}`}
+          }${typing ? " is-typewriter" : ""}${onTokenClick ? "" : " tags-inert"}`}
           ref={contentRef}
         />
         {/* After the words, inside the same scroll: added beside ProseMirror's
