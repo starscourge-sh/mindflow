@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import { cn } from '@/lib/tiptap-utils'
 import { justEmptied } from '@/lib/to-bin'
 import { InboxBinned } from './inbox-zero'
+import { Rest } from './scenery'
 
 /**
  * A page with nothing of yours in it yet, shown filled with a few made-up rows
@@ -40,6 +41,21 @@ export function Example({ on = true, tryIt, children, className, compact = false
     return () => void (--shown || document.documentElement.removeAttribute('data-example-on'))
   }, [on])
   if (!on) return <>{children}</>
+  // Behind every page's example the scenery picture, as behind every other empty page, when Scenery is on.
+  // Not in a column with its own words above (`flush`): there it would sit in the middle of the page.
+  if (!flush) return <Rest seed={typeof tryIt === 'string' ? tryIt : 'example'} compact={compact} className={className}><Framed tryIt={tryIt} compact={compact} className={className} frame={frame} emptied={emptied}>{children}</Framed></Rest>
+  return <Framed tryIt={tryIt} compact={compact} flush className={className} frame={frame} emptied={emptied}>{children}</Framed>
+}
+
+function Framed({ tryIt, children, className, compact = false, flush = false, frame, emptied }: {
+  tryIt: ReactNode
+  children: ReactNode
+  className?: string
+  compact?: boolean
+  flush?: boolean
+  frame: React.RefObject<HTMLDivElement | null>
+  emptied: string[] | null
+}): React.JSX.Element {
   if (emptied) return <div ref={frame} data-emptied className={cn('flex min-w-0 flex-col', className)}><InboxBinned compact={compact} left={emptied} /></div>
   return (
     <div ref={frame} data-example-frame className={cn('flex min-w-0 flex-col', className)}>

@@ -252,9 +252,11 @@ function useFirst(wanted: boolean, ahead: boolean): boolean {
  * down into the page, the sentence over the quiet end of it. With Scenery
  * off, or no pictures yet, just the empty state.
  */
-export function Rest({ seed, children, compact = false, strip = false, off = false }: {
+export function Rest({ seed, children, compact = false, strip = false, off = false, className }: {
   seed: string
   children: ReactNode
+  /** Laid out as a column with these classes (an example that fills its page), the scene over its top. */
+  className?: string
   /** In the prompt's narrow panel. */
   compact?: boolean
   /** A one-line rest, like "Nothing rotting": a low band rather than a scene. */
@@ -269,11 +271,13 @@ export function Rest({ seed, children, compact = false, strip = false, off = fal
   if (off || !first || !settings?.scenery || !settings.sceneryRest || (!scenes.length && !loading && !scanning)) return <>{children}</>
   const [height, room] = strip ? ['h-24', 'pt-14'] : compact ? ['h-60', 'pt-20'] : ['h-[min(34rem,72vh)]', 'pt-[min(9rem,16vh)]']
   // The pictures still on their way: their room kept, so the words never jump down when the scene fades in.
-  if (!scenes.length) return <div className={`relative isolate ${compact || strip ? 'mx-1 mt-1' : 'mx-4 mt-3'}`}><div className={`relative ${room}`}>{children}</div></div>
+  const outer = `relative isolate ${compact || strip ? 'mx-1 mt-1' : 'mx-4 mt-3'}${className ? ` flex min-w-0 flex-col ${className}` : ''}`
+  const inner = `relative ${room}${className ? ' flex min-h-0 min-w-0 flex-1 flex-col' : ''}`
+  if (!scenes.length) return <div className={outer}><div className={inner}>{children}</div></div>
   return (
-    <div className={`relative isolate ${compact || strip ? 'mx-1 mt-1' : 'mx-4 mt-3'}`}>
+    <div className={outer}>
       <Scenery place="rest" seed={`rest:${seed}:${dayOf()}`} text="below" fade rounded="rounded-xl" className={`absolute inset-x-0 top-0 ${height}`} />
-      <div className={`relative ${room}`}>{children}</div>
+      <div className={inner}>{children}</div>
     </div>
   )
 }

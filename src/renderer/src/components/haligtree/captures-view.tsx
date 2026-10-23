@@ -66,7 +66,7 @@ import { Rest } from './scenery'
 import { InboxBinned, InboxZero, useJustCleared } from './inbox-zero'
 import { PutAwayLine } from './put-away'
 import { Example } from './example'
-import { exampleArchived, exampleDiscarded, exampleInbox } from '@/lib/examples'
+import { exampleArchived, exampleDiscarded, exampleInbox, exampleLookups } from '@/lib/examples'
 import { flat as flatMenu, type MenuItem, type RowItem } from './row-menu'
 import { PinnedQuestions, clueInto } from './pinned-questions'
 import { Board, useBoard } from './board-view'
@@ -124,7 +124,9 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
   const [madeShown, setMadeShown] = useMadeShown()
   const kept: Row[] = [...all.filter(keep).filter((one) => (todoShows(one) || (madeShown && sources.became.has(one.id))) && !binnedWith(one)), ...(everything ? tasks.filter(showsTask(taskState)).map(taskRow) : [])]
   // Nothing of yours here yet: the page as it will look, with a few made-up notes.
-  const examples = unloaded(all) || kept.length || (all.length && !archived) || (everything && (unloaded(tasks) || tasks.length)) ? [] : archived ? exampleArchived() : [...exampleInbox(), ...exampleDiscarded()].filter(keep)
+  // Lookups: until a word is first asked, whatever else is kept (the Inbox's own notes say nothing about words).
+  const lookups = title === 'Lookups'
+  const examples = unloaded(all) || kept.length || (all.length && !archived && !(lookups && !all.some((one) => one.lookup))) || (everything && (unloaded(tasks) || tasks.length)) ? [] : archived ? exampleArchived() : lookups ? exampleLookups() : [...exampleInbox(), ...exampleDiscarded()].filter(keep)
   // Its own Display is kept under the name it had as All captures, so how you set it stays.
   const { groups: every, display, chips, density, view, setView, move, moveBy, island } = useCaptureDisplay(everything ? 'captures:All captures' : `captures:${title}`, kept, undefined, archived,
     // Open, Done or Both, on the Task chip itself: a choice about tasks, worn by them.
@@ -562,7 +564,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
             ] : [...usual, 'separator', { label: chosen.includes(capture.id) ? 'Unselect' : 'Select', keys: 'X', run: () => picking.toggle(capture.id) }, !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll }]}
             onMove={(id, target, after) => move(kept.map((one) => one.id), id, target, after)} after={glossAfter} className={spread ? 'list-edge my-3' : 'list-edge my-2'} />
         ) : unloaded(all) ? null : examples.length ? (
-          <Example tryIt={archived ? 'right-click any note and choose “Archive”. It is kept here, out of sight, never in the Bin.' : 'press ⌘. in any app, write a thought, and send it with ⌘↵. It waits here until you come back to it.'}>
+          <Example tryIt={archived ? 'right-click any note and choose “Archive”. It is kept here, out of sight, never in the Bin.' : lookups ? 'press ⌘. and pick Word, or look a word up as you type it. It waits here, asked, until you write what it means.' : 'press ⌘. in any app, write a thought, and send it with ⌘↵. It waits here until you come back to it.'}>
             <CaptureList groups={[['', examples]]} density={density} cursor={-1} onPick={() => undefined} className="list-edge my-2" />
           </Example>
         ) : everything && (unloaded(tasks) || !shown.length) && !(spread && query.trim()) ? (unloaded(tasks) ? null : (() => {

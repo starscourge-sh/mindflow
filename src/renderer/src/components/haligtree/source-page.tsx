@@ -8,6 +8,7 @@ import { unloaded, useLive, haligtree } from '@/lib/haligtree'
 import { VOICE_SAID, VOICE_TINT, openSource, pageRef, readFocus, sources, type SourceField, type SourceItem, type SourceSummary, type Voice } from '@/lib/sources'
 import { Avatar } from './avatar'
 import { NoteList, type Entry } from './note-list'
+import { Example } from './example'
 import { Count, Empty, Page, Tip, ask, toast, typing } from './ui'
 import { useSelectAll } from '@/lib/select-all'
 import { usePicking } from '@/lib/pick-range'
@@ -135,6 +136,14 @@ export function SourcePageView({ focus, onOpen }: { focus?: string; onOpen: (typ
   )
 }
 
+/** Made-up people and sources for the empty page's example: a name, how many notes, how many quotes. */
+const EXAMPLE_PEOPLE: [string, number, number][] = [['Jane Austen', 4, 3], ['Marcus Aurelius', 2, 2]]
+const EXAMPLE_PLACES: [string, number, number][] = [['Frankenstein', 3, 1], ['The Matrix (1999)', 2, 0]]
+const exampleEntry = (field: SourceField, name: string, count: number, quotes: number): Entry => ({
+  id: `example:${field}:${name}`, type: 'source', title: name, tags: [], icon: FIELD_SAID[field].icon,
+  sub: `${count} notes${quotes ? ` · ${quotes} ${quotes === 1 ? 'quote' : 'quotes'}` : ''}`
+})
+
 /** Every person and source, each a page: the place to find them, and to make one before anything is from it. */
 export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => void }): React.JSX.Element {
   const list = useLive(sources.list, [] as SourceSummary[])
@@ -218,7 +227,13 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
           </section>
         )}
         {!list.length ? (
-          <Empty title="No sources yet">Give a note a who or a where (the person who said it, the book or show) and it gets a page here. Or make one now with “New person”.</Empty>
+          unloaded(list) ? null : (
+            // Nothing from anyone yet: the page as it will look, with a few made-up people and sources.
+            <Example tryIt="give a note a who or a where (the person who said it, the book or show). It gets a page here, with everything from them.">
+              <NoteList groups={[['People', EXAMPLE_PEOPLE.map((one) => exampleEntry('attribution', ...one))], ['Sources', EXAMPLE_PLACES.map((one) => exampleEntry('medium', ...one))]]}
+                density="list" table="nuggets" cursor={-1} onPick={() => undefined} className="mx-3 my-2" />
+            </Example>
+          )
         ) : (
           <NoteList groups={[...(people.length ? [['People', people] as [string, Entry[]]] : []), ...(places.length ? [['Sources', places] as [string, Entry[]]] : [])]}
             density="list" table="nuggets" cursor={-1} chosen={live} picking={picking} onPick={(id) => { const at = id.indexOf(':'); chime('page'); openSource(id.slice(0, at) as SourceField, id.slice(at + 1)) }} className="mx-3 my-2" />
