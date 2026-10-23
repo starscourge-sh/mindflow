@@ -254,6 +254,36 @@ try {
   await scene()
   await drop('to the very bottom of the list', row('Accounts'), row('Loose two'), 0.9, { key: K('Accounts'), label: 'Remove from Group 2', into: null, order: ['Loose two', 'Accounts'] })
 
+  // The report (shots/drag-mid-broken.png): a group held near the middle of another group's block. Small moves there keep
+  // the room on one side; it only changes once the pointer is well past the middle. Here either
+  // side is a real move: Other carried to the middle of Group 3's block (Group 2 beside Group 3 would show no line on the
+  // side where it already is).
+  await scene()
+  {
+    const a = await head('ot').boundingBox()
+    const x = a.x + 80
+    await h.mouse.move(x, a.y + a.height / 2)
+    await h.mouse.down()
+    await h.mouse.move(x, a.y + a.height / 2 + 8, { steps: 4 })
+    await wait(200)
+    const b = await blockBox('g3')
+    const mid = (b.top + b.bottom) / 2
+    await h.mouse.move(x, mid, { steps: 20 })
+    await wait(500)
+    const tops = []
+    for (let i = 0; i < 9; i++) {
+      await h.mouse.move(x, mid + (i % 2 ? -1 : 1) * (4 + ((i * 3) % 7)), { steps: 2 })
+      await wait(350)
+      tops.push(await h.evaluate(() => { const r = document.querySelector('[data-drop-line]')?.getBoundingClientRect(); return r ? Math.round(r.top) : null }))
+    }
+    if (dir) await h.screenshot({ path: `${dir}/wiggle.png` })
+    check('Other wiggled by the middle of Group 3: the drop line stays put', tops.every((t) => t !== null) && Math.max(...tops) - Math.min(...tops) <= 20, tops.join(','))
+    await h.keyboard.press('Escape')
+    await wait(300)
+    await h.mouse.up()
+    await wait(600)
+  }
+
   // Esc mid-drag: everything goes back, nothing saved, still on the list.
   await scene()
   const was = await where()

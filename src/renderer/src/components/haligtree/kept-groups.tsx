@@ -375,13 +375,35 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
     const ids = manyRef.current.length > 1 ? manyRef.current : [id]
     const at = (pointer.y - over.rect.top) / over.rect.height
     const middle = at > 0.28 && at < 0.72
+    // A group carried over anything inside another group's block goes beside that whole block, so which side is read
+    // against the block, not the row under the pointer: else every row's middle inside it flipped the room from above
+    // the block to below it.
+    let beside = target
+    let side = at
+    if (isGroup(id)) {
+      const mine = document.querySelector(`[data-group-block="${CSS.escape(id.slice(KEY.length))}"]`)
+      const chain: Element[] = []
+      for (let el = document.querySelector(`[data-sortable-id="${CSS.escape(target)}"]`)?.closest('[data-group-block]'); el; el = el.parentElement?.closest('[data-group-block]') ?? null) chain.unshift(el)
+      const unit = chain.find((one) => !mine || !one.contains(mine))
+      if (unit) {
+        const box = unit.getBoundingClientRect()
+        beside = KEY + (unit as HTMLElement).dataset.groupBlock
+        side = (pointer.y - box.top) / box.height
+      }
+    }
+    // A dead band round the middle: the side kept until the pointer is well past it, so small moves never flip it.
+    const was = sided.current?.key === beside ? sided.current.how : null
+    const how: 'before' | 'after' = was === 'after' ? (side < 0.38 ? 'before' : 'after') : was === 'before' ? (side > 0.62 ? 'after' : 'before') : side < 0.5 ? 'before' : 'after'
+    sided.current = { key: beside, how }
     // What to try, in turn: over a row's middle, gathering with it (or going into its group); else, or where that does nothing, beside it.
     const tries: [string, How][] = []
-    if (middle && isGroup(id)) {
-      const whole = outerOf(target)
+    // Once going inside a group, a group carried stays going inside it while the pointer is anywhere but its block's ends.
+    const whole = isGroup(id) ? outerOf(target) : undefined
+    const inside = !!whole && aimed.current?.how === 'join' && aimed.current.target === KEY + whole && side > 0.2 && side < 0.8
+    if ((middle || inside) && isGroup(id)) {
       if (whole && KEY + whole !== id) tries.push([KEY + whole, 'join'])
     } else if (middle) tries.push([target, 'join'])
-    tries.push([target, at < 0.5 ? 'before' : 'after'])
+    tries.push([beside, how])
     for (const [where, how] of tries) {
       const land = preview(ids, where, how)
       if (!land) continue
@@ -415,6 +437,8 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
   }
   // Rows changed under a still pointer (a folded group sprung open): aimed afresh once they have settled.
   const lastMove = useRef<DragMoveEvent | null>(null)
+  // The side last chosen, and beside what: kept through the dead band round the middle.
+  const sided = useRef<{ key: string; how: 'before' | 'after' } | null>(null)
   const shape = keys.join('\n')
   useEffect(() => {
     if (!carried || !lastMove.current) return
@@ -423,6 +447,7 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
   }, [shape]) // eslint-disable-line react-hooks/exhaustive-deps
   const end = (): void => {
     lastMove.current = null
+    sided.current = null
     unspring()
     setMany([])
     setCarried(null)
