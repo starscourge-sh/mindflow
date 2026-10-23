@@ -243,6 +243,8 @@ function start(to: Target): void {
   const args = argsFor(to).filter((arg) => !/^--(inspect|remote-debugging-port)/.test(arg))
   const run = spawn(process.execPath, args, { stdio: ['inherit', 'inherit', 'inherit', 'ipc'], env: { ...process.env, HALIGTREE_DEV_RELAUNCHED: '1', HALIGTREE_ARRIVAL: marker } })
   current = run
+  // The run waiting behind it has no windows: out of the Dock, so one app shows, not two.
+  if (process.platform === 'darwin') app.dock?.hide()
   run.on('message', (message: { next?: Target }) => message?.next && start(message.next))
   run.on('exit', (status) => {
     if (current !== run) return
