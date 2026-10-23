@@ -33,12 +33,20 @@ const read = () => h.evaluate(() => {
 })
 const same = (a, b) => Object.keys(a).filter((key) => a[key] !== b[key]).map((key) => `${key} ${a[key]} -> ${b[key]}`)
 
+/** The bar once the page asked for is drawn (a dev build takes longer), up to 5 s; then a beat for it to rest. */
+async function settle(want) {
+  for (let i = 0; i < 25; i++) {
+    const now = await read()
+    if (now?.on === want) return (await wait(400), read())
+    await wait(200)
+  }
+  return read()
+}
 /** One switch: the steady controls are where they were, the page is the one asked for, Journal (or `row`) alone is lit. */
 async function switched(name, act, want, row = 'Journal') {
   const before = await read()
   await act()
-  await wait(1000)
-  const after = await read()
+  const after = await settle(want)
   check(`${name}: on ${want}`, after?.on === want, after?.on)
   const moved = before && after ? same(before.rects, after.rects) : ['no bar']
   check(`${name}: every tab, arrow and the jump back stay to the pixel`, !moved.length, moved.join(' | '))
@@ -59,14 +67,16 @@ const clickTab = (label) => async () => {
   await h.mouse.down(); await h.mouse.up()
 }
 const keys = (...list) => async () => {
-  await h.locator('[data-pane-title]').first().click()
+  // Keys from the page itself, as a person presses them: out of the day's writing, nothing clicked, no menu opened.
+  await h.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur())
   for (const one of list) await h.keyboard.press(one)
 }
 
 try {
   await v('settings:set', { sounds: false, hintRate: 0 })
   await v('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false })
-  await go('day'); await wait(800)
+  // The sandbox's "You're in the sandbox" line leaves about a second after the first page: let it go first.
+  await go('day'); await wait(2500)
   const first = await read()
   check('Day: the bar has four tabs, two arrows and the jump back', first && Object.keys(first.rects).length === 7, JSON.stringify(first?.rects))
   check('Day: Journal alone is lit', first?.lit.length === 1 && first.lit[0] === 'Journal', JSON.stringify(first?.lit))
@@ -75,14 +85,14 @@ try {
   for (const from of SCALES) {
     for (const to of SCALES) {
       if (from === to) continue
-      await clickTab(from)(); await wait(900)
+      await clickTab(from)(); await settle(from)
       await switched(`click ${from} to ${to}`, clickTab(to), to)
     }
   }
   // Each page's own: Day has Mark and Mark looked back, Week Recent, Month Read back, Year none.
   const want = { Day: ['Mark', 'Mark looked back'], Week: ['Recent'], Month: ['Read back'], Year: [] }
   for (const scale of SCALES) {
-    await clickTab(scale)(); await wait(900)
+    await clickTab(scale)(); await settle(scale)
     const words = await h.evaluate(() => [...document.querySelectorAll('[data-period-actions]')].find((one) => one.getBoundingClientRect().width > 0)?.innerText.replace(/\s+/g, '') ?? '')
     check(`${scale}: its own actions on the right say ${want[scale].join(', ') || 'nothing'}`, want[scale].every((one) => words.includes(one.replace(/\s+/g, ''))) && (want[scale].length || !words), words)
     // The actions group sits at the bar's far right, apart from the steady half.
@@ -97,7 +107,7 @@ try {
   }
 
   // By keys: ← → and T step within a page, G P, G K, G M between them.
-  await clickTab('Day')(); await wait(900)
+  await clickTab('Day')(); await settle('Day')
   await switched('← on Day', keys('ArrowLeft'), 'Day')
   await switched('T back to today', keys('t'), 'Day')
   await switched('G K to Week', keys('g', 'k'), 'Week')

@@ -49,6 +49,8 @@ const clickAt = async (name, row, pick = TABS) => {
 try {
   await v('settings:set', { sounds: false, hintRate: 0, focusTools: true })
   await v('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false })
+  // The sandbox's own "You're in the sandbox" line leaves about a second after the first page: let it go first.
+  await go('day'); await wait(2500)
   for (const [page, row, pick = TABS] of PAGES) {
     await go(page); await wait(900)
     const found = await rows(pick)
