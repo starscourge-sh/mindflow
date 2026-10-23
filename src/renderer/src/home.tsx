@@ -611,8 +611,7 @@ export function Home(): React.JSX.Element {
   // A growing sidebar's page opened for the first time (a chip, ⌘K, a link)
   // has its row from the same frame, rising in: waiting for main to write it
   // down left no row to light, and the light went out and came back.
-  const rowId = view.id === 'practices' ? 'routines' : view.id
-  const earning = !quiet && settings?.sidebarGrows && SECTIONS.some((one) => one.id === rowId) && !shownAll.includes(rowId) && !settings.sidebarMet.includes(rowId) ? rowId : null
+  const earning = !quiet && settings?.sidebarGrows && SECTIONS.some((one) => one.id === view.id) && !shownAll.includes(view.id) && !settings.sidebarMet.includes(view.id) ? view.id : null
   if (earning) risen.add(earning)
   const shown = quiet ? ['inbox', 'today'] : earning ? [...shownAll, earning] : shownAll
   const quietOpened = useRef(false)
@@ -652,8 +651,8 @@ export function Home(): React.JSX.Element {
   // page once the book has one of its things.
   const grows = !!settings?.sidebarGrows
   useEffect(() => {
-    if (grows && SECTIONS.some((one) => one.id === rowId)) void earn([rowId])
-  }, [grows, rowId])
+    if (grows && SECTIONS.some((one) => one.id === view.id)) void earn([view.id])
+  }, [grows, view.id])
   const has = [nuggets.length && 'nuggets', questions.length && 'questions', goals.length && 'goals', (queued.queue.length || queued.read.length) && 'queue', tags.length && 'tags'].filter(Boolean) as string[]
   useEffect(() => {
     if (grows && has.length) void earn(has)
@@ -964,8 +963,7 @@ export function Home(): React.JSX.Element {
   const kind = (view: View): (typeof CAPTURE_TYPES)[number] | undefined => CAPTURE_TYPES.find((type) => `kind:${type.id}` === view.id)
   /** A page's name, for the top bar; a pane is named by its note first (paneName). */
   /** A sidebar row lit for the page you are on; a day's, week's or month's row only on today's, this week's or this month's. */
-  // Practices is Routines' other tab: its row stays lit there.
-  const lit = (id: string): boolean => rowId === id && atNow(view)
+  const lit = (id: string): boolean => view.id === id && atNow(view)
   const labelOf = (view: View): string => datedName(view) ?? SECTIONS.find((section) => section.id === view.id)?.label ?? kind(view)?.label ?? (view.id === 'source' ? view.focus?.slice(view.focus.indexOf(':') + 1) || 'Source' : view.id === 'settings' ? 'Settings' : view.id === 'whatsnew' ? "What's new" : view.id === 'practices' ? 'Practices' : view.id === 'yearpage' ? 'Year' : view.id === 'day' ? 'Day' : view.id === 'weekpage' ? 'Week' : view.id === 'monthpage' ? 'Month' : '')
   const paneWidth = (key: string, width: PaneWidth): void => {
     chime(width === 'narrow' ? 'fold' : 'slide')
@@ -1510,7 +1508,7 @@ export function Home(): React.JSX.Element {
             const group = (name: Group, list: typeof SECTIONS): React.JSX.Element | null => {
               const [open, fold] = folds[name]
               if (!list.length && !(name === 'Tasks' && waiting.length)) return null
-              const here = (section: (typeof SECTIONS)[number]): boolean => section.id === rowId
+              const here = (section: (typeof SECTIONS)[number]): boolean => section.id === view.id
               // Narrow, every row is an icon and the group never shuts.
               if (narrow) return (
                 <Fragment key={name}>

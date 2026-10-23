@@ -1,6 +1,6 @@
 // The sidebar lights the row for the page shown, whichever way it was reached:
-// Today's chips (Today, Tomorrow, Later, Practices) move the light to Today,
-// Tomorrow, Later and Routines, gliding there, and it never blinks off on the
+// Today's chips (Today, Tomorrow, Later) move the light to Today, Tomorrow
+// and Later, gliding there, and it never blinks off on the
 // way, even when the row is new to a growing sidebar or folded away. The same
 // for the other pages with tabs or modes that map to sidebar rows.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/sidebar-follows-tab.mjs
@@ -61,9 +61,7 @@ try {
   await moves('Today, first', async () => {}, 'Today')
   await moves('Tomorrow’s chip (new to the sidebar)', chip('Tomorrow'), 'Tomorrow')
   await moves('Later’s chip (new to the sidebar)', chip('Later'), 'Later')
-  await moves('Practices’ chip', chip('Practices'), 'Routines')
-  // Practices has no chips of its own: back by the sidebar.
-  await moves('Today’s row, from Practices', sideRow('Today'), 'Today')
+  await moves('Today’s chip', chip('Today'), 'Today')
   await moves('Tomorrow’s chip again', chip('Tomorrow'), 'Tomorrow')
 
   // Every page shown: the same moves, rows already there.
@@ -73,8 +71,7 @@ try {
   await wait(600)
   await moves('all shown, Tomorrow’s chip', chip('Tomorrow'), 'Tomorrow')
   await moves('all shown, Later’s chip', chip('Later'), 'Later')
-  await moves('all shown, Practices’ chip', chip('Practices'), 'Routines')
-  await moves('all shown, Routines’ row from Practices', sideRow('Routines'), 'Routines')
+  await moves('all shown, Routines’ row', sideRow('Routines'), 'Routines')
   await moves('all shown, Today’s row', sideRow('Today'), 'Today')
 
   // Tasks folded away: the page you are on still shows its row, lit.
