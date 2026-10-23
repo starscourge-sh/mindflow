@@ -1,7 +1,7 @@
 import { detailsShown, showDetails } from '@/lib/reading'
 import { themeActions } from '@/lib/theme'
 import { useAbandonAction } from '@/lib/abandon'
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
 import { FileText, Minimize2, PanelsTopLeft } from 'lucide-react'
 import CameraIcon from '@/components/ui/camera-icon'
 import CameraOffIcon from '@/components/ui/camera-off-icon'
@@ -87,8 +87,8 @@ import { Passes, openPass } from '@/components/haligtree/pass'
 import { noteActions } from '@/lib/notes'
 import { headingIn } from '@/lib/capture-links'
 import { openApart } from '@/lib/apart'
-import { G_ALIASES, PlaceIcon, SECTIONS, ShowList, TASK_PAGES, dropOrder, orderItems, risen, litRow, showWords, sidebarParts, useInOrder, useOrder, useSections, useShown } from '@/components/haligtree/places'
-import { SortableList, SortableRow } from '@/components/haligtree/sortable'
+import { G_ALIASES, PlaceIcon, SECTIONS, ShowList, TASK_PAGES, dropInBlock, dropOrder, orderItems, risen, litRow, showWords, sidebarParts, useInOrder, useOrder, useSections, useShown } from '@/components/haligtree/places'
+import { BlockList, SortableList, SortableRow } from '@/components/haligtree/sortable'
 import { pageTravel } from '@/lib/page-travel'
 import { Branches } from '@/components/haligtree/branches'
 import { Term, WordNotes } from '@/components/haligtree/term'
@@ -1399,7 +1399,7 @@ export function Home(): React.JSX.Element {
                 view.id !== section.id && { label: 'Open', run: () => setView({ id: section.id }) },
                 asideItem('view', section.id),
                 'separator',
-                ...orderItems({ setting: 'sidebarOrder', usual: sections.map((one) => one.id), id: section.id, among, what: 'The sidebar', name: section.label }, sidebarSaved.length > 0),
+                ...orderItems({ setting: 'sidebarOrder', usual: sections.map((one) => one.id), id: section.id, among, what: 'The sidebar', name: section.label }, sidebarSaved.length > 0 || Object.keys(settings?.sidebarGroups ?? {}).length > 0),
                 'separator',
                 !stays && { label: showWords(section, on).label, run: () => void showIt(section, !on) },
                 // The pages switched off, quietly: pick one to put it back where it belongs.
@@ -1509,12 +1509,6 @@ export function Home(): React.JSX.Element {
           </Branches>
         </Unfold>
             </>)
-            // A part of the sidebar whose rows drag into your own order; folded to one row, or narrow, they keep still.
-            const sorted = (list: typeof SECTIONS, still = false): React.JSX.Element => (
-              <SortableList items={list} keyOf={(section) => section.id} onMove={narrow || still ? undefined : dropOrder('sidebarOrder', sections.map((one) => one.id), (id) => SECTIONS.find((one) => one.id === id)?.label)}>
-                {(items) => items.map((section) => row(section, items.map((one) => one.id), still))}
-              </SortableList>
-            )
             // A group's name, small: a click folds it. Which pages it holds is set in "Customize sidebar…", not here.
             const heading = (label: string, open: boolean, fold: (open: boolean) => void, near?: string): React.JSX.Element =>
               narrow ? <div key={label} className="mt-3" /> : (
@@ -1534,7 +1528,7 @@ export function Home(): React.JSX.Element {
               )
             // Not drawn, even unseen, until settings say which rows show: a row
             // the settings then take away held its room for a frame once the sidebar showed.
-            const parts = settings && !unloaded(away) ? sidebarParts(sections, ordered, shown) : []
+            const parts = settings && !unloaded(away) ? sidebarParts(sections, ordered, shown, settings.sidebarGroups) : []
             // Pinned, and the split open now, sit under Tasks and Calendar, else under the first rows.
             const pinsAfter = parts.some((part) => part.group === 'Do' && part.list.length) ? 'Do' : 'Write'
             const pinned = (<>
@@ -1608,21 +1602,26 @@ export function Home(): React.JSX.Element {
             </>)
             // Your most used tags, under their own row: shown with the Tags page on, between Pinned and the Bin.
             const tagRows = !narrow && !quiet && shown.includes('tags') && tags.length > 0
+            // Tags drawn as their own part, which takes no page dropped on it, as Pinned does not.
+            const tagsPart = <div data-side-drop="tags" className="flex flex-col gap-px">{tagsBlock}</div>
+            // Every page row drags as one list, into any block: the line shows where it lands.
             return (<>
-              {parts.map((part, at) => {
+              <BlockList
                 // Tags' own page is opened from the Tags heading over your tags, so it is not listed twice.
-                const list = tagRows ? part.list.filter((section) => section.id !== 'tags') : part.list
-                return (
-                  <Fragment key={part.key}>
-                    {part.key === 'rest' && tagRows && tagsBlock}
-                    {/* Each run after the first gets a gap the height of a heading, with no heading: what you write, then what you do, then the rest. */}
-                    {at > 0 && list.length > 0 && <div data-side-gap aria-hidden className={narrow ? 'mt-3' : 'mt-2.5 mb-0.5 min-h-1'} />}
-                    {sorted(list)}
-                    {part.key === pinsAfter && pinned}
-                  </Fragment>
-                )
-              })}
-              {!parts.some((part) => part.key === 'rest') && tagRows && tagsBlock}
+                blocks={parts.map((part) => ({ key: part.key, items: tagRows ? part.list.filter((section) => section.id !== 'tags') : part.list }))}
+                keyOf={(section) => section.id}
+                onMove={narrow ? undefined : (id, drop) => void dropInBlock(id, drop.block, drop.before, shown)}
+                refuse={{ selector: 'aside nav [data-side-drop]', said: 'A page can’t go in Pinned or Tags' }}
+                row={(section, among) => row(section, among)}
+                around={(block, at, box, items) => (<>
+                  {block === 'rest' && tagRows && tagsPart}
+                  {/* Each run after the first gets a gap the height of a heading, with no heading: what you write, then what you do, then the rest. */}
+                  {at > 0 && items.length > 0 && <div data-side-gap aria-hidden className={narrow ? 'mt-3' : 'mt-2.5 mb-0.5 min-h-1'} />}
+                  {box}
+                  {block === pinsAfter && pinned}
+                </>)}
+              />
+              {!parts.some((part) => part.key === 'rest') && tagRows && tagsPart}
             </>)
           })()}
         </nav>

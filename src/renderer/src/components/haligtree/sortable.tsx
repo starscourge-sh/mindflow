@@ -1,6 +1,6 @@
-import { createContext, useContext, useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react'
+import { Fragment, createContext, useContext, useEffect, useId, useRef, useState, type ComponentProps, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { DndContext, DragOverlay, useDndMonitor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent, type DragStartEvent, type DropAnimation, type Modifier } from '@dnd-kit/core'
+import { DndContext, DragOverlay, useDndMonitor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent, type DragMoveEvent, type DragStartEvent, type DropAnimation, type Modifier } from '@dnd-kit/core'
 import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { motion } from 'motion/react'
 import { spring, still } from '@/lib/motion'
@@ -190,5 +190,126 @@ function Row({ id, className, children }: { id: string; className?: string; chil
     >
       {children}
     </div>
+  )
+}
+
+/** A row's new place: the block it goes into, and the row it goes before (null: that block's end). */
+export type BlockDrop = { block: string; before: string | null }
+type Slot = BlockDrop & { y: number; left: number; width: number }
+/** No row slides aside here: a line shows where the carried one will land. */
+const stayPut = (): null => null
+
+/**
+ * Rows in blocks with gaps between, dragged as one list: a row carried
+ * anywhere goes there, into whichever block the line is in. The line sits
+ * where it will land, at a block's end or the next one's start, so the two
+ * places either side of a gap are told apart. Over a part that is not these
+ * rows (`refuse`: where, and what to say), there is no line, the pointer and
+ * the lifted row say it cannot go there, and letting go puts it back. Holds
+ * the new blocks itself until the saved ones come back.
+ */
+export function BlockList<T>({ blocks, keyOf, onMove, refuse, row, around }: {
+  blocks: { key: string; items: T[] }[]
+  keyOf: (item: T) => string
+  onMove?: (id: string, drop: BlockDrop) => void
+  refuse?: { selector: string; said: string }
+  /** One row; `among` is its block's rows. */
+  row: (item: T, among: string[]) => ReactNode
+  /** A block's box of rows, with whatever goes around it (a gap before, a part after). */
+  around: (block: string, at: number, box: ReactNode, items: T[]) => ReactNode
+}): React.JSX.Element {
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
+  const list = useId()
+  const [held, setHeld] = useState<{ key: string; ids: string[] }[] | null>(null)
+  const [shot, setShot] = useState<Shot | null>(null)
+  const [slot, setSlot] = useState<Slot | null>(null)
+  const [refused, setRefused] = useState(false)
+  const [sorting, setSorting] = useState(false)
+  const now = useRef<{ slot: Slot | null; refused: boolean }>({ slot: null, refused: false })
+  const settle = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const done = (): void => (clearTimeout(settle.current), void (settle.current = setTimeout(() => setSorting(false), 320)))
+  const ticks = useRef(slotTicker()).current
+  const incoming = blocks.map((one) => `${one.key}:${one.items.map(keyOf).join(',')}`).join('\n')
+  useEffect(() => setHeld(null), [incoming])
+  const byId = new Map(blocks.flatMap((one) => one.items.map((item): [string, T] => [keyOf(item), item])))
+  const shown = held ? held.map((one) => ({ key: one.key, items: one.ids.map((id) => byId.get(id)).filter((item): item is T => !!item) })) : blocks
+  const draw = (one: { key: string; items: T[] }, at: number): ReactNode => {
+    const ids = one.items.map(keyOf)
+    return <Fragment key={one.key}>{around(one.key, at, <div data-drop-list={list} data-drop-block={one.key} className="flex flex-col gap-px">{one.items.map((item) => row(item, ids))}</div>, one.items)}</Fragment>
+  }
+  if (!onMove) return <>{shown.map(draw)}</>
+  // Where the pointer is: over a part that refuses, or the nearest place between rows.
+  const where = (y: number): Slot | 'refused' | null => {
+    for (const part of refuse ? document.querySelectorAll(refuse.selector) : []) {
+      const box = part.getBoundingClientRect()
+      if (box.height > 0 && y >= box.top && y <= box.bottom) return 'refused'
+    }
+    let best: Slot | null = null
+    for (const block of document.querySelectorAll<HTMLElement>(`[data-drop-list="${CSS.escape(list)}"]`)) {
+      const rows = [...block.querySelectorAll<HTMLElement>('[data-sortable-id]')]
+      const box = block.getBoundingClientRect()
+      // A block emptied by a drag still takes one back, where it sits.
+      const marks = !rows.length ? [{ y: box.top, before: null }] : [...rows.map((one) => ({ y: one.getBoundingClientRect().top, before: one.dataset.sortableId ?? null })), { y: rows[rows.length - 1].getBoundingClientRect().bottom, before: null }]
+      for (const mark of marks)
+        if (!best || Math.abs(mark.y - y) < Math.abs(best.y - y)) best = { block: block.dataset.dropBlock ?? '', before: mark.before, y: mark.y, left: box.left, width: box.width }
+    }
+    return best
+  }
+  const mark = (next: Slot | null, no: boolean): void => {
+    now.current = { slot: next, refused: no }
+    setSlot(next)
+    setRefused(no)
+    if (no) document.documentElement.dataset.dragRefused = ''
+    else delete document.documentElement.dataset.dragRefused
+    ticks(no ? 'refused' : next ? `${next.block}:${next.before}` : null)
+  }
+  // The place it already has: the line just above it, or just under it.
+  const stays = (id: string, drop: BlockDrop): boolean => {
+    const ids = shown.find((one) => one.key === drop.block)?.items.map(keyOf) ?? []
+    const at = ids.indexOf(id)
+    return at >= 0 && (drop.before === id || drop.before === (ids[at + 1] ?? null))
+  }
+  const onDragStart = ({ active }: DragStartEvent): void => {
+    chime('lift')
+    clearTimeout(settle.current)
+    setSorting(true)
+    ticks.start(null)
+    setShot(snapshot(String(active.id)))
+  }
+  const onDragMove = ({ activatorEvent, delta }: DragMoveEvent): void => {
+    const found = where((activatorEvent as PointerEvent).clientY + delta.y)
+    mark(found === 'refused' ? null : found, found === 'refused')
+  }
+  const onDragEnd = ({ active }: DragEndEvent): void => {
+    const { slot: drop, refused: no } = now.current
+    mark(null, false)
+    setShot(null)
+    done()
+    const id = String(active.id)
+    if (no) return chime('nope')
+    if (!drop || stays(id, drop)) return chime('stay')
+    const next = shown.map((one) => ({ key: one.key, ids: one.items.map(keyOf).filter((other) => other !== id) }))
+    const into = next.find((one) => one.key === drop.block)
+    if (!into) return chime('stay')
+    into.ids.splice(drop.before ? into.ids.indexOf(drop.before) : into.ids.length, 0, id)
+    setHeld(next)
+    onMove(id, { block: drop.block, before: drop.before })
+  }
+  return (
+    <DndContext accessibility={{ container: document.body }} sensors={sensors} collisionDetection={closestCenter} modifiers={[upDown]} onDragStart={onDragStart} onDragMove={onDragMove} onDragEnd={onDragEnd} onDragCancel={() => (mark(null, false), setShot(null), done())}>
+      <SortableContext items={shown.flatMap((one) => one.items.map(keyOf))} strategy={stayPut}>
+        <Axis.Provider value="y"><Sorting.Provider value={sorting}><On.Provider value>{shown.map(draw)}</On.Provider></Sorting.Provider></Axis.Provider>
+      </SortableContext>
+      {/* Where it will land, the one hint: a line, in whichever block that is. */}
+      {slot && createPortal(<div data-drop-line={`${slot.block}:${slot.before ?? ''}`} aria-hidden className="pointer-events-none fixed z-[70] h-0.5 rounded-full bg-primary" style={{ top: Math.round(slot.y) - 1, left: slot.left + 4, width: slot.width - 8 }} />, document.body)}
+      <Overlay dropAnimation={still() || refused ? null : SETTLE}>
+        {shot && (
+          <div className="flex flex-col items-start gap-1">
+            <div className={refused ? 'opacity-50' : undefined}><Lifted shot={shot} /></div>
+            {refused && refuse && <div data-drop-refused className="rounded-md bg-popover px-2 py-1 text-control text-foreground shadow-(--mf-shadow-lift) ring-1 ring-foreground/10">{refuse.said}</div>}
+          </div>
+        )}
+      </Overlay>
+    </DndContext>
   )
 }

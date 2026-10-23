@@ -163,11 +163,14 @@ export const dropOrder = (setting: Ordered, usual: string[], nameOf?: (id: strin
 
 /** The usual order back, said, with Undo. */
 export async function backToUsual(setting: Ordered, what: string): Promise<void> {
-  const was = (await haligtree.settings())[setting] ?? []
-  if (!was.length) return
+  const settings = await haligtree.settings()
+  const was = settings[setting] ?? []
+  // The sidebar's blocks go back with its order: every page in its own again.
+  const groups = setting === 'sidebarOrder' ? settings.sidebarGroups ?? {} : {}
+  if (!was.length && !Object.keys(groups).length) return
   chime('settled')
-  await haligtree.setSettings({ [setting]: [] })
-  toast(`${what} back in the usual order`, () => void haligtree.setSettings({ [setting]: was }).then(() => chime('shift')))
+  await haligtree.setSettings({ [setting]: [], ...(setting === 'sidebarOrder' ? { sidebarGroups: {} } : {}) })
+  toast(`${what} back in the usual order`, () => void haligtree.setSettings({ [setting]: was, ...(setting === 'sidebarOrder' ? { sidebarGroups: groups } : {}) }).then(() => chime('shift')))
 }
 
 /**
@@ -191,22 +194,44 @@ export function orderItems({ setting, usual, id, among, what, name, sideways = f
  * The sidebar's places as it draws them, in your order: runs of places in the
  * usual order (Write, Do, then the rest), each holding only the places in
  * `shown` (Customize passes every place, to list them all with a switch). No
- * run has a heading: a gap sits between them. A row moves only within its own
- * part. A part with nothing shown is gone.
+ * run has a heading: a gap sits between them. A row dragged into another run
+ * stays in it (`groups`, saved as `sidebarGroups`). A part with nothing shown is gone.
  */
 export type SidebarPart = { key: string; group?: Group; list: (typeof SECTIONS)[number][] }
-export function sidebarParts(usual: typeof SECTIONS, ordered: typeof SECTIONS, shown: string[]): SidebarPart[] {
-  const runs: { group?: Group; ids: string[] }[] = []
-  for (const one of usual) {
-    const last = runs[runs.length - 1]
-    if (last && last.group === one.group) last.ids.push(one.id)
-    else runs.push({ group: one.group, ids: [one.id] })
-  }
+/** Which block a place is in: the one it was dragged into, else its own ("rest" for the ungrouped). */
+export const blockOf = (place: Place, groups: Record<string, string> = {}): string => groups[place.id] ?? place.group ?? 'rest'
+export function sidebarParts(usual: typeof SECTIONS, ordered: typeof SECTIONS, shown: string[], groups: Record<string, string> = {}): SidebarPart[] {
+  const runs: { group?: Group; key: string }[] = []
+  for (const one of usual) if (!runs.some((run) => run.group === one.group)) runs.push({ group: one.group, key: one.group ?? 'rest' })
   return runs.map((run) => ({
-    key: run.group ?? 'rest',
+    key: run.key,
     group: run.group,
-    list: ordered.filter((one) => run.ids.includes(one.id) && shown.includes(one.id))
+    list: ordered.filter((one) => blockOf(one, groups) === run.key && shown.includes(one.id))
   }))
+}
+
+/**
+ * A sidebar row dropped into a block, before one of its rows or at its end:
+ * the order and the block saved together, read whole from the latest saved
+ * ones, said with Undo. `shown` is what the sidebar shows, to find a block's end.
+ */
+export async function dropInBlock(id: string, block: string, before: string | null, shown: string[]): Promise<void> {
+  const settings = await haligtree.settings()
+  const was = { sidebarOrder: settings.sidebarOrder ?? [], sidebarGroups: settings.sidebarGroups ?? {} }
+  const place = SECTIONS.find((one) => one.id === id)
+  if (!place) return
+  const groups = { ...was.sidebarGroups }
+  if ((place.group ?? 'rest') === block) delete groups[id]
+  else groups[id] = block
+  const order = inOrder(SECTIONS, was.sidebarOrder, (one) => one.id).filter((one) => one.id !== id)
+  const inBlock = order.filter((one) => blockOf(one, groups) === block && shown.includes(one.id))
+  const at = before ? order.findIndex((one) => one.id === before) : inBlock.length ? order.indexOf(inBlock[inBlock.length - 1]) + 1 : order.length
+  const next = order.map((one) => one.id)
+  next.splice(at < 0 ? next.length : at, 0, id)
+  const usual = SECTIONS.map((one) => one.id)
+  chime('shift')
+  await haligtree.setSettings({ sidebarOrder: isUsual(next, usual) ? [] : next, sidebarGroups: groups })
+  quietly(() => void haligtree.setSettings(was).then(() => chime('shift')))
 }
 
 /**
@@ -243,7 +268,10 @@ export function ShowList({ places: given, setting }: { places: Place[]; setting:
   const places = setting === 'sidebarShown' ? sections : given
   const order = ORDER_OF[setting]
   const saved = useOrder(order)
+  // The blocks rows were dragged into, so this lists them where the sidebar has them.
+  const groups = useLive(haligtree.settings, null as Settings | null)?.sidebarGroups ?? {}
   const ordered = inOrder(places, saved, (place) => place.id)
+  const custom = saved.length > 0 || (setting === 'sidebarShown' && Object.keys(groups).length > 0)
   const usual = places.map((place) => place.id)
   const what = setting === 'sidebarShown' ? 'The sidebar' : 'The tabs'
   // Read and written whole, so two quick flicks never lose one.
@@ -254,7 +282,7 @@ export function ShowList({ places: given, setting }: { places: Place[]; setting:
   }
   // Each part: what it is called in the DOM, and all its places, on or off, as the sidebar runs them, a gap between.
   const parts: [string, Place[]][] = setting === 'sidebarShown'
-    ? sidebarParts(sections, ordered as typeof SECTIONS, places.map((place) => place.id)).map((part): [string, Place[]] => [part.key, part.list])
+    ? sidebarParts(sections, ordered as typeof SECTIONS, places.map((place) => place.id), groups).map((part): [string, Place[]] => [part.key, part.list])
     : [['top', ordered]]
   // Every one switched on at once, said with Undo; the order stays yours.
   const hidden = places.filter((place) => !shown.includes(place.id))
@@ -272,7 +300,7 @@ export function ShowList({ places: given, setting }: { places: Place[]; setting:
     return (
       <SortableRow key={place.id} id={place.id} glide={`show-${setting}-${place.id}`}>
         <RowMenu items={[
-          ...orderItems({ setting: order, usual, id: place.id, among, what, name: place.label }, saved.length > 0),
+          ...orderItems({ setting: order, usual, id: place.id, among, what, name: place.label }, custom),
           'separator',
           !why && { label: setting === 'sidebarShown' ? showWords(place, on).label : on ? 'Hide this tab' : 'Show this tab', run: () => void flip(place.id, !on) }
         ]}>
@@ -305,7 +333,7 @@ export function ShowList({ places: given, setting }: { places: Place[]; setting:
             </SortableList>
           </div>
         ))}
-        {saved.length > 0 && (
+        {custom && (
           <button type="button" onClick={() => void backToUsual(order, what)}
             className="mt-1.5 flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-control text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground">
             <AliveIcon icon={RefreshIcon} size={14} />

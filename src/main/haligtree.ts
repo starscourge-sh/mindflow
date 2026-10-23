@@ -514,6 +514,8 @@ const DEFAULTS = {
   boxTabs: ['inbox', 'today', 'review', 'kept'] as string[],
   // The sidebar's places, the box's tabs and the pins (type:id) in your own order; empty is the usual one.
   sidebarOrder: [] as string[],
+  // A sidebar page dragged into another block (Write, Do, or the rest: "rest"), by its id; one not here is in its own.
+  sidebarGroups: {} as Record<string, string>,
   boxTabsOrder: [] as string[],
   pinOrder: [] as string[],
   // Sticky notes on the desktop: shown or all put away (⌃⌥⌘N).

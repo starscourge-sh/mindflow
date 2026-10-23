@@ -1753,6 +1753,8 @@ html[data-dragging] [data-grip] { display: none; }
 /* A list's hover light is out while a row is carried: left on, it stayed where a row was before the rows slid aside. */
 html[data-dragging] [data-glide] { display: none; }
 html[data-dragging], html[data-dragging] * { cursor: grabbing !important; }
+/* Carried over a part that will not take it (Pinned, Tags): the pointer says so. */
+html[data-drag-refused], html[data-drag-refused] * { cursor: not-allowed !important; }
 [data-sortable-id] :is(input, textarea, [contenteditable="true"], [contenteditable="true"] *) { cursor: text; }
 
 /* The box's command words ("5m tea", "+name:", "tomorrow", "#bug"), lit as
