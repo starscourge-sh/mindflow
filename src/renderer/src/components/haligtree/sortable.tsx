@@ -27,11 +27,24 @@ export const SETTLE: DropAnimation = { duration: 280, easing: 'cubic-bezier(0.2,
  * moved or eased in (a view sliding up), `fixed` counts from that ancestor
  * rather than the window, and the lifted thing floated off from the pointer.
  */
+const putBack = (event: KeyboardEvent): void => {
+  if (event.key !== 'Escape') return
+  event.preventDefault()
+  event.stopPropagation()
+  window.dispatchEvent(new Event('resize'))
+}
+
 export function Overlay(props: ComponentProps<typeof DragOverlay>): React.JSX.Element {
   // The closed hand for as long as something is carried, wherever the pointer is.
-  const hand = (on: boolean) => (): void => void (on ? (document.documentElement.dataset.dragging = '') : delete document.documentElement.dataset.dragging)
+  // Esc while carrying puts it back and does nothing else: the page under it
+  // never sees the key (it went back a page, or shut the view). dnd-kit lets go
+  // on a resize of the window, so that is how it is told.
+  const hand = (on: boolean) => (): void => {
+    if (on) (document.documentElement.dataset.dragging = ''), window.addEventListener('keydown', putBack, true)
+    else delete document.documentElement.dataset.dragging, window.removeEventListener('keydown', putBack, true)
+  }
   useDndMonitor({ onDragStart: hand(true), onDragEnd: hand(false), onDragCancel: hand(false) })
-  useEffect(() => hand(false), [])
+  useEffect(() => hand(false), []) // eslint-disable-line react-hooks/exhaustive-deps
   // Marked, so a check can count the lifted pictures on screen (qa/matrix-drag.mjs): one, never two.
   return createPortal(<DragOverlay {...props} className={`mf-drag-picture ${props.className ?? ''}`} />, document.body)
 }

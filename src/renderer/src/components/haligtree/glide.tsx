@@ -220,6 +220,7 @@ export function useFluidHover(box: RefObject<HTMLElement | null>, { items, axis 
     return () => (removeEventListener('blur', away), document.removeEventListener('visibilitychange', hidden), offHiding?.())
   }, [light])
 
+  const pressedRow = useRef(false)
   const handlers = {
     onMouseMove: (event: React.MouseEvent) => {
       // Moves inside a menu or tooltip opened from a row are not over this list.
@@ -242,9 +243,12 @@ export function useFluidHover(box: RefObject<HTMLElement | null>, { items, axis 
       pointer.current = null
       light(null, false)
     },
+    // Pressed on a row and let go elsewhere (a row dragged, or a drag put back with Esc), the click lands between rows: it is no click on the lit one.
+    onPointerDown: (event: React.PointerEvent) => void (pressedRow.current = !!(event.target as Element).closest?.(items)),
     onClick: (event: React.MouseEvent) => {
       const target = event.target as Element
       const row = litRef.current
+      if (pressedRow.current) return void (pressedRow.current = false)
       if (!row || !(event.currentTarget as Node).contains(target) || !target.isConnected) return
       // A click on a row, or on a control of its own between rows, is its own.
       if (target.closest(`${items}, button, a, input, textarea, select, label, [role="button"], [contenteditable]`)) return
