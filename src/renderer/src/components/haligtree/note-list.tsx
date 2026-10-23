@@ -17,6 +17,8 @@ import { chime } from '@/lib/sound'
 import { RowMenu, type RowItem } from './row-menu'
 import { SortableList, SortableRow } from './sortable'
 import { GroupIcon, GroupedList, type Folds } from './kept-groups'
+import { cn } from '@/lib/cn'
+import { ROW_PAD, ROW_SHAPE, ROW_TILE, tileTint } from './row-shape'
 import { IslandBox, type IslandState } from './islands'
 import { Count, Rolling, Tags, Tip, VirtualList, showRow, typing } from './ui'
 import { Button } from '@/components/ui/button'
@@ -93,9 +95,6 @@ function usePicture(id: string, large: boolean): [string | null | undefined, () 
   return [src && !broken ? shown : undefined, () => setBroken(true)]
 }
 
-const tileTint = (tint?: string): CSSProperties => ({
-  background: tint ? `color-mix(in srgb, ${tint} 9%, var(--accent))` : 'var(--accent)'
-})
 
 /**
  * What stands for a note in a grid: its picture, or a quiet tile of its first
@@ -169,7 +168,7 @@ const rest = (words: string | undefined, title: string): string =>
 /** A row's lead: the note's picture, small, or its kind's icon on a quiet square of the same size. */
 export function Lead({
   entry,
-  className = 'size-9'
+  className = ''
 }: {
   entry: Entry
   className?: string
@@ -180,7 +179,7 @@ export function Lead({
     <span
       // A paper cover is a light drawing: on a dark page a column of them read as bright squares, so there it is a quiet square instead (main.css, data-lead-paper).
       data-lead-paper={!picture && grain?.paper ? '' : undefined}
-      className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-md ${picture ? 'private-text bg-accent' : ''} ${className}`}
+      className={cn(ROW_TILE, picture && 'private-text bg-accent', className)}
       style={picture || grain ? undefined : tileTint(entry.tint)}
     >
       {picture ? (
@@ -520,7 +519,7 @@ const rowClass = (
   dim = false,
   compact = false
 ): string =>
-  `group/row relative flex w-full items-center gap-2.5 rounded-md px-2 text-left transition-colors ${compact ? 'min-h-6 py-1' : 'py-1.5'} ${dim ? 'opacity-50' : ''} ${picked ? PICKED : open ? 'bg-accent' : at ? 'bg-accent/50' : ''}`
+  `${ROW_SHAPE} transition-colors ${compact ? 'min-h-6 py-1' : ROW_PAD} ${dim ? 'opacity-50' : ''} ${picked ? PICKED : open ? 'bg-accent' : at ? 'bg-accent/50' : ''}`
 // The ring is drawn over the tile, not under it, so a picture never hides it.
 const tileClass = (at: boolean, open: boolean, picked: boolean, dim = false): string =>
   `group/row relative flex w-full flex-col overflow-hidden rounded-lg text-left after:pointer-events-none after:absolute after:inset-0 after:rounded-lg after:ring-inset after:transition-[box-shadow] ${dim ? 'opacity-50' : ''} ${picked ? `${PICKED} after:ring-2 after:ring-[var(--tt-brand-color-400)]` : at ? 'after:ring-2 after:ring-ring' : open ? 'after:ring-2 after:ring-foreground/40' : 'after:ring-1 after:ring-border hover:after:ring-foreground/25'}`

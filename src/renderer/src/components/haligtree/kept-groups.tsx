@@ -22,6 +22,7 @@ import { Overlay, SETTLE } from './sortable'
 import { copy } from './row-menu'
 import { Rolling, Tip, VirtualList, refuse, toast, quietly } from './ui'
 import type { Entry } from './note-list'
+import { ROW_PAD, ROW_SHAPE, ROW_TILE, tileTint } from './row-shape'
 import { X } from '@/components/ui/icons'
 import { brief, num } from '../../../../main/dates'
 
@@ -719,6 +720,15 @@ function Count({ n }: { n: number }): React.JSX.Element {
   )
 }
 
+/** A group's icon in the same tile a page's icon sits in, tinted in its colour. */
+function GroupTile({ group, ...rest }: { group: GroupView } & React.HTMLAttributes<HTMLSpanElement>): React.JSX.Element {
+  return (
+    <span {...rest} data-group-tile="" className={ROW_TILE} style={tileTint(tintOf(group.color))}>
+      <GroupIcon icon={group.icon} color={group.color} />
+    </span>
+  )
+}
+
 /** A group's icon: an emoji, a kind's drawing, or the stack every group starts with, in its colour. */
 export function GroupIcon({ icon, color, className = 'size-4' }: { icon: string | null; color: string | null; className?: string }): React.JSX.Element {
   const kind = icon?.startsWith('kind:') ? CAPTURE_TYPES.find((one) => one.id === icon.slice(5)) : undefined
@@ -832,8 +842,8 @@ function GroupBlock({ group, entries, parts, start, row, carried, renaming, born
       data-landing={landing ? '' : undefined}
       onPointerOver={(event) => setOver(!(event.target as Element).closest('[data-group-block]') || (event.target as Element).closest('[data-group-block]') === event.currentTarget)}
       onPointerLeave={() => setOver(false)}
-      // At the top level it reaches a little past the rows either side, so what is in it starts and ends where every other row does.
-      className={cn('group/fold relative isolate py-0.5', inner ? 'px-1' : '-mx-1 px-1')}
+      // At the top level its panel is the rows' own box: folded, it is one row's box, and what is in it starts and ends where every other row does (qa/row-shape.mjs).
+      className={cn('group/fold relative isolate', inner && 'px-1 py-0.5')}
       style={{ '--group-tint': tint ?? 'var(--foreground)' } as CSSProperties}
     >
       {/* The panel: always there, faint, with a hairline round it; deeper while pointed at, or while something is about to happen to it. */}
@@ -866,8 +876,8 @@ function GroupBlock({ group, entries, parts, start, row, carried, renaming, born
               <ContextMenu onOpenChange={setMenu}>
                 <ContextMenuTrigger asChild>
                   {renaming ? (
-                    <div className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 data-[state=open]:bg-transparent!">
-                      <PopoverAnchor asChild><span className="flex w-9 shrink-0 justify-center"><GroupIcon icon={group.icon} color={group.color} /></span></PopoverAnchor>
+                    <div className={cn(ROW_SHAPE, ROW_PAD, 'data-[state=open]:bg-transparent!')}>
+                      <PopoverAnchor asChild><GroupTile group={group} /></PopoverAnchor>
                       <input
                         autoFocus
                         defaultValue={group.name}
@@ -894,9 +904,11 @@ function GroupBlock({ group, entries, parts, start, row, carried, renaming, born
                         if ((event.key === 'ArrowLeft' && group.open) || (event.key === 'ArrowRight' && !group.open)) (event.preventDefault(), fold())
                       }}
                       // The panel marks it while its menu is open: no second mark on the row.
-                      className={cn('flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-transparent!', group.unsorted?.length && onSort ? 'pr-[12.5rem]' : 'pr-9')}
+                      // Its box, tile and focus ring are a page row's (row-shape.ts); only its right side keeps room for its buttons.
+                      className={cn(ROW_SHAPE, ROW_PAD, 'data-[state=open]:bg-transparent!')}
+                      style={{ paddingRight: group.unsorted?.length && onSort ? '12.5rem' : '2.25rem' }}
                     >
-                      <PopoverAnchor asChild><span className="flex w-9 shrink-0 justify-center"><GroupIcon icon={group.icon} color={group.color} /></span></PopoverAnchor>
+                      <PopoverAnchor asChild><GroupTile group={group} /></PopoverAnchor>
                       <span className="min-w-0 truncate text-control font-semibold">{name}</span>
                       <ChevronRight
                         aria-hidden
