@@ -1,6 +1,7 @@
 import type { CaptureMeta } from '@/components/capture-list'
 import type { Item, Stats, Task } from './haligtree'
 import type { Day, NoteMap } from './notes'
+import type { QueueRow } from './reading-queue'
 
 /**
  * What an empty page shows until it has something of yours: the page itself,
@@ -70,6 +71,13 @@ export const exampleLookups = (): CaptureMeta[] => [
   capture(3, { kind: 'word', label: 'Hubris', lookup: 'asked' }),
   capture(2, { kind: 'word', label: 'Why does Gatsby watch the green light?', lookup: 'asked' }),
   capture(1, { kind: 'word', label: 'Sonder', lookup: 'asked' })
+]
+
+/** The reading queue: a gem, a page and a link, in the order you would read them. */
+export const exampleQueue = (): QueueRow[] => [
+  { id: `${EXAMPLE}queue-1`, type: 'nugget', itemId: `${EXAMPLE}queue-1`, title: 'Fear is the mind-killer: naming a fear out loud makes it smaller.', kind: 'note', private: false, addedAt: minutesAgo(40), doneAt: null, url: null, bare: false },
+  { id: `${EXAMPLE}queue-2`, type: 'article', itemId: `${EXAMPLE}queue-2`, title: 'Why Victor never names his creature', kind: 'note', private: false, addedAt: minutesAgo(90), doneAt: null, url: null, bare: false },
+  { id: `${EXAMPLE}queue-3`, type: 'capture', itemId: `${EXAMPLE}queue-3`, title: 'The Hero with a Thousand Faces, a summary', kind: 'note', private: false, addedAt: minutesAgo(200), doneAt: null, url: null, bare: false }
 ]
 
 // --- tasks

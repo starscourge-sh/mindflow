@@ -184,7 +184,7 @@ export function Scenery({ place, seed, mood, text = 'none', fade = false, wide =
   }[text]
   const melt = fade ? 'linear-gradient(to bottom, black 0%, black 40%, transparent 96%)' : undefined
   return (
-    <div aria-hidden className={`pointer-events-none overflow-hidden ${rounded} ${className}`} style={{ maskImage: melt, background: shown ? undefined : `color-mix(in srgb, ${scene.color} 30%, transparent)` }}>
+    <div aria-hidden data-scene={place} className={`pointer-events-none overflow-hidden ${rounded} ${className}`} style={{ maskImage: melt, background: shown ? undefined : `color-mix(in srgb, ${scene.color} 30%, transparent)` }}>
       {/* While the full picture decodes: its small copy, softened, so the page
           starts on the picture rather than on a flat colour. */}
       {!shown && scene.small && <img src={scene.small} alt="" className="absolute inset-0 size-full scale-110 object-cover blur-xl" />}
@@ -316,23 +316,21 @@ export function PictureCredit({ children, className = '' }: { children: ReactNod
 
 /**
  * Today's page's banner: a painted strip of the day's scene, one a day and
- * the same all that day, framed like a print when Postcards is on.
+ * the same all that day.
  */
 export function DayBanner({ day, seed = `day:${day}` }: { day: string; /** A week's or a month's own, so it is not the same picture as its first day's. */ seed?: string }): React.JSX.Element | null {
   const { settings, scenes, loading } = useScenery()
   // Its page waits for it: a banner arriving a beat late pushed the whole page down.
   useReading(!settings || (!!settings.scenery && !!settings.sceneryToday && loading))
   if (!settings?.scenery || !settings.sceneryToday || !scenes.length) return null
-  const framed = !!settings.postcards
   // Named as the day's own picture is: the same scene the banner below picks.
   const named = sceneCredit(choose(scenes, `${seed}:${settings.sceneryShuffle ?? 0}`, ['day', 'dusk', 'night', 'interior'], true))
+  // The same band as every empty page's: its corners and its fade into the page, never a framed print (Postcards is for memories).
   return (
     <figure className="mb-5">
-    <div className={`relative aspect-[4/1] min-h-28 w-full overflow-hidden rounded-xl ${framed ? 'bg-(--mf-postcard) p-1.5 shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent),0_10px_28px_-10px_color-mix(in_oklab,var(--mf-shadow-ink)_35%,transparent)]' : ''}`}>
-      <div className="relative size-full overflow-hidden rounded-lg">
-        {/* Not the hour's mood: a day keeps one picture from morning to night. */}
-        <Scenery place="today" seed={seed} mood={['day', 'dusk', 'night', 'interior']} className="absolute inset-0" rounded="rounded-lg" soft />
-      </div>
+    <div className="relative aspect-[4/1] min-h-28 w-full">
+      {/* Not the hour's mood: a day keeps one picture from morning to night. */}
+      <Scenery place="today" seed={seed} mood={['day', 'dusk', 'night', 'interior']} fade className="absolute inset-0" rounded="rounded-xl" soft />
     </div>
     {named && <figcaption className="mt-1.5 flex justify-end"><PictureCredit className="text-right">{named}</PictureCredit></figcaption>}
     </figure>

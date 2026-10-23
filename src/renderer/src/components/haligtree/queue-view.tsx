@@ -17,11 +17,13 @@ import { ReadThrough } from './read-through'
 import { RowMenu, copy, type MenuItem } from './row-menu'
 import { openApart } from '@/lib/apart'
 import { SortableList, SortableRow } from './sortable'
-import { Empty, Island, Page, Rolling, Tags, Tip, toast, typing, useListKeys } from './ui'
+import { Island, Page, Rolling, Tags, Tip, toast, typing, useListKeys } from './ui'
 import { taskName } from '@/lib/tasks'
 import { PICKED_MARK } from './pick-mixed'
 import { listInFront, useListScope } from '@/lib/list-front'
 import { Rest } from './scenery'
+import { Example } from './example'
+import { exampleQueue } from '@/lib/examples'
 import { ago, dayMonth, num } from '../../../../main/dates'
 import { X } from '@/components/ui/icons'
 
@@ -271,11 +273,11 @@ export function QueueView(): React.JSX.Element {
       )}>
       <div className="w-full px-5 pt-6 pb-16">
         {!loading && !queue.length && !read.length ? (
-          <Rest seed="queue">
-            <Empty title="Nothing queued yet">
-              Right-click any note, gem or page and choose “Queue”, then “Add to queue”, or “Read next” to read it first. Then read them one after the other.
-            </Empty>
-          </Rest>
+          <Example tryIt="right-click any note, gem or page and choose “Queue”, then “Add to queue”. Then read them one after the other.">
+            <Island title="Up next">
+              {exampleQueue().map((row, at, rows) => <QueueLine key={row.id} row={row} at={at} rows={rows} pick={{ picked: false, cursor: false, onPickClick: () => true, menu: null, rowItems: [] }} />)}
+            </Island>
+          </Example>
         ) : (
           <>
             {queue.length > 0 ? (

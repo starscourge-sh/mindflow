@@ -124,9 +124,9 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
   const [madeShown, setMadeShown] = useMadeShown()
   const kept: Row[] = [...all.filter(keep).filter((one) => (todoShows(one) || (madeShown && sources.became.has(one.id))) && !binnedWith(one)), ...(everything ? tasks.filter(showsTask(taskState)).map(taskRow) : [])]
   // Nothing of yours here yet: the page as it will look, with a few made-up notes.
-  // Lookups: until a word is first asked, whatever else is kept (the Inbox's own notes say nothing about words).
+  // Lookups and Archived: whenever the list is empty, whatever has been asked or archived before (words in the Bin say nothing here).
   const lookups = title === 'Lookups'
-  const examples = unloaded(all) || kept.length || (all.length && !archived && !(lookups && !all.some((one) => one.lookup))) || (everything && (unloaded(tasks) || tasks.length)) ? [] : archived ? exampleArchived() : lookups ? exampleLookups() : [...exampleInbox(), ...exampleDiscarded()].filter(keep)
+  const examples = unloaded(all) || kept.length || (all.length && !archived && !lookups) || (everything && (unloaded(tasks) || tasks.length)) ? [] : archived ? exampleArchived() : lookups ? exampleLookups() : [...exampleInbox(), ...exampleDiscarded()].filter(keep)
   // Its own Display is kept under the name it had as All captures, so how you set it stays.
   const { groups: every, display, chips, density, view, setView, move, moveBy, island } = useCaptureDisplay(everything ? 'captures:All captures' : `captures:${title}`, kept, undefined, archived,
     // Open, Done or Both, on the Task chip itself: a choice about tasks, worn by them.

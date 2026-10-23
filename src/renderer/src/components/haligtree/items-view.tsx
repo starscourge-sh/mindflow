@@ -23,7 +23,7 @@ import { CAPTURE_TYPES, CaptureKindPicker, asksFor, byKind, type CaptureType } f
 import { age } from '../capture-list'
 import { follow, noteLinkText, recallOffered } from '@/lib/capture-links'
 import { splitTags, unloaded, unread, useLastAsked, useLive, haligtree, whenInLine, type Item, type ItemFull } from '@/lib/haligtree'
-import { exampleIdeas, exampleWriting } from '@/lib/examples'
+import { exampleIdeas, exampleQuestions, exampleWriting } from '@/lib/examples'
 import { Example } from './example'
 import { makeTask, makeTasks } from '@/lib/tasks'
 import { useSelectAll } from '@/lib/select-all'
@@ -622,9 +622,10 @@ export function ItemsView({ tier, focus, onOpen, only }: { tier: 'nugget' | 'art
             picking={picking} onMove={view.sort === 'manual' ? onMove : undefined} after={glossAfter} className={spread ? 'list-edge my-3' : 'list-edge my-2'}
             folds={folding.rows ? { ...folding.folds(menuFor), onNewNote: pick, onSort: setSorting, onSorted: markSorted, onPage: setPageGroup } : undefined} />
         ) : questionsOnly && !unloaded(all) && !all.length ? (
-          <Empty title="No questions yet" action={<Button variant="secondary" size="sm" onClick={() => void startQuestion((type, id) => (type === 'question' ? pick(id) : onOpen?.(type, id)))}><Plus className="size-3.5" /> New question</Button>}>
-            A question is for something you keep thinking about and cannot answer yet. It collects dated clues until you know, then “Answered” turns them into writing. Press H on a note in your Inbox to make it one.
-          </Empty>
+          // No questions yet: the page as it will look, as every other list shows itself.
+          <Example tryIt="press H on a note in your Inbox, or “New question” above. It is held here, gathering dated clues until you know.">
+            <NoteList groups={[['', exampleQuestions().filter((one) => !one.closedAt).map((one) => questionEntry(one))]]} density={density} table="nuggets" cursor={-1} onPick={() => undefined} className="list-edge my-2" />
+          </Example>
         ) : all.length && query.trim() ? (
           <Empty title="Nothing matches">No title here has those words. Escape clears the search.</Empty>
         ) : unloaded(all) ? null : !all.length ? (

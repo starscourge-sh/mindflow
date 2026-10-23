@@ -549,7 +549,7 @@ export function SettingsView(): React.JSX.Element {
             <BlurSample />
             <Switch checked={settings.blur !== false} onCheckedChange={(blur) => set({ blur })} />
           </Setting>
-          <Setting title="Postcards" note="Pictures in notes, and memories in the Journal, get a border and a soft shadow, like a print on a desk." more="Videos and the pictures on a day's page too." keywords="images pictures photos border frame white memories memory">
+          <Setting title="Postcards" note="Pictures in notes, and memories in the Journal, get a border and a soft shadow, like a print on a desk." more="Videos too. A page's banner stays unframed, like every page's picture." keywords="images pictures photos border frame white memories memory">
             <PictureSample caption={null} frame={settings.postcards ? POSTCARD_BORDERS[settings.postcardBorder ?? 'auto']() : undefined} />
             <Switch checked={!!settings.postcards} onCheckedChange={(postcards) => set({ postcards })} />
           </Setting>
