@@ -1247,9 +1247,10 @@ export function Home(): React.JSX.Element {
             { label: 'Sort out the Inbox', hint: 'About ten minutes: where each capture goes', cue: null, run: openInboxSort },
             { label: 'Close the week', hint: 'What went well, what moves on, and the one thing for next week', cue: null, run: openCloseWeek },
             // A spare few minutes: what fits them, in the Matrix's order. "i have 20" or "20 min" asks straight away.
-            { label: 'I have 15 minutes…', hint: 'Tasks that fit the time you have', cue: null, run: () => {},
+            // One of the focus tools: offered only while they are on, as in Tasks' ⋯.
+            ...(settings?.focusTools === true ? [{ label: 'I have 15 minutes…', hint: 'Tasks that fit the time you have', cue: null, run: () => {},
               choices: () => FIT_CHOICES.map((minutes) => ({ label: `${minutes} minutes`, note: minutes === (settings?.fitMinutes ?? 15) ? 'last time' : undefined, run: () => openFits(minutes) })),
-              heard: (typed: string) => { const minutes = fitsHeard(typed); return minutes ? { label: `I have ${minutes} minutes`, hint: 'Tasks that fit', cue: null, run: () => openFits(minutes) } : null } },
+              heard: (typed: string) => { const minutes = fitsHeard(typed); return minutes ? { label: `I have ${minutes} minutes`, hint: 'Tasks that fit', cue: null, run: () => openFits(minutes) } : null } }] : []),
             { label: 'Open my playbook', hint: 'How I work, in my own words', cue: null, run: () => void openPlaybook() },
             { label: 'Show the welcome again', cue: null, run: () => playWelcome() },
             // Either welcome, to feel which is right: played in the sandbox, so your own book is never touched.
