@@ -290,8 +290,8 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
           <span className="flex items-center gap-2">
             <Chips className="shrink-0" options={[{ id: 'open', label: 'Open' }, { id: 'settled', label: 'Ended' }]} on={(id) => id === show} pick={(id) => switchTo(id as 'open' | 'settled')} />
             {openOnes(all).length > 1 && <Button variant="ghost" size="sm" data-all-goals-sticky onClick={showAllGoals} title="Every open goal on one sticky, each in its own colour"><StickyNote className="size-3.5" /> All on one sticky</Button>}
-            {/* With none open, the empty page's own button is the one "New goal". */}
-            {(items.length > 0 || show !== 'open' || !all.length) && <Button variant="ghost" size="sm" onClick={() => void startGoal(go)}><Plus className="size-3.5" /> New goal</Button>}
+            {/* Always here, whichever chip is on: nothing in the bar comes or goes as you switch. */}
+            <Button variant="ghost" size="sm" onClick={() => void startGoal(go)}><Plus className="size-3.5" /> New goal</Button>
           </span>
         }
       >

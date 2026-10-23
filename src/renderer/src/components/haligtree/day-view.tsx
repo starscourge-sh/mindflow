@@ -173,15 +173,21 @@ export function DayView({ onOpen, start, onScale, onView }: {
           <Tip label="The day after  →">
             <Button variant="ghost" size="icon-sm" aria-label="The day after" onClick={() => go(shift(day, 1))}><ArrowRight className="size-3.5" /></Button>
           </Tip>
-          {day !== today && <Button variant="ghost" size="sm" onClick={() => go(today)}>Today <Pressed keys="T" /></Button>}
+          {/* Always here, greyed on today: nothing in the bar comes or goes as you step through the days. */}
+          <Button variant="ghost" size="sm" disabled={day === today} onClick={() => go(today)}>Today <Pressed keys="T" /></Button>
           <Tip label="Name what this day is for, like Exam or Launch">
             <Button variant="ghost" size="sm" onClick={() => void markDay(day)}><FlagTriangleRight className="size-3.5" /> Mark</Button>
           </Tip>
-          {!ahead && <Tip label={data?.reviewed ? 'You looked back over this day. Click to take the tick off' : 'Tick once you have looked back over this day'}>
-          <Button variant={data?.reviewed ? 'secondary' : 'ghost'} size="sm" aria-pressed={!!data?.reviewed} onClick={tick}>
-            <AliveIcon icon={CheckedIcon} size={14} /> <Rolling text={data?.reviewed ? 'Looked back' : 'Mark looked back'} by="word" />
+          {/* Always here and one width, whichever it says; greyed on a day still to come. */}
+          <Tip label={ahead ? 'A day still to come: look back once it has been' : data?.reviewed ? 'You looked back over this day. Click to take the tick off' : 'Tick once you have looked back over this day'}>
+          <Button data-looked-back variant={data?.reviewed ? 'secondary' : 'ghost'} size="sm" disabled={ahead} aria-pressed={!!data?.reviewed} onClick={tick}>
+            <AliveIcon icon={CheckedIcon} size={14} />
+            <span className="grid [&>*]:col-start-1 [&>*]:row-start-1">
+              <span aria-hidden className="invisible">Mark looked back</span>
+              <Rolling text={data?.reviewed ? 'Looked back' : 'Mark looked back'} by="word" />
+            </span>
           </Button>
-          </Tip>}
+          </Tip>
         </span>
       }
     >

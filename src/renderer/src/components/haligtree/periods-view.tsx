@@ -91,7 +91,8 @@ function Steps({ name, now, atNow, go }: { name: string; now: string; atNow: boo
       <Tip label={`The ${name} after  →`}>
         <Button variant="ghost" size="icon-sm" aria-label={`The ${name} after`} onClick={() => go(1)}><ArrowRight className="size-3.5" /></Button>
       </Tip>
-      {!atNow && <Button variant="ghost" size="sm" onClick={() => go(0)}>{now} <Pressed keys="T" /></Button>}
+      {/* Always here, greyed on the present one: nothing in the bar comes or goes as you step. */}
+      <Button variant="ghost" size="sm" disabled={atNow} onClick={() => go(0)}>{now} <Pressed keys="T" /></Button>
     </>
   )
 }

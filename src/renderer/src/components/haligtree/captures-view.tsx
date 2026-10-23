@@ -498,7 +498,8 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
                   <Button variant="ghost" size={open || task ? 'icon-sm' : 'sm'} aria-label="Read through" onClick={() => setReadFrom(readStart())} disabled={!readable.length}><AliveIcon icon={BookIcon} size={14} />{!open && !task && ' Read through'}</Button>
                 </Tip>
               )}
-              {/* Always here, in the same place: on, the Inbox lists what was sorted out of it too. */}
+              {display}
+              {/* Always here, in the same place, right of Display (whose sort name changes with it): on, the Inbox lists what was sorted out of it too. */}
               {inboxPage && (
                 <Tip label={everything ? 'Every note and task, sorted or not. Off: only what waits' : 'What was sorted out of the Inbox too, and every task'}>
                   <label data-sorted-too className="flex h-7 cursor-default items-center gap-2 rounded-md px-2 text-control whitespace-nowrap text-foreground/85 hover:bg-accent/60">
@@ -507,7 +508,6 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
                   </label>
                 </Tip>
               )}
-              {display}
               <PaneButtons pane={spread ? 'wide' : 'list'} onPane={setPane} fold={(!!open && !boardShown) || !!task} />
             </span>
           )
