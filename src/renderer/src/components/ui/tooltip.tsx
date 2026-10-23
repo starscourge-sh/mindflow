@@ -25,8 +25,15 @@ let watching = false
 const watchOpened = (): void => {
   if (watching) return
   watching = true
+  // Looked at once a frame at most, never on every change: on a page whose
+  // parts change often (a note opening beside its list), a look on every
+  // change took all the time there was and the page froze.
+  let frame = 0
   new MutationObserver(() => {
-    if (document.querySelector(OPENED)) window.dispatchEvent(new Event("haligtree:opened"))
+    frame ||= requestAnimationFrame(() => {
+      frame = 0
+      if (document.querySelector(OPENED)) window.dispatchEvent(new Event("haligtree:opened"))
+    })
   }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-state"] })
 }
 // One tip at a time: a tip opening shuts the one before it. Going straight

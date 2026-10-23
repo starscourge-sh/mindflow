@@ -10,7 +10,7 @@ import { join } from 'path'
  * then says what it was.
  */
 export function catchFreezes(win: BrowserWindow, name: string): void {
-  if (app.isPackaged || process.env.HALIGTREE_QA_AWAY) return
+  if (app.isPackaged || (process.env.HALIGTREE_QA_AWAY && !process.env.HALIGTREE_FREEZE_CATCH)) return
   const wc = win.webContents
   // The debugger has to be listening before a freeze: once the page is stuck it can still be paused, but
   // not switched on. So it is attached and enabled on every load (a reload drops it).
