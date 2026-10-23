@@ -1056,9 +1056,11 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
       onDensity={(next) => setView({ ...view, [wide ? 'wideDensity' : 'density']: next })}
     />
   )
-  // Which tasks show rides on the Task chip, while tasks are among what shows: nothing picked, or Task picked.
+  // Which tasks show rides on the Task chip. While tasks are not among what shows (another kind picked
+  // without Task) it stays in its place, greyed, so the chips after it never shift under the pointer.
   const kinds = view.filter.kind ?? []
-  const addons = taskChoice && (!kinds.length || kinds.includes('task')) ? { task: taskChoice } : undefined
+  const tasksOut = kinds.length > 0 && !kinds.includes('task')
+  const addons = taskChoice ? { task: <span data-task-choice-off={tasksOut || undefined} inert={tasksOut || undefined} className={`flex transition-opacity duration-80 ${tasksOut ? 'opacity-40' : ''}`}>{taskChoice}</span> } : undefined
   const chips = <FilterChips view={view} onChange={setView} facets={facets} defaults={filter ?? {}} addons={addons} wrap />
   // Rows only: tiles keep their plain headings.
   const island = useIslands(name, islandsOn(view) && (density === 'list' || density === 'compact'))

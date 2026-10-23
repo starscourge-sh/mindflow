@@ -835,9 +835,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
       ) : (
         <div className={`page-column relative flex flex-col gap-8 pt-4 pb-10 @[44rem]/page:pt-5 ${enter ? 'mf-stagger' : ''}`}>
           <div className="flex flex-col gap-4">
-            {/* What the tiles are, said once: a newcomer should not have to guess. */}
-            {shownTiles.length > 0 && <div className="px-5 @[44rem]/page:px-8"><Heading title={pins.length ? 'Pinned, and what you opened lately' : 'What you opened lately'} /></div>}
-            {/* What the page holds. */}
+            {/* What the page holds: first, so nothing above it changes as a chip is picked. */}
             <div ref={chipRow} {...chipHover.handlers} role="tablist" aria-label="Show" className="relative isolate flex flex-wrap gap-1.5 px-5 @[44rem]/page:px-8">
               <Highlight spot={chipChosen.spot} snap={chipChosen.snap} travel={spring.moderate} className="rounded-full bg-foreground" />
               <Highlight spot={chipHover.spot} session={chipHover.session} snap={chipHover.snap} from={chipChosen.spot} className="rounded-full bg-foreground/[0.05]" />
@@ -849,6 +847,9 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
                 </button>
               ))}
             </div>
+            {/* What the tiles are, said once: a newcomer should not have to guess. Under the
+                chips, so a chip with no tiles never moves the chips under the pointer. */}
+            {shownTiles.length > 0 && <div className="px-5 @[44rem]/page:px-8"><Heading title={pins.length ? 'Pinned, and what you opened lately' : 'What you opened lately'} /></div>}
             {shownTiles.length > 0 && (
               <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,15rem),1fr))] gap-2 px-5 @[44rem]/page:px-8">
                 {shownTiles.map((card) => <Tile key={card.id} card={card} pinned={pinned.has(card.id)} actions={actions} onHover={setHover} />)}

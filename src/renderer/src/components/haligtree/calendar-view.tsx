@@ -23,7 +23,7 @@ import { RowMenu } from './row-menu'
 import { MonthPlan, MonthShowMenu } from './month-plan'
 import { taskMenu, useTaskNow } from './tasks-view'
 import { DaySide, type SideAsk } from './day-side'
-import { Highlight, useFluidHover } from './glide'
+import { Highlight, useFluidHover, Weighted } from './glide'
 import { LateMenu, lateItems, lateOnes } from './late-tasks'
 import { PlanDid, PlannedTotal, useFocusOn } from './planned-did'
 import { calendarHere } from '@/lib/calendar-scope'
@@ -668,9 +668,10 @@ function ViewPick({ mode, onPick }: { mode: Mode; onPick: (mode: Mode) => void }
       {views.map(([id, label, key]) => (
         <Tip key={id} label={`${label} (${key})`}>
           <button type="button" role="radio" aria-checked={mode === id} data-cal-view={id} onClick={() => onPick(id)}
-            className={`relative h-7 rounded-md px-3 text-control outline-none focus-visible:ring-2 focus-visible:ring-ring ${mode === id ? 'font-medium text-foreground' : 'text-foreground/75 hover:text-foreground'}`}>
+            className={`relative h-7 rounded-md px-3 text-control outline-none focus-visible:ring-2 focus-visible:ring-ring ${mode === id ? 'text-foreground' : 'text-foreground/75 hover:text-foreground'}`}>
             {mode === id && <motion.span layoutId={pill} aria-hidden className="absolute inset-0 rounded-md bg-background shadow-sm" transition={byKeys() ? { duration: 0 } : { type: 'spring', stiffness: 520, damping: 40 }} />}
-            <span className="relative">{label}</span>
+            {/* Bolder when picked in the room its bold word already takes, so the three never shift. */}
+            <Weighted on={mode === id} className="relative">{label}</Weighted>
           </button>
         </Tip>
       ))}

@@ -291,16 +291,25 @@ const Row = ({ label, changed, children }: { label: string; changed: boolean; ch
 /**
  * A filter chip that says plainly whether it is on: off, a hairline outline
  * on the page; on, filled in the accent with a tick, the outline darkened.
- * Borders on both, since the fills alone are too faint to tell apart.
+ * Borders on both, since the fills alone are too faint to tell apart. Its
+ * mark (a kind's icon or colour) and the tick share one box of one size, the
+ * tick in the mark's place while on, so a chip is one width on or off and
+ * never shoves the chips beside it out from under the pointer.
  */
-export function Chip({ on, onClick, children, addon }: { on: boolean; onClick: () => void; children: ReactNode; /** A choice that belongs to this option, in the same pill after its name: a task's Open, Done or Both. */ addon?: ReactNode }): React.JSX.Element {
+export function Chip({ on, onClick, children, addon, mark }: {
+  on: boolean; onClick: () => void; children: ReactNode
+  /** A choice that belongs to this option, in the same pill after its name: a task's Open, Done or Both. */
+  addon?: ReactNode
+  /** Its icon or colour dot, before its name. */
+  mark?: ReactNode
+}): React.JSX.Element {
   const look = on
     ? 'border-[color-mix(in_srgb,var(--tt-brand-color-400)_55%,transparent)] bg-[color-mix(in_srgb,var(--tt-brand-color-400)_18%,transparent)] text-foreground'
     : 'border-border bg-transparent text-muted-foreground hover:border-foreground/25 hover:text-foreground data-[fluid-hover-active]:border-foreground/25 data-[fluid-hover-active]:text-foreground'
   const press = (event: React.MouseEvent<HTMLElement>): void => (onClick(), event.currentTarget.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: glideWay() }))
   const face = (
     <>
-      {on && <Check className="-ml-0.5 size-3 text-[var(--tt-brand-color-400)]" />}
+      <span className="grid size-3.5 shrink-0 place-items-center">{on ? <Check className="size-3 text-[var(--tt-brand-color-400)]" /> : mark}</span>
       {children}
     </>
   )
@@ -365,11 +374,11 @@ export function FilterChips<T>({ view, onChange, facets, defaults = {}, quick = 
           stay in their own order whether on or off, so a click never moves
           the chip out from under the pointer. */}
       {set.filter(({ facet }) => facet.key !== offered?.key).map(({ facet, option }) => (
-        <Chip key={`${facet.key}:${option.id}`} on onClick={() => toggle(facet.key, option.id)}>{icon(option)}{option.label}</Chip>
+        <Chip key={`${facet.key}:${option.id}`} on onClick={() => toggle(facet.key, option.id)} mark={icon(option)}>{option.label}</Chip>
       ))}
       {offered && offers && offered.options.map((option) => (
         <Chip key={option.id} on={(view.filter[offered.key] ?? []).includes(option.id) && !(defaults[offered.key] ?? []).includes(option.id)}
-          onClick={() => toggle(offered.key, option.id)} addon={addons[option.id]}>{icon(option)}{option.label}</Chip>
+          onClick={() => toggle(offered.key, option.id)} addon={addons[option.id]} mark={icon(option)}>{option.label}</Chip>
       ))}
       {/* A chosen chip shows its ✓ and a click takes it off; with two or more on, one × clears them all. */}
       {set.length >= 2 && (
