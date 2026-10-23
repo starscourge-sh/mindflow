@@ -13,7 +13,8 @@ await v('settings:set', { hintRate: 0, rotCount: 0, motion: false })
 const left = async (p) => {
   await p.evaluate(() => (document.documentElement.dataset.blurred = 'on'))
   await p.waitForTimeout(400)
-  const o = await p.evaluate(() => Number(getComputedStyle(document.body).opacity))
+  // The page's strength as seen: its own fade, or the main window's veil over it (main.css).
+  const o = await p.evaluate(() => Number(getComputedStyle(document.body).opacity) * (getComputedStyle(document.body, '::after').content === 'none' ? 1 : 1 - Number(getComputedStyle(document.body, '::after').opacity)))
   await p.evaluate(() => (document.documentElement.dataset.blurred = 'off'))
   return o
 }

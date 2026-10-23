@@ -55,6 +55,12 @@ const blurred = (on: boolean) => (): void => void (document.documentElement.data
 // blurs the page but not the window, and that should not dim it.
 window.addEventListener('blur', () => setTimeout(() => blurred(!document.hasFocus())(), 0))
 window.addEventListener('focus', blurred(false))
+// The main window and a drawing's (solid windows) dim under a veil of their own background colour
+// rather than by fading themselves: faded, the dark window behind showed through every pill, menu
+// and toast, and they read as see-through. The box, stickies and a note's window float on
+// see-through windows, where a veil would paint the corners: they keep the fade.
+const opened = new URLSearchParams(window.location.search)
+if (opened.get('view') === 'home' || opened.has('drawing')) document.documentElement.dataset.dim = 'veil'
 // A window never scrolls as a whole: each page scrolls inside itself. Something
 // reaching past the edge, brought into view by focus, would otherwise slide the
 // sidebar and title bar off the window; no CSS stops a scroll asked for that way.

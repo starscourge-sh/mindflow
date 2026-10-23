@@ -7,7 +7,7 @@ const home = electron.windows().find((w) => w.url().includes('home'))
 const probe = (p) => p.evaluate(() => {
   const t = document.createElement('div'); t.setAttribute('data-private', ''); t.innerHTML = '<span class="private-text">x</span>'; document.body.append(t)
   const f = getComputedStyle(t.firstChild).filter; t.remove()
-  document.documentElement.dataset.blurred = 'on'; const o = getComputedStyle(document.body).opacity; document.documentElement.dataset.blurred = 'off'
+  document.documentElement.dataset.blurred = 'on'; const o = Number(getComputedStyle(document.body).opacity) * (getComputedStyle(document.body, '::after').content === 'none' ? 1 : 1 - Number(getComputedStyle(document.body, '::after').opacity)); document.documentElement.dataset.blurred = 'off'
   return `${f} / ${o}`
 })
 console.log('on :', await probe(page), '|', await probe(home))

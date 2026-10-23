@@ -966,6 +966,26 @@ body {
 [data-blurred='on'] body:has(.mf-floating) {
   opacity: 1;
 }
+/* A window with a page in it dims under a veil of its own background instead
+   (main.tsx sets data-dim): the page stays at full strength under it, so every
+   surface on it stays solid. Same fade, opacity only, never in the way of a click. */
+[data-dim='veil'][data-blurred='on'] body {
+  opacity: 1;
+}
+[data-dim='veil'] body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  background: var(--background);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms ease-out;
+}
+[data-dim='veil'][data-blurred='on'] body::after {
+  opacity: 0.45;
+}
+:root[data-noblur][data-dim='veil'][data-blurred='on'] body::after { opacity: 0; }
 
 /* The row a right-click menu belongs to stays marked while the menu is open. */
 [data-slot='context-menu-trigger'][data-state='open'] {
