@@ -39,7 +39,7 @@ export function catchFreezes(win: BrowserWindow, name: string): void {
     const file = join(dir, `freeze-${name.replace(/\W+/g, '-')}-${new Date().toISOString().replace(/[:.]/g, '-')}.txt`)
     try {
       if (!wc.debugger.isAttached()) throw new Error('the debugger was not listening (DevTools open?)')
-      type Frame = { functionName: string; url: string; location: { scriptId: string; lineNumber: number; columnNumber: number } }
+      type Frame = { callFrameId: string; functionName: string; url: string; location: { scriptId: string; lineNumber: number; columnNumber: number } }
       type Stack = { description?: string; callFrames: { functionName: string; url: string; lineNumber: number; columnNumber: number }[]; parent?: Stack }
       // Five pauses a moment apart: a loop runs through more than one place, and one pause sees only one.
       const once = (): Promise<{ callFrames: Frame[]; asyncStackTrace?: Stack } | null> => new Promise((done) => {
@@ -69,6 +69,13 @@ export function catchFreezes(win: BrowserWindow, name: string): void {
           const at = top.location.lineNumber
           lines.push('  code there:', ...all.slice(Math.max(0, at - 6), at + 4).map((line, i) => `    ${Math.max(0, at - 6) + i + 1}${Math.max(0, at - 6) + i === at ? ' >' : '  '} ${line.slice(0, 200)}`))
           if (round === 1) lines.push(`  script: ${top.location.scriptId}, ${all.length} lines, starts: ${all[0]?.slice(0, 160)}`)
+        }
+        // Stopped inside a page watcher: what changed, so the loop says what keeps changing.
+        if (top) {
+          const said = (node: string): string => `(${node} ? (${node}.nodeName + (${node}.className && typeof ${node}.className === 'string' ? '.' + ${node}.className.trim().split(/\\s+/).slice(0, 3).join('.') : '') + (${node}.dataset && Object.keys(${node}.dataset).length ? '[' + Object.keys(${node}.dataset).slice(0, 3).join(',') + ']' : '')) : '-')`
+          const expression = `(() => { const list = typeof mutations !== 'undefined' ? mutations : typeof records !== 'undefined' ? records : (this && this.queue) || null; if (!list) return 'no mutation list here'; return list.length + ' changes: ' + Array.from(list).slice(0, 12).map((m) => m.type + ' on ' + ${said('m.target')} + ' in ' + ${said('(m.target.parentElement || null)')} + (m.attributeName ? ' attr ' + m.attributeName : '') + (m.addedNodes && m.addedNodes.length ? ' +' + Array.from(m.addedNodes).slice(0, 3).map((n) => ${said('n')}).join(',') : '') + (m.removedNodes && m.removedNodes.length ? ' -' + Array.from(m.removedNodes).slice(0, 3).map((n) => ${said('n')}).join(',') : '')).join(' | ') })()`
+          const seen = await wc.debugger.sendCommand('Debugger.evaluateOnCallFrame', { callFrameId: top.callFrameId, expression, returnByValue: true }).then((one: { result: { value?: unknown; description?: string } }) => String(one.result.value ?? one.result.description), (error: unknown) => `(could not read: ${String(error)})`)
+          lines.push(`  changes: ${seen.slice(0, 2500)}`)
         }
         parts.push(`pause ${round}:\n${lines.join('\n')}`)
         if (wc.isDestroyed()) break
