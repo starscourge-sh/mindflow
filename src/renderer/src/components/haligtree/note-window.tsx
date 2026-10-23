@@ -46,7 +46,7 @@ function OpenHere(): React.JSX.Element {
   return (
     <Tip label="Open in the main window  ⌘O">
       <button type="button" data-open-in-haligtree onClick={() => void openInHaligtree()}
-        className="ml-14 flex h-7 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-control whitespace-nowrap text-foreground/80 transition-colors hover:bg-accent hover:text-foreground @[40rem]/page:ml-0">
+        className="ml-[5.25rem] flex h-7 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-control whitespace-nowrap text-foreground/80 transition-colors hover:bg-accent hover:text-foreground @[40rem]/page:ml-0">
         <AppWindowMacIcon className="size-3.5" strokeWidth={1.8} />
         Open in {APP_NAME}
       </button>
