@@ -33,6 +33,7 @@ import { app, shell, BrowserWindow, clipboard, ClipboardItem, dialog, globalShor
 import { createHash, randomUUID } from 'crypto'
 import { execFile } from 'child_process'
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
+import { catchFreezes } from './freeze-catch'
 import { copyFile, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'fs/promises'
 import { basename, dirname, join, relative } from 'path'
 import { uptime } from 'os'
@@ -1634,6 +1635,8 @@ function makeHome(): BrowserWindow {
     home.on(change as 'resized', () => void (home && pending?.win !== home && (tellFilled(home), keepHomePlace(home))))
   guard(home)
   load(home, '?view=home')
+  // A freeze in a development run says where it was stuck (src/main/freeze-catch.ts).
+  catchFreezes(home, 'main window')
   return home
 }
 
