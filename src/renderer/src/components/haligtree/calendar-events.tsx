@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { createRoot } from 'react-dom/client'
 import { AnimatePresence, motion } from 'motion/react'
-import { AlignLeft, Ban, Bell, CalendarDays, Check, Clock, Copy, CopyPlus, Eye, EyeOff, FileText, Globe, MapPin, Pencil, Plus, Repeat as RepeatIcon, Scissors, Trash2, Users, Video, X } from 'lucide-react'
+import { AlignLeft, Ban, Bell, CalendarDays, Check, Clock, Copy, CopyPlus, FileText, Globe, MapPin, Pencil, Plus, Repeat as RepeatIcon, Scissors, Trash2, Users, Video, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -555,11 +555,14 @@ export function CalendarLayers({ layers }: { layers: ReturnType<typeof useLayers
     toast(`${one.name} deleted${moved.length ? `. Its ${moved.length === 1 ? 'event moved' : `${moved.length} events moved`} to ${to.name}` : ''}`, () => void events.setCalendar({ id: one.id, binned: false }).then(() => void (moved.length && events.moveEvents(to.id, one.id, moved))))
   }
   // Each calendar a box ticked in its own colour, as Calendar on the Mac has them: ticked, its events show.
-  const row = (id: string, name: string, color: string, extra?: React.ReactNode): React.JSX.Element => {
+  // Each calendar a box ticked in its own colour, as Calendar on the Mac has them: ticked, its events show.
+  // Its other choices (rename, colour, delete) are on the row's own right-click menu, as anywhere else.
+  const row = (id: string, name: string, color: string, menu?: RowItem[]): React.JSX.Element => {
     const on = layers.shown(id)
-    return (
+    const li = (
       <li key={id} data-cal-layer={id} className="group/layer flex items-center rounded-md hover:bg-accent/60">
         <button type="button" role="checkbox" aria-checked={on} aria-label={`Show ${name}`} onClick={() => (chime(on ? 'off' : 'on'), layers.toggle(id, !on))}
+          onDoubleClick={menu ? () => (chime('open'), setEditing(id)) : undefined}
           className="flex h-8 min-w-0 flex-1 items-center gap-2.5 rounded-md px-2 text-left text-body outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <span aria-hidden className="flex size-4 shrink-0 items-center justify-center rounded-[4px] border-[1.5px] transition-colors duration-150 motion-reduce:transition-none"
             style={{ borderColor: on ? color : 'color-mix(in oklab, var(--foreground) 35%, transparent)', background: on ? color : 'transparent' }}>
@@ -567,15 +570,9 @@ export function CalendarLayers({ layers }: { layers: ReturnType<typeof useLayers
           </span>
           <span className={`min-w-0 flex-1 truncate transition-colors duration-150 ${on ? 'text-foreground' : 'text-foreground/55'}`}>{name}</span>
         </button>
-        {extra}
-        <Tip label={on ? `Hide ${name}` : `Show ${name}`}>
-          <button type="button" data-cal-layer-eye aria-label={on ? `Hide ${name}` : `Show ${name}`} onClick={() => (chime(on ? 'off' : 'on'), layers.toggle(id, !on))}
-            className={`mr-1 flex size-6 shrink-0 items-center justify-center rounded-md text-foreground/70 outline-none hover:bg-accent hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring ${on ? 'opacity-0 group-hover/layer:opacity-100' : 'opacity-100'}`}>
-            {on ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
-          </button>
-        </Tip>
       </li>
     )
+    return menu ? <RowMenu key={id} items={menu}>{li}</RowMenu> : li
   }
   return (
     <div data-cal-layers className="flex flex-col gap-0.5">
@@ -583,12 +580,11 @@ export function CalendarLayers({ layers }: { layers: ReturnType<typeof useLayers
         <h2 className="flex-1 text-control font-medium text-foreground/80">My calendars</h2>
         <Tip label="Add a calendar"><Button variant="ghost" size="icon-sm" data-cal-layer-add aria-label="Add a calendar" onClick={() => void add()}><Plus /></Button></Tip>
       </div>
-      <p data-cal-layers-about className="px-2 pb-1 text-control text-foreground/75">Each calendar is a colour and a layer of events you can hide.</p>
+      <p data-cal-layers-about className="px-2 pb-1 text-control text-foreground/75">Tick one to show its events. Right-click to rename, recolour or delete it.</p>
       <ul className="flex flex-col">
         {layers.calendars.map((one) => editing === one.id
           ? <CalendarEdit key={one.id} one={one} onDone={() => setEditing(null)} />
-          : row(one.id, one.name, inkOf(one.color), (
-            <RowMenu items={[
+          : row(one.id, one.name, inkOf(one.color), [
               { label: 'Rename', run: () => setEditing(one.id) },
               { heading: 'Colour' },
               { swatches: COLORS.map((color) => ({ color: inkOf(color), label: color, on: one.color === color, run: () => void events.setCalendar({ id: one.id, color }).then(() => chime('tap')) })) },
@@ -598,10 +594,7 @@ export function CalendarLayers({ layers }: { layers: ReturnType<typeof useLayers
                 const to = layers.calendars.find((other) => other.id !== one.id)
                 return to ? [{ label: `Delete, its events go to ${to.name}`, danger: true, run: () => void deleteCalendar(one, to) }] : [{ heading: 'The last calendar stays: an event needs one' }]
               })()
-            ]}>
-              <button type="button" aria-label={`Change ${one.name}`} onClick={() => (chime('open'), setEditing(one.id))} className="mr-1 flex h-6 items-center rounded-sm px-1.5 text-control text-foreground opacity-0 group-hover/layer:opacity-100 hover:bg-accent focus-visible:opacity-100">Edit</button>
-            </RowMenu>
-          )))}
+            ]))}
         {row('tasks', 'Tasks', 'var(--tt-brand-color-400)')}
       </ul>
       {layers.mac.length > 0 && (

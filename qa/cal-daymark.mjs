@@ -253,10 +253,10 @@ try {
   await h.keyboard.press('Meta+z'); await h.waitForTimeout(900)
   // The eye on a calendar hides it; the name goes grey.
   await h.locator(`[data-cal-layer="${social}"]`).hover()
-  await h.locator(`[data-cal-layer="${social}"] [data-cal-layer-eye]`).click(); await h.waitForTimeout(700)
+  await h.locator(`[data-cal-layer="${social}"] [role="checkbox"]`).click(); await h.waitForTimeout(700)
   check('the eye on a calendar hides it', await h.locator('[data-cal-event]', { hasText: 'Quick Catch-up' }).count() === 0 && (await h.locator(`[data-cal-layer="${social}"] [role="checkbox"]`).getAttribute('aria-checked')) === 'false')
   await shot('hidden-light-1600')
-  await h.locator(`[data-cal-layer="${social}"] [data-cal-layer-eye]`).click(); await h.waitForTimeout(700)
+  await h.locator(`[data-cal-layer="${social}"] [role="checkbox"]`).click(); await h.waitForTimeout(700)
   // "October 2026 ⌄" and . go to any date.
   await h.locator('[data-cal-jump]').click(); await h.waitForTimeout(400)
   check('"October 2026 ⌄" opens a small month to go to a date', await h.locator('[data-cal-jump-month] [data-cal-mini]').count() === 1)
