@@ -327,7 +327,7 @@ export function Chip({ on, onClick, children, addon }: { on: boolean; onClick: (
  */
 export function FilterChips<T>({ view, onChange, facets, defaults = {}, quick = 'kind', className = '', wrap = false, addons = {}, extra }: {
   view: View
-  /** A chip of another sort at the end of the row: the Inbox's Graph. */
+  /** A chip of another sort at the row's far right: the Inbox's Graph. */
   extra?: ReactNode
   /** A choice that belongs to one quick option, drawn inside that option's chip. */
   addons?: Record<string, ReactNode>
@@ -359,7 +359,7 @@ export function FilterChips<T>({ view, onChange, facets, defaults = {}, quick = 
   return (
     // One line that scrolls sideways, fading where there is more, never wrapping under itself.
     // Only a chip itself toggles: a click in the space beside one does nothing (the light's own click-through is left out here).
-    <div data-hover-quiet data-filter-chips ref={(node) => { box.current = node; if (!wrap) row.ref(node) }} {...hover.handlers} onClick={undefined} style={wrap ? undefined : row.style} className={`isolate flex min-w-0 items-center gap-1 text-xs ${wrap ? 'relative flex-wrap gap-y-1' : row.className} ${className}`}>
+    <div data-hover-quiet data-filter-chips ref={(node) => { box.current = node; if (!wrap) row.ref(node) }} {...hover.handlers} onClick={undefined} style={wrap ? undefined : row.style} className={`isolate flex min-w-0 items-center gap-1 text-xs ${extra ? 'w-full' : ''} ${wrap ? 'relative flex-wrap gap-y-1' : row.className} ${className}`}>
       <Highlight spot={hover.spot} session={hover.session} snap={hover.snap} className="rounded-full bg-accent/60" />
       {/* Chosen filters from other facets first; the quick facet's options
           stay in their own order whether on or off, so a click never moves
@@ -381,7 +381,8 @@ export function FilterChips<T>({ view, onChange, facets, defaults = {}, quick = 
           </button>
         </Tip>
       )}
-      {extra && (<>{(set.length > 0 || offers) && <span aria-hidden className="mx-0.5 h-4 w-px shrink-0 bg-border" />}{extra}</>)}
+      {/* A view, not a filter: at the row's far end, so it never reads as one more kind. */}
+      {extra && <span className="ml-auto flex shrink-0 pl-3">{extra}</span>}
     </div>
   )
 }
