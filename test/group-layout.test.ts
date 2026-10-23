@@ -1,7 +1,7 @@
 // Run with: node --test test/group-layout.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { drop, flatten, gather, landsIn, layoutOf, step, tidy } from '../src/renderer/src/lib/group-layout.ts'
+import { drop, flatten, gather, groupsAround, landsIn, layoutOf, reorderAs, sameLayout, shownKeys, step, tidy } from '../src/renderer/src/lib/group-layout.ts'
 
 const make = () => ({ id: 'n', name: 'New group' })
 // a, then group G holding b and c, then d and e.
@@ -148,4 +148,29 @@ test('a subgroup left with one note comes apart inside its group', () => {
 
 test('a subgroup whose group came apart stands as a group of its own', () => {
   assert.deepEqual(layoutOf(['a', 'c', 'x'], [{ id: 'G', members: [] }, { id: 'S', members: ['c', 'x'], parent: 'G' }]), { top: ['a', 'g:S'], groups: { S: ['c', 'x'] } })
+})
+
+test('a list sorted some other way is laid out as it is seen, rows not on show keeping their slots', () => {
+  const layout = layoutOf(['a', 'b', 'c', 'd', 'e'], [{ id: 'G', members: ['b', 'c', 'd'] }])
+  const seen = reorderAs(layout, ['e', 'g:G', 'd', 'b', 'a'])
+  assert.deepEqual(seen.top, ['e', 'g:G', 'a'])
+  // c is filtered out: it keeps its slot, the two seen swap round it.
+  assert.deepEqual(seen.groups.G, ['d', 'c', 'b'])
+})
+
+test('the rows on show leave out what a folded group holds', () => {
+  const layout = layoutOf(['a', 'b', 'c', 'd'], [{ id: 'G', members: ['b', 'c'] }])
+  assert.deepEqual(shownKeys(layout, new Set()), ['a', 'g:G', 'b', 'c', 'd'])
+  assert.deepEqual(shownKeys(layout, new Set(['G'])), ['a', 'g:G', 'd'])
+})
+
+test('a subgroup let go inside another subgroup lands beside it, never two levels in', () => {
+  const layout = layoutOf(['a', 'b', 'c', 'd', 'e'], [{ id: 'O', members: ['e'] }, { id: 'S', members: ['a', 'b'], parent: 'O' }, { id: 'T', members: ['c', 'd'], parent: 'O' }])
+  assert.deepEqual(layout.groups.O, ['g:S', 'g:T', 'e'])
+  assert.equal(drop(layout, 'g:T', 'g:S', 'join', none, make), null)
+  const next = drop(layout, 'g:T', 'b', 'before', none, make)!
+  assert.deepEqual(next.groups.O, ['g:T', 'g:S', 'e'])
+  assert.deepEqual(groupsAround(next, 'c'), ['T', 'O'])
+  assert.equal(sameLayout(next, layout), false)
+  assert.equal(sameLayout(drop(layout, 'b', 'a', 'after', none, make)!, layout), true)
 })

@@ -288,3 +288,42 @@ export function tidy(layout: Layout): { layout: Layout; dissolved: string[] } {
   }
   return { layout: now, dissolved }
 }
+
+/**
+ * The layout put in the order a list shows it (`seen`: every key, groups'
+ * too, in the order they are drawn), for a list sorted some other way: a drop
+ * there starts from what you see. Each list keeps its keys; only the ones in
+ * `seen` change places, among the slots they had, so rows filtered out stay
+ * where they were.
+ */
+export function reorderAs(layout: Layout, seen: string[]): Layout {
+  const at = new Map(seen.map((key, index) => [key, index]))
+  const sort = (list: string[]): string[] => {
+    const slots = list.map((key, index) => (at.has(key) ? index : -1)).filter((index) => index >= 0)
+    const moved = slots.map((index) => list[index]).sort((a, b) => at.get(a)! - at.get(b)!)
+    const out = [...list]
+    slots.forEach((slot, index) => (out[slot] = moved[index]))
+    return out
+  }
+  return { top: sort(layout.top), groups: Object.fromEntries(Object.entries(layout.groups).map(([group, list]) => [group, sort(list)])) }
+}
+
+/** The rows on show, in order: every key, a folded group's row but none of what it holds. */
+export const shownKeys = (layout: Layout, folded: Set<string>): string[] => {
+  const open = (key: string, depth: number): string[] => (isGroup(key) && depth < 3 ? [key, ...(folded.has(groupId(key)) ? [] : (layout.groups[groupId(key)] ?? []).flatMap((one) => open(one, depth + 1)))] : [key])
+  return layout.top.flatMap((key) => open(key, 0))
+}
+
+/** Whether two layouts are the same shape: the same order, and each group holding the same, in the same order. */
+export function sameLayout(a: Layout, b: Layout): boolean {
+  const lists = (one: Layout): string => JSON.stringify([one.top, ...Object.keys(one.groups).filter((group) => one.groups[group].length).sort().map((group) => [group, one.groups[group]])])
+  return lists(a) === lists(b)
+}
+
+/** The groups holding `key`, innermost first. */
+export function groupsAround(layout: Layout, key: string): string[] {
+  const out: string[] = []
+  let at = groupOf(layout, key)
+  while (at && out.length < 3) (out.push(at), (at = groupOf(layout, KEY + at)))
+  return out
+}
