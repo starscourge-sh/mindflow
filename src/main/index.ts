@@ -3175,7 +3175,7 @@ function newNote(): void {
 function updateTray(): void {
   // The Dock's menu says the same as the menu bar's: rebuilt with it.
   updateDock()
-  if (!tray) return
+  if (!tray || tray.isDestroyed()) return
   const { due, tasks, safe } = badge()
   // A running session shows how long it has run ("● 11 h 20 min"), so the menu bar says what you are on. Counts past 9,999 go short ("12k").
   const session = activeSession()

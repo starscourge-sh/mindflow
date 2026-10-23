@@ -23,15 +23,16 @@ export function catchFreezes(win: BrowserWindow, name: string): void {
     }
   }
   wc.on('did-finish-load', listen)
+  win.on('closed', () => clearInterval(tick))
   let caught = false
   let asking = false
   const tick = setInterval(async () => {
-    if (win.isDestroyed()) return clearInterval(tick)
+    if (win.isDestroyed() || wc.isDestroyed()) return clearInterval(tick)
     if (asking || caught) return
     asking = true
     const answered = await Promise.race([wc.executeJavaScript('1').then(() => true, () => true), new Promise<boolean>((done) => setTimeout(() => done(false), 3000))])
     asking = false
-    if (answered || win.isDestroyed()) return
+    if (answered || win.isDestroyed() || wc.isDestroyed()) return
     caught = true
     const dir = app.getPath('logs')
     mkdirSync(dir, { recursive: true })
@@ -49,12 +50,13 @@ export function catchFreezes(win: BrowserWindow, name: string): void {
         }
         wc.debugger.on('message', heard)
         void wc.debugger.sendCommand('Debugger.pause').catch(() => undefined)
-        setTimeout(() => (wc.debugger.off('message', heard), done(null)), 4000)
+        setTimeout(() => (!wc.isDestroyed() && wc.debugger.off('message', heard), done(null)), 4000)
       })
       const where = (url: string): string => url.replace(/^.*?\/src\//, 'src/').replace(/\?.*$/, '') || '(no file)'
       const parts: string[] = []
       for (let round = 1; round <= 5; round++) {
         const hit = await once()
+        if (wc.isDestroyed()) break
         if (!hit) { parts.push(`pause ${round}: no pause`); break }
         const lines = hit.callFrames.map((frame) => `  ${frame.functionName || '(anonymous)'}  ${where(frame.url)}:${frame.location.lineNumber + 1}:${frame.location.columnNumber + 1}`)
         for (let up = hit.asyncStackTrace; up; up = up.parent)
@@ -69,6 +71,7 @@ export function catchFreezes(win: BrowserWindow, name: string): void {
           if (round === 1) lines.push(`  script: ${top.location.scriptId}, ${all.length} lines, starts: ${all[0]?.slice(0, 160)}`)
         }
         parts.push(`pause ${round}:\n${lines.join('\n')}`)
+        if (wc.isDestroyed()) break
         await wc.debugger.sendCommand('Debugger.resume').catch(() => undefined)
         await new Promise((done) => setTimeout(done, 150))
       }
