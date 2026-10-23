@@ -36,8 +36,13 @@ export function notesMarkdown(html: string, title: string, pictures: Map<string,
   let row: string[] | null = null
   let table: string[][] | null = null
   let cell = ''
+  // Bold, italic, strike and code still open: Apple Notes wraps them round
+  // whole runs of lines, so each line closes them at its end and opens them
+  // again at the next start, rather than leaving a lone "**" on a line.
+  const open: string[] = []
   const flush = (): void => {
-    const words = line.replace(/[ \t]+/g, ' ').trim()
+    const closing = [...open].reverse().join('')
+    const words = tidyMarks(`${line.replace(/\s+$/, '')}${closing}`.replace(/[ \t]+/g, ' ')).trim()
     if (words || prefix) {
       const text = `${prefix}${words}`.trimEnd()
       if (text) {
@@ -45,9 +50,22 @@ export function notesMarkdown(html: string, title: string, pictures: Map<string,
         else blocks.push(text)
       }
     }
-    line = ''
+    line = open.join('')
     prefix = ''
     tight = false
+  }
+  const mark = (token: string, close: boolean): void => {
+    if (close) {
+      const at = open.lastIndexOf(token)
+      if (at === -1) return
+      open.splice(at, 1)
+      // "**word **" is not bold: the mark goes before the spaces.
+      if (row) cell = cell.replace(/(\s*)$/, `${token}$1`)
+      else line = line.replace(/(\s*)$/, `${token}$1`)
+    } else {
+      open.push(token)
+      add(token)
+    }
   }
   const add = (text: string): void => {
     if (row) cell += text
@@ -56,7 +74,17 @@ export function notesMarkdown(html: string, title: string, pictures: Map<string,
   for (const part of html.replace(/\r\n?/g, '\n').split(/(<[^>]+>)/)) {
     if (!part) continue
     if (part[0] !== '<') {
-      add(decode(part.replace(/\n/g, ' ')))
+      const text = decode(part.replace(/\n/g, ' '))
+      // "** word" is not bold either: spaces after an opening mark go before it.
+      const target = row ? cell : line
+      const opened = open.length ? open[open.length - 1] : ''
+      if (opened && target.endsWith(opened) && /^\s/.test(text)) {
+        const lead = /^\s+/.exec(text)![0]
+        const moved = `${target.slice(0, -opened.length)}${lead}${opened}`
+        if (row) cell = moved
+        else line = moved
+        add(text.slice(lead.length))
+      } else add(text)
       continue
     }
     const close = part[1] === '/'
@@ -69,10 +97,10 @@ export function notesMarkdown(html: string, title: string, pictures: Map<string,
     } else if (/^h[1-6]$/.test(name)) {
       flush()
       if (!close) prefix = `${'#'.repeat(Number(name[1]))} `
-    } else if (name === 'b' || name === 'strong') add('**')
-    else if (name === 'i' || name === 'em') add('*')
-    else if (name === 's' || name === 'strike' || name === 'del') add('~~')
-    else if (name === 'tt' || name === 'code') add('`')
+    } else if (name === 'b' || name === 'strong') mark('**', close)
+    else if (name === 'i' || name === 'em') mark('*', close)
+    else if (name === 's' || name === 'strike' || name === 'del') mark('~~', close)
+    else if (name === 'tt' || name === 'code') mark('`', close)
     else if (name === 'a') {
       if (close) {
         const href = links.pop()
@@ -131,6 +159,15 @@ export function notesMarkdown(html: string, title: string, pictures: Map<string,
     if (rest) blocks[0] = rest
     else blocks.shift()
   }
-  // Marks around nothing ("****") are left from empty bold runs.
-  return { markdown: blocks.join('\n\n').replace(/\*\*\*\*/g, '').trim(), missing }
+  return { markdown: blocks.join('\n\n').trim(), missing }
+}
+
+/** Marks around nothing ("****", "~~~~", "** **") are left from empty runs: gone. */
+function tidyMarks(text: string): string {
+  let was = ''
+  while (was !== text) {
+    was = text
+    text = text.replace(/(\*\*|~~|`)(\s*)\1/g, '$2').replace(/(^|[^*])\*(\s+)\*(?!\*)/g, '$1$2')
+  }
+  return text
 }

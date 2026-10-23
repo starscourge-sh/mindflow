@@ -30,3 +30,13 @@ test('a table, and a link that is not a web address dropped to its words', () =>
   const html = '<table><tr><td>Day</td><td>Miles</td></tr><tr><td>Mon</td><td>12</td></tr></table><div><a href="applenotes:note/1">Other note</a></div>'
   assert.equal(notesMarkdown(html, 'Log').markdown, '| Day | Miles |\n| --- | --- |\n| Mon | 12 |\n\nOther note')
 })
+
+test('bold and strike round whole runs of lines leave no stray marks', () => {
+  const html = '<div><b>THE AGREEMENT</b></div><b><div><br></div><div>Effective Date: 25 September </div><div><br></div><div>Between:</div></b><div><b>Kayla (“K”)</b></div><div><b><i>and</i></b></div><s><div><br></div><div><br></div></s><ul><li><s>Bed</s></li><li><s>Fridge</s></li></ul>'
+  const { markdown } = notesMarkdown(html, 'Notes')
+  assert.ok(!/^\s*(\*\*|~~|\*)+\s*$/m.test(markdown), markdown)
+  assert.match(markdown, /\*\*Effective Date: 25 September\*\*/)
+  assert.match(markdown, /\*\*Between:\*\*/)
+  assert.match(markdown, /\*\*\*and\*\*\*|\*\*\*and\*\*\*/)
+  assert.match(markdown, /- ~~Bed~~\n- ~~Fridge~~/)
+})
