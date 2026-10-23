@@ -1,7 +1,7 @@
 import { join, resolve, sep } from 'path'
 
-/** The data folder's names, new and first: a test run must never open either. */
-const NAMES = ['haligtree', 'mindflow']
+/** The data folder's names, new and old (old-data.ts): a test run must never open any of them. */
+const NAMES = ['haligtree', 'mindflow', 'vigil']
 
 /** Is this path one of your real data folders (or inside one), under either name? */
 export function isRealFolder(path: string, appData: string): boolean {
