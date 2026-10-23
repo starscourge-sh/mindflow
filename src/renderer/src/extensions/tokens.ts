@@ -2,7 +2,7 @@ import { Extension } from "@tiptap/core"
 import { Plugin, PluginKey, type Transaction } from "@tiptap/pm/state"
 import { Decoration, DecorationSet } from "@tiptap/pm/view"
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
-import type { JSONContent } from "@tiptap/core"
+import type { Editor, JSONContent } from "@tiptap/core"
 
 import { BLOCK_COLORS, type BlockColor } from "@/extensions/block-color"
 import { TAG } from "../../../main/tag-words"
@@ -338,3 +338,11 @@ export const Tokens = Extension.create<{
     ]
   },
 })
+
+/** Every match in the document, in order. */
+export function findTokens(
+  editor: Editor,
+  patterns: TokenPattern[]
+): TokenMatch[] {
+  return scan(editor.state.doc, patterns)
+}

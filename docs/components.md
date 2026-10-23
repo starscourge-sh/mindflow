@@ -26,9 +26,8 @@ and may move.
 
 ```tsx
 import {
-  HaligtreeEditor, TitleEditor, CommentEditor, LineEditor, DescriptionEditor,
-  setHost, TAGS, tagsOf, findTokens, referencesOf, localise, assetsOf, isStored,
-  type HaligtreeEditorProps, type HaligtreeHost, type TokenPattern, type Reference
+  HaligtreeEditor, CommentEditor, LineEditor, DescriptionEditor, readMarkdown,
+  TAGS, foldEverything, goToHeading, currentVim, onVimChange, setVim
 } from "@/components/haligtree"
 ```
 
@@ -1038,7 +1037,7 @@ not been fully localised is visible.
 somewhere else needs:
 
 ```ts
-import { referencesOf, isStored, isInline, inlineBytes } from "@/components/haligtree"
+import { referencesOf, isStored, isInline, inlineBytes } from "@/lib/document"
 
 referencesOf(note.doc)
 // [{ src: "haligtree://assets/9f2….png", kind: "image" },
@@ -1135,15 +1134,9 @@ what it can hold, and either can carry anything the other can:
 toolbar={{ fixed: false, selection: <MarkButton type="bold" /> }}
 ```
 
-Four presets ship in `components/haligtree/presets`, and each is only a set of
-defaults over the same component: `CommentEditor`, `DescriptionEditor`,
-`LineEditor` and `TitleEditor`. Anything a preset sets can be overridden by
-passing the prop.
-
-`TitleEditor` is a `LineEditor` at input scale, lined up with the body text
-below it. It is the one to reach for above a document, and it exists so that
-the class carrying that scale stays inside the package: a caller should not
-have to know a magic string to make a title look like one.
+Three presets ship in `components/haligtree/presets`, and each is only a set of
+defaults over the same component: `CommentEditor`, `DescriptionEditor` and
+`LineEditor`. Anything a preset sets can be overridden by passing the prop.
 
 ```tsx
 <CommentEditor defaultContent={comment.doc} onChange={save} />

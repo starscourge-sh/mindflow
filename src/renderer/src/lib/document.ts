@@ -237,3 +237,6 @@ export async function localise(
 
   return walk(doc)
 }
+
+/** Is this in the app's own store, rather than someone else's server? Pictures from before the rename are too. */
+export const isStored = (ref: Reference): boolean => ref.src.startsWith("haligtree://assets/") || ref.src.startsWith("mindflow://assets/")
