@@ -502,8 +502,8 @@ export function ItemsView({ tier, focus, onOpen, only }: { tier: 'nugget' | 'art
         // Sent here for one note: the note is on show at once, and the list comes in whole beside it once read.
         apart={sent}
         title={tier === 'nugget' ? 'Gems' : 'Pages'}
-        // Writing, or only its questions: what the list holds, so at the line's left before the count, away from New page and the views.
-        lead={writing && !chosen.length ? <Chips className="shrink-0" options={[{ id: 'all', label: 'All' }, { id: 'questions', label: 'Questions' }]} on={(id) => id === asks} pick={(id) => (setAsks(id as 'all' | 'questions'), setCursor(-1))} /> : undefined}
+        // Writing, or only its questions: what the list holds, so at the line's left before the count, its pill on the list's box edge and its words on the ink edge as Tasks' tabs (qa/list-edges.mjs), away from New page and the views.
+        lead={writing && !chosen.length ? <div data-list-tabs className="flex shrink-0" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink))' }}><Chips className="shrink-0" options={[{ id: 'all', label: 'All' }, { id: 'questions', label: 'Questions' }]} on={(id) => id === asks} pick={(id) => (setAsks(id as 'all' | 'questions'), setCursor(-1))} /></div> : undefined}
         // Every note on show, a folded group's too.
         count={chosen.length || groups.reduce((sum, [, list]) => sum + list.length, 0)}
         // What is picked always shows: the buttons may fold into ⋯ in a narrow window, the count never does.
