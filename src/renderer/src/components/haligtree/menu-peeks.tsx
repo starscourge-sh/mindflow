@@ -174,7 +174,7 @@ const PEEKS: Record<string, MenuPeekEntry> = {
     text: '**Customize sidebar: choose which pages it lists.** One switched off leaves the sidebar, still a G or ⌘K away.',
     art: () => (<>
       <MTitle>Customize sidebar</MTitle>
-      {[['Inbox', true], ['Review', true], ['Matrix', false], ['Map', false]].map(([name, on]) => (
+      {[['Inbox', true], ['Review', true], ['Goals', false], ['Map', false]].map(([name, on]) => (
         <div key={name as string} className="flex items-center gap-1.5 border-b border-foreground/[0.06] py-[3px] last:border-b-0"><span className="flex-1">{name as string}</span><Toggle on={on as boolean} /></div>
       ))}
     </>)

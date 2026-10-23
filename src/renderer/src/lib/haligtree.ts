@@ -302,7 +302,6 @@ export const haligtree = {
   celebrationFiles: () => call<string[]>('celebrations:choose'),
   // Up for private, down for not, from whichever menu or button switched it.
   setPrivate: (table: 'captures' | 'nuggets', id: string, on: boolean, quiet = false) => (quiet || chime(on ? 'on' : 'off'), call('private', table, id, on)),
-  /** False when three are pinned already. */
   pin: (table: 'captures' | 'nuggets', id: string, on: boolean) => call<boolean>('pin', table, id, on),
   pins: () => call<Pin[]>('pins'),
   reviewTuning: () => call<{ cap: number; tuned: boolean; behind: number }>('review:tuning'),

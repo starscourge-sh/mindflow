@@ -7,9 +7,8 @@ import {
   useState,
   type ForwardedRef,
 } from "react"
-import { exitSuggestion, type SuggestionProps } from "@tiptap/suggestion"
+import type { SuggestionProps } from "@tiptap/suggestion"
 
-import { Kbd } from "@/components/haligtree/ui"
 
 import {
   createSuggestionRenderer,
@@ -24,7 +23,7 @@ import { SlashPeek } from "./slash-peek"
 const REST = 450
 
 const SlashList = forwardRef(function SlashList(
-  { items, command, query, editor, range }: SuggestionProps<SlashItem>,
+  { items, command, query }: SuggestionProps<SlashItem>,
   ref: ForwardedRef<SuggestionListHandle>
 ) {
   const [selected, setSelected] = useState(0)
@@ -145,15 +144,6 @@ const SlashList = forwardRef(function SlashList(
           )
         })}
       </div>
-      {/* As Notion ends its menu: the way out, always in sight under the list. */}
-      <button type="button" className="tiptap-menu-close" data-close-menu onMouseDown={(event) => event.preventDefault()} onClick={() => {
-        // As Escape does: a lone `/` goes with the menu.
-        if (!query) editor.chain().focus().deleteRange(range).run()
-        exitSuggestion(editor.view)
-      }}>
-        <span>Close menu</span>
-        <Kbd>esc</Kbd>
-      </button>
     </div>
   )
 })

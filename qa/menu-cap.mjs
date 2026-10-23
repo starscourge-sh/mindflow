@@ -1,5 +1,5 @@
 // The block menu and the / menu never run past the window: capped near 60%
-// of it, scrolling inside, ending in "Close menu  esc" as Notion's does. The
+// of it, scrolling inside; the block menu ends in "Close menu  esc" as Notion's does. The
 // handle is Notion's six-dot grip, in notes, a task's details and the box.
 // FAILS if any menu's foot is below the window's, at 900x700 and 1600x1000.
 // Also: the two page buttons on the selection bar have their own icons and names.
@@ -82,13 +82,14 @@ try {
       await wait(600)
       const s = await menuBox(h, '.tiptap-slash-menu')
       check(`${tag}: the / menu never runs past the window`, s && s.bottom <= s.win + 0.5 && s.top >= -0.5 && s.height <= s.win * 0.6 + 1, JSON.stringify(s))
-      check(`${tag}: the / menu ends in "Close menu esc"`, s && s.close === 'Close menu esc' && s.closeInside, JSON.stringify(s))
+      // The user had the / menu's "Close menu" line taken out (13 Sep): Esc closes it.
+      check(`${tag}: the / menu has no "Close menu" line`, s && !s.close, JSON.stringify(s))
       await h.screenshot({ path: `${SHOTS}/slash-menu-${w}-${look}.png` })
       if (look === 'dark' && w === 900) {
-        await h.locator('.tiptap-slash-menu [data-close-menu]').click()
+        await h.keyboard.press('Escape')
         await wait(300)
         const left = await h.$eval(ED, (el) => el.editor.getText().endsWith('/'))
-        check('"Close menu" closes the / menu and takes its / with it', !(await h.locator('.tiptap-slash-menu').count()) && !left)
+        check('Esc closes the / menu and takes its / with it', !(await h.locator('.tiptap-slash-menu').count()) && !left)
       } else await h.keyboard.press('Escape')
       await wait(300)
       await h.$eval(ED, (el) => { const e = el.editor; const json = e.getJSON(); json.content = json.content.filter((n) => n.content?.length); e.commands.setContent(json) })

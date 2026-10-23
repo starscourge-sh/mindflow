@@ -4,7 +4,7 @@ import { captureMenu, useCaptures } from '../capture-list'
 import { gemMenu } from './items-view'
 import { taskMenu, type TaskNow } from './tasks-view'
 import { copy, type RowItem } from './row-menu'
-import { ask, pin, refuse, quietly } from './ui'
+import { ask, pin, quietly } from './ui'
 import { asideItem } from '@/lib/split'
 import { openApart } from '@/lib/apart'
 import { exit, noteLinkText } from '@/lib/capture-links'
@@ -90,13 +90,9 @@ export function onRemoveKey(event: React.KeyboardEvent, items: RowItem[], label:
   line.run()
 }
 
-/** Pin a note from the sidebar: three at most, as everywhere. */
+/** Pin a note from the sidebar. */
 export async function pinFromSide(type: string, id: string): Promise<boolean> {
-  const done = await haligtree.pin(tableOf(type), id, true)
-  if (!done) {
-    refuse('Three notes are pinned already. Unpin one first')
-    return false
-  }
+  await haligtree.pin(tableOf(type), id, true)
   chime('pin')
   return true
 }
