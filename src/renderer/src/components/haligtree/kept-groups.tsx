@@ -804,13 +804,14 @@ function GroupBlock({ group, entries, parts, start, row, carried, renaming, born
   useLayoutEffect(() => {
     const el = block.current
     if (!el) return
-    const read = (): void => setTall(el.offsetHeight)
+    // Read when it resizes, never after every draw: the panel drawn from this height can change the block's
+    // height by a pixel, and a read after each draw then drew again forever and froze the page.
+    const read = (): void => setTall((was) => (Math.abs(was - el.offsetHeight) < 1 ? was : el.offsetHeight))
     read()
     const sized = new ResizeObserver(read)
     sized.observe(el)
     return () => sized.disconnect()
   }, [])
-  useLayoutEffect(() => void (block.current && block.current.offsetHeight !== tall && setTall(block.current.offsetHeight)))
   const fold = (): void => {
     chime(group.open ? 'tuck' : 'untuck')
     onFold(!group.open)
