@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { BookOpen, Check, FlaskConical, Keyboard, Lightbulb, Pin, RotateCcw, Settings2, Sparkles, Undo2, Upload } from 'lucide-react'
-import { BesidePeek, MCard, MChip, MRow, MTitle, PeekCard, carrying, tinted } from './peek'
+import { BesidePeek, MCard, MChip, MRow, MTitle, PeekCard, carrying, previewsOff, tinted } from './peek'
 import { APP_NAME } from '../../../../main/name'
 
 /**
@@ -206,7 +206,7 @@ export function MenuPeek(): React.JSX.Element {
     return () => clearTimeout(timer)
   }, [id, ready])
   useEffect(() => void (ready && id && (seen.current = true)))
-  const peek = ready && id && !carrying() ? PEEKS[id] : undefined
+  const peek = ready && id && !carrying() && !previewsOff() ? PEEKS[id] : undefined
   return (<>
     <span ref={probe} hidden />
     {peek && (

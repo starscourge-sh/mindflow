@@ -26,6 +26,9 @@ export const carrying = (): boolean => {
   return 'dragging' in root || 'splitDrag' in root
 }
 
+/** Page previews switched off in Settings (home.tsx marks the page): no card on pointing. */
+export const previewsOff = (): boolean => 'noPreviews' in document.documentElement.dataset
+
 /** The picture, the line and the keys; `text` is `**Lead.** The rest.` */
 export function PeekCard({ art, text, keys, fit = false, whole = false }: { art: ReactNode; text: string; keys?: string; /** As tall as the picture needs, up to the usual height: a block is often one line. */ fit?: boolean; /** A picture that fits whole: not faded at its foot. */ whole?: boolean }): React.JSX.Element {
   const { lead, rest } = splitLead(text)
@@ -59,7 +62,7 @@ export function Peek({ art, text, keys, children }: { art: () => ReactNode; text
   // Only for a resting pointer: Tab through the sidebar moves on without a
   // large card opening over the page at each stop (the row says its own name).
   return (
-    <Tooltip open={open} onOpenChange={(next) => setOpen(next && !carrying() && !!trigger.current?.matches(':hover'))} delayDuration={450} disableHoverableContent>
+    <Tooltip open={open} onOpenChange={(next) => setOpen(next && !carrying() && !previewsOff() && !!trigger.current?.matches(':hover'))} delayDuration={450} disableHoverableContent>
       <TooltipTrigger asChild ref={trigger} onPointerMove={(event) => {
         if (!realMove(event) || event.buttons || carrying()) event.preventDefault()
       }}>{children}</TooltipTrigger>

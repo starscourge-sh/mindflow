@@ -739,6 +739,8 @@ export function Home(): React.JSX.Element {
     return () => window.removeEventListener('pointermove', onMove, true)
   }, [peek])
   const peeking = !sidebar && peek && settings?.sidebarPeek !== false
+  // Page previews on pointing (peek.tsx), switched off in Settings.
+  useEffect(() => void document.documentElement.toggleAttribute('data-no-previews', settings?.pagePreviews === false), [settings?.pagePreviews])
   // Kept on screen while it slides back, then gone.
   const [peekMounted, setPeekMounted] = useState(false)
   const [peekIn, setPeekIn] = useState(false)

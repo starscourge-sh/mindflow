@@ -1,4 +1,5 @@
 import { calendar } from '@/lib/mac-calendar'
+import { SidePeek } from './page-peeks'
 import { HabitList } from './habits'
 import { WRAP_SETTING, monthToWrap, openWrap } from './wrap-story'
 import iconBronze from '@/assets/app-icon/bronze.png'
@@ -618,6 +619,10 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Peek the hidden sidebar" note="With the sidebar hidden (⌘B), point at the window's edge and it slides out; move away and it goes." more="Point at the edge of this sample to see it." keywords="peek sidebar hover edge slide out reveal hidden dia arc auto hide">
             <PeekSample side={settings.sidebarSide ?? 'left'} on={settings.sidebarPeek !== false} />
             <Switch checked={settings.sidebarPeek !== false} onCheckedChange={(sidebarPeek) => set({ sidebarPeek })} />
+          </Setting>
+          <Setting title="Page previews" note="Point at a sidebar row, or a row of the Haligtree menu, and a card shows what that page is." more="Point at the sample row to see it." keywords="preview peek hover card tooltip sidebar menu explain page">
+            <SidePeek id="inbox"><span data-previews-sample className="inline-flex h-8 items-center rounded-md border border-border bg-background px-2.5 text-control text-foreground">Inbox</span></SidePeek>
+            <Switch checked={settings.pagePreviews !== false} onCheckedChange={(pagePreviews) => set({ pagePreviews })} aria-label="Page previews" />
           </Setting>
           <Setting title="Sidebar" note="The sections in the main window's sidebar; drag one to move it." more="One switched off leaves the sidebar; G with its letter, or ⌘K, still opens it." keywords="customize sections menu more hide show order reorder move drag" below={<div className="-mx-2 mt-2"><ShowList places={PLACES} setting="sidebarShown" /></div>} />
           <Setting title="Quick capture tabs" note="The tabs beside quick capture; drag one to move it." more="A hidden one is still ⌃ and its number away, and shows while it is open." keywords="prompt panel inbox tasks review kept recent hide show order reorder move drag" below={<div className="-mx-2 mt-2"><ShowList places={BOX_TABS} setting="boxTabs" /></div>} />
