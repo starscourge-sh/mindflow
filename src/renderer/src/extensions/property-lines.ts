@@ -8,6 +8,8 @@ import { propertyLine } from "../../../main/property-words"
 export type PropertyLinesOptions = {
   /** Where the note's property strip is drawn: under its first line. Null draws none. */
   strip: () => HTMLElement | null
+  /** The title is not in the words (an article's own title box): the strip goes before the first line, not after it. */
+  top: () => boolean
   /** A `name:: value` line finished with Enter: true once it is kept as a property, and the line goes. */
   onProperty: ((name: string, value: string) => boolean) | null
 }
@@ -16,7 +18,10 @@ export type PropertyLinesOptions = {
  * The strip's place: right after the first block, the title, drawn with the
  * page in its first frame. Never part of the words: the editor steps over it.
  */
-function placed(doc: ProseMirrorNode, strip: HTMLElement | null): DecorationSet {
+/** Where the strip goes: after the title line, or at the very start when the title is kept apart. */
+const spot = (doc: ProseMirrorNode, top: boolean): number => (top ? 0 : doc.firstChild?.nodeSize ?? 0)
+
+function placed(doc: ProseMirrorNode, strip: HTMLElement | null, top: boolean): DecorationSet {
   if (!strip || !doc.firstChild) return DecorationSet.empty
   // A fresh holder each time, the one strip moved into it: handed the same
   // element twice, the editor took it out of the page as it put it back in,
@@ -29,7 +34,7 @@ function placed(doc: ProseMirrorNode, strip: HTMLElement | null): DecorationSet 
     return box
   }
   return DecorationSet.create(doc, [
-    Decoration.widget(doc.firstChild.nodeSize, holder, { side: -1, key: "property-strip", ignoreSelection: true, stopEvent: () => true }),
+    Decoration.widget(spot(doc, top), holder, { side: -1, key: "property-strip", ignoreSelection: true, stopEvent: () => true }),
   ])
 }
 
@@ -43,7 +48,7 @@ export const PropertyLines = Extension.create<PropertyLinesOptions>({
   name: "propertyLines",
 
   addOptions() {
-    return { strip: () => null, onProperty: null }
+    return { strip: () => null, top: () => false, onProperty: null }
   },
 
   addProseMirrorPlugins() {
@@ -53,13 +58,13 @@ export const PropertyLines = Extension.create<PropertyLinesOptions>({
       new Plugin({
         key,
         state: {
-          init: (_, state) => placed(state.doc, options.strip()),
+          init: (_, state) => placed(state.doc, options.strip(), options.top()),
           // Kept while the title's end stays put: a new set for every keystroke redrew the strip each time.
           apply: (tr, set) => {
             if (!tr.docChanged) return set
             const kept = set.map(tr.mapping, tr.doc)
             const at = kept.find()[0]?.from
-            return at !== undefined && tr.doc.firstChild && at === tr.doc.firstChild.nodeSize ? kept : placed(tr.doc, options.strip())
+            return at !== undefined && tr.doc.firstChild && at === spot(tr.doc, options.top()) ? kept : placed(tr.doc, options.strip(), options.top())
           },
         },
         props: {
@@ -68,7 +73,7 @@ export const PropertyLines = Extension.create<PropertyLinesOptions>({
             if (event.key !== "Enter" || event.shiftKey || event.metaKey || event.altKey || event.isComposing || !options.onProperty) return false
             const { $from, empty } = view.state.selection
             // A line of its own, not the title, and the caret at its end.
-            if (!empty || $from.depth !== 1 || $from.index(0) === 0 || $from.parent.type.name !== "paragraph" || $from.parentOffset !== $from.parent.content.size) return false
+            if (!empty || $from.depth !== 1 || (!options.top() && $from.index(0) === 0) || $from.parent.type.name !== "paragraph" || $from.parentOffset !== $from.parent.content.size) return false
             const found = propertyLine($from.parent.textContent)
             if (!found || !options.onProperty(found.name, found.value)) return false
             // The line goes and a fresh one stands in its place, the caret on it, ready for the next.

@@ -203,7 +203,7 @@ function CaptureWindow({ id }: { id: string }): React.JSX.Element | null {
         <HaligtreeEditor
           key={`${id}-${rev}`}
           typewriter
-          {...notePowers({ table: 'captures', id, kind: capture.kind, fields: capture.fields, text: capture.label, origin: { captureId: id, from: id }, onOpen: elsewhere })}
+          {...notePowers({ table: 'captures', id, kind: capture.kind, fields: capture.fields, text: capture.label, created: capture.capturedAt, updated: capture.editedAt, origin: { captureId: id, from: id }, onOpen: elsewhere })}
           defaultContent={(capture.body as JSONContent | string | null) ?? ''}
           onOpenNote={(to, heading) => (to === id && heading ? headingIn('capture', id, heading) : follow(to, (type, at) => elsewhere(type, at, heading)))}
           after={<Mentions id={id} onOpen={elsewhere} />}

@@ -408,7 +408,7 @@ const DISPLAY_ASKED = 'haligtree:display'
 /** Open the Display of the page in front, from a menu line where it has no button of its own. */
 export const openDisplay = (): void => void window.dispatchEvent(new CustomEvent(DISPLAY_ASKED))
 
-export function Display<T>({ view, onChange, facets, sorts: given, groups: offered = [], defaults = {}, compact = false, density, onDensity, count, hidden = false }: {
+export function Display<T>({ view, onChange, facets, sorts: given, groups: offered = [], defaults = {}, compact = false, density, onDensity, count, hidden = false, sortNote }: {
   /** No button of its own: opened by F, or from a page's ⋯ (openDisplay), as a sheet from the right. */
   hidden?: boolean
   /** Icon only, where the row beside it needs the room. */
@@ -422,6 +422,8 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
   facets: Facet<T>[]
   /** The first of each is the list's own default. */
   sorts: Choice[]
+  /** What the chosen order does with the list's groups, on its own line under the choices. */
+  sortNote?: string
   groups?: Choice[]
   /** How the list is drawn now, and how to change it: offered as View as. */
   density?: Density
@@ -530,6 +532,7 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
                 {one.id === view.sort && <Check className="size-3.5 text-[var(--tt-brand-color-400)]" />}
               </button>
             ))}
+            {sortNote && <p data-sort-note className="px-1.5 pt-1 pb-0.5 text-control leading-snug text-foreground/80">{sortNote}</p>}
           </div>
         )}
         {groups.length > 1 && (

@@ -732,10 +732,14 @@ function Count({ n }: { n: number }): React.JSX.Element {
 }
 
 /** A group's small icon and its chevron, side by side in the column a page's tile takes, so its name starts where a page's title does. */
-function GroupTile({ group, ...rest }: { group: GroupView } & React.HTMLAttributes<HTMLSpanElement>): React.JSX.Element {
+function GroupTile({ group, onIcon, ...rest }: { group: GroupView; onIcon?: () => void } & React.HTMLAttributes<HTMLSpanElement>): React.JSX.Element {
   return (
     <span {...rest} data-group-tile="" className="flex h-9 w-9 shrink-0 items-center justify-center gap-0.5">
-      <GroupIcon icon={group.icon} color={group.color} className="size-3.5" />
+      {/* A click on the icon changes it, as in Notion; the rest of the row folds. */}
+      <span data-group-icon="" role="button" aria-label="Change icon" title="Change icon" className="-m-0.5 grid place-items-center rounded-sm p-0.5 transition-colors hover:bg-foreground/10"
+        onClick={(event) => onIcon && (event.stopPropagation(), event.preventDefault(), chime('open'), onIcon())}>
+        <GroupIcon icon={group.icon} color={group.color} className="size-3.5" />
+      </span>
       <ChevronRight
         aria-hidden
         className="size-3 shrink-0 text-muted-foreground transition-transform duration-200 motion-reduce:transition-none"
@@ -894,7 +898,7 @@ function GroupBlock({ group, entries, parts, start, row, carried, renaming, born
                 <ContextMenuTrigger asChild>
                   {renaming ? (
                     <div className={cn(ROW_SHAPE, HEAD, 'data-[state=open]:bg-transparent!')}>
-                      <PopoverAnchor asChild><GroupTile group={group} /></PopoverAnchor>
+                      <PopoverAnchor asChild><GroupTile group={group} onIcon={() => setPicking(true)} /></PopoverAnchor>
                       <input
                         autoFocus
                         defaultValue={group.name}
@@ -926,7 +930,7 @@ function GroupBlock({ group, entries, parts, start, row, carried, renaming, born
                       className={cn(ROW_SHAPE, HEAD, 'data-[state=open]:bg-transparent!')}
                       style={{ paddingRight: group.unsorted?.length && onSort ? '12.5rem' : '2.25rem' }}
                     >
-                      <PopoverAnchor asChild><GroupTile group={group} /></PopoverAnchor>
+                      <PopoverAnchor asChild><GroupTile group={group} onIcon={() => setPicking(true)} /></PopoverAnchor>
                       <span className="min-w-0 truncate text-xs font-semibold">{name}</span>
                       {/* How many it holds, open or folded, quiet after the name. */}
                       <span data-count="" className="-ml-1 shrink-0 text-xs text-muted-foreground tabular-nums">· {count}</span>

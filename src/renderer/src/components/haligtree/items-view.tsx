@@ -222,7 +222,7 @@ export function ItemsView({ tier, focus, onOpen, only }: { tier: 'nugget' | 'art
   const questionsOnly = writing && asks === 'questions'
   const all = useMemo(() => (unloaded(own) || unloaded(held) ? unread([] as Item[]) : !writing ? own : questionsOnly ? held : [...own, ...held.filter((one) => !one.closedAt)]),
     [own, held, writing, questionsOnly])
-  const { groups: arranged, display, chips, density, view, setView, move, moveBy, ownOrder, mine } = useItemDisplay(tier, all)
+  const { groups: arranged, display, chips, density, view, setView, move, moveBy, ownOrder, mine } = useItemDisplay(tier, all, true)
   // The list's width: beside the note, over the whole page, or a rail of pictures.
   const pane = view.pane ?? 'list'
   const [query, setQuery] = useState('')
@@ -783,7 +783,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
         <HaligtreeEditor
           key={restored?.rev ?? 0}
           // A tag opens its page: everything carrying it.
-          {...notePowers({ table: 'nuggets', id: item.id, kind: item.kind, fields: item.fields, text: item.title, origin: { captureId: item.captureId ?? undefined, attribution: item.attribution, from: item.id }, onOpen: (type, id) => onOpen?.(type, id) })}
+          {...notePowers({ table: 'nuggets', id: item.id, kind: item.kind, fields: item.fields, text: item.title, titled: item.tier === 'article', created: item.createdAt, updated: item.updatedAt, origin: { captureId: item.captureId ?? undefined, attribution: item.attribution, from: item.id }, onOpen: (type, id) => onOpen?.(type, id) })}
           onTitleOut={showTopTitle}
           defaultContent={((restored ? restored.body : item.body) as JSONContent | string | null) ?? ''}
           onOpenNote={(link, heading) => onOpen && follow(link, onOpen, heading)}
@@ -1140,7 +1140,13 @@ const propOf = (one: Item): { status?: string; rating?: number } => {
  * Filter, sort and group for nuggets or articles, with the Display menu that
  * sets them: the same in the main window and the prompt's Kept tab.
  */
-export function useItemDisplay(name: string, every: Item[]): {
+/** What an order does with groups, said in the sort menu under its choices. */
+const groupsSaid = (sort: string): string =>
+  sort === 'manual' ? 'Groups stay where you put them, among the pages.'
+    : sort === 'groups' ? 'Groups on top, in your order; then the loose pages, in your order.'
+      : 'Groups on top, in your order; the pages in them and after them sorted.'
+
+export function useItemDisplay(name: string, every: Item[], withGroups = false): {
   groups: [string, Item[]][]
   display: React.JSX.Element
   /** The filters set, as chips over the list, and the kinds a click away. */
@@ -1206,7 +1212,9 @@ export function useItemDisplay(name: string, every: Item[]): {
     kind: (a, b) => byKind(a.kind, b.kind) || b.createdAt.localeCompare(a.createdAt),
     due: (a, b) => (a.dueAt ?? '9').localeCompare(b.dueAt ?? '9'),
     rating: (a, b) => (propOf(b).rating ?? 0) - (propOf(a).rating ?? 0) || b.createdAt.localeCompare(a.createdAt),
-    manual: ownOrder
+    manual: ownOrder,
+    // Your own order too, with every group lifted to the top.
+    groups: ownOrder
   }, {
     kind: (one) => CAPTURE_TYPES.find((type) => type.id === one.kind)?.label ?? 'Note',
     date: (one) => period(one.createdAt)
@@ -1221,7 +1229,9 @@ export function useItemDisplay(name: string, every: Item[]): {
       facets={facets}
       count={all.length}
       // By kind only where there is more than one kind; by next review only where something is due for one (pieces of writing never are).
-      sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Longest unchanged' }, { id: 'name', label: 'A to Z' }, ...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), ...(all.some((one) => one.dueAt) ? [{ id: 'due', label: 'Next review' }] : []), ...(rated ? [{ id: 'rating', label: 'Highest rated' }] : []), ...byProp.choices, { id: 'manual', label: 'Custom order' }]}
+      sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Longest unchanged' }, { id: 'name', label: 'A to Z' }, ...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), ...(all.some((one) => one.dueAt) ? [{ id: 'due', label: 'Next review' }] : []), ...(rated ? [{ id: 'rating', label: 'Highest rated' }] : []), ...byProp.choices, { id: 'manual', label: 'Custom order' }, ...(withGroups ? [{ id: 'groups', label: 'Groups first' }] : [])]}
+      // What the chosen order does with groups, said under the choices.
+      sortNote={withGroups ? groupsSaid(view.sort) : undefined}
       groups={[...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), { id: 'none', label: 'None' }, { id: 'date', label: 'Date' }]}
       density={density}
       onDensity={(next) => setView({ ...view, [wide ? 'wideDensity' : 'density']: next })}

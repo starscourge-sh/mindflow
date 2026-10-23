@@ -708,7 +708,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
             <HaligtreeEditor
               key={`${open.id}-${rev}`}
               typewriter
-              {...notePowers({ table: 'captures', id: open.id, kind: meta.kind, fields: meta.fields, text: meta.label, origin: { captureId: open.id, from: open.id }, onOpen: (type, id) => onOpen?.(type, id) })}
+              {...notePowers({ table: 'captures', id: open.id, kind: meta.kind, fields: meta.fields, text: meta.label, created: meta.capturedAt, updated: meta.editedAt, origin: { captureId: open.id, from: open.id }, onOpen: (type, id) => onOpen?.(type, id) })}
               onTitleOut={(title) => !onBoard.current && sayTitle(title)}
               defaultContent={(open.body as JSONContent | string | null) ?? ''}
               onOpenNote={(link, heading) => follow(link, (type, id) => (type === 'capture' ? pick(id) : onOpen?.(type, id)), heading)}

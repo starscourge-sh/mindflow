@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useReading } from '@/lib/reads-in'
-import { Plus, Star } from 'lucide-react'
+import { AlignLeft, Calendar, ChevronRight, Clock, Hash, Link2, List, Plus, SquareCheck, Star, Tags, Text, X, type LucideIcon } from 'lucide-react'
+import type { Editor } from '@tiptap/react'
 
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
@@ -15,8 +16,10 @@ import { Chips } from './display'
 import { DatePicker } from './date-picker'
 import { Kbd, Tip, toast } from './ui'
 import { useSuperTags } from './note-extras'
+import { tagTint } from './tag-icon'
 
 type Value = string | number | boolean
+const SHUT = 'propertiesShut'
 /** Every property name in use, as last read: the next note opens with them in hand. */
 let namesSeen: Awaited<ReturnType<typeof notes.propNames>> = []
 /** One property as the strip shows it: a super tag's field, or one of the note's own. */
@@ -53,13 +56,16 @@ function LinkName({ link }: { link: string }): React.JSX.Element {
  * Check back's day) shows even while empty, faint, so you see what it asks
  * for; "Add property" (⌥⌘P) is always at the end, in the same place.
  */
-export function PropertyStrip({ table, id, kind, fields, text }: {
+export function PropertyStrip({ table, id, kind, fields, text, created, updated }: {
   table: NoteTable
   id: string
   kind: string
   /** The note's properties and its words as the list already holds them: drawn in the first frame, read fresh after. */
   fields?: string | null
   text?: string
+  /** When it was made and last changed: shown, read-only. */
+  created?: string | null
+  updated?: string | null
 }): React.JSX.Element | null {
   const known = text === undefined ? undefined : tagsIn(text)
   const groups = useSuperTags(table, id, kind, known)
@@ -71,6 +77,9 @@ export function PropertyStrip({ table, id, kind, fields, text }: {
   const names = useLive(() => notes.propNames().then((all) => (namesSeen = all)), namesSeen, [])
   const tags = useLive(() => notes.tags(table, id), known ?? ([] as string[]), [table, id])
   const [open, setOpen] = useState<string | null>(null)
+  // Folded shut or open, the same for every note, remembered.
+  const [shut, setShutState] = useState(() => { try { return localStorage.getItem(SHUT) === '1' } catch { return false } })
+  const setShut = (next: boolean): void => { setShutState(next); try { localStorage.setItem(SHUT, next ? '1' : '0') } catch { /* kept for now only */ } }
   const strip = useRef<HTMLDivElement | null>(null)
   const values = read.of === `${table}:${id}` ? read.values : {}
   // The page waits for the strip's values, so it never pops in after the words.
@@ -111,51 +120,124 @@ export function PropertyStrip({ table, id, kind, fields, text }: {
       () => void notes.setField(table, id, key, was).then(() => chime('undo')))
   }
   if (read.of !== `${table}:${id}`) return <div data-property-strip ref={strip} className="min-h-7" />
+  // Nothing yet: only the quiet way to add one, in the place the block will open.
+  const empty = !all.length && !tags.length
+  const addButton = (
+    <Popover open={open === '+'} onOpenChange={(next) => setOpen(next ? '+' : null)}>
+      <Tip label="Add a property: a name and a value. Or type Name:: value on a line of its own (⌥⌘P)">
+        <PopoverTrigger asChild>
+          <button type="button" data-add-property aria-label="Add property" className="inline-flex h-7 w-fit items-center gap-1.5 rounded-md px-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground data-[state=open]:bg-accent">
+            <Plus className="size-3.5" /><span>Add property</span>
+          </button>
+        </PopoverTrigger>
+      </Tip>
+      <PopoverContent align="start" className="w-72 p-3">
+        <AddProp names={names.map((one) => one.name).filter((name) => !(name in values))} onAdd={(name, raw) => {
+          const read = readValue(raw, typeFor(name))
+          void (async () => {
+            if (!typeFor(name)) await notes.setPropType(name, read.type)
+            await save(name, read.value, name)
+            setOpen(null)
+          })()
+        }} />
+      </PopoverContent>
+    </Popover>
+  )
+  const row = 'grid grid-cols-[minmax(7rem,9.5rem)_minmax(0,1fr)] items-start gap-x-2'
+  const nameCell = (Icon: LucideIcon, label: string): React.JSX.Element => (
+    <span className="flex h-7 min-w-0 items-center gap-2 px-1.5 text-muted-foreground"><Icon className="size-3.5 shrink-0" /><span className="truncate">{label}</span></span>
+  )
   return (
-    <div data-property-strip ref={strip} className="flex min-h-7 flex-wrap items-center gap-x-0.5 gap-y-0.5 py-0.5 text-meta" onMouseDown={(event) => event.stopPropagation()}>
-      {all.map((prop) => (
-        <Popover key={`${prop.tag ?? ''}:${prop.key}`} open={open === prop.key} onOpenChange={(next) => setOpen(next ? prop.key : null)}>
-          <PopoverTrigger asChild>
-            <button type="button" data-property={prop.key} data-empty={prop.value === undefined || prop.value === '' ? '' : undefined}
-              className="inline-flex h-6 max-w-[18rem] items-center gap-1.5 rounded-md px-1.5 text-left transition-colors hover:bg-accent data-[state=open]:bg-accent">
-              <span className="shrink-0 text-muted-foreground">{prop.label}</span>
-              {prop.value === undefined || prop.value === '' ? <span className="text-muted-foreground/60">Empty</span>
-                : <span className="private-text truncate text-foreground">{prop.type === 'link' ? <LinkName link={String(prop.value)} /> : said(prop)}</span>}
-            </button>
-          </PopoverTrigger>
-          <PopoverContent align="start" className="w-72 p-3" onOpenAutoFocus={(event) => prop.type === 'date' && event.preventDefault()}>
-            <PropEditor prop={prop} tags={tags} onSave={(value) => void save(prop.key, value, prop.label).then(() => setOpen(null))}
-              onRename={(to) => void notes.renameField(table, id, prop.key, to).then(() => (chime('retag'), setOpen(null), toast(`Renamed to “${to}”`, () => void notes.renameField(table, id, to, prop.key).then(() => chime('undo')))))}
-              onType={(type) => void notes.setPropType(prop.key, type, prop.options).then(async () => {
-                // Read again as the new type: words that do not read as it are kept as typed.
-                if (prop.value !== undefined) await notes.setField(table, id, prop.key, readValue(String(prop.value), type).value)
-                chime('tap')
-              })}
-              onSuper={(tag) => void addToTag(tag, prop).then(() => setOpen(null))} />
-          </PopoverContent>
-        </Popover>
-      ))}
-      <Popover open={open === '+'} onOpenChange={(next) => setOpen(next ? '+' : null)}>
-        <Tip label="Add a property: a name and a value. Or type Name:: value on a line of its own (⌥⌘P)">
-          <PopoverTrigger asChild>
-            <button type="button" data-add-property aria-label="Add property" className="inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground data-[state=open]:bg-accent">
-              <Plus className="size-3.5" />{all.length ? null : <span>Add property</span>}
-            </button>
-          </PopoverTrigger>
-        </Tip>
-        <PopoverContent align="start" className="w-72 p-3">
-          <AddProp names={names.map((one) => one.name).filter((name) => !(name in values))} onAdd={(name, raw) => {
-            const read = readValue(raw, typeFor(name))
-            void (async () => {
-              if (!typeFor(name)) await notes.setPropType(name, read.type)
-              await save(name, read.value, name)
-              setOpen(null)
-            })()
-          }} />
-        </PopoverContent>
-      </Popover>
+    <div data-property-strip data-properties-open={shut ? undefined : ''} ref={strip} className="flex flex-col py-1 text-meta" onMouseDown={(event) => event.stopPropagation()}>
+      {empty ? addButton : (
+        <>
+          <button type="button" data-properties-head aria-expanded={!shut} onClick={() => (chime(shut ? 'open' : 'fold'), setShut(!shut))}
+            className="inline-flex h-7 w-fit items-center gap-1 rounded-md px-1.5 font-medium text-foreground transition-colors hover:bg-accent">
+            <ChevronRight className={`size-3.5 text-muted-foreground transition-transform duration-150 ${shut ? '' : 'rotate-90'}`} />Properties
+            {shut && <span className="ml-1 font-normal text-muted-foreground">{all.length + (tags.length ? 1 : 0)}</span>}
+          </button>
+          {!shut && (
+            <div className="flex flex-col">
+              {tags.length > 0 && (
+                <div className={row} data-property="tags">
+                  {nameCell(Tags, 'tags')}
+                  <div className="flex min-h-7 flex-wrap items-center gap-1 py-0.5">
+                    {tags.map((tag) => (
+                      <span key={tag} data-tag-chip={tag} className="inline-flex h-6 items-center gap-0.5 rounded-full bg-foreground/[0.06] pr-1 pl-2.5" style={{ color: tagTint(tag) }}>
+                        <span>{tag}</span>
+                        <Tip label={`Take #${tag} off this note`}>
+                          <button type="button" aria-label={`Remove #${tag}`} className="grid size-4 place-items-center rounded-full opacity-70 hover:bg-foreground/10 hover:opacity-100" onClick={() => untag(tag, strip.current)}><X className="size-3" /></button>
+                        </Tip>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {all.map((prop) => (
+                <div key={`${prop.tag ?? ''}:${prop.key}`} className={row}>
+                  {nameCell(ICONS[prop.type] ?? Text, prop.label)}
+                  <Popover open={open === prop.key} onOpenChange={(next) => setOpen(next ? prop.key : null)}>
+                    <PopoverTrigger asChild>
+                      <button type="button" data-property={prop.key} data-empty={prop.value === undefined || prop.value === '' ? '' : undefined}
+                        className="inline-flex h-7 min-w-0 items-center rounded-md px-1.5 text-left transition-colors hover:bg-accent data-[state=open]:bg-accent">
+                        {prop.value === undefined || prop.value === '' ? <span className="text-muted-foreground/60">Empty</span>
+                          : <span className="private-text truncate text-foreground">{prop.type === 'link' ? <LinkName link={String(prop.value)} /> : said(prop)}</span>}
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent align="start" className="w-72 p-3" onOpenAutoFocus={(event) => prop.type === 'date' && event.preventDefault()}>
+                      <PropEditor prop={prop} tags={tags} onSave={(value) => void save(prop.key, value, prop.label).then(() => setOpen(null))}
+                        onRename={(to) => void notes.renameField(table, id, prop.key, to).then(() => (chime('retag'), setOpen(null), toast(`Renamed to “${to}”`, () => void notes.renameField(table, id, to, prop.key).then(() => chime('undo')))))}
+                        onType={(type) => void notes.setPropType(prop.key, type, prop.options).then(async () => {
+                          // Read again as the new type: words that do not read as it are kept as typed.
+                          if (prop.value !== undefined) await notes.setField(table, id, prop.key, readValue(String(prop.value), type).value)
+                          chime('tap')
+                        })}
+                        onSuper={(tag) => void addToTag(tag, prop).then(() => setOpen(null))} />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              ))}
+              {/* Kept by the app, not typed: shown, never changed here. */}
+              {created && <div className={row} data-property="created">{nameCell(Clock, 'created')}<span className="flex h-7 items-center px-1.5 text-foreground/80">{stamp(created)}</span></div>}
+              {/* Never changed since: updated is when it was made. */}
+              {(updated ?? created) && <div className={row} data-property="updated">{nameCell(Clock, 'updated')}<span className="flex h-7 items-center px-1.5 text-foreground/80">{stamp((updated ?? created) as string)}</span></div>}
+              {addButton}
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
+}
+
+/** Each kind of value's icon, beside its name, as Obsidian draws them. */
+const ICONS: Partial<Record<Prop['type'], LucideIcon>> = { text: Text, long: AlignLeft, number: Hash, date: Calendar, bool: SquareCheck, choice: List, link: Link2, rating: Star }
+
+/** "6 May 2026, 15:26": when, said in full. */
+const stamp = (iso: string): string => {
+  const at = new Date(iso)
+  return Number.isNaN(at.getTime()) ? iso : at.toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+/** The editor the block sits in: tiptap keeps itself on its page's element. */
+const editorOf = (node: HTMLElement | null): Editor | null => ((node?.closest('.ProseMirror') as (HTMLElement & { editor?: Editor }) | null)?.editor ?? null)
+
+/** A tag taken off: every #tag in the words goes, in one step ⌘Z or the toast brings back. */
+function untag(tag: string, node: HTMLElement | null): void {
+  const editor = editorOf(node)
+  if (!editor) return
+  const found = new RegExp(`(^|\\s)#${tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\p{L}\\p{N}_/-])`, 'giu')
+  const cuts: { from: number; to: number }[] = []
+  editor.state.doc.descendants((child, pos) => {
+    if (!child.isText || !child.text) return
+    for (const hit of child.text.matchAll(found)) cuts.push({ from: pos + (hit.index ?? 0) + hit[1].length, to: pos + (hit.index ?? 0) + hit[0].length })
+  })
+  if (!cuts.length) return
+  const tr = editor.state.tr
+  for (const cut of cuts.reverse()) tr.delete(cut.from, cut.to)
+  editor.view.dispatch(tr)
+  chime('off')
+  toast(`#${tag} taken off`, () => (editor.commands.undo(), chime('undo')))
 }
 
 /**

@@ -441,6 +441,8 @@ export interface HaligtreeEditorProps {
   after?: ReactNode
   /** The note's properties, drawn in the page under its first line (property-strip.tsx). */
   belowTitle?: ReactNode
+  /** The title is kept apart from the words (an article's title box): the strip opens the words instead of following their first line. */
+  stripFirst?: boolean
   /** A `name:: value` line finished with Enter: true once it is kept as a property, and the line goes. */
   onPropertyLine?: (name: string, value: string) => boolean
   /**
@@ -568,6 +570,7 @@ function Surface({
   onToggleSource,
   after,
   belowTitle,
+  stripFirst = false,
   onPropertyLine,
   foot,
   readOnly = false,
@@ -699,6 +702,7 @@ function Surface({
   // The property strip's place in the page, made once: the editor's plugin puts it under the first line.
   const [stripBox] = useState(() => Object.assign(document.createElement("div"), { className: "mf-property-strip", contentEditable: "false" }))
   const hasStrip = useLatest(!!belowTitle)
+  const stripTop = useLatest(stripFirst)
   const propertyLineRef = useLatest(onPropertyLine)
   // A link drawn before its kind is known gains its kind's icon in place of its "@" a moment later,
   // and the words after it reflow: the page it is on waits for the kinds (lib/reads-in.tsx).
@@ -1154,7 +1158,7 @@ function Surface({
       // "question :: answer": a review card, marked at the line's end.
       LineCards,
       // "Author:: Ursula Le Guin": a property, kept on Enter; and the strip of them under the title.
-      PropertyLines.configure({ strip: () => (hasStrip.current ? stripBox : null), onProperty: (name, value) => propertyLineRef.current?.(name, value) ?? false }),
+      PropertyLines.configure({ strip: () => (hasStrip.current ? stripBox : null), top: () => stripTop.current, onProperty: (name, value) => propertyLineRef.current?.(name, value) ?? false }),
       // A to-do that is a task too, kept ticked as one; a pasted list offered as tasks.
       LinkedTasks.configure({ origin: () => (/^(?:capture|item)-(.+)$/.exec(String(documentId ?? ""))?.[1] ?? null), box: () => new URLSearchParams(location.search).get("view") === null && !documentId }),
       TaskMarks,

@@ -55,7 +55,7 @@ export type Readable = { type: string; id: string; body?: string; title?: string
 
 type Page = { id: string; title?: string; body: JSONContent | string | null; meta?: string[]; private?: boolean;
   /** What the property strip and the selection bar need, as every note surface has them (note-powers.tsx). */
-  kind?: string; fields?: string | null; label?: string; captureId?: string; attribution?: string | null; /** Who said it, for a quote: signed under the words. */ who?: string }
+  kind?: string; fields?: string | null; label?: string; created?: string | null; updated?: string | null; captureId?: string; attribution?: string | null; /** Who said it, for a quote: signed under the words. */ who?: string }
 
 /** The #tags in a note's words, the first few, for the line under its title. */
 const tagsOf = (body: unknown): string[] => {
@@ -397,8 +397,8 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
     setPage(null)
     if (item.body !== undefined) return setPage({ id: item.id, title: item.title, body: item.body })
     const load: Promise<Omit<Page, 'id'> | null> = item.type === 'capture'
-      ? window.api.captures.get(item.id).then((found) => found && { body: found.body as JSONContent, private: !!found.private, ...said(found.kind, found.attribution), meta: metaOf(found.kind, found.capturedAt, [said(found.kind, found.attribution).who ? null : found.attribution, found.medium, found.source]), kind: found.kind, fields: found.fields, label: found.label })
-      : haligtree.item(item.id).then((found) => found && { title: found.tier === 'article' || found.tier === 'question' ? found.title : undefined, body: found.body as JSONContent, private: !!found.private, ...said(found.kind, found.attribution), meta: metaOf(found.kind, found.createdAt, [said(found.kind, found.attribution).who ? null : found.attribution, found.context]), kind: found.kind, fields: found.fields, label: found.title, captureId: found.captureId ?? undefined, attribution: found.attribution })
+      ? window.api.captures.get(item.id).then((found) => found && { body: found.body as JSONContent, private: !!found.private, ...said(found.kind, found.attribution), meta: metaOf(found.kind, found.capturedAt, [said(found.kind, found.attribution).who ? null : found.attribution, found.medium, found.source]), kind: found.kind, fields: found.fields, label: found.label, created: found.capturedAt, updated: found.editedAt })
+      : haligtree.item(item.id).then((found) => found && { title: found.tier === 'article' || found.tier === 'question' ? found.title : undefined, body: found.body as JSONContent, private: !!found.private, ...said(found.kind, found.attribution), meta: metaOf(found.kind, found.createdAt, [said(found.kind, found.attribution).who ? null : found.attribution, found.context]), kind: found.kind, fields: found.fields, label: found.title, created: found.createdAt, updated: found.updatedAt, captureId: found.captureId ?? undefined, attribution: found.attribution })
     let current = true
     void load.then((next) => current && setPage({ id: item.id, ...(next ?? { body: null }) }))
     return () => void (current = false)
@@ -701,7 +701,7 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
                     typewriter
                     // The same powers as its page in Pages; locked, words can still be kept.
                     {...(own && shown
-                      ? notePowers({ table: item.type === 'capture' ? 'captures' : 'nuggets', id: item.id, kind: shown.kind ?? item.type, fields: shown.fields, text: shown.label, origin: item.type === 'capture' ? { captureId: item.id, from: item.id } : { captureId: shown.captureId, attribution: shown.attribution, from: item.id }, onOpen: (type, id) => (type === 'tag' ? openTag(id) : window.api.openInHome(type, id)), reading: !writing })
+                      ? notePowers({ table: item.type === 'capture' ? 'captures' : 'nuggets', id: item.id, kind: shown.kind ?? item.type, fields: shown.fields, text: shown.label, titled: !!shown.title, created: shown.created, updated: shown.updated, origin: item.type === 'capture' ? { captureId: item.id, from: item.id } : { captureId: shown.captureId, attribution: shown.attribution, from: item.id }, onOpen: (type, id) => (type === 'tag' ? openTag(id) : window.api.openInHome(type, id)), reading: !writing })
                       : { host: window.api, readOnly: true, tokens: TAGS, onTokenClick: (token: { name: string; value: string }) => token.name === 'tag' && openTag(token.value) })}
                     // Where the click was, or the end when E asked.
                     autofocus={writing && caret.current === null ? 'end' : false}
