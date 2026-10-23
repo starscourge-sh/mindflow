@@ -1,7 +1,7 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { DndContext, MeasuringStrategy, PointerSensor, closestCenter, pointerWithin, useSensor, useSensors, type CollisionDetection, type DragEndEvent, type DragMoveEvent, type DragStartEvent, type Modifier } from '@dnd-kit/core'
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { DndContext, MeasuringStrategy, PointerSensor, closestCenter, pointerWithin, useDndContext, useSensor, useSensors, type CollisionDetection, type DragEndEvent, type DragMoveEvent, type DragStartEvent, type Modifier } from '@dnd-kit/core'
 import { SortableContext, useSortable, type SortingStrategy } from '@dnd-kit/sortable'
-import { AnimatePresence, motion, useMotionValue, useSpring, useTransform, type MotionValue } from 'motion/react'
+import { AnimatePresence, animate, motion, useMotionValue, useSpring, useTransform, type MotionValue } from 'motion/react'
 import { ChevronRight, GripVertical, Layers, X as Cross } from 'lucide-react'
 
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu'
@@ -13,7 +13,7 @@ import { slotTicker } from '@/lib/proximity'
 import { archive } from '@/lib/notes'
 import { byKeys, spring as springs, still } from '@/lib/motion'
 import { GROUP_COLORS, groups, tintOf } from '@/lib/groups'
-import { KEY, isGroup, type How } from '@/lib/group-layout'
+import { KEY, groupOf, groupsAround, isGroup, type How, type Layout } from '@/lib/group-layout'
 import { cn } from '@/lib/cn'
 import { Overlay, SETTLE } from './sortable'
 import { copy } from './row-menu'
@@ -49,6 +49,8 @@ export type Folds = {
   bundles: Bundle[]
   /** In your own order: false while sorted some other way, when only joining or leaving a group means anything. */
   ordered: boolean
+  /** What a drop would leave, worked out as the drop itself is: the layout before and after, and the rows on show after, in order. Null when nothing would change. */
+  preview: (ids: string[], target: string, how: How) => { before: Layout; after: Layout; shown: string[] } | null
   /** A drop, for the list to work out and save: `ids` is everything carried, in the order it is read. */
   onDrop: (ids: string[], target: string, how: How) => void
   /** The rows picked (⌘-click, ⇧-click, x): carrying one of them carries them all. */
@@ -82,63 +84,119 @@ const collide: CollisionDetection = (args) => {
 const OUT = 'cubic-bezier(0.23, 1, 0.32, 1)'
 const INDENT = 0
 
-/** What letting go now would do, and the words for it. */
-type Aim = { target: string; how: How; into: string | null; label: string | null; tint?: string }
+/**
+ * What letting go now would do, and the words for it: read off the layout the
+ * drop itself would leave, so the hint and the result are one thing.
+ */
+type Aim = {
+  target: string
+  how: How
+  /** The group the carried row would be in (null: the top level). */
+  into: string | null
+  label: string | null
+  tint?: string
+  /** A new group would form with the target. */
+  make?: boolean
+  /** The room opens just after this row on show (-1: at the very top); null, nowhere. */
+  gap: number | null
+  /** Every group the carried row would be inside, innermost first: their panels take the room in. */
+  around: string[]
+  /** The room sits close under the row at the gap, in the same group, rather than just over the next row. */
+  snug?: boolean
+  /** How much more (or less) room a group carried takes where it lands than where it was: a subgroup's block sits in less air. */
+  fit?: number
+}
+/** How far a group's panel's top and bottom edges move while something is carried, in pixels: down is more. */
+type Shape = { top: number; bottom: number }
 type Carry = {
   aim: Aim | null
-  /** The carried row's height: the room a preview makes. */
+  /** The carried row's height: the room a new group's preview makes. */
   height: number
-  /** A note being carried out of its group: that group closes over its place. */
-  leaving: { group: string; id: string } | null
-  /** Dragging down (the rows between move up to make room) or up. */
-  down: boolean
+  /** The room what is carried opens where it would land. */
+  span: number
   /** The other rows carried along with the one in hand: they wait, faded, in their places. */
   along: Set<string>
-  /** The group the pointer is within while carrying. */
-  within: string | null
   /** The row in hand. */
   hand: string | null
+  /** Each group's panel, following its rows as they make room or close over a gap. */
+  shapes: Map<string, Shape>
+  /** Just let go: rows go straight to where the drop put them. */
+  snap: boolean
 }
-const Carrying = createContext<Carry>({ aim: null, height: 0, leaving: null, down: false, along: new Set(), within: null, hand: null })
+const Carrying = createContext<Carry>({ aim: null, height: 0, span: 0, along: new Set(), hand: null, shapes: new Map(), snap: false })
+const same = (a: Aim | null, b: Aim | null): boolean => JSON.stringify(a) === JSON.stringify(b)
+
+/**
+ * An element's slide: on SLIDE, the one clock every row and panel part keeps,
+ * so all of them turned back halfway turn back together; or at once, written
+ * in the same frame React draws, so nothing shows a frame at its old place.
+ */
+function useGlide(y: number, scaleY: number, instant: boolean): { ref: (el: HTMLElement | null) => void; style: { y: MotionValue<number>; scaleY: MotionValue<number> } } {
+  const my = useMotionValue(y)
+  const ms = useMotionValue(scaleY)
+  const el = useRef<HTMLElement | null>(null)
+  useLayoutEffect(() => {
+    if (instant || still()) {
+      my.jump(y)
+      ms.jump(scaleY)
+      if (el.current) el.current.style.transform = y || scaleY !== 1 ? `translateY(${y}px) scaleY(${scaleY})` : 'none'
+      return
+    }
+    const runs = [animate(my, y, SLIDE), animate(ms, scaleY, SLIDE)]
+    return () => runs.forEach((run) => run.stop())
+  }, [y, scaleY, instant]) // eslint-disable-line react-hooks/exhaustive-deps
+  return { ref: useCallback((node: HTMLElement | null) => void (el.current = node), []), style: { y: my, scaleY: ms } }
+}
 
 function Node({ id, children, inner, indent = 0 }: { id: string; children: ReactNode; inner?: CSSProperties; indent?: number }): React.JSX.Element {
-  const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
-    id,
-    transition: still() ? null : { duration: 220, easing: 'cubic-bezier(0.2, 0.9, 0.3, 1)' }
-  })
-  const { aim, height, along } = useContext(Carrying)
-  const here = aim?.target === id ? aim : null
-  const lifted = here?.how === 'join'
-  // A new group would form here: the panel around this row and the room under it.
-  const forming = lifted && !here.into
-  // The carried row's own place travels to where it would land: the room the rows open. Near an edge, a line in it.
-  const room = isDragging && !!aim
-  // The room is a row for each note carried, softly tinted.
-  const rows = along.size + 1
+  // dnd-kit says where each row goes; the row glides there on the same clock as the groups' panels (PanelParts), so a
+  // row and the box around it always move together, even turned back halfway. Its own CSS transition is off.
+  // dnd-kit's own slide of a row whose place in the list changed (its layout animation) is off too: the list is redrawn as it lands.
+  const { setNodeRef, attributes, listeners, transform, isDragging } = useSortable({ id, transition: null, animateLayoutChanges: () => false })
+  const { aim, height, span, along, snap } = useContext(Carrying)
+  // What is carried never slides through the other rows: its room is simply there, shown once they have made way.
+  // Let go, the list is drawn as the drop left it, so every row is at once in place.
+  const glide = useGlide(Math.round(transform?.y ?? 0), 1, isDragging || snap)
+  const ref = useCallback((node: HTMLElement | null): void => void (setNodeRef(node), glide.ref(node)), [setNodeRef, glide.ref]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Anything that moves the room draws it anew, so it never shows while the rows are still making way.
+  const place = aim ? `${aim.gap}:${aim.snug}:${aim.fit}:${span}` : ''
+  // A new group would form here: this row lifts, with a panel around it and the room under it.
+  const forming = !!aim?.make && aim.target === id
+  const lifted = forming
+  // The carried row's own place travels to where it would land: the room the rows open, with a line in it.
+  const room = isDragging && !!aim && aim.gap !== null
   return (
-    <div
-      ref={setNodeRef}
+    <motion.div
+      ref={ref}
       data-sortable-id={id}
-      data-aim={here?.how}
+      data-aim={aim?.target === id ? aim.how : undefined}
       {...attributes}
       {...listeners}
       tabIndex={-1}
       role={undefined}
       className="group/grip relative isolate"
-      style={{ transform: transform ? `translate3d(0, ${Math.round(transform.y)}px, 0)` : undefined, transition, opacity: isDragging && !room ? 0.3 : undefined }}
+      style={{ ...glide.style, opacity: isDragging && !room ? 0.3 : undefined }}
     >
       {/* That a row can be carried, said quietly: a grip in the margin by its left edge, only once the pointer has rested on it a moment. */}
       <GripVertical aria-hidden data-grip="" className="absolute top-1/2 size-3 -translate-y-1/2 text-muted-foreground/60 opacity-0 transition-opacity duration-150 group-hover/grip:opacity-100 group-hover/grip:delay-[400ms] motion-reduce:transition-none" style={{ left: indent - 13 }} />
       {room && (
-        <span aria-hidden data-room={rows} className="pointer-events-none absolute inset-x-1 top-0 rounded-md bg-[color-mix(in_srgb,var(--tt-brand-color-400)_6%,transparent)] animate-in fade-in-0 duration-150" style={{ height: rows * height - 2 }} />
-      )}
-      {room && aim.how !== 'join' && (
+        // One hint per drop: a soft band the size of the room, the line through its middle. Drawn anew at each new place.
+        // It waits for the rows to make way, so it never shows over one sliding past.
         <span
+          key={place}
           aria-hidden
-          data-drop-line={aim.how}
-          className="pointer-events-none absolute inset-y-0 right-2 my-auto h-0.5 rounded-full bg-(--tt-brand-color-400) animate-in fade-in-0 duration-150 before:absolute before:-top-[3px] before:-left-2 before:size-2 before:rounded-full before:border-2 before:border-(--tt-brand-color-400) before:bg-background"
-          style={{ left: (aim.into ? INDENT : 0) + 12 }}
-        />
+          data-room={along.size + 1}
+          className="pointer-events-none absolute inset-x-1 top-0 z-10 rounded-md bg-[color-mix(in_srgb,var(--tt-brand-color-400)_6%,transparent)] motion-reduce:animate-none"
+          style={{ height: span - 2, animation: still() ? undefined : `mf-room 100ms ${OUT} ${Math.round(SLIDE.duration * 800)}ms both` }}
+        >
+          {!aim.make && (
+            <span
+              data-drop-line={aim.how}
+              className="absolute inset-y-0 right-1 my-auto h-0.5 rounded-full bg-(--tt-brand-color-400) before:absolute before:-top-[3px] before:-left-2 before:size-2 before:rounded-full before:border-2 before:border-(--tt-brand-color-400) before:bg-background"
+              style={{ left: (aim.into ? INDENT : 0) + 8 }}
+            />
+          )}
+        </span>
       )}
       <AnimatePresence>
         {forming && (
@@ -164,16 +222,16 @@ function Node({ id, children, inner, indent = 0 }: { id: string; children: React
       >
         {children}
       </div>
-    </div>
+    </motion.div>
   )
 }
 
 /**
- * The list itself, in place of the plain one while it is in your own order.
- * `face` draws a note's row as every list does; `index` counts rows on show,
- * which is what the keyboard's cursor counts.
+ * The list itself, in place of the plain one. `face` draws a note's row as
+ * every list does; `index` counts rows on show, which is what the keyboard's
+ * cursor counts.
  */
-export function GroupedList({ bundles, ordered, onDrop, picked, onLetGo, onFold, onNewNote, onPage, renaming, onRenaming, born, onSort, onSorted, face, after, arrived, cursor, estimate, className }: Folds & {
+export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo, onFold, onNewNote, onPage, renaming, onRenaming, born, onSort, onSorted, face, after, arrived, cursor, estimate, className }: Folds & {
   face: (entry: Entry, index: number) => React.JSX.Element
   after?: (entry: Entry) => ReactNode
   arrived: (id: string) => boolean
@@ -182,8 +240,12 @@ export function GroupedList({ bundles, ordered, onDrop, picked, onLetGo, onFold,
   className?: string
 }): React.JSX.Element {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
-  const partKeys = (one: Bundle): string[] => (one.parts ?? one.entries.map((entry) => ({ entry }))).flatMap((part) => ('entry' in part ? [part.entry.id] : [KEY + part.group.id, ...(part.group.open ? part.entries.map((entry) => entry.id) : [])]))
-  const keys = bundles.flatMap((one) => (one.group ? [KEY + one.group.id, ...(one.group.open ? partKeys(one) : [])] : one.entries.map((entry) => entry.id)))
+  const [carried, setCarried] = useState<string | null>(null)
+  // A group carried is folded while it is in the hand: one card, its row, and what it holds goes with it, so the room
+  // it opens is a row's and nothing it leaves behind is a hole. It opens again where it is let go.
+  const open = (group: GroupView): boolean => group.open && carried !== KEY + group.id
+  const partKeys = (one: Bundle): string[] => (one.parts ?? one.entries.map((entry) => ({ entry }))).flatMap((part) => ('entry' in part ? [part.entry.id] : [KEY + part.group.id, ...(open(part.group) ? part.entries.map((entry) => entry.id) : [])]))
+  const keys = bundles.flatMap((one) => (one.group ? [KEY + one.group.id, ...(open(one.group) ? partKeys(one) : [])] : one.entries.map((entry) => entry.id)))
   const subsOf = (one: Bundle): { group: GroupView; entries: Entry[] }[] => (one.parts ?? []).filter((part): part is { group: GroupView; entries: Entry[] } => 'group' in part)
   const info = useMemo(() => new Map(bundles.flatMap((one) => (one.group ? [[one.group.id, one.group] as const, ...subsOf(one).map((sub) => [sub.group.id, sub.group] as const)] : []))), [bundles]) // eslint-disable-line react-hooks/exhaustive-deps
   // The group each row on show is in (the innermost), for what a drop would mean.
@@ -193,74 +255,60 @@ export function GroupedList({ bundles, ordered, onDrop, picked, onLetGo, onFold,
   ] : []))), [bundles]) // eslint-disable-line react-hooks/exhaustive-deps
   // Each subgroup's group.
   const parentOf = useMemo(() => new Map(bundles.flatMap((one) => (one.group ? subsOf(one).map((sub) => [sub.group.id, one.group!.id] as const) : []))), [bundles]) // eslint-disable-line react-hooks/exhaustive-deps
-  const [carried, setCarried] = useState<string | null>(null)
+  // The rows on show in each group's block, its own row first: what its panel follows.
+  const blockRows = useMemo(() => bundles.flatMap((one) => (one.group ? [
+    { id: one.group.id, rows: [KEY + one.group.id, ...(open(one.group) ? partKeys(one) : [])] },
+    ...subsOf(one).map((sub) => ({ id: sub.group.id, rows: [KEY + sub.group.id, ...(open(one.group!) && open(sub.group) ? sub.entries.map((entry) => entry.id) : [])] }))
+  ] : [])), [bundles, carried]) // eslint-disable-line react-hooks/exhaustive-deps
   // Everything carried, in the order it is read: the row in hand, and the rest picked with it.
   const [many, setMany] = useState<string[]>([])
   // How far the pointer has carried things: the stack's back cards follow it a moment late.
   const dragY = useMotionValue(0)
   const manyRef = useRef<string[]>([])
   manyRef.current = many
-  const [height, setHeight] = useState(0)
-  const heightRef = useRef(0)
-  heightRef.current = height
-  const [within, setWithin] = useState<string | null>(null)
-  const withinRef = useRef<string | null>(null)
   // Where the row was taken hold of, across it: the chip sits just past it.
   const [grab, setGrab] = useState(60)
+  // The room what is carried takes: a row for each note, or a group's folded block.
+  const [span, setSpan] = useState(0)
+  const [rowH, setRowH] = useState(0)
+  // Let go with a drop: until the next lift, rows go straight to their places.
+  const [snap, setSnap] = useState(false)
+  const spanRef = useRef(0)
+  spanRef.current = span
+  // A group carried: how far its row sits inside its block's air.
+  const [inset, setInset] = useState(0)
+  const insetRef = useRef(0)
+  insetRef.current = inset
   const [aim, setAim] = useState<Aim | null>(null)
   const aimed = useRef<Aim | null>(null)
   const ticks = useRef(slotTicker()).current
-  // Over the middle of a row, room opens just after it (or after the last of
-  // its group's notes): where the carried row would land. Anywhere else
-  // nothing moves; a line says where it would go. A group carried by its row
-  // leaves its own notes where they are.
-  // A group carried takes its notes and its subgroups' rows along.
-  const mine = carried && isGroup(carried) ? new Set(keys.filter((key) => {
-    let at = isGroup(key) ? parentOf.get(key.slice(KEY.length)) : home.get(key)
-    for (let i = 0; i < 2 && at; i++) {
-      if (KEY + at === carried) return true
-      at = parentOf.get(at)
-    }
-    return false
-  })) : null
-  const anchor = (target: string): string => {
-    if (!isGroup(target)) return target
-    const group = info.get(target.slice(KEY.length))
-    return group?.open ? group.members.filter((id) => keys.includes(id)).pop() ?? target : target
-  }
+  // A group carried takes its notes and its subgroups' rows along: they wait where they are.
   // Where the room opens: just after this row on show (-1, at the very top), so the rows slide apart by one row there.
-  const gapAfter = !aim ? null : aim.how === 'join' ? keys.indexOf(anchor(aim.target)) : aim.how === 'after' ? keys.indexOf(aim.target) : keys.indexOf(aim.target) - 1
-  const down = !!carried && gapAfter !== null && keys.indexOf(carried) <= gapAfter
+  const gapAfter = aim?.gap ?? null
+  const aimSnug = aim?.snug ?? true
+  const aimFit = aim?.fit ?? 0
   const strategy: SortingStrategy = useMemo(
     () => (args) => {
-      if (gapAfter === null || (mine && mine.has(keys[args.index]))) return null
-      // Exactly one row of room, whatever lies between: the rows from the carried one's place to the gap slide by its height and no more.
-      const { activeIndex, index, rects, activeNodeRect } = args
-      const to = activeIndex <= gapAfter ? gapAfter : gapAfter + 1
-      // A row of room for each note carried.
-      const h = (activeNodeRect?.height ?? rects[activeIndex]?.height ?? 0) * Math.max(1, manyRef.current.length)
+      if (gapAfter === null) return null
+      // Exactly the room carried, whatever lies between: the rows from the carried one's place to the gap slide by it and no more.
+      const { activeIndex, index, rects } = args
+      const slide = slideOf(activeIndex, gapAfter, spanRef.current + aimFit, (at) => rects[at], aimSnug, insetRef.current + aimFit / 2)
       const still = { x: 0, scaleX: 1, scaleY: 1 }
-      if (index === activeIndex) {
-        const at = rects[activeIndex]
-        const there = rects[to]
-        if (!at || !there || to === activeIndex) return null
-        return { ...still, y: to > activeIndex ? there.top + there.height - h - at.top : there.top - at.top }
-      }
-      if (activeIndex < index && index <= to) return { ...still, y: -h }
-      if (to <= index && index < activeIndex) return { ...still, y: h }
-      return null
+      if (index === activeIndex) return slide.carried ? { ...still, y: slide.carried } : null
+      const y = slide.other(index)
+      return y ? { ...still, y } : null
     },
-    [gapAfter, carried, keys.join('\n')] // eslint-disable-line react-hooks/exhaustive-deps
+    [gapAfter, aimSnug, aimFit, carried, span, inset, keys.join('\n')] // eslint-disable-line react-hooks/exhaustive-deps
   )
   const point = (next: Aim | null): void => {
-    const was = aimed.current
-    if (was?.target === next?.target && was?.how === next?.how && was?.label === next?.label) return
+    if (same(aimed.current, next)) return
     aimed.current = next
     setAim(next)
   }
   const onDragStart = ({ active, activatorEvent }: DragStartEvent): void => {
     const id = String(active.id)
     dragY.jump(0)
+    setSnap(false)
     chime('lift')
     ticks.start(id)
     setCarried(id)
@@ -270,9 +318,14 @@ export function GroupedList({ bundles, ordered, onDrop, picked, onLetGo, onFold,
       setMany([id])
       if (picked.length) onLetGo()
     }
-    setHeight(active.rect.current.initial?.height ?? 48)
-    const start = active.rect.current.initial
+    // Measured off the row itself: the drag's own first measure is not always taken yet at the lift.
+    const start = document.querySelector<HTMLElement>(`[data-sortable-id="${CSS.escape(id)}"]`)?.getBoundingClientRect() ?? active.rect.current.initial
     setGrab(start && activatorEvent instanceof PointerEvent ? activatorEvent.clientX - start.left : 60)
+    const row = start?.height ?? 48
+    setRowH(row)
+    const wrap = isGroup(id) ? document.querySelector<HTMLElement>(`[data-group-block="${CSS.escape(id.slice(KEY.length))}"]`)?.parentElement : null
+    setInset(wrap && start ? start.top - wrap.getBoundingClientRect().top : 0)
+    setSpan(wrap ? wrap.getBoundingClientRect().height : row * (!isGroup(id) && picked.includes(id) && picked.length > 1 ? picked.length : 1))
   }
   // Held over a folded group's row for a moment, the group opens, as a folder
   // does in Finder when something is held over it.
@@ -281,83 +334,113 @@ export function GroupedList({ bundles, ordered, onDrop, picked, onLetGo, onFold,
     if (spring.current) clearTimeout(spring.current.timer)
     spring.current = null
   }
-  const onDragMove = ({ active, over, activatorEvent, delta }: DragMoveEvent): void => {
+  const name = (group: string | null | undefined): string => info.get(group ?? '')?.name ?? 'the group'
+  // A group carried over the middle of anything inside a top-level group (its row, a subgroup's row, a note) aims at that group as a whole.
+  const outerOf = (key: string): string | undefined => {
+    const inner = isGroup(key) ? key.slice(KEY.length) : home.get(key)
+    return inner ? parentOf.get(inner) ?? inner : undefined
+  }
+  const onDragMove = (event: DragMoveEvent): void => {
+    lastMove.current = event
+    const { active, activatorEvent, delta } = event
     dragY.set(delta.y)
     const id = String(active.id)
-    const target = over && String(over.id)
+    // A group's room is its block folded, measured once it has folded.
+    if (isGroup(id)) {
+      const wrap = document.querySelector<HTMLElement>(`[data-group-block="${CSS.escape(id.slice(KEY.length))}"]`)?.parentElement
+      const tall = wrap?.getBoundingClientRect().height
+      if (tall && Math.abs(tall - spanRef.current) > 0.5) setSpan(tall)
+    }
     const pointer = activatorEvent instanceof PointerEvent ? { x: activatorEvent.clientX + delta.x, y: activatorEvent.clientY + delta.y } : null
+    if (!pointer) return point(null)
+    // The row whose place the pointer is over, as the list lies before anything slid aside (as a sortable list reads it:
+    // the room then opens just where the pointer is, and what it shows never feeds back into what is aimed at). In the
+    // air between two rows, the nearer one.
+    const known = new Set(keys)
+    let over: { id: string; rect: { top: number; height: number } } | null = null
+    let far = Infinity
+    for (const node of document.querySelectorAll<HTMLElement>('[data-sortable-id]')) {
+      const key = node.dataset.sortableId!
+      if (!known.has(key)) continue
+      const box = node.getBoundingClientRect()
+      const top = box.top - new DOMMatrixReadOnly(getComputedStyle(node).transform).m42
+      const off = pointer.y < top ? top - pointer.y : pointer.y > top + box.height ? pointer.y - top - box.height : 0
+      if (off < far) (far = off, (over = { id: key, rect: { top, height: box.height } }))
+    }
+    if (!over) return point(null)
+    const target: string = over.id
+    // Over its own place: nothing changes.
+    if (target === id) return point(null)
     const shut = target && !isGroup(id) ? info.get(target.slice(KEY.length)) : undefined
     if (!shut || shut.open || !isGroup(target!)) unspring()
     else if (spring.current?.key !== target) {
       unspring()
       spring.current = { key: target!, timer: setTimeout(() => (click('tick'), onFold(shut, true), (spring.current = null)), 600) }
     }
-    // The group the pointer is within, header, rows, the hair between them or
-    // the room opened at its end: its panel stays lit all the while.
-    if (pointer) {
-      let inside: string | null = null
-      for (const block of document.querySelectorAll<HTMLElement>('[data-group-block]')) {
-        const box = block.getBoundingClientRect()
-        const more = aimed.current?.into === block.dataset.groupBlock ? heightRef.current : 0
-        if (pointer.y >= box.top - more && pointer.y <= box.bottom + more) inside = block.dataset.groupBlock ?? null
-      }
-      if (inside !== withinRef.current) (withinRef.current = inside, setWithin(inside))
-    }
-    if (!target || target === id || !pointer || (manyRef.current.length > 1 && manyRef.current.includes(target))) return point(null)
-    if (mine?.has(target)) return point(null)
+    if (manyRef.current.length > 1 && manyRef.current.includes(target)) return point(null)
+    const ids = manyRef.current.length > 1 ? manyRef.current : [id]
     const at = (pointer.y - over.rect.top) / over.rect.height
-    // A group carried over the middle of anything inside a group (its row, a subgroup's row, a note) aims at that group as a whole.
-    const outerOf = (key: string): string | undefined => {
-      const inner = isGroup(key) ? key.slice(KEY.length) : home.get(key)
-      return inner ? parentOf.get(inner) ?? inner : undefined
+    const middle = at > 0.28 && at < 0.72
+    // What to try, in turn: over a row's middle, gathering with it (or going into its group); else, or where that does nothing, beside it.
+    const tries: [string, How][] = []
+    if (middle && isGroup(id)) {
+      const whole = outerOf(target)
+      if (whole && KEY + whole !== id) tries.push([KEY + whole, 'join'])
+    } else if (middle) tries.push([target, 'join'])
+    tries.push([target, at < 0.5 ? 'before' : 'after'])
+    for (const [where, how] of tries) {
+      const land = preview(ids, where, how)
+      if (!land) continue
+      const lead = ids[0]
+      const own = groupOf(land.before, lead) ?? null
+      const into = groupOf(land.after, lead) ?? null
+      const around = groupsAround(land.after, lead)
+      const make = !!land.after.make
+      // The room opens after the row it will follow on show, leaving out what is carried and what a carried group takes along.
+      const known = new Set(keys)
+      const seq = land.shown.filter((key) => key === lead || (known.has(key) && !ids.includes(key)))
+      const prev = seq[seq.indexOf(lead) - 1]
+      // Into a folded group it goes out of sight, and in a list sorted some other way it takes its sorted place in its new group:
+      // either way nothing opens, only that group lights.
+      const gap = !seq.includes(lead) || (!ordered && (into !== own || make)) ? null : prev === undefined ? -1 : keys.indexOf(prev)
+      const n = ids.length
+      const count = n > 1 ? `${n} ` : ''
+      const outer = make ? groupOf(land.after, KEY + into) ?? null : null
+      const words =
+        make ? (outer ? (n > 1 ? `New subgroup of ${n + 1}` : `New subgroup in ${name(outer)}`) : n > 1 ? `New group of ${n + 1}` : 'New group')
+        : into !== own ? (into ? (isGroup(lead) ? `Put inside ${name(into)}` : own ? `Move ${count}to ${name(into)}` : `Add ${count}to ${name(into)}`) : isGroup(lead) ? `Move out of ${name(own)}` : `Remove ${count}from ${name(own)}`)
+        : `${n > 1 ? `Move ${num(n)} here` : 'Move here'}${ordered ? '' : ' · Custom order'}`
+      // In the gap row's own group (or first in the group whose row it is), the room sits close under it.
+      const gapRow = gap !== null && gap >= 0 ? keys[gap] : undefined
+      const snug = gapRow !== undefined && (isGroup(gapRow) ? gapRow.slice(KEY.length) === (make ? outer : into) : (home.get(gapRow) ?? null) === (make ? outer : into))
+      // A group's block sits in 8px of air at the top level and 4px inside a group.
+      const fit = isGroup(lead) ? (into ? 4 : 8) - (own ? 4 : 8) : 0
+      return point({ target: where, how, into: make ? outer : into, label: words, make, gap, snug, fit, around: make ? around.slice(1) : around, tint: tintOf(info.get((make ? outer : into) ?? own ?? '')?.color) })
     }
-    if (isGroup(id) && at > 0.28 && at < 0.72 && outerOf(target) && KEY + outerOf(target) !== id) {
-      const whole = KEY + outerOf(target)!
-      const empty = !bundles.some((one) => one.group && KEY + one.group.id === id && subsOf(one).length)
-      if (empty) return point({ target: whole, how: 'join', into: outerOf(target)!, label: `Put inside ${info.get(outerOf(target)!)?.name ?? 'the group'}`, tint: tintOf(info.get(outerOf(target)!)?.color) })
-    }
-    const own = isGroup(id) ? parentOf.get(id.slice(KEY.length)) : home.get(id)
-    const targetGroup = isGroup(target) ? target.slice(KEY.length) : home.get(target)
-    // Over another of its own group's notes, a note makes a subgroup with it (one level only).
-    const sub = !isGroup(id) && !isGroup(target) && !!own && own === targetGroup && !parentOf.has(own)
-    // A group with no subgroups goes inside another group's row at the top level; a note's own group is no new home.
-    const nests = isGroup(id) && isGroup(target) && !parentOf.has(target.slice(KEY.length)) && !bundles.some((one) => one.group && KEY + one.group.id === id && subsOf(one).length) && own !== target.slice(KEY.length)
-    const joinable = isGroup(id) ? nests : sub || !(own && own === targetGroup)
-    const how: How = joinable && at > 0.28 && at < 0.72 ? 'join' : at < 0.5 ? 'before' : 'after'
-    const parentOfTarget = isGroup(target) ? parentOf.get(target.slice(KEY.length)) ?? null : null
-    const into = isGroup(id) ? (how === 'join' ? target.slice(KEY.length) : null) : how === 'join' ? (sub ? null : targetGroup ?? null) : isGroup(target) ? (how === 'after' && info.get(targetGroup!)?.open ? targetGroup! : parentOfTarget) : targetGroup ?? null
-    const name = (group: string | null | undefined): string => info.get(group ?? '')?.name ?? 'the group'
-    // Several carried say how many.
-    const n = manyRef.current.length
-    const count = n > 1 ? `${n} ` : ''
-    const words =
-      isGroup(id) ? (how === 'join' ? `Put inside ${name(into)}` : null)
-      : how === 'join' && sub ? (n > 1 ? `New subgroup of ${n + 1}` : `New subgroup in ${name(own)}`)
-      : how === 'join' ? (into ? `Add ${count}to ${name(into)}` : n > 1 ? `New group of ${n + 1}` : 'New group')
-      : own && into !== own ? (into ? `Move ${count}to ${name(into)}` : `Remove ${count}from ${name(own)}`)
-      : !own && into ? `Add ${count}to ${name(into)}`
-      : n > 1 ? `Move ${num(n)} here`
-      : null
-    // Sorted some other way, a row has no place of its own to move to: only into a group, or out of one, does anything.
-    if (!ordered && !isGroup(id) && how !== 'join' && (into ?? undefined) === own) return point(null)
-    point({ target, how, into, label: words, tint: tintOf(info.get(into ?? own ?? '')?.color) })
+    point(null)
   }
+  // Rows changed under a still pointer (a folded group sprung open): aimed afresh once they have settled.
+  const lastMove = useRef<DragMoveEvent | null>(null)
+  const shape = keys.join('\n')
+  useEffect(() => {
+    if (!carried || !lastMove.current) return
+    const again = setTimeout(() => lastMove.current && onDragMove(lastMove.current), 240)
+    return () => clearTimeout(again)
+  }, [shape]) // eslint-disable-line react-hooks/exhaustive-deps
   const end = (): void => {
+    lastMove.current = null
     unspring()
-    withinRef.current = null
-    setWithin(null)
     setMany([])
     setCarried(null)
     point(null)
   }
-  const onDragEnd = ({ active, over }: DragEndEvent): void => {
+  const onDragEnd = ({ active }: DragEndEvent): void => {
     const now = aimed.current
     end()
-    if (!over || !now || now.target === String(active.id)) return chime('stay')
+    if (!now || now.target === String(active.id)) return chime('stay')
+    setSnap(true)
     onDrop(manyRef.current.length > 1 ? manyRef.current : [String(active.id)], now.target, now.how)
   }
-  const own = carried ? home.get(carried) : undefined
-  const leaving = own && aim && aim.into !== own ? { group: own, id: carried! } : null
   let index = 0
   const lines = bundles.map((one) => {
     const start = index
@@ -381,9 +464,9 @@ export function GroupedList({ bundles, ordered, onDrop, picked, onLetGo, onFold,
   )
   return (
     <DndContext sensors={sensors} collisionDetection={collide} modifiers={[upDown]} measuring={{ droppable: { strategy: MeasuringStrategy.WhileDragging } }}
-      onDragStart={onDragStart} onDragMove={onDragMove} onDragOver={({ over }) => ticks(over?.id)} onDragEnd={onDragEnd} onDragCancel={end}>
+      onDragStart={onDragStart} onDragMove={onDragMove} onDragOver={({ over }) => ticks(over?.id)} onDragEnd={onDragEnd} onDragCancel={() => (end(), chime('stay'))}>
       <SortableContext items={keys} strategy={strategy}>
-        <Carrying.Provider value={{ aim, height, leaving, down, along: new Set(many.filter((one) => one !== carried)), within, hand: carried }}>
+        <Shaped aim={aim} keys={keys} hand={carried} many={many} span={span} inset={inset} row={rowH} snap={snap} blocks={blockRows}>
           {ordered && <OwnOrderHint />}
           <VirtualList items={lines} keyOf={({ one }) => (one.group ? KEY + one.group.id : one.entries[0].id)} cursor={line >= 0 ? line : undefined} estimate={estimate} className={className}>
             {({ one, start }) =>
@@ -397,23 +480,87 @@ export function GroupedList({ bundles, ordered, onDrop, picked, onLetGo, onFold,
               )
             }
           </VirtualList>
-        </Carrying.Provider>
+        </Shaped>
       </SortableContext>
       <Overlay dropAnimation={still() ? null : SETTLE}>
-        {carried && <Ghost carried={carried} bundles={bundles} many={many} aim={aim} grab={grab} lift={aim?.how === 'join' && !down ? height : 0} dragY={dragY} />}
+        {carried && <Ghost carried={carried} bundles={bundles} many={many} aim={aim} grab={grab} dragY={dragY} />}
       </Overlay>
     </DndContext>
   )
 }
 
 /**
+ * How far everything slides while something is carried, from where it was
+ * (`from`) to just after the
+ * row at `gap`: the carried unit moves there (`carried`), and the rows it
+ * passes slide by `span` the other way (`other`, by index). The list's own
+ * slide and its groups' panels both read it, so they never disagree.
+ */
+function slideOf(from: number, gap: number, span: number, rect: (index: number) => { top: number; height: number } | undefined, snug = true, inset = 0): { carried: number; other: (index: number) => number } {
+  const last = from
+  const down = gap > last
+  const up = gap < from - 1
+  const at = rect(from)
+  const end = (one: { top: number; height: number } | undefined): number | undefined => one && one.top + one.height
+  // Where the unit's top (a group's, its air included) goes: close under the row at the gap when it lands in that row's
+  // own group, else just over the next row, past any group's edge between. Moving down, the rows it passes close up first.
+  let top: number | undefined
+  if (down) top = snug ? (end(rect(gap)) ?? 0) + 1 - span : (rect(gap + 1)?.top ?? (end(rect(gap)) ?? 0) + 1) - span
+  else if (up) top = snug ? (end(rect(gap)) ?? 0) + 1 : rect(gap + 1)?.top
+  // Next to where it was, it moves only into the row above's group (or out of it).
+  else if (snug && gap >= 0) top = (end(rect(gap)) ?? 0) + 1
+  return {
+    carried: !at || top === undefined ? 0 : top + inset - at.top,
+    other: (index) => (down && last < index && index <= gap ? -span : up && gap < index && index < from ? span : 0)
+  }
+}
+
+/**
+ * Where each group's panel edges go while something is carried, worked out
+ * from the rows' own places (as the list measures them, transforms left out)
+ * and how far each one slides: the top follows the group's own row, the
+ * bottom its last row, and a group the carried row would land in takes the
+ * room in too. So the panel lights exactly the group named, on its own edges.
+ */
+function Shaped({ aim, keys, hand, many, span, inset, row: mid, snap, blocks, children }: { aim: Aim | null; keys: string[]; hand: string | null; many: string[]; span: number; inset: number; row: number; snap: boolean; blocks: { id: string; rows: string[] }[]; children: ReactNode }): React.JSX.Element {
+  const { droppableRects } = useDndContext()
+  const gap = aim?.gap ?? null
+  const shapes = new Map<string, Shape>()
+  const from = hand ? keys.indexOf(hand) : -1
+  if (gap !== null && from >= 0 && span) {
+    const h = span + (aim!.fit ?? 0)
+    const box = (key: string | undefined) => (key === undefined ? undefined : droppableRects.get(key))
+    const slide = slideOf(from, gap, h, (at) => box(keys[at]), aim!.snug ?? true, inset + (aim!.fit ?? 0) / 2)
+    const shift = (key: string): number => slide.other(keys.indexOf(key))
+    const roomTop = box(hand!) ? box(hand!)!.top - inset + slide.carried - (aim!.fit ?? 0) / 2 : undefined
+    for (const { id, rows } of blocks) {
+      if (hand === KEY + id) continue
+      const all = rows.filter((key) => box(key))
+      const staying = all.filter((key) => key !== hand && !many.includes(key))
+      if (!staying.length) continue
+      const was = Math.max(...all.map((key) => box(key)!.top + box(key)!.height))
+      let now = Math.max(...staying.map((key) => box(key)!.top + box(key)!.height + shift(key)))
+      if (aim!.around.includes(id) && roomTop !== undefined) now = Math.max(now, roomTop + h)
+      const top = box(rows[0]) ? shift(rows[0]) : 0
+      const bottom = Math.round(now - was)
+      if (top || bottom) shapes.set(id, { top, bottom })
+    }
+  }
+  const signature = [...shapes].map(([id, one]) => `${id}:${one.top}:${one.bottom}`).join()
+  const along = many.filter((one) => one !== hand).join()
+  // A new value only when something drawn changes: every row reads it.
+  const value = useMemo<Carry>(() => ({ aim, height: mid, span: span + (aim?.fit ?? 0), along: new Set(along ? along.split(',') : []), hand, shapes, snap }), [aim, mid, span, along, hand, signature, snap]) // eslint-disable-line react-hooks/exhaustive-deps
+  return <Carrying.Provider value={value}>{children}</Carrying.Provider>
+}
+
+/**
  * What is carried: one small card beside the pointer, the same one the whole
  * way, whatever it is over. Its words change in place (Move here, Add to
- * Memory, New group), and over a row's middle it drops into the room it
- * previews. Several carried show as a stack with a count; a group, by its
+ * Memory, New group), and it stays under the pointer the whole way. Where
+ * letting go would do nothing, it says why. Several carried show as a stack with a count; a group, by its
  * icon and name.
  */
-function Ghost({ carried, bundles, many, aim, grab, lift, dragY }: { carried: string; bundles: Bundle[]; many: string[]; aim: Aim | null; grab: number; lift: number; dragY: MotionValue<number> }): React.JSX.Element {
+function Ghost({ carried, bundles, many, aim, grab, dragY }: { carried: string; bundles: Bundle[]; many: string[]; aim: Aim | null; grab: number; dragY: MotionValue<number> }): React.JSX.Element {
   const group = isGroup(carried) ? bundles.flatMap((one) => (one.group ? [one.group, ...(one.parts ?? []).flatMap((part) => ('group' in part ? [part.group] : []))] : [])).find((one) => KEY + one.id === carried) : undefined
   const entries = bundles.flatMap((one) => one.entries)
   const entry = group ? undefined : entries.find((one) => one.id === carried)
@@ -423,7 +570,7 @@ function Ghost({ carried, bundles, many, aim, grab, lift, dragY }: { carried: st
   return (
     <div className="relative h-full w-full">
       <div className="absolute top-1/2 w-[60%] min-w-64" style={{ left: `min(${grab + 18}px, 40%)`, translate: '0 -50%' }}>
-        <motion.div className="relative" initial={false} animate={{ y: lift }} transition={still() ? { duration: 0 } : springs.moderate}>
+        <div className="relative">
           {behind.map((one, at) => <Fanned key={one.id} entry={one} depth={at + 1} dragY={dragY} />).reverse()}
           <motion.div
             data-ghost=""
@@ -457,7 +604,7 @@ function Ghost({ carried, bundles, many, aim, grab, lift, dragY }: { carried: st
           </motion.div>
           {/* How many, hanging just under the stack. */}
           {many.length > 1 && <Count n={many.length} />}
-        </motion.div>
+        </div>
       </div>
     </div>
   )
@@ -577,22 +724,15 @@ function GroupBlock({ group, entries, parts, start, row, carried, renaming, born
   const count = entries.length
   const tint = tintOf(group.color)
   const key = KEY + group.id
-  const { aim, height, leaving, down, within, hand, along } = useContext(Carrying)
-  const joining = aim?.how === 'join' && aim.into === group.id
-  // Carrying, the panel answers the pointer being anywhere within the group, and deepens when letting go would put the row in it.
-  const near = within === group.id && !carried
+  const { aim, shapes, hand, snap } = useContext(Carrying)
+  // Folded at once as it is lifted, and open again at once where it lands.
+  const [wasCarried, setWasCarried] = useState(carried)
+  if (wasCarried !== carried) setWasCarried(carried)
+  // Carrying, the panel lights only when letting go would leave the row in this very group, never one around it.
   const landing = !!aim && aim.into === group.id
-  const losing = leaving?.group === group.id ? entries.findIndex((entry) => entry.id === leaving.id) : -1
-  // The panel follows what is about to happen: wider for one about to join, closing over one about to leave.
-  // Room opened inside it for a row from elsewhere: the panel takes that row in too.
-  const span = height * (along.size + 1)
-  // As a stretch on the compositor (scaleY from the edge that stays), not by
-  // moving its top or bottom, which laid the page out each frame of a drag.
+  // Its edges follow its rows as they make room or close over a gap, on the compositor.
+  const shape = shapes.get(group.id) ?? REST
   const block = useRef<HTMLDivElement>(null)
-  const tall = block.current?.offsetHeight || 1
-  const stretch: CSSProperties = landing && !entries.some((entry) => entry.id === hand)
-    ? { transform: `scaleY(${(tall + span) / tall})`, transformOrigin: down ? 'bottom' : 'top' }
-    : losing >= 0 ? { transform: `scaleY(${Math.max(0, tall - span) / tall})`, transformOrigin: down ? 'top' : 'bottom' } : {}
   const fold = (): void => {
     chime(group.open ? 'tuck' : 'untuck')
     onFold(!group.open)
@@ -618,17 +758,18 @@ function GroupBlock({ group, entries, parts, start, row, carried, renaming, born
     setNamed(next.trim())
     change(group, { name: next.trim() })
   }
-  const shown = (menu || picking || renaming || joining || landing || near || losing >= 0 || pointing || !arrived || born) && !parting
+  const shown = (menu || picking || renaming || landing || pointing || !arrived || born) && !parting
   // Pointed at: its own panel deepens, never a subgroup's inside it.
   const [over, setOver] = useState(false)
-  // Deeper while pointed at, and deeper still while something is about to land in it or it is about to go.
-  const depth = (tint ? 6 : 3.5) * (pointing ? 2.2 : landing ? 2 : shown || over ? 1.6 : 1)
+  // Deeper while pointed at. While something is carried, every panel rests, and only the one it would land in lights (PanelParts' wash).
+  const depth = (tint ? 6 : 3.5) * (hand ? 1 : pointing ? 2.2 : shown || over ? 1.6 : 1)
   return (
     <div
       ref={block}
       data-group-block={group.id}
       data-subgroup={inner ? '' : undefined}
       data-active={shown ? '' : undefined}
+      data-landing={landing ? '' : undefined}
       onPointerOver={(event) => setOver(!(event.target as Element).closest('[data-group-block]') || (event.target as Element).closest('[data-group-block]') === event.currentTarget)}
       onPointerLeave={() => setOver(false)}
       // At the top level it reaches a little past the rows either side, so what is in it starts and ends where every other row does.
@@ -640,18 +781,20 @@ function GroupBlock({ group, entries, parts, start, row, carried, renaming, born
         aria-hidden
         data-panel=""
         className={cn(
-          'pointer-events-none absolute inset-0 -z-10 origin-top rounded-lg transition-[opacity,scale,transform,background-color,box-shadow] duration-200 motion-reduce:transition-none',
+          'pointer-events-none absolute inset-0 -z-10 origin-top transition-[opacity,scale] duration-200 motion-reduce:transition-none',
           carried && 'opacity-0!',
           parting && 'scale-[0.98] opacity-0!',
           !arrived && 'scale-[0.97] opacity-0'
         )}
         style={{
           transitionTimingFunction: OUT,
-          background: `color-mix(in srgb, var(--group-tint) ${depth}%, transparent)`,
-          boxShadow: `inset 0 0 0 1px color-mix(in srgb, var(--group-tint) ${tint ? 16 : 9}%, transparent)`,
-          ...stretch
-        }}
-      />
+          '--panel-fill': `color-mix(in srgb, var(--group-tint) ${depth}%, transparent)`,
+          '--panel-edge': `color-mix(in srgb, var(--group-tint) ${tint ? 16 : 9}%, transparent)`,
+          '--panel-lit': `color-mix(in srgb, var(--group-tint) ${tint ? 6 : 4}%, transparent)`
+        } as CSSProperties}
+      >
+        <PanelParts shape={shape} tall={block.current?.offsetHeight ?? 0} lit={landing} snap={snap} />
+      </div>
       {/* The row: folded away until a group just made unfolds it, and as a separated one goes. */}
       <div
         className="grid transition-[grid-template-rows,opacity] duration-200 motion-reduce:transition-none"
@@ -763,7 +906,7 @@ function GroupBlock({ group, entries, parts, start, row, carried, renaming, born
           </Node>
         </div>
       </div>
-      <Fold open={group.open}>
+      <Fold open={group.open && !carried} instant={carried || wasCarried}>
         <div className="flex flex-col gap-px pb-1">
           {(() => {
             // Each part in turn: a note's row, or a subgroup's block; the rows on show counted as they go.
@@ -785,13 +928,42 @@ function GroupBlock({ group, entries, parts, start, row, carried, renaming, born
   )
 }
 
+const REST: Shape = { top: 0, bottom: 0 }
+/** The rows' slide (dnd-kit's transition on each row), for a panel to keep pace with them. */
+const SLIDE = { duration: 0.22, ease: [0.2, 0.9, 0.3, 1] as [number, number, number, number] }
+/** The rounded ends' height: past the corners' curve, so only the straight middle is stretched. */
+const CAP = 12
+
+/**
+ * A group's panel in three parts, a rounded top, a straight middle and a
+ * rounded bottom, so its edges can move with its rows on the compositor: the
+ * ends slide and only the middle stretches, and the corners stay true however
+ * far it grows or closes. Lit, a deeper wash fades in over all three.
+ */
+function PanelParts({ shape, tall, lit, snap }: { shape: Shape; tall: number; lit: boolean; snap: boolean }): React.JSX.Element {
+  const middle = Math.max(1, tall - CAP * 2)
+  const part = 'absolute inset-x-0 border-x border-(--panel-edge) bg-(--panel-fill) transition-[background-color] duration-200 motion-reduce:transition-none before:absolute before:-inset-x-px before:inset-y-0 before:rounded-[inherit] before:bg-(--panel-lit) before:transition-opacity before:duration-200 before:content-[""] motion-reduce:before:transition-none'
+  const wash = lit ? 'before:opacity-100' : 'before:opacity-0'
+  // On the rows' own clock (useGlide): CSS transitions each shorten on their own when turned back halfway, and the parts came apart.
+  const top = useGlide(shape.top, 1, snap)
+  const mid = useGlide(shape.top, Math.max(0, middle + shape.bottom - shape.top) / middle, snap)
+  const bottom = useGlide(shape.bottom, 1, snap)
+  return (
+    <>
+      <motion.div ref={top.ref} data-panel-part="top" className={cn(part, wash, 'top-0 rounded-t-lg border-t')} style={{ height: CAP, ...top.style }} />
+      <motion.div ref={mid.ref} data-panel-part="middle" className={cn(part, wash)} style={{ top: CAP, height: `calc(100% - ${CAP * 2}px)`, originY: 0, ...mid.style }} />
+      <motion.div ref={bottom.ref} data-panel-part="bottom" className={cn(part, wash, 'bottom-0 rounded-b-lg border-b')} style={{ height: CAP, ...bottom.style }} />
+    </>
+  )
+}
+
 /**
  * What a group holds, opening to its height and closing to nothing on the
  * grid-rows trick, its notes drawing up into the row as they go: under a
  * quarter of a second, easing out, and at once with Reduce motion. Shut, its
  * notes leave the page, so nothing hidden can be dropped on.
  */
-function Fold({ open, children }: { open: boolean; children: ReactNode }): React.JSX.Element {
+function Fold({ open, instant: now = false, children }: { open: boolean; instant?: boolean; children: ReactNode }): React.JSX.Element {
   const [kept, setKept] = useState(open)
   const [settled, setSettled] = useState(open)
   const was = useRef(open)
@@ -799,7 +971,7 @@ function Fold({ open, children }: { open: boolean; children: ReactNode }): React
   const keyed = useRef(false)
   if (was.current !== open) {
     was.current = open
-    keyed.current = byKeys()
+    keyed.current = byKeys() || now
     const instant = still() || keyed.current
     if (open && !kept) setKept(true)
     setSettled(instant)

@@ -66,7 +66,7 @@ import { moment } from '@/lib/clock'
 import { Signed } from './signature'
 import { groups as noteGroupsApi, tintOf, useGroups, type NoteGroup } from '@/lib/groups'
 import { useReveal } from './islands'
-import { dropMany, flatten, gather, groupId, groupOf, isGroup, KEY, layoutOf, moveTo, step as stepLayout, tidy, type Layout } from '@/lib/group-layout'
+import { dropMany, flatten, gather, groupId, groupOf, isGroup, KEY, layoutOf, moveTo, reorderAs, sameLayout, shownKeys, step as stepLayout, tidy, type Layout } from '@/lib/group-layout'
 import type { Cue } from '@/lib/sound'
 import { GroupIcon, type Bundle, type Folds, type GroupView } from './kept-groups'
 import { asideItem, useHere } from '@/lib/split'
@@ -223,7 +223,7 @@ export function ItemsView({ tier, focus, onOpen, only }: { tier: 'nugget' | 'art
   const questionsOnly = writing && asks === 'questions'
   const all = useMemo(() => (unloaded(own) || unloaded(held) ? unread([] as Item[]) : !writing ? own : questionsOnly ? held : [...own, ...held.filter((one) => !one.closedAt)]),
     [own, held, writing, questionsOnly])
-  const { groups: arranged, display, chips, density, view, setView, move, moveBy, ownOrder } = useItemDisplay(tier, all)
+  const { groups: arranged, display, chips, density, view, setView, move, moveBy, ownOrder, mine } = useItemDisplay(tier, all)
   // The list's width: beside the note, over the whole page, or a rail of pictures.
   const pane = view.pane ?? 'list'
   const [query, setQuery] = useState('')
@@ -237,7 +237,7 @@ export function ItemsView({ tier, focus, onOpen, only }: { tier: 'nugget' | 'art
   const [chosen, setChosen] = useState<string[]>([])
   // Groups show as groups in every sort, as rows (not tiles, and not when Display groups the list by kind or date).
   const folding = useFolding(tier, all, ownOrder, plain && (density === 'list' || density === 'compact') && !(spread && query.trim()) ? groups.flatMap(([, list]) => list) : null,
-    view.sort === 'manual', () => setChosen([]), chosen)
+    view.sort === 'manual', () => setChosen([]), chosen, mine)
   // As tiles, each group is one folder card; opened, the grid shows only its notes, under a chip back.
   const noteGroups = useGroups(tier)
   const tiled = (density === 'grid' || density === 'small') && plain && !(spread && query.trim())
@@ -1163,6 +1163,8 @@ export function useItemDisplay(name: string, every: Item[]): {
   moveBy: (shown: string[], id: string, by: number) => boolean
   /** Your own order, as a sort: what groups are laid out by. */
   ownOrder: (a: Item, b: Item) => number
+  /** Switch to your own order, as moving a row does: the way back, when it did switch. */
+  mine: () => (() => void) | undefined
 } {
   // Grouped by kind to start: a few short lists read calmer than one long one.
   const [view, setView] = useView(name, { sort: 'newest', group: 'kind' })
@@ -1235,7 +1237,7 @@ export function useItemDisplay(name: string, every: Item[]): {
     />
   )
   const chips = <FilterChips view={view} onChange={setView} facets={facets} />
-  return { groups, display, chips, density, view, setView, move, moveBy, ownOrder }
+  return { groups, display, chips, density, view, setView, move, moveBy, ownOrder, mine }
 }
 
 /** Each layout's reading order, kept while that layout is the one drawn. */
@@ -1252,7 +1254,7 @@ const ORDER = new WeakMap<Layout, Map<string, number>>()
  * back the same, so nothing jumps back while the save is on its way. Every
  * change says so with a way back.
  */
-function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) => number, shown: Item[] | null, ordered: boolean, done: () => void, chosen: string[]): {
+function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) => number, shown: Item[] | null, ordered: boolean, done: () => void, chosen: string[], toOwn: () => (() => void) | undefined): {
   rows: Item[] | null
   /** The list as tiles: each group as one folder, at the top, then the loose notes. */
   tiles: (list: Item[]) => ({ group: NoteGroup; items: Item[] } | { item: Item })[]
@@ -1333,6 +1335,8 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
   const keys = now.flatMap((one) => (one.group
     ? [KEY + one.group, ...(isOpen(one.group) ? (one.parts ?? []).flatMap((part) => ('item' in part ? [part.item.id] : [KEY + part.sub, ...(isOpen(part.sub) ? part.items.map((item) => item.id) : [])])) : [])]
     : [one.items[0].id]))
+  // Sorted some other way, a drop starts from the order you see, and switches the list to your own order to keep it, as moving a plain row does.
+  const base = ordered ? layout : reorderAs(layout, now.flatMap((one) => (one.group ? [KEY + one.group, ...(one.parts ?? []).flatMap((part) => ('item' in part ? [part.item.id] : [KEY + part.sub, ...part.items.map((item) => item.id)]))] : [one.items[0].id])))
   // A group left unnamed is named for what its notes share: a tag on all of
   // them, or their kind, or else the next free "Group 2", so no two read the same.
   const byId = new Map(every.map((one) => [one.id, one]))
@@ -1349,7 +1353,7 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     return `Group ${n}`
   }
   const make = (ids: string[] = []) => (): { id: string; name: string } => ({ id: crypto.randomUUID(), name: naming(ids) })
-  const commit = (raw: Layout, cue: Cue, said?: string): void => {
+  const commit = (raw: Layout, cue: Cue, said?: string, unsort?: () => void): void => {
     const was = layout
     // A group left with one note comes apart, in the same step, and the same Undo.
     const { layout: next, dissolved } = tidy(raw)
@@ -1367,6 +1371,7 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     const back = (): void => {
       // Drawn back at once, as the change itself was.
       setHeld({ top: was.top, groups: was.groups })
+      unsort?.()
       void noteGroupsApi.arrange(tier, { top: was.top, groups: was.groups, revive })
     }
     // A new group is drawn in front of you with its name open for typing: no toast, ⌘Z still takes it back.
@@ -1450,16 +1455,25 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
         parts: one.parts?.map((part) => ('item' in part ? { entry: itemEntry(part.item, menuFor(part.item)) } : { group: view(part.sub, part.items), entries: part.items.map((item) => itemEntry(item, menuFor(item))) }))
       }
     }),
+    preview: (ids, target, how) => {
+      const next = dropMany(base, ids, target, how, shut, () => ({ id: 'new', name: '' }))
+      return next && !sameLayout(next, base) ? { before: base, after: next, shown: shownKeys(next, shut) } : null
+    },
     onDrop: (ids, target, how) => {
-      const next = dropMany(layout, ids, target, how, shut, make([target, ...ids]))
-      if (!next) return chime('stay')
+      const seen = dropMany(base, ids, target, how, shut, make([target, ...ids]))
+      if (!seen || sameLayout(seen, base)) return chime('stay')
+      // Only a move within where it already is needs your own order, laid out as you saw it. Joining or leaving a
+      // group keeps the sort, and your own order as it was: the row takes its sorted place in its new group.
+      const reorder = !ordered && !seen.make && groupOf(base, ids[0]) === groupOf(seen, ids[0])
+      const next = ordered || reorder ? seen : dropMany(layout, ids, target, how, shut, make([target, ...ids])) ?? seen
+      const unsort = reorder ? toOwn() : undefined
       const active = ids[0]
       const was = isGroup(active) ? undefined : groupOf(layout, active)
       const lands = isGroup(active) ? undefined : groupOf(next, active)
       const name = (id?: string): string => (id && (info.get(id)?.name ?? next.make?.name)) || 'the group'
       const n = ids.length > 1 ? ` ${ids.length}` : ''
       commit(next, next.make || (lands && lands !== was) ? 'gather' : was && !lands ? 'separate' : 'shift',
-        next.make ? 'Grouped' : lands && lands !== was ? `Added${n} to ${name(lands)}` : was && !lands ? `Removed${n} from ${name(was)}` : `Moved${n}`)
+        next.make ? 'Grouped' : lands && lands !== was ? `Added${n} to ${name(lands)}` : was && !lands ? `Removed${n} from ${name(was)}` : `Moved${n}`, unsort)
     },
     picked: chosen,
     onLetGo: () => done(),

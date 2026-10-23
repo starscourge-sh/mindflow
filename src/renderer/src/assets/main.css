@@ -1079,6 +1079,10 @@ body:has([data-card]:focus) [data-cursor] {
 .mf-arrive {
   animation: mf-arrive 220ms var(--mf-ease) both;
 }
+/* A drop's room in a grouped list: it waits for the rows to make way, then shows (kept-groups.tsx). */
+@keyframes mf-room {
+  from { opacity: 0; }
+}
 @keyframes mf-arrive {
   from { opacity: 0; transform: translateY(-4px); }
 }
