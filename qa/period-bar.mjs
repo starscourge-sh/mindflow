@@ -75,8 +75,11 @@ const keys = (...list) => async () => {
 try {
   await v('settings:set', { sounds: false, hintRate: 0 })
   await v('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false })
-  // The sandbox's "You're in the sandbox" line leaves about a second after the first page: let it go first.
-  await go('day'); await wait(2500)
+  // The sandbox's "You're in the sandbox" line folds away on its own (9 s, page-hint.tsx) and lifts
+  // every page with it: let it go first, so a switch is not blamed for its leaving.
+  await go('day')
+  for (let i = 0; i < 60 && await h.evaluate(() => !!document.querySelector('[role="note"]')); i++) await wait(250)
+  await wait(600)
   const first = await read()
   check('Day: the bar has four tabs, two arrows and the jump back', first && Object.keys(first.rects).length === 7, JSON.stringify(first?.rects))
   check('Day: Journal alone is lit', first?.lit.length === 1 && first.lit[0] === 'Journal', JSON.stringify(first?.lit))
@@ -127,6 +130,23 @@ try {
   await switched("Month, with Month's page a row", clickTab('Month'), 'Month', "Month's page")
   await switched('Year still lights Journal', clickTab('Year'), 'Year')
   await switched('Day lights Journal', clickTab('Day'), 'Day')
+  // A page's line ("A page a day…") is one line for all four: up on each, so the bar sits at one height on all four.
+  // Year's empty page shows its example instead, which puts the line away for good (page-hint.tsx): after that, gone on all four.
+  await v('onboarding:set', { pageHints: true, hintsSeen: [] })
+  // Read again from a fresh start; the sandbox's own line goes first again.
+  await h.reload(); await wait(1500); await go('day')
+  for (let i = 0; i < 60 && await h.evaluate(() => /in the sandbox/.test(document.body.innerText)); i++) await wait(250)
+  await wait(1200)
+  const tops = {}
+  for (const scale of ['Day', 'Week', 'Month', 'Year', 'Day again']) {
+    await clickTab(scale.split(' ')[0])(); await settle(scale.split(' ')[0]); await wait(800)
+    tops[scale] = await h.evaluate(() => {
+      const steps = [...document.querySelectorAll('[data-period-steps]')].find((one) => one.getBoundingClientRect().width > 0)
+      return `${Math.round(steps.getBoundingClientRect().top)}${[...document.querySelectorAll('[role="note"]')].some((one) => /A page a day/.test(one.textContent)) ? ' with its line' : ''}`
+    })
+  }
+  check('with the page line up: Day, Week and Month have it, the bar at one height', tops.Day.includes('line') && tops.Day === tops.Week && tops.Day === tops.Month, JSON.stringify(tops))
+  check('once Year\'s example has put the line away, Year and Day sit at one height', tops.Year === tops['Day again'] && !tops.Year.includes('line'), JSON.stringify(tops))
   check('no page errors', !c.errors.filter((one) => one.includes('PAGEERROR')).length, c.errors.slice(0, 3).join(' | '))
 } catch (error) {
   check('ran', false, error.stack)

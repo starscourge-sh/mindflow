@@ -23,8 +23,7 @@ import { APP_NAME } from '../../../../main/name'
 const HINTS: Record<string, string> = {
   inbox: '**Everything you catch waits here.** In “Go through…”, “Tidy” tags them once a day so you can find them again; once a week, “Decide” what to keep.',
   review: '**Cards come back as you start to forget them.** Space turns one over; 1 to 4 says how well you knew it.',
-  day: '**A page a day.** Write a line, and what you caught, finished and reviewed today gathers underneath.',
-  weekpage: '**One page a week.** What matters this week, and how it went.',
+  day: '**A page a day, a week, a month and a year.** Write a line, and what you caught, finished and reviewed gathers underneath; Day, Week, Month and Year switch between them.',
   today: `**Type a task the way you would say it.** ${APP_NAME} reads the when in ‘call Mum friday 6pm’.`,
   questions: '**Your questions, as pages in Pages.** Add clues as they turn up; “Answered” turns them into writing, oldest first.',
   goals: '**A day you are aiming for, and the road of days to it.** Log what you did, and a small card on your screen keeps it in sight.',
@@ -38,7 +37,6 @@ const HINTS: Record<string, string> = {
   upcoming: '**Every task after today, day by day, then the ones with no date.** T, M or W on a row moves it to today, tomorrow or next week.',
   stats: `**How you have been using ${APP_NAME}, in sentences.** The few parts that matter most first; “Your month” and “Your year” hold the rest.`,
   map: '**Every note you linked, as dots joined by lines.** Type @ in a note to link it.',
-  monthpage: '**One page a month: what to aim for, and a name for it looking back.**',
   articles: "**Longer pieces in your own words, one idea each.** Start one with “New page”, or in Gems select a few with X, then “Start a page”."
 }
 
@@ -63,6 +61,13 @@ const LEARNED: Record<string, Cue[]> = {
 /** How long "You've got it" stays before the line folds away. */
 const GOT_IT_MS = 1500
 
+/**
+ * Day, Week, Month and Year share one bar, so they share one line: up on all
+ * four or none. A line on Day alone pushed the bar down there and nowhere
+ * else, and switching made it jump.
+ */
+const SAME_LINE: Record<string, string> = { weekpage: 'day', monthpage: 'day', yearpage: 'day' }
+
 /** Pages of notes: their line is not shown while one of their notes is open. */
 const LISTS = ['inbox', 'nuggets', 'articles', 'questions', 'goals', 'tags']
 
@@ -70,7 +75,8 @@ const LISTS = ['inbox', 'nuggets', 'articles', 'questions', 'goals', 'tags']
 let arrived = false
 const ARRIVAL_MS = 9000
 
-export function PageHint({ page }: { page: string }): React.JSX.Element | null {
+export function PageHint({ page: shown }: { page: string }): React.JSX.Element | null {
+  const page = SAME_LINE[shown] ?? shown
   const state = useOnboarding()
   // Into the sandbox: where you are and that your notes are safe, docked
   // under the top bar rather than a toast over the page, then out of the way.
