@@ -15,8 +15,7 @@ const DOING: Record<string, string> = {
   quote: 'reading',
   word: 'reading',
   link: 'following links',
-  decision: 'making up your mind',
-  experiment: 'trying things out',
+  checkback: 'checking back on things',
   goal: 'aiming for things'
 }
 

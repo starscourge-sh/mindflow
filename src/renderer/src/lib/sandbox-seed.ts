@@ -143,7 +143,7 @@ export async function seedSandbox(read: Read): Promise<SeedCounts> {
   // --- the captures, newest first as the Inbox reads them --------------------------------
   const start = await capture({}, earlier(2))
   const errands = await capture({}, earlier(5))
-  const hal = await capture({ kind: 'decision' }, earlier(9))
+  const hal = await capture({ kind: 'checkback' }, earlier(9))
   const kessel = await capture({}, earlier(16))
   const napoleon = await capture({ kind: 'quote', attribution: 'Napoleon Bonaparte' }, earlier(23))
   const blueDot = await capture({ kind: 'link', title: 'The Pale Blue Dot' }, earlier(31))
@@ -155,7 +155,7 @@ export async function seedSandbox(read: Read): Promise<SeedCounts> {
   const totem = await capture({ kind: 'todo' }, earlier(77))
   const bit = await capture({}, earlier(84))
   const book = await capture({ attribution: 'Homer' }, earlier(92))
-  const walk = await capture({ kind: 'experiment' }, at(-5, '12:40'))
+  const walk = await capture({ kind: 'checkback' }, at(-5, '12:40'))
   const wolf = await capture({}, earlier(107))
   const team = await capture({}, earlier(114))
   const mona17 = await capture({}, earlier(122))
@@ -466,7 +466,7 @@ Today is what is due now. Week lays the next seven days side by side, Upcoming l
   await write(hal, `
 Which AI flies the ship: HAL or TARS?
 
-A decision keeps what you weighed, so it is never argued again. Its fields, under “Details” at the top right, hold the call and what would reopen it.
+A Check back: a date, then a question back to you. Under the title it keeps the call, what would reopen it, and the day it asks whether the call still holds.
 
 **Try it:** click in the table and press Tab to go cell to cell. Tab in the last cell adds a row.
 
@@ -479,10 +479,11 @@ A decision keeps what you weighed, so it is never argued again. Its fields, unde
 
 **The call:** TARS. Humour at 75%.
 `)
-  await field(hal, 'state', 'Decided')
-  await field(hal, 'call', 'TARS, with humour at 75%')
-  await field(hal, 'options', 'HAL 9000, TARS, or flying it by hand')
-  await field(hal, 'reopen', 'Only if HAL learns to say sorry.')
+  await field(hal, 'The call', 'TARS, with humour at 75%')
+  await field(hal, 'Options weighed', 'HAL 9000, TARS, or flying it by hand')
+  await field(hal, 'Reopen only if', 'HAL learns to say sorry.')
+  await field(hal, 'back', at(30, '12:00'))
+  await field(hal, 'ask', 'Is TARS still the one to fly the ship?')
 
   await write(kessel, `
 Kessel Run maths
@@ -664,13 +665,12 @@ Tagged #book, a note keeps where you are with a book and what you made of it. Th
   await write(walk, `
 Does a ten-minute walk shrink the 3pm slump?
 
-An experiment runs for a set time, then comes back to ask what you found. Here: two weeks, started five days ago.
+A Check back: tried for two weeks, started five days ago, and on its day it comes back to ask what you found.
 
 **Try it:** set its outcome when it comes back, in a line or two.
 `)
-  await field(walk, 'status', 'Running')
-  await field(walk, 'question', 'Is the afternoon better with a short walk after lunch?')
-  await field(walk, 'until', day(9))
+  await field(walk, 'ask', 'Is the afternoon better with a short walk after lunch?')
+  await field(walk, 'back', at(9, '12:00'))
 
   await write(wolf, `
 Call Mr Wolf. He solves problems.
@@ -947,15 +947,16 @@ This week: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, and the L
   }
 
   // A decision made with help from a film, the call kept with what would reopen it.
-  const party = await capture({ kind: 'decision' }, at(-12, '19:40'))
+  const party = await capture({ kind: 'checkback' }, at(-12, '19:40'))
   await write(party, `
 Not saying who spoilt the surprise party
 
 Jimmy's rule in Goodfellas: never rat on your friends, and always keep your mouth shut. A terrible role model with one good rule.
 `)
-  await field(party, 'state', 'Decided')
-  await field(party, 'call', 'Say nothing. The cake was still a surprise.')
-  await field(party, 'reopen', 'Only if it happens at my party.')
+  await field(party, 'The call', 'Say nothing. The cake was still a surprise.')
+  await field(party, 'Reopen only if', 'It happens at my party.')
+  await field(party, 'ask', 'Does saying nothing still hold?')
+  await field(party, 'back', at(3, '12:00'))
 
   // A question held for a month, then answered: its clues become an article.
   const monster = await call<string>('question:new', 'Who is the monster in Frankenstein?')

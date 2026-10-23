@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { chime, step } from "@/lib/sound"
-import { Flag, FlaskConical, Hourglass, Split } from "lucide-react"
+import { CalendarClock } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -43,11 +43,8 @@ export const CAPTURE_TYPES = [
   { id: "quote", label: "Quote", icon: Quote, tint: tint("purple"), does: "Someone's words" },
   { id: "word", label: "Word", icon: Bookmark, tint: tint("green"), does: "To look up" },
   { id: "link", label: "Link", icon: Link, tint: tint("blue"), does: "Kept as a card" },
-  { id: "decision", label: "Decision", icon: Split, tint: tint("red"), does: "Checked again later" },
-  { id: "experiment", label: "Experiment", icon: FlaskConical, tint: tint("pink"), does: "Tried, then reviewed" },
-  { id: "goal", label: "Goal", icon: Flag, tint: tint("orange"), does: "On your Goals page" },
-  // Not kept as a note: what is typed becomes a practice (main/practices.ts), offered at its time.
-  { id: "practice", label: "Practice", icon: Hourglass, tint: tint("yellow"), does: "Offered at its time" },
+  // A date, then a question back to you: what a decision and an experiment both were.
+  { id: "checkback", label: "Check back", icon: CalendarClock, tint: tint("red"), does: "Asks you again on a date" },
 ] as const
 
 export type CaptureType = (typeof CAPTURE_TYPES)[number]["id"]
@@ -164,7 +161,7 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
                   // id, because the label is what was typed.
                   value={type.label}
                   // Found by its old name too: "todo" still finds Task.
-                  keywords={type.id === "todo" ? ["todo", "to-do", "to do"] : undefined}
+                  keywords={type.id === "todo" ? ["todo", "to-do", "to do"] : type.id === "checkback" ? ["decision", "experiment", "remind", "later"] : undefined}
                   onSelect={() => {
                     chime('settled')
                     onChange(type.id)
@@ -194,8 +191,8 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
 /**
  * What each kind asks for besides its words: who and where, named the way that
  * kind would say it. A kind without one does not ask; a note or a todo asks for neither.
- * A decision and a link also ask why: the reason is what makes either worth
- * keeping, and it is the first thing forgotten. Asked, never required.
+ * A link also asks why: the reason is what makes it worth keeping, and it is
+ * the first thing forgotten. Asked, never required.
  */
 export const ASKS: Record<CaptureType, { who?: string; where?: string; why?: string }> = {
   // A plain note asks for nothing: where it came from is in the gear menu.
@@ -204,10 +201,7 @@ export const ASKS: Record<CaptureType, { who?: string; where?: string; why?: str
   quote: { who: 'Who said it', where: 'Where from' },
   word: { where: 'Where you met it' },
   link: { who: 'Who made it', where: 'Site', why: 'Why is it worth reading? Say it on the next line.' },
-  decision: { who: 'Decided with', why: 'Why this, and not the others? Say it on the next line.' },
-  experiment: { who: 'Tried with' },
-  goal: { why: 'Why does it matter to you? Say it on the next line.' },
-  practice: {}
+  checkback: {}
 }
 
 /** What the box asks, by kind and by the words: tagged #book, any kind asks who wrote it. */

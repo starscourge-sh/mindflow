@@ -225,7 +225,7 @@ export function DayBrief({ day, onOpen, onListed }: {
   else if (dueToday.length && timed.length) parts.push(`${say(dueToday.length)} ${dueToday.length === 1 ? 'thing is' : 'things are'} due, the next at ${clock(timed[0].dueAt!)}`)
   else if (dueToday.length) parts.push(`${say(dueToday.length)} ${dueToday.length === 1 ? 'thing is' : 'things are'} due today`)
   if (late.length) parts.push(`${late.length === 1 ? 'one from before is' : 'a few from before are'} still open`)
-  if (backs.length) parts.push(backs[0].kind === 'decision' ? 'a decision comes back' : 'an experiment has run its time')
+  if (backs.length) parts.push(backs.length === 1 ? 'a Check back asks you something' : 'a few Check backs ask you something')
   if (deciding) parts.push('it is deciding day')
   if (prompt?.key === 'clue') parts.push('a question has a new clue')
   if (waiting.tidy) parts.push('new notes are waiting to be sorted')

@@ -170,7 +170,7 @@ export function kindOf(line: string): string | null {
   // "Book: Thinking, Fast and Slow" is a label, not something to do; but
   // anything that comes round again ("water the plants every 3 days") is.
   if (/\b(every!?\s+(other )?(\d+ )?(day|week|month|year|morning|evening|night|weekday|weekend|monday|tuesday|wednesday|thursday|friday|saturday|sunday)s?|daily|weekly|fortnightly|monthly|yearly)\b/i.test(text) && !/\?\s*$/.test(text)) return 'todo'
-  if (/^(decided|decision|going with|chose|we('ll| will) go with)\b/i.test(text)) return 'decision'
+  if (/^(decided|decision|going with|chose|we('ll| will) go with)\b/i.test(text)) return 'checkback'
   // A question is a question, not a todo; "Name: words" is a quote only when
   // there are words enough to be said, not a label like "Shopping list: eggs".
   if (/^["“].+["”]/.test(text) || /^[A-Z][\w.'-]*(?: [A-Z][\w.'-]*){0,2}( \([^)]*\))?: (?:\S+\s+){4,}\S/.test(text) || /^["“'].+["”']\s*[-—]\s*\w/.test(text)) return 'quote'

@@ -45,9 +45,9 @@ const capture = (n: number, part: Partial<CaptureMeta> & { label: string }): Cap
 export const exampleInbox = (): CaptureMeta[] => [
   capture(7, { kind: 'quote', label: 'It is a truth universally acknowledged, that a single man in possession of a good fortune, must be in want of a wife.', attribution: 'Jane Austen' }),
   capture(6, { kind: 'note', label: 'Frankenstein began as a ghost story, one wet summer by Lake Geneva' }),
-  capture(5, { kind: 'decision', label: 'Decided: read Dune before the film. Look again after the first chapter' }),
+  capture(5, { kind: 'checkback', label: 'Decided: read Dune before the film. Check back after the first chapter' }),
   capture(4, { kind: 'word', label: 'Soliloquy: speaking your thoughts aloud, alone on stage' }),
-  capture(3, { kind: 'experiment', label: "Hermione's method for two weeks: read the chapter before the lecture" }),
+  capture(3, { kind: 'checkback', label: "Hermione's method for two weeks: read the chapter before the lecture" }),
   capture(2, { kind: 'link', label: 'The Rosetta Stone, found in 1799: one decree in three scripts', medium: 'Website' }),
   capture(1, { kind: 'note', label: 'Yoda never explains the Force. Maybe the best teachers show, then stop talking #writing' })
 ]
@@ -177,7 +177,7 @@ export const exampleMap = (): NoteMap => {
     node('darcy', 'Mr Darcy, misjudged', 'note'), node('bath', 'Visit Bath', 'todo'), node('ball', 'The Netherfield ball', 'note'),
     node('frank', 'Frankenstein', 'note'), node('nameless', 'The creature has no name', 'note', 'nugget'), node('ambition', 'What Frankenstein gets right about ambition', 'note', 'article'),
     node('hamlet', 'Hamlet', 'note'), node('waits', 'Why Hamlet waits', 'note', 'article'), node('soliloquy', 'Soliloquy', 'word'), node('mad', 'Is Hamlet mad?', 'note', 'question'),
-    node('dune', 'Decided: read Dune before the film', 'decision'), node('fear', 'Fear is the mind-killer', 'quote', 'nugget'), node('yoda', 'Yoda shows, then stops talking', 'note'),
+    node('dune', 'Decided: read Dune before the film', 'checkback'), node('fear', 'Fear is the mind-killer', 'quote', 'nugget'), node('yoda', 'Yoda shows, then stops talking', 'note'),
     node('matrix', 'The Matrix', 'note'), node('pill', 'Red pill or blue pill?', 'note', 'nugget')
   ]
   const pairs: [string, string][] = [['austen', 'first'], ['austen', 'darcy'], ['first', 'darcy'], ['austen', 'bath'], ['austen', 'ball'], ['darcy', 'ball'],
@@ -196,7 +196,7 @@ export const exampleDay = (day: string): Day => {
   return {
     day, exists: false, body: null, reviewed: false,
     captured: [entry('d1', 'It is a truth universally acknowledged…', 'capture', 'quote'), entry('d2', 'Return Frankenstein to the library', 'capture', 'todo', 'resolved'), entry('d3', 'Soliloquy', 'capture', 'word')],
-    resolved: [entry('d4', 'Decided: read Dune before the film', 'capture', 'decision', 'resolved')],
+    resolved: [entry('d4', 'Decided: read Dune before the film', 'capture', 'checkback', 'resolved')],
     studied: [entry('d5', 'Red pill or blue pill: which one does Neo take?', 'nugget', 'note', 'good')],
     done: [entry('d6', 'Call Mum about Sunday lunch', 'task')]
   }

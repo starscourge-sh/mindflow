@@ -50,8 +50,7 @@ const KIND_ROWS: Record<string, [string, string?][]> = {
   quote: [['It is a truth universally acknowledged…', 'Jane Austen'], ['To be, or not to be, that is the question', 'Shakespeare'], ['Fear is the mind-killer', 'Frank Herbert']],
   word: [['Soliloquy: speaking your thoughts aloud, alone'], ['Hubris: pride that invites a fall'], ['Palimpsest: a page written over, the old words showing']],
   link: [['The Rosetta Stone, found in 1799', 'britishmuseum.org'], ['How Mary Shelley wrote Frankenstein', 'bl.uk'], ['A map of Arrakis', 'dune.fandom.com']],
-  decision: [['Read Dune before the film', 'Check in 2 weeks'], ['Mornings for writing, evenings for reading', 'Check Sun']],
-  experiment: [["Hermione's method: read before the lecture", '9 days left'], ['No phone before 9', 'Ends Fri']],
+  checkback: [['Read Dune before the film: still the right call?', 'In 2 weeks'], ["Hermione's method: did it help?", 'In 9 days']],
   goal: [['Read twelve classics this year', 'By 31 Dec'], ['Learn the Hamlet soliloquy by heart', 'In 2 weeks']]
 }
 

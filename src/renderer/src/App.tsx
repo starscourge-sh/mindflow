@@ -3,7 +3,7 @@ import { useReadsIn } from './lib/reads-in'
 import { clock } from '@/lib/clock'
 import { useStickiesOut } from '@/lib/stickies-out'
 import { START_FOCUS, useAbandonAction } from '@/lib/abandon'
-import { practices, timeSaid, useOffer, usePracticeActions } from '@/lib/practices'
+import { useOffer, usePracticeActions } from '@/lib/practices'
 import { PracticeOfferCard } from '@/components/haligtree/practice-pill'
 import React, { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { cardUp, cardsUp } from './lib/link-card'
@@ -1306,24 +1306,6 @@ export default function App(): React.JSX.Element {
         if (id) void haligtree.dropClue(id)
         bringBack(sent)
       }))
-      fresh()
-      if (!more) putAway()
-      return
-    }
-    // Practice picked as the kind: the words become a practice, not a note.
-    // Its first line is the name, a #tag what it opens; every day at 21:00
-    // with a 30-minute target to start with, changed on the Practices page.
-    if (kind === 'practice') {
-      const first = text.split('\n')[0]
-      const tag = /(?:^|\s)#([\p{L}\p{N}_-]+)/u.exec(text)?.[1] ?? null
-      const name = first.replace(/(?:^|\s)#[\p{L}\p{N}_-]+/gu, ' ').replace(/\s+/g, ' ').trim() || tag || first
-      chime('added')
-      beam('success')
-      void practices.save({ name, loadKind: tag ? 'tag' : null, load: tag }).then((id) => {
-        if (!id) return chime('nope')
-        toast(`Practice made: ${name}, every day at ${timeSaid('21:00')}`, () => (void practices.bin(id), bringBack(sent)), 'success',
-          { label: 'Change', key: 'C', run: () => window.api.openInHome('practice', id) })
-      })
       fresh()
       if (!more) putAway()
       return

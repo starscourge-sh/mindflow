@@ -15,6 +15,7 @@ import { clock, dayKey, dayMonth, dayjs, daysFromToday, monthName, num, startOfD
 import { backUpWatched, backupDir, backupStatus, checkMarkdown, chooseFolder } from './backup'
 import { SANDBOX } from './sandbox'
 import { retireKinds, tagged as hasTag, withTag } from './kinds'
+import { foldKept, goalsOut, toCheckBack } from './properties'
 import { celebrateAfter, goalPassed, watches, type MomentKind } from './celebrate'
 import type { MomentSource } from './moment-source'
 import { keepPins, warmGiphy } from './giphy'
@@ -1117,6 +1118,19 @@ export function registerHaligtree(): void {
     for (const id of retireKinds(db)) checkMarkdown(id)
     db.exec('pragma user_version = 5')
   }
+  // Properties on any note (properties.ts): fields a change of kind hid come
+  // back, decisions and experiments are Check backs, and a goal is made from
+  // Goals only. Each reads only rows of the old shape, so every start is safe.
+  column('captures', 'fields text')
+  column('nuggets', 'fields text')
+  foldKept(db)
+  toCheckBack(db)
+  goalsOut(db, (capture) => {
+    const named = parseDate(capture.title ?? '', new Date(), { forwardDate: true })
+    const target = dayKey(named && named.getTime() > Date.now() ? named : new Date(Date.now() + 30 * 86400000))
+    db.prepare("insert into nuggets (id, capture_id, tier, kind, title, body, goal_at, goal_from, goal_color, private, created_at, updated_at) values (?, ?, 'goal', 'note', ?, ?, ?, ?, ?, ?, ?, ?)")
+      .run(randomUUID(), capture.id, cut(String(capture.title ?? '').trim(), 300) || 'Untitled', capture.body ?? 'null', target, dayKey(), freeGoalColor(), capture.private, now(), now())
+  })
   // The welcome's "Writing and reading" and "Study" sidebars once left out the
   // task pages altogether, so a replayed welcome took Today, This week and
   // Upcoming away. A sidebar with none of them gets them back, once.
@@ -4027,8 +4041,8 @@ export function activeSession(): { title: string; startedAt: string } | null {
 
 /** One thing on a Home shelf: a capture, nugget, article or question. */
 type Shelved = { type: string; id: string; title: string; kind: string; private: number; at: string; who?: string | null }
-/** A decision or experiment whose day has come: `at` is that day, the rest what it says when it comes back. */
-type Returning = Shelved & { call: string; reopen: string; question: string; outcome: string }
+/** A Check back whose day has come: `at` is that day, `ask` what it asks you then, `answer` what you said last time. */
+type Returning = Shelved & { ask: string; answer: string }
 
 /**
  * Home's shelves in one read, and nothing written while reading: unlike a
@@ -4047,19 +4061,19 @@ export function registerHome(): void {
   // Who said it, only for a quote: its card signs it.
   const strip = ({ type, id, title, kind, private: hidden, at, who }: Shelved): Shelved => ({ type, id, title, kind, private: hidden, at, ...(kind === 'quote' && who ? { who } : {}) })
 
-  // A decision on its look-again day, or an experiment past its run-until and
-  // not finished: each comes back with what it needs to be settled in place.
-  // Oldest due first; a date said in words before dates were dates never counts.
+  // A Check back on its day, not answered since: each comes back with its
+  // question, to be answered in place. Oldest due first; a date said in words
+  // before dates were dates never counts.
   const returning = (): Returning[] => {
     const end = dayjs().endOf('day').toISOString()
-    const rows = db.prepare(`select id, 'capture' as type, ${LABEL} as title, kind, private, fields from captures where status != 'discarded' and archived_at is null and kind in ('decision', 'experiment') and fields is not null
-      union all select id, tier, coalesce(nullif(title, ''), label('', body)), kind, private, fields from nuggets where archived_at is null and superseded_by is null and kind in ('decision', 'experiment') and fields is not null`).all() as (Shelved & { fields: string })[]
+    const rows = db.prepare(`select id, 'capture' as type, ${LABEL} as title, kind, private, fields from captures where status != 'discarded' and archived_at is null and kind = 'checkback' and fields is not null
+      union all select id, tier, coalesce(nullif(title, ''), label('', body)), kind, private, fields from nuggets where archived_at is null and superseded_by is null and kind = 'checkback' and fields is not null`).all() as (Shelved & { fields: string })[]
     return rows.flatMap(({ fields, ...row }) => {
       let f: Record<string, string> = {}
       try { f = JSON.parse(fields) } catch { return [] }
-      const at = row.kind === 'decision' ? (f.state === 'Decided' || !f.state ? f.revisit : null) : f.status !== 'Finished' ? f.until : null
-      if (!at || !/^\d{4}-\d\d-\d\dT/.test(at) || at > end) return []
-      return [{ ...row, at, call: f.call ?? '', reopen: f.reopen ?? '', question: f.question ?? '', outcome: f.outcome ?? '' }]
+      const at = f.back
+      if (!at || !/^\d{4}-\d\d-\d\dT/.test(at) || at > end || (f.answeredAt && dayKey(f.answeredAt) >= dayKey(at))) return []
+      return [{ ...row, at, ask: f.ask ?? '', answer: f.answer ?? '' }]
     }).sort((a, b) => a.at.localeCompare(b.at))
   }
   ipcMain.handle('haligtree:returning', () => returning().filter((one) => !(gate().hidePrivate && one.private)))
