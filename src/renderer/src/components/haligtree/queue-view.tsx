@@ -7,10 +7,9 @@ import { BookOpen, GripVertical, ListEnd, ListStart, RotateCcw } from 'lucide-re
 import { chime } from '@/lib/sound'
 import { EASE } from '@/lib/motion'
 import { unloaded } from '@/lib/haligtree'
-import { dequeue, enqueue, finishAll, openLink, readQueue, readingQueue, useQueue, type QueueRow } from '@/lib/reading-queue'
+import { dequeue, enqueue, finishAll, kindOf, openLink, readQueue, readingQueue, saidOf, useQueue, type QueueRow } from '@/lib/reading-queue'
 import { useSelectAll } from '@/lib/select-all'
 import { useHere } from '@/lib/split'
-import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { Button } from '@/components/ui/button'
 import { ProgressBar } from './progress-bar'
 import { Highlight, useFluidHover } from './glide'
@@ -31,18 +30,6 @@ import { X } from '@/components/ui/icons'
  * off, Start reading to read it through, one after the other. What was read
  * waits under Read, dated.
  */
-
-const TIER: Record<string, string> = { nugget: 'Gem', article: 'Page', question: 'Question' }
-/** What it is, in a word: its kind for a capture, its tier for a kept thing. */
-const kindOf = (row: QueueRow): (typeof CAPTURE_TYPES)[number] | undefined => CAPTURE_TYPES.find((one) => one.id === row.kind)
-const saidOf = (row: QueueRow): string => (row.bare && row.url ? hostOf(row.url) : row.type === 'capture' ? kindOf(row)?.label ?? 'Note' : TIER[row.type] ?? 'Note')
-const hostOf = (url: string): string => {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '')
-  } catch {
-    return 'A link'
-  }
-}
 
 /**
  * How far through the queue you are: the ones read since the oldest one still

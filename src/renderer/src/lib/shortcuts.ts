@@ -263,6 +263,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Reading', keys: ']', does: 'Reading the queue: the next one, this one kept in the queue', where: 'Reading' },
   { group: 'Reading', keys: '⇧→', does: 'Reading the queue: this one read, and on to the next', where: 'Reading' },
   { group: 'Reading', keys: 'O', does: "Reading the queue: a link's page, in your browser", where: 'Reading' },
+  { group: 'Reading', keys: '⇧⌘U', does: 'Reading the queue: show or hide the queue beside the page (now reading, up next, read before)', where: 'Reading' },
 
   { group: 'Tidy', keys: 'T', does: 'Add a tag (or #); ⌫ in the empty field takes the last off', where: 'Tidy' },
   { group: 'Tidy', keys: 'B', does: 'Bold the line the caret is on', where: 'Tidy' },

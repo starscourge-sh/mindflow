@@ -5,6 +5,7 @@ import type { MenuItem } from '@/components/haligtree/row-menu'
 import { num } from '../../../main/dates'
 import { clip } from '../../../main/clip'
 import type { QueueRow } from '../../../main/reading-queue'
+import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 export type { QueueRow }
 
 /**
@@ -102,3 +103,16 @@ export function openLink(row: QueueRow, then?: () => void): void {
   // Never left (the browser opened behind): given up after a while, nothing marked.
   setTimeout(() => (window.removeEventListener('blur', away), left || window.removeEventListener('focus', back)), 10 * 60_000)
 }
+
+const TIER: Record<string, string> = { nugget: 'Gem', article: 'Page', question: 'Question' }
+/** What it is, in a word: its kind for a capture, its tier for a kept thing. */
+export const kindOf = (row: QueueRow): (typeof CAPTURE_TYPES)[number] | undefined => CAPTURE_TYPES.find((one) => one.id === row.kind)
+export const saidOf = (row: QueueRow): string => (row.bare && row.url ? hostOf(row.url) : row.type === 'capture' ? kindOf(row)?.label ?? 'Note' : TIER[row.type] ?? 'Note')
+const hostOf = (url: string): string => {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '')
+  } catch {
+    return 'A link'
+  }
+}
+

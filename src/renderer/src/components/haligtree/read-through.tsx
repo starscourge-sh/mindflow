@@ -16,10 +16,11 @@ import { exit } from '@/lib/capture-links'
 import { GlossComposer, openGloss } from './gloss-line'
 import { ThoughtBar } from './thought-bar'
 import { Signed } from './signature'
-import { finish, openLink, readingQueue, type QueueRow } from '@/lib/reading-queue'
+import { dequeue, finish, openLink, readingQueue, type QueueRow } from '@/lib/reading-queue'
+import { QueuePanel } from './queue-panel'
 import { TAG, tagsIn } from '../../../../main/tag-words'
 import { ArrowDown, ArrowUp, X as ReadDone } from '@/components/ui/icons'
-import { ChevronDown, Lock, LockOpen, Plus } from 'lucide-react'
+import { ChevronDown, ListMusic, Lock, LockOpen, Plus } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useGroups, type NoteGroup as Group } from '@/lib/groups'
 import { moveToBin } from '@/lib/to-bin'
@@ -27,6 +28,9 @@ import { toast } from './ui'
 import { TagRow } from './pass'
 import { TagChip } from './tag-icon'
 import { num } from '../../../../main/dates'
+
+/** Whether the queue panel was left open, for the next time the queue is read. */
+const PANEL = 'readQueuePanel'
 
 /** How reading ends is said the first three times it opens, then trusted to be known. */
 const TOLD = 'readExitTold'
@@ -131,7 +135,7 @@ function MetaUnderLead({ host, meta, onTag }: { host: HTMLElement | null; meta: 
  * right (⌘L) opens the one in front of you to change it, Escape goes back to
  * where you were.
  */
-export function ReadThrough({ items, start = 0, onClose, queue, clueTo, sorting }: {
+export function ReadThrough({ items: given, start = 0, onClose, queue: started, clueTo, sorting }: {
   items: Readable[]
   /** "Sort these": imported notes not yet sorted, each kept, tagged, moved or binned in turn. */
   sorting?: boolean
@@ -144,7 +148,52 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo, sorting 
   /** No longer used: a note is changed in place, here. */
   onEdit?: (type: string, id: string) => void
 }): React.JSX.Element | null {
-  const [at, setAt] = useState(Math.min(Math.max(0, start), Math.max(0, items.length - 1)))
+  // Reading the queue: its order here, changed by a drag or a removal in the
+  // queue panel (and saved to the queue), so the next page is always the next row.
+  const [line, setLine] = useState(started)
+  const queue = started && line
+  const items: Readable[] = queue ? queue.map((row) => ({ type: row.type, id: row.itemId })) : given
+  const [at, setAt] = useState(Math.min(Math.max(0, start), Math.max(0, given.length - 1)))
+  // The queue panel at the right, Spotify's way: open or shut as you last left it.
+  const [panel, setPanel] = useState(() => {
+    try {
+      return localStorage.getItem(PANEL) === '1'
+    } catch {
+      return false
+    }
+  })
+  const togglePanel = (): void => {
+    const next = !panel
+    chime(next ? 'on' : 'off')
+    setPanel(next)
+    try {
+      localStorage.setItem(PANEL, next ? '1' : '0')
+    } catch {
+      // Remembered for this reading only.
+    }
+  }
+  /** Up next dragged into a new order: here at once, and saved to the queue. */
+  const reorder = (id: string, target: string, after: boolean): void => {
+    setLine((rows) => {
+      if (!rows) return rows
+      const moved = rows.find((row) => row.id === id)
+      if (!moved) return rows
+      const rest = rows.filter((row) => row.id !== id)
+      const to = rest.findIndex((row) => row.id === target)
+      if (to < 0) return rows
+      rest.splice(after ? to + 1 : to, 0, moved)
+      return rest
+    })
+    void readingQueue.move(id, target, after).then(() => chime('settled'))
+  }
+  /** Out of the queue from the panel: gone from this reading too, the page in front of you kept. */
+  const unqueue = (row: QueueRow): void => {
+    const where = line?.findIndex((one) => one.id === row.id) ?? -1
+    if (where < 0 || where === at) return
+    setLine((rows) => rows?.filter((one) => one.id !== row.id))
+    if (where < at) setAt((n) => n - 1)
+    void dequeue(row)
+  }
   // Pages moved to the Bin while reading (D): stepped over both ways, until Undo brings one back.
   const [binned, setBinned] = useState<string[]>([])
   // Sorting: the ones dealt with, stepped over the same way until an Undo brings one back.
@@ -390,6 +439,12 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo, sorting 
         if (event.key === 'Enter' || event.key === ' ' || event.key === 'Escape') leave()
         return
       }
+      // ⇧⌘U: the queue panel, open or shut, locked or writing.
+      if (queue && event.metaKey && event.shiftKey && !event.altKey && !event.ctrlKey && event.code === 'KeyU') {
+        event.preventDefault()
+        event.stopPropagation()
+        return togglePanel()
+      }
       // ⌘L: the lock at the top right, either way.
       if (event.metaKey && !event.altKey && !event.ctrlKey && !event.shiftKey && event.code === 'KeyL' && item && item.body === undefined && !document.querySelector('.tiptap-suggestion-popup, [role="menu"]')) {
         event.preventDefault()
@@ -487,7 +542,7 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo, sorting 
     // Taken first, so the lists and the editor underneath never see the keys.
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [items.length, item, at, onClose, writing, queue, ended, leaving, sortedHere, binned, moving]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [items.length, item, at, onClose, writing, queue, ended, leaving, sortedHere, binned, moving, panel]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // The focus comes here while reading, and goes back where it was after.
   const box = useRef<HTMLDivElement>(null)
@@ -549,6 +604,21 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo, sorting 
           comes near the top (or the keys reach it). Esc does the same. */}
       {/* The lock always shows, so it is plain which state the page is in; "Done reading" fades while you read. */}
       <div className="absolute top-3 right-3 z-10 flex items-center gap-2 [-webkit-app-region:no-drag]">
+        {/* The queue panel's switch, left of the lock so the lock never moves. */}
+        {queue && !ended && (
+          <Tip label={panel ? 'Hide the queue  ⇧⌘U' : 'Show the queue  ⇧⌘U'}>
+            <button
+              type="button"
+              data-read-queue-toggle={panel ? 'open' : 'shut'}
+              aria-label={panel ? 'Hide the queue' : 'Show the queue'}
+              aria-pressed={panel}
+              onClick={togglePanel}
+              className={cn('flex size-7 items-center justify-center rounded-full border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground', panel && 'bg-accent text-foreground')}
+            >
+              <ListMusic className="size-3.5" />
+            </button>
+          </Tip>
+        )}
         {/* Reading or writing, like Obsidian's: one button, the same spot either way, its icon swapped in place. */}
         {own && !ended && (
           <Tip label={writing ? 'Lock: back to reading  ⌘L' : 'Unlock to edit  ⌘L'}>
@@ -578,7 +648,7 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo, sorting 
         </span>
       </div>
       {ended ? <QueueDone ended={ended} onBack={leave} onPutBack={putBack} /> : <>
-      <div ref={scroller} onScroll={measure} className="min-h-0 flex-1 overflow-y-auto">
+      <div ref={scroller} onScroll={measure} className={cn('min-h-0 flex-1 overflow-y-auto', queue && panel && 'xl:pr-80')}>
         {/* j and k turn the page hundreds of times: by key the next one is
             simply there; by the arrows it rises in. */}
         <AnimatePresence mode="wait" initial={false} custom={byKeys()}>
@@ -670,6 +740,9 @@ export function ReadThrough({ items, start = 0, onClose, queue, clueTo, sorting 
       {/* Sorting writes in the note itself, so it has no thought bar under it. */}
       {composerFor && !sorting && <div className="shrink-0 px-6 pt-1 pb-2 sm:px-16"><ThoughtBar key={composerFor} id={composerFor} clue={clueMode} /></div>}
       {queue && <UpNext queue={queue} at={at} read={read} onSkip={upNext.skip} onDone={upNext.done} onOpen={upNext.open} />}
+      {queue && panel && (
+        <QueuePanel queue={queue} at={at} read={read} onJump={(to) => to !== at && (flush(), chime('page'), setAt(to))} onMove={reorder} onRemove={unqueue} onClose={togglePanel} />
+      )}
       {sorting && item && (
         <SortBar left={items.filter((one) => !sortedHere.includes(one.id) && !binned.includes(one.id)).length} tagging={tagging} moving={moving} groups={groups} own={group}
           onTagging={setTagging} onMoving={setMoving} onKeep={sort.keep} onTag={sort.tag} onMove={sort.move} onBin={sort.bin} />
