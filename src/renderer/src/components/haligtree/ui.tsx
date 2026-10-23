@@ -1109,6 +1109,15 @@ export function Toaster(): React.JSX.Element | null {
     window.addEventListener('haligtree:restored', onRestored)
     return () => window.removeEventListener('haligtree:restored', onRestored)
   }, [])
+  // The first launch after the rename: the notes were copied in from the old folder, kept as it was (main/old-data.ts).
+  useEffect(() => {
+    const onMoved = (event: Event): void => {
+      chime('settled')
+      toast(`Your notes from Vigil are here. The old copy is kept in ${(event as CustomEvent<string>).detail} as a backup`, undefined, 'success', { label: 'Show the old copy', key: 'S', run: () => void window.api.showOldCopy() })
+    }
+    window.addEventListener('haligtree:moved-in', onMoved)
+    return () => window.removeEventListener('haligtree:moved-in', onMoved)
+  }, [])
   // The daily backup, failed twice in a row (main says why), or working again.
   useEffect(() => window.api.onBackupTrouble?.((reason) => {
     window.dispatchEvent(new CustomEvent('haligtree:backups'))

@@ -9,6 +9,7 @@ import { changed, database, shutDatabase } from './captures'
 import { retireKinds } from './kinds'
 import { dayKey } from './dates'
 import { refuseRun } from './real-folder'
+import { moveOldIn } from './old-data'
 
 /**
  * The sandbox: someone else's book, full of examples, kept apart from
@@ -68,6 +69,9 @@ function pickBook(): string | null {
   const want = asked ?? readShelf().last
   return isBookId(want) && readShelf().books.some((one) => one.id === want) ? want : null
 }
+// The first launch after the rename brings in the notes from the old folder
+// (old-data.ts), before anything reads this one: the book last open is in it.
+moveOldIn(app.getPath('appData'), realRoot(), process.env, SANDBOX)
 /** This run's book, or null for My book (and for the sandbox). */
 export const BOOK = pickBook()
 /** Where this run keeps everything. */

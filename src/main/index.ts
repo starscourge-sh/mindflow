@@ -88,7 +88,8 @@ import { registerSimilar } from './similar'
 import { registerJournal } from './journal'
 import { registerWordLog } from './word-log'
 import { frostWindow, registerFrost, retellFrost } from './frost'
-import { BOOK, SANDBOX, arrived, windingDown, onHandOff, readShelf, registerSandbox, relaunch, restartNow, useDataFolder, writeShelf } from './sandbox'
+import { BOOK, SANDBOX, arrived, windingDown, onHandOff, readShelf, realRoot, registerSandbox, relaunch, restartNow, useDataFolder, writeShelf } from './sandbox'
+import { MOVED, shortPath, untoldMove, type Moved } from './old-data'
 import { books, here, nameOf, nextImport, registerBooks } from './books'
 import { wideThumb } from './video-thumbs'
 import { busy } from './busy'
@@ -2392,7 +2393,8 @@ app.once('ready', () => {
 // and must never open the database your real captures are in.
 // The app is called Haligtree (it was Vigil, and mindflow before that), and
 // so is its data folder (realRoot in sandbox.ts). The old folder,
-// ~/Library/Application Support/mindflow, is left as it was, as a backup.
+// ~/Library/Application Support/mindflow, is left as it was, as a backup;
+// the first launch after the rename copies it in (old-data.ts, from sandbox.ts).
 app.setName(APP_NAME)
 // The sandbox (a restart with --sandbox) keeps everything in a folder of its
 // own inside this one, so it is apart by path alone: see sandbox.ts.
@@ -2880,6 +2882,13 @@ async function tellRestored(): Promise<void> {
   }
 }
 
+/** Brought in from the old folder at this launch or the last: said once, with the old folder's place (old-data.ts). */
+function tellMovedIn(): void {
+  if (SANDBOX) return
+  const moved = untoldMove(realRoot())
+  if (moved) inHome('haligtree:moved-in', shortPath(moved.from))
+}
+
 /**
  * Put a day's copy back. What you have now is copied first, beside the
  * backups, so a restore can itself be undone; then the app starts again on
@@ -3318,6 +3327,7 @@ app.whenReady().then(() => {
   // Last, once every table is there: what other books sent this one is taken in.
   registerBooks(backupBase, () => updateTray())
   void tellRestored()
+  tellMovedIn()
   const first = fromCli(process.argv)
   if (first) captureText(first)
 
@@ -3500,6 +3510,14 @@ app.whenReady().then(() => {
   ipcMain.handle('haligtree:notes-import:stop', () => void stopping?.abort())
   ipcMain.handle('haligtree:notes-import:privacy', () => void shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Automation'))
   ipcMain.handle('backup:restore', () => restore())
+  ipcMain.handle('old-data:show', () => {
+    try {
+      const { from } = JSON.parse(readFileSync(join(realRoot(), MOVED), 'utf8')) as Moved
+      shell.showItemInFolder(from)
+    } catch {
+      // Nothing was brought in.
+    }
+  })
   // The app's theme decides the frosting behind every window, not the system's.
   ipcMain.on('appearance', (_event, mode: string) => void (nativeTheme.themeSource = mode === 'light' ? 'light' : 'dark'))
   // The box's backing, as its theme says. A solid theme (Paper, Light,

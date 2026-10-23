@@ -78,6 +78,9 @@ const api = {
   /** Show a stored file in Finder. */
   showFile: (src: string): Promise<boolean> => ipcRenderer.invoke('show-file', src),
 
+  /** Show in Finder the old data folder, kept as a backup, that the notes were brought in from (main/old-data.ts). */
+  showOldCopy: (): Promise<void> => ipcRenderer.invoke('old-data:show'),
+
   /** Put a stored image on the system clipboard. */
   copyImage: (src: string): Promise<boolean> => ipcRenderer.invoke('copy-image', src),
 
