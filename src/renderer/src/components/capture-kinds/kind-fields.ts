@@ -61,7 +61,9 @@ export const KIND_FIELDS: Record<string, Field[]> = {
  */
 export const TAG_FIELDS: Record<string, Field[]> = {
   book: [
+    { key: 'author', label: 'Author', placeholder: 'Who wrote it', does: 'Who wrote it, so the books page can list them by author' },
     { key: 'status', label: 'Status', type: 'choice', options: ['Want to read', 'Reading', 'Finished', 'Dropped'], does: "Where you are with it. The year's books page counts the ones you finish" },
+    { key: 'finished', label: 'Finished', type: 'date', does: 'The day you finished it', when: ['status', 'Finished'] },
     { key: 'rating', label: 'Rating', type: 'rating', does: "Rate it once you've read it" },
     { key: 'takeaway', label: 'Takeaway', type: 'long', placeholder: 'What you will keep from it', ghost: 'First impressions can be badly wrong', does: 'The one thing you will keep from it, in a line', when: ['status', 'Finished'] }
   ]
