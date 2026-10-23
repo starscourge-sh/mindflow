@@ -206,7 +206,7 @@ export const POWERS: Power[] = [
 
   // Windows
   { id: 'stickies', group: 'Windows', name: 'Sticky notes on your desktop', line: 'Put a note or today’s tasks on your desktop, over everything, like paper, and ⌃⌥⌘N hides or shows them all.', keys: ['⌃⌥⌘N'],
-    show: { view: 'inbox', at: ROW, text: 'Right-click a note and choose “Stick on the desktop”; today’s page has “Keep on screen” for its tasks.' }, used: (s) => s.steps.stick },
+    show: { view: 'inbox', at: ROW, text: 'Right-click a note and choose “Stick on the desktop”; today’s page has “Stick on the desktop” for its tasks.' }, used: (s) => s.steps.stick },
   { id: 'recordings', group: 'Windows', name: 'Hidden from screen recordings', tryIt: 'Before you share your screen, turn on “The main window” under “Hide from recordings”, or hide it all from ⌘K.', line: `Hidden, ${APP_NAME} shows as blank to everyone watching your shared screen, while you still see it. The main window, quick capture, sticky notes and the session bubble each have their own switch.`,
     show: { view: 'settings', settings: 'What comes back to you', find: 'Hide from recordings', at: '[data-setting]', text: 'Each kind of window is hidden from recordings while its switch is on. Turn one on before you share your screen.' } },
   { id: 'window', group: 'Windows', name: 'A note in its own window', line: '⌥⌘-click a note in your Inbox to open it in a window of its own, beside whatever you are doing (⌘-click picks it, as in Finder).',

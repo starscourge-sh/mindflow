@@ -220,7 +220,7 @@ const goalMenu = (item: Item): MenuItem[] => [
   { label: item.archivedAt ? 'Unarchive' : 'Archive', hint: item.archivedAt ? 'Back in sight' : 'Kept, out of sight', run: () => void archive('nuggets', [item.id], !item.archivedAt) },
   binItem([{ type: 'goal', id: item.id }]),
   'separator',
-  { label: 'Show all goals on one sticky', hint: 'Each in its own colour, with a legend', run: showAllGoals },
+  { label: 'Stick all goals on the desktop', hint: 'Each in its own colour, with a legend', run: showAllGoals },
   { label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copy(noteLinkText(`goal:${item.id}`, item.title), 'Copied a link: paste it into any note') },
   { label: 'Copy the goal', run: () => copy(item.title) }
 ]

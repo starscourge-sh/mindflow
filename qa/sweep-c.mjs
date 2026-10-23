@@ -43,7 +43,7 @@ const LONGER = [
   [/^In Review, on a schedule$/, 'a choice beside “Not at all”'],
   [/^Start the next round by itself$/, 'other settings notes quote it in these words'],
   [/^Add who and where it’s from$/, 'its shorter form, “Add where it’s from”, once Who is there'],
-  [/^Show all goals on one sticky$/, 'the same words on Home, the Goals page and the box'],
+  [/^Stick all goals on the desktop$/, 'the same words on Home, the Goals page and the box'],
   [/^Spread over the next 3 days$/, 'says how far the late tasks are spread'],
   [/^Show a second time zone$/, 'the same words on the Calendar and in Settings'],
   [/^Just an area: drag out the part you want$/, 'the Mac\'s own screenshot choice, said with how to do it'],

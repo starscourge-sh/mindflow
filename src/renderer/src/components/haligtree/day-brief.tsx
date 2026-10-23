@@ -307,7 +307,7 @@ export function DayBrief({ day, onOpen, onListed, between }: {
                 {todos.length > 0 && (
                   <button type="button" onClick={() => stickOnDesktop('today', 'today')}
                     className="mt-1 text-sm text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
-                    Keep on screen
+                    Stick on the desktop
                   </button>
                 )}
               </div>

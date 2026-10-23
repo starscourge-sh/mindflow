@@ -88,7 +88,10 @@ export function TodaySticky(): React.JSX.Element {
   // has moved on to its next day.
   const today = dayKey(now)
   const all = tasks ?? []
-  const open = all.filter(onToday)
+  // Only what is for today: late ones are not mixed in, but counted on one quiet line under the list that opens them.
+  const isLate = (task: Task): boolean => (dueDay(task) ?? today) < today
+  const lateOnes = all.filter(onToday).filter(isLate)
+  const open = all.filter(onToday).filter((task) => !isLate(task))
   const cleared = writtenLayout() ? readCleared(today) : []
   const doneToday = all.filter((task) => doneOnToday(task, cleared))
   const byId = new Map([...doneToday, ...open].map((task) => [task.id, task]))
@@ -215,6 +218,14 @@ export function TodaySticky(): React.JSX.Element {
               })}
             </AnimatePresence>
           </ul>
+          {loaded && lateOnes.length > 0 && (
+            <Tip label={`Open Today in ${APP_NAME}, where the late ones are`}>
+              <button type="button" data-sticky-late onClick={(event) => (chime('open'), window.api.openSticky('view', 'today', 'Today', event.altKey))}
+                className="mt-1 text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
+                {lateOnes.length} late
+              </button>
+            </Tip>
+          )}
         </div>
         {/* Its size, from the corner: shown on hover. */}
         <Grip />

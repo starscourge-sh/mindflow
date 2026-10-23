@@ -892,7 +892,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
             // Things to do, apart from the ways to see the list above: never one more tick among them.
             { items: [
               ...(focusTools ? [{ label: 'I have 15 min', hint: 'What fits in the time you have, to start one', run: () => openFits() }] : []),
-              { label: 'Keep Today on screen', run: () => stickOnDesktop('today', 'today') },
+              { label: 'Stick Today on the desktop', run: () => stickOnDesktop('today', 'today') },
               { label: 'Fresh start: put every open task on hold', run: freshStart }
             ] }
           ]} />

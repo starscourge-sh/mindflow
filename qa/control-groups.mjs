@@ -99,7 +99,7 @@ try {
   })
   const partOf = (start) => parts.findIndex((part) => part.some((one) => one.startsWith(start)))
   check('Tasks ⋯: "Urgent and important" and "Your order" share a part', partOf('Urgent and important') >= 0 && partOf('Urgent and important') === partOf('Your order'), JSON.stringify(parts))
-  check('Tasks ⋯: "I have 15 min" sits with "Keep Today on screen", not among the ticks', partOf('I have 15 min') >= 0 && partOf('I have 15 min') === partOf('Keep Today on screen') && partOf('I have 15 min') !== partOf('Your order'), JSON.stringify(parts))
+  check('Tasks ⋯: "I have 15 min" sits with "Stick Today on the desktop", not among the ticks', partOf('I have 15 min') >= 0 && partOf('I have 15 min') === partOf('Stick Today on the desktop') && partOf('I have 15 min') !== partOf('Your order'), JSON.stringify(parts))
   await h.keyboard.press('Escape')
 } finally {
   await c.close()
