@@ -38,21 +38,43 @@ export function catchFreezes(win: BrowserWindow, name: string): void {
     const file = join(dir, `freeze-${name.replace(/\W+/g, '-')}-${new Date().toISOString().replace(/[:.]/g, '-')}.txt`)
     try {
       if (!wc.debugger.isAttached()) throw new Error('the debugger was not listening (DevTools open?)')
-      const paused = new Promise<string>((done) => {
+      type Frame = { functionName: string; url: string; location: { scriptId: string; lineNumber: number; columnNumber: number } }
+      type Stack = { description?: string; callFrames: { functionName: string; url: string; lineNumber: number; columnNumber: number }[]; parent?: Stack }
+      // Five pauses a moment apart: a loop runs through more than one place, and one pause sees only one.
+      const once = (): Promise<{ callFrames: Frame[]; asyncStackTrace?: Stack } | null> => new Promise((done) => {
         const heard = (_event: Electron.Event, method: string, params: Record<string, unknown>): void => {
           if (method !== 'Debugger.paused') return
           wc.debugger.off('message', heard)
-          const frames = (params.callFrames as { functionName: string; url: string; location: { lineNumber: number; columnNumber: number } }[])
-            .map((frame) => `${frame.functionName || '(anonymous)'}  ${frame.url.replace(/^.*?\/src\//, 'src/')}:${frame.location.lineNumber + 1}:${frame.location.columnNumber + 1}`)
-          done(frames.join('\n'))
+          done(params as { callFrames: Frame[]; asyncStackTrace?: Stack })
         }
         wc.debugger.on('message', heard)
+        void wc.debugger.sendCommand('Debugger.pause').catch(() => undefined)
+        setTimeout(() => (wc.debugger.off('message', heard), done(null)), 4000)
       })
-      void wc.debugger.sendCommand('Debugger.pause').catch(() => undefined)
-      const stack = await Promise.race([paused, new Promise<string>((done) => setTimeout(() => done('(no pause within 5 s)'), 5000))])
+      const where = (url: string): string => url.replace(/^.*?\/src\//, 'src/').replace(/\?.*$/, '') || '(no file)'
+      const parts: string[] = []
+      for (let round = 1; round <= 5; round++) {
+        const hit = await once()
+        if (!hit) { parts.push(`pause ${round}: no pause`); break }
+        const lines = hit.callFrames.map((frame) => `  ${frame.functionName || '(anonymous)'}  ${where(frame.url)}:${frame.location.lineNumber + 1}:${frame.location.columnNumber + 1}`)
+        for (let up = hit.asyncStackTrace; up; up = up.parent)
+          lines.push(`  -- ${up.description ?? 'async'} --`, ...up.callFrames.map((one) => `  ${one.functionName || '(anonymous)'}  ${where(one.url)}:${one.lineNumber + 1}:${one.columnNumber + 1}`))
+        // The code where it stood, so a script with no file still says what it is.
+        const top = hit.callFrames[0]
+        if (top) {
+          const source = await wc.debugger.sendCommand('Debugger.getScriptSource', { scriptId: top.location.scriptId }).then((one: { scriptSource: string }) => one.scriptSource, () => '')
+          const all = source.split('\n')
+          const at = top.location.lineNumber
+          lines.push('  code there:', ...all.slice(Math.max(0, at - 6), at + 4).map((line, i) => `    ${Math.max(0, at - 6) + i + 1}${Math.max(0, at - 6) + i === at ? ' >' : '  '} ${line.slice(0, 200)}`))
+          if (round === 1) lines.push(`  script: ${top.location.scriptId}, ${all.length} lines, starts: ${all[0]?.slice(0, 160)}`)
+        }
+        parts.push(`pause ${round}:\n${lines.join('\n')}`)
+        await wc.debugger.sendCommand('Debugger.resume').catch(() => undefined)
+        await new Promise((done) => setTimeout(done, 150))
+      }
+      const stack = parts.join('\n\n')
       writeFileSync(file, `${name} stopped answering at ${new Date().toString()}\n\n${stack}\n`)
       console.error(`[freeze] ${name} stopped answering; where it was stuck is in ${file}`)
-      void wc.debugger.sendCommand('Debugger.resume').catch(() => undefined)
     } catch (error) {
       writeFileSync(file, `${name} stopped answering at ${new Date().toString()}, and its stack could not be read: ${String(error)}\n`)
       console.error('[freeze] could not read the stack:', error)
