@@ -128,7 +128,7 @@ try {
   await h.locator(`[data-queue-next] [data-queue-line="${q[2].id}"]`).click({ button: 'right' })
   await wait(400)
   if (process.env.SHOTS) await h.screenshot({ path: `${process.env.SHOTS}/queue-panel-menu.png` })
-  await h.getByRole('menuitem', { name: 'Take out of queue' }).click({ timeout: 4000 })
+  await h.getByRole('menuitem', { name: 'Remove from queue' }).click({ timeout: 4000 })
   await wait(900)
   check('taken out from its menu', !(await v('queue')).queue.some((row) => row.id === q[2].id) && !(await linesIn('[data-queue-next]')).includes(q[2].id))
 

@@ -4,7 +4,10 @@ import { kindOf, saidOf, type QueueRow } from '@/lib/reading-queue'
 import { taskName } from '@/lib/tasks'
 import { ago, num } from '../../../../main/dates'
 import { X } from '@/components/ui/icons'
-import { RowMenu } from './row-menu'
+import { RowMenu, type MenuItem } from './row-menu'
+import { AliveIcon } from '@/components/ui/alive-icon'
+import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
+import { openApart } from '@/lib/apart'
 import { ROW_PAD, ROW_SHAPE, ROW_TILE, tileTint } from './row-shape'
 import { SortableList, SortableRow } from './sortable'
 import { Tip } from './ui'
@@ -14,7 +17,7 @@ import { Tip } from './ui'
  * reading now, what comes up next (click to go there, drag to reorder,
  * right-click to take one out), and what you read before it this time.
  */
-export function QueuePanel({ queue, at, read, onJump, onMove, onRemove, onClose }: {
+export function QueuePanel({ queue, at, read, onJump, onMove, onRemove, onClose, onOpen, onTag }: {
   queue: QueueRow[]
   at: number
   read: Set<string>
@@ -22,10 +25,28 @@ export function QueuePanel({ queue, at, read, onJump, onMove, onRemove, onClose 
   onMove: (id: string, target: string, after: boolean) => void
   onRemove: (row: QueueRow) => void
   onClose: () => void
+  /** Open it in its own page, leaving reading. */
+  onOpen: (row: QueueRow) => void
+  /** Its tag's page, leaving reading. */
+  onTag: (tag: string) => void
 }): React.JSX.Element {
   const now = queue[at]
   const next = queue.slice(at + 1)
   const before = queue.slice(0, at)
+  // One menu for a row, on right-click and on its ⋯, as Spotify's queue has it.
+  const menuOf = (row: QueueRow, first: MenuItem): MenuItem[] => {
+    const tag = taskName(row.title).tags[0]
+    return [
+      first,
+      next.length > 1 && next[0].id !== row.id && next.some((one) => one.id === row.id) && { label: 'Play next', hint: 'To the top of Up next', run: () => onMove(row.id, next[0].id, false) },
+      'separator',
+      { label: 'Open', hint: 'Leaves reading', run: () => onOpen(row) },
+      { label: 'Open in new window', run: () => openApart(row.type, row.itemId) },
+      !!tag && { label: `Go to #${tag}`, run: () => onTag(tag) },
+      'separator',
+      { label: 'Remove from queue', danger: true, run: () => onRemove(row) }
+    ]
+  }
   return (
     <aside
       data-queue-panel=""
@@ -51,11 +72,7 @@ export function QueuePanel({ queue, at, read, onJump, onMove, onRemove, onClose 
             <SortableList items={next} keyOf={(row) => row.id} onMove={onMove}>
               {(rows) => rows.map((row) => (
                 <SortableRow key={row.id} id={row.id}>
-                  <RowMenu items={[
-                    { label: 'Read it now', keys: '↵', run: () => onJump(queue.indexOf(row)) },
-                    'separator',
-                    { label: 'Take out of queue', danger: true, run: () => onRemove(row) }
-                  ]}>
+                  <RowMenu items={menuOf(row, { label: 'Read it now', keys: '↵', run: () => onJump(queue.indexOf(row)) })}>
                     <Line row={row} read={read.has(row.id)} grab onClick={() => onJump(queue.indexOf(row))} />
                   </RowMenu>
                 </SortableRow>
@@ -68,11 +85,7 @@ export function QueuePanel({ queue, at, read, onJump, onMove, onRemove, onClose 
             <Heading>Read before</Heading>
             <div data-queue-before="">
               {before.map((row, n) => (
-                <RowMenu key={row.id} items={[
-                  { label: 'Go back to it', keys: '↵', run: () => onJump(n) },
-                  'separator',
-                  { label: 'Take out of queue', danger: true, run: () => onRemove(row) }
-                ]}>
+                <RowMenu key={row.id} items={menuOf(row, { label: 'Go back to it', keys: '↵', run: () => onJump(n) })}>
                   <Line row={row} read={read.has(row.id)} onClick={() => onJump(n)} />
                 </RowMenu>
               ))}
@@ -105,9 +118,19 @@ function Line({ row, now, read, grab, onClick, ...menu }: { row: QueueRow; now?:
   )
   if (!onClick) return <div data-queue-line={row.id} className={cn(ROW_SHAPE, ROW_PAD, 'bg-accent/60')}>{body}</div>
   return (
-    <button type="button" {...menu} data-queue-line={row.id} onClick={onClick}
-      className={cn(ROW_SHAPE, ROW_PAD, 'transition-colors duration-80 hover:bg-accent/50', grab && 'cursor-grab', read && 'opacity-70')}>
-      {body}
-    </button>
+    <div {...menu} data-queue-line={row.id} className={cn(ROW_SHAPE, 'group/ql relative flex items-center transition-colors duration-80 hover:bg-accent/50', grab && 'cursor-grab', read && 'opacity-70')}>
+      <button type="button" onClick={onClick} className={cn('flex min-w-0 flex-1 items-center gap-2.5 text-left', ROW_PAD)}>{body}</button>
+      {/* Its menu from a button too: the same as the right-click, opened where the dots are. */}
+      <Tip label="More">
+        <button type="button" data-queue-more aria-label="More" onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => {
+            const box = event.currentTarget.getBoundingClientRect()
+            event.currentTarget.closest('[data-queue-line]')?.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: box.left, clientY: box.bottom }))
+          }}
+          className="mr-1.5 grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground opacity-0 transition-opacity group-hover/ql:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100">
+          <AliveIcon icon={DotsHorizontalIcon} size={16} />
+        </button>
+      </Tip>
+    </div>
   )
 }

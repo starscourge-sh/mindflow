@@ -178,7 +178,7 @@ try {
     await wait(500)
     await h.locator('[role="menuitem"]', { hasText: /^Queue/ }).first().hover()
     await wait(500)
-    const nexted = await click('[role="menuitem"]', 'Read next')
+    const nexted = await click('[role="menuitem"]', 'Play next')
     await wait(800)
     const after2 = (await v('queue')).queue
     await h.keyboard.press('Escape')

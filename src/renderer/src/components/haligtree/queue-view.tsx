@@ -15,6 +15,7 @@ import { ProgressBar } from './progress-bar'
 import { Highlight, useFluidHover } from './glide'
 import { ReadThrough } from './read-through'
 import { RowMenu, copy, type MenuItem } from './row-menu'
+import { openApart } from '@/lib/apart'
 import { SortableList, SortableRow } from './sortable'
 import { Empty, Island, Page, Rolling, Tags, Tip, toast, typing, useListKeys } from './ui'
 import { taskName } from '@/lib/tasks'
@@ -88,15 +89,17 @@ function QueueLine({ row, at, rows, pick }: { row: QueueRow; at: number; rows: Q
   const swipe = useSwipeOff(() => void dequeue(row))
   const menu: MenuItem[] = pick.menu ?? [
     { label: row.bare ? 'Open the page' : 'Read from here', keys: '↵', run: () => play(rows, at) },
-    at > 0 && { label: 'Read next', run: () => void enqueue([row.itemId], true) },
+    at > 0 && { label: 'Play next', hint: 'To the top of Up next', run: () => void enqueue([row.itemId], true) },
     // The drag's moves, for the keyboard and for anyone who never finds the grip.
     at > 0 && { label: 'Move up', run: () => void readingQueue.move(row.id, rows[at - 1].id, false).then(() => chime('settled')) },
     at < rows.length - 1 && { label: 'Move down', run: () => void readingQueue.move(row.id, rows[at + 1].id, true).then(() => chime('settled')) },
     { label: 'Open', run: () => window.api.openInHome(row.type, row.itemId) },
+    !row.bare && { label: 'Open in new window', run: () => openApart(row.type, row.itemId) },
+    !!taskName(row.title).tags[0] && { label: `Go to #${taskName(row.title).tags[0]}`, run: () => window.api.openInHome('tag', taskName(row.title).tags[0]) },
     !!row.bare && !!row.url && { label: 'Copy the link', run: () => copy(row.url!) },
     'separator',
     { label: 'Mark as read', run: () => void readingQueue.done(row.id).then(() => (chime('done'), toast('Moved to Read', () => void readingQueue.undone(row.id, true)))) },
-    { label: 'Take out of queue', keys: '⌫', danger: true, run: () => void dequeue(row) },
+    { label: 'Remove from queue', keys: '⌫', danger: true, run: () => void dequeue(row) },
     ...pick.rowItems
   ]
   return (
@@ -396,11 +399,11 @@ export function QueuePanel({ onView, className = '' }: { onView: (id: string) =>
               {/* Right-click: what the Queue page's own row offers most. */}
               <RowMenu items={[
                 { label: row.bare ? 'Open the page' : 'Read from here', keys: '↵', run: () => play(queue, at) },
-                at > 0 && { label: 'Read next', run: () => void enqueue([row.itemId], true) },
+                at > 0 && { label: 'Play next', hint: 'To the top of Up next', run: () => void enqueue([row.itemId], true) },
                 { label: 'Open', run: () => window.api.openInHome(row.type, row.itemId) },
                 'separator',
                 { label: 'Mark as read', run: () => void readingQueue.done(row.id).then(() => (chime('done'), toast('Moved to Read', () => void readingQueue.undone(row.id, true)))) },
-                { label: 'Take out of queue', danger: true, run: () => void dequeue(row) }
+                { label: 'Remove from queue', danger: true, run: () => void dequeue(row) }
               ]}>
               <button type="button" data-queue-next data-private={row.private ? '' : undefined} onClick={() => play(queue, at)}
                 className="flex w-full items-center gap-2.5 rounded-md px-1.5 py-1.5 text-left text-control">

@@ -742,7 +742,8 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
       {composerFor && !sorting && <div className="shrink-0 px-6 pt-1 pb-2 sm:px-16"><ThoughtBar key={composerFor} id={composerFor} clue={clueMode} /></div>}
       {queue && <UpNext queue={queue} at={at} read={read} onSkip={upNext.skip} onDone={upNext.done} onOpen={upNext.open} />}
       {queue && panel && (
-        <QueuePanel queue={queue} at={at} read={read} onJump={(to) => to !== at && (flush(), chime('page'), setAt(to))} onMove={reorder} onRemove={unqueue} onClose={togglePanel} />
+        <QueuePanel queue={queue} at={at} read={read} onJump={(to) => to !== at && (flush(), chime('page'), setAt(to))} onMove={reorder} onRemove={unqueue} onClose={togglePanel}
+          onOpen={(row) => (flush(), chime('open'), onClose(), window.api.openInHome(row.type, row.itemId))} onTag={openTag} />
       )}
       {sorting && item && (
         <SortBar left={items.filter((one) => !sortedHere.includes(one.id) && !binned.includes(one.id)).length} tagging={tagging} moving={moving} groups={groups} own={group}

@@ -54,7 +54,7 @@ try {
   await second.click({ button: 'right' })
   await wait()
   await h.getByRole('menuitem', { name: 'Queue' }).hover(); await wait(400)
-  await h.getByRole('menuitem', { name: 'Read next' }).click()
+  await h.getByRole('menuitem', { name: 'Play next' }).click()
   await wait(700)
   now = await queue()
   check('Read next puts it at the front', now.queue[0]?.itemId === id2, now.queue[0]?.title)
