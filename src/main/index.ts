@@ -3456,7 +3456,7 @@ app.whenReady().then(() => {
     return was
   })
   // ⌘O in the box, after it saved what was open: Little Arc's promote. The
-  // box grows a quarter of the way toward the main window and fades as it
+  // box moves a quarter of the way toward the main window and fades as it
   // goes, then the main window opens on the same note. At once with Motion
   // off or Reduce motion on.
   ipcMain.on('box:promote', (_event, type: unknown, id: unknown) => {
@@ -3476,8 +3476,10 @@ app.whenReady().then(() => {
       if (win.isDestroyed()) return ((promoting = undefined), false)
       const t = Math.min(1, (Date.now() - start) / PROMOTE)
       const k = 1 - (1 - t) ** 3
+      // A quarter of the way toward the main window's middle, its size kept: a window changing
+      // size lays its page out again each frame, which judders (the same as a note's own window).
       const at = (a: number, b: number): number => Math.round(a + (b - a) * k * 0.25)
-      win.setBounds({ x: at(from.x, to.x), y: at(from.y, to.y), width: at(from.width, to.width), height: at(from.height, to.height) }, false)
+      win.setBounds({ x: at(from.x, to.x + (to.width - from.width) / 2), y: at(from.y, to.y + (to.height - from.height) / 2), width: from.width, height: from.height }, false)
       win.setOpacity(1 - k)
       if (t < 1) return true
       promoting = undefined

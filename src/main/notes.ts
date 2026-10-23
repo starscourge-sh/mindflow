@@ -7,7 +7,10 @@ import { celebrateAfter, watches } from './celebrate'
 import { known } from './pictures'
 import { gate, plain, tellGoals } from './haligtree'
 import { syncLineCards } from './line-cards'
-import { centredOn, glide, onScreen, stillNow } from './glide'
+import { centredOn, glide, stillNow } from './glide'
+
+/** How far a note's own window rises into place as it opens. */
+const RISE = 14
 import { tagsIn } from './tag-words'
 import { cut } from './clip'
 
@@ -582,11 +585,13 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
     const sender = BrowserWindow.fromWebContents(event.sender)
     const point = screen.getCursorScreenPoint()
     const seed = onScreenOf(sender, from) ?? { x: point.x - 60, y: point.y - 40, width: 120, height: 80 }
-    const start = onScreen({ ...seed, width: Math.max(seed.width, 220), height: Math.max(seed.height, 120) })
     const size = centredOn(seed, 720, 640)
     const still = stillNow()
+    // Made at its own size and never resized on the way: a window changing size lays its page out
+    // again every frame, which is what made the move judder. It rises a little into place as it
+    // fades in, position and opacity only, on the one display clock (glide.ts).
     const win = new BrowserWindow({
-      ...(still ? size : start),
+      ...size,
       show: false,
       title: 'Note',
       backgroundColor: '#1c1c1c',
@@ -610,8 +615,9 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
       if (gate().blackout) return
       if (still) return win.show()
       win.setOpacity(0)
+      win.setBounds({ ...size, y: size.y + RISE }, false)
       win.show()
-      void glide(win, size, { ms: 240, opacity: 1 })
+      void glide(win, { x: size.x, y: size.y }, { ms: 240, opacity: 1 })
     })
     // ⌘W closes it: an accessory app has no menu to bind it.
     win.webContents.on('before-input-event', (event, input) => {
@@ -652,8 +658,12 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
     tell(event.sender, 'carry', link)
     home(type, id)
     const box = onScreenOf(homeWindow(), await landed) ?? homeWindow()?.getContentBounds() ?? null
-    if (box && !win.isDestroyed()) await glide(win, box, { ms: 240 })
-    if (!win.isDestroyed()) await glide(win, {}, { ms: 140, opacity: 0 })
+    // One move: toward where the note now sits, fading into it, its size kept (no page laid out again on the way).
+    if (!win.isDestroyed()) {
+      const now = win.getBounds()
+      const over = box ? centredOn(box, now.width, now.height) : now
+      await glide(win, { x: Math.round(now.x + (over.x - now.x) * 0.5), y: Math.round(now.y + (over.y - now.y) * 0.5) }, { ms: 240, opacity: 0 })
+    }
     if (!win.isDestroyed()) win.destroy()
     return true
   })
