@@ -67,7 +67,10 @@ const measure = (w, scope) => w.evaluate((scope) => {
   const out = {}
   const add = (role, value) => { if (value === null || value === undefined) return; (out[role] ??= new Set()).add(value) }
   const header = root.querySelector(':scope > section > header, section > header')
-  if (header) { const count = [...header.querySelectorAll('span')].find((one) => /\d/.test(one.textContent) && seen(one.getBoundingClientRect())); if (count) add('header words', ink(count)) }
+  // A bar that leads with tabs (Tasks): the first tab's pill on the box edge, its word on the ink edge; else the count.
+  const leadTab = header?.querySelector('button[aria-pressed]')
+  if (leadTab && seen(leadTab.getBoundingClientRect())) { add('tab pill', x(leadTab.getBoundingClientRect().left)); add('tab words', ink(leadTab)) }
+  else if (header) { const count = [...header.querySelectorAll('span')].find((one) => /\d/.test(one.textContent) && seen(one.getBoundingClientRect())); if (count) add('header words', ink(count)) }
   for (const tabs of all('[data-task-lists], [data-list-tabs]')) { const first = tabs.querySelector('button'); if (first) { add('tab pill', x(first.getBoundingClientRect().left)); add('tab words', ink(first)) } }
   for (const form of all('form')) {
     if (!form.querySelector('input, [contenteditable]')) continue
@@ -123,8 +126,9 @@ function judge(name, got, { box = BOX, ink = INK } = {}) {
 
 const c = await sandbox({ width: 1400, height: 900 })
 const { h, page: box, go, v, size } = c
-const PAGES = [['Today', 'today'], ['Tomorrow', 'tomorrow'], ['Upcoming', 'upcoming'], ['Later', 'later'], ['Routines', 'routines'], ['Matrix', 'matrix'], ["This week's tasks", 'week'],
-  ['Inbox', 'inbox'], ['Everything', 'all'], ['Writing', 'articles'], ['Gems', 'nuggets'], ['Questions', 'questions'], ['Goals', 'goals'], ['Bin', 'discarded'], ['Archived', 'archived']]
+// Tomorrow and This week's tasks are the top of Upcoming now, Everything the Inbox with "Show sorted too" on.
+const PAGES = [['Today', 'today'], ['Upcoming', 'upcoming'], ['Later', 'later'], ['Routines', 'routines'], ['Urgent and important', 'matrix'],
+  ['Inbox', 'inbox'], ['Inbox, sorted too', 'all'], ['Pages', 'articles'], ['Gems', 'nuggets'], ['Questions', 'questions'], ['Goals', 'goals'], ['Bin', 'discarded'], ['Archived', 'archived']]
 const theme = async (name) => { await h.evaluate((n) => localStorage.setItem('theme', n), name); await h.reload(); await h.waitForTimeout(2000) }
 
 async function walk(label) {

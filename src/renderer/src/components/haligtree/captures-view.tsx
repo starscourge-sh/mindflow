@@ -25,7 +25,7 @@ import { EXITS, NOT_OPEN, STATUS_ICON, captureKey, statusSaid, noteLinkText, exi
 import type { SaveResult } from '../../../../main/captures'
 import { toMarkdown } from '@/lib/export'
 import { hoursSaid } from '@/lib/day-plan'
-import { useStoredFlag } from '@/lib/use-stored-flag'
+import { useKept, useNav as useNavNow } from '@/lib/nav'
 import { Switch } from '@/components/ui/switch'
 import { splitTags, unloaded, useLastAsked, useLive, haligtree, type Settings, type Task, type TaskFull } from '@/lib/haligtree'
 import { makeTask, makeTasks, oneTask, picked, taskName } from '@/lib/tasks'
@@ -87,8 +87,6 @@ type Capture = NonNullable<Awaited<ReturnType<typeof window.api.captures.get>>>
  * with its properties and its exits. `focus` opens one straight away, for when
  * search or a tag sent you here.
  */
-/** Where the Inbox's "Show sorted too" is kept: on, it lists everything (home.tsx sends Everything's links here with it on). */
-export const INBOX_SORTED = 'inbox:sorted'
 /** What waits in the Inbox: what has no exit yet; archived is kept, out of sight, so not waiting here. */
 export const keepInbox = (capture: CaptureMeta): boolean => capture.status === 'open' && !capture.archivedAt
 /** With "Show sorted too": every note kept and every task, the Bin aside. */
@@ -106,7 +104,11 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
   onOpen?: (type: string, id: string) => void
 }): React.JSX.Element {
   const all = useCaptures(true)
-  const [sortedToo, setSortedToo] = useStoredFlag(INBOX_SORTED)
+  // "Show sorted too", kept in the step: off each time the Inbox is opened, on for a link to
+  // something sorted (home.tsx sends Everything's links here with tab 'sorted'); Back finds it as it was.
+  const nav = useNavNow()
+  const [sortedToo, setSortedToo] = useState(nav?.here.tab === 'sorted')
+  useKept('tab', sortedToo ? 'sorted' : 'waiting', (tab) => setSortedToo(tab === 'sorted'), 'waiting')
   const everything = inboxPage && sortedToo
   const keep = everything ? keepEverything : given
   // Everything: every task too, as a row of its own kind; to do, done or both, as chosen.

@@ -79,9 +79,9 @@ const palette = async () => {
   await h.waitForFunction(() => document.activeElement instanceof HTMLInputElement && /earch|Do something/.test(document.activeElement.placeholder), null, { timeout: 5000 })
 }
 
-// Everything's Note island folded, so every note in it starts out of sight.
+// The Inbox's Note island folded, so every note in it starts out of sight.
 async function foldNotes() {
-  const head = h.locator('[data-page="all"] [data-island-head="Note"]')
+  const head = h.locator('[data-page="inbox"] [data-island-head="Note"]')
   await head.waitFor({ timeout: 8000 })
   if ((await head.getAttribute('aria-expanded')) === 'true') (await head.click(), await wait(400))
 }
@@ -99,12 +99,12 @@ try {
   const tag = /#([\w-]+)/.exec(tagged.label)[1]
 
   // 1. Sent here by the main process: a notification, the menu bar, quick capture's "Open in Haligtree".
-  await go('all'); await wait(800)
+  await go('inbox'); await wait(800)
   await foldNotes()
-  check('starts hidden: the note is not drawn in the folded island', !(await drawn('all', A.id)))
-  await shows('notification / menu bar / quick capture', 'all', A.id, () => send('capture', A.id))
+  check('starts hidden: the note is not drawn in the folded island', !(await drawn('inbox', A.id)))
+  await shows('notification / menu bar / quick capture', 'inbox', A.id, () => send('capture', A.id))
   const side = await h.evaluate(() => document.querySelector('[data-side-row][aria-current="page"]')?.getAttribute('aria-label'))
-  check('the sidebar marks Everything as the page you are on', side === 'Everything', side)
+  check('the sidebar marks the Inbox as the page you are on', side === 'Inbox', side)
 
   // 2. A tag page's link.
   await foldNotes()
@@ -116,7 +116,7 @@ try {
     await h.locator('[aria-label="Show your tags"]').first().click(); await wait(500)
   }
   check('with your tags showing, the tag is marked as the page you are on', (await marked())?.includes(tag), await marked())
-  await shows('a tag page link', 'all', tagged.id, async () => {
+  await shows('a tag page link', 'inbox', tagged.id, async () => {
     const row = h.locator(`[data-page="tags"] [data-pick="capture:${tagged.id}"]`).first()
     await row.waitFor({ timeout: 5000 })
     await row.click()
@@ -124,7 +124,7 @@ try {
 
   // 3. ⌘K.
   await foldNotes()
-  await shows('⌘K', 'all', B.id, () => h.locator(`[data-drag-open="capture:${B.id}"]`).first().click(), {
+  await shows('⌘K', 'inbox', B.id, () => h.locator(`[data-drag-open="capture:${B.id}"]`).first().click(), {
     ready: async () => {
       await palette()
       await h.keyboard.type(B.label.slice(0, 30), { delay: 10 })
@@ -140,7 +140,7 @@ try {
     await h.locator('.note-pane button[aria-label="Next"]').first().click(); await wait(900)
     const now = await h.evaluate(() => document.querySelector('.note-pane')?.dataset.open)
     const sounds = (await said()).slice(before)
-    const seen = await look('all', now)
+    const seen = await look('inbox', now)
     check('the stepper ↓ opened the next note', !!now && now !== was, `${was} → ${now}`)
     check('the stepper ↓: the row is drawn and in view', seen.drawn && seen.inView, JSON.stringify(seen))
     check('the stepper ↓: marked open, keyboard on it', seen.open && seen.cursor)
@@ -154,12 +154,12 @@ try {
   check('D open', await paneOn(D.id))
   await wait(600)
   await foldNotes()
-  await shows('back (⌘[)', 'all', C.id, async () => {
+  await shows('back (⌘[)', 'inbox', C.id, async () => {
     await h.evaluate(() => (document.activeElement)?.blur?.())
     await h.keyboard.press('Meta+BracketLeft')
   }, { keys: false })
   await foldNotes()
-  await shows('forward (⌘])', 'all', D.id, async () => {
+  await shows('forward (⌘])', 'inbox', D.id, async () => {
     await h.evaluate(() => (document.activeElement)?.blur?.())
     await h.keyboard.press('Meta+BracketRight')
   }, { keys: false })
@@ -167,7 +167,7 @@ try {
   // 6. Pinned in the sidebar: the note opens with its row shown, and its pin is marked open.
   await v('pin', 'captures', E.id, true); await wait(800)
   await foldNotes()
-  await shows('Pinned in the sidebar', 'all', E.id, async () => {
+  await shows('Pinned in the sidebar', 'inbox', E.id, async () => {
     const pin = h.locator(`[data-drag-open="capture:${E.id}"]`).first()
     await pin.waitFor({ timeout: 5000 })
     await pin.click()
@@ -177,8 +177,8 @@ try {
 
   // 7. ⌫ on the open note, then ⌘Z: it comes back open, on its row.
   await h.evaluate(() => (document.activeElement)?.blur?.())
-  await h.locator('[data-page="all"] header').first().click({ position: { x: 5, y: 5 } }).catch(() => {})
-  await h.waitForFunction((id) => document.querySelector('[data-page="all"] [data-cursor]')?.dataset.id === id && !document.activeElement?.closest('.ProseMirror'), E.id, { timeout: 4000 }).catch(() => {})
+  await h.locator('[data-page="inbox"] header').first().click({ position: { x: 5, y: 5 } }).catch(() => {})
+  await h.waitForFunction((id) => document.querySelector('[data-page="inbox"] [data-cursor]')?.dataset.id === id && !document.activeElement?.closest('.ProseMirror'), E.id, { timeout: 4000 }).catch(() => {})
   await h.keyboard.press('Backspace')
   for (let t = 0; t < 3000 && (await h.evaluate(() => document.querySelector('.note-pane')?.dataset.open)) === E.id; t += 100) await wait(100)
   await wait(400)
@@ -186,7 +186,7 @@ try {
   check('⌫ moved the open note to the Bin and the pane on', moved !== E.id, moved)
   await h.evaluate(() => (document.activeElement)?.blur?.())
   await h.keyboard.press('Meta+z'); await wait(1600)
-  const back = await look('all', E.id)
+  const back = await look('inbox', E.id)
   const pane = await h.evaluate(() => document.querySelector('.note-pane')?.dataset.open)
   check('⌘Z: the note is open again', pane === E.id, pane)
   check('⌘Z: its row is drawn, in view and marked open', back.drawn && back.inView && back.open, JSON.stringify(back))
@@ -208,21 +208,15 @@ try {
     await shows('a task due today, from a link', 'today', today.id, () => h.evaluate((id) => window.api.openInHome('task', id), today.id), { keys: false })
   } else check('a task due today in the sandbox', false)
 
-  // 10. "New article" in Writing: the new one is in the list, marked open.
+  // 10. "New page" in Pages: the new one is in the list, marked open.
   await go('articles'); await wait(1000)
-  await h.getByRole('button', { name: 'New article' }).first().click(); await wait(1500)
+  await h.getByRole('button', { name: 'New page' }).first().click(); await wait(1500)
   const made = await h.evaluate(() => document.querySelector('.note-pane')?.dataset.open)
   const fresh = made ? await look('articles', made) : { drawn: false }
-  check('a new article shows in Writing, in view and marked open', fresh.drawn && fresh.inView && fresh.open, JSON.stringify(fresh))
+  check('a new page shows in Pages, in view and marked open', fresh.drawn && fresh.inView && fresh.open, JSON.stringify(fresh))
   if (made) await v('bin:to', made).catch(() => {})
 
-  // 11. A card on Home, onto a note whose island is folded.
-  await go('all'); await wait(800)
-  await foldNotes()
-  await go('home'); await wait(1200)
-  const card = await h.evaluate((ids) => [...document.querySelectorAll('[data-page="home"] [data-drag-open^="capture:"]')].map((one) => one.getAttribute('data-drag-open').slice(8)).find((id) => ids.includes(id)), caps.map((one) => one.id))
-  if (card) await shows("a card on Home", 'all', card, () => h.locator(`[data-page="home"] [data-drag-open="capture:${card}"]`).first().click(), { keys: false })
-  else console.log('note: no note card on Home in this sandbox')
+  // 11. (A card on Home: Home and its cards are gone; the Day page lists no note cards.)
 
   // 12. Writing: a note inside a folded group of your own, sent here.
   const arts = (await v('items', 'article')).filter((one) => !one.archivedAt && !one.private).map((one) => one.id)
@@ -267,15 +261,16 @@ try {
   // 14. Spread over the page, a search cleared: the one looked at is back in view, the keyboard on it.
   await h.evaluate(() => localStorage.setItem('view:captures:All captures', JSON.stringify({ pane: 'wide', wideDensity: 'list' })))
   await h.reload(); await wait(1800)
+  // Everything is the Inbox with "Show sorted too" on: its own Display, kept as All captures'.
   await go('all'); await wait(1200)
-  const last = h.locator('[data-page="all"] [data-row][data-id]').last()
+  const last = h.locator('[data-page="inbox"] [data-row][data-id]').last()
   await last.click(); await wait(500)
   const peeked = await last.getAttribute('data-id')
   const words = (await last.innerText()).split(/\s+/).filter((one) => one.length > 3).slice(0, 2).join(' ')
-  const field = h.locator('[data-page="all"] input[placeholder="Search in Everything"]').first()
+  const field = h.locator('[data-page="inbox"] input[placeholder="Search in Inbox"]').first()
   await field.click(); await h.keyboard.type(words, { delay: 20 }); await wait(700)
   await h.keyboard.press('Meta+a'); await h.keyboard.press('Backspace'); await wait(1000)
-  const cleared = await look('all', peeked)
+  const cleared = await look('inbox', peeked)
   check('a search cleared: the one looked at is drawn, in view, marked and under the keyboard', cleared.drawn && cleared.inView && cleared.open && cleared.cursor, JSON.stringify(cleared))
   await h.evaluate(() => localStorage.removeItem('view:captures:All captures'))
 

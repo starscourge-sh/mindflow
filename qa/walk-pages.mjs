@@ -1,9 +1,9 @@
 // A walk through the main pages and lists as a person meets them, a picture of
-// each: Home, Inbox, Everything, Writing, Gems, a tag page, Tags, Review, Map,
+// each: the Day page (Today), Inbox, the Inbox with sorted too, Pages, Gems, a tag page, Tags, Review, Map,
 // the Inbox's Graph, Questions, Goals, Calendar, Today, Upcoming, the Bin,
 // Archived, the sidebar's foot menu, ⌘K and Switch book. MODE picks the walk:
 //   basic  (the default) large and light, then small and dark; one ⌘A, ⌫ and
-//          ⌘Z on the Inbox and Everything, grouped by kind.
+//          ⌘Z on the Inbox and with "Show sorted too" on, grouped by kind.
 //   looks  Soft, Brutal and Paper, each at 900x700 (a dark theme) and
 //          1600x1000 (Paper's light theme).
 //   keys   the Mac gestures on every list: ↑ ↓, Enter, Esc, ⌘-click, ⇧-click
@@ -28,7 +28,8 @@ const c = await sandbox({ width: 1600, height: 1000, seeded: MODE !== 'empty' })
 const { h, v, go, size, electron } = c
 const shot = async (name) => { await h.waitForTimeout(500); await h.screenshot({ path: `${SHOTS}/${name}.png` }).catch((e) => console.log('no shot', name, e.message)) }
 const esc = async () => { await h.keyboard.press('Escape'); await h.waitForTimeout(300) }
-const page = (id) => `[data-page="${id}"]`
+// Home is the Day page now, and Everything the Inbox with "Show sorted too" on: their pages are named so.
+const page = (id) => `[data-page="${({ home: 'day', all: 'inbox' })[id] ?? id}"]`
 
 // What a person would see go wrong on a screen, read off the page.
 const audit = (where) => h.evaluate((where) => {
@@ -64,7 +65,7 @@ const read = (root) => h.evaluate((root) => ({
   rows: (document.querySelector(root) ?? document).querySelectorAll('[data-row][data-id]').length,
   toast: [...document.querySelectorAll('[role=status][aria-live]')].map((one) => one.textContent.replace(/\s+/g, ' ').trim()).filter(Boolean).join(' | ')
 }), root)
-const PAGES = [['home', 'home'], ['inbox', 'inbox'], ['everything', 'all'], ['writing', 'articles'], ['gems', 'nuggets'], ['tags', 'tags'], ['review', 'review'], ['map', 'map'],
+const PAGES = [['today page', 'day'], ['inbox', 'inbox'], ['inbox sorted too', 'all'], ['pages', 'articles'], ['gems', 'nuggets'], ['tags', 'tags'], ['review', 'review'], ['map', 'map'],
   ['questions', 'questions'], ['goals', 'goals'], ['calendar', 'calendar'], ['today', 'today'], ['upcoming', 'upcoming'], ['bin', 'discarded'], ['archived', 'archived']]
 const style = async (name, theme) => {
   await h.evaluate(([s, t]) => { localStorage.setItem('style', s); localStorage.setItem('theme', t) }, [name, theme])
@@ -254,7 +255,7 @@ try {
     // Something archived, for Archived.
     const toArchive = (await h.evaluate(() => window.api.captures.list())).filter((one) => one.status === 'open').slice(-4)
     for (const one of toArchive) await h.evaluate((id) => window.api.haligtree('notes:archive', 'captures', [id], true), one.id).catch(() => {})
-    for (const [name, id] of [['Inbox', 'inbox'], ['Everything', 'all'], ['Archived', 'archived'], ['Gems', 'nuggets'], ['Writing', 'articles'], ['Questions', 'questions'], ['Goals', 'goals'], ['Today', 'today'], ['Upcoming', 'upcoming']])
+    for (const [name, id] of [['Inbox', 'inbox'], ['Everything', 'all'], ['Archived', 'archived'], ['Gems', 'nuggets'], ['Pages', 'articles'], ['Questions', 'questions'], ['Goals', 'goals'], ['Tasks', 'today'], ['Upcoming', 'upcoming']])
       await keys(name, id).catch((e) => check(`${name}: ran`, false, e.message.split('\n')[0]))
     // The Bin needs a few things in it.
     const caps = (await h.evaluate(() => window.api.captures.list())).filter((one) => one.status === 'open').slice(0, 4)
@@ -273,22 +274,16 @@ try {
       check('a capture\'s right-click menu is the same in the Inbox and Everything', plain(inInbox) === plain(inAll))
       check('…and on its tag page', plain(inTag) === plain(inInbox))
     }
-    // "Start here", pinned: its menu on Home's cards and in Pinned is the one it has in the Inbox.
+    // "Start here", pinned: its menu in Pinned is the one it has in the Inbox (Home and its cards are gone).
     const start = (await h.evaluate(() => window.api.captures.list())).find((cap) => cap.label.startsWith('Start here'))
     if (start) {
       await go('inbox'); const inInbox = (await menuOf(page('inbox'), start.id)).join(' / ')
-      await go('home')
-      await h.locator(`${page('home')} :text-is("Start here")`).first().click({ button: 'right' }).catch(() => {})
-      await h.waitForSelector('[role=menu] [role=menuitem]', { timeout: 4000 }).catch(() => {})
-      const onHome = await h.evaluate(() => [...document.querySelectorAll('[role=menu] [role=menuitem]')].map((one) => one.textContent.replace(/\s+/g, ' ').trim()).filter((line) => !/^(Select|Unselect|Select all)/.test(line)).join(' / '))
-      await esc()
       await h.locator('aside :text-is("Start here")').first().click({ button: 'right' }).catch(() => {})
       await h.waitForSelector('[role=menu] [role=menuitem]', { timeout: 4000 }).catch(() => {})
       const inPinned = await h.evaluate(() => [...document.querySelectorAll('[role=menu] [role=menuitem]')].map((one) => one.textContent.replace(/\s+/g, ' ').trim()).join(' / '))
       await esc()
       const bare = (line) => line.split(' / ').filter((one) => !/^(Select|Unselect|Select all)/.test(one)).join(' / ')
-      check('a pinned capture\'s menu on Home is the one it has in the Inbox', bare(onHome) === bare(inInbox), onHome)
-      check('…and in the sidebar\'s Pinned', bare(inPinned) === bare(inInbox), inPinned)
+      check('a pinned capture\'s menu in the sidebar\'s Pinned is the one it has in the Inbox', bare(inPinned) === bare(inInbox), inPinned)
     }
     // Esc and the back button leave what was just opened.
     for (const id of ['inbox', 'nuggets', 'articles', 'questions', 'goals']) {
@@ -323,7 +318,7 @@ try {
     await v('task:add', `🌋 ${long} today`).catch(() => {})
     await v('question:new', `Why ${long}?`).catch(() => {})
     await h.waitForTimeout(800)
-    for (const [name, id] of [['inbox', 'inbox'], ['everything', 'all'], ['writing', 'articles'], ['questions', 'questions'], ['today', 'today'], ['home', 'home']]) { await go(id); await look(`long ${name}`, `long-${name}`) }
+    for (const [name, id] of [['inbox', 'inbox'], ['inbox sorted too', 'all'], ['pages', 'articles'], ['questions', 'questions'], ['tasks', 'today'], ['today page', 'day']]) { await go(id); await look(`long ${name}`, `long-${name}`) }
     await c.send('tag', tag); await h.waitForTimeout(1200); await look('long tag page', 'long-tag-page')
     // Opened: the untitled, the emoji and the broken picture.
     for (const which of ['none', 'emoji', 'broken']) { await c.send('capture', ids[which]); await h.waitForTimeout(1200); await look(`open ${which}`, `open-${which}`); await esc() }
@@ -343,7 +338,7 @@ try {
     await go('all'); await look('hundreds everything', 'hundreds-everything')
     // Offline: pictures from the web fail, the pages still read.
     await electron.evaluate(({ session }) => session.defaultSession.enableNetworkEmulation({ offline: true }))
-    for (const [name, id] of [['home', 'home'], ['inbox', 'inbox'], ['gems', 'nuggets'], ['map', 'map']]) { await go(id); await look(`offline ${name}`, `offline-${name}`) }
+    for (const [name, id] of [['today page', 'day'], ['inbox', 'inbox'], ['gems', 'nuggets'], ['map', 'map']]) { await go(id); await look(`offline ${name}`, `offline-${name}`) }
     await electron.evaluate(({ session }) => session.defaultSession.disableNetworkEmulation())
     // The smallest window.
     const min = await electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => w.webContents.getURL().includes('view=home'))?.getMinimumSize())

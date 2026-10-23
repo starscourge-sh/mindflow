@@ -31,21 +31,21 @@ try {
   await h.click(`[data-grid-day="${picked}"]`)
   await h.waitForTimeout(900)
   check('1. top bar names the clicked day', (await title()) === `${pick.getDate()} ${monthWord(pick)}`, await title())
-  check('1. sidebar does not light Today’s page for another day', (await lit("Today's page")) !== 'page', await lit("Today's page"))
+  check('1. sidebar does not light Today for another day', (await lit('Today')) !== 'page', await lit('Today'))
 
   // 2. Today's page asked for from there: today, lit.
-  await (await row("Today's page")).click()
+  await (await row('Today')).click()
   await h.waitForTimeout(900)
-  check('2. sidebar Today’s page goes to today', (await title()) === "Today's page", await title())
-  check('2. its row is lit on today', (await lit("Today's page")) === 'page')
-  const heading = await h.textContent('h1.text-title').catch(() => '')
+  check('2. sidebar Today goes to today', (await title()) === 'Today', await title())
+  check('2. its row is lit on today', (await lit('Today')) === 'page')
+  const heading = await h.textContent('[data-page="day"] h1').catch(() => '')
   check('2. the page itself is today', heading?.startsWith('Today'), heading)
 
   // 3. Back returns to the clicked day.
   await h.keyboard.press('Meta+BracketLeft')
   check('3. Back returns to the day', (await title()) === `${pick.getDate()} ${monthWord(pick)}`, await title())
   await h.keyboard.press('Meta+BracketRight')
-  check('3. Forward to today again', (await title()) === "Today's page", await title())
+  check('3. Forward to today again', (await title()) === 'Today', await title())
 
   // 4. Yesterday and Tomorrow by name.
   const y = new Date(now); y.setDate(now.getDate() - 1)
@@ -58,7 +58,7 @@ try {
   await h.click('[data-pane-title]')
   await h.keyboard.press('g')
   await h.keyboard.press('p')
-  check('4. G P goes to today', (await title()) === "Today's page", await title())
+  check('4. G P goes to today', (await title()) === 'Today', await title())
 
   // 5. The Week's page a week back: named, unlit, and its row brings this week.
   await go('weekpage')

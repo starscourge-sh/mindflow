@@ -1,7 +1,7 @@
-// Questions are pages in Writing. An open question is a row in Writing with
+// Questions are pages in Pages. An open question is a row in Pages with
 // its "?" mark; the "Questions" chip shows every question, answered ones too;
 // Questions (the old page, G H, a question opened from anywhere) lands in
-// Writing with that chip on. The question's page says what it is for in two
+// Pages with that chip on. The question's page says what it is for in two
 // sentences and has an "Answered" button, which makes a page of writing from
 // the clues, oldest first. Pinned questions still show in quick capture, and
 // in the box a line ending in "?" offers "Keep as a question" on Tab.
@@ -23,16 +23,16 @@ try {
   await v('clue', id, 'Second: friction with the sea floor slows it.')
   await v('question:pin', id, true)
 
-  // In Writing, with the "?" mark.
+  // In Pages, with the "?" mark.
   await go('articles')
   await h.waitForTimeout(600)
   let list = await rows()
   const row = list.find((one) => one.id === id)
-  check('an open question is a row in Writing', !!row && row.type === 'question', list.length + ' rows')
+  check('an open question is a row in Pages', !!row && row.type === 'question', list.length + ' rows')
   check('beside the writing', list.some((one) => one.type === 'article'), list.map((one) => one.type).join(','))
   const mark = await h.evaluate((qid) => !!document.querySelector(`[data-row][data-id="${qid}"] svg`), id)
   check('the row has its "?" mark', mark)
-  check('Writing shows the "All" and "Questions" chips', (await chip('All').count()) > 0 && (await chip('Questions').count()) > 0)
+  check('Pages shows the "All" and "Questions" chips', (await chip('All').count()) > 0 && (await chip('Questions').count()) > 0)
   const before = await h.evaluate(() => document.querySelector('[data-new-writing]')?.getBoundingClientRect().toJSON())
   await chip('Questions').click()
   await h.waitForTimeout(500)
@@ -43,21 +43,22 @@ try {
   await chip('All').click()
   await h.waitForTimeout(300)
 
-  // Sent to a question from anywhere: Writing, Questions chip on, the question open.
+  // Sent to a question from anywhere: Pages, Questions chip on, the question open.
   await go('home')
   await send('question', id)
   await h.waitForTimeout(1200)
   const landed = await h.evaluate(() => ({ title: document.querySelector('h1, [data-page-title]')?.textContent, how: document.querySelector('[data-question-how]')?.textContent ?? '', answered: !!document.querySelector('[data-question-answered]'), on: [...document.querySelectorAll('[aria-pressed="true"], [data-on], [data-state="on"]')].map((one) => one.textContent).join('|') }))
-  check('a question opens in Writing', /Writing/.test(await h.evaluate(() => document.body.innerText.slice(0, 4000))), landed.title)
+  const row = await h.evaluate(() => document.querySelector('[data-side-row][aria-current="page"]')?.getAttribute('aria-label'))
+  check('a question opens in Pages, its row lit', row === 'Pages', String(row))
   const sentences = landed.how.split(/(?<=\.)\s+/).filter(Boolean)
   check('its page says what it is for in two sentences', sentences.length === 2 && /clue/.test(landed.how) && /“Answered”/.test(landed.how), landed.how)
   check('its page has an "Answered" button', landed.answered)
-  // The old Questions page is Writing with the chip on.
+  // The old Questions page is Pages with the chip on.
   // (Narrow, an open note takes the page and the list is a step back: from Home, it is the list.)
   await go('home')
   await go('questions')
   list = await rows()
-  check('Questions is Writing with the "Questions" chip on', list.length > 0 && list.every((one) => one.type === 'question'), list.map((one) => one.type).join(','))
+  check('Questions is Pages with the "Questions" chip on', list.length > 0 && list.every((one) => one.type === 'question'), list.map((one) => one.type).join(','))
 
   // Pinned questions still show in quick capture.
   await page.evaluate(() => window.api.showPrompt())

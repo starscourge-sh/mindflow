@@ -23,7 +23,8 @@ const layout = () => h.evaluate((hints) => {
   return {
     header: top(page?.querySelector('header')),
     form: top(page?.querySelector('form')),
-    chips: top(page?.querySelector('[data-task-lists]')),
+    // The tabs are in the header now, on the left of the bar.
+    chips: top(page?.querySelector('header button[aria-pressed]')),
     row: top(page?.querySelector('[data-task-row]')),
     hints: hints.map((sel) => !!page?.querySelector(sel)),
     room: hints.reduce((sum, sel) => sum + room(page?.querySelector(sel)), 0)

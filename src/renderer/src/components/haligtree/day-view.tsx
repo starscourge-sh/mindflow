@@ -215,7 +215,7 @@ export function DayView({ onOpen, start, onScale, onView }: {
         {day !== today && writing}
         {ahead && <DayAhead day={day} tasks={tasks} onOpen={onOpen} menuFor={(task) => (onOpen ? taskMenu(task, { open: () => onOpen('task', task.id), now: taskNow }) : [])} />}
         {/* The day as a time log: everything caught, dealt with, studied, done or dated, each at its time. */}
-        {!ahead && !example && <DayLog day={day} onOpen={onOpen} className="mt-6" />}
+        {!ahead && !example && <DayLog day={day} given={data} onOpen={onOpen} className="mt-6" />}
         {!ahead && <Example on={example} flush className="mt-6" tryIt="write a line about your day above. What you catch, finish and review today gathers underneath on its own.">
         {/* Only what the day has: four headings over nothing say less than one line. */}
         {held && sections.every(([, , list]) => !list.length) && (
@@ -272,8 +272,9 @@ export function DayView({ onOpen, start, onScale, onView }: {
 
 /**
  * The caret in the day's writing once its page is on show, so you can just
- * start typing: once for each day opened, and never while something else
- * already has the keys (a search, a field).
+ * start typing: once for each day opened, and never while you are typing
+ * somewhere else (a search, a field). A button just clicked (the sidebar's
+ * row) hands its keys over.
  */
 function CaretIn({ editor, day }: { editor: Editor | null; day: string }): null {
   const seen = useSeen()
@@ -283,7 +284,7 @@ function CaretIn({ editor, day }: { editor: Editor | null; day: string }): null 
     placed.current = day
     const frame = requestAnimationFrame(() => {
       const held = document.activeElement
-      if (held && held !== document.body && !held.closest('[data-day-write]')) return
+      if (held?.matches('input, textarea, select, [contenteditable="true"]') && !held.closest('[data-day-write]')) return
       editor.commands.focus('end', { scrollIntoView: false })
     })
     return () => cancelAnimationFrame(frame)

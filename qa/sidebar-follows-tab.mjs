@@ -1,8 +1,8 @@
 // The sidebar lights the row for the page shown, whichever way it was reached:
-// Today's chips (Today, Tomorrow, Later) move the light to Today, Tomorrow
-// and Later, gliding there, and it never blinks off on the
-// way, even when the row is new to a growing sidebar or folded away. The same
-// for the other pages with tabs or modes that map to sidebar rows.
+// the Tasks row's tabs (Today, Upcoming, Later, Routines) and old links to
+// Tomorrow, This week and the Matrix all keep it on Tasks, and it never blinks
+// off on the way. The same for the other pages with tabs or modes that map to
+// sidebar rows: a question lights Pages, Everything the Inbox.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/sidebar-follows-tab.mjs
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
@@ -52,42 +52,24 @@ const chip = (label) => () => h.locator(`[data-page] button[aria-pressed][aria-l
 
 try {
   await v('settings:set', { sounds: false, hintRate: 0 })
-  // A growing sidebar, with Tomorrow, Later and Routines not used yet: they wait under "More".
-  const settings = await v('settings')
-  await v('settings:set', { sidebarGrows: true, sidebarShown: settings.sidebarShown.filter((one) => !['tomorrow', 'later', 'routines'].includes(one)), sidebarMet: settings.sidebarMet.filter((one) => !['tomorrow', 'later', 'routines'].includes(one)) })
-  await wait(600)
+  // One Tasks row: each of its tabs keeps the light on it, still, never blinking off.
   await go('today')
   await wait(600)
-  await moves('Today, first', async () => {}, 'Today')
-  await moves('Tomorrow’s chip (new to the sidebar)', chip('Tomorrow'), 'Tomorrow')
-  await moves('Later’s chip (new to the sidebar)', chip('Later'), 'Later')
-  await moves('Today’s chip', chip('Today'), 'Today')
-  await moves('Tomorrow’s chip again', chip('Tomorrow'), 'Tomorrow')
+  await moves('Tasks, first', async () => {}, 'Tasks')
+  for (const tab of ['Upcoming', 'Later', 'Routines', 'Today', 'Upcoming']) await moves(`Tasks' ${tab} tab`, chip(tab), 'Tasks')
+  await moves('the Tasks row from a tab', sideRow('Tasks'), 'Tasks')
+  // Old links to Tomorrow, This week's tasks and the Matrix: the Tasks row.
+  for (const id of ['tomorrow', 'week', 'matrix']) await moves(`sent to ${id}`, () => go(id), 'Tasks')
 
-  // Every page shown: the same moves, rows already there.
-  await v('settings:set', { sidebarGrows: false, sidebarShown: [...new Set([...(await v('settings')).sidebarShown, 'tomorrow', 'later', 'routines'])] })
+  // The sweep: Pages and Gems, the Day page, the week's and month's pages (shown for this), the Calendar, Settings.
+  await v('settings:set', { sidebarShown: [...new Set([...(await v('settings')).sidebarShown, 'weekpage', 'monthpage'])] })
   await wait(600)
-  await go('today')
-  await wait(600)
-  await moves('all shown, Tomorrow’s chip', chip('Tomorrow'), 'Tomorrow')
-  await moves('all shown, Later’s chip', chip('Later'), 'Later')
-  await moves('all shown, Routines’ row', sideRow('Routines'), 'Routines')
-  await moves('all shown, Today’s row', sideRow('Today'), 'Today')
-
-  // Tasks folded away: the page you are on still shows its row, lit.
-  const tasksHead = h.locator('nav button[aria-expanded]', { hasText: /^Tasks/ }).first()
-  if ((await tasksHead.getAttribute('aria-expanded')) === 'true') await tasksHead.click()
-  await wait(600)
-  await moves('Tasks folded, Tomorrow’s chip', chip('Tomorrow'), 'Tomorrow')
-  await moves('Tasks folded, Today’s chip', chip('Today'), 'Today')
-  if ((await tasksHead.getAttribute('aria-expanded')) === 'false') await tasksHead.click()
-  await wait(600)
-
-  // The sweep: Writing and Gems, the day, week and month pages, the Calendar, Settings.
   await go('articles'); await wait(500)
-  await moves('Writing to Gems', () => go('nuggets'), 'Gems')
-  await moves('Gems to Writing', () => go('articles'), 'Writing')
-  await moves('to Today’s page', () => go('day'), "Today's page")
+  await moves('Pages to Gems', () => go('nuggets'), 'Gems')
+  await moves('Gems to Pages', () => go('articles'), 'Pages')
+  await moves('a question lights Pages', () => go('questions'), 'Pages')
+  await moves('to Today', () => go('day'), 'Today')
+  await moves('the Inbox with "Show sorted too"', () => go('all'), 'Inbox')
   await moves("to Week's page", () => go('weekpage'), "Week's page")
   await moves("to Month's page", () => go('monthpage'), "Month's page")
   await go('calendar'); await wait(500)

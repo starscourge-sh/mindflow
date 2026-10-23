@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { chime } from '@/lib/sound'
 import { useLive } from '@/lib/haligtree'
@@ -36,8 +37,13 @@ function dayLog(day: Day, only?: What[]): LogRow[] {
   return all.sort((a, b) => time(a) - time(b))
 }
 
-export function DayLog({ day, only, onOpen, title = 'The day, hour by hour', empty, className = '' }: {
+/** How many of a day's lines show before "Show all N". */
+const FEW = 12
+
+export function DayLog({ day, given, only, onOpen, title = 'The day, hour by hour', empty, className = '' }: {
   day: string
+  /** The day already read by the page it is on: not read a second time (each write reads every page's day again, and two at once held up the next page). */
+  given?: Day | null
   only?: What[]
   onOpen?: (type: string, id: string) => void
   title?: string
@@ -45,9 +51,13 @@ export function DayLog({ day, only, onOpen, title = 'The day, hour by hour', emp
   empty?: string
   className?: string
 }): React.JSX.Element | null {
-  const read = useLive(() => notes.day(day), null as Day | null, [day])
+  const own = useLive(() => (given === undefined ? notes.day(day) : Promise.resolve(null)), null as Day | null, [day, given === undefined])
+  const read = given === undefined ? own : given
+  // A busy day (an import, a hundred captures) shows its latest few, the rest a click away: a list of hundreds made every page opened from here wait.
+  const [all, setAll] = useState(false)
   if (!read || read.day !== day) return null
-  const rows = dayLog(read, only)
+  const every = dayLog(read, only)
+  const rows = all ? every : every.slice(-FEW)
   if (!rows.length && !empty) return null
   return (
     <section data-day-log aria-label={title} className={className}>
@@ -74,6 +84,12 @@ export function DayLog({ day, only, onOpen, title = 'The day, hour by hour', emp
             )
           })}
         </ol>
+      )}
+      {every.length > rows.length && (
+        <button type="button" data-log-more onClick={() => (chime('slide'), setAll(true))}
+          className="mt-1 rounded-md px-1 py-1 text-control text-muted-foreground hover:bg-accent/50 hover:text-foreground">
+          Show all {every.length}, the earlier ones above
+        </button>
       )}
     </section>
   )

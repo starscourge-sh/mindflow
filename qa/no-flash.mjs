@@ -234,10 +234,11 @@ try {
 
   // Every page of the main window, opened cold. `store`: a remembered choice set first (the calendar's scale).
   const ALL = [
-    'home', 'inbox', 'all', 'archived', 'lookups', 'articles', 'nuggets', 'questions', 'goals', 'today', 'tomorrow', 'upcoming', 'routines', 'later',
-    'calendar@day', 'calendar@week', 'calendar@month', 'week', 'matrix', 'review', 'queue', 'tags', 'tag', 'sources', 'stats', 'map', 'settings', 'practices',
+    // Home, Tomorrow and This week's tasks are the Day page and Upcoming now; Everything (all) is the Inbox with "Show sorted too" on.
+    'inbox', 'all', 'archived', 'lookups', 'articles', 'nuggets', 'questions', 'goals', 'today', 'upcoming', 'routines', 'later',
+    'calendar@day', 'calendar@week', 'calendar@month', 'matrix', 'review', 'queue', 'tags', 'tag', 'sources', 'stats', 'map', 'settings', 'practices',
     'day', 'weekpage', 'monthpage', 'yearpage', 'discarded', 'group',
-    // A note opened cold, beside its list: Writing's, a gem, a question, a goal, a capture in Everything, a task.
+    // A note opened cold, beside its list: one in Pages, a gem, a question, a goal, a capture in the Inbox, a task.
     'open:article', 'open:nugget', 'open:question', 'open:goal', 'open:capture', 'open:task'
   ]
   const PAGES = (process.env.PAGES ?? ALL.join(',')).split(',').filter((one) => !['window', 'box', 'note', 'bubble', 'moments'].includes(one))
@@ -250,13 +251,13 @@ try {
     // A group's page: Writing opened warm, then the group's own page asked for cold.
     if (id === 'group') return { id, base: 'articles', group: true }
     if (id === 'open') {
-      const page = { article: 'articles', nugget: 'nuggets', question: 'questions', goal: 'goals', capture: 'all', task: 'today' }[mode]
+      const page = { article: 'articles', nugget: 'nuggets', question: 'questions', goal: 'goals', capture: 'inbox', task: 'today' }[mode]
       return { id, root: `[data-page="${page}"]`, open: async () => {
         const one = mode === 'task' ? (await v('tasks')).find((t) => t.status === 'open') : mode === 'capture' ? (await h.evaluate(() => window.api.captures.list())).find((c) => c.status === 'open') : (await v('items', mode))[0]
         await send(mode, one.id)
       } }
     }
-    return { id, root: `[data-page="${id}"]`, open: () => send('view', id) }
+    return { id, root: `[data-page="${id === 'all' ? 'inbox' : id}"]`, open: () => send('view', id) }
   }
   for (let round = 0; round < ROUNDS; round++) {
     // Back to its size each round: the windows opened at the end of a round (a note's, the bubble) can leave it another.
@@ -373,7 +374,7 @@ try {
     const moment = async (name, page, ready, act, options) => {
       await send('view', page); await wait(2500)
       await ready?.()
-      await h.evaluate((p) => window.__flashWatch(`[data-page="${p}"]`, 3200), page)
+      await h.evaluate((p) => window.__flashWatch(`[data-page="${p}"]`, 3200), page === 'all' ? 'inbox' : page)
       await act()
       await wait(3400)
       const frames = await framesOf(h)
@@ -381,13 +382,13 @@ try {
       report(name, frames.length > 1 ? frames.slice(1) : frames, false, options)
     }
     // ⌘A and ⌫ send everything on show to the Bin; ⌘Z brings it all back in one step.
-    await moment('Everything after ⌘Z of a big Bin move', 'all', async () => {
+    await moment('The Inbox with sorted too, after ⌘Z of a big Bin move', 'all', async () => {
       await h.keyboard.press('Escape')
       await h.keyboard.press('Meta+a'); await wait(300)
       await h.keyboard.press('Backspace'); await wait(1500)
     }, () => h.keyboard.press('Meta+z'))
     // A note closed back to its list: the list is the one it was, in its order, with its heads.
-    await moment('Writing after a note is closed', 'articles', async () => {
+    await moment('Pages after a note is closed', 'articles', async () => {
       await h.locator('[data-page="articles"] [data-id]').first().click(); await wait(1500)
     }, () => h.keyboard.press('Escape'), { orderOnly: true })
   }

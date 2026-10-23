@@ -125,8 +125,8 @@ try {
     await record(); await mark(); await h.evaluate((id) => window.api.openInHome('article', id), florence.id)
     judge('the same link again', await frames(), { target: florence.id, page: 'articles' })
   }
-  // The same cold link to every other page that lists notes beside the one open (Writing and Gems
-  // have theirs above and on Home): the one sent for never waits for its whole list (Page's `apart`).
+  // The same cold link to every other page that lists notes beside the one open (Pages and Gems
+  // have theirs above): the one sent for never waits for its whole list (Page's `apart`).
   if (want('lists')) {
     // One with words of its own, so there are words to wait for.
     const worded = async (list) => { for (const one of list) if (JSON.stringify((await v('item', one.id))?.body ?? '').includes('"text":')) return one }
@@ -134,12 +134,12 @@ try {
     const goal = (await v('items', 'goal')).find((one) => !one.closedAt && !one.archivedAt)
     const capture = (await h.evaluate(() => window.api.captures.list())).find((one) => one.status === 'open' && !one.archivedAt && one.kind !== 'todo')
     const task = (await v('tasks')).find((one) => one.status === 'open' && !one.recurrence && /^Big task/.test(one.title) && one.dueAt)
-    for (const [label, type, one, page, words] of [['Questions', 'question', question, 'questions', true], ['Goals', 'goal', goal, 'goals', false], ['Everything', 'capture', capture, 'all', true], ['Today', 'task', task, 'today', false]]) {
+    for (const [label, type, one, page, words] of [['Questions', 'question', question, 'questions', true], ['Goals', 'goal', goal, 'goals', false], ['Inbox', 'capture', capture, 'inbox', true], ['Today', 'task', task, 'today', false]]) {
       if (process.env.LISTS && !process.env.LISTS.split(',').includes(label)) continue
-      if (!one) { check(`a link from Home to ${label}: found one to open`, false); continue }
+      if (!one) { check(`a link from Today to ${label}: found one to open`, false); continue }
       await send('view', 'home'); await wait(1200)
       await record(); await mark(); await h.evaluate(([type, id]) => window.api.openInHome(type, id), [type, one.id])
-      judge(`a link from Home to ${label}, never read before`, await frames(), { target: one.id, page, cold: true, words, within: words ? undefined : BODY_MS })
+      judge(`a link from Today to ${label}, never read before`, await frames(), { target: one.id, page, cold: true, words, within: words ? undefined : BODY_MS })
     }
   }
   // Back and Forward between two Writing notes, both read already.
@@ -207,17 +207,7 @@ try {
       judge('a row on a tag\'s page', await frames(), { target: florence.id })
     } else (await shot('tag'), check('a row on a tag\'s page: found it', false))
   }
-  // Home's cards.
-  if (want('home')) {
-    await send('view', 'home'); await wait(1800)
-    const card = h.locator('[data-page=home] [data-drag-open^="article:"], [data-page=home] [data-drag-open^="nugget:"]').first()
-    if (await card.count()) {
-      const [type, id] = (await card.getAttribute('data-drag-open')).split(':')
-      await card.scrollIntoViewIfNeeded()
-      await record(); await card.click()
-      judge(`a ${type === 'article' ? 'piece of writing' : 'gem'}'s card on Home`, await frames(), { target: id })
-    } else check('a note\'s card on Home: found one', false)
-  }
+  // (Home's cards: Home is the Day page now, which has no note cards.)
   // Pinned, in the sidebar.
   if (want('pinned')) {
     await v('pin', 'nuggets', florence.id, true); await send('view', 'today'); await wait(1500)

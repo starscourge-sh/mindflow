@@ -23,7 +23,7 @@ import { useCaptures, type CaptureMeta } from './components/capture-list'
 import { Search, type Action } from './components/search'
 import { keepTyped } from './lib/keep-typed'
 import { landPromoted } from './lib/promote'
-import { CapturesView, INBOX_SORTED, keepInbox } from './components/haligtree/captures-view'
+import { CapturesView, keepInbox } from './components/haligtree/captures-view'
 import { ItemsView } from './components/haligtree/items-view'
 import { startQuestion } from './components/haligtree/questions-view'
 import { GoalsView, startGoal } from './components/haligtree/goals-view'
@@ -95,7 +95,7 @@ import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { RowMenu } from '@/components/haligtree/row-menu'
 import { onRemoveKey, pinFromSide, sideMenu, useFullMenu } from '@/components/haligtree/side-menu'
 import { touch as touchOpen } from '@/lib/open-today'
-import { storeFlag, useStoredFlag } from '@/lib/use-stored-flag'
+import { useStoredFlag } from '@/lib/use-stored-flag'
 import { NavContext, type Nav, type Step } from '@/lib/nav'
 import { SplitPanes, type PaneApi } from '@/components/haligtree/panes'
 import { SplitDrop, type Carried, type Side } from '@/components/haligtree/split-drop'
@@ -198,10 +198,7 @@ let unsorted: (id: string) => boolean = () => false
  */
 function landing(view: View): View {
   if (view.id === 'home') return { ...view, id: 'day', focus: undefined }
-  if (view.id === 'all') {
-    if (!view.focus || !unsorted(view.focus)) storeFlag(INBOX_SORTED, true)
-    return { ...view, id: 'inbox' }
-  }
+  if (view.id === 'all') return { ...view, id: 'inbox', tab: view.focus && unsorted(view.focus) ? undefined : 'sorted' }
   if (view.id === 'tomorrow' || view.id === 'week') return { ...view, id: 'upcoming' }
   return view
 }
