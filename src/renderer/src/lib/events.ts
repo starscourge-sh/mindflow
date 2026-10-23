@@ -24,6 +24,7 @@ export const events = {
   undo: (token: string) => call<boolean>('events:undo', token),
   calendars: () => call<Calendar[]>('calendars'),
   setCalendar: (patch: Partial<Calendar> & { binned?: boolean }) => call<{ id: string; was: (Calendar & { binned: boolean }) | null } | null>('calendar:set', patch),
+  moveEvents: (from: string, to: string, ids?: string[]) => call<string[]>('calendar:move-events', from, to, ids),
   link: (key: string, capture: string) => call<boolean>('event:note:link', key, capture),
   ofNote: (capture: string) => call<(Occurrence & { linked: { id: string; title: string }[] }) | null>('event:of-note', capture),
   join: (url: string) => call<boolean>('event:join', url),

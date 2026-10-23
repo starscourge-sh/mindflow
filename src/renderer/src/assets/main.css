@@ -953,9 +953,10 @@ html[data-growing] :is([role='dialog'], [role='alertdialog'], [role='menu'], [ro
   display: none !important;
 }
 
-/* A window that has lost focus dims slightly, and comes back as you return. */
+/* A window that has lost focus dims slightly, and comes back as you return:
+   a 200ms fade both ways, opacity only. */
 body {
-  transition: opacity 0.2s var(--mf-ease);
+  transition: opacity 200ms ease-out;
 }
 [data-blurred='on'] body {
   opacity: 0.55;

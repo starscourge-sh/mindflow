@@ -466,6 +466,14 @@ export function registerEvents(open: (type: string, id: string) => void): void {
     changed()
     return { id, was: was ? { id: was.id, name: was.name, color: was.color, hidden: !!was.hidden, binned: !!was.binned_at } : null }
   })
+  // A calendar deleted keeps its events: they move to another, and the ids moved come back for its Undo.
+  handle('calendar:move-events', (from: string, to: string, ids?: string[]) => {
+    const moving = ids?.length ? ids.map(String) : (db.prepare("select id from events where coalesce(calendar_id, 'personal') = ?").all(String(from)) as { id: string }[]).map((one) => one.id)
+    const move = db.prepare('update events set calendar_id = ? where id = ?')
+    for (const id of moving) move.run(String(to), id)
+    changed()
+    return moving
+  })
   handle('events', (from: string, to: string) => eventsBetween(String(from), String(to)))
   handle('event', (key: string) => eventOf(String(key)))
   handle('event:add', (patch: EventPatch) => addEvent(patch ?? {}))

@@ -534,12 +534,25 @@ export function EventCardLayer({ peek, ...rest }: Omit<Parameters<typeof EventCa
 
 export function CalendarLayers({ layers }: { layers: ReturnType<typeof useLayers> }): React.JSX.Element {
   const [editing, setEditing] = useState<string | null>(null)
+  // One press, one calendar: a second click while the first is saving, or on a "New calendar" not yet named, opens that one instead of making another.
+  const making = useRef(false)
   const add = async (): Promise<void> => {
-    const made = await events.setCalendar({ name: 'New calendar' })
+    const unnamed = layers.calendars.find((one) => one.name === 'New calendar')
+    if (unnamed) return void (chime('open'), setEditing(unnamed.id))
+    if (making.current) return
+    making.current = true
+    const made = await events.setCalendar({ name: 'New calendar' }).finally(() => (making.current = false))
     if (!made) return
     chime('noted')
     setEditing(made.id)
     toast('A new calendar', () => void events.setCalendar({ id: made.id, binned: true }))
+  }
+  const deleteCalendar = async (one: { id: string; name: string }, to: { id: string; name: string }): Promise<void> => {
+    const moved = await events.moveEvents(one.id, to.id)
+    const done = await events.setCalendar({ id: one.id, binned: true })
+    if (!done) return void (await events.moveEvents(to.id, one.id, moved), toast('The last calendar stays: an event needs one', undefined, 'info'))
+    chime('away')
+    toast(`${one.name} deleted${moved.length ? `. Its ${moved.length === 1 ? 'event moved' : `${moved.length} events moved`} to ${to.name}` : ''}`, () => void events.setCalendar({ id: one.id, binned: false }).then(() => void (moved.length && events.moveEvents(to.id, one.id, moved))))
   }
   // Each calendar a box ticked in its own colour, as Calendar on the Mac has them: ticked, its events show.
   const row = (id: string, name: string, color: string, extra?: React.ReactNode): React.JSX.Element => {
@@ -570,13 +583,21 @@ export function CalendarLayers({ layers }: { layers: ReturnType<typeof useLayers
         <h2 className="flex-1 text-control font-medium text-foreground/80">My calendars</h2>
         <Tip label="Add a calendar"><Button variant="ghost" size="icon-sm" data-cal-layer-add aria-label="Add a calendar" onClick={() => void add()}><Plus /></Button></Tip>
       </div>
+      <p data-cal-layers-about className="px-2 pb-1 text-control text-foreground/75">Each calendar is a colour and a layer of events you can hide.</p>
       <ul className="flex flex-col">
         {layers.calendars.map((one) => editing === one.id
           ? <CalendarEdit key={one.id} one={one} onDone={() => setEditing(null)} />
           : row(one.id, one.name, inkOf(one.color), (
             <RowMenu items={[
-              { label: 'Rename or recolour', run: () => setEditing(one.id) },
-              { label: 'Remove this calendar', danger: true, run: () => void events.setCalendar({ id: one.id, binned: true }).then((done) => done ? (chime('away'), toast(`${one.name} removed, with its events`, () => void events.setCalendar({ id: one.id, binned: false }))) : toast('The last calendar stays: an event needs one', undefined, 'info')) }
+              { label: 'Rename', run: () => setEditing(one.id) },
+              { heading: 'Colour' },
+              { swatches: COLORS.map((color) => ({ color: inkOf(color), label: color, on: one.color === color, run: () => void events.setCalendar({ id: one.id, color }).then(() => chime('tap')) })) },
+              'separator',
+              ...(() => {
+                // Its events are kept: they move to the first other calendar, said in the row and in the toast.
+                const to = layers.calendars.find((other) => other.id !== one.id)
+                return to ? [{ label: `Delete, its events go to ${to.name}`, danger: true, run: () => void deleteCalendar(one, to) }] : [{ heading: 'The last calendar stays: an event needs one' }]
+              })()
             ]}>
               <button type="button" aria-label={`Change ${one.name}`} onClick={() => (chime('open'), setEditing(one.id))} className="mr-1 flex h-6 items-center rounded-sm px-1.5 text-control text-foreground opacity-0 group-hover/layer:opacity-100 hover:bg-accent focus-visible:opacity-100">Edit</button>
             </RowMenu>
