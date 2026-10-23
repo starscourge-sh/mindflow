@@ -1,5 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
 
+/** The same choice set from outside a component (a link that needs it on), told to every user of the key. */
+export function storeFlag(key: string, on: boolean, [yes, no]: [string, string] = ['on', 'off']): void {
+  try {
+    if (localStorage.getItem(key) === (on ? yes : no)) return
+    localStorage.setItem(key, on ? yes : no)
+    window.dispatchEvent(new StorageEvent('storage', { key, newValue: on ? yes : no }))
+  } catch {
+    // Kept for nothing: storage cannot be reached.
+  }
+}
+
 /**
  * An on/off choice remembered between runs, kept under `key` as "on" or
  * "off" (or the two words given, for a key that was written another way

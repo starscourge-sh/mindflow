@@ -53,8 +53,10 @@ type Row = { key: string; mark: ReactNode; title: string; text: string; run: () 
 /** A task ticked here: kept in its place, struck through, with what to put back if it is unticked. */
 type Ticked = { task: Task; was?: Finished; /** Ticked with the pointer: its pen line is written, not just there. */ pen?: boolean }
 
-export function DayBrief({ day, onOpen, onListed }: {
+export function DayBrief({ day, onOpen, onListed, between }: {
   day: string
+  /** The day's writing, between the day's name and its tasks: what you write comes before what you do. */
+  between?: ReactNode
   onOpen?: (type: string, id: string) => void
   /** The tasks the brief lists, so the page below does not list them again. */
   onListed?: (ids: string[]) => void
@@ -246,7 +248,7 @@ export function DayBrief({ day, onOpen, onListed }: {
   return (
     <div className="pt-5 @min-[66rem]/page:pt-8">
       <div className="relative">
-        <div className={`relative isolate overflow-hidden rounded-2xl ${picture ? 'h-[clamp(8.5rem,34vh,24rem)]' : 'py-6 min-[900px]:py-10'}`}>
+        <div className={`relative isolate overflow-hidden rounded-2xl ${picture ? 'h-[clamp(6rem,20vh,12rem)]' : 'py-4'}`}>
           {picture && (
             <>
               {scene
@@ -264,7 +266,7 @@ export function DayBrief({ day, onOpen, onListed }: {
               textShadow: picture ? '0 1px 2px rgb(0 0 0 / 0.25), 0 4px 28px rgb(0 0 0 / 0.35)' : undefined
             }}>
             {/* The title is simply there: the greeting below is the line that speaks (lib/motion.ts). */}
-            <span className="font-semibold tracking-[-0.02em] text-[clamp(2rem,5.6vw,4.25rem)] text-balance">The {weekday} Brief</span>
+            <span className="font-semibold tracking-[-0.02em] text-[clamp(1.75rem,4.2vw,3rem)] text-balance">The {weekday} Brief</span>
             {/* The date, the time (each new minute) and the weather: one calm line under the title. */}
             <span data-today-line className="mt-3 font-sans text-[clamp(0.9375rem,1.5vw,1.125rem)] leading-normal font-medium tracking-normal tabular-nums" style={{ opacity: picture ? 0.92 : 0.8 }}>
               {[dayjs(now).format('D MMMM'), time, sky].filter(Boolean).join(' · ')}
@@ -288,6 +290,7 @@ export function DayBrief({ day, onOpen, onListed }: {
         <DayTimeline events={mac.events} tasks={inLine} sessions={sessions} now={now} done={struck} pen={(task) => !!ticked[task.id]?.pen} onTick={tick} />
       )}
       <CalendarNote said={mac} className="mt-5" />
+      {between}
       {(shown.length > 0 || rows.length > 0 || written) && (
         <section className="@container mf-hand-ruled relative mt-8 border-t border-border/70 pt-6">
           <Rule seed={day} />

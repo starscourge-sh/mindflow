@@ -135,7 +135,6 @@ export function Welcome(): React.JSX.Element | null {
   const [played, setPlayed] = useState<Set<number>>(new Set())
   const reel = useRef<Reel>({ done: true, settle: () => undefined })
   const shown = useRef(-1)
-  const [newcomer, setNewcomer] = useState(false)
   const picked = useRef<Theme | null>(null)
   const veteran = useRef(false)
   // Your turn, at the end of Catch: how far it has got, and the one you kept.
@@ -144,8 +143,6 @@ export function Welcome(): React.JSX.Element | null {
   // A key held back (lib main: heldInWelcome), said for a moment.
   const [held, setHeld] = useState(false)
   const quiet = still()
-  // A first welcome on a fresh install: the only time an answer may add to the sidebar. Replayed, or with things kept, it stays theirs.
-  const brandNew = !replay && newcomer
   // When the box last went away: an Esc a moment after is the same Esc, pressed twice out of habit.
   const awayAt = useRef(0)
   // A second press of Next within 400ms is one press, not two.
@@ -177,7 +174,6 @@ export function Welcome(): React.JSX.Element | null {
   const open = (again: boolean): void => {
     void Promise.all([window.api.captures.list(), onboarding.state()]).then(([list, now]) => {
       before.current = new Set(list.map((one) => one.id))
-      setNewcomer(list.length === 0)
       veteran.current = !now.welcomed && list.length > 0
       setState(now)
       setSetup(now.setup ?? NO_SETUP)
@@ -266,7 +262,7 @@ export function Welcome(): React.JSX.Element | null {
     if (picked.current) applyTheme(picked.current)
     fillBox(null)
     // Whatever was answered and not yet acted on (the welcome skipped past the summary): done now, once.
-    void applySetup(setup, brandNew).then((next) => onboarding.set({ setup: next })).catch(() => toast('Your answers could not be acted on just now. Set the same things any time in Settings.', undefined, 'warning'))
+    void applySetup(setup).then((next) => onboarding.set({ setup: next })).catch(() => toast('Your answers could not be acted on just now. Set the same things any time in Settings.', undefined, 'warning'))
     void onboarding.set({ welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, ...(veteran.current && how !== 'fresh' ? { hidden: true } : {}) })
     // Into the sandbox, the welcome stays drawn (and still) under the opening
     // screen, which fades up over it: Home, about to be replaced by the restart,
@@ -450,7 +446,7 @@ export function Welcome(): React.JSX.Element | null {
               // A click on the picture while it plays: its end, as a key does.
               onPointerDown={(event) => void (event.isTrusted && !(event.target as HTMLElement).closest('button, a, [role="slider"]') && !reel.current.done && !reel.current.waiting && settled())}>
               {at === WHY && <ThesisChapter play={play} report={report} />}
-              {at === YOU && <YouChapter setup={setup} onChange={answer} still={!play} report={report} fresh={brandNew} paid={paid} onPaid={setPaid} />}
+              {at === YOU && <YouChapter setup={setup} onChange={answer} still={!play} report={report} paid={paid} onPaid={setPaid} />}
               {at === CATCH && <CatchChapter play={play} report={report} state={state} onState={setState} setup={setup} turn={turn} mine={mine} />}
               {at === WRITE && <WriteChapter play={play} report={report} setup={setup} />}
               {at === BACK && <RememberChapter play={play} report={report} setup={setup} />}
@@ -672,7 +668,7 @@ function ThesisChapter({ play, report }: { play: boolean; report: (now: Reel) =>
  * with it, done there and then, each with its Undo; with nothing answered,
  * Next goes straight on.
  */
-function YouChapter({ setup, onChange, still, report, fresh, paid, onPaid: setPaid }: { setup: Setup; onChange: (next: Setup) => void; still: boolean; report: (now: Reel) => void; /** A fresh install's first welcome: the only time the sidebar may be added to. */ fresh: boolean; /** The summary is up (kept by the welcome, so coming back shows it again). */ paid: boolean; onPaid: (paid: boolean) => void }): React.JSX.Element {
+function YouChapter({ setup, onChange, still, report, paid, onPaid: setPaid }: { setup: Setup; onChange: (next: Setup) => void; still: boolean; report: (now: Reel) => void; /** The summary is up (kept by the welcome, so coming back shows it again). */ paid: boolean; onPaid: (paid: boolean) => void }): React.JSX.Element {
   const [working, setWorking] = useState(false)
   report({
     done: !working,
@@ -682,7 +678,7 @@ function YouChapter({ setup, onChange, still, report, fresh, paid, onPaid: setPa
     more: () => {
       if (paid || !answered(setup)) return false
       setWorking(true)
-      void applySetup(setup, fresh).then((next) => {
+      void applySetup(setup).then((next) => {
         onChange(next)
         setPaid(true)
         chime('decided')
@@ -697,7 +693,7 @@ function YouChapter({ setup, onChange, still, report, fresh, paid, onPaid: setPa
       </Words>
       <div className="mf-more relative flex min-h-0 flex-1 flex-col justify-[safe_center] overflow-y-auto pb-2">
         {paid
-          ? <Payoff setup={setup} onChange={onChange} onBack={() => (chime('page'), setPaid(false))} still={still} fresh={fresh} />
+          ? <Payoff setup={setup} onChange={onChange} onBack={() => (chime('page'), setPaid(false))} still={still} />
           : <YouPage setup={setup} onChange={onChange} still={still} />}
       </div>
     </>

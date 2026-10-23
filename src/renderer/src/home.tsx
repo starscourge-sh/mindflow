@@ -23,14 +23,13 @@ import { useCaptures, type CaptureMeta } from './components/capture-list'
 import { Search, type Action } from './components/search'
 import { keepTyped } from './lib/keep-typed'
 import { landPromoted } from './lib/promote'
-import { CapturesView } from './components/haligtree/captures-view'
+import { CapturesView, INBOX_SORTED, keepInbox } from './components/haligtree/captures-view'
 import { ItemsView } from './components/haligtree/items-view'
 import { startQuestion } from './components/haligtree/questions-view'
 import { GoalsView, startGoal } from './components/haligtree/goals-view'
 import { QueueReader, QueueView } from './components/haligtree/queue-view'
 import { useQueue } from './lib/reading-queue'
 import { ReviewView } from './components/haligtree/review-view'
-import { HomeView } from './components/haligtree/home-view'
 import { SettingsView } from './components/haligtree/settings-view'
 import { StatsView } from './components/haligtree/stats-view'
 import { PracticesView } from './components/haligtree/practices-view'
@@ -42,7 +41,6 @@ import { SourcePageView, SourcesView } from './components/haligtree/source-page'
 import { TagIcon } from './components/haligtree/tag-icon'
 import { prefetchTag, renameTag } from './components/haligtree/tag-read'
 import { TasksView, askDate, askSessions } from './components/haligtree/tasks-view'
-import { WeekView } from './components/haligtree/week-view'
 import { CalendarView } from './components/haligtree/calendar-view'
 import { MatrixView } from './components/haligtree/matrix-view'
 import { bucket, onToday, picked, taskName } from './lib/tasks'
@@ -88,7 +86,7 @@ import { Passes, openPass } from '@/components/haligtree/pass'
 import { noteActions } from '@/lib/notes'
 import { headingIn } from '@/lib/capture-links'
 import { openApart } from '@/lib/apart'
-import { PlaceIcon, SECTIONS, ShowList, dropOrder, earn, orderItems, risen, showWords, sidebarParts, useInOrder, useOrder, useSections, useShown, useWaiting, type Group } from '@/components/haligtree/places'
+import { G_ALIASES, PlaceIcon, SECTIONS, ShowList, TASK_PAGES, dropOrder, orderItems, risen, litRow, showWords, sidebarParts, useInOrder, useOrder, useSections, useShown } from '@/components/haligtree/places'
 import { SortableList, SortableRow } from '@/components/haligtree/sortable'
 import { pageTravel } from '@/lib/page-travel'
 import { Branches } from '@/components/haligtree/branches'
@@ -97,7 +95,7 @@ import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { RowMenu } from '@/components/haligtree/row-menu'
 import { onRemoveKey, pinFromSide, sideMenu, useFullMenu } from '@/components/haligtree/side-menu'
 import { touch as touchOpen } from '@/lib/open-today'
-import { useStoredFlag } from '@/lib/use-stored-flag'
+import { storeFlag, useStoredFlag } from '@/lib/use-stored-flag'
 import { NavContext, type Nav, type Step } from '@/lib/nav'
 import { SplitPanes, type PaneApi } from '@/components/haligtree/panes'
 import { SplitDrop, type Carried, type Side } from '@/components/haligtree/split-drop'
@@ -190,9 +188,25 @@ type PaneState = { key: string; trail: Trail; width?: PaneWidth }
 type SplitState = { panes: PaneState[]; front: string; sizes: number[] }
 const SPLIT = 'split'
 let made = 0
-const fresh = (views: View[] = [{ id: 'home' }]): PaneState => ({ key: `p${Date.now().toString(36)}${made++}`, trail: { views, at: views.length - 1 } })
+const fresh = (views: View[] = [{ id: 'day' }]): PaneState => ({ key: `p${Date.now().toString(36)}${made++}`, trail: { views: views.map(landing), at: views.length - 1 } })
+/** Whether a capture is still in the Inbox without "Show sorted too": asked by `landing` (set by Home). */
+let unsorted: (id: string) => boolean = () => false
+/**
+ * Pages that are not places of their own any more, sent where they live now:
+ * Home is the Day page, Everything the Inbox with "Show sorted too" on (only
+ * when what it opens needs it), Tomorrow and This week the top of Upcoming.
+ */
+function landing(view: View): View {
+  if (view.id === 'home') return { ...view, id: 'day', focus: undefined }
+  if (view.id === 'all') {
+    if (!view.focus || !unsorted(view.focus)) storeFlag(INBOX_SORTED, true)
+    return { ...view, id: 'inbox' }
+  }
+  if (view.id === 'tomorrow' || view.id === 'week') return { ...view, id: 'upcoming' }
+  return view
+}
 /** Pages that hold one note open beside their list, its id as the step's focus. */
-const holdsNotes = (id: string): boolean => !['home', 'day', 'weekpage', 'monthpage', 'yearpage', 'tags', 'sources', 'source', 'stats', 'map', 'powers', 'whatsnew', 'settings', 'review', 'queue', 'calendar', 'practices', 'kind:practice'].includes(id)
+const holdsNotes = (id: string): boolean => !['day', 'weekpage', 'monthpage', 'yearpage', 'tags', 'sources', 'source', 'stats', 'map', 'powers', 'whatsnew', 'settings', 'review', 'queue', 'calendar', 'practices', 'kind:practice'].includes(id)
 /** A step onto a note (not a task, a day or an event): the page that shows it turns, as a book's does. */
 const turnsPage = (view: View): boolean => !!view.focus && holdsNotes(view.id) && !['today', 'tomorrow', 'upcoming', 'routines', 'later', 'goals', 'week', 'matrix', 'discarded'].includes(view.id)
 /** Where one thing opens: a view by name, a day's page, or a note or task in its section. */
@@ -229,10 +243,10 @@ function loadSplit(): SplitState {
     const fine = (pane: PaneState): boolean => typeof pane?.key === 'string' && Array.isArray(pane.trail?.views) && pane.trail.views.every((one) => typeof one?.id === 'string') && pane.trail.at >= 0 && pane.trail.at < pane.trail.views.length
     if (kept && Array.isArray(kept.panes) && kept.panes.length > 1 && kept.panes.length <= MAX_PANES && kept.panes.every(fine)) {
       const sizes = Array.isArray(kept.sizes) && kept.sizes.length === kept.panes.length && kept.sizes.every((one) => one > 0) ? kept.sizes : kept.panes.map(() => 1 / kept.panes.length)
-      return { panes: kept.panes, front: kept.panes.some((one) => one.key === kept.front) ? kept.front : kept.panes[0].key, sizes }
+      return { panes: kept.panes.map((pane) => ({ ...pane, trail: { ...pane.trail, views: pane.trail.views.map(landing) } })), front: kept.panes.some((one) => one.key === kept.front) ? kept.front : kept.panes[0].key, sizes }
     }
   } catch {
-    // Nothing kept, or nothing readable: one pane on Home.
+    // Nothing kept, or nothing readable: one pane on the Day page.
   }
   const one = fresh()
   return { panes: [one], front: one.key, sizes: [1] }
@@ -306,7 +320,8 @@ export function Home(): React.JSX.Element {
     views: [...trail.views.slice(0, trail.at), { ...trail.views[trail.at], scroll }, next],
     at: trail.at + 1
   })
-  const setView = (next: View, key = frontRef.current): void => {
+  const setView = (asked: View, key = frontRef.current): void => {
+    const next = landing(asked)
     const scroll = scrolled(key)
     setTrail(key, (trail) => {
       const here = trail.views[trail.at]
@@ -585,16 +600,10 @@ export function Home(): React.JSX.Element {
     chime(recent ? 'fold' : 'slide')
     setRecentState(recent ? null : { until: null })
   }
-  const [kindsOpen, setKindsOpen] = useState(false)
   // Folded away unless you open them, and kept the way you left them.
   const [tagsOpen, setTagsOpen] = useRemembered('sidebar:tags')
-  // The groups fold too, Notion's way, and start open.
+  // Pinned folds, Notion's way, and starts open.
   const [pinsOpen, setPinsOpen] = useRemembered('sidebar:pinned', true)
-  const [tasksOpen, setTasksOpen] = useRemembered('sidebar:tasks', true)
-  const [notesOpen, setNotesOpen] = useRemembered('sidebar:notes', true)
-  // Tasks' pages not used yet, under a quiet "More": shut to start, and each time Haligtree opens.
-  const [moreOpen, setMoreOpen] = useState(false)
-  const [keptOpen, setKeptOpen] = useRemembered('sidebar:kept', true)
   const [customizing, setCustomizing] = useState(false)
   // One light for the whole sidebar list, gliding to the row nearest the
   // pointer, and the page you are on marked by one fill that travels to the
@@ -608,12 +617,7 @@ export function Home(): React.JSX.Element {
   // Back after a long time away: only capture and Today, until the next start or "Show everything".
   const away = useLive(() => call<{ days: number; quiet: boolean }>('return:quiet'), { days: 0, quiet: false })
   const quiet = away.quiet
-  // A growing sidebar's page opened for the first time (a chip, ⌘K, a link)
-  // has its row from the same frame, rising in: waiting for main to write it
-  // down left no row to light, and the light went out and came back.
-  const earning = !quiet && settings?.sidebarGrows && SECTIONS.some((one) => one.id === view.id) && !shownAll.includes(view.id) && !settings.sidebarMet.includes(view.id) ? view.id : null
-  if (earning) risen.add(earning)
-  const shown = quiet ? ['inbox', 'today'] : earning ? [...shownAll, earning] : shownAll
+  const shown = quiet ? ['day', 'inbox', 'today'] : shownAll
   const quietOpened = useRef(false)
   useEffect(() => {
     if (!quiet || quietOpened.current) return
@@ -622,9 +626,8 @@ export function Home(): React.JSX.Element {
   }, [quiet]) // eslint-disable-line react-hooks/exhaustive-deps
   // The places, and the pins, in your own order (dragged, or moved from a right click).
   const sidebarSaved = useOrder('sidebarOrder')
-  // This book's places: a new book's grow with it, writing first (places.tsx, grownSections).
+  // The places, writing first: the same in every book (places.tsx).
   const sections = useSections()
-  const waiting = useWaiting().filter((one) => one.id !== earning)
   const ordered = useInOrder(sections, 'sidebarOrder', (section) => section.id)
   const pinSaved = useOrder('pinOrder')
   const pinsUsual = useLive(haligtree.pins, [] as Pin[])
@@ -636,6 +639,7 @@ export function Home(): React.JSX.Element {
   // The Tags heading is marked on the Tags page, and on a tag's page whose own row is folded away or not among these.
   const onTags = view.id === 'tags' && (!view.focus || !tagsOpen || !sideTags.some(({ tag }) => tag === view.focus))
   const captures = useCaptures()
+  unsorted = (id) => captures.some((one) => one.id === id && keepInbox(one))
   const dueRead = useLive(haligtree.dueCount, null as number | null, [], ['item'])
   const due = dueRead ?? 0
   const tasks = useLive(haligtree.tasks, [] as Task[])
@@ -646,17 +650,6 @@ export function Home(): React.JSX.Element {
   const questions = useLive(() => haligtree.items('question'), [] as Item[], [], ['item'])
   const goals = useLive(() => haligtree.items('goal'), [] as Item[], [], ['item'])
   const queued = useQueue()
-  // A new book's sidebar grows as it is used: a page opened any way (a row,
-  // "More", ⌘K, G and its letter, a link) joins it for good, and so does a
-  // page once the book has one of its things.
-  const grows = !!settings?.sidebarGrows
-  useEffect(() => {
-    if (grows && SECTIONS.some((one) => one.id === view.id)) void earn([view.id])
-  }, [grows, view.id])
-  const has = [nuggets.length && 'nuggets', questions.length && 'questions', goals.length && 'goals', (queued.queue.length || queued.read.length) && 'queue', tags.length && 'tags'].filter(Boolean) as string[]
-  useEffect(() => {
-    if (grows && has.length) void earn(has)
-  }, [grows, has.join(' ')]) // eslint-disable-line react-hooks/exhaustive-deps
   // "New" makes a blank page, as in Obsidian (a new book's way), or a capture in quick capture.
   const newPage = settings?.newMakes === 'page'
   const makeNew = (): void => {
@@ -712,8 +705,8 @@ export function Home(): React.JSX.Element {
     if (!settings || started.current || quiet) return
     started.current = true
     const to = settings.startPage
-    if (!to || to === 'home' || !SECTIONS.some((one) => one.id === to)) return
-    setSplit((now) => now.panes.length === 1 && now.panes[0].trail.views.length === 1 && now.panes[0].trail.views[0].id === 'home'
+    if (!to || to === 'home' || to === 'day' || !SECTIONS.some((one) => one.id === to)) return
+    setSplit((now) => now.panes.length === 1 && now.panes[0].trail.views.length === 1 && now.panes[0].trail.views[0].id === 'day'
       ? { ...now, panes: [{ ...now.panes[0], trail: { views: [{ id: to }], at: 0 } }] }
       : now)
   }, [settings, quiet])
@@ -867,12 +860,12 @@ export function Home(): React.JSX.Element {
         gPending.current = false
         // G + is the = key, with Shift or without, as its keycap says.
         const letter = event.key === '=' ? '+' : event.key.toLowerCase()
-        const to = SECTIONS.find((section) => section.key === letter)
-        // Taken here, so G T goes to Today and does not also move a task to today.
+        const to = SECTIONS.find((section) => section.key === letter)?.id ?? G_ALIASES[letter]
+        // Taken here, so G T goes to Tasks and does not also move a task to today.
         if (to) {
           event.preventDefault()
           via('keys')
-          setView({ id: to.id })
+          setView({ id: to })
         }
         return
       }
@@ -963,15 +956,15 @@ export function Home(): React.JSX.Element {
   const kind = (view: View): (typeof CAPTURE_TYPES)[number] | undefined => CAPTURE_TYPES.find((type) => `kind:${type.id}` === view.id)
   /** A page's name, for the top bar; a pane is named by its note first (paneName). */
   /** A sidebar row lit for the page you are on; a day's, week's or month's row only on today's, this week's or this month's. */
-  const lit = (id: string): boolean => view.id === id && atNow(view)
-  const labelOf = (view: View): string => datedName(view) ?? SECTIONS.find((section) => section.id === view.id)?.label ?? kind(view)?.label ?? (view.id === 'source' ? view.focus?.slice(view.focus.indexOf(':') + 1) || 'Source' : view.id === 'settings' ? 'Settings' : view.id === 'whatsnew' ? "What's new" : view.id === 'practices' ? 'Practices' : view.id === 'yearpage' ? 'Year' : view.id === 'day' ? 'Day' : view.id === 'weekpage' ? 'Week' : view.id === 'monthpage' ? 'Month' : '')
+  const lit = (id: string): boolean => litRow(view.id) === id && atNow(view)
+  const labelOf = (view: View): string => datedName(view) ?? (view.id === 'matrix' ? 'Urgent and important' : TASK_PAGES.includes(view.id) ? 'Tasks' : view.id === 'questions' ? 'Questions' : null) ?? SECTIONS.find((section) => section.id === view.id)?.label ?? kind(view)?.label ?? (view.id === 'source' ? view.focus?.slice(view.focus.indexOf(':') + 1) || 'Source' : view.id === 'settings' ? 'Settings' : view.id === 'whatsnew' ? "What's new" : view.id === 'practices' ? 'Practices' : view.id === 'yearpage' ? 'Year' : view.id === 'day' ? 'Day' : view.id === 'weekpage' ? 'Week' : view.id === 'monthpage' ? 'Month' : '')
   const paneWidth = (key: string, width: PaneWidth): void => {
     chime(width === 'narrow' ? 'fold' : 'slide')
     setSplit((now) => ({ ...now, panes: now.panes.map((one) => (one.key === key ? { ...one, width } : one)) }))
   }
   const keep: Record<string, (capture: CaptureMeta) => boolean> = {
     // What has no exit yet; archived is kept, out of sight, so not waiting here.
-    inbox: (capture) => capture.status === 'open' && !capture.archivedAt,
+    inbox: keepInbox,
     all: (capture) => capture.status !== 'discarded',
     // Nothing is destroyed: a discard lands here, and comes back from here.
     discarded: (capture) => capture.status === 'discarded',
@@ -1105,14 +1098,12 @@ export function Home(): React.JSX.Element {
         transition={{ duration: 0.16, ease: EASE }}
         className="flex min-w-0 flex-1"
       >
-        {view.id === 'home' ? (
-          <HomeView onOpen={(type, id) => (via('home'), go(type, id))} onView={(id, focus) => (via('home'), setView({ id, focus }, key))} />
-        ) : view.id === 'discarded' ? (
+        {view.id === 'discarded' ? (
           <BinView onOpen={go} />
-        ) : view.id === 'inbox' || view.id === 'all' || view.id === 'archived' || view.id === 'lookups' ? (
-          <CapturesView title={SECTIONS.find((section) => section.id === view.id)!.label} keep={keep[view.id]} focus={view.focus} onOpen={go} archived={view.id === 'archived'} everything={view.id === 'all'} />
-        ) : view.id === 'day' ? (
-          <DayView start={view.focus} onOpen={go} onScale={scale} />
+        ) : view.id === 'inbox' || view.id === 'archived' || view.id === 'lookups' ? (
+          <CapturesView title={SECTIONS.find((section) => section.id === view.id)!.label} keep={keep[view.id]} focus={view.focus} onOpen={go} archived={view.id === 'archived'} inbox={view.id === 'inbox'} />
+        ) : view.id === 'day' || view.id === 'home' ? (
+          <DayView start={view.focus} onOpen={go} onScale={scale} onView={(id, focus) => setView({ id, focus }, key)} />
         ) : view.id === 'weekpage' ? (
           <WeekPage start={view.focus} onOpen={go} onScale={scale} onRecent={setRecent} recentOpen={!!recent} onDay={(day) => go('day', day)} />
         ) : view.id === 'monthpage' ? (
@@ -1125,12 +1116,10 @@ export function Home(): React.JSX.Element {
           <CapturesView title={kind(view)!.label} keep={(capture) => capture.kind === kind(view)!.id && capture.status !== 'discarded'} focus={view.focus} onOpen={go} />
         ) : view.id === 'review' ? (
           <ReviewView />
-        ) : view.id === 'today' || view.id === 'tomorrow' || view.id === 'upcoming' || view.id === 'routines' || view.id === 'later' ? (
+        ) : view.id === 'today' || view.id === 'upcoming' || view.id === 'routines' || view.id === 'later' ? (
           <TasksView mode={view.id} focus={view.focus} onOpen={go} />
         ) : view.id === 'calendar' ? (
           <CalendarView focus={view.focus} onOpen={go} />
-        ) : view.id === 'week' ? (
-          <WeekView focus={view.focus} onOpen={go} />
         ) : view.id === 'matrix' ? (
           <MatrixView focus={view.focus} onOpen={go} />
         ) : view.id === 'nuggets' || view.id === 'articles' || view.id === 'questions' ? (
@@ -1390,9 +1379,7 @@ export function Home(): React.JSX.Element {
         <nav className="flex flex-col gap-px">
           {(() => {
             // Where a promoted capture or a new task flies to (lib/fly-home.ts).
-            const homeOf = (id: string): string | undefined => (id === 'nuggets' ? 'nugget' : id === 'upcoming' ? 'task' : id === 'questions' ? 'question' : undefined)
-            // A fold's heading stands in for the rows it holds while they are shut away.
-            const homesIn = (list: typeof SECTIONS): string | undefined => list.map((section) => homeOf(section.id)).filter(Boolean).join(' ') || undefined
+            const homeOf = (id: string): string | undefined => (id === 'nuggets' ? 'nugget' : id === 'today' ? 'task' : id === 'articles' ? 'question' : undefined)
             // Shown or hidden from a row's right click, said with a way back.
             const showIt = async (section: (typeof SECTIONS)[number], on: boolean): Promise<void> => {
               const was = (await haligtree.settings()).sidebarShown ?? shown
@@ -1458,6 +1445,67 @@ export function Home(): React.JSX.Element {
               </RowMenu>
               </SortableRow>
             )
+            const tagsBlock = (<>
+        {/* Your most used tags, with counts, the way Todoist keeps favourite labels. */}
+        {/* Its name opens the Tags page (G #), the chevron folds the list: one "Tags", not two. */}
+        {/* One row, lit as the other headings are: the row opens the Tags page,
+            the chevron in it folds the list, with only its own small fill under
+            the pointer and a ring only from the keyboard. */}
+        {(
+          <div className="group/head relative mt-2.5 mb-0.5 flex min-h-6 items-center gap-1 px-2 py-0.5 text-meta">
+            {/* Its page's preview on pointing, as every other place's row has. */}
+            <SidePeek id="tags" keys="G #">
+            <button
+              type="button"
+              data-side-row
+              // On a tag's page whose own row is folded away or not listed, the heading is the place marked.
+              aria-current={onTags ? 'page' : undefined}
+              onClick={() => setView({ id: 'tags' })}
+              className={`absolute inset-0 flex items-center rounded-md px-2 text-left transition-colors duration-80 group-hover/head:text-foreground data-[fluid-hover-active]:text-foreground ${onTags ? 'text-foreground' : 'text-muted-foreground'}`}
+            >
+              Tags
+            </button>
+            </SidePeek>
+            {/* Holds the word's room, so the chevron sits just after it as in the other headings. */}
+            <span aria-hidden className="invisible">Tags</span>
+            <button
+              type="button"
+              aria-label={tagsOpen ? 'Fold the tags away' : 'Show your tags'}
+              aria-expanded={tagsOpen}
+              onClick={() => (chime(tagsOpen ? 'fold' : 'slide'), setTagsOpen(!tagsOpen))}
+              className={`mf-hit relative -my-0.5 -ml-0.5 flex size-4 items-center justify-center rounded text-muted-foreground transition-[color,background-color,opacity] duration-80 hover:bg-accent hover:text-foreground focus-visible:opacity-100 ${tagsOpen ? 'opacity-0 group-hover/head:opacity-100' : ''}`}
+            >
+              <ChevronRight className={`size-3 transition-transform duration-80 ${tagsOpen ? 'rotate-90' : ''}`} />
+            </button>
+          </div>
+        )}
+        <Unfold open={tagsOpen && tags.length > 0}>
+          <Branches current={view.id === 'tags' ? sideTags.findIndex(({ tag }) => tag === view.focus) : -1} className="flex flex-col">
+          {sideTags.map(({ tag, count, color }) => (
+            <RowMenu key={tag} items={[
+              { label: 'Open', run: () => setView({ id: 'tags', focus: tag }) },
+              { label: 'Rename or merge…', run: () => void renameTag(tag, (now) => view.id === 'tags' && view.focus === tag && setView({ id: 'tags', focus: now })) }
+            ]}>
+            <button
+              key={tag}
+              type="button"
+              data-side-row
+              data-side-tag={tag}
+              aria-current={view.id === 'tags' && view.focus === tag ? 'page' : undefined}
+              onClick={() => setView({ id: 'tags', focus: tag })}
+              // Read ahead while the pointer rests on it, so the click shows it at once.
+              onPointerEnter={() => prefetchTag(tag)}
+              className={`flex w-full items-center gap-2.5 rounded-md px-2 py-1 ${view.id === 'tags' && view.focus === tag ? '' : 'text-foreground/80'}`}
+            >
+              <TagIcon tag={tag} color={color} />
+              <Weighted on={view.id === 'tags' && view.focus === tag} className="flex-1 text-left">{tag}</Weighted>
+              <Count n={count} className="text-xs text-muted-foreground" />
+            </button>
+            </RowMenu>
+          ))}
+          </Branches>
+        </Unfold>
+            </>)
             // A part of the sidebar whose rows drag into your own order; folded to one row, or narrow, they keep still.
             const sorted = (list: typeof SECTIONS, still = false): React.JSX.Element => (
               <SortableList items={list} keyOf={(section) => section.id} onMove={narrow || still ? undefined : dropOrder('sidebarOrder', sections.map((one) => one.id), (id) => SECTIONS.find((one) => one.id === id)?.label)}>
@@ -1481,52 +1529,11 @@ export function Home(): React.JSX.Element {
                   </button>
                 </div>
               )
-            // Open, a group's rows hang off its heading, the way down to where you are lit.
-            const branched = (list: typeof SECTIONS): React.JSX.Element => (
-              <Branches current={list.findIndex((section) => lit(section.id))} className="flex flex-col gap-px">{sorted(list)}</Branches>
-            )
-            // Not drawn, even unseen, until settings say which rows show: a fold measured with a row
-            // the settings then take away held that row's room for a frame once the sidebar showed.
+            // Not drawn, even unseen, until settings say which rows show: a row
+            // the settings then take away held its room for a frame once the sidebar showed.
             const parts = settings && !unloaded(away) ? sidebarParts(sections, ordered, shown) : []
-            const folds: Record<Group, [boolean, (open: boolean) => void]> = { Notes: [notesOpen, setNotesOpen], Tasks: [tasksOpen, setTasksOpen], Saved: [keptOpen, setKeptOpen] }
-            // Tasks' pages not used yet wait here, quiet and shut; opening one brings it into Tasks for good.
-            const more = (): React.JSX.Element | null => !waiting.length || narrow ? null : (
-              <div data-side-more className="flex flex-col gap-px">
-                <button type="button" data-side-row aria-expanded={moreOpen} onClick={() => (chime(moreOpen ? 'fold' : 'slide'), setMoreOpen(!moreOpen))}
-                  className="flex items-center gap-1 rounded-md py-1 pl-2 text-left text-meta text-muted-foreground transition-colors duration-80 hover:text-foreground data-[fluid-hover-active]:text-foreground">
-                  More
-                  <ChevronRight className={`size-3 transition-[rotate] duration-80 ${moreOpen ? 'rotate-90' : ''}`} />
-                </button>
-                <Unfold open={moreOpen}>
-                  <div data-side-waiting className="flex flex-col gap-px opacity-80">{sorted(waiting, true)}</div>
-                </Unfold>
-              </div>
-            )
-            // A group lists only what is shown; with nothing shown it is gone. A
-            // page switched off is not here at all, even while you are on it: the
-            // page's own title says where you are, and nothing jumps in and out.
-            const group = (name: Group, list: typeof SECTIONS): React.JSX.Element | null => {
-              const [open, fold] = folds[name]
-              if (!list.length && !(name === 'Tasks' && waiting.length)) return null
-              const here = (section: (typeof SECTIONS)[number]): boolean => section.id === view.id
-              // Narrow, every row is an icon and the group never shuts.
-              if (narrow) return (
-                <Fragment key={name}>
-                  {heading(name, open, fold)}
-                  {sorted(list, true)}
-                </Fragment>
-              )
-              // Folded, the one you are on still shows, so you never lose your place.
-              return (
-                <Fragment key={name}>
-                  {heading(name, open, fold, open ? undefined : homesIn(list))}
-                  <Unfold open={open}>{branched(list)}{name === 'Tasks' && more()}</Unfold>
-                  {!open && sorted(list.filter(here), true)}
-                </Fragment>
-              )
-            }
-            // Pinned, and the split open now, sit under Notes in a book that has it, else under the first rows.
-            const pinsAfter = parts.some((part) => part.group === 'Notes') ? 'Notes' : 'top'
+            // Pinned, and the split open now, sit under Tasks and Calendar, else under the first rows.
+            const pinsAfter = parts.some((part) => part.group === 'Do' && part.list.length) ? 'Do' : 'Write'
             const pinned = (<>
               {/* The split open now, as one row under its own name, never among the
                   pinned: Pinned holds only what was pinned. Not shown when it is one
@@ -1596,121 +1603,27 @@ export function Home(): React.JSX.Element {
                 </div>
               )}
             </>)
+            // Your most used tags, under their own row: shown with the Tags page on, between Pinned and the Bin.
+            const tagRows = !narrow && !quiet && shown.includes('tags') && tags.length > 0
             return (<>
               {parts.map((part, at) => {
                 // Tags' own page is opened from the Tags heading over your tags, so it is not listed twice.
-                const list = !narrow && tags.length > 0 ? part.list.filter((section) => section.id !== 'tags') : part.list
+                const list = tagRows ? part.list.filter((section) => section.id !== 'tags') : part.list
                 return (
                   <Fragment key={part.key}>
-                    {part.group ? group(part.group, list) : (<>
-                      {/* Rows in no group, after one, get the room a group's heading takes, so they never read as the last group's rows. */}
-                      {at > 0 && list.length > 0 && <div data-side-gap aria-hidden className={narrow ? 'mt-3' : 'mt-2.5 mb-0.5 min-h-6'} />}
-                      {sorted(list)}
-                    </>)}
+                    {part.key === 'rest' && tagRows && tagsBlock}
+                    {/* Each run after the first gets a gap the height of a heading, with no heading: what you write, then what you do, then the rest. */}
+                    {at > 0 && list.length > 0 && <div data-side-gap aria-hidden className={narrow ? 'mt-3' : 'mt-2.5 mb-0.5 min-h-1'} />}
+                    {sorted(list)}
                     {part.key === pinsAfter && pinned}
                   </Fragment>
                 )
               })}
+              {!parts.some((part) => part.key === 'rest') && tagRows && tagsBlock}
             </>)
           })()}
         </nav>
 
-        {!narrow && !quiet && (<>
-        {/* A heading like the groups' above: one row, lit across the sidebar's width as they are. */}
-        <div className="group/head relative mt-2.5 mb-0.5 flex min-h-6 items-center">
-        <button
-          type="button"
-          data-side-row
-          aria-expanded={kindsOpen}
-          onClick={() => (chime(kindsOpen ? 'fold' : 'slide'), setKindsOpen(!kindsOpen))}
-          className="flex min-h-6 flex-1 items-center gap-1 rounded-md px-2 py-0.5 text-left text-meta text-muted-foreground transition-colors duration-80 hover:text-foreground data-[fluid-hover-active]:text-foreground"
-        >
-          Types <ChevronRight className={`size-3 transition-[rotate,opacity] duration-80 ${kindsOpen ? 'rotate-90 opacity-0 group-hover/head:opacity-100' : ''}`} />
-        </button>
-        </div>
-        <Unfold open={kindsOpen}>
-          <Branches current={CAPTURE_TYPES.findIndex((type) => view.id === `kind:${type.id}`)} className="flex flex-col">
-          {CAPTURE_TYPES.map((type) => {
-            const count = captures.filter((capture) => capture.kind === type.id && capture.status !== 'discarded' && !capture.archivedAt).length
-            return (
-              <SidePeek key={type.id} id={`kind:${type.id}`}>
-              <button
-                type="button"
-                data-side-row
-                aria-current={view.id === `kind:${type.id}` ? 'page' : undefined}
-                onClick={() => setView({ id: `kind:${type.id}` })}
-                className={`flex w-full items-center gap-2.5 rounded-md px-2 py-1 ${view.id === `kind:${type.id}` ? '' : 'text-foreground/80'}`}
-              >
-                <type.icon className="size-4" style={{ color: type.tint }} />
-                <Weighted on={view.id === `kind:${type.id}`} className="flex-1 text-left">{type.label}</Weighted>
-                {count ? <Count n={count} className="text-xs text-muted-foreground" /> : null}
-              </button>
-              </SidePeek>
-            )
-          })}
-          </Branches>
-        </Unfold>
-
-        {/* Your most used tags, with counts, the way Todoist keeps favourite labels. */}
-        {/* Its name opens the Tags page (G #), the chevron folds the list: one "Tags", not two. */}
-        {/* One row, lit as the other headings are: the row opens the Tags page,
-            the chevron in it folds the list, with only its own small fill under
-            the pointer and a ring only from the keyboard. */}
-        {tags.length > 0 && (
-          <div className="group/head relative mt-2.5 mb-0.5 flex min-h-6 items-center gap-1 px-2 py-0.5 text-meta">
-            {/* Its page's preview on pointing, as every other place's row has. */}
-            <SidePeek id="tags" keys="G #">
-            <button
-              type="button"
-              data-side-row
-              // On a tag's page whose own row is folded away or not listed, the heading is the place marked.
-              aria-current={onTags ? 'page' : undefined}
-              onClick={() => setView({ id: 'tags' })}
-              className={`absolute inset-0 flex items-center rounded-md px-2 text-left transition-colors duration-80 group-hover/head:text-foreground data-[fluid-hover-active]:text-foreground ${onTags ? 'text-foreground' : 'text-muted-foreground'}`}
-            >
-              Tags
-            </button>
-            </SidePeek>
-            {/* Holds the word's room, so the chevron sits just after it as in the other headings. */}
-            <span aria-hidden className="invisible">Tags</span>
-            <button
-              type="button"
-              aria-label={tagsOpen ? 'Fold the tags away' : 'Show your tags'}
-              aria-expanded={tagsOpen}
-              onClick={() => (chime(tagsOpen ? 'fold' : 'slide'), setTagsOpen(!tagsOpen))}
-              className={`mf-hit relative -my-0.5 -ml-0.5 flex size-4 items-center justify-center rounded text-muted-foreground transition-[color,background-color,opacity] duration-80 hover:bg-accent hover:text-foreground focus-visible:opacity-100 ${tagsOpen ? 'opacity-0 group-hover/head:opacity-100' : ''}`}
-            >
-              <ChevronRight className={`size-3 transition-transform duration-80 ${tagsOpen ? 'rotate-90' : ''}`} />
-            </button>
-          </div>
-        )}
-        <Unfold open={tagsOpen && tags.length > 0}>
-          <Branches current={view.id === 'tags' ? sideTags.findIndex(({ tag }) => tag === view.focus) : -1} className="flex flex-col">
-          {sideTags.map(({ tag, count, color }) => (
-            <RowMenu key={tag} items={[
-              { label: 'Open', run: () => setView({ id: 'tags', focus: tag }) },
-              { label: 'Rename or merge…', run: () => void renameTag(tag, (now) => view.id === 'tags' && view.focus === tag && setView({ id: 'tags', focus: now })) }
-            ]}>
-            <button
-              key={tag}
-              type="button"
-              data-side-row
-              data-side-tag={tag}
-              aria-current={view.id === 'tags' && view.focus === tag ? 'page' : undefined}
-              onClick={() => setView({ id: 'tags', focus: tag })}
-              // Read ahead while the pointer rests on it, so the click shows it at once.
-              onPointerEnter={() => prefetchTag(tag)}
-              className={`flex w-full items-center gap-2.5 rounded-md px-2 py-1 ${view.id === 'tags' && view.focus === tag ? '' : 'text-foreground/80'}`}
-            >
-              <TagIcon tag={tag} color={color} />
-              <Weighted on={view.id === 'tags' && view.focus === tag} className="flex-1 text-left">{tag}</Weighted>
-              <Count n={count} className="text-xs text-muted-foreground" />
-            </button>
-            </RowMenu>
-          ))}
-          </Branches>
-        </Unfold>
-        </>)}
         </TooltipProvider>
 
         </div>

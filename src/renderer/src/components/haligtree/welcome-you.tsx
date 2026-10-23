@@ -37,22 +37,6 @@ const SPACES: Record<Use, string[]> = {
   life: ['home', 'health', 'travel']
 }
 
-/**
- * What an answer changes in a new book's growing sidebar (places.tsx,
- * grownSections): Work brings two more of Tasks' pages out from under
- * "More", Study lifts Review to just under Inbox. Nothing is taken out, and
- * an older book's sidebar, which shows every page, is left as it is.
- */
-const SHAPE: Partial<Record<Use, { shows?: string[]; raises?: string[] }>> = {
-  work: { shows: ['week', 'upcoming'] },
-  study: { raises: ['review'] }
-}
-/** What an answer's sidebar did, in words, for the payoff. */
-const ADDED_SAID: Partial<Record<Use, [string, string]>> = {
-  work: ['This week’s tasks and Upcoming are in your sidebar now.', 'Under Today and Calendar, so the week ahead is one click away. Nothing was taken out.'],
-  study: ['Review sits near the top of your sidebar now.', 'Just under Inbox, so the cards waiting for you are one click away. Nothing was taken out.']
-}
-
 /** What was made from the answers, so it is made once, follows a changed answer, and can be taken back. */
 type Made = NonNullable<Setup['made']>
 /** A thing made from the answers that can be undone on its own. */
@@ -66,36 +50,15 @@ const goalDay = (setup: Setup): string => {
 }
 
 /**
- * What was answered, done: what the sidebar adds for what Haligtree is for (only
- * on a fresh install's first welcome, `fresh`, and only if the sidebar was
- * never changed), the first tag's exam date, and the goal. Safe to
+ * What was answered, done: the first tag's exam date, and the goal. Every
+ * book's sidebar is the same, so no answer changes it. Safe to
  * run again: each thing is made once, follows an answer changed since, and a
  * piece undone (`undone`) is taken back and left alone. Gives the answers back
  * with what was made, to keep.
  */
-export async function applySetup(setup: Setup, fresh = false): Promise<Setup> {
+export async function applySetup(setup: Setup): Promise<Setup> {
   const made: Made = { ...setup.made }
   const off = new Set(setup.undone ?? [])
-  // The sidebar: shaped for what Haligtree is for (only on a fresh install's first welcome), or put back as it was.
-  const settings = await haligtree.settings()
-  const shape = setup.use && !off.has('sidebar') && settings.sidebarGrows ? SHAPE[setup.use] : undefined
-  const was = made.sidebarFor ? SHAPE[made.sidebarFor] : undefined
-  if (was && settings.sidebarGrows && (!shape || made.sidebarFor !== setup.use)) {
-    // Another answer, or Undo: what the last one did is taken back, its pages waiting under "More" again.
-    const shows = was.shows ?? []
-    await haligtree.setSettings({
-      sidebarShown: settings.sidebarShown.filter((one) => !shows.includes(one)),
-      sidebarMet: settings.sidebarMet.filter((one) => !shows.includes(one)),
-      sidebarRaised: settings.sidebarRaised.filter((one) => !(was.raises ?? []).includes(one))
-    })
-    made.sidebarFor = null
-  }
-  if (shape && !made.sidebarFor && fresh) {
-    const now = await haligtree.settings()
-    const shows = (shape.shows ?? []).filter((one) => !now.sidebarShown.includes(one))
-    await haligtree.setSettings({ sidebarShown: [...now.sidebarShown, ...shows], sidebarRaised: [...new Set([...now.sidebarRaised, ...(shape.raises ?? [])])] })
-    made.sidebarFor = setup.use
-  }
   // The exam date, on the tag it is for.
   const exam = setup.space && setup.exam && !off.has('exam') ? setup.space : null
   if (made.examTag && made.examTag !== exam) await haligtree.setTag(made.examTag, { examAt: null })
@@ -172,11 +135,6 @@ export function rowsOf(setup: Setup): Row[] {
   const use = setup.use
   // What Haligtree will do for what it is for: the outcome, not how the sidebar was arranged for it (Settings, Sidebar, changes that).
   if (use) rows.push({ id: 'use', lead: `Ready for ${USE_SAID[use]}.`, line: USE_DOES[use] })
-  // The sidebar is said only when it changed something you can see, with its Undo.
-  const said = use && ADDED_SAID[use]
-  if (said && (made.sidebarFor || off.has('sidebar'))) {
-    rows.push({ id: 'sidebar', lead: off.has('sidebar') ? 'Your sidebar is as it was.' : said[0], line: off.has('sidebar') ? 'Every page stays one key away, in ⌘K.' : said[1], piece: 'sidebar', undone: off.has('sidebar') })
-  }
   if (setup.space) {
     rows.push({ id: 'tag', lead: `#${setup.space} is ready when you need it.`, line: 'Add it to anything you catch. Tags are easy to rename or drop later.' })
     if (setup.exam) {
@@ -200,7 +158,7 @@ const DID = 'an hour on it today'
  * each, coming in one after another, every one with its own Undo (and Redo),
  * and the goal on its road. Nothing here waits for the welcome to end.
  */
-export function Payoff({ setup, onChange, onBack, still, fresh = false }: { setup: Setup; onChange: (next: Setup) => void; onBack: () => void; still: boolean; /** A fresh install's first welcome: the only time the sidebar may be added to. */ fresh?: boolean }): React.JSX.Element {
+export function Payoff({ setup, onChange, onBack, still }: { setup: Setup; onChange: (next: Setup) => void; onBack: () => void; still: boolean }): React.JSX.Element {
   const [busy, setBusy] = useState<string | null>(null)
   const rows = rowsOf(setup)
   const tips = tipsOf(setup)
@@ -208,7 +166,7 @@ export function Payoff({ setup, onChange, onBack, still, fresh = false }: { setu
     setBusy(piece)
     const undone = undo ? [...new Set([...(setup.undone ?? []), piece])] : (setup.undone ?? []).filter((one) => one !== piece)
     try {
-      onChange(await applySetup({ ...setup, undone }, fresh))
+      onChange(await applySetup({ ...setup, undone }))
       chime(undo ? 'undo' : 'settled')
     } finally {
       setBusy(null)

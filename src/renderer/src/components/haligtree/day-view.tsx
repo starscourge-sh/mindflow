@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import type { Editor } from '@tiptap/react'
 import type { JSONContent } from '@tiptap/core'
 
 import { HaligtreeEditor, TAGS } from '../haligtree'
@@ -14,7 +15,7 @@ import { sideMenu, useFullMenu } from './side-menu'
 import { exampleDay } from '@/lib/examples'
 import { Example } from './example'
 import { useKept } from '@/lib/nav'
-import { Island, Page, Rolling, Tags, Tip, Typed, typing, Pressed, quietly } from './ui'
+import { Island, Page, Rolling, Tags, Tip, typing, Pressed, quietly } from './ui'
 import { PICKED_MARK, usePickMixed } from './pick-mixed'
 import { taskName } from '@/lib/tasks'
 import { DayBanner } from './scenery'
@@ -27,6 +28,8 @@ import { GlossButton, GlossLine } from './gloss-line'
 import { DaySessions } from './session-timeline'
 import { DayLog } from './day-log'
 import { DayAhead } from './day-ahead'
+import { DayMoments } from './day-moments'
+import { useSeen } from '@/lib/reads-in'
 import { Versions } from './note-extras'
 import { ScaleSwitch, type Scale } from './periods-view'
 import { dayKey, dayName, noon } from '../../../../main/dates'
@@ -40,13 +43,17 @@ const named = (day: string): string => dayName(noon(day))
 const shift = (day: string, by: number): string => dayKey(noon(day).add(by, 'day'))
 
 /**
- * A page a day, the daily note: somewhere to write about the day, and below
- * it what the day held, written down by the app, not by you. The page exists
- * only once you write in it (or tick it reviewed); every day still shows what
- * happened. ← and → step through the days.
+ * A page a day, the "Today" row: somewhere to write about the day on top, a
+ * box that looks like one with the caret in it, then today's tasks under it,
+ * then what the day held, written down by the app, not by you. Home folded
+ * into it: what still matters from there sits at its foot (day-moments.tsx).
+ * The page exists only once you write in it (or tick it reviewed); every day
+ * still shows what happened. ← and → step through the days.
  */
-export function DayView({ onOpen, start, onScale }: {
+export function DayView({ onOpen, start, onScale, onView }: {
   onOpen?: (type: string, id: string) => void
+  /** A page by name, from the cards at the foot of today's page. */
+  onView?: (id: string, focus?: string) => void
   /** The day to open on, from a link to its page; today if not given. */
   start?: string
   onScale?: (scale: Scale) => void
@@ -76,6 +83,8 @@ export function DayView({ onOpen, start, onScale }: {
   const [restored, setRestored] = useState<{ day: string; body: unknown; rev: number } | null>(null)
   // The tasks today's brief lists, done or not: the Done list below leaves them to it.
   const [listed, setListed] = useState<string[]>([])
+  // The day's writing, once its editor is made: the caret goes in it as the page shows (CaretIn).
+  const [writer, setWriter] = useState<Editor | null>(null)
   const go = (to: string): void => {
     if (to === day) return
     chime('page')
@@ -110,6 +119,45 @@ export function DayView({ onOpen, start, onScale }: {
   // Every row on the page picks as every list does: ⇧- or ⌘-click, x, ⌘A, ⌫ to the Bin with Undo, Esc.
   const several = usePickMixed(example || ahead ? [] : sections.flatMap(([, , list]) => list).map((entry) => ({ type: entry.type, id: entry.id, title: entry.title, private: entry.private, status: entry.status })), { here })
 
+  const writing = (<>
+        {/* Only once this day's words are in: a page that opened on the day
+            before's would save them here. */}
+        {data?.day === day && (
+          <div className="mt-2 flex justify-end">
+            <Versions table="day" id={`day:${day}`} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })}
+              onRestored={() => void notes.day(day).then((fresh) => setRestored((was) => ({ day, body: fresh.body, rev: (was?.rev ?? 0) + 1 })))} />
+          </div>
+        )}
+        {data?.day === day && past && (
+          <HaligtreeEditor key={`past-${past.key}`} defaultContent={(past.body as JSONContent | string | null) ?? ''} readOnly toolbar={false} handles={false} slash={false} outline={false} search={false} autofocus={false} />
+        )}
+        {data?.day === day && !past && (
+          // A box that reads as a place to type: its own surface and edge, the prompt inside it while empty, a click anywhere on it puts the caret in.
+          <div data-day-write onClick={(event) => void (event.target === event.currentTarget && writer?.commands.focus('end'))}
+            className="mt-2 min-h-36 cursor-text rounded-xl border border-border bg-background px-4 py-2 shadow-xs transition-colors focus-within:border-ring hover:border-foreground/25 [--mf-padding:0.25rem_0]">
+          <HaligtreeEditor
+            key={`${day}-${restored?.day === day ? restored.rev : 0}`}
+            host={window.api}
+            tokens={TAGS}
+            placeholder={ahead ? 'Notes for this day: what you mean to do, who you will see' : day === today ? 'Write about today: what happened, what is on your mind' : 'How did the day go?'}
+            // Formatting on a selection only, as in every other page: a bar of its
+            // own would sit over the first line.
+            toolbar={{ fixed: false }}
+            documentId={`day-${day}`}
+            defaultContent={((restored?.day === day ? restored.body : data.body) as JSONContent | string | null) ?? ''}
+            findNotes={findCaptures}
+            findHeadings={findHeadings}
+            onOpenNote={(link, heading) => onOpen && follow(link, onOpen, heading)}
+            onTokenClick={(token) => token.name === 'tag' && onOpen?.('tag', token.value)}
+            outline={false}
+            autofocus={false}
+            onReady={setWriter}
+            onChange={(body) => void notes.saveDay(day, { body })}
+          />
+          <CaretIn editor={writer} day={day} />
+          </div>
+        )}
+  </>)
   return (
     <Page
       // The day's notes, its tasks and pins, and every part of the brief: drawn once all are in.
@@ -142,48 +190,23 @@ export function DayView({ onOpen, start, onScale }: {
           centred column, so they read as one sheet; the margins either side
           hold the brief's date and time. Other days keep their strip. */}
       <div className={day === today ? 'page-sheet mx-auto w-full px-5' : undefined}>
-      {day === today && <DayBrief day={day} onOpen={onOpen} onListed={setListed} />}
+      {/* Today: the day's name, then its writing, then its tasks (the brief), then what Home kept for the moment. */}
+      {day === today && <DayBrief day={day} onOpen={onOpen} onListed={setListed} between={
+        <div className="pt-6">
+          <h1 className="sr-only">{`Today, ${named(day)}`}</h1>
+          <DayMarks key={`marks-${day}`} day={day} />
+          {writing}
+        </div>
+      } />}
       {day === today && <GoalStrip onOpen={onOpen} className="mt-4 -mx-2" />}
+      {day === today && <div className="mt-4"><DayMoments onOpen={onOpen} onView={onView} /></div>}
       <div className={`${day === today ? '' : 'page-narrow mx-auto w-full px-5'} pt-6 pb-16 [--mf-padding:0.5rem_0]`}>
         {day !== today && <DayBanner day={day} />}
-        {/* Today, the brief says the date (on its spine, or a line when narrow): this stays for screen readers. */}
-        <h1 className={`text-title font-semibold ${day === today ? 'sr-only' : ''}`}><Rolling text={day === today ? `Today, ${named(day)}` : named(day)} by="word" /></h1>
+        {/* Today, the brief says the date and its marks sit over the writing above. */}
+        {day !== today && <h1 className="text-title font-semibold"><Rolling text={named(day)} by="word" /></h1>}
         {/* What the day is marked for, if anything: a chip each, to change it. */}
-        <DayMarks key={`marks-${day}`} day={day} />
-        {data && !data.exists && (
-          <p className="mt-1 text-meta text-muted-foreground"><Typed text="No page for this day yet. Write below and it keeps one." step={28} /></p>
-        )}
-        {/* Only once this day's words are in: a page that opened on the day
-            before's would save them here. */}
-        {data?.day === day && (
-          <div className="mt-2 flex justify-end">
-            <Versions table="day" id={`day:${day}`} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })}
-              onRestored={() => void notes.day(day).then((fresh) => setRestored((was) => ({ day, body: fresh.body, rev: (was?.rev ?? 0) + 1 })))} />
-          </div>
-        )}
-        {data?.day === day && past && (
-          <HaligtreeEditor key={`past-${past.key}`} defaultContent={(past.body as JSONContent | string | null) ?? ''} readOnly toolbar={false} handles={false} slash={false} outline={false} search={false} autofocus={false} />
-        )}
-        {data?.day === day && !past && (
-          <HaligtreeEditor
-            key={`${day}-${restored?.day === day ? restored.rev : 0}`}
-            host={window.api}
-            tokens={TAGS}
-            placeholder={ahead ? 'Notes for this day' : 'How did the day go?'}
-            // Formatting on a selection only, as in every other page: a bar of its
-            // own would sit over the first line.
-            toolbar={{ fixed: false }}
-            documentId={`day-${day}`}
-            defaultContent={((restored?.day === day ? restored.body : data.body) as JSONContent | string | null) ?? ''}
-            findNotes={findCaptures}
-            findHeadings={findHeadings}
-            onOpenNote={(link, heading) => onOpen && follow(link, onOpen, heading)}
-            onTokenClick={(token) => token.name === 'tag' && onOpen?.('tag', token.value)}
-            outline={false}
-            autofocus={false}
-            onChange={(body) => void notes.saveDay(day, { body })}
-          />
-        )}
+        {day !== today && <DayMarks key={`marks-${day}`} day={day} />}
+        {day !== today && writing}
         {ahead && <DayAhead day={day} tasks={tasks} onOpen={onOpen} menuFor={(task) => (onOpen ? taskMenu(task, { open: () => onOpen('task', task.id), now: taskNow }) : [])} />}
         {/* The day as a time log: everything caught, dealt with, studied, done or dated, each at its time. */}
         {!ahead && !example && <DayLog day={day} onOpen={onOpen} className="mt-6" />}
@@ -239,4 +262,25 @@ export function DayView({ onOpen, start, onScale }: {
       </div>
     </Page>
   )
+}
+
+/**
+ * The caret in the day's writing once its page is on show, so you can just
+ * start typing: once for each day opened, and never while something else
+ * already has the keys (a search, a field).
+ */
+function CaretIn({ editor, day }: { editor: Editor | null; day: string }): null {
+  const seen = useSeen()
+  const placed = useRef('')
+  useEffect(() => {
+    if (!seen || !editor || editor.isDestroyed || placed.current === day) return
+    placed.current = day
+    const frame = requestAnimationFrame(() => {
+      const held = document.activeElement
+      if (held && held !== document.body && !held.closest('[data-day-write]')) return
+      editor.commands.focus('end', { scrollIntoView: false })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [seen, editor, day])
+  return null
 }

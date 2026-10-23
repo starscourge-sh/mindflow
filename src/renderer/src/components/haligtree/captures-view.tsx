@@ -25,6 +25,8 @@ import { EXITS, NOT_OPEN, STATUS_ICON, captureKey, statusSaid, noteLinkText, exi
 import type { SaveResult } from '../../../../main/captures'
 import { toMarkdown } from '@/lib/export'
 import { hoursSaid } from '@/lib/day-plan'
+import { useStoredFlag } from '@/lib/use-stored-flag'
+import { Switch } from '@/components/ui/switch'
 import { splitTags, unloaded, useLastAsked, useLive, haligtree, type Settings, type Task, type TaskFull } from '@/lib/haligtree'
 import { makeTask, makeTasks, oneTask, picked, taskName } from '@/lib/tasks'
 import { useSelectAll } from '@/lib/select-all'
@@ -85,18 +87,28 @@ type Capture = NonNullable<Awaited<ReturnType<typeof window.api.captures.get>>>
  * with its properties and its exits. `focus` opens one straight away, for when
  * search or a tag sent you here.
  */
-export function CapturesView({ title, keep, focus, onOpen, archived = false, everything = false }: {
+/** Where the Inbox's "Show sorted too" is kept: on, it lists everything (home.tsx sends Everything's links here with it on). */
+export const INBOX_SORTED = 'inbox:sorted'
+/** What waits in the Inbox: what has no exit yet; archived is kept, out of sight, so not waiting here. */
+export const keepInbox = (capture: CaptureMeta): boolean => capture.status === 'open' && !capture.archivedAt
+/** With "Show sorted too": every note kept and every task, the Bin aside. */
+const keepEverything = (capture: CaptureMeta): boolean => capture.status !== 'discarded'
+
+export function CapturesView({ title, keep: given, focus, onOpen, archived = false, inbox: inboxPage = false }: {
   title: string
   keep: (capture: CaptureMeta) => boolean
   focus?: string
   /** The Archived view: what is out of sight, and only that. */
   archived?: boolean
-  /** Everything (G L): the tasks too, in the same list, with a filter to choose what shows. */
-  everything?: boolean
+  /** The Inbox: with "Show sorted too" on, everything (once G L), the tasks too, its kind chips filtering all of it. */
+  inbox?: boolean
   /** Go to another thing: a nugget it became, a page that links to it. */
   onOpen?: (type: string, id: string) => void
 }): React.JSX.Element {
   const all = useCaptures(true)
+  const [sortedToo, setSortedToo] = useStoredFlag(INBOX_SORTED)
+  const everything = inboxPage && sortedToo
+  const keep = everything ? keepEverything : given
   // Everything: every task too, as a row of its own kind; to do, done or both, as chosen.
   const tasks = useLive(() => (everything ? haligtree.tasks() : Promise.resolve([] as Task[])), [] as Task[], [everything], undefined, 'everything-tasks')
   const [taskState, setTaskState] = useTaskState()
@@ -151,7 +163,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
   const whole: Row[] = narrowed.flatMap(([, list]) => list)
   const stepTo = (to: number): void => void (whole[to] && pick(whole[to].id))
   // The Inbox emptied in front of you: its moment, not the quiet empty page.
-  const cleared = useJustCleared(title === 'Inbox' ? kept : [], all, !unloaded(all))
+  const cleared = useJustCleared(title === 'Inbox' && !everything ? kept : [], all, !unloaded(all))
   // Spread out, a click looks at a note beside the list; Enter opens it.
   const [peek, setPeek] = useState<string | null>(null)
   // However it was opened, the open one's row shows: its island unfolded, past "Show more".
@@ -484,6 +496,15 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
               ) : (
                 <Tip label="One note at a time, full screen, from the highlighted one  ⇧⌘R">
                   <Button variant="ghost" size={open || task ? 'icon-sm' : 'sm'} aria-label="Read through" onClick={() => setReadFrom(readStart())} disabled={!readable.length}><AliveIcon icon={BookIcon} size={14} />{!open && !task && ' Read through'}</Button>
+                </Tip>
+              )}
+              {/* Always here, in the same place: on, the Inbox lists what was sorted out of it too. */}
+              {inboxPage && (
+                <Tip label={everything ? 'Every note and task, sorted or not. Off: only what waits' : 'What was sorted out of the Inbox too, and every task'}>
+                  <label data-sorted-too className="flex h-7 cursor-default items-center gap-2 rounded-md px-2 text-control whitespace-nowrap text-foreground/85 hover:bg-accent/60">
+                    <Switch checked={everything} onCheckedChange={(on) => (chime(on ? 'on' : 'off'), setChosen([]), setSortedToo(on))} aria-label="Show sorted too" />
+                    {!open && !task ? 'Show sorted too' : <span className="sr-only">Show sorted too</span>}
+                  </label>
                 </Tip>
               )}
               {display}

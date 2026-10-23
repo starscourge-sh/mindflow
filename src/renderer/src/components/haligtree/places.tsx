@@ -1,9 +1,9 @@
-import { useMemo, type ComponentType, type CSSProperties, type RefAttributes } from 'react'
-import { Archive, BookOpen, BookUser, Calendar, CalendarFold, CalendarRange, Compass, Flag, Grid2x2, ListVideo, Sprout, type LucideIcon } from 'lucide-react'
+import { type ComponentType, type CSSProperties, type RefAttributes } from 'react'
+import { Archive, BookOpen, BookUser, Calendar, CalendarFold, Compass, Flag, ListVideo, Sprout, type LucideIcon } from 'lucide-react'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import { Switch } from '@/components/ui/switch'
 import { chime } from '@/lib/sound'
-import { call, useLive, haligtree, type Settings } from '@/lib/haligtree'
+import { useLive, haligtree, type Settings } from '@/lib/haligtree'
 import { Pressed, Tip, toast, quietly } from './ui'
 import { RowMenu, type RowItem } from './row-menu'
 import { SortableList, SortableRow } from './sortable'
@@ -11,22 +11,21 @@ import { LayoutGroup } from 'motion/react'
 import { GripVertical } from 'lucide-react'
 import { inOrder, isUsual, moved, stepped } from '@/lib/place-order'
 import type { AnimatedIconHandle, AnimatedIconProps } from '@/components/ui/types'
-import HomeIcon from '@/components/ui/home-icon'
 import FileDescriptionIcon from '@/components/ui/file-description-icon'
 import HashtagIcon from '@/components/ui/hashtag-icon'
 import ChartBarIcon from '@/components/ui/chart-bar-icon'
-import LayersIcon from '@/components/ui/layers-icon'
 import TrashIcon from '@/components/ui/trash-icon'
 import RefreshIcon from '@/components/ui/refresh-icon'
 import EyeIcon from '@/components/ui/eye-icon'
 import HistoryCircleIcon from '@/components/ui/history-circle-icon'
 import LinkIcon from '@/components/ui/link-icon'
-import { BarChart3, Brain, Timer as CalendarDays, FileText, Gem, History, House, Inbox, Layers, Link as Links, ListTodo as ListChecks, Pencil as NotebookPen, Orbit, Repeat, Sun, Tag, Bookmark as Telescope, Trash2 } from '@/components/ui/icons'
+import { BarChart3, Brain, FileText, Gem, History, Inbox, Link as Links, ListTodo as ListChecks, Sun, Tag, Trash2 } from '@/components/ui/icons'
 import { APP_NAME } from '../../../../main/name'
+import { SIDEBAR_SHAPE } from '../../../../main/sidebar-shape'
 import { num } from '../../../../main/dates'
 
-/** A named group of the sidebar's places, with its own heading that folds. */
-export type Group = 'Notes' | 'Tasks' | 'Saved'
+/** A run of the sidebar's places with a gap before it and no heading: what you write and keep, then what you do. */
+export type Group = 'Write' | 'Do'
 /** A place the main window's sidebar or the box's tabs can show. */
 export type Place = {
   id: string; label: string; icon: LucideIcon; tint: string; key?: string; group?: Group
@@ -36,49 +35,34 @@ export type Place = {
 
 /**
  * The main window's sections, each with the key that jumps to it after G, in
- * the order the sidebar lists them. Each has its own colour from the theme, as
- * Todoist gives Inbox, Today and Upcoming theirs. Which ones show is a
- * setting (`sidebarShown`): one switched off is not in the sidebar at all,
- * and is still a G and its letter, or ⌘K, away.
+ * the order the sidebar lists them: writing first (Today, Pages, Inbox, Gems,
+ * Review), then a gap, then doing (Tasks, Calendar), then the rest. Each has
+ * its own colour from the theme. Which ones show is a setting
+ * (`sidebarShown`), the same for every book to start: one switched off is
+ * not in the sidebar at all, and is still a G and its letter, or ⌘K, away.
  * This is the usual order: dragged or moved from a row's right-click menu,
  * yours is kept as `sidebarOrder` (useInOrder).
  */
 export const SECTIONS: (Place & { key: string })[] = [
-  // Where things come back to you; the window opens here. Always shown.
-  { id: 'home', label: 'Home', icon: House, alive: HomeIcon, key: 'y', tint: 'orange' },
-  { id: 'inbox', label: 'Inbox', icon: Inbox, key: 'i', tint: 'blue' },
-  // Everything you keep, notes and tasks in one list, a filter over it to choose what shows (G L, once All captures).
-  { id: 'all', label: 'Everything', icon: Layers, alive: LayersIcon, key: 'l', tint: 'gray' },
-  { id: 'review', label: 'Review', icon: Brain, key: 'r', tint: 'purple' },
-  // The daily note: written in, and what the day held.
-  // Its own colour, not Today's green: the two sit next to each other.
-  { id: 'day', label: "Today's page", icon: NotebookPen, key: 'p', tint: 'yellow' },
-  // Wider stretches, less detail each: a week in a few lines, a month in two.
+  // The Day page: the day's writing on top, today's tasks under it. The window opens here.
+  { id: 'day', label: 'Today', icon: Sun, key: 'p', tint: 'orange', group: 'Write' },
+  { id: 'articles', label: 'Pages', icon: FileText, alive: FileDescriptionIcon, key: 'a', tint: 'brown', group: 'Write' },
+  { id: 'inbox', label: 'Inbox', icon: Inbox, key: 'i', tint: 'blue', group: 'Write' },
+  { id: 'nuggets', label: 'Gems', icon: Gem, key: 'n', tint: 'pink', group: 'Write' },
+  { id: 'review', label: 'Review', icon: Brain, key: 'r', tint: 'purple', group: 'Write' },
+  // One row for every task list: Today, Upcoming, Later and Routines are its tabs (tasks-view.tsx).
+  { id: 'today', label: 'Tasks', icon: ListChecks, key: 't', tint: 'green', group: 'Do' },
+  // Day, week and month by the hour, the way a calendar app has them (calendar-view.tsx).
+  { id: 'calendar', label: 'Calendar', icon: Calendar, key: 'c', tint: 'red', group: 'Do' },
+  // The rest: off to start, a G and its letter or ⌘K away, each switched on in "Customize sidebar…".
   { id: 'weekpage', label: "Week's page", icon: CalendarFold, key: 'k', tint: 'yellow' },
   { id: 'monthpage', label: "Month's page", icon: Sprout, key: 'm', tint: 'yellow' },
-  // The same two words as the box's tabs: what to do, what you saved.
-  { id: 'today', label: 'Today', icon: Sun, key: 't', tint: 'green', group: 'Tasks' },
-  { id: 'week', label: "This week's tasks", icon: CalendarRange, key: 'w', tint: 'blue', group: 'Tasks' },
-  // Day, week and month by the hour, the way a calendar app has them (calendar-view.tsx).
-  { id: 'calendar', label: 'Calendar', icon: Calendar, key: 'c', tint: 'red', group: 'Tasks' },
-  { id: 'upcoming', label: 'Upcoming', icon: CalendarDays, key: 'u', tint: 'orange', group: 'Tasks' },
-  // Eisenhower's four boxes: urgent by date, important by the flag.
-  { id: 'matrix', label: 'Matrix', icon: Grid2x2, key: 'q', tint: 'red', group: 'Tasks' },
-  { id: 'routines', label: 'Routines', icon: Repeat, alive: RefreshIcon, key: 'o', tint: 'yellow', group: 'Tasks' },
-  // This month, This year and Someday: what has no day yet.
-  { id: 'later', label: 'Later', icon: Telescope, key: 'z', tint: 'purple', group: 'Tasks' },
-  // Tomorrow's list, beside Today and Later: reached from their chips, G + (today plus one, every letter being taken) or ⌘K; last of Tasks, so the sidebar's first rows stay as they were.
-  { id: 'tomorrow', label: 'Tomorrow', icon: Sun, key: '+', tint: 'orange', group: 'Tasks' },
-  { id: 'nuggets', label: 'Gems', icon: Gem, key: 'n', tint: 'pink', group: 'Saved' },
-  { id: 'articles', label: 'Writing', icon: FileText, alive: FileDescriptionIcon, key: 'a', tint: 'brown', group: 'Saved' },
-  // Questions you are holding open: what you keep circling and cannot name yet.
-  { id: 'questions', label: 'Questions', icon: Orbit, key: 'h', tint: 'gray', group: 'Saved' },
   // Words and questions asked and waiting on an answer: a Word with no meaning written yet.
-  { id: 'lookups', label: 'Lookups', icon: BookOpen, key: '.', tint: 'green', group: 'Saved' },
+  { id: 'lookups', label: 'Lookups', icon: BookOpen, key: '.', tint: 'green' },
   // Goals: a day you are working toward, and the road there.
-  { id: 'goals', label: 'Goals', icon: Flag, key: 'e', tint: 'orange', group: 'Saved' },
+  { id: 'goals', label: 'Goals', icon: Flag, key: 'e', tint: 'orange' },
   // What you mean to read next, in order, Spotify's way.
-  { id: 'queue', label: 'Queue', icon: ListVideo, key: 'b', tint: 'blue', group: 'Saved' },
+  { id: 'queue', label: 'Queue', icon: ListVideo, key: 'b', tint: 'blue' },
   { id: 'tags', label: 'Tags', icon: Tag, alive: HashtagIcon, key: '#', tint: 'red' },
   // Every person and source your notes are from, a page each (source-page.tsx).
   { id: 'sources', label: 'Sources', icon: BookUser, key: 'j', tint: 'blue' },
@@ -92,54 +76,29 @@ export const SECTIONS: (Place & { key: string })[] = [
   { id: 'powers', label: `What ${APP_NAME} can do`, icon: Compass, key: 'f', tint: 'green' }
 ]
 
+/** What every book's sidebar shows to start: the two runs, then Tags and the Bin (main/sidebar-shape.ts). */
+export const SHAPE = SIDEBAR_SHAPE
+
 /**
- * Every book's sidebar, writing first (sidebar-grows.ts): Home and Inbox, then
- * Notes, then Pinned and Review, then Tasks, whose rows past Today and Calendar
- * wait under "More" until first used in a growing book, then Saved, then the
- * rest. `raised` are lifted to just under Inbox.
+ * G and a letter for pages that are not rows of their own any more: Home and
+ * the task lists are parts or tabs of a row now, and still a G away.
  */
-const GROWN_ORDER: [string, Group?][] = [
-  ['home'], ['inbox'],
-  ['articles', 'Notes'], ['all', 'Notes'], ['day', 'Notes'], ['weekpage', 'Notes'], ['monthpage', 'Notes'],
-  ['review'],
-  ['today', 'Tasks'], ['calendar', 'Tasks'], ['week', 'Tasks'], ['upcoming', 'Tasks'], ['matrix', 'Tasks'], ['routines', 'Tasks'], ['later', 'Tasks'], ['tomorrow', 'Tasks'],
-  ['nuggets', 'Saved'], ['questions', 'Saved'], ['lookups', 'Saved'], ['goals', 'Saved'], ['queue', 'Saved'],
-  ['tags'], ['sources'], ['stats'], ['map'], ['discarded'], ['archived'], ['powers']
-]
-export function grownSections(raised: string[] = []): typeof SECTIONS {
-  const list = GROWN_ORDER.map(([id, group]) => ({ ...SECTIONS.find((one) => one.id === id)!, group }))
-  const up = list.filter((one) => raised.includes(one.id)).map((one) => ({ ...one, group: undefined }))
-  const rest = list.filter((one) => !raised.includes(one.id))
-  return [...rest.slice(0, 2), ...up, ...rest.slice(2)]
-}
-/** The sidebar's places for this book, in their usual order, writing first. */
+export const G_ALIASES: Record<string, string> = { y: 'day', u: 'upcoming', w: 'upcoming', '+': 'upcoming', z: 'later', o: 'routines', q: 'matrix', l: 'all', h: 'questions' }
+
+/** The task lists that are tabs of the one Tasks row: on any of them, its row is lit. */
+export const TASK_PAGES = ['today', 'tomorrow', 'week', 'upcoming', 'later', 'routines', 'matrix']
+
+/** The row a page lights: a task list lights Tasks, a question Pages, every capture list the Inbox. */
+export const litRow = (id: string): string =>
+  TASK_PAGES.includes(id) ? 'today' : id === 'questions' ? 'articles' : id === 'all' || id.startsWith('kind:') ? 'inbox' : id === 'home' ? 'day' : id
+
+/** The sidebar's places, in their usual order: the same in every book. */
 export function useSections(): typeof SECTIONS {
-  const settings = useLive(haligtree.settings, null as Settings | null)
-  const raised = (settings?.sidebarRaised ?? []).join(' ')
-  return useMemo(() => grownSections(raised ? raised.split(' ') : []), [raised])
-}
-/** A growing sidebar's Tasks pages not yet used: they wait under "More" in Tasks. One hidden after it showed is not among them. */
-export function useWaiting(): typeof SECTIONS {
-  const settings = useLive(haligtree.settings, null as Settings | null)
-  if (!settings?.sidebarGrows) return []
-  return grownSections().filter((one) => one.group === 'Tasks' && !settings.sidebarShown.includes(one.id) && !settings.sidebarMet.includes(one.id))
+  return SECTIONS
 }
 
 /** Rows that just joined the sidebar: each rises in once, the first time it is drawn. */
 export const risen = new Set<string>()
-/**
- * Pages used for the first time, joining a growing sidebar for good (main,
- * sidebar:earn). Those that join rise in, with a soft sound a moment after
- * the page's own. Nothing happens in a book that shows every page.
- */
-export async function earn(ids: string[]): Promise<void> {
-  if (!ids.length) return
-  const joined = await call<string[]>('sidebar:earn', ids)
-  if (!joined?.length) return
-  for (const id of joined) risen.add(id)
-  setTimeout(() => chime('added'), 260)
-}
-
 /** The box's tabs, in their row's order; ⌃1 to ⌃5 reach each, shown or not. */
 export const BOX_TABS: Place[] = [
   { id: 'inbox', label: 'Inbox', icon: Inbox, tint: 'blue' },
@@ -152,7 +111,7 @@ export const BOX_TABS: Place[] = [
 /** Every page in the sidebar from the start, to hide the ones you never use; the box keeps its few tabs. */
 type Shown = 'sidebarShown' | 'boxTabs'
 const SHOWN: Record<Shown, string[]> = {
-  sidebarShown: SECTIONS.map((section) => section.id),
+  sidebarShown: SHAPE,
   boxTabs: ['inbox', 'today', 'review', 'kept']
 }
 
@@ -218,11 +177,10 @@ export function orderItems({ setting, usual, id, among, what, name, sideways = f
 
 /**
  * The sidebar's places as it draws them, in your order: runs of places in the
- * usual order, each a named group (Notes, Tasks, Saved) or loose rows, each
- * holding only the places in `shown` (Customize passes every place, to list
- * them all with a switch). A row moves only within its own part. A part with
- * nothing shown is gone. Loose parts are `top` (the first), `bottom` (the
- * last) and `loose-N` between.
+ * usual order (Write, Do, then the rest), each holding only the places in
+ * `shown` (Customize passes every place, to list them all with a switch). No
+ * run has a heading: a gap sits between them. A row moves only within its own
+ * part. A part with nothing shown is gone.
  */
 export type SidebarPart = { key: string; group?: Group; list: (typeof SECTIONS)[number][] }
 export function sidebarParts(usual: typeof SECTIONS, ordered: typeof SECTIONS, shown: string[]): SidebarPart[] {
@@ -232,9 +190,8 @@ export function sidebarParts(usual: typeof SECTIONS, ordered: typeof SECTIONS, s
     if (last && last.group === one.group) last.ids.push(one.id)
     else runs.push({ group: one.group, ids: [one.id] })
   }
-  const loose = runs.filter((run) => !run.group)
   return runs.map((run) => ({
-    key: run.group ?? (run === loose[0] ? 'top' : run === loose[loose.length - 1] ? 'bottom' : `loose-${loose.indexOf(run)}`),
+    key: run.group ?? 'rest',
     group: run.group,
     list: ordered.filter((one) => run.ids.includes(one.id) && shown.includes(one.id))
   }))
@@ -283,10 +240,10 @@ export function ShowList({ places: given, setting }: { places: Place[]; setting:
     chime(on ? 'on' : 'off')
     await haligtree.setSettings({ [setting]: on ? [...was.filter((one) => one !== id), id] : was.filter((one) => one !== id) })
   }
-  // Each part: what it is called in the DOM, its heading, and all its places, on or off, as the sidebar groups them.
-  const parts: [string, string, Place[]][] = setting === 'sidebarShown'
-    ? sidebarParts(sections, ordered as typeof SECTIONS, places.map((place) => place.id)).map((part, at): [string, string, Place[]] => [part.key, part.group ?? (at ? ' ' : ''), part.list])
-    : [['top', '', ordered]]
+  // Each part: what it is called in the DOM, and all its places, on or off, as the sidebar runs them, a gap between.
+  const parts: [string, Place[]][] = setting === 'sidebarShown'
+    ? sidebarParts(sections, ordered as typeof SECTIONS, places.map((place) => place.id)).map((part): [string, Place[]] => [part.key, part.list])
+    : [['top', ordered]]
   // Every one switched on at once, said with Undo; the order stays yours.
   const hidden = places.filter((place) => !shown.includes(place.id))
   const showEvery = async (): Promise<void> => {
@@ -298,7 +255,7 @@ export function ShowList({ places: given, setting }: { places: Place[]; setting:
   const row = (place: Place, among: string[]): React.JSX.Element => {
     const on = shown.includes(place.id)
     // A switch that cannot be turned off says why, pointed at.
-    const why = setting === 'sidebarShown' && place.id === 'home' ? 'Home is always shown' : on && shown.length === 1 ? 'One has to stay, so there is somewhere to be' : ''
+    const why = on && shown.length === 1 ? 'One has to stay, so there is somewhere to be' : ''
     const control = <Switch checked={on} disabled={!!why} onCheckedChange={(next) => void flip(place.id, next)} aria-label={`Show ${place.label}`} />
     return (
       <SortableRow key={place.id} id={place.id} glide={`show-${setting}-${place.id}`}>
@@ -329,9 +286,8 @@ export function ShowList({ places: given, setting }: { places: Place[]; setting:
             {setting === 'sidebarShown' ? 'Show every page' : 'Show every tab'}
           </button>
         )}
-        {parts.map(([part, name, list]) => list.length > 0 && (
-          <div key={part} data-show-part={name.trim() ? part : undefined} className="flex flex-col gap-px">
-            {name.trim() ? <p className={`mt-2 px-2 pb-0.5 text-meta text-muted-foreground`}>{name}</p> : name ? <div className="mt-2" /> : null}
+        {parts.map(([part, list], at) => list.length > 0 && (
+          <div key={part} data-show-part={part} className={`flex flex-col gap-px ${at ? 'mt-2.5' : ''}`}>
             <SortableList items={list} keyOf={(place) => place.id} onMove={dropOrder(order, usual, (id) => places.find((one) => one.id === id)?.label)}>
               {(items) => items.map((place) => row(place, items.map((one) => one.id)))}
             </SortableList>
@@ -353,5 +309,5 @@ export function ShowList({ places: given, setting }: { places: Place[]; setting:
 export function useShown(setting: Shown): string[] {
   const settings = useLive(haligtree.settings, null as Settings | null)
   const list = settings?.[setting] ?? SHOWN[setting]
-  return setting === 'sidebarShown' && !list.includes('home') ? ['home', ...list] : list
+  return list
 }
