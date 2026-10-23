@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { byKeys, EASE, shift, still, TURN } from '@/lib/motion'
 
 import { HaligtreeEditor, TAGS } from '../haligtree'
+import { notePowers } from './note-powers'
 import { useLive, haligtree, when } from '@/lib/haligtree'
 import { cn } from '@/lib/cn'
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
@@ -52,7 +53,9 @@ const countRead = (): void => {
 /** `body`: words read as they are, never changed here, like a question's clues. */
 export type Readable = { type: string; id: string; body?: string; title?: string }
 
-type Page = { id: string; title?: string; body: JSONContent | string | null; meta?: string[]; private?: boolean; /** Who said it, for a quote: signed under the words. */ who?: string }
+type Page = { id: string; title?: string; body: JSONContent | string | null; meta?: string[]; private?: boolean;
+  /** What the property strip and the selection bar need, as every note surface has them (note-powers.tsx). */
+  kind?: string; fields?: string | null; label?: string; captureId?: string; attribution?: string | null; /** Who said it, for a quote: signed under the words. */ who?: string }
 
 /** The #tags in a note's words, the first few, for the line under its title. */
 const tagsOf = (body: unknown): string[] => {
@@ -68,10 +71,10 @@ const tagsOf = (body: unknown): string[] => {
 }
 
 /** What it is, when it came, where from, and its tags: the quiet line under the title. */
-const metaOf = (kind: string | undefined, at: string | null | undefined, from: (string | null | undefined)[], body?: unknown): string[] => {
+const metaOf = (kind: string | undefined, at: string | null | undefined, from: (string | null | undefined)[]): string[] => {
   const name = kind && (CAPTURE_TYPES.find((one) => one.id === kind)?.label ?? kind[0].toUpperCase() + kind.slice(1))
   const source = from.find((one) => one && one.trim())
-  return [name, at ? when(at) : '', source ? source.split('/').pop()! : '', ...tagsOf(body)].filter((one): one is string => !!one)
+  return [name, at ? when(at) : '', source ? source.split('/').pop()! : ''].filter((one): one is string => !!one)
 }
 
 /** A quote's name, signed under its words rather than said in the meta line. */
@@ -394,8 +397,8 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
     setPage(null)
     if (item.body !== undefined) return setPage({ id: item.id, title: item.title, body: item.body })
     const load: Promise<Omit<Page, 'id'> | null> = item.type === 'capture'
-      ? window.api.captures.get(item.id).then((found) => found && { body: found.body as JSONContent, private: !!found.private, ...said(found.kind, found.attribution), meta: metaOf(found.kind, found.capturedAt, [said(found.kind, found.attribution).who ? null : found.attribution, found.medium, found.source], found.body) })
-      : haligtree.item(item.id).then((found) => found && { title: found.tier === 'article' || found.tier === 'question' ? found.title : undefined, body: found.body as JSONContent, private: !!found.private, ...said(found.kind, found.attribution), meta: metaOf(found.kind, found.createdAt, [said(found.kind, found.attribution).who ? null : found.attribution, found.context], found.body) })
+      ? window.api.captures.get(item.id).then((found) => found && { body: found.body as JSONContent, private: !!found.private, ...said(found.kind, found.attribution), meta: metaOf(found.kind, found.capturedAt, [said(found.kind, found.attribution).who ? null : found.attribution, found.medium, found.source]), kind: found.kind, fields: found.fields, label: found.label })
+      : haligtree.item(item.id).then((found) => found && { title: found.tier === 'article' || found.tier === 'question' ? found.title : undefined, body: found.body as JSONContent, private: !!found.private, ...said(found.kind, found.attribution), meta: metaOf(found.kind, found.createdAt, [said(found.kind, found.attribution).who ? null : found.attribution, found.context]), kind: found.kind, fields: found.fields, label: found.title, captureId: found.captureId ?? undefined, attribution: found.attribution })
     let current = true
     void load.then((next) => current && setPage({ id: item.id, ...(next ?? { body: null }) }))
     return () => void (current = false)
@@ -574,7 +577,9 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
     if (!window.getSelection()?.isCollapsed) return
     caret.current = reader.current?.view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos ?? null
   }
-  const meta = shown?.meta?.length ? shown.meta.join(' · ') : ''
+  // Its tags read live from the words, so one typed in shows here at once.
+  const metaParts = shown ? [...(shown.meta ?? []), ...tagsOf(shown.body)] : []
+  const meta = metaParts.join(' · ')
   // Over the whole window, not inside the pane it was opened from: no
   // sidebar, no other pane, no header. Nothing underneath moves, so leaving
   // puts back the layout exactly as it was.
@@ -615,7 +620,7 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
               onClick={togglePanel}
               className={cn('flex size-7 items-center justify-center rounded-full border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground', panel && 'bg-accent text-foreground')}
             >
-              <ListMusic className="size-3.5" />
+              <ListMusic className="size-4" />
             </button>
           </Tip>
         )}
@@ -630,7 +635,7 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
               onClick={toggleLock}
               className={cn('flex size-7 items-center justify-center rounded-full border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground', writing && 'text-foreground')}
             >
-              {writing ? <LockOpen className="size-3.5" /> : <Lock className="size-3.5" />}
+              {writing ? <LockOpen className="size-4" /> : <Lock className="size-4" />}
             </button>
           </Tip>
         )}
@@ -678,29 +683,28 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
                   ref={setWordsBox}
                   onClick={mark}
                   // With no title, the short first line is the title: the meta line goes right under it.
-                  style={lead && !writing && meta ? ({ '--meta': JSON.stringify(meta) } as React.CSSProperties) : undefined}
+                  style={lead && meta ? ({ '--meta': JSON.stringify(meta) } as React.CSSProperties) : undefined}
                   className={cn(
                     'private-text relative',
                     // The ::after keeps the meta line's room; MetaUnderLead draws its words over it.
-                    lead && !writing && !!meta && '[&_.tiptap.ProseMirror>:first-child]:after:text-transparent [&_.tiptap.ProseMirror>:first-child]:after:select-none [&_.tiptap.ProseMirror>:first-child]:after:mt-3 [&_.tiptap.ProseMirror>:first-child]:after:mb-9 [&_.tiptap.ProseMirror>:first-child]:after:block [&_.tiptap.ProseMirror>:first-child]:after:font-sans [&_.tiptap.ProseMirror>:first-child]:after:text-meta [&_.tiptap.ProseMirror>:first-child]:after:font-normal [&_.tiptap.ProseMirror>:first-child]:after:tracking-normal [&_.tiptap.ProseMirror>:first-child]:after:content-[var(--meta)]',
+                    lead && !!meta && '[&_.tiptap.ProseMirror>:first-child]:after:text-transparent [&_.tiptap.ProseMirror>:first-child]:after:select-none [&_.tiptap.ProseMirror>:first-child]:after:mt-3 [&_.tiptap.ProseMirror>:first-child]:after:mb-9 [&_.tiptap.ProseMirror>:first-child]:after:block [&_.tiptap.ProseMirror>:first-child]:after:font-sans [&_.tiptap.ProseMirror>:first-child]:after:text-meta [&_.tiptap.ProseMirror>:first-child]:after:font-normal [&_.tiptap.ProseMirror>:first-child]:after:tracking-normal [&_.tiptap.ProseMirror>:first-child]:after:content-[var(--meta)]',
                     // The column sets the margins, not the editor's own gutter.
                     '[--mf-padding:0] [&_.haligtree-editor-content]:p-0 [&_.ProseMirror>p:last-child:has(>br:only-child)]:hidden [&_.tiptap.ProseMirror>:first-child]:mt-0!',
                     // The short first line, set as the title is.
                     lead && '[&_.tiptap.ProseMirror>:first-child]:font-heading [&_.tiptap.ProseMirror>:first-child]:text-[2.25rem]! [&_.tiptap.ProseMirror>:first-child]:leading-[1.15]! [&_.tiptap.ProseMirror>:first-child]:font-semibold! [&_.tiptap.ProseMirror>:first-child]:tracking-[-0.022em] [&_.tiptap.ProseMirror>:first-child]:border-0! [&_.tiptap.ProseMirror>:first-child]:p-0! [&_.tiptap.ProseMirror>:first-child]:text-balance',
                   )}
                 >
-                  {lead && !writing && !!meta && <MetaUnderLead host={wordsBox} meta={meta} onTag={openTag} />}
+                  {lead && !!meta && <MetaUnderLead host={wordsBox} meta={meta} onTag={openTag} />}
                   <HaligtreeEditor
                     key={`${item.id}-${writing}`}
-                    // The note's own files, so its pictures load.
-                    host={window.api}
                     shape="document"
-                    readOnly={!writing}
                     typewriter
+                    // The same powers as its page in Pages; locked, words can still be kept.
+                    {...(own && shown
+                      ? notePowers({ table: item.type === 'capture' ? 'captures' : 'nuggets', id: item.id, kind: shown.kind ?? item.type, fields: shown.fields, text: shown.label, origin: item.type === 'capture' ? { captureId: item.id, from: item.id } : { captureId: shown.captureId, attribution: shown.attribution, from: item.id }, onOpen: (type, id) => (type === 'tag' ? openTag(id) : window.api.openInHome(type, id)), reading: !writing })
+                      : { host: window.api, readOnly: true, tokens: TAGS, onTokenClick: (token: { name: string; value: string }) => token.name === 'tag' && openTag(token.value) })}
                     // Where the click was, or the end when E asked.
                     autofocus={writing && caret.current === null ? 'end' : false}
-                    tokens={TAGS}
-                    onTokenClick={(token) => token.name === 'tag' && openTag(token.value)}
                     onReady={(editor) => {
                       reader.current = editor
                       // Locked or unlocked, the page stays where it was scrolled to.
@@ -717,9 +721,6 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
                       setPage((now) => (now && now.id === item.id ? { ...now, body: doc } : now))
                       save(item, doc, editor)
                     }}
-                    // Writing keeps the selection bar, so a highlight or a link is a
-                    // selection away; reading has nothing on the page but the words.
-                    toolbar={writing ? { fixed: false } : false}
                     handles={false}
                     slash={writing}
                     outline={false}

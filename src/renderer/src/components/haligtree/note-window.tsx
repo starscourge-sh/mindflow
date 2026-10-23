@@ -1,15 +1,14 @@
 import { useEffect, useState, type CSSProperties } from 'react'
-import { PropertyStrip, keepPropertyLine } from './property-strip'
 import { ReadsIn } from '@/lib/reads-in'
 import type { Editor, JSONContent } from '@tiptap/core'
 
-import { HaligtreeEditor, TAGS } from '../haligtree'
+import { HaligtreeEditor } from '../haligtree'
 import { useCaptures } from '../capture-list'
 import { CaptureProps, captureDots } from './captures-view'
 import { ItemDetail } from './items-view'
 import { NotePreview } from './note-preview'
 import { Mentions } from './mentions'
-import { selectionActions } from './selection-actions'
+import { notePowers } from './note-powers'
 import { Tip, Toaster, pin, useEscapeLeavesEditor } from './ui'
 import { NoteHeader } from './note-extras'
 import { ThoughtDock } from './thought-bar'
@@ -24,7 +23,7 @@ import { themeActions } from '@/lib/theme'
 import { chime } from '@/lib/sound'
 import { toast, typing } from './ui'
 import { EXITS, exit } from '@/lib/capture-links'
-import { noteLinkText, findCaptures, findHeadings, follow, headingIn } from '@/lib/capture-links'
+import { noteLinkText, follow, headingIn } from '@/lib/capture-links'
 import { toMarkdown } from '@/lib/export'
 import { useSameWords } from '@/lib/same-words'
 import { useAppearance, haligtree, type ItemFull } from '@/lib/haligtree'
@@ -203,17 +202,9 @@ function CaptureWindow({ id }: { id: string }): React.JSX.Element | null {
         <div className={boardShown ? 'hidden' : 'contents'}>
         <HaligtreeEditor
           key={`${id}-${rev}`}
-          host={window.api}
           typewriter
-          tokens={TAGS}
-          onTokenClick={(token) => token.name === 'tag' && elsewhere('tag', token.value)}
-          toolbar={{ fixed: false, selectionExtra: selectionActions({ captureId: id, from: id }) }}
-          documentId={`capture-${id}`}
-          belowTitle={<PropertyStrip table="captures" id={id} kind={capture.kind} />}
-          onPropertyLine={keepPropertyLine('captures', id)}
+          {...notePowers({ table: 'captures', id, kind: capture.kind, fields: capture.fields, text: capture.label, origin: { captureId: id, from: id }, onOpen: elsewhere })}
           defaultContent={(capture.body as JSONContent | string | null) ?? ''}
-          findNotes={findCaptures}
-          findHeadings={findHeadings}
           onOpenNote={(to, heading) => (to === id && heading ? headingIn('capture', id, heading) : follow(to, (type, at) => elsewhere(type, at, heading)))}
           after={<Mentions id={id} onOpen={elsewhere} />}
           onReady={(ready) => (words.ready(ready), setEditor(ready))}

@@ -1,3 +1,4 @@
+import { notePowers } from './note-powers'
 import { SimilarNotes } from './similar-notes'
 import { propertySorts } from '@/lib/property-sorts'
 import { ReadsIn } from '@/lib/reads-in'
@@ -8,7 +9,7 @@ import { Archive, Tag } from 'lucide-react'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import { motion } from 'motion/react'
 
-import { HaligtreeEditor, TAGS } from '../haligtree'
+import { HaligtreeEditor } from '../haligtree'
 import { ASKS, CAPTURE_TYPES, CaptureKindPicker, byKind, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { SourceFoot } from './source-page'
 import { voiceOf } from '@/lib/sources'
@@ -21,7 +22,7 @@ import { DatePicker } from './date-picker'
 import { Lineage } from './lineage'
 import { EventSource } from './calendar-events'
 import { Mentions } from './mentions'
-import { EXITS, NOT_OPEN, STATUS_ICON, captureKey, statusSaid, noteLinkText, exit, findCaptures, findHeadings, flying, takeExit, follow, unpromote, recallOffered } from '@/lib/capture-links'
+import { EXITS, NOT_OPEN, STATUS_ICON, captureKey, statusSaid, noteLinkText, exit, flying, takeExit, follow, unpromote, recallOffered } from '@/lib/capture-links'
 import type { SaveResult } from '../../../../main/captures'
 import { toMarkdown } from '@/lib/export'
 import { hoursSaid } from '@/lib/day-plan'
@@ -50,13 +51,11 @@ import { decideDay, openPass } from './pass'
 import { InboxLines } from './inbox-lines'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { keyFor } from '@/lib/keys'
-import { selectionActions } from './selection-actions'
 import { Tip } from '@/components/haligtree/ui'
 import { Button } from '@/components/ui/button'
 import BookIcon from '@/components/ui/book-icon'
 import TrashIcon from '@/components/ui/trash-icon'
 import { Aliases, KindFields, LocalGraph, NoteHeader, TopicName } from './note-extras'
-import { PropertyStrip, keepPropertyLine } from './property-strip'
 import { ListSearch, NoteRail, PaneButtons, Peek, matches } from './note-list'
 import { archive, changeKind, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
 import { askBook } from '@/lib/books'
@@ -708,18 +707,10 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
             <div className={boardShown ? 'hidden' : 'contents'}>
             <HaligtreeEditor
               key={`${open.id}-${rev}`}
-              host={window.api}
               typewriter
-              tokens={TAGS}
-              onTokenClick={(token) => token.name === 'tag' && onOpen?.('tag', token.value)}
-              toolbar={{ fixed: false, selectionExtra: selectionActions({ captureId: open.id, from: open.id }) }}
-              documentId={`capture-${open.id}`}
-              belowTitle={<PropertyStrip table="captures" id={open.id} kind={meta.kind} fields={meta.fields} text={meta.label} />}
-              onPropertyLine={keepPropertyLine('captures', open.id)}
+              {...notePowers({ table: 'captures', id: open.id, kind: meta.kind, fields: meta.fields, text: meta.label, origin: { captureId: open.id, from: open.id }, onOpen: (type, id) => onOpen?.(type, id) })}
               onTitleOut={(title) => !onBoard.current && sayTitle(title)}
               defaultContent={(open.body as JSONContent | string | null) ?? ''}
-              findNotes={findCaptures}
-              findHeadings={findHeadings}
               onOpenNote={(link, heading) => follow(link, (type, id) => (type === 'capture' ? pick(id) : onOpen?.(type, id)), heading)}
               after={<ReadsIn apart reading={!later}>
                 {/* What sits under the words (its source, what links here) comes in whole, once its reads are in: a part arriving a beat late moved the foot from the page's bottom up under the words. */}

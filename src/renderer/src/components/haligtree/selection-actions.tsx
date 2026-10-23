@@ -37,7 +37,7 @@ function Tip({ does, keys, children }: { does: string; keys: string; children: R
  * Capture and Idea open a small card by the words to reword them first
  * (reword.tsx); ⌘-click, or ⌘↵ with the words selected, keeps them as they are.
  */
-export function selectionActions(origin: Origin) {
+export function selectionActions(origin: Origin, { reading = false }: { reading?: boolean } = {}) {
   return (editor: Editor): React.JSX.Element => {
     // Known to the keys: ⌃⌘C, ⌃⌘I and ⌘↵ on these words lift them out of this note.
     host(editor, origin)
@@ -73,6 +73,8 @@ export function selectionActions(origin: Origin) {
             <Gem /> <span className="tiptap-button-text">Gem</span>
           </button>
           </Tip>
+          {/* Locked for reading, words are kept, never changed: no tasks or pages made out of its lines. */}
+          {!reading && <>
           {/* Several lines picked: a task each, each linked to its line, which becomes a checklist line ticked with it. */}
           <TaskButton editor={editor} origin={origin} button={button} words={words} />
           {/* Dump mode: several lines picked, a capture each, kind and tags read from each line. */}
@@ -97,6 +99,7 @@ export function selectionActions(origin: Origin) {
             </TooltipTrigger>
             <TooltipContent>Share with a new page<span className="block opacity-70">The words stay here and live there too: edit either</span></TooltipContent>
           </Tooltip>
+          </>}
         </ToolbarGroup>
       </>
     )

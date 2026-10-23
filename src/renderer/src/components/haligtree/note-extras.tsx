@@ -565,7 +565,8 @@ function PageWidthMenu({ width: everywhere }: { width: PageWidth }): React.JSX.E
   )
 }
 
-const TOOL = 'flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground [&_svg]:size-4'
+/** A note's header button, the same in every surface a note is shown in (its page, its window, a board, reading). */
+export const TOOL = 'flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground [&_svg]:size-4'
 
 /**
  * The row over an open note: where it sits in the list on the left; on the
@@ -617,7 +618,7 @@ export function NoteHeader({ left, type = 'capture', edited, captured, made = 'C
           // On the right even when there is no list position to its left.
           <div className="ml-auto flex min-w-0 items-center gap-0.5">
             <Tip label={moment(at, 'dddd')}>
-              <button type="button" aria-label={said} onClick={open} className="mr-1 hidden shrink-0 rounded-md @[26rem]/head:block px-1.5 py-1 text-xs whitespace-nowrap text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+              <button type="button" aria-label={said} onClick={open} className="mr-1 hidden shrink-0 rounded-md @[26rem]/head:block px-1.5 py-1 text-meta whitespace-nowrap text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
                 <span className="hidden @[30rem]/head:inline">{said}</span>
                 <span className="@[30rem]/head:hidden">{short}</span>
               </button>

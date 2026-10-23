@@ -1,3 +1,4 @@
+import { notePowers } from './note-powers'
 import { openExpanded } from '../note-link/expanded-note'
 import { propertySorts } from '@/lib/property-sorts'
 import { ReadsIn } from '@/lib/reads-in'
@@ -13,15 +14,14 @@ import { Archive, ArrowLeft, Calendar, Plus, SquareDashed } from 'lucide-react'
 
 import { Unfold } from './glide'
 
-import { HaligtreeEditor, TAGS } from '../haligtree'
+import { HaligtreeEditor } from '../haligtree'
 import { textOf } from '../rot-cards'
 import { firstLineOf } from '@/extensions/tokens'
-import { selectionActions } from './selection-actions'
 import { ReadThrough } from './read-through'
 import { enqueue } from '@/lib/reading-queue'
 import { CAPTURE_TYPES, CaptureKindPicker, asksFor, byKind, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { age } from '../capture-list'
-import { findCaptures, findHeadings, follow, noteLinkText, recallOffered } from '@/lib/capture-links'
+import { follow, noteLinkText, recallOffered } from '@/lib/capture-links'
 import { splitTags, unloaded, unread, useLastAsked, useLive, haligtree, whenInLine, type Item, type ItemFull } from '@/lib/haligtree'
 import { exampleIdeas, exampleWriting } from '@/lib/examples'
 import { Example } from './example'
@@ -50,7 +50,6 @@ import BookIcon from '@/components/ui/book-icon'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import AlarmClockPlusIcon from '@/components/ui/alarm-clock-plus-icon'
 import { Aliases, KindFields, LocalGraph, NoteHeader } from './note-extras'
-import { PropertyStrip, keepPropertyLine } from './property-strip'
 import { ListSearch, NoteList, NoteRail, PaneButtons, Peek, matches, type Entry } from './note-list'
 import { archive, changeKind, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
 import { openApart } from '@/lib/apart'
@@ -783,18 +782,10 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
         ) : (
         <HaligtreeEditor
           key={restored?.rev ?? 0}
-          host={window.api}
-          tokens={TAGS}
           // A tag opens its page: everything carrying it.
-          onTokenClick={(token) => token.name === 'tag' && onOpen?.('tag', token.value)}
-          toolbar={{ fixed: false, selectionExtra: selectionActions({ captureId: item.captureId ?? undefined, attribution: item.attribution, from: item.id }) }}
-          documentId={`item-${item.id}`}
-          belowTitle={<PropertyStrip table="nuggets" id={item.id} kind={item.kind} fields={item.fields} text={item.title} />}
-          onPropertyLine={keepPropertyLine('nuggets', item.id)}
+          {...notePowers({ table: 'nuggets', id: item.id, kind: item.kind, fields: item.fields, text: item.title, origin: { captureId: item.captureId ?? undefined, attribution: item.attribution, from: item.id }, onOpen: (type, id) => onOpen?.(type, id) })}
           onTitleOut={showTopTitle}
           defaultContent={((restored ? restored.body : item.body) as JSONContent | string | null) ?? ''}
-          findNotes={findCaptures}
-          findHeadings={findHeadings}
           onOpenNote={(link, heading) => onOpen && follow(link, onOpen, heading)}
           after={<ReadsIn apart reading={!later} data-apart="foot">
             {/* What sits under the words (its source, what links here) comes in whole, once its reads are in: a part arriving a beat late moved the foot from the page's bottom up under the words. */}

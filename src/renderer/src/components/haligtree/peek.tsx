@@ -100,7 +100,8 @@ export function BesidePeek({ menu: find, row, fresh, slashed = false, children }
       if (beside) {
         // Level with the chosen row, slid up or down to stay in the window.
         x = beside === 'right' ? right : left
-        const at = row(menu)?.getBoundingClientRect().top ?? box.top
+        // A row scrolled out of the menu's own list is held to the menu's edge, never left floating where it was.
+        const at = Math.min(Math.max(row(menu)?.getBoundingClientRect().top ?? box.top, box.top), box.bottom - 24)
         y = Math.min(Math.max(edge, at - 8), innerHeight - edge - height)
       } else {
         // A window too narrow for either side: under the menu, or over it.
@@ -117,9 +118,16 @@ export function BesidePeek({ menu: find, row, fresh, slashed = false, children }
     const watch = new ResizeObserver(place)
     const menu = find()
     if (menu) watch.observe(menu)
-    addEventListener('scroll', place, true)
+    // The menu moved, not resized: the page scrolled and its popup was placed
+    // again by the caret (a style change, a moment after the scroll). Followed
+    // here, so the card never stays where the menu used to be.
+    const moved = new MutationObserver(place)
+    for (let at: HTMLElement | null = menu; at && at !== document.body; at = at.parentElement) moved.observe(at, { attributes: true, attributeFilter: ['style'] })
+    const later = (): void => void requestAnimationFrame(place)
+    const scrolled = (): void => (place(), later())
+    addEventListener('scroll', scrolled, true)
     addEventListener('resize', place)
-    return () => (cancelAnimationFrame(frame), watch.disconnect(), removeEventListener('scroll', place, true), removeEventListener('resize', place))
+    return () => (cancelAnimationFrame(frame), watch.disconnect(), moved.disconnect(), removeEventListener('scroll', scrolled, true), removeEventListener('resize', place))
   })
   return createPortal(
     <div ref={card} data-slash-peek={slashed ? '' : undefined} data-menu-peek={slashed ? undefined : ''} role="tooltip"

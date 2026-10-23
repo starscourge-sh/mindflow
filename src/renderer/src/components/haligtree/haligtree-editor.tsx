@@ -1794,8 +1794,9 @@ function Surface({
         )}
 
         {selectionItems !== false && (
-          <SelectionMenu editor={editor}>
-            {selectionItems ?? defaultSelection}
+          <SelectionMenu editor={editor} reading={readOnly && toolbar !== false && !!toolbar?.selectionExtra}>
+            {/* Locked: nothing to format, only the host's ways to keep the words. */}
+            {readOnly ? null : selectionItems ?? defaultSelection}
             {/* The host's own actions on a selection, after the editor's. */}
             {toolbar !== false && toolbar?.selectionExtra && editor ? toolbar.selectionExtra(editor) : null}
           </SelectionMenu>

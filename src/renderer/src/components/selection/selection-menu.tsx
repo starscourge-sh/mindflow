@@ -65,7 +65,9 @@ const wholeNote = (state: EditorState): boolean =>
  * When the editor's own box is narrower than the bar (a large interface size
  * in a small window) its buttons drop their words and keep their icons.
  */
-function useFloat(editor: Editor | null) {
+function useFloat(editor: Editor | null, reading = false) {
+  const readingNow = useRef(reading)
+  readingNow.current = reading
   const bar = useRef<HTMLDivElement>(null)
   const [tight, setTight] = useState(false)
   const full = useRef(0)
@@ -140,14 +142,14 @@ function useFloat(editor: Editor | null) {
   // A selection is offered the bar once it has lasted a moment with no key
   // since; ⌘A then ⌫ is gone before then, so the bar never flashes up.
   const shouldShow = useMemo<BubbleMenuProps['shouldShow']>(() => (props) => {
-    if (!showFor(props)) return false
+    if (!showFor(props, readingNow.current)) return false
     const { editor: instance, state } = props
     if (!wholeNote(state)) return true
     const since = performance.now() - held.lastKey.at
     if (since >= SETTLE) return true
     clearTimeout(held.later.timer)
     held.later.timer = window.setTimeout(() => {
-      if (instance.isDestroyed || !showFor({ ...props, state: instance.state })) return
+      if (instance.isDestroyed || !showFor({ ...props, state: instance.state }, readingNow.current)) return
       if (performance.now() - held.lastKey.at < SETTLE) return
       instance.view.dispatch(instance.state.tr.setMeta('selectionMenu', 'show'))
       instance.view.dispatch(instance.state.tr.setMeta('selectionMenu', 'updatePosition'))
@@ -184,10 +186,11 @@ const SETTLE = 180
 
 // A node selection - an image, a rule, a card - is not text to format,
 // and a code block takes no marks. ⌘A's pick of the whole note is words too.
-const showFor = ({ editor: instance, state }: Parameters<NonNullable<BubbleMenuProps['shouldShow']>>[0]): boolean =>
+// Locked for reading (`reading`), words can still be picked to keep.
+const showFor = ({ editor: instance, state }: Parameters<NonNullable<BubbleMenuProps['shouldShow']>>[0], reading = false): boolean =>
   (state.selection instanceof TextSelection || (state.selection instanceof AllSelection && state.doc.textContent.trim().length > 0)) &&
   !state.selection.empty &&
-  instance.isEditable &&
+  (instance.isEditable || reading) &&
   !instance.isActive('codeBlock')
 
 /**
@@ -205,12 +208,15 @@ const showFor = ({ editor: instance, state }: Parameters<NonNullable<BubbleMenuP
  */
 export function SelectionMenu({
   editor,
-  children
+  children,
+  reading = false
 }: {
   editor: Editor | null
   children: ReactNode
+  /** Shown on a note locked for reading too: only keeping actions come in. */
+  reading?: boolean
 }) {
-  const { bar, tight, options, reference, appendTo, shouldShow } = useFloat(editor)
+  const { bar, tight, options, reference, appendTo, shouldShow } = useFloat(editor, reading)
   // Its controls are drawn only while words are selected. Mounted all along
   // they redrew on every key, and each redraw while typing made React measure
   // the caret through the whole note.

@@ -1,3 +1,4 @@
+import { TOOL } from './note-extras'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import type { Editor, JSONContent } from '@tiptap/core'
@@ -187,7 +188,6 @@ export function useBoard(table: NoteTable, id: string | undefined, editor: Edito
 
 // --- the board
 
-const TOOL = 'flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground [&_svg]:size-4'
 const cardId = (lane: number, at: number): string => `card:${lane}:${at}`
 const laneId = (lane: number): string => `lane:${lane}`
 
