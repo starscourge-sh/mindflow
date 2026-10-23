@@ -126,10 +126,15 @@ test('a new folder that only showed the welcome is replaced; one with notes neve
   const empty = new DatabaseSync(join(to, 'haligtree.db'))
   empty.exec('create table captures (id text primary key, body text); create table settings (key text primary key, value text)')
   empty.prepare('insert into settings values (?, ?)').run('theme', '"dark"')
+  // The one line typed into the welcome is not a book of notes of its own, and comes along.
+  empty.prepare('insert into settings values (?, ?)').run('setup', JSON.stringify({ made: { firstId: 'welcome-1' } }))
+  empty.prepare('insert into captures values (?, ?)').run('welcome-1', 'my first line')
   empty.close()
   assert.ok(notSetUp(to))
   assert.ok(moveOldIn(appData, to, env(appData, root), false))
-  assert.equal(count(join(to, 'haligtree.db')), 30)
+  assert.equal(count(join(to, 'haligtree.db')), 31)
+  assert.equal((all(join(to, 'haligtree.db'), "select body from captures where id = 'welcome-1'")[0] as { body: string })?.body, 'my first line')
+  for (const left of readdirSync(appData)) assert.ok(['old-copy', 'new'].includes(left), `the folder replaced is gone: ${left}`)
   for (const db of open) db.close()
 
   const mine = mkdtempSync(join(tmpdir(), 'haligtree-old-'))

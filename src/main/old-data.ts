@@ -57,17 +57,57 @@ const isSqlite = (file: string): boolean => {
 const savedAt = (file: string): number =>
   Math.max(...[file, `${file}-wal`].map((one) => (existsSync(one) ? statSync(one).mtimeMs : 0)))
 
-/** Anything of yours in a database: a capture, something kept, a task (onboarding.ts, hasData). Unreadable counts as yours. */
+/** The first capture the welcome made ("What's on your mind?"), kept in its settings (onboarding.ts, Setup.made.firstId). */
+function welcomeCapture(db: DatabaseSync, schema = 'main'): string | null {
+  try {
+    const row = db.prepare(`select value from ${schema}.settings where key = 'setup'`).get() as { value: string } | undefined
+    const id = row && (JSON.parse(row.value) as { made?: { firstId?: unknown } }).made?.firstId
+    return typeof id === 'string' ? id : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Anything of yours in a database: a capture, something kept, a task
+ * (onboarding.ts, hasData), but not the one line the welcome asked for, which
+ * is carried over instead. Unreadable counts as yours.
+ */
 function hasNotes(file: string): boolean {
   let db: DatabaseSync | undefined
   try {
     db = new DatabaseSync(file, { readOnly: true })
     const tables = new Set((db.prepare("select name from sqlite_master where type = 'table'").all() as { name: string }[]).map((row) => row.name))
-    return ['captures', 'nuggets', 'tasks'].some((table) => tables.has(table) && !!db!.prepare(`select 1 from "${table}" limit 1`).get())
+    const first = tables.has('settings') ? welcomeCapture(db) : null
+    if (tables.has('captures') && db.prepare('select 1 from captures where id is not ? limit 1').get(first)) return true
+    return ['nuggets', 'tasks'].some((table) => tables.has(table) && !!db!.prepare(`select 1 from "${table}" limit 1`).get())
   } catch {
     return true
   } finally {
     db?.close()
+  }
+}
+
+/** The welcome's first capture, from the folder being replaced into the copy, so the line typed there is not lost. Gives back whether all went well. */
+function carryWelcome(from: string, to: string): boolean {
+  if (!existsSync(from) || !existsSync(to)) return true
+  const db = new DatabaseSync(to)
+  try {
+    db.prepare('attach database ? as was').run(from)
+    const id = welcomeCapture(db, 'was')
+    if (!id) return true
+    const cols = (table: string, schema: string): string[] =>
+      (db.prepare(`select name from pragma_table_info('${table}', '${schema}')`).all() as { name: string }[]).map((one) => one.name)
+    const theirs = new Set(cols('captures', 'was'))
+    const both = cols('captures', 'main').filter((one) => theirs.has(one)).map((one) => `"${one.replace(/"/g, '""')}"`).join(', ')
+    if (!both) return false
+    db.prepare(`insert or ignore into main.captures (${both}) select ${both} from was.captures where id = ?`).run(id)
+    return true
+  } catch (error) {
+    console.error('Old data: the welcome line could not be carried over:', error)
+    return false
+  } finally {
+    db.close()
   }
 }
 
@@ -208,13 +248,16 @@ export function bringIn(old: string, root: string): { databases: number; files: 
     }
     if (text !== was) writeFileSync(file, text)
   }
+  // The one line typed into the welcome, if the new folder had only that.
+  const carried = carryWelcome(join(root, 'haligtree.db'), join(temp, 'haligtree.db'))
   const moved: Moved = { from: old, at: new Date().toISOString() }
   writeFileSync(join(temp, MOVED), JSON.stringify(moved, null, 2))
   // 4. Into place in one step. A folder with no notes of its own (a launch that only showed the welcome) is set aside first, then removed.
   const aside = `${root}.unused-${Date.now()}`
   if (existsSync(root)) renameSync(root, aside)
   renameSync(temp, root)
-  rmSync(aside, { recursive: true, force: true })
+  // Kept beside it if the welcome's line could not be carried over, so it is not lost.
+  if (carried) rmSync(aside, { recursive: true, force: true })
   return { databases, files: files.length, links }
 }
 

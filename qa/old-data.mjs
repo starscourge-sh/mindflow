@@ -69,8 +69,6 @@ const hashFolder = (root) => {
 }
 const before = hashFolder(OLD)
 
-// 2. The new build, on an empty folder (opened once already would be the same), with the old one beside it.
-process.env.HALIGTREE_OLD_DATA = OLD
 const listNotes = (page) => page.evaluate(async () => (await window.api.captures.list()).map((one) => one.label ?? one.title ?? ''))
 const homeOf = async (electron) => {
   for (let i = 0; i < 300; i++) {
@@ -80,6 +78,17 @@ const homeOf = async (electron) => {
   }
   return null
 }
+// 2. The new build opened once before the old folder is found (a friend who tried it first): it starts empty.
+{
+  const qa = await open()
+  const labels = await listNotes(qa.page)
+  check('the new build opened alone starts empty', labels.length === 0, labels.length)
+  await quit(qa.electron)
+}
+check('so it made a folder of its own', existsSync(join(process.env.QA_DATA, 'haligtree.db')))
+
+// 3. Opened again with the old folder there: the notes come in.
+process.env.HALIGTREE_OLD_DATA = OLD
 {
   const qa = await open()
   const labels = await listNotes(qa.page)
@@ -88,7 +97,7 @@ const homeOf = async (electron) => {
   const said = await home?.waitForFunction(() => document.body.innerText.includes('Your notes from Vigil are here'), null, { timeout: 20000 }).then(() => true).catch(() => false)
   check('said once, in the main window', said)
   const text = await home?.evaluate(() => document.body.innerText.match(/Your notes from Vigil[^\n]*/)?.[0] ?? '')
-  check('names where the old copy is kept, no em dash', text.includes(OLD.split('/').pop()) && !text.includes('—'), text)
+  check('names where the old copy is kept, no em dash', text.includes(OLD.split('/').pop()) && !text.includes('\u2014'), text)
   const body = await qa.page.evaluate(async () => {
     const list = await window.api.captures.list()
     const one = list.find((row) => String(row.label ?? '').includes('Old era picture'))
@@ -108,7 +117,7 @@ const homeOf = async (electron) => {
 }
 check('the old folder is byte for byte as it was', hashFolder(OLD) === before)
 
-// 3. A second launch brings nothing in again and says nothing.
+// 4. A second launch brings nothing in again and says nothing.
 {
   const marker = JSON.parse(readFileSync(join(process.env.QA_DATA, 'moved-in.json'), 'utf8'))
   check('the move is marked told', marker.told === true)
