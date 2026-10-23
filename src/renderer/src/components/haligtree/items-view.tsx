@@ -502,6 +502,8 @@ export function ItemsView({ tier, focus, onOpen, only }: { tier: 'nugget' | 'art
         // Sent here for one note: the note is on show at once, and the list comes in whole beside it once read.
         apart={sent}
         title={tier === 'nugget' ? 'Gems' : 'Pages'}
+        // Writing, or only its questions: what the list holds, so at the line's left before the count, away from New page and the views.
+        lead={writing && !chosen.length ? <Chips className="shrink-0" options={[{ id: 'all', label: 'All' }, { id: 'questions', label: 'Questions' }]} on={(id) => id === asks} pick={(id) => (setAsks(id as 'all' | 'questions'), setCursor(-1))} /> : undefined}
         // Every note on show, a folded group's too.
         count={chosen.length || groups.reduce((sum, [, list]) => sum + list.length, 0)}
         // What is picked always shows: the buttons may fold into ⋯ in a narrow window, the count never does.
@@ -563,8 +565,6 @@ export function ItemsView({ tier, focus, onOpen, only }: { tier: 'nugget' | 'art
                   </Button>
                 </Tip>
               )}
-              {/* Writing, or only its questions: always both chips, in the same place. */}
-              {writing && <Chips className="shrink-0" options={[{ id: 'all', label: 'All' }, { id: 'questions', label: 'Questions' }]} on={(id) => id === asks} pick={(id) => (setAsks(id as 'all' | 'questions'), setCursor(-1))} />}
               {/* One button, as wide for either word, so nothing beside it moves when the chip changes. */}
               {writing && (
                 <Button variant="ghost" size="sm" data-new-writing={questionsOnly ? 'question' : 'article'}
