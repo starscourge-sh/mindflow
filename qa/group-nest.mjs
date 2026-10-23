@@ -53,7 +53,8 @@ try {
   await wait(800)
 
   // 42: a faint panel and a hairline, always; deeper while pointed at.
-  const panel = () => h.evaluate(() => { const one = document.querySelector('[data-group-block="dp"] > [data-panel]'); const s = one && getComputedStyle(one); return s && { bg: s.backgroundColor, ring: s.boxShadow, opacity: s.opacity } })
+  // The panel is drawn in three parts (so its edges can glide while something is carried): the middle one's fill and side hairline.
+  const panel = () => h.evaluate(() => { const box = document.querySelector('[data-group-block="dp"] > [data-panel]'); const one = box?.querySelector('[data-panel-part="middle"]'); const s = one && getComputedStyle(one); return s && { bg: s.backgroundColor, ring: `${s.borderLeftWidth} ${s.borderLeftColor}`, opacity: getComputedStyle(box).opacity } })
   await h.mouse.move(5, 5)
   await wait(400)
   const rest = await panel()
