@@ -16,6 +16,9 @@ const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${SUR
 const c = await sandbox({ width: 1300, height: 900 })
 const { h, page: box, go, v } = c
 const table = []
+// The Inbox groups by date to start; ⌘A past "Show N more" is about its kind islands, a choice in Display.
+await h.evaluate(() => localStorage.setItem('view:captures:Inbox', JSON.stringify({ sort: 'newest', group: 'kind', filter: {} })))
+await h.reload(); await h.waitForTimeout(1800)
 
 // What a surface's window shows, read the same way everywhere.
 const ROW_ANY = '[data-row][data-id], [data-pick], [data-drag-open]'
@@ -34,7 +37,7 @@ const rowAt = (w, root, key) => w.locator(`${root} [data-row][data-id="${key}"],
 const menu = (w) => w.evaluate(() => [...document.querySelectorAll('[role=menu] [role=menuitem]')].map((one) => one.textContent.trim()))
 const bodyHas = (w, re) => w.evaluate((src) => new RegExp(src).test(document.body.innerText), re.source)
 
-async function surface(name, w, root, open, { click = true, rows: only, emptied } = {}) {
+async function surface(name, w, root, open, { click = true, rows: only, emptied, kept = false } = {}) {
   const read = (w, root) => readAt(w, root, only)
   await open()
   // (Escape with nothing to close puts quick capture away, as it should: only the main window gets it.)
@@ -80,7 +83,8 @@ async function surface(name, w, root, open, { click = true, rows: only, emptied 
   // Many at once take a moment to leave: given up to five seconds.
   const t0 = Date.now()
   do { await w.waitForTimeout(300); s = await read(w, root) } while (s.rows.includes(first) && Date.now() - t0 < 5000)
-  const gone = !s.rows.includes(first)
+  // The Day page keeps what happened that day: a row moved to the Bin stays, struck through, saying so.
+  const gone = !s.rows.includes(first) || (kept && await w.evaluate(([root, first]) => /In the Bin/.test(document.querySelector(`${root} [data-pick="${first}"], ${root} [data-drag-open="${first}"]`)?.textContent ?? ''), [root, first]))
   if (!gone) console.log(`  ${name}: still shown after ⌫: ${first}`)
   row.push(`⌫:${gone ? 'gone' : 'stayed'}${s.toast ? ` “${s.toast.slice(0, 60)}”` : ''}`)
   check(`${name}: ⌫ moves them to the Bin with a notice that says so`, gone && /to the Bin/.test(s.toast) && /Undo/.test(s.toast), s.toast)
@@ -115,12 +119,13 @@ try {
   for (const one of open.slice(-2)) await h.evaluate((id) => window.api.haligtree('notes:archive', 'captures', [id], true), one.id).catch(() => {})
   // Everything is the Inbox with "Show sorted too" on, Home the Day page: their pages are named so.
   const page = (id) => `[data-page="${({ all: 'inbox', home: 'day' })[id] ?? id}"]`
-  const main = async (id) => { await go(id); await h.waitForTimeout(400) }
+  // The Inbox asked for from "Show sorted too" stays as it is (the page you are on); from elsewhere it opens plain.
+  const main = async (id) => { if (id === 'inbox') await go('day'); await go(id); await h.waitForTimeout(400) }
   const MAIN = [
     ['Inbox, sorted too', 'all'], ['Inbox', 'inbox'], ['Archived', 'archived'], ['Gems', 'nuggets'], ['Pages', 'articles'],
     ['Questions', 'questions'], ['Goals', 'goals'], ['Tasks', 'today'], ['Upcoming', 'upcoming'], ['Routines', 'routines'], ['Later', 'later'], ['Today page', 'day']
   ]
-  for (const [name, id] of MAIN) await surface(name, h, page(id), () => main(id), { click: id !== 'day', emptied: id === 'inbox' })
+  for (const [name, id] of MAIN) await surface(name, h, page(id), () => main(id), { click: id !== 'day', emptied: id === 'inbox', kept: id === 'day' })
 
   // Quick capture's lists: its Inbox, and Saved.
   await box.evaluate(() => window.api.showPrompt())

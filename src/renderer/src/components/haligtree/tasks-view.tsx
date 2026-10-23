@@ -851,7 +851,12 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   // the count; then "Write out my day", the same button in the same place on every tab (greyed where it
   // does not apply) reading "Back to the list" while the day is written out; then ⋯ for the rest.
   // Nothing in it comes or goes after a click, so nothing moves under the pointer.
-  const lead = <Chips options={TASK_TABS} on={(id) => id === mode} pick={(id) => id !== mode && onOpen?.('view', id)} className="flex-nowrap" />
+  // Their pill on the list's box edge and their words on its ink edge, as every row of tabs (qa/list-edges.mjs).
+  const lead = (
+    <div data-list-tabs className="flex" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink))' }}>
+      <Chips options={TASK_TABS} on={(id) => id === mode} pick={(id) => id !== mode && onOpen?.('view', id)} className="flex-nowrap" />
+    </div>
+  )
   const writeOut = (
     <Tip label={mode !== 'today' ? 'Today’s tasks only: open the Today tab' : written ? 'Back to your tasks as a list' : 'Your tasks as a page you write, a line each'}>
       {/* Both labels hold the room, so the button is one width whichever it says. */}

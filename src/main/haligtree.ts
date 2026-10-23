@@ -4014,12 +4014,6 @@ export function registerHome(): void {
   ipcMain.handle('haligtree:home:opened', (_event, type: string, id: string) =>
     void db.prepare('insert into note_opens (id, type, at) values (?, ?, ?) on conflict(id) do update set at = excluded.at, type = excluded.type').run(id, type, now()))
 
-  // Every note in view, as a shelf shows it: newest change first.
-  const NOTES = `select id, 'capture' as type, ${LABEL} as title, kind, private, coalesce(edited_at, captured_at) as at, captured_at as made, body, attribution as who from captures where status != 'discarded' and archived_at is null
-    union all select id, tier, coalesce(nullif(title, ''), label('', body)), kind, private, coalesce(updated_at, created_at), created_at, body, attribution from nuggets where archived_at is null and superseded_by is null and tier != 'card'`
-  // Who said it, only for a quote: its card signs it.
-  const strip = ({ type, id, title, kind, private: hidden, at, who }: Shelved): Shelved => ({ type, id, title, kind, private: hidden, at, ...(kind === 'quote' && who ? { who } : {}) })
-
   // A Check back on its day, not answered since: one of the kind, or a page
   // (a question page among them) tagged #checkback and given its day and its
   // question. Each comes back with its question, to be answered in place. Oldest due first; a date said in words
@@ -4048,79 +4042,4 @@ export function registerHome(): void {
     return one
   })
 
-  ipcMain.handle('haligtree:home', () => {
-    const { blackout, hidePrivate } = gate()
-    const all = db.prepare(NOTES).all() as (Shelved & { made: string; body: string | null })[]
-    const byId = new Map(all.map((row) => [row.id, row]))
-    // Asked for, so private ones show (blurred); offered, so they wait out quiet hours.
-    const offered = (row: Shelved): boolean => !(hidePrivate && row.private)
-    const opened = (db.prepare('select id, at from note_opens order by at desc limit 24').all() as { id: string; at: string }[])
-      .flatMap((open) => { const row = byId.get(open.id); return row && row.type !== 'question' && row.type !== 'goal' ? [{ ...strip(row), at: open.at }] : [] })
-    const edited = [...all].filter((row) => row.type !== 'question' && row.type !== 'goal').sort((a, b) => b.at.localeCompare(a.at)).slice(0, 16).map(strip)
-
-    // A note caught on this day in an earlier year: the first of them, so it holds all day.
-    const today = dayKey()
-    const memory = blackout ? null : all
-      .filter((row) => row.type === 'capture' && offered(row) && !row.private && dayKey(row.made).slice(5) === today.slice(5) && dayKey(row.made).slice(0, 4) < today.slice(0, 4))
-      .sort((a, b) => a.made.localeCompare(b.made))[0]
-    const years = memory ? dayjs().year() - dayjs(memory.made).year() : 0
-
-    // Due for review now, and kept things longest unseen: the hints' pool, read without picking.
-    // Due is Review's own list, its daily limit and paused tags kept, so Home never offers a card Review would not.
-    const due = (reviewQueue() as { id: string }[]).slice(0, 12)
-      .flatMap(({ id }) => { const row = byId.get(id); return row && offered(row) ? [strip(row)] : [] })
-    // Unseen means old too: made over three weeks ago and not opened for as long, so nothing new reads "not seen in a while".
-    const unseen = blackout ? [] : (db.prepare("select id from nuggets where tier not in ('question', 'goal', 'card') and suspended = 0 and archived_at is null and superseded_by is null and private = 0 and created_at < ? and coalesce(last_visited_at, '') < ? and id not in (select id from note_opens where at >= ?) order by coalesce(last_visited_at, '') limit 8").all(ago(21), ago(21), ago(21)) as { id: string }[])
-      .flatMap(({ id }) => { const row = byId.get(id); return row && !due.some((one) => one.id === id) ? [strip(row)] : [] })
-    const article = all.filter((row) => row.type === 'article' && offered(row)).sort((a, b) => b.made.localeCompare(a.made))[0]
-
-    // Questions still held, each with its newest clue.
-    const questions = (db.prepare(`select n.id, (select body from glosses where item_id = n.id order by created_at desc limit 1) as clue,
-        (select created_at from glosses where item_id = n.id order by created_at desc limit 1) as clueAt
-      from nuggets n where tier = 'question' and closed_at is null and archived_at is null order by coalesce(clueAt, n.created_at) desc limit 12`).all() as { id: string; clue: string | null; clueAt: string | null }[])
-      .flatMap((one) => { const row = byId.get(one.id); return row ? [{ ...strip(row), clue: one.clue, at: one.clueAt ?? row.at }] : [] })
-
-    // The two tags used most in the last two months, each with what carries it.
-    const lately = all.filter((row) => row.made >= ago(60) || row.at >= ago(60))
-    const tagged = new Map<string, Shelved[]>()
-    for (const row of lately) {
-      let text = row.body ?? ''
-      try { text = plain(JSON.parse(text)) } catch { /* Markdown, as it is */ }
-      for (const tag of tagsIn(`${row.title} ${text}`)) tagged.set(tag, [...(tagged.get(tag) ?? []), strip(row)])
-    }
-    const colours = new Map((db.prepare('select tag, color from tag_meta').all() as { tag: string; color: string | null }[]).map((row) => [row.tag, row.color]))
-    const tags = [...tagged].filter(([, rows]) => rows.length >= 2).sort((a, b) => b[1].length - a[1].length).slice(0, 2)
-      .map(([tag, rows]) => ({ tag, color: colours.get(tag) ?? null, cards: rows.sort((a, b) => b.at.localeCompare(a.at)).slice(0, 12) }))
-
-    const monday = dayjs().startOf('week').toISOString()
-    const week = all.filter((row) => row.made >= monday && row.type !== 'question' && row.type !== 'goal').sort((a, b) => b.made.localeCompare(a.made)).slice(0, 16).map(strip)
-
-    // A few words after the first line, for the cards that have no picture: only for what is shown.
-    const excerpts = new Map<string, string>()
-    const excerpt = <T extends Shelved>(card: T): T & { excerpt: string } => {
-      if (!excerpts.has(card.id)) {
-        const raw = byId.get(card.id)?.body ?? ''
-        // Tags out first (the learn deck's tag): the line-marker trim below would leave one as a bare word.
-        const text = cardWords(raw).replace(/(?<=^|\s)#\p{L}[\p{L}\p{N}_/-]*/gmu, '')
-        const lines = text.split('\n').map((line) => line.replace(/^[#>*\-\s]+/, '').trim()).filter(Boolean)
-        // Never the title again: drop the lines the title already says (a
-        // name can be made from the first line or two), then any of its words.
-        const flat = (words: string): string => words.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
-        const name = flat(card.title)
-        while (lines.length && name.includes(flat(lines[0]))) lines.shift()
-        let rest = lines.join(' ')
-        if (name && flat(rest).startsWith(name)) rest = rest.slice(card.title.length).trim()
-        excerpts.set(card.id, cut(rest.replace(/^[:;,.\s]+/, ''), 220))
-      }
-      return { ...card, excerpt: card.private ? '' : excerpts.get(card.id)! }
-    }
-    const each = <T extends Shelved>(list: T[]): (T & { excerpt: string })[] => list.map(excerpt)
-    return {
-      opened: each(opened), edited: each(edited), due: each(due), unseen: each(unseen), questions, week: each(week),
-      returning: returning().filter(offered),
-      tags: tags.map((one) => ({ ...one, cards: each(one.cards) })),
-      memory: memory ? excerpt({ ...strip(memory), memory: years === 1 ? 'A year ago today' : `${years} years ago today` }) : null,
-      article: article ? excerpt(strip(article)) : null
-    }
-  })
 }

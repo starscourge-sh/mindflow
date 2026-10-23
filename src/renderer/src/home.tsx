@@ -325,7 +325,8 @@ export function Home(): React.JSX.Element {
       // Going where you already are is not a step: Back would have to undo it.
       // Nor is the section you are in, asked for again: what is open stays.
       // A day's, week's or month's page asked for by name goes to now, from any other day it is on.
-      if (here.id === next.id && (here.focus === next.focus || (next.focus === undefined && atNow(here))) && here.nonce === next.nonce) return trail
+      // A tab asked for (the Inbox's "Show sorted too", from an Everything link) is a change of its own.
+      if (here.id === next.id && (here.focus === next.focus || (next.focus === undefined && atNow(here))) && here.nonce === next.nonce && (next.tab === undefined || next.tab === here.tab)) return trail
       if (here.id === next.id && next.focus === undefined && !atNow(here)) chime(here.id === 'day' ? 'page' : 'season')
       // One sound a move: a place reached by something that already spoke (a map dot, ⌘K's Year) stays quiet.
       // A note opened on another page is heard as its page turn alone.

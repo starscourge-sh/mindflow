@@ -88,7 +88,9 @@ async function foldNotes() {
 
 try {
   await h.evaluate(() => Object.keys(localStorage).filter((k) => /^(view|islands):/.test(k)).forEach((k) => localStorage.removeItem(k)))
-  await h.reload(); await wait(1800)
+  // The Inbox groups by date to start; these routes are about its kind islands folded, a choice in Display.
+  await h.evaluate(() => { for (const key of ['view:captures:Inbox', 'view:prompt:captures']) localStorage.setItem(key, JSON.stringify({ sort: 'newest', group: 'kind', filter: key === 'view:prompt:captures' ? { status: ['open'] } : {} })) })
+  await h.reload(); await c.page.reload().catch(() => {}); await wait(1800)
   const caps = (await h.evaluate(() => window.api.captures.list())).filter((one) => one.kind === 'note' && one.status === 'open' && !one.archivedAt && !one.private)
     .sort((a, b) => b.capturedAt.localeCompare(a.capturedAt))
   const titled = caps.filter((one) => one.label.trim().length > 12 && !one.label.includes('#'))
@@ -259,9 +261,9 @@ try {
   }
 
   // 14. Spread over the page, a search cleared: the one looked at is back in view, the keyboard on it.
-  await h.evaluate(() => localStorage.setItem('view:captures:All captures', JSON.stringify({ pane: 'wide', wideDensity: 'list' })))
+  await h.evaluate(() => localStorage.setItem('view:captures:All captures', JSON.stringify({ pane: 'wide', wideDensity: 'list', group: 'kind' })))
   await h.reload(); await wait(1800)
-  // Everything is the Inbox with "Show sorted too" on: its own Display, kept as All captures'.
+  // Everything is the Inbox with "Show sorted too" on: its own Display, kept as All captures'. By kind, as it was: its last island holds notes, not tasks (a task opens in a pane of its own).
   await go('all'); await wait(1200)
   const last = h.locator('[data-page="inbox"] [data-row][data-id]').last()
   await last.click(); await wait(500)

@@ -480,10 +480,11 @@ export function NoteList({
     )
     const menued = entry.menu ? <RowMenu items={entry.menu}>{row}</RowMenu> : row
     // A tick of its own over the icon's room, a sibling of the row so a press on it never opens the row.
+    // At the room's start, not its middle: a task among notes starts on the same ink edge as their pictures.
     return entry.lead && !grid ? (
       <div className="relative">
         {menued}
-        <span className={`pointer-events-none absolute top-1/2 left-2 flex -translate-y-1/2 items-center justify-center *:pointer-events-auto ${density === 'compact' ? 'size-4' : 'size-9'}`}>{entry.lead}</span>
+        <span className={`pointer-events-none absolute top-1/2 left-2 flex -translate-y-1/2 items-center justify-start *:pointer-events-auto ${density === 'compact' ? 'size-4' : 'size-9'}`}>{entry.lead}</span>
       </div>
     ) : menued
   }

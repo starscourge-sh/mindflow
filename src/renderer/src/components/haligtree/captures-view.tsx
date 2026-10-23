@@ -506,7 +506,8 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
                 <Tip label={everything ? 'Every note and task, sorted or not. Off: only what waits' : 'What was sorted out of the Inbox too, and every task'}>
                   <label data-sorted-too className="flex h-7 cursor-default items-center gap-2 rounded-md px-2 text-control whitespace-nowrap text-foreground/85 hover:bg-accent/60">
                     <Switch checked={everything} onCheckedChange={(on) => (chime(on ? 'on' : 'off'), setChosen([]), setSortedToo(on))} aria-label="Show sorted too" />
-                    {!open && !task ? 'Show sorted too' : <span className="sr-only">Show sorted too</span>}
+                    {/* Its words only while the list has the page's width: beside a note (or one looked at, spread out) the switch alone. */}
+                    {!open && !task && !(spread && peek) ? 'Show sorted too' : <span className="sr-only">Show sorted too</span>}
                   </label>
                 </Tip>
               )}

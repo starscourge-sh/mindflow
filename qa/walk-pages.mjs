@@ -194,7 +194,9 @@ try {
   await h.evaluate(() => document.getElementById('walk-plant')?.remove())
 
   if (MODE === 'basic') {
-    // ⌘A on the lists grouped by kind: the whole list, one ⌘A, one ⌫, one ⌘Z.
+    // ⌘A on the lists grouped by kind (a choice in Display; they group by date to start): the whole list, one ⌘A, one ⌫, one ⌘Z.
+    await h.evaluate(() => { for (const key of ['view:captures:Inbox', 'view:captures:All captures']) localStorage.setItem(key, JSON.stringify({ sort: 'newest', group: 'kind', filter: {} })) })
+    await h.reload(); await h.waitForTimeout(1800)
     for (const [name, id] of [['Inbox', 'inbox'], ['Everything', 'all']]) {
       await go(id)
       const root = page(id)

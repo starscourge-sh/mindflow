@@ -68,9 +68,8 @@ const measure = (w, scope) => w.evaluate((scope) => {
   const add = (role, value) => { if (value === null || value === undefined) return; (out[role] ??= new Set()).add(value) }
   const header = root.querySelector(':scope > section > header, section > header')
   // A bar that leads with tabs (Tasks): the first tab's pill on the box edge, its word on the ink edge; else the count.
-  const leadTab = header?.querySelector('button[aria-pressed]')
-  if (leadTab && seen(leadTab.getBoundingClientRect())) { add('tab pill', x(leadTab.getBoundingClientRect().left)); add('tab words', ink(leadTab)) }
-  else if (header) { const count = [...header.querySelectorAll('span')].find((one) => /\d/.test(one.textContent) && seen(one.getBoundingClientRect())); if (count) add('header words', ink(count)) }
+  // (its tabs are measured with every row of tabs, below)
+  if (header && !header.querySelector('[data-list-tabs]')) { const count = [...header.querySelectorAll('span')].find((one) => /\d/.test(one.textContent) && seen(one.getBoundingClientRect())); if (count) add('header words', ink(count)) }
   for (const tabs of all('[data-task-lists], [data-list-tabs]')) { const first = tabs.querySelector('button'); if (first) { add('tab pill', x(first.getBoundingClientRect().left)); add('tab words', ink(first)) } }
   for (const form of all('form')) {
     if (!form.querySelector('input, [contenteditable]')) continue
