@@ -1,5 +1,5 @@
 // The Day page's writing looks like a place to type and takes the caret on
-// open: the "Today" row opens on it with the caret inside, typing saves the
+// open: the "Journal" row opens on it with the caret inside, typing saves the
 // day's page, and an empty day shows a box with an edge, room and a prompt
 // line, above the day's tasks. The Week page's writing is a box the same way.
 //
@@ -36,12 +36,12 @@ const box = (sel) => h.evaluate((sel) => {
 
 try {
   await v('settings:set', { sounds: false, hintRate: 0 })
-  // 1. From another page, the Today row: the Day page with the caret in its writing.
+  // 1. From another page, the Journal row: the Day page with the caret in its writing.
   await go('inbox')
-  await h.locator('nav [data-side-row][aria-label="Today"]').first().click()
+  await h.locator('nav [data-side-row][aria-label="Journal"]').first().click()
   await wait(1500)
   const today = await box('[data-day-write]')
-  check('1. the Today row opens the Day page', await h.evaluate(() => document.querySelector('[data-page]')?.getAttribute('data-page')) === 'day')
+  check('1. the Journal row opens the Day page', await h.evaluate(() => document.querySelector('[data-page]')?.getAttribute('data-page')) === 'day')
   check('1. its writing is a box with a visible edge', !!today && today.border >= 1 && today.edge !== today.fill, JSON.stringify(today))
   check('1. the caret is in it', !!today?.caret, JSON.stringify(today))
   const tasks = await h.evaluate(() => {

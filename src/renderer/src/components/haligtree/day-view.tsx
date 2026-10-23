@@ -15,7 +15,7 @@ import { sideMenu, useFullMenu } from './side-menu'
 import { exampleDay } from '@/lib/examples'
 import { Example } from './example'
 import { useKept } from '@/lib/nav'
-import { Island, Page, Rolling, Tags, Tip, typing, Pressed, quietly } from './ui'
+import { Island, Page, Rolling, Tags, Tip, typing, quietly } from './ui'
 import { PICKED_MARK, usePickMixed } from './pick-mixed'
 import { taskName } from '@/lib/tasks'
 import { DayBanner } from './scenery'
@@ -31,19 +31,19 @@ import { DayAhead } from './day-ahead'
 import { DayMoments } from './day-moments'
 import { useSeen } from '@/lib/reads-in'
 import { Versions } from './note-extras'
-import { ScaleSwitch, type Scale } from './periods-view'
+import { PeriodSteps, type Scale } from './periods-view'
 import { dayKey, dayName, noon } from '../../../../main/dates'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import CheckedIcon from '@/components/ui/checked-icon'
 import { useHere } from '@/lib/split'
-import { ArrowLeft, ArrowRight, Brain, CheckCircle2, Gem, Inbox, ListTodo } from '@/components/ui/icons'
+import { Brain, CheckCircle2, Gem, Inbox, ListTodo } from '@/components/ui/icons'
 
 /** A day's date, as you would say it: "Monday 5 October". */
 const named = (day: string): string => dayName(noon(day))
 const shift = (day: string, by: number): string => dayKey(noon(day).add(by, 'day'))
 
 /**
- * A page a day, the "Today" row: somewhere to write about the day on top, a
+ * A page a day, the "Journal" row: somewhere to write about the day on top, a
  * box that looks like one with the caret in it, then today's tasks under it,
  * then what the day held, written down by the app, not by you. Home folded
  * into it: what still matters from there sits at its foot (day-moments.tsx).
@@ -162,19 +162,11 @@ export function DayView({ onOpen, start, onScale, onView }: {
     <Page
       // The day's notes, its tasks and pins, and every part of the brief: drawn once all are in.
       waiting={!data || unloaded(tasks) || unloaded(pins)}
-      title={day === today ? "Today's page" : 'Day page'}
+      title="Journal"
+      // Day · Week · Month · Year, ← →, Today: in the same spot on all four pages (PeriodSteps); the day's own actions on the right.
+      lead={<PeriodSteps scale="day" onScale={onScale} atNow={day === today} go={(by) => go(by === 0 ? today : shift(day, by))} />}
       actions={
-        <span className="flex items-center gap-1">
-          <ScaleSwitch scale="day" onScale={onScale} />
-          {onScale && <span aria-hidden className="mx-1 h-4 w-px bg-border" />}
-          <Tip label="The day before  ←">
-            <Button variant="ghost" size="icon-sm" aria-label="The day before" onClick={() => go(shift(day, -1))}><ArrowLeft className="size-3.5" /></Button>
-          </Tip>
-          <Tip label="The day after  →">
-            <Button variant="ghost" size="icon-sm" aria-label="The day after" onClick={() => go(shift(day, 1))}><ArrowRight className="size-3.5" /></Button>
-          </Tip>
-          {/* Always here, greyed on today: nothing in the bar comes or goes as you step through the days. */}
-          <Button variant="ghost" size="sm" disabled={day === today} onClick={() => go(today)}>Today <Pressed keys="T" /></Button>
+        <span data-period-actions className="flex items-center gap-1">
           <Tip label="Name what this day is for, like Exam or Launch">
             <Button variant="ghost" size="sm" onClick={() => void markDay(day)}><FlagTriangleRight className="size-3.5" /> Mark</Button>
           </Tip>

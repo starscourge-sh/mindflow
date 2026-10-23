@@ -82,18 +82,38 @@ function useSteps(go: (by: -1 | 1 | 0) => void): void {
   })
 }
 
-function Steps({ name, now, atNow, go }: { name: string; now: string; atNow: boolean; go: (by: -1 | 1 | 0) => void }): React.JSX.Element {
+/** The jump back to now on each page, in its own words. */
+const NOW_SAID: Record<Scale, string> = { day: 'Today', week: 'This week', month: 'This month', year: 'This year' }
+
+/**
+ * The steady half of the bar on a Day, Week, Month or Year page, on its left:
+ * Day · Week · Month · Year, then ← and →, then the jump back to now. The
+ * same spot and the same widths on all four, so switching between them moves
+ * nothing under the pointer. The jump back keeps its own words ("This
+ * month" says more than "Now") with room kept for the widest of the four, so
+ * it is one width on every page. What each page adds goes in its own group at
+ * the bar's far right (the Page's `actions`).
+ */
+export function PeriodSteps({ scale, onScale, atNow, go }: { scale: Scale; onScale?: (scale: Scale) => void; atNow: boolean; go: (by: -1 | 1 | 0) => void }): React.JSX.Element {
+  const name = scale
   return (
-    <>
+    <span data-period-steps className="flex shrink-0 items-center gap-1">
+      <ScaleSwitch scale={scale} onScale={onScale} />
+      {onScale && <span aria-hidden className="mx-1 h-4 w-px bg-border" />}
       <Tip label={`The ${name} before  ←`}>
-        <Button variant="ghost" size="icon-sm" aria-label={`The ${name} before`} onClick={() => go(-1)}><ArrowLeft className="size-3.5" /></Button>
+        <Button variant="ghost" size="icon-sm" data-period-step="before" aria-label={`The ${name} before`} onClick={() => go(-1)}><ArrowLeft className="size-3.5" /></Button>
       </Tip>
       <Tip label={`The ${name} after  →`}>
-        <Button variant="ghost" size="icon-sm" aria-label={`The ${name} after`} onClick={() => go(1)}><ArrowRight className="size-3.5" /></Button>
+        <Button variant="ghost" size="icon-sm" data-period-step="after" aria-label={`The ${name} after`} onClick={() => go(1)}><ArrowRight className="size-3.5" /></Button>
       </Tip>
       {/* Always here, greyed on the present one: nothing in the bar comes or goes as you step. */}
-      <Button variant="ghost" size="sm" disabled={atNow} onClick={() => go(0)}>{now} <Pressed keys="T" /></Button>
-    </>
+      <Button variant="ghost" size="sm" data-period-now disabled={atNow} onClick={() => go(0)}>
+        <span className="grid justify-items-start [&>*]:col-start-1 [&>*]:row-start-1">
+          {(Object.keys(NOW_SAID) as Scale[]).map((one) => <span key={one} className={one === scale ? undefined : 'invisible'}>{NOW_SAID[one]}</span>)}
+        </span>
+        <Pressed keys="T" />
+      </Button>
+    </span>
   )
 }
 
@@ -223,11 +243,9 @@ export function WeekPage({ start, onOpen, onScale, onRecent, recentOpen, onDay }
       // Drawn once its pages (this week's, last week's, the month's) and the goals are in, with its banner: never in pieces.
       waiting={!page || !before || !monthPage || unloaded(goalsRead)}
       title="Week's page"
+      lead={<PeriodSteps scale="week" onScale={onScale} atNow={current} go={go} />}
       actions={
-        <span className="flex items-center gap-1">
-          <ScaleSwitch scale="week" onScale={onScale} />
-          <span aria-hidden className="mx-1 h-4 w-px bg-border" />
-          <Steps name="week" now="This week" atNow={current} go={go} />
+        <span data-period-actions className="flex items-center gap-1">
           {onRecent && (
             <Tip label="Everything made this week, beside the page  ⇧⌘Y">
               <Button variant={recentOpen ? 'secondary' : 'ghost'} size="sm" aria-pressed={!!recentOpen}
@@ -343,13 +361,11 @@ export function MonthPage({ onScale, start, onDay }: { onScale?: (scale: Scale) 
     <Page
       waiting={!page || !before}
       title="Month's page"
+      lead={<PeriodSteps scale="month" onScale={onScale} atNow={current} go={go} />}
       actions={
-        <span className="flex items-center gap-1">
-          <ScaleSwitch scale="month" onScale={onScale} />
-          <span aria-hidden className="mx-1 h-4 w-px bg-border" />
-          <Steps name="month" now="This month" atNow={current} go={go} />
+        <span data-period-actions className="flex items-center gap-1">
           <Tip label="Read the month back, told from what you noted down in it">
-            <Button variant="ghost" size="icon-sm" aria-label="Read the month back" onClick={() => (chime('slide'), setReflect(true))}><BookOpenText className="size-3.5" /></Button>
+            <Button variant="ghost" size="sm" aria-label="Read the month back" onClick={() => (chime('slide'), setReflect(true))}><BookOpenText className="size-3.5" /> Read back</Button>
           </Tip>
         </span>
       }
@@ -423,13 +439,7 @@ export function YearPage({ start, onScale, onMonth, onDay }: { start?: string; o
     <Page
       waiting={unloaded(real)}
       title="Year"
-      actions={
-        <span className="flex items-center gap-1">
-          <ScaleSwitch scale="year" onScale={onScale} />
-          <span aria-hidden className="mx-1 h-4 w-px bg-border" />
-          <Steps name="year" now="This year" atNow={current} go={go} />
-        </span>
-      }
+      lead={<PeriodSteps scale="year" onScale={onScale} atNow={current} go={go} />}
     >
       <div className="page-narrow mx-auto w-full px-5 pt-6 pb-16">
         <h1 className="text-title font-semibold tabular-nums"><Rolling text={year} /></h1>

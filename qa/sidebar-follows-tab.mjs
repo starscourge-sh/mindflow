@@ -2,7 +2,8 @@
 // the Tasks row's tabs (Today, Upcoming, Later, Routines) and old links to
 // Tomorrow, This week and the Matrix all keep it on Tasks, and it never blinks
 // off on the way. The same for the other pages with tabs or modes that map to
-// sidebar rows: a question lights Pages, Everything the Inbox.
+// sidebar rows: a question lights Pages, Everything the Inbox, and Day,
+// Week, Month and Year Journal (or Week's or Month's page, shown as a row).
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/sidebar-follows-tab.mjs
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
@@ -68,10 +69,12 @@ try {
   await moves('Pages to Gems', () => go('nuggets'), 'Gems')
   await moves('Gems to Pages', () => go('articles'), 'Pages')
   await moves('a question lights Pages', () => go('questions'), 'Pages')
-  await moves('to Today', () => go('day'), 'Today')
+  await moves('to Journal', () => go('day'), 'Journal')
   await moves('the Inbox with "Show sorted too"', () => go('all'), 'Inbox')
   await moves("to Week's page", () => go('weekpage'), "Week's page")
   await moves("to Month's page", () => go('monthpage'), "Month's page")
+  // The Year has no row: the page it was opened from, Journal, stays lit.
+  await moves('to the Year', () => go('yearpage'), 'Journal')
   await go('calendar'); await wait(500)
   for (const tab of ['Week', 'Month', 'Day']) {
     const button = h.locator(`[data-page] button[aria-pressed][aria-label="${tab}"]`).first()

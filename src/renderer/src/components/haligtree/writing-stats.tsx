@@ -21,7 +21,7 @@ const EXAMPLE: Written = {
   notes: [{ id: 'a', type: 'article', title: 'Why old movies feel real', private: false, words: 420 }, { id: 'b', type: 'day', title: 'Today', private: false, words: 220 }]
 }
 
-const NAMED: Record<string, string> = { day: "Today's page", period: 'A week or month page' }
+const NAMED: Record<string, string> = { day: 'Journal', period: 'A week or month page' }
 
 /**
  * Words written: today, this week against the same days of last week, and in

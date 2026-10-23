@@ -99,7 +99,7 @@ export const BACK_END: BackShot = { shown: 3, ticked: true, over: true, curve: t
 export const BACK: { kind: 'task' | 'gem' | 'quote'; kept: string; when: string; said: string }[] = [
   { kind: 'task', kept: 'Draft intro for film essay', when: `${STORY_DAY}, ${clock(dayjs().hour(9).minute(0))}`, said: 'With “Keep Today on screen”, your tasks *sit on your desktop*. Tick them off there.' },
   { kind: 'gem', kept: 'Perfection erases…', when: `${dayjs().add(5, 'day').format('dddd')}, ${clock(dayjs().hour(21).minute(30))}`, said: 'Your gem *comes back as a question* in “Review”, and waits longer each time you remember it.' },
-  { kind: 'quote', kept: 'Do or do not…', when: 'A year on', said: 'The line you saved *comes back on “Today”*, like a postcard from your past self.' }
+  { kind: 'quote', kept: 'Do or do not…', when: 'A year on', said: 'The line you saved *comes back in “Journal”*, like a postcard from your past self.' }
 ]
 const ICON = { task: ListTodo, gem: Gem, quote: Quote }
 const TINT = { task: HUE.task.ink, gem: HUE.gem.ink, quote: 'var(--tt-color-text-purple)' }

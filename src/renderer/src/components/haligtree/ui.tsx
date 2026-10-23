@@ -227,8 +227,8 @@ export function Page({ title, lead, count, unit = ['item', 'items'], actions, ch
       style={{ ...(aside ? { width: listWidth, maxWidth: '60%' } : {}), ...style }}>
       {aside && grip}
       {/* The window's toolbar already names the section, so this line only
-          carries the count and the actions, and goes when it has neither. */}
-      {(count !== undefined || actions) && (
+          carries what it shows (lead), the count and the actions, and goes when it has none. */}
+      {(count !== undefined || actions || lead) && (
         <header data-chrome={aside || undefined} className={`${wide ? '' : 'page-column '}flex h-10 shrink-0 items-center gap-2 border-b px-5 text-muted-foreground`}>
           {typeof title === 'string' && title.startsWith('#') ? <span className="font-medium text-foreground">{title}</span> : null}
           {lead}

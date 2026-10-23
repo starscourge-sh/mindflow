@@ -108,8 +108,8 @@ try {
   const shownWas = (await v('settings')).sidebarShown ?? []
   await v('settings:set', { sidebarShown: [...new Set([...shownWas, 'weekpage', 'monthpage'])] })
   await go('inbox')
-  const dayPeek = await peek("Today's page")
-  check("Today's page preview names today", dayPeek.includes(want.day), `${JSON.stringify(dayPeek.slice(0, 60))} wants ${want.day}`)
+  const dayPeek = await peek('Journal')
+  check('Journal preview names today', dayPeek.includes(want.day), `${JSON.stringify(dayPeek.slice(0, 60))} wants ${want.day}`)
   await shot('peek-day')
   const weekPeek = await peek("Week's page")
   check("The Week's page preview names this week", weekPeek.includes(`Week ${iso}`), `${JSON.stringify(weekPeek.slice(0, 50))} wants Week ${iso}`)

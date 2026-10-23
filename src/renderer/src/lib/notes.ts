@@ -224,7 +224,7 @@ export const openToday = (): void => {
  */
 export function noteActions({ day = true }: { day?: boolean } = {}): Action[] {
   const note = currentNote()
-  const page: Action[] = day ? [{ label: 'Today', hint: 'The day\'s writing, then its tasks', cue: null, run: openToday }] : []
+  const page: Action[] = day ? [{ label: 'Journal', hint: 'Today\'s writing, then its tasks', cue: null, run: openToday }] : []
   const all: Action = { label: 'Save all attachments', hint: 'Every picture and file, to a folder', cue: null, run: () => void saveAttachments() }
   // Notion's switch, for every page: the words in a reading column, or across the window.
   const width: Action = fullWidth()

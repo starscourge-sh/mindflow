@@ -36,7 +36,7 @@ export type Place = {
 
 /**
  * The main window's sections, each with the key that jumps to it after G, in
- * the order the sidebar lists them: writing first (Inbox, Home, Today, Pages, Gems,
+ * the order the sidebar lists them: writing first (Inbox, Home, Journal, Pages, Gems,
  * Review), then a gap, then doing (Tasks, Calendar), then the rest. Each has
  * its own colour from the theme. Which ones show is a setting
  * (`sidebarShown`), the same for every book to start: one switched off is
@@ -49,8 +49,9 @@ export const SECTIONS: (Place & { key: string })[] = [
   { id: 'inbox', label: 'Inbox', icon: Inbox, key: 'i', tint: 'blue', group: 'Write' },
   // Where things come back to you: shelves of what you opened and kept, and the card for the moment.
   { id: 'home', label: 'Home', icon: House, alive: HomeIcon, key: 'y', tint: 'orange', group: 'Write' },
-  // The Day page: the day's writing on top, today's tasks under it. The window opens here.
-  { id: 'day', label: 'Today', icon: Sun, key: 'p', tint: 'orange', group: 'Write' },
+  // Journal, the Day page: the day's writing on top, today's tasks under it. The window opens here.
+  // Its Week, Month and Year keep this row lit (litRow), unless that page is a row of its own.
+  { id: 'day', label: 'Journal', icon: Sun, key: 'p', tint: 'orange', group: 'Write' },
   { id: 'articles', label: 'Pages', icon: FileText, alive: FileDescriptionIcon, key: 'a', tint: 'brown', group: 'Write' },
   { id: 'nuggets', label: 'Gems', icon: Gem, key: 'n', tint: 'pink', group: 'Write' },
   { id: 'review', label: 'Review', icon: Brain, key: 'r', tint: 'purple', group: 'Write' },
@@ -92,9 +93,16 @@ export const G_ALIASES: Record<string, string> = { u: 'upcoming', w: 'upcoming',
 /** The task lists that are tabs of the one Tasks row: on any of them, its row is lit. */
 export const TASK_PAGES = ['today', 'tomorrow', 'week', 'upcoming', 'later', 'routines', 'matrix']
 
-/** The row a page lights: a task list lights Tasks, a question Pages, every capture list the Inbox. */
-export const litRow = (id: string): string =>
-  TASK_PAGES.includes(id) ? 'today' : id === 'questions' ? 'articles' : id === 'all' || id.startsWith('kind:') ? 'inbox' : id
+/**
+ * The row a page lights, the one rule: a page opened from a row lights that
+ * row, whichever tab, mode or date it is on. A task list lights Tasks, a
+ * question Pages, every capture list the Inbox, and Day, Week, Month and Year
+ * light Journal on any date; Week's or Month's page lights its own row while
+ * that row is in the sidebar (`shown`).
+ */
+export const litRow = (id: string, shown: string[] = []): string =>
+  TASK_PAGES.includes(id) ? 'today' : id === 'questions' ? 'articles' : id === 'all' || id.startsWith('kind:') ? 'inbox'
+    : (id === 'weekpage' || id === 'monthpage') && shown.includes(id) ? id : id === 'weekpage' || id === 'monthpage' || id === 'yearpage' ? 'day' : id
 
 /** The sidebar's places, in their usual order: the same in every book. */
 export function useSections(): typeof SECTIONS {

@@ -612,7 +612,7 @@ export function Home(): React.JSX.Element {
   // A calm sidebar: what serves capturing and coming back. One switched off is not there at all, a G or ⌘K away.
   const settings = useLive(haligtree.settings, null as Settings | null)
   const shownAll = useShown('sidebarShown')
-  // Back after a long time away: only capture and Today, until the next start or "Show everything".
+  // Back after a long time away: only the Inbox, Journal and Tasks, until the next start or "Show everything".
   const away = useLive(() => call<{ days: number; quiet: boolean }>('return:quiet'), { days: 0, quiet: false })
   const quiet = away.quiet
   const shown = quiet ? ['day', 'inbox', 'today'] : shownAll
@@ -953,8 +953,8 @@ export function Home(): React.JSX.Element {
 
   const kind = (view: View): (typeof CAPTURE_TYPES)[number] | undefined => CAPTURE_TYPES.find((type) => `kind:${type.id}` === view.id)
   /** A page's name, for the top bar; a pane is named by its note first (paneName). */
-  /** A sidebar row lit for the page you are on; a day's, week's or month's row only on today's, this week's or this month's. */
-  const lit = (id: string): boolean => litRow(view.id) === id && atNow(view)
+  /** The sidebar row lit for the page you are on, whichever date a day's, week's, month's or year's page shows (litRow). */
+  const lit = (id: string): boolean => litRow(view.id, shown) === id
   const labelOf = (view: View): string => datedName(view) ?? (view.id === 'matrix' ? 'Urgent and important' : TASK_PAGES.includes(view.id) ? 'Tasks' : view.id === 'questions' ? 'Questions' : null) ?? SECTIONS.find((section) => section.id === view.id)?.label ?? kind(view)?.label ?? (view.id === 'source' ? view.focus?.slice(view.focus.indexOf(':') + 1) || 'Source' : view.id === 'settings' ? 'Settings' : view.id === 'whatsnew' ? "What's new" : view.id === 'practices' ? 'Practices' : view.id === 'yearpage' ? 'Year' : view.id === 'day' ? 'Day' : view.id === 'weekpage' ? 'Week' : view.id === 'monthpage' ? 'Month' : '')
   const paneWidth = (key: string, width: PaneWidth): void => {
     chime(width === 'narrow' ? 'fold' : 'slide')
@@ -1600,7 +1600,7 @@ export function Home(): React.JSX.Element {
               {/* Back after a while: said plainly, with the way to everything else one click away. */}
               {quiet && !narrow && (
                 <div data-quiet-return className="mt-4 space-y-1.5 px-2">
-                  <p className="text-[0.9375rem] leading-snug text-foreground">Welcome back after {away.days} days. Just capture and Today for now.</p>
+                  <p className="text-[0.9375rem] leading-snug text-foreground">Welcome back after {away.days} days. Just the Inbox, Journal and Tasks for now.</p>
                   <Button variant="secondary" size="sm" onClick={() => void call('return:show-all').then(() => chime('unshelve'))}>Show everything</Button>
                 </div>
               )}

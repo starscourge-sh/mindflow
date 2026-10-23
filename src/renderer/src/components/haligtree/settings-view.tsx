@@ -548,7 +548,7 @@ export function SettingsView(): React.JSX.Element {
             <BlurSample />
             <Switch checked={settings.blur !== false} onCheckedChange={(blur) => set({ blur })} />
           </Setting>
-          <Setting title="Postcards" note="Pictures in notes, and memories on Today, get a border and a soft shadow, like a print on a desk." more="Videos and the pictures on a day's page too." keywords="images pictures photos border frame white memories memory">
+          <Setting title="Postcards" note="Pictures in notes, and memories in the Journal, get a border and a soft shadow, like a print on a desk." more="Videos and the pictures on a day's page too." keywords="images pictures photos border frame white memories memory">
             <PictureSample caption={null} frame={settings.postcards ? POSTCARD_BORDERS[settings.postcardBorder ?? 'auto']() : undefined} />
             <Switch checked={!!settings.postcards} onCheckedChange={(postcards) => set({ postcards })} />
           </Setting>
@@ -663,7 +663,7 @@ export function SettingsView(): React.JSX.Element {
         <Group section="Scenery" title="Where they show">
           {([
             ['sceneryRest', 'When there is nothing to do', 'A wide picture when the Inbox is empty, review is done and nothing is due.', 'empty inbox zero review done'],
-            ['sceneryToday', "Today's page", "A painted picture at the top of each day's, week's and month's page.", 'banner header day daily'],
+            ['sceneryToday', 'Journal', "A painted picture at the top of each day's, week's and month's page.", 'banner header day daily'],
             ['sceneryRecap', 'Recaps', 'Each page of a month or year recap over its own picture.', 'wrapped month year'],
             ['sceneryFocus', 'Focus', 'Behind ⇧⌘F Focus, dimmed so the words read as well as on a plain page.', 'read mode focus backdrop']
           ] as const).map(([key, title, note, keywords]) => (
@@ -673,7 +673,7 @@ export function SettingsView(): React.JSX.Element {
           ))}
         </Group>
         <Group section="Scenery" title="How they look">
-          <Setting off={!settings.scenery && 'Turn “Scenery” on to change this.'} title="Match the hour" note="Pictures follow the hour: golden by day, dusk in the evening, candlelight after dark." more="Where you rest and behind Focus. Off, any picture at any hour. Today's page keeps one picture all day, and recaps pick their own." keywords="match the time of day scenery morning evening night dusk golden hour mood">
+          <Setting off={!settings.scenery && 'Turn “Scenery” on to change this.'} title="Match the hour" note="Pictures follow the hour: golden by day, dusk in the evening, candlelight after dark." more="Where you rest and behind Focus. Off, any picture at any hour. The Journal keeps one picture all day, and recaps pick their own." keywords="match the time of day scenery morning evening night dusk golden hour mood">
             <Switch disabled={!settings.scenery} checked={settings.sceneryTime} onCheckedChange={(sceneryTime) => set({ sceneryTime })} />
           </Setting>
           <DimSetting settings={settings} set={set} />
@@ -782,7 +782,7 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
         </Group>
         <Group section="What comes back to you" title="Goals">
-          <Setting title="Goals at the top" note="Open goals in a slim strip on Today." more="The days left, a line of the time gone, and when you last logged." keywords="goals strip home today countdown">
+          <Setting title="Goals at the top" note="Open goals in a slim strip in the Journal." more="The days left, a line of the time gone, and when you last logged." keywords="goals strip home today countdown">
             <Switch checked={settings.goalStrip !== false} onCheckedChange={(goalStrip) => set({ goalStrip })} />
           </Setting>
           <Setting title="Time as dots" note="How far through the day, week, month and year you are, in the menu bar." more="As beads, or as plain bars." keywords="tempus menu bar day week month year dots bars progress">
@@ -831,7 +831,7 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
           <Setting under title="Habits this season" note="Each one gets a tick on Close the day, and Stats shows how they went." more="No reminders and no streak to keep. A day not ticked shows what you wrote that night, so it keeps its reason." keywords="habit habits tracker tick checkbox daily season streak routine"
             below={<HabitList />} />
-          <Setting under title="For tomorrow, at night" note="After that time, Today ends with a “For tomorrow” box for what is on your mind." more="Until 4 in the morning, on Today and Today's page; each line becomes a task for tomorrow. Writing it down helps you sleep." keywords="tomorrow bedtime worry list night evening sleep to-do brain dump"
+          <Setting under title="For tomorrow, at night" note="After that time, Today ends with a “For tomorrow” box for what is on your mind." more="Until 4 in the morning, on Tasks' Today and in the Journal; each line becomes a task for tomorrow. Writing it down helps you sleep." keywords="tomorrow bedtime worry list night evening sleep to-do brain dump"
             below={<TomorrowPreview at={settings.closeDayAt ?? '18:00'} on={settings.tomorrowBox !== false} />}>
             <Switch checked={settings.tomorrowBox !== false} onCheckedChange={(tomorrowBox) => set({ tomorrowBox })} />
           </Setting>
@@ -862,7 +862,7 @@ export function SettingsView(): React.JSX.Element {
             <TimeField label="Day ends at" value={settings.dayEnd ?? '22:00'} onChange={(dayEnd) => set({ dayEnd })} />
           </Setting>
           <WorkHoursSetting hours={settings.workHours ?? 8} set={(workHours) => set({ workHours })} />
-          <Setting title="Back after a while" note={`Away this long, ${APP_NAME} opens with only capture and Today, so coming back is not a wall of everything.`} more="The rest stays out of sight until the next start, and “Show everything”, at the foot of the sidebar or in ⌘K, brings it back at once." keywords="return away gap long break holiday quiet calm come back fresh">
+          <Setting title="Back after a while" note={`Away this long, ${APP_NAME} opens with only the Inbox, Journal and Tasks, so coming back is not a wall of everything.`} more="The rest stays out of sight until the next start, and “Show everything”, at the foot of the sidebar or in ⌘K, brings it back at once." keywords="return away gap long break holiday quiet calm come back fresh">
             <SettingSlider min={2} max={30} step={1} rest={7} value={settings.gapDays ?? 7} onSave={(gapDays) => set({ gapDays })} />
             <span className={SLIDER_VALUE}><Rolling text={`${settings.gapDays ?? 7} days`} /></span>
           </Setting>
@@ -1002,13 +1002,13 @@ export function SettingsView(): React.JSX.Element {
         {focus && <SiteBlockGroup settings={settings} set={set} />}
 
         <Group section="Calendar" title="On Home">
-          <Setting title="Show the month on Today" note="Today shows this month's calendar, at its foot, with what is planned on each day." more="The Calendar in the sidebar has it all either way." keywords="home calendar month plan dashboard">
+          <Setting title="Show the month in the Journal" note="The Journal shows this month's calendar, at its foot, with what is planned on each day." more="The Calendar in the sidebar has it all either way." keywords="home calendar month plan dashboard">
             <HomeMonthSample on={settings.homeCalendar === true} />
             <Switch checked={settings.homeCalendar === true} onCheckedChange={(homeCalendar) => set({ homeCalendar })} />
           </Setting>
-          <Setting title="Show the time gone on Today" note="Today shows how much of today, this week, this month and this year has gone." more="The same four bars as “Time gone” in the menu bar." keywords="home memento mori time gone percent day week month year progress">
+          <Setting title="Show the time gone in the Journal" note="The Journal shows how much of today, this week, this month and this year has gone." more="The same four bars as “Time gone” in the menu bar." keywords="home memento mori time gone percent day week month year progress">
             <TimeGoneSample on={settings.homeTimeGone === true} />
-            <Switch checked={settings.homeTimeGone === true} onCheckedChange={(homeTimeGone) => set({ homeTimeGone })} aria-label="Show the time gone on Today" />
+            <Switch checked={settings.homeTimeGone === true} onCheckedChange={(homeTimeGone) => set({ homeTimeGone })} aria-label="Show the time gone in the Journal" />
           </Setting>
         </Group>
         <Group section="Calendar" title="Time zones">
@@ -1431,7 +1431,7 @@ function OnboardingRows(): React.JSX.Element | null {
         <Switch checked={state.pageHints} onCheckedChange={(on) => void onboarding.set({ pageHints: on })} />
       </Setting>
       {!state.sandbox && state.welcomed && !(state.doneAt && Date.now() - new Date(state.doneAt).getTime() > LINGER) && (
-        <Setting title="Getting started" note="A short list of first steps on Today that tick themselves as you go." more="The list goes a few days after the last." keywords="getting started checklist onboarding">
+        <Setting title="Getting started" note="A short list of first steps in the Journal that tick themselves as you go." more="The list goes a few days after the last." keywords="getting started checklist onboarding">
           {state.hidden ? <Button variant="outline" size="sm" onClick={() => void onboarding.set({ hidden: false }).then(() => toast('Getting started is back on Home'))}>Show it</Button> : <span className="text-control text-muted-foreground">On Home</span>}
         </Setting>
       )}

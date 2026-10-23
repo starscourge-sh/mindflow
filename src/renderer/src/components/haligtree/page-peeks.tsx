@@ -80,7 +80,7 @@ const PEEKS: Record<string, PagePeek> = {
     </>)
   },
   day: {
-    text: "**Today: the day's writing, then its tasks.** Write a line in the box; today's tasks are under it, and what you caught and finished gathers below.",
+    text: "**Journal: the day's writing, then its tasks.** Write a line in the box; today's tasks are under it, and what you caught and finished gathers below.",
     art: () => (<>
       <MTitle>{dayjs().format('dddd, D MMMM')}</MTitle>
       <p className="mb-1 font-serif text-[11px]">Finished Frankenstein on the train. The creature is the one who reads Milton.</p>

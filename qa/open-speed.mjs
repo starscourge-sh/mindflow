@@ -208,7 +208,7 @@ try {
     ['sidebar Calendar', 'calendar', side('Calendar')],
     ['sidebar Tags', 'tags', side('Tags')],
     ['sidebar Everything', 'all', side('Everything')],
-    ['sidebar Today', 'today', side('Today')]
+    ['sidebar Tasks', 'today', side('Tasks')]
   ]
   for (const [path, page, target, ready] of sweep) {
     await home()
