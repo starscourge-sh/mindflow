@@ -478,7 +478,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
               <h2 className="flex h-7 items-center px-2 text-control font-medium text-foreground/80">Unscheduled {unscheduled.length > 0 && <Count n={unscheduled.length} className="ml-1.5 font-normal" />}</h2>
               {!unscheduled.length && <p className="px-2 text-body text-foreground/85">Every open task has a day.</p>}
               <ul ref={looseBox} {...looseHover.handlers} data-cal-unscheduled className="relative isolate flex flex-col">
-                <Highlight spot={looseHover.spot} session={looseHover.session} snap={looseHover.snap} className="bg-accent/50" />
+                <Highlight spot={looseHover.spot} session={looseHover.session} snap={looseHover.snap} className="bg-accent/25" />
                 {looseShown.map((task) => (
                   <li key={task.id}>
                     <RowMenu items={taskMenu(task, { open: () => pick(task.id), now: taskNow })}>

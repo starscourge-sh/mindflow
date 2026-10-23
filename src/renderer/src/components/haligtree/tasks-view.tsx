@@ -995,7 +995,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
         {!listShown ? null : shown.length ? (
           <Example on={example} tryIt={TRY_TASKS[mode]}>
           <div ref={rowsBox} {...rowsHover.handlers} className="relative isolate">
-          <Highlight spot={rowsHover.spot} session={rowsHover.session} snap={rowsHover.snap} className="bg-accent/50" />
+          <Highlight spot={rowsHover.spot} session={rowsHover.session} snap={rowsHover.snap} className="bg-accent/25" />
           <VirtualList
             items={rows}
             keyOf={(row) => ('id' in row ? row.id : `heading-${row.key}`)}

@@ -303,9 +303,10 @@ export function NoteList({
     if (row) (placed.current = selected, showRow(row))
   })
   // One light over the rows, gliding to the nearest, so the gap between two never goes dark (glide.tsx). Tiles keep their ring.
+  // About half the open row's light, so the one open never looks like a second row pointed at.
   const hover = useFluidHover(box, { items: '[data-row]' })
   const glide = grid ? {} : { ...hover.handlers, className: 'relative isolate' }
-  const light = grid ? null : <Highlight spot={hover.spot} session={hover.session} snap={hover.snap} className="bg-accent/50" />
+  const light = grid ? null : <Highlight spot={hover.spot} session={hover.session} snap={hover.snap} className="bg-accent/25" />
   const [width, setWidth] = useState(0)
   useLayoutEffect(() => {
     const element = box.current

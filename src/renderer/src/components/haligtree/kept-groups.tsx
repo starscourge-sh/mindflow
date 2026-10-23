@@ -22,9 +22,12 @@ import { Overlay, SETTLE } from './sortable'
 import { copy } from './row-menu'
 import { Rolling, Tip, VirtualList, refuse, toast, quietly } from './ui'
 import type { Entry } from './note-list'
-import { ROW_PAD, ROW_SHAPE, ROW_TILE, tileTint } from './row-shape'
+import { ROW_SHAPE } from './row-shape'
 import { X } from '@/components/ui/icons'
 import { brief, num } from '../../../../main/dates'
+
+/** A group's heading, open or folded: a slim title bar, 36px tall, a page's tile high. */
+const HEAD = 'h-9 py-0'
 
 /**
  * Groups in a kept list, Dia's way with tabs: a row with an icon, a name in
@@ -728,11 +731,16 @@ function Count({ n }: { n: number }): React.JSX.Element {
   )
 }
 
-/** A group's icon in the same tile a page's icon sits in, tinted in its colour. */
+/** A group's small icon and its chevron, side by side in the column a page's tile takes, so its name starts where a page's title does. */
 function GroupTile({ group, ...rest }: { group: GroupView } & React.HTMLAttributes<HTMLSpanElement>): React.JSX.Element {
   return (
-    <span {...rest} data-group-tile="" className={ROW_TILE} style={tileTint(tintOf(group.color))}>
-      <GroupIcon icon={group.icon} color={group.color} />
+    <span {...rest} data-group-tile="" className="flex h-9 w-9 shrink-0 items-center justify-center gap-0.5">
+      <GroupIcon icon={group.icon} color={group.color} className="size-3.5" />
+      <ChevronRight
+        aria-hidden
+        className="size-3 shrink-0 text-muted-foreground transition-transform duration-200 motion-reduce:transition-none"
+        style={{ transitionTimingFunction: OUT, transform: `rotate(${group.open ? 90 : 0}deg)` }}
+      />
     </span>
   )
 }
@@ -885,7 +893,7 @@ function GroupBlock({ group, entries, parts, start, row, carried, renaming, born
               <ContextMenu onOpenChange={setMenu}>
                 <ContextMenuTrigger asChild>
                   {renaming ? (
-                    <div className={cn(ROW_SHAPE, ROW_PAD, 'data-[state=open]:bg-transparent!')}>
+                    <div className={cn(ROW_SHAPE, HEAD, 'data-[state=open]:bg-transparent!')}>
                       <PopoverAnchor asChild><GroupTile group={group} /></PopoverAnchor>
                       <input
                         autoFocus
@@ -897,7 +905,7 @@ function GroupBlock({ group, entries, parts, start, row, carried, renaming, born
                           if (event.key === 'Escape') (event.preventDefault(), event.stopPropagation(), onRenaming(false))
                         }}
                         onBlur={(event) => rename(event.target.value)}
-                        className="min-w-0 flex-1 rounded-sm bg-transparent text-control font-semibold outline-none placeholder:text-muted-foreground"
+                        className="min-w-0 flex-1 rounded-sm bg-transparent text-xs font-semibold outline-none placeholder:text-muted-foreground"
                         placeholder="Name the group"
                       />
                     </div>
@@ -913,34 +921,17 @@ function GroupBlock({ group, entries, parts, start, row, carried, renaming, born
                         if ((event.key === 'ArrowLeft' && group.open) || (event.key === 'ArrowRight' && !group.open)) (event.preventDefault(), fold())
                       }}
                       // The panel marks it while its menu is open: no second mark on the row.
-                      // Its box, tile and focus ring are a page row's (row-shape.ts); only its right side keeps room for its buttons.
-                      className={cn(ROW_SHAPE, ROW_PAD, 'data-[state=open]:bg-transparent!')}
+                      // A slim title bar: its box and focus ring are a page row's (row-shape.ts), its icon and chevron sit in a page's tile column,
+                      // so its name starts on the page titles' line; only its right side keeps room for its buttons.
+                      className={cn(ROW_SHAPE, HEAD, 'data-[state=open]:bg-transparent!')}
                       style={{ paddingRight: group.unsorted?.length && onSort ? '12.5rem' : '2.25rem' }}
                     >
                       <PopoverAnchor asChild><GroupTile group={group} /></PopoverAnchor>
-                      <span className="min-w-0 truncate text-control font-semibold">{name}</span>
-                      <ChevronRight
-                        aria-hidden
-                        className="size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 motion-reduce:transition-none"
-                        style={{ transitionTimingFunction: OUT, transform: `rotate(${group.open ? 90 : 0}deg)` }}
-                      />
-                      {/* Folded, how many it holds, coming out of the chevron. */}
-                      <AnimatePresence initial={false}>
-                        {!group.open && (
-                          <motion.span
-                            key="count"
-                            data-count=""
-                            className="inline-flex h-5 shrink-0 items-center rounded-full px-1.5 text-xs text-muted-foreground tabular-nums"
-                            style={{ background: `color-mix(in srgb, var(--group-tint) ${tint ? 14 : 8}%, transparent)` }}
-                            initial={{ opacity: 0, scale: 0.95, x: -4 }}
-                            animate={{ opacity: 1, scale: 1, x: 0 }}
-                            exit={{ opacity: 0, scale: 0.95, x: -4, transition: { duration: 0.08 } }}
-                            transition={still() ? { duration: 0 } : springs.moderate}
-                          >
-                            {count}
-                          </motion.span>
-                        )}
-                      </AnimatePresence>
+                      <span className="min-w-0 truncate text-xs font-semibold">{name}</span>
+                      {/* How many it holds, open or folded, quiet after the name. */}
+                      <span data-count="" className="-ml-1 shrink-0 text-xs text-muted-foreground tabular-nums">· {count}</span>
+                      {/* Open, a hairline under it, inside the group's box. */}
+                      {group.open && <span aria-hidden data-head-line="" className="pointer-events-none absolute inset-x-2 bottom-0 h-px" style={{ background: `color-mix(in srgb, var(--group-tint) ${tint ? 18 : 10}%, transparent)` }} />}
                     </button>
                   )}
                 </ContextMenuTrigger>

@@ -1,8 +1,9 @@
-// Every row in a list of pages has one shape: a loose page, a page in a group,
-// an open group's heading and a folded group. At rest and pointed at, each
-// kind's box (its panel, its hover light, its focus ring) starts and ends on
-// the same two edges, its icon sits in the same tile, its title starts on the
-// same line, and it is as tall as a page's row.
+// Every row in a list of pages lines up: a loose page, a page in a group, an
+// open group's heading and a folded group. At rest and pointed at, each kind's
+// box (its panel, its hover light, its focus ring) starts and ends on the same
+// two edges and its title starts on the same line. Pages share one tile and one
+// height; a group's heading is a slim bar 36px tall, its icon and chevron inside
+// the column a page's tile takes, with a hairline under it only while open.
 //
 //   npx electron-vite build --outDir out-x
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 [SHOTS=dir] node qa/row-shape.mjs
@@ -64,7 +65,8 @@ const shape = (kind, at, hovered) => h.evaluate(([kind, at, hovered]) => {
     // Its square, from the row's top-left; a page's tile is filled by its picture or cover, a group's by its colour.
     tile: t ? [x(t.left), x(t.top - b.top), x(t.width), x(t.height)] : null,
     title: x(textLeft(title)),
-    height: x(kind === 'folded group' ? box.height ?? b.height : b.height)
+    height: x(kind === 'folded group' ? box.height ?? b.height : b.height),
+    line: kind === 'page' ? undefined : !!button.querySelector('[data-head-line]')
   }
 }, [kind, at, hovered])
 
@@ -91,9 +93,17 @@ async function measure(label, rows) {
   same('every focus ring sits on that same box edge', (one) => one.focus)
   check(`${label}: and the focus ring is the box`, vals.every((one) => JSON.stringify(one.focus) === JSON.stringify(one.box)), vals.map((one) => `${one.box}|${one.focus}`).join(' / '))
   same('every focus ring is drawn the same way', (one) => one.ring)
-  same('every icon sits in the same tile', (one) => one.tile)
   same('every title starts on the same line', (one) => one.title)
-  same('every row is as tall as a page\'s row', (one) => one.height)
+  const pages = Object.entries(all).filter(([k, one]) => one && k.endsWith(': page')).map(([, one]) => one)
+  const heads = Object.entries(all).filter(([k, one]) => one && !k.endsWith(': page'))
+  const pv = (pick) => [...new Set(pages.map((one) => JSON.stringify(pick(one))))]
+  check(`${label}: every page's icon sits in the same tile`, pv((one) => one.tile).length === 1, pv((one) => one.tile).join(' / '))
+  check(`${label}: every page is as tall as a page's row`, pv((one) => one.height).length === 1, pv((one) => one.height).join(' / '))
+  const pageTile = pages[0]?.tile
+  // 36px at the app's base text size: one page tile high (the tile and the bar both scale with the text size).
+  check(`${label}: a group's heading is a slim bar, one page tile (36px) tall`, heads.every(([, one]) => one.height === pageTile[3]), heads.map(([k, one]) => `${k} ${one.height}`).join(' / ') + ` vs tile ${pageTile[3]}`)
+  check(`${label}: its icon and chevron sit in a page's tile column`, heads.every(([, one]) => one.tile && one.tile[0] === pageTile[0] && one.tile[2] === pageTile[2]), heads.map(([k, one]) => `${k} ${one.tile}`).join(' / ') + ` vs ${pageTile}`)
+  check(`${label}: a hairline under an open group's heading, none under a folded one`, heads.every(([k, one]) => one.line === k.endsWith('open group')), heads.map(([k, one]) => `${k} ${one.line}`).join(' / '))
   if (SHOTS) await h.screenshot({ path: `${SHOTS}/${label}.png` })
 }
 
