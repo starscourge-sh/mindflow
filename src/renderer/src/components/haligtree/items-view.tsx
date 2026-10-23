@@ -1,4 +1,5 @@
 import { openExpanded } from '../note-link/expanded-note'
+import { propertySorts } from '@/lib/property-sorts'
 import { ReadsIn } from '@/lib/reads-in'
 import { GroupPage, type GroupParts } from './group-page'
 import { quoted } from '../../../../main/clip'
@@ -49,6 +50,7 @@ import BookIcon from '@/components/ui/book-icon'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import AlarmClockPlusIcon from '@/components/ui/alarm-clock-plus-icon'
 import { Aliases, KindFields, LocalGraph, NoteHeader } from './note-extras'
+import { PropertyStrip, keepPropertyLine } from './property-strip'
 import { ListSearch, NoteList, NoteRail, PaneButtons, Peek, matches, type Entry } from './note-list'
 import { archive, changeKind, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
 import { openApart } from '@/lib/apart'
@@ -230,7 +232,7 @@ export function ItemsView({ tier, focus, onOpen, only }: { tier: 'nugget' | 'art
   const spread = pane === 'wide' && !open
   // Not grouped, or grouped by kind with only one kind: a plain list, where your own groups show.
   const plain = arranged.length <= 1 && !arranged[0]?.[0]
-  const groups = spread && query.trim() ? arranged.map(([name, list]) => [name, list.filter((one) => matches(one.title, query))] as [string, Item[]]).filter(([, list]) => list.length) : arranged
+  const groups = spread && query.trim() ? arranged.map(([name, list]) => [name, list.filter((one) => matches(one.title, query, one.fields))] as [string, Item[]]).filter(([, list]) => list.length) : arranged
   // x, ⌘-click and ⇧-click pick rows: several nuggets make one article, and any rows make a group.
   const [chosen, setChosen] = useState<string[]>([])
   // Groups show as groups in every sort, as rows (not tiles, and not when Display groups the list by kind or date).
@@ -787,6 +789,8 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
           onTokenClick={(token) => token.name === 'tag' && onOpen?.('tag', token.value)}
           toolbar={{ fixed: false, selectionExtra: selectionActions({ captureId: item.captureId ?? undefined, attribution: item.attribution, from: item.id }) }}
           documentId={`item-${item.id}`}
+          belowTitle={<PropertyStrip table="nuggets" id={item.id} kind={item.kind} fields={item.fields} text={item.title} />}
+          onPropertyLine={keepPropertyLine('nuggets', item.id)}
           onTitleOut={showTopTitle}
           defaultContent={((restored ? restored.body : item.body) as JSONContent | string | null) ?? ''}
           findNotes={findCaptures}
@@ -1198,7 +1202,10 @@ export function useItemDisplay(name: string, every: Item[]): {
   if (rated) facets.push({ key: 'rating', label: 'Rating', options: [5, 4, 3, 2, 1].map((n) => ({ id: String(n), label: '★'.repeat(n) })), test: (one, n) => propOf(one).rating === Number(n) })
   const ownOrder = (a: Item, b: Item): number => own.compare(a.id, b.id) || b.createdAt.localeCompare(a.createdAt)
   const kinds = facets[0].options.length > 1
+  // Any property in use is a way to sort (lib/property-sorts.ts).
+  const byProp = propertySorts(all, (a, b) => b.createdAt.localeCompare(a.createdAt))
   const groups = arrange(all, view, facets, {
+    ...byProp.compare,
     newest: (a, b) => b.createdAt.localeCompare(a.createdAt),
     changed: (a, b) => (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt),
     untouched: (a, b) => (a.updatedAt ?? a.createdAt).localeCompare(b.updatedAt ?? b.createdAt),
@@ -1221,7 +1228,7 @@ export function useItemDisplay(name: string, every: Item[]): {
       facets={facets}
       count={all.length}
       // By kind only where there is more than one kind; by next review only where something is due for one (pieces of writing never are).
-      sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Longest unchanged' }, { id: 'name', label: 'A to Z' }, ...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), ...(all.some((one) => one.dueAt) ? [{ id: 'due', label: 'Next review' }] : []), ...(rated ? [{ id: 'rating', label: 'Highest rated' }] : []), { id: 'manual', label: 'Custom order' }]}
+      sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Longest unchanged' }, { id: 'name', label: 'A to Z' }, ...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), ...(all.some((one) => one.dueAt) ? [{ id: 'due', label: 'Next review' }] : []), ...(rated ? [{ id: 'rating', label: 'Highest rated' }] : []), ...byProp.choices, { id: 'manual', label: 'Custom order' }]}
       groups={[...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), { id: 'none', label: 'None' }, { id: 'date', label: 'Date' }]}
       density={density}
       onDensity={(next) => setView({ ...view, [wide ? 'wideDensity' : 'density']: next })}

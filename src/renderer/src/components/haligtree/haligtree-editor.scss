@@ -3968,3 +3968,13 @@ html[data-motion="off"] .tiptap.ProseMirror :is(.mf-kept, .mf-kept-icon button) 
   border-radius: 0.25rem;
   background-color: color-mix(in srgb, var(--primary) 12%, transparent);
 }
+
+/* A note's properties, under its title (property-strip.tsx): quiet, never
+   part of the words (extensions/property-lines.ts), the same place whether
+   it holds none or many. */
+.tiptap.ProseMirror > .mf-property-strip {
+  margin: 0.125rem 0 0.5rem -0.375rem;
+  user-select: none;
+  white-space: normal;
+  cursor: default;
+}

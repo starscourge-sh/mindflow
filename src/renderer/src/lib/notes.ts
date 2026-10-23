@@ -1,7 +1,7 @@
+import type { Field } from '@/components/capture-kinds/kind-fields'
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { moveToBin } from './to-bin'
 
-import { fieldKeys } from '@/components/capture-kinds/kind-fields'
 import { refuse, toast, waiting, quietly } from '@/components/haligtree/ui'
 import type { Action } from '@/components/search'
 import { chime } from '@/lib/sound'
@@ -43,7 +43,14 @@ export const notes = {
   setOrder: (list: string, ids: string[]) => call('notes:order:set', list, ids),
   fields: (table: NoteTable, id: string) => call<Record<string, string | number>>('notes:fields', table, id),
   tags: (table: NoteTable, id: string) => call<string[]>('notes:tags', table, id),
-  setField: (table: NoteTable, id: string, key: string, value: string | number | null) => call('notes:fields:set', table, id, key, value),
+  setField: (table: NoteTable, id: string, key: string, value: string | number | boolean | null) => call('notes:fields:set', table, id, key, value),
+  renameField: (table: NoteTable, id: string, from: string, to: string) => call<boolean>('notes:fields:rename', table, id, from, to),
+  /** Every property name in use, and its type once one was given. */
+  propNames: () => call<{ name: string; type: string | null; options: string[] }[]>('props:names'),
+  setPropType: (name: string, type: string | null, options?: string[]) => call<boolean>('props:type', name, type, options),
+  /** The tags given properties of their own: super tags made by you. */
+  tagFields: () => call<Record<string, Field[]>>('tags:fields'),
+  setTagFields: (tag: string, fields: Field[]) => call<boolean>('tags:fields:set', tag, fields),
   versions: (id: string) => call<Version[]>('notes:versions', id),
   version: (id: number) => call<unknown>('notes:version', id),
   restore: (table: NoteTable | 'day', id: string, version: number) => call<number | null>('notes:version:restore', table, id, version),
@@ -171,11 +178,11 @@ export function useAnyNoteOpen(): boolean {
 export const pickKind = (current: string): Promise<string | null> =>
   new Promise((answer) => void window.dispatchEvent(new CustomEvent('haligtree:pick-kind', { detail: { current, answer } })))
 
-/** A new kind for a note: fields it has no room for are held out of sight and come back with a kind that has. Undoable. */
+/** A new kind for a note: every property it has stays, and the new kind's own are offered. Undoable. */
 export async function changeKind(table: NoteTable, id: string, from: string, to?: string): Promise<void> {
   const kind = to ?? (await pickKind(from))
   if (!kind || kind === from) return
-  const was = await call<{ kind: string; fields: string | null } | null>('notes:kind', table, id, kind, fieldKeys(kind))
+  const was = await call<{ kind: string; fields: string | null } | null>('notes:kind', table, id, kind)
   if (!was) return refuse('That note no longer exists, so its kind was not changed')
   chime('retag')
   quietly(() => void call('notes:kind:undo', table, id, was))

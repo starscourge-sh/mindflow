@@ -45,28 +45,13 @@ export const KIND_FIELDS: Record<string, Field[]> = {
     { key: 'status', label: 'Status', type: 'choice', options: ['To read', 'Reading now', 'Done'], does: 'Where you are with it: filter and sort your links by it' },
     { key: 'rating', label: 'Rating', type: 'rating', does: 'How good it was, 1 to 5 stars: sort your list by it' }
   ],
-  // A decision's record is there to stop it being argued again, not to keep
-  // the why: what was decided, what else was weighed, and the one thing that
-  // would justify opening it again. On its look-again day it comes back.
-  decision: [
-    { key: 'state', label: 'Status', type: 'choice', options: ['Open', 'Deciding', 'Decided'], does: 'Where it stands. “Decided” dates it and asks you not to argue it again without a new reason' },
-    { key: 'call', label: 'The call', placeholder: 'What you decided, in a line', ghost: 'The call: take the job in Leeds', does: 'What you decided, in one line, so you never have to argue it again' },
-    { key: 'options', label: 'Options weighed', type: 'long', placeholder: 'What else was on the table', ghost: 'Stay where I am, or ask for a raise', does: 'What else you looked at, so you know it was a real choice' },
-    { key: 'working', label: 'Working out', type: 'long', placeholder: 'Pros, cons, and whatever you found out', ghost: 'pros, cons, what you found out', does: 'Your thinking while you decide. Open while “Deciding”, folded away once “Decided”' },
-    { key: 'reopen', label: 'Reopen only if', type: 'long', placeholder: 'What would have to change to open it again', ghost: 'The rent goes up by more than a third', does: 'The one thing that would make it worth deciding again' },
-    { key: 'revisit', label: 'Look again', type: 'date', placeholder: 'Look again on…', ghost: 'in 3 months', does: 'Comes back on this date to check it still holds', suggest: ['in a month', 'in 3 months', 'in 6 months', 'in a year'] },
-    { key: 'decidedAt', label: 'Decided on', type: 'hidden' },
-    { key: 'heldAt', label: 'Last said it holds', type: 'hidden' }
-  ],
-  // A try with a finding at the end, never a pass or a fail: what launched
-  // it, what it is working out, how long it runs (then it comes back asking
-  // what you found), and what came of it, short enough to skim.
-  experiment: [
-    { key: 'status', label: 'Status', type: 'choice', options: ['Running', 'Finished'], does: 'Running until it ends; “Finished” asks for the outcome' },
-    { key: 'context', label: 'Started by', type: 'link', placeholder: 'A day, a decision or an experiment', ghost: "e.g. Monday's page", does: 'What set it going: a day, a decision or another experiment. Linked both ways' },
-    { key: 'question', label: 'Main question', type: 'long', placeholder: 'What are you trying to find out?' },
-    { key: 'until', label: 'Run until', type: 'date', placeholder: 'Run until…', ghost: 'in 2 weeks', does: 'Runs until this date, then comes back to ask how it went', suggest: ['in a week', 'in 2 weeks', 'in a month', 'in 3 months'] },
-    { key: 'outcome', label: 'Outcome', type: 'long', placeholder: 'What came of it, in a line or two', ghost: 'Slept better on the nights with no phone', does: 'What you found out, short enough to skim later' }
+  // A date, then a question back to you: what a decision and an experiment
+  // both were. On its day it comes back and asks; your answer is kept under it.
+  checkback: [
+    { key: 'back', label: 'Check back on', type: 'date', placeholder: 'Check back on…', ghost: 'in a month', does: 'On this day it comes back to you and asks the question below', suggest: ['in a week', 'in 2 weeks', 'in a month', 'in 3 months', 'in a year'] },
+    { key: 'ask', label: 'Then ask', type: 'long', placeholder: 'The question to ask you then', ghost: 'Did it work? Does it still hold?', does: 'What it asks you when it comes back' },
+    { key: 'answer', label: 'What you found', type: 'long', placeholder: 'Your answer, once it comes back', ghost: 'Slept better on the nights with no phone', does: 'Your answer when it came back, short enough to skim later' },
+    { key: 'answeredAt', label: 'Answered on', type: 'hidden' }
   ]
 }
 
@@ -82,11 +67,29 @@ export const TAG_FIELDS: Record<string, Field[]> = {
   ]
 }
 
+/**
+ * Super tags: a tag that brings properties with it. These ship with the app,
+ * one for each kind that asks for something, and #book; any tag can be given
+ * properties of its own (stored on the tag, main/notes.ts `tags:fields`). A
+ * note's kind and a tag of the same name bring the same fields.
+ */
+export const SUPER_TAGS: Record<string, Field[]> = {
+  quote: KIND_FIELDS.quote,
+  word: KIND_FIELDS.word,
+  link: KIND_FIELDS.link,
+  checkback: KIND_FIELDS.checkback,
+  book: TAG_FIELDS.book
+}
+
+/** What the old kinds' fields are called, for a decision or experiment that became a Check back: kept, and named in words. */
+export const OLD_LABELS: Record<string, string> = {
+  state: 'Status', call: 'The call', options: 'Options weighed', working: 'Working out', reopen: 'Reopen only if',
+  status: 'Status', context: 'Started by', question: 'Main question', outcome: 'Outcome', decidedAt: 'Decided on', heldAt: 'Last said it holds'
+}
+
 /** The tags that do something, and what, in a line: said in the box, the Tags page and anywhere else they are explained. */
 export const TAG_DOES: Record<string, string> = {
   bit: 'Kept private: blurred in lists, never shown as a hint',
   book: 'A book: adds reading status, a 1 to 5 rating and a takeaway'
 }
 
-/** The field names a kind has room for: what survives a change of kind. A tag's own stay with the tag. */
-export const fieldKeys = (kind: string): string[] => [...(KIND_FIELDS[kind] ?? []), ...Object.values(TAG_FIELDS).flat()].map((field) => field.key)

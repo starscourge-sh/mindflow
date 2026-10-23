@@ -13,6 +13,7 @@ import { busy } from './busy'
 import { markdown } from './haligtree'
 import { celebrateAfter } from './celebrate'
 import { syncLineCards } from './line-cards'
+import { passes, propertyFilters, readValue, takeBodyProperties, type PropType } from './property-words'
 import { RETIRED, tagged, withTag } from './kinds'
 import { emojiReady } from './lazy/emoji'
 import { chunks, createdOf, firstLine, guessKind, isBit, kindOf, propertiesOf, titleOfMarkdown, unstamp, withoutNotionId } from './import'
@@ -137,9 +138,10 @@ export function shutDatabase(): void {
 /**
  * What a window may send to make or change a capture, checked here rather
  * than trusted: `as CapturePatch` is a hope, this is a check. The kinds are
- * seven; a bit and a book are tags now (#bit, #book), an excerpt a long quote.
+ * six; a bit and a book are tags now (#bit, #book), an excerpt a long quote, a
+ * decision and an experiment a Check back, a goal made from Goals.
  */
-const KINDS = ['note', 'todo', 'quote', 'word', 'link', 'decision', 'experiment', 'goal'] as const
+const KINDS = ['note', 'todo', 'quote', 'word', 'link', 'checkback'] as const
 const Patch = z.object({
   // A title past 500 letters is cut at a word: the words are all in the body.
   title: z.string().transform((title) => fittedTitle(title) ?? title).optional(),
@@ -224,6 +226,19 @@ export const KEPT_IN = `case when status = 'promoted' then coalesce(
 /** A word or question to look up: asked until its answer (the Word's definition) is written, answered after. */
 const LOOKUP = `case when kind = 'word' then case when json_valid(fields) and trim(coalesce(json_extract(fields, '$.definition'), '')) != '' then 'answered' else 'asked' end end`
 export const LIST = `id, number, title, ${LABEL} as label, kind, status, source, private, pinned_at as pinnedAt, remind_at as remindAt, captured_at as capturedAt, edited_at as editedAt, attribution, medium, exited_at as closedAt, device, elapsed_ms as elapsedMs, weather, archived_at as archivedAt, imported_at as importedAt, snoozed_until as snoozedUntil, (select folder from put_away where put_away.id = captures.id and captures.archived_at is not null) as folder, ${KEPT_IN} as keptIn, fields, ${LOOKUP} as lookup`
+
+/** Every property name in use on a note or page: what `name:value` in a search can filter on. */
+const propertyNames = (db: DatabaseSync): string[] =>
+  (db.prepare(`select distinct key from (select j.key from captures, json_each(captures.fields) j where json_valid(captures.fields)
+    union select j.key from nuggets, json_each(nuggets.fields) j where json_valid(nuggets.fields)) where key != '_kept'`).all() as { key: string }[]).map((row) => row.key)
+/** A note's properties, read for a filter. */
+const fieldsOf = (db: DatabaseSync, type: string, id: string): Record<string, unknown> => {
+  try {
+    return JSON.parse((db.prepare(`select fields from ${type === 'capture' ? 'captures' : 'nuggets'} where id = ?`).get(id) as { fields: string | null } | undefined)?.fields ?? '{}') ?? {}
+  } catch {
+    return {}
+  }
+}
 
 /** One note whose words or fields were saved: what a change can say it was. */
 export interface Change {
@@ -458,13 +473,15 @@ export function registerCaptures(): void {
   // words; `kind:quote` narrows to one kind. Captures, nuggets and tasks alike,
   // newest first, each saying what it is.
   ipcMain.handle('captures:find', (_event, query: unknown) => {
-    const words = String(query ?? '').toLowerCase().split(/\s+/).filter(Boolean)
+    const said = String(query ?? '').toLowerCase().split(/\s+/).filter(Boolean)
+    // `author:le guin`: a property filter (property-words.ts), its value running to the next filter.
+    const { filters, rest: words } = propertyFilters(said, said.some((word) => word.includes(':')) ? propertyNames(db) : [])
     // The kinds that went: kind:excerpt is a quote, kind:bit and kind:book their tags.
     const asked = words.find((word) => word.startsWith('kind:'))?.slice(5)
     const retired = asked ? RETIRED[asked] : undefined
     const kind = retired ? (retired.tag ? undefined : retired.kind) : asked
     // % and _ are a search's own wildcards; typed, they mean themselves.
-    const terms = [...words.filter((word) => !word.startsWith('kind:')), ...(retired?.tag ? [`#${retired.tag}`] : [])].map((word) => `%${like(word)}%`)
+    const terms = [...words.filter((word) => !word.startsWith('kind:')), ...(retired?.tag ? [`#${retired.tag}`] : []), ...filters.map((one) => one.value).filter(Boolean)].map((word) => `%${like(word)}%`)
     const match = (text: string): string => terms.map(() => `${text} like ? escape '\\'`).join(' and ') || '1'
     const args = (n: number): string[] => [...Array(n)].flatMap(() => terms)
     const found = db.prepare(
@@ -479,6 +496,7 @@ export function registerCaptures(): void {
          select 'event', id, null, 'event', 'open', '', null, title, created_at from events where binned_at is null and series_id is null and ${match("(title || ' ' || coalesce(place, '') || ' ' || coalesce(people, '') || ' ' || coalesce(notes, ''))")}
        ) ${kind ? 'where kind = ?' : ''} order by capturedAt desc limit 60`
     ).all(...args(4), ...(kind ? [kind] : [])) as { type: string; id: string }[]
+    if (filters.length) return found.filter((one) => one.type !== 'task' && one.type !== 'event' && passes(fieldsOf(db, one.type, one.id), filters))
     // Few or none as typed: spelling forgiven (near.ts), the closest words standing in for a slip of the keys.
     // Read over the newest 3000 only, so a slip in a big book never stalls the typing; the Bin is left out as above.
     const plain = words.filter((word) => !word.startsWith('kind:'))
@@ -536,7 +554,21 @@ export function registerCaptures(): void {
 
   ipcMain.handle('captures:create', (event, raw: unknown) => {
     const patch = Patch.parse(raw)
+    // `Author:: Le Guin` on a line of its own: kept as a property, out of the words.
+    const taken = patch.body !== undefined && patch.markdown === undefined ? takeBodyProperties(patch.body) : { body: patch.body, found: [] }
+    if (taken.found.length) patch.body = taken.body
     const { id, number } = insert(patch, new Date().toISOString())
+    if (taken.found.length) {
+      const types = new Map((db.prepare('select name, type from properties').all() as { name: string; type: string }[]).map((row) => [row.name.toLowerCase(), row]))
+      const fields: Record<string, unknown> = {}
+      for (const { name, value } of taken.found) {
+        const known = types.get(name.toLowerCase())
+        const read = readValue(value, (known?.type as PropType | undefined) ?? null)
+        if (!known) db.prepare('insert or ignore into properties (name, type) values (?, ?)').run(name, read.type)
+        if (read.value !== '') fields[known?.name ?? name] = read.value
+      }
+      if (Object.keys(fields).length) db.prepare('update captures set fields = ? where id = ?').run(JSON.stringify(fields), id)
+    }
     // A #bit kept as plain text does not make it private; any tag kept so is remembered, so it does nothing later either.
     const plain = [...new Set((patch.plainTags ?? []).map((tag) => tag.toLowerCase()))]
     if (plain.length) db.prepare('update captures set plain_tags = ?, private = case when ? then 0 else private end where id = ?').run(JSON.stringify(plain), plain.includes('bit') ? 1 : 0, id)

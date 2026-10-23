@@ -1,4 +1,5 @@
 import { useEffect, useState, type CSSProperties } from 'react'
+import { PropertyStrip, keepPropertyLine } from './property-strip'
 import { ReadsIn } from '@/lib/reads-in'
 import type { Editor, JSONContent } from '@tiptap/core'
 
@@ -208,6 +209,8 @@ function CaptureWindow({ id }: { id: string }): React.JSX.Element | null {
           onTokenClick={(token) => token.name === 'tag' && elsewhere('tag', token.value)}
           toolbar={{ fixed: false, selectionExtra: selectionActions({ captureId: id, from: id }) }}
           documentId={`capture-${id}`}
+          belowTitle={<PropertyStrip table="captures" id={id} kind={capture.kind} />}
+          onPropertyLine={keepPropertyLine('captures', id)}
           defaultContent={(capture.body as JSONContent | string | null) ?? ''}
           findNotes={findCaptures}
           findHeadings={findHeadings}

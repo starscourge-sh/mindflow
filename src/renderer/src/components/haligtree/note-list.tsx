@@ -7,6 +7,7 @@ import {
   type CSSProperties,
   type ReactNode
 } from 'react'
+import { passes, propertyFilters } from '../../../../main/property-words'
 import { Minimize2 } from 'lucide-react'
 
 import { notes, smallPicture, useThumb, type NoteTable } from '@/lib/notes'
@@ -863,10 +864,16 @@ export function ListSearch({
 }
 
 /** Whether a note's title holds every word searched for, in any order. */
-export const matches = (title: string, query: string): boolean => {
-  const words = query.toLowerCase().split(/\s+/).filter(Boolean)
+/**
+ * Whether a row's name has every word typed; `author:le guin` (a property's
+ * name, a colon, its value) asks the row's properties instead (property-words.ts).
+ */
+export const matches = (title: string, query: string, fields?: string | Record<string, unknown> | null): boolean => {
+  let own: Record<string, unknown> = {}
+  try { own = typeof fields === 'string' ? JSON.parse(fields) ?? {} : fields ?? {} } catch { own = {} }
+  const { filters, rest } = propertyFilters(query.toLowerCase().split(/\s+/).filter(Boolean), Object.keys(own))
   const said = title.toLowerCase()
-  return words.every((word) => said.includes(word))
+  return rest.every((word) => said.includes(word)) && passes(own, filters)
 }
 
 /**

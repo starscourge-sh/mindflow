@@ -1,4 +1,5 @@
 import { SimilarNotes } from './similar-notes'
+import { propertySorts } from '@/lib/property-sorts'
 import { ReadsIn } from '@/lib/reads-in'
 import { cloneElement, startTransition, useEffect, useRef, useState } from 'react'
 import { spring, still } from '@/lib/motion'
@@ -53,6 +54,7 @@ import { Button } from '@/components/ui/button'
 import BookIcon from '@/components/ui/book-icon'
 import TrashIcon from '@/components/ui/trash-icon'
 import { Aliases, KindFields, LocalGraph, NoteHeader, TopicName } from './note-extras'
+import { PropertyStrip, keepPropertyLine } from './property-strip'
 import { ListSearch, NoteRail, PaneButtons, Peek, matches } from './note-list'
 import { archive, changeKind, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
 import { askBook } from '@/lib/books'
@@ -136,7 +138,7 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
   // A task open in Everything, in the pane Upcoming opens it in.
   const [task, setTask] = useState<TaskFull | null>(null)
   const spread = pane === 'wide' && !open && !task
-  const narrowed = spread && query.trim() ? arranged.map(([name, list]) => [name, list.filter((one) => matches(one.label, query))] as [string, Row[]]).filter(([, list]) => list.length) : arranged
+  const narrowed = spread && query.trim() ? arranged.map(([name, list]) => [name, list.filter((one) => matches(one.label, query, one.fields))] as [string, Row[]]).filter(([, list]) => list.length) : arranged
   const { groups, islands } = island(narrowed)
   // Counted whole, islands or not: a folded island still holds its notes.
   const counted = narrowed.reduce((sum, [, list]) => sum + list.length, 0)
@@ -686,6 +688,8 @@ export function CapturesView({ title, keep, focus, onOpen, archived = false, eve
               onTokenClick={(token) => token.name === 'tag' && onOpen?.('tag', token.value)}
               toolbar={{ fixed: false, selectionExtra: selectionActions({ captureId: open.id, from: open.id }) }}
               documentId={`capture-${open.id}`}
+              belowTitle={<PropertyStrip table="captures" id={open.id} kind={meta.kind} fields={meta.fields} text={meta.label} />}
+              onPropertyLine={keepPropertyLine('captures', open.id)}
               onTitleOut={(title) => !onBoard.current && sayTitle(title)}
               defaultContent={(open.body as JSONContent | string | null) ?? ''}
               findNotes={findCaptures}
@@ -992,7 +996,10 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
     ...(stars.length ? [{ key: 'rating', label: 'Rating', options: stars.map((n) => ({ id: String(n), label: '★'.repeat(n) })), test: (one: CaptureMeta, value: string) => fieldOf(one.fields, 'rating') === value }] : []),
     { key: 'flags', label: 'Marked', options: [{ id: 'pinned', label: 'Pinned' }, { id: 'private', label: 'Private' }, ...(archived ? [] : [{ id: 'archived', label: 'Archived' }])], test: (one, flag) => (flag === 'pinned' ? !!one.pinnedAt : flag === 'archived' ? !!one.archivedAt : !!one.private) }
   ]
+  // Any property in use is a way to sort (lib/property-sorts.ts).
+  const byProp = propertySorts(kept, (a, b) => b.capturedAt.localeCompare(a.capturedAt))
   const groups = arrange(kept, view, facets, {
+    ...byProp.compare,
     newest: (a, b) => b.capturedAt.localeCompare(a.capturedAt),
     changed: (a, b) => (b.editedAt ?? b.capturedAt).localeCompare(a.editedAt ?? a.capturedAt),
     untouched: (a, b) => touched(a).localeCompare(touched(b)),
@@ -1015,7 +1022,7 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
       onChange={setView}
       facets={facets}
       defaults={filter ?? {}}
-      sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Longest unchanged' }, { id: 'name', label: 'A to Z' }, { id: 'kind', label: 'Kind' }, { id: 'rating', label: 'Rating' }, { id: 'manual', label: 'Custom order' }]}
+      sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Longest unchanged' }, { id: 'name', label: 'A to Z' }, { id: 'kind', label: 'Kind' }, { id: 'rating', label: 'Rating' }, ...byProp.choices, { id: 'manual', label: 'Custom order' }]}
       groups={[{ id: 'kind', label: 'Kind' }, { id: 'none', label: 'None' }, { id: 'date', label: 'Date' }, { id: 'source', label: 'Where from' }, ...(showArchived ? [{ id: 'folder', label: 'Folder' }] : [])]}
       density={density}
       onDensity={(next) => setView({ ...view, [wide ? 'wideDensity' : 'density']: next })}

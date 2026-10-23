@@ -1,15 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { layerOpen } from '@/lib/menu-keys'
 import { createPortal } from 'react-dom'
-import { AlignLeft, CalendarDays, Plus, Split, Star } from 'lucide-react'
+import { AlignLeft, CalendarDays, Plus, Star } from 'lucide-react'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import ClockIcon from '@/components/ui/clock-icon'
 import PenIcon from '@/components/ui/pen-icon'
 import UnlinkIcon from '@/components/ui/unlink-icon'
-import { Unfold } from './glide'
 
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
-import { KIND_FIELDS, TAG_FIELDS, type Field } from '../capture-kinds/kind-fields'
+import { SUPER_TAGS, type Field } from '../capture-kinds/kind-fields'
 import { Search } from '../search'
 import { Command, CommandInput, CommandItem, CommandList, CommandShortcut } from '@/components/ui/command'
 import { Slider } from '@/components/ui/slider'
@@ -35,11 +34,11 @@ import { Does, GHOST, GhostText } from './ghost'
 import { cn } from '@/lib/cn'
 import ExpandIcon from '@/components/ui/expand-icon'
 import { GraphCanvas, showOnMap, type Graph } from './graph-canvas'
-import { age, dated as datedAs, dayKey, dayMonth, dayjs, daysFromToday, noon, num } from '../../../../main/dates'
+import { age, dated as datedAs, dayKey, dayMonth, dayjs, daysFromToday, noon } from '../../../../main/dates'
 import { moment, when } from '@/lib/clock'
 import { DatePicker } from './date-picker'
 import { keyFor } from '@/lib/keys'
-import { Check, ChevronRight, Link as Link2, ListTodo as ListChecks, Lock, Tag as Tags, Type, X } from '@/components/ui/icons'
+import { Check, Link as Link2, ListTodo as ListChecks, Tag as Tags, Type, X } from '@/components/ui/icons'
 
 // --- a note's first picture, small
 
@@ -123,98 +122,59 @@ export function KindAsker(): React.JSX.Element | null {
 
 // --- the fields a kind asks for
 
-/** A date the way a quiet line says it: "6 Oct", with the year once it is not this one. */
-const dated = (iso: string): string => dayMonth(iso)
-
 /** What a status says when it is picked, and how it sounds. */
 const STATUS: Record<string, { said: string; cue: Cue }> = {
-  Open: { said: 'Open: not decided yet', cue: 'tap' },
-  Deciding: { said: 'Deciding: weigh it up under “Working out”', cue: 'weigh' },
-  Decided: { said: "Decided. Don't reopen it without a new reason", cue: 'decided' },
-  Running: { said: 'Running: say what came of it when it ends', cue: 'trial' },
-  Finished: { said: 'Finished: write the outcome so it skims later', cue: 'finding' },
-  // A book's own: the same word, a different ask.
+  // A book's own.
   'book:Finished': { said: 'Finished: say what you will keep from it under “Takeaway”', cue: 'finding' }
 }
 
+/** The super tags a note carries: its kind's, then each #tag's (built in or given properties), each field once. */
+let ownSeen: Record<string, Field[]> = {}
+export function useSuperTags(table: NoteTable, id: string, kind: string, known?: string[]): [name: string, fields: Field[]][] {
+  // `known`: the tags as the list already read them, so the first frame has them.
+  const tags = useLive(() => notes.tags(table, id), known ?? ([] as string[]), [table, id])
+  // The tags you gave properties, as last read: the next note opens with them already in hand.
+  const own = useLive(() => notes.tagFields().then((all) => (ownSeen = all)), ownSeen, [])
+  const seen = new Set<string>()
+  const all: [string, Field[]][] = []
+  for (const name of [kind, ...tags]) {
+    if (all.some(([one]) => one === name)) continue
+    const fields = (own[name] ?? SUPER_TAGS[name] ?? []).filter((field) => !seen.has(field.key))
+    fields.forEach((field) => seen.add(field.key))
+    if (fields.length) all.push([name, fields])
+  }
+  return all
+}
+
 /**
- * The fields this note's kind asks for, in the properties column. Nothing for
- * a kind that asks for none, and nothing is ever required: a field is there
- * for when you want it. A decision folds its working out away and, once
- * decided, says so quietly; an experiment can start a decision from itself.
+ * The fields this note's super tags bring (its kind's, a #book's), in the
+ * properties column, with their own controls: stars, choices, a date.
+ * Nothing is ever required: a field is there for when you want it. Every
+ * other property is in the strip under the title (property-strip.tsx).
  */
 export function KindFields({ table, id, kind, onOpen }: { table: NoteTable; id: string; kind: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element | null {
-  const fields = KIND_FIELDS[kind] ?? []
-  // A tag that brings fields of its own (#book), whatever the kind: those the kind already has are its.
-  const tags = useLive(() => notes.tags(table, id), [] as string[], [table, id])
-  const tagged = Object.entries(TAG_FIELDS).filter(([tag]) => tags.includes(tag))
-    .map(([tag, list]) => [tag, list.filter((field) => !fields.some((one) => one.key === field.key))] as const)
+  const groups = useSuperTags(table, id, kind)
   // Tagged with the note they belong to: until this note's own have come in,
   // a field would start from nothing (or the last note's words) and a blur
   // would write that over what is kept.
   const read = useLive(() => notes.fields(table, id).then((values) => ({ of: `${table}:${id}`, values })), { of: '', values: {} as Record<string, string | number> }, [table, id])
   const values = read.values
-  // The working out: open while deciding unless shut by hand, folded after.
-  const [working, setWorking] = useState<boolean | null>(null)
-  useEffect(() => setWorking(null), [id])
-  // Properties a note came with that its kind does not ask for: an imported
-  // note's frontmatter, every key of it, shown and editable as words.
-  // `_kept`: another kind's fields, held out of sight since a change of kind (main/notes.ts).
-  const others = Object.keys(values).filter((key) => key !== '_kept' && ![...fields, ...tagged.flatMap(([, list]) => list)].some((field) => field.key === key))
-  if ((!fields.length && !others.length && !tagged.length) || read.of !== `${table}:${id}`) return null
+  if (!groups.length || read.of !== `${table}:${id}`) return null
   // `quiet`: the control already answered (a star's own note), so saving adds no second sound.
   const save = (key: string, value: string | number | null, quiet = false): void => {
     if ((values[key] ?? null) === (value === '' ? null : value)) return
     void notes.setField(table, id, key, value === '' ? null : value).then(() => quiet || chime('noted'))
   }
-  const saveAll = (patch: Record<string, string | number | null>): Promise<unknown> =>
-    Promise.all(Object.entries(patch).map(([key, value]) => notes.setField(table, id, key, value)))
-  // A status picked (or picked again, to clear it), dated when a decision is
-  // made, and taken back whole by the undo.
-  const pick = (key: string, option: string, kind: string): void => {
+  // A status picked (or picked again, to clear it), taken back whole by the undo.
+  const pick = (key: string, option: string, tag: string): void => {
     const next = values[key] === option ? null : option
-    const dates = kind === 'decision' && key === 'state'
-    const was = { [key]: values[key] ?? null, ...(dates ? { decidedAt: values.decidedAt ?? null } : {}) }
-    const patch = { [key]: next, ...(dates ? { decidedAt: next === 'Decided' ? (values.decidedAt && values[key] === 'Decided' ? values.decidedAt : new Date().toISOString()) : null } : {}) }
-    // Weighing it up opens the working out; deciding folds it away, kept.
-    if (dates) setWorking(next === 'Deciding' ? true : next === 'Decided' ? false : null)
-    void saveAll(patch).then(async () => {
-      const says = next ? STATUS[`${kind}:${next}`] ?? STATUS[next] : undefined
+    const was = values[key] ?? null
+    void notes.setField(table, id, key, next).then(() => {
+      const says = next ? STATUS[`${tag}:${next}`] : undefined
       chime(next ? says?.cue ?? 'tap' : 'off')
-      // Decided with no call written: the note's first line usually is it, offered in one key.
-      const first = dates && next === 'Decided' && !values.call
-        ? (await haligtree.linkTitle(table === 'captures' ? id : `nugget:${id}`))?.title?.split('\n')[0].trim().slice(0, 200)
-        : ''
-      toast(next ? says?.said ?? next : 'No status', () => void saveAll(was).then(() => chime('undo')), 'success',
-        first ? { label: 'First line as call', key: 'c', run: () => void notes.setField(table, id, 'call', first).then(() => (chime('noted'), toast(`The call: ${first}`, () => void notes.setField(table, id, 'call', null).then(() => chime('undo'))))) } : undefined)
+      toast(next ? says?.said ?? next : 'No status', () => void notes.setField(table, id, key, was).then(() => chime('undo')))
     })
   }
-  // An experiment's finding becomes a decision: made from it, so each shows
-  // the other under Came from and Became.
-  const decide = async (): Promise<void> => {
-    const self = await haligtree.linkTitle(table === 'captures' ? id : `nugget:${id}`)
-    const outcome = String(values.outcome ?? '').split('\n')[0].trim()
-    const text = outcome ? `Decide: ${outcome}` : `Decide, after: ${self?.title || 'the experiment'}`
-    const made = await window.api.captures.create({ kind: 'decision', body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] }, origin: id })
-    await notes.setField('captures', made, 'state', 'Open')
-    chime('promote')
-    // Undone, the decision goes and the experiment is open again, not a page on nothing.
-    toast('A decision, started from this experiment', () => void haligtree.unmakeCapture(made, id).then(() => (chime('undo'), onOpen?.(table === 'captures' ? 'capture' : 'nugget', id))))
-    onOpen?.('capture', made)
-  }
-  const properties = others.length ? (
-    <Island compact title="Properties">
-      {others.map((key) => (
-        <div key={`${id}-${key}-${values[key]}`} className="flex items-center gap-1 pl-2">
-          <span className="w-20 shrink-0 truncate text-meta" title={key}>{key}</span>
-          <div className="min-w-0 flex-1">
-            <PropInput icon={Type} value={String(values[key] ?? '')} placeholder={key} onSave={(text) => save(key, text)} />
-          </div>
-        </div>
-      ))}
-    </Island>
-  ) : null
-  const state = String(values.state ?? '')
   const longBox = (field: Field, value: string | number | undefined): React.JSX.Element => (
     <label data-ghost-field={field.ghost && !value ? '' : undefined} key={`${id}-${field.key}-${value ?? ''}`} className="flex items-start gap-2 rounded-md px-2 py-1.5 hover:bg-accent focus-within:bg-accent">
       <AlignLeft className="mt-1 size-4 shrink-0" />
@@ -227,9 +187,9 @@ export function KindFields({ table, id, kind, onOpen }: { table: NoteTable; id: 
     </label>
   )
   const longField = (field: Field, value: string | number | undefined): React.JSX.Element => <Does key={`${id}-${field.key}-${value ?? ''}`} does={field.does} set={!!value}>{longBox(field, value)}</Does>
-  // One island of fields: the kind's, or a tag's (`kind` then the tag, so a book's Finished says its own thing).
-  const island = (kind: string, title: string, fields: Field[]): React.JSX.Element | null => !fields.length ? null : (
-    <Island key={kind} compact title={title}>
+  // One island of fields: a super tag's (its name, so a book's Finished says its own thing).
+  const island = (tag: string, title: string, fields: Field[]): React.JSX.Element | null => !fields.length ? null : (
+    <Island key={tag} compact title={title}>
       {fields.map((field) => {
         const value = values[field.key]
         if (field.type === 'hidden') return null
@@ -246,49 +206,19 @@ export function KindFields({ table, id, kind, onOpen }: { table: NoteTable; id: 
               <Does does={field.does} set={!!value}>
               <div className="flex items-center gap-2">
                 <ListChecks className="size-4 shrink-0" />
-                <Chips options={(field.options ?? []).map((option) => ({ id: option, label: option }))} on={(option) => value === option} pick={(option) => pick(field.key, option, kind)} />
+                <Chips options={(field.options ?? []).map((option) => ({ id: option, label: option }))} on={(option) => value === option} pick={(option) => pick(field.key, option, tag)} />
               </div>
               </Does>
-              {/* Proof you already thought it through: quiet, and only once it is settled. */}
-              {kind === 'decision' && value === 'Decided' && (
-                <p className="flex items-center gap-1.5 pt-1 pb-0.5 pl-6 text-xs text-muted-foreground">
-                  <Lock className="size-3 shrink-0" />
-                  <Typed text={`Decided${values.decidedAt ? ` ${dated(String(values.decidedAt))}` : ''}: don't reopen it without a reason`} step={24} delay={150} />
-                </p>
-              )}
             </div>
           )
-        // The working out folds away: open while deciding, shut once decided,
-        // and out of sight altogether until there is something to weigh.
-        if (kind === 'decision' && field.key === 'working') {
-          const open = working ?? state === 'Deciding'
-          return (
-            <div key={field.key}>
-              <button type="button" aria-expanded={open} onClick={() => (chime(open ? 'fold' : 'slide'), setWorking(!open))}
-                className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-control hover:bg-accent">
-                <ChevronRight className={`size-4 shrink-0 transition-transform duration-200 ${open ? 'rotate-90' : ''}`} />
-                <span className="flex-1">{field.label}{!open && !value && field.ghost ? <GhostText className="ml-1.5">{field.ghost}</GhostText> : null}</span>
-                {!open && value ? <span className="text-xs text-muted-foreground"><Rolling text={`${num(String(value).split(/\s+/).length)} words`} by="word" /></span> : null}
-              </button>
-              <Unfold open={open}>
-                  <div>
-                    <Textarea rows={4} defaultValue={String(value ?? '')} placeholder={field.ghost ? `e.g. ${field.ghost}` : field.placeholder} aria-label={field.label} onBlur={(event) => save(field.key, event.target.value.trim())}
-                      data-ghost-field={field.ghost && !value ? '' : undefined}
-                      className={cn('min-h-0 resize-none rounded-none border-0 bg-transparent px-8 pt-0 pb-2 text-control text-foreground shadow-none focus-visible:ring-0', field.ghost && GHOST)} />
-                  </div>
-              </Unfold>
-            </div>
-          )
-        }
         if (field.type === 'date')
           return <DateField key={field.key} field={field} value={value}
-            // Nothing comes back once it is finished, or while a decision is still being made.
-            settled={field.key === 'until' ? values.status === 'Finished' : !!state && state !== 'Decided'} onSave={(iso) => {
+            // Nothing comes back once it is answered after its day.
+            settled={!!values.answeredAt && !!value && dayKey(String(values.answeredAt)) >= dayKey(String(value))} onSave={(iso) => {
             const was = value ?? null
             void notes.setField(table, id, field.key, iso).then(() => {
               chime(iso ? 'pin' : 'off')
-              const back = field.key === 'until' ? 'asks what you found' : 'comes back to check it still holds'
-              toast(iso ? `On ${dayMonth(iso)} it ${back}` : `${field.label}: cleared`, () => void notes.setField(table, id, field.key, was).then(() => chime('undo')))
+              toast(iso ? `On ${dayMonth(iso)} it comes back and asks you` : `${field.label}: cleared`, () => void notes.setField(table, id, field.key, was).then(() => chime('undo')))
             })
           }} />
         if (field.type === 'link')
@@ -315,24 +245,13 @@ export function KindFields({ table, id, kind, onOpen }: { table: NoteTable; id: 
             </Does>
           )
         if (field.type === 'long') return longField(field, value)
-        const input = <PropInput key={`${id}-${field.key}-${value ?? ''}`} icon={Type} value={String(value ?? '')} placeholder={field.placeholder ?? field.label} ghost={field.ghost} does={field.does} onSave={(text) => save(field.key, text)} />
-        // A decision's call is read by its name, so the name stays once it is written.
-        return kind === 'decision' && value ? <div key={field.key}><span className="block px-8 pt-1.5 -mb-1.5 text-meta">{field.label}</span>{input}</div> : input
+        return <PropInput key={`${id}-${field.key}-${value ?? ''}`} icon={Type} value={String(value ?? '')} placeholder={field.placeholder ?? field.label} ghost={field.ghost} does={field.does} onSave={(text) => save(field.key, text)} />
       })}
-      {kind === 'experiment' && (
-        <Tip label="A decision note, each linked to the other">
-          <button type="button" onClick={() => void decide()} className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-control hover:bg-accent hover:text-foreground">
-            <Split className="size-4 shrink-0" style={{ color: 'var(--tt-color-text-red)' }} /> Decide from this
-          </button>
-        </Tip>
-      )}
     </Island>
   )
   return (
     <>
-    {properties}
-    {island(kind, `${CAPTURE_TYPES.find((type) => type.id === kind)?.label ?? 'Kind'} details`, fields)}
-    {tagged.map(([tag, list]) => island(tag, `#${tag}`, list))}
+    {groups.map(([tag, fields]) => island(tag, tag === kind ? `${CAPTURE_TYPES.find((type) => type.id === kind)?.label ?? 'Kind'} details` : `#${tag}`, fields))}
     </>
   )
 }
@@ -366,7 +285,7 @@ export function TopicName({ id }: { id: string }): React.JSX.Element | null {
  * beside it like a link's. A date written as words before this was a date
  * shows as it was, until one is picked.
  */
-function DateField({ field, value, settled, onSave }: { field: Field; value: string | number | undefined; settled: boolean; onSave: (iso: string | null) => void }): React.JSX.Element {
+export function DateField({ field, value, settled, onSave }: { field: Field; value: string | number | undefined; settled: boolean; onSave: (iso: string | null) => void }): React.JSX.Element {
   const iso = typeof value === 'string' && /^\d{4}-\d\d-\d\dT/.test(value) ? value : null
   const due = !!iso && !settled && daysFromToday(iso) <= 0
   return (
@@ -393,7 +312,7 @@ const dayPage = (day: string): string => datedAs(noon(day), 'ddd D MMM')
  * opens it, and search to pick or change it. Days are offered first, since a
  * day is what most often starts something.
  */
-function LinkField({ label, placeholder, ghost, does, value, onSave, onOpen }: {
+export function LinkField({ label, placeholder, ghost, does, value, onSave, onOpen }: {
   label: string
   placeholder: string
   /** A faint example while nothing is linked: never saved. */
@@ -434,12 +353,12 @@ function LinkField({ label, placeholder, ghost, does, value, onSave, onOpen }: {
       {picking && createPortal(
         <Search
           menus={false}
-          placeholder="Link a day, a decision, an experiment, any note…"
+          placeholder="Link a day, a page, any note…"
           actions={days.map((day, back) => ({ label: back === 0 ? "Today's page" : back === 1 ? "Yesterday's page" : `${dayPage(day)}'s page`, run: () => onSave(`day:${day}`) }))}
           onClose={() => setPicking(false)}
           onOpen={(type, id) => {
             setPicking(false)
-            if (type === 'task') return refuse('A task cannot start an experiment here. Pick a day or a note')
+            if (type === 'task') return refuse('A task cannot be linked here. Pick a day or a note')
             onSave(type === 'capture' ? id : `${type}:${id}`)
           }}
         />,

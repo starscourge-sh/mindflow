@@ -57,6 +57,7 @@ import { OutdentLists } from "@/extensions/outdent-lists"
 import { CurrentItem } from "@/extensions/current-item"
 import { FullLineHighlight } from "@/extensions/full-line-highlight"
 import { LineCards } from "@/extensions/line-cards"
+import { PropertyLines } from "@/extensions/property-lines"
 import { LinkedTasks } from "@/extensions/linked-tasks"
 import { TaskMarks } from "@/extensions/task-marks"
 import { Kept } from "@/extensions/kept"
@@ -438,6 +439,10 @@ export interface HaligtreeEditorProps {
   onToggleSource?: () => void
   /** Shown after the document, scrolling with it: backlinks, as Obsidian keeps them. */
   after?: ReactNode
+  /** The note's properties, drawn in the page under its first line (property-strip.tsx). */
+  belowTitle?: ReactNode
+  /** A `name:: value` line finished with Enter: true once it is kept as a property, and the line goes. */
+  onPropertyLine?: (name: string, value: string) => boolean
   /**
    * What sits at the foot of a document in place of the word count: the
    * focus session's footer, which shows the count itself when no session runs.
@@ -562,6 +567,8 @@ function Surface({
   showSource = false,
   onToggleSource,
   after,
+  belowTitle,
+  onPropertyLine,
   foot,
   readOnly = false,
   host,
@@ -689,6 +696,10 @@ function Surface({
   // before the frame is painted, so what sits under the words comes with them, not a frame after.
   const [contentBox, setContentBox] = useState<HTMLDivElement | null>(null)
   const [afterBox, setAfterBox] = useState<HTMLDivElement | null>(null)
+  // The property strip's place in the page, made once: the editor's plugin puts it under the first line.
+  const [stripBox] = useState(() => Object.assign(document.createElement("div"), { className: "mf-property-strip", contentEditable: "false" }))
+  const hasStrip = useLatest(!!belowTitle)
+  const propertyLineRef = useLatest(onPropertyLine)
   // A link drawn before its kind is known gains its kind's icon in place of its "@" a moment later,
   // and the words after it reflow: the page it is on waits for the kinds (lib/reads-in.tsx).
   useReading(useSyncExternalStore(onKindsAsked, kindsAsked))
@@ -1142,6 +1153,8 @@ function Surface({
       ...(has("highlight") ? [Highlight.configure({ multicolor: true }), FullLineHighlight] : []),
       // "question :: answer": a review card, marked at the line's end.
       LineCards,
+      // "Author:: Ursula Le Guin": a property, kept on Enter; and the strip of them under the title.
+      PropertyLines.configure({ strip: () => (hasStrip.current ? stripBox : null), onProperty: (name, value) => propertyLineRef.current?.(name, value) ?? false }),
       // A to-do that is a task too, kept ticked as one; a pasted list offered as tasks.
       LinkedTasks.configure({ origin: () => (/^(?:capture|item)-(.+)$/.exec(String(documentId ?? ""))?.[1] ?? null), box: () => new URLSearchParams(location.search).get("view") === null && !documentId }),
       TaskMarks,
@@ -1802,6 +1815,7 @@ function Surface({
         {/* After the words, inside the same scroll: added beside ProseMirror's
             own element, never inside it. */}
         {after && afterBox && createPortal(after, afterBox)}
+        {belowTitle && createPortal(belowTitle, stripBox)}
 
         <LinkPreview editor={editor} />
         <LinkEditor editor={editor} />

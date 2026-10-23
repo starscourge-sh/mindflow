@@ -209,7 +209,11 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
   })
 
   // --- kind and the fields it asks for
+  // Every property name in use, read across every note: kept until a property changes (or a minute, for imports and the like).
+  let names: { at: number; list: unknown[] } | null = null
+  const forgetNames = (): void => void (names = null)
   handle('notes:fields:set', (name: string, id: string, key: string, value: unknown) => {
+    forgetNames()
     const row = db.prepare(`select fields from ${table(name)} where id = ?`).get(id) as { fields: string | null } | undefined
     if (!row) return false
     const fields = { ...(parse(row.fields) as Record<string, unknown> | null) }
@@ -228,21 +232,61 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
   })
   handle('notes:fields', (name: string, id: string) =>
     parse((db.prepare(`select fields from ${table(name)} where id = ?`).get(id) as { fields: string | null } | undefined)?.fields) ?? {})
-  // A new kind loses nothing: the fields it has no room for are held out of
-  // sight under `_kept`, and come back when a kind that has room for them
-  // does. What was there is handed back whole for the undo.
-  handle('notes:kind', (name: string, id: string, kind: string, keep: string[]) => {
+  // A new kind loses nothing: every property stays the note's own and shows
+  // (a field of the old kind is a plain property now). What was there is handed back whole for the undo.
+  handle('notes:kind', (name: string, id: string, kind: string) => {
     const row = db.prepare(`select kind, fields from ${table(name)} where id = ?`).get(id) as { kind: string; fields: string | null } | undefined
     if (!row) return null
-    const fields = { ...((parse(row.fields) as Record<string, unknown> | null) ?? {}) }
-    const kept = { ...((fields._kept as Record<string, unknown> | undefined) ?? {}) }
-    delete fields._kept
-    for (const key of Object.keys(fields)) if (!keep.includes(key)) (kept[key] = fields[key], delete fields[key])
-    for (const key of Object.keys(kept)) if (keep.includes(key) && !(key in fields)) (fields[key] = kept[key], delete kept[key])
-    if (Object.keys(kept).length) fields._kept = kept
-    db.prepare(`update ${table(name)} set kind = ?, fields = ? where id = ?`).run(kind, Object.keys(fields).length ? JSON.stringify(fields) : null, id)
+    db.prepare(`update ${table(name)} set kind = ? where id = ?`).run(kind, id)
     changed()
     return { kind: row.kind, fields: row.fields }
+  })
+  // --- properties: their types, and the tags that bring them (super tags)
+  db.exec('create table if not exists properties (name text primary key, type text not null, options text)')
+  column('tag_meta', 'fields text')
+  // Every property name in use, with its type when one was given: what `name:value` filters on and the strip offers.
+  // Read across every note, so kept until a property changes (or for a minute, for imports and the like).
+  handle('props:names', () => {
+    if (names && Date.now() - names.at < 60_000) return names.list
+    const typed = new Map((db.prepare('select name, type, options from properties').all() as { name: string; type: string; options: string | null }[]).map((row) => [row.name.toLowerCase(), row]))
+    const used = db.prepare(`select distinct key from (select j.key from captures, json_each(captures.fields) j where json_valid(captures.fields)
+      union select j.key from nuggets, json_each(nuggets.fields) j where json_valid(nuggets.fields)) where key != '_kept'`).all() as { key: string }[]
+    const found = new Map<string, { name: string; type: string | null; options: string[] }>()
+    for (const { key } of used) found.set(key.toLowerCase(), { name: key, type: typed.get(key.toLowerCase())?.type ?? null, options: [] })
+    for (const row of typed.values()) found.set(row.name.toLowerCase(), { name: row.name, type: row.type, options: (parse(row.options) as string[] | null) ?? [] })
+    names = { at: Date.now(), list: [...found.values()] }
+    return names.list
+  })
+  handle('props:type', (prop: string, type: string | null, options?: string[]) => {
+    names = null
+    const clean = String(prop ?? '').trim()
+    if (!clean) return false
+    if (!type) db.prepare('delete from properties where lower(name) = lower(?)').run(clean)
+    else db.prepare('insert into properties (name, type, options) values (?, ?, ?) on conflict(name) do update set type = excluded.type, options = excluded.options').run(clean, type, options?.length ? JSON.stringify(options) : null)
+    changed()
+    return true
+  })
+  // A property renamed on one note: its value moves to the new name, in place.
+  handle('notes:fields:rename', (name: string, id: string, from: string, to: string) => {
+    names = null
+    const row = db.prepare(`select fields from ${table(name)} where id = ?`).get(id) as { fields: string | null } | undefined
+    const next = String(to ?? '').trim()
+    if (!row || !next || from === next) return false
+    const fields = (parse(row.fields) as Record<string, unknown> | null) ?? {}
+    const renamed = Object.fromEntries(Object.entries(fields).map(([key, value]) => [key === from ? next : key, value]))
+    db.prepare(`update ${table(name)} set fields = ? where id = ?`).run(JSON.stringify(renamed), id)
+    changed()
+    return true
+  })
+  // The tags you gave properties to: each tag's list of fields, as kind-fields.ts writes them.
+  handle('tags:fields', () => Object.fromEntries((db.prepare('select tag, fields from tag_meta where fields is not null').all() as { tag: string; fields: string }[]).map((row) => [row.tag, parse(row.fields) ?? []])))
+  handle('tags:fields:set', (tag: string, fields: unknown[]) => {
+    const clean = String(tag ?? '').replace(/^#/, '').toLowerCase()
+    if (!clean) return false
+    db.prepare('insert or ignore into tag_meta (tag) values (?)').run(clean)
+    db.prepare('update tag_meta set fields = ? where tag = ?').run(Array.isArray(fields) && fields.length ? JSON.stringify(fields) : null, clean)
+    changed()
+    return true
   })
   // How often and how recently each kind is used, for ordering the kind list:
   // each note counts 1 on its day, half after a week (lib/frecency.ts).
