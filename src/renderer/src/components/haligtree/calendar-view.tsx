@@ -2,7 +2,7 @@ import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 're
 import { useReading, useReadsIn } from '@/lib/reads-in'
 import { createPortal } from 'react-dom'
 import { motion } from 'motion/react'
-import { Check, ChevronDown, PanelRight, Plus, Repeat as RepeatIcon, Search } from 'lucide-react'
+import { Check, ChevronDown, PanelLeft, PanelRight, Plus, Repeat as RepeatIcon, Search } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
 import { ChevronLeft, ChevronRight } from '@/components/ui/icons'
@@ -112,6 +112,9 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   const taskNow = useTaskNow()
   const [mode, setModeRaw] = useState<Mode>(() => stored('vigil.calendar.mode', 'week', ['day', 'week', 'month'] as const))
   const [side, setSideRaw] = useState(() => stored('vigil.calendar.side', 'on', ['on', 'off'] as const) === 'on')
+  // The right panel (Upcoming) has its own switch, on the right of the bar, as the left panel's is on the left.
+  const [upSide, setUpSideRaw] = useState(() => stored('vigil.calendar.upcoming', 'on', ['on', 'off'] as const) === 'on')
+  const setUpSide = (on: boolean): void => (chime(on ? 'on' : 'off'), store('vigil.calendar.upcoming', on ? 'on' : 'off'), setUpSideRaw(on))
   // Captures as small marks at the minute they were caught, in Day and Week: on unless turned off.
   const [marked, setMarkedRaw] = useState(() => stored('vigil.calendar.captures', 'on', ['on', 'off'] as const) === 'on')
   const setMarked = (on: boolean): void => (chime('tap'), store('vigil.calendar.captures', on ? 'on' : 'off'), setMarkedRaw(on))
@@ -151,8 +154,9 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   }, [mode, zone, leftRem, rightRem])
   // "Plan" pressed while a panel was folded for room: shown all the same, until it is pressed again.
   const [kept, setKept] = useState(false)
+  const [keptRight, setKeptRight] = useState(false)
   // Until the room changes: grown, it is not needed; shrunk again, the panels fold as before.
-  useEffect(() => setKept(false), [fits.left, fits.right])
+  useEffect(() => (setKept(false), setKeptRight(false)), [fits.left, fits.right])
   const roomless = narrow && mode === 'month'
   // The side panel: a new task for a slot or a day, or a task opened from the grid.
   const [panel, setPanel] = useState<SideAsk | null>(null)
@@ -163,7 +167,9 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   const onPeek = (one: Shown, at: DOMRect): void => (setPanel(null), setPeek({ one, at }))
   const days = mode === 'day' ? [anchor] : Array.from({ length: 7 }, (_, at) => anchor.startOf('week').add(at, 'day'))
   const step = (by: -1 | 1): void => (chime('page'), setPeek(null), setAnchor((now) => now.add(by, mode)))
-  const today = (): void => (chime('tap'), setPeek(null), setAnchor(dayjs().startOf('day')))
+  // Today brought into sight: its day shown, and the grid scrolled to the now line, so the step is seen even when today was already in view.
+  const toNow = (): void => void setTimeout(() => document.querySelector('[data-cal-now]')?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 60)
+  const today = (): void => (chime('tap'), setPeek(null), setAnchor(dayjs().startOf('day')), toNow())
   // "+ New event": the panel on Event, for the next hour on the day shown (today when it is in view).
   const newEvent = (): void => {
     const on = days.some((day) => day.isSame(dayjs(), 'day')) || mode === 'month' && anchor.isSame(dayjs(), 'month') ? dayjs() : anchor
@@ -241,7 +247,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
     chosen: () => live.current.pickedEvent ? null : live.current.tasks.find((task) => task.id === live.current.picked && task.status === 'open') ?? null,
     day: () => dayKey(live.current.anchor),
     mode: () => live.current.mode,
-    go: (day) => (chime('page'), setPeek(null), setAnchor(dayjs(day).startOf('day'))),
+    go: (day) => (chime('page'), setPeek(null), setAnchor(dayjs(day).startOf('day')), dayjs(day).isSame(dayjs(), 'day') && toNow()),
     setMode: (to) => setMode(to),
     open: (id) => pick(id),
     reveal: (task) => {
@@ -398,15 +404,20 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   const peekNow = peek && { ...peek, one: shownEvents.find((one) => one.key === peek.one.key) ?? peek.one }
   const left = side && !roomless && (fits.left || kept)
   // The right panel: Upcoming where there is room, and the event or task being edited, which takes its place.
-  const upcoming = side && mode !== 'month' && (fits.right || kept)
+  const upcoming = upSide && mode !== 'month' && (fits.right || keptRight)
   const right = upcoming || !!panel
-  // "Plan": on while the panels it shows are up (in a month, the left one), off hides them; on again shows them, room or not.
-  const planOn = mode === 'month' ? left : upcoming && left
-  const plan = (): void => {
-    if (planOn) return (setKept(false), setSide(false))
-    setKept(mode === 'month' ? !fits.left : !fits.right || !fits.left)
+  // Each panel's switch sits on its own side of the bar: on while its panel is up, off hides it; on again shows it, room or not.
+  const leftPanel = (): void => {
+    if (left) return (setKept(false), setSide(false))
+    setKept(!fits.left)
     if (side) chime('on')
     else setSide(true)
+  }
+  const plan = (): void => {
+    if (upcoming) return (setKeptRight(false), setUpSide(false))
+    setKeptRight(!fits.right)
+    if (upSide) chime('on')
+    else setUpSide(true)
   }
   const goTo = (day: Dayjs): void => void (!days.some((one) => one.isSame(day, 'day')) && setAnchor(day.startOf('day')))
   return provide(
@@ -428,6 +439,9 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
       {picked && <style>{`[data-cal-block="${CSS.escape(picked)}"] { outline: 2px solid var(--ring); outline-offset: 1px } [data-cal-untimed="${CSS.escape(picked)}"] { outline: 2px solid var(--ring); outline-offset: -2px }`}</style>}
       {/* A window too narrow for the title and every control: the controls wrap onto a line of their own, never over the title. */}
       <header className="@container/head flex min-h-16 shrink-0 flex-wrap items-center gap-2 px-5 py-2">
+        <Tip label={roomless ? 'No room for the left panel beside a month here' : left ? 'Hide the left panel' : 'Show the left panel: the small month, your calendars, unscheduled tasks'}>
+          <Button variant="outline" size="icon-sm" data-cal-left-toggle disabled={roomless} aria-label={left ? 'Hide the left panel' : 'Show the left panel'} aria-pressed={left} className="size-8 shrink-0 aria-pressed:bg-accent" onClick={leftPanel}><PanelLeft /></Button>
+        </Tip>
         <div className="mr-auto flex min-w-[9rem] flex-col">
           {/* The month, as a picker: a click (or .) opens the small month, to go to any date. */}
           <Popover open={jump} onOpenChange={(open) => (open && chime('open'), setJump(open))}>
@@ -460,8 +474,8 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
         </div>
         <ViewPick mode={mode} onPick={setMode} />
         <Tip label="Search the calendar (⌘K)"><Button variant="outline" size="icon-sm" data-cal-search aria-label="Search the calendar" className="size-8" onClick={search}><Search /></Button></Tip>
-        <Tip label={roomless ? 'No room for the side panels beside a month here' : planOn ? 'Hide the side panels' : 'Show the side panels'}>
-          <Button variant="outline" size="sm" data-cal-side-toggle disabled={roomless} aria-label={planOn ? 'Hide the side panels' : 'Show the side panels'} aria-pressed={planOn && !roomless} className="aria-pressed:bg-accent" onClick={plan}>
+        <Tip label={mode === 'month' ? 'Upcoming shows beside a day or a week' : upcoming ? 'Hide Upcoming, the right panel' : 'Show Upcoming, the right panel'}>
+          <Button variant="outline" size="sm" data-cal-side-toggle disabled={mode === 'month'} aria-label={upcoming ? 'Hide Upcoming' : 'Show Upcoming'} aria-pressed={upcoming} className="aria-pressed:bg-accent" onClick={plan}>
             <span className="hidden @[40rem]/head:inline">Plan</span><PanelRight />
           </Button>
         </Tip>

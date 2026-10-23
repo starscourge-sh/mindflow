@@ -268,11 +268,11 @@ try {
   await h.keyboard.press('.'); await h.waitForTimeout(400)
   check('. opens it too', await h.locator('[data-cal-jump-month]').count() === 1)
   await h.keyboard.press('Escape'); await h.waitForTimeout(300)
-  // Plan hides the side panels.
-  await h.locator('[data-cal-side-toggle]').click(); await h.waitForTimeout(400)
-  // With the right panel folded for room, "Plan" first brings it back, then hides both.
+  // Each panel's switch on its own side: the left one hides the left panel, "Plan" the right.
+  if (await h.locator('[data-cal-side]').count()) { await h.locator('[data-cal-left-toggle]').click(); await h.waitForTimeout(400) }
   if (await h.locator('[data-cal-right]').count()) { await h.locator('[data-cal-side-toggle]').click(); await h.waitForTimeout(400) }
-  check('Plan hides the side panels', await h.locator('[data-cal-side], [data-cal-right]').count() === 0)
+  check('the two switches hide the side panels', await h.locator('[data-cal-side], [data-cal-right]').count() === 0)
+  await h.locator('[data-cal-left-toggle]').click(); await h.waitForTimeout(400)
   await h.locator('[data-cal-side-toggle]').click(); await h.waitForTimeout(400)
   // Shots of the new parts in each theme.
   for (const theme of ['paper', 'dark', 'light']) {

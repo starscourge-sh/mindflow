@@ -204,7 +204,7 @@ export function calendarPalette(toCalendar: (day: string) => void): { actions: A
           return words ? { label: `New task: ${words}`, hint: `On ${dayName(calendar.day())} unless it names a day`, own: true, cue: null, run: () => void addForDay(words, calendar.day()).then(() => { const day = daySaid(words); if (day) calendar.go(dayKey(day.due)) }) } : null
         }
       },
-      { label: calendar.side() ? 'Hide the side panel' : 'Show the side panel', hint: 'The Calendar', own: true, cue: null, run: () => calendar.setSide(!calendar.side()) },
+      { label: calendar.side() ? 'Hide the left panel' : 'Show the left panel', hint: 'The Calendar', own: true, cue: null, run: () => calendar.setSide(!calendar.side()) },
       ...(calendar.calendars?.() ?? []).map((one): Action => ({ label: `${one.on ? 'Hide' : 'Show'} ${one.name}`, hint: 'A calendar', own: true, cue: one.on ? 'off' : 'on', run: one.flip }))
     ]
   }

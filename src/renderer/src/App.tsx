@@ -114,6 +114,7 @@ import { holdKeys, useLesson, useWelcomePlaceholder } from './lib/welcome-box'
 import { SandboxChip } from '@/components/haligtree/sandbox'
 import { DefineGhost, defineable, fixIn, useDefinition } from '@/components/haligtree/word-define'
 import { notes } from './lib/notes'
+import { DatePicker } from './components/haligtree/date-picker'
 import { useFitBox } from './lib/fit-box'
 import { menuShowing, layerOpen } from '@/lib/menu-keys'
 import { clip, quoted } from '../../main/clip'
@@ -364,6 +365,9 @@ export default function App(): React.JSX.Element {
   const autoWhere = useRef('')
   useEffect(() => window.api.onHeld(heldNote), [])
   const [kind, setKind] = useState<CaptureType>('note')
+  // A Check back's day, picked as the kind is: the calendar opens straight away, and the day stays on its button.
+  const [backOn, setBackOn] = useState<string | null>(null)
+  const [backAsk, setBackAsk] = useState(0)
   // Picked by hand: from then on the wording no longer suggests one.
   const [chosen, setChosen] = useState(false)
   // Archived ones too: Display's Archived filter reaches them; every other
@@ -535,6 +539,8 @@ export default function App(): React.JSX.Element {
   useEffect(() => (setAskSource(false), setOffersAll(false)), [editing?.id])
   // Closed again whenever a different capture opens or the box is put down.
   useEffect(() => setDetails(false), [editing?.id])
+  // An open Check back shows the day it already has.
+  useEffect(() => void (editing ? notes.fields('captures', editing.id).then((all) => setBackOn(typeof all.back === 'string' ? all.back : null)) : setBackOn(null)), [editing?.id])
 
   // Never a taken-down editor: Tiptap empties one's storage when it goes, so
   // turning it into Markdown threw "reading 'manager'" and nothing was kept.
@@ -1053,9 +1059,11 @@ export default function App(): React.JSX.Element {
         // Saved, a note loses its empty last line: the line to write on is put back under the picture.
         if (ready && editor.state.doc.lastChild?.type.name !== 'paragraph') editor.chain().insertContentAt(editor.state.doc.content.size, { type: 'paragraph' }).run()
         if (ready && !(editor.isFocused && editor.state.selection.empty && editor.state.selection.to >= editor.state.doc.content.size - 1)) editor.commands.focus('end')
-        if (ready ? held < 10 : tries < 60) setTimeout(() => caret(tries + 1, ready ? held + 1 : 0), 50)
+        if (ready ? held < 30 : tries < 60) setTimeout(() => caret(tries + 1, ready ? held + 1 : 0), 50)
       }
       caret()
+      // The box often gets the keys only after the area pick hands them back: the caret goes under the picture then too.
+      window.addEventListener('focus', () => caret(0, 20), { once: true })
     })
   }), [])
   useEffect(() => {
@@ -1094,6 +1102,7 @@ export default function App(): React.JSX.Element {
     openedAt.current = Date.now()
     setEditing(null)
     setBody(draft ?? null)
+    setBackOn(null)
     setAttribution('')
     setMedium('')
     // The names read from the last quote's tail go with it, or the next quote's never fills in.
@@ -1286,6 +1295,7 @@ export default function App(): React.JSX.Element {
     const later = plan?.later ?? null
     const doc = later ? laterOff(signed, later.text) : signed
     const text = textOf(doc).trim()
+    const back = backOn
     // Nothing to keep: said with the "not allowed" sound, not in silence. A
     // picture or a drawing with no words is still something.
     const something = (doc as JSONContent | null)?.content?.some((node) => node.type !== 'paragraph' || node.content?.length)
@@ -1426,6 +1436,7 @@ export default function App(): React.JSX.Element {
         }
         // A letter to future you: out of every list until its day, then back on Today saying when you wrote it.
         if (later && !action) await haligtree.snoozeCapture(id, later.day)
+        if (sorted === 'checkback' && back) await notes.setField('captures', id, 'back', back)
         if (action) {
           // The welcome shows the task it became itself; the box says nothing over it.
           // Undone, the capture goes too and the box comes back as it was sent.
@@ -1468,6 +1479,7 @@ export default function App(): React.JSX.Element {
   // ⌘↵ from anywhere in the window saves and closes; ⌥⌘↵ saves and starts another. Caught before the
   // editor, where it would otherwise only step out of a code block.
   const pick = (next: CaptureType): void => {
+    if (next === 'checkback') setBackAsk((n) => n + 1)
     setKind(next)
     setChosen(true)
     saveField({ kind: next })
@@ -2025,6 +2037,14 @@ export default function App(): React.JSX.Element {
                 value={kind}
                 onChange={pick}
               /></span>
+              {kind === 'checkback' && (
+                <span data-under-toast data-zen-keep className="inline-flex">
+                  <DatePicker key={backAsk} startOpen={backAsk > 0} value={backOn} placeholder="On which day?"
+                    suggest={['in a week', 'in 2 weeks', 'in a month', 'in 3 months', 'in a year']}
+                    lead={backOn ? 'Check back on' : undefined} className="h-8 rounded-full border"
+                    onChange={(iso) => (setBackOn(iso), editing && void notes.setField('captures', editing.id, 'back', iso))} />
+                </span>
+              )}
               {/* The camera: a whole screen or just an area, as a picture in the note (shot-button.tsx). Out of the way of the first capture's lesson, whose word sits where it is. */}
               {!locked && <span data-lesson="hide" data-under-toast className="inline-flex"><ShotButton onShot={(area) => void attachScreenshot(area)} /></span>}
               <span className="flex-1" />

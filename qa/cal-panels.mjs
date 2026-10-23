@@ -36,7 +36,7 @@ try {
   await v('event:add', { title: 'Panels standup', start: at(6, 30), end: at(7, 30), calendarId: 'personal' })
   await go('calendar'); await wait(1200)
   if (await h.locator('[data-cal-mode="week"]').count() === 0) { await h.keyboard.press('w'); await wait(500) }
-  if (await h.locator('[data-cal-side]').count() === 0) { await h.locator('[data-cal-side-toggle]').click(); await wait(500) }
+  if (await h.locator('[data-cal-side]').count() === 0) { await h.locator('[data-cal-left-toggle]').click(); await wait(500) }
   await h.locator('[data-cal-scroll]').evaluate((el) => (el.scrollTop = 5 * 56))
 
   // 2 and 3: the widths.

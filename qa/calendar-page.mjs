@@ -114,11 +114,10 @@ try {
   check('an Unscheduled task dragged onto the grid gets that time', t.dueAt && new Date(t.dueAt).getHours() === 16 && !t.allDay, t.dueAt)
 
   // Side panel hides.
-  // At this width the right panel is folded for room: "Plan" brings it back first (qa/cal-panels.mjs), then hides both.
-  await h.locator('[data-cal-side-toggle]').click(); await h.waitForTimeout(300)
-  if (await h.locator('[data-cal-right]').count()) { await h.locator('[data-cal-side-toggle]').click(); await h.waitForTimeout(300) }
+  // The left panel's switch is on the left of the bar.
+  await h.locator('[data-cal-left-toggle]').click(); await h.waitForTimeout(300)
   check('the side panel can be hidden', await h.locator('[data-cal-side]').count() === 0)
-  await h.locator('[data-cal-side-toggle]').click(); await h.waitForTimeout(300)
+  await h.locator('[data-cal-left-toggle]').click(); await h.waitForTimeout(300)
 
   // Month chips and +N more.
   await h.keyboard.press('m'); await h.waitForTimeout(800)

@@ -29,7 +29,7 @@ try {
   const drag = (await v('task:add', `Drag probe task today at ${soon.getHours()}:00`, undefined, true)).id
   await go('calendar'); await wait(1200)
   if (await h.locator('[data-cal-mode="week"]').count() === 0) { await h.keyboard.press('w'); await wait(500) }
-  if (await h.locator('[data-cal-side]').count() === 0) { await h.locator('[data-cal-side-toggle]').click(); await wait(500) }
+  if (await h.locator('[data-cal-side]').count() === 0) { await h.locator('[data-cal-left-toggle]').click(); await wait(500) }
 
   // 1. The picked chip's ring, inside it.
   await h.locator(`[data-cal-untimed="${chip}"]`).first().focus(); await wait(300)
