@@ -440,6 +440,16 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
         waiting={listUnread || !listShown}
         apart={sent}
         title={title}
+        // What the Inbox holds, waiting only or sorted too: a filter, so at the line's left, always in the same place, away from Go through and the views on the right.
+        lead={inboxPage && !chosen.length ? (
+          <Tip label={everything ? 'Every note and task, sorted or not. Off: only what waits' : 'What was sorted out of the Inbox too, and every task'}>
+            <label data-sorted-too className="-ml-2 flex h-7 cursor-default items-center gap-2 rounded-md px-2 text-control whitespace-nowrap text-foreground/85 hover:bg-accent/60">
+              <Switch checked={everything} onCheckedChange={(on) => (chime(on ? 'on' : 'off'), setChosen([]), setSortedToo(on))} aria-label="Show sorted too" />
+              {/* Its words only while the list has the page's width: beside a note (or one looked at, spread out) the switch alone. */}
+              {!open && !task && !(spread && peek) ? 'Show sorted too' : <span className="sr-only">Show sorted too</span>}
+            </label>
+          </Tip>
+        ) : undefined}
         // The Inbox is a place to set things down, never a queue with a number on it.
         // What is picked always shows: the buttons may fold into ⋯ in a narrow window, the count never does.
         count={chosen.length || (title === 'Inbox' ? undefined : counted)}
@@ -501,16 +511,6 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
                 </Tip>
               )}
               {display}
-              {/* Always here, in the same place, right of Display (whose sort name changes with it): on, the Inbox lists what was sorted out of it too. */}
-              {inboxPage && (
-                <Tip label={everything ? 'Every note and task, sorted or not. Off: only what waits' : 'What was sorted out of the Inbox too, and every task'}>
-                  <label data-sorted-too className="flex h-7 cursor-default items-center gap-2 rounded-md px-2 text-control whitespace-nowrap text-foreground/85 hover:bg-accent/60">
-                    <Switch checked={everything} onCheckedChange={(on) => (chime(on ? 'on' : 'off'), setChosen([]), setSortedToo(on))} aria-label="Show sorted too" />
-                    {/* Its words only while the list has the page's width: beside a note (or one looked at, spread out) the switch alone. */}
-                    {!open && !task && !(spread && peek) ? 'Show sorted too' : <span className="sr-only">Show sorted too</span>}
-                  </label>
-                </Tip>
-              )}
               <PaneButtons pane={spread ? 'wide' : 'list'} onPane={setPane} fold={(!!open && !boardShown) || !!task} />
             </span>
           )
