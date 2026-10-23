@@ -29,11 +29,11 @@ const ids = {}
 const view = (sort) => h.evaluate((s) => localStorage.setItem('view:article', JSON.stringify({ sort: s, group: 'none', filter: {}, density: 'list' })), sort)
 
 /** The scene from the report: Apple Notes / Notes holding Group 2, Group 3 and a loose page; another group; two loose pages. */
-async function scene({ folded = [] } = {}) {
+async function scene({ folded = [], top, groups } = {}) {
   const layout = {
-    top: ['g:an', 'g:ot', ids['Loose one'], ids['Loose two']],
-    groups: { an: ['g:g2', 'g:g3', ids['Remove account check']], g2: [ids['THE AGREEMENT'], ids.Notes, ids.Accounts], g3: [ids.Buy, ids.Bed, ids.Todos], ot: [ids.Xenon, ids.Yttrium] },
-    revive: Object.entries(NAMES).map(([id, name]) => ({ id, name, icon: null, color: null, folded: folded.includes(id) ? 1 : 0 }))
+    top: top ?? ['g:an', 'g:ot', ids['Loose one'], ids['Loose two']],
+    groups: groups ?? { an: ['g:g2', 'g:g3', ids['Remove account check']], g2: [ids['THE AGREEMENT'], ids.Notes, ids.Accounts], g3: [ids.Buy, ids.Bed, ids.Todos], ot: [ids.Xenon, ids.Yttrium] },
+    revive: Object.entries(NAMES).filter(([id]) => !groups || id in groups).map(([id, name]) => ({ id, name, icon: null, color: null, folded: folded.includes(id) ? 1 : 0 }))
   }
   await v('groups:arrange', 'article', layout)
   for (const [id] of Object.entries(NAMES)) await v('groups:set', id, { folded: folded.includes(id) })
@@ -86,7 +86,7 @@ const near = (a, b, by = 4) => a !== undefined && b !== undefined && Math.abs(a 
  * while it travels.
  */
 const watch = () => h.evaluate(() => {
-  const out = { frames: 0, overlap: [], outside: [], hole: [], air: null }
+  const out = { frames: 0, overlap: [], outside: [], hole: [], air: null, lit: [], boxes: [] }
   window.__geo = out
   const say = (list, text) => list.length < 3 && list.push(`${text} [f${out.frames}${document.documentElement.hasAttribute('data-dragging') ? ' carrying' : ' after'}]`)
   const name = (n) => (n.dataset.sortableId.startsWith('g:') ? n.dataset.sortableId : (n.textContent || '').slice(0, 14))
@@ -118,6 +118,20 @@ const watch = () => h.evaluate(() => {
     }
     // The air between rows at rest, from the first frame, before anything is lifted.
     if (out.air === null) out.air = Math.max(0, ...rows.slice(1).map((one, at) => one.top - rows[at].bottom))
+    // While carrying, the list's hover light is out: left lit, it stayed where a row was before the rows slid.
+    const glide = [...document.querySelectorAll('[data-glide]')].find((one) => one.getClientRects().length && Number(getComputedStyle(one).opacity) > 0.05)
+    if (glide && document.documentElement.hasAttribute('data-dragging')) say(out.lit, `hover light at ${Math.round(glide.getBoundingClientRect().top)}`)
+    // Each group's box is one piece, and no box overlaps another beside it.
+    const panels = [...document.querySelectorAll('[data-group-block]')].flatMap((one) => {
+      const pane = one.querySelector(':scope > [data-panel]')
+      if (!pane || getComputedStyle(pane).opacity === '0') return []
+      const parts = [...pane.querySelectorAll(':scope > [data-panel-part]')].map((p) => p.getBoundingClientRect())
+      if (parts.length !== 3) return []
+      const seam = Math.max(Math.abs(parts[0].bottom - parts[1].top), Math.abs(parts[1].bottom - parts[2].top))
+      if (seam > 1.5) say(out.boxes, `${one.dataset.groupBlock} in pieces by ${Math.round(seam)}`)
+      return [{ el: one, id: one.dataset.groupBlock, top: parts[0].top, bottom: parts[2].bottom }]
+    })
+    for (const a of panels) for (const b of panels) if (a !== b && a.top <= b.top && !a.el.contains(b.el) && !b.el.contains(a.el) && a.bottom - b.top > 1.5) say(out.boxes, `${a.id} over ${b.id} by ${Math.round(a.bottom - b.top)}`)
     for (const row of rows) {
       if (row.riding) continue
       const block = row.n.parentElement?.closest('[data-group-block]')
@@ -180,6 +194,8 @@ async function drop(name, from, to, at, expect) {
   check(`${name}: no two rows overlap, frame by frame`, geo.frames > 20 && !geo.overlap.length, `${geo.frames} frames ${geo.overlap.join('; ')}`)
   check(`${name}: every row stays inside its group's box`, !geo.outside.length, geo.outside.join('; '))
   check(`${name}: no hole opens without the drop line in it`, !geo.hole.length, geo.hole.join('; '))
+  check(`${name}: no hover light while carrying`, !geo.lit.length, geo.lit.join('; '))
+  check(`${name}: every box is one piece and none overlaps another`, !geo.boxes.length, geo.boxes.join('; '))
   const after = await where()
   if (expect.refused) {
     check(`${name}: nothing changes`, JSON.stringify(after) === JSON.stringify(before))
@@ -215,6 +231,8 @@ try {
   }
   const K = (t) => ids[t]
 
+  // ONLY=1 runs just the screenshots' own cases.
+  if (!process.env.ONLY) {
   await scene()
   await drop('page into a subgroup', row('Loose one'), row('Notes'), 0.5, { key: K('Loose one'), label: 'Add to Group 2', into: 'g2', order: ['Notes', 'Loose one', 'Accounts'] })
   await scene()
@@ -284,6 +302,20 @@ try {
     await wait(600)
   }
 
+  }
+  // The user's screenshots, each as it was. shots/drag-box-cuts-accounts.png: Group 3 above Group 2 in Apple Notes / Notes,
+  // carried to below Group 2. Group 2's box keeps Accounts inside it, and no hover light is left on a row.
+  const theirs = (an) => ({ top: [ids['Remove account check'], 'g:an', 'g:ot', ids['Loose one'], ids['Loose two']], groups: { an, g2: [ids.Notes, ids.Accounts], g3: [ids.Buy, ids.Bed, ids['THE AGREEMENT'], ids.Todos], ot: [ids.Xenon, ids.Yttrium] } })
+  // A fresh page: after the carries above, the scene was drawn before the list caught up and Notes was not found.
+  await h.reload({ timeout: 90000 })
+  await wait(1800)
+  await scene(theirs(['g:g3', 'g:g2']))
+  await h.mouse.move(400, (await row('Notes').boundingBox()).y + 10)
+  await drop('Group 3 carried below Group 2, as in the screenshot', head('g3'), row('Accounts'), 0.9, { key: 'g:g3', label: 'Move here', into: 'an', lit: ['an'], order: ['g:g2', 'g:g3'] })
+  // shots/drag-page-between-groups.png: Group 3 and Group 2 side by side, Notes carried from Group 2 to the end of Group 3.
+  await scene({ top: [ids['Remove account check'], 'g:g3', 'g:g2', ids['Loose one'], ids['Loose two']], groups: { g2: [ids.Notes, ids.Accounts, ids.Xenon], g3: [ids.Buy, ids.Bed, ids['THE AGREEMENT'], ids.Todos] } })
+  await drop('page from Group 2 to the end of Group 3, as in the screenshot', row('Notes'), row('Todos'), 0.85, { key: K('Notes'), label: 'Move to Group 3', into: 'g3', order: ['Todos', 'Notes'] })
+
   // Esc mid-drag: everything goes back, nothing saved, still on the list.
   await scene()
   const was = await where()
@@ -319,6 +351,13 @@ try {
   await wait(1800)
   await scene()
   await drop('Group 3 between two of Group 2\'s pages, sorted by Newest', head('g3'), row('Accounts'), 0.1, { key: 'g:g3', label: 'Move here · Custom order', into: 'an', lit: ['an'], order: ['g:g3', 'g:g2'] })
+  // shots/drag-mid-broken.png: sorted by Newest, Group 2 carried over the middle of Group 3 inside Apple Notes / Notes.
+  await view('newest')
+  await h.reload()
+  await wait(1800)
+  await scene(theirs(['g:g2', 'g:g3']))
+  // Group 2 already sits just above Group 3, so there it would stay: no hint, and nothing of Group 2 shows inside Group 3.
+  await drop('Group 2 over the middle of Group 3, sorted by Newest, as in the screenshot', head('g2'), row('Bed'), 0.5, { key: 'g:g2', label: '', refused: true, lit: [] })
   check('no errors on the page', c.errors.length === 0, c.errors.slice(0, 3).join(' | '))
 } finally { await c.close() }
 done()

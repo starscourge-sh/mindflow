@@ -1750,6 +1750,8 @@ button.mf-signed:hover .mf-signature { text-decoration: underline; text-decorati
 [data-sortable-id] [data-grip] { cursor: grab; }
 [data-sortable-id] [data-grip]:active { cursor: grabbing; }
 html[data-dragging] [data-grip] { display: none; }
+/* A list's hover light is out while a row is carried: left on, it stayed where a row was before the rows slid aside. */
+html[data-dragging] [data-glide] { display: none; }
 html[data-dragging], html[data-dragging] * { cursor: grabbing !important; }
 [data-sortable-id] :is(input, textarea, [contenteditable="true"], [contenteditable="true"] *) { cursor: text; }
 

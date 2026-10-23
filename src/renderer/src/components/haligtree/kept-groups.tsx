@@ -108,6 +108,8 @@ type Aim = {
   snug?: boolean
   /** How much more (or less) room a group carried takes where it lands than where it was: a subgroup's block sits in less air. */
   fit?: number
+  /** Landing last in a group with the next row on show outside it: where that group's own rows end, as drawn at rest. */
+  until?: number
 }
 /** How far a group's panel's top and bottom edges move while something is carried, in pixels: down is more. */
 type Shape = { top: number; bottom: number }
@@ -142,16 +144,25 @@ function useGlide(y: number, scaleY: number, instant: boolean): { ref: (el: HTML
   const my = useMotionValue(y)
   const ms = useMotionValue(scaleY)
   const el = useRef<HTMLElement | null>(null)
+  const now = instant || still()
   useLayoutEffect(() => {
-    if (instant || still()) {
-      my.jump(y)
-      ms.jump(scaleY)
-      if (el.current) el.current.style.transform = y || scaleY !== 1 ? `translateY(${y}px) scaleY(${scaleY})` : 'none'
-      return
-    }
-    const runs = [animate(my, y, SLIDE), animate(ms, scaleY, SLIDE)]
-    return () => runs.forEach((run) => run.stop())
-  }, [y, scaleY, instant]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (!now) return
+    my.jump(y)
+    ms.jump(scaleY)
+    if (el.current) el.current.style.transform = y || scaleY !== 1 ? `translateY(${y}px) scaleY(${scaleY})` : 'none'
+  }, [y, scaleY, now]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Each on its own: a new stretch never starts the slide over on a fresh clock, which left a panel's middle behind its
+  // top and bottom parts (the box came apart in pieces mid-glide).
+  useLayoutEffect(() => {
+    if (now) return
+    const run = animate(my, y, SLIDE)
+    return () => run.stop()
+  }, [y, now]) // eslint-disable-line react-hooks/exhaustive-deps
+  useLayoutEffect(() => {
+    if (now) return
+    const run = animate(ms, scaleY, SLIDE)
+    return () => run.stop()
+  }, [scaleY, now]) // eslint-disable-line react-hooks/exhaustive-deps
   return { ref: useCallback((node: HTMLElement | null) => void (el.current = node), []), style: { y: my, scaleY: ms } }
 }
 
@@ -431,7 +442,15 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
       const snug = gapRow !== undefined && (isGroup(gapRow) ? gapRow.slice(KEY.length) === (make ? outer : into) : (home.get(gapRow) ?? null) === (make ? outer : into))
       // A group's block sits in 8px of air at the top level and 4px inside a group.
       const fit = isGroup(lead) ? (into ? 4 : 8) - (own ? 4 : 8) : 0
-      return point({ target: where, how, into: make ? outer : into, label: words, make, gap, snug, fit, around: make ? around.slice(1) : around, tint: tintOf(info.get((make ? outer : into) ?? own ?? '')?.color) })
+      // Last in a group whose next row on show is outside it (Group 3 carried below Group 2, the last thing in Apple Notes /
+      // Notes): the room ends where that group's rows end, not just over the next row, past the group's own edge and air.
+      const landing = make ? outer : into
+      const next = gap !== null && !snug ? keys[gap + 1] : undefined
+      const box = landing ? document.querySelector<HTMLElement>(`[data-group-block="${CSS.escape(landing)}"]`) : null
+      const list = box?.querySelector<HTMLElement>(':scope > [data-fold] > div > div > div')
+      const node = next && document.querySelector(`[data-sortable-id="${CSS.escape(next)}"]`)
+      const until = list && node && !box!.contains(node) ? Math.round(list.getBoundingClientRect().bottom - parseFloat(getComputedStyle(list).paddingBottom)) : undefined
+      return point({ target: where, how, into: make ? outer : into, label: words, make, gap, snug, fit, until, around: make ? around.slice(1) : around, tint: tintOf(info.get((make ? outer : into) ?? own ?? '')?.color) })
     }
     point(null)
   }
@@ -517,7 +536,7 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
  * passes slide by `span` the other way (`other`, by index). The list's own
  * slide and its groups' panels both read it, so they never disagree.
  */
-function slideOf(from: number, gap: number, span: number, rect: (index: number) => { top: number; height: number } | undefined, snug = true, inset = 0): { carried: number; other: (index: number) => number } {
+function slideOf(from: number, gap: number, span: number, rect: (index: number) => { top: number; height: number } | undefined, snug = true, inset = 0, until?: number, grow = 0): { carried: number; other: (index: number) => number } {
   const last = from
   const down = gap > last
   const up = gap < from - 1
@@ -526,13 +545,15 @@ function slideOf(from: number, gap: number, span: number, rect: (index: number) 
   // Where the unit's top (a group's, its air included) goes: close under the row at the gap when it lands in that row's
   // own group, else just over the next row, past any group's edge between. Moving down, the rows it passes close up first.
   let top: number | undefined
-  if (down) top = snug ? (end(rect(gap)) ?? 0) + 1 - span : (rect(gap + 1)?.top ?? (end(rect(gap)) ?? 0) + 1) - span
+  if (until !== undefined && (down || up)) top = until + 1 - (down ? span : 0)
+  else if (down) top = snug ? (end(rect(gap)) ?? 0) + 1 - span : (rect(gap + 1)?.top ?? (end(rect(gap)) ?? 0) + 1) - span
   else if (up) top = snug ? (end(rect(gap)) ?? 0) + 1 : rect(gap + 1)?.top
   // Next to where it was, it moves only into the row above's group (or out of it).
   else if (snug && gap >= 0) top = (end(rect(gap)) ?? 0) + 1
   return {
     carried: !at || top === undefined ? 0 : top + inset - at.top,
-    other: (index) => (down && last < index && index <= gap ? -span : up && gap < index && index < from ? span : 0)
+    // Moving down, the rows it passes close over the room it took where it was; moving up, they make the room it takes where it lands.
+    other: (index) => (down && last < index && index <= gap ? -span : up && gap < index && index < from ? span + grow : 0)
   }
 }
 
@@ -553,7 +574,7 @@ function Shaped({ aim, keys, hand, many, span, inset, row: mid, snap, blocks, ch
   if (gap !== null && from >= 0 && span) {
     const h = span + (aim!.fit ?? 0)
     const box = (key: string | undefined) => (key === undefined ? undefined : droppableRects.get(key))
-    const slide = slideOf(from, gap, h, (at) => box(keys[at]), aim!.snug ?? true, inset + (aim!.fit ?? 0) / 2)
+    const slide = slideOf(from, gap, span, (at) => box(keys[at]), aim!.snug ?? true, inset + (aim!.fit ?? 0) / 2, aim!.until, aim!.fit ?? 0)
     const shift = (key: string): number => slide.other(keys.indexOf(key))
     for (const key of keys) if (key !== hand && shift(key)) ys.set(key, shift(key))
     if (slide.carried) ys.set(hand!, slide.carried)
@@ -758,6 +779,20 @@ function GroupBlock({ group, entries, parts, start, row, carried, renaming, born
   // Its edges follow its rows as they make room or close over a gap, on the compositor.
   const shape = shapes.get(group.id) ?? REST
   const block = useRef<HTMLDivElement>(null)
+  // The block's height as drawn, for its panel's middle to stretch from: read after each draw and whenever it resizes,
+  // never off the last draw (a block that had just folded or grown stretched its middle from its old height and the
+  // panel came apart into a stray strip).
+  const [tall, setTall] = useState(0)
+  useLayoutEffect(() => {
+    const el = block.current
+    if (!el) return
+    const read = (): void => setTall(el.offsetHeight)
+    read()
+    const sized = new ResizeObserver(read)
+    sized.observe(el)
+    return () => sized.disconnect()
+  }, [])
+  useLayoutEffect(() => void (block.current && block.current.offsetHeight !== tall && setTall(block.current.offsetHeight)))
   const fold = (): void => {
     chime(group.open ? 'tuck' : 'untuck')
     onFold(!group.open)
@@ -818,7 +853,7 @@ function GroupBlock({ group, entries, parts, start, row, carried, renaming, born
           '--panel-lit': `color-mix(in srgb, var(--group-tint) ${tint ? 6 : 4}%, transparent)`
         } as CSSProperties}
       >
-        <PanelParts shape={shape} tall={block.current?.offsetHeight ?? 0} lit={landing} snap={snap} />
+        <PanelParts shape={shape} tall={tall} lit={landing} snap={snap} />
       </div>
       {/* The row: folded away until a group just made unfolds it, and as a separated one goes. */}
       <div
