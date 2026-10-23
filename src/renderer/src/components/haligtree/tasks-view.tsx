@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { PractiseIt } from './practise-it'
 import { ReadsIn, useReading } from '@/lib/reads-in'
 import { Highlight, useFluidHover } from './glide'
 import * as chrono from 'chrono-node'
@@ -877,7 +878,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
         {/* Today, Tomorrow and Later side by side, at the top of each: one click between the three lists. */}
         {(mode === 'today' || mode === 'tomorrow' || mode === 'later') && (
           <div data-task-lists className="list-edge mt-2 flex">
-            <Chips options={[{ id: 'today', label: 'Today' }, { id: 'tomorrow', label: 'Tomorrow' }, { id: 'later', label: 'Later' }, { id: 'practices', label: 'Practices', tip: 'Things you repeat with no end, each offered at its time' }]} on={(id) => id === mode} pick={(id) => onOpen?.('view', id)} className="flex-nowrap text-sm" />
+            <Chips options={[{ id: 'today', label: 'Today' }, { id: 'tomorrow', label: 'Tomorrow' }, { id: 'later', label: 'Later' }]} on={(id) => id === mode} pick={(id) => onOpen?.('view', id)} className="flex-nowrap text-sm" />
           </div>
         )}
 
@@ -1260,6 +1261,8 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
           </p>
         </Island>
 
+        {/* A repeating task can be practised: offered at its time, with its material, and asked what stuck. */}
+        {task.recurrence && task.status === 'open' && <PractiseIt taskId={task.id} />}
         {/* Why it exists: the capture it came from, one click away. */}
         <Lineage id={task.id} onOpen={onOpen} />
         {/* A routine's count, run and last four weeks, over the dates themselves. */}

@@ -83,6 +83,8 @@ export const POWERS: Power[] = [
     show: { view: 'inbox', at: ROW, text: 'Open a note, click “Details” at its top right, open “Status”, choose “Merge into another note…”, and type a few words of the other note.' } },
 
   // Writing
+  { id: 'properties', group: 'Writing', name: 'Properties, and tags that bring them', tryIt: 'In any note, type Author:: Ursula Le Guin on a line of its own and press ↵.', line: 'Any note or page can carry properties: a name and a value (words, a number, a date, yes or no, a choice, a link), in a quiet strip under its title. Give one to a tag and every note with that tag gets it, as #book brings Status and Rating. Search author:le guin to find them.', keys: ['⌥⌘P'],
+    show: { view: 'inbox', at: ROW, text: 'Open a note: its properties sit under the title. Press ⌥⌘P or type Name:: value to add one.' } },
   { id: 'board', group: 'Writing', name: 'Headings become a board', line: 'A note of headings and lists in your Inbox flips into columns of cards, and back again.', keys: ['⌥⌘B'],
     show: { view: 'inbox', at: ROW, text: 'Open a note of headings with lists under them, then press ⌥⌘B.' }, used: (s) => s.board },
   { id: 'versions', group: 'Writing', name: 'Every version, a slider away', line: 'Drag back through everything a note has been, so nothing you write is ever lost.',
@@ -151,10 +153,10 @@ export const POWERS: Power[] = [
     show: { view: 'review', text: 'The count sits at the top left of Review, and under Done, once you have two days in a row.' } },
 
   // Planning
-  { id: 'decision', group: 'Planning', name: 'A decision comes back', line: 'Write down what you decided and when to look again, and on that day it asks if it still holds.',
-    show: { view: 'kind:decision', at: ROW, text: 'Open a decision and, under “Details” at the top right, give it a “Look again” date.' }, used: (s) => s.kinds.has('decision') },
-  { id: 'experiment', group: 'Planning', name: 'Experiments that report back', tryIt: 'Open an experiment, click “Details” at the top right and open “Experiment details”: its date and how it went are there.', line: `Try something until a date, and when the day comes ${APP_NAME} asks how it went.`,
-    show: { view: 'kind:experiment', at: ROW, text: 'An experiment runs until its date, then asks for the outcome.' }, used: (s) => s.kinds.has('experiment') },
+  { id: 'checkback', group: 'Planning', name: 'Check back on a date', tryIt: 'In quick capture, pick the kind “Check back”, then set its day and its question under the title.', line: `A decision to look at again, or something to try for a while: give it a date and a question, and on that day ${APP_NAME} asks you. Your answer is kept under it.`,
+    show: { view: 'kind:checkback', at: ROW, text: 'Each Check back, with the day it comes back and what it asks.' }, used: (s) => s.kinds.has('checkback') },
+  { id: 'practiseit', group: 'Planning', name: 'Practise a routine', tryIt: 'Open a repeating task and turn on “Practise it”.', line: 'Turn on “Practise it” on a repeating task: at its time it offers 5 minutes, opens with your material, and afterwards writes a line in its log and asks “What stuck?”.',
+    show: { view: 'routines', at: ROW, text: 'Open a routine: “Practise it” is in its details.' } },
   { id: 'goals', group: 'Planning', name: 'Goals with a road there', tryIt: 'Open a goal and write what you did in its progress log.', line: 'A goal has a day, a line that fills as the day comes closer, and a progress log. Made progress? In quick capture, start with + and its name, like “+chapter three: 600 words”.', keys: ['G E'],
     show: { view: 'goals', at: ROW, text: 'Each goal, with how far along it is.' }, used: (s) => s.items.some((item) => item.tier === 'goal') },
   { id: 'matrix', group: 'Planning', name: 'Urgent and important', line: 'Your tasks in four boxes, by how soon and how much they matter.', keys: ['G Q'],

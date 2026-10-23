@@ -5,6 +5,7 @@ import { LABEL, changed, database } from './captures'
 import { dayKey } from './dates'
 import { gate, plain } from './haligtree'
 import { tagged } from './kinds'
+import { practicesToTasks } from './properties'
 import { DECLINES_TO_MOVE, HONEST_AFTER_DAYS, bestHour, logLine, minutesOf, minutesRun, nextProblem, offerDue, partOfDay, stageOf, type Stage } from './practice-rules'
 
 /**
@@ -85,6 +86,20 @@ export function registerPractices(): void {
   );
   create table if not exists practice_declines (practice_id text not null, at text not null, slot text not null);
   create index if not exists practice_declines_by on practice_declines (practice_id, at)`)
+  // A practice is a repeating task with "Practise it" on: this row holds the
+  // switch's settings (material, minutes, the offer's answers) for its task.
+  try {
+    db.exec('alter table practices add column task_id text')
+  } catch {
+    // Already there.
+  }
+  // The switch turned off: kept, with its log, until it is turned on again.
+  try {
+    db.exec('alter table practices add column off integer not null default 0')
+  } catch {
+    // Already there.
+  }
+  practicesToTasks(db)
   if (!(db.prepare('pragma table_info(sessions)').all() as { name: string }[]).some((one) => one.name === 'practice_id')) {
     db.exec('alter table sessions add column practice_id text')
     // The log line, once written: a session ended anywhere (⌘K, sleep, away) gets its line too.
@@ -96,8 +111,19 @@ export function registerPractices(): void {
   const tell = (): void => changed({ kind: 'item', id: 'practices' })
   const write = <T>(result: T): T => (tell(), result)
 
-  const rows = (): Row[] => db.prepare('select * from practices where binned_at is null order by at, created_at').all() as Row[]
-  const one = (id: string): Row | undefined => db.prepare('select * from practices where id = ? and binned_at is null').get(String(id)) as Row | undefined
+  // Its name, days and time are its task's: change the task's repeat or time and the offer follows.
+  const FROM = `select p.*, t.title as task_title, t.due_at as task_due, t.recurrence as task_rule from practices p join tasks t on t.id = p.task_id
+    where p.binned_at is null and p.off = 0 and t.status not in ('dropped', 'done') and t.recurrence is not null`
+  const fromTask = (row: Row & { task_title?: string; task_due?: string | null; task_rule?: string | null }): Row => {
+    const due = row.task_due ? new Date(row.task_due) : null
+    const at = due && !Number.isNaN(due.getTime()) ? `${String(due.getHours()).padStart(2, '0')}:${String(due.getMinutes()).padStart(2, '0')}` : row.at
+    return { ...row, name: row.task_title || row.name, at, days: JSON.stringify(ruleDays(row.task_rule ?? null, due)) }
+  }
+  const rows = (): Row[] => (db.prepare(`${FROM} order by p.at, p.created_at`).all() as Row[]).map(fromTask).sort((a, b) => a.at.localeCompare(b.at))
+  const one = (id: string): Row | undefined => {
+    const row = db.prepare(`${FROM} and p.id = ?`).get(String(id)) as Row | undefined
+    return row && fromTask(row)
+  }
   const ranToday = (id: string): boolean => {
     const start = new Date()
     start.setHours(0, 0, 0, 0)
@@ -153,7 +179,37 @@ export function registerPractices(): void {
     }
     const id = randomUUID()
     db.prepare('insert into practices (id, name, days, at, target_min, load_kind, load, created_at) values (?, ?, ?, ?, ?, ?, ?, ?)').run(id, cut(name, 120), JSON.stringify(days), at, target, kind, load, now())
+    // Made as a repeating task with "Practise it" on, as every practice is now.
+    practicesToTasks(db)
     return write(id)
+  })
+  // --- "Practise it" on a repeating task: its practice's settings, or none.
+  type Switch = { on: boolean; id: string | null; targetMin: number; loadKind: LoadKind | null; load: string | null; runs: number; lastNote: string | null }
+  const switchOf = (task: string): Switch => {
+    const row = db.prepare('select * from practices where task_id = ? and binned_at is null order by created_at limit 1').get(String(task)) as (Row & { off: number }) | undefined
+    if (!row) return { on: false, id: null, targetMin: 30, loadKind: null, load: null, runs: 0, lastNote: null }
+    const runs = (db.prepare('select count(*) n from sessions where practice_id = ? and ended_at is not null and abandoned_at is null').get(row.id) as { n: number }).n
+    return { on: !row.off, id: row.id, targetMin: row.target_min, loadKind: (row.load_kind as LoadKind) || null, load: row.load || null, runs, lastNote: row.last_note }
+  }
+  handle('practices:of-task', (task: string) => switchOf(task))
+  // On, off, or its material and minutes changed. Turned off, it keeps everything for when it is on again.
+  handle('practices:set', (task: string, patch: { on?: boolean; targetMin?: number; loadKind?: LoadKind | null; load?: string | null }) => {
+    const owner = db.prepare('select title, recurrence from tasks where id = ?').get(String(task)) as { title: string; recurrence: string | null } | undefined
+    if (!owner) return write(switchOf(task))
+    let id = switchOf(task).id
+    if (!id) {
+      id = randomUUID()
+      db.prepare('insert into practices (id, name, created_at, task_id, off) values (?, ?, ?, ?, 1)').run(id, cut(owner.title, 120), now(), String(task))
+    }
+    if (patch.on !== undefined) db.prepare('update practices set off = ? where id = ?').run(patch.on ? 0 : 1, id)
+    if (patch.targetMin !== undefined) db.prepare('update practices set target_min = ? where id = ?').run(Math.min(240, Math.max(5, Math.round(Number(patch.targetMin) || 30))), id)
+    if (patch.loadKind !== undefined) {
+      const kind = (['tag', 'source', 'queue', 'problems'] as const).find((one) => one === patch.loadKind) ?? null
+      const load = kind && kind !== 'queue' ? String(patch.load ?? '').trim().replace(kind === 'tag' ? /^#/ : /^$/, '') || null : null
+      db.prepare('update practices set load_kind = ?, load = ? where id = ?').run(kind, load, id)
+    }
+    lastOffer = null
+    return write(switchOf(task))
   })
   handle('practices:bin', (id: string) => write(practiceToBin(String(id))))
   handle('practices:unbin', (id: string) => write(practiceFromBin(String(id))))
@@ -228,7 +284,7 @@ export function registerPractices(): void {
 
   /** The log line, written once, and the problem list moved on; what it came to. */
   const logEnded = (session: string): Ended | null => {
-    const row = db.prepare('select s.id, s.started_at, s.ended_at, s.paused_ms, s.abandoned_at, s.practice_logged, p.name, p.target_min, p.load_kind, p.id as pid from sessions s join practices p on p.id = s.practice_id where s.id = ?').get(session) as
+    const row = db.prepare('select s.id, s.started_at, s.ended_at, s.paused_ms, s.abandoned_at, s.practice_logged, coalesce(t.title, p.name) as name, p.target_min, p.load_kind, p.id as pid from sessions s join practices p on p.id = s.practice_id left join tasks t on t.id = p.task_id where s.id = ?').get(session) as
       { id: string; started_at: string; ended_at: string | null; paused_ms: number; abandoned_at: string | null; practice_logged: number | null; name: string; target_min: number; load_kind: string | null; pid: string } | undefined
     if (!row?.ended_at) return null
     const minutes = minutesRun(row.started_at, row.ended_at, row.paused_ms)
@@ -352,6 +408,21 @@ export function registerPractices(): void {
   setTimeout(tick, 4000)
   // For the QA runs: looked at now rather than within half a minute.
   handle('practices:check', () => tick())
+}
+
+/**
+ * The days a repeating task comes on, for its practice's offer: named days,
+ * every day or every weekday; any other repeat (every 2 weeks, monthly) on
+ * the weekday it is next due.
+ */
+export function ruleDays(rule: string | null, due: Date | null): number[] {
+  const said = (rule ?? '').toLowerCase()
+  if (/\bweekday/.test(said)) return [1, 2, 3, 4, 5]
+  const names = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
+  const named = [...new Set([...said.matchAll(/\b(sun|mon|tue|wed|thu|fri|sat)/g)].map((match) => names.indexOf(match[1])))]
+  if (named.length) return named.sort()
+  if (/^every\s+(1\s+)?day/.test(said)) return [0, 1, 2, 3, 4, 5, 6]
+  return due && !Number.isNaN(due.getTime()) ? [due.getDay()] : [0, 1, 2, 3, 4, 5, 6]
 }
 
 function safe(body: string | null): unknown {

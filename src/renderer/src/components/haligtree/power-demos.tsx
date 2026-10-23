@@ -677,23 +677,23 @@ const QuestionsDemo: Demo = ({ live }) => {
 
 // ---------------------------------------------------------------- Planning
 
-const DecisionDemo: Demo = ({ live }) => {
+const CheckBackDemo: Demo = ({ live }) => {
   const at = useSteps([1300, 1100, 2600], live, 2)
-  // Today, and three months on: read each time, so the example never names a day gone by.
+  // Today, and a month on: read each time, so the example never names a day gone by.
   const today = dayjs().format('D MMM')
-  const later = dayjs().add(3, 'month').format('D MMM')
+  const later = dayjs().add(1, 'month').format('D MMM')
   return (
     <Col>
       <div className="flex items-center gap-2 rounded-lg border bg-background px-3 py-1.5 text-meta text-muted-foreground">
         Today <span className="font-medium text-foreground tabular-nums"><Rolling text={at === 0 ? today : later} by="word" /></span>
-        <span className="ml-auto">Look again on {later}</span>
+        <span className="ml-auto">Check back on {later}</span>
       </div>
       <AnimatePresence>
         {at === 2 && (
           <motion.div key="back" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={spring.slow} className="rounded-xl border bg-popover px-3 py-2.5 shadow-[0_6px_16px_-6px_rgb(0_0_0/0.25)]">
-            <div className="text-meta" style={{ color: 'var(--tt-color-text-red)' }}>Look again today</div>
-            <div className="mt-0.5 text-control text-foreground">Keep the old laptop two more years</div>
-            <div className="mt-2 flex gap-1.5"><span className="rounded-md bg-primary px-2 py-0.5 text-meta text-primary-foreground">Still holds</span><span className="rounded-md border px-2 py-0.5 text-meta text-muted-foreground">Reopen</span></div>
+            <div className="text-meta" style={{ color: 'var(--tt-color-text-red)' }}>Check back today</div>
+            <div className="mt-0.5 text-control text-foreground">Did the walk after lunch shrink the 3pm slump?</div>
+            <div className="mt-2 flex gap-1.5"><span className="rounded-md bg-primary px-2 py-0.5 text-meta text-primary-foreground">Answer</span><span className="rounded-md border px-2 py-0.5 text-meta text-muted-foreground">Ask again in a week</span></div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -701,29 +701,43 @@ const DecisionDemo: Demo = ({ live }) => {
   )
 }
 
-const OUTCOME = 'Lectures made sense'
-const ExperimentDemo: Demo = ({ live }) => {
-  const at = useSteps([2400, typeMs(OUTCOME), 1800], live, 2)
-  const [day, setDay] = useState(14)
-  useEffect(() => {
-    if (!live || at !== 0) return setDay(14)
-    setDay(1)
-    const timer = setInterval(() => setDay((d) => Math.min(14, d + 1)), 150)
-    return () => clearInterval(timer)
-  }, [at, live])
-  const text = useTyped(OUTCOME, at === 1)
+const PROP_LINE = 'Author:: Ursula Le Guin'
+const PropertiesDemo: Demo = ({ live }) => {
+  const at = useSteps([typeMs(PROP_LINE, 40), 2600], live, 1)
+  const text = useTyped(PROP_LINE, at === 0, 40)
   return (
     <Col>
       <div className="rounded-lg border bg-background px-3 py-2">
-        <div className="text-control text-foreground">Hermione's method, two weeks</div>
-        <div className="mt-2 flex items-center gap-2">
-          <ProgressBar value={day / 14} label="Experiment" className="flex-1" thick={3} duration={150} as="plain" fill="var(--tt-color-text-red)" />
-          <span className="w-16 text-right text-meta text-muted-foreground tabular-nums">Day {day} of 14</span>
+        <div className="text-control font-medium text-foreground">The Dispossessed</div>
+        <div className="mt-1 flex flex-wrap gap-1 text-meta">
+          <span className="rounded-md px-1.5 py-0.5"><span className="text-muted-foreground">Status</span> <span className="text-foreground">Reading</span></span>
+          <AnimatePresence>
+            {at === 1 && <motion.span key="author" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={spring.fast} className="rounded-md bg-accent px-1.5 py-0.5"><span className="text-muted-foreground">Author</span> <span className="text-foreground">Ursula Le Guin</span></motion.span>}
+          </AnimatePresence>
         </div>
+        <div className={`mt-1.5 min-h-5 text-control text-foreground transition-opacity duration-300 ${at === 1 ? 'opacity-0' : 'opacity-100'}`}>{at === 0 ? text : PROP_LINE}{at === 0 && <Caret />}</div>
       </div>
-      <div className={`rounded-lg border bg-popover px-3 py-1.5 text-meta transition-opacity duration-300 ${at === 0 ? 'opacity-0' : 'opacity-100'}`}>
-        <span className="text-muted-foreground">What did you find? </span><span className="text-foreground">{at === 1 ? text : OUTCOME}</span>{at === 1 && <Caret />}
+    </Col>
+  )
+}
+
+const PractiseItDemo: Demo = ({ live }) => {
+  const at = useSteps([1400, 2600], live, 1)
+  return (
+    <Col>
+      <div className="flex items-center gap-2 rounded-lg border bg-background px-3 py-1.5 text-meta">
+        <span className="flex-1 text-foreground">Spanish, every weekday at 7:30</span>
+        <span className="text-muted-foreground">Practise it</span>
+        <span className={`relative h-4 w-7 rounded-full transition-colors duration-300 ${at === 1 ? 'bg-primary' : 'bg-muted'}`}><span className={`absolute top-0.5 size-3 rounded-full bg-background transition-transform duration-300 ${at === 1 ? 'translate-x-3.5' : 'translate-x-0.5'}`} /></span>
       </div>
+      <AnimatePresence>
+        {at === 1 && (
+          <motion.div key="offer" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={spring.slow} className="rounded-xl border bg-popover px-3 py-2 text-meta shadow-[0_6px_16px_-6px_rgb(0_0_0/0.25)]">
+            <span className="text-foreground">7:30 Spanish, 5 minutes?</span>
+            <span className="ml-2 text-muted-foreground">Opens #spanish, then asks “What stuck?”</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </Col>
   )
 }
@@ -1762,7 +1776,7 @@ export const DEMOS: Record<string, Demo> = {
   box: BoxDemo, timer: TimerDemo, letter: LetterDemo, clue: ClueDemo, tagtask: TagTaskDemo, remind: RemindDemo, comingback: ComingBackDemo, onetask: OneTaskDemo, merge: MergeDemo,
   board: BoardDemo, versions: VersionsDemo, find: FindDemo, aliases: AliasesDemo, calc: CalcDemo, fold: FoldDemo, bit: BitDemo, glossary: GlossaryDemo,
   review: ReviewDemo, cloze: ClozeDemo, context: ContextDemo, readthrough: ReadThroughDemo, queue: QueueDemo, wrong: WrongDemo, suspend: SuspendDemo, questions: QuestionsDemo,
-  decision: DecisionDemo, experiment: ExperimentDemo, goals: GoalsDemo, matrix: MatrixDemo, routines: RoutinesDemo, focus: FocusDemo, later: LaterDemo,
+  checkback: CheckBackDemo, properties: PropertiesDemo, practiseit: PractiseItDemo, goals: GoalsDemo, matrix: MatrixDemo, routines: RoutinesDemo, focus: FocusDemo, later: LaterDemo,
   pages: PagesDemo, year: YearDemo, milestones: MilestonesDemo, book: BookDemo, wrapped: WrappedDemo, map: MapDemo,
   stickies: StickiesDemo, recordings: RecordingsDemo, window: WindowDemo, safe: SafeDemo, lock: LockDemo,
   vault: VaultDemo, files: FilesDemo, embeds: EmbedsDemo,

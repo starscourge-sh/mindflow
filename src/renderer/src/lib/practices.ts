@@ -27,8 +27,12 @@ export const practices = {
   stuck: (session: string, text: string) => call<string | null>('practices:stuck', session, text),
   unstuck: (gem: string, session: string) => call<boolean>('practices:unstuck', gem, session),
   load: (id: string) => call<Loaded | null>('practices:load', id),
-  spot: (capture: string, page: string) => call<boolean>('practices:spot', capture, page)
+  spot: (capture: string, page: string) => call<boolean>('practices:spot', capture, page),
+  /** A repeating task's "Practise it": on or off, and what it opens with. */
+  ofTask: (task: string) => call<PracticeSwitch>('practices:of-task', task),
+  set: (task: string, patch: { on?: boolean; targetMin?: number; loadKind?: LoadKind | null; load?: string | null }) => call<PracticeSwitch>('practices:set', task, patch)
 }
+export type PracticeSwitch = { on: boolean; id: string | null; targetMin: number; loadKind: LoadKind | null; load: string | null; runs: number; lastNote: string | null }
 
 /** "HH:MM" said the way the Mac tells the time: 21:00, or 9pm on a 12-hour clock. */
 export function timeSaid(hhmm: string, short = false): string {
@@ -98,9 +102,8 @@ export function answerOffer(offer: Offer, answer: 'skip' | 'later'): void {
  */
 export function usePracticeActions(): { label: string; hint?: string; cue: null; run: () => void }[] {
   const all = usePractices()
+  // A practice is a repeating task with "Practise it" on: made from the task, so only starting one is here.
   return [
-    { label: 'New practice…', hint: 'Something you repeat with no end: offered at its time, 5 minutes to start', cue: null, run: () => (chime('open'), window.api.openInHome('practice', 'new')) },
-    { label: 'Go to Practices', hint: 'Reading, Spanish, a problem a day: each with its time', cue: null, run: () => window.api.openInHome('view', 'practices') },
     ...all.map((one) => ({ label: `Start practice: ${one.name}`, hint: `${START_MIN} minutes to start, ${num(one.targetMin)} min target`, cue: null as null, run: () => void startPractice(one.id) }))
   ]
 }
