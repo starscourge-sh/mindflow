@@ -15,7 +15,6 @@ import { Button } from '@/components/ui/button'
 import { QuestionBack } from './haligtree/questions-view'
 import { KindBack, backLine, returningHint, type Returning } from './haligtree/kind-back'
 import { GlossLine, useGlossKey } from './haligtree/gloss-line'
-import { openPass } from './haligtree/pass'
 import { Postcarded, usePostcard } from './haligtree/memory-postcard'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import TrashIcon from '@/components/ui/trash-icon'
@@ -24,22 +23,19 @@ import { ArrowUpRight, EyeOff, Pencil, ThumbsDown, ThumbsUp, Trash2, X } from '@
 
 // A memory is a hint that says what it is: this day last year, one source's things.
 type Hint = NonNullable<Awaited<ReturnType<typeof window.api.hints.next>>> & { memory?: string }
-type Nudge = NonNullable<Awaited<ReturnType<typeof haligtree.nudge>>>
 
 /**
  * A hint: one nugget you did not ask for, like a tip on a game's loading
  * screen. Up and down change how often it comes back; doing nothing is the
  * normal case and says nothing. It never grades and never schedules.
  */
-export function HintCard({ onOpen, writing = false }: { onOpen: (type: string, id: string) => void; /** Words are being written: a nudge (a second task) steps aside until the box is empty again. */ writing?: boolean }): React.JSX.Element | null {
+export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => void }): React.JSX.Element | null {
   const [hint, setHint] = useState<Hint | null>(null)
   const postcard = usePostcard(!!hint?.memory)
   // Two bells once, when a hint arrives: not on every animation the card
   // runs afterwards, which rang them again as the page moved around it.
   useEffect(() => void (hint && chime(hint.memory ? 'memory' : 'hint')), [hint?.id]) // eslint-disable-line react-hooks/exhaustive-deps
-  // A nudge: the daily tidy, a quiet goal, or an exam falling behind.
-  const [nudge, setNudge] = useState<Nudge | null>(null)
-  useEffect(() => void (nudge && chime('hint')), [nudge?.kind]) // eslint-disable-line react-hooks/exhaustive-deps
+  // The daily tidy, a quiet goal and an exam falling behind are not here: quick capture only catches, and they are a line at the top of the Inbox (inbox-lines.tsx).
   // A question you are holding, come back: "Still open: …".
   const [back, setBack] = useState<Awaited<ReturnType<typeof haligtree.questionBack>>>(null)
   // A clue kept on the card above and undone: the card back with its words.
@@ -109,11 +105,6 @@ export function HintCard({ onOpen, writing = false }: { onOpen: (type: string, i
         setAsking(false)
         setBack(null)
         setDue(null)
-        // A nudge comes at most once a day, so it skips the dice; never in
-        // quiet hours or safe mode, which the main process checks.
-        const nudging = await haligtree.nudge()
-        setNudge(nudging)
-        if (nudging) return setHint(null)
         const coming = await returningHint()
         setDue(coming)
         if (coming) return setHint(null)
@@ -210,18 +201,9 @@ export function HintCard({ onOpen, writing = false }: { onOpen: (type: string, i
   // A memory may be something already dealt with, so it is opened, fixed or
   // shown less, never kept or moved to the Bin from here.
   const offered = hint?.memory ? actions.filter(({ icon }) => icon !== ThumbsUp && icon !== Trash2 && icon !== EyeOff) : actions
-  const go = (): void => {
-    if (!nudge) return
-    chime('open')
-    // The passes open right here in the box, where the day is spent.
-    if (nudge.view === 'tidy' || nudge.view === 'decide') openPass(nudge.view)
-    else if (nudge.kind === 'goal' && nudge.id) window.api.openInHome('goal', nudge.id)
-    else window.api.openInHome('view', nudge.view)
-    setNudge(null)
-  }
   return (
     <AnimatePresence>
-      {back && !nudge && !hint && (
+      {back && !hint && (
         <motion.div
           key={`back-${back.id}`}
           initial={{ opacity: 0, transform: shift('translateY(-6px) scale(0.98)') }}
@@ -235,7 +217,7 @@ export function HintCard({ onOpen, writing = false }: { onOpen: (type: string, i
             onUndone={(words) => (setBackWords(words), setBack(back))} />
         </motion.div>
       )}
-      {due && !nudge && !hint && (
+      {due && !hint && (
         <motion.div
           key={`due-${due.id}`}
           initial={{ opacity: 0, transform: shift('translateY(-6px) scale(0.98)') }}
@@ -250,24 +232,6 @@ export function HintCard({ onOpen, writing = false }: { onOpen: (type: string, i
             {due.title}
           </button>
           <KindBack one={due} onOpen={onOpen} onDone={() => setDue(null)} again={dueWords} onUndone={(words) => (setDueWords(words), setDue(due))} />
-        </motion.div>
-      )}
-      {nudge && !hint && !writing && (
-        <motion.div
-          key={nudge.kind}
-          initial={{ opacity: 0, transform: shift('translateY(-6px) scale(0.98)') }}
-          animate={{ opacity: 1, transform: shift('translateY(0px) scale(1)') }}
-          exit={{ opacity: 0, transform: shift('translateY(-4px)'), transition: { duration: 0.16, ease: EASE } }}
-          transition={{ duration: 0.24, ease: EASE }}
-          className="mt-2 mb-3 overflow-hidden rounded-lg border border-[color-mix(in_srgb,var(--tt-brand-color-400)_22%,transparent)] bg-[color-mix(in_srgb,var(--tt-brand-color-400)_10%,transparent)] px-3 py-2.5 text-sm"
-        >
-          <Typed text={nudge.text} step={28} delay={120} />
-          <div className="mt-2 flex items-center gap-1 text-muted-foreground">
-            {/* Its name, unless its words already start with it. */}
-            <span className="mr-auto text-xs">{nudge.text.startsWith(nudge.label) ? '' : nudge.label}</span>
-            <Button variant="ghost" size="sm" onClick={go}>{nudge.kind === 'tidy' ? 'Tidy now' : nudge.kind === 'goal' ? 'Open it' : 'Review now'}</Button>
-            <Button variant="ghost" size="sm" onClick={() => (chime('fold'), setNudge(null))}>Not now</Button>
-          </div>
         </motion.div>
       )}
       {hint && (

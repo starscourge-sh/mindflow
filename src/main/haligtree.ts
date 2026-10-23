@@ -2786,8 +2786,8 @@ export function registerHaligtree(): void {
         if (exam.behind > 0 && !nudgedToday(`exam:${exam.tag}`))
           return { kind: 'exam', view: 'review', label: `Exam · #${exam.tag}`,
             text: `#${exam.tag} is ${exam.days === 0 ? 'today' : exam.days === 1 ? 'tomorrow' : `in ${num(exam.days)} days`}, and ${num(exam.behind)} ${exam.behind === 1 ? 'card is' : 'cards are'} behind. About ${exam.perDay} a day catches you up.` }
-    // The deciding pass is not offered here: quick capture only catches, and
-    // deciding day is a line at the top of the Inbox page (inbox-lines.tsx).
+    // Shown as a line at the top of the Inbox page (inbox-lines.tsx), never in
+    // quick capture, which only catches. Deciding day is a line of its own there.
     // A goal gone quiet: a week with no log, then sooner and more plainly as
     // the quiet stretches or the day comes near. One goal a day at most.
     if (settings().goalNudges) {

@@ -24,6 +24,7 @@ import { useHere } from '@/lib/split'
 import { DayGrid, YearMarks } from './milestones'
 import { ArrowLeft, ArrowRight, BookOpen as BookOpenText } from '@/components/ui/icons'
 import { PlannedVsDid } from './planned-did'
+import { WeekTasks } from './week-tasks'
 
 /**
  * Pages for wider stretches of time, each asking for less the wider it gets,
@@ -253,7 +254,34 @@ export function WeekPage({ start, onOpen, onScale, onRecent, recentOpen, onDay }
             [`Goals due in ${monthName(inMonth, false)}`, goals.map((goal) => `${goal.title}, by ${dayjs(goal.goalAt!).format('D MMMM')}`).join('\n')]
           ]} />
         </div>
-        <div className="mt-5"><DayGrid label="The week's days" days={Array.from({ length: 7 }, (_, at) => addDays(monday, at))} onOpenDay={onDay} /></div>
+        {/* The week's writing on top, then the week's tasks: the Day page's shape, a week wide. */}
+        {page && <div key={`write-${key}`}>
+            <h2 className="mt-6 mb-1 flex items-baseline gap-2 text-body font-semibold">
+              This week in notes
+              <span className="text-xs font-normal text-muted-foreground">{"write freely about the week as a whole"}</span>
+            </h2>
+            {/* A box that reads as a place to type, as the Day page's does. */}
+            <div data-week-write className="min-h-28 cursor-text rounded-xl border border-border bg-background px-4 py-2 shadow-xs transition-colors focus-within:border-ring hover:border-foreground/25 [--mf-padding:0.25rem_0]">
+            <HaligtreeEditor
+              key={`week-${monday}`}
+              host={window.api}
+              tokens={TAGS}
+              placeholder="How one thing led to another this week: a talk that sent you to a book, which gave you an idea…"
+              toolbar={{ fixed: false }}
+              documentId={`period-${key}`}
+              defaultContent={(page.body as JSONContent | string | null) ?? ''}
+              findNotes={findCaptures}
+              findHeadings={findHeadings}
+              onOpenNote={(link, heading) => onOpen && follow(link, onOpen, heading)}
+              onTokenClick={(token) => token.name === 'tag' && onOpen?.('tag', token.value)}
+              outline={false}
+              autofocus={false}
+              onChange={(body) => void haligtree.savePeriod(key, { body })}
+            />
+            </div>
+        </div>}
+        <WeekTasks monday={monday} onOpen={onOpen} />
+        <div className="mt-8"><DayGrid label="The week's days" days={Array.from({ length: 7 }, (_, at) => addDays(monday, at))} onOpenDay={onDay} /></div>
         {page && (
           <div key={key} className="mt-6">
             <Island>
@@ -273,26 +301,6 @@ export function WeekPage({ start, onOpen, onScale, onRecent, recentOpen, onDay }
             </Island></div>
             <div className="mt-8"><PlannedVsDid monday={monday} /></div>
             <KeepOrDrop scale="week" period={key} page={page} />
-            <h2 className="mt-8 mb-1 flex items-baseline gap-2 text-body font-semibold">
-              This week in notes
-              <span className="text-xs font-normal text-muted-foreground">{"write freely about the week as a whole"}</span>
-            </h2>
-            <HaligtreeEditor
-              key={`week-${monday}`}
-              host={window.api}
-              tokens={TAGS}
-              placeholder="How one thing led to another this week: a talk that sent you to a book, which gave you an idea…"
-              toolbar={{ fixed: false }}
-              documentId={`period-${key}`}
-              defaultContent={(page.body as JSONContent | string | null) ?? ''}
-              findNotes={findCaptures}
-              findHeadings={findHeadings}
-              onOpenNote={(link, heading) => onOpen && follow(link, onOpen, heading)}
-              onTokenClick={(token) => token.name === 'tag' && onOpen?.('tag', token.value)}
-              outline={false}
-              autofocus={false}
-              onChange={(body) => void haligtree.savePeriod(key, { body })}
-            />
           </div>
         )}
         <EarlierPages scale="week" current={monday} onPick={(start) => setMonday(start)} />
