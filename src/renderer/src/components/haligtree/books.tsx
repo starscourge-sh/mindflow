@@ -8,6 +8,7 @@ import { chime } from '@/lib/sound'
 import { applyTheme, currentTheme } from '@/lib/theme'
 import { haligtree } from '@/lib/haligtree'
 import { Button } from '@/components/ui/button'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tip, ask, refuse, toast, whyFailed } from './ui'
 import { APP_NAME } from '../../../../main/name'
 
@@ -24,6 +25,28 @@ export async function askNewBook(): Promise<void> {
   if (SANDBOX) return refuse('Leave the sandbox first, then make a new book')
   const name = (await ask('Name the new book', 'e.g. Fresh start, or Notion test'))?.trim()
   if (name) await newBook(name)
+}
+
+/**
+ * A book's mark that changes its colour on a click, as a group's icon opens its
+ * picker: the colours in a small popover. A span: it sits inside a list row,
+ * and a press never picks the row.
+ */
+function HueMark({ id, hue, onPicked }: { id: string; hue: Hue | null; onPicked: (hue: Hue | null) => void }): React.JSX.Element {
+  const [open, setOpen] = useState(false)
+  const hold = (event: React.SyntheticEvent): void => event.stopPropagation()
+  return (
+    <Popover open={open} onOpenChange={(next) => (next && chime('open'), setOpen(next))}>
+      <PopoverTrigger asChild>
+        <span role="button" tabIndex={-1} data-book-mark={id} aria-label="Change its colour" title="Change colour" onPointerDown={hold} onMouseDown={hold}
+          onClick={(event) => (event.stopPropagation(), event.preventDefault(), setOpen(!open))}
+          className="grid size-5 shrink-0 place-items-center rounded-sm transition-colors hover:bg-foreground/10"><HueDot hue={hue} /></span>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="z-[70] w-auto p-2" onPointerDown={hold} onMouseDown={hold} onClick={hold} onKeyDown={hold}>
+        <HueDots id={id} value={hue} onPicked={(next) => (setOpen(false), onPicked(next))} />
+      </PopoverContent>
+    </Popover>
+  )
 }
 
 /** A book's colour as a dot: filled with its hue, or a ring for none. */
@@ -178,7 +201,8 @@ export function BookAsker(): React.JSX.Element | null {
             <CommandEmpty>No book by that name yet.</CommandEmpty>
             {listed.map((one) => (
               <CommandItem key={one.id} value={`${one.name} ${one.id}`} data-book={one.id} onSelect={() => void pick(one.id)}>
-                <span className="grid size-4 shrink-0 place-items-center"><HueDot hue={one.color} /></span>
+                {SANDBOX ? <span className="grid size-4 shrink-0 place-items-center"><HueDot hue={one.color} /></span>
+                  : <HueMark id={one.id} hue={one.color} onPicked={(color) => setNow({ ...now, books: now.books.map((book) => (book.id === one.id ? { ...book, color } : book)) })} />}
                 <span className="min-w-0 flex-1 truncate">{one.name}</span>
                 {one.current && <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground"><Check className="size-3" />Open now</span>}
               </CommandItem>

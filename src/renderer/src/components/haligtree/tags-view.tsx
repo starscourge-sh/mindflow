@@ -1,4 +1,5 @@
 import { chime, step } from '@/lib/sound'
+import { TagColourPick } from './tag-colour-pick'
 import { ReadsIn } from '@/lib/reads-in'
 import { useMemo, useState } from 'react'
 import { Count, toast, VirtualList, quietly } from './ui'
@@ -30,7 +31,7 @@ import { INPUT_FRAME, TagEntry } from './hash-field'
 import { Readiness } from './review-view'
 import { openApart } from '@/lib/apart'
 import { TagStream, prefetchTag, renameTag, useLiveFor } from './tag-read'
-import { TagIcon, tagTint } from './tag-icon'
+import { tagTint } from './tag-icon'
 import { BookOpen, EyeOff, SquareCheck } from 'lucide-react'
 import { motion } from 'motion/react'
 import { dayMonth } from '../../../../main/dates'
@@ -142,7 +143,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                 onPointerEnter={() => prefetchTag(tag)}
                 className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left transition-colors hover:bg-accent/50 ${chosen === tag ? 'bg-accent' : index === cursor ? 'bg-accent/50' : ''}`}
               >
-                <TagIcon tag={tag} color={color} />
+                <TagColourPick tag={tag} color={color} />
                 {/* A tag that does something wears its mark beside its name, in its own colour, its words in the tip:
                     every bar starts in one place, and no pill shoves it along. */}
                 <span className={`flex min-w-0 items-center gap-1.5 ${chosen ? 'flex-1' : 'w-40 shrink-0'}`}>

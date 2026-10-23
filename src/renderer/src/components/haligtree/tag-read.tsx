@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { TagColourPick } from './tag-colour-pick'
 import { useReading } from '@/lib/reads-in'
 import { tagTint } from './tag-icon'
 import type { JSONContent } from '@tiptap/core'
@@ -372,7 +373,7 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
         backdrop={items ? backdrop : null}
         cover={<Cover src={facts.cover} colour={colour} seed={`tag:${tag}`}>{`#${tag}`}</Cover>}
         label="Tag"
-        title={<span>#{tag}</span>}
+        title={<span className="inline-flex items-center gap-2"><TagColourPick tag={tag} color={color} className="size-6" />#{tag}</span>}
         meta={[`${num(counted.length)} ${counted.length === 1 ? unit[0] : unit[1]}`, ...(later ? [
           <button key="later" type="button" data-later onClick={() => (chime(laterShown ? 'fold' : 'open'), setLaterShown(!laterShown))} className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 transition-colors hover:decoration-foreground/60">
             {laterShown ? `hide the ${num(later)} resolved or done` : `${num(later)} more resolved or done`}

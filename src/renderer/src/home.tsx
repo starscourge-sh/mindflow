@@ -1,4 +1,5 @@
 import { detailsShown, showDetails } from '@/lib/reading'
+import { TagColourPick } from './components/haligtree/tag-colour-pick'
 import { themeActions } from '@/lib/theme'
 import { useAbandonAction } from '@/lib/abandon'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
@@ -39,7 +40,6 @@ import { MapView } from './components/haligtree/map-view'
 import { PowersView } from './components/haligtree/powers-view'
 import { TagsView } from './components/haligtree/tags-view'
 import { SourcePageView, SourcesView } from './components/haligtree/source-page'
-import { TagIcon } from './components/haligtree/tag-icon'
 import { prefetchTag, renameTag } from './components/haligtree/tag-read'
 import { TasksView, askDate, askSessions } from './components/haligtree/tasks-view'
 import { CalendarView } from './components/haligtree/calendar-view'
@@ -1508,7 +1508,7 @@ export function Home(): React.JSX.Element {
               onPointerEnter={() => prefetchTag(tag)}
               className={`flex w-full items-center gap-2.5 rounded-md px-2 py-1 ${view.id === 'tags' && view.focus === tag ? '' : 'text-foreground/80'}`}
             >
-              <TagIcon tag={tag} color={color} />
+              <TagColourPick tag={tag} color={color} />
               <Weighted on={view.id === 'tags' && view.focus === tag} className="flex-1 text-left">{tag}</Weighted>
               <Count n={count} className="text-xs text-muted-foreground" />
             </button>
