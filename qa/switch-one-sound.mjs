@@ -32,6 +32,8 @@ try {
     const heard = await since(() => one.click())
     check(`Settings, ${name}: one sound`, heard.length === 1, heard.join(', '))
     await since(() => one.click())
+    // A switch whose preview plays on (Count in a session counts 5 down aloud): quiet again before the next.
+    for (let quiet = 0; quiet < 8 && (await since(async () => {})).length; quiet++);
   }
   // Customize sidebar shows its own way out, and that closes it.
   await go('inbox'); await wait(1000)
