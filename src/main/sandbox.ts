@@ -111,6 +111,8 @@ export function useDataFolder(): boolean {
   return locked
 }
 
+let relaunched = false
+
 /**
  * Start again, into the sandbox or back to your notes, without a gap: this run
  * lets go of what only one Haligtree may hold (the menu bar icon, the keys, the
@@ -119,6 +121,9 @@ export function useDataFolder(): boolean {
  * one go, so the main window is never simply gone for a while.
  */
 export function relaunch(into: 'sandbox' | 'real' | { book: string }, reset = false): void {
+  // Once a run: asked twice in the moment before it goes (two clicks, two windows), it would start two runs, each with the book's stickies up.
+  if (relaunched) return
+  relaunched = true
   const to: Target = typeof into === 'object' ? `book:${into.book}` : into === 'real' ? 'real' : reset ? 'reset' : 'sandbox'
   release()
   // A run the dev process started: that process starts the next, and ends this one once it is up.
@@ -283,6 +288,10 @@ type Age =
   | { sessionAt: string; endedAt: string; taskId: string; pausedMs?: number; plannedMs?: number | null; abandoned?: boolean; recap?: string }
   | { breakAt: string; ms: number }
 
+/** This run began setting the examples out; and whether it has asked to start over because a seed was cut short. */
+let seedClaimed = false
+let resetting = false
+
 export function registerSandbox(): void {
   const handle = (channel: string, run: (...args: never[]) => unknown): void =>
     void ipcMain.handle(`haligtree:sandbox:${channel}`, (_event, ...args) => run(...(args as never[])))
@@ -333,6 +342,22 @@ export function registerSandbox(): void {
   })
 
   // The seed is finished: the sandbox is set out, and anything caught from now on is yours.
+  // Asked once, just before the examples go in: whether to set them out now.
+  // A seed already begun and never finished (the window reloaded, as a dev
+  // build's hot reload does, or Haligtree quit midway) left half a book, and
+  // seeding again over it made two of everything (two of Dune's goal cards on
+  // the desktop): the sandbox is cleared and set out again instead.
+  handle('seed:claim', () => {
+    if (!SANDBOX || setting('sandboxSeededOn')) return 'seeded'
+    if (seedClaimed || setting('sandboxSeedBegun')) {
+      if (!resetting) (resetting = true, setTimeout(() => relaunch('sandbox', true), 60))
+      return 'reset'
+    }
+    seedClaimed = true
+    database().prepare('insert or replace into settings (key, value) values (?, ?)').run('sandboxSeedBegun', JSON.stringify(new Date().toISOString()))
+    return 'go'
+  })
+
   handle('seeded', () => {
     if (!SANDBOX) return false
     const put = database().prepare('insert or replace into settings (key, value) values (?, ?)')

@@ -322,6 +322,8 @@ export function SandboxHost(): React.JSX.Element | null {
         if (days > 7) setStale(days)
         return
       }
+      // Once per sandbox: a seed cut short is never seeded over (main clears the sandbox and starts it again).
+      if ((await window.api.haligtree<string>('sandbox:seed:claim').catch(() => 'go')) !== 'go') return void setSeeding(true)
       setSeeding(true)
       const carry = await window.api.haligtree<Carry | null>('sandbox:carry')
       for (const [key, value] of Object.entries(carry?.local ?? {})) {

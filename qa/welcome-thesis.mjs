@@ -17,6 +17,8 @@ import { sandbox } from './sandbox-lib.mjs'
 // A fresh install, always: --sandbox seeds goals and marks the welcome as not the first, which these checks are not about.
 process.env.QA_ARGS = (process.env.QA_ARGS ?? '').replace('--sandbox', '').trim()
 import { checks } from './harness.mjs'
+// A fresh install is never the sandbox (it has no first run): run as one whatever QA_ARGS says.
+if (/--sandbox/.test(process.env.QA_ARGS ?? '')) delete process.env.QA_ARGS
 
 const SHOTS = process.argv[2] ?? ''
 const THEME = process.argv[3] ?? 'light'

@@ -10,6 +10,8 @@
 //   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/welcome-write.mjs [shots-dir]
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
+// A fresh install is never the sandbox (it has no first run): run as one whatever QA_ARGS says.
+if (/--sandbox/.test(process.env.QA_ARGS ?? '')) delete process.env.QA_ARGS
 
 const SHOTS = process.argv[2] ?? ''
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })

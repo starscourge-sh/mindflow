@@ -13,6 +13,8 @@ import { join } from 'path'
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 
+// Played in the sandbox, as it is tried: whatever QA_ARGS says.
+process.env.QA_ARGS = '--sandbox'
 const SHOTS = process.argv[2] ?? ''
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
 const { check, done } = checks()
@@ -107,9 +109,13 @@ try {
   await h.waitForTimeout(500)
   await shot('v2-6-settings')
   const row = h.locator('button[aria-label="Version 2"]').first()
-  await row.scrollIntoViewIfNeeded()
-  await row.click()
-  await h.waitForTimeout(400)
+  await row.waitFor({ state: 'visible', timeout: 8000 })
+  // Pressed as a person does, and again if the first press landed while the page was still settling.
+  for (let i = 0; i < 3 && (await v('onboarding:state')).welcomeVersion !== 2; i++) {
+    await row.scrollIntoViewIfNeeded()
+    await row.click()
+    for (let t = 0; t < 20 && (await v('onboarding:state')).welcomeVersion !== 2; t++) await h.waitForTimeout(100)
+  }
   check('Settings › Welcome picks version 2', (await v('onboarding:state')).welcomeVersion === 2)
   await shot('v2-7-settings-picked')
   await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:welcome')))

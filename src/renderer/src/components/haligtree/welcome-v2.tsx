@@ -428,6 +428,13 @@ function End({ kept, play }: { kept: Partial<Record<1 | 2 | 3, Kept>>; play: boo
  * ask plays once: a later start of the sandbox does not play it again.
  */
 const PLAYED = 'welcome-carried-at'
+const played = (): string | null => {
+  try {
+    return localStorage.getItem(PLAYED)
+  } catch {
+    return null
+  }
+}
 function useCarriedWelcome(): void {
   useEffect(() => {
     if (!SANDBOX) return
@@ -435,19 +442,20 @@ function useCarriedWelcome(): void {
     void (async () => {
       const carry = await window.api.haligtree<Carry | null>('sandbox:carry').catch(() => null)
       const asked = carry?.welcome
-      if (!asked) return
-      try {
-        if (localStorage.getItem(PLAYED) === String(asked.at)) return
-        localStorage.setItem(PLAYED, String(asked.at))
-      } catch {
-        // Played anyway: once more is the worst of it.
-      }
+      if (!asked || played() === String(asked.at)) return
       // The examples are set out first, a minute at most, so the welcome never covers a half-made book.
       for (let waited = 0; !gone && waited < 60000; waited += 300) {
         if ((await sandboxState().catch(() => null))?.seeded) break
         await new Promise((wait) => setTimeout(wait, 300))
       }
-      if (!gone) window.dispatchEvent(new CustomEvent('haligtree:welcome', { detail: { version: asked.version } }))
+      // Marked played only as it plays: a first mount undone at once (React's StrictMode, in a dev build) leaves it to the second.
+      if (gone || played() === String(asked.at)) return
+      try {
+        localStorage.setItem(PLAYED, String(asked.at))
+      } catch {
+        // Played anyway: once more is the worst of it.
+      }
+      window.dispatchEvent(new CustomEvent('haligtree:welcome', { detail: { version: asked.version } }))
     })()
     return () => void (gone = true)
   }, [])
