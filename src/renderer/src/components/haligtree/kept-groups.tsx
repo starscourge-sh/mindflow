@@ -1,6 +1,9 @@
-import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { Fragment, createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { DndContext, MeasuringStrategy, PointerSensor, closestCenter, pointerWithin, useDndContext, useSensor, useSensors, type CollisionDetection, type DragEndEvent, type DragMoveEvent, type DragStartEvent, type Modifier } from '@dnd-kit/core'
 import { SortableContext, useSortable, type SortingStrategy } from '@dnd-kit/sortable'
+
+/** dnd-kit moves no row itself: where each one slides is worked out once, for rows and panels alike (Shaped). */
+const unmoved: SortingStrategy = () => null
 import { AnimatePresence, animate, motion, useMotionValue, useSpring, useTransform, type MotionValue } from 'motion/react'
 import { ChevronRight, GripVertical, Layers, X as Cross } from 'lucide-react'
 
@@ -122,8 +125,12 @@ type Carry = {
   shapes: Map<string, Shape>
   /** Just let go: rows go straight to where the drop put them. */
   snap: boolean
+  /** How far each row slides to make room. */
+  ys: Map<string, number>
+  /** How far a carried group's row sits inside its block's air: the room starts that much above it. */
+  inset: number
 }
-const Carrying = createContext<Carry>({ aim: null, height: 0, span: 0, along: new Set(), hand: null, shapes: new Map(), snap: false })
+const Carrying = createContext<Carry>({ aim: null, height: 0, span: 0, along: new Set(), hand: null, shapes: new Map(), snap: false, ys: new Map(), inset: 0 })
 const same = (a: Aim | null, b: Aim | null): boolean => JSON.stringify(a) === JSON.stringify(b)
 
 /**
@@ -152,14 +159,15 @@ function Node({ id, children, inner, indent = 0 }: { id: string; children: React
   // dnd-kit says where each row goes; the row glides there on the same clock as the groups' panels (PanelParts), so a
   // row and the box around it always move together, even turned back halfway. Its own CSS transition is off.
   // dnd-kit's own slide of a row whose place in the list changed (its layout animation) is off too: the list is redrawn as it lands.
-  const { setNodeRef, attributes, listeners, transform, isDragging } = useSortable({ id, transition: null, animateLayoutChanges: () => false })
-  const { aim, height, span, along, snap } = useContext(Carrying)
+  const { setNodeRef, attributes, listeners, isDragging } = useSortable({ id, transition: null, animateLayoutChanges: () => false })
+  const { aim, height, span, along, snap, ys, inset } = useContext(Carrying)
   // What is carried never slides through the other rows: its room is simply there, shown once they have made way.
   // Let go, the list is drawn as the drop left it, so every row is at once in place.
-  const glide = useGlide(Math.round(transform?.y ?? 0), 1, isDragging || snap)
+  const glide = useGlide(Math.round(ys.get(id) ?? 0), 1, isDragging || snap)
   const ref = useCallback((node: HTMLElement | null): void => void (setNodeRef(node), glide.ref(node)), [setNodeRef, glide.ref]) // eslint-disable-line react-hooks/exhaustive-deps
   // Anything that moves the room draws it anew, so it never shows while the rows are still making way.
   const place = aim ? `${aim.gap}:${aim.snug}:${aim.fit}:${span}` : ''
+  const wait = still() ? undefined : `mf-room 100ms ${OUT} ${Math.round(SLIDE.duration * 800)}ms both`
   // A new group would form here: this row lifts, with a panel around it and the room under it.
   const forming = !!aim?.make && aim.target === id
   const lifted = forming
@@ -182,21 +190,17 @@ function Node({ id, children, inner, indent = 0 }: { id: string; children: React
       {room && (
         // One hint per drop: a soft band the size of the room, the line through its middle. Drawn anew at each new place.
         // It waits for the rows to make way, so it never shows over one sliding past.
-        <span
-          key={place}
-          aria-hidden
-          data-room={along.size + 1}
-          className="pointer-events-none absolute inset-x-1 top-0 z-10 rounded-md bg-[color-mix(in_srgb,var(--tt-brand-color-400)_6%,transparent)] motion-reduce:animate-none"
-          style={{ height: span - 2, animation: still() ? undefined : `mf-room 100ms ${OUT} ${Math.round(SLIDE.duration * 800)}ms both` }}
-        >
+        <Fragment key={place}>
+          <span aria-hidden data-room={along.size + 1} className="pointer-events-none absolute inset-x-1 rounded-md bg-[color-mix(in_srgb,var(--tt-brand-color-400)_6%,transparent)]" style={{ top: -inset, height: span - 2, animation: wait }} />
           {!aim.make && (
             <span
+              aria-hidden
               data-drop-line={aim.how}
-              className="absolute inset-y-0 right-1 my-auto h-0.5 rounded-full bg-(--tt-brand-color-400) before:absolute before:-top-[3px] before:-left-2 before:size-2 before:rounded-full before:border-2 before:border-(--tt-brand-color-400) before:bg-background"
-              style={{ left: (aim.into ? INDENT : 0) + 8 }}
+              className="pointer-events-none absolute right-2 h-0.5 -translate-y-1/2 rounded-full bg-(--tt-brand-color-400) before:absolute before:-top-[3px] before:-left-2 before:size-2 before:rounded-full before:border-2 before:border-(--tt-brand-color-400) before:bg-background"
+              style={{ left: (aim.into ? INDENT : 0) + 12, top: span / 2 - inset, animation: wait }}
             />
           )}
-        </span>
+        </Fragment>
       )}
       <AnimatePresence>
         {forming && (
@@ -270,6 +274,9 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
   const [grab, setGrab] = useState(60)
   // The room what is carried takes: a row for each note, or a group's folded block.
   const [span, setSpan] = useState(0)
+  // A group lifted, open: how tall it was, so the list keeps that height while it is folded in the hand and a list
+  // scrolled to its end does not jump.
+  const [unfolded, setUnfolded] = useState(0)
   const [rowH, setRowH] = useState(0)
   // Let go with a drop: until the next lift, rows go straight to their places.
   const [snap, setSnap] = useState(false)
@@ -284,22 +291,6 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
   const ticks = useRef(slotTicker()).current
   // A group carried takes its notes and its subgroups' rows along: they wait where they are.
   // Where the room opens: just after this row on show (-1, at the very top), so the rows slide apart by one row there.
-  const gapAfter = aim?.gap ?? null
-  const aimSnug = aim?.snug ?? true
-  const aimFit = aim?.fit ?? 0
-  const strategy: SortingStrategy = useMemo(
-    () => (args) => {
-      if (gapAfter === null) return null
-      // Exactly the room carried, whatever lies between: the rows from the carried one's place to the gap slide by it and no more.
-      const { activeIndex, index, rects } = args
-      const slide = slideOf(activeIndex, gapAfter, spanRef.current + aimFit, (at) => rects[at], aimSnug, insetRef.current + aimFit / 2)
-      const still = { x: 0, scaleX: 1, scaleY: 1 }
-      if (index === activeIndex) return slide.carried ? { ...still, y: slide.carried } : null
-      const y = slide.other(index)
-      return y ? { ...still, y } : null
-    },
-    [gapAfter, aimSnug, aimFit, carried, span, inset, keys.join('\n')] // eslint-disable-line react-hooks/exhaustive-deps
-  )
   const point = (next: Aim | null): void => {
     if (same(aimed.current, next)) return
     aimed.current = next
@@ -325,7 +316,10 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
     setRowH(row)
     const wrap = isGroup(id) ? document.querySelector<HTMLElement>(`[data-group-block="${CSS.escape(id.slice(KEY.length))}"]`)?.parentElement : null
     setInset(wrap && start ? start.top - wrap.getBoundingClientRect().top : 0)
-    setSpan(wrap ? wrap.getBoundingClientRect().height : row * (!isGroup(id) && picked.includes(id) && picked.length > 1 ? picked.length : 1))
+    // A group's room is its block folded: as tall as it is less what it holds, from the lift on.
+    const holds = wrap?.querySelector<HTMLElement>(':scope > [data-group-block] > [data-fold]')?.getBoundingClientRect().height ?? 0
+    setSpan(wrap ? wrap.getBoundingClientRect().height - holds : row * (!isGroup(id) && picked.includes(id) && picked.length > 1 ? picked.length : 1))
+    setUnfolded(wrap ? wrap.getBoundingClientRect().height : 0)
   }
   // Held over a folded group's row for a moment, the group opens, as a folder
   // does in Finder when something is held over it.
@@ -463,9 +457,10 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
       sub={(child, at) => block(child.group, child.entries, undefined, at, true)} />
   )
   return (
-    <DndContext sensors={sensors} collisionDetection={collide} modifiers={[upDown]} measuring={{ droppable: { strategy: MeasuringStrategy.WhileDragging } }}
+    // The list scrolls by itself only in the last tenth by its top and bottom edges: a row near an edge can still be aimed at.
+    <DndContext sensors={sensors} collisionDetection={collide} modifiers={[upDown]} autoScroll={{ threshold: { x: 0, y: 0.1 } }} measuring={{ droppable: { strategy: MeasuringStrategy.WhileDragging } }}
       onDragStart={onDragStart} onDragMove={onDragMove} onDragOver={({ over }) => ticks(over?.id)} onDragEnd={onDragEnd} onDragCancel={() => (end(), chime('stay'))}>
-      <SortableContext items={keys} strategy={strategy}>
+      <SortableContext items={keys} strategy={unmoved}>
         <Shaped aim={aim} keys={keys} hand={carried} many={many} span={span} inset={inset} row={rowH} snap={snap} blocks={blockRows}>
           {ordered && <OwnOrderHint />}
           <VirtualList items={lines} keyOf={({ one }) => (one.group ? KEY + one.group.id : one.entries[0].id)} cursor={line >= 0 ? line : undefined} estimate={estimate} className={className}>
@@ -480,6 +475,7 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
               )
             }
           </VirtualList>
+          {carried && unfolded > span && <div aria-hidden data-kept-height="" style={{ height: unfolded - span }} />}
         </Shaped>
       </SortableContext>
       <Overlay dropAnimation={still() ? null : SETTLE}>
@@ -526,12 +522,16 @@ function Shaped({ aim, keys, hand, many, span, inset, row: mid, snap, blocks, ch
   const { droppableRects } = useDndContext()
   const gap = aim?.gap ?? null
   const shapes = new Map<string, Shape>()
+  // How far each row slides: every one in the same draw, and its group's panel with it.
+  const ys = new Map<string, number>()
   const from = hand ? keys.indexOf(hand) : -1
   if (gap !== null && from >= 0 && span) {
     const h = span + (aim!.fit ?? 0)
     const box = (key: string | undefined) => (key === undefined ? undefined : droppableRects.get(key))
     const slide = slideOf(from, gap, h, (at) => box(keys[at]), aim!.snug ?? true, inset + (aim!.fit ?? 0) / 2)
     const shift = (key: string): number => slide.other(keys.indexOf(key))
+    for (const key of keys) if (key !== hand && shift(key)) ys.set(key, shift(key))
+    if (slide.carried) ys.set(hand!, slide.carried)
     const roomTop = box(hand!) ? box(hand!)!.top - inset + slide.carried - (aim!.fit ?? 0) / 2 : undefined
     for (const { id, rows } of blocks) {
       if (hand === KEY + id) continue
@@ -546,10 +546,10 @@ function Shaped({ aim, keys, hand, many, span, inset, row: mid, snap, blocks, ch
       if (top || bottom) shapes.set(id, { top, bottom })
     }
   }
-  const signature = [...shapes].map(([id, one]) => `${id}:${one.top}:${one.bottom}`).join()
+  const signature = [...shapes].map(([id, one]) => `${id}:${one.top}:${one.bottom}`).join() + [...ys].map(([id, y]) => `${id}=${Math.round(y)}`).join()
   const along = many.filter((one) => one !== hand).join()
   // A new value only when something drawn changes: every row reads it.
-  const value = useMemo<Carry>(() => ({ aim, height: mid, span: span + (aim?.fit ?? 0), along: new Set(along ? along.split(',') : []), hand, shapes, snap }), [aim, mid, span, along, hand, signature, snap]) // eslint-disable-line react-hooks/exhaustive-deps
+  const value = useMemo<Carry>(() => ({ aim, height: mid, span: span + (aim?.fit ?? 0), along: new Set(along ? along.split(',') : []), hand, shapes, ys, snap, inset: isGroup(hand ?? '') ? inset + (aim?.fit ?? 0) / 2 : 0 }), [aim, mid, span, inset, along, hand, signature, snap]) // eslint-disable-line react-hooks/exhaustive-deps
   return <Carrying.Provider value={value}>{children}</Carrying.Provider>
 }
 
@@ -979,6 +979,7 @@ function Fold({ open, instant: now = false, children }: { open: boolean; instant
   }
   return (
     <div
+      data-fold=""
       inert={!open}
       onTransitionEnd={(event) => {
         if (event.target !== event.currentTarget || event.propertyName !== 'grid-template-rows') return

@@ -86,7 +86,7 @@ const near = (a, b, by = 4) => a !== undefined && b !== undefined && Math.abs(a 
  * while it travels.
  */
 const watch = () => h.evaluate(() => {
-  const out = { frames: 0, overlap: [], outside: [], hole: [] }
+  const out = { frames: 0, overlap: [], outside: [], hole: [], air: null }
   window.__geo = out
   const say = (list, text) => list.length < 3 && list.push(`${text} [f${out.frames}${document.documentElement.hasAttribute('data-dragging') ? ' carrying' : ' after'}]`)
   const name = (n) => (n.dataset.sortableId.startsWith('g:') ? n.dataset.sortableId : (n.textContent || '').slice(0, 14))
@@ -113,9 +113,11 @@ const watch = () => h.evaluate(() => {
       if (a.bottom - b.top > 1.5) say(out.overlap, `${a.name} over ${b.name} by ${Math.round(a.bottom - b.top)}`)
       const gap = b.top - a.bottom
       const lines = [...document.querySelectorAll('[data-drop-line]')].map((one) => one.getBoundingClientRect())
-      // Taller than a row (53px here) and the air at a group's edge (up to 20px), and no line in it.
-      if (gap > 73 && !lines.some((one) => one.top >= a.bottom - 2 && one.bottom <= b.top + 2)) say(out.hole, `${Math.round(gap)}px between ${a.name} and ${b.name}`)
+      // Taller than a row on top of the most air the list has at rest (where groups end), and no line in it.
+      if (out.air !== null && gap > out.air + 54 && !lines.some((one) => one.top >= a.bottom - 2 && one.bottom <= b.top + 2)) say(out.hole, `${Math.round(gap)}px between ${a.name} and ${b.name}`)
     }
+    // The air between rows at rest, from the first frame, before anything is lifted.
+    if (out.air === null) out.air = Math.max(0, ...rows.slice(1).map((one, at) => one.top - rows[at].bottom))
     for (const row of rows) {
       if (row.riding) continue
       const block = row.n.parentElement?.closest('[data-group-block]')
@@ -279,6 +281,14 @@ try {
   await drop('reorder in a group while sorted by Newest', row(mover), row(target), 0.85, { key: K(mover), label: 'Move here · Custom order', into: 'g2', order: [target, mover, g2[2]] })
   const sort = await h.evaluate(() => JSON.parse(localStorage.getItem('view:article') ?? '{}').sort)
   check('and the list now keeps your own order', sort === 'manual', sort)
+  // The report again (shots/drag-group-into-group-2.png): sorted by Newest, Group 3 carried to between Notes and Accounts in
+  // Group 2. Groups go one level deep, so it never goes in there: the line shows it going above Group 2, inside Apple
+  // Notes / Notes, which is where it lands, and the list switches to "Custom order" to keep it there.
+  await view('newest')
+  await h.reload()
+  await wait(1800)
+  await scene()
+  await drop('Group 3 between two of Group 2\'s pages, sorted by Newest', head('g3'), row('Accounts'), 0.1, { key: 'g:g3', label: 'Move here · Custom order', into: 'an', lit: ['an'], order: ['g:g3', 'g:g2'] })
   check('no errors on the page', c.errors.length === 0, c.errors.slice(0, 3).join(' | '))
 } finally { await c.close() }
 done()

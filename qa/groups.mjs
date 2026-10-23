@@ -521,7 +521,7 @@ const overlaps = (c) => c.h.evaluate(() => {
   const panels = [...document.querySelectorAll('[data-group-block]')].map((el) => el.getBoundingClientRect()).sort((a, b) => a.top - b.top)
   for (let i = 1; i < panels.length; i++) if (panels[i].top < panels[i - 1].bottom + 2) bad.push(`panels ${i - 1} and ${i} touch (${Math.round(panels[i].top - panels[i - 1].bottom)}px)`)
   // Nothing left moved once nothing is carried.
-  for (const el of document.querySelectorAll('[data-sortable-id]')) if (el.style.transform) bad.push(`left moved: ${el.textContent.slice(0, 20)} ${el.style.transform}`)
+  for (const el of document.querySelectorAll('[data-sortable-id]')) if (el.style.transform && el.style.transform !== 'none') bad.push(`left moved: ${el.textContent.slice(0, 20)} ${el.style.transform}`)
   return bad
 })
 c = await open()

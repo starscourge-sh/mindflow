@@ -1840,28 +1840,6 @@ export function VirtualList<T>({ items, keyOf, cursor, estimate = 48, className 
     scrollMargin: margin,
     getItemKey: (index) => keyOf(items[index])
   })
-  // A row that changes height (a group folding, or taking in a dropped row) moves the rows under it in the same frame:
-  // they are stacked here, straight onto the page, as soon as it is drawn or resized (a resize observer is told before
-  // the frame is painted). The virtualizer's own measure, a frame later, comes to the same places.
-  const stack = useRef<() => void>(() => {})
-  stack.current = (): void => {
-    const lines = [...(box.current?.querySelectorAll<HTMLElement>(':scope > [data-index]') ?? [])].sort((a, b) => Number(a.dataset.index) - Number(b.dataset.index))
-    let at: number | null = null
-    let prev = -2
-    for (const line of lines) {
-      const index = Number(line.dataset.index)
-      at = at === null || index !== prev + 1 ? Number(line.dataset.at) : at
-      line.style.transform = `translateY(${at}px)`
-      at += line.offsetHeight
-      prev = index
-    }
-  }
-  const [watch] = useState(() => (typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => stack.current())))
-  useEffect(() => () => watch?.disconnect(), [watch])
-  useLayoutEffect(() => {
-    for (const line of box.current?.querySelectorAll<HTMLElement>(':scope > [data-index]') ?? []) watch?.observe(line)
-    stack.current()
-  })
   // The keyboard's row, drawn or not yet: left still if it shows, to the edge
   // for a step, centred for a jump. Asked again once the scroller is found, so
   // a list opened onto a row far down (a link, ⌘K) lands on it too. A frame
@@ -1878,13 +1856,18 @@ export function VirtualList<T>({ items, keyOf, cursor, estimate = 48, className 
   }, [cursor, scroller]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div ref={box} className={`relative ${className}`} style={{ height: rows.getTotalSize() }}>
-      {rows.getVirtualItems().map(({ index, key, start }) => (
-        // A sliver of room under each row, so two lit rows (the open one and the
-        // cursor) never touch. Padding, not margin: the measure counts padding.
-        <div key={key} data-index={index} data-at={start - margin} ref={rows.measureElement} className="absolute top-0 left-0 w-full pb-0.5" style={{ transform: `translateY(${start - margin}px)` }}>
-          {children(items[index], index)}
-        </div>
-      ))}
+      {/* The rows on show stand one under the other, in the page's own flow from where the first one starts: a row that
+          changes height (a group folding, or taking in a dropped row) moves the ones under it in the same frame, never
+          drawn over them while the measure catches up. */}
+      <div style={{ paddingTop: (rows.getVirtualItems()[0]?.start ?? margin) - margin }}>
+        {rows.getVirtualItems().map(({ index, key }) => (
+          // A sliver of room under each row, so two lit rows (the open one and the
+          // cursor) never touch. Padding, not margin: the measure counts padding.
+          <div key={key} data-index={index} ref={rows.measureElement} className="w-full pb-0.5">
+            {children(items[index], index)}
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
