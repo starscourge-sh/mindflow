@@ -633,7 +633,9 @@ export function Home(): React.JSX.Element {
   const fullMenu = useFullMenu()
   const tags = useLive(haligtree.tags, [] as Awaited<ReturnType<typeof haligtree.tags>>)
   // Pinned from a tag's page: those first, then the most used.
-  const sideTags = tags.slice(0, 8)
+  // In your order once dragged (tagOrder), the rest by use after them.
+  const tagSaved = useOrder('tagOrder')
+  const sideTags = useInOrder(tags, 'tagOrder', (one) => one.tag).slice(0, 8)
   // The Tags heading is marked on the Tags page, and on a tag's page whose own row is folded away or not among these.
   const onTags = view.id === 'tags' && (!view.focus || !tagsOpen || !sideTags.some(({ tag }) => tag === view.focus))
   const captures = useCaptures()
@@ -1484,10 +1486,14 @@ export function Home(): React.JSX.Element {
         )}
         <Unfold open={tagsOpen && tags.length > 0}>
           <Branches current={view.id === 'tags' ? sideTags.findIndex(({ tag }) => tag === view.focus) : -1} className="flex flex-col">
-          {sideTags.map(({ tag, count, color }) => (
-            <RowMenu key={tag} items={[
+          {/* Dragged into your own order, as the pages and pins above are; saved. */}
+          <SortableList items={sideTags} keyOf={(one) => one.tag} onMove={narrow ? undefined : dropOrder('tagOrder', tags.map((one) => one.tag), (id) => `#${id}`)}>{(items) => items.map(({ tag, count, color }) => (
+            <SortableRow key={tag} id={tag} glide={`side-tag-${tag}`}>
+            <RowMenu items={[
               { label: 'Open', run: () => setView({ id: 'tags', focus: tag }) },
-              { label: 'Rename or merge…', run: () => void renameTag(tag, (now) => view.id === 'tags' && view.focus === tag && setView({ id: 'tags', focus: now })) }
+              { label: 'Rename or merge…', run: () => void renameTag(tag, (now) => view.id === 'tags' && view.focus === tag && setView({ id: 'tags', focus: now })) },
+              'separator',
+              ...orderItems({ setting: 'tagOrder', usual: tags.map((one) => one.tag), id: tag, among: items.map((one) => one.tag), what: 'Your tags', name: `#${tag}` }, tagSaved.length > 0)
             ]}>
             <button
               key={tag}
@@ -1505,7 +1511,8 @@ export function Home(): React.JSX.Element {
               <Count n={count} className="text-xs text-muted-foreground" />
             </button>
             </RowMenu>
-          ))}
+            </SortableRow>
+          ))}</SortableList>
           </Branches>
         </Unfold>
             </>)

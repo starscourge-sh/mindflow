@@ -518,6 +518,8 @@ const DEFAULTS = {
   sidebarGroups: {} as Record<string, string>,
   boxTabsOrder: [] as string[],
   pinOrder: [] as string[],
+  // The sidebar's tags in your own order, by name; the rest follow by how often they are used.
+  tagOrder: [] as string[],
   // Sticky notes on the desktop: shown or all put away (⌃⌥⌘N).
   stickiesShown: true,
   // Which windows show in screen shares, recordings and screenshots: every one

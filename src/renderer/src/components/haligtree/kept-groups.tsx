@@ -731,13 +731,26 @@ function Count({ n }: { n: number }): React.JSX.Element {
   )
 }
 
+/**
+ * When the pointer last went down on a group's icon. The icon redraws itself
+ * as it is pressed, so the click that follows can land on the row instead:
+ * the row reads this and opens the picker rather than folding.
+ */
+let iconPressed = 0
+const pressedIcon = (): boolean => {
+  const was = Date.now() - iconPressed < 1000
+  iconPressed = 0
+  return was
+}
+
 /** A group's small icon and its chevron, side by side in the column a page's tile takes, so its name starts where a page's title does. */
 function GroupTile({ group, onIcon, ...rest }: { group: GroupView; onIcon?: () => void } & React.HTMLAttributes<HTMLSpanElement>): React.JSX.Element {
   return (
     <span {...rest} data-group-tile="" className="flex h-9 w-9 shrink-0 items-center justify-center gap-0.5">
       {/* A click on the icon changes it, as in Notion; the rest of the row folds. */}
       <span data-group-icon="" role="button" aria-label="Change icon" title="Change icon" className="-m-0.5 grid place-items-center rounded-sm p-0.5 transition-colors hover:bg-foreground/10"
-        onClick={(event) => onIcon && (event.stopPropagation(), event.preventDefault(), chime('open'), onIcon())}>
+        onPointerDown={() => void (onIcon && (iconPressed = Date.now()))}
+        onClick={(event) => onIcon && (event.stopPropagation(), event.preventDefault(), (iconPressed = 0), chime('open'), onIcon())}>
         <GroupIcon icon={group.icon} color={group.color} className="size-3.5" />
       </span>
       <ChevronRight
@@ -918,7 +931,7 @@ function GroupBlock({ group, entries, parts, start, row, carried, renaming, born
                       type="button"
                       data-group-row={group.id}
                       aria-expanded={group.open}
-                      onClick={fold}
+                      onClick={() => (pressedIcon() ? (chime('open'), setPicking(true)) : fold())}
                       onDoubleClick={() => onRenaming(true)}
                       // ← folds and → unfolds, as a folder in a list does.
                       onKeyDown={(event) => {

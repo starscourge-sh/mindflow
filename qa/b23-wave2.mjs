@@ -86,6 +86,105 @@ try {
   await wait(1800)
   const art = await shape()
   check('article: the block sits before the first line of the words', !!art && art.bottom <= art.first + 1, JSON.stringify(art))
+
+  // 18. A group's icon opens the icon picker; the row does not fold.
+  const ids = []
+  for (const title of ['Group page one', 'Group page two']) { const one = await v('article:new'); await v('item:save', one, { title }); ids.push(one) }
+  await v('groups:arrange', 'article', { top: ['g:qw2'], groups: { qw2: ids }, make: { id: 'qw2', name: 'Wave two group' } })
+  // Groups show as rows in a plain list (not grouped by kind or date).
+  await h.evaluate(() => localStorage.setItem('view:article', JSON.stringify({ sort: 'newest', group: 'none', filter: {}, density: 'list' })))
+  await go('home')
+  await wait(500)
+  await go('articles')
+  await wait(1500)
+  const groupRow = h.locator('[data-group-row="qw2"]').first()
+  await groupRow.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => {})
+  const wasOpen = await groupRow.getAttribute('aria-expanded').catch(() => null)
+  const iconBox = await groupRow.locator('[data-group-icon]').boundingBox()
+  await h.mouse.click(iconBox.x + iconBox.width / 2, iconBox.y + iconBox.height / 2)
+  await wait(600)
+  const picker = await h.evaluate(() => [...document.querySelectorAll('[data-slot="popover-content"]')].some((one) => one.getBoundingClientRect().height > 100))
+  check('18. a click on a group\'s icon opens its icon picker', picker)
+  check('18. and the group does not fold or unfold', (await groupRow.getAttribute('aria-expanded').catch(() => null)) === wasOpen, wasOpen)
+  await h.keyboard.press('Escape')
+  await wait(300)
+
+  // 3. The sort menu says what each order does with groups, and offers Groups first.
+  await h.evaluate(() => document.activeElement?.blur())
+  await h.keyboard.press('f')
+  await wait(700)
+  const note = () => h.evaluate(() => document.querySelector('[data-sort-note]')?.textContent ?? null)
+  const firstNote = await note()
+  check('3. the sort menu says what the order does with groups', !!firstNote, firstNote)
+  const groupsFirst = h.locator('[role="menuitemradio"]', { hasText: 'Groups first' })
+  check('3. "Groups first" is offered', (await groupsFirst.count()) === 1)
+  if (await groupsFirst.count()) {
+    await groupsFirst.click()
+    await wait(700)
+    const said = await note()
+    check('3. and says what it does', /Groups on top/.test(said ?? '') && said !== firstNote, said)
+    await h.keyboard.press('Escape')
+    await wait(500)
+    const top = await h.evaluate(() => {
+      const group = document.querySelector('[data-group-row]')?.getBoundingClientRect().top
+      const rows = [...document.querySelectorAll('[data-sortable-id]')].filter((one) => !one.closest('aside') && !one.querySelector('[data-group-row]') && !one.closest('[data-group-box]'))
+      return { group, row: rows[0]?.getBoundingClientRect().top }
+    })
+    check('3. Groups first puts the group on top', top.group !== undefined && (top.row === undefined || top.group <= top.row), JSON.stringify(top))
+  }
+  await h.keyboard.press('Escape')
+  await wait(300)
+
+  // 7. A tag in the sidebar drags into a new order, saved.
+  const tagIds = () => h.evaluate(() => [...document.querySelectorAll('aside nav [data-side-tag]')].map((one) => one.getAttribute('data-side-tag')))
+  const unfold = h.locator('aside nav [aria-label="Show your tags"]')
+  if (await unfold.count()) (await unfold.click(), await wait(600))
+  const before = await tagIds()
+  if (before.length >= 3) {
+    const at = (tag) => h.evaluate((tag) => { const r = document.querySelector(`aside nav [data-side-tag="${tag}"]`).getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, top: r.top } }, tag)
+    const from = await at(before[2])
+    const to = await at(before[0])
+    await h.mouse.move(from.x, from.y)
+    await h.mouse.down()
+    await h.mouse.move(from.x, from.y - 8, { steps: 3 })
+    await h.mouse.move(from.x, to.top + 2, { steps: 14 })
+    await wait(200)
+    await h.mouse.up()
+    await wait(1000)
+    const after = await tagIds()
+    const saved = (await v('settings')).tagOrder ?? []
+    check('7. a dragged tag takes its new place', after[0] === before[2], `${before.join(' ')} -> ${after.join(' ')}`)
+    check('7. and the order is saved', saved[0] === before[2], saved.join(' '))
+  } else check('7. the sidebar shows tags to drag', false, before.join(' '))
+
+  // 8. Customize: a row goes into another block.
+  await h.locator('aside nav [data-sortable-id="home"] button[data-side-row]').first().click({ button: 'right' })
+  await wait(500)
+  await h.locator('[role=menu] [role=menuitem]', { hasText: 'Customize the sidebar' }).first().click()
+  await wait(1000)
+  const parts = await h.evaluate(() => [...document.querySelectorAll('[data-show-part]')].map((part) => ({ key: part.getAttribute('data-show-part'), rows: [...part.querySelectorAll('[data-show-row]')].map((one) => one.getAttribute('data-show-row')) })))
+  const gaps = await h.evaluate(() => [...document.querySelectorAll('[data-show-part] [data-side-gap]')].length)
+  check('8. Customize shows the blocks with the sidebar\'s gap', parts.length >= 2 && gaps >= 1, JSON.stringify(parts))
+  const write = parts.find((one) => one.key === 'Write')
+  const other = parts.find((one) => one.key !== 'Write' && one.rows.length)
+  if (write && other) {
+    const id = write.rows[0]
+    const rowAt = (id) => h.evaluate((id) => { const r = document.querySelector(`[data-show-row="${id}"]`).getBoundingClientRect(); return { x: r.left + 60, y: r.top + r.height / 2, bottom: r.bottom } }, id)
+    const from = await rowAt(id)
+    const to = await rowAt(other.rows[other.rows.length - 1])
+    await h.mouse.move(from.x, from.y)
+    await h.mouse.down()
+    await h.mouse.move(from.x, from.y + 8, { steps: 3 })
+    await h.mouse.move(from.x, to.bottom - 2, { steps: 16 })
+    await wait(200)
+    const line = await h.evaluate(() => document.querySelector('[data-drop-line]')?.getAttribute('data-drop-line') ?? null)
+    await h.mouse.up()
+    await wait(1000)
+    const groupsSaved = (await v('settings')).sidebarGroups ?? {}
+    check('8. while dragging in Customize, a line shows where it lands', !!line, line)
+    check('8. a row dragged into another block in Customize joins it', groupsSaved[id] === other.key, `${id}: ${JSON.stringify(groupsSaved)}`)
+  }
+  await h.keyboard.press('Escape')
 } catch (error) {
   check('ran without throwing', false, String(error?.stack ?? error))
 } finally {

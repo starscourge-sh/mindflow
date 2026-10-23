@@ -6,7 +6,7 @@ import { chime } from '@/lib/sound'
 import { useLive, haligtree, type Settings } from '@/lib/haligtree'
 import { Pressed, Tip, toast, quietly } from './ui'
 import { RowMenu, type RowItem } from './row-menu'
-import { SortableList, SortableRow } from './sortable'
+import { BlockList, SortableList, SortableRow } from './sortable'
 import { LayoutGroup } from 'motion/react'
 import { GripVertical } from 'lucide-react'
 import { inOrder, isUsual, moved, stepped } from '@/lib/place-order'
@@ -128,7 +128,7 @@ const SHOWN: Record<Shown, string[]> = {
 }
 
 /** A list kept in your own order, and which list's order each show-setting goes with. */
-export type Ordered = 'sidebarOrder' | 'boxTabsOrder' | 'pinOrder'
+export type Ordered = 'sidebarOrder' | 'boxTabsOrder' | 'pinOrder' | 'tagOrder'
 const ORDER_OF: Record<Shown, Ordered> = { sidebarShown: 'sidebarOrder', boxTabs: 'boxTabsOrder' }
 const same = (id: string): string => id
 
@@ -326,8 +326,22 @@ export function ShowList({ places: given, setting }: { places: Place[]; setting:
             {setting === 'sidebarShown' ? 'Show every page' : 'Show every tab'}
           </button>
         )}
-        {parts.map(([part, list], at) => list.length > 0 && (
-          <div key={part} data-show-part={part} className={`flex flex-col gap-px ${at ? 'mt-2.5' : ''}`}>
+        {setting === 'sidebarShown' ? (
+          // The sidebar's blocks, with the sidebar's own gap between: a row goes anywhere, into whichever block the line is in.
+          <BlockList
+            blocks={parts.map(([key, items]) => ({ key, items }))}
+            keyOf={(place) => place.id}
+            onMove={(id, drop) => void dropInBlock(id, drop.block, drop.before, usual)}
+            row={(place, among) => row(place, among)}
+            around={(block, at, box, items) => (
+              <div key={block} data-show-part={block} className="flex flex-col">
+                {at > 0 && items.length > 0 && <div data-side-gap aria-hidden className="mt-2.5 mb-0.5 min-h-1" />}
+                {box}
+              </div>
+            )}
+          />
+        ) : parts.map(([part, list]) => list.length > 0 && (
+          <div key={part} data-show-part={part} className="flex flex-col gap-px">
             <SortableList items={list} keyOf={(place) => place.id} onMove={dropOrder(order, usual, (id) => places.find((one) => one.id === id)?.label)}>
               {(items) => items.map((place) => row(place, items.map((one) => one.id)))}
             </SortableList>
