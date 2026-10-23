@@ -106,7 +106,9 @@ export function PageContents({ page, scroller, label }: { page: HTMLElement | nu
     const soon = (): void => {
       if (queued) return
       queued = true
-      queueMicrotask(() => ((queued = false), flushSync(scan)))
+      // The changes this read's own drawing makes are dropped (takeRecords): heard, they asked for another read,
+      // whose drawing asked for another, and the page froze in that loop (a note opened beside its list).
+      queueMicrotask(() => ((queued = false), flushSync(scan), changes.takeRecords()))
     }
     // A card's moving picture (aria-hidden) changes every frame and lists nothing.
     const changes = new MutationObserver((all) => all.some((one) => !(one.target instanceof Element ? one.target : one.target.parentElement)?.closest('[aria-hidden="true"]')) && soon())
