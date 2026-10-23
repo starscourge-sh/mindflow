@@ -101,6 +101,12 @@ try {
     const due = await h.evaluate(() => window.api.haligtree('returning'))
     check('3. answered, it stops coming back and keeps the answer', !due.some((one) => asked.includes(one.ask)), JSON.stringify(due.map((one) => one.ask)))
   }
+  // A question page tagged #checkback, given its day and question, comes back the same way.
+  const question = await s.v('question:new', 'Is the tide table right for Saturday?')
+  await s.v('notes:fields:set', 'nuggets', question, 'back', day(0))
+  await s.v('notes:fields:set', 'nuggets', question, 'ask', 'Did the tide table hold?')
+  const due = await s.v('returning')
+  check('3. a question page with a Check back day and question comes back', due.some((one) => one.id === question && one.ask === 'Did the tide table hold?'), JSON.stringify(due.map((one) => one.ask)))
   check('no page errors', errors.length === 0, errors.join(' | '))
 } finally {
   await s.close()

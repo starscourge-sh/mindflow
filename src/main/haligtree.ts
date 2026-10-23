@@ -4061,13 +4061,14 @@ export function registerHome(): void {
   // Who said it, only for a quote: its card signs it.
   const strip = ({ type, id, title, kind, private: hidden, at, who }: Shelved): Shelved => ({ type, id, title, kind, private: hidden, at, ...(kind === 'quote' && who ? { who } : {}) })
 
-  // A Check back on its day, not answered since: each comes back with its
-  // question, to be answered in place. Oldest due first; a date said in words
+  // A Check back on its day, not answered since: one of the kind, or a page
+  // (a question page among them) tagged #checkback and given its day and its
+  // question. Each comes back with its question, to be answered in place. Oldest due first; a date said in words
   // before dates were dates never counts.
   const returning = (): Returning[] => {
     const end = dayjs().endOf('day').toISOString()
     const rows = db.prepare(`select id, 'capture' as type, ${LABEL} as title, kind, private, fields from captures where status != 'discarded' and archived_at is null and kind = 'checkback' and fields is not null
-      union all select id, tier, coalesce(nullif(title, ''), label('', body)), kind, private, fields from nuggets where archived_at is null and superseded_by is null and kind = 'checkback' and fields is not null`).all() as (Shelved & { fields: string })[]
+      union all select id, tier, coalesce(nullif(title, ''), label('', body)), kind, private, fields from nuggets where archived_at is null and superseded_by is null and (kind = 'checkback' or (json_valid(fields) and json_extract(fields, '$.back') is not null and json_extract(fields, '$.ask') is not null)) and fields is not null`).all() as (Shelved & { fields: string })[]
     return rows.flatMap(({ fields, ...row }) => {
       let f: Record<string, string> = {}
       try { f = JSON.parse(fields) } catch { return [] }

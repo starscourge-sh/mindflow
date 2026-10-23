@@ -22,6 +22,7 @@ import { Lineage } from './lineage'
 import { pinQuestion } from './pinned-questions'
 import { Mentions } from './mentions'
 import { Aliases, LocalGraph, NoteHeader } from './note-extras'
+import { PropertyStrip, keepPropertyLine } from './property-strip'
 import { RowMenu, copy, type MenuItem } from './row-menu'
 import { PICKED_MARK } from './pick-mixed'
 import { usePickLines } from '@/lib/pick-lines'
@@ -316,6 +317,8 @@ export function QuestionDetail({ item, onOpen, top }: { item: ItemFull; onOpen?:
             onTokenClick={(token) => token.name === 'tag' && onOpen?.('tag', token.value)}
             toolbar={{ fixed: false }}
             documentId={`item-${item.id}`}
+            belowTitle={<PropertyStrip table="nuggets" id={item.id} kind={item.kind} fields={item.fields} text={item.title} />}
+            onPropertyLine={keepPropertyLine('nuggets', item.id)}
             onTitleOut={showTopTitle}
             placeholder="Write around it, however it asks to be written…"
             defaultContent={((restored ? restored.body : item.body) as JSONContent | string | null) ?? ''}

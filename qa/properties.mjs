@@ -12,7 +12,7 @@ import { checks } from './harness.mjs'
 
 const { check, done } = checks()
 const s = await sandbox({ width: 1200, height: 820 })
-const { h, send, go, errors } = s
+const { h, send, go, v, errors } = s
 const shot = (name) => process.env.SHOTS && h.screenshot({ path: `${process.env.SHOTS}/${name}.png` }).catch(() => {})
 const strip = '[data-property-strip]'
 try {
@@ -111,6 +111,30 @@ try {
   check('5. ⌘K: author:le guin finds the note', found.some((one) => one.id) && found.every((one) => one.label !== 'Left Hand of Darkness #book'), found.map((one) => one.label).join(' | '))
   const none = await h.evaluate(() => window.api.captures.find('author:tolkien'))
   check('5. ⌘K: author:tolkien finds nothing', none.length === 0, none.map((one) => one.label).join(' | '))
+
+  // 6. A question page has the strip too, and a Name:: value line there is a property.
+  const question = await v('question:new', 'Why do tides lag behind the moon?')
+  await send('question', question)
+  await h.waitForTimeout(1800)
+  const onQuestion = await h.$(strip)
+  check('6. a question page has the strip under its title', !!onQuestion)
+  await h.evaluate(() => {
+    const page = document.querySelector('.mf-property-strip').closest('.tiptap.ProseMirror')
+    const last = [...page.children].filter((one) => one.tagName === 'P').at(-1)
+    page.focus()
+    const range = document.createRange()
+    range.selectNodeContents(last)
+    range.collapse(false)
+    getSelection().removeAllRanges()
+    getSelection().addRange(range)
+  })
+  await h.keyboard.press('Enter')
+  await h.keyboard.type('Source:: Feynman lectures', { delay: 12 })
+  await h.keyboard.press('Enter')
+  await h.waitForTimeout(900)
+  const kept = await h.evaluate((sel) => document.querySelector(sel)?.textContent ?? '', strip)
+  check('6. Source:: Feynman lectures is kept on the question page', /Source\s*Feynman lectures/.test(kept), kept)
+  await shot('6-question')
   check('no page errors', errors.length === 0, errors.join(' | '))
 } finally {
   await s.close()
