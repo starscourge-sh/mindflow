@@ -1,7 +1,7 @@
 import { app, BrowserWindow, globalShortcut, ipcMain, session } from 'electron'
 import { spawn, type ChildProcess } from 'child_process'
 import { randomUUID } from 'crypto'
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'fs'
 import { copyFile, mkdir, rename, rm, stat, writeFile } from 'fs/promises'
 import { join } from 'path'
 
@@ -103,7 +103,25 @@ export function useDataFolder(): boolean {
     } catch {
       // Nothing was carried in.
     }
-    rmSync(sandboxRoot(), { recursive: true, force: true })
+    // The run before is still up (its window shows until this one's does) and
+    // still writes into the folder, so deleting it in place can fail half
+    // done ("Directory not empty"). Moved aside in one step, it is gone from
+    // this run's way at once; the moved copy is deleted after, and any left
+    // by an earlier reset with it.
+    const gone = `${sandboxRoot()}-gone-${Date.now()}`
+    try {
+      renameSync(sandboxRoot(), gone)
+    } catch {
+      // No sandbox yet, or it could not move: deleted where it is.
+      rmSync(sandboxRoot(), { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })
+    }
+    for (const old of readdirSync(realRoot()).filter((name) => name.startsWith('sandbox-gone-'))) {
+      try {
+        rmSync(join(realRoot(), old), { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })
+      } catch {
+        // Still in use by the run before: the next reset takes it.
+      }
+    }
     if (carried) {
       mkdirSync(sandboxRoot(), { recursive: true })
       writeFileSync(join(sandboxRoot(), CARRY), carried)

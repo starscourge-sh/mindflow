@@ -162,7 +162,7 @@ export function PracticeOfferCard({ offer, onDone, autoFocus = false, compact = 
       </p>
       <div className="mt-2 flex flex-wrap items-center gap-0.5">
         <button type="button" data-practice-start onClick={start} className={`${key} bg-[var(--tt-brand-color-400)] mf-on-accent hover:brightness-110`}>
-          <Kbd className="border-current/30 bg-transparent text-current">↵</Kbd> Start
+          <Kbd className="border-transparent bg-white/20 text-current">↵</Kbd> Start
         </button>
         <button type="button" data-practice-skip onClick={skip} className={`${key} text-foreground hover:bg-accent`}>
           <Kbd>N</Kbd> Not tonight

@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { BookOpen, FileText, Quote, User } from 'lucide-react'
-import { Camera } from '@/components/ui/icons'
+import { Camera, Fit } from '@/components/ui/icons'
+import { openLook } from '@/components/image/image-look'
 
 import { Button } from '@/components/ui/button'
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
@@ -107,23 +108,39 @@ function PersonHead({ page, name, thoughts, setThoughts, onOpenPerson }: { page:
     <header data-person-head className="px-5 pt-8">
       <div className="flex items-start gap-5">
         <PersonMenu name={name}>
-          <button type="button" data-person-photo={photo ? 'picture' : 'shape'} aria-label={photo ? `Change ${name}’s photo` : `Add a photo of ${name}`}
-            onClick={() => void pickAvatar(name)}
+          <div className="group/photo relative shrink-0"
             onDragOver={(event) => (event.preventDefault(), setOver(true))} onDragLeave={() => setOver(false)}
             onDrop={(event) => {
               event.preventDefault()
               setOver(false)
               const file = [...event.dataTransfer.files].find((one) => one.type.startsWith('image/'))
               if (file) void setAvatar(name, file)
-            }}
-            className={`group/photo relative shrink-0 rounded-full transition-shadow duration-150 focus-visible:ring-2 focus-visible:ring-ring ${over ? 'ring-2 ring-ring ring-offset-2 ring-offset-background' : ''}`}>
-            <Avatar name={name} size={96} />
-            {/* Said on the face itself while the pointer is on it (or a picture is carried over): a photo goes here. */}
-            <span aria-hidden data-photo-hint className={`pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-full bg-black/50 text-white transition-opacity duration-150 group-hover/photo:opacity-100 group-focus-visible/photo:opacity-100 ${over ? 'opacity-100' : 'opacity-0'}`}>
-              <Camera className="size-5" />
-              <span className="text-meta font-medium">{over ? 'Drop it here' : photo ? 'Change photo' : 'Add a photo'}</span>
-            </span>
-          </button>
+            }}>
+            {/* With a photo, the face opens it whole; with none, it asks for one. */}
+            <button type="button" data-person-photo={photo ? 'picture' : 'shape'} aria-label={photo ? `See ${name}’s photo` : `Add a photo of ${name}`}
+              onClick={(event) => void (photo ? (chime('open'), openLook(photo, event.currentTarget, name)) : pickAvatar(name))}
+              className={`relative block rounded-full transition-shadow duration-150 focus-visible:ring-2 focus-visible:ring-ring ${over ? 'ring-2 ring-ring ring-offset-2 ring-offset-background' : ''}`}>
+              <Avatar name={name} size={96} />
+              {/* Said on the face itself while the pointer is on it (or a picture is carried over).
+                  A photo only darkens a touch under a small expand mark, as a picture in a note opens. */}
+              <span aria-hidden data-photo-hint className={`pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-full text-white transition-[opacity,background-color] duration-200 ease-[var(--mf-ease)] group-hover/photo:opacity-100 group-focus-visible/photo:opacity-100 ${photo && !over ? 'bg-black/25' : 'bg-black/50'} ${over ? 'opacity-100' : 'opacity-0'}`}>
+                <span className={`flex flex-col items-center gap-1 transition-transform duration-200 ease-[var(--mf-ease)] motion-reduce:transition-none group-hover/photo:scale-100 ${over ? 'scale-100' : 'scale-90'}`}>
+                  {over || !photo ? <Camera className="size-5" /> : <Fit className="size-[18px] text-white/90 drop-shadow-[0_1px_2px_rgb(0_0_0/0.4)]" />}
+                  {(over || !photo) && <span className="text-meta font-medium">{over ? 'Drop it here' : 'Add a photo'}</span>}
+                  {photo && !over && <span className="sr-only">See it</span>}
+                </span>
+              </span>
+            </button>
+            {/* Changing one that is there: its own small button on the face's edge, there while the pointer is. */}
+            {photo && !over && (
+              <Tip label="Change photo" side="right">
+                <button type="button" data-photo-change aria-label={`Change ${name}’s photo`} onClick={() => void pickAvatar(name)}
+                  className="absolute right-0 bottom-0 flex size-7 scale-90 items-center justify-center rounded-full border bg-popover text-muted-foreground opacity-0 shadow-sm transition-[opacity,scale,color,background-color] duration-200 ease-[var(--mf-ease)] hover:bg-accent hover:text-foreground focus-visible:scale-100 focus-visible:opacity-100 active:scale-95 motion-reduce:transition-[opacity] group-hover/photo:scale-100 group-hover/photo:opacity-100">
+                  <Camera className="size-3.5" />
+                </button>
+              </Tip>
+            )}
+          </div>
         </PersonMenu>
         <div className="min-w-0 flex-1 pt-1">
           <p className="text-control text-muted-foreground">Person</p>

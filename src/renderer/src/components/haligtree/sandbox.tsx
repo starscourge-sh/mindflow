@@ -6,7 +6,7 @@ import { HaligtreeEditor, readMarkdown } from '@/components/haligtree'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import ArrowBackUpIcon from '@/components/ui/arrow-back-up-icon'
 import RefreshIcon from '@/components/ui/refresh-icon'
-import { Tip, toast } from '@/components/haligtree/ui'
+import { Tip, refuse, toast } from '@/components/haligtree/ui'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { HoldButton } from '@/components/haligtree/hold-button'
 import { ProgressBar } from '@/components/haligtree/progress-bar'
@@ -359,11 +359,17 @@ export function SandboxHost(): React.JSX.Element | null {
       sabersWorn()
       // An editor on the page reads Markdown for the seed; wait for one, five seconds at most.
       for (let waited = 0; !readMarkdown('x') && waited < 5000; waited += 100) await new Promise((wait) => setTimeout(wait, 100))
-      await seedSandbox(readMarkdown)
-      await window.api.haligtree('settings:set', { ...settings, celebrate: true, quietStart: '00:00', quietEnd: '00:00' })
-      await window.api.haligtree('sandbox:seeded')
+      try {
+        await seedSandbox(readMarkdown)
+        await window.api.haligtree('settings:set', { ...settings, celebrate: true, quietStart: '00:00', quietEnd: '00:00' })
+        await window.api.haligtree('sandbox:seeded')
+        chime('scene')
+      } catch (error) {
+        // Never "Setting out the examples..." for ever: said, with the way to try again.
+        console.error('sandbox seed', error)
+        refuse('The examples were not all set out. Press “Reset” to set them out again', 'error')
+      }
       setSeeding(false)
-      chime('scene')
     })
   }, [])
 

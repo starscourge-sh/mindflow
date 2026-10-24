@@ -34,6 +34,18 @@ try {
   await h.waitForTimeout(800)
   const after = await fields()
   check('born and still living reads "1920 to now"', after.length === 3 && after[2][1] === '' && after[2][2] === 'now', JSON.stringify(after))
+  // A photo opens whole on a click, and changes from its own small button.
+  await person('Jane Austen')
+  await h.locator('[data-person-photo="picture"]').hover()
+  await h.waitForTimeout(400)
+  if (process.env.SHOTS) await h.locator('[data-person-head]').screenshot({ path: `${process.env.SHOTS}/photo-hover.png` })
+  check('a face with a photo says "See it" and shows "Change photo"', (await h.locator('[data-photo-hint]').innerText()).includes('See it') && await h.locator('[data-photo-change]').isVisible())
+  await h.locator('[data-person-photo="picture"]').click()
+  await h.waitForTimeout(800)
+  check('clicking the photo opens it whole', await h.locator('.mf-look[role="dialog"]').count() === 1)
+  await h.keyboard.press('Escape')
+  await h.waitForTimeout(600)
+  check('Esc puts it away', await h.locator('.mf-look[role="dialog"]').count() === 0)
   check('no page errors', errors.length === 0, errors.join(' | '))
 } finally {
   await close()

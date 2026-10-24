@@ -947,6 +947,9 @@ const nudgeHeld = (sender: Electron.WebContents): { win: BrowserWindow; waiting:
  * so the desktop looks the same after a restart.
  */
 const stickies = new Map<string, BrowserWindow>()
+// Switching book or into the sandbox: the stickies of the book being left go at once, while its main
+// window stays up until the new run's is on screen; the new run's are dealt in after it (afterHome).
+onHandOff(() => { for (const win of stickies.values()) if (!win.isDestroyed()) win.hide() })
 /**
  * Where Haligtree itself last put a sticky (a wiggle, a lift). A window found there
  * was moved by Haligtree, not by you: not kept as its place, nor nudged on screen.
@@ -1026,17 +1029,26 @@ ipcMain.on('sticky:ready', (event) => {
   readyWaits.delete(event.sender.id)
   go?.()
 })
-/** Once the main window is on screen, if it is on its way; at once if it is not opening. */
+/**
+ * Once the main window is on screen, if it is on its way; at once if it is not opening.
+ * On screen, not only painted: a switch into the sandbox or a book paints the
+ * new main window well before it shows (the run before keeps its own up until
+ * then), and the cards came in over the old one. Never later than 5 seconds.
+ */
 function afterHome(go: () => void): void {
   const home = BrowserWindow.getAllWindows().find((one) => !one.isDestroyed() && /[?&]view=home/.test(one.webContents.getURL()))
-  if (!home || homePainted) return go()
+  if (!home || home.isVisible()) return go()
   let done = false
   const once = (): void => void (!done && ((done = true), setTimeout(go, 250)))
-  home.once('ready-to-show', once)
-  setTimeout(once, 2500)
+  home.once('show', once)
+  setTimeout(once, 5000)
 }
+/** When each sticky came on screen, beside the main window's own times, for a probe (qa/stickies-after-home.mjs). */
+const stickyTimes: number[] = []
+;(globalThis as { haligtreeStickyTimes?: number[] }).haligtreeStickyTimes = stickyTimes
 function arriveSticky(win: BrowserWindow): void {
   if (win.isDestroyed() || win.isVisible()) return
+  stickyTimes.push(Math.round(performance.now()))
   const quiet = quietly.delete(keyOfSticky(win) ?? '')
   if (stillness()) return win.showInactive()
   const drop = quiet ? 0 : 8
