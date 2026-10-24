@@ -606,6 +606,16 @@ function Shaped({ aim, keys, hand, many, span, inset, row: mid, snap, blocks, ch
       if (top || bottom) shapes.set(id, { top, bottom })
     }
   }
+  // A new group forming on a row: the panel around it holds the carried row's place under it, so every row
+  // after it makes way by that much. Before, they stayed put and the next row sat inside the panel, as if it joined too.
+  if (aim?.make && aim.target && gap === null) {
+    const at = keys.indexOf(aim.target)
+    const down = mid + 6
+    if (at >= 0) {
+      for (const key of keys.slice(at + 1)) if (key !== hand) ys.set(key, down)
+      for (const { id, rows } of blocks) if (rows.length && keys.indexOf(rows[0]) > at && !rows.includes(aim.target)) shapes.set(id, { top: down, bottom: down })
+    }
+  }
   const signature = [...shapes].map(([id, one]) => `${id}:${one.top}:${one.bottom}`).join() + [...ys].map(([id, y]) => `${id}=${Math.round(y)}`).join()
   const along = many.filter((one) => one !== hand).join()
   // A new value only when something drawn changes: every row reads it.
