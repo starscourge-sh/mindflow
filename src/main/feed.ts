@@ -1,4 +1,5 @@
-import { ipcMain } from 'electron'
+import { clipboard, ClipboardItem, dialog, ipcMain, net, shell } from 'electron'
+import { writeFile } from 'fs/promises'
 import { randomUUID } from 'crypto'
 
 import { LABEL, changed, database } from './captures'
@@ -43,6 +44,8 @@ export type FeedPost = {
   poll?: { open: { type: 'capture' | 'nugget'; id: string }; answer: PollAnswer | null; answers: Record<PollAnswer, number> }
   /** A Review card due, asked here: its question, its answer, each grade's next date, and today's grade once given. */
   quiz?: { prompt: string; answer: string; intervals: Record<number, string>; graded: { grade: number; due: string } | null }
+  /** Brought in by an importer: shown "From the archives". */
+  archive?: boolean
 }
 export type PollAnswer = 'yes' | 'mixed' | 'no'
 /** How long after it was decided a decision is first asked about, and how long before it is asked again. */
@@ -107,7 +110,7 @@ const proseLines = (raw: string): string[] => {
 }
 /** Cut at a word, with one ellipsis, and only when it runs long. */
 const cutAt = (text: string, size: number): string => (text.length > size ? `${text.slice(0, size).replace(/\s+\S*$/, '').replace(/[\s,;:·–-]+$/, '')}…` : text)
-type Row = { type: FeedPost['type']; id: string; kind: string; title: string; body: string | null; who: string | null; made: string; visited: string | null; weight: number }
+type Row = { type: FeedPost['type']; id: string; kind: string; title: string; body: string | null; who: string | null; made: string; visited: string | null; weight: number; archive?: number }
 /** How much less often "Less of this" makes it come up: the same step as a hint's thumbs down. */
 const LESS = 1 / 1.5
 /** A page's words a line a block: a paragraph with a link in it stays one line, as it reads. */
@@ -202,20 +205,29 @@ export function registerFeed(): void {
   ipcMain.handle('haligtree:feed:quiz', (_event, id: string, grade: number, due: string): boolean =>
     db.prepare('insert or replace into feed_quiz (day, id, grade, due) values (?, ?, ?, ?)').run(dayKey(), String(id), Number(grade), String(due)).changes > 0)
 
+  /** More than half of the book's notes came in by an importer. */
+  const mostlyImported = (): boolean => {
+    const { imported, total } = db.prepare("select count(*) filter (where imported_at is not null) as imported, count(*) as total from captures where status != 'discarded'").get() as { imported: number; total: number }
+    return imported > total / 2
+  }
   /** Everything the Feed may show, as rows: private ones and #bits are never read. */
   const pool = (): Row[] => {
-    const nuggets = db.prepare(`select case when tier = 'question' then 'question' else 'nugget' end as type, id, kind, coalesce(nullif(title, ''), label('', body)) as title, body, attribution as who, created_at as made, last_visited_at as visited, surfacing_weight as weight
+    const nuggets = db.prepare(`select case when tier = 'question' then 'question' else 'nugget' end as type, id, kind, coalesce(nullif(title, ''), label('', body)) as title, body, attribution as who, created_at as made, last_visited_at as visited, surfacing_weight as weight, (source != '') as archive
       from nuggets where tier in ('nugget', 'question') and private = 0 and suspended = 0 and archived_at is null and superseded_by is null and binned_at is null and (tier != 'question' or closed_at is null)`).all() as Row[]
     // A quote still a capture; one already a gem comes as the gem.
-    const quotes = db.prepare(`select 'capture' as type, id, kind, ${LABEL} as title, body, attribution as who, captured_at as made, surfaced_at as visited, surfacing_weight as weight
+    const quotes = db.prepare(`select 'capture' as type, id, kind, ${LABEL} as title, body, attribution as who, captured_at as made, surfaced_at as visited, surfacing_weight as weight, (imported_at is not null) as archive
       from captures where kind = 'quote' and private = 0 and status != 'discarded' and archived_at is null
       and id not in (select capture_id from nuggets where capture_id is not null)`).all() as Row[]
     // A note or a page of yours with a picture in it: the posts you look at, not only read.
     const PICTURED = "(body like '%](%.webp)%' or body like '%](%.png)%' or body like '%](%.jp%g)%' or body like '%\"type\":\"image\"%')"
     const pictured = [
-      ...db.prepare(`select 'capture' as type, id, kind, ${LABEL} as title, body, null as who, captured_at as made, surfaced_at as visited, surfacing_weight as weight
+      ...db.prepare(`select 'capture' as type, id, kind, ${LABEL} as title, body, null as who, captured_at as made, surfaced_at as visited, surfacing_weight as weight, (imported_at is not null) as archive
         from captures where kind not in ('quote', 'task') and private = 0 and status != 'discarded' and archived_at is null and ${PICTURED}
         and id not in (select capture_id from nuggets where capture_id is not null)`).all(),
+      // A book that came mostly from elsewhere: its imported notes come too, from day one, "From the archives".
+      ...(mostlyImported() ? db.prepare(`select 'capture' as type, id, kind, ${LABEL} as title, body, null as who, captured_at as made, surfaced_at as visited, surfacing_weight as weight, 1 as archive
+        from captures where imported_at is not null and kind not in ('quote', 'task') and private = 0 and status != 'discarded' and archived_at is null and not ${PICTURED}
+        and length(coalesce(body, '')) > 40 and id not in (select capture_id from nuggets where capture_id is not null)`).all() : []),
       ...db.prepare(`select 'article' as type, id, kind, coalesce(nullif(title, ''), label('', body)) as title, body, null as who, created_at as made, last_visited_at as visited, surfacing_weight as weight
         from nuggets where tier = 'article' and private = 0 and archived_at is null and superseded_by is null and binned_at is null and ${PICTURED}`).all()
     ] as Row[]
@@ -253,6 +265,32 @@ export function registerFeed(): void {
     return text.length > 600 ? `${text.slice(0, 600).replace(/\s+\S*$/, '')}…` : text
   }
 
+  // --- a post as a picture: saved where you choose, or copied for X with its words in X's compose page.
+  const pngOf = (data: string): Buffer => Buffer.from(String(data).replace(/^data:image\/png;base64,/, ''), 'base64')
+  ipcMain.handle('haligtree:feed:save-image', async (_event, name: string, data: string): Promise<boolean> => {
+    const safe = String(name).replace(/[/\\:*?"<>|]+/g, ' ').trim().slice(0, 60) || 'Post'
+    const { canceled, filePath } = await dialog.showSaveDialog({ defaultPath: `${safe}.png`, filters: [{ name: 'PNG picture', extensions: ['png'] }] })
+    if (canceled || !filePath) return false
+    await writeFile(filePath, pngOf(data))
+    return true
+  })
+  ipcMain.handle('haligtree:feed:share-x', async (_event, text: string, data: string): Promise<boolean> => {
+    await clipboard.write([new ClipboardItem({ 'image/png': new Blob([new Uint8Array(pngOf(data))], { type: 'image/png' }) })])
+    void shell.openExternal(`https://x.com/intent/post?text=${encodeURIComponent(String(text))}`)
+    return true
+  })
+  // A picture of the app's own (haligtree://) as a data address, so a card drawn in a window can carry it.
+  ipcMain.handle('haligtree:feed:picture', async (_event, url: string): Promise<string | null> => {
+    try {
+      const answer = await net.fetch(String(url))
+      if (!answer.ok) return null
+      const type = answer.headers.get('content-type') || 'image/png'
+      return `data:${type};base64,${Buffer.from(await answer.arrayBuffer()).toString('base64')}`
+    } catch {
+      return null
+    }
+  })
+
   ipcMain.handle('haligtree:feed', (): Feed => {
     const today = dayKey()
     if (gate().blackout) return { day: today, posts: [], safe: true }
@@ -266,6 +304,7 @@ export function registerFeed(): void {
       // The hints' rhythm: time since you last saw it, times how often you want it ("Less of this" fades it).
       const due = (row: Row): number => (Date.now() - new Date(lastSeen(row) ?? row.made).getTime()) * (row.weight ?? 1)
       const order = (list: Row[]): Row[] => list.sort((a, b) => due(b) - due(a))
+      const archived = (row: Row): boolean => !!row.archive && row.type === 'capture' && row.kind !== 'quote'
       // Gems you restacked before today come first, once: "You restacked".
       const stacked = (db.prepare('select id from feed_restacks where made_day < ? and shown_day is null order by made_day').all(today) as { id: string }[])
         .map((one) => byKey.get(`nugget:${one.id}`)).filter((one): one is Row => !!one)
@@ -275,10 +314,12 @@ export function registerFeed(): void {
         order(rows.filter((row) => row.kind === 'quote')),
         order(rows.filter((row) => row.type === 'question')),
         order(rows.filter((row) => row.type === 'day')),
-        order(rows.filter((row) => (row.type === 'capture' || row.type === 'article') && row.kind !== 'quote'))
+        order(rows.filter((row) => (row.type === 'capture' || row.type === 'article') && row.kind !== 'quote' && !archived(row))),
+        // From the archives: the imported notes never seen here first, then the oldest.
+        rows.filter(archived).sort((a, b) => (lastSeen(a) ?? '').localeCompare(lastSeen(b) ?? '') || a.made.localeCompare(b.made))
       ]
-      // Gems and quotes are the most of it: two each a turn, a question, a day and a picture one.
-      const share = [2, 2, 1, 1, 1]
+      // Gems and quotes are the most of it: two each a turn, a question, a day, a picture and an archive one.
+      const share = [2, 2, 1, 1, 1, 1]
       // A poll and a quiz card or two are part of the twenty, set among the notes rather than at the top.
       const asks = [...pickPoll(today), ...pickQuiz()]
       const room = Math.max(0, SIZE - asks.length - stacked.length)
@@ -331,7 +372,8 @@ export function registerFeed(): void {
       return [{
         type: row.type, id: row.id, kind: row.kind, title: row.title, text: words(row), who: row.who?.trim() || null, made: row.made,
         seen: lastSeen(row), gloss: row.type === 'question' ? null : gloss, clue: row.type === 'question' ? (gloss?.body ?? null) : null,
-        react: reacts.get(key) ?? null, replies: span.n, firstReply: span.first, seenTimes: times.get(row.id) ?? 0, faded: fadedSteps(weightOf(row)), tags: tagsOfRow(row).filter((tag) => tag !== 'bit' && tag !== LEARN_TAG).slice(0, 3), restack: quoted(row)
+        react: reacts.get(key) ?? null, replies: span.n, firstReply: span.first, seenTimes: times.get(row.id) ?? 0, faded: fadedSteps(weightOf(row)), tags: tagsOfRow(row).filter((tag) => tag !== 'bit' && tag !== LEARN_TAG).slice(0, 3), restack: quoted(row),
+        archive: !!row.archive
       }]
     })
     return { day: today, posts, safe: false }

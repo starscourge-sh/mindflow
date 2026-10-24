@@ -1071,6 +1071,10 @@ export function registerHaligtree(): void {
   // When a capture's age starts counting: when it was written, or for one
   // imported, thirty days after it came in, so a vault does not arrive rotting.
   const AGED = "max(captured_at, coalesce(strftime('%Y-%m-%dT%H:%M:%fZ', imported_at, '+30 days'), ''))"
+  // Where a note is old enough to be owed: rot cards, the old-capture hint,
+  // deciding. One imported never is: an archive is not a debt. It comes back
+  // in the Feed instead, "From the archives".
+  const OWED = "(case when imported_at is null then captured_at else '9999' end)"
   // Promote once read "Book:" or "Shopping list:" at the start of any note as
   // the person who said it, and saved it without asking. Those guesses go, so
   // they never reach the Who autocomplete, recaps or memories. Safe every start.
@@ -1642,7 +1646,7 @@ export function registerHaligtree(): void {
         // Fair by kind, as the hints are: each kind's own best first, then taken
         // in turns, so a pile of bits cannot fill every card.
         `select * from (select ${LIST}, body, back_at as backAt, row_number() over (partition by kind order by (julianday('now') - julianday(${AGED}) + 1) * (abs(random()) % 1000) desc) as turn
-         from captures where status = 'open' and archived_at is null and back_at is null and ${AGED} < ? and ${SHOWN} ${hidePrivate ? 'and 0' : ''}
+         from captures where status = 'open' and archived_at is null and back_at is null and ${OWED} < ? and ${SHOWN} ${hidePrivate ? 'and 0' : ''}
          and id not in (select nugget_id from hint_events where shown_at >= ? union select capture_id from nuggets where capture_id is not null and id in (select nugget_id from hint_events where shown_at >= ?)))
          order by turn, abs(random()) limit ${Math.max(0, Math.min(10, settings().rotCount))}`
       )
@@ -1674,7 +1678,7 @@ export function registerHaligtree(): void {
     // then one of its captures, so three hundred bits do not crowd out the
     // dozen links and words. Within a kind, older and voted-up come first.
     const candidates = `from captures where status = 'open' and archived_at is null and coalesce(surfaced_at, '') < ? and ${SHOWN}
-      and ${AGED} < ? and private = 0 ${hidePrivate ? 'and 0' : ''}
+      and ${OWED} < ? and private = 0 ${hidePrivate ? 'and 0' : ''}
       and id not in (select nugget_id from hint_events where shown_at >= ?)
       and ${LABEL} not like 'http%'`
     // A bare address says nothing at a glance: a link comes up as a hint once
@@ -2868,14 +2872,14 @@ export function registerHaligtree(): void {
   // Whether any capture is still old enough to rot: none, and the rot area says so.
   // A book with no old captures at all (a new one) has nothing to have cleared: -1.
   handle('rot:left', () => {
-    const ever = (db.prepare(`select count(*) n from captures where ${AGED} < ?`).get(ago(1)) as { n: number }).n
-    return ever ? (db.prepare(`select count(*) n from captures where status = 'open' and archived_at is null and ${AGED} < ? and ${SHOWN}`).get(ago(1)) as { n: number }).n : -1
+    const ever = (db.prepare(`select count(*) n from captures where ${OWED} < ?`).get(ago(1)) as { n: number }).n
+    return ever ? (db.prepare(`select count(*) n from captures where status = 'open' and archived_at is null and ${OWED} < ? and ${SHOWN}`).get(ago(1)) as { n: number }).n : -1
   })
   // How many rot cards would come up now: none in safe mode or quiet hours,
   // when the cards themselves hold back. For the box's "3 old" chip.
   handle('rot:waiting', () => {
     const { blackout, hidePrivate } = gate()
-    return blackout || hidePrivate ? 0 : Math.min(settings().rotCount, (db.prepare(`select count(*) n from captures where status = 'open' and archived_at is null and ${AGED} < ? and ${SHOWN}`).get(ago(1)) as { n: number }).n)
+    return blackout || hidePrivate ? 0 : Math.min(settings().rotCount, (db.prepare(`select count(*) n from captures where status = 'open' and archived_at is null and ${OWED} < ? and ${SHOWN}`).get(ago(1)) as { n: number }).n)
   })
 
   // --- the two passes: a daily tidy that only makes things findable, and a
@@ -2897,7 +2901,7 @@ export function registerHaligtree(): void {
     const rows = [
       ...db.prepare(`select ${LIST}, body, back_at as backAt, 'back' as why from captures where status = 'open' and archived_at is null and back_at is not null order by back_at`).all(),
       ...db.prepare(`select ${LIST}, body, back_at as backAt, 'untidied' as why from captures where status = 'open' and archived_at is null and back_at is null and tidied_at is null
-        and ${AGED} < ? and coalesce(passed_at, '') < ? order by captured_at limit 12`).all(ago(7), ago(21)),
+        and ${OWED} < ? and coalesce(passed_at, '') < ? order by captured_at limit 12`).all(ago(7), ago(21)),
       ...db.prepare(`select ${LIST}, body, back_at as backAt, 'longest' as why from captures where status = 'open' and archived_at is null and back_at is null and tidied_at is not null
         and ${AGED} < ? and coalesce(passed_at, '') < ? order by captured_at limit 5`).all(ago(30), ago(60))
     ] as Record<string, unknown>[]

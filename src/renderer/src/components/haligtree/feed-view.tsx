@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { ArrowLeft, ArrowUpRight, BadgeCheck, Check, CornerDownRight, EyeOff, MessageCircle, Repeat2, RefreshCcw, X } from 'lucide-react'
+import { ArrowLeft, ArrowUpRight, BadgeCheck, Check, CornerDownRight, EyeOff, ImageDown, MessageCircle, Repeat2, RefreshCcw, Share, X } from 'lucide-react'
 
 import { call, haligtree, splitTags, unloaded, unread, useLive, type Gloss } from '@/lib/haligtree'
 import { useThumb } from '@/lib/notes'
@@ -18,6 +18,8 @@ import { MenuButton } from './collection-header'
 import { copy, type MenuItem } from './row-menu'
 import { motion } from 'motion/react'
 import { FeedReading } from './feed-reading'
+import { QueuedProvider, ReadLaterButton } from './read-later'
+import { drawCard, xText, type CardPost } from '@/lib/feed-card'
 
 /**
  * The Feed: the day's twenty or so of your own things, as posts in a
@@ -42,6 +44,8 @@ const written = (at: string, years = false): string => {
 /** The line over a post, when there is one: one you restacked, or one from long ago. */
 const contextOf = (post: FeedPost): string | null => {
   if (post.restack) return 'You restacked'
+  // Brought in by an importer: from your archives, whatever its date says.
+  if (post.archive) return 'From the archives'
   // A thought added lately is hearing from it: only what has been quiet a year is from the archives.
   const last = [post.seen, post.gloss?.at, post.made].filter((one): one is string => !!one).sort().at(-1)!
   const made = dayjs(post.made)
@@ -138,6 +142,72 @@ export function TabChips<T extends string>({ name, tabs, value, onChange, classN
   )
 }
 
+const FINISHED = 'feedFinished'
+/** The day whose Feed you read to its end, for Home's card. */
+export const feedFinished = (): string | null => {
+  try {
+    return localStorage.getItem(FINISHED)
+  } catch {
+    return null
+  }
+}
+const finishFeed = (day: string): void => {
+  try {
+    if (localStorage.getItem(FINISHED) === day) return
+    localStorage.setItem(FINISHED, day)
+  } catch {
+    // Remembered for no longer than the card is on screen.
+  }
+  window.dispatchEvent(new CustomEvent('haligtree:feed-finished'))
+}
+
+/** Home's card for the day's Feed: how many posts, how many from the archives, and Open. Gone once you reach the end. */
+export function TodaysFeedCard({ onView }: { onView: (id: string) => void }): React.JSX.Element | null {
+  const feed = useLive(readFeed, NO_FEED, [], ['capture', 'item'], 'feed')
+  const [finished, setFinished] = useState(feedFinished)
+  useEffect(() => {
+    const again = (): void => setFinished(feedFinished())
+    window.addEventListener('haligtree:feed-finished', again)
+    return () => window.removeEventListener('haligtree:feed-finished', again)
+  }, [])
+  if (unloaded(feed) || feed.safe || !feed.posts.length || finished === feed.day) return null
+  const archives = feed.posts.filter((post) => post.archive).length
+  return (
+    <section data-todays-feed aria-label="Today's feed" className="mx-3 flex items-center gap-3 rounded-xl border bg-background px-4 py-3 @[44rem]/page:mx-6">
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="font-heading text-heading font-semibold text-foreground">Today's feed</span>
+        <span data-todays-feed-count className="text-body text-foreground/85">
+          {num(feed.posts.length)} {feed.posts.length === 1 ? 'post' : 'posts'} today{archives ? `, ${num(archives)} from the archives` : ''}
+        </span>
+      </span>
+      <button type="button" data-todays-feed-open onClick={() => (chime('page'), onView('feed'))}
+        className="flex h-8 shrink-0 items-center gap-1.5 rounded-md border px-3 text-control font-medium text-foreground transition-colors hover:bg-foreground/[0.05]">
+        Open <ArrowUpRight className="size-4" />
+      </button>
+    </section>
+  )
+}
+
+/**
+ * How a note being written will look in your Feed: the same post, without
+ * its controls. Quick capture shows it while the pointer rests on Create.
+ */
+export function FeedPreview({ kind, text, who, secret }: { kind: string; text: string; who: string; secret: boolean }): React.JSX.Element {
+  const lines = text.trim().split('\n').map((line) => line.trim()).filter(Boolean)
+  const quote = kind === 'quote'
+  const post: FeedPost = {
+    type: 'capture', id: '', kind, title: lines[0]?.slice(0, 120) ?? '', text: quote ? lines.join('\n') : lines.slice(1).join('\n'), who: who.trim() || null,
+    made: new Date().toISOString(), seen: null, gloss: null, clue: null, react: null, replies: 0, firstReply: null, seenTimes: 0, faded: 0, tags: [], restack: null
+  }
+  return (
+    <div data-feed-preview className="flex flex-col gap-2">
+      <p className="text-control font-medium text-muted-foreground">How it will look in your Feed</p>
+      {secret ? <p data-feed-preview-private className="text-body text-foreground">Private notes never come up in the Feed.</p>
+        : <ol className="pointer-events-none"><Post post={post} preview onOpen={() => {}} onOpenOther={() => {}} /></ol>}
+    </div>
+  )
+}
+
 export function FeedView({ onOpen }: { onOpen: (type: string, id: string) => void }): React.JSX.Element {
   const [tab, setTab] = useState<FeedTab>(keptTab)
   const choose = (next: FeedTab): void => {
@@ -149,7 +219,7 @@ export function FeedView({ onOpen }: { onOpen: (type: string, id: string) => voi
     }
   }
   const tabs = <TabChips name="feed" tabs={FEED_TABS} value={tab} onChange={choose} className="mb-5" />
-  return tab === 'reading' ? <FeedReading tabs={tabs} onOpen={onOpen} /> : <FeedNotes tabs={tabs} onOpen={onOpen} />
+  return <QueuedProvider>{tab === 'reading' ? <FeedReading tabs={tabs} onOpen={onOpen} /> : <FeedNotes tabs={tabs} onOpen={onOpen} />}</QueuedProvider>
 }
 
 function FeedNotes({ onOpen, tabs }: { onOpen: (type: string, id: string) => void; tabs: React.ReactNode }): React.JSX.Element {
@@ -188,6 +258,15 @@ function FeedNotes({ onOpen, tabs }: { onOpen: (type: string, id: string) => voi
     scroller.addEventListener('pointerdown', stop, { once: true })
     return () => (stop(), window.clearTimeout(until), scroller.removeEventListener('wheel', stop), scroller.removeEventListener('pointerdown', stop))
   }, [thread])
+  // Reached the end: the day's Feed is finished, and Home's card for it goes.
+  const endRef = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const end = endRef.current
+    if (!end || !feed.day) return
+    const watch = new IntersectionObserver(([one]) => one?.isIntersecting && finishFeed(feed.day))
+    watch.observe(end)
+    return () => watch.disconnect()
+  })
   const shown = thread ? feed.posts.find((post) => `${post.type}:${post.id}` === thread) : undefined
   const counts = feed.posts.reduce<Record<string, number>>((all, post) => ({ ...all, [kindWord(post)]: (all[kindWord(post)] ?? 0) + 1 }), {})
   const said = Object.entries(counts).map(([word, n]) => `${num(n)} ${word === 'Journal' ? (n === 1 ? 'Journal day' : 'Journal days') : n === 1 ? word.toLowerCase() : `${word.toLowerCase()}s`}`)
@@ -215,7 +294,7 @@ function FeedNotes({ onOpen, tabs }: { onOpen: (type: string, id: string) => voi
                 : post.quiz ? <QuizPost key={`quiz:${post.id}`} post={post} onOpen={() => open('nugget', post.id)} />
                 : <Post key={`${post.type}:${post.id}`} post={post} onOpen={() => open(post.type, post.id)} onOpenOther={open} onThread={() => openThread(post)} />)}
             </ol>
-            <footer data-feed-end className="flex flex-col items-center gap-1.5 py-12 text-center">
+            <footer ref={endRef} data-feed-end className="flex flex-col items-center gap-1.5 py-12 text-center">
               <p className="font-heading text-[1.25rem] font-semibold tracking-[-0.01em] text-foreground">You're all caught up</p>
               <p className="max-w-[44ch] text-body text-foreground/85">{summary} came up today.</p>
               <p data-feed-next className="text-body text-muted-foreground">A new set in {until}.</p>
@@ -279,13 +358,15 @@ function Thread({ post, onBack, onOpen, onOpenOther }: { post: FeedPost; onBack:
   )
 }
 
-function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = false }: {
+function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = false, preview = false }: {
   post: FeedPost
   onOpen: () => void
   onOpenOther: (type: string, id: string) => void
   onThread?: () => void
   /** On its own page, with its thread below. */
   alone?: boolean
+  /** Only how it will look: no controls, as quick capture shows it before it is kept. */
+  preview?: boolean
   /** A thread follows, so a line runs down from its picture. */
   joined?: boolean
 }): React.JSX.Element {
@@ -299,6 +380,7 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
   const [chosen, setChosen] = useState<Reaction | null>(post.react)
   useEffect(() => setChosen(post.react), [post.react])
   const [restacking, setRestacking] = useState(false)
+  const self = useRef<HTMLLIElement>(null)
   const words = quote ? post.text || post.title : post.text
   const link = post.type === 'capture' ? post.id : `${post.type === 'question' ? 'nugget' : post.type}:${post.id}`
   // What is not worth a glance on every post waits in ⋯: the reactions after "Still true", then Open and Copy link.
@@ -312,8 +394,24 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
     post.type !== 'day' && reaction('less'),
     'separator',
     { id: 'open', label: 'Open', icon: <ArrowUpRight className="size-4" />, run: onOpen },
-    post.type !== 'day' && { label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copy(noteLinkText(link, post.title), 'Copied a link: paste it into any note') }
+    post.type !== 'day' && { label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copy(noteLinkText(link, post.title), 'Copied a link: paste it into any note') },
+    // The Feed never shows a private note, so every post here may be a picture.
+    'separator',
+    { id: 'save-image', label: 'Save as image', hint: 'A picture of this post, in the current theme', icon: <ImageDown className="size-4" />, run: () => void saveImage() },
+    { id: 'share-x', label: 'Share to X', hint: 'Its words in X, its picture copied to paste in', icon: <Share className="size-4" />, run: () => void shareX() }
   ]
+  const cardOf = (): CardPost => ({ account, said: `${kindWord(post)} · ${written(post.made, true)}`, title, text: quote ? words : text, quote, who: post.who, picture: broken ? undefined : picture })
+  const saveImage = async (): Promise<void> => {
+    const data = await drawCard(cardOf(), self.current)
+    if (await call<boolean>('feed:save-image', title, data)) (chime('saved'), toast('Saved as a picture'))
+  }
+  const shareX = async (): Promise<void> => {
+    const card = cardOf()
+    const data = await drawCard(card, self.current)
+    await call('feed:share-x', xText(card), data)
+    chime('send')
+    toast('Text in X; the picture is copied, paste it in')
+  }
   const title = post.type === 'day' ? dayjs(post.id).format(dayjs(post.id).year() === dayjs().year() ? 'dddd D MMMM' : 'dddd D MMMM YYYY') : splitTags(post.title).text || post.title
   // A restack's link to the old note is said by the card under it, not twice.
   const text = post.restack ? post.text.split('\n').filter((line) => line.trim() !== post.restack!.title.replace(/\s+/g, ' ').trim().slice(0, 80)).join('\n') : post.text
@@ -344,7 +442,7 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
   const faded = Math.max(post.faded, chosen === 'less' ? 1 : 0)
 
   return (
-    <li data-feed-post={post.type} data-feed-id={post.id} data-feed-kind={post.kind} data-feed-react={chosen ?? undefined}
+    <li ref={self} data-feed-post={post.type} data-feed-id={post.id} data-feed-archive={post.archive || undefined} data-feed-kind={post.kind} data-feed-react={chosen ?? undefined}
       className={cn('flex flex-col gap-1 py-4 transition-opacity duration-300 first:pt-0', !alone && 'border-b last:border-b-0', alone && joined && 'pb-3', chosen === 'less' && 'opacity-45 hover:opacity-80 has-[:focus-visible]:opacity-100')}>
       {context && <p data-feed-context className="flex items-center gap-1.5 pl-12 text-control text-muted-foreground">{post.restack && <Repeat2 className="size-3.5" />}{context}</p>}
       <div className="flex gap-3">
@@ -369,7 +467,7 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
               <time dateTime={post.made} className="shrink-0 text-muted-foreground tabular-nums">{written(post.made)}</time>
             )}
             {/* Less of this, as X and Substack hide a post: a quiet × at its top right, held in the line's height. */}
-            {post.type !== 'day' && (
+            {post.type !== 'day' && !preview && (
               <Tip label={REACTIONS[3].tip}>
                 <button type="button" data-feed-reaction="less" aria-pressed={chosen === 'less'} aria-label="Less of this" onClick={() => choose('less')}
                   className={cn('-my-1.5 -mr-1.5 ml-auto flex size-7 shrink-0 items-center justify-center self-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/[0.06] hover:text-foreground', chosen === 'less' && 'text-primary hover:text-primary')}>
@@ -403,9 +501,9 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
             </div>
           )}
           {/* The latest thought as one reply line; the rest are in its thread. */}
-          {post.type !== 'day' && !alone && <GlossLine id={post.id} quiet className="mt-0.5" onRead={onThread} placeholder={chosen === 'changed' ? 'What you think now, in your own words' : 'Your reply, in your own words'} />}
+          {post.type !== 'day' && !alone && !preview && <GlossLine id={post.id} quiet className="mt-0.5" onRead={onThread} placeholder={chosen === 'changed' ? 'What you think now, in your own words' : 'Your reply, in your own words'} />}
           {/* Every control keeps its own fixed place: choosing one changes its colour, never the row. */}
-          <div data-feed-actions className="-ml-2 flex items-center gap-1 text-muted-foreground">
+          <div data-feed-actions className={cn('-ml-2 flex items-center gap-1 text-muted-foreground', preview && 'hidden')}>
             {post.type !== 'day' && (
               <button type="button" data-feed-reply onClick={() => openGloss(post.id)}
                 className="flex h-7 items-center gap-1.5 rounded-md px-2 text-control transition-colors hover:bg-foreground/[0.06] hover:text-foreground">
@@ -418,6 +516,7 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
                 <Repeat2 className="size-4 shrink-0" /> Restack
               </button>
             </Tip>
+            {post.type !== 'day' && post.type !== 'poll' && post.type !== 'quiz' && <ReadLaterButton id={post.id} />}
             {/* The one reaction worth a glance; the rest are in ⋯. Chosen, only its colour changes. */}
             {post.type !== 'day' && (
               <Tip label={REACTIONS[0].tip}>
@@ -430,7 +529,7 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
             <span className="flex-1" />
             <MenuButton small label="More" name="post" items={menu} />
           </div>
-          {(history.length > 0 || replies || faded > 0) && (
+          {!preview && (history.length > 0 || replies || faded > 0) && (
             <p data-feed-history className="flex flex-wrap items-baseline gap-x-1.5 text-control text-muted-foreground">
               {replies && onThread ? (
                 <button type="button" data-feed-replies onClick={onThread} className="rounded-sm hover:text-foreground hover:underline">{replies}</button>

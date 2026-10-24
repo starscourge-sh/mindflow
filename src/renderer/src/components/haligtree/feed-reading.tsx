@@ -13,6 +13,7 @@ import { GroupIcon } from './kept-groups'
 import { TagIcon } from './tag-icon'
 import { ReadThrough } from './read-through'
 import { Restack, TabChips } from './feed-view'
+import { ReadLaterButton, ReadLaterLabelled, useReadLater } from './read-later'
 
 /**
  * Reading: your Pages as a list of essays to read, the way a reading app
@@ -141,6 +142,7 @@ export function FeedReading({ tabs, onOpen }: { tabs: React.ReactNode; onOpen: (
                     className={cn('flex h-8 items-center gap-1.5 rounded-md px-2.5 text-control transition-colors hover:bg-foreground/[0.06] hover:text-foreground', line !== null && 'text-foreground')}>
                     <Repeat2 className="size-4" /> Restack
                   </button>
+                  <ReadLaterLabelled id={reader.id} className="h-8 px-2.5" />
                   <span className="flex-1" />
                   <button type="button" data-reading-edit onClick={() => (chime('open'), close(), onOpen('article', reader.id))}
                     className="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-control transition-colors hover:bg-foreground/[0.06] hover:text-foreground">
@@ -164,7 +166,9 @@ function Row({ page, big = false, onRead }: { page: ReadingPage; big?: boolean; 
   const thumb = useThumb(page.id)
   const picture = thumb && !/\.(mp4|m4v|mov|webm)$/i.test(thumb) ? thumb : undefined
   const [broken, setBroken] = useState(false)
+  const { queued } = useReadLater(page.id)
   return (
+    <div className="group/row relative">
     <button type="button" data-reading-row={page.id} data-reading-unread={unreadNow(page) || undefined} onClick={() => (chime('open'), onRead())}
       className="group -mx-2 flex w-[calc(100%+1rem)] items-start gap-4 rounded-lg px-2 py-4 text-left transition-colors hover:bg-foreground/[0.03]">
       <span className="flex min-w-0 flex-1 flex-col gap-1">
@@ -188,5 +192,8 @@ function Row({ page, big = false, onRead }: { page: ReadingPage; big?: boolean; 
         </span>
       )}
     </button>
+    {/* Read later sits over the row's foot line, shown on hover or once chosen; it takes no room, so nothing moves. */}
+    <ReadLaterButton id={page.id} className={cn('absolute bottom-3 text-muted-foreground opacity-0 transition-opacity group-hover/row:opacity-100 focus-visible:opacity-100', queued && 'opacity-100', picture && !broken ? (big ? 'right-32' : 'right-24') : 'right-0')} />
+    </div>
   )
 }

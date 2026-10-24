@@ -37,7 +37,7 @@ try {
     row: [...post.querySelectorAll('[data-feed-actions] > *')].filter((one) => one.getBoundingClientRect().width > 0 && one.tagName !== 'SPAN').map((one) => one.getAttribute('aria-label') || one.textContent.trim()),
     hide: !!post.querySelector('[data-feed-reaction="less"][aria-label="Less of this"]')
   }))
-  check('the action row is slim: Reply, Restack, Still true and More, with a × to see less', actions.row.join(",") === "Reply,Restack,Still true,More" && actions.hide, JSON.stringify(actions))
+  check('the action row is slim: Reply, Restack, Read later, Still true and More, with a × to see less', actions.row.join(",") === "Reply,Restack,Read later,Still true,More" && actions.hide, JSON.stringify(actions))
 
   // 2. Pictures whole: contained in a box no taller than 520px.
   const shown = await h.locator('[data-feed-picture]').evaluateAll((all) => all.map((box) => {

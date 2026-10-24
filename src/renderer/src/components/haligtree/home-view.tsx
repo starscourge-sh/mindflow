@@ -42,6 +42,7 @@ import { GettingStarted, LINGER } from './getting-started'
 import { useOnboarding } from '@/lib/onboarding'
 import { PowersLine } from './powers-view'
 import { WhatsNewCard } from './whats-new'
+import { TodaysFeedCard } from './feed-view'
 import { CloseDayOffer } from './close-day'
 import { MorningSortOffer } from './sort-out'
 import { WeeklyDigest } from './weekly-digest'
@@ -816,6 +817,8 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
       <div data-now={2} className="page-column relative w-full pt-3 empty:hidden"><WeeklyDigest onView={onView} /></div>
       {/* After an update, once: what is new since you last looked. */}
       <div data-now={4} className="page-column relative w-full pt-3 empty:hidden"><WhatsNewCard onView={onView} /></div>
+      {/* The day's Feed, until you reach its end. */}
+      <div data-now={4.6} className="page-column relative w-full pt-3 empty:hidden"><TodaysFeedCard onView={onView} /></div>
       </NowSlot>
       {/* On Home: the month, once turned on in Settings, and what waits in the Inbox. */}
       <div data-home-plan className="page-column relative flex w-full flex-col gap-6 px-5 pt-4 @[44rem]/page:px-8">
