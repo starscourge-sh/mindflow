@@ -147,6 +147,16 @@ try {
   await h.mouse.move(700, 500)
   await c.theme('light')
 
+  // The same two notes kept and open again: one row, not two.
+  await h.evaluate(() => {
+    const live = JSON.parse(localStorage.getItem('split') ?? 'null')
+    const kept = JSON.parse(localStorage.getItem('split-kept') ?? '[]')
+    if (live) localStorage.setItem('split-kept', JSON.stringify([...kept, { ...live, id: 'copy-of-live' }]))
+  })
+  await h.reload()
+  await wait(2500)
+  check('the same notes side by side show as one row', await h.locator('[data-side-heading="split"] + div [data-pair-row]').count() === 1, String(await h.locator('[data-side-heading="split"] + div [data-pair-row]').count()))
+
   // 4. The menu bar title: one short thing at most.
   const title = await c.electron.evaluate(() => globalThis.trayTitle)
   check('the menu bar title is short', typeof title === 'string' && /^Sandbox( · [\d.,k]+ due)?$/.test(title), JSON.stringify(title))

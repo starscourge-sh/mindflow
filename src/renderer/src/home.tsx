@@ -1607,6 +1607,11 @@ export function Home(): React.JSX.Element {
                 const showing = split.panes.length > 1 && !layouts.some((one) => sameLayout(one.views, split.panes.map((pane) => pane.trail.views[pane.trail.at])))
                 const rows: KeptSplit[] = kept.map((one) => (one.id === split.id && split.panes.length > 1 ? { ...split, id: one.id } : one))
                 if (showing && !rows.some((one) => one.id === split.id)) rows.push({ ...split, id: split.id ?? 'live' })
+                // The same notes side by side are one row: the one open now wins, else the first kept.
+                const viewsOf = (one: KeptSplit): View[] => one.panes.map((pane) => pane.trail.views[pane.trail.at])
+                const isLive = (one: KeptSplit): boolean => split.panes.length > 1 && (one.id === split.id || (one.id === 'live' && !split.id))
+                const unique = rows.filter((one, at) => !rows.some((other, before) => other !== one && sameLayout(viewsOf(other), viewsOf(one)) && (isLive(other) || (!isLive(one) && before < at))))
+                rows.splice(0, rows.length, ...unique)
                 if (!rows.length) return null
                 return (<>
                   {narrow ? <div className="mt-3" /> : <div data-side-heading="split" className="mt-3 mb-0.5 px-2 py-0.5 text-meta text-muted-foreground">Side by side</div>}
