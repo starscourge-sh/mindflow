@@ -11,7 +11,7 @@ import type { Feed, FeedPost, FeedSide, PollAnswer, Reaction } from '../../../..
 import { GRADES } from './review-view'
 import { backIn } from '@/lib/back-in'
 import { openSource, sources, type SourceSummary } from '@/lib/sources'
-import { Kbd, Page, Tip, openTag, quietly, toast } from './ui'
+import { Kbd, Page, Tip, jumpTo, openTag, quietly, toast } from './ui'
 import { Avatar } from './avatar'
 import { GlossLine, openGloss } from './gloss-line'
 import { MenuButton } from './collection-header'
@@ -243,11 +243,11 @@ function FeedNotes({ onOpen, tabs }: { onOpen: (type: string, id: string) => voi
   useLayoutEffect(() => {
     const scroller = scrollerOf(root.current)
     if (!scroller) return
-    if (thread || !place.current) return void (scroller.scrollTop = 0)
+    if (thread || !place.current) return void jumpTo(scroller, 0)
     const { key, top } = place.current
     const put = (): void => {
       const node = root.current?.querySelector(`[data-feed-id="${CSS.escape(key)}"]`)
-      if (node) scroller.scrollTop += node.getBoundingClientRect().top - scroller.getBoundingClientRect().top - top
+      if (node) jumpTo(scroller, scroller.scrollTop + node.getBoundingClientRect().top - scroller.getBoundingClientRect().top - top)
     }
     put()
     let frame = requestAnimationFrame(function again() { put(); frame = requestAnimationFrame(again) })

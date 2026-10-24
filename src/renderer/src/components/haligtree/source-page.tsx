@@ -168,6 +168,8 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
     title: one.name,
     tags: [],
     icon: FIELD_SAID[field].icon,
+    // The same face the Feed gives them, so a person is recognisable on both.
+    face: field === 'attribution' ? <Avatar name={one.name} size={36} /> : undefined,
     sub: one.count ? `${one.count} ${one.count === 1 ? 'note' : 'notes'}${one.quotes ? ` · ${one.quotes} ${one.quotes === 1 ? 'quote' : 'quotes'}` : ''}` : 'No notes yet',
     menu: [
       { label: 'Open the page', run: () => openSource(field, one.name) },

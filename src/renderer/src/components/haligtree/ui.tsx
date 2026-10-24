@@ -1498,6 +1498,12 @@ const smooth = new WeakMap<HTMLElement, Lenis>()
  * Brings a scrolling box to `top`: a glide with Motion on (through the box's own
  * smooth scrolling, so the two never fight), there at once with it off.
  */
+/** Straight to a place, no glide: through the box's smooth scrolling when it has one, which otherwise takes a plain scrollTop back to where it was heading. */
+export function jumpTo(box: HTMLElement, top: number): void {
+  const lenis = smooth.get(box)
+  if (lenis) lenis.scrollTo(top, { immediate: true, force: true })
+  else box.scrollTop = top
+}
 export function glideTo(box: HTMLElement, top: number): void {
   const lenis = smooth.get(box)
   // Motion can be turned off after the box was set up to glide.

@@ -304,6 +304,14 @@ export function registerFeed(): void {
       // The hints' rhythm: time since you last saw it, times how often you want it ("Less of this" fades it).
       const due = (row: Row): number => (Date.now() - new Date(lastSeen(row) ?? row.made).getTime()) * (row.weight ?? 1)
       const order = (list: Row[]): Row[] => list.sort((a, b) => due(b) - due(a))
+      // A list kept in its order, but taken one per voice in turns, each voice at most `most` times.
+      const spread = (list: Row[], voice: (row: Row) => string, most: number): Row[] => {
+        const voices = new Map<string, Row[]>()
+        for (const row of list) voices.set(voice(row), [...(voices.get(voice(row)) ?? []), row])
+        const out: Row[] = []
+        for (let turn = 0; turn < most; turn++) for (const rows of voices.values()) if (rows[turn]) out.push(rows[turn])
+        return out
+      }
       const archived = (row: Row): boolean => !!row.archive && row.type === 'capture' && row.kind !== 'quote'
       // Gems you restacked before today come first, once: "You restacked".
       const stacked = (db.prepare('select id from feed_restacks where made_day < ? and shown_day is null order by made_day').all(today) as { id: string }[])
@@ -311,7 +319,8 @@ export function registerFeed(): void {
       for (const one of stacked) rows.splice(rows.indexOf(one), 1)
       const lanes = [
         order(rows.filter((row) => row.type === 'nugget' && row.kind !== 'quote')),
-        order(rows.filter((row) => row.kind === 'quote')),
+        // Quotes spread across who said them: one each in turn, and no more than two from one person a day.
+        spread(order(rows.filter((row) => row.kind === 'quote')), (row) => row.who?.trim().toLowerCase() || row.id, 2),
         order(rows.filter((row) => row.type === 'question')),
         order(rows.filter((row) => row.type === 'day')),
         order(rows.filter((row) => (row.type === 'capture' || row.type === 'article') && row.kind !== 'quote' && !archived(row))),

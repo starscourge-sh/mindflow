@@ -60,6 +60,8 @@ export type Entry = {
   alert?: { text: string; kind: Loud }
   /** The rest of the line under the title: where it came from, who said it. */
   sub?: ReactNode
+  /** Its face in the row's tile in place of a picture or cover: a person's or a source's avatar, as the Feed shows them. */
+  face?: ReactNode
   /** Small marks after the title: a pin, private. */
   marks?: ReactNode
   /** A bar under the line in a list, for what fills as it goes: a goal's road. */
@@ -174,7 +176,8 @@ export function Lead({
   className?: string
 }): React.JSX.Element {
   const [picture, broken] = usePicture(entry.id, false)
-  const grain = useNoteCover(picture === undefined ? entry.id : null)
+  const grain = useNoteCover(picture === undefined && !entry.face ? entry.id : null)
+  if (entry.face) return <span className={cn(ROW_TILE, 'overflow-visible', className)}>{entry.face}</span>
   return (
     <span
       // A paper cover is a light drawing: on a dark page a column of them read as bright squares, so there it is a quiet square instead (main.css, data-lead-paper).
