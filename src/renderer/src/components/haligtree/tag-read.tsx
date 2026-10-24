@@ -373,7 +373,8 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
         backdrop={items ? backdrop : null}
         cover={<Cover src={facts.cover} colour={colour} seed={`tag:${tag}`}>{`#${tag}`}</Cover>}
         label="Tag"
-        title={<span className="inline-flex items-center gap-2"><TagColourPick tag={tag} color={color} className="size-6" />#{tag}</span>}
+        // The header clamps its title's span to three lines, which stacks that span's children: the icon and the name go in a row inside it.
+        title={<span><span className="flex items-center gap-2"><TagColourPick tag={tag} color={color} className="size-[0.5em]" /><span className="min-w-0 break-words">#{tag}</span></span></span>}
         meta={[`${num(counted.length)} ${counted.length === 1 ? unit[0] : unit[1]}`, ...(later ? [
           <button key="later" type="button" data-later onClick={() => (chime(laterShown ? 'fold' : 'open'), setLaterShown(!laterShown))} className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 transition-colors hover:decoration-foreground/60">
             {laterShown ? `hide the ${num(later)} resolved or done` : `${num(later)} more resolved or done`}
