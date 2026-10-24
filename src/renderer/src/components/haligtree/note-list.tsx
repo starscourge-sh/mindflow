@@ -103,7 +103,7 @@ function usePicture(id: string, large: boolean): [string | null | undefined, () 
  * words under its kind's icon, so a grid of notes without pictures still
  * reads as notes, not as blanks.
  */
-function Cover({
+export function Cover({
   entry,
   words,
   large,

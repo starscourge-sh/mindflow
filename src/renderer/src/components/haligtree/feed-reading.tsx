@@ -13,6 +13,7 @@ import { GroupIcon } from './kept-groups'
 import { TagIcon } from './tag-icon'
 import { ReadThrough } from './read-through'
 import { Restack, TabChips } from './feed-view'
+import { FeedShelves } from './feed-shelves'
 import { ReadLaterButton, ReadLaterLabelled, useReadLater } from './read-later'
 
 /**
@@ -22,7 +23,7 @@ import { ReadLaterButton, ReadLaterLabelled, useReadLater } from './read-later'
  * and one a day is "Today's read".
  */
 const readReading = (): Promise<Reading> => call<Reading>('feed:reading')
-const NO_READING = unread<Reading>({ day: '', today: null, pages: [], safe: false })
+const NO_READING = unread<Reading>({ day: '', today: null, pages: [], safe: false, shelves: [] })
 
 type Shelf = 'all' | 'unread' | 'saved' | 'history'
 type Order = 'priority' | 'newest'
@@ -108,6 +109,8 @@ export function FeedReading({ tabs, onOpen }: { tabs: React.ReactNode; onOpen: (
                 <Row page={today} big onRead={() => read(today)} />
               </section>
             )}
+            {/* Rows of your own notes, each from one source or like one you liked, between Today's read and the list. */}
+            {on === 'all' && <FeedShelves shelves={reading.shelves} onOpen={onOpen} />}
             {rows.length ? (
               <ol className="flex flex-col">
                 {rows.map((page) => <li key={page.id} className="border-b last:border-b-0"><Row page={page} onRead={() => read(page)} /></li>)}

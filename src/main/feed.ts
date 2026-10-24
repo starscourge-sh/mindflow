@@ -69,7 +69,20 @@ export type ReadingPage = {
   /** Its "publication": the group it sits in, or else its first tag. */
   from: { kind: 'group'; name: string; icon: string | null; color: string | null } | { kind: 'tag'; name: string } | null
 }
-export type Reading = { day: string; today: string | null; pages: ReadingPage[]; safe: boolean }
+export type Reading = { day: string; today: string | null; pages: ReadingPage[]; safe: boolean; shelves: Shelf[] }
+/** One of your own notes on a Reading shelf: what it is, its first words for a tile, and one line of what kind it is. */
+export type ShelfCard = { type: 'capture' | 'nugget' | 'article' | 'question'; id: string; kind: string; title: string; words: string; line: string }
+/**
+ * A row of your own notes under Today's read: more from a source, notes like
+ * one you liked, or a source gone quiet. Shown only with three cards or more.
+ */
+export type Shelf =
+  | { kind: 'source'; name: string; cards: ShelfCard[] }
+  | { kind: 'liked'; name: string; of: { type: string; id: string }; /** The tag it shares most, whose page "Show all" opens. */ tag: string; cards: ShelfCard[] }
+  | { kind: 'quiet'; name: string; last: string; cards: ShelfCard[] }
+/** A shelf's cards at most, and at least, to be shown. */
+const SHELF_MOST = 12
+const SHELF_LEAST = 3
 /** Words a minute, read at an easy pace. */
 const PACE = 230
 /** Today's read is an essay: a page this long at least. */
@@ -141,7 +154,8 @@ export function registerFeed(): void {
     create table if not exists feed_restacks (id text primary key, of_key text not null, made_day text not null, shown_day text);
     create table if not exists feed_reads (day text primary key, id text not null);
     create table if not exists feed_polls (day text not null, key text not null, answer text not null, gloss text, primary key (day, key));
-    create table if not exists feed_quiz (day text not null, id text not null, grade integer not null, due text not null, primary key (day, id))`)
+    create table if not exists feed_quiz (day text not null, id text not null, grade integer not null, due text not null, primary key (day, id));
+    create table if not exists feed_shelves (day text primary key, source text, quiet text)`)
 
   // --- polls: a decision made weeks ago, asked about again.
   type Decision = { table: 'captures' | 'nuggets'; id: string; title: string; fields: string; made: string }
@@ -403,8 +417,8 @@ export function registerFeed(): void {
     try { text = plain(JSON.parse(text)) } catch { /* Markdown, as it is */ }
     return tagsIn(`${row.title} ${text}`)
   }
-  ipcMain.handle('haligtree:feed:side', (): FeedSide => {
-    if (gate().blackout) return { quiet: [], week: [] }
+  /** Every source and tag gone quiet a month or more, the quietest first. */
+  const quietAll = (): FeedSide['quiet'] => {
     const { seen } = seenOf()
     // What is in today's Feed is heard from today.
     const now = new Date().toISOString()
@@ -432,7 +446,11 @@ export function registerFeed(): void {
     // Only those with a few notes: one note gone quiet is just a note.
     // And only what has been quiet a month or more: a few days is not a while.
     const month = dayjs().subtract(28, 'day').toISOString()
-    const quiet = [...last.values()].filter((one) => one.n >= 2 && one.last < month && one.name !== LEARN_TAG).sort((a, b) => a.last.localeCompare(b.last)).slice(0, 3).map(({ kind, name, last: at }) => ({ kind, name, last: at }))
+    return [...last.values()].filter((one) => one.n >= 2 && one.last < month && one.name !== LEARN_TAG).sort((a, b) => a.last.localeCompare(b.last)).map(({ kind, name, last: at }) => ({ kind, name, last: at }))
+  }
+  ipcMain.handle('haligtree:feed:side', (): FeedSide => {
+    if (gate().blackout) return { quiet: [], week: [] }
+    const quiet = quietAll().slice(0, 3)
     const since = dayjs().subtract(7, 'day').toISOString()
     const counts = new Map<string, number>()
     const recent = [
@@ -451,7 +469,7 @@ export function registerFeed(): void {
   // --- Reading: your Pages as a reading list, the one longest unread first.
   ipcMain.handle('haligtree:feed:reading', (): Reading => {
     const today = dayKey()
-    if (gate().blackout) return { day: today, today: null, pages: [], safe: true }
+    if (gate().blackout) return { day: today, today: null, pages: [], safe: true, shelves: [] }
     const opens = new Map((db.prepare('select id, at from note_opens').all() as { id: string; at: string }[]).map((row) => [row.id, row.at]))
     const rows = db.prepare(`select n.id, coalesce(nullif(n.title, ''), label('', n.body)) as title, n.body, n.created_at as made, n.last_visited_at as visited, n.pinned_at as pinned,
         g.name as groupName, g.icon as groupIcon, g.color as groupColor
@@ -486,8 +504,81 @@ export function registerFeed(): void {
       pick = forgotten(pages.filter((one) => one.words >= ESSAY))[0]?.id ?? null
       if (pick) db.prepare('insert or replace into feed_reads (day, id) values (?, ?)').run(today, pick)
     }
-    return { day: today, today: pick, pages: forgotten(pages), safe: false }
+    return { day: today, today: pick, pages: forgotten(pages), safe: false, shelves: shelves(today) }
   })
+
+  // --- Reading's shelves: rows of your own notes, never anything from outside.
+  type Note = Row & { tier: string | null; medium: string | null }
+  /** Every note of yours a shelf may show: never private, never a #bit, never a task. */
+  const shelfNotes = (): Note[] => ([
+    ...db.prepare(`select case when tier = 'question' then 'question' when tier = 'article' then 'article' else 'nugget' end as type, id, kind, tier, coalesce(nullif(title, ''), label('', body)) as title, body, attribution as who, medium, created_at as made, last_visited_at as visited, 1 as weight
+      from nuggets where private = 0 and archived_at is null and superseded_by is null and binned_at is null and tier in ('nugget', 'question', 'article')`).all(),
+    ...db.prepare(`select 'capture' as type, id, kind, null as tier, ${LABEL} as title, body, attribution as who, medium, captured_at as made, surfaced_at as visited, 1 as weight
+      from captures where private = 0 and status != 'discarded' and archived_at is null and kind != 'task' and id not in (select capture_id from nuggets where capture_id is not null)`).all()
+  ] as Note[]).filter((row) => !/(^|\s)#bit\b/i.test(`${row.title} ${row.body ?? ''}`))
+  /** A title as a card says it: its tags left off, one line. */
+  const named = (title: string): string => title.replace(/(?<=^|\s)#\p{L}[\p{L}\p{N}_/-]*/gu, '').replace(/\s+/g, ' ').trim() || 'Untitled'
+  const cardOf = (row: Note): ShelfCard => {
+    const text = words(row)
+    const count = text.split(/\s+/).filter((word) => /\p{L}/u.test(word)).length
+    const line = row.kind === 'quote' ? 'Quote' : row.type === 'article' ? `Page · ${Math.max(1, Math.round(count / PACE))} min read` : row.type === 'question' ? 'Question' : row.type === 'nugget' ? 'Gem' : 'Note'
+    // A quote's words are on its tile: under it, the work it is from, when there is one.
+    const title = row.kind === 'quote' && row.medium?.trim() ? row.medium.trim() : named(row.title)
+    return { type: row.type as ShelfCard['type'], id: row.id, kind: row.kind, title, words: cutAt(text.replace(/\s+/g, ' ').trim(), 200), line }
+  }
+  const shelves = (today: string): Shelf[] => {
+    const notes = shelfNotes()
+    const { seen } = seenOf()
+    const lastSeen = (row: Row): string | null => [row.visited, seen.get(row.id)].filter(Boolean).sort().at(-1) ?? null
+    // Longest unseen first: never seen before all, then the oldest seen, then the oldest written.
+    const unseenFirst = (list: Note[]): Note[] => [...list].sort((a, b) => (lastSeen(a) ?? '').localeCompare(lastSeen(b) ?? '') || a.made.localeCompare(b.made))
+    const of = (name: string): Note[] => notes.filter((row) => [row.who, row.medium].some((one) => one?.trim().toLowerCase() === name.toLowerCase()))
+    const kept = db.prepare('select source, quiet from feed_shelves where day = ?').get(today) as { source: string | null; quiet: string | null } | undefined
+    let source = kept?.source ?? null
+    let quiet = kept?.quiet ?? null
+    if (!kept) {
+      // More from: the person with the most notes not seen in two weeks, not the one of the day before.
+      const fortnight = dayjs().subtract(14, 'day').toISOString()
+      const before = (db.prepare('select source from feed_shelves where day < ? order by day desc limit 1').get(today) as { source: string | null } | undefined)?.source ?? null
+      const counts = new Map<string, { name: string; n: number }>()
+      for (const row of notes) {
+        const who = row.who?.trim()
+        if (!who || (lastSeen(row) ?? '') >= fortnight) continue
+        const one = counts.get(who.toLowerCase()) ?? { name: who, n: 0 }
+        one.n += 1
+        counts.set(who.toLowerCase(), one)
+      }
+      const ranked = [...counts.values()].filter((one) => one.n >= SHELF_LEAST).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name))
+      source = (ranked.find((one) => one.name.toLowerCase() !== before?.toLowerCase()) ?? ranked[0])?.name ?? null
+      // Not heard from: the quietest person, if not the one above.
+      quiet = quietAll().find((one) => one.kind === 'source' && one.name.toLowerCase() !== source?.toLowerCase() && of(one.name).filter((row) => row.kind === 'quote').length >= SHELF_LEAST)?.name ?? null
+      db.prepare('insert or replace into feed_shelves (day, source, quiet) values (?, ?, ?)').run(today, source, quiet)
+    }
+    const out: Shelf[] = []
+    if (source) out.push({ kind: 'source', name: source, cards: unseenFirst(of(source)).slice(0, SHELF_MOST).map(cardOf) })
+    // Because you liked: the note hearted last, and others sharing its tags.
+    const likes = db.prepare("select key from feed_reacts where reaction = 'like' and key not like 'day:%' order by day desc, rowid desc").all() as { key: string }[]
+    for (const { key } of likes) {
+      const id = key.slice(key.indexOf(':') + 1)
+      const liked = notes.find((row) => row.id === id)
+      if (!liked) continue
+      const tags = new Set(tagsOfRow(liked).filter((tag) => tag !== 'bit' && tag !== LEARN_TAG))
+      if (!tags.size) break
+      const alike = notes.filter((row) => row.id !== id && tagsOfRow(row).some((tag) => tags.has(tag)))
+      const shared = new Map<string, number>()
+      for (const row of alike) for (const tag of tagsOfRow(row)) if (tags.has(tag)) shared.set(tag, (shared.get(tag) ?? 0) + 1)
+      const tag = [...shared].sort((a, b) => b[1] - a[1])[0]?.[0] ?? [...tags][0]
+      out.push({ kind: 'liked', name: named(liked.title), of: { type: liked.type, id }, tag, cards: unseenFirst(alike).slice(0, SHELF_MOST).map(cardOf) })
+      break
+    }
+    if (quiet) {
+      const theirs = of(quiet)
+      const last = theirs.map((row) => [row.made, lastSeen(row)].filter((one): one is string => !!one).sort().at(-1)!).sort().at(-1) ?? ''
+      const lines = theirs.filter((row) => row.kind === 'quote')
+      out.push({ kind: 'quiet', name: quiet, last, cards: unseenFirst(lines.length >= SHELF_LEAST ? lines : theirs).slice(0, 8).map(cardOf) })
+    }
+    return out.filter((one) => one.cards.length >= SHELF_LEAST)
+  }
 
   // --- reactions: what you mean by it, each changing when it next comes up.
   // One a post a day; choosing another first takes the last one's effect back.

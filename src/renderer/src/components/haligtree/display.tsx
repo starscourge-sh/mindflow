@@ -131,7 +131,7 @@ const ageRank = (name: string): number => { const at = AGES.findIndex((one) => o
  * while there is more past it (a sideways swipe moves it along; up and down
  * always scroll the page), and the chosen chip is brought wholly into view, never left cut mid-word.
  */
-export function useSideways(): { ref: (node: HTMLElement | null) => void; style: React.CSSProperties; className: string } {
+export function useSideways(): { ref: (node: HTMLElement | null) => void; style: React.CSSProperties; className: string; /** Whether there is more past each edge. */ edges: { left: boolean; right: boolean } } {
   const [row, setRow] = useState<HTMLElement | null>(null)
   const [edges, setEdges] = useState({ left: false, right: false })
   useEffect(() => {
@@ -169,6 +169,7 @@ export function useSideways(): { ref: (node: HTMLElement | null) => void; style:
   return {
     ref: setRow,
     style: { maskImage: fade, WebkitMaskImage: fade },
+    edges,
     className: 'relative flex-nowrap overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>*]:shrink-0'
   }
 }
