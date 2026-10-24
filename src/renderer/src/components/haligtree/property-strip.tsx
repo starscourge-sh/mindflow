@@ -15,6 +15,7 @@ import { tagsIn } from '../../../../main/tag-words'
 import { Chips } from './display'
 import { DatePicker } from './date-picker'
 import { Kbd, Tip, toast } from './ui'
+import { FLOAT } from '@/lib/float'
 import { useSuperTags } from './note-extras'
 import { tagTint } from './tag-icon'
 
@@ -105,6 +106,7 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated 
       // Before ⌘P's search hears it: caught on the way down.
       event.stopImmediatePropagation()
       chime('open')
+      setShut(false)
       setOpen('+')
     }
     window.addEventListener('keydown', onKey, true)
@@ -119,33 +121,58 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated 
     toast(value === null || value === '' ? `${label}: cleared` : `${label}: ${said({ ...(all.find((one) => one.key === key) ?? { key, label, type: 'text', options: [], tag: null }), value })}`,
       () => void notes.setField(table, id, key, was).then(() => chime('undo')))
   }
+  // A kind changed: words that do not read as the new one are kept as typed.
+  const setType = (prop: Prop, type: PropType): void => void notes.setPropType(prop.key, type, prop.options).then(async () => {
+    if (prop.value !== undefined && prop.value !== '') await notes.setField(table, id, prop.key, readValue(String(prop.value), type).value)
+    chime('tap')
+  })
+  // A name set on the new row: kept with nothing in it yet, then its row's own editor opens, as any row's does.
+  const named = async (typed: string): Promise<void> => {
+    const key = names.find((one) => one.name.toLowerCase() === typed.toLowerCase())?.name ?? typed
+    if (!all.some((prop) => prop.key === key)) {
+      if (!typeFor(key)) await notes.setPropType(key, 'text')
+      await notes.setField(table, id, key, '', true)
+      chime('noted')
+    }
+    setOpen(key)
+  }
   if (read.of !== `${table}:${id}`) return <div data-property-strip ref={strip} className="min-h-7" />
   // Nothing yet: only the quiet way to add one, in the place the block will open.
-  const empty = !all.length && !tags.length
+  const empty = !all.length && !tags.length && open !== '+'
   const addButton = (
-    <Popover open={open === '+'} onOpenChange={(next) => setOpen(next ? '+' : null)}>
-      <Tip label="Add a property: a name and a value. Or type Name:: value on a line of its own (⌥⌘P)">
-        <PopoverTrigger asChild>
-          <button type="button" data-add-property aria-label="Add property" className="inline-flex h-7 w-fit items-center gap-1.5 rounded-md px-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground data-[state=open]:bg-accent">
-            <Plus className="size-3.5" /><span>Add property</span>
-          </button>
-        </PopoverTrigger>
-      </Tip>
-      <PopoverContent align="start" className="w-72 p-3">
-        <AddProp names={names.map((one) => one.name).filter((name) => !(name in values))} onAdd={(name, raw) => {
-          const read = readValue(raw, typeFor(name))
-          void (async () => {
-            if (!typeFor(name)) await notes.setPropType(name, read.type)
-            await save(name, read.value, name)
-            setOpen(null)
-          })()
-        }} />
-      </PopoverContent>
-    </Popover>
+    <Tip label="Add property, or type Name:: value on a line of its own (⌥⌘P)">
+      <button type="button" data-add-property aria-label="Add property" onClick={() => (chime('open'), setShut(false), setOpen('+'))}
+        className="inline-flex h-7 w-fit items-center gap-1.5 rounded-md px-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+        <Plus className="size-3.5" /><span>Add property</span>
+      </button>
+    </Tip>
   )
   const row = 'grid grid-cols-[minmax(7rem,9.5rem)_minmax(0,1fr)] items-start gap-x-2'
-  const nameCell = (Icon: LucideIcon, label: string): React.JSX.Element => (
-    <span className="flex h-7 min-w-0 items-center gap-2 px-1.5 text-muted-foreground"><Icon className="size-3.5 shrink-0" /><span className="truncate">{label}</span></span>
+  const nameCell = (Icon: LucideIcon, label: string, prop?: Prop): React.JSX.Element => (
+    <span className="flex h-7 min-w-0 items-center gap-2 px-1.5 text-muted-foreground">
+      {prop && !prop.tag ? (
+        // The icon says the kind of value, and is where it changes.
+        <Popover open={open === `kind:${prop.key}`} onOpenChange={(next) => setOpen(next ? `kind:${prop.key}` : null)}>
+          <Tip label="Kind of value">
+            <PopoverTrigger asChild>
+              <button type="button" data-property-kind={prop.key} aria-label="Kind of value" className="-mx-1 grid size-6 shrink-0 place-items-center rounded-md transition-colors hover:bg-accent hover:text-foreground data-[state=open]:bg-accent"><Icon className="size-3.5" /></button>
+            </PopoverTrigger>
+          </Tip>
+          <PopoverContent align="start" className="w-auto gap-0 p-1">
+            {PROP_TYPES.map((one) => {
+              const KindIcon = ICONS[one.id] ?? Text
+              return (
+                <button key={one.id} type="button" data-kind={one.id} data-on={one.id === prop.type ? '' : undefined} onClick={() => (setType(prop, one.id), setOpen(null))}
+                  className="flex h-7 items-center gap-2 rounded-md px-2 text-left text-foreground transition-colors hover:bg-accent data-[on]:font-medium">
+                  <KindIcon className="size-3.5 text-muted-foreground" />{one.label}
+                </button>
+              )
+            })}
+          </PopoverContent>
+        </Popover>
+      ) : <Icon className="size-3.5 shrink-0" />}
+      <span className="truncate">{label}</span>
+    </span>
   )
   return (
     <div data-property-strip data-properties-open={shut ? undefined : ''} ref={strip} className="flex flex-col py-1 text-meta" onMouseDown={(event) => event.stopPropagation()}>
@@ -175,7 +202,7 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated 
               )}
               {all.map((prop) => (
                 <div key={`${prop.tag ?? ''}:${prop.key}`} className={row}>
-                  {nameCell(ICONS[prop.type] ?? Text, prop.label)}
+                  {nameCell(ICONS[prop.type] ?? Text, prop.label, prop)}
                   <Popover open={open === prop.key} onOpenChange={(next) => setOpen(next ? prop.key : null)}>
                     <PopoverTrigger asChild>
                       <button type="button" data-property={prop.key} data-empty={prop.value === undefined || prop.value === '' ? '' : undefined}
@@ -187,16 +214,16 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated 
                     <PopoverContent align="start" className="w-72 p-3" onOpenAutoFocus={(event) => prop.type === 'date' && event.preventDefault()}>
                       <PropEditor prop={prop} tags={tags} onSave={(value) => void save(prop.key, value, prop.label).then(() => setOpen(null))}
                         onRename={(to) => void notes.renameField(table, id, prop.key, to).then(() => (chime('retag'), setOpen(null), toast(`Renamed to “${to}”`, () => void notes.renameField(table, id, to, prop.key).then(() => chime('undo')))))}
-                        onType={(type) => void notes.setPropType(prop.key, type, prop.options).then(async () => {
-                          // Read again as the new type: words that do not read as it are kept as typed.
-                          if (prop.value !== undefined) await notes.setField(table, id, prop.key, readValue(String(prop.value), type).value)
-                          chime('tap')
-                        })}
+                        onType={(type) => setType(prop, type)}
                         onSuper={(tag) => void addToTag(tag, prop).then(() => setOpen(null))} />
                     </PopoverContent>
                   </Popover>
                 </div>
               ))}
+              {open === '+' && (
+                <NewProp className={row} names={names.filter((one) => !all.some((prop) => prop.key.toLowerCase() === one.name.toLowerCase()))}
+                  onName={(name) => void named(name)} onCancel={() => setOpen(null)} />
+              )}
               {/* Kept by the app, not typed: shown, never changed here. */}
               {created && <div className={row} data-property="created">{nameCell(Clock, 'created')}<span className="flex h-7 items-center px-1.5 text-foreground/80">{stamp(created)}</span></div>}
               {/* Never changed since: updated is when it was made. */}
@@ -254,23 +281,64 @@ async function addToTag(tag: string, prop: Prop): Promise<void> {
   toast(`Every note tagged #${tag} now has “${prop.label}”`, () => void notes.setTagFields(tag, was ?? []).then(() => chime('undo')))
 }
 
-/** A new property: its name (one in use offered), then its value, read as a number, a date, yes or no, or words. */
-function AddProp({ names, onAdd }: { names: string[]; onAdd: (name: string, value: string) => void }): React.JSX.Element {
+/**
+ * The new row, as Obsidian adds one: in the block, laid out as the others,
+ * its name typed with the names this book already uses offered under it.
+ * Enter or a click sets it; Esc, or leaving it with no name, takes the row away.
+ */
+function NewProp({ className, names, onName, onCancel }: {
+  className: string
+  names: { name: string; type: string | null }[]
+  onName: (name: string) => void
+  onCancel: () => void
+}): React.JSX.Element {
   const [name, setName] = useState('')
-  const value = useRef<HTMLInputElement | null>(null)
-  const offered = names.filter((one) => !name || one.toLowerCase().startsWith(name.toLowerCase())).slice(0, 6)
-  const done = (): void => void (name.trim() && onAdd(name.trim(), value.current?.value ?? ''))
+  // Nothing marked until the arrows move: Enter on a new name keeps it as typed.
+  const [at, setAt] = useState(-1)
+  const typed = name.trim().toLowerCase()
+  const starts = (one: { name: string }): number => Number(!one.name.toLowerCase().startsWith(typed))
+  const offered = names.filter((one) => one.name.toLowerCase().includes(typed)).sort((a, b) => starts(a) - starts(b)).slice(0, 8)
+  const Icon = ICONS[(names.find((one) => one.name.toLowerCase() === typed)?.type ?? 'text') as Prop['type']] ?? Text
+  const pick = (one: string): void => (one.trim() ? onName(one.trim()) : onCancel())
   return (
-    <div className="flex flex-col gap-2">
-      <p className="text-xs font-medium text-foreground">Add a property</p>
-      <input autoFocus value={name} onChange={(event) => setName(event.target.value.replace(/:/g, ''))} placeholder="Name, e.g. Author" aria-label="Name"
-        onKeyDown={(event) => event.key === 'Enter' && (event.preventDefault(), name.trim() && value.current?.focus())}
-        className="h-8 rounded-md bg-foreground/[0.05] px-2.5 text-control text-foreground outline-none placeholder:text-foreground/60 focus-visible:ring-2 focus-visible:ring-ring/30" />
-      {offered.length > 0 && <Chips options={offered.map((one) => ({ id: one, label: one }))} on={(one) => one === name} pick={(one) => (setName(one), value.current?.focus())} />}
-      <input ref={value} placeholder="Value: words, a number, a date, yes or no" aria-label="Value" onKeyDown={(event) => event.key === 'Enter' && (event.preventDefault(), done())}
-        className="h-8 rounded-md bg-foreground/[0.05] px-2.5 text-control text-foreground outline-none placeholder:text-foreground/60 focus-visible:ring-2 focus-visible:ring-ring/30" />
-      <p className="text-xs text-muted-foreground">Faster in the page: type <span className="font-mono text-foreground">Author:: Le Guin</span> on a line and press <Kbd>↵</Kbd></p>
-      <Button size="sm" disabled={!name.trim()} onClick={done}>Add</Button>
+    <div className={className} data-new-property>
+      <span className="relative flex h-7 min-w-0 items-center gap-2 px-1.5 text-muted-foreground">
+        <Icon className="size-3.5 shrink-0" />
+        <input autoFocus value={name} placeholder="Name" aria-label="Property name" role="combobox" aria-expanded={offered.length > 0}
+          onChange={(event) => (setName(event.target.value.replace(/:/g, '')), setAt(-1))}
+          onBlur={() => pick(name)}
+          onKeyDown={(event) => {
+            // The page's own keys never hear it.
+            event.stopPropagation()
+            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+              event.preventDefault()
+              if (offered.length) setAt((was) => (event.key === 'ArrowDown' ? (was + 1) % offered.length : was <= 0 ? offered.length - 1 : was - 1))
+            } else if (event.key === 'Enter') {
+              event.preventDefault()
+              pick(offered[at]?.name ?? name)
+            } else if (event.key === 'Escape') {
+              event.preventDefault()
+              onCancel()
+            }
+          }}
+          className="h-7 min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground/60" />
+        {offered.length > 0 && (
+          <div role="listbox" data-name-options className={`${FLOAT} absolute top-full left-0 z-50 mt-1 flex max-h-64 w-56 flex-col overflow-y-auto rounded-lg p-1 duration-150 animate-in fade-in-0 slide-in-from-top-1`}>
+            {offered.map((one, index) => {
+              const KindIcon = ICONS[(one.type ?? 'text') as Prop['type']] ?? Text
+              return (
+                <button key={one.name} type="button" role="option" aria-selected={index === at} data-name-option={one.name} data-kind={one.type ?? 'text'}
+                  // Down, not click: the name box keeps its focus, so this is never taken as leaving it.
+                  onMouseDown={(event) => (event.preventDefault(), pick(one.name))} onMouseEnter={() => setAt(index)}
+                  className="flex h-7 shrink-0 items-center gap-2 rounded-md px-2 text-left text-foreground aria-selected:bg-accent">
+                  <KindIcon className="size-3.5 shrink-0 text-muted-foreground" /><span className="truncate">{one.name}</span>
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </span>
+      <span className="flex h-7 items-center px-1.5 text-muted-foreground/60">Empty</span>
     </div>
   )
 }

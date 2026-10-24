@@ -215,12 +215,14 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
   // Every property name in use, read across every note: kept until a property changes (or a minute, for imports and the like).
   let names: { at: number; list: unknown[] } | null = null
   const forgetNames = (): void => void (names = null)
-  handle('notes:fields:set', (name: string, id: string, key: string, value: unknown) => {
+  // `keep`: an empty value stays, as a property added with nothing in it yet.
+  handle('notes:fields:set', (name: string, id: string, key: string, value: unknown, keep?: boolean) => {
     forgetNames()
     const row = db.prepare(`select fields from ${table(name)} where id = ?`).get(id) as { fields: string | null } | undefined
     if (!row) return false
     const fields = { ...(parse(row.fields) as Record<string, unknown> | null) }
-    if (value === null || value === '' || value === undefined) delete fields[key]
+    if (keep && value === '') fields[key] = ''
+    else if (value === null || value === '' || value === undefined) delete fields[key]
     else fields[key] = value
     db.prepare(`update ${table(name)} set fields = ? where id = ?`).run(Object.keys(fields).length ? JSON.stringify(fields) : null, id)
     changed()

@@ -43,7 +43,8 @@ export const notes = {
   setOrder: (list: string, ids: string[]) => call('notes:order:set', list, ids),
   fields: (table: NoteTable, id: string) => call<Record<string, string | number>>('notes:fields', table, id),
   tags: (table: NoteTable, id: string) => call<string[]>('notes:tags', table, id),
-  setField: (table: NoteTable, id: string, key: string, value: string | number | boolean | null) => call('notes:fields:set', table, id, key, value),
+  /** `keep` holds an empty value as a property with nothing in it yet; otherwise empty takes it off. */
+  setField: (table: NoteTable, id: string, key: string, value: string | number | boolean | null, keep?: boolean) => call('notes:fields:set', table, id, key, value, keep),
   renameField: (table: NoteTable, id: string, from: string, to: string) => call<boolean>('notes:fields:rename', table, id, from, to),
   /** Every property name in use, and its type once one was given. */
   propNames: () => call<{ name: string; type: string | null; options: string[] }[]>('props:names'),
