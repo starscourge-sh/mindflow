@@ -39,7 +39,8 @@ import { LINGER } from './getting-started'
 import { tryCelebration } from './celebrate'
 import { drawingFor } from './grain'
 import { PageContents } from './page-contents'
-import { CoverChoice, DimPreview, FolderStrips, InFinder } from './settings-looks'
+import { CoverChoice, DimPreview, FolderStrips, InFinder, isBuiltInScenery } from './settings-looks'
+import { builtInScenery } from '@/lib/sandbox-seed'
 import { sourceOf } from '../../../../main/moment-source'
 import { byKeys, spring, still, useFirstVisit } from '@/lib/motion'
 import { Highlight, useChosen, useFluidHover, Weighted } from './glide'
@@ -643,7 +644,7 @@ export function SettingsView(): React.JSX.Element {
         </Group>
 
         <Group section="Scenery" title="Pictures at rest">
-          <Setting title="Scenery" note="Pictures from your own folders, in the places where you rest." more="An empty Inbox, a finished review, the top of today's page, and dimmed behind Focus if you let it." keywords="pictures images photos wallpaper background landscape scenes art">
+          <Setting title="Scenery" note="Haligtree’s paintings, or pictures from your own folders, in the places where you rest." more="An empty Inbox, a finished review, the top of today's page, and dimmed behind Focus if you let it." keywords="pictures images photos wallpaper background landscape scenes art">
             <Switch checked={settings.scenery} onCheckedChange={(scenery) => set({ scenery })} />
           </Setting>
           <SceneryFolders folders={settings.sceneryFolders} on={settings.scenery} onSave={(sceneryFolders) => set({ sceneryFolders })} />
@@ -1347,6 +1348,16 @@ function SceneryFolders({ folders, on, onSave }: { folders: string[]; on: boolea
       })}>
         <FolderPlus className="size-4" /> Add a folder…
       </Button>
+      {/* Haligtree's own paintings, taken out by mistake (or never added): back with one press, never lost. */}
+      {!folders.some(isBuiltInScenery) && (
+        <Button variant="outline" size="sm" onClick={() => void builtInScenery().then((folder) => {
+          onSave([...folders, folder])
+          chime('settled')
+          toast('Haligtree’s paintings are back', () => onSave(folders))
+        })}>
+          Add Haligtree’s paintings
+        </Button>
+      )}
     </Setting>
   )
 }

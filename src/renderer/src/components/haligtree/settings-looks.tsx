@@ -125,6 +125,10 @@ function Strip({ scenes }: { scenes: Scene[] }): React.JSX.Element {
  * ready, and a strip of a few of them; open it in Finder, or take it out
  * (undoable).
  */
+/** The paintings Haligtree ships with (sandbox-seed.ts, builtInScenery): the folder it writes them to, in your book or the sandbox. */
+export const isBuiltInScenery = (folder: string): boolean => /\/(Scenery|Sandbox scenery)$/.test(folder)
+const folderName = (folder: string): string => (isBuiltInScenery(folder) ? 'Haligtree’s paintings' : folder.split('/').pop() ?? folder)
+
 export function FolderStrips({ folders, scenes, scanning, onSave }: { folders: string[]; scenes: Scene[]; scanning: boolean; onSave: (folders: string[]) => void }): React.JSX.Element | null {
   if (!folders.length) return null
   return (
@@ -135,14 +139,15 @@ export function FolderStrips({ folders, scenes, scanning, onSave }: { folders: s
           <div key={folder} data-scenery-folder className="flex flex-col gap-2 rounded-lg border p-2 pl-2.5 text-control">
             <span className="flex items-center gap-2">
               <span className="min-w-0 flex-1 truncate" title={folder}>
-                <span className="text-foreground">{folder.split('/').pop()}</span>
+                <span className="text-foreground">{folderName(folder)}</span>
                 <span className="text-muted-foreground"> · <Rolling text={own.length} /> {own.length === 1 ? 'picture' : 'pictures'}{scanning ? ', more on the way' : ''}</span>
               </span>
               <InFinder folder={folder} />
-              <button type="button" aria-label={`Remove ${folder}`} className="relative rounded-full p-0.5 text-muted-foreground after:absolute after:-inset-1 hover:bg-accent hover:text-foreground" onClick={() => {
+              <button type="button" aria-label={`Remove ${folderName(folder)}`} className="relative rounded-full p-0.5 text-muted-foreground after:absolute after:-inset-1 hover:bg-accent hover:text-foreground" onClick={() => {
                 onSave(folders.filter((one) => one !== folder))
                 chime('away')
-                toast(`Removed ${folder.split('/').pop()}`, () => onSave(folders))
+                // Haligtree's own come back any time, from the button beside "Add a folder…".
+                toast(isBuiltInScenery(folder) ? 'Haligtree’s paintings are off. “Add Haligtree’s paintings” puts them back' : `Removed ${folderName(folder)}`, () => onSave(folders))
               }}>
                 <X className="size-3" />
               </button>
