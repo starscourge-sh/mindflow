@@ -2539,7 +2539,8 @@ async function importVault(given?: string, picked?: string | null): Promise<void
   // dialog is for anything else (picked is null when it asks for it).
   if (given === undefined && picked === undefined) {
     const found = await vaultChoices()
-    if (found.length) return inHome('haligtree:vault-pick', { into: SANDBOX ? 'the sandbox' : BOOK ? nameOf(here()) : null, vaults: found })
+    // Outside the sandbox it can also go into a test book of its own (vault-picker.tsx), deleted from Settings when done.
+    if (found.length) return inHome('haligtree:vault-pick', { into: SANDBOX ? 'the sandbox' : BOOK ? nameOf(here()) : null, here: SANDBOX ? 'the sandbox' : nameOf(here()), apart: !SANDBOX, vaults: found })
   }
   const root = given ?? picked ?? (await dialog.showOpenDialog({ title: SANDBOX ? 'Import into the sandbox: an Obsidian vault or a Notion export (unzipped)' : BOOK ? `Import into ${nameOf(here())}: an Obsidian vault or a Notion export (unzipped)` : 'Import an Obsidian vault or a Notion export (unzipped)', properties: ['openDirectory'] })).filePaths[0]
   if (!root) return
@@ -4632,7 +4633,7 @@ app.whenReady().then(() => {
   // The QA harness imports a test vault without the folder dialog.
   if (process.env.HALIGTREE_QA_VAULT) void importVault(process.env.HALIGTREE_QA_VAULT)
   // Arrived by Import into…: the import asked for, once the main window is up.
-  void nextImport().then((what) => what && setTimeout(() => void (what === 'vault' ? importVault() : importFiles()), 1200))
+  void nextImport().then((next) => next && setTimeout(() => void (next.what === 'vault' ? (next.root ? importVault(undefined, next.root) : importVault()) : importFiles()), 1200))
 
   /**
    * The key that summons it from anywhere, and puts it away again.

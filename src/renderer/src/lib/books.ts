@@ -111,7 +111,7 @@ const CARRY_MORE = ['scenery', 'sceneryFolders', 'coversFolder'] as const
  * To another book, or the sandbox. Your look comes along; anything being
  * typed is written down first, where it was. `then` is an import to run there.
  */
-export async function switchBook(id: string, then?: 'vault' | 'files'): Promise<void> {
+export async function switchBook(id: string, then?: 'vault' | 'files' | { root: string }): Promise<void> {
   if (!(await leaveSession(id))) return
   if (id === 'sandbox') return enterSandbox()
   if (SANDBOX) {

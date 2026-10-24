@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain } from 'electron'
 import { randomBytes, randomUUID } from 'crypto'
 import { existsSync, readFileSync, statSync } from 'fs'
 import { copyFile, cp, mkdir, readdir, readFile, rename, rm, writeFile } from 'fs/promises'
@@ -67,7 +67,9 @@ async function switchTo(id: BookId, carry: unknown, then?: unknown): Promise<boo
   if (!folder || id === here() || SANDBOX) return false
   await mkdir(folder, { recursive: true })
   if (carry && typeof carry === 'object') await writeFile(join(folder, CARRY), JSON.stringify(carry))
-  if (then === 'vault' || then === 'files') await writeFile(join(folder, NEXT), JSON.stringify({ import: then }))
+  // What to import once there: a kind, or a vault already chosen (a test book made for it), not asked for again.
+  const root = then && typeof then === 'object' && typeof (then as { root?: unknown }).root === 'string' ? (then as { root: string }).root : undefined
+  if (then === 'vault' || then === 'files' || root) await writeFile(join(folder, NEXT), JSON.stringify({ import: root ? 'vault' : then, root }))
   await flushWindows()
   writeShelf({ ...readShelf(), last: id })
   setTimeout(() => relaunch({ book: id }), 60)
@@ -182,12 +184,12 @@ export const carried = (): unknown => {
   }
 }
 /** The import asked for by Import into…, taken once. */
-export async function nextImport(): Promise<'vault' | 'files' | null> {
+export async function nextImport(): Promise<{ what: 'vault' | 'files'; root?: string } | null> {
   const file = join(dataRoot(), NEXT)
   try {
-    const asked = (JSON.parse(await readFile(file, 'utf8')) as { import?: string }).import
+    const asked = JSON.parse(await readFile(file, 'utf8')) as { import?: string; root?: string }
     await rm(file, { force: true })
-    return asked === 'vault' || asked === 'files' ? asked : null
+    return asked.import === 'vault' || asked.import === 'files' ? { what: asked.import, root: typeof asked.root === 'string' ? asked.root : undefined } : null
   } catch {
     return null
   }
@@ -312,6 +314,8 @@ export function registerBooks(backupBase: () => string, onChange: () => void): v
   })
 
   handle('switch', (id: unknown, carry: unknown, then: unknown) => switchTo(String(id), carry, then))
+  // A vault or export folder chosen before its test book is made (vault-picker.tsx): the path, or null.
+  handle('pick-vault', async () => (await dialog.showOpenDialog({ title: 'Try a vault in a test book of its own: an Obsidian vault or a Notion export (unzipped)', properties: ['openDirectory'] })).filePaths[0] ?? null)
   // “Keep it running”, asked as you switch: this book's session goes on in its own database, and the next book's pill names it.
   handle('keep', () => void (SANDBOX || writeShelf({ ...readShelf(), kept: here() })))
   // The session left running in another book, read from that book's database
