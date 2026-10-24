@@ -43,6 +43,8 @@ try {
   await h.reload()
   await h.waitForTimeout(2500)
   const seen = {}
+  // Every picture's copy made first, so the pages pick from all of them.
+  for (let i = 0; i < 40; i++) { const got = await v('scenery', [join(process.cwd(), 'src/renderer/src/assets/scenery')]); if (!got?.scanning) break; await h.waitForTimeout(500) }
   for (const id of LISTS) {
     await go(id)
     await h.waitForTimeout(1200)
