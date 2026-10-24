@@ -1,6 +1,7 @@
 import * as React from "react"
 import { FLOAT } from '@/lib/float'
 import { cn } from "@/lib/cn"
+import { onScrollAway } from "@/lib/scroll-away"
 import { Tooltip as TooltipPrimitive } from "radix-ui"
 
 function TooltipProvider({
@@ -71,10 +72,13 @@ function Tooltip({
     // The pointer left the window (off its edge, or the window lost the keys):
     // no move comes after to close the tip, so it goes now.
     const gone = (): void => changeNow.current(false)
+    // What it points at scrolled away under a resting pointer: no move comes to close it, so it goes now.
+    const away = onScrollAway(() => trigger.current, gone)
     window.addEventListener("haligtree:opened", shut)
     document.documentElement.addEventListener("mouseleave", gone)
     window.addEventListener("blur", gone)
     return () => {
+      away()
       window.removeEventListener("haligtree:opened", shut)
       document.documentElement.removeEventListener("mouseleave", gone)
       window.removeEventListener("blur", gone)

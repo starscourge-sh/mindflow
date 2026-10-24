@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { onScrollAway } from '@/lib/scroll-away'
 
 import { haligtree } from '@/lib/haligtree'
 import { backIn } from '@/lib/back-in'
@@ -165,6 +166,11 @@ export function NotePreview(): React.JSX.Element | null {
     const watch = new MutationObserver(() => void (!shown.anchor.isConnected && setShown(null)))
     watch.observe(document.body, { childList: true, subtree: true })
     return () => watch.disconnect()
+  }, [shown])
+  // Its link scrolled away under a resting pointer: the card goes, never left floating over the page.
+  useEffect(() => {
+    if (!shown) return
+    return onScrollAway(() => shown.anchor, () => setShown(null), () => document.querySelector('[data-note-preview]'))
   }, [shown])
   // Esc puts the card away, and only the card: the note under it keeps the
   // keys. The pointer still on the link, it stays away until the pointer leaves.
