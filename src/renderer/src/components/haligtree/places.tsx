@@ -26,7 +26,7 @@ import { SIDEBAR_SHAPE } from '../../../../main/sidebar-shape'
 import { num } from '../../../../main/dates'
 
 /** A run of the sidebar's places with a gap before it and no heading: what you write and keep, then what you do. */
-export type Group = 'Write' | 'Do'
+export type Group = 'Write'
 /** A place the main window's sidebar or the box's tabs can show. */
 export type Place = {
   id: string; label: string; icon: LucideIcon; tint: string; key?: string; group?: Group
@@ -56,9 +56,9 @@ export const SECTIONS: (Place & { key: string })[] = [
   { id: 'nuggets', label: 'Gems', icon: Gem, key: 'n', tint: 'pink', group: 'Write' },
   { id: 'review', label: 'Review', icon: Brain, key: 'r', tint: 'purple', group: 'Write' },
   // One row for every task list: Today, Upcoming, Later and Routines are its tabs (tasks-view.tsx).
-  { id: 'today', label: 'Tasks', icon: ListChecks, key: 't', tint: 'green', group: 'Do' },
+  { id: 'today', label: 'Tasks', icon: ListChecks, key: 't', tint: 'green', group: 'Write' },
   // Day, week and month by the hour, the way a calendar app has them (calendar-view.tsx).
-  { id: 'calendar', label: 'Calendar', icon: Calendar, key: 'c', tint: 'red', group: 'Do' },
+  { id: 'calendar', label: 'Calendar', icon: Calendar, key: 'c', tint: 'red', group: 'Write' },
   // The rest: off to start, a G and its letter or ⌘K away, each switched on in "Customize sidebar…".
   { id: 'weekpage', label: "Week's page", icon: CalendarFold, key: 'k', tint: 'yellow' },
   { id: 'monthpage', label: "Month's page", icon: Sprout, key: 'm', tint: 'yellow' },
@@ -192,14 +192,18 @@ export function orderItems({ setting, usual, id, among, what, name, sideways = f
 
 /**
  * The sidebar's places as it draws them, in your order: runs of places in the
- * usual order (Write, Do, then the rest), each holding only the places in
+ * usual order (the places, then the rest), each holding only the places in
  * `shown` (Customize passes every place, to list them all with a switch). No
  * run has a heading: a gap sits between them. A row dragged into another run
  * stays in it (`groups`, saved as `sidebarGroups`). A part with nothing shown is gone.
  */
 export type SidebarPart = { key: string; group?: Group; list: (typeof SECTIONS)[number][] }
 /** Which block a place is in: the one it was dragged into, else its own ("rest" for the ungrouped). */
-export const blockOf = (place: Place, groups: Record<string, string> = {}): string => groups[place.id] ?? place.group ?? 'rest'
+export const blockOf = (place: Place, groups: Record<string, string> = {}): string => {
+  const block = groups[place.id] ?? place.group ?? 'rest'
+  // Tasks and Calendar were a block of their own ('Do'); a row dragged into it then is in the one list now.
+  return block === 'Do' ? 'Write' : block
+}
 export function sidebarParts(usual: typeof SECTIONS, ordered: typeof SECTIONS, shown: string[], groups: Record<string, string> = {}): SidebarPart[] {
   const runs: { group?: Group; key: string }[] = []
   for (const one of usual) if (!runs.some((run) => run.group === one.group)) runs.push({ group: one.group, key: one.group ?? 'rest' })

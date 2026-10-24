@@ -116,7 +116,7 @@ import { openCloseWeek } from '@/components/haligtree/close-week'
 import { FIT_CHOICES, FitsSheet, fitsHeard, openFits } from '@/components/haligtree/fits'
 import { openPlaybook } from '@/lib/playbook'
 import { menuShowing } from '@/lib/menu-keys'
-import { ChevronRight, CircleHelp } from '@/components/ui/icons'
+import { ArrowRight, ChevronRight, CircleHelp } from '@/components/ui/icons'
 import { still } from '@/lib/motion'
 import { calendarAside, calendarPalette, revealOnCalendar } from '@/lib/calendar-scope'
 import { dated, dayjs, dayKey, daysFromToday, noon, num } from '../../main/dates'
@@ -1452,36 +1452,31 @@ export function Home(): React.JSX.Element {
             )
             const tagsBlock = (<>
         {/* Your most used tags, with counts, the way Todoist keeps favourite labels. */}
-        {/* Its name opens the Tags page (G #), the chevron folds the list: one "Tags", not two. */}
-        {/* One row, lit as the other headings are: the row opens the Tags page,
-            the chevron in it folds the list, with only its own small fill under
-            the pointer and a ring only from the keyboard. */}
+        {/* The heading folds the list, as Pinned's does (Notion's way): anywhere on it, not only its chevron.
+            The Tags page is the arrow at its end, on pointing, and G # or ⌘K. */}
         {(
           <div className="group/head relative mt-2.5 mb-0.5 flex min-h-6 items-center gap-1 px-2 py-0.5 text-meta">
-            {/* Its page's preview on pointing, as every other place's row has. */}
-            <SidePeek id="tags" keys="G #">
             <button
               type="button"
               data-side-row
+              data-tags-fold
+              aria-label={tagsOpen ? 'Fold the tags away' : 'Show your tags'}
               // On a tag's page whose own row is folded away or not listed, the heading is the place marked.
               aria-current={onTags ? 'page' : undefined}
-              onClick={() => setView({ id: 'tags' })}
-              className={`absolute inset-0 flex items-center rounded-md px-2 text-left transition-colors duration-80 group-hover/head:text-foreground data-[fluid-hover-active]:text-foreground ${onTags ? 'text-foreground' : 'text-muted-foreground'}`}
-            >
-              Tags
-            </button>
-            </SidePeek>
-            {/* Holds the word's room, so the chevron sits just after it as in the other headings. */}
-            <span aria-hidden className="invisible">Tags</span>
-            <button
-              type="button"
-              aria-label={tagsOpen ? 'Fold the tags away' : 'Show your tags'}
               aria-expanded={tagsOpen}
               onClick={() => (chime(tagsOpen ? 'fold' : 'slide'), setTagsOpen(!tagsOpen))}
-              className={`mf-hit relative -my-0.5 -ml-0.5 flex size-4 items-center justify-center rounded text-muted-foreground transition-[color,background-color,opacity] duration-80 hover:bg-accent hover:text-foreground focus-visible:opacity-100 ${tagsOpen ? 'opacity-0 group-hover/head:opacity-100' : ''}`}
+              className={`absolute inset-0 flex items-center gap-1 rounded-md px-2 text-left transition-colors duration-80 group-hover/head:text-foreground data-[fluid-hover-active]:text-foreground ${onTags ? 'text-foreground' : 'text-muted-foreground'}`}
             >
+              Tags
               <ChevronRight className={`size-3 transition-transform duration-80 ${tagsOpen ? 'rotate-90' : ''}`} />
             </button>
+            <span aria-hidden className="invisible">Tags</span>
+            <SidePeek id="tags" keys="G #">
+              <button type="button" aria-label="Open the Tags page" data-tags-page onClick={() => setView({ id: 'tags' })}
+                className="relative ml-auto flex size-5 items-center justify-center rounded text-muted-foreground opacity-0 transition-[color,background-color,opacity] duration-80 group-hover/head:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100">
+                <ArrowRight className="size-3" />
+              </button>
+            </SidePeek>
           </div>
         )}
         <Unfold open={tagsOpen && tags.length > 0}>
@@ -1536,8 +1531,6 @@ export function Home(): React.JSX.Element {
             // Not drawn, even unseen, until settings say which rows show: a row
             // the settings then take away held its room for a frame once the sidebar showed.
             const parts = settings && !unloaded(away) ? sidebarParts(sections, ordered, shown, settings.sidebarGroups) : []
-            // Pinned, and the split open now, sit under Tasks and Calendar, else under the first rows.
-            const pinsAfter = parts.some((part) => part.group === 'Do' && part.list.length) ? 'Do' : 'Write'
             const pinned = (<>
               {/* The split open now, as one row under its own name, never among the
                   pinned: Pinned holds only what was pinned. Not shown when it is one
@@ -1625,7 +1618,8 @@ export function Home(): React.JSX.Element {
                   {/* Each run after the first gets a gap the height of a heading, with no heading: what you write, then what you do, then the rest. */}
                   {at > 0 && items.length > 0 && <div data-side-gap aria-hidden className={narrow ? 'mt-3' : 'mt-2.5 mb-0.5 min-h-1'} />}
                   {box}
-                  {block === pinsAfter && pinned}
+                  {/* Pinned, and the split open now, sit under the places. */}
+                  {block === 'Write' && pinned}
                 </>)}
               />
               {!parts.some((part) => part.key === 'rest') && tagRows && tagsPart}

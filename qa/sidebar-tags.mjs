@@ -14,8 +14,9 @@ try {
   await h.waitForTimeout(1200)
   const says = () => h.evaluate(() => [...document.querySelectorAll('nav ~ * button, nav button, aside button')].filter((b) => b.textContent.trim() === 'Tags' && b.offsetParent).length)
   check('"Tags" is in the sidebar once, with the Tags page switched on', (await says()) === 1, String(await says()))
-  await h.getByRole('button', { name: 'Tags', exact: true }).first().click(); await h.waitForTimeout(800)
-  check('the heading opens the Tags page', await h.evaluate(() => document.querySelector('[aria-current=page]')?.textContent.trim() === 'Tags'))
+  // The heading folds; the arrow at its end, on pointing, opens the Tags page.
+  await h.hover('[data-tags-fold]'); await h.click('[data-tags-page]'); await h.waitForTimeout(800)
+  check('the arrow on the heading opens the Tags page', await h.evaluate(() => document.querySelector('[aria-current=page]')?.textContent.trim() === 'Tags'))
   const before = await h.evaluate(() => document.querySelectorAll('[data-side-row]').length)
   const fold = h.getByRole('button', { name: /Fold the tags away|Show your tags/ }).first()
   await fold.click(); await h.waitForTimeout(700)

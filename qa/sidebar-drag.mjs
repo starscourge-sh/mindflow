@@ -7,7 +7,7 @@ import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 
 const { check, done } = checks()
-const NATURAL = { inbox: 'Write', home: 'Write', day: 'Write', articles: 'Write', nuggets: 'Write', review: 'Write', today: 'Do', calendar: 'Do' }
+const NATURAL = { inbox: 'Write', home: 'Write', day: 'Write', articles: 'Write', nuggets: 'Write', review: 'Write', today: 'Write', calendar: 'Write' }
 const ID = { Inbox: 'inbox', Home: 'home', Journal: 'day', Pages: 'articles', Gems: 'nuggets', Review: 'review', Tasks: 'today', Calendar: 'calendar', Bin: 'discarded', Lookups: 'lookups', Tags: 'tags' }
 
 /** Each block as drawn: its key and the rows' names, top to bottom. */
