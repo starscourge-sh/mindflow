@@ -94,13 +94,25 @@ try {
   // 23: Check back opens its calendar at once.
   await h.evaluate(() => window.api.showPrompt()); await page.waitForTimeout(1200)
   await page.keyboard.press('Meta+6'); await page.waitForTimeout(800)
-  const asked = await page.evaluate(() => ({ calendar: !!document.querySelector('[data-slot="popover-content"] [role="grid"], [data-slot="popover-content"] .rdp, [data-slot="popover-content"] table'), text: document.querySelector('[data-slot="popover-content"]')?.textContent?.slice(0, 120) ?? '' }))
+  const asked = await page.evaluate(() => ({ calendar: !!document.querySelector('[data-slot="popover-content"] [role="grid"], [data-slot="popover-content"] .rdp, [data-slot="popover-content"] table'), text: document.querySelector('[data-slot="popover-content"]')?.textContent?.slice(0, 400) ?? '' }))
   check('23: picking Check back opens its date picker straight away', asked.calendar || /in a week/i.test(asked.text), JSON.stringify(asked))
   check('23: with the common choices', /in 2 weeks/i.test(asked.text) && /in a year/i.test(asked.text), asked.text)
   // Its words and its month side by side, so it fits in the box it opens from (stacked, it ran past the box's foot).
   const fit = await page.evaluate(() => { const pop = document.querySelector('[data-slot="popover-content"]')?.getBoundingClientRect(); return pop ? { h: Math.round(pop.height), room: window.innerHeight, scrolls: document.querySelector('[data-slot="popover-content"]').scrollHeight > document.querySelector('[data-slot="popover-content"]').clientHeight + 2 } : null })
   await page.screenshot({ path: `${process.env.SHOTS ?? '/tmp'}/checkback-picker.png` })
   check('23: the picker fits in the box, nothing hidden below', fit && !fit.scrolls && fit.h < fit.room, JSON.stringify(fit))
+  // Two tabs: the words first, the month a press away.
+  const pop = page.locator('[data-slot="popover-content"]')
+  check('23: "Say when" and "Pick a day" are tabs', (await pop.getByRole('button', { name: 'Say when' }).count()) === 1 && (await pop.getByRole('button', { name: 'Pick a day' }).count()) === 1)
+  const tabAt = async () => Math.round((await pop.getByRole('button', { name: 'Pick a day' }).boundingBox()).y)
+  const panes = async () => Math.round(await page.evaluate(() => document.querySelector('[data-when-panes]').getBoundingClientRect().height))
+  const tabsBefore = [await tabAt(), await panes()]
+  await pop.getByRole('button', { name: 'Pick a day' }).click(); await page.waitForTimeout(500)
+  const tabsAfter = [await tabAt(), await panes()]
+  check('23: the tabs stay put when switching', Math.abs(tabsBefore[0] - tabsAfter[0]) <= 1, `tab y ${tabsBefore[0]} -> ${tabsAfter[0]}, panes ${tabsBefore[1]} -> ${tabsAfter[1]}`)
+  const month = await page.evaluate(() => ({ grid: !!document.querySelector('[data-slot="popover-content"] [role="grid"], [data-slot="popover-content"] table'), words: (() => { const one = document.querySelector('[data-slot="popover-content"] input[aria-label="When, in words"]'); return !!one && getComputedStyle(one).visibility !== 'hidden' })() }))
+  await page.screenshot({ path: `${process.env.SHOTS ?? '/tmp'}/checkback-day-tab.png` })
+  check('23: "Pick a day" shows the month in place of the words', month.grid && !month.words, JSON.stringify(month))
   // The row under the writing on one line: "Create more" never wraps, Create never cut off.
   const row = await page.evaluate(() => { const main = document.querySelector('main[data-zen-row]'); const create = [...main.querySelectorAll('button')].find((b) => /⌘↵/.test(b.textContent)); const more = [...main.querySelectorAll('label')].find((l) => /Create more/.test(l.textContent)); const day = main.querySelector('[data-zen-keep] button'); return { dayWidth: day ? Math.round(day.getBoundingClientRect().width) : null, createIn: create ? create.getBoundingClientRect().right <= main.getBoundingClientRect().right + 1 : null, moreLines: more ? Math.round(more.getBoundingClientRect().height) : null, width: Math.round(main.getBoundingClientRect().width) } })
   check('23: Create stays whole and "Create more" on one line, with Check back\'s date showing', row.createIn && row.moreLines < 30 && row.dayWidth >= 100, JSON.stringify(row))

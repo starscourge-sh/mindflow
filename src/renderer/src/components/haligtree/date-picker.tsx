@@ -8,6 +8,7 @@ import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
 import { Island, IslandRow, Tip } from './ui'
+import { Chips } from './display'
 import { TimeField } from './time-field'
 import { dayMonth, dayjs } from '../../../../main/dates'
 
@@ -53,6 +54,8 @@ export function DatePicker({ value, onChange, time = false, placeholder = 'Pick 
 }): React.JSX.Element {
   const [open, setOpen] = useState(startOpen)
   const [words, setWords] = useState('')
+  // With words to say when, they and the month are two tabs of one small panel: side by side they took twice the room.
+  const [pane, setPane] = useState<'say' | 'day'>('say')
   const typed = said(words)
   const date = value ? new Date(value) : undefined
   const hhmm24 = date ? dayjs(date).format('HH:mm') : '09:00'
@@ -117,11 +120,12 @@ export function DatePicker({ value, onChange, time = false, placeholder = 'Pick 
             )}
           </Island>
         )}
-        {/* With words to say when, they and the month sit side by side: stacked, the two ran taller than the box they open from. */}
-        <div className={suggest ? 'flex items-start gap-2' : 'contents'}>
+        {suggest && <Chips className="mb-2" options={[{ id: 'say', label: 'Say when' }, { id: 'day', label: 'Pick a day' }]} on={(id) => id === pane} pick={(id) => (chime('tap'), setPane(id as 'say' | 'day'))} />}
+        {/* Both drawn in one cell, the other one hidden: the panel keeps the taller one's height, so the tabs never move under the pointer. */}
+        <div data-when-panes className={suggest ? 'grid w-64 [&>*]:col-start-1 [&>*]:row-start-1' : 'contents'}>
         {suggest && (
           // Linear's way: say when, or take one of a few, each with the day it lands on.
-          <Island compact title="Say when" className="w-60 shrink-0">
+          <Island compact className={pane === 'say' ? undefined : 'invisible'}>
             <input
               autoFocus
               value={words}
@@ -148,7 +152,7 @@ export function DatePicker({ value, onChange, time = false, placeholder = 'Pick 
             {words.trim() && !typed && <p className="px-2.5 py-1.5 text-xs text-muted-foreground">No day in that yet</p>}
           </Island>
         )}
-        <Island compact title="Day" className={suggest ? 'mt-0' : undefined}>
+        <Island compact title={suggest ? undefined : 'Day'} className={suggest ? `!mt-0 [&>div]:flex [&>div]:justify-center ${pane === 'day' ? '' : 'invisible'}` : undefined}>
         <Calendar
           mode="single"
           selected={date}
