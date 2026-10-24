@@ -5,6 +5,17 @@ import { chime } from '@/lib/sound'
 import { haligtree } from '@/lib/haligtree'
 import { PAPER } from './sticky-note'
 
+/** A tab's words: as many of the name's first words as fit down it, never cut mid-word with dots. */
+const tabWords = (name: string): string => {
+  let said = ''
+  for (const word of name.trim().split(/\s+/)) {
+    const next = said ? `${said} ${word}` : word
+    if (next.length > 14) break
+    said = next
+  }
+  return said || name.trim().slice(0, 12)
+}
+
 type Tuck = { side: 'left' | 'right'; flat: boolean }
 const params = new URLSearchParams(location.search)
 const SPRING = { type: 'spring', stiffness: 420, damping: 34, mass: 0.8 } as const
@@ -47,13 +58,14 @@ export function TuckTab(): React.JSX.Element | null {
         animate={{ opacity: 1, x: 0 }}
         transition={SPRING}
         style={{ ...PAPER, boxShadow: '0 1px 2px rgb(0 0 0 / 0.14), 0 4px 12px -3px rgb(0 0 0 / 0.22)' }}
-        className={`flex h-full w-full items-center justify-center overflow-hidden border text-foreground ${right ? 'rounded-l-lg border-r-0' : 'rounded-r-lg border-l-0'}`}
+        className={`flex h-full w-full items-center justify-center overflow-hidden border text-foreground ${right ? 'rounded-l-[12px] border-r-0' : 'rounded-r-[12px] border-l-0'}`}
       >
         {tuck.flat ? (
           // Flat: the note's colour alone, a stronger stripe of it down the pill.
           <span className="h-[70%] w-1 rounded-full bg-foreground/35" style={document.documentElement.hasAttribute('data-tint') ? { background: 'oklch(0.7 0.13 var(--mf-tint-hue))' } : undefined} />
         ) : (
-          <span className="max-h-full truncate px-1 py-2 font-heading text-[13px] leading-none font-semibold" style={{ writingMode: 'vertical-rl' }}>{name}</span>
+          // A label, not a title: its first words in small capitals, read from the bottom up as a file tab's is.
+          <span className="py-3 text-[10.5px] leading-none font-semibold tracking-[0.12em] whitespace-nowrap text-foreground/60 uppercase" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>{tabWords(name)}</span>
         )}
       </motion.div>
     </div>

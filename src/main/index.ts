@@ -1858,8 +1858,9 @@ const peekingOut = new Map<string, number>()
 /** A peeking card's tab: its ring and days left, a little taller than wide. */
 const TAB = { width: 46, height: 116 }
 /** Every sticky tucked: a tab with its name written down it, or only a small coloured pill. */
-const TUCK = { tabs: { width: 34, height: 128 }, flat: { width: 12, height: 48 } }
-const TUCK_GAP = 8
+const TUCK = { tabs: { width: 30, height: 124 }, flat: { width: 10, height: 44 } }
+/** Stacked close, as file tabs are. */
+const TUCK_GAP = 3
 /** The side and kind of tab each peeking card was made as, so a change of either remakes it. */
 const tabShape = new Map<string, string>()
 /** When each card was last seen whole, and the day it last peeked out by itself: kept across restarts. */
@@ -2140,11 +2141,11 @@ function tidyStickies(asker?: Electron.WebContents): number {
   updateTray()
   setTimeout(updateTray, UNTIDY_FOR + 50)
   // Said where it will be seen: the window that asked if it is out, else the
-  // main window or the box, else the sticky now at the top of the column.
-  const seen = (win: BrowserWindow | null | undefined): boolean => !!win && !win.isDestroyed() && win.isVisible()
+  // main window or the box. Never inside a sticky: a notice on a card reads as
+  // part of the note, and the move says itself, with "Put stickies back" in the menu bar.
+  const seen = (win: BrowserWindow | null | undefined): boolean => !!win && !win.isDestroyed() && win.isVisible() && !keyOfSticky(win)
   const from = asker ? BrowserWindow.fromWebContents(asker) : null
-  const voice = [from, home, prompt].find(seen) ?? moves[0][1]
-  voice.webContents.send('stickies:tidied', moves.length)
+  ;[from, home, prompt].find(seen)?.webContents.send('stickies:tidied', moves.length)
   return moves.length
 }
 
