@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { ArrowLeft, ArrowUpRight, BadgeCheck, CornerDownRight, EyeOff, MessageCircle, Repeat2, RefreshCcw } from 'lucide-react'
+import { ArrowLeft, ArrowUpRight, BadgeCheck, Check, CornerDownRight, EyeOff, MessageCircle, Repeat2, RefreshCcw, X } from 'lucide-react'
 
 import { call, haligtree, splitTags, unloaded, unread, useLive, type Gloss } from '@/lib/haligtree'
 import { useThumb } from '@/lib/notes'
@@ -15,7 +15,7 @@ import { Kbd, Page, Tip, openTag, quietly, toast } from './ui'
 import { Avatar } from './avatar'
 import { GlossLine, openGloss } from './gloss-line'
 import { MenuButton } from './collection-header'
-import { copy } from './row-menu'
+import { copy, type MenuItem } from './row-menu'
 import { motion } from 'motion/react'
 import { FeedReading } from './feed-reading'
 
@@ -62,11 +62,34 @@ const repliesSaid = (post: FeedPost): string | null => {
 }
 
 const REACTIONS: { value: Reaction; label: string; tip: string; icon: typeof BadgeCheck; cue: Cue; said: string }[] = [
-  { value: 'true', label: 'Still true', tip: 'Still true: it comes back later, on its usual rhythm', icon: BadgeCheck, cue: 'stay', said: 'You said it is still true today' },
+  { value: 'true', label: 'Still true', tip: 'Still true: it comes back later, on its usual rhythm', icon: BadgeCheck, cue: 'stay', said: 'You marked it still true today' },
   { value: 'changed', label: 'Changed my mind', tip: 'Changed my mind: write what you think now, under it', icon: RefreshCcw, cue: 'shift', said: 'You changed your mind on it today' },
   { value: 'use', label: 'Use this', tip: "Use this: puts a link to it on today's Journal page", icon: CornerDownRight, cue: 'added', said: "On today's Journal page" },
   { value: 'less', label: 'Less of this', tip: 'Less of this: it comes up less often', icon: EyeOff, cue: 'away', said: 'You will see this less often' }
 ]
+
+/** How often "Less of this" has faded it, in words: "once", "twice", "3 times". */
+const timesSaid = (n: number): string => (n === 1 ? 'once' : n === 2 ? 'twice' : `${num(n)} times`)
+/** "Show as before": every fade taken back, with Undo. */
+export const showAsBefore = (type: string, id: string): void => {
+  chime('on')
+  void call<number | null>('feed:unfade', type, id).then((was) => {
+    if (was == null) return
+    toast('It comes up as often as before', () => void call('feed:refade', type, id, was).then(() => chime('undo')), 'success')
+  })
+}
+/** A note's own details: how far it has faded, and the way back. */
+export function FadedLine({ type, id, className }: { type: string; id: string; className?: string }): React.JSX.Element | null {
+  const faded = useLive(() => call<number>('feed:faded', type, id), 0, [type, id], ['capture', 'item'])
+  if (!faded) return null
+  return (
+    <p data-faded-line className={cn('flex flex-wrap items-baseline gap-x-1.5 text-control text-muted-foreground', className)}>
+      <span>Shown less often ({timesSaid(faded)})</span>
+      <span aria-hidden>·</span>
+      <button type="button" data-show-as-before onClick={() => showAsBefore(type, id)} className="rounded-sm text-foreground underline-offset-2 hover:underline">Show as before</button>
+    </p>
+  )
+}
 
 /** Time until tomorrow's set, in words: "9 hours 12 minutes". */
 function useUntilTomorrow(): string {
@@ -169,8 +192,13 @@ function FeedNotes({ onOpen, tabs }: { onOpen: (type: string, id: string) => voi
   const counts = feed.posts.reduce<Record<string, number>>((all, post) => ({ ...all, [kindWord(post)]: (all[kindWord(post)] ?? 0) + 1 }), {})
   const said = Object.entries(counts).map(([word, n]) => `${num(n)} ${word === 'Journal' ? (n === 1 ? 'Journal day' : 'Journal days') : n === 1 ? word.toLowerCase() : `${word.toLowerCase()}s`}`)
   const summary = said.length > 1 ? `${said.slice(0, -1).join(', ')} and ${said.at(-1)}` : said[0]
+  // The line says what the day holds, the three kinds it has most of: "8 gems, 5 quotes, 4 notes and 7 more".
+  const most = Object.entries(counts).sort((a, b) => b[1] - a[1])
+  const top = most.slice(0, 3).map(([word, n]) => `${num(n)} ${word === 'Journal' ? (n === 1 ? 'Journal day' : 'Journal days') : n === 1 ? word.toLowerCase() : `${word.toLowerCase()}s`}`)
+  const rest = most.slice(3).reduce((sum, [, n]) => sum + n, 0)
+  const holds = feed.posts.length && !feed.safe ? `${top.join(', ')}${rest ? ` and ${num(rest)} more` : ''}` : null
   return (
-    <Page title="Feed" waiting={unloaded(feed)} count={feed.posts.length || undefined} unit={['post today', 'posts today']}>
+    <Page title="Feed" waiting={unloaded(feed)} lead={holds ? <span data-feed-holds className="truncate text-control text-muted-foreground">{holds}</span> : undefined}>
       <div ref={root} data-feed className="flex items-start gap-8 px-5 pt-[33px] pb-16">
       <div className="flex min-w-0 flex-1 flex-col">
         {!shown && tabs}
@@ -273,14 +301,24 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
   const [restacking, setRestacking] = useState(false)
   const words = quote ? post.text || post.title : post.text
   const link = post.type === 'capture' ? post.id : `${post.type === 'question' ? 'nugget' : post.type}:${post.id}`
-  const menu = [
-    { label: 'Open', run: onOpen },
+  // What is not worth a glance on every post waits in ⋯: the reactions after "Still true", then Open and Copy link.
+  const reaction = (value: Reaction): MenuItem => {
+    const one = REACTIONS.find((it) => it.value === value)!
+    return { id: value, label: one.label, hint: one.tip, icon: <one.icon className="size-4" />, trail: chosen === value ? <Check className="ml-auto size-4 text-primary" /> : undefined, run: () => choose(value) }
+  }
+  const menu: MenuItem[] = [
+    post.type !== 'day' && reaction('changed'),
+    reaction('use'),
+    post.type !== 'day' && reaction('less'),
+    'separator',
+    { id: 'open', label: 'Open', icon: <ArrowUpRight className="size-4" />, run: onOpen },
     post.type !== 'day' && { label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copy(noteLinkText(link, post.title), 'Copied a link: paste it into any note') }
   ]
   const title = post.type === 'day' ? dayjs(post.id).format(dayjs(post.id).year() === dayjs().year() ? 'dddd D MMMM' : 'dddd D MMMM YYYY') : splitTags(post.title).text || post.title
   // A restack's link to the old note is said by the card under it, not twice.
   const text = post.restack ? post.text.split('\n').filter((line) => line.trim() !== post.restack!.title.replace(/\s+/g, ' ').trim().slice(0, 80)).join('\n') : post.text
 
+  const openWho = (): void => void (post.who && (chime('page'), openSource('attribution', post.who)))
   const choose = (reaction: Reaction): void => {
     const next = chosen === reaction ? null : reaction
     const was = chosen
@@ -293,14 +331,17 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
       else if (next === 'less') toast('This comes up less often now', undo, 'success')
       else quietly(undo)
     })
-    if (next === 'changed') openGloss(post.id)
+    // After the ⋯ menu has shut and handed focus back, so the field keeps the caret.
+    if (next === 'changed') window.setTimeout(() => openGloss(post.id), 80)
   }
 
   const history = [
-    chosen && REACTIONS.find((one) => one.value === chosen)!.said,
+    chosen && chosen !== 'less' && REACTIONS.find((one) => one.value === chosen)!.said,
     post.seenTimes >= 2 && `seen ${num(post.seenTimes)} times`
   ].filter(Boolean) as string[]
   const replies = repliesSaid(post)
+  // Faded by "Less of this", today or before: how far, and the way back. Today's choice counts at once.
+  const faded = Math.max(post.faded, chosen === 'less' ? 1 : 0)
 
   return (
     <li data-feed-post={post.type} data-feed-id={post.id} data-feed-kind={post.kind} data-feed-react={chosen ?? undefined}
@@ -308,12 +349,16 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
       {context && <p data-feed-context className="flex items-center gap-1.5 pl-12 text-control text-muted-foreground">{post.restack && <Repeat2 className="size-3.5" />}{context}</p>}
       <div className="flex gap-3">
         <div className="flex w-9 shrink-0 flex-col items-center">
-          <Avatar name={account} size={36} className="mt-0.5 shrink-0" />
+          {quote && post.who ? (
+            <button type="button" aria-label={`Open ${post.who}'s page`} onClick={openWho} className="mt-0.5 shrink-0 rounded-full focus-visible:ring-2 focus-visible:ring-ring"><Avatar name={account} size={36} /></button>
+          ) : <Avatar name={account} size={36} className="mt-0.5 shrink-0" />}
           {joined && <span aria-hidden className="mt-1 w-px flex-1 bg-border" />}
         </div>
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <p className="flex min-w-0 items-baseline gap-1.5 text-control">
-            <span data-feed-account className="truncate font-semibold text-foreground">{account}</span>
+            {quote && post.who ? (
+              <button type="button" data-feed-account data-feed-source onClick={openWho} className="truncate rounded-sm font-semibold text-foreground hover:underline">{account}</button>
+            ) : <span data-feed-account className="truncate font-semibold text-foreground">{account}</span>}
             <span className="shrink-0 text-muted-foreground">{kindWord(post)}</span>
             <span aria-hidden className="shrink-0 text-muted-foreground">·</span>
             {onThread ? (
@@ -323,6 +368,15 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
             ) : (
               <time dateTime={post.made} className="shrink-0 text-muted-foreground tabular-nums">{written(post.made)}</time>
             )}
+            {/* Less of this, as X and Substack hide a post: a quiet × at its top right, held in the line's height. */}
+            {post.type !== 'day' && (
+              <Tip label={REACTIONS[3].tip}>
+                <button type="button" data-feed-reaction="less" aria-pressed={chosen === 'less'} aria-label="Less of this" onClick={() => choose('less')}
+                  className={cn('-my-1.5 -mr-1.5 ml-auto flex size-7 shrink-0 items-center justify-center self-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/[0.06] hover:text-foreground', chosen === 'less' && 'text-primary hover:text-primary')}>
+                  <X className="size-4" />
+                </button>
+              </Tip>
+            )}
           </p>
           {quote ? (
             <figure data-feed-quote className="rounded-lg border bg-accent/25 px-4 py-3">
@@ -331,18 +385,25 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
             </figure>
           ) : (
             <>
-              <p className="text-body font-semibold [overflow-wrap:anywhere] text-foreground">{title}</p>
+              <button type="button" data-feed-title onClick={onOpen} className="w-fit rounded-sm text-left text-body font-semibold [overflow-wrap:anywhere] text-foreground underline-offset-2 hover:underline">{title}</button>
               {post.type !== 'question' && text && <p className="line-clamp-[8] text-body leading-relaxed whitespace-pre-line [overflow-wrap:anywhere] text-foreground/90">{text}</p>}
             </>
           )}
+          {post.tags.length > 0 && (
+            <p data-feed-tags className="flex flex-wrap gap-x-2 text-control">
+              {post.tags.map((tag) => <button key={tag} type="button" data-feed-tag={tag} onClick={() => (chime('page'), openTag(tag))} className="rounded-sm text-muted-foreground hover:text-foreground hover:underline">#{tag}</button>)}
+            </p>
+          )}
           {post.restack && <Quoted note={post.restack} onOpen={() => onOpenOther(post.restack!.type, post.restack!.id)} />}
           {picture && !broken && (
-            <div data-feed-picture className="mt-1 overflow-hidden rounded-xl border">
-              <img src={picture} alt="" loading="lazy" decoding="async" draggable={false} onError={() => setBroken(true)} className="max-h-[22rem] w-full object-cover" />
+            // The whole picture, never cropped: a tall one stands in the middle of a box no taller than 520px, on a soft blur of itself.
+            <div data-feed-picture className="relative mt-1 flex max-h-[520px] justify-center overflow-hidden rounded-xl border bg-accent/40">
+              <img aria-hidden src={picture} alt="" draggable={false} className="pointer-events-none absolute inset-0 size-full scale-110 object-cover opacity-50 blur-2xl saturate-150" />
+              <img src={picture} alt="" loading="lazy" decoding="async" draggable={false} onError={() => setBroken(true)} className="relative block max-h-[520px] w-full object-contain" />
             </div>
           )}
           {/* The latest thought as one reply line; the rest are in its thread. */}
-          {post.type !== 'day' && !alone && <GlossLine id={post.id} quiet className="mt-0.5" placeholder={chosen === 'changed' ? 'What you think now, in your own words' : 'Your reply, in your own words'} />}
+          {post.type !== 'day' && !alone && <GlossLine id={post.id} quiet className="mt-0.5" onRead={onThread} placeholder={chosen === 'changed' ? 'What you think now, in your own words' : 'Your reply, in your own words'} />}
           {/* Every control keeps its own fixed place: choosing one changes its colour, never the row. */}
           <div data-feed-actions className="-ml-2 flex items-center gap-1 text-muted-foreground">
             {post.type !== 'day' && (
@@ -351,30 +412,25 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
                 <MessageCircle className="size-4" /> Reply
               </button>
             )}
-            {REACTIONS.filter((one) => post.type !== 'day' || one.value === 'use').map((one) => (
-              <Tip key={one.value} label={one.tip}>
-                <button type="button" data-feed-reaction={one.value} aria-pressed={chosen === one.value} aria-label={one.label} onClick={() => choose(one.value)}
-                  className={cn('flex size-7 items-center justify-center rounded-md transition-colors hover:bg-foreground/[0.06] hover:text-foreground', chosen === one.value && 'bg-primary/12 text-primary hover:bg-primary/18 hover:text-primary')}>
-                  <one.icon className="size-4" strokeWidth={chosen === one.value ? 2.4 : 2} />
-                </button>
-              </Tip>
-            ))}
             <Tip label="Restack: say it again in your own words, with this quoted under it">
               <button type="button" data-feed-restack aria-label="Restack" aria-pressed={restacking} onClick={() => (chime(restacking ? 'fold' : 'tap'), setRestacking(!restacking))}
-                className={cn('flex size-7 items-center justify-center rounded-md transition-colors hover:bg-foreground/[0.06] hover:text-foreground', restacking && 'text-foreground')}>
-                <Repeat2 className="size-4" />
+                className={cn('flex h-7 items-center gap-1.5 rounded-md px-2 text-control transition-colors hover:bg-foreground/[0.06] hover:text-foreground', restacking && 'text-foreground')}>
+                <Repeat2 className="size-4 shrink-0" /> Restack
               </button>
             </Tip>
-            <span className="flex-1" />
-            {!alone && (
-              <button type="button" data-feed-open onClick={onOpen}
-                className="flex h-7 items-center gap-1.5 rounded-md px-2 text-control transition-colors hover:bg-foreground/[0.06] hover:text-foreground">
-                <ArrowUpRight className="size-4" /> Open
-              </button>
+            {/* The one reaction worth a glance; the rest are in ⋯. Chosen, only its colour changes. */}
+            {post.type !== 'day' && (
+              <Tip label={REACTIONS[0].tip}>
+                <button type="button" data-feed-reaction="true" aria-pressed={chosen === 'true'} aria-label="Still true" onClick={() => choose('true')}
+                  className={cn('flex size-7 items-center justify-center rounded-md transition-colors hover:bg-foreground/[0.06] hover:text-foreground', chosen === 'true' && 'bg-primary/12 text-primary hover:bg-primary/18 hover:text-primary')}>
+                  <BadgeCheck className="size-4" strokeWidth={chosen === 'true' ? 2.4 : 2} />
+                </button>
+              </Tip>
             )}
-            <MenuButton small label="More" items={menu} />
+            <span className="flex-1" />
+            <MenuButton small label="More" name="post" items={menu} />
           </div>
-          {(history.length > 0 || replies) && (
+          {(history.length > 0 || replies || faded > 0) && (
             <p data-feed-history className="flex flex-wrap items-baseline gap-x-1.5 text-control text-muted-foreground">
               {replies && onThread ? (
                 <button type="button" data-feed-replies onClick={onThread} className="rounded-sm hover:text-foreground hover:underline">{replies}</button>
@@ -382,6 +438,14 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
               {history.map((line, at) => (
                 <span key={line} className="flex items-baseline gap-1.5">{(at > 0 || replies) && <span aria-hidden>·</span>}{line}</span>
               ))}
+              {faded > 0 && post.type !== 'day' && (
+                <span data-feed-faded className="flex items-baseline gap-1.5">
+                  {(history.length > 0 || replies) && <span aria-hidden>·</span>}
+                  Shown less often ({timesSaid(faded)})
+                  <span aria-hidden>·</span>
+                  <button type="button" data-show-as-before onClick={() => (setChosen(null), showAsBefore(post.type === 'question' ? 'nugget' : post.type, post.id))} className="rounded-sm text-foreground underline-offset-2 hover:underline">Show as before</button>
+                </span>
+              )}
             </p>
           )}
           {restacking && <Restack post={post} onDone={() => setRestacking(false)} onOpen={(id) => onOpenOther('nugget', id)} />}
@@ -442,13 +506,8 @@ function PollPost({ post, onOpen }: { post: FeedPost; onOpen: () => void }): Rea
           {/* Always there, so nothing below moves when you choose. */}
           <p data-feed-poll-said className="min-h-5 text-control text-muted-foreground">
             {answer ? <>Kept on the decision as “Looking back: {answer}”.{total > 1 && <> Your answers so far: <span data-feed-poll-split className="text-foreground">{answersSaid(answers)}</span>.</>}</> : 'Your answer is kept on the decision, dated today.'}
+            {' '}<OpenLink onOpen={onOpen}>Open the decision</OpenLink>
           </p>
-          <div data-feed-actions className="-ml-2 flex items-center text-muted-foreground">
-            <span className="flex-1" />
-            <button type="button" data-feed-open onClick={onOpen} className="flex h-7 items-center gap-1.5 rounded-md px-2 text-control transition-colors hover:bg-foreground/[0.06] hover:text-foreground">
-              <ArrowUpRight className="size-4" /> Open
-            </button>
-          </div>
         </div>
       </div>
     </li>
@@ -497,20 +556,27 @@ function QuizPost({ post, onOpen }: { post: FeedPost; onOpen: () => void }): Rea
               </div>
               <p data-feed-quiz-said className="min-h-5 text-control text-muted-foreground">
                 {graded ? `Graded “${GRADES[graded.grade - 1].label}”, as Review would: back ${backIn(graded.due)}.` : 'How did it feel? It counts as a review.'}
+                {' '}<OpenLink onOpen={onOpen}>Open the card</OpenLink>
               </p>
             </>
           ) : (
-            <button type="button" data-feed-quiz-show onClick={reveal} className="h-8 w-[9rem] rounded-md border text-control font-medium text-foreground transition-colors hover:bg-foreground/[0.06]">Show answer</button>
+            <span className="flex items-center gap-3">
+              <button type="button" data-feed-quiz-show onClick={reveal} className="h-8 w-[9rem] rounded-md border text-control font-medium text-foreground transition-colors hover:bg-foreground/[0.06]">Show answer</button>
+              <OpenLink onOpen={onOpen}>Open the card</OpenLink>
+            </span>
           )}
-          <div data-feed-actions className="-ml-2 flex items-center text-muted-foreground">
-            <span className="flex-1" />
-            <button type="button" data-feed-open onClick={onOpen} className="flex h-7 items-center gap-1.5 rounded-md px-2 text-control transition-colors hover:bg-foreground/[0.06] hover:text-foreground">
-              <ArrowUpRight className="size-4" /> Open
-            </button>
-          </div>
         </div>
       </div>
     </li>
+  )
+}
+
+/** "Open the decision": a quiet link at the end of a poll's or a quiz card's line, not a lone button on a row of its own. */
+function OpenLink({ onOpen, children }: { onOpen: () => void; children: React.ReactNode }): React.JSX.Element {
+  return (
+    <button type="button" data-feed-open onClick={onOpen} className="inline-flex items-baseline gap-1 rounded-sm text-control text-foreground/80 underline-offset-2 hover:text-foreground hover:underline">
+      {children}<ArrowUpRight className="size-3.5 self-center" />
+    </button>
   )
 }
 
@@ -610,7 +676,7 @@ function SideColumn(): React.JSX.Element | null {
   const go = (run: () => void): void => (chime('page'), run())
   const row = 'flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left text-control text-foreground transition-colors hover:bg-accent/60'
   return (
-    <aside data-feed-side aria-label="Beside the Feed" className="sticky top-[33px] hidden w-[15.5rem] shrink-0 flex-col gap-3 @[56rem]/page:flex">
+    <aside data-feed-side aria-label="Beside the Feed" className="sticky top-[33px] mt-[3.25rem] hidden w-[15.5rem] shrink-0 flex-col gap-3 @[56rem]/page:flex">
       {faces.length > 0 && (
         <SideCard name="sources" title="Your sources">
           <div className="flex flex-wrap gap-1.5 px-2 pt-0.5 pb-1.5">

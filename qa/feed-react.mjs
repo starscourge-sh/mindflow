@@ -18,6 +18,8 @@ let fresh = []
 const nth = (n) => h.locator(`[data-feed-id="${fresh[n]}"]`)
 const boxes = (post) => post.locator('[data-feed-actions] > *').evaluateAll((all) => all.map((one) => { const r = one.getBoundingClientRect(); return `${Math.round(r.x)},${Math.round(r.width)}` }).join(' '))
 const paint = (name) => h.evaluate((n) => { localStorage.setItem('theme', n); window.dispatchEvent(new StorageEvent('storage', { key: 'theme' })); document.documentElement.classList.toggle('dark', n === 'dark') }, name)
+// A reaction from the post's ⋯ menu: "Changed my mind" and "Use this" wait there.
+const fromMenu = async (post, value) => { await post.locator('[data-feed-actions] [data-menu="post"]').click(); await h.waitForTimeout(300); await h.locator(`[role="menu"] [data-menu-item="${value}"]`).click() }
 const reactionOf = async (id) => (await v('feed')).posts.find((one) => one.id === id)?.react ?? null
 try {
   fresh = (await v('feed')).posts.filter((one) => one.type === 'nugget' && one.kind !== 'quote' && !one.replies && !one.restack).map((one) => one.id)
@@ -39,7 +41,7 @@ try {
   void visitedBefore
 
   // Changing it: one a post a day.
-  await first.locator('[data-feed-reaction="changed"]').click()
+  await fromMenu(first, 'changed')
   await h.waitForTimeout(700)
   check('"Changed my mind" opens Reply with the cursor in it', await h.evaluate(() => document.activeElement?.tagName === 'TEXTAREA' && !!document.activeElement.closest('[data-gloss]')))
   check('"Changed my mind" asks what you think now', (await h.evaluate(() => document.activeElement?.getAttribute('placeholder') ?? '')).includes('think now'))
@@ -53,7 +55,7 @@ try {
   const second = nth(1)
   const secondId = await second.getAttribute('data-feed-id')
   await second.scrollIntoViewIfNeeded()
-  await second.locator('[data-feed-reaction="use"]').click()
+  await fromMenu(second, 'use')
   await h.waitForTimeout(900)
   const today = (await v('feed')).day
   const dayBody = JSON.stringify(await v('notes:day', today))
@@ -88,7 +90,7 @@ try {
   await go('feed')
   await h.waitForTimeout(1000)
   check('reactions are still chosen after a reload',
-    await h.locator(`[data-feed-id="${firstId}"] [data-feed-reaction="changed"]`).getAttribute('aria-pressed') === 'true' &&
+    await h.locator(`[data-feed-id="${firstId}"]`).getAttribute('data-feed-react') === 'changed' &&
     await h.locator(`[data-feed-id="${thirdId}"] [data-feed-reaction="less"]`).getAttribute('aria-pressed') === 'true')
 
   for (const name of ['light', 'dark']) {

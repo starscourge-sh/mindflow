@@ -33,6 +33,10 @@ export type FeedPost = {
   replies: number
   firstReply: string | null
   seenTimes: number
+  /** How many times "Less of this" (or a hint's thumbs down) has faded it, net of any thumbs up: 0 for as before. */
+  faded: number
+  /** Its tags, a few, each a way to its tag page. */
+  tags: string[]
   /** A gem you restacked: the note it quotes. */
   restack: { type: FeedPost['type']; id: string; title: string; text: string; who: string | null; kind: string } | null
   /** A decision made weeks ago, asked about again: what you said today, and every answer you have given it. */
@@ -69,7 +73,9 @@ export type Feed = { day: string; posts: FeedPost[]; safe: boolean }
 /** The Feed's side column: who and what has gone quiet, and the tags you wrote most this week. Never anything about other people. */
 export type FeedSide = { quiet: { kind: 'source' | 'tag'; name: string; last: string }[]; week: { tag: string; n: number }[] }
 
-const SIZE = 20
+const SIZE = 24
+/** Times faded, from its weight: each "Less of this" is one step of LESS. */
+export const fadedSteps = (weight: number | null | undefined): number => (weight && weight < 0.99 ? Math.max(1, Math.round(Math.log(weight) / Math.log(LESS))) : 0)
 /** A Page's dek: about this long, cut at a word. */
 const DEK = 180
 /** A link's label clipped short: "Rosetta Stone, found in 1799: one decre…". */
@@ -296,8 +302,10 @@ export function registerFeed(): void {
       return old ? { type: old.type, id: old.id, title: old.title, text: words(old), who: old.who?.trim() || null, kind: old.kind } : null
     }
     const graded = db.prepare('select grade, due from feed_quiz where day = ? and id = ?')
+    // Read now, not from the morning's pool: a "Less of this" a moment ago shows at once.
+    const weightOf = (row: Row): number => { const table = tableOf(row.type); return table ? ((db.prepare(`select surfacing_weight as w from ${table} where id = ?`).get(row.id) as { w: number } | undefined)?.w ?? 1) : 1 }
     const pollAnswer = db.prepare('select answer from feed_polls where day = ? and key = ?')
-    const blank = { who: null, seen: null, gloss: null, clue: null, react: null, replies: 0, firstReply: null, seenTimes: 0, restack: null }
+    const blank = { who: null, seen: null, gloss: null, clue: null, react: null, replies: 0, firstReply: null, seenTimes: 0, faded: 0, tags: [], restack: null }
     const asked = (key: string): FeedPost[] => {
       const [type, rest] = split(key)
       if (type === 'poll') {
@@ -323,7 +331,7 @@ export function registerFeed(): void {
       return [{
         type: row.type, id: row.id, kind: row.kind, title: row.title, text: words(row), who: row.who?.trim() || null, made: row.made,
         seen: lastSeen(row), gloss: row.type === 'question' ? null : gloss, clue: row.type === 'question' ? (gloss?.body ?? null) : null,
-        react: reacts.get(key) ?? null, replies: span.n, firstReply: span.first, seenTimes: times.get(row.id) ?? 0, restack: quoted(row)
+        react: reacts.get(key) ?? null, replies: span.n, firstReply: span.first, seenTimes: times.get(row.id) ?? 0, faded: fadedSteps(weightOf(row)), tags: tagsOfRow(row).filter((tag) => tag !== 'bit' && tag !== LEARN_TAG).slice(0, 3), restack: quoted(row)
       }]
     })
     return { day: today, posts, safe: false }
@@ -464,6 +472,30 @@ export function registerFeed(): void {
     }
     changed({ kind: table === 'captures' ? 'capture' : 'item', id })
     return reaction
+  })
+
+  // How far it has faded, for a note's own details; and "Show as before", which takes every fade back.
+  ipcMain.handle('haligtree:feed:faded', (_event, type: string, id: string): number => {
+    const table = tableOf(type)
+    return table ? fadedSteps((db.prepare(`select surfacing_weight as w from ${table} where id = ?`).get(id) as { w: number } | undefined)?.w) : 0
+  })
+  ipcMain.handle('haligtree:feed:unfade', (_event, type: string, id: string): number | null => {
+    const table = tableOf(type)
+    if (!table) return null
+    const was = (db.prepare(`select surfacing_weight as w from ${table} where id = ?`).get(id) as { w: number } | undefined)?.w ?? 1
+    db.prepare(`update ${table} set surfacing_weight = 1 where id = ? and surfacing_weight < 1`).run(id)
+    // Today's "Less of this" goes with it, so the post no longer says it.
+    for (const key of [`${type}:${id}`, ...(type === 'nugget' ? [`question:${id}`, `article:${id}`] : [])]) db.prepare("delete from feed_reacts where day = ? and key = ? and reaction = 'less'").run(dayKey(), key)
+    changed({ kind: table === 'captures' ? 'capture' : 'item', id })
+    return was
+  })
+  // Undo of "Show as before": the weight it had.
+  ipcMain.handle('haligtree:feed:refade', (_event, type: string, id: string, weight: number): boolean => {
+    const table = tableOf(type)
+    if (!table || !(Number(weight) > 0)) return false
+    db.prepare(`update ${table} set surfacing_weight = ? where id = ?`).run(Number(weight), id)
+    changed({ kind: table === 'captures' ? 'capture' : 'item', id })
+    return true
   })
 
   // Use this: a line on today's Journal page linking to it, where you write today.

@@ -238,13 +238,13 @@ export function QuietAction({ label, onClick, pressed, children }: { label: stri
 }
 
 /** ··· as a button: the same lines a right click gives. */
-export function MenuButton({ items, label = 'More', small = false }: { items: MenuItem[]; label?: string; small?: boolean }): React.JSX.Element {
+export function MenuButton({ items, label = 'More', small = false, name }: { items: MenuItem[]; label?: string; small?: boolean; /** Its data-menu, for a probe. */ name?: string }): React.JSX.Element {
   const shown = items.filter(Boolean) as Exclude<MenuItem, false | null | undefined>[]
   return (
     <DropdownMenu modal={false}>
       <Tip label={label}>
         <DropdownMenuTrigger asChild>
-          <button type="button" className={small ? 'flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/[0.08] hover:text-foreground data-[state=open]:text-foreground' : QUIET}>
+          <button type="button" aria-label={label} data-menu={name} className={small ? 'flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/[0.08] hover:text-foreground data-[state=open]:text-foreground' : QUIET}>
             <AliveIcon icon={DotsHorizontalIcon} size={small ? 16 : 20} />
           </button>
         </DropdownMenuTrigger>
@@ -254,8 +254,10 @@ export function MenuButton({ items, label = 'More', small = false }: { items: Me
           item === 'separator' ? (
             index > 0 && index < shown.length - 1 && shown[index - 1] !== 'separator' && <DropdownMenuSeparator key={`separator-${index}`} />
           ) : (
-            <DropdownMenuItem key={item.label} variant={item.danger ? 'destructive' : 'default'} onSelect={item.run}>
+            <DropdownMenuItem key={item.label} data-menu-item={item.id} variant={item.danger ? 'destructive' : 'default'} onSelect={item.run}>
+              {item.icon}
               {item.label}
+              {item.trail}
               {item.keys && keyFor(item.keys) && <DropdownMenuShortcut>{keyFor(item.keys)}</DropdownMenuShortcut>}
             </DropdownMenuItem>
           )

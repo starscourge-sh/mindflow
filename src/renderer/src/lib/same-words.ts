@@ -40,6 +40,35 @@ export function foldIn(base: unknown, mine: unknown, theirs: unknown): unknown |
 }
 
 /**
+ * An open editor shows `doc` now, as written elsewhere. Only the part that
+ * differs is replaced, so the caret stays with the words around it. Not an
+ * undo step: ⌘Z takes back your typing, not the other window's. Markdown (an
+ * import never opened) is read whole.
+ */
+export function showIn(ed: Editor, doc: unknown): void {
+  if (ed.isDestroyed) return
+  try {
+    if (typeof doc === 'string') throw new Error('markdown')
+    const next = ed.schema.nodeFromJSON(doc ?? { type: 'doc', content: [] })
+    const now = ed.state.doc
+    const start = now.content.findDiffStart(next.content)
+    if (start !== null) {
+      let { a, b } = now.content.findDiffEnd(next.content) ?? { a: now.content.size, b: next.content.size }
+      const overlap = start - Math.min(a, b)
+      if (overlap > 0) {
+        a += overlap
+        b += overlap
+      }
+      ed.view.dispatch(ed.state.tr.replace(start, a, next.slice(start, b)).setMeta('addToHistory', false).setMeta('preventUpdate', true))
+    }
+  } catch {
+    ed.chain().setMeta('addToHistory', false)
+      .setContent((doc ?? '') as JSONContent | string, { emitUpdate: false, ...(typeof doc === 'string' ? { contentType: 'markdown' as const } : {}) })
+      .run()
+  }
+}
+
+/**
  * One note's editor saving without ever writing over someone else's words.
  *
  * Each save says which body it was made from; the main process writes it
@@ -70,31 +99,9 @@ export function useSameWords(table: NoteTable, id: string | undefined, loaded: u
   // The editor shows `doc` from now on, which its saves then start from.
   const show = (note: Note, doc: unknown): void => {
     note.base = doc
-    const ed = note.editor
-    if (ed.isDestroyed) return
-    // Only the part that differs is replaced, so the caret stays with the
-    // words around it. Not an undo step: ⌘Z takes back your typing, not the
-    // other window's. Markdown (an import never opened) is read whole.
-    try {
-      if (typeof doc === 'string') throw new Error('markdown')
-      const next = ed.schema.nodeFromJSON(doc ?? { type: 'doc', content: [] })
-      const now = ed.state.doc
-      const start = now.content.findDiffStart(next.content)
-      if (start !== null) {
-        let { a, b } = now.content.findDiffEnd(next.content) ?? { a: now.content.size, b: next.content.size }
-        const overlap = start - Math.min(a, b)
-        if (overlap > 0) {
-          a += overlap
-          b += overlap
-        }
-        ed.view.dispatch(ed.state.tr.replace(start, a, next.slice(start, b)).setMeta('addToHistory', false).setMeta('preventUpdate', true))
-      }
-    } catch {
-      ed.chain().setMeta('addToHistory', false)
-        .setContent((doc ?? '') as JSONContent | string, { emitUpdate: false, ...(typeof doc === 'string' ? { contentType: 'markdown' as const } : {}) })
-        .run()
-    }
-    note.sent = JSON.stringify(ed.getJSON())
+    if (note.editor.isDestroyed) return
+    showIn(note.editor, doc)
+    note.sent = JSON.stringify(note.editor.getJSON())
   }
 
   const once = async (note: Note, body: JSONContent): Promise<void> => {

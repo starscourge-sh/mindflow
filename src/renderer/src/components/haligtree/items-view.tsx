@@ -1,4 +1,5 @@
 import { notePowers } from './note-powers'
+import { FadedLine } from './feed-view'
 import { openExpanded } from '../note-link/expanded-note'
 import { propertySorts } from '@/lib/property-sorts'
 import { ReadsIn } from '@/lib/reads-in'
@@ -859,6 +860,8 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
               void haligtree.saveItem(item.id, id === 'off' ? { suspended: true } : { suspended: false, ...(id === 'tested' ? {} : { mode: id }) })
                 .then(() => (chime(id === 'off' ? 'off' : 'on'), toast(said[id], () => void haligtree.saveItem(item.id, back))))
             }} />
+          {/* "Less of this" (the Feed's, or a hint's thumbs down) said in words, with the way back. */}
+          <FadedLine type="nugget" id={item.id} className="px-2 pb-1" />
           <Does does="A question this gem answers. Filled in, it is tested in Review on a schedule; empty, it comes back on its own now and then" set={!!prompt}>
           <Textarea
             value={prompt}

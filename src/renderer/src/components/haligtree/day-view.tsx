@@ -15,6 +15,7 @@ import { sideMenu, useFullMenu } from './side-menu'
 import { exampleDay } from '@/lib/examples'
 import { Example } from './example'
 import { useKept } from '@/lib/nav'
+import { showIn } from '@/lib/same-words'
 import { Island, Page, Rolling, Tags, Tip, typing, quietly } from './ui'
 import { PICKED_MARK, usePickMixed } from './pick-mixed'
 import { taskName } from '@/lib/tasks'
@@ -85,6 +86,21 @@ export function DayView({ onOpen, start, onScale, onView }: {
   const [listed, setListed] = useState<string[]>([])
   // The day's writing, once its editor is made: the caret goes in it as the page shows (CaretIn).
   const [writer, setWriter] = useState<Editor | null>(null)
+  // Written elsewhere while open (the Feed's "Use this", a Blurt, the other
+  // window): with nothing of yours waiting to save, the page shows it at once.
+  // `known` is the stored words this editor last matched, `sent` its own words then.
+  const known = useRef<{ body: string; sent: string } | null>(null)
+  const ready = (editor: Editor): void => {
+    known.current = { body: JSON.stringify(data?.body ?? null), sent: JSON.stringify(editor.getJSON()) }
+    setWriter(editor)
+  }
+  useEffect(() => {
+    if (!writer || writer.isDestroyed || !data || data.day !== day || past || !known.current) return
+    const body = JSON.stringify(data.body ?? null)
+    if (body === known.current.body || JSON.stringify(writer.getJSON()) !== known.current.sent) return
+    showIn(writer, data.body ?? '')
+    known.current = { body, sent: JSON.stringify(writer.getJSON()) }
+  }, [data, writer, day, past])
   const go = (to: string): void => {
     if (to === day) return
     chime('page')
@@ -151,8 +167,8 @@ export function DayView({ onOpen, start, onScale, onView }: {
             onTokenClick={(token) => token.name === 'tag' && onOpen?.('tag', token.value)}
             outline={false}
             autofocus={false}
-            onReady={setWriter}
-            onChange={(body) => void notes.saveDay(day, { body })}
+            onReady={ready}
+            onChange={(body) => (known.current = { body: JSON.stringify(body), sent: JSON.stringify(body) }, void notes.saveDay(day, { body }))}
           />
           <CaretIn editor={writer} day={day} />
           </div>

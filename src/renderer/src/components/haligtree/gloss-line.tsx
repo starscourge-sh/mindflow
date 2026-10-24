@@ -127,7 +127,13 @@ export function putBack(field: React.RefObject<HTMLTextAreaElement | HTMLInputEl
  * is clicked (or ; is pressed), when it opens into a field right where it
  * sits. Enter keeps it, Shift-Enter starts a second line, Escape lets it go.
  */
-export function GlossLine({ id, className, placeholder = 'A thought on it, in your own words', latest = true, quiet = false, open = false, onDone, keys = ';' }: {
+/** Words cut at a word, with one ellipsis, only when they run long. */
+const cutWords = (text: string, size: number): string => {
+  const flat = text.replace(/\s+/g, ' ').trim()
+  return flat.length > size ? `${flat.slice(0, size).replace(/\s+\S*$/, '').replace(/[\s,;:·–-]+$/, '')}…` : flat
+}
+
+export function GlossLine({ id, className, placeholder = 'A thought on it, in your own words', latest = true, quiet = false, open = false, onDone, keys = ';', onRead }: {
   id: string
   /** Takes no room until there is something to show: a gloss, or the field once ; or the row's menu opens it. */
   quiet?: boolean
@@ -141,6 +147,8 @@ export function GlossLine({ id, className, placeholder = 'A thought on it, in yo
   onDone?: () => void
   /** The key that opens it here: ⌘; where a field has the keys. */
   keys?: string
+  /** The line opens where every thought on it is read (the Feed's thread), its words cut at a word; writing is the row's own Reply. */
+  onRead?: () => void
 }): React.JSX.Element {
   const glosses = useLive(() => haligtree.glosses(id), [] as Gloss[], [id])
   // The page it is on waits for its thoughts, so a line never comes in under what was drawn.
@@ -226,21 +234,22 @@ export function GlossLine({ id, className, placeholder = 'A thought on it, in yo
             animate={{ opacity: 1 }}
             exit={{ opacity: 0, transition: { duration: 0 } }}
             transition={{ duration: 0.12 }}
-            onClick={() => (chime('tap'), setWriting(true))}
+            onClick={() => (onRead && last ? onRead() : (chime('tap'), setWriting(true)))}
+            data-gloss-read={onRead && last ? '' : undefined}
             title={last ? `${said(last)} ${last.body}` : undefined}
             className="group/gloss flex w-full min-w-0 items-center gap-1.5 rounded-md py-0.5 text-left text-muted-foreground/80 transition-colors hover:text-foreground focus-visible:text-foreground focus-visible:outline-none"
           >
             <MessageSquareText className="size-3.5 shrink-0" />
             {last ? (
-              <span className="min-w-0 flex-1 truncate">
+              <span className={cn('min-w-0 flex-1', onRead ? 'line-clamp-2' : 'truncate')}>
                 <span className="text-muted-foreground">{said(last)} </span>
-                <span className="private-text">{last.body}</span>
+                <span className={cn('private-text', onRead && 'group-hover/gloss:underline')}>{onRead ? cutWords(last.body, 140) : last.body}</span>
               </span>
             ) : (
               <span className="min-w-0 flex-1 truncate">Add a thought…</span>
             )}
-            {last && <span className="shrink-0 opacity-0 transition-opacity group-hover/gloss:opacity-100 group-focus-visible/gloss:opacity-100">Add a thought</span>}
-            <span className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover/gloss:opacity-100 group-focus-visible/gloss:opacity-100"><Pressed keys={keys} each /></span>
+            {last && !onRead && <span className="shrink-0 opacity-0 transition-opacity group-hover/gloss:opacity-100 group-focus-visible/gloss:opacity-100">Add a thought</span>}
+            {!onRead && <span className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover/gloss:opacity-100 group-focus-visible/gloss:opacity-100"><Pressed keys={keys} each /></span>}
           </motion.button>
         )}
       </AnimatePresence>

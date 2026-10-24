@@ -27,6 +27,7 @@ import { FitToMe } from './study'
 import { onboarding, tryWelcome, useOnboarding } from '@/lib/onboarding'
 import { call, useLive, haligtree, type GiphyMedia, type GiphyPin, type MomentKind, type Settings } from '@/lib/haligtree'
 import { Chips } from './display'
+import { Avatar } from './avatar'
 import { setPageWidth, widthOf, type PageWidth } from '@/lib/reading'
 import { SoundPacks } from './sound-packs'
 import { FontPicker, TextSize } from './font-picker'
@@ -589,6 +590,9 @@ export function SettingsView(): React.JSX.Element {
             <Switch checked={settings.thumbnails !== false} onCheckedChange={(thumbnails) => set({ thumbnails })} />
           </Setting>
           <Setting title="Covers" note="What a note with no picture of its own wears on its card and row." more="Each is tinted to the note's colour." keywords="covers cover drawings paper sketch gradients tiles thumbnails grid cards placeholder folder grain" below={<CoverChoice settings={settings} set={set} />} />
+          <Setting title="Avatars" note="The face a source, or you, wears in the Feed and on a source's page until you give it a picture." more="“Shapes” gives each name its own shape from Coolshapes, tinted by your theme; the same name always wears the same one." keywords="avatars faces initials shapes coolshapes circles people sources feed accounts"
+            below={<Choices label="Avatars" options={(['shapes', 'initials'] as const).map((look) => ({ id: look, label: look === 'shapes' ? 'Shapes' : 'Initials', show: <AvatarSample look={look} /> }))}
+              on={(id) => id === (settings.avatars ?? 'shapes')} pick={(avatars) => set({ avatars: avatars as Settings['avatars'] })} />} />
         </Group>
         <Group section="Appearance" title="Window placement">
           <Setting title="Keep quick capture centred" note="Quick capture grows on both sides when its panel opens, so it stays centred." more="Off, it grows to the right." keywords="box window centre center grow panel expand position place">
@@ -1963,5 +1967,14 @@ function PutAwayBefore(): React.JSX.Element {
       <Chips className="shrink-0" options={choices.map((id) => ({ id, label: dayjs(id).format(dayjs(id).year() === dayjs().year() ? 'D MMM' : 'D MMM YYYY') }))} on={(id) => id === day} pick={setDay} />
       <Button variant="secondary" size="sm" onClick={go}>Put away</Button>
     </Setting>
+  )
+}
+
+/** A few faces as they would look: the names a Feed is likely to hold. */
+function AvatarSample({ look }: { look: 'shapes' | 'initials' }): React.JSX.Element {
+  return (
+    <span data-preview="avatars" data-avatar-look={look} className="flex h-full items-center justify-center gap-2">
+      {['You', 'Seneca', 'Mary Oliver', 'Paul Graham'].map((name) => <Avatar key={name} name={name} size={30} look={look} />)}
+    </span>
   )
 }

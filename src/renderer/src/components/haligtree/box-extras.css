@@ -34,6 +34,20 @@
   pointer-events: none;
 }
 .mf-avatar img { width: 100%; height: 100%; object-fit: cover; }
+/* A shape from Coolshapes under the initials (avatar.tsx): soft tints of the theme's own, the letters in its ink. */
+.mf-avatar-shape { display: none; }
+.mf-avatar > span { position: relative; }
+:is(:root:not([data-avatars='initials']) .mf-avatar[data-avatar-shape]:not([data-look='initials']), .mf-avatar[data-avatar-shape][data-look='shapes']) {
+  --mf-shape-a: color-mix(in oklab, var(--mf-shape-from) 30%, var(--background));
+  --mf-shape-b: color-mix(in oklab, var(--mf-shape-to) 46%, var(--background));
+  background: none;
+  border-radius: 0;
+  overflow: visible;
+  color: var(--foreground);
+}
+:is(:root:not([data-avatars='initials']) .mf-avatar[data-avatar-shape]:not([data-look='initials']), .mf-avatar[data-avatar-shape][data-look='shapes']) > span { text-shadow: 0 0 calc(var(--s) * 0.08) var(--mf-shape-a), 0 0 calc(var(--s) * 0.18) var(--mf-shape-a); }
+:is(:root:not([data-avatars='initials']) .mf-avatar[data-avatar-shape]:not([data-look='initials']), .mf-avatar[data-avatar-shape][data-look='shapes']) .mf-avatar-shape { display: block; position: absolute; inset: 0; width: 100%; height: 100%; }
+:is(:root:not([data-avatars='initials']) .mf-avatar[data-avatar-shape]:not([data-look='initials']), .mf-avatar[data-avatar-shape][data-look='shapes'])::after { display: none; }
 .mf-signed > .mf-avatar { align-self: center; }
 
 /* A toast in the box sits in the footer's row: what shares the row with it steps back. */

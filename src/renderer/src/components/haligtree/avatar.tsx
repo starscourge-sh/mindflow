@@ -4,21 +4,50 @@ import type { CSSProperties, ReactElement } from 'react'
 import { hueOf, initials, pasteAvatar, pickAvatar, setAvatar, useAvatar } from '@/lib/people'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuLabel, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { toast } from './ui'
+import { SHAPES, TINTS } from './coolshapes'
 import './box-extras.css'
 
+/** One number for a name, always the same: which shape, and which two tints. */
+const hashOf = (name: string): number => {
+  let hash = 2166136261
+  for (const char of name.toLowerCase()) hash = Math.imul(hash ^ char.codePointAt(0)!, 16777619) >>> 0
+  return hash
+}
+
 /**
- * A person's face, small and round with a hairline ring, wherever their name
- * is: the picture you gave them, or their initials in a soft circle tinted by
- * a colour that is always the same for that name.
+ * A person's face, small, wherever their name is: the picture you gave them,
+ * or else their initials over a shape from Coolshapes picked by their name,
+ * so the same name always wears the same one. The shape is filled with two of
+ * the theme's tag tints, soft enough that the letters read in every theme.
+ * With “Avatars” set to “Initials” (the root's data-avatars), the initials sit
+ * in a soft round tint instead.
  */
-export function Avatar({ name, size = 16, className = '' }: { name: string; size?: number; className?: string }): React.JSX.Element | null {
+export function Avatar({ name, size = 16, className = '', look }: { name: string; size?: number; className?: string; /** Settings' sample: this look whatever the setting says. */ look?: 'shapes' | 'initials' }): React.JSX.Element | null {
   const avatar = useAvatar(name)
   const trimmed = name.trim()
   if (!trimmed) return null
-  const style = { '--mf-avatar-size': `${size}px`, '--mf-avatar-hue': hueOf(trimmed) } as CSSProperties
+  const hash = hashOf(trimmed)
+  const shape = hash % SHAPES.length
+  const from = (hash >>> 4) % TINTS.length
+  const to = (from + 1 + ((hash >>> 9) % (TINTS.length - 1))) % TINTS.length
+  const style = { '--mf-avatar-size': `${size}px`, '--mf-avatar-hue': hueOf(trimmed), '--mf-shape-from': `var(--tt-color-text-${TINTS[from]})`, '--mf-shape-to': `var(--tt-color-text-${TINTS[to]})` } as CSSProperties
+  const id = `mf-shape-${hash.toString(36)}`
   return (
-    <span aria-hidden data-avatar={avatar ? 'picture' : 'initials'} className={`mf-avatar ${className}`} style={style}>
-      {avatar ? <img src={avatar} alt="" draggable={false} /> : <span>{initials(trimmed)}</span>}
+    <span aria-hidden data-avatar={avatar ? 'picture' : 'initials'} data-avatar-shape={avatar ? undefined : shape} data-look={look} className={`mf-avatar ${className}`} style={style}>
+      {avatar ? <img src={avatar} alt="" draggable={false} /> : (
+        <>
+          <svg viewBox="0 0 200 200" className="mf-avatar-shape" aria-hidden>
+            <defs>
+              <linearGradient id={id} x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" style={{ stopColor: 'var(--mf-shape-a)' }} />
+                <stop offset="1" style={{ stopColor: 'var(--mf-shape-b)' }} />
+              </linearGradient>
+            </defs>
+            <path d={SHAPES[shape]} fill={`url(#${id})`} />
+          </svg>
+          <span>{initials(trimmed)}</span>
+        </>
+      )}
     </span>
   )
 }

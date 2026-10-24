@@ -21,6 +21,11 @@ import vitruvianUrl from '@/assets/sandbox/vitruvian-man.webp'
 import atlanticusUrl from '@/assets/sandbox/codex-atlanticus.webp'
 import delphicUrl from '@/assets/sandbox/delphic-sibyl.webp'
 import sibylStudyUrl from '@/assets/sandbox/libyan-sibyl-study.webp'
+import hayWainUrl from '@/assets/scenery/hay-wain.webp'
+import temeraireUrl from '@/assets/scenery/fighting-temeraire.webp'
+import wandererUrl from '@/assets/scenery/wanderer.webp'
+import ninthWaveUrl from '@/assets/scenery/ninth-wave.webp'
+import oxbowUrl from '@/assets/scenery/the-oxbow.webp'
 import { clip } from '../../../main/clip'
 import { call } from '@/lib/haligtree'
 import { APP_NAME } from '../../../main/name'
@@ -1289,6 +1294,24 @@ The same move works on anything hard. Put what you know beside what you do not. 
   // quote checked against the public-domain edition it cites.
   const [trinityPic, tributePic, idealCityPic, vitruvianPic, atlanticusPic, delphicPic, sibylStudyPic] = await Promise.all(
     [trinityUrl, tributeUrl, idealCityUrl, vitruvianUrl, atlanticusUrl, delphicUrl, sibylStudyUrl].map(picture))
+
+  // A few gems kept with the painting they are about, from long ago, so the
+  // Feed has pictures to show the way a real book would. All public domain,
+  // the same pictures the scenery uses.
+  const paintings = [
+    [hayWainUrl, 'The Hay Wain', 'Constable painted it in his London studio, from sketches made by the river Stour.', 'John Constable, 1821', 260],
+    [temeraireUrl, 'The Fighting Temeraire', 'A warship from Trafalgar towed away to be broken up, by a small steam tug.', 'J. M. W. Turner, 1839', 310],
+    [wandererUrl, 'Wanderer above the Sea of Fog', 'We never see his face, so the view becomes ours.', 'Caspar David Friedrich, about 1818', 355],
+    [ninthWaveUrl, 'The Ninth Wave', "Sailors' lore says the ninth wave is the biggest. They are holding on to the mast.", 'Ivan Aivazovsky, 1850', 400],
+    [oxbowUrl, 'The Oxbow', 'Wilderness on the left, farms on the right, and the storm passing between them.', 'Thomas Cole, 1836', 445]
+  ] as const
+  const paintingAges: unknown[] = []
+  for (const [url, name, line, by, back] of paintings) {
+    const gem = await call<string>('nugget:from', `${name}\n\n![${name}, ${by}](${await picture(url)})\n\n${line}`, {})
+    paintingAges.push({ createdAt: at(-back, '21:10'), nuggetId: gem })
+    nuggets++
+  }
+  await call('sandbox:age', paintingAges)
   const vasari = (life: string): string => `Lives of the Painters, Life of ${life}, tr. Gaston du C. de Vere (1912)`
   const richter = (section: number): string => `The Notebooks, §${section}, tr. Jean Paul Richter (1883)`
   const renAges: unknown[] = []
