@@ -276,7 +276,7 @@ const WIDE = 324
 const REST = 44
 const CAPSULE = { width: 132, height: 30 }
 /** Above the pill, inside its window: where it hangs from. */
-const TOP = 8
+const TOP = 14
 /** Below it: room for its shadow (64 in all at rest, the window main.ts makes). */
 const BELOW = 12
 /**
@@ -375,9 +375,8 @@ const NOTCH_INKS = {
 } as CSSProperties
 /** The notch's width, near enough on every notched Mac, left clear between the wings. */
 const NOTCH_WIDTH = 200
-/** Under the notch: the room a tip opening below needs, given to the window only while one is open. */
+/** The room a tip opening below needs, given to the window only while one is open (the window is only as tall as the pill). */
 const TIP_ROOM = 34
-const NO_PLACE = {}
 /** How long a break's card holds the bubble open to be read, unless pointed at. */
 const MOMENT_SHOWN = 8000
 
@@ -500,7 +499,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
   // Under the notch a tip opens below what it names (never up into the notch): room for it while one is open.
   const [tipping, setTipping] = useState(false)
   // Open, room for the spring to overshoot as well as for the shadow.
-  const want = Math.ceil(Math.max(REST, target) + top + BELOW + (target > restH ? 16 : 0) + (tucked && tipping ? TIP_ROOM : 0))
+  const want = Math.ceil(Math.max(REST, target) + top + BELOW + (target > restH ? 16 : 0) + (tipping ? TIP_ROOM : 0))
   // Asked for once as it mounts, whatever size an earlier session left it.
   const [room, setRoom] = useState(0)
   useEffect(() => {
@@ -510,7 +509,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
     const later = setTimeout(() => void window.api.focusSize(want).then(() => setRoom(want)), calm ? 0 : 650)
     return () => clearTimeout(later)
   }, [want, room, calm])
-  const height = Math.max(restH, Math.min(target, room - top - BELOW - (target > restH ? 16 : 0) - (tucked && tipping ? TIP_ROOM : 0)))
+  const height = Math.max(restH, Math.min(target, room - top - BELOW - (target > restH ? 16 : 0) - (tipping ? TIP_ROOM : 0)))
 
   // A new session: up from under the menu bar as a capsule, then open, then
   // after a moment the pill. With Motion off or Reduce motion, a fade.
@@ -918,7 +917,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
       className={`${className} min-w-0 flex-1 rounded-md bg-[color-mix(in_oklab,var(--foreground)_8%,transparent)] px-1.5 outline-none placeholder:text-muted-foreground`} />
   ) : timer ? <span className={`${className} min-w-0 flex-1 truncate`}>{words}</span> : (
     <span className="group/goal flex min-w-0 flex-1 items-center gap-1">
-      <Tip label={practiceTarget ? 'Open what this practice loads' : bare ? 'Name this session' : 'Open the task, at its sessions'}>
+      <Tip label={practiceTarget ? 'Open this practice' : bare ? 'Name this session' : 'Open the task, at its sessions'}>
         <button type="button" data-session-goal={practiceTarget ? 'practice' : bare ? 'bare' : 'task'} onClick={practiceTarget ? () => (chime('open'), window.api.openInHome('practice', focus.practiceId ?? 'new')) : bare ? startNaming : openSession}
           className={`${className} -my-1 min-w-0 truncate py-1 text-left outline-none hover:underline decoration-foreground/30 underline-offset-2 focus-visible:underline`}>
           {words}
@@ -1037,8 +1036,9 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
       {practiceTarget !== null && guard.five && !guard.asking && (
         <div data-practice-five role="group" aria-label="Keep going?" className="mb-2 flex flex-col gap-1.5 rounded-[12px] bg-[color-mix(in_oklab,var(--foreground)_7%,transparent)] py-2 pr-1.5 pl-3">
           <span className="text-[13px] leading-[18px] font-semibold text-foreground">{START_MIN} minutes done. Keep going{practiceTarget > START_MIN ? ` to ${practiceTarget}` : ''}?</span>
-          <span className="flex items-center gap-1">
-            <span className="min-w-0 flex-1 text-[12px] leading-4 text-foreground/75">Leave it and the timer keeps running.</span>
+          {/* What leaving it does, on its own line: never squeezed into a column beside the buttons. */}
+          <span data-practice-five-said className="text-[12px] leading-4 text-foreground/75">Leave it and the timer keeps running.</span>
+          <span className="flex items-center justify-end gap-1">
             <button type="button" data-practice-five-stop onClick={() => end()} className={WORD_BUTTON}><Kbd className="mr-1">S</Kbd>Stop here</button>
             <button type="button" data-practice-five-yes onClick={guard.carryOn} className={PRIMARY}><Kbd className="mr-1 border-current/30 bg-transparent text-current">↵</Kbd>Keep going</button>
           </span>
@@ -1265,7 +1265,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
 
   return (
     // Under the notch, tips open below what they name and never into the notch's band.
-    <TipPlace.Provider value={tucked ? { side: 'bottom', clearTop: notch + 2, onShow: setTipping } : NO_PLACE}>
+    <TipPlace.Provider value={tucked ? { side: 'bottom', clearTop: notch + 2, onShow: setTipping } : { side: 'bottom', onShow: setTipping }}>
     {/* In pixels, not rem: the pill's window is a fixed 340 wide, and at Large
         Interface size a rem-sized pill outgrew it and was cut off. */}
     <div className="mf-floating flex h-screen items-start justify-center overflow-hidden" style={{ paddingTop: top, ...(tucked ? NOTCH_INKS : {}), ...(onBreak ? (tucked ? { '--tt-brand-color-400': 'oklch(0.82 0.15 158)', '--pill-on-accent': 'oklch(0.22 0.05 170)' } as CSSProperties : breakInks(light, style)) : {}) }}>
@@ -1469,7 +1469,7 @@ function After({ stage, id, notch, onDone, away = null, early = false, bare = fa
   // A stage that is over: How did it go hands on to Pick up; the others fold away.
   const next = (): void => (stage === 'ask' ? onDone() : setLeaving(true))
   // The window: grown at once if the band needs more, shrunk only once the spring has settled.
-  const room = tucked && tipping ? TIP_ROOM : 0
+  const room = tipping ? TIP_ROOM : 0
   useEffect(() => {
     const later = setTimeout(() => void window.api.focusSize(top + band + BELOW + room), calm || band + room >= from.height ? 0 : 650)
     return () => clearTimeout(later)
@@ -1478,7 +1478,7 @@ function After({ stage, id, notch, onDone, away = null, early = false, bare = fa
   const [startShape] = useState<Shape>(() => ({ w: WIDE, h: calm ? band : Math.max(from.height, tucked ? notch : 0) }))
   const shape = useShape(startShape, leaving && !calm ? fold : { w: WIDE, h: band }, { w: calm ? { duration: 0 } : SPRING, h: calm ? { duration: 0 } : SPRING }, tucked)
   return (
-    <TipPlace.Provider value={tucked ? { side: 'bottom', clearTop: notch + 2, onShow: setTipping } : NO_PLACE}>
+    <TipPlace.Provider value={tucked ? { side: 'bottom', clearTop: notch + 2, onShow: setTipping } : { side: 'bottom', onShow: setTipping }}>
     <div className="mf-floating flex h-screen items-start justify-center overflow-hidden" style={{ paddingTop: top, ...(tucked ? NOTCH_INKS : {}) }}>
       <motion.div
         className="relative"

@@ -195,7 +195,7 @@ export function PracticeOfferBand({ offer, notch }: { offer: Offer; notch: numbe
   // The window as tall as the band, and no taller: nothing around it stops taking clicks.
   useEffect(() => {
     if (!box.current) return
-    const fit = (): void => void window.api.focusSize(Math.ceil((box.current?.offsetHeight ?? 0) + (notch ? 0 : 8) + 24))
+    const fit = (): void => void window.api.focusSize(Math.ceil((box.current?.offsetHeight ?? 0) + (notch ? 0 : 14) + 24))
     fit()
     const watch = new ResizeObserver(fit)
     watch.observe(box.current)
@@ -203,7 +203,7 @@ export function PracticeOfferBand({ offer, notch }: { offer: Offer; notch: numbe
   }, [notch])
   useEffect(() => chime('hint'), [offer.id])
   return (
-    <div className="mf-floating flex h-screen items-start justify-center overflow-hidden" style={{ paddingTop: notch ? notch : 8 }}>
+    <div className="mf-floating flex h-screen items-start justify-center overflow-hidden" style={{ paddingTop: notch ? notch : 14 }}>
       <motion.div ref={box} data-practice-band
         initial={calm ? { opacity: 0 } : { y: -40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={calm ? { duration: 0.2 } : { type: 'spring', stiffness: 420, damping: 30 }}
         onMouseDown={(event) => (event.currentTarget.querySelector<HTMLElement>('[data-practice-offer]')?.focus({ preventScroll: true }), undefined)}
