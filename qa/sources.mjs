@@ -64,7 +64,8 @@ try {
   check(await h.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--voice-theirs').trim().length > 0), 'voice colours are theme tokens')
   await send('capture', lost)
   await h.waitForTimeout(1200)
-  check(await h.locator('[data-voice-edge][data-voice="theirs"]').count() >= 1, 'the open quote has their colour down its edge')
+  check(await h.locator('[data-voice-edge][data-voice="theirs"]').count() >= 1, 'the open quote is marked as their words')
+  check(await h.evaluate(() => [...document.querySelectorAll('[data-voice-edge] .haligtree-editor-wrapper')].every((one) => getComputedStyle(one, '::before').content === 'none' || getComputedStyle(one, '::before').width === 'auto')), 'no coloured bar is drawn by its first line')
 
   // 7. A gem with no source is a note, nudged to get one.
   await send('nugget', bare)

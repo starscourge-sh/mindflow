@@ -1473,16 +1473,7 @@ button.mf-signed:hover .mf-signature { text-decoration: underline; text-decorati
 [data-voice='theirs'] { --voice: var(--voice-theirs); }
 [data-voice='understood'] { --voice: var(--voice-understood); }
 [data-voice='mine'] { --voice: var(--voice-mine); }
-/* An open note's whose-words mark: a short bar by its first line, never a line
-   down the pane's edge, which bends at the rounded corners and reads as pasted on.
-   On the words' own box, so it sits by their first line rather than against the
-   header's "3 / 152", where it read as a stray cursor. */
-[data-voice-edge] { position: relative; }
-/* The note's own words only: not a line editor, nor a note embedded in them. */
-[data-voice-edge] .haligtree-editor-wrapper:not(.is-line):not(.ProseMirror *)::before {
-  content: ''; position: absolute; top: 1.2rem; height: 1.4rem; inset-inline-start: 0.6rem; width: 2px; border-radius: 2px;
-  background: color-mix(in oklab, var(--voice) 65%, transparent); pointer-events: none;
-}
+/* No whose-words mark by a note's first line: read as a stray cursor, and its kind already says it. */
 .mf-signature {
   min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   /* The pen's ink at 85%, a hair bigger than the words beside it: the face
