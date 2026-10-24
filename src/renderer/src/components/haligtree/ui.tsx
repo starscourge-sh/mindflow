@@ -134,7 +134,7 @@ function useListWidth(): [string, React.JSX.Element] {
  * than they need: then they wait behind one ⋯ button, in the same order.
  * Measured on the line itself, so it follows the pane, not the window.
  */
-function FitActions({ children, room }: { children: ReactNode; /** What sets the line's width (the list narrowed beside a note): measured again, at once, when it changes. */ room?: unknown }): React.JSX.Element {
+function FitActions({ children, keep, room }: { children: ReactNode; /** Never folded behind ⋯: a list's search, a box to type in, not a menu line. */ keep?: ReactNode; /** What sets the line's width (the list narrowed beside a note): measured again, at once, when it changes. */ room?: unknown }): React.JSX.Element {
   const line = useRef<HTMLDivElement>(null)
   // The width they took the last time they were all on the line.
   const need = useRef(0)
@@ -168,6 +168,7 @@ function FitActions({ children, room }: { children: ReactNode; /** What sets the
     // Overflowing to the right, never the left, so the line can measure what does not fit.
     <div ref={line} className="flex min-w-0 flex-1 items-center overflow-hidden">
       <div className="ml-auto flex shrink-0 items-center gap-1">
+      {keep}
       {folded ? (
         <Popover open={open} onOpenChange={setOpen}>
           <Tip label="More">
@@ -188,7 +189,7 @@ function FitActions({ children, room }: { children: ReactNode; /** What sets the
 }
 
 /** A view's frame: title, a muted count, actions on the right, then the body. */
-export function Page({ title, lead, count, unit = ['item', 'items'], actions, children, aside = false, wide = false, fit = false, beside, waiting = false, apart = false }: {
+export function Page({ title, lead, count, unit = ['item', 'items'], actions, search, children, aside = false, wide = false, fit = false, beside, waiting = false, apart = false }: {
   title: ReactNode
   /**
    * A list beside the note it was opened onto: it comes in whole on its own,
@@ -216,6 +217,8 @@ export function Page({ title, lead, count, unit = ['item', 'items'], actions, ch
   aside?: boolean
   count?: number
   actions?: ReactNode
+  /** The list's search, before the actions: it stays on the line when they fold behind ⋯. */
+  search?: ReactNode
   children: ReactNode
 }): React.JSX.Element {
   // A list never takes more than the drag allows (60%), so a width kept from a wider window cannot squeeze the page.
@@ -228,14 +231,14 @@ export function Page({ title, lead, count, unit = ['item', 'items'], actions, ch
       {aside && grip}
       {/* The window's toolbar already names the section, so this line only
           carries what it shows (lead), the count and the actions, and goes when it has none. */}
-      {(count !== undefined || actions || lead) && (
+      {(count !== undefined || actions || lead || search) && (
         <header data-chrome={aside || undefined} className={`${wide ? '' : 'page-column '}flex h-10 shrink-0 items-center gap-2 border-b px-5 text-muted-foreground`}>
           {typeof title === 'string' && title.startsWith('#') ? <span className="font-medium text-foreground">{title}</span> : null}
           {lead}
           {/* What is picked is what the buttons act on: said plainly, never in grey. */}
           {count ? <span className={cn('whitespace-nowrap tabular-nums', unit[1] === 'selected' && 'font-medium text-foreground')}><Rolling text={count} /> {count === 1 ? unit[0] : unit[1]}</span> : null}
           {/* The count is on the same line: measured again the moment it comes or changes, not a frame later by the observer. */}
-          <FitActions room={`${aside ? listWidth : 'page'} ${count ?? ''} ${count === 1 ? unit[0] : unit[1]}`}>{actions}</FitActions>
+          <FitActions keep={search} room={`${aside ? listWidth : 'page'} ${count ?? ''} ${count === 1 ? unit[0] : unit[1]}`}>{actions}</FitActions>
         </header>
       )}
       <SmoothScroll wide={wide} fit={fit} beside={beside}>{children}</SmoothScroll>

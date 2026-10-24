@@ -11,6 +11,7 @@ import { chime } from "@/lib/sound"
 import { noteNamed } from "@/extensions/note-link"
 import { ArrowUpRight, Link } from "@/components/ui/icons"
 import { blockIn } from "../../../../main/blocks"
+import { notePowers } from "@/components/haligtree/note-powers"
 
 /**
  * The notes already open around this one, outermost first: a note shown in
@@ -33,15 +34,34 @@ const openNote = (link: string): void =>
  * words wherever it is shown. Used for an embed inside a note and for the
  * expanded view, which stacks a note and the notes it links to.
  */
-export function EmbeddedNote({ link, label, header = true, onUnembed }: { link: string; label: string; header?: boolean; onUnembed?: () => void }): React.JSX.Element {
+type Powers = Parameters<typeof notePowers>[0]
+
+export function EmbeddedNote({ link, label, header = true, onUnembed, powers = false, onLeave }: {
+  link: string
+  label: string
+  header?: boolean
+  onUnembed?: () => void
+  /** Written in as a page (the expanded view): the selection bar, Gem, Capture, the Properties block, tags and links, as in Pages (note-powers.tsx). */
+  powers?: boolean
+  /** A tag or a link followed from it leaves this view first (the expanded view closes). */
+  onLeave?: () => void
+}): React.JSX.Element {
   const around = useContext(Around)
   const { table, id } = partsOf(link)
-  const [note, setNote] = useState<{ body: unknown; title: string } | null | undefined>(undefined)
+  const [note, setNote] = useState<{ body: unknown; title: string; powers: Omit<Powers, "onOpen"> } | null | undefined>(undefined)
   useEffect(() => {
     let live = true
     const read = table === "captures"
-      ? window.api.captures.get(id).then((found) => found && found.status !== "discarded" ? { body: found.body, title: found.label || found.title } : null)
-      : haligtree.item(id).then((found) => found ? { body: found.body, title: (found as { title?: string }).title || "" } : null)
+      ? window.api.captures.get(id).then((found) => found && found.status !== "discarded" ? {
+          body: found.body,
+          title: found.label || found.title,
+          powers: { table, id, kind: found.kind, fields: found.fields, text: found.label, created: found.capturedAt, updated: found.editedAt, origin: { captureId: id, from: id } },
+        } : null)
+      : haligtree.item(id).then((found) => found ? {
+          body: found.body,
+          title: found.title || "",
+          powers: { table, id, kind: found.kind, fields: found.fields, text: found.title, titled: found.tier === "article", created: found.createdAt, updated: found.updatedAt, origin: { captureId: found.captureId ?? undefined, attribution: found.attribution, from: id } },
+        } : null)
     void read.then((found) => live && setNote(found), () => live && setNote(null))
     return () => void (live = false)
   }, [table, id])
@@ -82,13 +102,14 @@ export function EmbeddedNote({ link, label, header = true, onUnembed }: { link: 
               documentId={`embed-${link}-${around.length}`}
               defaultContent={(note.body as JSONContent | string | null) ?? ""}
               toolbar={false}
-              handles={false}
+              handles={powers}
               outline={false}
               search={false}
               autofocus={false}
               findNotes={findCaptures}
               findHeadings={findHeadings}
               onOpenNote={(to) => openNote(to)}
+              {...(powers ? notePowers({ ...note.powers, onOpen: (type, at) => (onLeave?.(), window.api.openInHome(type, at)) }) : {})}
               onReady={words.ready}
               onChange={words.save}
             />

@@ -456,6 +456,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
         // The Inbox is a place to set things down, never a queue with a number on it.
         // What is picked always shows: the buttons may fold into ⋯ in a narrow window, the count never does.
         count={chosen.length || (title === 'Inbox' ? undefined : counted)}
+        search={spread && !chosen.length && <ListSearch value={query} onChange={(words) => (setQuery(words), setCursor(-1))} onDone={() => setCursor(0)} placeholder={`Search in ${title}`} />}
         unit={chosen.length ? ['selected', 'selected'] : undefined}
         actions={
           chosen.length ? (
@@ -504,7 +505,6 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
             </span>
           ) : (
             <span className="flex items-center gap-2">
-              {spread && <ListSearch value={query} onChange={(words) => (setQuery(words), setCursor(-1))} onDone={() => setCursor(0)} placeholder={`Search in ${title}`} />}
               {shown.length > 1 && !spread && !open && <span className="hidden text-xs whitespace-nowrap @[48rem]/page:inline"><Pressed keys="X" /> to select</span>}
               {title === 'Inbox' ? (
                 <GoThrough compact={!!open} canRead={shown.length > 0} onRead={() => setReadFrom(readStart())} />
@@ -533,7 +533,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
             <SnoozedChip />
           </div>
         ) : (
-          <div data-kind-chips className="list-words pt-4 pb-2 empty:hidden">{title === 'Inbox' && counted > 0 ? cloneElement(chips ?? <span />, { extra: <GraphChip on={graphOn} onChange={setGraphed} /> }) : chips}</div>
+          <div data-kind-chips className="list-words pt-4 pb-2 empty:hidden">{title === 'Inbox' && kept.length > 0 ? cloneElement(chips ?? <span />, { extra: <GraphChip on={graphOn} onChange={setGraphed} /> }) : chips}</div>
         )}
         {/* Everything waits for its tasks and for which captures became them: drawn before, the made ones show, then hide, and the box above pops in. */}
         {everything && (unloaded(tasks) || !sources.ready) ? null : graphed ? (

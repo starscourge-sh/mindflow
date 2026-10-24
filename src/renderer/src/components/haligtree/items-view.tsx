@@ -505,6 +505,7 @@ export function ItemsView({ tier, focus, onOpen, only }: { tier: 'nugget' | 'art
         lead={writing && !chosen.length ? <div data-list-tabs className="flex shrink-0" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink))' }}><Chips className="shrink-0" options={[{ id: 'all', label: 'All' }, { id: 'questions', label: 'Questions' }]} on={(id) => id === asks} pick={(id) => (setAsks(id as 'all' | 'questions'), setCursor(-1))} /></div> : undefined}
         // Every note on show, a folded group's too.
         count={chosen.length || groups.reduce((sum, [, list]) => sum + list.length, 0)}
+        search={spread && !chosen.length && <ListSearch value={query} onChange={(words) => (setQuery(words), setCursor(-1))} onDone={() => setCursor(0)} placeholder={`Search in ${tier === 'nugget' ? 'Gems' : 'Pages'}`} />}
         // What is picked always shows: the buttons may fold into ⋯ in a narrow window, the count never does.
         unit={chosen.length ? ['selected', 'selected'] : tier === 'nugget' ? ['gem', 'gems'] : questionsOnly ? ['question', 'questions'] : ['page', 'pages']}
         actions={
@@ -547,7 +548,6 @@ export function ItemsView({ tier, focus, onOpen, only }: { tier: 'nugget' | 'art
             </span>
           ) : (
             <span className="flex items-center gap-2 text-xs">
-              {spread && <ListSearch value={query} onChange={(words) => (setQuery(words), setCursor(-1))} onDone={() => setCursor(0)} placeholder={`Search in ${tier === 'nugget' ? 'Gems' : 'Writing'}`} />}
               {tier === 'nugget' && items.length > 1 && !spread && !open && (
                 <>
                   <span className="hidden whitespace-nowrap @[48rem]/page:inline"><Pressed keys="X" /> to select</span>
