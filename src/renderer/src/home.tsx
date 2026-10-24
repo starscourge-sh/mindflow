@@ -1056,7 +1056,8 @@ export function Home(): React.JSX.Element {
     }
     return task ? { type: 'task', id: task.id, name: { title: taskName(task.title).text || 'Untitled', icon: TASK_KIND.icon, tint: TASK_KIND.tint, kind: 'Task' } } : null
   }
-  const paneName = (view: View): PaneName => noteIn(view)?.name ?? { title: labelOf(view) || 'Page', icon: PanelsTopLeft, kind: 'Page' }
+  // A place in the app (Settings, Gems) is named by itself, with no kind: "Page" is a piece of writing.
+  const paneName = (view: View): PaneName => noteIn(view)?.name ?? { title: labelOf(view) || APP_NAME, icon: PanelsTopLeft }
   /** Lay a pinned layout out again: each pane a fresh trail on its page. */
   const openLayout = (views: View[], sizes: number[]): void => {
     chime('slide')

@@ -57,7 +57,7 @@ export const unpinLayout = (id: string): void => {
 }
 
 /** One pane's name in a pair: its note (kind icon and title), or the page it is on. */
-export type PaneName = { title: string; icon: ComponentType<{ className?: string; style?: CSSProperties }>; tint?: string; private?: boolean; /** What it is, said on the pair's card: "Quote", "Writing", "Page". */ kind?: string }
+export type PaneName = { title: string; icon: ComponentType<{ className?: string; style?: CSSProperties }>; tint?: string; private?: boolean; /** What it is, said on the pair's card: "Quote", "Page"; none for a place in the app. */ kind?: string }
 
 /**
  * The pair's row, Dia's way: ONE row with each pane's icon and name side by
@@ -182,7 +182,7 @@ export function PairRow({ names, live, isPinned, narrow, menu, onOpen, onClose, 
               <one.icon className="size-4 shrink-0" style={{ color: one.tint }} />
               <button type="button" onClick={() => (setCard(null), onOpen(index))} className="min-w-0 flex-1 text-left">
                 <span className="private-text block truncate text-body text-foreground" data-private={one.private ? '' : undefined}>{one.title}</span>
-                <span className="block text-control text-muted-foreground">{one.kind ?? 'Page'}</span>
+                {one.kind && <span className="block text-control text-muted-foreground">{one.kind}</span>}
               </button>
               {onAlone && <Act label="Open this alone" data="alone" run={() => (setCard(null), onAlone(index))}><AppWindow className="size-3.5" /></Act>}
               {onClose && <Act label="Close this pane" data="close" run={() => (setCard(null), onClose(index))}><AliveIcon icon={XIcon} size={12} /></Act>}
