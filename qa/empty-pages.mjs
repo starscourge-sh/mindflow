@@ -29,7 +29,7 @@ const measure = () => h.evaluate(() => {
   const lr = line?.getBoundingClientRect()
   const br = band?.getBoundingClientRect()
   return {
-    example: !!frame, band: !!band,
+    example: !!frame, band: !!band, pic: band ? (band.querySelector('img')?.getAttribute('src') ?? getComputedStyle(band.querySelector('[style*="background-image"]') ?? band).backgroundImage) : null,
     bandH: br ? Math.round(br.height) : null, bandW: br ? Math.round(br.width) : null, bandR: px(band, 'borderTopLeftRadius'), bandMask: band ? getComputedStyle(band).maskImage : null,
     lineW: lr ? Math.round(lr.width) : null, lineH: lr ? Math.round(lr.height) : null, lineFont: px(line?.querySelector('.mf-prose'), 'fontSize'), lineBorder: line ? getComputedStyle(line).borderTopStyle : null, linePad: line ? getComputedStyle(line).padding : null,
     lineBg: line ? getComputedStyle(line).backgroundColor : null, lineLeft: lr && br ? Math.round(lr.left - br.left) : null, lineRight: lr && br ? Math.round(br.right - lr.right) : null,
@@ -61,6 +61,10 @@ try {
     check(`${id}: Example line ${m.lineW}x${m.lineH}, ${m.lineFont}px, ${m.lineBorder}, set in the band as on Gems`, m.linePad === base.linePad && m.lineFont === base.lineFont && m.lineBorder === 'solid' && m.lineBg === base.lineBg && m.lineLeft === base.lineLeft && m.lineRight === base.lineRight, `left ${m.lineLeft}/${base.lineLeft} right ${m.lineRight}/${base.lineRight} pad ${m.linePad}/${base.linePad}`)
     check(`${id}: sample rows faded the same`, m.rowsMask === base.rowsMask && m.rowsOpacity === base.rowsOpacity)
   }
+  // No two empty pages share a picture today: there are enough to go round.
+  const pics = LISTS.map((id) => [id, seen[id]?.pic]).filter(([, pic]) => pic && pic !== 'none')
+  const dupes = pics.filter(([, pic], i) => pics.findIndex(([, other]) => other === pic) !== i).map(([id]) => id)
+  check(`each empty page has its own picture (${new Set(pics.map(([, pic]) => pic)).size} for ${pics.length})`, !dupes.length, dupes.join(', '))
   for (const id of OWN) {
     await go(id)
     await h.waitForTimeout(1200)

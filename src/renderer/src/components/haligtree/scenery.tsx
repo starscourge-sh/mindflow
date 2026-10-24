@@ -39,18 +39,45 @@ const hash = (text: string): number => {
  */
 function choose(scenes: Scene[], seed: string, moods: Mood[] | null, wide: boolean): Scene | null {
   const shaped = wide ? scenes.filter((one) => one.width >= one.height * 1.2) : scenes
-  const pool = [shaped.filter((one) => !moods || moods.includes(one.mood)), shaped, scenes].find((one) => one.length) ?? []
+  const tiers = [shaped.filter((one) => !moods || moods.includes(one.mood)), shaped, scenes]
+  const pool = tiers.find((one) => one.length) ?? []
   const key = `${seed}:${moods?.join() ?? ''}:${wide}`
   // Kept once shown: the list grows and reorders as the folders are read again,
   // and a page whose picture changed under you a moment after it opened looked
   // like a carousel. It stays until the seed changes (a new day, a reshuffle).
-  const kept = pool.find((one) => one.url === picked.get(key))
-  if (kept) return kept
+  const kept = scenes.find((one) => one.url === (picked.get(key) ?? restTaken()[key]))
+  if (kept) return (picked.set(key, kept.url), kept)
+  // A rest moment's picture is one no other place has today, while there are
+  // enough to go round: by chance, two empty pages showed the same one.
+  const taken = seed.startsWith('rest:') ? new Set(Object.values(restTaken())) : new Set<string>()
+  // The hour's mood first; once its pictures are all in use, one of another mood before a repeat.
+  const free = tiers.map((tier) => tier.filter((one) => !taken.has(one.url))).find((one) => one.length) ?? []
   // Each picture scored on its own against the seed, so where it sits in the
   // list does not matter, and a picture added later only wins its share.
-  const best = pool.reduce<Scene | null>((top, one) => (!top || hash(`${seed}:${one.id}`) > hash(`${seed}:${top.id}`) ? one : top), null)
-  if (best) picked.set(key, best.url)
+  const best = (free.length ? free : pool).reduce<Scene | null>((top, one) => (!top || hash(`${seed}:${one.id}`) > hash(`${seed}:${top.id}`) ? one : top), null)
+  if (best) {
+    picked.set(key, best.url)
+    if (seed.startsWith('rest:')) keepRest(key, best.url)
+  }
   return best
+}
+
+/** Today's rest pictures, place by place, kept for the day so each place keeps its own across windows and reloads. */
+const REST_KEY = 'scenery-rest'
+function restTaken(): Record<string, string> {
+  try {
+    const saved = JSON.parse(localStorage.getItem(REST_KEY) ?? 'null') as { day: string; by: Record<string, string> } | null
+    return saved?.day === dayOf() ? saved.by : {}
+  } catch {
+    return {}
+  }
+}
+function keepRest(key: string, url: string): void {
+  try {
+    localStorage.setItem(REST_KEY, JSON.stringify({ day: dayOf(), by: { ...restTaken(), [key]: url } }))
+  } catch {
+    // Not kept: the next window picks again, a repeat at worst.
+  }
 }
 /** Pictures already decoded in this window: shown without waiting again. */
 const decoded = new Set<string>()

@@ -43,7 +43,7 @@ export function Example({ on = true, tryIt, children, className, compact = false
   if (!on) return <>{children}</>
   // Behind every page's example the scenery picture, as behind every other empty page, when Scenery is on.
   // Not in a column with its own words above (`flush`): there it would sit in the middle of the page.
-  if (!flush) return <Rest seed={typeof tryIt === 'string' ? tryIt : 'example'} compact={compact} className={className}><Framed tryIt={tryIt} compact={compact} className={className} frame={frame} emptied={emptied}>{children}</Framed></Rest>
+  if (!flush) return <Rest seed={wordsOf(tryIt) || 'example'} compact={compact} className={className}><Framed tryIt={tryIt} compact={compact} className={className} frame={frame} emptied={emptied}>{children}</Framed></Rest>
   return <Framed tryIt={tryIt} compact={compact} flush className={className} frame={frame} emptied={emptied}>{children}</Framed>
 }
 
@@ -84,4 +84,12 @@ function Said({ text }: { text: ReactNode }): React.JSX.Element {
   const end = /[.!?](?=\s)/.exec(text)
   if (!end) return <strong>{text}</strong>
   return <><strong>{text.slice(0, end.index + 1)}</strong>{text.slice(end.index + 1)}</>
+}
+
+/** The words in "Try it:", whatever holds them: each page's example its own seed, where every one with a button in it shared one. */
+function wordsOf(node: ReactNode): string {
+  if (typeof node === 'string' || typeof node === 'number') return String(node)
+  if (Array.isArray(node)) return node.map(wordsOf).join('')
+  if (node && typeof node === 'object' && 'props' in node) return wordsOf((node.props as { children?: ReactNode }).children)
+  return ''
 }
