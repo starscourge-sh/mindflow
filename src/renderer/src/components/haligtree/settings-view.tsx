@@ -756,7 +756,7 @@ export function SettingsView(): React.JSX.Element {
           <Setting
             off={!settings.sounds && 'Turn “Sounds” on to change this.'}
             title="Sound pack"
-            note="Nine characters for the same sounds; point at one to hear it." more="Click to make it yours; the pieces on the right play the one you have."
+            note="Ten characters for the same sounds; point at one to hear it." more="Click to make it yours; the pieces on the right play the one you have."
             keywords={Object.values(PACKS).map((one) => `${one.label} ${one.feel}`).join(' ')}
             below={<div inert={!settings.sounds} className={settings.sounds ? '' : 'opacity-50'}><SoundPacks chosen={settings.soundPack as PackName} /></div>}
           />

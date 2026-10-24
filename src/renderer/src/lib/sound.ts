@@ -335,6 +335,35 @@ function audio(): AudioContext | null {
   return context
 }
 
+/** One of Calm's notes: rounded in, two voices and a little of the octave below, the glare off, a breath of room. */
+function fullNote(context: AudioContext, at: number, frequency: number, to: number | undefined, length: number, peak: number, swell: number, full: NonNullable<(typeof FULL)[keyof typeof PACKS]>): void {
+  const level = context.createGain()
+  level.gain.setValueAtTime(0.0001, at)
+  level.gain.linearRampToValueAtTime(Math.max(0.0002, peak), at + swell)
+  level.gain.exponentialRampToValueAtTime(0.0001, at + length)
+  const dark = context.createBiquadFilter()
+  dark.type = 'lowpass'
+  dark.frequency.value = full.cutoff
+  dark.Q.value = 0.4
+  dark.connect(level)
+  level.connect(context.destination)
+  const wet = context.createGain()
+  wet.gain.value = full.room
+  level.connect(wet).connect(room(context))
+  for (const [ratio, cents, share] of [[1, -full.detune, 0.5], [1, full.detune, 0.5], [0.5, 0, full.body]] as const) {
+    const tone = context.createOscillator()
+    tone.type = 'sine'
+    tone.detune.value = cents
+    tone.frequency.setValueAtTime(frequency * ratio, at)
+    if (to) tone.frequency.exponentialRampToValueAtTime(to * ratio, at + length)
+    const part = context.createGain()
+    part.gain.value = share
+    tone.connect(part).connect(dark)
+    tone.start(at)
+    tone.stop(at + length + 0.05)
+  }
+}
+
 function play(notes: Note[]): void {
   const context = audio()
   if (!context) return
@@ -342,8 +371,13 @@ function play(notes: Note[]): void {
   const sound = PACKS[pack]
   // Square and saw are loud for their level; they are brought down to match.
   const loud = sound.osc === 'square' || sound.osc === 'sawtooth' ? 0.45 : 1
+  const full = FULL[pack]
   for (const [frequency, delay, length = 0.18, peak = 0.07, to, swell = 0.004] of notes) {
     const at = start + delay
+    if (full) {
+      fullNote(context, at, frequency * sound.pitch, to ? to * sound.pitch : undefined, length * sound.decay, peak * sound.gain * volume, Math.max(swell, full.swell), full)
+      continue
+    }
     const tone = context.createOscillator()
     const level = context.createGain()
     tone.type = sound.osc
@@ -407,8 +441,41 @@ export const PACKS = {
   crisp: { label: 'Crisp', feel: 'Sharp and defined, good headphones', osc: 'triangle', pitch: 1.1, q: 4, decay: 0.6, gain: 1 },
   retro: { label: 'Retro', feel: 'Analog synth, vintage and warm', osc: 'square', pitch: 0.85, q: 2, decay: 1.1, gain: 0.8 },
   arcade: { label: 'Arcade', feel: '8-bit chiptune, square waves, punchy', osc: 'square', pitch: 1.5, q: 8, decay: 0.5, gain: 1 },
-  industrial: { label: 'Industrial', feel: 'Metallic and mechanical', osc: 'sawtooth', pitch: 0.7, q: 12, decay: 0.6, gain: 1.2 }
+  industrial: { label: 'Industrial', feel: 'Metallic and mechanical', osc: 'sawtooth', pitch: 0.7, q: 12, decay: 0.6, gain: 1.2 },
+  // The one pack the player itself plays differently (FULL, below): every other pack is the same quick tap in another wave.
+  calm: { label: 'Calm', feel: 'Rounded and quiet, clean the way a Mac’s own sounds are', osc: 'sine', pitch: 1, q: 1, decay: 1, gain: 0.75 }
 } as const
+
+/**
+ * Calm's way of sounding, after Apple's and Arc's: each note rounded off at
+ * the start (a few ms, no click), two voices a hair apart and a touch of the
+ * octave below so it sounds full rather than thin, the glare taken off above,
+ * and only a breath of room. The clicks become small rounded taps, not noise.
+ */
+const FULL: Partial<Record<keyof typeof PACKS, { swell: number; cutoff: number; body: number; detune: number; room: number; tap: number }>> = {
+  calm: { swell: 0.008, cutoff: 3200, body: 0.22, detune: 3, room: 0.12, tap: 700 }
+}
+/** A small room's tail, made once: a second of dark noise dying away. */
+let roomTail: ConvolverNode | null = null
+function room(context: AudioContext): ConvolverNode {
+  if (roomTail && roomTail.context === context) return roomTail
+  const seconds = 1.1
+  const length = Math.floor(context.sampleRate * seconds)
+  const impulse = context.createBuffer(2, length, context.sampleRate)
+  for (let channel = 0; channel < 2; channel++) {
+    const data = impulse.getChannelData(channel)
+    let last = 0
+    for (let i = 0; i < length; i++) {
+      // Smoothed noise is darker noise: the room has no glare.
+      last = last * 0.82 + (Math.random() * 2 - 1) * 0.18
+      data[i] = last * Math.pow(1 - i / length, 3)
+    }
+  }
+  roomTail = context.createConvolver()
+  roomTail.buffer = impulse
+  roomTail.connect(context.destination)
+  return roomTail
+}
 export type PackName = keyof typeof PACKS
 let pack: PackName = 'soft'
 
@@ -438,6 +505,9 @@ export function click(name: ClickName): void {
   const level = Math.max(0.002, tune.volume * SOFT.gain * volume)
   const duration = tune.duration * SOFT.decay
   const frequency = tune.frequency * SOFT.pitch
+  // Calm: no tick of noise, a small rounded tap, like a key on a Mac's own keyboard sound.
+  const full = FULL[pack]
+  if (full) return fullNote(context, t, Math.min(full.tap, frequency / 3), undefined, Math.max(0.045, duration * 5), level * 0.7, 0.003, full)
 
   const length = Math.floor(context.sampleRate * duration)
   const buffer = context.createBuffer(1, length, context.sampleRate)
