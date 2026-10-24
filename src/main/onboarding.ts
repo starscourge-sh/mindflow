@@ -139,13 +139,11 @@ function state(): unknown {
     boxTaken: taken.has('⌘.'),
     name: read<boolean>('safeMode', false) ? '' : nameOf(),
     setup: { ...NO_SETUP, ...read<Partial<Setup>>('setup', {}) },
-    // Which welcome plays: the first one, or the shorter one that starts you writing (welcome-v2.tsx).
-    welcomeVersion: read<number>('welcomeVersion', 1) === 2 ? 2 : 1,
     tray: tray && { x: tray.x + tray.width / 2, y: tray.y + tray.height }
   }
 }
 
-const PATCHABLE = new Set(['welcomed', 'newsSeen', 'hintsSeen', 'pageHints', 'welcoming', 'setup', 'welcomeVersion'])
+const PATCHABLE = new Set(['welcomed', 'newsSeen', 'hintsSeen', 'pageHints', 'welcoming', 'setup'])
 
 /** Whether the welcome is open now, for the box to say something warmer while it is. */
 let welcoming = false

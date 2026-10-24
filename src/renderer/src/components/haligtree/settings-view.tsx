@@ -1408,20 +1408,12 @@ function CelebrationsFolder({ folder, on, onSave }: { folder: string; on: boolea
 }
 
 /** Page hints and Getting started, with what the main process says of them. */
-/**
- * Which welcome plays, and a way to see it: version 1, the film, or version 2,
- * the short one that starts you writing. Shown in the sandbox, so trying one
- * never adds to your own book.
- */
+/** The welcome, to see again: shown in the sandbox, so trying it never adds to your own book. */
 function WelcomeRow(): React.JSX.Element {
-  const state = useOnboarding()
-  const version = state?.welcomeVersion ?? 1
   return (
-    <Setting title="Welcome" note={version === 1 ? 'Version 1: the two-minute film. The one key, your first capture, and how things come back.' : 'Version 2: short. Your first thought, a quote and a task, then straight into a page.'}
-      more={`The one picked here is the one “Show the welcome again” plays. “Show it” plays it in the sandbox, so your own notes stay as they are.`} keywords="tour welcome onboarding start intro replay version 1 2 one two">
-      <Chips className="shrink-0" options={[{ id: '1', label: 'Version 1' }, { id: '2', label: 'Version 2' }]} on={(id) => id === String(version)}
-        pick={(id) => void onboarding.set({ welcomeVersion: id === '2' ? 2 : 1 })} />
-      <Button variant="outline" size="sm" onClick={() => void tryWelcome(version)}>Show it</Button>
+    <Setting title="Welcome" note="The two-minute film. The one key, your first capture, and how things come back."
+      more="“Show it” plays it in the sandbox, so your own notes stay as they are." keywords="tour welcome onboarding start intro replay">
+      <Button variant="outline" size="sm" onClick={() => void tryWelcome()}>Show it</Button>
     </Setting>
   )
 }

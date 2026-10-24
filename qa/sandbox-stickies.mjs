@@ -1,6 +1,6 @@
 // The sandbox's desktop after each way in: Dune's goal card and Today's list, one of each, never a copy.
 // Counts the sticky windows on screen and the entries in stickies.json, by key, after:
-//  - a first visit (the examples set out), with and without a welcome carried in (⌘K "Show the welcome (version 2)")
+//  - a first visit (the examples set out), with and without a welcome carried in (⌘K "Show the welcome in the sandbox")
 //  - coming back to an already set-out sandbox ("Back to my notes", then in again)
 //  - Reset (the sandbox set out again from nothing)
 //  - a reload while the examples go in (a dev build's hot reload, ⌘R): set out again from nothing, never twice over
@@ -45,7 +45,7 @@ async function visit(name, args, carry) {
 
 await visit('first visit', '--sandbox')
 await visit('in again, already set out', '--sandbox')
-await visit('in again with a welcome carried', '--sandbox', { local: {}, settings: {}, welcome: { version: 2, at: Date.now() } })
+await visit('in again with a welcome carried', '--sandbox', { local: {}, settings: {}, welcome: { at: Date.now() } })
 await visit('after Reset', '--sandbox --sandbox-reset')
 // A reload while the examples go in: this run asks for a fresh sandbox and goes; the run it starts sets them out.
 {
@@ -72,7 +72,7 @@ await visit('after Reset', '--sandbox --sandbox-reset')
   await new Promise((done) => setTimeout(done, 1500))
 }
 await visit('after a reload mid-seed', '--sandbox')
-await visit('first visit with a welcome carried', '--sandbox --sandbox-reset', { local: {}, settings: {}, welcome: { version: 2, at: Date.now() } })
+await visit('first visit with a welcome carried', '--sandbox --sandbox-reset', { local: {}, settings: {}, welcome: { at: Date.now() } })
 const left = (() => { try { return execFileSync('pgrep', ['-f', process.env.QA_ENTRY]).toString().trim() } catch { return '' } })()
 check('no test run left behind', !left, left)
 done()

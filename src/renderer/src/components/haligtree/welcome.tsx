@@ -7,10 +7,10 @@ import { shift, spring, still } from '@/lib/motion'
 import { chime, click, fold } from '@/lib/sound'
 import { applyTheme, currentTheme, type Theme } from '@/lib/theme'
 import { comboOf, fixed, keyFor, listen, saveKeys, useKeyChanges } from '@/lib/keys'
-import { NO_SETUP, onboarding, welcomeAsked, type Onboarding, type Setup } from '@/lib/onboarding'
+import { NO_SETUP, onboarding, type Onboarding, type Setup } from '@/lib/onboarding'
 import { ImportMap, sourceFrom } from './welcome-import'
 import { answered, applySetup, Payoff, YouPage } from './welcome-you'
-import { enterSandbox, SANDBOX } from '@/lib/sandbox'
+import { enterSandbox, SANDBOX, sandboxState, type Carry } from '@/lib/sandbox'
 import { examples, fillBox, holdKeys, STORY_DAY, tellBox } from '@/lib/welcome-box'
 import keycapsUrl from '@/assets/welcome/keycaps.webp'
 import type { CaptureMeta } from '@/components/capture-list'
@@ -194,10 +194,10 @@ export function Welcome(): React.JSX.Element | null {
     chime('read')
   }
 
+  useCarriedWelcome()
   useEffect(() => {
-    // Only the first welcome's: the second plays from welcome-v2.tsx.
-    void onboarding.state().then((now) => now.firstRun && welcomeAsked(null, now) === 1 && open(false))
-    const again = (event: Event): void => void onboarding.state().then((now) => welcomeAsked(event, now) === 1 && open(true))
+    void onboarding.state().then((now) => now.firstRun && open(false))
+    const again = (): void => open(true)
     window.addEventListener('haligtree:welcome', again)
     window.addEventListener('haligtree:tour', again)
     return () => {
@@ -1496,3 +1496,43 @@ function Start({ name, kept, mine, skipped, importing, still, onPick, setup, onI
 /** Whether the welcome is on screen, for what should keep quiet under it. */
 export const welcoming = (): boolean => document.documentElement.hasAttribute('data-welcoming')
 export { inClay }
+
+
+/**
+ * In the sandbox, a welcome asked for from your own book (lib/onboarding.ts,
+ * tryWelcome) plays once on arrival, after the examples are set out. Each
+ * ask plays once: a later start of the sandbox does not play it again.
+ */
+const PLAYED = 'welcome-carried-at'
+const played = (): string | null => {
+  try {
+    return localStorage.getItem(PLAYED)
+  } catch {
+    return null
+  }
+}
+function useCarriedWelcome(): void {
+  useEffect(() => {
+    if (!SANDBOX) return
+    let gone = false
+    void (async () => {
+      const carry = await window.api.haligtree<Carry | null>('sandbox:carry').catch(() => null)
+      const asked = carry?.welcome
+      if (!asked || played() === String(asked.at)) return
+      // The examples are set out first, a minute at most, so the welcome never covers a half-made book.
+      for (let waited = 0; !gone && waited < 60000; waited += 300) {
+        if ((await sandboxState().catch(() => null))?.seeded) break
+        await new Promise((wait) => setTimeout(wait, 300))
+      }
+      // Marked played only as it plays: a first mount undone at once (React's StrictMode, in a dev build) leaves it to the second.
+      if (gone || played() === String(asked.at)) return
+      try {
+        localStorage.setItem(PLAYED, String(asked.at))
+      } catch {
+        // Played anyway: once more is the worst of it.
+      }
+      window.dispatchEvent(new CustomEvent('haligtree:welcome'))
+    })()
+    return () => void (gone = true)
+  }, [])
+}

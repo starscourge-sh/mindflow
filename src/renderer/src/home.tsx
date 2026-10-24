@@ -77,7 +77,6 @@ import { SANDBOX, enterSandbox, leaveSandbox, resetSandbox } from '@/lib/sandbox
 import { askBook } from '@/lib/books'
 import { BookName, askNewBook } from '@/components/haligtree/books'
 import { Welcome } from '@/components/haligtree/welcome'
-import { WelcomeTwo } from '@/components/haligtree/welcome-v2'
 import { PageHint } from '@/components/haligtree/page-hint'
 import { onboarding, playWelcome, tryWelcome } from '@/lib/onboarding'
 import { DayView } from '@/components/haligtree/day-view'
@@ -1174,7 +1173,6 @@ export function Home(): React.JSX.Element {
       <Passes onOpen={(type, id) => open(type, id)} />
       <QueueReader />
       <Welcome />
-      <WelcomeTwo />
       <Tour />
       <CloseDaySheet />
       <FitsSheet />
@@ -1258,7 +1256,7 @@ export function Home(): React.JSX.Element {
             { label: 'Open my playbook', hint: 'How I work, in my own words', cue: null, run: () => void openPlaybook() },
             { label: 'Show the welcome again', cue: null, run: () => playWelcome() },
             // Either welcome, to feel which is right: played in the sandbox, so your own book is never touched.
-            ...([1, 2] as const).map((version) => ({ label: `Show the welcome (version ${version})`, hint: version === 1 ? 'The first welcome, in the sandbox' : 'The short one that starts you writing, in the sandbox', cue: null, run: () => void tryWelcome(version) })),
+            { label: 'Show the welcome in the sandbox', hint: 'Your own notes stay as they are', cue: null, run: () => void tryWelcome() },
             { label: 'Try a celebration', cue: null, run: () => tryCelebration() },
             ...SECTIONS.map((section) => ({ label: `Go to ${section.label}`, keys: `G ${section.key.toUpperCase()}`, run: () => setView({ id: section.id }) })),
             // The Tasks row's other tabs, and the pages that are a chip or a menu line now: still a G and a letter away.
