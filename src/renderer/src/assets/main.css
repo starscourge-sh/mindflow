@@ -645,15 +645,15 @@ body > :not(#root),
 html[data-width='page'] {
   --mf-col-editor: 54rem;
   --mf-col-note: 36em;
-  --mf-col-page: 56rem;
-  --mf-col-sheet: 54rem;
+  --mf-col-page: 44rem;
+  --mf-col-sheet: 44rem;
   --mf-col-narrow: 44rem;
 }
 html[data-width='wide'] {
   --mf-col-editor: 72rem;
   --mf-col-note: 52em;
-  --mf-col-page: 76rem;
-  --mf-col-sheet: 72rem;
+  --mf-col-page: 60rem;
+  --mf-col-sheet: 60rem;
   --mf-col-narrow: 60rem;
 }
 html:is([data-width='page'], [data-width='wide']) .haligtree-editor-wrapper:not(.is-line) .tiptap.ProseMirror.haligtree-editor {

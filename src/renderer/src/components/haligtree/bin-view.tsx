@@ -166,7 +166,7 @@ export function BinView({ onOpen }: { onOpen?: (type: string, id: string) => voi
         </span>
       ) : binned.length > 0 ? <span className="flex items-center gap-1">{shown.length > 1 && <Button size="sm" variant="ghost" onClick={() => restoreMany(shown)}>Restore {kind ? `these ${num(shown.length)}` : `all ${num(shown.length)}`}</Button>}<HoldButton hint="Everything in the Bin, deleted for good" done="Emptying…" onHold={empty}>Hold to empty</HoldButton></span> : null
     }>
-      <div data-bin className="w-full pt-5 pb-16">
+      <div data-bin className="w-full pt-8 pb-16">
         <p className="list-words mb-4 text-[0.9375rem] text-foreground"><strong className="font-semibold">Everything you moved to the Bin, of every kind.</strong> <span className="text-muted-foreground">“Restore” puts one back where it was. Pick some, press ⌫ and hold “Hold to delete” to delete them for good, or hold “Hold to empty” for all of it.</span></p>
         {/* Several asked about at once: the question over the list, with the count, until a yes or a no. */}
         {many && (

@@ -271,7 +271,8 @@ export function QueueView(): React.JSX.Element {
           <Button size="sm" onClick={() => readQueue(0)}><BookOpen className="size-3.5" /> Start reading</Button>
         </span>
       )}>
-      <div className="w-full px-5 pt-6 pb-16">
+      {/* Empty, the example sits in the page's column as on every list; with rows, they keep the page's margin. */}
+      <div className={!loading && !queue.length && !read.length ? 'w-full pb-16' : 'w-full px-5 pt-6 pb-16'}>
         {!loading && !queue.length && !read.length ? (
           <Example tryIt="right-click any note, gem or page and choose “Queue”, then “Add to queue”. Then read them one after the other.">
             <Island title="Up next">

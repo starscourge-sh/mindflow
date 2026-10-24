@@ -271,7 +271,7 @@ export function Rest({ seed, children, compact = false, strip = false, off = fal
   if (off || !first || !settings?.scenery || !settings.sceneryRest || (!scenes.length && !loading && !scanning)) return <>{children}</>
   const [height, room] = strip ? ['h-24', 'pt-14'] : compact ? ['h-60', 'pt-20'] : ['h-[min(34rem,72vh)]', 'pt-[min(9rem,16vh)]']
   // The pictures still on their way: their room kept, so the words never jump down when the scene fades in.
-  const outer = `relative isolate ${compact || strip ? 'mx-1 mt-1' : 'mx-4 mt-3'}${className ? ` flex min-w-0 flex-col ${className}` : ''}`
+  const outer = `relative isolate ${compact || strip ? 'mx-1 mt-1' : 'mx-5 mt-8'}${className ? ` flex min-w-0 flex-col ${className}` : ''}`
   const inner = `relative ${room}${className ? ' flex min-h-0 min-w-0 flex-1 flex-col' : ''}`
   if (!scenes.length) return <div className={outer}><div className={inner}>{children}</div></div>
   return (

@@ -916,7 +916,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
           <div className="list-edge mt-5 mb-10"><DayList onWrite={writeIt} onOpenTask={pick} openId={open?.id} /></div>
         ) : (<>
         <form
-          className="list-box mt-3 flex items-center gap-2 rounded-md border py-1.5 pr-2 focus-within:border-ring"
+          className="list-box mt-8 flex items-center gap-2 rounded-md border py-1.5 pr-2 focus-within:border-ring"
           // A pasted list is a task a line, its indented lines their steps; one Undo for all.
           onPasteCapture={(event) => {
             const lines = tasksOf(readLines(event.clipboardData.getData('text/plain')))

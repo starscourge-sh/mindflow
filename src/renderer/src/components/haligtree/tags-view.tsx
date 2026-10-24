@@ -120,7 +120,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
       <Page title="Tags" count={example ? undefined : tags.length} unit={['tag', 'tags']}>
         {/* The tags that do something, said before you need them: they work from the first time you write one. */}
         {!chosen && (
-          <p className="mx-5 mt-3 text-control text-muted-foreground">
+          <p className="mx-5 mt-8 text-control text-muted-foreground">
             <strong className="text-foreground">Some tags do something.</strong> #bit keeps a note private; #book adds a reading status and a rating; one marked <SquareCheck aria-label="with a tick" className="inline size-3.5 -translate-y-px" /> makes a task.
           </p>
         )}

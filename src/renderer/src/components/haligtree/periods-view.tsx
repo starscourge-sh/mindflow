@@ -97,7 +97,7 @@ const NOW_SAID: Record<Scale, string> = { day: 'Today', week: 'This week', month
 export function PeriodSteps({ scale, onScale, atNow, go }: { scale: Scale; onScale?: (scale: Scale) => void; atNow: boolean; go: (by: -1 | 1 | 0) => void }): React.JSX.Element {
   const name = scale
   return (
-    <span data-period-steps className="flex shrink-0 items-center gap-1">
+    <span data-period-steps className="flex shrink-0 items-center gap-1" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink))' }}>
       <ScaleSwitch scale={scale} onScale={onScale} />
       {onScale && <span aria-hidden className="mx-1 h-4 w-px bg-border" />}
       <Tip label={`The ${name} before  ←`}>
@@ -257,7 +257,7 @@ export function WeekPage({ start, onOpen, onScale, onRecent, recentOpen, onDay }
         </span>
       }
     >
-      <div className="page-narrow mx-auto w-full px-5 pt-6 pb-16 [--mf-padding:0.5rem_0]">
+      <div className="page-sheet mx-auto w-full px-5 pt-8 pb-16 [--mf-padding:0.5rem_0]">
         <DayBanner day={monday} seed={`week:${monday}`} />
         <Masthead parts={[weekSpan(monday), current && 'This week']}
           headline={fields.theme || fields.summary?.split(/(?<=[.!?])\s|\n/)[0] || weekName(monday)} named={!!(fields.theme || fields.summary)} />
@@ -370,7 +370,7 @@ export function MonthPage({ onScale, start, onDay }: { onScale?: (scale: Scale) 
         </span>
       }
     >
-      <div className="page-narrow mx-auto w-full px-5 pt-6 pb-16">
+      <div className="page-sheet mx-auto w-full px-5 pt-8 pb-16">
         <DayBanner day={`${month}-01`} seed={`month:${month}`} />
         <Masthead parts={[!!fields.season && dayjs(`${month}-01`).format('MMMM YYYY'), current && 'This month']}
           headline={fields.season || monthName(month)} named={!!fields.season} />
@@ -441,7 +441,7 @@ export function YearPage({ start, onScale, onMonth, onDay }: { start?: string; o
       title="Year"
       lead={<PeriodSteps scale="year" onScale={onScale} atNow={current} go={go} />}
     >
-      <div className="page-narrow mx-auto w-full px-5 pt-6 pb-16">
+      <div className="page-sheet mx-auto w-full px-5 pt-8 pb-16">
         <h1 className="text-title font-semibold tabular-nums"><Rolling text={year} /></h1>
         <p className="mt-1 text-meta text-muted-foreground">
           {!unloaded(months) && <Typed key={`${year}-${named}`} text={named ? `Your seasons of life, month by month: ${named} of ${num(all.length)} named so far.` : 'No month has a name yet. Looking back, give one a name on its month\'s page.'} step={28} />}

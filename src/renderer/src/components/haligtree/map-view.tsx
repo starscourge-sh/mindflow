@@ -118,7 +118,7 @@ function LinkMap({ onOpen, modes }: { onOpen: (type: string, id: string) => void
         </div>
       </header> : null}
       {count ? (
-        <Example on={example} className="min-h-0 flex-1" tryIt="type @ in any note and pick another one. The two show up here as dots, joined by a line.">
+        <Example on={example} flush className="min-h-0 flex-1" tryIt="type @ in any note and pick another one. The two show up here as dots, joined by a line.">
         <GraphCanvas map={map!} onOpen={onOpen} fit={fit} fly={fly} className="flex-1">
           {/* What the colours and icons mean: the colour is the tag, the icon the kind. */}
           <div className="pointer-events-none absolute bottom-3 left-4 flex max-w-[calc(100%-18rem)] flex-col gap-1 rounded-lg bg-background px-2.5 py-1.5 text-meta text-muted-foreground">
