@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useReading } from '@/lib/reads-in'
 import { binItem } from '@/lib/to-bin'
 import type { JSONContent } from '@tiptap/core'
-import { Archive, Calendar, Check, Plus, Wind } from 'lucide-react'
+import { Archive, BookOpen, Calendar, Check, Plus, Wind } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { EASE, shift } from '@/lib/motion'
 
@@ -32,7 +32,7 @@ import { openGloss } from './gloss-line'
 import { ThoughtDock } from './thought-bar'
 import { ago, dayMonth, dayName, heldFor, num } from '../../../../main/dates'
 import { ReadThrough } from './read-through'
-import { CollectionHeader, Cover, MenuButton, PlayButton, QuietAction, pictureIn, useTint } from './collection-header'
+import { MenuButton } from './collection-header'
 import BulbSvg from '@/components/ui/bulb-svg'
 import { clipMiddle, quoted } from '../../../../main/clip'
 import { ArchiveRestore, Download, Eye, EyeOff, Orbit, Bookmark as Pin, Bookmark as PinOff, ArchiveRestore as RotateCcw } from '@/components/ui/icons'
@@ -244,49 +244,27 @@ export function QuestionDetail({ item, onOpen, top, back }: { item: ItemFull; on
   const readClues = (from = 0): void => (clues.length ? setReading(from) : refuse('No clues yet: add one first', 'info'))
   // The composer under the page takes it.
   const addClue = (): void => openGloss(item.id)
-  const cover = pictureIn(item.body)
-  const tint = useTint(cover, 'var(--primary)')
   const lastClue = clues[0]?.createdAt
+  // Its kind said first, as a page's row says what it is: then what it holds so far.
+  const meta = ['Question', cluesSaid(clues.length), settled ?? heldFor(item.createdAt), ...(lastClue ? [`last clue ${ago(lastClue)}`] : [])].join(' · ')
+  const ends: MenuItem[] = item.closedAt
+    ? [{ label: 'Open it again', run: holdAgain }]
+    : [{ label: 'Answered', hint: 'Its clues become writing', run: gotIt }, { label: 'Stop asking', hint: 'Kept under “Questions”', run: letGo }]
   return (
     <div data-open={item.id} className="note-pane flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[max(22rem,100%)] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
         <NoteHeader className="-mt-3 mb-1" left={top} back={back} type={item.tier} table="nuggets" id={item.id} copyKey={noteLinkText(`question:${item.id}`, item.title)} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })}
           onRestored={() => void haligtree.item(item.id).then((fresh) => fresh && setRestored((was) => ({ body: fresh.body, rev: (was?.rev ?? 0) + 1 })))}
-          edited={item.updatedAt} captured={item.createdAt} made="Asked" menu={questionMenu(item, inView)} />
+          edited={item.updatedAt} captured={item.createdAt} made="Asked" menu={[...ends, 'separator', ...questionMenu(item, inView)]} />
         {reading !== null && (
           <ReadThrough items={clues.map((clue) => ({ type: 'clue', id: clue.id, body: clue.body, title: dayName(clue.createdAt) }))} start={reading} onClose={() => setReading(null)} clueTo={item.id} />
         )}
-        <CollectionHeader
-          tint={tint}
-          cover={<Cover src={cover} colour="var(--primary)" seed={item.id}><Orbit className="size-[42cqi]" strokeWidth={1.6} /></Cover>}
-          label="Question"
-          length={item.title.length}
-          meta={[
-            cluesSaid(clues.length).replace(/^n/, 'N'),
-            settled ?? heldFor(item.createdAt),
-            ...(lastClue ? [`last clue ${ago(lastClue)}`] : [])
-          ]}
-          actions={<>
-            {/* One clear thing to do: with nothing to read yet, it is adding the first clue. */}
-            {clues.length > 0 ? <>
-              <PlayButton label="Read the clues" onClick={() => readClues()} />
-              <QuietAction label="Add a clue" onClick={addClue}><Plus /></QuietAction>
-            </> : <PlayButton label="Add a clue" icon={Plus} onClick={addClue} />}
-            {/* The way it ends, always in sight: the clues become writing. Settled, the same place opens it again. */}
-            {item.closedAt
-              ? <Button data-question-reopen variant="outline" size="sm" onClick={holdAgain}><RotateCcw className="size-3.5" /> Open it again</Button>
-              : <Button data-question-answered variant="outline" size="sm" onClick={gotIt}><Check className="size-3.5" /> Answered</Button>}
-            <MenuButton items={[
-              ...(item.closedAt ? [{ label: 'Open it again', run: holdAgain }] : [{ label: 'Answered', hint: 'Its clues become writing', run: gotIt }, { label: 'Stop asking', hint: 'Kept under “Questions”', run: letGo }]),
-              'separator',
-              ...questionMenu(item, inView)
-            ]} />
-          </>}
-          title={
-          /* The question itself, in your words: it can take a few lines. */
+        {/* The question itself, as a page's title: in the words' own column (main.css), so it starts where they start. */}
+        <div data-question-head className="note-column mb-2 shrink-0">
           <textarea
             rows={1}
-            className="block w-full resize-none overflow-hidden bg-transparent pb-[0.12em] text-balance outline-none [field-sizing:content] placeholder:text-foreground/70"
+            data-page-title
+            className="block w-full resize-none overflow-hidden bg-transparent font-heading text-title font-semibold tracking-[-0.018em] text-balance outline-none [field-sizing:content] placeholder:text-foreground/70"
             defaultValue={item.title === 'Untitled' ? '' : item.title}
             autoFocus={!item.title || item.title === 'Untitled'}
             placeholder="What do you keep circling?"
@@ -296,23 +274,41 @@ export function QuestionDetail({ item, onOpen, top, back }: { item: ItemFull; on
               event.currentTarget.blur()
             }}
             onBlur={(event) => {
-              const title = event.target.value.trim()
+              const title = event.target.value.replace(/\s*\n\s*/g, ' ').trim()
               if (title && title !== item.title) void haligtree.saveItem(item.id, { title }).then(() => chime('noted'))
             }}
-          />}
-        />
-        {/* What a question is for, said on the page itself, in two plain sentences. */}
-        <p data-question-how className="page-narrow mx-auto w-full px-12 pb-3 text-body text-foreground/80 text-pretty">
-          {item.closedAt
-            ? 'This question is settled, and its clues are kept here as they came. “Open it again” takes it back up if it comes up again.'
-            : 'Write down each clue as it comes, here or from quick capture by starting a line with + and the question’s name, and each one keeps its date. When you know, press “Answered” and its clues, oldest first, become a page of writing.'}
-        </p>
+          />
+          {/* What it holds so far, quietly; then what to do with it, in the app's usual button size. */}
+          <p data-question-meta className="mt-0.5 text-meta text-muted-foreground tabular-nums">{meta}</p>
+          <div data-question-actions className="mt-3 flex flex-wrap items-center gap-1.5">
+            {clues.length > 0 && (
+              <Tip label="Its clues one at a time, newest first">
+                <Button data-question-read variant="outline" size="sm" onClick={() => readClues()}><BookOpen className="size-3.5" /> Read the clues</Button>
+              </Tip>
+            )}
+            <Tip label="Add a clue, in the field at the foot of the page">
+              <Button data-question-add variant="outline" size="sm" aria-label="Add a clue" onClick={addClue}><Plus className="size-3.5" />{clues.length ? null : 'Add a clue'}</Button>
+            </Tip>
+            {/* The way it ends, always in sight: the clues become writing. Settled, the same place opens it again. */}
+            {item.closedAt
+              ? <Tip label="Take the question back up"><Button data-question-reopen variant="outline" size="sm" onClick={holdAgain}><RotateCcw className="size-3.5" /> Open it again</Button></Tip>
+              : <Tip label="Its clues, oldest first, become a page of writing"><Button data-question-answered variant="outline" size="sm" onClick={gotIt}><Check className="size-3.5" /> Answered</Button></Tip>}
+          </div>
+          {/* What a question is for, said once, while there is nothing on it yet. */}
+          {!clues.length && (
+            <p data-question-how className="mt-4 text-body text-muted-foreground text-pretty">
+              {item.closedAt
+                ? 'This question is settled, and its clues are kept here as they came. “Open it again” takes it back up if it comes up again.'
+                : 'Write down each clue as it comes, in the field at the foot of the page, in quick capture by starting a line with + and the question’s name, or from any capture with H, and each one keeps its date. When you know, press “Answered” and its clues, oldest first, become a page of writing.'}
+            </p>
+          )}
+        </div>
         {past ? (
           <HaligtreeEditor key={`past-${past.key}`} defaultContent={(past.body as JSONContent | string | null) ?? ''} readOnly toolbar={false} handles={false} slash={false} outline={false} search={false} autofocus={false} />
         ) : (
           <HaligtreeEditor
             key={restored?.rev ?? 0}
-            {...notePowers({ table: 'nuggets', id: item.id, kind: item.kind, fields: item.fields, text: item.title, created: item.createdAt, updated: item.updatedAt, origin: { captureId: item.captureId ?? undefined, from: item.id }, onOpen: (type, id) => onOpen?.(type, id) })}
+            {...notePowers({ table: 'nuggets', id: item.id, kind: item.kind, fields: item.fields, text: item.title, titled: true, created: item.createdAt, updated: item.updatedAt, origin: { captureId: item.captureId ?? undefined, from: item.id }, onOpen: (type, id) => onOpen?.(type, id) })}
             onTitleOut={showTopTitle}
             placeholder="Write around it, however it asks to be written…"
             defaultContent={((restored ? restored.body : item.body) as JSONContent | string | null) ?? ''}
@@ -400,14 +396,16 @@ export async function reword(id: string, body: string, what: 'clue' | 'log'): Pr
  * The clues: dated, newest first, one row each and never an edit, so the way
  * your thinking moved stays readable. A line at the top takes the next one.
  */
-function Clues({ item, onRead }: { item: ItemFull; onRead: (from: number) => void }): React.JSX.Element {
+function Clues({ item, onRead }: { item: ItemFull; onRead: (from: number) => void }): React.JSX.Element | null {
   const clues = [...item.glosses].reverse()
   // Several clues at once: ⇧- or ⌘-click, x, ⌘A, ⌫ removes them with one Undo, Esc lets go.
   const list = useRef<HTMLOListElement>(null)
   const lines = usePickLines(clues.map((clue) => clue.id), list, { one: 'clue', many: 'clues' })
+  // With none yet, the page says once under its title what a clue is: no empty list here.
+  if (!clues.length) return null
   return (
-    <section data-chrome className="page-narrow mx-auto mt-6 w-full border-t px-10 pt-4 text-body">
-      <h3 className="mb-2 flex items-baseline gap-1.5 px-2 text-meta text-muted-foreground">
+    <section data-chrome data-question-clues className="note-column mt-6 shrink-0 border-t pt-4! text-body">
+      <h3 className="mb-2 flex items-baseline gap-1.5 text-meta text-muted-foreground">
         <Term>Clues</Term> {clues.length > 0 && <Rolling text={clues.length} className="tabular-nums" />}
       </h3>
       {clues.length ? (
@@ -444,7 +442,7 @@ function Clues({ item, onRead }: { item: ItemFull; onRead: (from: number) => voi
                     tabIndex={-1}
                     onClickCapture={(event) => lines.click(event, clue.id) && event.stopPropagation()}
                     // Pointed at, its ··· shows (Read from here is in it), as in the tag's list. Its number stays a number.
-                    className={`group/track relative grid grid-cols-[1.25rem_4.25rem_1fr] items-start gap-2.5 rounded-md px-2 py-1.5 pr-9 outline-none hover:bg-foreground/[0.055] has-[[data-state=open]]:bg-foreground/[0.055] ${PICKED_MARK}`}
+                    className={`group/track relative grid grid-cols-[1.25rem_4.25rem_1fr] items-start gap-2.5 -mx-2 rounded-md px-2 py-1.5 pr-9 outline-none hover:bg-foreground/[0.055] has-[[data-state=open]]:bg-foreground/[0.055] ${PICKED_MARK}`}
                   >
                     <span className="pt-px text-right text-xs text-muted-foreground tabular-nums">{clues.length - index}</span>
                     <span className="pt-px text-xs text-muted-foreground tabular-nums">{clueDate(clue.createdAt)}</span>
@@ -459,11 +457,7 @@ function Clues({ item, onRead }: { item: ItemFull; onRead: (from: number) => voi
             })}
           </AnimatePresence>
         </ol>
-      ) : (
-        <p className="px-2 pb-2 text-control text-muted-foreground">
-          <Typed text="No clues yet. Add one whenever it crosses your mind: in the field at the foot of the page, in quick capture with + and the question's name, or from any capture with H." step={28} />
-        </p>
-      )}
+      ) : null}
     </section>
   )
 }

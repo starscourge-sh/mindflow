@@ -1,8 +1,8 @@
 // Questions are pages in Pages. An open question is a row in Pages with
 // its "?" mark; the "Questions" chip shows every question, answered ones too;
 // Questions (the old page, G H, a question opened from anywhere) lands in
-// Pages with that chip on. The question's page says what it is for in two
-// sentences and has an "Answered" button, which makes a page of writing from
+// Pages with that chip on. The question has an
+// "Answered" button, which makes a page of writing from
 // the clues, oldest first. Pinned questions still show in quick capture, and
 // in the box a line ending in "?" offers "Keep as a question" on Tab.
 //
@@ -50,8 +50,8 @@ try {
   const landed = await h.evaluate(() => ({ title: document.querySelector('h1, [data-page-title]')?.textContent, how: document.querySelector('[data-question-how]')?.textContent ?? '', answered: !!document.querySelector('[data-question-answered]'), on: [...document.querySelectorAll('[aria-pressed="true"], [data-on], [data-state="on"]')].map((one) => one.textContent).join('|') }))
   const litRow = await h.evaluate(() => document.querySelector('[data-side-row][aria-current="page"]')?.getAttribute('aria-label'))
   check('a question opens in Pages, its row lit', litRow === 'Pages', String(litRow))
-  const sentences = landed.how.split(/(?<=\.)\s+/).filter(Boolean)
-  check('its page says what it is for in two sentences', sentences.length === 2 && /clue/.test(landed.how) && /“Answered”/.test(landed.how), landed.how)
+  // What it is for is said while it has no clues (qa/question-as-page.mjs); with clues, the page is its clues.
+  check('with clues, its page does not repeat what it is for', !landed.how, landed.how)
   check('its page has an "Answered" button', landed.answered)
   // The old Questions page is Pages with the chip on.
   // (Narrow, an open note takes the page and the list is a step back: from Home, it is the list.)
