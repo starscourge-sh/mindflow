@@ -6,6 +6,7 @@ import { dayKey } from './dates'
 import { gate, plain } from './haligtree'
 import { tagged } from './kinds'
 import { practicesToTasks } from './properties'
+import { isWelcoming, whenWelcoming } from './onboarding'
 import { DECLINES_TO_MOVE, HONEST_DAYS, bestHour, honestOf, logLine, minutesOf, minutesRun, nextProblem, offerDue, partOfDay, stageOf, type Stage } from './practice-rules'
 
 /**
@@ -217,7 +218,8 @@ export function registerPractices(): void {
   // --- the offer: one at a time, never in quiet hours (nor safe mode) or while a session or timer runs.
   const offerNow = (): Offer | null => {
     const { blackout, hidePrivate } = gate()
-    if (blackout || hidePrivate) return null
+    // Never over the welcome: it comes once the welcome closes (looked at again then, below).
+    if (blackout || hidePrivate || isWelcoming()) return null
     if (db.prepare('select 1 from sessions where ended_at is null').get()) return null
     const today = dayKey()
     for (const row of rows()) {
@@ -271,7 +273,10 @@ export function registerPractices(): void {
     if (!row) return null
     const at = now()
     // Starting it ends a session running, kept; a timer from the box carries on underneath.
+    const was = db.prepare("select id from sessions where ended_at is null and practice_id is not null").all() as { id: string }[]
     db.prepare("update sessions set ended_at = ? where ended_at is null and (task_id != '' or kind = 'focus')").run(at)
+    // A practice it ended gets its log line now, not at the next half-minute look.
+    for (const one of was) logEnded(one.id)
     const session = randomUUID()
     db.prepare("insert into sessions (id, task_id, started_at, goal, planned_ms, kind, practice_id) values (?, '', ?, ?, null, 'focus', ?)").run(session, at, row.name, row.id)
     db.prepare('update practices set later_at = null where id = ?').run(id)
@@ -414,6 +419,7 @@ export function registerPractices(): void {
     return offer
   }
   setInterval(tick, 30_000)
+  whenWelcoming((on) => void (!on && setTimeout(tick, 1500)))
   setTimeout(tick, 4000)
   // For the QA runs: looked at now rather than within half a minute.
   handle('practices:check', () => tick())

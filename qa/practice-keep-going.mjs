@@ -81,6 +81,8 @@ try {
 
   // 3. Stop here: ended at the real minutes, and "What stuck?" asks next.
   const second = await v('practices:start', on.id)
+  // Starting a practice ends the running one and writes its log line at once, not at the next half-minute look.
+  check('3. the practice it ended has its log line at once', (await v('session-log:task', id)).filter((one) => /^practice:: spanish, \d+ min$/.test(one.text)).length === 4)
   await v('practices:check')
   await mainBy(19 * MIN)
   await windowBy(pill, 19 * MIN)
@@ -108,6 +110,15 @@ try {
   const due = new Date(task.dueAt)
   check('4. moving to a suggested time moves the task', due.getHours() === 18 && due.getMinutes() === 0 && (await v('practices:list')).find((one) => one.id === on.id)?.at === '18:00', task.dueAt)
   check('no page errors', errors.length === 0, errors.join(' | '))
+  // 5. Joined to the task: its ended practice sessions count in the task's Sessions, and the log has no second line for them.
+  const sessions = await v('sessions', id)
+  check('5. the task\'s Sessions list holds its practice sessions, marked', sessions.filter((one) => one.practice === 1).length >= 4, JSON.stringify(sessions.map((one) => one.practice)))
+  // 6. Never over the welcome: while it is open no offer is made; after it closes, the same offer as before.
+  const before = JSON.stringify(await v('practices:check'))
+  await v('onboarding:set', { welcoming: true })
+  check('6. no offer while the welcome is open', (await v('practices:check')) === null)
+  await v('onboarding:set', { welcoming: false })
+  check('6. after it, the offer as before', JSON.stringify(await v('practices:check')) === before, before)
 } finally {
   await s.close()
 }

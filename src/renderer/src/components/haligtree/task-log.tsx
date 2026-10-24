@@ -120,7 +120,7 @@ export function TaskLog({ taskId }: { taskId: string }): React.JSX.Element {
   }, [sessions])
 
   const entries: Entry[] = [
-    ...(sessions ?? []).filter((one) => one.endedAt).map((one) => ({ key: `s-${one.id}`, at: one.endedAt!, text: one.recap?.trim() || null, session: one })),
+    ...(sessions ?? []).filter((one) => one.endedAt && !one.practice).map((one) => ({ key: `s-${one.id}`, at: one.endedAt!, text: one.recap?.trim() || null, session: one })),
     ...(glosses ?? []).map((one) => ({ key: `g-${one.id}`, at: one.createdAt, text: one.body, gloss: one }))
   ].sort((a, b) => b.at.localeCompare(a.at))
   // A long log shows its newest, and the rest a click away, so a task worked on for months opens at once.

@@ -3432,7 +3432,11 @@ export function registerHaligtree(): void {
   // session is. Named while it runs or after, on the day's page (session:name).
   db.exec('create table if not exists sessions (id text primary key, task_id text not null, started_at text not null, ended_at text, recap text)')
   handle('sessions', (taskId: string) =>
-    db.prepare('select id, started_at as startedAt, ended_at as endedAt, recap, goal, planned_ms as plannedMs, paused_ms as pausedMs, paused_at as pausedAt, abandoned_at as abandonedAt from sessions where task_id = ? order by started_at desc').all(taskId)
+    // Its practice's sessions too, once ended (a running one belongs to the practice's own pill), marked so the
+    // task's log does not repeat the practice's own line: practice minutes count toward the routine they practise.
+    db.prepare(`select id, started_at as startedAt, ended_at as endedAt, recap, goal, planned_ms as plannedMs, paused_ms as pausedMs, paused_at as pausedAt, abandoned_at as abandonedAt, 0 as practice from sessions where task_id = ?
+      union all select s.id, s.started_at, s.ended_at, s.recap, s.goal, s.planned_ms, s.paused_ms, s.paused_at, s.abandoned_at, 1 from sessions s join practices p on p.id = s.practice_id where p.task_id = ? and s.ended_at is not null
+      order by startedAt desc`).all(taskId, taskId)
   )
   // A focus session: a goal, an optional length, and pauses that do not count.
   column('sessions', 'goal text')

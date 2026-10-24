@@ -193,7 +193,7 @@ export const taskSaid = (made: Made | null | undefined, fresh: string): string =
   made?.existed ? 'Already on your list, so this was linked to that task instead of adding it twice' : fresh
 export type TaskFull = Task & { /** Where to pick up, said as its last session ended. */ pickup?: string | null; notes: unknown; done: { at: string; recap: string | null }[]; subtasks: Subtask[]; linked: { id: string; tier: string; kind: string; title: string }[] }
 
-export type Session = { id: string; startedAt: string; endedAt: string | null; recap: string | null; goal?: string | null; plannedMs?: number | null; pausedMs: number; pausedAt: string | null; /** Abandoned: kept in the log, counted in no total. */ abandonedAt?: string | null }
+export type Session = { id: string; startedAt: string; endedAt: string | null; recap: string | null; goal?: string | null; plannedMs?: number | null; pausedMs: number; pausedAt: string | null; /** Abandoned: kept in the log, counted in no total. */ abandonedAt?: string | null; /** One of the task's practice's sessions (1): its log line says it already. */ practice?: number }
 /** A session ended on a day, with its task and what was logged in it. */
 /** A focus session as a block in time, for the day's timeline and the week: running (no `endedAt`) or ended. */
 export type SpanSession = { id: string; taskId: string; title: string; startedAt: string; endedAt: string | null; plannedMs: number | null; pausedMs: number; pausedAt: string | null }
