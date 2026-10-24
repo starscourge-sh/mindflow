@@ -74,14 +74,16 @@ const titleOf = (node: HTMLElement): string =>
   (node.querySelector<HTMLElement>('.private-text, [data-title]')?.innerText ?? node.innerText).split('\n').map((line) => line.trim()).map((line) => cut(line, 80)).find(Boolean) ||
   'Untitled'
 
-type Zone = { side: Side; left: number; top: number; width: number; height: number }
+/** `room` is the half of the page the new pane would take: lit whole while the pointer is in the place, as Dia does. */
+type Zone = { side: Side; left: number; top: number; width: number; height: number; room: number }
 const zonesIn = (area: DOMRect, narrow = false): Zone[] => {
   const width = narrow ? NARROW : Math.max(96, Math.min(168, area.width * 0.2))
   const top = area.top + 10
   const height = Math.max(120, area.height - 20)
+  const room = Math.max(width, area.width / 2 - 15)
   return [
-    { side: 'left', left: area.left + 10, top, width, height },
-    { side: 'right', left: area.right - 10 - width, top, width, height }
+    { side: 'left', left: area.left + 10, top, width, height, room },
+    { side: 'right', left: area.right - 10 - width, top, width, height, room }
   ]
 }
 /** How far the pointer is from a place: 0 inside it. */
@@ -160,7 +162,9 @@ export function SplitDrop({ onDrop }: { onDrop: (carried: Carried, side: Side) =
         const far = distance(zone, px, py)
         const pull = Math.max(0, 1 - far / REACH)
         const middle = { x: zone.left + zone.width / 2, y: Math.max(zone.top + 40, Math.min(zone.top + zone.height - 40, py)) }
-        if (far === 0) target = zone.side
+        // Once lit, the whole half it lights is the place, as in Dia: moving over it keeps it.
+        const inRoom = over === zone.side && px >= (zone.side === 'left' ? zone.left : zone.left + zone.width - zone.room) && px <= (zone.side === 'left' ? zone.left + zone.room : zone.left + zone.width) && py >= zone.top && py <= zone.top + zone.height
+        if (far === 0 || inRoom) target = zone.side
         // The place leans out toward the pointer and grows a touch; the card is drawn in.
         lean[zone.side].set(quiet ? 0 : Math.max(-14, Math.min(14, (px - middle.x) * 0.1 * pull)))
         grow[zone.side].set(quiet ? 1 : 1 + 0.035 * pull)
@@ -325,26 +329,40 @@ function ZoneBox({ zone, hot, lean, grow }: { zone: Zone; hot: boolean; lean: Mo
   const label = `Open on the ${zone.side}`
   // A strip at the edge, beside a list's own drag: its words wrap, smaller.
   const narrow = zone.width <= NARROW
+  const at = zone.side === 'left' ? zone.left : zone.left + zone.width - zone.room
   return (
-    <motion.div
-      data-split-zone={zone.side}
-      data-hot={hot ? '' : undefined}
-      aria-label={label}
-      className={`absolute flex flex-col items-center justify-start gap-2 rounded-xl border-2 border-dashed pt-[min(30%,12rem)] transition-[background-color,border-color,color] duration-150 ${
-        hot
-          ? 'border-[var(--tt-brand-color-400)] bg-[color-mix(in_srgb,var(--tt-brand-color-400)_10%,var(--background))] text-foreground'
-          : 'border-foreground/20 bg-background text-muted-foreground'
-      }`}
-      style={{ left: zone.left, top: zone.top, width: zone.width, height: zone.height, x: lean, scale: grow, transformOrigin: zone.side === 'left' ? 'left center' : 'right center' }}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.14 }}
-    >
-      <span className={`flex size-8 items-center justify-center rounded-lg ${hot ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_22%,transparent)] text-[var(--tt-brand-color-400)]' : 'bg-foreground/5'}`}>
-        <SplitMark side={zone.side} />
-      </span>
-      <span className={`rounded-md bg-popover py-0.5 text-center font-medium shadow-sm ${narrow ? 'mx-1 px-1 text-xs leading-tight' : 'px-2 text-control'}`}>{label}</span>
-    </motion.div>
+    <>
+      <motion.div
+        data-split-zone={zone.side}
+        data-hot={hot ? '' : undefined}
+        aria-label={label}
+        className="absolute flex flex-col items-center justify-start gap-2 rounded-xl border-2 border-dashed border-foreground/20 bg-background pt-[min(30%,12rem)] text-muted-foreground"
+        style={{ left: zone.left, top: zone.top, width: zone.width, height: zone.height, x: lean, scale: grow, transformOrigin: zone.side === 'left' ? 'left center' : 'right center' }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: hot ? 0 : 1 }}
+        transition={{ duration: 0.14 }}
+      >
+        <span className="flex size-8 items-center justify-center rounded-lg bg-foreground/5"><SplitMark side={zone.side} /></span>
+        <span className={`rounded-md bg-popover py-0.5 text-center font-medium shadow-sm ${narrow ? 'mx-1 px-1 text-xs leading-tight' : 'px-2 text-control'}`}>{label}</span>
+      </motion.div>
+      {/* In the place: the half the new pane takes lights up whole, so where it opens is never a guess. */}
+      <AnimatePresence>
+        {hot && (
+          <motion.div
+            data-split-room={zone.side}
+            className="absolute flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-[var(--tt-brand-color-400)] bg-[color-mix(in_srgb,var(--tt-brand-color-400)_12%,var(--background))] text-foreground shadow-[0_18px_48px_-20px_rgb(0_0_0/0.35)]"
+            style={{ left: at, top: zone.top, width: zone.room, height: zone.height, transformOrigin: zone.side === 'left' ? 'left center' : 'right center' }}
+            initial={{ opacity: 0, scaleX: 0.92 }}
+            animate={{ opacity: 1, scaleX: 1 }}
+            exit={{ opacity: 0, scaleX: 0.96, transition: { duration: 0.1 } }}
+            transition={{ type: 'spring', duration: 0.24, bounce: 0 }}
+          >
+            <span className="flex size-10 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--tt-brand-color-400)_22%,transparent)] text-[var(--tt-brand-color-400)] [&_svg]:size-5"><SplitMark side={zone.side} /></span>
+            <span className="rounded-lg bg-popover px-3 py-1 text-base font-medium shadow-sm">{label}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   )
 }
 

@@ -1045,6 +1045,8 @@ export function registerHaligtree(): void {
   column('tag_meta', 'lands text')
   // What stands behind a tag page's header: 'colour', 'picture' (one from its notes) or 'sketch'; null picks for itself.
   column('tag_meta', 'backdrop text')
+  // Kept off Home's "More like" rows: the person asked never to see this tag's row there.
+  column('tag_meta', 'home_hidden integer not null default 0')
   // Why the answer is so, one line under it in review.
   column('nuggets', 'why text')
   // A question held open: when it was settled, and how ('answered' or 'let go').
@@ -3311,14 +3313,15 @@ export function registerHaligtree(): void {
     const meta = new Map((db.prepare('select tag, color, action, exam_at, priority, lands from tag_meta').all() as { tag: string; color: string | null; action: number; exam_at: string | null; priority: string | null; lands: string | null }[]).map((row) => [row.tag, row]))
     return [...counts].map(([tag, { count, later }]) => ({ tag, count, later, color: meta.get(tag)?.color ?? null, action: !!meta.get(tag)?.action, examAt: meta.get(tag)?.exam_at ?? null, priority: meta.get(tag)?.priority ?? null, lands: meta.get(tag)?.lands ?? null })).sort((a, b) => b.count - a.count || b.later - a.later)
   })
-  handle('tag:meta', () => db.prepare('select tag, color, action, backdrop from tag_meta').all())
-  handle('tag:set', (tag: string, patch: { backdrop?: string | null; color?: string | null; action?: boolean; aliasOf?: string | null; examAt?: string | null; priority?: 'maintaining' | 'paused' | null; lands?: string | null }) => {
+  handle('tag:meta', () => db.prepare('select tag, color, action, backdrop, home_hidden as homeHidden from tag_meta').all())
+  handle('tag:set', (tag: string, patch: { homeHidden?: boolean; backdrop?: string | null; color?: string | null; action?: boolean; aliasOf?: string | null; examAt?: string | null; priority?: 'maintaining' | 'paused' | null; lands?: string | null }) => {
     db.prepare('insert or ignore into tag_meta (tag) values (?)').run(tag)
     if (patch.lands !== undefined) db.prepare('update tag_meta set lands = ? where tag = ?').run(/^\d{1,3}$/.test(patch.lands ?? '') ? patch.lands : null, tag)
     if (patch.priority !== undefined) db.prepare('update tag_meta set priority = ? where tag = ?').run(['maintaining', 'paused'].includes(patch.priority ?? '') ? patch.priority : null, tag)
     if (patch.examAt !== undefined) db.prepare('update tag_meta set exam_at = ? where tag = ?').run(patch.examAt, tag)
     if (patch.backdrop !== undefined) db.prepare('update tag_meta set backdrop = ? where tag = ?').run(['colour', 'picture', 'sketch'].includes(patch.backdrop ?? '') ? patch.backdrop : null, tag)
     if (patch.color !== undefined) db.prepare('update tag_meta set color = ? where tag = ?').run(patch.color, tag)
+    if (patch.homeHidden !== undefined) db.prepare('update tag_meta set home_hidden = ? where tag = ?').run(patch.homeHidden ? 1 : 0, tag)
     if (patch.action !== undefined) db.prepare('update tag_meta set action = ? where tag = ?').run(patch.action ? 1 : 0, tag)
     if (patch.aliasOf !== undefined) {
       db.prepare('insert or ignore into tag_meta (tag) values (?)').run(tag)
@@ -4117,12 +4120,15 @@ export function registerHome(): void {
       try { text = plain(JSON.parse(text)) } catch { /* Markdown, as it is */ }
       for (const tag of tagsIn(`${row.title} ${text}`)) tagged.set(tag, [...(tagged.get(tag) ?? []), strip(row)])
     }
-    const colours = new Map((db.prepare('select tag, color from tag_meta').all() as { tag: string; color: string | null }[]).map((row) => [row.tag, row.color]))
-    const tags = [...tagged].filter(([, rows]) => rows.length >= 2).sort((a, b) => b[1].length - a[1].length).slice(0, 2)
+    const metaRows = db.prepare('select tag, color, home_hidden from tag_meta').all() as { tag: string; color: string | null; home_hidden: number }[]
+    const colours = new Map(metaRows.map((row) => [row.tag, row.color]))
+    // Never the app's own help deck or a #bit, and never a tag the person took off Home.
+    const offHome = new Set(['bit', LEARN_TAG, ...metaRows.filter((row) => row.home_hidden).map((row) => row.tag)])
+    const tags = [...tagged].filter(([tag, rows]) => !offHome.has(tag) && rows.length >= 2).sort((a, b) => b[1].length - a[1].length).slice(0, 2)
       .map(([tag, rows]) => ({ tag, color: colours.get(tag) ?? null, cards: rows.sort((a, b) => b.at.localeCompare(a.at)).slice(0, 12) }))
 
     const monday = dayjs().startOf('week').toISOString()
-    const week = all.filter((row) => row.made >= monday && row.type !== 'question' && row.type !== 'goal').sort((a, b) => b.made.localeCompare(a.made)).slice(0, 16).map(strip)
+    const week = all.filter((row) => row.made >= monday && row.type !== 'question' && row.type !== 'goal' && !(row.body ?? '').includes(`#${LEARN_TAG}`)).sort((a, b) => b.made.localeCompare(a.made)).slice(0, 16).map(strip)
 
     // A few words after the first line, for the cards that have no picture: only for what is shown.
     const excerpts = new Map<string, string>()

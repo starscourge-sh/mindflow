@@ -1,0 +1,19 @@
+Gradients: the soft covers a note with no picture of its own wears when
+Settings > Appearance > Covers is Gradients and no folder of your own is
+chosen (components/haligtree/grain.tsx, GRADIENTS). The app lays a tint of the
+note's colour and a film grain over them, so the files themselves stay plain.
+
+Source: the user's own folder of gradients, ~/Documents/img/gradients. Copied
+out, resized to 480px on the short side and saved as webp; the originals were
+not changed. test-5.jpg and test-6.jpg are the same files as w-1 and w-2, so
+only the nine w- files are bundled:
+
+  w-1.webp   from w-1.jpg   amber glow fading to dark
+  w-2.webp   from w-2.jpg   brown and gold
+  w-3.webp   from w-3.jpg   olive and sand
+  w-4.webp   from w-4.jpg   indigo rising to a pink glow
+  w-5.webp   from w-5.jpg   plum
+  w-6.webp   from w-6.jpg   deep blue
+  w-7.webp   from w-7.jpg   teal
+  w-8.webp   from w-8.jpg   ocean blue
+  w-9.webp   from w-9.jpg   dark violet

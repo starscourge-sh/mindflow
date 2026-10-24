@@ -2149,8 +2149,8 @@ export function useTopTitle(): string | null {
  */
 /** Inside a note's details sidebar, every island folds by its heading. */
 const FoldIslands = createContext(false)
-/** Open at first, of the details sidebar's groups: where a note sits and what it is. The rest wait folded. */
-const OPEN_AT_FIRST = new Set(['Family', 'Links', 'Details'])
+/** Open at first, of the details sidebar's groups: what can be done with a note, where it sits and what it is. The rest wait folded. */
+const OPEN_AT_FIRST = new Set(['Status', 'Family', 'Links', 'Details'])
 
 export function Island({ title, actions, children, className, compact, name, group }: {
   title?: ReactNode

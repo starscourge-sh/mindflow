@@ -527,11 +527,11 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
       </div>
       {/* The latest thought hangs off the post on a bent line, the sidebar's Pinned tree's way; the rest are in its thread. */}
       {hang && (
-        <div data-feed-hanging className="flex gap-3">
+        <div data-feed-hanging className="flex gap-3 pt-2.5 pb-2">
           <div aria-hidden className="relative w-9 shrink-0">
             {/* Down from the line under the picture, then bent toward the reply's first line. */}
-            <svg className="absolute -top-1 left-[17.5px] h-[15px] w-[26px] overflow-visible text-border" viewBox="0 0 26 15" fill="none">
-              <path d="M0.5 0 V9.5 Q0.5 14.5 5.5 14.5 H26" stroke="currentColor" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+            <svg className="absolute -top-[14px] left-[17.5px] h-[25px] w-[26px] overflow-visible text-border" viewBox="0 0 26 25" fill="none">
+              <path d="M0.5 0 V19.5 Q0.5 24.5 5.5 24.5 H26" stroke="currentColor" strokeWidth="1" vectorEffect="non-scaling-stroke" />
             </svg>
           </div>
           <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5">

@@ -23,7 +23,7 @@ import { tagColour } from './tag-read'
 import { TaskPriority, TaskWhen, completeTask, taskMenu, useTaskNow } from './tasks-view'
 import { sideMenu, useFullMenu } from './side-menu'
 import { byPriority, markRoom } from './task-input'
-import { Tags, Tip, pin } from './ui'
+import { Tags, Tip, pin, toast } from './ui'
 import { NowSlot } from './now-slot'
 import { Example } from './example'
 import { Button } from '@/components/ui/button'
@@ -326,7 +326,7 @@ function Heading({ title, onAll, extra }: { title: ReactNode; onAll?: () => void
 }
 
 /** A row that scrolls sideways, with › and ‹ on hover and its edges faded where there is more. */
-function Row({ title, onAll, children }: { title: ReactNode; onAll?: () => void; children: ReactNode }): React.JSX.Element {
+function Row({ title, onAll, menu, children }: { title: ReactNode; onAll?: () => void; /** The row's own choices, last in the group on the right. */ menu?: MenuItem[]; children: ReactNode }): React.JSX.Element {
   const scroller = useRef<HTMLDivElement>(null)
   const [edges, setEdges] = useState({ left: false, right: false })
   // Where the row is, for the dot track under it: what share is in view, and from where.
@@ -364,9 +364,9 @@ function Row({ title, onAll, children }: { title: ReactNode; onAll?: () => void;
     <section className="group/shelf flex flex-col gap-1 [--card:9rem] @[44rem]/page:[--card:10.5rem]">
       {/* ‹ and › beside Show all, never over a card's words. */}
       <div className="px-5 @[44rem]/page:px-8">
-        <Heading title={title} onAll={onAll} extra={(edges.left || edges.right) && (
+        <Heading title={title} onAll={onAll} extra={(edges.left || edges.right || menu) && (
           <span className="flex shrink-0 items-center gap-1 self-center">
-            {(['left', 'right'] as const).map((side) => (
+            {(edges.left || edges.right) && (['left', 'right'] as const).map((side) => (
               <Tip key={side} label={side === 'left' ? 'Back' : 'More'}>
                 <button type="button" tabIndex={-1} disabled={!edges[side]} onClick={() => page(side === 'left' ? -1 : 1)}
                   className="flex size-7 items-center justify-center rounded-full text-muted-foreground transition-[color,background-color,opacity,scale] duration-150 hover:bg-foreground/[0.07] hover:text-foreground active:scale-95 disabled:pointer-events-none disabled:opacity-30">
@@ -374,6 +374,7 @@ function Row({ title, onAll, children }: { title: ReactNode; onAll?: () => void;
                 </button>
               </Tip>
             ))}
+            {menu && <MenuButton small label="Row options" name="home-row" items={menu} />}
           </span>
         )} />
       </div>
@@ -918,7 +919,8 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
           )}
 
           {tagRows.map(({ tag: name, color, cards }) => (
-            <Row key={name} title={<>More like <span style={{ color: tagColour(name, color) }}>#{name}</span></>} onAll={() => onView('tags', name)}>
+            <Row key={name} title={<>More like <span style={{ color: tagColour(name, color) }}>#{name}</span></>} onAll={() => onView('tags', name)}
+              menu={[{ label: `Hide #${name} from Home`, hint: 'Another tag takes its place. Bring it back from the tag’s own page.', run: () => void haligtree.setTag(name, { homeHidden: true }).then(() => toast(`#${name} is off Home`, () => void haligtree.setTag(name, { homeHidden: false }))) }]}>
               {cards.map((card, at) => <RowCard key={`${card.type}:${card.id}`} card={card} list={cards} at={at} actions={actions} />)}
             </Row>
           ))}

@@ -388,6 +388,10 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
           <MenuButton items={[
             { label: 'Rename or merge…', run: () => void rename() },
             { label: 'Edit tag…', hint: 'Colour, alias and exam date', run: onManage },
+            // The way back for a row taken off Home, and the same choice made from here.
+            tagMeta.find((one) => one.tag === tag)?.homeHidden
+              ? { label: 'Show its row on Home', run: () => void haligtree.setTag(tag, { homeHidden: false }) }
+              : { label: 'Hide its row from Home', hint: 'Home stops showing “More like” this tag', run: () => void haligtree.setTag(tag, { homeHidden: true }) },
             'separator',
             { label: `Copy #${tag}`, run: () => copy(`#${tag}`, `Copied #${tag}`) }
           ]} />
