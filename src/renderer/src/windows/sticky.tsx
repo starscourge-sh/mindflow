@@ -16,3 +16,15 @@ start(
     <Toaster />
   </>
 )
+
+// Ready once its words are in: the page has drawn and stopped changing for a moment (its reads answered, its
+// dots and numbers set), with its fonts loaded. Before, a card came onto the desktop blank and filled in after.
+void document.fonts.ready.then(() => {
+  let quiet = 0
+  const said = (): void => (watch.disconnect(), clearTimeout(quiet), clearTimeout(cap), window.api.stickyReady())
+  const settle = (): void => (clearTimeout(quiet), void (quiet = window.setTimeout(said, 220)))
+  const watch = new MutationObserver(settle)
+  watch.observe(document.body, { childList: true, subtree: true, characterData: true })
+  const cap = window.setTimeout(said, 2500)
+  settle()
+})

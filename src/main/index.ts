@@ -1017,6 +1017,22 @@ const nextArrival = (): void => {
  */
 /** Made again as glass or paper: it only fades in where the old one fades out, with no drop. */
 const quietly = new Set<string>()
+/** Each sticky's page, waited for until it says its words are in. */
+const readyWaits = new Map<number, () => void>()
+ipcMain.on('sticky:ready', (event) => {
+  const go = readyWaits.get(event.sender.id)
+  readyWaits.delete(event.sender.id)
+  go?.()
+})
+/** Once the main window is on screen, if it is on its way; at once if it is not opening. */
+function afterHome(go: () => void): void {
+  const home = BrowserWindow.getAllWindows().find((one) => !one.isDestroyed() && /[?&]view=home/.test(one.webContents.getURL()))
+  if (!home || homePainted) return go()
+  let done = false
+  const once = (): void => void (!done && ((done = true), setTimeout(go, 250)))
+  home.once('ready-to-show', once)
+  setTimeout(once, 2500)
+}
 function arriveSticky(win: BrowserWindow): void {
   if (win.isDestroyed() || win.isVisible()) return
   const quiet = quietly.delete(keyOfSticky(win) ?? '')
@@ -1222,7 +1238,14 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   shield(win)
   // The desktop picture, blurred, behind its paper (frost.ts).
   frostWindow(win, () => stickyUp(key), fixed && !glass)
-  win.once('ready-to-show', () => stickyUp(key) && arriveSticky(win))
+  // Shown once its page has drawn what it holds (sticky:ready, a blank card was seen first) and the main window, if it
+  // is opening, has painted: the desk comes in first, the cards are dealt onto it. Never later than 3 seconds.
+  let painted = false
+  let filled = false
+  const arrive = (): void => void (painted && filled && stickyUp(key) && afterHome(() => arriveSticky(win)))
+  win.once('ready-to-show', () => ((painted = true), arrive()))
+  readyWaits.set(win.webContents.id, () => ((filled = true), arrive()))
+  setTimeout(() => ((filled = true), (painted = true), arrive()), 3000)
   // Where you leave it is where it comes back.
   const remember = (): void => {
     // Peeking, the window is a tab at the edge: the card's own place is kept as it was.

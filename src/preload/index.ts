@@ -232,6 +232,8 @@ const api = {
   /** A menu drawn by the Mac over a sticky; resolves to the place of the line chosen, or null. */
   stickyMenu: (items: unknown[]): Promise<number[] | null> => ipcRenderer.invoke('sticky:menu', items),
   /** A sticky's page: told as its window comes in, peels off, is picked up or let go (`held`), or changes colour. */
+  /** A sticky's page has drawn what it holds: it may come onto the desktop now. */
+  stickyReady: (): void => ipcRenderer.send('sticky:ready'),
   onStickyMotion: (listen: (what: 'arrive' | 'peel' | 'held' | 'tint', value?: unknown) => void): (() => void) => {
     const relays = (['arrive', 'peel', 'held', 'tint'] as const).map((what) => [`sticky:${what}`, (_event: unknown, value?: unknown): void => listen(what, value)] as const)
     for (const [channel, relay] of relays) ipcRenderer.on(channel, relay)
