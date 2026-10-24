@@ -516,7 +516,10 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
       {hang && (
         <div data-feed-hanging className="flex gap-3">
           <div aria-hidden className="relative w-9 shrink-0">
-            <span className="absolute -top-1 left-[17.5px] h-[calc(0.25rem+0.6875rem)] w-3.5 rounded-bl-md border-b border-l border-border" />
+            {/* Down from the line under the picture, then bent toward the reply's first line. */}
+            <svg className="absolute -top-1 left-[17.5px] h-[15px] w-[26px] overflow-visible text-border" viewBox="0 0 26 15" fill="none">
+              <path d="M0.5 0 V9.5 Q0.5 14.5 5.5 14.5 H26" stroke="currentColor" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+            </svg>
           </div>
           <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
             <button type="button" data-feed-latest onClick={onThread} title={hang.body}
