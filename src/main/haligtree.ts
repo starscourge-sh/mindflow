@@ -264,9 +264,10 @@ const DEFAULTS = {
   // sides, so it stays centred where it was; off, it grows right. Up and down
   // it always grows from its top, so the writing stays where the eye is.
   boxCentred: true,
-  // Raycast's way, off to start: the box puts itself away when you click into
-  // another app. Off, it stays up beside what you are reading until Esc or the key.
-  boxAutoHide: false,
+  // Raycast's way, on to start: the box puts itself away when you click into another app, so a new
+  // user who does not know Esc or the key is never left with a window that will not go (it has no
+  // traffic lights). Off, it stays up beside what you are reading until Esc or the key.
+  boxAutoHide: true,
   // Left for another app, the box dims as every window does; off, it stays at full strength.
   boxDim: true,
   // Quick capture's buttons out of sight until pointed at (⌥⌘,). Off to start, so nobody is left looking for them.
@@ -705,7 +706,7 @@ export const motionOn = (): boolean => settings().motion
 export const appIcon = (): 'bronze' | 'gold' => settings().appIcon
 export const blurOn = (): boolean => settings().blur !== false
 /** Whether the box puts itself away when it loses the focus. */
-export const boxAutoHide = (): boolean => settings().boxAutoHide === true
+export const boxAutoHide = (): boolean => settings().boxAutoHide !== false
 /** Where the box goes: see boxCentred, boxPlace and boxScreen above. */
 export const boxPlacement = (): { centred: boolean; place: 'last' | 'top' | 'centre'; screen: 'pointer' | 'same' } => {
   const now = settings()

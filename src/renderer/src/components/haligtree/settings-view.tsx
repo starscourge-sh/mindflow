@@ -599,8 +599,8 @@ export function SettingsView(): React.JSX.Element {
             <CentredSample on={settings.boxCentred !== false} />
             <Switch checked={settings.boxCentred !== false} onCheckedChange={(boxCentred) => set({ boxCentred })} />
           </Setting>
-          <Setting title="Auto-close quick capture" note="Quick capture puts itself away when you click into another app." more="Like Raycast. What you wrote is kept. Off to start, so it stays up beside what you are reading until Esc or the key again." keywords="close when you click away box window close hide blur focus click away raycast auto">
-            <Switch checked={settings.boxAutoHide === true} onCheckedChange={(boxAutoHide) => set({ boxAutoHide })} />
+          <Setting title="Auto-close quick capture" note="Quick capture puts itself away when you click into another app." more="Like Raycast. What you wrote is kept. On to start; off, it stays up beside what you are reading until Esc or the key again." keywords="close when you click away box window close hide blur focus click away raycast auto">
+            <Switch checked={settings.boxAutoHide !== false} onCheckedChange={(boxAutoHide) => set({ boxAutoHide })} />
           </Setting>
           <Setting title="Dim quick capture" note="Quick capture fades to half strength when you click into another app." more="So the window you are in is clear. Off, it stays as bright as when you write in it." off={settings.blur === false && '“Blurring” is off, so no window dims for now.'} keywords="dim when you click away box window dim fade faded transparent opacity blur focus click away lose">
             <span aria-hidden className="flex h-7 w-16 items-center gap-1 rounded-md border border-border bg-popover px-2 transition-opacity duration-200" style={{ opacity: settings.boxDim !== false && settings.blur !== false ? 0.55 : 1 }}><span className="h-1 flex-1 rounded-full bg-foreground/50" /><span className="h-1 w-3 rounded-full bg-foreground/30" /></span>

@@ -1,5 +1,6 @@
-// Quick capture stays up when you click into another app, until it is asked
-// to put itself away ("Auto-close quick capture", off to start).
+// Quick capture puts itself away when you click into another app ("Auto-close
+// quick capture", on to start: the box has no traffic lights, so a new user
+// would not know how to close it); switched off, it stays up.
 //
 //   npx electron-vite build --outDir out-bb
 //   QA_DATA=$(mktemp -d) QA_ENTRY=out-bb/main/index.js HALIGTREE_QA_AWAY=1 HALIGTREE_QA_AUTOHIDE=1 node qa/box-blur.mjs
@@ -24,10 +25,10 @@ try {
     return app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((one) => !one.webContents.getURL().includes('view='))?.isVisible())
   }
   const first = await page.evaluate(() => window.api.haligtree('settings'))
-  check('off to start', first.boxAutoHide === false, String(first.boxAutoHide))
-  check('off: clicking away leaves the box up', (await shownAfterBlur()) === true)
-  await page.evaluate(() => window.api.haligtree('settings:set', { boxAutoHide: true }))
+  check('on to start', first.boxAutoHide !== false, String(first.boxAutoHide))
   check('on: clicking away puts the box away', (await shownAfterBlur()) === false)
+  await page.evaluate(() => window.api.haligtree('settings:set', { boxAutoHide: false }))
+  check('off: clicking away leaves the box up', (await shownAfterBlur()) === true)
 } finally {
   await run.close().catch(() => {})
   try { run.electron.process().kill('SIGKILL') } catch {}

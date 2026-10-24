@@ -351,7 +351,7 @@ export function SandboxHost(): React.JSX.Element | null {
       // Its own pictures, whatever yours are: four public-domain landscapes for
       // Scenery and Haligtree's own grain for covers; your celebrations come along.
       // Its bars are lightsabers whatever yours are: the book is someone else's, and they love Star Wars.
-      const settings = { ...(carry?.settings ?? {}), progressBars: 'saber', scenery: true, sceneryFolders: [await builtInScenery()], coversFolder: '' }
+      const settings = { ...(carry?.settings ?? {}), progressBars: 'saber', scenery: true, sceneryFolders: [await builtInScenery()], coversFolder: '', boxAutoHide: true }
       sabersWorn()
       // An editor on the page reads Markdown for the seed; wait for one, five seconds at most.
       for (let waited = 0; !readMarkdown('x') && waited < 5000; waited += 100) await new Promise((wait) => setTimeout(wait, 100))
