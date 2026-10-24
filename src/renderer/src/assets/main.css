@@ -1771,6 +1771,8 @@ button.mf-signed:hover .mf-signature { text-decoration: underline; text-decorati
    it can be dragged, after a moment's rest on it. */
 [data-sortable-id], [data-sortable-id] *, [data-sortable-id] button:not(:disabled) { cursor: default; }
 /* The grip itself is the handle: the open hand over it, closed while held. */
+/* A control inside a draggable row (a switch, a menu's button) is still pressed on its own: the hand. */
+[data-sortable-id] [role='switch']:not([data-disabled]), [data-sortable-id] [aria-haspopup]:not(:disabled) { cursor: pointer; }
 [data-sortable-id] [data-grip] { cursor: grab; }
 [data-sortable-id] [data-grip]:active { cursor: grabbing; }
 html[data-dragging] [data-grip] { display: none; }

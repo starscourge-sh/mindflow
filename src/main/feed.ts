@@ -36,6 +36,8 @@ export type FeedPost = {
   seenTimes: number
   /** How many times "Less of this" (or a hint's thumbs down) has faded it, net of any thumbs up: 0 for as before. */
   faded: number
+  /** Times liked, the heart: each one brings it back sooner. */
+  liked: number
   /** Its tags, a few, each a way to its tag page. */
   tags: string[]
   /** A gem you restacked: the note it quotes. */
@@ -53,7 +55,7 @@ const POLL_AFTER = 21
 const POLL_AGAIN = 28
 /** Quiz cards a day at most. */
 const QUIZZES = 2
-export type Reaction = 'true' | 'changed' | 'use' | 'less'
+export type Reaction = 'like' | 'changed' | 'use' | 'less'
 /** A Page as Reading lists it: where it is from, its title and first line, how long it takes, when you last opened it. */
 export type ReadingPage = {
   id: string
@@ -79,6 +81,8 @@ export type FeedSide = { quiet: { kind: 'source' | 'tag'; name: string; last: st
 const SIZE = 24
 /** Times faded, from its weight: each "Less of this" is one step of LESS. */
 export const fadedSteps = (weight: number | null | undefined): number => (weight && weight < 0.99 ? Math.max(1, Math.round(Math.log(weight) / Math.log(LESS))) : 0)
+/** Times liked, from its weight: each like is one step up. */
+export const likedSteps = (weight: number | null | undefined): number => (weight && weight > 1.01 ? Math.max(1, Math.round(Math.log(weight) / Math.log(1.5))) : 0)
 /** A Page's dek: about this long, cut at a word. */
 const DEK = 180
 /** A link's label clipped short: "Rosetta Stone, found in 1799: one decre…". */
@@ -113,6 +117,9 @@ const cutAt = (text: string, size: number): string => (text.length > size ? `${t
 type Row = { type: FeedPost['type']; id: string; kind: string; title: string; body: string | null; who: string | null; made: string; visited: string | null; weight: number; archive?: number }
 /** How much less often "Less of this" makes it come up: the same step as a hint's thumbs down. */
 const LESS = 1 / 1.5
+/** A like's step, the same size as a fade's the other way, and how far likes can take it. */
+const MORE = 1.5
+const MOST = 4
 /** A page's words a line a block: a paragraph with a link in it stays one line, as it reads. */
 const blockLines = (raw: string): string[] => {
   let doc: { type?: string; content?: { type?: string }[] } | null = null
@@ -355,7 +362,7 @@ export function registerFeed(): void {
     // Read now, not from the morning's pool: a "Less of this" a moment ago shows at once.
     const weightOf = (row: Row): number => { const table = tableOf(row.type); return table ? ((db.prepare(`select surfacing_weight as w from ${table} where id = ?`).get(row.id) as { w: number } | undefined)?.w ?? 1) : 1 }
     const pollAnswer = db.prepare('select answer from feed_polls where day = ? and key = ?')
-    const blank = { who: null, seen: null, gloss: null, clue: null, react: null, replies: 0, firstReply: null, seenTimes: 0, faded: 0, tags: [], restack: null }
+    const blank = { who: null, seen: null, gloss: null, clue: null, react: null, replies: 0, firstReply: null, seenTimes: 0, faded: 0, liked: 0, tags: [], restack: null }
     const asked = (key: string): FeedPost[] => {
       const [type, rest] = split(key)
       if (type === 'poll') {
@@ -381,7 +388,7 @@ export function registerFeed(): void {
       return [{
         type: row.type, id: row.id, kind: row.kind, title: row.title, text: words(row), who: row.who?.trim() || null, made: row.made,
         seen: lastSeen(row), gloss: row.type === 'question' ? null : gloss, clue: row.type === 'question' ? (gloss?.body ?? null) : null,
-        react: reacts.get(key) ?? null, replies: span.n, firstReply: span.first, seenTimes: times.get(row.id) ?? 0, faded: fadedSteps(weightOf(row)), tags: tagsOfRow(row).filter((tag) => tag !== 'bit' && tag !== LEARN_TAG).slice(0, 3), restack: quoted(row),
+        react: reacts.get(key) ?? null, replies: span.n, firstReply: span.first, seenTimes: times.get(row.id) ?? 0, faded: fadedSteps(weightOf(row)), liked: likedSteps(weightOf(row)), tags: tagsOfRow(row).filter((tag) => tag !== 'bit' && tag !== LEARN_TAG).slice(0, 3), restack: quoted(row),
         archive: !!row.archive
       }]
     })
@@ -508,10 +515,10 @@ export function registerFeed(): void {
         was.weight = (db.prepare(`select surfacing_weight as w from ${table} where id = ?`).get(id) as { w: number } | undefined)?.w ?? 1
         db.prepare(`update ${table} set surfacing_weight = surfacing_weight * ? where id = ?`).run(LESS, id)
       }
-      // Still true: seen and kept today, so its usual rhythm starts again from now.
-      if (table && reaction === 'true') {
-        was.visited = (db.prepare(`select ${visitedColumn(table)} as v from ${table} where id = ?`).get(id) as { v: string | null } | undefined)?.v ?? null
-        db.prepare(`update ${table} set ${visitedColumn(table)} = ? where id = ?`).run(new Date().toISOString(), id)
+      // A like, the heart: more of this, the opposite of "Less of this". It comes back sooner, up to four times as often.
+      if (table && reaction === 'like') {
+        was.weight = (db.prepare(`select surfacing_weight as w from ${table} where id = ?`).get(id) as { w: number } | undefined)?.w ?? 1
+        db.prepare(`update ${table} set surfacing_weight = min(?, surfacing_weight * ?) where id = ?`).run(MOST, MORE, id)
       }
       if (reaction === 'use') {
         const title = (lookUp(key)?.title ?? 'Untitled').replace(/\s+/g, ' ').trim()

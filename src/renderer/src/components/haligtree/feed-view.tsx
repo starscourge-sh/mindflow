@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { ArrowLeft, ArrowUpRight, BadgeCheck, Check, CornerDownRight, EyeOff, ImageDown, MessageCircle, Repeat2, RefreshCcw, Share, X } from 'lucide-react'
+import { ArrowLeft, ArrowUpRight, Check, Heart, CornerDownRight, EyeOff, ImageDown, MessageCircle, Repeat2, RefreshCcw, Share, X } from 'lucide-react'
 
 import { call, haligtree, splitTags, unloaded, unread, useLive, type Gloss } from '@/lib/haligtree'
 import { useThumb } from '@/lib/notes'
@@ -65,8 +65,8 @@ const repliesSaid = (post: FeedPost): string | null => {
   return years > 1 ? `${n} over ${years} years` : months >= 2 ? `${n} over ${months} months` : n
 }
 
-const REACTIONS: { value: Reaction; label: string; tip: string; icon: typeof BadgeCheck; cue: Cue; said: string }[] = [
-  { value: 'true', label: 'Still true', tip: 'Still true: it comes back later, on its usual rhythm', icon: BadgeCheck, cue: 'stay', said: 'You marked it still true today' },
+const REACTIONS: { value: Reaction; label: string; tip: string; icon: typeof Heart; cue: Cue; said: string }[] = [
+  { value: 'like', label: 'Like', tip: 'Like: more of this, it comes back sooner', icon: Heart, cue: 'promote', said: 'You liked it today' },
   { value: 'changed', label: 'Changed my mind', tip: 'Changed my mind: write what you think now, under it', icon: RefreshCcw, cue: 'shift', said: 'You changed your mind on it today' },
   { value: 'use', label: 'Use this', tip: "Use this: puts a link to it on today's Journal page", icon: CornerDownRight, cue: 'added', said: "On today's Journal page" },
   { value: 'less', label: 'Less of this', tip: 'Less of this: it comes up less often', icon: EyeOff, cue: 'away', said: 'You will see this less often' }
@@ -197,7 +197,7 @@ export function FeedPreview({ kind, text, who, secret }: { kind: string; text: s
   const quote = kind === 'quote'
   const post: FeedPost = {
     type: 'capture', id: '', kind, title: lines[0]?.slice(0, 120) ?? '', text: quote ? lines.join('\n') : lines.slice(1).join('\n'), who: who.trim() || null,
-    made: new Date().toISOString(), seen: null, gloss: null, clue: null, react: null, replies: 0, firstReply: null, seenTimes: 0, faded: 0, tags: [], restack: null
+    made: new Date().toISOString(), seen: null, gloss: null, clue: null, react: null, replies: 0, firstReply: null, seenTimes: 0, faded: 0, liked: 0, tags: [], restack: null
   }
   return (
     <div data-feed-preview className="flex flex-col gap-2">
@@ -435,6 +435,8 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
 
   const history = [
     chosen && chosen !== 'less' && REACTIONS.find((one) => one.value === chosen)!.said,
+    // Its likes over time, never anyone else's: today's counts at once.
+    Math.max(post.liked, chosen === 'like' ? 1 : 0) >= 2 && `liked ${num(Math.max(post.liked, chosen === 'like' ? 1 : 0))} times`,
     post.seenTimes >= 2 && `seen ${num(post.seenTimes)} times`
   ].filter(Boolean) as string[]
   const replies = repliesSaid(post)
@@ -517,12 +519,12 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
               </button>
             </Tip>
             {post.type !== 'day' && post.type !== 'poll' && post.type !== 'quiz' && <ReadLaterButton id={post.id} />}
-            {/* The one reaction worth a glance; the rest are in ⋯. Chosen, only its colour changes. */}
+            {/* The like, where the thumb looks for it; the rest are in ⋯. Chosen, it fills in red and nothing moves. */}
             {post.type !== 'day' && (
               <Tip label={REACTIONS[0].tip}>
-                <button type="button" data-feed-reaction="true" aria-pressed={chosen === 'true'} aria-label="Still true" onClick={() => choose('true')}
-                  className={cn('flex size-7 items-center justify-center rounded-md transition-colors hover:bg-foreground/[0.06] hover:text-foreground', chosen === 'true' && 'bg-primary/12 text-primary hover:bg-primary/18 hover:text-primary')}>
-                  <BadgeCheck className="size-4" strokeWidth={chosen === 'true' ? 2.4 : 2} />
+                <button type="button" data-feed-reaction="like" aria-pressed={chosen === 'like'} aria-label="Like" onClick={() => choose('like')}
+                  className={cn('flex size-7 items-center justify-center rounded-md transition-colors hover:bg-foreground/[0.06] hover:text-foreground', chosen === 'like' && 'text-[var(--tt-color-text-red)] hover:text-[var(--tt-color-text-red)]')}>
+                  <Heart className="size-4" fill={chosen === 'like' ? 'currentColor' : 'none'} />
                 </button>
               </Tip>
             )}

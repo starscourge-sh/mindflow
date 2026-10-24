@@ -29,16 +29,16 @@ try {
   const firstId = await first.getAttribute('data-feed-id')
   await first.scrollIntoViewIfNeeded()
 
-  // Still true: chosen, its rhythm starts again from now, and the row holds still.
+  // The like, the heart: chosen, it comes back sooner (its weight goes up), and the row holds still.
   const before = await boxes(first)
-  const visitedBefore = (await v('items', 'nugget')).find((one) => one.id === firstId)?.lastVisitedAt ?? null
-  await first.locator('[data-feed-reaction="true"]').click()
+  const weightOf = async () => (await v('feed')).posts.find((one) => one.id === firstId)?.liked ?? 0
+  await first.locator('[data-feed-reaction="like"]').click()
   await h.waitForTimeout(900)
-  check('"Still true" shows as chosen', await first.locator('[data-feed-reaction="true"]').getAttribute('aria-pressed') === 'true')
+  check('the heart shows as chosen', await first.locator('[data-feed-reaction="like"]').getAttribute('aria-pressed') === 'true')
   check('the action row does not move when a reaction is chosen', await boxes(first) === before, `${before} / ${await boxes(first)}`)
-  check('"Still true" is marked on the post', (await first.locator('[data-feed-history]').innerText().catch(() => '')).includes('still true'))
-  check('"Still true" is kept', await reactionOf(firstId) === 'true')
-  void visitedBefore
+  check('the like is marked on the post', (await first.locator('[data-feed-history]').innerText().catch(() => '')).includes('liked it'))
+  check('the like is kept', await reactionOf(firstId) === 'like')
+  check('a like brings it back sooner (one step up)', (await weightOf()) === 1, String(await weightOf()))
 
   // Changing it: one a post a day.
   await fromMenu(first, 'changed')
@@ -48,7 +48,7 @@ try {
   await h.keyboard.type('Not so sure any more', { delay: 10 })
   await h.keyboard.press('Enter')
   await h.waitForTimeout(1000)
-  check('one reaction a post: "Still true" is let go', await first.locator('[data-feed-reaction="true"]').getAttribute('aria-pressed') === 'false' && await reactionOf(firstId) === 'changed')
+  check('one reaction a post: the like is let go, and its step taken back', await first.locator('[data-feed-reaction="like"]').getAttribute('aria-pressed') === 'false' && await reactionOf(firstId) === 'changed' && (await weightOf()) === 0)
   check('the row is still where it was', await boxes(first) === before)
 
   // Use this: a link to it on today's Journal page.
