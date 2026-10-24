@@ -1054,6 +1054,9 @@ body:has([data-card]:focus) [data-cursor] {
   animation-timeline: scroll(self);
 }
 @keyframes mf-fade-end { from { --mf-fade-end: 2rem; } to { --mf-fade-end: 0px; } }
+/* On a menu or panel that closes (Customize sidebar): off as it closes. Radix keeps a closing panel until its
+   animation ends, and a scroll-driven one never does, so the panel stayed open once its list could scroll. */
+.mf-fade-end[data-state='closed'] { animation: none; }
 /* The sidebar's icon strip: an icon is taller than a line of words, so it fades
    over more, and the one half under the edge never reads as cut in two. */
 .mf-fade-end.mf-fade-tall { animation-name: mf-fade-tall; }
