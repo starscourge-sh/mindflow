@@ -1707,6 +1707,8 @@ export function Home(): React.JSX.Element {
       </aside>
       </PopoverAnchor>
       <PopoverContent side={right ? 'left' : 'right'} align="start" sideOffset={8} alignOffset={52}
+        // Focus goes to the panel, not its ×: on the × it opened the ×'s tip, and the first Esc closed only that.
+        onOpenAutoFocus={(event) => (event.preventDefault(), (event.currentTarget as HTMLElement).focus())}
         // Its own row toggles it: a click there is not a click away.
         onInteractOutside={(event) => (event.target as Element | null)?.closest?.('[data-customize]') && event.preventDefault()}
         className="mf-fade-end max-h-[calc(var(--radix-popover-content-available-height)-60px)] w-72 gap-1 overflow-y-auto p-1.5">

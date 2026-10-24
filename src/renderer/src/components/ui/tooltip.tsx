@@ -102,6 +102,12 @@ function TooltipTrigger({
         else if (ref) ref.current = node
       }}
       {...props}
+      // A tip opens on focus only when the focus can be seen (the keyboard put it there). Focus a panel hands its
+      // first button as it opens would open that button's tip, and the first Esc would close the tip, not the panel.
+      onFocus={(event) => {
+        props.onFocus?.(event)
+        if (!(event.currentTarget as HTMLElement).matches(':focus-visible')) event.preventDefault()
+      }}
     />
   )
 }
