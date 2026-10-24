@@ -236,7 +236,6 @@ export function GlossLine({ id, className, placeholder = 'A thought on it, in yo
             transition={{ duration: 0.12 }}
             onClick={() => (onRead && last ? onRead() : (chime('tap'), setWriting(true)))}
             data-gloss-read={onRead && last ? '' : undefined}
-            title={last ? `${said(last)} ${last.body}` : undefined}
             className="group/gloss flex w-full min-w-0 items-center gap-1.5 rounded-md py-0.5 text-left text-muted-foreground/80 transition-colors hover:text-foreground focus-visible:text-foreground focus-visible:outline-none"
           >
             <MessageSquareText className="size-3.5 shrink-0" />

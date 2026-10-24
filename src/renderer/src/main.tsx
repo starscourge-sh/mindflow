@@ -35,6 +35,7 @@ delete (window as { showOpenFilePicker?: unknown }).showOpenFilePicker
 
 import { Component, StrictMode, type ReactNode } from 'react'
 import { applyTheme, currentTheme } from './lib/theme'
+import { TitleTips } from './components/ui/title-tips'
 import { createRoot } from 'react-dom/client'
 import { MotionConfig } from 'motion/react'
 import { stillTransforms } from './lib/motion'
@@ -129,6 +130,8 @@ export function start(page: ReactNode): void {
           {/* Every window can show a tip: one with none of its own (a sticky, the pill) took a priority mark's tip down with it. */}
           <TooltipProvider delayDuration={600} skipDelayDuration={400}>
             {page}
+            {/* Every element's title as the app's own tip, never the system's grey box. */}
+            <TitleTips />
           </TooltipProvider>
         </Broken>
       </MotionConfig>

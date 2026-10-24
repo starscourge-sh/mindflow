@@ -376,6 +376,8 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
   const thumb = useThumb(post.type === 'day' ? '' : post.id)
   const picture = thumb && !/\.(mp4|m4v|mov|webm)$/i.test(thumb) ? thumb : undefined
   const [broken, setBroken] = useState(false)
+  // Its width over its height, once loaded: it fills the post's width unless that would make it taller than 720px.
+  const [shape, setShape] = useState<number | null>(null)
   // What you chose shows at once; the Feed's next read says the same.
   const [chosen, setChosen] = useState<Reaction | null>(post.react)
   useEffect(() => setChosen(post.react), [post.react])
@@ -496,10 +498,12 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
           )}
           {post.restack && <Quoted note={post.restack} onOpen={() => onOpenOther(post.restack!.type, post.restack!.id)} />}
           {picture && !broken && (
-            // The whole picture at its own shape, never cropped and never boxed in bars: a wide one fills the width,
-            // a tall one stands no taller than 520px and only as wide as it then is (X's way).
-            <div data-feed-picture className="mt-1 w-fit max-w-full overflow-hidden rounded-xl border bg-accent/40">
-              <img src={picture} alt="" loading="lazy" decoding="async" draggable={false} onError={() => setBroken(true)} className="block h-auto max-h-[520px] w-auto max-w-full" />
+            // The whole picture at its own shape, never cropped and never boxed in bars: the full width of the post
+            // (a square one too); only one so tall it would run past 720px stands at that height, as wide as it then is.
+            <div data-feed-picture className="mt-1 max-w-full overflow-hidden rounded-xl border bg-accent/40" style={{ width: shape ? `min(100%, ${Math.round(720 * shape)}px)` : '100%' }}>
+              <img src={picture} alt="" loading="lazy" decoding="async" draggable={false} onError={() => setBroken(true)}
+                onLoad={(event) => setShape(event.currentTarget.naturalWidth / event.currentTarget.naturalHeight || null)}
+                className="block h-auto w-full" />
             </div>
           )}
           {/* The latest thought as one reply line; the rest are in its thread. */}

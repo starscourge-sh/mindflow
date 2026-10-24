@@ -687,12 +687,12 @@ export const gemMenu = (item: Item, open: () => void): RowItem[] => [
   { label: 'Copy title', run: () => copy(item.title) }
 ]
 
-export function ItemDetail(props: { item: ItemFull; onOpen?: (type: string, id: string) => void; top?: React.ReactNode }): React.JSX.Element {
+export function ItemDetail(props: { item: ItemFull; onOpen?: (type: string, id: string) => void; top?: React.ReactNode; back?: React.ReactNode }): React.JSX.Element {
   return props.item.tier === 'question' ? <QuestionDetail {...props} /> : <NuggetDetail {...props} />
 }
 
 /** The open nugget or article: its words, its glosses, and down the right how it comes back. */
-function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: string, id: string) => void; top?: React.ReactNode }): React.JSX.Element {
+function NuggetDetail({ item, onOpen, top, back }: { item: ItemFull; onOpen?: (type: string, id: string) => void; top?: React.ReactNode; back?: React.ReactNode }): React.JSX.Element {
   // What is around its words (who links to it, its map, the notes like it) comes the frame after them.
   const later = useAfterFirstPaint()
   const [prompt, setPrompt] = useState(item.prompt ?? '')
@@ -738,7 +738,7 @@ function NuggetDetail({ item, onOpen, top }: { item: ItemFull; onOpen?: (type: s
   return (
     <div data-open={item.id} className="note-pane flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[max(22rem,100%)] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
       <div data-voice={voiceOf({ type: item.tier, kind: item.kind, attribution: item.attribution, medium: item.medium, label: item.title })} data-voice-edge className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
-        <NoteHeader className="-mt-3 mb-1" left={top} type={item.tier} table="nuggets" id={item.id} copyKey={noteLinkText(`${item.tier}:${item.id}`, item.title)} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })}
+        <NoteHeader className="-mt-3 mb-1" left={top} back={back} type={item.tier} table="nuggets" id={item.id} copyKey={noteLinkText(`${item.tier}:${item.id}`, item.title)} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })}
           onRestored={() => void haligtree.item(item.id).then((fresh) => fresh && setRestored((was) => ({ body: fresh.body, rev: (was?.rev ?? 0) + 1 })))}
           edited={item.updatedAt} captured={item.createdAt} made={item.tier === 'article' ? 'Started' : 'Saved'}
           pinned={!!item.pinnedAt} onPin={() => pin('nuggets', item.id, !item.pinnedAt)}

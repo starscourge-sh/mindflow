@@ -573,8 +573,10 @@ export const TOOL = 'flex size-7 shrink-0 items-center justify-center rounded-md
  * right, quietly, when it last changed (a click goes back through its
  * versions), a book to read it, and everything else behind the dots. `looking` takes the right side while an older text is shown.
  */
-export function NoteHeader({ left, type = 'capture', edited, captured, made = 'Captured', pinned, onPin, copyKey, menu, looking, board, tools, details = true, className = '', ...versions }: {
+export function NoteHeader({ left, back, type = 'capture', edited, captured, made = 'Captured', pinned, onPin, copyKey, menu, looking, board, tools, details = true, className = '', ...versions }: {
   left?: React.ReactNode
+  /** In a note's own window: the way back into the main window, among the note's own tools where "Open in its own window" sits in the main one. */
+  back?: React.ReactNode
   /** What it is, for reading it: capture, nugget, article, question. */
   type?: string
   /** When its words last changed, or null if never since it was made. */
@@ -627,6 +629,7 @@ export function NoteHeader({ left, type = 'capture', edited, captured, made = 'C
             <Tip label="Read">
               <button type="button" aria-label="Read" onClick={() => (chime('open'), setReading(true))} className={TOOL}><AliveIcon icon={BookIcon} size={16} /></button>
             </Tip>
+            {back}
             {/* Out to a small window of its own, as Arc's Little Arc; ⌘O there brings it back. Main window only. */}
             {canSplit() && type !== 'task' && type !== 'goal' && (
               <Tip label="Open in its own window  ⌘O">

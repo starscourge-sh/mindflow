@@ -41,14 +41,13 @@ const elsewhere = (type: string, id: string, heading?: string): void => window.a
  * One note in a window of its own, opened with ⌘-click from any list: its
  * words and its properties, the same as beside the list, and nothing else.
  */
-/** Arc's Little Arc: this small window grows back into the main one, the same page, the caret where it was. In the header's row, clear of the traffic lights. */
+/** Arc's Little Arc: this small window grows back into the main one, the same page, the caret where it was. With the note's own tools on the right, clear of the traffic lights. */
 function OpenHere(): React.JSX.Element {
   return (
-    <Tip label="Open in the main window  ⌘O">
-      <button type="button" data-open-in-haligtree onClick={() => void openInHaligtree()}
-        className="ml-[5.25rem] flex h-7 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-control whitespace-nowrap text-foreground/80 transition-colors hover:bg-accent hover:text-foreground @[40rem]/page:ml-0">
-        <AppWindowMacIcon className="size-3.5" strokeWidth={1.8} />
-        Open in {APP_NAME}
+    <Tip label={`Open in ${APP_NAME}  ⌘O`}>
+      <button type="button" aria-label={`Open in ${APP_NAME}`} data-open-in-haligtree onClick={() => void openInHaligtree()}
+        className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+        <AppWindowMacIcon className="size-4" strokeWidth={1.8} />
       </button>
     </Tip>
   )
@@ -188,7 +187,7 @@ function CaptureWindow({ id }: { id: string }): React.JSX.Element | null {
     <ReadsIn className="contents">
     <div className="note-pane flex min-w-0 flex-1 flex-col overflow-y-auto [--mf-padding:1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem]">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <NoteHeader left={<OpenHere />} table="captures" id={id} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })} onRestored={() => void window.api.captures.get(id).then((found) => {
+        <NoteHeader back={<OpenHere />} table="captures" id={id} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })} onRestored={() => void window.api.captures.get(id).then((found) => {
             setCapture(found)
             setRev((n) => n + 1)
           })}
@@ -230,5 +229,5 @@ function ItemWindow({ id }: { id: string }): React.JSX.Element | null {
     return window.api.captures.onChange(load)
   }, [id])
   useEffect(() => void (document.title = (!item?.private && item?.title) || 'Note'), [item?.title, item?.private])
-  return item ? <ItemDetail key={id} item={item} onOpen={elsewhere} top={<OpenHere />} /> : null
+  return item ? <ItemDetail key={id} item={item} onOpen={elsewhere} back={<OpenHere />} /> : null
 }

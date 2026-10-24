@@ -45,7 +45,10 @@ try {
     return { fit: getComputedStyle(img).objectFit, h: Math.round(box.getBoundingClientRect().height), w: Math.round(box.getBoundingClientRect().width), nw: img.naturalWidth, nh: img.naturalHeight, iw: Math.round(img.getBoundingClientRect().width), ih: Math.round(img.getBoundingClientRect().height) }
   }))
   // Its box is the picture: drawn at the picture's own proportions, so nothing is cut and no bars sit beside it.
-  check('every picture is whole, its box the picture\'s own shape', shown.length > 0 && shown.every((one) => one.h <= 522 && Math.abs(one.iw / one.ih - one.nw / one.nh) < 0.03 && Math.abs(one.w - one.iw) <= 3), JSON.stringify(shown.slice(0, 3)))
+  check('every picture is whole, its box the picture\'s own shape', shown.length > 0 && shown.every((one) => one.h <= 724 && Math.abs(one.iw / one.ih - one.nw / one.nh) < 0.03 && Math.abs(one.w - one.iw) <= 3), JSON.stringify(shown.slice(0, 3)))
+  // One no taller than 720px at the post's full width takes the full width, a square one too.
+  const full = await h.evaluate(() => Math.round(document.querySelector('[data-feed-post] [data-feed-account]')?.closest('.flex-1')?.getBoundingClientRect().width ?? 0))
+  check('a picture that fits takes the post\'s full width', shown.filter((one) => (full * one.nh) / one.nw <= 720).every((one) => Math.abs(one.w - full) <= 3), `${full} ${JSON.stringify(shown.map((one) => one.w))}`)
   const wide = shown.find((one) => one.nw > one.nh * 1.2)
   check('a wide picture fills the width', !wide || Math.abs(wide.iw - wide.w) <= 3, JSON.stringify(wide))
   // A tall picture: one put in for the check if the sandbox has none.
@@ -67,7 +70,7 @@ try {
   let box = await tallIn()
   const tall = await box.evaluate((one) => { const img = one.querySelector('img:not([aria-hidden])'); const r = img.getBoundingClientRect(); const scale = Math.min(r.width / img.naturalWidth, r.height / img.naturalHeight); return { h: Math.round(one.getBoundingClientRect().height), nw: img.naturalWidth, nh: img.naturalHeight, fit: getComputedStyle(img).objectFit, shownH: Math.round(img.naturalHeight * scale), boxH: Math.round(r.height) } })
   const tallW = await box.evaluate((one) => ({ box: Math.round(one.getBoundingClientRect().width), img: Math.round(one.querySelector('img').getBoundingClientRect().width), ratio: one.querySelector('img').naturalWidth / one.querySelector('img').naturalHeight, iw: one.querySelector('img').getBoundingClientRect().width, ih: one.querySelector('img').getBoundingClientRect().height }))
-  check('a portrait picture shows whole, no taller than 520px, its box only as wide as the picture', tall.h <= 522 && tall.h >= 300 && Math.abs(tallW.box - tallW.img) <= 3 && Math.abs(tallW.iw / tallW.ih - tallW.ratio) < 0.03, JSON.stringify({ ...tall, ...tallW }))
+  check('a portrait picture shows whole, no taller than 720px, its box only as wide as the picture', tall.h <= 724 && tall.h >= 300 && Math.abs(tallW.box - tallW.img) <= 3 && Math.abs(tallW.iw / tallW.ih - tallW.ratio) < 0.03, JSON.stringify({ ...tall, ...tallW }))
   const feedAgain = async () => { await go('feed'); await wait(1500) }
   for (const name of ['light', 'dark']) {
     await theme(name)
