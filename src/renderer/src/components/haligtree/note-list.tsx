@@ -332,7 +332,8 @@ export function NoteList({
   const draw = (sorted: Entry[]): React.JSX.Element => {
     // Back into the groups, in the order the drag left them.
     const order = new Map(sorted.map((one, at) => [one.id, at]))
-    // Islands: each group in its own panel, all drawn (only a few rows each show until asked).
+    // Islands: each group in its own panel, its rows a long list of their own that draws only those in view
+    // (an island opened past "Show more" can hold hundreds). Each finds the page's scroller and where it starts in it.
     if (islands && !grid) {
       let index = 0
       return (
@@ -342,14 +343,19 @@ export function NoteList({
             const here = [...list].sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
             const start = index
             index += here.length
-            const rows = here.map((entry, at) => (
-              <SortableRow key={entry.id} id={entry.id}>
-                <div className={`group/item relative ${arrived(entry.id) ? 'mf-arrive' : ''}`}>
-                  {face(entry, start + at)}
-                  {after?.(entry)}
-                </div>
-              </SortableRow>
-            ))
+            const rows = (
+              <VirtualList items={here} keyOf={(one) => one.id} cursor={cursor >= start && cursor < start + here.length ? cursor - start : undefined}
+                estimate={density === 'compact' ? 30 : 50}>
+                {(entry, at) => (
+                  <SortableRow key={entry.id} id={entry.id}>
+                    <div className={`group/item relative ${arrived(entry.id) ? 'mf-arrive' : ''}`}>
+                      {face(entry, start + at)}
+                      {after?.(entry)}
+                    </div>
+                  </SortableRow>
+                )}
+              </VirtualList>
+            )
             return island ? <IslandBox key={name} name={name} island={island} shown={here.length}>{rows}</IslandBox> : <div key={name}>{rows}</div>
           })}
         </div>

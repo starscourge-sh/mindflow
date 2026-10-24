@@ -1804,6 +1804,8 @@ export function VirtualList<T>({ items, keyOf, cursor, estimate = 48, className 
   const box = useRef<HTMLDivElement>(null)
   const [scroller, setScroller] = useState<HTMLElement | null>(null)
   const [margin, setMargin] = useState(0)
+  // Bumped to place the keyboard's row again, once where the list starts is read afresh.
+  const [again, setAgain] = useState(0)
   // The nearest parent that scrolls. Looked for again until found: a list
   // that mounts while its page is still settling (a list emptied into the Bin
   // and brought back with Undo) can find none at first, and with no scroller
@@ -1851,12 +1853,16 @@ export function VirtualList<T>({ items, keyOf, cursor, estimate = 48, className 
     if (!scroller || cursor === undefined || cursor < 0 || cursor >= items.length) return
     const frame = requestAnimationFrame(() => {
       const row = rows.measurementsCache[cursor]
-      if (!row || !scroller.isConnected) return
+      if (!row || !scroller.isConnected || !box.current) return
+      // Where the list starts, read now: a list under others that just grew (an island opened above it) has moved
+      // since it was last read, and the row would be placed by the old start. Read again, then placed.
+      const start = Math.round(box.current.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop)
+      if (Math.abs(start - margin) > 1) return void (setMargin(start), setAgain((n) => n + 1))
       const place = rowPlace(row.start, row.end, { top: scroller.scrollTop, bottom: scroller.scrollTop + scroller.clientHeight })
       if (place !== 'still') (rows.scrollToIndex(cursor, { align: place === 'edge' ? 'auto' : 'center' }), rowShown())
     })
     return () => cancelAnimationFrame(frame)
-  }, [cursor, scroller]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cursor, scroller, again]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div ref={box} className={`relative ${className}`} style={{ height: rows.getTotalSize() }}>
       {/* The rows on show stand one under the other, in the page's own flow from where the first one starts: a row that
