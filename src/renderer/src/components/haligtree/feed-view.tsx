@@ -65,6 +65,9 @@ const repliesSaid = (post: FeedPost): string | null => {
   return years > 1 ? `${n} · over ${years} years` : months >= 2 ? `${n} · over ${months} months` : n
 }
 
+/** Each post's picture's width over its height, once seen. */
+const SHAPES = new Map<string, number>()
+
 const REACTIONS: { value: Reaction; label: string; tip: string; icon: typeof Heart; cue: Cue; said: string }[] = [
   { value: 'like', label: 'Like', tip: 'Like: more of this, it comes back sooner', icon: Heart, cue: 'promote', said: 'You liked it today' },
   { value: 'changed', label: 'Changed my mind', tip: 'Changed my mind: write what you think now, under it', icon: RefreshCcw, cue: 'shift', said: 'You changed your mind on it today' },
@@ -250,9 +253,15 @@ function FeedNotes({ onOpen, tabs }: { onOpen: (type: string, id: string) => voi
       if (node) jumpTo(scroller, scroller.scrollTop + node.getBoundingClientRect().top - scroller.getBoundingClientRect().top - top)
     }
     put()
+    // Held each frame while what is above it draws in (a picture loading late, full width, grows the list above
+    // the post); let go once the list has kept its size a moment, or after 3 seconds at most.
     let frame = requestAnimationFrame(function again() { put(); frame = requestAnimationFrame(again) })
-    const stop = (): void => cancelAnimationFrame(frame)
-    const until = window.setTimeout(stop, 700)
+    let settled = 0
+    const sizes = new ResizeObserver(() => (window.clearTimeout(settled), void (settled = window.setTimeout(stop, 500))))
+    if (root.current) sizes.observe(root.current)
+    const stop = (): void => (cancelAnimationFrame(frame), sizes.disconnect(), window.clearTimeout(settled))
+    settled = window.setTimeout(stop, 500)
+    const until = window.setTimeout(stop, 3000)
     // A hand on the page lets go at once.
     scroller.addEventListener('wheel', stop, { passive: true, once: true })
     scroller.addEventListener('pointerdown', stop, { once: true })
@@ -377,7 +386,9 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
   const picture = thumb && !/\.(mp4|m4v|mov|webm)$/i.test(thumb) ? thumb : undefined
   const [broken, setBroken] = useState(false)
   // Its width over its height, once loaded: it fills the post's width unless that would make it taller than 720px.
-  const [shape, setShape] = useState<number | null>(null)
+  // Kept per picture, so a post drawn again (back from a thread) has its height at once and nothing below it moves.
+  const [shape, setShapeNow] = useState<number | null>(() => SHAPES.get(post.id) ?? null)
+  const setShape = (value: number | null): void => (value && SHAPES.set(post.id, value), setShapeNow(value))
   // What you chose shows at once; the Feed's next read says the same.
   const [chosen, setChosen] = useState<Reaction | null>(post.react)
   useEffect(() => setChosen(post.react), [post.react])
@@ -443,7 +454,7 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
   ].filter(Boolean) as string[]
   const replies = repliesSaid(post)
   // The newest thought on it, hung under the post (not on its own page, where the thread is).
-  const glosses = useLive(() => (post.type === 'day' || alone || preview ? Promise.resolve([] as Gloss[]) : haligtree.glosses(post.id)), [] as Gloss[], [post.id, alone, preview])
+  const glosses = useLive(() => (alone || preview ? Promise.resolve([] as Gloss[]) : haligtree.glosses(post.id)), [] as Gloss[], [post.id, alone, preview])
   const hang = onThread && !unloaded(glosses) ? glosses[0] : undefined
   // Faded by "Less of this", today or before: how far, and the way back. Today's choice counts at once.
   const faded = Math.max(post.faded, chosen === 'less' ? 1 : 0)
@@ -501,13 +512,15 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
             </p>
           )}
           {post.restack && <Quoted note={post.restack} onOpen={() => onOpenOther(post.restack!.type, post.restack!.id)} />}
+          {/* Its picture still on its way, drawn before: its room kept, so the posts below never move. */}
+          {!picture && shape && !broken && <div aria-hidden data-feed-picture-room className="mt-1 max-w-full rounded-xl border bg-accent/40" style={{ width: `min(100%, ${Math.round(720 * shape)}px)`, aspectRatio: String(shape) }} />}
           {picture && !broken && (
             // The whole picture at its own shape, never cropped and never boxed in bars: the full width of the post
             // (a square one too); only one so tall it would run past 720px stands at that height, as wide as it then is.
             <div data-feed-picture className="mt-1 max-w-full overflow-hidden rounded-xl border bg-accent/40" style={{ width: shape ? `min(100%, ${Math.round(720 * shape)}px)` : '100%' }}>
               <img src={picture} alt="" loading="lazy" decoding="async" draggable={false} onError={() => setBroken(true)}
                 onLoad={(event) => setShape(event.currentTarget.naturalWidth / event.currentTarget.naturalHeight || null)}
-                className="block h-auto w-full" />
+                className="block h-auto w-full" style={shape ? { aspectRatio: String(shape) } : undefined} />
             </div>
           )}
         </div>
@@ -537,10 +550,10 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
         <div aria-hidden className="w-9 shrink-0" />
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           {/* Writing a reply opens here, under the latest; closed, it takes no room. */}
-          {post.type !== 'day' && !alone && !preview && <GlossLine id={post.id} quiet latest={false} className="mt-0.5" placeholder={chosen === 'changed' ? 'What you think now, in your own words' : 'Your reply, in your own words'} />}
+          {!alone && !preview && <GlossLine id={post.id} quiet latest={false} className="mt-0.5" placeholder={chosen === 'changed' ? 'What you think now, in your own words' : 'Your reply, in your own words'} />}
           {/* Every control keeps its own fixed place: choosing one changes its colour, never the row. */}
           <div data-feed-actions className={cn('-ml-2 flex items-center gap-1 text-muted-foreground', preview && 'hidden')}>
-            {post.type !== 'day' && (
+            {(
               <button type="button" data-feed-reply onClick={() => openGloss(post.id)}
                 className="flex h-7 items-center gap-1.5 rounded-md px-2 text-control transition-colors hover:bg-foreground/[0.06] hover:text-foreground">
                 <MessageCircle className="size-4" /> Reply
@@ -553,8 +566,8 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
               </button>
             </Tip>
             {post.type !== 'day' && post.type !== 'poll' && post.type !== 'quiz' && <ReadLaterButton id={post.id} />}
-            {/* The like, where the thumb looks for it; the rest are in ⋯. Chosen, it fills in red and nothing moves. */}
-            {post.type !== 'day' && (
+            {/* The like, where the thumb looks for it (a Journal day too: liked, it comes back sooner); the rest are in ⋯. Chosen, it fills in red and nothing moves. */}
+            {(
               <Tip label={REACTIONS[0].tip}>
                 <button type="button" data-feed-reaction="like" aria-pressed={chosen === 'like'} aria-label="Like" onClick={() => choose('like')}
                   className={cn('flex size-7 items-center justify-center rounded-md transition-colors hover:bg-foreground/[0.06] hover:text-foreground', chosen === 'like' && 'text-[var(--tt-color-text-red)] hover:text-[var(--tt-color-text-red)]')}>
