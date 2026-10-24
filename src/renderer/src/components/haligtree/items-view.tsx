@@ -628,19 +628,12 @@ export function ItemsView({ tier, focus, onOpen, only }: { tier: 'nugget' | 'art
           </Example>
         ) : all.length && query.trim() ? (
           <Empty title="Nothing matches">No title here has those words. Escape clears the search.</Empty>
-        ) : unloaded(all) ? null : !all.length ? (
-          // Nothing kept yet: the page as it will look, with a few made-up ones.
+        ) : unloaded(all) ? null : (
+          // Nothing on show (none kept yet, or only archived ones): the page as it will look, with a few made-up ones.
+          // One empty page either way: a second one, laid out apart, showed for a moment before this one.
           <Example tryIt={tier === 'nugget' ? 'pick a note in your Inbox list and press P. It lands here, ready to come back to you.' : 'press “New page” above, or pick a few gems with X and choose “Start a page”.'}>
             <NoteList groups={[['', (tier === 'nugget' ? exampleIdeas() : exampleWriting()).map((one) => itemEntry(one))]]} density={density} table="nuggets" cursor={-1} onPick={() => undefined} className="list-edge my-2" />
           </Example>
-        ) : tier === 'nugget' ? (
-          <Empty title="No gems yet">
-            <strong>Your words stick where a copied line slides off.</strong> A gem is a note worth keeping, in your own words. Pick one in your Inbox and press P, and it lands here, ready to come back to you.
-          </Empty>
-        ) : (
-          <Empty title="No pages yet">
-            Your own words on one idea: notes on a subject, an essay, a guide. Start one from nothing with “New page”, or from your gems with “Start a page”.
-          </Empty>
         )}
       </Page>
       )}

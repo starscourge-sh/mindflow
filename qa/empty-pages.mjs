@@ -49,7 +49,9 @@ try {
     seen[id] = await measure()
     await h.screenshot({ path: `${dir}/${id}.png` })
     const m = seen[id]
-    check(`${id}: example, over the scenery band`, m.example && m.band, JSON.stringify(m))
+    // The Map keeps its plain ground: its example sits at the top, no picture behind it.
+    if (id === 'map') check('map: example, with no scenery behind it', m.example && !m.band, JSON.stringify(m))
+    else check(`${id}: example, over the scenery band`, m.example && m.band, JSON.stringify(m))
   }
   const base = seen.nuggets
   for (const id of LISTS) {
