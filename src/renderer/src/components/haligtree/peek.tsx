@@ -68,7 +68,8 @@ export function Peek({ art, text, keys, children }: { art: () => ReactNode; text
       }}>{children}</TooltipTrigger>
       <TooltipContent side="right" sideOffset={10} collisionPadding={8}
         className={`block max-w-none gap-0 px-1.5 py-1.5 text-sm motion-reduce:animate-none has-data-[slot=kbd]:pr-1.5 ${PEEK_SURFACE}`}>
-        {open && <PeekCard art={art()} text={text} keys={keys} />}
+        {/* Drawn whenever the card is there, its fade out too: emptied on close, it shrank to a thin blank strip as it went. */}
+        <PeekCard art={art()} text={text} keys={keys} />
       </TooltipContent>
     </Tooltip>
   )
