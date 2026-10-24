@@ -387,6 +387,8 @@ export function registerSandbox(): void {
     const put = database().prepare('insert or replace into settings (key, value) values (?, ?)')
     put.run('sandboxSeededOn', JSON.stringify(dayKey()))
     put.run('sandboxSeededAt', JSON.stringify(new Date().toISOString()))
+    // Past the Feed's and Stats' goals already: their real pages, with no "ready" moment.
+    put.run('readyShown', JSON.stringify(['feed', 'stats']))
     // Setting the sandbox out wrote no words of yours: Stats' writing starts from here.
     // The book's owner wrote before you came, though: a few weeks of their
     // writing days, all before today, so Stats' Writing reads lived in and

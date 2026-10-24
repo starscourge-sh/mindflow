@@ -362,7 +362,8 @@ export function registerFeed(): void {
       asks.forEach((key, at) => list.splice(Math.min(list.length, 3 + at * 5), 0, key))
       keys = JSON.stringify(list)
       db.prepare('update feed_restacks set shown_day = ? where shown_day is null and made_day < ?').run(today, today)
-      db.prepare('insert or replace into feed_days (day, keys) values (?, ?)').run(today, keys)
+      // Kept for the day only from the Feed's goal (feed-view.tsx, FEED_NOTES): below it each look picks afresh, so the day it is met starts full.
+      if (rows.length >= 20) db.prepare('insert or replace into feed_days (day, keys) values (?, ?)').run(today, keys)
     }
     const glossOf = db.prepare('select body, created_at as at from glosses where item_id = ? order by created_at desc limit 1')
     const glossSpan = db.prepare('select count(*) as n, min(created_at) as first from glosses where item_id = ?')
@@ -417,6 +418,11 @@ export function registerFeed(): void {
     try { text = plain(JSON.parse(text)) } catch { /* Markdown, as it is */ }
     return tagsIn(`${row.title} ${text}`)
   }
+  // How near the Feed is to full: the notes it can show (not private, not a #bit, not a learn card), and of them the quotes and pictures.
+  ipcMain.handle('haligtree:feed:goal', (): { notes: number; quotes: number } => {
+    const rows = pool().filter((row) => !tagsOfRow(row).includes(LEARN_TAG))
+    return { notes: rows.length, quotes: rows.filter((row) => row.kind === 'quote' || /\]\([^)]*\.(?:webp|png|jpe?g)\)|"type":"image"/i.test(row.body ?? '')).length }
+  })
   /** Every source and tag gone quiet a month or more, the quietest first. */
   const quietAll = (): FeedSide['quiet'] => {
     const { seen } = seenOf()

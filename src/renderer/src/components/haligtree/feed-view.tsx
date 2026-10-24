@@ -17,6 +17,7 @@ import { GlossLine, cutWords, openGloss } from './gloss-line'
 import { MenuButton } from './collection-header'
 import { copy, type MenuItem } from './row-menu'
 import { motion } from 'motion/react'
+import { GoalPreview, ReadyMoment, useReady } from './goal-preview'
 import { FeedReading } from './feed-reading'
 import { QueuedProvider, ReadLaterButton } from './read-later'
 import { drawCard, xText, type CardPost } from '@/lib/feed-card'
@@ -30,6 +31,24 @@ import { drawCard, xText, type CardPost } from '@/lib/feed-card'
  */
 const readFeed = (): Promise<Feed> => call<Feed>('feed')
 const NO_FEED = unread<Feed>({ day: '', posts: [], safe: false })
+const readGoal = (): Promise<{ notes: number; quotes: number } | null> => call('feed:goal')
+/**
+ * What the Feed needs before it starts: enough that a day's set (about 24)
+ * comes from a real spread of your own things, with a few quotes or pictures
+ * among them so it is not a wall of your own words.
+ */
+const FEED_NOTES = 20
+const FEED_QUOTES = 3
+/** The made-up posts under the Feed's goal, drawn as real ones are. */
+const SAMPLE_POSTS: FeedPost[] = ([
+  { type: 'capture', kind: 'quote', title: 'There is no spoon.', text: 'There is no spoon.', who: 'The Matrix (1999)', days: 400 },
+  { type: 'nugget', kind: 'note', title: 'Old movies feel real because the sets were real', text: 'Painted backdrops, real rain, real dust. You can feel the weight of a place that was built, not drawn.', who: null, days: 40 },
+  { type: 'question', kind: 'question', title: 'Why does a story told out of order feel truer?', text: 'Memento, Pulp Fiction, Arrival: each one makes you put it together yourself.', who: null, days: 12 },
+  { type: 'capture', kind: 'quote', title: 'It is not down on any map; true places never are.', text: 'It is not down on any map; true places never are.', who: 'Herman Melville', days: 90 }
+] as const).map((one, at) => ({
+  type: one.type, id: `sample-${at}`, kind: one.kind, title: one.title, text: one.text, who: one.who, made: new Date(Date.now() - one.days * 86_400_000).toISOString(),
+  seen: null, gloss: null, clue: null, react: null, replies: 0, firstReply: null, seenTimes: 0, faded: 0, liked: 0, tags: [], restack: null
+}))
 const react = (post: FeedPost, reaction: Reaction | null): Promise<Reaction | null> => call<Reaction | null>('feed:react', `${post.type}:${post.id}`, reaction)
 
 const KIND_WORD: Record<FeedPost['type'], string> = { nugget: 'Gem', capture: 'Note', article: 'Page', question: 'Question', day: 'Journal', poll: 'Poll', quiz: 'Quiz card' }
@@ -167,13 +186,16 @@ const finishFeed = (day: string): void => {
 /** Home's card for the day's Feed: how many posts, how many from the archives, and Open. Gone once you reach the end. */
 export function TodaysFeedCard({ onView }: { onView: (id: string) => void }): React.JSX.Element | null {
   const feed = useLive(readFeed, NO_FEED, [], ['capture', 'item'], 'feed')
+  // No card while the Feed is still its goal and a preview; the Feed page says it is ready, not Home.
+  const goal = useLive(readGoal, null, [], ['capture', 'item'])
+  const { real } = useReady('feed', goal ? goal.notes >= FEED_NOTES && goal.quotes >= FEED_QUOTES : null, false)
   const [finished, setFinished] = useState(feedFinished)
   useEffect(() => {
     const again = (): void => setFinished(feedFinished())
     window.addEventListener('haligtree:feed-finished', again)
     return () => window.removeEventListener('haligtree:feed-finished', again)
   }, [])
-  if (unloaded(feed) || feed.safe || !feed.posts.length || finished === feed.day) return null
+  if (unloaded(feed) || !real || feed.safe || !feed.posts.length || finished === feed.day) return null
   const archives = feed.posts.filter((post) => post.archive).length
   return (
     <section data-todays-feed aria-label="Today's feed" className="flex items-center gap-3 rounded-xl border bg-background px-4 py-3">
@@ -227,6 +249,10 @@ export function FeedView({ onOpen }: { onOpen: (type: string, id: string) => voi
 
 function FeedNotes({ onOpen, tabs }: { onOpen: (type: string, id: string) => void; tabs: React.ReactNode }): React.JSX.Element {
   const feed = useLive(readFeed, NO_FEED, [], ['capture', 'item'], 'feed')
+  // Until the book has enough in it, the goal and a faded made-up Feed; met once, the real one for good.
+  const goal = useLive(readGoal, null, [], ['capture', 'item'])
+  const { real, moment } = useReady('feed', goal ? goal.notes >= FEED_NOTES && goal.quotes >= FEED_QUOTES : null)
+  const preview = real === false && !feed.safe
   const until = useUntilTomorrow()
   const root = useRef<HTMLDivElement>(null)
   const [thread, setThread] = useState<string | null>(null)
@@ -284,9 +310,9 @@ function FeedNotes({ onOpen, tabs }: { onOpen: (type: string, id: string) => voi
   const most = Object.entries(counts).sort((a, b) => b[1] - a[1])
   const top = most.slice(0, 3).map(([word, n]) => `${num(n)} ${word === 'Journal' ? (n === 1 ? 'Journal day' : 'Journal days') : n === 1 ? word.toLowerCase() : `${word.toLowerCase()}s`}`)
   const rest = most.slice(3).reduce((sum, [, n]) => sum + n, 0)
-  const holds = feed.posts.length && !feed.safe ? `${top.join(', ')}${rest ? ` and ${num(rest)} more` : ''}` : null
+  const holds = feed.posts.length && !feed.safe && !preview ? `${top.join(', ')}${rest ? ` and ${num(rest)} more` : ''}` : null
   return (
-    <Page title="Feed" waiting={unloaded(feed)} lead={holds ? <span data-feed-holds className="truncate text-control text-muted-foreground">{holds}</span> : undefined}>
+    <Page title="Feed" waiting={unloaded(feed) || real === null} lead={holds ? <span data-feed-holds className="truncate text-control text-muted-foreground">{holds}</span> : undefined}>
       <div ref={root} data-feed className="flex items-start gap-8 px-5 pt-[33px] pb-16">
       <div className="flex min-w-0 flex-1 flex-col">
         {!shown && tabs}
@@ -294,10 +320,17 @@ function FeedNotes({ onOpen, tabs }: { onOpen: (type: string, id: string) => voi
           <Thread post={shown} onBack={back} onOpen={() => open(shown.type, shown.id)} onOpenOther={open} />
         ) : feed.safe ? (
           <p data-feed-safe className="py-10 text-body text-foreground"><strong className="font-semibold">Safe mode is on</strong>, so the Feed rests until you turn it off.</p>
+        ) : preview ? (
+          <GoalPreview goal="Your Feed starts once you have 20 notes, with a few quotes or pictures among them" heading="What your Feed will look like"
+            counts="Gems, quotes, questions, notes with a picture and Journal days a week old all count. Private notes and #bits never do."
+            parts={[{ have: goal?.notes ?? 0, need: FEED_NOTES, what: 'notes' }, { have: goal?.quotes ?? 0, need: FEED_QUOTES, what: 'quotes or pictures' }]}>
+            <ol className="flex flex-col">{SAMPLE_POSTS.map((post) => <Post key={post.id} post={post} preview onOpen={() => {}} onOpenOther={() => {}} />)}</ol>
+          </GoalPreview>
         ) : !feed.posts.length ? (
           <p data-feed-empty className="py-10 text-body text-foreground">Nothing to show yet. Keep a gem, a quote or a question, and it comes back to you here.</p>
         ) : (
           <>
+            {moment && <ReadyMoment said="Your Feed is ready" more="Each day it brings back about twenty of your own things, longest unseen first. A new set comes every morning." />}
             <ol className="flex flex-col">
               {feed.posts.map((post) => post.poll ? <PollPost key={`poll:${post.id}`} post={post} onOpen={() => open(post.poll!.open.type, post.poll!.open.id)} />
                 : post.quiz ? <QuizPost key={`quiz:${post.id}`} post={post} onOpen={() => open('nugget', post.id)} />
@@ -311,7 +344,7 @@ function FeedNotes({ onOpen, tabs }: { onOpen: (type: string, id: string) => voi
           </>
         )}
       </div>
-      {!feed.safe && feed.posts.length > 0 && <SideColumn />}
+      {!feed.safe && !preview && feed.posts.length > 0 && <SideColumn />}
       </div>
     </Page>
   )

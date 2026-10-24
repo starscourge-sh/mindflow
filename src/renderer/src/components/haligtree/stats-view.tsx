@@ -5,7 +5,7 @@ import { Children, useState, type ReactNode } from 'react'
 import { CAPTURE_TYPES, byKind } from '../capture-kinds/capture-kind-picker'
 import { useFocusTools, useLive, haligtree, type Stats } from '@/lib/haligtree'
 import { exampleStats } from '@/lib/examples'
-import { Example } from './example'
+import { GoalPreview, ReadyMoment, useReady } from './goal-preview'
 import { DaysHeatmap } from './days-heatmap'
 import { WritingSection } from './writing-stats'
 import { Count, Island, Page, Rolling } from './ui'
@@ -20,6 +20,10 @@ import { Chips } from './display'
 import { ReadsIn } from '@/lib/reads-in'
 import { UsageSections } from './usage-stats'
 import { dayjs, monthName, num, plural } from '../../../../main/dates'
+
+const readWords = (): Promise<{ daysWritten: number }> => window.api.haligtree('words:stats') as Promise<{ daysWritten: number }>
+/** Writing days (a day you wrote words on) before Stats has a week to tell: a week of them, not in a row. */
+const WRITING_DAYS = 7
 
 const percent = (part: number, whole: number): string => (whole ? `${Math.round((part / whole) * 100)}%` : 'none')
 /** Time spent: "40 minutes" under an hour, "1.5 hours" from one. */
@@ -69,8 +73,11 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
   const real = useLive(haligtree.stats, null as Stats | null)
   // The focus timer turned off (Settings, Tasks): no focus sections.
   const focusTools = useFocusTools()
-  // Nothing done here yet: the page told from a made-up few months, dimmed, so you can see what it will say.
-  const example = !!real && !real.exits.some((row) => row.n) && !real.week && !real.tasksDone && !real.nuggets && !real.reviews.n
+  // Until a week of writing days, the goal over the page told from a made-up few months, faded, so you can see what it will say.
+  // Met once, the real page for good.
+  const words = useLive(readWords, null)
+  const { real: ready, moment } = useReady('stats', words ? words.daysWritten >= WRITING_DAYS : null)
+  const example = ready === false
   const stats = example ? exampleStats() : real
   // The month or the year, Wrapped's way, over the page; from here or ⌘K.
   // The column, for the contents beside it to read.
@@ -82,7 +89,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
     chime('slide')
     setRecap(period)
   }
-  if (!stats) return <Page title="Stats" waiting><div /></Page>
+  if (!stats || ready === null) return <Page title="Stats" waiting><div /></Page>
 
   const by = Object.fromEntries(stats.exits.map((row) => [row.status, row.n]))
   const total = stats.exits.reduce((sum, row) => sum + row.n, 0)
@@ -113,8 +120,11 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
       // bar's left, where every page keeps its tabs, in one place whichever is picked.
       <Chips className="shrink-0" options={[{ id: 'now', label: 'At a glance' }, { id: 'month', label: 'Your month' }, { id: 'year', label: 'Your year' }]} on={(id) => id === part} pick={(id) => setPart(id as Part)} />
     }>
-      <Example on={example} tryIt="catch a few thoughts with ⌘. and tidy them. By the end of the week this page tells you how it went, in sentences.">
       <div ref={setColumn} className="max-w-[calc(62ch+2.5rem)] px-5 pb-20">
+        {moment && <ReadyMoment className="mt-6" said="Your Stats are ready" more="A week of writing is in. From here this page tells you how each week went, in sentences." />}
+        <GoalPreview on={example} className="pt-6" goal="Your Stats start once you have a week of writing days" heading="What your Stats will look like"
+          counts="A writing day is any day you add words to a note, a page or your Journal. They need not be in a row."
+          parts={[{ have: words?.daysWritten ?? 0, need: WRITING_DAYS, what: 'writing days' }]}>
         {/* Each page of Stats drawn whole once its parts are read, never a part popping in after the rest. */}
         <ReadsIn key={part} className="contents">
         {part === 'now' ? <>
@@ -306,8 +316,8 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
 
         </>}
         </ReadsIn>
+        </GoalPreview>
       </div>
-      </Example>
     </Page>
     </>
   )
