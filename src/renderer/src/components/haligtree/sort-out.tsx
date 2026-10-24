@@ -422,7 +422,7 @@ export function MorningSortOffer(): React.JSX.Element | null {
   }, [])
   if (!settings || !waiting || !sortDue(settings.morningSort)) return null
   return (
-    <section data-morning-sort aria-label="Morning sort" className="mx-3 flex items-center gap-3 rounded-xl border bg-background px-4 py-3 @[44rem]/page:mx-6">
+    <section data-morning-sort aria-label="Morning sort" className="flex items-center gap-3 rounded-xl border bg-background px-4 py-3">
       <p className="min-w-0 flex-1 text-body text-foreground">
         <strong className="font-semibold">Good morning.</strong> {num(waiting)} {waiting === 1 ? 'capture waits' : 'captures wait'} in your Inbox. Sort them in about ten minutes, then get on with the day.
       </p>

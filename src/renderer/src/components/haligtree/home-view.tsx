@@ -811,7 +811,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
       {/* In the evening, once: the offer to close the day. */}
       <div data-now={1} className="page-column relative w-full pt-3 empty:hidden"><CloseDayOffer /></div>
       {/* In the morning, once: the offer to sort the Inbox in about ten minutes. */}
-      <div data-now={1} className="page-column relative w-full pt-3 empty:hidden"><MorningSortOffer /></div>
+      <div data-now={1} className="page-column relative w-full px-3 pt-3 empty:hidden @[44rem]/page:px-6"><MorningSortOffer /></div>
       {/* On Sundays: the week in four numbers. */}
       <div data-now={2} className="page-column relative w-full pt-3 empty:hidden"><WeeklyDigest onView={onView} /></div>
       {/* After an update, once: what is new since you last looked. */}
