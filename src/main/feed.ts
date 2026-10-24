@@ -3,7 +3,9 @@ import { randomUUID } from 'crypto'
 
 import { LABEL, changed, database } from './captures'
 import { cut } from './clip'
-import { cardWords, gate } from './haligtree'
+import { cardWords, gate, plain } from './haligtree'
+import { tagsIn } from './tag-words'
+import { LEARN_TAG } from './name'
 import { dayKey, dayjs } from './dates'
 
 /**
@@ -36,6 +38,8 @@ export type FeedPost = {
 }
 export type Reaction = 'true' | 'changed' | 'use' | 'less'
 export type Feed = { day: string; posts: FeedPost[]; safe: boolean }
+/** The Feed's side column: who and what has gone quiet, and the tags you wrote most this week. Never anything about other people. */
+export type FeedSide = { quiet: { kind: 'source' | 'tag'; name: string; last: string }[]; week: { tag: string; n: number }[] }
 
 const SIZE = 20
 type Row = { type: FeedPost['type']; id: string; kind: string; title: string; body: string | null; who: string | null; made: string; visited: string | null; weight: number }
@@ -157,6 +161,53 @@ export function registerFeed(): void {
       }]
     })
     return { day: today, posts, safe: false }
+  })
+
+  // --- the side column: who and what you have not heard from, and this week's tags.
+  const tagsOfRow = (row: { title: string; body: string | null }): string[] => {
+    let text = row.body ?? ''
+    try { text = plain(JSON.parse(text)) } catch { /* Markdown, as it is */ }
+    return tagsIn(`${row.title} ${text}`)
+  }
+  ipcMain.handle('haligtree:feed:side', (): FeedSide => {
+    if (gate().blackout) return { quiet: [], week: [] }
+    const { seen } = seenOf()
+    // What is in today's Feed is heard from today.
+    const now = new Date().toISOString()
+    const today = new Set(JSON.parse((db.prepare('select keys from feed_days where day = ?').get(dayKey()) as { keys: string } | undefined)?.keys ?? '[]') as string[])
+    // Each source and tag by the last time any of its notes was in front of you, or written.
+    const last = new Map<string, { kind: 'source' | 'tag'; name: string; last: string; n: number }>()
+    const note = (kind: 'source' | 'tag', name: string, at: string): void => {
+      const key = `${kind}:${name.toLowerCase()}`
+      const one = last.get(key) ?? { kind, name, last: '', n: 0 }
+      one.n += 1
+      if (at > one.last) one.last = at
+      last.set(key, one)
+    }
+    // Every note of yours that may be shown, not only those the Feed picks from.
+    const notes = [
+      ...db.prepare("select case when tier = 'question' then 'question' else 'nugget' end as type, id, coalesce(nullif(title, ''), label('', body)) as title, body, attribution as who, created_at as made, last_visited_at as visited from nuggets where private = 0 and archived_at is null and superseded_by is null and binned_at is null and tier in ('nugget', 'question', 'article')").all(),
+      ...db.prepare(`select 'capture' as type, id, ${LABEL} as title, body, attribution as who, captured_at as made, surfaced_at as visited from captures where private = 0 and status != 'discarded' and archived_at is null and kind != 'task'`).all()
+    ] as Row[]
+    for (const row of notes) {
+      if (/(^|\s)#bit\b/i.test(`${row.title} ${row.body ?? ''}`)) continue
+      const at = today.has(`${row.type}:${row.id}`) || today.has(`article:${row.id}`) ? now : [row.made, row.visited, seen.get(row.id)].filter((one): one is string => !!one).sort().at(-1)!
+      if (row.who?.trim()) note('source', row.who.trim(), at)
+      for (const tag of tagsOfRow(row)) note('tag', tag, at)
+    }
+    // Only those with a few notes: one note gone quiet is just a note.
+    // And only what has been quiet a month or more: a few days is not a while.
+    const month = dayjs().subtract(28, 'day').toISOString()
+    const quiet = [...last.values()].filter((one) => one.n >= 2 && one.last < month && one.name !== LEARN_TAG).sort((a, b) => a.last.localeCompare(b.last)).slice(0, 3).map(({ kind, name, last: at }) => ({ kind, name, last: at }))
+    const since = dayjs().subtract(7, 'day').toISOString()
+    const counts = new Map<string, number>()
+    const recent = [
+      ...db.prepare("select title, body from nuggets where private = 0 and archived_at is null and superseded_by is null and binned_at is null and tier != 'card' and created_at >= ?").all(since),
+      ...db.prepare(`select ${LABEL} as title, body from captures where private = 0 and status != 'discarded' and archived_at is null and captured_at >= ?`).all(since)
+    ] as { title: string; body: string | null }[]
+    for (const row of recent) for (const tag of tagsOfRow(row)) counts.set(tag, (counts.get(tag) ?? 0) + 1)
+    const week = [...counts].filter(([tag]) => tag !== 'bit' && tag !== LEARN_TAG).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 5).map(([tag, n]) => ({ tag, n }))
+    return { quiet, week }
   })
 
   /** One note by its feed key, for a restack whose old note is not in the day's set. */

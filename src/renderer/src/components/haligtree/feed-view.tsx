@@ -7,8 +7,9 @@ import { noteLinkText } from '@/lib/capture-links'
 import { chime, type Cue } from '@/lib/sound'
 import { cn } from '@/lib/cn'
 import { dayjs, num } from '../../../../main/dates'
-import type { Feed, FeedPost, Reaction } from '../../../../main/feed'
-import { Kbd, Page, Tip, quietly, toast } from './ui'
+import type { Feed, FeedPost, FeedSide, Reaction } from '../../../../main/feed'
+import { openSource, sources, type SourceSummary } from '@/lib/sources'
+import { Kbd, Page, Tip, openTag, quietly, toast } from './ui'
 import { Avatar } from './avatar'
 import { GlossLine, openGloss } from './gloss-line'
 import { MenuButton } from './collection-header'
@@ -28,16 +29,17 @@ const react = (post: FeedPost, reaction: Reaction | null): Promise<Reaction | nu
 const KIND_WORD: Record<FeedPost['type'], string> = { nugget: 'Gem', capture: 'Note', article: 'Page', question: 'Question', day: 'Journal' }
 const kindWord = (post: { kind: string; type: FeedPost['type'] }): string => (post.kind === 'quote' ? 'Quote' : KIND_WORD[post.type])
 
-/** A date: "4 Mar", with the year once it is not this year's. */
-const written = (at: string): string => {
+/** A date: "4 Mar", with the year once it is not this year's, or always (`years`) in a thread that spans years. */
+const written = (at: string, years = false): string => {
   const when = dayjs(at)
-  return when.format(when.year() === dayjs().year() ? 'D MMM' : 'D MMM YYYY')
+  return when.format(!years && when.year() === dayjs().year() ? 'D MMM' : 'D MMM YYYY')
 }
 
 /** The line over a post, when there is one: one you restacked, or one from long ago. */
 const contextOf = (post: FeedPost): string | null => {
   if (post.restack) return 'You restacked'
-  const last = post.seen ?? post.made
+  // A thought added lately is hearing from it: only what has been quiet a year is from the archives.
+  const last = [post.seen, post.gloss?.at, post.made].filter((one): one is string => !!one).sort().at(-1)!
   const made = dayjs(post.made)
   if (made.format('MM-DD') === dayjs().format('MM-DD') && made.year() < dayjs().year()) return dayjs().year() - made.year() === 1 ? 'A year ago today' : `${dayjs().year() - made.year()} years ago today`
   if (dayjs().diff(dayjs(last), 'day') >= 365) return 'From the archives'
@@ -86,18 +88,36 @@ export function FeedView({ onOpen }: { onOpen: (type: string, id: string) => voi
   const until = useUntilTomorrow()
   const root = useRef<HTMLDivElement>(null)
   const [thread, setThread] = useState<string | null>(null)
-  const place = useRef(0)
+  // Where the post opened sat on screen, so back puts it there again.
+  const place = useRef<{ key: string; top: number } | null>(null)
   const open = (type: string, id: string): void => (chime('open'), onOpen(type, id))
   const openThread = (post: FeedPost): void => {
-    place.current = scrollerOf(root.current)?.scrollTop ?? 0
+    const scroller = scrollerOf(root.current)
+    const node = root.current?.querySelector(`[data-feed-id="${CSS.escape(post.id)}"]`)
+    place.current = scroller && node ? { key: post.id, top: node.getBoundingClientRect().top - scroller.getBoundingClientRect().top } : null
     chime('page')
     setThread(`${post.type}:${post.id}`)
   }
   const back = (): void => (chime('back'), setThread(null))
   // Back to the same place in the list, before it is drawn.
+  // Held there for a moment too, while the pictures and replies above it draw in.
   useLayoutEffect(() => {
     const scroller = scrollerOf(root.current)
-    if (scroller) scroller.scrollTop = thread ? 0 : place.current
+    if (!scroller) return
+    if (thread || !place.current) return void (scroller.scrollTop = 0)
+    const { key, top } = place.current
+    const put = (): void => {
+      const node = root.current?.querySelector(`[data-feed-id="${CSS.escape(key)}"]`)
+      if (node) scroller.scrollTop += node.getBoundingClientRect().top - scroller.getBoundingClientRect().top - top
+    }
+    put()
+    let frame = requestAnimationFrame(function again() { put(); frame = requestAnimationFrame(again) })
+    const stop = (): void => cancelAnimationFrame(frame)
+    const until = window.setTimeout(stop, 700)
+    // A hand on the page lets go at once.
+    scroller.addEventListener('wheel', stop, { passive: true, once: true })
+    scroller.addEventListener('pointerdown', stop, { once: true })
+    return () => (stop(), window.clearTimeout(until), scroller.removeEventListener('wheel', stop), scroller.removeEventListener('pointerdown', stop))
   }, [thread])
   const shown = thread ? feed.posts.find((post) => `${post.type}:${post.id}` === thread) : undefined
   const counts = feed.posts.reduce<Record<string, number>>((all, post) => ({ ...all, [kindWord(post)]: (all[kindWord(post)] ?? 0) + 1 }), {})
@@ -105,7 +125,8 @@ export function FeedView({ onOpen }: { onOpen: (type: string, id: string) => voi
   const summary = said.length > 1 ? `${said.slice(0, -1).join(', ')} and ${said.at(-1)}` : said[0]
   return (
     <Page title="Feed" waiting={unloaded(feed)} count={feed.posts.length || undefined} unit={['post today', 'posts today']}>
-      <div ref={root} data-feed className="flex flex-col px-5 pt-[33px] pb-16">
+      <div ref={root} data-feed className="flex items-start gap-8 px-5 pt-[33px] pb-16">
+      <div className="flex min-w-0 flex-1 flex-col">
         {shown ? (
           <Thread post={shown} onBack={back} onOpen={() => open(shown.type, shown.id)} onOpenOther={open} />
         ) : feed.safe ? (
@@ -125,6 +146,8 @@ export function FeedView({ onOpen }: { onOpen: (type: string, id: string) => voi
           </>
         )}
       </div>
+      {!feed.safe && feed.posts.length > 0 && <SideColumn />}
+      </div>
     </Page>
   )
 }
@@ -133,6 +156,8 @@ export function FeedView({ onOpen }: { onOpen: (type: string, id: string) => voi
 function Thread({ post, onBack, onOpen, onOpenOther }: { post: FeedPost; onBack: () => void; onOpen: () => void; onOpenOther: (type: string, id: string) => void }): React.JSX.Element {
   const glosses = useLive(() => haligtree.glosses(post.id), [] as Gloss[], [post.id])
   const thread = [...glosses].reverse()
+  // Every date says its year once the thread runs over more than this one.
+  const years = [post.made, ...thread.map((one) => one.createdAt)].some((at) => dayjs(at).year() !== dayjs().year())
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       const typing = event.target instanceof HTMLElement && event.target.closest('input, textarea, [contenteditable="true"]')
@@ -163,7 +188,7 @@ function Thread({ post, onBack, onOpen, onOpenOther }: { post: FeedPost; onBack:
               <p className="flex items-baseline gap-1.5 text-control">
                 <span className="font-semibold text-foreground">{gloss.author === 'ai' ? 'Written by AI' : 'You'}</span>
                 <span aria-hidden className="text-muted-foreground">·</span>
-                <time data-feed-gloss-at dateTime={gloss.createdAt} className="text-muted-foreground tabular-nums">{written(gloss.createdAt)}</time>
+                <time data-feed-gloss-at dateTime={gloss.createdAt} className="text-muted-foreground tabular-nums">{written(gloss.createdAt, years)}</time>
               </p>
               <p className="text-body leading-relaxed whitespace-pre-line [overflow-wrap:anywhere] text-foreground/90 private-text">{gloss.body}</p>
             </div>
@@ -382,5 +407,80 @@ function Restack({ post, onDone, onOpen }: { post: FeedPost; onDone: () => void;
         </button>
       </div>
     </div>
+  )
+}
+
+/** How long since: "2 years", "8 months", "3 weeks", "5 days". */
+const quietFor = (at: string): string => {
+  const said = (n: number, unit: string): string => `${num(n)} ${unit}${n === 1 ? '' : 's'}`
+  const years = dayjs().diff(dayjs(at), 'year')
+  const months = dayjs().diff(dayjs(at), 'month')
+  const days = Math.max(1, dayjs().diff(dayjs(at), 'day'))
+  return years ? said(years, 'year') : months ? said(months, 'month') : days >= 14 ? said(Math.floor(days / 7), 'week') : said(days, 'day')
+}
+const readSide = (): Promise<FeedSide> => call<FeedSide>('feed:side')
+const NO_SIDE = unread<FeedSide>({ quiet: [], week: [] })
+const NO_SOURCES = unread<SourceSummary[]>([])
+/**
+ * Beside the posts, on a wide window only: your sources' faces, who and what
+ * you have not heard from in a while, and what has been on your mind this
+ * week. Each opens its page. Quiet: small words in the app's own islands,
+ * inside the page's column, and gone wherever the posts would be squeezed.
+ */
+function SideColumn(): React.JSX.Element | null {
+  const side = useLive(readSide, NO_SIDE, [], ['capture', 'item'], 'feed-side')
+  const all = useLive(sources.list, NO_SOURCES, [], ['capture', 'item'])
+  if (unloaded(side)) return null
+  const faces = all.filter((one) => one.field === 'attribution').sort((a, b) => b.count - a.count).slice(0, 8)
+  const go = (run: () => void): void => (chime('page'), run())
+  const row = 'flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left text-control text-foreground transition-colors hover:bg-accent/60'
+  return (
+    <aside data-feed-side aria-label="Beside the Feed" className="sticky top-[33px] hidden w-[15.5rem] shrink-0 flex-col gap-3 @[56rem]/page:flex">
+      {faces.length > 0 && (
+        <SideCard name="sources" title="Your sources">
+          <div className="flex flex-wrap gap-1.5 px-2 pt-0.5 pb-1.5">
+            {faces.map((one) => (
+              <Tip key={one.name} label={`${one.name}: ${num(one.count)} ${one.count === 1 ? 'note' : 'notes'}`}>
+                <button type="button" data-feed-face={one.name} aria-label={`Open ${one.name}'s page`} onClick={() => go(() => openSource('attribution', one.name))}
+                  className="rounded-full ring-offset-2 ring-offset-background transition-transform duration-150 ease-(--mf-ease) hover:scale-[1.06] focus-visible:ring-2 focus-visible:ring-ring">
+                  <Avatar name={one.name} size={34} />
+                </button>
+              </Tip>
+            ))}
+          </div>
+        </SideCard>
+      )}
+      {side.quiet.length > 0 && (
+        <SideCard name="quiet" title="Not heard from in a while">
+          {side.quiet.map((one) => (
+            <button key={`${one.kind}:${one.name}`} type="button" data-feed-quiet={one.kind} onClick={() => go(() => (one.kind === 'tag' ? openTag(one.name) : openSource('attribution', one.name)))} className={row}>
+              {one.kind === 'tag' ? <span aria-hidden className="flex size-5 shrink-0 items-center justify-center text-muted-foreground">#</span> : <Avatar name={one.name} size={20} className="shrink-0" />}
+              <span className="min-w-0 flex-1 truncate">{one.name}</span>
+              <span className="shrink-0 text-muted-foreground tabular-nums">{quietFor(one.last)}</span>
+            </button>
+          ))}
+        </SideCard>
+      )}
+      {side.week.length > 0 && (
+        <SideCard name="week" title="On your mind this week">
+          {side.week.map((one) => (
+            <button key={one.tag} type="button" data-feed-week={one.tag} onClick={() => go(() => openTag(one.tag))} className={row}>
+              <span aria-hidden className="flex size-5 shrink-0 items-center justify-center text-muted-foreground">#</span>
+              <span className="min-w-0 flex-1 truncate">{one.tag}</span>
+              <span className="shrink-0 text-muted-foreground tabular-nums">{num(one.n)} {one.n === 1 ? 'note' : 'notes'}</span>
+            </button>
+          ))}
+        </SideCard>
+      )}
+    </aside>
+  )
+}
+
+function SideCard({ name, title, children }: { name: string; title: string; children: React.ReactNode }): React.JSX.Element {
+  return (
+    <section data-feed-side-card={name} className="mf-island rounded-lg border bg-accent/25 p-1">
+      <h2 className="px-2 pt-1.5 pb-1 text-control font-semibold text-foreground">{title}</h2>
+      <div className="flex flex-col">{children}</div>
+    </section>
   )
 }

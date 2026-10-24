@@ -13,11 +13,14 @@ mkdirSync(SHOTS, { recursive: true })
 const { check, done } = checks()
 const s = await sandbox({ width: 1400, height: 900 })
 const { h, v, go, errors, theme, close, electron } = s
-const nth = (n) => h.locator('[data-feed-post="nugget"]:not([data-feed-kind="quote"])').nth(n)
+// Gems with no replies yet, so the counts below start from nothing (the sandbox's older gems carry years of them).
+let fresh = []
+const nth = (n) => h.locator(`[data-feed-id="${fresh[n]}"]`)
 const boxes = (post) => post.locator('[data-feed-actions] > *').evaluateAll((all) => all.map((one) => { const r = one.getBoundingClientRect(); return `${Math.round(r.x)},${Math.round(r.width)}` }).join(' '))
 const paint = (name) => h.evaluate((n) => { localStorage.setItem('theme', n); window.dispatchEvent(new StorageEvent('storage', { key: 'theme' })); document.documentElement.classList.toggle('dark', n === 'dark') }, name)
 const reactionOf = async (id) => (await v('feed')).posts.find((one) => one.id === id)?.react ?? null
 try {
+  fresh = (await v('feed')).posts.filter((one) => one.type === 'nugget' && one.kind !== 'quote' && !one.replies && !one.restack).map((one) => one.id)
   await go('feed')
   await h.waitForTimeout(1200)
   const first = nth(0)
@@ -109,6 +112,8 @@ try {
   await host.scrollIntoViewIfNeeded()
   const scrollAt = await h.evaluate(() => { const at = [...document.querySelectorAll('*')].find((one) => one.contains(document.querySelector('[data-feed]')) && one.scrollHeight > one.clientHeight + 10 && /(auto|scroll)/.test(getComputedStyle(one).overflowY)); return at?.scrollTop ?? -1 })
   void scrollBefore
+  // Where the post sits on screen: a picture above it that draws a beat later moves the scroll, never the post (scroll anchoring).
+  const topAt = await host.evaluate((one) => Math.round(one.getBoundingClientRect().top))
   check('the post says its replies', /2 replies/.test(await host.locator('[data-feed-replies]').innerText().catch(() => '')), await host.locator('[data-feed-history]').innerText().catch(() => ''))
   await host.locator('[data-feed-date]').click()
   await h.waitForTimeout(900)
@@ -125,7 +130,8 @@ try {
   await h.locator('[data-feed-back]').click()
   await h.waitForTimeout(700)
   const scrollBack = await h.evaluate(() => { const at = [...document.querySelectorAll('*')].find((one) => one.contains(document.querySelector('[data-feed]')) && one.scrollHeight > one.clientHeight + 10 && /(auto|scroll)/.test(getComputedStyle(one).overflowY)); return at?.scrollTop ?? -1 })
-  check('back returns to the same place in the list', await h.locator('[data-feed-thread]').count() === 0 && Math.abs(scrollBack - scrollAt) < 4, `${scrollAt} -> ${scrollBack}`)
+  const topBack = await host.evaluate((one) => Math.round(one.getBoundingClientRect().top))
+  check('back returns to the same place in the list', await h.locator('[data-feed-thread]').count() === 0 && Math.abs(topBack - topAt) < 4, `post at ${topAt} -> ${topBack}, scroll ${scrollAt} -> ${scrollBack}`)
   await host.locator('[data-feed-replies]').click()
   await h.waitForTimeout(700)
   check('"2 replies" opens the thread too', await h.locator('[data-feed-thread]').count() === 1)

@@ -921,6 +921,8 @@ This week: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, and the L
   ]
   // Each note caught in passing by its words, for the links written in below.
   const passed = new Map<string, string>()
+  // The gem each kept one became, by its words, for the replies written over the years below.
+  const passedGem = new Map<string, string>()
   for (const [n, weekday, time, words, became] of passing) {
     const [back, when] = on(n, weekday, time)
     const id = await capture({}, when)
@@ -929,7 +931,9 @@ This week: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, and the L
     // Looked at again a day or two later, when the week's few minutes came round.
     yearAges.push({ usedAt: at(-back + 1 + (back % 2), '20:30'), captureId: id })
     if (became === 'kept') {
-      yearAges.push({ createdAt: at(-back, '21:45'), nuggetId: await call<string>('promote', id) }, { exitedAt: at(-back, '21:45'), captureId: id })
+      const gem = await call<string>('promote', id)
+      passedGem.set(words, gem)
+      yearAges.push({ createdAt: at(-back, '21:45'), nuggetId: gem }, { exitedAt: at(-back, '21:45'), captureId: id })
       nuggets++
     } else if (became === 'gone') {
       await window.api.captures.save(id, { status: 'discarded' })
@@ -1596,6 +1600,87 @@ host: en.wikipedia.org
 
   // The deck that teaches Haligtree itself, tagged with LEARN_TAG: a few new cards a day in Review.
   nuggets += await call<number>('learn:add')
+
+  // --- three years of replying to yourself --------------------------------------------
+  // A few gems kept long before this year, each with the thoughts added since:
+  // agreeing, doubting, then a new view. The Feed shows them as threads, and
+  // what has not come up in a year as "From the archives" or "A year ago today".
+  /** A moment `years` back, in that year's `month` (1 to 12) and day; this year's are counted back in days instead. */
+  const yearsBack = (years: number, month: number, date: number, time = '21:30'): string => {
+    const [hours, minutes] = time.split(':').map(Number)
+    return new Date(new Date().getFullYear() - years, month - 1, date, hours, minutes).toISOString()
+  }
+  const yearAgo = (time: string): string => {
+    const when = new Date()
+    when.setFullYear(when.getFullYear() - 1)
+    const [hours, minutes] = time.split(':').map(Number)
+    when.setHours(hours, minutes, 0, 0)
+    return when.toISOString()
+  }
+  const keptBy = (start: string): string => kept.find((one) => one.line.startsWith(start))!.id
+  const gemBy = (start: string): string => [...passedGem].find(([words]) => words.startsWith(start))![1]
+  const threads: [string, string, [string, string][]][] = [
+    [keptBy('Begin the morning'), yearsBack(2, 3, 11, '07:10'), [
+      ['Tried it for a month. Some days it only made me expect the worst, and find it.', yearsBack(1, 2, 9, '07:20')],
+      ['It is not about lowering the bar. He goes on to say none of them can harm me. That is the half I missed.', yearsBack(1, 11, 16, '21:10')],
+      ['Now I read it as kindness, not armour: they do it because they know no better. Same line, different man reading it.', at(-40, '07:15')]
+    ]],
+    [gemBy('Two-minute rule'), yearsBack(1, 1, 14, '13:05'), [
+      ['Cleared the sink every night for a fortnight. Small win, every night.', yearsBack(1, 1, 28, '21:40')],
+      ['Doubting it. Forty two-minute jobs is a whole afternoon gone, and none of it the thing that mattered.', yearsBack(1, 9, 3, '18:20')],
+      ['Where I have landed: two minutes for things, never for people. Letters and replies get their own hour.', at(-130, '20:45')]
+    ]],
+    [keptBy('This above all'), yearsBack(1, 3, 2, '21:05'), [
+      ['Still good advice. Who says it matters less than whether it holds.', yearsBack(1, 7, 19, '22:00')],
+      ["Changed my mind, a bit. 'Thine own self' assumes you know which self. Polonius never doubts it, and that is the joke.", at(-95, '21:30')]
+    ]],
+    [keptBy('There is nothing either good or bad'), yearsBack(1, 5, 11, '20:40'), [
+      ['Less sure now. Some things are bad whatever I think of them. It works for traffic, not for grief.', at(-75, '22:10')]
+    ]],
+    [gemBy('Write the email'), yearsBack(1, 6, 6, '17:30'), [
+      ['Sent the boiler email this way. A reply in ten minutes, after three weeks of nothing.', yearsBack(1, 6, 20, '19:00')],
+      ['Still true. Added: say what happens if they do nothing.', at(-160, '12:40')]
+    ]],
+    [keptBy('I could easily forgive his pride'), yearsBack(1, 4, 13, '21:40'), [
+      ['Read it again. It is less about Darcy than I thought: she is hurt, and calls it judgement.', at(-55, '21:20')]
+    ]],
+    [keptBy('It is a truth universally'), yearsBack(1, 8, 10, '21:10'), [
+      ['Read it to Sam on the train. Nobody laughed at it in school, and we both laughed now.', yearsBack(1, 12, 27, '15:30')]
+    ]],
+    [keptBy('I declare after all'), yearsBack(1, 9, 21, '21:25'), [
+      ['Caught myself doing exactly this, holding a book on the train and reading my phone. Austen got me too.', at(-110, '08:10')]
+    ]],
+    [keptBy('Beware; for I am fearless'), yearsBack(1, 12, 7, '22:20'), [
+      ['Thought of it in the redundancy meeting. Nothing to lose is a kind of freedom, and a kind of danger.', at(-150, '19:30')]
+    ]],
+    [keptBy("There's a divinity"), yearsBack(1, 11, 2, '21:55'), [
+      ['Heard it read at a funeral. It sounded less like giving up than it does on the page.', at(-20, '22:15')]
+    ]],
+    // A year ago today, and one thought on it since.
+    [gemBy("Mum's lentil soup"), yearAgo('19:20'), [
+      ['Made it for Sam on a cold night. She asked for the recipe twice, and I had it written down.', at(-200, '20:00')]
+    ]]
+  ]
+  const threadAges: unknown[] = []
+  for (const [id, made, said] of threads) {
+    threadAges.push({ createdAt: made, nuggetId: id })
+    // The words kept with it on the day: that same day, not the day the seed ran.
+    for (const gloss of await call<{ id: string; createdAt: string }[]>('glosses', id)) if (gloss.createdAt > made) threadAges.push({ glossAt: made, id: gloss.id })
+    for (const [text, when] of said) threadAges.push({ glossAt: when, id: await call<string>('gloss', id, text) })
+  }
+  // A page with a picture, from a trip two summers ago, not opened since: it comes back "From the archives".
+  const urbino = await call<string>('article:new')
+  await call('item:save', urbino, {
+    title: 'Urbino in the rain',
+    body: doc(`
+![The Ideal City, a painted panel in Urbino](${await picture(idealCityUrl)})
+
+A whole town painted with nobody in it. I stood in front of it for twenty minutes while it rained outside, and it was the calmest room I have been in.
+`)
+  })
+  nuggets++
+  threadAges.push({ createdAt: yearsBack(2, 6, 18, '16:40'), nuggetId: urbino })
+  await call('sandbox:age', threadAges)
 
   // Opened this morning, so Home's first tiles are the Matrix piece and the card it grew from.
   await call('home:opened', 'nugget', redPill)
