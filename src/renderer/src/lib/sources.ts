@@ -1,7 +1,7 @@
 import { call } from './haligtree'
-import type { SourceField, SourceGraph, SourcePage, SourceSummary } from '../../../main/sources'
+import type { SourceFacts, SourceField, SourceGraph, SourceNear, SourcePage, SourceSummary } from '../../../main/sources'
 
-export type { SourceField, SourceGraph, SourceItem, SourcePage, SourceSummary } from '../../../main/sources'
+export type { SourceFacts, SourceNear, SourceField, SourceGraph, SourceItem, SourcePage, SourceSummary } from '../../../main/sources'
 export { VOICE_SAID, pageRef, voiceOf, type Voice } from '../../../main/voice'
 
 export const sources = {
@@ -14,6 +14,8 @@ export const sources = {
     await Promise.all(list.map((one) => call<boolean>('source:drop', one.field, one.name)))
     return () => void Promise.all(list.map((one, at) => call<boolean>('source:set', one.field, one.name, had[at]?.thoughts ?? '')))
   },
+  facts: (field: SourceField, name: string, facts: Partial<SourceFacts>) => call<boolean>('source:facts', field, name, facts),
+  near: (name: string) => call<SourceNear[]>('source:near', name),
   graph: () => call<SourceGraph>('sources:graph'),
   missing: () => call<{ type: string; id: string; kind: string; label: string; at: string }[]>('sources:missing')
 }

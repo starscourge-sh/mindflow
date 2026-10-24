@@ -14,7 +14,7 @@
   background: oklch(0.92 0.04 var(--mf-avatar-hue));
   color: oklch(0.45 0.09 var(--mf-avatar-hue));
   font-family: var(--font-sans, system-ui, sans-serif);
-  font-size: calc(var(--s) * 0.42);
+  font-size: min(calc(var(--s) * 0.42), 2.25rem); /* a big face keeps calm letters */
   font-weight: 600;
   font-style: normal;
   line-height: 1;

@@ -409,7 +409,7 @@ const DISPLAY_ASKED = 'haligtree:display'
 /** Open the Display of the page in front, from a menu line where it has no button of its own. */
 export const openDisplay = (): void => void window.dispatchEvent(new CustomEvent(DISPLAY_ASKED))
 
-export function Display<T>({ view, onChange, facets, sorts: given, groups: offered = [], defaults = {}, compact = false, density, onDensity, count, hidden = false, sortNote }: {
+export function Display<T>({ view, onChange, facets, sorts: given, groups: offered = [], defaults = {}, compact = false, density, onDensity, densities = DENSITIES.map((one) => one.id), count, hidden = false, sortNote }: {
   /** No button of its own: opened by F, or from a page's ⋯ (openDisplay), as a sheet from the right. */
   hidden?: boolean
   /** Icon only, where the row beside it needs the room. */
@@ -429,7 +429,10 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
   /** How the list is drawn now, and how to change it: offered as View as. */
   density?: Density
   onDensity?: (density: Density) => void
+  /** Which views this list can be drawn as, when not all four. */
+  densities?: Density[]
 }): React.JSX.Element | null {
+  const views = DENSITIES.filter((one) => densities.includes(one.id))
   const few = count !== undefined && count < 2
   const sorts = few ? [] : given
   const groups = few ? [] : offered
@@ -503,10 +506,10 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
   // 1 to 4 pick a view while it is open, in either shape.
   const onKeyDown = (event: React.KeyboardEvent): void => {
     const at = Number(event.key) - 1
-    if (!onDensity || event.metaKey || event.ctrlKey || event.altKey || !DENSITIES[at]) return
+    if (!onDensity || event.metaKey || event.ctrlKey || event.altKey || !views[at]) return
     if ((event.target as Element).closest('input, textarea')) return
     event.preventDefault()
-    pickDensity(DENSITIES[at].id)
+    pickDensity(views[at].id)
   }
   // A choice in one of its menus is inside Display, not a click away.
   const inside = (event: Event): void => void ((event.target as Element | null)?.closest?.('[data-slot="dropdown-menu-content"]') && event.preventDefault())
@@ -552,8 +555,8 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
     )}
     {onDensity && (
       <Section title="View as" count={0}>
-        <div className="grid grid-cols-4 gap-1 p-1">
-          {DENSITIES.map((one, at) => (
+        <div className="grid gap-1 p-1" style={{ gridTemplateColumns: `repeat(${views.length}, minmax(0, 1fr))` }}>
+          {views.map((one, at) => (
             <Tip key={one.id} label={`${one.label}  ${at + 1}`}>
               <button
                 type="button"

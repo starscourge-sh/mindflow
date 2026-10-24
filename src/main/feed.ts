@@ -166,7 +166,7 @@ export function registerFeed(): void {
     const args = only ? [only] : []
     const where = "kind in ('decision', 'checkback') and private = 0 and archived_at is null and json_valid(fields) and json_extract(fields, '$.state') = 'Decided'"
     return [
-      ...db.prepare(`select 'captures' as \`table\`, id, ${LABEL} as title, fields, captured_at as made from captures where ${where} and status != 'discarded' ${one}`).all(...args),
+      ...db.prepare(`select 'captures' as \`table\`, id, ${LABEL} as title, fields, captured_at as made from captures where ${where} and status != 'discarded' and id not in (select capture_id from nuggets where capture_id is not null) ${one}`).all(...args),
       ...db.prepare(`select 'nuggets' as \`table\`, id, coalesce(nullif(title, ''), label('', body)) as title, fields, created_at as made from nuggets where ${where} and binned_at is null and superseded_by is null ${one}`).all(...args)
     ] as Decision[]
   }
@@ -435,7 +435,7 @@ export function registerFeed(): void {
     // Every note of yours that may be shown, not only those the Feed picks from.
     const notes = [
       ...db.prepare("select case when tier = 'question' then 'question' else 'nugget' end as type, id, coalesce(nullif(title, ''), label('', body)) as title, body, attribution as who, created_at as made, last_visited_at as visited from nuggets where private = 0 and archived_at is null and superseded_by is null and binned_at is null and tier in ('nugget', 'question', 'article')").all(),
-      ...db.prepare(`select 'capture' as type, id, ${LABEL} as title, body, attribution as who, captured_at as made, surfaced_at as visited from captures where private = 0 and status != 'discarded' and archived_at is null and kind != 'task'`).all()
+      ...db.prepare(`select 'capture' as type, id, ${LABEL} as title, body, attribution as who, captured_at as made, surfaced_at as visited from captures where private = 0 and status != 'discarded' and archived_at is null and kind != 'task' and id not in (select capture_id from nuggets where capture_id is not null)`).all()
     ] as Row[]
     for (const row of notes) {
       if (/(^|\s)#bit\b/i.test(`${row.title} ${row.body ?? ''}`)) continue
@@ -455,7 +455,7 @@ export function registerFeed(): void {
     const counts = new Map<string, number>()
     const recent = [
       ...db.prepare("select title, body from nuggets where private = 0 and archived_at is null and superseded_by is null and binned_at is null and tier != 'card' and created_at >= ?").all(since),
-      ...db.prepare(`select ${LABEL} as title, body from captures where private = 0 and status != 'discarded' and archived_at is null and captured_at >= ?`).all(since)
+      ...db.prepare(`select ${LABEL} as title, body from captures where private = 0 and status != 'discarded' and archived_at is null and captured_at >= ? and id not in (select capture_id from nuggets where capture_id is not null)`).all(since)
     ] as { title: string; body: string | null }[]
     for (const row of recent) for (const tag of tagsOfRow(row)) counts.set(tag, (counts.get(tag) ?? 0) + 1)
     const week = [...counts].filter(([tag]) => tag !== 'bit' && tag !== LEARN_TAG).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 5).map(([tag, n]) => ({ tag, n }))

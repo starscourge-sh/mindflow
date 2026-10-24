@@ -28,6 +28,7 @@ import { onboarding, tryWelcome, useOnboarding } from '@/lib/onboarding'
 import { call, useLive, haligtree, type GiphyMedia, type GiphyPin, type MomentKind, type Settings } from '@/lib/haligtree'
 import { Chips } from './display'
 import { Avatar } from './avatar'
+import { pickAvatar, setAvatar, useAvatar } from '@/lib/people'
 import { setPageWidth, widthOf, type PageWidth } from '@/lib/reading'
 import { SoundPacks } from './sound-packs'
 import { FontPicker, TextSize } from './font-picker'
@@ -590,6 +591,8 @@ export function SettingsView(): React.JSX.Element {
             <Switch checked={settings.thumbnails !== false} onCheckedChange={(thumbnails) => set({ thumbnails })} />
           </Setting>
           <Setting title="Covers" note="What a note with no picture of its own wears on its card and row." more="Each is tinted to the note's colour." keywords="covers cover drawings paper sketch gradients tiles thumbnails grid cards placeholder folder grain" below={<CoverChoice settings={settings} set={set} />} />
+          <Setting title="Your photo" note="Your face in the Feed, on your replies and wherever you are shown. Without one, you wear your shape." keywords="profile photo picture avatar face me you owner portrait upload"
+            below={<YourProfile bio={settings.bio ?? ''} setBio={(bio) => set({ bio })} />} />
           <Setting title="Avatars" note="The face a source, or you, wears in the Feed and on a source's page until you give it a picture." more="“Shapes” gives each name its own shape from Coolshapes, tinted by your theme; the same name always wears the same one." keywords="avatars faces initials shapes coolshapes circles people sources feed accounts"
             below={<Choices label="Avatars" options={(['shapes', 'initials'] as const).map((look) => ({ id: look, label: look === 'shapes' ? 'Shapes' : 'Initials', show: <AvatarSample look={look} /> }))}
               on={(id) => id === (settings.avatars ?? 'shapes')} pick={(avatars) => set({ avatars: avatars as Settings['avatars'] })} />} />
@@ -1971,6 +1974,32 @@ function PutAwayBefore(): React.JSX.Element {
 }
 
 /** A few faces as they would look: the names a Feed is likely to hold. */
+/** Your own face and a line about you: a photo cut to a circle (kept in the book), or your shape; and a bio of up to 160 letters. */
+function YourProfile({ bio, setBio }: { bio: string; setBio: (bio: string) => void }): React.JSX.Element {
+  const photo = useAvatar('You')
+  const [text, setText] = useState(bio)
+  useEffect(() => setText(bio), [bio])
+  return (
+    <div data-your-profile className="flex flex-col gap-3">
+      <div className="flex items-center gap-3">
+        <Avatar name="You" size={56} />
+        <Button variant="outline" size="sm" data-your-photo className="min-w-[8.5rem]" onClick={() => void pickAvatar('You')}>{photo ? 'Change photo…' : 'Add a photo…'}</Button>
+        {/* Always there, so the button beside it never moves; it does nothing without a photo. */}
+        <Button variant="ghost" size="sm" data-remove-photo disabled={!photo} onClick={() => void setAvatar('You', null)}>Remove photo</Button>
+      </div>
+      <label className="flex flex-col gap-1">
+        <span className="flex items-baseline justify-between text-body text-foreground">
+          About you
+          <span data-bio-count className={`text-body tabular-nums ${text.length >= 160 ? 'text-destructive' : 'text-foreground'}`}>{text.length} of 160</span>
+        </span>
+        <textarea data-your-bio value={text} maxLength={160} rows={2} placeholder="A line about you, if you like: what you read, what you keep"
+          onChange={(event) => setText(event.target.value)} onBlur={() => text !== bio && setBio(text.trim())}
+          className="block w-full resize-none rounded-md bg-accent/50 px-3 py-2 text-body outline-none [field-sizing:content] placeholder:text-foreground/60 focus:bg-accent" />
+      </label>
+    </div>
+  )
+}
+
 function AvatarSample({ look }: { look: 'shapes' | 'initials' }): React.JSX.Element {
   return (
     <span data-preview="avatars" data-avatar-look={look} className="flex h-full items-center justify-center gap-2">

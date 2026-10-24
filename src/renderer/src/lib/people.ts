@@ -56,15 +56,15 @@ export const hueOf = (name: string): number => {
 
 /**
  * A picture made small and square for a face in a circle: the middle of it,
- * 160 pixels across, kept in the app's store. Null if it is not a picture.
+ * 256 pixels across, kept in the app's store. Null if it is not a picture.
  */
 async function shrink(blob: Blob): Promise<string | null> {
   const bitmap = await createImageBitmap(blob).catch(() => null)
   if (!bitmap) return null
   const side = Math.min(bitmap.width, bitmap.height)
   const canvas = document.createElement('canvas')
-  canvas.width = canvas.height = 160
-  canvas.getContext('2d')!.drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, 160, 160)
+  canvas.width = canvas.height = 256
+  canvas.getContext('2d')!.drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, 256, 256)
   bitmap.close()
   const small = await new Promise<Blob | null>((done) => canvas.toBlob(done, 'image/webp', 0.9))
   if (!small) return null

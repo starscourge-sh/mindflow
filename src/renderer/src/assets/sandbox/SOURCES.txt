@@ -26,6 +26,16 @@ flat. Public domain in the US (Bridgeman v. Corel; tagged PD-Art on Wikimedia Co
   scenery/penobscot-bay.webp    Fitz Henry Lane (1804 to 1865), Lumber Schooners at Evening on Penobscot Bay, 1860
                                 (National Gallery of Art, Open Access, 1980.29.1).
 
+Portraits for the sandbox's people pages, cropped square to the face, 320px (Wikimedia Commons, public domain):
+  jane-austen.webp          Cassandra Austen, Jane Austen, about 1810. National Portrait Gallery, London.
+                            From CassandraAusten-JaneAusten(c.1810)_hires.jpg
+  marcus-aurelius.webp      Bust of Marcus Aurelius, 2nd century. Glyptothek, Munich.
+                            From Marcus_Aurelius_Glyptothek_Munich.jpg
+  mary-shelley.webp         Richard Rothwell, Mary Shelley, 1840. National Portrait Gallery, London.
+                            From RothwellMaryShelley.jpg
+  william-shakespeare.webp  Attributed to John Taylor, the Chandos portrait, about 1600 to 1610. National Portrait Gallery, London.
+                            From Shakespeare.jpg
+
 The Metropolitan Museum of Art, Open Access (CC0 1.0), downloaded 2026-10-07:
 
   cuneiform-tablet.webp   Cuneiform tablet: student exercise tablet. Babylonian, about 20th to 16th century BC.

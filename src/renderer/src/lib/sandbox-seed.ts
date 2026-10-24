@@ -16,6 +16,10 @@ import adamUrl from '@/assets/sandbox/creation-of-adam.webp'
 import primaveraUrl from '@/assets/sandbox/primavera.webp'
 import trinityUrl from '@/assets/sandbox/masaccio-trinity.webp'
 import tributeUrl from '@/assets/sandbox/tribute-money.webp'
+import austenUrl from '@/assets/sandbox/jane-austen.webp'
+import aureliusUrl from '@/assets/sandbox/marcus-aurelius.webp'
+import shelleyUrl from '@/assets/sandbox/mary-shelley.webp'
+import shakespeareUrl from '@/assets/sandbox/william-shakespeare.webp'
 import idealCityUrl from '@/assets/sandbox/ideal-city.webp'
 import vitruvianUrl from '@/assets/sandbox/vitruvian-man.webp'
 import atlanticusUrl from '@/assets/sandbox/codex-atlanticus.webp'
@@ -129,7 +133,7 @@ export async function seedSandbox(read: Read): Promise<SeedCounts> {
   // Practice tasks never send a notification, and nothing celebrates while
   // the examples go in; the sandbox's own look is set by the caller.
   // One goal's card on the desktop (Dune's, set below), no other: two stickies in all, with Today's.
-  await call('settings:set', { notify: 'quiet', celebrate: false, goalBeacon: 'off' })
+  await call('settings:set', { notify: 'quiet', celebrate: false, goalBeacon: 'off', bio: 'Reads on the bus, cooks on Sundays, and keeps the lines worth keeping.' })
 
   const [tablet, plaque, head, dot, mona, annunciation, supper, adam, primavera] = await Promise.all(
     [tabletUrl, plaqueUrl, headUrl, dotUrl, monaUrl, annunciationUrl, supperUrl, adamUrl, primaveraUrl].map(picture))
@@ -830,6 +834,19 @@ This week: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, and the L
     await field(id, 'rating', rating)
     await field(id, 'takeaway', takeaway)
     yearAges.push({ usedAt: at(-on(n, 6, '10:30')[0], '18:00'), captureId: id })
+  }
+
+  // The four writers as pages: a portrait, what they did and when they lived, and a few words of yours about each.
+  const writers: [string, string, string, string, string, string][] = [
+    ['Jane Austen', austenUrl, 'Novelist', '1775', '1817', 'Six novels, written mostly in a shared sitting room, with a creaking door that warned her when someone was coming. Funnier than school made her sound, and sharper. Pride and Prejudice is the one I keep going back to, for Elizabeth changing her mind and saying so. She published without her name: the title pages said only "By a Lady". Read Persuasion next: everyone says it is the grown-up one, written last, about a second chance taken late. Her letters to Cassandra are worth it too, for the gossip.'],
+    ['Marcus Aurelius', aureliusUrl, 'Roman emperor and Stoic', '121', '180', 'Emperor of Rome for nineteen years, mostly at war on the Danube. Meditations was his notebook, written to himself in Greek and never meant to be read. That is why it works: nobody is being lectured but him.'],
+    ['Mary Shelley', shelleyUrl, 'Novelist', '1797', '1851', 'Wrote Frankenstein at eighteen, in the wet summer of 1816 by Lake Geneva, for a ghost story contest. The creature is the one I remember. She outlived almost everyone in that house, and kept writing.'],
+    ['William Shakespeare', shakespeareUrl, 'Playwright and poet', '1564', '1616', 'Thirty-odd plays and the sonnets. Half the phrases I use without thinking are his. Hamlet is the one I keep: a man who thinks about acting for five acts.']
+  ]
+  for (const [who, portrait, what, born, died, words] of writers) {
+    await call('people:set', who, await picture(portrait))
+    await call('source:set', 'attribution', who, words)
+    await call('source:facts', 'attribution', who, { what, born, died })
   }
 
   // The lines kept, each with your own words beside it: [days ago, weekday, time, who, where, the line, yours].
