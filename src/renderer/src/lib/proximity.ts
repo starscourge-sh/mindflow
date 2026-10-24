@@ -20,6 +20,15 @@ export function detent(value: number, at: number, reach: number): number {
   return Math.abs(value - at) <= reach ? at : value
 }
 
+/** The trackpad taps too (main/haptic.ts), never closer than 60ms, so a fast drag never buzzes. */
+let felt = 0
+function feel(): void {
+  const now = performance.now()
+  if (now - felt < 60) return
+  felt = now
+  ;(window as { api?: { tap?: () => void } }).api?.tap?.()
+}
+
 /**
  * A tick for each new place a dragged thing comes over (a day, a box, a gap
  * between rows), heard once as it arrives rather than while it stays. Nowhere
@@ -34,6 +43,7 @@ export function slotTicker(): SlotTicker {
     if (slot === null || slot === undefined || slot === last) return
     last = slot
     click('tick')
+    feel()
   }
   return Object.assign(tick, { start: (slot: string | number | null | undefined) => void (last = slot ?? null) })
 }

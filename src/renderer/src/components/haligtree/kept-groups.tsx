@@ -310,6 +310,8 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
     if (same(aimed.current, next)) return
     aimed.current = next
     setAim(next)
+    // Each new place (a gap, or "New group" on a row) ticks and taps once: nowhere is silent.
+    if (next) ticks(`${next.how}:${next.target}:${next.into ?? ''}`)
   }
   const onDragStart = ({ active, activatorEvent }: DragStartEvent): void => {
     const id = String(active.id)
@@ -507,7 +509,7 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
   return (
     // The list scrolls by itself only in the last tenth by its top and bottom edges: a row near an edge can still be aimed at.
     <DndContext sensors={sensors} collisionDetection={collide} modifiers={[upDown]} autoScroll={{ threshold: { x: 0, y: 0.1 } }} measuring={{ droppable: { strategy: MeasuringStrategy.WhileDragging } }}
-      onDragStart={onDragStart} onDragMove={onDragMove} onDragOver={({ over }) => ticks(over?.id)} onDragEnd={onDragEnd} onDragCancel={() => (end(), chime('stay'))}>
+      onDragStart={onDragStart} onDragMove={onDragMove} onDragEnd={onDragEnd} onDragCancel={() => (end(), chime('stay'))}>
       <SortableContext items={keys} strategy={unmoved}>
         <Shaped aim={aim} keys={keys} hand={carried} many={many} span={span} inset={inset} row={rowH} snap={snap} blocks={blockRows}>
           {ordered && <OwnOrderHint />}

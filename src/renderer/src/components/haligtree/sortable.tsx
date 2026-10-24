@@ -229,6 +229,7 @@ export function BlockList<T>({ blocks, keyOf, onMove, refuse, row, around }: {
   const settle = useRef<ReturnType<typeof setTimeout>>(undefined)
   const done = (): void => (clearTimeout(settle.current), void (settle.current = setTimeout(() => setSorting(false), 320)))
   const ticks = useRef(slotTicker()).current
+  const lifted = useRef<string | null>(null)
   const incoming = blocks.map((one) => `${one.key}:${one.items.map(keyOf).join(',')}`).join('\n')
   useEffect(() => setHeld(null), [incoming])
   const byId = new Map(blocks.flatMap((one) => one.items.map((item): [string, T] => [keyOf(item), item])))
@@ -261,7 +262,8 @@ export function BlockList<T>({ blocks, keyOf, onMove, refuse, row, around }: {
     setRefused(no)
     if (no) document.documentElement.dataset.dragRefused = ''
     else delete document.documentElement.dataset.dragRefused
-    ticks(no ? 'refused' : next ? `${next.block}:${next.before}` : null)
+    // Both lines round its own place are one place: no tick or tap for staying put.
+    ticks(no ? 'refused' : next ? (lifted.current && stays(lifted.current, next) ? 'stay' : `${next.block}:${next.before}`) : null)
   }
   // The place it already has: the line just above it, or just under it.
   const stays = (id: string, drop: BlockDrop): boolean => {
@@ -273,7 +275,8 @@ export function BlockList<T>({ blocks, keyOf, onMove, refuse, row, around }: {
     chime('lift')
     clearTimeout(settle.current)
     setSorting(true)
-    ticks.start(null)
+    lifted.current = String(active.id)
+    ticks.start('stay')
     setShot(snapshot(String(active.id)))
   }
   const onDragMove = ({ activatorEvent, delta }: DragMoveEvent): void => {

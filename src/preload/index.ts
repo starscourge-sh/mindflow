@@ -84,6 +84,9 @@ const api = {
   /** Put a stored image on the system clipboard. */
   copyImage: (src: string): Promise<boolean> => ipcRenderer.invoke('copy-image', src),
 
+  /** One light tap on a Force Touch trackpad (main/haptic.ts): a dragged row reached a new place. */
+  tap: (): void => ipcRenderer.send('haptic:tap'),
+
   /** Drag a stored picture or file out to another app: called from dragstart, the system drag starts from here. */
   dragOut: (src: string, name: string): void => ipcRenderer.send('drag-out', src, name),
   /** Where a dropped file lies on disk, so a picture dragged out and back in is known as the same one. */

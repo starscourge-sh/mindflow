@@ -21,6 +21,8 @@ import { useDetailsShown } from '@/lib/reading'
 import { keyFor, useKeyChanges, withKeys } from '@/lib/keys'
 import { Kbd as ShadKbd, KbdGroup } from '@/components/ui/kbd'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { TermInfo, TermPlain } from './term'
+import { wordFor } from '@/lib/words'
 import { KindAsker } from './note-extras'
 import { QuestionAsker } from './questions-view'
 import { BookAsker } from './books'
@@ -2215,9 +2217,15 @@ function FoldingIsland({ title, name, actions, className, children }: { title: R
         <button type="button" aria-expanded={open} onClick={toggle}
           className="-mx-1 flex min-w-0 flex-1 items-center gap-1 rounded-md px-1 py-1 text-left text-foreground hover:bg-accent/60">
           <ChevronRight aria-hidden className={cn('size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 ease-[var(--mf-ease)] motion-reduce:transition-none group-hover/fold:text-foreground', open && 'rotate-90')} />
-          <h2 className="min-w-0 truncate text-meta font-semibold">{title}</h2>
+          <h2 className="min-w-0 truncate text-meta font-semibold"><TermPlain.Provider value>{title}</TermPlain.Provider></h2>
         </button>
-        {actions && <div className="ml-auto flex shrink-0 items-center gap-1">{actions}</div>}
+        {/* The words fold it; what the name means sits apart, at the end. */}
+        {(actions || wordFor(name)) && (
+          <div className="ml-auto flex shrink-0 items-center gap-1">
+            {actions}
+            <TermInfo text={name} />
+          </div>
+        )}
       </div>
       <div className="grid transition-[grid-template-rows] duration-200 ease-[var(--mf-ease)] motion-reduce:transition-none" style={{ gridTemplateRows: open ? '1fr' : '0fr' }} inert={!open}>
         <div className="min-h-0 overflow-hidden">

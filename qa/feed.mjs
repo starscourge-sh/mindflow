@@ -52,7 +52,7 @@ try {
   await h.keyboard.type('Still true a year on', { delay: 15 })
   await h.keyboard.press('Enter')
   await h.waitForTimeout(1200)
-  check('Reply adds a gloss under the post', (await post.locator('[data-gloss]').innerText()).includes('Still true a year on'))
+  check('Reply adds a gloss under the post', (await post.locator('[data-feed-hanging]').innerText().catch(() => '')).includes('Still true a year on'))
 
   const end = h.locator('[data-feed-end]')
   await end.scrollIntoViewIfNeeded()

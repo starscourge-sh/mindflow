@@ -1,4 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { Info } from 'lucide-react'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { chime } from '@/lib/sound'
@@ -28,7 +29,9 @@ export function openWord(id: string, from?: Element | null): void {
  */
 export function Term({ children }: { children: ReactNode }): React.JSX.Element {
   const found = typeof children === 'string' ? wordFor(children) : undefined
-  if (!found) return <>{children}</>
+  // Inside a heading that folds, the words are the fold: the meaning moves to its i (TermInfo).
+  const plain = useContext(TermPlain)
+  if (!found || plain) return <>{children}</>
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -43,6 +46,35 @@ export function Term({ children }: { children: ReactNode }): React.JSX.Element {
         >
           {children}
         </span>
+      </TooltipTrigger>
+      <TooltipContent>{found.line}</TooltipContent>
+    </Tooltip>
+  )
+}
+
+/** Set by a heading that is itself a button (a fold), so a Term in it is plain words. */
+export const TermPlain = createContext(false)
+
+/**
+ * A small circled i at the end of a heading that folds, for the word it is
+ * named by: pointed at or focused, what it means in a line; clicked, its note.
+ * Nothing where the name is not one of the words.
+ */
+export function TermInfo({ text }: { text: string }): React.JSX.Element | null {
+  const found = wordFor(text)
+  if (!found) return null
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          data-term-info={found.id}
+          aria-label={`What “${found.forms[0]}” means`}
+          onClick={(event) => (event.stopPropagation(), openWord(found.id, event.currentTarget))}
+          className="grid size-5 shrink-0 cursor-help place-items-center rounded-full text-muted-foreground/70 transition-colors hover:text-foreground focus-visible:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+        >
+          <Info aria-hidden className="size-3.5" strokeWidth={1.75} />
+        </button>
       </TooltipTrigger>
       <TooltipContent>{found.line}</TooltipContent>
     </Tooltip>

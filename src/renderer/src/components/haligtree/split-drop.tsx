@@ -41,6 +41,8 @@ const REACH = 120
 const EDGE = 48
 /** A place's width beside a list's own drag: a strip at the edge, never over what it could drop in. */
 const NARROW = 72
+/** How far past a list's column, to either side, a list's own drag goes before the places come up. */
+const OUTSIDE = 24
 /** How far the pointer moves before anything is carried. */
 const START = 8
 
@@ -116,7 +118,7 @@ export function SplitDrop({ panes, onDrop }: { panes: number; onDrop: (carried: 
 
   useEffect(() => {
     if (!canSplit()) return
-    let down: { x: number; y: number; source: NonNullable<ReturnType<typeof sourceOf>> } | null = null
+    let down: { x: number; y: number; source: NonNullable<ReturnType<typeof sourceOf>>; column: DOMRect } | null = null
     let active = false
     let shown: Zone[] = []
     let over: Side | null = null
@@ -209,7 +211,7 @@ export function SplitDrop({ panes, onDrop }: { panes: number; onDrop: (carried: 
     const onDown = (event: PointerEvent): void => {
       if (event.button !== 0 || event.altKey || event.metaKey || event.ctrlKey || event.shiftKey) return
       const source = sourceOf(event.target)
-      down = source && { x: event.clientX, y: event.clientY, source }
+      down = source && { x: event.clientX, y: event.clientY, source, column: source.node.getBoundingClientRect() }
     }
     const onMove = (event: PointerEvent): void => {
       if (!down) return
@@ -222,9 +224,12 @@ export function SplitDrop({ panes, onDrop }: { panes: number; onDrop: (carried: 
         // Over the sidebar's Queue or Pinned (not the one it came from): it can go there too.
         const side = queueAt(px, event.clientY)
         const elsewhere = !!side && !side.contains(down.source.node)
-        const edge = elsewhere || (!!box && ((px >= box.left && px < box.left + EDGE) || (px <= box.right && px > box.right - EDGE)))
-        // Back in from the edge, past the strip: they go, and the list's drag carries on.
-        const back = !elsewhere && (!box || (px > box.left + 10 + NARROW + 12 && px < box.right - 10 - NARROW - 12) || px < box.left || px > box.right)
+        const atEdge = !!box && ((px >= box.left && px < box.left + EDGE) || (px <= box.right && px > box.right - EDGE))
+        // Out past the list's own column to either side (Pages' rows sit in a narrow column): the list is left, the places come up.
+        const out = px < down.column.left - OUTSIDE || px > down.column.right + OUTSIDE
+        const edge = elsewhere || atEdge || out
+        // Back in over its column, away from the edge: they go, and the list's drag carries on.
+        const back = !elsewhere && !out && (!box || (px > box.left + 10 + NARROW + 12 && px < box.right - 10 - NARROW - 12) || px < box.left || px > box.right)
         if (active && back) return hide()
         if (!active && !edge) return
       }

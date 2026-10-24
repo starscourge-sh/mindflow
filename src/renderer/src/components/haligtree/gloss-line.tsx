@@ -128,7 +128,7 @@ export function putBack(field: React.RefObject<HTMLTextAreaElement | HTMLInputEl
  * sits. Enter keeps it, Shift-Enter starts a second line, Escape lets it go.
  */
 /** Words cut at a word, with one ellipsis, only when they run long. */
-const cutWords = (text: string, size: number): string => {
+export const cutWords = (text: string, size: number): string => {
   const flat = text.replace(/\s+/g, ' ').trim()
   return flat.length > size ? `${flat.slice(0, size).replace(/\s+\S*$/, '').replace(/[\s,;:·–-]+$/, '')}…` : flat
 }

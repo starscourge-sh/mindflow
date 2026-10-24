@@ -6,14 +6,14 @@ import { useThumb } from '@/lib/notes'
 import { noteLinkText } from '@/lib/capture-links'
 import { chime, type Cue } from '@/lib/sound'
 import { cn } from '@/lib/cn'
-import { dayjs, num } from '../../../../main/dates'
+import { ago, dayjs, num } from '../../../../main/dates'
 import type { Feed, FeedPost, FeedSide, PollAnswer, Reaction } from '../../../../main/feed'
 import { GRADES } from './review-view'
 import { backIn } from '@/lib/back-in'
 import { openSource, sources, type SourceSummary } from '@/lib/sources'
 import { Kbd, Page, Tip, jumpTo, openTag, quietly, toast } from './ui'
 import { Avatar } from './avatar'
-import { GlossLine, openGloss } from './gloss-line'
+import { GlossLine, cutWords, openGloss } from './gloss-line'
 import { MenuButton } from './collection-header'
 import { copy, type MenuItem } from './row-menu'
 import { motion } from 'motion/react'
@@ -56,13 +56,13 @@ const contextOf = (post: FeedPost): string | null => {
 
 /** Your own history with it, where it says something: "3 replies over 2 years", "seen 4 times". */
 const repliesSaid = (post: FeedPost): string | null => {
-  // One reply is the line above the row already; a count says something from two.
+  // One reply is the line hanging off the post already; "Show all" from two.
   if (post.replies < 2) return null
-  const n = `${num(post.replies)} ${post.replies === 1 ? 'reply' : 'replies'}`
+  const n = `Show all ${num(post.replies)} replies`
   if (!post.firstReply) return n
   const years = dayjs().year() - dayjs(post.firstReply).year() + 1
   const months = dayjs().diff(dayjs(post.firstReply), 'month')
-  return years > 1 ? `${n} over ${years} years` : months >= 2 ? `${n} over ${months} months` : n
+  return years > 1 ? `${n} · over ${years} years` : months >= 2 ? `${n} · over ${months} months` : n
 }
 
 const REACTIONS: { value: Reaction; label: string; tip: string; icon: typeof Heart; cue: Cue; said: string }[] = [
@@ -442,11 +442,15 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
     post.seenTimes >= 2 && `seen ${num(post.seenTimes)} times`
   ].filter(Boolean) as string[]
   const replies = repliesSaid(post)
+  // The newest thought on it, hung under the post (not on its own page, where the thread is).
+  const glosses = useLive(() => (post.type === 'day' || alone || preview ? Promise.resolve([] as Gloss[]) : haligtree.glosses(post.id)), [] as Gloss[], [post.id, alone, preview])
+  const hang = onThread && !unloaded(glosses) ? glosses[0] : undefined
   // Faded by "Less of this", today or before: how far, and the way back. Today's choice counts at once.
   const faded = Math.max(post.faded, chosen === 'less' ? 1 : 0)
 
   return (
-    <li ref={self} data-feed-post={post.type} data-feed-id={post.id} data-feed-archive={post.archive || undefined} data-feed-kind={post.kind} data-feed-react={chosen ?? undefined}
+    // Carried to the window's side, it opens beside the Feed (split-drop.tsx).
+    <li ref={self} data-drag-open={preview ? undefined : `${post.type}:${post.id}`} data-drag-title={title} data-feed-post={post.type} data-feed-id={post.id} data-feed-archive={post.archive || undefined} data-feed-kind={post.kind} data-feed-react={chosen ?? undefined}
       className={cn('flex flex-col gap-1 py-4 transition-opacity duration-300 first:pt-0', !alone && 'border-b last:border-b-0', alone && joined && 'pb-3', chosen === 'less' && 'opacity-45 hover:opacity-80 has-[:focus-visible]:opacity-100')}>
       {context && <p data-feed-context className="flex items-center gap-1.5 pl-12 text-control text-muted-foreground">{post.restack && <Repeat2 className="size-3.5" />}{context}</p>}
       <div className="flex gap-3">
@@ -454,7 +458,7 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
           {quote && post.who ? (
             <button type="button" aria-label={`Open ${post.who}'s page`} onClick={openWho} className="mt-0.5 shrink-0 rounded-full focus-visible:ring-2 focus-visible:ring-ring"><Avatar name={account} size={36} /></button>
           ) : <Avatar name={account} size={36} className="mt-0.5 shrink-0" />}
-          {joined && <span aria-hidden className="mt-1 w-px flex-1 bg-border" />}
+          {(joined || hang) && <span aria-hidden className="mt-1 w-px flex-1 bg-border" />}
         </div>
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <p className="flex min-w-0 items-baseline gap-1.5 text-control">
@@ -506,8 +510,31 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
                 className="block h-auto w-full" />
             </div>
           )}
-          {/* The latest thought as one reply line; the rest are in its thread. */}
-          {post.type !== 'day' && !alone && !preview && <GlossLine id={post.id} quiet className="mt-0.5" onRead={onThread} placeholder={chosen === 'changed' ? 'What you think now, in your own words' : 'Your reply, in your own words'} />}
+        </div>
+      </div>
+      {/* The latest thought hangs off the post on a bent line, the sidebar's Pinned tree's way; the rest are in its thread. */}
+      {hang && (
+        <div data-feed-hanging className="flex gap-3">
+          <div aria-hidden className="relative w-9 shrink-0">
+            <span className="absolute -top-1 left-[17.5px] h-[calc(0.25rem+0.6875rem)] w-3.5 rounded-bl-md border-b border-l border-border" />
+          </div>
+          <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
+            <button type="button" data-feed-latest onClick={onThread} title={hang.body}
+              className="group/hang line-clamp-2 min-w-0 rounded-sm text-left text-control text-foreground/85 [overflow-wrap:anywhere] hover:text-foreground">
+              <span className="private-text group-hover/hang:underline">{cutWords(hang.body, 140)}</span>
+              <span data-feed-latest-date className="text-meta whitespace-nowrap text-muted-foreground"> · {hang.author === 'ai' ? 'AI, ' : ''}{ago(hang.createdAt)}</span>
+            </button>
+            {replies && (
+              <button type="button" data-feed-replies onClick={onThread} className="rounded-sm text-control text-muted-foreground hover:text-foreground hover:underline">{replies}</button>
+            )}
+          </div>
+        </div>
+      )}
+      <div className="flex gap-3">
+        <div aria-hidden className="w-9 shrink-0" />
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          {/* Writing a reply opens here, under the latest; closed, it takes no room. */}
+          {post.type !== 'day' && !alone && !preview && <GlossLine id={post.id} quiet latest={false} className="mt-0.5" placeholder={chosen === 'changed' ? 'What you think now, in your own words' : 'Your reply, in your own words'} />}
           {/* Every control keeps its own fixed place: choosing one changes its colour, never the row. */}
           <div data-feed-actions className={cn('-ml-2 flex items-center gap-1 text-muted-foreground', preview && 'hidden')}>
             {post.type !== 'day' && (
@@ -535,17 +562,14 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
             <span className="flex-1" />
             <MenuButton small label="More" name="post" items={menu} />
           </div>
-          {!preview && (history.length > 0 || replies || faded > 0) && (
+          {!preview && (history.length > 0 || faded > 0) && (
             <p data-feed-history className="flex flex-wrap items-baseline gap-x-1.5 text-control text-muted-foreground">
-              {replies && onThread ? (
-                <button type="button" data-feed-replies onClick={onThread} className="rounded-sm hover:text-foreground hover:underline">{replies}</button>
-              ) : replies && <span data-feed-replies>{replies}</span>}
               {history.map((line, at) => (
-                <span key={line} className="flex items-baseline gap-1.5">{(at > 0 || replies) && <span aria-hidden>·</span>}{line}</span>
+                <span key={line} className="flex items-baseline gap-1.5">{at > 0 && <span aria-hidden>·</span>}{line}</span>
               ))}
               {faded > 0 && post.type !== 'day' && (
                 <span data-feed-faded className="flex items-baseline gap-1.5">
-                  {(history.length > 0 || replies) && <span aria-hidden>·</span>}
+                  {history.length > 0 && <span aria-hidden>·</span>}
                   Shown less often ({timesSaid(faded)})
                   <span aria-hidden>·</span>
                   <button type="button" data-show-as-before onClick={() => (setChosen(null), showAsBefore(post.type === 'question' ? 'nugget' : post.type, post.id))} className="rounded-sm text-foreground underline-offset-2 hover:underline">Show as before</button>
