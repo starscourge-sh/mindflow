@@ -65,7 +65,11 @@ export function SplitPanes({ panes, front, sizes, onSizes, onFront, onClose, onW
     return () => watch.disconnect()
   }, [])
   const split = panes.length > 1
-  const turns = split && !panesFit(panes.length, room)
+  // Too narrow for even two: they take turns in one place. Room for two but
+  // not for all: each keeps its least width and the row scrolls sideways, so
+  // no pane is ever dropped for want of room (an ultrawide holds them all).
+  const turns = split && !panesFit(2, room)
+  const scrolls = split && !turns && !panesFit(panes.length, room)
   // Held while a divider is dragged, so only this draws, not every page.
   const [dragged, setDragged] = useState<number[] | null>(null)
   const shares = dragged ?? (sizes.length === panes.length ? sizes : panes.map(() => 1 / panes.length))
@@ -125,11 +129,11 @@ export function SplitPanes({ panes, front, sizes, onSizes, onFront, onClose, onW
           ))}
         </div>
       )}
-      <div ref={box} data-split-area className="relative flex min-h-0 min-w-0 flex-1">
+      <div ref={box} data-split-area data-split-scrolls={scrolls ? '' : undefined} className={`relative flex min-h-0 min-w-0 flex-1 ${scrolls ? 'overflow-x-auto overscroll-x-contain' : ''}`}>
         <AnimatePresence initial={false}>
           {panes.map((pane, index) => (
             <PaneFrame key={pane.key} pane={pane} apis={apis} split={split} front={pane.key === front} hidden={turns && pane.key !== front}
-              head={split && !turns} menu={menuFor?.(pane.key) ?? []} onClose={onClose} edge={turns ? 0 : index === 0 ? -1 : index === panes.length - 1 ? 1 : 0}
+              head={split && !turns} least={scrolls} menu={menuFor?.(pane.key) ?? []} onClose={onClose} edge={turns ? 0 : index === 0 ? -1 : index === panes.length - 1 ? 1 : 0}
               share={turns ? 1 : shares[index]} held={!!dragged || turns} onFront={onFront} onWidth={onWidth} divider={!turns && index > 0 ? (
                 <div role="separator" data-pane-divider aria-orientation="vertical" aria-label="Drag to resize, double-click to share equally"
                   onPointerDown={drag(index - 1)} onDoubleClick={even}
@@ -148,7 +152,7 @@ export function SplitPanes({ panes, front, sizes, onSizes, onFront, onClose, onW
  * One pane: the page card, which keeps how its page was scrolled for Back,
  * and comes to the front when pointed at, or tabbed into.
  */
-function PaneFrame({ pane, apis, split, front, hidden, head, menu, onClose, share, edge, divider, onFront, onWidth }: {
+function PaneFrame({ pane, apis, split, front, hidden, head, least, menu, onClose, share, edge, divider, onFront, onWidth }: {
   pane: PaneShown
   apis: RefObject<Map<string, PaneApi>>
   split: boolean
@@ -156,6 +160,8 @@ function PaneFrame({ pane, apis, split, front, hidden, head, menu, onClose, shar
   hidden: boolean
   /** Side by side: a line over the pane with its name and an × that closes it. */
   head: boolean
+  /** The row scrolls sideways: this pane keeps its least width rather than being squeezed. */
+  least?: boolean
   menu: RowItem[]
   onClose: (key: string) => void
   share: number
@@ -298,7 +304,7 @@ function PaneFrame({ pane, apis, split, front, hidden, head, menu, onClose, shar
         onFocusCapture={() => tabbed && !front && onFront(pane.key)}
         className={`relative min-h-0 min-w-0 flex-col gap-1 ${hidden ? 'hidden' : 'flex'} ${present ? '' : `pointer-events-none overflow-hidden ${edge > 0 ? 'items-end' : edge < 0 ? 'items-start' : 'items-center'}`}`}
         // The page's own background, for the pane in front to be raised from.
-        style={{ flexBasis: 0, '--mf-under': 'var(--background)' } as React.CSSProperties}
+        style={{ flexBasis: 0, minWidth: least ? MIN : undefined, '--mf-under': 'var(--background)' } as React.CSSProperties}
       >
         {/* Split, the pane with the keys reads as the surface in front, the way Dia
             shows it: a firmer hairline and a soft shadow, its words at full

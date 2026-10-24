@@ -193,13 +193,16 @@ export function NotePreview(): React.JSX.Element | null {
    */
   const openBeside = (): void => {
     const card = document.querySelector<HTMLElement>('[data-note-preview]')
-    const area = document.querySelector('[data-split-area]')?.getBoundingClientRect()
+    const home = shown.anchor.closest('[data-pane]')
+    // Where it lands: the pane right of the link's, or a new one at the right edge.
+    const next = home?.nextElementSibling?.matches('[data-pane]') ? home.nextElementSibling : home?.nextElementSibling?.nextElementSibling?.matches('[data-pane]') ? home.nextElementSibling.nextElementSibling : null
+    const area = (next ?? document.querySelector('[data-split-area]'))?.getBoundingClientRect()
     const calm = still()
     // Opened beside by a key, the pane is simply there; by a click the card grows into it.
     if (card && area && !calm && !byKeys()) {
       const from = card.getBoundingClientRect()
-      const panes = Math.min(3, document.querySelectorAll('[data-split-area] [data-pane]').length + 1)
-      const width = (area.width - 8 * (panes - 1)) / panes
+      const panes = document.querySelectorAll('[data-split-area] [data-pane]').length + 1
+      const width = next ? area.width : Math.max(360, (area.width - 8 * (panes - 1)) / panes)
       const ghost = card.cloneNode(true) as HTMLElement
       ghost.removeAttribute('data-note-preview')
       ghost.removeAttribute('role')
@@ -215,7 +218,8 @@ export function NotePreview(): React.JSX.Element | null {
       ], { duration: 280, easing: `cubic-bezier(${EASE.join(',')})`, fill: 'forwards' }).finished.then(() => ghost.remove(), () => ghost.remove())
     }
     setShown(null)
-    openAside(shown.type, shown.id)
+    // Beside the pane the link is in, not the one in front: that may be the pane last opened beside it.
+    openAside(shown.type, shown.id, home?.getAttribute('data-pane'))
   }
   return (
     <div

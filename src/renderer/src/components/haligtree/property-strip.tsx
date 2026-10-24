@@ -147,7 +147,8 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated 
       </button>
     </Tip>
   )
-  const row = 'grid grid-cols-[minmax(7rem,9.5rem)_minmax(0,1fr)] items-start gap-x-2'
+  // In a narrow pane each value goes under its name, so long ones (dates) never run into the row below.
+  const row = 'grid grid-cols-1 items-start gap-x-2 @max-[24rem]/props:[&>:nth-child(2)]:ml-[1.375rem] @min-[24rem]/props:grid-cols-[minmax(7rem,9.5rem)_minmax(0,1fr)]'
   const nameCell = (Icon: LucideIcon, label: string, prop?: Prop): React.JSX.Element => (
     <span className="flex h-7 min-w-0 items-center gap-2 px-1.5 text-muted-foreground">
       {prop && !prop.tag ? (
@@ -175,7 +176,7 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated 
     </span>
   )
   return (
-    <div data-property-strip data-properties-open={shut ? undefined : ''} ref={strip} className="flex flex-col py-1 text-meta" onMouseDown={(event) => event.stopPropagation()}>
+    <div data-property-strip data-properties-open={shut ? undefined : ''} ref={strip} className="@container/props flex flex-col py-1 text-meta" onMouseDown={(event) => event.stopPropagation()}>
       {empty ? addButton : (
         <>
           <button type="button" data-properties-head aria-expanded={!shut} onClick={() => (chime(shut ? 'open' : 'fold'), setShut(!shut))}
@@ -225,9 +226,9 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated 
                   onName={(name) => void named(name)} onCancel={() => setOpen(null)} />
               )}
               {/* Kept by the app, not typed: shown, never changed here. */}
-              {created && <div className={row} data-property="created">{nameCell(Clock, 'created')}<span className="flex h-7 items-center px-1.5 text-foreground/80">{stamp(created)}</span></div>}
+              {created && <div className={row} data-property="created">{nameCell(Clock, 'created')}<span className="flex min-h-7 items-center px-1.5 text-foreground/80">{stamp(created)}</span></div>}
               {/* Never changed since: updated is when it was made. */}
-              {(updated ?? created) && <div className={row} data-property="updated">{nameCell(Clock, 'updated')}<span className="flex h-7 items-center px-1.5 text-foreground/80">{stamp((updated ?? created) as string)}</span></div>}
+              {(updated ?? created) && <div className={row} data-property="updated">{nameCell(Clock, 'updated')}<span className="flex min-h-7 items-center px-1.5 text-foreground/80">{stamp((updated ?? created) as string)}</span></div>}
               {addButton}
             </div>
           )}

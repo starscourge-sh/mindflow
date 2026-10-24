@@ -104,7 +104,7 @@ import { rowOf } from '@/components/haligtree/row-card'
 import { PairRow, pinLayout, sameLayout, unpinLayout, usePinnedLayouts, type PaneName } from '@/components/haligtree/split-pairs'
 import type { BookRef } from '@/lib/books'
 import type { RowItem } from '@/components/haligtree/row-menu'
-import { MAX_PANES, asideClick, asideItem, keepTitle, roomFor, setPaneNotes, setPanes, spendAsideClick, titleOf, type PaneWidth } from '@/lib/split'
+import { asideClick, asideItem, keepTitle, setPaneNotes, setPanes, spendAsideClick, titleOf, type PaneWidth } from '@/lib/split'
 import XIcon from '@/components/ui/x-icon'
 import { WhatsNewPage, openWhatsNew } from '@/components/haligtree/whats-new'
 import { BinView } from '@/components/haligtree/bin-view'
@@ -186,7 +186,8 @@ const useCramped = (): boolean => useSyncExternalStore(followCramped, () => matc
 
 type Trail = { views: View[]; at: number }
 type PaneState = { key: string; trail: Trail; width?: PaneWidth }
-type SplitState = { panes: PaneState[]; front: string; sizes: number[] }
+/** `id` and `name` once the split has been left and kept under "Side by side" (split-pairs.tsx). */
+type SplitState = { panes: PaneState[]; front: string; sizes: number[]; id?: string; name?: string }
 const SPLIT = 'split'
 let made = 0
 const fresh = (views: View[] = [{ id: 'day' }]): PaneState => ({ key: `p${Date.now().toString(36)}${made++}`, trail: { views: views.map(landing), at: views.length - 1 } })
@@ -238,7 +239,7 @@ function loadSplit(): SplitState {
   try {
     const kept = JSON.parse(localStorage.getItem(SPLIT) ?? 'null') as SplitState | null
     const fine = (pane: PaneState): boolean => typeof pane?.key === 'string' && Array.isArray(pane.trail?.views) && pane.trail.views.every((one) => typeof one?.id === 'string') && pane.trail.at >= 0 && pane.trail.at < pane.trail.views.length
-    if (kept && Array.isArray(kept.panes) && kept.panes.length > 1 && kept.panes.length <= MAX_PANES && kept.panes.every(fine)) {
+    if (kept && Array.isArray(kept.panes) && kept.panes.length > 1 && kept.panes.every(fine)) {
       const sizes = Array.isArray(kept.sizes) && kept.sizes.length === kept.panes.length && kept.sizes.every((one) => one > 0) ? kept.sizes : kept.panes.map(() => 1 / kept.panes.length)
       return { panes: kept.panes.map((pane) => ({ ...pane, trail: { ...pane.trail, views: pane.trail.views.map(landing) } })), front: kept.panes.some((one) => one.key === kept.front) ? kept.front : kept.panes[0].key, sizes }
     }
@@ -248,15 +249,33 @@ function loadSplit(): SplitState {
   const one = fresh()
   return { panes: [one], front: one.key, sizes: [1] }
 }
+/** Each pane's trail without its scroll, and only its last fifty steps. */
+const bareSplit = (split: SplitState): SplitState => ({
+  ...split,
+  panes: split.panes.map(({ trail, ...pane }) => {
+    const from = Math.max(0, Math.min(trail.at, trail.views.length - 50))
+    return { ...pane, trail: { views: trail.views.slice(from).map(({ id, focus, tab }) => ({ id, focus, tab })), at: trail.at - from } }
+  })
+})
+/**
+ * Splits left for a page outside them, Dia's way: each kept whole, every pane
+ * where it was, as a row under "Side by side" that lays it out again.
+ */
+type KeptSplit = SplitState & { id: string }
+const KEPT = 'split-kept'
+function loadKept(): KeptSplit[] {
+  try {
+    const kept = JSON.parse(localStorage.getItem(KEPT) ?? '[]') as KeptSplit[]
+    const fine = (pane: PaneState): boolean => typeof pane?.key === 'string' && Array.isArray(pane.trail?.views) && pane.trail.views.length > 0 && pane.trail.at >= 0 && pane.trail.at < pane.trail.views.length
+    return Array.isArray(kept) ? kept.filter((one) => typeof one?.id === 'string' && Array.isArray(one.panes) && one.panes.length > 1 && one.panes.every(fine)) : []
+  } catch {
+    return []
+  }
+}
 function saveSplit(split: SplitState): void {
   try {
     if (split.panes.length < 2) return localStorage.removeItem(SPLIT)
-    // Each trail without its scroll, and only its last fifty steps.
-    const panes = split.panes.map(({ trail, ...pane }) => {
-      const from = Math.max(0, Math.min(trail.at, trail.views.length - 50))
-      return { ...pane, trail: { views: trail.views.slice(from).map(({ id, focus, tab }) => ({ id, focus, tab })), at: trail.at - from } }
-    })
-    localStorage.setItem(SPLIT, JSON.stringify({ ...split, panes }))
+    localStorage.setItem(SPLIT, JSON.stringify(bareSplit(split)))
   } catch {
     // Kept for this run only.
   }
@@ -306,6 +325,21 @@ export function Home(): React.JSX.Element {
   })), [split])
   // Kept across launches while the page is split; on its own, Haligtree opens on Home as always.
   useEffect(() => saveSplit(split), [split])
+  // The splits left for a page outside them, under "Side by side".
+  const [kept, setKept] = useState<KeptSplit[]>(loadKept)
+  const keptRef = useRef(kept)
+  keptRef.current = kept
+  useEffect(() => {
+    try {
+      localStorage.setItem(KEPT, JSON.stringify(kept.map(bareSplit)))
+    } catch {
+      // Kept for this run only.
+    }
+  }, [kept])
+  /** A click in the sidebar, outside the split, while it is being heard: what it opens leaves the split alone. */
+  const outside = useRef(false)
+  const keepPair = (pair: KeptSplit): void => setKept((list) => (list.some((one) => one.id === pair.id) ? list.map((one) => (one.id === pair.id ? pair : one)) : [...list, pair]))
+  const forgetPair = (id: string): void => setKept((list) => list.filter((one) => one.id !== id))
   // Back returns to exactly what you saw: each step keeps how far its page
   // was scrolled, read as you leave it and put back when you return (panes.tsx).
   const apis = useRef(new Map<string, PaneApi>())
@@ -318,6 +352,7 @@ export function Home(): React.JSX.Element {
     at: trail.at + 1
   })
   const setView = (asked: View, key = frontRef.current): void => {
+    if (outside.current && key === frontRef.current && splitRef.current.panes.length > 1) return leaveSplit(asked)
     const next = landing(asked)
     const scroll = scrolled(key)
     setTrail(key, (trail) => {
@@ -402,11 +437,12 @@ export function Home(): React.JSX.Element {
     toFront(to.key)
   }
   /**
-   * Open beside a pane (the one in front unless said): a new pane to its
-   * right while there is room for one side by side, else the rightmost pane
-   * takes it as a step (the one left of it, when that is where it came
-   * from), so its Back returns to what it showed. The split never folds
-   * into turns because of it.
+   * Open beside a pane (the one in front unless said), Dia's way: in the
+   * pane right of it, as a step so its Back returns to what it showed; with
+   * no pane to its right, a new one. Reading down a page and opening each
+   * link beside keeps two panes: the page, and the last one opened. No pane
+   * but the one beside is ever touched, and there is no limit: past the room
+   * for them all, the panes scroll sideways (panes.tsx).
    */
   const aside = (next: View, from = frontRef.current): void => {
     const now = splitRef.current
@@ -414,43 +450,61 @@ export function Home(): React.JSX.Element {
     // A note opened beside: a page turned; a list or a page, the panel's slide.
     if (next.focus) pageTurn(false, next.focus)
     else chime('slide')
-    if (now.panes.length < 2 || (now.panes.length < MAX_PANES && roomFor(now.panes.length + 1))) {
-      const made = fresh([next])
-      const panes = [...now.panes.slice(0, at + 1), made, ...now.panes.slice(at + 1)]
-      // The new one takes its share, the others give theirs up evenly.
-      const kept = now.sizes.length === now.panes.length ? now.sizes : now.panes.map(() => 1 / now.panes.length)
-      const sizes = [...kept.slice(0, at + 1), 1, ...kept.slice(at + 1)].map((one, index) => (index === at + 1 ? 1 / panes.length : (one * (panes.length - 1)) / panes.length))
-      setSplit({ panes, front: made.key, sizes })
+    const beside = now.panes[at + 1]
+    if (beside) {
+      setView(next, beside.key)
+      toFront(beside.key)
       return
     }
-    const last = now.panes.length - 1
-    const target = now.panes[last].key !== now.panes[at].key ? now.panes[last] : now.panes[last - 1]
-    setView(next, target.key)
-    toFront(target.key)
+    const made = fresh([next])
+    const panes = [...now.panes, made]
+    // The new one takes its share, the others give theirs up evenly.
+    const kept = now.sizes.length === now.panes.length ? now.sizes : now.panes.map(() => 1 / now.panes.length)
+    const total = kept.reduce((sum, one) => sum + one, 0) || 1
+    setSplit({ ...now, panes, front: made.key, sizes: [...kept.map((one) => (one / total) * (now.panes.length / panes.length)), 1 / panes.length] })
+  }
+  /**
+   * Dia's way: a place or a row outside the split opens on its own, and the
+   * split is kept exactly as it was under its "Side by side" row, which lays
+   * it out again. The page alone carries on from the pane that was in front.
+   */
+  const leaveSplit = (next: View): void => {
+    const now = splitRef.current
+    const id = now.id ?? `s${Date.now().toString(36)}${made++}`
+    keepPair({ ...now, id })
+    const was = now.panes.find((one) => one.key === now.front) ?? now.panes[0]
+    const alone = fresh([...was.trail.views.slice(0, was.trail.at + 1), next])
+    if (!chimedWithin(150)) chime('slide')
+    setSplit({ panes: [alone], front: alone.key, sizes: [1] })
+  }
+  /** A kept split laid out again, each pane where it was; one open now is kept in its place first. */
+  const backTo = (id: string, index?: number): void => {
+    const pair = keptRef.current.find((one) => one.id === id)
+    if (!pair) return void chime('nope')
+    const now = splitRef.current
+    if (now.id === id) return void (chime('tap'), toFront(now.panes[index ?? -1]?.key ?? now.front))
+    if (now.panes.length > 1) keepPair({ ...now, id: now.id ?? `s${Date.now().toString(36)}${made++}` })
+    chime('slide')
+    const front = index !== undefined && pair.panes[index] ? pair.panes[index].key : pair.front
+    setSplit({ ...pair, front })
+    toFront(front)
   }
   const asideRef = useRef(aside)
   asideRef.current = aside
   /**
-   * Dropped on a side of the page (split-drop.tsx): a new pane at that edge
-   * while there is room for one, else the pane at that edge takes it as a
-   * step, so its Back returns to what it showed.
+   * Dropped on a side of the page (split-drop.tsx): a new pane at that edge,
+   * however many there are already.
    */
   const placeAt = (next: View, side: Side): void => {
     const now = splitRef.current
     if (next.focus) pageTurn(false, next.focus)
     else chime('slide')
-    if (now.panes.length < MAX_PANES) {
-      const made = fresh([next])
-      const n = now.panes.length + 1
-      const kept = now.sizes.length === now.panes.length ? now.sizes : now.panes.map(() => 1 / now.panes.length)
-      const total = kept.reduce((sum, one) => sum + one, 0) || 1
-      const rest = kept.map((one) => (one / total) * ((n - 1) / n))
-      setSplit({ panes: side === 'left' ? [made, ...now.panes] : [...now.panes, made], front: made.key, sizes: side === 'left' ? [1 / n, ...rest] : [...rest, 1 / n] })
-      return
-    }
-    const target = side === 'left' ? now.panes[0] : now.panes[now.panes.length - 1]
-    setView(next, target.key)
-    toFront(target.key)
+    const made = fresh([next])
+    const n = now.panes.length + 1
+    const kept = now.sizes.length === now.panes.length ? now.sizes : now.panes.map(() => 1 / now.panes.length)
+    const total = kept.reduce((sum, one) => sum + one, 0) || 1
+    const rest = kept.map((one) => (one / total) * ((n - 1) / n))
+    setSplit({ ...now, panes: side === 'left' ? [made, ...now.panes] : [...now.panes, made], front: made.key, sizes: side === 'left' ? [1 / n, ...rest] : [...rest, 1 / n] })
   }
   /** What was carried to a side, as a step: a note by its kind and id, or a list's row in the list it is in. */
   const dropAside = (carried: Carried, side: Side): void => {
@@ -498,7 +552,6 @@ export function Home(): React.JSX.Element {
   }
   /** ⌥⌘\: the page in front, again beside it. A note stays in one pane, so the copy shows its list with nothing open. */
   const splitFront = (): void => {
-    if (splitRef.current.panes.length >= MAX_PANES) return void (chime('nope'), toast('Four panes at most: close one with ⌃W first'))
     aside(holdsNotes(view.id) ? { id: view.id, tab: view.tab } : { id: view.id, focus: view.focus, tab: view.tab })
   }
   // One note, one pane: two editors on one note would each save over the
@@ -891,7 +944,8 @@ export function Home(): React.JSX.Element {
       const list = !task || task.status !== 'open' ? null : onToday(task) ? 'today' : task.recurrence ? 'routines' : bucket(task) && !task.deadline ? 'later' : null
       return list ? { id: list, focus: id } : stepOf(type, id)
     }
-    const go = (): void => (side ? aside(step(), key) : setView(step(), key))
+    const leave = !side && outside.current && key === frontRef.current && splitRef.current.panes.length > 1
+    const go = (): void => (side ? aside(step(), key) : leave ? leaveSplit(step()) : setView(step(), key))
     // A note's page turns on the click, not once it has loaded (the page then
     // turns no second time), and waits the moment it takes to read its words
     // (lib/early-read.ts), so its page opens on them at once: no wait at all
@@ -1004,7 +1058,7 @@ export function Home(): React.JSX.Element {
   /** Lay a pinned layout out again: each pane a fresh trail on its page. */
   const openLayout = (views: View[], sizes: number[]): void => {
     chime('slide')
-    const panes = views.slice(0, 3).map((one) => fresh([{ ...one }]))
+    const panes = views.map((one) => fresh([{ ...one }]))
     setSplit({ panes, front: panes[0].key, sizes: sizes.length === panes.length ? sizes : panes.map(() => 1 / panes.length) })
   }
   /** Separate: the split closes, the pane in front stays. */
@@ -1015,6 +1069,7 @@ export function Home(): React.JSX.Element {
     chime('separate')
     paper('fold')
     setSplit({ panes: [{ ...pane, width: undefined }], front: pane.key, sizes: [1] })
+    if (now.id) forgetPair(now.id)
     toFront(pane.key)
     // Every way in (the pair's menu, a tab, ⌘K) can be taken back.
     quietly(() => setSplit(now))
@@ -1268,9 +1323,8 @@ export function Home(): React.JSX.Element {
             { label: sidebar || detailsShown() ? 'Hide every sidebar' : 'Show every sidebar', keys: '⇧⌘B', cue: null, run: () => { const open = sidebar || detailsShown(); chime(open ? 'fold' : 'slide'); showDetails(!open); setSidebar(!open); (open ? toast('Every sidebar hidden. ⇧⌘B brings them back', () => (showDetails(open), setSidebar(open))) : quietly(() => (showDetails(open), setSidebar(open)))) } },
             { label: fill ? 'Back to compact' : 'Fill the screen', keys: '⌃⇧F', cue: null, run: () => (setFill(!fill), (fill ? quietly(() => setFill(fill)) : toast('Filling the screen. ⌃⇧F goes back', () => setFill(fill)))) },
             { label: 'Split the page', hint: 'Split: this page again, beside it', keys: '⌥⌘\\', cue: null, run: () => {
-              const before = splitRef.current.panes.length
               splitFront()
-              if (before < MAX_PANES) toast(`Split: ${paneName(view).title} is on the right too. ⌃W closes it`)
+              toast(`Split: ${paneName(view).title} is on the right too. ⌃W closes it`)
             } },
             ...(split.panes.length > 1 ? [
               { label: 'Close this pane', keys: '⌃W', cue: null, run: () => closePane() },
@@ -1379,7 +1433,14 @@ export function Home(): React.JSX.Element {
             {!narrow && <Pressed keys="⌘K" />}
           </button>
         </div>
-        <div ref={sideList} {...sideHover.handlers} className={`mf-fade-end ${narrow ? 'mf-fade-tall' : ''} relative isolate flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pt-1 pb-3`}>
+        <div ref={sideList} {...sideHover.handlers}
+          // A place, a pin or a tag clicked while split opens on its own, the split kept under "Side by side"; ⌥-click still opens beside.
+          onClickCapture={(event) => {
+            if (event.altKey || splitRef.current.panes.length < 2 || (event.target as Element).closest?.('[data-pair-row], [data-side-heading]')) return
+            outside.current = true
+            setTimeout(() => void (outside.current = false), 0)
+          }}
+          className={`mf-fade-end ${narrow ? 'mf-fade-tall' : ''} relative isolate flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pt-1 pb-3`}>
         {/* Rows' previews: once one is up, the next swaps in at once, even after a short pause between rows. */}
         <TooltipProvider delayDuration={600} skipDelayDuration={900}>
         <Highlight spot={sideChosen.spot} snap={sideChosen.snap} travel={spring.moderate} className="bg-accent" />
@@ -1538,12 +1599,41 @@ export function Home(): React.JSX.Element {
               {/* The split open now, as one row under its own name, never among the
                   pinned: Pinned holds only what was pinned. Not shown when it is one
                   of the pinned layouts, whose row lights instead. */}
-              {split.panes.length > 1 && !layouts.some((one) => sameLayout(one.views, split.panes.map((pane) => pane.trail.views[pane.trail.at]))) && (() => {
-                const views = split.panes.map((pane) => pane.trail.views[pane.trail.at])
+              {(() => {
+                // The split on screen sits in its own place among the ones kept; one that is a pinned layout lights there instead.
+                const showing = split.panes.length > 1 && !layouts.some((one) => sameLayout(one.views, split.panes.map((pane) => pane.trail.views[pane.trail.at])))
+                const rows: KeptSplit[] = kept.map((one) => (one.id === split.id && split.panes.length > 1 ? { ...split, id: one.id } : one))
+                if (showing && !rows.some((one) => one.id === split.id)) rows.push({ ...split, id: split.id ?? 'live' })
+                if (!rows.length) return null
                 return (<>
                   {narrow ? <div className="mt-3" /> : <div data-side-heading="split" className="mt-3 mb-0.5 px-2 py-0.5 text-meta text-muted-foreground">Side by side</div>}
-                  <PairRow key="live" live isPinned={false} narrow={narrow} names={views.map(paneName)} menu={pairMenu(views, {})}
-                    onOpen={(index) => (chime('tap'), toFront(split.panes[index].key))} onClose={(index) => closePane(split.panes[index].key)} />
+                  <div className="flex flex-col gap-0.5">
+                    {rows.map((pair) => {
+                      const live = split.panes.length > 1 && (pair.id === split.id || (pair.id === 'live' && !split.id))
+                      const views = pair.panes.map((pane) => pane.trail.views[pane.trail.at])
+                      const rename = (name: string): void => {
+                        if (live) setSplit((now) => ({ ...now, id: now.id ?? `s${Date.now().toString(36)}${made++}`, name: name || undefined }))
+                        else setKept((list) => list.map((one) => (one.id === pair.id ? { ...one, name: name || undefined } : one)))
+                      }
+                      return <PairRow key={pair.id} live={live} isPinned={false} narrow={narrow} names={views.map(paneName)} menu={pairMenu(views, live ? {} : null)} name={pair.name}
+                        onRename={rename}
+                        onForget={() => (live ? separate(split.front) : (chime('fold'), forgetPair(pair.id)))}
+                        onOpen={(index) => (live ? (chime('tap'), index >= 0 && toFront(split.panes[index].key)) : backTo(pair.id, index >= 0 ? index : undefined))}
+                        onClose={(index) => {
+                          if (live) return closePane(split.panes[index].key)
+                          chime('fold')
+                          // A kept pair down to one pane is no pair: it goes from the list.
+                          setKept((list) => list.flatMap((one) => {
+                            if (one.id !== pair.id) return [one]
+                            const panes = one.panes.filter((_, at) => at !== index)
+                            if (panes.length < 2) return []
+                            const sizes = one.sizes.filter((_, at) => at !== index)
+                            const total = sizes.reduce((sum, size) => sum + size, 0) || 1
+                            return [{ ...one, panes, front: panes.some((pane) => pane.key === one.front) ? one.front : panes[0].key, sizes: sizes.map((size) => size / total) }]
+                          }))
+                        }} />
+                    })}
+                  </div>
                 </>)
               })()}
               {/* Pinned, Notion's Favourites: only there while something is, or while a note is carried to it. */}
@@ -1799,7 +1889,7 @@ export function Home(): React.JSX.Element {
       <PageHint page={view.id} />
       {/* The page itself, a card like the sidebar's; the main landmark, for VoiceOver to jump to. */}
       <div role="main" className="relative flex min-h-0 flex-1 gap-2">
-      <SplitDrop panes={split.panes.length} onDrop={dropAside} />
+      <SplitDrop onDrop={dropAside} />
       <SplitPanes
         apis={apis}
         front={split.front}

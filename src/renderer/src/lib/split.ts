@@ -1,7 +1,7 @@
 import { createContext, useContext, useSyncExternalStore } from 'react'
 
 /**
- * Split view: the main window's page as up to four panes side by side, each
+ * Split view: the main window's page as panes side by side, each
  * with its own Back and Forward. One of them has the keys at a time (⌃H and
  * ⌃L move between them); the rest wait, and nothing typed reaches them.
  *
@@ -9,9 +9,6 @@ import { createContext, useContext, useSyncExternalStore } from 'react'
  * window's panes (the box, a note's own window) there is no pane, and every
  * check here says yes, so those windows behave as they always have.
  */
-/** The most panes the main window splits into. */
-export const MAX_PANES = 4
-
 export const PaneContext = createContext<string | null>(null)
 export const usePane = (): string | null => useContext(PaneContext)
 
@@ -55,13 +52,11 @@ export function keepTitle(pane: string | null, title: string | null): boolean {
 // --- how many panes fit side by side
 
 /** Narrower than this, a pane would only show a sliver of its page: they take turns instead. */
-export const PANE_MIN = 300
+export const PANE_MIN = 360
 /** The gap between panes, which is also where a divider is held. */
 export const PANE_GAP = 8
 /** Whether `many` panes fit side by side in `room` pixels, or else take turns. */
 export const panesFit = (many: number, room: number): boolean => many < 2 || room <= 0 || room - PANE_GAP * (many - 1) >= PANE_MIN * many
-/** Whether `many` panes would fit side by side in the main window's page as it is now. */
-export const roomFor = (many: number): boolean => panesFit(many, document.querySelector('[data-split-area]')?.clientWidth ?? 0)
 
 // --- opening to the side
 

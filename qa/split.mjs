@@ -87,10 +87,11 @@ if (!process.env.REPORTS_ONLY) try {
   await send('view', 'questions'); await wait()
   await (await rowIn(3, 0)).click(); await wait()
 
-  // --- ⌘K, ⌥↵: with three panes and no room for a fourth, the next pane over takes it as a step
-  // (a fourth pane opens when there is room: qa/block-gestures.mjs)
+  // --- ⌘K, ⌥↵ from pane 1: Dia's way, the pane right of it takes it as a step,
+  // and no other pane is touched (from the rightmost, a new pane: qa/split-dia.mjs)
   await c.size(1300, 900); await wait(700)
   await blur()
+  await press('Control+h', 'Control+h')
   await press('Meta+k')
   await h.keyboard.type('Dorian Gray', { delay: 40 }); await wait(1400)
   const asideHint = await h.evaluate(() => /to the side/.test(document.querySelector('[role="dialog"][aria-label="Search"]')?.textContent ?? ''))
@@ -214,7 +215,7 @@ if (!process.env.REPORTS_ONLY) try {
   await h.mouse.up()
   await wait(500)
   const widths1 = (await panes(h)).map((one) => one.width)
-  check('dragging a divider widens the left pane and narrows the right one', widths1[0] - widths0[0] > 70 && widths0[1] - widths1[1] > 70 && Math.abs(widths1[2] - widths0[2]) < 4, `${widths0} → ${widths1}`)
+  check('dragging a divider widens the left pane and narrows the right one, never under 360px', widths1[0] - widths0[0] > 40 && widths0[1] - widths1[1] > 40 && widths1[1] >= 358 && Math.abs(widths1[2] - widths0[2]) < 4, `${widths0} → ${widths1}`)
   await h.screenshot({ path: `${shots}/resized-light.png` })
 
   // --- Dark --------------------------------------------------------------------------------------
@@ -390,18 +391,21 @@ try {
   const t2 = await trails(h)
   check('report 4b: with two panes and no room for a third, Open to the side again keeps both in view, the right one showing the new note', list.length === 2 && list.every((one) => one.shown) && s1.tabs.length === 0 && t2 && where(t2.panes[1].trail).focus === otherId && list.map((one) => one.key).join() === keysTwo.join(), `${show(list)} tabs:${s1.tabs.length}`)
   await h.screenshot({ path: `${shots}/report-aside-again-dark.png` })
-  // With room for three but not four: a third pane; then with three, the rightmost takes the next.
+  // From the rightmost pane, a third pane; then Open to the side from pane 1 takes pane 2 only (Dia's way).
   await c.size(1300, 900); await wait(700)
   if (list.length === 3) await closeAt(3)
-  await asideFromMenu(await rowIn(1, 4))
+  await blur()
+  await press('Alt+Meta+Backslash')
   list = await panes(h)
-  check('report 4b: with room, Open to the side adds a third pane', list.length === 3 && list.every((one) => one.shown), show(list))
-  const middle = (await trails(h)).panes[1]
+  check('report 4b: from the rightmost pane, ⌥⌘\\ adds a third pane', list.length === 3 && list.every((one) => one.shown), show(list))
+  // The copy shows the list: one of its notes opened there, so each pane is named for what it shows.
+  await (await rowIn(3, 2)).click(); await wait()
+  const third = (await trails(h)).panes[2]
   const lastId = await (await rowIn(1, 6)).getAttribute('data-id')
   await asideFromMenu(await rowIn(1, 6))
   const t3 = await trails(h)
   list = await panes(h)
-  check('report 4b: with three panes, Open to the side replaces the rightmost, the middle untouched', list.length === 3 && where(t3.panes[2].trail).focus === lastId && JSON.stringify(where(t3.panes[1].trail)) === JSON.stringify(where(middle.trail)), JSON.stringify(t3.panes.map((one) => where(one.trail))))
+  check('report 4b: with three panes, Open to the side from pane 1 replaces pane 2, the third untouched', list.length === 3 && where(t3.panes[1].trail).focus === lastId && JSON.stringify(where(t3.panes[2].trail)) === JSON.stringify(where(third.trail)), JSON.stringify(t3.panes.map((one) => where(one.trail))))
 
   // --- report 1: narrow, the switcher's tabs name what each pane shows ---------------------------
   const wide = (await seen()).heads

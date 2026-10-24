@@ -131,12 +131,12 @@ try {
   list = await panes()
   check('dropped on the left: a new pane on the left, with that note', list.length === 3 && list[0].open === zettelId, JSON.stringify(list))
 
-  // Four panes, the most there can be (lib/split.ts MAX_PANES): the places say Replace.
+  // Four panes, and no limit: the places still offer a new pane (past the room, the panes scroll sideways).
   await toSide(row('How memory palaces work'), 'right')
   check('a fourth pane can still be opened', (await panes()).length === 4)
   seen = await toSide(row('Interleaving beats blocking'), 'right', { drop: false })
-  check('with four panes, the places say Replace left / right', seen.some((one) => one.label === 'Replace right') && seen.some((one) => one.label === 'Replace left'), JSON.stringify(seen))
-  await h.screenshot({ path: `${dir}/replace-light.png` })
+  check('with four panes, the places still say Open on the left / right', seen.some((one) => one.label === 'Open on the right') && seen.some((one) => one.label === 'Open on the left'), JSON.stringify(seen))
+  await h.screenshot({ path: `${dir}/four-light.png` })
   // Esc puts it all down.
   await h.keyboard.press('Escape')
   await wait(300)
@@ -204,8 +204,9 @@ try {
   await settle()
 
   // --- 2. A folded group's notes on hover ---------------------------------------------
-  await h.keyboard.press('Control+w'); await wait(500)
-  await h.keyboard.press('Control+w'); await wait(500)
+  // The two panes on the right close (side by side past the room, the panes scroll, so the one pressed last may be any).
+  await h.keyboard.press('Escape'); await h.mouse.up(); await wait(300)
+  for (let i = 0; i < 2; i++) { await h.locator('[data-split-area] [data-pane]').last().locator('[data-pane-close]').click(); await wait(600) }
   const one = row('Spaced repetition, a primer')
   const two = row('Reading list for October')
   {
@@ -222,6 +223,7 @@ try {
     await h.keyboard.press('Enter')
     await wait(500)
   }
+  await h.screenshot({ path: `${dir}/group-made.png` })
   const head = h.locator('[data-group-row]').first()
   check('a group of two formed by dragging (group drags still work)', await head.count() === 1 && (await v('groups', 'article')).length === 1)
   await head.click()

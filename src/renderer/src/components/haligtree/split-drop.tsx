@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion, useMotionValue, useSpring, type MotionValue } from 'motion/react'
-import { Columns2, Replace } from 'lucide-react'
+import { Columns2 } from 'lucide-react'
 
 import { chime, click } from '@/lib/sound'
-import { MAX_PANES, canSplit } from '@/lib/split'
+import { canSplit } from '@/lib/split'
 import { enqueue } from '@/lib/reading-queue'
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { cut } from '../../../../main/clip'
@@ -94,7 +94,7 @@ const distance = (zone: Zone, x: number, y: number): number => {
 /** Cancel a list's own drag (dnd-kit), as leaving the window would. */
 const dropListDrag = (): void => void window.dispatchEvent(new Event('visibilitychange'))
 
-export function SplitDrop({ panes, onDrop }: { panes: number; onDrop: (carried: Carried, side: Side) => void }): React.JSX.Element | null {
+export function SplitDrop({ onDrop }: { onDrop: (carried: Carried, side: Side) => void }): React.JSX.Element | null {
   const [carried, setCarried] = useState<Carried | null>(null)
   // Carried by a list's own drag, which draws its own lifted picture: no second one here.
   const [bare, setBare] = useState(false)
@@ -289,7 +289,6 @@ export function SplitDrop({ panes, onDrop }: { panes: number; onDrop: (carried: 
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const replace = panes >= MAX_PANES
   const kind = carried?.kind ? CAPTURE_TYPES.find((one) => one.id === carried.kind) : undefined
   return createPortal(
     <AnimatePresence>
@@ -304,7 +303,7 @@ export function SplitDrop({ panes, onDrop }: { panes: number; onDrop: (carried: 
           transition={{ duration: 0.12 }}
         >
           {zones.map((zone) => (
-            <ZoneBox key={zone.side} zone={zone} hot={hot === zone.side} replace={replace} lean={leanS[zone.side]} grow={growS[zone.side]} />
+            <ZoneBox key={zone.side} zone={zone} hot={hot === zone.side} lean={leanS[zone.side]} grow={growS[zone.side]} />
           ))}
           {!bare && <motion.div
             data-split-card=""
@@ -321,8 +320,9 @@ export function SplitDrop({ panes, onDrop }: { panes: number; onDrop: (carried: 
   )
 }
 
-function ZoneBox({ zone, hot, replace, lean, grow }: { zone: Zone; hot: boolean; replace: boolean; lean: MotionValue<number>; grow: MotionValue<number> }): React.JSX.Element {
-  const label = replace ? `Replace ${zone.side}` : `Open on the ${zone.side}`
+function ZoneBox({ zone, hot, lean, grow }: { zone: Zone; hot: boolean; lean: MotionValue<number>; grow: MotionValue<number> }): React.JSX.Element {
+  // No limit on panes: a drop always adds one where it lands.
+  const label = `Open on the ${zone.side}`
   // A strip at the edge, beside a list's own drag: its words wrap, smaller.
   const narrow = zone.width <= NARROW
   return (
@@ -341,7 +341,7 @@ function ZoneBox({ zone, hot, replace, lean, grow }: { zone: Zone; hot: boolean;
       transition={{ duration: 0.14 }}
     >
       <span className={`flex size-8 items-center justify-center rounded-lg ${hot ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_22%,transparent)] text-[var(--tt-brand-color-400)]' : 'bg-foreground/5'}`}>
-        {replace ? <Replace className="size-4" /> : <SplitMark side={zone.side} />}
+        <SplitMark side={zone.side} />
       </span>
       <span className={`rounded-md bg-popover py-0.5 text-center font-medium shadow-sm ${narrow ? 'mx-1 px-1 text-xs leading-tight' : 'px-2 text-control'}`}>{label}</span>
     </motion.div>
