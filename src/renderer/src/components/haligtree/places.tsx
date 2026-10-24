@@ -1,5 +1,5 @@
 import { type ComponentType, type CSSProperties, type RefAttributes } from 'react'
-import { Archive, BookOpen, BookUser, Calendar, CalendarFold, Compass, Flag, ListVideo, Sprout, type LucideIcon } from 'lucide-react'
+import { Archive, BookOpen, BookUser, Calendar, CalendarFold, Compass, Flag, ListVideo, Newspaper, Sprout, type LucideIcon } from 'lucide-react'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import { Switch } from '@/components/ui/switch'
 import { chime } from '@/lib/sound'
@@ -62,6 +62,8 @@ export const SECTIONS: (Place & { key: string })[] = [
   // The rest: off to start, a G and its letter or ⌘K away, each switched on in "Customize sidebar…".
   { id: 'weekpage', label: "Week's page", icon: CalendarFold, key: 'k', tint: 'yellow' },
   { id: 'monthpage', label: "Month's page", icon: Sprout, key: 'm', tint: 'yellow' },
+  // The day's twenty or so of your own things, as a timeline that ends (feed-view.tsx).
+  { id: 'feed', label: 'Feed', icon: Newspaper, key: 'g', tint: 'pink' },
   // Words and questions asked and waiting on an answer: a Word with no meaning written yet.
   { id: 'lookups', label: 'Lookups', icon: BookOpen, key: '.', tint: 'green' },
   // Goals: a day you are working toward, and the road there.

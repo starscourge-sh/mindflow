@@ -773,6 +773,12 @@ A page a day. What you catch, finish and review today gathers underneath it on i
     body: doc("Read Book 9 on the train. 'Nobody' is still the best fake name in literature.\n\nTen minutes at the wall. Six days running."),
     reviewed: true
   })
+  // Older days, so the Feed has Journal days to bring back: one from a year ago today.
+  for (const [n, words] of [
+    [-12, 'Finished the Odyssey at last. Penelope is the cleverest person in it, and the poem knows it.\n\nWall: eight minutes. My fingers have opinions now.'],
+    [-47, "Couldn't sleep, so I went out and looked up. Orion was already rising. Wrote down three questions I can't answer yet."],
+    [-365, 'First day with a notebook that answers back. I caught nine things before lunch and could not tell you what any of them were by dinner. That is the problem to fix.']
+  ] as const) await call('notes:day:save', day(n), { body: doc(words), reviewed: true })
   await call('period:save', `week:${monday()}`, {
     fields: { theme: 'Do, or do not', summary: 'Small steps on the big things: the oxygenator, the wall, Book 9.', projects: 'Mars, the Odyssey', people: 'Watney, TARS, Mr Wolf' },
     body: doc(`One page a week: what matters, and how it went.

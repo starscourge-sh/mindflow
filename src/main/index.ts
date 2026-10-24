@@ -72,6 +72,7 @@ import { firstRun, isWelcoming, noteChord, pretendTaken, registerOnboarding, whe
 import { registerUnused } from './unused'
 import { registerPeople } from './people'
 import { registerSources } from './sources'
+import { registerFeed } from './feed'
 import { growFrom } from './grow'
 import { grab, whenLetGo } from './hand'
 import { throwSpot } from './throw-spot'
@@ -3325,6 +3326,7 @@ app.whenReady().then(() => {
   registerPictures()
   registerPeople()
   registerSources()
+  registerFeed()
   registerDefine()
   registerMacCalendar()
   // Last, once every table is there: what other books sent this one is taken in.

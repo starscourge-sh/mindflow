@@ -37,6 +37,7 @@ import { StatsView } from './components/haligtree/stats-view'
 import { PracticesView } from './components/haligtree/practices-view'
 import { usePracticeActions } from '@/lib/practices'
 import { MapView } from './components/haligtree/map-view'
+import { FeedView } from './components/haligtree/feed-view'
 import { PowersView } from './components/haligtree/powers-view'
 import { TagsView } from './components/haligtree/tags-view'
 import { SourcePageView, SourcesView } from './components/haligtree/source-page'
@@ -202,7 +203,7 @@ function landing(view: View): View {
   return view
 }
 /** Pages that hold one note open beside their list, its id as the step's focus. */
-const holdsNotes = (id: string): boolean => !['home', 'day', 'weekpage', 'monthpage', 'yearpage', 'tags', 'sources', 'source', 'stats', 'map', 'powers', 'whatsnew', 'settings', 'review', 'queue', 'calendar', 'practices', 'kind:practice'].includes(id)
+const holdsNotes = (id: string): boolean => !['home', 'day', 'weekpage', 'monthpage', 'yearpage', 'tags', 'sources', 'source', 'stats', 'map', 'feed', 'powers', 'whatsnew', 'settings', 'review', 'queue', 'calendar', 'practices', 'kind:practice'].includes(id)
 /** A step onto a note (not a task, a day or an event): the page that shows it turns, as a book's does. */
 const turnsPage = (view: View): boolean => !!view.focus && holdsNotes(view.id) && !['today', 'tomorrow', 'upcoming', 'routines', 'later', 'goals', 'week', 'matrix', 'discarded'].includes(view.id)
 /** Where one thing opens: a view by name, a day's page, or a note or task in its section. */
@@ -1144,6 +1145,8 @@ export function Home(): React.JSX.Element {
           <MapView onOpen={go} />
         ) : view.id === 'whatsnew' ? (
           <WhatsNewPage focus={view.focus} onView={(id, focus) => setView({ id, focus }, key)} />
+        ) : view.id === 'feed' ? (
+          <FeedView onOpen={go} />
         ) : view.id === 'powers' ? (
           <PowersView onView={(id, focus) => setView({ id, focus }, key)} />
         ) : (

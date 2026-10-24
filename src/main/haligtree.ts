@@ -70,7 +70,7 @@ const mdWords = (text: string): string =>
     .replace(/\*\*|__|~~|==|`/g, '')
     .replace(/(^|[\s(])[*_](?=\S)([^*_\n]*?\S)[*_](?=$|[\s).,;:!?])/gm, '$1$2')
 /** A stored body as words for a card: the editor's JSON walked, Markdown (bare, or saved as a JSON string) read without its marks. */
-const cardWords = (raw: string): string => {
+export const cardWords = (raw: string): string => {
   let value: unknown = raw
   try { value = JSON.parse(raw) } catch { /* Markdown, as it is */ }
   const words = typeof value === 'string' ? mdWords(value) : plain(value)
