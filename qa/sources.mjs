@@ -52,12 +52,13 @@ try {
 
   // 2. The source map.
   await go('map')
-  await h.getByRole('button', { name: 'Sources', exact: true }).first().click()
+  // The map's own chip, not the sidebar's Sources row.
+  await h.locator('main, [data-pane]').getByRole('button', { name: 'Sources', exact: true }).first().click()
   await h.waitForTimeout(900)
   check(await h.locator('[data-map-mode="sources"] canvas').count() >= 1, 'the map has a source-centred mode')
   const graph = await v('sources:graph')
   check(graph.edges.some(([a, b]) => [a, b].includes(quote) && [a, b].some((end) => end.startsWith('who:'))), 'the quote is joined to the person who said it')
-  await h.getByRole('button', { name: 'Links', exact: true }).first().click()
+  await h.locator('main, [data-pane]').getByRole('button', { name: 'Links', exact: true }).first().click()
 
   // 5. Voices in lists and the editor.
   await go('all')
