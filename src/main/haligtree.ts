@@ -1,9 +1,10 @@
 import { parseDate } from 'chrono-node'
 import { Notification, app, dialog, ipcMain, net, session, shell } from 'electron'
 import { randomUUID } from 'crypto'
-import { cp, mkdir, writeFile } from 'fs/promises'
+import { cp, mkdir, readFile, readdir, rm, writeFile } from 'fs/promises'
+import type { DatabaseSync } from 'node:sqlite'
 import { existsSync, readFileSync } from 'fs'
-import { join } from 'path'
+import { basename, join } from 'path'
 import { homedir } from 'os'
 import { createEmptyCard, default_w, forgetting_curve, fsrs, generatorParameters, type Card, type Grade } from 'ts-fsrs'
 
@@ -51,6 +52,67 @@ const ago = (days: number): string => dayjs().subtract(days, 'day').toISOString(
 const body = <T extends { body?: unknown }>(row: T): T => ({ ...row, body: JSON.parse((row.body as string) ?? 'null') })
 
 /** A document's words, whether it is Markdown or the editor's JSON. */
+/**
+ * Every note as real Markdown, by file name: what is known about each up
+ * top (kind, tags, who, dates, its properties), named by its title as
+ * Obsidian names a note, so a link is plain [[Title]]. `assets` is where
+ * its pictures are, from the notes. `live` leaves out what is in the Bin
+ * (the kept copy); the export takes everything.
+ */
+function notesAsMarkdown(db: DatabaseSync, assets: string, live = false): Map<string, string> {
+  const files = new Map<string, string>()
+  // Real Markdown with what is known about each one up top, named so a
+  // folder listing reads like the notes do.
+  const front = (fields: Record<string, unknown>): string =>
+    `---\n${Object.entries(fields).filter(([, v]) => v !== null && v !== undefined && v !== '' && !(Array.isArray(v) && !v.length)).map(([k, v]) => `${k}: ${JSON.stringify(v)}`).join('\n')}\n---\n\n`
+  // Every property a note has, an imported note's frontmatter among them.
+  const properties = (fields: string | null): Record<string, unknown> => {
+    try {
+      return fields ? (JSON.parse(fields) as Record<string, unknown>) : {}
+    } catch {
+      return {}
+    }
+  }
+  const slug = (text: string): string => text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50)
+  // Pictures point at the assets copied beside the notes, not the app's own store.
+  const local = (text: string): string => text.replace(/haligtree:\/\/assets\//g, assets)
+  const taken = new Set<string>()
+  // Two notes with the same name each keep their own file; a Mac's disk
+  // takes "Note" and "note" for one name, so case does not tell them apart.
+  const unique = (name: string): string => {
+    let one = name
+    for (let n = 2; taken.has(one.toLowerCase()); n++) one = `${name} ${n}`
+    taken.add(one.toLowerCase())
+    return one
+  }
+  // Every file named first, so a link can point at the file it leads to.
+  const captureRows = db.prepare(`select * from captures${live ? " where status != 'discarded'" : ''}`).all() as Record<string, string & number>[]
+  const nuggetRows = db.prepare(`select * from nuggets${live ? ' where binned_at is null' : ''}`).all() as Record<string, string>[]
+  const names = new Map<string, string>()
+  // Each capture by the name the app shows it by: its own title (a vault note's), else its first line.
+  const labels = new Map((db.prepare(`select id, ${LABEL} as label from captures`).all() as { id: string; label: string }[]).map((row) => [row.id, row.label]))
+  // Named by its title, as Obsidian names a note, so a link is plain [[Title]]
+  // and reads there as here. Only what a file name or a link cannot hold is taken out.
+  const titled = (text: string): string => text.replace(/[\\/:*?"<>|#^[\]]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80).trim()
+  for (const row of captureRows) names.set(row.id, unique(titled(labels.get(row.id) ?? '') || `V-${row.number}`))
+  for (const row of nuggetRows) names.set(row.id, unique(titled(row.title ?? '') || `${row.tier}-${slug(row.title) || row.id.slice(0, 8)}`))
+  const nameOf = (id: string): string | undefined => names.get(id)
+  for (const row of captureRows) {
+    const body = JSON.parse(row.body ?? 'null')
+    files.set(`${names.get(row.id)}.md`,
+      front({ id: `V-${row.number}`, private: row.private ? true : null, kind: row.kind, status: row.status, captured: row.captured_at, who: row.attribution, where: row.medium, ...properties(row.fields), tags: tagsIn(plain(body)) }) + local(markdown(body, nameOf)))
+  }
+  for (const row of nuggetRows) {
+    const body = JSON.parse(row.body ?? 'null')
+    const text = local(markdown(body, nameOf))
+    // A heading of its own already names it; otherwise the title does.
+    const heading = /^#\s/.test(text) ? '' : `# ${row.title}\n\n`
+    files.set(`${names.get(row.id)}.md`,
+      front({ kind: row.tier, private: row.private ? true : null, created: row.created_at, updated: row.updated_at, who: row.attribution, question: row.prompt, ...properties(row.fields), tags: tagsIn(plain(body)) }) + heading + text)
+  }
+  return files
+}
+
 export function plain(value: unknown): string {
   if (typeof value === 'string') return value.replace(/\[\[@[^|\]]+\|([^\]]+)\]\]/g, '$1')
   const walk = (node: { type?: string; text?: string; attrs?: { label?: string }; content?: unknown[] }): string =>
@@ -268,6 +330,8 @@ const DEFAULTS = {
   // user who does not know Esc or the key is never left with a window that will not go (it has no
   // traffic lights). Off, it stays up beside what you are reading until Esc or the key.
   boxAutoHide: true,
+  // A folder kept as plain Markdown, one file a note, as they change (null: none). Settings' "Keep a Markdown copy".
+  markdownCopy: null as string | null,
   // Left for another app, the box dims as every window does; off, it stays at full strength.
   boxDim: true,
   // Quick capture's buttons out of sight until pointed at (⌥⌘,). Off to start, so nobody is left looking for them.
@@ -3760,6 +3824,90 @@ export function registerHaligtree(): void {
     }
   })
 
+  // --- a Markdown copy kept up to date: one plain file a note, in a folder of your own,
+  // so the notes are always there to open in Obsidian or anything else. One way:
+  // the app writes it, never reads it back. Only the files it wrote (listed in
+  // MANIFEST) are ever changed or removed there; what else is in the folder is left alone.
+  const MANIFEST = '.haligtree-copy.json'
+  const copy = { at: null as number | null, count: 0, failing: null as string | null, busy: false, again: false, seen: -1, quiet: null as NodeJS.Timeout | null, written: new Map<string, string>() }
+  const keepCopy = async (): Promise<void> => {
+    const folder = settings().markdownCopy
+    if (!folder) return
+    if (copy.busy) return void (copy.again = true)
+    copy.busy = true
+    try {
+      await mkdir(join(folder, 'assets'), { recursive: true })
+      const files = notesAsMarkdown(db, 'assets/', true)
+      let before: string[] = []
+      try {
+        before = (JSON.parse(await readFile(join(folder, MANIFEST), 'utf8')) as { files?: string[] }).files ?? []
+      } catch {
+        // Its first copy.
+      }
+      for (const [name, text] of files) {
+        if (copy.written.get(name) === text) continue
+        // After a restart: a file already as it should be is not written again.
+        if (!copy.written.has(name) && (await readFile(join(folder, name), 'utf8').catch(() => null)) === text) {
+          copy.written.set(name, text)
+          continue
+        }
+        await writeFile(join(folder, name), text)
+        copy.written.set(name, text)
+      }
+      // Renamed, binned or deleted here: its old file goes, only if this app wrote it.
+      for (const name of before) if (!files.has(name) && name === basename(name) && name.endsWith('.md')) (await rm(join(folder, name), { force: true }), copy.written.delete(name))
+      await writeFile(join(folder, MANIFEST), JSON.stringify({ about: `Kept by ${APP_NAME}: one file a note, written as they change. Edits made here are not read back.`, files: [...files.keys()] }, null, 1))
+      // The pictures and files the notes point at; only the new ones are copied.
+      await cp(join(app.getPath('userData'), 'assets'), join(folder, 'assets'), { recursive: true, force: false }).catch((error: NodeJS.ErrnoException) => {
+        if (error?.code !== 'ENOENT') throw error
+      })
+      copy.at = Date.now()
+      copy.count = files.size
+      copy.failing = null
+    } catch (error) {
+      copy.failing = (error as Error)?.message ?? String(error)
+    } finally {
+      copy.busy = false
+      if (copy.again) (copy.again = false), void keepCopy()
+    }
+  }
+  // Written a few seconds after the notes stop changing, not on every keystroke.
+  setInterval(() => {
+    if (!settings().markdownCopy) return
+    const n = (db.prepare('select total_changes() as n').get() as { n: number }).n
+    if (n === copy.seen) return
+    copy.seen = n
+    if (copy.quiet) clearTimeout(copy.quiet)
+    copy.quiet = setTimeout(() => void keepCopy(), 3000)
+  }, 2000).unref()
+  const copyStatus = (): { folder: string | null; at: number | null; count: number; failing: string | null } => ({ folder: settings().markdownCopy, at: copy.at, count: copy.count, failing: copy.failing })
+  handle('markdown-copy', () => copyStatus())
+  handle('markdown-copy:choose', async () => {
+    const { filePaths } = await dialog.showOpenDialog({ title: 'Keep a Markdown copy of your notes in…', buttonLabel: 'Keep it here', properties: ['openDirectory', 'createDirectory'] })
+    if (!filePaths[0]) return copyStatus()
+    // A folder with other things in it (a vault of its own) gets a folder of the notes inside it, never mixed in.
+    const mine = existsSync(join(filePaths[0], MANIFEST))
+    const empty = (await readdir(filePaths[0]).catch(() => [])).filter((name) => !name.startsWith('.')).length === 0
+    const folder = mine || empty ? filePaths[0] : join(filePaths[0], SANDBOX ? `${APP_NAME} sandbox notes` : `${APP_NAME} notes`)
+    db.prepare("insert or replace into settings (key, value) values ('markdownCopy', ?)").run(JSON.stringify(folder))
+    copy.written.clear()
+    await keepCopy()
+    return copyStatus()
+  })
+  // Stopped: the files stay where they are, no longer kept up to date.
+  handle('markdown-copy:stop', () => {
+    db.prepare("insert or replace into settings (key, value) values ('markdownCopy', 'null')").run()
+    copy.written.clear()
+    copy.at = null
+    return copyStatus()
+  })
+  handle('markdown-copy:show', () => {
+    const folder = settings().markdownCopy
+    if (folder) void shell.openPath(folder)
+  })
+  // The copy brought up to date as the app starts, for changes made while it was kept elsewhere.
+  if (settings().markdownCopy) setTimeout(() => void keepCopy(), 5000).unref()
+
   // --- export: everything as plain text and JSON, in a folder you choose
   handle('export', async () => {
     const { filePaths } = await dialog.showOpenDialog({ title: 'Export everything to…', properties: ['openDirectory', 'createDirectory'] })
@@ -3772,55 +3920,7 @@ export function registerHaligtree(): void {
       const tables = (db.prepare("select name from sqlite_master where type = 'table' and name not like 'sqlite_%'").all() as { name: string }[]).map((row) => row.name)
       const data = Object.fromEntries(tables.map((table) => [table, db.prepare(`select * from ${table}`).all()]))
       await writeFile(join(folder, 'haligtree.json'), JSON.stringify(data, null, 2))
-      // Real Markdown with what is known about each one up top, named so a
-      // folder listing reads like the notes do.
-      const front = (fields: Record<string, unknown>): string =>
-        `---\n${Object.entries(fields).filter(([, v]) => v !== null && v !== undefined && v !== '' && !(Array.isArray(v) && !v.length)).map(([k, v]) => `${k}: ${JSON.stringify(v)}`).join('\n')}\n---\n\n`
-      // Every property a note has, an imported note's frontmatter among them.
-      const properties = (fields: string | null): Record<string, unknown> => {
-        try {
-          return fields ? (JSON.parse(fields) as Record<string, unknown>) : {}
-        } catch {
-          return {}
-        }
-      }
-      const slug = (text: string): string => text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50)
-      // Pictures point at the assets copied beside the notes, not the app's own store.
-      const local = (text: string): string => text.replace(/haligtree:\/\/assets\//g, '../assets/')
-      const taken = new Set<string>()
-      // Two notes with the same name each keep their own file; a Mac's disk
-      // takes "Note" and "note" for one name, so case does not tell them apart.
-      const unique = (name: string): string => {
-        let one = name
-        for (let n = 2; taken.has(one.toLowerCase()); n++) one = `${name} ${n}`
-        taken.add(one.toLowerCase())
-        return one
-      }
-      // Every file named first, so a link can point at the file it leads to.
-      const captureRows = data.captures as Record<string, string & number>[]
-      const nuggetRows = data.nuggets as Record<string, string>[]
-      const names = new Map<string, string>()
-      // Each capture by the name the app shows it by: its own title (a vault note's), else its first line.
-      const labels = new Map((db.prepare(`select id, ${LABEL} as label from captures`).all() as { id: string; label: string }[]).map((row) => [row.id, row.label]))
-      // Named by its title, as Obsidian names a note, so a link is plain [[Title]]
-      // and reads there as here. Only what a file name or a link cannot hold is taken out.
-      const titled = (text: string): string => text.replace(/[\\/:*?"<>|#^[\]]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80).trim()
-      for (const row of captureRows) names.set(row.id, unique(titled(labels.get(row.id) ?? '') || `V-${row.number}`))
-      for (const row of nuggetRows) names.set(row.id, unique(titled(row.title ?? '') || `${row.tier}-${slug(row.title) || row.id.slice(0, 8)}`))
-      const nameOf = (id: string): string | undefined => names.get(id)
-      for (const row of captureRows) {
-        const body = JSON.parse(row.body ?? 'null')
-        await writeFile(join(folder, 'markdown', `${names.get(row.id)}.md`),
-          front({ id: `V-${row.number}`, private: row.private ? true : null, kind: row.kind, status: row.status, captured: row.captured_at, who: row.attribution, where: row.medium, ...properties(row.fields), tags: tagsIn(plain(body)) }) + local(markdown(body, nameOf)))
-      }
-      for (const row of nuggetRows) {
-        const body = JSON.parse(row.body ?? 'null')
-        const text = local(markdown(body, nameOf))
-        // A heading of its own already names it; otherwise the title does.
-        const heading = /^#\s/.test(text) ? '' : `# ${row.title}\n\n`
-        await writeFile(join(folder, 'markdown', `${names.get(row.id)}.md`),
-          front({ kind: row.tier, private: row.private ? true : null, created: row.created_at, updated: row.updated_at, who: row.attribution, question: row.prompt, ...properties(row.fields), tags: tagsIn(plain(body)) }) + heading + text)
-      }
+      for (const [name, text] of notesAsMarkdown(db, '../assets/')) await writeFile(join(folder, 'markdown', name), text)
       // The pictures and files the notes point at.
       // None kept yet is not a failure; any other is said, not dropped.
       const pictures = await cp(join(app.getPath('userData'), 'assets'), join(folder, 'assets'), { recursive: true }).then(() => true, (error: NodeJS.ErrnoException) => error?.code === 'ENOENT')

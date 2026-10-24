@@ -50,7 +50,7 @@ import { detent, falloff } from '@/lib/proximity'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import DownloadIcon from '@/components/ui/download-icon'
 import UploadIcon from '@/components/ui/upload-icon'
-import { dayjs, num, weekdayName } from '../../../../main/dates'
+import { ago, dayjs, num, weekdayName } from '../../../../main/dates'
 import { TomorrowPreview } from './tomorrow-lines'
 import { BOX_TABS, SECTIONS as PLACES, ShowList } from './places'
 import { SpellLanguages } from './spell-languages'
@@ -1077,6 +1077,7 @@ export function SettingsView(): React.JSX.Element {
             <ImportButton what="files">Files…</ImportButton>
             {!SANDBOX && <Button variant="outline" size="sm" onClick={() => askBook('import')}>Into another book…</Button>}
           </Setting>
+          <MarkdownCopy />
           <Setting title="Export everything" note="All of it as JSON and Markdown, in a folder you choose." more="Yours to read without this app.">
             <ExportButton />
           </Setting>
@@ -1832,6 +1833,47 @@ function GiphyFavourites({ stars, live, onSave }: { stars: string[]; live: boole
     >
       {busy ? <Orb label="Looking…" /> : (
         <Button variant="outline" size="sm" disabled={!live} onClick={load}>{list ? 'Look again' : 'Show them'}</Button>
+      )}
+    </Setting>
+  )
+}
+
+type CopyStatus = { folder: string | null; at: number | null; count: number; failing: string | null }
+/**
+ * "Keep a Markdown copy": every note as its own plain file in a folder of
+ * your own, kept up to date a few seconds after you stop writing, so your
+ * notes are always there to open in Obsidian or anything else. Where it is
+ * and how fresh, said on its own line; a failure said plainly.
+ */
+function MarkdownCopy(): React.JSX.Element {
+  const [status, setStatus] = useState<CopyStatus | null>(null)
+  useEffect(() => {
+    const read = (): void => void window.api.haligtree<CopyStatus>('markdown-copy').then(setStatus).catch(() => undefined)
+    read()
+    const every = setInterval(read, 4000)
+    return () => clearInterval(every)
+  }, [])
+  const choose = (): void => void window.api.haligtree<CopyStatus>('markdown-copy:choose').then((now) => {
+    setStatus(now)
+    if (now.folder && !now.failing) (chime('settled'), toast(`Your notes are kept as Markdown in ${now.folder.split('/').pop()}`))
+  })
+  const stop = (): void => void window.api.haligtree<CopyStatus>('markdown-copy:stop').then((now) => (setStatus(now), chime('off'), toast('No longer kept up to date. The files already there stay', undefined, 'info')))
+  const where = status?.folder?.replace(/^\/Users\/[^/]+/, '~')
+  return (
+    <Setting title="Keep a Markdown copy" note="Every note as its own Markdown file in a folder you choose, kept up to date as you write." more="Open the folder in Obsidian or any editor: tags, links and pictures come along. It is a copy: changes made there are not read back." keywords="markdown copy mirror folder obsidian plain files sync backup vault export own text lock-in"
+      below={status?.folder ? (
+        <p data-markdown-copy className={`mt-2 text-control ${status.failing ? 'text-destructive' : 'text-foreground'}`}>
+          {status.failing ? `Not kept up to date: ${status.failing}` : `Kept in ${where}${status.at ? ` · ${num(status.count)} ${status.count === 1 ? 'note' : 'notes'} · updated ${ago(new Date(status.at).toISOString())}` : ' · writing it now'}`}
+        </p>
+      ) : undefined}>
+      {status?.folder ? (
+        <>
+          <Button variant="ghost" size="sm" onClick={() => void window.api.haligtree('markdown-copy:show')}>Show in Finder</Button>
+          <Button variant="ghost" size="sm" onClick={choose}>Change folder…</Button>
+          <Button variant="ghost" size="sm" onClick={stop}>Stop</Button>
+        </>
+      ) : (
+        <Button variant="outline" size="sm" onClick={choose}>Choose a folder…</Button>
       )}
     </Setting>
   )
