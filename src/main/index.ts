@@ -3260,14 +3260,12 @@ function updateTray(): void {
   // A running session shows how long it has run ("● 11 h 20 min"), so the menu bar says what you are on. Counts past 9,999 go short ("12k").
   const session = activeSession()
   const minutes = session ? Math.floor((Date.now() - new Date(session.startedAt).getTime()) / 60000) : 0
-  // The nearest open goal leads, short so the menu bar stays narrow: "14 Dec · 68d".
-  // Its day, never its name: the menu bar is on every shared screen.
   const goals = openGoals()
-  const next = goals.find((goal) => daysLeft(goal.goalAt) >= 0)
-  const nextSaid = next ? `${dayMonth(`${next.goalAt}T12:00`)} · ${daysLeft(next.goalAt) ? `${num(daysLeft(next.goalAt))}d` : 'today'}` : ''
-  // Words beside each number, so the menu bar says what it counts: a bare "2 · 1" meant nothing.
-  // Another book than My book says which, so a scratch book is never taken for your own.
-  tray.setTitle([SANDBOX ? 'Sandbox' : BOOK ? nameOf(here()) : '', nextSaid, session ? `● ${howLong(minutes)}` : '', tasks ? `${brief(tasks)} due now` : '', due ? `${brief(due)} to review` : '', safe ? 'Safe' : ''].filter(Boolean).join(' · '), { fontType: 'monospacedDigit' })
+  // The menu bar shows one short thing at most, the most pressing: tasks due now.
+  // "Sandbox" leads only in the sandbox, so it is never taken for your own notes.
+  // Everything else (goals, the session, reviews, the book) is in the menu.
+  const title = [SANDBOX ? 'Sandbox' : '', tasks ? `${brief(tasks)} due` : ''].filter(Boolean).join(' · ')
+  tray.setTitle(title, { fontType: 'monospacedDigit' })
   tray.setToolTip(`${SANDBOX ? `${APP_NAME} sandbox` : `${APP_NAME} · ${nameOf(here())}`}${tasks ? ` · ${tasks} task${tasks === 1 ? '' : 's'} due now` : ''}${due ? ` · ${due} to review` : ''}${safe ? ' · safe mode on' : ''}`)
   // Tempus: how far through the day, week, month and year, each a drawn bar
   // of one width, so the four line up whatever their words.
@@ -3290,7 +3288,14 @@ function updateTray(): void {
   const widest = [...goalItems.flatMap((item) => [item.label ?? '', item.sublabel ?? '']), 'Import from Obsidian or Notion…']
   const tempusKey = JSON.stringify([rows, tempusDots(), widest])
   if (tempusDrawn?.key !== tempusKey) void drawTempus(tempusKey, rows, tempusDots(), widest)
+  // What the menu bar used to say beside its counts, each on its own line here.
+  const now: Electron.MenuItemConstructorOptions[] = [
+    ...(tasks ? [{ label: `${num(tasks)} ${tasks === 1 ? 'task' : 'tasks'} due now`, click: () => sendHome('view', 'today', undefined, 'window') }] : []),
+    ...(due ? [{ label: `${num(due)} to review`, click: () => sendHome('view', 'review', undefined, 'window') }] : []),
+    ...(session ? [{ label: `Session running, ${howLong(minutes)}`, click: openHome }] : [])
+  ]
   const template: Electron.MenuItemConstructorOptions[] = [
+      ...(now.length ? [...now, { type: 'separator' } as const] : []),
       ...(goalItems.length ? [{ label: 'Goals', enabled: false }, ...goalItems, { type: 'separator' } as const] : []),
       { label: 'Time gone', enabled: false },
       ...(['day', 'week', 'month', 'year'] as const).map((unit, at) => {
@@ -3341,7 +3346,8 @@ function updateTray(): void {
       { label: `Quit ${APP_NAME}`, accelerator: 'Command+Q', click: quit }
   ]
   // A test run keeps the menu's words where a probe can read them.
-  if (process.env.HALIGTREE_QA_AWAY) (globalThis as { trayMenu?: unknown }).trayMenu = template.map((item) => ({ type: item.type ?? 'normal', label: item.label ?? '', sublabel: item.sublabel ?? '', toolTip: item.toolTip ?? '', enabled: item.enabled !== false, checked: item.checked === true, drawn: !!item.icon && !item.label }))
+  if (process.env.HALIGTREE_QA_AWAY) (globalThis as { trayTitle?: string }).trayTitle = title
+  if (process.env.HALIGTREE_QA_AWAY) (globalThis as { trayMenu?: unknown }).trayMenu =template.map((item) => ({ type: item.type ?? 'normal', label: item.label ?? '', sublabel: item.sublabel ?? '', toolTip: item.toolTip ?? '', enabled: item.enabled !== false, checked: item.checked === true, drawn: !!item.icon && !item.label }))
   const menu = Menu.buildFromTemplate(template)
   // And the menu itself, so a probe can choose an item as a click would.
   if (process.env.HALIGTREE_QA_AWAY) (globalThis as { trayBuilt?: unknown }).trayBuilt = menu

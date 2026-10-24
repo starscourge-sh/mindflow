@@ -58,3 +58,37 @@ export function renameLinks(body: unknown, { ids, from, to }: Renamed): { body: 
   const out = body ? walk(body as Doc) : body
   return { body: count ? out : body, count }
 }
+
+/**
+ * A person renamed: every @mention of them (a link to `person:Name`) written
+ * with the new name, its words too where they were the old name. Names are
+ * compared as everywhere (no accents, capitals or doubled spaces). Pure.
+ */
+export function renamePerson(body: unknown, from: string, to: string, personKey: (name: string) => string): { body: unknown; count: number } {
+  const key = personKey(from)
+  const name = to.trim()
+  if (!key || !name) return { body, count: 0 }
+  let count = 0
+  if (typeof body === 'string') {
+    const text = body.replace(/\[\[@person:([^|\]]+)\|([^\]]+)\]\]/g, (whole, who: string, label: string) => {
+      if (personKey(who) !== key) return whole
+      count++
+      return `[[@person:${name}|${personKey(label) === key ? name : label}]]`
+    })
+    return { body: count ? text : body, count }
+  }
+  const walk = (node: Doc): Doc => {
+    if (!node || typeof node !== 'object') return node
+    let next = node
+    const id = typeof node.attrs?.id === 'string' ? node.attrs.id : ''
+    if ((node.type === 'noteLink' || node.type === 'noteEmbed') && id.startsWith('person:') && personKey(id.slice(7)) === key) {
+      count++
+      next = { ...node, attrs: { ...node.attrs, id: `person:${name}`, label: personKey(String(node.attrs?.label ?? '')) === key ? name : node.attrs?.label } }
+    }
+    if (!next.content) return next
+    const kids = next.content.map(walk)
+    return kids.some((kid, at) => kid !== next.content![at]) ? { ...next, content: kids } : next
+  }
+  const out = body ? walk(body as Doc) : body
+  return { body: count ? out : body, count }
+}

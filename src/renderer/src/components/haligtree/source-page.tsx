@@ -7,12 +7,13 @@ import { Button } from '@/components/ui/button'
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { chime } from '@/lib/sound'
 import { unloaded, useLive, haligtree } from '@/lib/haligtree'
-import { VOICE_SAID, VOICE_TINT, openSource, pageRef, readFocus, sources, type SourceField, type SourceItem, type SourceSummary, type Voice } from '@/lib/sources'
+import { VOICE_SAID, VOICE_TINT, askRename, openSource, pageRef, readFocus, sources, type SourceField, type SourceItem, type SourceSummary, type Voice } from '@/lib/sources'
 import { Avatar } from './avatar'
 import { NoteList, type Entry } from './note-list'
 import { Example } from './example'
 import { Display, useView } from './display'
-import { Count, Empty, Page, Tip, ask, toast, typing } from './ui'
+import { Count, Empty, Page, Tip, ask, askSure, toast, typing } from './ui'
+import { personKey } from '../../../../main/names'
 import { useSelectAll } from '@/lib/select-all'
 import { usePicking } from '@/lib/pick-range'
 import { ago, num, plural } from '../../../../main/dates'
@@ -61,6 +62,61 @@ export function SourceFoot({ who, where, quote = false, gem = false }: { who?: s
     <p data-chrome data-no-source className="page-narrow mx-auto mt-2 w-full px-[4.5rem] text-body text-foreground">
       {quote ? 'No source yet. Say who said it in the details, so this quote stays with them.' : 'No source yet, so this counts as a note of yours. Say who or where it is from in the details to keep it as their idea.'}
     </p>
+  )
+}
+
+/**
+ * Rename a person or a source everywhere (their notes, page, photo and
+ * @mentions), asking first when the new name is someone else's, then one
+ * notice with Undo. Leaves their page open under the name it now has.
+ */
+export async function renameSource(field: SourceField, from: string, to: string): Promise<boolean> {
+  const name = to.trim()
+  if (!name || name === from.trim()) return false
+  let done = await sources.rename(field, from, name)
+  if (done.merge) {
+    if (!(await askSure(`Merge into ${done.merge.into}?`, done.merge.said, 'Merge'))) return false
+    done = await sources.rename(field, from, name, true)
+  }
+  if (!done.token) return false
+  const token = done.token
+  chime('noted')
+  openSource(field, done.name ?? name)
+  toast(done.count ? `Renamed in ${num(done.count)} ${done.count === 1 ? 'note' : 'notes'}` : `Renamed to ${done.name ?? name}`, () => void sources.unrename(token).then(() => openSource(field, from)))
+  return true
+}
+
+/** A page's name, typed over in place: ↵ or leaving it renames everywhere, Esc puts it back. */
+function SourceName({ field, name }: { field: SourceField; name: string }): React.JSX.Element {
+  const box = useRef<HTMLHeadingElement>(null)
+  const putBack = useRef(false)
+  useEffect(() => {
+    const onAsk = (event: Event): void => {
+      const asked = (event as CustomEvent<string>).detail
+      const el = box.current
+      if (!el || asked.slice(0, asked.indexOf(':')) !== field || personKey(asked.slice(asked.indexOf(':') + 1)) !== personKey(name)) return
+      el.focus()
+      const range = document.createRange()
+      range.selectNodeContents(el)
+      window.getSelection()?.removeAllRanges()
+      window.getSelection()?.addRange(range)
+    }
+    window.addEventListener('haligtree:rename-source', onAsk)
+    return () => window.removeEventListener('haligtree:rename-source', onAsk)
+  }, [field, name])
+  return (
+    <h2 data-source-name key={name} ref={box} contentEditable="plaintext-only" suppressContentEditableWarning spellCheck={false} aria-label={field === 'attribution' ? 'Their name' : 'Its name'}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') (event.preventDefault(), event.currentTarget.blur())
+        if (event.key === 'Escape') (event.preventDefault(), event.stopPropagation(), putBack.current = true, event.currentTarget.blur())
+      }}
+      onBlur={(event) => {
+        const el = event.currentTarget
+        const typed = (el.textContent ?? '').replace(/\s+/g, ' ').trim()
+        if (putBack.current || !typed) return void (putBack.current = false, el.textContent = name)
+        if (typed !== name) void renameSource(field, name, typed).then((done) => done || (el.textContent = name))
+      }}
+      className="-mx-1 w-fit max-w-full truncate rounded-md px-1 text-title font-semibold outline-none hover:bg-accent focus:overflow-visible focus:whitespace-normal focus:bg-accent">{name}</h2>
   )
 }
 
@@ -144,7 +200,7 @@ function PersonHead({ page, name, thoughts, setThoughts, onOpenPerson }: { page:
         </PersonMenu>
         <div className="min-w-0 flex-1 pt-1">
           <p className="text-control text-muted-foreground">Person</p>
-          <h2 data-source-name className="truncate text-title font-semibold">{name}</h2>
+          <SourceName field="attribution" name={name} />
           <p data-person-line className="-ml-1 mt-0.5 flex flex-wrap items-baseline text-body text-foreground">
             <Fact label="What they did" placeholder="What they did" value={page?.what ?? ''} onSave={(what) => facts({ what })} />
             <span aria-hidden className="px-0.5">·</span>
@@ -246,7 +302,7 @@ export function SourcePageView({ focus, onOpen }: { focus?: string; onOpen: (typ
           <Icon className="size-8 text-muted-foreground" />
           <div className="min-w-0">
             <p className="text-control text-muted-foreground">{FIELD_SAID[which.field].one}</p>
-            <h2 data-source-name className="truncate text-title font-semibold">{name}</h2>
+            <SourceName field={which.field} name={name} />
           </div>
         </div>
         )}
@@ -337,6 +393,7 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
     sub: one.count ? `${one.count} ${one.count === 1 ? 'note' : 'notes'}${one.quotes ? ` · ${one.quotes} ${one.quotes === 1 ? 'quote' : 'quotes'}` : ''}` : 'No notes yet',
     menu: [
       { label: 'Open the page', run: () => openSource(field, one.name) },
+      { label: 'Rename…', run: () => askRename(field, one.name) },
       ...(one.count ? [] : [{ label: 'Remove the page', run: () => void sources.dropAll([{ field, name: one.name }]).then((undo) => toast(`Removed ${one.name}’s page`, undo)) }])
     ]
   }))

@@ -1,5 +1,5 @@
 import { call } from './haligtree'
-import type { SourceFacts, SourceField, SourceGraph, SourceNear, SourcePage, SourceSummary } from '../../../main/sources'
+import type { RenameResult, SourceFacts, SourceField, SourceGraph, SourceNear, SourcePage, SourceSummary } from '../../../main/sources'
 
 export type { SourceFacts, SourceNear, SourceField, SourceGraph, SourceItem, SourcePage, SourceSummary } from '../../../main/sources'
 export { VOICE_SAID, pageRef, voiceOf, type Voice } from '../../../main/voice'
@@ -15,6 +15,9 @@ export const sources = {
     return () => void Promise.all(list.map((one, at) => call<boolean>('source:set', one.field, one.name, had[at]?.thoughts ?? '')))
   },
   facts: (field: SourceField, name: string, facts: Partial<SourceFacts>) => call<boolean>('source:facts', field, name, facts),
+  /** Rename everywhere, or be told whose the name is first; `merge` goes ahead into them. */
+  rename: (field: SourceField, from: string, to: string, merge = false) => call<RenameResult>('source:rename', field, from, to, merge),
+  unrename: (token: string) => call<boolean>('source:rename:undo', token),
   near: (name: string) => call<SourceNear[]>('source:near', name),
   graph: () => call<SourceGraph>('sources:graph'),
   missing: () => call<{ type: string; id: string; kind: string; label: string; at: string }[]>('sources:missing')
@@ -32,6 +35,12 @@ export const readFocus = (focus: string | undefined): { field: SourceField; name
 /** Open a who's or a where's page from anywhere in the window: the main window's page listens. */
 export const openSource = (field: SourceField, name: string): void => {
   if (name.trim()) window.dispatchEvent(new CustomEvent('haligtree:source', { detail: sourceFocus(field, name) }))
+}
+
+/** "Rename…" from a right-click menu: the page opened, its name focused and chosen to type over (source-page.tsx). */
+export const askRename = (field: SourceField, name: string): void => {
+  openSource(field, name)
+  setTimeout(() => window.dispatchEvent(new CustomEvent('haligtree:rename-source', { detail: `${field}:${name}` })), 150)
 }
 
 /** The colour of each voice, from the theme (main.css): subtle, and the same in lists and the editor. */

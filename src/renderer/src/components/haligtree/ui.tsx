@@ -15,6 +15,7 @@ import { useLive, haligtree } from '@/lib/haligtree'
 import { useReadsIn, useSeen } from '@/lib/reads-in'
 import { chime, quietFor, setVolume, soundOn } from '@/lib/sound'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/cn'
 import { useStoredFlag } from '@/lib/use-stored-flag'
 import { useDetailsShown } from '@/lib/reading'
@@ -1011,6 +1012,43 @@ function Asker(): React.JSX.Element | null {
   )
 }
 
+/** A yes or no, asked in the app's own sheet: true for `yes`, false for Cancel or Escape. */
+export const askSure = (question: string, detail: string, yes: string): Promise<boolean> =>
+  new Promise((answer) => void window.dispatchEvent(new CustomEvent('haligtree:sure', { detail: { question, detail, yes, answer } })))
+
+function SureAsker(): React.JSX.Element | null {
+  const [asked, setAsked] = useState<{ question: string; detail: string; yes: string; answer: (ok: boolean) => void } | null>(null)
+  useEffect(() => {
+    const onAsk = (event: Event): void => (chime('open'), setAsked((event as CustomEvent).detail))
+    window.addEventListener('haligtree:sure', onAsk)
+    return () => window.removeEventListener('haligtree:sure', onAsk)
+  }, [])
+  if (!asked) return null
+  const answer = (ok: boolean): void => {
+    chime(ok ? 'tap' : 'fold')
+    asked.answer(ok)
+    setAsked(null)
+  }
+  return (
+    <div className="fixed inset-0 z-[80] flex items-start justify-center bg-black/40 pt-[22vh]" onMouseDown={() => answer(false)}>
+      <div role="alertdialog" aria-modal="true" aria-label={asked.question} data-sure
+        className="flex w-[min(30rem,90vw)] flex-col gap-3 rounded-xl bg-popover p-5 shadow-(--mf-panel-shadow)"
+        onMouseDown={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          event.stopPropagation()
+          if (event.key === 'Escape') answer(false)
+        }}>
+        <p className="text-base font-semibold text-foreground">{asked.question}</p>
+        <p className="text-body text-foreground">{asked.detail}</p>
+        <div className="mt-1 flex items-center justify-end gap-2">
+          <Button variant="ghost" size="sm" onClick={() => answer(false)}>Cancel <ShadKbd>Esc</ShadKbd></Button>
+          <Button autoFocus data-sure-yes size="sm" onClick={() => answer(true)}>{asked.yes} <ShadKbd>↵</ShadKbd></Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /** When anything was last typed into a field or the editor. */
 let lastEdit = 0
 
@@ -1284,6 +1322,7 @@ export function Toaster(): React.JSX.Element | null {
   return (
     <>
     <Asker />
+    <SureAsker />
     <KindAsker />
     <QuestionAsker />
     <BookAsker />

@@ -1,6 +1,9 @@
 import { ipcMain } from 'electron'
 
-import { LABEL, changed, database } from './captures'
+import { randomUUID } from 'crypto'
+
+import { LABEL, atomically, changed, database } from './captures'
+import { renamePerson } from './link-rename'
 import { personKey } from './names'
 import { voiceOf, type Voice } from './voice'
 
@@ -26,6 +29,12 @@ export type SourcePage = { field: SourceField; name: string; thoughts: string; i
 /** Others in the book who share a tag or a source with this one, closest first. */
 export type SourceNear = { name: string; shared: number }
 export type SourceGraph = { nodes: { type: string; id: string; title: string; private?: boolean; kind: string; links: number }[]; edges: [string, string, number?][]; alone: number }
+
+/** A rename done (how many notes it changed, and its Undo), or the question to ask first: merge into the one with that name? */
+export type RenameResult = { count: number; token?: string; name?: string; merge?: { into: string; said: string } }
+type Cell = string | number | null
+type RenamePut = { table: string; id: string; col: string; before: Cell; after: Cell }
+const renamed = new Map<string, { field: SourceField; keys: string[]; puts: RenamePut[]; pages: Record<string, Cell>[]; people: Record<string, Cell>[] }>()
 
 const FIELDS: SourceField[] = ['attribution', 'medium']
 const isField = (field: unknown): field is SourceField => field === 'attribution' || field === 'medium'
@@ -114,7 +123,7 @@ export function registerSources(): void {
     const was = pages().find((one) => one.field === field && one.key === personKey(name))
     const next = { what: was?.what ?? '', born: was?.born ?? '', died: was?.died ?? '' }
     for (const key of ['what', 'born', 'died'] as const) {
-      const value = (facts as Record<string, unknown>)[key]
+      const value = (facts as Record<string, Cell>)[key]
       if (typeof value === 'string') next[key] = value.trim().slice(0, 80)
     }
     db.prepare('insert into source_pages (field, key, name, thoughts, what, born, died, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?) on conflict(field, key) do update set what = excluded.what, born = excluded.born, died = excluded.died, updated_at = excluded.updated_at')
@@ -143,6 +152,117 @@ export function registerSources(): void {
     return [...people].filter(([other]) => other !== key)
       .map(([, one]) => ({ name: spelt(one.names), shared: [...one.marks].filter((mark) => mine.has(mark)).length }))
       .filter((one) => one.shared > 0).sort((a, b) => b.shared - a.shared || a.name.localeCompare(b.name)).slice(0, 6)
+  })
+
+  // A person or a source renamed (a typo put right), or merged into one that
+  // already has the new name. Every place the name lives changes in one go:
+  // each note's who or where, its page (what they did, when they lived, the
+  // bio), their photo, @mentions in note bodies and practices that load them.
+  // Asked first when the new name is someone else's: `merge` says go ahead.
+  ipcMain.handle('haligtree:source:rename', (_event, field: unknown, from: unknown, to: unknown, merge: unknown): RenameResult => {
+    if (!isField(field) || typeof from !== 'string' || typeof to !== 'string') return { count: 0 }
+    const fromKey = personKey(from)
+    const toKey = personKey(to)
+    if (!fromKey || !toKey || from.trim() === to.trim()) return { count: 0 }
+    const items = everything()
+    const mine = items.filter((one) => personKey(one[field] ?? '') === fromKey)
+    const theirs = items.filter((one) => personKey(one[field] ?? '') === toKey)
+    const pageOf = (key: string): Record<string, Cell> | undefined => db.prepare('select * from source_pages where field = ? and key = ?').get(field, key) as never
+    const personOf = (key: string): Record<string, Cell> | undefined => db.prepare('select * from people where key = ?').get(key) as never
+    const other = toKey !== fromKey && (theirs.length > 0 || !!pageOf(toKey) || (field === 'attribution' && !!personOf(toKey)?.avatar))
+    // Merged, the page keeps the spelling it goes by.
+    const name = other ? (theirs.length ? spelt(theirs.map((one) => one[field]!)) : String(pageOf(toKey)?.name ?? personOf(toKey)?.name ?? to.trim())) : to.trim()
+    if (other && merge !== true) {
+      const quotes = mine.filter((one) => one.voice === 'theirs').length
+      const rest = mine.length - quotes
+      const photo = field === 'attribution' && !!personOf(fromKey)?.avatar && !personOf(toKey)?.avatar
+      const parts = [quotes && `${quotes} ${quotes === 1 ? 'quote' : 'quotes'}`, rest && `${rest} ${quotes ? 'other ' : ''}${rest === 1 ? 'note' : 'notes'}`, photo && 'photo'].filter(Boolean) as string[]
+      const one = parts.length === 1 && (quotes === 1 || rest === 1 || photo)
+      const said = parts.length ? `Their ${parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}` : parts[0]} ${one ? 'comes' : 'come'} along.` : 'Their page comes along.'
+      return { count: 0, merge: { into: name, said } }
+    }
+    const puts: RenamePut[] = []
+    const set = (table: string, id: string, col: string, before: Cell, after: Cell): void => {
+      db.prepare(`update ${table} set ${col} = ? where id = ?`).run(after, id)
+      puts.push({ table, id, col, before, after })
+    }
+    const keys = [fromKey, toKey]
+    const pagesBefore = keys.map(pageOf).filter(Boolean) as Record<string, Cell>[]
+    const peopleBefore = field === 'attribution' ? (keys.map(personOf).filter(Boolean) as Record<string, Cell>[]) : []
+    const touched = new Set<string>()
+    atomically(() => {
+      // Every note with the old name, in the Bin and tasks too, so none is left behind to come back under it.
+      for (const table of ['captures', 'nuggets'])
+        for (const row of db.prepare(`select id, ${field} as was from ${table} where coalesce(trim(${field}), '') != ''`).all() as { id: string; was: string }[])
+          if (personKey(row.was) === fromKey && row.was !== name) {
+            set(table, row.id, field, row.was, name)
+            touched.add(`${table}:${row.id}`)
+          }
+      // The page: merged, the one kept keeps what it has and takes only what it lacks.
+      const was = pageOf(fromKey)
+      if (was) {
+        const kept = other ? pageOf(toKey) : undefined
+        db.prepare('delete from source_pages where field = ? and key in (?, ?)').run(field, fromKey, toKey)
+        const pick = (col: string): string => String((kept?.[col] as string) || was[col] || '')
+        db.prepare('insert into source_pages (field, key, name, thoughts, what, born, died, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?)')
+          .run(field, toKey, name, pick('thoughts'), pick('what'), pick('born'), pick('died'), new Date().toISOString())
+      }
+      if (field === 'attribution') {
+        const face = personOf(fromKey)
+        if (face) {
+          const kept = other ? personOf(toKey) : undefined
+          db.prepare('delete from people where key in (?, ?)').run(fromKey, toKey)
+          db.prepare('insert into people (key, name, avatar, updated_at) values (?, ?, ?, ?)').run(toKey, name, (kept?.avatar as string | null) ?? face.avatar ?? null, new Date().toISOString())
+        }
+        // @mentions in note bodies.
+        for (const table of ['captures', 'nuggets']) {
+          for (const row of db.prepare(`select id, body from ${table} where body like '%person:%'`).all() as { id: string; body: string }[]) {
+            let body: unknown
+            try {
+              body = JSON.parse(row.body)
+            } catch {
+              body = row.body
+            }
+            const out = renamePerson(body, from, name, personKey)
+            if (!out.count) continue
+            set(table, row.id, 'body', row.body, typeof out.body === 'string' ? out.body : JSON.stringify(out.body))
+            touched.add(`${table}:${row.id}`)
+          }
+        }
+      }
+      // A practice that loads this person's or source's notes.
+      const practices = db.prepare("select 1 from sqlite_master where type = 'table' and name = 'practices'").get()
+      if (practices) for (const row of db.prepare("select id, load from practices where load_kind = 'source' and load like ?").all(`${field}:%`) as { id: string; load: string }[])
+        if (personKey(row.load.slice(field.length + 1)) === fromKey) set('practices', row.id, 'load', row.load, `${field}:${name}`)
+    })
+    const token = randomUUID()
+    renamed.set(token, { field, keys, puts, pages: pagesBefore, people: peopleBefore })
+    for (const old of [...renamed.keys()].slice(0, -20)) renamed.delete(old)
+    changed()
+    // Counted as the lists show them: a line kept as a gem is one note (its capture is not counted again), and a gem's cards are part of it.
+    const counted = [...touched].filter((one) => {
+      const [table, id] = [one.slice(0, one.indexOf(':')), one.slice(one.indexOf(':') + 1)]
+      return table === 'captures' ? !db.prepare('select 1 from nuggets where capture_id = ?').get(id) : table !== 'nuggets' || !db.prepare("select 1 from nuggets where id = ? and tier = 'card'").get(id)
+    })
+    return { count: counted.length, token, name }
+  })
+
+  // Undo a rename: every place put back as it was, in one go.
+  ipcMain.handle('haligtree:source:rename:undo', (_event, token: unknown) => {
+    const done = renamed.get(String(token))
+    renamed.delete(String(token))
+    if (!done) return false
+    atomically(() => {
+      for (const one of [...done.puts].reverse()) db.prepare(`update ${one.table} set ${one.col} = ? where id = ?`).run(one.before, one.id)
+      const back = (table: string, rows: Record<string, Cell>[], where: string, args: string[]): void => {
+        db.prepare(`delete from ${table} where ${where}`).run(...args)
+        for (const row of rows) db.prepare(`insert into ${table} (${Object.keys(row).join(', ')}) values (${Object.keys(row).map(() => '?').join(', ')})`).run(...Object.values(row))
+      }
+      back('source_pages', done.pages, 'field = ? and key in (?, ?)', [done.field, ...done.keys])
+      if (done.field === 'attribution') back('people', done.people, 'key in (?, ?)', done.keys)
+    })
+    changed()
+    return true
   })
 
   // A page made by hand and left empty can go again; one with notes from it is there because of them.

@@ -477,6 +477,8 @@ export function Home(): React.JSX.Element {
     if (!chimedWithin(150)) chime('slide')
     setSplit({ panes: [alone], front: alone.key, sizes: [1] })
   }
+  /** One pane of a split opened on its own, from the pair's card: the split kept under "Side by side". */
+  const openAlone = (view: View): void => (splitRef.current.panes.length > 1 ? leaveSplit(view) : setView(view))
   /** A kept split laid out again, each pane where it was; one open now is kept in its place first. */
   const backTo = (id: string, index?: number): void => {
     const pair = keptRef.current.find((one) => one.id === id)
@@ -1046,15 +1048,15 @@ export function Home(): React.JSX.Element {
     const { capture, item, task } = known.get(view.focus) ?? {}
     if (capture) {
       const kind = CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]
-      return { type: 'capture', id: capture.id, name: { title: taskName(capture.label).text || 'Untitled', icon: kind.icon, tint: kind.tint, private: !!capture.private } }
+      return { type: 'capture', id: capture.id, name: { title: taskName(capture.label).text || 'Untitled', icon: kind.icon, tint: kind.tint, private: !!capture.private, kind: kind.label } }
     }
     if (item) {
       const kind = CAPTURE_TYPES.find((type) => type.id === item.kind)
-      return { type: item.tier, id: item.id, name: { title: item.title || 'Untitled', icon: kind?.icon ?? FileText, tint: kind?.tint, private: !!item.private } }
+      return { type: item.tier, id: item.id, name: { title: item.title || 'Untitled', icon: kind?.icon ?? FileText, tint: kind?.tint, private: !!item.private, kind: item.tier === 'article' ? 'Writing' : kind?.label ?? 'Note' } }
     }
-    return task ? { type: 'task', id: task.id, name: { title: taskName(task.title).text || 'Untitled', icon: TASK_KIND.icon, tint: TASK_KIND.tint } } : null
+    return task ? { type: 'task', id: task.id, name: { title: taskName(task.title).text || 'Untitled', icon: TASK_KIND.icon, tint: TASK_KIND.tint, kind: 'Task' } } : null
   }
-  const paneName = (view: View): PaneName => noteIn(view)?.name ?? { title: labelOf(view) || 'Page', icon: PanelsTopLeft }
+  const paneName = (view: View): PaneName => noteIn(view)?.name ?? { title: labelOf(view) || 'Page', icon: PanelsTopLeft, kind: 'Page' }
   /** Lay a pinned layout out again: each pane a fresh trail on its page. */
   const openLayout = (views: View[], sizes: number[]): void => {
     chime('slide')
@@ -1615,7 +1617,7 @@ export function Home(): React.JSX.Element {
                         if (live) setSplit((now) => ({ ...now, id: now.id ?? `s${Date.now().toString(36)}${made++}`, name: name || undefined }))
                         else setKept((list) => list.map((one) => (one.id === pair.id ? { ...one, name: name || undefined } : one)))
                       }
-                      return <PairRow key={pair.id} live={live} isPinned={false} narrow={narrow} names={views.map(paneName)} menu={pairMenu(views, live ? {} : null)} name={pair.name}
+                      return <PairRow key={pair.id} live={live} isPinned={false} narrow={narrow} names={views.map(paneName)} menu={pairMenu(views, live ? {} : null)} name={pair.name} onAlone={(index) => openAlone(views[index])}
                         onRename={rename}
                         onForget={() => (live ? separate(split.front) : (chime('fold'), forgetPair(pair.id)))}
                         onOpen={(index) => (live ? (chime('tap'), index >= 0 && toFront(split.panes[index].key)) : backTo(pair.id, index >= 0 ? index : undefined))}
@@ -1648,7 +1650,7 @@ export function Home(): React.JSX.Element {
                 <Unfold open={pinsOpen || narrow}><Branches current={-1} bare={narrow} className="flex flex-col gap-px">{[
                   ...layouts.map((one) => {
                     const live = split.panes.length > 1 && sameLayout(one.views, split.panes.map((pane) => pane.trail.views[pane.trail.at]))
-                    return <PairRow key={one.id} live={live} isPinned narrow={narrow} names={one.views.map(paneName)} menu={pairMenu(one.views, live ? {} : null, one.id)}
+                    return <PairRow key={one.id} live={live} isPinned narrow={narrow} names={one.views.map(paneName)} menu={pairMenu(one.views, live ? {} : null, one.id)} onAlone={(index) => openAlone(one.views[index])}
                       onOpen={(index) => (live ? (chime('tap'), toFront(split.panes[index].key)) : openLayout(one.views, one.sizes))}
                       onClose={live ? (index) => closePane(split.panes[index].key) : undefined} />
                   }),
