@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, ipcMain } from 'electron'
 import { randomBytes, randomUUID } from 'crypto'
 import { existsSync, readFileSync, statSync } from 'fs'
 import { copyFile, cp, mkdir, readdir, readFile, rename, rm, writeFile } from 'fs/promises'
@@ -289,13 +289,6 @@ export function registerBooks(backupBase: () => string, onChange: () => void): v
     if (arrivalTold) return false
     arrivalTold = true
     return !SANDBOX && process.argv.some((arg) => arg.startsWith('--book='))
-  })
-
-  handle('reveal', (id: unknown) => {
-    const folder = folderOf(String(id))
-    if (!folder) return false
-    void shell.openPath(folder)
-    return true
   })
 
   // Never My book, never the one open. A whole copy of its folder is kept first, with the backups.

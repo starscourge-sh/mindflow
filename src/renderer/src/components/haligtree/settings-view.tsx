@@ -60,7 +60,7 @@ import { RECORDING_KINDS } from '@/lib/recordings'
 import { SANDBOX, enterSandbox, leaveSandbox, startSandboxOver } from '@/lib/sandbox'
 import { HoldButton } from './hold-button'
 import { SiteBlockField, openAutomation, useBlockRefused } from './site-block-field'
-import { askBook, deleteBook, renameBook, revealBook, switchBook, useShelf } from '@/lib/books'
+import { askBook, deleteBook, renameBook, switchBook, useShelf } from '@/lib/books'
 import { HueDots, askNewBook } from './books'
 import { useHere } from '@/lib/split'
 import { Lead, plain } from './lead'
@@ -1106,7 +1106,7 @@ export function SettingsView(): React.JSX.Element {
 }
 
 /**
- * Each book: its name to change, its folder to see, and, for any but My book
+ * Each book: its name to change, and, for any but My book
  * and the one open, deleting it, held, with a whole copy kept first.
  */
 function BookRows(): React.JSX.Element {
@@ -1135,7 +1135,7 @@ function BookRows(): React.JSX.Element {
           keywords="book rename reveal finder delete colour color accent tint space arc"
           below={SANDBOX ? undefined : <div className="mt-2 -ml-1"><HueDots id={book.id} value={book.color} /></div>}>
           {!SANDBOX && <Button variant="ghost" size="sm" onClick={() => void rename(book.id, book.name)}>Rename</Button>}
-          <Button variant="ghost" size="sm" onClick={() => void revealBook(book.id)}>Show in Finder</Button>
+          {/* No "Show in Finder": a book is the app's own files deep in the system's folders, nothing to open by hand. */}
           {!book.current && <Button variant="ghost" size="sm" onClick={() => void switchBook(book.id)}>Open</Button>}
           {!SANDBOX && book.id !== 'default' && !book.current && (
             <HoldButton hint={`${book.name} and everything in it, for good`} done="Deleting…" onHold={() => void remove(book.id, book.name)}>Hold to delete</HoldButton>

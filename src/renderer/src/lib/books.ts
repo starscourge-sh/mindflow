@@ -168,7 +168,6 @@ export async function newBook(name: string): Promise<void> {
 }
 
 export const renameBook = (id: string, name: string): Promise<boolean> => window.api.haligtree<boolean>('books:rename', id, name)
-export const revealBook = (id: string): Promise<boolean> => window.api.haligtree<boolean>('books:reveal', id)
 /** Where its full copy was kept, or null when it was not deleted. */
 export const deleteBook = (id: string): Promise<string | null> => window.api.haligtree<string | null>('books:delete', id)
 /** How many were copied into that book. */
