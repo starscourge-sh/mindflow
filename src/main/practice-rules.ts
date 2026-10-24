@@ -13,8 +13,8 @@ export const OFFER_WINDOW_MIN = 180
 export const IDLE_PAUSE_SEC = 180
 /** Declined this many times in a row at one time, a better time is suggested. */
 export const DECLINES_TO_MOVE = 5
-/** The honest record waits for this long since the first session. */
-export const HONEST_AFTER_DAYS = 14
+/** The honest record looks back this many days. */
+export const HONEST_DAYS = 14
 
 /** Under 5 minutes it is partial (never a failure); then complete; past the target, met. */
 export type Stage = 'partial' | 'complete' | 'met'
@@ -117,4 +117,39 @@ export function nextProblem(body: unknown, at: number): { text: string; index: n
   const ticked = items.some((one) => one.checked !== null)
   const index = ticked ? items.findIndex((one) => one.checked === false) : ((at % items.length) + items.length) % items.length
   return index < 0 ? null : { text: items[index].text, index, total: items.length }
+}
+
+/**
+ * The honest record: the target against the real minutes a day, over the
+ * last two weeks (or since it began), counting only the days it was offered
+ * or done. Days off its schedule with nothing done are left out; a day it was
+ * offered and not done counts as nothing. Null before any session at all.
+ */
+export function honestOf(
+  sessions: { startedAt: string; minutes: number }[],
+  practice: { days: number[]; targetMin: number; createdAt: string },
+  now: Date = new Date()
+): { planned: number; average: number; days: number } | null {
+  if (!sessions.length) return null
+  const day = (at: Date): string => `${at.getFullYear()}-${at.getMonth()}-${at.getDate()}`
+  const first = new Date(Math.min(Date.parse(practice.createdAt) || Infinity, ...sessions.map((one) => Date.parse(one.startedAt))))
+  first.setHours(0, 0, 0, 0)
+  const byDay = new Map<string, number>()
+  for (const one of sessions) byDay.set(day(new Date(one.startedAt)), (byDay.get(day(new Date(one.startedAt))) ?? 0) + one.minutes)
+  let counted = 0
+  let total = 0
+  let span = 0
+  for (let back = 0; back < HONEST_DAYS; back++) {
+    const at = new Date(now)
+    at.setHours(12, 0, 0, 0)
+    at.setDate(at.getDate() - back)
+    if (at < first) break
+    span++
+    const done = byDay.get(day(at))
+    // Today counts once it is done; not yet done today is not yet missed.
+    if (done !== undefined) (counted++, (total += done))
+    else if (back > 0 && practice.days.includes(at.getDay())) counted++
+  }
+  if (!counted) return null
+  return { planned: practice.targetMin, average: Math.round(total / counted), days: span }
 }

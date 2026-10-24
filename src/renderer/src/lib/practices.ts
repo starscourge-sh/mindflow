@@ -32,7 +32,7 @@ export const practices = {
   ofTask: (task: string) => call<PracticeSwitch>('practices:of-task', task),
   set: (task: string, patch: { on?: boolean; targetMin?: number; loadKind?: LoadKind | null; load?: string | null }) => call<PracticeSwitch>('practices:set', task, patch)
 }
-export type PracticeSwitch = { on: boolean; id: string | null; targetMin: number; loadKind: LoadKind | null; load: string | null; runs: number; lastNote: string | null }
+export type PracticeSwitch = { on: boolean; id: string | null; targetMin: number; loadKind: LoadKind | null; load: string | null; runs: number; lastNote: string | null; honest: PracticeRow['honest'] }
 
 /** "HH:MM" said the way the Mac tells the time: 21:00, or 9pm on a 12-hour clock. */
 export function timeSaid(hhmm: string, short = false): string {
@@ -48,8 +48,9 @@ export const offerSaid = (offer: Pick<Offer, 'name' | 'at' | 'later'>): string =
 /** Moving it: "You keep skipping 9pm. Mornings at 7 seem to work for you." */
 export const suggestSaid = (suggest: NonNullable<PracticeRow['suggest']>): string =>
   `You keep skipping ${timeSaid(suggest.from, true)}. ${suggest.part} at ${timeSaid(suggest.to, true).replace(/:00$/, '')} seem to work for you.`
-/** The honest record: "planned 30, averaging 22". */
-export const honestSaid = (honest: NonNullable<PracticeRow['honest']>): string => `planned ${honest.planned}, averaging ${honest.average}`
+/** The honest record: "Planned 30 a day, averaging 22 over the last 2 weeks". */
+export const honestSaid = (honest: NonNullable<PracticeRow['honest']>): string =>
+  `Planned ${honest.planned} a day, averaging ${honest.average} ${honest.days >= 14 ? 'over the last 2 weeks' : honest.days <= 1 ? 'so far today' : `over the last ${honest.days} days`}`
 
 const DAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 const DAY_NAMES = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays']

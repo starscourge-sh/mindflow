@@ -25,7 +25,7 @@ import { said } from '@/lib/host'
 import { PICTURE_LOST, Unreadable, readBytes, saveClipboardImage } from '@/extensions/image-drop'
 import { PracticeBar, PracticeOfferBand, WhatStuck, stageWords, usePracticeGuard } from './practice-pill'
 import { practices, useOffer, type Ended } from '@/lib/practices'
-import { fillOf } from '../../../../main/practice-rules'
+import { START_MIN, fillOf } from '../../../../main/practice-rules'
 import { wornStyle, type Style } from '@/lib/theme'
 import { APP_NAME } from '../../../../main/name'
 import { howLong } from '../../../../main/dates'
@@ -469,12 +469,12 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
   // A break's one card come back (lib/break-moment.ts), held open a moment to be read.
   const [moment, setMoment] = useState<BreakMoment | null>(null)
   const [showing, setShowing] = useState(false)
-  // A practice (main/practices.ts): its own bar, no asking at 5 or at the target,
-  // a pause when nobody is at the Mac, and one ask at twice the target.
+  // A practice (main/practices.ts): its own bar, one ask at 5 whether to keep
+  // going (never a stop), a pause when nobody is at the Mac, and one ask at twice the target.
   const practiceTarget = focus.practiceTarget ?? null
   const guard = usePracticeGuard(focus, worked(focus, now))
   const engaged = typing || !!words.trim() || !!attached || !!denied || selfie || carried || stopping || naming
-  const open = stage === 'shown' || (stage === 'rest' && !shut && (opened || engaged || asking || showing || guard.asking))
+  const open = stage === 'shown' || (stage === 'rest' && !shut && (opened || engaged || asking || showing || guard.asking || guard.five))
   const field = useRef<HTMLInputElement>(null)
   // Closed, the camera goes off with it: never on out of sight.
   useEffect(() => void (!open && setSelfie(false)), [open])
@@ -943,6 +943,19 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
   const end = (): void => void (practiceTarget
     ? practices.end(focus.id).then((ended) => (glowEnd('done'), onEnded(focus.id, false, true, ended)))
     : haligtree.endSession(focus.id, '', false).then(() => (over ? chime('done') : glowEnd('done'), onEnded(focus.id, !over, bare))))
+  // Asked whether to keep going at 5: ↵ carries on, S stops there, when the pill has the keys.
+  useEffect(() => {
+    if (!guard.five) return
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.metaKey || event.ctrlKey || event.altKey || event.isComposing) return
+      const into = event.target instanceof HTMLElement && (event.target.isContentEditable || /^(INPUT|TEXTAREA)$/.test(event.target.tagName))
+      if (into) return
+      if (event.key === 'Enter') (event.preventDefault(), guard.carryOn())
+      else if (event.key.toLowerCase() === 's') (event.preventDefault(), end())
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [guard.five])
   // Asking whether to count it: Escape backs out, from anywhere on the pill.
   useEffect(() => {
     if (!stopping) return
@@ -1020,7 +1033,18 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
       </div>
       )}
       {practiceTarget !== null && <div className={`${tucked ? '' : 'px-0.5'} pb-2.5`}><PracticeBar wide ms={done} target={practiceTarget} paused={paused} /></div>}
-      {/* Twice the target: one gentle ask, once, in case it was left running. Never at 5 or at the target. */}
+      {/* The 5 minutes up: keep going toward the target, or stop there. Left alone it keeps running. */}
+      {practiceTarget !== null && guard.five && !guard.asking && (
+        <div data-practice-five role="group" aria-label="Keep going?" className="mb-2 flex flex-col gap-1.5 rounded-[12px] bg-[color-mix(in_oklab,var(--foreground)_7%,transparent)] py-2 pr-1.5 pl-3">
+          <span className="text-[13px] leading-[18px] font-semibold text-foreground">{START_MIN} minutes done. Keep going{practiceTarget > START_MIN ? ` to ${practiceTarget}` : ''}?</span>
+          <span className="flex items-center gap-1">
+            <span className="min-w-0 flex-1 text-[12px] leading-4 text-foreground/75">Leave it and the timer keeps running.</span>
+            <button type="button" data-practice-five-stop onClick={() => end()} className={WORD_BUTTON}><Kbd className="mr-1">S</Kbd>Stop here</button>
+            <button type="button" data-practice-five-yes onClick={guard.carryOn} className={PRIMARY}><Kbd className="mr-1 border-current/30 bg-transparent text-current">↵</Kbd>Keep going</button>
+          </span>
+        </div>
+      )}
+      {/* Twice the target: one gentle ask, once, in case it was left running. Never at the target. */}
       {practiceTarget !== null && guard.asking && (
         <div data-practice-still className="mb-2 flex items-center gap-2 rounded-[12px] bg-[color-mix(in_oklab,var(--foreground)_7%,transparent)] py-1.5 pr-1.5 pl-3">
           <span className="min-w-0 flex-1 text-[13px] leading-[18px] font-semibold text-foreground">Still going? {lengthSaid(done)} in.</span>
@@ -1237,7 +1261,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
       )}
     </div>
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [open, timeText, over, last, paused, timer, focus.id, focus.plannedMs, focus.taskId, focus.goal, entries, words, attached, carried, denied, selfie, halfway, onBreak, lastKept, overSaid, rounds, tucked, stopping, count, focus.startedAt, endMinute, held, moment, naming, name, bare, practiceTarget, guard.asking, guard.idlePaused])
+  ), [open, timeText, over, last, paused, timer, focus.id, focus.plannedMs, focus.taskId, focus.goal, entries, words, attached, carried, denied, selfie, halfway, onBreak, lastKept, overSaid, rounds, tucked, stopping, count, focus.startedAt, endMinute, held, moment, naming, name, bare, practiceTarget, guard.asking, guard.idlePaused, guard.five])
 
   return (
     // Under the notch, tips open below what they name and never into the notch's band.

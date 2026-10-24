@@ -44,9 +44,10 @@ export function registerSessionLog(): void {
     changed()
     return true
   })
-  // Every session of a task, ended or not, with what was logged in it.
+  // Every session of a task, ended or not, with what was logged in it; its "Practise it" sessions too.
   handle('session-log:task', (taskId: string) =>
-    db.prepare(`select ${ENTRY} from session_log l join sessions s on s.id = l.session_id where s.task_id = ? order by l.at`).all(String(taskId)))
+    db.prepare(`select ${ENTRY} from session_log l join sessions s on s.id = l.session_id where s.task_id = ?
+      or s.practice_id in (select id from practices where task_id = ?) order by l.at`).all(String(taskId), String(taskId)))
   // The sessions that ended on a day (the local calendar's), each with its task and its log.
   handle('session-log:day', (day: string) => {
     // A bare session (no task) too: its line is where it is named after.

@@ -6,7 +6,7 @@ import { dayKey } from './dates'
 import { gate, plain } from './haligtree'
 import { tagged } from './kinds'
 import { practicesToTasks } from './properties'
-import { DECLINES_TO_MOVE, HONEST_AFTER_DAYS, bestHour, logLine, minutesOf, minutesRun, nextProblem, offerDue, partOfDay, stageOf, type Stage } from './practice-rules'
+import { DECLINES_TO_MOVE, HONEST_DAYS, bestHour, honestOf, logLine, minutesOf, minutesRun, nextProblem, offerDue, partOfDay, stageOf, type Stage } from './practice-rules'
 
 /**
  * Practices: things that repeat with no end (reading, design patterns, a
@@ -32,8 +32,8 @@ export type Practice = {
 }
 export type PracticeRow = Practice & {
   runs: number
-  /** "planned 30, averaging 22": only after a few weeks of it. */
-  honest: { planned: number; average: number } | null
+  /** "Planned 30 a day, averaging 22 over the last 2 weeks": from the first session on. */
+  honest: { planned: number; average: number; days: number } | null
   /** Declined again and again at one time: a time that seems to suit you, to move it to. */
   suggest: { from: string; to: string; part: string } | null
   ranToday: boolean
@@ -112,11 +112,13 @@ export function registerPractices(): void {
   const write = <T>(result: T): T => (tell(), result)
 
   // Its name, days and time are its task's: change the task's repeat or time and the offer follows.
-  const FROM = `select p.*, t.title as task_title, t.due_at as task_due, t.recurrence as task_rule from practices p join tasks t on t.id = p.task_id
-    where p.binned_at is null and p.off = 0 and t.status not in ('dropped', 'done') and t.recurrence is not null`
-  const fromTask = (row: Row & { task_title?: string; task_due?: string | null; task_rule?: string | null }): Row => {
+  // A task in the Bin, done, put off to a later day, or no longer repeating is not offered.
+  const FROM = `select p.*, t.title as task_title, t.due_at as task_due, t.all_day as task_all_day, t.recurrence as task_rule from practices p join tasks t on t.id = p.task_id
+    where p.binned_at is null and p.off = 0 and t.status not in ('dropped', 'done') and t.recurrence is not null and coalesce(t.snoozed_until, '') < date('now', 'localtime')`
+  const fromTask = (row: Row & { task_title?: string; task_due?: string | null; task_all_day?: number; task_rule?: string | null }): Row => {
     const due = row.task_due ? new Date(row.task_due) : null
-    const at = due && !Number.isNaN(due.getTime()) ? `${String(due.getHours()).padStart(2, '0')}:${String(due.getMinutes()).padStart(2, '0')}` : row.at
+    // A routine with no time of day ("every day") is offered at the practice's own time (9pm), never at midnight.
+    const at = due && !Number.isNaN(due.getTime()) && !row.task_all_day ? `${String(due.getHours()).padStart(2, '0')}:${String(due.getMinutes()).padStart(2, '0')}` : row.at
     return { ...row, name: row.task_title || row.name, at, days: JSON.stringify(ruleDays(row.task_rule ?? null, due)) }
   }
   const rows = (): Row[] => (db.prepare(`${FROM} order by p.at, p.created_at`).all() as Row[]).map(fromTask).sort((a, b) => a.at.localeCompare(b.at))
@@ -149,12 +151,9 @@ export function registerPractices(): void {
     return hour === null ? null : { from: row.at, to: `${String(hour).padStart(2, '0')}:00`, part: partOfDay(hour) }
   }
   const honestFor = (row: Row): PracticeRow['honest'] => {
-    const ended = db.prepare('select started_at, ended_at, paused_ms from sessions where practice_id = ? and ended_at is not null and abandoned_at is null order by started_at').all(row.id) as { started_at: string; ended_at: string; paused_ms: number }[]
-    if (ended.length < 3 || Date.now() - Date.parse(ended[0].started_at) < HONEST_AFTER_DAYS * 86_400_000) return null
-    const month = ended.filter((one) => Date.now() - Date.parse(one.started_at) <= 28 * 86_400_000)
-    const counted = month.length ? month : ended
-    const average = counted.reduce((sum, one) => sum + minutesRun(one.started_at, one.ended_at, one.paused_ms), 0) / counted.length
-    return { planned: row.target_min, average: Math.round(average) }
+    const since = new Date(Date.now() - (HONEST_DAYS + 1) * 86_400_000).toISOString()
+    const ended = db.prepare('select started_at, ended_at, paused_ms from sessions where practice_id = ? and ended_at is not null and abandoned_at is null and started_at >= ?').all(row.id, since) as { started_at: string; ended_at: string; paused_ms: number }[]
+    return honestOf(ended.map((one) => ({ startedAt: one.started_at, minutes: minutesRun(one.started_at, one.ended_at, one.paused_ms) })), { days: asPractice(row).days, targetMin: row.target_min, createdAt: row.created_at })
   }
   const listed = (): PracticeRow[] => rows().map((row) => ({
     ...asPractice(row),
@@ -184,12 +183,13 @@ export function registerPractices(): void {
     return write(id)
   })
   // --- "Practise it" on a repeating task: its practice's settings, or none.
-  type Switch = { on: boolean; id: string | null; targetMin: number; loadKind: LoadKind | null; load: string | null; runs: number; lastNote: string | null }
+  type Switch = { on: boolean; id: string | null; targetMin: number; loadKind: LoadKind | null; load: string | null; runs: number; lastNote: string | null; honest: PracticeRow['honest'] }
   const switchOf = (task: string): Switch => {
     const row = db.prepare('select * from practices where task_id = ? and binned_at is null order by created_at limit 1').get(String(task)) as (Row & { off: number }) | undefined
-    if (!row) return { on: false, id: null, targetMin: 30, loadKind: null, load: null, runs: 0, lastNote: null }
+    if (!row) return { on: false, id: null, targetMin: 30, loadKind: null, load: null, runs: 0, lastNote: null, honest: null }
     const runs = (db.prepare('select count(*) n from sessions where practice_id = ? and ended_at is not null and abandoned_at is null').get(row.id) as { n: number }).n
-    return { on: !row.off, id: row.id, targetMin: row.target_min, loadKind: (row.load_kind as LoadKind) || null, load: row.load || null, runs, lastNote: row.last_note }
+    const live = !row.off ? one(row.id) : undefined
+    return { on: !row.off, id: row.id, targetMin: row.target_min, loadKind: (row.load_kind as LoadKind) || null, load: row.load || null, runs, lastNote: row.last_note, honest: live ? honestFor(live) : null }
   }
   handle('practices:of-task', (task: string) => switchOf(task))
   // On, off, or its material and minutes changed. Turned off, it keeps everything for when it is on again.
@@ -251,8 +251,17 @@ export function registerPractices(): void {
   })
   // Moved to the time that suits you, or kept where it is: either way the count of skips starts again.
   handle('practices:move', (id: string, at: string | null) => {
-    if (at && /^\d{2}:\d{2}$/.test(at)) db.prepare('update practices set at = ?, kept_time_at = ? where id = ?').run(at, now(), id)
-    else db.prepare('update practices set kept_time_at = ? where id = ?').run(now(), id)
+    if (at && /^\d{2}:\d{2}$/.test(at)) {
+      db.prepare('update practices set at = ?, kept_time_at = ? where id = ?').run(at, now(), id)
+      // Its time is its task's: the task moves too, or the offer would stay where it was.
+      const task = db.prepare('select t.id, t.due_at, t.all_day from practices p join tasks t on t.id = p.task_id where p.id = ?').get(id) as { id: string; due_at: string | null; all_day: number } | undefined
+      const due = task?.due_at ? new Date(task.due_at) : null
+      if (task && due && !Number.isNaN(due.getTime()) && !task.all_day) {
+        due.setHours(minutesOf(at) / 60 | 0, minutesOf(at) % 60, 0, 0)
+        db.prepare('update tasks set due_at = ? where id = ?').run(due.toISOString(), task.id)
+        changed()
+      }
+    } else db.prepare('update practices set kept_time_at = ? where id = ?').run(now(), id)
     return write(true)
   })
 

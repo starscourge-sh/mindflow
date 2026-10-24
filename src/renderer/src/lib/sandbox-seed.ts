@@ -1157,6 +1157,8 @@ The same move works on anything hard. Put what you know beside what you do not. 
 
   // A small routine kept most evenings, and the app opened most days.
   const reading = await task('Read twenty pages before bed every day')
+  // One practice to try: "Practise it" on, opening your #reading gems at 9pm, 30 minutes planned.
+  await call('practices:set', reading, { on: true, targetMin: 30, loadKind: 'tag', load: 'reading' })
   for (let n = 160; n >= 1; n--) if (n % 4 !== 2) yearAges.push({ done: reading, at: at(-n, '22:30') })
   for (let n = 280; n >= 1; n--) if (n % 9 !== 4 && (n < 120 || n % 3 !== 1)) yearAges.push({ openedAt: at(-n, '08:20') })
   await call('sandbox:age', yearAges)

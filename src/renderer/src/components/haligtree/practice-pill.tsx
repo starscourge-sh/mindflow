@@ -13,7 +13,8 @@ import { Kbd, Tip, Typed } from './ui'
 /**
  * A practice in the bubble: the pill's bar, the guard against a timer left
  * running, the offer, and "What stuck?" as it ends (main/practices.ts).
- * Nothing here asks at 5 minutes or at the target: the bar says it.
+ * At 5 minutes it asks once whether to keep going (never stops you); at the
+ * target the bar says it.
  */
 
 /** Bright gold for the first 5 minutes, the part that counts most. */
@@ -81,7 +82,7 @@ export function PracticeBar({ ms, target, wide = false, paused = false }: { ms: 
  * it carries on once they are back; and at twice the target, one gentle ask
  * whether you are still going. Gives back whether that ask is up, and its answer.
  */
-export function usePracticeGuard(focus: Focus, ms: number): { asking: boolean; idlePaused: boolean; keepGoing: () => void } {
+export function usePracticeGuard(focus: Focus, ms: number): { asking: boolean; idlePaused: boolean; keepGoing: () => void; five: boolean; carryOn: () => void } {
   const target = focus.practiceTarget ?? 0
   const [idlePaused, setIdlePaused] = useState(false)
   const latest = useRef({ focus, idlePaused })
@@ -106,7 +107,24 @@ export function usePracticeGuard(focus: Focus, ms: number): { asking: boolean; i
     asked.current = focus.id
     setAsking(true)
   }, [ms, target, focus.id])
-  return { asking, idlePaused, keepGoing: () => (setAsking(false), chime('tap')) }
+  // At 5 minutes, the short start done: asked once whether to keep going. Left
+  // alone it keeps running. Not asked again after a reload long past the 5.
+  const fived = useRef<string | null>(null)
+  const [five, setFive] = useState(false)
+  useEffect(() => {
+    if (!target || fived.current === focus.id || ms < START_MIN * 60_000) return
+    fived.current = focus.id
+    const key = `practice-five:${focus.id}`
+    let seen = false
+    try {
+      seen = sessionStorage.getItem(key) === '1'
+      sessionStorage.setItem(key, '1')
+    } catch {
+      // No storage: asked as if new.
+    }
+    if (!seen && ms < (START_MIN + 15) * 60_000) (setFive(true), chime('hint'))
+  }, [ms, target, focus.id])
+  return { asking, idlePaused, keepGoing: () => (setAsking(false), chime('tap')), five, carryOn: () => (setFive(false), chime('tap')) }
 }
 
 /**

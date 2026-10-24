@@ -111,7 +111,7 @@ function Desk({ practice, running, runningId, onOpen }: { practice: PracticeRow;
   )
 }
 
-/** Stats: the honest record of each practice, "planned 30, averaging 22", once there are a few weeks of it. */
+/** Stats: the honest record of each practice, "Planned 30 a day, averaging 22 over the last 2 weeks". */
 export function PracticeStats(): React.JSX.Element | null {
   const read = usePractices()
   const all = read.filter((one) => one.honest)

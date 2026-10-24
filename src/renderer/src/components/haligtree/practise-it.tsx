@@ -2,7 +2,7 @@ import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { chime } from '@/lib/sound'
 import { useLive } from '@/lib/haligtree'
-import { loadSaid, practices, startPractice, type LoadKind, type PracticeSwitch } from '@/lib/practices'
+import { honestSaid, loadSaid, practices, startPractice, type LoadKind, type PracticeSwitch } from '@/lib/practices'
 import { num } from '../../../../main/dates'
 import { Chips } from './display'
 import { Island, PropInput, Tip, toast } from './ui'
@@ -45,6 +45,7 @@ export function PractiseIt({ taskId }: { taskId: string }): React.JSX.Element {
           ? `At its time it offers 5 minutes, never more unless you want. ${loadSaid({ loadKind: on.loadKind, load: on.load })}. After, a line goes in its log and it asks “What stuck?”`
           : 'At its time, an offer of 5 minutes; it opens with your material, and afterwards asks “What stuck?”'}
       </p>
+      {on?.on && on.honest && <p data-practice-honest className="px-2 pb-2 text-control leading-snug font-medium text-foreground">{honestSaid(on.honest)}</p>}
       {on?.on && (
         <div className="flex flex-col gap-1.5 px-2 pb-2">
           <span className="text-xs text-muted-foreground">It opens with</span>
