@@ -125,7 +125,7 @@ function Strip({ scenes }: { scenes: Scene[] }): React.JSX.Element {
  * ready, and a strip of a few of them; open it in Finder, or take it out
  * (undoable).
  */
-/** The paintings Haligtree ships with (sandbox-seed.ts, builtInScenery): the folder it writes them to, in your book or the sandbox. */
+/** The paintings Haligtree ships with (lib/built-in-scenery.ts): the folder it writes them to, in your book or the sandbox. */
 export const isBuiltInScenery = (folder: string): boolean => /\/(Scenery|Sandbox scenery)$/.test(folder)
 const folderName = (folder: string): string => (isBuiltInScenery(folder) ? 'Haligtree’s paintings' : folder.split('/').pop() ?? folder)
 

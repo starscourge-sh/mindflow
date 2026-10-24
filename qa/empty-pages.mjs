@@ -39,7 +39,7 @@ const measure = () => h.evaluate(() => {
 
 try {
   await v('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, pageHints: false, hidden: true })
-  await v('settings:set', { scenery: true, sceneryRest: true, sceneryToday: true, sceneryFolders: [join(process.cwd(), 'src/renderer/src/assets/sandbox/scenery')], motion: false, sounds: false })
+  await v('settings:set', { scenery: true, sceneryRest: true, sceneryToday: true, sceneryFolders: [join(process.cwd(), 'src/renderer/src/assets/scenery')], motion: false, sounds: false })
   await h.reload()
   await h.waitForTimeout(2500)
   const seen = {}
