@@ -56,7 +56,7 @@ try {
   await wait(1200)
   const winId = (await stickyWins()).find((one) => one.url.includes(`id=${id}`)).id
   const info = () => electron.evaluate(({ BrowserWindow, screen }, id) => { const w = BrowserWindow.fromId(id); return { b: w.getBounds(), work: screen.getDisplayMatching(w.getBounds()).workArea } }, winId)
-  const taps = () => page.evaluate(() => (window.haligtreeHeard ?? []).filter((one) => one === 'paper-tap').length)
+  const taps = () => page.evaluate(() => (window.haligtreeHeard ?? []).filter((one) => one === 'click:slap').length)
   const isHeld = () => page.evaluate(() => !!document.querySelector('[data-held]'))
 
   // One drag, as the Mac does it: will-move, then each frame the window and pointer move together with move + moved.

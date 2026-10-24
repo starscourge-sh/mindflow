@@ -151,10 +151,10 @@ try {
   await electron.evaluate(() => (globalThis.qaButton = false))
   // Settled only once the hand has let go: the Mac is asked whether the button is up (hand.ts), so a moment later.
   for (let i = 0; i < 20 && (await pa.evaluate(() => document.querySelector('[data-held]') !== null)); i++) await wait(100)
-  for (let i = 0; i < 10 && !(await pa.evaluate(() => (window.haligtreeHeard ?? []).includes('paper-tap'))); i++) await wait(100)
+  for (let i = 0; i < 10 && !(await pa.evaluate(() => (window.haligtreeHeard ?? []).includes('click:slap'))); i++) await wait(100)
   const set = await pa.evaluate(() => ({ held: document.querySelector('[data-held]') !== null, heard: [...(window.haligtreeHeard ?? [])] }))
   check('K3 picked up: the card is held (deeper shadow, straightened)', lifted)
-  check('K3 let go: it settles, with the paper tap', !set.held && set.heard.includes('paper-tap'), set.heard.slice(-3).join(','))
+  check('K3 let go: it settles, with the paper tap', !set.held && set.heard.includes('click:slap'), set.heard.slice(-3).join(','))
 
   // K4: let go mostly past the screen's edge, it glides back until the card is in view.
   const work = wa.work

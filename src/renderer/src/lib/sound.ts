@@ -424,6 +424,8 @@ const CLICKS = {
   leaf: { duration: 0.09, frequency: 1800, q: 0.6, volume: 0.12, decay: 1400 },
   // A pen put to a drawing: a dry, bright scratch, once a stroke.
   scratch: { duration: 0.07, frequency: 4200, q: 0.9, volume: 0.07, decay: 900 },
+  // A sticky set down: a short, soft slap of a card pressed flat with the palm, low and over at once.
+  slap: { duration: 0.018, frequency: 650, q: 0.7, volume: 0.24, decay: 70 },
   // The eraser: lower and duller, rubber on paper.
   rub: { duration: 0.11, frequency: 1300, q: 0.7, volume: 0.09, decay: 1600 }
 }
@@ -744,8 +746,8 @@ export function pageTurn(soft = false, id?: string): void {
  */
 export function paper(kind: 'slide' | 'fold' | 'tap'): void {
   if (kind === 'slide') void recording(slideUrl, 0.14, 'paper-slide')
-  // `tap`: a sticky set down on the desk, the slide's sound short and light, quieter still.
-  else if (kind === 'tap') void recording(slideUrl, 0.07, 'paper-tap', { rate: 1.9 })
+  // `tap`: a sticky set down on the desk, a quick soft slap. The paper slide sped up read as a page tearing.
+  else if (kind === 'tap') click('slap')
   else void recording(foldUrl, 0.3, 'paper-fold', { rate: 1.3 })
 }
 
