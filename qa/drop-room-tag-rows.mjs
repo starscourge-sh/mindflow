@@ -1,5 +1,5 @@
-// Two things: carried to a side, the half the new pane takes lights up whole
-// (Dia's way), and stays lit while the pointer moves over it; and Home's
+// Two things: carried to a side, Dia's two tall cards come up, the one under
+// the pointer lit as the place; and Home's
 // "More like" rows never show the app's help deck or a #bit, and a row can be
 // taken off Home from its own menu, with the way back on the tag's page.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/drop-room-tag-rows.mjs
@@ -53,13 +53,10 @@ try {
   await h.mouse.move(area.right - 200, y, { steps: 10 })
   await h.mouse.move(area.right - 50, y, { steps: 8 })
   await wait(400)
-  const room = await h.evaluate(() => { const el = document.querySelector('[data-split-room]'); return el ? el.getBoundingClientRect().width : 0 })
-  check('the lit place is the half the new pane takes', room >= area.width * 0.45, `${Math.round(room)} of ${Math.round(area.width)}`)
-  await h.screenshot({ path: `${SHOTS}/room-right.png` })
-  // Moving back over the lit half keeps it lit.
-  await h.mouse.move(area.right - area.width * 0.35, y, { steps: 8 })
-  await wait(300)
-  check('moving over the lit half keeps it lit', await h.locator('[data-split-room="right"]').count() === 1)
+  const card = await h.evaluate(() => { const el = document.querySelector('[data-split-zone="right"]'); const r = el.getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height), hot: el.hasAttribute('data-hot') } })
+  check('the places are Dia\'s tall cards, there whole from the start', card.w >= 180 && card.h >= (area.bottom - area.top) * 0.6, JSON.stringify(card))
+  check('the card under the pointer is the place', card.hot, JSON.stringify(card))
+  await h.screenshot({ path: `${SHOTS}/dia-cards.png` })
   await h.mouse.up()
   await wait(1500)
   check('letting go there opens a second pane', await h.evaluate(() => document.querySelectorAll('[data-pane]').length) === 2)

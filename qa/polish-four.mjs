@@ -141,7 +141,7 @@ try {
   check('a Pages row in Custom order carried to the right edge brings up the split places', placed.length === 2, JSON.stringify(placed))
   await h.screenshot({ path: `${SHOTS}/pages-drag-edge.png` })
   const strip = await h.evaluate(() => Math.round(document.querySelector('[data-split-zone="left"]').getBoundingClientRect().width))
-  const room = Math.min(168, a.x - box.left - 42, box.right - (a.x + a.width) - 42)
+  const room = Math.min(Math.max(180, Math.min(320, (box.right - box.left) * 0.24)), a.x - box.left - 56, box.right - (a.x + a.width) - 56)
   check('beside a list, the places are as wide as the room either side allows', Math.abs(strip - Math.max(72, room)) <= 2, `${strip}px, room ${Math.round(room)}px`)
   await h.mouse.up()
   await wait(1500)
