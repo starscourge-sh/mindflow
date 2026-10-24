@@ -1,6 +1,8 @@
 import { ipcMain } from 'electron'
+import { randomUUID } from 'crypto'
 
-import { LABEL, database } from './captures'
+import { LABEL, changed, database } from './captures'
+import { cut } from './clip'
 import { cardWords, gate } from './haligtree'
 import { dayKey, dayjs } from './dates'
 
@@ -23,48 +25,70 @@ export type FeedPost = {
   seen: string | null
   gloss: { body: string; at: string } | null
   clue: string | null
+  /** What you said of it today, if anything: one a post a day, changeable. */
+  react: Reaction | null
+  /** Your own history with it: how many thoughts, since when, and how many times it came up before. */
+  replies: number
+  firstReply: string | null
+  seenTimes: number
+  /** A gem you restacked: the note it quotes. */
+  restack: { type: FeedPost['type']; id: string; title: string; text: string; who: string | null; kind: string } | null
 }
+export type Reaction = 'true' | 'changed' | 'use' | 'less'
 export type Feed = { day: string; posts: FeedPost[]; safe: boolean }
 
 const SIZE = 20
-type Row = { type: FeedPost['type']; id: string; kind: string; title: string; body: string | null; who: string | null; made: string; visited: string | null }
+type Row = { type: FeedPost['type']; id: string; kind: string; title: string; body: string | null; who: string | null; made: string; visited: string | null; weight: number }
+/** How much less often "Less of this" makes it come up: the same step as a hint's thumbs down. */
+const LESS = 1 / 1.5
+const tableOf = (type: string): 'nuggets' | 'captures' | null => (type === 'capture' ? 'captures' : type === 'day' ? null : 'nuggets')
+/** The id a note link names it by: a capture by its own id, a day as `day:`, the rest as `nugget:id`. */
+const linkId = (type: string, id: string): string => (type === 'capture' ? id : type === 'day' ? `day:${id}` : `nugget:${id}`)
 
 export function registerFeed(): void {
   const db = database()
-  db.exec('create table if not exists feed_days (day text primary key, keys text not null)')
+  db.exec(`create table if not exists feed_days (day text primary key, keys text not null);
+    create table if not exists feed_reacts (day text not null, key text not null, reaction text not null, was text, primary key (day, key));
+    create table if not exists feed_restacks (id text primary key, of_key text not null, made_day text not null, shown_day text)`)
 
   /** Everything the Feed may show, as rows: private ones and #bits are never read. */
   const pool = (): Row[] => {
-    const nuggets = db.prepare(`select case when tier = 'question' then 'question' else 'nugget' end as type, id, kind, coalesce(nullif(title, ''), label('', body)) as title, body, attribution as who, created_at as made, last_visited_at as visited
+    const nuggets = db.prepare(`select case when tier = 'question' then 'question' else 'nugget' end as type, id, kind, coalesce(nullif(title, ''), label('', body)) as title, body, attribution as who, created_at as made, last_visited_at as visited, surfacing_weight as weight
       from nuggets where tier in ('nugget', 'question') and private = 0 and suspended = 0 and archived_at is null and superseded_by is null and binned_at is null and (tier != 'question' or closed_at is null)`).all() as Row[]
     // A quote still a capture; one already a gem comes as the gem.
-    const quotes = db.prepare(`select 'capture' as type, id, kind, ${LABEL} as title, body, attribution as who, captured_at as made, surfaced_at as visited
+    const quotes = db.prepare(`select 'capture' as type, id, kind, ${LABEL} as title, body, attribution as who, captured_at as made, surfaced_at as visited, surfacing_weight as weight
       from captures where kind = 'quote' and private = 0 and status != 'discarded' and archived_at is null
       and id not in (select capture_id from nuggets where capture_id is not null)`).all() as Row[]
     // A note or a page of yours with a picture in it: the posts you look at, not only read.
     const PICTURED = "(body like '%](%.webp)%' or body like '%](%.png)%' or body like '%](%.jp%g)%' or body like '%\"type\":\"image\"%')"
     const pictured = [
-      ...db.prepare(`select 'capture' as type, id, kind, ${LABEL} as title, body, null as who, captured_at as made, surfaced_at as visited
+      ...db.prepare(`select 'capture' as type, id, kind, ${LABEL} as title, body, null as who, captured_at as made, surfaced_at as visited, surfacing_weight as weight
         from captures where kind not in ('quote', 'task') and private = 0 and status != 'discarded' and archived_at is null and ${PICTURED}
         and id not in (select capture_id from nuggets where capture_id is not null)`).all(),
-      ...db.prepare(`select 'article' as type, id, kind, coalesce(nullif(title, ''), label('', body)) as title, body, null as who, created_at as made, last_visited_at as visited
+      ...db.prepare(`select 'article' as type, id, kind, coalesce(nullif(title, ''), label('', body)) as title, body, null as who, created_at as made, last_visited_at as visited, surfacing_weight as weight
         from nuggets where tier = 'article' and private = 0 and archived_at is null and superseded_by is null and binned_at is null and ${PICTURED}`).all()
     ] as Row[]
     // A Journal day at least a week old with something written on it.
-    const days = db.prepare("select 'day' as type, day as id, 'day' as kind, day as title, body, null as who, day as made, null as visited from day_pages where day < ? and length(coalesce(body, '')) > 40")
+    const days = db.prepare("select 'day' as type, day as id, 'day' as kind, day as title, body, null as who, day as made, null as visited, 1 as weight from day_pages where day < ? and length(coalesce(body, '')) > 40")
       .all(dayKey(dayjs().subtract(7, 'day'))) as Row[]
     return [...nuggets, ...quotes, ...pictured, ...days].filter((row) => !/(^|\s)#bit\b/i.test(`${row.title} ${row.body ?? ''}`))
   }
 
   /** When each was last in front of you: an open, a hint, or an earlier day's Feed. */
-  const seenOf = (): Map<string, string> => {
+  const seenOf = (): { seen: Map<string, string>; times: Map<string, number> } => {
     const seen = new Map<string, string>()
+    const times = new Map<string, number>()
+    const count = (id: string, n = 1): void => void times.set(id, (times.get(id) ?? 0) + n)
+    for (const row of db.prepare('select nugget_id as id, count(*) as n from hint_events group by nugget_id').all() as { id: string; n: number }[]) count(row.id, row.n)
     const note = (id: string, at: string | null): void => void (at && at > (seen.get(id) ?? '') && seen.set(id, at))
     for (const row of db.prepare('select id, at from note_opens').all() as { id: string; at: string }[]) note(row.id, row.at)
     for (const row of db.prepare('select nugget_id as id, max(shown_at) as at from hint_events group by nugget_id').all() as { id: string; at: string }[]) note(row.id, row.at)
     for (const row of db.prepare('select day, keys from feed_days where day < ?').all(dayKey()) as { day: string; keys: string }[])
-      for (const key of JSON.parse(row.keys) as string[]) note(key.slice(key.indexOf(':') + 1), dayjs(row.day).toISOString())
-    return seen
+      for (const key of JSON.parse(row.keys) as string[]) {
+        note(key.slice(key.indexOf(':') + 1), dayjs(row.day).toISOString())
+        count(key.slice(key.indexOf(':') + 1))
+      }
+    return { seen, times }
   }
 
   const words = (row: Row): string => {
@@ -83,12 +107,18 @@ export function registerFeed(): void {
     if (gate().blackout) return { day: today, posts: [], safe: true }
     const rows = pool()
     const byKey = new Map(rows.map((row) => [`${row.type}:${row.id}`, row]))
-    const seen = seenOf()
+    const { seen, times } = seenOf()
     const lastSeen = (row: Row): string | null => [row.visited, seen.get(row.id)].filter(Boolean).sort().at(-1) ?? null
     let keys = (db.prepare('select keys from feed_days where day = ?').get(today) as { keys: string } | undefined)?.keys
     if (!keys) {
       // Each kind longest unseen first, then taken in turns so no one kind fills the day.
-      const order = (list: Row[]): Row[] => list.sort((a, b) => (lastSeen(a) ?? a.made).localeCompare(lastSeen(b) ?? b.made))
+      // The hints' rhythm: time since you last saw it, times how often you want it ("Less of this" fades it).
+      const due = (row: Row): number => (Date.now() - new Date(lastSeen(row) ?? row.made).getTime()) * (row.weight ?? 1)
+      const order = (list: Row[]): Row[] => list.sort((a, b) => due(b) - due(a))
+      // Gems you restacked before today come first, once: "You restacked".
+      const stacked = (db.prepare('select id from feed_restacks where made_day < ? and shown_day is null order by made_day').all(today) as { id: string }[])
+        .map((one) => byKey.get(`nugget:${one.id}`)).filter((one): one is Row => !!one)
+      for (const one of stacked) rows.splice(rows.indexOf(one), 1)
       const lanes = [
         order(rows.filter((row) => row.type === 'nugget' && row.kind !== 'quote')),
         order(rows.filter((row) => row.kind === 'quote')),
@@ -101,19 +131,132 @@ export function registerFeed(): void {
       const picked: Row[] = []
       while (picked.length < SIZE && lanes.some((lane) => lane.length))
         lanes.forEach((lane, at) => picked.push(...lane.splice(0, share[at]).slice(0, SIZE - picked.length)))
-      keys = JSON.stringify(order(picked).map((row) => `${row.type}:${row.id}`))
+      keys = JSON.stringify([...stacked, ...order(picked)].map((row) => `${row.type}:${row.id}`))
+      db.prepare('update feed_restacks set shown_day = ? where shown_day is null and made_day < ?').run(today, today)
       db.prepare('insert or replace into feed_days (day, keys) values (?, ?)').run(today, keys)
     }
     const glossOf = db.prepare('select body, created_at as at from glosses where item_id = ? order by created_at desc limit 1')
+    const glossSpan = db.prepare('select count(*) as n, min(created_at) as first from glosses where item_id = ?')
+    const reacts = new Map((db.prepare('select key, reaction from feed_reacts where day = ?').all(today) as { key: string; reaction: Reaction }[]).map((one) => [one.key, one.reaction]))
+    const restackOf = db.prepare('select of_key from feed_restacks where id = ?')
+    const quoted = (row: Row): FeedPost['restack'] => {
+      if (row.type !== 'nugget') return null
+      const of = (restackOf.get(row.id) as { of_key: string } | undefined)?.of_key
+      const old = of ? (byKey.get(of) ?? lookUp(of)) : undefined
+      return old ? { type: old.type, id: old.id, title: old.title, text: words(old), who: old.who?.trim() || null, kind: old.kind } : null
+    }
     const posts = (JSON.parse(keys) as string[]).flatMap((key): FeedPost[] => {
       const row = byKey.get(key)
       if (!row) return []
       const gloss = (glossOf.get(row.id) as { body: string; at: string } | undefined) ?? null
+      const span = glossSpan.get(row.id) as { n: number; first: string | null }
       return [{
         type: row.type, id: row.id, kind: row.kind, title: row.title, text: words(row), who: row.who?.trim() || null, made: row.made,
-        seen: lastSeen(row), gloss: row.type === 'question' ? null : gloss, clue: row.type === 'question' ? (gloss?.body ?? null) : null
+        seen: lastSeen(row), gloss: row.type === 'question' ? null : gloss, clue: row.type === 'question' ? (gloss?.body ?? null) : null,
+        react: reacts.get(key) ?? null, replies: span.n, firstReply: span.first, seenTimes: times.get(row.id) ?? 0, restack: quoted(row)
       }]
     })
     return { day: today, posts, safe: false }
   })
+
+  /** One note by its feed key, for a restack whose old note is not in the day's set. */
+  const lookUp = (key: string): Row | undefined => pool().find((row) => `${row.type}:${row.id}` === key)
+
+  // --- reactions: what you mean by it, each changing when it next comes up.
+  // One a post a day; choosing another first takes the last one's effect back.
+  type Was = { weight?: number; visited?: string | null; day?: string; link?: string }
+  const visitedColumn = (table: 'nuggets' | 'captures'): string => (table === 'nuggets' ? 'last_visited_at' : 'surfaced_at')
+  const split = (key: string): [string, string] => [key.slice(0, key.indexOf(':')), key.slice(key.indexOf(':') + 1)]
+  const undoReact = (day: string, key: string): void => {
+    const row = db.prepare('select was from feed_reacts where day = ? and key = ?').get(day, key) as { was: string | null } | undefined
+    if (!row) return
+    const was = JSON.parse(row.was ?? '{}') as Was
+    const [type, id] = split(key)
+    const table = tableOf(type)
+    if (table && was.weight !== undefined) db.prepare(`update ${table} set surfacing_weight = ? where id = ?`).run(was.weight, id)
+    if (table && was.visited !== undefined) db.prepare(`update ${table} set ${visitedColumn(table)} = ? where id = ?`).run(was.visited, id)
+    if (was.day && was.link) takeOutOfDay(was.day, was.link)
+    db.prepare('delete from feed_reacts where day = ? and key = ?').run(day, key)
+  }
+  ipcMain.handle('haligtree:feed:react', (_event, key: string, reaction: Reaction | null): Reaction | null => {
+    const day = dayKey()
+    const [type, id] = split(key)
+    const table = tableOf(type)
+    undoReact(day, key)
+    if (reaction) {
+      const was: Was = {}
+      // Less of this: the hints' own thumbs down, so it comes up less often everywhere.
+      if (table && reaction === 'less') {
+        was.weight = (db.prepare(`select surfacing_weight as w from ${table} where id = ?`).get(id) as { w: number } | undefined)?.w ?? 1
+        db.prepare(`update ${table} set surfacing_weight = surfacing_weight * ? where id = ?`).run(LESS, id)
+      }
+      // Still true: seen and kept today, so its usual rhythm starts again from now.
+      if (table && reaction === 'true') {
+        was.visited = (db.prepare(`select ${visitedColumn(table)} as v from ${table} where id = ?`).get(id) as { v: string | null } | undefined)?.v ?? null
+        db.prepare(`update ${table} set ${visitedColumn(table)} = ? where id = ?`).run(new Date().toISOString(), id)
+      }
+      if (reaction === 'use') {
+        const title = (lookUp(key)?.title ?? 'Untitled').replace(/\s+/g, ' ').trim()
+        was.day = day
+        was.link = linkId(type, id)
+        putInDay(day, was.link, cut(title || 'Untitled', 80))
+      }
+      db.prepare('insert into feed_reacts (day, key, reaction, was) values (?, ?, ?, ?)').run(day, key, reaction, JSON.stringify(was))
+    }
+    changed({ kind: table === 'captures' ? 'capture' : 'item', id })
+    return reaction
+  })
+
+  // Use this: a line on today's Journal page linking to it, where you write today.
+  type Node = { type: string; attrs?: Record<string, unknown>; content?: Node[]; text?: string }
+  const dayDoc = (day: string): Node => {
+    const page = db.prepare('select body from day_pages where day = ?').get(day) as { body: string | null } | undefined
+    let doc = JSON.parse(page?.body ?? 'null') as Node | string | null
+    if (typeof doc === 'string') doc = { type: 'doc', content: doc.split('\n\n').map((one): Node => (one ? { type: 'paragraph', content: [{ type: 'text', text: one }] } : { type: 'paragraph' })) }
+    return doc?.content ? doc : { type: 'doc', content: [] }
+  }
+  const saveDay = (day: string, doc: Node): void =>
+    void db.prepare(`insert into day_pages (day, body, reviewed, updated_at) values (?, ?, 0, ?)
+      on conflict (day) do update set body = excluded.body, updated_at = excluded.updated_at`).run(day, JSON.stringify(doc), new Date().toISOString())
+  const putInDay = (day: string, link: string, label: string): void => {
+    const doc = dayDoc(day)
+    const content = doc.content!
+    // An empty last line is written over rather than left above it.
+    while (content.length && content.at(-1)!.type === 'paragraph' && !content.at(-1)!.content?.length) content.pop()
+    content.push({ type: 'paragraph', content: [{ type: 'noteLink', attrs: { id: link, label } }] })
+    saveDay(day, doc)
+  }
+  const takeOutOfDay = (day: string, link: string): void => {
+    const doc = dayDoc(day)
+    const at = doc.content!.findLastIndex((node) => node.type === 'paragraph' && node.content?.length === 1 && node.content[0].type === 'noteLink' && node.content[0].attrs?.id === link)
+    if (at < 0) return
+    doc.content!.splice(at, 1)
+    saveDay(day, doc)
+  }
+
+  // --- restack: a new gem in your words, linking to the old note, at the top of tomorrow's Feed.
+  ipcMain.handle('haligtree:feed:restack', (_event, key: string, text: string): string | null => {
+    const said = String(text ?? '').trim()
+    const old = lookUp(key)
+    if (!said || !old) return null
+    const id = randomUUID()
+    const at = new Date().toISOString()
+    const doc: Node = { type: 'doc', content: [
+      ...said.split('\n').filter((line) => line.trim()).map((line): Node => ({ type: 'paragraph', content: [{ type: 'text', text: line }] })),
+      { type: 'paragraph', content: [{ type: 'noteLink', attrs: { id: linkId(old.type, old.id), label: cut(old.title.replace(/\s+/g, ' ').trim() || 'Untitled', 80) } }] }
+    ] }
+    db.prepare("insert into nuggets (id, kind, title, body, created_at, updated_at) values (?, 'note', ?, ?, ?, ?)").run(id, cut(said.split('\n')[0], 160), JSON.stringify(doc), at, at)
+    db.prepare('insert into feed_restacks (id, of_key, made_day) values (?, ?, ?)').run(id, key, dayKey())
+    changed({ kind: 'item', id })
+    return id
+  })
+  ipcMain.handle('haligtree:feed:unrestack', (_event, id: string): boolean => {
+    if (!db.prepare('select 1 from feed_restacks where id = ?').get(id)) return false
+    db.prepare('delete from glosses where item_id = ?').run(id)
+    db.prepare('delete from nuggets where id = ?').run(id)
+    db.prepare('delete from feed_restacks where id = ?').run(id)
+    changed({ kind: 'item', id })
+    return true
+  })
+
 }
