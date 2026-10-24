@@ -599,7 +599,7 @@ export function ItemsView({ tier, focus, onOpen, only }: { tier: 'nugget' | 'art
               </p>
             </div>
         </Unfold>
-        <div data-kind-chips className="list-words pt-2.5 pb-2 empty:hidden">
+        <div data-kind-chips className="list-words pt-4 pb-2 empty:hidden">
           {folder && (
             <Tip label="Back out of the group  ⌘[">
             <button type="button" data-folder-back="" onClick={() => (chime('tuck'), setInGroup(null))}

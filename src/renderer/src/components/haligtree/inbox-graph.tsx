@@ -176,7 +176,7 @@ export function GraphChip({ on, onChange }: { on: boolean; onChange: (on: boolea
   return (
     <Tip label={on ? 'Back to the list' : 'What you have been capturing, as a map: clusters by shared tags, and a tag graph'}>
       <span className="flex shrink-0">
-        <Chip on={on} onClick={() => (chime(on ? 'fold' : 'open'), onChange(!on))}><Waypoints aria-hidden className="size-3.5" />Graph</Chip>
+        <Chip on={on} onClick={() => (chime(on ? 'fold' : 'open'), onChange(!on))} mark={<Waypoints aria-hidden className="size-3.5" />}>Graph</Chip>
       </span>
     </Tip>
   )

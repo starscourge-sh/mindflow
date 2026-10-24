@@ -117,9 +117,11 @@ export function DatePicker({ value, onChange, time = false, placeholder = 'Pick 
             )}
           </Island>
         )}
+        {/* With words to say when, they and the month sit side by side: stacked, the two ran taller than the box they open from. */}
+        <div className={suggest ? 'flex items-start gap-2' : 'contents'}>
         {suggest && (
           // Linear's way: say when, or take one of a few, each with the day it lands on.
-          <Island compact title="Say when">
+          <Island compact title="Say when" className="w-60 shrink-0">
             <input
               autoFocus
               value={words}
@@ -146,7 +148,7 @@ export function DatePicker({ value, onChange, time = false, placeholder = 'Pick 
             {words.trim() && !typed && <p className="px-2.5 py-1.5 text-xs text-muted-foreground">No day in that yet</p>}
           </Island>
         )}
-        <Island compact title="Day">
+        <Island compact title="Day" className={suggest ? 'mt-0' : undefined}>
         <Calendar
           mode="single"
           selected={date}
@@ -159,6 +161,7 @@ export function DatePicker({ value, onChange, time = false, placeholder = 'Pick 
           }}
         />
         </Island>
+        </div>
         {time && (
           <Island compact title="Time">
             <IslandRow label="At" className="px-2.5 py-1">

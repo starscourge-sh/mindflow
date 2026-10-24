@@ -41,6 +41,22 @@ export function createSuggestionRenderer<I>(
   return () => {
     let renderer: ReactRenderer<SuggestionListHandle> | null = null
     let unmount: (() => void) | null = null
+    let caret: (() => DOMRect | null) | null | undefined = null
+
+    // The line it was opened on scrolled out of sight: the menu goes, as Notion's does, rather than
+    // hang on at the box's edge pointing at nothing. Typing there again brings it back.
+    const onScroll = () => {
+      if (!renderer) return
+      let clip: HTMLElement | null = renderer.editor.view.dom.parentElement
+      while (clip && !/(auto|scroll|hidden)/.test(getComputedStyle(clip).overflowY)) clip = clip.parentElement
+      const seen = clip ? clip.getBoundingClientRect() : { top: 0, bottom: window.innerHeight }
+      const inSight = (rect: DOMRect | null | undefined): boolean => !rect || (rect.bottom > seen.top && rect.top < seen.bottom)
+      // Its line out of sight, or the menu riding with the page pushed past the box's edge.
+      const menu = renderer.element.firstElementChild?.getBoundingClientRect()
+      const whole = !menu || (menu.top >= seen.top - 1 && menu.bottom <= seen.bottom + 1)
+      if (inSight(caret?.()) && whole) return
+      exitSuggestion(renderer.editor.view, pluginKey)
+    }
 
     const onEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || !renderer) return
@@ -73,10 +89,12 @@ export function createSuggestionRenderer<I>(
           className: "tiptap-suggestion-popup",
         })
         unmount = props.mount(renderer.element)
+        caret = props.clientRect
         window.addEventListener("keydown", onEscape, true)
+        window.addEventListener("scroll", onScroll, true)
         chime("open")
       },
-      onUpdate: (props) => renderer?.updateProps(props),
+      onUpdate: (props) => ((caret = props.clientRect), renderer?.updateProps(props)),
       // Moving through the menu ticks; choosing lands with the pickers' chord.
       onKeyDown: (props) => {
         const handled = renderer?.ref?.onKeyDown(props) ?? false
@@ -89,6 +107,7 @@ export function createSuggestionRenderer<I>(
       },
       onExit: () => {
         window.removeEventListener("keydown", onEscape, true)
+        window.removeEventListener("scroll", onScroll, true)
         unmount?.()
         renderer?.destroy()
         unmount = null

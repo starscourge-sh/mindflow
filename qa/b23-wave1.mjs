@@ -91,6 +91,23 @@ try {
   const y1 = await caretY()
   check('the page did scroll', Math.abs(y1 - y0) > 40, `${y0} -> ${y1}`)
   check('slash menu stays on the caret line, or closes, while the page scrolls', open === 0 || (before !== null && moved !== null && Math.abs(moved - before) <= 3), `gap ${before} -> ${moved}, open ${open}`)
+  // Scrolled until its line is out of sight: the menu goes, rather than hang at the edge (the user's ask, after 15).
+  await h.evaluate(() => {
+    let el = document.querySelector('[role="dialog"][aria-label="Reading"] .ProseMirror')
+    while (el && !(el.scrollHeight > el.clientHeight + 20 && /auto|scroll/.test(getComputedStyle(el).overflowY))) el = el.parentElement
+    el?.scrollBy(0, 4000)
+    el?.dispatchEvent(new Event('scroll'))
+  })
+  await wait(500)
+  check('slash menu closes once its line has scrolled out of sight', (await popup.count()) === 0, String(await popup.count()))
+  // Back, and the menu again for what follows.
+  await h.evaluate(() => {
+    let el = document.querySelector('[role="dialog"][aria-label="Reading"] .ProseMirror')
+    while (el && !(el.scrollHeight > el.clientHeight + 20 && /auto|scroll/.test(getComputedStyle(el).overflowY))) el = el.parentElement
+    el?.scrollBy(0, -4000)
+  })
+  await wait(300)
+  await h.keyboard.type('/'); await wait(600)
   // The block's picture beside the menu goes with the menu, level with its row (img302: it was left behind).
   await h.keyboard.press('ArrowDown')
   await wait(900)

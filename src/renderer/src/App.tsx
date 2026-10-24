@@ -2028,7 +2028,7 @@ export default function App(): React.JSX.Element {
             </>
             )}
             {!reading && (
-            <main ref={footer} data-chrome data-zen-row className="flex items-center gap-1 pt-2 pb-3 px-[4.75rem]">
+            <main ref={footer} data-chrome data-zen-row className="@container/row flex items-center gap-1 pt-2 pb-3 px-[4.75rem]">
               {/* What matters first is the writing and Create; every other
                   switch is in here, each keeping its own key. */}
               {/* A kind other than Note stays in sight while the rest fades as you type. */}
@@ -2038,10 +2038,11 @@ export default function App(): React.JSX.Element {
                 onChange={pick}
               /></span>
               {kind === 'checkback' && (
-                <span data-under-toast data-zen-keep className="inline-flex">
-                  <DatePicker key={backAsk} startOpen={backAsk > 0} value={backOn} placeholder="On which day?"
+                <span data-under-toast data-zen-keep className="inline-flex min-w-28">
+                  {/* The one part of the row that gives way when it is short: its words cut, never Create. */}
+                  <DatePicker key={backAsk} startOpen={backAsk > 0} value={backOn} placeholder="Which day?"
                     suggest={['in a week', 'in 2 weeks', 'in a month', 'in 3 months', 'in a year']}
-                    lead={backOn ? 'Check back on' : undefined} className="h-8 rounded-full border"
+                    lead={backOn ? 'Check back on' : undefined} className="h-8 min-w-28 rounded-full border"
                     onChange={(iso) => (setBackOn(iso), editing && void notes.setField('captures', editing.id, 'back', iso))} />
                 </span>
               )}
@@ -2053,15 +2054,16 @@ export default function App(): React.JSX.Element {
               {/* Beside Create, as in Linear: on, a save keeps the box open for the next one. */}
               {!editing && (
                 <Tip label="Keep quick capture open after each save  ⌥C">
-                <label data-lesson="hide" data-under-toast className="mr-2 flex cursor-pointer items-center gap-2 text-control text-muted-foreground">
-                  <Switch size="sm" checked={createMore} onCheckedChange={setCreateMore} />
-                  Create more
+                <label data-lesson="hide" data-under-toast className="mr-2 flex shrink-0 cursor-pointer items-center gap-2 text-control whitespace-nowrap text-muted-foreground">
+                  <Switch size="sm" checked={createMore} onCheckedChange={setCreateMore} aria-label="Create more" />
+                  {/* A short row (Check back's day beside it): the switch alone, its name in its tip, so Create is never cut off. */}
+                  <span className="@max-[44rem]/row:sr-only">Create more</span>
                 </label>
                 </Tip>
               )}
               {/* The button shows its own words and ⌘↵: the tip says only what it does not. */}
               <Tip label={createMore && !editing ? 'Then empties quick capture for the next one' : (editing ? 'Back to your draft: changes already save as you make them' : 'Then empties it for the next one:  ⌥⌘↵')}>
-              <Button variant="secondary" onClick={(event) => submit(event.altKey)} className="text-control">
+              <Button variant="secondary" onClick={(event) => submit(event.altKey)} className="shrink-0 text-control">
                 {/* Open on a saved note: closing it, since changes already save. */}
                 <Rolling text={editing ? 'Close note' : saved ? 'Saved' : plan?.clue && !editing ? (plusGoal ? 'Add log' : 'Add clue') : 'Create'} /> <kbd className="font-sans text-key opacity-70">⌘↵</kbd>
               </Button>

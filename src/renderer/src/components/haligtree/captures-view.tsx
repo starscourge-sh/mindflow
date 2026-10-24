@@ -533,7 +533,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
             <SnoozedChip />
           </div>
         ) : (
-          <div data-kind-chips className="list-words pt-2.5 pb-2 empty:hidden">{title === 'Inbox' && counted > 0 ? cloneElement(chips ?? <span />, { extra: <GraphChip on={graphOn} onChange={setGraphed} /> }) : chips}</div>
+          <div data-kind-chips className="list-words pt-4 pb-2 empty:hidden">{title === 'Inbox' && counted > 0 ? cloneElement(chips ?? <span />, { extra: <GraphChip on={graphOn} onChange={setGraphed} /> }) : chips}</div>
         )}
         {/* Everything waits for its tasks and for which captures became them: drawn before, the made ones show, then hide, and the box above pops in. */}
         {everything && (unloaded(tasks) || !sources.ready) ? null : graphed ? (
