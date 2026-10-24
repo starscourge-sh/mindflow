@@ -88,7 +88,10 @@ try {
   check('grading logs one review, as Review does', after.reviews.length === before.reviews.length + 1 && after.reviews.at(-1).grade === 3)
   // Review's Good would have set the date its button shows: the same preview Review draws.
   const said = card.quiz.intervals[3]
-  check("the card's next date is the one Review's “Good” shows", !!after.dueAt && Math.abs(new Date(after.dueAt).getTime() - new Date(said).getTime()) < 60_000, `${after.dueAt} vs ${said}`)
+  // Review's scheduler adds a little fuzz, seeded by the moment of grading (ts-fsrs enable_fuzz), so the date lands
+  // near the one the button showed, not on it: Review's own buttons do the same.
+  const span = Math.max(86_400_000, Math.abs(new Date(said).getTime() - Date.now()))
+  check("the card's next date is near the one Review's “Good” shows", !!after.dueAt && Math.abs(new Date(after.dueAt).getTime() - new Date(said).getTime()) <= span * 0.6, `${after.dueAt} vs ${said}`)
   check('the post says it is graded', /Graded “Good”/.test((await quiz.locator('[data-feed-quiz-said]').textContent()) ?? ''))
   await shoot('quiz-after', '[data-feed-post="quiz"]')
 
