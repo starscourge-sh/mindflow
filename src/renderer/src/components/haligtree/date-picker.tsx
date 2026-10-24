@@ -98,7 +98,7 @@ export function DatePicker({ value, onChange, time = false, placeholder = 'Pick 
       </PopoverTrigger>
       )}
       {/* The day and the time each an island, the way Settings groups its rows. */}
-      <PopoverContent align="start" collisionPadding={8} className="w-auto max-h-[var(--radix-popover-content-available-height)] gap-0 overflow-y-auto overscroll-contain p-2" onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
+      <PopoverContent align="start" collisionPadding={8} onOpenAutoFocus={(event) => { if (!suggest) return; event.preventDefault(); (event.currentTarget as HTMLElement).querySelector<HTMLInputElement>('input[aria-label="When, in words"]')?.focus() }} className="w-auto max-h-[var(--radix-popover-content-available-height)] gap-0 overflow-y-auto overscroll-contain p-2" onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
         {quick && (
           // The usual moves first, one press each, the way Todoist puts them over its calendar.
           <Island compact title="Move to">
@@ -122,7 +122,7 @@ export function DatePicker({ value, onChange, time = false, placeholder = 'Pick 
         )}
         {suggest && <Chips className="mb-2" options={[{ id: 'say', label: 'Say when' }, { id: 'day', label: 'Pick a day' }]} on={(id) => id === pane} pick={(id) => (chime('tap'), setPane(id as 'say' | 'day'))} />}
         {/* Both drawn in one cell, the other one hidden: the panel keeps the taller one's height, so the tabs never move under the pointer. */}
-        <div data-when-panes className={suggest ? 'grid w-64 [&>*]:col-start-1 [&>*]:row-start-1' : 'contents'}>
+        <div data-when-panes className={suggest ? 'grid w-56 [&>*]:col-start-1 [&>*]:row-start-1' : 'contents'}>
         {suggest && (
           // Linear's way: say when, or take one of a few, each with the day it lands on.
           <Island compact className={pane === 'say' ? undefined : 'invisible'}>
@@ -154,6 +154,8 @@ export function DatePicker({ value, onChange, time = false, placeholder = 'Pick 
         )}
         <Island compact title={suggest ? undefined : 'Day'} className={suggest ? `!mt-0 [&>div]:flex [&>div]:justify-center ${pane === 'day' ? '' : 'invisible'}` : undefined}>
         <Calendar
+          // In the tabbed panel the month fills its pane, its padding a step tighter, so neither tab sits in empty room.
+          className={suggest ? 'p-1 [--cell-size:1.75rem]' : undefined}
           mode="single"
           selected={date}
           defaultMonth={date}
@@ -174,11 +176,14 @@ export function DatePicker({ value, onChange, time = false, placeholder = 'Pick 
           </Island>
         )}
         {/* With the quick moves on top, Today and No date are there already. */}
-        {!quick && (
+        {/* With words to say when, Today is not offered here (it sat under an empty half of the words' tab); Clear stays while there is a day to clear. */}
+        {!quick && (!suggest || value) && (
         <div className="mt-2 flex items-center gap-2">
-          <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => (chime('tap'), onChange(at(new Date())))}>
-            Today
-          </Button>
+          {!suggest && (
+            <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => (chime('tap'), onChange(at(new Date())))}>
+              Today
+            </Button>
+          )}
           {value && (
             <Button variant="ghost" size="sm" className="ml-auto text-muted-foreground" onClick={() => { chime('off'); onChange(null); setOpen(false) }}>
               Clear

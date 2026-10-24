@@ -2053,7 +2053,7 @@ export default function App(): React.JSX.Element {
                 <span data-under-toast data-zen-keep className="inline-flex min-w-28">
                   {/* The one part of the row that gives way when it is short: its words cut, never Create. */}
                   <DatePicker key={backAsk} startOpen={backAsk > 0} value={backOn} placeholder="Which day?"
-                    suggest={['in a week', 'in 2 weeks', 'in a month', 'in 3 months', 'in a year']}
+                    suggest={['tomorrow', 'in a week', 'in 2 weeks', 'in a month', 'in 3 months', 'in a year']}
                     lead={backOn ? 'Check back on' : undefined} className="h-8 min-w-28 rounded-full border"
                     onChange={(iso) => (setBackOn(iso), editing && void notes.setField('captures', editing.id, 'back', iso))} />
                 </span>
