@@ -13,7 +13,7 @@ import { Arrow } from './marks'
 import Lenis from 'lenis'
 import { useLive, haligtree } from '@/lib/haligtree'
 import { useReadsIn, useSeen } from '@/lib/reads-in'
-import { chime, quietFor, soundOn } from '@/lib/sound'
+import { chime, quietFor, setVolume, soundOn } from '@/lib/sound'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/cn'
 import { useStoredFlag } from '@/lib/use-stored-flag'
@@ -32,7 +32,7 @@ import { RestoreAsker } from './restore-ask'
 import { HashField, INPUT_FRAME, asTag, isTag } from './hash-field'
 import { brief, num } from '../../../../main/dates'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import type { OrbState } from 'thinking-orbs'
 import { Orb } from './orb'
 import { SaveTroubleLine } from './save-trouble'
@@ -41,8 +41,7 @@ import { chooseBackupFolder } from '@/lib/backups'
 import { useSaveTrouble } from '@/lib/save-trouble'
 import { Beam, beam, startWorking } from './beam'
 import type { AnimatedIconHandle, AnimatedIconProps } from '@/components/ui/types'
-import Volume2Icon from '@/components/ui/volume-2-icon'
-import VolumeXIcon from '@/components/ui/volume-x-icon'
+import { Slider } from '@/components/ui/slider'
 import CheckedIcon from '@/components/ui/checked-icon'
 import InfoCircleIcon from '@/components/ui/info-circle-icon'
 import TriangleAlertIcon from '@/components/ui/triangle-alert-icon'
@@ -1887,30 +1886,166 @@ export function VirtualList<T>({ items, keyOf, cursor, estimate = 48, className 
   )
 }
 
-/** Sounds on or off in one click, from the top of either window. */
+/** How many waves the speaker shows at a level: none at 0, then one, two or three as it gets louder. */
+export const wavesAt = (on: boolean, level: number): 0 | 1 | 2 | 3 => (!on || level <= 0 ? 0 : level <= 0.34 ? 1 : level <= 0.67 ? 2 : 3)
+
+const WAVES = ['M15.5 10a2.8 2.8 0 0 1 0 4', 'M18 7.6a6.2 6.2 0 0 1 0 8.8', 'M20.5 5.2a9.6 9.6 0 0 1 0 13.6']
+
+/** A speaker that shows the level it plays at: its waves draw in and out as it changes, a cross when it is silent. */
+function Speaker({ waves }: { waves: 0 | 1 | 2 | 3 }): React.JSX.Element {
+  const calm = still()
+  const line = { duration: calm ? 0 : 0.16, ease: EASE }
+  return (
+    <svg data-waves={waves} viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z" />
+      {WAVES.map((d, i) => (
+        <motion.path key={d} d={d} initial={false} animate={{ pathLength: i < waves ? 1 : 0, opacity: i < waves ? 1 : 0 }} transition={{ ...line, delay: calm ? 0 : i * 0.03 }} />
+      ))}
+      <motion.g initial={false} animate={{ opacity: waves ? 0 : 1 }} transition={line}>
+        <path d="M22 9l-6 6" />
+        <path d="M16 9l6 6" />
+      </motion.g>
+    </svg>
+  )
+}
+
+/** How long a press is held before it opens the volume: long enough that a quick click never does. */
+const HOLD_MS = 350
+
+/**
+ * Sounds on or off in one click, from the top of either window. Held, it opens
+ * the volume from the button: keep holding and slide to set it (right or up is
+ * louder), or let go and use the slider. Each step ticks at its new level, the
+ * way a Mac's volume keys do, and the speaker shows it in waves.
+ */
 export function SoundToggle({ className = '' }: { className?: string }): React.JSX.Element | null {
   const settings = useLive(haligtree.settings, null as Awaited<ReturnType<typeof haligtree.settings>> | null)
+  const [open, setOpen] = useState(false)
+  const [holding, setHolding] = useState(false)
+  // The level as you move it, ahead of the save coming back, so nothing flicks to the old one.
+  const [live, setLive] = useState<number | null>(null)
+  const press = useRef<{ x: number; y: number; from: number; timer: ReturnType<typeof setTimeout>; opened: boolean; moved: boolean } | null>(null)
+  // A press that opened the volume is not a click as well.
+  const swallow = useRef(false)
+  const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const closeTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const tick = useRef({ at: -Infinity, timer: undefined as ReturnType<typeof setTimeout> | undefined })
+  useEffect(() => () => {
+    clearTimeout(saveTimer.current)
+    clearTimeout(closeTimer.current)
+    clearTimeout(tick.current.timer)
+    if (press.current) clearTimeout(press.current.timer)
+  }, [])
+  const stored = settings?.volume ?? 1
+  useEffect(() => void (live !== null && Math.abs(live - stored) < 0.001 && setLive(null)), [stored, live])
   if (!settings) return null
   const on = settings.sounds
+  const level = live ?? stored
+  const waves = wavesAt(on, level)
+
+  const set = (raw: number): void => {
+    const next = Math.round(Math.max(0, Math.min(1, raw)) * 100) / 100
+    if (next === level && (on || next === 0)) return
+    setLive(next)
+    setVolume(next)
+    // Turned up from silence: sounds come back on, as a Mac's volume key unmutes it.
+    const wake = !on && next > 0
+    if (wake) soundOn(true)
+    // A soft tick at the new level, at most one every 90ms (and a last one where it stops), the way a Mac's volume
+    // keys sound. Out of the event, so a run of arrow keys ticks on each press, not only the first.
+    clearTimeout(tick.current.timer)
+    const wait = Math.max(0, 90 - (performance.now() - tick.current.at))
+    tick.current.timer = setTimeout(() => ((tick.current.at = performance.now()), chime('tap')), wait)
+    clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => void haligtree.setSettings(wake ? { volume: next, sounds: true } : { volume: next }), 120)
+  }
+
+  const up = (): void => {
+    const was = press.current
+    if (!was) return
+    clearTimeout(was.timer)
+    press.current = null
+    setHolding(false)
+    // Slid straight from the hold: let go and it is set, and closes a moment later.
+    if (was.opened && was.moved) closeTimer.current = setTimeout(() => setOpen(false), 700)
+  }
+  const tip = on ? 'Sounds on: click for quiet, hold for volume' : 'Sounds off: click to hear them, hold for volume'
+  const calm = still()
   return (
-    <Tip label={on ? 'Sounds on: click for quiet' : 'Sounds off: click to hear them'}>
-      <button
-        type="button"
-        // Never where the focus lands: opening the window is for typing.
-        tabIndex={-1}
-        aria-label={on ? 'Turn sounds off' : 'Turn sounds on'}
-        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-        onClick={() => {
-          // Set first, so the sound of turning it on is heard.
-          soundOn(!on)
-          chime(!on ? 'on' : 'off')
-          void haligtree.setSettings({ sounds: !on })
+    <Popover open={open} onOpenChange={(next) => (clearTimeout(closeTimer.current), setOpen(next))}>
+      <Tip label={tip}>
+        <PopoverAnchor asChild>
+          <button
+            type="button"
+            data-sound-toggle
+            // Never where the focus lands: opening the window is for typing.
+            tabIndex={-1}
+            aria-label={on ? 'Turn sounds off' : 'Turn sounds on'}
+            style={{ WebkitAppRegion: 'no-drag', touchAction: 'none' } as React.CSSProperties}
+            onPointerDown={(event) => {
+              if (event.button !== 0) return
+              swallow.current = false
+              event.currentTarget.setPointerCapture(event.pointerId)
+              setHolding(true)
+              const timer = setTimeout(() => {
+                if (!press.current) return
+                press.current.opened = true
+                swallow.current = true
+                clearTimeout(closeTimer.current)
+                setHolding(false)
+                setOpen(true)
+              }, HOLD_MS)
+              press.current = { x: event.clientX, y: event.clientY, from: level, timer, opened: false, moved: false }
+            }}
+            onPointerMove={(event) => {
+              const was = press.current
+              if (!was?.opened) return
+              // Right or up is louder; about 160px from silent to full.
+              const by = (event.clientX - was.x - (event.clientY - was.y)) / 160
+              if (!was.moved && Math.abs(by) < 0.02) return
+              was.moved = true
+              set(was.from + by)
+            }}
+            onPointerUp={up}
+            onPointerCancel={up}
+            onLostPointerCapture={up}
+            onClick={() => {
+              if (swallow.current) return void (swallow.current = false)
+              // Set first, so the sound of turning it on is heard.
+              soundOn(!on)
+              chime(!on ? 'on' : 'off')
+              void haligtree.setSettings({ sounds: !on })
+            }}
+            className={cn('relative', className)}
+          >
+            {/* The hold building: a ring draws itself round the button, and the volume opens as it closes. */}
+            <svg aria-hidden data-hold-ring={holding || undefined} className="pointer-events-none absolute inset-0 size-full! overflow-visible text-foreground/70">
+              <rect x="0.75" y="0.75" rx="6" fill="none" stroke="currentColor" strokeWidth="1.5" pathLength={1} strokeDasharray="1 1"
+                style={calm
+                  ? { width: 'calc(100% - 1.5px)', height: 'calc(100% - 1.5px)', strokeDashoffset: 0, opacity: holding ? 1 : 0, transition: `opacity ${holding ? HOLD_MS : 120}ms ease-out` }
+                  : { width: 'calc(100% - 1.5px)', height: 'calc(100% - 1.5px)', strokeDashoffset: holding ? 0 : 1, opacity: holding ? 1 : 0, transition: holding ? `stroke-dashoffset ${HOLD_MS}ms cubic-bezier(0.4, 0, 0.6, 1), opacity 80ms ease-out` : 'stroke-dashoffset 0ms 140ms, opacity 140ms ease-out' }} />
+            </svg>
+            <Speaker waves={waves} />
+          </button>
+        </PopoverAnchor>
+      </Tip>
+      <PopoverContent align="end" sideOffset={6} data-volume-control className={cn('w-56 gap-2 p-3', calm && 'data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100')}
+        // The slider takes the keys at once, for the arrows.
+        onOpenAutoFocus={(event) => {
+          event.preventDefault()
+          ;(event.currentTarget as HTMLElement | null)?.querySelector<HTMLElement>('[role="slider"]')?.focus({ preventScroll: true })
         }}
-        className={className}
+        // The button itself is no outside click: a click on it still turns sounds on or off, with the volume kept open.
+        onInteractOutside={(event) => void ((event.target as HTMLElement | null)?.closest?.('[data-sound-toggle]') && event.preventDefault())}
       >
-        <AliveIcon icon={on ? Volume2Icon : VolumeXIcon} size={16} />
-      </button>
-    </Tip>
+        <div className="flex items-baseline justify-between">
+          <span className="text-sm font-medium text-foreground">Volume</span>
+          <span data-volume-level className="text-sm text-muted-foreground tabular-nums">{!on ? 'Off' : level <= 0 ? 'Silent' : `${Math.round(level * 100)}%`}</span>
+        </div>
+        <Slider aria-label="Volume" min={0} max={1} step={0.05} value={[level]}
+          onValueChange={([raw]) => (clearTimeout(closeTimer.current), set(byKeys() ? Math.round(raw / 0.05) * 0.05 : raw))} />
+      </PopoverContent>
+    </Popover>
   )
 }
 
