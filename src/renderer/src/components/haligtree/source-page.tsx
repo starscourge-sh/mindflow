@@ -108,7 +108,7 @@ export function SourcePageView({ focus, onOpen }: { focus?: string; onOpen: (typ
     </section>
   )
   return (
-    <Page broad title={name} count={page?.items.length ?? 0} unit={['note', 'notes']}>
+    <Page title={name} count={page?.items.length ?? 0} unit={['note', 'notes']}>
       <div className="page-column pb-16" data-source-page={which.field}>
         <div className="flex items-center gap-3 px-5 pt-8">
           {which.field === 'attribution' ? <Avatar name={name} size={36} /> : <Icon className="size-8 text-muted-foreground" />}

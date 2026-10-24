@@ -646,16 +646,14 @@ html[data-width='page'] {
   --mf-col-editor: 54rem;
   --mf-col-note: 36em;
   --mf-col-page: 56rem;
-  --mf-col-list: 44rem;
-  --mf-col-sheet: 44rem;
+  --mf-col-sheet: 56rem;
   --mf-col-narrow: 44rem;
 }
 html[data-width='wide'] {
   --mf-col-editor: 72rem;
   --mf-col-note: 52em;
   --mf-col-page: 76rem;
-  --mf-col-list: 60rem;
-  --mf-col-sheet: 60rem;
+  --mf-col-sheet: 76rem;
   --mf-col-narrow: 60rem;
 }
 html:is([data-width='page'], [data-width='wide']) .haligtree-editor-wrapper:not(.is-line) .tiptap.ProseMirror.haligtree-editor {
@@ -862,10 +860,6 @@ textarea {
 /* The same setting for the app's own pages: with Full width off, a list or a
    page sits in a centred column the way Notion's do, and the space either
    side stays empty. The header's line still runs edge to edge. */
-/* A page's column is Journal's width; Home and the pages of parts side by side (Page's `broad`) keep the wider one. */
-[data-list-column] {
-  --mf-col-page: var(--mf-col-list);
-}
 html:is([data-width='page'], [data-width='wide']) .page-column {
   width: 100%;
   max-width: var(--mf-col-page);

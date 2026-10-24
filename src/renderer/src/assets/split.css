@@ -5,16 +5,14 @@
   --mf-col-editor: 54rem;
   --mf-col-note: 36em;
   --mf-col-page: 56rem;
-  --mf-col-list: 44rem;
-  --mf-col-sheet: 44rem;
+  --mf-col-sheet: 56rem;
   --mf-col-narrow: 44rem;
 }
 [data-pane][data-width='wide'] {
   --mf-col-editor: 72rem;
   --mf-col-note: 52em;
   --mf-col-page: 76rem;
-  --mf-col-list: 60rem;
-  --mf-col-sheet: 60rem;
+  --mf-col-sheet: 76rem;
   --mf-col-narrow: 60rem;
 }
 [data-pane]:is([data-width='page'], [data-width='wide']) .haligtree-editor-wrapper:not(.is-line, .mf-read *) .tiptap.ProseMirror.haligtree-editor {

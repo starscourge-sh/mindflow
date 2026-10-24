@@ -82,7 +82,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
     chime('slide')
     setRecap(period)
   }
-  if (!stats) return <Page broad title="Stats" waiting><div /></Page>
+  if (!stats) return <Page title="Stats" waiting><div /></Page>
 
   const by = Object.fromEntries(stats.exits.map((row) => [row.status, row.n]))
   const total = stats.exits.reduce((sum, row) => sum + row.n, 0)
@@ -108,7 +108,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
     {/* The month is told back in sentences; the year keeps its pages, Wrapped's way. */}
     {recap === 'month' && <MonthReflect onClose={() => (chime('fold'), setRecap(null))} />}
     {recap === 'year' && <Recap period={recap} onClose={() => (chime('fold'), setRecap(null))} />}
-    <Page broad title="Stats" beside={(box) => <PageContents key={part} page={column} scroller={box} label="Sections on this page" />} lead={
+    <Page title="Stats" beside={(box) => <PageContents key={part} page={column} scroller={box} label="Sections on this page" />} lead={
       // Four or five parts at a glance; the rest a chip away, by the month and by the year. On the
       // bar's left, where every page keeps its tabs, in one place whichever is picked.
       <Chips className="shrink-0" options={[{ id: 'now', label: 'At a glance' }, { id: 'month', label: 'Your month' }, { id: 'year', label: 'Your year' }]} on={(id) => id === part} pick={(id) => setPart(id as Part)} />

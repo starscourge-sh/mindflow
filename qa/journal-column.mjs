@@ -1,4 +1,4 @@
-// Every page's column matches Journal's: the same left and right edges, the
+// Every page sits on the one column Home has, Journal included: the same left and right edges, the
 // first thing on it at the same height, and its header line's first control
 // where Journal's is. The Map keeps its plain white ground, no scenery.
 //
