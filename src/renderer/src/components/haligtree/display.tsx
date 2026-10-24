@@ -366,10 +366,10 @@ export function FilterChips<T>({ view, onChange, facets, defaults = {}, quick = 
     onChange({ ...view, filter: { ...view.filter, [key]: list.includes(id) ? list.filter((one) => one !== id) : [...list, id] } })
   }
   const icon = (one: Choice): ReactNode => (one.icon ? <one.icon className="size-3.5" style={{ color: one.tint }} /> : one.tint ? <span className="size-2 rounded-full" style={{ background: one.tint }} /> : null)
-  return (
+  const chips = (
     // One line that scrolls sideways, fading where there is more, never wrapping under itself.
     // Only a chip itself toggles: a click in the space beside one does nothing (the light's own click-through is left out here).
-    <div data-hover-quiet data-filter-chips ref={(node) => { box.current = node; if (!wrap) row.ref(node) }} {...hover.handlers} onClick={undefined} style={wrap ? undefined : row.style} className={`isolate flex min-w-0 items-center gap-1 text-xs ${extra ? 'w-full' : ''} ${wrap ? 'relative flex-wrap gap-y-1' : row.className} ${className}`}>
+    <div data-hover-quiet data-filter-chips ref={(node) => { box.current = node; if (!wrap) row.ref(node) }} {...hover.handlers} onClick={undefined} style={wrap ? undefined : row.style} className={`isolate flex min-w-0 items-center gap-1 text-xs ${extra ? 'flex-1' : ''} ${wrap ? 'relative flex-wrap gap-y-1' : row.className} ${extra ? '' : className}`}>
       <Highlight spot={hover.spot} session={hover.session} snap={hover.snap} className="rounded-full bg-accent/60" />
       {/* Chosen filters from other facets first; the quick facet's options
           stay in their own order whether on or off, so a click never moves
@@ -391,8 +391,15 @@ export function FilterChips<T>({ view, onChange, facets, defaults = {}, quick = 
           </button>
         </Tip>
       )}
-      {/* A view, not a filter: at the row's far end, so it never reads as one more kind. */}
-      {extra && <span className="ml-auto flex shrink-0 pl-3">{extra}</span>}
+    </div>
+  )
+  if (!extra) return chips
+  return (
+    // A view, not a filter: in its own group at the first line's far end, so it never reads as one more kind,
+    // and the kinds wrap under their own group while it stays put.
+    <div data-chip-row className={`flex w-full min-w-0 items-start gap-3 ${className}`}>
+      {chips}
+      <span data-chip-row-action className="flex shrink-0">{extra}</span>
     </div>
   )
 }

@@ -21,6 +21,7 @@ import { GoalPreview, ReadyMoment, useReady } from './goal-preview'
 import { FeedReading } from './feed-reading'
 import { QueuedProvider, ReadLaterButton } from './read-later'
 import { drawCard, xText, type CardPost } from '@/lib/feed-card'
+import { LOOKABLE, lookAtPicture } from '@/components/image/image-look'
 
 /**
  * The Feed: the day's twenty or so of your own things, as posts in a
@@ -494,7 +495,7 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
 
   return (
     // Carried to the window's side, it opens beside the Feed (split-drop.tsx).
-    <li ref={self} data-drag-open={preview ? undefined : `${post.type}:${post.id}`} data-drag-title={title} data-feed-post={post.type} data-feed-id={post.id} data-feed-archive={post.archive || undefined} data-feed-kind={post.kind} data-feed-react={chosen ?? undefined}
+    <li ref={self} data-drag-open={preview ? undefined : `${post.type}:${post.id}`} data-drag-title={title} data-look-group data-feed-post={post.type} data-feed-id={post.id} data-feed-archive={post.archive || undefined} data-feed-kind={post.kind} data-feed-react={chosen ?? undefined}
       className={cn('flex flex-col gap-1 py-4 transition-opacity duration-300 first:pt-0', !alone && 'border-b last:border-b-0', alone && joined && 'pb-3', chosen === 'less' && 'opacity-45 hover:opacity-80 has-[:focus-visible]:opacity-100')}>
       {context && <p data-feed-context className="flex items-center gap-1.5 pl-12 text-control text-muted-foreground">{post.restack && <Repeat2 className="size-3.5" />}{context}</p>}
       <div className="flex gap-3">
@@ -550,11 +551,13 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
           {picture && !broken && (
             // The whole picture at its own shape, never cropped and never boxed in bars: the full width of the post
             // (a square one too); only one so tall it would run past 720px stands at that height, as wide as it then is.
-            <div data-feed-picture className="mt-1 max-w-full overflow-hidden rounded-xl border bg-accent/40" style={{ width: shape ? `min(100%, ${Math.round(720 * shape)}px)` : '100%' }}>
-              <img src={picture} alt="" loading="lazy" decoding="async" draggable={false} onError={() => setBroken(true)}
+            // Clicked, it opens in the viewer as a picture in a note does; Esc puts it back.
+            <button type="button" data-feed-picture aria-label="Look at the picture" onClick={(event) => lookAtPicture(event.currentTarget.querySelector('img'))}
+              className={cn('mt-1 block max-w-full overflow-hidden rounded-xl border bg-accent/40', LOOKABLE)} style={{ width: shape ? `min(100%, ${Math.round(720 * shape)}px)` : '100%' }}>
+              <img data-look src={picture} alt="" loading="lazy" decoding="async" draggable={false} onError={() => setBroken(true)}
                 onLoad={(event) => setShape(event.currentTarget.naturalWidth / event.currentTarget.naturalHeight || null)}
                 className="block h-auto w-full" style={shape ? { aspectRatio: String(shape) } : undefined} />
-            </div>
+            </button>
           )}
         </div>
       </div>

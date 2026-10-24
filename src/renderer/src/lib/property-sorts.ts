@@ -4,6 +4,9 @@
  * that have it first, by its value: numbers and dates in order, words A to Z.
  */
 
+/** A property's name as it reads anywhere it is shown: its first letter capital ("tags" reads "Tags"); the stored key is never changed. */
+export const propSaid = (name: string): string => name.charAt(0).toUpperCase() + name.slice(1)
+
 const KEPT = new Set(['_kept', 'decidedAt', 'heldAt', 'answeredAt', 'rating', 'status'])
 
 const read = (fields: string | null | undefined): Record<string, unknown> => {
@@ -28,5 +31,5 @@ export function propertySorts<T extends { fields?: string | null }>(rows: T[], t
       return String(x).localeCompare(String(y), undefined, { numeric: true }) || tie(a, b)
     }
   }
-  return { choices: names.map((name) => ({ id: `prop:${name}`, label: `By ${name}` })), compare }
+  return { choices: names.map((name) => ({ id: `prop:${name}`, label: `By ${propSaid(name)}` })), compare }
 }

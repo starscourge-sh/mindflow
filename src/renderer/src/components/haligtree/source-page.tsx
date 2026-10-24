@@ -317,7 +317,8 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
     toast(`Kept with ${who}`, () => void setSource(item, 'attribution', null))
   }
   const [view, setView] = useView('sources', { sort: 'recents', group: 'none' })
-  const asGrid = view.density === 'grid'
+  // People as the grid of faces unless a list was chosen in Display (kept from then on).
+  const asGrid = (view.density ?? 'grid') === 'grid'
   const ORDER: Record<string, (a: SourceSummary, b: SourceSummary) => number> = {
     recents: (a, b) => b.last.localeCompare(a.last),
     added: (a, b) => b.first.localeCompare(a.first),

@@ -269,9 +269,9 @@ const api = {
     return () => ipcRenderer.off('frost', relay)
   },
   /** Told now and then to stir, so a sticky is seen again. */
-  /** A goal's card told to peek as a slim tab at that edge of the screen (nudge: it came out by itself), or to be its whole card again (null). */
-  onBeaconPeek: (listen: (peek: { side: 'left' | 'right'; nudge: boolean } | null) => void): (() => void) => {
-    const relay = (_event: unknown, peek: { side: 'left' | 'right'; nudge: boolean } | null): void => listen(peek)
+  /** A sticky told to be a tab at the screen's edge (tucked: every sticky tucked away; flat: only a small pill), or a goal's card told to peek as a slim tab at that edge of the screen (nudge: it came out by itself), or to be its whole card again (null). */
+  onBeaconPeek: (listen: (peek: { side: 'left' | 'right'; nudge: boolean; tucked?: boolean; flat?: boolean } | null) => void): (() => void) => {
+    const relay = (_event: unknown, peek: { side: 'left' | 'right'; nudge: boolean; tucked?: boolean; flat?: boolean } | null): void => listen(peek)
     ipcRenderer.on('beacon:peek', relay)
     return () => ipcRenderer.off('beacon:peek', relay)
   },

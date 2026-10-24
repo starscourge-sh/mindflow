@@ -88,7 +88,8 @@ export function GoalSticky({ id }: { id: string }): React.JSX.Element {
   const shown = useArrival()
   // Tucked away by the clock to a slim tab at the screen's edge (main's shapeCard); pointed at, it opens.
   const [peek, setPeek] = useState<{ side: 'left' | 'right'; nudge: boolean } | null>(null)
-  useEffect(() => window.api.onBeaconPeek(setPeek), [])
+  // Every sticky tucked away is drawn by the window's own tab (windows/sticky.tsx), not this one.
+  useEffect(() => window.api.onBeaconPeek((one) => setPeek(one?.tucked ? null : one)), [])
   if (peek) return <PeekingCard id={id} today={today} side={peek.side} nudge={peek.nudge} />
   return (
     <Desk shown={shown} onEnter={() => window.api.holdBeacon(true)} onLeave={() => window.api.holdBeacon(false)}>

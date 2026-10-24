@@ -5,6 +5,7 @@ import { StickyNote } from '../components/haligtree/sticky-note'
 import { GoalSticky, GoalsSticky } from '../components/haligtree/goal-beacon'
 import { TodaySticky } from '../components/haligtree/today-sticky'
 import { Toaster } from '../components/haligtree/ui'
+import { TuckTab } from '../components/haligtree/tuck-tab'
 import { params, start } from '../main'
 
 const type = params.get('type')
@@ -12,6 +13,8 @@ const type = params.get('type')
 start(
   <>
     {type === 'goal' ? <GoalSticky id={params.get('id') ?? ''} /> : type === 'goals' ? <GoalsSticky /> : type === 'today' ? <TodaySticky /> : <StickyNote type={type ?? 'capture'} id={params.get('id') ?? ''} />}
+    {/* Every sticky tucked away: this window is a tab at the screen's edge, its name down it (main's shapeCard). */}
+    <TuckTab />
     {/* A sticky says what the menu bar or ⌃⌥⌘T did when no other Haligtree window is out to say it. */}
     <Toaster />
   </>

@@ -8,7 +8,7 @@ import { AliveIcon } from '@/components/ui/alive-icon'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import PaintIcon from '@/components/ui/paint-icon'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { openLook } from '@/components/image/image-look'
+import { LOOKABLE, openLook } from '@/components/image/image-look'
 import { RowMenu, flat, type MenuItem, type RowItem } from './row-menu'
 import { Tip } from './ui'
 import { GrainFill, PAPER_INK, useNoteCover } from './grain'
@@ -134,7 +134,7 @@ export function Cover({ src, colour, seed, children, caption = '' }: { src?: str
     return (
       <Tilt className="shrink-0 rounded-lg" caption={caption || undefined}>
         <Tip label="Look at it">
-          <button type="button" onClick={(event) => (chime('look'), void openLook(src, event.currentTarget.querySelector('img'), caption))} className={`${box} cursor-zoom-in transition-transform duration-150 ease-out active:scale-[0.98]`}>{picture}</button>
+          <button type="button" onClick={(event) => (chime('look'), void openLook(src, event.currentTarget.querySelector('img'), caption))} className={`${box} ${LOOKABLE}`}>{picture}</button>
         </Tip>
       </Tilt>
     )

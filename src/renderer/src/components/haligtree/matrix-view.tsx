@@ -369,10 +369,13 @@ const emptySaid = (box: Quadrant, carrying: boolean, today: boolean): string =>
 function TodayLine({ left, done, ready, onAll }: { left: number; done: number; ready: boolean; onAll: () => void }): React.JSX.Element {
   const said = !ready || left ? 'Today’s tasks, by how soon and how much they matter' : done ? 'Everything on today is done' : 'Nothing on today yet'
   return (
-    <div data-today-scope data-said={said} className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 px-4 pt-3 text-[0.9375rem]">
-      <span className="font-medium text-foreground"><Rolling text={said} by="word" /></span>
-      {ready && !left && !done && <span className="text-muted-foreground">Add one from the list, or see every task in four boxes.</span>}
-      <Button data-all-matrix variant="ghost" size="sm" className="ml-auto h-7 gap-2 px-2 text-sm" onClick={onAll}>Every task <Pressed keys="G Q" /></Button>
+    // The words wrap in their own group; "Every task" keeps its place at the first line's right.
+    <div data-today-scope data-said={said} className="flex shrink-0 items-start gap-3 px-4 pt-3 text-[0.9375rem]">
+      <div className="flex min-h-7 min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="font-medium text-foreground"><Rolling text={said} by="word" /></span>
+        {ready && !left && !done && <span className="text-muted-foreground">Add one from the list, or see every task in four boxes.</span>}
+      </div>
+      <Button data-all-matrix variant="ghost" size="sm" className="h-7 shrink-0 gap-2 px-2 text-sm" onClick={onAll}>Every task <Pressed keys="G Q" /></Button>
     </div>
   )
 }

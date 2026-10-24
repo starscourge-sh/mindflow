@@ -9,6 +9,8 @@ const doc = (text) => ({ type: 'doc', content: [{ type: 'paragraph', content: [{
 const make = (patch) => h.evaluate((p) => window.api.captures.create(p), patch)
 
 try {
+  // People as a list here (the grid of faces is the default; profiles.mjs reads that).
+  await h.evaluate(() => localStorage.setItem('view:sources', JSON.stringify({ sort: 'recents', group: 'none', filter: {}, density: 'list' })))
   const quote = await make({ kind: 'quote', body: doc('Every made-up line is a test line'), attribution: 'Ada Example', medium: 'Made-up Book' })
   const para = await make({ kind: 'note', body: doc('She means a test should read like a story (p131)'), medium: 'made-up book' })
   const lost = await make({ kind: 'quote', body: doc('A quote nobody signed') })

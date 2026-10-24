@@ -55,6 +55,11 @@ export async function openLook(src: string, from?: Element | null, caption = "")
   probe.src = src
   await probe.decode().catch(() => undefined)
   if (!probe.naturalWidth) return
+  mountLook([{ src, width: probe.naturalWidth, height: probe.naturalHeight, caption, el: from ?? null }], 0)
+}
+
+/** The viewer on a window of its own, over everything, gone once closed. */
+function mountLook(pictures: Picture[], start: number): void {
   const holder = document.createElement("div")
   document.body.append(holder)
   const root = createRoot(holder)
@@ -62,8 +67,25 @@ export async function openLook(src: string, from?: Element | null, caption = "")
     root.unmount()
     holder.remove()
   }
-  root.render(<Viewer pictures={[{ src, width: probe.naturalWidth, height: probe.naturalHeight, caption, el: from ?? null }]} start={0} onClose={done} />)
+  root.render(<Viewer pictures={pictures} start={start} onClose={done} />)
 }
+
+/**
+ * A picture shown big outside a note (a Feed post's, a log's) opened as one in
+ * a note is: it lifts into the viewer, Esc puts it back, and the arrows step
+ * through the other pictures of the same post (those inside its closest
+ * `[data-look-group]`).
+ */
+export function lookAtPicture(img: HTMLImageElement | null | undefined): void {
+  if (!img || !whole(img)) return
+  chime("look")
+  const group = [...(img.closest("[data-look-group]")?.querySelectorAll<HTMLImageElement>("img[data-look]") ?? [])].filter(whole)
+  const all = group.includes(img) ? group : [img]
+  mountLook(all.map(pictureOf), all.indexOf(img))
+}
+
+/** What a picture that opens the viewer wears: the zoom cursor, and a small press as it is clicked. */
+export const LOOKABLE = "cursor-zoom-in! transition-transform duration-150 ease-out active:scale-[0.98] motion-reduce:transition-none"
 
 /** A note's pictures in reading order: image blocks only, never an emoji or a card's thumbnail. */
 function picturesOf(editor: Editor): HTMLImageElement[] {

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { chime, step } from '@/lib/sound'
 import { notes, type NoteTable } from '@/lib/notes'
 import { haligtree, useLive } from '@/lib/haligtree'
+import { propSaid } from '@/lib/property-sorts'
 import { OLD_LABELS, SUPER_TAGS, type Field } from '../capture-kinds/kind-fields'
 import { PROP_TYPES, readValue, type PropType } from '../../../../main/property-words'
 import { dayMonth } from '../../../../main/dates'
@@ -118,7 +119,7 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated 
     if (was === value) return
     await notes.setField(table, id, key, value === '' ? null : value)
     chime(value === null || value === '' ? 'off' : 'noted')
-    toast(value === null || value === '' ? `${label}: cleared` : `${label}: ${said({ ...(all.find((one) => one.key === key) ?? { key, label, type: 'text', options: [], tag: null }), value })}`,
+    toast(value === null || value === '' ? `${propSaid(label)}: cleared` : `${propSaid(label)}: ${said({ ...(all.find((one) => one.key === key) ?? { key, label, type: 'text', options: [], tag: null }), value })}`,
       () => void notes.setField(table, id, key, was).then(() => chime('undo')))
   }
   // A kind changed: words that do not read as the new one are kept as typed.
@@ -172,7 +173,7 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated 
           </PopoverContent>
         </Popover>
       ) : <Icon className="size-3.5 shrink-0" />}
-      <span className="truncate">{label}</span>
+      <span className="truncate">{propSaid(label)}</span>
     </span>
   )
   return (
@@ -332,7 +333,7 @@ function NewProp({ className, names, onName, onCancel }: {
                   // Down, not click: the name box keeps its focus, so this is never taken as leaving it.
                   onMouseDown={(event) => (event.preventDefault(), pick(one.name))} onMouseEnter={() => setAt(index)}
                   className="flex h-7 shrink-0 items-center gap-2 rounded-md px-2 text-left text-foreground aria-selected:bg-accent">
-                  <KindIcon className="size-3.5 shrink-0 text-muted-foreground" /><span className="truncate">{one.name}</span>
+                  <KindIcon className="size-3.5 shrink-0 text-muted-foreground" /><span className="truncate">{propSaid(one.name)}</span>
                 </button>
               )
             })}

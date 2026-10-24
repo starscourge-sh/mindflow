@@ -50,7 +50,7 @@ import { warmChrono } from './lazy/chrono'
 import { warmEmoji } from './lazy/emoji'
 import { backupBase, backupDir } from './backup'
 import { pageFor } from './pages'
-import { activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tuckRules, tempusDots, blurOn, boxAutoHide, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerHaligtree, showStickies, stickyPrefs, toggleSafeMode, whenKeys, whenRecordings, whenIcon, appIcon, recordingPrefs, type Recordings, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, focusToolsOn, whenFocusShows, pillInNotch, sleepChoice } from './haligtree'
+import { activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tuckRules, tempusDots, blurOn, boxAutoHide, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerHaligtree, showStickies, stickyPrefs, stickyTuck, tuckStickies, toggleSafeMode, whenKeys, whenRecordings, whenIcon, appIcon, recordingPrefs, type Recordings, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, focusToolsOn, whenFocusShows, pillInNotch, sleepChoice } from './haligtree'
 import { daysLeft, percent, tempus, wayThrough } from './goal-days'
 import { PEEK_OUT_MS, peeksOut, restNow, type Rest } from './goal-tuck'
 import { tap, taps } from './haptic'
@@ -1053,7 +1053,9 @@ function arriveSticky(win: BrowserWindow): void {
   if (stillness()) return win.showInactive()
   const drop = quiet ? 0 : 8
   const go = (): void => {
-    if (win.isDestroyed() || win.isVisible()) return
+    // Put away while it waited its turn (Show sticky notes unticked as they came): it stays away.
+    const key = keyOfSticky(win)
+    if (win.isDestroyed() || win.isVisible() || (key && !stickyUp(key))) return
     const rest = win.getBounds()
     win.setOpacity(0)
     placed.set(win, { x: rest.x, y: rest.y - drop })
@@ -1141,12 +1143,28 @@ const stickyUp = (key: string): boolean => !gate().blackout && stickyPrefs().sho
 /** How many stickies are out on the screen: Tidy stickies is offered only when there is one to tidy. */
 const stickiesOut = (): number => [...stickies].filter(([key, win]) => !win.isDestroyed() && stickyUp(key) && win.isVisible()).length
 let toldOut = -1
+let toldSeen = false
+/** Whether any sticky is on the screen this moment, whatever the setting says: what "Show sticky notes" ticks. */
+const stickiesSeen = (): boolean => [...stickies.values()].some((win) => !win.isDestroyed() && win.isVisible())
+/** "Show sticky notes" ticked: one is on the screen, or they are meant to be and nothing (safe mode) keeps them in. */
+const stickiesTicked = (): boolean => stickiesSeen() || (stickyPrefs().shown && !gate().blackout)
+/** The menus' way to tuck every sticky to the edge, or bring them back out, and to flatten the tabs to pills. */
+const tuckItems = (): Electron.MenuItemConstructorOptions[] => {
+  const tuck = stickyTuck()
+  if (tuck === 'off') return stickiesOut() > 0 ? [{ label: 'Tuck sticky notes away', accelerator: chordFor('⌃⌥⌘H'), click: () => tuckStickies('tabs') }] : []
+  return [
+    { label: 'Bring sticky notes back', accelerator: chordFor('⌃⌥⌘H'), click: () => tuckStickies('off') },
+    tuck === 'tabs' ? { label: 'Tuck them flat', click: () => tuckStickies('flat') } : { label: 'Show their names', click: () => tuckStickies('tabs') }
+  ]
+}
 /** Each window told when that count changes, and the menu bar rebuilt to match. */
 function tellStickiesOut(): void {
   setTimeout(() => {
     const now = stickiesOut()
-    if (now === toldOut) return
+    const seen = stickiesSeen()
+    if (now === toldOut && seen === toldSeen) return
     toldOut = now
+    toldSeen = seen
     updateTray()
     for (const win of BrowserWindow.getAllWindows()) if (!win.isDestroyed()) win.webContents.send('stickies:out', now)
   }, 0)
@@ -1161,7 +1179,8 @@ function applyStickies(): void {
     if (win.isDestroyed()) continue
     // Coming out, each fades in and settles, one after another.
     // A goal's card in its place by the clock, a slim tab or the whole card, before it comes in: it arrives as what it is.
-    if (key.startsWith('goal:')) shapeCard(key, win)
+    // Tucked away, every one is a tab (or a flat pill) at the screen's edge.
+    shapeCard(key, win)
     if (stickyUp(key)) arriveSticky(win)
     else win.hide()
   }
@@ -1256,7 +1275,7 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   // is opening, has painted: the desk comes in first, the cards are dealt onto it. Never later than 3 seconds.
   let painted = false
   let filled = false
-  const arrive = (): void => void (painted && filled && stickyUp(key) && afterHome(() => arriveSticky(win)))
+  const arrive = (): void => void (painted && filled && stickyUp(key) && afterHome(() => (shapeCard(key, win), arriveSticky(win))))
   win.once('ready-to-show', () => ((painted = true), arrive()))
   readyWaits.set(win.webContents.id, () => ((filled = true), arrive()))
   setTimeout(() => ((filled = true), (painted = true), arrive()), 3000)
@@ -1342,7 +1361,8 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
       ...writing,
       ...colours,
       { label: 'Tidy stickies down the right edge', accelerator: chordFor('⌃⌥⌘T'), click: () => void tidyStickies(win.webContents) },
-      ...(canUntidy() ? [{ label: 'Put stickies back where they were', click: untidyStickies }] : [])
+      ...(canUntidy() ? [{ label: 'Put stickies back where they were', click: untidyStickies }] : []),
+      ...tuckItems()
     ]).popup({ window: win })
   })
   // Closed any way but quitting is taken down, so it stays down after a restart.
@@ -1837,6 +1857,11 @@ const peeking = new Map<string, Electron.Rectangle>()
 const peekingOut = new Map<string, number>()
 /** A peeking card's tab: its ring and days left, a little taller than wide. */
 const TAB = { width: 46, height: 116 }
+/** Every sticky tucked: a tab with its name written down it, or only a small coloured pill. */
+const TUCK = { tabs: { width: 34, height: 128 }, flat: { width: 12, height: 48 } }
+const TUCK_GAP = 8
+/** The side and kind of tab each peeking card was made as, so a change of either remakes it. */
+const tabShape = new Map<string, string>()
 /** When each card was last seen whole, and the day it last peeked out by itself: kept across restarts. */
 type Seen = { last: Record<string, number>; nudged: Record<string, string> }
 const seenFile = (): string => join(app.getPath('userData'), 'goal-seen.json')
@@ -1894,23 +1919,39 @@ const inside = (p: Electron.Point, b: Electron.Rectangle): boolean => p.x >= b.x
 /** A goal's window as a tab or as its card, as its place by the clock says and the pointer allows. */
 function shapeCard(key: string, win: BrowserWindow): void {
   if (win.isDestroyed()) return
-  const want = stickyUp(key) && ruled.get(key) === 'peek' && !beaconHeld.has(key)
-  if (want === peeking.has(key)) return
+  const tuck = stickyTuck()
+  const want = stickyUp(key) && (tuck !== 'off' || ruled.get(key) === 'peek') && !beaconHeld.has(key)
+  if (!want && !peeking.has(key)) return
   if (want) {
     // Opened out of its tab, its own place is still the one it rests at.
-    const rest = openedAt.get(key) ?? win.getBounds()
+    const rest = peeking.get(key) ?? openedAt.get(key) ?? win.getBounds()
     openedAt.delete(key)
-    peeking.set(key, rest)
     const area = screen.getDisplayMatching(rest).workArea
     const left = rest.x + rest.width / 2 < area.x + area.width / 2
-    const y = Math.max(area.y, Math.min(rest.y + insetOf(key).top, area.y + area.height - TAB.height))
-    const tab = { x: left ? area.x : area.x + area.width - TAB.width, y, ...TAB }
-    win.webContents.send('beacon:peek', { side: left ? 'left' : 'right', nudge: nudging.delete(key) })
+    // All tucked: a named tab each (or a small flat pill), stacked down their edge in the order they rest, never on top of each other.
+    const size = tuck === 'off' ? TAB : TUCK[tuck]
+    const side = [...stickies].filter(([one, other]) => !other.isDestroyed() && stickyUp(one))
+      .map(([one, other]) => [one, one === key ? rest : peeking.get(one) ?? openedAt.get(one) ?? other.getBounds()] as const)
+      .filter(([, at]) => (at.x + at.width / 2 < area.x + area.width / 2) === left && screen.getDisplayMatching(at).id === screen.getDisplayMatching(rest).id)
+      .sort(([a, one], [b, two]) => one.y - two.y || a.localeCompare(b))
+    const nth = side.findIndex(([one]) => one === key)
+    const y = tuck === 'off'
+      ? Math.max(area.y, Math.min(rest.y + insetOf(key).top, area.y + area.height - size.height))
+      : Math.max(area.y, Math.min(area.y + Math.round(area.height * 0.18) + nth * (size.height + TUCK_GAP), area.y + area.height - size.height))
+    const tab = { x: left ? area.x : area.x + area.width - size.width, y, ...size }
+    const now = win.getBounds()
+    const shape = `${left}:${tuck}`
+    if (peeking.has(key) && tabShape.get(key) === shape && now.x === tab.x && now.y === tab.y && now.width === tab.width) return
+    const fresh = !peeking.has(key) || tabShape.get(key) !== shape
+    peeking.set(key, rest)
+    tabShape.set(key, shape)
+    if (fresh) win.webContents.send('beacon:peek', { side: left ? 'left' : 'right', nudge: nudging.delete(key), flat: tuck === 'flat', tucked: tuck !== 'off' })
     win.setMinimumSize(1, 1)
     placed.set(win, { x: tab.x, y: tab.y })
     win.setBounds(tab)
     return
   }
+  tabShape.delete(key)
   const rest = peeking.get(key)!
   peeking.delete(key)
   // Pointed at, it opens out of its tab, under the pointer, so it stays open
@@ -1969,7 +2010,7 @@ function gatherStickies(): void {
   const moves: [string, BrowserWindow, { x: number; y: number }][] = []
   for (const [key, win] of stickies) {
     // Only those meant to be up: never one put away, nor any in safe mode.
-    if (win.isDestroyed() || !stickyUp(key)) continue
+    if (win.isDestroyed() || !stickyUp(key) || peeking.has(key)) continue
     const { width, height } = win.getBounds()
     const bounds = onScreen({ width, height, x: workArea.x + workArea.width - width - (n % 2) * 24, y: workArea.y + n * 64 })
     n += 1
@@ -3200,7 +3241,7 @@ function updateDock(): void {
       // A fresh box, as ⌘N in it makes one: whatever was in it can be brought back.
       { label: 'New note', click: newNote },
       { label: 'Today', click: () => sendHome('view', 'today', undefined, 'window') },
-      { label: 'Show sticky notes', type: 'checkbox', checked: stickyPrefs().shown, click: () => showStickies() }
+      { label: 'Show sticky notes', type: 'checkbox', checked: stickiesTicked(), click: (item) => void showStickies(item.checked) }
     ])
   )
 }
@@ -3288,8 +3329,10 @@ function updateTray(): void {
       ...(SANDBOX ? [] : [{ label: 'Restore from a backup…', click: () => void restore() }, { label: 'Open the sandbox', click: openSandbox }]),
       { type: 'separator' },
       { label: 'Safe mode', type: 'checkbox', checked: safe, accelerator: chordFor('⌥⌘S'), click: () => (toggleSafeMode(), updateTray()) },
-      { label: 'Show sticky notes', type: 'checkbox', checked: stickyPrefs().shown, accelerator: chordFor('⌃⌥⌘N'), click: () => showStickies() },
+      // Ticked as they are on the screen; chosen, they come out or go away as the tick now says.
+      { label: 'Show sticky notes', type: 'checkbox', checked: stickiesTicked(), accelerator: chordFor('⌃⌥⌘N'), click: (item) => void showStickies(item.checked) },
       { label: 'Bring sticky notes here', enabled: !safe && stickies.size > 0, click: () => gatherStickies() },
+      ...(safe ? [] : tuckItems()),
       // Only with a sticky out to tidy; the key does nothing then either.
       ...(!safe && stickiesOut() > 0 ? [{ label: 'Tidy stickies', accelerator: chordFor('⌃⌥⌘T'), click: () => void tidyStickies() }] : []),
       ...(canUntidy() ? [{ label: 'Put stickies back', click: untidyStickies }] : []),
@@ -3298,8 +3341,11 @@ function updateTray(): void {
       { label: `Quit ${APP_NAME}`, accelerator: 'Command+Q', click: quit }
   ]
   // A test run keeps the menu's words where a probe can read them.
-  if (process.env.HALIGTREE_QA_AWAY) (globalThis as { trayMenu?: unknown }).trayMenu = template.map((item) => ({ type: item.type ?? 'normal', label: item.label ?? '', sublabel: item.sublabel ?? '', toolTip: item.toolTip ?? '', enabled: item.enabled !== false, drawn: !!item.icon && !item.label }))
-  tray.setContextMenu(Menu.buildFromTemplate(template))
+  if (process.env.HALIGTREE_QA_AWAY) (globalThis as { trayMenu?: unknown }).trayMenu = template.map((item) => ({ type: item.type ?? 'normal', label: item.label ?? '', sublabel: item.sublabel ?? '', toolTip: item.toolTip ?? '', enabled: item.enabled !== false, checked: item.checked === true, drawn: !!item.icon && !item.label }))
+  const menu = Menu.buildFromTemplate(template)
+  // And the menu itself, so a probe can choose an item as a click would.
+  if (process.env.HALIGTREE_QA_AWAY) (globalThis as { trayBuilt?: unknown }).trayBuilt = menu
+  tray.setContextMenu(menu)
 }
 
 // Asked once, by the main process as it starts and by each window's preload as it loads.
@@ -3917,7 +3963,7 @@ app.whenReady().then(() => {
   // one, till tomorrow. The other goals' cards stay.
   ipcMain.on('beacon:hold', (event, on: unknown) => {
     const key = keyOfSticky(BrowserWindow.fromWebContents(event.sender))
-    if (!key?.startsWith('goal:')) return
+    if (!key || (!key.startsWith('goal:') && stickyTuck() === 'off')) return
     const win = stickies.get(key)
     // Pointed at as a tab, it opens; the pointer watched from then on (shapeCard).
     if (on) return void (beaconHeld.add(key), win && peeking.has(key) && shapeCard(key, win))
@@ -4666,6 +4712,8 @@ app.whenReady().then(() => {
     take('⌥⌘S', () => (toggleSafeMode(), updateTray()))
     take('⌃⌥⌘N', () => showStickies())
     take('⌃⌥⌘T', () => void tidyStickies())
+    // Every sticky tucked into a tab at the edge, or brought back out.
+    take('⌃⌥⌘H', () => tuckStickies(stickyTuck() === 'off' ? 'tabs' : 'off'))
     // Ten more minutes on the session or break running, from anywhere; the pill rolls its time up and says so.
     take('⌃⌥⌘=', () => void extendRunning(10 * 60_000))
     // A bare focus session from anywhere, no task first: quick capture opens on “Start focus”'s lengths.

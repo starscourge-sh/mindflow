@@ -591,6 +591,8 @@ const DEFAULTS = {
   tagOrder: [] as string[],
   // Sticky notes on the desktop: shown or all put away (⌃⌥⌘N).
   stickiesShown: true,
+  // Every sticky tucked into a tab at the screen's edge ('tabs'), or only a small pill there ('flat'); 'off', out as usual.
+  stickiesTucked: 'off' as 'off' | 'tabs' | 'flat',
   // Which windows show in screen shares, recordings and screenshots: every one
   // to start, so a screenshot taken during the welcome has Haligtree in it. Hidden
   // (blank to a camera, still there for you) in Settings, all at once in ⌘K.
@@ -729,6 +731,14 @@ export const stickyFrost = (): boolean => settings().stickiesFrosted !== false
 export const stickyGlass = (): boolean => settings().stickiesFrosted !== false && settings().stickiesGlass === true
 export const stickyStir = (): boolean => settings().stickiesStir !== false
 export const stickyPrefs = (): { shown: boolean } => ({ shown: settings().stickiesShown })
+/** How the stickies are tucked at the screen's edge: not at all, as named tabs, or as small flat pills. */
+export const stickyTuck = (): 'off' | 'tabs' | 'flat' => (['tabs', 'flat'].includes(settings().stickiesTucked) ? settings().stickiesTucked : 'off')
+/** Every sticky tucked to the edge, or brought back out; kept across a restart. */
+export function tuckStickies(how: 'off' | 'tabs' | 'flat'): void {
+  database().prepare("insert or replace into settings (key, value) values ('stickiesTucked', ?)").run(JSON.stringify(how))
+  stickiesTold()
+  changed()
+}
 /** Every sticky shown or put away at once; they keep their places. */
 export function showStickies(on = !settings().stickiesShown): boolean {
   database().prepare("insert or replace into settings (key, value) values ('stickiesShown', ?)").run(JSON.stringify(on))
@@ -1266,7 +1276,7 @@ export function registerHaligtree(): void {
     if ('showSnoozed' in patch) changed()
     if (patch.safeMode !== undefined && patch.safeMode !== wasSafe) safeModeTold(patch.safeMode)
     if (patch.keys) keysTold(patch.keys)
-    if ('stickiesShown' in patch || 'stickiesFrosted' in patch || 'stickiesGlass' in patch) stickiesTold()
+    if ('stickiesShown' in patch || 'stickiesTucked' in patch || 'stickiesFrosted' in patch || 'stickiesGlass' in patch) stickiesTold()
     if ('spellcheck' in patch || 'spellLanguages' in patch) spelling()
     if ('openAtLogin' in patch) atLogin()
     if ('goalBeacon' in patch || 'tempusDots' in patch || Object.keys(patch).some((key) => /^goal(Tuck|Show|Between|InFocus|PeekOut)/.test(key))) goalsTold()

@@ -117,13 +117,16 @@ export function InboxGraph({ captures, onOpen, compact = false }: { captures: Ca
   const listed = picked ? captures.filter((one) => picked.ids.includes(one.id)) : []
   return (
     <section data-inbox-graph={mode} className={`relative flex min-h-0 flex-1 flex-col ${compact ? 'min-h-56' : 'min-h-80'}`}>
-      <div className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 px-1 pb-1.5 text-control text-muted-foreground">
+      {/* The choices wrap in their own group; Fit stays at the first line's right whatever the width. */}
+      <div className="flex shrink-0 items-start gap-2 px-1 pb-1.5 text-control text-muted-foreground">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
         <Chips options={[{ id: 'captures', label: 'Captures', tip: 'Captures joined by the tags they share' }, { id: 'tags', label: 'Tags', tip: 'Tags joined by how often they come together' }]} on={(id) => id === mode}
           pick={(id) => (setMode(id as Mode), setPicked(null), keep('inboxGraph:mode', id))} className="flex-nowrap" />
         <Chips options={[{ id: 'week', label: 'This week' }, { id: 'month', label: 'This month' }, { id: 'all', label: 'All' }]} on={(id) => id === range}
           pick={(id) => (setRange(id as Range), setPicked(null), keep('inboxGraph:range', id))} className="flex-nowrap" />
+        </div>
         <Tip label="Fit the map">
-          <Button variant="ghost" size="icon-sm" className="ml-auto" aria-label="Fit the map" onClick={() => (chime('tap'), fit.current())}><Fit className="size-3.5" /></Button>
+          <Button variant="ghost" size="icon-sm" className="shrink-0" aria-label="Fit the map" onClick={() => (chime('tap'), fit.current())}><Fit className="size-3.5" /></Button>
         </Tip>
       </div>
       {dots ? (

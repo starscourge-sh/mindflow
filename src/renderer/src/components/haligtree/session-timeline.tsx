@@ -11,6 +11,7 @@ import { SessionBlocked } from './site-block-field'
 import { taskName } from '@/lib/tasks'
 import { Gem, Inbox, Timer } from '@/components/ui/icons'
 import { ShowMore, useShowMore } from './show-more'
+import { LOOKABLE, lookAtPicture } from '@/components/image/image-look'
 
 /**
  * A session's log as a timeline: what you noted, the context you gave it and
@@ -28,8 +29,9 @@ export function Attached({ entry, className }: { entry: LogEntry; className?: st
   if (!entry.asset) return null
   if (PICTURE.test(entry.asset))
     return (
-      <button type="button" onClick={() => void window.api.openFile(entry.asset!)} aria-label="Open the picture" className={cn('block overflow-hidden rounded-md border bg-accent/40', className)}>
-        <img src={entry.asset} alt={entry.assetName ?? ''} draggable={false} className="block max-h-40 w-auto max-w-full object-contain" />
+      // Opened in the viewer as a picture in a note is, rather than out in another app.
+      <button type="button" onClick={(event) => lookAtPicture(event.currentTarget.querySelector('img'))} aria-label="Look at the picture" className={cn('block overflow-hidden rounded-md border bg-accent/40', LOOKABLE, className)}>
+        <img data-look src={entry.asset} alt={entry.assetName ?? ''} draggable={false} className="block max-h-40 w-auto max-w-full object-contain" />
       </button>
     )
   return (

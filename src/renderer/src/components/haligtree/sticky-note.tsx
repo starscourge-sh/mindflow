@@ -561,6 +561,8 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
   const twice = !!opening && opening === title
   titled.current = title
   titleNow.current = title
+  // Said down its tab when the stickies are tucked away.
+  document.title = title || 'A sticky note'
   // Nothing written yet below its title: where to start.
   const empty = !(doc.content ?? []).some((child, at) => (at || !twice) && (child.type !== 'paragraph' || !!child.content?.length))
 
