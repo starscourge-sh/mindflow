@@ -2,7 +2,7 @@ import { app, BrowserWindow, globalShortcut, ipcMain, session } from 'electron'
 import { spawn, type ChildProcess } from 'child_process'
 import { randomUUID } from 'crypto'
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'fs'
-import { copyFile, mkdir, rename, rm, writeFile } from 'fs/promises'
+import { copyFile, mkdir, rename, rm, stat, writeFile } from 'fs/promises'
 import { join } from 'path'
 
 import { changed, database, shutDatabase } from './captures'
@@ -438,6 +438,8 @@ export function registerSandbox(): void {
     await mkdir(folder, { recursive: true })
     for (const file of files as { name: unknown; bytes: unknown }[]) {
       if (typeof file?.name !== 'string' || !/^[a-z-]+\.webp$/.test(file.name) || !(file.bytes instanceof Uint8Array)) continue
+      // Written once: on later starts only a painting not there yet is added.
+      if ((await stat(join(folder, file.name)).catch(() => null))?.size === file.bytes.length) continue
       await writeFile(join(folder, file.name), file.bytes)
     }
     return folder

@@ -16,6 +16,7 @@ import { chime } from '@/lib/sound'
 import { haligtree } from '@/lib/haligtree'
 import { CARRY_CELEBRATIONS, SANDBOX, enterSandbox, leaveSandbox, resetSandbox, sandboxState, startSandboxOver, type Carry, type Going as GoingTo } from '@/lib/sandbox'
 import { builtInScenery, seedSandbox } from '@/lib/sandbox-seed'
+import { isBuiltInScenery } from './settings-looks'
 import { APP_NAME } from '../../../../main/name'
 import { num } from '../../../../main/dates'
 
@@ -269,6 +270,8 @@ export function SandboxHost(): React.JSX.Element | null {
       // Scenery on with no folder of yours: Haligtree's own landscapes, once, so a
       // first start is not a bare page. Your own folders, once chosen, replace them.
       void haligtree.settings().then(async (settings) => {
+        // Haligtree's paintings already in use: written again, so a newer version's added ones show up there too.
+        if (settings.sceneryFolders.some(isBuiltInScenery)) return void builtInScenery()
         if (!settings.scenery || settings.sceneryFolders.length || localStorage.getItem('scenery-built-in')) return
         // Marked done only once the folder is really set: copying the pictures
         // takes a moment, and a reload (⌘R) in that moment, marked first, left

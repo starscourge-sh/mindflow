@@ -300,7 +300,16 @@ const PAINTINGS: Record<string, string> = {
   'harbor-entrance': 'Entrance to the Harbor, Eugène Boudin',
   'grand-manan': 'Morning at Grand Manan, Alfred Thompson Bricher',
   'lake-lucerne': 'Lake Lucerne, Albert Bierstadt',
-  'penobscot-bay': 'Lumber Schooners at Evening on Penobscot Bay, Fitz Henry Lane'
+  'penobscot-bay': 'Lumber Schooners at Evening on Penobscot Bay, Fitz Henry Lane',
+  'sierra-nevada': 'Among the Sierra Nevada, California, Albert Bierstadt',
+  'the-oxbow': 'The Oxbow, Thomas Cole',
+  'twilight-wilderness': 'Twilight in the Wilderness, Frederic Edwin Church',
+  'fighting-temeraire': 'The Fighting Temeraire, J. M. W. Turner',
+  'pine-forest': 'Morning in a Pine Forest, Ivan Shishkin',
+  'ninth-wave': 'The Ninth Wave, Ivan Aivazovsky',
+  'hay-wain': 'The Hay Wain, John Constable',
+  'yellowstone': 'The Grand Canyon of the Yellowstone, Thomas Moran',
+  'heart-of-the-andes': 'The Heart of the Andes, Frederic Edwin Church'
 }
 /** A credit for the day's picture, the way a caption names a painting: its name, then where it hangs. */
 const credit = (name?: string, folder?: string): string | null =>

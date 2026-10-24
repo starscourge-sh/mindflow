@@ -3,6 +3,7 @@
 //
 //   npx electron-vite build --outDir out-x
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/scenery-built-in.mjs
+import { readdirSync } from 'fs'
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -16,6 +17,8 @@ try {
   await h.waitForTimeout(2500)
   const row = h.locator('[data-scenery-folder]').filter({ hasText: 'Haligtree’s paintings' })
   await row.first().scrollIntoViewIfNeeded()
+  const shipped = readdirSync((await v('settings')).sceneryFolders[0]).filter((one) => one.endsWith('.webp'))
+  check(`Haligtree ships 20 paintings (${shipped.length})`, shipped.length === 20)
   check('the built-in folder is named "Haligtree’s paintings"', (await row.count()) === 1)
   await h.getByRole('button', { name: 'Remove Haligtree’s paintings' }).click()
   await h.waitForTimeout(800)
