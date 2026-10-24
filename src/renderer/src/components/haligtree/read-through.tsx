@@ -21,14 +21,14 @@ import { dequeue, finish, openLink, readingQueue, type QueueRow } from '@/lib/re
 import { QueuePanel } from './queue-panel'
 import { TAG, tagsIn } from '../../../../main/tag-words'
 import { ArrowDown, ArrowUp, X as ReadDone } from '@/components/ui/icons'
-import { ChevronDown, ListMusic, Lock, LockOpen, Plus } from 'lucide-react'
+import { ChevronDown, ListMusic, Lock, LockOpen, Plus, Repeat2 } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useGroups, type NoteGroup as Group } from '@/lib/groups'
 import { moveToBin } from '@/lib/to-bin'
 import { toast } from './ui'
 import { TagRow } from './pass'
 import { TagChip } from './tag-icon'
-import { num } from '../../../../main/dates'
+import { dayjs, num } from '../../../../main/dates'
 
 /** Whether the queue panel was left open, for the next time the queue is read. */
 const PANEL = 'readQueuePanel'
@@ -138,8 +138,21 @@ function MetaUnderLead({ host, meta, onTag }: { host: HTMLElement | null; meta: 
  * right (⌘L) opens the one in front of you to change it, Escape goes back to
  * where you were.
  */
-export function ReadThrough({ items: given, start = 0, onClose, queue: started, clueTo, sorting }: {
+/** Read as a long piece, Substack's way: a serif column, its first line and its length under the title, and its own bar at the foot. */
+export type Longform = {
+  dek: string
+  minutes: number
+  /** When it was written. */
+  made: string
+  /** A line chosen in the words, to restack. */
+  onLine: (line: string) => void
+  /** The bar at the foot: reply, restack, open to edit. */
+  foot: React.ReactNode
+}
+
+export function ReadThrough({ items: given, start = 0, onClose, queue: started, clueTo, sorting, longform }: {
   items: Readable[]
+  longform?: Longform
   /** "Sort these": imported notes not yet sorted, each kept, tagged, moved or binned in turn. */
   sorting?: boolean
   start?: number
@@ -475,7 +488,7 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
         return
       }
       // A thought being written on the page has the keys, Escape too; so does a tag being written to sort it.
-      if (document.activeElement?.closest('[data-gloss], [data-sort-tag]')) return
+      if (document.activeElement?.closest('[data-gloss], [data-sort-tag], [data-feed-composer]')) return
       // The Move menu, open, has the keys.
       if (moving) return
       // ⌘; as well as ;: the composer under the page.
@@ -652,6 +665,7 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
         </Tip>
         </span>
       </div>
+      {longform && !writing && <LineRestack host={wordsBox} onLine={longform.onLine} />}
       {ended ? <QueueDone ended={ended} onBack={leave} onPutBack={putBack} /> : <>
       <div ref={scroller} onScroll={measure} className={cn('min-h-0 flex-1 overflow-y-auto', queue && panel && 'xl:pr-80')}>
         {/* j and k turn the page hundreds of times: by key the next one is
@@ -676,7 +690,14 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
             {shown?.title && <h1 data-private={hidden} className="private-text font-heading text-[2.25rem] leading-[1.15] font-semibold tracking-[-0.022em] text-balance"><Tagged text={shown.title} onTag={openTag} /></h1>}
             {/* What it is, when, from where, its tags: under the title. With no
                 title and no short first line to stand as one, above the words. */}
-            {meta && (shown?.title || !lead) && <p data-read-meta="" className={cn('truncate text-meta text-muted-foreground', shown?.title ? 'mt-3 mb-9' : 'mb-6')}><Tagged text={meta} onTag={openTag} /></p>}
+            {longform && shown?.title && (
+              <div data-read-longform="" className="mt-3 mb-9 flex flex-col gap-3">
+                {/* Its dek, when it is not the words' own opening, which follow at once. */}
+                {longform.dek && !JSON.stringify(shown.body ?? '').includes(JSON.stringify(longform.dek.replace(/…$/, '')).slice(1, 40)) && <p data-read-dek="" data-private={hidden} className="private-text font-serif text-[1.3rem] leading-snug text-pretty text-muted-foreground">{longform.dek}</p>}
+                <p data-read-minutes="" className="text-meta text-muted-foreground tabular-nums">{longform.minutes} min read · {dayjs(longform.made).format(dayjs(longform.made).year() === dayjs().year() ? 'D MMM' : 'D MMM YYYY')}</p>
+              </div>
+            )}
+            {!longform && meta && (shown?.title || !lead) && <p data-read-meta="" className={cn('truncate text-meta text-muted-foreground', shown?.title ? 'mt-3 mb-9' : 'mb-6')}><Tagged text={meta} onTag={openTag} /></p>}
             {shown && (
               <div data-private={hidden}>
                 <div
@@ -686,6 +707,8 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
                   style={lead && meta ? ({ '--meta': JSON.stringify(meta) } as React.CSSProperties) : undefined}
                   className={cn(
                     'private-text relative',
+                    // A long read sets its words in the serif, as a printed essay is.
+                    longform && '[&_.tiptap.ProseMirror_:is(p,li,blockquote)]:font-serif [&_.tiptap.ProseMirror_p]:leading-[1.7]',
                     // The ::after keeps the meta line's room; MetaUnderLead draws its words over it.
                     lead && !!meta && '[&_.tiptap.ProseMirror>:first-child]:after:text-transparent [&_.tiptap.ProseMirror>:first-child]:after:select-none [&_.tiptap.ProseMirror>:first-child]:after:mt-3 [&_.tiptap.ProseMirror>:first-child]:after:mb-9 [&_.tiptap.ProseMirror>:first-child]:after:block [&_.tiptap.ProseMirror>:first-child]:after:font-sans [&_.tiptap.ProseMirror>:first-child]:after:text-meta [&_.tiptap.ProseMirror>:first-child]:after:font-normal [&_.tiptap.ProseMirror>:first-child]:after:tracking-normal [&_.tiptap.ProseMirror>:first-child]:after:content-[var(--meta)]',
                     // The column sets the margins, not the editor's own gutter.
@@ -733,7 +756,8 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
             {shown?.who && <p data-private={hidden} className="mt-5 text-control text-muted-foreground"><Signed who={shown.who} className="private-text" /></p>}
             {/* Thoughts kept on it stay with the words; a new one goes in the
                 composer under the page. */}
-            {shown && own && <div data-private={hidden} className={blank && !writing ? 'mt-2' : 'mt-16'}><GlossComposer id={item.id} field={false} /></div>}
+            {longform && shown && <div data-read-foot="" className="mt-14">{longform.foot}</div>}
+            {shown && own && <div data-private={hidden} className={blank && !writing ? 'mt-2' : longform ? 'mt-8' : 'mt-16'}><GlossComposer id={item.id} field={false} /></div>}
           </motion.article>
         </AnimatePresence>
       </div>
@@ -762,6 +786,36 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
       </>}
     </div>,
     document.body
+  )
+}
+
+/**
+ * Words chosen in a long read: "Restack this line" under them, the choice
+ * kept as it is pressed, so the line goes into a restack as it was chosen.
+ */
+function LineRestack({ host, onLine }: { host: HTMLElement | null; onLine: (line: string) => void }): React.JSX.Element | null {
+  const [at, setAt] = useState<{ left: number; top: number; line: string } | null>(null)
+  useEffect(() => {
+    if (!host) return
+    const watch = (): void => {
+      const chosen = window.getSelection()
+      if (!chosen || chosen.isCollapsed || !chosen.rangeCount || !host.contains(chosen.anchorNode)) return setAt(null)
+      const line = chosen.toString().replace(/\s+/g, ' ').trim()
+      if (!line) return setAt(null)
+      const box = chosen.getRangeAt(0).getBoundingClientRect()
+      setAt({ left: box.left + box.width / 2, top: box.bottom + 10, line })
+    }
+    document.addEventListener('selectionchange', watch)
+    return () => document.removeEventListener('selectionchange', watch)
+  }, [host])
+  if (!at) return null
+  return (
+    <button type="button" data-read-restack-line="" onMouseDown={(event) => event.preventDefault()}
+      onClick={() => (chime('tap'), onLine(at.line), window.getSelection()?.removeAllRanges(), setAt(null))}
+      style={{ left: at.left, top: at.top }}
+      className="fixed z-20 flex h-7 -translate-x-1/2 items-center gap-1.5 rounded-full border bg-background px-3 text-control text-foreground shadow-sm transition-colors hover:bg-accent">
+      <Repeat2 className="size-3.5" /> Restack this line
+    </button>
   )
 }
 

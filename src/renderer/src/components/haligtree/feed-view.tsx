@@ -14,6 +14,8 @@ import { Avatar } from './avatar'
 import { GlossLine, openGloss } from './gloss-line'
 import { MenuButton } from './collection-header'
 import { copy } from './row-menu'
+import { motion } from 'motion/react'
+import { FeedReading } from './feed-reading'
 
 /**
  * The Feed: the day's twenty or so of your own things, as posts in a
@@ -83,7 +85,49 @@ const scrollerOf = (node: HTMLElement | null): HTMLElement | null => {
   return null
 }
 
+/** Which tab the Feed was left on, for the next time it opens. */
+const TAB = 'feedTab'
+type FeedTab = 'notes' | 'reading'
+const FEED_TABS: { value: FeedTab; label: string }[] = [{ value: 'notes', label: 'Notes' }, { value: 'reading', label: 'Reading' }]
+const keptTab = (): FeedTab => {
+  try {
+    return localStorage.getItem(TAB) === 'reading' ? 'reading' : 'notes'
+  } catch {
+    return 'notes'
+  }
+}
+
+/** The app's tab chips, fixed on the left of the column: the one chosen slides under its word. */
+export function TabChips<T extends string>({ name, tabs, value, onChange, className }: { name: string; tabs: { value: T; label: string }[]; value: T; onChange: (value: T) => void; className?: string }): React.JSX.Element {
+  return (
+    <span role="tablist" data-tabs={name} className={cn('flex h-8 w-fit items-center rounded-lg border border-foreground/10 bg-accent/40 p-0.5 text-control', className)}>
+      {tabs.map((one) => (
+        <button key={one.value} type="button" role="tab" data-tab={one.value} aria-selected={value === one.value}
+          onClick={() => void (value !== one.value && (chime('tap'), onChange(one.value)))}
+          className={cn('relative h-7 rounded-md px-3 transition-colors', value === one.value ? 'text-foreground' : 'text-muted-foreground hover:text-foreground')}>
+          {value === one.value && <motion.span layoutId={`${name}-tab`} className="absolute inset-0 -z-10 rounded-md border border-foreground/15 bg-background shadow-sm" transition={{ type: 'spring', stiffness: 500, damping: 38 }} />}
+          {one.label}
+        </button>
+      ))}
+    </span>
+  )
+}
+
 export function FeedView({ onOpen }: { onOpen: (type: string, id: string) => void }): React.JSX.Element {
+  const [tab, setTab] = useState<FeedTab>(keptTab)
+  const choose = (next: FeedTab): void => {
+    setTab(next)
+    try {
+      localStorage.setItem(TAB, next)
+    } catch {
+      // Remembered while the window is open.
+    }
+  }
+  const tabs = <TabChips name="feed" tabs={FEED_TABS} value={tab} onChange={choose} className="mb-5" />
+  return tab === 'reading' ? <FeedReading tabs={tabs} onOpen={onOpen} /> : <FeedNotes tabs={tabs} onOpen={onOpen} />
+}
+
+function FeedNotes({ onOpen, tabs }: { onOpen: (type: string, id: string) => void; tabs: React.ReactNode }): React.JSX.Element {
   const feed = useLive(readFeed, NO_FEED, [], ['capture', 'item'], 'feed')
   const until = useUntilTomorrow()
   const root = useRef<HTMLDivElement>(null)
@@ -127,6 +171,7 @@ export function FeedView({ onOpen }: { onOpen: (type: string, id: string) => voi
     <Page title="Feed" waiting={unloaded(feed)} count={feed.posts.length || undefined} unit={['post today', 'posts today']}>
       <div ref={root} data-feed className="flex items-start gap-8 px-5 pt-[33px] pb-16">
       <div className="flex min-w-0 flex-1 flex-col">
+        {!shown && tabs}
         {shown ? (
           <Thread post={shown} onBack={back} onOpen={() => open(shown.type, shown.id)} onOpenOther={open} />
         ) : feed.safe ? (
@@ -343,7 +388,7 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
 }
 
 /** The old note under a restack: its account, kind, date and first lines, as a card that opens it. */
-function Quoted({ note, onOpen }: { note: NonNullable<FeedPost['restack']> | FeedPost; onOpen?: () => void }): React.JSX.Element {
+function Quoted({ note, onOpen }: { note: NonNullable<FeedPost['restack']> | Restackable; onOpen?: () => void }): React.JSX.Element {
   const quote = note.kind === 'quote'
   const account = (quote && note.who) || 'You'
   const body = (quote ? note.text || note.title : note.text) || ''
@@ -371,9 +416,12 @@ function Quoted({ note, onOpen }: { note: NonNullable<FeedPost['restack']> | Fee
   )
 }
 
-/** Restack: a new gem in your words, the old note quoted under it. ⌘↵ keeps it; it comes first in tomorrow's Feed. */
-function Restack({ post, onDone, onOpen }: { post: FeedPost; onDone: () => void; onOpen: (id: string) => void }): React.JSX.Element {
-  const [words, setWords] = useState('')
+/** What a restack quotes: a post, or a Page from Reading. */
+export type Restackable = Pick<FeedPost, 'type' | 'id' | 'kind' | 'title' | 'text' | 'who'>
+/** Restack: a new gem in your words, the old note quoted under it. ⌘↵ keeps it; it comes first in tomorrow's Feed. `initial`: a line chosen from it, to say again. */
+export function Restack({ post, onDone, onOpen, initial = '' }: { post: Restackable; onDone: () => void; onOpen: (id: string) => void; initial?: string }): React.JSX.Element {
+  const [words, setWords] = useState(initial)
+  useEffect(() => setWords(initial), [initial])
   const field = useRef<HTMLTextAreaElement>(null)
   useEffect(() => void requestAnimationFrame(() => field.current?.focus()), [])
   const keep = async (): Promise<void> => {

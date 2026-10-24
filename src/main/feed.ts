@@ -37,6 +37,24 @@ export type FeedPost = {
   restack: { type: FeedPost['type']; id: string; title: string; text: string; who: string | null; kind: string } | null
 }
 export type Reaction = 'true' | 'changed' | 'use' | 'less'
+/** A Page as Reading lists it: where it is from, its title and first line, how long it takes, when you last opened it. */
+export type ReadingPage = {
+  id: string
+  title: string
+  dek: string
+  words: number
+  minutes: number
+  made: string
+  opened: string | null
+  saved: boolean
+  /** Its "publication": the group it sits in, or else its first tag. */
+  from: { kind: 'group'; name: string; icon: string | null; color: string | null } | { kind: 'tag'; name: string } | null
+}
+export type Reading = { day: string; today: string | null; pages: ReadingPage[]; safe: boolean }
+/** Words a minute, read at an easy pace. */
+const PACE = 230
+/** Today's read is an essay: a page this long at least. */
+const ESSAY = 150
 export type Feed = { day: string; posts: FeedPost[]; safe: boolean }
 /** The Feed's side column: who and what has gone quiet, and the tags you wrote most this week. Never anything about other people. */
 export type FeedSide = { quiet: { kind: 'source' | 'tag'; name: string; last: string }[]; week: { tag: string; n: number }[] }
@@ -45,6 +63,16 @@ const SIZE = 20
 type Row = { type: FeedPost['type']; id: string; kind: string; title: string; body: string | null; who: string | null; made: string; visited: string | null; weight: number }
 /** How much less often "Less of this" makes it come up: the same step as a hint's thumbs down. */
 const LESS = 1 / 1.5
+/** A page's words a line a block: a paragraph with a link in it stays one line, as it reads. */
+const blockLines = (raw: string): string[] => {
+  let doc: { type?: string; content?: { type?: string }[] } | null = null
+  try { doc = JSON.parse(raw) } catch { /* Markdown */ }
+  if (!doc || typeof doc !== 'object' || !Array.isArray(doc.content)) return cardWords(raw).split('\n')
+  return doc.content.flatMap((block) => (block.type === 'paragraph' || block.type === 'heading' ? [plain(block).replace(/\n/g, '')] : plain(block).split('\n')))
+}
+/** Longest since you opened it first: never opened before all, then the oldest open, then the oldest written. */
+const forgotten = <T extends { opened: string | null; made: string }>(list: T[]): T[] =>
+  [...list].sort((a, b) => (a.opened ?? '').localeCompare(b.opened ?? '') || a.made.localeCompare(b.made))
 const tableOf = (type: string): 'nuggets' | 'captures' | null => (type === 'capture' ? 'captures' : type === 'day' ? null : 'nuggets')
 /** The id a note link names it by: a capture by its own id, a day as `day:`, the rest as `nugget:id`. */
 const linkId = (type: string, id: string): string => (type === 'capture' ? id : type === 'day' ? `day:${id}` : `nugget:${id}`)
@@ -53,7 +81,8 @@ export function registerFeed(): void {
   const db = database()
   db.exec(`create table if not exists feed_days (day text primary key, keys text not null);
     create table if not exists feed_reacts (day text not null, key text not null, reaction text not null, was text, primary key (day, key));
-    create table if not exists feed_restacks (id text primary key, of_key text not null, made_day text not null, shown_day text)`)
+    create table if not exists feed_restacks (id text primary key, of_key text not null, made_day text not null, shown_day text);
+    create table if not exists feed_reads (day text primary key, id text not null)`)
 
   /** Everything the Feed may show, as rows: private ones and #bits are never read. */
   const pool = (): Row[] => {
@@ -210,8 +239,46 @@ export function registerFeed(): void {
     return { quiet, week }
   })
 
-  /** One note by its feed key, for a restack whose old note is not in the day's set. */
-  const lookUp = (key: string): Row | undefined => pool().find((row) => `${row.type}:${row.id}` === key)
+  /** One note by its feed key, for a restack whose old note is not in the day's set. A Page restacked from Reading may have no picture, so it is read on its own. */
+  const lookUp = (key: string): Row | undefined => pool().find((row) => `${row.type}:${row.id}` === key) ?? (key.startsWith('article:') ? (db.prepare(`select 'article' as type, id, kind, coalesce(nullif(title, ''), label('', body)) as title, body, null as who, created_at as made, last_visited_at as visited, surfacing_weight as weight
+    from nuggets where id = ? and tier = 'article' and private = 0 and archived_at is null and binned_at is null`).get(key.slice(8)) as Row | undefined) : undefined)
+
+  // --- Reading: your Pages as a reading list, the one longest unread first.
+  ipcMain.handle('haligtree:feed:reading', (): Reading => {
+    const today = dayKey()
+    if (gate().blackout) return { day: today, today: null, pages: [], safe: true }
+    const opens = new Map((db.prepare('select id, at from note_opens').all() as { id: string; at: string }[]).map((row) => [row.id, row.at]))
+    const rows = db.prepare(`select n.id, coalesce(nullif(n.title, ''), label('', n.body)) as title, n.body, n.created_at as made, n.last_visited_at as visited, n.pinned_at as pinned,
+        g.name as groupName, g.icon as groupIcon, g.color as groupColor
+      from nuggets n left join note_groups g on g.id = n.group_id
+      where n.tier = 'article' and n.private = 0 and n.archived_at is null and n.superseded_by is null and n.binned_at is null`).all() as
+      { id: string; title: string; body: string | null; made: string; visited: string | null; pinned: string | null; groupName: string | null; groupIcon: string | null; groupColor: string | null }[]
+    const pages = rows.flatMap((row): ReadingPage[] => {
+      if (/(^|\s)#bit\b/i.test(`${row.title} ${row.body ?? ''}`)) return []
+      const flat = (said: string): string => said.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
+      const lines = blockLines(row.body ?? '').map((line) => line.replace(/(?<=^|\s)#\p{L}[\p{L}\p{N}_/-]*/gu, '').trim()).filter(Boolean)
+      // The title is said once; the first line after it is the dek.
+      while (lines.length && flat(row.title).includes(flat(lines[0]))) lines.shift()
+      const count = lines.join(' ').split(/\s+/).filter((word) => /\p{L}/u.test(word)).length
+      if (!count) return []
+      // The dek: the first full sentence's line, not a heading or a line that leads into a list.
+      const first = lines.find((line) => line.split(/\s+/).length >= 8 && !/[:…]$/.test(line)) ?? lines[0] ?? ''
+      const dek = first.length > 180 ? `${first.slice(0, 180).replace(/\s+\S*$/, '')}…` : first
+      const tag = tagsOfRow(row).find((one) => one !== 'bit' && one !== LEARN_TAG)
+      const opened = [opens.get(row.id), row.visited].filter((one): one is string => !!one).sort().at(-1) ?? null
+      return [{
+        id: row.id, title: row.title, dek, words: count, minutes: Math.max(1, Math.round(count / PACE)), made: row.made, opened, saved: !!row.pinned,
+        from: row.groupName ? { kind: 'group', name: row.groupName, icon: row.groupIcon, color: row.groupColor } : tag ? { kind: 'tag', name: tag } : null
+      }]
+    })
+    // Today's read: the most forgotten essay, picked once and kept all day.
+    let pick = (db.prepare('select id from feed_reads where day = ?').get(today) as { id: string } | undefined)?.id ?? null
+    if (!pick || !pages.some((one) => one.id === pick)) {
+      pick = forgotten(pages.filter((one) => one.words >= ESSAY))[0]?.id ?? null
+      if (pick) db.prepare('insert or replace into feed_reads (day, id) values (?, ?)').run(today, pick)
+    }
+    return { day: today, today: pick, pages: forgotten(pages), safe: false }
+  })
 
   // --- reactions: what you mean by it, each changing when it next comes up.
   // One a post a day; choosing another first takes the last one's effect back.
