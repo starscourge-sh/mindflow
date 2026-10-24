@@ -170,7 +170,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
       </div>
       {chosen && (
         // Reading, the band under it names the tag and counts; the bar keeps only the way back and the tabs.
-        <Page title={tab === 'read' ? 'Tag' : `#${chosen}`} count={tab === 'read' ? undefined : current?.count ?? items.length} unit={['note', 'notes']} actions={
+        <Page broad title={tab === 'read' ? 'Tag' : `#${chosen}`} count={tab === 'read' ? undefined : current?.count ?? items.length} unit={['note', 'notes']} actions={
           // Reading the tag, or looking after it: two jobs, a tab each.
           <span className="flex items-center gap-1">
           <Tip label="All tags">

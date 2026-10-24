@@ -188,8 +188,10 @@ function FitActions({ children, room }: { children: ReactNode; /** What sets the
 }
 
 /** A view's frame: title, a muted count, actions on the right, then the body. */
-export function Page({ title, lead, count, unit = ['item', 'items'], actions, children, aside = false, wide = false, fit = false, beside, waiting = false, apart = false }: {
+export function Page({ title, lead, count, unit = ['item', 'items'], actions, children, aside = false, wide = false, broad = false, fit = false, beside, waiting = false, apart = false }: {
   title: ReactNode
+  /** On the wider column Home uses: a page of parts side by side (Stats' charts, a tag's or a source's cover beside its name). Every other page is as wide as Journal. */
+  broad?: boolean
   /**
    * A list beside the note it was opened onto: it comes in whole on its own,
    * in its own place, and never keeps the note waiting (lib/reads-in.tsx).
@@ -223,7 +225,7 @@ export function Page({ title, lead, count, unit = ['item', 'items'], actions, ch
   // Drawn once, when its reads and those of every part on it are in (lib/reads-in.tsx).
   const { provide, style } = useReadsIn(waiting, apart)
   return provide(
-    <section data-chrome={aside || undefined} data-apart={apart ? 'list' : undefined} className={cn('relative flex min-w-0 flex-1 flex-col', aside && 'hidden flex-none @[56rem]/page:flex')}
+    <section data-chrome={aside || undefined} data-apart={apart ? 'list' : undefined} data-list-column={broad ? undefined : ''} className={cn('relative flex min-w-0 flex-1 flex-col', aside && 'hidden flex-none @[56rem]/page:flex')}
       style={{ ...(aside ? { width: listWidth, maxWidth: '60%' } : {}), ...style }}>
       {aside && grip}
       {/* The window's toolbar already names the section, so this line only
