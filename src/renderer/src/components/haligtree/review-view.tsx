@@ -38,7 +38,7 @@ import { backIn } from '@/lib/back-in'
 import { hoverNote } from './note-preview'
 
 /** The four grades, as the plan defines them: how the retrieval felt, not whether it was right. */
-const GRADES = [
+export const GRADES = [
   { grade: 1, label: 'Again', hint: 'Could not recall it', tone: 'var(--tt-color-text-red)' },
   { grade: 2, label: 'Hard', hint: 'Got it, barely', tone: 'var(--tt-color-text-orange)' },
   { grade: 3, label: 'Good', hint: 'Normal effort', tone: 'var(--tt-color-text-green)' },

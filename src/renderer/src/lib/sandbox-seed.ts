@@ -956,6 +956,19 @@ Jimmy's rule in Goodfellas: never rat on your friends, and always keep your mout
   await field(party, 'Reopen only if', 'It happens at my party.')
   await field(party, 'ask', 'Does saying nothing still hold?')
   await field(party, 'back', at(3, '12:00'))
+  // Decisions made weeks ago and settled: the Feed asks of one a day whether it was right.
+  const decided: [string, string, number][] = [
+    ['Read Dune before seeing the film\n\nThe book first, so the film is a second reading, not the first. Villeneuve can wait a month.', 'Read the book before the film', 64],
+    ['Swapped the late-night scroll for a paper book\n\nPhone out of the bedroom, a novel on the pillow. Gandalf would approve: all we have to decide is what to do with the time.', 'A paper book in bed, the phone left in the kitchen', 41],
+    ['Walk to work on Tuesdays and Thursdays\n\nForty minutes each way, like Forrest Gump with a backpack. The bus is quicker but I never think on the bus.', 'Walk to work two days a week', 33]
+  ]
+  for (const [text, call_, back] of decided) {
+    const one = await capture({ kind: 'checkback' }, at(-back, '20:15'))
+    await write(one, text)
+    await field(one, 'state', 'Decided')
+    await field(one, 'call', call_)
+    await field(one, 'decidedAt', at(-back, '20:15'))
+  }
 
   // A question held for a month, then answered: its clues become an article.
   const monster = await call<string>('question:new', 'Who is the monster in Frankenstein?')

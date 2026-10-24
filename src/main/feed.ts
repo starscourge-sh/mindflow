@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto'
 
 import { LABEL, changed, database } from './captures'
 import { cut } from './clip'
-import { cardWords, gate, plain } from './haligtree'
+import { cardForQuiz, cardWords, dueCards, gate, plain } from './haligtree'
 import { tagsIn } from './tag-words'
 import { LEARN_TAG } from './name'
 import { dayKey, dayjs } from './dates'
@@ -16,7 +16,7 @@ import { dayKey, dayjs } from './dates'
  * a #bit, nothing at all in Safe mode.
  */
 export type FeedPost = {
-  type: 'capture' | 'nugget' | 'article' | 'question' | 'day'
+  type: 'capture' | 'nugget' | 'article' | 'question' | 'day' | 'poll' | 'quiz'
   id: string
   kind: string
   title: string
@@ -35,7 +35,17 @@ export type FeedPost = {
   seenTimes: number
   /** A gem you restacked: the note it quotes. */
   restack: { type: FeedPost['type']; id: string; title: string; text: string; who: string | null; kind: string } | null
+  /** A decision made weeks ago, asked about again: what you said today, and every answer you have given it. */
+  poll?: { open: { type: 'capture' | 'nugget'; id: string }; answer: PollAnswer | null; answers: Record<PollAnswer, number> }
+  /** A Review card due, asked here: its question, its answer, each grade's next date, and today's grade once given. */
+  quiz?: { prompt: string; answer: string; intervals: Record<number, string>; graded: { grade: number; due: string } | null }
 }
+export type PollAnswer = 'yes' | 'mixed' | 'no'
+/** How long after it was decided a decision is first asked about, and how long before it is asked again. */
+const POLL_AFTER = 21
+const POLL_AGAIN = 28
+/** Quiz cards a day at most. */
+const QUIZZES = 2
 export type Reaction = 'true' | 'changed' | 'use' | 'less'
 /** A Page as Reading lists it: where it is from, its title and first line, how long it takes, when you last opened it. */
 export type ReadingPage = {
@@ -60,6 +70,37 @@ export type Feed = { day: string; posts: FeedPost[]; safe: boolean }
 export type FeedSide = { quiet: { kind: 'source' | 'tag'; name: string; last: string }[]; week: { tag: string; n: number }[] }
 
 const SIZE = 20
+/** A Page's dek: about this long, cut at a word. */
+const DEK = 180
+/** A link's label clipped short: "Rosetta Stone, found in 1799: one decre…". */
+const CLIPPED = /(?:…|\.\.\.)\s*$/
+/** A date said first, as a clue or a dated line starts: "7 May 2026 · ", "Tue 4 March: ", "2026-05-07 - ". */
+const LEAD_DATE = /^(?:(?:mon|tue|wed|thu|fri|sat|sun)[a-z]*,?\s+)?(?:\d{1,2}\s+[a-z]{3,9}\.?(?:\s+\d{4})?|[a-z]{3,9}\s+\d{1,2}(?:,?\s+\d{4})?|\d{4}-\d{2}-\d{2})\s*(?:[·:,–-]\s*)/i
+/** What a dek never reads: pictures, embeds and other blocks that are not prose. */
+const NOT_PROSE = new Set(['noteEmbed', 'image', 'imagePlaceholder', 'attachment', 'bookmark', 'excalidraw', 'tableOfContents', 'codeBlock', 'horizontalRule', 'table', 'columns'])
+/** Marks a line a clipped link was in, so it is never the dek. */
+const POISON = '\u0000'
+/**
+ * A Page's lines as prose, for its dek: a link reads as its words, but one
+ * whose label was clipped spoils its line, and date chips, mentions, embeds
+ * and pictures are left out, so the dek never has "..." in its middle.
+ */
+const proseLines = (raw: string): string[] => {
+  type Node = { type?: string; text?: string; attrs?: { label?: string }; content?: Node[] }
+  let doc: Node | string | null = null
+  try { doc = JSON.parse(raw) } catch { /* Markdown */ }
+  if (!doc || typeof doc !== 'object' || !Array.isArray(doc.content)) {
+    const text = typeof doc === 'string' ? doc : raw
+    return cardWords(text.replace(/\[\[@[^|\]]+\|([^\]]*)\]\]/g, (all, label: string) => (CLIPPED.test(label) ? POISON : all))).split('\n')
+  }
+  const inline = (nodes: Node[] = []): string => nodes.map((node) =>
+    node.type === 'text' ? (node.text ?? '') : node.type === 'noteLink' ? (CLIPPED.test(node.attrs?.label ?? '') ? POISON : (node.attrs?.label ?? '')) : node.type === 'hardBreak' ? ' ' : '').join('')
+  const block = (node: Node): string[] =>
+    NOT_PROSE.has(node.type ?? '') ? [] : node.type === 'paragraph' || node.type === 'heading' ? [inline(node.content)] : (node.content ?? []).flatMap(block)
+  return doc.content.flatMap(block)
+}
+/** Cut at a word, with one ellipsis, and only when it runs long. */
+const cutAt = (text: string, size: number): string => (text.length > size ? `${text.slice(0, size).replace(/\s+\S*$/, '').replace(/[\s,;:·–-]+$/, '')}…` : text)
 type Row = { type: FeedPost['type']; id: string; kind: string; title: string; body: string | null; who: string | null; made: string; visited: string | null; weight: number }
 /** How much less often "Less of this" makes it come up: the same step as a hint's thumbs down. */
 const LESS = 1 / 1.5
@@ -82,7 +123,78 @@ export function registerFeed(): void {
   db.exec(`create table if not exists feed_days (day text primary key, keys text not null);
     create table if not exists feed_reacts (day text not null, key text not null, reaction text not null, was text, primary key (day, key));
     create table if not exists feed_restacks (id text primary key, of_key text not null, made_day text not null, shown_day text);
-    create table if not exists feed_reads (day text primary key, id text not null)`)
+    create table if not exists feed_reads (day text primary key, id text not null);
+    create table if not exists feed_polls (day text not null, key text not null, answer text not null, gloss text, primary key (day, key));
+    create table if not exists feed_quiz (day text not null, id text not null, grade integer not null, due text not null, primary key (day, id))`)
+
+  // --- polls: a decision made weeks ago, asked about again.
+  type Decision = { table: 'captures' | 'nuggets'; id: string; title: string; fields: string; made: string }
+  const decisionOf = (table: 'captures' | 'nuggets', id: string): Decision | undefined => decisions(id).find((one) => one.table === table)
+  /** Every decision that is Decided, of yours and not private; one id alone, or all of them. */
+  const decisions = (only?: string): Decision[] => {
+    const one = only ? 'and id = ?' : ''
+    const args = only ? [only] : []
+    const where = "kind in ('decision', 'checkback') and private = 0 and archived_at is null and json_valid(fields) and json_extract(fields, '$.state') = 'Decided'"
+    return [
+      ...db.prepare(`select 'captures' as \`table\`, id, ${LABEL} as title, fields, captured_at as made from captures where ${where} and status != 'discarded' ${one}`).all(...args),
+      ...db.prepare(`select 'nuggets' as \`table\`, id, coalesce(nullif(title, ''), label('', body)) as title, fields, created_at as made from nuggets where ${where} and binned_at is null and superseded_by is null ${one}`).all(...args)
+    ] as Decision[]
+  }
+  const fieldsOf = (one: Decision): Record<string, unknown> => { try { return JSON.parse(one.fields) as Record<string, unknown> } catch { return {} } }
+  /** What was chosen, in its own words: the call, or else the note's title. */
+  const chosen = (one: Decision): string => String(fieldsOf(one).call ?? fieldsOf(one)['The call'] ?? '').trim() || one.title.replace(/^decided:\s*/i, '').trim()
+  const decidedOn = (one: Decision): string => String(fieldsOf(one).decidedAt ?? '') || one.made
+  /** Today's poll, if one is owed: the decision longest unasked, decided three weeks ago or more, not asked in the last four. */
+  const pickPoll = (today: string): string[] => {
+    const asked = new Map((db.prepare('select key, max(day) as day from feed_polls group by key').all() as { key: string; day: string }[]).map((one) => [one.key, one.day]))
+    const old = dayjs().subtract(POLL_AFTER, 'day').toISOString()
+    const again = dayKey(dayjs().subtract(POLL_AGAIN, 'day'))
+    const due = decisions().map((one) => ({ key: `poll:${one.table}:${one.id}`, decided: decidedOn(one) }))
+      .filter((one) => one.decided <= old && (asked.get(one.key) ?? '') < again && asked.get(one.key) !== today)
+      .sort((a, b) => (asked.get(a.key) ?? '').localeCompare(asked.get(b.key) ?? '') || a.decided.localeCompare(b.decided))
+    return due.slice(0, 1).map((one) => one.key)
+  }
+  const POLL_WORD: Record<PollAnswer, string> = { yes: 'yes', mixed: 'mixed', no: 'no' }
+  const answersOf = (key: string): Record<PollAnswer, number> => {
+    const all: Record<PollAnswer, number> = { yes: 0, mixed: 0, no: 0 }
+    for (const one of db.prepare('select answer, count(*) as n from feed_polls where key = ? group by answer').all(key) as { answer: PollAnswer; n: number }[]) if (one.answer in all) all[one.answer] = one.n
+    return all
+  }
+  // Choosing writes a dated thought on the decision, "Looking back: yes"; choosing again today rewrites it, choosing none takes it away.
+  ipcMain.handle('haligtree:feed:poll', (_event, key: string, answer: PollAnswer | null): Record<PollAnswer, number> | null => {
+    const [, rest] = split(key)
+    const [table, id] = split(rest) as ['captures' | 'nuggets', string]
+    if (table !== 'captures' && table !== 'nuggets') return null
+    if (answer && !(answer in POLL_WORD)) return null
+    const day = dayKey()
+    const was = db.prepare('select gloss from feed_polls where day = ? and key = ?').get(day, key) as { gloss: string | null } | undefined
+    if (!answer) {
+      if (was?.gloss) db.prepare('delete from glosses where id = ?').run(was.gloss)
+      db.prepare('delete from feed_polls where day = ? and key = ?').run(day, key)
+    } else {
+      const body = `Looking back: ${POLL_WORD[answer]}`
+      let gloss = was?.gloss ?? null
+      if (gloss && db.prepare('update glosses set body = ? where id = ?').run(body, gloss).changes) { /* rewritten */ } else {
+        gloss = randomUUID()
+        db.prepare('insert into glosses (id, item_id, body, created_at) values (?, ?, ?, ?)').run(gloss, id, body, new Date().toISOString())
+      }
+      db.prepare('insert or replace into feed_polls (day, key, answer, gloss) values (?, ?, ?, ?)').run(day, key, answer, gloss)
+    }
+    changed({ kind: table === 'captures' ? 'capture' : 'item', id })
+    return answersOf(key)
+  })
+
+  // --- quizzes: a Review card due, asked in the Feed and graded by Review's own grading.
+  const pickQuiz = (): string[] => {
+    const due = dueCards().map((one) => one.id)
+    // None due now: the ones coming up soonest, within two days.
+    const near = due.length ? [] : (db.prepare(`select id from nuggets where coalesce(prompt, '') != '' and suspended = 0 and private = 0 and archived_at is null and binned_at is null and state is not null and due_at <= ? order by due_at limit ?`)
+      .all(dayjs().add(2, 'day').toISOString(), QUIZZES) as { id: string }[]).map((one) => one.id)
+    return [...due, ...near].filter((id) => cardForQuiz(id)).slice(0, QUIZZES).map((id) => `quiz:${id}`)
+  }
+  // Graded from the Feed: the renderer grades with Review's own call, then says so here, so a reload shows the grade.
+  ipcMain.handle('haligtree:feed:quiz', (_event, id: string, grade: number, due: string): boolean =>
+    db.prepare('insert or replace into feed_quiz (day, id, grade, due) values (?, ?, ?, ?)').run(dayKey(), String(id), Number(grade), String(due)).changes > 0)
 
   /** Everything the Feed may show, as rows: private ones and #bits are never read. */
   const pool = (): Row[] => {
@@ -161,10 +273,15 @@ export function registerFeed(): void {
       ]
       // Gems and quotes are the most of it: two each a turn, a question, a day and a picture one.
       const share = [2, 2, 1, 1, 1]
+      // A poll and a quiz card or two are part of the twenty, set among the notes rather than at the top.
+      const asks = [...pickPoll(today), ...pickQuiz()]
+      const room = Math.max(0, SIZE - asks.length - stacked.length)
       const picked: Row[] = []
-      while (picked.length < SIZE && lanes.some((lane) => lane.length))
-        lanes.forEach((lane, at) => picked.push(...lane.splice(0, share[at]).slice(0, SIZE - picked.length)))
-      keys = JSON.stringify([...stacked, ...order(picked)].map((row) => `${row.type}:${row.id}`))
+      while (picked.length < room && lanes.some((lane) => lane.length))
+        lanes.forEach((lane, at) => picked.push(...lane.splice(0, share[at]).slice(0, room - picked.length)))
+      const list = [...stacked, ...order(picked)].map((row) => `${row.type}:${row.id}`)
+      asks.forEach((key, at) => list.splice(Math.min(list.length, 3 + at * 5), 0, key))
+      keys = JSON.stringify(list)
       db.prepare('update feed_restacks set shown_day = ? where shown_day is null and made_day < ?').run(today, today)
       db.prepare('insert or replace into feed_days (day, keys) values (?, ?)').run(today, keys)
     }
@@ -178,7 +295,27 @@ export function registerFeed(): void {
       const old = of ? (byKey.get(of) ?? lookUp(of)) : undefined
       return old ? { type: old.type, id: old.id, title: old.title, text: words(old), who: old.who?.trim() || null, kind: old.kind } : null
     }
+    const graded = db.prepare('select grade, due from feed_quiz where day = ? and id = ?')
+    const pollAnswer = db.prepare('select answer from feed_polls where day = ? and key = ?')
+    const blank = { who: null, seen: null, gloss: null, clue: null, react: null, replies: 0, firstReply: null, seenTimes: 0, restack: null }
+    const asked = (key: string): FeedPost[] => {
+      const [type, rest] = split(key)
+      if (type === 'poll') {
+        const [table, id] = split(rest) as ['captures' | 'nuggets', string]
+        const one = decisionOf(table, id)
+        if (!one) return []
+        return [{ ...blank, type: 'poll', id: rest, kind: 'decision', title: chosen(one), text: '', made: decidedOn(one),
+          poll: { open: { type: table === 'captures' ? 'capture' : 'nugget', id }, answer: ((pollAnswer.get(today, key) as { answer: PollAnswer } | undefined)?.answer) ?? null, answers: answersOf(key) } }]
+      }
+      // A card suspended, private or binned since the morning is not asked.
+      const card = cardForQuiz(rest) as { id: string; prompt: string | null; body: unknown; title: string; createdAt?: string; intervals: Record<number, string> } | null
+      if (!card) return []
+      const answer = typeof card.body === 'string' ? cardWords(card.body) : plain(card.body)
+      return [{ ...blank, type: 'quiz', id: rest, kind: 'card', title: card.title, text: '', made: String(card.createdAt ?? ''),
+        quiz: { prompt: card.prompt ?? '', answer: cutAt(answer.replace(/(?<=^|\s)#\p{L}[\p{L}\p{N}_/-]*/gmu, '').replace(/[ \t]+$/gm, '').trim(), 600), intervals: card.intervals, graded: (graded.get(today, rest) as { grade: number; due: string } | undefined) ?? null } }]
+    }
     const posts = (JSON.parse(keys) as string[]).flatMap((key): FeedPost[] => {
+      if (key.startsWith('poll:') || key.startsWith('quiz:')) return asked(key)
       const row = byKey.get(key)
       if (!row) return []
       const gloss = (glossOf.get(row.id) as { body: string; at: string } | undefined) ?? null
@@ -261,9 +398,13 @@ export function registerFeed(): void {
       while (lines.length && flat(row.title).includes(flat(lines[0]))) lines.shift()
       const count = lines.join(' ').split(/\s+/).filter((word) => /\p{L}/u.test(word)).length
       if (!count) return []
-      // The dek: the first full sentence's line, not a heading or a line that leads into a list.
-      const first = lines.find((line) => line.split(/\s+/).length >= 8 && !/[:…]$/.test(line)) ?? lines[0] ?? ''
-      const dek = first.length > 180 ? `${first.slice(0, 180).replace(/\s+\S*$/, '')}…` : first
+      // The dek: the first full sentence's line, not a heading or a line that leads into a list,
+      // read as prose: no clipped link, no date at its start, no "..." before its end.
+      const prose = proseLines(row.body ?? '').map((line) => line.replace(/(?<=^|\s)#\p{L}[\p{L}\p{N}_/-]*/gu, '').replace(/\s+/g, ' ').trim().replace(LEAD_DATE, ''))
+        .filter((line) => line && !line.includes(POISON) && !/(?:…|\.\.\.)(?=.*\S)/.test(line.replace(/(?:…|\.\.\.)\s*$/, '')))
+      while (prose.length && flat(row.title).includes(flat(prose[0]))) prose.shift()
+      const first = prose.find((line) => line.split(/\s+/).length >= 8 && !/[:…]$/.test(line)) ?? prose[0] ?? ''
+      const dek = cutAt(first, DEK)
       const tag = tagsOfRow(row).find((one) => one !== 'bit' && one !== LEARN_TAG)
       const opened = [opens.get(row.id), row.visited].filter((one): one is string => !!one).sort().at(-1) ?? null
       return [{

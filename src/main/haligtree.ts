@@ -2397,6 +2397,13 @@ export function registerHaligtree(): void {
     }))
   }
   handle('review:queue', () => reviewQueue())
+  // One card as a session would show it, for a quiz post in the Feed: never one suspended, private or in the Bin.
+  quizCard = (id) => {
+    const row = db.prepare(`select ${ITEM}, body, state from nuggets where id = ? and coalesce(prompt, '') != '' and suspended = 0 and private = 0 and archived_at is null and binned_at is null`).get(id) as Record<string, unknown> | undefined
+    if (!row) return null
+    const exam = examOf()(row)
+    return { ...body(row), state: undefined, intervals: preview(row.state as string | null, (when) => capped(when, exam)) }
+  }
   // Bury: not today. The timing is wrong, the item is fine, and the schedule is
   // left as it was; it is simply back tomorrow.
   handle('review:bury', (id: string) => {
@@ -3888,6 +3895,11 @@ export function registerHaligtree(): void {
 
 /** Today's review queue, set once the handlers are registered; the badge counts it too. */
 let reviewQueue: () => unknown[] = () => []
+let quizCard: (id: string) => Record<string, unknown> | null = () => null
+/** The cards due now, in Review's order, for the Feed's quiz posts. */
+export const dueCards = (): { id: string }[] => reviewQueue() as { id: string }[]
+/** One card with its grades' next dates, as Review shows it. */
+export const cardForQuiz = (id: string): Record<string, unknown> | null => quizCard(id)
 
 /** What the menu bar says: reviews due, and whether safe mode is on. */
 export function badge(): { due: number; tasks: number; safe: boolean } {

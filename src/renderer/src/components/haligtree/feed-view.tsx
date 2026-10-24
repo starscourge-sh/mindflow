@@ -7,7 +7,9 @@ import { noteLinkText } from '@/lib/capture-links'
 import { chime, type Cue } from '@/lib/sound'
 import { cn } from '@/lib/cn'
 import { dayjs, num } from '../../../../main/dates'
-import type { Feed, FeedPost, FeedSide, Reaction } from '../../../../main/feed'
+import type { Feed, FeedPost, FeedSide, PollAnswer, Reaction } from '../../../../main/feed'
+import { GRADES } from './review-view'
+import { backIn } from '@/lib/back-in'
 import { openSource, sources, type SourceSummary } from '@/lib/sources'
 import { Kbd, Page, Tip, openTag, quietly, toast } from './ui'
 import { Avatar } from './avatar'
@@ -28,7 +30,7 @@ const readFeed = (): Promise<Feed> => call<Feed>('feed')
 const NO_FEED = unread<Feed>({ day: '', posts: [], safe: false })
 const react = (post: FeedPost, reaction: Reaction | null): Promise<Reaction | null> => call<Reaction | null>('feed:react', `${post.type}:${post.id}`, reaction)
 
-const KIND_WORD: Record<FeedPost['type'], string> = { nugget: 'Gem', capture: 'Note', article: 'Page', question: 'Question', day: 'Journal' }
+const KIND_WORD: Record<FeedPost['type'], string> = { nugget: 'Gem', capture: 'Note', article: 'Page', question: 'Question', day: 'Journal', poll: 'Poll', quiz: 'Quiz card' }
 const kindWord = (post: { kind: string; type: FeedPost['type'] }): string => (post.kind === 'quote' ? 'Quote' : KIND_WORD[post.type])
 
 /** A date: "4 Mar", with the year once it is not this year's, or always (`years`) in a thread that spans years. */
@@ -181,7 +183,9 @@ function FeedNotes({ onOpen, tabs }: { onOpen: (type: string, id: string) => voi
         ) : (
           <>
             <ol className="flex flex-col">
-              {feed.posts.map((post) => <Post key={`${post.type}:${post.id}`} post={post} onOpen={() => open(post.type, post.id)} onOpenOther={open} onThread={() => openThread(post)} />)}
+              {feed.posts.map((post) => post.poll ? <PollPost key={`poll:${post.id}`} post={post} onOpen={() => open(post.poll!.open.type, post.poll!.open.id)} />
+                : post.quiz ? <QuizPost key={`quiz:${post.id}`} post={post} onOpen={() => open('nugget', post.id)} />
+                : <Post key={`${post.type}:${post.id}`} post={post} onOpen={() => open(post.type, post.id)} onOpenOther={open} onThread={() => openThread(post)} />)}
             </ol>
             <footer data-feed-end className="flex flex-col items-center gap-1.5 py-12 text-center">
               <p className="font-heading text-[1.25rem] font-semibold tracking-[-0.01em] text-foreground">You're all caught up</p>
@@ -381,6 +385,129 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
             </p>
           )}
           {restacking && <Restack post={post} onDone={() => setRestacking(false)} onOpen={(id) => onOpenOther('nugget', id)} />}
+        </div>
+      </div>
+    </li>
+  )
+}
+
+/** A post's account line: you, what it is, and its date. */
+function PostHead({ post, said }: { post: FeedPost; said?: string }): React.JSX.Element {
+  return (
+    <p className="flex min-w-0 items-baseline gap-1.5 text-control">
+      <span data-feed-account className="truncate font-semibold text-foreground">You</span>
+      <span className="shrink-0 text-muted-foreground">{kindWord(post)}</span>
+      {post.made && (
+        <>
+          <span aria-hidden className="shrink-0 text-muted-foreground">·</span>
+          <time dateTime={post.made} className="shrink-0 text-muted-foreground tabular-nums">{said ? `${said} ${written(post.made)}` : written(post.made)}</time>
+        </>
+      )}
+    </p>
+  )
+}
+
+const POLL: { value: PollAnswer; label: string }[] = [{ value: 'yes', label: 'Yes' }, { value: 'mixed', label: 'Mixed' }, { value: 'no', label: 'No' }]
+const answersSaid = (answers: Record<PollAnswer, number>): string =>
+  POLL.filter((one) => answers[one.value]).map((one) => `${num(answers[one.value])} ${one.value}`).join(', ')
+
+/** A decision made weeks ago, asked again: "You chose it. Was it right?", and what you said kept on it as a dated thought. */
+function PollPost({ post, onOpen }: { post: FeedPost; onOpen: () => void }): React.JSX.Element {
+  const poll = post.poll!
+  const [answer, setAnswer] = useState<PollAnswer | null>(poll.answer)
+  const [answers, setAnswers] = useState(poll.answers)
+  useEffect(() => (setAnswer(poll.answer), setAnswers(poll.answers)), [poll.answer, poll.answers])
+  const choose = (value: PollAnswer): void => {
+    const next = answer === value ? null : value
+    chime(next ? 'decided' : 'undo')
+    setAnswer(next)
+    void call<Record<PollAnswer, number> | null>('feed:poll', `poll:${post.id}`, next).then((all) => all && setAnswers(all))
+  }
+  const total = answers.yes + answers.mixed + answers.no
+  return (
+    <li data-feed-post="poll" data-feed-id={post.id} data-feed-answer={answer ?? undefined} className="flex flex-col gap-1 border-b py-4 first:pt-0 last:border-b-0">
+      <div className="flex gap-3">
+        <div className="flex w-9 shrink-0 flex-col items-center"><Avatar name="You" size={36} className="mt-0.5 shrink-0" /></div>
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <PostHead post={post} said="decided" />
+          <p data-feed-poll-ask className="text-body [overflow-wrap:anywhere] text-foreground">You chose <strong className="font-semibold">{post.title.replace(/[.\s]+$/, '')}</strong>. Was it right?</p>
+          <div role="group" aria-label="Was it right?" className="grid w-[19.5rem] max-w-full grid-cols-3 gap-2">
+            {POLL.map((one) => (
+              <button key={one.value} type="button" data-feed-poll={one.value} aria-pressed={answer === one.value} onClick={() => choose(one.value)}
+                className={cn('h-8 rounded-md border text-control font-medium transition-colors', answer === one.value ? 'border-primary/45 bg-primary/12 text-primary' : 'text-foreground hover:bg-foreground/[0.06]')}>
+                {one.label}
+              </button>
+            ))}
+          </div>
+          {/* Always there, so nothing below moves when you choose. */}
+          <p data-feed-poll-said className="min-h-5 text-control text-muted-foreground">
+            {answer ? <>Kept on the decision as “Looking back: {answer}”.{total > 1 && <> Your answers so far: <span data-feed-poll-split className="text-foreground">{answersSaid(answers)}</span>.</>}</> : 'Your answer is kept on the decision, dated today.'}
+          </p>
+          <div data-feed-actions className="-ml-2 flex items-center text-muted-foreground">
+            <span className="flex-1" />
+            <button type="button" data-feed-open onClick={onOpen} className="flex h-7 items-center gap-1.5 rounded-md px-2 text-control transition-colors hover:bg-foreground/[0.06] hover:text-foreground">
+              <ArrowUpRight className="size-4" /> Open
+            </button>
+          </div>
+        </div>
+      </div>
+    </li>
+  )
+}
+
+/** A Review card due, asked here: its question, "Show answer", then Review's own four grades, graded exactly as Review would. */
+function QuizPost({ post, onOpen }: { post: FeedPost; onOpen: () => void }): React.JSX.Element {
+  const quiz = post.quiz!
+  const [shown, setShown] = useState(!!quiz.graded)
+  const [graded, setGraded] = useState(quiz.graded)
+  // The dates each grade promised when asked: a grade reschedules the card, and the buttons keep saying what they said.
+  const [intervals] = useState(quiz.intervals)
+  const started = useRef(Date.now())
+  const reveal = (): void => (chime('reveal'), setShown(true))
+  const grade = (value: 1 | 2 | 3 | 4): void => {
+    if (graded) return
+    chime((['again', 'hard', 'good', 'easy'] as const)[value - 1])
+    void haligtree.grade(post.id, value, Date.now() - started.current).then((due) => {
+      setGraded({ grade: value, due })
+      void call('feed:quiz', post.id, value, due)
+    })
+  }
+  return (
+    <li data-feed-post="quiz" data-feed-id={post.id} data-feed-graded={graded?.grade ?? undefined} className="flex flex-col gap-1 border-b py-4 first:pt-0 last:border-b-0">
+      <div className="flex gap-3">
+        <div className="flex w-9 shrink-0 flex-col items-center"><Avatar name="You" size={36} className="mt-0.5 shrink-0" /></div>
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <PostHead post={post} />
+          <p data-feed-quiz-prompt className="text-body font-semibold [overflow-wrap:anywhere] text-foreground">{quiz.prompt}</p>
+          {shown ? (
+            <>
+              <p data-feed-quiz-answer className="line-clamp-[8] rounded-lg border bg-accent/25 px-4 py-3 text-body leading-relaxed whitespace-pre-line [overflow-wrap:anywhere] text-foreground">{quiz.answer}</p>
+              <div className="grid max-w-[28rem] grid-cols-4 gap-2">
+                {GRADES.map(({ grade: value, label, hint, tone }) => (
+                  <Tip key={value} label={`${hint}: back ${backIn(intervals[value])}`}>
+                    <button type="button" data-feed-grade={value} disabled={!!graded && graded.grade !== value} aria-pressed={graded?.grade === value} onClick={() => grade(value)}
+                      style={{ '--tone': tone } as React.CSSProperties}
+                      className={cn('flex min-h-12 w-full min-w-0 flex-col items-center justify-center rounded-md border px-2 py-1.5 text-control transition-colors disabled:opacity-40',
+                        graded?.grade === value ? 'border-[color-mix(in_srgb,var(--tone)_60%,var(--border))] bg-[color-mix(in_srgb,var(--tone)_10%,transparent)]' : !graded && 'hover:border-[color-mix(in_srgb,var(--tone)_45%,var(--border))] hover:bg-[color-mix(in_srgb,var(--tone)_10%,transparent)]')}>
+                      <span className="font-semibold" style={{ color: tone }}>{label}</span>
+                      <span className="max-w-full truncate text-xs text-muted-foreground tabular-nums">{backIn(intervals[value])}</span>
+                    </button>
+                  </Tip>
+                ))}
+              </div>
+              <p data-feed-quiz-said className="min-h-5 text-control text-muted-foreground">
+                {graded ? `Graded “${GRADES[graded.grade - 1].label}”, as Review would: back ${backIn(graded.due)}.` : 'How did it feel? It counts as a review.'}
+              </p>
+            </>
+          ) : (
+            <button type="button" data-feed-quiz-show onClick={reveal} className="h-8 w-[9rem] rounded-md border text-control font-medium text-foreground transition-colors hover:bg-foreground/[0.06]">Show answer</button>
+          )}
+          <div data-feed-actions className="-ml-2 flex items-center text-muted-foreground">
+            <span className="flex-1" />
+            <button type="button" data-feed-open onClick={onOpen} className="flex h-7 items-center gap-1.5 rounded-md px-2 text-control transition-colors hover:bg-foreground/[0.06] hover:text-foreground">
+              <ArrowUpRight className="size-4" /> Open
+            </button>
+          </div>
         </div>
       </div>
     </li>
