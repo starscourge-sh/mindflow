@@ -267,6 +267,18 @@ const Header = ({ panel, drawn, onPanel, onNew, menu, nav, title, aside }: {
     return () => watch.disconnect()
   }, [])
 
+  // Where Back and Forward end, so the centred title starts clear of them (it sat under the pill).
+  const back = useRef<HTMLSpanElement>(null)
+  const [backEnd, setBackEnd] = useState(0)
+  useEffect(() => {
+    const at = back.current
+    if (!at) return
+    const measure = (): void => setBackEnd(at.offsetWidth ? at.offsetLeft + at.offsetWidth + 12 : 0)
+    const watch = new ResizeObserver(measure)
+    watch.observe(at)
+    return () => watch.disconnect()
+  }, [])
+
   return (
     <div data-drag-strip="" className="h-fit fixed top-0 right-0 left-0 z-10 flex flex-col items-center pt-2.5 pb-2 text-xs cursor-pointer" style={{ WebkitAppRegion: 'drag' } as CSSProperties}>
       {/* Over the panel, the icons end where the panel's own edge does; the
@@ -275,12 +287,12 @@ const Header = ({ panel, drawn, onPanel, onNew, menu, nav, title, aside }: {
       <div className="relative flex w-full items-center gap-1"
         style={{ padding: '0rem 4.75rem' } as CSSProperties}>
         <WindowDots />
-        <span style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}>{nav}</span>
+        <span ref={back} style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}>{nav}</span>
         {/* The note's name, faint, once its first line has scrolled away, so
             a long note still says what it is: centred over the writing, a
             short line at most, never over the side panel or the window dots. */}
         <span className="flex-1" />
-        <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center justify-center" style={{ ...(drawn ? { width: BOX_WIDTH } : { right: 0 }), paddingInline: drawn ? 160 : Math.max(160, room + 84) }}>
+        <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center justify-center" style={{ ...(drawn ? { width: BOX_WIDTH } : { right: 0 }), paddingInline: Math.max(160, backEnd, drawn ? 0 : room + 84) }}>
         <AnimatePresence>
           {title && (
             <motion.span
