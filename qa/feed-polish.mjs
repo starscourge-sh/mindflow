@@ -39,12 +39,13 @@ try {
   }))
   check('the action row is slim: Reply, Restack, Read later, Still true and More, with a × to see less', actions.row.join(",") === "Reply,Restack,Read later,Still true,More" && actions.hide, JSON.stringify(actions))
 
-  // 2. Pictures whole: contained in a box no taller than 520px.
+  // 2. Pictures whole, at their own shape: never cropped, no bars beside them, no taller than 520px.
   const shown = await h.locator('[data-feed-picture]').evaluateAll((all) => all.map((box) => {
     const img = box.querySelector('img:not([aria-hidden])')
     return { fit: getComputedStyle(img).objectFit, h: Math.round(box.getBoundingClientRect().height), w: Math.round(box.getBoundingClientRect().width), nw: img.naturalWidth, nh: img.naturalHeight, iw: Math.round(img.getBoundingClientRect().width), ih: Math.round(img.getBoundingClientRect().height) }
   }))
-  check('every picture is contained, never cropped', shown.length > 0 && shown.every((one) => one.fit === 'contain' && one.h <= 522), JSON.stringify(shown.slice(0, 3)))
+  // Its box is the picture: drawn at the picture's own proportions, so nothing is cut and no bars sit beside it.
+  check('every picture is whole, its box the picture\'s own shape', shown.length > 0 && shown.every((one) => one.h <= 522 && Math.abs(one.iw / one.ih - one.nw / one.nh) < 0.03 && Math.abs(one.w - one.iw) <= 3), JSON.stringify(shown.slice(0, 3)))
   const wide = shown.find((one) => one.nw > one.nh * 1.2)
   check('a wide picture fills the width', !wide || Math.abs(wide.iw - wide.w) <= 3, JSON.stringify(wide))
   // A tall picture: one put in for the check if the sandbox has none.
@@ -58,14 +59,15 @@ try {
       const img = box.querySelector('img:not([aria-hidden])')
       const c = document.createElement('canvas'); c.width = 300; c.height = 600
       const g = c.getContext('2d'); g.fillStyle = '#c84'; g.fillRect(0, 0, 300, 600); g.fillStyle = '#248'; g.fillRect(0, 0, 300, 40); g.fillRect(0, 560, 300, 40)
-      img.src = c.toDataURL(); box.querySelector('img[aria-hidden]').src = img.src
+      img.src = c.toDataURL()
     })
     await wait(400)
     return h.locator('[data-feed-picture]').first()
   }
   let box = await tallIn()
   const tall = await box.evaluate((one) => { const img = one.querySelector('img:not([aria-hidden])'); const r = img.getBoundingClientRect(); const scale = Math.min(r.width / img.naturalWidth, r.height / img.naturalHeight); return { h: Math.round(one.getBoundingClientRect().height), nw: img.naturalWidth, nh: img.naturalHeight, fit: getComputedStyle(img).objectFit, shownH: Math.round(img.naturalHeight * scale), boxH: Math.round(r.height) } })
-  check('a portrait picture shows whole, its box no taller than 520px', tall.fit === 'contain' && tall.h <= 522 && tall.shownH <= tall.boxH + 1 && tall.h >= 300, JSON.stringify(tall))
+  const tallW = await box.evaluate((one) => ({ box: Math.round(one.getBoundingClientRect().width), img: Math.round(one.querySelector('img').getBoundingClientRect().width), ratio: one.querySelector('img').naturalWidth / one.querySelector('img').naturalHeight, iw: one.querySelector('img').getBoundingClientRect().width, ih: one.querySelector('img').getBoundingClientRect().height }))
+  check('a portrait picture shows whole, no taller than 520px, its box only as wide as the picture', tall.h <= 522 && tall.h >= 300 && Math.abs(tallW.box - tallW.img) <= 3 && Math.abs(tallW.iw / tallW.ih - tallW.ratio) < 0.03, JSON.stringify({ ...tall, ...tallW }))
   const feedAgain = async () => { await go('feed'); await wait(1500) }
   for (const name of ['light', 'dark']) {
     await theme(name)

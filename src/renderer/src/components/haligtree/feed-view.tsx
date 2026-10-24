@@ -494,10 +494,10 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
           )}
           {post.restack && <Quoted note={post.restack} onOpen={() => onOpenOther(post.restack!.type, post.restack!.id)} />}
           {picture && !broken && (
-            // The whole picture, never cropped: a tall one stands in the middle of a box no taller than 520px, on a soft blur of itself.
-            <div data-feed-picture className="relative mt-1 flex max-h-[520px] justify-center overflow-hidden rounded-xl border bg-accent/40">
-              <img aria-hidden src={picture} alt="" draggable={false} className="pointer-events-none absolute inset-0 size-full scale-110 object-cover opacity-50 blur-2xl saturate-150" />
-              <img src={picture} alt="" loading="lazy" decoding="async" draggable={false} onError={() => setBroken(true)} className="relative block max-h-[520px] w-full object-contain" />
+            // The whole picture at its own shape, never cropped and never boxed in bars: a wide one fills the width,
+            // a tall one stands no taller than 520px and only as wide as it then is (X's way).
+            <div data-feed-picture className="mt-1 w-fit max-w-full overflow-hidden rounded-xl border bg-accent/40">
+              <img src={picture} alt="" loading="lazy" decoding="async" draggable={false} onError={() => setBroken(true)} className="block h-auto max-h-[520px] w-auto max-w-full" />
             </div>
           )}
           {/* The latest thought as one reply line; the rest are in its thread. */}
