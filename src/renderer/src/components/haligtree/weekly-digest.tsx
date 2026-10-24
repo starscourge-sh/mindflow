@@ -58,7 +58,7 @@ export function WeeklyDigest({ onView, force = false }: { onView: (id: string) =
   }
   const parts: [string, number][] = [['caught', week.caught], ['kept', week.kept], ['reviewed', week.reviewed], ['finished', week.finished]]
   return (
-    <section data-weekly-digest aria-label="Your week" className="mx-3 rounded-xl border bg-background p-4 @[44rem]/page:mx-6">
+    <section data-weekly-digest aria-label="Your week" className="rounded-xl border bg-background p-4">
       <div className="mb-3 flex items-center gap-2">
         <h2 className="font-heading text-heading font-semibold text-foreground">Your week</h2>
         <span className="text-meta text-muted-foreground">the last seven days</span>

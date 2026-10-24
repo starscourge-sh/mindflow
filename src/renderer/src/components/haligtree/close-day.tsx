@@ -78,7 +78,7 @@ export function CloseDayOffer(): React.JSX.Element | null {
     tick((n) => n + 1)
   }
   return (
-    <section data-close-day-offer aria-label="Close the day" className="mx-3 flex items-center gap-3 rounded-xl border bg-background px-4 py-3 @[44rem]/page:mx-6">
+    <section data-close-day-offer aria-label="Close the day" className="flex items-center gap-3 rounded-xl border bg-background px-4 py-3">
       <p className="min-w-0 flex-1 text-body text-muted-foreground">
         <strong className="font-semibold text-foreground">It is evening.</strong> Close the day: see what got done, decide where the rest goes and pick the first thing for tomorrow.
       </p>

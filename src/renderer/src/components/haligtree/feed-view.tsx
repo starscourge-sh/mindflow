@@ -173,7 +173,7 @@ export function TodaysFeedCard({ onView }: { onView: (id: string) => void }): Re
   if (unloaded(feed) || feed.safe || !feed.posts.length || finished === feed.day) return null
   const archives = feed.posts.filter((post) => post.archive).length
   return (
-    <section data-todays-feed aria-label="Today's feed" className="mx-3 flex items-center gap-3 rounded-xl border bg-background px-4 py-3 @[44rem]/page:mx-6">
+    <section data-todays-feed aria-label="Today's feed" className="flex items-center gap-3 rounded-xl border bg-background px-4 py-3">
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="font-heading text-heading font-semibold text-foreground">Today's feed</span>
         <span data-todays-feed-count className="text-body text-foreground/85">

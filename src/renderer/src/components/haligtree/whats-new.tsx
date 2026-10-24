@@ -105,7 +105,7 @@ export function WhatsNewCard({ onView }: { onView: (id: string, focus?: string) 
     setSeen(NEWS[0].id)
   }
   return (
-    <section data-whats-new-card aria-label="What's new" className={`mx-3 rounded-xl border bg-background p-4 @[44rem]/page:mx-6 ${keyed ? '' : 'animate-in fade-in-0 slide-in-from-bottom-1 duration-300'}`}>
+    <section data-whats-new-card aria-label="What's new" className={`rounded-xl border bg-background p-4 ${keyed ? '' : 'animate-in fade-in-0 slide-in-from-bottom-1 duration-300'}`}>
       <div className="mb-3 flex items-center gap-2">
         <h2 className="font-heading text-heading font-semibold text-foreground">What's new in {APP_NAME}</h2>
         <span className="text-meta text-muted-foreground">{NEWS_VERSION}</span>

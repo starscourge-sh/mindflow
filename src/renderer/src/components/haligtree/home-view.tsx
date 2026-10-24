@@ -799,7 +799,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
           more" (now-slot.tsx). Each keeps its own moment; ranked here by how
           much it belongs to right now: the evening's close, Sunday's week, a
           marked day coming, what is new, then the steady ones. */}
-      <NowSlot>
+      <NowSlot inset>
       {/* The next marked day, counted down, under the goals. */}
       <div data-now={3} className="page-column relative w-full px-3 pt-1 empty:hidden @[44rem]/page:px-6"><NextMark className="w-full px-2 py-1.5 hover:bg-foreground/[0.045]" /></div>
       {/* The reading queue, small: the next few, and Start reading. */}
@@ -807,18 +807,18 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
       {/* Once a week, the oldest question still held: an old question should not look like a new one. */}
       <div data-now={4.5} className="page-column relative w-full px-3 pt-2 empty:hidden @[44rem]/page:px-6"><StillWondering onOpen={onOpen} /></div>
       {/* After the welcome: the firsts, ticking themselves, until they are done. */}
-      <div className="page-column relative w-full pt-4 empty:hidden"><GettingStarted onOpen={onOpen} onView={onView} /></div>
-      <div data-now={6} className="page-column relative w-full pt-3 empty:hidden"><PowersLine onView={onView} /></div>
+      <div className="page-column relative w-full px-3 pt-4 empty:hidden @[44rem]/page:px-6"><GettingStarted onOpen={onOpen} onView={onView} /></div>
+      <div data-now={6} className="page-column relative w-full px-3 pt-3 empty:hidden @[44rem]/page:px-6"><PowersLine onView={onView} /></div>
       {/* In the evening, once: the offer to close the day. */}
-      <div data-now={1} className="page-column relative w-full pt-3 empty:hidden"><CloseDayOffer /></div>
+      <div data-now={1} className="page-column relative w-full px-3 pt-3 empty:hidden @[44rem]/page:px-6"><CloseDayOffer /></div>
       {/* In the morning, once: the offer to sort the Inbox in about ten minutes. */}
       <div data-now={1} className="page-column relative w-full px-3 pt-3 empty:hidden @[44rem]/page:px-6"><MorningSortOffer /></div>
       {/* On Sundays: the week in four numbers. */}
-      <div data-now={2} className="page-column relative w-full pt-3 empty:hidden"><WeeklyDigest onView={onView} /></div>
+      <div data-now={2} className="page-column relative w-full px-3 pt-3 empty:hidden @[44rem]/page:px-6"><WeeklyDigest onView={onView} /></div>
       {/* After an update, once: what is new since you last looked. */}
-      <div data-now={4} className="page-column relative w-full pt-3 empty:hidden"><WhatsNewCard onView={onView} /></div>
+      <div data-now={4} className="page-column relative w-full px-3 pt-3 empty:hidden @[44rem]/page:px-6"><WhatsNewCard onView={onView} /></div>
       {/* The day's Feed, until you reach its end. */}
-      <div data-now={4.6} className="page-column relative w-full pt-3 empty:hidden"><TodaysFeedCard onView={onView} /></div>
+      <div data-now={4.6} className="page-column relative w-full px-3 pt-3 empty:hidden @[44rem]/page:px-6"><TodaysFeedCard onView={onView} /></div>
       </NowSlot>
       {/* On Home: the month, once turned on in Settings, and what waits in the Inbox. */}
       <div data-home-plan className="page-column relative flex w-full flex-col gap-6 px-5 pt-4 @[44rem]/page:px-8">

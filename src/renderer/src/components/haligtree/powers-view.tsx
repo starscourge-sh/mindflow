@@ -272,7 +272,7 @@ export function PowersLine({ onView }: { onView: (id: string) => void }): React.
     }
   }
   return (
-    <div className="mx-5 flex items-center gap-1 text-control text-muted-foreground @[44rem]/page:mx-8">
+    <div className="flex items-center gap-1 text-control text-muted-foreground">
       <button type="button" onClick={() => (chime('tap'), onView('powers'))} className="group -ml-2 flex min-w-0 items-center gap-1.5 rounded-md px-2 py-1 text-left transition-colors hover:bg-foreground/[0.05]">
         <span className="truncate">{APP_NAME} does more than it shows.</span>
         <span className="shrink-0 text-foreground underline decoration-foreground/25 underline-offset-4 group-hover:decoration-foreground/60">See what it can do</span>
