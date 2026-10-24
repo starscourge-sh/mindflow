@@ -224,7 +224,7 @@ export const POWERS: Power[] = [
 
   // Bringing notes in
   { id: 'vault', group: 'Bringing notes in', name: 'An Obsidian vault or Notion export', tryIt: 'In Settings, “Import and backups”, choose “Obsidian or Notion…”, pick the folder and choose which of its folders to bring in; nothing in it is changed.', line: 'Bring a whole folder of notes in at once, links and properties kept.',
-    show: { view: 'settings', settings: 'Import and backups', find: 'Obsidian', at: '[data-setting]', text: 'Pick the folder, then choose which of its folders to bring in. Each becomes a group in Pages, and nothing in it is changed.' } },
+    show: { view: 'settings', settings: 'Import and backups', find: 'Obsidian', at: '[data-setting]', text: 'Pick the folder, then choose which of its folders to bring in. Each becomes a group in Writing, and nothing in it is changed.' } },
   { id: 'files', group: 'Bringing notes in', name: 'Highlights and cards', tryIt: 'In Settings, “Import and backups”, choose “Files…”.', line: 'Readwise and Kindle highlights, Markdown files, bookmarks and Anki cards.',
     show: { view: 'settings', settings: 'Import and backups', find: 'Files…', at: '[data-setting]', text: '“Files…” takes any of these.' } },
   { id: 'embeds', group: 'Bringing notes in', name: 'Pasted embeds fill themselves in', line: `Paste a note from Obsidian with ![[picture.png]] in it, and ${APP_NAME} brings in the pictures and files it points to.`,

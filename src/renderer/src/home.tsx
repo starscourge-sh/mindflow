@@ -1286,7 +1286,7 @@ export function Home(): React.JSX.Element {
             { label: 'Tidy captures', hint: 'Tidy: a few minutes tagging your latest captures', run: () => openPass('tidy') },
             { label: 'Decide what to keep', hint: 'Decide: once a week, look over what waited', run: () => openPass('decide') },
             { label: 'Import Obsidian or Notion…', hint: 'A vault or a Notion export', cue: null, run: () => void window.api.importFrom('vault') },
-            { label: 'Import from Apple Notes…', hint: 'Folder by folder, into Pages, to sort', cue: null, run: () => void window.api.importFrom('apple-notes') },
+            { label: 'Import from Apple Notes…', hint: 'Folder by folder, into Writing, to sort', cue: null, run: () => void window.api.importFrom('apple-notes') },
             { label: 'Import highlights and files…', hint: 'Readwise, Kindle, Markdown, bookmarks or Anki', cue: null, run: () => void window.api.importFrom('files') },
             { label: 'Switch book…', hint: 'Another book of yours, or the sandbox', cue: null, run: () => askBook('switch') },
             ...(SANDBOX ? [] : [

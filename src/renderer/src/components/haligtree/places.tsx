@@ -52,7 +52,7 @@ export const SECTIONS: (Place & { key: string })[] = [
   // Journal, the Day page: the day's writing on top, today's tasks under it. The window opens here.
   // Its Week, Month and Year keep this row lit (litRow), unless that page is a row of its own.
   { id: 'day', label: 'Journal', icon: Sun, key: 'p', tint: 'orange', group: 'Write' },
-  { id: 'articles', label: 'Pages', icon: FileText, alive: FileDescriptionIcon, key: 'a', tint: 'brown', group: 'Write' },
+  { id: 'articles', label: 'Writing', icon: FileText, alive: FileDescriptionIcon, key: 'a', tint: 'brown', group: 'Write' },
   { id: 'nuggets', label: 'Gems', icon: Gem, key: 'n', tint: 'pink', group: 'Write' },
   { id: 'review', label: 'Review', icon: Brain, key: 'r', tint: 'purple', group: 'Write' },
   // One row for every task list: Today, Upcoming, Later and Routines are its tabs (tasks-view.tsx).

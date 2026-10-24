@@ -1071,7 +1071,7 @@ export function SettingsView(): React.JSX.Element {
           <BookRows />
         </Group>
         <Group section="Import and backups" title="Import and export">
-          <Setting title="Import" note="Notes from Apple Notes, Obsidian or Notion, highlights and cards." more="Apple Notes and an Obsidian vault folder by folder, into Pages, to sort. An unzipped Notion export, Readwise or Kindle highlights, Markdown files, bookmarks or Anki cards." keywords="import apple notes obsidian vault notion export readwise kindle markdown bookmarks anki bring move">
+          <Setting title="Import" note="Notes from Apple Notes, Obsidian or Notion, highlights and cards." more="Apple Notes and an Obsidian vault folder by folder, into Writing, to sort. An unzipped Notion export, Readwise or Kindle highlights, Markdown files, bookmarks or Anki cards." keywords="import apple notes obsidian vault notion export readwise kindle markdown bookmarks anki bring move">
             <ImportButton what="apple-notes">Apple Notes…</ImportButton>
             <ImportButton what="vault">Obsidian or Notion…</ImportButton>
             <ImportButton what="files">Files…</ImportButton>

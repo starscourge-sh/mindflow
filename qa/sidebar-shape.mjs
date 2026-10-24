@@ -1,5 +1,6 @@
-// The sidebar has one shape in every book: Inbox, Home, Journal, Pages, Gems, Review,
-// a gap with no heading, Tasks and Calendar, then Pinned, Tags and the Bin.
+// The sidebar has one shape in every book: Inbox, Home, Journal, Writing, Gems, Review,
+// Tasks and Calendar as one list, then Pinned, Tags and the Bin. The sandbox
+// starts the way its owner laid it out: the Feed with the writing.
 // No Types group, no Everything or Questions row, no group headings. Tried in
 // a new book of your own, in that book after its settings are put back to an
 // older book's (its own order, rows hidden, a growing sidebar), and in the
@@ -15,7 +16,7 @@ import { sandbox } from './sandbox-lib.mjs'
 
 const { check, done } = checks()
 const DATA = process.env.QA_DATA
-const SHAPE = ['Inbox', 'Home', 'Journal', 'Pages', 'Gems', 'Review', 'Tasks', 'Calendar']
+const SHAPE = ['Inbox', 'Home', 'Journal', 'Writing', 'Gems', 'Review', 'Tasks', 'Calendar']
 
 /** The sidebar as it is drawn: each row's name in order, a gap as "|", and any heading's words. */
 const read = (h) => h.evaluate(() => {
@@ -28,16 +29,16 @@ const read = (h) => h.evaluate(() => {
   return { parts, text: nav?.innerText ?? '' }
 })
 
-const look = async (where, open) => {
+const look = async (where, open, shape = SHAPE) => {
   const c = await open()
   try {
     await c.h.waitForTimeout(2500)
     const { parts, text } = await read(c.h)
     const rows = parts.filter((one) => one !== '|')
-    check(`${where}: the rows start Inbox, Home, Journal, Pages, Gems, Review, Tasks, Calendar`, JSON.stringify(rows.slice(0, 8)) === JSON.stringify(SHAPE), rows.join(', '))
+    check(`${where}: the rows start ${shape.join(', ')}`, JSON.stringify(rows.slice(0, shape.length)) === JSON.stringify(shape), rows.join(', '))
     const gap = parts.indexOf('|')
-    check(`${where}: a gap between Review and Tasks, and none inside the first five`, gap === parts.indexOf('Review') + 1 && parts[gap + 1] === 'Tasks', parts.join(' '))
-    check(`${where}: no Types, Everything, Questions, Notes or Saved`, !/\b(Types|Everything|Questions|Notes|Saved|Matrix|Tomorrow|This week's tasks|Writing)\b/.test(text), text.replace(/\s+/g, ' ').slice(0, 300))
+    check(`${where}: one list, no gap inside it`, gap < 0 || gap > parts.indexOf('Calendar'), parts.join(' '))
+    check(`${where}: no Types, Everything, Questions, Notes or Saved`, !/\b(Types|Everything|Questions|Notes|Saved|Matrix|Tomorrow|This week's tasks)\b/.test(text), text.replace(/\s+/g, ' ').slice(0, 300))
     check(`${where}: the Bin comes after the rest`, rows.indexOf('Bin') > rows.indexOf('Calendar'), rows.join(', '))
     const pinned = text.indexOf('Pinned'), tags = text.indexOf('Tags'), bin = text.indexOf('Bin')
     check(`${where}: Pinned, Tags and the Bin in that order (where there are pins and tags)`, (pinned < 0 || pinned < bin) && (tags < 0 || tags < bin) && (pinned < 0 || tags < 0 || pinned < tags), `${pinned} ${tags} ${bin}`)
@@ -68,8 +69,7 @@ try {
   }
   // 3. The sandbox: another book, the same shape.
   process.env.QA_ARGS = '--sandbox'
-  const box = await look('the sandbox', () => sandbox({ width: 1200, height: 860 }))
-  check('the sandbox starts with the same eight rows', JSON.stringify(box.slice(0, 8)) === JSON.stringify(own.slice(0, 8)), box.join(', '))
+  await look('the sandbox', () => sandbox({ width: 1200, height: 860 }), ['Inbox', 'Home', 'Journal', 'Writing', 'Gems', 'Feed', 'Review', 'Tasks', 'Calendar'])
 } catch (error) {
   check('ran', false, error.stack)
 }

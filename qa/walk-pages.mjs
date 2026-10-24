@@ -257,7 +257,7 @@ try {
     // Something archived, for Archived.
     const toArchive = (await h.evaluate(() => window.api.captures.list())).filter((one) => one.status === 'open').slice(-4)
     for (const one of toArchive) await h.evaluate((id) => window.api.haligtree('notes:archive', 'captures', [id], true), one.id).catch(() => {})
-    for (const [name, id] of [['Inbox', 'inbox'], ['Everything', 'all'], ['Archived', 'archived'], ['Gems', 'nuggets'], ['Pages', 'articles'], ['Questions', 'questions'], ['Goals', 'goals'], ['Tasks', 'today'], ['Upcoming', 'upcoming']])
+    for (const [name, id] of [['Inbox', 'inbox'], ['Everything', 'all'], ['Archived', 'archived'], ['Gems', 'nuggets'], ['Writing', 'articles'], ['Questions', 'questions'], ['Goals', 'goals'], ['Tasks', 'today'], ['Upcoming', 'upcoming']])
       await keys(name, id).catch((e) => check(`${name}: ran`, false, e.message.split('\n')[0]))
     // The Bin needs a few things in it.
     const caps = (await h.evaluate(() => window.api.captures.list())).filter((one) => one.status === 'open').slice(0, 4)

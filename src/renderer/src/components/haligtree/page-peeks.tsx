@@ -50,7 +50,7 @@ const PEEKS: Record<string, PagePeek> = {
       <MTitle>Good morning</MTitle>
       <MCard className="mb-2"><div className="mb-0.5 text-[9px] text-muted-foreground">Coming back today</div><div className="truncate font-medium">{ideas()[2].title}</div></MCard>
       <div className="grid grid-cols-3 gap-1.5">
-        {[['Gems', 'pink', '18'], ['Questions', 'gray', '4'], ['Pages', 'brown', '3']].map(([name, tint, count]) => (
+        {[['Gems', 'pink', '18'], ['Questions', 'gray', '4'], ['Writing', 'brown', '3']].map(([name, tint, count]) => (
           <MCard key={name} className="px-1.5 py-1"><div className="text-[9.5px] font-medium" style={tinted(tint)}>{name}</div><div className="text-[13px] font-semibold tabular-nums">{count}</div></MCard>
         ))}
       </div>
@@ -173,7 +173,7 @@ const PEEKS: Record<string, PagePeek> = {
     </>)
   },
   articles: {
-    text: '**Pages: your long-form pieces.** Each one starts from a few gems and grows in your own words.',
+    text: '**Writing: your long-form pieces.** Each one starts from a few gems and grows in your own words.',
     art: () => (<>
       <MTitle count={3}>Pages</MTitle>
       {exampleWriting().map((one) => <MRow key={one.id} icon={FileText} tint="brown" meta={one.attribution ?? ''}>{one.title}</MRow>)}

@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { BookOpen, FileText, Quote, User } from 'lucide-react'
+import { Camera } from '@/components/ui/icons'
 
 import { Button } from '@/components/ui/button'
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
@@ -115,8 +116,13 @@ function PersonHead({ page, name, thoughts, setThoughts, onOpenPerson }: { page:
               const file = [...event.dataTransfer.files].find((one) => one.type.startsWith('image/'))
               if (file) void setAvatar(name, file)
             }}
-            className={`relative shrink-0 rounded-full transition-shadow duration-150 focus-visible:ring-2 focus-visible:ring-ring ${over ? 'ring-2 ring-ring ring-offset-2 ring-offset-background' : ''}`}>
+            className={`group/photo relative shrink-0 rounded-full transition-shadow duration-150 focus-visible:ring-2 focus-visible:ring-ring ${over ? 'ring-2 ring-ring ring-offset-2 ring-offset-background' : ''}`}>
             <Avatar name={name} size={96} />
+            {/* Said on the face itself while the pointer is on it (or a picture is carried over): a photo goes here. */}
+            <span aria-hidden data-photo-hint className={`pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-full bg-black/50 text-white transition-opacity duration-150 group-hover/photo:opacity-100 group-focus-visible/photo:opacity-100 ${over ? 'opacity-100' : 'opacity-0'}`}>
+              <Camera className="size-5" />
+              <span className="text-meta font-medium">{over ? 'Drop it here' : photo ? 'Change photo' : 'Add a photo'}</span>
+            </span>
           </button>
         </PersonMenu>
         <div className="min-w-0 flex-1 pt-1">
@@ -126,8 +132,11 @@ function PersonHead({ page, name, thoughts, setThoughts, onOpenPerson }: { page:
             <Fact label="What they did" placeholder="What they did" value={page?.what ?? ''} onSave={(what) => facts({ what })} />
             <span aria-hidden className="px-0.5">·</span>
             <Fact label="Born" placeholder="Born" value={page?.born ?? ''} onSave={(born) => facts({ born })} />
-            <span className="px-0.5">to</span>
-            <Fact label="Died" placeholder="Died" value={page?.died ?? ''} onSave={(died) => facts({ died })} />
+            {/* Someone still living reads "1964 to now": "now" is only a hint, typed over once they have died. */}
+            {(page?.born || page?.died) && <>
+              <span className="px-0.5">to</span>
+              <Fact label="Died" placeholder="now" value={page?.died ?? ''} onSave={(died) => facts({ died })} />
+            </>}
           </p>
         </div>
       </div>

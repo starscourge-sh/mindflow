@@ -212,7 +212,7 @@ export function ImportDoneCard(): React.JSX.Element {
               {done.writing ? (
                 <>
                   <Button variant="ghost" size="lg" onClick={() => (chime('tap'), close())}>Done</Button>
-                  <Button size="lg" data-autofocus="" data-open-writing="" onClick={() => (chime('tap'), close(), window.api.openInHome('view', 'articles'))}>Open Pages</Button>
+                  <Button size="lg" data-autofocus="" data-open-writing="" onClick={() => (chime('tap'), close(), window.api.openInHome('view', 'articles'))}>Open Writing</Button>
                 </>
               ) : done.inbox ? (
                 <>

@@ -57,9 +57,9 @@ export function filedSaid(from: string, groups: { name: string; count: number }[
   const loose = made - grouped
   const they = made === 1 ? 'It is' : 'They are'
   const where = groups.length === 1 ? `“${groups[0].name}”` : `${groups.length.toLocaleString()} groups named “${from} / …”`
-  if (!groups.length) return `${they} in Pages, marked not yet sorted.`
-  if (loose <= 0) return `${they} in Pages, in ${where}, marked not yet sorted.`
-  return `${they} in Pages, marked not yet sorted: ${grouped.toLocaleString()} in ${where}, ${loose.toLocaleString()} on ${loose === 1 ? 'its' : 'their'} own.`
+  if (!groups.length) return `${they} in Writing, marked not yet sorted.`
+  if (loose <= 0) return `${they} in Writing, in ${where}, marked not yet sorted.`
+  return `${they} in Writing, marked not yet sorted: ${grouped.toLocaleString()} in ${where}, ${loose.toLocaleString()} on ${loose === 1 ? 'its' : 'their'} own.`
 }
 
 export function registerNoteImports(): void {

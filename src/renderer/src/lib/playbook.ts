@@ -65,7 +65,7 @@ export async function openPlaybook(): Promise<void> {
   const { id, made, pinned } = await ensurePlaybook()
   chime(made ? 'promote' : 'open')
   window.api.openInHome('article', id)
-  if (made) toast(pinned ? 'Your playbook, “How I work”: pinned, so it is always one click away' : 'Your playbook, “How I work”, is in Pages', undefined, 'info')
+  if (made) toast(pinned ? 'Your playbook, “How I work”: pinned, so it is always one click away' : 'Your playbook, “How I work”, is in Writing', undefined, 'info')
 }
 
 /** A line under “What mattered most”, “July to September 2026: …”; the heading is added back if it was taken out. */

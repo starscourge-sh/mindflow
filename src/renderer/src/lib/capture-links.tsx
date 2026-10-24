@@ -54,7 +54,7 @@ export const statusSaid = (status: string, keptIn?: string | null): string => {
   return ({ open: 'Open', promoted: 'Saved as a gem', resolved: 'Resolved', discarded: 'In the Bin' } as Record<string, string>)[status] ?? status
 }
 
-/** What a kind of thing is called on screen: the code's nugget is a gem; one article is a Page (the list of them is Pages). */
+/** What a kind of thing is called on screen: the code's nugget is a gem; one article is a Page (the list of them is Writing). */
 export const typeSaid = (type: string): string =>
   ({ capture: 'Capture', nugget: 'Gem', article: 'Page', question: 'Question', goal: 'Goal', task: 'Task', card: 'Card', event: 'Event' } as Record<string, string>)[type] ?? type
 
@@ -82,7 +82,7 @@ export async function exit(id: string, status: string, onUndo?: () => void): Pro
     const question = await flying(id, 'question', () => haligtree.newQuestion('', id))
     if (!question) return refuse(NOT_OPEN)
     chime('hold')
-    return toast('Now a question: it is in Pages, under “Questions”', () => void haligtree.dropQuestion(question).then(() => onUndo?.()), 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('question', question) })
+    return toast('Now a question: it is in Writing, under “Questions”', () => void haligtree.dropQuestion(question).then(() => onUndo?.()), 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('question', question) })
   }
   const result = status === 'promoted' ? await flying(id, 'nugget', () => takeExit(id, status)) : status === 'discarded' ? await flying(id, 'away', () => takeExit(id, status)) : await takeExit(id, status)
   if (result === 'cancelled' || !one) return
@@ -167,7 +167,7 @@ let kinds: Record<string, LinkKind & { group: string }> | null = null
 export const linkKinds = (): Record<string, LinkKind & { group: string }> => (kinds ??= {
   ...Object.fromEntries(CAPTURE_TYPES.map((type) => [type.id, { label: type.label, group: `${type.label}s`, icon: type.icon, color: /text-(\w+)/.exec(type.tint)?.[1] ?? 'gray' }])),
   idea: { label: 'Gem', group: 'Gems', icon: Gem, color: 'pink' },
-  article: { label: 'Pages', group: 'Pages', icon: FileText, color: 'brown' },
+  article: { label: 'Writing', group: 'Writing', icon: FileText, color: 'brown' },
   question: { label: 'Question', group: 'Questions', icon: Orbit, color: 'gray' },
   goal: { label: 'Goal', group: 'Goals', icon: Flag, color: 'orange' },
   task: { label: 'Task', group: 'Tasks', icon: ListChecks, color: 'green' },

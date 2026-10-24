@@ -25,7 +25,7 @@ import { questionEntry, startQuestion } from './questions-view'
 import { num } from '../../../../main/dates'
 import { useHere } from '@/lib/split'
 
-const TIERS = [{ id: 'nugget', label: 'Gems' }, { id: 'article', label: 'Pages' }, { id: 'question', label: 'Questions' }] as const
+const TIERS = [{ id: 'nugget', label: 'Gems' }, { id: 'article', label: 'Writing' }, { id: 'question', label: 'Questions' }] as const
 
 /**
  * What you kept, in the prompt: nuggets, articles and the questions you are

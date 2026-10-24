@@ -122,7 +122,7 @@ try {
   // The Inbox asked for from "Show sorted too" stays as it is (the page you are on); from elsewhere it opens plain.
   const main = async (id) => { if (id === 'inbox') await go('day'); await go(id); await h.waitForTimeout(400) }
   const MAIN = [
-    ['Inbox, sorted too', 'all'], ['Inbox', 'inbox'], ['Archived', 'archived'], ['Gems', 'nuggets'], ['Pages', 'articles'],
+    ['Inbox, sorted too', 'all'], ['Inbox', 'inbox'], ['Archived', 'archived'], ['Gems', 'nuggets'], ['Writing', 'articles'],
     ['Questions', 'questions'], ['Goals', 'goals'], ['Tasks', 'today'], ['Upcoming', 'upcoming'], ['Routines', 'routines'], ['Later', 'later'], ['Today page', 'day'], ['Home', 'home']
   ]
   for (const [name, id] of MAIN) await surface(name, h, page(id), () => main(id), { click: id !== 'day' && id !== 'home', emptied: id === 'inbox', kept: id === 'day' })

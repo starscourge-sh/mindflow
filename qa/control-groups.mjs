@@ -73,7 +73,7 @@ try {
   await bar('Inbox, sorted too on', 'all', ['filter', 'action', 'view'])
 
   // Pages and its questions: the two chips on the left, New page, then the views.
-  await bar('Pages', 'articles', ['filter', 'action', 'view'])
+  await bar('Writing', 'articles', ['filter', 'action', 'view'])
   // By its words as drawn (a chip holds its bold width in a hidden copy of them).
   const chip = (word) => async () => {
     const at = await h.evaluate(([selector, word]) => { const one = [...document.querySelectorAll(`${selector} button`)].find((b) => b.getBoundingClientRect().width > 0 && b.innerText.trim() === word)?.getBoundingClientRect(); return one && { x: one.left + one.width / 2, y: one.top + one.height / 2 } }, [HEADER, word])

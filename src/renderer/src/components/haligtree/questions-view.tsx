@@ -229,7 +229,7 @@ export function QuestionDetail({ item, onOpen, top, back }: { item: ItemFull; on
   })
   const letGo = (): void => void haligtree.closeQuestion(item.id, 'let go').then(() => {
     chime('release')
-    toast('Stopped asking: it waits under “Questions” in Pages, still readable', () => void haligtree.reopenQuestion(item.id))
+    toast('Stopped asking: it waits under “Questions” in Writing, still readable', () => void haligtree.reopenQuestion(item.id))
   })
   const holdAgain = (): void => {
     const how = item.closedHow ?? 'let go'

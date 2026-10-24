@@ -49,7 +49,7 @@ try {
   await h.waitForTimeout(1200)
   const landed = await h.evaluate(() => ({ title: document.querySelector('h1, [data-page-title]')?.textContent, how: document.querySelector('[data-question-how]')?.textContent ?? '', answered: !!document.querySelector('[data-question-answered]'), on: [...document.querySelectorAll('[aria-pressed="true"], [data-on], [data-state="on"]')].map((one) => one.textContent).join('|') }))
   const litRow = await h.evaluate(() => document.querySelector('[data-side-row][aria-current="page"]')?.getAttribute('aria-label'))
-  check('a question opens in Pages, its row lit', litRow === 'Pages', String(litRow))
+  check('a question opens in Pages, its row lit', litRow === 'Writing', String(litRow))
   // What it is for is said while it has no clues (qa/question-as-page.mjs); with clues, the page is its clues.
   check('with clues, its page does not repeat what it is for', !landed.how, landed.how)
   check('its page has an "Answered" button', landed.answered)

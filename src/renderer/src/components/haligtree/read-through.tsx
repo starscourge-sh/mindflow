@@ -977,7 +977,7 @@ function SortBar({ left, tagging, moving, groups, own, onTagging, onMoving, onKe
               </DropdownMenuItem>
             ))}
             {own && others.length > 0 && <DropdownMenuSeparator />}
-            {own && <DropdownMenuItem data-move-out="" onSelect={() => onMove(null, 'Pages')}>No group</DropdownMenuItem>}
+            {own && <DropdownMenuItem data-move-out="" onSelect={() => onMove(null, 'Writing')}>No group</DropdownMenuItem>}
             {!own && !others.length && <DropdownMenuItem disabled>No other groups in Pages</DropdownMenuItem>}
           </DropdownMenuContent>
         </DropdownMenu>

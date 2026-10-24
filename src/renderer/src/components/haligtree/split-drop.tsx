@@ -76,8 +76,10 @@ const titleOf = (node: HTMLElement): string =>
 
 /** `room` is the half of the page the new pane would take: lit whole while the pointer is in the place, as Dia does. */
 type Zone = { side: Side; left: number; top: number; width: number; height: number; room: number }
-const zonesIn = (area: DOMRect, narrow = false): Zone[] => {
-  const width = narrow ? NARROW : Math.max(96, Math.min(168, area.width * 0.2))
+const zonesIn = (area: DOMRect, column?: DOMRect): Zone[] => {
+  const full = Math.max(96, Math.min(168, area.width * 0.2))
+  // Beside a list's own drag: as wide as the room either side of its column allows, never over the column.
+  const width = column ? Math.max(NARROW, Math.min(full, column.left - area.left - 10 - OUTSIDE - 8, area.right - column.right - 10 - OUTSIDE - 8)) : full
   const top = area.top + 10
   const height = Math.max(120, area.height - 20)
   const room = Math.max(width, area.width / 2 - 15)
@@ -196,7 +198,7 @@ export function SplitDrop({ onDrop }: { onDrop: (carried: Carried, side: Side) =
       if (!box || !down) return
       active = true
       quiet = still()
-      shown = zonesIn(box, down.source.column)
+      shown = zonesIn(box, down.source.column ? down.column : undefined)
       document.documentElement.dataset.splitDrag = ''
       document.getSelection()?.removeAllRanges()
       // A list row already sounded its lift; anything else lifts now.

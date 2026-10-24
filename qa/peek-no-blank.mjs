@@ -27,7 +27,7 @@ try {
     }
     requestAnimationFrame(look)
   })
-  for (const name of ['Journal', 'Pages', 'Gems', 'Review']) {
+  for (const name of ['Journal', 'Writing', 'Gems', 'Review']) {
     const row = h.locator('aside').getByText(name, { exact: true }).first()
     const b = await row.boundingBox()
     await h.mouse.move(b.x + 5, b.y + b.height / 2, { steps: 4 })

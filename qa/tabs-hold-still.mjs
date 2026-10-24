@@ -14,8 +14,8 @@ const wait = (ms) => h.waitForTimeout(ms)
 
 // Page, the sidebar row it lights (null: none), and a note on where its tabs are.
 const PAGES = [
-  ['today', 'Tasks'], ['articles', 'Pages'], ['inbox', 'Inbox'], ['all', 'Inbox'], ['goals', null], ['calendar', 'Calendar'],
-  ['review', 'Review'], ['stats', null], ['home', 'Home'], ['nuggets', 'Gems'], ['settings', null, '[data-section]']
+  ['today', 'Tasks'], ['articles', 'Writing'], ['inbox', 'Inbox'], ['all', 'Inbox'], ['goals', 'Goals'], ['calendar', 'Calendar'],
+  ['review', 'Review'], ['stats', 'Stats'], ['home', 'Home'], ['nuggets', 'Gems'], ['settings', null, '[data-section]']
 ]
 const TABS = 'button[aria-pressed], [role="tab"], [role="radio"]'
 

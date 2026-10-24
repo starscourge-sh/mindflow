@@ -127,7 +127,7 @@ const c = await sandbox({ width: 1400, height: 900 })
 const { h, page: box, go, v, size } = c
 // Tomorrow and This week's tasks are the top of Upcoming now, Everything the Inbox with "Show sorted too" on.
 const PAGES = [['Today', 'today'], ['Upcoming', 'upcoming'], ['Later', 'later'], ['Routines', 'routines'], ['Urgent and important', 'matrix'],
-  ['Inbox', 'inbox'], ['Inbox, sorted too', 'all'], ['Pages', 'articles'], ['Gems', 'nuggets'], ['Questions', 'questions'], ['Goals', 'goals'], ['Bin', 'discarded'], ['Archived', 'archived']]
+  ['Inbox', 'inbox'], ['Inbox, sorted too', 'all'], ['Writing', 'articles'], ['Gems', 'nuggets'], ['Questions', 'questions'], ['Goals', 'goals'], ['Bin', 'discarded'], ['Archived', 'archived']]
 const theme = async (name) => { await h.evaluate((n) => localStorage.setItem('theme', n), name); await h.reload(); await h.waitForTimeout(2000) }
 
 async function walk(label) {
