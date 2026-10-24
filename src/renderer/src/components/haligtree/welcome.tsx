@@ -1,3 +1,4 @@
+import { WelcomeTree } from './welcome-tree'
 import { TAGLINE } from '../../../../main/tagline'
 import { fittedTitle, quoted } from '../../../../main/clip'
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
@@ -628,7 +629,9 @@ function ThesisChapter({ play, report }: { play: boolean; report: (now: Reel) =>
     initial: false, animate: { opacity: on ? 1 : 0, y: on ? 0 : 6 }, transition: { duration: play ? 0.35 : 0, ease: ENTER }
   })
   return (
-    <div className="flex min-h-0 flex-1 flex-col justify-center pb-2">
+    <div className="relative flex min-h-0 flex-1 flex-col justify-center pb-2">
+      {/* Once, as the first line types in: a tree of its letters beside the words, faded as the reason comes. */}
+      {play && !show.done && <WelcomeTree letters={THESIS} away={s.asked} />}
       <div data-reel={show.done ? 'done' : 'playing'} data-words className="flex max-w-[58rem] flex-col gap-[clamp(0.75rem,2.6vh,1.75rem)]">
         <p className={FIGURES}>{when}</p>
         <p data-tagline className="text-[clamp(1.0625rem,min(1.9vw,2.7vh),1.3125rem)] font-semibold text-foreground">{TAGLINE}</p>
