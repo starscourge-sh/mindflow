@@ -10,36 +10,40 @@ import { atomically, changed, database } from './captures'
  * group or put in the Bin. Each group shows how many are left; "Sort these"
  * goes through them one at a time.
  *
- * Groups have one level here, so a folder is a group named for where it came
- * from and what it was called: "Apple Notes / Recipes".
+ * A folder is a group named for it ("Recipes"), its subfolders groups inside
+ * it, as deep as groups go.
  */
 
-/** A folder of one note is not a group: those are gathered into this one. */
-const OTHERS = 'Other folders'
+/** How deep groups go: a group, its subgroups, and theirs (as group-layout.ts has it). */
+const DEPTH = 3
 
 /**
- * Put these articles into the groups of Pages, a group for each folder, named
- * "<from> / <folder>". A group of that name already there (from an earlier
- * import) takes them in after its own. Folders of a single note share one
- * group, and a lone note left over stays in the list as it is.
+ * Put these articles into the groups of Pages, a group for each folder named
+ * for it, a subfolder's group inside its folder's, three levels deep: deeper
+ * folders come into the third, named by the rest of their path ("Acme / 2024").
+ * A folder holding only folders is a group too. A group of that name already
+ * in the same place (from an earlier import) takes them in after its own.
  */
-export function fileIntoGroups(from: string, folders: { name: string; ids: string[] }[]): { name: string; count: number }[] {
+export function fileIntoGroups(folders: { path: string[]; ids: string[] }[]): { name: string; count: number }[] {
   const db = database()
-  const big = folders.filter((one) => one.ids.length > 1)
-  const small = folders.filter((one) => one.ids.length === 1).flatMap((one) => one.ids)
-  const wanted = [...big.map((one) => ({ name: `${from} / ${one.name}`, ids: one.ids })), ...(small.length > 1 ? [{ name: `${from} / ${OTHERS}`, ids: small }] : [])]
   const named: { name: string; count: number }[] = []
   atomically(() => {
-    const find = db.prepare("select id from note_groups where list = 'article' and name = ? order by created_at limit 1")
-    const make = db.prepare("insert into note_groups (id, list, name, created_at) values (?, 'article', ?, ?)")
+    const find = db.prepare("select id from note_groups where list = 'article' and name = ? and coalesce(parent_id, '') = ? order by created_at limit 1")
+    const make = db.prepare("insert into note_groups (id, list, name, parent_id, created_at) values (?, 'article', ?, ?, ?)")
     const put = db.prepare('update nuggets set group_id = ?, group_order = ? where id = ?')
     const last = db.prepare('select max(group_order) as at from nuggets where group_id = ?')
-    for (const one of wanted) {
-      let id = (find.get(one.name) as { id: string } | undefined)?.id
-      if (!id) make.run((id = randomUUID()), one.name, new Date().toISOString())
+    for (const one of folders) {
+      if (!one.ids.length) continue
+      const path = one.path.length > DEPTH ? [...one.path.slice(0, DEPTH - 1), one.path.slice(DEPTH - 1).join(' / ')] : one.path
+      let id: string | null = null
+      for (const name of path) {
+        const parent: string | null = id
+        id = (find.get(name, parent ?? '') as { id: string } | undefined)?.id ?? null
+        if (!id) make.run((id = randomUUID()), name, parent, new Date().toISOString())
+      }
       const after = ((last.get(id) as { at: number | null }).at ?? -1) + 1
       one.ids.forEach((note, at) => put.run(id, after + at, note))
-      named.push({ name: one.name, count: one.ids.length })
+      named.push({ name: path.join(' › '), count: one.ids.length })
     }
   })
   changed()
@@ -51,12 +55,12 @@ export function fileIntoGroups(from: string, folders: { name: string; ids: strin
  * and any lone note that stayed in the list outside them ("1 on its own"),
  * so the count adds up to what came in.
  */
-export function filedSaid(from: string, groups: { name: string; count: number }[], made: number): string {
+export function filedSaid(groups: { name: string; count: number }[], made: number): string {
   if (!made) return ''
   const grouped = groups.reduce((sum, one) => sum + one.count, 0)
   const loose = made - grouped
   const they = made === 1 ? 'It is' : 'They are'
-  const where = groups.length === 1 ? `“${groups[0].name}”` : `${groups.length.toLocaleString()} groups named “${from} / …”`
+  const where = groups.length === 1 ? `“${groups[0].name}”` : `${groups.length.toLocaleString()} groups, one for each folder`
   if (!groups.length) return `${they} in Writing, marked not yet sorted.`
   if (loose <= 0) return `${they} in Writing, in ${where}, marked not yet sorted.`
   return `${they} in Writing, marked not yet sorted: ${grouped.toLocaleString()} in ${where}, ${loose.toLocaleString()} on ${loose === 1 ? 'its' : 'their'} own.`

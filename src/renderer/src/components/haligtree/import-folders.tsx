@@ -105,7 +105,6 @@ export function ImportFolders(): React.JSX.Element | null {
     void window.api.haligtree('notes-import:run', ask.from, folders.filter((one) => picked.has(one.id)), ask.root)
     setAsk(null)
   }
-  const where = ask.from === 'Obsidian' ? `Obsidian / ${folders.find((one) => one.id)?.name ?? 'Folder'}` : 'Apple Notes / Folder'
   const title = ask.from === 'Obsidian' ? `Bring in ${ask.name ?? 'your vault'}` : 'Bring in Apple Notes'
   const flat = still()
   return (
@@ -145,7 +144,7 @@ export function ImportFolders(): React.JSX.Element | null {
             <h2 className="font-serif text-2xl leading-tight text-foreground">{title}</h2>
             {step.at === 'choose' && (
               <p className="mt-1.5 text-body text-foreground/85">
-                Each folder you choose becomes a group in Writing, named “{where}”. Every note starts as <strong className="font-semibold text-foreground">not yet sorted</strong>.
+                Each folder you choose becomes a group in Writing, named for it{ask.from === 'Obsidian' ? ', its folders groups inside it' : ''}. Every note starts as <strong className="font-semibold text-foreground">not yet sorted</strong>.
               </p>
             )}
           </div>

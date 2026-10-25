@@ -2710,7 +2710,9 @@ async function importVault(given?: string, picked?: string | null): Promise<void
   // window hears of it, and one of them turns them into documents.
   setImporting(true)
   try {
-    await busy(() => bringVault(root, given !== undefined))
+    // A test run's vault comes in as if every folder were chosen, as the chooser would offer them.
+    const every = given !== undefined && (await stat(join(root, '.obsidian')).then((one) => one.isDirectory(), () => false))
+    await busy(async () => bringVault(root, given !== undefined, every ? { folders: (await vaultFolders(root)).map((one) => one.id), signal: new AbortController().signal } : undefined))
   } finally {
     setImporting(false)
     changed()
@@ -2768,7 +2770,7 @@ async function importFolders(from: 'Apple Notes' | 'Obsidian', folders: NotesFol
       const got = await bringAppleNotes(notesReader(), folders, signal, (done, total) => importProgress({ done, total, what: 'notes', stop: true }))
       importProgress(null)
       const names = new Map(folders.map((one) => [one.id, one.name]))
-      const groups = fileIntoGroups('Apple Notes', [...got.byFolder].map(([id, ids]) => ({ name: names.get(id) ?? 'Notes', ids })))
+      const groups = fileIntoGroups([...got.byFolder].map(([id, ids]) => ({ path: [names.get(id) ?? 'Notes'], ids })))
       if (got.denied && !got.made.length) return inHome('haligtree:import-folders', { from: 'Apple Notes', refused: 'denied' })
       inHome('haligtree:import-done', {
         from: 'Apple Notes',
@@ -2776,7 +2778,7 @@ async function importFolders(from: 'Apple Notes' | 'Obsidian', folders: NotesFol
         writing: got.made.length,
         pictures: got.pictures,
         notes: [
-          filedSaid('Apple Notes', groups, got.made.length),
+          filedSaid(groups, got.made.length),
           got.stopped ? 'Stopped before the end: bring the same folders in again to carry on. Notes already here are skipped.' : '',
           got.already ? `${num(got.already)} ${got.already === 1 ? 'was' : 'were'} already here, from an earlier import, and ${got.already === 1 ? 'was' : 'were'} left as ${got.already === 1 ? 'it was' : 'they were'}.` : '',
           got.locked ? `${num(got.locked)} locked ${got.locked === 1 ? 'note was' : 'notes were'} left in Notes: unlock ${got.locked === 1 ? 'it' : 'them'} there to bring ${got.locked === 1 ? 'it' : 'them'} in.` : '',
@@ -3042,11 +3044,13 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
   // And what they link to that was here before them, a note made by hand among it.
   resolveWithin(...made.map((one) => one.link))
   const inbox = made.filter((one) => !one.link.startsWith('article:')).length
-  // Chosen folders: each a group in Pages, named for the folder (the top of the vault for the vault's own name).
+  // Chosen folders: each a group in Pages, named for the folder, its subfolders groups inside it; notes at the top
+  // of the vault, in no folder, stay loose.
+  const dirOf = (path: string): string => (path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '')
   const filed = pick
-    ? fileIntoGroups('Obsidian', pick.folders.map((folder) => ({
-        name: folder || basename(root),
-        ids: made.filter((one) => (one.path.includes('/') ? one.path.split('/')[0] : '') === folder).map((one) => one.link.replace(/^article:/, ''))
+    ? fileIntoGroups([...new Set(made.map((one) => dirOf(one.path)))].filter(Boolean).map((dir) => ({
+        path: dir.split('/'),
+        ids: made.filter((one) => dirOf(one.path) === dir).map((one) => one.link.replace(/^article:/, ''))
       })))
     : []
   const report = [
@@ -3062,7 +3066,7 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
     pick?.signal.aborted ? 'Stopped before the end: bring the same folders in again to carry on. Notes already here are skipped.' : ''
   ].filter(Boolean)
   // Filed into Pages: said in place of the Inbox's line.
-  if (pick) report.splice(1, 0, filedSaid('Obsidian', filed, made.length - inbox))
+  if (pick) report.splice(1, 0, filedSaid(filed, made.length - inbox))
   if (!quiet) importProgress(null)
   if (quiet) return console.log(`imported ${made.length} new, ${already} already here, ${empty} empty, ${kept.length} left out, ${unshown} pictures of other types skipped, ${marked} marked private, ${pictures} pictures, ${attached} files, ${linked} links${kept.length ? ` [${kept.join(', ')}]` : ''}`)
   // Said in the main window, on a card of its own, while the notes become documents behind it.

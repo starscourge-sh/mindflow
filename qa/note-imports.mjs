@@ -109,7 +109,7 @@ try {
   const second = await v('imports:body', 'nuggets', fromNotes.find((one) => one.title === 'Recipes note 2')?.id)
   check('the picture is copied into Haligtree', /haligtree:\/\/assets\/[0-9a-f]{64}\.png/.test(second ?? ''), second)
   const named = (await groups()).map((one) => `${one.name}:${one.members.length}`)
-  check('a group per folder, named Apple Notes / Folder', ['Apple Notes / Recipes:20', 'Apple Notes / Trips:18', 'Apple Notes / Work:11'].every((one) => named.includes(one)), named.join(', '))
+  check('a group per folder, named for the folder', ['Recipes:20', 'Trips:18', 'Work:11'].every((one) => named.includes(one)), named.join(', '))
 
   // 3. Writing shows what is left, by group and in all.
   await h.keyboard.press('Escape')
@@ -132,7 +132,7 @@ try {
   await size(1100, 760)
 
   // 4. Sort these: plain Keep, Move and Bin, tag chips; each one sorted, the count going down.
-  const trips = (await groups()).find((one) => one.name === 'Apple Notes / Trips')
+  const trips = (await groups()).find((one) => one.name === 'Trips')
   await h.click(`[data-group-block="${trips.id}"] [data-sort-these]`)
   await h.waitForSelector('[data-sort-bar]', { timeout: 6000 })
   await h.waitForTimeout(600)
@@ -142,7 +142,7 @@ try {
   const bar = await h.evaluate(() => ({ caps: document.querySelectorAll('[data-sort-bar] kbd, [data-sort-bar] [data-kbd], .mf-read footer kbd').length, keys: [...document.querySelectorAll('.mf-read button')].some((one) => /Keys/.test(one.textContent)), words: document.querySelector('[data-sort-bar]')?.innerText.replace(/\s+/g, ' '), writing: !!document.activeElement?.closest('.mf-read .ProseMirror'), hint: /to write/.test(document.querySelector('.mf-read')?.innerText ?? ''), group: document.querySelector('[data-sort-group]')?.textContent, out: /Out of/.test(document.querySelector('.mf-read')?.innerText ?? '') }))
   check('the sort bar is plain: "18 left", Keep, Move, Bin, no keycaps', /1\s*8 left/.test(bar.words) && /Keep/.test(bar.words) && /Move/.test(bar.words) && /Bin/.test(bar.words) && !bar.caps && !bar.keys && !bar.hint, JSON.stringify(bar))
   check('the note opens with the caret in it, to write', bar.writing)
-  check('its group is a quiet name over the page, no "Out of" line', bar.group === 'Apple Notes / Trips' && !bar.out, JSON.stringify(bar))
+  check('its group is a quiet name over the page, no "Out of" line', bar.group === 'Trips' && !bar.out, JSON.stringify(bar))
   check('tag chips offer the tags you use most, with a +', (await h.locator('[data-sort-tag-pick]').count()) > 0 && (await h.locator('[data-sort-tag-button]').count()) === 1)
   await h.keyboard.type(' (written while sorting)')
   await h.waitForTimeout(700)
@@ -185,12 +185,12 @@ try {
   await h.waitForTimeout(800)
   check('Esc ends the pass, and the pill rolls to what is left', (await h.getAttribute(`[data-group-block="${trips.id}"] [data-sort-these]`, 'data-sort-these')) === '14')
   // Moved by hand out of its group (the row menu's way): sorted too.
-  const work = (await groups()).find((one) => one.name === 'Apple Notes / Work')
+  const work = (await groups()).find((one) => one.name === 'Work')
   const layout = { top: [`g:${work.id}`, work.members[0]], groups: { [work.id]: work.members.slice(1) } }
   await v('groups:arrange', 'article', layout)
   check('dragged out of its group by hand, a note is sorted', !(await articles()).find((one) => one.id === work.members[0])?.unsorted)
   // A tag written in by hand sorts it as well.
-  const recipes = (await groups()).find((one) => one.name === 'Apple Notes / Recipes')
+  const recipes = (await groups()).find((one) => one.name === 'Recipes')
   await v('item:save', recipes.members[3], { body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Sorted by hand #baking' }] }] } })
   check('a tag written in by hand sorts it', !(await articles()).find((one) => one.id === recipes.members[3])?.unsorted)
   // Mark all as sorted, from the group's menu, and Undo.
@@ -257,8 +257,8 @@ try {
   await h.waitForTimeout(500)
   const obsidian = await h.textContent('[data-import-done]')
   check('8 notes in, said as in Writing', /8 notes are in/.test(obsidian) && /in Writing/.test(obsidian), obsidian.slice(0, 200))
-  const og = (await groups()).filter((one) => one.name.startsWith('Obsidian / ')).map((one) => `${one.name}:${one.members.length}`)
-  check('a group per chosen folder; Archive and the lone top note not grouped', og.sort().join() === ['Obsidian / Daily:3', 'Obsidian / Projects:4'].join(), og.join(', '))
+  const og = (await groups()).filter((one) => ['Daily', 'Projects', 'Archive', 'Garden'].includes(one.name)).map((one) => `${one.name}:${one.members.length}`)
+  check('a group per chosen folder; Archive and the lone top note not grouped', og.sort().join() === ['Daily:3', 'Projects:4'].join(), og.join(', '))
   const vaultNotes = (await articles()).filter((one) => /^(Daily|Projects|Archive) \d|^Top note/.test(one.title))
   check('the chosen notes are articles, not yet sorted; Archive stayed out', vaultNotes.length === 8 && vaultNotes.every((one) => one.unsorted === 1) && !vaultNotes.some((one) => one.title.startsWith('Archive')), vaultNotes.map((one) => one.title).join(', '))
   check('no page errors', !c.errors.length, c.errors.join(' | '))

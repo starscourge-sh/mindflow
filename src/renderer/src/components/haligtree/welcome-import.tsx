@@ -20,12 +20,12 @@ type What = 'vault' | 'files' | 'apple-notes'
 const MAPS: Record<Source, { pick: string; what: What; rows: [string, string][]; note: string }> = {
   'Apple Notes': {
     pick: 'Choose folders…', what: 'apple-notes',
-    rows: [['Each folder you choose', 'A group in “Writing”, “Apple Notes / Folder”'], ['Each note', 'A page, not yet sorted'], ['Lists, checklists and links', 'Kept as they are'], ['Pictures', `Copied into ${APP_NAME}`], ['When it was made and changed', 'Kept with the note']],
+    rows: [['Each folder you choose', 'A group in “Writing”, named for it'], ['Each note', 'A page, not yet sorted'], ['Lists, checklists and links', 'Kept as they are'], ['Pictures', `Copied into ${APP_NAME}`], ['When it was made and changed', 'Kept with the note']],
     note: `macOS asks once whether ${APP_NAME} may read Notes. Nothing in Notes is changed. Locked notes stay behind.`
   },
   Obsidian: {
     pick: 'Choose your vault…', what: 'vault',
-    rows: [['Each folder you choose', 'A group in “Writing”, “Obsidian / Folder”'], ['Each note', 'A page, not yet sorted'], ['Tags in its properties', '#tags'], ['Its other properties and date', 'Kept with the note'], ['[[Links]]', 'Links to what those notes became here'], ['Pictures and files', `Copied into ${APP_NAME}`]],
+    rows: [['Each folder you choose', 'A group in “Writing”, named for it, its folders inside it'], ['Each note', 'A page, not yet sorted'], ['Tags in its properties', '#tags'], ['Its other properties and date', 'Kept with the note'], ['[[Links]]', 'Links to what those notes became here'], ['Pictures and files', `Copied into ${APP_NAME}`]],
     note: 'Your vault is only read, never written to. Its settings and trash are left out.'
   },
   Notion: {
