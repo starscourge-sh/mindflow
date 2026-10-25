@@ -26,6 +26,19 @@ const open = async () => {
 }
 const articles = async (c) => { await c.go('articles'); await c.h.waitForTimeout(600) }
 const row = (c, title) => c.h.locator('button[data-row]', { hasText: title }).first()
+// The sandbox's own pages fill the list past the window, which draws only the rows near the screen: scrolled to until drawn.
+const reach = async (c, title) => {
+  const one = row(c, title)
+  if (await one.count()) return one
+  await c.h.evaluate(() => { let box = document.querySelector('[data-pane] [data-row]'); while (box && !/auto|scroll/.test(getComputedStyle(box).overflowY)) box = box.parentElement; if (box) box.scrollTop = 0 })
+  for (let i = 0; i < 30 && !(await one.count()); i++) {
+    await c.h.mouse.move(700, 450)
+    await c.h.mouse.wheel(0, 300)
+    await c.h.waitForTimeout(120)
+  }
+  await one.scrollIntoViewIfNeeded().catch(() => {})
+  return one
+}
 const head = (c, name) => (name ? c.h.locator('[data-group-row]', { hasText: name }) : c.h.locator('[data-group-row]')).first()
 const groupsNow = (c) => c.v('groups', 'article')
 const named = async (c, name) => (await groupsNow(c)).find((one) => one.name === name)
@@ -137,12 +150,12 @@ if (c) try {
   check('⌘Z puts it back in', (await named(c, 'Memory'))?.members.length === 3)
 
   // 6. ⌘-click picks two; the menu speaks for both.
-  await row(c, 'Notes on Zettelkasten').click({ modifiers: ['Meta'] })
-  await row(c, 'Reading list for October').click({ modifiers: ['Meta'] })
+  await (await reach(c, 'Notes on Zettelkasten')).click({ modifiers: ['Meta'] })
+  await (await reach(c, 'Reading list for October')).click({ modifiers: ['Meta'] })
   await c.h.waitForTimeout(250)
   await c.h.mouse.move(900, 700)
   await frames(c, 'f-picked', 1, 0)
-  await row(c, 'Reading list for October').click({ button: 'right' })
+  await (await reach(c, 'Reading list for October')).click({ button: 'right' })
   await c.h.waitForTimeout(250)
   // The copies sit under Copy: open it so its lines are read too.
   await c.h.locator('[data-slot="context-menu-content"] [role="menuitem"]', { hasText: /^Copy$/ }).hover().catch(() => {})
@@ -173,10 +186,10 @@ if (c) try {
 
   // 7b. Several picked move together. ⌘-click three, then carry one of them, ⇧ held down.
   await c.h.mouse.move(900, 700)
-  await row(c, "Mnemosyne's problem").click({ modifiers: ['Meta'] })
+  await (await reach(c, "Mnemosyne's problem")).click({ modifiers: ['Meta'] })
   // ⌘-click each: the sandbox's own rows, dated from today, can fall between two of these, so a ⇧-click range would take them too.
-  await row(c, 'What The Matrix gets right').click({ modifiers: ['Meta'] })
-  await row(c, 'Interleaving beats blocking').click({ modifiers: ['Meta'] })
+  await (await reach(c, 'What The Matrix gets right')).click({ modifiers: ['Meta'] })
+  await (await reach(c, 'Interleaving beats blocking')).click({ modifiers: ['Meta'] })
   await c.h.waitForTimeout(200)
   check('⌘-click picks three', (await picked(c)).length === 3, JSON.stringify(await picked(c)))
   await carry(c, row(c, 'What The Matrix gets right'), row(c, 'Spaced repetition, a primer'), 0.5, {
@@ -206,8 +219,8 @@ if (c) try {
   check('one ⌘Z puts all three back', (await named(c, 'Memory'))?.members.length === 3)
 
   // 7c. Near an edge, the picked rows land there together, in their order.
-  await row(c, "Mnemosyne's problem").click({ modifiers: ['Meta'] })
-  await row(c, 'What The Matrix gets right').click({ modifiers: ['Meta'] })
+  await (await reach(c, "Mnemosyne's problem")).click({ modifiers: ['Meta'] })
+  await (await reach(c, 'What The Matrix gets right')).click({ modifiers: ['Meta'] })
   await carry(c, row(c, 'What The Matrix gets right'), row(c, 'Interleaving beats blocking'), 0.1, {
     hold: async () => (await c.h.waitForTimeout(200), await frames(c, 'q-stack-edge', 3, 40))
   })
@@ -216,8 +229,8 @@ if (c) try {
   check('two picked rows move to the edge together', rows.slice(0, 3).join('|') === "What The Matrix gets right about choosing|Mnemosyne's problem: how memory fades|Interleaving beats blocking", rows.slice(0, 3).join(' | '))
 
   // 7d. Two picked in a group, carried out: both leave it.
-  await row(c, 'Spaced repetition, a primer').click({ modifiers: ['Meta'] })
-  await row(c, 'The forgetting curve').click({ modifiers: ['Meta'] })
+  await (await reach(c, 'Spaced repetition, a primer')).click({ modifiers: ['Meta'] })
+  await (await reach(c, 'The forgetting curve')).click({ modifiers: ['Meta'] })
   await carry(c, row(c, 'The forgetting curve'), row(c, 'Interleaving beats blocking'), 0.9, {
     hold: async () => {
       await c.h.waitForTimeout(200)
@@ -232,15 +245,15 @@ if (c) try {
   check('and one ⌘Z brings the group and all three back', (await named(c, 'Memory'))?.members.length === 3 && (await named(c, 'Memory'))?.name === 'Memory')
 
   // 7e. A row that is not picked goes alone, and the picks are let go.
-  await row(c, 'Interleaving beats blocking').click({ modifiers: ['Meta'] })
+  await (await reach(c, 'Interleaving beats blocking')).click({ modifiers: ['Meta'] })
   await carry(c, row(c, "Mnemosyne's problem"), row(c, 'Interleaving beats blocking'), 0.9)
   await c.h.waitForTimeout(700)
   const alone = await order(c)
   check('an unpicked row goes alone and the picks are let go', (await picked(c)).length === 0 && alone.slice(0, 3).join('|') === "What The Matrix gets right about choosing|Interleaving beats blocking|Mnemosyne's problem: how memory fades", alone.slice(0, 3).join(' | '))
 
   // 7f. Picked rows let go on the middle of a row outside any group: a new group of all of them.
-  await row(c, 'Interleaving beats blocking').click({ modifiers: ['Meta'] })
-  await row(c, "Mnemosyne's problem").click({ modifiers: ['Meta'] })
+  await (await reach(c, 'Interleaving beats blocking')).click({ modifiers: ['Meta'] })
+  await (await reach(c, "Mnemosyne's problem")).click({ modifiers: ['Meta'] })
   await carry(c, row(c, "Mnemosyne's problem"), row(c, 'What The Matrix gets right'), 0.5, {
     hold: async () => {
       await c.h.waitForTimeout(200)
@@ -278,12 +291,12 @@ if (c) try {
     await frames(c, 'z-dissolve-going', 5, 40)
   })
   await apart('Remove from group', async () => {
-    await row(c, 'Notes on Zettelkasten').click({ button: 'right' })
+    await (await reach(c, 'Notes on Zettelkasten')).click({ button: 'right' })
     await c.h.waitForTimeout(250)
     await c.h.locator('[role="menuitem"]', { hasText: 'Remove from group' }).click()
   })
   await apart('Move to group', async () => {
-    await row(c, 'Notes on Zettelkasten').click({ button: 'right' })
+    await (await reach(c, 'Notes on Zettelkasten')).click({ button: 'right' })
     await c.h.waitForTimeout(250)
     await c.h.locator('[data-slot="context-menu-sub-trigger"]', { hasText: 'Move to group' }).hover()
     await c.h.waitForTimeout(350)
@@ -293,7 +306,7 @@ if (c) try {
     await c.h.keyboard.press('Enter')
   })
   await apart('archived', async () => {
-    await row(c, 'Notes on Zettelkasten').click({ button: 'right' })
+    await (await reach(c, 'Notes on Zettelkasten')).click({ button: 'right' })
     await c.h.waitForTimeout(250)
     await c.h.locator('[role="menuitem"]', { hasText: /^Archive$/ }).click()
   })
@@ -306,7 +319,7 @@ if (c) try {
   await c.h.keyboard.press('Control+Meta+n')
   await c.h.waitForTimeout(500)
   check('⌃⌘N on one row makes no group', (await groupsNow(c)).length === count)
-  await row(c, 'Interleaving beats blocking').click({ button: 'right' })
+  await (await reach(c, 'Interleaving beats blocking')).click({ button: 'right' })
   await c.h.waitForTimeout(250)
   const single = await c.h.locator('[data-slot="context-menu-content"] [role="menuitem"]').allTextContents()
   check('one row\'s menu offers no new group of one', !single.some((one) => one.startsWith('New group')), single.join(' | '))
@@ -426,8 +439,8 @@ if (c) try {
   await c.h.waitForTimeout(350)
   await frames(c, 'n-hover-dark', 1, 0)
   // Several carried, in the dark: the stack at an edge, and the chip over a middle.
-  await row(c, 'Interleaving beats blocking').click({ modifiers: ['Meta'] })
-  await row(c, 'What The Matrix gets right').click({ modifiers: ['Meta'] })
+  await (await reach(c, 'Interleaving beats blocking')).click({ modifiers: ['Meta'] })
+  await (await reach(c, 'What The Matrix gets right')).click({ modifiers: ['Meta'] })
   await carry(c, row(c, 'What The Matrix gets right'), row(c, "Mnemosyne's problem"), 0.1, { up: false, hold: async () => (await c.h.waitForTimeout(250), await frames(c, 's-stack-dark', 2, 40)) })
   await c.h.mouse.move(400, 300, { steps: 6 })
   const lone = await row(c, 'Spaced repetition, a primer').boundingBox()
