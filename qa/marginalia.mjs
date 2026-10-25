@@ -98,6 +98,9 @@ try {
   await wait(1800)
   await h.screenshot({ path: `${dir}/after-typing.png` })
   const marcus = h.locator('[data-margin-person^="Marcus Aurelius"]')
+  // A capture kept as a gem is related once, as the gem, not twice (the user's screenshot).
+  const twice = await v('related', id)
+  check('the kept word is related once, not as its capture too', twice.filter((one) => /Sesquipedalian/.test(one.title)).length === 1, twice.map((one) => `${one.type}:${one.title}`).join(' | '))
   check('a typed @mention brings their card', await marcus.count() === 1, await h.locator('[data-margin-person]').evaluateAll((all) => all.map((one) => one.dataset.marginPerson).join(', ')))
   const after = await spot()
   check('the first card stayed put', Math.abs(before - after) < 2, `${before} -> ${after}`)

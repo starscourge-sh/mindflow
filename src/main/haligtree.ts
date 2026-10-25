@@ -4010,7 +4010,10 @@ export function registerHaligtree(): void {
     const rows = new Map((detail.all(ids, ids) as { id: string; title: string; body: string | null; private: number; at: string }[]).map((row) => [row.id, row]))
     const mine = rows.get(id)?.body ?? ''
     const { hidePrivate } = gate()
+    // A capture kept as a gem is said once, as the gem: the two carry the same words and tags.
+    const kept = new Set((db.prepare('select capture_id from nuggets where capture_id is not null and id in (select value from json_each(?))').all(ids) as { capture_id: string }[]).map((row) => row.capture_id))
     return ranked
+      .filter((one) => !kept.has(one.id))
       .map((one) => ({ ...one, ...rows.get(one.id)! }))
       // Linked either way, an id in the other's words; private, when hidden.
       .filter((row) => row.title !== undefined && !(row.body ?? '').includes(id) && !mine.includes(row.id) && !(hidePrivate && row.private))
