@@ -1137,7 +1137,8 @@ let wind: { context: AudioContext; out: GainNode; sources: AudioScheduledSourceN
 let windLevel = 0
 ;(window as unknown as { haligtreeRustle?: () => number }).haligtreeRustle = () => windLevel
 /** At its loudest: a breath of leaves, under everything else. */
-const WIND = 0.05
+// Under the welcome's bed, never over it: near the card or mid-gust it was the loudest thing on the page.
+const WIND = 0.028
 
 /**
  * A soft rustle of leaves in the wind, `level` 0 (silent) to 1 (as loud as it gets, still gentle):
@@ -1182,7 +1183,8 @@ export function rustle(level: number): void {
     hear('rustle')
   }
   windLevel = level
-  wind.out.gain.setTargetAtTime(level * WIND * volume, wind.context.currentTime, 0.25)
+  // Eased in: a little nearer is a little louder, and only right over the target does it reach its full, soft level.
+  wind.out.gain.setTargetAtTime(level ** 1.6 * WIND * volume, wind.context.currentTime, 0.25)
 }
 
 /** The wind goes, over `seconds`: its page was left, the welcome ended, or sounds were turned off. */
