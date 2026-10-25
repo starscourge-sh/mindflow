@@ -27,11 +27,13 @@ let enabled = true
 /** The Sounds setting. */
 export const soundOn = (on: boolean): void => {
   enabled = on
+  if (!on) quietBed(0.3)
 }
 let volume = 1
 /** The Volume setting, 0 to 1: every sound is scaled by it. */
 export const setVolume = (level: number): void => {
   volume = Math.max(0, Math.min(1, level))
+  if (bed) bed.out.gain.setTargetAtTime(volume, bed.context.currentTime, 0.1)
 }
 
 // `to` glides the pitch there over the note, and `swell` is how long it takes
@@ -234,6 +236,9 @@ const CUES = {
   nudgeMore: [[1318, 0, 0.35, 0.03], [988, 0.13, 0.4, 0.026], [1318, 0.42, 0.35, 0.03], [988, 0.55, 0.6, 0.026]],
   tick: [[1568, 0, 0.025, 0.035], [784, 0.004, 0.03, 0.02]],
   // A picture taken (a selfie, a screenshot): a soft two-part click, the shutter opening and closing.
+  // The welcome's pointer: a press as it starts to select, and the words leaning into italics, a small lift up a step.
+  select: [[1175, 0, 0.025, 0.018]],
+  slant: [[880, 0, 0.16, 0.022, 988, 0.02]],
   shutter: [[1760, 0, 0.018, 0.03, 1318], [988, 0.05, 0.03, 0.028, 784]]
 } satisfies Record<string, Note[]>
 
@@ -971,39 +976,69 @@ export function abandoned(): void {
 }
 
 /**
- * The welcome's arrival, once: a misty morning by the sea. A low, open chord
- * swells in from nothing over a few seconds with a breath of surf under it,
- * holds while the mist lifts, and fades away by itself over half a minute.
- * Nothing while sounds are off or the volume is down.
+ * The welcome's arrival, timed as one piece of music at 72 beats a minute.
+ * Silence and mist first; the low chord blooms from the bottom up (D, then
+ * its fifth, then the colour notes); a held breath, the sound easing back a
+ * little; and the first words land on the next beat, at ARRIVE_MS.
+ */
+export const BEAT_MS = 60000 / 72
+export const ARRIVE_MS = Math.round(BEAT_MS * 6)
+/** The key everything in the welcome is in: D, E, F sharp, A and B, an octave up from the chord. */
+export const PENTA = [587.33, 659.25, 739.99, 880, 987.77] as const
+
+/** The welcome's sound bed: one at a time, from the arrival until the welcome ends. */
+let bed: { context: AudioContext; out: GainNode; swell: GainNode; voices: GainNode[]; sources: AudioScheduledSourceNode[] } | null = null
+/** The bed under the chapters, against the arrival's whole: there, never noticed. */
+const BED = 0.14
+
+/**
+ * The welcome's arrival: a misty morning by the sea. A breath of surf, then
+ * the low open chord rising out of nothing, a held breath, and on the beat the
+ * first words. It then sinks to a quiet bed that stays under the whole welcome
+ * (bedShift, bedResolve) until it ends (quietBed). Nothing while sounds are
+ * off or the volume is down.
  */
 export function ambience(): void {
+  quietBed(0.4)
   const context = audio()
   if (!context) return
   const now = context.currentTime
   const out = context.createGain()
-  out.gain.setValueAtTime(0, now)
-  out.gain.linearRampToValueAtTime(0.9 * volume, now + 4)
-  out.gain.setValueAtTime(0.9 * volume, now + 9)
-  out.gain.exponentialRampToValueAtTime(0.0001, now + 30)
+  out.gain.value = volume
   out.connect(context.destination)
   out.connect(room(context))
-  // The chord: D, A, E and F sharp, wide and low, each two voices a little apart, so it shimmers.
-  for (const [hz, level] of [[146.83, 0.03], [220, 0.022], [329.63, 0.014], [369.99, 0.009], [587.33, 0.004]] as const) {
+  const swell = context.createGain()
+  const at = ARRIVE_MS / 1000
+  swell.gain.setValueAtTime(1, now)
+  // The held breath: the chord eases back a little just before the words, and comes in again with them.
+  swell.gain.setValueAtTime(1, now + at - 1.2)
+  swell.gain.linearRampToValueAtTime(0.72, now + at - 0.15)
+  swell.gain.linearRampToValueAtTime(1, now + at + 0.6)
+  // Then down to the bed, slowly, while the first line is read.
+  swell.gain.setTargetAtTime(BED, now + at + 5, 2.2)
+  swell.connect(out)
+  const voices: GainNode[] = []
+  const sources: AudioScheduledSourceNode[] = []
+  // The chord: D, A, E and F sharp, wide and low, each two voices a little apart so it shimmers, entering from the bottom up.
+  for (const [hz, level, enter] of [[146.83, 0.03, 0.9], [220, 0.022, 1.5], [329.63, 0.014, 2.2], [369.99, 0.009, 2.7], [587.33, 0.004, 3.2]] as const) {
+    const gain = context.createGain()
+    gain.gain.setValueAtTime(0, now)
+    gain.gain.setValueAtTime(0, now + enter)
+    gain.gain.linearRampToValueAtTime(level, now + at - 1.2)
+    gain.connect(swell)
+    voices.push(gain)
     for (const detune of [-4, 4]) {
       const voice = context.createOscillator()
       voice.type = 'sine'
       voice.frequency.value = hz
       voice.detune.value = detune
-      const gain = context.createGain()
-      gain.gain.value = level
-      voice.connect(gain).connect(out)
+      voice.connect(gain)
       voice.start(now)
-      voice.stop(now + 31)
+      sources.push(voice)
     }
   }
-  // The surf: soft noise through a low filter, rising and falling slowly, as waves do far off.
-  const seconds = 4
-  const buffer = context.createBuffer(1, context.sampleRate * seconds, context.sampleRate)
+  // The surf: soft noise through a low filter, rising and falling slowly, as waves do far off. It comes first.
+  const buffer = context.createBuffer(1, context.sampleRate * 4, context.sampleRate)
   const data = buffer.getChannelData(0)
   let last = 0
   for (let i = 0; i < data.length; i++) (last = last * 0.97 + (Math.random() * 2 - 1) * 0.03), (data[i] = last * 6)
@@ -1013,17 +1048,111 @@ export function ambience(): void {
   const low = context.createBiquadFilter()
   low.type = 'lowpass'
   low.frequency.value = 520
-  const swell = context.createGain()
-  swell.gain.value = 0.012
+  const tide = context.createGain()
+  tide.gain.setValueAtTime(0, now)
+  tide.gain.linearRampToValueAtTime(0.012, now + 2.5)
   const wave = context.createOscillator()
   wave.frequency.value = 0.11
   const depth = context.createGain()
   depth.gain.value = 0.009
-  wave.connect(depth).connect(swell.gain)
-  surf.connect(low).connect(swell).connect(out)
+  wave.connect(depth).connect(tide.gain)
+  surf.connect(low).connect(tide).connect(swell)
   surf.start(now)
   wave.start(now)
-  surf.stop(now + 31)
-  wave.stop(now + 31)
+  sources.push(surf, wave)
+  bed = { context, out, swell, voices, sources }
   hear('cue:ambience')
+}
+
+/** A soft voice under the bed: in from nothing over `rise`, held, gone over `fall`. */
+function pad(hz: number, level: number, rise: number, hold: number, fall: number): void {
+  if (!bed) return
+  const { context, out } = bed
+  const now = context.currentTime
+  const gain = context.createGain()
+  gain.gain.setValueAtTime(0.0001, now)
+  gain.gain.linearRampToValueAtTime(level, now + rise)
+  gain.gain.setValueAtTime(level, now + rise + hold)
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + rise + hold + fall)
+  gain.connect(out)
+  for (const detune of [-5, 5]) {
+    const voice = context.createOscillator()
+    voice.type = 'sine'
+    voice.frequency.value = hz
+    voice.detune.value = detune
+    voice.connect(gain)
+    voice.start(now)
+    voice.stop(now + rise + hold + fall + 0.1)
+  }
+}
+
+/** What each chapter brings in under the bed: a soft pair from the same key, so turning a page moves the harmony, never changes it. */
+const SHIFTS: number[][] = [[220, 329.63], [246.94, 369.99], [196, 293.66], [164.81, 246.94], [220, 329.63]]
+
+/** A chapter turned: the bed swells a little and a soft pair in the key comes in under it, then goes. */
+export function bedShift(chapter: number): void {
+  if (!bed) return
+  if (!enabled || !volume) return quietBed(0.3)
+  const now = bed.context.currentTime
+  bed.swell.gain.cancelScheduledValues(now)
+  bed.swell.gain.setTargetAtTime(BED * 1.5, now, 0.5)
+  bed.swell.gain.setTargetAtTime(BED, now + 2, 1.5)
+  for (const hz of SHIFTS[(chapter - 1) % SHIFTS.length]) pad(hz, 0.008, 1.4, 1.6, 4)
+  hear('cue:bed-shift')
+}
+
+/** The last page: the chord comes home. Its colour note (the E) lets go, and a plain D major swells under it. */
+export function bedResolve(): void {
+  if (!bed) return
+  if (!enabled || !volume) return quietBed(0.3)
+  const now = bed.context.currentTime
+  bed.voices[2].gain.cancelScheduledValues(now)
+  bed.voices[2].gain.setTargetAtTime(0, now, 0.8)
+  for (const [hz, level] of [[146.83, 0.012], [220, 0.009], [293.66, 0.008], [369.99, 0.006]]) pad(hz, level, 1.8, 3, 6)
+  bell(PENTA[0] * 2, 0.014, 'resolve')
+  hear('cue:bed-resolve')
+}
+
+/** The bed goes, over `seconds`: the welcome ended, was skipped past its end, or sounds were turned off. */
+export function quietBed(seconds = 1.6): void {
+  if (!bed) return
+  const { context, out, sources } = bed
+  bed = null
+  const now = context.currentTime
+  out.gain.cancelScheduledValues(now)
+  out.gain.setValueAtTime(out.gain.value, now)
+  out.gain.setTargetAtTime(0, now, seconds / 4)
+  for (const one of sources) one.stop(now + seconds + 0.2)
+  hear('cue:bed-end')
+}
+
+/**
+ * A glass note: a round fundamental and two quiet, slightly out-of-tune
+ * partials above it, as a struck glass has, dying away through the room. For
+ * the welcome's words and its few key moments; heard as `name`.
+ */
+export function bell(hz: number, level = 0.02, name = 'bell'): void {
+  const context = audio()
+  if (!context) return
+  const now = context.currentTime
+  const out = context.createGain()
+  out.gain.value = volume
+  out.connect(context.destination)
+  const wet = context.createGain()
+  wet.gain.value = 0.5
+  out.connect(wet).connect(room(context))
+  for (const [ratio, share, length] of [[1, 1, 2.2], [2.76, 0.18, 0.9], [5.4, 0.05, 0.4]] as const) {
+    const gain = context.createGain()
+    gain.gain.setValueAtTime(0.0001, now)
+    gain.gain.linearRampToValueAtTime(level * share, now + 0.012)
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + length)
+    gain.connect(out)
+    const tone = context.createOscillator()
+    tone.type = 'sine'
+    tone.frequency.value = hz * ratio
+    tone.connect(gain)
+    tone.start(now)
+    tone.stop(now + length + 0.05)
+  }
+  hear(`bell:${name}`)
 }

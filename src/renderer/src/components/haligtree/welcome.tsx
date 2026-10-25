@@ -1,12 +1,13 @@
 import { WelcomeLeaves } from './welcome-leaves'
-import { MIST_MS, WelcomeMist } from './welcome-mist'
+import { WelcomeMist } from './welcome-mist'
+import { Condense, DRAG_MS, REACH_MS, WelcomePointer, type Move } from './welcome-pointer'
 import { TAGLINE } from '../../../../main/tagline'
 import { fittedTitle, quoted } from '../../../../main/clip'
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { ArrowUp, Compass, CornerDownLeft, FolderInput } from 'lucide-react'
 import { shift, spring, still } from '@/lib/motion'
-import { ambience, chime, click, fold } from '@/lib/sound'
+import { ARRIVE_MS, BEAT_MS, PENTA, ambience, bedResolve, bedShift, bell, chime, click, fold, pageTurn, quietBed } from '@/lib/sound'
 import { applyTheme, currentTheme, type Theme } from '@/lib/theme'
 import { comboOf, fixed, keyFor, listen, saveKeys, useKeyChanges } from '@/lib/keys'
 import { NO_SETUP, onboarding, type Onboarding, type Setup } from '@/lib/onboarding'
@@ -117,6 +118,20 @@ type Turn = 'idle' | 'open' | 'away' | 'kept'
 
 // --- the welcome ----------------------------------------------------------------
 
+/**
+ * A chapter's page, as a page of one book: going on, it lifts from its spine
+ * on the left and slides off as it turns (the right edge coming up toward
+ * you), while the next settles in a moment later from a little to the right;
+ * going back, the other way. Under 900ms in all, and under reduced motion only
+ * the fade is left (MotionConfig).
+ */
+const PAGE = {
+  enter: (way: number) => ({ opacity: 0, transform: `perspective(1800px) translateX(${way * 2.5}%) rotateY(0deg)` }),
+  rest: { opacity: 1, transform: 'perspective(1800px) translateX(0%) rotateY(0deg)', transition: { duration: 0.6, ease: ENTER, delay: 0.16 } },
+  leave: (way: number) => ({ opacity: 0, transform: `perspective(1800px) translateX(${way * -4}%) rotateY(${way * -16}deg)`, transition: { duration: 0.5, ease: MOVE } }),
+  gone: { opacity: 0, transition: { duration: 0 } }
+}
+
 export function Welcome(): React.JSX.Element | null {
   const [at, setAt] = useState(-1)
   // Opened again from a menu: nothing is first about it.
@@ -148,6 +163,16 @@ export function Welcome(): React.JSX.Element | null {
   // The arrival: a mist over everything that lifts, a sound swelling in, and the first words only once it has thinned.
   const [mist, setMist] = useState(false)
   const [veiled, setVeiled] = useState(false)
+  // Which way the last page turned: on (1) or back (-1).
+  const [turning, setTurning] = useState(1)
+  const veilTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  // Esc or a click during the arrival: the mist goes at once and the first page shows whole; the sound carries on.
+  const [rushed, setRushed] = useState(false)
+  const rush = (): void => {
+    clearTimeout(veilTimer.current)
+    setVeiled(false)
+    setRushed(true)
+  }
   // When the box last went away: an Esc a moment after is the same Esc, pressed twice out of habit.
   const awayAt = useRef(0)
   // A second press of Next within 400ms is one press, not two.
@@ -164,6 +189,9 @@ export function Welcome(): React.JSX.Element | null {
   const go = (to: number, backward = false): void => {
     if (to < WHY || to > LAST || performance.now() - pressedAt.current < 400) return
     pressedAt.current = performance.now()
+    // A page of the book turned, heard as one.
+    pageTurn(true)
+    setTurning(backward ? -1 : 1)
     if (backward) trail.current.pop()
     else trail.current.push(at)
     // Quick capture never stays up over a page it was not opened for.
@@ -196,12 +224,15 @@ export function Welcome(): React.JSX.Element | null {
     // Opened again over a page still up: that page's way on (a part still to come) must not carry over to the opening.
     reel.current = { done: true, settle: () => undefined }
     setAt(WHY)
-    if (quiet) chime('read')
+    if (still()) chime('read')
     else {
       setMist(true)
       setVeiled(true)
+      setRushed(false)
       ambience()
-      setTimeout(() => setVeiled(false), MIST_MS * 0.42)
+      // Nothing but the mist and the chord until the arrival's beat: then the first words.
+      clearTimeout(veilTimer.current)
+      veilTimer.current = setTimeout(() => setVeiled(false), ARRIVE_MS)
     }
   }
 
@@ -224,6 +255,14 @@ export function Welcome(): React.JSX.Element | null {
     document.documentElement.toggleAttribute('data-welcoming', at >= 0)
     if (at >= 0) tellBox(examples(), true)
   }, [at >= 0]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The welcome's sound bed follows the pages: each turn a soft shift in the key, the last page the chord come home, gone when it ends.
+  useEffect(() => {
+    if (at < 0) return quietBed()
+    if (at === LAST) bedResolve()
+    else if (at > WHY) bedShift(at)
+  }, [at])
+  useEffect(() => () => quietBed(0.4), [])
 
   // Your turn: nothing written in for you; the box opens empty, its examples typing in, a note first.
   useEffect(() => {
@@ -272,6 +311,8 @@ export function Welcome(): React.JSX.Element | null {
   const leave = (how: 'fresh' | 'sandbox' | 'notes' | 'closed'): void => {
     if (picked.current) applyTheme(picked.current)
     fillBox(null)
+    // The welcome's sound bed goes with it, slowly.
+    quietBed()
     // Whatever was answered and not yet acted on (the welcome skipped past the summary): done now, once.
     void applySetup(setup).then((next) => onboarding.set({ setup: next })).catch(() => toast('Your answers could not be acted on just now. Set the same things any time in Settings.', undefined, 'warning'))
     void onboarding.set({ welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, ...(veteran.current && how !== 'fresh' ? { hidden: true } : {}) })
@@ -304,14 +345,12 @@ export function Welcome(): React.JSX.Element | null {
   // One click: it only goes to the last page, where Back still brings the chapters back.
   const skip = (): void => {
     if (at === LAST) return leave('closed')
-    chime('page')
     setSkipped(at === WHY ? 'first' : 'later')
     go(LAST)
   }
   const next = (): void => {
     if (!settled()) return
-    chime('page')
-    if (reel.current.more?.()) return
+    if (reel.current.more?.()) return void chime('page')
     if (at === DIAL && picked.current) applyTheme(picked.current)
     go(at + 1)
   }
@@ -321,7 +360,6 @@ export function Welcome(): React.JSX.Element | null {
     if (at === LAST && importing) return (chime('page'), setImporting(false))
     const to = trail.current[trail.current.length - 1] ?? at - 1
     if (at <= WHY || to < WHY) return void chime('nope')
-    chime('page')
     if (at === LAST) setSkipped(false)
     go(to, true)
   }
@@ -386,6 +424,7 @@ export function Welcome(): React.JSX.Element | null {
         // playing. It never goes back a page (← does), and skipping the
         // welcome is a button only.
         if (turn === 'open') window.api.hidePrompt()
+        else if (veiled) rush()
         else if (performance.now() - awayAt.current < 1000) undefined
         else if (!reel.current.waiting) settled()
       } else if (event.key === 'Enter') primary()
@@ -419,7 +458,7 @@ export function Welcome(): React.JSX.Element | null {
   useEffect(() => void (at >= 0 && dialog.current?.focus({ preventScroll: true })), [at >= 0]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (at < 0) return null
-  const play = !quiet && !played.has(at)
+  const play = !quiet && !played.has(at) && !(at === WHY && rushed)
   // Only the chapter on screen says how far it has got: one still fading out
   // after Back keeps playing, and must not leave the next press settling it.
   shown.current = at
@@ -445,21 +484,23 @@ export function Welcome(): React.JSX.Element | null {
       {/* The first screen's autumn leaves, blowing behind the words; Next blows them away, and a
           few small ones drift on through the rest (not over the dial, which has its own light). */}
       <WelcomeLeaves on={at === WHY && play} open={play && at !== DIAL} middle={at === BACK ? 0 : 0.3} />
-      {mist && <WelcomeMist onGone={() => setMist(false)} />}
+      {mist && <WelcomeMist hurry={rushed} onGone={() => setMist(false)} />}
       <div data-drag-strip="" className="relative h-11 shrink-0" style={{ WebkitAppRegion: 'drag' } as CSSProperties} />
       {at === LAST && <TrayArrow tray={state?.tray ?? null} />}
       <div className="relative mx-auto flex min-h-0 w-full max-w-[84rem] flex-1 flex-col">
+        {/* The book's ruled margin, in red ink: drawn down the page as the first words come, and kept on every page after, so each chapter reads as the same book. */}
+        <motion.div aria-hidden data-margin="" className="pointer-events-none absolute -top-11 bottom-0 left-[calc(clamp(1.5rem,5vw,4rem)*0.45)] w-px origin-top bg-[color-mix(in_oklab,var(--tt-color-text-red)_38%,transparent)]"
+          initial={false} animate={{ transform: veiled ? 'scaleY(0)' : 'scaleY(1)' }} transition={{ duration: quiet ? 0 : 1.6, ease: ENTER }} />
         <main className="relative min-h-0 flex-1">
-          <AnimatePresence initial={false}>
-            <motion.section key={at}
-              className="mf-more absolute inset-0 flex flex-col overflow-x-hidden overflow-y-auto overscroll-contain px-[clamp(1.5rem,5vw,4rem)] pt-2"
-              // One camera across the chapters: the last pushes on past, the next comes up out of the distance.
-              initial={play ? { opacity: 0, scale: 0.97 } : false} animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.4, ease: ENTER }}
+          <AnimatePresence initial={false} custom={turning}>
+            <motion.section key={at} custom={turning} variants={PAGE}
+              className="mf-more absolute inset-0 flex origin-left flex-col overflow-x-hidden overflow-y-auto overscroll-contain px-[clamp(1.5rem,5vw,4rem)] pt-2"
+              // One book: the page lifts away from its spine as the next settles in under it (back, the other way).
+              initial={play ? 'enter' : false} animate="rest"
               // The dial's page goes at once: its ring, light and dots must never show over the next one.
-              exit={at === DIAL ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, scale: 1.02, transition: { duration: 0.2, ease: MOVE } }}
+              exit={at === DIAL ? 'gone' : 'leave'}
               // A click on the picture while it plays: its end, as a key does.
-              onPointerDown={(event) => void (event.isTrusted && !(event.target as HTMLElement).closest('button, a, [role="slider"]') && !reel.current.done && !reel.current.waiting && settled())}>
+              onPointerDown={(event) => void (event.isTrusted && veiled ? rush() : event.isTrusted && !(event.target as HTMLElement).closest('button, a, [role="slider"]') && !reel.current.done && !reel.current.waiting && settled())}>
               {at === WHY && !veiled && <ThesisChapter play={play} report={report} />}
               {at === YOU && <YouChapter setup={setup} onChange={answer} still={!play} report={report} paid={paid} onPaid={setPaid} />}
               {at === CATCH && <CatchChapter play={play} report={report} state={state} onState={setState} setup={setup} turn={turn} mine={mine} />}
@@ -604,25 +645,41 @@ const ANSWER = `In ${APP_NAME}, your notes *come back to you*: an old note when 
 /** The first time the words are used, what they mean: the cycle the chapters after follow (Catch, Write, Remember). */
 const BOOK = `${APP_NAME} is a commonplace book, the kind writers have kept for centuries: catch a thought, write it out, and it finds you again.`
 
-type ThesisState = { typed: number; gaps: number; asked: boolean; answer: boolean; said: number; book: boolean }
+type ThesisState = { opened: boolean; words: number; gaps: number; kept: number; line: number; move: Move; slanted: number; asked: boolean; answer: boolean; said: number; book: boolean }
+const THESIS_START: ThesisState = { opened: false, words: 0, gaps: 0, kept: 0, line: -1, move: 'off', slanted: 0, asked: false, answer: false, said: 0, book: false }
+const THESIS_END: ThesisState = { opened: true, words: Infinity, gaps: THREE.length, kept: THREE.length, line: -1, move: 'off', slanted: THREE.length, asked: true, answer: true, said: Infinity, book: true }
+/** The headline's tune, a note a word, in the arrival chord's key: up the scale and home again on "again." */
+const MELODY = [0, 1, 2, 3, 4, 3, 2, 1, 0]
 
 function thesisBeats(): Beat<ThesisState>[] {
   const random = seeded(41)
-  const beats: Beat<ThesisState>[] = [{ at: 0, to: {} }]
-  const run = typed<ThesisState>(THESIS, 350, (sofar) => ({ typed: sofar.length }), random, 0.9, 2000)
-  beats.push(...run.beats)
-  // Read the line whole before anything else comes.
-  let t = run.end + 800
-  // Each tool's line stays up: the next comes once it is glanced at (each is a few words, read on while the next comes).
-  THREE.forEach((_, i) => {
-    beats.push({ at: t, to: { gaps: i + 1 }, cue: cue('bead') })
-    // The kind first, then (a beat later) what it keeps.
-    t += 1400
+  // The chapter opens on the arrival's beat (ARRIVE_MS): the date and the tagline first, on a glass note.
+  const beats: Beat<ThesisState>[] = [{ at: 0, to: { opened: true }, cue: () => bell(PENTA[0] * 2, 0.014, 'arrive') }]
+  // Two beats later the headline, a word to each half beat, each on its note; the last word held a little longer.
+  let t = BEAT_MS * 2
+  THESIS.split(' ').forEach((_, i, all) => {
+    if (i === all.length - 1) t += BEAT_MS * 0.25
+    beats.push({ at: t, to: { words: i + 1 }, cue: () => bell(PENTA[MELODY[i % MELODY.length]], 0.011, 'word') })
+    t += BEAT_MS / 2
   })
+  // Read the line whole before anything else comes.
+  t += 900
+  // Each kind of app lands in bold, what it keeps comes up beside it, and a pointer selects that and sets it in italics, then goes on to the next.
+  THREE.forEach((_, i) => {
+    beats.push({ at: t, to: { gaps: i + 1, line: i, move: 'reach' }, cue: cue('bead') })
+    beats.push({ at: t + 300, to: { kept: i + 1 } })
+    const press = t + REACH_MS + 160
+    beats.push({ at: press, to: { move: 'drag' }, cue: cue('select') })
+    beats.push({ at: press + DRAG_MS + 40, to: { move: 'held' } })
+    beats.push({ at: press + DRAG_MS + 300, to: { slanted: i + 1 }, cue: cue('slant') })
+    t = press + DRAG_MS + 900
+  })
+  beats.push({ at: t, to: { line: -1, move: 'leave' } })
   // The cause, glanced at (it stays up); then the answer, typed in as a person would (read as it types), its key words shining; then what Haligtree is, in one line.
+  t += 300
   beats.push({ at: t, to: { asked: true } })
   t += Math.max(1200, leadMs(QUESTION) - 600)
-  beats.push({ at: t, to: { answer: true }, cue: cue('settled') })
+  beats.push({ at: t, to: { answer: true }, cue: () => bell(PENTA[0] * 2, 0.014, 'answer') })
   const answer = typed<ThesisState>(plainOf(ANSWER), t + 250, (sofar) => ({ said: sofar.length }), random, 0.9, 2200)
   beats.push(...answer.beats)
   t = answer.end + 1200
@@ -635,31 +692,62 @@ function thesisBeats(): Beat<ThesisState>[] {
 function ThesisChapter({ play, report }: { play: boolean; report: (now: Reel) => void }): React.JSX.Element {
   const [beats] = useState(thesisBeats)
   const [when] = useState(dateline)
-  const show = useScript<ThesisState>({ typed: 0, gaps: 0, asked: false, answer: false, said: 0, book: false }, beats, play, 1)
+  const show = useScript<ThesisState>(THESIS_START, beats, play, 1)
   useReport(report, show.done, show.settle, show.part)
-  const s = show.done ? { typed: THESIS.length, gaps: THREE.length, asked: true, answer: true, said: Infinity, book: true } : show.state
-  const typing = s.typed < THESIS.length
-  const come = (on: boolean): { initial: false; animate: { opacity: number; y: number }; transition: object } => ({
-    initial: false, animate: { opacity: on ? 1 : 0, y: on ? 0 : 6 }, transition: { duration: play ? 0.35 : 0, ease: ENTER }
+  const s = show.done ? THESIS_END : show.state
+  // Settled (Esc, a click) or not played: everything at its end at once.
+  const quick = !play || show.done
+  const root = useRef<HTMLDivElement>(null)
+  const phrases = useRef<(HTMLElement | null)[]>([])
+  const marks = useRef<(HTMLElement | null)[]>([])
+  const come = (on: boolean): { initial: false; animate: { opacity: number; y: number; filter: string }; transition: object } => ({
+    initial: false, animate: { opacity: on ? 1 : 0, y: on ? 0 : 6, filter: on ? 'blur(0px)' : 'blur(6px)' }, transition: { duration: quick ? 0 : 0.6, ease: ENTER }
   })
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col justify-center pb-2">
+    <div ref={root} className="relative flex min-h-0 flex-1 flex-col justify-center pb-2">
       <div data-reel={show.done ? 'done' : 'playing'} data-words className="flex max-w-[58rem] flex-col gap-[clamp(0.75rem,2.6vh,1.75rem)]">
-        <p className={FIGURES}>{when}</p>
-        <p data-tagline className="text-[clamp(1.0625rem,min(1.9vw,2.7vh),1.3125rem)] font-semibold text-foreground">{TAGLINE}</p>
-        <h1 data-thesis="line" data-typed={s.typed} aria-label={THESIS} className={`${HEADLINE_XL} max-w-[18ch]`}>
-          <span aria-hidden>{THESIS.slice(0, s.typed)}</span>
-          {play && !show.done && <span aria-hidden className={`mf-caret ${typing ? 'mf-caret-typing' : 'mf-caret-gone'}`} />}
-          <span aria-hidden className="invisible">{THESIS.slice(s.typed)}</span>
+        <div data-mist-clear={s.opened ? '' : undefined} className="flex flex-col gap-[clamp(0.75rem,2.6vh,1.75rem)]">
+          <p className={FIGURES}><Condense text={when} on={s.opened} quick={quick} /></p>
+          <p data-tagline className="text-[clamp(1.0625rem,min(1.9vw,2.7vh),1.3125rem)] font-semibold text-foreground"><Condense text={TAGLINE} on={s.opened} quick={quick} delay={0.25} stagger={0.05} /></p>
+        </div>
+        {/* The headline resolves out of the mist a word to a note, each word in its place from the start. */}
+        <h1 data-thesis="line" data-words={Math.min(s.words, THESIS.split(' ').length)} data-mist-clear={s.words > 0 ? '' : undefined} aria-label={THESIS} className={`${HEADLINE_XL} max-w-[18ch]`}>
+          {THESIS.split(' ').map((word, i, all) => (
+            <Fragment key={i}><Condense text={word} on={s.words > i} quick={quick} />{i < all.length - 1 && ' '}</Fragment>
+          ))}
         </h1>
         <ul className="flex flex-col gap-[clamp(0.25rem,1vh,0.5rem)]">
-          {THREE.map(([name, gap], i) => (
-            <motion.li key={name} data-thesis={`gap-${i}`} className="text-[clamp(1.125rem,min(2.1vw,3vh),1.5rem)] leading-snug text-(--mf-wl-body)" {...come(s.gaps > i)}>
-              {/* The kind of app, a beat, then what it does, in italics: said the way a person would. */}
-              <span className="font-semibold text-foreground">{name}</span>{' '}
-              <motion.span className="italic" initial={false} animate={{ opacity: s.gaps > i ? 1 : 0 }} transition={{ duration: play ? 0.3 : 0, delay: play && !show.done ? 0.45 : 0, ease: ENTER }}>{gap}</motion.span>
-            </motion.li>
-          ))}
+          {THREE.map(([name, gap], i) => {
+            const slanted = s.slanted > i
+            const chosen = s.line === i && (s.move === 'drag' || s.move === 'held')
+            const lean = { duration: quick ? 0 : 0.5, ease: MOVE }
+            return (
+              <li key={name} data-thesis={`gap-${i}`} data-slant={slanted ? 'on' : 'off'} data-mist-clear={s.gaps > i ? '' : undefined} className="text-[clamp(1.125rem,min(2.1vw,3vh),1.5rem)] leading-snug text-(--mf-wl-body)">
+                {/* The kind of app lands first, in bold; then what it keeps, which a hand selects and sets in italics: said the way a person would. */}
+                <span className="font-semibold text-foreground"><Condense text={name} on={s.gaps > i} quick={quick} stagger={0.05} /></span>{' '}
+                <span ref={(el) => void (phrases.current[i] = el)} className="relative inline-grid">
+                  {/* The selection, growing with the drag (WelcomePointer sets its width), gone once the hand moves on. */}
+                  <span ref={(el) => void (marks.current[i] = el)} aria-hidden data-selected={chosen ? '' : undefined}
+                    className={`pointer-events-none absolute inset-y-[0.06em] -right-[0.08em] -left-[0.08em] origin-left rounded-[3px] bg-[color-mix(in_oklab,Highlight_80%,transparent)] ${chosen ? 'opacity-100' : 'opacity-0 transition-opacity duration-300 ease-out'}`} />
+                  {/* Upright, then leaning over into the italic: the two cross, each at the other's slant, so the words seem to tilt rather than swap. */}
+                  <motion.span aria-hidden={slanted || undefined} className="relative origin-[0_80%] [grid-area:1/1]" initial={false}
+                    animate={slanted
+                      ? { opacity: 0, transform: 'translateY(0em) skewX(-14deg)', filter: 'blur(1px)', transitionEnd: { visibility: 'hidden' } }
+                      : { opacity: s.kept > i ? 1 : 0, transform: `translateY(${s.kept > i ? 0 : 0.28}em) skewX(0deg)`, filter: s.kept > i ? 'blur(0px)' : 'blur(10px)', visibility: 'visible' }}
+                    transition={slanted ? lean : { duration: quick ? 0 : 1.1, ease: ENTER }}>
+                    {gap}
+                  </motion.span>
+                  <motion.span aria-hidden={!slanted || undefined} className="relative origin-[0_80%] italic [grid-area:1/1]" initial={false}
+                    animate={slanted
+                      ? { opacity: 1, transform: 'skewX(0deg)', filter: 'blur(0px)', visibility: 'visible' }
+                      : { opacity: 0, transform: 'skewX(14deg)', filter: 'blur(1px)', transitionEnd: { visibility: 'hidden' } }}
+                    transition={lean}>
+                    {gap}
+                  </motion.span>
+                </span>
+              </li>
+            )
+          })}
         </ul>
         <motion.p data-thesis="question" className="text-balance text-[clamp(1.125rem,min(2.1vw,3vh),1.5rem)] leading-snug font-medium text-foreground" {...come(s.asked)}>
           {QUESTION}
@@ -671,6 +759,7 @@ function ThesisChapter({ play, report }: { play: boolean; report: (now: Reel) =>
           {BOOK}
         </motion.p>
       </div>
+      {play && !show.done && <WelcomePointer root={root} phrases={phrases} marks={marks} line={s.line} move={s.move} />}
     </div>
   )
 }
@@ -731,6 +820,20 @@ function ForYou({ setup, at }: { setup?: Setup; at: Where }): React.JSX.Element 
 }
 
 /** The words that carry a line's point: the accent with a light passing over it now and then (main.css, .mf-sheen). */
+/** A pen's stroke under the words that carry the point, drawn left to right the moment they are said, a little uneven, as a reader underlines a book. */
+function Ink(): React.JSX.Element {
+  // Laid in the line as nothing wide (its width given back in margin) rather than placed on top, so the words read on as one line to anything reading them out.
+  const box = useRef<SVGSVGElement>(null)
+  const [wide, setWide] = useState(0)
+  useLayoutEffect(() => setWide((box.current?.previousElementSibling as HTMLElement | null)?.offsetWidth ?? 0), [])
+  return (
+    <svg ref={box} aria-hidden data-ink="" viewBox="0 0 300 12" preserveAspectRatio="none" style={{ width: wide, marginLeft: -wide }} className="pointer-events-none inline-block h-[0.3em] overflow-visible align-[-0.28em] text-primary">
+      <motion.path d="M3 8.5 C 48 4.5, 96 9.5, 150 6.5 S 246 4, 297 6" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" vectorEffect="non-scaling-stroke"
+        initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.75, ease: MOVE, delay: 0.1 }} />
+    </svg>
+  )
+}
+
 function Shine({ children, done = false }: { children: ReactNode; done?: boolean }): React.JSX.Element {
   return <span className="mf-sheen font-semibold" data-done={done || undefined}>{children}</span>
 }
@@ -1055,7 +1158,7 @@ function TypedAnswer({ said, upTo }: { said: string; upTo: number }): React.JSX.
         // The words that carry the point shine (main.css, .mf-sheen); the rest of a part waits unseen beside it, never inside it.
         return (
           <span key={i}>
-            {shown && (part.key ? <Shine>{shown}</Shine> : shown)}
+            {shown && (part.key ? <span className="relative"><Shine>{shown}</Shine>{!rest && <Ink />}</span> : shown)}
             {rest && <span className={`opacity-0 ${part.key ? 'font-semibold' : ''}`}>{rest}</span>}
           </span>
         )
