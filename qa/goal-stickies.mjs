@@ -1,6 +1,6 @@
 // Each goal's card on the desktop shows that goal alone, and "Show all goals
 // on one sticky" shows every open goal together, each in its own colour, with
-// a legend whose entries bring one goal forward. Windows stay parked off
+// lanes that each name their goal, one rested on brought forward. Windows stay parked off
 // screen (HALIGTREE_QA_VIRTUAL) and are never focused; the run is silent.
 //
 //   npx electron-vite build --outDir out-goal-stickies
@@ -82,8 +82,8 @@ try {
   await all.waitForSelector('[data-goals-lane]', { timeout: 8000 }).catch(() => {})
   await wait(800)
   const read = () => all.evaluate(() => ({
-    lanes: [...document.querySelectorAll('[data-goals-lane]')].map((one) => ({ id: one.getAttribute('data-goals-lane'), color: one.getAttribute('data-color'), opacity: Number(getComputedStyle(one).opacity), ink: getComputedStyle(one.querySelector('span:nth-child(2)')).backgroundColor })),
-    keys: [...document.querySelectorAll('[data-goals-key]')].map((one) => ({ id: one.getAttribute('data-goals-key'), ink: getComputedStyle(one.querySelector('span')).backgroundColor, name: one.textContent, pressed: one.getAttribute('aria-pressed') })),
+    lanes: [...document.querySelectorAll('[data-goals-lane]')].map((one) => ({ id: one.getAttribute('data-goals-lane'), color: one.getAttribute('data-color'), opacity: Number(getComputedStyle(one).opacity), ink: getComputedStyle(one.querySelector('[data-goals-road]')).backgroundColor, name: one.querySelector('[data-goals-name]')?.textContent ?? '' })),
+    today: [...document.querySelectorAll('[data-goals-today]')].map((one) => ({ lane: one.closest('[data-goals-lane]')?.getAttribute('data-goals-lane'), top: one.getBoundingClientRect().top, name: one.closest('[data-goals-lane]')?.querySelector('[data-goals-name]').getBoundingClientRect().bottom })),
     items: [...document.querySelectorAll('[data-goals-item]')].map((one) => ({ goal: one.getAttribute('data-goals-item'), mark: one.getAttribute('data-goals-item-mark'), ink: getComputedStyle(one.querySelector('span')).backgroundColor })),
     marks: [...document.querySelectorAll('[data-goals-mark]')].map((one) => one.getAttribute('data-goals-mark')),
     focus: document.querySelector('[data-goals-focus]')?.getAttribute('data-goals-focus') ?? null
@@ -91,8 +91,9 @@ try {
   let seen = await read()
   const ids = goals.map((g) => g.id).sort().join()
   check('a lane for every open goal, in its colour', seen.lanes.map((l) => l.id).sort().join() === ids && seen.lanes.every((l) => l.color === goals.find((g) => g.id === l.id).goalColor), JSON.stringify(seen.lanes.map((l) => [l.id.slice(0, 4), l.color])))
-  check('a legend entry per goal, named, its dot the lane’s colour', seen.keys.map((k) => k.id).sort().join() === ids && seen.keys.every((k) => k.ink === seen.lanes.find((l) => l.id === k.id).ink && k.name === goals.find((g) => g.id === k.id).title), JSON.stringify(seen.keys.map((k) => [k.name, k.ink])))
-  check('the colours differ goal to goal', new Set(seen.keys.map((k) => k.ink)).size === goals.length)
+  check('every lane names its goal', seen.lanes.every((l) => l.name === goals.find((g) => g.id === l.id).title), JSON.stringify(seen.lanes.map((l) => l.name)))
+  check('the colours differ goal to goal', new Set(seen.lanes.map((l) => l.ink)).size === goals.length)
+  check('today is marked on every lane, below its name, never through it', seen.today.length === seen.lanes.length && seen.today.every((t) => t.top >= t.name), JSON.stringify(seen.today))
   check('every goal’s marked days are on its lane', marks.filter((m) => markOf(m) && ids.includes(markOf(m))).every((m) => seen.marks.includes(m.id)) && seen.marks.every((id) => markOf(marks.find((m) => m.id === id))), JSON.stringify(seen.marks))
   check('what comes next lists items of the goals, each in its goal’s colour', seen.items.length >= 2 && new Set(seen.items.map((i) => i.goal)).size >= 2 && seen.items.every((i) => i.ink === seen.lanes.find((l) => l.id === i.goal).ink && (!i.mark || markOf(marks.find((m) => m.id === i.mark)) === i.goal)), JSON.stringify(seen.items))
   for (const theme of ['light', 'dark']) {
@@ -107,23 +108,20 @@ try {
     }
   }
 
-  // --- a legend entry brings one goal forward
+  // --- resting on a lane brings that goal forward
   const dune = goals.find((g) => g.title.startsWith('Finish Dune'))
-  await all.locator(`[data-goals-key="${dune.id}"]`).click(); await wait(600)
+  await all.locator(`[data-goals-lane="${dune.id}"]`).hover(); await wait(600)
   seen = await read()
-  check('clicking a legend entry brings that goal forward and dims the rest', seen.focus === dune.id && seen.lanes.every((l) => (l.id === dune.id ? l.opacity === 1 : l.opacity < 0.3)) && seen.keys.find((k) => k.id === dune.id).pressed === 'true', JSON.stringify(seen.lanes.map((l) => [l.id.slice(0, 4), l.opacity])))
+  check('resting on a lane brings that goal forward and dims the rest', seen.focus === dune.id && seen.lanes.every((l) => (l.id === dune.id ? l.opacity === 1 : l.opacity < 0.3)), JSON.stringify(seen.lanes.map((l) => [l.id.slice(0, 4), l.opacity])))
   check('focused, what comes next is that goal’s alone', seen.items.length >= 1 && seen.items.every((i) => i.goal === dune.id), JSON.stringify(seen.items))
   for (const theme of ['light', 'dark']) {
     await all.evaluate((t) => { localStorage.setItem('theme', t); window.dispatchEvent(new StorageEvent('storage', { key: 'theme' })) }, theme)
     await wait(700)
     await all.screenshot({ path: join(SHOTS, `goals-all-focused-${theme}.png`) })
   }
-  await all.locator(`[data-goals-key="${dune.id}"]`).click(); await wait(600)
+  await all.mouse.move(2, 2); await wait(600)
   seen = await read()
-  check('clicked again, every goal is back', !seen.focus && seen.lanes.every((l) => l.opacity === 1))
-  await all.locator(`[data-goals-key="${dune.id}"]`).click(); await wait(400)
-  await all.keyboard.press('Escape'); await wait(500)
-  check('Esc brings every goal back too', !(await read()).focus)
+  check('off the lane, every goal is back', !seen.focus && seen.lanes.every((l) => l.opacity === 1))
 
   // --- a goal's colour, changed on the goal
   const mars = goals.find((g) => g.title.startsWith('Get to Mars'))
