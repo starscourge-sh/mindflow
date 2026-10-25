@@ -87,6 +87,15 @@ export function WelcomeLeaves({ on, open }: { on: boolean; /** The welcome showi
     const fall: Leaf[] = gust.current === null ? Array.from({ length: 8 }, () => make(true)) : []
     // After the gust: a few small leaves and specks, drifting through the rest of the welcome.
     const motes: Leaf[] = Array.from({ length: 10 }, () => make(true, true))
+    let settled = false
+    /** Down one side, where the pages are bare: from above it (`above`), or anywhere on it. */
+    const edgeward = (one: Leaf, above: boolean): void => {
+      const right = Math.random() < 0.5
+      one.x = right ? width * (0.86 + Math.random() * 0.13) : width * (0.01 + Math.random() * 0.13)
+      one.y = above ? -one.size - Math.random() * height * 0.3 : Math.random() * height
+      one.vx = 0
+      one.vy = 0
+    }
 
     /** A leaf's outline, its stem at the origin pointing left and its tip at `length`, by kind. */
     const outline = (kind: Kind, length: number): void => {
@@ -228,6 +237,12 @@ export function WelcomeLeaves({ on, open }: { on: boolean; /** The welcome showi
         if (leaving === null && (one.x > width + one.size || one.y > height + one.size)) Object.assign(one, make(false))
       }
       if (gone >= 1 && fall.length) fall.length = 0
+      // Once the wind has dropped: more of them, all down the bare edges, already falling.
+      if (calm > 0.5 && !settled) {
+        settled = true
+        motes.push(...Array.from({ length: 10 }, () => make(true, true)))
+        for (const one of motes) edgeward(one, false)
+      }
       for (const one of motes) {
         if (leaving !== null) {
           const caught = Math.max(0, Math.min(1, (now - leaving - one.late) / 450))
@@ -236,20 +251,29 @@ export function WelcomeLeaves({ on, open }: { on: boolean; /** The welcome showi
           one.vx += (1400 * push * one.drift - one.vx * 1.4) * dt
           one.vy += (-260 * push - one.vy * 1.4) * dt
         }
-        one.x += (blow * (0.5 - 0.15 * calm) * one.drift + one.vx) * dt
+        // Once the wind has dropped, a light sideways breeze and a slow fall: they come down the bare edges.
+        one.x += (blow * (0.5 - 0.42 * calm) * one.drift + one.vx) * dt
         one.y += one.vy * dt
-        one.y += (10 + Math.sin(t * 0.5 + one.sway) * 8) * dt
+        one.y += (10 + 14 * calm + Math.sin(t * 0.5 + one.sway) * 8) * dt
         one.flip += 0.7 * dt
         one.spin += one.turn * 1.6 * dt
-        if (one.x > width + one.size || one.y > height + one.size) Object.assign(one, make(false, true))
+        if (one.x > width + one.size || one.y > height + one.size) {
+          Object.assign(one, make(false, true))
+          // After the first screen, a new one starts above an edge, where the pages are bare, not across the middle.
+          if (calm > 0.5) edgeward(one, true)
+        }
       }
       // Only the last stretch fades, for any leaf still in sight.
       const fade = Math.max(0, (gone - 0.7) / 0.3)
       pen.clearRect(0, 0, cols, rows)
       pen.globalAlpha = 1 - fade
       for (const one of fall) draw(one, t)
-      pen.globalAlpha = 0.32
-      for (const one of motes) draw(one, t)
+      for (const one of motes) {
+        // After the first screen, faint at the edges and fading to nothing toward the middle, where the words are.
+        const edge = Math.max(0, 1 - Math.min(one.x, width - one.x) / (width * 0.2))
+        pen.globalAlpha = 0.32 * (1 - calm) + 0.6 * calm * edge
+        if (pen.globalAlpha > 0.01) draw(one, t)
+      }
       pen.globalAlpha = 1
       const data = pen.getImageData(0, 0, cols, rows).data
       context.clearRect(0, 0, width, height)

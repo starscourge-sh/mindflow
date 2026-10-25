@@ -40,6 +40,16 @@ try {
   await h.waitForTimeout(3200)
   const after = await look()
   if (SHOTS) await h.screenshot({ path: join(SHOTS, `leaves-${THEME}-after.png`) })
+  await h.waitForTimeout(9000)
+  const later = await h.evaluate(() => {
+    const canvas = document.querySelector('[data-welcome-leaves]')
+    const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data
+    let edges = 0, middle = 0
+    for (let i = 3; i < data.length; i += 4 * 5) if (data[i] > 4) { const x = ((i - 3) / 4) % canvas.width; x < canvas.width * 0.18 || x > canvas.width * 0.82 ? edges++ : middle++ }
+    return { edges, middle }
+  })
+  if (SHOTS) await h.screenshot({ path: join(SHOTS, `leaves-${THEME}-later.png`) })
+  check('later, the small ones keep mostly to the bare edges', later.edges > later.middle, JSON.stringify(later))
   check('the big ones gone, a few small ones drifting on', after.inked > 20 && after.inked < swimming.inked / 3, `${swimming.inked} -> ${after.inked}`)
   check('no page errors', errors.length === 0, errors.join(' | '))
 } finally {
