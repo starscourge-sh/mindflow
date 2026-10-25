@@ -79,6 +79,17 @@ try {
   check('signed with her name', /- Jane Austen/.test(said), said.slice(-60))
   check('linked to its source note', await quote.locator('[data-note^="capture:"], [data-note^="nugget:"]').count() >= 1)
 
+  // A drag out to another app: the quote, who said it, as text and as a block quote.
+  const carried = await first.evaluate((el) => {
+    const data = new DataTransfer()
+    el.dispatchEvent(new DragEvent('dragstart', { dataTransfer: data, bubbles: true, cancelable: true }))
+    return { types: [...data.types], text: data.getData('text/plain'), html: data.getData('text/html') }
+  })
+  check('a drag carries text and HTML, and the page’s own kind', ['text/plain', 'text/html', 'application/x-haligtree-quote'].every((one) => carried.types.includes(one)), carried.types.join(', '))
+  check('…the text is the quote, then “- Name” on its own line', carried.text.includes(words0.slice(0, 30)) && /\n- Jane Austen/.test(carried.text), JSON.stringify(carried.text).slice(-80))
+  check('…the HTML a signed block quote', /^<blockquote><p>.+<\/p><p>- Jane Austen.*<\/p><\/blockquote>$/s.test(carried.html), carried.html.slice(-80))
+  check('…no em dash in either', !/—/.test(carried.text + carried.html))
+
   // A drag: in where it is let go.
   const second = card.locator('[data-margin-quote]').nth(1)
   if (await second.count()) {

@@ -381,9 +381,10 @@ try {
   await c.go('day')
   await wait(1500)
   check("the day's events show in the brief", (await text('[data-brief-calendar] [data-mac-event]')).some((one) => one.includes('Dentist')))
-  await c.go('week')
-  await wait(1200)
-  check('and in the week', (await text('[data-mac-event]')).some((one) => one.includes('Dentist')))
+  // The week's events are on the Calendar now: "This week" (`week`) lands on Upcoming since 3ea604c2.
+  await c.go('calendar')
+  await wait(1500)
+  check('and in the week', (await text('[data-cal-event^="mac:"], [data-cal-event-chip^="mac:"]')).some((one) => one.includes('Dentist')))
   await v('settings:set', { macCalendar: false })
 
   // --- Weekly digest ------------------------------------------------------------

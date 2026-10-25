@@ -36,7 +36,7 @@ const openNote = (link: string): void =>
  */
 type Powers = Parameters<typeof notePowers>[0]
 
-export function EmbeddedNote({ link, label, header = true, onUnembed, powers = false, onLeave }: {
+export function EmbeddedNote({ link, label, header = true, onUnembed, powers = false, onLeave, onEditor }: {
   link: string
   label: string
   header?: boolean
@@ -45,6 +45,8 @@ export function EmbeddedNote({ link, label, header = true, onUnembed, powers = f
   powers?: boolean
   /** A tag or a link followed from it leaves this view first (the expanded view closes). */
   onLeave?: () => void
+  /** Its editor once ready, for a view drawn from its words (the expanded view's board). */
+  onEditor?: (editor: Editor) => void
 }): React.JSX.Element {
   const around = useContext(Around)
   const { table, id } = partsOf(link)
@@ -110,7 +112,7 @@ export function EmbeddedNote({ link, label, header = true, onUnembed, powers = f
               findHeadings={findHeadings}
               onOpenNote={(to) => openNote(to)}
               {...(powers ? notePowers({ ...note.powers, onOpen: (type, at) => (onLeave?.(), window.api.openInHome(type, at)) }) : {})}
-              onReady={words.ready}
+              onReady={(ready) => (words.ready(ready), onEditor?.(ready))}
               onChange={words.save}
             />
           </Around.Provider>

@@ -63,6 +63,18 @@ const quoteBlock = ({ quote, name }: Carried): JSONContent => {
   }
 }
 
+/**
+ * The quote as another app takes it (Mail, Notes, Obsidian): its words, then
+ * "- Name, Source" under them, as text and as a block quote. Haligtree has no
+ * web or system link for a note to put with it, so who said it travels instead.
+ */
+const forApps = ({ quote, name }: Carried): { text: string; html: string } => {
+  const words = wordsOf(quote.label)
+  const sign = `- ${[name, quote.medium?.split(',')[0].trim()].filter(Boolean).join(', ')}`
+  const safe = (text: string): string => text.replace(/[&<>"]/g, (one) => `&${({ '&': 'amp', '<': 'lt', '>': 'gt', '"': 'quot' })[one]};`)
+  return { text: `“${words}”\n${sign}`, html: `<blockquote><p>${safe(words)}</p><p>${safe(sign)}</p></blockquote>` }
+}
+
 /** Into the page after the block at `pos` (or in place of it, when it is an empty line). */
 const insertAt = (editor: Editor, carried: Carried, pos: number): void => {
   const $pos = editor.state.doc.resolve(Math.min(pos, editor.state.doc.content.size))
@@ -186,7 +198,9 @@ function MarginPerson({ person, onInsert }: { person: Margin['people'][number]; 
                 <li key={quote.id} data-margin-quote={quote.id} draggable
                   onDragStart={(event) => {
                     event.dataTransfer.setData(MIME, JSON.stringify({ quote, name }))
-                    event.dataTransfer.setData('text/plain', `“${wordsOf(quote.label)}” - ${name}`)
+                    const out = forApps({ quote, name })
+                    event.dataTransfer.setData('text/plain', out.text)
+                    event.dataTransfer.setData('text/html', out.html)
                     event.dataTransfer.effectAllowed = 'copy'
                     chime('lift')
                   }}

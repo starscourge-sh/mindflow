@@ -2,7 +2,7 @@ import { useLive, haligtree, type Task } from '@/lib/haligtree'
 import { taskName } from '@/lib/tasks'
 import { chime } from '@/lib/sound'
 import { dayjs, dayKey } from '../../../../main/dates'
-import { TaskWhen, completeTask } from './tasks-view'
+import { RepeatMark, TaskWhen, completeTask } from './tasks-view'
 import { Tags } from './ui'
 
 /** The day a task is meant for, or due by: the one it shows under. */
@@ -37,7 +37,7 @@ export function WeekTasks({ monday, onOpen }: { monday: string; onOpen?: (type: 
                   className="mt-0.5 size-[1.125rem] shrink-0 rounded-full border-[1.5px] border-muted-foreground/60 transition-colors hover:border-foreground hover:bg-foreground/10" />
                 <button type="button" onClick={() => onOpen?.('task', task.id)} className="min-w-0 flex-1 text-left">
                   <span className="private-text flex items-center gap-1.5 text-[0.9375rem] text-foreground">{taskName(task.title).text}<Tags tags={taskName(task.title).tags} /></span>
-                  <span className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-muted-foreground"><TaskWhen task={task} /></span>
+                  <span className="mt-0.5 flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground"><TaskWhen task={task} /><RepeatMark task={task} /></span>
                 </button>
               </li>
             ))}

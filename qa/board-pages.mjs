@@ -158,6 +158,40 @@ try {
   await h.keyboard.press('Alt+Meta+b')
   await wait(700)
 
+  // 6. The expanded view: "Board view" in its own ··· menu and ⌥⌘B, the board filling it.
+  const wide = await page('Expanded board', doc(head('Now'), list('e1'), head('Later'), list('e2')))
+  await open('article', wide)
+  await send('expand', `article:${wide}`)
+  await wait(1500)
+  const sheet = '[data-expanded-note]'
+  const closeAt = () => h.locator(`${sheet} button[aria-label="Close the expanded view"]`).boundingBox()
+  const closed = await closeAt()
+  await h.locator(`${sheet} button[aria-label="More"]`).click()
+  await wait(300)
+  await h.getByRole('menuitemcheckbox', { name: /Board view/ }).click()
+  await wait(900)
+  const sheetLanes = await h.evaluate((at) => [...document.querySelectorAll(`${at} [data-board] section`)].map((lane) => ({
+    title: lane.querySelector('h3')?.textContent ?? '',
+    cards: [...lane.querySelectorAll('[data-sortable-id^="card:"]')].map((card) => card.textContent.trim())
+  })), sheet)
+  check('"Board view" in the expanded view shows its columns', JSON.stringify(sheetLanes) === JSON.stringify([{ title: 'Now', cards: ['e1'] }, { title: 'Later', cards: ['e2'] }]), JSON.stringify(sheetLanes))
+  const fill = await h.evaluate((at) => document.querySelector(`${at} [data-board]`)?.getBoundingClientRect().width ?? 0, sheet)
+  check('the board fills the expanded page, wider than its reading column', fill > 1100, `${Math.round(fill)}px`)
+  if (process.env.SHOTS) await h.screenshot({ path: `${process.env.SHOTS}/board-expanded.png` })
+  check('the page under it did not turn into a board too', (await h.locator('[data-board]').count()) === 1)
+  const boarded = await closeAt()
+  check('"Close" stays where it was', Math.abs(boarded.x - closed.x) < 1 && Math.abs(boarded.y - closed.y) < 1, `${closed.x},${closed.y} -> ${boarded.x},${boarded.y}`)
+  await h.keyboard.press('Alt+Meta+b')
+  await wait(800)
+  check('⌥⌘B turns the expanded view back into the page', !(await h.locator(`${sheet} [data-board]`).count()) && (await h.locator(`${sheet} .ProseMirror`).first().isVisible()))
+  check('and leaves the page under it as it was', !(await h.locator('[data-board]').count()))
+  await h.keyboard.press('Alt+Meta+b')
+  await wait(800)
+  check('⌥⌘B brings the board back', (await h.locator(`${sheet} [data-board]`).count()) === 1)
+  await h.keyboard.press('Escape')
+  await wait(600)
+  check('Esc closes the expanded view from its board', !(await h.locator(sheet).count()))
+
   check('no errors on the page', s.errors.length === 0, s.errors.join(' | '))
 } catch (error) {
   fail++

@@ -74,7 +74,7 @@ try {
   }
 
   // Everywhere task rows show.
-  for (const [view, needRepeat] of [['home', false], ['today', true], ['upcoming', false], ['week', true], ['matrix', true], ['routines', true]]) {
+  for (const [view, needRepeat] of [['home', false], ['today', true], ['upcoming', false], ['weekpage', true], ['matrix', true], ['routines', true]]) {
     await go(view); await wait(900)
     const tags = await h.locator('[data-tag-go]').count()
     const repeats = await h.locator('[data-chip-choices]:has([data-repeat-mark])').count()
