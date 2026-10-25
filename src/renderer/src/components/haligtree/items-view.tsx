@@ -16,6 +16,7 @@ import { Archive, ArrowLeft, Calendar, Plus, SquareDashed } from 'lucide-react'
 import { Unfold } from './glide'
 
 import { HaligtreeEditor } from '../haligtree'
+import { Board, useBoard } from './board-view'
 import { textOf } from '../rot-cards'
 import { firstLineOf } from '@/extensions/tokens'
 import { ReadThrough } from './read-through'
@@ -232,6 +233,10 @@ export function ItemsView({ tier, focus, onOpen, only }: { tier: 'nugget' | 'art
   // Opened from elsewhere with its words already read: on them from the first frame.
   const [open, setOpen] = useState<ItemFull | null>(() => (focus ? readNow<ItemFull>(only === 'questions' ? 'question' : tier, focus) ?? readNow<ItemFull>(tier, focus) ?? null : null))
   const spread = pane === 'wide' && !open
+  // A page shown as a board folds the list to a rail, a click from coming back.
+  const [boarded, setBoarded] = useState(false)
+  const [listOut, setListOut] = useState(false)
+  useEffect(() => setListOut(false), [boarded])
   // Not grouped, or grouped by kind with only one kind: a plain list, where your own groups show.
   const plain = arranged.length <= 1 && !arranged[0]?.[0]
   const groups = spread && query.trim() ? arranged.map(([name, list]) => [name, list.filter((one) => matches(one.title, query, one.fields))] as [string, Item[]]).filter(([, list]) => list.length) : arranged
@@ -480,7 +485,7 @@ export function ItemsView({ tier, focus, onOpen, only }: { tier: 'nugget' | 'art
   const paged = pageGroup ? noteGroups.find((one) => one.id === pageGroup) : undefined
   // A question is drawn as one, with its "?" mark, how long it has been held and its clues.
   const entryOf = (one: Item): Entry => (one.tier === 'question' ? questionEntry(one, inView.has(one.id), menuFor(one) as MenuItem[]) : itemEntry(one, menuFor(one)))
-  const entries: [string, Entry[]][] = !listShown && !(open && pane === 'rail') ? [] : tiles || folder
+  const entries: [string, Entry[]][] = !listShown && !(open && (pane === 'rail' || boarded)) ? [] : tiles || folder
     ? [['', items.map((one) => {
         const card = folders.get(one.id)
         if (!card) return entryOf(one)
@@ -495,8 +500,9 @@ export function ItemsView({ tier, focus, onOpen, only }: { tier: 'nugget' | 'art
   return (
     // The list and the note open beside it come in together, once both are read (lib/reads-in.tsx); sent here for a note, the note never waits for the list.
     <ReadsIn className="contents">
-      {open && pane === 'rail' ? (
-        <NoteRail entries={entries.flatMap(([, list]) => list)} cursor={cursor} selected={open.id} onPick={pick} onShow={() => setPane('list')} />
+      {/* Folded to a rail: by you, or by a board that needs the room. */}
+      {open && (boarded ? !listOut : pane === 'rail') ? (
+        <NoteRail entries={entries.flatMap(([, list]) => list)} cursor={cursor} selected={open.id} onPick={pick} onShow={() => (boarded ? setListOut(true) : setPane('list'))} />
       ) : (
       <Page aside={!!open || !!coming}
         // The count, Display's sort and the list come with the notes and your groups, together.
@@ -656,7 +662,7 @@ export function ItemsView({ tier, focus, onOpen, only }: { tier: 'nugget' | 'art
           }}
         />
       )}
-      {coming && coming !== open?.id ? <NoteComing id={coming} title={all.find((one) => one.id === coming)?.title} /> : open && <Apart type={open.tier} id={open.id} title={open.title} hidden={!!open.private} onBack={() => haligtree.item(open.id).then((fresh) => fresh && setOpen(fresh))}><ItemDetail top={<ReadsIn apart reading={listUnread} className="contents" data-apart="stepper"><Stepper turns at={items.findIndex((one) => one.id === open.id)} total={items.length} onStep={(to) => ((stepped.current = true), pick(items[to].id))} /></ReadsIn>} key={open.id} item={open} onOpen={(type, id) => (type === tier || (writing && type === 'question') ? ((type === 'article' && setAsks('all')), pick(id)) : onOpen?.(type, id))} /></Apart>}
+      {coming && coming !== open?.id ? <NoteComing id={coming} title={all.find((one) => one.id === coming)?.title} /> : open && <Apart type={open.tier} id={open.id} title={open.title} hidden={!!open.private} onBack={() => haligtree.item(open.id).then((fresh) => fresh && setOpen(fresh))}><ItemDetail top={<ReadsIn apart reading={listUnread} className="contents" data-apart="stepper"><Stepper turns at={items.findIndex((one) => one.id === open.id)} total={items.length} onStep={(to) => ((stepped.current = true), pick(items[to].id))} /></ReadsIn>} key={open.id} item={open} board={{ onShown: setBoarded, list: listOut, onList: setListOut }} onOpen={(type, id) => (type === tier || (writing && type === 'question') ? ((type === 'article' && setAsks('all')), pick(id)) : onOpen?.(type, id))} /></Apart>}
     </ReadsIn>
   )
 }
@@ -690,12 +696,15 @@ export const gemMenu = (item: Item, open: () => void): RowItem[] => [
   { label: 'Copy title', run: () => copy(item.title) }
 ]
 
-export function ItemDetail(props: { item: ItemFull; onOpen?: (type: string, id: string) => void; top?: React.ReactNode; back?: React.ReactNode }): React.JSX.Element {
+/** Where a page shown as a board is: told whether it shows, and whether the list beside it is out. */
+type BoardPlace = { onShown: (shown: boolean) => void; list: boolean; onList: (out: boolean) => void }
+
+export function ItemDetail(props: { item: ItemFull; onOpen?: (type: string, id: string) => void; top?: React.ReactNode; back?: React.ReactNode; board?: BoardPlace }): React.JSX.Element {
   return props.item.tier === 'question' ? <QuestionDetail {...props} /> : <NuggetDetail {...props} />
 }
 
 /** The open nugget or article: its words, its glosses, and down the right how it comes back. */
-function NuggetDetail({ item, onOpen, top, back }: { item: ItemFull; onOpen?: (type: string, id: string) => void; top?: React.ReactNode; back?: React.ReactNode }): React.JSX.Element {
+function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFull; onOpen?: (type: string, id: string) => void; top?: React.ReactNode; back?: React.ReactNode; board?: BoardPlace }): React.JSX.Element {
   // What is around its words (who links to it, its map, the notes like it) comes the frame after them.
   const later = useAfterFirstPaint()
   const [prompt, setPrompt] = useState(item.prompt ?? '')
@@ -728,6 +737,27 @@ function NuggetDetail({ item, onOpen, top, back }: { item: ItemFull; onOpen?: (t
   // Saved only over the words it was opened on: another window's never lost.
   const words = useSameWords('nuggets', item.id, restored ? restored.body : item.body, (id, body, base) => haligtree.saveItem(id, { body, base }))
   useOpenNote({ table: 'nuggets', type: item.tier, id: item.id, kind: item.kind, archived: !!item.archivedAt })
+  // Its words seen as a board, in their place, as an Inbox note can be (board-view.tsx).
+  const [ready, setReady] = useState<Editor | null>(null)
+  const board = useBoard('nuggets', item.id, ready)
+  const boardShown = board.on && !past && !!ready && !ready.isDestroyed
+  // The board needs the room: the details step aside while it shows, a click away.
+  const [propsOut, setPropsOut] = useState(false)
+  const [tools, setTools] = useState<HTMLElement | null>(null)
+  useEffect(() => setPropsOut(false), [boardShown])
+  // The page's name over the board, not its first heading, which the hidden page reports.
+  const onBoard = useRef(false)
+  onBoard.current = boardShown
+  useEffect(() => {
+    if (!boardShown || item.private) return
+    showTopTitle(item.title)
+    return () => showTopTitle(null)
+  }, [boardShown, item.title, item.private])
+  const onShown = place?.onShown
+  useEffect(() => {
+    onShown?.(boardShown)
+    return () => onShown?.(false)
+  }, [boardShown, onShown])
   // A cloze: the words you selected, blanked. Two keystrokes and no writing,
   // the cheapest way to make something testable, and right for a name or a
   // number; anything with a "because" in it is better as a question.
@@ -752,12 +782,20 @@ function NuggetDetail({ item, onOpen, top, back }: { item: ItemFull; onOpen?: (t
 
   return (
     <div data-open={item.id} className="note-pane flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[max(22rem,100%)] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
-      <div data-voice={voiceOf({ type: item.tier, kind: item.kind, attribution: item.attribution, medium: item.medium, label: item.title })} data-voice-edge className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
+      <div data-voice={voiceOf({ type: item.tier, kind: item.kind, attribution: item.attribution, medium: item.medium, label: item.title })} data-voice-edge className={`flex min-h-0 min-w-0 flex-1 flex-col pt-6 ${boardShown ? '!min-h-full' : ''}`}>
         <NoteHeader className="-mt-3 mb-1" left={top} back={back} type={item.tier} table="nuggets" id={item.id} copyKey={noteLinkText(`${item.tier}:${item.id}`, item.title)} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })}
           onRestored={() => void haligtree.item(item.id).then((fresh) => fresh && setRestored((was) => ({ body: fresh.body, rev: (was?.rev ?? 0) + 1 })))}
           edited={item.updatedAt} captured={item.createdAt} made={item.tier === 'article' ? 'Started' : 'Saved'}
           pinned={!!item.pinnedAt} onPin={() => pin('nuggets', item.id, !item.pinnedAt)}
-          menu={[...itemMenu(item), 'separator', { label: 'Copy title', run: () => copy(item.title) }]} />
+          board={board} details={!boardShown} tools={boardShown ? <span ref={setTools} className="contents" /> : undefined}
+          menu={[
+            ...(boardShown ? [
+              ...(place ? [{ label: place.list ? 'Hide the list' : 'Show the list', run: () => (chime(place.list ? 'fold' : 'slide'), place.onList(!place.list)) }] : []),
+              { label: propsOut ? 'Hide details' : 'Show details', run: () => (chime(propsOut ? 'fold' : 'slide'), setPropsOut(!propsOut)) },
+              'separator' as const
+            ] : []),
+            ...itemMenu(item), 'separator', { label: 'Copy title', run: () => copy(item.title) }
+          ]} />
         {item.tier === 'article' && (
           // Wraps as a heading does, so a long title is never cut off at the edge; Enter ends it.
           // In the words' own column (main.css), so it starts where they start.
@@ -790,11 +828,12 @@ function NuggetDetail({ item, onOpen, top, back }: { item: ItemFull; onOpen?: (t
             autofocus={false}
           />
         ) : (
+        <div className={boardShown ? 'hidden' : 'contents'}>
         <HaligtreeEditor
           key={restored?.rev ?? 0}
           // A tag opens its page: everything carrying it.
           {...notePowers({ table: 'nuggets', id: item.id, kind: item.kind, fields: item.fields, text: item.title, titled: item.tier === 'article', created: item.createdAt, updated: item.updatedAt, origin: { captureId: item.captureId ?? undefined, attribution: item.attribution, from: item.id }, onOpen: (type, id) => onOpen?.(type, id) })}
-          onTitleOut={showTopTitle}
+          onTitleOut={(title) => !onBoard.current && showTopTitle(title)}
           defaultContent={((restored ? restored.body : item.body) as JSONContent | string | null) ?? ''}
           onOpenNote={(link, heading) => onOpen && follow(link, onOpen, heading)}
           after={<ReadsIn apart reading={!later} data-apart="foot">
@@ -825,6 +864,7 @@ function NuggetDetail({ item, onOpen, top, back }: { item: ItemFull; onOpen?: (t
           </ReadsIn>}
           onReady={(instance) => {
             editor.current = instance
+            setReady(instance)
             readNames(instance, 0)
             seen.current = { body: JSON.stringify(instance.getJSON()), line: firstLineOf(instance.state.doc)?.text ?? '' }
             words.ready(instance)
@@ -844,13 +884,15 @@ function NuggetDetail({ item, onOpen, top, back }: { item: ItemFull; onOpen?: (t
             if (title) void haligtree.saveItem(item.id, { title })
           }}
         />
+        </div>
         )}
+        {boardShown && <Board key={`${item.id}-${restored?.rev ?? 0}`} editor={ready} id={item.id} tools={tools} />}
         {/* A thought on it, pinned under the page, its earlier ones a click away. */}
         {/* From the first frame: its height is the same whatever it holds, and coming a frame late it pushed the page up. */}
-        <ThoughtDock id={item.id} />
+        <ThoughtDock id={item.id} hidden={boardShown} />
       </div>
 
-      <Props fold>
+      {(!boardShown || propsOut) && <Props fold={!boardShown}>
         {item.tier === 'article' && <Marginalia id={item.id} names={named} editor={() => editor.current} />}
         {item.tier === 'nugget' && (
           <>
@@ -1005,7 +1047,7 @@ function NuggetDetail({ item, onOpen, top, back }: { item: ItemFull; onOpen?: (t
         {/* Glosses: present-you beside the material, one row each and never an
             edit, so the history of your thinking about it stays readable. */}
         <GlossTimeline id={item.id} />
-      </Props>
+      </Props>}
     </div>
   )
 }

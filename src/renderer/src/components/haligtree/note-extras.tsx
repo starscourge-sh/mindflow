@@ -590,7 +590,7 @@ export function NoteHeader({ left, back, type = 'capture', edited, captured, mad
   /** Its lines; one with `items` opens them beside it (Hide until…), as the row's menu does. */
   menu: (MenuItem | { label: string; items: RowItem[] })[]
   looking?: React.ReactNode
-  /** The switch between the note and its board, for a note that reads as one. */
+  /** The switch between the note and its board; on a note that does not read as one, it says how to make it one. */
   board?: { on: boolean; toggle: () => void }
   /** A view's own tools, in the same row before the switch: the board's find, archive and new list. */
   tools?: React.ReactNode

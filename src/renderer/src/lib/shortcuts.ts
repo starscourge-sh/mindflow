@@ -210,7 +210,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Matrix', keys: 'E', does: 'Complete the task', where: 'Main window' },
   { group: 'Matrix', keys: '↵', does: 'A task moved out of the urgent boxes: push it a week (Esc keeps its date)', where: 'Main window' },
 
-  { group: 'Board', keys: '⌥⌘B', does: 'Show a note of headings and lists as a board, or back', where: 'Main window' },
+  { group: 'Board', keys: '⌥⌘B', does: 'Show a note of headings and lists, or of nested bullets, as a board, or back', where: 'Main window' },
   { group: 'Board', keys: 'H', does: 'List to the left (L to the right)', where: 'Main window' },
   { group: 'Board', keys: 'J', does: 'Next card (K the one before)', where: 'Main window' },
   { group: 'Board', keys: 'X', does: 'Tick the card (a checklist card; a bullet has no box)', where: 'Main window' },

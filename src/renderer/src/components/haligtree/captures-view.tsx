@@ -636,7 +636,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
                 beside what it has become, never lost to an edit. One click
                 into the dots, so the row stays quiet. */}
             <NoteHeader table="captures" id={open.id} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })}
-              board={board.fits || board.on ? board : undefined} details={!boardShown}
+              board={board} details={!boardShown}
               onRestored={() => void window.api.captures.get(open.id).then((found) => {
                 setOpen(found)
                 setRev((n) => n + 1)

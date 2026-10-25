@@ -36,7 +36,12 @@ import { still } from '@/lib/motion'
 
 type Card = { pos: number; node: PMNode; list: PMNode }
 type Lane = { title: string; heading: PMNode; blocks: PMNode[]; cards: Card[] }
-type Shape = { level: number; head: { pos: number; node: PMNode }[]; lanes: Lane[] }
+/**
+ * A board read from headings, or from bullets: a list whose top items each
+ * hold a list of their own (`outer`), each top item a list on the board.
+ * Whatever is not the board heads it, before or after it in the note.
+ */
+type Shape = { level: number; head: { pos: number; node: PMNode }[]; lanes: Lane[]; outer?: { node: PMNode; at: number } }
 
 const LISTS = ['bulletList', 'orderedList', 'taskList']
 
@@ -45,7 +50,7 @@ const LISTS = ['bulletList', 'orderedList', 'taskList']
  * has any (a first heading is usually the note's own title), otherwise the
  * highest it has. Whatever comes before the first one heads the board.
  */
-function shapeOf(doc: PMNode): Shape {
+function byHeadings(doc: PMNode): Shape {
   const levels: number[] = []
   doc.forEach((node) => void (node.type.name === 'heading' && levels.push(node.attrs.level as number)))
   const level = levels.includes(2) ? 2 : Math.min(...levels, 2)
@@ -60,25 +65,81 @@ function shapeOf(doc: PMNode): Shape {
   return shape
 }
 
-/** Whether a note reads as a board at all: a heading with a list under it. */
+/** Whether any item of a list holds a list of its own. */
+const nests = (list: PMNode): boolean => {
+  let found = false
+  list.forEach((item) => item.forEach((child) => void (LISTS.includes(child.type.name) && (found = true))))
+  return found
+}
+
+/**
+ * The first list in the note with a list inside one of its items, read as a
+ * board: each top item a list, named by its first line, the items under it
+ * its cards.
+ */
+function byBullets(doc: PMNode): Shape | null {
+  let outer: { node: PMNode; at: number } | undefined
+  doc.forEach((node, offset) => void (!outer && LISTS.includes(node.type.name) && nests(node) && (outer = { node, at: offset })))
+  if (!outer) return null
+  const { node: list, at: start } = outer
+  const shape: Shape = { level: 0, head: [], lanes: [], outer }
+  doc.forEach((node, offset) => void (offset !== start && shape.head.push({ pos: offset, node })))
+  list.forEach((item, at) => {
+    const pos = start + 1 + at
+    const lane: Lane = { title: item.firstChild?.textContent.trim() ?? '', heading: item, blocks: [], cards: [] }
+    item.forEach((child, from, index) => {
+      if (index === 0) return
+      lane.blocks.push(child)
+      if (LISTS.includes(child.type.name)) child.forEach((one, within) => lane.cards.push({ pos: pos + 1 + from + 1 + within, node: one, list: child }))
+    })
+    shape.lanes.push(lane)
+  })
+  return shape
+}
+
+/** Headings first; a note with no heading over a list, by its bullets. */
+function shapeOf(doc: PMNode): Shape {
+  const headings = byHeadings(doc)
+  return headings.lanes.some((lane) => lane.cards.length) ? headings : (byBullets(doc) ?? headings)
+}
+
+/** Whether a note reads as a board at all: a heading with a list under it, or bullets with bullets under them. */
 const fitsBoard = (doc: PMNode): boolean => shapeOf(doc).lanes.some((lane) => lane.cards.length)
+
+/** Said, in place of a board, when a note has nothing to make one of. */
+const NO_BOARD = 'A board needs groups: type ## and a name over each group of bullets, or indent bullets under a bullet that names their column.'
 
 /**
  * The note as plain data to rearrange. A list left untouched is written back
  * exactly as it was; one that changed is its heading, its other blocks, then
- * its cards, each run of the same kind of list kept as one list.
+ * its cards, each run of the same kind of list kept as one list. On a board
+ * of bullets a list's "heading" is its whole top item, and `outer` is the
+ * list they sit in and where it goes among the other blocks.
  */
-type Model = { head: JSONContent[]; lanes: { heading: JSONContent; rest: JSONContent[]; cards: { item: JSONContent; list: { type: string; attrs: Record<string, unknown> } }[]; same?: JSONContent[] }[] }
+type Model = {
+  head: JSONContent[]
+  outer?: { at: number; list: JSONContent }
+  lanes: { heading: JSONContent; rest: JSONContent[]; after?: JSONContent[]; cards: { item: JSONContent; list: { type: string; attrs: Record<string, unknown> } }[]; same?: JSONContent[] }[]
+}
+
+const first = (lane: Lane): number => {
+  const at = lane.blocks.findIndex((node) => LISTS.includes(node.type.name))
+  return at < 0 ? lane.blocks.length : at
+}
 
 function modelOf(doc: PMNode): Model {
   const shape = shapeOf(doc)
+  const outer = shape.outer
   return {
     head: shape.head.map((one) => one.node.toJSON()),
+    outer: outer && { at: shape.head.filter((one) => one.pos < outer.at).length, list: outer.node.toJSON() },
     lanes: shape.lanes.map((lane) => ({
       heading: lane.heading.toJSON(),
-      rest: lane.blocks.filter((node) => !LISTS.includes(node.type.name)).map((node) => node.toJSON()),
+      // Its other blocks keep their side of its cards: a line under them (the note's last, empty one, say) stays under them.
+      rest: lane.blocks.slice(0, first(lane)).filter((node) => !LISTS.includes(node.type.name)).map((node) => node.toJSON()),
+      after: lane.blocks.slice(first(lane)).filter((node) => !LISTS.includes(node.type.name)).map((node) => node.toJSON()),
       cards: lane.cards.map((card) => ({ item: card.node.toJSON(), list: { type: card.list.type.name, attrs: card.list.attrs } })),
-      same: [lane.heading.toJSON(), ...lane.blocks.map((node) => node.toJSON())]
+      same: outer ? [lane.heading.toJSON()] : [lane.heading.toJSON(), ...lane.blocks.map((node) => node.toJSON())]
     }))
   }
 }
@@ -92,9 +153,22 @@ function docOf(model: Model): JSONContent {
       if (last?.type === card.list.type) last.content!.push(card.item)
       else lists.push({ type: card.list.type, attrs: card.list.attrs, content: [card.item] })
     }
-    return [lane.heading, ...lane.rest, ...lists]
+    if (!model.outer) return [lane.heading, ...lane.rest, ...lists, ...(lane.after ?? [])]
+    // A bullet's list: its own first line, then what else it held, then its cards.
+    return [{ ...lane.heading, content: [lane.heading.content?.[0] ?? { type: 'paragraph' }, ...lane.rest, ...lists, ...(lane.after ?? [])] }]
   }
-  return { type: 'doc', content: [...model.head, ...model.lanes.flatMap(blocks)] }
+  if (!model.outer) return { type: 'doc', content: [...model.head, ...model.lanes.flatMap(blocks)] }
+  const content = [...model.head]
+  content.splice(model.outer.at, 0, { ...model.outer.list, content: model.lanes.flatMap(blocks) })
+  return { type: 'doc', content }
+}
+
+/** A new list's heading: a heading at the board's level, or on a board of bullets a bullet named for it. */
+function laneHead(shape: Shape, title: string): JSONContent {
+  const words = [{ type: 'text', text: title }]
+  if (!shape.outer) return { type: 'heading', attrs: { level: shape.level }, content: words }
+  const kind = shape.outer.node.firstChild!.type.name
+  return { type: kind, ...(kind === 'taskItem' ? { attrs: { checked: false } } : {}), content: [{ type: 'paragraph', content: words }] }
 }
 
 /** The note becomes `json`, changing only the part that differs: one step for ⌘Z, and saved like typing. */
@@ -132,7 +206,8 @@ const newCard = (text: string): Model['lanes'][number]['cards'][number] => {
 /**
  * Whether this note shows as a board: as you last left it, or, for a note
  * that never said, as a board when it came from Obsidian's Kanban plugin.
- * ⌥⌘B switches, while the note reads as one.
+ * ⌥⌘B switches; on a note with nothing to make a board of, it says how
+ * to give it one instead.
  */
 export function useBoard(table: NoteTable, id: string | undefined, editor: Editor | null): { on: boolean; fits: boolean; toggle: () => void } {
   const [on, setOn] = useState(false)
@@ -161,6 +236,7 @@ export function useBoard(table: NoteTable, id: string | undefined, editor: Edito
   }, [editor])
   const toggle = (): void => {
     if (!id) return
+    if (!on && !fits) return void (chime('nope'), toast(NO_BOARD, undefined, 'info'))
     chime(on ? 'fold' : 'slide')
     try {
       localStorage.setItem(`board:${id}`, on ? 'off' : 'on')
@@ -169,8 +245,8 @@ export function useBoard(table: NoteTable, id: string | undefined, editor: Edito
     }
     setOn(!on)
   }
-  const latest = useRef({ toggle, can: fits || on })
-  latest.current = { toggle, can: fits || on }
+  const latest = useRef({ toggle, can: !!id })
+  latest.current = { toggle, can: !!id }
   // Split, only the pane in front answers keys.
   const here = useHere()
   useEffect(() => {
@@ -268,7 +344,7 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
       // At the end, under its own heading, as Obsidian's board keeps them.
       let archive = shape.lanes.findIndex((lane) => lane.title === 'Archive')
       if (archive < 0) {
-        archive = model.lanes.push({ heading: { type: 'heading', attrs: { level: shape.level }, content: [{ type: 'text', text: 'Archive' }] }, rest: [], cards: [] }) - 1
+        archive = model.lanes.push({ heading: laneHead(shape, 'Archive'), rest: [], cards: [] }) - 1
       }
       const touched = [archive]
       model.lanes.forEach((lane, at) => {
@@ -283,7 +359,7 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
     })
   }
   const addList = (title: string): void =>
-    edit(editor, (model) => void model.lanes.push({ heading: { type: 'heading', attrs: { level: shape.level }, content: [{ type: 'text', text: title }] }, rest: [], cards: [] }))
+    edit(editor, (model) => void model.lanes.push({ heading: laneHead(shape, title), rest: [], cards: [] }))
 
   // --- keys: arrows or H J K L to move, X ticks, Enter edits, Escape leaves
 
