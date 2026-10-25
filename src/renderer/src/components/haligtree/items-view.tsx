@@ -528,7 +528,8 @@ export function ItemsView({ tier, focus, onOpen, only }: { tier: 'nugget' | 'art
  chime('promote')
  toast(chosen.length > 1 ? `A page, from ${num(chosen.length)} gems` : 'A page, from this gem')
  setChosen([])
- pick(id)
+ // Opened in Writing, where pages live: opened here, beside the gems, it read as nothing having happened, and a second press made a second page.
+ onOpen ? onOpen('article', id) : pick(id)
  })}
 >
                 Start a page
