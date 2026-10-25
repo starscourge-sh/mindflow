@@ -17,6 +17,13 @@ import { personKey } from '../../../../main/names'
 import { useSelectAll } from '@/lib/select-all'
 import { usePicking } from '@/lib/pick-range'
 import { ago, num, plural } from '../../../../main/dates'
+
+/** What a person's notes are, each counted once: "1 quote", "2 quotes · 1 other note". The quotes are among the notes, so "1 note · 1 quote" read as two. */
+const tally = (one: { count: number; quotes: number }): string => {
+  if (!one.count) return 'No notes yet'
+  const rest = one.count - one.quotes
+  return [one.quotes ? plural(one.quotes, 'quote') : '', rest ? plural(rest, one.quotes ? 'other note' : 'note') : ''].filter(Boolean).join(' · ')
+}
 import { setAvatar, pickAvatar, useAvatar } from '@/lib/people'
 import { PersonMenu } from './avatar'
 import type { SourceFacts, SourcePage } from '@/lib/sources'
@@ -345,7 +352,7 @@ function FaceGrid({ people }: { people: SourceSummary[] }): React.JSX.Element {
               className="group flex min-w-0 flex-col items-center gap-2 rounded-xl p-3 text-center transition-colors duration-100 hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring">
               <Avatar name={one.name} size={128} className="transition-transform duration-200 group-hover:scale-[1.03]" />
               <span className="w-full truncate text-body font-semibold text-foreground">{one.name}</span>
-              <span className="-mt-1.5 w-full truncate text-control text-foreground/80">{one.count ? `${plural(one.count, 'note')}${one.quotes ? ` · ${plural(one.quotes, 'quote')}` : ''}` : 'No notes yet'}</span>
+              <span className="-mt-1.5 w-full truncate text-control text-foreground/80">{tally(one)}</span>
             </button>
           </PersonMenu>
         ))}
@@ -390,7 +397,7 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
     icon: FIELD_SAID[field].icon,
     // The same face the Feed gives them, so a person is recognisable on both.
     face: field === 'attribution' ? <Avatar name={one.name} size={36} /> : undefined,
-    sub: one.count ? `${one.count} ${one.count === 1 ? 'note' : 'notes'}${one.quotes ? ` · ${one.quotes} ${one.quotes === 1 ? 'quote' : 'quotes'}` : ''}` : 'No notes yet',
+    sub: tally(one),
     menu: [
       { label: 'Open the page', run: () => openSource(field, one.name) },
       { label: 'Rename…', run: () => askRename(field, one.name) },
