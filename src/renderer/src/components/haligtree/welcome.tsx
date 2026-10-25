@@ -672,9 +672,13 @@ function thesisBeats(): Beat<ThesisState>[] {
   t += 900
   // Each kind of app lands in bold, what it keeps comes up beside it, and a pointer selects that and sets it in italics, then goes on to the next.
   THREE.forEach((_, i) => {
-    beats.push({ at: t, to: { gaps: i + 1, line: i, move: 'reach' }, cue: cue('bead') })
-    beats.push({ at: t + 300, to: { kept: i + 1 } })
-    const press = t + REACH_MS + 160
+    // Read before anything moves: the bold words alone a moment, then the rest of the line, and only once
+    // both have been read does the pointer set out for it.
+    beats.push({ at: t, to: { gaps: i + 1 }, cue: cue('bead') })
+    beats.push({ at: t + 750, to: { kept: i + 1 } })
+    const reach = t + 750 + Math.max(900, leadMs(THREE[i][1]) - 300)
+    beats.push({ at: reach, to: { line: i, move: 'reach' } })
+    const press = reach + REACH_MS + 160
     beats.push({ at: press, to: { move: 'drag' }, cue: cue('select') })
     beats.push({ at: press + DRAG_MS + 40, to: { move: 'held' } })
     beats.push({ at: press + DRAG_MS + 300, to: { slanted: i + 1 }, cue: cue('slant') })
