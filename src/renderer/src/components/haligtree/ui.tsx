@@ -168,7 +168,8 @@ function FitActions({ children, keep, room }: { children: ReactNode; /** Never f
   useEffect(() => void (!folded && setOpen(false)), [folded])
   return (
     // Overflowing to the right, never the left, so the line can measure what does not fit.
-    <div ref={line} className="flex min-w-0 flex-1 items-center overflow-hidden">
+    // Never narrower than the ⋯ itself: a crowded line gives up its count before its menu.
+    <div ref={line} className="flex min-w-7 flex-1 items-center overflow-hidden">
       <div className="ml-auto flex shrink-0 items-center gap-1">
       {keep}
       {folded ? (
@@ -234,11 +235,12 @@ export function Page({ title, lead, count, unit = ['item', 'items'], actions, se
       {/* The window's toolbar already names the section, so this line only
           carries what it shows (lead), the count and the actions, and goes when it has none. */}
       {(count !== undefined || actions || lead || search) && (
-        <header data-chrome={aside || undefined} className={`${wide ? '' : 'page-column '}flex h-10 shrink-0 items-center gap-2 border-b px-5 text-muted-foreground`}>
+        // Clipped to its own column: a crowded line (tabs, a two-figure count, the ⋯) gives up the count first and never draws over the page beside it.
+        <header data-chrome={aside || undefined} className={`${wide ? '' : 'page-column '}flex h-10 min-w-0 shrink-0 items-center gap-2 overflow-hidden border-b px-5 text-muted-foreground`}>
           {typeof title === 'string' && title.startsWith('#') ? <span className="font-medium text-foreground">{title}</span> : null}
           {lead}
           {/* What is picked is what the buttons act on: said plainly, never in grey. */}
-          {count ? <span className={cn('whitespace-nowrap tabular-nums', unit[1] === 'selected' && 'font-medium text-foreground')}><Rolling text={count} /> {count === 1 ? unit[0] : unit[1]}</span> : null}
+          {count ? <span className={cn('min-w-0 truncate whitespace-nowrap tabular-nums', unit[1] === 'selected' && 'font-medium text-foreground')}><Rolling text={count} /> {count === 1 ? unit[0] : unit[1]}</span> : null}
           {/* The count is on the same line: measured again the moment it comes or changes, not a frame later by the observer. */}
           <FitActions keep={search} room={`${aside ? listWidth : 'page'} ${count ?? ''} ${count === 1 ? unit[0] : unit[1]}`}>{actions}</FitActions>
         </header>
@@ -505,7 +507,7 @@ export function Stepper({ at, total, onStep, turns = false }: { at: number; tota
     onStep(at + by)
   }
   return (
-    <div className="flex shrink-0 items-center gap-1 text-control text-muted-foreground">
+    <div data-stepper className="flex shrink-0 items-center gap-1 text-control text-muted-foreground">
       <span className="mr-1 shrink-0 whitespace-nowrap tabular-nums"><span className="text-foreground"><Rolling text={at + 1} /></span> / <Rolling text={total} /></span>
       <Tip label="Next  ↓"><button type="button" aria-label="Next" disabled={at >= total - 1} onClick={() => go(1)} className="flex size-7 items-center justify-center rounded-md hover:bg-accent hover:text-foreground disabled:opacity-35"><ArrowDown className="size-4" /></button></Tip>
       <Tip label="Previous  ↑"><button type="button" aria-label="Previous" disabled={at <= 0} onClick={() => go(-1)} className="flex size-7 items-center justify-center rounded-md hover:bg-accent hover:text-foreground disabled:opacity-35"><ArrowUp className="size-4" /></button></Tip>
