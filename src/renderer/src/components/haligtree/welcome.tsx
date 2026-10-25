@@ -360,7 +360,7 @@ export function Welcome(): React.JSX.Element | null {
       chime('decided')
       window.api.openInHome('view', 'home')
       // Once the paper has gone and Home has said it was opened: then the tour's first stop.
-      setTimeout(() => window.dispatchEvent(new CustomEvent('haligtree:tour-stops')), quiet ? 450 : 1900)
+      setTimeout(() => window.dispatchEvent(new CustomEvent('haligtree:tour-stops')), quiet ? 450 : 4000)
     } else if (how === 'sandbox') {
       void enterSandbox().catch(() => (setOpening(false), setAt(-1), toast('The sandbox could not open just now. It waits in ⌘K, under “Open the sandbox”.', undefined, 'warning')))
     } else if (how === 'notes') {
