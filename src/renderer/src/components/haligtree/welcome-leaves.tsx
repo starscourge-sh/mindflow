@@ -207,7 +207,7 @@ export function WelcomeLeaves({ on, open }: { on: boolean; /** The welcome showi
       const calm = leaving === null ? 0 : Math.min(1, Math.max(0, (now - leaving - GUST_MS) / 1500))
       // The wind: mostly left to right and a little down, with gusts now and then.
       // Blowing by: a steady wind across, swelling now and then, never a wobble in place.
-      const blow = 170 + 110 * Math.max(0, Math.sin(t * 0.35)) ** 2
+      const blow = 95 + 60 * Math.max(0, Math.sin(t * 0.3)) ** 2
       for (const one of fall) {
         if (leaving !== null) {
           // The gust: it builds on each leaf in turn, lifting it up and away to the right as
@@ -220,10 +220,10 @@ export function WelcomeLeaves({ on, open }: { on: boolean; /** The welcome showi
         }
         // Drifting on the wind, rocking side to side as a falling leaf does.
         one.x += (blow * one.drift + one.vx) * dt
-        one.y += (28 + Math.sin(t * 0.7 + one.sway) * 22 + one.vy) * dt
-        one.spin += one.turn * (0.6 + blow / 280) * dt
+        one.y += (16 + Math.sin(t * 0.5 + one.sway) * 14 + one.vy) * dt
+        one.spin += one.turn * (0.4 + blow / 400) * dt
         // Turning over as it goes, steadily, faster in the gust.
-        one.flip += (0.9 + Math.abs(one.vx) * 0.004) * dt
+        one.flip += (0.55 + Math.abs(one.vx) * 0.004) * dt
         // Blown out of sight: in again from the left, a new leaf.
         if (leaving === null && (one.x > width + one.size || one.y > height + one.size)) Object.assign(one, make(false))
       }
@@ -238,8 +238,8 @@ export function WelcomeLeaves({ on, open }: { on: boolean; /** The welcome showi
         }
         one.x += (blow * (0.5 - 0.15 * calm) * one.drift + one.vx) * dt
         one.y += one.vy * dt
-        one.y += (16 + Math.sin(t * 0.7 + one.sway) * 12) * dt
-        one.flip += 1.1 * dt
+        one.y += (10 + Math.sin(t * 0.5 + one.sway) * 8) * dt
+        one.flip += 0.7 * dt
         one.spin += one.turn * 1.6 * dt
         if (one.x > width + one.size || one.y > height + one.size) Object.assign(one, make(false, true))
       }
@@ -268,11 +268,11 @@ export function WelcomeLeaves({ on, open }: { on: boolean; /** The welcome showi
           if (strength < 0.04) continue
           const [r, g, b] = [data[at], data[at + 1], data[at + 2]]
           // The tile in the leaf's own colour; its letter darker in light, lighter in dark.
-          context.fillStyle = `rgba(${r},${g},${b},${(dark ? 0.3 : 0.26) * strength})`
+          context.fillStyle = `rgba(${r},${g},${b},${(dark ? 0.2 : 0.17) * strength})`
           context.fillRect(px + 1, py + 1, CELL - 2, CELL - 2)
           const shade = dark ? (one: number): number => Math.round(one + (255 - one) * 0.6) : (one: number): number => Math.round(one * 0.38)
           const letter = Math.min(RAMP.length - 1, Math.max(0, Math.floor((1 - a) * RAMP.length + Math.sin(t * 5 + x * 1.7 + y) * 0.8)))
-          context.fillStyle = `rgba(${shade(r)},${shade(g)},${shade(b)},${0.42 * strength})`
+          context.fillStyle = `rgba(${shade(r)},${shade(g)},${shade(b)},${0.28 * strength})`
           context.fillText(RAMP[letter], px + CELL / 2, py + CELL / 2 + 0.5)
         }
       }
