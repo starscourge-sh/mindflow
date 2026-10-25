@@ -72,6 +72,24 @@ try {
   })
   if (SHOTS) await h.screenshot({ path: join(SHOTS, `leaves-${THEME}-remember.png`) })
   check('on "It comes back to you." none in the middle of the page', full && full.middle === 0, JSON.stringify(full))
+  // The last page: the leaves gather into one bunch at a single base, bottom right, a florilegium.
+  for (let i = 0; i < 30 && !(await h.getByText(/commonplace book is ready/).count()); i++) {
+    await h.keyboard.press('Escape')
+    await h.waitForTimeout(300)
+    await h.locator('footer button').filter({ hasText: /^(Next|Show me|Skip trying it)/ }).last().click().catch(() => {})
+    await h.waitForTimeout(700)
+  }
+  await h.waitForTimeout(5200)
+  const bunch = await h.evaluate(() => {
+    const canvas = document.querySelector('[data-welcome-leaves]')
+    if (!canvas) return null
+    const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data
+    let near = 0
+    for (let i = 3; i < data.length; i += 4 * 3) if (data[i] > 20) { const x = ((i - 3) / 4) % canvas.width; const y = Math.floor((i - 3) / 4 / canvas.width); if (x > canvas.width * 0.68 && y > canvas.height * 0.4) near++ }
+    return { near }
+  })
+  if (SHOTS) await h.screenshot({ path: join(SHOTS, `leaves-${THEME}-bunch.png`) })
+  check('on the last page they gather into one bunch, bottom right', bunch && bunch.near > 4000, JSON.stringify(bunch))
   check('no page errors', errors.length === 0, errors.join(' | '))
 } finally {
   await close()

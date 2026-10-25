@@ -483,7 +483,7 @@ export function Welcome(): React.JSX.Element | null {
       <Backdrop plain={at === LAST} family={at === WRITE ? 'ruled' : at === DIAL ? 'dots' : 'none'} />
       {/* The first screen's autumn leaves, blowing behind the words; Next blows them away, and a
           few small ones drift on through the rest (not over the dial, which has its own light). */}
-      <WelcomeLeaves on={at === WHY && play} open={play && at !== DIAL} middle={at === BACK ? 0 : 0.3} />
+      <WelcomeLeaves on={at === WHY && play} open={play && at !== DIAL} middle={at === BACK ? 0 : 0.3} gather={at === LAST} />
       {mist && <WelcomeMist hurry={rushed} onGone={() => setMist(false)} />}
       <div data-drag-strip="" className="relative h-11 shrink-0" style={{ WebkitAppRegion: 'drag' } as CSSProperties} />
       {at === LAST && <TrayArrow tray={state?.tray ?? null} />}
