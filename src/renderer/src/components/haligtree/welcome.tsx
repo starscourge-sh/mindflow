@@ -5,7 +5,8 @@ import { Condense, DRAG_MS, REACH_MS, WelcomePointer, type Move } from './welcom
 import { TAGLINE } from '../../../../main/tagline'
 import { fittedTitle, quoted } from '../../../../main/clip'
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { AnimatePresence, MotionConfig, motion } from 'motion/react'
+import { AnimatePresence, MotionConfig, motion, useIsPresent } from 'motion/react'
+import { createPortal } from 'react-dom'
 import { ArrowUp, Compass, CornerDownLeft, FolderInput } from 'lucide-react'
 import { shift, spring, still } from '@/lib/motion'
 import { ARRIVE_MS, BEAT_MS, PENTA, ambience, bedResolve, bedShift, bell, chime, click, fold, pageTurn, quietBed } from '@/lib/sound'
@@ -877,37 +878,52 @@ function Underlined({ children, on, quick }: { children: ReactNode; on: boolean;
  */
 function MarginNote({ on, quick }: { on: boolean; quick: boolean }): React.JSX.Element {
   const box = useRef<HTMLSpanElement>(null)
-  const [side, setSide] = useState<'left' | 'right' | null>('left')
+  // The page clips at its own edge, and the left margin is outside it: there the note is drawn on the welcome's
+  // whole-window layer, kept level with the three lines each frame (they ride the page as it turns).
+  const [place, setPlace] = useState<{ side: 'left' | 'right' | null; top: number; right: number }>({ side: null, top: 0, right: 0 })
+  const [layer, setLayer] = useState<HTMLElement | null>(null)
+  const present = useIsPresent()
   useEffect(() => {
+    setLayer(box.current?.closest<HTMLElement>('.mf-welcome') ?? null)
+    let frame = 0
     const fit = (): void => {
       const lines = box.current?.parentElement?.getBoundingClientRect()
-      if (!lines) return
-      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
-      const width = 11 * rem
-      setSide(lines.left - 3.4 * rem - width >= 12 ? 'left' : window.innerWidth - lines.right - 2.8 * rem - width >= 12 ? 'right' : null)
+      if (lines) {
+        const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+        const width = 11 * rem
+        const side = lines.left - 3.4 * rem - width >= 12 ? 'left' : window.innerWidth - lines.right - 2.8 * rem - width >= 12 ? 'right' : null
+        const top = Math.round(lines.top + lines.height / 2)
+        const right = Math.round(lines.left - 3.4 * rem)
+        setPlace((was) => (was.side === side && was.top === top && was.right === right ? was : { side, top, right }))
+      }
+      frame = requestAnimationFrame(fit)
     }
     fit()
-    window.addEventListener('resize', fit)
-    return () => window.removeEventListener('resize', fit)
+    return () => cancelAnimationFrame(frame)
   }, [])
+  const shown = on && present
   const words = MARGIN_NOTE.split(' ')
-  const left = side !== 'right'
-  const at = (i: number): number => (quick || !on ? 0 : 1.1 + [0, 0.55, 0.75, 1.3][i])
+  const left = place.side === 'left'
+  const at = (i: number): number => (quick || !shown ? 0 : 1.1 + [0, 0.55, 0.75, 1.3][i])
+  const note = (
+    <span data-margin-words="" className={`pointer-events-none w-[11rem] text-balance font-heading text-[0.98rem] leading-snug text-primary italic ${left ? 'fixed z-[1] -translate-x-full -translate-y-1/2 -rotate-2 text-right' : 'absolute top-1/2 left-[calc(100%+2.8rem)] -translate-y-1/2 rotate-2 text-left'}`}
+      style={left ? { top: place.top, left: place.right } : undefined}>
+      {words.map((word, i) => (
+        <Fragment key={i}>
+          <motion.span className="inline-block" initial={false} animate={{ opacity: shown ? 1 : 0, filter: shown ? 'blur(0px)' : 'blur(4px)' }}
+            transition={{ duration: quick ? 0 : present ? 0.42 : 0.2, delay: quick || !shown ? 0 : 0.1 + i * 0.13, ease: ENTER }}>{word}</motion.span>{i < words.length - 1 && ' '}
+        </Fragment>
+      ))}
+    </span>
+  )
   return (
-    <span ref={box} aria-hidden={!side || undefined} data-margin-note={on ? 'on' : 'off'} data-side={side ?? 'none'} className={side ? '' : 'invisible'}>
-      <span className={`pointer-events-none absolute top-1/2 w-[11rem] -translate-y-1/2 text-balance font-heading text-[0.98rem] leading-snug text-primary italic ${left ? 'right-[calc(100%+3.4rem)] -rotate-2 text-right' : 'left-[calc(100%+2.8rem)] rotate-2 text-left'}`}>
-        {words.map((word, i) => (
-          <Fragment key={i}>
-            <motion.span className="inline-block" initial={false} animate={{ opacity: on ? 1 : 0, filter: on ? 'blur(0px)' : 'blur(4px)' }}
-              transition={{ duration: quick ? 0 : 0.42, delay: quick || !on ? 0 : 0.1 + i * 0.13, ease: ENTER }}>{word}</motion.span>{i < words.length - 1 && ' '}
-          </Fragment>
-        ))}
-      </span>
+    <span ref={box} aria-hidden={!place.side || undefined} data-margin-note={on ? 'on' : 'off'} data-side={place.side ?? 'none'} className={place.side ? '' : 'invisible'}>
+      {place.side && (left ? layer && createPortal(note, layer) : note)}
       {/* The arrow: from the writing, down past the plans, to the practice, each reached with a head. */}
-      <svg viewBox="0 0 20 60" preserveAspectRatio="none" className={`pointer-events-none absolute top-0 h-full w-[1.6rem] overflow-visible ${left ? '-left-[2.1rem]' : '-right-[2.1rem] -scale-x-100'}`}>
+      <svg viewBox="0 0 20 60" preserveAspectRatio="none" className={`pointer-events-none absolute top-0 h-full w-[1.6rem] overflow-visible ${left || !place.side ? '-left-[2.1rem]' : '-right-[2.1rem] -scale-x-100'}`}>
         {['M17 9 C 5 11, 3 22, 15 30', 'M11.5 26.5 L 15.5 30 L 10.5 32.5', 'M15 30 C 3 35, 2 46, 15 50.5', 'M11 47.5 L 15.5 50.5 L 10.5 53.5'].map((d, i) => (
           <path key={i} d={d} pathLength={1} fill="none" stroke="var(--primary)" strokeWidth={1.3} strokeLinecap="round" strokeLinejoin="round" strokeDasharray="1 1"
-            style={{ strokeDashoffset: on ? 0 : 1, opacity: on ? 0.85 : 0, transition: quick ? 'none' : `stroke-dashoffset ${i % 2 ? 0.18 : 0.55}s cubic-bezier(0.65,0,0.35,1) ${at(i)}s, opacity 0.1s linear ${at(i)}s` }} />
+            style={{ strokeDashoffset: shown ? 0 : 1, opacity: shown ? 0.85 : 0, transition: quick ? 'none' : `stroke-dashoffset ${i % 2 ? 0.18 : 0.55}s cubic-bezier(0.65,0,0.35,1) ${at(i)}s, opacity 0.1s linear ${at(i)}s` }} />
         ))}
       </svg>
     </span>

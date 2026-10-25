@@ -27,7 +27,7 @@ const { check, done } = checks()
 // Words that would make Haligtree sound like a link between other apps rather than one book doing all of it.
 const CONNECTOR = /between them|thread between|\bconnects?\b|\bbridges?\b|in sync with|syncs? with|integrat/i
 const NEXT = 'footer button:has-text("Next"), footer button:has-text("Show me")'
-const c = await sandbox({ width: 1440, height: 900, seeded: false })
+const c = await sandbox({ width: Number(process.env.QA_WIDTH ?? 1440), height: 900, seeded: false })
 const { h } = c
 const chapter = () => h.evaluate(() => document.querySelector('.mf-welcome footer .sr-only')?.textContent ?? '')
 const settle = async () => {
@@ -69,8 +69,8 @@ try {
   const shine = await h.evaluate(() => [...document.querySelectorAll('[data-thesis="answer"] .mf-sheen')].map((el) => el.textContent))
   check('only the answer\'s key words shine', shine.join() === 'the same thought evolving over time', shine.join())
   // The margin note beside the three, and the tagline's promise underlined by hand.
-  check('a note in the margin beside the three, its arrow drawn', await h.evaluate(() => document.querySelector('[data-margin-note]')?.dataset.marginNote === 'on' && /You never write anything down to do nothing with it\./.test(document.querySelector('[data-margin-note]').textContent)))
-  check('the note sits in a margin, clear of the words', await h.evaluate(() => { const box = document.querySelector('[data-margin-note]'); const n = box.querySelector('span').getBoundingClientRect(); const lines = [...document.querySelectorAll('[data-thesis^="gap-"]')].map((li) => li.getBoundingClientRect()); const right = Math.max(...[...document.querySelectorAll('[data-thesis^="gap-"] span')].map((one) => one.getBoundingClientRect().right)); return box.dataset.side !== 'none' && (n.right <= lines[0].left - 30 || n.left >= right + 30) && n.left >= 0 && n.right <= innerWidth }))
+  check('a note in the margin beside the three, its arrow drawn', await h.evaluate(() => document.querySelector('[data-margin-note]')?.dataset.marginNote === 'on' && /You never write anything down to do nothing with it\./.test(document.querySelector('[data-margin-words]')?.textContent ?? '')))
+  check('the note sits in a margin, clear of the words', await h.evaluate(() => { const box = document.querySelector('[data-margin-note]'); const n = document.querySelector('[data-margin-words]').getBoundingClientRect(); const lines = [...document.querySelectorAll('[data-thesis^="gap-"]')].map((li) => li.getBoundingClientRect()); const right = Math.max(...[...document.querySelectorAll('[data-thesis^="gap-"] span')].map((one) => one.getBoundingClientRect().right)); return box.dataset.side !== 'none' && (n.right <= lines[0].left - 30 || n.left >= right + 30) && n.left >= 0 && n.right <= innerWidth }))
   check('the tagline\'s promise is underlined, on one line', await h.evaluate(() => { const ink = document.querySelector('[data-tagline] [data-ink]'); return !!ink && ink.textContent === 'come back to you' && ink.getClientRects().length === 1 }))
   // Haligtree does the three itself: no line of Why says it sits between, links or syncs other apps.
   check('Why never says Haligtree sits between or connects other apps', !why.some((one) => CONNECTOR.test(one)), why.filter((one) => CONNECTOR.test(one)).join(' | '))
