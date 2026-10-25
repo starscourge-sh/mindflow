@@ -21,7 +21,7 @@ import { LAND, PostcardResult, QUOTE } from './welcome-reel'
  */
 
 /** The story's day's tasks on the sticky note: the one from the note first, ticked off there; the film from Catch. */
-const TODAY: [string, string?][] = [['Draft intro for film essay'], ['Rewatch The Empire Strikes Back', clock(dayjs().hour(20).minute(0))], ['Return the library books']]
+const TODAY: [string, string?][] = [['Find photos of the Yoda puppet'], ['Rewatch The Empire Strikes Back', clock(dayjs().hour(20).minute(0))], ['Return the library books']]
 
 /**
  * The day's sticky on the desktop, over another app's window, drawn as plain
@@ -97,7 +97,7 @@ export const BACK_END: BackShot = { shown: 3, ticked: true, over: true, curve: t
 
 /** Each thing kept and how it comes back: what it is, when, and what Haligtree does, its key words *marked*. */
 export const BACK: { kind: 'task' | 'gem' | 'quote'; kept: string; when: string; said: string }[] = [
-  { kind: 'task', kept: 'Draft intro for film essay', when: `${STORY_DAY}, ${clock(dayjs().hour(9).minute(0))}`, said: 'With “Stick Today on the desktop”, your tasks *sit on your desktop*. Tick them off there.' },
+  { kind: 'task', kept: 'Find photos of the puppet', when: `${STORY_DAY}, ${clock(dayjs().hour(9).minute(0))}`, said: 'With “Stick Today on the desktop”, your tasks *sit on your desktop*. Tick them off there.' },
   { kind: 'gem', kept: 'Perfection erases…', when: `${dayjs().add(5, 'day').format('dddd')}, ${clock(dayjs().hour(21).minute(30))}`, said: 'Your gem *comes back as a question* in “Review”, and waits longer each time you remember it.' },
   { kind: 'quote', kept: 'Do or do not…', when: 'A year on', said: 'The line you saved *comes back in “Journal”*, like a postcard from your past self.' }
 ]

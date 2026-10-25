@@ -8,7 +8,7 @@ const c = await sandbox({ width: 1000, height: 700 })
 const { h } = c
 const asks = ['Do or do not. There is no try', 'petrichor', 'Rewatch The Empire Strikes Back',
   'Frodo never wanted the ring', 'All we have to decide is what to do with the time', 'anagnorisis', 'Rosetta Stone', 'Ask Hermione for the potions notes',
-  'Why do old movies feel more real', 'Why old movies feel real', 'Draft intro for film essay', 'Perfection erases human presence']
+  'Why do old movies feel more real', 'Why old movies feel real', 'Find photos of the Yoda puppet', 'Perfection erases human presence']
 let failed = 0
 try {
   for (const ask of asks) {

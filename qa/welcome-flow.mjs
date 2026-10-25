@@ -116,7 +116,7 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
     check(`${theme}: the task line's highlight is the task card's colour`, same(look.washTask) && same(look.inkTask), JSON.stringify([look.washTask, look.inkTask]))
     check(`${theme}: the gem line's highlight is the gem card's colour`, same(look.washGem) && same(look.inkGem), JSON.stringify([look.washGem, look.inkGem]))
     check(`${theme}: the two colours differ`, look.washTask[0] !== look.washGem[0] && look.inkTask[0] !== look.inkGem[0])
-    check(`${theme}: the task is named without its day, and its day read as ${DAY}`, /Draft intro for film essay/.test(look.task) && !new RegExp(`on ${DAY}`).test(look.task.split('Now a task')[0]) && new RegExp(`Now a task, due ${DAY}`).test(look.task), look.task)
+    check(`${theme}: the task is named without its day, and its day read as ${DAY}`, /Find photos of the Yoda puppet/.test(look.task) && !new RegExp(`on ${DAY}`).test(look.task.split('Now a task')[0]) && new RegExp(`Now a task, due ${DAY}`).test(look.task), look.task)
     check(`${theme}: the gem keeps the line and takes a question for Review`, /Perfection erases human presence\./.test(look.gem) && /question for “Review”/.test(look.gem) && /What does perfection erase, in film\?/.test(look.question), look.gem)
     check(`${theme}: the closing line is shown`, look.last === 'Nothing is copied out: each one stays linked to its line in the note.', look.last)
     check(`${theme}: no em or en dashes on the page`, look.dashes === 0, `${look.dashes}`)
@@ -130,7 +130,7 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
     check(`${theme}: on Remember`, (await chapter(h)).includes('Remember'), await chapter(h))
     const kept = await h.evaluate(() => [...document.querySelectorAll('[data-kept]')].map((el) => `${el.dataset.kept}:${el.innerText.trim()}`))
     const before = await h.evaluate(() => document.querySelectorAll('[data-moment][data-shown]').length)
-    check(`${theme}: Remember opens on the three things kept, already there: the task, the gem, the quote`, kept.length === 3 && /^task:Draft intro/.test(kept[0]) && /^gem:Perfection/.test(kept[1]) && /^quote:Do or do not/.test(kept[2]) && before === 0, `${kept.join(' | ')}; ${before} shown`)
+    check(`${theme}: Remember opens on the three things kept, already there: the task, the gem, the quote`, kept.length === 3 && /^task:Find photos/.test(kept[0]) && /^gem:Perfection/.test(kept[1]) && /^quote:Do or do not/.test(kept[2]) && before === 0, `${kept.join(' | ')}; ${before} shown`)
     await shot('remember-start')
     const order = []
     const seen = { ticked: false, over: false, signed: false }
@@ -214,7 +214,7 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
       check(`${theme} ${w}x${hh}: the curve is under all three columns, at least two wide; the three equal`, rowOk(r), JSON.stringify(r))
     }
     const sticky = await h.evaluate(() => document.querySelector('[data-moment="0"]')?.innerText ?? '')
-    check(`${theme}: the sticky is the story's day, with the note's task and the film from Catch`, sticky.includes(DAY) && /Draft intro for film essay/.test(sticky) && /Rewatch The Empire Strikes Back/.test(sticky), sticky.replace(/\s+/g, ' ').slice(0, 140))
+    check(`${theme}: the sticky is the story's day, with the note's task and the film from Catch`, sticky.includes(DAY) && /Find photos of the Yoda puppet/.test(sticky) && /Rewatch The Empire Strikes Back/.test(sticky), sticky.replace(/\s+/g, ' ').slice(0, 140))
   } finally {
     if (c.errors.length) console.log(c.errors.join('\n'))
     await c.close()

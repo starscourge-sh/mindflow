@@ -27,10 +27,14 @@ export const HUE = {
 } as const
 
 /** The note's lines; the two picked out say what they become. */
+/**
+ * The note's lines, as someone thinks on the page: the task is not a chore dropped in but a step the
+ * thinking asks for (to see the puppet that has weight), written where it came up, with its day.
+ */
 const LINES: { text: string; becomes?: 'task' | 'gem' }[] = [
   { text: 'Yoda was a puppet, and you can feel his weight.' },
+  { text: `Find photos of the Yoda puppet on ${STORY_DAY}`, becomes: 'task' },
   { text: 'High resolution removes physical resistance.' },
-  { text: `Draft intro for film essay on ${STORY_DAY}`, becomes: 'task' },
   { text: 'Perfection erases human presence.', becomes: 'gem' }
 ]
 
@@ -41,8 +45,8 @@ export const FLOW_WORDS = {
   /** The note it grows into. */
   note: 'Why old movies feel real',
   lines: LINES.map((line) => line.text),
-  task: LINES[2].text,
-  gem: LINES[3].text,
+  task: LINES.find((one) => one.becomes === 'task')!.text,
+  gem: LINES.find((one) => one.becomes === 'gem')!.text,
   /** The gem's question, as Review asks it. */
   question: 'What does perfection erase, in film?',
   answer: 'Human presence.'
