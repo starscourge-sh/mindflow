@@ -35,6 +35,16 @@ try {
     check('its title is shown once', gem.split('Entry-level onceword job').length === 2, JSON.stringify(gem))
     check('its tags are shown once, on the right', gem.split('#otherz').length === 2 && gem.split('otherz').length === 2, JSON.stringify(gem))
   }
+
+  // Home: in "What you opened lately" and the rest, the note stands for its gem, once.
+  const gem = read.find((one) => one.fromNote === kept)?.id
+  await h.evaluate((id) => window.api.openInHome('capture', id), kept); await wait(1000)
+  await h.evaluate((id) => window.api.openInHome('nugget', id), gem); await wait(1000)
+  const home = await h.evaluate(() => window.api.haligtree('home'))
+  const ids = (list) => list.map((one) => one.id)
+  check('Home: the note is in no list', !Object.values(home).some((list) => Array.isArray(list) && ids(list).includes(kept)))
+  check('Home: opened lately shows the gem once', ids(home.opened).filter((id) => id === gem).length === 1, JSON.stringify(ids(home.opened).slice(0, 3)))
+  check('Home: no list shows the gem twice', Object.values(home).every((list) => !Array.isArray(list) || ids(list).filter((id) => id === gem).length <= 1))
 } finally {
   await c.close()
 }

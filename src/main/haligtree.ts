@@ -4270,12 +4270,19 @@ export function registerHome(): void {
 
   ipcMain.handle('haligtree:home', () => {
     const { blackout, hidePrivate } = gate()
-    const all = db.prepare(NOTES).all() as (Shelved & { made: string; body: string | null })[]
+    const every = db.prepare(NOTES).all() as (Shelved & { made: string; body: string | null })[]
+    // A note saved as a gem shows once, as the gem: out of every list here, and opened, it stands for its gem.
+    const ids = new Set(every.map((row) => row.id))
+    const gemOf = new Map((db.prepare("select capture_id, id from nuggets where capture_id is not null and tier != 'card'").all() as { capture_id: string; id: string }[])
+      .filter((one) => ids.has(one.id)).map((one) => [one.capture_id, one.id]))
+    const all = every.filter((row) => row.type !== 'capture' || !gemOf.has(row.id))
     const byId = new Map(all.map((row) => [row.id, row]))
+    for (const [note, gem] of gemOf) if (byId.has(gem)) byId.set(note, byId.get(gem)!)
     // Asked for, so private ones show (blurred); offered, so they wait out quiet hours.
     const offered = (row: Shelved): boolean => !(hidePrivate && row.private)
     const opened = (db.prepare('select id, at from note_opens order by at desc limit 24').all() as { id: string; at: string }[])
       .flatMap((open) => { const row = byId.get(open.id); return row && row.type !== 'question' && row.type !== 'goal' ? [{ ...strip(row), at: open.at }] : [] })
+      .filter((row, at, list) => list.findIndex((one) => one.id === row.id) === at)
     const edited = [...all].filter((row) => row.type !== 'question' && row.type !== 'goal').sort((a, b) => b.at.localeCompare(a.at)).slice(0, 16).map(strip)
 
     // A note caught on this day in an earlier year: the first of them, so it holds all day.
