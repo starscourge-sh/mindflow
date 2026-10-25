@@ -83,12 +83,14 @@ export function WelcomeStamp({ still }: { still: boolean }): React.JSX.Element {
     <div aria-hidden data-welcome-stamp={pressed ? 'pressed' : 'waiting'}
       className="pointer-events-none absolute top-[clamp(0.5rem,5vh,3rem)] right-[clamp(2.5rem,7vw,6rem)] z-10 size-[clamp(5.5rem,12vmin,7.5rem)] [@container(max-width:1023px)]:hidden">
       {/* The ink spreading into the paper, just after it meets it. */}
-      <motion.div className="absolute inset-0 blur-[2px]" initial={false}
+      {/* On dark paper there is no spread: a blurred red over black reads as a glow, not ink. */}
+      <motion.div className="absolute inset-0 blur-[2px] dark:hidden" initial={false}
         animate={pressed ? { opacity: 0.16, scale: 1.04, rotate: -9 } : { opacity: 0, scale: 0.98, rotate: -9 }}
         transition={instant ? { duration: 0 } : { duration: 0.9, ease: ENTER, delay: PRESS.duration * PRESS.contact }}>
         {seal}
       </motion.div>
-      <motion.div className="absolute inset-0 mix-blend-multiply dark:mix-blend-screen" initial={false}
+      {/* Ink sits in the paper: multiplied on light paper; on dark, plain and dimmer, never lightened into a glow. */}
+      <motion.div className="absolute inset-0 mix-blend-multiply dark:mix-blend-normal dark:[&>svg]:opacity-60" initial={false}
         animate={pressed ? { opacity: [0, 0.9, 0.82], scale: [1.32, 0.97, 1], rotate: -9 } : { opacity: 0, scale: 1.32, rotate: -14 }}
         transition={instant ? { duration: 0 } : { duration: PRESS.duration, times: [0, PRESS.contact, 1], ease: ['easeIn', 'easeOut'] }}>
         {seal}

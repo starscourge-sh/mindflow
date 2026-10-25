@@ -2,7 +2,7 @@ import { WelcomeLeaves } from './welcome-leaves'
 import { WelcomeMist } from './welcome-mist'
 import { WelcomeStamp } from './welcome-marks'
 import { Condense, DRAG_MS, REACH_MS, WelcomePointer, type Move } from './welcome-pointer'
-import { ANCHOR, TAGLINE } from '../../../../main/tagline'
+import { TAGLINE } from '../../../../main/tagline'
 import { fittedTitle, quoted } from '../../../../main/clip'
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
@@ -645,18 +645,20 @@ const THESIS = 'Most notes are written once and never seen again.'
 const THREE: [string, string][] = [
   ['Your writing', 'lives in one app.'],
   ['Your plans', 'live in another.'],
-  ['What you mean to remember', 'lives in a third.']
+  ['What you want to remember and practice (flashcards)', 'lives in a third.']
 ]
+/** Written in the margin beside the three, as a reader annotates a page: why they belong together. */
+const MARGIN_NOTE = 'You never write anything down to do nothing with it.'
 /** Said once the three are up: why notes go unseen (going back is left to you). */
 const QUESTION = 'In each one, going back is your job. So mostly, nobody does.'
-// One thing is pitched: one book in place of the three, where notes come back by themselves.
-const ANSWER = `${APP_NAME} is one place for all three, and your notes *come back to you*: an old note when you open the app, a question as you start to forget it.`
-/** What Haligtree is (main/tagline.ts), then the cycle the chapters after follow (Catch, Write, Remember). */
-const BOOK = `${ANCHOR} Writers have kept them for centuries: catch a thought, write it out, and it finds you again.`
+// One thing is pitched: the three are one thought, growing.
+const ANSWER = `${APP_NAME} treats writing, planning and memory not as three separate tools, but as *the same thought evolving over time*.`
+/** How the one thought grows, then what Haligtree is: the cycle the chapters after follow (Catch, Write, Remember). */
+const BOOK = 'Here, an active draft naturally yields a plan for tomorrow, or a question to practice as memory fades. It is a modern commonplace book, built so your best thinking keeps finding you again.'
 
-type ThesisState = { opened: boolean; words: number; gaps: number; kept: number; line: number; move: Move; slanted: number; asked: boolean; answer: boolean; said: number; book: boolean }
-const THESIS_START: ThesisState = { opened: false, words: 0, gaps: 0, kept: 0, line: -1, move: 'off', slanted: 0, asked: false, answer: false, said: 0, book: false }
-const THESIS_END: ThesisState = { opened: true, words: Infinity, gaps: THREE.length, kept: THREE.length, line: -1, move: 'off', slanted: THREE.length, asked: true, answer: true, said: Infinity, book: true }
+type ThesisState = { noted: boolean; opened: boolean; words: number; gaps: number; kept: number; line: number; move: Move; slanted: number; asked: boolean; answer: boolean; said: number; book: boolean }
+const THESIS_START: ThesisState = { noted: false, opened: false, words: 0, gaps: 0, kept: 0, line: -1, move: 'off', slanted: 0, asked: false, answer: false, said: 0, book: false }
+const THESIS_END: ThesisState = { noted: true, opened: true, words: Infinity, gaps: THREE.length, kept: THREE.length, line: -1, move: 'off', slanted: THREE.length, asked: true, answer: true, said: Infinity, book: true }
 /** The headline's tune, a note a word, in the arrival chord's key: up the scale and home again on "again." */
 const MELODY = [0, 1, 2, 3, 4, 3, 2, 1, 0]
 
@@ -688,6 +690,10 @@ function thesisBeats(): Beat<ThesisState>[] {
     t = press + DRAG_MS + 900
   })
   beats.push({ at: t, to: { line: -1, move: 'leave' } })
+  // A reader's note in the margin beside the three, written on, its arrow drawn down them; read before the cause comes.
+  t += 500
+  beats.push({ at: t, to: { noted: true }, cue: () => bell(PENTA[2], 0.009, 'note') })
+  t += Math.max(2200, leadMs(MARGIN_NOTE))
   // The cause, glanced at (it stays up); then the answer, typed in as a person would (read as it types), its key words shining; then what Haligtree is, in one line.
   t += 300
   beats.push({ at: t, to: { asked: true } })
@@ -721,7 +727,11 @@ function ThesisChapter({ play, report }: { play: boolean; report: (now: Reel) =>
       <div data-reel={show.done ? 'done' : 'playing'} data-words className="flex max-w-[58rem] flex-col gap-[clamp(0.75rem,2.6vh,1.75rem)]">
         <div data-mist-clear={s.opened ? '' : undefined} className="flex flex-col gap-[clamp(0.75rem,2.6vh,1.75rem)]">
           <p className={FIGURES}><Condense text={when} on={s.opened} quick={quick} /></p>
-          <p data-tagline className="text-[clamp(1.0625rem,min(1.9vw,2.7vh),1.3125rem)] font-semibold text-foreground"><Condense text={TAGLINE} on={s.opened} quick={quick} delay={0.25} stagger={0.05} /></p>
+          <p data-tagline className="text-[clamp(1.0625rem,min(1.9vw,2.7vh),1.3125rem)] font-semibold text-foreground">
+            {/* Its promise underlined by hand once the page has made it: on one line, where the stroke never breaks. */}
+            <Condense text={TAGLINE.slice(0, TAGLINE.indexOf(PROMISE))} on={s.opened} quick={quick} delay={0.25} stagger={0.05} />
+            <Underlined on={s.book} quick={quick}><Condense text={PROMISE} on={s.opened} quick={quick} delay={0.45} stagger={0.05} /></Underlined>
+          </p>
         </div>
         {/* The headline resolves out of the mist a word to a note, each word in its place from the start. */}
         <h1 data-thesis="line" data-words={Math.min(s.words, THESIS.split(' ').length)} data-mist-clear={s.words > 0 ? '' : undefined} aria-label={THESIS} className={`${HEADLINE_XL} max-w-[18ch]`}>
@@ -729,7 +739,8 @@ function ThesisChapter({ play, report }: { play: boolean; report: (now: Reel) =>
             <Fragment key={i}><Condense text={word} on={s.words > i} quick={quick} />{i < all.length - 1 && ' '}</Fragment>
           ))}
         </h1>
-        <ul className="flex flex-col gap-[clamp(0.25rem,1vh,0.5rem)]">
+        <ul className="relative flex w-fit flex-col gap-[clamp(0.25rem,1vh,0.5rem)]">
+          <MarginNote on={s.noted} quick={quick} />
           {THREE.map(([name, gap], i) => {
             const slanted = s.slanted > i
             const chosen = s.line === i && (s.move === 'drag' || s.move === 'held')
@@ -836,19 +847,69 @@ function ForYou({ setup, at }: { setup?: Setup; at: Where }): React.JSX.Element 
 
 /** The words that carry a line's point: the accent with a light passing over it now and then (main.css, .mf-sheen). */
 /** A pen's stroke under the words that carry the point, drawn left to right the moment they are said, a little uneven, as a reader underlines a book. */
+/** The tagline's promise, which the page's hand underlines. */
+const PROMISE = 'come back to you'
+
 /**
- * The pen stroke under the answer's key words, drawn left to right as they
- * finish: one stroke across however many lines they wrap onto (a background
- * sliced across the line boxes, so it follows the words and never runs into
- * the margin), in the page's ink colour.
+ * A hand-drawn stroke under words on one line, drawn left to right as a pen
+ * would, a little uneven, in the page's ink.
  */
-function Inked({ children, on }: { children: ReactNode; on: boolean }): React.JSX.Element {
+function Underlined({ children, on, quick }: { children: ReactNode; on: boolean; quick: boolean }): React.JSX.Element {
   return (
-    <motion.span data-ink="" className="bg-no-repeat [box-decoration-break:slice]"
-      style={{ backgroundImage: 'linear-gradient(var(--primary), var(--primary))', backgroundPosition: '0 calc(100% - 0.04em)', paddingBottom: '0.04em' }}
-      initial={{ backgroundSize: '0% 0.09em' }} animate={{ backgroundSize: on ? '100% 0.09em' : '0% 0.09em' }} transition={{ duration: on ? 0.9 : 0, ease: MOVE, delay: on ? 0.1 : 0 }}>
+    <span data-ink="" data-drawn={on ? '' : undefined} className="relative inline-block whitespace-nowrap">
       {children}
-    </motion.span>
+      <svg aria-hidden viewBox="0 0 100 10" preserveAspectRatio="none" className="pointer-events-none absolute -bottom-[0.32em] -left-[0.04em] h-[0.42em] w-[calc(100%+0.08em)] overflow-visible">
+        <path d="M1 6.5 C 18 4, 34 7.5, 52 5.2 S 84 4.2, 99 3.6" pathLength={1} fill="none" stroke="var(--primary)" strokeWidth={2.6} strokeLinecap="round" strokeDasharray="1 1"
+          style={{ strokeDashoffset: on ? 0 : 1, transition: quick ? 'none' : 'stroke-dashoffset 0.9s cubic-bezier(0.65,0,0.35,1)' }} />
+      </svg>
+    </span>
+  )
+}
+
+/**
+ * A reader's note in the margin beside the three, the way a commonplace book
+ * is annotated: written on a word at a time, then a pen arrow drawn from the
+ * writing down to the plans and the practice. In the left margin when the
+ * window leaves room there, else in the open margin to their right (the
+ * arrow turned to face them); with room on neither side, left out, never
+ * squeezed over words.
+ */
+function MarginNote({ on, quick }: { on: boolean; quick: boolean }): React.JSX.Element {
+  const box = useRef<HTMLSpanElement>(null)
+  const [side, setSide] = useState<'left' | 'right' | null>('left')
+  useEffect(() => {
+    const fit = (): void => {
+      const lines = box.current?.parentElement?.getBoundingClientRect()
+      if (!lines) return
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+      const width = 11 * rem
+      setSide(lines.left - 3.4 * rem - width >= 12 ? 'left' : window.innerWidth - lines.right - 2.8 * rem - width >= 12 ? 'right' : null)
+    }
+    fit()
+    window.addEventListener('resize', fit)
+    return () => window.removeEventListener('resize', fit)
+  }, [])
+  const words = MARGIN_NOTE.split(' ')
+  const left = side !== 'right'
+  const at = (i: number): number => (quick || !on ? 0 : 1.1 + [0, 0.55, 0.75, 1.3][i])
+  return (
+    <span ref={box} aria-hidden={!side || undefined} data-margin-note={on ? 'on' : 'off'} data-side={side ?? 'none'} className={side ? '' : 'invisible'}>
+      <span className={`pointer-events-none absolute top-1/2 w-[11rem] -translate-y-1/2 text-balance font-heading text-[0.98rem] leading-snug text-primary italic ${left ? 'right-[calc(100%+3.4rem)] -rotate-2 text-right' : 'left-[calc(100%+2.8rem)] rotate-2 text-left'}`}>
+        {words.map((word, i) => (
+          <Fragment key={i}>
+            <motion.span className="inline-block" initial={false} animate={{ opacity: on ? 1 : 0, filter: on ? 'blur(0px)' : 'blur(4px)' }}
+              transition={{ duration: quick ? 0 : 0.42, delay: quick || !on ? 0 : 0.1 + i * 0.13, ease: ENTER }}>{word}</motion.span>{i < words.length - 1 && ' '}
+          </Fragment>
+        ))}
+      </span>
+      {/* The arrow: from the writing, down past the plans, to the practice, each reached with a head. */}
+      <svg viewBox="0 0 20 60" preserveAspectRatio="none" className={`pointer-events-none absolute top-0 h-full w-[1.6rem] overflow-visible ${left ? '-left-[2.1rem]' : '-right-[2.1rem] -scale-x-100'}`}>
+        {['M17 9 C 5 11, 3 22, 15 30', 'M11.5 26.5 L 15.5 30 L 10.5 32.5', 'M15 30 C 3 35, 2 46, 15 50.5', 'M11 47.5 L 15.5 50.5 L 10.5 53.5'].map((d, i) => (
+          <path key={i} d={d} pathLength={1} fill="none" stroke="var(--primary)" strokeWidth={1.3} strokeLinecap="round" strokeLinejoin="round" strokeDasharray="1 1"
+            style={{ strokeDashoffset: on ? 0 : 1, opacity: on ? 0.85 : 0, transition: quick ? 'none' : `stroke-dashoffset ${i % 2 ? 0.18 : 0.55}s cubic-bezier(0.65,0,0.35,1) ${at(i)}s, opacity 0.1s linear ${at(i)}s` }} />
+        ))}
+      </svg>
+    </span>
   )
 }
 
@@ -1195,7 +1256,7 @@ function TypedAnswer({ said, upTo }: { said: string; upTo: number }): React.JSX.
         // The words that carry the point shine (main.css, .mf-sheen); the rest of a part waits unseen beside it, never inside it.
         return (
           <span key={i}>
-            {shown && (part.key ? <Inked on={!rest}><Shine>{shown}</Shine></Inked> : shown)}
+            {shown && (part.key ? <Shine>{shown}</Shine> : shown)}
             {rest && <span className={`opacity-0 ${part.key ? 'font-semibold' : ''}`}>{rest}</span>}
           </span>
         )

@@ -22,10 +22,10 @@ const WHOLE = [
   'Most notes are written once and never seen again.',
   'Your writing lives in one app.',
   'Your plans live in another.',
-  'What you mean to remember lives in a third.',
+  'What you want to remember and practice (flashcards) lives in a third.',
   'In each one, going back is your job. So mostly, nobody does.',
-  'Haligtree is one place for all three, and your notes come back to you: an old note when you open the app, a question as you start to forget it.',
-  'Haligtree is a commonplace book that brings your notes back to you. Writers have kept them for centuries: catch a thought, write it out, and it finds you again.'
+  'Haligtree treats writing, planning and memory not as three separate tools, but as the same thought evolving over time.',
+  'Here, an active draft naturally yields a plan for tomorrow, or a question to practice as memory fades. It is a modern commonplace book, built so your best thinking keeps finding you again.'
 ]
 const words = () => h.evaluate(() => [...document.querySelectorAll('[data-thesis]')].map((el) => el.innerText.replace(/\s+/g, ' ').trim()))
 const heard = () => h.evaluate(() => [...(window.haligtreeHeard ?? [])])
@@ -112,15 +112,7 @@ try {
   check('and the sound carries on', !(await heard()).slice(before).includes('cue:bed-end'), (await heard()).slice(before).join())
   check('no pointer once settled', (await h.locator('[data-pointer]').count()) === 0)
 
-  check('the answer\'s key words are underlined in ink', (await h.locator('[data-thesis="answer"] [data-ink]').count()) === 1)
-  // Wrapped onto two lines, the stroke follows the words: it starts where they start and never runs into the margin.
-  const ink = await h.evaluate(() => {
-    const el = document.querySelector('[data-thesis="answer"] [data-ink]')
-    const words = el.getBoundingClientRect()
-    const line = document.querySelector('[data-thesis="answer"]').getBoundingClientRect()
-    return { lines: el.getClientRects().length, inside: words.left >= line.left - 1 }
-  })
-  check('the stroke stays under its words, across lines too', ink.inside, JSON.stringify(ink))
+  check('the tagline\'s promise is underlined in ink, on one line', await h.evaluate(() => { const ink = document.querySelector('[data-tagline] [data-ink]'); return !!ink && ink.getClientRects().length === 1 }))
   check('the ruled margin runs down the page', await h.evaluate(() => { const m = document.querySelector('[data-margin]'); return !!m && m.getBoundingClientRect().height > 600 }))
 
   // A page turned: it lifts away as one page of a book, heard as a page; the margin stays; the bed shifts. Skipped to the end: it comes home.
