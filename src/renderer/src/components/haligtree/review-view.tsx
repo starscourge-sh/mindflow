@@ -33,6 +33,11 @@ import { onboarding } from '@/lib/onboarding'
 import { LearnMode } from './learn-mode'
 import { closeness, isLeech, suggestGrade } from '../../../../main/study'
 import { Star } from 'lucide-react'
+import { RowMenu, copy, type RowItem } from './row-menu'
+import { binItem } from '@/lib/to-bin'
+import { noteLinkText } from '@/lib/capture-links'
+import { AliveIcon } from '@/components/ui/alive-icon'
+import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import { InkLine } from './ink-line'
 import { backIn } from '@/lib/back-in'
 import { hoverNote } from './note-preview'
@@ -258,6 +263,15 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
     chime(on ? 'pin' : 'unpin')
     void haligtree.star(card.id, on)
   }
+  // The card's own menu, as every card has one: right-click, or the quiet ⋯ by its star.
+  const drop = (id: string): void => setQueue((cards) => cards && cards.filter((one) => one.id !== id))
+  const cardMenu: RowItem[] = card ? [
+    { label: 'Open', run: () => (chime('open'), window.api.openInHome('nugget', card.id)) },
+    { label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copy(noteLinkText(`nugget:${card.id}`, card.title || card.prompt || 'Card'), 'Copied a link: paste it into any note') },
+    { label: 'Pause', hint: 'Out of Review until you bring it back', run: () => setAside(card, true, () => drop(card.id)) },
+    'separator',
+    binItem([{ type: 'nugget', id: card.id }], () => drop(card.id))
+  ] : []
   // The typed answer, set against the real one once it is shown: how close, and the grade that suggests.
   const typedScore = shown && said.trim() && card ? closeness(said, answer ?? textOf(card.body)) : null
   const suggested = typedScore === null ? null : suggestGrade(typedScore)
@@ -429,11 +443,23 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
           </p>
         )}
         {/* The question on the card's face, the answer on its back. */}
+        <RowMenu items={cardMenu}>
+        <div data-review-card className="contents">
         <Flip
           over={over}
           onTurn={turnTo}
           front={
             <div className="relative h-full rounded-lg border bg-accent/30 px-5 py-6">
+              <Tip label="More">
+                <button type="button" aria-label="More" data-review-more
+                  onClick={(event) => {
+                    const box = event.currentTarget.getBoundingClientRect()
+                    event.currentTarget.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: box.left, clientY: box.bottom }))
+                  }}
+                  className="absolute top-2 right-9 grid size-6 place-items-center rounded-md text-muted-foreground/60 transition-colors hover:bg-foreground/[0.06] hover:text-foreground">
+                  <AliveIcon icon={DotsHorizontalIcon} size={16} />
+                </button>
+              </Tip>
               {/* S stars it, for a round of its own. */}
               <Tip label={card.starredAt ? 'Starred: S takes it off' : 'Star it: S'}>
                 <button type="button" aria-label={card.starredAt ? 'Unstar' : 'Star'} aria-pressed={!!card.starredAt} data-star onClick={star}
@@ -499,6 +525,8 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
             </BorderBeam>
           )}
         />
+        </div>
+        </RowMenu>
         {isLeech(card.lapses) && (
           <p className="-mt-3 text-sm text-[var(--tt-color-text-orange)]">
             <Typed text={`Forgotten ${card.lapses} times. Rewrite the question above rather than drilling it: click it to edit.`} step={28} delay={300} />
