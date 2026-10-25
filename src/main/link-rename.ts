@@ -92,3 +92,40 @@ export function renamePerson(body: unknown, from: string, to: string, personKey:
   const out = body ? walk(body as Doc) : body
   return { body: count ? out : body, count }
 }
+
+/**
+ * A note has come (made, renamed, or brought in by a later import) under a
+ * name that links were already waiting for: a `noteLink` or `noteEmbed` with
+ * no id and that name, or `[[That name]]` in Markdown an import left. Each
+ * is given the note's id (`byName`: each name, in small letters, to its link), so it is drawn solid and opens it. Names are
+ * compared without capitals; a link that already points somewhere is left. Pure.
+ */
+export function resolveLinks(body: unknown, byName: Map<string, string>): { body: unknown; count: number } {
+  const find = (name: string): string | undefined => byName.get(name.trim().toLowerCase())
+  if (!byName.size) return { body, count: 0 }
+  let count = 0
+  if (typeof body === 'string') {
+    // `[[Name]]`, `[[Name#Heading]]`, `[[Name|words]]`, embedded or not, as linkImported writes a found one.
+    const text = body.replace(/!?\[\[([^@\]|#][^\]|#]*)(#[^\]|]+)?(\\?\|[^\]]+)?\]\]/g, (whole, page: string, heading = '', shown?: string) => {
+      const link = find(page)
+      if (!link) return whole
+      count++
+      return `[[@${link}${heading}${shown ?? `|${page.trim()}`}]]`
+    })
+    return { body: count ? text : body, count }
+  }
+  const walk = (node: Doc): Doc => {
+    if (!node || typeof node !== 'object') return node
+    let next = node
+    const link = (node.type === 'noteLink' || node.type === 'noteEmbed') && node.attrs && !node.attrs.id && typeof node.attrs.label === 'string' ? find(node.attrs.label) : undefined
+    if (link) {
+      count++
+      next = { ...node, attrs: { ...node.attrs, id: link } }
+    }
+    if (!next.content) return next
+    const kids = next.content.map(walk)
+    return kids.some((kid, at) => kid !== next.content![at]) ? { ...next, content: kids } : next
+  }
+  const out = body ? walk(body as Doc) : body
+  return { body: count ? out : body, count }
+}

@@ -108,7 +108,8 @@ try {
         if (side === 'open') {
           // Customize, beside the sidebar, from a part's heading's right-click menu.
           // Upcoming is a tab of Tasks now, not a sidebar row: any row's menu has Customize; Home's is always there.
-          await h.locator('aside[data-chrome] button:has-text("Home"), aside[data-chrome] [role="button"]:has-text("Home")').first().click({ button: 'right', timeout: 3000 }).catch(async () => shoot(`${at}-no-row`))
+          // At the smallest size the sidebar is a rail of icons, each named only by its aria-label.
+          await h.locator('aside[data-chrome] button[aria-label="Home"], aside[data-chrome] button:has-text("Home"), aside[data-chrome] [role="button"]:has-text("Home")').first().click({ button: 'right', timeout: 3000 }).catch(async () => shoot(`${at}-no-row`))
           await wait(400)
           const item = h.getByRole('menuitem', { name: /Customize the sidebar/ })
           check(`${at}: Customize opens`, await item.count())

@@ -7,6 +7,12 @@ import type { Slept } from '../main/session-log'
 // Every live view listens for changes; one IPC listener tells them all,
 // rather than one each past Node's limit of ten.
 // Each says which kinds of note it shows; none means everything.
+// Put away and shown again are heard by many parts of one page at once (each
+// looping picture's useAlive, the beam, the glide, the box's notices: a dozen
+// or more on Settings' Show page), each taking itself off when it goes. That
+// is more than Node's ten before it warns of a leak, though there is none.
+ipcRenderer.setMaxListeners(50)
+
 const changes = new Map<(what: Change[] | null) => void, Change['kind'][] | undefined>()
 // A burst of changes, an import or several saves in a row, is told once,
 // with every note it touched (null: anything may have changed).

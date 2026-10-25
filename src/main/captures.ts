@@ -18,7 +18,7 @@ import { RETIRED, tagged, withTag } from './kinds'
 import { emojiReady } from './lazy/emoji'
 import { chunks, createdOf, firstLine, guessKind, isBit, kindOf, propertiesOf, titleOfMarkdown, unstamp, withoutNotionId } from './import'
 import { cut, fittedTitle } from './clip'
-import { registerRenames, watchName } from './renames'
+import { registerRenames, resolveWaiting, watchName } from './renames'
 import { NOTE_KEY } from './name'
 
 /** What the list shows. The body is only read when one is opened. */
@@ -584,6 +584,8 @@ export function registerCaptures(): void {
         (select attribution from captures where id = ?), (select attribution from nuggets where id = ?)) where id = ?`).run(patch.origin, patch.origin, patch.origin, id)
     if (patch.markdown !== undefined || patch.body !== undefined) void writeMarkdown(number, patch.markdown ?? markdown(patch.body))
     if (patch.body !== undefined) syncLineCards(`capture:${id}`, patch.body, (db.prepare('select private from captures where id = ?').get(id) as { private: number }).private)
+    // Made already named: links waiting for that name point at it now.
+    if (patch.body !== undefined || patch.title !== undefined || patch.markdown !== undefined) resolveWaiting(id)
     changed()
     celebrateAfter('captures:create', event.sender, [raw], id)
     return id

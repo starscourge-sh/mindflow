@@ -1,7 +1,7 @@
 // Run with: node --test test/link-rename.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { renameLinks } from '../src/main/link-rename.ts'
+import { renameLinks, resolveLinks } from '../src/main/link-rename.ts'
 
 const link = (attrs: Record<string, unknown>) => ({ type: 'noteLink', attrs: { key: '', heading: '', text: '', kind: '', ...attrs } })
 const line = (...content: unknown[]) => ({ type: 'paragraph', content })
@@ -84,4 +84,17 @@ test('a name with the marks a pattern uses is matched as written', () => {
   const { body, count } = renameLinks(text, { ids: ['n1'], from: 'C++ (notes)?', to: 'C plus plus' })
   assert.equal(count, 1)
   assert.equal(body, '[[C plus plus]] and [[C]]')
+})
+
+test('a link waiting for a name is given the id of the note that came with it, and one pointing elsewhere is left', () => {
+  const body = doc(line(link({ id: '', label: 'Beta' }), link({ id: '', label: 'b side' }), link({ id: 'other', label: 'Beta' }), link({ id: '', label: 'Gone' })))
+  const { body: out, count } = resolveLinks(body, new Map([['beta', 'n2'], ['b side', 'n2']]))
+  assert.equal(count, 2)
+  assert.deepEqual((out as ReturnType<typeof doc>).content[0].content.map((one) => (one as { attrs: { id: string } }).attrs.id), ['n2', 'n2', 'other', ''])
+})
+
+test('in Markdown an import left, [[Name]] waiting is written as a link to the note, its heading and words kept', () => {
+  const { body, count } = resolveLinks('See [[Beta]], [[beta#Part|this]] and [[Gone]] and [[@n9|Beta]].', new Map([['beta', 'article:n2']]))
+  assert.equal(count, 2)
+  assert.equal(body, 'See [[@article:n2|Beta]], [[@article:n2#Part|this]] and [[Gone]] and [[@n9|Beta]].')
 })

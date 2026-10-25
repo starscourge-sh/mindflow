@@ -4,7 +4,7 @@ import { randomUUID } from 'crypto'
 import { LABEL, atomically, changed, database, like } from './captures'
 import { writeMarkdown } from './backup'
 import { markdown } from './haligtree'
-import { renameLinks } from './link-rename'
+import { renameLinks, resolveLinks } from './link-rename'
 import { nameLineIn } from './blocks'
 
 /**
@@ -42,7 +42,11 @@ export const linkOf = (table: 'captures' | 'nuggets', id: string): string => {
 /** A note was saved, and was called `before` until then: if its name changed, its links follow once it rests. */
 export function watchName(link: string, before: string, sender?: WebContents): void {
   const was = pending.get(link)
-  if (!was && nameNow(link) === before.trim()) return
+  // Unchanged, but a note just made still answers links waiting for its name.
+  if (!was && nameNow(link) === before.trim()) {
+    if (!before.trim()) resolveWaiting(link)
+    return
+  }
   if (was) clearTimeout(was.timer)
   pending.set(link, { from: was?.from ?? before.trim(), sender: sender ?? was?.sender, timer: setTimeout(() => settle(link), REST) })
 }
@@ -52,7 +56,10 @@ function settle(link: string): void {
   pending.delete(link)
   if (!was) return
   const to = nameNow(link)
-  if (!to || !was.from || to === was.from) return
+  if (!to) return
+  // Links typed to this name before the note had it now point at it.
+  resolveWaiting(link)
+  if (!was.from || to === was.from) return
   const { count, token } = rewrite(link, was.from, to)
   // Told to the window it was renamed in, or the one in front.
   const tell = was.sender && !was.sender.isDestroyed() ? was.sender : BrowserWindow.getFocusedWindow()?.webContents
@@ -96,6 +103,62 @@ export function rewrite(link: string, from: string, to: string): { count: number
     changed()
   }
   return { count, token }
+}
+
+/** The names a link may call the note by: its name now, its other names, and the aliases an import kept in its fields. */
+function namesOf(link: string): string[] {
+  const { table, id } = partsOf(link)
+  const row = database().prepare(`select aliases, fields from ${table} where id = ?`).get(id) as { aliases: string | null; fields: string | null } | undefined
+  const read = (text: string | null | undefined): unknown => {
+    try {
+      return JSON.parse(text ?? 'null')
+    } catch {
+      return null
+    }
+  }
+  const listed = (value: unknown): string[] => Array.isArray(value) ? value.map(String) : typeof value === 'string' ? value.split(',') : []
+  const fields = read(row?.fields) as { aliases?: unknown } | null
+  return [nameNow(link), ...listed(read(row?.aliases)), ...listed(fields?.aliases)].map((name) => name.trim()).filter(Boolean)
+}
+
+/**
+ * Notes made, renamed, or brought in by a later import: every link in every
+ * note still waiting for one of their names (no id, drawn grey and dashed) is
+ * given its note's id, so it turns solid and opens it. No Undo: nothing was
+ * lost. The first note named wins, as the import's own links do.
+ */
+export function resolveWaiting(...links: string[]): number {
+  const byName = new Map<string, string>()
+  for (const link of links) for (const name of namesOf(link)) if (!byName.has(name.toLowerCase())) byName.set(name.toLowerCase(), link)
+  if (!byName.size) return 0
+  const db = database()
+  // Only bodies that could hold one are read: a few names, by name (as Markdown
+  // or JSON writes it); many, as an import brings, any body with a link by name.
+  const names = [...new Set([...byName.keys()].flatMap((name) => [name, JSON.stringify(name).slice(1, -1)]))]
+  const wanted = names.length <= 20 ? names.map((text) => `%${like(text)}%`) : ['%[[%', '%"noteLink"%', '%"noteEmbed"%']
+  const where = `(${wanted.map(() => "body like ? escape '\\'").join(' or ')})`
+  const rows = [
+    ...(db.prepare(`select 'captures' as tab, id, number, body from captures where ${where}`).all(...wanted) as { tab: 'captures'; id: string; number: number; body: string }[]),
+    ...(db.prepare(`select 'nuggets' as tab, id, null as number, body from nuggets where ${where}`).all(...wanted) as { tab: 'nuggets'; id: string; number: null; body: string }[])
+  ]
+  let count = 0
+  atomically(() => {
+    for (const row of rows) {
+      let body: unknown
+      try {
+        body = JSON.parse(row.body)
+      } catch {
+        body = row.body
+      }
+      const out = resolveLinks(body, byName)
+      if (!out.count) continue
+      db.prepare(`update ${row.tab} set body = ? where id = ?`).run(JSON.stringify(out.body), row.id)
+      count += out.count
+      if (row.tab === 'captures') void writeMarkdown(row.number, typeof out.body === 'string' ? out.body : markdown(out.body))
+    }
+  })
+  if (count) changed()
+  return count
 }
 
 export function registerRenames(): void {

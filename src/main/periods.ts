@@ -4,6 +4,7 @@ import { LABEL, changed, database } from './captures'
 import { dayjs } from './dates'
 import { tagsIn } from './tag-words'
 import { plain } from './haligtree'
+import { linkOf, resolveWaiting } from './renames'
 
 /**
  * Looking back over stretches of time, and the small things that make a note
@@ -68,6 +69,8 @@ export function registerPeriods(): void {
     if (!row) return null
     const clean = [...new Set(list.map((one) => String(one).trim()).filter(Boolean))]
     db.prepare(`update ${table(name)} set aliases = ? where id = ?`).run(clean.length ? JSON.stringify(clean) : null, id)
+    // A new other name answers links already waiting for it.
+    resolveWaiting(table(name) === 'captures' ? id : linkOf('nuggets', id))
     changed()
     return parse<string[]>(row.aliases, [])
   })

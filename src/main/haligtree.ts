@@ -35,7 +35,7 @@ import { cut, fittedTitle, quoted } from './clip'
 import { withAlways } from './site-hosts'
 import { dueAt } from './session-log'
 import { SIDEBAR_SHAPE } from './sidebar-shape'
-import { linkOf, watchName } from './renames'
+import { linkOf, resolveWaiting, watchName } from './renames'
 import { APP_NAME, NOTE_KEY } from './name'
 
 /**
@@ -2153,6 +2153,7 @@ export function registerHaligtree(): void {
     db.prepare(
       `insert into nuggets (id, tier, kind, title, body, origins, created_at, updated_at) values (?, 'article', 'note', ?, ?, ?, ?, ?)`
     ).run(id, title, JSON.stringify(text), JSON.stringify(ids), now(), now())
+    resolveWaiting(linkOf('nuggets', id))
     return write(id)
   })
   // A nugget from selected words: the excerpt, with the note it came from and
@@ -2162,6 +2163,7 @@ export function registerHaligtree(): void {
     const attribution = origin.attribution ?? (origin.captureId ? (db.prepare('select attribution from captures where id = ?').get(origin.captureId) as { attribution: string | null } | undefined)?.attribution : null)
     db.prepare("insert into nuggets (id, capture_id, kind, title, body, attribution, passage, created_at, updated_at) values (?, ?, 'note', ?, ?, ?, ?, ?, ?)")
       .run(id, origin.captureId ?? null, cut(text.split('\n')[0], 160), JSON.stringify(text), attribution ?? null, origin.passage?.trim() || null, now(), now())
+    resolveWaiting(linkOf('nuggets', id))
     // A long quote (what was an excerpt) is a container: once something is
     // pulled out of it, it has done its job. A short one is the line itself.
     if (origin.captureId) db.prepare("update captures set status = 'promoted' where id = ? and kind = 'quote' and status = 'open' and (kind_was = 'excerpt' or length(words(id, body)) > 600)").run(origin.captureId)
@@ -2272,6 +2274,7 @@ export function registerHaligtree(): void {
     const id = randomUUID()
     db.prepare("insert into nuggets (id, tier, kind, title, body, capture_id, private, created_at, updated_at) values (?, 'question', 'note', ?, 'null', ?, ?, ?, ?)")
       .run(id, cut((title || from?.title || 'Untitled').trim(), 300), captureId ?? null, from?.private ?? 0, now(), now())
+    resolveWaiting(linkOf('nuggets', id))
     if (from && captureId) {
       db.prepare('insert into glosses (id, item_id, body, created_at, source_id) values (?, ?, ?, ?, ?)').run(randomUUID(), id, from.text, now(), captureId)
       db.prepare("update captures set status = 'promoted' where id = ?").run(captureId)
@@ -2338,6 +2341,7 @@ export function registerHaligtree(): void {
       article = randomUUID()
       db.prepare("insert into nuggets (id, tier, kind, title, body, origins, created_at, updated_at) values (?, 'article', 'note', ?, ?, ?, ?, ?)")
         .run(article, question.title, JSON.stringify(text), JSON.stringify([id]), now(), now())
+      resolveWaiting(linkOf('nuggets', article))
     }
     db.prepare('update nuggets set closed_at = ?, closed_how = ? where id = ?').run(again && at ? at : now(), how, id)
     return write({ article })

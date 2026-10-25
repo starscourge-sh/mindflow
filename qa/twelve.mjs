@@ -116,7 +116,8 @@ try {
   await h.waitForTimeout(800)
   // The row is chips now (tasks-view.tsx TASK_TABS): Today, Upcoming (Tomorrow became the days ahead), Later, Routines.
   const tabs = ['Today', 'Upcoming', 'Later', 'Routines']
-  const lists = await h.$$eval('button[aria-pressed]', (all, names) => all.filter((one) => names.includes(one.textContent.trim())).map((one) => `${one.textContent.trim()}:${one.getAttribute('aria-pressed')}`), tabs)
+  // Read by their names: each chip's words are drawn twice over as they roll (display.tsx Chips).
+  const lists = await h.$$eval('button[aria-pressed][aria-label]', (all, names) => all.filter((one) => names.includes(one.getAttribute('aria-label'))).map((one) => `${one.getAttribute('aria-label')}:${one.getAttribute('aria-pressed')}`), tabs)
   check('5. Today has Upcoming and Later beside it', lists.join() === 'Today:true,Upcoming:false,Later:false,Routines:false', JSON.stringify(lists))
   await h.getByRole('button', { name: 'Upcoming', exact: true }).first().click().catch(() => {})
   await h.waitForTimeout(900)
@@ -244,20 +245,27 @@ try {
   await go('home')
   await go('stats')
   await h.waitForTimeout(1500)
+  // The year's answers are on Stats' "Your year" page.
+  await h.getByRole('button', { name: 'Your year', exact: true }).first().click().catch(() => {})
+  await h.waitForTimeout(900)
   const year = await h.$eval('[data-year-answers]', (one) => one.textContent).catch(() => '')
   check('9. Stats reads the year back', year.includes('Finished the probe garden plan'))
 
-  // 10. A Goal kind.
-  const goalCapture = await h.evaluate((body) => window.api.captures.create({ kind: 'goal', body }), doc('Run a 10k by next month'))
-  const goal = await v('promote', goalCapture)
+  // 10. A goal: no longer a kind of capture, made from the Goals page with its date.
+  const month = new Date(Date.now() + 30 * 86400000)
+  const goal = await v('goal:new', 'Run a 10k by next month', `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}-${String(month.getDate()).padStart(2, '0')}`)
   const goals = await v('items', 'goal')
-  check('10. a Goal capture kept becomes a goal on the Goals page', goals.some((one) => one.id === goal), goal)
+  check('10. a goal made is on the Goals page', !!goal && goals.some((one) => one.id === goal), goal)
 
   // 11 and 12. The welcome: the tagline, then its first capture.
   await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:welcome')))
   await h.waitForSelector('.mf-welcome', { timeout: 8000 })
-  await h.waitForTimeout(800)
-  const tag = await h.$eval('[data-tagline]', (one) => one.textContent).catch(() => '')
+  // The title card plays first, and the tagline's letters come in one by one after it.
+  let tag = ''
+  for (let i = 0; i < 40 && !tag.endsWith('come back to you'); i++) {
+    await h.waitForTimeout(250)
+    tag = await h.$eval('[data-tagline]', (one) => one.textContent).catch(() => '')
+  }
   check('12. the welcome says “Haligtree: a modern commonplace book where notes come back to you”', tag === 'Haligtree: a modern commonplace book where notes come back to you', tag)
   for (let i = 0; i < 6 && !(await h.$('[data-welcome-first]')); i++) {
     await h.click('footer button:has-text("Next"), footer button:has-text("Show me")').catch(() => {})

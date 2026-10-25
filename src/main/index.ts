@@ -44,6 +44,7 @@ import trayIcon from '../../resources/tray.png?asset'
 import iconBronze from '../../resources/icon-bronze.png?asset'
 import iconGold from '../../resources/icon-gold.png?asset'
 import { registerUsage, type Via } from './usage'
+import { resolveWaiting } from './renames'
 import { alreadyImported, captureText, changed, rescueDrawing, database, shutDatabase, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, setImporting, type Imported } from './captures'
 import { isPrivateFile, looksPrivate } from './import'
 import { warmChrono } from './lazy/chrono'
@@ -3036,6 +3037,8 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
     if (!quiet) importProgress({ done: everyFile.size, total: everyFile.size, what: 'pictures' })
   }
   const linked = linkImported(made, byName, known)
+  // And links already here, from an earlier import or typed by hand, waiting for a page that came in only now.
+  resolveWaiting(...made.map((one) => one.link))
   const inbox = made.filter((one) => !one.link.startsWith('article:')).length
   // Chosen folders: each a group in Pages, named for the folder (the top of the vault for the vault's own name).
   const filed = pick
