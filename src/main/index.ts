@@ -3273,7 +3273,8 @@ function updateTray(): void {
   const time = tempus()
   const hidden = safe || gate().hidePrivate
   const marked = nextMilestones()
-  const goalItems: Electron.MenuItemConstructorOptions[] = goals.slice(0, 6).map((goal) => {
+  // The nearest three: the rest are a click away in the app.
+  const goalItems: Electron.MenuItemConstructorOptions[] = goals.slice(0, 3).map((goal) => {
     const left = daysLeft(goal.goalAt)
     const name = goal.private && hidden ? 'A private goal' : clip(goal.title, 34)
     const when = left < 0 ? 'did you make it?' : left === 0 ? 'today' : `${num(left)} ${left === 1 ? 'day' : 'days'} left`
@@ -3298,26 +3299,27 @@ function updateTray(): void {
   const template: Electron.MenuItemConstructorOptions[] = [
       ...(now.length ? [...now, { type: 'separator' } as const] : []),
       ...(goalItems.length ? [{ label: 'Goals', enabled: false }, ...goalItems, { type: 'separator' } as const] : []),
-      { label: 'Time gone', enabled: false },
-      ...(['day', 'week', 'month', 'year'] as const).map((unit, at) => {
-        const drawn = tempusDrawn?.key === tempusKey ? tempusDrawn.images[at] : null
-        // The words drawn in the picture, kept as its tooltip so a probe (and a reader) can find them.
-        const words = `${rows[at].label}  ${Math.round(rows[at].share * 100)}% gone`
-        return drawn ? { label: '', icon: drawn, enabled: false, toolTip: words } : { label: `${rows[at].label}: ${percent(time[unit])} gone`, icon: tempusBar(time[unit]), enabled: false, toolTip: words }
-      }),
-      // The next marked days under the bars, each with its count of days: off in Settings, none.
-      ...marked.flatMap((one, at) => [
-        ...(at === 0 ? [{ type: 'separator' } as const, { label: 'Marked days', enabled: false }] : []),
+      // The next two marked days, each with its count of days: off in Settings, none.
+      ...marked.slice(0, 2).flatMap((one, at) => [
+        ...(at === 0 ? [{ label: 'Marked days', enabled: false }] : []),
         { label: `${one.icon ? `${one.icon}  ` : ''}${hidden ? 'A marked day' : clip(one.title, 34)}`, sublabel: `${dayMonth(`${one.day}T12:00`)}  ·  ${daysLeft(one.day) === 0 ? 'today' : `${num(daysLeft(one.day))} ${daysLeft(one.day) === 1 ? 'day' : 'days'} to go`}`, click: () => (daysLeft(one.day) > 0 ? sendHome('view', 'yearpage', undefined, 'window') : sendHome('day', one.day, undefined, 'window')) }
       ]),
       { type: 'separator' },
       // In the sandbox the way out comes first; from your notes, the way in.
       // A reset cannot be undone, so it is asked in the main window, where Start over is held.
       ...(SANDBOX ? [{ label: 'Back to my notes', click: leaveSandbox }, { label: 'Reset the sandbox…', click: () => (openHome(), makeHome().webContents.send('sandbox:ask-reset')) }, { type: 'separator' } as const] : []),
-      { label: `Show ${APP_NAME}`, accelerator: chordFor('⌘.'), click: () => toggleWindow() },
-      { label: 'Open the main window', click: openHome },
+      { label: `Open ${APP_NAME}`, accelerator: chordFor('⌘.'), click: () => toggleWindow() },
       { label: 'Close the day…', click: () => inHome('haligtree:close-day') },
-      { label: 'What’s new', click: () => inHome('haligtree:whats-new') },
+      // How far through the day, week, month and year: a look away, not in the way.
+      {
+        label: 'Time gone',
+        submenu: (['day', 'week', 'month', 'year'] as const).map((unit, at) => {
+          const drawn = tempusDrawn?.key === tempusKey ? tempusDrawn.images[at] : null
+          // The words drawn in the picture, kept as its tooltip so a probe (and a reader) can find them.
+          const words = `${rows[at].label}  ${Math.round(rows[at].share * 100)}% gone`
+          return drawn ? { label: '', icon: drawn, enabled: false, toolTip: words } : { label: `${rows[at].label}: ${percent(time[unit])} gone`, icon: tempusBar(time[unit]), enabled: false, toolTip: words }
+        })
+      },
       // The book open now, ticked, and the way to each of the others.
       {
         label: SANDBOX ? 'Book: Sandbox' : `Book: ${nameOf(here())}`,
@@ -3325,30 +3327,41 @@ function updateTray(): void {
           ...books().map((book) => ({ label: book.name, type: 'radio' as const, checked: book.current, click: () => void (book.current || inHome('haligtree:book-switch', book.id)) })),
           { label: 'Sandbox', type: 'radio' as const, checked: SANDBOX, click: () => void (SANDBOX || openSandbox()) },
           { type: 'separator' as const },
-          { label: 'New book…', enabled: !SANDBOX, click: () => inHome('haligtree:book-new') }
+          { label: 'New book…', enabled: !SANDBOX, click: () => inHome('haligtree:book-new') },
+          ...(SANDBOX ? [] : [{ label: 'Restore from a backup…', click: () => void restore() }])
         ]
       },
-      { label: 'Import…', click: () => void importFiles() },
-      { label: 'Import from Obsidian or Notion…', click: () => void importVault() },
-      { label: 'Import from Apple Notes…', click: () => inHome('haligtree:import-folders', { from: 'Apple Notes' }) },
-      ...(SANDBOX ? [] : [{ label: 'Import into another book…', click: () => inHome('haligtree:book-import') }]),
-      ...(SANDBOX ? [] : [{ label: 'Restore from a backup…', click: () => void restore() }, { label: 'Open the sandbox', click: openSandbox }]),
+      {
+        label: 'Import',
+        submenu: [
+          { label: 'From Obsidian or Notion…', click: () => void importVault() },
+          { label: 'From Apple Notes…', click: () => inHome('haligtree:import-folders', { from: 'Apple Notes' }) },
+          { label: 'Files…', click: () => void importFiles() },
+          ...(SANDBOX ? [] : [{ type: 'separator' as const }, { label: 'Into another book…', click: () => inHome('haligtree:book-import') }])
+        ]
+      },
       { type: 'separator' },
       { label: 'Safe mode', type: 'checkbox', checked: safe, accelerator: chordFor('⌥⌘S'), click: () => (toggleSafeMode(), updateTray()) },
-      // Ticked as they are on the screen; chosen, they come out or go away as the tick now says.
-      { label: 'Show sticky notes', type: 'checkbox', checked: stickiesTicked(), accelerator: chordFor('⌃⌥⌘N'), click: (item) => void showStickies(item.checked) },
-      { label: 'Bring sticky notes here', enabled: !safe && stickies.size > 0, click: () => gatherStickies() },
-      ...(safe ? [] : tuckItems()),
-      // Only with a sticky out to tidy; the key does nothing then either.
-      ...(!safe && stickiesOut() > 0 ? [{ label: 'Tidy stickies', accelerator: chordFor('⌃⌥⌘T'), click: () => void tidyStickies() }] : []),
-      ...(canUntidy() ? [{ label: 'Put stickies back', click: untidyStickies }] : []),
-      ...(canPutBack() && takenDown ? [{ label: takenDown.title ? `Put back ${quoted(takenDown.title, 28)}` : 'Put back the sticky', click: putStickyBack }] : []),
+      // Everything about the stickies, together under one name.
+      {
+        label: 'Sticky notes',
+        submenu: [
+          // Ticked as they are on the screen; chosen, they come out or go away as the tick now says.
+          { label: 'Show sticky notes', type: 'checkbox', checked: stickiesTicked(), accelerator: chordFor('⌃⌥⌘N'), click: (item) => void showStickies(item.checked) },
+          { label: 'Bring them here', enabled: !safe && stickies.size > 0, click: () => gatherStickies() },
+          ...(safe ? [] : tuckItems()),
+          // Only with a sticky out to tidy; the key does nothing then either.
+          ...(!safe && stickiesOut() > 0 ? [{ label: 'Tidy them', accelerator: chordFor('⌃⌥⌘T'), click: () => void tidyStickies() }] : []),
+          ...(canUntidy() ? [{ label: 'Put them back', click: untidyStickies }] : []),
+          ...(canPutBack() && takenDown ? [{ label: takenDown.title ? `Put back ${quoted(takenDown.title, 28)}` : 'Put back the sticky', click: putStickyBack }] : [])
+        ]
+      },
       { type: 'separator' },
       { label: `Quit ${APP_NAME}`, accelerator: 'Command+Q', click: quit }
   ]
   // A test run keeps the menu's words where a probe can read them.
   if (process.env.HALIGTREE_QA_AWAY) (globalThis as { trayTitle?: string }).trayTitle = title
-  if (process.env.HALIGTREE_QA_AWAY) (globalThis as { trayMenu?: unknown }).trayMenu =template.map((item) => ({ type: item.type ?? 'normal', label: item.label ?? '', sublabel: item.sublabel ?? '', toolTip: item.toolTip ?? '', enabled: item.enabled !== false, checked: item.checked === true, drawn: !!item.icon && !item.label }))
+  if (process.env.HALIGTREE_QA_AWAY) (globalThis as { trayMenu?: unknown }).trayMenu = template.flatMap((item) => [item, ...((Array.isArray(item.submenu) ? item.submenu : []) as Electron.MenuItemConstructorOptions[])]).map((item) => ({ type: item.type ?? 'normal', label: item.label ?? '', sublabel: item.sublabel ?? '', toolTip: item.toolTip ?? '', enabled: item.enabled !== false, checked: item.checked === true, drawn: !!item.icon && !item.label }))
   const menu = Menu.buildFromTemplate(template)
   // And the menu itself, so a probe can choose an item as a click would.
   if (process.env.HALIGTREE_QA_AWAY) (globalThis as { trayBuilt?: unknown }).trayBuilt = menu

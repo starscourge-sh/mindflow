@@ -1,6 +1,6 @@
 // The menu bar's dropdown: the day, week, month and year bars are said as time
-// gone, under a “Time gone” heading of their own and a separator away from the
-// goals, so they are never read as a goal's progress. Read from the menu's own
+// gone, in a “Time gone” submenu of their own, apart from the goals, so they
+// are never read as a goal's progress and the menu stays short. Read from the menu's own
 // template in main (kept on globalThis.trayMenu in a test run).
 //
 //   npx electron-vite build --outDir out-x
@@ -28,8 +28,7 @@ try {
   const head = items.findIndex((one) => one.label === 'Time gone')
   const goals = items.findIndex((one) => one.label === 'Goals')
   check('the menu has a goal in its Goals part', goals >= 0 && items.some((one) => /of the way/.test(one.sublabel)), String(made))
-  check('the time bars have their own heading, “Time gone”, not pressable', head >= 0 && !items[head].enabled)
-  check('a separator stands between the goals and that heading', goals < 0 || items[head - 1]?.type === 'separator')
+  check('the time bars are under their own “Time gone”, a submenu apart from the goals', head > goals && items[head].enabled)
   const rows = items.slice(head + 1, head + 5)
   const said = rows.map((one) => one.toolTip)
   check('four rows under it: Today, This week, This month, This year', ['Today', 'This week', 'This month', 'This year'].every((name, i) => said[i]?.startsWith(name)), said.join(' / '))

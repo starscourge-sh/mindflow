@@ -20,7 +20,7 @@ const stickies = () => electron.evaluate(({ BrowserWindow }) => BrowserWindow.ge
   .map((w) => ({ id: w.id, url: w.webContents.getURL(), shown: w.isVisible(), ...w.getBounds() })))
 const tray = () => electron.evaluate(() => globalThis.trayMenu ?? [])
 const ticked = async () => (await tray()).find((one) => one.label === 'Show sticky notes')?.checked
-const choose = (label) => electron.evaluate((_, label) => globalThis.trayBuilt.items.find((one) => one.label === label)?.click(), label)
+const choose = (label) => electron.evaluate((_, label) => globalThis.trayBuilt.items.flatMap((one) => [one, ...(one.submenu?.items ?? [])]).find((one) => one.label === label)?.click(), label)
 const setTuck = (how) => v('settings:set', { stickiesTucked: how })
 
 try {
