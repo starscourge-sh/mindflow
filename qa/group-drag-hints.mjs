@@ -120,10 +120,15 @@ const watch = () => h.evaluate(() => {
       const gap = b.top - a.bottom
       const lines = [...document.querySelectorAll('[data-drop-line]')].map((one) => one.getBoundingClientRect())
       // Taller than a row on top of the most air the list has at rest (where groups end), and no line in it.
-      if (out.air !== null && gap > out.air + allow && !lines.some((one) => one.top >= a.bottom - 2 && one.bottom <= b.top + 2)) say(out.hole, `${Math.round(gap)}px between ${a.name} and ${b.name}, over ${Math.round(out.air + allow)}`)
+      // The place the carried row left, as wide as it was at rest (its row and the air either side, which a row
+      // just past a subgroup's end takes with it), closes as the rows slide: that is them making way, not a hole.
+      const left = out.slots?.[lifted?.dataset.sortableId] ?? 0
+      if (out.air !== null && gap > Math.max(out.air + allow, left + 1.5) && !lines.some((one) => one.top >= a.bottom - 2 && one.bottom <= b.top + 2)) say(out.hole, `${Math.round(gap)}px between ${a.name} and ${b.name}, over ${Math.round(out.air + allow)}`)
     }
     // The air between rows at rest, from the first frame, before anything is lifted.
     if (out.air === null) out.air = Math.max(0, ...rows.slice(1).map((one, at) => one.top - rows[at].bottom))
+    // And the room each row's absence would leave: from the row before it to the row after.
+    if (!out.slots) out.slots = Object.fromEntries(rows.slice(1, -1).map((one, at) => [one.n.dataset.sortableId, rows[at + 2].top - rows[at].bottom]))
     // While carrying, the list's hover light is out: left lit, it stayed where a row was before the rows slid.
     const glide = [...document.querySelectorAll('[data-glide]')].find((one) => one.getClientRects().length && Number(getComputedStyle(one).opacity) > 0.05)
     if (glide && document.documentElement.hasAttribute('data-dragging')) say(out.lit, `hover light at ${Math.round(glide.getBoundingClientRect().top)}`)

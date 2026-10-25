@@ -4,7 +4,7 @@ import { SortableContext, useSortable, type SortingStrategy } from '@dnd-kit/sor
 
 /** dnd-kit moves no row itself: where each one slides is worked out once, for rows and panels alike (Shaped). */
 const unmoved: SortingStrategy = () => null
-import { AnimatePresence, animate, motion, useMotionValue, useSpring, useTransform, type MotionValue } from 'motion/react'
+import { AnimatePresence, animate, motion, motionValue, useMotionValue, useSpring, useTransform, type MotionValue } from 'motion/react'
 import { ChevronRight, GripVertical, Layers, X as Cross } from 'lucide-react'
 
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu'
@@ -143,33 +143,66 @@ const Carrying = createContext<Carry>({ aim: null, height: 0, span: 0, along: ne
 const same = (a: Aim | null, b: Aim | null): boolean => JSON.stringify(a) === JSON.stringify(b)
 
 /**
- * An element's slide: on SLIDE, the one clock every row and panel part keeps,
- * so all of them turned back halfway turn back together; or at once, written
- * in the same frame React draws, so nothing shows a frame at its old place.
+ * The one clock every row, group head and panel part slides on. Whenever any
+ * of their places changes, all of them start again together from where they
+ * are now towards where they now go, on one shared progress: each is always
+ * the same blend of two whole layouts, so no two ever cross, a box never comes
+ * apart from its rows, and a row never leaves its box mid-glide. Each sliding
+ * on its own clock, retargeted at its own moment, did all three for a frame or two.
+ */
+type Glider = { y: MotionValue<number>; scale: MotionValue<number>; from: [number, number]; to: [number, number] }
+const gliders = new Set<Glider>()
+const progress = motionValue(1)
+let running: { stop: () => void } | null = null
+let due = false
+progress.on('change', (at) => {
+  for (const one of gliders) {
+    one.y.set(one.from[0] + (one.to[0] - one.from[0]) * at)
+    one.scale.set(one.from[1] + (one.to[1] - one.from[1]) * at)
+  }
+})
+/** Start every glider again from where it is, once for all the places a commit changed. */
+const retarget = (): void => {
+  if (due) return
+  due = true
+  queueMicrotask(() => {
+    due = false
+    running?.stop()
+    for (const one of gliders) one.from = [one.y.get(), one.scale.get()]
+    progress.jump(0)
+    running = animate(progress, 1, SLIDE)
+  })
+}
+
+/**
+ * An element's slide on the one clock above; or at once, written in the same
+ * frame React draws, so nothing shows a frame at its old place.
  */
 function useGlide(y: number, scaleY: number, instant: boolean): { ref: (el: HTMLElement | null) => void; style: { y: MotionValue<number>; scaleY: MotionValue<number> } } {
   const my = useMotionValue(y)
   const ms = useMotionValue(scaleY)
   const el = useRef<HTMLElement | null>(null)
+  const me = useRef<Glider>({ y: my, scale: ms, from: [y, scaleY], to: [y, scaleY] })
   const now = instant || still()
   useLayoutEffect(() => {
-    if (!now) return
-    my.jump(y)
-    ms.jump(scaleY)
-    if (el.current) el.current.style.transform = y || scaleY !== 1 ? `translateY(${y}px) scaleY(${scaleY})` : 'none'
+    const one = me.current
+    gliders.add(one)
+    return () => void gliders.delete(one)
+  }, [])
+  useLayoutEffect(() => {
+    const one = me.current
+    if (one.to[0] === y && one.to[1] === scaleY && !now) return
+    one.to = [y, scaleY]
+    if (now) {
+      // Where it is and where it goes are the same: the shared clock leaves it there.
+      one.from = [y, scaleY]
+      my.jump(y)
+      ms.jump(scaleY)
+      if (el.current) el.current.style.transform = y || scaleY !== 1 ? `translateY(${y}px) scaleY(${scaleY})` : 'none'
+      return
+    }
+    retarget()
   }, [y, scaleY, now]) // eslint-disable-line react-hooks/exhaustive-deps
-  // Each on its own: a new stretch never starts the slide over on a fresh clock, which left a panel's middle behind its
-  // top and bottom parts (the box came apart in pieces mid-glide).
-  useLayoutEffect(() => {
-    if (now) return
-    const run = animate(my, y, SLIDE)
-    return () => run.stop()
-  }, [y, now]) // eslint-disable-line react-hooks/exhaustive-deps
-  useLayoutEffect(() => {
-    if (now) return
-    const run = animate(ms, scaleY, SLIDE)
-    return () => run.stop()
-  }, [scaleY, now]) // eslint-disable-line react-hooks/exhaustive-deps
   return { ref: useCallback((node: HTMLElement | null) => void (el.current = node), []), style: { y: my, scaleY: ms } }
 }
 
@@ -626,7 +659,11 @@ function Shaped({ aim, keys, hand, many, span, inset, row: mid, snap, blocks, ch
     const down = mid + 6
     if (at >= 0) {
       for (const key of keys.slice(at + 1)) if (key !== hand) ys.set(key, down)
-      for (const { id, rows } of blocks) if (rows.length && keys.indexOf(rows[0]) > at && !rows.includes(aim.target)) shapes.set(id, { top: down, bottom: down })
+      // A group after it moves down whole; one it forms inside grows by as much at its foot, so its rows after it stay in its box.
+      for (const { id, rows } of blocks) {
+        if (rows.length && keys.indexOf(rows[0]) > at && !rows.includes(aim.target)) shapes.set(id, { top: down, bottom: down })
+        else if (rows.includes(aim.target) && aim.target !== rows[0]) shapes.set(id, { top: 0, bottom: down })
+      }
     }
   }
   const signature = [...shapes].map(([id, one]) => `${id}:${one.top}:${one.bottom}`).join() + [...ys].map(([id, y]) => `${id}=${Math.round(y)}`).join()
