@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 
-import { haligtree } from '@/lib/haligtree'
-import { DEPTH } from '@/lib/group-layout'
+import { haligtree, useLive } from '@/lib/haligtree'
+import { DEPTH, KEY, isGroup, layoutOf, moveTo } from '@/lib/group-layout'
+import { notes } from '@/lib/notes'
 import { groups, useGroups, type NoteGroup } from '@/lib/groups'
 import { chime } from '@/lib/sound'
 import { num } from '../../../../main/dates'
@@ -45,8 +47,9 @@ export async function offerTag(list: 'article' | 'nugget' | null, id: string, na
  * way Apple Notes and Notion keep theirs: each with its icon, its name, how
  * many notes it holds (its subgroups' too) and its subgroups indented below.
  * A click opens the list on that group alone; a click on the icon changes it.
- * A folder dragged onto another goes inside it (three levels at most), and
- * onto the list's own row back to the top level.
+ * A folder dragged onto another goes inside it (three levels at most);
+ * dropped by another's top or bottom edge, it moves to just before or after
+ * it, in the list's own order, as in Finder's sidebar.
  */
 export function SideFolders({ list, open, shown, here, onOpen, onUnfold }: {
   list: 'article' | 'nugget'
@@ -72,7 +75,23 @@ export function SideFolders({ list, open, shown, here, onOpen, onUnfold }: {
     window.addEventListener('haligtree:folder-new', onNew)
     return () => window.removeEventListener('haligtree:folder-new', onNew)
   }, [list, onUnfold])
-  const kids = (parent: string | null): NoteGroup[] => all.filter((one) => (one.parent && all.some((other) => other.id === one.parent) ? one.parent : null) === parent)
+  // The folders in the list's own order: where each group stands among the notes, and among its parent's.
+  const order = useLive(() => notes.order(list), [] as string[], [list], undefined, `order:${list}`)
+  const ranked = new Set(order)
+  const layout = layoutOf([...order.filter((id) => !isGroup(id)), ...all.flatMap((one) => one.members.filter((id) => !ranked.has(id)))], all)
+  const kids = (parent: string | null): NoteGroup[] => {
+    const at = parent ? layout.groups[parent] ?? [] : layout.top
+    return all.filter((one) => (one.parent && all.some((other) => other.id === one.parent) ? one.parent : null) === parent).sort((a, b) => at.indexOf(KEY + a.id) - at.indexOf(KEY + b.id))
+  }
+  // A folder being carried, and where it would land: inside one, or by one's top or bottom edge.
+  const [carried, setCarried] = useState<{ id: string; x: number; y: number } | null>(null)
+  const [aim, setAim] = useState<Aim | null>(null)
+  useEffect(() => {
+    if (!carried) return
+    const follow = (event: DragEvent): void => setCarried((was) => was && { ...was, x: event.clientX, y: event.clientY })
+    document.addEventListener('dragover', follow)
+    return () => document.removeEventListener('dragover', follow)
+  }, [!!carried]) // eslint-disable-line react-hooks/exhaustive-deps
   const count = (group: NoteGroup): number => group.members.filter((id) => shown.has(id)).length + kids(group.id).reduce((sum, one) => sum + count(one), 0)
   const levelOf = (id: string | null): number => (id ? 1 + levelOf(all.find((one) => one.id === id)?.parent ?? null) : 0)
   const heightOf = (id: string): number => 1 + Math.max(0, ...kids(id).map((one) => heightOf(one.id)))
@@ -87,9 +106,40 @@ export function SideFolders({ list, open, shown, here, onOpen, onUnfold }: {
     chime('gather')
     void groups.nest(id, parent).then(() => toast(parent ? `Moved ${group.name} into ${all.find((one) => one.id === parent)?.name}` : `Moved ${group.name} to the top`, () => void groups.nest(id, was)))
   }
+  // Dropped by a folder's edge: just before or after it, beside it in what holds it.
+  const reorder = (id: string, target: string, how: 'before' | 'after'): void => {
+    const group = all.find((one) => one.id === id)
+    const by = all.find((one) => one.id === target)
+    if (!group || !by || id === target) return
+    const parent = by.parent && all.some((one) => one.id === by.parent) ? by.parent : null
+    if (parent && inside(parent, id)) return refuse('A folder can’t go inside itself')
+    if (levelOf(parent) + heightOf(id) > DEPTH) return refuse(`Folders go ${DEPTH} levels deep`)
+    const beside = (parent ? layout.groups[parent] ?? [] : layout.top).filter((key) => key !== KEY + id)
+    const after = how === 'after' ? KEY + target : beside[beside.indexOf(KEY + target) - 1] ?? null
+    const next = moveTo(layout, KEY + id, { group: parent, after })
+    const was = layout
+    chime('gather')
+    void groups.arrange(list, next).then(() => toast(`Moved ${group.name} ${how} ${by.name}`, () => void groups.arrange(list, was)))
+  }
+  const drag: Drag = {
+    carried: carried?.id ?? null,
+    aim,
+    lift: (id, x, y) => setCarried({ id, x, y }),
+    over: setAim,
+    drop: (target, how) => {
+      const id = carried?.id
+      setAim(null)
+      setCarried(null)
+      if (!id || id === target) return
+      if (how === 'into') nest(id, target)
+      else reorder(id, target, how)
+    },
+    end: () => (setAim(null), setCarried(null))
+  }
+  const lifted = carried && all.find((one) => one.id === carried.id)
   const rows = (parent: string | null, depth: number): React.JSX.Element[] =>
     kids(parent).flatMap((group) => [
-      <Folder key={group.id} list={list} group={group} depth={depth} n={count(group)} here={here === group.id} naming={naming === group.id} onNamed={() => setNaming(null)} onRename={() => setNaming(group.id)} onOpen={onOpen} onNest={nest} />,
+      <Folder key={group.id} list={list} group={group} depth={depth} n={count(group)} here={here === group.id} naming={naming === group.id} onNamed={() => setNaming(null)} onRename={() => setNaming(group.id)} onOpen={onOpen} onNest={nest} drag={drag} />,
       ...rows(group.id, depth + 1)
     ])
   const top = rows(null, 0)
@@ -97,13 +147,26 @@ export function SideFolders({ list, open, shown, here, onOpen, onUnfold }: {
   return (
     <Unfold open={open}>
       <div data-side-folders={list} className="flex flex-col gap-px">{top}</div>
+      {/* The folder carried, as a row is carried in the list: lifted under the pointer, in the app's own look. */}
+      {lifted && carried.x > 0 && createPortal(
+        <div aria-hidden data-folder-ghost={lifted.id} className="pointer-events-none fixed z-[80] flex items-center gap-2 rounded-md bg-background px-2.5 py-1 text-control shadow-[0_8px_24px_-6px_rgb(0_0_0/0.35)] ring-1 ring-foreground/10" style={{ left: carried.x + 10, top: carried.y - 14 }}>
+          <GroupIcon icon={lifted.icon} color={lifted.color} className="size-3.5" />
+          <span className="max-w-48 truncate">{lifted.name}</span>
+        </div>,
+        document.body
+      )}
     </Unfold>
   )
 }
 
+type Aim = { target: string; how: 'into' | 'before' | 'after' }
+type Drag = { carried: string | null; aim: Aim | null; lift: (id: string, x: number, y: number) => void; over: (aim: Aim | null) => void; drop: (target: string, how: Aim['how']) => void; end: () => void }
+/** Handed to the browser as a carried folder's picture: nothing, so only the app's own lifted row shows. */
+const BLANK = typeof Image === 'undefined' ? null : Object.assign(new Image(), { src: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7' })
+
 const HOT = 'bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] text-foreground ring-1 ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]'
 
-function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen, onNest }: {
+function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen, onNest, drag }: {
   list: 'article' | 'nugget'
   group: NoteGroup
   depth: number
@@ -114,9 +177,20 @@ function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen
   onRename: () => void
   onOpen: (id: string) => void
   onNest: (id: string, parent: string | null) => void
+  drag: Drag
 }): React.JSX.Element {
   const [picking, setPicking] = useState(false)
-  const [over, setOver] = useState(false)
+  const aimed = drag.aim?.target === group.id && drag.carried !== group.id ? drag.aim.how : null
+  const over = aimed === 'into'
+  // Its top or bottom third: before or after it; the middle: inside.
+  const aimAt = (event: React.DragEvent<HTMLElement>): void => {
+    if (!event.dataTransfer.types.includes('haligtree/folder')) return
+    event.preventDefault()
+    const box = event.currentTarget.getBoundingClientRect()
+    const at = (event.clientY - box.top) / box.height
+    const how = at < 0.3 ? 'before' : at > 0.7 ? 'after' : 'into'
+    if (drag.aim?.target !== group.id || drag.aim.how !== how) drag.over({ target: group.id, how })
+  }
   const pick = (icon: string | null): void => {
     const was = group.icon
     chime('tap')
@@ -151,12 +225,31 @@ function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen
     <Popover open={picking} onOpenChange={setPicking}>
       <PopoverAnchor asChild>
         <div className="relative flex items-center"
-          // Carried by its row onto another folder, it goes inside that one.
+          // Carried by its row onto another folder, it goes inside that one; by its top or bottom edge, before or after it.
           draggable={!naming}
-          onDragStart={(event) => (event.dataTransfer.setData('haligtree/folder', group.id), (event.dataTransfer.effectAllowed = 'move'))}
-          onDragOver={(event) => event.dataTransfer.types.includes('haligtree/folder') && (event.preventDefault(), setOver(true))}
-          onDragLeave={() => setOver(false)}
-          onDrop={(event) => (setOver(false), onNest(event.dataTransfer.getData('haligtree/folder'), group.id))}>
+          data-carried-folder={drag.carried === group.id ? '' : undefined}
+          onDragStart={(event) => {
+            event.dataTransfer.setData('haligtree/folder', group.id)
+            event.dataTransfer.effectAllowed = 'move'
+            if (BLANK) event.dataTransfer.setDragImage(BLANK, 0, 0)
+            drag.lift(group.id, event.clientX, event.clientY)
+          }}
+          onDragEnd={drag.end}
+          onDragEnter={aimAt}
+          onDragOver={aimAt}
+          // Only once the pointer is off the row: passing between its own parts is no leaving.
+          onDragLeave={(event) => {
+            const box = event.currentTarget.getBoundingClientRect()
+            const off = event.clientY < box.top || event.clientY >= box.bottom || event.clientX < box.left || event.clientX >= box.right
+            if (off && drag.aim?.target === group.id) drag.over(null)
+          }}
+          onDrop={(event) => (event.preventDefault(), drag.carried ? drag.drop(group.id, aimed ?? 'into') : onNest(event.dataTransfer.getData('haligtree/folder'), group.id))}>
+          {(aimed === 'before' || aimed === 'after') && (
+            // Where it lands, as the list draws it: a line with a ring at its start, at the folder's own indent.
+            <span aria-hidden data-drop-line={aimed}
+              className="pointer-events-none absolute right-1 z-10 h-0.5 -translate-y-1/2 rounded-full bg-(--tt-brand-color-400) before:absolute before:-top-[3px] before:-left-2 before:size-2 before:rounded-full before:border-2 before:border-(--tt-brand-color-400) before:bg-background"
+              style={{ left: `calc(${left} + 0.5rem)`, top: aimed === 'before' ? -1 : 'calc(100% + 1px)' }} />
+          )}
           {naming ? (
             <input autoFocus defaultValue={group.name} data-folder-name={group.id} aria-label="Folder name"
               onFocus={(event) => event.currentTarget.select()}
@@ -180,7 +273,7 @@ function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen
                 onClick={() => onOpen(group.id)}
                 // Under the row's own icon, a step in for each level.
                 style={{ paddingLeft: left }}
-                className={`flex w-full min-w-0 items-center gap-2 rounded-md py-1 pr-2 ${here ? 'text-foreground' : 'text-foreground/80'} ${over ? HOT : ''} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)] data-[folder-no]:cursor-not-allowed data-[folder-no]:opacity-50`}
+                className={`flex w-full min-w-0 items-center gap-2 rounded-md py-1 pr-2 ${here ? 'text-foreground' : 'text-foreground/80'} ${over ? HOT : ''} ${drag.carried === group.id ? 'opacity-40' : ''} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)] data-[folder-no]:cursor-not-allowed data-[folder-no]:opacity-50`}
               >
                 {/* Room for the icon, which is its own button over this one. */}
                 <span className="size-4 shrink-0" />
