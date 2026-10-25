@@ -225,7 +225,7 @@ export function Scenery({ place, seed, mood, text = 'none', fade = false, wide =
   }[text]
   const melt = fade ? 'linear-gradient(to bottom, black 0%, black 40%, transparent 96%)' : undefined
   return (
-    <div aria-hidden data-scene={place} className={`pointer-events-none overflow-hidden ${rounded} ${className}`} style={{ maskImage: melt, background: shown || !late ? undefined : `color-mix(in srgb, ${scene.color} 30%, transparent)` }}>
+    <div aria-hidden data-scene={place} data-shown={shown || late ? '' : undefined} className={`pointer-events-none overflow-hidden ${rounded} ${className}`} style={{ maskImage: melt, background: shown || !late ? undefined : `color-mix(in srgb, ${scene.color} 30%, transparent)` }}>
       {/* While the full picture decodes: its small copy, softened, so the page
           starts on the picture rather than on a flat colour. */}
       {!shown && late && scene.small && <img src={scene.small} alt="" className="absolute inset-0 size-full scale-110 object-cover blur-xl" />}

@@ -257,8 +257,10 @@ export function DayBrief({ day, onOpen, onListed, between }: {
                 ? <Scenery place="today" seed={`day:${day}`} mood={['day', 'dusk', 'night', 'interior']} className="absolute inset-0 -z-10" rounded="rounded-2xl" soft />
                 : grain && <GrainFill cover={grain} large shade="none" className="-z-10" />}
               {/* A soft dark pool behind the words, never a band: the
-                  painting still reads at the edges, the title on any of it. */}
-              <div aria-hidden className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_75%_70%_at_50%_55%,rgb(0_0_0/0.44),rgb(0_0_0/0.16)_70%,rgb(0_0_0/0.06))]" />
+                  painting still reads at the edges, the title on any of it.
+                  Only once the painting is up: alone on the bare page it read
+                  as a broken gradient for the moment the picture took. */}
+              <div aria-hidden className="absolute inset-0 -z-10 transition-opacity duration-500 [[data-scene]:not([data-shown])~&]:opacity-0 bg-[radial-gradient(ellipse_75%_70%_at_50%_55%,rgb(0_0_0/0.44),rgb(0_0_0/0.16)_70%,rgb(0_0_0/0.06))]" />
             </>
           )}
           <h2 className={`flex size-full flex-col justify-center px-6 leading-[0.92] ${picture ? 'items-center text-center' : 'items-start'}`}
