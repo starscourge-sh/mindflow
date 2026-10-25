@@ -1163,9 +1163,10 @@ const BACK_BEATS: Beat<BackShot>[] = [
   { at: 3800, to: { over: true }, cue: () => fold() },
   { at: 4700, to: { curve: true } },
   { at: 8000, to: { shown: 3 }, cue: cue('memory') },
-  { at: 8900, to: { signed: true } },
+  // Signed once its line is written on.
+  { at: 9900, to: { signed: true } },
   // The last moment stays up: it is looked at while Next waits.
-  { at: 10100, to: {} }
+  { at: 11100, to: {} }
 ]
 
 /** An answer's words with the ones that carry the point marked *so*: as parts, each said plain or stood out. */

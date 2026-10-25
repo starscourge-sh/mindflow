@@ -139,7 +139,7 @@ export function ComeBack({ shot, quiet, said }: { shot: BackShot; quiet: boolean
                   // The postcard a year on, floating in once, as it does on Home; nothing in its place until it comes. A little smaller on a short window, so the curve under it has room.
                   <motion.div className="w-full max-w-[21rem] [@media(max-height:760px)]:[zoom:0.82]" initial={false}
                     animate={{ opacity: on ? 1 : 0, y: on ? 0 : 12, rotate: on ? -2 : 0 }} transition={quiet ? { duration: 0 } : { type: 'spring', duration: 0.7, bounce: 0.15 }}>
-                    {on && <PostcardResult id="day-postcard" words={QUOTE.text} who={QUOTE.who!} where={QUOTE.where} signed={shot.signed} />}
+                    {on && <PostcardResult id="day-postcard" words={QUOTE.text} who={QUOTE.who!} where={QUOTE.where} signed={shot.signed} write={!quiet && shot !== BACK_END} />}
                   </motion.div>
                 )}
               </motion.div>

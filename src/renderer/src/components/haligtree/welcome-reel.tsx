@@ -360,7 +360,7 @@ export function Caught({ kinds, filled, said, lines }: { kinds: Kind[]; filled: 
 // --- what a quote becomes --------------------------------------------------------
 
 /** A quote, as it comes back a year from today: a postcard, signed, set down a little askew. */
-export function PostcardResult({ words, who, where, signed, id = 'reel-item-quote', themed = false }: { words: string; who: string; where?: string; signed: boolean; id?: string; /** Its white print frame in the page's own colours, to wear the theme with it. */ themed?: boolean }): React.JSX.Element {
+export function PostcardResult({ words, who, where, signed, id = 'reel-item-quote', themed = false, write = false }: { words: string; who: string; where?: string; signed: boolean; id?: string; /** Its white print frame in the page's own colours, to wear the theme with it. */ themed?: boolean; /** The line written onto the card as it lands, a word at a time, as ink takes. */ write?: boolean }): React.JSX.Element {
   return (
     <motion.div layoutId={id} transition={CAM} style={{ borderRadius: 12 }} className="w-full" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
       <Unstretched>
@@ -369,7 +369,18 @@ export function PostcardResult({ words, who, where, signed, id = 'reel-item-quot
         <MemoryPostcard at={dayjs().subtract(1, 'year').toISOString()} seed="welcome-quote" hold={false}
           className={`!shadow-[0_2px_3px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent),0_22px_44px_-16px_color-mix(in_oklab,var(--mf-shadow-ink)_42%,transparent)] ${themed ? '!bg-[color-mix(in_oklab,var(--foreground)_10%,var(--background))]' : 'dark:bg-[color-mix(in_oklab,white_88%,var(--background))]'}`}>
           <p className="text-meta text-(--mf-wl-quiet)">Saved a year ago today</p>
-          <p className="clear-both mt-1 font-heading text-[1.0625rem] leading-snug text-foreground">{words.replace(/^[“"]|[”"]$/g, '')}</p>
+          <p aria-label={words.replace(/^[“"]|[”"]$/g, '')} className="clear-both mt-1 font-heading text-[1.0625rem] leading-snug text-foreground">
+            {/* Written on as it lands: each word comes up out of a soft blur, as ink taking on the card, one after another. */}
+            {words.replace(/^[“"]|[”"]$/g, '').split(' ').map((word, i, all) => (
+              <Fragment key={i}>
+                <motion.span aria-hidden data-written={word} className="inline-block" initial={write ? { opacity: 0, filter: 'blur(3px)', y: 2 } : false}
+                  animate={{ opacity: 1, filter: 'blur(0px)', y: 0 }} transition={{ duration: 0.42, ease: EASE, delay: 0.35 + i * 0.11 }}>
+                  {word}
+                </motion.span>
+                {i < all.length - 1 && ' '}
+              </Fragment>
+            ))}
+          </p>
           {/* Signed whole and never cut short: "said by" and the pen's stroke arrive together, the name
               drawn left to right (its clip reaches past the letters, so no swash shows early), and
               where it is from wraps under it when the line is full ("in The Empire Strikes Back", which reads on either line where a dot would be left starting one). */}
