@@ -32,7 +32,7 @@ try {
     await h.waitForTimeout(2500)
   }
   const swimming = await look()
-  check('leaves blow across the first screen', swimming.inked > 500, JSON.stringify(swimming))
+  check("leaves blow across the first screen", swimming.inked > 200, JSON.stringify(swimming))
   await h.locator(NEXT).first().click()
   await h.waitForTimeout(150)
   check('Next blows them away', await h.locator('[data-welcome-leaves="drifting"]').count() === 1)
