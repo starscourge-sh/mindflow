@@ -97,6 +97,8 @@ export const itemEntry = (item: Item, menu?: RowItem[] | (() => RowItem[])): Ent
   let made: RowItem[] | undefined
   return Object.defineProperty({ ...kept.entry }, 'menu', { get: () => (made ??= menu()), enumerable: true })
 }
+/** What an empty folder's card is drawn from in a grid: a folder emptied stays, with no note of its own to show. */
+const EMPTY = (tier: string): Item => ({ tier, kind: 'note', title: '', createdAt: new Date().toISOString() }) as Item
 const rowOf = (item: Item): Entry => {
   // A gem with no source is a note of yours: drawn as one, until it says who or where from.
   const unsourced = item.tier === 'nugget' && !item.attribution?.trim() && !item.medium?.trim()
@@ -269,7 +271,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   const folders = new Map(tiles?.flatMap((one) => ('group' in one ? [[KEY + one.group.id, one] as const] : [])))
   const items = folding.rows
     ?? (folder ? flat.filter((one) => folder.members.includes(one.id))
-      : tiles ? tiles.map((one) => ('group' in one ? ({ ...one.items[0], id: KEY + one.group.id, title: one.group.name } as Item) : one.item))
+      : tiles ? tiles.map((one) => ('group' in one ? ({ ...(one.items[0] ?? EMPTY(tier)), id: KEY + one.group.id, title: one.group.name } as Item) : one.item))
       : flat)
   const onMove = (id: string, target: string, after: boolean): void => move(all.map((one) => one.id), id, target, after)
   // Spread out, a click looks at a note beside the list; Enter opens it.
@@ -518,7 +520,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
         const card = folders.get(one.id)
         if (!card) return entryOf(one)
         // A folder: the group's own colour and icon, and its first notes small inside it.
-        return { ...itemEntry(card.items[0]), id: one.id, title: card.group.name, tags: [], menu: undefined, sub: `${num(card.items.length)} ${card.items.length === 1 ? 'note' : 'notes'}`, marks: undefined, private: false, wrap: false,
+        return { ...itemEntry(card.items[0] ?? one), id: one.id, title: card.group.name, tags: [], menu: undefined, sub: `${num(card.items.length)} ${card.items.length === 1 ? 'note' : 'notes'}`, marks: undefined, private: false, wrap: false,
           folder: { icon: card.group.icon, color: card.group.color, count: card.items.length, members: card.items.slice(0, 4).map((item) => itemEntry(item)) } }
       })]]
     : groups.map(([name, list]) => [name, list.map(entryOf)] as [string, Entry[]])

@@ -466,11 +466,14 @@ if (c) try {
   check('in another sort, groups still show as groups, at the top, with no chips', heads === 2 && firstRows[0] === 'group' && (await c.h.locator('[data-chip]').count()) === 0, firstRows.slice(0, 4).join(','))
   await c.h.mouse.move(900, 700)
   await frames(c, 'o-newest-dark', 1, 0)
-  // A loose row carried to an edge between loose rows: nothing to do there, no line, and the sort stays.
   const loose = await c.h.evaluate(() => [...document.querySelectorAll('[data-row]:not([data-lifted] *)')].filter((one) => !one.closest('[data-group-block]')).map((one) => one.textContent.slice(0, 16)))
+  // A loose row carried to an edge between loose rows: it offers to move there in your own order, and Esc leaves the sort alone.
   await carry(c, row(c, loose[loose.length - 1]), row(c, loose[0]), 0.1, {
-    hold: async () => (await c.h.waitForTimeout(200), check('sorted, an edge between loose rows offers nothing', (await c.h.locator('[data-drop-line]').count()) === 0 && !(await said(c))))
+    up: false,
+    hold: async () => (await c.h.waitForTimeout(200), await frames(c, 'o-edge-sorted', 1, 0), check('sorted, an edge between loose rows offers to switch to Custom order', (await c.h.locator('[data-drop-line]').count()) === 1 && (await said(c)) === 'Move here · Custom order', `${await c.h.locator('[data-drop-line]').count()} lines, says "${await said(c)}"`))
   })
+  await c.h.keyboard.press('Escape')
+  await c.h.mouse.up()
   await c.h.waitForTimeout(600)
   check('and the sort is still Newest', (await c.h.evaluate(() => JSON.parse(localStorage.getItem('view:article')).sort)) === 'newest')
   // Into a group by its middle still works, sorted or not.
