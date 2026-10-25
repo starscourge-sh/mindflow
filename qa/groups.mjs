@@ -515,9 +515,10 @@ if (c) try {
   await frames(c, 's-folders-small-light', 1, 0)
   await tilesView({})
   await frames(c, 't-folders-light', 1, 0)
-  // Grouped by kind, the list is flat and says where the groups are.
-  await tilesView({ density: 'list', group: 'kind' })
-  check('grouped by kind, a quiet note says the groups show in the list view', (await c.h.locator('[data-groups-note]').count()) === 1)
+  // Grouped by date, the list is cut into sections and says where the groups are. (Not by kind: Writing's pages are all
+  // one kind, and one kind is drawn as no grouping at all, display.tsx, with the groups in the list as ever.)
+  await tilesView({ density: 'list', group: 'date' })
+  check('grouped by date, a quiet note says the groups show in the list view', (await c.h.locator('[data-groups-note]').count()) === 1)
   if (c.errors.length) console.log('errors:', c.errors.slice(0, 5))
   check('no errors in the page', !c.errors.some((one) => /PAGEERROR/.test(one)), c.errors.find((one) => /PAGEERROR/.test(one)) ?? '')
 } catch (error) {

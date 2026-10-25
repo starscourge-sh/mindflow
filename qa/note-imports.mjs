@@ -92,7 +92,7 @@ try {
   await h.waitForTimeout(500)
   const done = await h.textContent('[data-import-done]')
   check('the report counts 49 in and the locked one left', done.includes('49 notes are in') && /1 locked note was left in Notes/.test(done), done.slice(0, 300))
-  check('the report says where they went', /in Writing, in 3 groups named “Apple Notes \/ …”, marked not yet sorted/.test(done))
+  check('the report says where they went', /in Writing, in 3 groups, one for each folder, marked not yet sorted/.test(done), done.slice(0, 400))
   check('the report offers Writing', !!(await h.$('[data-open-writing]')))
   await h.screenshot({ path: join(shots, 'apple-done.png') })
 
