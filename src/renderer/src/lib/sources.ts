@@ -1,7 +1,7 @@
 import { call } from './haligtree'
-import type { RenameResult, SourceFacts, SourceField, SourceGraph, SourceNear, SourcePage, SourceSummary } from '../../../main/sources'
+import type { Margin, RenameResult, SourceFacts, SourceField, SourceGraph, SourceNear, SourcePage, SourceSummary } from '../../../main/sources'
 
-export type { SourceFacts, SourceNear, SourceField, SourceGraph, SourceItem, SourcePage, SourceSummary } from '../../../main/sources'
+export type { Margin, SourceFacts, SourceNear, SourceField, SourceGraph, SourceItem, SourcePage, SourceSummary } from '../../../main/sources'
 export { VOICE_SAID, pageRef, voiceOf, type Voice } from '../../../main/voice'
 
 export const sources = {
@@ -19,6 +19,8 @@ export const sources = {
   rename: (field: SourceField, from: string, to: string, merge = false) => call<RenameResult>('source:rename', field, from, to, merge),
   unrename: (token: string) => call<boolean>('source:rename:undo', token),
   near: (name: string) => call<SourceNear[]>('source:near', name),
+  /** Beside a page being written: the people it names and word gems sharing its tags. */
+  margin: (id: string, names: string[]) => call<Margin>('margin', id, names),
   graph: () => call<SourceGraph>('sources:graph'),
   missing: () => call<{ type: string; id: string; kind: string; label: string; at: string }[]>('sources:missing')
 }

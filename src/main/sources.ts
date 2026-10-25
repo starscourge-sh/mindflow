@@ -26,6 +26,11 @@ export type SourceSummary = { field: SourceField; name: string; count: number; q
 /** The one plain line under a person's name: what they did, and when they lived. Each may be empty. */
 export type SourceFacts = { what: string; born: string; died: string }
 export type SourcePage = { field: SourceField; name: string; thoughts: string; items: SourceItem[] } & SourceFacts
+/** Beside a page being written: the people it names (their own words, newest first) and word gems sharing its tags. */
+export type Margin = {
+  people: (SourceFacts & { name: string; thoughts: string; quotes: { type: string; id: string; kind: string; label: string; medium: string | null }[] })[]
+  words: { id: string; label: string }[]
+}
 /** Others in the book who share a tag or a source with this one, closest first. */
 export type SourceNear = { name: string; shared: number }
 export type SourceGraph = { nodes: { type: string; id: string; title: string; private?: boolean; kind: string; links: number }[]; edges: [string, string, number?][]; alone: number }
@@ -130,6 +135,33 @@ export function registerSources(): void {
       .run(field, personKey(name), name.trim(), was?.thoughts ?? '', next.what, next.born, next.died, new Date().toISOString())
     changed()
     return true
+  })
+
+  // The margin of a page being written: each person it names with their page's
+  // line and bio and their own words, and word gems sharing a tag with it.
+  // Never a private note or a #bit, and never the page itself.
+  ipcMain.handle('haligtree:margin', (_event, id: unknown, names: unknown): Margin => {
+    if (typeof id !== 'string' || !Array.isArray(names)) return { people: [], words: [] }
+    const shown = (one: { private: number; label: string; id: string }): boolean => !one.private && one.id !== id && !/(^|\s)#bit\b/i.test(one.label)
+    const items = everything()
+    const all = pages()
+    const seen = new Set<string>()
+    const people: Margin['people'] = []
+    for (const name of names.filter((one): one is string => typeof one === 'string').slice(0, 12)) {
+      const key = personKey(name)
+      if (!key || seen.has(key)) continue
+      seen.add(key)
+      const mine = items.filter((one) => personKey(one.attribution ?? '') === key)
+      const theirs = mine.filter((one) => one.voice === 'theirs' && shown(one)).sort((a, b) => b.at.localeCompare(a.at))
+      const page = all.find((one) => one.field === 'attribution' && one.key === key)
+      people.push({ name: mine.length ? spelt(mine.map((one) => one.attribution!)) : page?.name ?? name.trim(), what: page?.what ?? '', born: page?.born ?? '', died: page?.died ?? '', thoughts: page?.thoughts ?? '',
+        quotes: theirs.map(({ type, id, kind, label, medium }) => ({ type, id, kind, label, medium })) })
+    }
+    const words = db.prepare(`select n.id, coalesce(nullif(n.title, ''), label('', n.body)) as label from nuggets n
+      where n.tier = 'nugget' and n.kind = 'word' and n.binned_at is null and n.archived_at is null and not n.private and n.id != :id
+        and exists (select 1 from json_each(note_tags(n.title, n.body)) theirs join nuggets page on page.id = :id join json_each(note_tags(page.title, page.body)) ours on ours.value = theirs.value)
+      order by n.created_at desc limit 12`).all({ id }) as { id: string; label: string }[]
+    return { people, words: words.filter((one) => shown({ ...one, private: 0 })).slice(0, 4) }
   })
 
   // Who else shares a tag or a source with this person: a source (medium) shared, or a #tag in both's words.

@@ -40,6 +40,7 @@ import { stickOnDesktop } from './sticky-note'
 import { Lineage } from './lineage'
 import { ReviewHistory } from './review-view'
 import { Mentions } from './mentions'
+import { Marginalia, namesIn } from './marginalia'
 import { datesIn } from '../../../../main/task-words'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
@@ -705,6 +706,18 @@ function NuggetDetail({ item, onOpen, top, back }: { item: ItemFull; onOpen?: (t
   useEffect(() => setWhere(item.medium ?? ''), [item.id, item.medium])
   const glossWords = item.glosses.filter((one) => one.author === 'user').reduce((sum, one) => sum + one.body.split(/\s+/).filter(Boolean).length, 0)
   const editor = useRef<Editor | null>(null)
+  // A page's margin: who it names, read again a moment after the typing stops, and only when that changed.
+  const [named, setNamed] = useState<string[]>([])
+  const naming = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  useEffect(() => () => clearTimeout(naming.current), [])
+  const readNames = (instance: Editor, wait = 600): void => {
+    if (item.tier !== 'article') return
+    clearTimeout(naming.current)
+    naming.current = setTimeout(() => setNamed((was) => {
+      const next = namesIn(instance.state.doc, item.attribution)
+      return next.join('\n') === was.join('\n') ? was : next
+    }), wait)
+  }
   // The words as opened or last saved, to tell a real edit from the editor settling.
   const seen = useRef<{ body: string; line: string } | null>(null)
   // An earlier version, shown in place of the editor while you look back; and
@@ -811,11 +824,14 @@ function NuggetDetail({ item, onOpen, top, back }: { item: ItemFull; onOpen?: (t
             {later && <Mentions id={item.id} onOpen={onOpen} />}
           </ReadsIn>}
           onReady={(instance) => {
+            editor.current = instance
+            readNames(instance, 0)
             seen.current = { body: JSON.stringify(instance.getJSON()), line: firstLineOf(instance.state.doc)?.text ?? '' }
             words.ready(instance)
           }}
           onChange={(body, instance) => {
             editor.current = instance
+            readNames(instance)
             // The editor can tidy a document as it opens (a list first, say);
             // that is not an edit, and saving it once wiped a nugget's title.
             const now = { body: JSON.stringify(body), line: firstLineOf(instance.state.doc)?.text ?? '' }
@@ -835,6 +851,7 @@ function NuggetDetail({ item, onOpen, top, back }: { item: ItemFull; onOpen?: (t
       </div>
 
       <Props fold>
+        {item.tier === 'article' && <Marginalia id={item.id} names={named} editor={() => editor.current} />}
         {item.tier === 'nugget' && (
           <>
             <Island compact title="Kind">

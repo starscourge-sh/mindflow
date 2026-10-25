@@ -568,7 +568,13 @@ export function Home(): React.JSX.Element {
   }, [split]) // eslint-disable-line react-hooks/exhaustive-deps
   // A person's or a source's page, asked for from a note's who or where anywhere in the window.
   useEffect(() => {
-    const onSource = (event: Event): void => setView({ id: 'source', focus: (event as CustomEvent<string>).detail })
+    // ⌥-clicked, beside the page it was asked from.
+    const onSource = (event: Event): void => {
+      const step = { id: 'source', focus: (event as CustomEvent<string>).detail }
+      if (!asideClick()) return setView(step)
+      spendAsideClick()
+      aside(step)
+    }
     window.addEventListener('haligtree:source', onSource)
     return () => window.removeEventListener('haligtree:source', onSource)
   })
