@@ -19,7 +19,7 @@ export type TaskSource =
   | { capture: string; /** Words in its first line kept as plain text, not read as a date or a priority. */ plain?: { from: number; to: number; text: string }[]
       /** One task however many lines it has; otherwise a list makes a task a line. */ whole?: boolean }
   | { captures: string[]; text: string }
-  | { item: string; text: string }
+  | { item: string; text: string; /** Where the note's own name sits in the words, read as words and never as a date. */ plain?: { from: number; to: number } }
 
 /**
  * The one way anything is made a task: the same sound, the same words when
@@ -35,7 +35,7 @@ export async function makeTask(
   const [got, links] =
     'capture' in from ? [await flying(from.capture, 'task', () => haligtree.toTask(from.capture, from.plain, from.whole)), [from.capture]]
     : 'captures' in from ? [await haligtree.taskFrom(from.captures, from.text), from.captures]
-    : 'item' in from ? [await haligtree.study(from.item, from.text), [from.item]]
+    : 'item' in from ? [await haligtree.study(from.item, from.text, from.plain), [from.item]]
     : [await haligtree.addTask(from.text, from.origin, from.today), from.origin ? [from.origin] : []]
   // A capture that already took an exit (promoted, resolved, let go) keeps it.
   if (got === 'not-open' || (!got && 'captures' in from)) {

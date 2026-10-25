@@ -3,7 +3,7 @@
 process.env.TZ = 'Europe/London'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-const { daysLeft, daysBetween, wayThrough, journey, leftSaid, percent, tempus } = await import('../src/main/goal-days.ts')
+const { daysLeft, daysBetween, wayThrough, journey, leftSaid, percent, tempus, weekGoalLines } = await import('../src/main/goal-days.ts')
 
 test('days left counts calendar days, 0 on the day', () => {
   assert.equal(daysLeft('2026-12-14', '2026-10-07'), 68)
@@ -76,4 +76,17 @@ test('tempus reads the clock', () => {
   assert.equal(at.week, 2.5 / 7)
   assert.ok(at.month > 0.209 && at.month < 0.21)
   assert.ok(at.year > 0.76 && at.year < 0.77)
+})
+
+test("a week's page says a goal's halfway and its finish, only in that week and never ahead", () => {
+  const road = { title: 'Read twelve classics', goalFrom: '2026-10-01', goalAt: '2026-11-10', closedAt: null, closedHow: null }
+  // Forty days: halfway on 21 Oct, the Wednesday of the week from 19 Oct.
+  assert.deepEqual(weekGoalLines([road], '2026-10-19', '2026-10-25'), ['Halfway on “Read twelve classics”'])
+  assert.deepEqual(weekGoalLines([road], '2026-10-12', '2026-10-25'), [])
+  assert.deepEqual(weekGoalLines([road], '2026-10-19', '2026-10-20'), [])
+  // Too short a road for a halfway; a private goal never said; let go is no finish.
+  assert.deepEqual(weekGoalLines([{ ...road, goalFrom: '2026-10-15', goalAt: '2026-10-25' }], '2026-10-19', '2026-10-25'), [])
+  assert.deepEqual(weekGoalLines([{ ...road, private: 1 }], '2026-10-19', '2026-10-25'), [])
+  const made = { title: 'Finish Dune', goalFrom: '2026-10-20', goalAt: '2026-10-30', closedAt: '2026-10-23T18:00:00.000Z', closedHow: 'made it' }
+  assert.deepEqual(weekGoalLines([made, { ...made, closedHow: 'let go' }], '2026-10-19', '2026-10-25'), ['Finished “Finish Dune”'])
 })

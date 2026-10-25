@@ -23,6 +23,8 @@ import { dayjs, noon, num } from '../../../../main/dates'
 import { useHere } from '@/lib/split'
 import { DayGrid, YearMarks } from './milestones'
 import { ArrowLeft, ArrowRight, BookOpen as BookOpenText } from '@/components/ui/icons'
+import { Flag } from 'lucide-react'
+import { weekGoalLines } from '../../../../main/goal-days'
 import { PlannedVsDid } from './planned-did'
 import { WeekTasks } from './week-tasks'
 
@@ -238,6 +240,7 @@ export function WeekPage({ start, onOpen, onScale, onRecent, recentOpen, onDay }
   const monthPage = usePeriod(`month:${inMonth}`)
   const goalsRead = useLive(() => haligtree.items('goal'), [] as Item[], [], ['item'])
   const goals = openOnes(goalsRead).filter((goal) => goal.goalAt!.slice(0, 7) === inMonth)
+  const milestones = weekGoalLines(goalsRead.filter((goal) => !goal.archivedAt), monday)
   return (
     <Page
       // Drawn once its pages (this week's, last week's, the month's) and the goals are in, with its banner: never in pieces.
@@ -311,6 +314,12 @@ export function WeekPage({ start, onOpen, onScale, onRecent, recentOpen, onDay }
             </Island>
             {/* The weekly review: wins, what was learned, and what you mean to do next. */}
             <h2 className="mt-8 mb-1 text-body font-semibold text-foreground">The week's review</h2>
+            {/* A goal that passed halfway or was made this week: said first, the review's starting point. */}
+            {milestones.length > 0 && (
+              <ul data-week-goal-lines className="mb-2 flex flex-col gap-0.5">
+                {milestones.map((line) => <li key={line} className="flex items-center gap-2 text-body text-foreground"><Flag className="size-4 shrink-0 text-muted-foreground" />{line}</li>)}
+              </ul>
+            )}
             <div data-week-review><Island>
               <Field label="Wins" long value={fields.wins ?? ''} placeholder="What went well, big or small" onSave={(text) => saveField(key, 'wins', text)} />
               <Field label="What failed" long value={fields.failed ?? ''} placeholder="What did not work, said plainly" onSave={(text) => saveField(key, 'failed', text)} />

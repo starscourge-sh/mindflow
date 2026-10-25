@@ -6,6 +6,7 @@ import { LABEL, changed, database } from './captures'
 import { cut } from './clip'
 import { cardForQuiz, cardWords, dueCards, gate, plain } from './haligtree'
 import { tagsIn } from './tag-words'
+import { linkedAmong } from './notes'
 import { LEARN_TAG } from './name'
 import { dayKey, dayjs } from './dates'
 
@@ -48,7 +49,11 @@ export type FeedPost = {
   quiz?: { prompt: string; answer: string; intervals: Record<number, string>; graded: { grade: number; due: string } | null }
   /** Brought in by an importer: shown "From the archives". */
   archive?: boolean
+  /** Kept this many months ago and never linked: shown "From the archives", one a Feed at most. */
+  unlinked?: number
 }
+/** How old a note linked to nothing must be, in months, to come up as one never linked. */
+const UNLINKED_AFTER = 3
 export type PollAnswer = 'yes' | 'mixed' | 'no'
 /** How long after it was decided a decision is first asked about, and how long before it is asked again. */
 const POLL_AFTER = 21
@@ -314,6 +319,22 @@ export function registerFeed(): void {
     }
   })
 
+  /**
+   * One note from these kept three months or more and linked to nothing, by
+   * the Map's own reading of links (every note not private, either way), the
+   * longest unseen first. Gems, notes and pages only; none when none is left.
+   */
+  const unlinkedOne = (rows: Row[], lastSeen: (row: Row) => string | null): Row | undefined => {
+    const old = dayjs().subtract(UNLINKED_AFTER, 'month').toISOString()
+    const candidates = rows.filter((row) => (row.type === 'nugget' || row.type === 'capture' || row.type === 'article') && row.made <= old)
+    if (!candidates.length) return undefined
+    const linked = linkedAmong([
+      ...db.prepare("select id, body from captures where status != 'discarded' and private = 0").all(),
+      ...db.prepare("select id, body from nuggets where private = 0 and tier != 'card'").all()
+    ] as { id: string; body: string | null }[])
+    return candidates.filter((row) => !linked.has(row.id)).sort((a, b) => (lastSeen(a) ?? '').localeCompare(lastSeen(b) ?? '') || a.made.localeCompare(b.made))[0]
+  }
+
   ipcMain.handle('haligtree:feed', (): Feed => {
     const today = dayKey()
     if (gate().blackout) return { day: today, posts: [], safe: true }
@@ -402,22 +423,27 @@ export function registerFeed(): void {
     }
     // One note at most once, for a day kept before that rule (above): the first showing of it stays.
     const shown = new Set<string>()
+    const postOf = (row: Row, key: string): FeedPost => {
+      const gloss = (glossOf.get(row.id) as { body: string; at: string } | undefined) ?? null
+      const span = glossSpan.get(row.id) as { n: number; first: string | null }
+      return {
+        type: row.type, id: row.id, kind: row.kind, title: row.title, text: words(row), who: row.who?.trim() || null, made: row.made,
+        seen: lastSeen(row), gloss: row.type === 'question' ? null : gloss, clue: row.type === 'question' ? (gloss?.body ?? null) : null,
+        react: reacts.get(key) ?? null, replies: span.n, firstReply: span.first, seenTimes: times.get(row.id) ?? 0, faded: fadedSteps(weightOf(row)), liked: likedSteps(row.type === 'day' ? row.weight : weightOf(row)), tags: tagsOfRow(row).filter((tag) => tag !== 'bit' && tag !== LEARN_TAG).slice(0, 3), restack: quoted(row),
+        archive: !!row.archive
+      }
+    }
     const posts = (JSON.parse(keys) as string[]).filter((key) => {
       const id = key.slice(key.lastIndexOf(':') + 1)
       return !shown.has(id) && !!shown.add(id)
     }).flatMap((key): FeedPost[] => {
       if (key.startsWith('poll:') || key.startsWith('quiz:')) return asked(key)
       const row = byKey.get(key)
-      if (!row) return []
-      const gloss = (glossOf.get(row.id) as { body: string; at: string } | undefined) ?? null
-      const span = glossSpan.get(row.id) as { n: number; first: string | null }
-      return [{
-        type: row.type, id: row.id, kind: row.kind, title: row.title, text: words(row), who: row.who?.trim() || null, made: row.made,
-        seen: lastSeen(row), gloss: row.type === 'question' ? null : gloss, clue: row.type === 'question' ? (gloss?.body ?? null) : null,
-        react: reacts.get(key) ?? null, replies: span.n, firstReply: span.first, seenTimes: times.get(row.id) ?? 0, faded: fadedSteps(weightOf(row)), liked: likedSteps(row.type === 'day' ? row.weight : weightOf(row)), tags: tagsOfRow(row).filter((tag) => tag !== 'bit' && tag !== LEARN_TAG).slice(0, 3), restack: quoted(row),
-        archive: !!row.archive
-      }]
+      return row ? [postOf(row, key)] : []
     })
+    // Now and then, one note kept three months or more and never linked, set among the rest: opening it is the way to link it.
+    const lone = unlinkedOne([...byKey.values()].filter((row) => !shown.has(row.id)), lastSeen)
+    if (lone) posts.splice(Math.min(posts.length, 6), 0, { ...postOf(lone, `${lone.type}:${lone.id}`), unlinked: Math.max(3, dayjs().diff(dayjs(lone.made), 'month')) })
     return { day: today, posts, safe: false }
   })
 

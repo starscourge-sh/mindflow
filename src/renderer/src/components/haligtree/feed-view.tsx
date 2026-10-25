@@ -64,6 +64,8 @@ const written = (at: string, years = false): string => {
 /** The line over a post, when there is one: one you restacked, or one from long ago. */
 const contextOf = (post: FeedPost): string | null => {
   if (post.restack) return 'You restacked'
+  // Kept long ago and linked to nothing: opened, an @ in it links it.
+  if (post.unlinked) return `From the archives: you kept this ${num(post.unlinked)} months ago and never linked it.`
   // Brought in by an importer: from your archives, whatever its date says.
   if (post.archive) return 'From the archives'
   // A thought added lately is hearing from it: only what has been quiet a year is from the archives.
@@ -497,7 +499,8 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
     // Carried to the window's side, it opens beside the Feed (split-drop.tsx).
     <li ref={self} data-drag-open={preview ? undefined : `${post.type}:${post.id}`} data-drag-title={title} data-look-group data-feed-post={post.type} data-feed-id={post.id} data-feed-archive={post.archive || undefined} data-feed-kind={post.kind} data-feed-react={chosen ?? undefined}
       className={cn('flex flex-col gap-1 py-4 transition-opacity duration-300 first:pt-0', !alone && 'border-b last:border-b-0', alone && joined && 'pb-3', chosen === 'less' && 'opacity-45 hover:opacity-80 has-[:focus-visible]:opacity-100')}>
-      {context && <p data-feed-context className="flex items-center gap-1.5 pl-12 text-control text-muted-foreground">{post.restack && <Repeat2 className="size-3.5" />}{context}</p>}
+      {context && <p data-feed-context className="flex items-center gap-1.5 pl-12 text-control text-muted-foreground">{post.restack && <Repeat2 className="size-3.5" />}{context}
+        {post.unlinked && !preview && <button type="button" data-feed-unlinked onClick={onOpen} className="rounded-sm font-medium text-primary underline-offset-2 hover:underline">Open it</button>}</p>}
       <div className="flex gap-3">
         <div className="flex w-9 shrink-0 flex-col items-center">
           {quote && post.who ? (
@@ -582,6 +585,10 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
             </button>
             {replies && (
               <button type="button" data-feed-replies onClick={onThread} className="rounded-sm text-control text-muted-foreground hover:text-foreground hover:underline">{replies}</button>
+            )}
+            {/* A quote you last answered over a year ago, back again: asked once more, the new reply joining the same thread. */}
+            {quote && hang.author !== 'ai' && dayjs().diff(dayjs(hang.createdAt), 'day') >= 365 && (
+              <button type="button" data-feed-read-now onClick={() => (chime('tap'), openGloss(post.id))} className="rounded-sm text-control font-medium text-primary underline-offset-2 hover:underline">How does this read to you now?</button>
             )}
           </div>
         </div>

@@ -30,6 +30,7 @@ import { eventFromBin, eventToBin, eventsInBin, forgetEvents } from './events'
 import { forgetPractices, practiceFromBin, practiceToBin, practicesInBin } from './practices'
 import type { Nudge } from './nudge'
 import { isTagWord, nameWithoutTags, tagWritten, tagsIn, withoutTags } from './tag-words'
+import { mentionsIn } from './notes'
 import { cut, fittedTitle, quoted } from './clip'
 import { withAlways } from './site-hosts'
 import { dueAt } from './session-log'
@@ -2437,6 +2438,34 @@ export function registerHaligtree(): void {
     return { cap: tuned ? Math.floor(newPerDay / 2) : newPerDay, tuned, behind }
   }
   handle('review:tuning', newCap)
+  /**
+   * Whether a card is about a goal under way (begun, not yet closed): it
+   * shares a tag with the goal's name or its logs, links to the goal, or is
+   * linked from its logs. Null when no goal is under way, or none has any.
+   */
+  const goalLift = (): ((row: Record<string, unknown>) => boolean) | null => {
+    const goals = db.prepare("select id, title from nuggets where tier = 'goal' and closed_at is null and archived_at is null and goal_from <= ?").all(dayKey()) as { id: string; title: string }[]
+    if (!goals.length) return null
+    const logs = db.prepare('select body from glosses where item_id = ?')
+    const tags = new Set<string>()
+    const linked = new Set<string>()
+    for (const goal of goals) {
+      const said = (logs.all(goal.id) as { body: string }[]).map((one) => one.body)
+      for (const tag of tagsIn([goal.title, ...said].join(' '))) tags.add(tag)
+      for (const body of said) for (const link of mentionsIn(JSON.stringify(body)).keys()) linked.add(link.includes(':') ? link.split(':')[1] : link)
+    }
+    const ids = new Set(goals.map((goal) => goal.id))
+    if (!tags.size && !linked.size && !db.prepare("select 1 from nuggets where tier != 'goal' and body like '%goal:%' limit 1").get()) return null
+    return (row) => {
+      if (linked.has(String(row.id))) return true
+      const body = typeof row.body === 'string' ? row.body : null
+      if ([...mentionsIn(body).keys()].some((link) => link.startsWith('goal:') && ids.has(link.slice(5)))) return true
+      if (!tags.size) return false
+      let words = body ?? ''
+      try { words = plain(JSON.parse(words)) } catch { /* Markdown, as it is */ }
+      return tagsIn(`${row.title ?? ''} ${words}`).some((tag) => tags.has(tag))
+    }
+  }
   reviewQueue = () => {
     const { reviewsPerDay } = settings()
     const newPerDay = newCap().cap
@@ -2490,7 +2519,12 @@ export function registerHaligtree(): void {
       return mine.slice(0, Math.max(0, Math.ceil((mine.length + met) / days) - met))
     })
     const fresh = unseen.filter((one) => !one.exam).slice(0, Math.max(0, newPerDay - (done.fresh ?? 0)))
-    return [...examDue, ...examFresh, ...otherDue, ...fresh].map(({ row, exam }) => ({
+    // What a goal you are working toward is about comes first: the same cards, only their order.
+    const queue = [...examDue, ...examFresh, ...otherDue, ...fresh]
+    const lift = goalLift()
+    const up = lift ? new Set(queue.filter((one) => lift(one.row))) : null
+    const lifted = up ? [...queue.filter((one) => up.has(one)), ...queue.filter((one) => !up.has(one))] : queue
+    return lifted.map(({ row, exam }) => ({
       ...body(row), state: undefined, exam: exam?.tag ?? null, intervals: preview(row.state as string | null, (when) => capped(when, exam))
     }))
   }

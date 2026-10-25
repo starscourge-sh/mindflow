@@ -63,6 +63,33 @@ type Box = { x: number; y: number; width: number; height: number }
 /** Where a note was being read and written: the selection, and the place in the words at the top of the view. */
 type Carry = { from: number; to: number; top: number | null }
 
+// The links written in a note's words, as the editor keeps them or an import left them.
+// Each note linked to, with how many times the words link to it.
+export const mentionsIn = (body: string | null | undefined): Map<string, number> => {
+  const out = new Map<string, number>()
+  const add = (id: string): void => void out.set(id, (out.get(id) ?? 0) + 1)
+  const walk = (node: Doc | string | null): void => {
+    if (!node) return
+    if (typeof node === 'string') return void [...node.matchAll(/\[\[@([^|#\]]+)/g)].forEach((match) => add(match[1]))
+    if (node.type === 'noteLink' && node.attrs?.id) add(String(node.attrs.id))
+    node.content?.forEach(walk)
+  }
+  walk(parse(body) as Doc | string | null)
+  return out
+}
+/** The notes among these with a link either way to another of them: the Map's linked notes; the rest are its "not linked to anything yet". */
+export const linkedAmong = (rows: { id: string; body: string | null }[]): Set<string> => {
+  const known = new Set(rows.map((row) => row.id))
+  const out = new Set<string>()
+  for (const row of rows)
+    for (const link of mentionsIn(row.body).keys()) {
+      // A link names its note as `id` or `tier:id`.
+      const to = link.includes(':') ? link.split(':')[1] : link
+      if (to !== row.id && known.has(to)) (out.add(row.id), out.add(to))
+    }
+  return out
+}
+
 export function registerNotes({ load, guard, home, homeWindow }: Windows): void {
   const db = database()
   const column = (name: string, definition: string): void => {
@@ -369,20 +396,6 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
     return (kind === 'capture'
       ? db.prepare(`select 'capture' as type, id, ${LABEL} as title, private from captures where id = ?`).get(id)
       : db.prepare("select tier as type, id, coalesce(nullif(title, ''), label('', body)) as title, private from nuggets where id = ?").get(id)) as Node | undefined
-  }
-  // The links written in a note's words, as the editor keeps them or an import left them.
-  // Each note linked to, with how many times the words link to it.
-  const mentionsIn = (body: string | null | undefined): Map<string, number> => {
-    const out = new Map<string, number>()
-    const add = (id: string): void => void out.set(id, (out.get(id) ?? 0) + 1)
-    const walk = (node: Doc | string | null): void => {
-      if (!node) return
-      if (typeof node === 'string') return void [...node.matchAll(/\[\[@([^|#\]]+)/g)].forEach((match) => add(match[1]))
-      if (node.type === 'noteLink' && node.attrs?.id) add(String(node.attrs.id))
-      node.content?.forEach(walk)
-    }
-    walk(parse(body) as Doc | string | null)
-    return out
   }
   const linksIn = (body: string | null | undefined): Set<string> => new Set(mentionsIn(body).keys())
   handle('notes:graph', (id: string) => {

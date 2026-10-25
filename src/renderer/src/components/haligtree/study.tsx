@@ -3,6 +3,7 @@ import { motion } from 'motion/react'
 import { Check } from 'lucide-react'
 
 import { chime } from '@/lib/sound'
+import { makeTask } from '@/lib/tasks'
 import { EASE, shift } from '@/lib/motion'
 import { haligtree, useLive, type Item, type TagRead } from '@/lib/haligtree'
 import { BUCKETS, keyWords, mentions, type Bucket } from '../../../../main/study'
@@ -273,6 +274,17 @@ export function openLine(lineOf: string, question: string | null): void {
 export function StrugglingShelf(): React.JSX.Element | null {
   const rows = useLive(haligtree.slipping, [] as Item[], [], ['item'])
   if (!rows.length) return null
+  const rewriteTask = (item: Item): Promise<unknown> => {
+    const name = asked(item)
+    // Its own words read as words, never a date in them.
+    return makeTask({ item: item.id, text: `Rewrite: ${name}`, plain: { from: 9, to: 9 + name.length } }, 'A task to rewrite it, with no day yet')
+  }
+  const writeOut = (item: Item): void =>
+    void haligtree.article([item.id]).then((id) => {
+      chime('promote')
+      toast('A page, from this card')
+      window.api.openInHome('article', id)
+    })
   const open = (item: Item): void => {
     if (item.lineOf) return openLine(item.lineOf, item.prompt)
     chime('open')
@@ -289,6 +301,9 @@ export function StrugglingShelf(): React.JSX.Element | null {
             <span className={`shrink-0 text-sm tabular-nums ${item.suspended ? 'text-muted-foreground' : 'text-[var(--tt-color-text-orange)]'}`}>
               {item.suspended ? 'Paused' : `Missed ${num(item.lapses)} times`}
             </span>
+            {/* The rewrite given a when, or worked out at length: a task linked to it with no day (the Calendar's Unscheduled), or a page in Writing. */}
+            <Button variant="ghost" size="sm" className="shrink-0" data-struggling-task onClick={() => void rewriteTask(item)}>Make it a task</Button>
+            <Button variant="ghost" size="sm" className="shrink-0" data-struggling-page onClick={() => writeOut(item)}>Write it out as a page</Button>
             <Button variant="ghost" size="sm" className="shrink-0" onClick={() => setAside(item, !item.suspended)}>{item.suspended ? 'Back in Review' : 'Pause'}</Button>
           </li>
         ))}

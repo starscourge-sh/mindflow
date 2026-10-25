@@ -121,3 +121,27 @@ export function journey(from: string, target: string, today = dayKey()): Journey
   }
   return { by: 'week', dots, cols: col + 1, rows: Math.max(...dots.map((dot) => dot.row)) + 1, months }
 }
+
+/** A goal as far as its milestones need it: its name, its days, and how it ended, if it has. */
+export type GoalRoad = { title: string; goalFrom: string | null; goalAt: string | null; closedAt: string | null; closedHow: string | null; private?: number | boolean }
+
+/**
+ * What goals did in the week from this Monday, for its Journal page: one
+ * passed halfway (by time, as its milestone is: a road of two weeks or
+ * more, the day half of it had gone, while still open) or made it. Never
+ * a day still to come, never a private goal. Worked out from the goal's
+ * own dates, so it needs no history kept.
+ */
+export function weekGoalLines(goals: GoalRoad[], monday: string, today = dayKey()): string[] {
+  const sunday = dayKey(noon(monday).add(6, 'day'))
+  const inWeek = (day: string): boolean => day >= monday && day <= sunday && day <= today
+  const out: string[] = []
+  for (const goal of goals) {
+    if (goal.private || !goal.goalAt) continue
+    const total = goal.goalFrom ? daysBetween(goal.goalFrom, goal.goalAt) : 0
+    const half = goal.goalFrom && total >= 14 ? dayKey(noon(goal.goalFrom).add(Math.floor(total / 2), 'day')) : null
+    if (half && inWeek(half) && (!goal.closedAt || dayKey(goal.closedAt) >= half)) out.push(`Halfway on “${goal.title}”`)
+    if (goal.closedHow === 'made it' && goal.closedAt && inWeek(dayKey(goal.closedAt))) out.push(`Finished “${goal.title}”`)
+  }
+  return out
+}
