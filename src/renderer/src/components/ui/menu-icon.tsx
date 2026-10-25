@@ -6,7 +6,7 @@ import {
   FolderInput, FolderMinus, FolderPlus, Footprints, Gift, GraduationCap, Hash, History, Hourglass, House, Image, Inbox, Keyboard, LayoutGrid,
   Library, Lightbulb, Link, List, ListChecks, ListStart, Lock, LockOpen, LogOut, Map as MapIcon, Maximize2, MessageCircleQuestion, MessageSquare, Minimize2, Monitor,
   MonitorUp, MoveRight, Palette, Scissors, Pause, Play, Scale, PanelLeft, PanelRight, Pencil, Pin, PinOff, Plus, Quote, Repeat, RotateCcw, Search, Settings, Shapes, Shield,
-  ShieldCheck, Smile, Sparkles, SquareCheck, SquarePen, Star, StickyNote, Sun, Tag, Target, Timer, Trash2, Type, Undo2, Ungroup, Upload,
+  ShieldCheck, Smile, Sparkles, SquareCheck, SquareKanban, SquarePen, Star, StickyNote, Sun, Tag, Target, Timer, Trash2, Type, Undo2, Ungroup, Upload,
   User, Volume2, VolumeX, WandSparkles, Wrench, X, Zap, type LucideIcon
 } from 'lucide-react'
 
@@ -124,6 +124,7 @@ const RULES: [RegExp, LucideIcon][] = [
   [/outline|properties|source/i, PanelRight],
   [/fill the screen|expand|bigger/i, Maximize2],
   [/compact|shrink/i, Minimize2],
+  [/^board|board view|as a board/i, SquareKanban],
   [/page width|width/i, ChevronsUpDown],
   [/^fold|^collapse/i, ChevronsDownUp],
   [/^unfold|^expand/i, ChevronsUpDown],

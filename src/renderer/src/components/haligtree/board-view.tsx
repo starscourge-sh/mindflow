@@ -106,8 +106,19 @@ function shapeOf(doc: PMNode): Shape {
 /** Whether a note reads as a board at all: a heading with a list under it, or bullets with bullets under them. */
 const fitsBoard = (doc: PMNode): boolean => shapeOf(doc).lanes.some((lane) => lane.cards.length)
 
-/** Said, in place of a board, when a note has nothing to make one of. */
-const NO_BOARD = 'A board needs groups: type ## and a name over each group of bullets, or indent bullets under a bullet that names their column.'
+/**
+ * Said, in place of a board, when a note has nothing to make one of: what this
+ * note is missing, not the whole rule. A reading note with headings and no
+ * bullets was told to add headings it already had.
+ */
+function noBoard(doc: PMNode): string {
+  const headings = shapeOf(doc).lanes.length
+  let lists = false
+  doc.forEach((node) => void (LISTS.includes(node.type.name) && (lists = true)))
+  if (headings) return `Its ${headings === 1 ? 'heading is' : `${num(headings)} headings are`} ready to be columns, but no bullets sit under ${headings === 1 ? 'it' : 'them'}. A card is a bullet or a checklist line under a heading: add a few, and it can be a board.`
+  if (lists) return 'These bullets have no columns to go in: put ## and a name above each group, or indent bullets under a bullet that names their column.'
+  return 'Nothing here to make a board of yet: its columns are ## headings, and its cards the bullets under each.'
+}
 
 /**
  * The note as plain data to rearrange. A list left untouched is written back
@@ -229,14 +240,19 @@ export function useBoard(table: NoteTable, id: string | undefined, editor: Edito
   }, [table, id])
   useEffect(() => {
     if (!editor || editor.isDestroyed) return setFits(false)
+    // On every change to its words, typed or not: words laid in without an edit (a paste set in place, a note's
+    // words arriving after it opened) left the first answer, an empty page's, standing.
     const read = (): void => setFits(fitsBoard(editor.state.doc))
+    const changed = ({ transaction }: { transaction: { docChanged: boolean } }): void => void (transaction.docChanged && read())
     read()
-    editor.on('update', read)
-    return () => void editor.off('update', read)
+    editor.on('transaction', changed)
+    return () => void editor.off('transaction', changed)
   }, [editor])
   const toggle = (): void => {
     if (!id) return
-    if (!on && !fits) return void (chime('nope'), toast(NO_BOARD, undefined, 'info'))
+    // Asked of the words as they are now, never only of what was last heard.
+    const can = editor && !editor.isDestroyed ? fitsBoard(editor.state.doc) : fits
+    if (!on && !can) return void (chime('nope'), toast(editor && !editor.isDestroyed ? noBoard(editor.state.doc) : 'Nothing here to make a board of yet.', undefined, 'info'))
     chime(on ? 'fold' : 'slide')
     try {
       localStorage.setItem(`board:${id}`, on ? 'off' : 'on')

@@ -101,7 +101,28 @@ try {
   await wait(800)
 
   // 4. A flat list cannot be a board: it says how, and nothing else changes.
-  const said = 'A board needs groups: type ## and a name over each group of bullets'
+  const said = 'These bullets have no columns to go in'
+  // The user's case: a page whose words are laid in without an edit, as a paste set in place is,
+  // shaped as their Obsidian board: headings over checklists with lists inside, and the plugin's settings after.
+  const pasted = await page('Pasted board', doc(para('')))
+  await open('article', pasted)
+  await h.evaluate(() => {
+    const ed = [...document.querySelectorAll('[data-open] .ProseMirror')].map((el) => el.editor).find(Boolean)
+    ed.commands.setContent('## 2026\n\n- [ ] Settle down\n- [ ] Projects\n    - [ ] Whip Sound App\n        - Just a whip\n\n## THIS MONTH\n\n- [ ] TUBE: 4 Vs #business\n\n%% kanban:settings\n%%', { contentType: 'markdown', emitUpdate: false })
+  })
+  await wait(400)
+  await h.keyboard.press('Meta+Alt+KeyB')
+  await wait(900)
+  const fromPaste = await lanes()
+  check('words laid in without an edit, shaped as an Obsidian board, make a board', fromPaste.length === 2 && fromPaste[0].title === '2026' && fromPaste[1].title === 'THIS MONTH', JSON.stringify(fromPaste))
+  await h.keyboard.press('Meta+Alt+KeyB')
+  await wait(600)
+  // Headings with no bullets under them (the Sistine reading note): told what is missing, not to add headings.
+  const unlisted = await page('Headings, no bullets', doc(head('One'), para('words'), head('Two'), para('more')))
+  await open('article', unlisted)
+  await chooseBoard()
+  check('headings with no bullets are told what is missing', /2 headings are ready to be columns, but no bullets sit under them/.test(await toasts()), (await toasts()).slice(-300))
+  await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:untoast')))
   const flat = await page('Flat', doc(list('x', 'y', 'z')))
   await open('article', flat)
   const before = (await v('item', flat)).body
