@@ -15,7 +15,8 @@ import { dayMonth } from '../../../../main/dates'
 import { tagsIn } from '../../../../main/tag-words'
 import { Chips } from './display'
 import { DatePicker } from './date-picker'
-import { Kbd, Tip, toast } from './ui'
+import { Kbd, Tip, openTag, toast } from './ui'
+import { hoverNote } from './note-preview'
 import { FLOAT } from '@/lib/float'
 import { useSuperTags } from './note-extras'
 import { tagTint } from './tag-icon'
@@ -193,7 +194,8 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated 
                   <div className="flex min-h-7 flex-wrap items-center gap-1 py-0.5">
                     {tags.map((tag) => (
                       <span key={tag} data-tag-chip={tag} className="inline-flex h-6 items-center gap-0.5 rounded-full bg-foreground/[0.06] pr-1 pl-2.5" style={{ color: tagTint(tag) }}>
-                        <span>{tag}</span>
+                        {/* The tag is a way to its page, as everywhere (⌥-click beside); the × only takes it off. */}
+                        <button type="button" data-tag-open={tag} {...hoverNote('tag', tag)} onClick={(event) => openTag(tag, event.altKey)} className="rounded-sm hover:underline">{tag}</button>
                         <Tip label={`Take #${tag} off this note`}>
                           <button type="button" aria-label={`Remove #${tag}`} className="grid size-4 place-items-center rounded-full opacity-70 hover:bg-foreground/10 hover:opacity-100" onClick={() => untag(tag, strip.current)}><X className="size-3" /></button>
                         </Tip>

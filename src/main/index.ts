@@ -45,7 +45,7 @@ import iconBronze from '../../resources/icon-bronze.png?asset'
 import iconGold from '../../resources/icon-gold.png?asset'
 import { registerUsage, type Via } from './usage'
 import { resolveWaiting, resolveWithin } from './renames'
-import { alreadyImported, captureText, changed, rescueDrawing, database, shutDatabase, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, setImporting, type Imported } from './captures'
+import { alreadyImported, captureText, changed, rescueDrawing, database, shutDatabase, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, dropDuplicateTags, setImporting, type Imported } from './captures'
 import { isPrivateFile, looksPrivate } from './import'
 import { warmChrono } from './lazy/chrono'
 import { warmEmoji } from './lazy/emoji'
@@ -3538,6 +3538,12 @@ app.whenReady().then(() => {
     allow(!(permission === 'media' && 'mediaTypes' in details && details.mediaTypes?.includes('audio'))))
   registerCaptures()
   registerImportConversion()
+  // Notes imported before front-matter tags stopped coming in twice: tidied as it starts, a no-op once done.
+  try {
+    dropDuplicateTags()
+  } catch (error) {
+    console.error('Could not tidy imported tags', error)
+  }
   registerUsage()
   registerHaligtree()
   whenIcon(wearIcon)

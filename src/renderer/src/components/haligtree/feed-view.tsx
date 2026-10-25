@@ -555,7 +555,7 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
           )}
           {post.tags.length > 0 && (
             <p data-feed-tags className="flex flex-wrap gap-x-2 text-control">
-              {post.tags.map((tag) => <button key={tag} type="button" data-feed-tag={tag} onClick={() => (chime('page'), openTag(tag))} className="rounded-sm text-muted-foreground hover:text-foreground hover:underline">#{tag}</button>)}
+              {post.tags.map((tag) => <button key={tag} type="button" data-feed-tag={tag} {...hoverNote('tag', tag)} onClick={(event) => (chime('page'), openTag(tag, event.altKey))} className="rounded-sm text-muted-foreground hover:text-foreground hover:underline">#{tag}</button>)}
             </p>
           )}
           {post.restack && <Quoted note={post.restack} onOpen={() => onOpenOther(post.restack!.type, post.restack!.id)} />}

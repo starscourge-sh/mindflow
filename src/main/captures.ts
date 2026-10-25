@@ -10,7 +10,8 @@ import { hostname } from 'os'
 import { backUpWatched, checkMarkdown, writeMarkdown } from './backup'
 import { openDatabase } from './db-open'
 import { busy } from './busy'
-import { markdown } from './haligtree'
+import { markdown, plain } from './haligtree'
+import { tagsIn } from './tag-words'
 import { celebrateAfter } from './celebrate'
 import { syncLineCards } from './line-cards'
 import { passes, propertyFilters, readValue, takeBodyProperties, type PropType } from './property-words'
@@ -853,6 +854,11 @@ export function importNote(path: string, text: string, modified: Date, hidden = 
   // Private by its name, or because an export from here said so.
   const secret = hidden || fields.private === 'true'
   delete fields.private
+  // Its tags come in as real #tags (bringVault) and its aliases as other names
+  // for it, each in its own row: not again as plain properties under them.
+  const aliases = fields.aliases ? JSON.stringify(fields.aliases.split(/,\s*/).filter(Boolean)) : null
+  delete fields.tags
+  delete fields.aliases
   const title = withoutNotionId(path.split('/').pop()!.replace(/\.(md|png|jpe?g|gif|webp|svg|avif|bmp)$/i, ''))
   // The name already heads the page; a first heading saying it again is dropped.
   const body = text.slice(front?.[0].length ?? 0).trim().replace(/^#[ \t]+(.*)(\n|$)/, (line, words: string) =>
@@ -868,6 +874,7 @@ export function importNote(path: string, text: string, modified: Date, hidden = 
     const id = randomUUID()
     db.prepare("insert into nuggets (id, tier, kind, title, body, created_at, updated_at, source, fields, private, unsorted) values (?, 'article', 'note', ?, ?, ?, ?, ?, ?, ?, ?)")
       .run(id, title, JSON.stringify(body), new Date(at).toISOString(), modified.toISOString(), path, kept, secret ? 1 : 0, toWriting ? 1 : 0)
+    if (aliases) db.prepare('update nuggets set aliases = ? where id = ?').run(aliases, id)
     return { link: `article:${id}`, title, path, private: secret }
   }
   if (db.prepare('select 1 from captures where source = ? and named = 1').get(path)) return 'already here'
@@ -876,7 +883,7 @@ export function importNote(path: string, text: string, modified: Date, hidden = 
   if (kind !== 'note') delete fields.kind
   const own = Object.keys(fields).length ? JSON.stringify(fields) : null
   const { id, number } = insert({ title, kind, body, source: path }, new Date(at).toISOString())
-  db.prepare('update captures set named = 1, fields = ?, private = max(private, ?) where id = ?').run(own, secret ? 1 : 0, id)
+  db.prepare('update captures set named = 1, fields = ?, private = max(private, ?), aliases = coalesce(?, aliases) where id = ?').run(own, secret ? 1 : 0, aliases, id)
   void writeMarkdown(number, body)
   return { link: id, title, path, private: secret }
 }
@@ -961,7 +968,35 @@ export const setImporting = (on: boolean): void => {
   importing = on
 }
 
+/**
+ * Notes brought in before their front matter's `tags` stopped coming in twice:
+ * the plain "tags" property goes, but only where every tag it lists is on the
+ * note as a real #tag. Anything else is left as it is. How many it took from.
+ */
+export function dropDuplicateTags(): number {
+  let dropped = 0
+  for (const table of ['captures', 'nuggets'] as const) {
+    const rows = db.prepare(`select id, body, fields, title as label from ${table} where fields like '%"tags"%'`).all() as { id: string; body: string | null; fields: string; label: string | null }[]
+    for (const row of rows) {
+      const read = (text: string | null): unknown => {
+        try { return JSON.parse(text ?? '') } catch { return text }
+      }
+      const fields = read(row.fields) as Record<string, unknown> | null
+      if (!fields || typeof fields !== 'object' || typeof fields.tags !== 'string') continue
+      const body = read(row.body)
+      const listed = fields.tags.split(/[,\s]+/).map((one) => one.replace(/^#/, '').toLowerCase()).filter(Boolean)
+      const real = new Set(tagsIn(`${row.label ?? ''}\n${plain(body)}`))
+      if (!listed.length || !listed.every((one) => real.has(one))) continue
+      delete fields.tags
+      db.prepare(`update ${table} set fields = ? where id = ?`).run(Object.keys(fields).length ? JSON.stringify(fields) : null, row.id)
+      dropped += 1
+    }
+  }
+  return dropped
+}
+
 export function registerImportConversion(): void {
+  ipcMain.handle('haligtree:properties:drop-duplicate-tags', () => dropDuplicateTags())
   ipcMain.handle('haligtree:imports:pending', () => importing ? [] : [
     ...db.prepare("select 'captures' as tbl, id from captures where named = 1 and body like '\"%'").all(),
     ...db.prepare("select 'nuggets' as tbl, id from nuggets where tier = 'article' and source != '' and body like '\"%'").all()
