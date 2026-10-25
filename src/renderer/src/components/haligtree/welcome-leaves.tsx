@@ -89,29 +89,28 @@ export function WelcomeLeaves({ on, open }: { on: boolean; /** The welcome showi
     const motes: Leaf[] = Array.from({ length: 10 }, () => make(true, true))
     let settled = false
     /**
-     * Where the pages are bare: half go to the bottom right, the emptiest corner, the rest down
-     * the left and right edges. Each fades in where it starts (`born`), so none pops into sight.
+     * Mostly where the pages are bare, round the edge (the sides, the top and the bottom alike), a fifth anywhere.
+     * Each fades in slowly where it starts (`born`), so none pops into sight.
      */
-    const edgeward = (one: Leaf, above: boolean): void => {
-      const pick = Math.random()
-      one.size = 70 + Math.random() * 70
-      if (pick < 0.5) {
-        one.x = width * (0.62 + Math.random() * 0.36)
-        one.y = height * (0.5 + Math.random() * 0.42) - (above ? height * 0.15 : 0)
-      } else {
-        one.x = pick < 0.75 ? width * (0.01 + Math.random() * 0.13) : width * (0.86 + Math.random() * 0.13)
-        one.y = above ? -one.size - Math.random() * height * 0.2 : Math.random() * height
-      }
+    const edgeward = (one: Leaf): void => {
+      const band = Math.random()
+      one.size = 60 + Math.random() * 60
+      if (band < 0.2) (one.x = Math.random() * width), (one.y = Math.random() * height)
+      else if (band < 0.4) (one.x = width * Math.random() * 0.14), (one.y = Math.random() * height)
+      else if (band < 0.65) (one.x = width * (0.86 + Math.random() * 0.14)), (one.y = Math.random() * height)
+      else if (band < 0.82) (one.x = Math.random() * width), (one.y = height * Math.random() * 0.1)
+      else (one.x = Math.random() * width), (one.y = height * (0.88 + Math.random() * 0.1))
       one.vx = 0
       one.vy = 0
       born.set(one, performance.now())
     }
     const born = new WeakMap<Leaf, number>()
-    /** How bare the page is there, 0 to 1: the side edges and the bottom right. */
+    /** How bare the page is there, 0.3 to 1: strongest at the very edge, softer a fifth of the way in. */
     const bare = (x: number, y: number): number => {
-      const side = Math.max(0, 1 - Math.min(x, width - x) / (width * 0.2))
-      const corner = Math.min(1, Math.max(0, (x - width * 0.55) / (width * 0.15))) * Math.min(1, Math.max(0, (y - height * 0.45) / (height * 0.15)))
-      return Math.max(side, corner)
+      const side = Math.max(0, 1 - Math.min(x, width - x) / (width * 0.18))
+      const ends = Math.max(0, 1 - Math.min(y, height - y) / (height * 0.16))
+      // Mostly at the edges, never none in the middle: a few drift across it too, fainter.
+      return Math.max(0.3, side, ends)
     }
 
     /** A leaf's outline, its stem at the origin pointing left and its tip at `length`, by kind. */
@@ -257,8 +256,8 @@ export function WelcomeLeaves({ on, open }: { on: boolean; /** The welcome showi
       // Once the wind has dropped: more of them, all down the bare edges, already falling.
       if (calm > 0.5 && !settled) {
         settled = true
-        motes.push(...Array.from({ length: 14 }, () => make(true, true)))
-        for (const one of motes) edgeward(one, false)
+        // New ones fade in round the edge; those already out drift on as they were, never moved.
+        motes.push(...Array.from({ length: 14 }, () => { const one = make(true, true); edgeward(one); return one }))
       }
       for (const one of motes) {
         if (leaving !== null) {
@@ -278,7 +277,7 @@ export function WelcomeLeaves({ on, open }: { on: boolean; /** The welcome showi
         if (one.x > width + one.size || one.y > height + one.size) {
           Object.assign(one, make(false, true))
           // After the first screen, a new one starts above an edge, where the pages are bare, not across the middle.
-          if (calm > 0.5) edgeward(one, true)
+          if (calm > 0.5) edgeward(one)
         }
       }
       // Only the last stretch fades, for any leaf still in sight.
@@ -289,8 +288,8 @@ export function WelcomeLeaves({ on, open }: { on: boolean; /** The welcome showi
       for (const one of motes) {
         // After the first screen, faint at the edges and fading to nothing toward the middle, where the words are.
         // Later on, as clear as the first screen's leaves where the page is bare, gone where the words are.
-        const fresh = Math.min(1, (now - (born.get(one) ?? 0)) / 1500)
-        pen.globalAlpha = 0.32 * (1 - calm) + calm * bare(one.x, one.y) * fresh
+        const fresh = Math.min(1, (now - (born.get(one) ?? 0)) / 2500)
+        pen.globalAlpha = fresh * (0.32 * (1 - calm) + calm * 0.7 * bare(one.x, one.y))
         if (pen.globalAlpha > 0.01) draw(one, t)
       }
       pen.globalAlpha = 1

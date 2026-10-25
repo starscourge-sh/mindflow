@@ -45,11 +45,11 @@ try {
     const canvas = document.querySelector('[data-welcome-leaves]')
     const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data
     let edges = 0, middle = 0
-    for (let i = 3; i < data.length; i += 4 * 5) if (data[i] > 4) { const x = ((i - 3) / 4) % canvas.width; const y = Math.floor((i - 3) / 4 / canvas.width); x < canvas.width * 0.2 || x > canvas.width * 0.8 || (x > canvas.width * 0.55 && y > canvas.height * 0.45) ? edges++ : middle++ }
+    for (let i = 3; i < data.length; i += 4 * 5) if (data[i] > 4) { const x = ((i - 3) / 4) % canvas.width; const y = Math.floor((i - 3) / 4 / canvas.width); x < canvas.width * 0.2 || x > canvas.width * 0.8 || y < canvas.height * 0.16 || y > canvas.height * 0.84 ? edges++ : middle++ }
     return { edges, middle }
   })
   if (SHOTS) await h.screenshot({ path: join(SHOTS, `leaves-${THEME}-later.png`) })
-  check('later, they keep to the bare edges and the bottom right, clearly there', later.edges > 3000 && later.edges > later.middle * 4, JSON.stringify(later))
+  check('later, clearly there, mostly round the edges and a few in the middle', later.edges > 3000 && later.edges > later.middle, JSON.stringify(later))
   check('the big ones gone, smaller ones drifting on', after.inked > 20 && after.inked < swimming.inked * 0.6, `${swimming.inked} -> ${after.inked}`)
   check('no page errors', errors.length === 0, errors.join(' | '))
 } finally {
