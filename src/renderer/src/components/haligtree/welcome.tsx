@@ -434,7 +434,7 @@ export function Welcome(): React.JSX.Element | null {
       <Backdrop plain={at === LAST} family={at === WRITE ? 'ruled' : at === DIAL ? 'dots' : 'none'} />
       {/* The first screen's autumn leaves, blowing behind the words; Next blows them away, and a
           few small ones drift on through the rest (not over the dial, which has its own light). */}
-      <WelcomeLeaves on={at === WHY && play} open={play && at !== DIAL} />
+      <WelcomeLeaves on={at === WHY && play} open={play && at !== DIAL} middle={at === BACK ? 0 : 0.3} />
       <div data-drag-strip="" className="relative h-11 shrink-0" style={{ WebkitAppRegion: 'drag' } as CSSProperties} />
       {at === LAST && <TrayArrow tray={state?.tray ?? null} />}
       <div className="relative mx-auto flex min-h-0 w-full max-w-[84rem] flex-1 flex-col">

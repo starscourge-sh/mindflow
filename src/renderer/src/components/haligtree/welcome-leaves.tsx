@@ -23,8 +23,10 @@ const KINDS: Kind[] = ['maple', 'oak', 'birch']
  * turns false) a gust blows them off the edge, gone in under a second. Not
  * drawn under reduced motion.
  */
-export function WelcomeLeaves({ on, open }: { on: boolean; /** The welcome showing: the small ones keep drifting till it ends. */ open: boolean }): React.JSX.Element | null {
+export function WelcomeLeaves({ on, open, middle = 0.3 }: { on: boolean; /** The welcome showing: the small ones keep drifting till it ends. */ open: boolean; /** How much of a leaf shows in the middle of the page: none on a page full to its edges. */ middle?: number }): React.JSX.Element | null {
   const box = useRef<HTMLCanvasElement>(null)
+  const inMiddle = useRef(middle)
+  inMiddle.current = middle
   // When the gust came; long ago if the leaves first show on a later screen, so only the small ones drift.
   const gust = useRef<number | null>(on ? null : -1e9)
   // Back on the first screen: the big leaves blow in again.
@@ -110,7 +112,7 @@ export function WelcomeLeaves({ on, open }: { on: boolean; /** The welcome showi
       const side = Math.max(0, 1 - Math.min(x, width - x) / (width * 0.18))
       const ends = Math.max(0, 1 - Math.min(y, height - y) / (height * 0.16))
       // Mostly at the edges, never none in the middle: a few drift across it too, fainter.
-      return Math.max(0.3, side, ends)
+      return Math.max(inMiddle.current, side, ends)
     }
 
     /** A leaf's outline, its stem at the origin pointing left and its tip at `length`, by kind. */
