@@ -38,6 +38,8 @@ import { AliveIcon } from '@/components/ui/alive-icon'
 import CheckedIcon from '@/components/ui/checked-icon'
 import { useHere } from '@/lib/split'
 import { Brain, CheckCircle2, Gem, Inbox, ListTodo } from '@/components/ui/icons'
+import { still } from '@/lib/motion'
+import { dayPrompt } from '../../../../main/journal-words'
 
 /** A day's date, as you would say it: "Monday 5 October". */
 const named = (day: string): string => dayName(noon(day))
@@ -171,6 +173,7 @@ export function DayView({ onOpen, start, onScale, onView }: {
             onChange={(body) => (known.current = { body: JSON.stringify(body), sent: JSON.stringify(body) }, void notes.saveDay(day, { body }))}
           />
           <CaretIn editor={writer} day={day} />
+          {day === today && <DayBreath editor={writer} day={day} />}
           </div>
         )}
   </>)
@@ -298,6 +301,85 @@ function CaretIn({ editor, day }: { editor: Editor | null; day: string }): null 
       editor.commands.focus('end', { scrollIntoView: false })
     })
     return () => cancelAnimationFrame(frame)
+  }, [seen, editor, day])
+  return null
+}
+
+/** What a day's box remembers: how many times it breathed, or that it was written in. */
+const breathKey = (day: string): string => `day-breath:${day}`
+const breaths = (day: string): number | 'written' => {
+  try {
+    const kept = localStorage.getItem(breathKey(day))
+    return kept === 'written' ? kept : Number(kept) || 0
+  } catch { return 0 }
+}
+const keepBreath = (day: string, to: number | 'written'): void => { try { localStorage.setItem(breathKey(day), String(to)) } catch { /* only a nicety */ } }
+/** Something over the page: a menu, a dialog, a popover, the command palette. */
+const OVER = '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"], [data-radix-popper-content-wrapper], [cmdk-root]'
+const EASE_CSS = 'cubic-bezier(0.16, 1, 0.3, 1)'
+
+/**
+ * Today's empty box, left alone, asks once: after 4 s with no key pressed
+ * anywhere its edge warms toward the accent and settles back, and the prompt
+ * inside turns over to a question from the Journal's own (DAY_PROMPTS). Once
+ * more a minute later if still untouched, never again that day once anything
+ * is written in it. Not while you type elsewhere, something is open over the
+ * page, the window is not in front, or motion is off. Two finite animations,
+ * the edge's colour and the prompt's fade; nothing moves or changes size.
+ */
+function DayBreath({ editor, day }: { editor: Editor | null; day: string }): null {
+  const seen = useSeen()
+  useEffect(() => {
+    if (!seen || !editor || editor.isDestroyed) return
+    const box = editor.view.dom.closest<HTMLElement>('[data-day-write]')
+    if (!box) return
+    const ask = (text: string): void => box.style.setProperty('--mf-day-ph', JSON.stringify(text))
+    // Reopened after a breath: the prompt it last turned to, not the plain one.
+    const had = breaths(day)
+    if (typeof had === 'number' && had > 0) ask(dayPrompt(day, had - 1))
+    const wrote = (): void => void (!editor.isEmpty && keepBreath(day, 'written'))
+    editor.on('update', wrote)
+    let timer = 0
+    const wait = (): void => {
+      clearTimeout(timer)
+      const count = breaths(day)
+      if (count === 'written' || count >= 2) return
+      timer = window.setTimeout(breathe, count === 0 ? 4000 : 60_000)
+    }
+    const breathe = (): void => {
+      const count = breaths(day)
+      if (count === 'written' || count >= 2 || editor.isDestroyed || !editor.isEmpty || !box.isConnected) return
+      const held = document.activeElement
+      const elsewhere = !!held?.matches('input, textarea, select, [contenteditable="true"]') && !box.contains(held)
+      // Not now: asked again in a while, the wait from its start.
+      if (still() || elsewhere || document.querySelector(OVER) || !document.hasFocus() || document.visibilityState !== 'visible') return wait()
+      keepBreath(day, count + 1)
+      // From and back to whatever the edge is now (resting, hovered, the caret in it), each way on the app's curve.
+      const rest = getComputedStyle(box).borderTopColor
+      box.animate([
+        { borderColor: rest, easing: EASE_CSS },
+        { borderColor: 'color-mix(in oklab, var(--primary) 65%, transparent)', offset: 0.4, easing: EASE_CSS },
+        { borderColor: rest }
+      ], { duration: 2400, id: 'day-breath' })
+      const line = box.querySelector<HTMLElement>('.is-empty[data-placeholder]')
+      const turn = (): void => {
+        ask(dayPrompt(day, count))
+        line?.animate([{ opacity: 0, filter: 'blur(3px)' }, { opacity: 1, filter: 'blur(0)' }], { duration: 900, easing: EASE_CSS, pseudoElement: '::before', id: 'day-prompt-in' })
+      }
+      const out = line?.animate([{ opacity: 1, filter: 'blur(0)' }, { opacity: 0, filter: 'blur(3px)' }], { duration: 500, easing: 'ease-in', pseudoElement: '::before', id: 'day-prompt-out' })
+      if (out) out.onfinish = turn
+      else turn()
+      wait()
+    }
+    // Any key, anywhere: the wait starts over.
+    window.addEventListener('keydown', wait, true)
+    wait()
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener('keydown', wait, true)
+      editor.off('update', wrote)
+      box.style.removeProperty('--mf-day-ph')
+    }
   }, [seen, editor, day])
   return null
 }
