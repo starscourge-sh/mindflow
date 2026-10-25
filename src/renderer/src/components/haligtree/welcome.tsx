@@ -625,23 +625,29 @@ function useReport(report: (now: Reel) => void, done: boolean, settle: () => voi
  * The whole idea, on one screen, so someone who reads nothing else still has
  * it, every line serving one promise (your notes come back to you; you do
  * not have to go back to them): the day, dated as a diary dates an entry;
- * most notes are never seen again; the three kinds of app people keep them
- * in, each by what it keeps (kinds, not brands, so no fan of one has anything
- * to argue with); why: in each, going back is your job; and the answer typed
- * in: in Haligtree they come back on their own, a memory card on Home (hint-card,
+ * most notes are never seen again; where thinking lives now, three kinds of
+ * thing in three apps (said plainly, no brands, so a newcomer is never lost);
+ * why: in each, going back is your job; and the answer typed in: Haligtree
+ * is one place for all three, and they come back on their own, a memory card on Home (hint-card,
  * this day last year) and a spaced question in Review; and what a commonplace
  * book is, in one line. One thing at a time.
  */
 const THESIS = 'Most notes are written once and never seen again.'
-/** The apps someone like this already uses, each by what it keeps: named, so they see at once where Haligtree fits. */
+/**
+ * Where thinking lives now, by what it is, never by brand: anyone scattered
+ * across apps sees themselves, whether or not they have heard of Obsidian or
+ * Anki (those are asked about on the next page, "What did you use before?").
+ * The one place each kind ends up is what the pointer sets in italics.
+ */
 const THREE: [string, string][] = [
-  ['Notion and Obsidian', 'keep what you write.'],
-  ['Todoist', 'keeps what you plan.'],
-  ['Anki', 'keeps what you mean to remember.']
+  ['Your writing', 'lives in one app.'],
+  ['Your plans', 'live in another.'],
+  ['What you mean to remember', 'lives in a third.']
 ]
 /** Said once the three are up: why notes go unseen (going back is left to you). */
 const QUESTION = 'In each one, going back is your job. So mostly, nobody does.'
-const ANSWER = `In ${APP_NAME}, your notes *come back to you*: an old note when you open the app, a question as you start to forget it.`
+// One thing is pitched: one book in place of the three, where notes come back by themselves.
+const ANSWER = `${APP_NAME} is one place for all three, and your notes *come back to you*: an old note when you open the app, a question as you start to forget it.`
 /** The first time the words are used, what they mean: the cycle the chapters after follow (Catch, Write, Remember). */
 const BOOK = `${APP_NAME} is a commonplace book, the kind writers have kept for centuries: catch a thought, write it out, and it finds you again.`
 
@@ -1067,15 +1073,32 @@ const WRITE_TITLE = 'Write it out.'
 const WRITE_LINE = 'Write at length, then select a line to make it a task or a gem.'
 
 /**
- * The thought caught in Catch, there from the first frame; then, in real
- * milliseconds: it grows into a note; the pointer selects one line, presses
+ * The thought caught in Catch, written out a key at a time; then, in real
+ * milliseconds: "New page" is pressed and it is written out as a page, its
+ * title typed and its lines one after another; the pointer selects one line, presses
  * "Make a task", and the task lands with its day; another line, "Make a gem",
  * and the gem lands, its question typed in; then the closing line.
  * Each card lands with its own words under it, so nothing waits to be said.
  */
 function writeBeats(): Beat<FlowShot>[] {
   const random = seeded(31)
-  const beats: Beat<FlowShot>[] = [{ at: 0, to: {} }, { at: 50, to: { shown: 2 }, cue: cue('slide') }]
+  const beats: Beat<FlowShot>[] = [{ at: 0, to: {} }]
+  // The thought is written first, a key at a time, as it was on the walk; only then does it grow into a note.
+  const written = typed<FlowShot>(FLOW_WORDS.caught, 400, (sofar) => ({ caught: sofar }), random, 0.9, 1700)
+  beats.push(...written.beats)
+  // You choose to write about it: "New page" comes up beside the capture, the pointer presses it, and the page opens
+  // with the thought as its title, typed, then its lines written in one after another. Writing at length, not a copy.
+  const offer = written.end + 600
+  beats.push({ at: offer, to: { newPage: 'shown' } })
+  beats.push({ at: offer + 250, to: { cursor: { line: 'page', to: 'button' } } })
+  const press = offer + 250 + CURSOR_MS.button + 260
+  beats.push({ at: press, to: { pressed: true }, cue: () => click('tick') })
+  beats.push({ at: press + 170, to: { pressed: false, newPage: 'off', cursor: null, shown: 2 }, cue: cue('slide') })
+  const title = typed<FlowShot>(FLOW_WORDS.note, press + 600, (sofar) => ({ title: sofar }), random, 0.85, 1400)
+  beats.push(...title.beats)
+  let line = title.end + 350
+  for (let n = 1; n <= FLOW_WORDS.lines.length + 1; n++) (beats.push({ at: line, to: { body: n }, cue: () => click('soft') }), (line += 420))
+  const grows = line
   // You pick a line: the pointer comes to its start, drags across it (the selection grows with it), its one action
   // shows beside the selection, the pointer presses it, and only then is the line marked and what it becomes set down.
   const pick = (t: number, line: 'task' | 'gem', shown: number, sound: () => void): number => {
@@ -1090,7 +1113,7 @@ function writeBeats(): Beat<FlowShot>[] {
     beats.push({ at: pressAt + 160, to: { picked: null, bar: false, pressed: false, lit: line === 'task' ? 1 : 2, shown }, cue: sound })
     return pressAt + 160
   }
-  let t = pick(1000, 'task', 3, cue('tag'))
+  let t = pick(grows + 500, 'task', 3, cue('tag'))
   t = pick(t + 450, 'gem', 4, cue('promote'))
   // The pointer steps away once the gem is made: what is left is yours.
   beats.push({ at: t + 500, to: { cursor: null } })
@@ -1131,14 +1154,15 @@ const BACK_BEATS: Beat<BackShot>[] = [
   { at: 0, to: {} },
   { at: 50, to: { shown: 1 }, cue: cue('stick') },
   { at: 1500, to: { ticked: true }, cue: cue('done') },
+  // One thing moving at a time: the gem's card lands and turns over to its answer, and only once it is still
+  // does the curve under it draw, so the curve reads as that card's why; the postcard comes once the curve is in.
   { at: 2700, to: { shown: 2 }, cue: cue('open') },
-  // The curve under the three, a beat after the gem's card, so it reads as that card's why.
-  { at: 3100, to: { curve: true } },
-  { at: 4200, to: { over: true }, cue: () => fold() },
-  { at: 5600, to: { shown: 3 }, cue: cue('memory') },
-  { at: 6500, to: { signed: true } },
+  { at: 3800, to: { over: true }, cue: () => fold() },
+  { at: 4700, to: { curve: true } },
+  { at: 8000, to: { shown: 3 }, cue: cue('memory') },
+  { at: 8900, to: { signed: true } },
   // The last moment stays up: it is looked at while Next waits.
-  { at: 7700, to: {} }
+  { at: 10100, to: {} }
 ]
 
 /** An answer's words with the ones that carry the point marked *so*: as parts, each said plain or stood out. */

@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { CalendarDays, Gem, ListTodo, NotebookText, Quote } from 'lucide-react'
+import { CalendarDays, Gem, ListTodo, NotebookText, Plus, Quote } from 'lucide-react'
 import { EASE, spring } from '@/lib/motion'
 import { STORY_DAY } from '@/lib/welcome-box'
 import { when } from '@/lib/clock'
@@ -51,6 +51,7 @@ export const FLOW_WORDS = {
 /** What each card says of itself, under it. */
 export const FLOW_SAID = {
   caught: 'Caught on a walk',
+  page: 'Written out as a page, in “Writing”',
   task: `Now a task, due ${STORY_DAY}`,
   gem: 'A gem, with a question for “Review”'
 }
@@ -63,11 +64,11 @@ export const FLOW_LAST = 'Nothing is copied out: each one stays linked to its li
  * button is `pressed`, `lit` lines marked in the note, the gem's question
  * typed so far, and the closing line.
  */
-export type FlowShot = { shown: number; picked: 'task' | 'gem' | null; pressed: boolean; lit: number; question: string; last: boolean; cursor: Aim | null; bar: boolean }
+export type FlowShot = { /** The caught thought, typed so far. */ caught: string; /** "New page", offered beside the capture and then pressed. */ newPage: 'off' | 'shown'; /** The page's title, typed so far. */ title: string; /** How many of the page's lines are written. */ body: number; shown: number; picked: 'task' | 'gem' | null; pressed: boolean; lit: number; question: string; last: boolean; cursor: Aim | null; bar: boolean }
 /** Where the pointer is headed: a picked line's start, its end (dragging the selection across it), or its "Make a" button. */
-export type Aim = { line: 'task' | 'gem'; to: 'start' | 'end' | 'button' }
-export const FLOW_START: FlowShot = { shown: 1, picked: null, pressed: false, lit: 0, question: '', last: false, cursor: null, bar: false }
-export const FLOW_END: FlowShot = { shown: 4, picked: null, pressed: false, lit: 2, question: FLOW_WORDS.question, last: true, cursor: null, bar: false }
+export type Aim = { line: 'task' | 'gem' | 'page'; to: 'start' | 'end' | 'button' }
+export const FLOW_START: FlowShot = { caught: '', newPage: 'off', title: '', body: 0, shown: 1, picked: null, pressed: false, lit: 0, question: '', last: false, cursor: null, bar: false }
+export const FLOW_END: FlowShot = { caught: FLOW_WORDS.caught, newPage: 'off', title: FLOW_WORDS.note, body: LINES.length + 1, shown: 4, picked: null, pressed: false, lit: 2, question: FLOW_WORDS.question, last: true, cursor: null, bar: false }
 /** How long the pointer takes to travel to a line, to drag across it, and to reach its button (welcome.tsx times its beats by these). */
 export const CURSOR_MS = { travel: 520, drag: 480, button: 380 }
 
@@ -123,7 +124,7 @@ const BAR_W = 130
 function Pointer({ aim, sels, pressed }: { aim: Aim; sels: Record<string, Sel>; pressed: boolean }): React.JSX.Element | null {
   const sel = sels[aim.line]
   if (!sel) return null
-  const press = sel.beside ? [sel.x1 + BESIDE + 70, sel.y1 + 2] : [sel.x1 - 38, sel.top - BAR_RISE + 18]
+  const press = aim.line === 'page' ? [sel.x0 + 28, sel.y0 + 4] : sel.beside ? [sel.x1 + BESIDE + 70, sel.y1 + 2] : [sel.x1 - 38, sel.top - BAR_RISE + 18]
   const [x, y] = aim.to === 'start' ? [sel.x0, sel.y0] : aim.to === 'end' ? [sel.x1, sel.y1] : press
   const ms = (aim.to === 'end' ? CURSOR_MS.drag : aim.to === 'button' ? CURSOR_MS.button : CURSOR_MS.travel) / 1000
   // A drag runs even, with the selection; a move leads with one axis so the path bows.
@@ -189,6 +190,12 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
       const [x1, y1] = at(b.right, (b.top + b.bottom) / 2)
       lines[one.dataset.mark!] = { x0, y0, x1, y1, top: at(a.left, a.top)[1], beside: x1 + BESIDE + BAR_W <= next.note.x1 - 12 }
     }
+    // "New page", for the pointer to press.
+    const button = el.querySelector<HTMLElement>('[data-new-page]')
+    if (button) {
+      const spot = place(button)
+      lines.page = { x0: spot.x0, y0: spot.y, x1: spot.x1, y1: spot.y, top: spot.y, beside: false }
+    }
     setSels(lines)
   }, [size.w, size.h])
   const draw = quiet ? { duration: 0 } : { duration: 0.45, ease: EASE }
@@ -218,7 +225,12 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
             <Landed id="caught" on={shot.shown >= 1} quiet={quiet}>
               {/* Quick capture, as the box draws itself: the words in the editor's face, the kind chip, Create. */}
               <div className="overflow-hidden rounded-[14px] border border-foreground/10 bg-popover text-popover-foreground" style={{ boxShadow: 'var(--mf-panel-shadow), inset 0 1px 0 rgb(255 255 255 / 0.06)' }}>
-                <p className="px-3.5 pt-3 pb-2 text-[1rem] leading-snug text-foreground" style={EDITOR_FONT}>{FLOW_WORDS.caught}</p>
+                {/* Written as you watch, a key at a time, so it reads as yours; the rest of it kept in place, unseen, so nothing moves as it types. */}
+                <p aria-label={FLOW_WORDS.caught} data-flow-caught={shot.caught.length} className="px-3.5 pt-3 pb-2 text-[1rem] leading-snug text-foreground" style={EDITOR_FONT}>
+                  <span aria-hidden>{shot.caught}</span>
+                  {!quiet && shot.caught.length < FLOW_WORDS.caught.length && <span aria-hidden className="mf-caret mf-caret-typing" />}
+                  <span aria-hidden className="invisible">{FLOW_WORDS.caught.slice(shot.caught.length)}</span>
+                </p>
                 <div className="flex items-center gap-1.5 bg-linear-to-t from-[var(--accent)]/40 px-3 pt-1.5 pb-2.5">
                   <span className="inline-flex h-6 items-center gap-1 rounded-full border border-dashed border-primary px-2 text-[0.75rem] font-medium text-foreground">
                     <NotebookText className="size-3.5" style={{ color: 'var(--tt-color-text-gray)' }} />Note
@@ -226,27 +238,39 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
                 </div>
               </div>
             </Landed>
-            <p className={SUB}>{FLOW_SAID.caught}</p>
+            <motion.p className={SUB} initial={false} animate={{ opacity: shot.caught === FLOW_WORDS.caught ? 1 : 0 }} transition={fade}>{FLOW_SAID.caught}</motion.p>
           </div>
+          <div className="relative flex flex-col gap-2">
+          {/* "New page", as Writing offers it: pressed, and the capture is written out at length as a page of its own. */}
+          <motion.span data-new-page aria-hidden className="pointer-events-none absolute -top-11 left-0 z-10 inline-flex h-8 items-center gap-1.5 rounded-lg border border-foreground/12 bg-popover px-2.5 text-[0.875rem] font-medium text-foreground shadow-(--mf-panel-shadow)"
+            initial={false} animate={{ opacity: shot.newPage === 'shown' ? 1 : 0, y: shot.newPage === 'shown' ? 0 : 4, scale: shot.newPage === 'shown' && shot.pressed && shot.cursor?.line === 'page' ? 0.95 : 1 }} transition={fade}>
+            <Plus className="size-4 text-muted-foreground" />New page
+          </motion.span>
           <Landed id="note" on={shot.shown >= 2} quiet={quiet}>
             <div className={`${CARD} px-4 pt-3 pb-4`}>
-              <p className={HEAD}><Article className="size-3.5" style={{ color: 'var(--tt-color-text-brown)' }} />Note</p>
-              <p className="mt-1 font-heading text-[1.1875rem] leading-snug font-semibold text-foreground">{FLOW_WORDS.note}</p>
+              <p className={HEAD}><Article className="size-3.5" style={{ color: 'var(--tt-color-text-brown)' }} />Page</p>
+              {/* The title, written from the thought: typed, the rest kept in place unseen, so nothing moves. */}
+              <p aria-label={FLOW_WORDS.note} className="mt-1 font-heading text-[1.1875rem] leading-snug font-semibold text-foreground">
+                <span aria-hidden>{shot.title}</span>
+                {!quiet && shot.shown >= 2 && shot.title.length < FLOW_WORDS.note.length && <span aria-hidden className="mf-caret mf-caret-typing" />}
+                <span aria-hidden className="invisible">{FLOW_WORDS.note.slice(shot.title.length)}</span>
+              </p>
               <div className="mt-2 flex flex-col gap-1.5 border-t border-foreground/10 pt-2.5 text-[0.9375rem] leading-snug text-foreground" style={EDITOR_FONT}>
                 {/* The quote caught beside the thought, linked in as the editor draws a link: its kind's icon and colour, then its words. */}
-                <p className="text-foreground/90">
+                <motion.p className="text-foreground/90" initial={false} animate={{ opacity: shot.body >= 1 ? 1 : 0, y: shot.body >= 1 ? 0 : 3 }} transition={fade}>
                   <span data-accent-ok className="rounded-[0.25rem] bg-(--mf-surface) px-[0.125rem] text-[var(--tt-brand-color-400)]">
                     <Quote className="mr-1 inline-block size-[0.85em] align-[-0.1em]" style={{ color: 'var(--tt-color-text-purple)' }} />Do or do not. There is no try.
                   </span>
-                </p>
-                {LINES.map((line) => {
+                </motion.p>
+                {LINES.map((line, n) => {
                   const hue = line.becomes && HUE[line.becomes]
                   const lit = !!line.becomes && shot.lit >= (line.becomes === 'task' ? 1 : 2)
                   const picked = !!line.becomes && shot.picked === line.becomes
                   const Mark = line.becomes === 'task' ? Check : Gem
                   return (
                     // A div, not a p: the tick mark draws itself inside a div of its own.
-                    <div key={line.text} className="relative pl-[1.4em]">
+                    // Written in one after another, each line in its place from the start so the page never grows.
+                    <motion.div key={line.text} className="relative pl-[1.4em]" initial={false} animate={{ opacity: shot.body >= n + 2 ? 1 : 0, y: shot.body >= n + 2 ? 0 : 3 }} transition={fade}>
                       {/* Picked: the selection's own colour behind the words, and the bar over them. Then marked: a band of what it became, and its mark in the margin. The words never move. */}
                       {hue && (
                         <>
@@ -263,12 +287,14 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
                         style={hue ? { backgroundImage: SELECTION, backgroundSize: '0% 100%' } : undefined}
                         initial={false} animate={hue ? { backgroundSize: picked && !lit ? '100% 100%' : '0% 100%' } : undefined}
                         transition={picked && !lit && !quiet ? { duration: CURSOR_MS.drag / 1000, ease: DRAG } : { duration: 0 }}>{line.text}</motion.span>
-                    </div>
+                    </motion.div>
                   )
                 })}
               </div>
             </div>
           </Landed>
+          <motion.p className={SUB} initial={false} animate={{ opacity: shot.body > LINES.length ? 1 : 0 }} transition={fade}>{FLOW_SAID.page}</motion.p>
+          </div>
           <div className={`flex flex-col gap-[clamp(0.875rem,3vh,1.75rem)] ${BRANCH}`}>
             <Landed id="task" on={shot.shown >= 3} quiet={quiet}>
               {/* A task, as the Tasks list draws its row: the box, the name, its day under it. */}

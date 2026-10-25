@@ -20,11 +20,11 @@ const c = await sandbox({ width: 1440, height: 900, seeded: false })
 const { h, errors, close } = c
 const WHOLE = [
   'Most notes are written once and never seen again.',
-  'Notion and Obsidian keep what you write.',
-  'Todoist keeps what you plan.',
-  'Anki keeps what you mean to remember.',
+  'Your writing lives in one app.',
+  'Your plans live in another.',
+  'What you mean to remember lives in a third.',
   'In each one, going back is your job. So mostly, nobody does.',
-  'In Haligtree, your notes come back to you: an old note when you open the app, a question as you start to forget it.',
+  'Haligtree is one place for all three, and your notes come back to you: an old note when you open the app, a question as you start to forget it.',
   'Haligtree is a commonplace book, the kind writers have kept for centuries: catch a thought, write it out, and it finds you again.'
 ]
 const words = () => h.evaluate(() => [...document.querySelectorAll('[data-thesis]')].map((el) => el.innerText.replace(/\s+/g, ' ').trim()))

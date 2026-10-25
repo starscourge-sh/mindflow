@@ -27,6 +27,8 @@ const open = async (h) => {
   const own = await h.waitForSelector('.mf-welcome', { timeout: 8000 }).then(() => true, () => false)
   if (!own) await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:welcome')))
   await h.waitForSelector('.mf-welcome', { timeout: 8000 })
+  // Through the arrival's mist first (qa/welcome-mist.mjs): the first line comes once it has thinned.
+  await h.waitForSelector('.mf-welcome h1', { timeout: 15000 }).catch(() => {})
   return own
 }
 // On, or past Your turn without trying it.
@@ -47,7 +49,8 @@ const grows = async (h, read, ms) => {
   return { steps: new Set(seen).size, first: seen[0], last: seen[seen.length - 1] }
 }
 // The first line as a reader sees it: the letters typed so far (the rest is laid out but hidden), or the whole line when it does not type.
-const titleText = () => document.querySelector('.mf-welcome h1')?.innerText.trim().length ?? 0
+// The first line comes out of the mist a word at a time now (data-words), not a letter at a time.
+const titleText = () => Number(document.querySelector('.mf-welcome h1[data-words]')?.getAttribute('data-words') ?? document.querySelector('.mf-welcome h1')?.innerText.trim().length ?? 0)
 const boxText = () => document.querySelector('.mf-welcome [data-frame="box"] [data-caught]')?.innerText.replace(/\s+/g, ' ').trim().length ?? 0
 const THOUGHT = 'Why do old movies feel more real?'
 
@@ -60,8 +63,8 @@ for (const theme of ['light', 'dark']) {
     const shot = async (name) => SHOTS && h.screenshot({ path: `${SHOTS}/${theme}-${name}.png` })
     if (theme === 'light') {
       check('a fresh install opens the welcome on its own', first)
-      const line = await grows(h, titleText, 1500)
-      check('the first line types in, a letter at a time', line.steps >= 5 && line.last > line.first, `${line.steps} lengths, ${line.first} to ${line.last}`)
+      const line = await grows(h, titleText, 5000)
+      check('the first line comes in a word at a time', line.steps >= 4 && line.last > line.first, `${line.steps} lengths, ${line.first} to ${line.last}`)
     }
     // Up to You, then one press on to Catch, timed from the press.
     await until(h, 'You')
@@ -104,10 +107,17 @@ for (const theme of ['light', 'dark']) {
     await next(h)
     await h.waitForTimeout(300)
     const start = await h.evaluate(() => ({ caught: document.querySelector('[data-flow="caught"]')?.innerText ?? '', on: !!document.querySelector('[data-flow="caught"][data-shown]'), note: !!document.querySelector('[data-flow="note"][data-shown]') }))
-    check(`${theme}: Write opens on the thought just caught, already on the stage`, start.on && start.caught.includes(THOUGHT) && !start.note, JSON.stringify(start))
-    await h.waitForSelector('[data-flow="note"][data-shown]', { timeout: 5000 })
+    check(`${theme}: Write opens on the thought's card, ready to be written into, no page yet`, start.on && !start.note, JSON.stringify(start))
+    // The thought is written out a key at a time, then "New page" is pressed and the page opens beside it.
+    const seen = []
+    for (let i = 0; i < 30; i++) (seen.push(await h.evaluate(() => Number(document.querySelector('[data-flow-caught]')?.getAttribute('data-flow-caught') ?? -1))), await h.waitForTimeout(100))
+    check(`${theme}: the thought is written out a key at a time`, new Set(seen).size >= 5 && seen.at(-1) > seen[0], seen.join(','))
+    await h.waitForFunction(() => Number(getComputedStyle(document.querySelector('[data-new-page]')).opacity) > 0.5, null, { timeout: 8000 }).then(() => true, () => false)
+      .then((offered) => check(`${theme}: "New page" is offered beside it, and pressed`, offered))
+    await h.waitForSelector('[data-flow="note"][data-shown]', { timeout: 8000 })
+    await h.waitForTimeout(4500)
     const note = await h.$eval('[data-flow="note"]', (el) => el.innerText)
-    check(`${theme}: the note it grew into is about old movies, with the film's quote in it`, /Why old movies feel real/.test(note) && /Do or do not/.test(note), note.replace(/\s+/g, ' ').slice(0, 120))
+    check(`${theme}: the page written from it is about old movies, with the film's quote in it`, /Why old movies feel real/.test(note) && /Do or do not/.test(note), note.replace(/\s+/g, ' ').slice(0, 120))
     await settled(h)
     await shot('write-end')
     if (theme === 'light') {
@@ -142,7 +152,7 @@ for (const theme of ['light', 'dark']) {
     await h.reload()
     await open(h)
     const line = await grows(h, titleText, 600)
-    check('motion off: the first line is whole at once', line.steps === 1 && line.first > 40, `${line.steps} lengths, ${line.first}`)
+    check('motion off: the first line is whole at once', line.steps === 1 && line.first >= 9, `${line.steps} lengths, ${line.first}`)
     await until(h, 'Catch')
     await h.waitForTimeout(400)
     const caught = await h.evaluate(() => ['note', 'quote', 'todo'].map((one) => !!document.querySelector(`[data-slot="${one}"] [data-ghost], [data-slot="${one}"] div`)))
