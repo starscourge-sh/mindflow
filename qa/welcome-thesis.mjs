@@ -58,7 +58,7 @@ try {
   await settle()
   await h.waitForTimeout(900)
   const why = await h.evaluate(() => [...document.querySelectorAll('[data-thesis]')].map((el) => el.innerText.replace(/\s+/g, ' ').trim()))
-  check('settled, Why says it all, in order', why.length === 7 && /^Most notes are written once and never seen again\.$/.test(why[0]) && /^Your writing lives in one app\.$/.test(why[1]) && /^Your plans live in another\.$/.test(why[2]) && /^What you mean to remember lives in a third\.$/.test(why[3]) && /^In each one, going back is your job\. So mostly, nobody does\.$/.test(why[4]) && /^Haligtree is one place for all three, and your notes come back to you: an old note when you open the app, a question as you start to forget it\.$/.test(why[5]) && /^Haligtree is a commonplace book, the kind writers have kept for centuries: catch a thought, write it out, and it finds you again\.$/.test(why[6]), why.join(' | '))
+  check('settled, Why says it all, in order', why.length === 7 && /^Most notes are written once and never seen again\.$/.test(why[0]) && /^Your writing lives in one app\.$/.test(why[1]) && /^Your plans live in another\.$/.test(why[2]) && /^What you mean to remember lives in a third\.$/.test(why[3]) && /^In each one, going back is your job\. So mostly, nobody does\.$/.test(why[4]) && /^Haligtree is one place for all three, and your notes come back to you: an old note when you open the app, a question as you start to forget it\.$/.test(why[5]) && /^Haligtree is a commonplace book that brings your notes back to you\. Writers have kept them for centuries: catch a thought, write it out, and it finds you again\.$/.test(why[6]), why.join(' | '))
   const italic = await h.evaluate(() => [...document.querySelectorAll('[data-thesis^="gap-"]')].map((li) => getComputedStyle(li.querySelector('.italic') ?? li).fontStyle))
   check('what each kind of app keeps is in italics, after its name', italic.length === 3 && italic.every((one) => one === 'italic'), JSON.stringify(italic))
   check('the Why page names no place in Haligtree a newcomer has not seen yet', !/Home|Review/.test(why.join(' ')), why.join(' | '))
@@ -116,10 +116,21 @@ try {
   await shot('payoff-obsidian')
   // A fresh install's first welcome may add to the sidebar, never take away: a new book's first pages stay (sidebar-first).
   const side = (await c.v('settings')).sidebarShown ?? []
-  check('the sidebar keeps Inbox, Writing, Everything, Review, Today and Calendar', ['inbox', 'articles', 'all', 'review', 'today', 'calendar'].every((one) => side.includes(one)), side.join(','))
+  check('the sidebar keeps Inbox, Home, Journal, Writing, Gems, Review, Tasks and Calendar', ['inbox', 'home', 'day', 'articles', 'nuggets', 'review', 'today', 'calendar'].every((one) => side.includes(one)), side.join(','))
   // Every page shows from the start (sidebar-all), so the welcome adds nothing to the sidebar and does not claim to.
   check('the payoff does not claim it added Tags to the sidebar', !/Tags are in your sidebar/.test(paid))
 
+  // The summary's Next says where it goes; then Catch plays (Just watch first) and hands over (Now you).
+  const label = await h.evaluate(() => document.querySelector('.mf-welcome footer [data-next]')?.innerText.replace(/\s+/g, ' ').trim() ?? '')
+  check('the summary\'s Next says where it goes: “Show me quick capture”', /^Show me quick capture/.test(label), label)
+  await h.click(NEXT)
+  await h.waitForTimeout(700)
+  const watch = await h.evaluate(() => document.querySelector('[data-aha="keys"]')?.textContent ?? '')
+  check('while Catch plays, it says to watch first and that your turn comes after', /^Just watch first\. See how it reads what you write\. Then it is your turn\.$/.test(watch), watch)
+  await settle()
+  await h.waitForTimeout(900)
+  const turn = await h.evaluate(() => document.querySelector('[data-turn="idle"]')?.textContent ?? '')
+  check('then it hands over: “Now you: press ⌘. and write anything”, its keys as keys', /^Now you: press ⌘\.\s*and write anything/.test(turn) && /Use a different key/.test(turn), turn)
   await until('Write')
   await settle()
   const mine = await h.evaluate(() => {
@@ -127,7 +138,7 @@ try {
     return el ? { all: el.textContent, shine: [...el.querySelectorAll('.mf-sheen')].map((one) => one.textContent).join('|') } : null
   })
   check('the writer\'s line on Write shines only on the words that carry it', !!mine && mine.shine === 'next to the reading they came from' && mine.all.length > mine.shine.length + 10, JSON.stringify(mine))
-  check('Write says to write at length, then lift lines out', /Write at length, then select a line to make it a task or a gem\./.test(await h.innerText('.mf-welcome')))
+  check('Write says where captures wait and how they grow: the Inbox, a page, a line made a task or a gem', /What you catch waits in your Inbox\. When it needs room, write it out as a page, then pick out a line to make it a task or a gem\./.test(await h.innerText('.mf-welcome')))
   await shot('write-for-you')
 
   // Remember: each line with its key words shining; the gem's names Review.
@@ -136,6 +147,7 @@ try {
   await settle()
   const answers = await h.evaluate(() => [...document.querySelectorAll('[data-answer]')].map((el) => ({ shine: [...el.querySelectorAll('.mf-sheen')].map((one) => one.textContent).join('|'), all: el.getAttribute('aria-label') })))
   check('Remember\'s three lines each shine on their key words', answers.length === 3 && answers.every((one) => one.shine && one.all.length > one.shine.length + 10), JSON.stringify(answers))
+  check('Remember says each thing you keep comes back when you need it', /Each thing you keep comes back when you need it: a task on its day, a gem before you forget it, a saved line a year on\./.test(await h.innerText('.mf-welcome [data-words]')))
   check('the gem comes back in Review, named there', /Review/.test(answers[1]?.all ?? ''), answers[1]?.all ?? '')
   check('the saved line comes back like a postcard from your past self', /postcard from your past self/.test(answers[2]?.all ?? ''), answers[2]?.all ?? '')
   check('the curve has no figures and no made-up days on it, only the review counts', !/\d/.test((await h.innerText('[data-curve]')).replace(/\b\d+(st|nd|rd|th)\b/g, '')))

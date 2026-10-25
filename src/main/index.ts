@@ -1,4 +1,4 @@
-import { TAGLINE } from './tagline'
+import { ANCHOR } from './tagline'
 import { registerMacCalendar } from './mac-calendar'
 import { pathToFileURL } from 'url'
 import { app, shell, BrowserWindow, clipboard, ClipboardItem, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, net, powerMonitor, protocol, screen, session, systemPreferences, Tray } from 'electron'
@@ -3404,7 +3404,7 @@ app.whenReady().then(() => {
   // Every time Haligtree writes, here and in each window, on the Mac's own clock (12 or 24 hours).
   useTwelveHour(twelveHour())
   // The Leaves marks draw on a Noun Project icon used under CC BY 3.0, which asks for this credit.
-  app.setAboutPanelOptions({ credits: `${TAGLINE}\n\n` + 'The Leaves mark is after “Abstract Flower” by Kalaakarini, from Noun Project (CC BY 3.0)' })
+  app.setAboutPanelOptions({ credits: `${ANCHOR}\n\n` + 'The Leaves mark is after “Abstract Flower” by Kalaakarini, from Noun Project (CC BY 3.0)' })
   // Edit > Select All asks the page first: a list picks every row (app-menu.ts).
   setAppMenu()
   // YouTube will not play an embed that comes from no page at all (its

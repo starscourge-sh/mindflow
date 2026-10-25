@@ -1,5 +1,5 @@
 // Into and out of the sandbox with nothing drawn in between: on the welcome's
-// Ready page, “Try it with example notes first” goes straight from the
+// Ready page, “Try it in someone else’s book first” goes straight from the
 // welcome to the dark “Opening the sandbox” screen, and Home (the page about
 // to be replaced) is never drawn for a frame, not even half seen through a
 // fade. The other ways in and out (Settings, the menu bar, the sandbox's own
@@ -107,7 +107,7 @@ try {
     await h.waitForTimeout(1200)
     // The sandbox card is the recommended way in: marked, and the other card is not.
     const marks = await h.evaluate(() => [...document.querySelectorAll('.mf-welcome [data-choice]')].map((el) => ({ key: el.dataset.choice, best: el.hasAttribute('data-recommended'), mark: el.querySelector('[data-recommended-mark]')?.textContent ?? '' })))
-    check('welcome: “Try it with example notes first” is marked “Recommended”, “Bring my notes” is not', marks.find((m) => m.key === '2')?.best && marks.find((m) => m.key === '2')?.mark === 'Recommended' && !marks.find((m) => m.key === '3')?.best, JSON.stringify(marks))
+    check('welcome: “Try it in someone else’s book first” is marked “Recommended”, “Bring my notes” is not', marks.find((m) => m.key === '2')?.best && marks.find((m) => m.key === '2')?.mark === 'Recommended' && !marks.find((m) => m.key === '3')?.best, JSON.stringify(marks))
     // FLASH_BY=key: the 2 key takes the same way in as the click.
     const byKey = process.env.FLASH_BY === 'key'
     const samples = await record(c, 'welcome', () => byKey ? h.keyboard.press('2') : h.click('.mf-welcome [data-choice="2"]'))

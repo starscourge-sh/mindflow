@@ -25,7 +25,7 @@ const WHOLE = [
   'What you mean to remember lives in a third.',
   'In each one, going back is your job. So mostly, nobody does.',
   'Haligtree is one place for all three, and your notes come back to you: an old note when you open the app, a question as you start to forget it.',
-  'Haligtree is a commonplace book, the kind writers have kept for centuries: catch a thought, write it out, and it finds you again.'
+  'Haligtree is a commonplace book that brings your notes back to you. Writers have kept them for centuries: catch a thought, write it out, and it finds you again.'
 ]
 const words = () => h.evaluate(() => [...document.querySelectorAll('[data-thesis]')].map((el) => el.innerText.replace(/\s+/g, ' ').trim()))
 const heard = () => h.evaluate(() => [...(window.haligtreeHeard ?? [])])

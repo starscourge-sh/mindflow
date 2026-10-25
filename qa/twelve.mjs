@@ -251,7 +251,7 @@ try {
   await h.waitForSelector('.mf-welcome', { timeout: 8000 })
   await h.waitForTimeout(800)
   const tag = await h.$eval('[data-tagline]', (one) => one.textContent).catch(() => '')
-  check('12. the welcome says “Haligtree: for everything you capture”', tag === 'Haligtree: for everything you capture', tag)
+  check('12. the welcome says “Haligtree: notes that come back to you”', tag === 'Haligtree: notes that come back to you', tag)
   for (let i = 0; i < 6 && !(await h.$('[data-welcome-first]')); i++) {
     await h.click('footer button:has-text("Next"), footer button:has-text("Show me")').catch(() => {})
     await h.waitForTimeout(900)

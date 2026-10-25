@@ -1,7 +1,7 @@
 import { WelcomeLeaves } from './welcome-leaves'
 import { WelcomeMist } from './welcome-mist'
 import { Condense, DRAG_MS, REACH_MS, WelcomePointer, type Move } from './welcome-pointer'
-import { TAGLINE } from '../../../../main/tagline'
+import { ANCHOR, TAGLINE } from '../../../../main/tagline'
 import { fittedTitle, quoted } from '../../../../main/clip'
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
@@ -585,14 +585,14 @@ function Progress({ at, seen, onBack }: { at: number; /** The chapters already s
  * stage below waits (each chapter's demo starts once they have been read,
  * `lead`). Each word of the headline rises once, in place.
  */
-function Words({ title, still, done, children }: { title: string; docked?: boolean; still: boolean; done: boolean; tight?: boolean; children?: ReactNode }): React.JSX.Element {
+function Words({ title, still, done, wide = false, children }: { title: string; docked?: boolean; still: boolean; done: boolean; tight?: boolean; /** A longer line, kept to two lines on a wide window. */ wide?: boolean; children?: ReactNode }): React.JSX.Element {
   return (
-    <div data-reel={done ? 'done' : 'playing'} data-words className="relative z-20 flex max-w-[52rem] shrink-0 flex-col gap-[clamp(0.375rem,1.2vh,0.75rem)] pb-[clamp(0.5rem,2vh,1.25rem)]">
+    <div data-reel={done ? 'done' : 'playing'} data-words className="relative z-20 flex max-w-[60rem] shrink-0 flex-col gap-[clamp(0.375rem,1.2vh,0.75rem)] pb-[clamp(0.5rem,2vh,1.25rem)]">
       <h1 className={DOCKED}>
         <Rise text={title} still={still} />
       </h1>
       {children && (
-        <motion.div className={`${BODY} max-w-[46ch]`} initial={still ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3, ease: ENTER, delay: 0.2 }}>
+        <motion.div className={`${BODY} ${wide ? 'max-w-[64ch]' : 'max-w-[46ch]'}`} initial={still ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3, ease: ENTER, delay: 0.2 }}>
           {children}
         </motion.div>
       )}
@@ -648,8 +648,8 @@ const THREE: [string, string][] = [
 const QUESTION = 'In each one, going back is your job. So mostly, nobody does.'
 // One thing is pitched: one book in place of the three, where notes come back by themselves.
 const ANSWER = `${APP_NAME} is one place for all three, and your notes *come back to you*: an old note when you open the app, a question as you start to forget it.`
-/** The first time the words are used, what they mean: the cycle the chapters after follow (Catch, Write, Remember). */
-const BOOK = `${APP_NAME} is a commonplace book, the kind writers have kept for centuries: catch a thought, write it out, and it finds you again.`
+/** What Haligtree is (main/tagline.ts), then the cycle the chapters after follow (Catch, Write, Remember). */
+const BOOK = `${ANCHOR} Writers have kept them for centuries: catch a thought, write it out, and it finds you again.`
 
 type ThesisState = { opened: boolean; words: number; gaps: number; kept: number; line: number; move: Move; slanted: number; asked: boolean; answer: boolean; said: number; book: boolean }
 const THESIS_START: ThesisState = { opened: false, words: 0, gaps: 0, kept: 0, line: -1, move: 'off', slanted: 0, asked: false, answer: false, said: 0, book: false }
@@ -789,6 +789,8 @@ function YouChapter({ setup, onChange, still, report, paid, onPaid: setPaid }: {
     settle: () => undefined,
     // Back from the summary: the questions, every answer as it was given.
     less: () => (paid ? (setPaid(false), true) : false),
+    // From the summary, Next says where it goes: Catch, which shows quick capture.
+    label: paid ? 'Show me quick capture' : undefined,
     more: () => {
       if (paid || !answered(setup)) return false
       setWorking(true)
@@ -922,7 +924,7 @@ const AHA: Partial<Record<Kind, [string, string]>> = {
   quote: ['Kept with its source.', `${APP_NAME} read who said it, and where.`],
   todo: ['Dated for you.', `On your list for ${STORY_DAY}, at ${clock(dayjs().hour(20).minute(0).toDate())}.`]
 }
-const KEYS_SAID: [string, string] = ['Just watch.', 'Later, these keys open it from any app.']
+const KEYS_SAID: [string, string] = ['Just watch first.', 'See how it reads what you write. Then it is your turn.']
 /** Catch's line: what the box is and what it does that others do not. No keys in it: they are on the stage, to watch. */
 const CATCH_BOX = 'Quick capture opens over any app, and it'
 const CATCH_SHINE = 'spots the details'
@@ -1013,7 +1015,7 @@ function CatchChapter({ play, report, state, onState, setup, turn, mine }: { pla
     </button>
   )
   const said: Record<Turn, ReactNode> = {
-    idle: <><Action>Your turn: press {box} and write anything</Action>{other}</>,
+    idle: <><Action>Now you: press {box} and write anything</Action>{other}</>,
     open: <Action>Now write something, and press {send} to save it</Action>,
     away: <><Action>Press {box} to bring quick capture back</Action>{other}</>,
     kept: <>Saved{first ? ` ${first}` : ''}. It is in {mine?.kind === 'todo' ? 'your tasks' : 'your Inbox'}.</>
@@ -1077,7 +1079,7 @@ function CatchChapter({ play, report, state, onState, setup, turn, mine }: { pla
 // --- 4 Write ------------------------------------------------------------------------
 
 const WRITE_TITLE = 'Write it out.'
-const WRITE_LINE = 'Write at length, then select a line to make it a task or a gem.'
+const WRITE_LINE = 'What you catch waits in your Inbox. When it needs room, write it out as a page, then pick out a line to make it a task or a gem.'
 
 /**
  * The thought caught in Catch, written out a key at a time; then, in real
@@ -1138,7 +1140,7 @@ function WriteChapter({ play, report, setup }: { play: boolean; report: (now: Re
   useReport(report, show.done, show.settle, show.part)
   return (
     <>
-      <Words title={WRITE_TITLE} still={!play} done={show.done}>{WRITE_LINE}<ForYou setup={setup} at="write" /></Words>
+      <Words title={WRITE_TITLE} still={!play} done={show.done} wide>{WRITE_LINE}<ForYou setup={setup} at="write" /></Words>
       <div className="relative flex min-h-0 flex-1 flex-col pb-2">
         <FlowTree shot={show.done ? FLOW_END : show.state} quiet={!play} />
       </div>
@@ -1149,7 +1151,7 @@ function WriteChapter({ play, report, setup }: { play: boolean; report: (now: Re
 // --- 5 Remember ---------------------------------------------------------------------
 
 const BACK_TITLE = 'It comes back to you.'
-const BACK_LINE = 'Tasks on their day, gems before they fade, a saved line a year on.'
+const BACK_LINE = 'Each thing you keep comes back when you need it: a task on its day, a gem before you forget it, a saved line a year on.'
 
 /**
  * The three kept things, there from the first frame; then, in real
@@ -1204,7 +1206,7 @@ function RememberChapter({ play, report, setup }: { play: boolean; report: (now:
   useReport(report, show.done, show.settle, show.part)
   return (
     <>
-      <Words title={BACK_TITLE} still={!play} done={show.done}>
+      <Words title={BACK_TITLE} still={!play} done={show.done} wide>
         {BACK_LINE}
         <ForYou setup={setup} at="remember" />
       </Words>
@@ -1585,7 +1587,9 @@ function KeyPicker({ taken, onState }: { taken: boolean; onState: (now: Onboardi
  */
 const keptSaid = (kept: number, mine: number): string => {
   if (kept === mine) return kept === 1 ? 'Your first note is in it.' : `Your first ${counted(kept).toLowerCase()} notes are in it.`
-  return `${kept < 10 ? counted(kept) : kept} ${SANDBOX ? 'example ' : ''}${kept === 1 ? 'note' : 'notes'} in it already.`
+  // In the sandbox the notes are someone else's, to try things on: said as theirs, never as clutter in yours.
+  if (SANDBOX) return 'This is someone else’s book, full of their notes to try things on. Yours stay apart.'
+  return `${kept < 10 ? counted(kept) : kept} ${kept === 1 ? 'note' : 'notes'} in it already.`
 }
 
 /**
@@ -1600,7 +1604,7 @@ function Start({ name, kept, mine, skipped, importing, still, onPick, setup, onI
   const from = sourceFrom(setup.from)
   // The sandbox is the way we point a newcomer: it is marked, tinted and says why. Start still opens their own book.
   const others: { key: 2 | 3; title: string; line: string; icon: typeof Compass; best?: boolean }[] = [
-    { key: 2, title: 'Try it with example notes first', line: `The best way to see what ${APP_NAME} does: a book already full of notes. Yours waits for you.`, icon: Compass, best: true },
+    { key: 2, title: 'Try it in someone else’s book first', line: `The best way to see what ${APP_NAME} does. Their notes stay apart from yours; try anything, and “Back to my notes” takes you home.`, icon: Compass, best: true },
     // Named for the app you said you came from, when Haligtree can bring things in from it.
     { key: 3, title: from && from !== 'Other files' ? `Bring my notes from ${from}` : 'Bring my notes', line: 'From Apple Notes, Obsidian, Notion, Anki or files. See what each thing becomes before you choose.', icon: FolderInput }
   ]

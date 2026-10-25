@@ -133,8 +133,9 @@ export function ComeBack({ shot, quiet, said }: { shot: BackShot; quiet: boolean
                 <p data-answer aria-label={one.said.replace(/\*/g, '')} className="text-[clamp(1.0625rem,min(1.9vw,2.7vh),1.3125rem)] leading-snug text-pretty text-foreground">{said(one.said)}</p>
               </motion.div>
               <motion.div className="w-full pt-1" initial={false} animate={{ opacity: on ? 1 : 0 }} transition={fade}>
-                {one.kind === 'task' && <DeskSticky on={on} ticked={shot.ticked} />}
-                {one.kind === 'gem' && <EveningReview over={shot.over} />}
+                {/* The sticky and the card a little smaller on a short window too, as the postcard is, so the curve under them has room. */}
+                {one.kind === 'task' && <div className="[@media(max-height:760px)]:[zoom:0.82]"><DeskSticky on={on} ticked={shot.ticked} /></div>}
+                {one.kind === 'gem' && <div className="[@media(max-height:760px)]:[zoom:0.82]"><EveningReview over={shot.over} /></div>}
                 {one.kind === 'quote' && (
                   // The postcard a year on, floating in once, as it does on Home; nothing in its place until it comes. A little smaller on a short window, so the curve under it has room.
                   <motion.div className="w-full max-w-[21rem] [@media(max-height:760px)]:[zoom:0.82]" initial={false}

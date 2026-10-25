@@ -1,6 +1,6 @@
 // The welcome as a first-time reader meets it, Catch into Write:
 //  - the first line and the example captures are typed in, a letter at a time (whole at once with Motion off)
-//  - Catch opens with the keys already on the stage and "Just watch" under them, no keys in its line, and the keys
+//  - Catch opens with the keys already on the stage and "Just watch first" under them, no keys in its line, and the keys
 //    press within a moment of the page (never a still frame long enough to try them early)
 //  - the box catches the story's thought, a line from its film and a plan to see the film again; each says what Haligtree
 //    did beside its slot, and those lines stay up while the box goes on
@@ -77,7 +77,7 @@ for (const theme of ['light', 'dark']) {
       watch: document.querySelector('[data-aha="keys"]')?.textContent ?? '',
       capsInLine: document.querySelectorAll('.mf-welcome [data-words] kbd').length
     }))
-    check(`${theme}: Catch opens with the keys on the stage and "Just watch" under them`, opening.keys && /^Just watch\./.test(opening.watch), JSON.stringify(opening))
+    check(`${theme}: Catch opens with the keys on the stage and "Just watch first" under them, and that your turn comes after`, opening.keys && /^Just watch first\. See how it reads what you write\. Then it is your turn\./.test(opening.watch), JSON.stringify(opening))
     check(`${theme}: Catch's line names no keys to press (they are on the stage, to watch)`, opening.capsInLine === 0, `${opening.capsInLine} keys`)
     await h.waitForFunction(() => !!document.querySelector('.mf-welcome [data-frame="box"] [data-ghost="create"]'), null, { timeout: 8000 })
     const opened = Date.now() - pressed
@@ -109,8 +109,9 @@ for (const theme of ['light', 'dark']) {
     const start = await h.evaluate(() => ({ caught: document.querySelector('[data-flow="caught"]')?.innerText ?? '', on: !!document.querySelector('[data-flow="caught"][data-shown]'), note: !!document.querySelector('[data-flow="note"][data-shown]') }))
     check(`${theme}: Write opens on the thought's card, ready to be written into, no page yet`, start.on && !start.note, JSON.stringify(start))
     // The thought is written out a key at a time, then "New page" is pressed and the page opens beside it.
+    // Typing waits for the longer line over it to be glanced at (glance in welcome.tsx), so watched for up to 7s.
     const seen = []
-    for (let i = 0; i < 30; i++) (seen.push(await h.evaluate(() => Number(document.querySelector('[data-flow-caught]')?.getAttribute('data-flow-caught') ?? -1))), await h.waitForTimeout(100))
+    for (let i = 0; i < 70 && !(new Set(seen).size >= 6 && seen.at(-1) === seen.at(-2)); i++) (seen.push(await h.evaluate(() => Number(document.querySelector('[data-flow-caught]')?.getAttribute('data-flow-caught') ?? -1))), await h.waitForTimeout(100))
     check(`${theme}: the thought is written out a key at a time`, new Set(seen).size >= 5 && seen.at(-1) > seen[0], seen.join(','))
     await h.waitForFunction(() => Number(getComputedStyle(document.querySelector('[data-new-page]')).opacity) > 0.5, null, { timeout: 8000 }).then(() => true, () => false)
       .then((offered) => check(`${theme}: "New page" is offered beside it, and pressed`, offered))
