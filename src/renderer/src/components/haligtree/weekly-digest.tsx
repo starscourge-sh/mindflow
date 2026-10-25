@@ -46,7 +46,9 @@ export function WeeklyDigest({ onView, force = false }: { onView: (id: string) =
     }
   })
   const sunday = new Date().getDay() === 0
-  if (!settings || settings.weeklyDigest === false || !week || away || !(sunday || force)) return null
+  // A week with nothing in it has nothing to say: a new book's first Sunday showed four zeros, "Much the same as the week before."
+  const empty = week && week.caught + week.kept + week.reviewed + week.finished === 0
+  if (!settings || settings.weeklyDigest === false || !week || away || !(sunday || force) || (empty && !force)) return null
   const hide = (): void => {
     chime('fold')
     setAway(true)

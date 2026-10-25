@@ -120,6 +120,8 @@ try {
   check('then Home, with the welcome gone', (await h.locator('.mf-welcome').count()) === 0 && (await h.locator('[data-home-plan]').count()) > 0)
   const line = await h.evaluate(() => document.querySelector('[data-book-opened]')?.textContent ?? '')
   check('Home says when the book was opened', /Your book, opened/.test(line), line)
+  // A new book's week has nothing in it: no card of four zeros, even on a Sunday.
+  check('no empty week card on a new book', (await h.locator('[data-weekly-digest]').count()) === 0)
   await shot('20-home')
   check('no page errors', errors.length === 0, errors.join(' | '))
 } finally {
