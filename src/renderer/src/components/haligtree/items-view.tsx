@@ -88,11 +88,14 @@ const kindOf = (id: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.fin
 // Each item's row, worked out once a minute (its age is said to the minute): picking
 // all 10,000 gems otherwise worked out every row again for each key.
 const ROWS = new WeakMap<Item, { minute: number; entry: Entry }>()
-export const itemEntry = (item: Item, menu?: RowItem[]): Entry => {
+export const itemEntry = (item: Item, menu?: RowItem[] | (() => RowItem[])): Entry => {
   const minute = Math.floor(Date.now() / 60_000)
   let kept = ROWS.get(item)
   if (!kept || kept.minute !== minute) ROWS.set(item, (kept = { minute, entry: rowOf(item) }))
-  return menu ? { ...kept.entry, menu } : kept.entry
+  if (typeof menu !== 'function') return menu ? { ...kept.entry, menu } : kept.entry
+  // Made the first time it is read, by a row drawn: 2,500 rows each building a menu on every draw took 50 ms.
+  let made: RowItem[] | undefined
+  return Object.defineProperty({ ...kept.entry }, 'menu', { get: () => (made ??= menu()), enumerable: true })
 }
 const rowOf = (item: Item): Entry => {
   // A gem with no source is a note of yours: drawn as one, until it says who or where from.
@@ -509,7 +512,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   const setPageGroup = (id: string | null): void => (onFolder ? onFolder(id) : setOwnPage(id))
   const paged = pageGroup ? noteGroups.find((one) => one.id === pageGroup) : undefined
   // A question is drawn as one, with its "?" mark, how long it has been held and its clues.
-  const entryOf = (one: Item): Entry => (one.tier === 'question' ? questionEntry(one, inView.has(one.id), menuFor(one) as MenuItem[]) : itemEntry(one, menuFor(one)))
+  const entryOf = (one: Item): Entry => (one.tier === 'question' ? questionEntry(one, inView.has(one.id), menuFor(one) as MenuItem[]) : itemEntry(one, () => menuFor(one)))
   const entries: [string, Entry[]][] = !listShown && !(open && (pane === 'rail' || boarded)) ? [] : tiles || folder
     ? [['', items.map((one) => {
         const card = folders.get(one.id)
@@ -1365,8 +1368,11 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
   // Every group seen, so one coming apart keeps its name and colour while it goes, and Undo can bring it back as it was.
   const known = useRef(new Map<string, NoteGroup>())
   for (const one of list) known.current.set(one.id, one)
-  const savedOrder = flatten(saved).join('\n')
-  useEffect(() => void (held && flatten(held).join('\n') === savedOrder && setHeld(null)), [savedOrder, held])
+  // What is in each group as well as the order: a group emptied in place reads the same row for row, and was let go
+  // before its save came back, so the rows went back into it until then (2,500 "Remove from group" showed late).
+  const shape = (one: Layout): string => [flatten(one).join(), ...Object.keys(one.groups).sort().map((id) => `${id}:${one.groups[id].join()}`)].join('\n')
+  const savedOrder = shape(saved)
+  useEffect(() => void (held && shape(held) === savedOrder && setHeld(null)), [savedOrder, held]) // eslint-disable-line react-hooks/exhaustive-deps
   // Never held for long: a save that came back otherwise is the truth.
   useEffect(() => {
     if (!held) return
@@ -1541,9 +1547,9 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
       }
       return {
         group: one.group ? view(one.group, one.items) : undefined,
-        entries: one.items.map((item) => itemEntry(item, menuFor(item))),
+        entries: one.items.map((item) => itemEntry(item, () => menuFor(item))),
         parts: one.parts?.map(function shape(part: Part): KeptPart {
-          return 'item' in part ? { entry: itemEntry(part.item, menuFor(part.item)) } : { group: view(part.sub, part.items), entries: part.items.map((item) => itemEntry(item, menuFor(item))), parts: part.parts.map(shape) }
+          return 'item' in part ? { entry: itemEntry(part.item, () => menuFor(part.item)) } : { group: view(part.sub, part.items), entries: part.items.map((item) => itemEntry(item, () => menuFor(item))), parts: part.parts.map(shape) }
         })
       }
     }),
