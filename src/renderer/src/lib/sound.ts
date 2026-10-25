@@ -27,7 +27,7 @@ let enabled = true
 /** The Sounds setting. */
 export const soundOn = (on: boolean): void => {
   enabled = on
-  if (!on) quietBed(0.3)
+  if (!on) (quietBed(0.3), quietWind(0.3))
 }
 let volume = 1
 /** The Volume setting, 0 to 1: every sound is scaled by it. */
@@ -1129,6 +1129,74 @@ export function quietBed(seconds = 1.6): void {
   out.gain.setTargetAtTime(0, now, seconds / 4)
   for (const one of sources) one.stop(now + seconds + 0.2)
   hear('cue:bed-end')
+}
+
+/** The welcome's wind over its leaves: one at a time, silent till the pointer comes near. */
+let wind: { context: AudioContext; out: GainNode; sources: AudioScheduledSourceNode[] } | null = null
+/** How loud the wind is asked to be, 0 to 1, for the probes. */
+let windLevel = 0
+;(window as unknown as { haligtreeRustle?: () => number }).haligtreeRustle = () => windLevel
+/** At its loudest: a breath of leaves, under everything else. */
+const WIND = 0.05
+
+/**
+ * A soft rustle of leaves in the wind, `level` 0 (silent) to 1 (as loud as it gets, still gentle):
+ * dark noise through a wide band, in slow gusts. Every change glides, so it never clicks; at 0 it
+ * stays ready, silent. Same switch and volume as every other sound.
+ */
+export function rustle(level: number): void {
+  level = Math.max(0, Math.min(1, level))
+  if (!enabled || !volume) return quietWind()
+  if (!wind) {
+    if (level < 0.01) return
+    const context = audio()
+    if (!context) return
+    const now = context.currentTime
+    const length = context.sampleRate * 4
+    const buffer = context.createBuffer(1, length, context.sampleRate)
+    const data = buffer.getChannelData(0)
+    // Smoothed noise is darker noise; the loop's two ends meet at a whisper, so the seam is never heard.
+    let last = 0
+    for (let i = 0; i < length; i++) (last = last * 0.82 + (Math.random() * 2 - 1) * 0.18), (data[i] = last * 3 * Math.min(1, i / 2000, (length - i) / 2000))
+    const noise = context.createBufferSource()
+    noise.buffer = buffer
+    noise.loop = true
+    const band = context.createBiquadFilter()
+    band.type = 'bandpass'
+    band.frequency.value = 1100
+    band.Q.value = 0.5
+    // The gusts: a slow swell and fall, never down to nothing.
+    const gust = context.createGain()
+    gust.gain.value = 0.65
+    const swell = context.createOscillator()
+    swell.frequency.value = 0.17
+    const depth = context.createGain()
+    depth.gain.value = 0.35
+    swell.connect(depth).connect(gust.gain)
+    const out = context.createGain()
+    out.gain.setValueAtTime(0, now)
+    noise.connect(band).connect(gust).connect(out).connect(context.destination)
+    noise.start(now)
+    swell.start(now)
+    wind = { context, out, sources: [noise, swell] }
+    hear('rustle')
+  }
+  windLevel = level
+  wind.out.gain.setTargetAtTime(level * WIND * volume, wind.context.currentTime, 0.25)
+}
+
+/** The wind goes, over `seconds`: its page was left, the welcome ended, or sounds were turned off. */
+export function quietWind(seconds = 0.8): void {
+  windLevel = 0
+  if (!wind) return
+  const { context, out, sources } = wind
+  wind = null
+  const now = context.currentTime
+  out.gain.cancelScheduledValues(now)
+  out.gain.setValueAtTime(out.gain.value, now)
+  out.gain.setTargetAtTime(0, now, seconds / 4)
+  for (const one of sources) one.stop(now + seconds + 0.2)
+  hear('rustle-end')
 }
 
 /**

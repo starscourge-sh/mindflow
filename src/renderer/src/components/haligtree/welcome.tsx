@@ -522,8 +522,11 @@ export function Welcome(): React.JSX.Element | null {
       className="mf-welcome fixed inset-0 z-[70] flex outline-none flex-col overflow-clip bg-background text-foreground [container-type:inline-size]">
       <Backdrop family={at === WRITE ? 'ruled' : at === DIAL ? 'dots' : 'none'} />
       {/* The first screen's autumn leaves, blowing behind the words; Next blows them away, and a
-          few small ones drift on through the rest (not over the dial, which has its own light). */}
-      <WelcomeLeaves on={at === WHY && play} open={play && at !== DIAL} middle={at === BACK ? 0 : 0.3} gather={at === LAST && !closing} />
+          few small ones drift on through the rest (not over the dial, which has its own light). On the
+          dial's page and the last, a slow stream of them is drawn in and sinks behind the dial's ring or
+          the recommended way in, quicker and with the wind louder as the pointer nears it. */}
+      <WelcomeLeaves on={at === WHY && play} open={play} motes={at !== DIAL} middle={at === BACK ? 0 : 0.3} gather={at === LAST && !closing}
+        lure={closing ? null : at === LAST ? '.mf-welcome [data-recommended]' : at === DIAL ? '.mf-welcome [role="slider"][aria-label="Theme"]' : null} />
       {mist && <WelcomeMist hurry={rushed} onGone={() => setMist(false)} />}
       {/* Before the first words, in the mist: the book's title page. */}
       {/* The book is yours whether it is the first welcome or one played again: its title page always names you. */}

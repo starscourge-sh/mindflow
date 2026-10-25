@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 
 import { still } from '@/lib/motion'
+import { quietWind, rustle } from '@/lib/sound'
 
 /** One square of the grid, in px: each holds a letter on a tinted tile. */
 const CELL = 11
@@ -14,6 +15,10 @@ const HUES = [45, 70, 85, 30, 110]
 type Kind = 'maple' | 'oak' | 'birch'
 type Leaf = { small: boolean; x: number; y: number; vx: number; vy: number; late: number; size: number; hue: number; spin: number; turn: number; flip: number; roll: number; drift: number; sway: number; kind: Kind }
 const KINDS: Kind[] = ['maple', 'oak', 'birch']
+/** How far off the pointer starts to quicken the leaves drawn to a choice, in px. */
+const NEAR = 460
+/** The most leaves drawn in at once: a few when the pointer is far, a few more over the choice. */
+const STREAM = 4
 
 /**
  * The welcome's first screen, once: autumn leaves drawn in letters on little
@@ -23,12 +28,16 @@ const KINDS: Kind[] = ['maple', 'oak', 'birch']
  * turns false) a gust blows them off the edge, gone in under a second. Not
  * drawn under reduced motion.
  */
-export function WelcomeLeaves({ on, open, middle = 0.3, gather = false }: { on: boolean; /** The welcome showing: the small ones keep drifting till it ends. */ open: boolean; /** How much of a leaf shows in the middle of the page: none on a page full to its edges. */ middle?: number; /** The last page: the leaves gather into one bunch at a single base, a florilegium. */ gather?: boolean }): React.JSX.Element | null {
+export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = null, motes: showMotes = true }: { on: boolean; /** The welcome showing: the small ones keep drifting till it ends. */ open: boolean; /** How much of a leaf shows in the middle of the page: none on a page full to its edges. */ middle?: number; /** The last page: the leaves gather into one bunch at a single base, a florilegium. */ gather?: boolean; /** What the leaves are drawn to (a selector): they drift in from the edges and sink behind it, quicker and with the wind louder as the pointer nears it. */ lure?: string | null; /** The small ones drifting by: none on a page with its own light (the dial). */ motes?: boolean }): React.JSX.Element | null {
   const box = useRef<HTMLCanvasElement>(null)
   const gathering = useRef(gather)
   gathering.current = gather
   const inMiddle = useRef(middle)
   inMiddle.current = middle
+  const drawTo = useRef(lure)
+  drawTo.current = lure
+  const moting = useRef(showMotes)
+  moting.current = showMotes
   // When the gust came; long ago if the leaves first show on a later screen, so only the small ones drift.
   const gust = useRef<number | null>(on ? null : -1e9)
   // Back on the first screen: the big leaves blow in again.
@@ -71,7 +80,8 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false }: { on: 
     }
     fit()
     window.addEventListener('resize', fit)
-    const dark = document.documentElement.classList.contains('dark')
+    // Read each frame: the dial changes the theme under them.
+    let dark = document.documentElement.classList.contains('dark')
     let seed = 7
     const random = (): number => ((seed = (seed * 16807) % 2147483647) / 2147483647)
     // A leaf, somewhere up and to the left of where it will blow, or anywhere at the start.
@@ -235,12 +245,38 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false }: { on: 
       ink.restore()
     }
 
+    // The leaves drawn to a choice, and how they go: `pace` 1 (the pointer far) to 3 (over it), eased, and the wind with it.
+    const drawn: { one: Leaf; aim: { x: number; y: number } }[] = []
+    let pace = 1
+    let loud = 0
+    let heard = 0
+    let nextAt = 0
+    let sunk = 0
+    let motesShown = moting.current ? 1 : 0
+    const pointer = { x: -1e5, y: -1e5 }
+    const point = (event: PointerEvent): void => void ((pointer.x = event.clientX), (pointer.y = event.clientY))
+    const away = (): void => void ((pointer.x = -1e5), (pointer.y = -1e5))
+    window.addEventListener('pointermove', point)
+    document.documentElement.addEventListener('pointerleave', away)
+    /** A new leaf for the stream, coming in at a side (or the top), fading in where it starts. */
+    const toward = (target: DOMRect): void => {
+      const one = make(true, true)
+      const side = Math.random()
+      if (side < 0.4) (one.x = width * Math.random() * 0.06), (one.y = height * (0.1 + Math.random() * 0.8))
+      else if (side < 0.8) (one.x = width * (0.94 + Math.random() * 0.06)), (one.y = height * (0.1 + Math.random() * 0.8))
+      else (one.x = width * (0.1 + Math.random() * 0.8)), (one.y = height * Math.random() * 0.06)
+      one.size = 70 + Math.random() * 40
+      born.set(one, performance.now())
+      // Each aims for its own place within the choice, so they sink in across it, never all at one point.
+      drawn.push({ one, aim: { x: (Math.random() - 0.5) * target.width * 0.6, y: (Math.random() - 0.5) * target.height * 0.4 } })
+    }
     let frame = 0
     let last = performance.now()
     const tick = (now: number): void => {
       const dt = Math.min(0.05, (now - last) / 1000)
       last = now
       const t = now / 1000
+      dark = document.documentElement.classList.contains('dark')
       if (again.current) (again.current = false), fall.splice(0, fall.length, ...Array.from({ length: 8 }, () => make(false)))
       const leaving = gust.current
       const gone = leaving === null ? 0 : Math.min(1, (now - leaving) / GUST_MS)
@@ -300,8 +336,54 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false }: { on: 
           if (calm > 0.5) edgeward(one)
         }
       }
+      // Drawn to a choice: a few leaves at a time drift in from the edges and sink behind it, under it, gone.
+      const target = drawTo.current ? document.querySelector(drawTo.current)?.getBoundingClientRect() : undefined
+      const room = canvas.getBoundingClientRect()
+      const hole = target && target.width ? { x: target.left - room.left, y: target.top - room.top, w: target.width, h: target.height, round: drawTo.current!.includes('slider') } : null
+      if (hole) {
+        // The pointer's way from the choice: none over it, the leaves at their quickest and the wind at its loudest.
+        const px = pointer.x - room.left
+        const py = pointer.y - room.top
+        const off = hole.round
+          ? Math.max(0, Math.hypot(px - hole.x - hole.w / 2, py - hole.y - hole.h / 2) - hole.w / 2)
+          : Math.hypot(Math.max(hole.x - px, 0, px - hole.x - hole.w), Math.max(hole.y - py, 0, py - hole.y - hole.h))
+        const near = Math.max(0, 1 - off / NEAR) ** 1.6
+        // Eased both ways, so nothing jumps as the pointer moves.
+        const ease = 1 - Math.exp(-dt * 1.6)
+        pace += (1 + 2 * near - pace) * ease
+        loud += (near - loud) * ease
+        if (Math.abs(loud - heard) > 0.01 || (heard && loud < 0.01)) rustle((heard = loud < 0.01 ? 0 : loud))
+        if (now > nextAt && drawn.length < STREAM + Math.round(2 * near)) (toward(target!), (nextAt = now + 2200 / pace))
+        const middle = { x: hole.x + hole.w / 2, y: hole.y + hole.h / 2 }
+        for (let i = drawn.length - 1; i >= 0; i--) {
+          const { one, aim } = drawn[i]
+          const dx = middle.x + aim.x - one.x
+          const dy = middle.y + aim.y - one.y
+          const far = Math.hypot(dx, dy) || 1
+          // Slow and steady, along a gentle curve: drawn on, swaying a little across the way it goes.
+          const sway = Math.sin(t * 0.6 + one.sway) * 0.45
+          const speed = 34 * pace * one.drift
+          one.x += ((dx / far) * speed - (dy / far) * speed * sway) * dt
+          one.y += ((dy / far) * speed + (dx / far) * speed * sway) * dt
+          one.flip += 0.5 * pace * dt
+          one.spin += one.turn * 0.8 * pace * dt
+          // Sinking: smaller as it slides under, as if drawn down into it.
+          const under = hole.round ? Math.hypot(one.x - middle.x, one.y - middle.y) < hole.w / 2 : Math.abs(one.x - middle.x) < hole.w / 2 && Math.abs(one.y - middle.y) < hole.h / 2
+          if (under) one.size *= 1 - 0.9 * dt * pace
+          if (far < 8 || one.size < 14) (drawn.splice(i, 1), sunk++)
+        }
+      } else {
+        // Its page left: the wind goes with it.
+        if (drawn.length || heard) quietWind()
+        heard = 0
+        loud = 0
+        pace = 1
+        drawn.length = 0
+      }
+      ;(window as unknown as { haligtreeLure?: unknown }).haligtreeLure = { leaves: drawn.length, sunk, pace, loud, toward: drawn.length && hole ? drawn.reduce((sum, { one }) => sum + Math.hypot(one.x - hole.x - hole.w / 2, one.y - hole.y - hole.h / 2), 0) / drawn.length : 0 }
       // Only the last stretch fades, for any leaf still in sight.
       const fade = Math.max(0, (gone - 0.7) / 0.3)
+      motesShown = Math.max(0, Math.min(1, motesShown + (moting.current ? dt : -dt) / 1.2))
       pen.clearRect(0, 0, cols, rows)
       pen.globalAlpha = 1 - fade
       for (const one of fall) draw(one, t)
@@ -381,9 +463,14 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false }: { on: 
         const held = bunch.get(one)
         if (held) continue
         const fading = gatheredAt ? 1 - 0.7 * Math.min(1, (now - gatheredAt) / 1800) : 1
-        pen.globalAlpha = fading * fresh * (0.32 * (1 - calm) + calm * 0.7 * bare(one.x, one.y))
+        pen.globalAlpha = motesShown * fading * fresh * (0.32 * (1 - calm) + calm * 0.7 * bare(one.x, one.y))
         if (pen.globalAlpha > 0.01) draw(one, t)
       }
+      // Drawn with the bunch, a little clearer than the leaves blowing by: these are meant to be followed.
+      ink = penHeld
+      for (const { one } of drawn) (penHeld.globalAlpha = 0.5 * Math.min(1, (now - (born.get(one) ?? 0)) / 2500)), draw(one, t)
+      penHeld.globalAlpha = 1
+      ink = pen
       pen.globalAlpha = 1
       const data = pen.getImageData(0, 0, cols, rows).data
       const dataHeld = penHeld.getImageData(0, 0, cols, rows).data
@@ -401,6 +488,8 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false }: { on: 
           if (a < 0.05) continue
           const px = x * CELL
           const py = y * CELL
+          // Under the choice the leaves are drawn to, nothing: they pass beneath it.
+          if (hole && (hole.round ? Math.hypot(px + CELL / 2 - hole.x - hole.w / 2, py + CELL / 2 - hole.y - hole.h / 2) < hole.w / 2 : px + CELL > hole.x && px < hole.x + hole.w && py + CELL > hole.y && py < hole.y + hole.h)) continue
           // Faint everywhere, so the words read over them with nothing cut out around them.
           const strength = a
           if (strength < 0.04) continue
@@ -420,6 +509,9 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false }: { on: 
     return () => {
       cancelAnimationFrame(frame)
       window.removeEventListener('resize', fit)
+      window.removeEventListener('pointermove', point)
+      document.documentElement.removeEventListener('pointerleave', away)
+      quietWind()
     }
   }, [here])
   if (!here) return null
