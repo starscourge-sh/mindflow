@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { hoverNote } from './note-preview'
-import { ArrowLeft, ArrowUpRight, Check, Heart, CornerDownRight, EyeOff, ImageDown, MessageCircle, Repeat2, RefreshCcw, Share, X } from 'lucide-react'
+import { ArrowLeft, ArrowUpRight, Check, Heart, CornerDownRight, EyeOff, ImageDown, MessageCircle, Repeat2, RefreshCcw, Share, Trash2, X } from 'lucide-react'
 
 import { call, haligtree, splitTags, unloaded, unread, useLive, type Gloss } from '@/lib/haligtree'
 import { thumbsRead, useThumb } from '@/lib/notes'
@@ -18,6 +18,7 @@ import { Avatar } from './avatar'
 import { GlossLine, cutWords, openGloss } from './gloss-line'
 import { MenuButton } from './collection-header'
 import { copy, type MenuItem } from './row-menu'
+import { moveToBin } from '@/lib/to-bin'
 import { motion } from 'motion/react'
 import { GoalPreview, ReadyMoment, useReady } from './goal-preview'
 import { FeedReading } from './feed-reading'
@@ -417,7 +418,7 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
   preview?: boolean
   /** A thread follows, so a line runs down from its picture. */
   joined?: boolean
-}): React.JSX.Element {
+}): React.JSX.Element | null {
   const quote = post.kind === 'quote'
   const account = (quote && post.who) || 'You'
   const context = contextOf(post)
@@ -435,6 +436,7 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
   const [chosen, setChosen] = useState<Reaction | null>(post.react)
   useEffect(() => setChosen(post.react), [post.react])
   const [restacking, setRestacking] = useState(false)
+  const [binned, setBinned] = useState(false)
   const self = useRef<HTMLLIElement>(null)
   const words = quote ? post.text || post.title : post.text
   const link = post.type === 'capture' ? post.id : `${post.type === 'question' ? 'nugget' : post.type}:${post.id}`
@@ -453,7 +455,13 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
     // The Feed never shows a private note, so every post here may be a picture.
     'separator',
     { id: 'save-image', label: 'Save as image', hint: 'A picture of this post, in the current theme', icon: <ImageDown className="size-4" />, run: () => void saveImage() },
-    { id: 'share-x', label: 'Share to X', hint: 'Its words in X, its picture copied to paste in', icon: <Share className="size-4" />, run: () => void shareX() }
+    { id: 'share-x', label: 'Share to X', hint: 'Its words in X, its picture copied to paste in', icon: <Share className="size-4" />, run: () => void shareX() },
+    // Housekeeping last: the note, gem, question or writing behind it to the Bin, the post gone at once and back with Undo. A day is not a thing to bin.
+    post.type !== 'day' && 'separator',
+    post.type !== 'day' && { id: 'bin', label: 'Move to the Bin', danger: true, icon: <Trash2 className="size-4" />, run: () => {
+      setBinned(true)
+      void moveToBin([{ type: post.type, id: post.id }], () => setBinned(false)).then((n) => n || setBinned(false))
+    } }
   ]
   const cardOf = (): CardPost => ({ account, said: `${kindWord(post)} · ${written(post.made, true)}`, title, text: quote ? words : text, quote, who: post.who, picture: broken ? undefined : picture })
   const saveImage = async (): Promise<void> => {
@@ -500,6 +508,7 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
   const hang = onThread && !unloaded(glosses) ? glosses[0] : undefined
   // Faded by "Less of this", today or before: how far, and the way back. Today's choice counts at once.
   const faded = Math.max(post.faded, chosen === 'less' ? 1 : 0)
+  if (binned) return null
 
   return (
     // Carried to the window's side, it opens beside the Feed (split-drop.tsx).
