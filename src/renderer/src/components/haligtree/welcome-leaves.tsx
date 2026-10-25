@@ -88,13 +88,30 @@ export function WelcomeLeaves({ on, open }: { on: boolean; /** The welcome showi
     // After the gust: a few small leaves and specks, drifting through the rest of the welcome.
     const motes: Leaf[] = Array.from({ length: 10 }, () => make(true, true))
     let settled = false
-    /** Down one side, where the pages are bare: from above it (`above`), or anywhere on it. */
+    /**
+     * Where the pages are bare: half go to the bottom right, the emptiest corner, the rest down
+     * the left and right edges. Each fades in where it starts (`born`), so none pops into sight.
+     */
     const edgeward = (one: Leaf, above: boolean): void => {
-      const right = Math.random() < 0.5
-      one.x = right ? width * (0.86 + Math.random() * 0.13) : width * (0.01 + Math.random() * 0.13)
-      one.y = above ? -one.size - Math.random() * height * 0.3 : Math.random() * height
+      const pick = Math.random()
+      one.size = 70 + Math.random() * 70
+      if (pick < 0.5) {
+        one.x = width * (0.62 + Math.random() * 0.36)
+        one.y = height * (0.5 + Math.random() * 0.42) - (above ? height * 0.15 : 0)
+      } else {
+        one.x = pick < 0.75 ? width * (0.01 + Math.random() * 0.13) : width * (0.86 + Math.random() * 0.13)
+        one.y = above ? -one.size - Math.random() * height * 0.2 : Math.random() * height
+      }
       one.vx = 0
       one.vy = 0
+      born.set(one, performance.now())
+    }
+    const born = new WeakMap<Leaf, number>()
+    /** How bare the page is there, 0 to 1: the side edges and the bottom right. */
+    const bare = (x: number, y: number): number => {
+      const side = Math.max(0, 1 - Math.min(x, width - x) / (width * 0.2))
+      const corner = Math.min(1, Math.max(0, (x - width * 0.55) / (width * 0.15))) * Math.min(1, Math.max(0, (y - height * 0.45) / (height * 0.15)))
+      return Math.max(side, corner)
     }
 
     /** A leaf's outline, its stem at the origin pointing left and its tip at `length`, by kind. */
@@ -240,7 +257,7 @@ export function WelcomeLeaves({ on, open }: { on: boolean; /** The welcome showi
       // Once the wind has dropped: more of them, all down the bare edges, already falling.
       if (calm > 0.5 && !settled) {
         settled = true
-        motes.push(...Array.from({ length: 10 }, () => make(true, true)))
+        motes.push(...Array.from({ length: 14 }, () => make(true, true)))
         for (const one of motes) edgeward(one, false)
       }
       for (const one of motes) {
@@ -252,9 +269,10 @@ export function WelcomeLeaves({ on, open }: { on: boolean; /** The welcome showi
           one.vy += (-260 * push - one.vy * 1.4) * dt
         }
         // Once the wind has dropped, a light sideways breeze and a slow fall: they come down the bare edges.
-        one.x += (blow * (0.5 - 0.42 * calm) * one.drift + one.vx) * dt
+        // Lingering: a breeze so light they stay a while where they are.
+        one.x += (blow * (0.5 - 0.46 * calm) * one.drift + one.vx) * dt
         one.y += one.vy * dt
-        one.y += (10 + 14 * calm + Math.sin(t * 0.5 + one.sway) * 8) * dt
+        one.y += (10 - 2 * calm + Math.sin(t * 0.5 + one.sway) * 6) * dt
         one.flip += 0.7 * dt
         one.spin += one.turn * 1.6 * dt
         if (one.x > width + one.size || one.y > height + one.size) {
@@ -270,8 +288,9 @@ export function WelcomeLeaves({ on, open }: { on: boolean; /** The welcome showi
       for (const one of fall) draw(one, t)
       for (const one of motes) {
         // After the first screen, faint at the edges and fading to nothing toward the middle, where the words are.
-        const edge = Math.max(0, 1 - Math.min(one.x, width - one.x) / (width * 0.2))
-        pen.globalAlpha = 0.32 * (1 - calm) + 0.6 * calm * edge
+        // Later on, as clear as the first screen's leaves where the page is bare, gone where the words are.
+        const fresh = Math.min(1, (now - (born.get(one) ?? 0)) / 1500)
+        pen.globalAlpha = 0.32 * (1 - calm) + calm * bare(one.x, one.y) * fresh
         if (pen.globalAlpha > 0.01) draw(one, t)
       }
       pen.globalAlpha = 1
