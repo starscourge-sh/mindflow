@@ -1023,7 +1023,7 @@ const quietly = new Set<string>()
 /** Each sticky's page, waited for until it says its words are in. */
 const readyWaits = new Map<number, () => void>()
 /** A dragged row came over a new place in a list: one light tap (renderer's slotTicker throttles it). */
-ipcMain.on('haptic:tap', () => tap('align'))
+ipcMain.on('haptic:tap', (_event, kind: unknown) => tap(kind === 'level' ? 'level' : 'align'))
 ipcMain.on('sticky:ready', (event) => {
   const go = readyWaits.get(event.sender.id)
   readyWaits.delete(event.sender.id)

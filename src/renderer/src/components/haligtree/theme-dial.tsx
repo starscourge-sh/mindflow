@@ -62,6 +62,8 @@ export function ThemeDial({ size = 200, big = false, calm = false, wear = (theme
   const land = (raw: number, by: 1 | -1 | 0, heard: 'note' | 'tick' = 'note'): void => {
     const i = wrap(raw)
     if (i === at && by === 0) return
+    // Felt as well as heard: a firm tap under the finger at every stop, the way a real dial clicks.
+    window.api.tapHard?.()
     if (heard === 'tick') {
       click('tick')
       if (!still()) animate(bump, [1.45, 1], { type: 'spring', bounce: 0.3, duration: 0.3 })
@@ -90,7 +92,7 @@ export function ThemeDial({ size = 200, big = false, calm = false, wear = (theme
       let passing = here()
       const off = turn.on('change', (deg) => {
         const now = Math.round(-deg / per)
-        if (now !== passing && now !== raw) click('tick')
+        if (now !== passing && now !== raw) (click('tick'), window.api.tapHard?.())
         passing = now
       })
       void run.then(off, off)
@@ -140,7 +142,6 @@ export function ThemeDial({ size = 200, big = false, calm = false, wear = (theme
   }
   const onDown = (event: React.PointerEvent): void => {
     if (event.button !== 0) return
-    // A click on a swatch is a click: the drag starts once it moves.
     // A pointer the system did not make (the welcome's hand) cannot be captured, and needs not be.
     try {
       ring.current?.setPointerCapture(event.pointerId)
@@ -180,15 +181,8 @@ export function ThemeDial({ size = 200, big = false, calm = false, wear = (theme
     setGrabbing(false)
     if (!now) return
     if (ring.current?.hasPointerCapture(event.pointerId)) ring.current.releasePointerCapture(event.pointerId)
-    // Hardly moved: a click, on a swatch or the face. A swatch is turned to the top the short way round.
-    if (now.moved < 4) {
-      const hit = (document.elementFromPoint(event.clientX, event.clientY) as HTMLElement | null)?.closest<HTMLElement>('[data-detent]')
-      const i = hit ? Number(hit.dataset.detent) : at
-      const ahead = wrap(i - at) <= n / 2 ? wrap(i - at) : wrap(i - at) - n
-      if (ahead) land(here() + ahead, ahead > 0 ? 1 : -1)
-      go(here() + ahead, 'pointer')
-      return
-    }
+    // Hardly moved: a click changes nothing. The dial is turned, never jumped: it settles back into its stop.
+    if (now.moved < 4) return void go(here(), 'pointer')
     const [first, last] = [now.samples[0], now.samples[now.samples.length - 1]]
     const velocity = first && last && last.t > first.t ? ((last.deg - first.deg) / (last.t - first.t)) * 1000 : 0
     // Projected a little past where it was let go, the way a flicked knob carries on.

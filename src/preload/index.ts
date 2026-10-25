@@ -86,6 +86,8 @@ const api = {
 
   /** One light tap on a Force Touch trackpad (main/haptic.ts): a dragged row reached a new place. */
   tap: (): void => ipcRenderer.send('haptic:tap'),
+  /** The firmer tap (the Mac's level change): a dial's stop clicking into place under the finger. */
+  tapHard: (): void => ipcRenderer.send('haptic:tap', 'level'),
 
   /** Drag a stored picture or file out to another app: called from dragstart, the system drag starts from here. */
   dragOut: (src: string, name: string): void => ipcRenderer.send('drag-out', src, name),
