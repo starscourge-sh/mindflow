@@ -713,10 +713,8 @@ const THREE: [string, string][] = [
 const MARGIN_NOTE = 'You never write anything down to do nothing with it.'
 /** Said once the three are up: why notes go unseen (going back is left to you). */
 const QUESTION = 'In each one, going back is your job. So mostly, nobody does.'
-// One thing is pitched: the three are one thought, growing.
+// One thing is pitched: the three are one thought, growing. What Haligtree is was said at the top, in the tagline.
 const ANSWER = `${APP_NAME} treats writing, planning and memory not as three separate tools, but as *the same thought evolving over time*.`
-/** How the one thought grows, then what Haligtree is: the cycle the chapters after follow (Catch, Write, Remember). */
-const BOOK = 'Here, an active draft naturally yields a plan for tomorrow, or a question to practice as memory fades. It is a modern commonplace book, built so your best thinking keeps finding you again.'
 
 type ThesisState = { noted: boolean; opened: boolean; words: number; gaps: number; kept: number; line: number; move: Move; slanted: number; asked: boolean; answer: boolean; said: number; book: boolean }
 const THESIS_START: ThesisState = { noted: false, opened: false, words: 0, gaps: 0, kept: 0, line: -1, move: 'off', slanted: 0, asked: false, answer: false, said: 0, book: false }
@@ -763,10 +761,10 @@ function thesisBeats(): Beat<ThesisState>[] {
   beats.push({ at: t, to: { answer: true }, cue: () => bell(PENTA[0] * 2, 0.014, 'answer') })
   const answer = typed<ThesisState>(plainOf(ANSWER), t + 250, (sofar) => ({ said: sofar.length }), random, 0.9, 2200)
   beats.push(...answer.beats)
-  t = answer.end + 1200
+  // The answer read, the tagline's promise is underlined by hand: what it said at the top, now shown.
+  t = answer.end + 700
   beats.push({ at: t, to: { book: true } })
-  // The last line stays up: it is read while Next waits, not before Next is ready.
-  beats.push({ at: t + 700, to: {} })
+  beats.push({ at: t + 900, to: {} })
   return beats
 }
 
@@ -840,9 +838,6 @@ function ThesisChapter({ play, report }: { play: boolean; report: (now: Reel) =>
         </motion.p>
         <motion.p data-thesis="answer" data-typed={Math.min(s.said, plainOf(ANSWER).length)} aria-label={plainOf(ANSWER)} className="font-heading text-[clamp(1.375rem,min(2.8vw,4vh),2.25rem)] leading-tight text-foreground" {...come(s.answer)}>
           <TypedAnswer said={ANSWER} upTo={s.said} />
-        </motion.p>
-        <motion.p data-thesis="book" className="text-balance text-[clamp(1.0625rem,min(1.9vw,2.7vh),1.3125rem)] leading-snug text-(--mf-wl-body)" {...come(s.book)}>
-          {BOOK}
         </motion.p>
       </div>
       {play && !show.done && <WelcomePointer root={root} phrases={phrases} marks={marks} line={s.line} move={s.move} />}

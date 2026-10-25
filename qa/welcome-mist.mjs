@@ -16,8 +16,10 @@ const c = await sandbox({ width: 1440, height: 900, seeded: false })
 const { h, errors, close, electron } = c
 const opacity = () => electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => /view=home/.test(w.webContents.getURL()))?.qaOpacity ?? -1)
 try {
+  // Read as soon as the window asks for any opacity: waiting for the mist to draw first measured how busy the machine was, not the fade.
+  let early = -1
+  for (let i = 0; i < 80 && early < 0; i++) (early = await opacity()) < 0 && (await h.waitForTimeout(50))
   await h.waitForSelector('[data-welcome-mist]', { timeout: 8000 })
-  const early = await opacity()
   check('the window comes up almost clear', early < 0.6, String(early))
   check('the words wait under the mist', await h.locator('[data-thesis="line"]').count() === 0)
   check('a soft sound swells in as it arrives', await h.evaluate(() => (window.haligtreeHeard ?? []).includes('cue:ambience')))

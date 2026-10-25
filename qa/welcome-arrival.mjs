@@ -24,8 +24,7 @@ const WHOLE = [
   'Your plans live in another.',
   'What you want to remember and practice (flashcards) lives in a third.',
   'In each one, going back is your job. So mostly, nobody does.',
-  'Haligtree treats writing, planning and memory not as three separate tools, but as the same thought evolving over time.',
-  'Here, an active draft naturally yields a plan for tomorrow, or a question to practice as memory fades. It is a modern commonplace book, built so your best thinking keeps finding you again.'
+  'Haligtree treats writing, planning and memory not as three separate tools, but as the same thought evolving over time.'
 ]
 const words = () => h.evaluate(() => [...document.querySelectorAll('[data-thesis]')].map((el) => el.innerText.replace(/\s+/g, ' ').trim()))
 const heard = () => h.evaluate(() => [...(window.haligtreeHeard ?? [])])

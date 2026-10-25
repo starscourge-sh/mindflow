@@ -79,7 +79,7 @@ try {
   check('and the first screen is there', (await h.locator('[data-thesis="line"]').count()) === 1)
   await h.keyboard.press('Escape')
   await h.waitForTimeout(500)
-  check('and settles whole', await h.evaluate(() => [...document.querySelectorAll('[data-thesis]')].length >= 7))
+  check('and settles whole', await h.evaluate(() => [...document.querySelectorAll('[data-thesis]')].length >= 6))
   const last = await asked()
   check('the window ends at its own size, not the screen\'s', !!last.bounds && last.bounds.width < last.screen.width && last.bounds.height < last.screen.height, JSON.stringify(last.bounds))
 
