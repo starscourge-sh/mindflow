@@ -983,10 +983,11 @@ export function abandoned(): void {
  * The welcome's arrival, timed as one piece of music at 72 beats a minute.
  * Silence and mist first; the low chord blooms from the bottom up (D, then
  * its fifth, then the colour notes); a held breath, the sound easing back a
- * little; and the first words land on the next beat, at ARRIVE_MS.
+ * little, the title card standing in the mist; and the first words land on
+ * the next beat, at ARRIVE_MS.
  */
 export const BEAT_MS = 60000 / 72
-export const ARRIVE_MS = Math.round(BEAT_MS * 6)
+export const ARRIVE_MS = Math.round(BEAT_MS * 10)
 /** The key everything in the welcome is in: D, E, F sharp, A and B, an octave up from the chord. */
 export const PENTA = [587.33, 659.25, 739.99, 880, 987.77] as const
 

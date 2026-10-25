@@ -1101,6 +1101,17 @@ body:has([data-card]:focus) [data-cursor] {
 /* Off, at once: a zero length alone would still keep each one back for its delay. */
 :root[data-motion='off'] :is(.mf-stagger > *, .mf-rise) { animation: none; }
 
+/* Home, just come into from the welcome: the page's parts come up under the
+   welcome's turning paper, the line saying it was opened first, the rest after. */
+.mf-opened > * { animation: mf-rise 520ms var(--mf-ease) both; animation-delay: 520ms; }
+.mf-opened > [data-book-opened] { animation-duration: 900ms; animation-delay: 380ms; }
+.mf-opened > :nth-child(n + 4) { animation-delay: 620ms; }
+.mf-opened > :nth-child(n + 6) { animation-delay: 700ms; }
+@media (prefers-reduced-motion: reduce) {
+  .mf-opened > * { animation: none; }
+}
+:root[data-motion='off'] .mf-opened > * { animation: none; }
+
 /* A row that just arrived in a list (a capture sent, one put back by Undo)
    eases down into its place instead of popping in. */
 .mf-arrive {

@@ -12,6 +12,7 @@ import { smallPicture, useThumb } from '@/lib/notes'
 import { openApart } from '@/lib/apart'
 import { backSaid, placed, taskName } from '@/lib/tasks'
 import { dayKey, num, startOfDay } from '../../../../main/dates'
+import { quoted } from '../../../../main/clip'
 import { splitTags, unloaded, unread, useLive, haligtree, whenInLine, type Pin as Pinned, type Settings, type Task } from '@/lib/haligtree'
 import { useKept } from '@/lib/nav'
 import { MenuButton, useTint } from './collection-header'
@@ -604,8 +605,50 @@ function Quotes({ title, onAll, cards, actions }: { title: ReactNode; onAll?: ()
   )
 }
 
+type Opened = { on: string; first: string }
+const openedNow = (): Opened | null => {
+  try {
+    return JSON.parse(sessionStorage.getItem('haligtree:book-opened') ?? 'null') as Opened | null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * The welcome's end, said on Home for the rest of the session: the day the
+ * book was opened, on its own line in the book's hand, and the first thing
+ * written in it during the welcome, if anything was. `fresh` while it has
+ * just been said: Home's parts then come in after it, a little apart.
+ */
+function useOpened(): { opened: Opened | null; fresh: boolean } {
+  const [opened, setOpened] = useState(openedNow)
+  const [fresh, setFresh] = useState(false)
+  useEffect(() => {
+    let off: ReturnType<typeof setTimeout> | undefined
+    const now = (): void => {
+      setOpened(openedNow())
+      setFresh(true)
+      clearTimeout(off)
+      off = setTimeout(() => setFresh(false), 2400)
+    }
+    window.addEventListener('haligtree:book-opened', now)
+    return () => (clearTimeout(off), window.removeEventListener('haligtree:book-opened', now))
+  }, [])
+  return { opened, fresh }
+}
+
+function BookOpened({ opened }: { opened: Opened }): React.JSX.Element {
+  return (
+    <div data-book-opened="" className="page-column relative w-full px-5 pt-6 @[44rem]/page:px-8">
+      <p className="font-heading text-[1.375rem] leading-snug font-light tracking-[-0.01em] text-foreground">Your book, opened {opened.on}.</p>
+      {opened.first && <p className="mt-1 text-[1rem] text-foreground/80">The first thing in it: <span className="font-heading italic">{quoted(opened.first)}</span></p>}
+    </div>
+  )
+}
+
 export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string) => void; onView: (id: string, focus?: string) => void }): React.JSX.Element {
   const data = useLive(home, NONE, [], ['capture', 'item'])
+  const { opened, fresh } = useOpened()
   // Opened by pointer, the shelves come in top down, 20ms apart; by G H, or
   // back again this session, they are simply there. Decided once, as the page opens.
   const first = useFirstVisit('home')
@@ -784,7 +827,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
   const nothing = !loading && !feature && !nextUp.length && !jump.length && !back.length && !questions.length && !tidy.length && !again.length && !tagRows.length && !week.length
 
   return provide(
-    <div ref={root} style={readsStyle} className={`relative flex min-w-0 flex-1 flex-col overflow-y-auto ${PICKED_CARD}`}>
+    <div ref={root} style={readsStyle} className={`relative flex min-w-0 flex-1 flex-col overflow-y-auto ${PICKED_CARD} ${fresh ? 'mf-opened' : ''}`}>
       {/* What is picked, and what can be done with it all: held at the top while you scroll. Opaque, never over the cards see-through. */}
       {several.bar && (
         <div data-pick-bar className="sticky top-0 z-30 w-full border-b bg-background">
@@ -794,6 +837,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
       {/* The band: the colour of the tile you point at, run down behind the top and faded into the page. */}
       <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[20rem] transition-[background-color] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]"
         style={{ backgroundColor: band ?? 'transparent', maskImage: 'linear-gradient(to bottom, black 0%, black 20%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 20%, transparent 100%)' }} />
+      {opened && <BookOpened opened={opened} />}
       {/* Open goals, quiet, above everything else: never hidden while one is open. */}
       <GoalStrip onOpen={(type, id) => (type === 'view' ? onView(id) : onOpen(type, id))} className="page-column relative w-full px-3 pt-3 @[44rem]/page:px-6" />
       {/* Now: the one card that fits the moment on top, the rest behind "2

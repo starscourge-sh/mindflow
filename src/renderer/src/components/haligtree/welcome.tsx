@@ -1,5 +1,7 @@
 import { WelcomeLeaves } from './welcome-leaves'
 import { WelcomeMist } from './welcome-mist'
+import { GATHER_AT, WelcomeTitle } from './welcome-title'
+import { haligtree } from '@/lib/haligtree'
 import { WelcomeStamp } from './welcome-marks'
 import { Condense, DRAG_MS, REACH_MS, WelcomePointer, type Move } from './welcome-pointer'
 import { TAGLINE } from '../../../../main/tagline'
@@ -7,9 +9,9 @@ import { fittedTitle, quoted } from '../../../../main/clip'
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { AnimatePresence, MotionConfig, motion, useIsPresent } from 'motion/react'
 import { createPortal } from 'react-dom'
-import { ArrowUp, Compass, CornerDownLeft, FolderInput } from 'lucide-react'
+import { ArrowUp, Compass, CornerDownLeft, FolderInput, Volume2, VolumeX } from 'lucide-react'
 import { shift, spring, still } from '@/lib/motion'
-import { ARRIVE_MS, BEAT_MS, PENTA, ambience, bedResolve, bedShift, bell, chime, click, fold, pageTurn, quietBed } from '@/lib/sound'
+import { ARRIVE_MS, BEAT_MS, PENTA, soundOn, ambience, bedResolve, bedShift, bell, chime, click, fold, pageTurn, quietBed } from '@/lib/sound'
 import { applyTheme, currentTheme, type Theme } from '@/lib/theme'
 import { comboOf, fixed, keyFor, listen, saveKeys, useKeyChanges } from '@/lib/keys'
 import { NO_SETUP, onboarding, type Onboarding, type Setup } from '@/lib/onboarding'
@@ -170,8 +172,17 @@ export function Welcome(): React.JSX.Element | null {
   const veilTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   // Esc or a click during the arrival: the mist goes at once and the first page shows whole; the sound carries on.
   const [rushed, setRushed] = useState(false)
+  // Into your own book: the welcome's page turns over onto the app's Home, under it already, which comes up as the paper goes.
+  const [closing, setClosing] = useState(false)
+  const closeTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  // The Sounds setting, for the arrival's own sound button.
+  const [loud, setLoud] = useState(true)
+  const gatherTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const rush = (): void => {
     clearTimeout(veilTimer.current)
+    // A first run's window, still over the whole screen, gathers in at once.
+    clearTimeout(gatherTimer.current)
+    window.api.gather()
     setVeiled(false)
     setRushed(true)
   }
@@ -235,6 +246,10 @@ export function Welcome(): React.JSX.Element | null {
       // Nothing but the mist and the chord until the arrival's beat: then the first words.
       clearTimeout(veilTimer.current)
       veilTimer.current = setTimeout(() => setVeiled(false), ARRIVE_MS)
+      // The title card whole and held a breath: a first run's window gathers in from the whole screen.
+      clearTimeout(gatherTimer.current)
+      gatherTimer.current = setTimeout(() => window.api.gather(), GATHER_AT)
+      void haligtree.settings().then((now) => setLoud(now.sounds !== false))
     }
   }
 
@@ -252,11 +267,13 @@ export function Welcome(): React.JSX.Element | null {
   }, [])
 
   // The whole time it runs, the box is in lesson mode and the app keeps quiet under it.
+  // Turning over into the book: the app under it is drawn again, to show through the paper as it goes.
+  const up = at >= 0 && !closing
   useEffect(() => {
-    void onboarding.set({ welcoming: at >= 0 })
-    document.documentElement.toggleAttribute('data-welcoming', at >= 0)
-    if (at >= 0) tellBox(examples(), true)
-  }, [at >= 0]) // eslint-disable-line react-hooks/exhaustive-deps
+    void onboarding.set({ welcoming: up })
+    document.documentElement.toggleAttribute('data-welcoming', up)
+    if (up) tellBox(examples(), true)
+  }, [up]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // The welcome's sound bed follows the pages: each turn a soft shift in the key, the last page the chord come home, gone when it ends.
   useEffect(() => {
@@ -310,7 +327,9 @@ export function Welcome(): React.JSX.Element | null {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [at < 0])
 
+  const closed = (): void => (clearTimeout(closeTimer.current), setClosing(false), setAt(-1))
   const leave = (how: 'fresh' | 'sandbox' | 'notes' | 'closed'): void => {
+    if (closing) return
     if (picked.current) applyTheme(picked.current)
     fillBox(null)
     // The welcome's sound bed goes with it, slowly.
@@ -322,11 +341,26 @@ export function Welcome(): React.JSX.Element | null {
     // screen, which fades up over it: Home, about to be replaced by the restart,
     // never shows in between. It goes only if the sandbox cannot open.
     if (how === 'sandbox') setOpening(true)
-    else setAt(-1)
+    else if (quiet) setAt(-1)
+    else {
+      setClosing(true)
+      closeTimer.current = setTimeout(closed, 1500)
+    }
+    if (how !== 'sandbox') {
+      // Said once on Home: the day the book was opened, and the first thing written in it here.
+      const first = caught.length ? caught[caught.length - 1] : null
+      try {
+        sessionStorage.setItem('haligtree:book-opened', JSON.stringify({ on: dayjs().format('dddd D MMMM'), first: first ? String(first.label || first.title || '').slice(0, 120) : '' }))
+      } catch {
+        // Not kept: Home simply says nothing.
+      }
+      window.dispatchEvent(new CustomEvent('haligtree:book-opened'))
+    }
     if (how === 'fresh') {
       chime('decided')
       window.api.openInHome('view', 'home')
-      setTimeout(() => window.dispatchEvent(new CustomEvent('haligtree:tour-stops')), 450)
+      // Once the paper has gone and Home has said it was opened: then the tour's first stop.
+      setTimeout(() => window.dispatchEvent(new CustomEvent('haligtree:tour-stops')), quiet ? 450 : 1900)
     } else if (how === 'sandbox') {
       void enterSandbox().catch(() => (setOpening(false), setAt(-1), toast('The sandbox could not open just now. It waits in ⌘K, under “Open the sandbox”.', undefined, 'warning')))
     } else if (how === 'notes') {
@@ -401,6 +435,8 @@ export function Welcome(): React.JSX.Element | null {
       if (!event.isTrusted) return
       // On the way into the sandbox: no key does anything, here or in the app under it.
       if (opening) return void (event.preventDefault(), event.stopPropagation())
+      // Turning over into the book: any key there at once.
+      if (closing) return void (event.preventDefault(), event.stopPropagation(), closed())
       if (konami(event.key)) chime('finding')
       // Choosing a different key: every key is the picker's, Esc included.
       if (picking) return
@@ -429,7 +465,8 @@ export function Welcome(): React.JSX.Element | null {
         else if (veiled) rush()
         else if (performance.now() - awayAt.current < 1000) undefined
         else if (!reel.current.waiting) settled()
-      } else if (event.key === 'Enter') primary()
+      } else if (event.key === 'Enter' && veiled) rush()
+      else if (event.key === 'Enter') primary()
       else if (event.key === 'ArrowRight' || event.key === ' ') {
         if (at !== LAST) next()
       } else if (event.key === 'ArrowLeft') back()
@@ -480,13 +517,17 @@ export function Welcome(): React.JSX.Element | null {
   const trying = at === CATCH && turn !== 'kept' && cue.done
   return (
     <MotionConfig reducedMotion={quiet ? 'always' : 'never'}>
-    <div ref={dialog} tabIndex={-1} role="dialog" aria-modal aria-label={`Welcome to ${APP_NAME}`} inert={opening} onKeyDown={(event) => event.stopPropagation()}
+    <motion.div ref={dialog} tabIndex={-1} role="dialog" aria-modal aria-label={`Welcome to ${APP_NAME}`} inert={opening} onKeyDown={(event) => event.stopPropagation()}
+      data-closing={closing ? '' : undefined} onPointerDown={() => void (closing && closed())}
+      initial={false} animate={{ opacity: closing ? 0 : 1 }} transition={closing ? { delay: 0.45, duration: 0.9, ease: MOVE } : { duration: 0 }}
       className="mf-welcome fixed inset-0 z-[70] flex outline-none flex-col overflow-clip bg-background text-foreground [container-type:inline-size]">
       <Backdrop plain={at === LAST} family={at === WRITE ? 'ruled' : at === DIAL ? 'dots' : 'none'} />
       {/* The first screen's autumn leaves, blowing behind the words; Next blows them away, and a
           few small ones drift on through the rest (not over the dial, which has its own light). */}
-      <WelcomeLeaves on={at === WHY && play} open={play && at !== DIAL} middle={at === BACK ? 0 : 0.3} gather={at === LAST} />
+      <WelcomeLeaves on={at === WHY && play} open={play && at !== DIAL} middle={at === BACK ? 0 : 0.3} gather={at === LAST && !closing} />
       {mist && <WelcomeMist hurry={rushed} onGone={() => setMist(false)} />}
+      {/* Before the first words, in the mist: the book's title page. */}
+      {mist && veiled && at === WHY && <WelcomeTitle name={name} hurry={rushed} />}
       <div data-drag-strip="" className="relative h-11 shrink-0" style={{ WebkitAppRegion: 'drag' } as CSSProperties} />
       {at === LAST && <TrayArrow tray={state?.tray ?? null} />}
       {/* The chapter's thumb index on the fore-edge, moving down a place each chapter. */}
@@ -499,7 +540,7 @@ export function Welcome(): React.JSX.Element | null {
             <motion.section key={at} custom={turning} variants={PAGE}
               className="mf-more absolute inset-0 flex origin-left flex-col overflow-x-hidden overflow-y-auto overscroll-contain px-[clamp(1.5rem,5vw,4rem)] pt-2"
               // One book: the page lifts away from its spine as the next settles in under it (back, the other way).
-              initial={play ? 'enter' : false} animate="rest"
+              initial={play ? 'enter' : false} animate={closing ? 'leave' : 'rest'}
               // The dial's page goes at once: its ring, light and dots must never show over the next one.
               exit={at === DIAL ? 'gone' : 'leave'}
               // A click on the picture while it plays: its end, as a key does.
@@ -515,7 +556,26 @@ export function Welcome(): React.JSX.Element | null {
             </motion.section>
           </AnimatePresence>
         </main>
-        <footer className={`relative flex h-[clamp(4rem,9vmin,5.5rem)] shrink-0 items-center gap-3 px-[clamp(1.5rem,5vw,4rem)] transition-opacity duration-1000 ${veiled ? 'pointer-events-none opacity-0' : 'opacity-100'}`}>
+        {/* The arrival's own two controls, in the footer's place, from its first frame: the sound, and
+            the way past the intro. The footer comes up in their place once the first words have. */}
+        {mist && at === WHY && (
+          <div data-intro="" className={`pointer-events-auto absolute inset-x-0 bottom-0 z-50 flex h-[clamp(4rem,9vmin,5.5rem)] items-center px-[clamp(1.5rem,5vw,4rem)] transition-opacity duration-700 ${veiled ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
+            <button type="button" data-intro-sound="" aria-pressed={loud} aria-label={loud ? 'Sounds on' : 'Sounds off'} onClick={() => {
+              const next = !loud
+              setLoud(next)
+              soundOn(next)
+              if (next) ambience()
+              void haligtree.setSettings({ sounds: next })
+            }} className={QUIET_BUTTON}>
+              {loud ? <Volume2 className="size-4" strokeWidth={1.8} /> : <VolumeX className="size-4" strokeWidth={1.8} />}
+              <span>{loud ? 'Sound on' : 'Sound off'}</span>
+            </button>
+            <button type="button" data-skip-intro="" onClick={rush} className={`${QUIET_BUTTON} ml-auto whitespace-nowrap`}>
+              Skip intro <Kbd className="h-6 min-w-6"><CornerDownLeft className="size-3" strokeWidth={2.4} /></Kbd>
+            </button>
+          </div>
+        )}
+        <footer className={`relative flex h-[clamp(4rem,9vmin,5.5rem)] shrink-0 items-center gap-3 px-[clamp(1.5rem,5vw,4rem)] transition-opacity ${closing ? 'duration-300' : 'duration-1000'} ${veiled || closing ? 'pointer-events-none opacity-0' : 'opacity-100'}`}>
           <div className="mr-auto flex min-w-0 items-center gap-[clamp(0.5rem,2vw,1.5rem)]">
             <Progress at={at} seen={played} onBack={back} />
             {/* The ways past a page sit with Back and the marks, far from the arrow, so the arrow only ever points from nothing to Next.
@@ -548,7 +608,7 @@ export function Welcome(): React.JSX.Element | null {
           {at === LAST && <Primary onClick={() => start(1)}>Open my book</Primary>}
         </footer>
       </div>
-    </div>
+    </motion.div>
     </MotionConfig>
   )
 }

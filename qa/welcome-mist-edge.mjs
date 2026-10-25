@@ -72,7 +72,7 @@ try {
   let worst = 0
   let cleared = 0
   let frame = 0
-  while (Date.now() - start < 12000) {
+  while (Date.now() - start < 15500) {
     const now = await scan(!!SHOTS && frame % 3 === 0)
     if (!now) break
     if (now.clearing) worst = Math.max(worst, now.steepest), cleared++

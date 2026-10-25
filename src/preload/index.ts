@@ -430,6 +430,8 @@ const api = {
   /** The box grows toward the main window and fades, and the main window opens on this one thing (or Home). */
   promote: (type: string | null, id: string | null): void => ipcRenderer.send('box:promote', type, id),
   hidePrompt: (): void => ipcRenderer.send('prompt:hide'),
+  /** A first run's window, spread over the screen for the title card, gathers in to its own size. */
+  gather: (): void => ipcRenderer.send('welcome:gather'),
   /** The menu bar's importers, from a window: an Obsidian vault, or files (Readwise, Kindle and the rest). */
   importFrom: (what: 'vault' | 'files' | 'apple-notes', from?: string | null): Promise<void> => ipcRenderer.invoke('import:run', what, from),
   /** The menu bar's restore, from a window: pick a day's copy, and the app starts again on it. */

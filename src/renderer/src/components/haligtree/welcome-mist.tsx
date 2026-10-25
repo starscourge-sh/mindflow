@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { ARRIVE_MS } from '@/lib/sound'
 
 /** How long the mist takes to lift, in ms: whole until just before the first words, wisps a few seconds after. */
-export const MIST_MS = 11000
+export const MIST_MS = ARRIVE_MS + 6000
 
 type Bank = { x: number; y: number; r: number; drift: number; rise: number; phase: number }
 

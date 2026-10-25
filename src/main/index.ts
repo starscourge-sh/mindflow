@@ -1526,6 +1526,8 @@ function openHome(): void {
       // still showing through, and grows solid over a few seconds as the welcome's mist lifts.
       const misty = firstRun() && !homeTimes.shown
       if (misty) win.setOpacity(0)
+      // Not in a test run unless asked: a probe keeps the size it set (qa/welcome-intro.mjs asks).
+      if (misty && !stillness() && (!process.env.HALIGTREE_QA_AWAY || process.env.HALIGTREE_QA_GATHER)) spread(win)
       win.show()
       if (misty) {
         const from = performance.now()
@@ -1618,9 +1620,52 @@ function keepHomePlace(win: BrowserWindow): void {
   if (homeKeep) clearTimeout(homeKeep)
   homeKeep = setTimeout(() => {
     homeKeep = null
-    if (win.isDestroyed() || win.isFullScreen() || !win.isVisible() || pending?.win === win) return
+    if (win.isDestroyed() || win.isFullScreen() || !win.isVisible() || pending?.win === win || gathering) return
     void writeFile(homeFile(), JSON.stringify(win.getBounds())).catch(() => undefined)
   }, 400)
+}
+
+/**
+ * A first run's opening, after Dia's: the window comes up over the whole
+ * screen, frameless, the mist and the title card filling it, and once the
+ * welcome asks (welcome:gather, when its title card has shown, or at once on
+ * Skip intro) it gathers in to a window of its own on an eased curve, the
+ * desktop showing round it, as a page settles on a desk. Its place is kept
+ * only once it has landed, never the screen's on the way.
+ */
+let gathering: { from: Electron.Rectangle; rest: Electron.Rectangle; at: ReturnType<typeof setTimeout>; going?: boolean } | null = null
+function spread(win: BrowserWindow): void {
+  const display = screen.getDisplayMatching(win.getBounds())
+  const area = display.workArea
+  // Large, but a window: the desk shows a little all round it.
+  const width = Math.min(1440, Math.round(area.width * 0.86))
+  const height = Math.min(940, Math.round(area.height * 0.88))
+  const rest = { x: area.x + Math.round((area.width - width) / 2), y: area.y + Math.round((area.height - height) / 2), width, height }
+  // Never asked (the page could not say): it gathers in on its own all the same.
+  gathering = { from: { ...display.bounds }, rest, at: setTimeout(() => gatherIn(win), 12000) }
+  if (process.platform === 'darwin') win.setWindowButtonVisibility(false)
+  win.setBounds(gathering.from)
+}
+function gatherIn(win: BrowserWindow): void {
+  if (!gathering || gathering.going || win.isDestroyed()) return
+  const { from, rest, at } = gathering
+  clearTimeout(at)
+  gathering.going = true
+  const start = performance.now()
+  const GATHER = 1500
+  const step = setInterval(() => {
+    if (win.isDestroyed()) return clearInterval(step)
+    const k = Math.min(1, (performance.now() - start) / GATHER)
+    // Slow to start, as if lifted, then settling softly into place.
+    const e = k < 0.5 ? 4 * k * k * k : 1 - (-2 * k + 2) ** 3 / 2
+    const mix = (a: number, b: number): number => Math.round(a + (b - a) * e)
+    win.setBounds({ x: mix(from.x, rest.x), y: mix(from.y, rest.y), width: mix(from.width, rest.width), height: mix(from.height, rest.height) })
+    if (k < 1) return
+    clearInterval(step)
+    gathering = null
+    if (process.platform === 'darwin') win.setWindowButtonVisibility(true)
+    keepHomePlace(win)
+  }, 16)
 }
 
 /**
@@ -2532,7 +2577,13 @@ if (process.env.HALIGTREE_USER_DATA && process.env.HALIGTREE_QA_AWAY) {
   const setBounds = proto.setBounds
   proto.show = function (this: BrowserWindow) { away(this); this.showInactive() }
   proto.focus = function () {}
-  proto.setBounds = function (this: BrowserWindow, next: Partial<Electron.Rectangle>) { setBounds.call(this, next); away(this) }
+  // Where it was asked to be is kept for the checks to read too (qa/welcome-intro.mjs).
+  const asked = (win: BrowserWindow, next: Partial<Electron.Rectangle>): void => {
+    const kept = win as { qaBounds?: Partial<Electron.Rectangle>; qaBoundsSeen?: Partial<Electron.Rectangle>[] }
+    kept.qaBounds = { ...kept.qaBounds, ...next }
+    ;(kept.qaBoundsSeen ??= []).push(kept.qaBounds)
+  }
+  proto.setBounds = function (this: BrowserWindow, next: Partial<Electron.Rectangle>) { asked(this, next); setBounds.call(this, next); away(this) }
   proto.setPosition = function (this: BrowserWindow) { away(this) }
   proto.center = function (this: BrowserWindow) { away(this) }
   // Faded in or out, a window stays unseen: what was asked for is kept for the checks to read.
@@ -2544,7 +2595,7 @@ if (process.env.HALIGTREE_USER_DATA && process.env.HALIGTREE_QA_AWAY) {
     const virtual = new WeakMap<BrowserWindow, Electron.Rectangle>()
     const getBounds = proto.getBounds
     proto.getBounds = function (this: BrowserWindow) { return { ...(virtual.get(this) ?? getBounds.call(this)) } }
-    proto.setBounds = function (this: BrowserWindow, next: Partial<Electron.Rectangle>) { virtual.set(this, { ...this.getBounds(), ...next }); setBounds.call(this, next); away(this) }
+    proto.setBounds = function (this: BrowserWindow, next: Partial<Electron.Rectangle>) { asked(this, next); virtual.set(this, { ...this.getBounds(), ...next }); setBounds.call(this, next); away(this) }
     // Parked already: only the place it keeps as its own moves.
     proto.setPosition = function (this: BrowserWindow, x: number, y: number) { virtual.set(this, { ...this.getBounds(), x, y }) }
     app.on('browser-window-created', (_, win) => virtual.set(win, getBounds.call(win)))
@@ -3646,6 +3697,7 @@ app.whenReady().then(() => {
     })
   })
   // From the welcome: the box put away, as its own Esc would.
+  ipcMain.on('welcome:gather', (event) => void (home && event.sender === home.webContents && gatherIn(home)))
   ipcMain.on('prompt:hide', () => void (prompt?.isVisible() && hideWindow(prompt)))
   // The first-run step and Settings import the way the menu bar does.
   // From the vault picker too: one of the vaults it showed, or null for the folder dialog.
