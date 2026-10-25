@@ -1840,8 +1840,10 @@ export function FocusNote(): React.JSX.Element {
  * sit under cards or headings; the keyboard's row is scrolled to even before it
  * is drawn, so gg and G land.
  */
-export function VirtualList<T>({ items, keyOf, cursor, estimate = 48, className = '', rowClass = 'pb-0.5', children }: {
+export function VirtualList<T>({ items, keyOf, cursor, estimate = 48, sizeOf, className = '', rowClass = 'pb-0.5', children }: {
   items: T[]
+  /** A row's height before it is measured, when rows differ (a group's line holds its rows): `estimate` otherwise. */
+  sizeOf?: (item: T) => number
   keyOf: (item: T) => string
   /** Each row's own box: a sliver of room under it by default. */
   rowClass?: string
@@ -1890,7 +1892,7 @@ export function VirtualList<T>({ items, keyOf, cursor, estimate = 48, className 
   const rows = useVirtualizer({
     count: items.length,
     getScrollElement: () => scroller,
-    estimateSize: () => estimate,
+    estimateSize: (index) => (sizeOf ? sizeOf(items[index]) : estimate),
     overscan: 10,
     scrollMargin: margin,
     getItemKey: (index) => keyOf(items[index])
