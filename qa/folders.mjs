@@ -97,6 +97,41 @@ try {
   await c.h.waitForTimeout(1500)
   check('and it is kept after a reload', (await c.h.locator(`[data-folder-icon="${ideas}"] svg`).count()) === 1 && (await c.v('groups', 'article')).find((one) => one.id === ideas)?.icon === icon)
 
+  // A row carried onto a folder goes in, with a toast and Undo; two picked go together.
+  await c.go('articles')
+  await c.h.waitForTimeout(800)
+  const listRow = (title) => c.h.locator('[data-pane] [data-row][data-id]', { hasText: title }).first()
+  const carryTo = async (from, to) => {
+    await from.scrollIntoViewIfNeeded()
+    await c.h.waitForTimeout(300)
+    const a = await from.boundingBox()
+    const b = await to.boundingBox()
+    await c.h.mouse.move(a.x + 60, a.y + a.height / 2)
+    await c.h.mouse.down()
+    await c.h.mouse.move(a.x + 60, a.y + a.height / 2 + 8, { steps: 4 })
+    await c.h.waitForTimeout(150)
+    await c.h.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 24 })
+    await c.h.waitForTimeout(500)
+    const hot = await to.evaluate((one) => one.dataset.queueHot !== undefined)
+    await c.h.mouse.up()
+    await c.h.waitForTimeout(800)
+    return hot
+  }
+  const membersOf = async (id) => (await c.v('groups', 'article')).find((one) => one.id === id)?.members ?? []
+  const hot = await carryTo(listRow('Loose one'), folder(ideas))
+  check('the folder lights while a row is over it', hot)
+  check('let go, the note is in the folder', (await membersOf(ideas)).includes(l1))
+  check('a toast says so', (await c.h.getByText('Moved note to Ideas').count()) > 0)
+  await c.h.getByRole('button', { name: 'Undo' }).first().click()
+  await c.h.waitForTimeout(800)
+  check('Undo takes it back out', !(await membersOf(ideas)).includes(l1))
+  await listRow('Loose one').click({ modifiers: ['Meta'] })
+  await listRow('Loose two').click({ modifiers: ['Meta'] })
+  await c.h.waitForTimeout(300)
+  await carryTo(listRow('Loose two'), folder(money))
+  const both = await membersOf(money)
+  check('two picked rows go in together', both.includes(l1) && both.includes(l2), `${both.length}`)
+
   // The setting: off, the sidebar is as it was.
   const settings = await c.v('settings')
   await c.v('settings:set', { sidebarFolders: { ...settings.sidebarFolders, article: false } })

@@ -493,6 +493,18 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
 
   // A group read as a page of its own, in place of the list.
   const [ownPage, setOwnPage] = useState<string | null>(null)
+  // A row (or every picked row, it among them) carried onto one of this list's folders in the sidebar (split-drop.tsx).
+  const moveIntoRef = useRef(folding.moveInto)
+  moveIntoRef.current = folding.moveInto
+  useEffect(() => {
+    const onDrop = (event: Event): void => {
+      const { group, ids } = (event as CustomEvent<{ group: string; ids: string[] }>).detail
+      const many = ids.length === 1 && chosen.includes(ids[0]) ? chosen : ids
+      if (moveIntoRef.current(group, many)) setChosen([])
+    }
+    window.addEventListener('haligtree:folder-drop', onDrop)
+    return () => window.removeEventListener('haligtree:folder-drop', onDrop)
+  }, [chosen])
   const pageGroup = onFolder ? sideFolder ?? null : ownPage
   const setPageGroup = (id: string | null): void => (onFolder ? onFolder(id) : setOwnPage(id))
   const paged = pageGroup ? noteGroups.find((one) => one.id === pageGroup) : undefined
@@ -1339,6 +1351,8 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
   partsOf: (id: string, all: NoteGroup[]) => GroupParts
   folds: (menuFor: (item: Item) => RowItem[]) => Omit<Folds, 'onNewNote'>
   reveal: (id: string) => boolean
+  /** These notes carried onto a folder in the sidebar: into that group, at its end. */
+  moveInto: (group: string, ids: string[]) => boolean
 } {
   const list = useGroups(tier)
   const [held, setHeld] = useState<Layout | null>(null)
@@ -1583,5 +1597,15 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     if (shutOnes.length) setOpened((was) => ({ ...was, ...Object.fromEntries(shutOnes.map((group) => [group, true])) }))
     return true
   }
-  return { rows: shown ? rowsOf(layout) : null, tiles, step, menu, gatherNew, folds, partsOf, reveal }
+  const moveInto = (group: string, ids: string[]): boolean => {
+    const target = list.find((one) => one.id === group)
+    const these = inOrder(ids.filter((id) => groupOf(layout, id) !== group))
+    if (!target || !layout.groups[group]) return false
+    if (!these.length) return (refuse(`Already in ${target.name}`), true)
+    const picked = new Set(these)
+    toPlain()
+    commit(moveMany(layout, these, { group, after: (layout.groups[group] ?? []).filter((one) => !picked.has(one)).at(-1) ?? null }), 'gather', `Moved ${notes(these.length)} to ${target.name}`)
+    return true
+  }
+  return { rows: shown ? rowsOf(layout) : null, tiles, step, menu, gatherNew, folds, partsOf, reveal, moveInto }
 }

@@ -134,7 +134,7 @@ export function SplitDrop({ onDrop }: { onDrop: (carried: Carried, side: Side) =
     // The Queue's row in the sidebar, while the carried thing is over it: let go there, it joins the queue.
     // Pinned in the sidebar takes a note the same way (side-menu.tsx).
     let queued: HTMLElement | null = null
-    const queueAt = (px: number, py: number): HTMLElement | null => document.elementFromPoint(px, py)?.closest<HTMLElement>('[data-queue-drop], [data-side-drop]') ?? null
+    const queueAt = (px: number, py: number): HTMLElement | null => document.elementFromPoint(px, py)?.closest<HTMLElement>('[data-queue-drop], [data-side-drop], [data-folder-drop]') ?? null
     const area = (): DOMRect | null => document.querySelector('[data-split-area]')?.getBoundingClientRect() ?? null
     let quiet = still()
     // The places put away while the drag goes on.
@@ -256,6 +256,11 @@ export function SplitDrop({ onDrop }: { onDrop: (carried: Carried, side: Side) =
         dropListDrag()
         event.preventDefault()
         window.dispatchEvent(new CustomEvent('haligtree:side-drop', { detail: { to: queued.dataset.sideDrop, open: what.open } }))
+      } else if (!side && queued?.dataset.folderDrop && what.row) {
+        // Onto a folder in the sidebar: into that group, with every picked row if it is one (items-view.tsx).
+        dropListDrag()
+        event.preventDefault()
+        window.dispatchEvent(new CustomEvent('haligtree:folder-drop', { detail: { group: queued.dataset.folderDrop, ids: [what.row.id] } }))
       } else if (!side && queued && queued.dataset.queueDrop !== undefined && id) {
         dropListDrag()
         event.preventDefault()

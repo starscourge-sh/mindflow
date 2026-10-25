@@ -53,11 +53,13 @@ function Folder({ group, depth, n, here, onOpen }: { group: NoteGroup; depth: nu
             type="button"
             data-side-row
             data-side-folder={group.id}
+            // A row carried here goes in (split-drop.tsx); lit while it is over it, as the Queue's row is.
+            data-folder-drop={group.id}
             aria-current={here ? 'page' : undefined}
             onClick={() => onOpen(group.id)}
             // Under the row's own icon, a step in for each level.
             style={{ paddingLeft: `${1.75 + depth * 0.875}rem` }}
-            className={`flex w-full min-w-0 items-center gap-2 rounded-md py-1 pr-2 ${here ? 'text-foreground' : 'text-foreground/80'}`}
+            className={`flex w-full min-w-0 items-center gap-2 rounded-md py-1 pr-2 ${here ? 'text-foreground' : 'text-foreground/80'} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]`}
           >
             {/* Room for the icon, which is its own button over this one. */}
             <span className="size-4 shrink-0" />
