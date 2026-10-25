@@ -1,6 +1,6 @@
 import { WelcomeLeaves } from './welcome-leaves'
 import { WelcomeMist } from './welcome-mist'
-import { WelcomeStamp, WelcomeTab } from './welcome-marks'
+import { WelcomeStamp } from './welcome-marks'
 import { Condense, DRAG_MS, REACH_MS, WelcomePointer, type Move } from './welcome-pointer'
 import { ANCHOR, TAGLINE } from '../../../../main/tagline'
 import { fittedTitle, quoted } from '../../../../main/clip'
@@ -489,7 +489,6 @@ export function Welcome(): React.JSX.Element | null {
       <div data-drag-strip="" className="relative h-11 shrink-0" style={{ WebkitAppRegion: 'drag' } as CSSProperties} />
       {at === LAST && <TrayArrow tray={state?.tray ?? null} />}
       {/* The chapter's thumb index on the fore-edge, moving down a place each chapter. */}
-      <WelcomeTab chapters={CHAPTERS} at={at} hidden={veiled} quiet={quiet} />
       <div className="relative mx-auto flex min-h-0 w-full max-w-[84rem] flex-1 flex-col">
         {/* The book's ruled margin, in red ink: drawn down the page as the first words come, and kept on every page after, so each chapter reads as the same book. */}
         <motion.div aria-hidden data-margin="" className="pointer-events-none absolute -top-11 bottom-0 left-[calc(clamp(1.5rem,5vw,4rem)*0.45)] w-px origin-top bg-[color-mix(in_oklab,var(--tt-color-text-red)_38%,transparent)]"

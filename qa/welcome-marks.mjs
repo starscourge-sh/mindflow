@@ -1,8 +1,6 @@
-// Two marks of a commonplace book in the welcome, and its true italic.
-// A thumb index on the fore-edge names the chapter and moves down a place
-// each page, clear of every word and control; the last page is sealed with
-// an ink stamp, pressed once with a thud as the page settles, clear of the
-// words and the choices; seen again, or after Esc, it is simply there, with
+// The welcome's commonplace mark, and its true italic. The last page is
+// sealed with an ink stamp, pressed once with a thud as the page settles,
+// clear of the words and the choices; seen again, or after Esc, it is simply there, with
 // no sound. The lines the pointer sets in italics are in Fraunces' own
 // italic face, loaded, not the upright slanted.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-y/main/index.js HALIGTREE_QA_AWAY=1 node qa/welcome-marks.mjs [shots folder] [light|dark]
@@ -38,7 +36,6 @@ const covers = (selector) => h.evaluate((selector) => {
   for (const el of root.querySelectorAll('button, a, input, [role="slider"]')) if (seen(el) && hit(el.getBoundingClientRect())) out.push(`<${el.tagName.toLowerCase()}> ${el.textContent.trim().slice(0, 20)}`)
   return out
 }, selector)
-const tab = () => h.evaluate(() => { const el = document.querySelector('[data-welcome-tab]'); const r = el?.querySelector('span')?.getBoundingClientRect(); return el ? { name: el.dataset.welcomeTab, top: Math.round(r.top), right: Math.round(r.right), width: Math.round(r.width), shown: Number(getComputedStyle(el).opacity) } : null })
 try {
   await c.theme(THEME)
   if (!(await h.$('.mf-welcome'))) await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:welcome')))
@@ -57,19 +54,12 @@ try {
   const lines = await h.evaluate(() => { const r = document.querySelector('[data-thesis="gap-0"]').parentElement.getBoundingClientRect(); return { x: r.left - 8, y: r.top - 8, width: Math.min(900, r.width + 16), height: r.height + 16 } })
   await shot('italics', lines)
 
-  // The thumb index, on the first page and the next.
-  const first = await tab()
-  check('a tab names the first chapter on the fore-edge', first?.name === 'Why' && first.shown > 0.9 && first.right >= 1278, JSON.stringify(first))
-  check('the tab covers no word or control on the first page', (await covers('[data-welcome-tab]')).length === 0, (await covers('[data-welcome-tab]')).join(' | '))
-  await shot('tab-why')
+  // No thumb index: the footer already names the chapter, and a tab repeating it read as a stray word.
+  check('no tab on the fore-edge', (await h.locator('[data-welcome-tab]').count()) === 0)
   await h.keyboard.press('Escape')
   await h.waitForTimeout(500)
   await h.click('footer button:has-text("Show me")')
   await h.waitForTimeout(1400)
-  const second = await tab()
-  check('the tab moves down a place and names the next chapter', second?.name === 'You' && second.top > first.top + 40, `${JSON.stringify(first)} -> ${JSON.stringify(second)}`)
-  check('the tab covers no word or control on the next page', (await covers('[data-welcome-tab]')).length === 0, (await covers('[data-welcome-tab]')).join(' | '))
-  await shot('tab-you')
 
   // The seal on the last page, pressed once as it settles.
   const before = (await heard()).length
@@ -81,9 +71,6 @@ try {
   check('the seal is pressed once the page settles', (await h.getAttribute('[data-welcome-stamp]', 'data-welcome-stamp')) === 'pressed')
   check('with one thud', sounds.filter((one) => one === 'click:thud').length === 1, sounds.join())
   check('the seal covers no word or control', (await covers('[data-welcome-stamp]')).length === 0, (await covers('[data-welcome-stamp]')).join(' | '))
-  const last = await tab()
-  check('the tab is at the last chapter, lowest', last?.name === 'Ready' && last.top > second.top + 200, JSON.stringify(last))
-  check('the tab covers nothing on the last page', (await covers('[data-welcome-tab]')).length === 0, (await covers('[data-welcome-tab]')).join(' | '))
   await shot('stamp')
   const stamp = await h.evaluate(() => { const r = document.querySelector('[data-welcome-stamp]').getBoundingClientRect(); return { x: r.left - 30, y: r.top - 30, width: r.width + 60, height: r.height + 60 } })
   await shot('stamp-close', stamp)

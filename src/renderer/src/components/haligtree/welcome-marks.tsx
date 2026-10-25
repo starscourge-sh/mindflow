@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { AnimatePresence, motion } from 'motion/react'
+import { motion } from 'motion/react'
 import { still as stillNow } from '@/lib/motion'
 import { stamp } from '@/lib/sound'
 import { ENTER } from './welcome-reel'
@@ -92,35 +92,6 @@ export function WelcomeStamp({ still }: { still: boolean }): React.JSX.Element {
         animate={pressed ? { opacity: [0, 0.9, 0.82], scale: [1.32, 0.97, 1], rotate: -9 } : { opacity: 0, scale: 1.32, rotate: -14 }}
         transition={instant ? { duration: 0 } : { duration: PRESS.duration, times: [0, PRESS.contact, 1], ease: ['easeIn', 'easeOut'] }}>
         {seal}
-      </motion.div>
-    </div>
-  )
-}
-
-/**
- * A thumb index on the book's fore-edge: a small paper tab at the window's
- * right edge naming the chapter, a seventh of the way further down for each
- * chapter, so it moves to the chapter's place as the pages turn. In the
- * page's gutter, never over the words or a control, and never answering the
- * pointer.
- */
-export function WelcomeTab({ chapters, at, hidden, quiet }: { chapters: string[]; /** The chapter, from 1. */ at: number; /** Under the arrival's mist. */ hidden: boolean; quiet: boolean }): React.JSX.Element | null {
-  if (at < 1) return null
-  return (
-    <div aria-hidden data-welcome-tab={chapters[at - 1]}
-      className={`pointer-events-none absolute top-11 right-0 bottom-[clamp(4rem,9vmin,5.5rem)] z-20 w-7 transition-opacity duration-1000 [@container(max-width:639px)]:hidden ${hidden ? 'opacity-0' : 'opacity-100'}`}>
-      <motion.div className="flex items-center justify-end" style={{ height: `${100 / chapters.length}%` }} initial={false}
-        animate={{ transform: `translateY(${(at - 1) * 100}%)` }} transition={{ duration: quiet ? 0 : 0.7, ease: ENTER }}>
-        <span className="flex w-full justify-center rounded-l-[7px] border border-r-0 border-foreground/15 bg-[color-mix(in_oklab,var(--foreground)_6%,var(--background))] py-2.5 shadow-[-1px_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_8%,transparent)]">
-          <span className="relative grid [writing-mode:vertical-rl]">
-            <AnimatePresence initial={false}>
-              <motion.span key={at} className="text-[0.75rem] leading-none font-semibold tracking-[0.05em] whitespace-nowrap text-foreground/80 [grid-area:1/1]"
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: quiet ? 0 : 0.3, ease: ENTER }}>
-                {chapters[at - 1]}
-              </motion.span>
-            </AnimatePresence>
-          </span>
-        </span>
       </motion.div>
     </div>
   )
