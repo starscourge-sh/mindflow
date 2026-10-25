@@ -9,7 +9,7 @@ import { asideItem } from '@/lib/split'
 import { openApart } from '@/lib/apart'
 import { exit, noteLinkText } from '@/lib/capture-links'
 import { makeTask } from '@/lib/tasks'
-import { moveToBin } from '@/lib/to-bin'
+import { binItem } from '@/lib/to-bin'
 
 /**
  * A note's own full right-click menu, wherever its row or card shows (a tag
@@ -71,9 +71,7 @@ export function sideMenu(type: string, id: string, title: string, { onOpen, pinn
       ? { label: 'Unpin', run: () => pin(tableOf(type), id, false) }
       : { label: 'Pin to the sidebar', run: () => void pinFromSide(type, id) },
     'separator',
-    capture
-      ? waiting && { label: 'Move to the Bin', danger: true, run: () => void exit(id, 'discarded') }
-      : { label: 'Move to the Bin', danger: true, run: () => void moveToBin([{ type, id }]) }
+    status !== 'discarded' && binItem([{ type, id, status }])
   ]
 }
 

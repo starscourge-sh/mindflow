@@ -118,10 +118,10 @@ export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void)
   { label: 'Open', run: () => onPick?.(capture.id), keys: '↵' },
   'separator',
   ...(capture.status === 'open'
-    ? EXITS.map((one) => ({ label: one.label, keys: one.status === 'discarded' ? '⌫' : one.key.toUpperCase(), danger: one.status === 'discarded', run: () => void exit(capture.id, one.status) }))
+    // The Bin is not among them here: it is the menu's last line, as on every card.
+    ? EXITS.filter((one) => one.status !== 'discarded').map((one) => ({ label: one.label, keys: one.key.toUpperCase(), run: () => void exit(capture.id, one.status) }))
     : [
-        capture.status !== 'promoted' && { label: 'Back to the Inbox', run: () => void window.api.captures.save(capture.id, { status: 'open' }).then(() => chime('undo')) },
-        capture.status !== 'discarded' && binItem([{ type: 'capture', id: capture.id, status: capture.status }])
+        capture.status !== 'promoted' && { label: 'Back to the Inbox', run: () => void window.api.captures.save(capture.id, { status: 'open' }).then(() => chime('undo')) }
       ]),
   capture.status === 'open' && { label: 'Make it a task', run: () => void makeTask({ capture: capture.id }) },
   capture.status === 'open' && { label: 'Add as a clue to a question…', hint: 'Files this note under a question you already have', run: () => void addToQuestion(capture.id) },
@@ -142,7 +142,10 @@ export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void)
   copyToBookItem([{ table: 'captures', id: capture.id }]),
   'separator',
   { label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copy(noteLinkText(capture.id, capture.label), 'Copied a link: paste it into any note') },
-  { label: 'Copy text', run: () => copy(capture.label) }
+  { label: 'Copy text', run: () => copy(capture.label) },
+  // Housekeeping last, as on every card's menu.
+  capture.status !== 'discarded' && 'separator',
+  capture.status !== 'discarded' && binItem([{ type: 'capture', id: capture.id, status: capture.status }])
 ]
 
 /** A capture as any list draws it: its kind, its words, when and where from, and its menu. */

@@ -480,7 +480,9 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     { label: 'Open', keys: '↵', run: () => pick(item.id) },
     ...questionMenu(item, inView.has(item.id)),
     { label: chosenSet.has(item.id) ? 'Unselect' : 'Select', keys: 'X', run: () => toggle(item.id) },
-    !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll }
+    !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
+    'separator',
+    binItem(binRefs([item.id]))
   ] : [
     { label: 'Open', keys: '↵', run: () => pick(item.id) },
     'separator',
@@ -493,7 +495,9 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     ...folding.menu([item.id]),
     'separator',
     { label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copy(noteLinkText(`${item.tier}:${item.id}`, item.title), 'Copied a link: paste it into any note') },
-    { label: 'Copy title', run: () => copy(item.title) }
+    { label: 'Copy title', run: () => copy(item.title) },
+    'separator',
+    binItem(binRefs([item.id]))
   ]
 
   // A group read as a page of its own, in place of the list.
@@ -710,9 +714,7 @@ const itemMenu = (item: Item): MenuItem[] => [
   item.tier === 'nugget' && { label: 'Change kind…', run: () => void changeKind('nuggets', item.id, item.kind) },
   { label: item.archivedAt ? 'Unarchive' : 'Archive', hint: item.archivedAt ? 'Back in sight' : 'Kept, out of sight', run: () => void archive('nuggets', [item.id], !item.archivedAt) },
   { label: 'Save attachments…', hint: 'Its pictures and files, to a folder', run: () => void saveAttachments([{ table: 'nuggets', id: item.id }]) },
-  copyToBookItem([{ table: 'nuggets', id: item.id }]),
-  'separator',
-  binItem([{ type: item.tier, id: item.id }])
+  copyToBookItem([{ table: 'nuggets', id: item.id }])
 ]
 
 /** A gem's or a piece of writing's own row menu, for a list that is not its page (a tag page): the same lines its page gives one row. */
@@ -723,7 +725,9 @@ export const gemMenu = (item: Item, open: () => void): RowItem[] => [
   ...itemMenu(item),
   'separator',
   { label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copy(noteLinkText(`${item.tier}:${item.id}`, item.title), 'Copied a link: paste it into any note') },
-  { label: 'Copy title', run: () => copy(item.title) }
+  { label: 'Copy title', run: () => copy(item.title) },
+  'separator',
+  binItem([{ type: item.tier, id: item.id }])
 ]
 
 /** Where a page shown as a board is: told whether it shows, and whether the list beside it is out. */
@@ -824,7 +828,9 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
               { label: propsOut ? 'Hide details' : 'Show details', run: () => (chime(propsOut ? 'fold' : 'slide'), setPropsOut(!propsOut)) },
               'separator' as const
             ] : []),
-            ...itemMenu(item), 'separator', { label: 'Copy title', run: () => copy(item.title) }
+            ...itemMenu(item), 'separator', { label: 'Copy title', run: () => copy(item.title) },
+            // Housekeeping last, as on every card's menu.
+            'separator', binItem([{ type: item.tier, id: item.id }])
           ]} />
         {item.tier === 'article' && (
           // Wraps as a heading does, so a long title is never cut off at the edge; Enter ends it.

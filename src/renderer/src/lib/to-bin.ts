@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react'
+import { createElement, useEffect, useRef, type ReactNode } from 'react'
+import { Trash2 } from 'lucide-react'
 import { tear } from './sound'
 import { haligtree } from './haligtree'
 import { refuse, toast } from '@/components/haligtree/ui'
@@ -92,10 +93,13 @@ const pageInFront = (): string | null => (document.activeElement?.closest('[data
 export const justEmptied = (page: string | null): { ids: string[]; undo: () => void } | null => (last && last.page === page && Date.now() - last.at < 4000 ? last : null)
 
 /** A right-click line for the lot: “Move 12 to the Bin”, its keys shown. */
-export const binItem = (refs: BinRef[], after?: () => void): { label: string; keys: string; danger: true; run: () => void } => ({
+export const binItem = (refs: BinRef[], after?: () => void): { id: string; label: string; keys: string; danger: true; icon: ReactNode; run: () => void } => ({
+  id: 'bin',
   label: refs.length === 1 ? 'Move to the Bin' : `Move ${num(refs.length)} to the Bin`,
   keys: '⌫',
   danger: true,
+  // The Feed's trash, on every menu that bins.
+  icon: createElement(Trash2, { className: 'size-4' }),
   run: () => void moveToBin(refs).then((n) => n && after?.())
 })
 

@@ -21,6 +21,7 @@ import { GrainFill, onPaper, PAPER_INK, useNoteCover } from './grain'
 import { ReadThrough, type Readable } from './read-through'
 import { RowMenu, copy, flat as flatMenu, type MenuItem, type RowItem } from './row-menu'
 import { noteLinkText } from '@/lib/capture-links'
+import { binItem } from '@/lib/to-bin'
 import { tagColour } from './tag-read'
 import { TaskPriority, TaskWhen, completeTask, taskMenu, useTaskNow } from './tasks-view'
 import { sideMenu, useFullMenu } from './side-menu'
@@ -196,7 +197,9 @@ const menuFor = (card: Card, { open, read, menu, task, note }: Actions, list: Ca
     readable(card) && { label: 'Read it, full screen', run: () => read(list, at) },
     'separator',
     table && pinned !== undefined && { label: pinned ? 'Unpin' : 'Pin to the sidebar', run: () => pin(table, card.id, !pinned) },
-    card.type !== 'task' && { label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copy(noteLinkText(card.id, nameOf(card)), 'Copied a link: paste it into any note') }
+    card.type !== 'task' && { label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copy(noteLinkText(card.id, nameOf(card)), 'Copied a link: paste it into any note') },
+    'separator',
+    binItem([{ type: card.type, id: card.id }])
   ]
   return menu ? menu(card, own) : own
 }
