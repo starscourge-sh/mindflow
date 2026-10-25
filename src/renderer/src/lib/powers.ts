@@ -138,7 +138,7 @@ export const POWERS: Power[] = [
   { id: 'practisetag', group: 'Remembering', name: 'Practise without counting', tryIt: 'Open a tag and choose “Practise”.', line: 'Go through a tag’s cards one after another, the answer on Space, with nothing graded or scheduled.', keys: ['Space', 'J', 'K'],
     show: { view: 'tags', at: ROW, text: 'Open a tag and choose “Practise” at the top.' } },
   { id: 'star', group: 'Remembering', name: 'Star a card', tryIt: 'Press S on a card in Review.', line: 'Press S on a card in Review to star it, and “Starred” under “Practise” gives those cards a round of their own.', keys: ['S'],
-    show: { view: 'review', at: '[data-practise]', text: '“Starred” is the last round under “Practise”. S stars the card in front.' }, used: (s) => s.items.some((item) => !!item.starredAt) },
+    show: { view: 'review', at: '[data-practise]', text: '“Starred” is the last round under “Practise”. S stars the card in front.' }, used: (s) => s.items.some((item) => !!item.starredAt && item.tier !== 'goal') },
   { id: 'howitdecides', group: 'Remembering', name: 'How it decides', tryIt: 'Turn a card over in Review and open “How it decides”.', line: 'Under the grades, a fold says in plain words what Review aims for and why this card comes back when it does.',
     show: { view: 'review', text: 'Turn a card over, then open “How it decides” under the grades.' } },
   { id: 'tagpriority', group: 'Remembering', name: 'Pause a tag, or keep it ticking', tryIt: 'Open a tag, choose “Manage”, then “Maintaining” or “Paused”.', line: 'Set a tag to “Maintaining” and its cards keep coming back but no new ones start; “Paused” pauses all of them.',

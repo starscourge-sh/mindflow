@@ -2,7 +2,7 @@ import { dropLines, keepLines } from '@/lib/clue-lines'
 import { ReadsIn, useReading } from '@/lib/reads-in'
 import { binItem } from '@/lib/to-bin'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Archive, CalendarPlus, Flag, Plus, StickyNote, Wind } from 'lucide-react'
+import { Archive, CalendarPlus, Flag, House, Plus, StickyNote, Wind } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
 
@@ -74,6 +74,15 @@ export function useToday(minutes = false): string {
 /** The open goals, nearest first. */
 export const openOnes = (all: Item[]): Item[] =>
   all.filter((one) => !one.closedAt && !one.archivedAt && one.goalAt).sort((a, b) => a.goalAt!.localeCompare(b.goalAt!))
+
+/** Whether a goal is chosen for Home: kept in starred_at, which only practice cards otherwise use. */
+const onHome = (goal: Item): boolean => !!goal.starredAt
+/** Choose a goal for the strip on Home and Today's page, or take it off; undoable. */
+const setOnHome = (goal: Item, on: boolean): void => {
+  chime(on ? 'stick' : 'unstick')
+  void haligtree.star(goal.id, on).then(() =>
+    toast(on ? 'Shown on Home: it comes first at the top of Home' : 'Off Home: the nearest goals show there instead', () => void haligtree.star(goal.id, !on)))
+}
 
 /** The short name a goal is logged under in quick capture: its last two words, as "+chapter three:" is for "Finish chapter three" (clueTarget finds the goal from it). */
 export const goalWord = (goal: string): string => goal.trim().toLowerCase().replace(/[^\p{L}\p{N}\s-]/gu, '').split(/\s+/).slice(-2).join(' ')
@@ -216,6 +225,7 @@ const goalEntry = (item: Item, today: string, menu?: MenuItem[]): Entry => {
 const goalMenu = (item: Item): MenuItem[] => [
   asideItem('goal', item.id),
   'separator',
+  !item.closedAt && { label: onHome(item) ? 'Take off Home' : 'Show on Home', hint: onHome(item) ? 'The nearest show instead' : 'First at the top of Home', run: () => setOnHome(item, !onHome(item)) },
   { label: item.private ? 'Not private' : 'Private', run: () => void haligtree.setPrivate('nuggets', item.id, !item.private) },
   { label: item.archivedAt ? 'Unarchive' : 'Archive', hint: item.archivedAt ? 'Back in sight' : 'Kept, out of sight', run: () => void archive('nuggets', [item.id], !item.archivedAt) },
   binItem([{ type: 'goal', id: item.id }]),
@@ -496,6 +506,9 @@ export function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNod
                 {beacon === 'always' ? 'On every Space, all the time.' : beacon === 'sometimes' ? 'Out a few times a day, then tucked away. In the last week it stays.' : 'The menu bar and Home still show it.'}
               </span>
             </div>
+            <Prop icon={House} active={onHome(item)} onClick={() => setOnHome(item, !onHome(item))} tip={onHome(item) ? 'First at the top of Home; click to let the nearest show' : 'The top of Home shows the nearest goals; this puts it first'}>
+              <span data-goal-home={onHome(item) ? 'on' : 'off'}>{onHome(item) ? 'Shown on Home' : 'Show on Home'}</span>
+            </Prop>
           </Island>
         )}
         <Island compact title={item.closedAt ? 'Ended' : 'How it went'}>
@@ -872,14 +885,16 @@ export function GoalStrip({ onOpen, className = '' }: { onOpen?: (type: string, 
   const today = useToday()
   const open = openOnes(all)
   if (!open.length || settings?.goalStrip === false) return null
-  const shown = open.slice(0, 2)
+  // The ones chosen for Home first (three at most), then the nearest: two rows, or three when the chosen fill them.
+  const chosen = open.filter(onHome).slice(0, 3)
+  const shown = [...chosen, ...open.filter((one) => !chosen.includes(one))].slice(0, chosen.length >= 2 ? 3 : 2)
   return (
     <div className={`flex flex-col ${className}`} role="group" aria-label="Goals">
       {shown.map((goal) => {
         const left = daysLeft(goal.goalAt!, today)
         const way = wayThrough(goal.goalFrom ?? today, goal.goalAt!)
         return (
-          <div key={goal.id} role="button" tabIndex={0} data-private={goal.private ? '' : undefined}
+          <div key={goal.id} role="button" tabIndex={0} data-strip-goal={goal.id} data-private={goal.private ? '' : undefined}
             onClick={() => (chime('open'), onOpen?.('goal', goal.id))}
             onKeyDown={(event) => event.key === 'Enter' && event.target === event.currentTarget && onOpen?.('goal', goal.id)}
             className="group/goal flex cursor-default flex-col gap-1.5 rounded-md px-2 py-1.5 text-control outline-none transition-colors hover:bg-foreground/[0.045] focus-visible:bg-foreground/[0.045]">
@@ -902,9 +917,9 @@ export function GoalStrip({ onOpen, className = '' }: { onOpen?: (type: string, 
           </div>
         )
       })}
-      {open.length > 2 && (
-        <button type="button" onClick={() => (chime('tap'), onOpen?.('view', 'goals'))} className="inline-flex min-h-6 items-center self-start rounded-md px-2 text-meta text-foreground/75 transition-colors duration-80 hover:bg-accent/60 hover:text-foreground">
-          {open.length - 2} more {open.length - 2 === 1 ? 'goal' : 'goals'}, in Goals →
+      {open.length > shown.length && (
+        <button type="button" data-goal-more-count onClick={() => (chime('tap'), onOpen?.('view', 'goals'))} className="inline-flex min-h-6 items-center self-start rounded-md px-2 text-meta text-foreground/75 transition-colors duration-80 hover:bg-accent/60 hover:text-foreground">
+          {open.length - shown.length} more {open.length - shown.length === 1 ? 'goal' : 'goals'}, in Goals →
         </button>
       )}
     </div>

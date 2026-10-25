@@ -23,6 +23,9 @@ const RULES: [RegExp, LucideIcon][] = [
   // Taking a date off is not deleting anything: a calendar crossed out, never the Bin's can.
   [/^clear the (date|due|deadline)/i, CalendarX],
   [/^reschedule/i, CalendarClock],
+  // A goal chosen for Home, and the Bin from any menu, before "show" and "move" read them as something else.
+  [/(on|off) home$/i, House],
+  [/to the bin$/i, Trash2],
   [/back into (a )?notes?$/i, Undo2],
   [/^show the session/i, Timer],
   // Pins and splits first: "Unpin" must not read as "Pin", nor "Open to the side" as "Open".
