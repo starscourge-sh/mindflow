@@ -50,6 +50,8 @@ try {
   await c.theme(THEME)
   if (!(await h.waitForSelector('.mf-welcome', { timeout: 8000 }).then(() => true, () => false))) await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:welcome')))
   await h.waitForSelector('.mf-welcome', { timeout: 8000 })
+  // Through the arrival's mist first (qa/welcome-mist.mjs).
+  await h.waitForSelector('[data-thesis="line"]', { timeout: 15000 })
   await h.waitForTimeout(800)
   check('the welcome opens on Why, chapter 1', /Chapter 1 of \d+: Why/.test(await chapter()), await chapter())
   await shot('why-start')

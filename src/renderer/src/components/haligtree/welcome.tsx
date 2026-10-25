@@ -1,11 +1,12 @@
 import { WelcomeLeaves } from './welcome-leaves'
+import { MIST_MS, WelcomeMist } from './welcome-mist'
 import { TAGLINE } from '../../../../main/tagline'
 import { fittedTitle, quoted } from '../../../../main/clip'
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { ArrowUp, Compass, CornerDownLeft, FolderInput } from 'lucide-react'
 import { shift, spring, still } from '@/lib/motion'
-import { chime, click, fold } from '@/lib/sound'
+import { ambience, chime, click, fold } from '@/lib/sound'
 import { applyTheme, currentTheme, type Theme } from '@/lib/theme'
 import { comboOf, fixed, keyFor, listen, saveKeys, useKeyChanges } from '@/lib/keys'
 import { NO_SETUP, onboarding, type Onboarding, type Setup } from '@/lib/onboarding'
@@ -144,6 +145,9 @@ export function Welcome(): React.JSX.Element | null {
   // A key held back (lib main: heldInWelcome), said for a moment.
   const [held, setHeld] = useState(false)
   const quiet = still()
+  // The arrival: a mist over everything that lifts, a sound swelling in, and the first words only once it has thinned.
+  const [mist, setMist] = useState(false)
+  const [veiled, setVeiled] = useState(false)
   // When the box last went away: an Esc a moment after is the same Esc, pressed twice out of habit.
   const awayAt = useRef(0)
   // A second press of Next within 400ms is one press, not two.
@@ -192,7 +196,13 @@ export function Welcome(): React.JSX.Element | null {
     // Opened again over a page still up: that page's way on (a part still to come) must not carry over to the opening.
     reel.current = { done: true, settle: () => undefined }
     setAt(WHY)
-    chime('read')
+    if (quiet) chime('read')
+    else {
+      setMist(true)
+      setVeiled(true)
+      ambience()
+      setTimeout(() => setVeiled(false), MIST_MS * 0.42)
+    }
   }
 
   useCarriedWelcome()
@@ -435,6 +445,7 @@ export function Welcome(): React.JSX.Element | null {
       {/* The first screen's autumn leaves, blowing behind the words; Next blows them away, and a
           few small ones drift on through the rest (not over the dial, which has its own light). */}
       <WelcomeLeaves on={at === WHY && play} open={play && at !== DIAL} middle={at === BACK ? 0 : 0.3} />
+      {mist && <WelcomeMist onGone={() => setMist(false)} />}
       <div data-drag-strip="" className="relative h-11 shrink-0" style={{ WebkitAppRegion: 'drag' } as CSSProperties} />
       {at === LAST && <TrayArrow tray={state?.tray ?? null} />}
       <div className="relative mx-auto flex min-h-0 w-full max-w-[84rem] flex-1 flex-col">
@@ -449,7 +460,7 @@ export function Welcome(): React.JSX.Element | null {
               exit={at === DIAL ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, scale: 1.02, transition: { duration: 0.2, ease: MOVE } }}
               // A click on the picture while it plays: its end, as a key does.
               onPointerDown={(event) => void (event.isTrusted && !(event.target as HTMLElement).closest('button, a, [role="slider"]') && !reel.current.done && !reel.current.waiting && settled())}>
-              {at === WHY && <ThesisChapter play={play} report={report} />}
+              {at === WHY && !veiled && <ThesisChapter play={play} report={report} />}
               {at === YOU && <YouChapter setup={setup} onChange={answer} still={!play} report={report} paid={paid} onPaid={setPaid} />}
               {at === CATCH && <CatchChapter play={play} report={report} state={state} onState={setState} setup={setup} turn={turn} mine={mine} />}
               {at === WRITE && <WriteChapter play={play} report={report} setup={setup} />}
@@ -459,7 +470,7 @@ export function Welcome(): React.JSX.Element | null {
             </motion.section>
           </AnimatePresence>
         </main>
-        <footer className="relative flex h-[clamp(4rem,9vmin,5.5rem)] shrink-0 items-center gap-3 px-[clamp(1.5rem,5vw,4rem)]">
+        <footer className={`relative flex h-[clamp(4rem,9vmin,5.5rem)] shrink-0 items-center gap-3 px-[clamp(1.5rem,5vw,4rem)] transition-opacity duration-1000 ${veiled ? 'pointer-events-none opacity-0' : 'opacity-100'}`}>
           <div className="mr-auto flex min-w-0 items-center gap-[clamp(0.5rem,2vw,1.5rem)]">
             <Progress at={at} seen={played} onBack={back} />
             {/* The ways past a page sit with Back and the marks, far from the arrow, so the arrow only ever points from nothing to Next.

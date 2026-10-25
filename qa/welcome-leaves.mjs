@@ -18,6 +18,8 @@ const NEXT = 'footer button:has-text("Show me"), footer button:has-text("Next")'
 try {
   if (THEME === 'light') await h.evaluate(() => { localStorage.setItem('theme', 'paper'); document.documentElement.classList.remove('dark') })
   await h.waitForSelector('[data-welcome-leaves]', { timeout: 8000 })
+  // Through the arrival's mist first (qa/welcome-mist.mjs).
+  await h.waitForSelector('[data-thesis="line"]', { timeout: 15000 })
   await h.waitForTimeout(4500)
   const look = () => h.evaluate(() => {
     const canvas = document.querySelector('[data-welcome-leaves]')
@@ -33,6 +35,9 @@ try {
   }
   const swimming = await look()
   check("leaves blow across the first screen", swimming.inked > 100, JSON.stringify(swimming))
+  // Settled first (a press while it plays finishes it), then on.
+  await h.keyboard.press('Escape')
+  await h.waitForTimeout(500)
   await h.locator(NEXT).first().click()
   await h.waitForTimeout(150)
   check('Next blows them away', await h.locator('[data-welcome-leaves="drifting"]').count() === 1)

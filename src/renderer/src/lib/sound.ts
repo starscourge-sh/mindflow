@@ -969,3 +969,61 @@ export function abandoned(): void {
   play([[587, 0, 0.1, 0.04], [494, 0.07, 0.12, 0.035], [392, 0.15, 0.4, 0.03, 370, 0.01]])
   hear('abandon')
 }
+
+/**
+ * The welcome's arrival, once: a misty morning by the sea. A low, open chord
+ * swells in from nothing over a few seconds with a breath of surf under it,
+ * holds while the mist lifts, and fades away by itself over half a minute.
+ * Nothing while sounds are off or the volume is down.
+ */
+export function ambience(): void {
+  const context = audio()
+  if (!context) return
+  const now = context.currentTime
+  const out = context.createGain()
+  out.gain.setValueAtTime(0, now)
+  out.gain.linearRampToValueAtTime(0.9 * volume, now + 4)
+  out.gain.setValueAtTime(0.9 * volume, now + 9)
+  out.gain.exponentialRampToValueAtTime(0.0001, now + 30)
+  out.connect(context.destination)
+  out.connect(room(context))
+  // The chord: D, A, E and F sharp, wide and low, each two voices a little apart, so it shimmers.
+  for (const [hz, level] of [[146.83, 0.03], [220, 0.022], [329.63, 0.014], [369.99, 0.009], [587.33, 0.004]] as const) {
+    for (const detune of [-4, 4]) {
+      const voice = context.createOscillator()
+      voice.type = 'sine'
+      voice.frequency.value = hz
+      voice.detune.value = detune
+      const gain = context.createGain()
+      gain.gain.value = level
+      voice.connect(gain).connect(out)
+      voice.start(now)
+      voice.stop(now + 31)
+    }
+  }
+  // The surf: soft noise through a low filter, rising and falling slowly, as waves do far off.
+  const seconds = 4
+  const buffer = context.createBuffer(1, context.sampleRate * seconds, context.sampleRate)
+  const data = buffer.getChannelData(0)
+  let last = 0
+  for (let i = 0; i < data.length; i++) (last = last * 0.97 + (Math.random() * 2 - 1) * 0.03), (data[i] = last * 6)
+  const surf = context.createBufferSource()
+  surf.buffer = buffer
+  surf.loop = true
+  const low = context.createBiquadFilter()
+  low.type = 'lowpass'
+  low.frequency.value = 520
+  const swell = context.createGain()
+  swell.gain.value = 0.012
+  const wave = context.createOscillator()
+  wave.frequency.value = 0.11
+  const depth = context.createGain()
+  depth.gain.value = 0.009
+  wave.connect(depth).connect(swell.gain)
+  surf.connect(low).connect(swell).connect(out)
+  surf.start(now)
+  wave.start(now)
+  surf.stop(now + 31)
+  wave.stop(now + 31)
+  hear('cue:ambience')
+}

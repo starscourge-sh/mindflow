@@ -1522,7 +1522,22 @@ function openHome(): void {
     void (async () => {
       const here = AEROSPACE ? await aerospace('list-workspaces', '--focused') : ''
       const seen = await bringHere(win, here)
+      // A brand-new Haligtree arrives as Arc and Dia do: the window comes up almost clear, the desktop
+      // still showing through, and grows solid over a few seconds as the welcome's mist lifts.
+      const misty = firstRun() && !homeTimes.shown
+      if (misty) win.setOpacity(0)
       win.show()
+      if (misty) {
+        const from = performance.now()
+        const LIFT = stillness() ? 400 : 3200
+        const step = setInterval(() => {
+          if (win.isDestroyed()) return clearInterval(step)
+          const k = Math.min(1, (performance.now() - from) / LIFT)
+          // Slow at first, as if you are not sure it opened, then settling in.
+          win.setOpacity(k * k * (3 - 2 * k))
+          if (k >= 1) clearInterval(step)
+        }, 16)
+      }
       // Started by a run that is waiting to go: it can now, with this window up in its place.
       arrived()
       if (!seen) setTimeout(() => void bringHere(win, here).then((now) => void (now && aerospace('workspace', here))), 60)
@@ -3383,6 +3398,8 @@ function updateTray(): void {
 let twelve: boolean | null = null
 const twelveHour = (): boolean => (twelve ??= macTwelveHour())
 ipcMain.on('clock:twelve', (event) => void (event.returnValue = twelveHour()))
+// The welcome's first sound plays as it arrives, before anything has been clicked (renderer's lib/sound.ts, ambience).
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required')
 app.whenReady().then(() => {
   // Every time Haligtree writes, here and in each window, on the Mac's own clock (12 or 24 hours).
   useTwelveHour(twelveHour())
