@@ -1,4 +1,4 @@
-import { WelcomeTree } from './welcome-tree'
+import { WelcomeLeaves } from './welcome-leaves'
 import { TAGLINE } from '../../../../main/tagline'
 import { fittedTitle, quoted } from '../../../../main/clip'
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
@@ -432,6 +432,9 @@ export function Welcome(): React.JSX.Element | null {
     <div ref={dialog} tabIndex={-1} role="dialog" aria-modal aria-label={`Welcome to ${APP_NAME}`} inert={opening} onKeyDown={(event) => event.stopPropagation()}
       className="mf-welcome fixed inset-0 z-[70] flex outline-none flex-col overflow-hidden bg-background text-foreground [container-type:inline-size]">
       <Backdrop plain={at === LAST} family={at === WRITE ? 'ruled' : at === DIAL ? 'dots' : 'none'} />
+      {/* The first screen's autumn leaves, blowing behind the words; Next blows them away, and a
+          few small ones drift on through the rest (not over the dial, which has its own light). */}
+      <WelcomeLeaves on={at === WHY && play} open={play && at !== DIAL} />
       <div data-drag-strip="" className="relative h-11 shrink-0" style={{ WebkitAppRegion: 'drag' } as CSSProperties} />
       {at === LAST && <TrayArrow tray={state?.tray ?? null} />}
       <div className="relative mx-auto flex min-h-0 w-full max-w-[84rem] flex-1 flex-col">
@@ -630,8 +633,6 @@ function ThesisChapter({ play, report }: { play: boolean; report: (now: Reel) =>
   })
   return (
     <div className="relative flex min-h-0 flex-1 flex-col justify-center pb-2">
-      {/* Once, as the first line types in: a tree of its letters beside the words, faded as the reason comes. */}
-      {play && !show.done && <WelcomeTree letters={THESIS} away={s.asked} />}
       <div data-reel={show.done ? 'done' : 'playing'} data-words className="flex max-w-[58rem] flex-col gap-[clamp(0.75rem,2.6vh,1.75rem)]">
         <p className={FIGURES}>{when}</p>
         <p data-tagline className="text-[clamp(1.0625rem,min(1.9vw,2.7vh),1.3125rem)] font-semibold text-foreground">{TAGLINE}</p>

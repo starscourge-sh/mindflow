@@ -1,0 +1,294 @@
+import { useEffect, useRef } from 'react'
+
+import { still } from '@/lib/motion'
+
+/** One square of the grid, in px: each holds a letter on a tinted tile. */
+const CELL = 11
+/** Fullest to faintest: the letters a leaf is drawn in, by how much of it fills the square. */
+const RAMP = ['@', '8', '%', 'S', '$', 'X', 't', ';', ':', '.']
+/** How long the leaves take to blow away once Next is pressed. */
+const GUST_MS = 1150
+/** Autumn: rust, amber, ochre, a red and a late green, as hues for oklch. */
+const HUES = [45, 70, 85, 30, 110]
+
+type Kind = 'maple' | 'oak' | 'birch'
+type Leaf = { small: boolean; x: number; y: number; vx: number; vy: number; late: number; size: number; hue: number; spin: number; turn: number; flip: number; roll: number; drift: number; sway: number; kind: Kind }
+const KINDS: Kind[] = ['maple', 'oak', 'birch']
+
+/**
+ * The welcome's first screen, once: autumn leaves drawn in letters on little
+ * tinted tiles (after stackedlol's ASCII sharks) blowing across the window on
+ * an autumn wind, tumbling as they go, behind the words; under a line of words
+ * they fade so it is always read clearly. When the welcome moves on (`on`
+ * turns false) a gust blows them off the edge, gone in under a second. Not
+ * drawn under reduced motion.
+ */
+export function WelcomeLeaves({ on, open }: { on: boolean; /** The welcome showing: the small ones keep drifting till it ends. */ open: boolean }): React.JSX.Element | null {
+  const box = useRef<HTMLCanvasElement>(null)
+  // When the gust came; long ago if the leaves first show on a later screen, so only the small ones drift.
+  const gust = useRef<number | null>(on ? null : -1e9)
+  // Back on the first screen: the big leaves blow in again.
+  const again = useRef(false)
+  useEffect(() => {
+    if (on) {
+      if (gust.current !== null) again.current = true
+      gust.current = null
+    } else if (gust.current === null) gust.current = performance.now()
+  }, [on])
+  const here = open
+
+  useEffect(() => {
+    const canvas = box.current
+    if (!canvas || !here || still()) return
+    const context = canvas.getContext('2d')
+    const grid = document.createElement('canvas')
+    const pen = grid.getContext('2d', { willReadFrequently: true })
+    if (!context || !pen) return
+    let width = 0
+    let height = 0
+    let cols = 0
+    let rows = 0
+    // Each line of words and every control on its own: the leaves fade only where there is something to read or press.
+    let words: DOMRect[] = []
+    const measure = (): void => {
+      words = [...document.querySelectorAll('.mf-welcome :is(h1, h2, h3, p, li, label, button, input, textarea, [role="radio"])')]
+        .flatMap((one) => [...one.getClientRects()])
+        .filter((rect) => rect.width > 0 && rect.height > 0)
+    }
+    const fit = (): void => {
+      const scale = window.devicePixelRatio || 1
+      width = canvas.clientWidth
+      height = canvas.clientHeight
+      canvas.width = width * scale
+      canvas.height = height * scale
+      context.setTransform(scale, 0, 0, scale, 0, 0)
+      cols = Math.ceil(width / CELL)
+      rows = Math.ceil(height / CELL)
+      grid.width = cols
+      grid.height = rows
+      measure()
+    }
+    fit()
+    window.addEventListener('resize', fit)
+    const watch = setInterval(measure, 400)
+    const dark = document.documentElement.classList.contains('dark')
+    let seed = 7
+    const random = (): number => ((seed = (seed * 16807) % 2147483647) / 2147483647)
+    // A leaf, somewhere up and to the left of where it will blow, or anywhere at the start.
+    const make = (anywhere: boolean, small = false): Leaf => ({
+      x: anywhere ? random() * width : -120 - random() * 200,
+      y: anywhere ? random() * height : random() * height * 0.8 - height * 0.1,
+      size: small ? 36 + random() * 44 : 190 + random() * 150,
+      small,
+      vx: 0,
+      vy: 0,
+      // Each catches the gust a moment apart, the nearest the wind first.
+      late: random() * 260,
+      kind: KINDS[Math.floor(random() * KINDS.length)],
+      roll: random() * Math.PI * 2,
+      hue: HUES[Math.floor(random() * HUES.length)],
+      spin: random() * Math.PI * 2,
+      turn: (random() - 0.5) * 1.4,
+      flip: random() * Math.PI * 2,
+      drift: 0.8 + random() * 0.5,
+      sway: random() * Math.PI * 2
+    })
+    const fall: Leaf[] = gust.current === null ? Array.from({ length: 8 }, () => make(true)) : []
+    // After the gust: a few small leaves and specks, drifting through the rest of the welcome.
+    const motes: Leaf[] = Array.from({ length: 10 }, () => make(true, true))
+
+    /** A leaf's outline, its stem at the origin pointing left and its tip at `length`, by kind. */
+    const outline = (kind: Kind, length: number): void => {
+      const w = length * 0.5
+      pen.beginPath()
+      if (kind === 'maple') {
+        // Five pointed lobes from the stem, the middle one longest, each with a tooth either side.
+        const lobes = [[-1.25, 0.62], [-0.62, 0.86], [0, 1], [0.62, 0.86], [1.25, 0.62]] as const
+        pen.moveTo(0, 0)
+        lobes.forEach(([angle, reach], i) => {
+          const tipX = Math.cos(angle) * length * reach
+          const tipY = Math.sin(angle) * length * reach
+          const before = angle - 0.32
+          const toothX = Math.cos(before) * length * reach * 0.62
+          const toothY = Math.sin(before) * length * reach * 0.62
+          pen.lineTo(Math.cos(before - 0.12) * length * reach * 0.42, Math.sin(before - 0.12) * length * reach * 0.42)
+          pen.lineTo(toothX, toothY)
+          pen.lineTo(tipX, tipY)
+          const after = angle + 0.32
+          pen.lineTo(Math.cos(after) * length * reach * 0.62, Math.sin(after) * length * reach * 0.62)
+          if (i === lobes.length - 1) pen.lineTo(Math.cos(after + 0.12) * length * reach * 0.42, Math.sin(after + 0.12) * length * reach * 0.42)
+        })
+        pen.closePath()
+      } else if (kind === 'oak') {
+        // Long, with round lobes in pairs down each side.
+        pen.moveTo(0, 0)
+        const lobes = 4
+        for (let i = 0; i <= lobes; i++) {
+          const x = length * (0.15 + (0.8 * i) / lobes)
+          const out = w * 0.7 * Math.sin(Math.PI * (0.25 + (0.75 * i) / lobes))
+          pen.quadraticCurveTo(x - length * 0.08, -out * 1.25, x, -out * 0.45)
+        }
+        pen.quadraticCurveTo(length * 1.02, 0, length * 0.95, 0)
+        for (let i = lobes; i >= 0; i--) {
+          const x = length * (0.15 + (0.8 * i) / lobes)
+          const out = w * 0.7 * Math.sin(Math.PI * (0.25 + (0.75 * i) / lobes))
+          pen.quadraticCurveTo(x + length * 0.08, out * 1.25, x - length * 0.1, out * 0.45)
+        }
+        pen.closePath()
+      } else {
+        // An oval with a fine serrated edge and a drawn-out tip.
+        const steps = 14
+        pen.moveTo(0, 0)
+        for (let side = -1; side <= 1; side += 2) {
+          for (let i = 1; i <= steps; i++) {
+            const u = side < 0 ? i / steps : 1 - i / steps
+            const half = w * 0.62 * Math.sin(Math.PI * Math.min(1, u * 1.08)) ** 0.8
+            const tooth = i % 2 ? 1 : 0.86
+            pen.lineTo(length * u, side * half * tooth)
+          }
+        }
+        pen.closePath()
+      }
+    }
+    // One leaf, tumbling: turned over on two axes (squashed one way, then the other), its tip
+    // bending with the wind, then its veins and a few darker flecks, so it reads as a leaf.
+    const draw = (one: Leaf, t: number): void => {
+      const length = one.size / CELL
+      const flutter = Math.sin(t * 7.5 + one.sway * 3) * 0.12
+      pen.save()
+      pen.translate(one.x / CELL, one.y / CELL)
+      pen.rotate(one.spin + flutter)
+      pen.scale(0.25 + 0.75 * Math.abs(Math.cos(one.flip + t * 0.9)), 0.3 + 0.7 * Math.abs(Math.cos(one.roll + t * 0.6)))
+      // The tip half bends: drawn a second time over the first, turned a little at the middle.
+      const bend = Math.sin(t * 2.3 + one.sway) * 0.22
+      const colour = (light: number, shift: number): string => `oklch(${dark ? light - 0.04 : light - 0.08} 0.16 ${one.hue + shift})`
+      const body = pen.createLinearGradient(0, 0, length, 0)
+      body.addColorStop(0, colour(0.66, -12))
+      body.addColorStop(1, colour(0.74, 14))
+      pen.translate(-length * 0.45, 0)
+      pen.fillStyle = body
+      outline(one.kind, length)
+      pen.fill()
+      pen.save()
+      pen.translate(length * 0.5, 0)
+      pen.rotate(bend)
+      pen.translate(-length * 0.5, 0)
+      pen.beginPath()
+      pen.rect(length * 0.5, -length, length, length * 2)
+      pen.clip()
+      outline(one.kind, length)
+      pen.fill()
+      pen.restore()
+      // The stem, then the veins: the midrib and a few each side, darker.
+      pen.fillStyle = colour(0.45, -8)
+      pen.fillRect(-length * 0.16, -0.5, length * 0.18, 1)
+      pen.strokeStyle = colour(0.5, -6)
+      pen.lineWidth = 0.9
+      pen.beginPath()
+      if (one.kind === 'maple') {
+        for (const angle of [-1.25, -0.62, 0, 0.62, 1.25]) (pen.moveTo(0, 0), pen.lineTo(Math.cos(angle) * length * 0.8, Math.sin(angle) * length * 0.8))
+      } else {
+        pen.moveTo(0, 0)
+        pen.lineTo(length * 0.95, 0)
+        for (let i = 1; i <= 4; i++) {
+          const x = length * (0.15 + i * 0.17)
+          pen.moveTo(x, 0)
+          pen.lineTo(x + length * 0.14, -length * 0.17)
+          pen.moveTo(x, 0)
+          pen.lineTo(x + length * 0.14, length * 0.17)
+        }
+      }
+      pen.stroke()
+      pen.restore()
+    }
+
+    let frame = 0
+    let last = performance.now()
+    const tick = (now: number): void => {
+      const dt = Math.min(0.05, (now - last) / 1000)
+      last = now
+      const t = now / 1000
+      if (again.current) (again.current = false), fall.splice(0, fall.length, ...Array.from({ length: 8 }, () => make(false)))
+      const leaving = gust.current
+      const gone = leaving === null ? 0 : Math.min(1, (now - leaving) / GUST_MS)
+      // The small ones come in as the gust passes, and stay faint.
+      const settle = leaving === null ? 0 : Math.min(1, Math.max(0, (now - leaving - 400) / 1400))
+      // The wind: mostly left to right and a little down, with gusts now and then.
+      const blow = 55 + 45 * Math.max(0, Math.sin(t * 0.45)) ** 3
+      for (const one of fall) {
+        if (leaving !== null) {
+          // The gust: it builds on each leaf in turn, lifting it up and away to the right as
+          // a real gust does, spinning faster as it goes. Nothing fades till the very end.
+          const caught = Math.max(0, Math.min(1, (now - leaving - one.late) / 450))
+          const ease = caught * caught * (3 - 2 * caught)
+          one.vx += (2600 * ease * one.drift - one.vx * 0.6) * dt
+          one.vy += (-520 * ease - one.vy * 0.8) * dt
+          one.turn += (one.turn >= 0 ? 1 : -1) * 6 * ease * dt
+        }
+        // Drifting on the wind, rocking side to side as a falling leaf does.
+        one.x += (blow * one.drift + one.vx) * dt + Math.sin(t * 1.4 + one.sway) * 34 * dt
+        one.y += (18 + Math.sin(t * 1.1 + one.sway) * 26 + one.vy) * dt
+        one.spin += one.turn * dt
+        one.flip += Math.abs(one.vx) * 0.004 * dt
+        // Blown out of sight: in again from the left, a new leaf.
+        if (leaving === null && (one.x > width + one.size || one.y > height + one.size)) Object.assign(one, make(false))
+      }
+      if (gone >= 1 && fall.length) fall.length = 0
+      for (const one of motes) {
+        one.x += blow * 0.55 * one.drift * dt + Math.sin(t * 1.4 + one.sway) * 22 * dt
+        one.y += (12 + Math.sin(t * 1.1 + one.sway) * 18) * dt
+        one.spin += one.turn * 1.6 * dt
+        if (one.x > width + one.size || one.y > height + one.size) Object.assign(one, make(false, true))
+      }
+      // Only the last stretch fades, for any leaf still in sight.
+      const fade = Math.max(0, (gone - 0.7) / 0.3)
+      pen.clearRect(0, 0, cols, rows)
+      pen.globalAlpha = 1 - fade
+      for (const one of fall) draw(one, t)
+      pen.globalAlpha = 0.32 * settle
+      if (settle > 0) for (const one of motes) draw(one, t)
+      pen.globalAlpha = 1
+      const data = pen.getImageData(0, 0, cols, rows).data
+      context.clearRect(0, 0, width, height)
+      context.font = `600 ${CELL - 5}px ui-monospace, "SF Mono", Menlo, monospace`
+      context.textAlign = 'center'
+      context.textBaseline = 'middle'
+      const clear = words
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          const at = (y * cols + x) * 4
+          const a = data[at + 3] / 255
+          if (a < 0.05) continue
+          const px = x * CELL
+          const py = y * CELL
+          // Under a line of words: faded to a whisper, softly at its edge, so it reads clearly.
+          let keep = 1
+          for (const line of clear) {
+            const dx = Math.max(line.left - 18 - px, 0, px - line.right - 18)
+            const dy = Math.max(line.top - 12 - py, 0, py - line.bottom - 12)
+            keep = Math.min(keep, 0.15 + Math.hypot(dx, dy) / 70)
+          }
+          const strength = a * Math.min(1, keep)
+          if (strength < 0.04) continue
+          const [r, g, b] = [data[at], data[at + 1], data[at + 2]]
+          // The tile in the leaf's own colour; its letter darker in light, lighter in dark.
+          context.fillStyle = `rgba(${r},${g},${b},${(dark ? 0.7 : 0.62) * strength})`
+          context.fillRect(px + 1, py + 1, CELL - 2, CELL - 2)
+          const shade = dark ? (one: number): number => Math.round(one + (255 - one) * 0.6) : (one: number): number => Math.round(one * 0.38)
+          const letter = Math.min(RAMP.length - 1, Math.max(0, Math.floor((1 - a) * RAMP.length + Math.sin(t * 5 + x * 1.7 + y) * 0.8)))
+          context.fillStyle = `rgba(${shade(r)},${shade(g)},${shade(b)},${strength})`
+          context.fillText(RAMP[letter], px + CELL / 2, py + CELL / 2 + 0.5)
+        }
+      }
+      frame = requestAnimationFrame(tick)
+    }
+    frame = requestAnimationFrame(tick)
+    return () => {
+      cancelAnimationFrame(frame)
+      clearInterval(watch)
+      window.removeEventListener('resize', fit)
+    }
+  }, [here])
+  if (!here) return null
+  return <canvas ref={box} aria-hidden data-welcome-leaves={on ? 'blowing' : 'drifting'} className="pointer-events-none absolute inset-0 h-full w-full" />
+}
