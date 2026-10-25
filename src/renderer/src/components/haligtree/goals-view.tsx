@@ -2,7 +2,7 @@ import { dropLines, keepLines } from '@/lib/clue-lines'
 import { ReadsIn, useReading } from '@/lib/reads-in'
 import { binItem } from '@/lib/to-bin'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Archive, CalendarPlus, Flag, House, Plus, StickyNote, Wind } from 'lucide-react'
+import { Archive, CalendarPlus, Flag, House, Plus, Snowflake, StickyNote, Wind } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
 
@@ -98,8 +98,13 @@ export function LogLine({ goal, did }: { goal: string; did: string }): React.JSX
 
 export const logsSaid = (n: number): string => (n ? `${num(n)} ${n === 1 ? 'log' : 'logs'}` : 'no logs yet')
 const HOW: Record<string, string> = { 'made it': 'Made it', missed: 'Missed', 'let go': 'Gave it up' }
-/** How a settled goal ended, and when: "Made it on 14 Dec". */
-const settledSaid = (item: Item): string => `${HOW[item.closedHow ?? ''] ?? 'Ended'} on ${dayMonth(item.closedAt!)}`
+/** Paused: out of every open list, its countdown stopped, under “On ice” until taken off. */
+export const onIce = (item: Pick<Item, 'closedHow'>): boolean => item.closedHow === 'on ice'
+/** How a settled goal ended, and when: "Made it on 14 Dec"; or since when it is on ice. */
+const settledSaid = (item: Item): string => onIce(item) ? `On ice since ${dayMonth(item.closedAt!)}` : `${HOW[item.closedHow ?? ''] ?? 'Ended'} on ${dayMonth(item.closedAt!)}`
+/** Which tab of Goals one sits under. */
+type Tab = 'open' | 'settled' | 'iced'
+const tabOf = (item: Item): Tab => (onIce(item) ? 'iced' : item.closedAt ? 'settled' : 'open')
 /** The days-left colour: calm far out, the accent in the last month, strong in the last week. */
 export const warmth = (left: number): string =>
   left > 30 ? 'var(--muted-foreground)' : left > 7 ? ACCENT : 'var(--tt-color-text-red)'
@@ -116,12 +121,23 @@ export async function startGoal(open: (type: string, id: string) => void): Promi
   open('goal', id)
 }
 
-/** Settle a goal: made it, missed, or gave it up; undoable. */
-export function settle(item: { id: string }, how: 'made it' | 'missed' | 'let go'): void {
+/** Settle a goal: made it, missed, or gave it up; or put it on ice for now. Undoable. */
+export function settle(item: { id: string }, how: 'made it' | 'missed' | 'let go' | 'on ice'): void {
   void haligtree.closeGoal(item.id, how).then(() => {
-    chime(how === 'made it' ? 'answered' : how === 'missed' ? 'called' : 'release')
-    toast(how === 'made it' ? 'Made it. It moves to “Ended”' : how === 'missed' ? 'Missed: kept under “Ended”, with its logs' : 'Gave it up: kept under “Ended”, with its logs',
+    chime(how === 'made it' ? 'answered' : how === 'missed' ? 'called' : how === 'on ice' ? 'unstick' : 'release')
+    toast(how === 'made it' ? 'Made it. It moves to “Ended”' : how === 'missed' ? 'Missed: kept under “Ended”, with its logs'
+      : how === 'on ice' ? 'On ice: its countdown stops, and it waits under “On ice”' : 'Gave it up: kept under “Ended”, with its logs',
       () => void haligtree.reopenGoal(item.id))
+  })
+}
+
+/** Off ice and open again, its day moved out by the days it waited; undoable back onto the ice. */
+function thaw(item: Item): void {
+  void haligtree.thawGoal(item.id).then((back) => {
+    if (!back) return chime('nope')
+    chime('hold')
+    toast(back.days ? `Off ice: its day moves ${num(back.days)} ${back.days === 1 ? 'day' : 'days'} later, the time it was on ice, to ${dayMonth(`${dayKey(noon(back.was).add(back.days, 'day').toDate())}T12:00`)}` : 'Off ice: open again',
+      () => void haligtree.goalDates(item.id, { target: back.was }).then(() => haligtree.closeGoal(item.id, 'on ice', back.iced)))
   })
 }
 
@@ -225,6 +241,8 @@ const goalEntry = (item: Item, today: string, menu?: MenuItem[]): Entry => {
 const goalMenu = (item: Item): MenuItem[] => [
   asideItem('goal', item.id),
   'separator',
+  onIce(item) ? { label: 'Take off ice', hint: 'Open again, its day moved out by the days it waited', run: () => thaw(item) }
+    : !item.closedAt && { label: 'Put on ice', hint: 'Paused: its countdown stops', run: () => settle(item, 'on ice') },
   !item.closedAt && { label: onHome(item) ? 'Take off Home' : 'Show on Home', hint: onHome(item) ? 'The nearest show instead' : 'First at the top of Home', run: () => setOnHome(item, !onHome(item)) },
   { label: item.private ? 'Not private' : 'Private', run: () => void haligtree.setPrivate('nuggets', item.id, !item.private) },
   { label: item.archivedAt ? 'Unarchive' : 'Archive', hint: item.archivedAt ? 'Back in sight' : 'Kept, out of sight', run: () => void archive('nuggets', [item.id], !item.archivedAt) },
@@ -242,29 +260,29 @@ const goalMenu = (item: Item): MenuItem[] => [
 export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   const all = useLive(() => haligtree.items('goal'), [] as Item[], [], ['item'])
   const today = useToday()
-  const [show, setShow] = useState<'open' | 'settled'>('open')
+  const [show, setShow] = useState<Tab>('open')
   // Opened from elsewhere with its words already read: on them from the first frame.
   const [open, setOpen] = useState<ItemFull | null>(() => (focus ? readNow<ItemFull>('goal', focus) ?? null : null))
   // The one asked for while it is read: its pane and name at once (note-coming.tsx).
   const [coming, setComing] = useState<string | null>(() => (focus && !open ? focus : null))
-  const listOf = (which: 'open' | 'settled'): Item[] => which === 'open' ? openOnes(all) : all.filter((one) => one.closedAt && !one.archivedAt).sort((a, b) => b.closedAt!.localeCompare(a.closedAt!))
+  const listOf = (which: Tab): Item[] => which === 'open' ? openOnes(all) : all.filter((one) => one.closedAt && !one.archivedAt && tabOf(one) === which).sort((a, b) => b.closedAt!.localeCompare(a.closedAt!))
   const items = listOf(show)
   // Only the last pick lands: a late answer for the goal before is dropped.
   const asked = useLastAsked()
   const pick = (id: string): void => {
     const ready = readNow<ItemFull>('goal', id)
-    if (ready) return (asked(), setComing(null), setOpen(ready), setShow(ready.closedAt ? 'settled' : 'open'))
+    if (ready) return (asked(), setComing(null), setOpen(ready), setShow(tabOf(ready)))
     if (id !== open?.id) setComing(id)
     asked(readFresh('goal', id, haligtree.item), (found) => {
       setComing(null)
       setOpen(found)
-      if (found) setShow(found.closedAt ? 'settled' : 'open')
+      if (found) setShow(tabOf(found))
     })
   }
   // Open or Settled: the goal beside the list is always one of it, its first, or none.
-  const switchTo = (which: 'open' | 'settled'): void => {
+  const switchTo = (which: Tab): void => {
     setShow(which)
-    if (!open || !!open.closedAt === (which === 'settled')) return
+    if (!open || tabOf(open) === which) return
     const first = listOf(which)[0]
     if (first) pick(first.id)
     else (asked(), setComing(null), setOpen(null))
@@ -297,7 +315,7 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
           the goal never waits for the list, which comes in whole beside it once drawn. */}
       <Page aside={!!open || !!coming} waiting={unloaded(all) || (!!focus && (coming ?? open?.id) !== focus) || !listShown} apart={sent} title="Goals" count={several.chosen.length || items.length} unit={several.chosen.length ? ['selected', 'selected'] : ['goal', 'goals']}
         // Which goals show, at the line's left before the count, on the list's edges as Tasks' tabs (qa/list-edges.mjs): apart from the buttons that make or gather goals.
-        lead={several.bar ? undefined : <div data-list-tabs className="flex shrink-0" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink))' }}><Chips className="shrink-0" options={[{ id: 'open', label: 'Open' }, { id: 'settled', label: 'Ended' }]} on={(id) => id === show} pick={(id) => switchTo(id as 'open' | 'settled')} /></div>}
+        lead={several.bar ? undefined : <div data-list-tabs className="flex shrink-0" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink))' }}><Chips className="shrink-0" options={[{ id: 'open', label: 'Open' }, { id: 'settled', label: 'Ended' }, { id: 'iced', label: 'On ice' }]} on={(id) => id === show} pick={(id) => switchTo(id as Tab)} /></div>}
         actions={several.bar ??
           <span className="flex items-center gap-2">
             {openOnes(all).length > 1 && <Button variant="ghost" size="sm" data-all-goals-sticky onClick={showAllGoals} title="Every open goal on one sticky, each in its own colour"><StickyNote className="size-3.5" /> All on one sticky</Button>}
@@ -316,6 +334,10 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
         ) : show === 'open' ? (
           <Empty title="No goals yet" action={<Button variant="secondary" size="sm" onClick={() => void startGoal(go)}><Plus className="size-3.5" /> New goal</Button>}>
             A goal is a day you are working toward. It stays in front of you, in the menu bar and at the top of Home, counts the days down, and keeps a log of the road there.
+          </Empty>
+        ) : show === 'iced' ? (
+          <Empty title="No goals on ice">
+            A goal you want to pause goes on ice from its page: it leaves Home and the desktop, and its countdown stops. Taken off, its day moves out by the days it waited.
           </Empty>
         ) : (
           <Empty title="No goals ended yet">
@@ -411,7 +433,7 @@ export function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNod
           cover={<Cover colour={item.closedAt ? 'var(--muted-foreground)' : warmth(Math.max(left, 0))} seed={item.id}>
             {item.closedAt ? <Flag className="size-[42cqi]" strokeWidth={1.6} /> : <span className="tabular-nums">{left < 0 ? '?' : left}</span>}
           </Cover>}
-          label={item.closedAt ? 'Goal, ended' : `Goal · ${dayName(`${target}T12:00`)}`}
+          label={onIce(item) ? 'Goal, on ice' : item.closedAt ? 'Goal, ended' : `Goal · ${dayName(`${target}T12:00`)}`}
           length={item.title.length}
           meta={item.closedAt
             ? [settledSaid(item), `for ${dayMonth(`${target}T12:00`)}`, logsSaid(logs.length)]
@@ -419,7 +441,7 @@ export function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNod
           actions={<>
             <QuietAction label="Add a log" onClick={addLog}><Plus /></QuietAction>
             <MenuButton items={[
-              ...(item.closedAt ? [{ label: 'Open it again', run: () => reopen(item) }]
+              ...(onIce(item) ? [] : item.closedAt ? [{ label: 'Open it again', run: () => reopen(item) }]
                 : [{ label: 'Made it', run: () => settle(item, 'made it') }, { label: 'Missed', run: () => settle(item, 'missed') }, { label: 'Give it up', hint: 'Kept under “Ended”', run: () => settle(item, 'let go') }]),
               'separator',
               ...goalMenu(item)
@@ -511,14 +533,17 @@ export function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNod
             </Prop>
           </Island>
         )}
-        <Island compact title={item.closedAt ? 'Ended' : 'How it went'}>
-          {item.closedAt ? (
+        <Island compact title={onIce(item) ? 'On ice' : item.closedAt ? 'Ended' : 'How it went'}>
+          {onIce(item) ? (
+            <Prop icon={Snowflake} onClick={() => thaw(item)} tip="Open again, its day moved out by the days it waited">Take off ice</Prop>
+          ) : item.closedAt ? (
             <Prop icon={Wind} onClick={() => reopen(item)}>Open it again</Prop>
           ) : (
             <>
               <Prop alive={SimpleCheckedIcon} onClick={() => settle(item, 'made it')}>Made it</Prop>
               <Prop icon={Flag} onClick={() => settle(item, 'missed')}>Missed</Prop>
               <Prop icon={Wind} onClick={() => settle(item, 'let go')} tip="Kept under “Ended”">Give it up</Prop>
+              <Prop icon={Snowflake} onClick={() => settle(item, 'on ice')} tip="Paused: off Home and the desktop, its countdown stopped">On ice</Prop>
             </>
           )}
         </Island>

@@ -6,7 +6,7 @@ import {
   FolderInput, FolderMinus, FolderPlus, Footprints, Gift, GraduationCap, Hash, History, Hourglass, House, Image, Inbox, Keyboard, LayoutGrid,
   Library, Lightbulb, Link, List, ListChecks, ListStart, Lock, LockOpen, LogOut, Map as MapIcon, Maximize2, MessageCircleQuestion, MessageSquare, Minimize2, Monitor,
   MonitorUp, MoveRight, NotebookText, Palette, Scissors, Pause, Play, Scale, PanelLeft, PanelRight, Pencil, Pin, PinOff, Plus, Quote, Repeat, RotateCcw, Search, Settings, Shapes, Shield,
-  ShieldCheck, Smile, Sparkles, SquareCheck, SquareKanban, SquarePen, Star, StickyNote, Sun, Tag, Target, Timer, Trash2, Type, Undo2, Ungroup, Upload,
+  ShieldCheck, Smile, Snowflake, Sparkles, SquareCheck, SquareKanban, SquarePen, Star, StickyNote, Sun, Tag, Target, Timer, Trash2, Type, Undo2, Ungroup, Upload,
   User, Volume2, VolumeX, WandSparkles, Wrench, X, Zap, type LucideIcon
 } from 'lucide-react'
 
@@ -26,6 +26,7 @@ const RULES: [RegExp, LucideIcon][] = [
   // A goal chosen for Home, and the Bin from any menu, before "show" and "move" read them as something else.
   [/(on|off) home$/i, House],
   [/to the bin$/i, Trash2],
+  [/(on|off) ice$/i, Snowflake],
   [/back into (a )?notes?$/i, Undo2],
   [/^show the session/i, Timer],
   // Pins and splits first: "Unpin" must not read as "Pin", nor "Open to the side" as "Open".

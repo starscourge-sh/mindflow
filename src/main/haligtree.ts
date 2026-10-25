@@ -12,7 +12,7 @@ import { rollOver } from './held'
 import { KEPT_IN, LABEL, LIST, atomically, changed, database, like, movedOn, type Change } from './captures'
 import { docList, tasksSaid } from './day-lines'
 import { advance, leadingTag, readTask } from './task-words'
-import { clock, dayKey, dayMonth, dayjs, daysFromToday, monthName, num, startOfDay } from './dates'
+import { clock, dayKey, dayMonth, dayjs, daysFromToday, monthName, noon, num, startOfDay } from './dates'
 import { backUpWatched, backupDir, backupStatus, checkMarkdown, chooseFolder } from './backup'
 import { SANDBOX } from './sandbox'
 import { retireKinds, tagged as hasTag, withTag } from './kinds'
@@ -2393,11 +2393,25 @@ export function registerHaligtree(): void {
     return write(true)
   })
   // `at`: an undo of a reopen, settled again on the day it first was.
-  handle('goal:close', (id: string, how: 'made it' | 'missed' | 'let go', at?: string | null) => {
-    if (!['made it', 'missed', 'let go'].includes(how)) return null
+  // 'on ice' is a pause, kept the same way: closed since it was put there, so
+  // every open list (the strip, the stickies, the nudges) leaves it out.
+  handle('goal:close', (id: string, how: 'made it' | 'missed' | 'let go' | 'on ice', at?: string | null) => {
+    if (!['made it', 'missed', 'let go', 'on ice'].includes(how)) return null
     const done = db.prepare("update nuggets set closed_at = ?, closed_how = ? where id = ? and tier = 'goal'").run(at || now(), how, id).changes > 0
     goalsTold()
     return write(done)
+  })
+  // Off ice: open again, its day moved out by the days it was on ice, so the
+  // pause cost it none. Gives back the days moved and the day it was for, for Undo.
+  handle('goal:thaw', (id: string) => {
+    const row = db.prepare("select goal_at, closed_at from nuggets where id = ? and tier = 'goal' and closed_how = 'on ice'").get(id) as { goal_at: string; closed_at: string } | undefined
+    if (!row) return null
+    const days = Math.max(0, daysBetween(dayKey(row.closed_at), dayKey()))
+    const target = dayKey(noon(row.goal_at).add(days, 'day').toDate())
+    db.prepare('update nuggets set closed_at = null, closed_how = null, goal_at = ?, updated_at = ? where id = ?').run(target, now(), id)
+    goalPassed(id)
+    goalsTold()
+    return write({ days, was: row.goal_at, iced: row.closed_at })
   })
   handle('goal:reopen', (id: string) => {
     const done = db.prepare("update nuggets set closed_at = null, closed_how = null where id = ? and tier = 'goal'").run(id).changes > 0

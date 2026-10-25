@@ -71,7 +71,7 @@ export type Item = {
   why: string | null
   /** A question: when it was settled, and how; both null while it is held. */
   closedAt: string | null
-  closedHow: 'answered' | 'let go' | 'made it' | 'missed' | null
+  closedHow: 'answered' | 'let go' | 'made it' | 'missed' | 'on ice' | null
   /** The words, exactly as selected, that a gem was lifted from: its card shows them. */
   passage?: string | null
   /** Its glosses, which on a question are its clues and on a goal its logs. */
@@ -336,7 +336,8 @@ export const haligtree = {
   /** A goal: its name, the day it is for, the day it was set (today if not said) and why it matters. `dropGoal` takes it back. */
   newGoal: (title: string, target: string, from?: string | null, why?: string | null) => call<string | null>('goal:new', title, target, from, why),
   goalDates: (id: string, dates: { target?: string; from?: string }) => call<boolean | null>('goal:dates', id, dates),
-  closeGoal: (id: string, how: 'made it' | 'missed' | 'let go', at?: string | null) => call<boolean | null>('goal:close', id, how, at),
+  closeGoal: (id: string, how: 'made it' | 'missed' | 'let go' | 'on ice', at?: string | null) => call<boolean | null>('goal:close', id, how, at),
+  thawGoal: (id: string) => call<{ days: number; was: string; iced: string } | null>('goal:thaw', id),
   reopenGoal: (id: string) => call<boolean>('goal:reopen', id),
   dropGoal: (id: string) => call<boolean>('goal:drop', id),
   /** How often a goal's beacon shows; null follows Settings. */
