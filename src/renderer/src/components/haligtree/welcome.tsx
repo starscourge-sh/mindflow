@@ -25,7 +25,6 @@ import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { dayjs } from '../../../../main/dates'
 import { clock, when } from '@/lib/clock'
 import { readTask } from '../../../../main/task-words'
-import { Scenery } from './scenery'
 import { NOISE } from './grain'
 import { ThemeDial } from './theme-dial'
 import { Kbd, toast } from './ui'
@@ -521,7 +520,7 @@ export function Welcome(): React.JSX.Element | null {
       data-closing={closing ? '' : undefined} onPointerDown={() => void (closing && closed())}
       initial={false} animate={{ opacity: closing ? 0 : 1 }} transition={closing ? { delay: 0.45, duration: 0.9, ease: MOVE } : { duration: 0 }}
       className="mf-welcome fixed inset-0 z-[70] flex outline-none flex-col overflow-clip bg-background text-foreground [container-type:inline-size]">
-      <Backdrop plain={at === LAST} family={at === WRITE ? 'ruled' : at === DIAL ? 'dots' : 'none'} />
+      <Backdrop family={at === WRITE ? 'ruled' : at === DIAL ? 'dots' : 'none'} />
       {/* The first screen's autumn leaves, blowing behind the words; Next blows them away, and a
           few small ones drift on through the rest (not over the dial, which has its own light). */}
       <WelcomeLeaves on={at === WHY && play} open={play && at !== DIAL} middle={at === BACK ? 0 : 0.3} gather={at === LAST && !closing} />
@@ -1582,13 +1581,11 @@ function BoxKeys(): React.JSX.Element {
  * standing still, under a film of grain. With no scenery, the grain
  * on the page's own colour.
  */
-export function Backdrop({ plain, family }: { plain: boolean; family: Family }): React.JSX.Element {
+export function Backdrop({ family }: { family: Family }): React.JSX.Element {
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0">
-      {/* The last screen is a plain page: the scenery steps back for the choice. */}
-      <div className={`absolute -inset-[2%] transition-opacity duration-300 ease-(--mf-ease) ${plain ? 'opacity-0' : 'opacity-100'}`}>
-        <Scenery place="rest" seed="welcome" text="all" className="absolute inset-0" />
-      </div>
+      {/* No painting: under the words it had to be veiled for reading, which hid it on most themes and showed it on a few.
+          The welcome is paper, its leaves and its mist, alike under every theme. */}
       <div className="absolute inset-0 opacity-[0.035] mix-blend-overlay" style={{ backgroundImage: NOISE, backgroundSize: '160px' }} />
       {/* One quiet family of marks a chapter, over the scenery and under the words (welcome-backdrop.tsx). */}
       <WelcomeBackdrop family={family} />

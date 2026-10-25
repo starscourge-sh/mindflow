@@ -66,14 +66,14 @@ export function WelcomeStamp({ still }: { still: boolean }): React.JSX.Element {
           <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="7" result="grain" />
           <feDisplacementMap in="SourceGraphic" in2="grain" scale="1.8" />
         </filter>
-        <path id={`${id}-rim`} d="M 50 50 m -41 0 a 41 41 0 1 1 82 0 a 41 41 0 1 1 -82 0" />
+        <path id={`${id}-rim`} d="M 50 50 m -38.5 0 a 38.5 38.5 0 1 1 77 0 a 38.5 38.5 0 1 1 -77 0" />
       </defs>
       <g fill="none" stroke={ink}>
         <circle cx="50" cy="50" r="47" strokeWidth="2.6" />
-        <circle cx="50" cy="50" r="35" strokeWidth="1.1" />
+        <circle cx="50" cy="50" r="32" strokeWidth="1.1" />
       </g>
-      <text fill={ink} fontSize="8.4" fontWeight="600" letterSpacing="1.4" style={{ fontFamily: 'var(--font-heading, "Fraunces Variable", Georgia, serif)' }}>
-        <textPath href={`#${id}-rim`} textLength="250" lengthAdjust="spacing">{`${APP_NAME.toUpperCase()} · COMMONPLACE BOOK ·`}</textPath>
+      <text fill={ink} fontSize="7.2" fontWeight="600" letterSpacing="1.2" style={{ fontFamily: 'var(--font-heading, "Fraunces Variable", Georgia, serif)' }}>
+        <textPath href={`#${id}-rim`} textLength="236" lengthAdjust="spacing">{`${APP_NAME.toUpperCase()} · COMMONPLACE BOOK ·`}</textPath>
       </text>
       <text x="50" y="57" textAnchor="middle" fill={ink} fontSize="25" fontWeight="600" letterSpacing="-0.5" style={{ fontFamily: '"Fraunces Variable", Georgia, serif', fontVariationSettings: '"SOFT" 50, "WONK" 1' }}>HT</text>
       <text x="50" y="69" textAnchor="middle" fill={ink} fontSize="6.4" letterSpacing="1.2" style={{ fontFamily: '"Fraunces Variable", Georgia, serif' }}>{roman(new Date().getFullYear())}</text>
