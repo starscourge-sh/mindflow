@@ -161,6 +161,43 @@ export function resolveWaiting(...links: string[]): number {
   return count
 }
 
+/**
+ * The other way round: links inside notes just brought in that wait for a note
+ * already here (one made by hand before the import) point at it. Every note's
+ * name and aliases are read once, so this is for the end of an import, not a keystroke.
+ */
+export function resolveWithin(...links: string[]): number {
+  if (!links.length) return 0
+  const db = database()
+  const byName = new Map<string, string>()
+  const every = [
+    ...(db.prepare("select id from captures where status != 'discarded'").all() as { id: string }[]).map((row) => linkOf('captures', row.id)),
+    ...(db.prepare('select id from nuggets where binned_at is null').all() as { id: string }[]).map((row) => linkOf('nuggets', row.id))
+  ]
+  for (const link of every) for (const name of namesOf(link)) if (!byName.has(name.toLowerCase())) byName.set(name.toLowerCase(), link)
+  let count = 0
+  atomically(() => {
+    for (const link of links) {
+      const { table, id } = partsOf(link)
+      const row = db.prepare(`select body${table === 'captures' ? ', number' : ''} from ${table} where id = ?`).get(id) as { body: string | null; number?: number } | undefined
+      if (!row?.body) continue
+      let body: unknown
+      try {
+        body = JSON.parse(row.body)
+      } catch {
+        body = row.body
+      }
+      const out = resolveLinks(body, byName)
+      if (!out.count) continue
+      db.prepare(`update ${table} set body = ? where id = ?`).run(JSON.stringify(out.body), id)
+      count += out.count
+      if (table === 'captures' && row.number) void writeMarkdown(row.number, typeof out.body === 'string' ? out.body : markdown(out.body))
+    }
+  })
+  if (count) changed()
+  return count
+}
+
 export function registerRenames(): void {
   // A link made to one line of a note: that line is given its lasting name
   // where it lives, saved like any edit, and the name handed back.

@@ -13,7 +13,7 @@ import { join } from 'path'
 const first = mkdtempSync(join(tmpdir(), 'haligtree-waiting-a-'))
 const second = mkdtempSync(join(tmpdir(), 'haligtree-waiting-b-'))
 writeFileSync(join(first, 'Alpha.md'), '# Alpha\n\nSee [[Beta]] and [[B side|the other side]].\n')
-writeFileSync(join(second, 'Beta.md'), '---\naliases: [B side]\n---\n# Beta\n\nHello from the second run.\n')
+writeFileSync(join(second, 'Beta.md'), '---\naliases: [B side]\n---\n# Beta\n\nHello from the second run. Also [[Zeta]].\n')
 process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'haligtree-waiting-data-'))
 process.env.HALIGTREE_QA_VAULT = first
 process.env.HALIGTREE_QA_PICK = second
@@ -53,6 +53,8 @@ try {
   if (!before) throw new Error('the first run never finished')
   check('after the first run, Alpha\'s two links wait (no id)', before.length === 2 && before.every((one) => !one.id), JSON.stringify(before))
 
+  // A note made by hand before the second run, which the second run links to.
+  const zeta = await h.evaluate((body) => window.api.captures.create({ body }), doc([text('Zeta')], [text('Made by hand, before the import.')]))
   await h.evaluate(() => window.api.importFrom('vault', null))
   let beta = null
   for (let i = 0; i < 60 && !beta; i++) {
@@ -63,6 +65,8 @@ try {
   if (!beta) throw new Error('the second run never finished')
   const after = await linksOf('Alpha')
   check('after the second run, [[Beta]] in Alpha points at Beta', after?.find((one) => one.label === 'Beta')?.id === beta, JSON.stringify(after))
+  const betaLinks = await linksOf('Beta')
+  check('a link in the second run to a note made by hand before it points at that note', betaLinks?.find((one) => one.label === 'Zeta')?.id === zeta, JSON.stringify(betaLinks))
   check('and [[B side]], an alias of Beta\'s, does too', after?.find((one) => one.label === 'B side')?.id === beta, JSON.stringify(after))
 
   // By hand: a note waiting for Gamma and Epsilon; Gamma made named, Epsilon named after it is made.
