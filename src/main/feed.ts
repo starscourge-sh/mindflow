@@ -336,9 +336,15 @@ export function registerFeed(): void {
         return out
       }
       const archived = (row: Row): boolean => !!row.archive && row.type === 'capture' && row.kind !== 'quote'
+      // A poll and a quiz card or two are part of the twenty, set among the notes rather than at the top.
+      const asks = [...pickPoll(today), ...pickQuiz()]
+      // A note asked as a quiz or a poll is not also shown as itself: once a day, never a quiz and a quote of one gem.
+      const pooled = rows.length
+      const askedIds = new Set(asks.map((key) => key.slice(key.lastIndexOf(':') + 1)))
+      for (const one of rows.filter((row) => askedIds.has(row.id))) rows.splice(rows.indexOf(one), 1)
       // Gems you restacked before today come first, once: "You restacked".
       const stacked = (db.prepare('select id from feed_restacks where made_day < ? and shown_day is null order by made_day').all(today) as { id: string }[])
-        .map((one) => byKey.get(`nugget:${one.id}`)).filter((one): one is Row => !!one)
+        .map((one) => byKey.get(`nugget:${one.id}`)).filter((one): one is Row => !!one && !askedIds.has(one.id))
       for (const one of stacked) rows.splice(rows.indexOf(one), 1)
       const lanes = [
         order(rows.filter((row) => row.type === 'nugget' && row.kind !== 'quote')),
@@ -352,8 +358,6 @@ export function registerFeed(): void {
       ]
       // Gems and quotes are the most of it: two each a turn, a question, a day, a picture and an archive one.
       const share = [2, 2, 1, 1, 1, 1]
-      // A poll and a quiz card or two are part of the twenty, set among the notes rather than at the top.
-      const asks = [...pickPoll(today), ...pickQuiz()]
       const room = Math.max(0, SIZE - asks.length - stacked.length)
       const picked: Row[] = []
       while (picked.length < room && lanes.some((lane) => lane.length))
@@ -363,7 +367,7 @@ export function registerFeed(): void {
       keys = JSON.stringify(list)
       db.prepare('update feed_restacks set shown_day = ? where shown_day is null and made_day < ?').run(today, today)
       // Kept for the day only from the Feed's goal (feed-view.tsx, FEED_NOTES): below it each look picks afresh, so the day it is met starts full.
-      if (rows.length >= 20) db.prepare('insert or replace into feed_days (day, keys) values (?, ?)').run(today, keys)
+      if (pooled >= 20) db.prepare('insert or replace into feed_days (day, keys) values (?, ?)').run(today, keys)
     }
     const glossOf = db.prepare('select body, created_at as at from glosses where item_id = ? order by created_at desc limit 1')
     const glossSpan = db.prepare('select count(*) as n, min(created_at) as first from glosses where item_id = ?')
@@ -396,7 +400,12 @@ export function registerFeed(): void {
       return [{ ...blank, type: 'quiz', id: rest, kind: 'card', title: card.title, text: '', made: String(card.createdAt ?? ''),
         quiz: { prompt: card.prompt ?? '', answer: cutAt(answer.replace(/(?<=^|\s)#\p{L}[\p{L}\p{N}_/-]*/gmu, '').replace(/[ \t]+$/gm, '').trim(), 600), intervals: card.intervals, graded: (graded.get(today, rest) as { grade: number; due: string } | undefined) ?? null } }]
     }
-    const posts = (JSON.parse(keys) as string[]).flatMap((key): FeedPost[] => {
+    // One note at most once, for a day kept before that rule (above): the first showing of it stays.
+    const shown = new Set<string>()
+    const posts = (JSON.parse(keys) as string[]).filter((key) => {
+      const id = key.slice(key.lastIndexOf(':') + 1)
+      return !shown.has(id) && !!shown.add(id)
+    }).flatMap((key): FeedPost[] => {
       if (key.startsWith('poll:') || key.startsWith('quiz:')) return asked(key)
       const row = byKey.get(key)
       if (!row) return []

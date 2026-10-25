@@ -32,7 +32,7 @@ import { GoalsView, startGoal } from './components/haligtree/goals-view'
 import { QueueReader, QueueView } from './components/haligtree/queue-view'
 import { useQueue } from './lib/reading-queue'
 import { ReviewView } from './components/haligtree/review-view'
-import { SettingsView } from './components/haligtree/settings-view'
+import { SettingsView, exportEverything } from './components/haligtree/settings-view'
 import { StatsView } from './components/haligtree/stats-view'
 import { PracticesView } from './components/haligtree/practices-view'
 import { usePracticeActions } from '@/lib/practices'
@@ -977,6 +977,20 @@ export function Home(): React.JSX.Element {
   // A heading link from a note window lands on its heading once the note is open.
   // A press on anything that opens a note starts reading it (lib/early-read.ts).
   useEffect(readOnPress, [])
+  // The menu bar's File > New page and Export everything…, and View's sidebar (app-menu.ts): each as its button or key here does it.
+  useEffect(() => {
+    const onNewPage = (): void => void haligtree.newArticle().then((id) => (chime('promote'), open('article', id)))
+    const onExport = (): void => void exportEverything()
+    const onSidebar = (): void => (chime(sidebar ? 'fold' : 'slide'), setSidebar(!sidebar))
+    window.addEventListener('haligtree:new-page', onNewPage)
+    window.addEventListener('haligtree:export-all', onExport)
+    window.addEventListener('haligtree:sidebar', onSidebar)
+    return () => {
+      window.removeEventListener('haligtree:new-page', onNewPage)
+      window.removeEventListener('haligtree:export-all', onExport)
+      window.removeEventListener('haligtree:sidebar', onSidebar)
+    }
+  })
   useEffect(() => window.api.onSentTo((type, id, heading) => {
     // The passes lay themselves over whatever is open, rather than being a place.
     if (type === 'view' && (id === 'tidy' || id === 'decide')) openPass(id)

@@ -3273,6 +3273,20 @@ function updateDock(): void {
   )
 }
 
+/** The menu bar, its items the same as the tray's and the Dock's twins (app-menu.ts); built again when the keys change. */
+function appMenu(): void {
+  setAppMenu({
+    name: APP_NAME,
+    captureKey: chordFor('⌘.'),
+    capture: () => void (prompt?.isFocused() || toggleWindow()),
+    newNote,
+    inHome,
+    view: (id) => sendHome('view', id, undefined, 'window'),
+    importVault: () => void importVault(),
+    importFiles: () => void importFiles()
+  })
+}
+
 /** Quick capture on a fresh box: shown, then told ⌘N, the key that starts one over there. */
 function newNote(): void {
   if (!prompt?.isVisible()) toggleWindow()
@@ -3405,8 +3419,8 @@ app.whenReady().then(() => {
   useTwelveHour(twelveHour())
   // The Leaves marks draw on a Noun Project icon used under CC BY 3.0, which asks for this credit.
   app.setAboutPanelOptions({ credits: `${ANCHOR}\n\n` + 'The Leaves mark is after “Abstract Flower” by Kalaakarini, from Noun Project (CC BY 3.0)' })
-  // Edit > Select All asks the page first: a list picks every row (app-menu.ts).
-  setAppMenu()
+  // Haligtree's own menu bar; Edit > Select All asks the page first: a list picks every row (app-menu.ts).
+  appMenu()
   // YouTube will not play an embed that comes from no page at all (its
   // "Error 153"), and Haligtree's pages are files. Say where it is shown from.
   session.defaultSession.webRequest.onBeforeSendHeaders({ urls: ['https://www.youtube-nocookie.com/*', 'https://www.youtube.com/embed/*'] }, (details, done) =>
@@ -4746,6 +4760,7 @@ app.whenReady().then(() => {
     // The menus say the keys as they are now.
     chosenKeys = keys
     updateTray()
+    appMenu()
     globalShortcut.unregisterAll()
     const take = (made: string, run: () => void): void => {
       const now = made in keys ? keys[made] : made

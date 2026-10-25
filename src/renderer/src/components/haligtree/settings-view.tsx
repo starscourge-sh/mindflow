@@ -1879,6 +1879,16 @@ function MarkdownCopy(): React.JSX.Element {
   )
 }
 
+/** Everything into a folder you choose, said where once written: this button's, and the menu bar's File > Export everything… */
+export const exportEverything = (): Promise<void> => haligtree.exportAll().then((done) => {
+  if (!done) return
+  const folder = typeof done === 'string' ? done : done.folder
+  const where = folder.split('/').slice(-2).join('/')
+  if (typeof done !== 'string') return refuse(`Exported to ${where}, but the pictures and files could not be copied`)
+  chime('send')
+  toast(`Exported to ${where}`)
+})
+
 /** Export, an orb saying so in its place for as long as it takes. */
 function ExportButton(): React.JSX.Element {
   const [busy, setBusy] = useState(false)
@@ -1886,14 +1896,7 @@ function ExportButton(): React.JSX.Element {
   return (
     <Button variant="outline" size="sm" onClick={() => {
       setBusy(true)
-      void haligtree.exportAll().then((done) => {
-        if (!done) return
-        const folder = typeof done === 'string' ? done : done.folder
-        const where = folder.split('/').slice(-2).join('/')
-        if (typeof done !== 'string') return refuse(`Exported to ${where}, but the pictures and files could not be copied`)
-        chime('send')
-        toast(`Exported to ${where}`)
-      }).finally(() => setBusy(false))
+      void exportEverything().finally(() => setBusy(false))
     }}>
       <AliveIcon icon={DownloadIcon} size={16} /> Export
     </Button>

@@ -479,7 +479,7 @@ export function Welcome(): React.JSX.Element | null {
   return (
     <MotionConfig reducedMotion={quiet ? 'always' : 'never'}>
     <div ref={dialog} tabIndex={-1} role="dialog" aria-modal aria-label={`Welcome to ${APP_NAME}`} inert={opening} onKeyDown={(event) => event.stopPropagation()}
-      className="mf-welcome fixed inset-0 z-[70] flex outline-none flex-col overflow-hidden bg-background text-foreground [container-type:inline-size]">
+      className="mf-welcome fixed inset-0 z-[70] flex outline-none flex-col overflow-clip bg-background text-foreground [container-type:inline-size]">
       <Backdrop plain={at === LAST} family={at === WRITE ? 'ruled' : at === DIAL ? 'dots' : 'none'} />
       {/* The first screen's autumn leaves, blowing behind the words; Next blows them away, and a
           few small ones drift on through the rest (not over the dial, which has its own light). */}
@@ -507,7 +507,7 @@ export function Welcome(): React.JSX.Element | null {
               {at === WRITE && <WriteChapter play={play} report={report} setup={setup} />}
               {at === BACK && <RememberChapter play={play} report={report} setup={setup} />}
               {at === DIAL && <DialChapter play={play} report={report} onPick={(theme) => (picked.current = theme)} mine={mine} />}
-              {at === LAST && <Start name={name} kept={before.current.size + caught.length} mine={caught.length} skipped={skipped} importing={importing} still={!play} onPick={start} setup={setup} onImport={(what) => (leave('notes'), void window.api.importFrom(what))} />}
+              {at === LAST && <Start state={state} onState={setState} name={name} kept={before.current.size + caught.length} mine={caught.length} skipped={skipped} importing={importing} still={!play} onPick={start} setup={setup} onImport={(what) => (leave('notes'), void window.api.importFrom(what))} />}
             </motion.section>
           </AnimatePresence>
         </main>
@@ -1600,8 +1600,13 @@ const keptSaid = (kept: number, mine: number): string => {
  * arrow at the top of the window points at Haligtree in the menu bar, so the
  * words do not have to.
  */
-function Start({ name, kept, mine, skipped, importing, still, onPick, setup, onImport }: { name: string; kept: number; /** How many of them were written in the welcome itself. */ mine: number; skipped: false | 'first' | 'later'; importing: boolean; still: boolean; onPick: (pick: 1 | 2 | 3) => void; setup: Setup; onImport: (what: 'vault' | 'files' | 'apple-notes') => void }): React.JSX.Element {
+function Start({ state, onState, name, kept, mine, skipped, importing, still, onPick, setup, onImport }: { state: Onboarding | null; onState: (now: Onboarding) => void; name: string; kept: number; /** How many of them were written in the welcome itself. */ mine: number; skipped: false | 'first' | 'later'; importing: boolean; still: boolean; onPick: (pick: 1 | 2 | 3) => void; setup: Setup; onImport: (what: 'vault' | 'files' | 'apple-notes') => void }): React.JSX.Element {
+  useKeyChanges()
   const from = sourceFrom(setup.from)
+  // ⌘. taken by another app, and Catch skipped past or left with it still taken: Catch's own
+  // picker here, kept once shown so its "Done" stays in sight, and the line under it says the key chosen.
+  const [picking, setPicking] = useState(false)
+  useEffect(() => void (state?.boxTaken && setPicking(true)), [state?.boxTaken])
   // The sandbox is the way we point a newcomer: it is marked, tinted and says why. Start still opens their own book.
   const others: { key: 2 | 3; title: string; line: string; icon: typeof Compass; best?: boolean }[] = [
     { key: 2, title: 'Try it in someone else’s book first', line: `The best way to see what ${APP_NAME} does. Their notes stay apart from yours; try anything, and “Back to my notes” takes you home.`, icon: Compass, best: true },
@@ -1613,7 +1618,8 @@ function Start({ name, kept, mine, skipped, importing, still, onPick, setup, onI
       <div className="flex flex-col gap-[clamp(0.5rem,1.8vh,1rem)]">
         <p data-tagline className={`${BODY} font-semibold text-foreground`}>{TAGLINE}</p>
         <h1 className={`${HEADLINE_XL} max-w-[14ch]`}><Rise text={name ? `Your commonplace book is ready, ${name}.` : 'Your commonplace book is ready.'} still={still} /></h1>
-        <p data-start-kept className={`${BODY} max-w-[30ch]`}>{kept ? <>{keptSaid(kept, mine)} <InlineKeys keys={keyFor('⌘.') || '⌘.'} /> adds the next, from any app.</> : <>Press <InlineKeys keys={keyFor('⌘.') || '⌘.'} /> from any app to save your first note.</>}</p>
+        {!state?.boxTaken && <p data-start-kept className={`${BODY} max-w-[30ch]`}>{kept ? <>{keptSaid(kept, mine)} <InlineKeys keys={keyFor('⌘.') || '⌘.'} /> adds the next, from any app.</> : <>Press <InlineKeys keys={keyFor('⌘.') || '⌘.'} /> from any app to save your first note.</>}</p>}
+        {picking && <div data-start-key-picker className={`${BODY} max-w-[48ch]`}><KeyPicker taken={!!state?.boxTaken} onState={onState} /></div>}
         {setup.made?.goalId && setup.made.goalTitle && setup.made.goalBy && (
           <p data-start-goal className={`${WHERE_SAID} max-w-[48ch]`}><span className="font-medium text-foreground">“{setup.made.goalTitle}”</span> is on your Goals page, {dayjs(setup.made.goalBy).diff(dayjs().startOf('day'), 'day')} days to go.</p>
         )}

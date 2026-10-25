@@ -20,14 +20,17 @@ import { APP_NAME } from '../../../../main/name'
  * Someone who used Haligtree before the welcome existed sees, once, in the same
  * place, that there is a welcome and a sandbox to try.
  */
+/** The one way a note goes, said alike on the Inbox, Gems and Writing, in their lines and their empty pages. */
+export const LIFECYCLE = 'Catch it in the Inbox, keep the best as gems, write it out as a page.'
+
 const HINTS: Record<string, string> = {
-  inbox: '**Everything you catch waits here.** In “Go through…”, “Tidy” tags them once a day so you can find them again; once a week, “Decide” what to keep.',
+  inbox: `**Everything you catch waits here.** ${LIFECYCLE} In “Go through…”, “Tidy” tags them once a day; once a week, “Decide” what to keep.`,
   review: '**Cards come back as you start to forget them.** Space turns one over; 1 to 4 says how well you knew it.',
   day: '**A page a day, a week, a month and a year.** Write a line, and what you caught, finished and reviewed gathers underneath; Day, Week, Month and Year switch between them.',
-  today: `**Type a task the way you would say it.** ${APP_NAME} reads the when in ‘call Mum friday 6pm’.`,
+  today: `**Type a task the way you would say it.** ${APP_NAME} reads the when in ‘call Mum friday 6pm’. The same tasks are in your Journal and the Calendar.`,
   questions: '**Your questions, as pages in Writing.** Add clues as they turn up; “Answered” turns them into writing, oldest first.',
   goals: '**A day you are aiming for, and the road of days to it.** Log what you did, and a small card on your screen keeps it in sight.',
-  nuggets: '**Gems are the notes you chose to keep.** They come back as hints, and as Review cards once you give one a question.',
+  nuggets: `**Gems are the notes you chose to keep.** ${LIFECYCLE} They come back as hints, and as Review cards once you give one a question.`,
   queue: '**What you mean to read next, in order.** Add a note from its menu or drag it onto “Queue” in the sidebar; “Start reading” goes through them one after another.',
   tags: '**Every #tag has a page.** Give it a colour, or a date to be ready by.',
   home: '**What is coming back to you today.** Under it, shelves of what you kept.',
@@ -37,7 +40,7 @@ const HINTS: Record<string, string> = {
   upcoming: '**Every task after today, day by day, then the ones with no date.** T, M or W on a row moves it to today, tomorrow or next week.',
   stats: `**How you have been using ${APP_NAME}, in sentences.** The few parts that matter most first; “Your month” and “Your year” hold the rest.`,
   map: '**Every note you linked, as dots joined by lines.** Type @ in a note to link it.',
-  articles: "**Longer pieces in your own words, one idea each.** Start one with “New page”, or in Gems select a few with X, then “Start a page”."
+  articles: `**Pages are longer pieces in your own words, one idea each.** ${LIFECYCLE} Start one with “New page”, or in Gems select a few with X, then “Start a page”.`
 }
 
 /**

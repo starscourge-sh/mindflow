@@ -229,13 +229,16 @@ function Lonely({ count, notes: list, onOpen }: { count: number; notes: NonNulla
   return (
     <Popover onOpenChange={(open) => open && chime('open')}>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="absolute right-4 bottom-3 gap-1.5 bg-background text-control dark:bg-background">
-          <Unlink className="size-3.5" />
-          {num(count)} {count === 1 ? 'note has' : 'notes have'} no links
+        {/* Said as what you could do next, not a pile left undone: the count large, the way in beside it. */}
+        <Button variant="outline" className="absolute right-4 bottom-3 h-10 gap-2 bg-background px-3 text-control dark:bg-background">
+          <Unlink className="size-4" />
+          <span className="text-lg leading-none font-semibold tabular-nums">{num(count)}</span>
+          <span>{count === 1 ? 'note not linked to anything yet' : 'notes not linked to anything yet'}</span>
+          <span className="font-medium text-primary">Go through them</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" side="top" className="w-80 gap-0 p-0 text-control">
-        <p className="border-b px-3 py-2 text-muted-foreground"><strong className="text-foreground">Left off the map.</strong> Open one and type @ to link it.</p>
+        <p className="border-b px-3 py-2 text-foreground">Open one and type @ to link it to another note. Linked, it joins the map.</p>
         <ul className="max-h-72 overflow-y-auto p-1">
           {list.map((one) => {
             const kind = kindOf(one.kind) ?? CAPTURE_TYPES[0]

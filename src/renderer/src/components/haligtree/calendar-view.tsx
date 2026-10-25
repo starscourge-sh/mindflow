@@ -490,6 +490,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
             <CalendarLayers layers={layers} />
             <div className="flex min-h-0 flex-col gap-0.5">
               <h2 className="flex h-7 items-center px-2 text-control font-medium text-foreground/80">Unscheduled {unscheduled.length > 0 && <Count n={unscheduled.length} className="ml-1.5 font-normal" />}</h2>
+              <p className="px-2 pb-1 text-body text-foreground/85">The same tasks as in Tasks and your Journal, here without a day yet.</p>
               {!unscheduled.length && <p className="px-2 text-body text-foreground/85">Every open task has a day.</p>}
               <ul ref={looseBox} {...looseHover.handlers} data-cal-unscheduled className="relative isolate flex flex-col">
                 <Highlight spot={looseHover.spot} session={looseHover.session} snap={looseHover.snap} className="bg-accent/25" />

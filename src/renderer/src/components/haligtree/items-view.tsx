@@ -26,6 +26,7 @@ import { follow, noteLinkText, recallOffered } from '@/lib/capture-links'
 import { splitTags, unloaded, unread, useLastAsked, useLive, haligtree, whenInLine, type Item, type ItemFull } from '@/lib/haligtree'
 import { exampleIdeas, exampleQuestions, exampleWriting } from '@/lib/examples'
 import { Example } from './example'
+import { LIFECYCLE } from './page-hint'
 import { makeTask, makeTasks } from '@/lib/tasks'
 import { useSelectAll } from '@/lib/select-all'
 import { usePicking } from '@/lib/pick-range'
@@ -633,7 +634,7 @@ export function ItemsView({ tier, focus, onOpen, only }: { tier: 'nugget' | 'art
         ) : unloaded(all) ? null : (
           // Nothing on show (none kept yet, or only archived ones): the page as it will look, with a few made-up ones.
           // One empty page either way: a second one, laid out apart, showed for a moment before this one.
-          <Example tryIt={tier === 'nugget' ? 'pick a note in your Inbox list and press P. It lands here, ready to come back to you.' : 'press “New page” above, or pick a few gems with X and choose “Start a page”.'}>
+          <Example tryIt={`${tier === 'nugget' ? 'pick a note in your Inbox list and press P. It lands here, ready to come back to you.' : 'press “New page” above, or pick a few gems with X and choose “Start a page”.'} ${LIFECYCLE}`}>
             <NoteList groups={[['', (tier === 'nugget' ? exampleIdeas() : exampleWriting()).map((one) => itemEntry(one))]]} density={density} table="nuggets" cursor={-1} onPick={() => undefined} className="list-edge my-2" />
           </Example>
         )}

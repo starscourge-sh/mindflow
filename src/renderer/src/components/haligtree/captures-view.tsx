@@ -66,6 +66,7 @@ import { Rest } from './scenery'
 import { InboxBinned, InboxZero, useJustCleared } from './inbox-zero'
 import { PutAwayLine } from './put-away'
 import { Example } from './example'
+import { LIFECYCLE } from './page-hint'
 import { exampleArchived, exampleDiscarded, exampleInbox, exampleLookups } from '@/lib/examples'
 import { flat as flatMenu, type MenuItem, type RowItem } from './row-menu'
 import { PinnedQuestions, clueInto } from './pinned-questions'
@@ -564,7 +565,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
             ] : [...usual, 'separator', { label: chosen.includes(capture.id) ? 'Unselect' : 'Select', keys: 'X', run: () => picking.toggle(capture.id) }, !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll }]}
             onMove={(id, target, after) => move(kept.map((one) => one.id), id, target, after)} after={glossAfter} className={spread ? 'list-edge my-3' : 'list-edge my-2'} />
         ) : unloaded(all) ? null : examples.length ? (
-          <Example tryIt={archived ? 'right-click any note and choose “Archive”. It is kept here, out of sight, never in the Bin.' : lookups ? 'press ⌘. and pick Word, or look a word up as you type it. It waits here, asked, until you write what it means.' : 'press ⌘. in any app, write a thought, and send it with ⌘↵. It waits here until you come back to it.'}>
+          <Example tryIt={archived ? 'right-click any note and choose “Archive”. It is kept here, out of sight, never in the Bin.' : lookups ? 'press ⌘. and pick Word, or look a word up as you type it. It waits here, asked, until you write what it means.' : `press ⌘. in any app, write a thought, and send it with ⌘↵. It waits here until you come back to it. ${LIFECYCLE}`}>
             <CaptureList groups={[['', examples]]} density={density} cursor={-1} onPick={() => undefined} className="list-edge my-2" />
           </Example>
         ) : everything && (unloaded(tasks) || !shown.length) && !(spread && query.trim()) ? (unloaded(tasks) ? null : (() => {

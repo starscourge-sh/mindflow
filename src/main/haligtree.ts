@@ -2131,16 +2131,27 @@ export function registerHaligtree(): void {
   // An article from nuggets: their bodies in order, the first one's title, and
   // the derivation edge kept so the article knows what it was made from.
   handle('article', (ids: string[]) => {
-    const parts = ids.map((id) => db.prepare('select title, body from nuggets where id = ?').get(id) as { title: string; body: string })
-    // Each body, then your glosses on it: the words already in your own voice
-    // are where an article starts.
+    const parts = ids.map((id) => db.prepare('select title, body, attribution from nuggets where id = ?').get(id) as { title: string; body: string; attribution: string | null })
+    // Your glosses on each: the words already in your own voice are where a page starts.
     const glossed = (id: string): string[] =>
       (db.prepare("select body from glosses where item_id = ? and author = 'user' order by created_at").all(id) as { body: string }[]).map((row) => row.body)
-    const text = parts.map((part, at) => [plain(JSON.parse(part.body)), ...glossed(ids[at])].join('\n\n')).join('\n\n')
+    // One gem is the page's start as it was. Several are a scaffold, written as
+    // Markdown the editor reads: the question that joins them, then each as a
+    // quote with who said it under it, then your glosses on it.
+    const quoted = (part: (typeof parts)[number], at: number): string =>
+      [[plain(JSON.parse(part.body)), ...(part.attribution ? [`*${part.attribution}*`] : [])].join('\n\n').split('\n').map((line) => `> ${line}`.trimEnd()).join('\n'), ...glossed(ids[at])].join('\n\n')
+    const text = parts.length > 1
+      ? ['What ties these together? Say it in your own words here.', ...parts.map(quoted)].join('\n\n')
+      : parts.map((part, at) => [plain(JSON.parse(part.body)), ...glossed(ids[at])].join('\n\n')).join('\n\n')
+    // Never the first gem's title over several, which made the page read as a copy of it:
+    // the tag they all share, or "On" the first.
+    const tagsOf = (part: (typeof parts)[number]): string[] => (db.prepare('select value from json_each(note_tags(?, ?))').all(part.title, part.body) as { value: string }[]).map((row) => row.value)
+    const shared = parts.length > 1 ? parts.slice(1).reduce((common, part) => common.filter((tag) => tagsOf(part).includes(tag)), tagsOf(parts[0]))[0] : undefined
+    const title = parts.length > 1 ? (shared ? `On ${shared.replace(/[-_]/g, ' ')}` : `On ${parts[0].title}`) : (parts[0]?.title ?? 'Untitled')
     const id = randomUUID()
     db.prepare(
       `insert into nuggets (id, tier, kind, title, body, origins, created_at, updated_at) values (?, 'article', 'note', ?, ?, ?, ?, ?)`
-    ).run(id, parts[0]?.title ?? 'Untitled', JSON.stringify(text), JSON.stringify(ids), now(), now())
+    ).run(id, title, JSON.stringify(text), JSON.stringify(ids), now(), now())
     return write(id)
   })
   // A nugget from selected words: the excerpt, with the note it came from and
