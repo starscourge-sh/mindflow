@@ -59,7 +59,8 @@ try {
 
   // The Tags list.
   await go('tags'); await wait(800)
-  const listed = await h.evaluate(() => [...document.querySelectorAll('[data-row]')].find((one) => one.textContent.trim().startsWith('countz'))?.querySelector('.tabular-nums')?.textContent.trim())
+  // The number the count stands for (data-count), not its words: the rolling digits keep a copy of each for the roll.
+  const listed = await h.evaluate(() => [...document.querySelectorAll('[data-row]')].find((one) => one.textContent.trim().startsWith('countz'))?.querySelector('[data-count]')?.dataset.count)
   check('the Tags list says the same', listed === String(SHOWN), listed)
 
   // The page.
