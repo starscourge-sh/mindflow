@@ -502,7 +502,7 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
   )
   // A group's block, and inside it each subgroup's, drawn the same way one level in.
   const block = (group: GroupView, entries: Entry[], parts: Part[] | undefined, start: number, inner = false): React.JSX.Element => (
-    <GroupBlock key={group.id} group={group} entries={entries} parts={parts} start={start} row={row} inner={inner} carried={carried === KEY + group.id} renaming={renaming === group.id}
+    <GroupBlock key={group.id} group={group} entries={entries} parts={parts} start={start} cursor={cursor} estimate={estimate} row={row} inner={inner} carried={carried === KEY + group.id} renaming={renaming === group.id}
       born={born === group.id} onRenaming={(on) => onRenaming(on ? group.id : null)} onFold={(open) => onFold(group, open)} onNewNote={onNewNote} onPage={onPage} onSort={onSort} onSorted={onSorted}
       sub={(child, at) => block(child.group, child.entries, undefined, at, true)} />
   )
@@ -581,15 +581,22 @@ function Shaped({ aim, keys, hand, many, span, inset, row: mid, snap, blocks, ch
     const h = span + (aim!.fit ?? 0)
     // Each row's place read off the page as it lies now, its slide left out: dnd-kit's own measures can be from
     // before a folded group sprang open, and the carried row's room then opened a whole group's rows too low.
+    // Each row read once a draw, and only rows drawn: one search of the page for each of 2,500 keys, several times over, was slow.
+    const drawn = new Map<string, HTMLElement>()
+    for (const node of document.querySelectorAll<HTMLElement>('[data-sortable-id]')) drawn.set(node.dataset.sortableId!, node)
+    const read = new Map<string, { top: number; height: number } | undefined>()
     const box = (key: string | undefined): { top: number; height: number } | undefined => {
       if (key === undefined) return undefined
-      const node = document.querySelector<HTMLElement>(`[data-sortable-id="${CSS.escape(key)}"]`)
-      if (!node) return droppableRects.get(key)
-      const r = node.getBoundingClientRect()
-      return { top: r.top - new DOMMatrixReadOnly(getComputedStyle(node).transform).m42, height: r.height }
+      if (read.has(key)) return read.get(key)
+      const node = drawn.get(key)
+      const r = node?.getBoundingClientRect()
+      const one = node && r ? { top: r.top - new DOMMatrixReadOnly(getComputedStyle(node).transform).m42, height: r.height } : droppableRects.get(key)
+      read.set(key, one)
+      return one
     }
     const slide = slideOf(from, gap, span, (at) => box(keys[at]), aim!.snug ?? true, inset + (aim!.fit ?? 0) / 2, aim!.until, aim!.fit ?? 0)
-    const shift = (key: string): number => slide.other(keys.indexOf(key))
+    const order = new Map(keys.map((key, index) => [key, index]))
+    const shift = (key: string): number => slide.other(order.get(key) ?? -1)
     for (const key of keys) if (key !== hand && shift(key)) ys.set(key, shift(key))
     if (slide.carried) ys.set(hand!, slide.carried)
     const roomTop = box(hand!) ? box(hand!)!.top - inset + slide.carried - (aim!.fit ?? 0) / 2 : undefined
@@ -789,7 +796,7 @@ const change = (group: GroupView, patch: Parameters<typeof groups.set>[1]): void
   void groups.set(group.id, patch).then(() => quietly(() => void groups.set(group.id, was)))
 }
 
-function GroupBlock({ group, entries, parts, start, row, carried, renaming, born, onRenaming, onFold, onNewNote, onPage, onSort, onSorted, sub, inner = false }: {
+function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carried, renaming, born, onRenaming, onFold, onNewNote, onPage, onSort, onSorted, sub, inner = false }: {
   onPage?: (id: string) => void
   group: GroupView
   entries: Entry[]
@@ -800,6 +807,9 @@ function GroupBlock({ group, entries, parts, start, row, carried, renaming, born
   /** A subgroup, drawn inside its group. */
   inner?: boolean
   start: number
+  /** The keyboard's row, counted over the whole list, and a row's height before it is measured. */
+  cursor: number
+  estimate: number
   row: (entry: Entry, at: number, inner?: CSSProperties, indent?: number) => React.JSX.Element
   carried: boolean
   renaming: boolean
@@ -823,6 +833,14 @@ function GroupBlock({ group, entries, parts, start, row, carried, renaming, born
     return () => cancelAnimationFrame(frame)
   }, [arrived])
   const count = entries.length
+  // Each part in turn, a note's row or a subgroup's block, with the rows on show counted as they go; and the one the keyboard is in.
+  let next = start
+  const placed = (parts ?? entries.map((entry) => ({ entry }))).map((part) => {
+    const at = next
+    next += 'entry' in part ? 1 : part.group.open ? part.entries.length : 0
+    return { part, at }
+  })
+  const inside = placed.findIndex(({ part, at }) => cursor >= at && cursor < at + ('entry' in part ? 1 : part.group.open ? part.entries.length : 0))
   const tint = tintOf(group.color)
   const key = KEY + group.id
   const { aim, shapes, hand, snap } = useContext(Carrying)
@@ -1008,27 +1026,31 @@ function GroupBlock({ group, entries, parts, start, row, carried, renaming, born
         </div>
       </div>
       <Fold open={group.open && !carried} instant={carried || wasCarried}>
-        <div className="flex flex-col gap-px pb-1">
-          {(() => {
-            // Each part in turn: a note's row, or a subgroup's block; the rows on show counted as they go.
-            let at = start
-            return (parts ?? entries.map((entry) => ({ entry }))).map((part, index) => {
-              if ('entry' in part) {
-                const here = at++
-                // Separating, they fade one after another.
-                return row(part.entry, here, { transitionDelay: parting ? `${index * 40}ms` : undefined, opacity: parting ? 0.6 : undefined }, INDENT)
-              }
-              const here = at
-              if (part.group.open) at += part.entries.length
-              return <div key={part.group.id} className="py-0.5">{sub(part, here)}</div>
-            })
-          })()}
-        </div>
+        {(() => {
+          const one = ({ part, at }: (typeof placed)[number], index: number): React.JSX.Element =>
+            'entry' in part
+              // Separating, they fade one after another.
+              ? row(part.entry, at, { transitionDelay: parting ? `${index * 40}ms` : undefined, opacity: parting ? 0.6 : undefined }, INDENT)
+              : <div key={part.group.id} className="py-0.5">{sub(part, at)}</div>
+          // A big group draws only the rows near the screen, as a plain list does: one of 2,500 drew every one, and ⌘A or a
+          // fold froze the window. A small one draws them all, the way its carried rows and panel are measured.
+          return placed.length > BIG ? (
+            <div className="pb-[3px]">
+              <VirtualList items={placed} keyOf={({ part }) => ('entry' in part ? part.entry.id : part.group.id)} cursor={inside >= 0 ? inside : undefined} estimate={estimate} rowClass="pb-px">
+                {one}
+              </VirtualList>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-px pb-1">{placed.map(one)}</div>
+          )
+        })()}
       </Fold>
     </div>
   )
 }
 
+/** Past this many rows, a group draws only those near the screen. */
+const BIG = 150
 const REST: Shape = { top: 0, bottom: 0 }
 /** The rows' slide (dnd-kit's transition on each row), for a panel to keep pace with them. */
 const SLIDE = { duration: 0.22, ease: [0.2, 0.9, 0.3, 1] as [number, number, number, number] }

@@ -1840,9 +1840,11 @@ export function FocusNote(): React.JSX.Element {
  * sit under cards or headings; the keyboard's row is scrolled to even before it
  * is drawn, so gg and G land.
  */
-export function VirtualList<T>({ items, keyOf, cursor, estimate = 48, className = '', children }: {
+export function VirtualList<T>({ items, keyOf, cursor, estimate = 48, className = '', rowClass = 'pb-0.5', children }: {
   items: T[]
   keyOf: (item: T) => string
+  /** Each row's own box: a sliver of room under it by default. */
+  rowClass?: string
   /** The row the keyboard is on, scrolled into view when it moves. */
   cursor?: number
   estimate?: number
@@ -1902,6 +1904,8 @@ export function VirtualList<T>({ items, keyOf, cursor, estimate = 48, className 
     const frame = requestAnimationFrame(() => {
       const row = rows.measurementsCache[cursor]
       if (!row || !scroller.isConnected || !box.current) return
+      // A row that is a list of its own (a group's): that list places the keyboard's row inside it.
+      if (box.current.querySelector(`:scope > div > [data-index="${cursor}"] [data-vlist]`)) return
       // Where the list starts, read now: a list under others that just grew (an island opened above it) has moved
       // since it was last read, and the row would be placed by the old start. Read again, then placed.
       const start = Math.round(box.current.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop)
@@ -1912,7 +1916,7 @@ export function VirtualList<T>({ items, keyOf, cursor, estimate = 48, className 
     return () => cancelAnimationFrame(frame)
   }, [cursor, scroller, again]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <div ref={box} className={`relative ${className}`} style={{ height: rows.getTotalSize() }}>
+    <div ref={box} data-vlist="" className={`relative ${className}`} style={{ height: rows.getTotalSize() }}>
       {/* The rows on show stand one under the other, in the page's own flow from where the first one starts: a row that
           changes height (a group folding, or taking in a dropped row) moves the ones under it in the same frame, never
           drawn over them while the measure catches up. */}
@@ -1920,7 +1924,7 @@ export function VirtualList<T>({ items, keyOf, cursor, estimate = 48, className 
         {rows.getVirtualItems().map(({ index, key }) => (
           // A sliver of room under each row, so two lit rows (the open one and the
           // cursor) never touch. Padding, not margin: the measure counts padding.
-          <div key={key} data-index={index} ref={rows.measureElement} className="w-full pb-0.5">
+          <div key={key} data-index={index} ref={rows.measureElement} className={`w-full ${rowClass}`}>
             {children(items[index], index)}
           </div>
         ))}

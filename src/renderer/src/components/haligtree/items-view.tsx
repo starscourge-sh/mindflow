@@ -70,7 +70,7 @@ import { moment } from '@/lib/clock'
 import { Signed } from './signature'
 import { groups as noteGroupsApi, tintOf, useGroups, type NoteGroup } from '@/lib/groups'
 import { useReveal } from './islands'
-import { dropMany, flatten, gather, groupId, groupOf, isGroup, KEY, layoutOf, moveTo, reorderAs, sameLayout, shownKeys, step as stepLayout, tidy, type Layout } from '@/lib/group-layout'
+import { dropMany, flatten, gather, groupId, groupOf, isGroup, KEY, layoutOf, moveMany, reorderAs, sameLayout, shownKeys, step as stepLayout, tidy, type Layout } from '@/lib/group-layout'
 import type { Cue } from '@/lib/sound'
 import { GroupIcon, type Bundle, type Folds, type GroupView } from './kept-groups'
 import { asideItem, useHere } from '@/lib/split'
@@ -1468,7 +1468,9 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     const these = inOrder(ids)
     const n = these.length
     const theirs = new Set(these.map((one) => groupOf(layout, one)).filter(Boolean))
-    const into = (group: string): Layout => these.reduce((next, one) => moveTo(next, one, { group, after: next.groups[group]?.[next.groups[group].length - 1] ?? null }), layout)
+    // All in one pass, at the group's end: one at a time went over the whole list for each, and 2,500 took seconds.
+    const picked = new Set(these)
+    const into = (group: string): Layout => moveMany(layout, these, { group, after: (layout.groups[group] ?? []).filter((one) => !picked.has(one)).at(-1) ?? null })
     const others = list.filter((one) => layout.groups[one.id] && !(theirs.size === 1 && theirs.has(one.id)))
     return [
       n > 1 && { label: `New group with ${num(n)} notes`, keys: '⌃⌘N', run: () => gatherNew(these) },
@@ -1487,10 +1489,8 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
       },
       theirs.size > 0 && {
         label: 'Remove from group',
-        run: () => commit(these.reduce((next, one) => {
-          const own = groupOf(next, one)
-          return own ? moveTo(next, one, { group: groupOf(next, KEY + own) ?? null, after: KEY + own }) : next
-        }, layout), 'separate', `Removed ${notes(n)} from ${theirs.size === 1 ? info.get([...theirs][0]!)?.name ?? 'the group' : 'their groups'}`)
+        // Each group's own come out together, in their order, just after it.
+        run: () => commit([...theirs].reduce<Layout>((next, own) => moveMany(next, these.filter((one) => groupOf(layout, one) === own), { group: groupOf(next, KEY + own!) ?? null, after: KEY + own }), layout), 'separate', `Removed ${notes(n)} from ${theirs.size === 1 ? info.get([...theirs][0]!)?.name ?? 'the group' : 'their groups'}`)
       },
       'separator',
       {

@@ -80,8 +80,17 @@ export function layoutOf(ids: string[], groups: { id: string; members: string[];
   return { top, groups: lists }
 }
 
-export const groupOf = (layout: Layout, id: string): string | undefined =>
-  Object.keys(layout.groups).find((group) => layout.groups[group].includes(id))
+export const groupOf = (layout: Layout, id: string): string | undefined => {
+  // Worked out once per layout (layouts are never changed in place): asked for each of 2,500 rows, a scan each time took seconds.
+  let homes = HOMES.get(layout)
+  if (!homes) {
+    homes = new Map()
+    for (const [group, ids] of Object.entries(layout.groups)) for (const one of ids) if (!homes.has(one)) homes.set(one, group)
+    HOMES.set(layout, homes)
+  }
+  return homes.get(id)
+}
+const HOMES = new WeakMap<Layout, Map<string, string>>()
 /** The group a group sits in, for a subgroup; undefined for one at the top level. */
 export const parentOf = (layout: Layout, group: string): string | undefined => groupOf(layout, KEY + group)
 /** Whether a group holds subgroups of its own. */
@@ -98,15 +107,19 @@ const topKey = (layout: Layout, key: string): string => {
 }
 
 /** Take `key` from wherever it is and put it at `place`. A group left empty goes, from wherever it sat. */
-export function moveTo(layout: Layout, key: string, place: Place): Layout {
-  let top = layout.top.filter((one) => one !== key)
+export const moveTo = (layout: Layout, key: string, place: Place): Layout => moveMany(layout, [key], place)
+
+/** Take every one of `keys` from wherever it is and put them, in that order, at `place`: one pass, however many. */
+export function moveMany(layout: Layout, keys: string[], place: Place): Layout {
+  const out = new Set(keys)
+  let top = layout.top.filter((one) => !out.has(one))
   const groups: Record<string, string[]> = {}
-  for (const [group, ids] of Object.entries(layout.groups)) groups[group] = ids.filter((one) => one !== key)
+  for (const [group, ids] of Object.entries(layout.groups)) groups[group] = ids.filter((one) => !out.has(one))
   if (place.group) {
     const list = groups[place.group] ?? []
-    list.splice(place.after ? list.indexOf(place.after) + 1 : 0, 0, key)
+    list.splice(place.after ? list.indexOf(place.after) + 1 : 0, 0, ...keys)
     groups[place.group] = list
-  } else top.splice(place.after ? top.indexOf(place.after) + 1 : 0, 0, key)
+  } else top.splice(place.after ? top.indexOf(place.after) + 1 : 0, 0, ...keys)
   for (let pass = 0; pass < 3; pass++)
     for (const [group, ids] of Object.entries(groups))
       if (!ids.length) {
