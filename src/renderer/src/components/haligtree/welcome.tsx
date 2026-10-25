@@ -3,7 +3,7 @@ import { WelcomeMist } from './welcome-mist'
 import { Condense, DRAG_MS, REACH_MS, WelcomePointer, type Move } from './welcome-pointer'
 import { TAGLINE } from '../../../../main/tagline'
 import { fittedTitle, quoted } from '../../../../main/clip'
-import { Fragment, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { ArrowUp, Compass, CornerDownLeft, FolderInput } from 'lucide-react'
 import { shift, spring, still } from '@/lib/motion'
@@ -827,16 +827,19 @@ function ForYou({ setup, at }: { setup?: Setup; at: Where }): React.JSX.Element 
 
 /** The words that carry a line's point: the accent with a light passing over it now and then (main.css, .mf-sheen). */
 /** A pen's stroke under the words that carry the point, drawn left to right the moment they are said, a little uneven, as a reader underlines a book. */
-function Ink(): React.JSX.Element {
-  // Laid in the line as nothing wide (its width given back in margin) rather than placed on top, so the words read on as one line to anything reading them out.
-  const box = useRef<SVGSVGElement>(null)
-  const [wide, setWide] = useState(0)
-  useLayoutEffect(() => setWide((box.current?.previousElementSibling as HTMLElement | null)?.offsetWidth ?? 0), [])
+/**
+ * The pen stroke under the answer's key words, drawn left to right as they
+ * finish: one stroke across however many lines they wrap onto (a background
+ * sliced across the line boxes, so it follows the words and never runs into
+ * the margin), in the page's ink colour.
+ */
+function Inked({ children, on }: { children: ReactNode; on: boolean }): React.JSX.Element {
   return (
-    <svg ref={box} aria-hidden data-ink="" viewBox="0 0 300 12" preserveAspectRatio="none" style={{ width: wide, marginLeft: -wide }} className="pointer-events-none inline-block h-[0.3em] overflow-visible align-[-0.28em] text-primary">
-      <motion.path d="M3 8.5 C 48 4.5, 96 9.5, 150 6.5 S 246 4, 297 6" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" vectorEffect="non-scaling-stroke"
-        initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.75, ease: MOVE, delay: 0.1 }} />
-    </svg>
+    <motion.span data-ink="" className="bg-no-repeat [box-decoration-break:slice]"
+      style={{ backgroundImage: 'linear-gradient(var(--primary), var(--primary))', backgroundPosition: '0 calc(100% - 0.04em)', paddingBottom: '0.04em' }}
+      initial={{ backgroundSize: '0% 0.09em' }} animate={{ backgroundSize: on ? '100% 0.09em' : '0% 0.09em' }} transition={{ duration: on ? 0.9 : 0, ease: MOVE, delay: on ? 0.1 : 0 }}>
+      {children}
+    </motion.span>
   )
 }
 
@@ -1182,7 +1185,7 @@ function TypedAnswer({ said, upTo }: { said: string; upTo: number }): React.JSX.
         // The words that carry the point shine (main.css, .mf-sheen); the rest of a part waits unseen beside it, never inside it.
         return (
           <span key={i}>
-            {shown && (part.key ? <span className="relative"><Shine>{shown}</Shine>{!rest && <Ink />}</span> : shown)}
+            {shown && (part.key ? <Inked on={!rest}><Shine>{shown}</Shine></Inked> : shown)}
             {rest && <span className={`opacity-0 ${part.key ? 'font-semibold' : ''}`}>{rest}</span>}
           </span>
         )

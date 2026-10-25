@@ -113,6 +113,14 @@ try {
   check('no pointer once settled', (await h.locator('[data-pointer]').count()) === 0)
 
   check('the answer\'s key words are underlined in ink', (await h.locator('[data-thesis="answer"] [data-ink]').count()) === 1)
+  // Wrapped onto two lines, the stroke follows the words: it starts where they start and never runs into the margin.
+  const ink = await h.evaluate(() => {
+    const el = document.querySelector('[data-thesis="answer"] [data-ink]')
+    const words = el.getBoundingClientRect()
+    const line = document.querySelector('[data-thesis="answer"]').getBoundingClientRect()
+    return { lines: el.getClientRects().length, inside: words.left >= line.left - 1 }
+  })
+  check('the stroke stays under its words, across lines too', ink.inside, JSON.stringify(ink))
   check('the ruled margin runs down the page', await h.evaluate(() => { const m = document.querySelector('[data-margin]'); return !!m && m.getBoundingClientRect().height > 600 }))
 
   // A page turned: it lifts away as one page of a book, heard as a page; the margin stays; the bed shifts. Skipped to the end: it comes home.
