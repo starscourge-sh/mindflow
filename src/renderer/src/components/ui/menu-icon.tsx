@@ -5,7 +5,7 @@ import {
   CircleX, Clipboard, Clock, Columns2, Copy, CopyPlus, Dice5, DoorOpen, Dot, Download, Eraser, ExternalLink, Eye, EyeOff, FilePlus, FileText, Files, Flag,
   FolderInput, FolderMinus, FolderPlus, Footprints, Gift, GraduationCap, Hash, History, Hourglass, House, Image, Inbox, Keyboard, LayoutGrid,
   Library, Lightbulb, Link, List, ListChecks, ListStart, Lock, LockOpen, LogOut, Map as MapIcon, Maximize2, MessageCircleQuestion, MessageSquare, Minimize2, Monitor,
-  MonitorUp, MoveRight, Palette, Scissors, Pause, Play, Scale, PanelLeft, PanelRight, Pencil, Pin, PinOff, Plus, Quote, Repeat, RotateCcw, Search, Settings, Shapes, Shield,
+  MonitorUp, MoveRight, NotebookText, Palette, Scissors, Pause, Play, Scale, PanelLeft, PanelRight, Pencil, Pin, PinOff, Plus, Quote, Repeat, RotateCcw, Search, Settings, Shapes, Shield,
   ShieldCheck, Smile, Sparkles, SquareCheck, SquareKanban, SquarePen, Star, StickyNote, Sun, Tag, Target, Timer, Trash2, Type, Undo2, Ungroup, Upload,
   User, Volume2, VolumeX, WandSparkles, Wrench, X, Zap, type LucideIcon
 } from 'lucide-react'
@@ -17,6 +17,9 @@ import {
  * first rule that fits wins, so the narrow ones come before the broad.
  */
 const RULES: [RegExp, LucideIcon][] = [
+  // Where notes come in from: each source by what it is, before any word in its name is read as an action.
+  [/apple notes/i, NotebookText],
+  [/obsidian|notion|\bvault\b/i, FolderInput],
   // Taking a date off is not deleting anything: a calendar crossed out, never the Bin's can.
   [/^clear the (date|due|deadline)/i, CalendarX],
   [/^reschedule/i, CalendarClock],
