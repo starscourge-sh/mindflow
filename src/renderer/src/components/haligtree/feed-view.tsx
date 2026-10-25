@@ -323,7 +323,7 @@ function FeedNotes({ onOpen, tabs }: { onOpen: (type: string, id: string) => voi
           <p data-feed-safe className="py-10 text-body text-foreground"><strong className="font-semibold">Safe mode is on</strong>, so the Feed rests until you turn it off.</p>
         ) : preview ? (
           <GoalPreview goal="Your Feed starts once you have 20 notes, with a few quotes or pictures among them" heading="What your Feed will look like"
-            counts="Gems, quotes, questions, notes with a picture and Journal days a week old all count. Private notes and #bits never do."
+            counts="To get there, pick out a line as a gem or a question, keep a quote, or add a picture to a note. Journal days count once they are a week old. Private notes and #bits never do."
             parts={[{ have: goal?.notes ?? 0, need: FEED_NOTES, what: 'notes' }, { have: goal?.quotes ?? 0, need: FEED_QUOTES, what: 'quotes or pictures' }]}>
             <ol className="flex flex-col">{SAMPLE_POSTS.map((post) => <Post key={post.id} post={post} preview onOpen={() => {}} onOpenOther={() => {}} />)}</ol>
           </GoalPreview>
