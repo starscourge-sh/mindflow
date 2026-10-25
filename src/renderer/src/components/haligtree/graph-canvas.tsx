@@ -380,6 +380,9 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
     let focus: Dot | null = null
     let shown: Dot | null = null
     let amount = 0
+    // The links reach out from the dot pointed at, and each neighbour lights as its link arrives (not under reduced motion).
+    let reachFor: Dot | null = null
+    let reachAt = 0
     let fading = 0
 
     // --- fading in: each new dot from a moment set by how far out it sits,
@@ -451,6 +454,8 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
       context.scale(view.k, view.k)
       const around = shown ? near.get(shown.id)! : null
       const on = (dot: Dot): boolean => !around || dot === shown || around.has(dot.id)
+      if (shown !== reachFor) ((reachFor = shown), (reachAt = now))
+      const reach = !shown || still() ? 1 : ease(Math.min(1, (now - reachAt) / 420))
       const alpha = (dot: Dot): number => (growing ? seen(dot, now) : 1) * (shown ? 1 : far(dot))
       // The rest fades as far as the lit neighbours stand out.
       const faded = 1 - 0.85 * amount
@@ -494,17 +499,27 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
         for (const line of lines) {
           if (line.source !== shown && line.target !== shown) continue
           context.lineWidth = (thickness(line) + 0.5) / view.k
+          // Drawn as far as it has reached, from the dot pointed at outward: a dash along the curve, a little longer than its chord.
+          const length = Math.hypot(line.target.x! - line.source.x!, line.target.y! - line.source.y!) * 1.25 + 1
+          if (reach < 1) {
+            context.setLineDash([length * reach, length * 2])
+            context.lineDashOffset = line.source === shown ? -length * (1 - reach) : 0
+          }
           context.beginPath()
           curve(context, line)
           context.stroke()
         }
+        context.setLineDash([])
+        context.lineDashOffset = 0
       }
       // Each dot stamped from its chip, made at about this zoom.
       const scale = 2 ** (Math.round(Math.log2(view.k * dpr) * 4) / 4)
       // Faded dots first, so the lit ones sit over them; the note itself last of all.
       const order = shown ? [...dots.filter((one) => !on(one)), ...dots.filter(on)] : dots
       for (const dot of middle ? [...order.filter((one) => one !== middle), middle] : order) {
-        context.globalAlpha = (on(dot) ? 1 : faded) * alpha(dot)
+        // A neighbour lights as its link arrives; the dot pointed at at once.
+        const lit = !shown || dot === shown ? 1 : faded + (1 - faded) * Math.max(0, Math.min(1, (reach - 0.55) / 0.45))
+        context.globalAlpha = (on(dot) ? lit : faded) * alpha(dot)
         if (!context.globalAlpha) continue
         const { image, half } = chipOf(dot, scale, dot === shown)
         context.drawImage(image, dot.px - half, dot.py - half, half * 2, half * 2)
@@ -642,6 +657,8 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
       const screen = (at: number, middle: number, offset: number): number => middle + offset + at * view.k
       blocked.current = taken.map(({ box }) => [screen(box[0], width / 2, view.x), screen(box[1], height / 2, view.y), screen(box[2], width / 2, view.x), screen(box[3], height / 2, view.y)])
       context.globalAlpha = 1
+      // Still reaching: the next frame carries it on, and stops once it has arrived.
+      if (reach < 1) redraw()
       // Which note is lit, for whoever reads the canvas (a probe, a screen reader's label).
       const litNow = shown && amount > 0.5 ? titleOf(shown) : ''
       if (el.dataset.lit !== litNow) el.dataset.lit = litNow
