@@ -486,7 +486,13 @@ export function registerCaptures(): void {
     const terms = [...words.filter((word) => !word.startsWith('kind:')), ...(retired?.tag ? [`#${retired.tag}`] : []), ...filters.map((one) => one.value).filter(Boolean)].map((word) => `%${like(word)}%`)
     const match = (text: string): string => terms.map(() => `${text} like ? escape '\\'`).join(' and ') || '1'
     const args = (n: number): string[] => [...Array(n)].flatMap(() => terms)
-    const found = db.prepare(
+    // A note saved as a gem shows once, as the gem, when the gem is found too.
+    const fromNote = db.prepare('select capture_id from nuggets where id = ? and capture_id is not null')
+    const once = <T extends { type: string; id: string }>(rows: T[]): T[] => {
+      const gems = new Set(rows.filter((one) => one.type === 'nugget').map((one) => (fromNote.get(one.id) as { capture_id: string } | undefined)?.capture_id))
+      return rows.filter((one) => one.type !== 'capture' || !gems.has(one.id))
+    }
+    const found = once(db.prepare(
       `select * from (
          select 'capture' as type, id, number, kind, status, source, attribution, ${LABEL} as label, captured_at as capturedAt
            from captures where status != 'discarded' and ${match(`(${LABEL} || ' ' || words(id, body) || ' ' || coalesce(medium, '') || ' ' || coalesce(attribution, '') || ' ' || coalesce(fields, '') || ' ' || coalesce(aliases, ''))`)}
@@ -497,7 +503,7 @@ export function registerCaptures(): void {
          union all
          select 'event', id, null, 'event', 'open', '', null, title, created_at from events where binned_at is null and series_id is null and ${match("(title || ' ' || coalesce(place, '') || ' ' || coalesce(people, '') || ' ' || coalesce(notes, ''))")}
        ) ${kind ? 'where kind = ?' : ''} order by capturedAt desc limit 60`
-    ).all(...args(4), ...(kind ? [kind] : [])) as { type: string; id: string }[]
+    ).all(...args(4), ...(kind ? [kind] : [])) as { type: string; id: string }[])
     if (filters.length) return found.filter((one) => one.type !== 'task' && one.type !== 'event' && passes(fieldsOf(db, one.type, one.id), filters))
     // Few or none as typed: spelling forgiven (near.ts), the closest words standing in for a slip of the keys.
     // Read over the newest 3000 only, so a slip in a big book never stalls the typing; the Bin is left out as above.
@@ -517,7 +523,7 @@ export function registerCaptures(): void {
        ) ${kind ? 'where kind = ?' : ''} order by capturedAt desc limit 3000`
     ).all(...(kind ? [kind] : [])) as { type: string; id: string; text: string }[]
     const forgiven = all.filter((one) => !seen.has(`${one.type}:${one.id}`) && forgives(plain, one.text ?? '')).slice(0, 60 - found.length).map(({ text: _, ...one }) => one)
-    return [...found, ...forgiven]
+    return once([...found, ...forgiven])
   })
 
   // What search previews: the start of one note, the first 30 blocks, which

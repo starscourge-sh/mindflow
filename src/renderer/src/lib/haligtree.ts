@@ -97,7 +97,7 @@ export type Due = Item & { body: unknown; intervals: Record<number, string>; glo
 /** How ready a tag with an exam date is. */
 export type Exam = { tag: string; at: string; days: number; total: number; solid: number; learning: number; struggling: number; unseen: number; behind: number; perDay: number }
 /** A tagged thing read whole on its tag's page. */
-export type TagRead = { id: string; type: string; kind: string; status: string; title: string; label: string; body: unknown; private: boolean; at: string; changed: string; tags: string[]; keptIn?: string | null; /** Done: kept under a click, not counted. */ later: boolean }
+export type TagRead = { id: string; type: string; kind: string; status: string; title: string; label: string; body: unknown; private: boolean; at: string; changed: string; tags: string[]; keptIn?: string | null; /** Done: kept under a click, not counted. */ later: boolean; /** A gem: the note it was saved from, which then shows only as this. */ fromNote?: string | null }
 /** A capture in one of the two passes; `why` says how it got into the deciding one. */
 export type PassItem = { id: string; number: number; label: string; kind: string; status: string; private: number; capturedAt: string; attribution: string | null; medium?: string | null; body: unknown; backAt: string | null; why?: 'back' | 'untidied' | 'longest' }
 export type PassState = { backAt: string | null; tidiedAt: string | null; passedAt: string | null }

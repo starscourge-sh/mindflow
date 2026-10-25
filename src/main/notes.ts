@@ -419,7 +419,9 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
   const tagged: Kept<string[]> = new Map()
   handle('notes:graph:all', () => {
     const rows = [
-      ...db.prepare(`select 'capture' as type, id, ${LABEL} as title, kind, body from captures where status != 'discarded' and private = 0`).all(),
+      // A note saved as a gem is on the map once, as the gem.
+      ...db.prepare(`select 'capture' as type, id, ${LABEL} as title, kind, body from captures where status != 'discarded' and private = 0
+        and not (status = 'promoted' and exists (select 1 from nuggets n where n.capture_id = captures.id and n.private = 0 and n.tier != 'card'))`).all(),
       ...db.prepare("select tier as type, id, coalesce(nullif(title, ''), label('', body)) as title, kind, body from nuggets where private = 0 and tier != 'card'").all()
     ] as (Node & { kind: string; body: string | null })[]
     const known = new Set(rows.map((row) => row.id))

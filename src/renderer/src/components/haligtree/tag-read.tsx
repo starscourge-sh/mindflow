@@ -556,6 +556,7 @@ function Entry({ item, onOpen, picked, onPick, menu }: { item: TagRead; onOpen: 
           {item.type === 'capture' ? kind?.label ?? NAME.capture : NAME[item.type] ?? item.type}
           {item.status !== 'open' && item.type === 'capture' && <span>· {statusSaid(item.status, item.keptIn).replace(/^./, (c) => c.toLowerCase())}</span>}
           {item.type === 'task' && item.status === 'done' && <span>· done</span>}
+          {item.fromNote && <span>· from a note</span>}
         </span>
       </aside>
     </article>

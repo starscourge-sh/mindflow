@@ -3423,10 +3423,10 @@ export function registerHaligtree(): void {
   const TAG_CAPTURES = `status != 'discarded' and archived_at is null and not (status = 'resolved' and ${madeInto("= 'dropped'")} and not ${madeInto("!= 'dropped'")})`
   const CAPTURE_LATER = `select status = 'resolved' and (kind = 'todo' or ${madeInto("!= 'dropped'")})`
   let tagsOf = new Map<string, { title: string; body: string; tags: string[] }>()
-  const tagged = (): { tag: string; id: string; type: string; title: string; private: boolean; later: boolean }[] => {
+  const tagged = (): { tag: string; id: string; type: string; title: string; private: boolean; later: boolean; fromNote?: string }[] => {
     const rows = [
       ...(db.prepare(`select id, 'capture' as type, ${LABEL} as title, body, private, (${CAPTURE_LATER}) as later from captures where ${TAG_CAPTURES}`).all() as Record<string, string>[]),
-      ...(db.prepare("select id, tier as type, title, body, private, 0 as later from nuggets where archived_at is null and superseded_by is null and tier != 'card'").all() as Record<string, string>[]),
+      ...(db.prepare("select id, tier as type, title, body, private, 0 as later, capture_id as fromNote from nuggets where archived_at is null and superseded_by is null and tier != 'card'").all() as Record<string, string>[]),
       // A task in the Bin is out of every tag, as a capture there is.
       ...(db.prepare("select id, 'task' as type, title, notes as body, 0 as private, status = 'done' as later from tasks where status != 'dropped'").all() as Record<string, string>[])
     ]
@@ -3436,14 +3436,19 @@ export function registerHaligtree(): void {
     // autosave reads one body again, not every body there is.
     const was = tagsOf
     tagsOf = new Map()
-    return rows.flatMap((row) => {
+    // A note saved as a gem shows once, as the gem, wherever the gem carries the tag too.
+    const once = <T extends { tag: string; id: string; type: string; fromNote?: string }>(list: T[]): T[] => {
+      const gems = new Set(list.filter((one) => one.fromNote).map((one) => `${one.tag} ${one.fromNote}`))
+      return list.filter((one) => one.type !== 'capture' || !gems.has(`${one.tag} ${one.id}`))
+    }
+    return once(rows.flatMap((row) => {
       const key = `${row.type}:${row.id}`
       let kept = was.get(key)
       if (kept?.title !== row.title || kept.body !== row.body)
         kept = { title: row.title, body: row.body, tags: tagsIn(`${row.title} ${plain(JSON.parse(row.body ?? 'null'))}`) }
       tagsOf.set(key, kept)
-      return [...new Set(kept.tags.map((tag) => alias.get(tag) ?? tag))].map((tag) => ({ tag, id: row.id, type: row.type, title: row.title, private: !!Number(row.private), later: !!Number(row.later) }))
-    })
+      return [...new Set(kept.tags.map((tag) => alias.get(tag) ?? tag))].map((tag) => ({ tag, id: row.id, type: row.type, title: row.title, private: !!Number(row.private), later: !!Number(row.later), fromNote: row.fromNote || undefined }))
+    }))
   }
   // `count` is what the tag's page shows at first; `later`, the done ones it keeps under a click.
   handle('tags', () => {
@@ -3484,7 +3489,7 @@ export function registerHaligtree(): void {
     for (const one of tagged()) tagsBy.set(`${one.type}:${one.id}`, [...(tagsBy.get(`${one.type}:${one.id}`) ?? []), one.tag])
     const rows = [
       ...db.prepare(`select id, 'capture' as type, kind, status, '' as title, ${LABEL} as label, body, private, captured_at as at, coalesce(edited_at, captured_at) as changed, ${KEPT_IN} as keptIn, (${CAPTURE_LATER}) as later from captures where ${TAG_CAPTURES}`).all(),
-      ...db.prepare("select id, tier as type, kind, 'open' as status, title, label('', body) as label, body, private, created_at as at, coalesce(updated_at, created_at) as changed, 0 as later from nuggets where archived_at is null and superseded_by is null and tier != 'card'").all(),
+      ...db.prepare("select id, tier as type, kind, 'open' as status, title, label('', body) as label, body, private, created_at as at, coalesce(updated_at, created_at) as changed, 0 as later, capture_id as fromNote from nuggets where archived_at is null and superseded_by is null and tier != 'card'").all(),
       ...db.prepare("select id, 'task' as type, 'task' as kind, status, title, title as label, notes as body, 0 as private, created_at as at, coalesce(completed_at, created_at) as changed, status = 'done' as later from tasks where status != 'dropped'").all()
     ] as Record<string, string>[]
     return rows.flatMap((row) => {
