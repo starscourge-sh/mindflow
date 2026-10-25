@@ -10,6 +10,7 @@ import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { useLive, haligtree, type Pin as Pinned, type TagRead, type Task } from '@/lib/haligtree'
 import { openApart } from '@/lib/apart'
 import { statusSaid } from '@/lib/capture-links'
+import { rowBody } from '@/lib/row-body'
 import { chime } from '@/lib/sound'
 import { Empty, Tags, ask, pin, refuse, toast, typing, useReadKey } from './ui'
 import { RowMenu, copy, type MenuItem, type RowItem } from './row-menu'
@@ -538,7 +539,7 @@ function Entry({ item, onOpen, picked, onPick, menu }: { item: TagRead; onOpen: 
           host={window.api}
           tokens={TAGS}
           readOnly
-          defaultContent={(item.body as JSONContent | string | null) ?? ''}
+          defaultContent={rowBody((item.body as JSONContent | string | null) ?? '', item.type !== 'capture' ? item.title : '')}
           toolbar={false}
           handles={false}
           slash={false}

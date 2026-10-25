@@ -30,7 +30,7 @@ try {
   const rows = await h.evaluate(() => [...document.querySelectorAll('article.group\\/entry')].map((one) => one.innerText))
   check('the page shows two rows', rows.length === 2, String(rows.length))
   check('the gem row says it came from a note', rows.some((one) => one.includes('from a note')))
-  if (process.env.QA_MORE) {
+  {
     const gem = rows.find((one) => one.includes('from a note')) ?? ''
     check('its title is shown once', gem.split('Entry-level onceword job').length === 2, JSON.stringify(gem))
     check('its tags are shown once, on the right', gem.split('#otherz').length === 2 && gem.split('otherz').length === 2, JSON.stringify(gem))
