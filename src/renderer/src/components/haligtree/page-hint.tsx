@@ -40,6 +40,12 @@ const HINTS: Record<string, string> = {
   upcoming: '**Every task after today, day by day, then the ones with no date.** T, M or W on a row moves it to today, tomorrow or next week.',
   stats: `**How you have been using ${APP_NAME}, in sentences.** The few parts that matter most first; “Your month” and “Your year” hold the rest.`,
   map: '**Every note you linked, as dots joined by lines.** Type @ in a note to link it.',
+  feed: '**Your own notes, coming back as a feed.** Each day a new mix from what you kept: gems, quotes, pictures, pages and Journal days a week old, with a card to answer now and then. Nothing in it comes from outside your book.',
+  calendar: '**Your days, with your tasks on them.** Drag one from “Unscheduled” onto a day or an hour; the same tasks are in Tasks and your Journal.',
+  sources: '**The people and books your notes cite.** Each has a page with their words and what cites them; type @ and a name in a note to add one.',
+  discarded: '**What you moved to the Bin.** “Restore” puts a note back where it was; “Hold to empty” deletes them for good.',
+  archived: '**Notes kept out of sight, never deleted.** Right-click any note and choose “Archive” to send it here.',
+  lookups: '**Words you looked up.** Each waits here, asked, until you write what it means.',
   articles: `**Pages are longer pieces in your own words, one idea each.** ${LIFECYCLE} Start one with “New page”, or in Gems select a few with X, then “Start a page”.`
 }
 
