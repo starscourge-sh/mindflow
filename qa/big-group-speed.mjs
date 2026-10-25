@@ -193,16 +193,17 @@ try {
   await h.evaluate(() => {
     let clicks = 0
     window.__real = null
-    const look = () => (document.querySelector('[data-group-row]') ? requestAnimationFrame(look) : (window.__gone = Math.round(performance.now() - window.__real)))
+    // The group stays, a folder emptied: settled once it says so.
+    const look = () => (!document.querySelector('[data-group-empty]') ? requestAnimationFrame(look) : (window.__gone = Math.round(performance.now() - window.__real)))
     document.addEventListener('click', () => ++clicks === 2 && ((window.__real = performance.now()), requestAnimationFrame(look)), { capture: true })
   })
   await remove.click()
   await measure('"Remove from group" on all, its next frame')
   const blink = await h.evaluate(() => Math.round(window.__real - window.__t))
-  check('"Remove from group" on all: the list redrawn without the group under 200 ms after the blink', (await h.evaluate(() => window.__gone ?? -1)) < 200, `${await h.evaluate(() => window.__gone ?? 'never')} ms after a ${blink} ms blink`)
+  check('"Remove from group" on all: the list redrawn with the group empty under 200 ms after the blink', (await h.evaluate(() => window.__gone ?? -1)) < 200, `${await h.evaluate(() => window.__gone ?? 'never')} ms after a ${blink} ms blink`)
   await h.waitForTimeout(800)
   const after = (await c.v('groups', 'nugget')).find((one) => one.id === big.id)
-  check('the group is gone, every note out of it', !after, after ? `${after.members.length} left` : '')
+  check('the group stays, empty, every note out of it', after?.members.length === 0, after ? `${after.members.length} left` : 'gone')
 } catch (error) {
   check('ran to the end', false, error.message.split('\n')[0])
 } finally {
