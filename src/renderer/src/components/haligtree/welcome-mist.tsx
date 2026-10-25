@@ -42,8 +42,9 @@ export function WelcomeMist({ onGone, hurry = false }: { onGone: () => void; hur
     let seed = 3
     const random = (): number => ((seed = (seed * 16807) % 2147483647) / 2147483647)
     const banks: Bank[] = Array.from({ length: 16 }, () => ({ x: random(), y: random(), r: 0.25 + random() * 0.35, drift: 0.008 + random() * 0.018, rise: 0.004 + random() * 0.01, phase: random() * Math.PI * 2 }))
-    // When each line first asked to be cleared: its clearing opens from then.
-    const opened = new Map<Element, number>()
+    // When the first line asked to be cleared: the clearing opens from then. Where it is, eased.
+    let openedAt = 0
+    let held: { cx: number; cy: number; rx: number; ry: number } | null = null
     const start = performance.now()
     const arrive = ARRIVE_MS / MIST_MS
     let frame = 0
@@ -89,27 +90,33 @@ export function WelcomeMist({ onGone, hurry = false }: { onGone: () => void; hur
         context.fillStyle = fog
         context.fillRect(x - r, y - r, r * 2, r * 2)
       }
-      // The clearings: a soft oval of mist taken away around each line as it resolves, opening over a second.
+      // The clearing: one, around every line resolved so far, opening over a second and growing
+      // smoothly as each line joins it. One clearing with a bell-shaped falloff, never a stack of
+      // ovals: their overlapping rims read as rings, a darker oval on a dark page.
       const here = canvas.getBoundingClientRect()
       const k = w / (here.width || 1)
-      context.globalCompositeOperation = 'destination-out'
+      let union: { l: number; t: number; r: number; b: number } | null = null
       for (const line of document.querySelectorAll('[data-mist-clear]')) {
-        if (!opened.has(line)) opened.set(line, now)
-        const open = between(now - (opened.get(line) ?? now), 0, 1100)
+        openedAt ||= now
         const rect = line.getBoundingClientRect()
-        const cx = (rect.left + rect.width / 2 - here.left) * k
-        const cy = (rect.top + rect.height / 2 - here.top) * k
-        // Wide and soft, never a hole with an edge: a long falloff, and never flatter than half as tall as wide.
-        const rx = (rect.width / 2 + 260) * k * (0.7 + 0.3 * open)
-        const ry = Math.max((rect.height / 2 + 160) * k, rx * 0.5) * (0.7 + 0.3 * open)
+        union = union ? { l: Math.min(union.l, rect.left), t: Math.min(union.t, rect.top), r: Math.max(union.r, rect.right), b: Math.max(union.b, rect.bottom) } : { l: rect.left, t: rect.top, r: rect.right, b: rect.bottom }
+      }
+      if (union) {
+        const goal = { cx: ((union.l + union.r) / 2 - here.left) * k, cy: ((union.t + union.b) / 2 - here.top) * k, rx: (union.r - union.l) / 2 * k, ry: (union.b - union.t) / 2 * k }
+        // Eased toward the lines' box a little each frame, so a new line widens it rather than adds to it.
+        if (!held) held = { ...goal }
+        else for (const key of ['cx', 'cy', 'rx', 'ry'] as const) held[key] += (goal[key] - held[key]) * 0.06
+        const open = between(now - openedAt, 0, 1100)
+        const reach = Math.max(w, h)
+        const rx = (held.rx + reach * 0.45) * (0.75 + 0.25 * open)
+        const ry = Math.max(held.ry + reach * 0.34, rx * 0.8) * (0.75 + 0.25 * open)
+        context.globalCompositeOperation = 'destination-out'
         context.save()
-        context.translate(cx, cy)
+        context.translate(held.cx, held.cy)
         context.scale(1, ry / rx)
         const clear = context.createRadialGradient(0, 0, 0, 0, 0, rx)
-        clear.addColorStop(0, `rgba(0,0,0,${0.85 * open})`)
-        clear.addColorStop(0.3, `rgba(0,0,0,${0.72 * open})`)
-        clear.addColorStop(0.65, `rgba(0,0,0,${0.28 * open})`)
-        clear.addColorStop(1, 'rgba(0,0,0,0)')
+        // A bell's curve, in ten steps: no flat middle and no rim.
+        for (let i = 0; i <= 10; i++) clear.addColorStop(i / 10, `rgba(0,0,0,${0.75 * open * Math.exp(-(((i / 10) * 2.6) ** 2))})`)
         context.fillStyle = clear
         context.fillRect(-rx, -rx, rx * 2, rx * 2)
         context.restore()

@@ -431,6 +431,8 @@ const CLICKS = {
   scratch: { duration: 0.07, frequency: 4200, q: 0.9, volume: 0.07, decay: 900 },
   // A sticky set down: a short, soft slap of a card pressed flat with the palm, low and over at once.
   slap: { duration: 0.018, frequency: 650, q: 0.7, volume: 0.24, decay: 70 },
+  // The welcome's seal pressed on its last page: a low, soft thud of a stamp on paper, felt more than heard.
+  thud: { duration: 0.035, frequency: 170, q: 0.8, volume: 0.32, decay: 90 },
   // The eraser: lower and duller, rubber on paper.
   rub: { duration: 0.11, frequency: 1300, q: 0.7, volume: 0.09, decay: 1600 }
 }
@@ -755,6 +757,8 @@ export function paper(kind: 'slide' | 'fold' | 'tap'): void {
   else if (kind === 'tap') click('slap')
   else void recording(foldUrl, 0.3, 'paper-fold', { rate: 1.3 })
 }
+/** An ink stamp pressed on a page, once (the welcome's last page). */
+export const stamp = (): void => click('thud')
 
 /**
  * Into the sandbox: a lightsaber swung, then its hum swelling and settling,

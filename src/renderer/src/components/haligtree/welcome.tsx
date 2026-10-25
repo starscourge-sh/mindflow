@@ -1,5 +1,6 @@
 import { WelcomeLeaves } from './welcome-leaves'
 import { WelcomeMist } from './welcome-mist'
+import { WelcomeStamp, WelcomeTab } from './welcome-marks'
 import { Condense, DRAG_MS, REACH_MS, WelcomePointer, type Move } from './welcome-pointer'
 import { ANCHOR, TAGLINE } from '../../../../main/tagline'
 import { fittedTitle, quoted } from '../../../../main/clip'
@@ -487,6 +488,8 @@ export function Welcome(): React.JSX.Element | null {
       {mist && <WelcomeMist hurry={rushed} onGone={() => setMist(false)} />}
       <div data-drag-strip="" className="relative h-11 shrink-0" style={{ WebkitAppRegion: 'drag' } as CSSProperties} />
       {at === LAST && <TrayArrow tray={state?.tray ?? null} />}
+      {/* The chapter's thumb index on the fore-edge, moving down a place each chapter. */}
+      <WelcomeTab chapters={CHAPTERS} at={at} hidden={veiled} quiet={quiet} />
       <div className="relative mx-auto flex min-h-0 w-full max-w-[84rem] flex-1 flex-col">
         {/* The book's ruled margin, in red ink: drawn down the page as the first words come, and kept on every page after, so each chapter reads as the same book. */}
         <motion.div aria-hidden data-margin="" className="pointer-events-none absolute -top-11 bottom-0 left-[calc(clamp(1.5rem,5vw,4rem)*0.45)] w-px origin-top bg-[color-mix(in_oklab,var(--tt-color-text-red)_38%,transparent)]"
@@ -507,6 +510,7 @@ export function Welcome(): React.JSX.Element | null {
               {at === WRITE && <WriteChapter play={play} report={report} setup={setup} />}
               {at === BACK && <RememberChapter play={play} report={report} setup={setup} />}
               {at === DIAL && <DialChapter play={play} report={report} onPick={(theme) => (picked.current = theme)} mine={mine} />}
+              {at === LAST && <WelcomeStamp still={!play} />}
               {at === LAST && <Start state={state} onState={setState} name={name} kept={before.current.size + caught.length} mine={caught.length} skipped={skipped} importing={importing} still={!play} onPick={start} setup={setup} onImport={(what) => (leave('notes'), void window.api.importFrom(what))} />}
             </motion.section>
           </AnimatePresence>
@@ -739,7 +743,7 @@ function ThesisChapter({ play, report }: { play: boolean; report: (now: Reel) =>
                   {/* The selection, growing with the drag (WelcomePointer sets its width), gone once the hand moves on. */}
                   <span ref={(el) => void (marks.current[i] = el)} aria-hidden data-selected={chosen ? '' : undefined}
                     className={`pointer-events-none absolute inset-y-[0.06em] -right-[0.08em] -left-[0.08em] origin-left rounded-[3px] bg-[color-mix(in_oklab,Highlight_80%,transparent)] ${chosen ? 'opacity-100' : 'opacity-0 transition-opacity duration-300 ease-out'}`} />
-                  {/* Upright, then leaning over into the italic: the two cross, each at the other's slant, so the words seem to tilt rather than swap. */}
+                  {/* Upright, then leaning over into Fraunces' true italic: the two cross, each at the other's slant, so the words seem to tilt rather than swap. */}
                   <motion.span aria-hidden={slanted || undefined} className="relative origin-[0_80%] [grid-area:1/1]" initial={false}
                     animate={slanted
                       ? { opacity: 0, transform: 'translateY(0em) skewX(-14deg)', filter: 'blur(1px)', transitionEnd: { visibility: 'hidden' } }

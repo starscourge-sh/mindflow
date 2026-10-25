@@ -5,6 +5,9 @@
 /* `full`, not `wght`: WONK and SOFT are the axes that give Fraunces its
    character, and the default face ships neither. */
 @import '@fontsource-variable/fraunces/full.css';
+/* Its true italic, so emphasis, quotes and the welcome's italics are drawn
+   italic rather than the upright slanted by the browser. */
+@import '@fontsource-variable/fraunces/full-italic.css';
 /* The Brutal themes: their heading face, and their shape (corners, hard
    shadows, black outlines), which only applies while one is on. */
 @import '@fontsource/archivo-black/400.css';
