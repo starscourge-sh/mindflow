@@ -530,7 +530,11 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
             )}
           </p>
           {quote ? (
-            <figure data-feed-quote className="rounded-lg border bg-accent/25 px-4 py-3">
+            // The quote is its own way in: a click anywhere on it opens the note it is, as a title does.
+            <figure data-feed-quote role="link" tabIndex={0} aria-label={`Open the quote${post.who ? ` by ${post.who}` : ''}`}
+              onClick={(event) => !(event.target as HTMLElement).closest('a, button') && window.getSelection()?.isCollapsed !== false && onOpen()}
+              onKeyDown={(event) => event.key === 'Enter' && (event.preventDefault(), onOpen())}
+              className="cursor-pointer rounded-lg border bg-accent/25 px-4 py-3 transition-colors hover:border-foreground/20 hover:bg-accent/40 focus-visible:outline-2 focus-visible:outline-ring">
               <blockquote className="font-serif text-[1.0625rem] leading-relaxed whitespace-pre-line [overflow-wrap:anywhere] text-foreground line-clamp-[10]">{words}</blockquote>
               {post.who && <figcaption data-feed-author className="mt-2 text-control font-medium text-foreground/80">{post.who}</figcaption>}
             </figure>

@@ -81,6 +81,16 @@ try {
     await h.waitForTimeout(400)
     await h.screenshot({ path: `${SHOTS}/feed-${name}-end.png` })
   }
+  // A quote has no title to press: the quote itself opens it.
+  await go('feed')
+  await h.waitForTimeout(1200)
+  const quoteCard = h.locator('[data-feed-quote]').first()
+  if (await quoteCard.count()) {
+    await quoteCard.scrollIntoViewIfNeeded()
+    await quoteCard.click({ position: { x: 40, y: 20 } })
+    await h.waitForTimeout(1200)
+    check('clicking a quote in the Feed opens it', await h.evaluate(() => !document.querySelector('[data-page="feed"]') || document.querySelectorAll('[data-pane]').length > 1 || !!document.querySelector('[data-note-open], .tiptap')), await h.evaluate(() => document.querySelector('[data-page]')?.getAttribute('data-page') ?? ''))
+  } else check('a quote is in the Feed to try', false)
   check('no page errors', !errors.length, errors.join(' | '))
 } catch (error) {
   check('ran to the end', false, error.message)
