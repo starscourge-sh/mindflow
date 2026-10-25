@@ -132,6 +132,84 @@ try {
   const both = await membersOf(money)
   check('two picked rows go in together', both.includes(l1) && both.includes(l2), `${both.length}`)
 
+  // Folders stay: Money's notes all carried out, it is still there, empty, and says how it fills.
+  await c.h.evaluate(() => localStorage.setItem('view:article', JSON.stringify({ sort: 'manual', group: 'none', filter: {}, density: 'list' })))
+  await c.h.reload()
+  await c.h.waitForTimeout(1500)
+  await c.v('groups:place', [b1, b2, l1, l2].map((id) => ({ id, group: null })))
+  await c.h.waitForTimeout(800)
+  check('a folder emptied of its notes stays', (await folder(money).count()) === 1 && (await c.v('groups', 'article')).some((one) => one.id === money))
+  await c.go('articles')
+  await c.h.waitForTimeout(800)
+  await c.v('groups:nest', rent, null)
+  await c.h.waitForTimeout(800)
+  check('in the list, an empty one says "Empty: drag notes here or press New"', ((await c.h.locator(`[data-group-row="${money}"]`).count()) === 1) && (await c.h.getByText('Empty: drag notes here or press New').count()) > 0)
+  await c.v('groups:nest', rent, money)
+  await c.h.waitForTimeout(500)
+
+  // New folder from the + on Writing's row, named at once; named as a tag is, it offers that tag's notes once.
+  const tagged = await c.v('article:new')
+  await c.v('item:save', tagged, { title: 'Savings plan #taxes' })
+  await c.h.waitForTimeout(600)
+  await writingRow.hover()
+  await c.h.locator('[data-folder-new="article"]').click()
+  await c.h.waitForTimeout(700)
+  const field = c.h.locator('[data-folder-name]')
+  check('the + makes a folder with its name open for typing', (await field.count()) === 1)
+  await field.fill('Taxes')
+  await field.press('Enter')
+  await c.h.waitForTimeout(1200)
+  const made = (await c.v('groups', 'article')).find((one) => one.name === 'Taxes')
+  check('it is named', !!made)
+  const offer = c.h.getByText(/Move the 1 note tagged #taxes in\?/)
+  check('named as a tag, it offers to move that tag\'s notes in', (await offer.count()) > 0)
+  await c.h.getByRole('button', { name: 'Move in' }).first().click()
+  await c.h.waitForTimeout(800)
+  check('and "Move in" moves them', (await membersOf(made.id)).includes(tagged))
+  await c.v('groups:set', made.id, { name: 'Tax' })
+  await c.h.waitForTimeout(300)
+  await folder(made.id).click({ button: 'right' })
+  await c.h.getByRole('menuitem', { name: 'Rename…' }).click()
+  await c.h.waitForTimeout(400)
+  await c.h.locator('[data-folder-name]').fill('taxes')
+  await c.h.locator('[data-folder-name]').press('Enter')
+  await c.h.waitForTimeout(1200)
+  check('the offer comes once, not again on a rename back', (await c.h.getByText(/tagged #taxes in\?/).count()) <= 1)
+
+  // A third level: Lisbon inside Rent inside Money, in the tree and in the list.
+  const lisbon = await c.v('groups:make', 'article', 'Lisbon', rent)
+  await c.v('groups:place', [{ id: r1, group: lisbon }])
+  await c.h.keyboard.press('Escape')
+  await c.go('articles')
+  await c.h.waitForTimeout(600)
+  // The list draws only the rows near the screen: back to its top, where the groups are.
+  await c.h.evaluate(() => document.querySelectorAll('[data-pane] *').forEach((one) => one.scrollHeight > one.clientHeight + 4 && (one.scrollTop = 0)))
+  await c.h.waitForTimeout(600)
+  check('a third level shows in the tree, a step further in', (await folder(lisbon).count()) === 1 && (await indent(lisbon)) > (await indent(rent)), `${await indent(rent)} → ${await indent(lisbon)}`)
+  // Scrolled down the list until Lisbon's row is drawn.
+  for (let i = 0; i < 20 && !(await c.h.locator(`[data-group-row="${lisbon}"]`).count()); i++) {
+    await c.h.mouse.move(800, 500)
+    await c.h.mouse.wheel(0, 400)
+    await c.h.waitForTimeout(150)
+  }
+  check('and in the list, inside Rent', (await c.h.locator(`[data-group-row="${rent}"]`).count()) === 1 && (await c.h.locator(`[data-subgroup] [data-group-row="${lisbon}"]`).count()) === 1)
+  check('with its note under it', (await c.h.locator(`[data-subgroup]:has([data-group-row="${lisbon}"]) [data-row][data-id="${r1}"]`).count()) === 1)
+
+  // Folders dragged in the sidebar: Ideas into Money.
+  await folder(ideas).dragTo(folder(money))
+  await c.h.waitForTimeout(900)
+  check('a folder dragged onto another goes inside it', (await c.v('groups', 'article')).find((one) => one.id === ideas)?.parent === money)
+  await folder(made.id).dragTo(folder(lisbon))
+  await c.h.waitForTimeout(700)
+  check('never a fourth level', (await c.v('groups', 'article')).find((one) => one.id === made.id)?.parent !== lisbon)
+
+  // A Writing note onto a Gems folder: unlit, and said why.
+  const quotes = await c.v('groups:make', 'nugget', 'Quotes')
+  await c.h.waitForTimeout(800)
+  const wrong = await carryTo(listRow('Loose one'), folder(quotes))
+  check('a folder of the other list stays unlit', !wrong)
+  check('and says why', (await c.h.getByText('Gems folders hold gems: make it a gem first').count()) > 0)
+
   // The setting: off, the sidebar is as it was.
   const settings = await c.v('settings')
   await c.v('settings:set', { sidebarFolders: { ...settings.sidebarFolders, article: false } })
