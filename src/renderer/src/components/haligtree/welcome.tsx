@@ -543,7 +543,8 @@ export function Welcome(): React.JSX.Element | null {
           {at < LAST && (trying
             ? <Primary onClick={openBox} keys={<BoxKeys />}>Try it in quick capture</Primary>
             : <Primary onClick={next} wait={cue.done || cue.waiting ? null : cue.part ?? { from: 0, to: 0 }}>{cue.label ?? (at === WHY ? 'Show me' : 'Next')}</Primary>)}
-          {at === LAST && <Primary onClick={() => start(1)}>Start</Primary>}
+          {/* Says where it goes: the highlighted card is a choice of its own (2), never what this opens. */}
+          {at === LAST && <Primary onClick={() => start(1)}>Open my book</Primary>}
         </footer>
       </div>
     </div>
