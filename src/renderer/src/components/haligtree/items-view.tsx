@@ -1,4 +1,5 @@
 import { notePowers } from './note-powers'
+import { hoverNote } from './note-preview'
 import { FadedLine } from './feed-view'
 import { openExpanded } from '../note-link/expanded-note'
 import { propertySorts } from '@/lib/property-sorts'
@@ -844,7 +845,7 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
                 {/* Signed, and changed from the signature: a click goes to “Who said it” beside the page. */}
                 <Tip label="Change who said it">
                   <button type="button" data-signed-edit className="rounded hover:bg-accent" onClick={() => focusField(() => document.querySelector<HTMLInputElement>('[data-gem-source]'))}>
-                    <Signed who={item.attribution} className="private-text" />
+                    <span {...hoverNote('person', item.attribution)}><Signed who={item.attribution} className="private-text" /></span>
                   </button>
                 </Tip>
               </div>

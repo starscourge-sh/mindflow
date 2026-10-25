@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { hoverNote } from './note-preview'
 import { ArrowLeft, ArrowUpRight, Check, Heart, CornerDownRight, EyeOff, ImageDown, MessageCircle, Repeat2, RefreshCcw, Share, X } from 'lucide-react'
 
 import { call, haligtree, splitTags, unloaded, unread, useLive, type Gloss } from '@/lib/haligtree'
@@ -23,6 +24,7 @@ import { FeedReading } from './feed-reading'
 import { QueuedProvider, ReadLaterButton } from './read-later'
 import { drawCard, xText, type CardPost } from '@/lib/feed-card'
 import { LOOKABLE, lookAtPicture } from '@/components/image/image-look'
+import { openAside } from '@/lib/split'
 
 /**
  * The Feed: the day's twenty or so of your own things, as posts in a
@@ -515,7 +517,7 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <p className="flex min-w-0 items-baseline gap-1.5 text-control">
             {quote && post.who ? (
-              <button type="button" data-feed-account data-feed-source onClick={openWho} className="truncate rounded-sm font-semibold text-foreground hover:underline">{account}</button>
+              <button type="button" {...hoverNote('person', post.who)} data-feed-account data-feed-source onClick={openWho} className="truncate rounded-sm font-semibold text-foreground hover:underline">{account}</button>
             ) : <span data-feed-account className="truncate font-semibold text-foreground">{account}</span>}
             <span className="shrink-0 text-muted-foreground">{kindWord(post)}</span>
             <span aria-hidden className="shrink-0 text-muted-foreground">·</span>
@@ -542,13 +544,13 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
               onClick={(event) => !(event.target as HTMLElement).closest('a, button') && window.getSelection()?.isCollapsed !== false && onOpen()}
               onKeyDown={(event) => event.key === 'Enter' && (event.preventDefault(), onOpen())}
               className="cursor-pointer rounded-lg border bg-accent/25 px-4 py-3 transition-colors hover:border-foreground/20 hover:bg-accent/40 focus-visible:outline-2 focus-visible:outline-ring">
-              <blockquote className="font-serif text-[1.0625rem] leading-relaxed whitespace-pre-line [overflow-wrap:anywhere] text-foreground line-clamp-[10]">{words}</blockquote>
-              {post.who && <figcaption data-feed-author className="mt-2 text-control font-medium text-foreground/80">{post.who}</figcaption>}
+              <blockquote className="font-serif text-[1.0625rem] leading-relaxed whitespace-pre-line [overflow-wrap:anywhere] text-foreground line-clamp-[10]"><Linked text={words} links={post.links} onOpen={onOpenOther} /></blockquote>
+              {post.who && <figcaption data-feed-author className="mt-2 text-control font-medium text-foreground/80"><span {...hoverNote('person', post.who)}>{post.who}</span></figcaption>}
             </figure>
           ) : (
             <>
               <button type="button" data-feed-title onClick={onOpen} className="w-fit rounded-sm text-left text-body font-semibold [overflow-wrap:anywhere] text-foreground underline-offset-2 hover:underline">{title}</button>
-              {post.type !== 'question' && text && <p className="line-clamp-[8] text-body leading-relaxed whitespace-pre-line [overflow-wrap:anywhere] text-foreground/90">{text}</p>}
+              {post.type !== 'question' && text && <p className="line-clamp-[8] text-body leading-relaxed whitespace-pre-line [overflow-wrap:anywhere] text-foreground/90"><Linked text={text} links={post.links} onOpen={onOpenOther} /></p>}
             </>
           )}
           {post.tags.length > 0 && (
@@ -777,6 +779,34 @@ function OpenLink({ onOpen, children }: { onOpen: () => void; children: React.Re
 }
 
 /** The old note under a restack: its account, kind, date and first lines, as a card that opens it. */
+/**
+ * A post's words with the notes they link to as links again ("Connected to:
+ * Jokes & Bits" on an imported quote): each label, where it last appears, opens
+ * its note, ⌥-click beside, and shows the note's card on a rest.
+ */
+function Linked({ text, links, onOpen }: { text: string; links?: FeedPost['links']; onOpen: (type: string, id: string) => void }): React.JSX.Element {
+  const spots: { at: number; label: string; to: string }[] = []
+  for (const link of links ?? []) {
+    const at = text.lastIndexOf(link.label)
+    if (at >= 0 && !spots.some((one) => at < one.at + one.label.length && one.at < at + link.label.length)) spots.push({ at, ...link })
+  }
+  if (!spots.length) return <>{text}</>
+  const parts: React.ReactNode[] = []
+  let from = 0
+  for (const spot of spots.sort((a, b) => a.at - b.at)) {
+    const [type, id] = spot.to.includes(':') ? [spot.to.slice(0, spot.to.indexOf(':')), spot.to.slice(spot.to.indexOf(':') + 1)] : ['capture', spot.to]
+    parts.push(text.slice(from, spot.at))
+    parts.push(
+      <button key={spot.at} type="button" data-feed-link={spot.to} {...hoverNote(type, id)}
+        onClick={(event) => (event.stopPropagation(), chime('page'), event.altKey ? openAside(type, id) : onOpen(type, id))}
+        className="inline rounded-sm font-medium text-primary underline-offset-2 hover:underline">{spot.label}</button>
+    )
+    from = spot.at + spot.label.length
+  }
+  parts.push(text.slice(from))
+  return <>{parts}</>
+}
+
 function Quoted({ note, onOpen }: { note: NonNullable<FeedPost['restack']> | Restackable; onOpen?: () => void }): React.JSX.Element {
   const quote = note.kind === 'quote'
   const account = (quote && note.who) || 'You'
@@ -878,7 +908,7 @@ function SideColumn(): React.JSX.Element | null {
           <div className="flex flex-wrap gap-1.5 px-2 pt-0.5 pb-1.5">
             {faces.map((one) => (
               <Tip key={one.name} label={`${one.name}: ${num(one.count)} ${one.count === 1 ? 'note' : 'notes'}`}>
-                <button type="button" data-feed-face={one.name} aria-label={`Open ${one.name}'s page`} onClick={() => go(() => openSource('attribution', one.name))}
+                <button type="button" {...hoverNote('person', one.name)} data-feed-face={one.name} aria-label={`Open ${one.name}'s page`} onClick={() => go(() => openSource('attribution', one.name))}
                   className="rounded-full ring-offset-2 ring-offset-background transition-transform duration-150 ease-(--mf-ease) hover:scale-[1.06] focus-visible:ring-2 focus-visible:ring-ring">
                   <Avatar name={one.name} size={34} />
                 </button>

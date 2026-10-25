@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { hoverNote } from './note-preview'
 import { BookOpen, FileText, Quote, User } from 'lucide-react'
 import { Camera, Fit } from '@/components/ui/icons'
 import { openLook } from '@/components/image/image-look'
@@ -242,7 +243,7 @@ function PersonHead({ page, name, thoughts, setThoughts, onOpenPerson }: { page:
               <button key={one.name} type="button" data-also-person={one.name} onClick={() => (chime('page'), onOpenPerson(one.name))}
                 className="group flex w-20 flex-col items-center gap-1.5 rounded-lg p-1 text-center focus-visible:ring-2 focus-visible:ring-ring">
                 <Avatar name={one.name} size={56} className="transition-transform duration-150 group-hover:scale-105" />
-                <span className="line-clamp-2 text-control text-foreground">{one.name}</span>
+                <span {...hoverNote('person', one.name)} className="line-clamp-2 text-control text-foreground">{one.name}</span>
               </button>
             ))}
           </div>
@@ -351,7 +352,7 @@ function FaceGrid({ people }: { people: SourceSummary[] }): React.JSX.Element {
             <button type="button" data-face={one.name} onClick={() => (chime('page'), openSource('attribution', one.name))}
               className="group flex min-w-0 flex-col items-center gap-2 rounded-xl p-3 text-center transition-colors duration-100 hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring">
               <Avatar name={one.name} size={128} className="transition-transform duration-200 group-hover:scale-[1.03]" />
-              <span className="w-full truncate text-body font-semibold text-foreground">{one.name}</span>
+              <span {...hoverNote('person', one.name)} className="w-full truncate text-body font-semibold text-foreground">{one.name}</span>
               <span className="-mt-1.5 w-full truncate text-control text-foreground/80">{tally(one)}</span>
             </button>
           </PersonMenu>

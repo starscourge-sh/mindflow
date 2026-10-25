@@ -41,6 +41,12 @@ export const useAvatar = (name: string | null | undefined): string | null => {
   return name ? (all[personKey(name)]?.avatar ?? null) : null
 }
 
+/** The picture kept for a name, outside a component (a hover card): read now, from what this window holds. */
+export const avatarOf = (name: string): string | null => {
+  if (!asked) subscribe(() => undefined)
+  return people[personKey(name)]?.avatar ?? null
+}
+
 /** Whether the pictures have been read in this window: a face waits for it, so it never shows its initials and then its picture. */
 export const peopleRead = (): boolean => read
 

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { hoverNote } from './note-preview'
 import type { Editor, JSONContent } from '@tiptap/core'
 import type { Node as PMNode } from '@tiptap/pm/model'
 
@@ -179,7 +180,7 @@ function MarginPerson({ person, onInsert }: { person: Margin['people'][number]; 
         <Avatar name={name} size={40} className="shrink-0" />
         <div className="min-w-0 flex-1">
           {/* Their page, as everywhere: here, or beside with ⌥-click. */}
-          <button type="button" data-margin-name onClick={() => (chime('page'), openSource('attribution', name))}
+          <button type="button" {...hoverNote('person', name)} data-margin-name onClick={() => (chime('page'), openSource('attribution', name))}
             className="-mx-1 block max-w-full truncate rounded px-1 text-left text-body font-semibold text-foreground hover:bg-accent">{name}</button>
           {line && <p data-margin-line className="text-control text-foreground">{line}</p>}
         </div>

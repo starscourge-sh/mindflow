@@ -13,6 +13,16 @@ import { blockIn, wordsOf } from '../../../../main/blocks'
 import type { Editor } from '@tiptap/core'
 import { chime } from '@/lib/sound'
 import { cut } from '../../../../main/clip'
+import { sources } from '@/lib/sources'
+import { avatarOf } from '@/lib/people'
+
+/** The first picture in a stored body, for its card: an image node, or Markdown's ![](src). */
+const pictureIn = (body: unknown): string | null => {
+  if (typeof body === 'string') return /!\[[^\]]*\]\(([^)\s]+)/.exec(body)?.[1] ?? null
+  const walk = (node: { type?: string; attrs?: { src?: unknown }; content?: unknown[] }): string | null =>
+    node.type === 'image' && typeof node.attrs?.src === 'string' ? node.attrs.src : (node.content ?? []).reduce<string | null>((found, child) => found ?? walk(child as typeof node), null)
+  return body && typeof body === 'object' ? walk(body as { content?: unknown[] }) : null
+}
 
 /** The words of a stored body, for a glance: no markup, first lines only. */
 export const glance = (body: unknown): string => {
@@ -74,11 +84,13 @@ const gemmed = (item: { title: string; prompt: string | null; dueAt: string | nu
  * are. Once per window, for every editor in it.
  */
 export function NotePreview(): React.JSX.Element | null {
-  const [shown, setShown] = useState<{ x: number; y: number; above: boolean; private: boolean; title: string; text: string; line?: boolean; lost?: boolean; el?: Element; kind: string; aside: boolean; type: string; id: string; queue: boolean; gem?: Gemmed; binned?: boolean; row?: boolean; anchor: Element } | null>(null)
+  const [shown, setShown] = useState<{ x: number; y: number; above: boolean; private: boolean; title: string; text: string; line?: boolean; lost?: boolean; el?: Element; kind: string; aside: boolean; type: string; id: string; queue: boolean; gem?: Gemmed; binned?: boolean; row?: boolean; anchor: Element; picture?: string | null; round?: boolean } | null>(null)
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined
     let leaving: ReturnType<typeof setTimeout> | undefined
     let over: Element | null = null
+    // A card showing, or put away less than a moment ago: the next link's comes at once, as Wikipedia's do, with no new wait.
+    let warmTill = 0
     const onOver = (event: MouseEvent): void => {
       // On the card itself: it stays, so its buttons can be reached.
       if ((event.target as Element | null)?.closest?.('[data-note-preview]')) return void clearTimeout(leaving)
@@ -92,7 +104,7 @@ export function NotePreview(): React.JSX.Element | null {
       clearTimeout(timer)
       clearTimeout(leaving)
       // Off the link: a moment to reach the card before it goes.
-      if (!link) return void (leaving = setTimeout(() => setShown(null), 260))
+      if (!link) return void (leaving = setTimeout(() => (setShown(null), (warmTill = Math.min(warmTill, Date.now() + 600))), 260))
       setShown(null)
       // A pause first: a pointer passing over a link is not asking.
       timer = setTimeout(() => {
@@ -106,10 +118,19 @@ export function NotePreview(): React.JSX.Element | null {
         // A row's title, not an @ link: its own click does what it always did, so the card does not say "Click to open".
         const row = link.hasAttribute('data-note-hover')
         // A person or a tag is a place to go, not a note with words to show.
-        const load: Promise<{ title: string; body: unknown; private: boolean; gem?: Gemmed } | null> =
+        const load: Promise<{ title: string; body: unknown; private: boolean; gem?: Gemmed; picture?: string | null } | null> =
           binned ? haligtree.binPeek(type, id).then((found) => found && { title: found.title, body: found.body, private: found.private })
-          : type === 'person' ? Promise.resolve({ title: id, body: 'Every note with their words.', private: false })
-          : type === 'tag' ? Promise.resolve({ title: `#${id}`, body: 'Every note tagged with it.', private: false })
+          // A person reads as Wikipedia's card does: who they were, their years, your thoughts, their picture.
+          : type === 'person' ? sources.page('attribution', id).then((page) => ({
+            title: page?.name ?? id,
+            body: [page?.what, [page?.born, page?.died].filter(Boolean).join(' to '), page?.thoughts, page?.items.length ? `${page.items.length} ${page.items.length === 1 ? 'note' : 'notes'} with their words.` : 'Every note with their words.'].filter(Boolean).join('\n'),
+            private: false,
+            picture: avatarOf(id)
+          }))
+          : type === 'tag' ? haligtree.tags().then((all) => {
+            const count = all.find((one) => one.tag.toLowerCase() === id.toLowerCase())?.count ?? 0
+            return { title: `#${id}`, body: count ? `${count} ${count === 1 ? 'note' : 'notes'} tagged with it.` : 'Every note tagged with it.', private: false }
+          })
           : type === 'task' ? haligtree.task(id).then((found) => found && { title: found.title, body: found.notes, private: false })
           : type === 'capture'
           ? window.api.captures.get(id).then((found) => found && { title: found.label || found.title || '', body: found.body, private: !!found.private })
@@ -146,10 +167,13 @@ export function NotePreview(): React.JSX.Element | null {
             gem: found.gem,
             binned,
             row,
-            anchor: link
+            anchor: link,
+            picture: found.picture !== undefined ? found.picture : binned ? null : pictureIn(found.body),
+            round: type === 'person'
           })
+          warmTill = Infinity
         })
-      }, 350)
+      }, Date.now() < warmTill ? 0 : 500)
     }
     document.addEventListener('mousemove', onOver)
     return () => {
@@ -227,8 +251,10 @@ export function NotePreview(): React.JSX.Element | null {
       data-private={shown.private ? '' : undefined}
       role="tooltip"
       data-note-preview
+      data-preview-picture={shown.picture ? '' : undefined}
       onMouseLeave={() => setShown(null)}
-      className="fixed z-[70] w-80 rounded-lg border bg-popover p-3 text-control shadow-(--mf-panel-shadow) animate-in fade-in-0 duration-150"
+      // With a picture it is wider, the picture on the right; without, words only and narrower.
+      className={`fixed z-[70] ${shown.picture ? 'w-[26rem]' : 'w-80'} rounded-lg border bg-popover p-3 text-control shadow-(--mf-panel-shadow) animate-in fade-in-0 duration-150 motion-reduce:animate-none`}
       style={{ left: Math.max(12, shown.x), top: shown.y, transform: shown.above ? 'translateY(-100%)' : undefined }}
     >
       {shown.gem ? (
@@ -242,13 +268,21 @@ export function NotePreview(): React.JSX.Element | null {
           {look.label}
         </p>
       )}
-      <p className="private-text mb-1 line-clamp-3 font-medium [overflow-wrap:anywhere] text-foreground">{shown.title}</p>
+      <div className="flex gap-3">
+      <div className="min-w-0 flex-1">
+      <p data-preview-title className="private-text mb-1 line-clamp-3 font-semibold [overflow-wrap:anywhere] text-foreground">{shown.title}</p>
       {/* One line linked: that line, as it reads now, in full ink, marked as a quote of the note. */}
       {shown.line ? (
         shown.lost
           ? <p data-preview-line className="text-foreground">That line is not in the note any more.</p>
           : <p data-preview-line className="private-text line-clamp-6 whitespace-pre-line rounded-md bg-foreground/[0.04] px-2.5 py-2 text-foreground">{shown.text}</p>
-      ) : shown.text && <p className="private-text line-clamp-6 whitespace-pre-line text-muted-foreground">{shown.text}</p>}
+      ) : shown.text && (
+        // A few lines that fade out where they are cut, not a hard stop mid-word.
+        <p data-preview-text className="private-text max-h-[7.5lh] overflow-hidden whitespace-pre-line text-muted-foreground [mask-image:linear-gradient(to_bottom,black_5.5lh,transparent_7.5lh)]">{shown.text}</p>
+      )}
+      </div>
+      {shown.picture && <img data-preview-image src={shown.picture} alt="" draggable={false} onError={(event) => (event.currentTarget.style.display = 'none')} className={`size-24 shrink-0 object-cover ${shown.round ? 'rounded-full' : 'rounded-md'} border`} />}
+      </div>
       {/* A gem says how it comes back: the question Review asks, and when; or that it has none yet. */}
       {shown.gem && (
         <div data-gem-back className="mt-2 rounded-md bg-foreground/[0.04] px-2.5 py-2">

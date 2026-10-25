@@ -41,6 +41,8 @@ export type FeedPost = {
   liked: number
   /** Its tags, a few, each a way to its tag page. */
   tags: string[]
+  /** The notes its words link to ("Connected to: …" on an imported quote): each label shown as a link. `to` is "article:id". */
+  links?: { to: string; label: string }[]
   /** A gem you restacked: the note it quotes. */
   restack: { type: FeedPost['type']; id: string; title: string; text: string; who: string | null; kind: string } | null
   /** A decision made weeks ago, asked about again: what you said today, and every answer you have given it. */
@@ -282,6 +284,20 @@ export function registerFeed(): void {
     return { seen, times }
   }
 
+  /** The @ links in a stored body, Markdown's `[[@article:id|Label]]` or the editor's noteLink, so the Feed can show them as links. */
+  const linksOf = (raw: string): { to: string; label: string }[] => {
+    let value: unknown = raw
+    try { value = JSON.parse(raw) } catch { /* Markdown, as it is */ }
+    if (typeof value === 'string') return [...value.matchAll(/\[\[@([^|\]]+)\|([^\]]+)\]\]/g)].map((one) => ({ to: one[1], label: one[2] }))
+    const out: { to: string; label: string }[] = []
+    const walk = (node: { type?: string; attrs?: { id?: unknown; label?: unknown }; content?: unknown[] }): void => {
+      if (node?.type === 'noteLink' && node.attrs?.id && node.attrs.label) out.push({ to: String(node.attrs.id), label: String(node.attrs.label) })
+      for (const child of node?.content ?? []) walk(child as typeof node)
+    }
+    if (value && typeof value === 'object') walk(value as never)
+    return out
+  }
+
   const words = (row: Row): string => {
     let text = cardWords(row.body ?? '').replace(/(?<=^|\s)#\p{L}[\p{L}\p{N}_/-]*/gmu, '')
     const lines = text.split('\n').map((line) => line.trim()).filter(Boolean)
@@ -430,6 +446,7 @@ export function registerFeed(): void {
         type: row.type, id: row.id, kind: row.kind, title: row.title, text: words(row), who: row.who?.trim() || null, made: row.made,
         seen: lastSeen(row), gloss: row.type === 'question' ? null : gloss, clue: row.type === 'question' ? (gloss?.body ?? null) : null,
         react: reacts.get(key) ?? null, replies: span.n, firstReply: span.first, seenTimes: times.get(row.id) ?? 0, faded: fadedSteps(weightOf(row)), liked: likedSteps(row.type === 'day' ? row.weight : weightOf(row)), tags: tagsOfRow(row).filter((tag) => tag !== 'bit' && tag !== LEARN_TAG).slice(0, 3), restack: quoted(row),
+        links: linksOf(row.body ?? ''),
         archive: !!row.archive
       }
     }
