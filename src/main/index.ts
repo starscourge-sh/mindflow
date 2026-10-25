@@ -50,7 +50,7 @@ import { warmChrono } from './lazy/chrono'
 import { warmEmoji } from './lazy/emoji'
 import { backupBase, backupDir } from './backup'
 import { pageFor } from './pages'
-import { activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tuckRules, tempusDots, blurOn, boxAutoHide, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerHaligtree, showStickies, stickyPrefs, stickyTuck, tuckStickies, toggleSafeMode, whenKeys, whenRecordings, whenIcon, appIcon, recordingPrefs, type Recordings, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, focusToolsOn, whenFocusShows, pillInNotch, sleepChoice } from './haligtree'
+import { activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tuckRules, tempusDots, blurOn, boxAutoHide, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerHaligtree, showStickies, stickyPrefs, stickyTuck, tuckStickies, toggleSafeMode, whenKeys, whenRecordings, whenIcon, appIcon, recordingPrefs, type Recordings, type OpenGoal, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, focusToolsOn, whenFocusShows, pillInNotch, sleepChoice } from './haligtree'
 import { daysLeft, percent, tempus, wayThrough } from './goal-days'
 import { PEEK_OUT_MS, peeksOut, restNow, type Rest } from './goal-tuck'
 import { tap, taps } from './haptic'
@@ -1822,13 +1822,24 @@ function stickySize(width: number, height: number, at: Electron.Rectangle): { wi
  *
  * Each goal's beacon is a card of its own (a sticky of type 'goal'), with
  * only that goal on it. All of them together, each in its own colour with a
- * legend, is one more sticky, 'goals:all', put up by hand like a note.
+ * legend, is one more sticky, 'goals:all', put up by hand like a note, or by
+ * itself when there are too many goals for cards of their own.
  */
 const GOAL_SIZE = { width: 308, height: 368 }
 /** As glass: the card fills it. */
 const GOAL_GLASS = { width: 268, height: 328 }
 const GOALS_SIZE = { width: 340, height: 400 }
 const GOALS_GLASS = { width: 300, height: 360 }
+/** At most this many goal cards on their own; more share the goals sticky. */
+const GOAL_CARDS = 3
+/** Goals made this close together came in together (an import), not one by one. */
+const BULK_MS = 60_000
+/** How long a goal just made waits for others before its card comes out. */
+const FRESH_MS = 2000
+let freshWait: ReturnType<typeof setTimeout> | undefined
+/** The goals share the goals sticky now, and whether it was put up for that. */
+let gathered = false
+let gatheredOurs = false
 /** Where the old goal stack sat, for the first goal card made after it. */
 let stackWas: Electron.Rectangle | undefined
 /** When each beacon may show again; Infinity is "at its next moment". */
@@ -1864,12 +1875,40 @@ function beacons(): void {
     }
   }
   // A window for each goal with a beacon, nearest day first so they fan down in that order; none for the rest.
-  for (const key of [...stickies.keys()]) if (key.startsWith('goal:') && !beaconModes.has(key)) stick('goal', key.slice(5), false)
+  // Never a flood: past GOAL_CARDS beacons (an import, say), or goals made
+  // together, they share the one goals sticky instead, and only goals set to
+  // "Always" by hand keep a card of their own, still no more than GOAL_CARDS.
+  // A goal made a moment ago waits a breath, so one made with others is never
+  // put up only to be taken down again.
+  const now = Date.now()
+  const made = (goal: OpenGoal): number => Date.parse(goal.createdAt) || 0
+  const fresh = goals.filter((goal) => now - made(goal) < FRESH_MS)
+  if (fresh.length) (clearTimeout(freshWait), (freshWait = setTimeout(beacons, FRESH_MS)))
+  const out = goals.filter((goal) => beaconModes.has(`goal:${goal.id}`))
+  const crowded = out.length > GOAL_CARDS
+  const together = (goal: OpenGoal): boolean => goals.some((other) => other !== goal && Math.abs(made(other) - made(goal)) < BULK_MS)
+  const own = new Set((crowded ? out.filter((goal) => goal.beacon === 'always') : out.filter((goal) => goal.beacon === 'always' || !together(goal))).filter((goal) => !fresh.includes(goal)).slice(0, GOAL_CARDS).map((goal) => `goal:${goal.id}`))
+  for (const key of [...stickies.keys()]) if (key.startsWith('goal:') && !own.has(key)) stick('goal', key.slice(5), false)
   for (const goal of goals) {
-    if (!beaconModes.has(`goal:${goal.id}`) || stickies.has(`goal:${goal.id}`)) continue
+    if (!own.has(`goal:${goal.id}`) || stickies.has(`goal:${goal.id}`)) continue
     const at = stackWas
     stackWas = undefined
     stick('goal', goal.id, true, at)
+  }
+  // The goals sticky comes out once as they gather, said once in the main
+  // window, and goes when it is no longer needed. Taken down by its X, it
+  // stays down until they gather again.
+  if (!fresh.length) {
+    const gather = crowded || out.some((goal) => !own.has(`goal:${goal.id}`))
+    if (gather && !gathered) {
+      gatheredOurs = true
+      if (!stickies.has('goals:all')) {
+        stick('goals', 'all', true)
+        if (home && !home.isDestroyed()) home.webContents.send('goals:gathered', out.length)
+      }
+    }
+    if (!gather && gathered && gatheredOurs) (stick('goals', 'all', false), (gatheredOurs = false))
+    gathered = gather
   }
   applyRules()
   applyStickies()

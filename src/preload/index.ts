@@ -210,6 +210,12 @@ const api = {
     ipcRenderer.on('stickies:out', relay)
     return () => ipcRenderer.off('stickies:out', relay)
   },
+  /** Too many goals for cards of their own: they share the goals sticky now, this many of them. */
+  onGoalsGathered: (listen: (count: number) => void): (() => void) => {
+    const relay = (_event: unknown, count: number): void => listen(count)
+    ipcRenderer.on('goals:gathered', relay)
+    return () => ipcRenderer.off('goals:gathered', relay)
+  },
   showFolder: (path: string): void => ipcRenderer.send('folder:show', path),
   /** A sticky's pictures in Haligtree's own Quick Look, in a window over its screen rather than inside the small one. */
   look: (pictures: LookPicture[], at: number): void => ipcRenderer.send('look', pictures, at),

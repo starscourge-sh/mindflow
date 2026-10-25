@@ -35,10 +35,11 @@ try {
   check('the sandbox has open goals, three with a day marked for each', goals.length >= 3 && goals.filter((g) => marks.some((m) => markOf(m) === g.id)).length >= 3, goals.map((g) => g.title).join(' | '))
   check('each goal has a colour of its own', new Set(goals.map((g) => g.goalColor)).size === goals.length && goals.every((g) => g.goalColor), goals.map((g) => g.goalColor).join(','))
 
-  // --- each goal's own card: the sandbox puts up only Dune's, so each is set to "Always" here
-  for (const goal of goals) await v('goal:beacon:set', goal.id, 'always')
-  await wait(2500)
-  for (const goal of goals) {
+  // --- each goal's own card: the sandbox puts up only Dune's, so three are set to "Always" here (no more than three go out on their own, qa/goal-cards-many.mjs)
+  const carded = [...goals.filter((g) => /^(Finish Dune|Get to Mars)/.test(g.title)), ...goals.filter((g) => !/^(Finish Dune|Get to Mars)/.test(g.title))].slice(0, 3)
+  for (const goal of carded) await v('goal:beacon:set', goal.id, 'always')
+  await wait(4500)
+  for (const goal of carded) {
     const win = await winOf(`type=goal&id=${goal.id}`)
     if (!win) { check(`${goal.title}: a card of its own`, false); continue }
     await win.waitForSelector('[data-goal-card]', { timeout: 8000 }).catch(() => {})
@@ -57,7 +58,7 @@ try {
     check(`${goal.title}: the road rings only its own marked days`, seen.ringed.every((id) => own.includes(id)) && strangers.every((m) => !seen.text.includes(m.title)), JSON.stringify(seen.ringed))
   }
   const cardsUp = electron.windows().filter((one) => one.url().includes('view=sticky') && one.url().includes('type=goal&')).length
-  check('one card per goal, no shared stack', cardsUp === goals.length && !electron.windows().some((one) => one.url().includes('id=stack')), String(cardsUp))
+  check('one card per goal set to “Always”, no shared stack', cardsUp === carded.length && !electron.windows().some((one) => one.url().includes('id=stack')), String(cardsUp))
 
   // --- where it is offered: ⌘K, the Goals page, a goal's menu
   await h.keyboard.press('Meta+k'); await wait(500)
@@ -100,7 +101,7 @@ try {
     }
     await wait(900)
     await all.screenshot({ path: join(SHOTS, `goals-all-${theme}.png`) })
-    for (const goal of goals) {
+    for (const goal of carded) {
       const win = await winOf(`type=goal&id=${goal.id}`)
       await win.screenshot({ path: join(SHOTS, `goal-${goal.title.split(' ').slice(0, 3).join('-').toLowerCase().replace(/[^a-z-]/g, '')}-${theme}.png`) })
     }
@@ -144,8 +145,8 @@ try {
     const kept = JSON.parse(fs.readFileSync(`${app.getPath('userData')}/stickies.json`, 'utf8'))
     return { n: wins.length, top: wins.every((w) => w.isAlwaysOnTop()), spaces: wins.every((w) => w.isVisibleOnAllWorkspaces()), focused: wins.some((w) => w.isFocused()), kept: kept.filter((one) => one.type === 'goal' || one.type === 'goals').map((one) => [one.type, !!one.bounds]) }
   })
-  check('the goal stickies float on every Space and none took focus', rules.n === goals.length + 1 && rules.top && rules.spaces && !rules.focused, JSON.stringify(rules))
-  check('their places are kept', rules.kept.length === goals.length + 1 && rules.kept.every(([, b]) => b), JSON.stringify(rules.kept))
+  check('the goal stickies float on every Space and none took focus', rules.n === carded.length + 1 && rules.top && rules.spaces && !rules.focused, JSON.stringify(rules))
+  check('their places are kept', rules.kept.length === carded.length + 1 && rules.kept.every(([, b]) => b), JSON.stringify(rules.kept))
 
   // --- as glass: made again in place, the same cards
   await v('settings:set', { stickiesGlass: true, stickiesFrosted: true }); await wait(3000)

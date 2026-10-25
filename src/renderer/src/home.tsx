@@ -632,6 +632,8 @@ export function Home(): React.JSX.Element {
   const fillRef = useRef(false)
   fillRef.current = fill
   useEffect(() => window.api.onFilled(setFillState), [])
+  // Said once, quietly, as too many goals for cards of their own gather on one sticky.
+  useEffect(() => window.api.onGoalsGathered((count) => toast(`Your ${count} goals share one card on the desktop. “Always” on a goal gives it a card of its own.`, undefined, 'info')), [])
   // ⌃⇧F, the same chord that makes the prompt bigger. Held, it fires once.
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {

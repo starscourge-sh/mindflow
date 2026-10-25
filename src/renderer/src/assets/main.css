@@ -1721,6 +1721,9 @@ button.mf-signed:hover .mf-signature { text-decoration: underline; text-decorati
 :root:not([data-awake]) :is(.pb-frame-a, .pb-frame-b, .pb-hop, .pb-scroll) { animation-play-state: paused; }
 :root:not([data-awake]) .pb-core::after,
 :root:not([data-awake]) .pb-core::before { animation-play-state: paused; }
+/* A goal's today breathing and the tape's glint hold too: a card left on the desk draws nothing. */
+:root:not([data-awake]) .mf-goal-today,
+:root:not([data-awake]) .mf-tape::after { animation-play-state: paused; }
 /* Motion off or Reduce motion: the blade lit and still, the dinosaur standing. */
 :root[data-motion='off'] :is(.pb-frame-a, .pb-frame-b, .pb-hop, .pb-scroll) { animation: none; }
 :root[data-motion='off'] .pb-core::after { animation: none; }
