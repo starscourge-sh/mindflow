@@ -171,9 +171,13 @@ let first
   await c.h.waitForTimeout(2200)
   const resetArgs = await relaunched(c)
   check('Reset restarts with --sandbox --sandbox-reset', resetArgs?.includes('--sandbox') && resetArgs?.includes('--sandbox-reset'), JSON.stringify(resetArgs))
-  // Back to my notes, through the pill.
-  await c.h.reload()
-  await c.h.waitForTimeout(1500)
+  check('no page errors in the sandbox', !c.errors.some((one) => one.startsWith('PAGEERROR')), c.errors.filter((one) => one.startsWith('PAGEERROR')).join(' | '))
+  await c.close()
+}
+// Back to my notes, through the pill: in a run of its own, since a run restarts only once.
+{
+  await new Promise((done) => setTimeout(done, 1500))
+  const c = await launch('--sandbox')
   await stub(c)
   await click(c, '[data-sandbox-pill] button', 'notes')
   const backArgs = await relaunched(c)

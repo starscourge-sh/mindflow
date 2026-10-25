@@ -125,12 +125,23 @@ try {
   }
   await lookAt(pill, ['light', ''])
   // Skipped too: it folds back up, and only then does its window go.
+  // Timed where each happens (the fold in the page, the hide in main), so a slow round trip under load cannot miss the fold.
+  await pill.evaluate(() => {
+    const el = document.querySelector('[data-after]')
+    new MutationObserver(() => void (el.dataset.after === 'leaving' && (window.__leavingAt ??= Date.now()))).observe(el, { attributes: true, attributeFilter: ['data-after'] })
+  })
+  await electron.evaluate(({ BrowserWindow }) => {
+    const win = BrowserWindow.getAllWindows().find((one) => one.webContents.getURL().includes('view=focus'))
+    globalThis.__pillGoneAt = null
+    const gone = () => void (globalThis.__pillGoneAt ??= Date.now())
+    win.once('hide', gone)
+    win.once('closed', gone)
+  })
   await pill.keyboard.press('Escape')
-  await pill.waitForTimeout(120)
-  const leaving = await pill.$eval('[data-after]', (one) => one.dataset.after).catch(() => null)
-  const shownWhileLeaving = await pillVisible()
-  await pill.waitForTimeout(900)
-  check('it folds up before the window goes', leaving === 'leaving' && shownWhileLeaving && !(await pillVisible()), `${leaving}, shown ${shownWhileLeaving}`)
+  await pill.waitForTimeout(1000)
+  const leavingAt = await pill.evaluate(() => window.__leavingAt ?? null).catch(() => null)
+  const goneAt = await electron.evaluate(() => globalThis.__pillGoneAt)
+  check('it folds up before the window goes', leavingAt && goneAt && goneAt - leavingAt >= 300 && !(await pillVisible()), `folded for ${goneAt - leavingAt}ms`)
 
   // Abandoned: from the pill, the same morph; Undo; left alone it folds.
   id = await begin('To abandon', 25 * 60000)
