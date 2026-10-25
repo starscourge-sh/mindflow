@@ -44,17 +44,20 @@ export function createSuggestionRenderer<I>(
     let caret: (() => DOMRect | null) | null | undefined = null
 
     // The line it was opened on scrolled out of sight: the menu goes, as Notion's does, rather than
-    // hang on at the box's edge pointing at nothing. Typing there again brings it back.
-    const onScroll = () => {
+    // hang on at the box's edge pointing at nothing. Typing there again brings it back. Scrolling the
+    // menu's own list, or the page while its line is still in view, keeps it: a menu taller than a
+    // short box (the Journal's) always reaches past that box's edge, so that was never a reason to go.
+    const onScroll = (event: Event) => {
       if (!renderer) return
+      if (event.target instanceof Node && renderer.element.contains(event.target)) return
       let clip: HTMLElement | null = renderer.editor.view.dom.parentElement
-      while (clip && !/(auto|scroll|hidden)/.test(getComputedStyle(clip).overflowY)) clip = clip.parentElement
-      const seen = clip ? clip.getBoundingClientRect() : { top: 0, bottom: window.innerHeight }
-      const inSight = (rect: DOMRect | null | undefined): boolean => !rect || (rect.bottom > seen.top && rect.top < seen.bottom)
-      // Its line out of sight, or the menu riding with the page pushed past the box's edge.
-      const menu = renderer.element.firstElementChild?.getBoundingClientRect()
-      const whole = !menu || (menu.top >= seen.top - 1 && menu.bottom <= seen.bottom + 1)
-      if (inSight(caret?.()) && whole) return
+      while (clip && !/(auto|scroll)/.test(getComputedStyle(clip).overflowY)) clip = clip.parentElement
+      // What of the scroller is on screen: a scroller can itself ride off with the page.
+      const box = clip?.getBoundingClientRect()
+      const top = Math.max(0, box?.top ?? 0)
+      const bottom = Math.min(window.innerHeight, box?.bottom ?? window.innerHeight)
+      const rect = caret?.()
+      if (!rect || (rect.bottom > top && rect.top < bottom)) return
       exitSuggestion(renderer.editor.view, pluginKey)
     }
 
