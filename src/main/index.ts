@@ -2937,6 +2937,17 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
         if (!stored) return (missingHere.push(name), name)
         return shown(stored, name, /^\d+(x\d+)?$/.test(width?.trim() ?? '') ? width.trim().split('x')[0] : undefined, inTable)
       })
+      // [[report.pdf]] or [[photo.png|alias]], no "!": Obsidian's link to a file in the vault. The file comes
+      // in as an embedded one does (a picture shows, anything else is a link that opens it); one that is not
+      // in the vault, or a note's name with a dot in it, stays a note link.
+      next = await swap(next, /(?<!!)\[\[(.+?)\]\](?!\])/g, async (match) => {
+        const [target, alias] = match[1].split(/\\?\|/)
+        if (/#/.test(target) || /\.md$/i.test(target.trim()) || !/\.[a-z0-9]{1,12}$/i.test(target.trim())) return null
+        const found = fileFor(path, target)
+        const stored = found && (await keep(found))
+        if (!stored) return null
+        return shown(stored, alias?.trim() || target.trim().split('/').pop()!, undefined, inTable)
+      })
       // ![][address]: a video by its address, the way some plugins embed one.
       next = next.replace(/!\[\]\[\]/g, '').replace(/!\[\]\[(https?:[^\]\s]+)\]/g, (_, href: string) => (/youtu\.?be/.test(href) ? `![](${href})` : `[${href}](${href})`))
       // ![](path) and [file](path) beside the note, written with %20 for spaces.

@@ -37,7 +37,8 @@ try {
   await go('settings')
   await h.waitForTimeout(800)
   await h.locator('[data-start-page]').scrollIntoViewIfNeeded()
-  await h.evaluate(() => document.querySelectorAll('[data-start-page] button')[3]?.click())
+  // The chips go Journal (day), Home, Writing, Inbox, ...: the first is the Journal.
+  await h.evaluate(() => document.querySelectorAll('[data-start-page] button')[0]?.click())
   await h.waitForTimeout(500)
   check('1. picking a chip in Settings saves it', (await v('settings')).startPage === 'day', (await v('settings')).startPage)
   await v('settings:set', { startPage: 'home' })
@@ -102,19 +103,24 @@ try {
   }
   const stats = await v('focus:stats')
   check('4. Stats knows how long each task took, and the average', Array.isArray(stats.taskTimes?.tasks) && typeof stats.taskTimes.average === 'number', `${stats.taskTimes?.tasks.length} tasks, average ${stats.taskTimes?.average}`)
+  // The chart is one of the focus tools' sections (a Power, off until chosen), on Stats' "Your month" page.
+  await v('settings:set', { focusTools: true })
   await go('stats')
   await h.waitForTimeout(1200)
+  await h.getByRole('button', { name: 'Your month' }).first().click().catch(() => {})
+  await h.waitForTimeout(900)
   check('4. the chart is on the Stats page', stats.taskTimes.tasks.length === 0 || !!(await h.$('[data-task-times]')))
 
   // 5. Today, Tomorrow, Later and the one big thing.
   await go('today')
   await h.waitForTimeout(800)
-  // Practices joined the row later (tasks-view.tsx): Today, Tomorrow, Later, Practices, Today pressed.
-  const lists = await h.$$eval('[data-task-lists] button', (all) => all.map((one) => `${one.getAttribute("aria-label") ?? one.textContent.trim()}:${one.getAttribute("aria-pressed")}`))
-  check('5. Today has Tomorrow and Later beside it', lists.join() === 'Today:true,Tomorrow:false,Later:false,Practices:false', JSON.stringify(lists))
-  await h.click('[data-task-lists] button >> nth=1').catch(() => {})
+  // The row is chips now (tasks-view.tsx TASK_TABS): Today, Upcoming (Tomorrow became the days ahead), Later, Routines.
+  const tabs = ['Today', 'Upcoming', 'Later', 'Routines']
+  const lists = await h.$$eval('button[aria-pressed]', (all, names) => all.filter((one) => names.includes(one.textContent.trim())).map((one) => `${one.textContent.trim()}:${one.getAttribute('aria-pressed')}`), tabs)
+  check('5. Today has Upcoming and Later beside it', lists.join() === 'Today:true,Upcoming:false,Later:false,Routines:false', JSON.stringify(lists))
+  await h.getByRole('button', { name: 'Upcoming', exact: true }).first().click().catch(() => {})
   await h.waitForTimeout(900)
-  check('5. Tomorrow opens its own list', (await pageId()) === 'tomorrow', await pageId())
+  check('5. Upcoming opens its own list', (await pageId()) === 'upcoming', await pageId())
   const today = new Date()
   const key = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
   const todays = (await v('tasks')).find((one) => one.status === 'open' && !one.recurrence && one.dueAt && new Date(one.dueAt) < new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1))

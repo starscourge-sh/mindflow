@@ -32,7 +32,8 @@ const audit = (target) => target.evaluate(() => {
     const s = getComputedStyle(el)
     if (s.overflow !== 'hidden' && s.overflowX !== 'hidden') continue
     const faded = [s.maskImage, s.webkitMaskImage].some((m) => m?.includes('gradient'))
-    if (el.clientWidth && el.scrollWidth > el.clientWidth + 2 && s.textOverflow !== 'ellipsis' && !/\d/.test(s.webkitLineClamp) && !faded) out.clipped.push(el.textContent.slice(0, 40))
+    // A name put away for screen readers on a short row (Tailwind's sr-only behind a container query) is 1px on purpose.
+    if (el.clientWidth > 1 && el.scrollWidth > el.clientWidth + 2 && s.textOverflow !== 'ellipsis' && !/\d/.test(s.webkitLineClamp) && !faded) out.clipped.push(el.textContent.slice(0, 40))
   }
   // A scrolling box whose top is cut off even scrolled all the way up (centred content taller than the box).
   for (const el of document.querySelectorAll('*')) {
@@ -106,7 +107,8 @@ try {
         if (showing !== (side === 'open')) { await h.keyboard.press('Meta+b'); await wait(500) }
         if (side === 'open') {
           // Customize, beside the sidebar, from a part's heading's right-click menu.
-          await h.locator('aside[data-chrome] button:has-text("Upcoming"), aside[data-chrome] button[aria-label*="Upcoming"]').first().click({ button: 'right', timeout: 3000 }).catch(async () => shoot(`${at}-no-row`))
+          // Upcoming is a tab of Tasks now, not a sidebar row: any row's menu has Customize; Home's is always there.
+          await h.locator('aside[data-chrome] button:has-text("Home"), aside[data-chrome] [role="button"]:has-text("Home")').first().click({ button: 'right', timeout: 3000 }).catch(async () => shoot(`${at}-no-row`))
           await wait(400)
           const item = h.getByRole('menuitem', { name: /Customize the sidebar/ })
           check(`${at}: Customize opens`, await item.count())

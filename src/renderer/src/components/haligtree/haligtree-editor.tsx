@@ -840,6 +840,17 @@ function Surface({
     }
   }
 
+  // The editor the caller was last told of (onReady), and the one this surface draws. In a development
+  // run (StrictMode) more than one is made for a surface and the one put away can say it was made last,
+  // so the caller kept a gone editor: a page's board, asked of it, said "Nothing here to make a board of
+  // yet" while its menu ticked "Board view". Only the drawn one is told of, again when it changes.
+  const toldOf = useRef<Editor | null>(null)
+  const drawn = useRef<Editor | null>(null)
+  const tell = (instance: Editor): void => {
+    if (instance.isDestroyed || instance === toldOf.current || (drawn.current && drawn.current !== instance && !drawn.current.isDestroyed)) return
+    toldOf.current = instance
+    onReady?.(instance)
+  }
   const editor = useEditor({
     // Drawn with its words in the first frame: created after it, a note opened (a page, a window, a tag's stream) showed empty for a frame, then its words, and pushed what was under it down.
     immediatelyRender: true,
@@ -1374,7 +1385,7 @@ function Surface({
     onCreate: ({ editor: instance }) => {
       // Let go of when it goes, or every editor ever opened stays in memory.
       if (shape === "document") (readers.add(instance), instance.on("destroy", () => readers.delete(instance)))
-      onReady?.(instance)
+      tell(instance)
       // Opened by a link to one of its headings: go there once laid out.
       const heading = shape === "document" ? takePendingHeading() : null
       if (heading) requestAnimationFrame(() => goToHeading(instance, heading))
@@ -1390,6 +1401,11 @@ function Surface({
       }, SAVE_DEBOUNCE_MS)
     },
   })
+
+  drawn.current = editor
+  useEffect(() => {
+    if (editor) tell(editor)
+  }, [editor]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Unmount covers switching notes with a `key`; `pagehide` covers closing the
   // window, which never unmounts anything.

@@ -22,15 +22,20 @@ export function catchFreezes(win: BrowserWindow, name: string): void {
       // DevTools or another debugger has the page: no catching this run.
     }
   }
-  wc.on('did-finish-load', listen)
+  // Watched from its first load on: a development page takes seconds to load from the dev server, and that is not a freeze.
+  let loaded = false
+  wc.on('did-finish-load', () => ((loaded = true), listen()))
   win.on('closed', () => clearInterval(tick))
   let caught = false
   let asking = false
   const tick = setInterval(async () => {
     if (win.isDestroyed() || wc.isDestroyed()) return clearInterval(tick)
-    if (asking || caught) return
+    if (asking || caught || !loaded) return
     asking = true
-    const answered = await Promise.race([wc.executeJavaScript('1').then(() => true, () => true), new Promise<boolean>((done) => setTimeout(() => done(false), 3000))])
+    // Asked of the page's frame itself: the window's executeJavaScript waits for the page to stop loading, so while
+    // anything on it was still coming in (a dev server's module, a picture) every ask timed out as a "freeze" with
+    // no stack (nothing was running), and each left a did-stop-loading listener behind (MaxListenersExceededWarning).
+    const answered = await Promise.race([wc.mainFrame.executeJavaScript('1').then(() => true, () => true), new Promise<boolean>((done) => setTimeout(() => done(false), 3000))])
     asking = false
     if (answered || win.isDestroyed() || wc.isDestroyed()) return
     caught = true
