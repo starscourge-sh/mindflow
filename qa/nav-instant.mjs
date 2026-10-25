@@ -17,6 +17,7 @@
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 import { seedBig, seeded } from './big-book.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const { check, done } = checks()
 const DATA = process.env.QA_DATA

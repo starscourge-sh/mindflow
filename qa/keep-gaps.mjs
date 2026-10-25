@@ -4,6 +4,7 @@
 // plain words, one set aside says why it is dimmed, and an Undo is one sound.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/keep-gaps.mjs [shots-folder]
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const c = await sandbox({ width: 1200, height: 800 })
 const { h, go, v } = c

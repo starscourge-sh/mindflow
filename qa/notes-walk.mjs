@@ -2,6 +2,7 @@
 // flagging what reads as broken: sideways scroll, text cut off, buttons smaller than 24 points.
 // Run: QA_SHOTS=dir QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-notes/main/index.js HALIGTREE_QA_AWAY=1 node qa/notes-walk.mjs
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const { h, go, send, size, theme, close, errors } = await sandbox({ width: 1200, height: 800 })
 const SHOT = process.env.QA_SHOTS

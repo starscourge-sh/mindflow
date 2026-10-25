@@ -9,6 +9,7 @@
 //   npx electron-vite build --outDir out-rhythm
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-rhythm/main/index.js HALIGTREE_QA_AWAY=1 node qa/review-rhythm.mjs
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const c = await sandbox({ width: 1280, height: 900, at: '09:30' })
 const { h, v, go } = c

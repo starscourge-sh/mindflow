@@ -10,6 +10,7 @@
 //
 // SHOTS=dir saves a picture of a page as a board.
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const s = await sandbox({ width: 1400, height: 860 })
 const { h, v, send } = s

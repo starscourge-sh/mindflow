@@ -8,6 +8,7 @@
 import { mkdirSync, readFileSync } from 'fs'
 import { join } from 'path'
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const SHOT = process.env.SHOT
 if (SHOT) mkdirSync(SHOT, { recursive: true })

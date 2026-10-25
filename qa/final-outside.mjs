@@ -15,6 +15,7 @@
 // SHOTS=<dir> keeps a picture of each.
 import { mkdirSync } from 'fs'
 import { measure } from './final-measure.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 process.env.HALIGTREE_QA_NOTCH ??= '1'
 const { sandbox } = await import('./sandbox-lib.mjs')

@@ -2,6 +2,7 @@
 // Leaves is chosen to start, a click on Gold leaves keeps it and changes the Dock's icon without an error,
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/app-icon.mjs
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const c = await sandbox({ width: 1100, height: 800 })
 const { h, v, send, electron } = c

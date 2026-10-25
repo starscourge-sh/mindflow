@@ -5,6 +5,7 @@
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/tip-next.mjs
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const { check, done } = checks()
 const c = await sandbox({ width: 1200, height: 800 })

@@ -9,6 +9,7 @@
 // COST_ONLY=1 measures only what the pill costs at rest, to compare builds.
 import { mkdirSync, writeFileSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const SHOT = process.env.SHOT ?? 'scratchpad/island'
 mkdirSync(`${SHOT}/drop`, { recursive: true })

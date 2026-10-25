@@ -7,6 +7,7 @@
 //   npx electron-vite build --outDir out-polish
 //   QA_ARGS=--sandbox QA_ENTRY=out-polish/main/index.js HALIGTREE_QA_AWAY=1 node qa/polish-ten.mjs
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const c = await sandbox({ width: 1200, height: 860 })
 const { h, page, v, go, send, electron } = c

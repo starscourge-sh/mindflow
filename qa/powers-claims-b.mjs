@@ -5,6 +5,7 @@
 //   npx electron-vite build --outDir out-pw
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-pw/main/index.js HALIGTREE_QA_AWAY=1 node qa/powers-claims-b.mjs
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const s = await sandbox({ width: 1280, height: 860 })
 const { h, v, go, send } = s

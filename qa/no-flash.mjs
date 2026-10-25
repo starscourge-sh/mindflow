@@ -20,6 +20,7 @@
 //   MOMENTS=0 leaves out the other moments (book switch, sandbox Reset, ⌘Z after a Bin move, sort, theme).
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const { check, done } = checks()
 const c = await sandbox({ width: 1300, height: 900 })

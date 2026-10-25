@@ -73,11 +73,14 @@ export const dayOf = (date = new Date()): string => dayKey(date)
 
 let thumbs: Record<string, string> = {}
 let showThumbs = true
+// Read once yet: until then a row cannot say whether it has a picture.
+let thumbsIn = false
 const listeners = new Set<() => void>()
 let started = false
 const loadThumbs = (): void =>
   void Promise.all([notes.thumbs(), haligtree.settings()]).then(([found, settings]) => {
     thumbs = found
+    thumbsIn = true
     showThumbs = (settings as { thumbnails?: boolean }).thumbnails !== false
     listeners.forEach((listen) => listen())
   })
@@ -90,6 +93,8 @@ const subscribe = (listen: () => void): (() => void) => {
   listeners.add(listen)
   return () => void listeners.delete(listen)
 }
+/** Whether the pictures have been read in this window: a page waits for it, so a picture never arrives after its row. */
+export const thumbsRead = (): boolean => thumbsIn
 /** The first picture in a note, or nothing; nothing too when the setting is off. */
 export const useThumb = (id: string): string | undefined =>
   useSyncExternalStore(subscribe, () => (showThumbs ? thumbs[id] : undefined))

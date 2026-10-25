@@ -10,6 +10,7 @@ import { readdirSync } from 'fs'
 import { join } from 'path'
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 if ((process.env.QA_DATA ?? '').includes('Application Support')) throw new Error('never the real data folder')
 const { check, done } = checks()

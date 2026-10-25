@@ -3,6 +3,7 @@
 // calls are stood in for, and the window's events are sent by hand.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out/main/index.js HALIGTREE_QA_AWAY=1 node qa/fullscreen.mjs
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const { electron, h, errors, close } = await sandbox()
 let failed = 0

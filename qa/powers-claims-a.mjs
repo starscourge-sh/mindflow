@@ -14,6 +14,7 @@ import { mkdtempSync, writeFileSync, mkdirSync, readFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 // Pasted embeds are looked for in the vaults Obsidian knows: a made-up list, never yours.
 process.env.HALIGTREE_OBSIDIAN_CONFIG = join(mkdtempSync(join(tmpdir(), 'powers-claims-obsidian-')), 'obsidian.json')

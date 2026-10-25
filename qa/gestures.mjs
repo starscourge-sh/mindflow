@@ -9,6 +9,7 @@
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/gestures.mjs
 // SURVEY=1 only says what each gesture does, for a build from before.
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const SURVEY = !!process.env.SURVEY
 const results = []

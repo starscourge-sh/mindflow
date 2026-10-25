@@ -18,6 +18,7 @@
 //   QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=<dir> MODE=empty node qa/walk-pages.mjs
 import { mkdirSync } from 'node:fs'
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const MODE = process.env.MODE ?? 'basic'
 const SHOTS = `${process.env.SHOTS ?? '/tmp/walk-pages'}/${MODE}`

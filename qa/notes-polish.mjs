@@ -1,6 +1,7 @@
 // Sources page keys, Gems filtered by status and rating, source dots' icons, and the editor's menus at each window size.
 // Run: QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-notes/main/index.js HALIGTREE_QA_AWAY=1 node qa/notes-polish.mjs
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const { h, v, go, send, size, close, errors } = await sandbox({ width: 1200, height: 800 })
 const fails = []

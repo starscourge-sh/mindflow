@@ -4,6 +4,7 @@
 // privacy in plain words; an open quote's "said by" is a click from changing.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/journey-capture.mjs [shot-dir]
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const c = await sandbox({ width: 1100, height: 760 })
 const { h, v, go, send } = c

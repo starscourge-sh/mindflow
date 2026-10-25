@@ -3,6 +3,7 @@
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-fly/main/index.js SHOT=<dir> node qa/caption-gap.mjs
 import { sandbox } from './sandbox-lib.mjs'
 import { deflateSync, crc32 } from 'zlib'
+process.env.QA_ARGS ??= '--sandbox'
 // A 4:3 picture with black bands over and under a 16:9 one, as a YouTube thumbnail has.
 function banded(width = 480, height = 360, band = 45) {
   const chunk = (type, data) => { const head = Buffer.alloc(8); head.writeUInt32BE(data.length); head.write(type, 4); const crc = Buffer.alloc(4); crc.writeUInt32BE(crc32(Buffer.concat([Buffer.from(type), data]))); return Buffer.concat([head, data, crc]) }

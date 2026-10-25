@@ -4,6 +4,7 @@
 // taken instead, and only when there is no picture anywhere is a short notice said.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-paste/main/index.js HALIGTREE_QA_AWAY=1 node qa/paste-unreadable.mjs
 import { open, checks } from './harness.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 const { check, done } = checks()

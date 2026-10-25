@@ -8,6 +8,7 @@
 //   npx electron-vite build --outDir out-feat
 //   QA_ARGS=--sandbox QA_ENTRY=out-feat/main/index.js HALIGTREE_QA_AWAY=1 node qa/twelve.mjs
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 process.env.HALIGTREE_QA_FAKE_SCREEN = '1'
 process.env.HALIGTREE_QA_FAKE_AREA_MS = '1500'

@@ -11,6 +11,7 @@
 //   npx electron-vite build --outDir out-events
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-events/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=dir node qa/events.mjs
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const pad = (n) => String(n).padStart(2, '0')
 const key = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`

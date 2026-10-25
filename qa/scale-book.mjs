@@ -20,6 +20,7 @@ import { join } from 'path'
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
 import { mkdirSync } from 'fs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const { check, done } = checks()
 const DATA = process.env.QA_DATA

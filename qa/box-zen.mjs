@@ -7,6 +7,7 @@
 // ⌥⌘, keeps them hidden until pointed at, and ⌘↵ still creates. Motion off: at once.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/box-zen.mjs
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const c = await sandbox({ width: 1100, height: 760 })
 const { page, h, v } = c

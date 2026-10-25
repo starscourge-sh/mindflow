@@ -8,6 +8,7 @@
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/accent-ink.mjs
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const THEMES = ['github', 'midnight', 'paper', 'dark', 'light', 'catppuccin', 'dracula', 'gruvbox', 'tokyonight', 'obsidian-nord', 'everforest', 'kanagawa', 'adwaita', 'rose-pine']
 const { check, done } = checks()

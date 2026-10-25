@@ -3,6 +3,7 @@
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-types/main/index.js SHOTS=<dir> node qa/types-shots.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const dir = process.env.SHOTS ?? '/tmp/types'
 mkdirSync(dir, { recursive: true })

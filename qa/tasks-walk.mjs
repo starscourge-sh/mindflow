@@ -7,6 +7,7 @@
 //   npx electron-vite build --outDir out-tasks
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-tasks/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=dir TAG=before node qa/tasks-walk.mjs
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const c = await sandbox({ width: 900, height: 640 })
 const { h, v, go, size, theme } = c

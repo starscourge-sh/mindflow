@@ -3,6 +3,7 @@
 // "Note:"), a lone colon, or a time ("10:30").
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/emoji-colon.mjs
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const c = await sandbox({ width: 1000, height: 700 })
 const { page, v } = c

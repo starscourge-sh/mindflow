@@ -1,7 +1,8 @@
 import { askRename, openSource } from '@/lib/sources'
 import type { CSSProperties, ReactElement } from 'react'
 
-import { hueOf, initials, pasteAvatar, pickAvatar, setAvatar, useAvatar } from '@/lib/people'
+import { hueOf, initials, pasteAvatar, peopleRead, pickAvatar, setAvatar, useAvatar } from '@/lib/people'
+import { useDecoded } from '@/lib/decoded'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuLabel, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { toast } from './ui'
 import { SHAPES, TINTS } from './coolshapes'
@@ -24,6 +25,8 @@ const hashOf = (name: string): number => {
  */
 export function Avatar({ name, size = 16, className = '', look }: { name: string; size?: number; className?: string; /** Settings' sample: this look whatever the setting says. */ look?: 'shapes' | 'initials' }): React.JSX.Element | null {
   const avatar = useAvatar(name)
+  // Its page waits for the pictures' read and this one's decode, a moment at most: never initials, then the picture.
+  useDecoded(avatar, !peopleRead())
   const trimmed = name.trim()
   if (!trimmed) return null
   const hash = hashOf(trimmed)

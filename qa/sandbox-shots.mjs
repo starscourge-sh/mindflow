@@ -2,6 +2,7 @@
 //   QA_DATA=<tmp> QA_ARGS=--sandbox QA_ENTRY=out-sandbox/main/index.js SHOTS=<dir> THEME=github W=1000 H=700 node qa/sandbox-shots.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const W = Number(process.env.W ?? 1000), H = Number(process.env.H ?? 700)
 const theme = process.env.THEME ?? 'github'

@@ -14,6 +14,7 @@
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-ten/main/index.js HALIGTREE_QA_AWAY=1 node qa/ten-asks.mjs
 import { createServer } from 'http'
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const server = createServer((req, res) => {
   const word = decodeURIComponent(new URL(req.url, 'http://x').pathname.split('/').pop() ?? '')

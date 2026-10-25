@@ -4,6 +4,7 @@
 //
 //   npx electron-vite build --outDir out-welcome && QA_ARGS=--sandbox QA_ENTRY=out-welcome/main/index.js node qa/welcome-refs.mjs
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 const c = await sandbox({ width: 1000, height: 700 })
 const { h } = c
 const asks = ['Do or do not. There is no try', 'petrichor', 'Rewatch The Empire Strikes Back',

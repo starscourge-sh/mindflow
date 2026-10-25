@@ -1,6 +1,7 @@
 // Sources and people as pages, the source map, voices, role tags and properties.
 // Run: QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-sources/main/index.js HALIGTREE_QA_AWAY=1 node qa/sources.mjs
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const { h, v, go, send, close, errors } = await sandbox({ width: 1200, height: 800 })
 const fails = []

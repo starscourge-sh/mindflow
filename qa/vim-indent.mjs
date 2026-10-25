@@ -8,6 +8,7 @@
 //   a formula copies as its text, and "$20 and $500" pasted stays money.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/vim-indent.mjs
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const c = await sandbox({ width: 1000, height: 700 })
 const { page, v } = c

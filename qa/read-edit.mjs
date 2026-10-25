@@ -8,6 +8,7 @@
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-re/main/index.js HALIGTREE_QA_AWAY=1 node qa/read-edit.mjs
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const c = await sandbox({ width: 1280, height: 840 })
 const { h, v } = c

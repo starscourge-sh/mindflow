@@ -4,6 +4,7 @@
 //   EMPTY=1 QA_DATA=$(mktemp -d) QA_ENTRY=out-map/main/index.js SHOTS=<dir> node qa/map.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const dir = process.env.SHOTS ?? `${process.env.QA_DATA}/shots`
 const empty = !!process.env.EMPTY

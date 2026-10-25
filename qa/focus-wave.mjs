@@ -15,6 +15,7 @@
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 // A notch stood in, so the notch's ways and the rounded glow can be seen on any Mac.
 process.env.HALIGTREE_QA_NOTCH = '1'

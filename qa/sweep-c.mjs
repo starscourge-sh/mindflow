@@ -14,6 +14,7 @@ import { createRequire } from 'module'
 import { dirname, join, relative } from 'path'
 import { fileURLToPath } from 'url'
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const dir = process.env.SHOTS ?? `${process.env.QA_DATA}/shots`
 mkdirSync(dir, { recursive: true })

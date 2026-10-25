@@ -13,6 +13,7 @@
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 // Each window keeps the place it was given while really parked, so where the notice sits can be checked.
 process.env.HALIGTREE_QA_VIRTUAL = '1'

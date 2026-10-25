@@ -15,6 +15,7 @@
 import { mkdirSync, readFileSync, existsSync } from 'fs'
 import { join } from 'path'
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 process.env.HALIGTREE_QA_VIRTUAL ??= '1'
 const SHOTS = process.env.QA_SHOTS ?? 'scratchpad/round/stickies'

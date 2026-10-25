@@ -6,6 +6,7 @@
 //   QA_DATA=$D QA_ENTRY=out-sb/main/index.js SHOT=<dir> OWN=1 node qa/sabers-sandbox.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const SHOT = process.env.SHOT ?? 'scratchpad/sabers'
 mkdirSync(SHOT, { recursive: true })

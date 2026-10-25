@@ -3,6 +3,7 @@
 // Haligtree's chosen icon is put on again each time.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/dock-icon.mjs
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const c = await sandbox({ width: 1000, height: 700 })
 const { page, electron } = c

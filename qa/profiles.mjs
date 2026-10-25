@@ -2,6 +2,7 @@
 // Run: QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-p/main/index.js HALIGTREE_QA_AWAY=1 node qa/profiles.mjs
 // QA_SHOTS=<folder> also saves light and dark pictures of Settings, Jane Austen's page and a Feed post.
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const { h, v, go, theme, close, errors } = await sandbox({ width: 1200, height: 860 })
 const fails = []

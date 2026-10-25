@@ -9,6 +9,7 @@
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-imgclip/main/index.js HALIGTREE_QA_AWAY=1 SHOT=<dir> TAG=after node qa/img-clip.mjs
 // READ=1 checks the same in Read; LONG=1 in a note long enough to be drawn a band at a time.
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const SHOT = process.env.SHOT
 const TAG = process.env.TAG ?? ''

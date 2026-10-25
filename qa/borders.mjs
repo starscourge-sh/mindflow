@@ -8,6 +8,7 @@
  */
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const SHOTS = process.env.QA_SHOTS ?? 'scratchpad/borders'
 mkdirSync(SHOTS, { recursive: true })

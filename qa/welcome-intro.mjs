@@ -102,21 +102,54 @@ try {
   // Open my book: the welcome turns over onto Home, never a frame of neither.
   await h.click('footer [data-skip]')
   await h.waitForTimeout(1600)
-  await h.click('footer button:has-text("Open my book")')
-  const frames = []
-  for (let i = 0; i < 16; i++) {
-    frames.push(await h.evaluate(() => {
+  // Every frame for 2.8s from the press, in the page: the welcome, Home, and the sidebar with its Inbox row.
+  await h.evaluate(() => {
+    window.qaFrames = []
+    const start = performance.now()
+    const look = () => {
       const welcome = document.querySelector('.mf-welcome')
-      const shown = welcome ? Number(getComputedStyle(welcome).opacity) : 0
       const home = document.querySelector('[data-home-plan]')
-      // Home drawn: there, and no longer held undrawn under the welcome (main.css, data-welcoming).
-      return { welcome: shown, home: !!home && home.getBoundingClientRect().height > 0 && !document.documentElement.hasAttribute('data-welcoming') }
-    }))
-    if (SHOTS && i % 4 === 1) await shot(`1${i}-book`)
-    await h.waitForTimeout(90)
-  }
-  check('every frame shows the welcome or Home', frames.every((one) => one.welcome > 0.5 || one.home), JSON.stringify(frames))
-  await h.waitForTimeout(1200)
+      const side = document.querySelector('aside[data-chrome]')
+      const inbox = document.querySelector('[data-tour="inbox"]')?.getBoundingClientRect()
+      window.qaFrames.push({
+        t: Math.round(performance.now() - start),
+        welcome: welcome ? Number(getComputedStyle(welcome).opacity) : 0,
+        // Home drawn: there, and no longer held undrawn under the welcome (main.css, data-welcoming).
+        home: !!home && home.getBoundingClientRect().height > 0 && !document.documentElement.hasAttribute('data-welcoming'),
+        side: side ? Number(getComputedStyle(side).opacity) : 0,
+        inbox: inbox ? Math.round(inbox.top * 10) / 10 : null
+      })
+      if (performance.now() - start < 2800) requestAnimationFrame(look)
+    }
+    requestAnimationFrame(look)
+  })
+  await h.click('footer button:has-text("Open my book")')
+  for (let i = 0; i < 4; i++) (SHOTS && (await shot(`1${i}-book`)), await h.waitForTimeout(360))
+  await h.waitForTimeout(3000 - 4 * 360)
+  const frames = await h.evaluate(() => window.qaFrames)
+  check('every frame shows the welcome or Home', frames.length > 60 && frames.every((one) => one.welcome > 0.5 || one.home), `${frames.length} frames; ${JSON.stringify(frames.filter((one) => !(one.welcome > 0.5 || one.home)).slice(0, 3))}`)
+  // The sidebar comes in after the welcome goes: faint as Home first shows, risen whole by the end.
+  const firstHome = frames.find((one) => one.home && one.welcome <= 0.5)
+  const settled = frames[frames.length - 1]
+  check('the sidebar is still coming in as the welcome goes', !!firstHome && (firstHome.side < 0.95 || firstHome.inbox - frames[frames.length - 1].inbox > 1), JSON.stringify(firstHome))
+  check('and fades up to whole', settled.side > 0.99 && frames.some((one) => one.home && one.side > 0.05 && one.side < 0.95), `last ${settled.side}`)
+  const tops = frames.filter((one) => one.home && one.inbox !== null).map((one) => one.inbox)
+  check('its rows rise into place', tops.length > 10 && Math.max(...tops) - settled.inbox > 2 && tops.slice(-5).every((top) => Math.abs(top - settled.inbox) < 0.5), `inbox from ${Math.max(...tops)} to ${settled.inbox}`)
+  // The tour's first stop, about four seconds after the press: beside Inbox, and not over "Your book, opened".
+  await h.waitForSelector('[role="dialog"][aria-label="Where things are"]', { timeout: 6000 })
+  await h.waitForTimeout(700)
+  const stop = await h.evaluate(() => {
+    const box = (el) => { const r = el?.getBoundingClientRect(); return r ? { left: r.left, top: r.top, right: r.right, bottom: r.bottom } : null }
+    const dialog = document.querySelector('[role="dialog"][aria-label="Where things are"]')
+    return { card: box([...dialog.children].find((el) => el.querySelector('.font-heading'))), line: box(document.querySelector('[data-book-opened]')), inbox: box(document.querySelector('[data-tour="inbox"]')), title: dialog.querySelector('.font-heading')?.textContent }
+  })
+  await shot('15-tour')
+  const overlaps = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
+  check('the tour\'s first stop is Inbox', stop.title === 'Your Inbox', stop.title)
+  check('its card is clear of "Your book, opened"', !!stop.card && !!stop.line && !overlaps(stop.card, stop.line), JSON.stringify(stop))
+  check('and the Inbox row it points at has not moved', !!stop.inbox && Math.abs(stop.inbox.top - settled.inbox) < 0.5, `${settled.inbox} -> ${stop.inbox?.top}`)
+  await h.keyboard.press('Escape')
+  await h.waitForTimeout(400)
   check('then Home, with the welcome gone', (await h.locator('.mf-welcome').count()) === 0 && (await h.locator('[data-home-plan]').count()) > 0)
   const line = await h.evaluate(() => document.querySelector('[data-book-opened]')?.textContent ?? '')
   check('Home says when the book was opened', /Your book, opened/.test(line), line)

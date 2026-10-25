@@ -6,6 +6,7 @@
 // QA_BUDGET ms (150 by default) to be drawn.
 // Run: QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-open/main/index.js HALIGTREE_QA_AWAY=1 node qa/open-speed.mjs
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const BUDGET = Number(process.env.QA_BUDGET ?? 150)
 const results = []

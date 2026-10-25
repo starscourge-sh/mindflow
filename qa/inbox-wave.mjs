@@ -11,6 +11,7 @@
 import { mkdirSync, writeFileSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 // The area pick needs a stand-in screen, and the throws read where each parked
 // window was put: set here, so the usual run line is enough.

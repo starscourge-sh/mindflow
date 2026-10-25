@@ -7,6 +7,7 @@
 // SHOTS=dir keeps pictures.
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 process.env.HALIGTREE_QA_FAKE_SCREEN = 'denied'
 const shots = process.env.SHOTS

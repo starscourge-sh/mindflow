@@ -11,6 +11,7 @@
 // re-measuring switched off, so a pill measured before its label filled in
 // stayed a 17px dot. Run it against a development build to see that.
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const c = await sandbox()
 const { electron, h, go, v } = c

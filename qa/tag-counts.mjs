@@ -4,6 +4,7 @@
 // under "N more resolved or done"; archived and binned ones are out of it.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/tag-counts.mjs
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const c = await sandbox({ width: 1300, height: 900 })
 const { h, v, go } = c

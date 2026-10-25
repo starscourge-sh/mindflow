@@ -4,6 +4,7 @@
 // one line is kept on that line only, and Create gives each task its own day.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-ld/main/index.js HALIGTREE_QA_AWAY=1 node qa/box-list-dates.mjs
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const c = await sandbox({ width: 1100, height: 760 })
 const { page, v } = c

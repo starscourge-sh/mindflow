@@ -9,6 +9,7 @@
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-pw-c/main/index.js HALIGTREE_QA_AWAY=1 node qa/powers-claims-c.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 // A stand-in for the Mac's calendar (main/mac-calendar.ts reads it in a QA run): one event today at 3pm.
 { const at = new Date(); at.setHours(15, 0, 0, 0); process.env.HALIGTREE_QA_CALENDAR ??= JSON.stringify([{ title: 'Dentist', start: at.toISOString(), end: new Date(at.getTime() + 3600000).toISOString(), allDay: false, calendar: 'Home', color: '#3b82f6' }]) }

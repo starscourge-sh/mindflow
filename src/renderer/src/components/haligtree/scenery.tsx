@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useState, type ReactNode } from 'react'
 import { useReading } from '@/lib/reads-in'
+import { decoded, warm, WAIT } from '@/lib/decoded'
 import { contrast } from '@/lib/on-accent'
 import { AnimatePresence, motion } from 'motion/react'
 import { useLive, haligtree, type Mood, type Scene, type Settings } from '@/lib/haligtree'
@@ -79,22 +80,6 @@ function keepRest(key: string, url: string): void {
     // Not kept: the next window picks again, a repeat at worst.
   }
 }
-/** Pictures already decoded in this window: shown without waiting again. */
-const decoded = new Set<string>()
-/** Each picture's decode, started once, as soon as a place picks it. */
-const warming = new Map<string, Promise<boolean>>()
-function warm(url: string): Promise<boolean> {
-  let done = warming.get(url)
-  if (!done) {
-    const image = new Image()
-    image.src = url
-    done = image.decode().then(() => (decoded.add(url), true), () => (warming.delete(url), false))
-    warming.set(url, done)
-  }
-  return done
-}
-/** How long a page holds its first paint for its picture: past it, the blurred copy, then the fade. */
-const WAIT = 150
 /** The picture each place has shown, for as long as this window is open. */
 const picked = new Map<string, string>()
 

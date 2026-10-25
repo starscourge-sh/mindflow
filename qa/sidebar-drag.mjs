@@ -5,6 +5,7 @@
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/sidebar-drag.mjs
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const { check, done } = checks()
 const NATURAL = { inbox: 'Write', home: 'Write', day: 'Write', articles: 'Write', nuggets: 'Write', review: 'Write', today: 'Write', calendar: 'Write' }

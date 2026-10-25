@@ -14,10 +14,13 @@ type People = Record<string, Person>
 
 let people: People = {}
 let asked = false
+// Read once yet: until then a face cannot say whether it has a picture.
+let read = false
 const listeners = new Set<() => void>()
 const load = (): void =>
   void (window.api.haligtree<People>('people')).then((next) => {
-    if (JSON.stringify(next) === JSON.stringify(people)) return
+    if (read && JSON.stringify(next) === JSON.stringify(people)) return
+    read = true
     people = next ?? {}
     listeners.forEach((listen) => listen())
   }, () => undefined)
@@ -37,6 +40,9 @@ export const useAvatar = (name: string | null | undefined): string | null => {
   const all = useSyncExternalStore(subscribe, () => people)
   return name ? (all[personKey(name)]?.avatar ?? null) : null
 }
+
+/** Whether the pictures have been read in this window: a face waits for it, so it never shows its initials and then its picture. */
+export const peopleRead = (): boolean => read
 
 /** One or two letters for a name: its first and last words' first letters. */
 export const initials = (name: string): string => {

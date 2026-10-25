@@ -9,6 +9,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 process.env.HALIGTREE_QA_VIRTUAL ??= '1'
 const SHOTS = process.env.SHOTS ?? mkdtempSync(join(tmpdir(), 'walk-capture-'))

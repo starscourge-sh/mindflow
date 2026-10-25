@@ -7,6 +7,7 @@
 //   npx electron-vite build --outDir out-sweepa
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-sweepa/main/index.js HALIGTREE_QA_AWAY=1 node qa/sweep-a.mjs
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const results = []
 const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok }); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`) }

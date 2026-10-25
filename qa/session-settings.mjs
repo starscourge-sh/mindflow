@@ -6,6 +6,7 @@
 //   npx electron-vite build --outDir out-ts
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-ts/main/index.js HALIGTREE_QA_AWAY=1 node qa/session-settings.mjs
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const results = []
 const check = (name, ok, detail = '') => { results.push(ok); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`) }

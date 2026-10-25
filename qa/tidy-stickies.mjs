@@ -8,6 +8,7 @@
 import { mkdirSync, readFileSync, readdirSync, existsSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { open } from './harness.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const SHOTS = process.env.QA_SHOTS ?? 'scratchpad/stickies'
 mkdirSync(SHOTS, { recursive: true })

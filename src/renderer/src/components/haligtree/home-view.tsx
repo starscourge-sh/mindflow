@@ -8,7 +8,8 @@ import { useCaptures } from '@/components/capture-list'
 import { textOf } from '@/components/rot-cards'
 import { chime } from '@/lib/sound'
 import { issues, type Repeat } from '@/lib/issues'
-import { smallPicture, useThumb } from '@/lib/notes'
+import { smallPicture, thumbsRead, useThumb } from '@/lib/notes'
+import { useDecoded } from '@/lib/decoded'
 import { openApart } from '@/lib/apart'
 import { backSaid, placed, taskName } from '@/lib/tasks'
 import { dayKey, num, startOfDay } from '../../../../main/dates'
@@ -111,14 +112,16 @@ function usePicture(card: Pick<Card, 'id' | 'private' | 'type'>): string | undef
   const video = !!src && /\.(mp4|m4v|mov|webm)$/i.test(src)
   const [frame, setFrame] = useState<string>()
   useEffect(() => void (video && src && smallPicture(src).then((made) => setFrame(made || undefined))), [src, video])
+  // Decoded before the card is first drawn, a moment at most (a video's frame waits to be made too): never an empty cover, then the picture.
+  const picture = !src ? undefined : video ? frame : src
+  useDecoded(picture, !thumbsRead() || (video && !frame))
   // A private note keeps its picture, blurred like its name until you point at it, as lists do.
-  if (!src) return undefined
-  return video ? frame : src
+  return picture
 }
 
 /** A picture that steps aside when it cannot load, so the card falls back to words. */
 function Picture({ src, className = '', onBroken }: { src: string; className?: string; onBroken: () => void }): React.JSX.Element {
-  return <img src={src} alt="" loading="lazy" decoding="async" draggable={false} onError={onBroken} className={`private-text size-full object-cover ${className}`} />
+  return <img src={src} alt="" decoding="async" draggable={false} onError={onBroken} className={`private-text size-full object-cover ${className}`} />
 }
 
 /**

@@ -11,6 +11,7 @@
 import { mkdirSync } from 'fs'
 import { sandbox, shiftClock } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const SHOTS = process.env.SHOTS ?? ''
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })

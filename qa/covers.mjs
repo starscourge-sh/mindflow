@@ -4,6 +4,7 @@
 // GRADIENTS=<folder> points Gradients at a folder of covers (read only); without it they are plain colour tiles.
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const dir = process.env.SHOTS ?? `${process.env.QA_DATA}/shots`
 mkdirSync(dir, { recursive: true })

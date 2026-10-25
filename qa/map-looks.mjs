@@ -3,6 +3,7 @@
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-map2/main/index.js SHOTS=<dir> TAG=after node qa/map-looks.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const dir = process.env.SHOTS ?? `${process.env.QA_DATA}/shots`
 const tag = process.env.TAG ?? 'shot'

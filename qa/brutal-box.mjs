@@ -3,6 +3,7 @@
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-brutal/main/index.js SHOTS=<dir> THEME=github node qa/brutal-box.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const theme = process.env.THEME ?? 'github'
 const dir = process.env.SHOTS ?? `${process.env.QA_DATA}/brutal-box`

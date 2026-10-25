@@ -2,7 +2,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ArrowLeft, ArrowUpRight, Check, Heart, CornerDownRight, EyeOff, ImageDown, MessageCircle, Repeat2, RefreshCcw, Share, X } from 'lucide-react'
 
 import { call, haligtree, splitTags, unloaded, unread, useLive, type Gloss } from '@/lib/haligtree'
-import { useThumb } from '@/lib/notes'
+import { thumbsRead, useThumb } from '@/lib/notes'
+import { useDecoded } from '@/lib/decoded'
 import { noteLinkText } from '@/lib/capture-links'
 import { chime, type Cue } from '@/lib/sound'
 import { cn } from '@/lib/cn'
@@ -423,8 +424,11 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
   const [broken, setBroken] = useState(false)
   // Its width over its height, once loaded: it fills the post's width unless that would make it taller than 720px.
   // Kept per picture, so a post drawn again (back from a thread) has its height at once and nothing below it moves.
-  const [shape, setShapeNow] = useState<number | null>(() => SHAPES.get(post.id) ?? null)
+  const [kept, setShapeNow] = useState<number | null>(() => SHAPES.get(post.id) ?? null)
   const setShape = (value: number | null): void => (value && SHAPES.set(post.id, value), setShapeNow(value))
+  // Decoded before the Feed is first drawn, a moment at most: its shape known, so it is there at its size in the first frame.
+  const decoded = useDecoded(picture, !thumbsRead())
+  const shape = kept ?? decoded.shape
   // What you chose shows at once; the Feed's next read says the same.
   const [chosen, setChosen] = useState<Reaction | null>(post.react)
   useEffect(() => setChosen(post.react), [post.react])
@@ -561,7 +565,7 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
             // Clicked, it opens in the viewer as a picture in a note does; Esc puts it back.
             <button type="button" data-feed-picture aria-label="Look at the picture" onClick={(event) => lookAtPicture(event.currentTarget.querySelector('img'))}
               className={cn('mt-1 block max-w-full overflow-hidden rounded-xl border bg-accent/40', LOOKABLE)} style={{ width: shape ? `min(100%, ${Math.round(720 * shape)}px)` : '100%' }}>
-              <img data-look src={picture} alt="" loading="lazy" decoding="async" draggable={false} onError={() => setBroken(true)}
+              <img data-look src={picture} alt="" decoding="async" draggable={false} onError={() => setBroken(true)}
                 onLoad={(event) => setShape(event.currentTarget.naturalWidth / event.currentTarget.naturalHeight || null)}
                 className="block h-auto w-full" style={shape ? { aspectRatio: String(shape) } : undefined} />
             </button>

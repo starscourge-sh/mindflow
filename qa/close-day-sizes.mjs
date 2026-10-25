@@ -1,6 +1,7 @@
 // Close the day at a small and a full window, light and dark: the sheet stays inside the window.
 // Run: QA_SHOTS=dir QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-notes/main/index.js HALIGTREE_QA_AWAY=1 node qa/close-day-sizes.mjs
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const { h, size, theme, close } = await sandbox({ width: 760, height: 540 })
 const S = process.env.QA_SHOTS

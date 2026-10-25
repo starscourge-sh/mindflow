@@ -8,6 +8,7 @@
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=$PWD/out-s/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=<dir> node qa/polish-six.mjs
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const { check, done } = checks()
 // Each window keeps the place it was given while really parked off screen, so the tabs' places can be read.

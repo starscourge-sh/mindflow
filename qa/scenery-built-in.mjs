@@ -6,6 +6,7 @@
 import { readdirSync } from 'fs'
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const { check, done } = checks()
 const s = await sandbox({ width: 1300, height: 900 })

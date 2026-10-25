@@ -8,6 +8,7 @@
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-calendar/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=dir node qa/calendar.mjs
 import { sandbox } from './sandbox-lib.mjs'
 import { THEMES, checkInks, dragAcross, monthKey, nextMonth, swipe, where } from './month-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const c = await sandbox({ width: 1300, height: 900 })
 const { h, v, go, send } = c

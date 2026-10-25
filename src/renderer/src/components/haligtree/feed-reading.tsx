@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { ArrowUpRight, MessageCircle, Repeat2 } from 'lucide-react'
 
 import { call, unloaded, unread, useLive } from '@/lib/haligtree'
-import { useThumb } from '@/lib/notes'
+import { thumbsRead, useThumb } from '@/lib/notes'
+import { useDecoded } from '@/lib/decoded'
 import { chime } from '@/lib/sound'
 import { cn } from '@/lib/cn'
 import { dayjs, num } from '../../../../main/dates'
@@ -168,6 +169,8 @@ export function FeedReading({ tabs, onOpen }: { tabs: React.ReactNode; onOpen: (
 function Row({ page, big = false, onRead }: { page: ReadingPage; big?: boolean; onRead: () => void }): React.JSX.Element {
   const thumb = useThumb(page.id)
   const picture = thumb && !/\.(mp4|m4v|mov|webm)$/i.test(thumb) ? thumb : undefined
+  // Decoded before the row is first drawn, a moment at most: never an empty card, then the picture.
+  useDecoded(picture, !thumbsRead())
   const [broken, setBroken] = useState(false)
   const { queued } = useReadLater(page.id)
   return (
@@ -191,7 +194,7 @@ function Row({ page, big = false, onRead }: { page: ReadingPage; big?: boolean; 
       </span>
       {picture && !broken && (
         <span data-reading-picture className={cn('shrink-0 overflow-hidden rounded-md border bg-accent/30', big ? 'size-28' : 'size-20')}>
-          <img src={picture} alt="" loading="lazy" decoding="async" draggable={false} onError={() => setBroken(true)} className="size-full object-cover" />
+          <img src={picture} alt="" decoding="async" draggable={false} onError={() => setBroken(true)} className="size-full object-cover" />
         </span>
       )}
     </button>

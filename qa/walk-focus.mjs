@@ -11,6 +11,7 @@
 import { mkdirSync } from 'fs'
 import { sandbox, shiftClock } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 // A notch stood in, so "Under the notch" can be walked on any Mac.
 process.env.HALIGTREE_QA_NOTCH = '1'

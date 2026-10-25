@@ -7,6 +7,7 @@
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-fly/main/index.js SHOT=<dir> node qa/fly-sidebar.mjs
 import { writeFileSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 const c = await sandbox({ width: 1000, height: 460 })
 const { h, go, electron } = c
 const SHOT = process.env.SHOT

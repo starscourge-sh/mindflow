@@ -5,6 +5,7 @@
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 THEME=paper [STYLE=brutal] [SHOTS=<dir>] node qa/see-through.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const theme = process.env.THEME ?? 'paper'
 const shots = process.env.SHOTS

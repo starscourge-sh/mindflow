@@ -10,6 +10,7 @@
 // QA_SHOTS=dir saves light and dark pictures.
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const shots = process.env.QA_SHOTS
 if (shots) mkdirSync(shots, { recursive: true })

@@ -12,6 +12,7 @@ import { mkdirSync, mkdtempSync, existsSync, readdirSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const KEY = process.env.HALIGTREE_GIPHY_KEY
 if (!KEY) throw new Error('Set HALIGTREE_GIPHY_KEY')

@@ -5,6 +5,7 @@
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-minutes/main/index.js HALIGTREE_QA_AWAY=1 SHOT=<dir> node qa/minutes-playbook.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const SHOT = process.env.SHOT ?? `${process.env.QA_DATA}/minutes`
 mkdirSync(SHOT, { recursive: true })
