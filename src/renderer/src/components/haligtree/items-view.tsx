@@ -245,7 +245,9 @@ export function ItemsView({ tier, focus, onOpen, only }: { tier: 'nugget' | 'art
   const [chosen, setChosen] = useState<string[]>([])
   // Groups show as groups in every sort, as rows (not tiles, and not when Display groups the list by kind or date).
   const folding = useFolding(tier, all, ownOrder, plain && (density === 'list' || density === 'compact') && !(spread && query.trim()) ? groups.flatMap(([, list]) => list) : null,
-    view.sort === 'manual', () => setChosen([]), chosen, mine)
+    view.sort === 'manual', () => setChosen([]), chosen, mine,
+    // Grouped by kind or date your groups wait in the plain list: making one there goes to it, so it shows.
+    () => !plain && setView({ ...view, group: 'none' }))
   // As tiles, each group is one folder card; opened, the grid shows only its notes, under a chip back.
   const noteGroups = useGroups(tier)
   const tiled = (density === 'grid' || density === 'small') && plain && !(spread && query.trim())
@@ -1314,7 +1316,7 @@ const ORDER = new WeakMap<Layout, Map<string, number>>()
  * back the same, so nothing jumps back while the save is on its way. Every
  * change says so with a way back.
  */
-function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) => number, shown: Item[] | null, ordered: boolean, done: () => void, chosen: string[], toOwn: () => (() => void) | undefined): {
+function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) => number, shown: Item[] | null, ordered: boolean, done: () => void, chosen: string[], toOwn: () => (() => void) | undefined, toPlain: () => void): {
   rows: Item[] | null
   /** The list as tiles: each group as one folder, at the top, then the loose notes. */
   tiles: (list: Item[]) => ({ group: NoteGroup; items: Item[] } | { item: Item })[]
@@ -1459,6 +1461,7 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     const these = inOrder(ids)
     // A group is two notes or more.
     if (these.length < 2) return refuse('Pick two or more rows to make a group')
+    toPlain()
     commit(gather(layout, these[0], these, make(these)()), 'gather', these.length > 1 ? `Grouped ${num(these.length)} notes` : 'Grouped')
   }
   const menu = (ids: string[]): RowItem[] => {
@@ -1476,7 +1479,7 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
             label: one.name,
             icon: <GroupIcon icon={one.icon} color={one.color} className="size-3.5" />,
             trail: <span className="ml-auto size-2 rounded-full" style={{ background: tintOf(one.color) ?? 'color-mix(in srgb, var(--foreground) 25%, transparent)' }} />,
-            run: () => commit(into(one.id), 'gather', `Moved ${notes(n)} to ${one.name}`)
+            run: () => (toPlain(), commit(into(one.id), 'gather', `Moved ${notes(n)} to ${one.name}`))
           })),
           others.length && n > 1 ? 'separator' : null,
           n > 1 && { label: 'New group…', run: () => gatherNew(these) }
