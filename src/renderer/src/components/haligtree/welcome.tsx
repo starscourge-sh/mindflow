@@ -10,7 +10,7 @@ import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNo
 import { AnimatePresence, MotionConfig, motion, useIsPresent } from 'motion/react'
 import { createPortal } from 'react-dom'
 import { ArrowUp, Compass, CornerDownLeft, FolderInput, Volume2, VolumeX } from 'lucide-react'
-import { shift, spring, still } from '@/lib/motion'
+import { awakeFrames, shift, spring, still } from '@/lib/motion'
 import { ARRIVE_MS, BEAT_MS, PENTA, soundOn, ambience, bedResolve, bedShift, bell, chime, click, fold, pageTurn, quietBed } from '@/lib/sound'
 import { applyTheme, currentTheme, type Theme } from '@/lib/theme'
 import { comboOf, fixed, keyFor, listen, saveKeys, useKeyChanges } from '@/lib/keys'
@@ -943,21 +943,27 @@ function MarginNote({ on, quick }: { on: boolean; quick: boolean }): React.JSX.E
   const present = useIsPresent()
   useEffect(() => {
     setLayer(box.current?.closest<HTMLElement>('.mf-welcome') ?? null)
-    let frame = 0
-    const fit = (): void => {
+    // Followed while the page moves; once still for a second the loop rests, till a
+    // key, a click or a resize may move it again.
+    let calm = 0
+    const fit = (): boolean => {
       const lines = box.current?.parentElement?.getBoundingClientRect()
+      calm++
       if (lines) {
         const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
         const width = 11 * rem
         const side = lines.left - 3.4 * rem - width >= 12 ? 'left' : window.innerWidth - lines.right - 2.8 * rem - width >= 12 ? 'right' : null
         const top = Math.round(lines.top + lines.height / 2)
         const right = Math.round(lines.left - 3.4 * rem)
-        setPlace((was) => (was.side === side && was.top === top && was.right === right ? was : { side, top, right }))
+        setPlace((was) => (was.side === side && was.top === top && was.right === right ? was : ((calm = 0), { side, top, right })))
       }
-      frame = requestAnimationFrame(fit)
+      return calm < 60
     }
     fit()
-    return () => cancelAnimationFrame(frame)
+    const frames = awakeFrames(fit)
+    const stir = (): void => ((calm = 0), frames.again())
+    for (const kind of ['resize', 'keydown', 'pointerdown', 'wheel'] as const) addEventListener(kind, stir, true)
+    return () => (frames.stop(), ['resize', 'keydown', 'pointerdown', 'wheel'].forEach((kind) => removeEventListener(kind, stir, true)))
   }, [])
   const shown = on && present
   const words = MARGIN_NOTE.split(' ')

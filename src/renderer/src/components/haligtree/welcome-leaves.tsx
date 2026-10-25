@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 
-import { still } from '@/lib/motion'
+import { awakeFrames, still } from '@/lib/motion'
 import { quietWind, rustle } from '@/lib/sound'
 
 /** One square of the grid, in px: each holds a letter on a tinted tile. */
@@ -290,7 +290,6 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
       // And bends in on its own side: wide out at the edge, straight in at the end, so its way reads as toward it.
       drawn.push({ one, aim: { x: (Math.random() - 0.5) * target.width * 0.6, y: (Math.random() - 0.5) * target.height * 0.4 }, bend: (Math.random() < 0.5 ? -1 : 1) * (0.7 + Math.random() * 0.4), speed: 0 })
     }
-    let frame = 0
     let last = performance.now()
     const tick = (now: number): void => {
       const dt = Math.min(0.05, (now - last) / 1000)
@@ -543,11 +542,11 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
           context.fillText(RAMP[letter], px + CELL / 2, py + CELL / 2 + 0.5)
         }
       }
-      frame = requestAnimationFrame(tick)
     }
-    frame = requestAnimationFrame(tick)
+    // Only while the window is looked at: away, the leaves hold where they are.
+    const frames = awakeFrames(tick)
     return () => {
-      cancelAnimationFrame(frame)
+      frames.stop()
       window.removeEventListener('resize', fit)
       window.removeEventListener('pointermove', point)
       document.documentElement.removeEventListener('pointerleave', away)

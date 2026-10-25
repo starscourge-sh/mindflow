@@ -49,6 +49,8 @@ export function WelcomeMist({ onGone, hurry = false }: { onGone: () => void; hur
     const arrive = ARRIVE_MS / MIST_MS
     let frame = 0
     const tick = (now: number): void => {
+      // Looked away from as it lifts (the window behind another, or hidden): it is simply gone, not drawn on unseen.
+      if (now - start > 1000 && !document.documentElement.hasAttribute('data-awake')) return gone.current()
       const t = (now - start) / MIST_MS
       const s = (now - start) / 1000
       const w = canvas.width

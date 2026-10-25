@@ -259,12 +259,15 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
       const onScreen = dot.r / px
       // One plain disc from far off; the kind's icon once it is big enough to
       // read (or pointed at), and a hub's picture only close up.
-      const shows = picture && onScreen >= 24 ? 'picture' : onScreen >= (hot ? 10 : 18) ? 'icon' : 'plain'
+      // The icon kept quiet: only on a dot big on the screen, or one pointed at or lit
+      // and still big enough to hold it; never on the small ones.
+      const shows = picture && onScreen >= 24 ? 'picture' : onScreen >= (hot ? 9 : 18) ? 'icon' : 'plain'
       const key = `${token}|${dot.r}|${dot.rings}|${shows === 'picture' ? dot.picture : shows === 'icon' ? iconId(dot.kind) : shows}|${scale}`
       let made = sprites.get(key)
       if (made) return made
       if (sprites.size > 800) sprites.clear()
-      const half = dot.r + Math.max(dot.rings * ringGap + px, brutal ? 2 * px : 5 * px)
+      // Room for the ring and, but on Brutal, the soft shadow under the dot.
+      const half = dot.r + Math.max(dot.rings * ringGap + px, brutal ? 2 * px : Math.max(5 * px, dot.r * 0.22 + 2 * px))
       const image = document.createElement('canvas')
       image.width = image.height = Math.ceil(half * 2 * scale)
       const c = image.getContext('2d')!
@@ -281,11 +284,39 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
         c.stroke()
       }
       c.globalAlpha = 1
-      // A flat disc in the tag's muted hue: no gloss, no shadow, so a thousand of them stay calm.
+      // A faint shadow where the dot meets the page, a little below it, so it sits on
+      // the map rather than in it. Brutal stays flat: its outline is the whole point.
+      if (!brutal) {
+        const drop = Math.max(px, dot.r * 0.08)
+        const shadow = c.createRadialGradient(0, drop, dot.r * 0.7, 0, drop, dot.r * 1.18)
+        shadow.addColorStop(0, `rgba(0,0,0,${dark ? 0.34 : 0.13})`)
+        shadow.addColorStop(1, 'rgba(0,0,0,0)')
+        c.beginPath()
+        c.arc(0, drop, dot.r * 1.18, 0, Math.PI * 2)
+        c.fillStyle = shadow
+        c.fill()
+      }
+      // The disc in the tag's muted hue.
       c.beginPath()
       c.arc(0, 0, dot.r, 0, Math.PI * 2)
       c.fillStyle = tone.base
       c.fill()
+      if (!brutal && shows !== 'picture') {
+        // Quiet depth: light from the top left, a little darker toward the rim.
+        const light = c.createRadialGradient(-dot.r * 0.38, -dot.r * 0.42, 0, -dot.r * 0.38, -dot.r * 0.42, dot.r * 1.25)
+        light.addColorStop(0, tone.light)
+        light.addColorStop(1, 'rgba(255,255,255,0)')
+        c.globalAlpha = dark ? 0.32 : style === 'paper' ? 0.4 : 0.55
+        c.fillStyle = light
+        c.fill()
+        const rim = c.createRadialGradient(0, 0, dot.r * 0.62, 0, 0, dot.r)
+        rim.addColorStop(0, 'rgba(0,0,0,0)')
+        rim.addColorStop(1, tone.rim)
+        c.globalAlpha = dark ? 0.6 : 0.45
+        c.fillStyle = rim
+        c.fill()
+        c.globalAlpha = 1
+      }
       if (shows === 'picture') {
         // Cut to the circle and filled edge to edge, the middle kept.
         c.save()
@@ -307,15 +338,16 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
       c.stroke()
       c.globalAlpha = 1
       if (shows === 'icon') {
-        const size = dot.r * 1.12
+        // Small and near the dot's own colour: there to be found, not to be read first.
+        const size = dot.r * 0.86
         c.save()
         c.translate(-size / 2, -size / 2)
         c.scale(size / 24, size / 24)
-        c.lineWidth = Math.max(2.2, (1.3 * px * 24) / size)
+        c.lineWidth = Math.max(1.8, (1.1 * px * 24) / size)
         c.lineCap = 'round'
         c.lineJoin = 'round'
-        c.strokeStyle = ring
-        c.globalAlpha = 0.92
+        c.strokeStyle = dark ? tone.light : tone.ring
+        c.globalAlpha = dark ? 0.6 : 0.55
         c.stroke(iconOf(dot.kind))
         c.restore()
       }
@@ -521,7 +553,7 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
         const lit = !shown || dot === shown ? 1 : faded + (1 - faded) * Math.max(0, Math.min(1, (reach - 0.55) / 0.45))
         context.globalAlpha = (on(dot) ? lit : faded) * alpha(dot)
         if (!context.globalAlpha) continue
-        const { image, half } = chipOf(dot, scale, dot === shown)
+        const { image, half } = chipOf(dot, scale, dot === shown || (!!shown && on(dot)))
         context.drawImage(image, dot.px - half, dot.py - half, half * 2, half * 2)
       }
       // Names, the busiest first, each beside its dot on the side away from

@@ -294,6 +294,9 @@ type Coming = { goal: Goal; day: string; title: string; icon?: string | null; ma
  * A legend entry clicked brings that goal forward and dims the rest; clicked
  * again, or Esc, all of them again.
  */
+/** How many goals the shared sticky draws a lane for, the nearest first. */
+const LANES = 6
+
 export function GoalsSticky(): React.JSX.Element {
   useAppearance()
   const today = useToday()
@@ -328,10 +331,9 @@ export function GoalsSticky(): React.JSX.Element {
     window.addEventListener('keydown', key, true)
     return () => window.removeEventListener('keydown', key, true)
   }, [])
-  const pick = (id: string): void => {
-    chime(focus === id ? 'off' : 'tap')
-    setFocus(focus === id ? null : id)
-  }
+  // The nearest few, each named on its own lane; the rest counted, a click away in Goals.
+  const near = [...goals].sort((a, b) => a.goalAt!.localeCompare(b.goalAt!)).slice(0, LANES)
+  const more = goals.length - near.length
 
   // One stretch of days for every lane: the first start to the last day, today always on it.
   const start = goals.reduce((first, one) => ((one.goalFrom ?? dayKey(one.createdAt)) < first ? (one.goalFrom ?? dayKey(one.createdAt)) : first), today)
@@ -347,8 +349,8 @@ export function GoalsSticky(): React.JSX.Element {
       { goal, day: goal.goalAt!, title: goal.title }
     ])
     .sort((a, b) => a.day.localeCompare(b.day))
-    // As many as fit over the legend: a goal focused says itself in full above them.
-    .slice(0, Math.max(1, (focused ? 3 : 4) - Math.max(0, Math.ceil(goals.length / 2) - 2)))
+    // A few: a goal rested on says itself in full above them.
+    .slice(0, focused ? 2 : 3)
   return (
     <Desk shown={shown}>
       <div data-goals-sticky style={{ ...DRAG, backgroundImage: PAPER, backgroundColor: GLASS ? undefined : 'Canvas', boxShadow: SHADOW }} className={CARD}>
@@ -379,11 +381,21 @@ export function GoalsSticky(): React.JSX.Element {
             <div data-goals-lanes className="relative flex flex-col gap-1.5 pt-3">
               <span aria-hidden className="absolute top-0 bottom-0 w-px bg-foreground/40" style={{ left: `${x(today)}%` }} />
               <span className="absolute top-0 -translate-x-1/2 text-[10px] leading-none font-medium text-foreground/80" style={{ left: `clamp(1.25rem, ${x(today)}%, calc(100% - 1.25rem))` }}>Today</span>
-              {goals.map((goal) => {
+              {near.map((goal) => {
                 const ink = goalInk(goal)
                 const from = goal.goalFrom ?? dayKey(goal.createdAt)
                 return (
-                  <div key={goal.id} data-goals-lane={goal.id} data-color={goal.goalColor ?? ''} className="relative h-3.5 transition-opacity duration-200" style={{ opacity: dim(goal) }}>
+                  // Named on its own lane, never by colour alone (two goals may share one):
+                  // resting on it says it in full below, a click opens it.
+                  <button key={goal.id} type="button" data-goals-lane={goal.id} data-color={goal.goalColor ?? ''} title={`Open “${goal.title}”`}
+                    onPointerEnter={() => setFocus(goal.id)} onPointerLeave={() => setFocus((was) => (was === goal.id ? null : was))} onFocus={() => setFocus(goal.id)} onBlur={() => setFocus(null)}
+                    onClick={() => (chime('open'), window.api.openInHome('goal', goal.id))}
+                    className="-mx-1 block rounded-md px-1 pt-0.5 text-left transition-[opacity,background-color] duration-200 hover:bg-foreground/[0.04]" style={{ opacity: dim(goal) }}>
+                  <span className="flex min-w-0 items-baseline gap-2 text-[11px] leading-tight">
+                    <span data-goals-name className="private-text min-w-0 flex-1 truncate font-medium text-foreground">{goal.title}</span>
+                    <span className="shrink-0 text-muted-foreground tabular-nums">{inDays(goal.goalAt!, today)}</span>
+                  </span>
+                  <span className="relative block h-3.5">
                     {/* The whole road faint, the part gone solid. */}
                     <span className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full" style={{ left: `${x(from)}%`, width: `${Math.max(1, x(goal.goalAt!) - x(from))}%`, background: `color-mix(in oklab, ${ink} 28%, transparent)` }} />
                     <span className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full" style={{ left: `${x(from)}%`, width: `${Math.max(0, Math.min(x(today), x(goal.goalAt!)) - x(from))}%`, background: ink }} />
@@ -397,9 +409,14 @@ export function GoalsSticky(): React.JSX.Element {
                     ))}
                     {/* Its day: a full dot, ringed. */}
                     <span className="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ left: `${x(goal.goalAt!)}%`, background: ink, boxShadow: `0 0 0 2px var(--popover), 0 0 0 3px ${ink}` }} />
-                  </div>
+                  </span>
+                  </button>
                 )
               })}
+              {more > 0 && (
+                <button type="button" data-goals-more onClick={() => (chime('open'), window.api.openInHome('view', 'goals'))}
+                  className="self-start rounded-md px-1 text-[11px] font-medium text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground">and {num(more)} more</button>
+              )}
             </div>
             {/* The goal focused, said in full. */}
             {focused && (
@@ -420,19 +437,6 @@ export function GoalsSticky(): React.JSX.Element {
                 </li>
               ))}
             </ul>
-            {/* The legend: each goal's colour and name. Clicked, that goal comes forward. */}
-            <div data-goals-legend className="mt-auto grid grid-cols-2 gap-1 border-t border-foreground/10 pt-2" style={STILL}>
-              {goals.map((goal) => (
-                <button key={goal.id} type="button" data-goals-key={goal.id} aria-pressed={focus === goal.id}
-                  title={focus === goal.id ? 'Show every goal again' : `Bring “${goal.title}” forward`}
-                  onClick={() => pick(goal.id)}
-                  className={`relative flex min-w-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-xs after:absolute after:-inset-y-0.5 after:inset-x-0 transition-[opacity,background-color,scale] duration-150 ease-out hover:bg-accent active:scale-[0.97] ${focus === goal.id ? 'bg-accent font-semibold' : ''}`}
-                  style={{ opacity: focused && focused.id !== goal.id ? 0.55 : 1 }}>
-                  <span aria-hidden className="size-2.5 shrink-0 rounded-full" style={{ background: goalInk(goal) }} />
-                  <span className="private-text min-w-0 truncate">{goal.title}</span>
-                </button>
-              ))}
-            </div>
           </>
         )}
       </div>

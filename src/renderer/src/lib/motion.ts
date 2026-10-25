@@ -33,6 +33,26 @@ const reduced = (): boolean => matchMedia('(prefers-reduced-motion: reduce)').ma
 export const still = (): boolean => document.documentElement.dataset.motion === 'off' || reduced()
 
 /**
+ * A frame loop that runs only while the window is looked at (`data-awake`,
+ * progress-bar.tsx): away, hidden or behind another window, it holds still and
+ * picks up again on return. `tick` returns false to stop until `again()`.
+ */
+export function awakeFrames(tick: (now: number) => boolean | void): { again: () => void; stop: () => void } {
+  const root = document.documentElement
+  let frame = 0
+  const run = (now: number): void => {
+    frame = 0
+    if (!root.hasAttribute('data-awake')) return
+    if (tick(now) !== false) frame = requestAnimationFrame(run)
+  }
+  const again = (): void => void (!frame && root.hasAttribute('data-awake') && (frame = requestAnimationFrame(run)))
+  const seen = new MutationObserver(again)
+  seen.observe(root, { attributes: true, attributeFilter: ['data-awake'] })
+  again()
+  return { again, stop: () => (seen.disconnect(), cancelAnimationFrame(frame), (frame = 0)) }
+}
+
+/**
  * The same, read live: turn Motion off, or Reduce motion on, with the page
  * open and what asks this hears it at once (a demo's timers stop).
  */

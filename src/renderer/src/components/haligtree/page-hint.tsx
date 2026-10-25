@@ -80,22 +80,19 @@ const SAME_LINE: Record<string, string> = { weekpage: 'day', monthpage: 'day', y
 /** Pages of notes: their line is not shown while one of their notes is open. */
 const LISTS = ['inbox', 'nuggets', 'articles', 'questions', 'goals', 'tags']
 
-/** Said once a launch in the sandbox, in this line's place: shown, then gone on its own. */
+/** Said once a launch in the sandbox, in this line's place: shown on the page you arrive on, gone from the next. */
 let arrived = false
-const ARRIVAL_MS = 9000
 
 export function PageHint({ page: shown }: { page: string }): React.JSX.Element | null {
   const page = SAME_LINE[shown] ?? shown
   const state = useOnboarding()
   // Into the sandbox: where you are and that your notes are safe, docked
   // under the top bar rather than a toast over the page, then out of the way.
-  const [arrival, setArrival] = useState(() => SANDBOX && !arrived)
-  useEffect(() => {
-    if (!arrival) return
-    arrived = true
-    const gone = setTimeout(() => setArrival(false), ARRIVAL_MS)
-    return () => clearTimeout(gone)
-  }, [arrival])
+  // Never folded away on a timer: that pulled the page you were reading up
+  // under you, so it stays till Got it or the next page, which opens without it.
+  const [arrivedOn, setArrival] = useState(() => (SANDBOX && !arrived ? shown : null))
+  const arrival = arrivedOn === shown
+  useEffect(() => void (arrivedOn && ((arrived = true), shown !== arrivedOn && setArrival(null))), [arrivedOn, shown])
   const settings = useLive(haligtree.settings, null as Settings | null)
   const noteOpen = useAnyNoteOpen()
   // Put away here at once, before the main process has said so.
@@ -132,7 +129,7 @@ export function PageHint({ page: shown }: { page: string }): React.JSX.Element |
   }, [exampleUp, waiting, page]) // eslint-disable-line react-hooks/exhaustive-deps
   if (arrival && !welcomeUp) {
     return (
-      <Line name="sandbox-arrival" onDone={() => (chime('tap'), setArrival(false))} done="Got it">
+      <Line name="sandbox-arrival" onDone={() => (chime('tap'), setArrival(null))} done="Got it">
         <strong>You’re in the sandbox: a peek into someone else’s book.</strong> Their reading, films, questions and goals. Look around and try anything; your own notes are safe.
       </Line>
     )
@@ -175,9 +172,11 @@ export function PageHint({ page: shown }: { page: string }): React.JSX.Element |
   showing.current = seen || got === page ? null : put
   // The lead-in is there with the line, so it reads at a glance; the rest types in after it.
   const { lead, rest } = splitLead(text ?? '')
-  // Folded away as it goes (Got it, or learned), rather than vanishing.
+  // Folded away as it goes (Got it, or learned), rather than vanishing. Not on
+  // a change of page: the last page's line folding under the next pulled the
+  // new page up as it opened, so that one is simply gone with its page.
   return (
-    <AnimatePresence initial={false}>
+    <AnimatePresence key={page} initial={false}>
       {!seen && (
         <Line key={page} name={page} onDone={done} done="Got it" learned={got === page}>
           {got === page ? <strong>You’ve got it.</strong> : <>

@@ -248,7 +248,9 @@ export function DayBrief({ day, onOpen, onListed, between }: {
   return (
     <div className="pt-5 @min-[66rem]/page:pt-8">
       <div className="relative">
-        <div className={`relative isolate overflow-hidden rounded-2xl ${picture ? 'h-[clamp(6rem,20vh,12rem)]' : 'py-4'}`}>
+        {/* One height with a picture or without: the day's picture can come a beat after
+            the page, and the page under it never moves when it does. */}
+        <div className="relative isolate h-[clamp(6rem,20vh,12rem)] overflow-hidden rounded-2xl">
           {picture && (
             <>
               {scene

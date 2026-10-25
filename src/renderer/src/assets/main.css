@@ -1570,16 +1570,18 @@ button.mf-signed:hover .mf-signature { text-decoration: underline; text-decorati
 @media (prefers-reduced-motion: reduce) { .mf-shimmer { animation: none; background-image: none; color: var(--primary); } }
 /* The words that carry the point, in the welcome: the accent with a lighter
    band in it, so they catch the eye like foil. Now and then the light glides
-   across them once (about every 7s); with Motion off it stays where it is,
-   still shining. A few words only, never a paragraph. */
+   across them once (about every 7s), three times in all and then it rests, and
+   it holds while the window is not looked at; with Motion off it stays where
+   it is, still shining. A few words only, never a paragraph. */
 .mf-sheen {
   background-image: linear-gradient(100deg, var(--primary) 0%, var(--primary) 38%, color-mix(in oklab, var(--primary) 45%, white) 47%, color-mix(in oklab, var(--primary) 65%, var(--tt-color-text-purple)) 53%, var(--primary) 62%, var(--primary) 100%);
   background-size: 300% 100%;
   background-position: 30% 0;
   -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent;
   -webkit-box-decoration-break: clone; box-decoration-break: clone;
-  animation: mf-sheen 7s cubic-bezier(0.65, 0, 0.35, 1) 0.6s infinite;
+  animation: mf-sheen 7s cubic-bezier(0.65, 0, 0.35, 1) 0.6s 3 forwards;
 }
+:root:not([data-awake]) .mf-sheen { animation-play-state: paused; }
 /* Anything inside that has its own colour (a key, an icon, a chip) keeps it;
    plain words inside still inherit the clear fill and take the shine. */
 .mf-sheen * { -webkit-text-fill-color: currentColor; }
