@@ -53,6 +53,7 @@ import { Avatar, PersonMenu } from './avatar'
 import { pasteAvatar, pickAvatar, setAvatar } from '@/lib/people'
 import { near } from '../../../../main/near'
 import { canSplit, openAside, useHere, usePane } from '@/lib/split'
+import { hoverNote } from './note-preview'
 import { quoted } from '../../../../main/clip'
 import { ArrowDown, ArrowUp } from '@/components/ui/icons'
 import { APP_NAME } from '../../../../main/name'
@@ -637,13 +638,12 @@ export function Tags({ tags, max = 3, alone = false, go = true }: { tags: string
         // and never the start of a drag.
         const hold = (event: React.SyntheticEvent): void => event.stopPropagation()
         return (
-          <Tip key={tag} label={canSplit() ? `Open #${tag}; ⌥-click to open it to the side` : `Open #${tag} in ${APP_NAME}`}>
-            <span role="button" tabIndex={0} data-tag={tag} data-tag-go
+          // A rest shows the tag's card (note-preview.tsx), as a tag does everywhere.
+          <span key={tag} role="button" tabIndex={0} data-tag={tag} data-tag-go {...hoverNote('tag', tag)}
               onPointerDown={hold} onMouseDown={hold}
               onClick={(event) => (event.stopPropagation(), event.preventDefault(), openTag(tag, event.altKey))}
               onKeyDown={(event) => { if (event.key !== 'Enter' && event.key !== ' ') return; event.stopPropagation(); event.preventDefault(); openTag(tag) }}
               className="-my-1 min-w-0 max-w-[10rem] shrink cursor-pointer truncate rounded px-0.5 py-1 transition-colors duration-80 hover:bg-accent/70 focus-visible:bg-accent/70 focus-visible:outline-none" style={color}>#{tag}</span>
-          </Tip>
         )
       })}
       {rest.length > 0 && (

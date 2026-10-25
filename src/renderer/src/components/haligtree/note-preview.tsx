@@ -13,6 +13,7 @@ import { blockIn, wordsOf } from '../../../../main/blocks'
 import type { Editor } from '@tiptap/core'
 import { chime } from '@/lib/sound'
 import { cut } from '../../../../main/clip'
+import { withoutTags } from '../../../../main/tag-words'
 import { sources } from '@/lib/sources'
 import { avatarOf } from '@/lib/people'
 
@@ -84,7 +85,7 @@ const gemmed = (item: { title: string; prompt: string | null; dueAt: string | nu
  * are. Once per window, for every editor in it.
  */
 export function NotePreview(): React.JSX.Element | null {
-  const [shown, setShown] = useState<{ x: number; y: number; above: boolean; private: boolean; title: string; text: string; line?: boolean; lost?: boolean; el?: Element; kind: string; aside: boolean; type: string; id: string; queue: boolean; gem?: Gemmed; binned?: boolean; row?: boolean; anchor: Element; picture?: string | null; round?: boolean } | null>(null)
+  const [shown, setShown] = useState<{ x: number; y: number; above: boolean; private: boolean; title: string; text: string; line?: boolean; lost?: boolean; el?: Element; kind: string; aside: boolean; type: string; id: string; queue: boolean; gem?: Gemmed; binned?: boolean; row?: boolean; anchor: Element; picture?: string | null; round?: boolean; tally?: string; latest?: string[]; foot?: string } | null>(null)
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined
     let leaving: ReturnType<typeof setTimeout> | undefined
@@ -118,7 +119,7 @@ export function NotePreview(): React.JSX.Element | null {
         // A row's title, not an @ link: its own click does what it always did, so the card does not say "Click to open".
         const row = link.hasAttribute('data-note-hover')
         // A person or a tag is a place to go, not a note with words to show.
-        const load: Promise<{ title: string; body: unknown; private: boolean; gem?: Gemmed; picture?: string | null } | null> =
+        const load: Promise<{ title: string; body: unknown; private: boolean; gem?: Gemmed; picture?: string | null; tally?: string; latest?: string[] } | null> =
           binned ? haligtree.binPeek(type, id).then((found) => found && { title: found.title, body: found.body, private: found.private })
           // A person reads as Wikipedia's card does: who they were, their years, your thoughts, their picture.
           : type === 'person' ? sources.page('attribution', id).then((page) => ({
@@ -127,9 +128,17 @@ export function NotePreview(): React.JSX.Element | null {
             private: false,
             picture: avatarOf(id)
           }))
-          : type === 'tag' ? haligtree.tags().then((all) => {
-            const count = all.find((one) => one.tag.toLowerCase() === id.toLowerCase())?.count ?? 0
-            return { title: `#${id}`, body: count ? `${count} ${count === 1 ? 'note' : 'notes'} tagged with it.` : 'Every note tagged with it.', private: false }
+          // A tag says how many carry it, the way its page counts them, and its three newest.
+          : type === 'tag' ? Promise.all([haligtree.tags(), haligtree.tagRead(id.toLowerCase())]).then(([all, read]) => {
+            const one = all.find((tag) => tag.tag.toLowerCase() === id.toLowerCase())
+            const count = one?.count ?? 0
+            const later = one?.later ?? 0
+            const notes = (n: number): string => `${n} ${n === 1 ? 'note' : 'notes'}`
+            return {
+              title: `#${id}`, body: '', private: false, picture: null,
+              tally: count || !later ? `${notes(count)}${later ? `, and ${later} done` : ''}` : `${notes(later)}, all done`,
+              latest: read.slice(0, 3).map((note) => withoutTags(note.title || note.label || '').replace(/\s+/g, ' ').trim() || 'Untitled')
+            }
           })
           : type === 'task' ? haligtree.task(id).then((found) => found && { title: found.title, body: found.notes, private: false })
           : type === 'capture'
@@ -169,7 +178,11 @@ export function NotePreview(): React.JSX.Element | null {
             row,
             anchor: link,
             picture: found.picture !== undefined ? found.picture : binned ? null : pictureIn(found.body),
-            round: type === 'person'
+            round: type === 'person',
+            // A tag in a note's words edits on ⌥-click; anywhere else that click opens it beside.
+            foot: type === 'tag' ? (link.classList.contains('tiptap-token') ? 'Click to open its page, ⌥-click to edit it' : `Click to open its page${canSplit() ? ', ⌥-click to open it to the side' : ''}`) : undefined,
+            tally: found.tally,
+            latest: found.latest
           })
           warmTill = Infinity
         })
@@ -280,6 +293,12 @@ export function NotePreview(): React.JSX.Element | null {
         // A few lines that fade out where they are cut, not a hard stop mid-word.
         <p data-preview-text className="private-text max-h-[7.5lh] overflow-hidden whitespace-pre-line text-muted-foreground [mask-image:linear-gradient(to_bottom,black_5.5lh,transparent_7.5lh)]">{shown.text}</p>
       )}
+      {shown.tally && <p data-preview-count className="text-body font-semibold text-foreground">{shown.tally}</p>}
+      {!!shown.latest?.length && (
+        <ul data-preview-latest className="private-text mt-1.5 flex flex-col gap-0.5 text-foreground">
+          {shown.latest.map((title, at) => <li key={at} className="truncate">{title}</li>)}
+        </ul>
+      )}
       </div>
       {shown.picture && <img data-preview-image src={shown.picture} alt="" draggable={false} onError={(event) => (event.currentTarget.style.display = 'none')} className={`size-24 shrink-0 object-cover ${shown.round ? 'rounded-full' : 'rounded-md'} border`} />}
       </div>
@@ -298,8 +317,10 @@ export function NotePreview(): React.JSX.Element | null {
           )}
         </div>
       )}
+      {/* The foot only when it has something to say: a row's own title has no "Click to open" and no actions. */}
+      {(shown.binned || !shown.row || shown.foot || shown.el || (shown.aside && canSplit()) || shown.queue) && (
       <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 border-t pt-2 text-xs text-muted-foreground">
-        {(shown.binned || !shown.row) && <span className="basis-full">{shown.binned ? 'In the Bin. Click the row to look inside, or Space to see it large.' : `Click to open${shown.aside ? ', ⌘-click for its own window' : ''}`}</span>}
+        {(shown.binned || !shown.row || shown.foot) && <span className="basis-full">{shown.binned ? 'In the Bin. Click the row to look inside, or Space to see it large.' : shown.foot ? shown.foot : `Click to open${shown.aside ? ', ⌘-click for its own window' : ''}`}</span>}
         {/* A link to one line: the line itself shown here instead, live. */}
         {shown.el && (
           <button type="button" data-show-line-here onClick={() => (showLineHere(shown.el!), setShown(null))} className={ACT}>Show the line here</button>
@@ -316,6 +337,7 @@ export function NotePreview(): React.JSX.Element | null {
           </span>
         )}
       </div>
+      )}
     </div>
   )
 }

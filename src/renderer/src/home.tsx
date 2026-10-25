@@ -42,6 +42,7 @@ import { PowersView } from './components/haligtree/powers-view'
 import { TagsView } from './components/haligtree/tags-view'
 import { SideFolders, newFolder } from './components/haligtree/side-folders'
 import { ListSearch } from './components/haligtree/note-list'
+import { hoverNote } from './components/haligtree/note-preview'
 import { tagFound } from '../../main/tag-words'
 import { groups } from '@/lib/groups'
 import { SourcePageView, SourcesView } from './components/haligtree/source-page'
@@ -1639,6 +1640,8 @@ export function Home(): React.JSX.Element {
               {tagQuery && !sideTags.length && <p className="px-1.5 pt-1.5 text-control text-muted-foreground">No tag has “{tagQuery}” in it.</p>}
             </div>
           )}
+          {/* A tag's card comes beside the list, not over the tags under it. */}
+          <div data-note-side>
           <Branches current={view.id === 'tags' ? sideTags.findIndex(({ tag }) => tag === view.focus) : -1} className="flex flex-col">
           {/* Dragged into your own order, as the pages and pins above are; saved. */}
           <SortableList items={sideTags} keyOf={(one) => one.tag} onMove={narrow || tagQuery ? undefined : dropOrder('tagOrder', tags.map((one) => one.tag), (id) => `#${id}`)}>{(items) => items.map(({ tag, count, color }, index) => (
@@ -1654,6 +1657,7 @@ export function Home(): React.JSX.Element {
               type="button"
               data-side-row
               data-side-tag={tag}
+              {...hoverNote('tag', tag)}
               aria-current={view.id === 'tags' && view.focus === tag ? 'page' : undefined}
               onClick={() => setView({ id: 'tags', focus: tag })}
               // Read ahead while the pointer rests on it, so the click shows it at once.
@@ -1669,6 +1673,7 @@ export function Home(): React.JSX.Element {
             </SortableRow>
           ))}</SortableList>
           </Branches>
+          </div>
         </Unfold>
             </>)
             // A group's name, small: a click folds it. Which pages it holds is set in "Customize sidebar…", not here.

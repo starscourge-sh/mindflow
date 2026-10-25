@@ -242,7 +242,8 @@ export const Tokens = Extension.create<{
           class: "tiptap-token",
           "data-token": token.name,
           "data-token-color": token.color,
-          ...(token.name === "tag" ? { title: "Click to open, ⌥-click to edit" } : {}),
+          // A tag's card on a rest (note-preview.tsx), which says what a click does.
+          ...(token.name === "tag" ? { "data-note-hover": "", "data-note": `tag:${token.value.replace(/^#/, "").toLowerCase()}` } : {}),
         })
       )
     // Tag colours chosen elsewhere: a new choice repaints the whole note.
