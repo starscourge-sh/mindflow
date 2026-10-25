@@ -10,6 +10,7 @@ import { ChevronRight, GripVertical, Layers, X as Cross } from 'lucide-react'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { IconPicker } from '@/components/emoji/icon-picker'
+import { offerTag } from './side-folders'
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { chime, click } from '@/lib/sound'
 import { slotTicker } from '@/lib/proximity'
@@ -45,7 +46,9 @@ const HEAD = 'h-9 py-0'
 
 export type GroupView = { id: string; name: string; icon: string | null; color: string | null; open: boolean; members: string[]; /** Coming apart (left with one note): drawn going. */ parting?: boolean; /** Its imported notes not yet sorted. */ unsorted?: string[] }
 /** A part of a group: one of its notes, or a subgroup and its notes. */
-export type Part = { entry: Entry } | { group: GroupView; entries: Entry[] }
+export type Part = { entry: Entry } | { group: GroupView; entries: Entry[]; /** Its own notes and subgroups, three levels deep. */ parts?: Part[] }
+/** The rows a part shows: one for a note, and an open subgroup's own on show, folded ones inside it left out. */
+const onShow = (part: Part): number => ('entry' in part ? 1 : !part.group.open ? 0 : part.parts ? part.parts.reduce((sum, one) => sum + onShow(one), 0) : part.entries.length)
 /** A line of the list: one note at the top level, or a group and its notes (every one, its subgroups' too), with `parts` in the order they show. */
 export type Bundle = { group?: GroupView; entries: Entry[]; parts?: Part[] }
 
@@ -504,7 +507,7 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
   const block = (group: GroupView, entries: Entry[], parts: Part[] | undefined, start: number, inner = false): React.JSX.Element => (
     <GroupBlock key={group.id} group={group} entries={entries} parts={parts} start={start} cursor={cursor} estimate={estimate} row={row} inner={inner} carried={carried === KEY + group.id} renaming={renaming === group.id}
       born={born === group.id} onRenaming={(on) => onRenaming(on ? group.id : null)} onFold={(open) => onFold(group, open)} onNewNote={onNewNote} onPage={onPage} onSort={onSort} onSorted={onSorted}
-      sub={(child, at) => block(child.group, child.entries, undefined, at, true)} />
+      sub={(child, at) => block(child.group, child.entries, child.parts, at, true)} />
   )
   return (
     // The list scrolls by itself only in the last tenth by its top and bottom edges: a row near an edge can still be aimed at.
@@ -793,7 +796,11 @@ export function GroupIcon({ icon, color, className = 'size-4' }: { icon: string 
 /** Set a group's look: it shows in place, and ⌘Z takes it back. */
 const change = (group: GroupView, patch: Parameters<typeof groups.set>[1]): void => {
   const was = { name: group.name, icon: group.icon, color: group.color }
-  void groups.set(group.id, patch).then(() => quietly(() => void groups.set(group.id, was)))
+  void groups.set(group.id, patch).then(() => {
+    quietly(() => void groups.set(group.id, was))
+    // Named as a tag is: an offer to move that tag's notes in (side-folders.tsx).
+    if (patch.name) void offerTag(null, group.id, patch.name)
+  })
 }
 
 function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carried, renaming, born, onRenaming, onFold, onNewNote, onPage, onSort, onSorted, sub, inner = false }: {
@@ -803,7 +810,7 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
   /** Its notes and subgroups in order; left out, its notes alone. */
   parts?: Part[]
   /** A subgroup's own block. */
-  sub: (part: { group: GroupView; entries: Entry[] }, start: number) => React.JSX.Element
+  sub: (part: { group: GroupView; entries: Entry[]; parts?: Part[] }, start: number) => React.JSX.Element
   /** A subgroup, drawn inside its group. */
   inner?: boolean
   start: number
@@ -837,10 +844,10 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
   let next = start
   const placed = (parts ?? entries.map((entry) => ({ entry }))).map((part) => {
     const at = next
-    next += 'entry' in part ? 1 : part.group.open ? part.entries.length : 0
+    next += onShow(part)
     return { part, at }
   })
-  const inside = placed.findIndex(({ part, at }) => cursor >= at && cursor < at + ('entry' in part ? 1 : part.group.open ? part.entries.length : 0))
+  const inside = placed.findIndex(({ part, at }) => cursor >= at && cursor < at + onShow(part))
   const tint = tintOf(group.color)
   const key = KEY + group.id
   const { aim, shapes, hand, snap } = useContext(Carrying)
@@ -1040,8 +1047,11 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
                 {one}
               </VirtualList>
             </div>
-          ) : (
+          ) : placed.length ? (
             <div className="flex flex-col gap-px pb-1">{placed.map(one)}</div>
+          ) : (
+            // A folder made empty, or emptied: it stays, and says how it fills.
+            <p data-group-empty style={{ paddingLeft: INDENT }} className="px-3 pt-0.5 pb-2 text-control text-foreground/70">Empty: drag notes here or press New</p>
           )
         })()}
       </Fold>

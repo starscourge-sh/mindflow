@@ -9,6 +9,7 @@ import { enqueue } from '@/lib/reading-queue'
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { cut } from '../../../../main/clip'
 import { still } from '@/lib/motion'
+import { refuse } from './ui'
 
 /**
  * Drag to split, Dia's way with tabs: carry a row, a Home tile, a pinned
@@ -67,6 +68,10 @@ function sourceOf(target: EventTarget | null): { node: HTMLElement; carried: Car
   // A row that drags into your own order waits until it leaves its column.
   return { node: row, carried: { row: { pane, id: row.dataset.id! }, title: titleOf(row), kind: row.dataset.dragKind }, column: !!row.closest('[data-sortable-id]') }
 }
+
+/** A sidebar folder of one list, and a row of the other carried over it. */
+const wrongFolder = (place: HTMLElement, node: HTMLElement | undefined): boolean =>
+  !!place.dataset.folderList && !!node?.dataset.type && node.dataset.type !== place.dataset.folderList
 
 /** A carried thing's name, as it reads: its title, never the age or counts beside it. */
 const titleOf = (node: HTMLElement): string =>
@@ -142,7 +147,7 @@ export function SplitDrop({ onDrop }: { onDrop: (carried: Carried, side: Side) =
       active = false
       shown = []
       over = null
-      if (queued) delete queued.dataset.queueHot
+      if (queued) (delete queued.dataset.queueHot, delete queued.dataset.folderNo)
       queued = null
       delete document.documentElement.dataset.splitDrag
       setCarried(null)
@@ -153,7 +158,7 @@ export function SplitDrop({ onDrop }: { onDrop: (carried: Carried, side: Side) =
       active = false
       shown = []
       over = null
-      if (queued) delete queued.dataset.queueHot
+      if (queued) (delete queued.dataset.queueHot, delete queued.dataset.folderNo)
       queued = null
       delete document.documentElement.dataset.splitDrag
       setCarried(null)
@@ -187,8 +192,10 @@ export function SplitDrop({ onDrop }: { onDrop: (carried: Carried, side: Side) =
       }
       const queue = target ? null : queueAt(px, py)
       if (queue !== queued) {
-        if (queued) delete queued.dataset.queueHot
-        if (queue) (queue.dataset.queueHot = ''), click('tick')
+        if (queued) (delete queued.dataset.queueHot, delete queued.dataset.folderNo)
+        // A folder of the other list takes no note: it stays unlit, and says why on letting go.
+        if (queue && wrongFolder(queue, down?.source.node)) queue.dataset.folderNo = ''
+        else if (queue) (queue.dataset.queueHot = ''), click('tick')
         queued = queue
       }
       shrink.set(target || queue ? 0.86 : 1)
@@ -256,6 +263,11 @@ export function SplitDrop({ onDrop }: { onDrop: (carried: Carried, side: Side) =
         dropListDrag()
         event.preventDefault()
         window.dispatchEvent(new CustomEvent('haligtree:side-drop', { detail: { to: queued.dataset.sideDrop, open: what.open } }))
+      } else if (!side && queued?.dataset.folderNo !== undefined && what.row) {
+        dropListDrag()
+        event.preventDefault()
+        const gems = queued.dataset.folderList === 'nugget'
+        refuse(gems ? 'Gems folders hold gems: make it a gem first' : 'Writing folders hold writing: make it a page first')
       } else if (!side && queued?.dataset.folderDrop && what.row) {
         // Onto a folder in the sidebar: into that group, with every picked row if it is one (items-view.tsx).
         dropListDrag()

@@ -25,46 +25,44 @@ export const groupId = (key: string): string => key.slice(KEY.length)
 
 /**
  * The layout as saved: `ids` is every note in your own order, `groups` each
- * group's notes in order, and a subgroup's `parent` the group it sits in (one
- * level only: a group whose parent is itself a subgroup counts as a subgroup
- * of nothing). A group is two things or more, notes and subgroups together:
- * one with fewer (counting only the notes in `live`, when given, so an
- * archived one does not count) is drawn as what it has, where it was.
+ * group's notes in order, and a group's `parent` the group it sits in, three
+ * levels deep at most (group, subgroup, sub-subgroup): one deeper sits in the
+ * deepest it can. A group is a place, as a folder is: it stands with one note
+ * or none, and one with none is drawn first in what holds it.
  */
-export function layoutOf(ids: string[], groups: { id: string; members: string[]; parent?: string | null }[], live?: Set<string>): Layout {
+export function layoutOf(ids: string[], groups: { id: string; members: string[]; parent?: string | null }[]): Layout {
   const known = new Set(ids)
-  const counted = (id: string): boolean => known.has(id) && (!live || live.has(id))
   const byId = new Map(groups.map((group) => [group.id, group]))
-  const parentOf = (id: string): string | null => {
-    const parent = byId.get(id)?.parent ? byId.get(byId.get(id)!.parent!) : undefined
-    return parent && !parent.parent ? parent.id : null
+  const levelOf = (id: string, seen: string[] = []): number => {
+    const parent = byId.get(id)?.parent
+    if (!parent || !byId.has(parent) || seen.includes(parent)) return 1
+    return Math.min(DEPTH, levelOf(parent, [...seen, id]) + 1)
   }
-  // A subgroup stands with two notes; a group with two things, its own notes,
-  // the notes of subgroups that do not stand, and the subgroups that do.
-  const subs = new Set(groups.filter((group) => parentOf(group.id) && group.members.filter(counted).length >= 2).map((group) => group.id))
-  const tops = new Set(groups.filter((group) => {
-    if (parentOf(group.id)) return false
-    const loose = groups.filter((one) => parentOf(one.id) === group.id && !subs.has(one.id)).reduce((n, one) => n + one.members.filter(counted).length, 0)
-    const standing = groups.filter((one) => parentOf(one.id) === group.id && subs.has(one.id)).length
-    return group.members.filter(counted).length + loose + standing >= 2
-  }).map((group) => group.id))
-  // A subgroup whose group does not stand is a group of its own.
-  for (const id of subs) if (!tops.has(parentOf(id)!)) (subs.delete(id), tops.add(id))
-  const outer = (group: string): string | null => (subs.has(group) ? parentOf(group) : null)
-  // The group each note is drawn in, innermost.
-  const of = new Map<string, string>()
-  for (const group of groups)
-    for (const id of group.members) {
-      if (!known.has(id)) continue
-      const parent = parentOf(group.id)
-      const home = subs.has(group.id) || tops.has(group.id) ? group.id : parent && tops.has(parent) ? parent : null
-      if (home) of.set(id, home)
+  // Its group, if that is not already at the deepest level; else the one that holds that.
+  const parentOf = (id: string): string | null => {
+    let parent = byId.get(id)?.parent ?? null
+    for (let i = 0; parent && byId.has(parent) && i < DEPTH; i++) {
+      if (levelOf(parent) < DEPTH) return parent
+      parent = byId.get(parent)?.parent ?? null
     }
+    return null
+  }
+  const chain = (id: string): string[] => {
+    const out = [id]
+    for (let at = parentOf(id); at && !out.includes(at); at = parentOf(at)) out.unshift(at)
+    return out
+  }
+  const of = new Map<string, string>()
+  for (const group of groups) for (const id of group.members) if (known.has(id)) of.set(id, group.id)
   const top: string[] = []
   const lists: Record<string, string[]> = {}
   const add = (group: string, key: string): void => {
     const list = (lists[group] ??= [])
     if (!list.includes(key)) list.push(key)
+  }
+  const place = (path: string[]): void => {
+    if (!top.includes(KEY + path[0])) top.push(KEY + path[0])
+    for (let i = 1; i < path.length; i++) add(path[i - 1], KEY + path[i])
   }
   for (const id of ids) {
     const home = of.get(id)
@@ -72,13 +70,25 @@ export function layoutOf(ids: string[], groups: { id: string; members: string[];
       top.push(id)
       continue
     }
-    const parent = outer(home)
-    if (!top.includes(KEY + (parent ?? home))) top.push(KEY + (parent ?? home))
-    if (parent) add(parent, KEY + home)
+    place(chain(home))
     add(home, id)
+  }
+  // The groups with no note in them yet, first in what holds them.
+  const empty = groups.filter((group) => !top.includes(KEY + group.id) && !Object.values(lists).some((list) => list.includes(KEY + group.id)))
+  for (const group of [...empty].sort((x, y) => levelOf(x.id) - levelOf(y.id))) {
+    const path = chain(group.id)
+    lists[group.id] ??= []
+    if (path.length === 1) top.unshift(KEY + group.id)
+    else {
+      place(path.slice(0, -1))
+      ;(lists[path.at(-2)!] ??= []).unshift(KEY + group.id)
+    }
   }
   return { top, groups: lists }
 }
+
+/** How deep groups go: a group, its subgroups, and theirs. */
+export const DEPTH = 3
 
 export const groupOf = (layout: Layout, id: string): string | undefined => {
   // Worked out once per layout (layouts are never changed in place): asked for each of 2,500 rows, a scan each time took seconds.
@@ -93,6 +103,14 @@ export const groupOf = (layout: Layout, id: string): string | undefined => {
 const HOMES = new WeakMap<Layout, Map<string, string>>()
 /** The group a group sits in, for a subgroup; undefined for one at the top level. */
 export const parentOf = (layout: Layout, group: string): string | undefined => groupOf(layout, KEY + group)
+/** How deep a group sits: 1 at the top level, 2 in a group, 3 in a subgroup. */
+export const levelIn = (layout: Layout, group: string): number => {
+  let level = 1
+  for (let at = parentOf(layout, group); at && level < DEPTH + 1; at = parentOf(layout, at)) level++
+  return level
+}
+/** How many levels a group is, itself and its subgroups': 1 with none. */
+const heightIn = (layout: Layout, group: string): number => 1 + Math.max(0, ...(layout.groups[group] ?? []).filter(isGroup).map((one) => heightIn(layout, groupId(one))))
 /** Whether a group holds subgroups of its own. */
 export const hasSubgroups = (layout: Layout, group: string): boolean => (layout.groups[group] ?? []).some(isGroup)
 /** The row at the top level a key is drawn under: itself, or the outermost group holding it. */
@@ -106,13 +124,13 @@ const topKey = (layout: Layout, key: string): string => {
   return at
 }
 
-/** Take `key` from wherever it is and put it at `place`. A group left empty goes, from wherever it sat. */
+/** Take `key` from wherever it is and put it at `place`. A group left empty stays, as a folder does. */
 export const moveTo = (layout: Layout, key: string, place: Place): Layout => moveMany(layout, [key], place)
 
 /** Take every one of `keys` from wherever it is and put them, in that order, at `place`: one pass, however many. */
 export function moveMany(layout: Layout, keys: string[], place: Place): Layout {
   const out = new Set(keys)
-  let top = layout.top.filter((one) => !out.has(one))
+  const top = layout.top.filter((one) => !out.has(one))
   const groups: Record<string, string[]> = {}
   for (const [group, ids] of Object.entries(layout.groups)) groups[group] = ids.filter((one) => !out.has(one))
   if (place.group) {
@@ -120,13 +138,6 @@ export function moveMany(layout: Layout, keys: string[], place: Place): Layout {
     list.splice(place.after ? list.indexOf(place.after) + 1 : 0, 0, ...keys)
     groups[place.group] = list
   } else top.splice(place.after ? top.indexOf(place.after) + 1 : 0, 0, ...keys)
-  for (let pass = 0; pass < 3; pass++)
-    for (const [group, ids] of Object.entries(groups))
-      if (!ids.length) {
-        delete groups[group]
-        top = top.filter((one) => one !== KEY + group)
-        for (const other of Object.keys(groups)) groups[other] = groups[other].filter((one) => one !== KEY + group)
-      }
   return { top, groups }
 }
 
@@ -185,7 +196,8 @@ export function drop(layout: Layout, active: string, target: string, how: How, f
   if (isGroup(active)) {
     const me = groupId(active)
     if (how === 'join') {
-      if (!isGroup(target) || parentOf(layout, groupId(target)) || hasSubgroups(layout, me) || target === KEY + own) return null
+      // Inside it, if that stays three levels deep.
+      if (!isGroup(target) || levelIn(layout, groupId(target)) + heightIn(layout, me) > DEPTH || target === KEY + own) return null
       const list = layout.groups[groupId(target)] ?? []
       return moveTo(layout, active, { group: groupId(target), after: list[list.length - 1] ?? null })
     }
@@ -208,8 +220,8 @@ export function drop(layout: Layout, active: string, target: string, how: How, f
       return moveTo(layout, active, { group, after: ids[ids.length - 1] ?? null })
     }
     const group = groupOf(layout, target)
-    // Two of a group's own notes, one over the other: a subgroup of them, in that group (one level only).
-    if (group && own === group) return parentOf(layout, group) ? null : gather(layout, target, [active], make(), group)
+    // Two of a group's own notes, one over the other: a subgroup of them, in that group (three levels at most).
+    if (group && own === group) return levelIn(layout, group) >= DEPTH ? null : gather(layout, target, [active], make(), group)
     if (group) return moveTo(layout, active, { group, after: target })
     return gather(layout, target, [active], make())
   }
@@ -267,7 +279,7 @@ export function dropMany(layout: Layout, ids: string[], target: string, how: How
   if (how === 'join' && !isGroup(target)) {
     const group = groupOf(layout, target)
     if (!group) return gather(layout, target, ids, make())
-    if (!parentOf(layout, group) && ids.every((id) => groupOf(layout, id) === group)) return gather(layout, target, ids, make(), group)
+    if (levelIn(layout, group) < DEPTH && ids.every((id) => groupOf(layout, id) === group)) return gather(layout, target, ids, make(), group)
   }
   const [first, ...rest] = ids
   let next = drop(layout, first, target, how, folded, make) ?? layout
@@ -281,25 +293,12 @@ export function dropMany(layout: Layout, ids: string[], target: string, how: How
 }
 
 /**
- * A group is two things or more. Any left with one (or none) comes apart: what
- * it held stays where the group was, and a subgroup coming apart can leave its
- * group with one thing, which then comes apart too. Gives back the tidied
- * layout and the groups that came apart, for the list to show them going.
+ * Kept for the list's one place where a change is written: a group is a
+ * place, as a folder is, so nothing comes apart any more; only Separate or
+ * Delete takes one away.
  */
 export function tidy(layout: Layout): { layout: Layout; dissolved: string[] } {
-  const dissolved: string[] = []
-  let now = layout
-  for (let pass = 0; pass < 3; pass++) {
-    const gone = Object.keys(now.groups).filter((group) => now.groups[group].length < 2)
-    if (!gone.length) break
-    dissolved.push(...gone)
-    const was = now
-    const open = (key: string): string[] => (isGroup(key) && gone.includes(groupId(key)) ? was.groups[groupId(key)] ?? [] : [key])
-    const groups: Record<string, string[]> = {}
-    for (const [group, keys] of Object.entries(was.groups)) if (!gone.includes(group)) groups[group] = keys.flatMap(open)
-    now = { ...was, top: was.top.flatMap(open), groups }
-  }
-  return { layout: now, dissolved }
+  return { layout, dissolved: [] }
 }
 
 /**

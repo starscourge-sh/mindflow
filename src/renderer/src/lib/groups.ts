@@ -19,7 +19,11 @@ export const groups = {
   links: (id: string | string[]) => call<string[]>('groups:links', id),
   clone: (list: string, ids: string[]) => call<string[]>('groups:clone', list, ids),
   unclone: (ids: string[]) => call<boolean>('groups:unclone', ids),
-  note: (id: string) => call<string | null>('groups:note', id)
+  note: (id: string) => call<string | null>('groups:note', id),
+  make: (list: string, name: string, parent: string | null = null) => call<string>('groups:make', list, name, parent),
+  remove: (id: string) => call<boolean>('groups:delete', id),
+  place: (moves: { id: string; group: string | null; order?: number | null }[]) => call<{ id: string; group: string | null; order: number | null }[]>('groups:place', moves),
+  nest: (id: string, parent: string | null) => call<boolean>('groups:nest', id, parent)
 }
 
 // Kept by name, so a page opened again starts on its groups, not on a plain list that sorts itself a beat later.

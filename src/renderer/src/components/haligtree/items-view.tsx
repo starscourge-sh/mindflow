@@ -70,9 +70,9 @@ import { moment } from '@/lib/clock'
 import { Signed } from './signature'
 import { groups as noteGroupsApi, tintOf, useGroups, type NoteGroup } from '@/lib/groups'
 import { useReveal } from './islands'
-import { dropMany, flatten, gather, groupId, groupOf, isGroup, KEY, layoutOf, moveMany, reorderAs, sameLayout, shownKeys, step as stepLayout, tidy, type Layout } from '@/lib/group-layout'
+import { DEPTH, dropMany, flatten, gather, groupId, groupOf, isGroup, KEY, layoutOf, moveMany, reorderAs, sameLayout, shownKeys, step as stepLayout, tidy, type Layout } from '@/lib/group-layout'
 import type { Cue } from '@/lib/sound'
-import { GroupIcon, type Bundle, type Folds, type GroupView } from './kept-groups'
+import { GroupIcon, type Bundle, type Folds, type GroupView, type Part as KeptPart } from './kept-groups'
 import { asideItem, useHere } from '@/lib/split'
 import { queueItems } from '@/lib/reading-queue'
 import { Apart } from '@/lib/apart'
@@ -1359,9 +1359,7 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
   const [opened, setOpened] = useState<Record<string, boolean>>({})
   const [renaming, setRenaming] = useState<string | null>(null)
   const [born, setBorn] = useState<string | null>(null)
-  // A group is two notes or more that are not archived: one with fewer is drawn as its note, where it was.
-  const live = new Set(every.filter((one) => !one.archivedAt).map((one) => one.id))
-  const saved = layoutOf([...every].sort(ownOrder).map((one) => one.id), list, live)
+  const saved = layoutOf([...every].sort(ownOrder).map((one) => one.id), list)
   // Groups coming apart, drawn going (the Separate fade and slide) before the list closes over them.
   const [parting, setParting] = useState<string[]>([])
   // Every group seen, so one coming apart keeps its name and colour while it goes, and Undo can bring it back as it was.
@@ -1390,23 +1388,28 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
   // together at the top in your own order, and the sort orders the notes in
   // each and the loose rows under them.
   // A group's `parts` are its notes and its subgroups in order; `items` every note in it, subgroups' too.
-  type Part = { item: Item } | { sub: string; items: Item[] }
+  // A subgroup's `items` are every note in it, its own subgroups' too; `parts` how they show.
+  type Part = { item: Item } | { sub: string; items: Item[]; parts: Part[] }
   type Block = { group?: string; items: Item[]; parts?: Part[] }
   const blocks = (from: Layout, list = shown ?? every): Block[] => {
     const visible = new Map(list.map((one) => [one.id, one]))
     const rank = new Map(list.map((one, at) => [one.id, at]))
     const bySort = (a: Item, b: Item): number => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0)
-    const notesIn = (group: string): Item[] => (from.groups[group] ?? []).flatMap((id) => (visible.has(id) ? [visible.get(id)!] : []))
+    // A group's parts, its subgroups' within them, three levels deep; an empty group stands, as a folder does.
+    const partsIn = (group: string, depth: number): Part[] => {
+      const parts = (from.groups[group] ?? []).flatMap((id): Part[] => {
+        if (!isGroup(id)) return visible.has(id) ? [{ item: visible.get(id)! }] : []
+        if (depth >= DEPTH) return []
+        const inner = partsIn(groupId(id), depth + 1)
+        return [{ sub: groupId(id), items: inner.flatMap((one) => ('item' in one ? [one.item] : one.items)), parts: inner }]
+      })
+      return ordered ? parts : [...parts.filter((one) => 'sub' in one), ...parts.filter((one): one is { item: Item } => 'item' in one).sort((a, b) => bySort(a.item, b.item))]
+    }
     const laid = from.top.flatMap((key): Block[] => {
       if (!isGroup(key)) return visible.has(key) ? [{ items: [visible.get(key)!] }] : []
-      const parts = (from.groups[groupId(key)] ?? []).flatMap((id): Part[] => {
-        if (!isGroup(id)) return visible.has(id) ? [{ item: visible.get(id)! }] : []
-        const items = notesIn(groupId(id))
-        return items.length ? [{ sub: groupId(id), items: ordered ? items : [...items].sort(bySort) }] : []
-      })
-      const sorted = ordered ? parts : [...parts.filter((one) => 'sub' in one), ...parts.filter((one): one is { item: Item } => 'item' in one).sort((a, b) => bySort(a.item, b.item))]
+      const sorted = partsIn(groupId(key), 1)
       const items = sorted.flatMap((one) => ('item' in one ? [one.item] : one.items))
-      return items.length ? [{ group: groupId(key), items, parts: sorted }] : []
+      return [{ group: groupId(key), items, parts: sorted }]
     })
     if (ordered) return laid
     return [
@@ -1415,7 +1418,7 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     ]
   }
   // What a group shows open: its notes, and each subgroup's while that is open too.
-  const onShow = (one: Block): Item[] => (one.parts ?? []).flatMap((part) => ('item' in part ? [part.item] : isOpen(part.sub) ? part.items : []))
+  const onShow = (one: { parts?: Part[] }): Item[] => (one.parts ?? []).flatMap((part) => ('item' in part ? [part.item] : isOpen(part.sub) ? onShow(part) : []))
   const rowsOf = (from: Layout): Item[] => blocks(from).flatMap((one) => (!one.group ? one.items : isOpen(one.group) ? onShow(one) : []))
   const now = blocks(layout)
   const keys = now.flatMap((one) => (one.group
@@ -1539,7 +1542,9 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
       return {
         group: one.group ? view(one.group, one.items) : undefined,
         entries: one.items.map((item) => itemEntry(item, menuFor(item))),
-        parts: one.parts?.map((part) => ('item' in part ? { entry: itemEntry(part.item, menuFor(part.item)) } : { group: view(part.sub, part.items), entries: part.items.map((item) => itemEntry(item, menuFor(item))) }))
+        parts: one.parts?.map(function shape(part: Part): KeptPart {
+          return 'item' in part ? { entry: itemEntry(part.item, menuFor(part.item)) } : { group: view(part.sub, part.items), entries: part.items.map((item) => itemEntry(item, menuFor(item))), parts: part.parts.map(shape) }
+        })
       }
     }),
     preview: (ids, target, how) => {
@@ -1592,8 +1597,15 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
   const reveal = (id: string): boolean => {
     const one = blocks(layout).find((block) => block.group && block.items.some((item) => item.id === id))
     if (!one?.group) return false
-    const sub = one.parts?.find((part): part is { sub: string; items: Item[] } => 'sub' in part && part.items.some((item) => item.id === id))
-    const shutOnes = [one.group, sub?.sub].filter((group): group is string => !!group && !isOpen(group))
+    // Every subgroup on the way to it, outermost first.
+    const path: string[] = []
+    for (let parts = one.parts; parts; ) {
+      const sub = parts.find((part): part is Extract<Part, { sub: string }> => 'sub' in part && part.items.some((item) => item.id === id))
+      if (!sub) break
+      path.push(sub.sub)
+      parts = sub.parts
+    }
+    const shutOnes = [one.group, ...path].filter((group): group is string => !!group && !isOpen(group))
     if (shutOnes.length) setOpened((was) => ({ ...was, ...Object.fromEntries(shutOnes.map((group) => [group, true])) }))
     return true
   }

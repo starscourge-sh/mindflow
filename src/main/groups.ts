@@ -39,7 +39,7 @@ export function registerGroups(): void {
     id text primary key, list text not null, name text not null, icon text, color text,
     folded integer not null default 0, created_at text not null)`)
   column('nuggets', 'group_id text')
-  // A subgroup's group: one level, so a group in a subgroup is never made.
+  // The group a group sits in: three levels at most (group-layout.ts).
   column('note_groups', 'parent_id text')
   column('nuggets', 'group_order real')
   db.exec('create index if not exists nuggets_by_group on nuggets(group_id, group_order)')
@@ -57,7 +57,7 @@ export function registerGroups(): void {
     let at = 0
     const put = (key: string, depth: number): void => {
       add.run(list, key, at++)
-      if (key.startsWith(KEY) && depth < 2) for (const id of groups[key.slice(KEY.length)] ?? []) put(id, depth + 1)
+      if (key.startsWith(KEY) && depth < 3) for (const id of groups[key.slice(KEY.length)] ?? []) put(id, depth + 1)
     }
     for (const key of top) put(key, 0)
   }
@@ -84,13 +84,6 @@ export function registerGroups(): void {
       for (const key of layout.top) if (key.startsWith(KEY)) nest.run(null, key.slice(KEY.length))
       else if (!placed.has(key)) (moved.run(key, null), put.run(null, null, key))
       writeOrder(list, layout.top, layout.groups)
-      // A group is two things or more, notes and subgroups: one left with fewer is gone, what it held left where it was.
-      const size = `((select count(*) from nuggets n where n.group_id = g.id) + (select count(*) from note_groups s where s.parent_id = g.id))`
-      for (const lone of db.prepare(`select id, parent_id as parent from note_groups g where ${size} < 2`).all() as { id: string; parent: string | null }[]) {
-        db.prepare('update nuggets set group_id = ?, group_order = null where group_id = ?').run(lone.parent, lone.id)
-        db.prepare('update note_groups set parent_id = ? where parent_id = ?').run(lone.parent, lone.id)
-        db.prepare('delete from note_groups where id = ?').run(lone.id)
-      }
     })
     changed()
     return true
@@ -208,6 +201,45 @@ export function registerGroups(): void {
       for (const one of ids) (db.prepare('delete from nuggets where id = ?').run(one), db.prepare('delete from note_order where id = ?').run(one))
       db.exec('delete from note_groups where not exists (select 1 from nuggets where nuggets.group_id = note_groups.id)')
     })
+    changed()
+    return true
+  })
+
+  // An empty group, a folder made from the sidebar: in `parent`, or at the top level.
+  handle('groups:make', (list: string, name: string, parent: string | null = null) => {
+    const id = randomUUID()
+    db.prepare('insert into note_groups (id, list, name, parent_id, created_at) values (?, ?, ?, ?, ?)').run(id, list, name, parent, now())
+    changed()
+    return id
+  })
+  // Gone for good, a folder: what it held stays where it was, in the group that held it.
+  handle('groups:delete', (id: string) => {
+    const group = db.prepare('select parent_id as parent from note_groups where id = ?').get(id) as { parent: string | null } | undefined
+    if (!group) return false
+    atomically(() => {
+      db.prepare('update nuggets set group_id = ? where group_id = ?').run(group.parent, id)
+      db.prepare('update note_groups set parent_id = ? where parent_id = ?').run(group.parent, id)
+      db.prepare('delete from note_order where id = ?').run(KEY + id)
+      db.prepare('delete from note_groups where id = ?').run(id)
+    })
+    changed()
+    return true
+  })
+  // Notes put in a group (or none, null) at its end, each; gives back where they were, for Undo to put them there again.
+  handle('groups:place', (moves: { id: string; group: string | null; order?: number | null }[]) => {
+    const was = moves.map(({ id }) => db.prepare('select id, group_id as "group", group_order as "order" from nuggets where id = ?').get(id) as { id: string; group: string | null; order: number | null })
+    atomically(() => {
+      for (const move of moves) {
+        const end = move.group ? (db.prepare('select max(group_order) as at from nuggets where group_id = ?').get(move.group) as { at: number | null }).at : null
+        db.prepare('update nuggets set group_id = ?, group_order = ? where id = ?').run(move.group, move.order !== undefined ? move.order : move.group ? (end ?? -1) + 1 : null, move.id)
+      }
+    })
+    changed()
+    return was.filter(Boolean)
+  })
+  // A group's place under another (null: the top level), from the sidebar's drag.
+  handle('groups:nest', (id: string, parent: string | null) => {
+    db.prepare('update note_groups set parent_id = ? where id = ?').run(parent, id)
     changed()
     return true
   })

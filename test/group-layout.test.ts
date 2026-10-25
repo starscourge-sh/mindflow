@@ -41,9 +41,9 @@ test('just under an open group row is first in it; under a folded one, outside i
   assert.deepEqual(drop(base(), 'a', 'g:G', 'after', new Set(['G']), make)!.top, ['g:G', 'a', 'd', 'e'])
 })
 
-test('a note let go outside its group leaves it, and an emptied group goes', () => {
+test('a note let go outside its group leaves it, and the emptied group stays, as a folder does', () => {
   const one = layoutOf(['a', 'b', 'd'], [{ id: 'G', members: ['b'] }])
-  assert.deepEqual(drop(one, 'b', 'd', 'after', none, make)!, { top: ['a', 'd', 'b'], groups: {} })
+  assert.deepEqual(drop(one, 'b', 'd', 'after', none, make)!, { top: ['a', 'g:G', 'd', 'b'], groups: { G: [] } })
 })
 
 test('a group carried by its row takes its notes, and lands beside a group, never in it', () => {
@@ -82,25 +82,32 @@ test('several carried at once land together, in their order', async () => {
   assert.deepEqual(dropMany(base(), ['a', 'e'], 'g:G', 'join', none, make)!.groups.G, ['b', 'c', 'a', 'e'])
   // a and d before e, at the top level.
   assert.deepEqual(dropMany(base(), ['a', 'd'], 'e', 'before', none, make)!.top, ['g:G', 'a', 'd', 'e'])
-  // b and c out of G, after e: G goes.
-  assert.deepEqual(dropMany(base(), ['b', 'c'], 'e', 'after', none, make)!, { top: ['a', 'd', 'e', 'b', 'c'], groups: {} })
+  // b and c out of G, after e: G stays, empty.
+  assert.deepEqual(dropMany(base(), ['b', 'c'], 'e', 'after', none, make)!, { top: ['a', 'g:G', 'd', 'e', 'b', 'c'], groups: { G: [] } })
   // on the middle of a lone row: a new group of it and both.
   const made = dropMany(base(), ['a', 'e'], 'd', 'join', none, make)!
   assert.deepEqual(made.groups.n, ['d', 'a', 'e'])
 })
 
-test('a group left with one note comes apart, the note where the group was', () => {
-  // c carried out of G past e: G keeps only b, so b stands alone where G was.
+test('a group left with one note stays a group', () => {
+  // c carried out of G past e: G keeps b, and nothing comes apart.
   const raw = drop(base(), 'c', 'e', 'after', none, make)!
   assert.deepEqual(raw.groups.G, ['b'])
   const { layout, dissolved } = tidy(raw)
-  assert.deepEqual(dissolved, ['G'])
-  assert.deepEqual(layout, { top: ['a', 'b', 'd', 'e', 'c'], groups: {} })
+  assert.deepEqual(dissolved, [])
+  assert.deepEqual(layout, raw)
 })
 
-test('a group of one is never drawn as a group, nor one whose second note is archived', () => {
-  assert.deepEqual(layoutOf(['a', 'b'], [{ id: 'G', members: ['a'] }]), { top: ['a', 'b'], groups: {} })
-  assert.deepEqual(layoutOf(['a', 'b', 'c'], [{ id: 'G', members: ['a', 'b'] }], new Set(['a', 'c'])), { top: ['a', 'b', 'c'], groups: {} })
+test('a group of one is drawn as a group, and an empty one first in what holds it', () => {
+  assert.deepEqual(layoutOf(['a', 'b'], [{ id: 'G', members: ['a'] }]), { top: ['g:G', 'b'], groups: { G: ['a'] } })
+  assert.deepEqual(layoutOf(['a', 'b'], [{ id: 'E', members: [] }]), { top: ['g:E', 'a', 'b'], groups: { E: [] } })
+  assert.deepEqual(layoutOf(['a', 'b'], [{ id: 'G', members: ['b'] }, { id: 'E', members: [], parent: 'G' }]).groups, { G: ['g:E', 'b'], E: [] })
+})
+
+test('groups go three levels deep, and one deeper sits beside the third', () => {
+  const deep = layoutOf(['a', 'b', 'c', 'd'], [{ id: 'G', members: ['a'] }, { id: 'S', members: ['b'], parent: 'G' }, { id: 'T', members: ['c'], parent: 'S' }, { id: 'U', members: ['d'], parent: 'T' }])
+  assert.deepEqual(deep, { top: ['g:G'], groups: { G: ['a', 'g:S'], S: ['b', 'g:T', 'g:U'], T: ['c'], U: ['d'] } })
+  assert.deepEqual(flatten(deep), ['g:G', 'a', 'g:S', 'b', 'g:T', 'c', 'g:U', 'd'])
 })
 
 // Subgroups, one level: G holds b, then subgroup S of c and x, then y.
@@ -118,8 +125,12 @@ test('two of a group\'s own notes, one over the other, make a subgroup in it', (
   assert.deepEqual(next.groups.n, ['b', 'c'])
 })
 
-test('no subgroup inside a subgroup', () => {
-  assert.equal(drop(nested(), 'x', 'c', 'join', none, make), null)
+test('two of a subgroup\'s notes make a third level, and no fourth', () => {
+  const third = drop(nested(), 'x', 'c', 'join', none, make)!
+  assert.deepEqual(third.groups.S, ['g:n'])
+  assert.deepEqual(third.groups.n, ['c', 'x'])
+  const deep = layoutOf(['c', 'x'], [{ id: 'G', members: [] }, { id: 'S', members: [], parent: 'G' }, { id: 'T', members: ['c', 'x'], parent: 'S' }])
+  assert.equal(drop(deep, 'x', 'c', 'join', none, make), null)
 })
 
 test('a group with no subgroups let go on another group\'s row goes inside it', () => {
@@ -139,15 +150,13 @@ test('a note steps out of a subgroup into its group, not to the top', () => {
   assert.deepEqual(step(nested(), flatten(nested()), 'x', 1, none)!.groups.G, ['b', 'g:S', 'x', 'y'])
 })
 
-test('a subgroup left with one note comes apart inside its group', () => {
+test('a subgroup left with one note stays inside its group', () => {
   const raw = drop(nested(), 'x', 'd', 'after', none, make)!
-  const { layout, dissolved } = tidy(raw)
-  assert.deepEqual(dissolved, ['S'])
-  assert.deepEqual(layout.groups.G, ['b', 'c', 'y'])
+  assert.deepEqual(tidy(raw).layout.groups.S, ['c'])
 })
 
-test('a subgroup whose group came apart stands as a group of its own', () => {
-  assert.deepEqual(layoutOf(['a', 'c', 'x'], [{ id: 'G', members: [] }, { id: 'S', members: ['c', 'x'], parent: 'G' }]), { top: ['a', 'g:S'], groups: { S: ['c', 'x'] } })
+test('a subgroup stays inside its group with no notes of its own', () => {
+  assert.deepEqual(layoutOf(['a', 'c', 'x'], [{ id: 'G', members: [] }, { id: 'S', members: ['c', 'x'], parent: 'G' }]), { top: ['a', 'g:G'], groups: { G: ['g:S'], S: ['c', 'x'] } })
 })
 
 test('a list sorted some other way is laid out as it is seen, rows not on show keeping their slots', () => {
@@ -164,10 +173,10 @@ test('the rows on show leave out what a folded group holds', () => {
   assert.deepEqual(shownKeys(layout, new Set(['G'])), ['a', 'g:G', 'd'])
 })
 
-test('a subgroup let go inside another subgroup lands beside it, never two levels in', () => {
+test('a subgroup let go on another subgroup goes inside it, a third level; beside it, it lands beside', () => {
   const layout = layoutOf(['a', 'b', 'c', 'd', 'e'], [{ id: 'O', members: ['e'] }, { id: 'S', members: ['a', 'b'], parent: 'O' }, { id: 'T', members: ['c', 'd'], parent: 'O' }])
   assert.deepEqual(layout.groups.O, ['g:S', 'g:T', 'e'])
-  assert.equal(drop(layout, 'g:T', 'g:S', 'join', none, make), null)
+  assert.deepEqual(drop(layout, 'g:T', 'g:S', 'join', none, make)!.groups.S, ['a', 'b', 'g:T'])
   const next = drop(layout, 'g:T', 'b', 'before', none, make)!
   assert.deepEqual(next.groups.O, ['g:T', 'g:S', 'e'])
   assert.deepEqual(groupsAround(next, 'c'), ['T', 'O'])

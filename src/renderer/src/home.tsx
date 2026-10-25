@@ -3,7 +3,7 @@ import { TagColourPick } from './components/haligtree/tag-colour-pick'
 import { themeActions } from '@/lib/theme'
 import { useAbandonAction } from '@/lib/abandon'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
-import { FileText, Minimize2, PanelsTopLeft } from 'lucide-react'
+import { FileText, Minimize2, PanelsTopLeft, Plus } from 'lucide-react'
 import CameraIcon from '@/components/ui/camera-icon'
 import CameraOffIcon from '@/components/ui/camera-off-icon'
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -40,7 +40,7 @@ import { MapView } from './components/haligtree/map-view'
 import { FeedView } from './components/haligtree/feed-view'
 import { PowersView } from './components/haligtree/powers-view'
 import { TagsView } from './components/haligtree/tags-view'
-import { SideFolders } from './components/haligtree/side-folders'
+import { SideFolders, newFolder } from './components/haligtree/side-folders'
 import { groups } from '@/lib/groups'
 import { SourcePageView, SourcesView } from './components/haligtree/source-page'
 import { prefetchTag, renameTag } from './components/haligtree/tag-read'
@@ -1510,6 +1510,8 @@ export function Home(): React.JSX.Element {
               return [
                 view.id !== section.id && { label: 'Open', run: () => setView({ id: section.id }) },
                 asideItem('view', section.id),
+                // Writing and Gems hold folders: a new one, named at once (side-folders.tsx).
+                (section.id === 'articles' || section.id === 'nuggets') && { label: 'New folder', run: () => setTimeout(() => newFolder(section.id === 'articles' ? 'article' : 'nugget'), 120) },
                 'separator',
                 ...orderItems({ setting: 'sidebarOrder', usual: sections.map((one) => one.id), id: section.id, among, what: 'The sidebar', name: section.label }, sidebarSaved.length > 0 || Object.keys(settings?.sidebarGroups ?? {}).length > 0),
                 'separator',
@@ -1557,13 +1559,22 @@ export function Home(): React.JSX.Element {
                 {!narrow && countsIn && counts[section.id] ? (
                   // Each count says what it counts, pointed at: the orange one is what is due today.
                   <Tip label={countSaid(section.id, counts[section.id])}>
-                    <span data-side-count={section.id}>
+                    <span data-side-count={section.id} className={list && settings?.sidebarFolders?.[list] !== false ? 'transition-opacity duration-80 group-hover/fold:opacity-0' : undefined}>
                       <Count tip={!countSaid(section.id, counts[section.id])} n={counts[section.id]} className={`text-xs ${section.id === 'today' ? 'text-[var(--tt-color-text-orange)]' : 'text-muted-foreground'}`} />
                     </span>
                   </Tip>
                 ) : null}
               </button>
               </SidePeek>
+              {/* New folder: a quiet + in the count's place, until pointed at (Notion's way). */}
+              {list && !narrow && settings?.sidebarFolders?.[list] !== false && (
+                <Tip label="New folder">
+                  <button type="button" data-folder-new={list} aria-label={`New folder in ${section.label}`} onClick={() => newFolder(list)}
+                    className="absolute top-1/2 right-1.5 flex size-5 -translate-y-1/2 items-center justify-center rounded text-muted-foreground opacity-0 transition-[opacity,background-color] duration-80 group-hover/fold:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100">
+                    <Plus className="size-3.5" />
+                  </button>
+                </Tip>
+              )}
               {/* Writing's and Gems' fold: quiet, over the icon, until pointed at (Notion's way). */}
               {folders && list && (
                 <button type="button" data-folders-fold={list} aria-label={unfolded ? `Fold ${section.label}'s folders away` : `Show ${section.label}'s folders`} aria-expanded={unfolded}
@@ -1578,7 +1589,7 @@ export function Home(): React.JSX.Element {
               {folders && list && (
                 // Its own drags, not the row's: a folder pressed on is not Writing carried away.
                 <div onPointerDown={(event) => event.stopPropagation()}>
-                  <SideFolders list={list} open={unfolded} here={inFolder} shown={new Set(folders.map((one) => one.id))} onOpen={(id) => setView({ id: section.id, focus: `g:${id}` })} />
+                  <SideFolders list={list} open={unfolded} here={inFolder} shown={new Set(folders.map((one) => one.id))} onOpen={(id) => setView({ id: section.id, focus: `g:${id}` })} onUnfold={() => setUnfolded(true)} />
                 </div>
               )}
               </SortableRow>
