@@ -1467,7 +1467,9 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
       // Drawn back at once, as the change itself was.
       setHeld({ top: was.top, groups: was.groups })
       unsort?.()
-      void noteGroupsApi.arrange(tier, { top: was.top, groups: was.groups, revive })
+      // A group this made goes again: emptied, it would stay, as a folder does.
+      const made = Object.keys(next.groups).filter((id) => !(id in was.groups))
+      void noteGroupsApi.arrange(tier, { top: was.top, groups: was.groups, revive }).then(() => made.forEach((id) => void noteGroupsApi.separate(id)))
     }
     // A new group is drawn in front of you with its name open for typing: no toast, ⌘Z still takes it back.
     void noteGroupsApi.arrange(tier, next).then(() => said && (next.make && !apart.length ? quietly(back) : toast(apart.length ? `${said}: ${apart.join(', ')} came apart` : said, back)))

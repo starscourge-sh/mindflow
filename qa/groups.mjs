@@ -54,6 +54,8 @@ async function frames(c, name, count = 5, gap = 45) {
 
 /** Press on one row and carry it to `at` (0 top, 1 bottom) of another, slowly, as a hand would; `hold` runs before letting go. */
 async function carry(c, from, to, at = 0.5, { hold, up = true, shift = false } = {}) {
+  // Pressed where the row is on screen: a row picked further up can be scrolled off by the time it is carried.
+  await from.scrollIntoViewIfNeeded().catch(() => {})
   const a = await from.boundingBox()
   const b = await to.boundingBox()
   await c.h.mouse.move(a.x + 60, a.y + a.height / 2)
@@ -137,7 +139,12 @@ if (c) try {
   // 5. A note carried out of its group: the group closes over its place, and the label says Remove from Memory.
   await carry(c, row(c, 'How memory palaces work'), row(c, "Mnemosyne's problem"), 0.85, {
     hold: async () => {
-      await c.h.waitForTimeout(150)
+      // Aimed again where the row has slid to once the group closed over the carried one's place: by where it was, the
+      // pointer could land on a row that slid under it, and the label then named a different drop.
+      await c.h.waitForTimeout(300)
+      const there = await row(c, "Mnemosyne's problem").boundingBox()
+      await c.h.mouse.move(there.x + 60, there.y + there.height * 0.85, { steps: 6 })
+      await c.h.waitForTimeout(300)
       check('carried out, the label says it leaves', (await said(c)) === 'Remove from Memory', await said(c))
       await frames(c, 'e-out', 5, 40)
     }
@@ -239,7 +246,8 @@ if (c) try {
     }
   })
   await c.h.waitForTimeout(700)
-  check('both leave, and the group of one left comes apart', !(await named(c, 'Memory')) && (await c.h.locator('[data-group-row]', { hasText: 'Memory' }).count()) === 0)
+  // A group is a folder: left with one note, it stays.
+  check('both leave, and the group stays with the one left', (await named(c, 'Memory'))?.members.length === 1 && (await c.h.locator('[data-group-row]', { hasText: 'Memory' }).count()) === 1)
   await c.h.keyboard.press('Meta+z')
   await c.h.waitForTimeout(800)
   check('and one ⌘Z brings the group and all three back', (await named(c, 'Memory'))?.members.length === 3 && (await named(c, 'Memory'))?.name === 'Memory')
@@ -268,23 +276,18 @@ if (c) try {
   await c.h.waitForTimeout(800)
   check('and ⌘Z takes it apart again', (await groupsNow(c)).length === 2)
 
-  // 7g. A group is two notes or more. Reading holds two: taking one out, by
-  // any way, takes the group apart, its other note left where it was; ⌘Z
-  // puts the group and both back.
+  // 7g. A group is a folder: Reading holds two, and taking one out, by any
+  // way, leaves it holding the other; ⌘Z puts both back.
   const apart = async (how, take) => {
-    const before = await order(c)
-    const at = before.indexOf('Reading list for October')
     await take()
     await c.h.waitForTimeout(900)
-    const after = await order(c)
-    // Archived, the note only steps out of sight: the group is drawn apart, and comes back with it.
-    const gone = (how === 'archived' || !(await named(c, 'Reading'))) && (await c.h.locator('[data-group-row]', { hasText: 'Reading' }).count()) === 0
-    check(`${how}: the group of one comes apart`, gone, JSON.stringify((await groupsNow(c)).map((one) => one.name)))
-    check(`${how}: its last note stays where the group was`, Math.abs(after.indexOf('Reading list for October') - at) <= 1, `${at} → ${after.indexOf('Reading list for October')}`)
+    const left = await memberTitles(c, 'Reading')
+    // Archived, the note only steps out of sight: it is still the group's.
+    check(`${how}: the group stays, holding the other note`, left.includes('Reading list for October') && (how === 'archived' || left.length === 1) && (await c.h.locator('[data-group-row]', { hasText: 'Reading' }).count()) === 1, left.join(' | '))
     await c.h.keyboard.press('Meta+z')
     await c.h.waitForTimeout(900)
     const back = await named(c, 'Reading')
-    check(`${how}: one ⌘Z brings the group and both notes back`, back?.members.length === 2 && (await c.h.locator('[data-group-row]', { hasText: 'Reading' }).count()) === 1, JSON.stringify(back ?? null))
+    check(`${how}: one ⌘Z brings both notes back`, back?.members.length === 2 && (await c.h.locator('[data-group-row]', { hasText: 'Reading' }).count()) === 1, JSON.stringify(back ?? null))
   }
   await apart('dragged out', async () => {
     await carry(c, row(c, 'Notes on Zettelkasten'), row(c, 'What The Matrix gets right'), 0.9, { hold: async () => (await c.h.waitForTimeout(200), await frames(c, 'z-dissolve-drag', 2, 40)) })
@@ -340,7 +343,7 @@ if (c) try {
   await frames(c, 'j-fold', 6, 35)
   await c.h.waitForTimeout(300)
   check('← folds the group', (await named(c, 'Memory'))?.folded === 1)
-  check('and its count shows', (await c.h.locator('[data-group-block] [data-count]').first().textContent()) === '3')
+  check('and its count shows', /\b3$/.test((await c.h.locator('[data-group-block] [data-count]').first().textContent()) ?? ''), await c.h.locator('[data-group-block] [data-count]').first().textContent())
   await c.h.keyboard.press('ArrowRight')
   await c.h.waitForTimeout(450)
   check('→ unfolds it', (await named(c, 'Memory'))?.folded === 0)
