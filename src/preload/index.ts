@@ -275,6 +275,8 @@ const api = {
   onBeaconPeek: (listen: (peek: { side: 'left' | 'right'; nudge: boolean; tucked?: boolean; flat?: boolean } | null) => void): (() => void) => {
     const relay = (_event: unknown, peek: { side: 'left' | 'right'; nudge: boolean; tucked?: boolean; flat?: boolean } | null): void => listen(peek)
     ipcRenderer.on('beacon:peek', relay)
+    // As it starts listening: what it is now, in case it was told before (or before a reload).
+    void ipcRenderer.invoke('beacon:peek:now').then((peek) => peek && listen({ ...peek, nudge: false }), () => undefined)
     return () => ipcRenderer.off('beacon:peek', relay)
   },
   /** Whether AeroSpace, the tiling window manager, is on this Mac (Settings shows its rule for the stickies). */

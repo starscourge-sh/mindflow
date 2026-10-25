@@ -1863,6 +1863,12 @@ const TUCK = { tabs: { width: 30, height: 124 }, flat: { width: 10, height: 44 }
 const TUCK_GAP = 3
 /** The side and kind of tab each peeking card was made as, so a change of either remakes it. */
 const tabShape = new Map<string, string>()
+/** What each tab was last told it is, asked for again by a sticky's page as it loads (a reload, or told before it listened). */
+const peekSaid = new Map<string, { side: 'left' | 'right'; nudge: boolean; flat: boolean; tucked: boolean }>()
+ipcMain.handle('beacon:peek:now', (event) => {
+  const key = keyOfSticky(BrowserWindow.fromWebContents(event.sender))
+  return key && peeking.has(key) ? (peekSaid.get(key) ?? null) : null
+})
 /** When each card was last seen whole, and the day it last peeked out by itself: kept across restarts. */
 type Seen = { last: Record<string, number>; nudged: Record<string, string> }
 const seenFile = (): string => join(app.getPath('userData'), 'goal-seen.json')
@@ -1946,7 +1952,11 @@ function shapeCard(key: string, win: BrowserWindow): void {
     const fresh = !peeking.has(key) || tabShape.get(key) !== shape
     peeking.set(key, rest)
     tabShape.set(key, shape)
-    if (fresh) win.webContents.send('beacon:peek', { side: left ? 'left' : 'right', nudge: nudging.delete(key), flat: tuck === 'flat', tucked: tuck !== 'off' })
+    if (fresh) {
+      const peek = { side: left ? 'left' : 'right', nudge: nudging.delete(key), flat: tuck === 'flat', tucked: tuck !== 'off' } as const
+      peekSaid.set(key, peek)
+      win.webContents.send('beacon:peek', peek)
+    }
     win.setMinimumSize(1, 1)
     placed.set(win, { x: tab.x, y: tab.y })
     win.setBounds(tab)
@@ -1962,6 +1972,7 @@ function shapeCard(key: string, win: BrowserWindow): void {
   const top = Math.max(area.y, Math.min(tab.y - insetOf(key).top, area.y + area.height - rest.height))
   const to = beaconHeld.has(key) ? { ...rest, x: tab.x <= area.x ? area.x : area.x + area.width - rest.width, y: top } : rest
   if (to !== rest) openedAt.set(key, rest)
+  peekSaid.delete(key)
   win.webContents.send('beacon:peek', null)
   placed.set(win, { x: to.x, y: to.y })
   win.setMinimumSize(214, 124)

@@ -54,6 +54,11 @@ try {
   const page = electron.windows().find((w) => w.url().includes(new URL(tabs[0].url).search))
   const said = await page.evaluate(() => ({ tab: document.querySelector('[data-tuck-tab]')?.dataset.tuckTab, name: document.querySelector('[data-tuck-tab] [aria-label]')?.getAttribute('aria-label') }))
   check('2. the tab carries the note\'s name', said.tab === 'tab' && !!said.name, JSON.stringify(said))
+  // Reloaded while tucked (a dev build's hot reload): still a tab, never the card squeezed into one.
+  await page.reload()
+  await page.waitForTimeout(2500)
+  const again = await page.evaluate(() => document.querySelector('[data-tuck-tab]')?.dataset.tuckTab)
+  check('2. reloaded while tucked, it is still a tab', again === 'tab', String(again))
   check('2. the menu says "Bring sticky notes back" and "Tuck them flat"', (await tray()).some((one) => one.label === 'Bring sticky notes back') && (await tray()).some((one) => one.label === 'Tuck them flat'))
   check('2. kept as a setting, so a restart brings it back', (await v('settings')).stickiesTucked === 'tabs')
   for (const [i, w] of electron.windows().filter((w) => w.url().includes('view=sticky')).entries()) await shot(`tucked-tab-${i}`, w)
