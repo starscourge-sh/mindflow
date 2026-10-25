@@ -52,9 +52,12 @@ export function WelcomeMist({ onGone, hurry = false }: { onGone: () => void; hur
       const s = (now - start) / 1000
       const w = canvas.width
       const h = canvas.height
-      const dark = document.documentElement.classList.contains('dark')
-      tone = dark ? '70,76,84' : '238,238,234'
-      glow = dark ? '118,116,108' : '255,252,244'
+      // The page's own colour, whatever the theme: lifted a little toward white for the mist, more for its glow.
+      const page = getComputedStyle(canvas.parentElement ?? document.body).backgroundColor.match(/[\d.]+/g)?.slice(0, 3).map(Number) ?? [240, 236, 226]
+      const dark = page[0] + page[1] + page[2] < 384
+      const lift = (by: number): string => page.map((one) => Math.round(one + (255 - one) * by)).join(',')
+      tone = lift(dark ? 0.06 : 0.35)
+      glow = lift(dark ? 0.16 : 0.7)
       context.globalCompositeOperation = 'source-over'
       context.clearRect(0, 0, w, h)
       // The veil: whole through the silence and the chord, thinning from just before the words, gone a few seconds after.
