@@ -222,7 +222,7 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
   handle('notes:glance', (name: string) => {
     const rows = db.prepare(`select id, body from ${table(name)}`).all() as { id: string; body: string }[]
     return Object.fromEntries(rows.map((row) => [row.id, remember(glances, `${table(name)}:${row.id}`, row.body, () =>
-      cut(plain(parse(row.body)).replace(/\n{2,}/g, '\n').trim(), 280))]))
+      cut(plain(parse(row.body), true).replace(/\n{2,}/g, '\n').trim(), 280))]))
   })
 
   // --- your own order, one per list

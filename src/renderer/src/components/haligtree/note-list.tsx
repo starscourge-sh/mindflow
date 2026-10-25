@@ -31,6 +31,7 @@ import { loud, type Loud } from '@/lib/loud'
 import { Highlight, useFluidHover } from './glide'
 import type { Picking } from '@/lib/pick-range'
 import { Fit as Maximize2, PanelLeftClose, PanelLeftOpen, Search as SearchIcon, X } from '@/components/ui/icons'
+import { LinkedWords, unlinked } from './linked-words'
 
 /** How a done thing's words look in every list: struck through, faintly. */
 export const DONE_WORDS = 'line-through decoration-foreground/40'
@@ -148,7 +149,7 @@ export function Cover({
           style={paper ? { color: PAPER_INK } : undefined}
           className={`private-text relative whitespace-pre-line ${paper ? '' : grain ? 'text-white/90 [text-shadow:0_1px_2px_rgb(0_0_0/0.4)]' : 'text-muted-foreground'} ${large ? 'line-clamp-5 text-xs leading-snug' : 'line-clamp-4 text-[10px] leading-tight'}`}
         >
-          {(large ? rest(words, entry.title) : words) || entry.title || entry.line || 'Untitled'}
+          {(() => { const shown = large ? rest(words, entry.title) : words; return shown && unlinked(shown).trim() ? <LinkedWords text={shown} /> : entry.title || entry.line || 'Untitled' })()}
         </span>
       )}
     </span>
@@ -161,9 +162,9 @@ const rest = (words: string | undefined, title: string): string =>
     .split('\n')
     .filter(
       (line) =>
-        line.trim() &&
-        !title.startsWith(line.trim().slice(0, 40)) &&
-        !line.trim().startsWith(title.slice(0, 40))
+        unlinked(line).trim() &&
+        !title.startsWith(unlinked(line).trim().slice(0, 40)) &&
+        !unlinked(line).trim().startsWith(title.slice(0, 40))
     )
     .join('\n')
 

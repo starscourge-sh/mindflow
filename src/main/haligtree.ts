@@ -114,10 +114,11 @@ function notesAsMarkdown(db: DatabaseSync, assets: string, live = false): Map<st
   return files
 }
 
-export function plain(value: unknown): string {
-  if (typeof value === 'string') return value.replace(/\[\[@[^|\]]+\|([^\]]+)\]\]/g, '$1')
-  const walk = (node: { type?: string; text?: string; attrs?: { label?: string }; content?: unknown[] }): string =>
-    node.type === 'noteLink' ? (node.attrs?.label ?? '') :
+/** A body as words; `links` keeps each @ link as `[[@nugget:id|Label]]`, for a card that shows them as links. */
+export function plain(value: unknown, links = false): string {
+  if (typeof value === 'string') return links ? value : value.replace(/\[\[@[^|\]]+\|([^\]]+)\]\]/g, '$1')
+  const walk = (node: { type?: string; text?: string; attrs?: { id?: string; label?: string }; content?: unknown[] }): string =>
+    node.type === 'noteLink' ? (links && node.attrs?.id && node.attrs.label ? `[[@${node.attrs.id}|${node.attrs.label}]]` : node.attrs?.label ?? '') :
     node.text ?? (node.content ?? []).map((child) => walk(child as typeof node)).join('\n')
   return value ? walk(value as { content?: unknown[] }) : ''
 }
