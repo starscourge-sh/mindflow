@@ -40,6 +40,8 @@ import { MapView } from './components/haligtree/map-view'
 import { FeedView } from './components/haligtree/feed-view'
 import { PowersView } from './components/haligtree/powers-view'
 import { TagsView } from './components/haligtree/tags-view'
+import { SideFolders } from './components/haligtree/side-folders'
+import { groups } from '@/lib/groups'
 import { SourcePageView, SourcesView } from './components/haligtree/source-page'
 import { prefetchTag, renameTag } from './components/haligtree/tag-read'
 import { TasksView, askDate, askSessions } from './components/haligtree/tasks-view'
@@ -361,7 +363,7 @@ export function Home(): React.JSX.Element {
       // Nor is the section you are in, asked for again: what is open stays.
       // A day's, week's or month's page asked for by name goes to now, from any other day it is on.
       // A tab asked for (the Inbox's "Show sorted too", from an Everything link) is a change of its own.
-      if (here.id === next.id && (here.focus === next.focus || (next.focus === undefined && atNow(here))) && here.nonce === next.nonce && (next.tab === undefined || next.tab === here.tab)) return trail
+      if (here.id === next.id && (here.focus === next.focus || (next.focus === undefined && atNow(here) && !here.focus?.startsWith('g:'))) && here.nonce === next.nonce && (next.tab === undefined || next.tab === here.tab)) return trail
       if (here.id === next.id && next.focus === undefined && !atNow(here)) chime(here.id === 'day' ? 'page' : 'season')
       // One sound a move: a place reached by something that already spoke (a map dot, ⌘K's Year) stays quiet.
       // A note opened on another page is heard as its page turn alone.
@@ -389,7 +391,7 @@ export function Home(): React.JSX.Element {
       const scroll = scrolled(key)
       setTrail(key, (trail) => {
         const here = trail.views[trail.at]
-        if (here.id !== view.id || (here.focus ?? null) === focus) return trail
+        if (here.id !== view.id || (here.focus ?? null) === focus || (!focus && here.focus?.startsWith('g:'))) return trail
         return push(trail, { id: here.id, focus: focus ?? undefined, tab: here.tab }, scroll)
       })
     },
@@ -397,6 +399,8 @@ export function Home(): React.JSX.Element {
       setTrail(key, (trail) => {
         const here = trail.views[trail.at]
         if (here.id !== view.id || Object.entries(patch).every(([name, value]) => here[name as keyof View] === value)) return trail
+        // A folder open (g: and its id) is no note: a note shut under it leaves it open.
+        if ('focus' in patch && !patch.focus && here.focus?.startsWith('g:')) return trail
         return { ...trail, views: trail.views.map((one, index) => (index === trail.at ? { ...one, ...patch } : one)) }
       })
   })
@@ -665,6 +669,9 @@ export function Home(): React.JSX.Element {
   const [tagsOpen, setTagsOpen] = useRemembered('sidebar:tags')
   // Pinned folds, Notion's way, and starts open.
   const [pinsOpen, setPinsOpen] = useRemembered('sidebar:pinned', true)
+  // Writing's and Gems' folders, open to start (side-folders.tsx).
+  const [articleFolders, setArticleFolders] = useRemembered('sidebar:folders:article', true)
+  const [nuggetFolders, setNuggetFolders] = useRemembered('sidebar:folders:nugget', true)
   const [customizing, setCustomizing] = useState(false)
   // One light for the whole sidebar list, gliding to the row nearest the
   // pointer, and the page you are on marked by one fill that travels to the
@@ -715,7 +722,12 @@ export function Home(): React.JSX.Element {
   const queued = useQueue()
   // "New" makes a blank page, as in Obsidian (a new book's way), or a capture in quick capture.
   const newPage = settings?.newMakes === 'page'
+  // In one of Writing's or Gems' folders, "New" (and ⌘N) makes a note there, of its list (groups.ts).
+  const inFolderRef = useRef<{ id: string; tier: string } | null>(null)
+  inFolderRef.current = (view.id === 'articles' || view.id === 'nuggets') && view.focus?.startsWith('g:') ? { id: view.focus.slice(2), tier: view.id === 'articles' ? 'article' : 'nugget' } : null
   const makeNew = (): void => {
+    const folder = inFolderRef.current
+    if (folder) return void groups.note(folder.id).then((id) => id && (chime('promote'), open(folder.tier, id)))
     if (!newPage) return void (chime('open'), window.api.showPrompt())
     void haligtree.newArticle().then((id) => (chime('promote'), open('article', id)))
   }
@@ -1216,7 +1228,8 @@ export function Home(): React.JSX.Element {
           <MatrixView focus={view.focus} onOpen={go} />
         ) : view.id === 'nuggets' || view.id === 'articles' || view.id === 'questions' ? (
           // Questions are pages in Pages: sent to one, Writing opens with its "Questions" chip on.
-          <ItemsView tier={view.id === 'nuggets' ? 'nugget' : 'article'} only={view.id === 'questions' ? 'questions' : undefined} focus={view.focus} onOpen={go} />
+          <ItemsView tier={view.id === 'nuggets' ? 'nugget' : 'article'} only={view.id === 'questions' ? 'questions' : undefined} focus={view.focus?.startsWith('g:') ? undefined : view.focus}
+            folder={view.id !== 'questions' && view.focus?.startsWith('g:') ? view.focus.slice(2) : undefined} onFolder={(id) => setView({ id: view.id, focus: id ? `g:${id}` : undefined })} onOpen={go} />
         ) : view.id === 'goals' ? (
           <GoalsView focus={view.focus} onOpen={go} />
         ) : view.id === 'queue' ? (
@@ -1510,13 +1523,21 @@ export function Home(): React.JSX.Element {
             // A row glides when moved, but the copy left showing under a folded
             // group's heading does not share its name: while the group shuts, the row
             // is in both places, and a shared name made it fly up and drop back in.
-            const row = (section: (typeof SECTIONS)[number], among: string[] = [], still = false): React.JSX.Element => (
+            const row = (section: (typeof SECTIONS)[number], among: string[] = [], still = false): React.JSX.Element => {
+              // Writing and Gems hold their groups as folders, folded with the chevron over the row's icon.
+              const list = section.id === 'articles' ? 'article' : section.id === 'nuggets' ? 'nugget' : null
+              const folders = list && !narrow && settings?.sidebarFolders?.[list] !== false ? (list === 'article' ? articles : nuggets) : null
+              const [unfolded, setUnfolded] = list === 'article' ? [articleFolders, setArticleFolders] : [nuggetFolders, setNuggetFolders]
+              const inFolder = view.id === section.id && view.focus?.startsWith('g:') ? view.focus.slice(2) : undefined
+              const here = lit(section.id) && !inFolder
+              return (
               <SortableRow key={section.id} id={section.id} glide={still ? undefined : `side-${section.id}`}>
               <RowMenu items={placeMenu(section, among)}>
               {/* A row that has just joined the sidebar rises in, once. */}
               <motion.div className="flex flex-col" initial={risen.has(section.id) ? { opacity: 0, y: 6 } : false} animate={{ opacity: 1, y: 0 }}
                 transition={{ type: 'spring', duration: 0.42, bounce: 0 }} onAnimationComplete={() => risen.delete(section.id)}>
               {/* Its preview: a picture of the page, a line on what it is for, and its keys. */}
+              <div className="group/fold relative flex flex-col">
               <SidePeek id={section.id} keys={`G ${section.key.toUpperCase()}`}>
               <button
                 type="button"
@@ -1525,14 +1546,14 @@ export function Home(): React.JSX.Element {
                 data-side-row
                 data-queue-drop={section.id === 'queue' ? '' : undefined}
                 aria-label={section.label}
-                aria-current={lit(section.id) ? 'page' : undefined}
+                aria-current={here ? 'page' : undefined}
                 onClick={() => open('view', section.id)}
-                className={`group relative flex items-center gap-2.5 rounded-md py-1.5 transition-colors duration-80 ${narrow ? 'justify-center px-0' : 'px-2'} ${lit(section.id) ? 'text-foreground' : 'text-foreground/80'} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]`}
+                className={`group relative flex items-center gap-2.5 rounded-md py-1.5 transition-colors duration-80 ${narrow ? 'justify-center px-0' : 'px-2'} ${here || inFolder ? 'text-foreground' : 'text-foreground/80'} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]`}
               >
                 {/* Each icon keeps its colour, softened while at rest so the hues do not
                     shout at once; the one you are on, or reaching for, is in full. */}
-                <PlaceIcon place={section} full={lit(section.id)} />
-                {!narrow && <Weighted on={lit(section.id)} className="flex-1 text-left">{section.label}</Weighted>}
+                <span className={`flex shrink-0 transition-opacity duration-80 ${folders ? 'group-hover/fold:opacity-0' : ''}`}><PlaceIcon place={section} full={lit(section.id)} /></span>
+                {!narrow && <Weighted on={here} className="flex-1 text-left">{section.label}</Weighted>}
                 {!narrow && countsIn && counts[section.id] ? (
                   // Each count says what it counts, pointed at: the orange one is what is due today.
                   <Tip label={countSaid(section.id, counts[section.id])}>
@@ -1543,10 +1564,25 @@ export function Home(): React.JSX.Element {
                 ) : null}
               </button>
               </SidePeek>
+              {/* Writing's and Gems' fold: quiet, over the icon, until pointed at (Notion's way). */}
+              {folders && list && (
+                <button type="button" data-folders-fold={list} aria-label={unfolded ? `Fold ${section.label}'s folders away` : `Show ${section.label}'s folders`} aria-expanded={unfolded}
+                  onClick={() => (chime(unfolded ? 'fold' : 'slide'), setUnfolded(!unfolded))}
+                  className="absolute top-1/2 left-1.5 flex size-5 -translate-y-1/2 items-center justify-center rounded text-muted-foreground opacity-0 transition-[opacity,background-color] duration-80 group-hover/fold:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100">
+                  <ChevronRight className={`size-3.5 transition-transform duration-80 ${unfolded ? 'rotate-90' : ''}`} />
+                </button>
+              )}
+              </div>
               </motion.div>
               </RowMenu>
+              {folders && list && (
+                // Its own drags, not the row's: a folder pressed on is not Writing carried away.
+                <div onPointerDown={(event) => event.stopPropagation()}>
+                  <SideFolders list={list} open={unfolded} here={inFolder} shown={new Set(folders.map((one) => one.id))} onOpen={(id) => setView({ id: section.id, focus: `g:${id}` })} />
+                </div>
+              )}
               </SortableRow>
-            )
+            )}
             const tagsBlock = (<>
         {/* Your most used tags, with counts, the way Todoist keeps favourite labels. */}
         {/* The heading folds the list, as Pinned's does (Notion's way): anywhere on it, not only its chevron.
@@ -1913,13 +1949,13 @@ export function Home(): React.JSX.Element {
           </Tip>
         </span>
         {/* The one thing the window is for, so the one with an edge: the same pill as back and forward, its key beside it. */}
-        <Tip label={keyed(newPage ? 'A blank page' : 'New capture, in quick capture', '⌘N')}>
-          <button type="button" data-new={newPage ? 'page' : 'capture'} onClick={makeNew}
+        <Tip label={keyed(inFolderRef.current ? 'A new note in this folder' : newPage ? 'A blank page' : 'New capture, in quick capture', '⌘N')}>
+          <button type="button" data-new={inFolderRef.current ? 'folder' : newPage ? 'page' : 'capture'} onClick={makeNew}
             style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
             className={`${PILL} ml-1.5 shrink-0 gap-1.5 pr-1.5 pl-3 text-control font-medium text-foreground/90 transition-colors hover:bg-accent/60 hover:text-foreground`}>
             <AliveIcon icon={PenIcon} size={14} />
             New
-            {!newPage && <Pressed keys="C" className="ml-1 h-[18px] min-w-[18px] rounded-[5px]" />}
+            {!newPage && !inFolderRef.current && <Pressed keys="C" className="ml-1 h-[18px] min-w-[18px] rounded-[5px]" />}
           </button>
         </Tip>
       </header>

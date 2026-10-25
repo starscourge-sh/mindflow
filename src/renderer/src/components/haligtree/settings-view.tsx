@@ -632,6 +632,20 @@ export function SettingsView(): React.JSX.Element {
             <SidePeek id="inbox"><span data-previews-sample className="inline-flex h-8 items-center rounded-md border border-border bg-background px-2.5 text-control text-foreground">Inbox</span></SidePeek>
             <Switch checked={settings.pagePreviews !== false} onCheckedChange={(pagePreviews) => set({ pagePreviews })} aria-label="Page previews" />
           </Setting>
+          {(['article', 'nugget'] as const).map((list) => {
+            const name = list === 'article' ? 'Writing' : 'Gems'
+            const on = settings.sidebarFolders?.[list] !== false
+            return (
+              <Setting key={list} title={`Show groups in the sidebar: ${name}`} note={`${name}'s groups as folders under its sidebar row, each with its count; a click opens the group alone.`} keywords="folders groups tree sidebar nest notion apple notes">
+                {/* Its sample: the row, and a folder under it that comes and goes with the switch. */}
+                <span data-folders-sample={list} className="inline-flex flex-col rounded-md border border-border bg-background px-2.5 py-1 text-control text-foreground">
+                  <span>{name}</span>
+                  <span className={`overflow-hidden pl-3 transition-[opacity,max-height] duration-200 ${on ? 'max-h-6 opacity-80' : 'max-h-0 opacity-0'}`}>📁 Money</span>
+                </span>
+                <Switch checked={on} onCheckedChange={(shown) => set({ sidebarFolders: { ...(settings.sidebarFolders ?? { article: true, nugget: true }), [list]: shown } })} aria-label={`Show groups in the sidebar: ${name}`} />
+              </Setting>
+            )
+          })}
           <Setting title="Sidebar" note="The sections in the main window's sidebar; drag one to move it." more="One switched off leaves the sidebar; G with its letter, or ⌘K, still opens it." keywords="customize sections menu more hide show order reorder move drag" below={<div className="-mx-2 mt-2"><ShowList places={PLACES} setting="sidebarShown" /></div>} />
           <Setting title="Quick capture tabs" note="The tabs beside quick capture; drag one to move it." more="A hidden one is still ⌃ and its number away, and shows while it is open." keywords="prompt panel inbox tasks review kept recent hide show order reorder move drag" below={<div className="-mx-2 mt-2"><ShowList places={BOX_TABS} setting="boxTabs" /></div>} />
         </Group>

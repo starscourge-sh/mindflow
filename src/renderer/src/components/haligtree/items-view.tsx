@@ -211,7 +211,15 @@ function useArrivals(tier: string, all: Item[]): void {
  * lines of them, with a line saying how it comes back; an article as a titled
  * document. Same row underneath, so one view, drawn two ways.
  */
-export function ItemsView({ tier, focus, onOpen, only }: { tier: 'nugget' | 'article'; focus?: string; onOpen?: (type: string, id: string) => void; only?: 'questions' }): React.JSX.Element {
+export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, only }: {
+  tier: 'nugget' | 'article'
+  focus?: string
+  /** The group shown alone, opened from its folder in the sidebar; a group opened here is sent through `onFolder`, so the sidebar marks it. */
+  folder?: string
+  onFolder?: (id: string | null) => void
+  onOpen?: (type: string, id: string) => void
+  only?: 'questions'
+}): React.JSX.Element {
   const own = useLive(() => haligtree.items(tier), [] as Item[], [tier], ['item'], 'items')
   useArrivals(tier, own)
   // Writing holds your questions too, as pages marked "?": the ones still open
@@ -484,7 +492,9 @@ export function ItemsView({ tier, focus, onOpen, only }: { tier: 'nugget' | 'art
   ]
 
   // A group read as a page of its own, in place of the list.
-  const [pageGroup, setPageGroup] = useState<string | null>(null)
+  const [ownPage, setOwnPage] = useState<string | null>(null)
+  const pageGroup = onFolder ? sideFolder ?? null : ownPage
+  const setPageGroup = (id: string | null): void => (onFolder ? onFolder(id) : setOwnPage(id))
   const paged = pageGroup ? noteGroups.find((one) => one.id === pageGroup) : undefined
   // A question is drawn as one, with its "?" mark, how long it has been held and its clues.
   const entryOf = (one: Item): Entry => (one.tier === 'question' ? questionEntry(one, inView.has(one.id), menuFor(one) as MenuItem[]) : itemEntry(one, menuFor(one)))
@@ -1552,7 +1562,10 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
   const tiles = (list: Item[]): ({ group: NoteGroup; items: Item[] } | { item: Item })[] =>
     blocks(layout, list).flatMap((one): ({ group: NoteGroup; items: Item[] } | { item: Item })[] => (one.group && info.get(one.group) ? [{ group: info.get(one.group)!, items: one.items }] : one.items.map((item) => ({ item }))))
   const partsOf = (id: string, all: NoteGroup[]): GroupParts => {
-    const found = blocks(layout, every).find((one) => one.group === id)
+    const every_ = blocks(layout, every)
+    const found = every_.find((one) => one.group === id)
+    // A subgroup (opened from its folder in the sidebar): its notes, as its group holds them.
+    if (!found) return every_.flatMap((one) => one.parts ?? []).flatMap((part) => ('sub' in part && part.sub === id ? [{ items: part.items }] : []))
     // Its own notes first, in order, then each subgroup's under its name.
     const parts = found?.parts ?? []
     const own = parts.flatMap((part) => ('item' in part ? [part.item] : []))

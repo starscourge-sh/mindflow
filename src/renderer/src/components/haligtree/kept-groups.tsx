@@ -1193,7 +1193,7 @@ function GroupMenu({ group, members, onPage, onSeparate, onRename, onIcon, onNew
 }
 
 /** The kinds' own drawings first, then any emoji. */
-function IconChoice({ group, onPick }: { group: GroupView; onPick: (icon: string | null) => void }): React.JSX.Element {
+export function IconChoice({ group, onPick }: { group: Pick<GroupView, 'icon' | 'color'>; onPick: (icon: string | null) => void }): React.JSX.Element {
   return (
     <div className="flex flex-col">
       <div className="flex items-center gap-0.5 border-b px-2 py-1.5">

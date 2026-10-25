@@ -586,6 +586,8 @@ const DEFAULTS = {
   sidebarOrder: [] as string[],
   // A sidebar page dragged into another block (Write, Do, or the rest: "rest"), by its id; one not here is in its own.
   sidebarGroups: {} as Record<string, string>,
+  // Writing's and Gems' groups as folders under their rows in the sidebar.
+  sidebarFolders: { article: true, nugget: true } as Record<'article' | 'nugget', boolean>,
   boxTabsOrder: [] as string[],
   pinOrder: [] as string[],
   // The sidebar's tags in your own order, by name; the rest follow by how often they are used.
