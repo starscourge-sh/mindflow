@@ -55,7 +55,8 @@ async function frames(c, name, count = 5, gap = 45) {
 /** Press on one row and carry it to `at` (0 top, 1 bottom) of another, slowly, as a hand would; `hold` runs before letting go. */
 async function carry(c, from, to, at = 0.5, { hold, up = true, shift = false } = {}) {
   // Pressed where the row is on screen: a row picked further up can be scrolled off by the time it is carried.
-  await from.scrollIntoViewIfNeeded().catch(() => {})
+  const off = await from.evaluate((el) => { const box = el.getBoundingClientRect(); return box.top < 0 || box.bottom > innerHeight })
+  if (off) await from.scrollIntoViewIfNeeded().catch(() => {})
   const a = await from.boundingBox()
   const b = await to.boundingBox()
   await c.h.mouse.move(a.x + 60, a.y + a.height / 2)
@@ -343,7 +344,7 @@ if (c) try {
   await frames(c, 'j-fold', 6, 35)
   await c.h.waitForTimeout(300)
   check('← folds the group', (await named(c, 'Memory'))?.folded === 1)
-  check('and its count shows', /\b3$/.test((await c.h.locator('[data-group-block] [data-count]').first().textContent()) ?? ''), await c.h.locator('[data-group-block] [data-count]').first().textContent())
+  check('and its count shows', /\b3$/.test((await head(c, 'Memory').locator('[data-count]').textContent()) ?? ''), await head(c, 'Memory').locator('[data-count]').textContent())
   await c.h.keyboard.press('ArrowRight')
   await c.h.waitForTimeout(450)
   check('→ unfolds it', (await named(c, 'Memory'))?.folded === 0)
