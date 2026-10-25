@@ -1081,15 +1081,15 @@ const FilesDemo: Demo = ({ live }) => {
 
 const EMBED = '![[route-map.png]]'
 const EmbedsDemo: Demo = ({ live }) => {
-  const at = useSteps([typeMs(EMBED, 70), 600, 2400], live, 2)
-  const text = useTyped(EMBED, at === 0, 70)
+  // Pasted, never typed: only a paste from Obsidian fills a picture in (obsidian-embeds.ts), so the line lands whole.
+  const at = useSteps([900, 900, 2400], live, 2)
   return (
     <Col>
       <div className="rounded-lg border bg-background px-3 py-2 text-control text-foreground">
         <div className="text-muted-foreground">Packing for Lisbon, see:</div>
         <AnimatePresence mode="popLayout" initial={false}>
           {at < 2 ? (
-            <motion.div key="raw" exit={{ opacity: 0 }} className="mt-1"><Said text={at === 0 ? text : EMBED} />{at === 0 && <Caret />}</motion.div>
+            <motion.div key="raw" exit={{ opacity: 0 }} className="mt-1">{at === 0 ? <span className="text-muted-foreground">Pasting from Obsidian, ⌘V</span> : <Said text={EMBED} />}</motion.div>
           ) : (
             <motion.div key="card" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} transition={spring.slow} className="mt-1.5 rounded-md border border-[color-mix(in_srgb,var(--tt-color-text-green)_22%,transparent)] bg-[color-mix(in_srgb,var(--tt-color-text-green)_6%,transparent)] px-2.5 py-1.5">
               <div className="h-12 rounded-sm bg-[color-mix(in_srgb,var(--tt-color-text-green)_18%,transparent)]" />
