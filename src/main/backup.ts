@@ -9,6 +9,7 @@ import { database, setting } from './captures'
 import { dayKey } from './dates'
 import { backUpOthers } from './books'
 import { BOOK, SANDBOX, apart, readShelf, realRoot, writeShelf, type Shelf } from './sandbox'
+import { NOTE_KEY } from './name'
 
 /** The list of books, with the backup folder chosen in Settings beside them. */
 type Kept = Shelf & { backupFolder?: string }
@@ -130,9 +131,9 @@ export async function backUp(db: DatabaseSync): Promise<void> {
   // gone altogether is taken away: copies made before this rule go too.
   const captures = join(backupDir(), 'captures')
   for (const name of existsSync(captures) ? await readdir(captures) : []) {
-    // MF- was the handle before V-: an old copy goes once its V- copy is there.
-    const [, old, number] = /^(MF|V)-(\d+)\.md$/.exec(name) ?? []
-    if (number && (!mayCopy(Number(number)) || (old === 'MF' && existsSync(fileOf(Number(number)))))) await rm(join(captures, name), { force: true })
+    // MF- and V- were the handle before: an old copy goes once its new one is there.
+    const [, old, number] = /^(MF|V|H)-(\d+)\.md$/.exec(name) ?? []
+    if (number && (!mayCopy(Number(number)) || (old !== NOTE_KEY && existsSync(fileOf(Number(number)))))) await rm(join(captures, name), { force: true })
   }
 }
 
@@ -141,7 +142,7 @@ const copiesOn = (): boolean => setting<unknown>('markdownCopies', true) !== fal
 /** Whether a capture may have a Markdown copy: never a private or discarded one. */
 const mayCopy = (number: number): boolean =>
   copiesOn() && !!database().prepare("select 1 from captures where number = ? and private = 0 and status != 'discarded'").get(number)
-const fileOf = (number: number): string => join(backupDir(), 'captures', `V-${number}.md`)
+const fileOf = (number: number): string => join(backupDir(), 'captures', `${NOTE_KEY}-${number}.md`)
 
 /** A capture as Markdown, under its handle, replacing the last version of it. */
 export async function writeMarkdown(number: number, markdown: string): Promise<void> {

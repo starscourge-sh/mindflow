@@ -21,7 +21,7 @@ try {
   await h.evaluate((ids) => window.dispatchEvent(new CustomEvent('haligtree:pass', { detail: { mode: 'tidy', ids } })), [note])
   await h.waitForTimeout(900)
   const head = await h.locator('[data-pass] article').innerText()
-  check('Tidy shows no internal V-number', !/\bV-\d+/.test(head), head.split('\n')[0])
+  check('Tidy shows no internal note number', !/\b[HV]-\d+/.test(head), head.split('\n')[0])
   const chip = h.locator('[data-pass-kind]')
   check('Tidy says what kind it is', (await chip.getAttribute('aria-label')) === 'Kind: Note', String(await chip.getAttribute('aria-label')))
   await shot('tidy-kind')
@@ -82,7 +82,7 @@ try {
 
   // A row under the pointer shows no V-number.
   await go('inbox')
-  check('no capture row carries a V-number, even on hover', !/\bV-\d+/.test(await h.locator('[data-page]').first().evaluate((page) => [...page.querySelectorAll('[data-row]')].map((row) => row.textContent).join(' '))))
+  check('no capture row carries a note number, even on hover', !/\b[HV]-\d+/.test(await h.locator('[data-page]').first().evaluate((page) => [...page.querySelectorAll('[data-row]')].map((row) => row.textContent).join(' '))))
 
   // The Bin: a right-click offers Restore.
   await h.evaluate((id) => window.api.captures.save(id, { status: 'discarded' }), note)

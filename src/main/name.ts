@@ -6,5 +6,8 @@
  */
 export const APP_NAME = 'Haligtree'
 
+/** The letter before a note's number, `H-30`: the app's first. Older notes' `V-30` and `MF-30` still find theirs. */
+export const NOTE_KEY = APP_NAME[0].toUpperCase()
+
 /** The tag on the "Learn the app" deck, named after the app so it never shows an old name. */
 export const LEARN_TAG = `learn-${APP_NAME.toLowerCase()}`

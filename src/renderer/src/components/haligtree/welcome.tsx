@@ -526,7 +526,8 @@ export function Welcome(): React.JSX.Element | null {
       <WelcomeLeaves on={at === WHY && play} open={play && at !== DIAL} middle={at === BACK ? 0 : 0.3} gather={at === LAST && !closing} />
       {mist && <WelcomeMist hurry={rushed} onGone={() => setMist(false)} />}
       {/* Before the first words, in the mist: the book's title page. */}
-      {mist && veiled && at === WHY && <WelcomeTitle name={name} hurry={rushed} />}
+      {/* The book is yours whether it is the first welcome or one played again: its title page always names you. */}
+      {mist && veiled && at === WHY && <WelcomeTitle name={state?.name ?? ''} hurry={rushed} />}
       <div data-drag-strip="" className="relative h-11 shrink-0" style={{ WebkitAppRegion: 'drag' } as CSSProperties} />
       {at === LAST && <TrayArrow tray={state?.tray ?? null} />}
       {/* The chapter's thumb index on the fore-edge, moving down a place each chapter. */}

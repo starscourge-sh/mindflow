@@ -11,6 +11,7 @@ import { goToHeading, headingsOf } from "@/components/toc/headings"
 import { linesIn, nameBlock, BLOCK_TYPES } from "@/extensions/block-ids"
 import { typedOnly } from "@/lib/typed-suggestion"
 import { iconMarkup } from "@/lib/icon-markup"
+import { NOTE_KEY } from "../../../main/name"
 
 /** One note the `@` menu can offer. The app decides what is findable. */
 export interface NoteSuggestion {
@@ -439,8 +440,8 @@ export const NoteLink = Node.create<NoteLinkOptions>({
       "a",
       attrs,
       ...lead,
-      // A link made before the handles were V- still says MF- in the note: shown as it is now.
-      ["span", { class: "tiptap-note-link-key" }, key.replace(/^MF-/, "V-")],
+      // A link made under an older handle still says MF- or V- in the note: shown as it is now.
+      ["span", { class: "tiptap-note-link-key" }, key.replace(/^(MF|V)-/, `${NOTE_KEY}-`)],
       ["span", { class: "tiptap-note-link-label" }, shown],
     ] as never
   },

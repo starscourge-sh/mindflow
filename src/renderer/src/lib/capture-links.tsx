@@ -17,6 +17,7 @@ import { TagIcon } from '@/components/haligtree/tag-icon'
 import type { SaveResult } from '../../../main/captures'
 import { clip, cut, quoted } from '../../../main/clip'
 import { dayKey, num } from '../../../main/dates'
+import { NOTE_KEY } from '../../../main/name'
 
 /**
  * Whether to offer writing a recall question or card for something: only on
@@ -26,8 +27,8 @@ import { dayKey, num } from '../../../main/dates'
 export const recallOffered = (capturedAt: string | null | undefined, now = new Date()): boolean => !!capturedAt && dayKey(new Date(capturedAt)) === dayKey(now)
 
 /** The short handle a capture goes by, like Linear's `REE-30`. */
-// V for Haligtree. Notes from before keep their number; an old `MF-30` still finds `V-30`.
-export const captureKey = (number: number): string => `V-${number}`
+// H for Haligtree (main/name.ts). Notes from before keep their number; an old `V-30` or `MF-30` still finds `H-30`.
+export const captureKey = (number: number): string => `${NOTE_KEY}-${number}`
 
 /** A link to a note that any note reads as one when it is pasted in: `[[@id|its words]]`. */
 export const noteLinkText = (id: string, words: string): string => `[[@${id}|${cut((words || 'Untitled').replace(/[[\]|\n]+/g, ' ').trim(), 80)}]]`

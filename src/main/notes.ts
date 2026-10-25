@@ -13,6 +13,7 @@ import { centredOn, glide, stillNow } from './glide'
 const RISE = 14
 import { tagsIn } from './tag-words'
 import { cut } from './clip'
+import { NOTE_KEY } from './name'
 
 /**
  * What a note carries beyond its words, for captures and nuggets alike: its
@@ -471,8 +472,8 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
   // --- every picture and file, under the names they came with
   handle('notes:attachments', async (notes?: { table: string; id: string }[]) => {
     const rows = (notes?.length
-      ? notes.map(({ table: name, id }) => db.prepare(`select id, ${table(name) === 'captures' ? `'V-' || number || ' ' || ${LABEL}` : "coalesce(nullif(title, ''), label('', body))"} as name, body from ${table(name)} where id = ?`).get(id))
-      : [...db.prepare(`select id, 'V-' || number || ' ' || ${LABEL} as name, body from captures where body like '%haligtree://assets/%'`).all(),
+      ? notes.map(({ table: name, id }) => db.prepare(`select id, ${table(name) === 'captures' ? `'${NOTE_KEY}-' || number || ' ' || ${LABEL}` : "coalesce(nullif(title, ''), label('', body))"} as name, body from ${table(name)} where id = ?`).get(id))
+      : [...db.prepare(`select id, '${NOTE_KEY}-' || number || ' ' || ${LABEL} as name, body from captures where body like '%haligtree://assets/%'`).all(),
          ...db.prepare("select id, coalesce(nullif(title, ''), label('', body)) as name, body from nuggets where body like '%haligtree://assets/%'").all()]
     ).filter(Boolean) as { id: string; name: string; body: string }[]
     // The store names each file by its hash; the note is what remembers what

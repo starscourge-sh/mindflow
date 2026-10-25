@@ -19,6 +19,7 @@ const now = (): string => new Date().toISOString()
 /** `#tags` in a text, lower-cased, once each: the same rule as the rest of the app. */
 import { tagsIn } from './tag-words'
 import { cut } from './clip'
+import { NOTE_KEY } from './name'
 const parse = <T>(text: string | null | undefined, fallback: T): T => {
   try {
     return (JSON.parse(text ?? 'null') as T) ?? fallback
@@ -148,7 +149,7 @@ export function registerIssues(): void {
   // it was caught, the way they read in any note: `V-12 the words`.
   handle('repeats:article', (ids: string[]) => {
     const rows = ids.map((id) => db.prepare(`select id, number, ${LABEL} as title from captures where id = ?`).get(id) as { id: string; number: number; title: string } | undefined).filter((row) => !!row)
-    const link = (row: { id: string; number: number; title: string }): object => ({ type: 'noteLink', attrs: { id: row.id, label: row.title, key: `V-${row.number}`, heading: '', text: '' } })
+    const link = (row: { id: string; number: number; title: string }): object => ({ type: 'noteLink', attrs: { id: row.id, label: row.title, key: `${NOTE_KEY}-${row.number}`, heading: '', text: '' } })
     const body = {
       type: 'doc',
       content: [

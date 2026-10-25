@@ -36,7 +36,7 @@ import { withAlways } from './site-hosts'
 import { dueAt } from './session-log'
 import { SIDEBAR_SHAPE } from './sidebar-shape'
 import { linkOf, watchName } from './renames'
-import { APP_NAME } from './name'
+import { APP_NAME, NOTE_KEY } from './name'
 
 /**
  * Everything past the capture: nuggets and articles, the review queue, tasks,
@@ -95,13 +95,13 @@ function notesAsMarkdown(db: DatabaseSync, assets: string, live = false): Map<st
   // Named by its title, as Obsidian names a note, so a link is plain [[Title]]
   // and reads there as here. Only what a file name or a link cannot hold is taken out.
   const titled = (text: string): string => text.replace(/[\\/:*?"<>|#^[\]]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80).trim()
-  for (const row of captureRows) names.set(row.id, unique(titled(labels.get(row.id) ?? '') || `V-${row.number}`))
+  for (const row of captureRows) names.set(row.id, unique(titled(labels.get(row.id) ?? '') || `${NOTE_KEY}-${row.number}`))
   for (const row of nuggetRows) names.set(row.id, unique(titled(row.title ?? '') || `${row.tier}-${slug(row.title) || row.id.slice(0, 8)}`))
   const nameOf = (id: string): string | undefined => names.get(id)
   for (const row of captureRows) {
     const body = JSON.parse(row.body ?? 'null')
     files.set(`${names.get(row.id)}.md`,
-      front({ id: `V-${row.number}`, private: row.private ? true : null, kind: row.kind, status: row.status, captured: row.captured_at, who: row.attribution, where: row.medium, ...properties(row.fields), tags: tagsIn(plain(body)) }) + local(markdown(body, nameOf)))
+      front({ id: `${NOTE_KEY}-${row.number}`, private: row.private ? true : null, kind: row.kind, status: row.status, captured: row.captured_at, who: row.attribution, where: row.medium, ...properties(row.fields), tags: tagsIn(plain(body)) }) + local(markdown(body, nameOf)))
   }
   for (const row of nuggetRows) {
     const body = JSON.parse(row.body ?? 'null')
@@ -1365,7 +1365,7 @@ export function registerHaligtree(): void {
       const line = (content: unknown[]): unknown => ({ type: 'paragraph', content })
       const notes = { type: 'doc', content: [
         line([{ type: 'text', text: `Made from ${num(rows.length)} captures:` }]),
-        { type: 'bulletList', content: rows.map((row) => ({ type: 'listItem', content: [line([{ type: 'noteLink', attrs: { id: row.id, label: row.label || 'Untitled', key: row.number ? `V-${row.number}` : '' } }])] })) }
+        { type: 'bulletList', content: rows.map((row) => ({ type: 'listItem', content: [line([{ type: 'noteLink', attrs: { id: row.id, label: row.label || 'Untitled', key: row.number ? `${NOTE_KEY}-${row.number}` : '' } }])] })) }
       ] }
       db.prepare('update tasks set notes = ? where id = ? and notes is null').run(JSON.stringify(notes), task.id)
     }
@@ -1545,7 +1545,7 @@ export function registerHaligtree(): void {
   }
   const titleOf = (id: string): { title: string; key: string; link: string } | null => {
     const capture = db.prepare(`select ${LABEL} as title, number from captures where id = ?`).get(id) as { title: string; number: number } | undefined
-    if (capture) return { title: capture.title, key: `V-${capture.number}`, link: id }
+    if (capture) return { title: capture.title, key: `${NOTE_KEY}-${capture.number}`, link: id }
     const nugget = db.prepare('select title, tier from nuggets where id = ?').get(id) as { title: string; tier: string } | undefined
     return nugget ? { title: nugget.title, key: '', link: `${nugget.tier}:${id}` } : null
   }
@@ -2072,7 +2072,7 @@ export function registerHaligtree(): void {
     const row = db.prepare(`select ${ITEM}, title as own, body, origins, binned_at as binnedAt from nuggets where id = ?`).get(id) as Record<string, unknown> | undefined
     if (!row) return null
     const glosses = db.prepare(`select id, body, author, created_at as createdAt, source_id as sourceId,
-      (select 'V-' || number from captures where id = glosses.source_id) as sourceKey from glosses where item_id = ? order by created_at`).all(id)
+      (select '${NOTE_KEY}-' || number from captures where id = glosses.source_id) as sourceKey from glosses where item_id = ? order by created_at`).all(id)
     return { ...body(row), title: row.own, origins: JSON.parse((row.origins as string) ?? '[]'), glosses }
   })
   handle('item:save', (id: string, patch: { body?: unknown; base?: unknown; title?: string; prompt?: string | null; kind?: string; suspended?: boolean; attribution?: string | null; medium?: string | null; context?: string | null; mode?: string; why?: string | null }) => {
