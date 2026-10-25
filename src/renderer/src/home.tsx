@@ -41,6 +41,8 @@ import { FeedView } from './components/haligtree/feed-view'
 import { PowersView } from './components/haligtree/powers-view'
 import { TagsView } from './components/haligtree/tags-view'
 import { SideFolders, newFolder } from './components/haligtree/side-folders'
+import { ListSearch } from './components/haligtree/note-list'
+import { tagFound } from '../../main/tag-words'
 import { groups } from '@/lib/groups'
 import { SourcePageView, SourcesView } from './components/haligtree/source-page'
 import { prefetchTag, renameTag } from './components/haligtree/tag-read'
@@ -705,7 +707,11 @@ export function Home(): React.JSX.Element {
   // Pinned from a tag's page: those first, then the most used.
   // In your order once dragged (tagOrder), the rest by use after them.
   const tagSaved = useOrder('tagOrder')
-  const sideTags = useInOrder(tags, 'tagOrder', (one) => one.tag).slice(0, 8)
+  // A long list is found by typing: the first eight that answer it, from all of them.
+  const [tagQuery, setTagQuery] = useState('')
+  const [tagAt, setTagAt] = useState(0)
+  const tagsInOrder = useInOrder(tags, 'tagOrder', (one) => one.tag)
+  const sideTags = (tagQuery ? tagsInOrder.filter((one) => tagFound(one.tag, tagQuery)) : tagsInOrder).slice(0, 8)
   // The Tags heading is marked on the Tags page, and on a tag's page whose own row is folded away or not among these.
   const onTags = view.id === 'tags' && (!view.focus || !tagsOpen || !sideTags.some(({ tag }) => tag === view.focus))
   const captures = useCaptures()
@@ -1624,9 +1630,18 @@ export function Home(): React.JSX.Element {
           </div>
         )}
         <Unfold open={tagsOpen && tags.length > 0}>
+          {tags.length > 12 && !narrow && (
+            <div data-side-tag-find className="px-1 pt-0.5 pb-1">
+              <ListSearch value={tagQuery} placeholder="Find a tag" className="w-full"
+                onChange={(to) => (setTagQuery(to), setTagAt(0))}
+                onStep={(by) => setTagAt((at) => Math.max(0, Math.min(sideTags.length - 1, at + by)))}
+                onDone={() => sideTags[tagAt] && (chime('tap'), setView({ id: 'tags', focus: sideTags[tagAt].tag }))} />
+              {tagQuery && !sideTags.length && <p className="px-1.5 pt-1.5 text-control text-muted-foreground">No tag has “{tagQuery}” in it.</p>}
+            </div>
+          )}
           <Branches current={view.id === 'tags' ? sideTags.findIndex(({ tag }) => tag === view.focus) : -1} className="flex flex-col">
           {/* Dragged into your own order, as the pages and pins above are; saved. */}
-          <SortableList items={sideTags} keyOf={(one) => one.tag} onMove={narrow ? undefined : dropOrder('tagOrder', tags.map((one) => one.tag), (id) => `#${id}`)}>{(items) => items.map(({ tag, count, color }) => (
+          <SortableList items={sideTags} keyOf={(one) => one.tag} onMove={narrow || tagQuery ? undefined : dropOrder('tagOrder', tags.map((one) => one.tag), (id) => `#${id}`)}>{(items) => items.map(({ tag, count, color }, index) => (
             <SortableRow key={tag} id={tag} glide={`side-tag-${tag}`}>
             <RowMenu items={[
               { label: 'Open', run: () => setView({ id: 'tags', focus: tag }) },
@@ -1643,7 +1658,8 @@ export function Home(): React.JSX.Element {
               onClick={() => setView({ id: 'tags', focus: tag })}
               // Read ahead while the pointer rests on it, so the click shows it at once.
               onPointerEnter={() => prefetchTag(tag)}
-              className={`flex w-full items-center gap-2.5 rounded-md px-2 py-1 ${view.id === 'tags' && view.focus === tag ? '' : 'text-foreground/80'}`}
+              data-cursor={tagQuery && index === tagAt ? true : undefined}
+              className={`flex w-full items-center gap-2.5 rounded-md px-2 py-1 ${view.id === 'tags' && view.focus === tag ? '' : 'text-foreground/80'} ${tagQuery && index === tagAt ? 'bg-accent' : ''}`}
             >
               <TagColourPick tag={tag} color={color} />
               <Weighted on={view.id === 'tags' && view.focus === tag} className="flex-1 text-left">{tag}</Weighted>

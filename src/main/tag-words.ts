@@ -28,6 +28,12 @@ export const tagsIn = (text: string): string[] => (text.includes('#') ? [...new 
 /** Whether a word, without its "#", is a tag. */
 export const isTagWord = (word: string): boolean => new RegExp(`^${TAG}$`, 'u').test(word)
 
+/** Whether a tag answers what was typed to find it: inside its words and across its hyphens, so "humour" and "programminghum" both find #programming-humour. */
+export const tagFound = (tag: string, typed: string): boolean => {
+  const flat = (text: string): string => text.toLowerCase().replace(/[#\s_/-]+/g, '')
+  return flat(tag).includes(flat(typed))
+}
+
 /** Text with its #tags (and the space before each) taken out, or each put as `by`. */
 export const withoutTags = (text: string, by = ''): string => (text.includes('#') ? text.replace(tagPattern(), by) : text)
 

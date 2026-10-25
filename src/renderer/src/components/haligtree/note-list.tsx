@@ -829,15 +829,20 @@ export function ListSearch({
   value,
   onChange,
   onDone,
-  placeholder
+  onStep,
+  placeholder,
+  className = 'w-56'
 }: {
   value: string
   onChange: (value: string) => void
   onDone: () => void
+  /** Given, ↑ and ↓ move through the list without leaving the field, and ↵ is `onDone`. */
+  onStep?: (by: 1 | -1) => void
   placeholder: string
+  className?: string
 }): React.JSX.Element {
   return (
-    <label className="flex h-7 w-56 max-w-full items-center gap-1.5 rounded-md bg-accent/60 px-2 text-control text-muted-foreground focus-within:bg-accent focus-within:text-foreground">
+    <label className={`flex h-7 ${className} max-w-full items-center gap-1.5 rounded-md bg-accent/60 px-2 text-control text-muted-foreground focus-within:bg-accent focus-within:text-foreground`}>
       <SearchIcon className="size-3.5 shrink-0" />
       <input
         value={value}
@@ -851,7 +856,15 @@ export function ListSearch({
             onChange('')
             event.currentTarget.blur()
           }
-          if (event.key === 'ArrowDown' || event.key === 'Enter') {
+          if (onStep && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+            event.preventDefault()
+            event.stopPropagation()
+            onStep(event.key === 'ArrowDown' ? 1 : -1)
+          } else if (onStep && event.key === 'Enter') {
+            event.preventDefault()
+            event.stopPropagation()
+            onDone()
+          } else if (event.key === 'ArrowDown' || event.key === 'Enter') {
             event.preventDefault()
             event.currentTarget.blur()
             onDone()

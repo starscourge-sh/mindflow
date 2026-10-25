@@ -40,6 +40,8 @@ import { Blurt } from './study'
 import { PractiseTag } from './learn-mode'
 import { Chips } from './display'
 import { exampleTags } from '@/lib/examples'
+import { ListSearch } from './note-list'
+import { tagFound } from '../../../../main/tag-words'
 import { Example } from './example'
 import { ArrowLeft, FileText, Gem, Inbox, ListTodo } from '@/components/ui/icons'
 
@@ -96,8 +98,10 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
   const taskNow = useTaskNow()
   const managing = !!chosen && tab !== 'read'
   const several = usePickMixed(managing ? items.map((item) => ({ type: item.type, id: item.id, title: item.title, private: item.private, status: item.type === 'task' ? allTasks.find((task) => task.id === item.id)?.status : undefined })) : [], { here: useHere(), keys: managing })
-  const topics = tags
-  const [cursor] = useListKeys(example ? 0 : topics.length, { onOpen: (index) => setChosen(topics[index].tag) })
+  // A long list can be narrowed by typing: inside words and across hyphens.
+  const [query, setQuery] = useState('')
+  const topics = query ? tags.filter((one) => tagFound(one.tag, query)) : tags
+  const [cursor, setCursor] = useListKeys(example ? 0 : topics.length, { onOpen: (index) => setChosen(topics[index].tag) })
   const top = topics[0]?.count ?? 1
   const current = tags.find((one) => one.tag === chosen)
   // How ready each tag with an exam date is, for the open tag's bar.
@@ -123,6 +127,14 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
           <p className="mx-5 mt-8 text-control text-muted-foreground">
             <strong className="text-foreground">Some tags do something.</strong> #bit keeps a note private; #book adds a reading status and a rating; one marked <SquareCheck aria-label="with a tick" className="inline size-3.5 -translate-y-px" /> makes a task.
           </p>
+        )}
+        {tags.length > 12 && !example && (
+          <div data-tags-find className="mx-5 mt-4">
+            <ListSearch value={query} placeholder="Find a tag" className="w-full"
+              onChange={(to) => (setQuery(to), setCursor(to ? 0 : -1))}
+              onStep={(by) => setCursor(Math.max(0, Math.min(topics.length - 1, cursor + by)))}
+              onDone={() => topics[Math.max(0, cursor)] && setChosen(topics[Math.max(0, cursor)].tag)} />
+          </div>
         )}
         {topics.length ? (
           <Example on={example} tryIt={<><strong>write a #word anywhere in a note, a gem or a task.</strong> It shows up here, counted, with a page of its own.</>}>
@@ -161,7 +173,9 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
             )}
           </VirtualList>
           </Example>
-        ) : unloaded(tags) ? null : (
+        ) : unloaded(tags) ? null : query ? (
+          <p className="mx-5 my-4 text-control text-muted-foreground">No tag has “{query}” in it.</p>
+        ) : (
           <Empty title="No tags yet">
             Write a <span className="text-foreground">#word</span> anywhere in a capture, a gem or a task and it shows up here, counted. The ones that keep coming up are the ones worth a home of their own.
           </Empty>

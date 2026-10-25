@@ -41,5 +41,5 @@ export function rowBody<T extends JSONContent | string | null>(body: T, title = 
     while (lines.length && tagsOnly(textOf(lines[lines.length - 1]))) lines.pop()
     blocks = [...blocks.slice(0, -1), joined(tail, lines)].filter((one): one is JSONContent => !!one)
   }
-  return (blocks.length || bare(title) ? { ...body, content: blocks } : body) as T
+  return (blocks.length || bare(title) ? { ...(body as JSONContent), content: blocks } : body) as T
 }
