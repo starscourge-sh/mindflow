@@ -264,7 +264,6 @@ export function ThemeDial({ size = 200, big = false, calm = false, wear = (theme
             </AnimatePresence>
           </span>
         ) : <Rolling text={say ?? themeName(themes[at])} by="character" className="h-5 max-w-[16rem] truncate text-control font-medium text-foreground" />}
-        {big && <span aria-hidden className={`text-meta text-muted-foreground transition-opacity duration-300 ease-(--mf-ease) ${touched ? 'opacity-0' : 'opacity-100'}`}>Drag the ring</span>}
       </div>
     </div>
   )
