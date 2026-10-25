@@ -81,6 +81,20 @@ function keepRest(key: string, url: string): void {
 }
 /** Pictures already decoded in this window: shown without waiting again. */
 const decoded = new Set<string>()
+/** Each picture's decode, started once, as soon as a place picks it. */
+const warming = new Map<string, Promise<boolean>>()
+function warm(url: string): Promise<boolean> {
+  let done = warming.get(url)
+  if (!done) {
+    const image = new Image()
+    image.src = url
+    done = image.decode().then(() => (decoded.add(url), true), () => (warming.delete(url), false))
+    warming.set(url, done)
+  }
+  return done
+}
+/** How long a page holds its first paint for its picture: past it, the blurred copy, then the fade. */
+const WAIT = 150
 /** The picture each place has shown, for as long as this window is open. */
 const picked = new Map<string, string>()
 
@@ -185,17 +199,32 @@ export function Scenery({ place, seed, mood, text = 'none', fade = false, wide =
   // A picture decoded once this session shows at once after that: coming back
   // to a page put up its plain colour first while the same file decoded again.
   const [shown, setShown] = useState<Scene | null>(() => (scene && decoded.has(scene.url) ? scene : null))
-  // Already there when the page arrives: no fade up from the plain colour either.
-  const [ready] = useState(() => !!scene && decoded.has(scene.url))
+  // Whether the picture on show came in with a fade: only a change of scene
+  // on a page already up, or one that missed the wait below. A window just
+  // opened (a book switch starts a new one, its cache empty) drew the plain
+  // colour, then the blurred copy, then the picture over it: a flash.
+  const [fades, setFades] = useState(false)
+  // Waited for past the budget: only then the stand-in (the blurred copy) and the fade.
+  const [late, setLate] = useState(false)
+  if (scene) void warm(scene.url)
+  // The page it is on holds its first paint for the picture, a moment at most,
+  // so the first frame is already the painting.
+  useReading(!!scene && !shown && !late)
   useEffect(() => {
     if (!scene || scene.url === shown?.url) return
-    if (decoded.has(scene.url)) return setShown(scene)
+    if (decoded.has(scene.url)) return void (setFades(!!settings?.motion && !!shown), setShown(scene))
     // Decoded off the page's thread before it is shown, so the fade never stutters.
     let gone = false
-    const image = new Image()
-    image.src = scene.url
-    void image.decode().then(() => (decoded.add(scene.url), !gone && setShown(scene)), () => !gone && setShown(null))
-    return () => void (gone = true)
+    let waited = false
+    const budget = setTimeout(() => ((waited = true), setLate(true)), WAIT)
+    void warm(scene.url).then((ok) => {
+      clearTimeout(budget)
+      if (gone) return
+      setFades(!!settings?.motion && (waited || !!shown))
+      setShown(ok ? scene : null)
+      setLate(!ok)
+    })
+    return () => void ((gone = true), clearTimeout(budget))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scene?.url])
   if (!on || !scene) return null
@@ -211,11 +240,11 @@ export function Scenery({ place, seed, mood, text = 'none', fade = false, wide =
   }[text]
   const melt = fade ? 'linear-gradient(to bottom, black 0%, black 40%, transparent 96%)' : undefined
   return (
-    <div aria-hidden data-scene={place} className={`pointer-events-none overflow-hidden ${rounded} ${className}`} style={{ maskImage: melt, background: shown ? undefined : `color-mix(in srgb, ${scene.color} 30%, transparent)` }}>
+    <div aria-hidden data-scene={place} className={`pointer-events-none overflow-hidden ${rounded} ${className}`} style={{ maskImage: melt, background: shown || !late ? undefined : `color-mix(in srgb, ${scene.color} 30%, transparent)` }}>
       {/* While the full picture decodes: its small copy, softened, so the page
           starts on the picture rather than on a flat colour. */}
-      {!shown && scene.small && <img src={scene.small} alt="" className="absolute inset-0 size-full scale-110 object-cover blur-xl" />}
-      <AnimatePresence initial={!!settings?.motion && !ready}>
+      {!shown && late && scene.small && <img src={scene.small} alt="" className="absolute inset-0 size-full scale-110 object-cover blur-xl" />}
+      <AnimatePresence initial={false}>
         {shown && (
           <motion.img
             key={shown.url}
@@ -223,7 +252,7 @@ export function Scenery({ place, seed, mood, text = 'none', fade = false, wide =
             alt=""
             decoding="async"
             draggable={false}
-            initial={{ opacity: 0 }}
+            initial={fades ? { opacity: 0 } : false}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: settings?.motion ? 0.9 : 0, ease: 'easeOut' }}
@@ -376,11 +405,26 @@ export function DayBanner({ day, seed = `day:${day}` }: { day: string; /** A wee
 /** The day's scene itself, the same one its banner shows: for words that name it. */
 export function useDayScene(day: string): Scene | null | undefined {
   const { settings, scenes, loading, scanning } = useScenery()
+  const on = !!settings?.scenery && !!settings.sceneryToday
+  const scene = settings && on && !loading && !scanning ? choose(scenes, `day:${day}:${settings.sceneryShuffle ?? 0}`, ['day', 'dusk', 'night', 'interior'], true) : null
+  // Nor is a picture not yet decoded, for a moment: its page holds its first paint for it, so a window
+  // just opened (a book switch) draws the painting in its first frame, not its stand-in.
+  const [, redraw] = useState(0)
+  const [late, setLate] = useState<string | null>(null)
+  const url = scene?.url
+  useEffect(() => {
+    if (!url || decoded.has(url)) return
+    let gone = false
+    const budget = setTimeout(() => !gone && setLate(url), WAIT)
+    void warm(url).then(() => !gone && redraw((n) => n + 1))
+    return () => void ((gone = true), clearTimeout(budget))
+  }, [url])
   // Not known yet (undefined) is not none (null): the page waits, so the words are not drawn plain and then moved under the picture.
   // Still looking through the folders with nothing found yet is not known either.
-  if (!settings || (settings.scenery && settings.sceneryToday && (loading || scanning))) return undefined
-  if (!settings.scenery || !settings.sceneryToday) return null
-  return choose(scenes, `day:${day}:${settings.sceneryShuffle ?? 0}`, ['day', 'dusk', 'night', 'interior'], true)
+  if (!settings || (on && (loading || scanning))) return undefined
+  if (!on) return null
+  if (url && !decoded.has(url) && late !== url) return undefined
+  return scene
 }
 
 /**

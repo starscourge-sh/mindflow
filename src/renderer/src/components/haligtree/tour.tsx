@@ -95,11 +95,17 @@ export function Tour(): React.JSX.Element | null {
   const pad = rect && rect.height < 48 ? 0 : 6
   // The card beside the lit part where it is a narrow column (the sidebar), else under or over it, never past the window's edges.
   const fit = (top: number): number => Math.max(16, Math.min(top, window.innerHeight - cardH - 16))
+  // Never over the line Home has just said ("Your book, opened ..."): a card that would sit on it goes under it.
+  const clear = (top: number, left: number): number => {
+    const line = document.querySelector('[data-book-opened]')?.getBoundingClientRect()
+    if (!line || !line.height || left > line.right || left + 320 < line.left || top > line.bottom || top + cardH < line.top) return top
+    return Math.min(line.bottom + 16, window.innerHeight - cardH - 16)
+  }
   const beside = !!rect && rect.right + 16 + 320 < window.innerWidth && rect.width < window.innerWidth * 0.4
   const style = !rect
     ? { top: '30%', left: '50%', transform: 'translateX(-50%)' }
     : beside
-      ? { top: fit(rect.top - 8), left: rect.right + pad + 14 }
+      ? { top: clear(fit(rect.top - 8), rect.right + pad + 14), left: rect.right + pad + 14 }
       : { top: rect.bottom + pad + 10 + cardH + 16 <= window.innerHeight ? rect.bottom + pad + 10 : fit(rect.top - pad - 10 - cardH), left: Math.max(16, Math.min(rect.left, window.innerWidth - 336)) }
   return (
     <div role="dialog" aria-label="Where things are" className="fixed inset-0 z-[60]">

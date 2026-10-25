@@ -841,6 +841,14 @@ export function Home(): React.JSX.Element {
   const countsIn = dueRead !== null && ![tasks, nuggets, articles, questions, goals, queued].some(unloaded)
   // The sidebar is drawn whole, once its rows' reads are in too: before, Pinned and the tags came in a beat late and pushed the places down.
   const { style: sideStyle } = useReadsIn(!settings || unloaded(away) || !countsIn || unloaded(pinsUsual) || unloaded(tags))
+  // Come into from the welcome's "Open my book": the sidebar comes up with Home's parts, a little apart, never simply there.
+  const [opened, setOpened] = useState(false)
+  useEffect(() => {
+    let off: ReturnType<typeof setTimeout> | undefined
+    const now = (): void => (setOpened(true), clearTimeout(off), void (off = setTimeout(() => setOpened(false), 2400)))
+    window.addEventListener('haligtree:book-opened', now)
+    return () => (clearTimeout(off), window.removeEventListener('haligtree:book-opened', now))
+  }, [])
 
   // Tidy stickies is offered only with a sticky out to tidy.
   const stickiesOut = useStickiesOut()
@@ -1437,7 +1445,7 @@ export function Home(): React.JSX.Element {
       <Popover open={customizing} onOpenChange={setCustomizing}>
       <PopoverAnchor asChild>
       {/* Anything the sidebar opens, its menus too, was found by the sidebar (lib/usage.ts). */}
-      <aside data-chrome data-book-tint style={sideStyle} onClickCapture={() => via('sidebar')} className={`group/side flex shrink-0 flex-col overflow-hidden rounded-xl border bg-accent/20 ${narrow ? 'w-12' : 'w-56'}`}>
+      <aside data-chrome data-book-tint style={sideStyle} onClickCapture={() => via('sidebar')} className={`group/side flex shrink-0 flex-col overflow-hidden rounded-xl border bg-accent/20 ${narrow ? 'w-12' : 'w-56'} ${opened ? 'mf-opened-side' : ''}`}>
         {/* Room for the traffic lights, and somewhere to hold the window by.
             It stays put: only the list under the search scrolls, so nothing
             ever slides under the window's buttons. */}

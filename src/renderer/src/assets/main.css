@@ -1111,6 +1111,15 @@ body:has([data-card]:focus) [data-cursor] {
   .mf-opened > * { animation: none; }
 }
 :root[data-motion='off'] .mf-opened > * { animation: none; }
+/* Its sidebar with it: the panel fades up as the line does, then its search and its list rise, a little apart. */
+.mf-opened-side { animation: mf-fade 520ms var(--mf-ease) both; animation-delay: 380ms; }
+.mf-opened-side > * { animation: mf-rise 520ms var(--mf-ease) both; animation-delay: 440ms; }
+.mf-opened-side > :nth-child(n + 3) { animation-delay: 500ms; }
+.mf-opened-side > :nth-child(n + 4) { animation-delay: 560ms; }
+@media (prefers-reduced-motion: reduce) {
+  .mf-opened-side, .mf-opened-side > * { animation: none; }
+}
+:root[data-motion='off'] :is(.mf-opened-side, .mf-opened-side > *) { animation: none; }
 
 /* A row that just arrived in a list (a capture sent, one put back by Undo)
    eases down into its place instead of popping in. */

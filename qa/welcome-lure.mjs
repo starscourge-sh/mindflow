@@ -1,7 +1,9 @@
 // On the welcome's last page a slow stream of leaves drifts in from the edges to the
 // recommended way in and sinks behind it; the nearer the pointer, the quicker they come
 // and the louder a soft rustle of wind; leaving the page stops the wind. The dial's page
-// does the same toward the dial's ring. Under reduced motion nothing moves and nothing is heard.
+// does the same toward the dial's ring. Pressed on the target, dragged, or the dial turned a stop
+// with ← / →: a gust, more leaves, quicker, the wind swelling, easing back once let go.
+// Under reduced motion nothing moves and nothing is heard.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-l/main/index.js HALIGTREE_QA_AWAY=1 node qa/welcome-lure.mjs [shots folder] [light|dark]
 import { mkdirSync } from 'fs'
 import { join } from 'path'
@@ -26,8 +28,9 @@ const page = async (name, target) => {
   await h.waitForTimeout(3000)
   const later = await lure()
   await shot(`${name}-far`)
-  check(`${name}: leaves come, a few at a time`, later.leaves >= 2 && later.leaves <= 6, JSON.stringify(later))
-  check(`${name}: slowly, with the pointer far`, later.pace < 1.2, `pace ${later.pace?.toFixed(2)}`)
+  // Twice the stream it was (2 to 6), and half as fast again (34px a second), even with the pointer far.
+  check(`${name}: a stream of leaves comes, more than before`, later.leaves >= 6 && later.leaves <= 12, JSON.stringify(later))
+  check(`${name}: calm with the pointer far, yet quicker than before`, later.pace < 1.2 && later.speed > 48, `pace ${later.pace?.toFixed(2)} speed ${later.speed?.toFixed(0)}px/s`)
   check(`${name}: with the pointer far, no wind`, later.rustle === 0, String(later.rustle))
   // Toward it, a step at a time, then over it.
   for (let i = 1; i <= 10; i++) (await h.mouse.move(1430 + (box.x + box.width / 2 - 1430) * (i / 10), 40 + (box.y + box.height / 2 - 40) * (i / 10))), await h.waitForTimeout(60)
@@ -38,7 +41,32 @@ const page = async (name, target) => {
   await shot(`${name}-over`)
   check(`${name}: over it they quicken, nearly three times as fast, eased in`, coming.pace < over.pace && over.pace > 2.5, `${coming.pace?.toFixed(2)} -> ${over.pace?.toFixed(2)}`)
   check(`${name}: they reach it and sink behind it, more of them over it`, over.sunk > later.sunk && over.sunk - coming.sunk >= 1, `sunk ${first.sunk} -> ${later.sunk} -> ${coming.sunk} -> ${over.sunk}`)
-  check(`${name}: and the wind rises, eased in`, coming.rustle < over.rustle && over.rustle > 0.8 && over.heard.includes('rustle'), `${coming.rustle?.toFixed(2)} -> ${over.rustle?.toFixed(2)}`)
+  check(`${name}: and the wind rises, eased in`, coming.rustle < over.rustle && over.rustle > 0.75 && over.heard.includes('rustle'), `${coming.rustle?.toFixed(2)} -> ${over.rustle?.toFixed(2)}`)
+  // Pressed: a gust. More leaves at once, quicker, the wind up to its full.
+  const cx = box.x + box.width / 2
+  const cy = box.y + (name === 'dial' ? 12 : box.height / 2)
+  await h.mouse.move(cx, cy)
+  await h.mouse.down()
+  await h.waitForTimeout(500)
+  const gust = await lure()
+  await shot(`${name}-gust`)
+  check(`${name}: pressed, a gust: more leaves, quicker, louder`, gust.stir >= 1 && gust.leaves > over.leaves && gust.pace > over.pace + 0.8 && gust.rustle > over.rustle, `leaves ${over.leaves} -> ${gust.leaves}, pace ${over.pace?.toFixed(2)} -> ${gust.pace?.toFixed(2)}, rustle ${over.rustle?.toFixed(2)} -> ${gust.rustle?.toFixed(2)}`)
+  // Let go off the card, so the press is not a click that opens the book.
+  if (name !== 'dial') await h.mouse.move(box.x - 40, box.y - 40)
+  await h.mouse.up()
+  await h.mouse.move(cx, cy)
+  await h.waitForTimeout(2600)
+  const eased = await lure()
+  check(`${name}: let go, it eases back toward calm`, eased.stir < 0.3 && eased.pace < gust.pace, `stir ${eased.stir?.toFixed(2)} pace ${eased.pace?.toFixed(2)}`)
+  if (name === 'dial') {
+    // ↓ and ↑ turn the dial from anywhere on its page, a stop at a time (← and → turn the welcome's pages).
+    const before = await lure()
+    for (let i = 0; i < 3; i++) (await h.keyboard.press('ArrowDown')), await h.waitForTimeout(150)
+    const turned = await lure()
+    check('dial: each turn of the dial a push', turned.stir > before.stir + 0.5 && turned.pace > before.pace && turned.rustle > before.rustle, `stir ${before.stir?.toFixed(2)} -> ${turned.stir?.toFixed(2)}, pace ${before.pace?.toFixed(2)} -> ${turned.pace?.toFixed(2)}, rustle ${before.rustle?.toFixed(2)} -> ${turned.rustle?.toFixed(2)}`)
+    for (let i = 0; i < 3; i++) (await h.keyboard.press('ArrowUp')), await h.waitForTimeout(150)
+    await h.waitForTimeout(2500)
+  }
   await h.mouse.move(1430, 40)
   await h.waitForTimeout(3500)
   const back = await lure()

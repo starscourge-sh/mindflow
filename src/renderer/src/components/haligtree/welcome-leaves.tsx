@@ -17,8 +17,10 @@ type Leaf = { small: boolean; x: number; y: number; vx: number; vy: number; late
 const KINDS: Kind[] = ['maple', 'oak', 'birch']
 /** How far off the pointer starts to quicken the leaves drawn to a choice, in px. */
 const NEAR = 460
-/** The most leaves drawn in at once: a few when the pointer is far, a few more over the choice. */
-const STREAM = 4
+/** The most leaves drawn in at once: a stream when the pointer is far, more over the choice. */
+const STREAM = 8
+/** Their pace with the pointer far, px a second: enough that the way they go reads at a glance. */
+const DRIFT = 51
 
 /**
  * The welcome's first screen, once: autumn leaves drawn in letters on little
@@ -246,7 +248,7 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
     }
 
     // The leaves drawn to a choice, and how they go: `pace` 1 (the pointer far) to 3 (over it), eased, and the wind with it.
-    const drawn: { one: Leaf; aim: { x: number; y: number } }[] = []
+    const drawn: { one: Leaf; aim: { x: number; y: number }; bend: number; speed: number }[] = []
     let pace = 1
     let loud = 0
     let heard = 0
@@ -258,6 +260,23 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
     const away = (): void => void ((pointer.x = -1e5), (pointer.y = -1e5))
     window.addEventListener('pointermove', point)
     document.documentElement.addEventListener('pointerleave', away)
+    // A gust: pressed on the choice (held while the dial is dragged), and a small push at each stop the dial turns
+    // to, so taking hold of it is felt in the leaves and the wind. `stir` eases back to calm once let go.
+    let stir = 0
+    let pressed = false
+    let burst = 0
+    let stop: string | null = null
+    const press = (event: PointerEvent): void => {
+      const target = drawTo.current ? document.querySelector(drawTo.current) : null
+      if (!target || !(event.target instanceof Node) || !target.contains(event.target)) return
+      pressed = true
+      stir = Math.max(stir, 1)
+      burst += 6
+    }
+    const letGo = (): void => void (pressed = false)
+    window.addEventListener('pointerdown', press, true)
+    window.addEventListener('pointerup', letGo, true)
+    window.addEventListener('pointercancel', letGo, true)
     /** A new leaf for the stream, coming in at a side (or the top), fading in where it starts. */
     const toward = (target: DOMRect): void => {
       const one = make(true, true)
@@ -268,7 +287,8 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
       one.size = 70 + Math.random() * 40
       born.set(one, performance.now())
       // Each aims for its own place within the choice, so they sink in across it, never all at one point.
-      drawn.push({ one, aim: { x: (Math.random() - 0.5) * target.width * 0.6, y: (Math.random() - 0.5) * target.height * 0.4 } })
+      // And bends in on its own side: wide out at the edge, straight in at the end, so its way reads as toward it.
+      drawn.push({ one, aim: { x: (Math.random() - 0.5) * target.width * 0.6, y: (Math.random() - 0.5) * target.height * 0.4 }, bend: (Math.random() < 0.5 ? -1 : 1) * (0.7 + Math.random() * 0.4), speed: 0 })
     }
     let frame = 0
     let last = performance.now()
@@ -350,21 +370,36 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
         const near = Math.max(0, 1 - off / NEAR) ** 1.6
         // Eased both ways, so nothing jumps as the pointer moves.
         const ease = 1 - Math.exp(-dt * 1.6)
-        pace += (1 + 2 * near - pace) * ease
+        // Each stop the dial turns to (by key, wheel or drag): a small push.
+        const value = document.querySelector(drawTo.current!)?.getAttribute('aria-valuenow') ?? null
+        if (stop !== null && value !== stop) (stir = Math.min(1.6, stir + 0.35)), (burst += 2)
+        stop = value
+        // Held while pressed; let go, it dies down over a second or two. Quick up, slow down, as a gust does.
+        if (pressed) stir = Math.max(stir, 1)
+        else stir *= Math.exp(-dt * 0.9)
+        const gusting = Math.min(1.6, stir)
+        pace += (1 + 2 * near + 1.5 * gusting - pace) * (1 - Math.exp(-dt * (gusting > 0.05 ? 5 : 1.6)))
         loud += (near - loud) * ease
-        if (Math.abs(loud - heard) > 0.01 || (heard && loud < 0.01)) rustle((heard = loud < 0.01 ? 0 : loud))
-        if (now > nextAt && drawn.length < STREAM + Math.round(2 * near)) (toward(target!), (nextAt = now + 2200 / pace))
+        const level = Math.min(1, 0.8 * loud + 0.6 * gusting)
+        if (Math.abs(level - heard) > 0.01 || (heard && level < 0.01)) rustle((heard = level < 0.01 ? 0 : level))
+        for (; burst > 0; burst--) toward(target!)
+        if (now > nextAt && drawn.length < STREAM + Math.round(3 * near + 6 * gusting)) (toward(target!), (nextAt = now + 1100 / pace))
         const middle = { x: hole.x + hole.w / 2, y: hole.y + hole.h / 2 }
         for (let i = drawn.length - 1; i >= 0; i--) {
-          const { one, aim } = drawn[i]
+          const { one, aim, bend } = drawn[i]
           const dx = middle.x + aim.x - one.x
           const dy = middle.y + aim.y - one.y
           const far = Math.hypot(dx, dy) || 1
-          // Slow and steady, along a gentle curve: drawn on, swaying a little across the way it goes.
-          const sway = Math.sin(t * 0.6 + one.sway) * 0.45
-          const speed = 34 * pace * one.drift
-          one.x += ((dx / far) * speed - (dy / far) * speed * sway) * dt
-          one.y += ((dy / far) * speed + (dx / far) * speed * sway) * dt
+          // Along a curve that closes in on it: far off it swings wide on its own side, near it heads straight
+          // in, and it quickens as it comes, as if pulled. A little sway on top, as a leaf has.
+          const close = 1 - Math.min(1, far / 520)
+          const sway = bend * (1 - close) + Math.sin(t * 0.6 + one.sway) * 0.12
+          const speed = DRIFT * pace * one.drift * (1 + 1.6 * close * close)
+          // Never past its mark in one frame.
+          const step = Math.min(far, speed * dt) / (speed * dt || 1)
+          one.x += ((dx / far) * speed - (dy / far) * speed * sway) * dt * step
+          one.y += ((dy / far) * speed + (dx / far) * speed * sway) * dt * step
+          drawn[i].speed = speed
           one.flip += 0.5 * pace * dt
           one.spin += one.turn * 0.8 * pace * dt
           // Sinking: smaller as it slides under, as if drawn down into it.
@@ -378,9 +413,12 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
         heard = 0
         loud = 0
         pace = 1
+        stir = 0
+        burst = 0
+        stop = null
         drawn.length = 0
       }
-      ;(window as unknown as { haligtreeLure?: unknown }).haligtreeLure = { leaves: drawn.length, sunk, pace, loud, toward: drawn.length && hole ? drawn.reduce((sum, { one }) => sum + Math.hypot(one.x - hole.x - hole.w / 2, one.y - hole.y - hole.h / 2), 0) / drawn.length : 0 }
+      ;(window as unknown as { haligtreeLure?: unknown }).haligtreeLure = { leaves: drawn.length, sunk, pace, loud, stir, speed: drawn.length ? drawn.reduce((sum, one) => sum + one.speed, 0) / drawn.length : 0, toward: drawn.length && hole ? drawn.reduce((sum, { one }) => sum + Math.hypot(one.x - hole.x - hole.w / 2, one.y - hole.y - hole.h / 2), 0) / drawn.length : 0 }
       // Only the last stretch fades, for any leaf still in sight.
       const fade = Math.max(0, (gone - 0.7) / 0.3)
       motesShown = Math.max(0, Math.min(1, motesShown + (moting.current ? dt : -dt) / 1.2))
@@ -468,7 +506,8 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
       }
       // Drawn with the bunch, a little clearer than the leaves blowing by: these are meant to be followed.
       ink = penHeld
-      for (const { one } of drawn) (penHeld.globalAlpha = 0.5 * Math.min(1, (now - (born.get(one) ?? 0)) / 2500)), draw(one, t)
+      // In a light theme clearer still: there the pale tiles all but vanished into the page.
+      for (const { one } of drawn) (penHeld.globalAlpha = (dark ? 0.55 : 0.95) * Math.min(1, (now - (born.get(one) ?? 0)) / 1800)), draw(one, t)
       penHeld.globalAlpha = 1
       ink = pen
       pen.globalAlpha = 1
@@ -495,11 +534,12 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
           if (strength < 0.04) continue
           const [r, g, b] = [source[at], source[at + 1], source[at + 2]]
           // The tile in the leaf's own colour; its letter darker in light, lighter in dark.
-          context.fillStyle = `rgba(${r},${g},${b},${(inBunch ? 2.4 : 1) * (dark ? 0.13 : 0.11) * strength})`
+          // Clearer in a light theme, where pale tiles all but vanished into the page.
+          context.fillStyle = `rgba(${r},${g},${b},${(inBunch ? (dark ? 2.4 : 3.4) : 1) * (dark ? 0.13 : 0.11) * strength})`
           context.fillRect(px + 1, py + 1, CELL - 2, CELL - 2)
           const shade = dark ? (one: number): number => Math.round(one + (255 - one) * 0.6) : (one: number): number => Math.round(one * 0.38)
           const letter = Math.min(RAMP.length - 1, Math.max(0, Math.floor((1 - a) * RAMP.length + Math.sin(t * 5 + x * 1.7 + y) * 0.8)))
-          context.fillStyle = `rgba(${shade(r)},${shade(g)},${shade(b)},${(inBunch ? 2.6 : 1) * 0.2 * strength})`
+          context.fillStyle = `rgba(${shade(r)},${shade(g)},${shade(b)},${(inBunch ? (dark ? 2.6 : 3.4) : 1) * 0.2 * strength})`
           context.fillText(RAMP[letter], px + CELL / 2, py + CELL / 2 + 0.5)
         }
       }
@@ -511,6 +551,9 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
       window.removeEventListener('resize', fit)
       window.removeEventListener('pointermove', point)
       document.documentElement.removeEventListener('pointerleave', away)
+      window.removeEventListener('pointerdown', press, true)
+      window.removeEventListener('pointerup', letGo, true)
+      window.removeEventListener('pointercancel', letGo, true)
       quietWind()
     }
   }, [here])
