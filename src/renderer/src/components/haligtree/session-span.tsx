@@ -73,9 +73,10 @@ export function SessionRow({ one, now }: { one: SpanSession; now: number }): Rea
         <button type="button" onClick={() => (chime('open'), window.api.openInHome('task', one.taskId))}
           data-session-block style={running ? STRIPES : FAINT}
           className={`min-w-0 flex-1 rounded-md px-2.5 py-1.5 text-left ring-1 ring-inset transition-[filter] hover:brightness-[0.98] ${running ? 'ring-[color-mix(in_oklab,var(--tt-brand-color-400)_45%,transparent)]' : 'ring-[color-mix(in_oklab,var(--tt-brand-color-400)_18%,transparent)]'}`}>
-          {/* Full ink over the stripes: anything fainter falls under 4.5:1 on Paper's. */}
-          <span data-session-name className={`block truncate text-[0.9375rem] font-semibold ${running ? 'text-foreground' : 'text-foreground/80'}`}>{one.title || 'Focus'}</span>
-          <span data-session-when className="mt-0.5 block truncate text-sm text-foreground tabular-nums">Focus session · {standing(one, end, now)}</span>
+          {/* Full ink over the stripes: anything fainter falls under 4.5:1 on Paper's. A soft halo of the page's own
+              colour lifts the words off the stripes without a box behind them. */}
+          <span data-session-name className={`block truncate text-[0.9375rem] font-semibold ${running ? 'text-foreground [text-shadow:0_0_2px_var(--background),0_0_8px_var(--background)]' : 'text-foreground/80'}`}>{one.title || 'Focus'}</span>
+          <span data-session-when className={`mt-0.5 block truncate text-sm text-foreground tabular-nums ${running ? '[text-shadow:0_0_2px_var(--background),0_0_8px_var(--background)]' : ''}`}>Focus session · {standing(one, end, now)}</span>
         </button>
       </li>
     </RowMenu>

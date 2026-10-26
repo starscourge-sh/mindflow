@@ -1625,14 +1625,15 @@ button.mf-signed:hover .mf-signature { text-decoration: underline; text-decorati
 }
 .mf-wash {
   overflow: hidden;
-  background: linear-gradient(100deg, transparent 30%, rgb(255 214 160 / 0.22) 50%, transparent 70%) no-repeat;
+  /* Barely there: a warmth passing, felt more than seen (it read as a flash at a fifth of full). */
+  background: linear-gradient(100deg, transparent 15%, rgb(255 214 160 / 0.035) 32%, rgb(255 214 160 / 0.08) 50%, rgb(255 214 160 / 0.035) 68%, transparent 85%) no-repeat;
   background-size: 50% 100%;
   animation: mf-wash 48s cubic-bezier(0.45, 0, 0.55, 1) 8s infinite;
   transform: translate3d(-100%, 0, 0);
   will-change: transform;
 }
 .mf-wash[data-wash='cloud'] {
-  background: radial-gradient(40% 70% at 50% 45%, rgb(20 28 40 / 0.26), transparent 70%) no-repeat;
+  background: radial-gradient(40% 70% at 50% 45%, rgb(20 28 40 / 0.14), transparent 70%) no-repeat;
   background-size: 60% 100%;
   animation-duration: 72s;
 }
