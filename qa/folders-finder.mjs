@@ -1,9 +1,9 @@
 // Folders in Writing work as Finder's do, walked as a person would: a nested
 // folder opened from the sidebar shows only what it holds under a path bar,
-// the path goes back up, the triangle folds open in place, the counts agree
+// the path goes back up, a click on a folder row folds it in place and ⌘-click opens it, the counts agree
 // in the sidebar, the folder row and the header, New and ⇧⌘N make things
 // inside, a note carried onto the path goes up (and Undo brings it back),
-// Enter renames, "Delete folder, keep its notes" keeps them, an empty folder
+// F2 renames, "Delete folder, keep its notes" keeps them, an empty folder
 // says so calmly, and "Read as one page" opens the folder as one stream.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 [SHOTS=<dir>] node qa/folders-finder.mjs
 process.env.QA_ARGS ??= '--sandbox'
@@ -39,14 +39,14 @@ try {
   check('Leonardo\'s row and its sidebar count agree', (await rowCount(leonardo.id)) === (await sideCount(leonardo.id)), `${await rowCount(leonardo.id)} vs ${await sideCount(leonardo.id)}`)
   if (shots) await h.screenshot({ path: `${shots}/nested-folder.png` })
 
-  // 2. The triangle folds open in place; a click on the name opens it.
+  // 2. The triangle folds it in place; ⌘-click on the row opens it.
   const open = () => h.locator(`[data-group-row="${leonardo.id}"]`).getAttribute('aria-expanded')
   const was = await open()
   await h.locator(`[data-group-row="${leonardo.id}"] [data-group-fold]`).click(); await wait(500)
   check('the triangle folds it in place', (await open()) !== was && (await path()).at(-1) === 'Renaissance', `${was} → ${await open()}`)
   await h.locator(`[data-group-row="${leonardo.id}"] [data-group-fold]`).click(); await wait(500)
-  await h.locator(`[data-group-row="${leonardo.id}"]`).click({ position: { x: 120, y: 18 } }); await wait(800)
-  check('a click on its name opens it', (await path()).join(' › ') === 'Writing › History › Renaissance › Leonardo', (await path()).join(' › '))
+  await h.locator(`[data-group-row="${leonardo.id}"]`).click({ position: { x: 120, y: 18 }, modifiers: ['Meta'] }); await wait(800)
+  check('⌘-click on it opens it', (await path()).join(' › ') === 'Writing › History › Renaissance › Leonardo', (await path()).join(' › '))
   await h.keyboard.press('Meta+ArrowUp'); await wait(800)
   check('⌘↑ goes up to Renaissance', (await path()).at(-1) === 'Renaissance', (await path()).join(' › '))
   await h.locator('[data-path-part]').filter({ hasText: 'History' }).click(); await wait(800)
@@ -62,13 +62,13 @@ try {
   const rome = await named('Rome')
   check('typed, it is named', !!rome)
 
-  // 4. Enter on a folder row renames it, as in Finder.
-  await h.locator(`[data-group-row="${rome.id}"]`).focus(); await h.keyboard.press('Enter'); await wait(400)
+  // 4. F2 on a folder row renames it, as in Obsidian (Enter folds it).
+  await h.locator(`[data-group-row="${rome.id}"]`).focus(); await h.keyboard.press('F2'); await wait(400)
   await h.keyboard.type('Ancient Rome'); await h.keyboard.press('Enter'); await wait(700)
-  check('Enter renames a folder', !!(await named('Ancient Rome')))
+  check('F2 renames a folder', !!(await named('Ancient Rome')))
 
   // 5. The empty folder, opened: its own quiet state, and a New button.
-  await h.locator(`[data-group-row="${rome.id}"]`).click({ position: { x: 120, y: 18 } }); await wait(900)
+  await h.locator(`[data-group-row="${rome.id}"]`).click({ position: { x: 120, y: 18 }, modifiers: ['Meta'] }); await wait(900)
   const empty = await h.locator('[data-empty]').innerText().catch(() => '')
   check('an empty folder says so: "Nothing in Ancient Rome yet"', /Nothing in Ancient Rome yet/.test(empty) && /Drag notes here, or start one/.test(empty), empty.replace(/\s+/g, ' '))
   check('with a New button', (await h.locator('[data-folder-new-note]').count()) === 1)

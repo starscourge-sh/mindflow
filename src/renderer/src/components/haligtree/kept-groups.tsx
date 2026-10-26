@@ -24,6 +24,7 @@ import { copy } from './row-menu'
 import { Rolling, Tip, VirtualList, refuse, toast, quietly } from './ui'
 import type { Entry } from './note-list'
 import { ROW_PAD, ROW_SHAPE, ROW_TILE } from './row-shape'
+import { Branches } from './branches'
 import { X } from '@/components/ui/icons'
 import { brief, num } from '../../../../main/dates'
 
@@ -937,8 +938,6 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
   const [named, setNamed] = useState<string | null>(null)
   useEffect(() => void (named !== null && named === group.name && setNamed(null)), [named, group.name])
   const name = named ?? group.name
-  const opening = useRef<ReturnType<typeof setTimeout>>(undefined)
-  useEffect(() => () => clearTimeout(opening.current), [])
   const rename = (next: string): void => {
     onRenaming(false)
     if (!next.trim() || next.trim() === group.name) return
@@ -960,7 +959,7 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
       onPointerOver={(event) => setOver(!(event.target as Element).closest('[data-group-block]') || (event.target as Element).closest('[data-group-block]') === event.currentTarget)}
       onPointerLeave={() => setOver(false)}
       // At the top level its panel is the rows' own box: folded, it is one row's box, and what is in it starts and ends where every other row does (qa/row-shape.mjs).
-      className={cn('group/fold relative isolate', inner && 'px-1 py-0.5')}
+      className="group/fold relative isolate"
       style={{ '--group-tint': tint ?? 'var(--foreground)' } as CSSProperties}
     >
       {/* The panel: always there, faint, with a hairline round it; deeper while pointed at, or while something is about to happen to it. */}
@@ -970,6 +969,8 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
         className={cn(
           'pointer-events-none absolute inset-0 -z-10 origin-top transition-[opacity,scale] duration-200 motion-reduce:transition-none',
           carried && 'opacity-0!',
+          // A subfolder has no box of its own: its panel shows only to light where a drop would land.
+          inner && !landing && 'opacity-0',
           parting && 'scale-[0.98] opacity-0!',
           !arrived && 'scale-[0.97] opacity-0'
         )}
@@ -991,6 +992,7 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
           <Node id={key}>
             <Popover open={picking} onOpenChange={setPicking}>
               <ContextMenu onOpenChange={setMenu}>
+                <Tip label={renaming || menu || !onOpenFolder ? '' : 'Click to fold or unfold. ⌘-click, or “Open folder” in its menu, opens it as its own page'}>
                 <ContextMenuTrigger asChild>
                   {renaming ? (
                     <div className={cn(ROW_SHAPE, HEAD, 'data-[state=open]:bg-transparent!')}>
@@ -1014,19 +1016,20 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
                       type="button"
                       data-group-row={group.id}
                       aria-expanded={group.open}
-                      // As in Finder: a click opens the folder, its triangle alone folds it open in place, a double click on the name renames it.
-                      // The open waits out a double click's second press, so a double click renames and never opens first.
+                      aria-label={name}
+                      // As in Obsidian's file explorer and Notion's sidebar: a click anywhere on the row folds or unfolds it at once,
+                      // and never opens it; ⌘-click (or "Open folder" in its menu, or its row in the sidebar) opens it as its own page.
+                      // A double click on the name renames it, its two clicks' folds cancelling out.
                       onClick={(event) => {
                         if (event.detail > 1) return
-                        if (!onOpenFolder) return fold()
-                        clearTimeout(opening.current)
-                        opening.current = setTimeout(() => (chime('open'), onOpenFolder(group.id)), 220)
+                        if (event.metaKey && onOpenFolder) return (chime('open'), onOpenFolder(group.id))
+                        fold()
                       }}
-                      onDoubleClick={() => (clearTimeout(opening.current), onRenaming(true))}
-                      // ← folds and → unfolds, as a folder in a list does; Enter renames it, as in Finder.
+                      onDoubleClick={() => (onFold(!group.open), onRenaming(true))}
+                      // Enter and Space fold it, ← folds and → unfolds, as a folder in a tree does; F2 renames it, as in Obsidian.
                       onKeyDown={(event) => {
-                        if ((event.key === 'ArrowLeft' && group.open) || (event.key === 'ArrowRight' && !group.open)) (event.preventDefault(), fold())
-                        if (event.key === 'Enter') (event.preventDefault(), onRenaming(true))
+                        if ((event.key === 'ArrowLeft' && group.open) || (event.key === 'ArrowRight' && !group.open) || event.key === 'Enter' || event.key === ' ') (event.preventDefault(), event.stopPropagation(), fold())
+                        if (event.key === 'F2') (event.preventDefault(), onRenaming(true))
                       }}
                       // The panel marks it while its menu is open: no second mark on the row.
                       // A slim title bar: its box and focus ring are a page row's (row-shape.ts), its icon and chevron sit in a page's tile column,
@@ -1039,10 +1042,11 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
                       {/* How many it holds, open or folded, quiet after the name. */}
                       <span data-count="" className="-ml-1 shrink-0 text-xs text-muted-foreground tabular-nums">· {count}</span>
                       {/* Open, a hairline under it, inside the group's box. */}
-                      {group.open && <span aria-hidden data-head-line="" className="pointer-events-none absolute inset-x-2 bottom-0 h-px" style={{ background: `color-mix(in srgb, var(--group-tint) ${tint ? 18 : 10}%, transparent)` }} />}
+                      {group.open && !inner && <span aria-hidden data-head-line="" className="pointer-events-none absolute inset-x-2 bottom-0 h-px" style={{ background: `color-mix(in srgb, var(--group-tint) ${tint ? 18 : 10}%, transparent)` }} />}
                     </button>
                   )}
                 </ContextMenuTrigger>
+                </Tip>
                 <GroupMenu group={group} members={entries.map((entry) => entry.id)} onPage={onPage && (() => (chime('open'), onPage(group.id)))} onOpenFolder={onOpenFolder && (() => (chime('open'), onOpenFolder(group.id)))} onSeparate={separate} onRename={() => onRenaming(true)} onIcon={() => setPicking(true)} onNewNote={onNewNote} onSort={onSort} onSorted={onSorted} />
               </ContextMenu>
               {/* Open until an icon is picked, Esc, or a click elsewhere: the focus moving on as the menu shuts never closes it. */}
@@ -1092,7 +1096,8 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
             'entry' in part
               // Separating, they fade one after another.
               ? row(part.entry, at, { transitionDelay: parting ? `${index * 40}ms` : undefined, opacity: parting ? 0.6 : undefined }, INDENT)
-              : <div key={part.group.id} className="py-0.5">{sub(part, at)}</div>
+              // Its twig meets its heading's middle, not the middle of all it holds.
+              : <div key={part.group.id} data-twig-top={20} className="py-0.5">{sub(part, at)}</div>
           // A big group draws only the rows near the screen, as a plain list does: one of 2,500 drew every one, and ⌘A or a
           // fold froze the window. A small one draws them all, the way its carried rows and panel are measured.
           return placed.length > BIG ? (
@@ -1101,6 +1106,9 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
                 {one}
               </VirtualList>
             </div>
+          ) : placed.length && inner ? (
+            // A subfolder's own, as the sidebar's tree draws them: stepped in under its heading, hung off a thin trunk, no box of its own.
+            <Branches current={-1} className="ml-[26px] flex flex-col gap-px pb-1">{placed.map(one)}</Branches>
           ) : placed.length ? (
             <div className="flex flex-col gap-px pb-1">{placed.map(one)}</div>
           ) : (
@@ -1213,7 +1221,7 @@ function GroupMenu({ group, members, onPage, onOpenFolder, onSeparate, onRename,
   const left = group.unsorted ?? []
   return (
     <ContextMenuContent className="w-56" onCloseAutoFocus={(event) => event.preventDefault()}>
-      {onOpenFolder && <ContextMenuItem data-group-open onSelect={later(onOpenFolder)}>Open</ContextMenuItem>}
+      {onOpenFolder && <ContextMenuItem data-group-open onSelect={later(onOpenFolder)}>Open folder</ContextMenuItem>}
       {onPage && <ContextMenuItem data-group-open-page onSelect={later(onPage)}><BookOpen className="size-3.5" />Read as one page</ContextMenuItem>}
       {(onOpenFolder || onPage) && <ContextMenuSeparator />}
       {left.length > 0 && onSort && <ContextMenuItem onSelect={later(() => onSort(left))}>Sort these ({left.length})</ContextMenuItem>}
