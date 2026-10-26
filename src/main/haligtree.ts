@@ -396,6 +396,8 @@ const DEFAULTS = {
   postcards: true,
   // The postcard's border: 'auto' takes it from the theme.
   postcardBorder: 'auto' as 'auto' | 'white' | 'cream' | 'black' | 'accent',
+  // Highlighted words: 'soft' pastels, or 'rich', deeper and fuller.
+  highlights: 'soft' as 'soft' | 'rich',
   // A picture in a note tips toward the pointer. Off by default: a lot for a
   // page of notes. Focus and full screen tilt anyway.
   tiltPictures: false,

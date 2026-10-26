@@ -2259,3 +2259,4 @@ html[data-book-hue] [data-book-tint] {
   background: color-mix(in oklab, var(--tt-color-text-blue) 18%, transparent);
   border-radius: 3px; box-shadow: 0 0 0 2px color-mix(in oklab, var(--tt-color-text-blue) 18%, transparent);
 }
+

@@ -762,7 +762,7 @@ const WORN = 'worn-settings'
     const root = document.documentElement
     if (worn.size) root.style.fontSize = worn.size
     // Only what the settings set: a window's own marks (its view, its focus) are its own.
-    for (const key of ['width', 'linkPictures', 'motion', 'postcardBorder', 'marks', 'bars', 'avatars']) if (worn.data?.[key] && !root.dataset[key]) root.dataset[key] = worn.data[key]
+    for (const key of ['width', 'linkPictures', 'motion', 'postcardBorder', 'highlights', 'marks', 'bars', 'avatars']) if (worn.data?.[key] && !root.dataset[key]) root.dataset[key] = worn.data[key]
     root.toggleAttribute('data-postcards', !!worn.postcards)
     root.toggleAttribute('data-noblur', !!worn.noblur)
     if (worn.still) MotionGlobalConfig.skipAnimations = true
@@ -800,6 +800,7 @@ export function useAppearance(): void {
     document.documentElement.dataset.motion = settings.motion ? 'on' : 'off'
     document.documentElement.toggleAttribute('data-postcards', !!settings.postcards)
     document.documentElement.dataset.postcardBorder = settings.postcardBorder ?? 'auto'
+    document.documentElement.dataset.highlights = settings.highlights ?? 'soft'
     document.documentElement.dataset.marks = settings.marks === false ? 'off' : 'on'
     document.documentElement.dataset.bars = settings.progressBars ?? 'plain'
     document.documentElement.toggleAttribute('data-noblur', settings.blur === false)
@@ -823,7 +824,7 @@ export function useAppearance(): void {
     soundOn(settings.sounds)
     setVolume(settings.volume)
     setPack(settings.soundPack)
-  }, [settings?.fullWidth, settings?.pageWidth, settings?.linkPictures, settings?.avatars, settings?.motion, settings?.postcards, settings?.postcardBorder, settings?.marks, settings?.progressBars, settings?.blur, settings?.boxDim, settings?.spellcheck, settings?.interfaceSize, settings?.sounds, settings?.volume, settings?.soundPack])
+  }, [settings?.fullWidth, settings?.pageWidth, settings?.linkPictures, settings?.avatars, settings?.motion, settings?.postcards, settings?.postcardBorder, settings?.highlights, settings?.marks, settings?.progressBars, settings?.blur, settings?.boxDim, settings?.spellcheck, settings?.interfaceSize, settings?.sounds, settings?.volume, settings?.soundPack])
 }
 
 /** The settings as this window last read them, for code that is not a component (a row's menu). */

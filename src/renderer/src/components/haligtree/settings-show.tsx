@@ -383,6 +383,25 @@ export const postcardChoices = (): { id: string; label: string; show: ReactNode 
     id, label, show: <span className="absolute inset-0 grid place-items-center bg-accent/40"><img src={PICTURE} alt="" draggable={false} className="h-[46px] w-[62px] object-cover" style={{ padding: 3, background: POSTCARD_BORDERS[id](), borderRadius: 7, boxShadow: '0 1px 2px rgb(0 0 0 / 0.14), 0 6px 14px -6px rgb(0 0 0 / 0.35)' }} /></span>
   }))
 
+/** "Soft" and "Rich" highlights, each a line of words marked at its own weight in this theme's colours. */
+const HIGHLIGHT_WEIGHT: Record<string, [light: number, dark: number]> = { soft: [28, 42], rich: [58, 70] }
+const Marked = ({ hue, weight, children }: { hue: string; weight: number; children: ReactNode }): React.JSX.Element => (
+  <mark className="rounded-[3px] px-0.5 text-inherit" style={{ background: `color-mix(in srgb, var(--tt-color-text-${hue}) ${weight}%, transparent)` }}>{children}</mark>
+)
+export const highlightChoices = (dark: boolean): { id: string; label: string; show: ReactNode }[] =>
+  [{ id: 'soft', label: 'Soft' }, { id: 'rich', label: 'Rich' }].map((one) => {
+    const weight = HIGHLIGHT_WEIGHT[one.id][dark ? 1 : 0]
+    return {
+      ...one,
+      show: (
+        <span data-hl-sample={one.id} className="absolute inset-0 flex flex-col items-start justify-center gap-1.5 px-3 text-[13px] leading-none text-foreground">
+          <span><Marked hue="yellow" weight={weight}>kept</Marked> and <Marked hue="green" weight={weight}>found</Marked></span>
+          <span><Marked hue="blue" weight={weight}>read</Marked> <Marked hue="pink" weight={weight}>again</Marked></span>
+        </span>
+      )
+    }
+  })
+
 export const linkChoices = [
   { id: 'fill', label: 'Fill' },
   { id: 'whole', label: 'Whole' }

@@ -557,10 +557,12 @@ $mf-themes: (
    Last in the file on purpose. The theme blocks above are classes, the same
    specificity as `:root`, so this only wins by coming after them. */
 :root {
+  /* How much of the colour a highlight takes: "Soft" (Settings) as here, "Rich" fuller (below). */
+  --mf-highlight-weight: 28%;
   @each $name in ("gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red") {
     --tt-color-highlight-#{$name}: color-mix(
       in srgb,
-      var(--tt-color-text-#{$name}) 28%,
+      var(--tt-color-text-#{$name}) var(--mf-highlight-weight),
       transparent
     );
   }
@@ -569,11 +571,13 @@ $mf-themes: (
 /* On a dark page the same weight sank into it: the words were light on a tint
    barely lighter than the page. Heavier there, still read through. */
 :root:not([data-light]) {
-  @each $name in ("gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red") {
-    --tt-color-highlight-#{$name}: color-mix(
-      in srgb,
-      var(--tt-color-text-#{$name}) 42%,
-      transparent
-    );
-  }
+  --mf-highlight-weight: 42%;
+}
+
+/* "Rich" highlights: the same colours, fuller, still read through. */
+:root[data-highlights="rich"] {
+  --mf-highlight-weight: 58%;
+}
+:root[data-highlights="rich"]:not([data-light]) {
+  --mf-highlight-weight: 70%;
 }
