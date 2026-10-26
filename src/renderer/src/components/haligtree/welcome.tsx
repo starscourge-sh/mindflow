@@ -1,7 +1,7 @@
 import { WelcomeLeaves } from './welcome-leaves'
 import { WelcomeMist } from './welcome-mist'
 import { GATHER_AT, WelcomeTitle } from './welcome-title'
-import { haligtree } from '@/lib/haligtree'
+import { haligtree, unloaded, useLive, type Item } from '@/lib/haligtree'
 import { WelcomeStamp } from './welcome-marks'
 import { Condense, DRAG_MS, REACH_MS, WelcomePointer, type Move } from './welcome-pointer'
 import { TAGLINE } from '../../../../main/tagline'
@@ -1746,6 +1746,9 @@ const keptSaid = (kept: number, mine: number): string => {
 function Start({ state, onState, name, kept, mine, skipped, importing, still, onPick, setup, onImport }: { state: Onboarding | null; onState: (now: Onboarding) => void; name: string; kept: number; /** How many of them were written in the welcome itself. */ mine: number; skipped: false | 'first' | 'later'; importing: boolean; still: boolean; onPick: (pick: 1 | 2 | 3) => void; setup: Setup; onImport: (what: 'vault' | 'files' | 'apple-notes') => void }): React.JSX.Element {
   useKeyChanges()
   const from = sourceFrom(setup.from)
+  // The goal the answers made, only while it is still open in the book: binned, archived or ended since, it is not said.
+  const goals = useLive(() => haligtree.items('goal'), [] as Item[], [], ['item'])
+  const goalOpen = !unloaded(goals) && goals.some((one) => one.id === setup.made?.goalId && !one.archivedAt && !one.closedAt)
   // ⌘. taken by another app, and Catch skipped past or left with it still taken: Catch's own
   // picker here, kept once shown so its "Done" stays in sight, and the line under it says the key chosen.
   const [picking, setPicking] = useState(false)
@@ -1763,7 +1766,7 @@ function Start({ state, onState, name, kept, mine, skipped, importing, still, on
         <h1 className={`${HEADLINE_XL} max-w-[14ch]`}><Rise text={name ? `Your commonplace book is ready, ${name}.` : 'Your commonplace book is ready.'} still={still} /></h1>
         {!state?.boxTaken && <p data-start-kept className={`${BODY} max-w-[30ch]`}>{kept ? <>{keptSaid(kept, mine)} <InlineKeys keys={keyFor('⌘.') || '⌘.'} /> adds the next, from any app.</> : <>Press <InlineKeys keys={keyFor('⌘.') || '⌘.'} /> from any app to save your first note.</>}</p>}
         {picking && <div data-start-key-picker className={`${BODY} max-w-[48ch]`}><KeyPicker taken={!!state?.boxTaken} onState={onState} /></div>}
-        {setup.made?.goalId && setup.made.goalTitle && setup.made.goalBy && (
+        {setup.made?.goalId && setup.made.goalTitle && setup.made.goalBy && goalOpen && (
           <p data-start-goal className={`${WHERE_SAID} max-w-[48ch]`}><span className="font-medium text-foreground">“{setup.made.goalTitle}”</span> is on your Goals page, {dayjs(setup.made.goalBy).diff(dayjs().startOf('day'), 'day')} days to go.</p>
         )}
         <p data-start-where className={WHERE_SAID}>{WHERE_TRUE}</p>

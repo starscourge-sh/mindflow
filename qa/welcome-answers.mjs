@@ -233,6 +233,16 @@ try {
     const again = await c.v('items', 'goal').catch(() => [])
     check('Redo puts it back, once', again.filter((g) => g.title === 'Pass the chemistry exam').length === 1)
   }
+  // The goal archived since: the summary says so, never "is on your Goals page" of a goal no longer there.
+  const made = (await c.v('items', 'goal').catch(() => [])).find((g) => g.title === 'Pass the chemistry exam')
+  if (made) {
+    await c.v('notes:archive', 'nuggets', [made.id], true)
+    await h.waitForTimeout(900)
+    const row = ((await h.$eval('[data-payoff] [data-made="goal"]', (el) => el.innerText).catch(() => '')) ?? '').replace(/\s+/g, ' ')
+    check('a goal archived since is said to be archived, not on your Goals page', /was a goal/.test(row) && /archived now/.test(row) && !/Goals page/.test(row), row)
+    await c.v('notes:archive', 'nuggets', [made.id], false)
+    await h.waitForTimeout(600)
+  }
 
   // --- Catch: no stretched words ---
   await h.click(NEXT)

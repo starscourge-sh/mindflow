@@ -4,7 +4,7 @@ import { Check, Lightbulb } from 'lucide-react'
 import { EASE } from '@/lib/motion'
 import { chime } from '@/lib/sound'
 import type { Setup } from '@/lib/onboarding'
-import { haligtree } from '@/lib/haligtree'
+import { haligtree, unloaded, useLive, type Item } from '@/lib/haligtree'
 import { keyFor } from '@/lib/keys'
 import { Kbd, refuse } from './ui'
 import { dated, dayjs } from '../../../../main/dates'
@@ -160,7 +160,14 @@ const DID = 'an hour on it today'
  */
 export function Payoff({ setup, onChange, onBack, still }: { setup: Setup; onChange: (next: Setup) => void; onBack: () => void; still: boolean }): React.JSX.Element {
   const [busy, setBusy] = useState<string | null>(null)
-  const rows = rowsOf(setup)
+  // The goal the answers made, as it is in the book now: binned, archived or ended since, the page says so
+  // (a welcome played again said "is on your Goals page" of a goal long gone).
+  const goals = useLive(() => haligtree.items('goal'), [] as Item[], [], ['item'])
+  const madeGoal = setup.made?.goalId
+  const now = madeGoal && !unloaded(goals) ? goals.find((one) => one.id === madeGoal) : undefined
+  const fate = !madeGoal || unloaded(goals) || (setup.undone ?? []).includes('goal') ? null
+    : !now ? 'It is in the Bin now.' : now.archivedAt ? 'It is archived now.' : now.closedAt ? 'It has ended: kept under “Ended” in Goals.' : null
+  const rows = rowsOf(setup).map((row) => (row.id === 'goal' && fate ? { ...row, lead: `“${row.goal}” was a goal.`, line: fate, goal: undefined, piece: undefined } : row))
   const tips = tipsOf(setup)
   const flip = async (piece: Piece, undo: boolean): Promise<void> => {
     setBusy(piece)
@@ -172,7 +179,7 @@ export function Payoff({ setup, onChange, onBack, still }: { setup: Setup; onCha
       setBusy(null)
     }
   }
-  const goal = setup.made?.goalId && setup.made.goalBy ? setup.made : null
+  const goal = setup.made?.goalId && setup.made.goalBy && !fate ? setup.made : null
   return (
     // With the goal's card beside it, the rows make room for it, so it never sits over an Undo.
     <div data-payoff className={`flex w-full max-w-[52rem] flex-col gap-[clamp(0.75rem,2.4vh,1.25rem)] ${goal && !(setup.undone ?? []).includes('goal') ? '[@container(min-width:1141px)]:max-w-[min(52rem,calc(100%-22rem))]' : ''}`}>
