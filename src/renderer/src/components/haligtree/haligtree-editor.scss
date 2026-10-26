@@ -119,6 +119,11 @@
 [data-day-write] .haligtree-editor-content.is-typewriter > .tiptap.ProseMirror.haligtree-editor:not(:has(> :nth-child(6))) {
   padding-bottom: 1rem;
 }
+// And only while you write in it: read, the page ends at its last line, not over half a window of nothing
+// before the day's tasks.
+:root:not([data-day-writing]):not([data-in-room]) [data-day-write] .haligtree-editor-content.is-typewriter > .tiptap.ProseMirror.haligtree-editor {
+  padding-bottom: 1rem;
+}
 
 // So the cursor line below runs past the text column to the edges of the box
 // that holds it, not stopping short at the column's own edge, and grows no

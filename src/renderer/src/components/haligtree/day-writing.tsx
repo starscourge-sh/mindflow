@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { ChevronDown } from 'lucide-react'
 import { WritingSound } from './writing-sound'
 import { createPortal } from 'react-dom'
 import type { Editor } from '@tiptap/react'
@@ -145,6 +146,70 @@ export function useWritingQuiet(editor: Editor | null, day: string): number {
  * the margin beside its line), and Tab takes it. Under reduced motion the editor keeps a plain accent
  * caret of its own (main.css), and this draws only the suggestion.
  */
+/**
+ * A long day's page kept to a height on the Journal (about a third of the window), its foot fading with a
+ * "Show the whole page" under it, so the day's tasks stay near. It opens whole, smoothly, on that, on a click
+ * in the words, or once you write (writing mode), and stays open until you leave the page.
+ */
+export function PageCap({ editor }: { editor: Editor | null }): React.JSX.Element | null {
+  const [more, setMore] = useState(0)
+  const [open, setOpen] = useState(false)
+  const openRef = useRef(open)
+  openRef.current = open
+  const reveal = useRef<() => void>(() => {})
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return
+    const dom = editor.view.dom as HTMLElement
+    const box = dom.closest<HTMLElement>('[data-day-write]')
+    const frame = dom.closest<HTMLElement>('.haligtree-editor-wrapper')
+    if (!box || !frame) return
+    const measure = (): void => {
+      if (openRef.current) return
+      const line = parseFloat(getComputedStyle(dom).lineHeight) || 28
+      // Lines past the frame's foot, counted to the last line written (not the room kept after it for writing).
+      const end = (dom.lastElementChild?.getBoundingClientRect().bottom ?? 0) - frame.getBoundingClientRect().top
+      const hidden = Math.max(0, Math.round((end - frame.clientHeight) / line))
+      box.toggleAttribute('data-page-capped', hidden > 0)
+      setMore(hidden)
+    }
+    const whole = (): void => {
+      if (openRef.current) return
+      openRef.current = true
+      // From its capped height to its full one, then free: the words below slide down with it.
+      const from = frame.getBoundingClientRect().height
+      box.setAttribute('data-page-open', '')
+      const to = frame.getBoundingClientRect().height
+      if (to > from + 1 && !matchMedia('(prefers-reduced-motion: reduce)').matches) frame.animate([{ height: `${from}px`, overflow: 'hidden' }, { height: `${to}px`, overflow: 'hidden' }], { duration: Math.min(700, 260 + (to - from) / 4), easing: 'cubic-bezier(0.23, 1, 0.32, 1)' })
+      setOpen(true)
+    }
+    reveal.current = whole
+    const writing = new MutationObserver(() => document.documentElement.hasAttribute('data-day-writing') && whole())
+    writing.observe(document.documentElement, { attributes: true, attributeFilter: ['data-day-writing'] })
+    // A click in the words (not the caret put there on arrival): the page opens, the line clicked staying where it is.
+    frame.addEventListener('pointerdown', whole)
+    editor.on('update', measure)
+    const sized = new ResizeObserver(measure)
+    sized.observe(dom)
+    measure()
+    return () => {
+      writing.disconnect()
+      frame.removeEventListener('pointerdown', whole)
+      editor.off('update', measure)
+      sized.disconnect()
+      box.removeAttribute('data-page-open')
+      box.removeAttribute('data-page-capped')
+    }
+  }, [editor])
+  if (open || more < 1) return null
+  return (
+    <div data-page-more className="relative z-[2] -mt-9 flex justify-center">
+      <button type="button" onClick={() => reveal.current()} className="flex h-7 items-center gap-1.5 rounded-full border border-foreground/10 bg-background px-3 text-control text-muted-foreground shadow-xs transition-colors hover:text-foreground">
+        Show the whole page<span className="tabular-nums text-muted-foreground/80">· {more} more {more === 1 ? 'line' : 'lines'}</span><ChevronDown aria-hidden className="size-3.5" />
+      </button>
+    </div>
+  )
+}
+
 export function LivingCaret({ editor }: { editor: Editor | null }): React.JSX.Element | null {
   const calm = useStill()
   const caret = useRef<HTMLSpanElement>(null)

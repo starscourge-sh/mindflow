@@ -2260,3 +2260,9 @@ html[data-book-hue] [data-book-tint] {
   border-radius: 3px; box-shadow: 0 0 0 2px color-mix(in oklab, var(--tt-color-text-blue) 18%, transparent);
 }
 
+
+/* A long day's page kept to a height on the Journal (PageCap, day-writing.tsx), its foot fading into "Show the whole
+   page"; whole once opened, written in, or in the room. */
+[data-day-write]:not([data-page-open]) .haligtree-editor-wrapper { max-height: max(12rem, 34vh); overflow: hidden; }
+[data-day-write][data-page-capped]:not([data-page-open]) .haligtree-editor-wrapper { mask-image: linear-gradient(to top, transparent, #000 4.5rem); }
+:root:is([data-day-writing], [data-in-room]) [data-day-write] .haligtree-editor-wrapper { max-height: none; overflow: visible; mask-image: none; }
