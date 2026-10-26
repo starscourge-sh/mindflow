@@ -64,7 +64,7 @@ try {
     await h.waitForTimeout(200)
   }
   check('the title card shows in the mist, all the way to its lift', card === looks && looks > 5, `${card} of ${looks} looks`)
-  check('it reads as a title page: A commonplace book, Haligtree', /A commonplace book/i.test(title) && /Haligtree/.test(title), title.replace(/\s+/g, ' '))
+  check('it reads as a title page: Haligtree, kept by its owner', /Haligtree/.test(title) && !/commonplace/i.test(title), title.replace(/\s+/g, ' '))
   check('the logo is drawn in squares over it', (mark?.inked ?? 0) > 2000, String(mark?.inked))
   check('the wordmark is bold', (mark?.weight ?? 0) >= 600, String(mark?.weight))
   if (SHOTS && mark?.png) writeFileSync(join(SHOTS, `title-mark-${THEME}.png`), Buffer.from(mark.png.split(',')[1], 'base64'))
