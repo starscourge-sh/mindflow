@@ -168,7 +168,7 @@ try {
     await h.screenshot({ path: `${process.env.QA_SHOTS}/day-writing-dark.png` })
     await h.evaluate((was) => (document.documentElement.className = was), was)
   }
-  check('5. the writer\'s line shows at the foot, words and minutes and the time', writer?.o === '1' && writer.events === 'none' && writer.bottom === 0 && /^\d+ words?(·\d+ minutes?)?·\d{1,2}:\d{2}( [AP]M)?$/.test(writer.text), JSON.stringify(writer))
+  check('5. the writer\'s line shows at the foot, words and minutes and the time, then the "Sound" control', writer?.o === '1' && writer.events === 'none' && writer.bottom === 0 && /^\d+ words?(·\d+ minutes?)?·\d{1,2}:\d{2}( [AP]M)?·Sound: [A-Za-z, ]+$/.test(writer.text), JSON.stringify(writer))
   check('5. it says the words so far, on a pause', Number(writer?.text.match(/^\d+/)?.[0]) >= 6, JSON.stringify(writer))
   check('5. nothing moved: opacity only', (await geometry()) === shape, `${shape} vs ${await geometry()}`)
   check('5. the caption never changed while typing', (await h.evaluate(() => document.querySelector('[data-day-caption]')?.textContent)) === caption)
