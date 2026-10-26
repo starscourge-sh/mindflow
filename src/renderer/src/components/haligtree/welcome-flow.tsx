@@ -48,7 +48,7 @@ export const FLOW_WORDS = {
   task: LINES.find((one) => one.becomes === 'task')!.text,
   gem: LINES.find((one) => one.becomes === 'gem')!.text,
   /** The gem's question, as Review asks it. */
-  question: 'What does perfection erase, in film?',
+  question: 'What’s the price of perfect graphics?',
   answer: 'Human presence.'
 }
 
