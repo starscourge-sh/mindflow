@@ -1265,7 +1265,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
 
   return (
     // Under the notch, tips open below what they name and never into the notch's band.
-    <TipPlace.Provider value={tucked ? { side: 'bottom', clearTop: notch + 2, onShow: setTipping } : { side: 'bottom', onShow: setTipping }}>
+    <TipPlace.Provider value={tucked ? { side: 'bottom', clearTop: notch + 2, inset: 14, onShow: setTipping } : { side: 'bottom', inset: 14, onShow: setTipping }}>
     {/* In pixels, not rem: the pill's window is a fixed 340 wide, and at Large
         Interface size a rem-sized pill outgrew it and was cut off. */}
     <div className="mf-floating flex h-screen items-start justify-center overflow-hidden" style={{ paddingTop: top, ...(tucked ? NOTCH_INKS : {}), ...(onBreak ? (tucked ? { '--tt-brand-color-400': 'oklch(0.82 0.15 158)', '--pill-on-accent': 'oklch(0.22 0.05 170)' } as CSSProperties : breakInks(light, style)) : {}) }}>
@@ -1478,7 +1478,7 @@ function After({ stage, id, notch, onDone, away = null, early = false, bare = fa
   const [startShape] = useState<Shape>(() => ({ w: WIDE, h: calm ? band : Math.max(from.height, tucked ? notch : 0) }))
   const shape = useShape(startShape, leaving && !calm ? fold : { w: WIDE, h: band }, { w: calm ? { duration: 0 } : SPRING, h: calm ? { duration: 0 } : SPRING }, tucked)
   return (
-    <TipPlace.Provider value={tucked ? { side: 'bottom', clearTop: notch + 2, onShow: setTipping } : { side: 'bottom', onShow: setTipping }}>
+    <TipPlace.Provider value={tucked ? { side: 'bottom', clearTop: notch + 2, inset: 14, onShow: setTipping } : { side: 'bottom', inset: 14, onShow: setTipping }}>
     <div className="mf-floating flex h-screen items-start justify-center overflow-hidden" style={{ paddingTop: top, ...(tucked ? NOTCH_INKS : {}) }}>
       <motion.div
         className="relative"

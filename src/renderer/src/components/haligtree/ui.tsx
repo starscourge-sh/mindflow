@@ -1756,7 +1756,7 @@ export function AskWho({ id, initial = '', onDone }: { id: string; initial?: str
  * the notch opens them below, and keeps them out of the notch's band at the
  * top of the screen (`clearTop`), where they could not be read.
  */
-export const TipPlace = createContext<{ side?: 'top' | 'bottom'; clearTop?: number; /** Told as a tip opens and closes, for a window to make room for it. */ onShow?: (open: boolean) => void }>({})
+export const TipPlace = createContext<{ side?: 'top' | 'bottom'; clearTop?: number; /** Room kept from the edges, for a window whose edge is a card's (the session bubble): a tip sits inside it, never against it. */ inset?: number; /** Told as a tip opens and closes, for a window to make room for it. */ onShow?: (open: boolean) => void }>({})
 
 export function Tip({ label: given, offset, side, children }: { label: ReactNode; /** Space between the tip and its control, for a control that grows on hover. */ offset?: number; /** Where it opens: above unless said; a menu line's opens to its right. */ side?: 'top' | 'right' | 'bottom' | 'left'; children: React.ReactElement<{ 'aria-label'?: string; children?: ReactNode }> }): React.JSX.Element {
   // Its keys as you press them now, if you changed them in Settings.
@@ -1801,7 +1801,7 @@ function Tipped({ label, offset, side, children }: { label: ReactNode; offset?: 
   return (
     <Tooltip open={open} onOpenChange={onOpenChange}>
       <TooltipTrigger asChild ref={trigger}>{children}</TooltipTrigger>
-      <TooltipContent sideOffset={offset} side={side ?? place.side} {...(place.clearTop ? { collisionPadding: { top: place.clearTop, right: 8, bottom: 4, left: 8 } } : {})}>{shown}</TooltipContent>
+      <TooltipContent sideOffset={offset} side={side ?? place.side} {...(place.clearTop || place.inset ? { collisionPadding: { top: place.clearTop ?? place.inset ?? 8, right: place.inset ?? 8, bottom: place.inset ?? 4, left: place.inset ?? 8 } } : {})}>{shown}</TooltipContent>
     </Tooltip>
   )
 }
