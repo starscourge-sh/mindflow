@@ -632,8 +632,8 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
           }}
         />
       )}
-      {task && <TaskDetail key={task.id} task={task} onClose={() => setTask(null)} onOpen={onOpen}
-        top={<Stepper at={whole.findIndex((one) => one.id === task.id)} total={whole.length} onStep={stepTo} />} />}
+      {task && <ShowInListContext.Provider value={showOpen}><TaskDetail key={task.id} task={task} onClose={() => setTask(null)} onOpen={onOpen}
+        top={<Stepper at={whole.findIndex((one) => one.id === task.id)} total={whole.length} onStep={stepTo} />} /></ShowInListContext.Provider>}
       {peeked && (
         <Peek entry={captureEntry(peeked, pick)} table="captures" onOpen={() => pick(peeked.id)}>
           <CaptureProps capture={peeked} onOpen={onOpen} className="border-t pt-3 @[40rem]/page:w-full @[40rem]/page:border-t @[40rem]/page:border-l-0" />

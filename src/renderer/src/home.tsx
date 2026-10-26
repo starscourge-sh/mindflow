@@ -1,4 +1,5 @@
 import { detailsShown, showDetails } from '@/lib/reading'
+import { showInList } from '@/lib/show-in-list'
 import { TagColourPick } from './components/haligtree/tag-colour-pick'
 import { themeActions } from '@/lib/theme'
 import { useAbandonAction } from '@/lib/abandon'
@@ -1055,7 +1056,9 @@ export function Home(): React.JSX.Element {
       open('capture', id)
       setTimeout(() => window.dispatchEvent(new CustomEvent('haligtree:versions', { detail: id })), 600)
     } else open(type, id)
-    if (heading && type !== 'view' && !(type === 'task' && heading === 'sessions')) headingIn(type, id, heading)
+    // "Show in list" from a note's own window: its row in the list here, lit once its page is up.
+    if (heading === 'show-in-list') setTimeout(() => showInList(id), 600)
+    else if (heading && type !== 'view' && !(type === 'task' && heading === 'sessions')) headingIn(type, id, heading)
     // Promoted from quick capture with ⌘O: the caret lands where it was.
     landPromoted(type, id)
   }), [])

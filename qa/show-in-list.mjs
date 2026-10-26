@@ -121,13 +121,39 @@ try {
       await note.waitForLoadState(); await note.waitForTimeout(1500)
       await go('articles'); await wait(800)
       await note.locator('button[aria-label="More"]').first().click(); await note.waitForTimeout(400)
+      await h.evaluate((sel) => {
+        window.__lit = false
+        const seen = new MutationObserver(() => { const row = document.querySelector(sel); if (row && (row.closest('.mf-arrive') || row.querySelector('.mf-arrive'))) window.__lit = true })
+        seen.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'], childList: true })
+        setTimeout(() => seen.disconnect(), 4000)
+      }, ROW(P, id))
       await note.locator('[role=menu] [role=menuitem]').filter({ hasText: /^Show in list/ }).first().click()
       await wait(1500)
       const page = await h.evaluate(() => document.querySelector('[data-page]')?.getAttribute('data-page'))
       const s = await look(P, id)
       check('from its own window: the main window is on the Inbox', page === 'inbox', page)
       check('with its row in view', s.drawn && s.inView, JSON.stringify(s))
+      check('and lit once', await h.evaluate(() => window.__lit))
       await note.close().catch(() => {})
+    }
+  }
+
+  // A task open in the Inbox's "Show sorted too": its own line has “Show in list” too.
+  {
+    const P = '[data-page="inbox"]'
+    await go('inbox'); await wait(900)
+    await h.locator(`${P} [data-sorted-too] [role=switch]`).first().click(); await wait(900)
+    const id = await h.evaluate((P) => [...document.querySelectorAll(`${P} [data-row][data-id]`)].find((row) => /wrenfield task/.test(row.textContent))?.dataset.id, P)
+    if (!id) check('Show sorted too lists a task', false)
+    else {
+      await h.locator(ROW(P, id)).first().click({ position: { x: 60, y: 10 } }); await wait(900)
+      const line = h.locator(`${P} button, ${P} [role=button]`).filter({ hasText: /^Show in list/ }).first()
+      check('a task open in Show sorted too has “Show in list”', (await line.count()) > 0)
+      if (await line.count()) {
+        await watchLit(P, id)
+        await line.click(); await wait(1100)
+        check('and its row is lit', await h.evaluate(() => window.__lit))
+      }
     }
   }
 } finally {

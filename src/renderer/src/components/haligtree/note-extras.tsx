@@ -608,7 +608,7 @@ export function NoteHeader({ left, back, type = 'capture', edited, captured, mad
   // The header's own lines are not said twice when the note's menu has them too.
   const OWN = ['Pin', 'Unpin', 'Pin to the sidebar', 'Copy link', 'Version history']
   // Opened away from its own list (search, a link, its own window): that list, the main window's, opened on it, which shows its row.
-  const show = useShowLine() ?? { label: 'Show in list', run: () => window.api.openInHome(type, String(versions.id)) }
+  const show = useShowLine() ?? { label: 'Show in list', run: () => window.api.openInHome(type, String(versions.id), 'show-in-list') }
   const items = [...(show ? [show, 'separator' as const] : []), ...menu].filter((item) => item && (item === 'separator' || !OWN.includes(item.label))) as Exclude<MenuItem | { label: string; items: RowItem[] }, false | null | undefined>[]
   const [reading, setReading] = useState(false)
   const detailsOut = useDetailsShown()
