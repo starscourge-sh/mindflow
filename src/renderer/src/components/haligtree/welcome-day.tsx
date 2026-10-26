@@ -98,8 +98,8 @@ export const BACK_END: BackShot = { shown: 3, ticked: true, over: true, curve: t
 /** Each thing kept and how it comes back: what it is, when, and what Haligtree does, its key words *marked*. */
 export const BACK: { kind: 'task' | 'gem' | 'quote'; kept: string; when: string; said: string }[] = [
   { kind: 'task', kept: 'Find photos of the puppet', when: `${STORY_DAY}, ${clock(dayjs().hour(9).minute(0))}`, said: 'With “Stick Today on the desktop”, your tasks *sit on your desktop*. Tick them off there.' },
-  { kind: 'gem', kept: 'Perfection erases…', when: `${dayjs().add(5, 'day').format('dddd')}, ${clock(dayjs().hour(21).minute(30))}`, said: 'Your gem *comes back as a question* in “Review”, and waits longer each time you remember it.' },
-  { kind: 'quote', kept: 'Do or do not…', when: 'A year on', said: 'The line you saved *comes back on “Home”*, and as a hint, like a postcard from your past self.' }
+  { kind: 'gem', kept: 'Perfection erases…', when: `${dayjs().add(5, 'day').format('dddd')}, ${clock(dayjs().hour(21).minute(30))}`, said: 'Your gem *turns into a question* in “Review”, and waits longer each time you remember it.' },
+  { kind: 'quote', kept: 'Do or do not…', when: 'A year on', said: 'The line you saved *shows up on “Home”*, and as a hint, like a postcard from your past self.' }
 ]
 const ICON = { task: ListTodo, gem: Gem, quote: Quote }
 const TINT = { task: HUE.task.ink, gem: HUE.gem.ink, quote: 'var(--tt-color-text-purple)' }
@@ -283,9 +283,9 @@ export function ForgettingCurve({ on, quiet }: { on: boolean; quiet: boolean }):
               <svg width={w} height={h} className="absolute inset-0 block overflow-visible" aria-hidden>
                 <defs>
                   <linearGradient id={fill} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" style={{ stopColor: ink, stopOpacity: 0.5 }} />
-                    <stop offset="65%" style={{ stopColor: ink, stopOpacity: 0.16 }} />
-                    <stop offset="100%" style={{ stopColor: ink, stopOpacity: 0.03 }} />
+                    <stop offset="0%" style={{ stopColor: ink, stopOpacity: 0.26 }} />
+                    <stop offset="65%" style={{ stopColor: ink, stopOpacity: 0.08 }} />
+                    <stop offset="100%" style={{ stopColor: ink, stopOpacity: 0.015 }} />
                   </linearGradient>
                 </defs>
                 {/* Faint lines across, and a firmer floor: no figures on any of them. */}
@@ -298,7 +298,7 @@ export function ForgettingCurve({ on, quiet }: { on: boolean; quiet: boolean }):
                     strokeWidth={1.6} strokeDasharray="3.5 3.5" strokeLinecap="round"
                     initial={false} animate={{ opacity: drawn ? 1 : 0 }} transition={draw(ring[i] + 0.15, 0.7)} />
                 ))}
-                <motion.path data-curve-line="reviewed" d={saw} fill="none" stroke={ink} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"
+                <motion.path data-curve-line="reviewed" d={saw} fill="none" stroke={ink} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
                   initial={false} animate={{ pathLength: drawn ? 1 : 0 }} transition={draw(LINE.delay, LINE.duration)} />
                 {REVIEWS.map((day, i) => (
                   <motion.circle key={day} data-curve-dot cx={x(day)} cy={y(1)} r={4.5} fill="var(--background)" stroke={ink} strokeWidth={2}

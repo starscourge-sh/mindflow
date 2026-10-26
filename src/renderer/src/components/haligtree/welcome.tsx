@@ -1267,7 +1267,7 @@ function WriteChapter({ play, report, setup }: { play: boolean; report: (now: Re
 // --- 5 Remember ---------------------------------------------------------------------
 
 const BACK_TITLE = 'It comes back to you.'
-const BACK_LINE = 'Each thing you keep comes back when you need it: a task on its day, a gem before you forget it, a saved line a year on.'
+const BACK_LINE = 'Each thing you keep comes back when you need it.'
 
 /**
  * The three kept things, there from the first frame; then, in real

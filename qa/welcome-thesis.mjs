@@ -168,7 +168,7 @@ try {
   await settle()
   const answers = await h.evaluate(() => [...document.querySelectorAll('[data-answer]')].map((el) => ({ shine: [...el.querySelectorAll('.mf-sheen')].map((one) => one.textContent).join('|'), all: el.getAttribute('aria-label') })))
   check('Remember\'s three lines each shine on their key words', answers.length === 3 && answers.every((one) => one.shine && one.all.length > one.shine.length + 10), JSON.stringify(answers))
-  check('Remember says each thing you keep comes back when you need it', /Each thing you keep comes back when you need it: a task on its day, a gem before you forget it, a saved line a year on\./.test(await h.innerText('.mf-welcome [data-words]')))
+  check('Remember says each thing you keep comes back when you need it', /Each thing you keep comes back when you need it\./.test(await h.innerText('.mf-welcome [data-words]')))
   check('the gem comes back in Review, named there', /Review/.test(answers[1]?.all ?? ''), answers[1]?.all ?? '')
   check('the saved line comes back like a postcard from your past self', /postcard from your past self/.test(answers[2]?.all ?? ''), answers[2]?.all ?? '')
   check('the curve has no figures and no made-up days on it, only the review counts', !/\d/.test((await h.innerText('[data-curve]')).replace(/\b\d+(st|nd|rd|th)\b/g, '')))
