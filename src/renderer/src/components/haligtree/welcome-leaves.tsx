@@ -30,6 +30,9 @@ const DRIFT = 51
  * turns false) a gust blows them off the edge, gone in under a second. Not
  * drawn under reduced motion.
  */
+/** The breeze that carries the small leaves on, after the gust, in the gust's own direction (px a second). */
+const BREEZE = 70
+
 export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = null, motes: showMotes = true, bunchAt = null }: { /** Where the bunch is held, as parts of the canvas, and how big: the last page's (low right, sized to the window) unless told. With `fromEdge`, its five blow in from off the left edge, none already near. */ bunchAt?: { x: number; y: number; scale: number; fromEdge?: boolean } | null; on: boolean; /** The welcome showing: the small ones keep drifting till it ends. */ open: boolean; /** How much of a leaf shows in the middle of the page: none on a page full to its edges. */ middle?: number; /** The last page: the leaves gather into one bunch at a single base, a florilegium. */ gather?: boolean; /** What the leaves are drawn to (a selector): they drift in from the edges and sink behind it, quicker and with the wind louder as the pointer nears it. */ lure?: string | null; /** The small ones drifting by: none on a page with its own light (the dial). */ motes?: boolean }): React.JSX.Element | null {
   const box = useRef<HTMLCanvasElement>(null)
   const gathering = useRef(gather)
@@ -119,13 +122,14 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
      */
     const edgeward = (one: Leaf): void => {
       const band = Math.random()
-      one.size = 60 + Math.random() * 60
+      one.size = 34 + Math.random() * 34
       if (band < 0.2) (one.x = Math.random() * width), (one.y = Math.random() * height)
       else if (band < 0.4) (one.x = width * Math.random() * 0.14), (one.y = Math.random() * height)
       else if (band < 0.65) (one.x = width * (0.86 + Math.random() * 0.14)), (one.y = Math.random() * height)
       else if (band < 0.82) (one.x = Math.random() * width), (one.y = height * Math.random() * 0.1)
       else (one.x = Math.random() * width), (one.y = height * (0.88 + Math.random() * 0.1))
-      one.vx = 0
+      // Already on the breeze that carries the rest: never a leaf hanging still, then falling.
+      one.vx = BREEZE * one.drift
       one.vy = 0
       born.set(one, performance.now())
     }
@@ -350,20 +354,22 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
           // in its direction, easing off slowly, and only then settle to the breeze.
           const push = caught * (1 - calm)
           const hold = 0.35 + 1.05 * push
-          one.vx += (1000 * push * one.drift - one.vx) * hold * dt
+          // After the gust, never back to still: a steady breeze the same way, so the leaves go on
+          // across to the right, only sinking a little as they go.
+          one.vx += ((1000 * push + BREEZE * (1 - push)) * one.drift - one.vx) * hold * dt
           one.vy += (-185 * push - one.vy) * hold * dt
         }
         // Once the wind has dropped, a light sideways breeze and a slow fall: they come down the bare edges.
         // Lingering: a breeze so light they stay a while where they are.
         one.x += (blow * (0.5 - 0.46 * calm) * one.drift + one.vx) * dt
         one.y += one.vy * dt
-        one.y += (10 - 2 * calm + Math.sin(t * 0.5 + one.sway) * 6) * dt
+        one.y += (10 + 4 * calm + Math.sin(t * 0.5 + one.sway) * 6) * dt
         one.flip += 0.7 * dt
         one.spin += one.turn * 1.6 * dt
         if (one.x > width + one.size || one.y > height + one.size) {
           Object.assign(one, make(false, true))
-          // After the first screen, a new one starts above an edge, where the pages are bare, not across the middle.
-          if (calm > 0.5) edgeward(one)
+          // After the first screen, a new one comes in on the breeze from the left edge, as the rest went.
+          if (calm > 0.5) (edgeward(one), (one.x = -one.size - Math.random() * width * 0.15), (one.y = Math.random() * height * 0.85))
         }
       }
       // Wind on the bunch: the nearer the pointer and the faster it comes toward "Open my book", the harder

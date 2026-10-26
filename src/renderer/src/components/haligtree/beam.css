@@ -56,6 +56,14 @@
 }
 .mf-beam.mf-beam-card::before { width: 300%; height: auto; aspect-ratio: 1; margin: -150% 0 0 -150%; animation: mf-beam-turn 1.6s cubic-bezier(0.3, 0.6, 0.3, 1) forwards; }
 
+/* Round the welcome's recommended card now and then: once round in about two
+   seconds, then nine of rest. Only while the window is looked at. */
+.mf-beam.mf-beam-card.mf-beam-again { animation: mf-beam-again 11s var(--mf-ease) 2.5s infinite; }
+.mf-beam.mf-beam-card.mf-beam-again::before { animation: mf-beam-again-turn 11s cubic-bezier(0.3, 0.6, 0.3, 1) 2.5s infinite; }
+:root:not([data-awake]) .mf-beam-again, :root:not([data-awake]) .mf-beam-again::before { animation-play-state: paused; }
+@keyframes mf-beam-again { 0% { opacity: 0; } 3% { opacity: 0.85; } 13% { opacity: 0.6; } 18%, 100% { opacity: 0; } }
+@keyframes mf-beam-again-turn { 0% { transform: rotate(0turn); } 18%, 100% { transform: rotate(1turn); } }
+
 /* Motion off, or Reduce motion on: no beam at all. A toast still says it in words. */
 :root[data-motion='off'] .mf-beam { display: none; }
 @media (prefers-reduced-motion: reduce) {
