@@ -87,7 +87,9 @@ export function WelcomePointer({ root, phrases, marks, line, move }: { root: Ref
     } else if (move === 'leave') {
       el.dataset.beam = ''
       el.style.opacity = '0'
-      run.current = glide(from, { x: box.width * 0.9, y: box.height * 0.96 }, 1100, place)
+      // Off a little up and to the right as it fades, never toward the button at the foot: heading for it, it
+      // read as "now press Next" while the page still had its cause and answer to tell.
+      run.current = glide(from, { x: Math.min(box.width - 24, from.x + 90), y: Math.max(0, from.y - 50) }, 900, place)
     }
   }, [line, move]) // eslint-disable-line react-hooks/exhaustive-deps
   useLayoutEffect(() => () => run.current?.stop(), [])

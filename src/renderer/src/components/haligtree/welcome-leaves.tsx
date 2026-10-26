@@ -503,11 +503,13 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
         for (const [one, at] of bunch) (ink.globalAlpha = Math.max(0.2, at.face)), draw(one, t)
         ink = pen
         const stems = penHeld
-        stems.globalAlpha = 0.9 * settled
         stems.strokeStyle = `oklch(${dark ? 0.55 : 0.45} 0.06 60)`
         stems.lineWidth = 0.9
         stems.lineCap = 'round'
         for (const [one, at] of bunch) {
+          // Each stem only as its leaf lands: drawn to a leaf still on the wind, it stretched across the page.
+          stems.globalAlpha = 0.9 * settled * Math.min(1, Math.max(0, (at.face - 0.85) / 0.15))
+          if (!stems.globalAlpha) continue
           const length = one.size / CELL
           const tail = { x: one.x / CELL - Math.cos(one.spin) * length * 0.61, y: one.y / CELL - Math.sin(one.spin) * length * 0.61 }
           stems.beginPath()
@@ -516,6 +518,7 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
           stems.stroke()
         }
         const any = bunch.values().next().value!
+        stems.globalAlpha = 0.9 * settled * Math.min(1, Math.max(0, (Math.min(...[...bunch.values()].map((one) => one.face)) - 0.85) / 0.15))
         stems.fillStyle = `oklch(${dark ? 0.6 : 0.5} 0.09 30)`
         stems.fillRect(any.base.x / CELL - 2, any.base.y / CELL - 0.5, 4, 1.6)
       }
