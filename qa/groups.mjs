@@ -194,6 +194,7 @@ if (c) try {
   await c.h.keyboard.press('Enter')
   await c.h.waitForTimeout(400)
 
+  await c.h.evaluate(() => window.addEventListener('pointermove', (event) => void (window.__pt = { x: event.clientX, y: event.clientY }), true))
   // 7b. Several picked move together. ⌘-click three, then carry one of them, ⇧ held down.
   await c.h.mouse.move(900, 700)
   await (await reach(c, "Mnemosyne's problem")).click({ modifiers: ['Meta'] })
@@ -218,6 +219,16 @@ if (c) try {
       check('three carried show as a fanned stack, the count hanging under it', stack.fans === 2 && stack.upLeft && stack.badgeBelow, JSON.stringify(stack))
       check('and the room opened is a row for each', stack.rows === 3 && Math.abs(stack.roomHeight - stack.picks) < stack.row * 0.5, JSON.stringify(stack))
       await frames(c, 'p-stack-join', 4, 40)
+      // Sideways, the card in hand follows the pointer (a touch late), and what letting go would do is unchanged.
+      const before = await c.h.evaluate(() => ({ left: document.querySelector('[data-ghost]').getBoundingClientRect().left, at: window.__pt }))
+      const was = await said(c)
+      await c.h.mouse.move(before.at.x + 140, before.at.y, { steps: 6 })
+      await c.h.waitForTimeout(500)
+      const after = await c.h.evaluate(() => document.querySelector('[data-ghost]').getBoundingClientRect().left)
+      check('carried, the card follows the pointer sideways too', Math.abs(after - before.left - 140) < 12, `${Math.round(before.left)} -> ${Math.round(after)}`)
+      check('and moving sideways never changes where it would go', (await said(c)) === was, `${was} -> ${await said(c)}`)
+      await c.h.mouse.move(before.at.x, before.at.y, { steps: 6 })
+      await c.h.waitForTimeout(300)
     }
   })
   await c.h.waitForTimeout(700)

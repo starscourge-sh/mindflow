@@ -330,6 +330,8 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
   const [many, setMany] = useState<string[]>([])
   // How far the pointer has carried things: the stack's back cards follow it a moment late.
   const dragY = useMotionValue(0)
+  // And sideways: the card in hand follows the pointer left and right too (the list itself still reads only up and down).
+  const dragX = useMotionValue(0)
   const manyRef = useRef<string[]>([])
   manyRef.current = many
   // Where the row was taken hold of, across it: the chip sits just past it.
@@ -363,6 +365,16 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
   const onDragStart = ({ active, activatorEvent }: DragStartEvent): void => {
     const id = String(active.id)
     dragY.jump(0)
+    dragX.jump(0)
+    // The list's own drag reads only up and down, so the sideways way is read off the pointer itself.
+    const from = activatorEvent instanceof PointerEvent ? activatorEvent.clientX : null
+    if (from !== null) {
+      const follow = (event: PointerEvent): void => dragX.set(event.clientX - from)
+      const done = (): void => (dragX.set(0), window.removeEventListener('pointermove', follow), window.removeEventListener('pointerup', done), window.removeEventListener('pointercancel', done))
+      window.addEventListener('pointermove', follow)
+      window.addEventListener('pointerup', done)
+      window.addEventListener('pointercancel', done)
+    }
     setSnap(false)
     chime('lift')
     ticks.start(id)
@@ -586,7 +598,7 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
         </Shaped>
       </SortableContext>
       <Overlay dropAnimation={still() ? null : SETTLE}>
-        {carried && <Ghost carried={carried} bundles={bundles} many={many} aim={aim} grab={grab} dragY={dragY} />}
+        {carried && <Ghost carried={carried} bundles={bundles} many={many} aim={aim} grab={grab} dragY={dragY} dragX={dragX} />}
       </Overlay>
     </DndContext>
   )
@@ -698,7 +710,12 @@ function Shaped({ aim, keys, hand, many, span, inset, row: mid, snap, blocks, ch
  * letting go would do nothing, it says why. Several carried show as a stack with a count; a group, by its
  * icon and name.
  */
-function Ghost({ carried, bundles, many, aim, grab, dragY }: { carried: string; bundles: Bundle[]; many: string[]; aim: Aim | null; grab: number; dragY: MotionValue<number> }): React.JSX.Element {
+function Ghost({ carried, bundles, many, aim, grab, dragY, dragX }: { carried: string; bundles: Bundle[]; many: string[]; aim: Aim | null; grab: number; dragY: MotionValue<number>; dragX: MotionValue<number> }): React.JSX.Element {
+  // Sideways it follows the pointer a touch late, and leans into the way it is moving, as a card held loosely does.
+  const calm = still()
+  const sideways = useSpring(dragX, { stiffness: 700, damping: 42, mass: 0.5 })
+  const x = useTransform(() => (calm ? dragX.get() : sideways.get()))
+  const lean = useSpring(useTransform(() => (calm ? 0 : Math.max(-3, Math.min(3, (dragX.get() - sideways.get()) * 0.12)))), { stiffness: 400, damping: 30 })
   const group = isGroup(carried) ? bundles.flatMap((one) => (one.group ? [one.group, ...(one.parts ?? []).flatMap((part) => ('group' in part ? [part.group] : []))] : [])).find((one) => KEY + one.id === carried) : undefined
   const entries = bundles.flatMap((one) => one.entries)
   const entry = group ? undefined : entries.find((one) => one.id === carried)
@@ -708,7 +725,7 @@ function Ghost({ carried, bundles, many, aim, grab, dragY }: { carried: string; 
   return (
     <div className="relative h-full w-full">
       <div className="absolute top-1/2 w-[60%] min-w-64" style={{ left: `min(${grab + 18}px, 40%)`, translate: '0 -50%' }}>
-        <div className="relative">
+        <motion.div className="relative" style={{ x, rotate: lean }}>
           {behind.map((one, at) => <Fanned key={one.id} entry={one} depth={at + 1} dragY={dragY} />).reverse()}
           <motion.div
             data-ghost=""
@@ -742,7 +759,7 @@ function Ghost({ carried, bundles, many, aim, grab, dragY }: { carried: string; 
           </motion.div>
           {/* How many, hanging just under the stack. */}
           {many.length > 1 && <Count n={many.length} />}
-        </div>
+        </motion.div>
       </div>
     </div>
   )
