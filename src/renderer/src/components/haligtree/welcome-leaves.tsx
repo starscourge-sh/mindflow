@@ -541,11 +541,12 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
       for (const one of motes) {
         // After the first screen, faint at the edges and fading to nothing toward the middle, where the words are.
         // Later on, as clear as the first screen's leaves where the page is bare, gone where the words are.
+        // Squared: crossing the middle on the breeze they pass faint behind the words, clear again at the edges.
         const fresh = Math.min(1, (now - (born.get(one) ?? 0)) / 2500)
         const held = bunch.get(one)
         if (held) continue
         const fading = gatheredAt ? 1 - 0.7 * Math.min(1, (now - gatheredAt) / 1800) : 1
-        pen.globalAlpha = motesShown * fading * fresh * (0.32 * (1 - calm) + calm * 0.7 * bare(one.x, one.y))
+        pen.globalAlpha = motesShown * fading * fresh * (0.32 * (1 - calm) + calm * 0.7 * bare(one.x, one.y) ** 2)
         if (pen.globalAlpha > 0.01) draw(one, t)
       }
       // Drawn with the bunch, a little clearer than the leaves blowing by: these are meant to be followed.

@@ -50,11 +50,12 @@ try {
     const canvas = document.querySelector('[data-welcome-leaves]')
     const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data
     let edges = 0, middle = 0
-    for (let i = 3; i < data.length; i += 4 * 5) if (data[i] > 4) { const x = ((i - 3) / 4) % canvas.width; const y = Math.floor((i - 3) / 4 / canvas.width); x < canvas.width * 0.2 || x > canvas.width * 0.8 || y < canvas.height * 0.16 || y > canvas.height * 0.84 ? edges++ : middle++ }
-    return { edges, middle }
+    for (let i = 3; i < data.length; i += 4 * 5) if (data[i] > 4) { const x = ((i - 3) / 4) % canvas.width; const y = Math.floor((i - 3) / 4 / canvas.width); x < canvas.width * 0.2 || x > canvas.width * 0.8 || y < canvas.height * 0.16 || y > canvas.height * 0.84 ? (edges += data[i]) : (middle += data[i]) }
+    // Ink for each part of the page as large: the leaves cross the middle on the breeze, faint there, clear at the edges.
+    return { edges: Math.round(edges / 0.592 / 255), middle: Math.round(middle / 0.408 / 255) }
   })
   if (SHOTS) await h.screenshot({ path: join(SHOTS, `leaves-${THEME}-later.png`) })
-  check('later, clearly there, mostly round the edges and a few in the middle', later.edges > 3000 && later.edges > later.middle, JSON.stringify(later))
+  check('later, clearly there, inked strongest round the edges, fainter across the middle', later.edges > 250 && later.edges > later.middle * 3, JSON.stringify(later))
   check('the big ones gone, smaller ones drifting on', after.inked > 20 && after.inked < swimming.inked * 0.6, `${swimming.inked} -> ${after.inked}`)
   // On "It comes back to you.", full to its edges: none in the middle of the page.
   for (let i = 0; i < 20 && !(await h.getByText('It comes back to you.').count()); i++) {
