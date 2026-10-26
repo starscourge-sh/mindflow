@@ -16,11 +16,11 @@ import { useLive } from '@/lib/haligtree'
 import { chime } from '@/lib/sound'
 import { RowMenu, type RowItem } from './row-menu'
 import { SortableList, SortableRow } from './sortable'
-import { GroupIcon, GroupedList, type Folds } from './kept-groups'
+import { GroupIcon, GroupedList, SectionHead, type Folds } from './kept-groups'
 import { cn } from '@/lib/cn'
 import { ROW_PAD, ROW_SHAPE, ROW_TILE, tileTint } from './row-shape'
 import { IslandBox, type IslandState } from './islands'
-import { Count, Rolling, Tags, Tip, VirtualList, showRow, typing } from './ui'
+import { Count, Tags, Tip, VirtualList, showRow, typing } from './ui'
 import { Button } from '@/components/ui/button'
 import type { Density, Pane } from './display'
 import { GrainFill, onPaper, PAPER_INK, useNoteCover } from './grain'
@@ -404,13 +404,7 @@ export function NoteList({
         >
           {(one) => (
             <>
-              {one.head && (
-                <div data-group-head={one.head[0]}
-                  className={`px-2 pb-1 text-xs text-muted-foreground ${one.start === 0 ? 'pt-1' : 'pt-4'}`}
-                >
-                  {one.head[0]} <span className="tabular-nums"><Rolling text={one.head[1]} /></span>
-                </div>
-              )}
+              {one.head && <SectionHead head={one.head} first={one.start === 0} />}
               {grid ? (
                 <div
                   className="grid"

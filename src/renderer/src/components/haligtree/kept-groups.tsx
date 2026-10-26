@@ -49,8 +49,16 @@ export type GroupView = { id: string; name: string; icon: string | null; color: 
 export type Part = { entry: Entry } | { group: GroupView; entries: Entry[]; /** Its own notes and subgroups, three levels deep. */ parts?: Part[] }
 /** The rows a part shows: one for a note, and an open subgroup's own on show, folded ones inside it left out. */
 const onShow = (part: Part): number => ('entry' in part ? 1 : !part.group.open ? 0 : part.parts ? part.parts.reduce((sum, one) => sum + onShow(one), 0) : part.entries.length)
-/** A line of the list: one note at the top level, or a group and its notes (every one, its subgroups' too), with `parts` in the order they show. */
-export type Bundle = { group?: GroupView; entries: Entry[]; parts?: Part[] }
+/** A line of the list: one note at the top level, or a group and its notes (every one, its subgroups' too), with `parts` in the order they show.
+ * `head`: a loose note that starts a section of a list grouped by kind or date, the section's name and how many loose notes it holds. */
+export type Bundle = { group?: GroupView; entries: Entry[]; parts?: Part[]; head?: [string, number] }
+
+/** A section's name over its rows, in a list grouped by kind or date. */
+export const SectionHead = ({ head, first }: { head: [string, number]; first: boolean }): React.JSX.Element => (
+  <div data-group-head={head[0]} className={`px-2 pb-1 text-xs text-muted-foreground ${first ? 'pt-1' : 'pt-4'}`}>
+    {head[0]} <span className="tabular-nums"><Rolling text={head[1]} /></span>
+  </div>
+)
 
 /** The rows a group shows while open: its notes, and a subgroup's while that is open too. */
 const shownIn = (one: { entries: Entry[]; parts?: Part[] }): number => (one.parts ? one.parts.reduce((n, part) => n + ('entry' in part ? 1 : part.group.open ? part.entries.length : 0), 0) : one.entries.length)
@@ -559,6 +567,11 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
                 <div className="py-1.5">
                 {block(one.group, one.entries, one.parts, start)}
                 </div>
+              ) : one.head ? (
+                <>
+                  <SectionHead head={one.head} first={start === 0} />
+                  {row(one.entries[0], start)}
+                </>
               ) : (
                 row(one.entries[0], start)
               )
