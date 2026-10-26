@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { AnimatePresence, animate, motion, useMotionValue, type MotionValue, type Transition } from 'motion/react'
+import { AnimatePresence, animate, motion, useMotionValue, useTransform, type MotionValue, type Transition } from 'motion/react'
 import { Coffee, Pause, Paperclip, Square, GripVertical as Grip, X as XSmall } from 'lucide-react'
 
 // The theme's colours: this window has no editor, which is what usually brings them.
@@ -304,7 +304,7 @@ type Shape = { w: number; h: number }
  * the pill is laid out again. Hung from the top, centred, as the pill hangs
  * under the menu bar or the notch.
  */
-function useShape(start: Shape, target: Shape, how: { w: Transition; h: Transition }, tucked: boolean): { box: Shape; clip: MotionValue<string>; edge: MotionValue<string> } {
+function useShape(start: Shape, target: Shape, how: { w: Transition; h: Transition }, tucked: boolean): { box: Shape; clip: MotionValue<string>; edge: MotionValue<string>; w: MotionValue<number>; h: MotionValue<number> } {
   const w = useMotionValue(start.w)
   const h = useMotionValue(start.h)
   const [box, setBox] = useState<Shape>(() => ({ w: Math.max(start.w, target.w), h: Math.max(start.h, target.h) }))
@@ -352,7 +352,7 @@ function useShape(start: Shape, target: Shape, how: { w: Transition; h: Transiti
       moves.forEach((one) => one.stop())
     }
   }, [target.w, target.h]) // eslint-disable-line react-hooks/exhaustive-deps
-  return { box, clip, edge }
+  return { box, clip, edge, w, h }
 }
 
 
@@ -609,11 +609,13 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
   const urgent = left !== null && left <= 60_000
   useEffect(() => {
     if (!gleamOn) return
+    // Once soon after it settles, so the beam is seen as the session starts, then on its interval.
+    const first = setTimeout(() => !document.hidden && setGleam((n) => (n ? n : 1)), 3000)
     const every = setInterval(() => {
       if (document.hidden) return
       void window.api.idleSeconds().then((idle) => idle < 60 && !document.hidden && setGleam((n) => n + 1))
     }, urgent ? 15_000 : 45_000)
-    return () => clearInterval(every)
+    return () => (clearTimeout(first), clearInterval(every))
   }, [gleamOn, urgent])
 
   // This session's log, as it grows. A bare session (no task) has one too: only a timer, a break or rounds do not.
@@ -1285,6 +1287,8 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
       >
       {/* Its 1px edge: the same shape a pixel out, behind it, in the edge's colour over the pill's own. */}
       <motion.span aria-hidden className="pointer-events-none absolute -inset-px" style={{ clipPath: shape.edge, backgroundImage: `linear-gradient(${edgeInk}, ${edgeInk}), ${SOLID}`, backgroundColor: 'Canvas' }} />
+      {/* Now and then the beam, once round: on the bubble's own outline (this box is its exact size), over everything in it. */}
+      {gleam > 0 && <Gleam key={gleam} light={light} size={{ w: shape.w, h: shape.h }} round={tucked ? '0 0 18px 18px' : wornStyle() === 'paper' ? '0px' : '22px'} />}
       <motion.div data-island-frame className="absolute inset-0" style={{ clipPath: shape.clip }}>
       <div
         ref={island}
@@ -1346,7 +1350,6 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
             run all session, so it takes over only under the pointer, in the
             first and last moments, and past the time. */}
         {alive && !paused && !tucked && !onBreak && settings?.sessionSmoke !== false && <Wisps light={light} />}
-        {gleam > 0 && <Gleam key={gleam} light={light} round={tucked ? '0 0 18px 18px' : '22px'} />}
         <motion.div
           ref={setInner}
           className="absolute top-0 left-1/2 w-[322px] -translate-x-1/2"
@@ -1765,10 +1768,11 @@ export const SMOKE_EASE = `@property --beam-strength { syntax: '<number>'; inher
  * same beam that goes round the welcome's recommended card and a celebration's card (beam.css). A glare across
  * the glass read as tacky. Quick, faint, on transform alone. Motion off or reduced: none.
  */
-export function Gleam({ light, round = '22px' }: { light: boolean; round?: string }): React.JSX.Element {
+export function Gleam({ light, round = '22px', size }: { light: boolean; round?: string; /** The bubble's shape now, in a box that may be wider: the beam takes that shape, centred and hung from the top. */ size?: { w: MotionValue<number>; h: MotionValue<number> } }): React.JSX.Element {
+  const left = useTransform(() => (size ? `calc(50% - ${size.w.get() / 2}px)` : '0px'))
   return (
-    <span aria-hidden data-gleam className="mf-beam mf-beam-card mf-pill-beam"
-      style={{ borderRadius: round, '--mf-beam-color': light ? 'color-mix(in oklab, var(--foreground) 45%, transparent)' : 'rgb(255 255 255 / 0.7)' } as React.CSSProperties} />
+    <motion.span aria-hidden data-gleam className="mf-beam mf-beam-card mf-pill-beam"
+      style={{ ...(size ? { inset: 'auto', top: 0, left, width: size.w, height: size.h } : {}), borderRadius: round, zIndex: 5, '--mf-beam-color': light ? 'var(--tt-brand-color-400)' : 'color-mix(in oklab, var(--tt-brand-color-400) 70%, white)' } as never} />
   )
 }
 
