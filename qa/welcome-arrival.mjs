@@ -62,22 +62,22 @@ try {
   const most = [0, 0, 0]
   let pointed = false
   let line = 0
-  // Watched for 26 seconds, a frame every ~400ms while shots are wanted.
-  while (Date.now() - start < 26000) {
+  // Watched for up to 40 seconds (the title card is fifteen beats), a frame every ~400ms while shots are wanted.
+  while (Date.now() - start < 40000) {
     const now = await look()
     const t = Number.isNaN(now.t) ? Date.now() - start : Math.round(now.t)
     if (now.shown > 0 && first === Infinity) first = t
     if (now.words > 0 && now.words < 9) line = Math.max(line, now.words)
     now.selected.forEach((scale, i) => void (most[i] = Math.max(most[i], scale)))
     pointed ||= now.pointer
-    if (SHOTS && t < 17000) await h.screenshot({ type: 'jpeg', quality: 80, scale: 'css', path: join(SHOTS, `${THEME}-${String(frame++).padStart(2, '0')}-${(t / 1000).toFixed(1)}s.jpg`) }).then(() => h.waitForTimeout(300))
+    if (SHOTS && t < 26000) await h.screenshot({ type: 'jpeg', quality: 80, scale: 'css', path: join(SHOTS, `${THEME}-${String(frame++).padStart(2, '0')}-${(t / 1000).toFixed(1)}s.jpg`) }).then(() => h.waitForTimeout(300))
     else await h.waitForTimeout(150)
-    if (now.slant.every((one) => one === 'on') && t > 14000) break
+    if (now.slant.every((one) => one === 'on')) break
   }
   // The last italic has crossed over.
   await h.waitForTimeout(800)
-  check('no words before seven seconds: mist, the chord and the title card first', first >= 7000, `first words at ${first}ms`)
-  check('the first words come by about ten seconds', first <= 9800, `first words at ${first}ms`)
+  check('no words before ten seconds: mist, the chord and the fifteen-beat title card first', first >= 10000, `first words at ${first}ms`)
+  check('the first words come by about thirteen seconds', first <= 13500, `first words at ${first}ms`)
   check('the headline resolves a word at a time', line > 0, `seen part-way at ${line} words`)
   const end = await look()
   check('the headline resolves whole', end.words === 9, String(end.words))
