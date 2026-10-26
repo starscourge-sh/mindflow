@@ -219,7 +219,7 @@ function useArrivals(tier: string, all: Item[]): void {
 export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, only }: {
   tier: 'nugget' | 'article'
   focus?: string
-  /** The group shown alone, opened from its folder in the sidebar; a group opened here is sent through `onFolder`, so the sidebar marks it. */
+  /** The folder opened from the sidebar: the list narrowed to what it holds, a chip back out through `onFolder`. */
   folder?: string
   onFolder?: (id: string | null) => void
   onOpen?: (type: string, id: string) => void
@@ -240,7 +240,21 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   const questionsOnly = writing && asks === 'questions'
   const all = useMemo(() => (unloaded(own) || unloaded(held) ? unread([] as Item[]) : !writing ? own : questionsOnly ? held : [...own, ...held.filter((one) => !one.closedAt)]),
     [own, held, writing, questionsOnly])
-  const { groups: arranged, display, chips, density, view, setView, move, moveBy, ownOrder, mine } = useItemDisplay(tier, all, true)
+  // A folder opened from the sidebar: the list as ever, with only what the folder holds (its subfolders' too).
+  // Only what is shown narrows: the layout is still read from every note, so a move inside keeps the rest in place.
+  const shelf = useGroups(tier)
+  const opened = sideFolder ? shelf.find((one) => one.id === sideFolder) : undefined
+  const listed = useMemo(() => {
+    if (!opened) return all
+    const under = new Set([opened.id])
+    for (let grew = true; grew; ) {
+      grew = false
+      for (const one of shelf) if (one.parent && under.has(one.parent) && !under.has(one.id)) (under.add(one.id), (grew = true))
+    }
+    const held = new Set(shelf.filter((one) => under.has(one.id)).flatMap((one) => one.members))
+    return all.filter((one) => held.has(one.id))
+  }, [all, shelf, opened])
+  const { groups: arranged, display, chips, density, view, setView, move, moveBy, ownOrder, mine } = useItemDisplay(tier, listed, true)
   // The list's width: beside the note, over the whole page, or a rail of pictures.
   const pane = view.pane ?? 'list'
   const [query, setQuery] = useState('')
@@ -514,8 +528,9 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     window.addEventListener('haligtree:folder-drop', onDrop)
     return () => window.removeEventListener('haligtree:folder-drop', onDrop)
   }, [chosen])
-  const pageGroup = onFolder ? sideFolder ?? null : ownPage
-  const setPageGroup = (id: string | null): void => (onFolder ? onFolder(id) : setOwnPage(id))
+  // A group read as one page only when asked for from its row; a folder from the sidebar opens as a list.
+  const pageGroup = ownPage
+  const setPageGroup = setOwnPage
   const paged = pageGroup ? noteGroups.find((one) => one.id === pageGroup) : undefined
   // A question is drawn as one, with its "?" mark, how long it has been held and its clues.
   const entryOf = (one: Item): Entry => (one.tier === 'question' ? questionEntry(one, inView.has(one.id), menuFor(one) as MenuItem[]) : itemEntry(one, () => menuFor(one)))
@@ -644,6 +659,16 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
             </div>
         </Unfold>
         <div data-kind-chips className="list-words pt-4 pb-2 empty:hidden">
+          {opened && !folder && (
+            <Tip label="Back to everything  ⌘[">
+            <button type="button" data-folder-back="" data-folder-open={opened.id} onClick={() => (chime('tuck'), onFolder?.(null))}
+              className="mb-2 flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground">
+              <ArrowLeft className="size-3.5" />
+              <GroupIcon icon={opened.icon} color={opened.color} className="size-3.5" />
+              <span className="font-medium text-foreground">{opened.name}</span>
+            </button>
+            </Tip>
+          )}
           {folder && (
             <Tip label="Back out of the group  ⌘[">
             <button type="button" data-folder-back="" onClick={() => (chime('tuck'), setInGroup(null))}

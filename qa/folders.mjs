@@ -57,14 +57,15 @@ try {
   await c.h.waitForTimeout(500)
   check('and unfold again', await folder(money).isVisible())
 
-  // A click opens the group alone, named in the header, marked in the sidebar.
+  // A click opens the list with only that folder's notes (never every note opened at once), named in a chip back, marked in the sidebar.
   await folder(rent).click()
   await c.h.waitForTimeout(900)
-  check('a click opens that group alone', (await c.h.locator(`[data-group-page="${rent}"]`).count()) === 1)
-  check('its name is in the header', ((await c.h.locator('[data-group-page-back]').textContent()) ?? '').includes('Rent'))
+  check('a click opens the list narrowed to that folder, not every note opened at once', (await c.h.locator(`[data-folder-open="${rent}"]`).count()) === 1 && (await c.h.locator('[data-group-page]').count()) === 0)
+  check('its name is on the chip back', ((await c.h.locator('[data-folder-open]').textContent()) ?? '').includes('Rent'))
   check('its row is marked as the page you are on', (await folder(rent).getAttribute('aria-current')) === 'page' && (await writingRow.getAttribute('aria-current')) === null)
   await c.h.waitForTimeout(600)
-  check('it shows only its notes', (await c.h.locator('[data-group-note]').count()) === 2, `${await c.h.locator('[data-group-note]').count()}`)
+  const rows = await c.h.locator('[data-page="articles"] button[data-row]').count()
+  check('it shows only its notes', rows === 2, `${rows}`)
 
   // New, inside.
   await c.h.locator('button[data-new]').click()
@@ -82,9 +83,23 @@ try {
   // Back to everything.
   await folder(money).click()
   await c.h.waitForTimeout(700)
-  await c.h.locator('[data-group-page-back]').click()
+  await c.h.locator('[data-folder-open]').click()
   await c.h.waitForTimeout(700)
-  check('back goes to the whole list', (await c.h.locator('[data-group-page]').count()) === 0 && (await writingRow.getAttribute('aria-current')) === 'page')
+  check('back goes to the whole list', (await c.h.locator('[data-folder-open]').count()) === 0 && (await writingRow.getAttribute('aria-current')) === 'page')
+
+  // History: folders are places, so ⌘[ and ⌘] step through them as through pages.
+  const at = () => c.h.evaluate(() => document.querySelector('[data-folder-open]')?.getAttribute('data-folder-open') ?? 'all')
+  await folder(rent).click(); await c.h.waitForTimeout(700)
+  await folder(money).click(); await c.h.waitForTimeout(700)
+  await c.h.evaluate(() => document.activeElement?.blur())
+  await c.h.keyboard.press('Meta+['); await c.h.waitForTimeout(700)
+  const back1 = await at()
+  await c.h.keyboard.press('Meta+['); await c.h.waitForTimeout(700)
+  const back2 = await at()
+  await c.h.keyboard.press('Meta+]'); await c.h.waitForTimeout(700)
+  const fwd = await at()
+  check('⌘[ goes back folder by folder, ⌘] forward again', back1 === rent && back2 === 'all' && fwd === rent, [back1, back2, fwd].join(' → '))
+  await c.h.locator('[data-folder-open]').click(); await c.h.waitForTimeout(600)
 
   // The icon, changed from the sidebar and kept.
   await c.h.locator(`[data-folder-icon="${ideas}"]`).click()
