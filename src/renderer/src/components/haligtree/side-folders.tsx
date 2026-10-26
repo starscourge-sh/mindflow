@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react'
 import { Branches } from './branches'
 import { createPortal } from 'react-dom'
 
-import { haligtree, useLive } from '@/lib/haligtree'
+import { haligtree } from '@/lib/haligtree'
 import { DEPTH, KEY, layoutOf, moveTo } from '@/lib/group-layout'
 import { notes } from '@/lib/notes'
-import { groups, useGroups, type NoteGroup } from '@/lib/groups'
+import { groups, useGroups, useKept, type NoteGroup } from '@/lib/groups'
 import { chime } from '@/lib/sound'
 import { num } from '../../../../main/dates'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
@@ -79,7 +79,7 @@ export function SideFolders({ list, counted, open, shown, here, onOpen, onUnfold
     return () => window.removeEventListener('haligtree:folder-new', onNew)
   }, [list, onUnfold])
   // The folders in the list's own order: where each group stands among the notes, and among its parent's.
-  const order = useLive(() => notes.order(list), [] as string[], [list], undefined, `order:${list}`)
+  const order = useKept(`order:${list}`, () => notes.order(list), [] as string[], [list])
   const ranked = new Set(order)
   const layout = layoutOf([...order, ...all.flatMap((one) => one.members.filter((id) => !ranked.has(id)))], all)
   const kids = (parent: string | null): NoteGroup[] => {

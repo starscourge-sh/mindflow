@@ -58,6 +58,8 @@ ipcRenderer.on('books:changed', () => window.dispatchEvent(new CustomEvent('hali
 const api = {
   /** The Mac tells the time on a 12-hour clock ("9:05 PM"); read by dates.ts `clock`. */
   twelveHour: ipcRenderer.sendSync('clock:twelve') === true,
+  /** The book open now (or the sandbox), asked at once: what a page drew last time is kept per book. */
+  book: (): string => String(ipcRenderer.sendSync('book:here')),
   fetchLinkMetadata: (url: string): Promise<LinkMetadata> =>
     ipcRenderer.invoke('fetch-link-metadata', url),
 

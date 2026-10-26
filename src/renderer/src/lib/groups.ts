@@ -1,4 +1,5 @@
-import { call, useLive } from '@/lib/haligtree'
+import { useEffect, useMemo, useState } from 'react'
+import { call, unloaded, useLive } from '@/lib/haligtree'
 import type { Layout } from '@/lib/group-layout'
 
 /**
@@ -26,8 +27,38 @@ export const groups = {
   nest: (id: string, parent: string | null) => call<boolean>('groups:nest', id, parent)
 }
 
-// Kept by name, so a page opened again starts on its groups, not on a plain list that sorts itself a beat later.
-export const useGroups = (list: string): NoteGroup[] => useLive(() => groups.list(list), [] as NoteGroup[], [list], undefined, 'groups')
+// Opened cold (the window coming up), a read starts on what it last said in this book, kept on disk, so the sidebar's
+// folders are drawn from the first frame, in their order, instead of pushing the rows under them down a beat later
+// (qa/no-flash.mjs). Kept per book, so another book's folders never show.
+export function useKept<T>(name: string, read: () => Promise<T>, initial: T, deps: unknown[]): T {
+  const key = useMemo(() => {
+    try {
+      return `kept:${window.api.book()}:${name}:${JSON.stringify(deps)}`
+    } catch {
+      return null
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [name, ...deps])
+  const [kept] = useState(() => {
+    try {
+      return key ? (JSON.parse(localStorage.getItem(key) ?? 'null') as T | null) : null
+    } catch {
+      return null
+    }
+  })
+  const value = useLive(read, kept ?? initial, deps, undefined, name)
+  useEffect(() => {
+    if (!key || unloaded(value)) return
+    try {
+      localStorage.setItem(key, JSON.stringify(value))
+    } catch {
+      // Drawn a beat later next time, at worst.
+    }
+  }, [key, value])
+  return value
+}
+/** Kept by name, so a page opened again starts on its groups, not on a plain list that sorts itself a beat later. */
+export const useGroups = (list: string): NoteGroup[] => useKept('groups', () => groups.list(list), [] as NoteGroup[], [list])
 
 /** The colours a group can take: the editor's own, light and dark. */
 export const GROUP_COLORS = ['gray', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'] as const

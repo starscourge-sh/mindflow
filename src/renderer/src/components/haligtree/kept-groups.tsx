@@ -382,7 +382,9 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
     setInset(wrap && start ? start.top - wrap.getBoundingClientRect().top : 0)
     // A group's room is its block folded: as tall as it is less what it holds, from the lift on.
     const holds = wrap?.querySelector<HTMLElement>(':scope > [data-group-block] > [data-fold]')?.getBoundingClientRect().height ?? 0
-    setSpan(wrap ? wrap.getBoundingClientRect().height - holds : row * (!isGroup(id) && picked.includes(id) && picked.length > 1 ? picked.length : 1))
+    // Several carried: each one's own height, so a tall row among short ones makes room for itself, never three of it.
+    const each = !isGroup(id) && picked.includes(id) && picked.length > 1 ? picked.map((one) => document.querySelector<HTMLElement>(`[data-sortable-id="${CSS.escape(one)}"]`)?.offsetHeight ?? row) : [row]
+    setSpan(wrap ? wrap.getBoundingClientRect().height - holds : each.reduce((sum, one) => sum + one, 0))
     setUnfolded(wrap ? wrap.getBoundingClientRect().height : 0)
   }
   // Held over a folded group's row for a moment, the group opens, as a folder

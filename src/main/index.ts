@@ -3549,6 +3549,7 @@ function updateTray(): void {
 let twelve: boolean | null = null
 const twelveHour = (): boolean => (twelve ??= macTwelveHour())
 ipcMain.on('clock:twelve', (event) => void (event.returnValue = twelveHour()))
+ipcMain.on('book:here', (event) => void (event.returnValue = here()))
 // The welcome's first sound plays as it arrives, before anything has been clicked (renderer's lib/sound.ts, ambience).
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required')
 app.whenReady().then(() => {
