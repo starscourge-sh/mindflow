@@ -54,13 +54,20 @@ export const worked = (focus: Focus, now = Date.now()): number =>
 
 const DRAG = { WebkitAppRegion: 'drag' } as CSSProperties
 
+/** When the screen last glowed: the bubble's beam keeps clear of it, never two lights at once. */
+let glowedAt = 0
+const glowScreen = (...args: Parameters<typeof window.api.glow>): void => {
+  glowedAt = Date.now()
+  window.api.glow(...args)
+}
+
 /**
  * A session or timer over: light around the screen's edge and a sound, one
  * pair for finished and another for called off.
  */
 export const glowEnd = (tone: 'done' | 'cancel'): void => {
   chime(tone === 'done' ? 'finish' : 'called')
-  window.api.glow(tone)
+  glowScreen(tone)
 }
 
 /** The glow's own window: the whole screen, see-through, lit at its edge for a moment. */
@@ -613,7 +620,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
     const first = setTimeout(() => !document.hidden && setGleam((n) => (n ? n : 1)), 3000)
     const every = setInterval(() => {
       if (document.hidden) return
-      void window.api.idleSeconds().then((idle) => idle < 60 && !document.hidden && setGleam((n) => n + 1))
+      void window.api.idleSeconds().then((idle) => idle < 60 && !document.hidden && Date.now() - glowedAt > 4000 && setGleam((n) => n + 1))
     }, urgent ? 15_000 : 45_000)
     return () => (clearTimeout(first), clearInterval(every))
   }, [gleamOn, urgent])
@@ -718,24 +725,24 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
       // A break starts with its own sound, airy and soft; its end calls you back, bright.
       const go = (): void => {
         chime(next.phase === 'work' ? 'breakOut' : 'breakIn')
-        window.api.glow('done')
+        glowScreen('done')
         void haligtree.nextRound(focus.id, { round: next.round, phase: next.phase, ms: stretchMs(next) })
       }
       // A break over with nobody at the Mac (two minutes untouched): the next round waits and asks with “Go again”, as a session's does.
       if (next.phase !== 'work') go()
-      else void window.api.idleSeconds().then((idle) => (idle >= AWAY_FROM_BREAK ? (chime('breakOut'), window.api.glow('done'), setHeldAt(stretch), setAsking(true), setNudged(0)) : go()), go)
+      else void window.api.idleSeconds().then((idle) => (idle >= AWAY_FROM_BREAK ? (chime('breakOut'), glowScreen('done'), setHeldAt(stretch), setAsking(true), setNudged(0)) : go()), go)
     } else if (focus.kind === 'break' && settings?.autoNextRound) {
       // “Start the next round by itself” (Settings): the break over, the session before it starts again, no click.
       // With nothing to go back to, or nobody at the Mac (two minutes untouched), it asks as it would have.
       chime('breakOut')
-      window.api.glow('done')
+      glowScreen('done')
       const ask = (): void => (setAsking(true), setNudged(0))
       void window.api.idleSeconds().then((idle) => (idle >= AWAY_FROM_BREAK ? ask() : haligtree.againSession().then((id) => void (!id && ask()))), ask)
     } else {
       // A break over calls you back brightly; the end of a session or countdown, the alarm clock's rings.
       if (onBreak) chime('breakOut')
       else alarm()
-      window.api.glow('done')
+      glowScreen('done')
       setAsking(true)
       setNudged(0)
     }
@@ -771,7 +778,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
       setShut(false)
       setGleam((n) => n + 1)
       if (!quietNow(settings)) chime(nudged === 0 ? 'nudge' : 'nudgeMore')
-      if (nudged > 0) window.api.glow('done')
+      if (nudged > 0) glowScreen('done')
     }), wait)
     return () => clearTimeout(later)
   }, [over, paused, nudged, retry]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -819,7 +826,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
   // A plain timer ("5m tea") or a set of rounds, over: started again as it first was, in the same pill.
   const timerAgain = (): void => void (rounds
     ? haligtree.startRounds(focus.goal, { rounds: rounds.rounds, workMs: rounds.workMs, breakMs: rounds.breakMs, longMs: rounds.longMs })
-    : haligtree.startTimer(focus.goal, (focus.plannedMs ?? 0) - (focus.extendedMs ?? 0))).then(() => (chime('anew'), window.api.glow('done')))
+    : haligtree.startTimer(focus.goal, (focus.plannedMs ?? 0) - (focus.extendedMs ?? 0))).then(() => (chime('anew'), glowScreen('done')))
   // --- a break arriving: a moment of its own, then calm. The pill springs a
   // little, the cup pops into the ring with its steam starting, and a small
   // burst of sparks leaves the ring. Once each time a break begins; nothing
@@ -830,13 +837,13 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
   useEffect(() => {
     if (!arrived || calm) return
     // The sparks: on the screen's own glow layer, so they leave the pill rather than being clipped by it.
-    if (alive) window.api.glow('break')
+    if (alive) glowScreen('break')
     const bounce = shell.current?.animate(
       [{ transform: 'scale(1)' }, { transform: 'scale(1.045)', offset: 0.32 }, { transform: 'scale(0.988)', offset: 0.68 }, { transform: 'scale(1)' }],
       { duration: 640, delay: 120, easing: 'cubic-bezier(0.34, 1.3, 0.64, 1)' })
     return () => bounce?.cancel()
   }, [arrived]) // eslint-disable-line react-hooks/exhaustive-deps
-  const again = (): void => void haligtree.againSession().then((id) => (id ? (chime('anew'), window.api.glow('done')) : chime('nope')))
+  const again = (): void => void haligtree.againSession().then((id) => (id ? (chime('anew'), glowScreen('done')) : chime('nope')))
 
   // How far through: the ring is the session itself, filled as it goes.
   const share = focus.plannedMs ? Math.min(1, Math.max(0, 1 - (leftShown ?? 0) / focus.plannedMs)) : null
@@ -971,7 +978,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
   const abandon = (): void => void haligtree.abandonSession(focus.id).then((how) => {
     if (how !== 'abandoned') return
     abandoned()
-    window.api.glow('cancel')
+    glowScreen('cancel')
     onAbandoned(focus.id)
   })
   const shown = stage === 'capsule' || stage === 'above'
@@ -1143,7 +1150,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
           <Tip label="Break for 5 minutes"><button
             type="button"
             data-take-break
-            onClick={() => void haligtree.startBreak(focus.id, 5 * 60_000).then(() => (chime('breakIn'), window.api.glow('done')))}
+            onClick={() => void haligtree.startBreak(focus.id, 5 * 60_000).then(() => (chime('breakIn'), glowScreen('done')))}
             className={`${button} ${over ? 'order-1' : ''}`}
           >
             <Coffee /> {over ? 'Take a break' : 'Break early'}
