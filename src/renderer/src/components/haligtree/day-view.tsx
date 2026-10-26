@@ -21,7 +21,7 @@ import { PICKED_MARK, usePickMixed } from './pick-mixed'
 import { taskName } from '@/lib/tasks'
 import { DayBanner } from './scenery'
 import { DayBrief } from './day-brief'
-import { DayCount, LivingCaret, dayCaption, useWritingQuiet } from './day-writing'
+import { DayCount, LivingCaret, WriterLine, dayCaption, useWritingQuiet } from './day-writing'
 import { RoomFoot, useWritingRoom } from './writing-room'
 import { DayMarks } from './milestones'
 import { markDay } from '@/lib/milestones'
@@ -186,6 +186,7 @@ export function DayView({ onOpen, start, onScale, onView }: {
           />
           <CaretIn editor={writer} day={day} />
           <LivingCaret editor={writer} />
+          <WriterLine editor={writer} day={day} spent={spent} />
           {day === today && <DayBreath editor={writer} day={day} />}
           {room.on && <RoomFoot editor={writer} title={day === today ? `Today, ${named(day)}` : named(day)} spent={spent} />}
           </div>

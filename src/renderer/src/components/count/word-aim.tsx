@@ -20,7 +20,8 @@ import { still } from '@/lib/motion'
 
 type Aim = { words: number; by: string | null; reached?: boolean }
 const keyOf = (id: string): string => `mf:aim:${id}`
-const read = (id: string): Aim | null => {
+/** The aim set for a note or day, if any (the writer's line on today's page reads it too). */
+export const read = (id: string): Aim | null => {
   try {
     const raw = localStorage.getItem(keyOf(id))
     const aim = raw ? (JSON.parse(raw) as Aim) : null

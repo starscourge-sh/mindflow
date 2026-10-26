@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { Editor } from '@tiptap/react'
 
 import { useCounts } from '@/components/count/word-count'
 import { misspeltAt, type Misspelling } from '@/components/turn-into/spelling'
 import { useStill } from '@/lib/motion'
-import { num } from '../../../../main/dates'
+import { read as aimOf } from '@/components/count/word-aim'
+import { Rolling } from './ui'
+import { clock, num } from '../../../../main/dates'
 
 /**
  * Today's writing as a page rather than a form: a still caption over the
@@ -197,5 +200,59 @@ export function LivingCaret({ editor }: { editor: Editor | null }): React.JSX.El
         </span>
       )}
     </>
+  )
+}
+
+/**
+ * While the rest of the window is gone, one thin line at its foot, under the
+ * words' own column: how far you have got (words, and minutes when there are
+ * any), the aim's hairline filling if the day has one, and the time, small.
+ * What a writer glances down at, and nothing else. It changes only on a
+ * pause, its digits rolling, never with each key; it sits over nothing, so
+ * the words never move for it.
+ */
+export function WriterLine({ editor, day, spent }: { editor: Editor | null; day: string; spent: number }): React.JSX.Element | null {
+  const counts = useCounts(editor)
+  const words = counts?.words ?? 0
+  // Read on each pause and as the rest goes: the words, the column, the hour.
+  const [shown, setShown] = useState<{ words: number; left: number; width: number; at: number } | null>(null)
+  const live = useRef(words)
+  live.current = words
+  useEffect(() => {
+    const root = document.documentElement
+    // As the rest goes, and on each pause after: never with a key.
+    const take = (changes: MutationRecord[]): void => {
+      if (!root.hasAttribute('data-day-writing') || !editor || editor.isDestroyed) return
+      if (root.hasAttribute('data-day-typing') && !changes.some((one) => one.attributeName === 'data-day-writing')) return
+      const box = editor.view.dom.getBoundingClientRect()
+      setShown({ words: live.current, left: box.left, width: box.width, at: Date.now() })
+    }
+    const watch = new MutationObserver(take)
+    watch.observe(root, { attributes: true, attributeFilter: ['data-day-typing', 'data-day-writing'] })
+    return () => watch.disconnect()
+  }, [editor])
+  if (!shown) return null
+  const aim = aimOf(`day-${day}`)
+  const share = aim ? Math.min(1, shown.words / aim.words) : 0
+  const minutes = Math.round(spent / 60_000)
+  return createPortal(
+    <div aria-hidden data-writer-line className="pointer-events-none fixed bottom-5 z-40 text-[0.8125rem] text-muted-foreground tabular-nums"
+      style={{ left: shown.left, width: shown.width }}>
+      {aim && (
+        <div data-writer-aim className="mb-2 h-px overflow-hidden rounded-full bg-foreground/10">
+          <div className={`h-full origin-left transition-transform duration-700 ${share >= 0.9 ? 'bg-primary' : 'bg-foreground/40'}`}
+            style={{ transform: `scaleX(${share})`, transitionTimingFunction: 'var(--mf-ease)' }} />
+        </div>
+      )}
+      <div className="flex items-baseline justify-between">
+        <span data-writer-words>
+          <Rolling text={num(shown.words)} /> {shown.words === 1 ? 'word' : 'words'}
+          {aim ? <> of {num(aim.words)}</> : null}
+          {minutes ? <>, <Rolling text={num(minutes)} /> {minutes === 1 ? 'minute' : 'minutes'}</> : null}
+        </span>
+        <span data-writer-time>{clock(shown.at)}</span>
+      </div>
+    </div>,
+    document.body
   )
 }
