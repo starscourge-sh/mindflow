@@ -38,7 +38,6 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^decide/i, Scale],
   [/^queue$|^read next/i, ListStart],
   // The views of a note (the top of a note's "…"): each its own drawing.
-  [/^expanded view/i, Maximize2],
   [/writing room/i, PenLine],
   [/^read$/i, BookOpen],
   [/^proofread/i, SpellCheck],

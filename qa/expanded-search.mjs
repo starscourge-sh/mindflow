@@ -1,4 +1,4 @@
-// The expanded view writes like a page in Pages (note-powers.tsx): picked
+// Read, unlocked (⌘L), writes like a page in Pages (note-powers.tsx): picked
 // words get the selection bar with Capture and Gem, the Properties block sits
 // under the title, / opens the slash menu. And a list's search with a kind chip
 // on searches only that kind, says "Nothing matches" when nothing does, and
@@ -23,21 +23,25 @@ const spread = async () => {
   if (await wide.count()) { await wide.first().click(); await h.waitForTimeout(700) }
 }
 try {
-  // Job 1: the expanded view.
+  // Job 1: Read, unlocked to write.
   const all = await h.evaluate(() => window.api.captures.list())
   const note = all.find((one) => one.status === 'open' && one.label && one.kind === 'note') ?? all.find((one) => one.status === 'open')
   await go('inbox')
-  await h.evaluate((id) => window.dispatchEvent(new CustomEvent('haligtree:expand', { detail: id })), note.id)
+  await h.evaluate((id) => window.dispatchEvent(new CustomEvent('haligtree:read', { detail: id })), note.id)
   await h.waitForTimeout(1500)
-  const sheet = '[data-expanded-note] .ProseMirror'
-  check('the expanded view shows the note in an editor', await h.locator(sheet).count() > 0)
-  check('the Properties block sits under its title', await h.locator('[data-expanded-note] [data-property-strip]').count() > 0)
+  await h.keyboard.press('Meta+l')
+  await h.waitForTimeout(800)
+  const sheet = '[role="dialog"][aria-label="Reading"] article .ProseMirror'
+  check('Read, unlocked, shows the note in an editor', await h.locator(sheet).count() > 0)
+  check('the Properties block sits under its title', await h.locator('[role="dialog"][aria-label="Reading"] [data-property-strip]').count() > 0)
   await h.locator(`${sheet} p`).first().click({ clickCount: 3 })
   await h.waitForTimeout(700)
   const bar = await h.evaluate(() => ({ gem: [...document.querySelectorAll('button[aria-label="Gem"]')].some((b) => b.offsetParent), capture: [...document.querySelectorAll('button[aria-label="Capture"]')].some((b) => b.offsetParent) }))
   check('picked words get the selection bar with Gem and Capture', bar.gem && bar.capture, JSON.stringify(bar))
   await h.keyboard.press('End')
+  await h.waitForTimeout(300)
   await h.keyboard.press('Enter')
+  await h.waitForTimeout(300)
   await h.keyboard.type('/')
   await h.waitForTimeout(600)
   const slash = await h.evaluate(() => !!document.querySelector('[role="listbox"], [data-slash-menu], .tiptap-slash-menu, [role="menu"]'))
@@ -48,7 +52,7 @@ try {
   await h.keyboard.press('Escape')
   await h.keyboard.press('Escape')
   await h.waitForTimeout(500)
-  check('Esc closes the expanded view', await h.locator('[data-expanded-note]').count() === 0)
+  check('Esc stops writing, then closes Read', await h.locator('[role="dialog"][aria-label="Reading"]').count() === 0)
 
   // Job 2: the Inbox's search with the Quote chip on.
   await go('inbox')

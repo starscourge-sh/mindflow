@@ -117,7 +117,7 @@ import { CloseDaySheet, openCloseDay } from '@/components/haligtree/close-day'
 import { writeOutDay } from '@/components/haligtree/day-list'
 import { SortSheet } from '@/components/haligtree/sort-out'
 import { openInboxSort } from '@/lib/sort-out'
-import { ExpandedSheet } from '@/components/note-link/expanded-note'
+import { ReadSheet } from '@/components/haligtree/read-through'
 import { openCloseWeek } from '@/components/haligtree/close-week'
 import { FIT_CHOICES, FitsSheet, fitsHeard, openFits } from '@/components/haligtree/fits'
 import { openPlaybook } from '@/lib/playbook'
@@ -1060,8 +1060,8 @@ export function Home(): React.JSX.Element {
     else if (type === 'task-date') (askDate(id), setView({ id: 'today', focus: id }))
     // A page to sort, sent from the box or a note's window; Today written out, from anywhere.
     else if (type === 'sort') window.dispatchEvent(new CustomEvent('haligtree:sort-out', { detail: JSON.parse(id) }))
-    // The expanded view of a note, asked for in another window.
-    else if (type === 'expand') window.dispatchEvent(new CustomEvent('haligtree:expand', { detail: id }))
+    // Read for one note, its links in place, asked for in another window.
+    else if (type === 'read') window.dispatchEvent(new CustomEvent('haligtree:read', { detail: id }))
     else if (type === 'write') (setView({ id: 'today' }), writeOutDay())
     else if (type === 'person') (setSearchFor(id), setSearching('all'))
     // A capture's version history, asked for in the box: opened, then once
@@ -1305,7 +1305,7 @@ export function Home(): React.JSX.Element {
       <CloseDaySheet />
       <FitsSheet />
       <SortSheet />
-      <ExpandedSheet />
+      <ReadSheet />
       <SandboxHost />
       <FocusNote />
       <FocusScenery />
@@ -1999,7 +1999,7 @@ export function Home(): React.JSX.Element {
         {/* The open note's name, faint, once its first line has scrolled away. */}
         <TopTitle on={settings?.topTitle !== false} />
         {/* The window's own setting, quiet: what you hear. How much screen it takes is the green button's (and ⌃⇧F's),
-            so the room here goes to the note's own "Expanded view" (note-extras.tsx). */}
+            so the room here goes to the note's own "Read" (note-extras.tsx). */}
         <span className="flex shrink-0 items-center">
           <SoundToggle className={TOOL} />
         </span>

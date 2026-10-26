@@ -8,7 +8,7 @@
 //  7. a change of kind keeps the old kind's fields out of sight and brings them back
 //  8. "Share with a new page" makes the words a page of their own, still shown in place and editable there
 //  9. `![[Name]]` shows another note whole, live: changed elsewhere, it changes here
-// 10. the expanded view: a note, its embeds and the notes it links to, in one scroll
+// 10. Read, its links in place: a note, its embeds and the notes it links to, in one scroll
 // Link pages are answered by a stub in the main process and the dictionary is a local server: nothing reaches the internet.
 //   npx electron-vite build --outDir out-ten
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-ten/main/index.js HALIGTREE_QA_AWAY=1 node qa/ten-asks.mjs
@@ -178,7 +178,7 @@ try {
   check('4. `[[Probe stub page]]` makes no page until it is opened (Obsidian\'s way)', !(await byTitle('Probe stub page')))
   const linked = await h.evaluate((code) => { const e = eval(code); let found = null; e?.state.doc.descendants((n) => { if (n.type.name === 'noteLink' && n.attrs.label === 'Probe stub page') found = n.attrs.id }); return found }, editorWith('Stub host note'))
   check('4. the link is there, pointing at nothing yet', linked === '', String(linked))
-  // Made by hand now, for the expanded view below.
+  // Made by hand now, for Read with its links in place below.
   const stub = { id: await make({ kind: 'note', body: doc('Probe stub page') }) }
   check('4. and you are still in the same note', !!(await h.evaluate((code) => !!eval(code), editorWith('Stub host note'))))
   await caretAtEnd('Stub host note')
@@ -227,19 +227,19 @@ try {
   check('9. changed at its source, it changes here: live', /Changed somewhere else/.test(await h.evaluate(() => document.querySelector('[data-embedded-note] .ProseMirror')?.textContent ?? '')))
   check('9. no copy in the note showing it', !/Changed somewhere else|Its words live here/.test(JSON.stringify((await get(shower))?.body ?? '')))
 
-  // --- 10. expanded view --------------------------------------------------------
+  // --- 10. Read, links in place --------------------------------------------------------
   const article = await make({ kind: 'note', body: { type: 'doc', content: [
     { type: 'paragraph', content: [{ type: 'text', text: 'Article top' }] },
     { type: 'noteEmbed', attrs: { id: source, label: 'Probe source note' } },
     { type: 'paragraph', content: [{ type: 'text', text: 'Read on: ' }, { type: 'noteLink', attrs: { id: stub?.id ?? '', label: 'Probe stub page' } }] }
   ] } })
   if (stub) await h.evaluate((id) => window.api.captures.save(id, { body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'The stub has words now.' }] }] } }), stub.id)
-  await send('expand', article); await wait(2200)
-  const sheet = await h.evaluate(() => document.querySelector('[data-expanded-note]')?.innerText ?? '')
-  check('10. the expanded view opens', !!sheet)
+  await send('read', article); await wait(2200)
+  const sheet = await h.evaluate(() => document.querySelector('[role="dialog"][aria-label="Reading"]')?.innerText ?? '')
+  check('10. Read opens, its links in place', !!sheet)
   check('10. it holds the note, its embed and the note it links to, in one scroll', /Article top/.test(sheet) && /Changed somewhere else/.test(sheet) && /The stub has words now/.test(sheet), sheet.replace(/\s+/g, ' ').slice(0, 200))
-  await h.keyboard.press('Escape'); await wait(300); await h.keyboard.press('Escape'); await wait(500)
-  check('10. Esc closes it', !(await h.evaluate(() => !!document.querySelector('[data-expanded-note]'))))
+  await h.keyboard.press('Escape'); await wait(500)
+  check('10. Esc closes it', !(await h.evaluate(() => !!document.querySelector('[role="dialog"][aria-label="Reading"]'))))
 
   // --- 4, 6, 8 and 10 in a gem and in a piece of writing, not only a capture
   for (const tier of ['nugget', 'article']) {
@@ -258,9 +258,9 @@ try {
     check(`8. in a ${tier}: pulled out and still shown in place`, /zephyr/.test(await h.evaluate(() => [...document.querySelectorAll('[data-embedded-note] .ProseMirror')].map((one) => one.textContent).join(' '))))
     await wait(1500)
     check(`8. in a ${tier}: the embed is saved in it`, /noteEmbed/.test(JSON.stringify((await v('item', item.id))?.body ?? '')))
-    await send('expand', `${tier}:${item.id}`); await wait(2000)
-    check(`10. in a ${tier}: the expanded view shows it and its embed`, /zephyr/.test(await h.evaluate(() => document.querySelector('[data-expanded-note]')?.innerText ?? '')))
-    await h.keyboard.press('Escape'); await wait(300); await h.keyboard.press('Escape'); await wait(400)
+    await send('read', `${tier}:${item.id}`); await wait(2000)
+    check(`10. in a ${tier}: Read shows it and its embed`, /zephyr/.test(await h.evaluate(() => document.querySelector('[role="dialog"][aria-label="Reading"]')?.innerText ?? '')))
+    await h.keyboard.press('Escape'); await wait(400)
   }
 
   // --- 5. the kind list by use -------------------------------------------------

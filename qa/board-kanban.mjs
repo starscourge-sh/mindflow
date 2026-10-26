@@ -1,7 +1,7 @@
 // A page from Obsidian's Kanban plugin (kanban-plugin: board in its front
 // matter) opens as a board, and whenever its ··· menu ticks "Board view" the
 // board is what is drawn: opened from the list, stepped to and back, reopened,
-// after a look at an earlier version, and in the expanded view.
+// and after a look at an earlier version.
 //
 //   npx electron-vite build --outDir out-h
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-h/main/index.js HALIGTREE_QA_AWAY=1 node qa/board-kanban.mjs
@@ -23,7 +23,7 @@ const state = async (at = '[data-open]') => {
   await h.locator(`${at} button[aria-label="More"]`).first().click()
   await wait(300)
   const ticked = (await h.getByRole('menuitemcheckbox', { name: /Board view/ }).getAttribute('aria-checked').catch(() => null)) === 'true'
-  // Read with the menu still open, then closed by its own button: Esc in the expanded view closes the view.
+  // Read with the menu still open, then closed by its own button: Esc closes the menu.
   const drawn = await h.evaluate((sel) => !!document.querySelector(`${sel} [data-board] section`), at)
   await h.locator(`${at} button[aria-label="More"]`).first().click({ force: true })
   await wait(200)
@@ -70,12 +70,6 @@ try {
   await h.keyboard.press('Alt+Meta+b')
   await wait(800)
   await agrees('back on with ⌥⌘B', '[data-open]')
-  // In the expanded view.
-  await send('expand', `article:${htop}`)
-  await wait(1500)
-  await agrees('in the expanded view', '[data-expanded-note]')
-  await h.keyboard.press('Escape')
-  await wait(600)
   check('no errors on the page', s.errors.length === 0, s.errors.join(' | '))
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])

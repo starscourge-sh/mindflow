@@ -1,8 +1,8 @@
 // The main window really into the Mac's full screen and back out (the green
 // button), then checked for a grey title bar strip: the page must fill the
 // whole window again, the page must know it is out, and the app's own bar must
-// sit where it did before, with the traffic lights on its line. The expanded
-// view opened after it is checked the same way. This one does take a Space for
+// sit where it did before, with the traffic lights on its line. Read, opened
+// after it, is checked the same way. This one does take a Space for
 // a few seconds, and the window is shown on screen for it: a grey title bar is
 // drawn by the Mac over the page, so only a picture of the real window shows it.
 // The pictures are kept in QA_SHOTS (default: the run's QA_DATA folder).
@@ -111,18 +111,18 @@ try {
   check(await shoot('2-after') < 8, 'after: the page shows through behind the traffic lights, no grey strip')
   check(after.barTop === before.barTop && after.barHeight === before.barHeight, `after: the app's bar sits where it did (${after.barTop}+${after.barHeight}, was ${before.barTop}+${before.barHeight})`)
 
-  // The expanded view, opened after the trip.
+  // Read, its links in place, opened after the trip.
   const note = (await h.evaluate(() => window.api.captures.list())).find((one) => one.status === 'open')
-  await h.evaluate((id) => window.dispatchEvent(new CustomEvent('haligtree:expand', { detail: id })), note.id)
+  await h.evaluate((id) => window.dispatchEvent(new CustomEvent('haligtree:read', { detail: id })), note.id)
   await h.waitForTimeout(1500)
   const sheet = await h.evaluate(() => {
-    const box = document.querySelector('[data-expanded-note]')?.getBoundingClientRect()
+    const box = document.querySelector('[role="dialog"][aria-label="Reading"]')?.getBoundingClientRect()
     return box ? { top: box.top, height: box.height, inner: window.innerHeight } : null
   })
   const frame = await home((win) => ({ frame: win.getBounds().height, content: win.getContentBounds().height }))
-  console.log('expanded', JSON.stringify(sheet), JSON.stringify(frame))
-  check(await shoot('3-expanded') < 8, 'the expanded view shows through behind the traffic lights, no grey strip')
-  check(sheet && sheet.top === 0 && sheet.height === frame.frame && frame.content === frame.frame, `the expanded view fills the whole window from its top (${JSON.stringify(sheet)})`)
+  console.log('read', JSON.stringify(sheet), JSON.stringify(frame))
+  check(await shoot('3-read') < 8, 'Read shows through behind the traffic lights, no grey strip')
+  check(sheet && sheet.top === 0 && sheet.height === frame.frame && frame.content === frame.frame, `Read fills the whole window from its top (${JSON.stringify(sheet)})`)
   check(errors.length === 0, `no page errors ${errors.join(' | ')}`)
 } finally {
   await home((win) => win.isFullScreen() && win.setFullScreen(false)).catch(() => {})

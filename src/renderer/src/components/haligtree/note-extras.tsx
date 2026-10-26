@@ -29,7 +29,6 @@ import { PAGE_WIDTHS, setPageWidth as setWidthEverywhere, showDetails, useDetail
 import { canSplit, usePane, usePaneWidth } from '@/lib/split'
 import { openApart } from '@/lib/apart'
 import ExternalLinkIcon from '@/components/ui/external-link-icon'
-import { openExpanded } from '@/components/note-link/expanded-note'
 import { ReadThrough } from './read-through'
 import { Island, PropInput, Rolling, Tip, Typed, ask, refuse, toast, quietly } from './ui'
 import { Does, GHOST, GhostText } from './ghost'
@@ -608,13 +607,12 @@ export function NoteHeader({ left, back, type = 'capture', edited, captured, mad
   // In a narrow pane, "Edited 2m": shorter, never cut off mid-word.
   const short = `${verb} ${old === 'now' ? 'now' : old}`
   // The header's own lines are not said twice when the note's menu has them too.
-  const OWN = ['Pin', 'Unpin', 'Pin to the sidebar', 'Copy link', 'Version history']
+  const OWN = ['Pin', 'Unpin', 'Pin to the sidebar', 'Copy link', 'Version history', 'Read']
   // Opened away from its own list (search, a link, its own window): that list, the main window's, opened on it, which shows its row.
   const show = useShowLine() ?? { label: 'Show in list', run: () => window.api.openInHome(type, String(versions.id), 'show-in-list') }
   const all = [...(show ? [show, 'separator' as const] : []), ...menu].filter((item) => item && (item === 'separator' || !OWN.includes(item.label))) as Exclude<MenuItem | { label: string; items: RowItem[] }, false | null | undefined>[]
   // The ways to look at this note, together at the top of "…", each saying how it differs from the others.
   const VIEW_SAYS: Record<string, string> = {
-    'Expanded view': 'This note alone, one quiet scroll; Vim works',
     'Writing room': 'The page alone, full screen, to write',
     'Leave the writing room': 'Back to the page as it was',
     'Open to the side': 'Beside what is open now',
@@ -644,12 +642,6 @@ export function NoteHeader({ left, back, type = 'capture', edited, captured, mad
             <Tip label="Read">
               <button type="button" aria-label="Read" onClick={() => (chime('open'), setReading(true))} className={TOOL}><AliveIcon icon={BookIcon} size={16} /></button>
             </Tip>
-            {/* This note alone, the whole page in one quiet scroll, Vim and all: what the window's old "Fill the screen" made room for. */}
-            {(type === 'capture' || type === 'nugget' || type === 'article') && (
-              <Tip label="Expanded view: this note alone, in one quiet scroll">
-                <button type="button" aria-label="Expanded view" data-expand-note onClick={() => (chime('open'), openExpanded(type === 'capture' ? String(versions.id) : `${type}:${versions.id}`))} className={TOOL}><AliveIcon icon={ExpandIcon} size={16} /></button>
-              </Tip>
-            )}
             {back}
             {/* Out to a small window of its own, as Arc's Little Arc; ⌘O there brings it back. Main window only. */}
             {canSplit() && type !== 'task' && type !== 'goal' && (
@@ -676,7 +668,7 @@ export function NoteHeader({ left, back, type = 'capture', edited, captured, mad
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel data-view-group>View</DropdownMenuLabel>
                 {[
-                  { label: 'Read', says: 'Read it through, nothing to edit', run: () => (chime('open'), setReading(true)) },
+                  { label: 'Read', says: 'Read it through; Vim and ⌘L to edit; L opens its links in place', run: () => (chime('open'), setReading(true)) },
                   ...(board ? [{ label: 'Board view', says: 'Its lines as cards on a board', run: board.toggle, keys: '⌥⌘B', on: board.on }] : []),
                   ...viewed.map((item) => ({ label: item.label, says: VIEW_SAYS[item.label], run: item.run, keys: item.keys }))
                 ].map((one) => (

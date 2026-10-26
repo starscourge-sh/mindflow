@@ -32,21 +32,20 @@ const openNote = (link: string): void =>
 /**
  * A note shown whole, editable here and saved to the note itself: the same
  * words wherever it is shown. Used for an embed inside a note and for the
- * expanded view, which stacks a note and the notes it links to.
+ * notes Read opens in place under the note that links to them.
  */
 type Powers = Parameters<typeof notePowers>[0]
 
-export function EmbeddedNote({ link, label, header = true, onUnembed, powers = false, onLeave, onEditor }: {
+export function EmbeddedNote({ link, label, onUnembed, powers = false, reading = false, onLeave }: {
   link: string
   label: string
-  header?: boolean
   onUnembed?: () => void
-  /** Written in as a page (the expanded view): the selection bar, Gem, Capture, the Properties block, tags and links, as in Pages (note-powers.tsx). */
+  /** Written in as a page (Read, its links in place): the selection bar, Gem, Capture, the Properties block, tags and links, as in Pages (note-powers.tsx). */
   powers?: boolean
-  /** A tag or a link followed from it leaves this view first (the expanded view closes). */
+  /** Locked for reading, as the page around it is (Read with its links open in place). */
+  reading?: boolean
+  /** A tag or a link followed from it leaves this view first (Read closes). */
   onLeave?: () => void
-  /** Its editor once ready, for a view drawn from its words (the expanded view's board). */
-  onEditor?: (editor: Editor) => void
 }): React.JSX.Element {
   const around = useContext(Around)
   const { table, id } = partsOf(link)
@@ -74,21 +73,19 @@ export function EmbeddedNote({ link, label, header = true, onUnembed, powers = f
   const name = note?.title || label || "Untitled"
   const looped = around.includes(link) || around.length >= DEEPEST
   return (
-    // Inside another note it is framed, to tell it from the words around it; as the page itself (the expanded view, no header) it is just the page, as paper is.
-    <div data-embedded-note={link} className={header ? "my-1 rounded-lg ring-1 ring-border" : "my-1"}>
-      {header && (
-        <div contentEditable={false} className="flex items-center gap-1 px-3 pt-2 text-control text-muted-foreground">
-          <span className="min-w-0 flex-1 truncate font-medium text-foreground">{name}</span>
-          <button type="button" className="flex items-center gap-1 rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground" onClick={() => (chime("open"), openNote(link))}>
-            <ArrowUpRight className="size-3.5" /> Open
+    // Inside another note it is framed, to tell it from the words around it.
+    <div data-embedded-note={link} className="my-1 rounded-lg ring-1 ring-border">
+      <div contentEditable={false} className="flex items-center gap-1 px-3 pt-2 text-control text-muted-foreground">
+        <span className="min-w-0 flex-1 truncate font-medium text-foreground">{name}</span>
+        <button type="button" className="flex items-center gap-1 rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground" onClick={() => (chime("open"), openNote(link))}>
+          <ArrowUpRight className="size-3.5" /> Open
+        </button>
+        {onUnembed && (
+          <button type="button" data-unembed className="flex items-center gap-1 rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground" onClick={onUnembed}>
+            <Link className="size-3.5" /> Show as a link
           </button>
-          {onUnembed && (
-            <button type="button" data-unembed className="flex items-center gap-1 rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground" onClick={onUnembed}>
-              <Link className="size-3.5" /> Show as a link
-            </button>
-          )}
-        </div>
-      )}
+        )}
+      </div>
       {note === undefined ? (
         <div className="px-3 py-2 text-control text-muted-foreground">Opening…</div>
       ) : note === null ? (
@@ -111,8 +108,8 @@ export function EmbeddedNote({ link, label, header = true, onUnembed, powers = f
               findNotes={findCaptures}
               findHeadings={findHeadings}
               onOpenNote={(to) => openNote(to)}
-              {...(powers ? notePowers({ ...note.powers, onOpen: (type, at) => (onLeave?.(), window.api.openInHome(type, at)) }) : {})}
-              onReady={(ready) => (words.ready(ready), onEditor?.(ready))}
+              {...(powers ? notePowers({ ...note.powers, reading, onOpen: (type, at) => (onLeave?.(), window.api.openInHome(type, at)) }) : {})}
+              onReady={words.ready}
               onChange={words.save}
             />
           </Around.Provider>

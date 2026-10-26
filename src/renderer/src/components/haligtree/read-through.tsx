@@ -21,7 +21,8 @@ import { dequeue, finish, openLink, readingQueue, type QueueRow } from '@/lib/re
 import { QueuePanel } from './queue-panel'
 import { TAG, tagsIn } from '../../../../main/tag-words'
 import { ArrowDown, ArrowUp, X as ReadDone } from '@/components/ui/icons'
-import { ChevronDown, ListMusic, Lock, LockOpen, Plus, Repeat2 } from 'lucide-react'
+import { ChevronDown, Link2, ListMusic, Lock, LockOpen, Plus, Repeat2 } from 'lucide-react'
+import { EmbeddedNote } from '@/components/note-link/note-embed-view'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useGroups, type NoteGroup as Group } from '@/lib/groups'
 import { moveToBin } from '@/lib/to-bin'
@@ -48,6 +49,56 @@ const countRead = (): void => {
   } catch {
     // Said again next time, which does no harm.
   }
+}
+
+/** Whether its linked notes were last left open in place, for the rest of this session. */
+const LINKS = 'readLinksInPlace'
+const linksLeftOpen = (): boolean => {
+  try {
+    return sessionStorage.getItem(LINKS) === '1'
+  } catch {
+    return false
+  }
+}
+
+type Doc = { type?: string; attrs?: Record<string, unknown>; content?: Doc[] }
+
+/** The notes a body links to, in order, once each; embeds left out, since they show in place already. */
+function linkedIn(body: unknown, self: string): string[] {
+  const links: string[] = []
+  const embedded = new Set<string>()
+  const walk = (node: Doc | undefined): void => {
+    if (!node || typeof node !== 'object') return
+    const id = typeof node.attrs?.id === 'string' ? node.attrs.id : ''
+    if (node.type === 'noteEmbed' && id) embedded.add(id)
+    if (node.type === 'noteLink' && id && !/^(person|tag|task|day|week|month|question|goal):/.test(id)) links.push(id)
+    node.content?.forEach(walk)
+  }
+  walk(body as Doc)
+  return [...new Set(links)].filter((id) => id !== self && !embedded.has(id))
+}
+
+/**
+ * Read one note, its linked notes open in place, from a menu anywhere: the
+ * main window shows it; another window asks it to (home.tsx, `read`). A
+ * link is a capture's id alone, or `nugget:` / `article:` and an id.
+ */
+export function openRead(link: string): void {
+  if (new URLSearchParams(location.search).get('view') === 'home') window.dispatchEvent(new CustomEvent('haligtree:read', { detail: link }))
+  else window.api.openInHome('read', link)
+}
+
+/** The main window's Read for one note asked for by openRead. */
+export function ReadSheet(): React.JSX.Element | null {
+  const [link, setLink] = useState<string | null>(null)
+  useEffect(() => {
+    const open = (event: Event): void => setLink((event as CustomEvent<string>).detail)
+    window.addEventListener('haligtree:read', open)
+    return () => window.removeEventListener('haligtree:read', open)
+  }, [])
+  if (!link) return null
+  const item = link.includes(':') ? { type: link.slice(0, link.indexOf(':')), id: link.slice(link.indexOf(':') + 1) } : { type: 'capture', id: link }
+  return <ReadThrough key={link} items={[item]} links onClose={() => setLink(null)} />
 }
 
 /** `body`: words read as they are, never changed here, like a question's clues. */
@@ -150,8 +201,10 @@ export type Longform = {
   foot: React.ReactNode
 }
 
-export function ReadThrough({ items: given, start = 0, onClose, queue: started, clueTo, sorting, longform }: {
+export function ReadThrough({ items: given, start = 0, onClose, queue: started, clueTo, sorting, longform, links }: {
   items: Readable[]
+  /** Its linked notes open in place from the start, as a menu's "Read" asks; L opens and closes them either way. */
+  links?: boolean
   longform?: Longform
   /** "Sort these": imported notes not yet sorted, each kept, tagged, moved or binned in turn. */
   sorting?: boolean
@@ -444,6 +497,19 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
     window.api.openInHome('tag', tag)
   }
   const [wordsBox, setWordsBox] = useState<HTMLDivElement | null>(null)
+  // The notes it links to, open under it in place (L), so the whole of it reads in one scroll; kept as left for the session.
+  const [inPlace, setInPlace] = useState(() => !!links || linksLeftOpen())
+  const toggleLinks = (): void => {
+    if (!item || item.body !== undefined) return void chime('nope')
+    const next = !inPlace
+    chime(next ? 'on' : 'off')
+    setInPlace(next)
+    try {
+      sessionStorage.setItem(LINKS, next ? '1' : '0')
+    } catch {
+      // Kept for this reading only.
+    }
+  }
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
@@ -535,6 +601,8 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
         event.preventDefault()
         toggleLock()
       }
+      // L: the notes it links to, open under it in place, or shut again.
+      else if (event.key === 'l' || event.key === 'L') toggleLinks()
       // Deal with it while it is in front of you: an exit or a task, then the
       // next page. ⌘Z still takes it back.
       // ⌫ is the Bin, as on every list; D too.
@@ -561,7 +629,7 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
     // Taken first, so the lists and the editor underneath never see the keys.
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [items.length, item, at, onClose, writing, queue, ended, leaving, sortedHere, binned, moving, panel]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [items.length, item, at, onClose, writing, queue, ended, leaving, sortedHere, binned, moving, panel, inPlace]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // The focus comes here while reading, and goes back where it was after.
   const box = useRef<HTMLDivElement>(null)
@@ -596,6 +664,7 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
   // Its tags read live from the words, so one typed in shows here at once.
   const metaParts = shown ? [...(shown.meta ?? []), ...tagsOf(shown.body)] : []
   const meta = metaParts.join(' · ')
+  const linked = own && inPlace && shown ? linkedIn(shown.body, item.type === 'capture' ? item.id : `${item.type}:${item.id}`) : []
   // Over the whole window, not inside the pane it was opened from: no
   // sidebar, no other pane, no header. Nothing underneath moves, so leaving
   // puts back the layout exactly as it was.
@@ -637,6 +706,21 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
               className={cn('flex size-7 items-center justify-center rounded-full border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground', panel && 'bg-accent text-foreground')}
             >
               <ListMusic className="size-4" />
+            </button>
+          </Tip>
+        )}
+        {/* Its linked notes in place, left of the lock so the lock never moves. */}
+        {own && !ended && (
+          <Tip label={inPlace ? 'Close its links  L' : 'Open its links in place  L'}>
+            <button
+              type="button"
+              data-read-links-toggle={inPlace ? 'open' : 'shut'}
+              aria-label={inPlace ? 'Close its links' : 'Open its links in place'}
+              aria-pressed={inPlace}
+              onClick={toggleLinks}
+              className={cn('flex size-7 items-center justify-center rounded-full border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground', inPlace && 'bg-accent text-foreground')}
+            >
+              <Link2 className="size-4" />
             </button>
           </Tip>
         )}
@@ -715,7 +799,9 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
                     // The ::after keeps the meta line's room; MetaUnderLead draws its words over it.
                     lead && !!meta && '[&_.tiptap.ProseMirror>:first-child]:after:text-transparent [&_.tiptap.ProseMirror>:first-child]:after:select-none [&_.tiptap.ProseMirror>:first-child]:after:mt-3 [&_.tiptap.ProseMirror>:first-child]:after:mb-9 [&_.tiptap.ProseMirror>:first-child]:after:block [&_.tiptap.ProseMirror>:first-child]:after:font-sans [&_.tiptap.ProseMirror>:first-child]:after:text-meta [&_.tiptap.ProseMirror>:first-child]:after:font-normal [&_.tiptap.ProseMirror>:first-child]:after:tracking-normal [&_.tiptap.ProseMirror>:first-child]:after:content-[var(--meta)]',
                     // The column sets the margins, not the editor's own gutter.
-                    '[--mf-padding:0] [&_.haligtree-editor-content]:p-0 [&_.ProseMirror>p:last-child:has(>br:only-child)]:hidden [&_.tiptap.ProseMirror>:first-child]:mt-0!',
+                    '[--mf-padding:0] [&_.haligtree-editor-content]:p-0 [&_.tiptap.ProseMirror>:first-child]:mt-0!',
+                    // Reading, an empty last line is not shown; writing, it is the line the caret is on (and where / opens its menu).
+                    !writing && '[&_.ProseMirror>p:last-child:has(>br:only-child)]:hidden',
                     // The short first line, set as the title is.
                     lead && '[&_.tiptap.ProseMirror>:first-child]:font-heading [&_.tiptap.ProseMirror>:first-child]:text-[2.25rem]! [&_.tiptap.ProseMirror>:first-child]:leading-[1.15]! [&_.tiptap.ProseMirror>:first-child]:font-semibold! [&_.tiptap.ProseMirror>:first-child]:tracking-[-0.022em] [&_.tiptap.ProseMirror>:first-child]:border-0! [&_.tiptap.ProseMirror>:first-child]:p-0! [&_.tiptap.ProseMirror>:first-child]:text-balance',
                   )}
@@ -756,6 +842,13 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
                   />
                 </div>
               </div>
+            )}
+            {/* The notes it links to, each whole under it, locked or written in as the page is: saved where each lives. */}
+            {own && inPlace && shown && (
+              <section data-read-links={linked.length} className="mt-12 flex flex-col gap-3">
+                <h2 className="text-meta text-muted-foreground">{linked.length ? 'Linked from here' : 'No notes linked from here'}</h2>
+                {linked.map((one) => <EmbeddedNote key={`${one}-${writing}`} link={one} label="" powers reading={!writing} onLeave={onClose} />)}
+              </section>
             )}
             {shown?.who && <p data-private={hidden} className="mt-5 text-control text-muted-foreground"><Signed who={shown.who} className="private-text" /></p>}
             {/* Thoughts kept on it stay with the words; a new one goes in the

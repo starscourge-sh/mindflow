@@ -2,7 +2,7 @@ import { notePowers } from './note-powers'
 import { hoverNote } from './note-preview'
 import { PropertyStrip } from './property-strip'
 import { FadedLine } from './feed-view'
-import { openExpanded } from '../note-link/expanded-note'
+import { openRead } from './read-through'
 import { propertySorts } from '@/lib/property-sorts'
 import { ReadsIn } from '@/lib/reads-in'
 import { GroupPage, type GroupParts } from './group-page'
@@ -799,7 +799,7 @@ const itemMenu = (item: Item): MenuItem[] => [
   { label: item.private ? 'Make it not private' : 'Make it private', run: () => void haligtree.setPrivate('nuggets', item.id, !item.private) },
   { label: 'Stick on the desktop', run: () => stickOnDesktop('nugget', item.id) },
   { label: 'Open in a new window', keys: '⌥⌘-click', run: () => openApart(item.tier, item.id) },
-  { label: 'Expanded view', hint: 'The whole page in one scroll, its linked notes too', run: () => openExpanded(`${item.tier}:${item.id}`) },
+  { label: 'Read', hint: 'Read it through, the notes it links to open in place', run: () => openRead(`${item.tier}:${item.id}`) },
   asideItem(item.tier, item.id),
   ...queueItems(item.id),
   'separator',
