@@ -1899,7 +1899,7 @@ export function VirtualList<T>({ items, keyOf, holds, cursor, estimate = 48, siz
     count: items.length,
     getScrollElement: () => scroller,
     estimateSize: (index) => (sizeOf ? sizeOf(items[index]) : estimate),
-    overscan: 10,
+    overscan: 4,
     scrollMargin: margin,
     getItemKey: (index) => keyOf(items[index])
   })
