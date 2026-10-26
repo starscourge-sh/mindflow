@@ -63,7 +63,8 @@ export const SECTIONS: (Place & { key: string })[] = [
   { id: 'weekpage', label: "Week's page", icon: CalendarFold, key: 'k', tint: 'yellow' },
   { id: 'monthpage', label: "Month's page", icon: Sprout, key: 'm', tint: 'yellow' },
   // The day's twenty or so of your own things, as a timeline that ends (feed-view.tsx).
-  { id: 'feed', label: 'Feed', icon: Newspaper, key: 'g', tint: 'pink' },
+  // W, not G: G G is a list's first row, as in Vim.
+  { id: 'feed', label: 'Feed', icon: Newspaper, key: 'w', tint: 'pink' },
   // Words and questions asked and waiting on an answer: a Word with no meaning written yet.
   { id: 'lookups', label: 'Lookups', icon: BookOpen, key: '.', tint: 'green' },
   // Goals: a day you are working toward, and the road there.
@@ -90,7 +91,7 @@ export const SHAPE = SIDEBAR_SHAPE
  * G and a letter for pages that are not rows of their own any more: the task
  * lists are tabs of one row now, and still a G away.
  */
-export const G_ALIASES: Record<string, string> = { u: 'upcoming', w: 'upcoming', '+': 'upcoming', z: 'later', o: 'routines', q: 'matrix', l: 'all', h: 'questions' }
+export const G_ALIASES: Record<string, string> = { u: 'upcoming', '+': 'upcoming', z: 'later', o: 'routines', q: 'matrix', l: 'all', h: 'questions' }
 
 /** The task lists that are tabs of the one Tasks row: on any of them, its row is lit. */
 export const TASK_PAGES = ['today', 'tomorrow', 'week', 'upcoming', 'later', 'routines', 'matrix']

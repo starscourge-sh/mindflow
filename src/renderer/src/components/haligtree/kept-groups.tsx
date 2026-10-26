@@ -1272,7 +1272,7 @@ function GroupMenu({ group, members, onPage, onOpenFolder, onSeparate, onRename,
       <ContextMenuItem onSelect={later(onRename)}>Rename…</ContextMenuItem>
       <ContextMenuItem onSelect={later(onIcon)}>Change icon…</ContextMenuItem>
       <ContextMenuSeparator />
-      <ContextMenuItem onSelect={() => void archive('nuggets', members, true)}>Archive group</ContextMenuItem>
+      <ContextMenuItem onSelect={() => void archive('nuggets', members, true)}>Archive folder</ContextMenuItem>
     </ContextMenuContent>
   )
 }

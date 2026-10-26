@@ -11,6 +11,9 @@ import { onlyRealMoves } from "@/lib/real-move"
 import { withMenuIcon } from "./menu-icon"
 import { ChevronRight as ChevronRightIcon } from '@/components/ui/icons'
 
+/** Clear of the window's edges, and of the title bar at the top, where the window's own buttons sit. */
+const MENU_ROOM = { top: 40, right: 12, bottom: 12, left: 12 }
+
 function ContextMenu({
   ...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.Root>) {
@@ -52,7 +55,7 @@ function ContextMenuContent({
         data-slot="context-menu-content"
         // Kept clear of the window's edges, never touching them, and never
         // taller than the room it has: only a menu that cannot fit scrolls.
-        collisionPadding={12}
+        collisionPadding={MENU_ROOM}
         className={cn("z-50 flex max-h-(--radix-context-menu-content-available-height) min-w-32 origin-(--radix-context-menu-content-transform-origin) flex-col overflow-hidden rounded-lg", FLOAT, " data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-60", className , "min-w-fit")}
         {...props}
         onCloseAutoFocus={quietClose(props.onCloseAutoFocus)}
@@ -199,7 +202,7 @@ function ContextMenuSubContent({
     <ContextMenuPrimitive.Portal>
     <ContextMenuPrimitive.SubContent
       ref={markKeyed}
-      collisionPadding={12}
+      collisionPadding={MENU_ROOM}
       data-slot="context-menu-sub-content"
       className={cn("z-50 flex max-h-(--radix-context-menu-content-available-height) min-w-32 origin-(--radix-context-menu-content-transform-origin) flex-col overflow-hidden rounded-lg", FLOAT, " data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-60", className , "min-w-fit")}
       {...props}

@@ -11,6 +11,9 @@ import { onlyRealMoves } from "@/lib/real-move"
 import { withMenuIcon } from "./menu-icon"
 import { Check as CheckIcon, ChevronRight as ChevronRightIcon } from '@/components/ui/icons'
 
+/** Clear of the window's edges, and of the title bar at the top, where the window's own buttons sit. */
+const MENU_ROOM = { top: 40, right: 12, bottom: 12, left: 12 }
+
 function DropdownMenu({
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) {
@@ -44,7 +47,7 @@ function DropdownMenuContent({
         data-slot="dropdown-menu-content"
         // Kept clear of the window's edges, never touching them, and never
         // taller than the room it has: only a menu that cannot fit scrolls.
-        collisionPadding={12}
+        collisionPadding={MENU_ROOM}
         sideOffset={sideOffset}
         align={align}
         className={cn("z-50 flex max-h-(--radix-dropdown-menu-content-available-height) w-(--radix-dropdown-menu-trigger-width) min-w-32 origin-(--radix-dropdown-menu-content-transform-origin) flex-col overflow-hidden rounded-lg", FLOAT, " data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-60", className , "min-w-fit")}
@@ -263,7 +266,7 @@ function DropdownMenuSubContent({
     <DropdownMenuPrimitive.Portal>
     <DropdownMenuPrimitive.SubContent
       ref={markKeyed}
-      collisionPadding={12}
+      collisionPadding={MENU_ROOM}
       data-slot="dropdown-menu-sub-content"
       className={cn("z-50 flex max-h-(--radix-dropdown-menu-content-available-height) min-w-32 origin-(--radix-dropdown-menu-content-transform-origin) flex-col overflow-hidden rounded-lg", FLOAT, " data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-60", className , "min-w-fit")}
       {...props}
