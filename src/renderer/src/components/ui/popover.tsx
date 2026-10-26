@@ -26,7 +26,7 @@ function PopoverContent({
   // edge to do it. This is the gap it keeps instead. A panel is as tall as
   // what it holds, and scrolls only when that is more than the room it has.
   // The top gap is the title bar's: a panel never covers the window's own buttons.
-  collisionPadding = { top: 40, right: 8, bottom: 8, left: 8 },
+  collisionPadding = { top: 52, right: 8, bottom: 8, left: 8 },
   ref,
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Content>) {

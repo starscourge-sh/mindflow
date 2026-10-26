@@ -244,7 +244,10 @@ try {
   spot.y = await c.h.evaluate(() => innerHeight - 60)
   await c.h.waitForTimeout(400)
   const menu = await c.h.evaluate(() => { const one = document.querySelector('[role="menu"]')?.getBoundingClientRect(); return one && { top: one.top, bottom: one.bottom, room: innerHeight } })
-  check('a folder\'s menu never covers the window\'s own buttons', menu && menu.top >= 39 && menu.bottom <= menu.room - 11, JSON.stringify({ menu, at: spot.y }))
+  // Measured against the window's own buttons where the Mac draws them (about 14px tall): a clear gap below them, never jammed against them.
+  const lights = await c.electron.evaluate(({ BrowserWindow }) => { const win = BrowserWindow.getAllWindows().find((one) => one.webContents.getURL().includes('view=home')); return win?.getWindowButtonPosition?.() ?? null })
+  const under = lights ? lights.y + 14 : 34
+  check('a folder\'s menu keeps clear of the window\'s own buttons, a full gap below them (16px or more)', menu && menu.top - under >= 16 && menu.bottom <= menu.room - 11, JSON.stringify({ menu, lights, gap: menu && menu.top - under }))
   await c.h.keyboard.press('Escape')
   await c.size(1280, 860)
   check('no errors', c.errors.length === 0, c.errors.slice(0, 2).join(' | '))

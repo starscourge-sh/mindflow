@@ -35,7 +35,7 @@ function DropdownMenuContent({
     <DropdownMenuPrimitive.Portal>
       <DropdownMenuPrimitive.Content
         ref={openChime}
-        collisionPadding={{ top: 40, right: 10, bottom: 10, left: 10 }}
+        collisionPadding={{ top: 52, right: 10, bottom: 10, left: 10 }}
         data-slot="tiptap-dropdown-menu-content"
         sideOffset={sideOffset}
         align={align}

@@ -12,7 +12,7 @@ import { withMenuIcon } from "./menu-icon"
 import { Check as CheckIcon, ChevronRight as ChevronRightIcon } from '@/components/ui/icons'
 
 /** Clear of the window's edges, and of the title bar at the top, where the window's own buttons sit. */
-const MENU_ROOM = { top: 40, right: 12, bottom: 12, left: 12 }
+const MENU_ROOM = { top: 52, right: 12, bottom: 12, left: 12 }
 
 function DropdownMenu({
   ...props
