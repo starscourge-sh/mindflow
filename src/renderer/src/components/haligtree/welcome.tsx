@@ -535,8 +535,10 @@ export function Welcome(): React.JSX.Element | null {
       {at === LAST && <TrayArrow tray={state?.tray ?? null} />}
       {/* The chapter's thumb index on the fore-edge, moving down a place each chapter. */}
       <div className="relative mx-auto flex min-h-0 w-full max-w-[84rem] flex-1 flex-col">
-        {/* The book's ruled margin, in red ink: drawn down the page as the first words come, and kept on every page after, so each chapter reads as the same book. */}
-        <motion.div aria-hidden data-margin="" className="pointer-events-none absolute -top-11 bottom-0 left-[calc(clamp(1.5rem,5vw,4rem)*0.45)] w-px origin-top bg-[color-mix(in_oklab,var(--tt-color-text-red)_38%,transparent)]"
+        {/* The book's ruled margin, in red ink: drawn down the page as the first words come, and kept on every page after, so each chapter reads as the same book.
+            Soft ink soaked into the paper, fading out at its top and foot as a notebook's rule does, never a loose line. */}
+        <motion.div aria-hidden data-margin="" className="pointer-events-none absolute -top-11 bottom-0 left-[calc(clamp(1.5rem,5vw,4rem)*0.45)] w-px origin-top"
+          style={{ background: 'linear-gradient(to bottom, transparent, color-mix(in oklab, var(--tt-color-text-red) 20%, transparent) 14%, color-mix(in oklab, var(--tt-color-text-red) 20%, transparent) 80%, transparent)' }}
           initial={false} animate={{ transform: veiled ? 'scaleY(0)' : 'scaleY(1)' }} transition={{ duration: quiet ? 0 : 1.6, ease: ENTER }} />
         <main className="relative min-h-0 flex-1">
           <AnimatePresence initial={false} custom={turning}>

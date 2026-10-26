@@ -2203,6 +2203,8 @@ html[data-book-hue] [data-book-tint] {
 /* With the aim's bar gone, so is the room kept over the words for it: the caption sits the same small gap over the first line, aim or not. */
 :root:not([data-in-room]):has([data-writer-line]) [data-day-write] .haligtree-editor-wrapper:has(> .mf-aim) > .haligtree-editor-content { padding-top: 0; }
 :root[data-in-room] [data-writer-line] { display: none; }
+/* Nor over the welcome, which is a book of its own. */
+:root:has(.mf-welcome) [data-writer-line] { display: none; }
 @media (prefers-reduced-motion: reduce) {
   :root:has([data-day-write]) :is(body, body :has([data-day-write])) > * { transition-duration: 200ms !important; transition-delay: 0s !important; }
 }

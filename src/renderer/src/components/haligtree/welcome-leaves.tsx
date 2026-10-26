@@ -95,7 +95,7 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
       vx: 0,
       vy: 0,
       // Each catches the gust a moment apart, the nearest the wind first.
-      late: random() * 260,
+      late: random() * 120,
       kind: KINDS[Math.floor(random() * KINDS.length)],
       roll: random() * Math.PI * 2,
       hue: HUES[Math.floor(random() * HUES.length)],
@@ -110,7 +110,7 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
     const motes: Leaf[] = Array.from({ length: 10 }, () => make(true, true))
     let settled = false
     // The bunch on the last page: each gathered leaf, where it came from, where it goes, and how far it has turned to face you.
-    type Held = { from: { x: number; y: number; spin: number; size: number }; to: { x: number; y: number; spin: number; size: number }; base: { x: number; y: number }; delay: number; face: number; i: number }
+    type Held = { from: { x: number; y: number; spin: number; size: number }; to: { x: number; y: number; spin: number; size: number }; base: { x: number; y: number }; delay: number; face: number; i: number; lag?: number }
     const bunch = new Map<Leaf, Held>()
     let gatheredAt = 0
     /**
@@ -258,6 +258,8 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
     // The wind on the last page's bunch, 0 calm, and how fast it is changing; the pointer's way from "Open my book" last frame.
     let wind = 0
     let windPush = 0
+    // How much wind the bunch has felt: the first stir is a small one, the next ones fuller.
+    let felt = 0
     let lastOff: number | null = null
     let approach = 0
     const pointer = { x: -1e5, y: -1e5 }
@@ -315,8 +317,9 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
         if (leaving !== null) {
           // The gust: it builds on each leaf in turn, lifting it up and away to the right as
           // a real gust does, spinning faster as it goes. Nothing fades till the very end.
-          const caught = Math.max(0, Math.min(1, (now - leaving - one.late) / 450))
-          const ease = caught * caught * (3 - 2 * caught)
+          // On the press: quick to take hold, the ramp easing out, not in.
+          const caught = Math.max(0, Math.min(1, (now - leaving - one.late) / 320))
+          const ease = 1 - (1 - caught) ** 2
           one.vx += (2600 * ease * one.drift - one.vx * 0.6) * dt
           one.vy += (-520 * ease - one.vy * 0.8) * dt
           one.turn += (one.turn >= 0 ? 1 : -1) * 6 * ease * dt
@@ -335,17 +338,20 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
       if (calm > 0.5 && !settled) {
         settled = true
         // New ones fade in round the edge; those already out drift on as they were, never moved.
-        motes.push(...Array.from({ length: 14 }, () => { const one = make(true, true); edgeward(one); return one }))
+        // Still carried on what is left of the gust, so they come in the way the big ones went.
+        motes.push(...Array.from({ length: 14 }, () => { const one = make(true, true); edgeward(one); one.vx = 420 * one.drift; one.vy = -70; return one }))
       }
       for (const one of motes) {
         // A leaf held in the bunch goes where the bunch puts it, nowhere else.
         if (bunch.has(one)) continue
         if (leaving !== null) {
-          const caught = Math.max(0, Math.min(1, (now - leaving - one.late) / 450))
-          // The gust carries them as it does the big ones, then lets them go.
+          const caught = Math.max(0, Math.min(1, (now - leaving - one.late) / 320))
+          // The gust carries them as it does the big ones, then lets them go: they coast on
+          // in its direction, easing off slowly, and only then settle to the breeze.
           const push = caught * (1 - calm)
-          one.vx += (1400 * push * one.drift - one.vx * 1.4) * dt
-          one.vy += (-260 * push - one.vy * 1.4) * dt
+          const hold = 0.35 + 1.05 * push
+          one.vx += (1000 * push * one.drift - one.vx) * hold * dt
+          one.vy += (-185 * push - one.vy) * hold * dt
         }
         // Once the wind has dropped, a light sideways breeze and a slow fall: they come down the bare edges.
         // Lingering: a breeze so light they stay a while where they are.
@@ -371,8 +377,10 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
         // Its pace toward the button, smoothed: a pointer moves in steps, not every frame.
         approach += (coming - approach) * (1 - Math.exp(-dt * 6))
         const goal = Math.max(0, 1 - off / NEAR) ** 1.2 * Math.min(1.6, approach / 400)
-        windPush += ((goal - wind) * 24 - windPush * 7) * dt
+        // A soft spring: it builds over a beat and settles slowly, with a little follow-through, never a snap.
+        windPush += ((goal - wind) * 9 - windPush * 4.2) * dt
         wind = Math.max(0, wind + windPush * dt)
+        felt += wind * dt
       } else (wind = 0), (windPush = 0), (approach = 0), (lastOff = null)
       // Drawn to a choice: a few leaves at a time drift in from the edges and sink behind it, under it, gone.
       const target = drawTo.current ? document.querySelector(drawTo.current)?.getBoundingClientRect() : undefined
@@ -479,7 +487,9 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
         const lift = Math.sin(Math.PI * e) * 70
         // The wind sways each about the base it is held at, so the tips go farthest and the stems hardly at
         // all, each a little out of step with the next, quicker as it blows harder, leaning with it.
-        const sway = wind * e * (0.06 + 0.14 * Math.sin(t * (2.4 + 1.6 * Math.min(1, wind)) + at.i * 0.9))
+        const sway = wind * e * (0.45 + 0.55 * Math.min(1, felt / 1.5)) * (0.06 + 0.12 * Math.sin(t * (1.5 + 0.9 * Math.min(1, wind)) + at.i * 0.9))
+        // The tip follows its stem a beat behind, and swings on a little after it stops.
+        at.lag = (at.lag ?? 0) + (sway - (at.lag ?? 0)) * (1 - Math.exp(-dt * 2.6))
         const [cos, sin] = [Math.cos(sway), Math.sin(sway)]
         const [dx, dy] = [at.to.x - at.base.x, at.to.y - at.base.y]
         const to = { x: at.base.x + dx * cos - dy * sin, y: at.base.y + dx * sin + dy * cos }
@@ -488,7 +498,7 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
         let turn = at.to.spin - at.from.spin
         turn = Math.atan2(Math.sin(turn), Math.cos(turn))
         // Settled, each still stirs a little, as cut leaves do in a hand; in the wind its tip bends on past its stem.
-        one.spin = at.from.spin + turn * e + Math.sin(t * 0.8 + at.i) * 0.035 * e + sway * 1.5
+        one.spin = at.from.spin + turn * e + Math.sin(t * 0.8 + at.i) * 0.035 * e + sway + at.lag * 0.6
         one.size = at.from.size + (at.to.size - at.from.size) * e
         one.vx = 0
         one.vy = 0
