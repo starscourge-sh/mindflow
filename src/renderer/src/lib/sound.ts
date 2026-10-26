@@ -1408,8 +1408,8 @@ export function keyVoice(voice: Voice, key: 'letter' | 'space' | 'enter'): void 
   const context = audio()
   if (!context) return
   const t = performance.now()
-  // A key a second ago still counts a little over a third; one just now counts whole.
-  density = density * Math.exp(-(t - keyedAt) / 1000) + 1
+  // A key 0.4s ago still counts a little over a third; one just now counts whole.
+  density = density * Math.exp(-(t - keyedAt) / 400) + 1
   keyedAt = t
   const flow = Math.min(1, 1.5 / (0.5 + density))
   const level = volume * flow * (key === 'space' ? 0.6 : 1)

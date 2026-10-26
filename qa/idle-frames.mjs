@@ -28,7 +28,9 @@ try {
       window.__who = {}
       const from = window.__frames
       await new Promise((r) => setTimeout(r, 3000))
-      const loops = document.getAnimations().filter((a) => a.playState === 'running' && a.effect?.getTiming().iterations === Infinity)
+      // One exception: the paintings' slow drift and wash (mf-drift, mf-wash) run on the compositor, transform only, and cost
+      // the page no frames (qa/scenery-breathe.mjs counts them). Away, they are paused anyway.
+      const loops = document.getAnimations().filter((a) => a.playState === 'running' && a.effect?.getTiming().iterations === Infinity && !['mf-drift', 'mf-wash'].includes(a.animationName))
       return { who: Object.entries(window.__who).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([k, n]) => `${n}x ${k}`).join(' | '), perSecond: (window.__frames - from) / 3, loops: loops.map((a) => a.animationName || a.effect?.target?.className?.toString().slice(0, 60) || 'unnamed').slice(0, 5) }
     })
     check(`${page}: at rest, no frame loop (under 2 frames a second)`, seen.perSecond < 2, `${seen.perSecond.toFixed(1)}/s ${seen.who}`)
