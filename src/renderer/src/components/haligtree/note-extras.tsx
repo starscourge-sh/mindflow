@@ -21,7 +21,7 @@ import { notes, smallPicture, useThumb, type GraphNode, type MapEdge, type NoteT
 import { useLive, haligtree } from '@/lib/haligtree'
 import { Chips } from './display'
 import { copy, flat, type MenuItem, type RowItem } from './row-menu'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import BookIcon from '@/components/ui/book-icon'
 import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
@@ -35,6 +35,7 @@ import { Island, PropInput, Rolling, Tip, Typed, ask, refuse, toast, quietly } f
 import { Does, GHOST, GhostText } from './ghost'
 import { cn } from '@/lib/cn'
 import ExpandIcon from '@/components/ui/expand-icon'
+import { menuIcon } from '@/components/ui/menu-icon'
 import { GraphCanvas, showOnMap, type Graph } from './graph-canvas'
 import { age, dated as datedAs, dayKey, dayMonth, dayjs, daysFromToday, noon } from '../../../../main/dates'
 import { moment, when } from '@/lib/clock'
@@ -610,7 +611,17 @@ export function NoteHeader({ left, back, type = 'capture', edited, captured, mad
   const OWN = ['Pin', 'Unpin', 'Pin to the sidebar', 'Copy link', 'Version history']
   // Opened away from its own list (search, a link, its own window): that list, the main window's, opened on it, which shows its row.
   const show = useShowLine() ?? { label: 'Show in list', run: () => window.api.openInHome(type, String(versions.id), 'show-in-list') }
-  const items = [...(show ? [show, 'separator' as const] : []), ...menu].filter((item) => item && (item === 'separator' || !OWN.includes(item.label))) as Exclude<MenuItem | { label: string; items: RowItem[] }, false | null | undefined>[]
+  const all = [...(show ? [show, 'separator' as const] : []), ...menu].filter((item) => item && (item === 'separator' || !OWN.includes(item.label))) as Exclude<MenuItem | { label: string; items: RowItem[] }, false | null | undefined>[]
+  // The ways to look at this note, together at the top of "…", each saying how it differs from the others.
+  const VIEW_SAYS: Record<string, string> = {
+    'Expanded view': 'This note alone, one quiet scroll; Vim works',
+    'Writing room': 'The page alone, full screen, to write',
+    'Leave the writing room': 'Back to the page as it was',
+    'Open to the side': 'Beside what is open now',
+    'Open in a new window': 'A small window of its own'
+  }
+  const viewed = all.flatMap((item) => (item !== 'separator' && !('items' in item) && item.label in VIEW_SAYS ? [item as { label: string; run: () => void; keys?: string }] : []))
+  const items = all.filter((item) => item === 'separator' || 'items' in item || !(item.label in VIEW_SAYS))
   const [reading, setReading] = useState(false)
   const detailsOut = useDetailsShown()
   const inPane = usePane()
@@ -658,18 +669,28 @@ export function NoteHeader({ left, back, type = 'capture', edited, captured, mad
                   <button type="button" aria-label="More" className={TOOL}><AliveIcon icon={DotsHorizontalIcon} size={16} /></button>
                 </DropdownMenuTrigger>
               </Tip>
-              <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuContent align="end" className="w-72">
                 {onPin && <DropdownMenuItem onSelect={onPin}>{pinned ? 'Unpin' : 'Pin to the sidebar'}</DropdownMenuItem>}
                 {copyKey && <DropdownMenuItem onSelect={() => copy(copyKey, 'Copied a link: paste it into any note')}>Copy link</DropdownMenuItem>}
                 <DropdownMenuItem onSelect={open}>Version history</DropdownMenuItem>
                 <DropdownMenuSeparator />
-                {board && (
-                  <DropdownMenuItem role="menuitemcheckbox" aria-checked={board.on} onSelect={board.toggle}>
-                    Board view
-                    <DropdownMenuShortcut>⌥⌘B</DropdownMenuShortcut>
-                    <span className="flex w-3.5 justify-center">{board.on && <Check />}</span>
+                <DropdownMenuLabel data-view-group>View</DropdownMenuLabel>
+                {[
+                  { label: 'Read', says: 'Read it through, nothing to edit', run: () => (chime('open'), setReading(true)) },
+                  ...(board ? [{ label: 'Board view', says: 'Its lines as cards on a board', run: board.toggle, keys: '⌥⌘B', on: board.on }] : []),
+                  ...viewed.map((item) => ({ label: item.label, says: VIEW_SAYS[item.label], run: item.run, keys: item.keys }))
+                ].map((one) => (
+                  <DropdownMenuItem key={one.label} data-view={one.label} onSelect={one.run} className="items-start" {...('on' in one ? { role: 'menuitemcheckbox', 'aria-checked': one.on } : {})}>
+                    {(() => { const Icon = menuIcon(one.label); return <Icon aria-hidden data-menu-icon="" className="mt-[0.2rem] size-3.5 shrink-0 text-muted-foreground" /> })()}
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span>{one.label}</span>
+                      <span className="text-xs text-muted-foreground">{one.says}</span>
+                    </span>
+                    {one.keys && keyFor(one.keys) && <DropdownMenuShortcut>{keyFor(one.keys)}</DropdownMenuShortcut>}
+                    {'on' in one && <span className="flex w-3.5 justify-center">{one.on && <Check />}</span>}
                   </DropdownMenuItem>
-                )}
+                ))}
+                <DropdownMenuSeparator />
                 <PageWidthMenu width={width} />
                 {details && <DropdownMenuItem onSelect={() => showDetails(!detailsOut, inPane)}>{detailsOut ? 'Hide details' : 'Show details'}</DropdownMenuItem>}
                 {items.map((item, index) =>

@@ -22,6 +22,12 @@ try {
   if (process.env.SHOTS) await h.screenshot({ path: `${process.env.SHOTS}/expanded.png` })
   await h.keyboard.press('Escape'); await wait(600)
   check('Esc closes it', (await h.locator('[data-expanded-note]').count()) === 0)
+  // "…": the ways to look at it, together at its top, each saying how it differs.
+  await h.click('[data-note-head] button[aria-label="More"]'); await h.waitForTimeout(500)
+  const views = await h.evaluate(() => [...document.querySelectorAll('[data-view]')].map((one) => ({ name: one.getAttribute('data-view'), says: one.querySelector('span.text-xs')?.textContent ?? '', icon: !!one.querySelector('svg[data-menu-icon]') })))
+  check('"…" opens with a View group: Read, Expanded view and the others, each with a line', (await h.locator('[data-view-group]').count()) === 1 && views.length >= 3 && views.every((one) => one.says.length > 5 && one.icon) && views.some((one) => one.name === 'Expanded view'), JSON.stringify(views))
+  if (process.env.SHOTS) await h.screenshot({ path: `${process.env.SHOTS}/view-group.png` })
+  await h.keyboard.press('Escape'); await h.waitForTimeout(300)
   check('no page errors', !c.errors?.some((one) => /PAGEERROR/.test(one)), (c.errors ?? []).slice(0, 2).join(' | '))
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])

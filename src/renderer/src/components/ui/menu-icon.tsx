@@ -7,7 +7,7 @@ import {
   Library, Lightbulb, Link, List, ListChecks, ListStart, Lock, LockOpen, LogOut, Map as MapIcon, Maximize2, MessageCircleQuestion, MessageSquare, Minimize2, Monitor,
   MonitorUp, MoveRight, NotebookText, Palette, Scissors, Pause, Play, Scale, PanelLeft, PanelRight, Pencil, Pin, PinOff, Plus, Quote, Repeat, RotateCcw, Search, Settings, Shapes, Shield,
   ShieldCheck, Smile, Snowflake, Sparkles, SquareCheck, SquareKanban, SquarePen, Star, StickyNote, Sun, Tag, Target, Timer, Trash2, Type, Undo2, Ungroup, Upload,
-  User, Volume2, VolumeX, WandSparkles, Wrench, X, Zap, type LucideIcon
+  User, Volume2, VolumeX, WandSparkles, Wrench, X, Zap, PenLine, SpellCheck, type LucideIcon
 } from 'lucide-react'
 
 /**
@@ -37,6 +37,11 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^separate/i, Ungroup],
   [/^decide/i, Scale],
   [/^queue$|^read next/i, ListStart],
+  // The views of a note (the top of a note's "…"): each its own drawing.
+  [/^expanded view/i, Maximize2],
+  [/writing room/i, PenLine],
+  [/^read$/i, BookOpen],
+  [/^proofread/i, SpellCheck],
   [/close other panes/i, CircleX],
   [/^close (this )?pane|^close without/i, X],
   [/new window|own window|in a window/i, AppWindow],
