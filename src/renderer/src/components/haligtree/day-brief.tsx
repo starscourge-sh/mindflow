@@ -298,19 +298,21 @@ export function DayBrief({ day, onOpen, onListed, between }: {
       {(shown.length > 0 || rows.length > 0 || written) && (
         <section className="@container mf-hand-ruled relative mt-8 border-t border-border/70 pt-6">
           <Rule seed={day} />
-          <div className="grid gap-x-10 gap-y-4 @[44rem]:grid-cols-[minmax(0,12rem)_minmax(0,1fr)]">
-            <div className="flex items-center justify-between gap-4 @[44rem]:flex-col @[44rem]:items-start @[44rem]:justify-start">
-              <div>
+          {/* One column, on the page's own left edge as the words above and "For tomorrow" below: its heading over its
+              list, never a label column pushing the list off to the right. */}
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                 <p className="text-lg leading-tight font-semibold text-foreground">{todos.length || written ? 'Today’s tasks' : 'Coming back to you'}</p>
                 {todos.length > 0 && settings?.dayHints === true && (
-                  <p data-day-count className="mt-1 text-sm tabular-nums" style={{ color: finished === todos.length ? 'var(--tt-color-text-green)' : 'var(--muted-foreground)' }}>
+                  <p data-day-count className="text-sm tabular-nums" style={{ color: finished === todos.length ? 'var(--tt-color-text-green)' : 'var(--muted-foreground)' }}>
                     <Rolling text={todaySaid(todos.length - finished, finished)} by="word" />
                   </p>
                 )}
                 {/* The same list as a sticky, ticked off on the desktop through the day. */}
                 {todos.length > 0 && (
                   <button type="button" onClick={() => stickOnDesktop('today', 'today')}
-                    className="mt-1 text-sm text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
+                    className="text-sm text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
                     Stick on the desktop
                   </button>
                 )}
