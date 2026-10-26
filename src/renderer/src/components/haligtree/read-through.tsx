@@ -476,6 +476,9 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
         return
       }
       if (writing) {
+        // With Vim, Escape is first Vim's, out of insert or visual to normal; from normal it stops writing.
+        const vimNow = (document.activeElement as HTMLElement | null)?.closest('[data-vim-mode]')?.getAttribute('data-vim-mode')
+        if (event.key === 'Escape' && vimNow && !/normal/i.test(vimNow)) return
         if (event.key === 'Escape' && !document.querySelector('.tiptap-suggestion-popup, [role="menu"]')) {
           event.preventDefault()
           event.stopPropagation()
@@ -747,7 +750,8 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
                     handles={false}
                     slash={writing}
                     outline={false}
-                    vim={false}
+                    // Writing here, Vim as everywhere else (if you have it on): a quiet place to work text over. Reading, the keys are Read's.
+                    vim={writing ? undefined : false}
                     search={false}
                   />
                 </div>
