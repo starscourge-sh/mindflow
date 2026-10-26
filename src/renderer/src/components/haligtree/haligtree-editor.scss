@@ -144,7 +144,10 @@
   position: relative;
 }
 
-.tiptap.ProseMirror.haligtree-editor:focus-within:not(.is-line) .vim-cursor-line::before {
+// Never on a line showing its placeholder: there `::before` is the
+// placeholder, and the band's fill drew a box round the hint's words. Nor on
+// today's page or in the writing room, where the words sit on the page.
+.tiptap.ProseMirror.haligtree-editor:focus-within:not(.is-line):not(:is([data-day-write], [data-room]) *) .vim-cursor-line:not(.is-empty[data-placeholder])::before {
   content: "";
   position: absolute;
   z-index: -1;
