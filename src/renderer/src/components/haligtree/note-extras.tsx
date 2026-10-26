@@ -29,6 +29,7 @@ import { PAGE_WIDTHS, setPageWidth as setWidthEverywhere, showDetails, useDetail
 import { canSplit, usePane, usePaneWidth } from '@/lib/split'
 import { openApart } from '@/lib/apart'
 import ExternalLinkIcon from '@/components/ui/external-link-icon'
+import { openExpanded } from '@/components/note-link/expanded-note'
 import { ReadThrough } from './read-through'
 import { Island, PropInput, Rolling, Tip, Typed, ask, refuse, toast, quietly } from './ui'
 import { Does, GHOST, GhostText } from './ghost'
@@ -632,6 +633,12 @@ export function NoteHeader({ left, back, type = 'capture', edited, captured, mad
             <Tip label="Read">
               <button type="button" aria-label="Read" onClick={() => (chime('open'), setReading(true))} className={TOOL}><AliveIcon icon={BookIcon} size={16} /></button>
             </Tip>
+            {/* This note alone, the whole page in one quiet scroll, Vim and all: what the window's old "Fill the screen" made room for. */}
+            {(type === 'capture' || type === 'nugget' || type === 'article') && (
+              <Tip label="Expanded view: this note alone, in one quiet scroll">
+                <button type="button" aria-label="Expanded view" data-expand-note onClick={() => (chime('open'), openExpanded(type === 'capture' ? String(versions.id) : `${type}:${versions.id}`))} className={TOOL}><AliveIcon icon={ExpandIcon} size={16} /></button>
+              </Tip>
+            )}
             {back}
             {/* Out to a small window of its own, as Arc's Little Arc; ⌘O there brings it back. Main window only. */}
             {canSplit() && type !== 'task' && type !== 'goal' && (

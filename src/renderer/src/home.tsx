@@ -4,7 +4,7 @@ import { TagColourPick } from './components/haligtree/tag-colour-pick'
 import { themeActions } from '@/lib/theme'
 import { useAbandonAction } from '@/lib/abandon'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
-import { FileText, Minimize2, PanelsTopLeft, Plus } from 'lucide-react'
+import { FileText, PanelsTopLeft, Plus } from 'lucide-react'
 import CameraIcon from '@/components/ui/camera-icon'
 import CameraOffIcon from '@/components/ui/camera-off-icon'
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -66,7 +66,6 @@ import { allRecorded, recordAll } from './lib/recordings'
 import { Tip, showTopTitle, useTopTitle, Pressed, useEscapeLeavesEditor } from '@/components/haligtree/ui'
 import { Celebrations, tryCelebration } from '@/components/haligtree/celebrate'
 import MagnifierIcon from '@/components/ui/magnifier-icon'
-import ExpandIcon from '@/components/ui/expand-icon'
 import GearIcon from '@/components/ui/gear-icon'
 import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
 import ArrowNarrowLeftIcon from '@/components/ui/arrow-narrow-left-icon'
@@ -1972,16 +1971,10 @@ export function Home(): React.JSX.Element {
         })()}
         {/* The open note's name, faint, once its first line has scrolled away. */}
         <TopTitle on={settings?.topTitle !== false} />
-        {/* The window's own settings, quiet and side by side: what you hear, how much screen it takes. */}
+        {/* The window's own setting, quiet: what you hear. How much screen it takes is the green button's (and ⌃⇧F's),
+            so the room here goes to the note's own "Expanded view" (note-extras.tsx). */}
         <span className="flex shrink-0 items-center">
           <SoundToggle className={TOOL} />
-          <Tip label={keyed(fill ? 'Back to compact' : 'Fill the screen', '⌃⇧F')}>
-            <button type="button" aria-label={fill ? 'Back to compact' : 'Fill the screen'} aria-pressed={fill} onClick={() => setFill(!fill)}
-              style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
-              className={TOOL}>
-              {fill ? <Minimize2 strokeWidth={2} /> : <AliveIcon icon={ExpandIcon} size={16} />}
-            </button>
-          </Tip>
         </span>
         {/* The one thing the window is for, so the one with an edge: the same pill as back and forward, its key beside it. */}
         <Tip label={keyed(inFolderRef.current ? 'A new note in this folder' : newPage ? 'A blank page' : 'New capture, in quick capture', '⌘N')}>
