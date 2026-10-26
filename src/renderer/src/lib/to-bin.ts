@@ -67,6 +67,8 @@ export async function moveToBin(refs: BinRef[], onUndo?: () => void): Promise<nu
     return () => haligtree.restore(one.type, one.id)
   }))
   for (const land of shreds) land?.()
+  // Heard by each page with one open beside its list (lib/nav.ts useOpened): off it, onto the next.
+  binned(going.map((one) => one.id))
   // Paper through the shredder, from every list and every kind.
   tear()
   const gems = going.filter((one) => one.type === 'capture' && one.status === 'promoted').length
@@ -83,6 +85,9 @@ export async function moveToBin(refs: BinRef[], onUndo?: () => void): Promise<nu
   toast(`${saidOf(going.length)}${extra ? `: ${extra}` : ''}`, undo, 'success', seeTheBin)
   return going.length
 }
+
+/** Said to every page once these are in the Bin, by any way there: what is open moves off them. False once a page has moved on. */
+export const binned = (ids: string[]): boolean => window.dispatchEvent(new CustomEvent('haligtree:binned', { detail: ids, cancelable: true }))
 
 /** The last move to the Bin, for a page it emptied to offer its Undo. Taken back, it is gone. */
 let last: { ids: string[]; undo: () => void; at: number; page: string | null } | null = null

@@ -1,6 +1,6 @@
 import { chime, tear } from './sound'
 import { unquoted } from '../../../main/clip'
-import { seeTheBin } from './to-bin'
+import { binned, seeTheBin } from './to-bin'
 import { shred } from './fly-home'
 import { splitTags, taskSaid, haligtree, type Made, type Task } from './haligtree'
 import { flying } from './capture-links'
@@ -338,8 +338,10 @@ export function closeTask(id: string, then?: () => void): void {
   const land = shred(id)
   void haligtree.saveTask(id, { status: 'dropped' }).then(() => {
     land?.()
-    then?.()
+    // A page that had it open moves on to the next itself; otherwise, as asked.
+    if (binned([id])) then?.()
     tear()
+    binned([id])
     // Said where it went: the Bin, one key away, as every move there says it.
     toast('Closed without doing: it is in the Bin', () => void haligtree.saveTask(id, { status: 'open' }).then(() => window.dispatchEvent(new CustomEvent('haligtree:came-back', { detail: [id] }))), 'success', seeTheBin)
   })

@@ -65,6 +65,28 @@ export function useOpened(id: string | undefined, focus: string | undefined, pic
       else close()
     }), 120)
   }, [follow?.shown.join('\n')]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Told it went to the Bin, by whatever way (lib/to-bin.ts): onto the next one at once, or the one before at the end.
+  useEffect(() => {
+    let off: string | null = null
+    const heard = (event: Event): void => {
+      const gone = (event as CustomEvent<string[]>).detail
+      const { id: open, follow: last, pick, close } = now.current
+      if (!open || !last || !gone.includes(open)) return
+      event.preventDefault()
+      off = open
+      const at = last.shown.indexOf(open)
+      const left = (ids: readonly string[]): string | undefined => ids.find((one) => !gone.includes(one))
+      const next = at < 0 ? undefined : left(last.shown.slice(at + 1)) ?? left([...last.shown.slice(0, at)].reverse())
+      silent.current = true
+      if (next) pick(next)
+      else close()
+    }
+    // Undone: the one it moved off open again, as Mail selects a message it undeleted.
+    const back = (event: Event): void => void (off && (event as CustomEvent<string[]>).detail.includes(off) && ((silent.current = true), now.current.pick(off), (off = null)))
+    window.addEventListener('haligtree:binned', heard)
+    window.addEventListener('haligtree:came-back', back)
+    return () => (window.removeEventListener('haligtree:binned', heard), window.removeEventListener('haligtree:came-back', back))
+  }, [])
   return () => void (silent.current = true)
 }
 
