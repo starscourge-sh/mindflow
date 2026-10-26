@@ -25,7 +25,7 @@ import { enqueue } from '@/lib/reading-queue'
 import { CAPTURE_TYPES, CaptureKindPicker, asksFor, byKind, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { age } from '../capture-list'
 import { follow, noteLinkText, recallOffered } from '@/lib/capture-links'
-import { splitTags, unloaded, unread, useLastAsked, useLive, haligtree, whenInLine, type Item, type ItemFull } from '@/lib/haligtree'
+import { splitTags, unloaded, unread, useLastAsked, useLive, haligtree, whenInLine, type Item, type ItemFull, type Settings } from '@/lib/haligtree'
 import { exampleIdeas, exampleQuestions, exampleWriting } from '@/lib/examples'
 import { Example } from './example'
 import { LIFECYCLE } from './page-hint'
@@ -865,6 +865,7 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
   // A piece of Writing can be written in the writing room: only its title and words, over the whole window.
   const room = useWritingRoom(item.tier === 'article' ? ready : null)
   useWritingSound(ready, room.on)
+  const settings = useLive(haligtree.settings, null as Settings | null)
   const boardShown = board.on && !past && !!ready && !ready.isDestroyed
   // The board needs the room: the details step aside while it shows, a click away.
   const [propsOut, setPropsOut] = useState(false)
@@ -957,7 +958,7 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
             autofocus={false}
           />
         ) : (
-        <div className={boardShown ? 'hidden' : 'contents'}>
+        <div className={boardShown ? 'hidden' : 'contents'} spellCheck={item.tier === 'article' && settings?.spellWriting === false ? false : undefined}>
         <HaligtreeEditor
           key={restored?.rev ?? 0}
           // A tag opens its page: everything carrying it.

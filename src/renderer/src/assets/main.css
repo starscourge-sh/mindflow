@@ -2144,6 +2144,18 @@ html[data-book-hue] [data-book-tint] {
   opacity: 0; pointer-events: none;
   transition: opacity 900ms ease-in-out;
 }
+/* With the sidebar gone the words slide calmly to the window's middle, and
+   their line with them (--mf-day-shift, day-writing.tsx): the whole pane, as
+   its card clips what passes its edge. A translate, so
+   nothing reflows and no line rewraps. Closed before, the shift is nothing.
+   Under reduced motion or motion off they stay where they are. */
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-motion='off']):has([data-day-write]) :is([data-pane]:has([data-day-write]), [data-writer-line]) { transition: translate 900ms var(--mf-ease) 250ms; }
+  :root[data-day-writing]:not([data-motion='off']):not([data-in-room]) :is([data-pane]:has([data-day-write]), [data-writer-line]) { translate: var(--mf-day-shift, 0) 0; transition: translate 1100ms ease-in-out; }
+}
+/* The spelling suggestion arrives on a pause, softly. */
+@keyframes mf-spell-in { from { opacity: 0; } }
+.mf-spell-hint { animation: mf-spell-in 180ms ease-out; }
 /* The page's card loses its edge too: only the words are left. */
 :root:has([data-day-write]) [data-pane-card]:has([data-day-write]) { transition: border-color 800ms var(--mf-ease) 250ms; }
 :root[data-day-writing] [data-pane-card]:has([data-day-write]) { border-color: transparent; transition: border-color 900ms ease-in-out; }

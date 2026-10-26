@@ -6,8 +6,10 @@ import type { Editor } from '@tiptap/react'
 import { useCounts } from '@/components/count/word-count'
 import { misspeltAt, type Misspelling } from '@/components/turn-into/spelling'
 import { useStill } from '@/lib/motion'
+import { useLive, haligtree, type Settings } from '@/lib/haligtree'
+import { chime } from '@/lib/sound'
 import { read as aimOf } from '@/components/count/word-aim'
-import { Rolling } from './ui'
+import { Kbd, Rolling } from './ui'
 import { clock, num } from '../../../../main/dates'
 
 /**
@@ -27,7 +29,10 @@ export const dayCaption = (hour = new Date().getHours()): string =>
 /** A pause this long and you are no longer typing: the count and the squiggles come back. */
 const TYPING = 1200
 /** A pause this long, and what stepped back comes back. */
-const BACK = 3000
+const BACK = 9000
+/** A hand on the pointer means it when it travels this far, in px, within MOVE ms: a jiggle is not a move. */
+const REACH = 40
+const MOVE = 300
 /** Words typed in a run before the rest of the page steps back. */
 const WORDS_IN = 3
 /** A gap between keys longer than this is not time spent writing. */
@@ -37,14 +42,29 @@ const timeKey = (day: string): string => `day-time:${day}`
 const timeOf = (day: string): number => { try { return Number(localStorage.getItem(timeKey(day))) || 0 } catch { return 0 } }
 const keepTime = (day: string, ms: number): void => { try { localStorage.setItem(timeKey(day), String(Math.round(ms))) } catch { /* only a nicety */ } }
 
+/** How far the words slide to sit in the window's middle while the rest is gone; never past the room the page has. */
+const shiftOf = (box: HTMLElement): number => {
+  // The whole pane slides (main.css): its card clips, so the words alone could not go past its edge.
+  const pane = box.closest<HTMLElement>('[data-pane]')
+  if (!pane) return 0
+  const slid = parseFloat(getComputedStyle(pane).translate) || 0
+  const rect = box.getBoundingClientRect()
+  const room = pane.getBoundingClientRect()
+  const want = window.innerWidth / 2 - (rect.left - slid + rect.width / 2)
+  return Math.max(Math.min(want, window.innerWidth - 8 - (room.right - slid)), 8 - (room.left - slid))
+}
+
 /**
  * Typing in the day's words: the count goes at the first key,
- * and a few words in the rest of the page fades to near nothing. A hand on the
- * pointer, or a few seconds' pause, brings it all back. Only opacity changes,
- * so nothing moves. Keeps the time spent writing that day, too.
+ * and a few words in the rest of the page fades to nothing, the sidebar with
+ * it, and the words slide calmly to the window's middle (main.css). A
+ * deliberate move of the pointer, about nine seconds' pause, or Esc brings it
+ * all back; with "Stay in writing mode" on, only Esc. Keeps the time spent
+ * writing that day, too.
  */
 export function useWritingQuiet(editor: Editor | null, day: string): number {
   const [spent, setSpent] = useState(() => timeOf(day))
+  const stay = useLive(haligtree.settings, null as Settings | null)?.writingStay === true
   useEffect(() => {
     setSpent(timeOf(day))
     const dom = editor?.view.dom
@@ -53,7 +73,7 @@ export function useWritingQuiet(editor: Editor | null, day: string): number {
     let typed = 0
     let words = 0
     let last = 0
-    let at: { x: number; y: number } | null = null
+    let from: { x: number; y: number; t: number } | null = null
     const quiet = (): void => {
       clearTimeout(typed)
       root.removeAttribute('data-day-typing')
@@ -62,6 +82,12 @@ export function useWritingQuiet(editor: Editor | null, day: string): number {
     const back = (): void => {
       words = 0
       root.removeAttribute('data-day-writing')
+    }
+    const writing = (): void => {
+      if (root.hasAttribute('data-day-writing')) return
+      const box = dom.closest<HTMLElement>('[data-day-write]')
+      root.style.setProperty('--mf-day-shift', `${box ? Math.round(shiftOf(box)) : 0}px`)
+      root.setAttribute('data-day-writing', '')
     }
     let backLater = 0
     const onKey = (event: KeyboardEvent): void => {
@@ -73,45 +99,58 @@ export function useWritingQuiet(editor: Editor | null, day: string): number {
       root.setAttribute('data-day-typing', '')
       clearTimeout(typed)
       typed = window.setTimeout(quiet, TYPING)
-      if ((event.key === ' ' || event.key === 'Enter') && ++words >= WORDS_IN) root.setAttribute('data-day-writing', '')
+      if ((event.key === ' ' || event.key === 'Enter') && ++words >= WORDS_IN) writing()
       clearTimeout(backLater)
-      backLater = window.setTimeout(back, BACK)
+      if (!stay) backLater = window.setTimeout(back, BACK)
     }
-    // Only a hand that moves: Chromium fires a move at a still pointer as the page changes under it.
+    // Only a hand that means it: REACH px in MOVE ms. A jiggle, or the move Chromium fires at a still pointer as the page changes, is not one.
     const onMove = (event: PointerEvent): void => {
-      const was = at
-      at = { x: event.screenX, y: event.screenY }
-      if (was && Math.abs(was.x - at.x) + Math.abs(was.y - at.y) < 3) return
+      if (stay || !root.hasAttribute('data-day-writing')) return void (from = null)
+      const now = { x: event.screenX, y: event.screenY, t: event.timeStamp }
+      if (!from || now.t - from.t > MOVE) return void (from = now)
+      if (Math.hypot(now.x - from.x, now.y - from.y) >= REACH) back()
+    }
+    // Esc brings it all back at once, and is taken: it is not the page's Esc too.
+    const onEsc = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape' || !root.hasAttribute('data-day-writing') || document.querySelector('[data-room]')) return
+      event.preventDefault()
+      event.stopPropagation()
       back()
     }
-    const off = (): void => (quiet(), back())
+    const off = (): void => (quiet(), stay ? undefined : back())
     dom.addEventListener('keydown', onKey, true)
+    window.addEventListener('keydown', onEsc, true)
     window.addEventListener('pointermove', onMove, true)
     dom.addEventListener('blur', off)
     window.addEventListener('blur', off)
     return () => {
       off()
       clearTimeout(backLater)
+      back()
       dom.removeEventListener('keydown', onKey, true)
+      window.removeEventListener('keydown', onEsc, true)
       window.removeEventListener('pointermove', onMove, true)
       dom.removeEventListener('blur', off)
       window.removeEventListener('blur', off)
     }
-  }, [editor, day])
+  }, [editor, day, stay])
   return spent
 }
 
 /**
  * A caret in the accent colour, a touch thicker than the system's, that
  * glides to each new letter and blinks slowly once you pause. With the caret
- * on a word the spellchecker flags, its first suggestion sits quietly beside
- * it, and ⌥↵ takes it. Under reduced motion the editor keeps a plain accent
+ * on a word the spellchecker flags, its first suggestion comes on a pause in
+ * a small pill clear of the words (under the word on the last line, else in
+ * the margin beside its line), and Tab takes it. Under reduced motion the editor keeps a plain accent
  * caret of its own (main.css), and this draws only the suggestion.
  */
 export function LivingCaret({ editor }: { editor: Editor | null }): React.JSX.Element | null {
   const calm = useStill()
   const caret = useRef<HTMLSpanElement>(null)
-  const [hint, setHint] = useState<(Misspelling & { x: number; y: number; h: number }) | null>(null)
+  const [hint, setHint] = useState<(Misspelling & { x: number; y: number; h: number; end?: boolean }) | null>(null)
+  const shownHint = useRef(hint)
+  shownHint.current = hint
   const [shown, setShown] = useState(false)
   useEffect(() => {
     if (!editor || editor.isDestroyed) return
@@ -144,16 +183,26 @@ export function LivingCaret({ editor }: { editor: Editor | null }): React.JSX.El
           still = window.setTimeout(() => one.setAttribute('data-resting', ''), 600)
         }
         const flagged = document.documentElement.hasAttribute('data-day-typing') ? null : misspeltAt(editor, at.left - 1, (at.top + at.bottom) / 2)
-        setHint(flagged?.suggestions.length ? { ...flagged, x: editor.view.coordsAtPos(flagged.to).left - from.left + box.scrollLeft, y, h } : null)
+        if (!flagged?.suggestions.length) return setHint(null)
+        // Clear of the words: under the word when nothing is written below its line, else in the
+        // margin beside the line with room for it, else not at all (the squiggle and right-click stay).
+        const last = editor.view.coordsAtPos(editor.state.doc.content.size - 1).bottom <= at.bottom + 1
+        if (last) return setHint({ ...flagged, x: editor.view.coordsAtPos(flagged.from).left - from.left + box.scrollLeft, y: y + h + 4, h })
+        const page = dom.getBoundingClientRect()
+        const room = (box.closest('.overflow-y-auto') ?? document.body).getBoundingClientRect()
+        const wide = flagged.suggestions[0].length * 9 + 64
+        const right = room.right - page.right - 16 >= wide
+        if (!right && page.left - room.left - 16 < wide) return setHint(null)
+        setHint({ ...flagged, x: (right ? page.right + 12 : page.left - 12) - from.left, y: y + (h - 24) / 2, h, end: !right })
       })
     }
+    // Tab takes the suggestion while it shows; otherwise Tab is the editor's.
     const onKey = (event: KeyboardEvent): void => {
-      if (!(event.altKey && event.key === 'Enter')) return
-      const caretAt = editor.view.coordsAtPos(editor.state.selection.head)
-      const flagged = misspeltAt(editor, caretAt.left - 1, (caretAt.top + caretAt.bottom) / 2)
+      const flagged = shownHint.current
       const word = flagged?.suggestions[0]
-      if (!flagged || !word) return
+      if (event.key !== 'Tab' || event.shiftKey || event.metaKey || event.ctrlKey || event.altKey || !flagged || !word) return
       event.preventDefault()
+      event.stopImmediatePropagation()
       editor.chain().focus().command(({ tr }) => (tr.insertText(word, flagged.from, flagged.to), true)).run()
     }
     // The squiggles come back on a pause: so does the suggestion.
@@ -182,9 +231,9 @@ export function LivingCaret({ editor }: { editor: Editor | null }): React.JSX.El
     <>
       {!calm && <span ref={caret} aria-hidden data-living-caret data-shown={shown || undefined} className="mf-living-caret" />}
       {hint && (
-        <span aria-hidden data-spell-hint className="pointer-events-none absolute top-0 left-0 ms-2 text-sm whitespace-nowrap text-muted-foreground"
-          style={{ translate: `${hint.x}px ${hint.y}px`, lineHeight: `${hint.h}px` }}>
-          {hint.suggestions[0]} <kbd className="ms-1 font-sans text-xs opacity-70">⌥↵</kbd>
+        <span aria-hidden data-spell-hint className="mf-spell-hint pointer-events-none absolute top-0 left-0 z-[3] inline-flex h-6 items-center gap-1.5 rounded-full border border-foreground/10 bg-background ps-2.5 pe-1 text-control whitespace-nowrap text-foreground/80 shadow-xs"
+          style={{ translate: hint.end ? `calc(${hint.x}px - 100%) ${hint.y}px` : `${hint.x}px ${hint.y}px` }}>
+          {hint.suggestions[0]}<Kbd>Tab</Kbd>
         </span>
       )}
     </>
@@ -235,8 +284,10 @@ export function WriterLine({ editor, day, spent, today }: { editor: Editor | nul
     const timer = window.setInterval(() => tick((n) => n + 1), 60_000)
     return () => clearInterval(timer)
   }, [today])
+  const settings = useLive(haligtree.settings, null as Settings | null)
   const words = held.current
-  if (!words || !column) return null
+  // Today's line is there from the first moment, with only the time and its controls until there are words.
+  if ((!words && !today) || !column) return null
   const aim = aimOf(`day-${day}`)
   const share = aim ? Math.min(1, words / aim.words) : 0
   const minutes = Math.round(spent / 60_000)
@@ -250,10 +301,18 @@ export function WriterLine({ editor, day, spent, today }: { editor: Editor | nul
         </div>
       )}
       <span className="flex items-center justify-center gap-3">
-        <span data-writer-words><Rolling text={num(words)} /> {words === 1 ? 'word' : 'words'}{aim ? ` of ${num(aim.words)}` : ''}</span>
-        {minutes > 0 && <><span aria-hidden>·</span><span><Rolling text={num(minutes)} /> {minutes === 1 ? 'minute' : 'minutes'}</span></>}
-        {today && <><span aria-hidden>·</span><span data-writer-time>{clock(Date.now())}</span></>}
-        {today && <><span aria-hidden>·</span><WritingSound className="pointer-events-auto -mx-1.5" /></>}
+        {[
+          words > 0 && <span key="words" data-writer-words><Rolling text={num(words)} /> {words === 1 ? 'word' : 'words'}{aim ? ` of ${num(aim.words)}` : ''}</span>,
+          minutes > 0 && <span key="minutes"><Rolling text={num(minutes)} /> {minutes === 1 ? 'minute' : 'minutes'}</span>,
+          today && <span key="time" data-writer-time>{clock(Date.now())}</span>,
+          today && <WritingSound key="sound" className="pointer-events-auto -mx-1.5" />,
+          // Quietly here: the rest of the page stays gone till Esc, not just till a pause.
+          today && <button key="stay" type="button" data-writing-stay data-on={settings?.writingStay || undefined} aria-pressed={!!settings?.writingStay}
+            title="The rest of the page stays gone until you press Esc"
+            onPointerDown={(event) => event.preventDefault()}
+            onClick={() => (chime('tap'), void haligtree.setSettings({ writingStay: !settings?.writingStay }))}
+            className="pointer-events-auto -mx-1.5 rounded-md px-1.5 py-0.5 transition-colors hover:text-foreground data-on:bg-accent data-on:text-foreground">Stay in writing mode</button>
+        ].filter(Boolean).flatMap((one, i) => (i ? [<span key={`dot-${i}`} aria-hidden>·</span>, one] : [one]))}
       </span>
     </div>,
     document.body

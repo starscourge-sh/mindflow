@@ -5,7 +5,7 @@
 // words fades the rest of the page to near nothing (opacity only), a pointer
 // move or a pause brings it back; the caret is an accent bar that glides, the
 // count stays at the window's foot (rolling on a pause), typewriter scrolling is on, and the
-// squiggles wait for a pause, the first suggestion beside the caret (Alt+Enter).
+// squiggles wait for a pause, the first suggestion in a pill clear of the words (Tab).
 // Not on an empty past day; under reduced motion one question, still, and a
 // plain accent caret; nothing runs on with the window not looked at.
 //
@@ -124,11 +124,13 @@ try {
     return out
   })
   const line = () => h.evaluate(() => { const one = document.querySelector('[data-writer-line]'); return one && { o: getComputedStyle(one).opacity, text: one.textContent, events: getComputedStyle(one).pointerEvents, bottom: Math.round(innerHeight - one.getBoundingClientRect().bottom) } })
-  const lineAt = () => h.evaluate(() => { const r = document.querySelector('[data-writer-line]')?.getBoundingClientRect(); return r && [r.x, r.y, r.width, r.height].map(Math.round).join(',') })
+  // Where it is laid out: the calm slide to the window's middle while writing (a translate) taken off.
+  const lineAt = () => h.evaluate(() => { const one = document.querySelector('[data-writer-line]'); const r = one?.getBoundingClientRect(); return r && [r.x - (parseFloat(getComputedStyle(one).translate) || 0), r.y, r.width, r.height].map(Math.round).join(',') })
   // Sizes, and where each sits against the caption: typewriter scrolling may move the page as a whole.
   // The Brief's line of date, time and weather is centred and grows as the weather comes in: its
   // middle and top are where it sits, not its width.
-  const geometry = () => h.evaluate(() => { const top = document.querySelector('[data-day-caption]').getBoundingClientRect().y; return [...document.querySelectorAll('[data-page] header, [data-today-line], [data-day-caption], [data-day-write] .tiptap')].map((el) => { const r = el.getBoundingClientRect(); const y = el.closest('header') ? 0 : r.y - top; return (el.matches('[data-today-line]') ? [r.x + r.width / 2, y] : el.matches('.tiptap') ? [r.x, r.width] : [r.x, y, r.width, r.height]).map(Math.round).join(',') }).join('|') })
+  // The words' slide to the middle is a translate, taken off: laid out, nothing moves.
+  const geometry = () => h.evaluate(() => { const top = document.querySelector('[data-day-caption]').getBoundingClientRect().y; const slid = parseFloat(getComputedStyle(document.querySelector('[data-day-write]').closest('[data-pane]')).translate) || 0; return [...document.querySelectorAll('[data-page] header, [data-today-line], [data-day-caption], [data-day-write] .tiptap')].map((el) => { const r = el.getBoundingClientRect(); const x = r.x - (el.closest('[data-pane]') ? slid : 0); const y = el.closest('header') ? 0 : r.y - top; return (el.matches('[data-today-line]') ? [x + r.width / 2, y] : el.matches('.tiptap') ? [x, r.width] : [x, y, r.width, r.height]).map(Math.round).join(',') }).join('|') })
   const shape = await geometry()
   const rested = await fade()
   check('5. the window is in front, the caret in the words', await h.evaluate(() => document.hasFocus() && !!document.activeElement?.closest('[data-day-write]')))
@@ -168,7 +170,7 @@ try {
     await h.screenshot({ path: `${process.env.QA_SHOTS}/day-writing-dark.png` })
     await h.evaluate((was) => (document.documentElement.className = was), was)
   }
-  check('5. the writer\'s line shows at the foot, words and minutes and the time, then the "Sound" control', writer?.o === '1' && writer.events === 'none' && writer.bottom === 0 && /^\d+ words?(·\d+ minutes?)?·\d{1,2}:\d{2}( [AP]M)?·Sound: [A-Za-z, ]+$/.test(writer.text), JSON.stringify(writer))
+  check('5. the writer\'s line shows at the foot, words and minutes and the time, then "Sound" and "Stay in writing mode"', writer?.o === '1' && writer.events === 'none' && writer.bottom === 0 && /^\d+ words?(·\d+ minutes?)?·\d{1,2}:\d{2}( [AP]M)?·Sound: [A-Za-z, ]+·Stay in writing mode$/.test(writer.text), JSON.stringify(writer))
   check('5. it says the words so far, on a pause', Number(writer?.text.match(/^\d+/)?.[0]) >= 6, JSON.stringify(writer))
   check('5. nothing moved: opacity only', (await geometry()) === shape, `${shape} vs ${await geometry()}`)
   check('5. the caption never changed while typing', (await h.evaluate(() => document.querySelector('[data-day-caption]')?.textContent)) === caption)
@@ -186,21 +188,28 @@ try {
   check('5. while keys go, the line holds still', (await line())?.text === before, `${before} vs ${(await line())?.text}`)
   check('5. typing again, it steps back again', (await fade()).every((o) => o < 0.5))
   check('5. nothing moved this time either', (await geometry()) === shape, `${shape} vs ${await geometry()}`)
-  await wait(3500)
-  check('5. and a pause brings it back', JSON.stringify(await fade()) === JSON.stringify(rested), JSON.stringify(await fade()))
+  await wait(9500)
+  check('5. and a pause of about nine seconds brings it back', JSON.stringify(await fade()) === JSON.stringify(rested), JSON.stringify(await fade()))
   const count = await line()
   check('5. on a pause the line has rolled on to the words so far', Number(count?.text.match(/^\d+/)?.[0]) > Number(writer?.text.match(/^\d+/)?.[0]) && (await lineAt()) === writerAt, JSON.stringify(count))
   check('5. the squiggles come back on a pause', await h.evaluate(() => document.querySelector('[data-day-write] .tiptap').getAttribute('spellcheck') === 'true'))
   const caretRest = await h.evaluate(() => { const c = document.querySelector('[data-living-caret]'); return { resting: c.hasAttribute('data-resting'), anim: getComputedStyle(c).animationName, dur: getComputedStyle(c).animationDuration } })
   check('5. resting, the caret blinks slowly', caretRest.resting && caretRest.anim === 'mf-caret-blink' && caretRest.dur === '1.6s', JSON.stringify(caretRest))
-  // A flagged word with the caret on it: its first suggestion beside it, Alt+Enter takes it.
+  // A flagged word with the caret on it: its first suggestion in a pill clear of the words, Tab takes it.
   await h.keyboard.type('recieve', { delay: 30 })
   await wait(1800)
   const hint = await h.evaluate(() => document.querySelector('[data-spell-hint]')?.textContent ?? null)
-  check('5. the first suggestion shows beside a flagged word', /receive/.test(hint ?? ''), String(hint))
-  await h.keyboard.press('Alt+Enter')
+  check('5. the first suggestion shows for a flagged word', /receive/.test(hint ?? ''), String(hint))
+  const over = await h.evaluate(() => {
+    const pill = document.querySelector('[data-spell-hint]').getBoundingClientRect()
+    const range = document.createRange()
+    range.selectNodeContents(document.querySelector('[data-day-write] .tiptap'))
+    return [...range.getClientRects()].filter((r) => r.width && r.left < pill.right && r.right > pill.left && r.top < pill.bottom && r.bottom > pill.top).length
+  })
+  check('5. and it sits clear of the words, over none of them', over === 0, String(over))
+  await h.keyboard.press('Tab')
   await wait(300)
-  check('5. and Alt+Enter takes it', await h.evaluate(() => /receive$/.test(document.querySelector('[data-day-write] .tiptap').textContent.trim())), await h.evaluate(() => document.querySelector('[data-day-write] .tiptap').textContent.slice(-30)))
+  check('5. and Tab takes it', await h.evaluate(() => /receive$/.test(document.querySelector('[data-day-write] .tiptap').textContent.trim())), await h.evaluate(() => document.querySelector('[data-day-write] .tiptap').textContent.slice(-30)))
 
   // 3. An empty past day: its own prompt, no beam.
   const past = new Date(); past.setDate(past.getDate() - 40)

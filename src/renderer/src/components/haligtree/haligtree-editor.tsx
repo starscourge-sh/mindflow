@@ -1414,10 +1414,11 @@ function Surface({
     const dom = editor?.view.dom
     if (!dom) return
     let timer = 0
-    const back = (): void => (clearTimeout(timer), dom.setAttribute("spellcheck", "true"))
+    // Back to what the page around it says (Settings' switches, on the root or a place's wrapper),
+    // said outright: only a change to the attribute has the word just typed looked at again.
+    const back = (): void => (clearTimeout(timer), dom.setAttribute("spellcheck", String(dom.parentElement?.spellcheck ?? true)))
     const onKey = (event: KeyboardEvent): void => {
-      // ⌥↵ takes a suggestion (day-writing.tsx): it is not typing.
-      if (event.metaKey || event.ctrlKey || (event.altKey && event.key === "Enter") || (event.key.length !== 1 && event.key !== "Backspace" && event.key !== "Enter")) return
+      if (event.metaKey || event.ctrlKey || (event.key.length !== 1 && event.key !== "Backspace" && event.key !== "Enter")) return
       dom.setAttribute("spellcheck", "false")
       clearTimeout(timer)
       timer = window.setTimeout(back, 1200)

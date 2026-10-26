@@ -69,7 +69,7 @@ import { Lead, plain } from './lead'
 import { backedUpAgo, chooseBackupFolder } from '@/lib/backups'
 import { ThemeDial } from './theme-dial'
 import { TimeField } from './time-field'
-import { BlurSample, CentredSample, DayHintsSample, FoldSample, HomeMonthSample, TimeGoneSample, TitleTopSample, TypewriterSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, StirSample, TempusSample, ThemeFileGuide, TuckSample, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices } from './settings-show'
+import { BlurSample, CentredSample, DayHintsSample, FoldSample, SpellSample, HomeMonthSample, TimeGoneSample, TitleTopSample, TypewriterSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, StirSample, TempusSample, ThemeFileGuide, TuckSample, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices } from './settings-show'
 import { Brain, HardDrive, CircleHelp as LifeBuoy, ListTodo as ListChecks, Camera as Mountain, Brush as Palette, Pencil as PenLine, Search as SearchIcon, Sparkles, Volume2, X } from '@/components/ui/icons'
 import { APP_NAME } from '../../../../main/name'
 
@@ -724,6 +724,12 @@ export function SettingsView(): React.JSX.Element {
             {!isMac() && <SpellLanguages picked={settings.spellLanguages ?? []} disabled={settings.spellcheck === false} />}
             <Switch checked={settings.spellcheck !== false} onCheckedChange={(spellcheck) => set({ spellcheck })} />
           </Setting>
+          {([['spellJournal', 'Spellcheck in the Journal', 'Squiggles and the suggestion under a word on your day pages.', 'Dear jornal'], ['spellWriting', 'Spellcheck in Writing', 'Squiggles on the pages you write in Writing.', 'Chapter ownee']] as const).map(([key, title, note, sample]) => (
+            <Setting key={key} off={settings.spellcheck === false && 'Turn “Spellcheck” on to change this.'} title={title} note={note} keywords="spelling spell check squiggle journal day writing article">
+              <SpellSample on={settings.spellcheck !== false && settings[key] !== false} words={sample} />
+              <Switch disabled={settings.spellcheck === false} checked={settings[key] !== false} onCheckedChange={(on) => set({ [key]: on })} />
+            </Setting>
+          ))}
           <Setting title="Word meanings" note="Write one word in quick capture and pause to see its meaning under it." more="From your Mac's own Dictionary, so it works offline. Nothing moves and nothing is saved unless you press Tab. Esc hides it for that word. “Only for Word” waits until you pick the Word kind." keywords="define definition dictionary meaning look up lookup word vocabulary pronunciation quick capture box"
             below={<Choices label="Word meanings" options={meaningChoices} on={(id) => id === (settings.wordMeanings ?? 'one-word')} pick={(wordMeanings) => set({ wordMeanings: wordMeanings as Settings['wordMeanings'] })} />} />
           <Setting title="Vim keys" note="Move and edit with Vim's keys as you write." more="Not in reading mode, while you tidy or decide, or in a board's cards." keywords="vim keys keyboard bindings modal normal insert">

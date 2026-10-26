@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { findCaptures, findHeadings, follow, statusSaid } from '@/lib/capture-links'
 import { dayOf, notes, type Day, type DayEntry } from '@/lib/notes'
 import { chime } from '@/lib/sound'
-import { unloaded, useLive, haligtree, type Pin, type Task } from '@/lib/haligtree'
+import { unloaded, useLive, haligtree, type Pin, type Settings, type Task } from '@/lib/haligtree'
 import { RowMenu } from './row-menu'
 import { taskMenu, useTaskNow } from './tasks-view'
 import { sideMenu, useFullMenu } from './side-menu'
@@ -74,6 +74,7 @@ export function DayView({ onOpen, start, onScale, onView }: {
   // A row's right click: a task's menu as on Today, a note's as in the sidebar.
   const tasks = useLive(haligtree.tasks, [] as Task[])
   const pins = useLive(haligtree.pins, [] as Pin[])
+  const settings = useLive(haligtree.settings, null as Settings | null)
   const fullMenu = useFullMenu()
   const taskNow = useTaskNow()
   const data = read?.day === day ? read : null
@@ -161,7 +162,7 @@ export function DayView({ onOpen, start, onScale, onView }: {
         )}
         {data?.day === day && !past && (
           // The words on the page itself, no box: today a still caption over them for the hour, a click anywhere under them puts the caret in.
-          <div data-day-write {...room.room} onClick={(event) => void (event.target === event.currentTarget && writer && !writer.isDestroyed && writer.commands.focus('end'))}
+          <div data-day-write {...room.room} spellCheck={settings?.spellJournal === false ? false : undefined} onClick={(event) => void (event.target === event.currentTarget && writer && !writer.isDestroyed && writer.commands.focus('end'))}
             className="relative mt-2 min-h-36 cursor-text [--mf-padding:0.25rem_0]">
           {day === today && <p data-day-caption className="mb-1 text-sm text-muted-foreground">{caption}</p>}
           <HaligtreeEditor
@@ -182,6 +183,8 @@ export function DayView({ onOpen, start, onScale, onView }: {
             autofocus={false}
             // The line you write on stays put and the page moves, whatever the switch in Settings says.
             typewriter="always"
+            // The writer's line is the page's one count: no chip of the editor's own under the words.
+            foot={() => null}
             onReady={ready}
             onChange={(body) => (known.current = { body: JSON.stringify(body), sent: JSON.stringify(body) }, void notes.saveDay(day, { body }))}
           />

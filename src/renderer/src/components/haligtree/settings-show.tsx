@@ -503,6 +503,14 @@ export const FoldSample = ({ on }: { on: boolean }): React.JSX.Element => (
   </span>
 )
 
+/** A misspelt word as that place shows it: on, its soft squiggle; off, the word left plain. */
+export const SpellSample = ({ on, words }: { on: boolean; words: string }): React.JSX.Element => (
+  <span data-preview="spell" data-on={on || undefined} className="flex h-9 items-center rounded-md border bg-background px-2.5 text-control text-foreground">
+    <span className="underline decoration-wavy decoration-1 underline-offset-[3px] transition-[text-decoration-color] duration-200"
+      style={{ textDecorationColor: on ? 'color-mix(in oklab, var(--tt-cursor-color) 55%, transparent)' : 'transparent' }}>{words}</span>
+  </span>
+)
+
 /** The top bar once a note has scrolled: its first line there, faintly, or the bar left plain. */
 export const TitleTopSample = ({ on }: { on: boolean }): React.JSX.Element => (
   <span data-preview="title-top" className="flex h-9 w-36 flex-col overflow-hidden rounded-md border bg-background">
