@@ -38,7 +38,7 @@ import { AliveIcon } from '@/components/ui/alive-icon'
 import CheckedIcon from '@/components/ui/checked-icon'
 import { useHere } from '@/lib/split'
 import { Brain, CheckCircle2, Gem, Inbox, ListTodo } from '@/components/ui/icons'
-import { still } from '@/lib/motion'
+import { awakeFrames, useStill } from '@/lib/motion'
 import { dayPrompt } from '../../../../main/journal-words'
 
 /** A day's date, as you would say it: "Monday 5 October". */
@@ -152,7 +152,7 @@ export function DayView({ onOpen, start, onScale, onView }: {
         {data?.day === day && !past && (
           // A box that reads as a place to type: its own surface and edge, the prompt inside it while empty, a click anywhere on it puts the caret in.
           <div data-day-write onClick={(event) => void (event.target === event.currentTarget && writer && !writer.isDestroyed && writer.commands.focus('end'))}
-            className="mt-2 min-h-36 cursor-text rounded-xl border border-border bg-background px-4 py-2 shadow-xs transition-colors focus-within:border-ring hover:border-foreground/25 [--mf-padding:0.25rem_0]">
+            className="relative mt-2 min-h-36 cursor-text rounded-xl border border-border bg-background px-4 py-2 shadow-xs transition-colors focus-within:border-ring hover:border-foreground/25 [--mf-padding:0.25rem_0]">
           <HaligtreeEditor
             key={`${day}-${restored?.day === day ? restored.rev : 0}`}
             host={window.api}
@@ -305,81 +305,122 @@ function CaretIn({ editor, day }: { editor: Editor | null; day: string }): null 
   return null
 }
 
-/** What a day's box remembers: how many times it breathed, or that it was written in. */
+/** Whether today's box has been written in: then it never asks or lights again that day. */
 const breathKey = (day: string): string => `day-breath:${day}`
-const breaths = (day: string): number | 'written' => {
-  try {
-    const kept = localStorage.getItem(breathKey(day))
-    return kept === 'written' ? kept : Number(kept) || 0
-  } catch { return 0 }
-}
-const keepBreath = (day: string, to: number | 'written'): void => { try { localStorage.setItem(breathKey(day), String(to)) } catch { /* only a nicety */ } }
+const written = (day: string): boolean => { try { return localStorage.getItem(breathKey(day)) === 'written' } catch { return false } }
+const keepWritten = (day: string): void => { try { localStorage.setItem(breathKey(day), 'written') } catch { /* only a nicety */ } }
 /** Something over the page: a menu, a dialog, a popover, the command palette. */
 const OVER = '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"], [data-radix-popper-content-wrapper], [cmdk-root]'
-const EASE_CSS = 'cubic-bezier(0.16, 1, 0.3, 1)'
+/** A letter's beat as the question types in, paced as Typed paces a line: a breath after a comma, a longer one after a stop. */
+const beat = (letter: string): number => (/[?.!]/.test(letter) ? 260 : /[,;]/.test(letter) ? 140 : letter === ' ' ? 60 : 32)
 
 /**
- * Today's empty box, left alone, asks once: after 4 s with no key pressed
- * anywhere its edge warms toward the accent and settles back, and the prompt
- * inside turns over to a question from the Journal's own (DAY_PROMPTS). Once
- * more a minute later if still untouched, never again that day once anything
- * is written in it. Not while you type elsewhere, something is open over the
- * page, the window is not in front, or motion is off. Two finite animations,
- * the edge's colour and the prompt's fade; nothing moves or changes size.
+ * Today's empty box asks you something. Its placeholder is a question for the
+ * hour (journal-words.ts: mornings ahead, evenings back), typed in letter by
+ * letter, held a while, erased, and the next typed in; focused or not, for as
+ * long as the box is empty. A key anywhere stops it on the whole question, and
+ * it starts again only once the box is empty and quiet for 4 s.
+ *
+ * Left untouched, the app's beam (beam.css) goes round the box's edge, a slow
+ * faint sweep every 2.4 s: from 4 s after the page opens, and once broken off
+ * (a key, a menu or dialog over the page, the window behind another) back a
+ * minute later if the box is still empty. Never again that day once anything
+ * is written in. Under reduced motion or Motion off: one question, still, and
+ * no beam. Nothing of it runs while the window is not looked at (awakeFrames).
  */
-function DayBreath({ editor, day }: { editor: Editor | null; day: string }): null {
+function DayBreath({ editor, day }: { editor: Editor | null; day: string }): React.JSX.Element | null {
   const seen = useSeen()
+  const calm = useStill()
+  const [lit, setLit] = useState(false)
   useEffect(() => {
     if (!seen || !editor || editor.isDestroyed) return
     const box = editor.view.dom.closest<HTMLElement>('[data-day-write]')
     if (!box) return
     const ask = (text: string): void => box.style.setProperty('--mf-day-ph', JSON.stringify(text))
-    // Reopened after a breath: the prompt it last turned to, not the plain one.
-    const had = breaths(day)
-    if (typeof had === 'number' && had > 0) ask(dayPrompt(day, had - 1))
-    const wrote = (): void => void (!editor.isEmpty && keepBreath(day, 'written'))
-    editor.on('update', wrote)
-    let timer = 0
-    const wait = (): void => {
-      clearTimeout(timer)
-      const count = breaths(day)
-      if (count === 'written' || count >= 2) return
-      timer = window.setTimeout(breathe, count === 0 ? 4000 : 60_000)
+    let nth = 0
+    let question = dayPrompt(day, nth)
+    if (calm) {
+      ask(question)
+      return () => void box.style.removeProperty('--mf-day-ph')
     }
-    const breathe = (): void => {
-      const count = breaths(day)
-      if (count === 'written' || count >= 2 || editor.isDestroyed || !editor.isEmpty || !box.isConnected) return
+    // The question, a step at a time: each step one letter in or out, then a rest till the next.
+    let shown = ''
+    let erasing = false
+    let rest = 0
+    let paused = true
+    const typer = awakeFrames(() => {
+      if (paused || editor.isDestroyed || !editor.isEmpty) return false
+      let wait: number
+      if (!erasing) {
+        shown = question.slice(0, shown.length + 1)
+        // Whole: held long enough to read twice, then it goes.
+        erasing = shown.length === question.length
+        wait = erasing ? 7000 : beat(shown.at(-1)!)
+      } else if (shown.length) {
+        shown = shown.slice(0, -1)
+        wait = shown.length ? 14 : 600
+      } else {
+        erasing = false
+        question = dayPrompt(day, ++nth)
+        shown = question.slice(0, 1)
+        wait = beat(shown)
+      }
+      ask(shown)
+      clearTimeout(rest)
+      rest = window.setTimeout(typer.again, wait)
+      return false
+    })
+    ask('')
+    // A beat after the page shows, never with its first paint.
+    const begin = window.setTimeout(() => ((paused = false), typer.again()), 700)
+    // The beam: when it may light, and what puts it out.
+    let timer = 0
+    const may = (): boolean => {
       const held = document.activeElement
       const elsewhere = !!held?.matches('input, textarea, select, [contenteditable="true"]') && !box.contains(held)
-      // Not now: asked again in a while, the wait from its start.
-      if (still() || elsewhere || document.querySelector(OVER) || !document.hasFocus() || document.visibilityState !== 'visible') return wait()
-      keepBreath(day, count + 1)
-      // From and back to whatever the edge is now (resting, hovered, the caret in it), each way on the app's curve.
-      const rest = getComputedStyle(box).borderTopColor
-      box.animate([
-        { borderColor: rest, easing: EASE_CSS },
-        { borderColor: 'color-mix(in oklab, var(--primary) 65%, transparent)', offset: 0.4, easing: EASE_CSS },
-        { borderColor: rest }
-      ], { duration: 2400, id: 'day-breath' })
-      const line = box.querySelector<HTMLElement>('.is-empty[data-placeholder]')
-      const turn = (): void => {
-        ask(dayPrompt(day, count))
-        line?.animate([{ opacity: 0, filter: 'blur(3px)' }, { opacity: 1, filter: 'blur(0)' }], { duration: 900, easing: EASE_CSS, pseudoElement: '::before', id: 'day-prompt-in' })
-      }
-      const out = line?.animate([{ opacity: 1, filter: 'blur(0)' }, { opacity: 0, filter: 'blur(3px)' }], { duration: 500, easing: 'ease-in', pseudoElement: '::before', id: 'day-prompt-out' })
-      if (out) out.onfinish = turn
-      else turn()
-      wait()
+      return !written(day) && !editor.isDestroyed && editor.isEmpty && box.isConnected && !elsewhere && !document.querySelector(OVER) && document.hasFocus() && document.visibilityState === 'visible'
     }
-    // Any key, anywhere: the wait starts over.
-    window.addEventListener('keydown', wait, true)
-    wait()
-    return () => {
+    const later = (ms: number): void => {
       clearTimeout(timer)
-      window.removeEventListener('keydown', wait, true)
-      editor.off('update', wrote)
-      box.style.removeProperty('--mf-day-ph')
+      if (!written(day)) timer = window.setTimeout(() => (may() ? setLit(true) : later(ms)), ms)
     }
-  }, [seen, editor, day])
-  return null
+    const out = (): void => setLit((on) => (on && later(60_000), false))
+    let quiet = 0
+    const onKey = (): void => {
+      out()
+      // The question stops whole, and waits for an empty box and a quiet moment.
+      paused = true
+      clearTimeout(rest)
+      ask(question)
+      clearTimeout(quiet)
+      quiet = window.setTimeout(function back() {
+        if (editor.isDestroyed) return
+        if (!editor.isEmpty) return void (quiet = window.setTimeout(back, 4000))
+        paused = false
+        shown = question
+        erasing = true
+        rest = window.setTimeout(typer.again, 3000)
+      }, 4000)
+    }
+    const onUpdate = (): void => void (!editor.isEmpty && (keepWritten(day), out(), clearTimeout(timer)))
+    const over = new MutationObserver(() => void (document.querySelector(OVER) && out()))
+    over.observe(document.body, { childList: true })
+    window.addEventListener('keydown', onKey, true)
+    window.addEventListener('blur', out)
+    document.addEventListener('visibilitychange', out)
+    editor.on('update', onUpdate)
+    later(4000)
+    return () => {
+      typer.stop()
+      ;[begin, rest, timer, quiet].forEach(clearTimeout)
+      over.disconnect()
+      window.removeEventListener('keydown', onKey, true)
+      window.removeEventListener('blur', out)
+      document.removeEventListener('visibilitychange', out)
+      editor.off('update', onUpdate)
+      box.style.removeProperty('--mf-day-ph')
+      setLit(false)
+    }
+  }, [seen, editor, day, calm])
+  return lit && !calm ? <div aria-hidden data-beam="ask" className="mf-beam mf-beam-box" /> : null
 }

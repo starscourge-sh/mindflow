@@ -56,6 +56,21 @@
 }
 .mf-beam.mf-beam-card::before { width: 300%; height: auto; aspect-ratio: 1; margin: -150% 0 0 -150%; animation: mf-beam-turn 1.6s cubic-bezier(0.3, 0.6, 0.3, 1) forwards; }
 
+/* Round today's empty writing box (DayBreath, day-view.tsx): the same light on
+   its 1px edge, faint and slow, once round every 2.4 s for as long as it asks.
+   Held still while the window is not looked at. */
+.mf-beam.mf-beam-box {
+  --mf-beam-color: var(--tt-brand-color-400, var(--primary));
+  position: absolute;
+  inset: -1px;
+  z-index: 1;
+  border-radius: inherit;
+  padding: 1.5px;
+  animation: mf-beam-in 0.8s var(--mf-ease) forwards;
+}
+.mf-beam.mf-beam-box::before { width: 300%; height: auto; aspect-ratio: 1; margin: -150% 0 0 -150%; animation: mf-beam-turn 2.4s linear infinite; }
+:root:not([data-awake]) .mf-beam.mf-beam-box::before { animation-play-state: paused; }
+
 /* Motion off, or Reduce motion on: no beam at all. A toast still says it in words. */
 :root[data-motion='off'] .mf-beam { display: none; }
 @media (prefers-reduced-motion: reduce) {

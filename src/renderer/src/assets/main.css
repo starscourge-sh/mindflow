@@ -2062,7 +2062,7 @@ html[data-book-hue] [data-book-tint] {
   :is([data-cal-block], [data-cal-untimed])[data-landed] { animation: mf-cal-ring 400ms ease-out; }
 }
 :root[data-motion='off'] :is([data-cal-block], [data-cal-untimed])[data-landed] { animation: mf-cal-ring 400ms ease-out; }
-/* Today's empty box, once it has breathed: the prompt it turned to (DayBreath, day-view.tsx). */
+/* Today's empty box: the question it is typing (DayBreath, day-view.tsx). */
 [data-day-write] .tiptap.ProseMirror .is-empty[data-placeholder]:has(> .ProseMirror-trailingBreak:only-child)::before {
   content: var(--mf-day-ph, attr(data-placeholder));
 }
