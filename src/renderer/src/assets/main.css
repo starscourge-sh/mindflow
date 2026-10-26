@@ -1583,16 +1583,45 @@ button.mf-signed:hover .mf-signature { text-decoration: underline; text-decorati
 }
 :root:not([data-awake]) .mf-sheen { animation-play-state: paused; }
 
-/* The paintings breathe (scenery.tsx): a pan and zoom of about 8% over 60s each
-   way, eased at both ends, and now and then a soft warm light (or, on a cloudy
-   day, a faint cloud's shadow) passing across. Transform only, so it runs on
-   the compositor. Still while the window is not looked at or while you type on
-   today's page; gone under reduced motion or with Motion off. */
-.mf-drift { animation: mf-drift 60s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate; will-change: transform; }
-@keyframes mf-drift {
-  /* The zoom always more than twice the pan, so the painting's own edge never shows. */
-  from { transform: scale(1.02) translate3d(0.8%, 0.5%, 0); }
-  to { transform: scale(1.085) translate3d(-2.4%, -1.4%, 0); }
+/* The paintings breathe (scenery.tsx): held by hand, not zoomed. A slight,
+   uneven sway, as a view filmed on a phone held still, never a shake: its
+   drift, its roll and a little give in its distance (as the hand comes
+   nearer and away) on separate clocks of prime lengths (31, 47 and 59 s), so
+   the three never fall into step and it never visibly repeats. The least of
+   its scale stays above its sway, so the painting's own edge never shows. Transform properties
+   only, so it runs on the compositor. Still while the window is not looked at
+   or while you type on today's page; gone under reduced motion or with
+   Motion off. Now and then a soft warm light (or a cloud's shadow) passes. */
+.mf-drift {
+  scale: 1.04;
+  animation: mf-sway 31s ease-in-out infinite, mf-roll 47s ease-in-out infinite, mf-near 59s ease-in-out infinite;
+  will-change: translate, rotate, scale;
+}
+@keyframes mf-near {
+  0% { scale: 1.04; }
+  17% { scale: 1.052; }
+  38% { scale: 1.036; }
+  53% { scale: 1.047; }
+  79% { scale: 1.061; }
+  100% { scale: 1.04; }
+}
+@keyframes mf-sway {
+  0% { translate: 0 0; }
+  13% { translate: 0.35% -0.2%; }
+  29% { translate: -0.15% 0.3%; }
+  41% { translate: 0.5% 0.1%; }
+  58% { translate: -0.4% -0.25%; }
+  72% { translate: 0.1% 0.35%; }
+  86% { translate: -0.3% 0; }
+  100% { translate: 0 0; }
+}
+@keyframes mf-roll {
+  0% { rotate: 0deg; }
+  22% { rotate: 0.18deg; }
+  47% { rotate: -0.12deg; }
+  69% { rotate: 0.08deg; }
+  84% { rotate: -0.16deg; }
+  100% { rotate: 0deg; }
 }
 .mf-wash {
   overflow: hidden;
@@ -2173,6 +2202,8 @@ html[data-book-hue] [data-book-tint] {
 @media (prefers-reduced-motion: reduce) {
   :root:has([data-day-write]) :is(body, body :has([data-day-write])) > * { transition-duration: 200ms !important; transition-delay: 0s !important; }
 }
+/* The day page's writer's line is the day page's own: never over the welcome laid across it. */
+:root:has(.mf-welcome) [data-writer-line] { display: none; }
 /* The writing room (writing-room.tsx): the page's own words laid over the
    whole window, a centred column with room above, a quiet foot at the bottom.
    Everything else about the page (its header, what sits under the words) is

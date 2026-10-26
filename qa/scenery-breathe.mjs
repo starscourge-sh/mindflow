@@ -16,13 +16,17 @@ const { h, go, v } = c
 const wait = (ms) => h.waitForTimeout(ms)
 const shots = process.env.QA_SHOTS
 const root = (attr, on) => h.evaluate(([attr, on]) => document.documentElement.toggleAttribute(attr, on), [attr, on])
-/** The drift's transform now, and whether it plays. */
+const getScale = (said) => parseFloat(said)
+/** The drift's sway now, and whether it plays. */
 const drift = () => h.evaluate(() => {
   const one = document.querySelector('[data-drift]')
   if (!one) return null
   const run = one.getAnimations()[0]
-  const m = new DOMMatrix(getComputedStyle(one).transform)
-  return { scale: m.a, x: m.e, y: m.f, state: run?.playState ?? 'none', name: run?.animationName ?? '' }
+  const cs = getComputedStyle(one)
+  const [x = 0, y = 0] = cs.translate === 'none' ? [] : cs.translate.split(' ').map(parseFloat)
+  const rot = cs.rotate === 'none' ? 0 : parseFloat(cs.rotate)
+  // Held by hand: the sway and the roll together, as one number that changes when either does.
+  return { scale: x * 1000 + y * 10 + rot, x, y, rot, state: run?.playState ?? 'none', name: one.getAnimations().map((a) => a.animationName).join(' ') }
 })
 
 try {
@@ -33,13 +37,16 @@ try {
   await root('data-awake', true)
   await wait(500)
   const first = await drift()
-  check('the Brief\'s painting has the drift', first?.name === 'mf-drift' && first.state === 'running', JSON.stringify(first))
+  check('the Brief\'s painting sways, held by hand (no zoom)', first?.name.includes('mf-sway') && first.name.includes('mf-roll') && first.state === 'running', JSON.stringify(first))
   const samples = []
   for (let i = 0; i < 6; i++) (samples.push(await drift()), await wait(1000))
-  const line = samples.map((one) => `${one.scale.toFixed(5)} (${one.x.toFixed(2)}, ${one.y.toFixed(2)})`).join(' → ')
+  const line = samples.map((one) => `(${one.x.toFixed(2)}, ${one.y.toFixed(2)}) ${one.rot.toFixed(3)}deg`).join(' → ')
   console.log('  in-page samples, 1s apart: ' + line)
-  const moved = samples.at(-1).scale - samples[0].scale
-  check('awake: it moves, slowly (a few ten-thousandths of a zoom a second)', Math.abs(moved) > 0.00002 && Math.abs(moved) < 0.003 && new Set(samples.map((one) => one.scale.toFixed(6))).size >= 4, `${moved.toFixed(5)} over 5s`)
+  const step = Math.max(...samples.slice(1).map((one, i) => Math.hypot(one.x - samples[i].x, one.y - samples[i].y)))
+  check('awake: it sways, gently (under 3px a second, never a jump)', new Set(samples.map((one) => one.scale.toFixed(4))).size >= 4 && step < 3, `largest step ${step.toFixed(2)}px a second`)
+  const scales = []
+  for (let i = 0; i < 3; i++) (scales.push(getScale(await h.evaluate(() => getComputedStyle(document.querySelector('[data-drift]')).scale))), await wait(700))
+  check('a little give in its distance, never below its sway (no edge shows)', Math.min(...scales) >= 1.035 && Math.max(...scales) <= 1.062, scales.join(' → '))
 
   // Cost: count the page's frames and long tasks while it plays.
   const cost = await h.evaluate(async () => {
@@ -97,7 +104,7 @@ try {
   await h.emulateMedia({ reducedMotion: 'reduce' })
   await wait(300)
   const still = await drift()
-  check('reduced motion: no drift at all', still.state === 'none' && still.scale === 1, JSON.stringify(still))
+  check('reduced motion: no drift at all', still.state === 'none' && still.x === 0 && still.rot === 0, JSON.stringify(still))
   check('reduced motion: no wash', await h.evaluate(() => { const one = document.querySelector('.mf-wash'); return !one || getComputedStyle(one).display === 'none' }))
   await h.emulateMedia({ reducedMotion: 'no-preference' })
 } catch (error) {
