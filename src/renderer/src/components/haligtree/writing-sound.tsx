@@ -72,7 +72,7 @@ export function WritingSound({ className = '' }: { className?: string }): React.
       <DropdownMenuTrigger asChild>
         <button type="button" data-writing-sound data-on={kind !== 'off' || voice !== 'off' || undefined} className={`rounded-md px-1.5 py-0.5 transition-colors hover:text-foreground data-[state=open]:text-foreground ${className}`}>{soundWords(kind, voice)}</button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent side="top" align="center" className="w-48" onCloseAutoFocus={(event) => event.preventDefault()}>
+      <DropdownMenuContent side="top" align="center" className="z-[70] w-48" onCloseAutoFocus={(event) => event.preventDefault()}>
         {off && <DropdownMenuLabel className="font-normal text-muted-foreground">Sounds are off in Settings</DropdownMenuLabel>}
         <DropdownMenuLabel>While you write</DropdownMenuLabel>
         <DropdownMenuRadioGroup value={kind} onValueChange={(to) => (chime('tap'), void haligtree.setSettings({ writingSound: to as Scape }))}>
