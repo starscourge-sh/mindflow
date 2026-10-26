@@ -1634,7 +1634,8 @@ export function Home(): React.JSX.Element {
         <Unfold open={tagsOpen && tags.length > 0}>
           {/* A tag's card comes beside the list, not over the tags under it. */}
           <div data-note-side>
-          <Branches current={view.id === 'tags' ? sideTags.findIndex(({ tag }) => tag === view.focus) : -1} className="flex flex-col">
+          {/* Stepped in under the heading, the trunk where Writing's folders hang theirs. */}
+          <Branches current={view.id === 'tags' ? sideTags.findIndex(({ tag }) => tag === view.focus) : -1} className={`flex flex-col ${narrow ? '' : 'ml-5'}`}>
           {/* Dragged into your own order, as the pages and pins above are; saved. */}
           <SortableList items={sideTags} keyOf={(one) => one.tag} onMove={narrow ? undefined : dropOrder('tagOrder', tags.map((one) => one.tag), (id) => `#${id}`)}>{(items) => items.map(({ tag, count, color }) => (
             <SortableRow key={tag} id={tag} glide={`side-tag-${tag}`}>
@@ -1742,7 +1743,7 @@ export function Home(): React.JSX.Element {
               )}
               {!quiet && (pins.length > 0 || layouts.length > 0) && (<div data-side-drop="pinned" className="rounded-md data-[queue-hot]:bg-[color-mix(in_oklab,var(--primary)_12%,transparent)] data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--primary)_40%,transparent)]">
                 {heading('Pinned', pinsOpen, setPinsOpen)}
-                <Unfold open={pinsOpen || narrow}><Branches current={-1} bare={narrow} className="flex flex-col gap-px">{[
+                <Unfold open={pinsOpen || narrow}><Branches current={-1} bare={narrow} className={`flex flex-col gap-px ${narrow ? '' : 'ml-5'}`}>{[
                   ...layouts.map((one) => {
                     const live = split.panes.length > 1 && sameLayout(one.views, split.panes.map((pane) => pane.trail.views[pane.trail.at]))
                     return <PairRow key={one.id} live={live} isPinned narrow={narrow} names={one.views.map(paneName)} menu={pairMenu(one.views, live ? {} : null, one.id)} onAlone={(index) => openAlone(one.views[index])}
