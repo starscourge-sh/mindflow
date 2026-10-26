@@ -740,14 +740,13 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
         {/* A folded group shows as its heading even when nothing loose is left, so the list is not empty then.
             Until your groups are read too, nothing: the notes alone would flash as a plain list first. */}
         {unloaded(noteGroups) || !listShown ? null : folderEmpty && !query.trim() ? (
-          // An empty folder, opened: the page's own quiet state, and the way to fill it.
-          <div className="flex justify-center">
-            <Empty title={`Nothing in ${opened!.name} yet`}
-              action={<button type="button" data-folder-new-note="" onClick={() => void noteGroupsApi.note(opened!.id).then((id) => id && (chime('promote'), pick(id)))}
-                className="flex h-8 items-center gap-1.5 rounded-md bg-foreground px-3 text-control font-medium text-background hover:opacity-90"><Plus className="size-3.5" />New</button>}>
+          // An empty folder, opened: the page's own quiet state under its path bar, on the same left edge as it
+          // and as every other page's empty block; the folder's own icon for its picture, the button named as the toolbar's.
+          <Empty title={`Nothing in ${opened!.name} yet`} arrow={false}
+              art={<div data-empty-art="" aria-hidden className="mb-3 flex size-14 items-center">{opened!.icon && !opened!.icon.startsWith('kind:') ? <span className="text-[3.25rem] leading-none">{opened!.icon}</span> : <GroupIcon icon={opened!.icon} color={opened!.color} className="size-14" />}</div>}
+              action={<Button variant="secondary" size="sm" data-folder-new-note="" onClick={() => void noteGroupsApi.note(opened!.id).then((id) => id && (chime('promote'), pick(id)))}><Plus className="size-3.5" />{tier === 'nugget' ? 'New gem' : 'New page'}</Button>}>
               Drag notes here, or start one.
             </Empty>
-          </div>
         ) : items.length || (folding.rows && noteGroups.some((one) => one.members.some((id) => all.some((item) => item.id === id && !item.archivedAt)))) ? (
           <NoteList groups={entries} density={density} table="nuggets" selected={spread ? peek ?? undefined : coming ?? open?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
             onPick={spread ? (id) => (isGroup(id) ? pick(id) : (setPeek(id), setCursor(items.findIndex((one) => one.id === id)))) : pick} onOpen={spread ? pick : undefined}

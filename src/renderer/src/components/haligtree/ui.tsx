@@ -413,9 +413,13 @@ export function Book({ size, seed, done = false, className = 'mb-3' }: { size: n
  * book with nothing written in it yet, in place of a grey icon: an empty view is the first
  * thing a new feature shows you, and it should not read as an error.
  */
-export function Empty({ shaped = false, title, children, action, compact = false }: {
+export function Empty({ shaped = false, title, children, action, compact = false, art, arrow = true }: {
   /** Done, not empty: the book's pages turn, it shuts, and a tick sits on it. */
   shaped?: boolean
+  /** A picture of the place itself (a folder's own icon) in the book's stead. */
+  art?: ReactNode
+  /** The small hand-drawn arrow beside the action. */
+  arrow?: boolean
   title: ReactNode
   children: ReactNode
   action?: ReactNode
@@ -424,7 +428,7 @@ export function Empty({ shaped = false, title, children, action, compact = false
 }): React.JSX.Element {
   return (
     <div data-empty className={`flex max-w-sm flex-col items-start gap-3 ${compact ? 'px-2 py-10' : 'px-5 py-[16vh]'}`}>
-      <Book size={compact ? 44 : 56} seed={typeof title === 'string' ? title : 'empty'} done={shaped} />
+      {art ?? <Book size={compact ? 44 : 56} seed={typeof title === 'string' ? title : 'empty'} done={shaped} />}
       {/* A rest is a moment, not a missing list: its line at title size in the
           heading font, a step down in the prompt's narrow panel. */}
       <h2 className={compact ? 'text-heading font-semibold' : 'text-title font-medium'}>{title}</h2>
@@ -433,7 +437,7 @@ export function Empty({ shaped = false, title, children, action, compact = false
       {action && (
         <div className="flex items-center gap-1.5">
           {action}
-          <Arrow seed={typeof title === 'string' ? title : 'empty'} draw={() => !byKeys()} className="-mt-6" />
+          {arrow && <Arrow seed={typeof title === 'string' ? title : 'empty'} draw={() => !byKeys()} className="-mt-6" />}
         </div>
       )}
     </div>
