@@ -9,7 +9,7 @@ import { setCalc } from '@/extensions/calc'
 import { setFoldHeadings } from '@/extensions/heading-fold'
 import { setTagSource } from '@/extensions/note-link'
 import { chime, step, type Cue } from './sound'
-import { haligtree, type Settings } from './haligtree'
+import { APP_SIZES, appSizeOf, haligtree, type Settings } from './haligtree'
 
 /**
  * What the editor's moments sound like here. Stepping through matches or the
@@ -110,24 +110,70 @@ export function useEditorSetup(settings: Settings | null): void {
     root.setProperty('--mf-text-scale', String(settings.textSize))
   }, [settings?.calc, settings?.foldHeadings, settings?.noteFont, settings?.fontNotesOnly, settings?.headingFont, settings?.textSize]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ⌘+ and ⌘− step the text size, ⌘0 puts it back. Taken before Chromium's
-  // own page zoom, which would grow the whole window instead.
+  // ⌘+ and ⌘− grow and shrink the whole app, in every window, and ⌘0 puts it
+  // back; ⌥⌘+ and ⌥⌘− do the same for the words in notes alone. Taken before
+  // Chromium's own page zoom, which is off (main) and never saved.
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (!event.metaKey || event.ctrlKey || event.altKey || !settings || event.defaultPrevented) return
-      // Only where a note is on screen: the drawing window and the like keep
-      // ⌘+ ⌘− for their own zoom.
-      if (!document.querySelector('.haligtree-editor-wrapper')) return
-      const at = TEXT_SIZES.indexOf(TEXT_SIZES.reduce((near, size) => (Math.abs(size - settings.textSize) < Math.abs(near - settings.textSize) ? size : near)))
-      const to = ['=', '+'].includes(event.key) ? at + 1 : event.key === '-' ? at - 1 : event.key === '0' ? TEXT_SIZES.indexOf(1) : null
-      if (to === null) return
+      if (!event.metaKey || event.ctrlKey || !settings || event.defaultPrevented) return
+      // By the key's place, not its letter: with ⌥ held, = types ≠ and − types –.
+      const way = event.code === 'Equal' || event.code === 'NumpadAdd' ? 1 : event.code === 'Minus' || event.code === 'NumpadSubtract' ? -1 : event.code === 'Digit0' || event.code === 'Numpad0' ? 0 : null
+      if (way === null) return
+      if (event.altKey) {
+        // ⌥⌘0 is a math block in a note, so the text size has no reset key: Settings puts it back.
+        if (way === 0) return
+        event.preventDefault()
+        return stepTextSize(settings, way)
+      }
+      // The drawing window keeps ⌘+ ⌘− ⌘0 for its own zoom.
+      if (new URLSearchParams(window.location.search).has('drawing')) return
       event.preventDefault()
-      const size = TEXT_SIZES[Math.max(0, Math.min(TEXT_SIZES.length - 1, to))]
-      if (size === settings.textSize) return chime('nope')
-      step(TEXT_SIZES.indexOf(size))
-      void haligtree.setSettings({ textSize: size })
+      stepAppSize(settings, way)
     }
+    // The View menu's Bigger, Smaller and Actual Size, clicked rather than pressed (preload).
+    const onMenu = (event: Event): void => void (settings && stepAppSize(settings, (event as CustomEvent<1 | -1 | 0>).detail))
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    window.addEventListener('haligtree:app-size', onMenu)
+    return () => (window.removeEventListener('keydown', onKey), window.removeEventListener('haligtree:app-size', onMenu))
   }, [settings])
+}
+
+/** The text size in notes a step bigger (1) or smaller (−1), as ⌥⌘+ and ⌥⌘− do. */
+function stepTextSize(settings: Settings, way: 1 | -1): void {
+  const now = asked('text', settings.textSize)
+  const at = TEXT_SIZES.indexOf(TEXT_SIZES.reduce((near, size) => (Math.abs(size - now) < Math.abs(near - now) ? size : near)))
+  const size = TEXT_SIZES[Math.max(0, Math.min(TEXT_SIZES.length - 1, at + way))]
+  if (size === now) return chime('nope')
+  ask('text', size)
+  step(TEXT_SIZES.indexOf(size))
+  void haligtree.setSettings({ textSize: size })
+  said(`Text size ${Math.round(size * 100)}%`)
+}
+
+/** The whole app a step bigger (1), smaller (−1) or back to 100% (0), as ⌘+, ⌘− and ⌘0 do, and the View menu. */
+export function stepAppSize(settings: Settings, way: 1 | -1 | 0): void {
+  const now = asked('app', appSizeOf(settings))
+  const at = APP_SIZES.indexOf(APP_SIZES.reduce((near, size) => (Math.abs(size - now) < Math.abs(near - now) ? size : near)))
+  const size = way === 0 ? 100 : APP_SIZES[Math.max(0, Math.min(APP_SIZES.length - 1, at + way))]
+  if (size === now) return chime('nope')
+  ask('app', size)
+  step(APP_SIZES.indexOf(size) - APP_SIZES.indexOf(100))
+  void haligtree.setSettings({ interfaceSize: size })
+  said(`App size ${size}%`)
+}
+
+/**
+ * The size last asked for, for a moment: keys pressed quickly arrive before
+ * the save before them has come back, and each would step from the old size.
+ */
+const lastAsked: Record<'app' | 'text', { size: number; at: number } | null> = { app: null, text: null }
+const asked = (which: 'app' | 'text', saved: number): number => {
+  const last = lastAsked[which]
+  return last && Date.now() - last.at < 1500 ? last.size : saved
+}
+const ask = (which: 'app' | 'text', size: number): void => void (lastAsked[which] = { size, at: Date.now() })
+
+/** A short note of the new size, the app's own toast (said this way, as ui.tsx imports this file's neighbours). */
+function said(text: string): void {
+  window.dispatchEvent(new CustomEvent('haligtree:toast', { detail: { text, tone: 'info' } }))
 }

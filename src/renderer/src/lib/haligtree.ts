@@ -744,8 +744,28 @@ export function splitTags(text: string): { text: string; tags: string[] } {
   return { text: nameWithoutTags(text), tags: tagWords(text) }
 }
 
-/** The root size for each interface size; small is the size the app was drawn at. */
-export const INTERFACE_SIZES = { small: 16, medium: 17, large: 18.5 } as const
+/**
+ * The app's sizes, ⌘+ and ⌘− a step at a time, in percent of the size it
+ * comes at (17px). The small and large of old are 95% and 110% now.
+ */
+export const APP_SIZES = [80, 85, 90, 95, 100, 105, 110, 115, 120, 125, 130, 135, 140, 145, 150]
+/** The app's size now, in percent; a size saved as small, medium or large is read as its nearest step. */
+export const appSizeOf = (settings: Pick<Settings, 'interfaceSize'> | null | undefined): number => {
+  const saved = settings?.interfaceSize
+  if (typeof saved === 'number') return Math.min(150, Math.max(80, saved))
+  return saved === 'small' ? 95 : saved === 'large' ? 110 : 100
+}
+/** The root font size at a size in percent: every size in the app is in rem, so this scales all of it. */
+export const rootSizeAt = (percent: number): string => `${(17 * percent) / 100}px`
+/**
+ * Whether this window grows with the app size: the main window, a note's
+ * window, a drawing's, the look window. The others (quick capture, the focus
+ * pill, stickies, the glow, nudge cards) are a size in pixels that main sets,
+ * so they stay at 100% and are never cut off.
+ */
+const SIZED = ((opened) => ['home', 'look'].includes(opened.get('view') ?? '') || opened.has('note') || opened.has('drawing'))(new URLSearchParams(window.location.search))
+/** This window's root size at an app size: its own at 100% when it does not grow (SIZED). */
+export const windowRootSize = (percent: number): string => rootSizeAt(SIZED ? percent : 100)
 
 /**
  * How the app looked when its settings were last read: the interface size,
@@ -757,10 +777,10 @@ export const INTERFACE_SIZES = { small: 16, medium: 17, large: 18.5 } as const
 const WORN = 'worn-settings'
 ;(function wornBefore(): void {
   try {
-    const worn = JSON.parse(localStorage.getItem(WORN) ?? 'null') as { size?: string; data?: Record<string, string>; postcards?: boolean; noblur?: boolean; still?: boolean } | null
+    const worn = JSON.parse(localStorage.getItem(WORN) ?? 'null') as { size?: number; data?: Record<string, string>; postcards?: boolean; noblur?: boolean; still?: boolean } | null
     if (!worn) return
     const root = document.documentElement
-    if (worn.size) root.style.fontSize = worn.size
+    if (typeof worn.size === 'number') root.style.fontSize = windowRootSize(worn.size)
     // Only what the settings set: a window's own marks (its view, its focus) are its own.
     for (const key of ['width', 'linkPictures', 'motion', 'postcardBorder', 'highlights', 'barWords', 'marks', 'bars', 'avatars']) if (worn.data?.[key] && !root.dataset[key]) root.dataset[key] = worn.data[key]
     root.toggleAttribute('data-postcards', !!worn.postcards)
@@ -811,14 +831,14 @@ export function useAppearance(): void {
     if (settings.spellcheck === false) document.documentElement.spellcheck = false
     else document.documentElement.removeAttribute('spellcheck')
     // Every size in the app is in rem, so the root's size scales all of it at once.
-    document.documentElement.style.fontSize = `${INTERFACE_SIZES[settings.interfaceSize] ?? INTERFACE_SIZES.medium}px`
+    document.documentElement.style.fontSize = windowRootSize(appSizeOf(settings))
     // Off, nothing animates. The system's Reduce motion is the MotionConfig's
     // (main.tsx): things still fade there, but nothing slides or springs.
     MotionGlobalConfig.skipAnimations = !settings.motion
     // Kept for the next window, or this one reloaded, to wear from its first frame (wornBefore).
     try {
       const root = document.documentElement
-      localStorage.setItem(WORN, JSON.stringify({ size: root.style.fontSize, data: { ...root.dataset }, postcards: root.hasAttribute('data-postcards'), noblur: root.hasAttribute('data-noblur'), still: !settings.motion }))
+      localStorage.setItem(WORN, JSON.stringify({ size: appSizeOf(settings), data: { ...root.dataset }, postcards: root.hasAttribute('data-postcards'), noblur: root.hasAttribute('data-noblur'), still: !settings.motion }))
     } catch {
       // Not kept: the window wears the settings once they are read, as before.
     }

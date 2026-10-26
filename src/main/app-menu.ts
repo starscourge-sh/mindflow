@@ -1,4 +1,7 @@
-import { app, BrowserWindow, Menu } from 'electron'
+import { app, BrowserWindow, Menu, type MenuItemConstructorOptions } from 'electron'
+
+/** The app's size a step, told to the window in front: it saves it for every window (lib/editor-setup.ts). */
+const appSize = (way: 1 | -1 | 0): MenuItemConstructorOptions['click'] => (_item, win) => (win instanceof BrowserWindow ? win : BrowserWindow.getFocusedWindow())?.webContents.send('menu:app-size', way)
 
 /** What the menu bar's items do, each the same as its twin in the tray menu, the Dock or ⌘K (index.ts). */
 export type MenuActs = {
@@ -96,9 +99,12 @@ export function setAppMenu(acts: MenuActs): void {
         // ⌘\ is the page's own key (home.tsx): told it, as a press would.
         { label: 'Show or Hide Sidebar', ...shown('Command+\\'), click: () => acts.inHome('haligtree:sidebar') },
         { type: 'separator' },
-        { role: 'resetZoom' },
-        { role: 'zoomIn' },
-        { role: 'zoomOut' },
+        // No page zoom: these step the app's own size, saved and the same in every window. Pressed, ⌘+ ⌘− ⌘0 are
+        // the page's first (with ⌥, the text in notes); these are for a click.
+        { label: 'Actual Size', accelerator: 'CommandOrControl+0', click: appSize(0) },
+        { label: 'Bigger', accelerator: 'CommandOrControl+Plus', click: appSize(1) },
+        { label: 'Bigger', accelerator: 'CommandOrControl+=', visible: false, acceleratorWorksWhenHidden: true, click: appSize(1) },
+        { label: 'Smaller', accelerator: 'CommandOrControl+-', click: appSize(-1) },
         { type: 'separator' },
         { role: 'togglefullscreen' },
         // For working on Haligtree, never in the built app.

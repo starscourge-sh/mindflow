@@ -67,7 +67,7 @@ export function FontPicker({ value, setting = 'noteFont', same }: {
   )
 }
 
-/** Smaller, the size now, bigger: the same steps ⌘− and ⌘+ take. */
+/** Smaller, the size now, bigger: the same steps ⌥⌘− and ⌥⌘+ take. */
 export function TextSize({ value }: { value: number }): React.JSX.Element {
   const at = TEXT_SIZES.reduce((best, size, index) => (Math.abs(size - value) < Math.abs(TEXT_SIZES[best] - value) ? index : best), 0)
   const go = (to: number): void => {
@@ -76,11 +76,11 @@ export function TextSize({ value }: { value: number }): React.JSX.Element {
   }
   return (
     <>
-      <Pressed keys="⌘−" />
+      <Pressed keys="⌥⌘−" />
       <Button variant="ghost" size="icon-sm" aria-label="Smaller text" disabled={at <= 0} onClick={() => go(at - 1)}><Minus /></Button>
       <span className="w-10 text-center tabular-nums"><Rolling text={`${Math.round(value * 100)}%`} /></span>
       <Button variant="ghost" size="icon-sm" aria-label="Bigger text" disabled={at >= TEXT_SIZES.length - 1} onClick={() => go(at + 1)}><Plus /></Button>
-      <Pressed keys="⌘+" />
+      <Pressed keys="⌥⌘+" />
     </>
   )
 }

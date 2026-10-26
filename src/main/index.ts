@@ -4687,9 +4687,22 @@ app.whenReady().then(() => {
   // and ignore CommandOrControl + R in production.
   // see https://github.com/alex8088/electron-toolkit/tree/master/packages/utils
   app.on('browser-window-created', (_, window) => {
-    // Without this the toolkit blocks Cmd+- outright, so zooming only works
-    // one way. See @electron-toolkit/utils watchWindowShortcuts.
+    // Without this the toolkit blocks Cmd+- outright, so the page never hears
+    // it and the app could only grow. See @electron-toolkit/utils watchWindowShortcuts.
     optimizer.watchWindowShortcuts(window, { zoom: true })
+    // No page zoom, ever: ⌘+ and ⌘− are the app's own size (a saved setting).
+    // Chromium keeps a zoom per address and remembers it, so one grown before
+    // would come back in a window drawn to a size in pixels, the pill cut off
+    // at its right edge: each page is put back at 1 as it loads, and pinching
+    // does nothing.
+    const { webContents } = window
+    const unzoom = (): void => {
+      if (webContents.isDestroyed()) return
+      if (webContents.getZoomFactor() !== 1) webContents.setZoomFactor(1)
+      void webContents.setVisualZoomLevelLimits(1, 1).catch(() => undefined)
+    }
+    webContents.on('did-finish-load', unzoom)
+    webContents.on('zoom-changed', unzoom)
   })
 
   // Link previews are fetched here: the renderer cannot, being subject to CORS

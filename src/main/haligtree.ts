@@ -411,8 +411,9 @@ const DEFAULTS = {
   // Blurring: private words blurred in lists, the window dimmed when you leave
   // it, words arriving from a soft blur. One switch turns all of it off.
   blur: true,
-  // How big the whole interface is, Raycast's way: small, medium or large.
-  interfaceSize: 'medium' as 'small' | 'medium' | 'large',
+  // How big the whole app is, in percent (⌘+ and ⌘−). Small, medium or large
+  // were the old sizes; they are read as 95, 100 and 110.
+  interfaceSize: 100 as number | 'small' | 'medium' | 'large',
   textSize: 1,
   // Once a week, on this day (0 is Sunday), the box suggests walking the
   // inbox through its exits.

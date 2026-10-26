@@ -9,7 +9,7 @@ import { lengthSaid } from '../../../../main/day-load'
 import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { PACKS, SCAPES, TICKS, scapeSample, type Scape, chime, click, setVolume, soundOn, step, tickSample, type PackName, type TickSound } from '@/lib/sound'
 import { NOTE_FONTS } from '@/lib/editor-setup'
-import { CalendarDays, Check, FolderPlus, Image as ImageIcon, Keyboard, Pin, Play, Shuffle, Star, type LucideIcon } from 'lucide-react'
+import { CalendarDays, Check, FolderPlus, Image as ImageIcon, Keyboard, Pin, Play, RotateCcw, Shuffle, Star, type LucideIcon } from 'lucide-react'
 import { SecondZoneSetting } from './calendar-events'
 import InfoCircleIcon from '@/components/ui/info-circle-icon'
 import CameraIcon from '@/components/ui/camera-icon'
@@ -25,13 +25,14 @@ import { Input } from '@/components/ui/input'
 import { Switch as PlainSwitch } from '@/components/ui/switch'
 import { FitToMe } from './study'
 import { onboarding, tryWelcome, useOnboarding } from '@/lib/onboarding'
-import { call, useLive, haligtree, type GiphyMedia, type GiphyPin, type MomentKind, type Settings } from '@/lib/haligtree'
+import { appSizeOf, call, useLive, haligtree, windowRootSize, type GiphyMedia, type GiphyPin, type MomentKind, type Settings } from '@/lib/haligtree'
 import { Chips } from './display'
 import { Avatar } from './avatar'
 import { pickAvatar, setAvatar, useAvatar } from '@/lib/people'
 import { setPageWidth, widthOf, type PageWidth } from '@/lib/reading'
 import { SoundPacks } from './sound-packs'
-import { FontPicker, TextSize } from './font-picker'
+import { FontPicker } from './font-picker'
+import { TEXT_SIZES } from '@/lib/editor-setup'
 import { BackToTop, Kbd, Rolling, Tip, ask, quietly, refuse, toast, useSmooth } from './ui'
 import { working } from './beam'
 import { Term } from './term'
@@ -268,6 +269,56 @@ function SettingSlider({ value, onSave, onLive, rest, sample, ...props }: { valu
   )
 }
 
+/**
+ * How big the words in notes are, as ⌥⌘+ and ⌥⌘− set it: the same slider as "App size", a stop for each size,
+ * the words below growing as it moves, the size beside it and a way back to 100%.
+ */
+function TextSizeSetting({ value, onSave }: { value: number; onSave: (value: number) => void }): React.JSX.Element {
+  const nearest = (size: number): number => TEXT_SIZES.reduce((best, one, index) => (Math.abs(one - size) < Math.abs(TEXT_SIZES[best] - size) ? index : best), 0)
+  const [live, setLive] = useState<number | null>(null)
+  useEffect(() => void (live === value && setLive(null)), [value, live])
+  const shown = Math.round((live ?? value) * 100)
+  const preview = (size: number): void => (setLive(size), document.documentElement.style.setProperty('--mf-text-scale', String(size)))
+  return (
+    <Setting title="Text size" note="How big the words in notes are; ⌥⌘+ and ⌥⌘− do the same." more="Only the words you write grow; “App size” grows everything." keywords="font text bigger smaller zoom" below={<Sample text />}>
+      <SettingSlider min={0} max={TEXT_SIZES.length - 1} step={1} rest={TEXT_SIZES.indexOf(1)} value={nearest(value)} onSave={(at) => onSave(TEXT_SIZES[at])} onLive={(at) => preview(TEXT_SIZES[at])} />
+      <span data-text-size={shown} className="w-10 text-right tabular-nums"><Rolling text={`${shown}%`} /></span>
+      <Tip label="Back to 100%">
+        <Button variant="ghost" size="icon-sm" aria-label="Text back to 100%" disabled={shown === 100} onClick={() => (preview(1), chime('tap'), onSave(1))}><RotateCcw /></Button>
+      </Tip>
+    </Setting>
+  )
+}
+
+/**
+ * How big the whole app is, as ⌘+ and ⌘− set it: a slider that grows the app
+ * as it moves (this window at once, every other window a moment later, when it
+ * saves), the size beside it, and a way back to 100%.
+ */
+function AppSize({ value, onSave }: { value: number; onSave: (value: number) => void }): React.JSX.Element {
+  const [live, setLive] = useState<number | null>(null)
+  // Let go once the save has come back.
+  useEffect(() => void (live === value && setLive(null)), [value, live])
+  const shown = live ?? value
+  return (
+    <Setting title="App size" note="How big everything is, in every window; ⌘+ and ⌘− do the same." more="⌘0 puts it back. Quick capture, the focus pill and stickies keep their size." keywords="zoom scale interface bigger smaller ui font size">
+      <SettingSlider min={80} max={150} step={5} rest={100} value={value} onSave={onSave} onLive={(size) => {
+        setLive(size)
+        document.documentElement.style.fontSize = windowRootSize(size)
+      }} />
+      <span data-app-size={shown} className="w-10 text-right tabular-nums"><Rolling text={`${shown}%`} /></span>
+      <Tip label="Back to 100%  ⌘0">
+        <Button variant="ghost" size="icon-sm" aria-label="Back to 100%" disabled={shown === 100} onClick={() => {
+          setLive(100)
+          document.documentElement.style.fontSize = windowRootSize(100)
+          chime('tap')
+          onSave(100)
+        }}><RotateCcw /></Button>
+      </Tip>
+    </Setting>
+  )
+}
+
 /** A number box that saves a number, never the empty field you pass through on the way to one. */
 function NumberSetting({ value, onSave, label }: { value: number; onSave: (value: number) => void; label: string }): React.JSX.Element {
   const [text, setText] = useState(String(value))
@@ -403,11 +454,7 @@ export function SettingsView(): React.JSX.Element {
   const sectionList = useRef<HTMLElement>(null)
   const sectionHover = useFluidHover(sectionList, { items: '[data-section]' })
   const sectionChosen = useChosen(sectionList, '[data-section][aria-current="page"]', `${section}:${!!query.trim()}`)
-  // The interface sizes, the same way along a line.
-  const sizeRow = useRef<HTMLSpanElement>(null)
-  const sizeHover = useFluidHover(sizeRow, { items: ':scope > button', axis: 'x' })
-  const sizeChosen = useChosen(sizeRow, ':scope > button[aria-pressed="true"]', settings?.interfaceSize)
-  // The app icons: one light glides between them, as along the size row.
+  // The app icons: one light glides between them, along a line.
   const iconRow = useRef<HTMLDivElement>(null)
   const iconHover = useFluidHover(iconRow, { items: ':scope > button', axis: 'x' })
   const iconChosen = useChosen(iconRow, ':scope > button[aria-checked="true"]', settings?.appIcon ?? 'bronze')
@@ -529,25 +576,6 @@ export function SettingsView(): React.JSX.Element {
             <MotionSample on={settings.motion} />
             <Switch checked={settings.motion} onCheckedChange={(motion) => set({ motion })} />
           </Setting>
-          <Setting title="Interface size" note="How big lists, menus and notes are, in every window." keywords="zoom scale bigger smaller text ui">
-            <span ref={sizeRow} {...sizeHover.handlers} className="relative isolate flex items-center gap-1">
-              <Highlight spot={sizeChosen.spot} snap={sizeChosen.snap} travel={spring.moderate} className="bg-accent" />
-              <Highlight spot={sizeHover.spot} session={sizeHover.session} snap={sizeHover.snap} from={sizeChosen.spot} />
-              {(['small', 'medium', 'large'] as const).map((size, index) => (
-                <button
-                  key={size}
-                  type="button"
-                  aria-label={size[0].toUpperCase() + size.slice(1)}
-                  aria-pressed={(settings.interfaceSize ?? 'medium') === size}
-                  onClick={() => (set({ interfaceSize: size }), step(index))}
-                  className={`flex h-8 min-w-9 items-center justify-center rounded-md px-2 font-medium transition-colors duration-80 ${(settings.interfaceSize ?? 'medium') === size ? 'text-foreground' : 'text-muted-foreground hover:text-foreground data-[fluid-hover-active]:text-foreground'}`}
-                  style={{ fontSize: [12, 14, 17][index] }}
-                >
-                  Aa
-                </button>
-              ))}
-            </span>
-          </Setting>
           <Setting title="Blurring" note="Private notes stay blurred in lists until you point at them." more="A window you leave dims, and new words fade in from a blur. Off, all is sharp." keywords="blur private dim focus soft">
             <BlurSample />
             <Switch checked={settings.blur !== false} onCheckedChange={(blur) => set({ blur })} />
@@ -665,9 +693,8 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Notes only" note="The font above is only for your writing; the app's own words stay in Fraunces.">
             <Switch checked={!!settings.fontNotesOnly} onCheckedChange={(fontNotesOnly) => set({ fontNotesOnly })} />
           </Setting>
-          <Setting title="Text size" note="How big the words in notes are; ⌘+ and ⌘− change it from any note." more="⌘0 puts it back." below={<Sample text />}>
-            <TextSize value={settings.textSize} />
-          </Setting>
+          <AppSize value={appSizeOf(settings)} onSave={(interfaceSize) => set({ interfaceSize })} />
+          <TextSizeSetting value={settings.textSize} onSave={(textSize) => set({ textSize })} />
         </Group>
 
         <Group section="Scenery" title="Pictures at rest">

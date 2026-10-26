@@ -1,4 +1,4 @@
-// Open a task's panel in the main window at each interface size and photograph it.
+// Open a task's panel in the main window at the smallest, usual and largest App size and photograph it.
 import { open } from './harness.mjs'
 const qa = await open()
 const { electron, page } = qa
@@ -8,7 +8,7 @@ await electron.evaluate(({ BrowserWindow }) => { const w = BrowserWindow.getAllW
 const home = electron.windows().find((w) => w.url().includes('home'))
 await home.waitForTimeout(600); await home.keyboard.press('Escape')
 const send = (type, id) => electron.evaluate(({ BrowserWindow }, [t, i]) => BrowserWindow.getAllWindows().find((w) => w.webContents.getURL().includes('home'))?.webContents.send('home:open', t, i), [type, id])
-for (const size of ['small', 'medium', 'large']) {
+for (const size of [80, 100, 150]) {
   await page.evaluate((s) => window.api.haligtree('settings:set', { interfaceSize: s }), size)
   await send('view', 'today'); await home.waitForTimeout(800)
   await home.locator('text=call the accountant').first().click(); await home.waitForTimeout(900)
