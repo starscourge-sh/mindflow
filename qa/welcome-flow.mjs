@@ -117,7 +117,7 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
     check(`${theme}: the gem line's highlight is the gem card's colour`, same(look.washGem) && same(look.inkGem), JSON.stringify([look.washGem, look.inkGem]))
     check(`${theme}: the two colours differ`, look.washTask[0] !== look.washGem[0] && look.inkTask[0] !== look.inkGem[0])
     check(`${theme}: the task is named without its day, and its day read as ${DAY}`, /Find photos of the Yoda puppet/.test(look.task) && !new RegExp(`on ${DAY}`).test(look.task.split('Now a task')[0]) && new RegExp(`Now a task, due ${DAY}`).test(look.task), look.task)
-    check(`${theme}: the gem keeps the line and takes a question for Review`, /Perfection erases human presence\./.test(look.gem) && /question for “Review”/.test(look.gem) && /What does perfection erase, in film\?/.test(look.question), look.gem)
+    check(`${theme}: the gem keeps the line and takes a question for Review`, /Perfection erases human presence\./.test(look.gem) && /question for “Review”/.test(look.gem) && /What’s the price of perfect graphics\?/.test(look.question), look.gem)
     check(`${theme}: the closing line is shown`, look.last === 'Nothing is copied out: each one stays linked to its line in the note.', look.last)
     check(`${theme}: no em or en dashes on the page`, look.dashes === 0, `${look.dashes}`)
     check(`${theme}: three lines drawn, the note parting in two`, look.links.join() === 'note,task,gem', look.links.join())
