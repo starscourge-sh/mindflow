@@ -726,6 +726,8 @@ export function Home(): React.JSX.Element {
   const nuggets = useLive(() => haligtree.items('nugget'), [] as Item[], [], ['item'])
   const articles = useLive(() => haligtree.items('article'), [] as Item[], [], ['item'])
   const questions = useLive(() => haligtree.items('question'), [] as Item[], [], ['item'])
+  // A folder in the sidebar counts what its list shows: notes not archived, and in Writing the open questions too.
+  const shownIn = (list: string, notes: Item[]): Set<string> => new Set([...notes, ...(list === 'article' ? questions.filter((one) => !one.closedAt) : [])].filter((one) => !one.archivedAt).map((one) => one.id))
   const goals = useLive(() => haligtree.items('goal'), [] as Item[], [], ['item'])
   const queued = useQueue()
   // "New" makes a blank page, as in Obsidian (a new book's way), or a capture in quick capture.
@@ -1599,7 +1601,7 @@ export function Home(): React.JSX.Element {
               {folders && list && (
                 // Its own drags, not the row's: a folder pressed on is not Writing carried away.
                 <div onPointerDown={(event) => event.stopPropagation()}>
-                  <SideFolders list={list} open={unfolded} here={inFolder} shown={new Set(folders.map((one) => one.id))} onOpen={(id) => setView({ id: section.id, focus: `g:${id}` })} onUnfold={() => setUnfolded(true)} />
+                  <SideFolders list={list} open={unfolded} here={inFolder} shown={shownIn(list, folders)} onOpen={(id) => setView({ id: section.id, focus: `g:${id}` })} onUnfold={() => setUnfolded(true)} />
                 </div>
               )}
               </SortableRow>

@@ -275,7 +275,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   // first in your own order, then the loose notes in their sections; inside a group its notes go by kind (or date) too.
   const heads = plain ? undefined : new Map(groups.flatMap(([name, list]) => list.map((one) => [one.id, name] as const)))
   const folding = useFolding(tier, all, ownOrder, order, (density === 'list' || density === 'compact') && !(spread && query.trim()) ? groups.flatMap(([, list]) => list) : null,
-    view.sort === 'manual' && plain, () => setChosen([]), chosen, mine, heads)
+    view.sort === 'manual' && plain, () => setChosen([]), chosen, mine, heads, opened?.id)
   // As tiles, each group is one folder card; opened, the grid shows only its notes, under a chip back.
   const noteGroups = useGroups(tier)
   const tiled = (density === 'grid' || density === 'small') && !(spread && query.trim())
@@ -1392,7 +1392,7 @@ const ORDER = new WeakMap<Layout, Map<string, number>>()
  * back the same, so nothing jumps back while the save is on its way. Every
  * change says so with a way back.
  */
-function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) => number, order: string[], shown: Item[] | null, ordered: boolean, done: () => void, chosen: string[], toOwn: () => (() => void) | undefined, heads?: Map<string, string>): {
+function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) => number, order: string[], shown: Item[] | null, ordered: boolean, done: () => void, chosen: string[], toOwn: () => (() => void) | undefined, heads?: Map<string, string>, within?: string): {
   rows: Item[] | null
   /** The list as tiles: each group as one folder, at the top, then the loose notes. */
   tiles: (list: Item[]) => ({ group: NoteGroup; items: Item[] } | { item: Item })[]
@@ -1450,7 +1450,8 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
   // A subgroup's `items` are every note in it, its own subgroups' too; `parts` how they show.
   type Part = { item: Item } | { sub: string; items: Item[]; parts: Part[] }
   type Block = { group?: string; items: Item[]; parts?: Part[] }
-  const blocks = (from: Layout, list = shown ?? every): Block[] => {
+  // A folder opened from the sidebar shows what it holds: its subfolders as the groups, its own notes loose.
+  const blocks = (from: Layout, list = shown ?? every, root: string | null | undefined = within): Block[] => {
     const visible = new Map(list.map((one) => [one.id, one]))
     const rank = new Map(list.map((one, at) => [one.id, at]))
     const bySort = (a: Item, b: Item): number => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0)
@@ -1464,7 +1465,7 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
       })
       return ordered ? parts : [...parts.filter((one) => 'sub' in one), ...parts.filter((one): one is { item: Item } => 'item' in one).sort((a, b) => bySort(a.item, b.item))]
     }
-    const laid = from.top.flatMap((key): Block[] => {
+    const laid = (root ? from.groups[root] ?? [] : from.top).flatMap((key): Block[] => {
       if (!isGroup(key)) return visible.has(key) ? [{ items: [visible.get(key)!] }] : []
       const sorted = partsIn(groupId(key), 1)
       const items = sorted.flatMap((one) => ('item' in one ? [one.item] : one.items))
@@ -1527,11 +1528,17 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     // A new group is drawn in front of you with its name open for typing: no toast, ⌘Z still takes it back.
     void noteGroupsApi.arrange(tier, next).then(() => said && (next.make && !apart.length ? quietly(back) : toast(apart.length ? `${said}: ${apart.join(', ')} came apart` : said, back)))
   }
+  // In an open folder, every move keeps what it moves inside that folder.
+  const inside = (from: Layout, key: string): boolean => {
+    if (!within) return true
+    for (let group = groupOf(from, key); group; group = groupOf(from, KEY + group)) if (group === within) return true
+    return false
+  }
   const step = (id: string, by: number): number | null => {
     // Sorted some other way, there is no own place to step to.
     if (!ordered) return null
     const next = stepLayout(layout, keys, id, by, shut)
-    if (!next) return null
+    if (!next || !inside(next, id)) return null
     commit(next, 'shift')
     return rowsOf(next).findIndex((one) => one.id === id)
   }
@@ -1554,7 +1561,8 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
   const menu = (ids: string[]): RowItem[] => {
     const these = inOrder(ids)
     const n = these.length
-    const theirs = new Set(these.map((one) => groupOf(layout, one)).filter(Boolean))
+    // The open folder itself is where its loose notes already are: nothing to remove them from.
+    const theirs = new Set(these.map((one) => groupOf(layout, one)).filter((one) => one && one !== within))
     // All in one pass, at the group's end: one at a time went over the whole list for each, and 2,500 took seconds.
     const picked = new Set(these)
     const into = (group: string): Layout => moveMany(layout, these, { group, after: (layout.groups[group] ?? []).filter((one) => !picked.has(one)).at(-1) ?? null })
@@ -1618,11 +1626,11 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     }),
     preview: (ids, target, how) => {
       const next = dropMany(base, ids, target, how, shut, () => ({ id: 'new', name: '' }))
-      return next && !sameLayout(next, base) ? { before: base, after: next, shown: shownKeys(next, shut) } : null
+      return next && !sameLayout(next, base) && ids.every((id) => inside(next, id)) ? { before: base, after: next, shown: shownKeys(next, shut) } : null
     },
     onDrop: (ids, target, how) => {
       const seen = dropMany(base, ids, target, how, shut, make([target, ...ids]))
-      if (!seen || sameLayout(seen, base)) return chime('stay')
+      if (!seen || sameLayout(seen, base) || !ids.every((id) => inside(seen, id))) return chime('stay')
       // Only a move within where it already is needs your own order, laid out as you saw it. Joining or leaving a
       // group keeps the sort, and your own order as it was: the row takes its sorted place in its new group.
       const reorder = !ordered && !seen.make && groupOf(base, ids[0]) === groupOf(seen, ids[0])
@@ -1650,7 +1658,7 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
   const tiles = (list: Item[]): ({ group: NoteGroup; items: Item[] } | { item: Item })[] =>
     blocks(layout, list).flatMap((one): ({ group: NoteGroup; items: Item[] } | { item: Item })[] => (one.group && info.get(one.group) ? [{ group: info.get(one.group)!, items: one.items }] : one.items.map((item) => ({ item }))))
   const partsOf = (id: string, all: NoteGroup[]): GroupParts => {
-    const every_ = blocks(layout, every)
+    const every_ = blocks(layout, every, null)
     const found = every_.find((one) => one.group === id)
     // A subgroup (opened from its folder in the sidebar): its notes, as its group holds them.
     if (!found) return every_.flatMap((one) => one.parts ?? []).flatMap((part) => ('sub' in part && part.sub === id ? [{ items: part.items }] : []))
