@@ -58,7 +58,7 @@ try {
   await settle()
   await h.waitForTimeout(900)
   const why = await h.evaluate(() => [...document.querySelectorAll('[data-thesis]')].map((el) => el.innerText.replace(/\s+/g, ' ').trim()))
-  check('settled, Why says it all, in order', why.length === 6 && /^Most notes are written once and never seen again\.$/.test(why[0]) && /^Your writing lives in one app\.$/.test(why[1]) && /^Your plans live in another\.$/.test(why[2]) && /^What you want to remember and practice \(flashcards\) lives in a third\.$/.test(why[3]) && /^In each one, going back is your job\. So mostly, nobody does\.$/.test(why[4]) && /^Haligtree treats writing, planning and memory not as three separate tools, but as the same thought evolving over time\.$/.test(why[5]), why.join(' | '))
+  check('settled, Why says it all, in order', why.length === 6 && /^Most notes are written once and never seen again\.$/.test(why[0]) && /^Your writing lives in one app\.$/.test(why[1]) && /^Your plans live in another\.$/.test(why[2]) && /^What you want to remember and practice \(flashcards\) lives in a third\.$/.test(why[3]) && /^In each one, going back is your job\. So mostly, nobody does\.$/.test(why[4]) && /^Haligtree changes the direction\. Instead of asking you to search, it brings your writing, plans, and practice back to you\.$/.test(why[5]), why.join(' | '))
   const italic = await h.evaluate(() => [...document.querySelectorAll('[data-thesis^="gap-"]')].map((li) => getComputedStyle(li.querySelector('.italic') ?? li).fontStyle))
   check('what each kind of app keeps is in italics, after its name', italic.length === 3 && italic.every((one) => one === 'italic'), JSON.stringify(italic))
   check('the Why page names no place in Haligtree a newcomer has not seen yet', !/Home|Review/.test(why.join(' ')), why.join(' | '))
@@ -67,11 +67,11 @@ try {
   check('Why names no app: a newcomer who has never heard of them is never lost', !why.some((one) => /Notion|Obsidian|Todoist|Anki|Evernote|Apple Notes|Quizlet/i.test(one)), why.join(' | '))
   check('no split picture on Why (the story is told once, in Catch, Write and Remember)', !(await h.$('[data-thread]')))
   const shine = await h.evaluate(() => [...document.querySelectorAll('[data-thesis="answer"] .mf-sheen')].map((el) => el.textContent))
-  check('only the answer\'s key words shine', shine.join() === 'the same thought evolving over time', shine.join())
+  check('only the answer\'s key words shine', shine.join() === 'back to you', shine.join())
   // The margin note beside the three, and the tagline's promise underlined by hand.
   check('a note in the margin beside the three, its arrow drawn', await h.evaluate(() => document.querySelector('[data-margin-note]')?.dataset.marginNote === 'on' && /You never write anything down to do nothing with it\./.test(document.querySelector('[data-margin-words]')?.textContent ?? '')))
   check('the note sits in a margin, clear of the words', await h.evaluate(() => { const box = document.querySelector('[data-margin-note]'); const n = document.querySelector('[data-margin-words]').getBoundingClientRect(); const lines = [...document.querySelectorAll('[data-thesis^="gap-"]')].map((li) => li.getBoundingClientRect()); const right = Math.max(...[...document.querySelectorAll('[data-thesis^="gap-"] span')].map((one) => one.getBoundingClientRect().right)); return box.dataset.side !== 'none' && (n.right <= lines[0].left - 30 || n.left >= right + 30) && n.left >= 0 && n.right <= innerWidth }))
-  check('the tagline\'s promise is underlined, on one line', await h.evaluate(() => { const ink = document.querySelector('[data-tagline] [data-ink]'); return !!ink && ink.textContent === 'come back to you' && ink.getClientRects().length === 1 }))
+  check('no header above the headline', await h.evaluate(() => !document.querySelector('.mf-welcome [data-words] [data-tagline]')))
   // Haligtree does the three itself: no line of Why says it sits between, links or syncs other apps.
   check('Why never says Haligtree sits between or connects other apps', !why.some((one) => CONNECTOR.test(one)), why.filter((one) => CONNECTOR.test(one)).join(' | '))
   await shot('why')

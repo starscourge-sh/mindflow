@@ -260,13 +260,13 @@ try {
   // 11 and 12. The welcome: the tagline, then its first capture.
   await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:welcome')))
   await h.waitForSelector('.mf-welcome', { timeout: 8000 })
-  // The title card plays first, and the tagline's letters come in one by one after it.
+  // The title card says what it is, and whose: "A commonplace book" (kept by you, when your name can be read).
   let tag = ''
-  for (let i = 0; i < 40 && !tag.endsWith('come back to you'); i++) {
+  for (let i = 0; i < 60 && !/A commonplace book/.test(tag); i++) {
     await h.waitForTimeout(250)
-    tag = await h.$eval('[data-tagline]', (one) => one.textContent).catch(() => '')
+    tag = await h.$eval('[data-title-card]', (one) => one.textContent).catch(() => '')
   }
-  check('12. the welcome says “Haligtree: a modern commonplace book where notes come back to you”', tag === 'Haligtree: a modern commonplace book where notes come back to you', tag)
+  check('12. the welcome\'s title card says Haligtree, a commonplace book', /Haligtree/.test(tag) && /A commonplace book/.test(tag), tag)
   for (let i = 0; i < 6 && !(await h.$('[data-welcome-first]')); i++) {
     await h.click('footer button:has-text("Next"), footer button:has-text("Show me")').catch(() => {})
     await h.waitForTimeout(900)

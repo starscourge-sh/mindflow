@@ -8,7 +8,6 @@ export const GATHER_AT = 8400
 /** When the title card lifts, clearing the way for the first words on the arrival's beat. */
 export const LIFT_AT = ARRIVE_MS - 2000
 
-const ROMAN = (year: number): string => [[1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'], [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']].reduce((out, [n, s]) => { while (year >= (n as number)) (out += s), (year -= n as number); return out }, '')
 /** The bunch's size, as the last page's near enough, so each leaf reads in its squares. */
 const SCALE = 0.62
 
@@ -27,8 +26,8 @@ export function WelcomeTitle({ name, hurry = false }: { name: string; hurry?: bo
     animate: { opacity: 1, filter: 'blur(0px)', letterSpacing: '0.24em' },
     transition: { delay, duration: 1.4, ease: [0.22, 1, 0.36, 1] }
   })
-  // A commonplace book is kept, as a diary is: "Kept by Reed" on its title page, or the year it was begun.
-  const under = name ? `Kept by ${name}` : ROMAN(new Date().getFullYear())
+  // What it is and whose, as a title page says it: "A commonplace book kept by Reed"; with no name to be read, "A commonplace book".
+  const under = name ? `A commonplace book kept by ${name}` : 'A commonplace book'
   // The leaves fly across the whole card and gather where the mark sits: its place read off the slot above the words.
   const card = useRef<HTMLDivElement>(null)
   const slot = useRef<HTMLDivElement>(null)

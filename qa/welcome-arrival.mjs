@@ -24,7 +24,7 @@ const WHOLE = [
   'Your plans live in another.',
   'What you want to remember and practice (flashcards) lives in a third.',
   'In each one, going back is your job. So mostly, nobody does.',
-  'Haligtree treats writing, planning and memory not as three separate tools, but as the same thought evolving over time.'
+  'Haligtree changes the direction. Instead of asking you to search, it brings your writing, plans, and practice back to you.'
 ]
 const words = () => h.evaluate(() => [...document.querySelectorAll('[data-thesis]')].map((el) => el.innerText.replace(/\s+/g, ' ').trim()))
 const heard = () => h.evaluate(() => [...(window.haligtreeHeard ?? [])])
@@ -111,7 +111,7 @@ try {
   check('and the sound carries on', !(await heard()).slice(before).includes('cue:bed-end'), (await heard()).slice(before).join())
   check('no pointer once settled', (await h.locator('[data-pointer]').count()) === 0)
 
-  check('the tagline\'s promise is underlined in ink, on one line', await h.evaluate(() => { const ink = document.querySelector('[data-tagline] [data-ink]'); return !!ink && ink.getClientRects().length === 1 }))
+  check('no header above the headline: the page opens on the problem', await h.evaluate(() => !document.querySelector('.mf-welcome [data-words] [data-tagline]')))
   check('the ruled margin runs down the page', await h.evaluate(() => { const m = document.querySelector('[data-margin]'); return !!m && m.getBoundingClientRect().height > 600 }))
 
   // A page turned: it lifts away as one page of a book, heard as a page; the margin stays; the bed shifts. Skipped to the end: it comes home.

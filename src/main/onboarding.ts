@@ -72,12 +72,15 @@ export const pretendTaken = (now: string | null): boolean => !!now && (process.e
 let trayBounds: () => Electron.Rectangle | null = () => null
 export const whereTray = (find: () => Electron.Rectangle | null): void => void (trayBounds = find)
 
-/** The first word of your Mac's own name for you, read once. Nothing when it cannot be read. */
+/** The first word of the computer's own name for you, read once: the Mac account's full name, or on Linux
+ *  the account's real-name field. Windows and a login name (such as "jdoe") give nothing: a login is not a name. */
 let firstName: string | undefined
 function nameOf(): string {
   if (firstName !== undefined) return firstName
   try {
-    const full = process.platform === 'darwin' ? execFileSync('id', ['-F'], { timeout: 800 }).toString().trim() : userInfo().username
+    const full = process.platform === 'darwin' ? execFileSync('id', ['-F'], { timeout: 800 }).toString().trim()
+      : process.platform === 'linux' ? (execFileSync('getent', ['passwd', userInfo().username], { timeout: 800 }).toString().split(':')[4] ?? '').split(',')[0].trim()
+        : ''
     firstName = /^[\p{L}][\p{L}'-]{0,23}$/u.test(full.split(/\s+/)[0] ?? '') ? full.split(/\s+/)[0] : ''
   } catch {
     firstName = ''

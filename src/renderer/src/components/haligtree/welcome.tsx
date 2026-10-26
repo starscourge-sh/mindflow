@@ -719,7 +719,7 @@ const MARGIN_NOTE = 'You never write anything down to do nothing with it.'
 /** Said once the three are up: why notes go unseen (going back is left to you). */
 const QUESTION = 'In each one, going back is your job. So mostly, nobody does.'
 // One thing is pitched: the three are one thought, growing. What Haligtree is was said at the top, in the tagline.
-const ANSWER = `${APP_NAME} treats writing, planning and memory not as three separate tools, but as *the same thought evolving over time*.`
+const ANSWER = `${APP_NAME} changes the direction. Instead of asking you to search, it brings your writing, plans, and practice *back to you*.`
 
 type ThesisState = { noted: boolean; opened: boolean; words: number; gaps: number; kept: number; line: number; move: Move; slanted: number; asked: boolean; answer: boolean; said: number; book: boolean }
 const THESIS_START: ThesisState = { noted: false, opened: false, words: 0, gaps: 0, kept: 0, line: -1, move: 'off', slanted: 0, asked: false, answer: false, said: 0, book: false }
@@ -766,7 +766,7 @@ function thesisBeats(): Beat<ThesisState>[] {
   beats.push({ at: t, to: { answer: true }, cue: () => bell(PENTA[0] * 2, 0.014, 'answer') })
   const answer = typed<ThesisState>(plainOf(ANSWER), t + 250, (sofar) => ({ said: sofar.length }), random, 0.9, 2200)
   beats.push(...answer.beats)
-  // The answer read, the tagline's promise is underlined by hand: what it said at the top, now shown.
+  // The answer read, a breath before the page is done.
   t = answer.end + 700
   beats.push({ at: t, to: { book: true } })
   beats.push({ at: t + 900, to: {} })
@@ -775,7 +775,6 @@ function thesisBeats(): Beat<ThesisState>[] {
 
 function ThesisChapter({ play, report }: { play: boolean; report: (now: Reel) => void }): React.JSX.Element {
   const [beats] = useState(thesisBeats)
-  const [when] = useState(dateline)
   const show = useScript<ThesisState>(THESIS_START, beats, play, 1)
   useReport(report, show.done, show.settle, show.part)
   const s = show.done ? THESIS_END : show.state
@@ -790,14 +789,7 @@ function ThesisChapter({ play, report }: { play: boolean; report: (now: Reel) =>
   return (
     <div ref={root} className="relative flex min-h-0 flex-1 flex-col justify-center pb-2">
       <div data-reel={show.done ? 'done' : 'playing'} data-words className="flex max-w-[58rem] flex-col gap-[clamp(0.75rem,2.6vh,1.75rem)]">
-        <div data-mist-clear={s.opened ? '' : undefined} className="flex flex-col gap-[clamp(0.75rem,2.6vh,1.75rem)]">
-          <p className={FIGURES}><Condense text={when} on={s.opened} quick={quick} /></p>
-          <p data-tagline className="text-[clamp(1.0625rem,min(1.9vw,2.7vh),1.3125rem)] font-semibold text-foreground">
-            {/* Its promise underlined by hand once the page has made it: on one line, where the stroke never breaks. */}
-            <Condense text={TAGLINE.slice(0, TAGLINE.indexOf(PROMISE))} on={s.opened} quick={quick} delay={0.25} stagger={0.05} />
-            <Underlined on={s.book} quick={quick}><Condense text={PROMISE} on={s.opened} quick={quick} delay={0.45} stagger={0.05} /></Underlined>
-          </p>
-        </div>
+        {/* No header above it: the title card before it said the name; this page opens on the problem. */}
         {/* The headline resolves out of the mist a word to a note, each word in its place from the start. */}
         <h1 data-thesis="line" data-words={Math.min(s.words, THESIS.split(' ').length)} data-mist-clear={s.words > 0 ? '' : undefined} aria-label={THESIS} className={`${HEADLINE_XL} max-w-[18ch]`}>
           {THESIS.split(' ').map((word, i, all) => (
@@ -910,23 +902,7 @@ function ForYou({ setup, at }: { setup?: Setup; at: Where }): React.JSX.Element 
 /** The words that carry a line's point: the accent with a light passing over it now and then (main.css, .mf-sheen). */
 /** A pen's stroke under the words that carry the point, drawn left to right the moment they are said, a little uneven, as a reader underlines a book. */
 /** The tagline's promise, which the page's hand underlines. */
-const PROMISE = 'come back to you'
 
-/**
- * A hand-drawn stroke under words on one line, drawn left to right as a pen
- * would, a little uneven, in the page's ink.
- */
-function Underlined({ children, on, quick }: { children: ReactNode; on: boolean; quick: boolean }): React.JSX.Element {
-  return (
-    <span data-ink="" data-drawn={on ? '' : undefined} className="relative inline-block whitespace-nowrap">
-      {children}
-      <svg aria-hidden viewBox="0 0 100 10" preserveAspectRatio="none" className="pointer-events-none absolute -bottom-[0.32em] -left-[0.04em] h-[0.42em] w-[calc(100%+0.08em)] overflow-visible">
-        <path d="M1 6.5 C 18 4, 34 7.5, 52 5.2 S 84 4.2, 99 3.6" pathLength={1} fill="none" stroke="var(--primary)" strokeWidth={2.6} strokeLinecap="round" strokeDasharray="1 1"
-          style={{ strokeDashoffset: on ? 0 : 1, transition: quick ? 'none' : 'stroke-dashoffset 0.9s cubic-bezier(0.65,0,0.35,1)' }} />
-      </svg>
-    </span>
-  )
-}
 
 /**
  * A reader's note in the margin beside the three, the way a commonplace book
