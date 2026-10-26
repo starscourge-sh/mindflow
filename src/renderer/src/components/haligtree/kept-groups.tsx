@@ -5,7 +5,8 @@ import { SortableContext, useSortable, type SortingStrategy } from '@dnd-kit/sor
 /** dnd-kit moves no row itself: where each one slides is worked out once, for rows and panels alike (Shaped). */
 const unmoved: SortingStrategy = () => null
 import { AnimatePresence, animate, motion, motionValue, useMotionValue, useSpring, useTransform, type MotionValue } from 'motion/react'
-import { BookOpen, ChevronRight, GripVertical, Layers, Plus, X as Cross } from 'lucide-react'
+import { BookOpen, ChevronRight, GripVertical, ImagePlus, Layers, Plus, X as Cross } from 'lucide-react'
+import { saveImage } from '@/extensions/image-drop'
 
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
@@ -847,11 +848,15 @@ function GroupTile({ group, onFold, ...rest }: { group: GroupView; onFold?: () =
   )
 }
 
-/** A group's icon: an emoji, a kind's drawing, or the stack every group starts with, in its colour. */
+/** A picture of your own as a folder's icon: stored with the book's pictures (a GIF keeps moving). */
+const isPicture = (icon: string | null): icon is string => !!icon && icon.startsWith('haligtree://assets/')
+
+/** A group's icon: a picture of your own, an emoji, a kind's drawing, or the stack every group starts with, in its colour. */
 export function GroupIcon({ icon, color, className = 'size-4' }: { icon: string | null; color: string | null; className?: string }): React.JSX.Element {
   const kind = icon?.startsWith('kind:') ? CAPTURE_TYPES.find((one) => one.id === icon.slice(5)) : undefined
   const tint = tintOf(color)
   if (kind) return <kind.icon className={className} style={{ color: tint ?? kind.tint }} />
+  if (isPicture(icon)) return <img data-folder-picture src={icon} alt="" draggable={false} className={cn(className, 'shrink-0 rounded-[3px] object-contain')} />
   if (icon) return <span className="text-[0.95rem] leading-none">{icon}</span>
   return <Layers className={cn(className, !tint && 'text-muted-foreground')} style={{ color: tint }} />
 }
@@ -1313,6 +1318,24 @@ export function IconChoice({ group, onPick }: { group: Pick<GroupView, 'icon' | 
             </button>
           </Tip>
         ))}
+        <span className="flex-1" />
+        {/* A picture of your own, as Notion lets you: a GIF keeps moving. The one in use shows here, chosen. */}
+        {isPicture(group.icon) && (
+          <button type="button" onClick={() => onPick(group.icon)} data-active="" className="flex size-7 items-center justify-center rounded-md bg-accent">
+            <GroupIcon icon={group.icon} color={group.color} />
+          </button>
+        )}
+        <Tip label="Upload a picture: PNG, JPG, GIF or SVG">
+          <label data-folder-upload className="flex h-7 cursor-pointer items-center gap-1.5 rounded-md px-2 text-control text-muted-foreground hover:bg-accent hover:text-foreground">
+            <ImagePlus aria-hidden className="size-4" />Upload
+            <input type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml,image/avif" className="sr-only"
+              onChange={(event) => {
+                const file = event.currentTarget.files?.[0]
+                event.currentTarget.value = ''
+                if (file) void saveImage(file).then(onPick, () => chime('nope'))
+              }} />
+          </label>
+        </Tip>
       </div>
       <IconPicker icon={group.icon ?? ''} className="rounded-none! border-0! bg-transparent! shadow-none!" onPick={({ icon }) => icon && onPick(icon)} />
     </div>
