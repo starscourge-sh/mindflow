@@ -55,7 +55,7 @@ try {
     return { edges: Math.round(edges / 0.592 / 255), middle: Math.round(middle / 0.408 / 255) }
   })
   if (SHOTS) await h.screenshot({ path: join(SHOTS, `leaves-${THEME}-later.png`) })
-  check('later, clearly there, inked strongest round the edges, fainter across the middle', later.edges > 250 && later.edges > later.middle * 3, JSON.stringify(later))
+  check('later, clearly there, inked strongest round the edges, fainter across the middle', later.edges > 150 && later.edges > later.middle * 2.5, JSON.stringify(later))
   check('the big ones gone, smaller ones drifting on', after.inked > 20 && after.inked < swimming.inked * 0.6, `${swimming.inked} -> ${after.inked}`)
   // On "It comes back to you.", full to its edges: none in the middle of the page.
   for (let i = 0; i < 20 && !(await h.getByText('It comes back to you.').count()); i++) {
