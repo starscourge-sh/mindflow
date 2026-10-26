@@ -18,8 +18,10 @@ const check = (name, ok, detail = '') => { results.push(!!ok); console.log(`${ok
 
 const TITLES = ['Spaced repetition, a primer', 'How memory palaces work', 'Reading list for October', 'Notes on Zettelkasten', 'The forgetting curve', 'Interleaving beats blocking']
 
-const open = async () => {
+const open = async (fresh = true) => {
   const c = await sandbox({ width: 1100, height: 760 })
+  // From a book with no folders yet: the sandbox's own are taken away, their notes left where they are.
+  if (fresh) for (const list of ['article', 'nugget']) for (const group of await c.v('groups', list)) await c.v('groups:delete', group.id)
   // Your own order, as a list: where groups show.
   await c.h.evaluate(() => localStorage.setItem('view:article', JSON.stringify({ sort: 'manual', group: 'none', filter: {}, density: 'list' })))
   return c
@@ -375,7 +377,7 @@ if (c) try {
 if (c) await c.close()
 
 // 10. A restart: names, colour, members and the fold kept. The hands. Then dark, and another sort.
-c = process.env.ONLY ? null : await open()
+c = process.env.ONLY ? null : await open(false)
 if (c) try {
   await articles(c)
   const memory = await named(c, 'Memory')

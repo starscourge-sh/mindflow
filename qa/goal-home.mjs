@@ -12,6 +12,8 @@ const strip = () => h.evaluate(() => ({ ids: [...document.querySelectorAll('[dat
 try {
   const open = (await v('items', 'goal')).filter((one) => !one.closedAt && !one.archivedAt && one.goalAt).sort((a, b) => a.goalAt.localeCompare(b.goalAt))
   check('the sandbox has at least four open goals', open.length >= 4, open.length)
+  // From none chosen: the sandbox shows its Odyssey goal on Home, taken off here.
+  for (const one of open) if (one.starredAt) await v('review:star', one.id, false)
   await go('home')
   let now = await strip()
   check('at first the strip shows the two nearest', now.ids.join() === open.slice(0, 2).map((one) => one.id).join(), JSON.stringify(now))

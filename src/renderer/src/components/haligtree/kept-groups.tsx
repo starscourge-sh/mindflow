@@ -549,7 +549,7 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
       <SortableContext items={keys} strategy={unmoved}>
         <Shaped aim={aim} keys={keys} hand={carried} many={many} span={span} inset={inset} row={rowH} snap={snap} blocks={blockRows}>
           {ordered && <OwnOrderHint />}
-          <VirtualList items={lines} keyOf={({ one }) => (one.group ? KEY + one.group.id + (shownIn(one) > BIG ? ':big' : '') : one.entries[0].id)} cursor={line >= 0 ? line : undefined} estimate={estimate} className={className}
+          <VirtualList items={lines} keyOf={({ one }) => (one.group ? KEY + one.group.id + (shownIn(one) > BIG ? ':big' : '') : one.entries[0].id)} holds={({ one }, id) => one.entries.some((entry) => entry.id === id)} cursor={line >= 0 ? line : undefined} estimate={estimate} className={className}
             // A big group's line is keyed apart from a small one's: emptied in one step (2,500 rows to none), the list
             // would place every row under it by the height it measured before, scroll there and draw it all twice.
             sizeOf={({ one }) => (one.group?.open ? estimate * (1 + shownIn(one)) : estimate)}>

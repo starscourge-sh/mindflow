@@ -1733,6 +1733,55 @@ A whole town painted with nobody in it. I stood in front of it for twenty minute
   })
   nuggets++
   threadAges.push({ createdAt: yearsBack(2, 6, 18, '16:40'), nuggetId: urbino })
+
+  // A page whose lists are a board: each heading a column, each line a card to carry across.
+  const shelf = await essay('Reading this winter', `
+## To read
+
+- The Epic of Gilgamesh, the Andrew George translation
+- Middlemarch, because everyone says the second half is worth it
+- The Left Hand of Darkness
+
+## Reading
+
+- Dune, Book Three, before film night
+- The Odyssey, Book 10: Circe
+
+## Finished
+
+- The Picture of Dorian Gray
+- Pride and Prejudice
+- Frankenstein
+`)
+  await call('notes:fields:set', 'nuggets', shelf, 'kanban-plugin', 'board')
+  // Begun a month ago, so it sits under the newer pages.
+  threadAges.push({ createdAt: at(-34, '21:00'), nuggetId: shelf })
+
+  // Folders in Writing and Gems, as the sidebar shows them: an icon each, one three deep, one still empty.
+  const folder = async (list: string, name: string, icon: string, ids: string[], parent: string | null = null): Promise<string> => {
+    const id = await call<string>('groups:make', list, name, parent)
+    await call('groups:set', id, { icon })
+    if (ids.length) await call('groups:place', ids.map((one) => ({ id: one, group: id })))
+    return id
+  }
+  await folder('article', 'Films and books', '🎬', [matrix, timeGiven, hermione, shelf])
+  const history = await folder('article', 'History', '🏛️', [rosetta, article])
+  const renaissanceFolder = await folder('article', 'Renaissance', '🎨', [florence, ceiling], history)
+  await folder('article', 'Leonardo', '📐', [notebooks], renaissanceFolder)
+  await folder('article', 'Trips to write up', '🧳', [])
+  await folder('nugget', 'Space', '🔭', [schwarzschild, lagrange])
+  await folder('nugget', 'Lines from books', '📖', [wilde, gandalf, aurelius])
+  await folder('nugget', 'Words worth knowing', '🌧️', [petrichor])
+
+  // Two words looked up and not answered yet: Lookups holds them until their meaning is in.
+  for (const [text, n] of [['Sonder', -3], ['Hiraeth', -12]] as const) await write(await capture({ kind: 'word' }, at(n, '22:10')), text)
+
+  // The Odyssey goal chosen for the top of Home; an old ambition paused, on ice, not given up.
+  await call('review:star', homer, true)
+  const akkadianGoal = await call<string>('goal:new', 'Read Gilgamesh in the Akkadian', day(120), day(-60), 'To read the oldest story in the words it was pressed into.')
+  await call('gloss', akkadianGoal, 'Too much at once with the Odyssey going. Back to it in the spring.')
+  await call('goal:close', akkadianGoal, 'on ice')
+  nuggets++
   await call('sandbox:age', threadAges)
 
   // Opened this morning, so Home's first tiles are the Matrix piece and the card it grew from.
