@@ -31,7 +31,7 @@ const measure = (line, sibling) => h.evaluate(([line, sibling]) => {
 }, [line, sibling])
 
 try {
-  await v('settings:set', { sounds: false, hintRate: 0, writingSound: 'rain', typingVoice: 'deep' })
+  await v('settings:set', { sounds: false, hintRate: 0, writingSound: 'rain' })
   const today = new Date().toLocaleDateString('en-CA')
   await v('notes:day:save', today, { body: { type: 'doc', content: [para('The morning was grey and the sea was out. I walked down to the water and back before anyone was up.')] } })
   for (const name of ['light', 'dark']) {
@@ -64,7 +64,7 @@ try {
     await wait(800)
     const rows = await h.evaluate(() => {
       const one = document.querySelector('[data-setting-title="While you write"]')
-      const two = document.querySelector('[data-setting-title="Typing voice"]')
+      const two = document.querySelector('[data-setting-title="While you write"]')
       one?.scrollIntoView({ block: 'center' })
       const a = one?.getBoundingClientRect()
       const b = document.querySelector('[data-setting-title="Volume"]')?.getBoundingClientRect()
@@ -74,7 +74,7 @@ try {
     await wait(300)
     const again = await h.evaluate(() => {
       const top = document.querySelector('[data-setting-title="Volume"]').getBoundingClientRect()
-      const end = (document.querySelector('[data-setting-title="Session ticking"]') ?? document.querySelector('[data-setting-title="Typing voice"]')).getBoundingClientRect()
+      const end = (document.querySelector('[data-setting-title="Session ticking"]') ?? document.querySelector('[data-setting-title="While you write"]')).getBoundingClientRect()
       return { x: top.x, y: top.y, width: top.width, height: end.bottom - top.y }
     })
     check(`${name}: Settings has both rows`, !!rows)
