@@ -14,6 +14,7 @@ import { ASKS, CAPTURE_TYPES, CaptureKindPicker, byKind, type CaptureType } from
 import { SourceFoot } from './source-page'
 import { voiceOf } from '@/lib/sources'
 import { Proofread } from './proofread'
+import { RecentIsland } from './recent-island'
 import { askProofread } from '@/lib/grammar'
 import { CaptureList, fieldOf, captureEntry, captureMenu, tagCaptures, useCaptures, whereFrom, type CaptureMeta } from '../capture-list'
 import { tagTint } from './tag-icon'
@@ -942,6 +943,7 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
       {later && <Lineage id={capture.id} onOpen={onOpen} />}
       {later && <LocalGraph id={capture.id} title={capture.label} onOpen={onOpen} />}
       {later && <SimilarNotes id={capture.id} onOpen={onOpen} />}
+      {later && <RecentIsland id={capture.id} onOpen={onOpen} />}
       <Island compact title="Details">
         {/* Each value with a quiet word for what it is: a bare "Mac" or "7 Oct" left you guessing. */}
         <Prop icon={Hash}><Lead>Its number</Lead>{captureKey(capture.number)}</Prop>

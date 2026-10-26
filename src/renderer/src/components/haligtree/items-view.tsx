@@ -60,6 +60,7 @@ import { RoomFoot, useWritingRoom } from './writing-room'
 import { useWritingSound } from './writing-sound'
 import { writerMenu } from './writer-tools'
 import { Proofread } from './proofread'
+import { RecentIsland } from './recent-island'
 import { askProofread } from '@/lib/grammar'
 import { ListSearch, NoteList, NoteRail, PaneButtons, Peek, matches, type Entry } from './note-list'
 import { archive, changeKind, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
@@ -1142,6 +1143,7 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
         {later && <Lineage id={item.id} onOpen={onOpen} />}
         {later && <LocalGraph id={item.id} title={item.title} onOpen={onOpen} />}
         {later && <SimilarNotes id={item.id} onOpen={onOpen} />}
+        {later && <RecentIsland id={item.id} onOpen={onOpen} />}
         <Island compact title="Wrong?">
           {item.supersededBy ? (
             <Prop icon={TriangleAlert}>Replaced: out of Review, kept beside what is true</Prop>

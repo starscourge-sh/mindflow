@@ -4258,6 +4258,20 @@ export function registerHome(): void {
   db.exec('create table if not exists note_opens (id text primary key, type text not null, at text not null)')
   ipcMain.handle('haligtree:home:opened', (_event, type: string, id: string) =>
     void db.prepare('insert into note_opens (id, type, at) values (?, ?, ?) on conflict(id) do update set at = excluded.at, type = excluded.type').run(id, type, now()))
+  // The notes opened most lately, newest first, for the "Recent" island under a note's details: looked up one by
+  // one (a few at most), never the whole shelf, and only those still there.
+  ipcMain.handle('haligtree:home:recent-opened', (_event, limit: number) => {
+    const want = Math.max(1, Math.min(20, Number(limit) || 6))
+    const capture = db.prepare(`select id, 'capture' as type, ${LABEL} as title, kind, private from captures where id = ? and status != 'discarded' and archived_at is null`)
+    const nugget = db.prepare(`select id, tier as type, coalesce(nullif(title, ''), label('', body)) as title, kind, private from nuggets where id = ? and archived_at is null and superseded_by is null and tier not in ('card')`)
+    const found: { id: string; type: string; title: string; kind: string | null; private: number }[] = []
+    for (const open of db.prepare('select id, type from note_opens order by at desc limit 40').all() as { id: string; type: string }[]) {
+      const row = (open.type === 'capture' ? capture : nugget).get(open.id) as (typeof found)[number] | undefined
+      if (row) found.push(row)
+      if (found.length >= want) break
+    }
+    return found
+  })
 
   // Every note in view, as a shelf shows it: newest change first.
   const NOTES = `select id, 'capture' as type, ${LABEL} as title, kind, private, coalesce(edited_at, captured_at) as at, captured_at as made, body, attribution as who from captures where status != 'discarded' and archived_at is null
