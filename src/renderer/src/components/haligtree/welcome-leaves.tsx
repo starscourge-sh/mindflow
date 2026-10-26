@@ -427,7 +427,7 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
         const gusting = Math.min(1.6, stir)
         pace += (1 + 2 * near + 1.5 * gusting - pace) * (1 - Math.exp(-dt * (gusting > 0.05 ? 5 : 1.6)))
         loud += (near - loud) * ease
-        const level = Math.min(1, 0.8 * loud + 0.6 * gusting + 0.35 * Math.min(1, wind))
+        const level = Math.min(1, 0.8 * loud + 0.6 * gusting + 0.08 * Math.min(1, wind))
         if (Math.abs(level - heard) > 0.01 || (heard && level < 0.01)) rustle((heard = level < 0.01 ? 0 : level))
         for (; burst > 0; burst--) toward(target!)
         if (now > nextAt && drawn.length < STREAM + Math.round(3 * near + 6 * gusting)) (toward(target!), (nextAt = now + 1100 / pace))

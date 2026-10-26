@@ -61,8 +61,12 @@ const page = async (name, target) => {
   if (name === 'dial') {
     // ↓ and ↑ turn the dial from anywhere on its page, a stop at a time (← and → turn the welcome's pages).
     const before = await lure()
+    const spot = () => h.evaluate(() => { const r = document.querySelector('.mf-welcome [role="slider"][aria-label="Theme"]').getBoundingClientRect(); return Math.round(r.top * 10) / 10 })
+    const at0 = await spot()
     for (let i = 0; i < 3; i++) (await h.keyboard.press('ArrowDown')), await h.waitForTimeout(150)
     const turned = await lure()
+    await h.waitForTimeout(700)
+    check('dial: turned, it stays where it was (its "Your turn" line fades, its room kept)', (await spot()) === at0 && (await h.locator('[data-dial-ask]').count()) === 1, `${at0} -> ${await spot()}`)
     check('dial: each turn of the dial a push', turned.stir > before.stir + 0.5 && turned.pace > before.pace && turned.rustle > before.rustle, `stir ${before.stir?.toFixed(2)} -> ${turned.stir?.toFixed(2)}, pace ${before.pace?.toFixed(2)} -> ${turned.pace?.toFixed(2)}, rustle ${before.rustle?.toFixed(2)} -> ${turned.rustle?.toFixed(2)}`)
     for (let i = 0; i < 3; i++) (await h.keyboard.press('ArrowUp')), await h.waitForTimeout(150)
     await h.waitForTimeout(2500)

@@ -1414,7 +1414,11 @@ function DialChapter({ play, report, onPick, mine }: { play: boolean; report: (n
             <div className="[view-transition-name:mf-theme-dial]">
               <ThemeDial calm size={size} big wear={fadeTo} onPick={(theme) => void (show.done && (yours.current = true, setTurned(true), onPick(theme)))} onFullTurn={() => (setSay(FULL_TURN), setTimeout(() => setSay(undefined), 1800))} say={say} />
             </div>
-            {show.done && !turned && <Action className="relative z-20 mt-1 text-center">Your turn: turn the dial</Action>}
+            {/* Its room is kept from the start and after the first turn: it fades, so the dial never moves under your hand. */}
+            <motion.div data-dial-ask={show.done && !turned ? 'on' : 'off'} aria-hidden={!show.done || turned || undefined} className="relative z-20 mt-1 text-center"
+              initial={false} animate={{ opacity: turned ? 0 : 1 }} transition={{ duration: 0.5, ease: EASE }}>
+              <Action key={show.done ? 'on' : 'off'} className={show.done ? '' : 'invisible'}>Your turn: turn the dial</Action>
+            </motion.div>
           </motion.div>
       </div>
     </>
