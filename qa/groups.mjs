@@ -98,7 +98,7 @@ if (c) try {
     hold: async () => {
       await frames(c, 'a-middle', 6, 40)
       check('over a row\'s middle, a preview of the group shows', await c.h.locator('[data-preview]').count() === 1)
-      check('and the label says so', (await said(c)) === 'New group', await said(c))
+      check('and the label says so', (await said(c)) === 'New folder', await said(c))
       check('and no insertion line', await c.h.locator('[data-drop-line]').count() === 0)
     }
   })
@@ -109,7 +109,7 @@ if (c) try {
   let list = await groupsNow(c)
   check('let go there, a group of two forms', list.length === 1 && list[0].members.length === 2)
   const focused = await c.h.evaluate(() => document.activeElement?.getAttribute('aria-label'))
-  check('its name is being written', focused === 'Group name', String(focused))
+  check('its name is being written', focused === 'Folder name', String(focused))
   await c.h.keyboard.type('Memory')
   await c.h.keyboard.press('Enter')
   await c.h.waitForTimeout(400)
@@ -171,12 +171,12 @@ if (c) try {
   await c.h.locator('[data-slot="context-menu-content"] [role="menuitem"]', { hasText: /^Copy$/ }).hover().catch(() => {})
   await c.h.waitForTimeout(300)
   const lines = await c.h.locator('[data-slot="context-menu-content"] [role="menuitem"], [data-slot="context-menu-sub-content"] [role="menuitem"]').allTextContents()
-  check('the menu speaks for the two picked', lines.some((one) => one.startsWith('New group with 2 notes')) && lines.some((one) => one.startsWith('Duplicate 2 notes')) && lines.some((one) => one.startsWith('Copy 2 links')) && lines.some((one) => one.startsWith('Archive 2 notes')), lines.join(' | '))
+  check('the menu speaks for the two picked', lines.some((one) => one.startsWith('New folder with 2 notes')) && lines.some((one) => one.startsWith('Duplicate 2 notes')) && lines.some((one) => one.startsWith('Copy 2 links')) && lines.some((one) => one.startsWith('Archive 2 notes')), lines.join(' | '))
   await frames(c, 'g-menu', 1, 0)
-  await c.h.locator('[data-slot="context-menu-sub-trigger"]', { hasText: 'Move to group' }).hover()
+  await c.h.locator('[data-slot="context-menu-sub-trigger"]', { hasText: 'Move to folder' }).hover()
   await c.h.waitForTimeout(350)
   const sub = await c.h.locator('[data-slot="context-menu-sub-content"] [role="menuitem"]').allTextContents()
-  check('Move to group lists Memory and New group…', sub.includes('Memory') && sub.includes('New group…'), sub.join(' | '))
+  check('Move to folder lists Memory and New folder…', sub.includes('Memory') && sub.includes('New folder…'), sub.join(' | '))
   await frames(c, 'h-submenu', 1, 0)
   await c.h.keyboard.press('Escape')
   await c.h.keyboard.press('Escape')
@@ -188,8 +188,8 @@ if (c) try {
   await frames(c, 'i-ctrlcmdn', 6, 35)
   await c.h.waitForTimeout(300)
   list = await groupsNow(c)
-  check('⌃⌘N makes a group of the picked rows', list.length === 2 && list.some((one) => one.members.length === 2 && /^Group \d+$/.test(one.name)), JSON.stringify(list.map((one) => one.name)))
-  check('with its name being written', (await c.h.evaluate(() => document.activeElement?.getAttribute('aria-label'))) === 'Group name')
+  check('⌃⌘N makes a group of the picked rows', list.length === 2 && list.some((one) => one.members.length === 2 && /^Folder \d+$/.test(one.name)), JSON.stringify(list.map((one) => one.name)))
+  check('with its name being written', (await c.h.evaluate(() => document.activeElement?.getAttribute('aria-label'))) === 'Folder name')
   await c.h.keyboard.type('Reading')
   await c.h.keyboard.press('Enter')
   await c.h.waitForTimeout(400)
@@ -268,7 +268,7 @@ if (c) try {
   await carry(c, row(c, "Mnemosyne's problem"), row(c, 'What The Matrix gets right'), 0.5, {
     hold: async () => {
       await c.h.waitForTimeout(200)
-      check('over a lone row, the label says a group of three', (await said(c)) === 'New group of 3', await said(c))
+      check('over a lone row, the label says a group of three', (await said(c)) === 'New folder of 3', await said(c))
     }
   })
   await c.h.waitForTimeout(700)
@@ -299,12 +299,12 @@ if (c) try {
   await apart('Remove from group', async () => {
     await (await reach(c, 'Notes on Zettelkasten')).click({ button: 'right' })
     await c.h.waitForTimeout(250)
-    await c.h.locator('[role="menuitem"]', { hasText: 'Remove from group' }).click()
+    await c.h.locator('[role="menuitem"]', { hasText: 'Remove from folder' }).click()
   })
-  await apart('Move to group', async () => {
+  await apart('Move to folder', async () => {
     await (await reach(c, 'Notes on Zettelkasten')).click({ button: 'right' })
     await c.h.waitForTimeout(250)
-    await c.h.locator('[data-slot="context-menu-sub-trigger"]', { hasText: 'Move to group' }).hover()
+    await c.h.locator('[data-slot="context-menu-sub-trigger"]', { hasText: 'Move to folder' }).hover()
     await c.h.waitForTimeout(350)
     // Into the submenu by the keys, as a hand would glide there: its first line is Memory.
     await c.h.keyboard.press('ArrowRight')
@@ -328,7 +328,7 @@ if (c) try {
   await (await reach(c, 'Interleaving beats blocking')).click({ button: 'right' })
   await c.h.waitForTimeout(250)
   const single = await c.h.locator('[data-slot="context-menu-content"] [role="menuitem"]').allTextContents()
-  check('one row\'s menu offers no new group of one', !single.some((one) => one.startsWith('New group')), single.join(' | '))
+  check('one row\'s menu offers no new group of one', !single.some((one) => one.startsWith('New folder')), single.join(' | '))
   await c.h.keyboard.press('Escape')
   await c.h.waitForTimeout(250)
 
@@ -355,12 +355,12 @@ if (c) try {
   const memory = c.h.locator('[data-group-block]', { has: c.h.locator('[data-group-row]', { hasText: 'Memory' }) })
   await head(c, 'Memory').hover()
   await c.h.waitForTimeout(200)
-  await memory.locator('button[aria-label^="Separate"]').hover()
+  await memory.locator('button[aria-label^="Delete folder"]').hover()
   await c.h.waitForTimeout(700)
   const tip = await c.h.evaluate(() => [...document.querySelectorAll('[role="tooltip"], [data-slot="tooltip-content"]')].map((one) => one.textContent).join(' '))
-  check('the × says what it keeps', tip.includes('Separate: keeps all 3 notes'), tip)
+  check('the × says what it keeps', tip.includes('Delete folder, keep its 3 notes'), tip)
   await frames(c, 'k-x-hover', 1, 0)
-  await memory.locator('button[aria-label^="Separate"]').click()
+  await memory.locator('button[aria-label^="Delete folder"]').click()
   await frames(c, 'l-separate', 8, 35)
   await c.h.waitForTimeout(600)
   check('Separate takes the group away and keeps its notes', !(await named(c, 'Memory')) && (await row(c, 'The forgetting curve').count()) === 1)
@@ -368,7 +368,7 @@ if (c) try {
   await c.h.waitForTimeout(800)
   check('⌘Z puts the group back together', (await named(c, 'Memory'))?.members.length === 3)
   // Folded, to see the fold kept after a restart.
-  await head(c, 'Memory').click()
+  await head(c, 'Memory').locator('[data-group-fold]').click()
   await c.h.waitForTimeout(500)
 } catch (error) {
   console.error(error)
@@ -601,7 +601,7 @@ try {
     await reveal(title)
     await row(c, title).click({ button: 'right' })
     await c.h.waitForTimeout(250)
-    await c.h.locator('[data-slot="context-menu-sub-trigger"]', { hasText: 'Move to group' }).hover()
+    await c.h.locator('[data-slot="context-menu-sub-trigger"]', { hasText: 'Move to folder' }).hover()
     await c.h.waitForTimeout(350)
     await c.h.keyboard.press('ArrowRight')
     await c.h.waitForTimeout(150)
@@ -616,7 +616,7 @@ try {
   await reveal(titleOf(hide[1]))
   await row(c, titleOf(hide[1])).click({ button: 'right' })
   await c.h.waitForTimeout(250)
-  await c.h.locator('[role="menuitem"]', { hasText: 'Remove from group' }).click()
+  await c.h.locator('[role="menuitem"]', { hasText: 'Remove from folder' }).click()
   await c.h.waitForTimeout(700)
   check('a hidden row sits between the groups', await c.h.evaluate((id) => {
     const at = document.querySelector(`[data-row][data-id="${id}"]`)
@@ -661,7 +661,7 @@ try {
   await c.h.waitForTimeout(400)
   const columns = await c.h.evaluate(() => {
     const eye = [...document.querySelectorAll('[data-group-block] [data-row] .sr-only')].find((one) => one.textContent === 'Private')?.parentElement?.querySelector('svg')?.getBoundingClientRect()
-    const cross = document.querySelector('[data-group-block] button[aria-label^="Separate"] svg')?.getBoundingClientRect()
+    const cross = document.querySelector('[data-group-block] button[aria-label^="Delete folder"] svg')?.getBoundingClientRect()
     return eye && cross ? { eye: eye.left + eye.width / 2, cross: cross.left + cross.width / 2 } : null
   })
   check('the eye and the × share one column', !!columns && Math.abs(columns.eye - columns.cross) <= 2, JSON.stringify(columns))
@@ -692,8 +692,8 @@ try {
   const shownNow = (await order(c)).filter(Boolean)
   await carry(c, row(c, shownNow[shownNow.length - 1].slice(0, 18)), row(c, shownNow[1].slice(0, 18)), 0.1)
   await c.h.waitForTimeout(800)
-  for (let i = 0; i < 3; i++) { await c.h.locator('[data-group-row]').nth(i).click(); await c.h.waitForTimeout(350) }
-  for (let i = 0; i < 3; i++) { await c.h.locator('[data-group-row]').nth(i).click(); await c.h.waitForTimeout(350) }
+  for (let i = 0; i < 3; i++) { await c.h.locator('[data-group-row]').nth(i).locator('[data-group-fold]').click(); await c.h.waitForTimeout(350) }
+  for (let i = 0; i < 3; i++) { await c.h.locator('[data-group-row]').nth(i).locator('[data-group-fold]').click(); await c.h.waitForTimeout(350) }
   await c.h.mouse.move(900, 700)
   await c.h.waitForTimeout(400)
   bad = await overlaps(c)

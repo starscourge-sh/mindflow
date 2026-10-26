@@ -3,7 +3,7 @@
 // pointed at; its rows starting and ending where every other row does; two of
 // a group's notes dropped one on the other making a subgroup in it; a group
 // dropped on another's row going inside it; all of it kept after a reload;
-// and "Open as a page" reading the group's notes as one stream.
+// and "Read as one page" reading the folder's notes as one stream.
 //
 //   npx electron-vite build --outDir out-x
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=<dir> node qa/group-nest.mjs
@@ -86,7 +86,7 @@ try {
 
   // 41: two of its own notes, one over the other, make a subgroup in it.
   await carry(row('Strategy'), row('Observer'), 0.5, async () => {
-    check('over another of its own notes, the label offers a subgroup', /New subgroup/.test(await said()), await said())
+    check('over another of its own notes, the label offers a folder inside it', /New folder (of \d+ )?in /.test(await said()), await said())
     await h.screenshot({ path: `${dir}/41-subgroup-forming.png` })
   })
   await h.keyboard.press('Escape')
@@ -98,7 +98,7 @@ try {
   await h.screenshot({ path: `${dir}/41-subgroup.png` })
 
   // A group with no subgroups let go on another group's row goes inside it: Design patterns folded first, so the two rows sit together.
-  await head('Design patterns').click()
+  await head('Design patterns').locator('[data-group-fold]').click()
   await wait(600)
   await carry(head('Structural'), head('Design patterns'), 0.5, async () => {
     await h.screenshot({ path: `${dir}/41-group-into-group.png` })
@@ -106,7 +106,7 @@ try {
   })
   list = await groupsNow()
   check('let go there, it is a subgroup of it', list.find((one) => one.id === 'st')?.parent === 'dp', JSON.stringify(list.map((one) => [one.name, one.parent])))
-  await head('Design patterns').click()
+  await head('Design patterns').locator('[data-group-fold]').click()
   await h.reload()
   await wait(1800)
   await c.go('articles')
@@ -125,9 +125,9 @@ try {
   // 41: a group's own page.
   await head('Design patterns').click({ button: 'right' })
   await wait(400)
-  await h.getByRole('menuitem', { name: 'Open as a page' }).click()
+  await h.getByRole('menuitem', { name: 'Read as one page' }).click()
   await wait(1500)
-  check('"Open as a page" reads the group as a page of its own', await h.locator('[data-group-page="dp"]').count() === 1)
+  check('"Read as one page" reads the folder as a page of its own', await h.locator('[data-group-page="dp"]').count() === 1)
   const notes = await h.locator('[data-group-note]').count()
   check('with every note in it, its subgroups\' too', notes === 6, String(notes))
   const heads = await h.evaluate(() => [...document.querySelectorAll('[data-group-part] h2')].map((one) => one.textContent.trim()))

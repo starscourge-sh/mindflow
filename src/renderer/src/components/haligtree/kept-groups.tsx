@@ -937,6 +937,8 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
   const [named, setNamed] = useState<string | null>(null)
   useEffect(() => void (named !== null && named === group.name && setNamed(null)), [named, group.name])
   const name = named ?? group.name
+  const opening = useRef<ReturnType<typeof setTimeout>>(undefined)
+  useEffect(() => () => clearTimeout(opening.current), [])
   const rename = (next: string): void => {
     onRenaming(false)
     if (!next.trim() || next.trim() === group.name) return
@@ -1013,8 +1015,14 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
                       data-group-row={group.id}
                       aria-expanded={group.open}
                       // As in Finder: a click opens the folder, its triangle alone folds it open in place, a double click on the name renames it.
-                      onClick={(event) => (event.detail > 1 ? undefined : onOpenFolder ? (chime('open'), onOpenFolder(group.id)) : fold())}
-                      onDoubleClick={() => onRenaming(true)}
+                      // The open waits out a double click's second press, so a double click renames and never opens first.
+                      onClick={(event) => {
+                        if (event.detail > 1) return
+                        if (!onOpenFolder) return fold()
+                        clearTimeout(opening.current)
+                        opening.current = setTimeout(() => (chime('open'), onOpenFolder(group.id)), 220)
+                      }}
+                      onDoubleClick={() => (clearTimeout(opening.current), onRenaming(true))}
                       // ← folds and → unfolds, as a folder in a list does; Enter renames it, as in Finder.
                       onKeyDown={(event) => {
                         if ((event.key === 'ArrowLeft' && group.open) || (event.key === 'ArrowRight' && !group.open)) (event.preventDefault(), fold())

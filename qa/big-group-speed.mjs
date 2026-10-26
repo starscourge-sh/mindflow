@@ -53,7 +53,7 @@ try {
   await c.go('nuggets')
   await h.waitForTimeout(2500)
   // The group open, to start.
-  if ((await h.locator(`[data-group-row="${big.id}"]`).getAttribute('aria-expanded')) !== 'true') { await h.locator(`[data-group-row="${big.id}"]`).click(); await h.waitForTimeout(800) }
+  if ((await h.locator(`[data-group-row="${big.id}"]`).getAttribute('aria-expanded')) !== 'true') { await h.locator(`[data-group-row="${big.id}"] [data-group-fold]`).click(); await h.waitForTimeout(800) }
   await h.evaluate(() => {
     window.__lt = []
     new PerformanceObserver((list) => list.getEntries().forEach((one) => window.__lt.push(Math.round(one.duration)))).observe({ type: 'longtask', buffered: false })
@@ -110,7 +110,7 @@ try {
   check('⌘A picked every gem', said === n || said === n.replace(/./g, '$&$&'), `${said} selected of ${all}`)
   await h.keyboard.press('Escape'); await h.waitForTimeout(400)
 
-  const fold = h.locator(`[data-group-row="${big.id}"]`)
+  const fold = h.locator(`[data-group-row="${big.id}"] [data-group-fold]`)
   await arm(); await fold.click(); await measure('fold')
   const inGroup = () => h.locator(`[data-group-block="${big.id}"] [data-row]`).count()
   check('folded, its rows leave', (await inGroup()) === 0, `${await inGroup()} rows`)
@@ -145,17 +145,17 @@ try {
 
   // Renaming the group from its row.
   await fold.dblclick(); await h.waitForTimeout(400)
-  const field = h.locator('input[aria-label="Group name"]')
+  const field = h.locator('input[aria-label="Folder name"]')
   check('a double click opens the name for writing', await field.count())
   await field.fill('Obsidian vault'); await field.press('Enter'); await h.waitForTimeout(800)
   check('renamed, the name is kept', (await c.v('groups', 'nugget')).find((one) => one.id === big.id)?.name === 'Obsidian vault')
 
-  // "New note in group" from the group's menu.
+  // "New note in folder" from the group's menu.
   const before = (await c.v('groups', 'nugget')).find((one) => one.id === big.id).members.length
   await h.locator(`[data-group-row="${big.id}"]`).click({ button: 'right' }); await h.waitForTimeout(400)
-  await h.getByRole('menuitem', { name: 'New note in group' }).click(); await h.waitForTimeout(1200)
+  await h.getByRole('menuitem', { name: 'New note in folder' }).click(); await h.waitForTimeout(1200)
   const grown = (await c.v('groups', 'nugget')).find((one) => one.id === big.id).members.length
-  check('"New note in group" adds a note to it', grown === before + 1, `${before} → ${grown}`)
+  check('"New note in folder" adds a note to it', grown === before + 1, `${before} → ${grown}`)
   await h.keyboard.press('Escape'); await h.waitForTimeout(300)
   await h.evaluate(() => document.activeElement?.blur())
   await h.keyboard.press('Escape'); await h.waitForTimeout(500)
@@ -186,7 +186,7 @@ try {
   await h.keyboard.press('Meta+a'); await h.waitForTimeout(800)
   await h.locator('[data-page="nuggets"] [data-row]').nth(2).click({ button: 'right' })
   await h.waitForTimeout(500)
-  const remove = h.getByRole('menuitem', { name: 'Remove from group' })
+  const remove = h.getByRole('menuitem', { name: 'Remove from folder' })
   // A line picked with the pointer blinks twice (about 150 ms, as the Finder's menus do: menu-blink.ts) and is then
   // clicked again for real. Settled once the group's row has gone from the page, timed from that real click.
   await arm()

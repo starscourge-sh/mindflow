@@ -83,7 +83,7 @@ try {
   // Back to everything.
   await folder(money).click()
   await c.h.waitForTimeout(700)
-  await c.h.locator('[data-folder-open]').click()
+  await c.h.locator('[data-path-part=""]').click()
   await c.h.waitForTimeout(700)
   check('back goes to the whole list', (await c.h.locator('[data-folder-open]').count()) === 0 && (await writingRow.getAttribute('aria-current')) === 'page')
 
