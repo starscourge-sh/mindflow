@@ -1844,6 +1844,9 @@ export function FocusNote(): React.JSX.Element {
  * sit under cards or headings; the keyboard's row is scrolled to even before it
  * is drawn, so gg and G land.
  */
+/** A list longer than this measures its new rows once laid out, not as they come in. */
+const LAZY = 500
+
 export function VirtualList<T>({ items, keyOf, holds, cursor, estimate = 48, sizeOf, className = '', rowClass = 'pb-0.5', children }: {
   items: T[]
   /** Whether a row holds this id, where a row is more than one (a line of tiles): its key is asked otherwise. */
@@ -1901,7 +1904,21 @@ export function VirtualList<T>({ items, keyOf, holds, cursor, estimate = 48, siz
     estimateSize: (index) => (sizeOf ? sizeOf(items[index]) : estimate),
     overscan: 4,
     scrollMargin: margin,
-    getItemKey: (index) => keyOf(items[index])
+    getItemKey: (index) => keyOf(items[index]),
+    // In a long list, a row newly drawn is measured by the observer once laid out, never read at once: read as each
+    // row came in, the whole page was laid out there and then (unfolding a 2,500-note folder spent about 30 ms on it).
+    // Short lists read at once still: carrying a row in one leans on its rows' heights from the first draw.
+    measureElement: (row, seen, list) => {
+      const box = seen?.borderBoxSize?.[0]
+      if (box) return Math.round(box.blockSize)
+      if (!seen) {
+        const index = list.indexFromElement(row)
+        const known = list.itemSizeCache.get(list.options.getItemKey(index))
+        if (known !== undefined) return known
+        if (list.options.count > LAZY) return list.options.estimateSize(index)
+      }
+      return (row as HTMLElement).offsetHeight
+    }
   })
   // The keyboard's row, drawn or not yet: left still if it shows, to the edge
   // for a step, centred for a jump. Asked again once the scroller is found, so
