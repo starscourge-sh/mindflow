@@ -1208,17 +1208,15 @@ input[type='number']::-webkit-outer-spin-button {
   inset: 0;
   border-radius: 0;
   pointer-events: none;
-  /* Strong enough to be seen over a busy desktop from the corner of the eye. */
-  box-shadow: inset 0 0 60px color-mix(in srgb, var(--glow) 50%, transparent), inset 0 0 0 2px color-mix(in srgb, var(--glow) 75%, transparent);
+  /* A soft light coming in from the edge, no line: seen from the corner of the eye, never a frame (a line set in
+     from the edge read as a gap at the top). */
+  box-shadow: inset 0 0 80px color-mix(in srgb, var(--glow) 32%, transparent), inset 0 0 18px color-mix(in srgb, var(--glow) 22%, transparent);
   opacity: 0;
   animation: mf-glow 1.9s ease-in-out forwards;
 }
-/* A Mac's own screen: its corners are rounded and cut off light drawn at the
-   very edge, so the frame is set a little in and rounded the same way, its
-   line wholly on the glass all round, corners included. */
+/* A Mac's own screen: its top corners are rounded, and the light follows them, right to the edge. */
 .mf-glow[data-rounded] {
-  inset: 3px;
-  border-radius: 14px;
+  border-radius: 12px 12px 0 0;
 }
 .mf-glow-done { --glow: var(--tt-color-text-green, #3c8a5c); }
 .mf-glow-cancel { --glow: var(--tt-color-text-orange, #d9822b); }

@@ -282,8 +282,8 @@ try {
     return win && { fullscreenable: win.isFullScreenable(), fullscreen: win.isFullScreen(), simple: win.isSimpleFullScreen() }
   })
   check('3: the glow can never go full screen (no Space of its own)', shown && !shown.fullscreenable && !shown.fullscreen && !shown.simple, JSON.stringify(shown))
-  const edge = await glow.$eval('.mf-glow', (one) => ({ rounded: one.hasAttribute('data-rounded'), inset: getComputedStyle(one).top, radius: getComputedStyle(one).borderTopLeftRadius })).catch(() => null)
-  check('49: on a Mac’s own screen the frame is set in and rounded', edge?.rounded && parseFloat(edge.inset) >= 2 && parseFloat(edge.radius) >= 12, JSON.stringify(edge))
+  const edge = await glow.$eval('.mf-glow', (one) => ({ rounded: one.hasAttribute('data-rounded'), inset: getComputedStyle(one).top, radius: getComputedStyle(one).borderTopLeftRadius, line: /0px 0px 0px 2px/.test(getComputedStyle(one).boxShadow) })).catch(() => null)
+  check('49: on a Mac’s own screen the light reaches the very top, its top corners rounded as the screen’s, with no line to leave a gap', edge?.rounded && parseFloat(edge.inset) === 0 && parseFloat(edge.radius) >= 12 && !edge.line, JSON.stringify(edge))
 
   // --- 14, 17: under the notch.
   await v('settings:set', { pillSits: 'notch' })
