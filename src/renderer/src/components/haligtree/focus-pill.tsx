@@ -1762,7 +1762,7 @@ export const SMOKE_EASE = `@property --beam-strength { syntax: '<number>'; inher
 /**
  * One gleam across the pill, like light sliding over glossy glass: a wide
  * soft band, angled, with a feathered falloff and a faint glint trailing it,
- * eased across in 1.25s on transform alone and clipped to the pill. The top
+ * eased across in 0.8s on transform alone, faint (it read as tacky brighter and slower) and clipped to the pill. The top
  * edge's sheen brightens as it passes. Screened onto a dark pill; on a light
  * one, laid on plainly with a soft shadow leading it. Brutal wears a flat, hard-edged band
  * instead, and Paper the soft band alone: only Soft has the sheen.
@@ -1779,7 +1779,7 @@ export function Gleam({ light }: { light: boolean }): React.JSX.Element {
     if (calm) {
       if (band.current) runs.push(band.current.animate([{ opacity: 0 }, { opacity: 1 }, { opacity: 0 }], { duration: 1200, easing: 'ease-in-out' }))
     } else {
-      const timing = { duration: 1250, easing: hardBand ? 'cubic-bezier(0.65, 0, 0.35, 1)' : 'cubic-bezier(0.45, 0, 0.55, 1)' }
+      const timing = { duration: 800, easing: hardBand ? 'cubic-bezier(0.65, 0, 0.35, 1)' : 'cubic-bezier(0.45, 0, 0.55, 1)' }
       // The band is 60% of the pill wide: from wholly off the left to wholly off the right.
       if (band.current) runs.push(band.current.animate([{ transform: 'translateX(-100%) skewX(-20deg)' }, { transform: 'translateX(175%) skewX(-20deg)' }], timing))
       if (sheen.current && style === 'soft') runs.push(sheen.current.animate([{ opacity: 0 }, { opacity: 0, offset: 0.2 }, { opacity: 1, offset: 0.5 }, { opacity: 0, offset: 0.85 }, { opacity: 0 }], timing))
@@ -1791,10 +1791,10 @@ export function Gleam({ light }: { light: boolean }): React.JSX.Element {
   // highlight laid on plainly, with a soft shadow just ahead of it, darker
   // then brighter, the way a curve of glass shows a light.
   const soft = light
-    ? `linear-gradient(90deg, transparent 0%, ${white(0.45)} 22%, ${white(0.85)} 40%, ${white(0.45)} 56%, transparent 64%, rgb(0 0 0 / 0.13) 80%, transparent 100%)`
-    : `linear-gradient(90deg, transparent 0%, ${white(0.18)} 30%, ${white(0.28)} 50%, ${white(0.18)} 70%, transparent 100%)`
+    ? `linear-gradient(90deg, transparent 0%, ${white(0.2)} 22%, ${white(0.4)} 40%, ${white(0.2)} 56%, transparent 64%, rgb(0 0 0 / 0.06) 80%, transparent 100%)`
+    : `linear-gradient(90deg, transparent 0%, ${white(0.07)} 30%, ${white(0.11)} 50%, ${white(0.07)} 70%, transparent 100%)`
   // The glint: a thin second light behind the band, fainter.
-  const glint = `linear-gradient(90deg, transparent 4%, ${white(0.14)} 8%, transparent 12%)`
+  const glint = `linear-gradient(90deg, transparent 4%, ${white(0.06)} 8%, transparent 12%)`
   const hard = light
     ? `linear-gradient(90deg, transparent 30%, ${white(0.6)} 30%, ${white(0.6)} 55%, rgb(0 0 0 / 0.12) 55%, rgb(0 0 0 / 0.12) 62%, transparent 62%)`
     : `linear-gradient(90deg, transparent 30%, ${white(0.3)} 30%, ${white(0.3)} 55%, transparent 55%)`
@@ -1804,7 +1804,7 @@ export function Gleam({ light }: { light: boolean }): React.JSX.Element {
         <span ref={band} className="absolute inset-0" style={{ opacity: 0, background: `color-mix(in oklab, var(--tt-brand-color-400) ${light ? 10 : 14}%, transparent)` }} />
       ) : (
         <>
-          {style === 'soft' && <span ref={sheen} className="absolute inset-x-[8%] top-0 h-[45%]" style={{ opacity: 0, background: `linear-gradient(${white(light ? 0.45 : 0.16)}, transparent)`, borderRadius: 'inherit' }} />}
+          {style === 'soft' && <span ref={sheen} className="absolute inset-x-[8%] top-0 h-[45%]" style={{ opacity: 0, background: `linear-gradient(${white(light ? 0.22 : 0.07)}, transparent)`, borderRadius: 'inherit' }} />}
           <span ref={band} className="absolute -inset-y-2 left-0 w-[60%]" style={{ transform: 'translateX(-100%) skewX(-20deg)', willChange: 'transform', background: hardBand ? hard : style === 'paper' ? soft : `${soft}, ${glint}` }} />
         </>
       )}
