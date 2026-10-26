@@ -2076,8 +2076,9 @@ html[data-book-hue] [data-book-tint] {
    motion it is not drawn, and the plain accent caret above stays. */
 [data-day-write]:has(.mf-living-caret[data-shown]) .tiptap.ProseMirror { caret-color: transparent; }
 .mf-living-caret {
-  position: absolute; top: 0; left: -1px; z-index: 2;
-  width: 2.5px; border-radius: 2px;
+  /* Starting on the letter's own edge, never before it: at a line's start it sits on the text's left edge. */
+  position: absolute; top: 0; left: 0; z-index: 2;
+  width: 2px; border-radius: 2px;
   background: var(--tt-cursor-color);
   pointer-events: none; opacity: 0;
   transition: translate 90ms cubic-bezier(0.2, 0.8, 0.2, 1), height 90ms ease-out, opacity 120ms ease-out;
