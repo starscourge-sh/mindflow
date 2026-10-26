@@ -114,12 +114,19 @@ function notesAsMarkdown(db: DatabaseSync, assets: string, live = false): Map<st
   return files
 }
 
+/** Code's own "#" left out: a shell comment ("rm -rf x #then…") or a CSS colour is no tag. */
+const uncoded = (text: string): string => text.replace(/#/g, '')
 /** A body as words; `links` keeps each @ link as `[[@nugget:id|Label]]`, for a card that shows them as links. */
 export function plain(value: unknown, links = false): string {
-  if (typeof value === 'string') return links ? value : value.replace(/\[\[@[^|\]]+\|([^\]]+)\]\]/g, '$1')
-  const walk = (node: { type?: string; text?: string; attrs?: { id?: string; label?: string }; content?: unknown[] }): string =>
+  if (typeof value === 'string') {
+    // Markdown: fenced blocks and `inline code` keep their words but not their "#".
+    const words = value.replace(/```[\s\S]*?(?:```|$)|`[^`\n]+`/g, uncoded)
+    return links ? words : words.replace(/\[\[@[^|\]]+\|([^\]]+)\]\]/g, '$1')
+  }
+  const walk = (node: { type?: string; text?: string; marks?: { type?: string }[]; attrs?: { id?: string; label?: string }; content?: unknown[] }, code = false): string =>
     node.type === 'noteLink' ? (links && node.attrs?.id && node.attrs.label ? `[[@${node.attrs.id}|${node.attrs.label}]]` : node.attrs?.label ?? '') :
-    node.text ?? (node.content ?? []).map((child) => walk(child as typeof node)).join('\n')
+    node.text !== undefined ? (code || node.marks?.some((mark) => mark.type === 'code') ? uncoded(node.text) : node.text) :
+    (node.content ?? []).map((child) => walk(child as typeof node, code || node.type === 'codeBlock')).join('\n')
   return value ? walk(value as { content?: unknown[] }) : ''
 }
 
