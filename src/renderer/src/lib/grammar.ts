@@ -58,6 +58,24 @@ function textOf(doc: PMNode): { text: string; at: (offset: number) => number } {
   return { text, at }
 }
 
+/**
+ * A word's spelling fixes from Harper's own dictionary, for the words the page's spellchecker underlines but
+ * cannot suggest for ("everthing", "mackbook"): its list reaches only the commonest slips. Empty when Harper
+ * thinks it spelt right. Kept per word, so a word is asked once.
+ */
+const spelt = new Map<string, Promise<string[]>>()
+export function spellFixes(word: string): Promise<string[]> {
+  let found = spelt.get(word)
+  if (!found) {
+    found = grammar().then((one) => one.lint(word, { language: 'plaintext' })).then((lints) => {
+      const lint = lints.find((one) => one.lint_kind() === 'Spelling')
+      return lint ? lint.suggestions().filter((one) => one.kind() === 0).map((one) => one.get_replacement_text()).filter(Boolean) : []
+    }, () => [])
+    spelt.set(word, found)
+  }
+  return found
+}
+
 /** What Harper finds in a document, in order, spelling left out. */
 export async function findings(doc: PMNode): Promise<Finding[]> {
   const { text, at } = textOf(doc)

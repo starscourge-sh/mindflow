@@ -6,7 +6,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/tiptap-ui-primitive/dropdown-menu"
+import { useEffect, useState } from "react"
 import { host } from "@/lib/host"
+import { spellFixes } from "@/lib/grammar"
 
 /** A misspelt word in the document, where it sits, and what it might be. */
 export interface Misspelling {
@@ -26,6 +28,23 @@ const WORD = /[\p{L}\p{M}]+(?:['’][\p{L}\p{M}]+)*/gu
  * here exactly when it is underlined. Nothing when spellcheck is off, the note
  * is locked, or the host has no spellchecker to ask.
  */
+/** The word under a point, and where it is in the document: null outside a word, or where spelling is off. */
+export function wordAt(editor: Editor, x: number, y: number): { word: string; from: number; to: number } | null {
+  if (!editor.isEditable || !editor.view.dom.spellcheck) return null
+  const found = editor.view.posAtCoords({ left: x, top: y })
+  if (!found) return null
+  const $pos = editor.state.doc.resolve(found.pos)
+  if (!$pos.parent.isTextblock) return null
+  const text = $pos.parent.textBetween(0, $pos.parent.content.size, undefined, "￼")
+  for (const match of text.matchAll(WORD)) {
+    const start = match.index
+    if (start > $pos.parentOffset || $pos.parentOffset > start + match[0].length) continue
+    const from = $pos.start() + start
+    return { word: match[0], from, to: from + match[0].length }
+  }
+  return null
+}
+
 export function misspeltAt(editor: Editor, x: number, y: number): Misspelling | null {
   const check = host().misspelt
   if (!check || !editor.isEditable || !editor.view.dom.spellcheck) return null
@@ -54,20 +73,29 @@ export function misspeltAt(editor: Editor, x: number, y: number): Misspelling | 
  * Inside any of the editor's menus, which lend them their row styling.
  */
 export function SpellingRows({ editor, spelling }: { editor: Editor; spelling: Misspelling }) {
+  // Nothing from the page's checker (its list is short): Harper's dictionary, once loaded.
+  const [more, setMore] = useState<string[]>([])
+  useEffect(() => {
+    if (spelling.suggestions.length || spelling.word !== spelling.word.toLowerCase()) return
+    let gone = false
+    void spellFixes(spelling.word).then((fixes) => !gone && setMore(fixes))
+    return () => void (gone = true)
+  }, [spelling.word, spelling.suggestions.length])
+  const offered = spelling.suggestions.length ? spelling.suggestions : more
   // A transaction rather than inserting content, so the word keeps its marks.
   const replace = (word: string) =>
     editor.chain().focus().command(({ tr }) => (tr.insertText(word, spelling.from, spelling.to), true)).run()
   return (
     <>
       <div className="tiptap-slash-menu-group">Spelling</div>
-      {spelling.suggestions.slice(0, 5).map((word) => (
+      {offered.slice(0, 5).map((word) => (
         <DropdownMenuItem key={word} asChild>
           <button type="button" onClick={() => replace(word)}>
             <span className="tiptap-slash-menu-title">{word}</span>
           </button>
         </DropdownMenuItem>
       ))}
-      {spelling.suggestions.length ? null : (
+      {offered.length ? null : (
         <div className="tiptap-slash-menu-group">No suggestions</div>
       )}
     </>

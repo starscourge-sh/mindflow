@@ -200,15 +200,16 @@ try {
   await wait(1800)
   const hint = await h.evaluate(() => document.querySelector('[data-spell-hint]')?.textContent ?? null)
   check('5. the first suggestion shows for a flagged word', /receive/.test(hint ?? ''), String(hint))
-  const over = await h.evaluate(() => {
+  const near = await h.evaluate(() => {
     const pill = document.querySelector('[data-spell-hint]').getBoundingClientRect()
-    const range = document.createRange()
-    range.selectNodeContents(document.querySelector('[data-day-write] .tiptap'))
-    return [...range.getClientRects()].filter((r) => r.width && r.left < pill.right && r.right > pill.left && r.top < pill.bottom && r.bottom > pill.top).length
+    const ed = document.querySelector('[data-day-write] .tiptap')
+    const walk = document.createTreeWalker(ed, NodeFilter.SHOW_TEXT)
+    let node, range = null
+    while ((node = walk.nextNode())) { const at = node.textContent.lastIndexOf('recieve'); if (at >= 0) { range = document.createRange(); range.setStart(node, at); range.setEnd(node, at + 7) } }
+    const word = range.getBoundingClientRect()
+    return { dx: Math.round(pill.left - word.left), dy: Math.round(pill.top - word.bottom) }
   })
-  check('5. and it sits clear of the words, over none of them', over === 0, String(over))
-  const under = await h.evaluate(() => { const pill = document.querySelector('[data-spell-hint]').getBoundingClientRect(); const room = document.querySelector('[data-day-write]').closest('.overflow-y-auto') ?? document.body; return [[pill.left + 4, pill.top + pill.height / 2], [pill.right - 4, pill.top + pill.height / 2]].every(([x, y]) => { const one = document.elementFromPoint(x, y); return !!one && room.contains(one) }) })
-  check('5. and under no panel: the margin it sits in is bare', under)
+  check('5. and it sits right under the word, as the Mac\'s autocorrect bubble does', Math.abs(near.dx) <= 3 && near.dy >= 0 && near.dy <= 8, JSON.stringify(near))
   await h.keyboard.press('Tab')
   await wait(300)
   check('5. and Tab takes it', await h.evaluate(() => /receive$/.test(document.querySelector('[data-day-write] .tiptap').textContent.trim())), await h.evaluate(() => document.querySelector('[data-day-write] .tiptap').textContent.slice(-30)))
@@ -217,6 +218,12 @@ try {
   await h.keyboard.press('ArrowLeft')
   await wait(1800)
   check('5. "monday" offers "Monday"', /Monday/.test(await h.evaluate(() => document.querySelector('[data-spell-hint]')?.textContent ?? '')), await h.evaluate(() => document.querySelector('[data-spell-hint]')?.textContent ?? 'none'))
+  // A misspelling at the end of the last line: "everthing" offers "everything".
+  await h.keyboard.press('End')
+  await h.keyboard.type(' everthing', { delay: 30 })
+  await h.keyboard.press('ArrowLeft'); await h.keyboard.press('ArrowLeft')
+  await wait(1800)
+  check('5. "everthing" offers "everything"', /everything/.test(await h.evaluate(() => document.querySelector('[data-spell-hint]')?.textContent ?? '')), await h.evaluate(() => document.querySelector('[data-spell-hint]')?.textContent ?? 'none'))
 
   // 3. An empty past day: its own prompt, no beam.
   const past = new Date(); past.setDate(past.getDate() - 40)

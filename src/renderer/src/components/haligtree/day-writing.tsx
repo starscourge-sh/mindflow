@@ -5,7 +5,8 @@ import { createPortal } from 'react-dom'
 import type { Editor } from '@tiptap/react'
 
 import { useCounts } from '@/components/count/word-count'
-import { misspeltAt, type Misspelling } from '@/components/turn-into/spelling'
+import { misspeltAt, wordAt, type Misspelling } from '@/components/turn-into/spelling'
+import { spellFixes } from '@/lib/grammar'
 import { useStill } from '@/lib/motion'
 import { useLive, haligtree, type Settings } from '@/lib/haligtree'
 import { chime } from '@/lib/sound'
@@ -259,25 +260,29 @@ export function LivingCaret({ editor }: { editor: Editor | null }): React.JSX.El
           clearTimeout(still)
           still = window.setTimeout(() => one.setAttribute('data-resting', ''), 600)
         }
-        const flagged = document.documentElement.hasAttribute('data-day-typing') ? null : misspeltAt(editor, at.left - 1, (at.top + at.bottom) / 2)
+        const resting = !document.documentElement.hasAttribute('data-day-typing')
+        const flagged = resting ? misspeltAt(editor, at.left - 1, (at.top + at.bottom) / 2) : null
+        // Underlined but with nothing from the page's checker (its list is short): Harper's dictionary, asked once
+        // per word, and shown only if the caret is still on that word. Names (a capital) are left alone.
+        if (resting && !flagged?.suggestions.length) {
+          const here = wordAt(editor, at.left - 1, (at.top + at.bottom) / 2)
+          if (here && here.word.length > 2 && here.word === here.word.toLowerCase()) {
+            void spellFixes(here.word).then((fixes) => {
+              const now = editor.state.selection.head
+              if (!fixes.length || editor.isDestroyed || now < here.from || now > here.to || editor.state.doc.textBetween(here.from, here.to) !== here.word) return
+              const word = editor.view.coordsAtPos(here.from)
+              setHint({ ...here, suggestions: fixes, x: word.left - from.left + box.scrollLeft, y: y + h + 2, h })
+            })
+          }
+        }
         // Tab offers only a likely fix: for a word in lower case, a capitalised one only when it is that word with a
         // capital ("monday" to "Monday") or a letter off, never a different name ("Sligo" for "slsig").
         const best = flagged?.suggestions[0]
         if (!best || (flagged.word === flagged.word.toLowerCase() && best !== best.toLowerCase() && apart(best.toLowerCase(), flagged.word) > 1)) return setHint(null)
-        // Clear of the words: under the word when nothing is written below its line, else in the
-        // margin beside the line with room for it, else not at all (the squiggle and right-click stay).
-        const last = editor.view.coordsAtPos(editor.state.doc.content.size - 1).bottom <= at.bottom + 1
-        if (last) return setHint({ ...flagged, x: editor.view.coordsAtPos(flagged.from).left - from.left + box.scrollLeft, y: y + h + 4, h })
-        const page = dom.getBoundingClientRect()
-        const scroller = box.closest<HTMLElement>('.overflow-y-auto') ?? document.body
-        const room = scroller.getBoundingClientRect()
-        const wide = flagged.suggestions[0].length * 9 + 64
-        // A margin counts only if it is bare: nothing laid over it there (the Journal's side panel, a sticky).
-        const mid = (at.top + at.bottom) / 2
-        const bare = (x: number): boolean => { const there = document.elementFromPoint(x, mid); return !!there && scroller.contains(there) }
-        const right = room.right - page.right - 16 >= wide && bare(page.right + 12 + wide) && bare(page.right + 12 + wide / 2)
-        if (!right && (page.left - room.left - 16 < wide || !bare(page.left - 12 - wide) || !bare(page.left - 12 - wide / 2))) return setHint(null)
-        setHint({ ...flagged, x: (right ? page.right + 12 : page.left - 12) - from.left, y: y + (h - 24) / 2, h, end: !right })
+        // Right under the word it fixes, as the Mac's own autocorrect bubble sits: its left edge at the word's, just
+        // below its line, over the next line if there is one (it goes as you type on).
+        const word = editor.view.coordsAtPos(flagged.from)
+        setHint({ ...flagged, x: word.left - from.left + box.scrollLeft, y: y + h + 2, h })
       })
     }
     // Tab takes the suggestion while it shows; otherwise Tab is the editor's.
