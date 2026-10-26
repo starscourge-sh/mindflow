@@ -55,6 +55,23 @@ try {
   await h.waitForTimeout(800)
   check('the welcome opens on Why, chapter 1', /Chapter 1 of \d+: Why/.test(await chapter()), await chapter())
   await shot('why-start')
+  // Played through, the margin note's arrow is drawn out from the line first, then the note is written.
+  const order = await h.evaluate(() => new Promise((ok) => {
+    const seen = {}
+    const end = Date.now() + 40000
+    const look = () => {
+      const t = performance.now()
+      const shaft = document.querySelectorAll('[data-margin-note] svg path')[1]
+      const word = document.querySelector('[data-margin-words] > span')
+      if (shaft && seen.arrow == null && parseFloat(getComputedStyle(shaft).opacity) > 0.05) seen.arrow = t
+      if (word && seen.words == null && parseFloat(getComputedStyle(word).opacity) > 0.05) seen.words = t
+      if ((seen.arrow != null && seen.words != null) || Date.now() > end) return ok(seen)
+      requestAnimationFrame(look)
+    }
+    look()
+  }))
+  check('the margin note: arrow first, then the words', order.arrow != null && order.words != null && order.words - order.arrow > 400, JSON.stringify(order))
+  await shot('why-note')
   await settle()
   await h.waitForTimeout(900)
   const why = await h.evaluate(() => [...document.querySelectorAll('[data-thesis]')].map((el) => el.innerText.replace(/\s+/g, ' ').trim()))

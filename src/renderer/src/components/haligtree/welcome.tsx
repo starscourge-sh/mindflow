@@ -719,10 +719,12 @@ const MARGIN_NOTE = 'But\u2026 you never write anything down to do nothing with 
 const NOTE_LETTER_S = 0.045
 const NOTE_WORD_GAP_S = 0.08
 const noteWrites = (): { starts: number[]; lengths: number[]; arrowAt: number; end: number } => {
-  let at = 0.15
+  // The arrow first (its head at the line, then its stroke out to where the note goes), then the note.
+  const arrowAt = 0.15
+  let at = arrowAt + 0.18 + 0.5 + 0.12
   const starts: number[] = [], lengths: number[] = []
   for (const word of MARGIN_NOTE.split(' ')) (starts.push(at), lengths.push(word.length * NOTE_LETTER_S), (at += word.length * NOTE_LETTER_S + NOTE_WORD_GAP_S))
-  return { starts, lengths, arrowAt: at + 0.15, end: at + 0.15 + 0.75 }
+  return { starts, lengths, arrowAt, end: at }
 }
 /** Said once the three are up: why notes go unseen (going back is left to you). */
 const QUESTION = 'In each one, going back is your job. So mostly, nobody does.'
@@ -917,8 +919,8 @@ function ForYou({ setup, at }: { setup?: Setup; at: Where }): React.JSX.Element 
 
 /**
  * A reader's note in the margin to the right of the cause, the way a
- * commonplace book is annotated: written on as a pen writes, a letter at a
- * time left to right, then a pen arrow drawn from it to the line. With no
+ * commonplace book is annotated: a pen arrow drawn out from the line, then
+ * the note written on as a pen writes, a letter at a time left to right. With no
  * room to its right, left out, never squeezed over words.
  */
 function MarginNote({ on, quick }: { on: boolean; quick: boolean }): React.JSX.Element {
@@ -952,11 +954,11 @@ function MarginNote({ on, quick }: { on: boolean; quick: boolean }): React.JSX.E
           </Fragment>
         ))}
       </span>
-      {/* The arrow, drawn once the note is written: from the note back to the line, with a head. */}
+      {/* The arrow, drawn before the note: its head at the line, then its stroke out to where the note is written. */}
       <svg viewBox="0 0 40 16" className="pointer-events-none absolute top-1/2 left-[calc(100%+0.6rem)] h-4 w-[2.6rem] -translate-y-1/2 overflow-visible">
-        {['M38 5 C 28 1, 14 2, 3 9', 'M7.5 4.8 L 3 9 L 8.6 10.8'].map((d, i) => (
+        {['M7.5 4.8 L 3 9 L 8.6 10.8', 'M3 9 C 14 2, 28 1, 38 5'].map((d, i) => (
           <path key={i} d={d} pathLength={1} fill="none" stroke="var(--primary)" strokeWidth={1.3} strokeLinecap="round" strokeLinejoin="round" strokeDasharray="1 1"
-            style={{ strokeDashoffset: shown ? 0 : 1, opacity: shown ? 0.85 : 0, transition: quick || !shown ? 'none' : `stroke-dashoffset ${i ? 0.18 : 0.5}s cubic-bezier(0.65,0,0.35,1) ${pace.arrowAt + (i ? 0.5 : 0)}s, opacity 0.1s linear ${pace.arrowAt + (i ? 0.5 : 0)}s` }} />
+            style={{ strokeDashoffset: shown ? 0 : 1, opacity: shown ? 0.85 : 0, transition: quick || !shown ? 'none' : `stroke-dashoffset ${i ? 0.5 : 0.18}s cubic-bezier(0.65,0,0.35,1) ${pace.arrowAt + (i ? 0.18 : 0)}s, opacity 0.1s linear ${pace.arrowAt + (i ? 0.18 : 0)}s` }} />
         ))}
       </svg>
     </span>
