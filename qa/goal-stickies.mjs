@@ -84,7 +84,7 @@ try {
   const read = () => all.evaluate(() => ({
     lanes: [...document.querySelectorAll('[data-goals-lane]')].map((one) => ({ id: one.getAttribute('data-goals-lane'), color: one.getAttribute('data-color'), opacity: Number(getComputedStyle(one).opacity), ink: getComputedStyle(one.querySelector('[data-goals-road]')).backgroundColor, name: one.querySelector('[data-goals-name]')?.textContent ?? '' })),
     today: [...document.querySelectorAll('[data-goals-today]')].map((one) => ({ lane: one.closest('[data-goals-lane]')?.getAttribute('data-goals-lane'), top: one.getBoundingClientRect().top, name: one.closest('[data-goals-lane]')?.querySelector('[data-goals-name]').getBoundingClientRect().bottom })),
-    items: [...document.querySelectorAll('[data-goals-item]')].map((one) => ({ goal: one.getAttribute('data-goals-item'), mark: one.getAttribute('data-goals-item-mark'), ink: getComputedStyle(one.querySelector('span')).backgroundColor })),
+    items: [...document.querySelectorAll('[data-goals-item]')].map((one) => ({ goal: one.getAttribute('data-goals-item'), mark: one.getAttribute('data-goals-item-mark'), ink: getComputedStyle(one.querySelector('span')).borderTopColor })),
     marks: [...document.querySelectorAll('[data-goals-mark]')].map((one) => one.getAttribute('data-goals-mark')),
     focus: document.querySelector('[data-goals-focus]')?.getAttribute('data-goals-focus') ?? null
   }))

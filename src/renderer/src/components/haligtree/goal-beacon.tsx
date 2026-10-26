@@ -342,12 +342,10 @@ export function GoalsSticky(): React.JSX.Element {
   const x = (day: string): number => Math.min(100, Math.max(0, (daysBetween(start, day) / span) * 100))
   const marksOf = (goal: Goal): Milestone[] => marks.filter((one) => markOf(one) === goal.id)
   const dim = (goal: Goal): number => (focused && focused.id !== goal.id ? 0.18 : 1)
-  // What comes next, for every goal or the one focused: its marked days still ahead, then its own day.
+  // The days marked ahead, for every goal or the one focused. A goal's own day is on its lane already, named
+  // and counted, so it is never said a second time here.
   const coming: Coming[] = (focused ? [focused] : goals)
-    .flatMap((goal): Coming[] => [
-      ...marksOf(goal).filter((one) => one.day >= today && one.day <= goal.goalAt!).map((mark) => ({ goal, day: mark.day, title: mark.title, icon: mark.icon, mark })),
-      { goal, day: goal.goalAt!, title: goal.title }
-    ])
+    .flatMap((goal): Coming[] => marksOf(goal).filter((one) => one.day >= today && one.day <= goal.goalAt!).map((mark) => ({ goal, day: mark.day, title: mark.title, icon: mark.icon, mark })))
     .sort((a, b) => a.day.localeCompare(b.day))
     // A few: a goal rested on says itself in full above them.
     .slice(0, focused ? 2 : 3)
@@ -420,23 +418,26 @@ export function GoalsSticky(): React.JSX.Element {
             </div>
             {/* The goal focused, said in full. */}
             {focused && (
-              <p data-goals-focus={focused.id} className="text-control leading-snug">
+              <p data-goals-focus={focused.id} className="text-[11px] leading-snug">
                 <span className="private-text font-semibold">{focused.title}</span>
                 <span className="text-foreground"> · {leftSaid(daysLeft(focused.goalAt!, today))}, {percent(wayThrough(focused.goalFrom ?? dayKey(focused.createdAt), focused.goalAt!))} of the way</span>
               </p>
             )}
-            {/* What comes next, in the colour of the goal it is for. */}
-            <ul className="flex flex-col gap-1">
-              {coming.map((one) => (
-                <li key={`${one.goal.id}:${one.mark?.id ?? 'day'}`} data-goals-item={one.goal.id} data-goals-item-mark={one.mark?.id} className="flex min-w-0 items-center gap-1.5 text-control leading-snug">
-                  <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: goalInk(one.goal) }} />
-                  {/* A goal's own day carries its flag; a day marked for it, its emoji. */}
-                  {!one.mark && <Flag aria-label="The goal's day" className="size-3 shrink-0" style={{ color: goalInk(one.goal) }} />}
-                  <span title={one.title} className="private-text min-w-0 truncate">{one.mark ? `${one.icon ? `${one.icon} ` : ''}${one.title}` : one.title}</span>
-                  <span className="ml-auto shrink-0 text-muted-foreground tabular-nums">{inDays(one.day, today)}</span>
-                </li>
-              ))}
-            </ul>
+            {/* The days marked ahead, in the lanes' own small type, each with the ring it wears on its lane. */}
+            {coming.length > 0 && (
+              <div className="flex flex-col gap-1 border-t border-foreground/10 pt-2">
+                <p className="text-[10px] leading-none font-medium text-foreground/80">Coming up</p>
+                <ul className="flex flex-col gap-1">
+                  {coming.map((one) => (
+                    <li key={`${one.goal.id}:${one.mark?.id}`} data-goals-item={one.goal.id} data-goals-item-mark={one.mark?.id} className="flex min-w-0 items-baseline gap-1.5 text-[11px] leading-tight">
+                      <span aria-hidden className="size-2 shrink-0 self-center rounded-full border-2" style={{ borderColor: goalInk(one.goal) }} />
+                      <span title={one.title} className="private-text min-w-0 flex-1 truncate font-medium text-foreground">{one.icon ? `${one.icon} ` : ''}{one.title}</span>
+                      <span className="shrink-0 text-muted-foreground tabular-nums">{inDays(one.day, today)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </>
         )}
       </div>

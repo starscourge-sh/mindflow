@@ -5,7 +5,7 @@ import { SortableContext, useSortable, type SortingStrategy } from '@dnd-kit/sor
 /** dnd-kit moves no row itself: where each one slides is worked out once, for rows and panels alike (Shaped). */
 const unmoved: SortingStrategy = () => null
 import { AnimatePresence, animate, motion, motionValue, useMotionValue, useSpring, useTransform, type MotionValue } from 'motion/react'
-import { ChevronRight, GripVertical, Layers, X as Cross } from 'lucide-react'
+import { ChevronRight, GripVertical, Layers, Plus, X as Cross } from 'lucide-react'
 
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
@@ -23,7 +23,7 @@ import { Overlay, SETTLE } from './sortable'
 import { copy } from './row-menu'
 import { Rolling, Tip, VirtualList, refuse, toast, quietly } from './ui'
 import type { Entry } from './note-list'
-import { ROW_SHAPE } from './row-shape'
+import { ROW_PAD, ROW_SHAPE, ROW_TILE } from './row-shape'
 import { X } from '@/components/ui/icons'
 import { brief, num } from '../../../../main/dates'
 
@@ -1090,8 +1090,17 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
           ) : placed.length ? (
             <div className="flex flex-col gap-px pb-1">{placed.map(one)}</div>
           ) : (
-            // A folder made empty, or emptied: it stays, and says how it fills.
-            <p data-group-empty style={{ paddingLeft: INDENT }} className="px-3 pt-0.5 pb-2 text-control text-foreground/70">Empty: drag notes here or press New</p>
+            // A folder made empty, or emptied: it stays, as a row of its own in the list's shape (a dashed tile,
+            // a line and a quiet line under it, on the page titles' edge), and a click starts its first note.
+            <div className="pb-1">
+              <button type="button" data-group-empty onClick={() => (chime('open'), onNewNote(group.id))} className={cn(ROW_SHAPE, ROW_PAD, 'hover:bg-accent/60')}>
+                <span className={cn(ROW_TILE, 'border border-dashed border-foreground/20 text-muted-foreground')}><Plus className="size-4" /></span>
+                <span className="flex min-w-0 flex-col">
+                  <span className="text-control text-foreground">Nothing in it yet</span>
+                  <span className="text-meta text-muted-foreground">Drag notes in, or click to start one</span>
+                </span>
+              </button>
+            </div>
           )
         })()}
       </Fold>

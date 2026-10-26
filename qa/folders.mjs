@@ -158,7 +158,7 @@ try {
   await c.h.waitForTimeout(800)
   await c.v('groups:nest', rent, null)
   await c.h.waitForTimeout(800)
-  check('in the list, an empty one says "Empty: drag notes here or press New"', ((await c.h.locator(`[data-group-row="${money}"]`).count()) === 1) && (await c.h.getByText('Empty: drag notes here or press New').count()) > 0)
+  check('in the list, an empty one is a row of its own that says how it fills', ((await c.h.locator(`[data-group-row="${money}"]`).count()) === 1) && (await c.h.getByText('Drag notes in, or click to start one').count()) > 0)
   await c.v('groups:nest', rent, money)
   await c.h.waitForTimeout(500)
 
