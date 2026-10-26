@@ -1408,6 +1408,24 @@ function Surface({
     if (editor) tell(editor)
   }, [editor]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // No squiggles while the words are coming, as iA Writer does: the
+  // spellchecker looks again once you pause.
+  useEffect(() => {
+    const dom = editor?.view.dom
+    if (!dom) return
+    let timer = 0
+    const back = (): void => (clearTimeout(timer), dom.setAttribute("spellcheck", "true"))
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.metaKey || event.ctrlKey || (event.key.length !== 1 && event.key !== "Backspace" && event.key !== "Enter")) return
+      dom.setAttribute("spellcheck", "false")
+      clearTimeout(timer)
+      timer = window.setTimeout(back, 1200)
+    }
+    dom.addEventListener("keydown", onKey, true)
+    dom.addEventListener("blur", back)
+    return () => (back(), dom.removeEventListener("keydown", onKey, true), dom.removeEventListener("blur", back))
+  }, [editor])
+
   // Unmount covers switching notes with a `key`; `pagehide` covers closing the
   // window, which never unmounts anything.
   // `editable` above is read when the editor is built, so a caller that

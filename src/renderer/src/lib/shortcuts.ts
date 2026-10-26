@@ -101,6 +101,8 @@ export const SHORTCUTS: Shortcut[] = [
 
   { group: 'Editing', keys: '⌘↵', does: 'Send the capture', where: 'Quick capture' },
   { group: 'Editing', keys: '⌥⌘↵', does: 'Send, and keep quick capture open for the next', where: 'Quick capture' },
+  { group: 'Editing', keys: '⇧⌘↵', does: 'Writing room: the page you are writing, alone over the whole window (Esc leaves)', where: 'Journal and Writing' },
+  { group: 'Editing', keys: '⌥↵', does: 'Take the suggested spelling shown beside the caret', where: 'Journal and Writing' },
   { group: 'Editing', keys: '+', does: 'First line “+name: …”: a clue for that question, or a log for that goal, instead of a capture', where: 'Quick capture' },
   { group: 'Editing', keys: '⌥C', does: 'Create more on or off: every send keeps quick capture open', where: 'Quick capture' },
   { group: 'Editing', keys: '⌥⌘,', does: 'Hide buttons on or off: they stay out of sight until you point at them', where: 'Quick capture' },

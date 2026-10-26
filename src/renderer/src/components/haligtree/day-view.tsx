@@ -22,9 +22,10 @@ import { taskName } from '@/lib/tasks'
 import { DayBanner } from './scenery'
 import { DayBrief } from './day-brief'
 import { DayCount, LivingCaret, dayCaption, useWritingQuiet } from './day-writing'
+import { RoomFoot, useWritingRoom } from './writing-room'
 import { DayMarks } from './milestones'
 import { markDay } from '@/lib/milestones'
-import { FlagTriangleRight } from 'lucide-react'
+import { FlagTriangleRight, Maximize2 } from 'lucide-react'
 import { GoalStrip } from './goals-view'
 import { GlossButton, GlossLine } from './gloss-line'
 import { DaySessions } from './session-timeline'
@@ -93,6 +94,8 @@ export function DayView({ onOpen, start, onScale, onView }: {
   const caption = useMemo(() => dayCaption(), [day])
   // The rest of the page steps back while you write; the time spent writing today.
   const spent = useWritingQuiet(writer, day)
+  // The writing room: these words over the whole window (⇧⌘↵, Esc leaves).
+  const room = useWritingRoom(writer)
   // Written elsewhere while open (the Feed's "Use this", a Blurt, the other
   // window): with nothing of yours waiting to save, the page shows it at once.
   // `known` is the stored words this editor last matched, `sent` its own words then.
@@ -156,7 +159,7 @@ export function DayView({ onOpen, start, onScale, onView }: {
         )}
         {data?.day === day && !past && (
           // The words on the page itself, no box: today a still caption over them for the hour, a click anywhere under them puts the caret in.
-          <div data-day-write onClick={(event) => void (event.target === event.currentTarget && writer && !writer.isDestroyed && writer.commands.focus('end'))}
+          <div data-day-write {...room.room} onClick={(event) => void (event.target === event.currentTarget && writer && !writer.isDestroyed && writer.commands.focus('end'))}
             className="relative mt-2 min-h-36 cursor-text [--mf-padding:0.25rem_0]">
           {day === today && <p data-day-caption className="mb-1 text-sm text-muted-foreground">{caption}</p>}
           <HaligtreeEditor
@@ -184,6 +187,7 @@ export function DayView({ onOpen, start, onScale, onView }: {
           <CaretIn editor={writer} day={day} />
           <LivingCaret editor={writer} />
           {day === today && <DayBreath editor={writer} day={day} />}
+          {room.on && <RoomFoot editor={writer} title={day === today ? `Today, ${named(day)}` : named(day)} spent={spent} />}
           </div>
         )}
   </>)
@@ -196,6 +200,9 @@ export function DayView({ onOpen, start, onScale, onView }: {
       lead={<PeriodSteps scale="day" onScale={onScale} atNow={day === today} go={(by) => go(by === 0 ? today : shift(day, by))} />}
       actions={
         <span data-period-actions className="flex items-center gap-1">
+          <Tip label="Only the words, over the whole window  ⇧⌘↵">
+            <Button data-room-open variant="ghost" size="sm" disabled={!writer} onClick={room.toggle}><Maximize2 className="size-3.5" /> Writing room</Button>
+          </Tip>
           <Tip label="Name what this day is for, like Exam or Launch">
             <Button variant="ghost" size="sm" onClick={() => void markDay(day)}><FlagTriangleRight className="size-3.5" /> Mark</Button>
           </Tip>

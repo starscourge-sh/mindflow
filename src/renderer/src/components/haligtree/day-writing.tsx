@@ -34,7 +34,7 @@ const timeOf = (day: string): number => { try { return Number(localStorage.getIt
 const keepTime = (day: string, ms: number): void => { try { localStorage.setItem(timeKey(day), String(Math.round(ms))) } catch { /* only a nicety */ } }
 
 /**
- * Typing in the day's words: the count and the squiggles go at the first key,
+ * Typing in the day's words: the count goes at the first key,
  * and a few words in the rest of the page fades to near nothing. A hand on the
  * pointer, or a few seconds' pause, brings it all back. Only opacity changes,
  * so nothing moves. Keeps the time spent writing that day, too.
@@ -53,7 +53,6 @@ export function useWritingQuiet(editor: Editor | null, day: string): number {
     const quiet = (): void => {
       clearTimeout(typed)
       root.removeAttribute('data-day-typing')
-      dom.setAttribute('spellcheck', 'true')
       setSpent(timeOf(day))
     }
     const back = (): void => {
@@ -68,8 +67,6 @@ export function useWritingQuiet(editor: Editor | null, day: string): number {
       if (last && now - last < GAP) keepTime(day, timeOf(day) + now - last)
       last = now
       root.setAttribute('data-day-typing', '')
-      // No squiggles while the words are coming: they show on a pause.
-      dom.setAttribute('spellcheck', 'false')
       clearTimeout(typed)
       typed = window.setTimeout(quiet, TYPING)
       if ((event.key === ' ' || event.key === 'Enter') && ++words >= WORDS_IN) root.setAttribute('data-day-writing', '')
@@ -143,7 +140,8 @@ export function LivingCaret({ editor }: { editor: Editor | null }): React.JSX.El
         const at = editor.view.coordsAtPos(selection.head)
         const from = box.getBoundingClientRect()
         const x = at.left - from.left
-        const y = at.top - from.top
+        // The room scrolls inside itself: its own scroll counts.
+        const y = at.top - from.top + box.scrollTop
         const h = at.bottom - at.top
         const one = caret.current
         if (one) {
@@ -155,7 +153,7 @@ export function LivingCaret({ editor }: { editor: Editor | null }): React.JSX.El
           still = window.setTimeout(() => one.setAttribute('data-resting', ''), 600)
         }
         const flagged = document.documentElement.hasAttribute('data-day-typing') ? null : misspeltAt(editor, at.left - 1, (at.top + at.bottom) / 2)
-        setHint(flagged?.suggestions.length ? { ...flagged, x: editor.view.coordsAtPos(flagged.to).left - from.left, y, h } : null)
+        setHint(flagged?.suggestions.length ? { ...flagged, x: editor.view.coordsAtPos(flagged.to).left - from.left + box.scrollLeft, y, h } : null)
       })
     }
     const onKey = (event: KeyboardEvent): void => {

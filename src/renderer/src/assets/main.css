@@ -2103,3 +2103,39 @@ html[data-book-hue] [data-book-tint] {
   opacity: 0.06;
   transition: opacity 900ms ease-in-out;
 }
+/* The writing room (writing-room.tsx): the page's own words laid over the
+   whole window, a centred column with room above, a quiet foot at the bottom.
+   Everything else about the page (its header, what sits under the words) is
+   left behind. */
+[data-room] {
+  position: fixed; inset: 0; z-index: 60;
+  margin: 0; overflow-y: auto;
+  background: var(--background);
+  padding: 16vh max(1.5rem, calc(50% - 21rem)) 30vh;
+  animation: mf-room-in 260ms var(--mf-ease) both;
+}
+@keyframes mf-room-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { [data-room] { animation: none; } }
+/* Laid over the whole window even from inside a page that would hold it:
+   while the room is open, nothing above it makes its own frame for it. */
+:root[data-in-room] :has([data-room]) {
+  transform: none !important;
+  filter: none !important; contain: none !important; container-type: normal !important;
+  will-change: auto !important; backdrop-filter: none !important;
+  isolation: auto !important; z-index: auto !important; opacity: 1 !important;
+}
+/* Apart, or the minifier folds them into a transform of its own. */
+:root[data-in-room] :where(:has([data-room])) { translate: none !important; }
+:root[data-in-room] :is(:has([data-room])) { scale: none !important; }
+[data-room] [data-room-foot] {
+  position: fixed; left: 0; right: 0; bottom: 0; padding: 0.875rem 1.5rem 1.125rem;
+  background: linear-gradient(to top, var(--background) 60%, transparent);
+}
+[data-room] :is([data-apart='foot'], [data-day-count], .tiptap-word-count) { display: none; }
+[data-room] > [data-note-head] { display: none; }
+/* The focus band (writer-tools.tsx): all but the sentence or paragraph you
+   are on fades back into the page. */
+.tiptap.ProseMirror[data-focus-band] > * { color: color-mix(in oklab, var(--foreground) 30%, transparent); transition: color 260ms ease-out; }
+.tiptap.ProseMirror[data-focus-band] .mf-in-focus,
+.tiptap.ProseMirror[data-focus-band='paragraph'] > .mf-in-focus { color: var(--foreground); }
+@media (prefers-reduced-motion: reduce) { .tiptap.ProseMirror[data-focus-band] > * { transition: none; } }

@@ -56,6 +56,8 @@ import BookIcon from '@/components/ui/book-icon'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import AlarmClockPlusIcon from '@/components/ui/alarm-clock-plus-icon'
 import { Aliases, KindFields, LocalGraph, NoteHeader } from './note-extras'
+import { RoomFoot, useWritingRoom } from './writing-room'
+import { writerMenu } from './writer-tools'
 import { ListSearch, NoteList, NoteRail, PaneButtons, Peek, matches, type Entry } from './note-list'
 import { archive, changeKind, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
 import { openApart } from '@/lib/apart'
@@ -860,6 +862,8 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
   // Its words seen as a board, in their place, as an Inbox note can be (board-view.tsx).
   const [ready, setReady] = useState<Editor | null>(null)
   const board = useBoard('nuggets', item.id, ready)
+  // A piece of Writing can be written in the writing room: only its title and words, over the whole window.
+  const room = useWritingRoom(item.tier === 'article' ? ready : null)
   const boardShown = board.on && !past && !!ready && !ready.isDestroyed
   // The board needs the room: the details step aside while it shows, a click away.
   const [propsOut, setPropsOut] = useState(false)
@@ -902,7 +906,7 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
 
   return (
     <div data-open={item.id} className="note-pane flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[max(22rem,100%)] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
-      <div data-voice={voiceOf({ type: item.tier, kind: item.kind, attribution: item.attribution, medium: item.medium, label: item.title })} data-voice-edge className={`flex min-h-0 min-w-0 flex-1 flex-col pt-6 ${boardShown ? '!min-h-full' : ''}`}>
+      <div data-voice={voiceOf({ type: item.tier, kind: item.kind, attribution: item.attribution, medium: item.medium, label: item.title })} data-voice-edge {...room.room} className={`flex min-h-0 min-w-0 flex-1 flex-col pt-6 ${boardShown ? '!min-h-full' : ''}`}>
         <NoteHeader className="-mt-3 mb-1" left={top} back={back} type={item.tier} table="nuggets" id={item.id} copyKey={noteLinkText(`${item.tier}:${item.id}`, item.title)} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })}
           onRestored={() => void haligtree.item(item.id).then((fresh) => fresh && setRestored((was) => ({ body: fresh.body, rev: (was?.rev ?? 0) + 1 })))}
           edited={item.updatedAt} captured={item.createdAt} made={item.tier === 'article' ? 'Started' : 'Saved'}
@@ -914,10 +918,12 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
               { label: propsOut ? 'Hide details' : 'Show details', run: () => (chime(propsOut ? 'fold' : 'slide'), setPropsOut(!propsOut)) },
               'separator' as const
             ] : []),
+            ...(item.tier === 'article' && !boardShown ? [{ label: room.on ? 'Leave the writing room' : 'Writing room', keys: '⇧⌘↵', run: room.toggle }, ...writerMenu(ready, room.focus, (text) => toast(text, undefined, 'info')), 'separator' as const] : []),
             ...itemMenu(item), 'separator', { label: 'Copy title', run: () => copy(item.title) },
             // Housekeeping last, as on every card's menu.
             'separator', binItem([{ type: item.tier, id: item.id }])
           ]} />
+        {room.on && <RoomFoot editor={ready} title={item.title || 'Untitled'} />}
         {item.tier === 'article' && (
           // Wraps as a heading does, so a long title is never cut off at the edge; Enter ends it.
           // In the words' own column (main.css), so it starts where they start.
