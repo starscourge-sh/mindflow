@@ -21,7 +21,11 @@ try {
   await h.reload(); await wait(1500)
   await c.go('articles'); await wait(900)
   const all = await h.evaluate(() => [...document.querySelectorAll('[data-group-row]')].map((one) => one.getAttribute('aria-expanded')))
-  check('every folder starts open', all.length > 0 && all.every((one) => one === 'true'), JSON.stringify(all))
+  check('every folder in Writing starts open', all.length > 0 && all.every((one) => one === 'true'), JSON.stringify(all))
+  await c.go('nuggets'); await wait(900)
+  const gems = await h.evaluate(() => [...document.querySelectorAll('[data-group-row]')].map((one) => one.getAttribute('aria-expanded')))
+  check('and every folder in Gems', gems.length > 0 && gems.every((one) => one === 'true'), JSON.stringify(gems))
+  await c.go('articles'); await wait(900)
   for (const theme of ['light', 'dark']) {
     await c.theme(theme); await c.go('articles'); await wait(900)
     if (shots) await h.screenshot({ path: `${shots}/writing-folders-${theme}.png` })
@@ -48,8 +52,9 @@ try {
   check('→ unfolds it', (await expanded(leonardo.id)) === 'true')
   check('no rename from the keys', (await h.locator('input[aria-label="Folder name"]').count()) === 0)
   await h.mouse.move(700, 120); await wait(300)
-  await h.locator(`[data-group-row="${leonardo.id}"]`).hover({ position: { x: 300, y: 18 } }); await wait(1600)
-  const tip = await h.locator('[data-slot="tooltip-content"], [role="tooltip"]').first().innerText().catch(() => '')
+  await h.locator(`[data-group-row="${leonardo.id}"]`).hover({ position: { x: 300, y: 18 } })
+  // A tip opens after its delay: read once it is there, up to 4 s.
+  const tip = await h.locator('[data-slot="tooltip-content"], [role="tooltip"]').first().innerText({ timeout: 4000 }).catch(() => '')
   if (shots) await h.screenshot({ path: `${shots}/folder-row-tip.png` })
   check('its tooltip says how to open it', /⌘-click/.test(tip ?? '') && /Open folder/.test(tip ?? ''), tip)
   // Fold History, then reload: it stays folded, the rest stay open.
