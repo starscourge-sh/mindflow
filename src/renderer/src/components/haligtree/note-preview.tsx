@@ -85,7 +85,7 @@ const gemmed = (item: { title: string; prompt: string | null; dueAt: string | nu
  * are. Once per window, for every editor in it.
  */
 export function NotePreview(): React.JSX.Element | null {
-  const [shown, setShown] = useState<{ x: number; y: number; above: boolean; private: boolean; title: string; text: string; line?: boolean; lost?: boolean; el?: Element; kind: string; aside: boolean; type: string; id: string; queue: boolean; gem?: Gemmed; binned?: boolean; row?: boolean; anchor: Element; picture?: string | null; round?: boolean; tally?: string; latest?: string[]; foot?: string } | null>(null)
+  const [shown, setShown] = useState<{ x: number; y: number; above: boolean; private: boolean; title: string; text: string; line?: boolean; lost?: boolean; el?: Element; kind: string; aside: boolean; type: string; id: string; queue: boolean; gem?: Gemmed; binned?: boolean; row?: boolean; anchor: Element; picture?: string | null; lead?: string; tally?: string; latest?: string[]; foot?: string } | null>(null)
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined
     let leaving: ReturnType<typeof setTimeout> | undefined
@@ -119,15 +119,22 @@ export function NotePreview(): React.JSX.Element | null {
         // A row's title, not an @ link: its own click does what it always did, so the card does not say "Click to open".
         const row = link.hasAttribute('data-note-hover')
         // A person or a tag is a place to go, not a note with words to show.
-        const load: Promise<{ title: string; body: unknown; private: boolean; gem?: Gemmed; picture?: string | null; tally?: string; latest?: string[] } | null> =
+        const load: Promise<{ title: string; lead?: string; body: unknown; private: boolean; gem?: Gemmed; picture?: string | null; tally?: string; latest?: string[] } | null> =
           binned ? haligtree.binPeek(type, id).then((found) => found && { title: found.title, body: found.body, private: found.private })
           // A person reads as Wikipedia's card does: who they were, their years, your thoughts, their picture.
-          : type === 'person' ? sources.page('attribution', id).then((page) => ({
-            title: page?.name ?? id,
-            body: [page?.what, [page?.born, page?.died].filter(Boolean).join(' to '), page?.thoughts, page?.items.length ? `${page.items.length} ${page.items.length === 1 ? 'note' : 'notes'} with their words.` : 'Every note with their words.'].filter(Boolean).join('\n'),
-            private: false,
-            picture: avatarOf(id)
-          }))
+          : type === 'person' ? sources.page('attribution', id).then((page) => {
+            // "(born 1973) is an American comedian and actor.", after the name in bold, as Wikipedia's lead reads.
+            const years = page?.died ? `(${[page.born, page.died].filter(Boolean).join(' to ')})` : page?.born ? `(born ${page.born})` : ''
+            const what = page?.what?.trim().replace(/\.$/, '')
+            const is = what ? `${page?.died ? 'was' : 'is'} ${/^(a|an|the)\b/i.test(what) ? '' : /^[aeiou]/i.test(what) ? 'an ' : 'a '}${what}.` : ''
+            return {
+              title: page?.name ?? id,
+              lead: [years, is].filter(Boolean).join(' '),
+              body: [page?.thoughts, page?.items.length ? `${page.items.length} ${page.items.length === 1 ? 'note' : 'notes'} with their words.` : 'Every note with their words.'].filter(Boolean).join('\n'),
+              private: false,
+              picture: avatarOf(id)
+            }
+          })
           // A tag says how many carry it, the way its page counts them, and its three newest.
           : type === 'tag' ? Promise.all([haligtree.tags(), haligtree.tagRead(id.toLowerCase())]).then(([all, read]) => {
             const one = all.find((tag) => tag.tag.toLowerCase() === id.toLowerCase())
@@ -178,7 +185,7 @@ export function NotePreview(): React.JSX.Element | null {
             row,
             anchor: link,
             picture: found.picture !== undefined ? found.picture : binned ? null : pictureIn(found.body),
-            round: type === 'person',
+            lead: found.lead,
             // A tag in a note's words edits on ⌥-click; anywhere else that click opens it beside.
             foot: type === 'tag' ? (link.classList.contains('tiptap-token') ? 'Click to open its page, ⌥-click to edit it' : `Click to open its page${canSplit() ? ', ⌥-click to open it to the side' : ''}`) : undefined,
             tally: found.tally,
@@ -266,24 +273,28 @@ export function NotePreview(): React.JSX.Element | null {
       data-note-preview
       data-preview-picture={shown.picture ? '' : undefined}
       onMouseLeave={() => setShown(null)}
-      // With a picture it is wider, the picture on the right; without, words only and narrower.
-      className={`fixed z-[70] ${shown.picture ? 'w-[26rem]' : 'w-80'} rounded-lg border bg-popover p-3 text-control shadow-(--mf-panel-shadow) animate-in fade-in-0 duration-150 motion-reduce:animate-none`}
+      // As Wikipedia's: with a picture it is wider, the picture filling its right side edge to edge; without, words only and narrower.
+      className={`fixed z-[70] ${shown.picture ? 'flex w-[30rem] overflow-hidden' : 'w-80 p-3'} rounded-lg border bg-popover text-control shadow-(--mf-panel-shadow) animate-in fade-in-0 duration-150 motion-reduce:animate-none`}
       style={{ left: Math.max(12, shown.x), top: shown.y, transform: shown.above ? 'translateY(-100%)' : undefined }}
     >
+      <div className={shown.picture ? 'min-w-0 flex-1 p-3.5' : undefined}>
       {shown.gem ? (
         <p className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
           <Gem className="size-3.5 shrink-0" style={{ color: 'var(--tt-color-text-pink)' }} />
           A gem: an idea you kept, in your own words
         </p>
-      ) : look && (
+      ) : look && !shown.lead && (
         <p className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
           <look.icon className="size-3.5 shrink-0" style={{ color: `var(--tt-color-text-${look.color})` }} />
           {look.label}
         </p>
       )}
-      <div className="flex gap-3">
-      <div className="min-w-0 flex-1">
-      <p data-preview-title className="private-text mb-1 line-clamp-3 font-semibold [overflow-wrap:anywhere] text-foreground">{shown.title}</p>
+      {/* A person: one lead sentence, the name in bold, as an encyclopedia opens. */}
+      {shown.lead !== undefined ? (
+        <p data-preview-title className="private-text mb-1.5 text-foreground"><span className="font-semibold">{shown.title}</span>{shown.lead && <span> {shown.lead}</span>}</p>
+      ) : (
+        <p data-preview-title className="private-text mb-1 line-clamp-3 font-semibold [overflow-wrap:anywhere] text-foreground">{shown.title}</p>
+      )}
       {/* One line linked: that line, as it reads now, in full ink, marked as a quote of the note. */}
       {shown.line ? (
         shown.lost
@@ -299,9 +310,6 @@ export function NotePreview(): React.JSX.Element | null {
           {shown.latest.map((title, at) => <li key={at} className="truncate">{title}</li>)}
         </ul>
       )}
-      </div>
-      {shown.picture && <img data-preview-image src={shown.picture} alt="" draggable={false} onError={(event) => (event.currentTarget.style.display = 'none')} className={`size-24 shrink-0 object-cover ${shown.round ? 'rounded-full' : 'rounded-md'} border`} />}
-      </div>
       {/* A gem says how it comes back: the question Review asks, and when; or that it has none yet. */}
       {shown.gem && (
         <div data-gem-back className="mt-2 rounded-md bg-foreground/[0.04] px-2.5 py-2">
@@ -338,6 +346,9 @@ export function NotePreview(): React.JSX.Element | null {
         )}
       </div>
       )}
+      </div>
+      {/* Edge to edge, square, the card's own corner rounding it: never a small framed thumbnail. */}
+      {shown.picture && <img data-preview-image src={shown.picture} alt="" draggable={false} onError={(event) => (event.currentTarget.style.display = 'none')} className="min-h-36 w-[38%] shrink-0 self-stretch border-l object-cover" style={{ objectPosition: 'center 25%' }} />}
     </div>
   )
 }
