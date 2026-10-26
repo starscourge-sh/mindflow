@@ -11,6 +11,7 @@ import { blockPrefs } from './haligtree'
 import { dueAt } from './session-log'
 import { blockedSite, hostOf } from './site-hosts'
 import { onHandOff, realRoot } from './sandbox'
+import cat from '../../resources/blocked-cat.gif?asset'
 
 /**
  * Websites blocked while a focus round runs. About once a second, while a
@@ -219,6 +220,18 @@ const layer = TEST ? fakeLayer : realLayer
 
 /** The block page's address, this run's or an earlier run's (another port). */
 const isBlockPage = (url: string | null | undefined): boolean => /^http:\/\/127\.0\.0\.1:\d+\/haligtree-blocked/.test(url ?? '')
+/** The cat at the top of the block page, read once, carried in the page itself. */
+let catData: string | null = null
+const catImage = (): string => {
+  if (catData === null) {
+    try {
+      catData = `data:image/gif;base64,${readFileSync(cat).toString('base64')}`
+    } catch {
+      catData = ''
+    }
+  }
+  return catData
+}
 const escape = (text: string): string => text.replace(/[&<>"']/g, (one) => `&#${one.charCodeAt(0)};`)
 /**
  * The block page: what is blocked and until when, and a quiet line saying the
@@ -232,8 +245,8 @@ const blockPage = (site: string, until: string | null): string => `<!doctype htm
 <meta name="color-scheme" content="light dark"><style>
 body{margin:0;min-height:100vh;display:grid;place-items:center;font:16px/1.5 -apple-system,BlinkMacSystemFont,sans-serif;background:#f6f5f2;color:#1d1c1a}
 @media (prefers-color-scheme:dark){body{background:#1b1a19;color:#ecebe8}p{color:#a9a7a2}}
-main{max-width:30rem;padding:2rem;text-align:center}h1{font-size:1.6rem;font-weight:600;margin:0 0 .6rem}p{margin:.3rem 0;color:#6a6862}
-</style></head><body><main><h1>“${escape(site)}” is blocked${until ? ' until <span id="until"></span>' : ' while you focus'}</h1>
+main{max-width:30rem;padding:2rem;text-align:center}img{display:block;width:126px;height:141px;margin:0 auto 1.25rem;border-radius:14px}h1{font-size:1.6rem;font-weight:600;margin:0 0 .6rem}p{margin:.3rem 0;color:#6a6862}
+</style></head><body><main>${catImage() ? `<img src="${catImage()}" alt="">` : ''}<h1>“${escape(site)}” is blocked${until ? ' until <span id="until"></span>' : ' while you focus'}</h1>
 <p>Haligtree is keeping it closed for this focus round.</p>
 <p>This tab goes on to the page you asked for once the round ends, and a refresh then takes you there too.</p></main>
 <script>
