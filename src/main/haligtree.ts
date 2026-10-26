@@ -325,6 +325,10 @@ const DEFAULTS = {
   sessionTickVolume: 0.5,
   // Which tick, from the recordings in Settings.
   sessionTickSound: 'wall' as 'old' | 'wall' | 'watch' | 'desk',
+  // A soundscape while you write on today's page or in the writing room, off at first.
+  writingSound: 'off' as 'off' | 'shore' | 'rain' | 'hearth',
+  // A soft voice for each key while you write there, off at first.
+  typingVoice: 'off' as 'off' | 'pencil' | 'soft' | 'deep',
   // Now and then a light glides across the session bubble, in case it was forgotten.
   sessionGleam: true,
   // The bubble's soft smoke kept on all session, faint, stronger under the pointer.

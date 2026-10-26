@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { WritingSound } from './writing-sound'
 import { createPortal } from 'react-dom'
 import type { Editor } from '@tiptap/react'
 
@@ -252,6 +253,7 @@ export function WriterLine({ editor, day, spent, today }: { editor: Editor | nul
         <span data-writer-words><Rolling text={num(words)} /> {words === 1 ? 'word' : 'words'}{aim ? ` of ${num(aim.words)}` : ''}</span>
         {minutes > 0 && <><span aria-hidden>·</span><span><Rolling text={num(minutes)} /> {minutes === 1 ? 'minute' : 'minutes'}</span></>}
         {today && <><span aria-hidden>·</span><span data-writer-time>{clock(Date.now())}</span></>}
+        {today && <><span aria-hidden>·</span><WritingSound className="pointer-events-auto -mx-1.5" /></>}
       </span>
     </div>,
     document.body

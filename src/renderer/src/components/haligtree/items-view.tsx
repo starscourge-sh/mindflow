@@ -57,6 +57,7 @@ import { AliveIcon } from '@/components/ui/alive-icon'
 import AlarmClockPlusIcon from '@/components/ui/alarm-clock-plus-icon'
 import { Aliases, KindFields, LocalGraph, NoteHeader } from './note-extras'
 import { RoomFoot, useWritingRoom } from './writing-room'
+import { useWritingSound } from './writing-sound'
 import { writerMenu } from './writer-tools'
 import { ListSearch, NoteList, NoteRail, PaneButtons, Peek, matches, type Entry } from './note-list'
 import { archive, changeKind, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
@@ -863,6 +864,7 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
   const board = useBoard('nuggets', item.id, ready)
   // A piece of Writing can be written in the writing room: only its title and words, over the whole window.
   const room = useWritingRoom(item.tier === 'article' ? ready : null)
+  useWritingSound(ready, room.on)
   const boardShown = board.on && !past && !!ready && !ready.isDestroyed
   // The board needs the room: the details step aside while it shows, a click away.
   const [propsOut, setPropsOut] = useState(false)

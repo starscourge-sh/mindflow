@@ -27,13 +27,15 @@ let enabled = true
 /** The Sounds setting. */
 export const soundOn = (on: boolean): void => {
   enabled = on
-  if (!on) (quietBed(0.3), quietWind(0.3))
+  if (!on) (quietBed(0.3), quietWind(0.3), scapeStop(0.3))
 }
 let volume = 1
 /** The Volume setting, 0 to 1: every sound is scaled by it. */
 export const setVolume = (level: number): void => {
   volume = Math.max(0, Math.min(1, level))
   if (bed) bed.out.gain.setTargetAtTime(volume, bed.context.currentTime, 0.1)
+  if (scape) (scape.out.gain.cancelScheduledValues(scape.context.currentTime), scape.out.gain.setTargetAtTime(SCAPE_LEVEL * volume, scape.context.currentTime, 0.1))
+  if (!volume) scapeStop(0.3)
 }
 
 // `to` glides the pitch there over the note, and `swell` is how long it takes
@@ -1231,4 +1233,232 @@ export function bell(hz: number, level = 0.02, name = 'bell'): void {
     tone.stop(now + length + 0.05)
   }
   hear(`bell:${name}`)
+}
+
+/*
+ * Sound while you write, in the welcome's own voice: the same far-off surf and
+ * low open D chord, made live and never the same twice. The surf's filter and
+ * swell and each voice of the chord wander slowly to new places at random, so
+ * nothing is ever heard to come round again. Rain and Hearth swap the surf for
+ * soft rain with sparse drops, or a low fire with a warm crackle. No files.
+ */
+export const SCAPES = [
+  { id: 'off', label: 'Off' },
+  { id: 'shore', label: 'Shore' },
+  { id: 'rain', label: 'Rain' },
+  { id: 'hearth', label: 'Hearth' }
+] as const
+export type Scape = (typeof SCAPES)[number]['id']
+/** How long it takes to come in once you start writing. */
+export const SCAPE_IN = 6
+const SCAPE_LEVEL = 0.55
+let scape: { kind: Scape; context: AudioContext; out: GainNode; sources: AudioScheduledSourceNode[]; timer: number } | null = null
+;(window as unknown as { haligtreeScape?: () => unknown }).haligtreeScape = () => scape && { kind: scape.kind, level: scape.out.gain.value, volume }
+
+/** Noise, dark (`smooth` near 1) or bright, `seconds` long, its two ends meeting at a whisper so a loop has no seam. */
+function noise(context: AudioContext, seconds: number, smooth: number, lift: number): AudioBuffer {
+  const length = Math.round(context.sampleRate * seconds)
+  const buffer = context.createBuffer(1, length, context.sampleRate)
+  const data = buffer.getChannelData(0)
+  let last = 0
+  for (let i = 0; i < length; i++) (last = last * smooth + (Math.random() * 2 - 1) * (1 - smooth)), (data[i] = last * lift * Math.min(1, i / 4000, (length - i) / 4000))
+  return buffer
+}
+/** A slow glide to somewhere new between `from` and `to`. */
+const roam = (param: AudioParam, at: number, from: number, to: number, over: number): void => void param.setTargetAtTime(from + Math.random() * (to - from), at, over)
+
+/** The writing soundscape, `kind`, fading in over SCAPE_IN; a new kind takes over from the last. */
+export function scapeStart(kind: Scape): void {
+  if (kind === 'off') return scapeStop()
+  if (scape?.kind === kind) return
+  scapeStop(1.5)
+  const context = audio()
+  if (!context) return
+  const now = context.currentTime
+  const out = context.createGain()
+  out.gain.setValueAtTime(0, now)
+  out.gain.linearRampToValueAtTime(SCAPE_LEVEL * volume, now + SCAPE_IN)
+  out.connect(context.destination)
+  out.connect(room(context))
+  const sources: AudioScheduledSourceNode[] = []
+  const chord: { gain: GainNode; tone: OscillatorNode[]; level: number }[] = []
+  // The chord, as the welcome's: D, A, E and F sharp, low and wide, two voices each a little apart, from the bottom up.
+  for (const [hz, level, enter] of [[146.83, 0.03, 0], [220, 0.022, 0.8], [329.63, 0.012, 1.6], [369.99, 0.008, 2.4], [587.33, 0.003, 3.2]] as const) {
+    const gain = context.createGain()
+    gain.gain.setValueAtTime(0, now)
+    gain.gain.setValueAtTime(0, now + enter)
+    gain.gain.linearRampToValueAtTime(level, now + enter + 3)
+    gain.connect(out)
+    const tone = ([-4, 4] as const).map((detune) => {
+      const voice = context.createOscillator()
+      voice.frequency.value = hz
+      voice.detune.value = detune
+      voice.connect(gain)
+      voice.start(now)
+      sources.push(voice)
+      return voice
+    })
+    chord.push({ gain, tone, level })
+  }
+  // Under the chord: surf, rain or the fire's low breath. Long noise, darker or brighter, through a filter that moves.
+  const bed = context.createBufferSource()
+  bed.buffer = kind === 'rain' ? noise(context, 7.3, 0.5, 1.6) : noise(context, 9.7, kind === 'hearth' ? 0.985 : 0.97, kind === 'hearth' ? 9 : 6)
+  bed.loop = true
+  const filter = context.createBiquadFilter()
+  filter.type = kind === 'rain' ? 'bandpass' : 'lowpass'
+  filter.frequency.value = kind === 'rain' ? 2400 : kind === 'hearth' ? 320 : 520
+  filter.Q.value = kind === 'rain' ? 0.4 : 0.7
+  const tide = context.createGain()
+  const base = kind === 'rain' ? 0.006 : kind === 'hearth' ? 0.01 : 0.012
+  tide.gain.setValueAtTime(0, now)
+  tide.gain.linearRampToValueAtTime(base, now + 2.5)
+  bed.connect(filter).connect(tide).connect(out)
+  bed.start(now)
+  sources.push(bed)
+  // Rain's drops and the fire's crackle: one short burst, played now and then at a new pitch and level.
+  const grain = kind === 'shore' ? null : noise(context, 0.03, 0.2, 1)
+  const speck = (at: number, hz: number, level: number, rate: number): void => {
+    if (!grain) return
+    const one = context.createBufferSource()
+    one.buffer = grain
+    one.playbackRate.value = rate
+    const band = context.createBiquadFilter()
+    band.type = 'bandpass'
+    band.frequency.value = hz
+    band.Q.value = kind === 'rain' ? 6 : 1.2
+    const gain = context.createGain()
+    gain.gain.setValueAtTime(level, at)
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.03 / rate)
+    one.connect(band).connect(gain).connect(out)
+    one.start(at)
+  }
+  // Every few seconds each part wanders a little somewhere new, and the next few seconds' drops or crackle are laid down.
+  const wander = (): void => {
+    const at = context.currentTime
+    roam(filter.frequency, at, kind === 'rain' ? 1800 : kind === 'hearth' ? 240 : 380, kind === 'rain' ? 3200 : kind === 'hearth' ? 420 : 700, 3)
+    // A wave comes in and draws back at its own pace: never a steady beat.
+    roam(tide.gain, at, base * 0.35, base * 1.4, 1.5 + Math.random() * 2)
+    for (const voice of chord) {
+      roam(voice.gain.gain, at + 1, voice.level * 0.55, voice.level * 1.15, 4)
+      voice.tone.forEach((tone, i) => roam(tone.detune, at, i ? 1 : -7, i ? 7 : -1, 5))
+    }
+    if (kind === 'rain') for (let i = 0; i < 6 + Math.random() * 10; i++) speck(at + Math.random() * 4, 2500 + Math.random() * 4500, 0.006 + Math.random() * 0.01, 0.7 + Math.random() * 0.8)
+    // The fire: crackle in small clusters, low and warm, with long rests between.
+    if (kind === 'hearth') for (let n = 0; n < 1 + Math.random() * 3; n++) {
+      const from = at + Math.random() * 4
+      for (let i = 0; i < 2 + Math.random() * 5; i++) speck(from + Math.random() * 0.35, 900 + Math.random() * 1800, 0.01 + Math.random() * 0.02, 0.5 + Math.random() * 0.7)
+    }
+  }
+  wander()
+  scape = { kind, context, out, sources, timer: window.setInterval(wander, 4000) }
+  hear(`scape:${kind}`)
+}
+
+/** The soundscape goes, over `seconds`: you left the page, closed the window, or stopped writing a while. */
+export function scapeStop(seconds = 2): void {
+  if (!scape) return
+  const { context, out, sources, timer } = scape
+  scape = null
+  clearInterval(timer)
+  const now = context.currentTime
+  out.gain.cancelScheduledValues(now)
+  out.gain.setValueAtTime(out.gain.value, now)
+  out.gain.setTargetAtTime(0, now, seconds / 4)
+  for (const one of sources) one.stop(now + seconds + 0.3)
+  hear('scape-end')
+}
+
+let sampled = 0
+/** A taste of a soundscape for Settings: in over a second, held a few seconds, gone. */
+export function scapeSample(kind: Scape): void {
+  scapeStop(0.6)
+  clearTimeout(sampled)
+  if (kind === 'off') return
+  scapeStart(kind)
+  const playing = scape
+  if (!playing) return
+  playing.out.gain.cancelScheduledValues(playing.context.currentTime)
+  playing.out.gain.setTargetAtTime(SCAPE_LEVEL * volume, playing.context.currentTime, 0.3)
+  sampled = window.setTimeout(() => scape === playing && scapeStop(1.5), 4000)
+}
+
+/*
+ * Typing voices: a soft sound for each key you write with, never the same
+ * twice. A short burst of noise through a filter, and for the keys a round low
+ * body under it, from the one AudioContext and one short noise buffer. The
+ * faster you type, the softer each one, so a flow becomes a murmur.
+ */
+export const VOICES = [
+  { id: 'off', label: 'Off' },
+  { id: 'pencil', label: 'Pencil' },
+  { id: 'soft', label: 'Soft key' },
+  { id: 'deep', label: 'Deep key' }
+] as const
+export type Voice = (typeof VOICES)[number]['id']
+let grit: AudioBuffer | null = null
+let density = 0
+let keyedAt = -Infinity
+/** The keys that sounded, newest last, with how loud the flow let them be: for the probes. */
+const keyed: { voice: Voice; key: string; gain: number }[] = []
+;(window as unknown as { haligtreeKeys?: typeof keyed }).haligtreeKeys = keyed
+
+/** One key's sound in `voice`. Deleting and shortcuts never get here. */
+export function keyVoice(voice: Voice, key: 'letter' | 'space' | 'enter'): void {
+  if (voice === 'off') return
+  const context = audio()
+  if (!context) return
+  const t = performance.now()
+  // A key a second ago still counts a little over a third; one just now counts whole.
+  density = density * Math.exp(-(t - keyedAt) / 1000) + 1
+  keyedAt = t
+  const flow = Math.min(1, 1.5 / (0.5 + density))
+  const level = volume * flow * (key === 'space' ? 0.6 : 1)
+  keyed.push({ voice, key, gain: flow })
+  if (keyed.length > 200) keyed.shift()
+  grit ??= noise(context, 0.25, 0.1, 1)
+  const at = context.currentTime + 0.002
+  const vary = (spread: number): number => 1 + (Math.random() * 2 - 1) * spread
+  const burst = (type: BiquadFilterType, hz: number, q: number, peak: number, length: number, rate: number, glide?: number): void => {
+    const one = context.createBufferSource()
+    one.buffer = grit
+    one.playbackRate.value = rate
+    const band = context.createBiquadFilter()
+    band.type = type
+    band.frequency.setValueAtTime(hz, at)
+    if (glide) band.frequency.exponentialRampToValueAtTime(glide, at + length)
+    band.Q.value = q
+    const gain = context.createGain()
+    gain.gain.setValueAtTime(0.0001, at)
+    gain.gain.exponentialRampToValueAtTime(peak, at + Math.min(0.02, length / 4))
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + length)
+    one.connect(band).connect(gain).connect(context.destination)
+    one.start(at, Math.random() * 0.15, length + 0.02)
+  }
+  const body = (hz: number, to: number, peak: number, length: number): void => {
+    const tone = context.createOscillator()
+    tone.frequency.setValueAtTime(hz, at)
+    tone.frequency.exponentialRampToValueAtTime(to, at + length * 0.6)
+    const gain = context.createGain()
+    gain.gain.setValueAtTime(0.0001, at)
+    gain.gain.exponentialRampToValueAtTime(peak, at + 0.004)
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + length)
+    tone.connect(gain).connect(context.destination)
+    tone.start(at)
+    tone.stop(at + length + 0.02)
+  }
+  if (voice === 'pencil') {
+    // Graphite on paper: a soft grainy scratch; Enter a longer slide that falls away.
+    if (key === 'enter') burst('bandpass', 3600 * vary(0.1), 0.9, 0.05 * level, 0.22, vary(0.1), 1800)
+    else burst('bandpass', 4200 * vary(0.18), 0.8 + Math.random() * 0.6, 0.045 * level, 0.035 * vary(0.3), vary(0.25))
+  } else if (voice === 'soft') {
+    // A muted wooden tap: a short hollow knock and a little of its tick.
+    const low = key === 'enter' ? 0.72 : 1
+    body(420 * low * vary(0.06), 300 * low, 0.07 * level, key === 'enter' ? 0.09 : 0.05)
+    burst('bandpass', 1500 * low * vary(0.12), 2, 0.03 * level, 0.025, vary(0.15))
+  } else {
+    // A well-dampened key: a low round thock, felt more than heard, the click nearly gone.
+    const low = key === 'enter' ? 0.75 : 1
+    body(128 * low * vary(0.05), 82 * low, 0.16 * level, key === 'enter' ? 0.16 : 0.1)
+    burst('lowpass', 700 * low * vary(0.1), 0.7, 0.04 * level, key === 'enter' ? 0.06 : 0.04, vary(0.12))
+  }
 }

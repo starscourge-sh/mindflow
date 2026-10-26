@@ -7,7 +7,7 @@ import iconGold from '@/assets/app-icon/gold.png'
 import { WorkdaySample } from './week-fit'
 import { lengthSaid } from '../../../../main/day-load'
 import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { PACKS, TICKS, chime, click, setVolume, soundOn, step, tickSample, type PackName, type TickSound } from '@/lib/sound'
+import { PACKS, SCAPES, TICKS, VOICES, scapeSample, type Scape, type Voice, chime, click, setVolume, soundOn, step, tickSample, type PackName, type TickSound } from '@/lib/sound'
 import { NOTE_FONTS } from '@/lib/editor-setup'
 import { CalendarDays, Check, FolderPlus, Image as ImageIcon, Keyboard, Pin, Play, Shuffle, Star, type LucideIcon } from 'lucide-react'
 import { SecondZoneSetting } from './calendar-events'
@@ -31,6 +31,7 @@ import { Avatar } from './avatar'
 import { pickAvatar, setAvatar, useAvatar } from '@/lib/people'
 import { setPageWidth, widthOf, type PageWidth } from '@/lib/reading'
 import { SoundPacks } from './sound-packs'
+import { voiceSample } from './writing-sound'
 import { FontPicker, TextSize } from './font-picker'
 import { BackToTop, Kbd, Rolling, Tip, ask, quietly, refuse, toast, useSmooth } from './ui'
 import { working } from './beam'
@@ -745,6 +746,16 @@ export function SettingsView(): React.JSX.Element {
           {/* Shown with sounds off too, greyed, so a search still finds them. */}
           <Setting off={!settings.sounds && 'Turn “Sounds” on to change this.'} title="Volume" note="How loud every sound is; let go of the slider to hear it.">
             <SettingSlider disabled={!settings.sounds} min={0} max={1} step={0.05} value={settings.volume} onSave={(volume) => set({ volume })} sample={(volume) => (setVolume(volume), chime('tap'))} />
+          </Setting>
+          <Setting off={!settings.sounds && 'Turn “Sounds” on to change this.'} title="While you write" note="A soundscape on today's page and in the writing room; pick one to hear it." more="It comes in slowly once you start writing and goes when you leave or stop for two minutes. Never the same twice. Also under “Sound” at the foot of the page." keywords="soundscape ambience ambient writing sound shore sea surf rain hearth fire crackle chord">
+            <div inert={!settings.sounds} className={settings.sounds ? '' : 'opacity-50'}>
+              <Chips className="shrink-0" options={SCAPES} on={(id) => id === (settings.writingSound ?? 'off')} pick={(id) => (scapeSample(id as Scape), set({ writingSound: id as Scape }))} />
+            </div>
+          </Setting>
+          <Setting off={!settings.sounds && 'Turn “Sounds” on to change this.'} title="Typing voice" note="A soft sound for each key you write with; pick one to hear it." more="Quieter the faster you type, so a flow becomes a murmur. Deleting and shortcuts are silent." keywords="typing sound keys keyboard typewriter pencil soft key deep key thock click">
+            <div inert={!settings.sounds} className={settings.sounds ? '' : 'opacity-50'}>
+              <Chips className="shrink-0" options={VOICES} on={(id) => id === (settings.typingVoice ?? 'off')} pick={(id) => (voiceSample(id as Voice), set({ typingVoice: id as Voice }))} />
+            </div>
           </Setting>
           {focus && <>
           <Setting off={!settings.sounds && 'Turn “Sounds” on to change this.'} title="Session ticking" note="A clock ticks quietly while you focus, and goes quiet for breaks." more="A little tenser in the last ten seconds. The alarm rings at the end either way. Also in the bubble's right-click menu." keywords="tick while a session runs tick ticking clock focus session timer countdown alarm">

@@ -5,6 +5,7 @@ import { Decoration, DecorationSet } from '@tiptap/pm/view'
 
 import { chime } from '@/lib/sound'
 import { num } from '../../../../main/dates'
+import { WritingSound } from './writing-sound'
 
 /**
  * Writer's tools, as iA Writer and Scrivener have them: a focus band that
@@ -123,6 +124,7 @@ export function WriterTools({ editor }: { editor: Editor | null }): React.JSX.El
       ))}
       <span aria-hidden className="mx-1">·</span>
       <button type="button" data-aim-ask className={pick} onClick={askAim}>Aim</button>
+      <WritingSound />
       <button type="button" data-report-ask data-on={!!report || undefined} className={pick} onClick={() => (chime(report ? 'fold' : 'open'), setReport(report || !editor ? null : proseReport(editor)), editor?.commands.focus())}>Prose report</button>
     </span>
   )

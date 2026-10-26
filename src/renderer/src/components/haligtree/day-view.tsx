@@ -23,6 +23,7 @@ import { DayBanner } from './scenery'
 import { DayBrief } from './day-brief'
 import { LivingCaret, WriterLine, dayCaption, useWritingQuiet } from './day-writing'
 import { RoomFoot, useWritingRoom } from './writing-room'
+import { useWritingSound } from './writing-sound'
 import { DayMarks } from './milestones'
 import { markDay } from '@/lib/milestones'
 import { FlagTriangleRight, Maximize2 } from 'lucide-react'
@@ -96,6 +97,7 @@ export function DayView({ onOpen, start, onScale, onView }: {
   const spent = useWritingQuiet(writer, day)
   // The writing room: these words over the whole window (⇧⌘↵, Esc leaves).
   const room = useWritingRoom(writer)
+  useWritingSound(writer, day === today || room.on)
   // Written elsewhere while open (the Feed's "Use this", a Blurt, the other
   // window): with nothing of yours waiting to save, the page shows it at once.
   // `known` is the stored words this editor last matched, `sent` its own words then.
