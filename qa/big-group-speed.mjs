@@ -74,6 +74,32 @@ try {
     for (const type of ['keydown', 'click']) document.addEventListener(type, start, { capture: true, once: true })
     window.__start = start
   })
+  // QA_PROFILE=1: a CPU profile of scrolling to the end and the unfold, the costliest functions printed.
+  const cdp = process.env.QA_PROFILE ? await c.electron.context().newCDPSession(h) : null
+  const profiler = {
+    start: async () => { await cdp.send('Profiler.enable'); await cdp.send('Profiler.setSamplingInterval', { interval: 200 }); await cdp.send('Profiler.start') },
+    stop: async (name) => {
+      const { profile } = await cdp.send('Profiler.stop')
+      if (process.env.QA_PROFILE_DIR) (await import('fs')).writeFileSync(`${process.env.QA_PROFILE_DIR}/${name.replace(/\W+/g, '-')}.cpuprofile`, JSON.stringify(profile))
+      const byId = new Map(profile.nodes.map((node) => [node.id, node]))
+      const self = new Map()
+      const gap = profile.timeDeltas
+      profile.samples.forEach((id, at) => { self.set(id, (self.get(id) ?? 0) + (gap[at] ?? 0)) })
+      const parent = new Map()
+      for (const node of profile.nodes) for (const child of node.children ?? []) parent.set(child, node.id)
+      const where = (node) => `${node.callFrame.functionName || '(anon)'} ${node.callFrame.url.split('/').pop()}:${node.callFrame.lineNumber + 1}`
+      const selfBy = new Map(); const total = new Map()
+      for (const [id, us] of self) {
+        const node = byId.get(id)
+        selfBy.set(where(node), (selfBy.get(where(node)) ?? 0) + us)
+        const seen = new Set()
+        for (let at = id; at; at = parent.get(at)) { const key = where(byId.get(at)); if (!seen.has(key)) (seen.add(key), total.set(key, (total.get(key) ?? 0) + us)) }
+      }
+      const top = (map, n) => [...map].filter(([k]) => !/^\(idle\)|^\(program\)|^\(root\)/.test(k)).sort((a, b) => b[1] - a[1]).slice(0, n).map(([k, us]) => `  ${(us / 1000).toFixed(1).padStart(7)}ms  ${k}`).join('\n')
+      console.log(`--- profile ${name}: self\n${top(selfBy, 25)}\n--- inclusive (app code)\n${top(new Map([...total].filter(([k]) => /home-|index-|\.tsx?:|chunk|-[\w]{8}\.js/.test(k))), 60)}`)
+    }
+  }
+  
   const measure = async (name) => {
     await h.waitForTimeout(1200)
     const { settle, tasks } = await h.evaluate(() => ({ settle: window.__settle, tasks: window.__lt.splice(0) }))
@@ -93,7 +119,7 @@ try {
     box.scrollTop = where === 'end' ? box.scrollHeight : 0
   }, where)
 
-  await arm(); await scrollTo('end'); await measure('scrolling to the end')
+  await arm(); if (cdp) await profiler.start(); await scrollTo('end'); await measure('scrolling to the end'); if (cdp) await profiler.stop('scroll to end')
   const last = await h.evaluate(() => [...document.querySelectorAll('[data-page="nuggets"] [data-row]')].pop()?.getBoundingClientRect().bottom ?? 0)
   check('at the end, the last rows are drawn on screen', last > 0 && last < 900, `${Math.round(last)}px, list ${await scroller()}px tall, ${await rows()} rows drawn`)
   await scrollTo('top'); await h.waitForTimeout(500)
@@ -114,7 +140,7 @@ try {
   await arm(); await fold.click(); await measure('fold')
   const inGroup = () => h.locator(`[data-group-block="${big.id}"] [data-row]`).count()
   check('folded, its rows leave', (await inGroup()) === 0, `${await inGroup()} rows`)
-  await arm(); await fold.click(); await measure('unfold')
+  await arm(); if (cdp) await profiler.start(); await fold.click(); await measure('unfold'); if (cdp) await profiler.stop('unfold')
   check('unfolded, rows near the screen come back', (await inGroup()) > 5 && (await rows()) < 150, `${await inGroup()} rows`)
 
   // The keys reach rows not drawn yet: G to the last, gg back to the first, ↓ a step at a time.
