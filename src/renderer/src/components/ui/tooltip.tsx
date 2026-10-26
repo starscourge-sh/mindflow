@@ -3,6 +3,7 @@ import { FLOAT } from '@/lib/float'
 import { cn } from "@/lib/cn"
 import { onScrollAway } from "@/lib/scroll-away"
 import { Tooltip as TooltipPrimitive } from "radix-ui"
+import { roomFrom } from "@/lib/traffic-lights"
 
 function TooltipProvider({
   delayDuration = 0,
@@ -116,6 +117,8 @@ function TooltipTrigger({
   )
 }
 
+const TIP_ROOM = roomFrom(8)
+
 function TooltipContent({
   className,
   sideOffset = 4,
@@ -127,7 +130,7 @@ function TooltipContent({
       <TooltipPrimitive.Content
         data-slot="tooltip-content"
         sideOffset={sideOffset}
-        collisionPadding={8}
+        collisionPadding={TIP_ROOM}
         // Inside the window always: slid along its side, or turned to the other side, never cut at an edge.
         avoidCollisions
         sticky="always"

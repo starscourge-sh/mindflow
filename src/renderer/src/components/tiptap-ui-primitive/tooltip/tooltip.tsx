@@ -27,6 +27,7 @@ import {
   FloatingDelayGroup,
 } from "@floating-ui/react"
 import "@/components/tiptap-ui-primitive/tooltip/tooltip.scss"
+import { roomFrom } from "@/lib/traffic-lights"
 
 interface TooltipProviderProps {
   children: React.ReactNode
@@ -93,9 +94,9 @@ function useTooltip({
       flip({
         crossAxis: placement.includes("-"),
         fallbackAxisSideDirection: "start",
-        padding: 10,
+        padding: roomFrom(10),
       }),
-      shift({ padding: 10 }),
+      shift({ padding: roomFrom(10) }),
     ],
   })
 
