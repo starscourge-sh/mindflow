@@ -1,15 +1,16 @@
+import { useLayoutEffect, useRef, useState } from 'react'
 import { motion } from 'motion/react'
 import { ARRIVE_MS } from '@/lib/sound'
 import { WelcomeLeaves } from './welcome-leaves'
 
-/** When the window may gather in from the whole screen (main: gatherIn): the title card whole, held a breath. */
-export const GATHER_AT = 4400
+/** When the window may gather in from the whole screen (main: gatherIn): only once the title card is whole and held a breath, so the two never move at once. */
+export const GATHER_AT = 8400
 /** When the title card lifts, clearing the way for the first words on the arrival's beat. */
 export const LIFT_AT = ARRIVE_MS - 2000
 
 const ROMAN = (year: number): string => [[1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'], [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']].reduce((out, [n, s]) => { while (year >= (n as number)) (out += s), (year -= n as number); return out }, '')
-/** The bunch held low in the middle of its box, sized as the last page's, near enough, so each leaf reads in its squares. */
-const BUNCH = { x: 0.5, y: 0.9, scale: 0.62 }
+/** The bunch's size, as the last page's near enough, so each leaf reads in its squares. */
+const SCALE = 0.62
 
 /**
  * The welcome's title card, in the mist before the first words: a book's
@@ -26,18 +27,34 @@ export function WelcomeTitle({ name, hurry = false }: { name: string; hurry?: bo
     animate: { opacity: 1, filter: 'blur(0px)', letterSpacing: '0.24em' },
     transition: { delay, duration: 1.4, ease: [0.22, 1, 0.36, 1] }
   })
-  const under = name ? `for ${name}` : ROMAN(new Date().getFullYear())
+  // A commonplace book is kept, as a diary is: "Kept by Reed" on its title page, or the year it was begun.
+  const under = name ? `Kept by ${name}` : ROMAN(new Date().getFullYear())
+  // The leaves fly across the whole card and gather where the mark sits: its place read off the slot above the words.
+  const card = useRef<HTMLDivElement>(null)
+  const slot = useRef<HTMLDivElement>(null)
+  const [at, setAt] = useState<{ x: number; y: number; scale: number; fromEdge: true } | null>(null)
+  useLayoutEffect(() => {
+    const whole = card.current?.getBoundingClientRect()
+    const mark = slot.current?.getBoundingClientRect()
+    if (whole?.width && mark) setAt({ x: (mark.left + mark.width / 2 - whole.left) / whole.width, y: (mark.top + mark.height * 0.9 - whole.top) / whole.height, scale: SCALE, fromEdge: true })
+  }, [])
   return (
-    <motion.div aria-hidden data-title-card="" className="pointer-events-none absolute inset-0 z-40 flex flex-col items-center justify-center gap-[clamp(0.6rem,1.6vmin,1rem)] text-foreground"
+    <motion.div ref={card} aria-hidden data-title-card="" className="pointer-events-none absolute inset-0 z-40 flex flex-col items-center justify-center gap-[clamp(0.6rem,1.6vmin,1rem)] text-foreground"
       initial={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
       animate={hurry ? { opacity: 0, transition: { duration: 0.4 } } : { opacity: 0, y: -18, filter: 'blur(6px)', transition: { delay: LIFT_AT / 1000, duration: 1.2, ease: [0.4, 0, 0.2, 1] } }}>
-      <div data-title-mark className="relative mb-[clamp(0.5rem,2vmin,1.5rem)] h-[300px] w-[640px] max-w-full">
-        <WelcomeLeaves on={false} open gather motes={false} bunchAt={BUNCH} />
-      </div>
-      <motion.p {...line(1.6)} className="pl-[0.24em] text-[clamp(0.75rem,1.5vmin,0.9375rem)] font-light uppercase text-(--mf-wl-quiet)">A commonplace book</motion.p>
-      <motion.h1 initial={{ opacity: 0, filter: 'blur(14px)', scale: 1.04 }} animate={{ opacity: 1, filter: 'blur(0px)', scale: 1 }} transition={{ delay: 2.3, duration: 1.6, ease: [0.22, 1, 0.36, 1] }}
+      {at && <div className="absolute inset-0 -z-10"><WelcomeLeaves on={false} open gather motes={false} bunchAt={at} /></div>}
+      <div ref={slot} data-title-mark className="relative mb-[clamp(0.5rem,2vmin,1.5rem)] h-[300px] w-[640px] max-w-full" />
+      <motion.p {...line(4.5)} className="pl-[0.24em] text-[clamp(0.75rem,1.5vmin,0.9375rem)] font-light uppercase text-(--mf-wl-quiet)">A commonplace book</motion.p>
+      <motion.h1 initial={{ opacity: 0, filter: 'blur(14px)', scale: 1.04 }} animate={{ opacity: 1, filter: 'blur(0px)', scale: 1 }} transition={{ delay: 5.5, duration: 1.6, ease: [0.22, 1, 0.36, 1] }}
         className="font-heading text-[clamp(3rem,9vmin,6.5rem)] leading-none font-semibold tracking-[-0.02em]">Haligtree</motion.h1>
-      <motion.p {...line(3.1)} className="pl-[0.24em] text-[clamp(0.75rem,1.5vmin,0.9375rem)] font-light uppercase text-(--mf-wl-quiet)">{under}</motion.p>
+      {name ? (
+        // Signed in a pen's hand, as the owner writes their name inside the cover: written on left to right, a little aslant.
+        <motion.p key="kept" data-title-kept="" className="mt-2 -rotate-3 text-[clamp(1.6rem,3.6vmin,2.4rem)] leading-none text-(--mf-wl-quiet) [font-family:'Haligtree_Signature',cursive]"
+          initial={{ clipPath: 'inset(-20% 100% -20% 0)', opacity: 0.4 }} animate={{ clipPath: 'inset(-20% 0% -20% 0)', opacity: 1 }}
+          transition={{ delay: 6.8, duration: 1.8, ease: [0.45, 0.05, 0.35, 1] }}>{under}</motion.p>
+      ) : (
+        <motion.p key="year" {...line(6.6)} className="pl-[0.24em] text-[clamp(0.75rem,1.5vmin,0.9375rem)] font-light uppercase text-(--mf-wl-quiet)">{under}</motion.p>
+      )}
     </motion.div>
   )
 }

@@ -46,12 +46,12 @@ try {
   let title = ''
   let looks = 0
   let mark = null
-  for (let t = await sinceMist(); t < 6200; t = await sinceMist()) {
+  for (let t = await sinceMist(); t < 10000; t = await sinceMist()) {
     looks++
     title ||= await h.evaluate(() => document.querySelector('[data-title-card]')?.innerText ?? '')
     if (await seen('[data-title-card]')) card++
     if ((await h.locator('[data-thesis="line"]').count()) && (await seen('[data-title-card]'))) wordsWithCard = true
-    if (SHOTS && t > [2400, 4000, 5600][frame]) await shot(`0${frame++}-card-${(t / 1000).toFixed(1)}s`)
+    if (SHOTS && t > [1500, 3000, 4800, 6200, 8000, 9300][frame]) await shot(`0${frame++}-card-${(t / 1000).toFixed(1)}s`)
     // The mark whole (the logo's leaf fan in squares), read from its own canvas, and the wordmark's weight.
     if (t > 4200 && !mark) mark = await h.evaluate(() => {
       const canvas = document.querySelector('[data-title-card] canvas')
@@ -73,7 +73,7 @@ try {
   await h.waitForSelector('[data-thesis="line"]', { timeout: 6000 })
   const waited = Date.now()
   const wordsAt = (await sinceMist()) - (Date.now() - waited)
-  check('the first words come at about eight to ten seconds', wordsAt > 6500 && wordsAt < 10500, `${wordsAt}ms after the mist`)
+  check('the first words come at about twelve seconds, after the title card has told its story', wordsAt > 11000 && wordsAt < 14500, `${wordsAt}ms after the mist`)
   await h.waitForTimeout(600)
   check('the title card is gone once the words come', (await h.locator('[data-title-card]').count()) === 0 && !wordsWithCard)
   await h.waitForTimeout(900)

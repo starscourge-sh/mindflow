@@ -987,7 +987,8 @@ export function abandoned(): void {
  * the next beat, at ARRIVE_MS.
  */
 export const BEAT_MS = 60000 / 72
-export const ARRIVE_MS = Math.round(BEAT_MS * 10)
+// Fifteen beats: the title card tells its story one thing at a time (the leaves, then the words, then the window), never all at once.
+export const ARRIVE_MS = Math.round(BEAT_MS * 15)
 /** The key everything in the welcome is in: D, E, F sharp, A and B, an octave up from the chord. */
 export const PENTA = [587.33, 659.25, 739.99, 880, 987.77] as const
 

@@ -30,7 +30,7 @@ const DRIFT = 51
  * turns false) a gust blows them off the edge, gone in under a second. Not
  * drawn under reduced motion.
  */
-export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = null, motes: showMotes = true, bunchAt = null }: { /** Where the bunch is held, as parts of the canvas, and how big: the last page's (low right, sized to the window) unless told. */ bunchAt?: { x: number; y: number; scale: number } | null; on: boolean; /** The welcome showing: the small ones keep drifting till it ends. */ open: boolean; /** How much of a leaf shows in the middle of the page: none on a page full to its edges. */ middle?: number; /** The last page: the leaves gather into one bunch at a single base, a florilegium. */ gather?: boolean; /** What the leaves are drawn to (a selector): they drift in from the edges and sink behind it, quicker and with the wind louder as the pointer nears it. */ lure?: string | null; /** The small ones drifting by: none on a page with its own light (the dial). */ motes?: boolean }): React.JSX.Element | null {
+export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = null, motes: showMotes = true, bunchAt = null }: { /** Where the bunch is held, as parts of the canvas, and how big: the last page's (low right, sized to the window) unless told. With `fromEdge`, its five blow in from off the left edge, none already near. */ bunchAt?: { x: number; y: number; scale: number; fromEdge?: boolean } | null; on: boolean; /** The welcome showing: the small ones keep drifting till it ends. */ open: boolean; /** How much of a leaf shows in the middle of the page: none on a page full to its edges. */ middle?: number; /** The last page: the leaves gather into one bunch at a single base, a florilegium. */ gather?: boolean; /** What the leaves are drawn to (a selector): they drift in from the edges and sink behind it, quicker and with the wind louder as the pointer nears it. */ lure?: string | null; /** The small ones drifting by: none on a page with its own light (the dial). */ motes?: boolean }): React.JSX.Element | null {
   const box = useRef<HTMLCanvasElement>(null)
   const gathering = useRef(gather)
   gathering.current = gather
@@ -450,11 +450,11 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
         gatheredAt = now
         const base = { x: width * (bunchAt?.x ?? 0.83), y: height * (bunchAt?.y ?? 0.9) }
         const span = bunchAt?.scale ?? Math.min(1, width / 1400)
-        const picked = [...motes].sort((a, b) => Math.hypot(a.x - base.x, a.y - base.y) - Math.hypot(b.x - base.x, b.y - base.y)).slice(0, 5)
+        const picked = bunchAt?.fromEdge ? [] : [...motes].sort((a, b) => Math.hypot(a.x - base.x, a.y - base.y) - Math.hypot(b.x - base.x, b.y - base.y)).slice(0, 5)
         while (picked.length < 5) {
           const one = make(false, true)
-          one.x = width + 60
-          one.y = height * Math.random()
+          // The title card's: out of sight to the left, carried in on the wind across the whole window.
+          if (!bunchAt?.fromEdge) (one.x = width + 60), (one.y = height * Math.random())
           motes.push(one)
           picked.push(one)
         }
@@ -463,7 +463,7 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
           const size = (i === 2 ? 155 : 138 - Math.abs(i - 2) * 8) * span
           // Long stems of their own, the middle one tallest, so each leaf reads apart from the next.
           const reach = size * 0.62 + (160 - Math.abs(i - 2) * 30) * span
-          bunch.set(one, { from: { x: one.x, y: one.y, spin: one.spin, size: one.size }, to: { x: base.x + Math.cos(angle) * reach, y: base.y + Math.sin(angle) * reach, spin: angle, size }, base, delay: i * 150, face: 0, i })
+          bunch.set(one, { from: { x: one.x, y: one.y, spin: one.spin, size: one.size }, to: { x: base.x + Math.cos(angle) * reach, y: base.y + Math.sin(angle) * reach, spin: angle, size }, base, delay: bunchAt?.fromEdge ? 400 + i * 380 : i * 150, face: 0, i })
           one.hue = HUES[i % HUES.length]
           // Slender leaves only: a bunch reads leaf by leaf, not as one shape.
           one.kind = 'birch'
