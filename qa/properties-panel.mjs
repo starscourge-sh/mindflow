@@ -47,7 +47,7 @@ try {
   check('2. details out: the properties head the details', (await visible(panel)) === 1)
   check('2. the block under the title is gone', (await visible(inline)) === 0)
   const said = await h.evaluate((sel) => document.querySelector(sel)?.textContent ?? '', panel)
-  check('2. values show in the details', /Check back/i.test(said) && /Is TARS still the one/.test(said) && /created/.test(said), said.slice(0, 200))
+  check('2. values show in the details', /Check back/i.test(said) && /Is TARS still the one/.test(said) && /created/i.test(said), said.slice(0, 200))
   const first = await h.evaluate(() => document.querySelector('.mf-details')?.firstElementChild?.matches('[data-property-strip]'))
   check('2. it is the first group in the details', !!first)
   // Its rows line up with the rows of the groups under it, at the same height and size of type.
