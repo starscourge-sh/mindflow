@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react"
-import { createPortal } from "react-dom"
 import type { Editor } from "@tiptap/react"
 
 import { Kbd } from "@/components/ui/kbd"
@@ -49,17 +48,19 @@ type Hint = Misspelling & { x: number; y: number; tab: boolean }
  * note is locked (misspeltAt and wordAt say so). In a list or a table Tab
  * keeps its own job (indenting, the next cell): there the pill has no Tab
  * key, and a click on it takes the word instead. With Vim on, Tab takes it in
- * normal mode too, since Tab does nothing there outside a list. Drawn inside
- * the editor's own scrolling box, so it moves with the words.
+ * normal mode too, since Tab does nothing there outside a list. Drawn in the
+ * editor's own box, placed again as the words scroll.
  */
-export function SpellPill({ editor, box }: { editor: Editor | null; box: HTMLElement | null }): React.JSX.Element | null {
+export function SpellPill({ editor }: { editor: Editor | null }): React.JSX.Element | null {
   const [hint, setHint] = useState<Hint | null>(null)
   const shown = useRef(hint)
   shown.current = hint
   const takeRef = useRef<(one: Hint) => void>(() => {})
   useEffect(() => {
-    if (!editor || editor.isDestroyed || !box) return
+    if (!editor || editor.isDestroyed) return
     const dom = editor.view.dom
+    const box = dom.closest<HTMLElement>(".haligtree-editor-wrapper")
+    if (!box) return
     let frame = 0
     let typing = 0
     let asked = 0
@@ -71,9 +72,9 @@ export function SpellPill({ editor, box }: { editor: Editor | null; box: HTMLEle
         if (typing || !editor.isFocused || !selection.empty || !document.hasFocus()) return setHint(null)
         const at = editor.view.coordsAtPos(selection.head)
         const from = box.getBoundingClientRect()
-        // Just under the caret's line, never over the word: the box's own scroll counts.
-        const y = at.bottom - from.top + box.scrollTop + 2
-        const left = (pos: number): number => editor.view.coordsAtPos(pos).left - from.left + box.scrollLeft
+        // Just under the caret's line, never over the word.
+        const y = at.bottom - from.top + 2
+        const left = (pos: number): number => editor.view.coordsAtPos(pos).left - from.left
         const tab = !tabTaken(editor)
         const flagged = misspeltAt(editor, at.left - 1, (at.top + at.bottom) / 2)
         // Underlined but with nothing from the page's checker (its list is short): Harper's dictionary, asked once
@@ -124,6 +125,8 @@ export function SpellPill({ editor, box }: { editor: Editor | null; box: HTMLEle
     editor.on("blur", place)
     dom.addEventListener("keydown", onKey, true)
     window.addEventListener("resize", place)
+    // The words scroll under it: it goes with them.
+    window.addEventListener("scroll", place, true)
     window.addEventListener("blur", place)
     window.addEventListener("focus", place)
     place()
@@ -139,19 +142,19 @@ export function SpellPill({ editor, box }: { editor: Editor | null; box: HTMLEle
       editor.off("blur", place)
       dom.removeEventListener("keydown", onKey, true)
       window.removeEventListener("resize", place)
+      window.removeEventListener("scroll", place, true)
       window.removeEventListener("blur", place)
       window.removeEventListener("focus", place)
     }
-  }, [editor, box])
-  if (!hint || !box) return null
-  return createPortal(
+  }, [editor])
+  if (!hint) return null
+  return (
     <span data-spell-hint data-spell-tab={hint.tab || undefined} aria-hidden
       // A press on it takes the word; held off the editor, so the caret stays where it was.
       onPointerDown={(event) => (event.preventDefault(), takeRef.current(hint))}
       className="mf-spell-hint absolute top-0 left-0 z-[3] inline-flex h-6 cursor-pointer items-center gap-1.5 rounded-full border border-foreground/10 bg-background ps-2.5 pe-1 text-control whitespace-nowrap text-foreground/80 shadow-xs select-none"
       style={{ translate: `${hint.x}px ${hint.y}px`, paddingInlineEnd: hint.tab ? undefined : "0.625rem" }}>
       {hint.suggestions[0]}{hint.tab && <Kbd className="rounded border border-border/80 text-key">Tab</Kbd>}
-    </span>,
-    box
+    </span>
   )
 }

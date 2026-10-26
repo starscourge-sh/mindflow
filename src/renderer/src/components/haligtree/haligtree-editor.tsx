@@ -1864,7 +1864,7 @@ function Surface({
         <LinkEditor editor={editor} />
         {editor && <TaskLinkMenu editor={editor} />}
         {/* A misspelt word's likely fix, under it on a pause; Tab takes it. In every page you write in. */}
-        {shape === "document" && !readOnly && <SpellPill editor={editor} box={contentBox} />}
+        {shape === "document" && !readOnly && <SpellPill editor={editor} />}
         {!handles && editor && <SpellingMenu editor={editor} spelling={spelling} at={menuAt} onClose={() => setSpelling(null)} />}
 
         {/* How much is written, quietly in the corner of a document. */}
