@@ -2189,15 +2189,19 @@ html[data-book-hue] [data-book-tint] {
 :root:has([data-day-write]) [data-pane-card]:has([data-day-write]) { transition: border-color 800ms var(--mf-ease) 250ms; }
 :root[data-day-writing] [data-pane-card]:has([data-day-write]) { border-color: transparent; transition: border-color 900ms ease-in-out; }
 /* The writer's line (day-writing.tsx): the page's count, kept in view at the
-   window's foot as the room's is. The page fades out under it, so what
-   scrolls past never runs through it; the paper's grain stays. The room has
-   its own. */
+   window's foot as the room's is, a quiet status line and never a divider.
+   The page fades out calmly under it, so what scrolls past never runs
+   through it; the paper's grain stays. Room under the page's last row so it
+   always comes to rest clear of the line and its fade. The room has its own. */
 :root:not([data-in-room]):has([data-writer-line]) [data-pane-card] .overflow-y-auto:has([data-day-write]) {
-  mask-image: linear-gradient(to top, transparent 0, transparent 2.75rem, #000 5rem);
+  mask-image: linear-gradient(to top, transparent 0, transparent 2.5rem, #000 7rem);
 }
+:root:not([data-in-room]):has([data-writer-line]) [data-pane-card] .overflow-y-auto:has([data-day-write]) > div { padding-bottom: 8rem; }
 /* Toasts rise over it; and the day's aim is its hairline, not a second bar over the words. */
 :root:not([data-in-room]):has([data-writer-line]) { --toast-bottom: 3.75rem; }
 :root:not([data-in-room]):has([data-writer-line]) [data-day-write] [data-word-aim] { display: none; }
+/* With the aim's bar gone, so is the room kept over the words for it: the caption sits the same small gap over the first line, aim or not. */
+:root:not([data-in-room]):has([data-writer-line]) [data-day-write] .haligtree-editor-wrapper:has(> .mf-aim) > .haligtree-editor-content { padding-top: 0; }
 :root[data-in-room] [data-writer-line] { display: none; }
 @media (prefers-reduced-motion: reduce) {
   :root:has([data-day-write]) :is(body, body :has([data-day-write])) > * { transition-duration: 200ms !important; transition-delay: 0s !important; }

@@ -243,7 +243,7 @@ export function LivingCaret({ editor }: { editor: Editor | null }): React.JSX.El
 /**
  * The day's count, kept in view: one line at the window's foot under the
  * words' own column, set as the writing room's foot is. Words so far and
- * minutes spent, the day's word aim as a hairline filling over them if it has
+ * minutes spent, the day's word aim as a short meter beside the count if it has
  * one, and on today the time, small. What a writer glances down at, and
  * nothing else. Always there, the same line in the same place whether the rest
  * of the page is up or gone; while keys go it holds still, and on a pause its
@@ -292,17 +292,20 @@ export function WriterLine({ editor, day, spent, today }: { editor: Editor | nul
   const share = aim ? Math.min(1, words / aim.words) : 0
   const minutes = Math.round(spent / 60_000)
   return createPortal(
-    <div data-writer-line className="pointer-events-none fixed bottom-0 z-40 flex flex-col items-center gap-1.5 pb-[1.125rem] text-sm text-muted-foreground tabular-nums"
+    <div data-writer-line className="pointer-events-none fixed bottom-0 z-40 flex flex-col items-center pb-[1.125rem] text-sm text-muted-foreground tabular-nums"
       style={{ left: column.left, width: column.width }}>
-      {aim && (
-        <div data-writer-aim className="h-px w-full overflow-hidden rounded-full bg-foreground/10">
-          <div className={`h-full origin-left transition-transform duration-700 ${share >= 0.9 ? 'bg-primary' : 'bg-foreground/40'}`}
-            style={{ transform: `scaleX(${share})`, transitionTimingFunction: 'var(--mf-ease)' }} />
-        </div>
-      )}
       <span className="flex items-center justify-center gap-3">
         {[
-          words > 0 && <span key="words" data-writer-words><Rolling text={num(words)} /> {words === 1 ? 'word' : 'words'}{aim ? ` of ${num(aim.words)}` : ''}</span>,
+          words > 0 && <span key="words" data-writer-words className="inline-flex items-center gap-2">
+            <span><Rolling text={num(words)} /> {words === 1 ? 'word' : 'words'}{aim ? ` of ${num(aim.words)}` : ''}</span>
+            {/* The aim as a short meter beside its count, never a rule across the page. */}
+            {aim && (
+              <span data-writer-aim aria-hidden className="relative h-1 w-10 overflow-hidden rounded-full bg-foreground/10">
+                <span className={`absolute inset-0 origin-left rounded-full transition-transform duration-700 ${share >= 0.9 ? 'bg-primary' : 'bg-foreground/40'}`}
+                  style={{ transform: `scaleX(${share})`, transitionTimingFunction: 'var(--mf-ease)' }} />
+              </span>
+            )}
+          </span>,
           minutes > 0 && <span key="minutes"><Rolling text={num(minutes)} /> {minutes === 1 ? 'minute' : 'minutes'}</span>,
           today && <span key="time" data-writer-time>{clock(Date.now())}</span>,
           today && <WritingSound key="sound" className="pointer-events-auto -mx-1.5" />,
