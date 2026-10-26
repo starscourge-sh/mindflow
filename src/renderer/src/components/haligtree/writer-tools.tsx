@@ -117,10 +117,10 @@ export function writerMenu(editor: Editor | null, focus: Focus, report: (text: s
 export const fullReport = (editor: Editor): Promise<string> => grammarSentence(editor.state.doc).then((line) => `${proseReport(editor)} ${line}`, () => proseReport(editor))
 
 /** The tools in the writing room's foot: Focus (off, sentence, paragraph), Aim, and the report over the foot. */
-export function WriterTools({ editor, proof = false }: { editor: Editor | null; /** A page of Writing: Proofread and the grammar line in the report. */ proof?: boolean }): React.JSX.Element {
+export function WriterTools({ editor, proof = false, live = proof }: { editor: Editor | null; /** Proofread and the grammar line in the report: Writing and the Journal. */ proof?: boolean; /** "Check as I write" too: Writing only, so a day's pages are never marked up as they are written. */ live?: boolean }): React.JSX.Element {
   const focus = useFocus()
   const [report, setReport] = useState<string | null>(null)
-  const [live, setLive] = useState(checkingLive)
+  const [checking, setChecking] = useState(checkingLive)
   const ask = (): void => {
     if (report || !editor) return void (chime('fold'), setReport(null), editor?.commands.focus())
     chime('open')
@@ -145,7 +145,7 @@ export function WriterTools({ editor, proof = false }: { editor: Editor | null; 
       {proof && (
         <>
           <button type="button" data-proofread-ask className={pick} onClick={() => (setReport(null), askProofread())}>Proofread</button>
-          <button type="button" data-grammar-live data-on={live || undefined} className={pick} onClick={() => (setCheckingLive(!live), setLive(!live), chime(live ? 'off' : 'on'))}>Check as I write</button>
+          {live && <button type="button" data-grammar-live data-on={checking || undefined} className={pick} onClick={() => (setCheckingLive(!checking), setChecking(!checking), chime(checking ? 'off' : 'on'))}>Check as I write</button>}
         </>
       )}
       <span aria-hidden className="mx-1">·</span>

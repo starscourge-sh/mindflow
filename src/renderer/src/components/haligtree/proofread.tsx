@@ -35,9 +35,9 @@ const plugin = (): Plugin => new Plugin({
   props: { decorations: (state) => { const one = key.getState(state); return one ? DecorationSet.create(state.doc, [...one.live.find(), ...one.current.find()]) : null } }
 })
 
-export function Proofread({ editor }: { editor: Editor | null }): React.JSX.Element | null {
+export function Proofread({ editor, ask = false }: { editor: Editor | null; /** Only when asked (the Journal): never checking as you write, never marking the page meanwhile. */ ask?: boolean }): React.JSX.Element | null {
   const [state, setState] = useState<{ list: Finding[]; at: number } | 'loading' | 'clean' | null>(null)
-  const live = useRef(checkingLive())
+  const live = useRef(!ask && checkingLive())
   const [, redraw] = useState(0)
   const mark = (current: Finding | null): void => void (editor && !editor.isDestroyed && editor.view.dispatch(editor.state.tr.setMeta(key, { current })))
   // The marks, on this editor while it is a page of Writing.
@@ -93,7 +93,7 @@ export function Proofread({ editor }: { editor: Editor | null }): React.JSX.Elem
   }, [editor, state]) // eslint-disable-line react-hooks/exhaustive-deps
   // "Check as I write": a pause of a second and a half, then the page is read through.
   useEffect(() => {
-    const changed = (): void => (live.current = checkingLive(), redraw((n) => n + 1))
+    const changed = (): void => (live.current = !ask && checkingLive(), redraw((n) => n + 1))
     window.addEventListener('haligtree:grammar-live', changed)
     return () => window.removeEventListener('haligtree:grammar-live', changed)
   }, [])

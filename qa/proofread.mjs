@@ -1,7 +1,7 @@
 // Proofread, on this computer (Harper, harper.js): no WebAssembly is fetched as the app comes up; in the writing
 // room of a piece of Writing, "Proofread" goes through what it finds one at a time with a plain reason, Esc skips,
 // Tab takes the fix (a planted "is is" made "is"), and it ends "Clean."; the Prose report says what it found; the
-// Journal never has it. Prints the first load's time.
+// Journal has it only when asked (no checking as you write). Prints the first load's time.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 [SHOTS=<dir>] node qa/proofread.mjs
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
@@ -25,14 +25,12 @@ try {
   await go('articles'); await wait(1200)
   check('no WebAssembly fetched as the app comes up and Writing opens', (await wasm()) === 0, `${await wasm()} wasm`)
 
-  // The Journal: its writing room has no Proofread, and asking for one there does nothing.
+  // The Journal: Proofread when asked, never "Check as I write", and nothing loads until it is asked for.
   await go('day'); await wait(1200)
   await h.click('[data-room-open]').catch(() => {})
   await wait(500)
-  check('the Journal\'s writing room has no Proofread', (await h.locator('[data-proofread-ask]').count()) === 0)
-  await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:proofread')))
-  await wait(800)
-  check('and it never runs on the Journal', (await bar()) === null && (await wasm()) === 0)
+  check('the Journal\'s writing room offers Proofread, not "Check as I write"', (await h.locator('[data-proofread-ask]').count()) === 1 && (await h.locator('[data-grammar-live]').count()) === 0)
+  check('and nothing loads there until it is asked for', (await wasm()) === 0)
   await h.keyboard.press('Escape'); await wait(400)
 
   // A piece of Writing with a planted mistake.

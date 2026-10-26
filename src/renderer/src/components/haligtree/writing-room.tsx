@@ -48,7 +48,7 @@ export function useWritingRoom(editor: Editor | null): { on: boolean; toggle: ()
 }
 
 /** The room's foot: the writer's tools, then what it is, its words, and the time spent writing, in a quiet line. */
-export function RoomFoot({ editor, title, spent, proof }: { editor: Editor | null; title: string; spent?: number; /** A page of Writing: the grammar tools too. */ proof?: boolean }): React.JSX.Element {
+export function RoomFoot({ editor, title, spent, proof, live = proof }: { editor: Editor | null; title: string; spent?: number; /** Proofread and the grammar line: Writing and the Journal. */ proof?: boolean; /** "Check as I write": Writing only. */ live?: boolean }): React.JSX.Element {
   const counts = useCounts(editor)
   const [since] = useState(Date.now)
   const [, tick] = useState(0)
@@ -61,7 +61,7 @@ export function RoomFoot({ editor, title, spent, proof }: { editor: Editor | nul
   const words = counts?.words ?? 0
   return (
     <div data-room-foot className="flex flex-col items-center gap-1.5 text-sm text-muted-foreground tabular-nums">
-      <WriterTools editor={editor} proof={proof} />
+      <WriterTools editor={editor} proof={proof} live={live} />
       <span className="flex items-center justify-center gap-3">
       <span className="max-w-[24rem] truncate">{title}</span>
       <span aria-hidden>·</span>
