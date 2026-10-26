@@ -155,7 +155,7 @@ const veil = (strength: number): string => `color-mix(in srgb, var(--background)
  * Dimness. `fade` lets the picture melt away at the bottom into whatever is
  * behind, the frosted desktop included.
  */
-export function Scenery({ place, seed, mood, text = 'none', fade = false, wide = true, soft = false, className = '', rounded = '' }: {
+export function Scenery({ place, seed, mood, text = 'none', fade = false, wide = true, soft = false, cloudy = false, className = '', rounded = '' }: {
   place: Place
   seed: string
   /** The moods that fit, over the hour's. */
@@ -165,6 +165,8 @@ export function Scenery({ place, seed, mood, text = 'none', fade = false, wide =
   wide?: boolean
   /** Nothing written over it: only a touch of the Dimness, so the painting shows. */
   soft?: boolean
+  /** The sky is overcast: a faint cloud shadow passes over now and then, not the warm light. */
+  cloudy?: boolean
   className?: string
   rounded?: string
 }): React.JSX.Element | null {
@@ -229,6 +231,10 @@ export function Scenery({ place, seed, mood, text = 'none', fade = false, wide =
       {/* While the full picture decodes: its small copy, softened, so the page
           starts on the picture rather than on a flat colour. */}
       {!shown && late && scene.small && <img src={scene.small} alt="" className="absolute inset-0 size-full scale-110 object-cover blur-xl" />}
+      {/* The painting breathes: a slow pan and zoom, and now and then a wash of
+          light (or a cloud's shadow) across it. Transform only, on the
+          compositor; still while away, while you type, and under reduced motion (main.css). */}
+      <div data-drift className="mf-drift absolute inset-0">
       <AnimatePresence initial={false}>
         {shown && (
           <motion.img
@@ -255,6 +261,8 @@ export function Scenery({ place, seed, mood, text = 'none', fade = false, wide =
           />
         )}
       </AnimatePresence>
+      </div>
+      {shown && <div data-wash={cloudy ? 'cloud' : 'light'} className="mf-wash absolute inset-0" />}
       <div className="absolute inset-0" style={{ background: over }} />
     </div>
   )

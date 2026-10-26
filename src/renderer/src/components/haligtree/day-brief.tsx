@@ -254,7 +254,7 @@ export function DayBrief({ day, onOpen, onListed, between }: {
           {picture && (
             <>
               {scene
-                ? <Scenery place="today" seed={`day:${day}`} mood={['day', 'dusk', 'night', 'interior']} className="absolute inset-0 -z-10" rounded="rounded-2xl" soft />
+                ? <Scenery place="today" seed={`day:${day}`} mood={['day', 'dusk', 'night', 'interior']} cloudy={!!sky && /cloud|overcast|rain|drizzle|shower|fog|mist|storm|snow/i.test(sky)} className="absolute inset-0 -z-10" rounded="rounded-2xl" soft />
                 : grain && <GrainFill cover={grain} large shade="none" className="-z-10" />}
               {/* A soft dark pool behind the words, never a band: the
                   painting still reads at the edges, the title on any of it.

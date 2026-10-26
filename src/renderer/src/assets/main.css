@@ -1582,6 +1582,42 @@ button.mf-signed:hover .mf-signature { text-decoration: underline; text-decorati
   animation: mf-sheen 7s cubic-bezier(0.65, 0, 0.35, 1) 0.6s 3 forwards;
 }
 :root:not([data-awake]) .mf-sheen { animation-play-state: paused; }
+
+/* The paintings breathe (scenery.tsx): a pan and zoom of about 3% over 90s each
+   way, eased at both ends, and now and then a soft warm light (or, on a cloudy
+   day, a faint cloud's shadow) passing across. Transform only, so it runs on
+   the compositor. Still while the window is not looked at or while you type on
+   today's page; gone under reduced motion or with Motion off. */
+.mf-drift { animation: mf-drift 90s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate; will-change: transform; }
+@keyframes mf-drift {
+  from { transform: scale(1.005) translate3d(0.4%, 0.3%, 0); }
+  to { transform: scale(1.035) translate3d(-1.1%, -0.7%, 0); }
+}
+.mf-wash {
+  overflow: hidden;
+  background: linear-gradient(100deg, transparent 30%, rgb(255 214 160 / 0.13) 50%, transparent 70%) no-repeat;
+  background-size: 50% 100%;
+  animation: mf-wash 75s cubic-bezier(0.45, 0, 0.55, 1) 12s infinite;
+  transform: translate3d(-100%, 0, 0);
+  will-change: transform;
+}
+.mf-wash[data-wash='cloud'] {
+  background: radial-gradient(40% 70% at 50% 45%, rgb(20 28 40 / 0.16), transparent 70%) no-repeat;
+  background-size: 60% 100%;
+  animation-duration: 110s;
+}
+@keyframes mf-wash {
+  0% { transform: translate3d(-100%, 0, 0); }
+  32% { transform: translate3d(200%, 0, 0); }
+  100% { transform: translate3d(200%, 0, 0); }
+}
+:root:is(:not([data-awake]), [data-day-typing]) :is(.mf-drift, .mf-wash) { animation-play-state: paused; }
+[data-motion='off'] :is(.mf-drift, .mf-wash) { animation: none !important; }
+[data-motion='off'] .mf-wash { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .mf-drift { animation: none; }
+  .mf-wash { display: none; }
+}
 /* Anything inside that has its own colour (a key, an icon, a chip) keeps it;
    plain words inside still inherit the clear fill and take the shine. */
 .mf-sheen * { -webkit-text-fill-color: currentColor; }
