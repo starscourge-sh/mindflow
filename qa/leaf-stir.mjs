@@ -1,6 +1,6 @@
 // The welcome's leaf bunches are never a still picture: on the title card once the five have landed, and on
 // the Ready page ("Open my book"), each leaf stirs slowly on its own, its tip further than its stem, about
-// 1 to 2 degrees, and any move of the pointer on the page stirs them a little more, by its speed.
+// 3 to 8 degrees, and any move of the pointer on the page stirs them a little more, by its speed.
 // Measured off the qaLeafTrace hook: each leaf's tip angle over 10 s at rest, then 10 s with the pointer moving.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 [SHOTS=<dir>] node qa/leaf-stir.mjs
 import { checks } from './harness.mjs'
@@ -46,34 +46,52 @@ try {
   const card = await read()
   if (shots) await h.screenshot({ path: `${shots}/title-card-bunch.png` })
   const cardTip = swing(card, 2)
-  check('title card: landed, each tip stirs about 1 to 4° low to high', card.length > 30 && cardTip.every((d) => d > 0.4 && d < 4.5), JSON.stringify(r(cardTip)))
+  check('title card: landed, each tip sways, about 0.3 to 9° low to high in 3 s', card.length > 30 && cardTip.every((d) => d > 0.3 && d < 9), JSON.stringify(r(cardTip)))
   await start()
   await wander(2000)
   const cardMoved = swing(await read(), 2)
   check('title card: a moving pointer stirs them more', cardMoved.reduce((s, d) => s + d, 0) > cardTip.reduce((s, d) => s + d, 0), `${JSON.stringify(r(cardTip))} -> ${JSON.stringify(r(cardMoved))}`)
 
   // On to the Ready page.
-  await h.mouse.move(5, 890)
+  await h.mouse.move(1435, 300)
   for (let i = 0; i < 40 && !(await h.getByText(/commonplace book is ready/).count()); i++) {
     await h.keyboard.press('Escape')
     await wait(300)
     await h.locator('footer button').filter({ hasText: /^(Next|Show me|Skip trying it)/ }).last().click().catch(() => {})
     await wait(700)
   }
-  await h.mouse.move(5, 890)
-  await wait(8000)
+  await h.mouse.move(1435, 300)
+  await wait(14000)
   await start()
   await wait(10000)
   const still = await read()
   const tip = swing(still, 2), stem = swing(still, 0)
   if (shots) await h.screenshot({ path: `${shots}/ready-bunch.png` })
-  check('Ready: at rest each tip stirs, about 1 to 4° low to high over 10 s', still.length > 100 && tip.every((d) => d > 1 && d < 4.5), JSON.stringify(r(tip)))
+  check('Ready: at rest each tip sways, about 3 to 14° low to high over 10 s', still.length > 100 && tip.every((d) => d > 3 && d < 14), JSON.stringify(r(tip)))
+  // A sway, not a shiver: each tip turns back at most about once every 2 s (wiggles under 0.15° not counted).
+  const turns = [0, 1, 2, 3, 4].map((i) => { let n = 0, dir = 0, from = still[0].bunch[i][2]; for (const one of still) { const d = one.bunch[i][2] - from; if (Math.abs(d) * DEG < 0.15) continue; const now = Math.sign(d); if (dir && now !== dir) n++; dir = now; from = one.bunch[i][2] } return n })
+  check('Ready: it sways, never shivers (each tip turns back under 6 times in 10 s)', turns.every((n) => n < 6), JSON.stringify(turns))
   check('Ready: the tips swing further than the stems', tip.every((d, i) => d > stem[i]), `tips ${JSON.stringify(r(tip))} stems ${JSON.stringify(r(stem))}`)
   check('Ready: each leaf on its own phase', Math.abs(together(still)) < 0.9, String(Math.round(together(still) * 100) / 100))
   await start()
   await wander(10000)
   const moved = swing(await read(), 2)
-  check('Ready: a moving pointer anywhere stirs them more, softly (under 10° low to high)', moved.reduce((s, d) => s + d, 0) > tip.reduce((s, d) => s + d, 0) * 1.3 && moved.every((d) => d < 10), `${JSON.stringify(r(tip))} -> ${JSON.stringify(r(moved))}`)
+  check('Ready: a moving pointer anywhere stirs them more, never wildly (under 22° low to high)', moved.reduce((s, d) => s + d, 0) > tip.reduce((s, d) => s + d, 0) * 1.15 && moved.every((d) => d < 22), `${JSON.stringify(r(tip))} -> ${JSON.stringify(r(moved))}`)
+  // The pointer resting on a choice: the drifting leaves get excited, and the bunch sways harder with them.
+  await h.mouse.move(1435, 300)
+  await wait(4000)
+  await start()
+  await wait(4000)
+  const calm = swing(await read(), 2)
+  const choice = h.getByText(/someone else.s book/).first()
+  const box = await choice.boundingBox()
+  await h.mouse.move(box.x + 20, box.y + 10, { steps: 8 })
+  await wait(1500)
+  await start()
+  await wait(4000)
+  const excited = swing(await read(), 2)
+  if (shots) await h.screenshot({ path: `${shots}/ready-bunch-excited.png` })
+  check('Ready: a choice pointed at, the bunch sways harder with the leaves', excited.reduce((s, d) => s + d, 0) > calm.reduce((s, d) => s + d, 0) * 1.5, `${JSON.stringify(r(calm))} -> ${JSON.stringify(r(excited))}`)
   check('no page errors', errors.length === 0, errors.join(' | '))
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])

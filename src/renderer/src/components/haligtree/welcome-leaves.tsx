@@ -115,8 +115,10 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
     // The bunch on the last page: each gathered leaf, where it came from, where it goes, and how far it has turned to face you.
     type Held = { from: { x: number; y: number; spin: number; size: number }; to: { x: number; y: number; spin: number; size: number }; base: { x: number; y: number }; delay: number; face: number; i: number; lag?: number; /** How far its own stir has faded in since it landed, 0 to 1. */ rest?: number }
     const bunch = new Map<Leaf, Held>()
-    /** A held leaf's own stir at rest, in radians: two slow swells out of step, each leaf on its own phase, about 0.75° at most at the stem. */
-    const rest = (i: number, t: number): number => 0.009 * Math.sin(t * 0.9 + i * 1.9) + 0.004 * Math.sin(t * 1.7 + i * 0.7)
+    /** A held leaf's own stir at rest, in radians: two slow swells out of step, each leaf on its own phase, about 1.5° at most at the stem. */
+    const rest = (i: number, t: number): number => 0.014 * Math.sin(t * 0.6 + i * 1.9) + 0.006 * Math.sin(t * 1.1 + i * 0.7)
+    /** The whole stem swaying about the base at rest, as a plant does outdoors: about 2.5° each way, never still. */
+    const breathe = (i: number, t: number): number => 0.03 * Math.sin(t * 0.5 + i * 0.45) + 0.012 * Math.sin(t * 0.8 + i * 1.3)
     let gatheredAt = 0
     /**
      * Mostly where the pages are bare, round the edge (the sides, the top and the bottom alike), a fifth anywhere.
@@ -394,7 +396,8 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
         lastAt = there
         pace0 += (speed - pace0) * (1 - Math.exp(-dt * 5))
         // Toward "Open my book", the harder the nearer and quicker; any other move on the page, a soft stir by its speed.
-        const goal = Math.max(Math.max(0, 1 - off / NEAR) ** 1.2 * Math.min(1.6, approach / 400), Math.min(0.2, pace0 / 6000))
+        // When the drifting leaves get excited (the pointer near a choice, or a choice pressed), the bunch feels it too.
+        const goal = Math.max(Math.max(0, 1 - off / NEAR) ** 1.2 * Math.min(1.6, approach / 400), Math.min(0.4, pace0 / 3500), 0.7 * loud, 0.6 * Math.min(1.4, stir))
         // A soft spring: it builds over a beat and settles slowly, with a little follow-through, never a snap.
         windPush += ((goal - wind) * 9 - windPush * 4.2) * dt
         wind = Math.max(0, wind + windPush * dt)
@@ -504,8 +507,8 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
         // A curve, not a straight line: lifted a little as it comes, as a leaf caught and carried.
         const lift = Math.sin(Math.PI * e) * 70
         // The wind sways each about the base it is held at, so the tips go farthest and the stems hardly at
-        // all, each a little out of step with the next, quicker as it blows harder, leaning with it.
-        const sway = wind * e * (0.45 + 0.55 * Math.min(1, felt / 1.5)) * (0.06 + 0.12 * Math.sin(t * (1.5 + 0.9 * Math.min(1, wind)) + at.i * 0.9))
+        // all, each a little out of step with the next, leaning with it: a slow sway (about 7 s a swing), never a shiver.
+        const sway = wind * e * (0.45 + 0.55 * Math.min(1, felt / 1.5)) * (0.09 + 0.11 * Math.sin(t * (0.7 + 0.3 * Math.min(1, wind)) + at.i * 0.6)) + breathe(at.i, t) * (at.rest ?? 0)
         // The tip follows its stem a beat behind, and swings on a little after it stops.
         at.lag = (at.lag ?? 0) + (sway - (at.lag ?? 0)) * (1 - Math.exp(-dt * 2.6))
         const [cos, sin] = [Math.cos(sway), Math.sin(sway)]
