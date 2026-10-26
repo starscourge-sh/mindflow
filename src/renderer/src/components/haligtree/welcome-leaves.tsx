@@ -255,6 +255,11 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
     let nextAt = 0
     let sunk = 0
     let motesShown = moting.current ? 1 : 0
+    // The wind on the last page's bunch, 0 calm, and how fast it is changing; the pointer's way from "Open my book" last frame.
+    let wind = 0
+    let windPush = 0
+    let lastOff: number | null = null
+    let approach = 0
     const pointer = { x: -1e5, y: -1e5 }
     const point = (event: PointerEvent): void => void ((pointer.x = event.clientX), (pointer.y = event.clientY))
     const away = (): void => void ((pointer.x = -1e5), (pointer.y = -1e5))
@@ -355,6 +360,19 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
           if (calm > 0.5) edgeward(one)
         }
       }
+      // Wind on the bunch: the nearer the pointer and the faster it comes toward "Open my book", the harder
+      // it blows, on a spring so it swells and dies down as wind does; the pointer still, it settles to calm.
+      const door = bunch.size ? document.querySelector('.mf-welcome [data-next]')?.getBoundingClientRect() : undefined
+      if (door && dt > 0) {
+        const off = Math.hypot(Math.max(door.left - pointer.x, 0, pointer.x - door.right), Math.max(door.top - pointer.y, 0, pointer.y - door.bottom))
+        const coming = lastOff === null || lastOff > 1e4 ? 0 : Math.max(0, (lastOff - off) / dt)
+        lastOff = off
+        // Its pace toward the button, smoothed: a pointer moves in steps, not every frame.
+        approach += (coming - approach) * (1 - Math.exp(-dt * 6))
+        const goal = Math.max(0, 1 - off / NEAR) ** 1.2 * Math.min(1.6, approach / 400)
+        windPush += ((goal - wind) * 24 - windPush * 7) * dt
+        wind = Math.max(0, wind + windPush * dt)
+      } else (wind = 0), (windPush = 0), (approach = 0), (lastOff = null)
       // Drawn to a choice: a few leaves at a time drift in from the edges and sink behind it, under it, gone.
       const target = drawTo.current ? document.querySelector(drawTo.current)?.getBoundingClientRect() : undefined
       const room = canvas.getBoundingClientRect()
@@ -379,7 +397,7 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
         const gusting = Math.min(1.6, stir)
         pace += (1 + 2 * near + 1.5 * gusting - pace) * (1 - Math.exp(-dt * (gusting > 0.05 ? 5 : 1.6)))
         loud += (near - loud) * ease
-        const level = Math.min(1, 0.8 * loud + 0.6 * gusting)
+        const level = Math.min(1, 0.8 * loud + 0.6 * gusting + 0.35 * Math.min(1, wind))
         if (Math.abs(level - heard) > 0.01 || (heard && level < 0.01)) rustle((heard = level < 0.01 ? 0 : level))
         for (; burst > 0; burst--) toward(target!)
         if (now > nextAt && drawn.length < STREAM + Math.round(3 * near + 6 * gusting)) (toward(target!), (nextAt = now + 1100 / pace))
@@ -417,7 +435,7 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
         stop = null
         drawn.length = 0
       }
-      ;(window as unknown as { haligtreeLure?: unknown }).haligtreeLure = { leaves: drawn.length, sunk, pace, loud, stir, speed: drawn.length ? drawn.reduce((sum, one) => sum + one.speed, 0) / drawn.length : 0, toward: drawn.length && hole ? drawn.reduce((sum, { one }) => sum + Math.hypot(one.x - hole.x - hole.w / 2, one.y - hole.y - hole.h / 2), 0) / drawn.length : 0 }
+      ;(window as unknown as { haligtreeLure?: unknown }).haligtreeLure = { leaves: drawn.length, sunk, wind, pace, loud, stir, speed: drawn.length ? drawn.reduce((sum, one) => sum + one.speed, 0) / drawn.length : 0, toward: drawn.length && hole ? drawn.reduce((sum, { one }) => sum + Math.hypot(one.x - hole.x - hole.w / 2, one.y - hole.y - hole.h / 2), 0) / drawn.length : 0 }
       // Only the last stretch fades, for any leaf still in sight.
       const fade = Math.max(0, (gone - 0.7) / 0.3)
       motesShown = Math.max(0, Math.min(1, motesShown + (moting.current ? dt : -dt) / 1.2))
@@ -457,12 +475,18 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
         const e = 1 - (1 - k) ** 3
         // A curve, not a straight line: lifted a little as it comes, as a leaf caught and carried.
         const lift = Math.sin(Math.PI * e) * 70
-        one.x = at.from.x + (at.to.x - at.from.x) * e
-        one.y = at.from.y + (at.to.y - at.from.y) * e - lift
+        // The wind sways each about the base it is held at, so the tips go farthest and the stems hardly at
+        // all, each a little out of step with the next, quicker as it blows harder, leaning with it.
+        const sway = wind * e * (0.06 + 0.14 * Math.sin(t * (2.4 + 1.6 * Math.min(1, wind)) + at.i * 0.9))
+        const [cos, sin] = [Math.cos(sway), Math.sin(sway)]
+        const [dx, dy] = [at.to.x - at.base.x, at.to.y - at.base.y]
+        const to = { x: at.base.x + dx * cos - dy * sin, y: at.base.y + dx * sin + dy * cos }
+        one.x = at.from.x + (to.x - at.from.x) * e
+        one.y = at.from.y + (to.y - at.from.y) * e - lift
         let turn = at.to.spin - at.from.spin
         turn = Math.atan2(Math.sin(turn), Math.cos(turn))
-        // Settled, each still stirs a little, as cut leaves do in a hand.
-        one.spin = at.from.spin + turn * e + Math.sin(t * 0.8 + at.i) * 0.035 * e
+        // Settled, each still stirs a little, as cut leaves do in a hand; in the wind its tip bends on past its stem.
+        one.spin = at.from.spin + turn * e + Math.sin(t * 0.8 + at.i) * 0.035 * e + sway * 1.5
         one.size = at.from.size + (at.to.size - at.from.size) * e
         one.vx = 0
         one.vy = 0

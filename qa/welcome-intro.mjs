@@ -115,6 +115,29 @@ try {
   // Open my book: the welcome turns over onto Home, never a frame of neither.
   await h.click('footer [data-skip]')
   await h.waitForTimeout(1600)
+  // Wind on the leaf bunch: the pointer coming fast at "Open my book" blows on it; held still, it calms.
+  await h.waitForTimeout(2600)
+  const door = await h.locator('footer button:has-text("Open my book")').boundingBox()
+  const windNow = () => h.evaluate(() => window.haligtreeLure?.wind ?? -1)
+  await h.mouse.move(40, 60)
+  await h.waitForTimeout(500)
+  const calmBefore = await windNow()
+  let gale = 0
+  let galePng = ''
+  for (let i = 1; i <= 12; i++) {
+    await h.mouse.move(40 + (door.x + door.width / 2 - 40) * (i / 12), 60 + (door.y + door.height / 2 - 60) * (i / 12))
+    await h.waitForTimeout(30)
+    gale = Math.max(gale, await windNow())
+  }
+  await h.waitForTimeout(150)
+  if (SHOTS) galePng = await h.evaluate(() => document.querySelector('[data-welcome-leaves]')?.toDataURL('image/png') ?? '')
+  gale = Math.max(gale, await windNow())
+  await h.waitForTimeout(3000)
+  const calmAfter = await windNow()
+  check('the leaves are calm with the pointer away', calmBefore >= 0 && calmBefore < 0.05, String(calmBefore))
+  check('the pointer coming fast at Open my book blows on them', gale > 0.3, String(gale))
+  check('held still there, the wind dies down', calmAfter < 0.05, String(calmAfter))
+  if (SHOTS && galePng) writeFileSync(join(SHOTS, `last-wind-${THEME}.png`), Buffer.from(galePng.split(',')[1], 'base64'))
   // Every frame for 2.8s from the press, in the page: the welcome, Home, and the sidebar with its Inbox row.
   await h.evaluate(() => {
     window.qaFrames = []
