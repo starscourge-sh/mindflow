@@ -35,6 +35,16 @@ try {
   check('no "Expanded view" anywhere in "…", and "Read" once', !named.some((one) => /Expanded view/.test(one)) && views.filter((one) => one.name === 'Read').length === 1 && named.filter((one) => /^Read(Read it through|$)/.test(one)).length === 1, JSON.stringify(named))
   if (process.env.SHOTS) await h.screenshot({ path: `${process.env.SHOTS}/view-group.png` })
   await h.keyboard.press('Escape'); await h.waitForTimeout(300)
+  // A Writing page's "…" stays short: its writing tools, the reading queue and the ways out each one submenu.
+  const page = await v('article:new')
+  await v('item:save', page, { title: 'Menu', body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Words.' }] }] } })
+  await c.send('article', page); await h.waitForTimeout(1500)
+  await h.click('[data-note-head] button[aria-label="More"]'); await h.waitForTimeout(500)
+  const lines = await h.evaluate(() => [...document.querySelectorAll('[role="menu"] > * [role="menuitem"], [role="menu"] [role="menuitem"], [role="menu"] [role="menuitemcheckbox"]')].filter((one) => !one.closest('[data-slot="dropdown-menu-sub-content"]')).map((one) => one.textContent.trim().split(/\s{2,}|(?=[A-Z][a-z]+ [a-z]+ [a-z])/)[0]))
+  const subs = await h.evaluate(() => [...document.querySelectorAll('[role="menu"] [data-slot="dropdown-menu-sub-trigger"]')].map((one) => one.textContent.trim()))
+  check('a Writing page\'s "…" groups its tools into submenus', ['Writing tools', 'Reading queue', 'Export'].every((one) => subs.some((sub) => sub.startsWith(one))), JSON.stringify(subs))
+  check('and has 20 lines or fewer at its top', lines.length <= 20, `${lines.length}: ${JSON.stringify(lines)}`)
+  await h.keyboard.press('Escape'); await h.waitForTimeout(300)
   check('no page errors', !c.errors?.some((one) => /PAGEERROR/.test(one)), (c.errors ?? []).slice(0, 2).join(' | '))
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])

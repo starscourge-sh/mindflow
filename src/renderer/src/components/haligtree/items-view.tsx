@@ -82,7 +82,7 @@ import { DEPTH, dropMany, flatten, gather, groupId, groupOf, isGroup, KEY, layou
 import type { Cue } from '@/lib/sound'
 import { GroupIcon, type Bundle, type Folds, type GroupView, type Part as KeptPart } from './kept-groups'
 import { asideItem, useHere } from '@/lib/split'
-import { queueItems } from '@/lib/reading-queue'
+import { queueMenu } from '@/lib/reading-queue'
 import { Apart } from '@/lib/apart'
 import { loud } from '@/lib/loud'
 import { ArchiveRestore, BookOpen, Brain, Download, Eye, EyeOff, FileText, History, Layers, Bookmark as Pin, Quote, Repeat as RefreshCw, TriangleAlert, X } from '@/components/ui/icons'
@@ -795,18 +795,22 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
 
 /** The open nugget, article or question, wherever it is opened: a question is drawn its own way. */
 /** What a nugget or an article offers besides opening and pinning: its row menu and its note's dots share it. */
-const itemMenu = (item: Item): MenuItem[] => [
+const itemMenu = (item: Item): (MenuItem | { label: string; items: RowItem[] })[] => [
   { label: item.private ? 'Make it not private' : 'Make it private', run: () => void haligtree.setPrivate('nuggets', item.id, !item.private) },
   { label: 'Stick on the desktop', run: () => stickOnDesktop('nugget', item.id) },
   { label: 'Open in a new window', keys: '⌥⌘-click', run: () => openApart(item.tier, item.id) },
   { label: 'Read', hint: 'Read it through, the notes it links to open in place', run: () => openRead(`${item.tier}:${item.id}`) },
   asideItem(item.tier, item.id),
-  ...queueItems(item.id),
+  queueMenu(item.id),
   'separator',
   item.tier === 'nugget' && { label: 'Change kind…', run: () => void changeKind('nuggets', item.id, item.kind) },
   { label: item.archivedAt ? 'Unarchive' : 'Archive', hint: item.archivedAt ? 'Back in sight' : 'Kept, out of sight', run: () => void archive('nuggets', [item.id], !item.archivedAt) },
-  { label: 'Save attachments…', hint: 'Its pictures and files, to a folder', run: () => void saveAttachments([{ table: 'nuggets', id: item.id }]) },
-  copyToBookItem([{ table: 'nuggets', id: item.id }])
+  // Taking it elsewhere, together, so the menu stays short.
+  { label: 'Export', items: [
+    { label: 'Save attachments…', hint: 'Its pictures and files, to a folder', run: () => void saveAttachments([{ table: 'nuggets', id: item.id }]) },
+    copyToBookItem([{ table: 'nuggets', id: item.id }]),
+    { label: 'Copy title', run: () => copy(item.title) }
+  ] }
 ]
 
 /** A gem's or a piece of writing's own row menu, for a list that is not its page (a tag page): the same lines its page gives one row. */
@@ -924,10 +928,10 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
               { label: propsOut ? 'Hide details' : 'Show details', run: () => (chime(propsOut ? 'fold' : 'slide'), setPropsOut(!propsOut)) },
               'separator' as const
             ] : []),
-            ...(item.tier === 'article' && !boardShown ? [{ label: room.on ? 'Leave the writing room' : 'Writing room', keys: '⇧⌘↵', run: room.toggle }, ...writerMenu(ready, room.focus, (text) => toast(text, undefined, 'info')), 'separator' as const] : []),
+            ...(item.tier === 'article' && !boardShown ? [{ label: room.on ? 'Leave the writing room' : 'Writing room', keys: '⇧⌘↵', run: room.toggle }, { label: 'Writing tools', items: writerMenu(ready, room.focus, (text) => toast(text, undefined, 'info')) }, 'separator' as const] : []),
             // Proofread when asked, on any page; a piece of Writing has it in its writer's lines above.
             ...(item.tier !== 'article' ? [{ label: 'Proofread', hint: 'Spelling, grammar and style, one at a time', run: askProofread }] : []),
-            ...itemMenu(item), 'separator', { label: 'Copy title', run: () => copy(item.title) },
+            ...itemMenu(item),
             // Housekeeping last, as on every card's menu.
             'separator', binItem([{ type: item.tier, id: item.id }])
           ]} />

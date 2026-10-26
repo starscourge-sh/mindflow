@@ -79,6 +79,9 @@ export const queueItems = (id: string): MenuItem[] => [
   { label: 'Read next', run: () => void enqueue([id], true) }
 ]
 
+/** The queue's two lines as one submenu, so a long menu stays short. */
+export const queueMenu = (id: string): { label: string; items: MenuItem[] } => ({ label: 'Reading queue', items: queueItems(id) })
+
 /** Read the queue from `start`, in read mode, wherever the main window is. */
 export const readQueue = (start = 0): void => void window.dispatchEvent(new CustomEvent('haligtree:queue-read', { detail: { start } }))
 

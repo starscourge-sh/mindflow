@@ -17,7 +17,7 @@ import { archive, changeKind, saveAttachments } from '@/lib/notes'
 import { openApart } from '@/lib/apart'
 import { asideItem } from '@/lib/split'
 import { binItem } from '@/lib/to-bin'
-import { queueItems } from '@/lib/reading-queue'
+import { queueMenu } from '@/lib/reading-queue'
 import { copyToBookItem } from '@/lib/books'
 import { addToQuestion } from './haligtree/questions-view'
 import { age, dayKey, daysSince, num, whenInLine } from '../../../main/dates'
@@ -134,15 +134,17 @@ export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void)
   { label: 'Open in a new window', keys: '⌥⌘-click', run: () => openApart('capture', capture.id) },
   { label: 'Read', hint: 'Read it through, the notes it links to open in place', run: () => openRead(capture.id) },
   asideItem('capture', capture.id),
-  ...queueItems(capture.id),
+  queueMenu(capture.id),
   'separator',
   { label: 'Change kind…', run: () => void changeKind('captures', capture.id, capture.kind) },
   { label: capture.archivedAt ? 'Unarchive' : 'Archive', hint: capture.archivedAt ? 'Back in sight' : 'Kept, out of sight', run: () => void archive('captures', [capture.id], !capture.archivedAt) },
-  { label: 'Save attachments…', hint: 'Its pictures and files, to a folder', run: () => void saveAttachments([{ table: 'captures', id: capture.id }]) },
-  copyToBookItem([{ table: 'captures', id: capture.id }]),
-  'separator',
   { label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copy(noteLinkText(capture.id, capture.label), 'Copied a link: paste it into any note') },
-  { label: 'Copy text', run: () => copy(capture.label) },
+  // Taking it elsewhere, together, so the menu stays short.
+  { label: 'Export', items: [
+    { label: 'Copy text', run: () => copy(capture.label) },
+    { label: 'Save attachments…', hint: 'Its pictures and files, to a folder', run: () => void saveAttachments([{ table: 'captures', id: capture.id }]) },
+    copyToBookItem([{ table: 'captures', id: capture.id }])
+  ] },
   // Housekeeping last, as on every card's menu.
   capture.status !== 'discarded' && 'separator',
   capture.status !== 'discarded' && binItem([{ type: 'capture', id: capture.id, status: capture.status }])
