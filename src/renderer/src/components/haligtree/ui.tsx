@@ -1902,7 +1902,7 @@ export function VirtualList<T>({ items, keyOf, holds, cursor, estimate = 48, siz
     count: items.length,
     getScrollElement: () => scroller,
     estimateSize: (index) => (sizeOf ? sizeOf(items[index]) : estimate),
-    overscan: 4,
+    overscan: items.length > LAZY ? 4 : 10,
     scrollMargin: margin,
     getItemKey: (index) => keyOf(items[index]),
     // In a long list, a row newly drawn is measured by the observer once laid out, never read at once: read as each
