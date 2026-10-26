@@ -1,4 +1,4 @@
-// The paintings breathe: a slow pan and zoom (about 3% over 90s each way) and
+// The paintings breathe: a slow pan and zoom (about 8% over 60s each way) and
 // now and then a wash of light across. It moves only while the window is
 // looked at, holds while you type on today's page, and is gone under reduced
 // motion. It runs on the compositor: while it plays, the page itself draws no
@@ -77,9 +77,9 @@ try {
   check('while you type on today\'s page: it holds still', t1.state === 'paused' && t1.scale === t2.scale, `${t1.state}`)
   await root('data-day-typing', false)
 
-  // Frames: the drift at five points of its 90 seconds, sampled in the page.
+  // Frames: the drift at five points of its 60 seconds, sampled in the page.
   if (shots) {
-    for (const at of [0, 22.5, 45, 67.5, 90]) {
+    for (const at of [0, 15, 30, 45, 60]) {
       await h.evaluate((at) => { for (const one of document.querySelectorAll('[data-drift], .mf-wash')) for (const run of one.getAnimations()) (run.pause(), (run.currentTime = at * 1000)) }, at)
       await wait(200)
       const now = await drift()

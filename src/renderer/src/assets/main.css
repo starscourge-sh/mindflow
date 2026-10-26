@@ -1583,28 +1583,29 @@ button.mf-signed:hover .mf-signature { text-decoration: underline; text-decorati
 }
 :root:not([data-awake]) .mf-sheen { animation-play-state: paused; }
 
-/* The paintings breathe (scenery.tsx): a pan and zoom of about 3% over 90s each
+/* The paintings breathe (scenery.tsx): a pan and zoom of about 8% over 60s each
    way, eased at both ends, and now and then a soft warm light (or, on a cloudy
    day, a faint cloud's shadow) passing across. Transform only, so it runs on
    the compositor. Still while the window is not looked at or while you type on
    today's page; gone under reduced motion or with Motion off. */
-.mf-drift { animation: mf-drift 90s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate; will-change: transform; }
+.mf-drift { animation: mf-drift 60s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate; will-change: transform; }
 @keyframes mf-drift {
-  from { transform: scale(1.005) translate3d(0.4%, 0.3%, 0); }
-  to { transform: scale(1.035) translate3d(-1.1%, -0.7%, 0); }
+  /* The zoom always more than twice the pan, so the painting's own edge never shows. */
+  from { transform: scale(1.02) translate3d(0.8%, 0.5%, 0); }
+  to { transform: scale(1.085) translate3d(-2.4%, -1.4%, 0); }
 }
 .mf-wash {
   overflow: hidden;
-  background: linear-gradient(100deg, transparent 30%, rgb(255 214 160 / 0.13) 50%, transparent 70%) no-repeat;
+  background: linear-gradient(100deg, transparent 30%, rgb(255 214 160 / 0.22) 50%, transparent 70%) no-repeat;
   background-size: 50% 100%;
-  animation: mf-wash 75s cubic-bezier(0.45, 0, 0.55, 1) 12s infinite;
+  animation: mf-wash 48s cubic-bezier(0.45, 0, 0.55, 1) 8s infinite;
   transform: translate3d(-100%, 0, 0);
   will-change: transform;
 }
 .mf-wash[data-wash='cloud'] {
-  background: radial-gradient(40% 70% at 50% 45%, rgb(20 28 40 / 0.16), transparent 70%) no-repeat;
+  background: radial-gradient(40% 70% at 50% 45%, rgb(20 28 40 / 0.26), transparent 70%) no-repeat;
   background-size: 60% 100%;
-  animation-duration: 110s;
+  animation-duration: 72s;
 }
 @keyframes mf-wash {
   0% { transform: translate3d(-100%, 0, 0); }
