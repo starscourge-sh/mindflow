@@ -26,6 +26,7 @@ import { Search, type Action } from './components/search'
 import { keepTyped } from './lib/keep-typed'
 import { landPromoted } from './lib/promote'
 import { CapturesView, keepInbox } from './components/haligtree/captures-view'
+import { sources, type SourceSummary } from '@/lib/sources'
 import { HomeView } from './components/haligtree/home-view'
 import { ItemsView } from './components/haligtree/items-view'
 import { startQuestion } from './components/haligtree/questions-view'
@@ -713,6 +714,7 @@ export function Home(): React.JSX.Element {
   // The Tags heading is marked on the Tags page, and on a tag's page whose own row is folded away or not among these.
   const onTags = view.id === 'tags' && (!view.focus || !tagsOpen || !sideTags.some(({ tag }) => tag === view.focus))
   const captures = useCaptures()
+  const sourceList = useLive(sources.list, [] as SourceSummary[])
   unsorted = (id) => captures.some((one) => one.id === id && keepInbox(one))
   const dueRead = useLive(haligtree.dueCount, null as number | null, [], ['item'])
   const due = dueRead ?? 0
@@ -838,7 +840,7 @@ export function Home(): React.JSX.Element {
 
   /** What a sidebar count counts, in words, for its tip. */
   const countSaid = (id: string, n: number): string => {
-    const said: Record<string, [string, string]> = { review: ['card to review now', 'cards to review now'], today: ['task due today or before', 'tasks due today or before'], nuggets: ['gem kept', 'gems kept'], articles: ['page kept', 'pages kept'], questions: ['question still open', 'questions still open'], goals: ['goal under way', 'goals under way'], queue: ['thing to read next', 'things to read next'] }
+    const said: Record<string, [string, string]> = { review: ['card to review now', 'cards to review now'], today: ['task due today or before', 'tasks due today or before'], nuggets: ['gem kept', 'gems kept'], articles: ['page kept', 'pages kept'], questions: ['question still open', 'questions still open'], goals: ['goal under way', 'goals under way'], queue: ['thing to read next', 'things to read next'], lookups: ['word still asked', 'words still asked'], sources: ['person or work', 'people and works'] }
     const [one, many] = said[id] ?? ['', '']
     return one ? `${num(n)} ${n === 1 ? one : many}` : ''
   }
@@ -854,11 +856,18 @@ export function Home(): React.JSX.Element {
     // Held, not owed: counted in the same quiet grey, never as behind.
     questions: questions.filter((one) => !one.archivedAt && !one.closedAt).length,
     goals: goals.filter((one) => one.goalAt && !one.archivedAt && !one.closedAt).length,
-    queue: queued.queue.length
+    queue: queued.queue.length,
+    // Asked and not answered yet, as the Lookups page lists them.
+    lookups: captures.filter((one) => one.lookup === 'asked' && one.status !== 'discarded' && !one.archivedAt).length,
+    // Every person and work with a page, as the Sources page counts them.
+    sources: sourceList.length
   // Counted again only when a list or the day changes, not on every step.
-  }), [due, tasks, nuggets, articles, questions, goals, queued.queue.length, today]) // eslint-disable-line react-hooks/exhaustive-deps
+  }), [due, tasks, nuggets, articles, questions, goals, queued.queue.length, captures, sourceList, today]) // eslint-disable-line react-hooks/exhaustive-deps
   // The counts come in together, once every one is read: never one number, then the next, down the sidebar.
-  const countsIn = dueRead !== null && ![tasks, nuggets, articles, questions, goals, queued].some(unloaded)
+  const countsIn = dueRead !== null && ![tasks, nuggets, articles, questions, goals, queued, captures, sourceList].some(unloaded)
+  // Counts can be turned off, all at once or page by page (Customize sidebar); folders and tags follow the first.
+  const countsOn = settings?.sidebarCounts !== false
+  const countOf = (id: string): number => (countsOn && !(settings?.sidebarCountsOff ?? []).includes(id) && counts[id]) || 0
   // The sidebar is drawn whole, once its rows' reads are in too: before, Pinned and the tags came in a beat late and pushed the places down.
   const { style: sideStyle } = useReadsIn(!settings || unloaded(away) || !countsIn || unloaded(pinsUsual) || unloaded(tags))
   // Come into from the welcome's "Open my book": the sidebar comes up with Home's parts, a little apart, never simply there.
@@ -1564,7 +1573,7 @@ export function Home(): React.JSX.Element {
                     shout at once; the one you are on, or reaching for, is in full. */}
                 <span className={`flex shrink-0 transition-opacity duration-80 ${folders ? 'group-hover/fold:opacity-0' : ''}`}><PlaceIcon place={section} full={lit(section.id)} /></span>
                 {!narrow && <Weighted on={here} className="flex-1 text-left">{section.label}</Weighted>}
-                {!narrow && countsIn && counts[section.id] ? (
+                {!narrow && countsIn && countOf(section.id) ? (
                   // Each count says what it counts, pointed at: the orange one is what is due today.
                   <Tip label={countSaid(section.id, counts[section.id])}>
                     <span data-side-count={section.id} className={list && settings?.sidebarFolders?.[list] !== false ? 'transition-opacity duration-80 group-hover/fold:opacity-0' : undefined}>
@@ -1597,7 +1606,7 @@ export function Home(): React.JSX.Element {
               {folders && list && (
                 // Its own drags, not the row's: a folder pressed on is not Writing carried away.
                 <div onPointerDown={(event) => event.stopPropagation()}>
-                  <SideFolders list={list} open={unfolded} here={inFolder} shown={shownIn(list, folders)} onOpen={(id) => setView({ id: section.id, focus: `g:${id}` })} onUnfold={() => setUnfolded(true)} />
+                  <SideFolders list={list} counted={countsOn} open={unfolded} here={inFolder} shown={shownIn(list, folders)} onOpen={(id) => setView({ id: section.id, focus: `g:${id}` })} onUnfold={() => setUnfolded(true)} />
                 </div>
               )}
               </SortableRow>
@@ -1659,7 +1668,7 @@ export function Home(): React.JSX.Element {
             >
               <TagColourPick tag={tag} color={color} />
               <Weighted on={view.id === 'tags' && view.focus === tag} className="flex-1 text-left">{tag}</Weighted>
-              <Count n={count} className="text-xs text-muted-foreground" />
+              {countsOn && <Count n={count} className="text-xs text-muted-foreground" />}
             </button>
             </RowMenu>
             </SortableRow>
@@ -1901,7 +1910,7 @@ export function Home(): React.JSX.Element {
           <Tip label="Close (Esc)"><Button variant="ghost" size="icon-sm" data-customize-close aria-label="Close" onClick={() => (chime('away'), setCustomizing(false))}><AliveIcon icon={XIcon} size={16} /></Button></Tip>
         </div>
         <p className="px-2 pt-0.5 pb-1.5 text-meta text-muted-foreground">Shown in the sidebar, in its order: drag one up or down to move it. One switched off leaves the sidebar; G with its letter, or ⌘K, still opens it.</p>
-        <ShowList places={SECTIONS} setting="sidebarShown" />
+        <ShowList places={SECTIONS} setting="sidebarShown" counts={countsIn ? counts : undefined} />
       </PopoverContent>
       </Popover>
       </div>

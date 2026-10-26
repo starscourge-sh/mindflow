@@ -267,7 +267,10 @@ export function PlaceIcon({ place, full }: { place: Place; full?: boolean }): Re
  * lays it out: drag a row by its grip (or anywhere on it) up or down, or
  * right-click it to move it a step.
  */
-export function ShowList({ places: given, setting }: { places: Place[]; setting: Shown }): React.JSX.Element {
+/** The sidebar's pages that carry a count beside them (home.tsx, counts); the rest only show something, or are a place to set things down. */
+export const COUNTED = ['review', 'today', 'nuggets', 'articles', 'questions', 'goals', 'queue', 'lookups', 'sources']
+
+export function ShowList({ places: given, setting, counts }: { places: Place[]; setting: Shown; counts?: Record<string, number> }): React.JSX.Element {
   const shown = useShown(setting)
   // The sidebar's own places for this book, laid out as it lays them out.
   const sections = useSections()
@@ -275,7 +278,16 @@ export function ShowList({ places: given, setting }: { places: Place[]; setting:
   const order = ORDER_OF[setting]
   const saved = useOrder(order)
   // The blocks rows were dragged into, so this lists them where the sidebar has them.
-  const groups = useLive(haligtree.settings, null as Settings | null)?.sidebarGroups ?? {}
+  const settings = useLive(haligtree.settings, null as Settings | null)
+  const groups = settings?.sidebarGroups ?? {}
+  // The sidebar's counts: all of them on or off here, and each page's own beside its switch.
+  const countsOn = settings?.sidebarCounts !== false
+  const countsOff = settings?.sidebarCountsOff ?? []
+  const flipCount = async (id: string): Promise<void> => {
+    const was = (await haligtree.settings()).sidebarCountsOff ?? []
+    chime(was.includes(id) ? 'on' : 'off')
+    await haligtree.setSettings({ sidebarCountsOff: was.includes(id) ? was.filter((one) => one !== id) : [...was, id] })
+  }
   const ordered = inOrder(places, saved, (place) => place.id)
   const custom = saved.length > 0 || (setting === 'sidebarShown' && Object.keys(groups).length > 0)
   const usual = places.map((place) => place.id)
@@ -316,6 +328,19 @@ export function ShowList({ places: given, setting }: { places: Place[]; setting:
             <PlaceIcon place={place} full={on} />
             <span className={`flex-1 truncate transition-colors ${on ? '' : 'text-muted-foreground'}`}>{place.label}</span>
             {place.key && <span className="flex gap-0.5 opacity-60"><Pressed keys={`G ${place.key.toUpperCase()}`} /></span>}
+            {/* Every row keeps the chip's room, so the letters and switches stand in one column. */}
+            {setting === 'sidebarShown' && !COUNTED.includes(place.id) && <span aria-hidden className="w-10 shrink-0" />}
+            {setting === 'sidebarShown' && COUNTED.includes(place.id) && (
+              // Its count, as a quiet chip that dims when off; a click here is the chip's, never the row's switch.
+              <Tip label={countsOff.includes(place.id) ? 'Show its count' : 'Hide its count'}>
+                <span role="switch" tabIndex={countsOn ? 0 : -1} aria-checked={!countsOff.includes(place.id)} aria-label={`${place.label}'s count`} data-count-chip={place.id}
+                  onClick={(event) => (event.preventDefault(), void flipCount(place.id))}
+                  onKeyDown={(event) => (event.key === ' ' || event.key === 'Enter') && (event.preventDefault(), void flipCount(place.id))}
+                  className={`w-10 shrink-0 truncate cursor-default rounded-md bg-accent/70 px-1 py-px text-center text-xs tabular-nums transition-opacity hover:bg-accent ${!countsOn ? 'pointer-events-none opacity-30' : countsOff.includes(place.id) ? 'text-muted-foreground opacity-45' : 'text-foreground/80'}`}>
+                  {counts ? num(counts[place.id] ?? 0) : 'Count'}
+                </span>
+              </Tip>
+            )}
             {why ? <Tip label={why}><span className="inline-flex">{control}</span></Tip> : control}
           </label>
         </RowMenu>
@@ -325,6 +350,12 @@ export function ShowList({ places: given, setting }: { places: Place[]; setting:
   return (
     <LayoutGroup id={`show-${setting}`}>
       <div className="flex flex-col gap-px">
+        {setting === 'sidebarShown' && (
+          <label data-show-counts className="mb-1.5 flex cursor-default items-center gap-2.5 rounded-md px-2 py-1.5 text-control font-medium text-foreground hover:bg-accent/60">
+            <span className="flex-1">Show counts</span>
+            <Switch checked={countsOn} onCheckedChange={(sidebarCounts) => (chime(sidebarCounts ? 'on' : 'off'), void haligtree.setSettings({ sidebarCounts }))} aria-label="Show counts" />
+          </label>
+        )}
         {hidden.length > 0 && (
           <button type="button" data-show-every onClick={() => void showEvery()}
             className="mb-1.5 flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-control font-medium text-foreground transition-colors hover:bg-accent/60 hover:text-foreground">

@@ -588,6 +588,9 @@ const DEFAULTS = {
   sidebarSide: 'left' as 'left' | 'right',
   // With the sidebar hidden, pointing at the window's edge slides it out over the page until you leave.
   sidebarPeek: true,
+  // The numbers beside the sidebar's pages, folders and tags: all of them, and the pages switched off one by one.
+  sidebarCounts: true,
+  sidebarCountsOff: [] as string[],
   // Pointing at a sidebar row, or a row of the Haligtree menu, shows a card of what that page is.
   pagePreviews: true,
   // The box's tabs; Recent is a ⇧⌘Y or ⌘K away until shown.

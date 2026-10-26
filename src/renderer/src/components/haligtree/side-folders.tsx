@@ -52,8 +52,10 @@ export async function offerTag(list: 'article' | 'nugget' | null, id: string, na
  * dropped by another's top or bottom edge, it moves to just before or after
  * it, in the list's own order, as in Finder's sidebar.
  */
-export function SideFolders({ list, open, shown, here, onOpen, onUnfold }: {
+export function SideFolders({ list, counted, open, shown, here, onOpen, onUnfold }: {
   list: 'article' | 'nugget'
+  /** Each folder's count shown, as the sidebar's own counts are (Customize sidebar). */
+  counted: boolean
   /** Unfolded under the row. */
   open: boolean
   /** The list's notes, so a folder counts only what the list shows. */
@@ -150,7 +152,7 @@ export function SideFolders({ list, open, shown, here, onOpen, onUnfold }: {
         {these.flatMap((group) => {
           const inner = rows(group.id, depth + 1)
           return [
-            <Folder key={group.id} list={list} group={group} depth={depth} n={count(group)} here={here === group.id} naming={naming === group.id} onNamed={() => setNaming(null)} onRename={() => setNaming(group.id)} onOpen={onOpen} onNest={nest} drag={drag} />,
+            <Folder key={group.id} list={list} group={group} depth={depth} n={counted ? count(group) : null} here={here === group.id} naming={naming === group.id} onNamed={() => setNaming(null)} onRename={() => setNaming(group.id)} onOpen={onOpen} onNest={nest} drag={drag} />,
             inner && <div key={`${group.id}:in`} data-no-twig="">{inner}</div>
           ]
         })}
@@ -185,7 +187,8 @@ function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen
   list: 'article' | 'nugget'
   group: NoteGroup
   depth: number
-  n: number
+  /** Its count, or null with the counts off. */
+  n: number | null
   here: boolean
   naming: boolean
   onNamed: () => void
@@ -294,7 +297,7 @@ function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen
                 {/* Room for the icon, which is its own button over this one. */}
                 <span className="size-4 shrink-0" />
                 <Weighted on={here} className="flex-1 text-left">{group.name}</Weighted>
-                <Count n={n} className="text-xs text-muted-foreground" />
+                {n !== null && <Count n={n} className="text-xs text-muted-foreground" />}
               </button>
             </RowMenu>
           )}
