@@ -15,6 +15,9 @@ ipcRenderer.setMaxListeners(50)
 
 const changes = new Map<(what: Change[] | null) => void, Change['kind'][] | undefined>()
 // A burst of changes, an import or several saves in a row, is told once,
+
+/** Words always written with a capital: the days, the months (not "march", "may" or "august", which are words too), and "I" with its short forms. */
+const CAPITALS = /^(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|april|june|july|september|october|november|december|i|i'm|i've|i'll|i'd|i’m|i’ve|i’ll|i’d)$/
 // with every note it touched (null: anything may have changed).
 let telling: ReturnType<typeof setTimeout> | undefined
 let told: Change[] | null | undefined
@@ -101,7 +104,12 @@ const api = {
   pathOf: (file: File): string => webUtils.getPathForFile(file),
 
   /** Asked of the page's own spellchecker, which already drew the squiggle. */
-  misspelt: (word: string): string[] | null => (webFrame.isWordMisspelled(word) ? webFrame.getWordSuggestions(word) : null),
+  // A word spelt right but in the wrong case ("monday", "i") is squiggled by the Mac too, though the page's
+  // checker calls it spelt right and has nothing to offer: its capitals, then, for the words always written so.
+  misspelt: (word: string): string[] | null => {
+    if (webFrame.isWordMisspelled(word)) return webFrame.getWordSuggestions(word)
+    return CAPITALS.test(word) && word === word.toLowerCase() ? [word.charAt(0).toUpperCase() + word.slice(1)] : null
+  },
   /** Keep a word as spelt right, in the Mac's own dictionary too. */
   learnWord: (word: string): Promise<boolean> => ipcRenderer.invoke('haligtree:spelling:learn', word),
 
