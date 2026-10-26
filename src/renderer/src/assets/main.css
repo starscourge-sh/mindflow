@@ -2092,17 +2092,28 @@ html[data-book-hue] [data-book-tint] {
   text-decoration: underline wavy color-mix(in oklab, var(--tt-cursor-color) 55%, transparent);
   text-decoration-thickness: 1px; text-underline-offset: 3px;
 }
-/* While you type the day's words: the count steps out; a few words in, so
-   does the rest of the page, to near nothing. Opacity only, so nothing moves;
-   a hand on the pointer or a pause brings it back. */
+/* While you type the day's words: the count steps out; a few words in,
+   everything else in the window goes, to nothing: the sidebar, the bar, the
+   Brief, the tasks, a page's hint, Versions, toasts. Each sibling of the
+   words' way up through the page is faded, so nothing new escapes it. Opacity
+   only, so nothing moves, and nothing gone can be clicked. A hand on the
+   pointer or a pause brings it back slowly: the writer's line goes first, the
+   rest follows a beat later. */
 [data-day-count] { opacity: 1; }
 :root[data-day-typing] [data-day-count] { opacity: 0; transition-duration: 150ms; }
-:root:has([data-day-write]) :is(aside[data-chrome], header[data-drag-strip], [data-page]:has([data-day-write]) :has([data-day-write]) > :not(:has([data-day-write])):not([data-day-write]), [data-page]:has([data-day-write]) > :not(:has([data-day-write]))) {
-  transition: opacity 400ms ease-out;
+:root:has([data-day-write]) :is(body, body :has([data-day-write])) > :not(:has([data-day-write], .tiptap-suggestion-popup), [data-day-write], [data-writer-line], .tiptap-suggestion-popup) {
+  transition: opacity 800ms var(--mf-ease) 250ms;
 }
-:root[data-day-writing] :is(aside[data-chrome], header[data-drag-strip], [data-page]:has([data-day-write]) :has([data-day-write]) > :not(:has([data-day-write])):not([data-day-write]), [data-page]:has([data-day-write]) > :not(:has([data-day-write]))) {
-  opacity: 0.06;
+:root[data-day-writing] :is(body, body :has([data-day-write])) > :not(:has([data-day-write], .tiptap-suggestion-popup), [data-day-write], [data-writer-line], .tiptap-suggestion-popup) {
+  opacity: 0; pointer-events: none;
   transition: opacity 900ms ease-in-out;
+}
+/* The writer's line (day-writing.tsx): only while the rest is gone. */
+[data-writer-line] { opacity: 0; transition: opacity 300ms ease-out; }
+:root[data-day-writing] [data-writer-line] { opacity: 1; transition: opacity 900ms ease-in-out 400ms; }
+:root[data-in-room] [data-writer-line] { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  :root:has([data-day-write]) :is(body, body :has([data-day-write])) > *, [data-writer-line] { transition-duration: 200ms !important; transition-delay: 0s !important; }
 }
 /* The writing room (writing-room.tsx): the page's own words laid over the
    whole window, a centred column with room above, a quiet foot at the bottom.
