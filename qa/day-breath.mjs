@@ -222,7 +222,8 @@ try {
   await h.keyboard.press('End')
   await h.keyboard.type(' everthing', { delay: 30 })
   await h.keyboard.press('ArrowLeft'); await h.keyboard.press('ArrowLeft')
-  await wait(1800)
+  // The Mac's own guesses are asked once per word, a moment after the pause.
+  for (let i = 0; i < 20 && !/everything/.test(await h.evaluate(() => document.querySelector('[data-spell-hint]')?.textContent ?? '')); i++) await wait(200)
   check('5. "everthing" offers "everything"', /everything/.test(await h.evaluate(() => document.querySelector('[data-spell-hint]')?.textContent ?? '')), await h.evaluate(() => document.querySelector('[data-spell-hint]')?.textContent ?? 'none'))
 
   // 3. An empty past day: its own prompt, no beam.

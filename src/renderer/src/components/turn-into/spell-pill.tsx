@@ -63,7 +63,10 @@ export function SpellPill({ editor }: { editor: Editor | null }): React.JSX.Elem
     if (!box) return
     let frame = 0
     let typing = 0
-    let asked = 0
+    // The word the dictionary was last asked about: its answer counts while the caret is still on it, however
+    // often the pill is placed again meanwhile (a squiggle drawn, a selection update).
+    let asked = ''
+    let gone = false
     const place = (): void => {
       cancelAnimationFrame(frame)
       frame = requestAnimationFrame(() => {
@@ -82,16 +85,18 @@ export function SpellPill({ editor }: { editor: Editor | null }): React.JSX.Elem
         if (!flagged?.suggestions.length) {
           const here = wordAt(editor, at.left - 1, (at.top + at.bottom) / 2)
           if (!here || here.word.length < 3 || here.word !== here.word.toLowerCase()) return setHint(null)
-          const ask = ++asked
+          const ask = `${here.from}:${here.word}`
+          asked = ask
           void spellFixes(here.word).then((fixes) => {
             const now = editor.state.selection
-            if (ask !== asked || typing || !fixes.length || editor.isDestroyed || !now.empty || now.head < here.from || now.head > here.to || editor.state.doc.textBetween(here.from, here.to) !== here.word) return
+            if (gone || ask !== asked || typing || !fixes.length || editor.isDestroyed || !now.empty || now.head < here.from || now.head > here.to || editor.state.doc.textBetween(here.from, here.to) !== here.word) return
             setHint({ ...here, suggestions: fixes, x: left(here.from), y, tab })
           })
           return setHint(null)
         }
         // Tab offers only a likely fix: for a word in lower case, a capitalised one only when it is that word with a
         // capital ("monday" to "Monday") or a letter off, never a different name ("Sligo" for "slsig").
+        asked = ''
         const best = flagged.suggestions[0]
         if (named(editor, flagged)) return setHint(null)
         if (flagged.word === flagged.word.toLowerCase() && best !== best.toLowerCase() && apart(best.toLowerCase(), flagged.word) > 1) return setHint(null)
@@ -134,7 +139,7 @@ export function SpellPill({ editor }: { editor: Editor | null }): React.JSX.Elem
       cancelAnimationFrame(frame)
       clearTimeout(typing)
       squiggles.disconnect()
-      asked++
+      gone = true
       setHint(null)
       editor.off("selectionUpdate", place)
       editor.off("update", place)

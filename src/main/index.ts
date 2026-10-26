@@ -100,6 +100,7 @@ import { decodeHTML } from 'entities'
 import { setAppMenu } from './app-menu'
 import { clip, cut, quoted } from './clip'
 import { APP_NAME } from './name'
+import { registerSpellGuesses } from './spell-guesses'
 
 
 /* The standard electron app file structure:
@@ -3594,6 +3595,7 @@ app.whenReady().then(() => {
   registerSandbox()
   atLogin()
   registerHome()
+  registerSpellGuesses()
   registerNotes({ load, guard, home: (type, id) => sendHome(type, id, undefined, 'window'), homeWindow: () => (home && !home.isDestroyed() ? home : null) })
   registerGroups()
   registerNoteImports()

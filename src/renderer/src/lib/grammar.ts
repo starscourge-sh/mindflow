@@ -67,10 +67,15 @@ const spelt = new Map<string, Promise<string[]>>()
 export function spellFixes(word: string): Promise<string[]> {
   let found = spelt.get(word)
   if (!found) {
-    found = grammar().then((one) => one.lint(word, { language: 'plaintext' })).then((lints) => {
+    // The Mac's own spellchecker first (it draws the underline, so it knows what it means), then Harper's dictionary.
+    const mac = (window as unknown as { api?: { macGuesses?: (word: string) => Promise<string[]> } }).api?.macGuesses
+    const harper = (): Promise<string[]> => grammar().then((one) => one.lint(word, { language: 'plaintext' })).then((lints) => {
       const lint = lints.find((one) => one.lint_kind() === 'Spelling')
       return lint ? lint.suggestions().filter((one) => one.kind() === 0).map((one) => one.get_replacement_text()).filter(Boolean) : []
     }, () => [])
+    // A guess that only splits the word ("ever thing") is no fix for a slip.
+    const whole = (list: string[]): string[] => list.filter((one) => !/[\s-]/.test(one))
+    found = (mac ? mac(word).catch(() => []) : Promise.resolve([] as string[])).then((guesses) => (whole(guesses).length ? whole(guesses) : harper().then(whole)))
     spelt.set(word, found)
   }
   return found
