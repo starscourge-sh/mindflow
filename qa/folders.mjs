@@ -234,6 +234,19 @@ try {
   await c.v('settings:set', { sidebarFolders: { ...settings.sidebarFolders, article: true } })
   await c.h.waitForTimeout(700)
   check('on, they are back', (await folder(money).count()) === 1)
+  // A folder's long menu opened low in a short window, too tall for the room above or below where it opened:
+  // it slides to fit, but never over the window's own buttons (the top 40px).
+  await c.h.keyboard.press('Escape')
+  await c.size(1280, 250)
+  const spot = { y: 0 }
+  await c.go("articles")
+  await c.h.locator(`[data-group-row="${money}"]`).first().evaluate((one) => { const r = one.getBoundingClientRect(); one.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + 30, clientY: innerHeight - 60, button: 2 })) })
+  spot.y = await c.h.evaluate(() => innerHeight - 60)
+  await c.h.waitForTimeout(400)
+  const menu = await c.h.evaluate(() => { const one = document.querySelector('[role="menu"]')?.getBoundingClientRect(); return one && { top: one.top, bottom: one.bottom, room: innerHeight } })
+  check('a folder\'s menu never covers the window\'s own buttons', menu && menu.top >= 39 && menu.bottom <= menu.room - 11, JSON.stringify({ menu, at: spot.y }))
+  await c.h.keyboard.press('Escape')
+  await c.size(1280, 860)
   check('no errors', c.errors.length === 0, c.errors.slice(0, 2).join(' | '))
 } finally {
   await c.close()

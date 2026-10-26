@@ -22,7 +22,7 @@ function PopoverContent({
   sideOffset = 4,
   // Radix keeps a panel inside the window but will sit it flush against the
   // edge to do it. This is the gap it keeps instead.
-  collisionPadding = 8,
+  collisionPadding = { top: 40, right: 8, bottom: 8, left: 8 },
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Content>) {
   return (

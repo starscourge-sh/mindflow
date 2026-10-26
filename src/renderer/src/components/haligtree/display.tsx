@@ -624,7 +624,7 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
       <PopoverContent
         align="end"
         // Kept 12px clear of the window's edge, rounded corner and all.
-        collisionPadding={12}
+        collisionPadding={{ top: 40, right: 12, bottom: 12, left: 12 }}
         tabIndex={-1}
         // Opened, the panel holds the keys, not its first control: a ring on
         // the first sort before you have pressed anything reads as a mistake.

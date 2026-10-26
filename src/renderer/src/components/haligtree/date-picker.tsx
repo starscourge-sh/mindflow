@@ -98,7 +98,7 @@ export function DatePicker({ value, onChange, time = false, placeholder = 'Pick 
       </PopoverTrigger>
       )}
       {/* The day and the time each an island, the way Settings groups its rows. */}
-      <PopoverContent align="start" collisionPadding={8} onOpenAutoFocus={(event) => { if (!suggest) return; event.preventDefault(); (event.currentTarget as HTMLElement).querySelector<HTMLInputElement>('input[aria-label="When, in words"]')?.focus() }} className="w-auto max-h-[var(--radix-popover-content-available-height)] gap-0 overflow-y-auto overscroll-contain p-2" onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
+      <PopoverContent align="start" onOpenAutoFocus={(event) => { if (!suggest) return; event.preventDefault(); (event.currentTarget as HTMLElement).querySelector<HTMLInputElement>('input[aria-label="When, in words"]')?.focus() }} className="w-auto max-h-[var(--radix-popover-content-available-height)] gap-0 overflow-y-auto overscroll-contain p-2" onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
         {quick && (
           // The usual moves first, one press each, the way Todoist puts them over its calendar.
           <Island compact title="Move to">

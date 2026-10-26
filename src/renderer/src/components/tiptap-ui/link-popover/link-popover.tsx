@@ -280,7 +280,7 @@ export const LinkPopover = forwardRef<HTMLButtonElement, LinkPopoverProps>(
           </LinkButton>
         </PopoverTrigger>
 
-        <PopoverContent collisionPadding={4}>
+        <PopoverContent>
           <LinkMain
             url={url}
             setUrl={setUrl}
