@@ -2204,12 +2204,13 @@ html[data-book-hue] [data-book-tint] {
 :root:not([data-in-room]):has([data-writer-line]) [data-day-write] .haligtree-editor-wrapper:has(> .mf-aim) > .haligtree-editor-content { padding-top: 0; }
 :root[data-in-room] [data-writer-line] { display: none; }
 /* Nor over the welcome, which is a book of its own. */
-:root:has(.mf-welcome) [data-writer-line] { display: none; }
+
 @media (prefers-reduced-motion: reduce) {
   :root:has([data-day-write]) :is(body, body :has([data-day-write])) > * { transition-duration: 200ms !important; transition-delay: 0s !important; }
 }
 /* The day page's writer's line is the day page's own: never over the welcome laid across it. */
-:root:has(.mf-welcome) [data-writer-line] { display: none; }
+/* Nor over anything laid across the page: the opening and leaving screens, a dialog or a sheet. */
+:root:is(:has(.mf-welcome), :has([data-going]), :has([role='dialog'][data-state='open']), :has([aria-modal='true'])) [data-writer-line] { display: none; }
 /* The writing room (writing-room.tsx): the page's own words laid over the
    whole window, a centred column with room above, a quiet foot at the bottom.
    Everything else about the page (its header, what sits under the words) is
