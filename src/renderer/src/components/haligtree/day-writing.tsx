@@ -5,13 +5,11 @@ import { createPortal } from 'react-dom'
 import type { Editor } from '@tiptap/react'
 
 import { useCounts } from '@/components/count/word-count'
-import { misspeltAt, wordAt, type Misspelling } from '@/components/turn-into/spelling'
-import { spellFixes } from '@/lib/grammar'
 import { useStill } from '@/lib/motion'
 import { useLive, haligtree, type Settings } from '@/lib/haligtree'
 import { chime } from '@/lib/sound'
 import { read as aimOf } from '@/components/count/word-aim'
-import { Kbd, Rolling } from './ui'
+import { Rolling } from './ui'
 import { clock, num } from '../../../../main/dates'
 
 /**
@@ -140,30 +138,10 @@ export function useWritingQuiet(editor: Editor | null, day: string): number {
 }
 
 /**
- * A caret in the accent colour, a touch thicker than the system's, that
- * glides to each new letter and blinks slowly once you pause. With the caret
- * on a word the spellchecker flags, its first suggestion comes on a pause in
- * a small pill clear of the words (under the word on the last line, else in
- * the margin beside its line), and Tab takes it. Under reduced motion the editor keeps a plain accent
- * caret of its own (main.css), and this draws only the suggestion.
- */
-/**
  * A long day's page kept to a height on the Journal (about a third of the window), its foot fading with a
  * "Show the whole page" under it, so the day's tasks stay near. It opens whole, smoothly, on that, on a click
  * in the words, or once you write (writing mode), and stays open until you leave the page.
  */
-/** How many letters apart two words are (added, dropped or changed), stopping early past 2. */
-const apart = (a: string, b: string): number => {
-  if (Math.abs(a.length - b.length) > 2) return 3
-  let row = Array.from({ length: b.length + 1 }, (_, i) => i)
-  for (let i = 1; i <= a.length; i++) {
-    const next = [i]
-    for (let j = 1; j <= b.length; j++) next[j] = Math.min(row[j] + 1, next[j - 1] + 1, row[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1))
-    row = next
-  }
-  return row[b.length]
-}
-
 export function PageCap({ editor }: { editor: Editor | null }): React.JSX.Element | null {
   const [more, setMore] = useState(0)
   const [open, setOpen] = useState(false)
@@ -223,12 +201,15 @@ export function PageCap({ editor }: { editor: Editor | null }): React.JSX.Elemen
   )
 }
 
+/**
+ * A caret in the accent colour, a touch thicker than the system's, that
+ * glides to each new letter and blinks slowly once you pause. Under reduced
+ * motion the editor keeps a plain accent caret of its own (main.css). The
+ * spelling pill is every editor's own (SpellPill).
+ */
 export function LivingCaret({ editor }: { editor: Editor | null }): React.JSX.Element | null {
   const calm = useStill()
   const caret = useRef<HTMLSpanElement>(null)
-  const [hint, setHint] = useState<(Misspelling & { x: number; y: number; h: number; end?: boolean }) | null>(null)
-  const shownHint = useRef(hint)
-  shownHint.current = hint
   const [shown, setShown] = useState(false)
   useEffect(() => {
     if (!editor || editor.isDestroyed) return
@@ -244,89 +225,36 @@ export function LivingCaret({ editor }: { editor: Editor | null }): React.JSX.El
         const { selection } = editor.state
         const on = editor.isFocused && selection.empty && document.hasFocus()
         setShown(on)
-        if (!on) return setHint(null)
+        const one = caret.current
+        if (!on || !one) return
         const at = editor.view.coordsAtPos(selection.head)
         const from = box.getBoundingClientRect()
-        const x = at.left - from.left
         // The room scrolls inside itself: its own scroll counts.
-        const y = at.top - from.top + box.scrollTop
-        const h = at.bottom - at.top
-        const one = caret.current
-        if (one) {
-          one.style.translate = `${x}px ${y}px`
-          one.style.height = `${h}px`
-          // Moving: solid; a beat after it rests, the slow blink.
-          one.removeAttribute('data-resting')
-          clearTimeout(still)
-          still = window.setTimeout(() => one.setAttribute('data-resting', ''), 600)
-        }
-        const resting = !document.documentElement.hasAttribute('data-day-typing')
-        const flagged = resting ? misspeltAt(editor, at.left - 1, (at.top + at.bottom) / 2) : null
-        // Underlined but with nothing from the page's checker (its list is short): Harper's dictionary, asked once
-        // per word, and shown only if the caret is still on that word. Names (a capital) are left alone.
-        if (resting && !flagged?.suggestions.length) {
-          const here = wordAt(editor, at.left - 1, (at.top + at.bottom) / 2)
-          if (here && here.word.length > 2 && here.word === here.word.toLowerCase()) {
-            void spellFixes(here.word).then((fixes) => {
-              const now = editor.state.selection.head
-              if (!fixes.length || editor.isDestroyed || now < here.from || now > here.to || editor.state.doc.textBetween(here.from, here.to) !== here.word) return
-              const word = editor.view.coordsAtPos(here.from)
-              setHint({ ...here, suggestions: fixes, x: word.left - from.left + box.scrollLeft, y: y + h + 2, h })
-            })
-          }
-        }
-        // Tab offers only a likely fix: for a word in lower case, a capitalised one only when it is that word with a
-        // capital ("monday" to "Monday") or a letter off, never a different name ("Sligo" for "slsig").
-        const best = flagged?.suggestions[0]
-        if (!best || (flagged.word === flagged.word.toLowerCase() && best !== best.toLowerCase() && apart(best.toLowerCase(), flagged.word) > 1)) return setHint(null)
-        // Right under the word it fixes, as the Mac's own autocorrect bubble sits: its left edge at the word's, just
-        // below its line, over the next line if there is one (it goes as you type on).
-        const word = editor.view.coordsAtPos(flagged.from)
-        setHint({ ...flagged, x: word.left - from.left + box.scrollLeft, y: y + h + 2, h })
+        one.style.translate = `${at.left - from.left}px ${at.top - from.top + box.scrollTop}px`
+        one.style.height = `${at.bottom - at.top}px`
+        // Moving: solid; a beat after it rests, the slow blink.
+        one.removeAttribute('data-resting')
+        clearTimeout(still)
+        still = window.setTimeout(() => one.setAttribute('data-resting', ''), 600)
       })
     }
-    // Tab takes the suggestion while it shows; otherwise Tab is the editor's.
-    const onKey = (event: KeyboardEvent): void => {
-      const flagged = shownHint.current
-      const word = flagged?.suggestions[0]
-      if (event.key !== 'Tab' || event.shiftKey || event.metaKey || event.ctrlKey || event.altKey || !flagged || !word) return
-      event.preventDefault()
-      event.stopImmediatePropagation()
-      editor.chain().focus().command(({ tr }) => (tr.insertText(word, flagged.from, flagged.to), true)).run()
-    }
-    // The squiggles come back on a pause: so does the suggestion.
-    const watch = new MutationObserver(place)
-    watch.observe(document.documentElement, { attributes: true, attributeFilter: ['data-day-typing'] })
     editor.on('selectionUpdate', place)
     editor.on('update', place)
     editor.on('focus', place)
     editor.on('blur', place)
-    dom.addEventListener('keydown', onKey, true)
     window.addEventListener('resize', place)
     place()
     return () => {
       cancelAnimationFrame(frame)
       clearTimeout(still)
-      watch.disconnect()
       editor.off('selectionUpdate', place)
       editor.off('update', place)
       editor.off('focus', place)
       editor.off('blur', place)
-      dom.removeEventListener('keydown', onKey, true)
       window.removeEventListener('resize', place)
     }
   }, [editor])
-  return (
-    <>
-      {!calm && <span ref={caret} aria-hidden data-living-caret data-shown={shown || undefined} className="mf-living-caret" />}
-      {hint && (
-        <span aria-hidden data-spell-hint className="mf-spell-hint pointer-events-none absolute top-0 left-0 z-[3] inline-flex h-6 items-center gap-1.5 rounded-full border border-foreground/10 bg-background ps-2.5 pe-1 text-control whitespace-nowrap text-foreground/80 shadow-xs"
-          style={{ translate: hint.end ? `calc(${hint.x}px - 100%) ${hint.y}px` : `${hint.x}px ${hint.y}px` }}>
-          {hint.suggestions[0]}<Kbd>Tab</Kbd>
-        </span>
-      )}
-    </>
-  )
+  return calm ? null : <span ref={caret} aria-hidden data-living-caret data-shown={shown || undefined} className="mf-living-caret" />
 }
 
 /**

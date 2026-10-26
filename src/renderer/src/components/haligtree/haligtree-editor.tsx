@@ -223,6 +223,7 @@ import { TableMenu } from "@/components/table/table-menu"
 import { TableControls } from "@/components/table/table-controls"
 import { BlockMenu, type BlockTarget } from "@/components/turn-into/block-menu"
 import { SpellingMenu, misspeltAt, type Misspelling } from "@/components/turn-into/spelling"
+import { SpellPill } from "@/components/turn-into/spell-pill"
 import { WordCount } from "@/components/count/word-count"
 import { WordAim } from "@/components/count/word-aim"
 import { TableOfContents } from "@/components/toc/table-of-contents"
@@ -1862,6 +1863,8 @@ function Surface({
         <LinkPreview editor={editor} />
         <LinkEditor editor={editor} />
         {editor && <TaskLinkMenu editor={editor} />}
+        {/* A misspelt word's likely fix, under it on a pause; Tab takes it. In every page you write in. */}
+        {shape === "document" && !readOnly && <SpellPill editor={editor} box={contentBox} />}
         {!handles && editor && <SpellingMenu editor={editor} spelling={spelling} at={menuAt} onClose={() => setSpelling(null)} />}
 
         {/* How much is written, quietly in the corner of a document. */}

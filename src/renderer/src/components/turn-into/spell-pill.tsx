@@ -1,0 +1,157 @@
+import { useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
+import type { Editor } from "@tiptap/react"
+
+import { Kbd } from "@/components/ui/kbd"
+import { spellFixes } from "@/lib/grammar"
+import { misspeltAt, wordAt, type Misspelling } from "./spelling"
+
+/** A pause this long and you are no longer typing: the suggestion may come. */
+const TYPING = 1200
+
+/** How many letters apart two words are (added, dropped or changed), stopping early past 2. */
+const apart = (a: string, b: string): number => {
+  if (Math.abs(a.length - b.length) > 2) return 3
+  let row = Array.from({ length: b.length + 1 }, (_, i) => i)
+  for (let i = 1; i <= a.length; i++) {
+    const next = [i]
+    for (let j = 1; j <= b.length; j++) next[j] = Math.min(row[j] + 1, next[j - 1] + 1, row[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1))
+    row = next
+  }
+  return row[b.length]
+}
+
+/** Whether Tab already means something where the caret is: a list's indent, a table's next cell. */
+const tabTaken = (editor: Editor): boolean => {
+  const $at = editor.state.selection.$head
+  for (let depth = $at.depth; depth > 0; depth--) {
+    const name = $at.node(depth).type.name
+    if (name === "listItem" || name === "taskItem" || name === "tableCell" || name === "tableHeader") return true
+  }
+  return false
+}
+
+/** A word with a capital that does not start a sentence: most likely a name, and a name is left alone. */
+const named = (editor: Editor, { word, from }: { word: string; from: number }): boolean => {
+  if (word === word.toLowerCase()) return false
+  const $from = editor.state.doc.resolve(from)
+  const before = $from.parent.textBetween(0, $from.parentOffset, undefined, " ").trimEnd()
+  return before !== "" && !/[.!?:;"“]$/.test(before)
+}
+
+type Hint = Misspelling & { x: number; y: number; tab: boolean }
+
+/**
+ * With the caret on a word the spellchecker flags, its first suggestion comes
+ * on a pause in a small pill right under the word (its left edge at the
+ * word's, just below its line, as the Mac's own autocorrect bubble sits), and
+ * Tab takes it. Never while typing; nothing where spellcheck is off or the
+ * note is locked (misspeltAt and wordAt say so). In a list or a table Tab
+ * keeps its own job (indenting, the next cell): there the pill has no Tab
+ * key, and a click on it takes the word instead. With Vim on, Tab takes it in
+ * normal mode too, since Tab does nothing there outside a list. Drawn inside
+ * the editor's own scrolling box, so it moves with the words.
+ */
+export function SpellPill({ editor, box }: { editor: Editor | null; box: HTMLElement | null }): React.JSX.Element | null {
+  const [hint, setHint] = useState<Hint | null>(null)
+  const shown = useRef(hint)
+  shown.current = hint
+  const takeRef = useRef<(one: Hint) => void>(() => {})
+  useEffect(() => {
+    if (!editor || editor.isDestroyed || !box) return
+    const dom = editor.view.dom
+    let frame = 0
+    let typing = 0
+    let asked = 0
+    const place = (): void => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        if (editor.isDestroyed) return
+        const { selection } = editor.state
+        if (typing || !editor.isFocused || !selection.empty || !document.hasFocus()) return setHint(null)
+        const at = editor.view.coordsAtPos(selection.head)
+        const from = box.getBoundingClientRect()
+        // Just under the caret's line, never over the word: the box's own scroll counts.
+        const y = at.bottom - from.top + box.scrollTop + 2
+        const left = (pos: number): number => editor.view.coordsAtPos(pos).left - from.left + box.scrollLeft
+        const tab = !tabTaken(editor)
+        const flagged = misspeltAt(editor, at.left - 1, (at.top + at.bottom) / 2)
+        // Underlined but with nothing from the page's checker (its list is short): Harper's dictionary, asked once
+        // per word, and shown only if the caret is still on that word. Names (a capital) are left alone.
+        if (!flagged?.suggestions.length) {
+          const here = wordAt(editor, at.left - 1, (at.top + at.bottom) / 2)
+          if (!here || here.word.length < 3 || here.word !== here.word.toLowerCase()) return setHint(null)
+          const ask = ++asked
+          void spellFixes(here.word).then((fixes) => {
+            const now = editor.state.selection
+            if (ask !== asked || typing || !fixes.length || editor.isDestroyed || !now.empty || now.head < here.from || now.head > here.to || editor.state.doc.textBetween(here.from, here.to) !== here.word) return
+            setHint({ ...here, suggestions: fixes, x: left(here.from), y, tab })
+          })
+          return setHint(null)
+        }
+        // Tab offers only a likely fix: for a word in lower case, a capitalised one only when it is that word with a
+        // capital ("monday" to "Monday") or a letter off, never a different name ("Sligo" for "slsig").
+        const best = flagged.suggestions[0]
+        if (named(editor, flagged)) return setHint(null)
+        if (flagged.word === flagged.word.toLowerCase() && best !== best.toLowerCase() && apart(best.toLowerCase(), flagged.word) > 1) return setHint(null)
+        setHint({ ...flagged, x: left(flagged.from), y, tab })
+      })
+    }
+    const take = (one: Hint): void => {
+      editor.chain().focus().command(({ tr }) => (tr.insertText(one.suggestions[0], one.from, one.to), true)).run()
+    }
+    const onKey = (event: KeyboardEvent): void => {
+      const one = shown.current
+      if (event.key === "Tab" && !event.shiftKey && !event.metaKey && !event.ctrlKey && !event.altKey && one?.tab) {
+        event.preventDefault()
+        event.stopImmediatePropagation()
+        return take(one)
+      }
+      // Typing: the pill goes at once, and comes back only on a pause.
+      if (event.metaKey || event.ctrlKey || event.isComposing) return
+      if (event.key.length !== 1 && event.key !== "Backspace" && event.key !== "Enter" && event.key !== "Delete") return
+      setHint(null)
+      clearTimeout(typing)
+      typing = window.setTimeout(() => ((typing = 0), place()), TYPING)
+    }
+    takeRef.current = take
+    // The squiggles come back on a pause (the editor puts its spellcheck back then): so does the pill.
+    const squiggles = new MutationObserver(place)
+    squiggles.observe(dom, { attributes: true, attributeFilter: ["spellcheck"] })
+    editor.on("selectionUpdate", place)
+    editor.on("update", place)
+    editor.on("focus", place)
+    editor.on("blur", place)
+    dom.addEventListener("keydown", onKey, true)
+    window.addEventListener("resize", place)
+    window.addEventListener("blur", place)
+    window.addEventListener("focus", place)
+    place()
+    return () => {
+      cancelAnimationFrame(frame)
+      clearTimeout(typing)
+      squiggles.disconnect()
+      asked++
+      setHint(null)
+      editor.off("selectionUpdate", place)
+      editor.off("update", place)
+      editor.off("focus", place)
+      editor.off("blur", place)
+      dom.removeEventListener("keydown", onKey, true)
+      window.removeEventListener("resize", place)
+      window.removeEventListener("blur", place)
+      window.removeEventListener("focus", place)
+    }
+  }, [editor, box])
+  if (!hint || !box) return null
+  return createPortal(
+    <span data-spell-hint data-spell-tab={hint.tab || undefined} aria-hidden
+      // A press on it takes the word; held off the editor, so the caret stays where it was.
+      onPointerDown={(event) => (event.preventDefault(), takeRef.current(hint))}
+      className="mf-spell-hint absolute top-0 left-0 z-[3] inline-flex h-6 cursor-pointer items-center gap-1.5 rounded-full border border-foreground/10 bg-background ps-2.5 pe-1 text-control whitespace-nowrap text-foreground/80 shadow-xs select-none"
+      style={{ translate: `${hint.x}px ${hint.y}px`, paddingInlineEnd: hint.tab ? undefined : "0.625rem" }}>
+      {hint.suggestions[0]}{hint.tab && <Kbd className="rounded border border-border/80 text-key">Tab</Kbd>}
+    </span>,
+    box
+  )
+}

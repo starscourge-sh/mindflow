@@ -18,6 +18,13 @@ export interface Misspelling {
   suggestions: string[]
 }
 
+/**
+ * Whether spelling is on here: the editor's own attribute is set outright while
+ * you type (no squiggles mid-word) and only put back on a pause, so the page
+ * around it (Settings' switches, on the root or a place's wrapper) has the say.
+ */
+const spellOn = (editor: Editor): boolean => editor.view.dom.spellcheck && editor.view.dom.parentElement?.spellcheck !== false
+
 /** Letters, with an apostrophe inside allowed: "don't" is one word. */
 const WORD = /[\p{L}\p{M}]+(?:['’][\p{L}\p{M}]+)*/gu
 
@@ -30,7 +37,7 @@ const WORD = /[\p{L}\p{M}]+(?:['’][\p{L}\p{M}]+)*/gu
  */
 /** The word under a point, and where it is in the document: null outside a word, or where spelling is off. */
 export function wordAt(editor: Editor, x: number, y: number): { word: string; from: number; to: number } | null {
-  if (!editor.isEditable || !editor.view.dom.spellcheck) return null
+  if (!editor.isEditable || !spellOn(editor)) return null
   const found = editor.view.posAtCoords({ left: x, top: y })
   if (!found) return null
   const $pos = editor.state.doc.resolve(found.pos)
@@ -47,7 +54,7 @@ export function wordAt(editor: Editor, x: number, y: number): { word: string; fr
 
 export function misspeltAt(editor: Editor, x: number, y: number): Misspelling | null {
   const check = host().misspelt
-  if (!check || !editor.isEditable || !editor.view.dom.spellcheck) return null
+  if (!check || !editor.isEditable || !spellOn(editor)) return null
   const found = editor.view.posAtCoords({ left: x, top: y })
   if (!found) return null
   const $pos = editor.state.doc.resolve(found.pos)
