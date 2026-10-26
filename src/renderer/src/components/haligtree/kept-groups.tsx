@@ -5,7 +5,7 @@ import { SortableContext, useSortable, type SortingStrategy } from '@dnd-kit/sor
 /** dnd-kit moves no row itself: where each one slides is worked out once, for rows and panels alike (Shaped). */
 const unmoved: SortingStrategy = () => null
 import { AnimatePresence, animate, motion, motionValue, useMotionValue, useSpring, useTransform, type MotionValue } from 'motion/react'
-import { ChevronRight, GripVertical, Layers, Plus, X as Cross } from 'lucide-react'
+import { BookOpen, ChevronRight, GripVertical, Layers, Plus, X as Cross } from 'lucide-react'
 
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
@@ -80,6 +80,8 @@ export type Folds = {
   onNewNote: (id: string) => void
   /** A group read as a page of its own. */
   onPage?: (id: string) => void
+  /** A folder opened, as Finder opens one: the list shows only what it holds. */
+  onOpenFolder?: (id: string) => void
   /** The group whose name is being written, as one just made is. */
   renaming: string | null
   onRenaming: (id: string | null) => void
@@ -294,7 +296,7 @@ function Node({ id, children, inner, indent = 0 }: { id: string; children: React
  * every list does; `index` counts rows on show, which is what the keyboard's
  * cursor counts.
  */
-export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo, onFold, onNewNote, onPage, renaming, onRenaming, born, onSort, onSorted, face, after, arrived, cursor, estimate, className }: Folds & {
+export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo, onFold, onNewNote, onPage, onOpenFolder, renaming, onRenaming, born, onSort, onSorted, face, after, arrived, cursor, estimate, className }: Folds & {
   face: (entry: Entry, index: number) => React.JSX.Element
   after?: (entry: Entry) => ReactNode
   arrived: (id: string) => boolean
@@ -389,7 +391,7 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
     if (spring.current) clearTimeout(spring.current.timer)
     spring.current = null
   }
-  const name = (group: string | null | undefined): string => info.get(group ?? '')?.name ?? 'the group'
+  const name = (group: string | null | undefined): string => info.get(group ?? '')?.name ?? 'the folder'
   // A group carried over the middle of anything inside a top-level group (its row, a subgroup's row, a note) aims at that group as a whole.
   const outerOf = (key: string): string | undefined => {
     const inner = isGroup(key) ? key.slice(KEY.length) : home.get(key)
@@ -484,7 +486,7 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
       const count = n > 1 ? `${n} ` : ''
       const outer = make ? groupOf(land.after, KEY + into) ?? null : null
       const words =
-        make ? (outer ? (n > 1 ? `New subgroup of ${n + 1}` : `New subgroup in ${name(outer)}`) : n > 1 ? `New group of ${n + 1}` : 'New group')
+        make ? (outer ? (n > 1 ? `New folder of ${n + 1} in ${name(outer)}` : `New folder in ${name(outer)}`) : n > 1 ? `New folder of ${n + 1}` : 'New folder')
         : into !== own ? (into ? (isGroup(lead) ? `Put inside ${name(into)}` : own ? `Move ${count}to ${name(into)}` : `Add ${count}to ${name(into)}`) : isGroup(lead) ? `Move out of ${name(own)}` : `Remove ${count}from ${name(own)}`)
         : `${n > 1 ? `Move ${num(n)} here` : 'Move here'}${ordered ? '' : ' · Custom order'}`
       // In the gap row's own group (or first in the group whose row it is), the room sits close under it.
@@ -547,7 +549,7 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
   // A group's block, and inside it each subgroup's, drawn the same way one level in.
   const block = (group: GroupView, entries: Entry[], parts: Part[] | undefined, start: number, inner = false): React.JSX.Element => (
     <GroupBlock key={group.id} group={group} entries={entries} parts={parts} start={start} cursor={cursor} estimate={estimate} row={row} inner={inner} carried={carried === KEY + group.id} renaming={renaming === group.id}
-      born={born === group.id} onRenaming={(on) => onRenaming(on ? group.id : null)} onFold={(open) => onFold(group, open)} onNewNote={onNewNote} onPage={onPage} onSort={onSort} onSorted={onSorted}
+      born={born === group.id} onRenaming={(on) => onRenaming(on ? group.id : null)} onFold={(open) => onFold(group, open)} onNewNote={onNewNote} onPage={onPage} onOpenFolder={onOpenFolder} onSort={onSort} onSorted={onSorted}
       sub={(child, at) => block(child.group, child.entries, child.parts, at, true)} />
   )
   return (
@@ -806,33 +808,21 @@ function Count({ n }: { n: number }): React.JSX.Element {
   )
 }
 
-/**
- * When the pointer last went down on a group's icon. The icon redraws itself
- * as it is pressed, so the click that follows can land on the row instead:
- * the row reads this and opens the picker rather than folding.
- */
-let iconPressed = 0
-const pressedIcon = (): boolean => {
-  const was = Date.now() - iconPressed < 1000
-  iconPressed = 0
-  return was
-}
 
 /** A group's small icon and its chevron, side by side in the column a page's tile takes, so its name starts where a page's title does. */
-function GroupTile({ group, onIcon, ...rest }: { group: GroupView; onIcon?: () => void } & React.HTMLAttributes<HTMLSpanElement>): React.JSX.Element {
+function GroupTile({ group, onFold, ...rest }: { group: GroupView; onFold?: () => void } & React.HTMLAttributes<HTMLSpanElement>): React.JSX.Element {
   return (
     <span {...rest} data-group-tile="" className="flex h-9 w-9 shrink-0 items-center justify-center gap-0.5">
-      {/* A click on the icon changes it, as in Notion; the rest of the row folds. */}
-      <span data-group-icon="" role="button" aria-label="Change icon" title="Change icon" className="-m-0.5 grid place-items-center rounded-sm p-0.5 transition-colors hover:bg-foreground/10"
-        onPointerDown={() => void (onIcon && (iconPressed = Date.now()))}
-        onClick={(event) => onIcon && (event.stopPropagation(), event.preventDefault(), (iconPressed = 0), chime('open'), onIcon())}>
-        <GroupIcon icon={group.icon} color={group.color} className="size-3.5" />
+      {/* Finder's disclosure triangle: the one part of the row that folds it open in place; the rest opens the folder. */}
+      <span data-group-fold="" role="button" aria-label={group.open ? 'Fold' : 'Unfold'} className="-m-0.5 grid place-items-center rounded-sm p-0.5 transition-colors hover:bg-foreground/10"
+        onClick={(event) => onFold && (event.stopPropagation(), event.preventDefault(), onFold())}>
+        <ChevronRight
+          aria-hidden
+          className="size-3 shrink-0 text-muted-foreground transition-transform duration-200 motion-reduce:transition-none"
+          style={{ transitionTimingFunction: OUT, transform: `rotate(${group.open ? 90 : 0}deg)` }}
+        />
       </span>
-      <ChevronRight
-        aria-hidden
-        className="size-3 shrink-0 text-muted-foreground transition-transform duration-200 motion-reduce:transition-none"
-        style={{ transitionTimingFunction: OUT, transform: `rotate(${group.open ? 90 : 0}deg)` }}
-      />
+      <GroupIcon icon={group.icon} color={group.color} className="size-3.5" />
     </span>
   )
 }
@@ -856,8 +846,9 @@ const change = (group: GroupView, patch: Parameters<typeof groups.set>[1]): void
   })
 }
 
-function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carried, renaming, born, onRenaming, onFold, onNewNote, onPage, onSort, onSorted, sub, inner = false }: {
+function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carried, renaming, born, onRenaming, onFold, onNewNote, onPage, onOpenFolder, onSort, onSorted, sub, inner = false }: {
   onPage?: (id: string) => void
+  onOpenFolder?: (id: string) => void
   group: GroupView
   entries: Entry[]
   /** Its notes and subgroups in order; left out, its notes alone. */
@@ -938,8 +929,8 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
     setParting(true)
     setTimeout(async () => {
       const was = await groups.separate(group.id)
-      if (!was) return (setParting(false), refuse('That group is already gone'))
-      toast(`Separated: ${count === 1 ? 'the note stays' : `all ${num(count)} notes stay`}`, () => void groups.restore(was).then(() => chime('gather')))
+      if (!was) return (setParting(false), refuse('That folder is already gone'))
+      toast(`Deleted ${group.name}: ${count === 1 ? 'its note moved up' : count ? `its ${num(count)} notes moved up` : 'it was empty'}`, () => void groups.restore(was).then(() => chime('gather')))
     }, still() ? 0 : 140 + count * 40)
   }
   // A new name shows at once and stays, never the old one flashing back while the save is on its way.
@@ -1001,11 +992,11 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
                 <ContextMenuTrigger asChild>
                   {renaming ? (
                     <div className={cn(ROW_SHAPE, HEAD, 'data-[state=open]:bg-transparent!')}>
-                      <PopoverAnchor asChild><GroupTile group={group} onIcon={() => setPicking(true)} /></PopoverAnchor>
+                      <PopoverAnchor asChild><GroupTile group={group} /></PopoverAnchor>
                       <input
                         autoFocus
                         defaultValue={group.name}
-                        aria-label="Group name"
+                        aria-label="Folder name"
                         onFocus={(event) => event.target.select()}
                         onKeyDown={(event) => {
                           if (event.key === 'Enter') rename(event.currentTarget.value)
@@ -1013,7 +1004,7 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
                         }}
                         onBlur={(event) => rename(event.target.value)}
                         className="min-w-0 flex-1 rounded-sm bg-transparent text-xs font-semibold outline-none placeholder:text-muted-foreground"
-                        placeholder="Name the group"
+                        placeholder="Name the folder"
                       />
                     </div>
                   ) : (
@@ -1021,11 +1012,13 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
                       type="button"
                       data-group-row={group.id}
                       aria-expanded={group.open}
-                      onClick={() => (pressedIcon() ? (chime('open'), setPicking(true)) : fold())}
+                      // As in Finder: a click opens the folder, its triangle alone folds it open in place, a double click on the name renames it.
+                      onClick={(event) => (event.detail > 1 ? undefined : onOpenFolder ? (chime('open'), onOpenFolder(group.id)) : fold())}
                       onDoubleClick={() => onRenaming(true)}
-                      // ← folds and → unfolds, as a folder in a list does.
+                      // ← folds and → unfolds, as a folder in a list does; Enter renames it, as in Finder.
                       onKeyDown={(event) => {
                         if ((event.key === 'ArrowLeft' && group.open) || (event.key === 'ArrowRight' && !group.open)) (event.preventDefault(), fold())
+                        if (event.key === 'Enter') (event.preventDefault(), onRenaming(true))
                       }}
                       // The panel marks it while its menu is open: no second mark on the row.
                       // A slim title bar: its box and focus ring are a page row's (row-shape.ts), its icon and chevron sit in a page's tile column,
@@ -1033,7 +1026,7 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
                       className={cn(ROW_SHAPE, HEAD, 'data-[state=open]:bg-transparent!')}
                       style={{ paddingRight: group.unsorted?.length && onSort ? '12.5rem' : '2.25rem' }}
                     >
-                      <PopoverAnchor asChild><GroupTile group={group} onIcon={() => setPicking(true)} /></PopoverAnchor>
+                      <PopoverAnchor asChild><GroupTile group={group} onFold={fold} /></PopoverAnchor>
                       <span className="min-w-0 truncate text-xs font-semibold">{name}</span>
                       {/* How many it holds, open or folded, quiet after the name. */}
                       <span data-count="" className="-ml-1 shrink-0 text-xs text-muted-foreground tabular-nums">· {count}</span>
@@ -1042,7 +1035,7 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
                     </button>
                   )}
                 </ContextMenuTrigger>
-                <GroupMenu group={group} members={entries.map((entry) => entry.id)} onPage={onPage && (() => (chime('open'), onPage(group.id)))} onSeparate={separate} onRename={() => onRenaming(true)} onIcon={() => setPicking(true)} onNewNote={onNewNote} onSort={onSort} onSorted={onSorted} />
+                <GroupMenu group={group} members={entries.map((entry) => entry.id)} onPage={onPage && (() => (chime('open'), onPage(group.id)))} onOpenFolder={onOpenFolder && (() => (chime('open'), onOpenFolder(group.id)))} onSeparate={separate} onRename={() => onRenaming(true)} onIcon={() => setPicking(true)} onNewNote={onNewNote} onSort={onSort} onSorted={onSorted} />
               </ContextMenu>
               {/* Open until an icon is picked, Esc, or a click elsewhere: the focus moving on as the menu shuts never closes it. */}
               <PopoverContent align="start" className="w-auto gap-0 overflow-hidden p-0" onFocusOutside={(event) => event.preventDefault()}>
@@ -1068,7 +1061,7 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
               </Tip>
             )}
             {!renaming && (
-              <Tip label={`Separate: keeps ${count === 1 ? 'the note' : `all ${num(count)} notes`}`}>
+              <Tip label={`Delete folder, keep its ${count === 1 ? 'note' : `${num(count)} notes`}`}>
                 <button
                   type="button"
                   onClick={separate}
@@ -1196,9 +1189,10 @@ function Fold({ open, instant: now = false, children }: { open: boolean; instant
 }
 
 /** A right click on a group's row: Haligtree's own menu, with its colours as a row of dots. */
-function GroupMenu({ group, members, onPage, onSeparate, onRename, onIcon, onNewNote, onSort, onSorted }: {
+function GroupMenu({ group, members, onPage, onOpenFolder, onSeparate, onRename, onIcon, onNewNote, onSort, onSorted }: {
   group: GroupView
   onPage?: () => void
+  onOpenFolder?: () => void
   members: string[]
   onSeparate: () => void
   onRename: () => void
@@ -1211,23 +1205,24 @@ function GroupMenu({ group, members, onPage, onSeparate, onRename, onIcon, onNew
   const left = group.unsorted ?? []
   return (
     <ContextMenuContent className="w-56" onCloseAutoFocus={(event) => event.preventDefault()}>
-      {onPage && <ContextMenuItem data-group-open-page onSelect={later(onPage)}>Open as a page</ContextMenuItem>}
-      {onPage && <ContextMenuSeparator />}
+      {onOpenFolder && <ContextMenuItem data-group-open onSelect={later(onOpenFolder)}>Open</ContextMenuItem>}
+      {onPage && <ContextMenuItem data-group-open-page onSelect={later(onPage)}><BookOpen className="size-3.5" />Read as one page</ContextMenuItem>}
+      {(onOpenFolder || onPage) && <ContextMenuSeparator />}
       {left.length > 0 && onSort && <ContextMenuItem onSelect={later(() => onSort(left))}>Sort these ({left.length})</ContextMenuItem>}
       {left.length > 0 && onSorted && <ContextMenuItem onSelect={() => onSorted(left, true)}>Mark all as sorted</ContextMenuItem>}
       {left.length > 0 && <ContextMenuSeparator />}
-      <ContextMenuItem onSelect={() => void groups.note(group.id).then((id) => id && (chime('promote'), onNewNote(id)))}>New note in group</ContextMenuItem>
-      <ContextMenuItem onSelect={onSeparate}>Separate</ContextMenuItem>
+      <ContextMenuItem onSelect={() => void groups.note(group.id).then((id) => id && (chime('promote'), onNewNote(id)))}>New note in folder</ContextMenuItem>
+      <ContextMenuItem data-folder-delete onSelect={onSeparate}>Delete folder, keep its notes</ContextMenuItem>
       <ContextMenuItem
         onSelect={() =>
           void groups.duplicate(group.id).then((made) => made && (chime('copy'), toast('Duplicated, with a copy of each note', () => void groups.unclone(made.ids))))
         }
       >
-        Duplicate group
+        Duplicate folder
       </ContextMenuItem>
       <ContextMenuItem
         onSelect={() =>
-          void groups.links(group.id).then((links) => (links.length ? copy(links.join('\n'), `Copied ${links.length === 1 ? 'one link' : `${num(links.length)} links`}`) : refuse('No web links in this group')))
+          void groups.links(group.id).then((links) => (links.length ? copy(links.join('\n'), `Copied ${links.length === 1 ? 'one link' : `${num(links.length)} links`}`) : refuse('No web links in this folder')))
         }
       >
         Copy all links

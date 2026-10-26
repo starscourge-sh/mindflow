@@ -101,24 +101,25 @@ export function registerGroups(): void {
   // Separate: the notes stay, where they were, and only the group goes. What
   // it was comes back, for Undo to put it together again.
   handle('groups:separate', (id: string) => {
-    const group = db.prepare('select id, list, name, icon, color, folded, created_at as createdAt from note_groups where id = ?').get(id) as Record<string, string | number> | undefined
+    const group = db.prepare('select id, list, name, icon, color, folded, created_at as createdAt, parent_id as parent from note_groups where id = ?').get(id) as Record<string, string | number | null> | undefined
     if (!group) return null
     const ids = members(id)
-    // Its subgroups stay groups, at the top level; Undo puts them back in it.
+    // Its notes and its subfolders go up one level, into the folder that held it (or the list itself), as Finder's
+    // "Delete folder, keep its notes" would; Undo puts them back in it.
     const subs = (db.prepare('select id from note_groups where parent_id = ?').all(id) as { id: string }[]).map((one) => one.id)
     atomically(() => {
-      db.prepare('update note_groups set parent_id = null where parent_id = ?').run(id)
-      db.prepare('update nuggets set group_id = null, group_order = null where group_id = ?').run(id)
+      db.prepare('update note_groups set parent_id = ? where parent_id = ?').run(group.parent, id)
+      db.prepare('update nuggets set group_id = ?, group_order = null where group_id = ?').run(group.parent, id)
       db.prepare('delete from note_order where list = ? and id = ?').run(group.list, KEY + id)
       db.prepare('delete from note_groups where id = ?').run(id)
     })
     changed()
     return { group, ids, subs }
   })
-  handle('groups:restore', (was: { group: Record<string, string | number>; ids: string[]; subs?: string[] }) => {
-    const { id, list, name, icon, color, folded, createdAt } = was.group
+  handle('groups:restore', (was: { group: Record<string, string | number | null>; ids: string[]; subs?: string[] }) => {
+    const { id, list, name, icon, color, folded, createdAt, parent } = was.group
     atomically(() => {
-      db.prepare('insert or replace into note_groups (id, list, name, icon, color, folded, created_at) values (?, ?, ?, ?, ?, ?, ?)').run(id, list, name, icon, color, folded, createdAt)
+      db.prepare('insert or replace into note_groups (id, list, name, icon, color, folded, created_at, parent_id) values (?, ?, ?, ?, ?, ?, ?, ?)').run(id, list, name, icon, color, folded, createdAt, parent ?? null)
       const put = db.prepare('update nuggets set group_id = ?, group_order = ? where id = ?')
       was.ids.forEach((one, at) => put.run(id, at, one))
       for (const sub of was.subs ?? []) db.prepare('update note_groups set parent_id = ? where id = ?').run(id, sub)

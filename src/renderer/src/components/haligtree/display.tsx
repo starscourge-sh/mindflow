@@ -553,7 +553,7 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
         )}
         {/* Grouped, each group can be its own island: a few rows each, folding, so a long list reads as a few short ones. */}
         {groups.length > 1 && view.group !== 'none' && (
-          <Row label="Groups as" changed={false}>
+          <Row label="Sections as" changed={false}>
             <Pick options={[{ id: 'islands', label: 'Islands' }, { id: 'plain', label: 'One list' }]} chosen={[islandsOn(view) ? 'islands' : 'plain']} many={false}
               onPick={(as) => (chime('tap'), onChange({ ...view, islands: as === 'islands' }))} />
           </Row>

@@ -10,9 +10,9 @@ import { voiceOf } from '@/lib/sources'
 import { SourceFoot } from './source-page'
 import { SimilarNotes } from './similar-notes'
 import { chime, pageTurn } from '@/lib/sound'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
-import { Archive, ArrowLeft, Calendar, Plus, SquareDashed } from 'lucide-react'
+import { Archive, ArrowLeft, Calendar, ChevronRight, Plus, SquareDashed } from 'lucide-react'
 
 import { Unfold } from './glide'
 
@@ -318,8 +318,8 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   const listLater = useAfterFirstPaint()
   const listShown = listFirst || listLater
   const pick = (id: string): void => {
-    // A folder card opens its group in place.
-    if (isGroup(id)) return (chime('untuck'), setInGroup(groupId(id)), setCursor(0))
+    // A folder card opens the folder, as a row's click does (only its contents, under the path bar); in place where there is no path.
+    if (isGroup(id)) return onFolder ? (chime('untuck'), onFolder(groupId(id)), setCursor(0)) : (chime('untuck'), setInGroup(groupId(id)), setCursor(0))
     // Opening a note brings the list back beside it.
     if (view.pane === 'wide') setView({ ...view, pane: 'list' })
     const type = typeOf(id)
@@ -368,6 +368,29 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     return () => window.removeEventListener('keydown', onKey, true)
   }, [folder])
   useEffect(() => void (spread && items[cursor] && setPeek(items[cursor].id)), [cursor, spread]) // eslint-disable-line react-hooks/exhaustive-deps
+  // The open folder's path, as Finder's path bar shows it: the list itself, then each folder down to this one.
+  const path: NoteGroup[] = []
+  for (let at = opened; at && !path.includes(at); at = shelf.find((one) => one.id === at!.parent)) path.unshift(at)
+  // ⌘↑ goes to the folder that holds this one, as in Finder; ⇧⌘N makes a folder here, named as it is made.
+  const keysRef = useRef({ up: (): void => undefined, make: (): void => undefined })
+  keysRef.current = {
+    up: () => opened && (chime('tuck'), onFolder?.(opened.parent && shelf.some((one) => one.id === opened.parent) ? opened.parent : null)),
+    make: () => folding.newFolder()
+  }
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (!event.metaKey || event.altKey || event.ctrlKey || typing()) return
+      const which = event.key === 'ArrowUp' && !event.shiftKey ? 'up' : event.shiftKey && event.key.toLowerCase() === 'n' ? 'make' : null
+      if (!which) return
+      event.preventDefault()
+      event.stopPropagation()
+      keysRef.current[which]()
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [])
+  // An open folder with nothing in it: no notes and no folders.
+  const folderEmpty = !!opened && !listed.length && !shelf.some((one) => one.parent === opened.id)
   // ; on the row under the cursor, with nothing open: a thought written under it.
   const glossAfter = useRowGloss(items[cursor]?.id, !open)
   // Back from the Bin by Undo: open again if a note was open, else the keyboard on its row.
@@ -593,8 +616,8 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
               <Tip label="At the end of your reading queue; ⌥-click to read them next">
                 <Button variant="ghost" size="sm" onClick={(event) => void enqueue(chosen, event.altKey)}>Add to queue</Button>
               </Tip>
-              <Tip label="Group them  ⌃⌘N">
-                <Button variant="ghost" size="sm" onClick={() => folding.gatherNew(chosen)}>New group</Button>
+              <Tip label="Put them in a new folder  ⌃⌘N">
+                <Button variant="ghost" size="sm" onClick={() => folding.gatherNew(chosen)}>New folder</Button>
               </Tip>
               {tier === 'nugget' && <Button variant="secondary" size="sm"
  
@@ -678,17 +701,30 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
         </Unfold>
         <div data-kind-chips className="list-words pt-4 pb-2 empty:hidden">
           {opened && !folder && (
-            <Tip label="Back to everything  ⌘[">
-            <button type="button" data-folder-back="" data-folder-open={opened.id} onClick={() => (chime('tuck'), onFolder?.(null))}
-              className="mb-2 flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground">
-              <ArrowLeft className="size-3.5" />
-              <GroupIcon icon={opened.icon} color={opened.color} className="size-3.5" />
-              <span className="font-medium text-foreground">{opened.name}</span>
-            </button>
-            </Tip>
+            // Finder's path bar: each part a way up to it (and a place to drop notes into), the last one where you are.
+            <nav data-path-bar="" data-folder-open={opened.id} aria-label="Folder path" className="mb-2 flex min-w-0 items-center gap-0.5 text-body">
+              {[null, ...path].map((one, at) => {
+                const here = at === path.length
+                return (
+                  <Fragment key={one?.id ?? 'all'}>
+                    {at > 0 && <ChevronRight aria-hidden className="size-3.5 shrink-0 text-muted-foreground/60" />}
+                    <Tip label={here ? '' : at === 0 ? 'Back to everything  ⌘[' : at === path.length - 1 ? `Up to ${one!.name}  ⌘↑` : `Up to ${one!.name}`}>
+                    <button type="button" data-path-part={one?.id ?? ''} data-folder-back={at === 0 ? '' : undefined} aria-current={here ? 'page' : undefined} disabled={here}
+                      // A note carried onto a part goes up to it (split-drop.tsx), lit while it is over it, as a sidebar folder is.
+                      data-folder-drop={here ? undefined : one?.id ?? TOP} data-folder-list={tier}
+                      onClick={() => (chime('tuck'), onFolder?.(one?.id ?? null))}
+                      className={`flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-0.5 ${here ? 'font-medium text-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground'} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]`}>
+                      {one && <GroupIcon icon={one.icon} color={one.color} className="size-3.5" />}
+                      <span className="truncate">{one ? one.name : tier === 'nugget' ? 'Gems' : 'Writing'}</span>
+                    </button>
+                    </Tip>
+                  </Fragment>
+                )
+              })}
+            </nav>
           )}
           {folder && (
-            <Tip label="Back out of the group  ⌘[">
+            <Tip label="Back out of the folder  ⌘[">
             <button type="button" data-folder-back="" onClick={() => (chime('tuck'), setInGroup(null))}
               className="mb-2 flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground">
               <ArrowLeft className="size-3.5" />
@@ -701,11 +737,20 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
         </div>
         {/* A folded group shows as its heading even when nothing loose is left, so the list is not empty then.
             Until your groups are read too, nothing: the notes alone would flash as a plain list first. */}
-        {unloaded(noteGroups) || !listShown ? null : items.length || (folding.rows && noteGroups.some((one) => one.members.some((id) => all.some((item) => item.id === id && !item.archivedAt)))) ? (
+        {unloaded(noteGroups) || !listShown ? null : folderEmpty && !query.trim() ? (
+          // An empty folder, opened: the page's own quiet state, and the way to fill it.
+          <div className="flex justify-center">
+            <Empty title={`Nothing in ${opened!.name} yet`}
+              action={<button type="button" data-folder-new-note="" onClick={() => void noteGroupsApi.note(opened!.id).then((id) => id && (chime('promote'), pick(id)))}
+                className="flex h-8 items-center gap-1.5 rounded-md bg-foreground px-3 text-control font-medium text-background hover:opacity-90"><Plus className="size-3.5" />New</button>}>
+              Drag notes here, or start one.
+            </Empty>
+          </div>
+        ) : items.length || (folding.rows && noteGroups.some((one) => one.members.some((id) => all.some((item) => item.id === id && !item.archivedAt)))) ? (
           <NoteList groups={entries} density={density} table="nuggets" selected={spread ? peek ?? undefined : coming ?? open?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
             onPick={spread ? (id) => (isGroup(id) ? pick(id) : (setPeek(id), setCursor(items.findIndex((one) => one.id === id)))) : pick} onOpen={spread ? pick : undefined}
             picking={picking} onMove={view.sort === 'manual' ? onMove : undefined} after={glossAfter} className={spread ? 'list-edge my-3' : 'list-edge my-2'}
-            folds={folding.rows ? { ...folding.folds(menuFor), onNewNote: pick, onSort: setSorting, onSorted: markSorted, onPage: setPageGroup } : undefined} />
+            folds={folding.rows ? { ...folding.folds(menuFor), onNewNote: pick, onSort: setSorting, onSorted: markSorted, onPage: setPageGroup, onOpenFolder: onFolder ?? undefined } : undefined} />
         ) : questionsOnly && !unloaded(all) && !all.length ? (
           // No questions yet: the page as it will look, as every other list shows itself.
           <Example tryIt="press H on a note in your Inbox, or “New question” above. It is held here, gathering dated clues until you know.">
@@ -1277,9 +1322,9 @@ const propOf = (one: Item): { status?: string; rating?: number } => {
  */
 /** What an order does with groups, said in the sort menu under its choices. */
 const groupsSaid = (sort: string): string =>
-  sort === 'manual' ? 'Groups stay where you put them, among the pages.'
-    : sort === 'groups' ? 'Groups on top, in your order; then the loose pages, in your order.'
-      : 'Groups on top, in your order; the pages in them and after them sorted.'
+  sort === 'manual' ? 'Folders stay where you put them, among the pages.'
+    : sort === 'groups' ? 'Folders on top, in your order; then the loose pages, in your order.'
+      : 'Folders on top, in your order; the pages in them and after them sorted.'
 
 export function useItemDisplay(name: string, every: Item[], withGroups = false): {
   groups: [string, Item[]][]
@@ -1366,7 +1411,7 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false):
       facets={facets}
       count={all.length}
       // By kind only where there is more than one kind; by next review only where something is due for one (pieces of writing never are).
-      sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Longest unchanged' }, { id: 'name', label: 'A to Z' }, ...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), ...(all.some((one) => one.dueAt) ? [{ id: 'due', label: 'Next review' }] : []), ...(rated ? [{ id: 'rating', label: 'Highest rated' }] : []), ...byProp.choices, { id: 'manual', label: 'Custom order' }, ...(withGroups ? [{ id: 'groups', label: 'Groups first' }] : [])]}
+      sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Longest unchanged' }, { id: 'name', label: 'A to Z' }, ...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), ...(all.some((one) => one.dueAt) ? [{ id: 'due', label: 'Next review' }] : []), ...(rated ? [{ id: 'rating', label: 'Highest rated' }] : []), ...byProp.choices, { id: 'manual', label: 'Custom order' }, ...(withGroups ? [{ id: 'groups', label: 'Folders first' }] : [])]}
       // What the chosen order does with groups, said under the choices.
       sortNote={withGroups ? groupsSaid(view.sort) : undefined}
       groups={[...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), { id: 'none', label: 'None' }, { id: 'date', label: 'Date' }]}
@@ -1392,6 +1437,9 @@ const ORDER = new WeakMap<Layout, Map<string, number>>()
  * back the same, so nothing jumps back while the save is on its way. Every
  * change says so with a way back.
  */
+/** The list itself, as a drop place in the path bar: no folder. */
+const TOP = ':top'
+
 function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) => number, order: string[], shown: Item[] | null, ordered: boolean, done: () => void, chosen: string[], toOwn: () => (() => void) | undefined, heads?: Map<string, string>, within?: string): {
   rows: Item[] | null
   /** The list as tiles: each group as one folder, at the top, then the loose notes. */
@@ -1407,6 +1455,8 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
   reveal: (id: string) => boolean
   /** These notes carried onto a folder in the sidebar: into that group, at its end. */
   moveInto: (group: string, ids: string[]) => boolean
+  /** A new, empty folder in the one open (or the list itself), its name open for typing. */
+  newFolder: () => void
 } {
   const list = useGroups(tier)
   const [held, setHeld] = useState<Layout | null>(null)
@@ -1498,8 +1548,8 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     const said = tag ? tag[0].toUpperCase() + tag.slice(1) : kind ? `${kind}s` : null
     if (said && !taken.has(said.toLowerCase())) return said
     let n = list.length + 1
-    while (taken.has(`group ${n}`)) n++
-    return `Group ${n}`
+    while (taken.has(`folder ${n}`)) n++
+    return `Folder ${n}`
   }
   const make = (ids: string[] = []) => (): { id: string; name: string } => ({ id: crypto.randomUUID(), name: naming(ids) })
   const commit = (raw: Layout, cue: Cue, said?: string, unsort?: () => void): void => {
@@ -1555,8 +1605,8 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
   const gatherNew = (ids: string[]): void => {
     const these = inOrder(ids)
     // A group is two notes or more.
-    if (these.length < 2) return refuse('Pick two or more rows to make a group')
-    commit(gather(layout, these[0], these, make(these)()), 'gather', these.length > 1 ? `Grouped ${num(these.length)} notes` : 'Grouped')
+    if (these.length < 2) return refuse('Pick two or more rows to make a folder')
+    commit(gather(layout, these[0], these, make(these)()), 'gather', these.length > 1 ? `Put ${num(these.length)} notes in a new folder` : 'New folder')
   }
   const menu = (ids: string[]): RowItem[] => {
     const these = inOrder(ids)
@@ -1568,9 +1618,9 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     const into = (group: string): Layout => moveMany(layout, these, { group, after: (layout.groups[group] ?? []).filter((one) => !picked.has(one)).at(-1) ?? null })
     const others = list.filter((one) => layout.groups[one.id] && !(theirs.size === 1 && theirs.has(one.id)))
     return [
-      n > 1 && { label: `New group with ${num(n)} notes`, keys: '⌃⌘N', run: () => gatherNew(these) },
+      n > 1 && { label: `New folder with ${num(n)} notes`, keys: '⌃⌘N', run: () => gatherNew(these) },
       {
-        label: 'Move to group',
+        label: 'Move to folder',
         items: [
           ...others.map((one) => ({
             label: one.name,
@@ -1579,13 +1629,13 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
             run: () => commit(into(one.id), 'gather', `Moved ${notes(n)} to ${one.name}`)
           })),
           others.length && n > 1 ? 'separator' : null,
-          n > 1 && { label: 'New group…', run: () => gatherNew(these) }
+          n > 1 && { label: 'New folder…', run: () => gatherNew(these) }
         ]
       },
       theirs.size > 0 && {
-        label: 'Remove from group',
+        label: 'Remove from folder',
         // Each group's own come out together, in their order, just after it.
-        run: () => commit([...theirs].reduce<Layout>((next, own) => moveMany(next, these.filter((one) => groupOf(layout, one) === own), { group: groupOf(next, KEY + own!) ?? null, after: KEY + own }), layout), 'separate', `Removed ${notes(n)} from ${theirs.size === 1 ? info.get([...theirs][0]!)?.name ?? 'the group' : 'their groups'}`)
+        run: () => commit([...theirs].reduce<Layout>((next, own) => moveMany(next, these.filter((one) => groupOf(layout, one) === own), { group: groupOf(next, KEY + own!) ?? null, after: KEY + own }), layout), 'separate', `Removed ${notes(n)} from ${theirs.size === 1 ? info.get([...theirs][0]!)?.name ?? 'the folder' : 'their folders'}`)
       },
       'separator',
       {
@@ -1613,7 +1663,7 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     bundles: now.map((one, at): Bundle => {
       const view = (id: string, items: Item[]): GroupView => {
         const group = info.get(id)
-        return { id, name: group?.name ?? layout.make?.name ?? 'Group', icon: group?.icon ?? null, color: group?.color ?? null, open: isOpen(id), members: items.map((item) => item.id), parting: parting.includes(id), unsorted: items.filter((item) => item.unsorted && !item.archivedAt).map((item) => item.id) }
+        return { id, name: group?.name ?? layout.make?.name ?? 'Folder', icon: group?.icon ?? null, color: group?.color ?? null, open: isOpen(id), members: items.map((item) => item.id), parting: parting.includes(id), unsorted: items.filter((item) => item.unsorted && !item.archivedAt).map((item) => item.id) }
       }
       return {
         head: headOf(one, at),
@@ -1639,10 +1689,10 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
       const active = ids[0]
       const was = isGroup(active) ? undefined : groupOf(layout, active)
       const lands = isGroup(active) ? undefined : groupOf(next, active)
-      const name = (id?: string): string => (id && (info.get(id)?.name ?? next.make?.name)) || 'the group'
+      const name = (id?: string): string => (id && (info.get(id)?.name ?? next.make?.name)) || 'the folder'
       const n = ids.length > 1 ? ` ${ids.length}` : ''
       commit(next, next.make || (lands && lands !== was) ? 'gather' : was && !lands ? 'separate' : 'shift',
-        next.make ? 'Grouped' : lands && lands !== was ? `Added${n} to ${name(lands)}` : was && !lands ? `Removed${n} from ${name(was)}` : `Moved${n}`, unsort)
+        next.make ? 'New folder' : lands && lands !== was ? `Added${n} to ${name(lands)}` : was && !lands ? `Removed${n} from ${name(was)}` : `Moved${n}`, unsort)
     },
     picked: chosen,
     onLetGo: () => done(),
@@ -1687,6 +1737,13 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     return true
   }
   const moveInto = (group: string, ids: string[]): boolean => {
+    // Onto the list's own name in the path bar: out of every folder, to the list itself.
+    if (group === TOP) {
+      const these = inOrder(ids.filter((id) => groupOf(layout, id)))
+      if (!these.length) return (refuse('Already in no folder'), true)
+      commit(moveMany(layout, these, { group: null, after: layout.top.filter((one) => !these.includes(one)).at(-1) ?? null }), 'separate', `Moved ${notes(these.length)} out of its folder`)
+      return true
+    }
     const target = list.find((one) => one.id === group)
     const these = inOrder(ids.filter((id) => groupOf(layout, id) !== group))
     if (!target || !layout.groups[group]) return false
@@ -1695,5 +1752,6 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     commit(moveMany(layout, these, { group, after: (layout.groups[group] ?? []).filter((one) => !picked.has(one)).at(-1) ?? null }), 'gather', `Moved ${notes(these.length)} to ${target.name}`)
     return true
   }
-  return { rows: shown ? rowsOf(layout) : null, tiles, step, menu, gatherNew, folds, partsOf, reveal, moveInto }
+  const newFolder = (): void => void noteGroupsApi.make(tier, 'New folder', within ?? null).then((id) => (chime('promote'), setRenaming(id), setBorn(id), quietly(() => void noteGroupsApi.remove(id))))
+  return { rows: shown ? rowsOf(layout) : null, tiles, step, menu, gatherNew, folds, partsOf, reveal, moveInto, newFolder }
 }
