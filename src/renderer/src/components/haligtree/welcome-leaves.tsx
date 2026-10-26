@@ -115,8 +115,8 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
     // The bunch on the last page: each gathered leaf, where it came from, where it goes, and how far it has turned to face you.
     type Held = { from: { x: number; y: number; spin: number; size: number }; to: { x: number; y: number; spin: number; size: number }; base: { x: number; y: number }; delay: number; face: number; i: number; lag?: number; /** How far its own stir has faded in since it landed, 0 to 1. */ rest?: number }
     const bunch = new Map<Leaf, Held>()
-    /** A held leaf's own stir at rest, in radians: two slow swells out of step, each leaf on its own phase, about 1.5° at most. */
-    const rest = (i: number, t: number): number => 0.018 * Math.sin(t * 0.9 + i * 1.9) + 0.008 * Math.sin(t * 1.7 + i * 0.7)
+    /** A held leaf's own stir at rest, in radians: two slow swells out of step, each leaf on its own phase, about 0.75° at most at the stem. */
+    const rest = (i: number, t: number): number => 0.009 * Math.sin(t * 0.9 + i * 1.9) + 0.004 * Math.sin(t * 1.7 + i * 0.7)
     let gatheredAt = 0
     /**
      * Mostly where the pages are bare, round the edge (the sides, the top and the bottom alike), a fifth anywhere.
@@ -213,7 +213,7 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
       // The tip half bends: drawn a second time over the first, turned a little at the middle.
       // In the bunch, the tip half leads its stem's own stir by a beat and goes further, and bends on in the wind.
       const kept = bunch.get(one)
-      const bend = kept ? rest(kept.i, t + 0.5) * 2.4 * (kept.rest ?? 0) + (kept.lag ?? 0) * 0.8 : Math.sin(t * 1.2 + one.sway) * 0.1
+      const bend = kept ? rest(kept.i, t + 0.5) * 1.2 * (kept.rest ?? 0) + (kept.lag ?? 0) * 0.8 : Math.sin(t * 1.2 + one.sway) * 0.1
       const colour = (light: number, shift: number): string => `oklch(${dark ? light - 0.04 : light - 0.08} 0.16 ${one.hue + shift})`
       const body = ink.createLinearGradient(0, 0, length, 0)
       body.addColorStop(0, colour(0.66, -12))
@@ -394,7 +394,7 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
         lastAt = there
         pace0 += (speed - pace0) * (1 - Math.exp(-dt * 5))
         // Toward "Open my book", the harder the nearer and quicker; any other move on the page, a soft stir by its speed.
-        const goal = Math.max(Math.max(0, 1 - off / NEAR) ** 1.2 * Math.min(1.6, approach / 400), Math.min(0.45, pace0 / 3000))
+        const goal = Math.max(Math.max(0, 1 - off / NEAR) ** 1.2 * Math.min(1.6, approach / 400), Math.min(0.2, pace0 / 6000))
         // A soft spring: it builds over a beat and settles slowly, with a little follow-through, never a snap.
         windPush += ((goal - wind) * 9 - windPush * 4.2) * dt
         wind = Math.max(0, wind + windPush * dt)
@@ -516,7 +516,7 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
         let turn = at.to.spin - at.from.spin
         turn = Math.atan2(Math.sin(turn), Math.cos(turn))
         // Settled, each still stirs a little, as cut leaves do in a hand, on its own phase and never in step: it fades in
-        // over a few seconds once the leaf has landed, so the words coming in are never crowded. About 1° at the stem,
+        // over a few seconds once the leaf has landed, so the words coming in are never crowded. Under 1° at the stem,
         // its tip bending on past it (draw's `bend`); in the wind its tip bends on past its stem.
         at.rest = Math.min(1, Math.max(0, (now - gatheredAt - at.delay - 2600) / 3000)) ** 2
         one.spin = at.from.spin + turn * e + rest(at.i, t) * at.rest + sway + at.lag * 0.6
@@ -527,7 +527,7 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
       }
       // For the probes only: where the small leaves are and how the bunch leans, a frame at a time.
       const trace = (window as { qaLeafTrace?: unknown[] }).qaLeafTrace
-      if (trace) trace.push({ t: now, gust: gust.current, wind, motes: motes.slice(0, 8).map((one) => [Math.round(one.x), Math.round(one.y)]), bunch: [...bunch].map(([one, at]) => [Math.round(one.spin * 1000) / 1000, Math.round((at.lag ?? 0) * 1000) / 1000, Math.round((one.spin + rest(at.i, t + 0.5) * 2.4 * (at.rest ?? 0) + (at.lag ?? 0) * 0.8) * 1000) / 1000]) })
+      if (trace) trace.push({ t: now, gust: gust.current, wind, motes: motes.slice(0, 8).map((one) => [Math.round(one.x), Math.round(one.y)]), bunch: [...bunch].map(([one, at]) => [Math.round(one.spin * 1000) / 1000, Math.round((at.lag ?? 0) * 1000) / 1000, Math.round((one.spin + rest(at.i, t + 0.5) * 1.2 * (at.rest ?? 0) + (at.lag ?? 0) * 0.8) * 1000) / 1000]) })
       if (!bunch.size) penHeld.clearRect(0, 0, cols, rows)
       if (bunch.size) {
         // The stems, each from the base to its leaf, in one dark ink, and a band where they are held.
