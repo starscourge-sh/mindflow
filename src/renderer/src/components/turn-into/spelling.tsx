@@ -38,8 +38,11 @@ export function misspeltAt(editor: Editor, x: number, y: number): Misspelling | 
   for (const match of text.matchAll(WORD)) {
     const start = match.index
     if (start > $pos.parentOffset || $pos.parentOffset > start + match[0].length) continue
-    const suggestions = check(match[0])
-    if (!suggestions) return null
+    const said = check(match[0])
+    if (!said) return null
+    // A word written in lower case is most likely a lower-case word: those first, names ("Sligo" for "slsig") after.
+    const lower = match[0] === match[0].toLowerCase()
+    const suggestions = lower ? [...said.filter((one) => one === one.toLowerCase()), ...said.filter((one) => one !== one.toLowerCase())] : said
     const from = $pos.start() + start
     return { word: match[0], from, to: from + match[0].length, suggestions }
   }

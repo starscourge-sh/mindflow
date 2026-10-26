@@ -207,6 +207,8 @@ try {
     return [...range.getClientRects()].filter((r) => r.width && r.left < pill.right && r.right > pill.left && r.top < pill.bottom && r.bottom > pill.top).length
   })
   check('5. and it sits clear of the words, over none of them', over === 0, String(over))
+  const under = await h.evaluate(() => { const pill = document.querySelector('[data-spell-hint]').getBoundingClientRect(); const room = document.querySelector('[data-day-write]').closest('.overflow-y-auto') ?? document.body; return [[pill.left + 4, pill.top + pill.height / 2], [pill.right - 4, pill.top + pill.height / 2]].every(([x, y]) => { const one = document.elementFromPoint(x, y); return !!one && room.contains(one) }) })
+  check('5. and under no panel: the margin it sits in is bare', under)
   await h.keyboard.press('Tab')
   await wait(300)
   check('5. and Tab takes it', await h.evaluate(() => /receive$/.test(document.querySelector('[data-day-write] .tiptap').textContent.trim())), await h.evaluate(() => document.querySelector('[data-day-write] .tiptap').textContent.slice(-30)))

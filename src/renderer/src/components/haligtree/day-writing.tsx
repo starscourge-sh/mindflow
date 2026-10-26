@@ -183,16 +183,21 @@ export function LivingCaret({ editor }: { editor: Editor | null }): React.JSX.El
           still = window.setTimeout(() => one.setAttribute('data-resting', ''), 600)
         }
         const flagged = document.documentElement.hasAttribute('data-day-typing') ? null : misspeltAt(editor, at.left - 1, (at.top + at.bottom) / 2)
-        if (!flagged?.suggestions.length) return setHint(null)
+        // Tab offers only a likely fix: for a word in lower case, never a name in its place.
+        if (!flagged?.suggestions.length || (flagged.word === flagged.word.toLowerCase() && flagged.suggestions[0] !== flagged.suggestions[0].toLowerCase())) return setHint(null)
         // Clear of the words: under the word when nothing is written below its line, else in the
         // margin beside the line with room for it, else not at all (the squiggle and right-click stay).
         const last = editor.view.coordsAtPos(editor.state.doc.content.size - 1).bottom <= at.bottom + 1
         if (last) return setHint({ ...flagged, x: editor.view.coordsAtPos(flagged.from).left - from.left + box.scrollLeft, y: y + h + 4, h })
         const page = dom.getBoundingClientRect()
-        const room = (box.closest('.overflow-y-auto') ?? document.body).getBoundingClientRect()
+        const scroller = box.closest<HTMLElement>('.overflow-y-auto') ?? document.body
+        const room = scroller.getBoundingClientRect()
         const wide = flagged.suggestions[0].length * 9 + 64
-        const right = room.right - page.right - 16 >= wide
-        if (!right && page.left - room.left - 16 < wide) return setHint(null)
+        // A margin counts only if it is bare: nothing laid over it there (the Journal's side panel, a sticky).
+        const mid = (at.top + at.bottom) / 2
+        const bare = (x: number): boolean => { const there = document.elementFromPoint(x, mid); return !!there && scroller.contains(there) }
+        const right = room.right - page.right - 16 >= wide && bare(page.right + 12 + wide) && bare(page.right + 12 + wide / 2)
+        if (!right && (page.left - room.left - 16 < wide || !bare(page.left - 12 - wide) || !bare(page.left - 12 - wide / 2))) return setHint(null)
         setHint({ ...flagged, x: (right ? page.right + 12 : page.left - 12) - from.left, y: y + (h - 24) / 2, h, end: !right })
       })
     }
