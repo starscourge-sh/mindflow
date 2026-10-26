@@ -21,7 +21,7 @@ import { PICKED_MARK, usePickMixed } from './pick-mixed'
 import { taskName } from '@/lib/tasks'
 import { DayBanner } from './scenery'
 import { DayBrief } from './day-brief'
-import { DayCount, LivingCaret, WriterLine, dayCaption, useWritingQuiet } from './day-writing'
+import { LivingCaret, WriterLine, dayCaption, useWritingQuiet } from './day-writing'
 import { RoomFoot, useWritingRoom } from './writing-room'
 import { DayMarks } from './milestones'
 import { markDay } from '@/lib/milestones'
@@ -180,13 +180,12 @@ export function DayView({ onOpen, start, onScale, onView }: {
             autofocus={false}
             // The line you write on stays put and the page moves, whatever the switch in Settings says.
             typewriter="always"
-            foot={(editor) => <DayCount editor={editor} spent={spent} />}
             onReady={ready}
             onChange={(body) => (known.current = { body: JSON.stringify(body), sent: JSON.stringify(body) }, void notes.saveDay(day, { body }))}
           />
           <CaretIn editor={writer} day={day} />
           <LivingCaret editor={writer} />
-          <WriterLine editor={writer} day={day} spent={spent} />
+          <WriterLine editor={writer} day={day} spent={spent} today={day === today} />
           {day === today && <DayBreath editor={writer} day={day} />}
           {room.on && <RoomFoot editor={writer} title={day === today ? `Today, ${named(day)}` : named(day)} spent={spent} />}
           </div>

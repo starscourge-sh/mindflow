@@ -12,8 +12,8 @@ import { clock, num } from '../../../../main/dates'
 /**
  * Today's writing as a page rather than a form: a still caption over the
  * words for the time of day, the rest of the page stepping back while you
- * write, a caret that glides, and the count coming back as words and time
- * once you pause. The look is main.css, read from `data-day-typing` and
+ * write, a caret that glides, and the count kept in view at the window's
+ * foot (WriterLine). The look is main.css, read from `data-day-typing` and
  * `data-day-writing` on the root.
  */
 
@@ -98,19 +98,6 @@ export function useWritingQuiet(editor: Editor | null, day: string): number {
     }
   }, [editor, day])
   return spent
-}
-
-/** "167 words, 9 minutes": hidden while you type, back softly on a pause. */
-export function DayCount({ editor, spent }: { editor: Editor | null; spent: number }): React.JSX.Element | null {
-  const counts = useCounts(editor)
-  if (!counts?.words) return null
-  const minutes = Math.round(spent / 60_000)
-  return (
-    <p data-day-count className="mt-3 text-center text-sm text-muted-foreground tabular-nums transition-opacity duration-700">
-      {num(counts.words)} {counts.words === 1 ? 'word' : 'words'}
-      {minutes ? `, ${num(minutes)} ${minutes === 1 ? 'minute' : 'minutes'}` : ''}
-    </p>
-  )
 }
 
 /**
@@ -204,54 +191,68 @@ export function LivingCaret({ editor }: { editor: Editor | null }): React.JSX.El
 }
 
 /**
- * While the rest of the window is gone, one thin line at its foot, under the
- * words' own column: how far you have got (words, and minutes when there are
- * any), the aim's hairline filling if the day has one, and the time, small.
- * What a writer glances down at, and nothing else. It changes only on a
- * pause, its digits rolling, never with each key; it sits over nothing, so
- * the words never move for it.
+ * The day's count, kept in view: one line at the window's foot under the
+ * words' own column, set as the writing room's foot is. Words so far and
+ * minutes spent, the day's word aim as a hairline filling over them if it has
+ * one, and on today the time, small. What a writer glances down at, and
+ * nothing else. Always there, the same line in the same place whether the rest
+ * of the page is up or gone; while keys go it holds still, and on a pause its
+ * digits roll on. Fixed, it sits over nothing in the page's flow, so the
+ * words never move for it.
  */
-export function WriterLine({ editor, day, spent }: { editor: Editor | null; day: string; spent: number }): React.JSX.Element | null {
+export function WriterLine({ editor, day, spent, today }: { editor: Editor | null; day: string; spent: number; today: boolean }): React.JSX.Element | null {
   const counts = useCounts(editor)
-  const words = counts?.words ?? 0
-  // Read on each pause and as the rest goes: the words, the column, the hour.
-  const [shown, setShown] = useState<{ words: number; left: number; width: number; at: number } | null>(null)
-  const live = useRef(words)
-  live.current = words
+  const live = counts?.words ?? 0
+  const [typing, setTyping] = useState(false)
+  const [column, setColumn] = useState<{ left: number; width: number } | null>(null)
+  const held = useRef(live)
+  if (!typing) held.current = live
   useEffect(() => {
     const root = document.documentElement
-    // As the rest goes, and on each pause after: never with a key.
-    const take = (changes: MutationRecord[]): void => {
-      if (!root.hasAttribute('data-day-writing') || !editor || editor.isDestroyed) return
-      if (root.hasAttribute('data-day-typing') && !changes.some((one) => one.attributeName === 'data-day-writing')) return
-      const box = editor.view.dom.getBoundingClientRect()
-      setShown({ words: live.current, left: box.left, width: box.width, at: Date.now() })
-    }
-    const watch = new MutationObserver(take)
-    watch.observe(root, { attributes: true, attributeFilter: ['data-day-typing', 'data-day-writing'] })
+    const watch = new MutationObserver(() => setTyping(root.hasAttribute('data-day-typing')))
+    watch.observe(root, { attributes: true, attributeFilter: ['data-day-typing'] })
     return () => watch.disconnect()
+  }, [])
+  // Lined up with the words' column, wherever the page puts it.
+  useEffect(() => {
+    const dom = editor?.view.dom
+    if (!dom) return
+    const measure = (): void => {
+      const box = dom.getBoundingClientRect()
+      setColumn((was) => (was && Math.abs(was.left - box.left) < 1 && Math.abs(was.width - box.width) < 1 ? was : { left: box.left, width: box.width }))
+    }
+    measure()
+    const watch = new ResizeObserver(measure)
+    watch.observe(dom)
+    window.addEventListener('resize', measure)
+    return () => (watch.disconnect(), window.removeEventListener('resize', measure))
   }, [editor])
-  if (!shown) return null
+  const [, tick] = useState(0)
+  // The time moves on once a minute, never per frame.
+  useEffect(() => {
+    if (!today) return
+    const timer = window.setInterval(() => tick((n) => n + 1), 60_000)
+    return () => clearInterval(timer)
+  }, [today])
+  const words = held.current
+  if (!words || !column) return null
   const aim = aimOf(`day-${day}`)
-  const share = aim ? Math.min(1, shown.words / aim.words) : 0
+  const share = aim ? Math.min(1, words / aim.words) : 0
   const minutes = Math.round(spent / 60_000)
   return createPortal(
-    <div aria-hidden data-writer-line className="pointer-events-none fixed bottom-5 z-40 text-[0.8125rem] text-muted-foreground tabular-nums"
-      style={{ left: shown.left, width: shown.width }}>
+    <div data-writer-line className="pointer-events-none fixed bottom-0 z-40 flex flex-col items-center gap-1.5 pb-[1.125rem] text-sm text-muted-foreground tabular-nums"
+      style={{ left: column.left, width: column.width }}>
       {aim && (
-        <div data-writer-aim className="mb-2 h-px overflow-hidden rounded-full bg-foreground/10">
+        <div data-writer-aim className="h-px w-full overflow-hidden rounded-full bg-foreground/10">
           <div className={`h-full origin-left transition-transform duration-700 ${share >= 0.9 ? 'bg-primary' : 'bg-foreground/40'}`}
             style={{ transform: `scaleX(${share})`, transitionTimingFunction: 'var(--mf-ease)' }} />
         </div>
       )}
-      <div className="flex items-baseline justify-between">
-        <span data-writer-words>
-          <Rolling text={num(shown.words)} /> {shown.words === 1 ? 'word' : 'words'}
-          {aim ? <> of {num(aim.words)}</> : null}
-          {minutes ? <>, <Rolling text={num(minutes)} /> {minutes === 1 ? 'minute' : 'minutes'}</> : null}
-        </span>
-        <span data-writer-time>{clock(shown.at)}</span>
-      </div>
+      <span className="flex items-center justify-center gap-3">
+        <span data-writer-words><Rolling text={num(words)} /> {words === 1 ? 'word' : 'words'}{aim ? ` of ${num(aim.words)}` : ''}</span>
+        {minutes > 0 && <><span aria-hidden>·</span><span><Rolling text={num(minutes)} /> {minutes === 1 ? 'minute' : 'minutes'}</span></>}
+        {today && <><span aria-hidden>·</span><span data-writer-time>{clock(Date.now())}</span></>}
+      </span>
     </div>,
     document.body
   )
