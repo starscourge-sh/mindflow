@@ -468,7 +468,7 @@ const FULL: Partial<Record<keyof typeof PACKS, { swell: number; cutoff: number; 
 }
 /** A small room's tail, made once: a second of dark noise dying away. */
 let roomTail: ConvolverNode | null = null
-function room(context: AudioContext): ConvolverNode {
+function room(context: BaseAudioContext): ConvolverNode {
   if (roomTail && roomTail.context === context) return roomTail
   const seconds = 1.1
   const length = Math.floor(context.sampleRate * seconds)
@@ -1236,11 +1236,13 @@ export function bell(hz: number, level = 0.02, name = 'bell'): void {
 }
 
 /*
- * Sound while you write, in the welcome's own voice: the same far-off surf and
- * low open D chord, made live and never the same twice. The surf's filter and
- * swell and each voice of the chord wander slowly to new places at random, so
- * nothing is ever heard to come round again. Rain and Hearth swap the surf for
- * soft rain with sparse drops, or a low fire with a warm crackle. No files.
+ * Sound while you write, made live and never the same twice, each led by its
+ * own bed with the welcome's low open D chord well under it (8 to 14 dB):
+ * Shore's waves swell and draw back over 8 to 12 s, the filter opening on each
+ * crest; Rain is a brighter steady hiss with soft drops, about four a second;
+ * Hearth a warm low rumble with crackle in clusters and now and then a pop.
+ * The three sit within about 2 dB of each other. qa/scape-measure.mjs renders
+ * them offline (haligtreeScapeRender) and measures all of that. No files.
  */
 export const SCAPES = [
   { id: 'off', label: 'Off' },
@@ -1256,12 +1258,14 @@ let scape: { kind: Scape; context: AudioContext; out: GainNode; sources: AudioSc
 ;(window as unknown as { haligtreeScape?: () => unknown }).haligtreeScape = () => scape && { kind: scape.kind, level: scape.out.gain.value, volume }
 
 /** Noise, dark (`smooth` near 1) or bright, `seconds` long, its two ends meeting at a whisper so a loop has no seam. */
-function noise(context: AudioContext, seconds: number, smooth: number, lift: number): AudioBuffer {
+function noise(context: BaseAudioContext, seconds: number, smooth: number, lift: number): AudioBuffer {
   const length = Math.round(context.sampleRate * seconds)
   const buffer = context.createBuffer(1, length, context.sampleRate)
   const data = buffer.getChannelData(0)
   let last = 0
-  for (let i = 0; i < length; i++) (last = last * smooth + (Math.random() * 2 - 1) * (1 - smooth)), (data[i] = last * lift * Math.min(1, i / 4000, (length - i) / 4000))
+  // A short burst meets its ends in a few samples: a 4000-sample fade left a 30 ms grain at a third of its level, and the drops and crackle near silent.
+  const ends = Math.min(4000, Math.max(8, length / 16))
+  for (let i = 0; i < length; i++) (last = last * smooth + (Math.random() * 2 - 1) * (1 - smooth)), (data[i] = last * lift * Math.min(1, i / ends, (length - i) / ends))
   return buffer
 }
 /** A slow glide to somewhere new between `from` and `to`. */
@@ -1280,15 +1284,32 @@ export function scapeStart(kind: Scape): void {
   out.gain.linearRampToValueAtTime(SCAPE_LEVEL * volume, now + SCAPE_IN)
   out.connect(context.destination)
   out.connect(room(context))
+  const { sources, wander } = scapeGraph(context, kind, out, now)
+  wander(now)
+  scape = { kind, context, out, sources, timer: window.setInterval(() => wander(context.currentTime), 4000) }
+  hear(`scape:${kind}`)
+}
+
+/**
+ * One soundscape's sound into `out` from `now`: its chord and its bed (and
+ * `wander`, called every 4 s, moves them on and lays down the next drops or
+ * crackle). `parts` leaves one out, for the probe that measures them.
+ */
+function scapeGraph(context: BaseAudioContext, kind: Exclude<Scape, 'off'>, out: AudioNode, now: number, parts: 'all' | 'chord' | 'bed' = 'all'): { sources: AudioScheduledSourceNode[]; wander: (at: number) => void } {
   const sources: AudioScheduledSourceNode[] = []
+  // A part left out goes to a gain connected to nothing.
+  const chordOut = parts === 'bed' ? context.createGain() : out
+  const bedOut = parts === 'chord' ? context.createGain() : out
+  const look = SCAPE_LOOK[kind]
   const chord: { gain: GainNode; tone: OscillatorNode[]; level: number }[] = []
-  // The chord, as the welcome's: D, A, E and F sharp, low and wide, two voices each a little apart, from the bottom up.
-  for (const [hz, level, enter] of [[146.83, 0.03, 0], [220, 0.022, 0.8], [329.63, 0.012, 1.6], [369.99, 0.008, 2.4], [587.33, 0.003, 3.2]] as const) {
+  // The chord, as the welcome's: D, A, E and F sharp, low and wide, two voices each a little apart, from the bottom up; well under the bed.
+  for (const [hz, full, enter] of [[146.83, 0.03, 0], [220, 0.022, 0.8], [329.63, 0.012, 1.6], [369.99, 0.008, 2.4], [587.33, 0.003, 3.2]] as const) {
+    const level = full * look.chord
     const gain = context.createGain()
     gain.gain.setValueAtTime(0, now)
     gain.gain.setValueAtTime(0, now + enter)
     gain.gain.linearRampToValueAtTime(level, now + enter + 3)
-    gain.connect(out)
+    gain.connect(chordOut)
     const tone = ([-4, 4] as const).map((detune) => {
       const voice = context.createOscillator()
       voice.frequency.value = hz
@@ -1300,24 +1321,23 @@ export function scapeStart(kind: Scape): void {
     })
     chord.push({ gain, tone, level })
   }
-  // Under the chord: surf, rain or the fire's low breath. Long noise, darker or brighter, through a filter that moves.
+  // The bed, which leads: long noise, darker or brighter, through a filter that moves.
   const bed = context.createBufferSource()
-  bed.buffer = kind === 'rain' ? noise(context, 7.3, 0.5, 1.6) : noise(context, 9.7, kind === 'hearth' ? 0.985 : 0.97, kind === 'hearth' ? 9 : 6)
+  bed.buffer = noise(context, look.loop, look.smooth, look.lift)
   bed.loop = true
   const filter = context.createBiquadFilter()
-  filter.type = kind === 'rain' ? 'bandpass' : 'lowpass'
-  filter.frequency.value = kind === 'rain' ? 2400 : kind === 'hearth' ? 320 : 520
-  filter.Q.value = kind === 'rain' ? 0.4 : 0.7
+  filter.type = look.filter
+  filter.frequency.value = look.hz[0]
+  filter.Q.value = look.q
   const tide = context.createGain()
-  const base = kind === 'rain' ? 0.006 : kind === 'hearth' ? 0.01 : 0.012
   tide.gain.setValueAtTime(0, now)
-  tide.gain.linearRampToValueAtTime(base, now + 2.5)
-  bed.connect(filter).connect(tide).connect(out)
+  tide.gain.linearRampToValueAtTime(look.bed, now + 2.5)
+  bed.connect(filter).connect(tide).connect(bedOut)
   bed.start(now)
   sources.push(bed)
-  // Rain's drops and the fire's crackle: one short burst, played now and then at a new pitch and level.
+  // Rain's drops and the fire's crackle and pops: one short burst, played now and then at a new pitch and level.
   const grain = kind === 'shore' ? null : noise(context, 0.03, 0.2, 1)
-  const speck = (at: number, hz: number, level: number, rate: number): void => {
+  const speck = (at: number, hz: number, level: number, rate: number, q: number, length = 0.03): void => {
     if (!grain) return
     const one = context.createBufferSource()
     one.buffer = grain
@@ -1325,33 +1345,91 @@ export function scapeStart(kind: Scape): void {
     const band = context.createBiquadFilter()
     band.type = 'bandpass'
     band.frequency.value = hz
-    band.Q.value = kind === 'rain' ? 6 : 1.2
+    band.Q.value = q
     const gain = context.createGain()
     gain.gain.setValueAtTime(level, at)
-    gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.03 / rate)
-    one.connect(band).connect(gain).connect(out)
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + length / rate)
+    one.connect(band).connect(gain).connect(bedOut)
     one.start(at)
   }
-  // Every few seconds each part wanders a little somewhere new, and the next few seconds' drops or crackle are laid down.
-  const wander = (): void => {
-    const at = context.currentTime
-    roam(filter.frequency, at, kind === 'rain' ? 1800 : kind === 'hearth' ? 240 : 380, kind === 'rain' ? 3200 : kind === 'hearth' ? 420 : 700, 3)
-    // A wave comes in and draws back at its own pace: never a steady beat.
-    roam(tide.gain, at, base * 0.35, base * 1.4, 1.5 + Math.random() * 2)
+  // A drop: a soft high tick that falls a little in pitch as it goes.
+  const drop = (at: number, hz: number, level: number): void => {
+    const tone = context.createOscillator()
+    tone.frequency.setValueAtTime(hz, at)
+    tone.frequency.exponentialRampToValueAtTime(hz * 0.7, at + 0.04)
+    const gain = context.createGain()
+    gain.gain.setValueAtTime(0.0001, at)
+    gain.gain.exponentialRampToValueAtTime(level, at + 0.002)
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.07)
+    tone.connect(gain).connect(bedOut)
+    tone.start(at)
+    tone.stop(at + 0.08)
+  }
+  // The shore's waves, each 8 to 12 s: swelling in, the filter opening on its crest, and drawing back.
+  let wave = now
+  const waves = (until: number): void => {
+    for (; wave < until; ) {
+      const length = 8 + Math.random() * 4
+      const crest = look.bed * (1.6 + Math.random() * 0.6)
+      tide.gain.setTargetAtTime(crest, wave, length * 0.14)
+      filter.frequency.setTargetAtTime(look.hz[1] * (0.8 + Math.random() * 0.3), wave, length * 0.14)
+      tide.gain.setTargetAtTime(look.bed * 0.4, wave + length * 0.42, length * 0.16)
+      filter.frequency.setTargetAtTime(look.hz[0], wave + length * 0.42, length * 0.18)
+      wave += length
+    }
+  }
+  // Every 4 s each part wanders a little somewhere new, and the next few seconds' waves, drops or crackle are laid down.
+  const wander = (at: number): void => {
+    if (kind === 'shore') waves(at + 8)
+    else {
+      roam(filter.frequency, at, look.hz[0], look.hz[1], 3)
+      roam(tide.gain, at, look.bed * 0.8, look.bed * 1.15, 2)
+    }
     for (const voice of chord) {
       roam(voice.gain.gain, at + 1, voice.level * 0.55, voice.level * 1.15, 4)
       voice.tone.forEach((tone, i) => roam(tone.detune, at, i ? 1 : -7, i ? 7 : -1, 5))
     }
-    if (kind === 'rain') for (let i = 0; i < 6 + Math.random() * 10; i++) speck(at + Math.random() * 4, 2500 + Math.random() * 4500, 0.006 + Math.random() * 0.01, 0.7 + Math.random() * 0.8)
-    // The fire: crackle in small clusters, low and warm, with long rests between.
-    if (kind === 'hearth') for (let n = 0; n < 1 + Math.random() * 3; n++) {
-      const from = at + Math.random() * 4
-      for (let i = 0; i < 2 + Math.random() * 5; i++) speck(from + Math.random() * 0.35, 900 + Math.random() * 1800, 0.01 + Math.random() * 0.02, 0.5 + Math.random() * 0.7)
+    // Rain: soft drops, four to seven a second, never in time.
+    if (kind === 'rain') for (let i = 0; i < 16 + Math.random() * 8; i++) {
+      const when = at + Math.random() * 4
+      drop(when, 1400 + Math.random() * 1600, 0.1 + Math.random() * 0.06)
+      speck(when, 2500 + Math.random() * 2500, 0.03 + Math.random() * 0.03, 0.8 + Math.random() * 0.6, 3)
+    }
+    // The fire: crackle in small clusters with rests between, and now and then a deeper pop.
+    if (kind === 'hearth') {
+      for (let n = 0; n < 2 + Math.random() * 3; n++) {
+        const from = at + Math.random() * 4
+        for (let i = 0; i < 2 + Math.random() * 5; i++) speck(from + Math.random() * 0.4, 1200 + Math.random() * 2800, 0.1 + Math.random() * 0.12, 0.6 + Math.random() * 0.8, 0.9, 0.02)
+      }
+      for (let n = 0; n < Math.random() * 2.5; n++) speck(at + Math.random() * 4, 260 + Math.random() * 300, 0.12 + Math.random() * 0.1, 0.5, 1.5, 0.05)
     }
   }
-  wander()
-  scape = { kind, context, out, sources, timer: window.setInterval(wander, 4000) }
-  hear(`scape:${kind}`)
+  return { sources, wander }
+}
+
+/** Each soundscape's own bed, and how far under it its chord sits (a share of the welcome's chord). */
+const SCAPE_LOOK: Record<Exclude<Scape, 'off'>, { chord: number; bed: number; loop: number; smooth: number; lift: number; filter: BiquadFilterType; hz: [number, number]; q: number }> = {
+  // Surf: dark noise through a lowpass that opens on each wave.
+  shore: { chord: 0.22, bed: 0.055, loop: 9.7, smooth: 0.97, lift: 6, filter: 'lowpass', hz: [300, 1300], q: 0.6 },
+  // A steady, brighter hiss.
+  rain: { chord: 0.2, bed: 0.056, loop: 7.3, smooth: 0.3, lift: 1.6, filter: 'bandpass', hz: [2800, 4200], q: 0.5 },
+  // A warm low rumble.
+  hearth: { chord: 0.25, bed: 0.06, loop: 9.7, smooth: 0.985, lift: 9, filter: 'lowpass', hz: [160, 260], q: 0.8 }
+}
+
+/**
+ * For the probes: `seconds` of a soundscape rendered offline at full level
+ * (no fade in), all of it or only its chord or its bed, as samples.
+ */
+;(window as unknown as { haligtreeScapeRender?: unknown }).haligtreeScapeRender = async (kind: Exclude<Scape, 'off'>, parts: 'all' | 'chord' | 'bed' = 'all', seconds = 20): Promise<Float32Array> => {
+  const context = new OfflineAudioContext(1, Math.round(44100 * seconds), 44100)
+  const out = context.createGain()
+  out.gain.value = SCAPE_LEVEL
+  out.connect(context.destination)
+  out.connect(room(context))
+  const { wander } = scapeGraph(context, kind, out, 0, parts)
+  for (let at = 0; at < seconds; at += 4) wander(at)
+  return (await context.startRendering()).getChannelData(0)
 }
 
 /** The soundscape goes, over `seconds`: you left the page, closed the window, or stopped writing a while. */
