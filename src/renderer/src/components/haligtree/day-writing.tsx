@@ -347,6 +347,19 @@ export function WriterLine({ editor, day, spent, today }: { editor: Editor | nul
     watch.observe(root, { attributes: true, attributeFilter: ['data-day-typing'] })
     return () => watch.disconnect()
   }, [])
+  // Only while the page is in use: the caret in it, or writing mode on. Read or passed by, the line keeps out of the way.
+  const [inUse, setInUse] = useState(() => !!editor?.isFocused || document.documentElement.hasAttribute('data-day-writing'))
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return
+    const root = document.documentElement
+    const check = (): void => setInUse(editor.isFocused || root.hasAttribute('data-day-writing'))
+    const watch = new MutationObserver(check)
+    watch.observe(root, { attributes: true, attributeFilter: ['data-day-writing'] })
+    editor.on('focus', check)
+    editor.on('blur', check)
+    check()
+    return () => void (watch.disconnect(), editor.off('focus', check), editor.off('blur', check))
+  }, [editor])
   // Lined up with the words' column, wherever the page puts it.
   useEffect(() => {
     const dom = editor?.view.dom
@@ -376,8 +389,8 @@ export function WriterLine({ editor, day, spent, today }: { editor: Editor | nul
   const share = aim ? Math.min(1, words / aim.words) : 0
   const minutes = Math.round(spent / 60_000)
   return createPortal(
-    <div data-writer-line className="pointer-events-none fixed bottom-0 z-40 flex flex-col items-center pb-[1.125rem] text-sm text-muted-foreground tabular-nums"
-      style={{ left: column.left, width: column.width }}>
+    <div data-writer-line data-in-use={inUse || undefined} inert={!inUse} className="pointer-events-none fixed bottom-0 z-40 flex flex-col items-center pb-[1.125rem] text-sm text-muted-foreground tabular-nums transition-opacity duration-300 motion-reduce:transition-none"
+      style={{ left: column.left, width: column.width, opacity: inUse ? 1 : 0 }}>
       <span className="flex items-center justify-center gap-3">
         {[
           words > 0 && <span key="words" data-writer-words className="inline-flex items-center gap-2">

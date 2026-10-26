@@ -31,6 +31,9 @@ try {
   check('back on the page: kept to about a third of the window', !capped.open && capped.height <= Math.max(capped.room * 0.34, 204) + 2, JSON.stringify(capped))
   check('its foot fades into "Show the whole page", saying how much more', capped.faded && /Show the whole page\s*· \d+ more lines/.test(capped.more ?? ''), JSON.stringify(capped))
   check('read, the page ends at its last line (no room kept after it)', parseFloat(capped.pad) < 30, capped.pad)
+  const line = () => h.evaluate(() => { const one = document.querySelector('[data-writer-line]'); return one ? getComputedStyle(one).opacity : 'none' })
+  await h.evaluate(() => document.activeElement?.blur()); await wait(600)
+  check('read, not written in: the writer\'s line keeps out of the way', ['0', 'none'].includes(await line()), await line())
   if (shots) await h.screenshot({ path: `${shots}/day-capped.png` })
   await h.click('[data-page-more] button')
   await wait(900)
@@ -44,6 +47,7 @@ try {
   await wait(900)
   const after = await h.evaluate((text) => { const b = [...document.querySelectorAll('[data-day-write] .tiptap > p')].find((p) => p.textContent === text).getBoundingClientRect(); return b.top + b.height / 2 }, target.text)
   check('a click in the words opens it whole', (await page()).open && (await page()).height > 700, JSON.stringify(await page()))
+  check('and the writer\'s line comes back while the caret is in it', (await line()) === '1', await line())
   check('and the line clicked does not move', Math.abs(after - target.y) < 3, `${target.y} -> ${after}`)
   check('no page errors', !c.errors?.some((one) => /PAGEERROR/.test(one)), (c.errors ?? []).slice(0, 2).join(' | '))
 } catch (error) {
