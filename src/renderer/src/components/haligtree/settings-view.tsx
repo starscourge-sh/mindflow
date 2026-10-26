@@ -68,7 +68,7 @@ import { Lead, plain } from './lead'
 import { backedUpAgo, chooseBackupFolder } from '@/lib/backups'
 import { ThemeDial } from './theme-dial'
 import { TimeField } from './time-field'
-import { BlurSample, CentredSample, DayHintsSample, FoldSample, SpellSample, HomeMonthSample, TimeGoneSample, TitleTopSample, TypewriterSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, StirSample, TempusSample, ThemeFileGuide, TuckSample, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, highlightChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices } from './settings-show'
+import { BarWordsSample, BlurSample, CentredSample, DayHintsSample, FoldSample, SpellSample, HomeMonthSample, TimeGoneSample, TitleTopSample, TypewriterSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, StirSample, TempusSample, ThemeFileGuide, TuckSample, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, highlightChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices } from './settings-show'
 import { Brain, HardDrive, CircleHelp as LifeBuoy, ListTodo as ListChecks, Camera as Mountain, Brush as Palette, Pencil as PenLine, Search as SearchIcon, Sparkles, Volume2, X } from '@/components/ui/icons'
 import { APP_NAME } from '../../../../main/name'
 
@@ -554,6 +554,10 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
           <Setting title="Highlights" note="The colours you mark words with: “Soft” pastels, or “Rich”, deeper and fuller." keywords="highlight colour color marker pastel rich pale saturated vivid mark"
             below={<Choices label="Highlights" options={highlightChoices(!document.documentElement.hasAttribute('data-light'))} on={(id) => id === (settings.highlights ?? 'soft')} pick={(highlights) => set({ highlights: highlights as Settings['highlights'] })} />} />
+          <Setting title="Words on the selection bar" note="The bar over words you select: off, it shows icons only, and pointing at one says what it does." keywords="selection bar toolbar labels words icons text capture gem task bubble"
+            ><BarWordsSample words={!!settings.barWords} />
+            <Switch checked={!!settings.barWords} onCheckedChange={(barWords) => set({ barWords })} />
+          </Setting>
           <Setting title="Postcards" note="Pictures in notes, and memories in the Journal, get a border and a soft shadow, like a print on a desk." more="Videos too. A page's banner stays unframed, like every page's picture." keywords="images pictures photos border frame white memories memory">
             <PictureSample caption={null} frame={settings.postcards ? POSTCARD_BORDERS[settings.postcardBorder ?? 'auto']() : undefined} />
             <Switch checked={!!settings.postcards} onCheckedChange={(postcards) => set({ postcards })} />

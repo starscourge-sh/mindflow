@@ -398,6 +398,8 @@ const DEFAULTS = {
   postcardBorder: 'auto' as 'auto' | 'white' | 'cream' | 'black' | 'accent',
   // Highlighted words: 'soft' pastels, or 'rich', deeper and fuller.
   highlights: 'soft' as 'soft' | 'rich',
+  // The selection bar's buttons with their words beside their icons; off, icons only, the tooltips saying what each does.
+  barWords: false,
   // A picture in a note tips toward the pointer. Off by default: a lot for a
   // page of notes. Focus and full screen tilt anyway.
   tiltPictures: false,

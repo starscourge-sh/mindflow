@@ -241,6 +241,7 @@ export function SelectionMenu({
         <Toolbar
           ref={bar}
           data-tight={tight || undefined}
+          data-selection-bar=""
           variant="floating"
           // Silent on hover: it appears under the pointer whenever words are selected.
           data-silent=""

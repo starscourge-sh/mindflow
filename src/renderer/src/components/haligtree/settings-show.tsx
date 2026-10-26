@@ -1,3 +1,4 @@
+import { CircleCheck, FileOutput, Gem, Inbox, Repeat2 } from 'lucide-react'
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { motion } from 'motion/react'
 import { BorderBeam } from 'border-beam'
@@ -382,6 +383,18 @@ export const postcardChoices = (): { id: string; label: string; show: ReactNode 
   [['auto', 'Auto'], ['white', 'White'], ['cream', 'Cream'], ['black', 'Black'], ['accent', 'Accent']].map(([id, label]) => ({
     id, label, show: <span className="absolute inset-0 grid place-items-center bg-accent/40"><img src={PICTURE} alt="" draggable={false} className="h-[46px] w-[62px] object-cover" style={{ padding: 3, background: POSTCARD_BORDERS[id](), borderRadius: 7, boxShadow: '0 1px 2px rgb(0 0 0 / 0.14), 0 6px 14px -6px rgb(0 0 0 / 0.35)' }} /></span>
   }))
+
+/** The selection bar as it shows, its words beside its icons or not: what "Words on the selection bar" changes. */
+export function BarWordsSample({ words }: { words: boolean }): React.JSX.Element {
+  const parts: [React.ComponentType<{ className?: string }>, string][] = [[Inbox, 'Capture'], [Gem, 'Gem'], [CircleCheck, 'Task'], [FileOutput, 'Move out'], [Repeat2, 'Sync']]
+  return (
+    <span aria-hidden data-bar-words-sample className="flex items-center gap-0.5 rounded-lg border px-1 py-1 text-control text-muted-foreground shadow-xs" style={{ background: 'color-mix(in srgb, var(--accent) 55%, var(--background))' }}>
+      {parts.map(([Icon, label]) => (
+        <span key={label} className="flex h-7 items-center gap-1.5 rounded-md px-1.5"><Icon className="size-4" />{words && label}</span>
+      ))}
+    </span>
+  )
+}
 
 /** "Soft" and "Rich" highlights, each a line of words marked at its own weight in this theme's colours. */
 const HIGHLIGHT_WEIGHT: Record<string, [light: number, dark: number]> = { soft: [28, 42], rich: [58, 70] }

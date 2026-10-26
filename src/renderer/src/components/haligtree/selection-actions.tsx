@@ -11,7 +11,7 @@ import { saveLookup } from '@/lib/lookups'
 import { host, keepAsIs, once, reword, type Origin } from './reword'
 import { markKept } from '@/extensions/kept'
 import { Bookmark, Gem, Inbox, ListTodo } from '@/components/ui/icons'
-import { FileOutput, Files } from 'lucide-react'
+import { FileOutput, Repeat2 } from 'lucide-react'
 import { turnIntoPage } from '@/lib/turn-into-page'
 
 /** The bar's own tooltip: what a click does, its keys, and the quick way past the card. */
@@ -92,12 +92,13 @@ export function selectionActions(origin: Origin, { reading = false }: { reading?
           </Tooltip>
           <Tooltip delay={200}>
             <TooltipTrigger asChild>
-              <button type="button" className={button} aria-label="Share with a new page" data-pull-out
+              {/* "Synced", not "Share": nothing leaves the book, the words just live in two places. */}
+              <button type="button" className={button} aria-label="Sync with a new page" data-pull-out
                 onClick={() => void turnIntoPage(editor, origin.captureId, { embed: true })}>
-                <Files /> <span className="tiptap-button-text">Share</span>
+                <Repeat2 /> <span className="tiptap-button-text">Sync</span>
               </button>
             </TooltipTrigger>
-            <TooltipContent>Share with a new page<span className="block opacity-70">The words stay here and live there too: edit either</span></TooltipContent>
+            <TooltipContent>Sync with a new page<span className="block opacity-70">The words stay here and live there too: edit either</span></TooltipContent>
           </Tooltip>
           </>}
         </ToolbarGroup>
