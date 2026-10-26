@@ -255,7 +255,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     const held = new Set(shelf.filter((one) => under.has(one.id)).flatMap((one) => one.members))
     return all.filter((one) => held.has(one.id))
   }, [all, shelf, opened])
-  const { groups: arranged, display, chips, density, view, setView, move, moveBy, ownOrder, mine } = useItemDisplay(tier, listed, true)
+  const { groups: arranged, display, chips, density, view, setView, move, moveBy, ownOrder, order, mine } = useItemDisplay(tier, listed, true)
   // The list's width: beside the note, over the whole page, or a rail of pictures.
   const pane = view.pane ?? 'list'
   const [query, setQuery] = useState('')
@@ -274,7 +274,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   // Groups show as groups in every sort and every grouping, as Finder's folders do. Grouped by kind or date, they come
   // first in your own order, then the loose notes in their sections; inside a group its notes go by kind (or date) too.
   const heads = plain ? undefined : new Map(groups.flatMap(([name, list]) => list.map((one) => [one.id, name] as const)))
-  const folding = useFolding(tier, all, ownOrder, (density === 'list' || density === 'compact') && !(spread && query.trim()) ? groups.flatMap(([, list]) => list) : null,
+  const folding = useFolding(tier, all, ownOrder, order, (density === 'list' || density === 'compact') && !(spread && query.trim()) ? groups.flatMap(([, list]) => list) : null,
     view.sort === 'manual' && plain, () => setChosen([]), chosen, mine, heads)
   // As tiles, each group is one folder card; opened, the grid shows only its notes, under a chip back.
   const noteGroups = useGroups(tier)
@@ -1295,6 +1295,8 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false):
   moveBy: (shown: string[], id: string, by: number) => boolean
   /** Your own order, as a sort: what groups are laid out by. */
   ownOrder: (a: Item, b: Item) => number
+  /** Every row and group placed in your own order: where an empty group stands. */
+  order: string[]
   /** Switch to your own order, as moving a row does: the way back, when it did switch. */
   mine: () => (() => void) | undefined
 } {
@@ -1373,7 +1375,7 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false):
     />
   )
   const chips = <FilterChips view={view} onChange={setView} facets={facets} />
-  return { groups, display, chips, density, view, setView, move, moveBy, ownOrder, mine }
+  return { groups, display, chips, density, view, setView, move, moveBy, ownOrder, order: own.order, mine }
 }
 
 /** Each layout's reading order, kept while that layout is the one drawn. */
@@ -1390,7 +1392,7 @@ const ORDER = new WeakMap<Layout, Map<string, number>>()
  * back the same, so nothing jumps back while the save is on its way. Every
  * change says so with a way back.
  */
-function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) => number, shown: Item[] | null, ordered: boolean, done: () => void, chosen: string[], toOwn: () => (() => void) | undefined, heads?: Map<string, string>): {
+function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) => number, order: string[], shown: Item[] | null, ordered: boolean, done: () => void, chosen: string[], toOwn: () => (() => void) | undefined, heads?: Map<string, string>): {
   rows: Item[] | null
   /** The list as tiles: each group as one folder, at the top, then the loose notes. */
   tiles: (list: Item[]) => ({ group: NoteGroup; items: Item[] } | { item: Item })[]
@@ -1411,7 +1413,9 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
   const [opened, setOpened] = useState<Record<string, boolean>>({})
   const [renaming, setRenaming] = useState<string | null>(null)
   const [born, setBorn] = useState<string | null>(null)
-  const saved = layoutOf([...every].sort(ownOrder).map((one) => one.id), list)
+  // The groups' keys go in too, where they were put: an empty one stands there, as in the sidebar.
+  const rank = new Map(order.map((id, at) => [id, at]))
+  const saved = layoutOf([...[...every].sort(ownOrder).map((one) => one.id), ...order.filter(isGroup)].sort((a, b) => (rank.get(a) ?? -1) - (rank.get(b) ?? -1)), list)
   // Groups coming apart, drawn going (the Separate fade and slide) before the list closes over them.
   const [parting, setParting] = useState<string[]>([])
   // Every group seen, so one coming apart keeps its name and colour while it goes, and Undo can bring it back as it was.

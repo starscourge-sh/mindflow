@@ -21,6 +21,8 @@ const { check, done } = checks()
 const TITLES = ['THE AGREEMENT', 'Notes', 'Accounts', 'Buy', 'Bed', 'Todos', 'Remove account check', 'Xenon', 'Yttrium', 'Loose one', 'Loose two']
 const NAMES = { an: 'Apple Notes / Notes', g2: 'Group 2', g3: 'Group 3', ot: 'Other' }
 const c = await sandbox({ width: 1200, height: 1150 })
+// From a book with no folders yet, as this was written: the sandbox's own are taken away, their notes left where they are.
+for (const list of ['article', 'nugget']) for (const group of await c.v('groups', list)) await c.v('groups:delete', group.id)
 const { h, v } = c
 const wait = (ms) => h.waitForTimeout(ms)
 const esc = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import { haligtree, useLive } from '@/lib/haligtree'
-import { DEPTH, KEY, isGroup, layoutOf, moveTo } from '@/lib/group-layout'
+import { DEPTH, KEY, layoutOf, moveTo } from '@/lib/group-layout'
 import { notes } from '@/lib/notes'
 import { groups, useGroups, type NoteGroup } from '@/lib/groups'
 import { chime } from '@/lib/sound'
@@ -78,7 +78,7 @@ export function SideFolders({ list, open, shown, here, onOpen, onUnfold }: {
   // The folders in the list's own order: where each group stands among the notes, and among its parent's.
   const order = useLive(() => notes.order(list), [] as string[], [list], undefined, `order:${list}`)
   const ranked = new Set(order)
-  const layout = layoutOf([...order.filter((id) => !isGroup(id)), ...all.flatMap((one) => one.members.filter((id) => !ranked.has(id)))], all)
+  const layout = layoutOf([...order, ...all.flatMap((one) => one.members.filter((id) => !ranked.has(id)))], all)
   const kids = (parent: string | null): NoteGroup[] => {
     const at = parent ? layout.groups[parent] ?? [] : layout.top
     return all.filter((one) => (one.parent && all.some((other) => other.id === one.parent) ? one.parent : null) === parent).sort((a, b) => at.indexOf(KEY + a.id) - at.indexOf(KEY + b.id))

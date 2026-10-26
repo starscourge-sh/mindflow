@@ -13,6 +13,8 @@ const results = []
 const check = (name, ok, detail = '') => { results.push(!!ok); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`) }
 
 const c = await sandbox({ width: 1100, height: 760 })
+// From a book with no folders yet, as this was written: the sandbox's own are taken away, their notes left where they are.
+for (const list of ['article', 'nugget']) for (const group of await c.v('groups', list)) await c.v('groups:delete', group.id)
 try {
   const ids = []
   for (const title of ['Budget 2026', 'Pay rise notes', 'Rent in Lisbon', 'Rent in Porto', 'Startup ideas', 'App ideas', 'Loose one']) {
@@ -76,6 +78,17 @@ try {
   await carry(rent, ideas, 0.1)
   const rentNow = (await c.v('groups', 'article')).find((one) => one.id === rent)
   check('by the edge of a folder inside another, it goes in beside it, before it', rentNow?.parent === money && (await order()).join() === [money, rent, ideas].join(), `${rentNow?.parent} ${(await order()).join()}`)
+
+  // An empty folder (the sandbox's "Trips to write up") is carried too, and stays where it is let go, after a restart too:
+  // with no note to say where it is, it went back to the top.
+  const trips = await c.v('groups:make', 'article', 'Trips', null)
+  await c.h.waitForTimeout(700)
+  check('a new empty folder shows first', (await order())[0] === trips, (await order()).join())
+  await carry(trips, money, 0.9)
+  check('carried after Money (and what it holds), the empty folder stays there', (await order()).join() === [money, rent, ideas, trips].join(), (await order()).join())
+  await c.h.reload(); await c.h.waitForTimeout(1500)
+  await c.go('articles'); await c.h.waitForTimeout(900)
+  check('and is still there after a reload', (await order()).join() === [money, rent, ideas, trips].join(), (await order()).join())
 } catch (error) {
   check('ran to the end', false, error.message.split('\n')[0])
 } finally {

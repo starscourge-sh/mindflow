@@ -115,6 +115,8 @@ export const smallPicture = (src: string, large = false): Promise<string> => {
  * first, newest at the top, so something new is never lost at the bottom.
  */
 export function useOwnOrder(list: string): {
+  /** Every row and group (`g:id`) placed, in order. */
+  order: string[]
   compare: (a: string, b: string) => number
   /**
    * Move a row to just before (or after) another, among every row in `all`.
@@ -144,7 +146,7 @@ export function useOwnOrder(list: string): {
       else if (!quiet) quietly(() => void notes.setOrder(list, was))
     })
   }
-  return { compare, move }
+  return { order, compare, move }
 }
 
 // --- the note open now, for ⌘K to act on

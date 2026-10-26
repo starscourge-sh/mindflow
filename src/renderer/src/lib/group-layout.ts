@@ -28,7 +28,9 @@ export const groupId = (key: string): string => key.slice(KEY.length)
  * group's notes in order, and a group's `parent` the group it sits in, three
  * levels deep at most (group, subgroup, sub-subgroup): one deeper sits in the
  * deepest it can. A group is a place, as a folder is: it stands with one note
- * or none, and one with none is drawn first in what holds it.
+ * or none. One with none stands where its own key (`g:id`) is in `ids`, as it
+ * was put; with no key there it is drawn first in what holds it. Any other
+ * group's key in `ids` is passed over: its notes say where it is.
  */
 export function layoutOf(ids: string[], groups: { id: string; members: string[]; parent?: string | null }[]): Layout {
   const known = new Set(ids)
@@ -64,7 +66,18 @@ export function layoutOf(ids: string[], groups: { id: string; members: string[];
     if (!top.includes(KEY + path[0])) top.push(KEY + path[0])
     for (let i = 1; i < path.length; i++) add(path[i - 1], KEY + path[i])
   }
+  // The groups holding a note, or a subgroup that does.
+  const filled = new Set([...of.values()].flatMap(chain))
   for (const id of ids) {
+    if (isGroup(id)) {
+      const group = groupId(id)
+      if (!byId.has(group) || filled.has(group)) continue
+      const path = chain(group)
+      lists[group] ??= []
+      if (path.length === 1) place(path)
+      else (place(path.slice(0, -1)), add(path.at(-2)!, id))
+      continue
+    }
     const home = of.get(id)
     if (!home) {
       top.push(id)

@@ -104,6 +104,13 @@ test('a group of one is drawn as a group, and an empty one first in what holds i
   assert.deepEqual(layoutOf(['a', 'b'], [{ id: 'G', members: ['b'] }, { id: 'E', members: [], parent: 'G' }]).groups, { G: ['g:E', 'b'], E: [] })
 })
 
+test('an empty group stands where its key was put; a filled one where its notes are', () => {
+  assert.deepEqual(layoutOf(['a', 'g:E', 'b'], [{ id: 'E', members: [] }]), { top: ['a', 'g:E', 'b'], groups: { E: [] } })
+  assert.deepEqual(layoutOf(['a', 'b', 'g:E'], [{ id: 'G', members: ['a'] }, { id: 'E', members: [], parent: 'G' }]).groups, { G: ['a', 'g:E'], E: [] })
+  assert.deepEqual(layoutOf(['g:G', 'a', 'b'], [{ id: 'G', members: ['b'] }]).top, ['a', 'g:G'])
+  assert.deepEqual(layoutOf(['a', 'g:gone'], []).top, ['a'])
+})
+
 test('groups go three levels deep, and one deeper sits beside the third', () => {
   const deep = layoutOf(['a', 'b', 'c', 'd'], [{ id: 'G', members: ['a'] }, { id: 'S', members: ['b'], parent: 'G' }, { id: 'T', members: ['c'], parent: 'S' }, { id: 'U', members: ['d'], parent: 'T' }])
   assert.deepEqual(deep, { top: ['g:G'], groups: { G: ['a', 'g:S'], S: ['b', 'g:T', 'g:U'], T: ['c'], U: ['d'] } })
