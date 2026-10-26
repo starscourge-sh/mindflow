@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { createPortal } from 'react-dom'
 import { ChevronDown, FlaskConical, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 
@@ -213,7 +214,9 @@ function Going(): React.JSX.Element | null {
     const off = ARRIVED ? setTimeout(() => setGoing(null), 700) : undefined
     return () => (window.removeEventListener('haligtree:going', on), clearTimeout(off))
   }, [])
-  return (
+  // On the page's own top layer, over everything: drawn inside the app's frame, the welcome
+  // (its own layer, over the frame) hid it, and the window went blank and dark while the blade hummed.
+  return createPortal(
     <AnimatePresence>
       {going !== null && (
         <motion.div
@@ -231,7 +234,8 @@ function Going(): React.JSX.Element | null {
           {motionOn && <ProgressBar as="saber" value={going.ms === 0 ? (going.up ? 1 : 0) : going.up ? 0 : 1} label={going.text} thick={4} blade="var(--primary)" className="w-[min(26rem,70vw)]" />}
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   )
 }
 

@@ -34,7 +34,7 @@ import { createHash, randomUUID } from 'crypto'
 import { execFile } from 'child_process'
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { catchFreezes } from './freeze-catch'
-import { copyFile, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'fs/promises'
+import { appendFile, copyFile, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'fs/promises'
 import { basename, dirname, join, relative } from 'path'
 import { uptime } from 'os'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -1023,6 +1023,29 @@ const nextArrival = (): void => {
 const quietly = new Set<string>()
 /** Each sticky's page, waited for until it says its words are in. */
 const readyWaits = new Map<number, () => void>()
+/**
+ * How long a window waits to have drawn itself before it is shown anyway.
+ * Short in a built run; long in a development run, whose pages are compiled
+ * as they first load, and in a run just started into (or out of) the sandbox,
+ * whose last run keeps its own window up, showing the moment, until this one
+ * is on screen: shown early, the main window was a blank dark frame and the
+ * stickies empty grey cards.
+ */
+const PATIENCE = is.dev || process.env.HALIGTREE_ARRIVAL ? 9000 : 3000
+/** Stickies whose page has drawn what it holds: only these are ever shown. */
+const stickyReady = new WeakSet<BrowserWindow>()
+/**
+ * For the probes only (HALIGTREE_QA_TRACE, a folder): what a window showed in
+ * its first frame on screen, and when, from any run, a relaunched one too.
+ */
+function qaTrace(name: string, win: BrowserWindow, more: Record<string, unknown> = {}): void {
+  const dir = process.env.HALIGTREE_QA_TRACE
+  if (!dir || win.isDestroyed()) return
+  const at = Date.now()
+  const stem = join(dir, `${process.pid}-${at}-${name}`)
+  void appendFile(join(dir, 'trace.jsonl'), JSON.stringify({ pid: process.pid, at, name, sandbox: SANDBOX, ...more }) + '\n').catch(() => undefined)
+  void win.webContents.capturePage().then((image) => writeFile(`${stem}.png`, image.toPNG())).catch(() => undefined)
+}
 /** A dragged row came over a new place in a list: one light tap (renderer's slotTicker throttles it). */
 ipcMain.on('haptic:tap', (_event, kind: unknown) => tap(kind === 'level' ? 'level' : 'align'))
 ipcMain.on('sticky:ready', (event) => {
@@ -1042,7 +1065,7 @@ function afterHome(go: () => void): void {
   let done = false
   const once = (): void => void (!done && ((done = true), setTimeout(go, 250)))
   home.once('show', once)
-  setTimeout(once, 5000)
+  setTimeout(once, PATIENCE + 2000)
 }
 /** When each sticky came on screen, beside the main window's own times, for a probe (qa/stickies-after-home.mjs). */
 const stickyTimes: number[] = []
@@ -1062,6 +1085,7 @@ function arriveSticky(win: BrowserWindow): void {
     placed.set(win, { x: rest.x, y: rest.y - drop })
     win.setPosition(rest.x, rest.y - drop)
     win.showInactive()
+    qaTrace(`sticky-${(key ?? '').replace(/[^a-z0-9]+/gi, '-')}`, win, { ready: stickyReady.has(win) })
     if (!quiet) win.webContents.send('sticky:arrive')
     moving.add(win)
     tween(180, (t) => {
@@ -1182,7 +1206,8 @@ function applyStickies(): void {
     // A goal's card in its place by the clock, a slim tab or the whole card, before it comes in: it arrives as what it is.
     // Tucked away, every one is a tab (or a flat pill) at the screen's edge.
     shapeCard(key, win)
-    if (stickyUp(key)) arriveSticky(win)
+    // One still drawing comes in by itself once it has (see stick): never shown empty.
+    if (stickyUp(key)) void (stickyReady.has(win) && arriveSticky(win))
     else win.hide()
   }
   // Frosted or plain paper, as the setting says now.
@@ -1210,7 +1235,8 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     const one = stuckAs(key)
     if (one?.hidden) (one.hidden = false), keepStuck()
     if (!stickyPrefs().shown) return void showStickies(true)
-    return void (gate().blackout || arriveSticky(open))
+    // Still drawing what it holds: it comes in by itself once it has, never shown empty.
+    return void (gate().blackout || !stickyReady.has(open) || arriveSticky(open))
   }
   // One window per sticky, ever: a copy left behind (not its own, not on its way out) goes now.
   for (const other of BrowserWindow.getAllWindows())
@@ -1273,13 +1299,13 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   // The desktop picture, blurred, behind its paper (frost.ts).
   frostWindow(win, () => stickyUp(key), fixed && !glass)
   // Shown once its page has drawn what it holds (sticky:ready, a blank card was seen first) and the main window, if it
-  // is opening, has painted: the desk comes in first, the cards are dealt onto it. Never later than 3 seconds.
+  // is opening, has painted: the desk comes in first, the cards are dealt onto it. Never later than PATIENCE.
   let painted = false
   let filled = false
-  const arrive = (): void => void (painted && filled && stickyUp(key) && afterHome(() => (shapeCard(key, win), arriveSticky(win))))
+  const arrive = (): void => void (painted && filled && (stickyReady.add(win), stickyUp(key)) && afterHome(() => (shapeCard(key, win), arriveSticky(win))))
   win.once('ready-to-show', () => ((painted = true), arrive()))
   readyWaits.set(win.webContents.id, () => ((filled = true), arrive()))
-  setTimeout(() => ((filled = true), (painted = true), arrive()), 3000)
+  setTimeout(() => ((filled = true), (painted = true), arrive()), PATIENCE)
   // Where you leave it is where it comes back.
   const remember = (): void => {
     // Peeking, the window is a tab at the edge: the card's own place is kept as it was.
@@ -1472,7 +1498,7 @@ function whenHomeDrawn(then: () => void): void {
   let done = false
   const go = (): void => void (done || ((done = true), then()))
   drawnWaits.push(go)
-  setTimeout(go, 3000)
+  setTimeout(go, PATIENCE)
 }
 /** When the main window was made, drawn and shown, from the start of this run (ms): what the sandbox's opening probe reads. */
 const homeTimes: { made?: number; painted?: number; drawn?: number; shown?: number } = {}
@@ -1747,7 +1773,7 @@ function makeHome(): BrowserWindow {
   })
   homeTimes.made ??= Math.round(performance.now())
   home.once('ready-to-show', () => ((homePainted = true), (homeTimes.painted ??= Math.round(performance.now()))))
-  home.once('show', () => void (homeTimes.shown ??= Math.round(performance.now())))
+  home.once('show', () => void ((homeTimes.shown ??= Math.round(performance.now())), qaTrace('home', home!, { drawn: homeDrawn, url: home!.webContents.getURL() })))
   // The fill icon follows the window, however it was filled or brought back:
   // the green button, a drag, a tiling manager. Not while it glides.
   for (const change of ['maximize', 'unmaximize', 'resized', 'moved', 'enter-full-screen', 'leave-full-screen'] as const)
@@ -1880,7 +1906,8 @@ function beacons(): void {
   // together, they share the one goals sticky instead, and only goals set to
   // "Always" by hand keep a card of their own, still no more than GOAL_CARDS.
   // A goal made a moment ago waits a breath, so one made with others is never
-  // put up only to be taken down again.
+  // put up only to be taken down again; one set to "Always" was asked for and
+  // comes at once (the sandbox's Dune card, so it is the first in its column).
   const now = Date.now()
   const made = (goal: OpenGoal): number => Date.parse(goal.createdAt) || 0
   const fresh = goals.filter((goal) => now - made(goal) < FRESH_MS)
@@ -1888,7 +1915,7 @@ function beacons(): void {
   const out = goals.filter((goal) => beaconModes.has(`goal:${goal.id}`))
   const crowded = out.length > GOAL_CARDS
   const together = (goal: OpenGoal): boolean => goals.some((other) => other !== goal && Math.abs(made(other) - made(goal)) < BULK_MS)
-  const own = new Set((crowded ? out.filter((goal) => goal.beacon === 'always') : out.filter((goal) => goal.beacon === 'always' || !together(goal))).filter((goal) => !fresh.includes(goal)).slice(0, GOAL_CARDS).map((goal) => `goal:${goal.id}`))
+  const own = new Set((crowded ? out.filter((goal) => goal.beacon === 'always') : out.filter((goal) => goal.beacon === 'always' || !together(goal))).filter((goal) => goal.beacon === 'always' || !fresh.includes(goal)).slice(0, GOAL_CARDS).map((goal) => `goal:${goal.id}`))
   for (const key of [...stickies.keys()]) if (key.startsWith('goal:') && !own.has(key)) stick('goal', key.slice(5), false)
   for (const goal of goals) {
     if (!own.has(`goal:${goal.id}`) || stickies.has(`goal:${goal.id}`)) continue

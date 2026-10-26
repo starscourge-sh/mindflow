@@ -80,6 +80,27 @@ async function record(c, label, trigger) {
   return samples.filter((s) => s.t >= 0)
 }
 
+/**
+ * What the window really shows where the opening screen's words are, read
+ * from its pixels (the DOM alone can say they are there while something
+ * drawn over them hides them): how many of the words' pixels differ from the
+ * screen's ground.
+ */
+const inked = (c) => c.electron.evaluate(async ({ BrowserWindow }) => {
+  const win = BrowserWindow.getAllWindows().find((one) => !one.isDestroyed() && one.webContents.getURL().includes('view=home'))
+  if (!win) return null
+  const box = await win.webContents.executeJavaScript(`(() => { const p = document.querySelector('[data-going] p'); if (!p) return null; const r = p.getBoundingClientRect(); return { x: Math.round(r.left), y: Math.round(r.top), width: Math.round(r.width), height: Math.round(r.height) } })()`)
+  if (!box || !box.width) return null
+  const image = await win.webContents.capturePage(box)
+  const { width, height } = image.getSize()
+  const bits = image.toBitmap()
+  const at = (i) => [bits[i], bits[i + 1], bits[i + 2]]
+  const ground = at(0)
+  let differ = 0
+  for (let i = 0; i < width * height * 4; i += 4) if (at(i).reduce((sum, v, k) => sum + Math.abs(v - ground[k]), 0) > 90) differ++
+  return { differ, of: width * height }
+})
+
 /** A sample where neither the welcome nor a fully opaque opening screen covers the window: the page under it shows. */
 const bare = (s) => s.welcome < 0.98 && s.going < 0.98
 
@@ -110,7 +131,12 @@ try {
     check('welcome: “Try it in someone else’s book first” is marked “Recommended”, “Bring my notes” is not', marks.find((m) => m.key === '2')?.best && marks.find((m) => m.key === '2')?.mark === 'Recommended' && !marks.find((m) => m.key === '3')?.best, JSON.stringify(marks))
     // FLASH_BY=key: the 2 key takes the same way in as the click.
     const byKey = process.env.FLASH_BY === 'key'
-    const samples = await record(c, 'welcome', () => byKey ? h.keyboard.press('2') : h.click('.mf-welcome [data-choice="2"]'))
+    let seenInk = null
+    const samples = await record(c, 'welcome', async () => {
+      await (byKey ? h.keyboard.press('2') : h.click('.mf-welcome [data-choice="2"]'))
+      // Its words, read off the window's pixels once the screen is up (before the blade's sound ends and the run moves on).
+      setTimeout(() => void inked(c).then((one) => (seenInk = one)).catch(() => (seenInk = null)), 450)
+    })
     // Until the opening screen is fully up: every sample has the welcome under it, or the screen itself.
     const up = samples.findIndex((s) => s.going >= 0.98)
     const before = up < 0 ? samples : samples.slice(0, up)
@@ -120,6 +146,7 @@ try {
     const seen = samples.find((s) => s.going > 0)
     check('welcome: the opening screen starts on the next frames after the click', !!seen && seen.t < 120, seen ? `${seen.t}ms` : 'never')
     check('welcome: it says “Opening the sandbox”', samples.some((s) => s.text === 'Opening the sandbox'))
+    check('welcome: and its words are really on screen, over the welcome, not hidden behind it', !!seenInk && seenInk.differ > seenInk.of * 0.04, JSON.stringify(seenInk))
   } else {
     // --- In the sandbox: “My notes” ---
     await h.waitForTimeout(1500)

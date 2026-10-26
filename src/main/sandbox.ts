@@ -236,11 +236,11 @@ export function arrived(): void {
     // The run before gives up waiting on its own.
   }
 }
-/** Once the new run is up (or after ten seconds, whatever happened), then. */
+/** Once the new run is up (or after fifteen seconds, whatever happened: a development run may take nine to draw), then. */
 function whenArrived(file: string, then: () => void): void {
   const start = Date.now()
   const look = setInterval(() => {
-    if (!existsSync(file) && Date.now() - start < 10_000) return
+    if (!existsSync(file) && Date.now() - start < 15_000) return
     clearInterval(look)
     rmSync(file, { force: true })
     then()
