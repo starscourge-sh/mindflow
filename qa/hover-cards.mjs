@@ -16,6 +16,8 @@ const { sandbox } = await import('./sandbox-lib.mjs')
 const results = []
 const check = (name, ok, detail = '') => { results.push(!!ok); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`) }
 const c = await sandbox({ width: 1300, height: 860 })
+// Pages in the Feed are off to start (qa/feed-pages.mjs); these checks cover them too.
+await c.v('settings:set', { feedPages: true })
 const { v, h, go } = c
 const card = () => h.locator('[data-note-preview]')
 const rest = async (locator) => {

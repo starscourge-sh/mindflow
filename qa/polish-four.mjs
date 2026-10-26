@@ -13,6 +13,8 @@ const SHOTS = process.env.SHOTS ?? '/private/tmp/claude-501/-Users-starscourge-D
 mkdirSync(SHOTS, { recursive: true })
 const { check, done } = checks()
 const s = await sandbox({ width: 1400, height: 900 })
+// Pages in the Feed are off to start (qa/feed-pages.mjs); these checks cover them too.
+await s.v('settings:set', { feedPages: true })
 const { h, v, go, send, errors, close, electron } = s
 const wait = (ms = 600) => h.waitForTimeout(ms)
 const paint = (name) => h.evaluate((n) => { localStorage.setItem('theme', n); window.dispatchEvent(new StorageEvent('storage', { key: 'theme' })); document.documentElement.classList.toggle('dark', n === 'dark') }, name)

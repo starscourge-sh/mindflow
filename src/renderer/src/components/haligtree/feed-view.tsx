@@ -14,6 +14,7 @@ import { GRADES } from './review-view'
 import { backIn } from '@/lib/back-in'
 import { openSource, sources, type SourceSummary } from '@/lib/sources'
 import { Kbd, Page, Tip, jumpTo, openTag, quietly, toast } from './ui'
+import { Switch } from '@/components/ui/switch'
 import { Avatar } from './avatar'
 import { GlossLine, cutWords, openGloss } from './gloss-line'
 import { MenuButton } from './collection-header'
@@ -250,12 +251,26 @@ export function FeedView({ onOpen }: { onOpen: (type: string, id: string) => voi
       // Remembered while the window is open.
     }
   }
-  const tabs = <TabChips name="feed" tabs={FEED_TABS} value={tab} onChange={choose} className="mb-5" />
-  return <QueuedProvider>{tab === 'reading' ? <FeedReading tabs={tabs} onOpen={onOpen} /> : <FeedNotes tabs={tabs} onOpen={onOpen} />}</QueuedProvider>
+  // Pages beside gems and notes, asked for here or in Settings; on the right, in the Notes tab only.
+  const settings = useLive(haligtree.settings, null)
+  const pages = settings?.feedPages === true
+  const tabs = (
+    <div className="mb-5 flex items-center gap-3">
+      <TabChips name="feed" tabs={FEED_TABS} value={tab} onChange={choose} />
+      {tab === 'notes' && settings && (
+        <label data-feed-pages className="ml-auto flex cursor-pointer items-center gap-2 text-control text-foreground/80">
+          Pages too
+          <Switch checked={pages} onCheckedChange={(feedPages) => (chime(feedPages ? 'tick' : 'tap'), void haligtree.setSettings({ feedPages }))} />
+        </label>
+      )}
+    </div>
+  )
+  return <QueuedProvider>{tab === 'reading' ? <FeedReading tabs={tabs} onOpen={onOpen} /> : <FeedNotes tabs={tabs} onOpen={onOpen} pages={pages} />}</QueuedProvider>
 }
 
-function FeedNotes({ onOpen, tabs }: { onOpen: (type: string, id: string) => void; tabs: React.ReactNode }): React.JSX.Element {
-  const feed = useLive(readFeed, NO_FEED, [], ['capture', 'item'], 'feed')
+function FeedNotes({ onOpen, tabs, pages }: { onOpen: (type: string, id: string) => void; tabs: React.ReactNode; pages: boolean }): React.JSX.Element {
+  // Read again when pages are let in or kept out.
+  const feed = useLive(readFeed, NO_FEED, [pages], ['capture', 'item'], 'feed')
   // Until the book has enough in it, the goal and a faded made-up Feed; met once, the real one for good.
   const goal = useLive(readGoal, null, [], ['capture', 'item'])
   const { real, moment } = useReady('feed', goal ? goal.notes >= FEED_NOTES && goal.quotes >= FEED_QUOTES : null)

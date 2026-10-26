@@ -25,6 +25,8 @@ const day = (by) => { const d = new Date(); d.setDate(d.getDate() + by); return 
 
 // --- first run: the sandbox laid down, then what the second run reads set up.
 let c = await sandbox({ width: 1300, height: 860 })
+// Pages in the Feed are off to start (qa/feed-pages.mjs); these checks cover them too.
+await c.v('settings:set', { feedPages: true })
 let lifted, queueBefore, lone
 try {
   const { v } = c
@@ -50,6 +52,8 @@ for (const file of dbs(process.env.QA_DATA)) {
 
 // --- second run: each of the five read back.
 c = await sandbox({ width: 1300, height: 860 })
+// Pages in the Feed are off to start (qa/feed-pages.mjs); these checks cover them too.
+await c.v('settings:set', { feedPages: true })
 const { v, h, go } = c
 try {
   // 4. The goal's card first; the same cards due, none added.

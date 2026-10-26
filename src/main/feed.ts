@@ -4,7 +4,7 @@ import { randomUUID } from 'crypto'
 
 import { LABEL, changed, database } from './captures'
 import { cut } from './clip'
-import { cardForQuiz, cardWords, dueCards, gate, plain } from './haligtree'
+import { cardForQuiz, cardWords, dueCards, feedTakesPages, gate, plain } from './haligtree'
 import { tagsIn } from './tag-words'
 import { linkedAmong } from './notes'
 import { LEARN_TAG } from './name'
@@ -264,7 +264,9 @@ export function registerFeed(): void {
     const days = db.prepare("select 'day' as type, day as id, 'day' as kind, day as title, body, null as who, day as made, null as visited, (select count(*) from feed_reacts r where r.key = 'day:' || day_pages.day and r.reaction = 'like') as weight from day_pages where day < ? and length(coalesce(body, '')) > 40")
       .all(dayKey(dayjs().subtract(7, 'day'))) as Row[]
     for (const day of days) day.weight = Math.min(4, 1.5 ** (day.weight ?? 0))
-    return [...nuggets, ...quotes, ...pictured, ...days].filter((row) => !/(^|\s)#bit\b/i.test(`${row.title} ${row.body ?? ''}`))
+    // Pages only once asked for: a Feed of gems and notes reads best to start, and Reading has the pages.
+    const pages = feedTakesPages()
+    return [...nuggets, ...quotes, ...pictured, ...days].filter((row) => (pages || row.type !== 'article') && !/(^|\s)#bit\b/i.test(`${row.title} ${row.body ?? ''}`))
   }
 
   /** When each was last in front of you: an open, a hint, or an earlier day's Feed. */

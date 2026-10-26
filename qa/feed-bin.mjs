@@ -7,6 +7,8 @@ import { checks } from './harness.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 const { check, done } = checks()
 const c = await sandbox({ width: 1400, height: 900 })
+// Pages in the Feed are off to start (qa/feed-pages.mjs); these checks cover them too.
+await c.v('settings:set', { feedPages: true })
 const { h, v, go, errors } = c
 const binned = async (type, id) => (await v('items', 'discarded').catch(() => null), (await v('item', id))?.binnedAt ?? null)
 try {

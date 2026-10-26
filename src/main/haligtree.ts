@@ -469,6 +469,8 @@ const DEFAULTS = {
   questionsBack: true,
   // Open goals in a slim strip at the top of Home and Today's page.
   goalStrip: true,
+  // Pages in the Feed's Notes, beside gems and notes: off to start, as a Feed of short things reads best; Reading has the pages.
+  feedPages: false,
   // Home's month calendar marks the days you opened Haligtree; off until chosen.
   monthOpened: false,
   // The same calendar's other mark: how many things you captured each day, and the days with none.
@@ -845,6 +847,9 @@ function settings(): Settings {
  * and a review you opened are never gated: you can hide what the app offers,
  * never what you asked for.
  */
+/** Whether the Feed's Notes takes pages too, beside gems and notes (Settings, or the switch on the Feed itself). */
+export const feedTakesPages = (): boolean => settings().feedPages === true
+
 export function gate(): { blackout: boolean; hidePrivate: boolean } {
   const { safeMode, quietStart, quietEnd } = settings()
   if (safeMode) return { blackout: true, hidePrivate: true }
