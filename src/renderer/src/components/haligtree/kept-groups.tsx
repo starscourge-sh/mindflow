@@ -1319,12 +1319,7 @@ export function IconChoice({ group, onPick }: { group: Pick<GroupView, 'icon' | 
           </Tip>
         ))}
         <span className="flex-1" />
-        {/* A picture of your own, as Notion lets you: a GIF keeps moving. The one in use shows here, chosen. */}
-        {isPicture(group.icon) && (
-          <button type="button" onClick={() => onPick(group.icon)} data-active="" className="flex size-7 items-center justify-center rounded-md bg-accent">
-            <GroupIcon icon={group.icon} color={group.color} />
-          </button>
-        )}
+        {/* A picture of your own, as Notion lets you: a GIF keeps moving. */}
         <Tip label="Upload a picture: PNG, JPG, GIF or SVG">
           <label data-folder-upload className="flex h-7 cursor-pointer items-center gap-1.5 rounded-md px-2 text-control text-muted-foreground hover:bg-accent hover:text-foreground">
             <ImagePlus aria-hidden className="size-4" />Upload
