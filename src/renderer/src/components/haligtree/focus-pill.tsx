@@ -920,13 +920,13 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
       className={`${className} min-w-0 flex-1 rounded-md bg-[color-mix(in_oklab,var(--foreground)_8%,transparent)] px-1.5 outline-none placeholder:text-muted-foreground`} />
   ) : timer ? <span className={`${className} min-w-0 flex-1 truncate`}>{words}</span> : (
     <span className="group/goal flex min-w-0 flex-1 items-center gap-1">
-      <Tip label={practiceTarget ? 'Open this practice' : bare ? 'Name this session' : 'Open the task, at its sessions'}>
+      <Tip label={practiceTarget ? 'Open this practice' : bare ? 'Name this session' : 'Open the task'}>
         <button type="button" data-session-goal={practiceTarget ? 'practice' : bare ? 'bare' : 'task'} onClick={practiceTarget ? () => (chime('open'), window.api.openInHome('practice', focus.practiceId ?? 'new')) : bare ? startNaming : openSession}
           className={`${className} -my-1 min-w-0 truncate py-1 text-left outline-none hover:underline decoration-foreground/30 underline-offset-2 focus-visible:underline`}>
           {words}
         </button>
       </Tip>
-      <Tip label={bare ? "Open today's page, with this session's log" : 'Open the task'}>
+      <Tip label={bare ? "Open today's page" : 'Open the task'}>
         <button type="button" data-session-open aria-label={bare ? "Open today's page" : 'Open the task'} onClick={openSession}
           className="grid size-5 shrink-0 place-items-center rounded-full text-muted-foreground opacity-0 transition-opacity group-hover/goal:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100">
           <ArrowUpRight className="size-3" />
@@ -1066,12 +1066,12 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
               <span data-stop-question className="block text-[13px] leading-5 font-semibold text-foreground">End early?</span>
               <span className="block text-[12px] leading-4 text-foreground/75">{done < 60_000 ? 'Under a minute' : lengthSaid(done)} so far.</span>
             </span>
-            <Tip label="Back: keep it running  Esc"><button type="button" data-stop-back aria-label="Back: keep it running" onClick={() => (chime('fold'), setStopping(false))} className={`${ICON_BUTTON} -mt-1 -mr-1`}>
+            <Tip label="Keep going  Esc"><button type="button" data-stop-back aria-label="Back: keep it running" onClick={() => (chime('fold'), setStopping(false))} className={`${ICON_BUTTON} -mt-1 -mr-1`}>
               <X className="size-3.5" />
             </button></Tip>
           </div>
           <div className="flex items-center justify-end gap-1">
-            <Tip label={`Ends now, stays in ${bare ? "today's" : "the task's"} log, counts toward nothing`}><button type="button" data-abandon onClick={() => (setStopping(false), abandon())} className={WORD_BUTTON}>
+            <Tip label={'Stop, uncounted'}><button type="button" data-abandon onClick={() => (setStopping(false), abandon())} className={WORD_BUTTON}>
               Don't count it
             </button></Tip>
             {/* No tip: it has the keys as it opens, and a tip shown for that would cover the words above. */}
@@ -1125,7 +1125,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
           </button></Tip>}
         {/* On a break: straight back to the session it came from, whenever you are ready. */}
         {!over && focus.kind === 'break' && lastKept && (
-          <Tip label={`End the break and start “${lastKept.goal}” again${lastKept.plannedMs ? `, ${lengthSaid(lastKept.plannedMs)}` : ''}`}><button type="button" data-back-to-work onClick={again} className={PRIMARY}>
+          <Tip label={`Back to “${lastKept.goal}”${lastKept.plannedMs ? `, ${lengthSaid(lastKept.plannedMs)}` : ''}`}><button type="button" data-back-to-work onClick={again} className={PRIMARY}>
             Back to work
           </button></Tip>
         )}
@@ -1140,7 +1140,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
             length): before that it is a third button to read past. The
             session turns into the break in place, one pill throughout. */}
         {!timer && !practiceTarget && (over || halfway) && (
-          <Tip label="End the session, kept, and start a five-minute break"><button
+          <Tip label="Break for 5 minutes"><button
             type="button"
             data-take-break
             onClick={() => void haligtree.startBreak(focus.id, 5 * 60_000).then(() => (chime('breakIn'), window.api.glow('done')))}
@@ -1225,12 +1225,12 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
             <Tip label="Take a selfie"><button type="button" data-take-selfie aria-label="Take a selfie" aria-pressed={selfie} onClick={() => (chime(selfie ? 'fold' : 'tap'), setDenied(false), setSelfie(!selfie))} className={`flex size-6 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-3.5 ${selfie ? 'bg-accent text-foreground' : 'text-muted-foreground'}`}>
               <Camera />
             </button></Tip>
-            <Tip label={`Add a screenshot of this screen, without ${APP_NAME}`}><button type="button" aria-label="Add a screenshot" onClick={() => void shoot()} className="flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-3.5">
+            <Tip label="Screenshot"><button type="button" aria-label="Add a screenshot" onClick={() => void shoot()} className="flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-3.5">
               <Screenshot />
             </button></Tip>
             {/* The keycap is the send button too: a click does what Enter does. */}
             {/* Something to keep: filled in the accent, plainly a button. Nothing yet: quiet, and only then. */}
-            <Tip label="Keep it in this session's log"><button type="button" data-island-send data-ready={words.trim() || attached ? '' : undefined} aria-label="Keep it in the log" onClick={(event) => (event.preventDefault(), void add(), field.current?.focus())}
+            <Tip label="Add to the log"><button type="button" data-island-send data-ready={words.trim() || attached ? '' : undefined} aria-label="Keep it in the log" onClick={(event) => (event.preventDefault(), void add(), field.current?.focus())}
               className={`flex h-6 shrink-0 items-center justify-center rounded-full transition-[background-color,opacity,filter] ${words.trim() || attached ? 'bg-[var(--tt-brand-color-400)] px-2 mf-on-accent hover:brightness-110' : 'px-0.5 opacity-40 hover:bg-accent'}`}>
               {words.trim() || attached ? <span aria-hidden className="text-[12px] leading-none font-semibold">↵</span> : <Kbd>↵</Kbd>}
             </button></Tip>
@@ -1288,7 +1288,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
       {/* Its 1px edge: the same shape a pixel out, behind it, in the edge's colour over the pill's own. */}
       <motion.span aria-hidden className="pointer-events-none absolute -inset-px" style={{ clipPath: shape.edge, backgroundImage: `linear-gradient(${edgeInk}, ${edgeInk}), ${SOLID}`, backgroundColor: 'Canvas' }} />
       {/* Now and then the beam, once round: on the bubble's own outline (this box is its exact size), over everything in it. */}
-      {gleam > 0 && <Gleam key={gleam} light={light} size={{ w: shape.w, h: shape.h }} round={tucked ? '0 0 18px 18px' : wornStyle() === 'paper' ? '0px' : '22px'} />}
+      {gleam > 0 && <Gleam key={gleam} light={light} size={{ w: shape.w, h: shape.h }} hung={tucked} round={tucked ? '0 0 18px 18px' : wornStyle() === 'paper' ? '0px' : '22px'} />}
       <motion.div data-island-frame className="absolute inset-0" style={{ clipPath: shape.clip }}>
       <div
         ref={island}
@@ -1609,7 +1609,7 @@ function KeepGoing({ id, before, onBack }: { id: string; before: () => Promise<v
   }).then((back) => (back ? (chime('back'), onBack?.(), window.api.showFocus(true)) : (morphNext = false, chime('nope'))))
   return (
     // Outlined, so it reads as the button it is and not as a line of words.
-    <Tip label="Undo ending it: the session runs again for the time it had left"><button type="button" data-keep-going onClick={go} className={OUTLINED}>
+    <Tip label="Undo: keep going"><button type="button" data-keep-going onClick={go} className={OUTLINED}>
       Keep going
     </button></Tip>
   )
@@ -1674,7 +1674,7 @@ function AwayBand({ away, onDone }: { away: Away; onDone: () => void }): React.J
           Ended at {clockTime(away.endedAt)}<span className="font-normal text-muted-foreground">, while you were away</span>
         </span>
       </Tip>
-      {!away.timer && away.how === 'idle' && <Tip label="I was still at it: keep it running as it was"><button type="button" data-keep-going onClick={keep} className={OUTLINED}>Keep going</button></Tip>}
+      {!away.timer && away.how === 'idle' && <Tip label="I was still at it"><button type="button" data-keep-going onClick={keep} className={OUTLINED}>Keep going</button></Tip>}
       {away.kind === 'break' || !away.timer ? <GoAgain primary /> : null}
       <button type="button" aria-label="Close" onClick={() => (chime('fold'), onDone())} className={ICON_BUTTON}>
         <X className="size-3.5" />
@@ -1768,11 +1768,34 @@ export const SMOKE_EASE = `@property --beam-strength { syntax: '<number>'; inher
  * same beam that goes round the welcome's recommended card and a celebration's card (beam.css). A glare across
  * the glass read as tacky. Quick, faint, on transform alone. Motion off or reduced: none.
  */
-export function Gleam({ light, round = '22px', size }: { light: boolean; round?: string; /** The bubble's shape now, in a box that may be wider: the beam takes that shape, centred and hung from the top. */ size?: { w: MotionValue<number>; h: MotionValue<number> } }): React.JSX.Element {
+export function Gleam({ light, round = '22px', size, hung = false }: { light: boolean; round?: string; /** The bubble's shape now, in a box that may be wider: the beam takes that shape, centred and hung from the top. */ size?: { w: MotionValue<number>; h: MotionValue<number> }; /** Hung from the notch: no top edge, so the beam drops in from above at one side, runs down, along the bottom and up, and leaves above at the other. */ hung?: boolean }): React.JSX.Element {
   const left = useTransform(() => (size ? `calc(50% - ${size.w.get() / 2}px)` : '0px'))
+  const ink = light ? 'var(--tt-brand-color-400)' : 'color-mix(in oklab, var(--tt-brand-color-400) 70%, white)'
+  const trail = useRef<SVGPathElement>(null)
+  const head = useRef<SVGPathElement>(null)
+  useEffect(() => {
+    if (!hung || still()) return
+    // From wholly above (its whole length before the path's start) to wholly gone again (past its end).
+    const runs = [
+      head.current?.animate([{ strokeDashoffset: 0.12 }, { strokeDashoffset: -1 }], { duration: 950, easing: 'cubic-bezier(0.45, 0, 0.55, 1)', fill: 'forwards' }),
+      trail.current?.animate([{ strokeDashoffset: 0.3 }, { strokeDashoffset: -1 }], { duration: 950, easing: 'cubic-bezier(0.45, 0, 0.55, 1)', fill: 'forwards' })
+    ]
+    return () => runs.forEach((run) => run?.cancel())
+  }, [hung])
+  if (hung && size) {
+    const w = size.w.get(), h = size.h.get(), r = 18, i = 1
+    // Clockwise, as every other beam turns: down the right from the screen's edge, round the bottom corners, up the left to the edge again.
+    const d = `M ${w - i} -2 L ${w - i} ${h - r} A ${r - i} ${r - i} 0 0 1 ${w - r} ${h - i} L ${r} ${h - i} A ${r - i} ${r - i} 0 0 1 ${i} ${h - r} L ${i} -2`
+    return (
+      <motion.svg aria-hidden data-gleam width={w} height={h} className="pointer-events-none absolute top-0 overflow-visible motion-reduce:hidden" style={{ left, zIndex: 5 }}>
+        <path ref={trail} d={d} pathLength={1} fill="none" stroke={ink} strokeOpacity={0.35} strokeWidth={2} strokeLinecap="round" strokeDasharray="0.3 1.3" strokeDashoffset={0.3} />
+        <path ref={head} d={d} pathLength={1} fill="none" stroke={ink} strokeWidth={2} strokeLinecap="round" strokeDasharray="0.12 1.12" strokeDashoffset={0.12} />
+      </motion.svg>
+    )
+  }
   return (
     <motion.span aria-hidden data-gleam className="mf-beam mf-beam-card mf-pill-beam"
-      style={{ ...(size ? { inset: 'auto', top: 0, left, width: size.w, height: size.h } : {}), borderRadius: round, zIndex: 5, '--mf-beam-color': light ? 'var(--tt-brand-color-400)' : 'color-mix(in oklab, var(--tt-brand-color-400) 70%, white)' } as never} />
+      style={{ ...(size ? { inset: 'auto', top: 0, left, width: size.w, height: size.h } : {}), borderRadius: round, zIndex: 5, '--mf-beam-color': ink } as never} />
   )
 }
 

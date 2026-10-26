@@ -1210,7 +1210,7 @@ input[type='number']::-webkit-outer-spin-button {
   pointer-events: none;
   /* A soft light coming in from the edge, no line: seen from the corner of the eye, never a frame (a line set in
      from the edge read as a gap at the top). */
-  box-shadow: inset 0 0 80px color-mix(in srgb, var(--glow) 32%, transparent), inset 0 0 18px color-mix(in srgb, var(--glow) 22%, transparent);
+  box-shadow: inset 0 0 80px color-mix(in srgb, var(--glow) 40%, transparent), inset 0 0 18px color-mix(in srgb, var(--glow) 30%, transparent);
   opacity: 0;
   animation: mf-glow 1.9s ease-in-out forwards;
 }
