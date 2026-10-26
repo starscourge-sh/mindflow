@@ -55,7 +55,15 @@ try {
   await h.waitForTimeout(700)
   check('a card after the pause', await card().count() === 1)
   check('it leads with the name, in bold', ((await card().locator('[data-preview-title]').textContent().catch(() => '')) ?? '').startsWith(quote.who) && (await card().locator('[data-preview-title] .font-semibold').textContent().catch(() => '')) === quote.who)
-  // As Wikipedia's: the picture square, flush to the card's right edge, top to bottom.
+  // As Wikipedia's: the picture square, flush to the card's right edge, top to bottom, and the words (not a tall portrait) setting the height.
+  await v('people:set', quote.who, await h.evaluate(async () => {
+    const canvas = Object.assign(document.createElement('canvas'), { width: 40, height: 400 })
+    canvas.getContext('2d').fillRect(0, 0, 40, 400)
+    const blob = await new Promise((done) => canvas.toBlob(done, 'image/png'))
+    return window.api.saveImage('image/png', new Uint8Array(await blob.arrayBuffer()))
+  }))
+  await h.mouse.move(5, 5); await h.waitForTimeout(900); await rest(post.locator('[data-feed-account]')); await h.waitForTimeout(1000)
+  check('a tall portrait does not make a tall card', ((await card().boundingBox())?.height ?? 999) < 260, String((await card().boundingBox())?.height))
   const flush = await card().evaluate((box) => { const img = box.querySelector('[data-preview-image]'); const a = box.getBoundingClientRect(); const b = img?.getBoundingClientRect(); return b ? [Math.round(a.right - b.right), Math.round(b.top - a.top), Math.round(a.bottom - b.bottom), getComputedStyle(img).borderRadius] : null })
   check('the picture fills the right side, square, edge to edge', flush && flush[0] <= 2 && flush[1] <= 2 && flush[2] <= 2 && flush[3] === '0px', JSON.stringify(flush))
   if (process.env.SHOTS) await card().screenshot({ path: `${process.env.SHOTS}/person-card.png` })

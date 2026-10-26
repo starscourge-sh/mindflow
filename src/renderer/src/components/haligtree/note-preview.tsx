@@ -347,8 +347,13 @@ export function NotePreview(): React.JSX.Element | null {
       </div>
       )}
       </div>
-      {/* Edge to edge, square, the card's own corner rounding it: never a small framed thumbnail. */}
-      {shown.picture && <img data-preview-image src={shown.picture} alt="" draggable={false} onError={(event) => (event.currentTarget.style.display = 'none')} className="min-h-36 w-[38%] shrink-0 self-stretch border-l object-cover" style={{ objectPosition: 'center 25%' }} />}
+      {/* Edge to edge, square, the card's own corner rounding it: never a small framed thumbnail. The words
+          set the card's height and the picture is cropped to it, so a tall portrait never makes a tall card. */}
+      {shown.picture && (
+        <div className="relative min-h-32 w-[34%] shrink-0 border-l">
+          <img data-preview-image src={shown.picture} alt="" draggable={false} onError={(event) => (event.currentTarget.style.display = 'none')} className="absolute inset-0 size-full object-cover" style={{ objectPosition: 'center 22%' }} />
+        </div>
+      )}
     </div>
   )
 }
