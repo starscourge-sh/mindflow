@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/react'
 import type { JSONContent } from '@tiptap/core'
 
@@ -21,6 +21,7 @@ import { PICKED_MARK, usePickMixed } from './pick-mixed'
 import { taskName } from '@/lib/tasks'
 import { DayBanner } from './scenery'
 import { DayBrief } from './day-brief'
+import { DayCount, LivingCaret, dayCaption, useWritingQuiet } from './day-writing'
 import { DayMarks } from './milestones'
 import { markDay } from '@/lib/milestones'
 import { FlagTriangleRight } from 'lucide-react'
@@ -46,8 +47,8 @@ const named = (day: string): string => dayName(noon(day))
 const shift = (day: string, by: number): string => dayKey(noon(day).add(by, 'day'))
 
 /**
- * A page a day, the "Journal" row: somewhere to write about the day on top, a
- * box that looks like one with the caret in it, then today's tasks under it,
+ * A page a day, the "Journal" row: somewhere to write about the day on top,
+ * the words on the page itself with the caret in them, then today's tasks under it,
  * then what the day held, written down by the app, not by you. Home folded
  * into it: what still matters from there sits at its foot (day-moments.tsx).
  * The page exists only once you write in it (or tick it reviewed); every day
@@ -88,6 +89,10 @@ export function DayView({ onOpen, start, onScale, onView }: {
   const [listed, setListed] = useState<string[]>([])
   // The day's writing, once its editor is made: the caret goes in it as the page shows (CaretIn).
   const [writer, setWriter] = useState<Editor | null>(null)
+  // The caption for the hour the page opened in: it never changes under your words.
+  const caption = useMemo(() => dayCaption(), [day])
+  // The rest of the page steps back while you write; the time spent writing today.
+  const spent = useWritingQuiet(writer, day)
   // Written elsewhere while open (the Feed's "Use this", a Blurt, the other
   // window): with nothing of yours waiting to save, the page shows it at once.
   // `known` is the stored words this editor last matched, `sent` its own words then.
@@ -150,9 +155,10 @@ export function DayView({ onOpen, start, onScale, onView }: {
           <HaligtreeEditor key={`past-${past.key}`} defaultContent={(past.body as JSONContent | string | null) ?? ''} readOnly toolbar={false} handles={false} slash={false} outline={false} search={false} autofocus={false} />
         )}
         {data?.day === day && !past && (
-          // A box that reads as a place to type: its own surface and edge, the prompt inside it while empty, a click anywhere on it puts the caret in.
+          // The words on the page itself, no box: today a still caption over them for the hour, a click anywhere under them puts the caret in.
           <div data-day-write onClick={(event) => void (event.target === event.currentTarget && writer && !writer.isDestroyed && writer.commands.focus('end'))}
-            className="relative mt-2 min-h-36 cursor-text rounded-xl border border-border bg-background px-4 py-2 shadow-xs transition-colors focus-within:border-ring hover:border-foreground/25 [--mf-padding:0.25rem_0]">
+            className="relative mt-2 min-h-36 cursor-text [--mf-padding:0.25rem_0]">
+          {day === today && <p data-day-caption className="mb-1 text-sm text-muted-foreground">{caption}</p>}
           <HaligtreeEditor
             key={`${day}-${restored?.day === day ? restored.rev : 0}`}
             host={window.api}
@@ -169,10 +175,14 @@ export function DayView({ onOpen, start, onScale, onView }: {
             onTokenClick={(token) => token.name === 'tag' && onOpen?.('tag', token.value)}
             outline={false}
             autofocus={false}
+            // The line you write on stays put and the page moves, whatever the switch in Settings says.
+            typewriter="always"
+            foot={(editor) => <DayCount editor={editor} spent={spent} />}
             onReady={ready}
             onChange={(body) => (known.current = { body: JSON.stringify(body), sent: JSON.stringify(body) }, void notes.saveDay(day, { body }))}
           />
           <CaretIn editor={writer} day={day} />
+          <LivingCaret editor={writer} />
           {day === today && <DayBreath editor={writer} day={day} />}
           </div>
         )}
@@ -305,33 +315,22 @@ function CaretIn({ editor, day }: { editor: Editor | null; day: string }): null 
   return null
 }
 
-/** Whether today's box has been written in: then it never asks or lights again that day. */
-const breathKey = (day: string): string => `day-breath:${day}`
-const written = (day: string): boolean => { try { return localStorage.getItem(breathKey(day)) === 'written' } catch { return false } }
-const keepWritten = (day: string): void => { try { localStorage.setItem(breathKey(day), 'written') } catch { /* only a nicety */ } }
-/** Something over the page: a menu, a dialog, a popover, the command palette. */
-const OVER = '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"], [data-radix-popper-content-wrapper], [cmdk-root]'
 /** A letter's beat as the question types in, paced as Typed paces a line: a breath after a comma, a longer one after a stop. */
 const beat = (letter: string): number => (/[?.!]/.test(letter) ? 260 : /[,;]/.test(letter) ? 140 : letter === ' ' ? 60 : 32)
 
 /**
- * Today's empty box asks you something. Its placeholder is a question for the
+ * Today's empty page asks you something. Its placeholder is a question for the
  * hour (journal-words.ts: mornings ahead, evenings back), typed in letter by
  * letter, held a while, erased, and the next typed in; focused or not, for as
- * long as the box is empty. A key anywhere stops it on the whole question, and
- * it starts again only once the box is empty and quiet for 4 s.
- *
- * Left untouched, the app's beam (beam.css) goes round the box's edge, a slow
- * faint sweep every 2.4 s: from 4 s after the page opens, and once broken off
- * (a key, a menu or dialog over the page, the window behind another) back a
- * minute later if the box is still empty. Never again that day once anything
- * is written in. Under reduced motion or Motion off: one question, still, and
- * no beam. Nothing of it runs while the window is not looked at (awakeFrames).
+ * long as the page is empty. A key anywhere stops it on the whole question, and
+ * it starts again only once the page is empty and quiet for 4 s. Under reduced
+ * motion or Motion off: one question, still. Nothing of it runs while the
+ * window is not looked at (awakeFrames). The beam that went round the old box
+ * is gone with the box: the caret's slow blink is the invitation now.
  */
-function DayBreath({ editor, day }: { editor: Editor | null; day: string }): React.JSX.Element | null {
+function DayBreath({ editor, day }: { editor: Editor | null; day: string }): null {
   const seen = useSeen()
   const calm = useStill()
-  const [lit, setLit] = useState(false)
   useEffect(() => {
     if (!seen || !editor || editor.isDestroyed) return
     const box = editor.view.dom.closest<HTMLElement>('[data-day-write]')
@@ -373,22 +372,9 @@ function DayBreath({ editor, day }: { editor: Editor | null; day: string }): Rea
     ask('')
     // A beat after the page shows, never with its first paint.
     const begin = window.setTimeout(() => ((paused = false), typer.again()), 700)
-    // The beam: when it may light, and what puts it out.
-    let timer = 0
-    const may = (): boolean => {
-      const held = document.activeElement
-      const elsewhere = !!held?.matches('input, textarea, select, [contenteditable="true"]') && !box.contains(held)
-      return !written(day) && !editor.isDestroyed && editor.isEmpty && box.isConnected && !elsewhere && !document.querySelector(OVER) && document.hasFocus() && document.visibilityState === 'visible'
-    }
-    const later = (ms: number): void => {
-      clearTimeout(timer)
-      if (!written(day)) timer = window.setTimeout(() => (may() ? setLit(true) : later(ms)), ms)
-    }
-    const out = (): void => setLit((on) => (on && later(60_000), false))
     let quiet = 0
     const onKey = (): void => {
-      out()
-      // The question stops whole, and waits for an empty box and a quiet moment.
+      // The question stops whole, and waits for an empty page and a quiet moment.
       paused = true
       clearTimeout(rest)
       ask(question)
@@ -402,25 +388,13 @@ function DayBreath({ editor, day }: { editor: Editor | null; day: string }): Rea
         rest = window.setTimeout(typer.again, 3000)
       }, 4000)
     }
-    const onUpdate = (): void => void (!editor.isEmpty && (keepWritten(day), out(), clearTimeout(timer)))
-    const over = new MutationObserver(() => void (document.querySelector(OVER) && out()))
-    over.observe(document.body, { childList: true })
     window.addEventListener('keydown', onKey, true)
-    window.addEventListener('blur', out)
-    document.addEventListener('visibilitychange', out)
-    editor.on('update', onUpdate)
-    later(4000)
     return () => {
       typer.stop()
-      ;[begin, rest, timer, quiet].forEach(clearTimeout)
-      over.disconnect()
+      ;[begin, rest, quiet].forEach(clearTimeout)
       window.removeEventListener('keydown', onKey, true)
-      window.removeEventListener('blur', out)
-      document.removeEventListener('visibilitychange', out)
-      editor.off('update', onUpdate)
       box.style.removeProperty('--mf-day-ph')
-      setLit(false)
     }
   }, [seen, editor, day, calm])
-  return lit && !calm ? <div aria-hidden data-beam="ask" className="mf-beam mf-beam-box" /> : null
+  return null
 }

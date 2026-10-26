@@ -367,10 +367,11 @@ export interface HaligtreeEditorProps {
    * May hold the line being typed at a steady height, the page scrolling under
    * it, when Settings > Writing > Typewriter scrolling is on. For a full page
    * of writing; a short box that grows with its words has nothing to scroll.
+   * "always" holds it whatever the switch says (the day's page).
    *
    * @default false
    */
-  typewriter?: boolean
+  typewriter?: boolean | "always"
   /**
    * Ease the document to the caret instead of snapping to it.
    *
@@ -614,7 +615,7 @@ function Surface({
   // Typewriter scrolling: the editor asked for it, and the switch is on. Read
   // through a ref by the extension, which is built once.
   const [typewriterOn] = useStoredFlag("typewriter")
-  const typing = typewriter && typewriterOn && !readOnly
+  const typing = (typewriter === "always" || (typewriter && typewriterOn)) && !readOnly
   const typingRef = useLatest(typing)
 
   /**
