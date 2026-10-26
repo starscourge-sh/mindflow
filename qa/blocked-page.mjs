@@ -65,8 +65,8 @@ try {
   check('in 20 s, the tab is sent away once, not again and again', after.length === 1, `${after.length} times`)
   check('and the block page loaded once, never reloading itself', loads === 1, `${loads} loads`)
   check('it still says x.com is blocked', text.includes('is blocked until'), text.slice(0, 120))
-  const cat = await electron.evaluate(() => globalThis.qaTab.webContents.executeJavaScript("(() => { const one = document.querySelector('main > img'); return one ? { ok: one.complete && one.naturalWidth > 0, above: one.getBoundingClientRect().bottom <= document.querySelector('h1').getBoundingClientRect().top } : null })()"))
-  check('the cat sits at the top, above the words', cat?.ok && cat.above, JSON.stringify(cat))
+  const cat = await electron.evaluate(() => globalThis.qaTab.webContents.executeJavaScript("(() => { const one = document.querySelector('body > img'); return one ? { ok: one.complete && one.naturalWidth > 0, onEdge: Math.abs(one.getBoundingClientRect().bottom - innerHeight) < 1, belowWords: one.getBoundingClientRect().top >= document.querySelector('main').getBoundingClientRect().bottom - 1 } : null })()"))
+  check('the cat peeks up from the very bottom of the page, below the words', cat?.ok && cat.onEdge && cat.belowWords, JSON.stringify(cat))
   if (process.env.SHOTS) {
     const png = await electron.evaluate(async () => (await globalThis.qaTab.webContents.capturePage()).toPNG().toString('base64'))
     ;(await import('fs')).writeFileSync(`${process.env.SHOTS}/blocked-page.png`, Buffer.from(png, 'base64'))
