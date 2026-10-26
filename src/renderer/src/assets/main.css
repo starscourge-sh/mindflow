@@ -2248,3 +2248,14 @@ html[data-book-hue] [data-book-tint] {
 .tiptap.ProseMirror[data-focus-band] .mf-in-focus,
 .tiptap.ProseMirror[data-focus-band='paragraph'] > .mf-in-focus { color: var(--foreground); }
 @media (prefers-reduced-motion: reduce) { .tiptap.ProseMirror[data-focus-band] > * { transition: none; } }
+
+/* Grammar and style (proofread.tsx): a straight dotted line in a cool hue of its own, never the spellchecker's wavy
+   one, and the words Proofread is on, lit softly. */
+.tiptap.ProseMirror .mf-grammar {
+  text-decoration: underline dotted color-mix(in oklab, var(--tt-color-text-blue) 70%, transparent);
+  text-decoration-thickness: 1.5px; text-underline-offset: 4px;
+}
+.tiptap.ProseMirror .mf-proofing {
+  background: color-mix(in oklab, var(--tt-color-text-blue) 18%, transparent);
+  border-radius: 3px; box-shadow: 0 0 0 2px color-mix(in oklab, var(--tt-color-text-blue) 18%, transparent);
+}

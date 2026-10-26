@@ -6,6 +6,7 @@ import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import { chime } from '@/lib/sound'
 import { num } from '../../../../main/dates'
 import { WritingSound } from './writing-sound'
+import { askProofread, checkingLive, grammarSentence, setCheckingLive } from '@/lib/grammar'
 
 /**
  * Writer's tools, as iA Writer and Scrivener have them: a focus band that
@@ -104,14 +105,30 @@ export function writerMenu(editor: Editor | null, focus: Focus, report: (text: s
   return [
     ...(['sentence', 'paragraph'] as const).map((to) => ({ label: focus === to ? 'Focus off' : `Focus on the ${to}`, run: () => setFocus(focus === to ? 'off' : to) })),
     { label: 'Set a word aim', run: askAim },
-    ...(editor ? [{ label: 'Prose report', run: () => report(proseReport(editor)) }] : [])
+    ...(editor ? [
+      { label: 'Prose report', run: () => void fullReport(editor).then(report) },
+      { label: 'Proofread', run: askProofread },
+      { label: checkingLive() ? 'Stop checking as I write' : 'Check as I write', run: () => (setCheckingLive(!checkingLive()), chime(checkingLive() ? 'on' : 'off')) }
+    ] : [])
   ]
 }
 
+/** The Prose report with what the grammar checker found folded in (it loads on first use). */
+export const fullReport = (editor: Editor): Promise<string> => grammarSentence(editor.state.doc).then((line) => `${proseReport(editor)} ${line}`, () => proseReport(editor))
+
 /** The tools in the writing room's foot: Focus (off, sentence, paragraph), Aim, and the report over the foot. */
-export function WriterTools({ editor }: { editor: Editor | null }): React.JSX.Element {
+export function WriterTools({ editor, proof = false }: { editor: Editor | null; /** A page of Writing: Proofread and the grammar line in the report. */ proof?: boolean }): React.JSX.Element {
   const focus = useFocus()
   const [report, setReport] = useState<string | null>(null)
+  const [live, setLive] = useState(checkingLive)
+  const ask = (): void => {
+    if (report || !editor) return void (chime('fold'), setReport(null), editor?.commands.focus())
+    chime('open')
+    setReport(proseReport(editor))
+    // The grammar line follows, once it is read through.
+    if (proof) void fullReport(editor).then((full) => setReport((was) => (was ? full : was)))
+    editor.commands.focus()
+  }
   const pick = 'rounded-md px-1.5 py-0.5 transition-colors hover:text-foreground data-on:bg-accent data-on:text-foreground'
   return (
     <span data-writer-tools className="flex items-center gap-1">
@@ -124,7 +141,13 @@ export function WriterTools({ editor }: { editor: Editor | null }): React.JSX.El
       ))}
       <span aria-hidden className="mx-1">·</span>
       <button type="button" data-aim-ask className={pick} onClick={askAim}>Aim</button>
-      <button type="button" data-report-ask data-on={!!report || undefined} className={pick} onClick={() => (chime(report ? 'fold' : 'open'), setReport(report || !editor ? null : proseReport(editor)), editor?.commands.focus())}>Prose report</button>
+      <button type="button" data-report-ask data-on={!!report || undefined} className={pick} onClick={ask}>Prose report</button>
+      {proof && (
+        <>
+          <button type="button" data-proofread-ask className={pick} onClick={() => (setReport(null), askProofread())}>Proofread</button>
+          <button type="button" data-grammar-live data-on={live || undefined} className={pick} onClick={() => (setCheckingLive(!live), setLive(!live), chime(live ? 'off' : 'on'))}>Check as I write</button>
+        </>
+      )}
       <span aria-hidden className="mx-1">·</span>
       <WritingSound />
     </span>

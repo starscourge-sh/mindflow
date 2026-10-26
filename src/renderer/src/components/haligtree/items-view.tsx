@@ -59,6 +59,7 @@ import { Aliases, KindFields, LocalGraph, NoteHeader } from './note-extras'
 import { RoomFoot, useWritingRoom } from './writing-room'
 import { useWritingSound } from './writing-sound'
 import { writerMenu } from './writer-tools'
+import { Proofread } from './proofread'
 import { ListSearch, NoteList, NoteRail, PaneButtons, Peek, matches, type Entry } from './note-list'
 import { archive, changeKind, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
 import { openApart } from '@/lib/apart'
@@ -925,7 +926,8 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
             // Housekeeping last, as on every card's menu.
             'separator', binItem([{ type: item.tier, id: item.id }])
           ]} />
-        {room.on && <RoomFoot editor={ready} title={item.title || 'Untitled'} />}
+        {room.on && <RoomFoot editor={ready} title={item.title || 'Untitled'} proof={item.tier === 'article'} />}
+        {item.tier === 'article' && <Proofread editor={ready} />}
         {item.tier === 'article' && (
           // Wraps as a heading does, so a long title is never cut off at the edge; Enter ends it.
           // In the words' own column (main.css), so it starts where they start.

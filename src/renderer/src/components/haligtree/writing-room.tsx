@@ -27,7 +27,7 @@ export function useWritingRoom(editor: Editor | null): { on: boolean; toggle: ()
       if (!mine) return
       if (event.key === 'Enter' && event.metaKey && event.shiftKey) return void (event.preventDefault(), event.stopPropagation(), toggle())
       // Esc leaves, unless something over the page (a menu, the format bar's popover) is the one it closes.
-      if (on && event.key === 'Escape' && !document.querySelector('[role="menu"], [role="dialog"], [data-radix-popper-content-wrapper]')) {
+      if (on && event.key === 'Escape' && !document.querySelector('[role="menu"], [role="dialog"], [data-radix-popper-content-wrapper], [data-proofing]')) {
         event.preventDefault()
         event.stopPropagation()
         toggle()
@@ -48,7 +48,7 @@ export function useWritingRoom(editor: Editor | null): { on: boolean; toggle: ()
 }
 
 /** The room's foot: the writer's tools, then what it is, its words, and the time spent writing, in a quiet line. */
-export function RoomFoot({ editor, title, spent }: { editor: Editor | null; title: string; spent?: number }): React.JSX.Element {
+export function RoomFoot({ editor, title, spent, proof }: { editor: Editor | null; title: string; spent?: number; /** A page of Writing: the grammar tools too. */ proof?: boolean }): React.JSX.Element {
   const counts = useCounts(editor)
   const [since] = useState(Date.now)
   const [, tick] = useState(0)
@@ -61,7 +61,7 @@ export function RoomFoot({ editor, title, spent }: { editor: Editor | null; titl
   const words = counts?.words ?? 0
   return (
     <div data-room-foot className="flex flex-col items-center gap-1.5 text-sm text-muted-foreground tabular-nums">
-      <WriterTools editor={editor} />
+      <WriterTools editor={editor} proof={proof} />
       <span className="flex items-center justify-center gap-3">
       <span className="max-w-[24rem] truncate">{title}</span>
       <span aria-hidden>·</span>
