@@ -71,7 +71,7 @@ const hint = () => h.evaluate(() => {
     refused: !!document.querySelector('[data-drag-label][data-refused]'),
     lit: lit.map((one) => one.dataset.groupBlock),
     panel: lit[0] ? panel(lit[0]) : null,
-    room: box(document.querySelector('[data-room]')),
+    room: box(document.querySelector('[data-drop-room]')),
     line: box(document.querySelector('[data-drop-line]')),
     // Every group's panel, to see none comes apart mid-glide.
     seams: Math.max(0, ...[...document.querySelectorAll('[data-group-block]')].map((one) => Math.max(...(panel(one)?.seams ?? [0]))))
@@ -97,11 +97,11 @@ const watch = () => h.evaluate(() => {
     if (out.stop) return
     out.frames++
     const nodes = [...document.querySelectorAll('[data-sortable-id]')].filter((n) => !n.closest('aside') && n.getClientRects().length)
-    const lifted = nodes.find((n) => n.querySelector(':scope > [data-room]'))
+    const lifted = nodes.find((n) => n.querySelector(':scope > [data-drop-room]'))
     // What shows: a row, or the room once it has faded in; a carried group's own rows ride hidden in the hand.
     // (A row fading in after the drop is still in its place, so it counts.)
     const rows = nodes.flatMap((n) => {
-      const room = n.querySelector(':scope > [data-room]')
+      const room = n.querySelector(':scope > [data-drop-room]')
       if (n === lifted && (!room || Number(getComputedStyle(room).opacity) < 0.5)) return []
       const box = (room ?? n).getBoundingClientRect()
       // As much of it as shows: a group opening or closing cuts off what is still folded.
@@ -113,7 +113,7 @@ const watch = () => h.evaluate(() => {
     // "A row", measured, not a constant: the tallest row at rest, or the carried thing's own room (a group's is its
     // folded block, its air included), which may show as a gap while it fades in.
     if (out.row === undefined) out.row = Math.max(0, ...rows.map((one) => one.bottom - one.top))
-    const room = lifted?.querySelector(':scope > [data-room]')
+    const room = lifted?.querySelector(':scope > [data-drop-room]')
     const allow = Math.max(out.row, room ? room.getBoundingClientRect().height + 2 : 0)
     for (let i = 1; i < rows.length; i++) {
       const a = rows[i - 1]
@@ -341,7 +341,7 @@ try {
   if (dir) await h.screenshot({ path: `${dir}/esc.png` })
   check('Esc mid-drag: nothing is saved', JSON.stringify(await where()) === JSON.stringify(was))
   check('and every row is back where it was', JSON.stringify(await order()) === JSON.stringify(wasOrder))
-  check('and no room, line or lit panel is left', await h.locator('[data-room], [data-drop-line], [data-landing]').count() === 0)
+  check('and no room, line or lit panel is left', await h.locator('[data-drop-room], [data-drop-line], [data-landing]').count() === 0)
   check('and the list is still on show', await head('an').count() === 1)
 
   // Sorted by Newest, as in the report: a move keeps the order you saw and switches to "Custom order".

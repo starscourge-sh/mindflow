@@ -212,8 +212,8 @@ if (c) try {
         const ghost = document.querySelector('[data-ghost]')?.getBoundingClientRect()
         const badge = document.querySelector('[data-carried]')?.getBoundingClientRect()
         const fans = [...document.querySelectorAll('[data-fanned]')].map((one) => one.getBoundingClientRect())
-        const room = document.querySelector('[data-room]')
-        return { fans: fans.length, upLeft: fans.every((one) => one.top < ghost.top && one.left < ghost.left), badgeBelow: !!badge && badge.top > ghost.bottom - 12 && Math.abs((badge.left + badge.width / 2) - (ghost.left + ghost.width / 2)) < 4, rows: Number(room?.getAttribute('data-room')), roomHeight: room?.getBoundingClientRect().height, row: document.querySelector('[data-row]')?.getBoundingClientRect().height, picks: [...new Set([...document.querySelectorAll('[data-row][data-picked]')].map((one) => one.closest('[data-sortable-id]')))].reduce((sum, one) => sum + (one?.offsetHeight ?? 0), 0) }
+        const room = document.querySelector('[data-drop-room]')
+        return { fans: fans.length, upLeft: fans.every((one) => one.top < ghost.top && one.left < ghost.left), badgeBelow: !!badge && badge.top > ghost.bottom - 12 && Math.abs((badge.left + badge.width / 2) - (ghost.left + ghost.width / 2)) < 4, rows: Number(room?.getAttribute('data-drop-room')), roomHeight: room?.getBoundingClientRect().height, row: document.querySelector('[data-row]')?.getBoundingClientRect().height, picks: [...new Set([...document.querySelectorAll('[data-row][data-picked]')].map((one) => one.closest('[data-sortable-id]')))].reduce((sum, one) => sum + (one?.offsetHeight ?? 0), 0) }
       })
       check('three carried show as a fanned stack, the count hanging under it', stack.fans === 2 && stack.upLeft && stack.badgeBelow, JSON.stringify(stack))
       check('and the room opened is a row for each', stack.rows === 3 && Math.abs(stack.roomHeight - stack.picks) < stack.row * 0.5, JSON.stringify(stack))

@@ -253,7 +253,7 @@ function Node({ id, children, inner, indent = 0 }: { id: string; children: React
         // One hint per drop: a soft band the size of the room, the line through its middle. Drawn anew at each new place.
         // It waits for the rows to make way, so it never shows over one sliding past.
         <Fragment key={place}>
-          <span aria-hidden data-room={along.size + 1} className="pointer-events-none absolute inset-x-1 rounded-md bg-[color-mix(in_srgb,var(--tt-brand-color-400)_6%,transparent)]" style={{ top: -inset, height: span - 2, animation: wait }} />
+          <span aria-hidden data-drop-room={along.size + 1} className="pointer-events-none absolute inset-x-1 rounded-md bg-[color-mix(in_srgb,var(--tt-brand-color-400)_6%,transparent)]" style={{ top: -inset, height: span - 2, animation: wait }} />
           {!aim.make && (
             <span
               aria-hidden
