@@ -756,12 +756,12 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
         {(id === 'now' || open[id]) && (
           <>
             <SortableList items={longer ? shown.slice(0, 8) : shown} keyOf={(task) => task.id} onMove={move(id)}>
-              {/* The top three and the rest: a line under the third, only when there is a rest, saying what it parts.
+              {/* The top three and the rest: a heading of its own under the third, with room above it as a section has, only when there is a rest.
                   Its own line between the rows, never part of one, so a row dragged leaves it where it is. */}
               {(items) => items.flatMap((task) => id === 'now' && task.id === openNow[2]?.id && openNow.length > 3 ? [row(task, id), (
-                <div key="top-three" data-top-three className="my-1.5 ml-6 flex items-center gap-2 text-control text-muted-foreground">
-                  <span>The rest, once the first three are done</span>
-                  <span aria-hidden className="h-px flex-1 bg-border/70" />
+                <div key="top-three" data-top-three className="mt-6 mb-1 ml-6 flex items-baseline gap-2">
+                  <span className="text-base font-semibold text-foreground">The rest</span>
+                  <span className="text-sm text-muted-foreground">· once the first three are done</span>
                 </div>
               )] : [row(task, id)])}
             </SortableList>
