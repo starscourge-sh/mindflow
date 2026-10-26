@@ -341,7 +341,6 @@ export function closeTask(id: string, then?: () => void): void {
     // A page that had it open moves on to the next itself; otherwise, as asked.
     if (binned([id])) then?.()
     tear()
-    binned([id])
     // Said where it went: the Bin, one key away, as every move there says it.
     toast('Closed without doing: it is in the Bin', () => void haligtree.saveTask(id, { status: 'open' }).then(() => window.dispatchEvent(new CustomEvent('haligtree:came-back', { detail: [id] }))), 'success', seeTheBin)
   })
@@ -361,9 +360,10 @@ export function todaySaid(left: number, done: number): string {
 export async function taskToNote(ids: string[], then?: () => void): Promise<void> {
   const kept = await haligtree.taskToNote(ids)
   if (!kept.length) return refuse(ids.length === 1 ? 'That task no longer exists' : 'None of those tasks exists any more')
-  then?.()
+  // Gone from the list it was open in: that page moves on to the next, as after a move to the Bin.
+  if (binned(ids)) then?.()
   chime('away')
-  toast(kept.length === 1 ? 'Back in your Inbox as a note' : `${num(kept.length)} back in your Inbox as notes`, () => void haligtree.unnoteTasks(kept), 'success',
+  toast(kept.length === 1 ? 'Back in your Inbox as a note' : `${num(kept.length)} back in your Inbox as notes`, () => void haligtree.unnoteTasks(kept).then(() => window.dispatchEvent(new CustomEvent('haligtree:came-back', { detail: ids }))), 'success',
     { label: 'Open the Inbox', key: 'I', run: () => window.api.openInHome('view', 'inbox') })
 }
 

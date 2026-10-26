@@ -4,7 +4,7 @@ import { ReadsIn, useReading } from '@/lib/reads-in'
 import { Highlight, useFluidHover } from './glide'
 import * as chrono from 'chrono-node'
 import type { JSONContent } from '@tiptap/core'
-import { CalendarDays, CircleX, Plus, RotateCw, Square, Ban, Tag } from 'lucide-react'
+import { CalendarDays, CircleX, Inbox as InboxIcon, Plus, RotateCw, Square, Ban, Tag } from 'lucide-react'
 import { tagTint } from './tag-icon'
 
 import { HaligtreeEditor } from '../haligtree'
@@ -15,7 +15,7 @@ import { useOpened } from '@/lib/nav'
 import { useCameBack } from '@/lib/to-bin'
 import { readAhead, readFresh, readNow, useAfterFirstPaint } from '@/lib/early-read'
 import { NoteComing } from './note-coming'
-import { BUCKETS, READY_LEADS, bucket, closeTask, gettingReady, makeTask, onToday, placed, readySaid, setReady, snooze, snoozeDays, snoozeItems, snoozed, taskName, toNoteItem } from '@/lib/tasks'
+import { BUCKETS, READY_LEADS, bucket, closeTask, gettingReady, makeTask, onToday, placed, readySaid, setReady, snooze, snoozeDays, snoozeItems, snoozed, taskName, taskToNote, toNoteItem } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../../main/task-words'
 import { PriorityIcon, PriorityMark, TaskInput, markRoom, planFor, setPriority } from './task-input'
 import { useArrivals } from './note-list'
@@ -1307,6 +1307,8 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
           </Island>
         )}
         <Island compact title="Task">
+          {/* Made a task by mistake: back in the Inbox as the note it was, the task gone, with Undo. */}
+          {task.status === 'open' && <Prop icon={InboxIcon} onClick={() => void taskToNote([task.id], onClose)}>Turn back into a note</Prop>}
           {/* Closed, not deleted: it waits in the Bin, and comes back with Undo or Restore. */}
           <Prop
             icon={CircleX}
