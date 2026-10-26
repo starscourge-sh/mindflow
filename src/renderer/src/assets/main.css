@@ -1856,8 +1856,8 @@ button.mf-signed:hover .mf-signature { text-decoration: underline; text-decorati
    closes only once the row is really carried. A faint grip in the margin says
    it can be dragged, after a moment's rest on it. */
 [data-sortable-id], [data-sortable-id] *, [data-sortable-id] button:not(:disabled) { cursor: default; }
-/* A folder row is different: a click folds it, every time, so it shows the hand. */
-button[data-group-row]:not(:disabled), button[data-group-row]:not(:disabled) * { cursor: pointer; }
+/* A folder row is different: a click folds it, every time, so it shows the hand; so does its icon, which a click changes. */
+button[data-group-row]:not(:disabled), button[data-group-row]:not(:disabled) *, button[data-folder-icon], [data-sortable-id] button[data-folder-icon], [data-sortable-id] button[data-folder-icon] * { cursor: pointer; }
 /* The grip itself is the handle: the open hand over it, closed while held. */
 /* A control inside a draggable row (a switch, a menu's button) is still pressed on its own: the hand. */
 [data-sortable-id] [role='switch']:not([data-disabled]), [data-sortable-id] [aria-haspopup]:not(:disabled) { cursor: pointer; }

@@ -32,6 +32,13 @@ try {
   const shown = await h.evaluate((id) => { const one = document.querySelector(`[data-folder-icon="${id}"] img[data-folder-picture]`); return one && { loaded: one.complete && one.naturalWidth > 0, w: Math.round(one.getBoundingClientRect().width) } }, id)
   check('it shows as the folder\'s icon in the sidebar, icon-sized', shown?.loaded && shown.w >= 12 && shown.w <= 20, JSON.stringify(shown))
   if (shots) await h.screenshot({ path: `${shots}/folder-picture.png`, clip: { x: 0, y: 0, width: 420, height: 500 } })
+  // Pointed at, the folder's icon shows a little box round it: it can be clicked to change.
+  const iconButton = h.locator(`[data-folder-icon="${id}"]`)
+  const rest = await iconButton.evaluate((one) => getComputedStyle(one).boxShadow)
+  await iconButton.hover(); await wait(300)
+  const lit = await iconButton.evaluate((one) => ({ ring: getComputedStyle(one).boxShadow, bg: getComputedStyle(one).backgroundColor, cursor: getComputedStyle(one).cursor }))
+  check('pointed at, the icon shows a box round it and a pointer', lit.ring !== rest && lit.ring !== 'none' && lit.bg !== 'rgba(0, 0, 0, 0)' && lit.cursor === 'pointer', JSON.stringify({ rest, lit }))
+  if (shots) await h.screenshot({ path: `${shots}/folder-icon-hover.png`, clip: { x: 0, y: 0, width: 420, height: 500 } })
   check('no page errors', !c.errors?.some((one) => /PAGEERROR/.test(one)), (c.errors ?? []).slice(0, 2).join(' | '))
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])

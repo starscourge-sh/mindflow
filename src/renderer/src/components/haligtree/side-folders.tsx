@@ -303,7 +303,7 @@ function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen
           )}
           <button type="button" aria-label={`Change the icon of ${group.name}`} data-folder-icon={group.id} onClick={() => setPicking(true)}
             style={{ left: `calc(${left} - 0.125rem)` }}
-            className="absolute flex size-5 items-center justify-center rounded transition-colors hover:bg-accent">
+            className="absolute flex size-5 cursor-pointer items-center justify-center rounded-md transition-[background-color,box-shadow] duration-100 hover:bg-foreground/10 hover:ring-1 hover:ring-foreground/20">
             <GroupIcon icon={group.icon} color={group.color} className="size-3.5" />
           </button>
         </div>
