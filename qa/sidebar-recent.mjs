@@ -1,68 +1,33 @@
-// Run with: QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out/main/index.js HALIGTREE_QA_AWAY=1 node qa/sidebar-recent.mjs
-// Recent lives in ⌘K now, not the sidebar: no Recent section under Pinned, no
-// switch for it in Customize or Settings, and ⌘K, before anything is typed,
-// lists the notes you opened last first, newest on top, under “Recent”.
-// Typing searches as before. The sidebar's previews keep their example tasks.
-// SHOTS=<dir> saves pictures.
-import { mkdirSync } from 'fs'
+// "Recent" in the sidebar, under Pinned: the last notes you opened, five at most, not the one open now nor one
+// already pinned; it folds as Pinned does, and a click opens one.
+//   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 [SHOTS=<dir>] node qa/sidebar-recent.mjs
+import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
-const SHOTS = process.env.SHOTS
-if (SHOTS) mkdirSync(SHOTS, { recursive: true })
-const results = []
-const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`))
-const c = await sandbox({ width: 1200, height: 860 })
-const { h, v, go, send } = c
+const { check, done } = checks()
+const c = await sandbox({ width: 1500, height: 1000 })
+const { h, v } = c
 const wait = (ms) => h.waitForTimeout(ms)
-const shoot = async (name) => SHOTS && (await h.screenshot({ path: `${SHOTS}/${name}.png` }))
+const rows = () => h.evaluate(() => [...document.querySelectorAll('[data-side-recent-row]')].map((one) => one.getAttribute('data-side-recent-row')))
 try {
   await v('settings:set', { sounds: false, hintRate: 0 })
-  await v('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false })
-  await go('home')
-  const sidebar = await h.evaluate(() => document.querySelector('aside')?.innerText ?? '')
-  check('the sidebar has no Recent section', !/\bRecent\b/.test(sidebar), sidebar.match(/.{0,20}Recent.{0,20}/)?.[0] ?? '')
-  // Customize lists the pages only.
-  await h.locator('aside').hover(); await wait(300)
-  const wrench = h.locator('button:has(svg.lucide-wrench)').first()
-  if (await wrench.count()) {
-    await wrench.click({ force: true }); await wait(500)
-    const said = await h.evaluate(() => document.querySelector('[data-slot=popover-content]')?.textContent ?? '')
-    check('Customize has no Recent switch', said.length > 0 && !/Recent/.test(said), said.slice(0, 60))
-    await h.keyboard.press('Escape'); await wait(300)
-  } else check('Customize opens from the sidebar', false)
-  // Settings has no "Recent in the sidebar".
-  await go('settings')
-  await h.evaluate(() => document.querySelector('[data-page=settings] input')?.focus())
-  await h.keyboard.type('recent'); await wait(600)
-  const found = await h.evaluate(() => document.querySelector('[data-page=settings]')?.innerText ?? '')
-  check('Settings has no “Recent in the sidebar”', !/Recent in the sidebar/.test(found))
-  // Open three notes, then ⌘K with nothing typed.
-  const caps = (await h.evaluate(() => window.api.captures.list())).filter((one) => one.status === 'open' && !one.archivedAt).slice(0, 3)
-  for (const one of caps) { await send('capture', one.id); await wait(700) }
-  await go('home'); await h.evaluate(() => document.activeElement?.blur())
-  await h.keyboard.press('Meta+k'); await wait(900)
-  const list = await h.evaluate(() => {
-    const at = [...document.querySelectorAll('[role=dialog][aria-label=Search] *')].find((one) => one.children.length === 0 && one.textContent.trim() === 'Recent')
-    const rows = [...document.querySelectorAll('[role=dialog][aria-label=Search] [data-drag-open]')].map((one) => one.dataset.dragOpen)
-    return { heading: !!at, first: rows.slice(0, 3) }
-  })
-  await shoot('cmdk-recent')
-  const want = caps.map((one) => `capture:${one.id}`).reverse()
-  check('⌘K, before typing, has a Recent heading', list.heading)
-  check('⌘K lists the three notes opened last first, newest on top', JSON.stringify(list.first) === JSON.stringify(want), `${list.first.join(', ')} vs ${want.join(', ')}`)
-  await h.keyboard.type('the'); await wait(900)
-  const typed = await h.evaluate(() => [...document.querySelectorAll('[role=dialog][aria-label=Search] *')].some((one) => one.children.length === 0 && one.textContent.trim() === 'Recent'))
-  check('typing searches as before: no Recent heading', !typed)
-  await h.keyboard.press('Escape'); await wait(400)
-  // The sidebar's previews still show their example tasks.
-  const today = h.locator('aside nav button[aria-label="Today"]').first()
-  await today.hover(); await wait(1300)
-  const peek = await h.evaluate(() => [...document.querySelectorAll('[data-slot=tooltip-content]')].map((one) => one.textContent).join(' '))
-  check('pointing at Today in the sidebar still shows its example tasks', /Today:/.test(peek) && peek.length > 40, peek.slice(0, 60))
-  if (c.errors.length) console.log('ERRORS\n' + c.errors.slice(0, 6).join('\n'))
+  await c.go('inbox'); await wait(1500)
+  const list = h.locator('[data-capture-row], [data-row]')
+  for (let i = 1; i < 8; i++) { await list.nth(i).click(); await wait(500) }
+  await wait(800)
+  const open = await h.evaluate(() => document.querySelector('[data-open]')?.getAttribute('data-open'))
+  const shown = await rows()
+  check('"Recent" sits in the sidebar with the last notes opened', shown.length >= 3, JSON.stringify(shown))
+  check('five at most', shown.length <= 5, String(shown.length))
+  check('not the one open now', !shown.includes(open), JSON.stringify({ open, shown }))
+  if (process.env.SHOTS) await h.screenshot({ path: `${process.env.SHOTS}/sidebar-recent.png`, clip: { x: 0, y: 0, width: 420, height: 1000 } })
+  await h.locator('[data-side-recent-row]').first().click(); await wait(800)
+  check('a click opens it', (await h.locator(`[data-open="${shown[0]}"]`).count()) === 1, shown[0])
+  check('no page errors', !c.errors?.some((one) => /PAGEERROR/.test(one)), (c.errors ?? []).slice(0, 2).join(' | '))
+} catch (error) {
+  check('the run finished', false, error.message.split('\n')[0])
 } finally {
-  await c.close()
+  await c.close?.()
 }
-const passed = results.filter(Boolean).length
-console.log(`\n${passed}/${results.length} passed`)
+done()

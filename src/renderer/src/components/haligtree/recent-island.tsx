@@ -6,8 +6,11 @@ import { chime } from '@/lib/sound'
 import { FileText, Gem, Orbit } from '@/components/ui/icons'
 import { Island } from './ui'
 
-type Opened = { id: string; type: string; title: string; kind: string | null; private: number }
+export type Opened = { id: string; type: string; title: string; kind: string | null; private: number }
 const TIER = { nugget: Gem, article: FileText, question: Orbit, goal: Flag } as const
+/** A recently opened note's drawing: a capture's kind, or its tier's. */
+export const openedIcon = (one: Opened): React.ComponentType<{ className?: string; style?: React.CSSProperties }> =>
+  one.type === 'capture' ? (CAPTURE_TYPES.find((kind) => kind.id === one.kind)?.icon ?? FileText) : (TIER[one.type as keyof typeof TIER] ?? FileText)
 
 /**
  * "Recent", the last of a note's details: the few notes you opened most lately, this one left out, each a click
@@ -28,7 +31,7 @@ export function RecentIsland({ id, onOpen }: { id: string; onOpen?: (type: strin
       <Island compact title="Recent">
         <div className="flex flex-col gap-px py-1">
           {shown.map((one) => {
-            const Icon = one.type === 'capture' ? (CAPTURE_TYPES.find((kind) => kind.id === one.kind)?.icon ?? FileText) : (TIER[one.type as keyof typeof TIER] ?? FileText)
+            const Icon = openedIcon(one)
             return (
               <button key={one.id} type="button" data-recent-opened={one.id} onClick={() => (chime('open'), onOpen(one.type, one.id))}
                 className="flex items-center gap-2 rounded-md px-2 py-1 text-left text-control text-foreground hover:bg-accent/60">

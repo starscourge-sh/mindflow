@@ -12,6 +12,7 @@ import { dueAt } from './session-log'
 import { blockedSite, hostOf } from './site-hosts'
 import { onHandOff, realRoot } from './sandbox'
 import cat from '../../resources/blocked-cat.gif?asset'
+import meow from '../../resources/blocked-cat-meow.mp3?asset'
 
 /**
  * Websites blocked while a focus round runs. About once a second, while a
@@ -222,6 +223,18 @@ const layer = TEST ? fakeLayer : realLayer
 const isBlockPage = (url: string | null | undefined): boolean => /^http:\/\/127\.0\.0\.1:\d+\/haligtree-blocked/.test(url ?? '')
 /** The cat peeking up from the bottom edge of the block page, read once, carried in the page itself. */
 let catData: string | null = null
+let meowData: string | null = null
+/** Its meow, for whoever clicks it: an easter egg. */
+const catMeow = (): string => {
+  if (meowData === null) {
+    try {
+      meowData = `data:audio/mpeg;base64,${readFileSync(meow).toString('base64')}`
+    } catch {
+      meowData = ''
+    }
+  }
+  return meowData
+}
 const catImage = (): string => {
   if (catData === null) {
     try {
@@ -254,17 +267,19 @@ const escape = (text: string): string => text.replace(/[&<>"']/g, (one) => `&#${
  */
 const blockPage = (site: string, until: string | null, look: Colours | null): string => `<!doctype html><html><head><meta charset="utf-8"><title>${escape(site)} is blocked</title>
 <meta name="color-scheme" content="light dark"><style>
-body{margin:0;min-height:100vh;display:grid;place-items:center;font:16px/1.5 -apple-system,BlinkMacSystemFont,sans-serif;background:#f6f5f2;color:#1d1c1a}
+body{margin:0;min-height:100vh;display:grid;place-items:center;user-select:none;-webkit-user-select:none;cursor:default;font:16px/1.5 -apple-system,BlinkMacSystemFont,sans-serif;background:#f6f5f2;color:#1d1c1a}
 @media (prefers-color-scheme:dark){body{background:#1b1a19;color:#ecebe8}p{color:#a9a7a2}}
-main{max-width:30rem;padding:2rem;text-align:center}img{position:fixed;left:50%;bottom:0;width:126px;height:141px;transform:translateX(-50%)}h1{font-size:1.6rem;font-weight:600;margin:0 0 .6rem}p{margin:.3rem 0;color:#6a6862}
+main{max-width:30rem;padding:2rem;text-align:center}img{position:fixed;left:50%;bottom:0;width:126px;height:141px;transform:translateX(-50%);-webkit-user-drag:none;cursor:pointer}h1{font-size:1.6rem;font-weight:600;margin:0 0 .6rem}p{margin:.3rem 0;color:#6a6862}
 ${look ? `body{background:${look.bg};color:${look.fg}}p{color:${look.muted}}
 .shine{background-image:linear-gradient(100deg,${look.primary} 0%,${look.primary} 38%,color-mix(in oklab,${look.primary} 45%,white) 47%,color-mix(in oklab,${look.primary} 65%,${look.purple}) 53%,${look.primary} 62%,${look.primary} 100%);background-size:300% 100%;background-position:30% 0;-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;animation:sheen 7s cubic-bezier(.65,0,.35,1) .6s infinite}
 @keyframes sheen{0%{background-position:100% 0}30%,100%{background-position:0% 0}}
 @media (prefers-reduced-motion:reduce){.shine{animation:none}}` : ''}
 </style></head><body><main><h1><span class="shine">“${escape(site)}”</span> is blocked${until ? ' until <span id="until" class="shine"></span>' : ' while you focus'}</h1>
 <p>Haligtree is keeping it closed for this focus round.</p>
-<p>This tab goes on to the page you asked for once the round ends, and a refresh then takes you there too.</p></main>${catImage() ? `<img src="${catImage()}" alt="">` : ''}
+<p>This tab goes on to the page you asked for once the round ends, and a refresh then takes you there too.</p></main>${catImage() ? `<img id="cat" src="${catImage()}" alt="" draggable="false">` : ''}${catMeow() ? `<audio id="meow" src="${catMeow()}" preload="auto"></audio>` : ''}
 <script>
+var cat = document.getElementById('cat'), meow = document.getElementById('meow')
+if (cat && meow) cat.addEventListener('click', function () { meow.currentTime = 0; meow.play().catch(function () {}) })
 var q = new URLSearchParams(location.search), until = ${JSON.stringify(until)}
 var u = document.getElementById('until')
 if (u && until) u.textContent = new Date(until).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })

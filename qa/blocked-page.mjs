@@ -40,6 +40,8 @@ try {
   // The tab itself: the block page in a real Chromium window, put on each page Haligtree sends it to.
   await electron.evaluate(({ BrowserWindow }) => {
     const win = new BrowserWindow({ show: false, webPreferences: { sandbox: true } })
+    // Silent, as every test run is: the cat's meow plays, unheard.
+    win.webContents.setAudioMuted(true)
     globalThis.qaTab = win
     globalThis.qaLoads = 0
     globalThis.qaShown = 0
@@ -68,6 +70,8 @@ try {
   const cat = await electron.evaluate(() => globalThis.qaTab.webContents.executeJavaScript("(() => { const one = document.querySelector('body > img'); return one ? { ok: one.complete && one.naturalWidth > 0, onEdge: Math.abs(one.getBoundingClientRect().bottom - innerHeight) < 1, belowWords: one.getBoundingClientRect().top >= document.querySelector('main').getBoundingClientRect().bottom - 1 } : null })()"))
   const look = await electron.evaluate(() => globalThis.qaTab.webContents.executeJavaScript("(() => ({ bg: getComputedStyle(document.body).backgroundColor, shine: !!document.querySelector('h1 .shine') && getComputedStyle(document.querySelector('h1 .shine')).animationName }))()"))
   check('it wears your theme, its key words shining as the welcome\'s do', !['rgb(246, 245, 242)', 'rgb(27, 26, 25)'].includes(look.bg) && look.shine === 'sheen', JSON.stringify(look))
+  const feel = await electron.evaluate(() => globalThis.qaTab.webContents.executeJavaScript("(async () => { const cat = document.getElementById('cat'); const meow = document.getElementById('meow'); const pointer = getComputedStyle(cat).cursor; const select = getComputedStyle(document.body).userSelect; cat.click(); await new Promise((ok) => setTimeout(ok, 300)); return { pointer, select, meow: !!meow && !meow.paused } })()"))
+  check('the words cannot be selected; the cat takes a click (pointer) and meows', feel.select === 'none' && feel.pointer === 'pointer' && feel.meow, JSON.stringify(feel))
   check('the cat peeks up from the very bottom of the page, below the words', cat?.ok && cat.onEdge && cat.belowWords, JSON.stringify(cat))
   if (process.env.SHOTS) {
     const png = await electron.evaluate(async () => (await globalThis.qaTab.webContents.capturePage()).toPNG().toString('base64'))

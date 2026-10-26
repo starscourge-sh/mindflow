@@ -87,6 +87,7 @@ import { onboarding, playWelcome, tryWelcome } from '@/lib/onboarding'
 import { DayView } from '@/components/haligtree/day-view'
 import { MonthPage, SCALE_VIEW, WeekPage, YearPage, mondayOf, type Scale } from '@/components/haligtree/periods-view'
 import { RecentPanel } from '@/components/haligtree/recent-panel'
+import { openedIcon, type Opened } from '@/components/haligtree/recent-island'
 import { Passes, openPass } from '@/components/haligtree/pass'
 import { noteActions } from '@/lib/notes'
 import { headingIn } from '@/lib/capture-links'
@@ -671,6 +672,9 @@ export function Home(): React.JSX.Element {
   const [tagsOpen, setTagsOpen] = useRemembered('sidebar:tags')
   // Pinned folds, Notion's way, and starts open.
   const [pinsOpen, setPinsOpen] = useRemembered('sidebar:pinned', true)
+  // Recent: the last few notes you opened, under Pinned, a short list (five at most), kept folded or open as you left it.
+  const [recentOpen, setRecentOpen] = useRemembered('sidebar:recent', true)
+  const [recents, setRecents] = useState<Opened[]>([])
   // Writing's and Gems' folders, open to start (side-folders.tsx).
   const [articleFolders, setArticleFolders] = useRemembered('sidebar:folders:article', true)
   const [nuggetFolders, setNuggetFolders] = useRemembered('sidebar:folders:nugget', true)
@@ -980,6 +984,8 @@ export function Home(): React.JSX.Element {
 
   // Somewhere else sent you to one thing: open its section with it open.
   // In a pane (the front one unless said); ⌥-clicked, beside it instead.
+  // Read again as each note opens, so the list is never behind.
+  useEffect(() => void call<Opened[]>('home:recent-opened', 12).then(setRecents), [view.focus])
   const open = (type: string, id: string, key = frontRef.current): void => {
     // Which way it goes is read from the click itself, before any wait.
     const side = asideClick()
@@ -1793,6 +1799,27 @@ export function Home(): React.JSX.Element {
                   )
                 })}</SortableList>]}</Branches></Unfold>
               </div>)}
+              {(() => {
+                // Not the note open now, nor one already pinned above it: five at most.
+                const rows = recents.filter((one) => one.id !== view.focus && !pins.some((pin) => pin.id === one.id)).slice(0, 5)
+                if (quiet || narrow || !rows.length) return null
+                return (
+                  <div data-side-recent>
+                    {heading('Recent', recentOpen, setRecentOpen)}
+                    <Unfold open={recentOpen}><Branches current={-1} className="ml-5 flex flex-col gap-px">{rows.map((one) => {
+                      const Icon = openedIcon(one)
+                      return (
+                        <button key={one.id} type="button" data-side-row data-private={one.private ? '' : undefined} data-side-recent-row={one.id}
+                          onClick={() => open(one.type, one.id)}
+                          className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-2 py-1.5 text-foreground/80">
+                          <Icon className="size-4 shrink-0 text-muted-foreground" />
+                          <span className="private-text min-w-0 flex-1 truncate text-left">{one.title || 'Untitled'}</span>
+                        </button>
+                      )
+                    })}</Branches></Unfold>
+                  </div>
+                )
+              })()}
               {/* Back after a while: said plainly, with the way to everything else one click away. */}
               {quiet && !narrow && (
                 <div data-quiet-return className="mt-4 space-y-1.5 px-2">
