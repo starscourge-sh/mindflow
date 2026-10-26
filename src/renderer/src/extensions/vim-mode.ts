@@ -2386,6 +2386,16 @@ export const VimMode = Extension.create<VimModeOptions>({
                 patch(view, CLEARED)
               }
 
+              // Picked lines: Tab and Shift-Tab do what > and < do in visual mode: every picked list item in or out a level,
+              // as they do with Vim off. Left to fall through, only the line the cursor ended on moved.
+              // A range picked with the mouse is one too, though Vim stays in normal mode for it.
+              if (key === "Tab" && (inVisual || !view.state.selection.empty)) {
+                const { from, to, head } = view.state.selection
+                if (!inList(view.state.doc.resolve(from)) && !inList(view.state.doc.resolve(to))) return false
+                indentLines(view, from, to, event.shiftKey, head)
+                return true
+              }
+
               if (key === "Tab" && !inVisual) {
                 // In a table, Tab is how you reach the next cell. Past the last
                 // one it makes a row, because that is where the next cell would
