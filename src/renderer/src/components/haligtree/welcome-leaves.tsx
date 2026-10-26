@@ -30,7 +30,7 @@ const DRIFT = 51
  * turns false) a gust blows them off the edge, gone in under a second. Not
  * drawn under reduced motion.
  */
-export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = null, motes: showMotes = true }: { on: boolean; /** The welcome showing: the small ones keep drifting till it ends. */ open: boolean; /** How much of a leaf shows in the middle of the page: none on a page full to its edges. */ middle?: number; /** The last page: the leaves gather into one bunch at a single base, a florilegium. */ gather?: boolean; /** What the leaves are drawn to (a selector): they drift in from the edges and sink behind it, quicker and with the wind louder as the pointer nears it. */ lure?: string | null; /** The small ones drifting by: none on a page with its own light (the dial). */ motes?: boolean }): React.JSX.Element | null {
+export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = null, motes: showMotes = true, bunchAt = null }: { /** Where the bunch is held, as parts of the canvas, and how big: the last page's (low right, sized to the window) unless told. */ bunchAt?: { x: number; y: number; scale: number } | null; on: boolean; /** The welcome showing: the small ones keep drifting till it ends. */ open: boolean; /** How much of a leaf shows in the middle of the page: none on a page full to its edges. */ middle?: number; /** The last page: the leaves gather into one bunch at a single base, a florilegium. */ gather?: boolean; /** What the leaves are drawn to (a selector): they drift in from the edges and sink behind it, quicker and with the wind louder as the pointer nears it. */ lure?: string | null; /** The small ones drifting by: none on a page with its own light (the dial). */ motes?: boolean }): React.JSX.Element | null {
   const box = useRef<HTMLCanvasElement>(null)
   const gathering = useRef(gather)
   gathering.current = gather
@@ -362,7 +362,8 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
       }
       // Wind on the bunch: the nearer the pointer and the faster it comes toward "Open my book", the harder
       // it blows, on a spring so it swells and dies down as wind does; the pointer still, it settles to calm.
-      const door = bunch.size ? document.querySelector('.mf-welcome [data-next]')?.getBoundingClientRect() : undefined
+      // (On the title card, with no button yet, toward the bunch itself.)
+      const door = bunch.size ? (bunchAt ? canvas.getBoundingClientRect() : document.querySelector('.mf-welcome [data-next]')?.getBoundingClientRect()) : undefined
       if (door && dt > 0) {
         const off = Math.hypot(Math.max(door.left - pointer.x, 0, pointer.x - door.right), Math.max(door.top - pointer.y, 0, pointer.y - door.bottom))
         const coming = lastOff === null || lastOff > 1e4 ? 0 : Math.max(0, (lastOff - off) / dt)
@@ -447,7 +448,8 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
       // the last page they let go and drift on.
       if (gathering.current && !gatheredAt) {
         gatheredAt = now
-        const base = { x: width * 0.83, y: height * 0.9 }
+        const base = { x: width * (bunchAt?.x ?? 0.83), y: height * (bunchAt?.y ?? 0.9) }
+        const span = bunchAt?.scale ?? Math.min(1, width / 1400)
         const picked = [...motes].sort((a, b) => Math.hypot(a.x - base.x, a.y - base.y) - Math.hypot(b.x - base.x, b.y - base.y)).slice(0, 5)
         while (picked.length < 5) {
           const one = make(false, true)
@@ -458,9 +460,9 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
         }
         picked.forEach((one, i) => {
           const angle = -Math.PI / 2 + (i - 2) * 0.34
-          const size = (i === 2 ? 155 : 138 - Math.abs(i - 2) * 8) * Math.min(1, width / 1400)
+          const size = (i === 2 ? 155 : 138 - Math.abs(i - 2) * 8) * span
           // Long stems of their own, the middle one tallest, so each leaf reads apart from the next.
-          const reach = size * 0.62 + (160 - Math.abs(i - 2) * 30) * Math.min(1, width / 1400)
+          const reach = size * 0.62 + (160 - Math.abs(i - 2) * 30) * span
           bunch.set(one, { from: { x: one.x, y: one.y, spin: one.spin, size: one.size }, to: { x: base.x + Math.cos(angle) * reach, y: base.y + Math.sin(angle) * reach, spin: angle, size }, base, delay: i * 150, face: 0, i })
           one.hue = HUES[i % HUES.length]
           // Slender leaves only: a bunch reads leaf by leaf, not as one shape.
