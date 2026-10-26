@@ -66,6 +66,8 @@ try {
   check('and the block page loaded once, never reloading itself', loads === 1, `${loads} loads`)
   check('it still says x.com is blocked', text.includes('is blocked until'), text.slice(0, 120))
   const cat = await electron.evaluate(() => globalThis.qaTab.webContents.executeJavaScript("(() => { const one = document.querySelector('body > img'); return one ? { ok: one.complete && one.naturalWidth > 0, onEdge: Math.abs(one.getBoundingClientRect().bottom - innerHeight) < 1, belowWords: one.getBoundingClientRect().top >= document.querySelector('main').getBoundingClientRect().bottom - 1 } : null })()"))
+  const look = await electron.evaluate(() => globalThis.qaTab.webContents.executeJavaScript("(() => ({ bg: getComputedStyle(document.body).backgroundColor, shine: !!document.querySelector('h1 .shine') && getComputedStyle(document.querySelector('h1 .shine')).animationName }))()"))
+  check('it wears your theme, its key words shining as the welcome\'s do', !['rgb(246, 245, 242)', 'rgb(27, 26, 25)'].includes(look.bg) && look.shine === 'sheen', JSON.stringify(look))
   check('the cat peeks up from the very bottom of the page, below the words', cat?.ok && cat.onEdge && cat.belowWords, JSON.stringify(cat))
   if (process.env.SHOTS) {
     const png = await electron.evaluate(async () => (await globalThis.qaTab.webContents.capturePage()).toPNG().toString('base64'))
