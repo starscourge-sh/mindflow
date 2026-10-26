@@ -64,6 +64,11 @@
 @keyframes mf-beam-again { 0% { opacity: 0; } 3% { opacity: 0.85; } 13% { opacity: 0.6; } 18%, 100% { opacity: 0; } }
 @keyframes mf-beam-again-turn { 0% { transform: rotate(0turn); } 18%, 100% { transform: rotate(1turn); } }
 
+/* The session bubble's beam (focus-pill.tsx, Gleam): once round its edge, quick and faint, then gone. */
+.mf-beam.mf-beam-card.mf-pill-beam { padding: 1.5px; animation: mf-pill-beam 1.1s var(--mf-ease) forwards; }
+.mf-beam.mf-beam-card.mf-pill-beam::before { animation: mf-beam-turn 1.1s cubic-bezier(0.3, 0.6, 0.3, 1) forwards; }
+@keyframes mf-pill-beam { 0% { opacity: 0; } 15% { opacity: 0.75; } 70% { opacity: 0.5; } 100% { opacity: 0; } }
+
 /* Motion off, or Reduce motion on: no beam at all. A toast still says it in words. */
 :root[data-motion='off'] .mf-beam { display: none; }
 @media (prefers-reduced-motion: reduce) {

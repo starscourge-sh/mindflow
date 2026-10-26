@@ -8,6 +8,7 @@ import { abandoned, alarm, chime, sessionClock } from '@/lib/sound'
 import { bareSession, isSession, useAppearance, useLive, haligtree, type Elsewhere, type Focus, type LogEntry, type Settings } from '@/lib/haligtree'
 import { useAlive, useSurface } from '@/lib/use-alive'
 import { BorderBeam } from 'border-beam'
+import './beam.css'
 import { Kbd, Tip, TipPlace, Typed } from './ui'
 import { DotMatrix } from './dot-matrix'
 import { Selfie } from './selfie'
@@ -1345,7 +1346,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
             run all session, so it takes over only under the pointer, in the
             first and last moments, and past the time. */}
         {alive && !paused && !tucked && !onBreak && settings?.sessionSmoke !== false && <Wisps light={light} />}
-        {gleam > 0 && <Gleam key={gleam} light={light} />}
+        {gleam > 0 && <Gleam key={gleam} light={light} round={tucked ? '0 0 18px 18px' : '22px'} />}
         <motion.div
           ref={setInner}
           className="absolute top-0 left-1/2 w-[322px] -translate-x-1/2"
@@ -1760,55 +1761,14 @@ export const SMOKE_EASE = `@property --beam-strength { syntax: '<number>'; inher
 [data-beam="{id}"] { transition: --beam-strength 320ms cubic-bezier(0.16, 1, 0.3, 1); }`
 
 /**
- * One gleam across the pill, like light sliding over glossy glass: a wide
- * soft band, angled, with a feathered falloff and a faint glint trailing it,
- * eased across in 0.8s on transform alone, faint (it read as tacky brighter and slower) and clipped to the pill. The top
- * edge's sheen brightens as it passes. Screened onto a dark pill; on a light
- * one, laid on plainly with a soft shadow leading it. Brutal wears a flat, hard-edged band
- * instead, and Paper the soft band alone: only Soft has the sheen.
- * With Motion off or reduced motion, one soft glow that comes and goes.
+ * Now and then, so a session left running is not forgotten: one beam of light once round the pill's edge, the
+ * same beam that goes round the welcome's recommended card and a celebration's card (beam.css). A glare across
+ * the glass read as tacky. Quick, faint, on transform alone. Motion off or reduced: none.
  */
-export function Gleam({ light }: { light: boolean }): React.JSX.Element {
-  const band = useRef<HTMLSpanElement>(null)
-  const sheen = useRef<HTMLSpanElement>(null)
-  const calm = still()
-  const style = wornStyle()
-  const hardBand = style === 'brutal'
-  useEffect(() => {
-    const runs: Animation[] = []
-    if (calm) {
-      if (band.current) runs.push(band.current.animate([{ opacity: 0 }, { opacity: 1 }, { opacity: 0 }], { duration: 1200, easing: 'ease-in-out' }))
-    } else {
-      const timing = { duration: 800, easing: hardBand ? 'cubic-bezier(0.65, 0, 0.35, 1)' : 'cubic-bezier(0.45, 0, 0.55, 1)' }
-      // The band is 60% of the pill wide: from wholly off the left to wholly off the right.
-      if (band.current) runs.push(band.current.animate([{ transform: 'translateX(-100%) skewX(-20deg)' }, { transform: 'translateX(175%) skewX(-20deg)' }], timing))
-      if (sheen.current && style === 'soft') runs.push(sheen.current.animate([{ opacity: 0 }, { opacity: 0, offset: 0.2 }, { opacity: 1, offset: 0.5 }, { opacity: 0, offset: 0.85 }, { opacity: 0 }], timing))
-    }
-    return () => runs.forEach((run) => run.cancel())
-  }, [calm, style, hardBand])
-  const white = (alpha: number): string => `rgb(255 255 255 / ${alpha})`
-  // A pale pill cannot be brightened by a screen: there the band is a white
-  // highlight laid on plainly, with a soft shadow just ahead of it, darker
-  // then brighter, the way a curve of glass shows a light.
-  const soft = light
-    ? `linear-gradient(90deg, transparent 0%, ${white(0.2)} 22%, ${white(0.4)} 40%, ${white(0.2)} 56%, transparent 64%, rgb(0 0 0 / 0.06) 80%, transparent 100%)`
-    : `linear-gradient(90deg, transparent 0%, ${white(0.07)} 30%, ${white(0.11)} 50%, ${white(0.07)} 70%, transparent 100%)`
-  // The glint: a thin second light behind the band, fainter.
-  const glint = `linear-gradient(90deg, transparent 4%, ${white(0.06)} 8%, transparent 12%)`
-  const hard = light
-    ? `linear-gradient(90deg, transparent 30%, ${white(0.6)} 30%, ${white(0.6)} 55%, rgb(0 0 0 / 0.12) 55%, rgb(0 0 0 / 0.12) 62%, transparent 62%)`
-    : `linear-gradient(90deg, transparent 30%, ${white(0.3)} 30%, ${white(0.3)} 55%, transparent 55%)`
+export function Gleam({ light, round = '22px' }: { light: boolean; round?: string }): React.JSX.Element {
   return (
-    <span aria-hidden data-gleam className="pointer-events-none absolute inset-0 overflow-hidden" style={{ mixBlendMode: light ? 'normal' : 'screen', borderRadius: 'inherit' }}>
-      {calm ? (
-        <span ref={band} className="absolute inset-0" style={{ opacity: 0, background: `color-mix(in oklab, var(--tt-brand-color-400) ${light ? 10 : 14}%, transparent)` }} />
-      ) : (
-        <>
-          {style === 'soft' && <span ref={sheen} className="absolute inset-x-[8%] top-0 h-[45%]" style={{ opacity: 0, background: `linear-gradient(${white(light ? 0.22 : 0.07)}, transparent)`, borderRadius: 'inherit' }} />}
-          <span ref={band} className="absolute -inset-y-2 left-0 w-[60%]" style={{ transform: 'translateX(-100%) skewX(-20deg)', willChange: 'transform', background: hardBand ? hard : style === 'paper' ? soft : `${soft}, ${glint}` }} />
-        </>
-      )}
-    </span>
+    <span aria-hidden data-gleam className="mf-beam mf-beam-card mf-pill-beam"
+      style={{ borderRadius: round, '--mf-beam-color': light ? 'color-mix(in oklab, var(--foreground) 45%, transparent)' : 'rgb(255 255 255 / 0.7)' } as React.CSSProperties} />
   )
 }
 
