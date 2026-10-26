@@ -123,7 +123,7 @@ try {
   await h.keyboard.type('Thu', { delay: 140 })
   const frames = await glide
   const xs = [...new Set(frames.map((f) => f[0]))]
-  check('5. a caret of its own, shown, 2.5px, the system caret hidden', frames.at(-1)[1] === '1' && frames.at(-1)[2] === '2.5px' && frames.at(-1)[3] === 'rgba(0, 0, 0, 0)', JSON.stringify(frames.at(-1)))
+  check('5. a caret of its own, shown, 2px, the system caret hidden', frames.at(-1)[1] === '1' && frames.at(-1)[2] === '2px' && frames.at(-1)[3] === 'rgba(0, 0, 0, 0)', JSON.stringify(frames.at(-1)))
   check('5. it glides: in-between places between letters, not jumps', xs.length >= 6, JSON.stringify(xs))
   check('5. no squiggles while typing', await h.evaluate(() => document.querySelector('[data-day-write] .tiptap').getAttribute('spellcheck') === 'false'))
   await h.keyboard.type('rsday was long and quiet and good ', { delay: 40 })

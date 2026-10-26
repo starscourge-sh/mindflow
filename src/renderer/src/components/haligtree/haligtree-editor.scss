@@ -113,6 +113,12 @@
 .haligtree-editor-content.is-typewriter > .tiptap.ProseMirror.haligtree-editor {
   padding-bottom: 60vh;
 }
+// Today's page: that room only once the page is long enough to need it, so a
+// page just begun shows what comes after it (its tasks) instead of an empty
+// screen; by the sixth line the rest has stepped back while you write.
+[data-day-write] .haligtree-editor-content.is-typewriter > .tiptap.ProseMirror.haligtree-editor:not(:has(> :nth-child(6))) {
+  padding-bottom: 1rem;
+}
 
 // So the cursor line below runs past the text column to the edges of the box
 // that holds it, not stopping short at the column's own edge, and grows no
