@@ -41,6 +41,9 @@ const look = () => h.evaluate(() => {
       return mark ? new DOMMatrix(getComputedStyle(mark).transform === 'none' ? undefined : getComputedStyle(mark).transform).a : -1
     }),
     slant: [0, 1, 2].map((i) => document.querySelector(`[data-thesis="gap-${i}"]`)?.dataset.slant ?? ''),
+    asked: (() => { const q = document.querySelector('[data-thesis="question"]'); return !!q && Number(getComputedStyle(q).opacity) > 0.5 })(),
+    noted: document.querySelector('[data-margin-note]')?.dataset.marginNote === 'on',
+    typed: Number(document.querySelector('[data-thesis="answer"]')?.dataset.typed ?? 0) > 0,
     t: performance.now() - (window.qaMistAt ?? NaN)
   }
 })
@@ -62,6 +65,7 @@ try {
   const most = [0, 0, 0]
   let pointed = false
   let line = 0
+  const when = { slanted: Infinity, asked: Infinity, noted: Infinity, typed: Infinity }
   // Watched for up to 40 seconds (the title card is fifteen beats), a frame every ~400ms while shots are wanted.
   while (Date.now() - start < 40000) {
     const now = await look()
@@ -70,14 +74,17 @@ try {
     if (now.words > 0 && now.words < 9) line = Math.max(line, now.words)
     now.selected.forEach((scale, i) => void (most[i] = Math.max(most[i], scale)))
     pointed ||= now.pointer
+    for (const key of ['asked', 'noted', 'typed']) if (now[key] && when[key] === Infinity) when[key] = t
+    if (now.slant.every((one) => one === 'on') && when.slanted === Infinity) when.slanted = t
     if (SHOTS && t < 26000) await h.screenshot({ type: 'jpeg', quality: 80, scale: 'css', path: join(SHOTS, `${THEME}-${String(frame++).padStart(2, '0')}-${(t / 1000).toFixed(1)}s.jpg`) }).then(() => h.waitForTimeout(300))
     else await h.waitForTimeout(150)
-    if (now.slant.every((one) => one === 'on')) break
+    if (now.typed) break
   }
   // The last italic has crossed over.
   await h.waitForTimeout(800)
-  check('no words before ten seconds: mist, the chord and the fifteen-beat title card first', first >= 10000, `first words at ${first}ms`)
-  check('the first words come by about thirteen seconds', first <= 13500, `first words at ${first}ms`)
+  // The title card is fifteen beats at 72 a minute (12.5 s); the headline's first word comes two beats after (about 14.2 s).
+  check('no words before twelve seconds: mist, the chord and the fifteen-beat title card first', first >= 12000, `first words at ${first}ms`)
+  check('the first words come by about fifteen seconds', first <= 15500, `first words at ${first}ms`)
   check('the headline resolves a word at a time', line > 0, `seen part-way at ${line} words`)
   const end = await look()
   check('the headline resolves whole', end.words === 9, String(end.words))
@@ -85,6 +92,7 @@ try {
   check('each line\'s selection grows with the drag to its whole width', most.every((one) => one > 0.95), JSON.stringify(most))
   check('each line ends in italics', end.slant.every((one) => one === 'on'), JSON.stringify(end.slant))
   const italic = await h.evaluate(() => [0, 1, 2].map((i) => [...document.querySelectorAll(`[data-thesis="gap-${i}"] .inline-grid > span`)].filter((el) => getComputedStyle(el).visibility !== 'hidden' && Number(getComputedStyle(el).opacity) > 0.5).map((el) => getComputedStyle(el).fontStyle).join()))
+  check('then the cause, then the margin note, then the answer typed', when.slanted <= when.asked && when.asked + 1200 <= when.noted && when.noted + 2500 <= when.typed && when.typed < Infinity, JSON.stringify(when))
   check('what each kind keeps shows only in italic, once', italic.every((one) => one === 'italic'), JSON.stringify(italic))
   const sounds = await heard()
   const count = (name) => sounds.filter((one) => one === name).length

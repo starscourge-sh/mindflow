@@ -8,9 +8,8 @@ import { TAGLINE } from '../../../../main/tagline'
 import { fittedTitle, quoted } from '../../../../main/clip'
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { AnimatePresence, MotionConfig, motion, useIsPresent } from 'motion/react'
-import { createPortal } from 'react-dom'
 import { ArrowUp, Compass, CornerDownLeft, FolderInput, Volume2, VolumeX } from 'lucide-react'
-import { awakeFrames, shift, spring, still } from '@/lib/motion'
+import { shift, spring, still } from '@/lib/motion'
 import { ARRIVE_MS, BEAT_MS, PENTA, soundOn, ambience, bedResolve, bedShift, bell, chime, click, fold, pageTurn, quietBed } from '@/lib/sound'
 import { applyTheme, currentTheme, type Theme } from '@/lib/theme'
 import { comboOf, fixed, keyFor, listen, saveKeys, useKeyChanges } from '@/lib/keys'
@@ -714,8 +713,17 @@ const THREE: [string, string][] = [
   ['Your plans', 'live in another.'],
   ['What you want to remember and practice (flashcards)', 'lives in a third.']
 ]
-/** Written in the margin beside the three, as a reader annotates a page: why they belong together. */
-const MARGIN_NOTE = 'You never write anything down to do nothing with it.'
+/** Written in the margin beside the cause, as a reader annotates a page, its arrow drawn to it: the objection the answer meets. */
+const MARGIN_NOTE = 'But\u2026 you never write anything down to do nothing with it.'
+/** How long the note takes to write, a pen's pace a letter at a time, and the arrow after it (MarginNote). */
+const NOTE_LETTER_S = 0.045
+const NOTE_WORD_GAP_S = 0.08
+const noteWrites = (): { starts: number[]; lengths: number[]; arrowAt: number; end: number } => {
+  let at = 0.15
+  const starts: number[] = [], lengths: number[] = []
+  for (const word of MARGIN_NOTE.split(' ')) (starts.push(at), lengths.push(word.length * NOTE_LETTER_S), (at += word.length * NOTE_LETTER_S + NOTE_WORD_GAP_S))
+  return { starts, lengths, arrowAt: at + 0.15, end: at + 0.15 + 0.75 }
+}
 /** Said once the three are up: why notes go unseen (going back is left to you). */
 const QUESTION = 'In each one, going back is your job. So mostly, nobody does.'
 // One thing is pitched: the three are one thought, growing. What Haligtree is was said at the top, in the tagline.
@@ -755,14 +763,15 @@ function thesisBeats(): Beat<ThesisState>[] {
     t = press + DRAG_MS + 900
   })
   beats.push({ at: t, to: { line: -1, move: 'leave' } })
-  // A reader's note in the margin beside the three, written on, its arrow drawn down them; read before the cause comes.
+  // The cause, read whole (it stays up).
   t += 500
-  beats.push({ at: t, to: { noted: true }, cue: () => bell(PENTA[2], 0.009, 'note') })
-  t += Math.max(2200, leadMs(MARGIN_NOTE))
-  // The cause, glanced at (it stays up); then the answer, typed in as a person would (read as it types), its key words shining; then what Haligtree is, in one line.
-  t += 300
   beats.push({ at: t, to: { asked: true } })
-  t += Math.max(1200, leadMs(QUESTION) - 600)
+  t += Math.max(1600, leadMs(QUESTION))
+  // Then a reader's note written on in the margin to its right, a letter at a time, its arrow drawn to it after;
+  // nothing else moves on the page while it writes, and it is read before the answer comes.
+  beats.push({ at: t, to: { noted: true }, cue: () => bell(PENTA[2], 0.009, 'note') })
+  t += noteWrites().end * 1000 + Math.max(900, leadMs(MARGIN_NOTE) - noteWrites().end * 1000)
+  // The answer, typed in as a person would (read as it types), its key words shining.
   beats.push({ at: t, to: { answer: true }, cue: () => bell(PENTA[0] * 2, 0.014, 'answer') })
   const answer = typed<ThesisState>(plainOf(ANSWER), t + 250, (sofar) => ({ said: sofar.length }), random, 0.9, 2200)
   beats.push(...answer.beats)
@@ -797,7 +806,6 @@ function ThesisChapter({ play, report }: { play: boolean; report: (now: Reel) =>
           ))}
         </h1>
         <ul className="relative flex w-fit flex-col gap-[clamp(0.25rem,1vh,0.5rem)]">
-          <MarginNote on={s.noted} quick={quick} />
           {THREE.map(([name, gap], i) => {
             const slanted = s.slanted > i
             const chosen = s.line === i && (s.move === 'drag' || s.move === 'held')
@@ -830,9 +838,12 @@ function ThesisChapter({ play, report }: { play: boolean; report: (now: Reel) =>
             )
           })}
         </ul>
-        <motion.p data-thesis="question" className="text-balance text-[clamp(1.125rem,min(2.1vw,3vh),1.5rem)] leading-snug font-medium text-foreground" {...come(s.asked)}>
-          {QUESTION}
-        </motion.p>
+        <div className="relative w-fit">
+          <motion.p data-thesis="question" className="text-balance text-[clamp(1.125rem,min(2.1vw,3vh),1.5rem)] leading-snug font-medium text-foreground" {...come(s.asked)}>
+            {QUESTION}
+          </motion.p>
+          <MarginNote on={s.noted} quick={quick} />
+        </div>
         <motion.p data-thesis="answer" data-typed={Math.min(s.said, plainOf(ANSWER).length)} aria-label={plainOf(ANSWER)} className="font-heading text-[clamp(1.375rem,min(2.8vw,4vh),2.25rem)] leading-tight text-foreground" {...come(s.answer)}>
           <TypedAnswer said={ANSWER} upTo={s.said} />
         </motion.p>
@@ -905,67 +916,47 @@ function ForYou({ setup, at }: { setup?: Setup; at: Where }): React.JSX.Element 
 
 
 /**
- * A reader's note in the margin beside the three, the way a commonplace book
- * is annotated: written on a word at a time, then a pen arrow drawn from the
- * writing down to the plans and the practice. In the left margin when the
- * window leaves room there, else in the open margin to their right (the
- * arrow turned to face them); with room on neither side, left out, never
- * squeezed over words.
+ * A reader's note in the margin to the right of the cause, the way a
+ * commonplace book is annotated: written on as a pen writes, a letter at a
+ * time left to right, then a pen arrow drawn from it to the line. With no
+ * room to its right, left out, never squeezed over words.
  */
 function MarginNote({ on, quick }: { on: boolean; quick: boolean }): React.JSX.Element {
   const box = useRef<HTMLSpanElement>(null)
-  // The page clips at its own edge, and the left margin is outside it: there the note is drawn on the welcome's
-  // whole-window layer, kept level with the three lines each frame (they ride the page as it turns).
-  const [place, setPlace] = useState<{ side: 'left' | 'right' | null; top: number; right: number }>({ side: null, top: 0, right: 0 })
-  const [layer, setLayer] = useState<HTMLElement | null>(null)
+  const [room, setRoom] = useState(false)
   const present = useIsPresent()
   useEffect(() => {
-    setLayer(box.current?.closest<HTMLElement>('.mf-welcome') ?? null)
-    // Followed while the page moves; once still for a second the loop rests, till a
-    // key, a click or a resize may move it again.
-    let calm = 0
-    const fit = (): boolean => {
-      const lines = box.current?.parentElement?.getBoundingClientRect()
-      calm++
-      if (lines) {
-        const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
-        const width = 11 * rem
-        const side = lines.left - 3.4 * rem - width >= 12 ? 'left' : window.innerWidth - lines.right - 2.8 * rem - width >= 12 ? 'right' : null
-        const top = Math.round(lines.top + lines.height / 2)
-        const right = Math.round(lines.left - 3.4 * rem)
-        setPlace((was) => (was.side === side && was.top === top && was.right === right ? was : ((calm = 0), { side, top, right })))
-      }
-      return calm < 60
+    const fit = (): void => {
+      const line = box.current?.parentElement?.getBoundingClientRect()
+      if (!line) return
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+      setRoom(window.innerWidth - line.right - 3.4 * rem - 11 * rem >= 12)
     }
     fit()
-    const frames = awakeFrames(fit)
-    const stir = (): void => ((calm = 0), frames.again())
-    for (const kind of ['resize', 'keydown', 'pointerdown', 'wheel'] as const) addEventListener(kind, stir, true)
-    return () => (frames.stop(), ['resize', 'keydown', 'pointerdown', 'wheel'].forEach((kind) => removeEventListener(kind, stir, true)))
+    addEventListener('resize', fit)
+    return () => removeEventListener('resize', fit)
   }, [])
   const shown = on && present
   const words = MARGIN_NOTE.split(' ')
-  const left = place.side === 'left'
-  const at = (i: number): number => (quick || !shown ? 0 : 1.1 + [0, 0.55, 0.75, 1.3][i])
-  const note = (
-    <span data-margin-words="" className={`pointer-events-none w-[11rem] text-balance font-heading text-[0.98rem] leading-snug text-primary italic ${left ? 'fixed z-[1] -translate-x-full -translate-y-1/2 -rotate-2 text-right' : 'absolute top-1/2 left-[calc(100%+2.8rem)] -translate-y-1/2 rotate-2 text-left'}`}
-      style={left ? { top: place.top, left: place.right } : undefined}>
-      {words.map((word, i) => (
-        <Fragment key={i}>
-          <motion.span className="inline-block" initial={false} animate={{ opacity: shown ? 1 : 0, filter: shown ? 'blur(0px)' : 'blur(4px)' }}
-            transition={{ duration: quick ? 0 : present ? 0.42 : 0.2, delay: quick || !shown ? 0 : 0.1 + i * 0.13, ease: ENTER }}>{word}</motion.span>{i < words.length - 1 && ' '}
-        </Fragment>
-      ))}
-    </span>
-  )
+  const pace = noteWrites()
+  const now = (at: number): number => (quick || !shown ? 0 : at)
   return (
-    <span ref={box} aria-hidden={!place.side || undefined} data-margin-note={on ? 'on' : 'off'} data-side={place.side ?? 'none'} className={place.side ? '' : 'invisible'}>
-      {place.side && (left ? layer && createPortal(note, layer) : note)}
-      {/* The arrow: from the writing, down past the plans, to the practice, each reached with a head. */}
-      <svg viewBox="0 0 20 60" preserveAspectRatio="none" className={`pointer-events-none absolute top-0 h-full w-[1.6rem] overflow-visible ${left || !place.side ? '-left-[2.1rem]' : '-right-[2.1rem] -scale-x-100'}`}>
-        {['M17 9 C 5 11, 3 22, 15 30', 'M11.5 26.5 L 15.5 30 L 10.5 32.5', 'M15 30 C 3 35, 2 46, 15 50.5', 'M11 47.5 L 15.5 50.5 L 10.5 53.5'].map((d, i) => (
+    <span ref={box} aria-hidden={!room || undefined} data-margin-note={on ? 'on' : 'off'} data-side={room ? 'right' : 'none'} className={room ? '' : 'invisible'}>
+      <span data-margin-words="" className="pointer-events-none absolute top-1/2 left-[calc(100%+3.4rem)] w-[11rem] -translate-y-1/2 rotate-2 text-left font-heading text-[0.98rem] leading-snug text-primary italic">
+        {words.map((word, i) => (
+          <Fragment key={i}>
+            {/* Each word written on left to right as a pen goes, the next begun once this one is down. */}
+            <motion.span className="inline-block" initial={false}
+              animate={{ clipPath: shown ? 'inset(-40% -10% -40% -10%)' : 'inset(-40% 110% -40% -10%)', opacity: shown ? 1 : 0 }}
+              transition={{ clipPath: { duration: quick || !shown ? 0 : pace.lengths[i], delay: now(pace.starts[i]), ease: 'linear' }, opacity: { duration: quick || !shown ? 0 : 0.05, delay: now(pace.starts[i]) } }}>{word}</motion.span>{i < words.length - 1 && ' '}
+          </Fragment>
+        ))}
+      </span>
+      {/* The arrow, drawn once the note is written: from the note back to the line, with a head. */}
+      <svg viewBox="0 0 40 16" className="pointer-events-none absolute top-1/2 left-[calc(100%+0.6rem)] h-4 w-[2.6rem] -translate-y-1/2 overflow-visible">
+        {['M38 5 C 28 1, 14 2, 3 9', 'M7.5 4.8 L 3 9 L 8.6 10.8'].map((d, i) => (
           <path key={i} d={d} pathLength={1} fill="none" stroke="var(--primary)" strokeWidth={1.3} strokeLinecap="round" strokeLinejoin="round" strokeDasharray="1 1"
-            style={{ strokeDashoffset: shown ? 0 : 1, opacity: shown ? 0.85 : 0, transition: quick ? 'none' : `stroke-dashoffset ${i % 2 ? 0.18 : 0.55}s cubic-bezier(0.65,0,0.35,1) ${at(i)}s, opacity 0.1s linear ${at(i)}s` }} />
+            style={{ strokeDashoffset: shown ? 0 : 1, opacity: shown ? 0.85 : 0, transition: quick || !shown ? 'none' : `stroke-dashoffset ${i ? 0.18 : 0.5}s cubic-bezier(0.65,0,0.35,1) ${pace.arrowAt + (i ? 0.5 : 0)}s, opacity 0.1s linear ${pace.arrowAt + (i ? 0.5 : 0)}s` }} />
         ))}
       </svg>
     </span>
