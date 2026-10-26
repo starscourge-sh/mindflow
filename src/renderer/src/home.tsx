@@ -939,7 +939,9 @@ export function Home(): React.JSX.Element {
       // ⌥⌘[ is the editor's fold, not Back.
       if (event.metaKey && !event.altKey && event.key === '[') return step(-1)
       if (event.metaKey && !event.altKey && event.key === ']') return step(1)
+      // Taken here: on macOS the menu's ⌘\ (app-menu.ts) also fires for a key the page lets go.
       if (event.metaKey && !event.altKey && event.key === '\\') {
+        event.preventDefault()
         chime(sidebar ? 'fold' : 'slide')
         return setSidebar((open) => !open)
       }

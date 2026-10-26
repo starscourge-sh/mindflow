@@ -25,7 +25,9 @@ const PLACES: [string, string][] = [
  * The menu bar, Haligtree's own: Settings and About in the app menu, making
  * and bringing in notes under File, the places under View, the help under Help.
  * A key the page or the main process already hears is only shown here
- * (`registerAccelerator: false`), so one press never does a thing twice.
+ * (`registerAccelerator: false`). macOS ignores that flag and the menu still
+ * takes any key the page lets go, so the page calls preventDefault on each key
+ * it takes (⌘\ in home.tsx) and one press never does a thing twice.
  * Edit > Select All (⌘A) asks the window first, so a list with the focus picks
  * every row, as Finder does, whichever of the page and the menu hears the key
  * first. With no list listening, or while writing, it selects the words as before (preload).
