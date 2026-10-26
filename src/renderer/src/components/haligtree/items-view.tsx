@@ -60,6 +60,7 @@ import { RoomFoot, useWritingRoom } from './writing-room'
 import { useWritingSound } from './writing-sound'
 import { writerMenu } from './writer-tools'
 import { Proofread } from './proofread'
+import { askProofread } from '@/lib/grammar'
 import { ListSearch, NoteList, NoteRail, PaneButtons, Peek, matches, type Entry } from './note-list'
 import { archive, changeKind, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
 import { openApart } from '@/lib/apart'
@@ -922,12 +923,15 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
               'separator' as const
             ] : []),
             ...(item.tier === 'article' && !boardShown ? [{ label: room.on ? 'Leave the writing room' : 'Writing room', keys: '⇧⌘↵', run: room.toggle }, ...writerMenu(ready, room.focus, (text) => toast(text, undefined, 'info')), 'separator' as const] : []),
+            // Proofread when asked, on any page; a piece of Writing has it in its writer's lines above.
+            ...(item.tier !== 'article' ? [{ label: 'Proofread', hint: 'Spelling, grammar and style, one at a time', run: askProofread }] : []),
             ...itemMenu(item), 'separator', { label: 'Copy title', run: () => copy(item.title) },
             // Housekeeping last, as on every card's menu.
             'separator', binItem([{ type: item.tier, id: item.id }])
           ]} />
         {room.on && <RoomFoot editor={ready} title={item.title || 'Untitled'} proof={item.tier === 'article'} />}
-        {item.tier === 'article' && <Proofread editor={ready} />}
+        {/* Any page can be proofread when asked; only Writing offers checking as you write. */}
+        <Proofread editor={ready} ask={item.tier !== 'article'} />
         {item.tier === 'article' && (
           // Wraps as a heading does, so a long title is never cut off at the edge; Enter ends it.
           // In the words' own column (main.css), so it starts where they start.

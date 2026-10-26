@@ -13,6 +13,8 @@ import { HaligtreeEditor } from '../haligtree'
 import { ASKS, CAPTURE_TYPES, CaptureKindPicker, byKind, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { SourceFoot } from './source-page'
 import { voiceOf } from '@/lib/sources'
+import { Proofread } from './proofread'
+import { askProofread } from '@/lib/grammar'
 import { CaptureList, fieldOf, captureEntry, captureMenu, tagCaptures, useCaptures, whereFrom, type CaptureMeta } from '../capture-list'
 import { tagTint } from './tag-icon'
 import { AGES, Display, FilterChips, arrange, islandsOn, period, useView, type Choice, type Density, type Facet, type View } from './display'
@@ -662,6 +664,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
               pinned={!!meta.pinnedAt} onPin={() => pin('captures', meta.id, !meta.pinnedAt)} copyKey={noteLinkText(meta.id, meta.label)}
               menu={[
                 open.original ? { label: 'See the original', hint: 'As it was first written', run: () => (chime('rewind'), setFirst(open.original)) } : null,
+                { label: 'Proofread', hint: 'Spelling, grammar and style, one at a time', run: askProofread },
                 ...(boardShown ? [
                   'separator' as const,
                   { label: listOut ? 'Hide the list' : 'Show the list', run: () => (chime(listOut ? 'fold' : 'slide'), setListOut(!listOut)) },
@@ -758,6 +761,8 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
               onChange={words.save}
               foot={(editor) => <SessionFooter editor={editor} note={`capture-${open.id}`} />}
             />
+            {/* Proofread when asked from the note's menu, never checking as you write. */}
+            <Proofread editor={editor} ask />
             </div>
             )}
             {boardShown && <Board key={`${open.id}-${rev}`} editor={editor} id={open.id} tools={tools} />}

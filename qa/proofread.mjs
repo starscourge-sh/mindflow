@@ -81,6 +81,13 @@ try {
   check('Esc skips to the next', skipped || first?.text?.includes('is is'))
   check('it ends "Clean."', (await bar())?.state === 'clean' && /Clean\./.test((await bar())?.text ?? ''), JSON.stringify(await bar()))
   check('the checker loaded on first use', (await wasm()) >= 1 && (await h.evaluate(() => window.qaGrammarLoad)) > 0, `${await wasm()}`)
+  // An Inbox note: Proofread from its menu, the same one finding at a time.
+  const note = await v('capture', { body: 'This is is a note from the Inbox.' }).catch(() => null)
+  await go('inbox'); await wait(1500)
+  await h.click('[data-capture-row], [data-row]').catch(() => {})
+  await wait(800)
+  await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:proofread')))
+  check('an Inbox note can be proofread when asked', await until(async () => ['one', 'clean'].includes((await bar())?.state)), JSON.stringify({ note, bar: await bar() }))
   check('no page errors', !c.errors?.some((one) => /PAGEERROR/.test(one)), (c.errors ?? []).slice(0, 2).join(' | '))
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])
