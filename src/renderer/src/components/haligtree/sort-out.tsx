@@ -5,6 +5,7 @@ import { useLive, haligtree, type Settings } from '@/lib/haligtree'
 import { useByKeys } from '@/lib/motion'
 import { readingQueue } from '@/lib/reading-queue'
 import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
 import { sortOut, suggestedTag, type Sort, type Sorted } from '../../../../main/day-lines'
 import { num } from '../../../../main/dates'
 import { shiftTo } from './tasks-view'
@@ -238,13 +239,11 @@ function Sheet({ text, origin, onClose }: { text: string; origin: string | null;
             ))}
           </p>
           {!origin && (
-            <button type="button" role="switch" aria-checked={keepPage} onClick={() => (chime(keepPage ? 'off' : 'on'), setKeepPage(!keepPage))}
-              className="flex items-center gap-2 rounded-md px-1.5 py-1 text-control text-foreground hover:bg-accent">
-              <span aria-hidden className={`relative h-4 w-7 rounded-full transition-colors ${keepPage ? 'bg-foreground' : 'bg-foreground/20'}`}>
-                <span className={`absolute top-0.5 left-0.5 size-3 rounded-full bg-background transition-transform ${keepPage ? 'translate-x-3' : ''}`} />
-              </span>
+            // The app's own switch, set as the Inbox's "Show sorted too" is: the switch, then its words.
+            <label data-keep-page className="flex h-7 cursor-default items-center gap-2 rounded-md px-2 text-control whitespace-nowrap text-foreground/85 hover:bg-accent/60">
+              <Switch checked={keepPage} onCheckedChange={(on) => (chime(on ? 'on' : 'off'), setKeepPage(on))} />
               Keep the page as a note too
-            </button>
+            </label>
           )}
           <Button size="sm" disabled={busy || !kept.length} onClick={() => void sort()}>Sort them</Button>
         </div>

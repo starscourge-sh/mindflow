@@ -493,7 +493,7 @@ export const TimeGoneSample = ({ on }: { on: boolean }): React.JSX.Element => (
 
 /** A heading with its arrow, folded or not: on, the arrow is there and its lines can fold away; off, no arrow. */
 export const FoldSample = ({ on }: { on: boolean }): React.JSX.Element => (
-  <span data-preview="fold" className="flex h-9 items-center gap-1 rounded-md border bg-background px-2 text-control font-semibold text-foreground">
+  <span data-preview="fold" className="flex h-9 w-40 items-center gap-1 rounded-md border bg-background px-2 text-control font-semibold text-foreground">
     <span aria-hidden className={`inline-block w-3 text-[10px] text-muted-foreground transition-opacity duration-200 ${on ? '' : 'opacity-0'}`}>▸</span>
     Chapter one
     <span className={`ml-1 flex flex-col gap-[3px] transition-opacity duration-200 ${on ? 'opacity-25' : ''}`}>
@@ -505,7 +505,7 @@ export const FoldSample = ({ on }: { on: boolean }): React.JSX.Element => (
 
 /** A misspelt word as that place shows it: on, its soft squiggle; off, the word left plain. */
 export const SpellSample = ({ on, words }: { on: boolean; words: string }): React.JSX.Element => (
-  <span data-preview="spell" data-on={on || undefined} className="flex h-9 items-center rounded-md border bg-background px-2.5 text-control text-foreground">
+  <span data-preview="spell" data-on={on || undefined} className="flex h-9 w-40 items-center justify-center rounded-md border bg-background px-2.5 text-control text-foreground">
     <span className="underline decoration-wavy decoration-1 underline-offset-[3px] transition-[text-decoration-color] duration-200"
       style={{ textDecorationColor: on ? 'color-mix(in oklab, var(--tt-cursor-color) 55%, transparent)' : 'transparent' }}>{words}</span>
   </span>
@@ -513,7 +513,7 @@ export const SpellSample = ({ on, words }: { on: boolean; words: string }): Reac
 
 /** The top bar once a note has scrolled: its first line there, faintly, or the bar left plain. */
 export const TitleTopSample = ({ on }: { on: boolean }): React.JSX.Element => (
-  <span data-preview="title-top" className="flex h-9 w-36 flex-col overflow-hidden rounded-md border bg-background">
+  <span data-preview="title-top" className="flex h-9 w-40 flex-col overflow-hidden rounded-md border bg-background">
     <span className="flex h-3.5 shrink-0 items-center border-b px-1.5 text-[9px] leading-none text-muted-foreground">
       <span className={`transition-opacity duration-200 ${on ? '' : 'opacity-0'}`}>Weekend in Lisbon</span>
     </span>

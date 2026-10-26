@@ -510,6 +510,9 @@ export function WelcomeLeaves({ on, open, middle = 0.3, gather = false, lure = n
         one.vy = 0
         at.face = e
       }
+      // For the probes only: where the small leaves are and how the bunch leans, a frame at a time.
+      const trace = (window as { qaLeafTrace?: unknown[] }).qaLeafTrace
+      if (trace) trace.push({ t: now, gust: gust.current, wind, motes: motes.slice(0, 8).map((one) => [Math.round(one.x), Math.round(one.y)]), bunch: [...bunch].map(([one, at]) => [Math.round(one.spin * 1000) / 1000, Math.round((at.lag ?? 0) * 1000) / 1000]) })
       if (!bunch.size) penHeld.clearRect(0, 0, cols, rows)
       if (bunch.size) {
         // The stems, each from the base to its leaf, in one dark ink, and a band where they are held.
