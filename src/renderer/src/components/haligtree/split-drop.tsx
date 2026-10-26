@@ -139,7 +139,14 @@ export function SplitDrop({ onDrop }: { onDrop: (carried: Carried, side: Side) =
     // The Queue's row in the sidebar, while the carried thing is over it: let go there, it joins the queue.
     // Pinned in the sidebar takes a note the same way (side-menu.tsx).
     let queued: HTMLElement | null = null
-    const queueAt = (px: number, py: number): HTMLElement | null => document.elementFromPoint(px, py)?.closest<HTMLElement>('[data-queue-drop], [data-side-drop], [data-folder-drop]') ?? null
+    // Read under the carried picture too: over the list's path bar it sits right under the pointer.
+    const queueAt = (px: number, py: number): HTMLElement | null => {
+      for (const one of document.elementsFromPoint(px, py)) {
+        const place = one.closest<HTMLElement>('[data-queue-drop], [data-side-drop], [data-folder-drop]')
+        if (place) return place
+      }
+      return null
+    }
     const area = (): DOMRect | null => document.querySelector('[data-split-area]')?.getBoundingClientRect() ?? null
     let quiet = still()
     // The places put away while the drag goes on.

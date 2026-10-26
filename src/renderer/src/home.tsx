@@ -922,7 +922,7 @@ export function Home(): React.JSX.Element {
         return setSearching(event.key === 'k' ? 'all' : 'notes')
       }
       // ⌘N, as in Notion and Linear: what "New" makes, a blank page or a capture in the box.
-      if (event.metaKey && event.key === 'n') {
+      if (event.metaKey && !event.shiftKey && event.key === 'n') {
         event.preventDefault()
         return makeNew()
       }

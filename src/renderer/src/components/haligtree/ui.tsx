@@ -241,7 +241,7 @@ export function Page({ title, lead, count, unit = ['item', 'items'], actions, se
           {typeof title === 'string' && title.startsWith('#') ? <span className="font-medium text-foreground">{title}</span> : null}
           {lead}
           {/* What is picked is what the buttons act on: said plainly, never in grey. */}
-          {count ? <span className={cn('min-w-0 truncate whitespace-nowrap tabular-nums', unit[1] === 'selected' && 'font-medium text-foreground')}><Rolling text={count} /> {count === 1 ? unit[0] : unit[1]}</span> : null}
+          {count ? <span data-list-count={count} className={cn('min-w-0 truncate whitespace-nowrap tabular-nums', unit[1] === 'selected' && 'font-medium text-foreground')}><Rolling text={count} /> {count === 1 ? unit[0] : unit[1]}</span> : null}
           {/* The count is on the same line: measured again the moment it comes or changes, not a frame later by the observer. */}
           <FitActions keep={search} room={`${aside ? listWidth : 'page'} ${count ?? ''} ${count === 1 ? unit[0] : unit[1]}`}>{actions}</FitActions>
         </header>
