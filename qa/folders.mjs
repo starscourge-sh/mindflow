@@ -33,7 +33,8 @@ try {
   check('the tree shows Writing\'s groups', (await folder(money).count()) === 1 && (await folder(ideas).count()) === 1 && (await folder(rent).count()) === 1)
   check('Money counts its own notes and Rent\'s: 4', await reads(money, 'Money', 4), await text(money))
   check('Rent: 2, Ideas: 2', (await reads(rent, 'Rent', 2)) && (await reads(ideas, 'Ideas', 2)), `${await text(rent)} / ${await text(ideas)}`)
-  const indent = async (id) => (await folder(id).evaluate((one) => parseFloat(getComputedStyle(one).paddingLeft)))
+  // How far in a folder's icon sits: each level steps in under its parent's icon, on a trunk of its own.
+  const indent = async (id) => c.h.locator(`[data-folder-icon="${id}"]`).first().evaluate((one) => Math.round(one.getBoundingClientRect().left))
   check('a subgroup sits indented under its group', (await indent(rent)) > (await indent(money)), `${await indent(money)} → ${await indent(rent)}`)
   const countRight = await c.h.evaluate(([m]) => {
     const a = document.querySelector(`[data-side-folder="${m}"]`).lastElementChild.getBoundingClientRect().right

@@ -47,10 +47,13 @@ try {
   // The sidebar.
   const unfold = h.getByRole('button', { name: 'Show your tags' }).first()
   if (await unfold.isVisible().catch(() => false)) (await unfold.click(), await wait(700))
-  // The sandbox has more than 12 tags: found with the list's own field.
-  if (await h.locator('[data-side-tag-find] input').count()) (await h.locator('[data-side-tag-find] input').fill('cardz'), await wait(300), await h.locator('[data-side-tag-find] input').blur())
-  const side = h.locator('[data-side-tag="cardz"]')
-  if (await side.count()) { await rest(side); good(await read(), 'sidebar') } else check('sidebar: #cardz is listed', false)
+  // The sidebar keeps the eight most used, so #cardz (four notes) need not be there: its first tag's card instead.
+  const side = h.locator('[data-side-tag]').first()
+  if (await side.count()) {
+    await rest(side)
+    const one = await read()
+    check('sidebar: its tag\'s card says how many notes', /^\d[\d,]* notes?\b/.test(one.count ?? ''), one.count)
+  } else check('sidebar: a tag is listed', false)
 
   // A list row's tag: on the tag page of another tag the row carries.
   await h.evaluate((b) => window.api.captures.create({ kind: 'note', body: b }), doc('a row with #rowz and #cardz'))

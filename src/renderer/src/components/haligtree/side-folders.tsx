@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Branches } from './branches'
 import { createPortal } from 'react-dom'
 
 import { haligtree, useLive } from '@/lib/haligtree'
@@ -137,16 +138,30 @@ export function SideFolders({ list, open, shown, here, onOpen, onUnfold }: {
     end: () => (setAim(null), setCarried(null))
   }
   const lifted = carried && all.find((one) => one.id === carried.id)
-  const rows = (parent: string | null, depth: number): React.JSX.Element[] =>
-    kids(parent).flatMap((group) => [
-      <Folder key={group.id} list={list} group={group} depth={depth} n={count(group)} here={here === group.id} naming={naming === group.id} onNamed={() => setNaming(null)} onRename={() => setNaming(group.id)} onOpen={onOpen} onNest={nest} drag={drag} />,
-      ...rows(group.id, depth + 1)
-    ])
+  // Each level hung off a thin trunk from the row above it, a curved branch to each folder, as Pinned and
+  // Tags are; the way down to the folder you are in lit. Each level steps in under its parent's icon.
+  // The folder you are in, or one it sits inside: the lit way down runs through each.
+  const holds = (id: string): boolean => id === here || kids(id).some((one) => holds(one.id))
+  const rows = (parent: string | null, depth: number): React.JSX.Element | null => {
+    const these = kids(parent)
+    if (!these.length) return null
+    return (
+      <Branches current={these.findIndex((one) => holds(one.id))} className="ml-5 flex flex-col gap-px">
+        {these.flatMap((group) => {
+          const inner = rows(group.id, depth + 1)
+          return [
+            <Folder key={group.id} list={list} group={group} depth={depth} n={count(group)} here={here === group.id} naming={naming === group.id} onNamed={() => setNaming(null)} onRename={() => setNaming(group.id)} onOpen={onOpen} onNest={nest} drag={drag} />,
+            inner && <div key={`${group.id}:in`} data-no-twig="">{inner}</div>
+          ]
+        })}
+      </Branches>
+    )
+  }
   const top = rows(null, 0)
-  if (!top.length) return null
+  if (!top) return null
   return (
     <Unfold open={open}>
-      <div data-side-folders={list} className="flex flex-col gap-px">{top}</div>
+      <div data-side-folders={list}>{top}</div>
       {/* The folder carried, as a row is carried in the list: lifted under the pointer, in the app's own look. */}
       {lifted && carried.x > 0 && createPortal(
         <div aria-hidden data-folder-ghost={lifted.id} className="pointer-events-none fixed z-[80] flex items-center gap-2 rounded-md bg-background px-2.5 py-1 text-control shadow-[0_8px_24px_-6px_rgb(0_0_0/0.35)] ring-1 ring-foreground/10" style={{ left: carried.x + 10, top: carried.y - 14 }}>
@@ -203,7 +218,8 @@ function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen
     if (!words || words === group.name) return void (words && offerTag(list, group.id, words))
     void groups.set(group.id, { name: words }).then(() => offerTag(list, group.id, words))
   }
-  const left = `${1.75 + depth * 0.875}rem`
+  // The level's own step in is its trunk's (rows above); within it, the rows' own edge.
+  const left = '0.5rem'
   const menu: RowItem[] = [
     { label: 'Open', run: () => onOpen(group.id) },
     { label: 'Rename…', run: () => setTimeout(onRename, 120) },
