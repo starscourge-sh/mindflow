@@ -2131,7 +2131,7 @@ html[data-book-hue] [data-book-tint] {
   position: fixed; left: 0; right: 0; bottom: 0; padding: 0.875rem 1.5rem 1.125rem;
   background: linear-gradient(to top, var(--background) 60%, transparent);
 }
-[data-room] :is([data-apart='foot'], [data-day-count], .tiptap-word-count) { display: none; }
+[data-room] :is([data-apart='foot'], [data-day-count], .tiptap-word-count, [data-property-strip], :has(> [data-composer])) { display: none; }
 [data-room] > [data-note-head] { display: none; }
 /* The focus band (writer-tools.tsx): all but the sentence or paragraph you
    are on fades back into the page. */

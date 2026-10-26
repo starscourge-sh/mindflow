@@ -125,8 +125,15 @@ try {
   const writing = await room()
   check('6. a piece of Writing goes into the room too', writing?.covers && writing.on, JSON.stringify(writing))
   check('6. with its title and words, the page header left behind', writing?.headerGone && await h.evaluate(() => document.querySelector('[data-room] textarea')?.value === 'On rivers'), JSON.stringify(writing))
+  check('6. no properties, no thought box: only the title and the words', await h.evaluate(() => [...document.querySelectorAll('[data-room] [data-property-strip], [data-room] [data-composer]')].every((one) => !one.offsetParent)))
   check('6. its foot names it', /^.*On rivers\s*·\s*\d+ words/.test(writing?.foot ?? ''), writing?.foot)
   if (shots) await h.screenshot({ path: `${shots}/room-writing.png` })
+  if (shots) {
+    const was = await h.evaluate(() => { const root = document.documentElement; const was = root.className; root.className = 'dark'; return was })
+    await wait(300)
+    await h.screenshot({ path: `${shots}/room-writing-dark.png` })
+    await h.evaluate((was) => (document.documentElement.className = was), was)
+  }
   await h.keyboard.press('Escape')
   await wait(300)
   check('6. Esc leaves', (await room()) === null)

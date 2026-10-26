@@ -1416,7 +1416,8 @@ function Surface({
     let timer = 0
     const back = (): void => (clearTimeout(timer), dom.setAttribute("spellcheck", "true"))
     const onKey = (event: KeyboardEvent): void => {
-      if (event.metaKey || event.ctrlKey || (event.key.length !== 1 && event.key !== "Backspace" && event.key !== "Enter")) return
+      // ⌥↵ takes a suggestion (day-writing.tsx): it is not typing.
+      if (event.metaKey || event.ctrlKey || (event.altKey && event.key === "Enter") || (event.key.length !== 1 && event.key !== "Backspace" && event.key !== "Enter")) return
       dom.setAttribute("spellcheck", "false")
       clearTimeout(timer)
       timer = window.setTimeout(back, 1200)

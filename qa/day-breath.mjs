@@ -77,7 +77,7 @@ try {
   check('1. no beam, left alone past 4 s', (await box()).beam === null && !(await h.evaluate(() => document.querySelector('.mf-beam'))))
   // Held, then erased and the next one typed.
   await wait(7500)
-  const later = await samples(30, 200)
+  const later = await samples(45, 200)
   check('1. after a while it erases and types another', later.some((one) => one.length < whole.length) && later.some((one) => one && one !== whole && DAY_PROMPTS.includes(one) || (one.length > 3 && !whole.startsWith(one))), JSON.stringify(later))
   // As idle-frames.mjs reads it: away from the window, nothing runs on.
   const rest = await h.evaluate(async () => {
@@ -157,13 +157,12 @@ try {
   await wait(300)
   check('5. and Alt+Enter takes it', await h.evaluate(() => /receive$/.test(document.querySelector('[data-day-write] .tiptap').textContent.trim())), await h.evaluate(() => document.querySelector('[data-day-write] .tiptap').textContent.slice(-30)))
   if (process.env.QA_SHOTS) {
-    await h.screenshot({ path: `${process.env.QA_SHOTS}/day-writing-${await h.evaluate(() => (document.documentElement.classList.contains('dark') ? 'dark' : 'light'))}.png` })
-    await h.emulateMedia({ colorScheme: 'dark' })
-    await wait(600)
-    await h.screenshot({ path: `${process.env.QA_SHOTS}/day-writing-dark.png` })
-    await h.emulateMedia({ colorScheme: 'light' })
-    await wait(600)
     await h.screenshot({ path: `${process.env.QA_SHOTS}/day-writing-light.png` })
+    // Dark, as qa/themes.mjs wears it: the dark class alone on the root.
+    const was = await h.evaluate(() => { const root = document.documentElement; const was = root.className; root.className = 'dark'; return was })
+    await wait(300)
+    await h.screenshot({ path: `${process.env.QA_SHOTS}/day-writing-dark.png` })
+    await h.evaluate((was) => (document.documentElement.className = was), was)
   }
 
   // 3. An empty past day: its own prompt, no beam.

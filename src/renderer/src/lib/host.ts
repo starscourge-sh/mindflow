@@ -43,8 +43,6 @@ export interface HaligtreeHost {
   dragOut?: (src: string, name: string) => void
   /** A word's spelling suggestions when it is misspelt, null when it is not. */
   misspelt?: (word: string) => string[] | null
-  /** Keep a word as spelt right from now on. */
-  learnWord?: (word: string) => Promise<boolean>
   /**
    * Open a drawing in a window of its own, and keep it in step.
    *

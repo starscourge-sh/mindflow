@@ -3,54 +3,43 @@ export const QUESTIONS = { well: 'What went well today?', learned: 'What did you
 export type Question = keyof typeof QUESTIONS
 
 /**
- * What today's empty writing box asks, typed in one after another (the Day
- * page): each a question only today can answer, and one you could answer in
- * a line. Mornings look ahead, the middle of the day looks around, evenings
- * look back.
+ * What today's empty page asks, typed in one after another (the Day page):
+ * warm, open and short, framed by the time of day, and assuming nothing about
+ * your day (no meetings, no tasks).
  */
 export const DAY_QUESTIONS = {
   morning: [
-    'What would make today a good day?',
-    'What is the one thing you most want to get done?',
-    'Who are you seeing today, and what do you hope comes of it?',
-    'What are you avoiding, and why?',
-    'What are you looking forward to?',
-    'What is on your mind before the day starts?',
-    'How did you sleep, and what did you dream?',
-    'What small thing could you do for someone today?',
-    'What worry can you put down for today?',
-    'What would you try today if it could not go wrong?'
+    "What's on your mind this morning?",
+    'How are you waking up today?',
+    "What's sitting with you as the day starts?",
+    'What would make today feel good?',
+    "Anything you're carrying into today?",
+    'What are you looking forward to?'
   ],
   midday: [
-    'What has surprised you so far?',
-    'Where has your mind gone when it wandered?',
-    'What has felt harder than it should?',
-    'What did you notice that nobody else did?',
-    'What are you avoiding, and why?',
-    'What would make the rest of today better?',
-    'Who have you talked to, and what stayed with you?',
-    'What is the best idea you have had today?'
+    "What's on your mind right now?",
+    "How's the day going so far?",
+    "What's taken your attention today?",
+    'What would make the rest of today feel good?'
   ],
   evening: [
-    'What surprised you today?',
-    'Who made today better?',
-    'What did you notice that nobody else did?',
-    'What made you laugh today?',
-    'What did you get done that nobody saw?',
-    'What would you tell this morning’s you?',
-    'What is one thing from today you want to keep?',
-    'What small thing went right?',
-    'What is still unfinished, and does it matter?',
-    'What did you read or hear that is worth keeping?',
-    'What did you change your mind about?',
-    'What are you grateful for tonight?'
+    "What's on your mind tonight?",
+    'How was today, really?',
+    'What stayed with you from today?',
+    'Anything to put down before tomorrow?',
+    'What made today yours?'
+  ],
+  late: [
+    "What's keeping you up?",
+    "What's still on your mind?",
+    'Anything to set down before you sleep?'
   ]
 } as const
 /** Every one of them, whatever the hour. */
 export const DAY_PROMPTS: readonly string[] = Object.values(DAY_QUESTIONS).flat()
 
-/** Which list the hour asks from: before noon, until six, after. */
-export const dayPart = (hour: number): keyof typeof DAY_QUESTIONS => (hour < 12 ? 'morning' : hour < 18 ? 'midday' : 'evening')
+/** Which list the hour asks from: before noon, until six, until eleven, then late at night (till five). */
+export const dayPart = (hour: number): keyof typeof DAY_QUESTIONS => (hour < 5 || hour >= 23 ? 'late' : hour < 12 ? 'morning' : hour < 18 ? 'midday' : 'evening')
 
 /**
  * The `nth` question for a day at an hour: a step of three through the hour's

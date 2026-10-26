@@ -16,8 +16,8 @@ import { num } from '../../../../main/dates'
 
 /** The caption over today's words, for the hour the page opened in. */
 export const dayCaption = (hour = new Date().getHours()): string =>
-  hour < 12 ? 'Morning pages: whatever is on your mind. Nobody reads it, nothing needs fixing.'
-    : hour < 18 ? 'Afternoon pages: where the day has got to, what is pulling at you.'
+  hour < 12 ? 'Morning pages: whatever is on your mind.'
+    : hour < 18 ? 'Afternoon pages: wherever the day has got to.'
       : 'Evening pages: what happened, what stayed with you.'
 
 /** A pause this long and you are no longer typing: the count and the squiggles come back. */

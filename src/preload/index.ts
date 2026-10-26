@@ -110,8 +110,6 @@ const api = {
     if (webFrame.isWordMisspelled(word)) return webFrame.getWordSuggestions(word)
     return CAPITALS.test(word) && word === word.toLowerCase() ? [word.charAt(0).toUpperCase() + word.slice(1)] : null
   },
-  /** Keep a word as spelt right, in the Mac's own dictionary too. */
-  learnWord: (word: string): Promise<boolean> => ipcRenderer.invoke('haligtree:spelling:learn', word),
 
   /** The picture on the system clipboard, read by the system rather than from a pasted file that may not open. */
   clipboardImage: (): Promise<{ mime: string; bytes: Uint8Array } | null> => ipcRenderer.invoke('clipboard-image'),

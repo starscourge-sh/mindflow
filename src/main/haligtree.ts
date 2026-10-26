@@ -1309,7 +1309,6 @@ export function registerHaligtree(): void {
   // spelt right. One session serves every window, so it is set once.
   spelling()
   handle('spelling:languages', () => ({ all: session.defaultSession.availableSpellCheckerLanguages, on: spellingLanguages() }))
-  handle('spelling:learn', (word: string) => session.defaultSession.addWordToSpellCheckerDictionary(word))
   handle('private', (table: 'captures' | 'nuggets', id: string, on: boolean) => {
     const result = db.prepare(`update ${table === 'nuggets' ? 'nuggets' : 'captures'} set private = ? where id = ?`).run(on ? 1 : 0, id)
     // Made private, its plain-text backup copy goes at once.

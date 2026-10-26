@@ -47,7 +47,7 @@ export function misspeltAt(editor: Editor, x: number, y: number): Misspelling | 
 }
 
 /**
- * The spelling rows: up to five words it might be, then keeping it as it is.
+ * The spelling rows: up to five words it might be, from the page's own spellchecker (Chromium's, on every system).
  * Inside any of the editor's menus, which lend them their row styling.
  */
 export function SpellingRows({ editor, spelling }: { editor: Editor; spelling: Misspelling }) {
@@ -67,18 +67,6 @@ export function SpellingRows({ editor, spelling }: { editor: Editor; spelling: M
       {spelling.suggestions.length ? null : (
         <div className="tiptap-slash-menu-group">No suggestions</div>
       )}
-      <DropdownMenuItem asChild>
-        <button
-          type="button"
-          onClick={() => {
-            void host().learnWord?.(spelling.word)
-            editor.commands.focus()
-          }}
-        >
-          <span className="tiptap-slash-menu-title">Add to dictionary</span>
-          <span className="tiptap-slash-menu-hint">{spelling.word}</span>
-        </button>
-      </DropdownMenuItem>
     </>
   )
 }
