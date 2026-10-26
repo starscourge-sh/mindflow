@@ -77,12 +77,15 @@ const TEST = !!(process.env.HALIGTREE_USER_DATA || process.env.HALIGTREE_QA_AWAY
 /** “Allow 5 min”: how long a site is let through, this round only. The card is told it with each notice. */
 const ALLOW_MINUTES = 5
 
-/** A browser's front tab: its address, or that the Mac refused to let Haligtree read it. */
-type Tab = { url: string | null; denied?: boolean }
+/** A browser's front tab: its address and which tab it is, or that the Mac refused to let Haligtree read it. */
+type Tab = { url: string | null; denied?: boolean; win?: unknown; tab?: unknown }
 /** The app in front, and its front tab if it is one of the browsers asked about. */
 type Look = { app: string | null; tab: Tab | null }
-/** A tab sent away: its browser, the window and tab it is (a Safari tab by its place), and the address it was on. */
-type Sent = { app: string; win: unknown; tab: unknown; url: string }
+/**
+ * A tab sent away: its browser, the window and tab it is (a Safari tab by its
+ * place), the address it was on, when, and the mark on its block page's address.
+ */
+type Sent = { app: string; win: unknown; tab: unknown; url: string; at?: number; mark?: string }
 /** Put back: on its own tab, in a new tab of the browser's front window, or not at all (the browser is closed). */
 type Back = 'restored' | 'opened' | 'missed'
 type Layer = {
@@ -113,7 +116,7 @@ const SCRIPT = `function run(argv) {
       tab.url = argv[2]
       return JSON.stringify({ app: id, sent: true, win: win.id(), tab: place })
     }
-    return JSON.stringify({ app: id, url: tab.url() })
+    return JSON.stringify({ app: id, url: tab.url(), win: win.id(), tab: kind === 'safari' ? tab.index() : tab.id() })
   } catch (e) {
     var n = e.errorNumber
     return JSON.stringify({ app: id, url: null, denied: n === -1743 || n === -1744 })
@@ -172,7 +175,7 @@ const realLayer: Layer = {
   look: async (browsers, patient) => {
     const said = await ask(['tab', browsers], patient ? 90_000 : 2500)
     const app = typeof said?.app === 'string' ? said.app : null
-    return { app, tab: said && ('url' in said || said.denied) ? { url: typeof said.url === 'string' ? said.url : null, denied: said.denied === true } : null }
+    return { app, tab: said && ('url' in said || said.denied) ? { url: typeof said.url === 'string' ? said.url : null, denied: said.denied === true, win: said.win, tab: said.tab } : null }
   },
   away: async (one, page) => {
     const said = await ask(['away', kindsOf([one]), page], 2500)
@@ -192,7 +195,7 @@ const fakeLayer: Layer = {
     const now = fake()
     const store = globalThis as { siteBlockLooks?: number }
     store.siteBlockLooks = (store.siteBlockLooks ?? 0) + 1
-    return { app: now?.app ?? null, tab: now && now.app in JSON.parse(browsers) ? { url: now.url ?? null, denied: now.denied === true } : null }
+    return { app: now?.app ?? null, tab: now && now.app in JSON.parse(browsers) ? { url: now.url ?? null, denied: now.denied === true, win: now.win ?? 1, tab: now.tab ?? 1 } : null }
   },
   away: async (one, page) => {
     const store = globalThis as { siteBlockAway?: { app: string; url: string | null | undefined; page: string; at: number }[] }
@@ -219,9 +222,11 @@ const isBlockPage = (url: string | null | undefined): boolean => /^http:\/\/127\
 const escape = (text: string): string => text.replace(/[&<>"']/g, (one) => `&#${one.charCodeAt(0)};`)
 /**
  * The block page: what is blocked and until when, and a quiet line saying the
- * tab goes on by itself. It asks every two seconds; told the site may open, or
- * not answered at all (Haligtree quit, so nothing blocks it), it goes on to the
- * page asked for. Light or dark as the Mac is.
+ * tab goes on by itself. It never reloads itself: it asks with a quiet fetch
+ * every two seconds (at once when the tab comes back into view); told the site
+ * may open, or not answered at all (Haligtree quit, so nothing blocks it), it
+ * goes on to the page asked for, once. Leaving, it says so, so Haligtree knows
+ * the tab is no longer on it. Light or dark as the Mac is.
  */
 const blockPage = (site: string, until: string | null): string => `<!doctype html><html><head><meta charset="utf-8"><title>${escape(site)} is blocked</title>
 <meta name="color-scheme" content="light dark"><style>
@@ -235,12 +240,16 @@ main{max-width:30rem;padding:2rem;text-align:center}h1{font-size:1.6rem;font-wei
 var q = new URLSearchParams(location.search), until = ${JSON.stringify(until)}
 var u = document.getElementById('until')
 if (u && until) u.textContent = new Date(until).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-function go() { var to = q.get('to'); if (/^https?:/i.test(to || '')) location.replace(to) }
+var timer, gone = false
+function go() { var to = q.get('to'); if (!gone && /^https?:/i.test(to || '')) (gone = true), location.replace(to) }
 function ask() {
+  clearTimeout(timer)
   fetch('/haligtree-blocked/state' + location.search, { cache: 'no-store' }).then(function (r) { return r.json() })
-    .then(function (s) { if (!s.blocked) go(); else setTimeout(ask, 2000) }, go)
+    .then(function (s) { if (!s.blocked) go(); else timer = setTimeout(ask, 2000) }, go)
 }
-setTimeout(ask, 2000)
+timer = setTimeout(ask, 2000)
+document.addEventListener('visibilitychange', function () { if (!document.hidden) ask() })
+addEventListener('pagehide', function () { navigator.sendBeacon('/haligtree-blocked/gone' + location.search) })
 </script></body></html>`
 
 /** The focus round running now, if one is: its session, and when it ends (null with no length). */
@@ -276,6 +285,9 @@ export function registerSiteBlock({ notify }: { notify: (notice: BlockNotice) =>
 
   // Let through for a while, this round only: the site, until when.
   let allowed = new Map<string, number>()
+  // Sites already said in a notice this round: said once, so a closed notice stays closed
+  // and a tab sent away again (a refresh, the back button) never brings it back.
+  let told = new Set<string>()
   let roundOf: string | null = null
   // Tabs sent away, by site, each with the address it was on: put back once the site may open.
   // Kept in a file beside every book, not in one, so whichever run comes next can put them back.
@@ -327,13 +339,29 @@ export function registerSiteBlock({ notify }: { notify: (notice: BlockNotice) =>
     const blocked = !!round && blockedSite(to, list) === site && !((allowed.get(site) ?? 0) > Date.now())
     return { blocked, until: blocked && round?.until ? new Date(round.until).toISOString() : null }
   }
+  // When each block page (by the mark on its address) last asked; 0 once it said it was leaving.
+  const seen = new Map<string, number>()
+  // A tab already sent to this site's block page that is still on it: loaded or asked within
+  // the last few seconds and not gone. Some browsers (Dia, Arc) keep reporting the old address
+  // for a while after the tab was sent away; sent away again each second, it reloaded the
+  // page over and over. A tab that really goes back to the site has left its block page, so
+  // it is sent away again at the next look.
+  const onBlockPage = (site: string, app: string, tab: Tab): boolean =>
+    (sent.get(site) ?? []).some((one) => {
+      if (one.app !== app || (tab.tab !== undefined && (String(one.tab) !== String(tab.tab) || String(one.win) !== String(tab.win)))) return false
+      const last = one.mark && seen.has(one.mark) ? seen.get(one.mark)! : (one.at ?? 0)
+      return Date.now() - last < 5000
+    })
   // The block page, served on this Mac only. The address it carries is only ever a web page's.
   let pageBase: string | null = null
   const server = createServer((request, answer) => {
     const asked = new URL(request.url ?? '/', 'http://127.0.0.1')
     const site = asked.searchParams.get('site') ?? ''
     const to = asked.searchParams.get('to') ?? ''
+    const mark = asked.searchParams.get('n')
     if (!asked.pathname.startsWith('/haligtree-blocked') || !/^https?:\/\//i.test(to)) return void answer.writeHead(404).end()
+    if (asked.pathname === '/haligtree-blocked/gone') return void (mark && seen.set(mark, 0), answer.writeHead(204).end())
+    if (mark) seen.set(mark, Date.now())
     const now = stillBlocked(site, to)
     if (asked.pathname === '/haligtree-blocked/state') return void answer.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }).end(JSON.stringify(now))
     // A refresh once the block is over: straight on to the page asked for.
@@ -346,7 +374,8 @@ export function registerSiteBlock({ notify }: { notify: (notice: BlockNotice) =>
     if (where && typeof where === 'object') pageBase = `http://127.0.0.1:${where.port}/haligtree-blocked`
   })
   app.on('will-quit', () => server.close())
-  const pageFor = (site: string, url: string): string => (pageBase ? `${pageBase}?${new URLSearchParams({ site, to: url })}` : 'about:blank')
+  let marks = 0
+  const pageFor = (site: string, url: string, mark?: string): string => (pageBase ? `${pageBase}?${new URLSearchParams({ site, to: url, ...(mark ? { n: mark } : {}) })}` : 'about:blank')
   // For the probes: the page a site's tab would be sent to.
   ;(globalThis as { siteBlockPage?: (site: string, url: string) => string }).siteBlockPage = pageFor
 
@@ -358,7 +387,7 @@ export function registerSiteBlock({ notify }: { notify: (notice: BlockNotice) =>
     if (going) return
     const { siteBlock, blockSites: list } = blockPrefs()
     const round = siteBlock && list.length ? runningRound() : null
-    if (round && round.id !== roundOf) (roundOf = round.id, (allowed = new Map()))
+    if (round && round.id !== roundOf) (roundOf = round.id, (allowed = new Map()), (told = new Set()))
     await release(round, list)
     if (!round) return
     // One look a tick, at the browsers already asked once. One not asked yet
@@ -377,13 +406,16 @@ export function registerSiteBlock({ notify }: { notify: (notice: BlockNotice) =>
     if (tab.denied) return void (!denied.has(browser.name) && (denied.add(browser.name), changed()))
     if (denied.delete(browser.name)) changed()
     const site = blockedSite(tab.url, list)
-    if (!site || (allowed.get(site) ?? 0) > Date.now()) return
+    if (!site || (allowed.get(site) ?? 0) > Date.now() || onBlockPage(site, front, tab)) return
     const url = tab.url!
-    const place = await layer.away(front, pageFor(site, url))
+    const mark = `${Date.now().toString(36)}${(marks++).toString(36)}`
+    const place = await layer.away(front, pageFor(site, url, mark))
     if (!place) return
-    sent.set(site, [...(sent.get(site) ?? []), { app: front, ...place, url }])
+    sent.set(site, [...(sent.get(site) ?? []), { app: front, ...place, url, at: Date.now(), mark }])
     keep()
     db.prepare('insert into session_blocks (session_id, site, count) values (?, ?, 1) on conflict (session_id, site) do update set count = count + 1').run(round.id, site)
+    if (told.has(site)) return
+    told.add(site)
     notify({ kind: 'blocked', id: site, site, until: round.until ? new Date(round.until).toISOString() : null, allowMinutes: ALLOW_MINUTES })
   }
   // One look at a time, each a second after the last ended: never a pile of waiting asks.
@@ -401,6 +433,8 @@ export function registerSiteBlock({ notify }: { notify: (notice: BlockNotice) =>
     if (typeof site !== 'string' || !site) return null
     const until = Date.now() + ALLOW_MINUTES * 60_000
     allowed.set(site, until)
+    // Blocked again once the allowance ends, it is said again then.
+    told.delete(site)
     const back = await putBack(site, true)
     return { until: new Date(until).toISOString(), missed: back === 'missed' }
   })
