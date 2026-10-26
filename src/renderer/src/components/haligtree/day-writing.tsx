@@ -151,6 +151,18 @@ export function useWritingQuiet(editor: Editor | null, day: string): number {
  * "Show the whole page" under it, so the day's tasks stay near. It opens whole, smoothly, on that, on a click
  * in the words, or once you write (writing mode), and stays open until you leave the page.
  */
+/** How many letters apart two words are (added, dropped or changed), stopping early past 2. */
+const apart = (a: string, b: string): number => {
+  if (Math.abs(a.length - b.length) > 2) return 3
+  let row = Array.from({ length: b.length + 1 }, (_, i) => i)
+  for (let i = 1; i <= a.length; i++) {
+    const next = [i]
+    for (let j = 1; j <= b.length; j++) next[j] = Math.min(row[j] + 1, next[j - 1] + 1, row[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1))
+    row = next
+  }
+  return row[b.length]
+}
+
 export function PageCap({ editor }: { editor: Editor | null }): React.JSX.Element | null {
   const [more, setMore] = useState(0)
   const [open, setOpen] = useState(false)
@@ -248,8 +260,10 @@ export function LivingCaret({ editor }: { editor: Editor | null }): React.JSX.El
           still = window.setTimeout(() => one.setAttribute('data-resting', ''), 600)
         }
         const flagged = document.documentElement.hasAttribute('data-day-typing') ? null : misspeltAt(editor, at.left - 1, (at.top + at.bottom) / 2)
-        // Tab offers only a likely fix: for a word in lower case, never a name in its place.
-        if (!flagged?.suggestions.length || (flagged.word === flagged.word.toLowerCase() && flagged.suggestions[0] !== flagged.suggestions[0].toLowerCase())) return setHint(null)
+        // Tab offers only a likely fix: for a word in lower case, a capitalised one only when it is that word with a
+        // capital ("monday" to "Monday") or a letter off, never a different name ("Sligo" for "slsig").
+        const best = flagged?.suggestions[0]
+        if (!best || (flagged.word === flagged.word.toLowerCase() && best !== best.toLowerCase() && apart(best.toLowerCase(), flagged.word) > 1)) return setHint(null)
         // Clear of the words: under the word when nothing is written below its line, else in the
         // margin beside the line with room for it, else not at all (the squiggle and right-click stay).
         const last = editor.view.coordsAtPos(editor.state.doc.content.size - 1).bottom <= at.bottom + 1

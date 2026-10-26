@@ -212,6 +212,11 @@ try {
   await h.keyboard.press('Tab')
   await wait(300)
   check('5. and Tab takes it', await h.evaluate(() => /receive$/.test(document.querySelector('[data-day-write] .tiptap').textContent.trim())), await h.evaluate(() => document.querySelector('[data-day-write] .tiptap').textContent.slice(-30)))
+  // A day's name in lower case: its capital offered, as any other fix.
+  await h.keyboard.type(' on monday', { delay: 30 })
+  await h.keyboard.press('ArrowLeft')
+  await wait(1800)
+  check('5. "monday" offers "Monday"', /Monday/.test(await h.evaluate(() => document.querySelector('[data-spell-hint]')?.textContent ?? '')), await h.evaluate(() => document.querySelector('[data-spell-hint]')?.textContent ?? 'none'))
 
   // 3. An empty past day: its own prompt, no beam.
   const past = new Date(); past.setDate(past.getDate() - 40)

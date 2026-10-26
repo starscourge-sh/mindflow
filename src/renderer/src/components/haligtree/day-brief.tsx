@@ -318,7 +318,8 @@ export function DayBrief({ day, onOpen, onListed, between }: {
             </div>
             <ul className="min-w-0 divide-y divide-border/50">
               {/* Written out (“Write out my day”): the same page here, to write on and tick. */}
-              {written && <li className="py-2"><DayList compact /></li>}
+              {/* Its rows keep a gutter for their drag grip: pulled back by it, so its circles line up with the marks of the rows below. */}
+              {written && <li className="py-2"><div className="-ml-6"><DayList compact /></div></li>}
               {!written && shown.map((task) => (
                 <TaskRow key={task.id} task={task} today={today} first={task.id === frog} done={struck(task)} pen={!!ticked[task.id]?.pen} onTick={() => tick(task)} now={taskNow} room={markRoom(shown)} />
               ))}
