@@ -4,7 +4,7 @@
 // on the whole question. No beam (the box it went round is gone). Typing a few
 // words fades the rest of the page to near nothing (opacity only), a pointer
 // move or a pause brings it back; the caret is an accent bar that glides, the
-// count says words and time on a pause, typewriter scrolling is on, and the
+// count stays at the window's foot (rolling on a pause), typewriter scrolling is on, and the
 // squiggles wait for a pause, the first suggestion beside the caret (Alt+Enter).
 // Not on an empty past day; under reduced motion one question, still, and a
 // plain accent caret; nothing runs on with the window not looked at.
@@ -105,9 +105,30 @@ try {
 
   // 5. Writing: the rest steps back, the caret glides, the count comes back as words and time.
   const caption = await h.evaluate(() => document.querySelector('[data-day-caption]')?.textContent)
-  const fade = () => h.evaluate(() => ['aside[data-chrome]', '[data-today-line]', '[data-page] header'].map((sel) => { const el = document.querySelector(sel); let o = 1; for (let at = el; at; at = at.parentElement) o *= Number(getComputedStyle(at).opacity); return el ? Math.round(o * 100) / 100 : null }))
+  const fade = () => h.evaluate(() => ['aside[data-chrome]', '[data-today-line]', '[data-page] header', 'header[data-drag-strip]'].map((sel) => { const el = document.querySelector(sel); let o = 1; for (let at = el; at; at = at.parentElement) if (getComputedStyle(at).display !== 'contents') o *= Number(getComputedStyle(at).opacity); return el ? Math.round(o * 100) / 100 : null }))
+  /** Everything drawn in the window that is not the words' own way up, nor the writer's line: its opacity, and whether a click there lands on it. */
+  const others = () => h.evaluate(() => {
+    const out = []
+    for (let at = document.querySelector('[data-day-write]'); at && at !== document.documentElement; at = at.parentElement)
+      for (const kid of at.parentElement.children) {
+        if (kid === at || kid.matches('[data-writer-line], script, style, link')) continue
+        // A wrapper of display: contents draws nothing and opacity skips it: what is in it counts.
+        for (const one of getComputedStyle(kid).display === 'contents' ? kid.children : [kid]) {
+        if (!one.getClientRects().length) continue
+        const r = one.getBoundingClientRect()
+        const x = r.x + r.width / 2, y = r.y + r.height / 2
+        const hit = x > 0 && y > 0 && x < innerWidth && y < innerHeight && one.contains(document.elementFromPoint(x, y))
+        out.push({ el: (one.tagName + '.' + (one.getAttributeNames().filter((n) => n.startsWith('data-'))[0] ?? String(one.className).slice(0, 20))), o: getComputedStyle(one).opacity, hit })
+      }
+      }
+    return out
+  })
+  const line = () => h.evaluate(() => { const one = document.querySelector('[data-writer-line]'); return one && { o: getComputedStyle(one).opacity, text: one.textContent, events: getComputedStyle(one).pointerEvents, bottom: Math.round(innerHeight - one.getBoundingClientRect().bottom) } })
+  const lineAt = () => h.evaluate(() => { const r = document.querySelector('[data-writer-line]')?.getBoundingClientRect(); return r && [r.x, r.y, r.width, r.height].map(Math.round).join(',') })
   // Sizes, and where each sits against the caption: typewriter scrolling may move the page as a whole.
-  const geometry = () => h.evaluate(() => { const top = document.querySelector('[data-day-caption]').getBoundingClientRect().y; return [...document.querySelectorAll('[data-page] header, [data-today-line], [data-day-caption]')].map((el) => { const r = el.getBoundingClientRect(); return [r.x, el.closest('header') ? 0 : r.y - top, r.width, r.height].map(Math.round).join(',') }).join('|') })
+  // The Brief's line of date, time and weather is centred and grows as the weather comes in: its
+  // middle and top are where it sits, not its width.
+  const geometry = () => h.evaluate(() => { const top = document.querySelector('[data-day-caption]').getBoundingClientRect().y; return [...document.querySelectorAll('[data-page] header, [data-today-line], [data-day-caption], [data-day-write] .tiptap')].map((el) => { const r = el.getBoundingClientRect(); const y = el.closest('header') ? 0 : r.y - top; return (el.matches('[data-today-line]') ? [r.x + r.width / 2, y] : el.matches('.tiptap') ? [r.x, r.width] : [r.x, y, r.width, r.height]).map(Math.round).join(',') }).join('|') })
   const shape = await geometry()
   const rested = await fade()
   check('5. the window is in front, the caret in the words', await h.evaluate(() => document.hasFocus() && !!document.activeElement?.closest('[data-day-write]')))
@@ -129,22 +150,46 @@ try {
   await h.keyboard.type('rsday was long and quiet and good ', { delay: 40 })
   await wait(1000)
   const away = await fade()
-  check('5. a few words in, the sidebar, the brief and the bar step back to near nothing', away.every((o) => o !== null && o < 0.15), JSON.stringify(away))
+  check('5. a few words in, the sidebar, the brief, the page\'s bar and the window\'s bar are gone', away.every((o) => o === 0), JSON.stringify(away))
+  const gone = await others()
+  check('5. everything but the words is at opacity 0', gone.length > 3 && gone.every((one) => one.o === '0'), JSON.stringify(gone.filter((one) => one.o !== '0')))
+  check('5. and a click there passes through it', gone.every((one) => !one.hit), JSON.stringify(gone.filter((one) => one.hit)))
+  await wait(1200)
+  const writer = await line()
+  const writerAt = await lineAt()
+  // The writing state, light and dark, for a look: a pause in, before the rest comes back.
+  if (process.env.QA_SHOTS) {
+    await h.keyboard.type('by the river ', { delay: 40 })
+    await wait(1900)
+    await h.screenshot({ path: `${process.env.QA_SHOTS}/day-writing-light.png` })
+    // Dark, as qa/themes.mjs wears it: the dark class alone on the root.
+    const was = await h.evaluate(() => { const root = document.documentElement; const was = root.className; root.className = 'dark'; return was })
+    await wait(150)
+    await h.screenshot({ path: `${process.env.QA_SHOTS}/day-writing-dark.png` })
+    await h.evaluate((was) => (document.documentElement.className = was), was)
+  }
+  check('5. the writer\'s line shows at the foot, words and minutes and the time', writer?.o === '1' && writer.events === 'none' && writer.bottom === 0 && /^\d+ words?(·\d+ minutes?)?·\d{1,2}:\d{2}( [AP]M)?$/.test(writer.text), JSON.stringify(writer))
+  check('5. it says the words so far, on a pause', Number(writer?.text.match(/^\d+/)?.[0]) >= 6, JSON.stringify(writer))
   check('5. nothing moved: opacity only', (await geometry()) === shape, `${shape} vs ${await geometry()}`)
   check('5. the caption never changed while typing', (await h.evaluate(() => document.querySelector('[data-day-caption]')?.textContent)) === caption)
-  check('5. the count is hidden while typing', await h.evaluate(() => { const c = document.querySelector('[data-day-count]'); return !c || getComputedStyle(c).opacity === '0' }))
+  check('5. no count under the words: it lives in the writer\'s line', !(await h.evaluate(() => document.querySelector('[data-day-write] [data-day-count]'))))
   await h.mouse.move(400, 400)
   await h.mouse.move(460, 420)
-  await wait(800)
+  await wait(1400)
   const backAgain = await fade()
   check('5. a hand on the pointer brings it back', JSON.stringify(backAgain) === JSON.stringify(rested), JSON.stringify(backAgain))
+  check('5. and the writer\'s line stays, the same line in the same place', (await line())?.o === '1' && (await lineAt()) === writerAt, `${writerAt} vs ${await lineAt()}`)
+  check('5. what came back takes clicks again', (await others()).some((one) => one.hit))
+  const before = (await line())?.text
   await h.keyboard.type('and then some more words came ', { delay: 30 })
   await wait(700)
+  check('5. while keys go, the line holds still', (await line())?.text === before, `${before} vs ${(await line())?.text}`)
   check('5. typing again, it steps back again', (await fade()).every((o) => o < 0.5))
+  check('5. nothing moved this time either', (await geometry()) === shape, `${shape} vs ${await geometry()}`)
   await wait(3500)
   check('5. and a pause brings it back', JSON.stringify(await fade()) === JSON.stringify(rested), JSON.stringify(await fade()))
-  const count = await h.evaluate(() => { const c = document.querySelector('[data-day-count]'); return c && { text: c.textContent, o: getComputedStyle(c).opacity } })
-  check('5. on a pause the count is back, as words and time', count?.o === '1' && /^\d+ words(, \d+ minutes?)?$/.test(count.text), JSON.stringify(count))
+  const count = await line()
+  check('5. on a pause the line has rolled on to the words so far', Number(count?.text.match(/^\d+/)?.[0]) > Number(writer?.text.match(/^\d+/)?.[0]) && (await lineAt()) === writerAt, JSON.stringify(count))
   check('5. the squiggles come back on a pause', await h.evaluate(() => document.querySelector('[data-day-write] .tiptap').getAttribute('spellcheck') === 'true'))
   const caretRest = await h.evaluate(() => { const c = document.querySelector('[data-living-caret]'); return { resting: c.hasAttribute('data-resting'), anim: getComputedStyle(c).animationName, dur: getComputedStyle(c).animationDuration } })
   check('5. resting, the caret blinks slowly', caretRest.resting && caretRest.anim === 'mf-caret-blink' && caretRest.dur === '1.6s', JSON.stringify(caretRest))
@@ -156,14 +201,6 @@ try {
   await h.keyboard.press('Alt+Enter')
   await wait(300)
   check('5. and Alt+Enter takes it', await h.evaluate(() => /receive$/.test(document.querySelector('[data-day-write] .tiptap').textContent.trim())), await h.evaluate(() => document.querySelector('[data-day-write] .tiptap').textContent.slice(-30)))
-  if (process.env.QA_SHOTS) {
-    await h.screenshot({ path: `${process.env.QA_SHOTS}/day-writing-light.png` })
-    // Dark, as qa/themes.mjs wears it: the dark class alone on the root.
-    const was = await h.evaluate(() => { const root = document.documentElement; const was = root.className; root.className = 'dark'; return was })
-    await wait(300)
-    await h.screenshot({ path: `${process.env.QA_SHOTS}/day-writing-dark.png` })
-    await h.evaluate((was) => (document.documentElement.className = was), was)
-  }
 
   // 3. An empty past day: its own prompt, no beam.
   const past = new Date(); past.setDate(past.getDate() - 40)

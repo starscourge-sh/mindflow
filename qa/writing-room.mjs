@@ -59,6 +59,10 @@ try {
   check('1. a quiet foot: title, words, time, the way out', /^.*Today, .*·\s*\d+ words\s*·\s*(\d+ minutes?|under a minute)\s*·\s*Esc to leave/.test(day?.foot ?? ''), day?.foot)
   check('1. the caret is in the words', await h.evaluate(() => !!document.activeElement?.closest('[data-room]')))
   if (shots) await h.screenshot({ path: `${shots}/room-day.png` })
+  check('1. the page\'s own writer\'s line stays out of the room: it has its own foot', await h.evaluate(() => { const one = document.querySelector('[data-writer-line]'); return !one || getComputedStyle(one).display === 'none' }))
+  /** How a line of words is set: its size, ink, spacing and how far it sits off the window's foot. */
+  const set = (sel) => h.evaluate((sel) => { const one = document.querySelector(sel); if (!one) return null; const s = getComputedStyle(one); const text = one.querySelector('span span') ?? one; const t = getComputedStyle(text); return { size: t.fontSize, ink: t.color, font: t.fontFamily.slice(0, 20), gap: getComputedStyle(one.lastElementChild).columnGap, foot: s.paddingBottom, off: Math.round(innerHeight - one.getBoundingClientRect().bottom) } }, sel)
+  const roomSet = await set('[data-room] [data-room-foot]')
 
   // 2. Focus on the sentence: the sentence with the caret stays, the rest fades.
   await h.keyboard.press('Meta+ArrowDown')
@@ -113,6 +117,25 @@ try {
   await h.keyboard.press('Shift+Meta+Enter')
   await wait(300)
   check('5. and ⇧⌘↵ comes out', (await room()) === null)
+  // Out of the room: the page's count is the writer's line at the window's foot, set as the room's foot is.
+  await wait(600)
+  const line = await h.evaluate(() => { const one = document.querySelector('[data-writer-line]'); return one && { text: one.textContent, o: getComputedStyle(one).opacity, aim: !!one.querySelector('[data-writer-aim]') } })
+  check('5. the page\'s count is at the window\'s foot, with the aim\'s hairline', line?.o === '1' && line.aim && /^\d+ words of 40/.test(line.text), JSON.stringify(line))
+  const lineSet = await set('[data-writer-line]')
+  check('5. set exactly as the room\'s foot: type, ink, spacing, place', JSON.stringify(lineSet) === JSON.stringify(roomSet), `${JSON.stringify(lineSet)} vs ${JSON.stringify(roomSet)}`)
+  check('5. no count under the words any more', !(await h.evaluate(() => document.querySelector('[data-day-write] [data-day-count]'))))
+  if (shots) {
+    await h.screenshot({ path: `${shots}/day-line.png` })
+    const was = await h.evaluate(() => { const root = document.documentElement; const was = root.className; root.className = 'dark'; return was })
+    await wait(300)
+    await h.screenshot({ path: `${shots}/day-line-dark.png` })
+    await h.keyboard.press('Shift+Meta+Enter')
+    await wait(500)
+    await h.screenshot({ path: `${shots}/room-day-dark.png` })
+    await h.keyboard.press('Shift+Meta+Enter')
+    await wait(300)
+    await h.evaluate((was) => (document.documentElement.className = was), was)
+  }
 
   // 6. A piece of Writing: its menu has the room and the tools; in the room only the title and the words.
   const piece = await v('article:new')
