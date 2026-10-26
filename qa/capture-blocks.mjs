@@ -82,6 +82,21 @@ try {
       check('and the window shows what it showed, marked only', now.replace(/\s+/g, ' ') === was.replace(/\s+/g, ' '), now.slice(0, 200))
     }
   }
+  // A long selection with headings: offered a capture a heading, which keeps each part apart and the note unchanged.
+  const long = (n) => ({ type: 'doc', content: [1, 2, 3].flatMap((i) => [{ type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: `Part ${i}` }] }, p(`Words of part ${i}. `.repeat(n))]) })
+  const big = await v('article:new')
+  await v('item:save', big, { title: 'Long', body: long(40) })
+  await c.send('article', big); await wait(1500)
+  const inboxBefore = (await h.evaluate(() => window.api.captures.list())).length
+  await h.evaluate(() => { const ed = document.querySelector('[data-open] .tiptap').editor; ed.chain().focus().selectAll().run() })
+  await wait(700)
+  await h.click('[data-selection-bar] button[aria-label="Capture"]'); await wait(700)
+  check('a long selection with headings is offered a capture a heading', (await h.locator('[data-reword-parts]').count()) === 1, await h.locator('[data-reword-parts]').innerText().catch(() => 'none'))
+  await h.click('[data-reword-split]'); await wait(1500)
+  const added = (await h.evaluate(() => window.api.captures.list())).slice(0, 3).map((one) => one.label ?? one.title ?? '')
+  check('and it keeps three captures, one a part', (await h.evaluate(() => window.api.captures.list())).length - inboxBefore === 3, JSON.stringify(added))
+  const longText = await text()
+  check('the note keeps its words once each', [1, 2, 3].every((i) => count(longText, `Part ${i}`) === 1), longText.slice(0, 120))
   check('no page errors', !c.errors?.some((one) => /PAGEERROR/.test(one)), (c.errors ?? []).slice(0, 2).join(' | '))
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])

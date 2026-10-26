@@ -109,6 +109,8 @@ type Draft = {
   origin: Origin
   /** Where it opened, while it sits by the words; null once in the corner. */
   anchor: { editor: Editor; from: number; to: number } | null
+  /** A long selection with headings in it: each heading's part, which can be kept apart, one capture each. */
+  parts?: { from: number; to: number; text: string }[]
   open: boolean
 }
 
@@ -188,6 +190,38 @@ const save = async (draft: Draft, card: HTMLElement | null): Promise<void> => {
   else unfollow(draft.key)
 }
 
+/** Past this many characters a selection is more than one thought: the card offers to keep it a part a heading. */
+const LONG = 1500
+/** The selection's parts, each from a heading to the next; null when it is short or has under two headings. */
+const partsOf = (editor: Editor, from: number, to: number): Draft['parts'] => {
+  const text = editor.state.doc.textBetween(from, to, '\n')
+  if (text.length < LONG) return undefined
+  const starts: number[] = []
+  editor.state.doc.nodesBetween(from, to, (node, pos) => void (node.type.name === 'heading' && starts.push(Math.max(from, pos))))
+  if (starts.length < 2) return undefined
+  // Words before the first heading go with it.
+  const edges = [from, ...starts.slice(1), to]
+  return edges.slice(0, -1).map((start, i) => ({ from: start, to: edges[i + 1], text: editor.state.doc.textBetween(start, edges[i + 1], '\n').trim() })).filter((one) => one.text)
+}
+
+/** Keep a long selection a part a heading: one capture each, each part marked as kept, one notice, one Undo. */
+async function keepParts(draft: Draft): Promise<void> {
+  const at = draft.anchor
+  if (!at || !draft.parts) return
+  release(draft, true)
+  set(drafts.filter((one) => one.key !== draft.key))
+  unfollow(draft.key)
+  chime('send')
+  const made: { id: string; unmark: (() => void) | null }[] = []
+  for (const part of draft.parts) {
+    const id = await window.api.captures.create({ body: part.text, ...(draft.origin.from ? { origin: draft.origin.from } : {}) })
+    if (!draft.origin.from) draft.origin.onLifted?.(id)
+    made.push({ id, unmark: markKept({ editor: at.editor, from: part.from, to: part.to }, 'capture', id) })
+  }
+  toast(`${made.length} captures in your Inbox, one a heading; the parts are marked in your note`,
+    () => made.forEach((one) => (one.unmark?.(), void haligtree.unlift('capture', one.id))), 'success')
+}
+
 /** Open a card on the selected words, by them, as `kind`. */
 export function reword(kind: Kind, editor: Editor, origin: Origin): void {
   const { from, to } = editor.state.selection
@@ -198,7 +232,7 @@ export function reword(kind: Kind, editor: Editor, origin: Origin): void {
   drafts.forEach((one) => one.anchor?.editor !== editor && release(one))
   const key = crypto.randomUUID()
   follow(key, editor, from, to)
-  set([...drafts.map((one) => ({ ...one, open: false, anchor: null })), { key, kind, text, question: '', first: text, origin, anchor: { editor, from, to }, open: true }])
+  set([...drafts.map((one) => ({ ...one, open: false, anchor: null })), { key, kind, text, question: '', first: text, origin, anchor: { editor, from, to }, open: true, parts: partsOf(editor, from, to) }])
 }
 
 /**
@@ -382,6 +416,13 @@ function Card({ draft, by }: { draft: Draft; by: boolean }): React.JSX.Element {
           placeholder="The question it answers, for review (optional)"
           className="h-8 w-full rounded-md border border-foreground/10 bg-transparent px-2 text-control outline-none placeholder:text-muted-foreground hover:border-foreground/20 focus:border-foreground/25"
         />
+      )}
+      {/* A whole section or note is more than one thought: kept a part a heading, each part its own capture. */}
+      {draft.kind === 'capture' && draft.parts && draft.anchor && draft.text.trim() === draft.first.trim() && (
+        <div data-reword-parts className="flex items-center gap-2 rounded-lg bg-accent/50 px-2.5 py-2">
+          <span className="min-w-0 flex-1 text-control text-foreground">A lot for one capture: {draft.parts.length} parts, one a heading.</span>
+          <Button size="sm" variant="secondary" data-reword-split onClick={() => void keepParts(draft)}>One a heading</Button>
+        </div>
       )}
       <div className="flex items-center justify-end gap-1">
         <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => putAway(draft)}>
