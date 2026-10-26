@@ -37,6 +37,14 @@ try {
   check('and the next card shows', (await h.locator('[data-review-card] h2').first().textContent().catch(() => '')) !== title)
   await h.keyboard.press('Meta+z'); await wait(900)
   check('⌘Z brings it back', (await v('items', 'nugget')).length === before)
+  // ⌫, as the menu's hint says: the card in front goes to the Bin, and ⌘Z brings it back.
+  await go('inbox'); await go('review'); await wait(1500)
+  const next = await h.locator('[data-review-card] h2').first().textContent()
+  await h.keyboard.press('Backspace'); await wait(900)
+  check('⌫ bins the card in front', (await v('items', 'nugget')).length === before - 1)
+  check('and the next card shows', (await h.locator('[data-review-card] h2').first().textContent().catch(() => '')) !== next)
+  await h.keyboard.press('Meta+z'); await wait(900)
+  check('⌘Z brings that one back too', (await v('items', 'nugget')).length === before)
 } finally {
   await c.close()
 }

@@ -328,6 +328,11 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
         event.preventDefault()
         star()
       }
+      // ⌫ bins the card in front, as its menu's "Move to the Bin" says and as in every list; back with Undo or ⌘Z.
+      if ((event.key === 'Backspace' || event.key === 'Delete') && card) {
+        event.preventDefault()
+        return binItem([{ type: 'nugget', id: card.id }], () => drop(card.id)).run()
+      }
       // ; once the answer shows: a thought on it, without leaving the card.
       if (event.key === ';' && card && shown) {
         event.preventDefault()
