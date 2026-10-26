@@ -1,4 +1,5 @@
 import { notePowers } from './note-powers'
+import { PropertyStrip } from './property-strip'
 import { useEffect, useRef, useState } from 'react'
 import { useReading } from '@/lib/reads-in'
 import { binItem } from '@/lib/to-bin'
@@ -330,6 +331,8 @@ export function QuestionDetail({ item, onOpen, top, back }: { item: ItemFull; on
       </div>
 
       <Props fold>
+        {/* The question's properties head its details, as Linear's issues have them. */}
+        <PropertyStrip panel table="nuggets" id={item.id} kind={item.kind} fields={item.fields} text={item.title} created={item.createdAt} updated={item.updatedAt} />
         <Island compact title="Open question">
           <Prop icon={Orbit} active>{settled ?? <Rolling by="word" text={heldFor(item.createdAt).replace(/^o/, 'O')} />}</Prop>
           {!item.closedAt && (

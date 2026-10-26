@@ -2088,6 +2088,22 @@ html[data-book-hue] [data-book-tint] {
    that cut them off, with what follows (Subtasks, Sessions, Log) after them.
    A task's own column (data-grow) does the same beside its details, so its
    subtasks never squeeze the notes. Clipped sideways only, as before. */
+/* A note's properties live in one place at a time. With its details out
+   beside the page, they sit at the top of the details and the block under
+   the title steps aside, so the words start right under it. Too narrow for
+   the details to sit beside it (they stack under the page instead), the
+   block stays under the title and the details leave theirs out. */
+@container page (width >= 40rem) {
+  :has(> .mf-details [data-property-strip]) > :not(.mf-details) [data-property-strip]:not(.note-embed-body *) {
+    display: none;
+  }
+}
+@container page (width < 40rem) {
+  .mf-details [data-property-strip] {
+    display: none;
+  }
+}
+
 @container page (width < 40rem) {
   .note-pane > :first-child {
     flex: none;

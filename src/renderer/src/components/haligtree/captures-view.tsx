@@ -1,4 +1,5 @@
 import { notePowers } from './note-powers'
+import { PropertyStrip } from './property-strip'
 import { SimilarNotes } from './similar-notes'
 import { propertySorts } from '@/lib/property-sorts'
 import { ReadsIn } from '@/lib/reads-in'
@@ -840,6 +841,8 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
 
   return (
     <Props className={className} fold={fold}>
+      {/* Beside its page, the note's properties head its details, as Linear's issues have them. */}
+      {fold && <PropertyStrip panel table="captures" id={capture.id} kind={capture.kind} fields={capture.fields} text={capture.label} created={capture.capturedAt} updated={capture.editedAt} />}
       <Island compact title="Status">
         <Prop icon={Status} active>
           {/* A status that changes rolls to the new word: the change is seen. */}

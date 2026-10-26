@@ -59,7 +59,7 @@ function LinkName({ link }: { link: string }): React.JSX.Element {
  * Check back's day) shows even while empty, faint, so you see what it asks
  * for; "Add property" (⌥⌘P) is always at the end, in the same place.
  */
-export function PropertyStrip({ table, id, kind, fields, text, created, updated }: {
+export function PropertyStrip({ table, id, kind, fields, text, created, updated, panel = false }: {
   table: NoteTable
   id: string
   kind: string
@@ -69,6 +69,13 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated 
   /** When it was made and last changed: shown, read-only. */
   created?: string | null
   updated?: string | null
+  /**
+   * At the top of the note's details beside it, the way Linear lists an
+   * issue's properties: roomier rows, a heading like the groups under it.
+   * Drawn there, the block under the title steps aside (main.css), and comes
+   * back whenever the details are put away or have no room beside the page.
+   */
+  panel?: boolean
 }): React.JSX.Element | null {
   const known = text === undefined ? undefined : tagsIn(text)
   const groups = useSuperTags(table, id, kind, known)
@@ -101,8 +108,10 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated 
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (!event.metaKey || !event.altKey || event.code !== 'KeyP') return
-      const here = strip.current?.closest('.note-pane, [data-note-page], main') ?? null
-      const strips = document.querySelectorAll('[data-property-strip]')
+      // Only a block you can see: the one under the title steps aside while the details hold it.
+      if (!strip.current || strip.current.offsetParent === null) return
+      const here = strip.current.closest('.note-pane, [data-note-page], main') ?? null
+      const strips = [...document.querySelectorAll<HTMLElement>('[data-property-strip]')].filter((one) => one.offsetParent !== null)
       if (strips.length > 1 && !(here && document.activeElement && here.contains(document.activeElement))) return
       event.preventDefault()
       // Before ⌘P's search hears it: caught on the way down.
@@ -138,27 +147,29 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated 
     }
     setOpen(key)
   }
-  if (read.of !== `${table}:${id}`) return <div data-property-strip ref={strip} className="min-h-7" />
-  // Nothing yet: only the quiet way to add one, in the place the block will open.
-  const empty = !all.length && !tags.length && open !== '+'
+  // In the details, each row as tall and as far in as the details' own rows; under the title, quieter.
+  const size = panel ? { h: 'h-8', minH: 'min-h-8', pad: 'px-2', icon: 'size-4' } : { h: 'h-7', minH: 'min-h-7', pad: 'px-1.5', icon: 'size-3.5' }
+  if (read.of !== `${table}:${id}`) return <div data-property-strip data-in-panel={panel ? '' : undefined} ref={strip} className={size.minH} />
+  // Nothing yet: only the quiet way to add one, in the place the block will open. The details keep their heading.
+  const empty = !panel && !all.length && !tags.length && open !== '+'
   const addButton = (
     <Tip label="Add property, or type Name:: value on a line of its own (⌥⌘P)">
       <button type="button" data-add-property aria-label="Add property" onClick={() => (chime('open'), setShut(false), setOpen('+'))}
-        className="inline-flex h-7 w-fit items-center gap-1.5 rounded-md px-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
-        <Plus className="size-3.5" /><span>Add property</span>
+        className={`inline-flex ${size.h} items-center rounded-md ${size.pad} text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ${panel ? 'col-span-2 w-full gap-2' : 'w-fit gap-1.5'}`}>
+        <Plus className={size.icon} /><span>Add property</span>
       </button>
     </Tip>
   )
-  // In a narrow pane each value goes under its name, so long ones (dates) never run into the row below.
-  const row = 'grid grid-cols-1 items-start gap-x-2 @max-[24rem]/props:[&>:nth-child(2)]:ml-[1.375rem] @min-[24rem]/props:grid-cols-[minmax(7rem,9.5rem)_minmax(0,1fr)]'
+  // In the details every row shares one name column, as wide as the longest name allows, so the values line up; in a narrow pane each value goes under its name, so long ones (dates) never run into the row below.
+  const row = panel ? 'col-span-2 grid grid-cols-subgrid items-start' : 'grid grid-cols-1 items-start gap-x-2 @max-[24rem]/props:[&>:nth-child(2)]:ml-[1.375rem] @min-[24rem]/props:grid-cols-[minmax(7rem,9.5rem)_minmax(0,1fr)]'
   const nameCell = (Icon: LucideIcon, label: string, prop?: Prop): React.JSX.Element => (
-    <span className="flex h-7 min-w-0 items-center gap-2 px-1.5 text-muted-foreground">
+    <span className={`flex ${size.h} min-w-0 items-center gap-2 ${size.pad} text-muted-foreground`}>
       {prop && !prop.tag ? (
         // The icon says the kind of value, and is where it changes.
         <Popover open={open === `kind:${prop.key}`} onOpenChange={(next) => setOpen(next ? `kind:${prop.key}` : null)}>
           <Tip label="Kind of value">
             <PopoverTrigger asChild>
-              <button type="button" data-property-kind={prop.key} aria-label="Kind of value" className="-mx-1 grid size-6 shrink-0 place-items-center rounded-md transition-colors hover:bg-accent hover:text-foreground data-[state=open]:bg-accent"><Icon className="size-3.5" /></button>
+              <button type="button" data-property-kind={prop.key} aria-label="Kind of value" className="-mx-1 grid size-6 shrink-0 place-items-center rounded-md transition-colors hover:bg-accent hover:text-foreground data-[state=open]:bg-accent"><Icon className={size.icon} /></button>
             </PopoverTrigger>
           </Tip>
           <PopoverContent align="start" className="w-auto gap-0 p-1">
@@ -173,25 +184,38 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated 
             })}
           </PopoverContent>
         </Popover>
-      ) : <Icon className="size-3.5 shrink-0" />}
+      ) : <Icon className={`${size.icon} shrink-0`} />}
       <span className="truncate">{propSaid(label)}</span>
     </span>
   )
   return (
-    <div data-property-strip data-properties-open={shut ? undefined : ''} ref={strip} className="@container/props flex flex-col py-1 text-meta" onMouseDown={(event) => event.stopPropagation()}>
+    <div data-property-strip data-in-panel={panel ? '' : undefined} data-properties-open={shut ? undefined : ''} ref={strip}
+      className={panel ? 'mb-2 flex flex-col border-b border-border/60 pb-2 text-control' : '@container/props flex flex-col py-1 text-meta'} onMouseDown={(event) => event.stopPropagation()}>
       {empty ? addButton : (
         <>
+          {panel ? (
+            // As the details' other groups head themselves: a chevron, the name, folded by a click.
+            <div className="group/fold flex items-center gap-1 px-1">
+              <button type="button" data-properties-head aria-expanded={!shut} onClick={() => (chime(shut ? 'open' : 'fold'), setShut(!shut))}
+                className="-mx-1 flex min-w-0 flex-1 items-center gap-1 rounded-md px-1 py-1 text-left text-foreground hover:bg-accent/60">
+                <ChevronRight aria-hidden className={`size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 ease-[var(--mf-ease)] motion-reduce:transition-none group-hover/fold:text-foreground ${shut ? '' : 'rotate-90'}`} />
+                <h2 className="min-w-0 truncate text-meta font-semibold">Properties</h2>
+                {shut && <span className="ml-1 text-meta text-muted-foreground">{all.length + (tags.length ? 1 : 0)}</span>}
+              </button>
+            </div>
+          ) : (
           <button type="button" data-properties-head aria-expanded={!shut} onClick={() => (chime(shut ? 'open' : 'fold'), setShut(!shut))}
             className="inline-flex h-7 w-fit items-center gap-1 rounded-md px-1.5 font-medium text-foreground transition-colors hover:bg-accent">
             <ChevronRight className={`size-3.5 text-muted-foreground transition-transform duration-150 ${shut ? '' : 'rotate-90'}`} />Properties
             {shut && <span className="ml-1 font-normal text-muted-foreground">{all.length + (tags.length ? 1 : 0)}</span>}
           </button>
+          )}
           {!shut && (
-            <div className="flex flex-col">
+            <div className={panel ? 'mt-1 grid grid-cols-[fit-content(8rem)_minmax(0,1fr)] gap-x-1 gap-y-px' : 'flex flex-col'}>
               {tags.length > 0 && (
                 <div className={row} data-property="tags">
                   {nameCell(Tags, 'tags')}
-                  <div className="flex min-h-7 flex-wrap items-center gap-1 py-0.5">
+                  <div className={`flex ${size.minH} flex-wrap items-center gap-1 py-0.5`}>
                     {tags.map((tag) => (
                       <span key={tag} data-tag-chip={tag} className="inline-flex h-6 items-center gap-0.5 rounded-full bg-foreground/[0.06] pr-1 pl-2.5" style={{ color: tagTint(tag) }}>
                         {/* The tag is a way to its page, as everywhere (⌥-click beside); the × only takes it off. */}
@@ -210,9 +234,9 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated 
                   <Popover open={open === prop.key} onOpenChange={(next) => setOpen(next ? prop.key : null)}>
                     <PopoverTrigger asChild>
                       <button type="button" data-property={prop.key} data-empty={prop.value === undefined || prop.value === '' ? '' : undefined}
-                        className="inline-flex h-7 min-w-0 items-center rounded-md px-1.5 text-left transition-colors hover:bg-accent data-[state=open]:bg-accent">
+                        className={`inline-flex ${panel ? 'min-h-8 py-1.5' : 'h-7'} min-w-0 items-center rounded-md ${size.pad} text-left transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none data-[state=open]:bg-accent`}>
                         {prop.value === undefined || prop.value === '' ? <span className="text-muted-foreground/60">Empty</span>
-                          : <span className="private-text truncate text-foreground">{prop.type === 'link' ? <LinkName link={String(prop.value)} /> : said(prop)}</span>}
+                          : <span className={`private-text text-foreground ${panel ? 'line-clamp-2 [overflow-wrap:anywhere]' : 'truncate'}`}>{prop.type === 'link' ? <LinkName link={String(prop.value)} /> : said(prop)}</span>}
                       </button>
                     </PopoverTrigger>
                     <PopoverContent align="start" className="w-72 p-3" onOpenAutoFocus={(event) => prop.type === 'date' && event.preventDefault()}>
@@ -225,13 +249,13 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated 
                 </div>
               ))}
               {open === '+' && (
-                <NewProp className={row} names={names.filter((one) => !all.some((prop) => prop.key.toLowerCase() === one.name.toLowerCase()))}
+                <NewProp className={row} size={size} names={names.filter((one) => !all.some((prop) => prop.key.toLowerCase() === one.name.toLowerCase()))}
                   onName={(name) => void named(name)} onCancel={() => setOpen(null)} />
               )}
               {/* Kept by the app, not typed: shown, never changed here. */}
-              {created && <div className={row} data-property="created">{nameCell(Clock, 'created')}<span className="flex min-h-7 items-center px-1.5 text-foreground/80">{stamp(created)}</span></div>}
+              {created && <div className={row} data-property="created">{nameCell(Clock, 'created')}<span className={`flex ${panel ? 'min-h-8 py-1.5' : 'h-7'} items-center ${size.pad} text-foreground/80`}>{stamp(created, panel)}</span></div>}
               {/* Never changed since: updated is when it was made. */}
-              {(updated ?? created) && <div className={row} data-property="updated">{nameCell(Clock, 'updated')}<span className="flex min-h-7 items-center px-1.5 text-foreground/80">{stamp((updated ?? created) as string)}</span></div>}
+              {(updated ?? created) && <div className={row} data-property="updated">{nameCell(Clock, 'updated')}<span className={`flex ${panel ? 'min-h-8 py-1.5' : 'h-7'} items-center ${size.pad} text-foreground/80`}>{stamp((updated ?? created) as string, panel)}</span></div>}
               {addButton}
             </div>
           )}
@@ -244,14 +268,16 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated 
 /** Each kind of value's icon, beside its name, as Obsidian draws them. */
 const ICONS: Partial<Record<Prop['type'], LucideIcon>> = { text: Text, long: AlignLeft, number: Hash, date: Calendar, bool: SquareCheck, choice: List, link: Link2, rating: Star }
 
-/** "6 May 2026, 15:26": when, said in full. */
-const stamp = (iso: string): string => {
+/** "6 May 2026, 15:26": when, said in full; `short`, this year's day leaves the year out ("6 May, 15:26"), to fit the details' narrow column. */
+const stamp = (iso: string, short = false): string => {
   const at = new Date(iso)
-  return Number.isNaN(at.getTime()) ? iso : at.toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  const year = short && at.getFullYear() === new Date().getFullYear() ? undefined : 'numeric'
+  return Number.isNaN(at.getTime()) ? iso : at.toLocaleString(undefined, { day: 'numeric', month: 'short', year, hour: '2-digit', minute: '2-digit' })
 }
 
-/** The editor the block sits in: tiptap keeps itself on its page's element. */
-const editorOf = (node: HTMLElement | null): Editor | null => ((node?.closest('.ProseMirror') as (HTMLElement & { editor?: Editor }) | null)?.editor ?? null)
+/** The editor the block sits in, or in the details, the page beside them: tiptap keeps itself on its page's element. */
+const editorOf = (node: HTMLElement | null): Editor | null =>
+  (((node?.closest('.ProseMirror') ?? node?.closest('.mf-details')?.parentElement?.querySelector('.ProseMirror')) as (HTMLElement & { editor?: Editor }) | null | undefined)?.editor ?? null)
 
 /** A tag taken off: every #tag in the words goes, in one step ⌘Z or the toast brings back. */
 function untag(tag: string, node: HTMLElement | null): void {
@@ -290,8 +316,10 @@ async function addToTag(tag: string, prop: Prop): Promise<void> {
  * its name typed with the names this book already uses offered under it.
  * Enter or a click sets it; Esc, or leaving it with no name, takes the row away.
  */
-function NewProp({ className, names, onName, onCancel }: {
+function NewProp({ className, size, names, onName, onCancel }: {
   className: string
+  /** Its row's height, inset and icon, as the rows around it have them. */
+  size: { h: string; pad: string; icon: string }
   names: { name: string; type: string | null }[]
   onName: (name: string) => void
   onCancel: () => void
@@ -306,8 +334,8 @@ function NewProp({ className, names, onName, onCancel }: {
   const pick = (one: string): void => (one.trim() ? onName(one.trim()) : onCancel())
   return (
     <div className={className} data-new-property>
-      <span className="relative flex h-7 min-w-0 items-center gap-2 px-1.5 text-muted-foreground">
-        <Icon className="size-3.5 shrink-0" />
+      <span className={`relative flex ${size.h} min-w-0 items-center gap-2 ${size.pad} text-muted-foreground`}>
+        <Icon className={`${size.icon} shrink-0`} />
         <input autoFocus value={name} placeholder="Name" aria-label="Property name" role="combobox" aria-expanded={offered.length > 0}
           onChange={(event) => (setName(event.target.value.replace(/:/g, '')), setAt(-1))}
           onBlur={() => pick(name)}
@@ -342,7 +370,7 @@ function NewProp({ className, names, onName, onCancel }: {
           </div>
         )}
       </span>
-      <span className="flex h-7 items-center px-1.5 text-muted-foreground/60">Empty</span>
+      <span className={`flex ${size.h} items-center ${size.pad} text-muted-foreground/60`}>Empty</span>
     </div>
   )
 }

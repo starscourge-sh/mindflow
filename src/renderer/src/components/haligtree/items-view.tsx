@@ -1,5 +1,6 @@
 import { notePowers } from './note-powers'
 import { hoverNote } from './note-preview'
+import { PropertyStrip } from './property-strip'
 import { FadedLine } from './feed-view'
 import { openExpanded } from '../note-link/expanded-note'
 import { propertySorts } from '@/lib/property-sorts'
@@ -1030,6 +1031,8 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
       </div>
 
       {(!boardShown || propsOut) && <Props fold={!boardShown}>
+        {/* The note's properties head its details, as Linear's issues have them. */}
+        <PropertyStrip panel table="nuggets" id={item.id} kind={item.kind} fields={item.fields} text={item.title} created={item.createdAt} updated={item.updatedAt} />
         {item.tier === 'article' && <Marginalia id={item.id} names={named} editor={() => editor.current} />}
         {item.tier === 'nugget' && (
           <>
