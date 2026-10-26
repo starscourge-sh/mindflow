@@ -50,6 +50,8 @@ async function surface(name, w, root, open, { bin = /to the Bin/, all = true, un
   only = rows
   if (process.env.ONLY && !name.includes(process.env.ONLY)) return
   await open()
+  // A page that is gone opens another: said, never a wait on rows from elsewhere.
+  if (root !== 'body' && !(await w.locator(root).count())) return check(`${name}: its page opens`, false, 'no such page')
   let s = await read(w, root)
   if (!s.rows.length) return check(`${name}: has rows to try`, false, 'empty')
   // 1. One, from its right-click menu, while it is open.
@@ -142,8 +144,9 @@ try {
   const main = (id) => async () => { await go(id); await h.waitForTimeout(500) }
   for (const [name, id] of [
     ['Upcoming', 'upcoming'], ['Today', 'today'], ['Routines', 'routines'], ['Later', 'later'],
-    ['This week', 'week'], ['Matrix', 'matrix'],
-    ['Inbox', 'inbox'], ['All captures', 'all'], ['Archived', 'archived'],
+    // This week and All captures left the sidebar (3ea604c2): their ids open Upcoming and the Inbox now.
+    ['Matrix', 'matrix'],
+    ['Inbox', 'inbox'], ['Archived', 'archived'],
     ['Gems', 'nuggets'], ['Writing', 'articles'], ['Questions', 'questions'], ['Goals', 'goals']
   ]) await surface(name, h, page(id), main(id))
 
