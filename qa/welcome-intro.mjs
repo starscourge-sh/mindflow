@@ -5,7 +5,7 @@
 // "Open my book" turning the welcome over onto Home with no frame of neither,
 // Home saying when the book was opened.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-a/main/index.js HALIGTREE_QA_AWAY=1 node qa/welcome-intro.mjs [shots folder] [light|dark]
-import { mkdirSync } from 'fs'
+import { mkdirSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
@@ -45,16 +45,29 @@ try {
   let frame = 0
   let title = ''
   let looks = 0
+  let mark = null
   for (let t = await sinceMist(); t < 6200; t = await sinceMist()) {
     looks++
     title ||= await h.evaluate(() => document.querySelector('[data-title-card]')?.innerText ?? '')
     if (await seen('[data-title-card]')) card++
     if ((await h.locator('[data-thesis="line"]').count()) && (await seen('[data-title-card]'))) wordsWithCard = true
     if (SHOTS && t > [2400, 4000, 5600][frame]) await shot(`0${frame++}-card-${(t / 1000).toFixed(1)}s`)
+    // The mark whole (the logo's leaf fan in squares), read from its own canvas, and the wordmark's weight.
+    if (t > 4200 && !mark) mark = await h.evaluate(() => {
+      const canvas = document.querySelector('[data-title-card] canvas')
+      if (!canvas) return null
+      const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data
+      let inked = 0
+      for (let i = 3; i < data.length; i += 4) if (data[i] > 20) inked++
+      return { inked, png: canvas.toDataURL('image/png'), weight: Number(getComputedStyle(document.querySelector('[data-title-card] h1')).fontWeight) }
+    })
     await h.waitForTimeout(200)
   }
   check('the title card shows in the mist, all the way to its lift', card === looks && looks > 5, `${card} of ${looks} looks`)
   check('it reads as a title page: A commonplace book, Haligtree', /A commonplace book/i.test(title) && /Haligtree/.test(title), title.replace(/\s+/g, ' '))
+  check('the logo is drawn in squares over it', (mark?.inked ?? 0) > 2000, String(mark?.inked))
+  check('the wordmark is bold', (mark?.weight ?? 0) >= 600, String(mark?.weight))
+  if (SHOTS && mark?.png) writeFileSync(join(SHOTS, `title-mark-${THEME}.png`), Buffer.from(mark.png.split(',')[1], 'base64'))
   const middle = await asked()
   check('the window gathers in to a window of its own', !!middle.bounds && middle.bounds.width < middle.screen.width, JSON.stringify(middle.bounds))
   await h.waitForSelector('[data-thesis="line"]', { timeout: 6000 })
