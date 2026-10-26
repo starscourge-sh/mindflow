@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useShowLine } from '@/lib/show-in-list'
 import { layerOpen } from '@/lib/menu-keys'
 import { createPortal } from 'react-dom'
 import { AlignLeft, CalendarDays, Plus, Star } from 'lucide-react'
@@ -606,7 +607,9 @@ export function NoteHeader({ left, back, type = 'capture', edited, captured, mad
   const short = `${verb} ${old === 'now' ? 'now' : old}`
   // The header's own lines are not said twice when the note's menu has them too.
   const OWN = ['Pin', 'Unpin', 'Pin to the sidebar', 'Copy link', 'Version history']
-  const items = menu.filter((item) => item && (item === 'separator' || !OWN.includes(item.label))) as Exclude<MenuItem | { label: string; items: RowItem[] }, false | null | undefined>[]
+  // Opened away from its own list (search, a link, its own window): that list, the main window's, opened on it, which shows its row.
+  const show = useShowLine() ?? { label: 'Show in list', run: () => window.api.openInHome(type, String(versions.id)) }
+  const items = [...(show ? [show, 'separator' as const] : []), ...menu].filter((item) => item && (item === 'separator' || !OWN.includes(item.label))) as Exclude<MenuItem | { label: string; items: RowItem[] }, false | null | undefined>[]
   const [reading, setReading] = useState(false)
   const detailsOut = useDetailsShown()
   const inPane = usePane()

@@ -34,6 +34,7 @@ import { useSelectAll } from '@/lib/select-all'
 import { usePicking } from '@/lib/pick-range'
 import { manyTaskItems } from './late-tasks'
 import { binItem, moveToBin, seeTheBin, useCameBack } from '@/lib/to-bin'
+import { ShowInListContext, useShowInList } from '@/lib/show-in-list'
 import { useSameWords } from '@/lib/same-words'
 import { Apart } from '@/lib/apart'
 import { chime, tear, pageTurn } from '@/lib/sound'
@@ -271,6 +272,21 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
   }, [shown]) // eslint-disable-line react-hooks/exhaustive-deps
   // Back from the Bin by Undo: open again if a note was open, else the keyboard on its row.
   useCameBack(whole.map((one) => one.id), (id) => (open || task ? pick(id) : setCursor(shown.findIndex((one) => one.id === id))))
+  // “Show in list” (⌥⌘L): the list brought out, a filter or search that hides the open one cleared (Undo puts it back),
+  // its island opened past “Show more”, then its row scrolled to the middle and lit once.
+  const showOpen = useShowInList(open?.id ?? task?.id, () => {
+    const id = open?.id ?? task?.id
+    const hidden = !whole.some((one) => one.id === id) && Object.values(view.filter).some((list) => list?.length)
+    const was = view
+    if (hidden || view.pane !== 'list') setView({ ...view, pane: 'list', ...(hidden ? { filter: {} } : {}) })
+    setListOut(false)
+    if (query) setQuery('')
+    if (hidden) toast('Filters cleared to show it in the list', () => setView(was))
+    for (const [name, list] of narrowed) {
+      const at = list.findIndex((one) => one.id === id)
+      if (at >= 0 && islands?.[name]) islands[name].onShow(at)
+    }
+  })
   // ; on the row under the cursor, with nothing open: a thought written under it.
   const glossAfter = useRowGloss(shown[cursor]?.id, !open && !task && !shown[cursor]?.task)
   const peeked = spread ? all.find((one) => one.id === peek) : undefined
@@ -626,7 +642,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
       {coming && coming !== open?.id ? <NoteComing id={coming} title={all.find((one) => one.id === coming)?.label} /> : open && meta ? (
         // Opened in a window of its own, its place says so (lib/apart.tsx),
         // and only that window's editor saves it; back, it is read afresh.
-        <Apart type="capture" id={open.id} title={meta.label} hidden={!!meta.private}
+        <ShowInListContext.Provider value={showOpen}><Apart type="capture" id={open.id} title={meta.label} hidden={!!meta.private}
           onBack={() => window.api.captures.get(open.id).then((found) => found && (setOpen(found), setRev((n) => n + 1)))}>
         {/* Slides to where the list leaves it room, when the list folds or comes back. */}
         <motion.div layout={still() ? false : 'position'} transition={spring.slow} data-open={open.id} className="note-pane flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[max(22rem,100%)] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
@@ -756,7 +772,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
             else setOpen(null)
           }} onBack={comeBack} />}
         </motion.div>
-        </Apart>
+        </Apart></ShowInListContext.Provider>
       ) : null}
     </ReadsIn>
   )

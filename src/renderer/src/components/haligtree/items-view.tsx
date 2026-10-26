@@ -33,6 +33,7 @@ import { makeTask, makeTasks } from '@/lib/tasks'
 import { useSelectAll } from '@/lib/select-all'
 import { usePicking } from '@/lib/pick-range'
 import { binItem, moveToBin, useCameBack } from '@/lib/to-bin'
+import { ShowInListContext, useShowInList } from '@/lib/show-in-list'
 import { useSameWords } from '@/lib/same-words'
 import { Empty, focusField, Island, Page, Prop, Props, Remembered, refuse, quietly, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, Typed, showTopTitle, Pressed, askClearWho, Rolling } from './ui'
 import { Term } from './term'
@@ -371,6 +372,19 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   const glossAfter = useRowGloss(items[cursor]?.id, !open)
   // Back from the Bin by Undo: open again if a note was open, else the keyboard on its row.
   useCameBack(all.map((one) => one.id), (id) => (open ? pick(id) : setCursor(items.findIndex((one) => one.id === id))))
+  // “Show in list” (⌥⌘L): the list brought out, a filter or search hiding it cleared (Undo puts it back), its group or folder opened.
+  const showOpen = useShowInList(open?.id, () => {
+    const id = open?.id
+    if (!id) return
+    const hidden = !flat.some((one) => one.id === id) && Object.entries(view.filter).some(([key, list]) => key !== 'flags' && list?.length)
+    const was = view
+    if (hidden || view.pane !== 'list') setView({ ...view, pane: 'list', ...(hidden ? { filter: { flags: view.filter.flags ?? [] } } : {}) })
+    setListOut(false)
+    if (query) setQuery('')
+    if (hidden) toast('Filters cleared to show it in the list', () => setView(was))
+    if (folding.rows) folding.reveal(id)
+    else if (folder && !folder.members.includes(id)) setInGroup(null)
+  })
   const peeked = spread ? all.find((one) => one.id === peek) : undefined
   // ⌥↑ and ⌥↓ (or ⌥K and ⌥J) move the row under the cursor in your own order.
   // Split, only the pane in front answers keys.
@@ -721,7 +735,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
           }}
         />
       )}
-      {coming && coming !== open?.id ? <NoteComing id={coming} title={all.find((one) => one.id === coming)?.title} /> : open && <Apart type={open.tier} id={open.id} title={open.title} hidden={!!open.private} onBack={() => haligtree.item(open.id).then((fresh) => fresh && setOpen(fresh))}><ItemDetail top={<ReadsIn apart reading={listUnread} className="contents" data-apart="stepper"><Stepper turns at={items.findIndex((one) => one.id === open.id)} total={items.length} onStep={(to) => ((stepped.current = true), pick(items[to].id))} /></ReadsIn>} key={open.id} item={open} board={{ onShown: setBoarded, list: listOut, onList: setListOut }} onOpen={(type, id) => (type === tier || (writing && type === 'question') ? ((type === 'article' && setAsks('all')), pick(id)) : onOpen?.(type, id))} /></Apart>}
+      {coming && coming !== open?.id ? <NoteComing id={coming} title={all.find((one) => one.id === coming)?.title} /> : open && <ShowInListContext.Provider value={showOpen}><Apart type={open.tier} id={open.id} title={open.title} hidden={!!open.private} onBack={() => haligtree.item(open.id).then((fresh) => fresh && setOpen(fresh))}><ItemDetail top={<ReadsIn apart reading={listUnread} className="contents" data-apart="stepper"><Stepper turns at={items.findIndex((one) => one.id === open.id)} total={items.length} onStep={(to) => ((stepped.current = true), pick(items[to].id))} /></ReadsIn>} key={open.id} item={open} board={{ onShown: setBoarded, list: listOut, onList: setListOut }} onOpen={(type, id) => (type === tier || (writing && type === 'question') ? ((type === 'article' && setAsks('all')), pick(id)) : onOpen?.(type, id))} /></Apart></ShowInListContext.Provider>}
     </ReadsIn>
   )
 }

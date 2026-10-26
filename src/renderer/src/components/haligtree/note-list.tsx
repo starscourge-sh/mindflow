@@ -389,6 +389,7 @@ export function NoteList({
         <VirtualList
           items={lines}
           keyOf={(one) => one.key}
+          holds={(one, id) => one.entries.some((entry) => entry.id === id)}
           cursor={line >= 0 ? line : undefined}
           estimate={
             density === 'compact'

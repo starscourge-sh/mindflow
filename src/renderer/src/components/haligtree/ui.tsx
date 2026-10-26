@@ -1840,8 +1840,10 @@ export function FocusNote(): React.JSX.Element {
  * sit under cards or headings; the keyboard's row is scrolled to even before it
  * is drawn, so gg and G land.
  */
-export function VirtualList<T>({ items, keyOf, cursor, estimate = 48, sizeOf, className = '', rowClass = 'pb-0.5', children }: {
+export function VirtualList<T>({ items, keyOf, holds, cursor, estimate = 48, sizeOf, className = '', rowClass = 'pb-0.5', children }: {
   items: T[]
+  /** Whether a row holds this id, where a row is more than one (a line of tiles): its key is asked otherwise. */
+  holds?: (item: T, id: string) => boolean
   /** A row's height before it is measured, when rows differ (a group's line holds its rows): `estimate` otherwise. */
   sizeOf?: (item: T) => number
   keyOf: (item: T) => string
@@ -1917,6 +1919,20 @@ export function VirtualList<T>({ items, keyOf, cursor, estimate = 48, sizeOf, cl
     })
     return () => cancelAnimationFrame(frame)
   }, [cursor, scroller, again]) // eslint-disable-line react-hooks/exhaustive-deps
+  // “Show in list” (lib/show-in-list.ts): the row asked for scrolled to its place, drawn or not yet.
+  const now = useRef({ items, keyOf, holds })
+  now.current = { items, keyOf, holds }
+  useEffect(() => {
+    if (!scroller) return
+    const show = (event: Event): void => {
+      const id = (event as CustomEvent<string>).detail
+      const { items, keyOf, holds } = now.current
+      const at = items.findIndex((one) => keyOf(one) === id || !!holds?.(one, id))
+      if (at >= 0 && box.current?.isConnected) rows.scrollToIndex(at, { align: 'center' })
+    }
+    window.addEventListener('haligtree:show-row', show)
+    return () => window.removeEventListener('haligtree:show-row', show)
+  }, [scroller]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div ref={box} data-vlist="" className={`relative ${className}`} style={{ height: rows.getTotalSize() }}>
       {/* The rows on show stand one under the other, in the page's own flow from where the first one starts: a row that
