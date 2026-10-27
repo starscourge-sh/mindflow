@@ -69,7 +69,7 @@ import { Lead, plain } from './lead'
 import { backedUpAgo, chooseBackupFolder } from '@/lib/backups'
 import { ThemeDial } from './theme-dial'
 import { TimeField } from './time-field'
-import { BarWordsSample, BlurSample, CentredSample, DayHintsSample, FoldSample, SpellSample, HomeMonthSample, TimeGoneSample, TitleTopSample, TypewriterSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, StirSample, TempusSample, ThemeFileGuide, TuckSample, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, highlightChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices } from './settings-show'
+import { BarWordsSample, BlurSample, CentredSample, DayHintsSample, FoldSample, SpellSample, HomeMonthSample, TimeGoneSample, TitleTopSample, TypewriterSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, StirSample, TempusSample, ThemeFileGuide, TuckSample, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, highlightChoices, IconColourSample, menuIconChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices } from './settings-show'
 import { Brain, HardDrive, CircleHelp as LifeBuoy, ListTodo as ListChecks, Camera as Mountain, Brush as Palette, Pencil as PenLine, Search as SearchIcon, Sparkles, Volume2, X } from '@/components/ui/icons'
 import { APP_NAME } from '../../../../main/name'
 
@@ -582,6 +582,12 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
           <Setting title="Highlights" note="The colours you mark words with: “Soft” pastels, or “Rich”, deeper and fuller." keywords="highlight colour color marker pastel rich pale saturated vivid mark"
             below={<Choices label="Highlights" options={highlightChoices(!document.documentElement.hasAttribute('data-light'))} on={(id) => id === (settings.highlights ?? 'soft')} pick={(highlights) => set({ highlights: highlights as Settings['highlights'] })} />} />
+          <Setting title="Menu icons" note="The drawing before each line of a menu: “Lines”, or each line's own emoji." keywords="menu icons emoji lines symbols right click context"
+            below={<Choices label="Menu icons" options={menuIconChoices()} on={(id) => id === (settings.menuIcons ?? 'lines')} pick={(menuIcons) => set({ menuIcons: menuIcons as Settings['menuIcons'] })} />} />
+          <Setting title="Coloured icons" note="The sidebar's pages and tags each in their own colour. Off, all in one colour, menu emoji too." keywords="monochrome icons colour color grey gray sidebar vivaldi plain tint"
+            ><IconColourSample />
+            <Switch checked={settings.iconColour !== false} onCheckedChange={(iconColour) => set({ iconColour })} />
+          </Setting>
           <Setting title="Words on the selection bar" note="The bar over words you select: off, it shows icons only, and pointing at one says what it does." keywords="selection bar toolbar labels words icons text capture gem task bubble"
             ><BarWordsSample words={!!settings.barWords} />
             <Switch checked={!!settings.barWords} onCheckedChange={(barWords) => set({ barWords })} />

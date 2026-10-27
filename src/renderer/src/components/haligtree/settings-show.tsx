@@ -1,4 +1,5 @@
-import { Camera, CircleCheck, FileOutput, Gem, Inbox, Repeat2 } from 'lucide-react'
+import { Camera, CircleCheck, FileOutput, Gem, Inbox, Link, Pin, Repeat2, Trash2, type LucideIcon } from 'lucide-react'
+import { PlaceIcon, SECTIONS } from './places'
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { motion } from 'motion/react'
 import { BorderBeam } from 'border-beam'
@@ -392,6 +393,32 @@ export function BarWordsSample({ words }: { words: boolean }): React.JSX.Element
       {parts.map(([Icon, label]) => (
         <span key={label} className="flex h-7 items-center gap-1.5 rounded-md px-1.5"><Icon className="size-4" />{words && label}</span>
       ))}
+    </span>
+  )
+}
+
+/** "Lines" and "Emoji" menu icons, each a few lines of a menu as it would open. */
+const MENU_SAMPLE: [LucideIcon, string, string][] = [[Pin, 'Pin', '📌'], [Link, 'Copy link', '🔗'], [Trash2, 'Move to the Bin', '🗑️']]
+export const menuIconChoices = (): { id: string; label: string; show: ReactNode }[] =>
+  [{ id: 'lines', label: 'Lines' }, { id: 'emoji', label: 'Emoji' }].map((one) => ({
+    ...one,
+    show: (
+      <span data-menu-icons-sample={one.id} className="absolute inset-0 flex flex-col items-start justify-center gap-1.5 px-3 text-[12px] leading-none text-foreground">
+        {MENU_SAMPLE.map(([Icon, label, emoji]) => (
+          <span key={label} className="flex items-center gap-2">
+            {one.id === 'emoji' ? <span className="mf-menu-emoji flex size-3.5 items-center justify-center text-[0.8125rem]">{emoji}</span> : <Icon className="size-3.5 text-muted-foreground" />}
+            {label}
+          </span>
+        ))}
+      </span>
+    )
+  }))
+
+/** A few of the sidebar's pages, as the sidebar draws them: in their own colours, or all in one with "Coloured icons" off. */
+export function IconColourSample(): React.JSX.Element {
+  return (
+    <span aria-hidden data-icon-colour-sample className="flex items-center gap-2.5 rounded-lg border px-2.5 py-1.5 shadow-xs">
+      {SECTIONS.filter((one) => ['inbox', 'day', 'nuggets', 'today', 'calendar'].includes(one.id)).map((place) => <PlaceIcon key={place.id} place={place} full />)}
     </span>
   )
 }

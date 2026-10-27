@@ -398,6 +398,10 @@ const DEFAULTS = {
   postcardBorder: 'auto' as 'auto' | 'white' | 'cream' | 'black' | 'accent',
   // Highlighted words: 'soft' pastels, or 'rich', deeper and fuller.
   highlights: 'soft' as 'soft' | 'rich',
+  // A menu line's drawing: 'lines', or 'emoji' (each line's own emoji).
+  menuIcons: 'lines' as 'lines' | 'emoji',
+  // The sidebar's pages each in their own colour; off, all in one, as Vivaldi's monochrome icons (emoji greyed too).
+  iconColour: true,
   // The selection bar's buttons with their words beside their icons; off, icons only, the tooltips saying what each does.
   barWords: false,
   // A picture in a note tips toward the pointer. Off by default: a lot for a

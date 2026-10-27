@@ -229,12 +229,12 @@ function Lonely({ count, notes: list, onOpen }: { count: number; notes: NonNulla
   return (
     <Popover onOpenChange={(open) => open && chime('open')}>
       <PopoverTrigger asChild>
-        {/* Said as what you could do next, not a pile left undone: the count large, the way in beside it. */}
+        {/* Said as what you could do next, not a pile left undone (notes wandering, not unlinked): the count large, the way in beside it. */}
         <Button variant="outline" className="absolute right-4 bottom-3 h-10 gap-2 bg-background px-3 text-control dark:bg-background">
           <Unlink className="size-4" />
           <span className="text-lg leading-none font-semibold tabular-nums">{num(count)}</span>
-          <span>{count === 1 ? 'note not linked to anything yet' : 'notes not linked to anything yet'}</span>
-          <span className="font-medium text-primary">Go through them</span>
+          <span>{count === 1 ? 'note wandering on its own' : 'notes wandering on their own'}</span>
+          <span className="font-medium text-primary">Find them company</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" side="top" className="w-80 gap-0 p-0 text-control">

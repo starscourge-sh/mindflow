@@ -22,8 +22,9 @@ export function TagChip({ tag, color, className = '', children }: { tag: string;
 
 /**
  * A tag in a list: an outlined tag with its hole, in the tag's own colour, or
- * grey when it has none. `tint` is CSS when the colour is already worked out.
+ * grey when it has none. `tint` is CSS when the colour is already worked out. One colour for all with
+ * "Coloured icons" off (main.css).
  */
 export function TagIcon({ tag, color, tint, className = 'size-4' }: { tag: string; color?: string | null; tint?: string; className?: string }): React.JSX.Element {
-  return <Tag aria-hidden className={`shrink-0 ${className}`} style={{ color: tint ?? tagTint(tag, color) }} />
+  return <Tag aria-hidden className={`shrink-0 ${className}`} style={{ color: `var(--mf-icon-tint, ${tint ?? tagTint(tag, color)})` }} />
 }

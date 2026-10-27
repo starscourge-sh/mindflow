@@ -2284,3 +2284,8 @@ html[data-book-hue] [data-book-tint] {
 [data-day-write]:not([data-page-open]) .haligtree-editor-wrapper { max-height: max(12rem, 34vh); overflow: hidden; }
 [data-day-write][data-page-capped]:not([data-page-open]) .haligtree-editor-wrapper { mask-image: linear-gradient(to top, transparent, #000 4.5rem); }
 :root:is([data-day-writing], [data-in-room]) [data-day-write] .haligtree-editor-wrapper { max-height: none; overflow: visible; mask-image: none; }
+
+/* "Coloured icons" off: the sidebar's pages and the tags' icons in one colour (places.tsx, tag-icon.tsx), and
+   menu emoji greyed, as Vivaldi's monochrome icons. A tag's chip and words keep their colour: there it is the tag. */
+:root[data-icon-colour='off'] { --mf-icon-tint: color-mix(in oklab, var(--foreground) 72%, transparent); }
+:root[data-icon-colour='off'] .mf-menu-emoji { filter: grayscale(1); opacity: 0.85; }

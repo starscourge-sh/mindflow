@@ -493,7 +493,8 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
       const reach = !shown || still() ? 1 : ease(Math.min(1, (now - reachAt) / 420))
       const alpha = (dot: Dot): number => (growing ? seen(dot, now) : 1) * (shown ? 1 : far(dot))
       // The rest fades as far as the lit neighbours stand out.
-      const faded = 1 - 0.85 * amount
+      // The rest steps back, never out: still there to see, so the page does not flare when most of it goes.
+      const faded = 1 - 0.55 * amount
       // What the frame shows, in the map's own units.
       const frame = [-width / 2 - view.x, -height / 2 - view.y, width / 2 - view.x, height / 2 - view.y].map((at) => at / view.k)
       const inFrame = (dot: Dot, margin = 0): boolean => dot.x! >= frame[0] - margin && dot.x! <= frame[2] + margin && dot.y! >= frame[1] - margin && dot.y! <= frame[3] + margin
