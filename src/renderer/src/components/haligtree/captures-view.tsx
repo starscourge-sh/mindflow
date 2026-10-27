@@ -121,7 +121,10 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
   const days = useInboxDays()
   const windowed = inboxPage && !everything && days > 0
   const older = windowed ? all.filter((one) => keep(one) && !inInboxWindow(one, days)) : []
-  const [olderAsked, setOlderAsked] = useState(false)
+  const [olderAsked, setOlderAsked] = useState(() => !!focus && older.some((one) => one.id === focus))
+  // Sent to one (a link, a tag's page, ⌘K, Pinned): the list it is in is the one shown, older or newer, so its row is there beside it.
+  const [sentTo, setSentTo] = useState(focus)
+  if (sentTo !== focus) (setSentTo(focus), focus && windowed && all.some((one) => one.id === focus && keep(one)) && setOlderAsked(older.some((one) => one.id === focus)))
   const olderShown = olderAsked && older.length > 0
   const inView = (one: CaptureMeta): boolean => !windowed || inInboxWindow(one, days) !== olderShown
   // Everything: every task too, as a row of its own kind; to do, done or both, as chosen.

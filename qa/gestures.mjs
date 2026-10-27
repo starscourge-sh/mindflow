@@ -112,7 +112,8 @@ async function surface(name, w, root, open, { click = true, rows: only, emptied,
 }
 
 try {
-  await v('settings:set', { sounds: false, hintRate: 0, countIn: false })
+  await v('settings:set', { sounds: false, hintRate: 0, countIn: false, inboxDays: 0 })
+  // The whole Inbox, every capture a row (the sandbox's are older than the Inbox's usual 7 days): its gestures are what this checks.
   // Something in every list: a resolved capture among the open ones, an archived pair, a goal, a question, a later task.
   const caps = await h.evaluate(() => window.api.captures.list())
   const open = caps.filter((one) => one.status === 'open')
