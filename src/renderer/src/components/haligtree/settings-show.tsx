@@ -1,4 +1,4 @@
-import { Camera, CircleCheck, FileOutput, Gem, Inbox, Link, Pin, Repeat2, Trash2, type LucideIcon } from 'lucide-react'
+import { Camera, CircleCheck, FileOutput, Gem, Inbox, Repeat2 } from 'lucide-react'
 import { PlaceIcon, SECTIONS } from './places'
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { motion } from 'motion/react'
@@ -397,17 +397,16 @@ export function BarWordsSample({ words }: { words: boolean }): React.JSX.Element
   )
 }
 
-/** "Lines" and "Emoji" menu icons, each a few lines of a menu as it would open. */
-const MENU_SAMPLE: [LucideIcon, string, string][] = [[Pin, 'Pin', '📌'], [Link, 'Copy link', '🔗'], [Trash2, 'Move to the Bin', '🗑️']]
+/** "Lines" and "Emoji" icons, each as a few of the sidebar's rows would show. */
 export const menuIconChoices = (): { id: string; label: string; show: ReactNode }[] =>
   [{ id: 'lines', label: 'Lines' }, { id: 'emoji', label: 'Emoji' }].map((one) => ({
     ...one,
     show: (
       <span data-menu-icons-sample={one.id} className="absolute inset-0 flex flex-col items-start justify-center gap-1.5 px-3 text-[12px] leading-none text-foreground">
-        {MENU_SAMPLE.map(([Icon, label, emoji]) => (
-          <span key={label} className="flex items-center gap-2">
-            {one.id === 'emoji' ? <span className="mf-emoji-icon flex size-3.5 items-center justify-center text-[0.8125rem]">{emoji}</span> : <Icon className="size-3.5 text-muted-foreground" />}
-            {label}
+        {SECTIONS.filter((place) => ['inbox', 'day', 'nuggets'].includes(place.id)).map((place) => (
+          <span key={place.id} className="flex items-center gap-2">
+            {one.id === 'emoji' ? <span className="mf-emoji-icon flex size-3.5 items-center justify-center text-[0.8125rem]">{place.emoji}</span> : <place.icon className="size-3.5 text-muted-foreground" />}
+            {place.label}
           </span>
         ))}
       </span>

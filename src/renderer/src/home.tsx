@@ -1774,7 +1774,7 @@ export function Home(): React.JSX.Element {
               )}
               {pinsOn && !quiet && (pins.length > 0 || layouts.length > 0) && (<div data-side-drop="pinned" className="rounded-md data-[queue-hot]:bg-[color-mix(in_oklab,var(--primary)_12%,transparent)] data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--primary)_40%,transparent)]">
                 {heading(pinsGroup, pinsOpen, setPinsOpen)}
-                <Unfold open={pinsOpen || narrow}><Branches current={-1} bare={narrow} className={`flex flex-col gap-px ${narrow ? '' : 'ml-5'}`}>{[
+                <Unfold open={pinsOpen || narrow}><Branches current={(() => { const at = pins.findIndex((pin) => pin.id === view.focus); return at < 0 ? -1 : layouts.length + at })()} bare={narrow} className={`flex flex-col gap-px ${narrow ? '' : 'ml-5'}`}>{[
                   ...layouts.map((one) => {
                     const live = split.panes.length > 1 && sameLayout(one.views, split.panes.map((pane) => pane.trail.views[pane.trail.at]))
                     return <PairRow key={one.id} live={live} isPinned narrow={narrow} names={one.views.map(paneName)} menu={pairMenu(one.views, live ? {} : null, one.id)} onAlone={(index) => openAlone(one.views[index])}
@@ -1821,10 +1821,10 @@ export function Home(): React.JSX.Element {
                 return (
                   <div data-side-recent>
                     {heading(recentGroup, recentOpen, setRecentOpen)}
-                    <Unfold open={recentOpen}><Branches current={-1} className="ml-5 flex flex-col gap-px">{rows.map((one) => {
+                    <Unfold open={recentOpen}><Branches current={rows.findIndex((one) => one.id === view.focus)} className="ml-5 flex flex-col gap-px">{rows.map((one) => {
                       const Icon = openedIcon(one)
                       return (
-                        <button key={one.id} type="button" data-side-row data-private={one.private ? '' : undefined} data-side-recent-row={one.id}
+                        <button key={one.id} type="button" data-side-row data-private={one.private ? '' : undefined} data-side-recent-row={one.id} aria-current={one.id === view.focus ? 'page' : undefined}
                           onClick={() => open(one.type, one.id)}
                           className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-2 py-1.5 text-foreground/80">
                           <Icon className="size-4 shrink-0 text-muted-foreground" />

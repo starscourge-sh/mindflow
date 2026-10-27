@@ -1,4 +1,3 @@
-import { emojiIcons } from '@/lib/icon-style'
 import { Children, type ReactNode } from 'react'
 import {
   AlarmClock, AppWindow, Archive, ArchiveRestore, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ArrowUpDown, Ban, Bell, Braces, BookCopy, BookOpen, Bookmark, Brain, Calendar,
@@ -18,6 +17,17 @@ import {
  * first rule that fits wins, so the narrow ones come before the broad.
  */
 const RULES: [RegExp, LucideIcon][] = [
+  // A picture's quick look (Space), and its caption: the words under it.
+  [/^look$/i, Eye],
+  // Menu lines that once fell back to the dot while the lines beside them had a drawing.
+  [/^pause$/i, Pause],
+  [/^writing tools/i, PenLine],
+  [/^peek$|^details$/i, PanelRight],
+  [/^window$/i, AppWindow],
+  [/^keep it pinned/i, Pin],
+  [/^choose another folder/i, FolderInput],
+  [/word aim/i, Target],
+  [/caption/i, Type],
   // Where notes come in from: each source by what it is, before any word in its name is read as an action.
   [/apple notes/i, NotebookText],
   [/obsidian|notion|\bvault\b/i, FolderInput],
@@ -138,6 +148,8 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^new capture|^new note|^new|^add/i, Plus],
   [/version|history/i, History],
   [/^import/i, Download],
+  [/^download/i, Download],
+
   [/^export|^save its|^save/i, Upload],
   // Customize has a tool of its own, so it is never taken for Settings' gear.
   [/^customi[sz]e/i, Wrench],
@@ -202,137 +214,6 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^eras/i, Eraser]
 ]
 
-/** Each drawing as an emoji, for "Icons: Emoji" (Settings, Appearance). A line no rule knows keeps its quiet dot.
- * None of the plain dark-grey ones (➕ ✖️ ✔️ ☑️): on a dark theme they all but vanished. */
-const EMOJI = new Map<LucideIcon, string>([
-  [AlarmClock, '⏰'],
-  [AppWindow, '🪟'],
-  [Archive, '🗄️'],
-  [ArchiveRestore, '📤'],
-  [ArrowDown, '⬇️'],
-  [ArrowLeft, '⬅️'],
-  [ArrowRight, '➡️'],
-  [ArrowUp, '⬆️'],
-  [ArrowUpDown, '↕️'],
-  [Ban, '🚫'],
-  [Bell, '🔔'],
-  [Braces, '🧩'],
-  [BookCopy, '📚'],
-  [BookOpen, '📖'],
-  [Bookmark, '🔖'],
-  [Brain, '🧠'],
-  [Calendar, '📅'],
-  [CalendarClock, '🗓️'],
-  [CalendarDays, '📆'],
-  [CalendarPlus, '📅'],
-  [CalendarX, '❌'],
-  [Camera, '📷'],
-  [CameraOff, '📵'],
-  [ChartBar, '📊'],
-  [CheckCheck, '✅'],
-  [ChevronsDownUp, '🔼'],
-  [ChevronsUpDown, '🔽'],
-  [CircleCheck, '✅'],
-  [CircleOff, '⭕'],
-  [CircleX, '❌'],
-  [Clipboard, '📋'],
-  [Clock, '🕒'],
-  [Columns2, '🪟'],
-  [Copy, '📄'],
-  [CopyPlus, '➕'],
-  [Dice5, '🎲'],
-  [DoorOpen, '🚪'],
-  [Download, '📥'],
-  [Eraser, '🧽'],
-  [ExternalLink, '↗️'],
-  [Eye, '👁️'],
-  [EyeOff, '🙈'],
-  [FilePlus, '📝'],
-  [FileText, '📄'],
-  [Files, '🗂️'],
-  [Flag, '🚩'],
-  [FolderInput, '📂'],
-  [FolderMinus, '📁'],
-  [FolderPlus, '📁'],
-  [Footprints, '👣'],
-  [Gift, '🎁'],
-  [GraduationCap, '🎓'],
-  [Hash, '#️⃣'],
-  [History, '🕰️'],
-  [Hourglass, '⏳'],
-  [House, '🏠'],
-  [Image, '🖼️'],
-  [Inbox, '📥'],
-  [Keyboard, '⌨️'],
-  [LayoutGrid, '🔲'],
-  [Library, '🏛️'],
-  [Lightbulb, '💡'],
-  [Link, '🔗'],
-  [List, '📃'],
-  [ListChecks, '✅'],
-  [ListStart, '⏭️'],
-  [Lock, '🔒'],
-  [LockOpen, '🔓'],
-  [LogOut, '🚪'],
-  [MapIcon, '🗺️'],
-  [Maximize2, '⛶'],
-  [MessageCircleQuestion, '❓'],
-  [MessageSquare, '💬'],
-  [Minimize2, '🔽'],
-  [Monitor, '🖥️'],
-  [MonitorUp, '📽️'],
-  [MoveRight, '➡️'],
-  [NotebookText, '📓'],
-  [Palette, '🎨'],
-  [Scissors, '✂️'],
-  [Pause, '⏸️'],
-  [Play, '▶️'],
-  [Scale, '⚖️'],
-  [PanelLeft, '◀️'],
-  [PanelRight, '▶️'],
-  [Pencil, '✏️'],
-  [Pin, '📌'],
-  [PinOff, '📍'],
-  [Plus, '🆕'],
-  [Quote, '💬'],
-  [Repeat, '🔁'],
-  [RotateCcw, '🔄'],
-  [Search, '🔍'],
-  [Settings, '⚙️'],
-  [Shapes, '🔷'],
-  [Shield, '🛡️'],
-  [ShieldCheck, '🛡️'],
-  [Smile, '😊'],
-  [Snowflake, '❄️'],
-  [Sparkles, '✨'],
-  [SquareCheck, '✅'],
-  [SquareKanban, '📋'],
-  [SquarePen, '📝'],
-  [Star, '⭐'],
-  [StickyNote, '🗒️'],
-  [Sun, '☀️'],
-  [Tag, '🏷️'],
-  [Target, '🎯'],
-  [Timer, '⏱️'],
-  [Trash2, '🗑️'],
-  [Type, '🔤'],
-  [Undo2, '↩️'],
-  [Ungroup, '🧷'],
-  [Upload, '📤'],
-  [ThumbsDown, '👎'],
-  [ThumbsUp, '👍'],
-  [User, '👤'],
-  [Video, '🎥'],
-  [Volume2, '🔊'],
-  [VolumeX, '🔇'],
-  [WandSparkles, '🪄'],
-  [Wrench, '🔧'],
-  [X, '❌'],
-  [Zap, '⚡'],
-  [PenLine, '🖊️'],
-  [SpellCheck, '🔡']
-])
-
 /** The drawing for a menu line's words, or a quiet dot for words no rule knows yet. */
 export function menuIcon(label: string): LucideIcon {
   const words = label.replace(/\s+/g, ' ').trim()
@@ -353,16 +234,11 @@ export function withMenuIcon(children: ReactNode): ReactNode {
   }
   if (!words.trim()) return children
   const Icon = menuIcon(words)
-  // Read as the menu opens (menus are drawn only while open): the setting is worn on the page's root.
-  const emoji = emojiIcons() ? EMOJI.get(Icon) : undefined
-  if (emoji) return [<span key="menu-icon" aria-hidden data-menu-icon="emoji" className="mf-emoji-icon flex size-3.5 shrink-0 items-center justify-center text-[0.8125rem] leading-none">{emoji}</span>, ...parts]
   return [<Icon key="menu-icon" aria-hidden data-menu-icon="" className="size-3.5 shrink-0 text-muted-foreground" />, ...parts]
 }
 
 /** A menu line's drawing on its own, by its words, for a menu whose lines bring their own markup (the block menu). */
 export function MenuGlyph({ label }: { label: string }): React.JSX.Element {
   const Icon = menuIcon(label)
-  const emoji = emojiIcons() ? EMOJI.get(Icon) : undefined
-  return emoji ? <span aria-hidden data-menu-icon="emoji" className="mf-emoji-icon flex size-4 shrink-0 items-center justify-center text-[0.8125rem] leading-none">{emoji}</span>
-    : <Icon aria-hidden data-menu-icon="" className="size-4 shrink-0 text-muted-foreground" />
+  return <Icon aria-hidden data-menu-icon="" className="size-4 shrink-0 text-muted-foreground" />
 }

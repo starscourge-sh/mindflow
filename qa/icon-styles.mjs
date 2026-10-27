@@ -1,4 +1,4 @@
-// Settings, Appearance: "Menu icons" (Lines or Emoji) and "Coloured icons" (off: the sidebar's pages and tag icons
+// Settings, Appearance: "Icons" (Lines or Emoji, for the sidebar and the Map; menus keep their lines) and "Coloured icons" (off: the sidebar's pages and tag icons
 // in one colour, menu emoji greyed). Checked on a real right-click menu and the sidebar, with pictures.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 [SHOTS=<dir>] node qa/icon-styles.mjs
 import { checks } from './harness.mjs'
@@ -25,7 +25,7 @@ try {
   check('the sidebar\'s pages in their own colours to start', new Set(before).size > 2, JSON.stringify(before))
   await v('settings:set', { menuIcons: 'emoji' }); await wait(500)
   const emoji = await menu()
-  check('"Emoji": the menu\'s lines carry emoji', emoji.filter((one) => one !== 'svg').length >= 3, JSON.stringify(emoji))
+  check('"Emoji": menus keep their lines', emoji.length > 3 && emoji.every((one) => one === 'svg'), JSON.stringify(emoji))
   await shot('menu-emoji')
   const side = await h.evaluate(() => [...document.querySelectorAll('aside [data-side-row] .mf-emoji-icon')].map((one) => one.textContent).slice(0, 8))
   check('"Emoji": the sidebar\'s pages and tags carry emoji too', side.length >= 5, JSON.stringify(side))
@@ -44,9 +44,8 @@ try {
   // One colour, at the strengths a row gives it (the page you are on fuller): no colour of its own left in any.
   const chroma = await h.evaluate((list) => list.map((one) => { const d = document.createElement('i'); d.style.color = `oklch(from ${one} l c h)`; document.body.append(d); const c = Number(getComputedStyle(d).color.match(/oklch\([\d.]+ ([\d.]+)/)?.[1] ?? 1); d.remove(); return c }), after)
   check('"Coloured icons" off: the pages in one colour', chroma.every((one) => one < 0.04), JSON.stringify(chroma))
-  await menu()
-  const grey = await h.evaluate(() => getComputedStyle(document.querySelector('[role=menu] .mf-emoji-icon')).filter)
-  check('and menu emoji greyed', /grayscale/.test(grey), grey)
+  const grey = await h.evaluate(() => getComputedStyle(document.querySelector('aside .mf-emoji-icon')).filter)
+  check('and the sidebar\'s emoji greyed', /grayscale/.test(grey), grey)
   await shot('menu-emoji-mono')
   await h.keyboard.press('Escape')
   await c.send('view', 'settings'); await wait(1500)
