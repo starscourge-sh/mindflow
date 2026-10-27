@@ -18,10 +18,12 @@ import { PICKED_ROW } from './task-pick'
 import { Example } from './example'
 import { exampleDiscarded } from '@/lib/examples'
 import { HoldButton } from './hold-button'
-import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
+import { CAPTURE_TYPES, byKind } from '../capture-kinds/capture-kind-picker'
+import { Display, FilterChips, arrange, useView, type Facet } from './display'
 import { RowMenu, copy, type MenuItem } from './row-menu'
 import { num } from '../../../../main/dates'
 import { quoted } from '../../../../main/clip'
+import { linkKinds } from '@/lib/capture-links'
 
 /**
  * The Bin: one place for everything moved there, of every kind. A capture,
@@ -37,13 +39,33 @@ import { quoted } from '../../../../main/clip'
  */
 type Binned = { type: string; id: string; title: string; kind: string; at: string; line?: string | null }
 
+/** A binned thing's type as @ links name its kind, for its icon: a gem is an idea there. */
+const LINK_KIND: Record<string, string> = { nugget: 'idea' }
+
 const KIND_SAID: Record<string, string> = { capture: 'Capture', task: 'Task', nugget: 'Gem', article: 'Page', question: 'Question', goal: 'Goal', card: 'Card', event: 'Event', calendar: 'Calendar', practice: 'Practice' }
 
 export function BinView({ onOpen }: { onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   const binned = useLive(haligtree.bin, [] as Binned[])
-  const [kind, setKind] = useState<string | null>(null)
-  const kinds = [...new Set(binned.map((one) => one.type))]
-  const shown = kind ? binned.filter((one) => one.type === kind) : binned
+  // Sorted and filtered as every list is, from Display: newest binned first to start.
+  const [view, setView] = useView('bin', { sort: 'newest', group: 'none' })
+  const facets: Facet<Binned>[] = [
+    // Each kind as it is said on its row (Note, Quote, Task, Gem), in the one order kinds keep, with the icon and colour an @ link to it has.
+    { key: 'kind', label: 'Kind', options: [...new Map(binned.map((one) => [kindSaid(one), one])).values()].sort((a, b) => byKind(kindSaid(a), kindSaid(b))).map((one) => {
+      const type = CAPTURE_TYPES.find((type) => type.label === kindSaid(one))
+      const look = type ? null : linkKinds()[LINK_KIND[one.type] ?? one.type]
+      return { id: kindSaid(one), label: kindSaid(one), icon: type?.icon ?? look?.icon, tint: type?.tint ?? (look ? `var(--tt-color-text-${look.color})` : undefined) }
+    }), test: (one, kind) => kindSaid(one) === kind }
+  ]
+  // A kind chosen whose last one has gone (restored, deleted) filters nothing: its chip has gone too, so it could not be taken off.
+  const kinds = facets[0].options.map((one) => one.id)
+  const live = { ...view, filter: { ...view.filter, kind: (view.filter.kind ?? []).filter((one) => kinds.includes(one)) } }
+  const shown = arrange(binned, live, facets, {
+    newest: (a, b) => b.at.localeCompare(a.at),
+    'oldest-binned': (a, b) => a.at.localeCompare(b.at),
+    name: (a, b) => nameOf(a).text.localeCompare(nameOf(b).text)
+  })[0][1]
+  // Some of the Bin left out by a filter: what is shown is what the buttons act on, as ⌘A does.
+  const filtered = shown.length < binned.length
   // Picked rows, by type and id; only what is still on show counts.
   const [picked, setPicked] = useState<string[]>([])
   const chosen = picked.filter((key) => shown.some((one) => keyOf(one) === key))
@@ -164,7 +186,14 @@ export function BinView({ onOpen }: { onOpen?: (type: string, id: string) => voi
           {!allPicked && <Tip label="Everything on show  ⌘A"><Button size="sm" variant="ghost" onClick={selectAll}>Select all</Button></Tip>}
           <Tip label="Clear the selection  Esc"><Button variant="ghost" size="icon-sm" aria-label="Clear the selection" onClick={clear}><X className="size-3.5" /></Button></Tip>
         </span>
-      ) : binned.length > 0 ? <span className="flex items-center gap-1">{shown.length > 1 && <Button size="sm" variant="ghost" onClick={() => restoreMany(shown)}>Restore {kind ? `these ${num(shown.length)}` : `all ${num(shown.length)}`}</Button>}<HoldButton hint="Everything in the Bin, deleted for good" done="Emptying…" onHold={empty}>Hold to empty</HoldButton></span> : null
+      ) : binned.length > 0 ? <span className="flex items-center gap-1">
+        {shown.length > 1 && <Button size="sm" variant="ghost" onClick={() => restoreMany(shown)}>Restore {filtered ? `these ${num(shown.length)}` : `all ${num(shown.length)}`}</Button>}
+        {filtered ? (
+          shown.length > 0 && <HoldButton hint={`The ${num(shown.length)} on show, deleted for good`} done="Deleting…" onHold={() => forget(shown.map(keyOf))}>{shown.length === 1 ? 'Hold to delete' : `Hold to delete ${num(shown.length)}`}</HoldButton>
+        ) : <HoldButton hint="Everything in the Bin, deleted for good" done="Emptying…" onHold={empty}>Hold to empty</HoldButton>}
+        <Display view={live} onChange={setView} facets={facets} count={binned.length}
+          sorts={[{ id: 'newest', label: 'Newest binned' }, { id: 'oldest-binned', label: 'Oldest binned' }, { id: 'name', label: 'A to Z' }]} />
+      </span> : null
     }>
       <div data-bin className="w-full pt-8 pb-16">
         <p className="list-words mb-4 text-[0.9375rem] text-foreground"><strong className="font-semibold">Everything you moved to the Bin, of every kind.</strong> <span className="text-muted-foreground">“Restore” puts one back where it was. Pick some, press ⌫ and hold “Hold to delete” to delete them for good, or hold “Hold to empty” for all of it.</span></p>
@@ -176,16 +205,7 @@ export function BinView({ onOpen }: { onOpen?: (type: string, id: string) => voi
             <Button size="sm" variant="ghost" onClick={() => (chime('off'), setAsking(null))}>{single ? 'Keep it' : 'Keep them'}</Button>
           </div>
         )}
-        {kinds.length > 1 && (
-          <div data-kind-chips className="list-words mb-3 flex flex-wrap gap-1.5">
-            {[null, ...kinds].map((one) => (
-              <button key={one ?? 'all'} type="button" aria-pressed={kind === one} onClick={() => (chime('tap'), setKind(one))}
-                className={`h-7 rounded-full px-3 text-control transition-colors ${kind === one ? 'bg-foreground text-background' : 'bg-foreground/[0.06] text-foreground/85 hover:bg-foreground/[0.1]'}`}>
-                {one ? KIND_SAID[one] ?? one : 'Everything'} <span className="opacity-70 tabular-nums">{num(one ? binned.filter((b) => b.type === one).length : binned.length)}</span>
-              </button>
-            ))}
-          </div>
-        )}
+        <div data-kind-chips className="list-words mb-3 empty:hidden"><FilterChips view={live} onChange={setView} facets={facets} wrap /></div>
         {shown.length ? (
           <div className="list-edge"><Rows list={shown} cursor={cursor} chosen={chosen} looked={looked ? keyOf(looked) : null} onLook={look} asking={many ? null : asking?.[0] ?? null} onClick={click} onAsk={ask} onKeep={() => (chime('off'), setAsking(null))}
             onRestore={restore} onForget={(one) => forget([keyOf(one)])}
