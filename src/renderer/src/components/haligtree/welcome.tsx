@@ -197,6 +197,17 @@ export function Welcome(): React.JSX.Element | null {
   const trail = useRef<number[]>([])
   // The answers acted on and their summary shown: going back to You shows the summary again, as it was left.
   const [paid, setPaid] = useState(false)
+  // The goal's real card (welcome-you.tsx, applySetup puts it on the desktop): out on the page that says what was done,
+  // tucked into the screen's edge, as every sticky tucks, on every other page once it has been seen. Only flipped as you
+  // come to that page or leave it, so a card you bring out or tuck yourself on a later page stays as you left it.
+  const goalCard = setup.made?.goalId && !(setup.undone ?? []).includes('goal') ? setup.made.goalId : null
+  const goalPage = at === YOU && paid
+  const goalSeen = useRef<string | null>(null)
+  useEffect(() => {
+    if (!goalCard) return
+    if (goalPage) goalSeen.current = goalCard
+    if (goalSeen.current === goalCard) void haligtree.setSettings({ stickiesTucked: goalPage ? 'off' : 'tabs' })
+  }, [goalCard, goalPage])
 
   const go = (to: number, backward = false): void => {
     if (to < WHY || to > LAST || performance.now() - pressedAt.current < 400) return

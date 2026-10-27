@@ -75,6 +75,8 @@ export async function applySetup(setup: Setup): Promise<Setup> {
     made.goalId = await haligtree.newGoal(title, by)
     made.goalTitle = title
     made.goalBy = by
+    // Its real card comes out on the desktop now, and stays out: the summary points at it (Welcome tucks it away on the other pages).
+    if (made.goalId) await haligtree.setBeacon(made.goalId, 'always')
   }
   if (!made.goalId) made.goalTitle = made.goalBy = null
   return { ...setup, made }
@@ -181,8 +183,7 @@ export function Payoff({ setup, onChange, onBack, still }: { setup: Setup; onCha
   }
   const goal = setup.made?.goalId && setup.made.goalBy && !fate ? setup.made : null
   return (
-    // With the goal's card beside it, the rows make room for it, so it never sits over an Undo.
-    <div data-payoff className={`flex w-full max-w-[52rem] flex-col gap-[clamp(0.75rem,2.4vh,1.25rem)] ${goal && !(setup.undone ?? []).includes('goal') ? '[@container(min-width:1141px)]:max-w-[min(52rem,calc(100%-22rem))]' : ''}`}>
+    <div data-payoff className="flex w-full max-w-[52rem] flex-col gap-[clamp(0.75rem,2.4vh,1.25rem)]">
       {rows.map((row, i) => (
         <motion.div key={row.id} data-made={row.id} className="flex items-start gap-3"
           initial={still ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: EASE, delay: still ? 0 : 0.15 + i * 0.22 }}>
@@ -196,6 +197,12 @@ export function Payoff({ setup, onChange, onBack, still }: { setup: Setup; onCha
             {row.goal && !row.undone && (
               <p data-goal-how className="mt-1.5 text-[clamp(1rem,min(1.8vw,2.6vh),1.1875rem)] leading-relaxed text-foreground">
                 <strong className="font-semibold">Made progress?</strong> Write it in quick capture, starting with the goal’s name: <LogLine goal={row.goal} did={DID} />. It is added to the goal’s progress log on your Goals page.
+              </p>
+            )}
+            {/* The real card, out on the desktop: said on its own line, so it is looked for. */}
+            {row.goal && !row.undone && goal && (
+              <p data-goal-sticky className="mt-1.5 text-[clamp(1rem,min(1.8vw,2.6vh),1.1875rem)] leading-relaxed text-foreground">
+                <strong className="font-semibold">Look at the top right of your screen.</strong> Its card is on your desktop now, so the goal stays in sight. Drag it anywhere. On the next pages it tucks into the edge.
               </p>
             )}
           </div>
@@ -218,8 +225,6 @@ export function Payoff({ setup, onChange, onBack, still }: { setup: Setup; onCha
           </div>
         </motion.div>
       ))}
-      {/* The goal's card, where the questions showed it: the same card, as it sits on your desktop. */}
-      {goal && !(setup.undone ?? []).includes('goal') && <GoalOnDesk title={goal.goalTitle!} by={goal.goalBy!} still />}
       <motion.p className="text-[clamp(1rem,min(1.8vw,2.6vh),1.1875rem)] text-(--mf-wl-body)" initial={still ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3, delay: still ? 0 : 0.2 + (rows.length + tips.length) * 0.22 }}>
         You can change all of it later in “Settings”.{' '}
         <button type="button" onClick={onBack} className="rounded-sm underline decoration-current/30 underline-offset-4 transition-colors hover:text-foreground hover:decoration-current/60">Change my answers</button>
