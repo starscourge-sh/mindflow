@@ -991,8 +991,9 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
   island: <T>(groups: [string, T[]][]) => { groups: [string, T[]][]; islands?: Record<string, IslandState> }
 } {
   // Archived opens in its folders: each "Put away everything before" run is one, by its day.
-  // By date to start, newest first, the way Pages lists: Today, This week, This month, This year. By kind is a choice in Display.
-  const [view, setView] = useView(name, { sort: 'newest', group: archived ? 'folder' : 'date', filter })
+  // The Inbox by kind to start (notes, then tasks, quotes, words), newest first: what each capture is, at a glance.
+  // Every other list by date, the way Pages lists: Today, This week, This month, This year. Either is a choice in Display.
+  const [view, setView] = useView(name, { sort: 'newest', group: archived ? 'folder' : name === 'captures:Inbox' ? 'kind' : 'date', filter })
   // Archived ones only in the Archived view, or when Display asks for them.
   const showArchived = archived || !!view.filter.flags?.includes('archived')
   const kept = all.filter((one) => !!one.archivedAt === showArchived)

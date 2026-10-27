@@ -118,6 +118,8 @@ try {
     await h.waitForTimeout(400)
   }
 
+  // The Inbox opens by kind now: asked for by date here, as one list.
+  await h.evaluate(() => localStorage.setItem('view:captures:Inbox', JSON.stringify({ sort: 'newest', group: 'date', filter: {} })))
   await walk('Inbox, one list by date', 'inbox', CAPTURES, 'Vlist cap')
   await walk('Gems by date', 'nuggets', GEMS, 'Vlist gem')
 
