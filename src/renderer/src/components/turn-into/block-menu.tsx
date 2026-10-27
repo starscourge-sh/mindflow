@@ -1,3 +1,4 @@
+import { MenuGlyph } from "@/components/ui/menu-icon"
 import { useEffect, useRef, useState } from "react"
 import { Selection } from "@tiptap/pm/state"
 import type { Editor } from "@tiptap/react"
@@ -400,6 +401,7 @@ export function BlockMenu({
         {rule && matches(rule.label) ? (
           <DropdownMenuItem asChild>
             <button type="button" onClick={() => at(() => editor.commands.updateAttributes("horizontalRule", { variant: rule.variant }))}>
+              <MenuGlyph label={rule.label} />
               <span className="tiptap-slash-menu-title">{rule.label}</span>
             </button>
           </DropdownMenuItem>
@@ -408,6 +410,7 @@ export function BlockMenu({
         {asImage && matches("Show as image") ? (
           <DropdownMenuItem asChild>
             <button type="button" onClick={showAsImage}>
+              <MenuGlyph label="Show as image" />
               <span className="tiptap-slash-menu-title">Show as image</span>
             </button>
           </DropdownMenuItem>
@@ -417,6 +420,7 @@ export function BlockMenu({
         {imageSrc && matches("Look") ? (
           <DropdownMenuItem asChild>
             <button type="button" onClick={() => at(() => lookAtSelected(editor))}>
+              <MenuGlyph label="Look" />
               <span className="tiptap-slash-menu-title">Look</span>
               <span className="tiptap-slash-menu-hint">Space</span>
             </button>
@@ -425,6 +429,7 @@ export function BlockMenu({
         {captionable && matches("Caption") ? (
           <DropdownMenuItem asChild>
             <button type="button" onClick={() => at(() => startCaption(editor, editor.state.selection.from))}>
+              <MenuGlyph label={thing?.attrs.caption ? "Edit caption" : "Add a caption"} />
               <span className="tiptap-slash-menu-title">{thing?.attrs.caption ? "Edit caption" : "Add a caption"}</span>
             </button>
           </DropdownMenuItem>
@@ -432,6 +437,7 @@ export function BlockMenu({
         {imageSrc?.startsWith("haligtree://assets/") && host().saveFileAs && matches("Download") ? (
           <DropdownMenuItem asChild>
             <button type="button" onClick={() => void host().saveFileAs?.(imageSrc, thing?.attrs.alt ? `${thing.attrs.alt}.${imageSrc.split(".").pop()}` : imageSrc.split("/").pop() ?? "Picture")}>
+              <MenuGlyph label="Download" />
               <span className="tiptap-slash-menu-title">Download</span>
             </button>
           </DropdownMenuItem>
@@ -439,6 +445,7 @@ export function BlockMenu({
         {imageSrc && matches("Copy image") ? (
           <DropdownMenuItem asChild>
             <button type="button" onClick={() => void copyImage()}>
+              <MenuGlyph label="Copy image" />
               <span className="tiptap-slash-menu-title">Copy image</span>
             </button>
           </DropdownMenuItem>
@@ -448,7 +455,8 @@ export function BlockMenu({
           ? TABLE_ACTIONS.filter(([label]) => matches(label)).map(([label, run]) => (
               <DropdownMenuItem key={label} asChild>
                 <button type="button" onClick={() => at(() => run(editor))}>
-                  <span className="tiptap-slash-menu-title">{label}</span>
+                  <MenuGlyph label={label} />
+              <span className="tiptap-slash-menu-title">{label}</span>
                 </button>
               </DropdownMenuItem>
             ))
@@ -457,6 +465,7 @@ export function BlockMenu({
         {href && matches("Open link") ? (
           <DropdownMenuItem asChild>
             <button type="button" onClick={() => window.open(href)}>
+              <MenuGlyph label="Open link" />
               <span className="tiptap-slash-menu-title">Open link</span>
             </button>
           </DropdownMenuItem>
@@ -465,6 +474,7 @@ export function BlockMenu({
         {href && matches("Copy link") ? (
           <DropdownMenuItem asChild>
             <button type="button" onClick={() => void navigator.clipboard.writeText(href).then(() => said("Link copied"), () => said("Could not copy the link", false))}>
+              <MenuGlyph label="Copy link" />
               <span className="tiptap-slash-menu-title">Copy link</span>
             </button>
           </DropdownMenuItem>
@@ -473,6 +483,7 @@ export function BlockMenu({
         {matches("Copy") ? (
           <DropdownMenuItem asChild>
             <button type="button" onClick={copy}>
+              <MenuGlyph label="Copy" />
               <span className="tiptap-slash-menu-title">Copy</span>
             </button>
           </DropdownMenuItem>
@@ -481,6 +492,7 @@ export function BlockMenu({
         {lineable && matches("Copy link to this line") ? (
           <DropdownMenuItem asChild>
             <button type="button" data-copy-line-link onClick={() => void copyLine(false)}>
+              <MenuGlyph label="Copy link to this line" />
               <span className="tiptap-slash-menu-title">Copy link to this line</span>
             </button>
           </DropdownMenuItem>
@@ -489,6 +501,7 @@ export function BlockMenu({
         {lineable && matches("Copy embed of this line") ? (
           <DropdownMenuItem asChild>
             <button type="button" data-copy-line-embed onClick={() => void copyLine(true)}>
+              <MenuGlyph label="Copy embed of this line" />
               <span className="tiptap-slash-menu-title">Copy embed of this line</span>
             </button>
           </DropdownMenuItem>
@@ -497,6 +510,7 @@ export function BlockMenu({
         {matches("Duplicate") ? (
           <DropdownMenuItem asChild>
             <button type="button" onClick={duplicate}>
+              <MenuGlyph label="Duplicate" />
               <span className="tiptap-slash-menu-title">Duplicate</span>
             </button>
           </DropdownMenuItem>
@@ -508,7 +522,8 @@ export function BlockMenu({
         {colorable && matches("Color") ? (
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
-            <span className="tiptap-slash-menu-title">Color</span>
+            <MenuGlyph label="Color" />
+              <span className="tiptap-slash-menu-title">Color</span>
             <span className="tiptap-slash-menu-hint">&rsaquo;</span>
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="tiptap-block-colors">
@@ -561,6 +576,7 @@ export function BlockMenu({
                 remove()
               }
             >
+              <MenuGlyph label="Delete" />
               <span className="tiptap-slash-menu-title">Delete</span>
             </button>
           </DropdownMenuItem>
@@ -570,6 +586,7 @@ export function BlockMenu({
         {show && matches(show.label) ? (
           <DropdownMenuItem asChild>
             <button type="button" data-show-in-list onClick={() => (onOpenChange(false), show.run())}>
+              <MenuGlyph label={show.label} />
               <span className="tiptap-slash-menu-title">{show.label}</span>
               {show.keys && <Kbd>{show.keys}</Kbd>}
             </button>

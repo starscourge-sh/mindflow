@@ -132,6 +132,8 @@ export function CodeBlockView({ node, updateAttributes }: NodeViewProps) {
       <pre
         data-background={node.attrs.backgroundColor ?? undefined}
         data-color={node.attrs.textColor ?? undefined}
+        // Code, codes and tables of names are not prose: no spelling squiggles under them.
+        spellCheck={false}
       >
         {/* The `as` prop is typed to div; the tag itself is free. */}
         <NodeViewContent as={"code" as "div"} />

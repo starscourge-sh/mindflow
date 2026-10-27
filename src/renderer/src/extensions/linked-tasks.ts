@@ -142,7 +142,11 @@ export const LinkedTasks = Extension.create<{ origin: () => string | null; box: 
             // Read as Today's page reads lines: indented ones are steps of the line above.
             // In quick capture, taken up, the box becomes a Todo: Create makes the tasks, said under the box.
             const box = inBox() && boxKind.pick
-            const said = tasksSaid(box ? boxList(editor)?.list ?? [] : tasksOf(readLines(text)))
+            const lines = box ? boxList(editor)?.list ?? [] : tasksOf(readLines(text))
+            // Nothing it could make (the lines landed in a code block, say, as a table pasted from a terminal does): no offer
+            // of "Make 0 tasks".
+            if (!lines.length) return
+            const said = tasksSaid(lines)
             toast(`A list of ${readLines(text).length} lines`, undefined, "info", { label: `Make ${said === "a task" ? "it a task" : said}`, key: "T", run: () => (box ? box() : void makeLineTasks(editor, from, to, origin())) })
           }, 0)
           return false

@@ -40,12 +40,21 @@ export const useGrammars = (): boolean =>
     () => real !== null
   )
 
+/** Code has its marks: brackets, braces, an equals or an arrow, a semicolon. Plain words and numbers have none. */
+const looksLikeCode = (text: string): boolean => /[{}()[\];=<>]|=>|\$\w|^\s*#!|^\s*(def|import|from|class|function|const|let|var|return)\b/m.test(text)
+
 const NOTHING = { type: "root", children: [], data: { language: undefined, relevance: 0 } } as unknown as Root
 
 /** What the code block extension asks of lowlight, answered by the real one once it is in. */
 export const lowlight = {
   highlight: (...args: Parameters<Lowlight["highlight"]>) => (real ? real.highlight(...args) : (void loadGrammars(), NOTHING)),
-  highlightAuto: (...args: Parameters<Lowlight["highlightAuto"]>) => (real ? real.highlightAuto(...args) : (void loadGrammars(), NOTHING)),
+  // Words with none of code's marks (a table of names and numbers pasted from a terminal) are not guessed at: such a
+  // table was painted as Python, every apostrophe opening a string. Anything with code's brackets or signs is, as before.
+  highlightAuto: (...args: Parameters<Lowlight["highlightAuto"]>) => {
+    if (!real) return (void loadGrammars(), NOTHING)
+    if (!looksLikeCode(args[0])) return { type: "root", children: [{ type: "text", value: args[0] }], data: { language: undefined, relevance: 0 } } as unknown as Root
+    return real.highlightAuto(...args)
+  },
   listLanguages: (): string[] => real?.listLanguages() ?? [],
   registered: (name: string): boolean => real?.registered(name) ?? false,
 }
@@ -53,8 +62,8 @@ export const lowlight = {
 /**
  * What language a snippet looks like, or "" when the guess is not worth showing.
  *
- * This gates the LABEL only - the highlighting itself always uses the best
- * guess, which is the extension's own behaviour for an unset language.
+ * This gates the LABEL only; what is painted is lowlight.highlightAuto's
+ * call (plain words are left unpainted there).
  *
  * The bar is high because the score does not separate right from wrong at the
  * low end. Measured on this grammar set: bash 16 (right), json 6 (right),

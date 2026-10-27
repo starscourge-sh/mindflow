@@ -18,8 +18,10 @@ export type PropertyLinesOptions = {
  * The strip's place: right after the first block, the title, drawn with the
  * page in its first frame. Never part of the words: the editor steps over it.
  */
-/** Where the strip goes: after the title line, or at the very start when the title is kept apart. */
-const spot = (doc: ProseMirrorNode, top: boolean): number => (top ? 0 : doc.firstChild?.nodeSize ?? 0)
+/** Where the strip goes: after the title line, or at the very start when the title is kept apart, or when the note
+ * opens with no line of words to be its title (a code block, a picture, a list): under that, it read as a footer. */
+const spot = (doc: ProseMirrorNode, top: boolean): number =>
+  top || !["paragraph", "heading"].includes(doc.firstChild?.type.name ?? "") ? 0 : doc.firstChild?.nodeSize ?? 0
 
 function placed(doc: ProseMirrorNode, strip: HTMLElement | null, top: boolean): DecorationSet {
   if (!strip || !doc.firstChild) return DecorationSet.empty

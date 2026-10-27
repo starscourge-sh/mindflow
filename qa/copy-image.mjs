@@ -92,7 +92,9 @@ try {
     const inside = await pixel(picture.png, 40, 40)
     const want = block.bg.match(/\d+(\.\d+)?/g).slice(0, 3).map(Number)
     check(`${theme}: inside the corner, the theme's background`, inside.slice(0, 3).every((one, i) => Math.abs(one - want[i]) <= 3), `${inside} vs ${block.bg}`)
-    check(`${theme}: the corner itself rounded off, clear`, (await pixel(picture.png, 0, 0))[3] === 0)
+    // Square: a see-through corner shows white in mail.
+    const corner = await pixel(picture.png, 0, 0)
+    check(`${theme}: the corner is the theme's background, never see-through`, corner[3] === 255 && corner.slice(0, 3).every((one, i) => Math.abs(one - want[i]) <= 3), String(corner))
     check(`${theme}: the frame is gone from the page`, (await h.locator('[data-picture-frame]').count()) === 0)
     await h.keyboard.press('Escape')
   }

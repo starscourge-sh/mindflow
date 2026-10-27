@@ -12,14 +12,12 @@ import { refuse, toast } from '@/components/haligtree/ui'
  * editor's own styling applies (its fonts, code colours, lists, tables), the
  * window takes what it shows inside the frame (main 'picture-of-rect'), and the
  * frame goes again: on screen for two painted frames, over the blocks themselves
- * where they fit. Being clones, they carry no caret, selection, handles or
+ * where they fit. Square, edge to edge. Being clones, they carry no caret, selection, handles or
  * spelling marks. A note taller than the window is taken a window's height at
  * a time and the pieces put together.
  */
 
 const PAD = 32
-/** Its corners' rounding, in the page's own pixels: cut by the picture itself, so they come out clear rather than showing the window behind. */
-const ROUND = 16
 /** The frame, made at twice the size it is laid out at, for a sharp picture on any screen. */
 const SCALE = 2
 
@@ -58,6 +56,8 @@ function cleanClone(block: HTMLElement): HTMLElement {
   const clone = block.cloneNode(true) as HTMLElement
   for (const mark of clone.querySelectorAll(EDITING)) mark.remove()
   for (const one of [clone, ...clone.querySelectorAll<HTMLElement>(MARKS.map((name) => `.${name}`).join(','))]) one.classList.remove(...MARKS)
+  // An empty line's hint ("Write, or type / for commands…") is the editor speaking, not the note.
+  for (const one of [clone, ...clone.querySelectorAll<HTMLElement>('[data-placeholder], .is-empty')]) (one.removeAttribute('data-placeholder'), one.classList.remove('is-empty', 'is-editor-empty'))
   // A grammar or spelling finding (proofread.tsx): its underline is a class of its own, named by the finding.
   for (const one of clone.querySelectorAll<HTMLElement>('[data-grammar]')) (one.removeAttribute('class'), one.removeAttribute('data-grammar'))
   return clone
@@ -134,15 +134,13 @@ export async function drawBlocks(page: HTMLElement, blocks: HTMLElement[]): Prom
   } finally {
     frame.remove()
   }
-  // Put together, with the corners rounded.
+  // Put together, square: rounded corners had to be see-through, and mail (Outlook, Gmail) paints see-through white,
+  // a white corner on a dark picture. Where it lands rounds it if it wants to (a chat bubble does).
   const pieces = await Promise.all(pngs.map((png) => createImageBitmap(new Blob([png as BlobPart], { type: 'image/png' }))))
   const canvas = document.createElement('canvas')
   canvas.width = pieces[0].width
   canvas.height = pieces.reduce((sum, one) => sum + one.height, 0)
   const ink = canvas.getContext('2d')!
-  ink.beginPath()
-  ink.roundRect(0, 0, canvas.width, canvas.height, ROUND * SCALE)
-  ink.clip()
   let at = 0
   for (const piece of pieces) (ink.drawImage(piece, 0, at), (at += piece.height), piece.close())
   const blob = await new Promise<Blob | null>((done) => canvas.toBlob(done, 'image/png'))
@@ -155,7 +153,10 @@ export async function sharePicture(page: HTMLElement | null, blocks: HTMLElement
   if (!page) return refuse('Open the note to make a picture of it')
   // The whole note: its blocks, without what the editor lays among them (the Properties block) or the empty line it keeps at the end.
   const picked = blocks ?? ([...page.children] as HTMLElement[]).filter((one) => !one.classList.contains('ProseMirror-widget'))
-  while (!blocks && picked.length && !picked.at(-1)!.textContent!.trim() && !picked.at(-1)!.querySelector('img, video, iframe, canvas, svg, hr')) picked.pop()
+  // Nor the empty lines at either end: an empty first line showed its "Write, or type / for commands…" in the picture.
+  const empty = (one: HTMLElement): boolean => !one.textContent!.trim() && !one.querySelector('img, video, iframe, canvas, svg, hr')
+  while (!blocks && picked.length && empty(picked.at(-1)!)) picked.pop()
+  while (!blocks && picked.length && empty(picked[0])) picked.shift()
   if (!picked.length) return refuse('Nothing to make a picture of')
   try {
     const png = await drawBlocks(page, picked)

@@ -358,3 +358,11 @@ export function withMenuIcon(children: ReactNode): ReactNode {
   if (emoji) return [<span key="menu-icon" aria-hidden data-menu-icon="emoji" className="mf-emoji-icon flex size-3.5 shrink-0 items-center justify-center text-[0.8125rem] leading-none">{emoji}</span>, ...parts]
   return [<Icon key="menu-icon" aria-hidden data-menu-icon="" className="size-3.5 shrink-0 text-muted-foreground" />, ...parts]
 }
+
+/** A menu line's drawing on its own, by its words, for a menu whose lines bring their own markup (the block menu). */
+export function MenuGlyph({ label }: { label: string }): React.JSX.Element {
+  const Icon = menuIcon(label)
+  const emoji = emojiIcons() ? EMOJI.get(Icon) : undefined
+  return emoji ? <span aria-hidden data-menu-icon="emoji" className="mf-emoji-icon flex size-4 shrink-0 items-center justify-center text-[0.8125rem] leading-none">{emoji}</span>
+    : <Icon aria-hidden data-menu-icon="" className="size-4 shrink-0 text-muted-foreground" />
+}

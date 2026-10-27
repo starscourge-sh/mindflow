@@ -1871,9 +1871,11 @@ html[data-motion="off"] .tiptap.ProseMirror.haligtree-editor .mf-caption {
   position: relative;
   margin: 1.5em 0;
 
+  // Lines kept whole, scrolled sideways when they run long: wrapped, a table's last column fell onto lines of its own.
   pre {
     margin: 0;
     overflow-x: auto;
+    white-space: pre;
   }
 
   // Each line is a block of its own inside the <code>; left inline, the
