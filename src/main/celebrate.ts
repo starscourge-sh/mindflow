@@ -186,7 +186,7 @@ function finished(): Moment | null {
   const id = `tasks:${dayKey()}`
   const end = new Date(startOfDay(1)).toISOString()
   if (fired(id) || count("select count(*) as n from tasks where status = 'open' and due_at is not null and due_at < ?", end)) return null
-  const done = count('select count(distinct task_id) as n from task_done where done_at >= ?', today())
+  const done = count("select count(distinct task_id) as n from task_done where done_at >= ? and task_id not in (select id from tasks where status = 'dropped')", today())
   // Only a day that had something due counts, not a quiet one with odd jobs done.
   const due = count('select count(*) as n from tasks where due_at >= ? and due_at < ?', today(), end) +
     count("select count(*) as n from tasks t join task_done d on d.task_id = t.id where d.done_at >= ? and t.recurrence is not null", today())

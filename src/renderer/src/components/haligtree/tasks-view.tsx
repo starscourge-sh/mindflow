@@ -12,7 +12,7 @@ import { chime, step } from '@/lib/sound'
 import { noteLinkText, typeSaid } from '@/lib/capture-links'
 import { call, focusToolsShown, useFocusTools, splitTags, unloaded, useLastAsked, useLive, haligtree, when, whenInLine, type Focus, type Made, type Session, type Settings, type Task, type TaskFull } from '@/lib/haligtree'
 import { useOpened } from '@/lib/nav'
-import { useCameBack } from '@/lib/to-bin'
+import { moveToBin, useCameBack } from '@/lib/to-bin'
 import { ShowInListContext, useShowInList, useShowLine } from '@/lib/show-in-list'
 import { readAhead, readFresh, readNow, useAfterFirstPaint } from '@/lib/early-read'
 import { NoteComing } from './note-coming'
@@ -579,7 +579,9 @@ export function taskMenu(task: Task, { open, complete = () => void completeTask(
     'separator',
     // Said as every list says it, so a task picked with ⌘A reads the same as a note: ⌫ does it.
     open_ && toNoteItem([task.id]),
-    open_ && { label: 'Move to the Bin', hint: 'Closed without doing; it can come back', keys: '⌫', danger: true, run: () => closeTask(task.id) }
+    open_ && { label: 'Move to the Bin', hint: 'Closed without doing; it can come back', keys: '⌫', danger: true, run: () => closeTask(task.id) },
+    // A done one too: off the list and out of what counts as done, coming back done at its own time with Undo.
+    task.status === 'done' && { label: 'Move to the Bin', hint: 'No longer counted as done; it can come back', keys: '⌫', danger: true, run: () => void moveToBin([{ type: 'task', id: task.id, status: 'done' }]) }
   ]
 }
 

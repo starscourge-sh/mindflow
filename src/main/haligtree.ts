@@ -1863,7 +1863,7 @@ export function registerHaligtree(): void {
       caught: n('select count(*) n from captures where captured_at >= ?'),
       kept: n("select count(*) n from nuggets where created_at >= ? and tier in ('nugget', 'article')"),
       reviewed: n('select count(*) n from review_log where reviewed_at >= ?'),
-      finished: n('select count(*) n from task_done where done_at >= ?'),
+      finished: n("select count(*) n from task_done where done_at >= ? and task_id not in (select id from tasks where status = 'dropped')"),
       from
     }
   }
@@ -3884,7 +3884,7 @@ export function registerHaligtree(): void {
       hours: all<{ hour: number; n: number }>("select cast(strftime('%H', captured_at, 'localtime') as integer) hour, count(*) n from captures group by hour"),
       firstUse: one<{ days: number | null }>(
         `select avg(julianday(first_used_at) - julianday(captured_at)) days from captures where first_used_at >= ?`, ago(90)).days,
-      tasksDone: one<{ n: number }>('select count(*) n from task_done where done_at >= ?', ago(7)).n,
+      tasksDone: one<{ n: number }>("select count(*) n from task_done where done_at >= ? and task_id not in (select id from tasks where status = 'dropped')", ago(7)).n,
       // Wrapped: what the week was, in the work itself.
       sessions: one<{ n: number; minutes: number | null }>(
         "select count(*) n, sum((julianday(ended_at) - julianday(started_at)) * 1440 - paused_ms / 60000.0) minutes from sessions where ended_at is not null and abandoned_at is null and started_at >= ?", ago(7)),
@@ -3908,7 +3908,7 @@ export function registerHaligtree(): void {
         const since = dayjs().startOf('day').toISOString()
         return one<{ captured: number; exits: number; tasks: number; reviews: number }>(
           `select (select count(*) from captures where captured_at >= ?) captured, (select count(*) from captures where exited_at >= ?) exits,
-            (select count(*) from task_done where done_at >= ?) tasks, (select count(*) from review_log where reviewed_at >= ?) reviews`, since, since, since, since)
+            (select count(*) from task_done where done_at >= ? and task_id not in (select id from tasks where status = 'dropped')) tasks, (select count(*) from review_log where reviewed_at >= ?) reviews`, since, since, since, since)
       })(),
       year: (() => {
         const since = dayjs().startOf('year').toISOString()

@@ -547,7 +547,7 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
       captured: db.prepare(`select 'capture' as type, id, ${LABEL} as title, kind, status, private, captured_at as at from captures where archived_at is null and ${on('captured_at')} order by captured_at`).all(day),
       resolved: db.prepare(`select 'capture' as type, id, ${LABEL} as title, kind, status, private, exited_at as at from captures where status != 'open' and archived_at is null and ${on('exited_at')} order by exited_at`).all(day),
       studied: db.prepare(`select n.tier as type, n.id, coalesce(nullif(n.title, ''), label('', n.body)) as title, n.kind, n.private, min(r.reviewed_at) as at from review_log r join nuggets n on n.id = r.item_id where n.archived_at is null and n.tier != 'card' and ${on('r.reviewed_at')} group by n.id order by at`).all(day),
-      done: db.prepare(`select 'task' as type, t.id, t.title, 0 as private, max(d.done_at) as at from task_done d join tasks t on t.id = d.task_id where ${on('d.done_at')} group by t.id order by at`).all(day),
+      done: db.prepare(`select 'task' as type, t.id, t.title, 0 as private, max(d.done_at) as at from task_done d join tasks t on t.id = d.task_id where ${on('d.done_at')} and t.status != 'dropped' group by t.id order by at`).all(day),
       // Tasks dated for the day, by when they were meant for or due by: the day's time log puts them at that hour.
       dated: db.prepare(`select 'task' as type, id, title, status, 0 as private, coalesce(case when ${on('due_at')} then due_at end, deadline_at) as at, all_day as allDay from tasks
         where status != 'dropped' and (${on('due_at')} or ${on('deadline_at')}) order by at`).all(day, day, day)
