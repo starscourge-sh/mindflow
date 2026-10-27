@@ -387,8 +387,18 @@ export function registerFeed(): void {
       for (const one of stacked) rows.splice(rows.indexOf(one), 1)
       const lanes = [
         order(rows.filter((row) => row.type === 'nugget' && row.kind !== 'quote')),
-        // Quotes spread across who said them: one each in turn, and no more than two from one person a day.
-        spread(order(rows.filter((row) => row.kind === 'quote')), (row) => row.who?.trim().toLowerCase() || row.id, 2),
+        // Quotes spread across who said them: one each in turn, and no more than two from one person a day. Spread
+        // among the ones not seen this week first, then the rest: spread over all of them, each person's quote from
+        // yesterday came back every day while there were few people to take turns.
+        ...((): Row[][] => {
+          const quotes = order(rows.filter((row) => row.kind === 'quote'))
+          const week = dayjs().subtract(7, 'day').toISOString()
+          const recent = (row: Row): boolean => (lastSeen(row) ?? '') >= week
+          const voice = (row: Row): string => row.who?.trim().toLowerCase() || row.id
+          const taken = new Map<string, number>()
+          return [[...spread(quotes.filter((row) => !recent(row)), voice, 2), ...spread(quotes.filter(recent), voice, 2)]
+            .filter((row) => taken.set(voice(row), (taken.get(voice(row)) ?? 0) + 1).get(voice(row))! <= 2)]
+        })(),
         order(rows.filter((row) => row.type === 'question')),
         order(rows.filter((row) => row.type === 'day')),
         order(rows.filter((row) => (row.type === 'capture' || row.type === 'article') && row.kind !== 'quote' && !archived(row))),
