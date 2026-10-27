@@ -364,7 +364,10 @@ export function registerFeed(): void {
     if (!keys) {
       // Each kind longest unseen first, then taken in turns so no one kind fills the day.
       // The hints' rhythm: time since you last saw it, times how often you want it ("Less of this" fades it).
-      const due = (row: Row): number => (Date.now() - new Date(lastSeen(row) ?? row.made).getTime()) * (row.weight ?? 1)
+      // One never seen comes before every one seen, however liked: a heart brings a note back sooner, never ahead of
+      // ones not yet shown (in a new book, a liked quote seen yesterday outranked gems never shown at all, day after day).
+      const NEVER = 10 * 365 * 86_400_000
+      const due = (row: Row): number => { const seenAt = lastSeen(row); return seenAt ? (Date.now() - new Date(seenAt).getTime()) * (row.weight ?? 1) : NEVER + (Date.now() - new Date(row.made).getTime()) }
       const order = (list: Row[]): Row[] => list.sort((a, b) => due(b) - due(a))
       // A list kept in its order, but taken one per voice in turns, each voice at most `most` times.
       const spread = (list: Row[], voice: (row: Row) => string, most: number): Row[] => {
