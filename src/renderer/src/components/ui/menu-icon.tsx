@@ -7,7 +7,7 @@ import {
   Library, Lightbulb, Link, List, ListChecks, ListStart, Lock, LockOpen, LogOut, Map as MapIcon, Maximize2, MessageCircleQuestion, MessageSquare, Minimize2, Monitor,
   MonitorUp, MoveRight, NotebookText, Palette, Scissors, Pause, Play, Scale, PanelLeft, PanelRight, Pencil, Pin, PinOff, Plus, Quote, Repeat, RotateCcw, Search, Settings, Shapes, Shield,
   ShieldCheck, Smile, Snowflake, Sparkles, SquareCheck, SquareKanban, SquarePen, Star, StickyNote, Sun, Tag, Target, Timer, Trash2, Type, Undo2, Ungroup, Upload,
-  User, Volume2, VolumeX, WandSparkles, Wrench, X, Zap, PenLine, SpellCheck, type LucideIcon
+  ThumbsDown, ThumbsUp, User, Video, Volume2, VolumeX, WandSparkles, Wrench, X, Zap, PenLine, SpellCheck, type LucideIcon
 } from 'lucide-react'
 
 /**
@@ -41,8 +41,15 @@ const RULES: [RegExp, LucideIcon][] = [
   [/writing room/i, PenLine],
   [/^read$/i, BookOpen],
   [/^proofread/i, SpellCheck],
-  [/close other panes/i, CircleX],
+  [/close (the )?other panes/i, CircleX],
   [/^close (this )?pane|^close without/i, X],
+  // Any other close (a pair in the sidebar, a window): the same plain ✕ as a pane's.
+  [/^close\b(?! the (day|week))/i, X],
+  [/^even out/i, Columns2],
+  [/^back$/i, ArrowLeft],
+  [/^forward$/i, ArrowRight],
+  [/^join .*call/i, Video],
+  [/^see the original/i, ExternalLink],
   [/new window|own window|in a window/i, AppWindow],
   [/^open .*sandbox|sandbox/i, Shapes],
   [/^open|^go to|^show .*note|^read from here|^read the inbox|^write in it/i, ExternalLink],
@@ -74,6 +81,11 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^archive/i, Archive],
   // Letting a selection go removes nothing: a plain ✕, not the bin.
   [/^clear the selection/i, X],
+  // Taken out of a folder, the queue or Read: out of that place only, nothing deleted.
+  [/^remove from folder/i, FolderMinus],
+  [/^remove from queue|^take out of/i, CircleOff],
+  [/^put (it|them) back|^bring it back|^changed my mind/i, Undo2],
+  [/^remove/i, Trash2],
   [/^delete|^discard|^clear|^let (it )?go|^drop/i, Trash2],
   [/^take the step out/i, Eraser],
   [/^not private|not private|unlock|^show private|blur private titles again/i, LockOpen],
@@ -89,8 +101,12 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^pause the session/i, Pause],
   [/^resume the session/i, Play],
   [/^end (session|it) early/i, CircleCheck],
-  [/^abandon session/i, CircleOff],
+  [/^abandon (the )?session|^give it up/i, CircleOff],
+  [/^finish the session/i, CircleCheck],
+  [/^name this/i, Pencil],
   [/^not done/i, RotateCcw],
+  [/^mark as read/i, CheckCheck],
+  [/^unmark/i, RotateCcw],
   [/task|^complete|^done|^mark (it )?done/i, SquareCheck],
   [/^save as a gem/i, Lightbulb],
   [/^resolve|^made it|answered/i, CircleCheck],
@@ -107,7 +123,11 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^study|^review|tested/i, GraduationCap],
   [/thought|^comment/i, MessageSquare],
   [/idea|\bgems?\b/i, Lightbulb],
-  [/^goal/i, Target],
+  [/^goal|^set a goal/i, Target],
+  [/^like$/i, ThumbsUp],
+  [/^less of this/i, ThumbsDown],
+  [/^play next|^go back to it/i, ListStart],
+  [/^link this/i, Link],
   [/quote|who said/i, Quote],
   [/article|^read/i, BookOpen],
   [/card/i, StickyNote],
