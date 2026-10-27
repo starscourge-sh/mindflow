@@ -673,6 +673,8 @@ export type Settings = typeof DEFAULTS & {
   secondZone?: string
   /** The Calendar's layers switched off: "tasks", or "mac:<calendar name>" for one of your Mac's calendars. */
   calendarHidden?: string[]
+  /** The reader card's draw (Settings): its title and colours follow from it; unset, from the book's name. */
+  readerSeed?: number
 }
 
 /**
@@ -3147,6 +3149,16 @@ export function registerHaligtree(): void {
     if (table === 'nuggets') db.prepare(`update nuggets set body = ?, updated_at = ?${on ? ', unsorted = 0' : ''} where id = ?`).run(JSON.stringify(doc), now(), id)
     else db.prepare('update captures set body = ? where id = ?').run(JSON.stringify(doc), id)
     return write(doc)
+  })
+
+  // --- the reader card (Settings): the counts behind its stamps, and the day the book began
+  handle('reader:card', () => {
+    const notes = db.prepare("select count(*) n, min(captured_at) first from captures where status != 'discarded'").get() as { n: number; first: string | null }
+    // A note that links to another, by @ in the editor or [[@…]] from an import.
+    const linked = !!db.prepare(`select 1 from captures where status != 'discarded' and (body like '%"noteLink"%' or body like '%[[@%') limit 1`).get()
+    const journal = (db.prepare("select count(distinct day) n from journal where answer != ''").get() as { n: number }).n
+    const reviewed = !!db.prepare('select 1 from review_log limit 1').get()
+    return { notes: notes.n, since: notes.first, linked, journal, reviewed }
   })
 
   // --- the recap, Wrapped's way: a month or a year in what you did here

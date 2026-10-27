@@ -1278,7 +1278,7 @@ export function Home(): React.JSX.Element {
         ) : view.id === 'powers' ? (
           <PowersView onView={(id, focus) => setView({ id, focus }, key)} />
         ) : (
-          <SettingsView />
+          <SettingsView focus={view.focus} nonce={view.nonce} />
         )}
       </motion.div>
       </NavContext.Provider>
@@ -1438,6 +1438,7 @@ export function Home(): React.JSX.Element {
             ...themeActions((text, undo) => toast(text, undo)),
             { label: settings?.blur === false ? 'Turn blurring on' : 'Turn blurring off', cue: null, run: blurring },
             { label: 'Settings', keys: '⌘,', run: () => setView({ id: 'settings' }) },
+            { label: 'Your reader card', hint: 'Your book on a card, in Settings', cue: null, run: () => setView({ id: 'settings', focus: 'reader-card', nonce: Date.now() }) },
             // The wrench on a sidebar heading shows only on pointing: found here too.
             { label: 'Customize the sidebar…', cue: null, run: () => void setTimeout(() => setCustomizing(true), 120) },
             { label: recent ? 'Hide Recent' : 'Show Recent', hint: recent ? undefined : 'Recent: everything made lately, beside the page', keys: '⇧⌘Y', cue: null, run: toggleRecent },

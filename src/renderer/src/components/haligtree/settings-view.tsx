@@ -43,6 +43,7 @@ import { LINGER } from './getting-started'
 import { tryCelebration } from './celebrate'
 import { drawingFor } from './grain'
 import { PageContents } from './page-contents'
+import { ReaderCard } from './reader-card'
 import { CoverChoice, DimPreview, FolderStrips, InFinder, isBuiltInScenery } from './settings-looks'
 import { builtInScenery } from '@/lib/built-in-scenery'
 import { sourceOf } from '../../../../main/moment-source'
@@ -386,7 +387,7 @@ function PeekSample({ side, on }: { side: 'left' | 'right'; on: boolean }): Reac
   )
 }
 
-export function SettingsView(): React.JSX.Element {
+export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from ⌘K's “Your reader card”: its section, and the card brought into view. */ focus?: string; nonce?: number } = {}): React.JSX.Element {
   const settings = useLive(haligtree.settings, null as Settings | null)
   // The search at the top: rows that do not match go, and the words are marked.
   const [query, setQuery] = useState('')
@@ -460,6 +461,13 @@ export function SettingsView(): React.JSX.Element {
   const iconHover = useFluidHover(iconRow, { items: ':scope > button', axis: 'x' })
   const iconChosen = useChosen(iconRow, ':scope > button[aria-checked="true"]', settings?.appIcon ?? 'bronze')
   const [typewriter, setTypewriter] = useStoredFlag('typewriter')
+  // Asked for the reader card: its section, with no search hiding it.
+  useEffect(() => {
+    if (asked !== 'reader-card') return
+    setQuery('')
+    setSection(SECTIONS[0].title)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [asked, nonce])
   if (!settings) return <section className="flex-1" />
   const set = (patch: Partial<Settings>): void => void haligtree.setSettings(patch)
   // The focus timer and site blocking turned off: their rows are not here, only the switch (Tasks).
@@ -542,6 +550,10 @@ export function SettingsView(): React.JSX.Element {
       <div ref={holdColumn} className="w-full max-w-2xl px-6 pt-4 pb-16 [&:has([data-setting])>[data-none]]:hidden">
         {!searching && <h2 className="px-1 text-lg font-semibold text-foreground"><Term>{section}</Term></h2>}
         <p data-none className="px-1 text-body text-muted-foreground">Nothing here matches “{query}”. Try fewer letters, or what it changes.</p>
+        <Group section="Appearance" title="You">
+          <Setting title="Reader card" note="Your book on a card: a title drawn for you, the day it began, and a stamp for each milestone." more="“Randomize” draws another title and colours; the card is kept until you do. Stamps come at 100 and 1,000 notes, a first link, a first gem reviewed, 30 days of Journal and a year in." keywords="reader card member profile name title stamps milestones share picture image randomize arc"
+            below={<ReaderCard seed={settings.readerSeed} point={asked === 'reader-card' ? nonce : undefined} />} />
+        </Group>
         <Group section="Appearance" title="Colours">
           <Setting title="Theme" note={settings.themePreview ? 'Point at one to try it on, click to keep it.' : 'Click one to wear it.'} below={<ThemeTiles preview={settings.themePreview === true} />} keywords={`${allThemes().map(themeName).join(' ')} preview hover try`}>
             <span className="text-muted-foreground">Preview on hover</span>
