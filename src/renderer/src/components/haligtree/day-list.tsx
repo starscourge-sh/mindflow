@@ -20,6 +20,7 @@ import { useArrivals } from './note-list'
 import { TomorrowBox } from './tomorrow-lines'
 import { TAG } from '../../../../main/tag-words'
 import { Timer } from '@/components/ui/icons'
+import { FromNote, useAtNotes, type AtLink } from './at-notes'
 
 /** A line split round its #tags: the tags at the odd places. */
 const byTags = (text: string): string[] => text.split(new RegExp(`(#${TAG})`, 'gu'))
@@ -94,6 +95,48 @@ const writeCleared = (day: string, ids: string[]): void => {
 /** Your order first, then the order they were made in. */
 const order = (a: Task, b: Task): number => (a.sortOrder ?? 1e6 + a.number) - (b.sortOrder ?? 1e6 + b.number)
 
+/** Whether a task is on today's Now: open and for today, or ticked today. */
+const inNow = (task: Task): boolean => {
+  const day = placed(task)
+  if (task.status === 'open') return !task.waitingOn && day !== null && day >= startOfDay() && day < startOfDay(1)
+  return task.status === 'done' && !!task.completedAt && dayKey(task.completedAt) === dayKey() && (day ?? 0) < startOfDay(1)
+}
+
+/**
+ * The day's three, the way Arc keeps pinned tabs while the day's tabs come and
+ * go: the first three lines of Now, numbered 1 2 3. Until one of them is
+ * ticked they follow the list, so a drag in the morning changes them; once
+ * one is ticked they are kept for the day, here, and stay at the top of Now,
+ * struck through when done, while the rest moves up under them.
+ */
+const THREE = (day: string): string => `day-list:three:${day}`
+const readKept = (day: string): string[] | null => {
+  try {
+    const ids = JSON.parse(localStorage.getItem(THREE(day)) ?? 'null')
+    return Array.isArray(ids) ? ids : null
+  } catch {
+    return null
+  }
+}
+const keepThree = (day: string, ids: string[]): void => {
+  try {
+    localStorage.setItem(THREE(day), JSON.stringify(ids))
+  } catch {
+    // They go on following the list until kept.
+  }
+}
+/** Today's three, kept or still following the list: read by quick capture's Today too, which marks them the same way. */
+export const dayThree = (tasks: Task[], day = dayKey()): string[] =>
+  readKept(day) ?? tasks.filter(inNow).filter((task) => !readCleared(day).includes(task.id)).sort(order).slice(0, 3).map((task) => task.id)
+
+/** A line's number among the day's three, quiet in the margin where the handle shows on pointing; green once it is done. */
+export function ThreeMark({ n, done = false, className = '' }: { n: number; done?: boolean; className?: string }): React.JSX.Element {
+  return (
+    <span data-three={n} aria-label={`One of today's three, number ${n}`} className={`text-control font-semibold tabular-nums ${className}`}
+      style={{ color: done ? 'var(--tt-color-text-green)' : 'var(--foreground)' }}>{n}</span>
+  )
+}
+
 const MINUTES = [15, 30, 45, 60, 90, 120]
 const lengthSaid = (minutes: number): string => (minutes < 60 ? `${minutes} min` : minutes % 60 ? `${Math.floor(minutes / 60)} h ${minutes % 60} min` : `${minutes / 60} h`)
 
@@ -123,16 +166,14 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
   const fresh = useRef(new Set<string>())
 
   const start = startOfDay()
-  const end = startOfDay(1)
-  const inNow = (task: Task): boolean => {
-    const day = placed(task)
-    if (task.status === 'open') return !task.waitingOn && day !== null && day >= start && day < end
-    return task.status === 'done' && !!task.completedAt && dayKey(task.completedAt) === today && (day ?? 0) < end
-  }
   const ids = new Set(tasks.map((task) => task.id))
-  const now = [...tasks.filter(inNow), ...Object.values(ticked).map((one) => one.task).filter((task) => !ids.has(task.id) || !inNow(tasks.find((one) => one.id === task.id)!))]
+  const written = [...tasks.filter(inNow), ...Object.values(ticked).map((one) => one.task).filter((task) => !ids.has(task.id) || !inNow(tasks.find((one) => one.id === task.id)!))]
     .filter((task, at, all) => all.findIndex((one) => one.id === task.id) === at && !cleared.includes(task.id))
     .sort(order)
+  // The day's three first, in the order they were kept (or the first three still), then the rest in your order.
+  const kept = readKept(today)
+  const three = kept ?? written.slice(0, 3).map((task) => task.id)
+  const now = [...three.flatMap((id) => written.filter((task) => task.id === id)), ...written.filter((task) => !three.includes(task.id))]
   const before = tasks.filter((task) => task.status === 'open' && !task.waitingOn && (placed(task) ?? Infinity) < start)
   const next = tasks.filter((task) => task.status === 'open' && !task.waitingOn && !task.dueAt && !task.deadline && !task.planFor && !task.recurrence).sort(order)
   const later = tasks.filter((task) => task.status === 'open' && !task.waitingOn && !task.dueAt && !!bucket(task)).sort(order)
@@ -140,6 +181,15 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
   const done = (task: Task): boolean => !!ticked[task.id] || task.status === 'done'
   const openNow = now.filter((task) => !done(task))
   const top = new Set(openNow.slice(0, 3).map((task) => task.id))
+  // The first of the three ticked, here or anywhere: they are kept for the day from now on.
+  const settle = !kept && now.some((task) => three.includes(task.id) && done(task))
+  useEffect(() => {
+    if (settle) keepThree(today, three)
+  }, [settle]) // eslint-disable-line react-hooks/exhaustive-deps
+  // How the three stand, the ones cleared after ticking counted as done.
+  const threeDone = three.filter((id) => cleared.includes(id) || now.some((task) => task.id === id && done(task))).length
+  const threeThere = three.filter((id) => cleared.includes(id) || now.some((task) => task.id === id)).length
+  const mention = useAtNotes()
   const arrived = useArrivals([...now, ...next, ...later].map((task) => task.id), 'day-list')
 
   // The caret where it was asked for, once the line it asked for is drawn:
@@ -197,11 +247,12 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     section === 'now' ? { due: shiftTo(0, task?.dueAt) } : section === 'next' ? { due: null, plan: null } : { plan: 'someday' }
 
   /** A written line made a task in its section, after `after` (or first). Gives back its id. */
-  const add = async (section: Section, text: string, after: string | null, list = lists[section].map((task) => task.id)): Promise<string | null> => {
+  const add = async (section: Section, text: string, after: string | null, list = lists[section].map((task) => task.id), link?: AtLink): Promise<string | null> => {
     const words = text.trim()
     if (!words) return null
     onWrite?.()
-    const made = await haligtree.addTask(words, undefined, section === 'now')
+    // A note picked with @: the task is made from it, and its name in the words is never read as a date.
+    const made = await haligtree.addTask(words, link?.id, section === 'now', link?.plain.map(({ from, to }) => ({ from: from - text.indexOf(words), to: to - text.indexOf(words) })))
     if (!made.existed) fresh.current.add(made.id)
     // The same words as a task already open: that one comes here, not a second.
     if (made.existed) {
@@ -456,6 +507,8 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     const field = event.currentTarget
     const text = field.value
     const owner = parent ? lists[section].find((one) => one.id === parent.id) : undefined
+    // The @ menu open: its keys first.
+    if (!parent && mention.keys(event)) return void event.preventDefault()
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault()
       if (!text.trim()) {
@@ -475,9 +528,10 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
         })
         return
       }
+      const link = mention.linkOf(field, text)
       field.value = ''
       if (key === 'draft') setDraft(null)
-      void add(section, text, after()).then((id) => {
+      void add(section, text, after(), undefined, link).then((id) => {
         if (!id) return
         if (key === 'draft') {
           setDraft({ section, after: id, text: '' })
@@ -553,9 +607,11 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
       <TagTint />
       <textarea data-line data-draft ref={field('draft')} rows={1} defaultValue={draft?.text} aria-label="A new line"
         onKeyDown={draftKeys(section, 'draft', () => draft?.after ?? null, draft?.parent)}
+        onInput={(event) => !draft?.parent && mention.input(event.currentTarget)}
         onPaste={onPaste(section, () => draft?.after ?? null)}
         onBlur={(event) => {
           if (intoMenu(event)) return
+          mention.close()
           // Left with words in it, they are kept; left empty, the draft goes.
           const text = event.currentTarget.value.trim()
           const was = draft
@@ -564,7 +620,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
           if (was.parent) {
             const owner = lists[section].find((one) => one.id === was.parent!.id)
             if (owner) void saveSteps(owner, [...(owner.subtasks ?? []).slice(0, was.parent.at), { text, done: false }, ...(owner.subtasks ?? []).slice(was.parent.at)])
-          } else void add(section, text, was.after)
+          } else void add(section, text, was.after, undefined, mention.linkOf(event.currentTarget, text))
         }}
         className={`relative block w-full resize-none bg-transparent leading-snug outline-none [field-sizing:content] placeholder:text-muted-foreground ${depth ? 'text-control' : 'text-[0.9375rem]'}`} />
       </div>
@@ -577,18 +633,21 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     const steps = task.subtasks ?? []
     const allSteps = steps.length > 0 && steps.every((one) => one.done)
     const first = section === 'now' && top.has(task.id)
+    const rank = section === 'now' ? three.indexOf(task.id) + 1 : 0
     const draftHere = draft && draft.section === section && draft.after === task.id
     return (
       <SortableRow key={task.id} id={task.id}>
-        <div data-day-line={task.id} data-section={section} data-done={struck || undefined} data-top={first || undefined}
+        <div data-day-line={task.id} data-section={section} data-done={struck || undefined} data-top={first || undefined} data-rank={rank || undefined}
           className={`group/line relative rounded-md ${task.id === openId ? 'bg-accent/50' : ''} ${arrived(task.id) ? 'mf-arrive' : ''}`}>
           {/* Right-clicked, the menu a task has on every list, with the words' own Cut, Copy and Paste after it. */}
           <RowMenu writes items={taskMenu(task, { open: () => (chime('open'), onOpenTask ? onOpenTask(task.id) : window.api.openInHome('task', task.id)), complete: () => tick(task), now: taskNow })}>
           <div className="flex items-start gap-2.5 py-1 pr-1">
             {/* The handle, shown on pointing; the whole row drags, the words never. */}
             {/* Shown on the line being written too: it says the line can move, and ⌥↑ ⌥↓ (said under the list) moves it from the keys. */}
-            <span aria-hidden title="Drag to move it, or ⌥↑ ⌥↓" className="mt-[0.3rem] w-3.5 shrink-0 cursor-grab text-muted-foreground opacity-0 transition-opacity group-hover/line:opacity-60 group-focus-within/line:opacity-60">
-              <GripVertical className="size-3.5" />
+            {/* One of the day's three: its number in the same place, giving way to the handle on pointing. */}
+            <span title="Drag to move it, or ⌥↑ ⌥↓" className="relative mt-[0.3rem] w-3.5 shrink-0 cursor-grab">
+              {rank > 0 && <ThreeMark n={rank} done={struck} className="absolute inset-x-0 -top-[0.15rem] text-center leading-[1.3rem] transition-opacity group-hover/line:opacity-0 group-focus-within/line:opacity-0" />}
+              <GripVertical aria-hidden className="size-3.5 text-muted-foreground opacity-0 transition-opacity group-hover/line:opacity-60 group-focus-within/line:opacity-60" />
             </span>
             <Tip label={struck ? 'Not done after all' : 'Done  ⌘↵'}>
               <button type="button" role="checkbox" aria-checked={struck} aria-label={task.title} onClick={() => tick(task)}
@@ -611,6 +670,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
                   onBlur={(event) => rename(task, event.currentTarget.value)}
                   className={`block w-full resize-none bg-transparent leading-snug text-foreground outline-none [field-sizing:content] ${first ? 'text-[0.9375rem] font-semibold' : 'text-[0.9375rem]'}`} />
               )}
+              <FromNote task={task} />
             </div>
             {/* On pointing: start on it, give it a length, or put it off a day. */}
             {!struck && (
@@ -705,12 +765,16 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
       <TagTint />
       <textarea data-line data-new={section} ref={field(`new:${section}`)} rows={1} aria-label={`A new line in ${SECTIONS.find((one) => one.id === section)!.label}`} placeholder={placeholder}
         onKeyDown={draftKeys(section, `new:${section}`, () => lists[section].at(-1)?.id ?? null)}
+        onInput={(event) => mention.input(event.currentTarget)}
         onPaste={onPaste(section, () => lists[section].at(-1)?.id ?? null)}
         onBlur={(event) => {
           const text = event.currentTarget.value.trim()
-          if (!text || intoMenu(event)) return
+          if (intoMenu(event)) return
+          mention.close()
+          if (!text) return
+          const link = mention.linkOf(event.currentTarget, text)
           event.currentTarget.value = ''
-          void add(section, text, lists[section].at(-1)?.id ?? null)
+          void add(section, text, lists[section].at(-1)?.id ?? null, undefined, link)
         }}
         className="relative block w-full resize-none bg-transparent text-[0.9375rem] leading-snug outline-none [field-sizing:content] placeholder:text-muted-foreground/80" />
       </div>
@@ -746,7 +810,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
           )}
           {id !== 'now' && <span className="text-sm text-muted-foreground">· {said.replace(/^Next, /, '')}</span>}
           {/* Late ones still open count too, so this says what Today's List and Close the day say. */}
-          {id === 'now' && <NowCount open={openNow.length + before.length} done={now.length - openNow.length} />}
+          {id === 'now' && <NowCount open={openNow.length + before.length} done={now.length - openNow.length} three={threeThere === 3 ? threeDone : undefined} />}
           <span className="flex-1" />
           {id === 'now' && now.some(done) && !compact && (
             <button type="button" onClick={clearTicked} className="flex h-6 items-center rounded-md px-2 text-control text-muted-foreground hover:bg-accent hover:text-foreground">Clear ticked</button>
@@ -835,9 +899,11 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
       {!compact && <TomorrowBox className="mt-6" />}
       {!compact && section('next')}
       {!compact && section('later')}
+      {mention.menu}
       {!compact && (
         <p className="mt-8 flex flex-wrap items-center gap-x-3 gap-y-1 pl-6 text-sm text-muted-foreground">
           <span><Kbd>↵</Kbd> next line</span>
+          <span><Kbd>@</Kbd> link a note</span>
           <span><Kbd>⇥</Kbd> a step of the line above</span>
           <span><Kbd>⌥↑</Kbd> <Kbd>⌥↓</Kbd> move</span>
           <span><Kbd>⌘↵</Kbd> tick</span>
@@ -915,14 +981,27 @@ function TintedWords({ text }: { text: string }): React.JSX.Element {
     : part)}</>
 }
 
-/** "2 of 5 done", rolling as it changes; nothing before anything is written. */
-function NowCount({ open, done }: { open: number; done: number }): React.JSX.Element | null {
+/**
+ * "Your three: 2 of 3 done" once the day has three, then "4 of 9 in all"
+ * when there is more; with fewer than three, "2 of 5 done". Rolling as it
+ * changes; nothing before anything is written.
+ */
+function NowCount({ open, done, three }: { open: number; done: number; /** How many of the day's three are done, when it has three. */ three?: number }): React.JSX.Element | null {
   const all = open + done
-  // Before anything is ticked, the page's own count says it.
-  if (!all || !done) return null
+  if (!all) return null
   return (
-    <span data-now-count className="text-sm font-medium tabular-nums" style={{ color: !open ? 'var(--tt-color-text-green)' : 'var(--muted-foreground)' }}>
-      <Rolling text={`${num(done)} of ${num(all)} done`} by="word" />
-    </span>
+    <>
+      {three !== undefined && (
+        <span data-three-count className="text-sm font-semibold tabular-nums" style={{ color: three === 3 ? 'var(--tt-color-text-green)' : 'var(--foreground)' }}>
+          <Rolling text={`Your three: ${num(three)} of 3 done`} by="word" />
+        </span>
+      )}
+      {/* Before anything is ticked, the page's own count says it; past the three, the whole list. */}
+      {done > 0 && (three === undefined || all > 3) && (
+        <span data-now-count className="text-sm font-medium tabular-nums" style={{ color: !open ? 'var(--tt-color-text-green)' : 'var(--muted-foreground)' }}>
+          <Rolling text={three === undefined ? `${num(done)} of ${num(all)} done` : `${num(done)} of ${num(all)} in all`} by="word" />
+        </span>
+      )}
+    </>
   )
 }

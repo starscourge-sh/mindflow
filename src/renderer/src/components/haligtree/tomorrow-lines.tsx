@@ -8,6 +8,7 @@ import { clock } from '@/lib/clock'
 import { Tip, Typed, toast } from './ui'
 import { RowMenu, type RowItem } from './row-menu'
 import { taskMenu, useTaskNow } from './tasks-view'
+import { FromNote, useAtNotes, type AtLink } from './at-notes'
 
 /**
  * Tomorrow, written down before bed: one line per thing on your mind, each an
@@ -73,9 +74,12 @@ export function useNight(night: string): Entry[] {
   return entries
 }
 
-/** Words made a task for `day`: undated, all day; a time with no day of its own ("call Sam at 3"), at that time on `day`. */
-async function makeFor(text: string, day: string): Promise<Entry & { existed: boolean }> {
-  const made = await haligtree.addTask(text, undefined, true)
+/**
+ * Words made a task for `day`: undated, all day; a time with no day of its own ("call Sam at 3"), at that time on `day`.
+ * A note picked with @ in them: made from that note, its name never read as a date.
+ */
+async function makeFor(text: string, day: string, link?: AtLink): Promise<Entry & { existed: boolean }> {
+  const made = await haligtree.addTask(text, link?.id, true, link?.plain)
   if (!made.existed) {
     const task = await haligtree.task(made.id)
     if (task?.dueAt && !task.recurrence && !task.planFor && dayKey(task.dueAt) < day) {
@@ -125,10 +129,11 @@ export function TomorrowLines({ night, alsoAbove = false, label = 'A line for to
   const kept = useRef('')
   kept.current = draft
 
-  const add = async (text: string): Promise<Entry | null> => {
+  const mention = useAtNotes()
+  const add = async (text: string, link?: AtLink): Promise<Entry | null> => {
     const words = text.trim()
     if (!words) return null
-    const one = await makeFor(words, day)
+    const one = await makeFor(words, day, link && { ...link, plain: link.plain.map(({ from, to }) => ({ from: from - text.indexOf(words), to: to - text.indexOf(words) })) })
     writeNight(night, [...readNight(night), { id: one.id, made: one.made }])
     if (one.existed) toast('Already on your list, so it is on tonight’s too, not added twice', undefined, 'info')
     else chime('bead')
@@ -218,12 +223,14 @@ export function TomorrowLines({ night, alsoAbove = false, label = 'A line for to
   }
   const draftKeys = (event: React.KeyboardEvent<HTMLTextAreaElement>): void => {
     const field = event.currentTarget
+    // The @ menu open: its keys first.
+    if (mention.keys(event)) return void event.preventDefault()
     if (event.key === 'Enter' && !event.shiftKey && !event.metaKey) {
       event.preventDefault()
       if (!draft.trim()) return
       const text = draft
       setDraft('')
-      void add(text)
+      void add(text, mention.linkOf(field, text))
       return
     }
     // Backspace on the empty new line: back up to the end of the line above, as any editor joins up.
@@ -263,9 +270,12 @@ export function TomorrowLines({ night, alsoAbove = false, label = 'A line for to
               <li data-tomorrow-line={task.id} className="mf-arrive flex items-start gap-2.5 py-1">
                 {/* A bullet, not a tick box: these are for tomorrow, ticked there. */}
                 <span aria-hidden className="grid h-[1.4rem] w-[1.0625rem] shrink-0 place-items-center"><span className="size-1.5 rounded-full" style={{ background: task.status === 'done' ? 'var(--tt-color-text-green)' : 'var(--muted-foreground)' }} /></span>
-                <textarea data-tomorrow-field rows={1} defaultValue={task.title} aria-label={task.title} key={task.title}
-                  onKeyDown={lineKeys(one)} onPaste={onPaste} onBlur={(event) => rename(task, event.currentTarget.value)}
-                  className={`${lineClass} min-w-0 flex-1 ${task.status === 'done' ? 'text-muted-foreground line-through' : ''}`} />
+                <div className="min-w-0 flex-1">
+                  <textarea data-tomorrow-field rows={1} defaultValue={task.title} aria-label={task.title} key={task.title}
+                    onKeyDown={lineKeys(one)} onPaste={onPaste} onBlur={(event) => rename(task, event.currentTarget.value)}
+                    className={`${lineClass} ${task.status === 'done' ? 'text-muted-foreground line-through' : ''}`} />
+                  <FromNote task={task} />
+                </div>
                 {/* A date of its own in the words moves the line off tomorrow: said plainly, with the way back. */}
                 {moved ? (
                   <span data-tomorrow-moved className="mt-[0.15rem] flex shrink-0 items-center gap-2 text-control tabular-nums">
@@ -291,18 +301,21 @@ export function TomorrowLines({ night, alsoAbove = false, label = 'A line for to
               </span>
             )}
             <textarea ref={fresh} data-tomorrow-field data-tomorrow-new rows={1} value={draft} aria-label={label}
-              onChange={(event) => setDraft(event.target.value.replace(/\n/g, ''))}
+              onChange={(event) => (setDraft(event.target.value.replace(/\n/g, '')), mention.input(event.target))}
               onKeyDown={draftKeys} onPaste={onPaste}
               onBlur={(event) => {
-                if ((event.relatedTarget as Element | null)?.closest?.('[role=menu]') || !draft.trim()) return
+                if ((event.relatedTarget as Element | null)?.closest?.('[role=menu]')) return
+                mention.close()
+                if (!draft.trim()) return
                 const text = draft
                 setDraft('')
-                void add(text)
+                void add(text, mention.linkOf(event.currentTarget, text))
               }}
               className={lineClass} />
           </div>
         </div>
       </RowMenu>
+      {mention.menu}
     </div>
   )
 }

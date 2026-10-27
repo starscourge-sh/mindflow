@@ -11,8 +11,8 @@ import { realMove } from "@/lib/real-move"
 import { TagIcon } from "@/components/haligtree/tag-icon"
 import { hoverNote } from "@/components/haligtree/note-preview"
 
-/** The `@` menu: which note to link to. */
-const NoteList = forwardRef<SuggestionListHandle, SuggestionProps<NoteSuggestion>>(
+/** The `@` menu: which note to link to. Also drawn under a plain line's @ (at-notes.tsx), with only the rows and the pick. */
+export const NoteList = forwardRef<SuggestionListHandle, Pick<SuggestionProps<NoteSuggestion>, "items" | "command">>(
   function NoteList({ items, command }, ref) {
     const [selected, setSelected] = useState(0)
     // Moving past the fold brings the row with it, as in the / menu.

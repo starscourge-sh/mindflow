@@ -25,6 +25,7 @@ import { PICKED_ROW, useTaskPick } from './task-pick'
 import { Check } from '@/components/ui/icons'
 import { ChevronDown } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { ThreeMark, dayThree } from './day-list'
 
 const endOfToday = (): number => startOfDay(1)
 const startOfToday = (): number => startOfDay()
@@ -130,6 +131,9 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
   const act = useRef<RowActs>(null as unknown as RowActs)
   act.current = { onOpen, tick, move, frog, now, several, gloss: setGlossing, endGloss: () => setGlossing(null) }
   const room = markRoom(due)
+  // Today's three, numbered as on Today's page: a column for the numbers only when one of them is here.
+  const three = scope === 'today' && !example ? dayThree(real) : []
+  const ranked = due.some((task) => three.includes(task.id))
 
   // How many open tasks a list holds, counted from yours only, as the Display narrows them: an example never adds to a number.
   const count = (id: Scope): number => narrowed.filter((task) => real.includes(task) && task.status === 'open' && SCOPES[id].test(task)).length
@@ -212,7 +216,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
       <Example on={example && due.length > 0} compact tryIt="type a task in the line above with the day in the words, like ‘call Mum Friday 6pm’.">
       <AnimatePresence initial={false}>
         {due.map((task, index) => (
-          <TaskRow key={task.id} task={task} act={act} scope={scope} room={room}
+          <TaskRow key={task.id} task={task} act={act} scope={scope} room={room} rank={ranked ? three.indexOf(task.id) + 1 : undefined}
             open={task.id === open} cursor={index === cursor} picked={several.chosen.includes(task.id)} picking={several.chosen.length}
             ticking={ticking(task.id)} glossing={glossing === task.id} frog={frog} focus={now.focus} />
         ))}
@@ -241,8 +245,10 @@ type RowActs = {
  * marks (open, cursor, picked, ticking), how many are picked (its menu), the
  * frog or a focus session (its menu too).
  */
-const TaskRow = memo(function TaskRow({ task, act, scope, room, open, cursor, picked, picking, ticking, glossing }: {
+const TaskRow = memo(function TaskRow({ task, act, scope, room, rank, open, cursor, picked, picking, ticking, glossing }: {
   task: Task
+  /** Its number among today's three (0 for none), with a column kept for it when the list has any. */
+  rank?: number
   act: React.RefObject<RowActs>
   scope: Scope
   room: boolean
@@ -269,6 +275,7 @@ const TaskRow = memo(function TaskRow({ task, act, scope, room, open, cursor, pi
       exit="gone"
       className={`group group/item relative flex flex-wrap items-start gap-2 rounded-sm px-2 py-1.5 pr-8 hover:bg-accent/50 ${picked ? PICKED_ROW : open ? "bg-accent" : cursor ? "bg-accent/50" : ""}`}
     >
+      {rank !== undefined && <span className="mt-px flex w-2.5 shrink-0 justify-center">{rank > 0 && <ThreeMark n={rank} />}</span>}
       <Tip label="Complete">
       <button
         type="button"

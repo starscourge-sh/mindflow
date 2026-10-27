@@ -41,7 +41,8 @@ try {
   const tint = await h.evaluate((id) => {
     const row = document.querySelector(`[data-day-line="${id}"]`)
     const tag = [...row.querySelectorAll('span')].find((s) => s.childNodes.length === 1 && s.textContent === '#garden')
-    return { text: row.innerText.replace(/\s+/g, ' ').trim(), tinted: !!tag && getComputedStyle(tag).backgroundColor !== 'rgba(0, 0, 0, 0)' }
+    // The words alone: one of the day's three has its number in the margin before them.
+    return { text: (tag?.closest('button') ?? row).innerText.replace(/\s+/g, ' ').trim(), tinted: !!tag && getComputedStyle(tag).backgroundColor !== 'rgba(0, 0, 0, 0)' }
   }, id)
   check('a ticked line keeps its words and #tag where they were written, tinted', tint.tinted && tint.text.startsWith('#garden water'), JSON.stringify(tint))
   await h.screenshot({ path: `${process.env.QA_SHOTS ?? process.env.QA_DATA}/day-top-three.png` })
