@@ -55,7 +55,8 @@ try {
   check('doing it says "You\'ve got it"', /You’ve got it/.test(got ?? ''), got ?? 'none')
   if (shots) await h.screenshot({ path: `${shots}/hint-got-it.png` })
   await h.waitForTimeout(2200)
-  const folded = await h.evaluate(() => !document.querySelector('[role="note"]'))
+  // The page's line only: the empty Inbox's own words are typed in a role="note" line too.
+  const folded = await h.evaluate(() => !document.querySelector('div[role="note"]'))
   check('and the line folds away', folded)
   const seen = await v('onboarding:state')
   check('for good', seen?.hintsSeen?.includes('inbox'))
