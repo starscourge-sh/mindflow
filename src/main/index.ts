@@ -4643,6 +4643,30 @@ app.whenReady().then(() => {
     }
   })
 
+  // A note drawn as a picture (renderer lib/note-picture.ts): the renderer lays
+  // the blocks out over the window in a frame of their own, and this takes what
+  // the window shows there, at the screen's own sharpness.
+  ipcMain.handle('picture-of-rect', async (event, rect: unknown) => {
+    const { x, y, width, height } = (rect ?? {}) as Record<string, unknown>
+    if (![x, y, width, height].every((one) => typeof one === 'number' && Number.isFinite(one)) || (width as number) <= 0 || (height as number) <= 0) return null
+    const image = await event.sender.capturePage({ x: Math.round(x as number), y: Math.round(y as number), width: Math.round(width as number), height: Math.round(height as number) })
+    return image.isEmpty() ? null : new Uint8Array(image.toPNG())
+  })
+
+  ipcMain.handle('copy-picture', async (_event, bytes: unknown) => {
+    if (!(bytes instanceof Uint8Array) || nativeImage.createFromBuffer(Buffer.from(bytes)).isEmpty()) return false
+    await clipboard.write([new ClipboardItem({ 'image/png': new Blob([new Uint8Array(bytes)], { type: 'image/png' }) })])
+    return true
+  })
+
+  ipcMain.handle('save-picture', async (_event, name: unknown, bytes: unknown) => {
+    if (typeof name !== 'string' || !(bytes instanceof Uint8Array)) return false
+    const { canceled, filePath } = await dialog.showSaveDialog({ defaultPath: name, filters: [{ name: 'PNG picture', extensions: ['png'] }] })
+    if (canceled || !filePath) return false
+    await writeFile(filePath, bytes)
+    return true
+  })
+
   // The clipboard's picture as the system draws it. A paste from Apple Notes
   // hands the page a file that points into Notes' own folder and cannot be
   // read; the picture itself is still on the clipboard, and this reads it.

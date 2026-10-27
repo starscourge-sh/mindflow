@@ -1,4 +1,4 @@
-import { CircleCheck, FileOutput, Gem, Inbox, Repeat2 } from 'lucide-react'
+import { Camera, CircleCheck, FileOutput, Gem, Inbox, Repeat2 } from 'lucide-react'
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { motion } from 'motion/react'
 import { BorderBeam } from 'border-beam'
@@ -386,7 +386,7 @@ export const postcardChoices = (): { id: string; label: string; show: ReactNode 
 
 /** The selection bar as it shows, its words beside its icons or not: what "Words on the selection bar" changes. */
 export function BarWordsSample({ words }: { words: boolean }): React.JSX.Element {
-  const parts: [React.ComponentType<{ className?: string }>, string][] = [[Inbox, 'Capture'], [Gem, 'Gem'], [CircleCheck, 'Task'], [FileOutput, 'Move out'], [Repeat2, 'Sync']]
+  const parts: [React.ComponentType<{ className?: string }>, string][] = [[Inbox, 'Capture'], [Gem, 'Gem'], [CircleCheck, 'Task'], [FileOutput, 'Move out'], [Repeat2, 'Sync'], [Camera, 'Image']]
   return (
     <span aria-hidden data-bar-words-sample className="flex items-center gap-0.5 rounded-lg border px-1 py-1 text-control text-muted-foreground shadow-xs" style={{ background: 'color-mix(in srgb, var(--accent) 55%, var(--background))' }}>
       {parts.map(([Icon, label]) => (

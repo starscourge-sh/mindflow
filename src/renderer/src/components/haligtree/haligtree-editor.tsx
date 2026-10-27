@@ -302,7 +302,7 @@ export interface HaligtreeEditorProps {
    *
    * @default both, with their default contents
    */
-  toolbar?: false | { fixed?: ReactNode | false; selection?: ReactNode | false; selectionExtra?: (editor: Editor) => ReactNode }
+  toolbar?: false | { fixed?: ReactNode | false; selection?: ReactNode | false; selectionExtra?: (editor: Editor) => ReactNode; selectionInCode?: (editor: Editor) => ReactNode }
   /**
    * The drag handle beside each block, and the menu it opens.
    *
@@ -1726,6 +1726,8 @@ function Surface({
         .join(" ")}
       // Which editors have a find bar, so ⌘F can pick one when several share a page.
       data-search={search ? "" : undefined}
+      // Which note it is ("capture-…", "item-…"), so a note's menu can find its page to draw it as a picture.
+      data-document={documentId ?? undefined}
       style={style}
     >
       <EditorContext.Provider value={{ editor }}>
@@ -1836,7 +1838,7 @@ function Surface({
         )}
 
         {selectionItems !== false && (
-          <SelectionMenu editor={editor} reading={readOnly && toolbar !== false && !!toolbar?.selectionExtra}>
+          <SelectionMenu editor={editor} reading={readOnly && toolbar !== false && !!toolbar?.selectionExtra} inCode={toolbar !== false && toolbar?.selectionInCode && editor ? toolbar.selectionInCode(editor) : undefined}>
             {/* Locked: nothing to format, only the host's ways to keep the words. */}
             {readOnly ? null : selectionItems ?? defaultSelection}
             {/* The host's own actions on a selection, after the editor's. */}

@@ -10,9 +10,10 @@ import { makeLineCaptures } from '@/lib/line-captures'
 import { saveLookup } from '@/lib/lookups'
 import { host, keepAsIs, once, reword, type Origin } from './reword'
 import { markKept } from '@/extensions/kept'
-import { Bookmark, Gem, Inbox, ListTodo } from '@/components/ui/icons'
+import { Bookmark, Camera, Gem, Inbox, ListTodo } from '@/components/ui/icons'
 import { FileOutput, Repeat2 } from 'lucide-react'
 import { turnIntoPage } from '@/lib/turn-into-page'
+import { pickedBlocks, sharePicture } from '@/lib/note-picture'
 
 /** The bar's own tooltip: what a click does, its keys, and the quick way past the card. */
 function Tip({ does, keys, children }: { does: string; keys: string; children: React.ReactElement }): React.JSX.Element {
@@ -45,7 +46,7 @@ export function selectionActions(origin: Origin, { reading = false }: { reading?
       const { from, to } = editor.state.selection
       return editor.state.doc.textBetween(from, to, '\n').trim()
     }
-    const button = 'flex h-8 items-center gap-1.5 rounded-md px-2 text-control text-muted-foreground hover:bg-accent hover:text-foreground [&_svg]:size-4'
+    const button = BUTTON
     return (
       <>
         <ToolbarSeparator />
@@ -101,10 +102,32 @@ export function selectionActions(origin: Origin, { reading = false }: { reading?
             <TooltipContent>Sync with a new page<span className="block opacity-70">The words stay here and live there too: edit either</span></TooltipContent>
           </Tooltip>
           </>}
+          <CopyAsImage editor={editor} />
         </ToolbarGroup>
       </>
     )
   }
+}
+
+const BUTTON = 'flex h-8 items-center gap-1.5 rounded-md px-2 text-control text-muted-foreground hover:bg-accent hover:text-foreground [&_svg]:size-4'
+
+/**
+ * For a chat: a code block, a table or lined-up numbers keep their shape as a
+ * picture, where pasted words lose it. The blocks the selection touches, whole;
+ * the only thing the bar holds inside a code block.
+ */
+export function CopyAsImage({ editor }: { editor: Editor }): React.JSX.Element {
+  return (
+    <Tooltip delay={200}>
+      <TooltipTrigger asChild>
+        <button type="button" className={BUTTON} aria-label="Copy as image" data-copy-image
+          onClick={() => void sharePicture(editor.view.dom, pickedBlocks(editor))}>
+          <Camera /> <span className="tiptap-button-text">Image</span>
+        </button>
+      </TooltipTrigger>
+      <TooltipContent>Copy as image<span className="block opacity-70">The picked blocks as a picture, ready to paste in a chat</span></TooltipContent>
+    </Tooltip>
+  )
 }
 
 /** Several lines picked: "5 captures", one a line; one word or a question: "Look up", kept in Lookups. */

@@ -85,6 +85,7 @@ import { asideItem, useHere } from '@/lib/split'
 import { queueMenu } from '@/lib/reading-queue'
 import { Apart } from '@/lib/apart'
 import { loud } from '@/lib/loud'
+import { pictureItems } from '@/lib/note-picture'
 import { ArchiveRestore, BookOpen, Brain, Download, Eye, EyeOff, FileText, History, Layers, Bookmark as Pin, Quote, Repeat as RefreshCw, TriangleAlert, X } from '@/components/ui/icons'
 
 const kindOf = (id: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.find((type) => type.id === id) ?? CAPTURE_TYPES[0]
@@ -809,7 +810,8 @@ const itemMenu = (item: Item): (MenuItem | { label: string; items: RowItem[] })[
   { label: 'Export', items: [
     { label: 'Save attachments…', hint: 'Its pictures and files, to a folder', run: () => void saveAttachments([{ table: 'nuggets', id: item.id }]) },
     copyToBookItem([{ table: 'nuggets', id: item.id }]),
-    { label: 'Copy title', run: () => copy(item.title) }
+    { label: 'Copy title', run: () => copy(item.title) },
+    ...pictureItems(`item-${item.id}`, item.title)
   ] }
 ]
 

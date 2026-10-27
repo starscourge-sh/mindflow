@@ -94,6 +94,16 @@ const api = {
   /** Show in Finder the old data folder, kept as a backup, that the notes were brought in from (main/old-data.ts). */
   showOldCopy: (): Promise<void> => ipcRenderer.invoke('old-data:show'),
 
+  /** What this window shows inside `rect` (CSS pixels), as a PNG: one slice of a note drawn as a picture (lib/note-picture.ts). */
+  pictureOfRect: (rect: { x: number; y: number; width: number; height: number }): Promise<Uint8Array | null> =>
+    ipcRenderer.invoke('picture-of-rect', rect),
+
+  /** A PNG on the system clipboard, ready to paste anywhere. */
+  copyPicture: (bytes: Uint8Array): Promise<boolean> => ipcRenderer.invoke('copy-picture', bytes),
+
+  /** A PNG saved where the user picks; false when they cancel. */
+  savePicture: (name: string, bytes: Uint8Array): Promise<boolean> => ipcRenderer.invoke('save-picture', name, bytes),
+
   /** Put a stored image on the system clipboard. */
   copyImage: (src: string): Promise<boolean> => ipcRenderer.invoke('copy-image', src),
 

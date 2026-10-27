@@ -65,9 +65,11 @@ const wholeNote = (state: EditorState): boolean =>
  * When the editor's own box is narrower than the bar (a large interface size
  * in a small window) its buttons drop their words and keep their icons.
  */
-function useFloat(editor: Editor | null, reading = false) {
+function useFloat(editor: Editor | null, reading = false, code = false) {
   const readingNow = useRef(reading)
   readingNow.current = reading
+  const codeNow = useRef(code)
+  codeNow.current = code
   const bar = useRef<HTMLDivElement>(null)
   const [tight, setTight] = useState(false)
   const full = useRef(0)
@@ -142,14 +144,14 @@ function useFloat(editor: Editor | null, reading = false) {
   // A selection is offered the bar once it has lasted a moment with no key
   // since; ⌘A then ⌫ is gone before then, so the bar never flashes up.
   const shouldShow = useMemo<BubbleMenuProps['shouldShow']>(() => (props) => {
-    if (!showFor(props, readingNow.current)) return false
+    if (!showFor(props, readingNow.current, codeNow.current)) return false
     const { editor: instance, state } = props
     if (!wholeNote(state)) return true
     const since = performance.now() - held.lastKey.at
     if (since >= SETTLE) return true
     clearTimeout(held.later.timer)
     held.later.timer = window.setTimeout(() => {
-      if (instance.isDestroyed || !showFor({ ...props, state: instance.state }, readingNow.current)) return
+      if (instance.isDestroyed || !showFor({ ...props, state: instance.state }, readingNow.current, codeNow.current)) return
       if (performance.now() - held.lastKey.at < SETTLE) return
       instance.view.dispatch(instance.state.tr.setMeta('selectionMenu', 'show'))
       instance.view.dispatch(instance.state.tr.setMeta('selectionMenu', 'updatePosition'))
@@ -185,13 +187,14 @@ function useFloat(editor: Editor | null, reading = false) {
 const SETTLE = 180
 
 // A node selection - an image, a rule, a card - is not text to format,
-// and a code block takes no marks. ⌘A's pick of the whole note is words too.
+// and a code block takes no marks: there it shows only what it holds for
+// code (`code`), or nothing. ⌘A's pick of the whole note is words too.
 // Locked for reading (`reading`), words can still be picked to keep.
-const showFor = ({ editor: instance, state }: Parameters<NonNullable<BubbleMenuProps['shouldShow']>>[0], reading = false): boolean =>
+const showFor = ({ editor: instance, state }: Parameters<NonNullable<BubbleMenuProps['shouldShow']>>[0], reading = false, code = false): boolean =>
   (state.selection instanceof TextSelection || (state.selection instanceof AllSelection && state.doc.textContent.trim().length > 0)) &&
   !state.selection.empty &&
   (instance.isEditable || reading) &&
-  !instance.isActive('codeBlock')
+  (code || !instance.isActive('codeBlock'))
 
 /**
  * The toolbar again, at the selection.
@@ -209,18 +212,22 @@ const showFor = ({ editor: instance, state }: Parameters<NonNullable<BubbleMenuP
 export function SelectionMenu({
   editor,
   children,
+  inCode,
   reading = false
 }: {
   editor: Editor | null
   children: ReactNode
+  /** What it holds for words picked inside a code block, where nothing else applies; left out, it does not show there. */
+  inCode?: ReactNode
   /** Shown on a note locked for reading too: only keeping actions come in. */
   reading?: boolean
 }) {
-  const { bar, tight, options, reference, appendTo, shouldShow } = useFloat(editor, reading)
+  const { bar, tight, options, reference, appendTo, shouldShow } = useFloat(editor, reading, !!inCode)
   // Its controls are drawn only while words are selected. Mounted all along
   // they redrew on every key, and each redraw while typing made React measure
   // the caret through the whole note.
   const selecting = useEditorState({ editor, selector: ({ editor: instance }) => !!instance && !instance.state.selection.empty })
+  const coding = useEditorState({ editor, selector: ({ editor: instance }) => !!instance && instance.isActive('codeBlock') })
   if (!editor) return null
 
   return (
@@ -249,7 +256,7 @@ export function SelectionMenu({
           // Mixed back towards the page it keeps the hue and loses the glare.
           style={{ background: "color-mix(in srgb, var(--accent) 55%, var(--background))" }}
         >
-          {selecting && children}
+          {selecting && (coding ? inCode : children)}
         </Toolbar>
       </EditorContext.Provider>
     </BubbleMenu>

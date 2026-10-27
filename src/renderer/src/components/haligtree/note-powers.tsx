@@ -1,7 +1,7 @@
 import type { HaligtreeEditorProps } from './haligtree-editor'
 import { TAGS } from '../haligtree'
 import { PropertyStrip, keepPropertyLine } from './property-strip'
-import { selectionActions } from './selection-actions'
+import { CopyAsImage, selectionActions } from './selection-actions'
 import type { Origin } from './reword'
 import { findCaptures, findHeadings, follow } from '@/lib/capture-links'
 
@@ -39,7 +39,7 @@ export function notePowers({ table, id, kind, fields, text, origin, onOpen, read
     host: window.api,
     tokens: TAGS,
     onTokenClick: (token) => token.name === 'tag' && onOpen('tag', token.value),
-    toolbar: { fixed: false, selectionExtra: selectionActions(origin, { reading }) },
+    toolbar: { fixed: false, selectionExtra: selectionActions(origin, { reading }), selectionInCode: (editor) => <CopyAsImage editor={editor} /> },
     readOnly: reading,
     documentId: `${table === 'captures' ? 'capture' : 'item'}-${id}`,
     // Locked, the page is words only; the block comes with the keys.
