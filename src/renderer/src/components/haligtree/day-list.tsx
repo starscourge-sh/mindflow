@@ -728,8 +728,10 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     const { label, said } = SECTIONS.find((one) => one.id === id)!
     const shown = id === 'now' || open[id] ? list : []
     const longer = id !== 'now' && list.length > 8 && open[id] !== true
+    // A faint rule between the sections, with room above and below it, so each reads as its own; the Journal's
+    // short list, which has no headings, keeps plain space.
     return (
-      <section key={id} data-day-section={id} aria-label={label} className={id === 'now' ? '' : 'mt-7'}>
+      <section key={id} data-day-section={id} aria-label={label} className={id === 'now' ? '' : compact ? 'mt-7' : 'mt-8 border-t border-foreground/[0.08] pt-7'}>
         <header className={`mb-1 flex items-baseline gap-2 pl-6 ${compact ? 'sr-only' : ''}`}>
           {id === 'now' ? (
             <h3 className="text-lg font-semibold text-foreground">{label}</h3>
@@ -759,7 +761,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
               {/* The top three and the rest: a heading of its own under the third, with room above it as a section has, only when there is a rest.
                   Its own line between the rows, never part of one, so a row dragged leaves it where it is. */}
               {(items) => items.flatMap((task) => id === 'now' && task.id === openNow[2]?.id && openNow.length > 3 ? [row(task, id), (
-                <div key="top-three" data-top-three className="mt-6 mb-1 ml-6 flex items-baseline gap-2">
+                <div key="top-three" data-top-three className={`mb-1 flex items-baseline gap-2 ${compact ? 'mt-6 ml-6' : 'mt-8 border-t border-foreground/[0.08] pt-7 pl-6'}`}>
                   <span className="text-base font-semibold text-foreground">The rest</span>
                   <span className="text-sm text-muted-foreground">· once the first three are done</span>
                 </div>

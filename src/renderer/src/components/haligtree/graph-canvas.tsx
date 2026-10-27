@@ -52,7 +52,7 @@ const ICONS: Record<string, string> = {
   tag: 'M4 9h16 M4 15h16 M10 3 8 21 M16 3l-2 18',
 }
 /** Each kind as an emoji, for "Icons: Emoji" (lib/icon-style.ts); the legend under the Map says the same. */
-export const KIND_EMOJI: Record<string, string> = { note: '📄', todo: '✅', quote: '💬', word: '🔖', link: '🔗', checkback: '⏳', person: '👤', source: '📖', tag: '#️⃣' }
+export const KIND_EMOJI: Record<string, string> = { note: '📄', todo: '✅', quote: '💬', word: '🔖', link: '🔗', checkback: '⏳', person: '👤', source: '📖', tag: '🏷️' }
 let paths: Record<string, Path2D> | null = null
 const iconId = (kind: string): string => (kind === 'person' || kind === 'source' || kind === 'tag' ? kind : kindOf(kind)?.id ?? 'note')
 const iconOf = (kind: string): Path2D => (paths ??= Object.fromEntries(Object.entries(ICONS).map(([id, d]) => [id, new Path2D(d)])))[iconId(kind)] ?? paths.note

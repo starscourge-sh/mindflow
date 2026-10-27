@@ -74,7 +74,7 @@ export const SECTIONS: (Place & { key: string })[] = [
   { id: 'goals', emoji: '🚩', label: 'Goals', icon: Flag, key: 'e', tint: 'orange' },
   // What you mean to read next, in order, Spotify's way.
   { id: 'queue', emoji: '🎞️', label: 'Queue', icon: ListVideo, key: 'b', tint: 'blue' },
-  { id: 'tags', emoji: '#️⃣', label: 'Tags', icon: Tag, alive: HashtagIcon, key: '#', tint: 'red' },
+  { id: 'tags', emoji: '🏷️', label: 'Tags', icon: Tag, alive: HashtagIcon, key: '#', tint: 'red' },
   // Every person and source your notes are from, a page each (source-page.tsx).
   { id: 'sources', emoji: '👤', label: 'Sources', icon: BookUser, key: 'j', tint: 'blue' },
   { id: 'stats', emoji: '📊', label: 'Stats', icon: BarChart3, alive: ChartBarIcon, key: 's', tint: 'blue' },
