@@ -20,7 +20,7 @@ import { settleVim } from './lib/vim'
 import { EXITS, exit, findCaptures, findHeadings, follow } from './lib/capture-links'
 import { toMarkdown } from './lib/export'
 import { useSameWords } from './lib/same-words'
-import { CaptureList, tagCaptures, useCaptures, type CaptureMeta } from './components/capture-list'
+import { CaptureList, inInboxWindow, tagCaptures, useCaptures, type CaptureMeta } from './components/capture-list'
 import { Example } from './components/haligtree/example'
 import { exampleInbox } from './lib/examples'
 import { Waiting, textOf } from './components/rot-cards'
@@ -33,7 +33,7 @@ import { TodayPanel } from './components/haligtree/today-panel'
 import { selectionActions } from './components/haligtree/selection-actions'
 import { ReviewView } from './components/haligtree/review-view'
 import { SessionFooter } from './components/haligtree/session-footer'
-import { unloaded, useAppearance, useLive } from './lib/haligtree'
+import { unloaded, useAppearance, useInboxDays, useLive } from './lib/haligtree'
 import { allRecorded, moveOldRecordable, recordAll } from './lib/recordings'
 import { BackToTop, Empty, Kbd, Remembered, Strip, StripSlot, typing, useListKeys, useReadKey, useSmooth, FocusNote, useFocusMode, startAt, quietly } from './components/haligtree/ui'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
@@ -2514,7 +2514,11 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
   // The same Display menu as the main window's inbox: filter, sort, group.
   // Every capture, starting on those with no exit: Display's Status reaches
   // the handled and discarded ones without leaving the prompt.
-  const { groups: grouped, display, chips, density, island } = useCaptureDisplay('prompt:captures', captures, { status: ['open'] })
+  // The same days as the Inbox page (Settings' “Inbox shows”): older open ones wait there, behind its line.
+  const days = useInboxDays()
+  const recent = open.filter((capture) => inInboxWindow(capture, days))
+  const older = open.length - recent.length
+  const { groups: grouped, display, chips, density, island } = useCaptureDisplay('prompt:captures', captures.filter((capture) => capture.status !== 'open' || !!capture.archivedAt || inInboxWindow(capture, days)), { status: ['open'] })
   // Grouped by kind, each kind its own island: a few rows each, folding (islands.tsx).
   const { groups, islands } = island(grouped)
   // Counted whole: a folded island still holds its captures.
@@ -2725,7 +2729,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                   ) : (
                     <>
                       <Tip label="Every capture still waiting for you; the “Display” menu (F) shows the rest under “Status”. X selects several.">
-                        <h3 className="w-fit whitespace-nowrap">{listed === open.length ? 'Inbox' : `${num(listed)} shown`}</h3>
+                        <h3 className="w-fit whitespace-nowrap">{listed === recent.length ? 'Inbox' : `${num(listed)} shown`}</h3>
                       </Tip>
                       {/* Tidy, Decide and Read through, in the one menu the Inbox page has. */}
                       <GoThrough compact={false} className="ml-auto" canRead={shown.length > 0} onRead={() => onRead(shown.map((one) => ({ type: 'capture', id: one.id })), startAt(shown, editing, cursor))} />
@@ -2751,13 +2755,22 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                     !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
                     { label: 'Clear the selection', keys: 'esc', run: () => (chime('off'), setChosen([])) }
                   ] : [...usual, 'separator', { label: chosen.includes(capture.id) ? 'Unselect' : 'Select', keys: 'X', run: () => choose(capture.id) }, !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll }]} />}
+                {/* The older open ones, never out of reach: one line under the list, to the Inbox page that lists them. */}
+                {older > 0 && !unloaded(captures) && !(graphed && listed > 0) && (
+                  <p data-inbox-older="box" className="px-2 py-2 text-body text-foreground/80">
+                    {older === 1 ? '1 older capture waits' : `${num(older)} older captures wait`} in the Inbox{' · '}
+                    <button type="button" className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60" onClick={() => (chime('tap'), window.api.openInHome('view', 'inbox'))}>Open it</button>
+                  </p>
+                )}
                 {!listed && !unloaded(captures) && (
                   !captures.length ? (
                     <Example compact tryIt="write a thought on the left and send it with ⌘↵. It waits here.">
                       <CaptureList groups={[['', exampleInbox()]]} density={density} cursor={-1} onPick={() => undefined} />
                     </Example>
-                  ) : open.length ? (
+                  ) : recent.length ? (
                     <Empty compact title="Nothing matches">The filters hide everything here. Clear them with the × above, or press F to change them.</Empty>
+                  ) : older ? (
+                    <Empty compact title={`Nothing from the last ${days === 1 ? 'day' : `${days} days`}`}>Every newer capture has been dealt with. The older ones wait in the Inbox.</Empty>
                   ) : (
                     <Rest compact seed="inbox">{cleared?.how === 'binned' ? <InboxBinned compact left={cleared.left} /> : cleared ? <InboxZero compact onReview={() => setTab('review')} onRead={(row) => onOpenAny(row.type, row.itemId)} /> : <Empty compact title={captures.length ? 'Nothing waiting' : 'Nothing caught yet'}>{captures.length ? 'Every capture has been dealt with. Write the next thought on the left.' : 'Write a thought on the left and send it with ⌘↵: it waits here.'}</Empty>}</Rest>
                   )

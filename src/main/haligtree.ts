@@ -551,9 +551,11 @@ const DEFAULTS = {
   wrapOffer: true,
   wrapOffered: '' as string,
   // Arc's Today tabs, for the Inbox: at the start of a day, a capture left
-  // untouched this many days moves to Archived on its own (0: never). Off
-  // until chosen: what is archived stops coming back as hints and memories.
-  autoArchive: 0 as number,
+  // untouched this many days moves to Archived on its own (0: never).
+  autoArchive: 30 as number,
+  // How far back the Inbox lists open captures, in days (0: everything); older
+  // ones wait behind one line at the list's end, and search still finds them.
+  inboxDays: 7 as number,
   // Your Mac's calendar on Today and the week, read only; off until you ask for it.
   macCalendar: false,
   // When the working day ends, for Today's "4 h left today".
@@ -1886,17 +1888,25 @@ export function registerHaligtree(): void {
   handle('return:show-all', () => write((showAll = true)))
 
   // --- old captures put away on their own, once at the start of each day:
-  // open, not pinned or waiting on a reminder, and untouched (neither written
+  // open, not pinned or waiting on a reminder (nor any of KEPT_OUT), and untouched (neither written
   // nor edited, nor back from hiding, as a letter to future you comes back) for Settings' days. Each run is kept, so its Undo brings back
   // exactly what it moved and nothing archived by hand.
   db.exec('create table if not exists put_away (id text primary key, at text not null)')
-  const putAwayOld = (): void => {
+  // Never put away on its own, however old: one that became a task or is linked
+  // to one, one with a thought written under it, and one holding a date (a
+  // check back, an event, a date property).
+  const KEPT_OUT = `not exists (select 1 from tasks where origin_capture_id = captures.id)
+    and not exists (select 1 from task_links where item_id = captures.id)
+    and not exists (select 1 from glosses where item_id = captures.id)
+    and not (exists (select 1 from json_tree(case when json_valid(captures.fields) then captures.fields else '{}' end) where type = 'text' and atom glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]*'))`
+  // `chosen`: picked in Settings just now, so it runs again today with the new days.
+  const putAwayOld = (chosen = false): void => {
     const days = Number(settings().autoArchive ?? 0)
     const day = dayKey()
     // Never in the sandbox: its lived-in Inbox is there to be looked through.
-    if (SANDBOX || !days || (db.prepare("select day from nudges where key = 'put-away'").get() as { day: string } | undefined)?.day === day) return
+    if (SANDBOX || !days || (!chosen && (db.prepare("select day from nudges where key = 'put-away'").get() as { day: string } | undefined)?.day === day)) return
     db.prepare("insert or replace into nudges (key, day) values ('put-away', ?)").run(day)
-    const ids = (db.prepare(`select id from captures where status = 'open' and archived_at is null and pinned_at is null and remind_at is null and max(${AGED}, coalesce(edited_at, ''), coalesce(snoozed_until, '')) < ?`).all(ago(days)) as { id: string }[]).map((row) => row.id)
+    const ids = (db.prepare(`select id from captures where status = 'open' and archived_at is null and pinned_at is null and remind_at is null and max(${AGED}, coalesce(edited_at, ''), coalesce(snoozed_until, '')) < ? and ${KEPT_OUT}`).all(ago(days)) as { id: string }[]).map((row) => row.id)
     if (!ids.length) return
     const at = now()
     atomically(() => {
@@ -1908,9 +1918,9 @@ export function registerHaligtree(): void {
     changed()
   }
   // Once everything is set up (Archived's columns come later) and every quarter hour after; never in the way of starting.
-  const tryPutAway = (): void => {
+  const tryPutAway = (chosen = false): void => {
     try {
-      putAwayOld()
+      putAwayOld(chosen)
     } catch (error) {
       console.error('Putting old captures away failed:', error)
     }
@@ -1918,7 +1928,7 @@ export function registerHaligtree(): void {
   setTimeout(tryPutAway, 8_000)
   setInterval(tryPutAway, 15 * 60_000)
   // Chosen in Settings: the old ones go now, not at the next quarter hour.
-  handle('putaway:now', () => tryPutAway())
+  handle('putaway:now', () => tryPutAway(true))
   // Put away by hand: every open capture from before a day, into one folder
   // named for that day, in Archived and still found by search. Never sorted,
   // never deleted; Undo (putaway:undo with the run's time) brings them back.

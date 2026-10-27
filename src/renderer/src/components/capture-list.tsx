@@ -20,7 +20,7 @@ import { binItem } from '@/lib/to-bin'
 import { queueMenu } from '@/lib/reading-queue'
 import { copyToBookItem } from '@/lib/books'
 import { addToQuestion } from './haligtree/questions-view'
-import { age, dayKey, daysSince, num, whenInLine } from '../../../main/dates'
+import { age, dayjs, dayKey, daysSince, num, whenInLine } from '../../../main/dates'
 import { EyeOff, Bookmark as Pin } from '@/components/ui/icons'
 import type { IslandState } from './haligtree/islands'
 import { pictureItems } from '@/lib/note-picture'
@@ -38,12 +38,24 @@ export const fieldOf = (fields: string | null | undefined, key: string): string 
 export type CaptureMeta = Awaited<ReturnType<typeof window.api.captures.list>>[number]
 
 /**
- * Every capture, newest first, reloaded whenever any window writes. Archived
- * ones are out of sight unless asked for: `archived` gives every capture.
+ * Listed in the Inbox as it stands (Settings' “Inbox shows”): written, edited,
+ * imported or back from hiding in the last `days` days, or pinned. 0 days is
+ * everything. Older ones wait behind one line at the list's end; search, tags,
+ * ⌘K and the Map find them all the same.
  */
+export const inInboxWindow = (capture: CaptureMeta, days: number): boolean => {
+  if (!days || capture.pinnedAt) return true
+  const from = dayjs().subtract(days, 'day')
+  return [capture.capturedAt, capture.editedAt, capture.importedAt, capture.snoozedUntil].some((at) => !!at && dayjs(at).isAfter(from))
+}
+
 /** The list as last read, by whether it holds the archived: a page opened again starts on it, drawn whole at once. */
 const lastList: Record<'all' | 'kept', { json: string; list: CaptureMeta[] } | undefined> = { all: undefined, kept: undefined }
 
+/**
+ * Every capture, newest first, reloaded whenever any window writes. Archived
+ * ones are out of sight unless asked for: `archived` gives every capture.
+ */
 export function useCaptures(archived = false): CaptureMeta[] {
   const which = archived ? 'all' : 'kept'
   const [captures, setCaptures] = useState<CaptureMeta[]>(() => lastList[which]?.list ?? unread([]))

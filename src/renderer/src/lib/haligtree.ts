@@ -854,5 +854,11 @@ export function useAppearance(): void {
 let lastSettings: Settings | null = null
 /** The focus timer and website blocking on (Settings, Tasks): off, nothing offers to start one. */
 export const focusToolsShown = (): boolean => lastSettings?.focusTools === true
+/**
+ * How many days back the Inbox lists open captures (Settings' “Inbox shows”, 0
+ * for everything), for a component: drawn again when it changes, and right
+ * from the first frame once this window has read the settings.
+ */
+export const useInboxDays = (): number => (useLive(haligtree.settings, lastSettings)?.inboxDays ?? 7)
 /** The same, for a component: drawn again when it is turned on or off. */
 export const useFocusTools = (): boolean => useLive(haligtree.settings, null as Settings | null)?.focusTools === true

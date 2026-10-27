@@ -53,8 +53,11 @@ function useNudge(): Nudge | undefined {
  * deciding day what you set aside, and today's nudge (the daily tidy, a goal
  * gone quiet, an exam falling behind). Quick capture only catches. Each line can
  * be put away until tomorrow; the page waits for them, so none pops in late.
+ * `held`: how many the Inbox lists now; past 20, a line offers to tidy them,
+ * unless the old captures' line or the daily tidy already does.
  */
-export function InboxLines(): React.JSX.Element | null {
+const FULL = 20
+export function InboxLines({ held = 0 }: { held?: number }): React.JSX.Element | null {
   const old = useLive(haligtree.rotWaiting, null as number | null)
   const waiting = useLive(haligtree.passWaiting, null as { tidy: number; decide: number } | null)
   const settings = useLive(haligtree.settings, null as Settings | null)
@@ -82,6 +85,8 @@ export function InboxLines(): React.JSX.Element | null {
     // The daily tidy is the same walk as the old captures' line: said once, by that line, when both would show.
     nudge && !(nudge.kind === 'tidy' && old > 0) && !hidden.includes('nudge') && { id: 'nudge', text: nudge.text, act: nudge.kind === 'tidy' ? 'Tidy now' : nudge.kind === 'goal' ? 'Open it' : 'Review now',
       run: () => (chime('open'), nudge.kind === 'tidy' ? openPass('tidy') : nudge.kind === 'goal' && nudge.id ? window.api.openInHome('goal', nudge.id) : window.api.openInHome('view', nudge.view)) },
+    // A full Inbox: Tidy offered once a day, at most, and gone for the day once put away.
+    held > FULL && !(old > 0) && !(nudge && nudge.kind === 'tidy') && waiting.tidy > 0 && !hidden.includes('full') && { id: 'full', text: `${num(held)} captures in your Inbox.`, act: 'Tidy them', run: () => (chime('open'), openPass('tidy')) },
     deciding && !hidden.includes('decide') && { id: 'decide', text: 'Deciding day: what you set aside waits for a keep or the Bin.', act: 'Decide now', run: () => (chime('open'), openPass('decide')) }
   ].filter((one): one is { id: string; text: string; act: string; run: () => void } => !!one)
   if (!lines.length) return null

@@ -25,7 +25,8 @@ import { Input } from '@/components/ui/input'
 import { Switch as PlainSwitch } from '@/components/ui/switch'
 import { FitToMe } from './study'
 import { onboarding, tryWelcome, useOnboarding } from '@/lib/onboarding'
-import { appSizeOf, call, useLive, haligtree, windowRootSize, type GiphyMedia, type GiphyPin, type MomentKind, type Settings } from '@/lib/haligtree'
+import { useCaptures, inInboxWindow } from '../capture-list'
+import { appSizeOf, call, unloaded, useLive, haligtree, windowRootSize, type GiphyMedia, type GiphyPin, type MomentKind, type Settings } from '@/lib/haligtree'
 import { Chips } from './display'
 import { Avatar } from './avatar'
 import { pickAvatar, setAvatar, useAvatar } from '@/lib/people'
@@ -933,10 +934,8 @@ export function SettingsView(): React.JSX.Element {
           <Setting title="Morning sort" note="Each morning, Home offers about ten minutes sorting your Inbox." more="“Sort this out” over the Inbox, a line a capture, with a gentle ten-minute timer. Stop any time: what is left waits. ⌘K has it any time." keywords="morning sort inbox ten minutes triage process daily timer">
             <Switch checked={settings.morningSort !== false} onCheckedChange={(morningSort) => set({ morningSort })} />
           </Setting>
-          <Setting title="Put old captures away" note="Untouched captures move to Archived after this long, **except pinned ones and ones with a reminder**." more="At the start of a day, as Arc tidies old tabs. The Inbox says how many went, with Undo, and Archived keeps them all; archived ones no longer come back as hints or memories." keywords="archive auto old captures inbox tidy put away stale untouched">
-            <Chips className="shrink-0" options={[{ id: '14', label: '14 days' }, { id: '30', label: '30 days' }, { id: '0', label: 'Never' }]}
-              on={(id) => Number(id) === (settings.autoArchive ?? 0)} pick={(days) => (set({ autoArchive: Number(days) }), setTimeout(() => void window.api.haligtree('putaway:now'), 400))} />
-          </Setting>
+          <InboxShowsSetting days={settings.inboxDays ?? 7} set={(inboxDays) => set({ inboxDays })} />
+          <PutAwaySetting days={settings.autoArchive ?? 30} />
           <PutAwayBefore />
           <Setting title="Day ends at" note="Today counts the hours left until then, beside the hours your tasks will take." more="Write ~30m or ~1h on a task to give it a length." keywords="day end evening hours left planned estimate length time budget">
             <TimeField label="Day ends at" value={settings.dayEnd ?? '22:00'} onChange={(dayEnd) => set({ dayEnd })} />
@@ -2063,6 +2062,46 @@ function SiteBlockGroup({ settings, set }: { settings: Settings; set: (patch: Pa
   )
 }
 
+
+/**
+ * “Inbox shows”, with what it means right now under it: how many captures the
+ * Inbox lists at the chosen days, and how many wait behind its line.
+ */
+function InboxShowsSetting({ days, set }: { days: number; set: (days: number) => void }): React.JSX.Element {
+  const all = useCaptures(true)
+  const open = all.filter((one) => one.status === 'open' && !one.archivedAt)
+  const listed = open.filter((one) => inInboxWindow(one, days)).length
+  const behind = open.length - listed
+  const said = (n: number): string => (n === 1 ? '1 capture' : `${num(n)} captures`)
+  return (
+    <Setting title="Inbox shows" note="Captures from this far back. Older ones wait behind one line at the end of the Inbox." more="Pinned ones always show. Search, tags, ⌘K and the Map still find every note, and quick capture's Inbox shows the same days." keywords="inbox recent days window older calm hide old captures arc everything"
+      below={unloaded(all) ? null : <p data-inbox-shows-preview className="text-body text-foreground/80">
+        {days ? <>The Inbox lists <strong className="font-semibold text-foreground">{said(listed)}</strong> now{behind ? <>, and <strong className="font-semibold text-foreground">{num(behind)}</strong> older wait behind its line.</> : ', and none are older.'}</> : <>The Inbox lists all <strong className="font-semibold text-foreground">{said(open.length)}</strong> still waiting.</>}
+      </p>}>
+      <Chips className="shrink-0" options={[{ id: '7', label: '7 days' }, { id: '14', label: '14 days' }, { id: '30', label: '30 days' }, { id: '0', label: 'Everything' }]}
+        on={(id) => Number(id) === days} pick={(id) => set(Number(id))} />
+    </Setting>
+  )
+}
+
+/**
+ * “Put away captures I haven't sorted after”, with what it means under it: the
+ * day before which untouched captures go. Chosen, it runs at once, once the
+ * new days are saved, not at the next quarter hour.
+ */
+function PutAwaySetting({ days }: { days: number }): React.JSX.Element {
+  const pick = (id: string): void => void haligtree.setSettings({ autoArchive: Number(id) }).then(() => call('putaway:now'))
+  const since = dayjs().subtract(days, 'day').format('dddd D MMMM')
+  return (
+    <Setting title="Put away captures I haven't sorted after" note="Untouched captures move to Archived on their own, **never pinned ones, ones with a reminder or a date, a task's source, or ones with a thought added**." more="At the start of a day, as Arc tidies old tabs. The Inbox says how many went, with Undo, and Archived keeps them all; nothing is deleted. Archived ones no longer come back as hints or memories." keywords="archive auto old captures inbox tidy put away stale untouched sorted"
+      below={<p data-put-away-preview className="text-body text-foreground/80">
+        {days ? <>Captures untouched since <strong className="font-semibold text-foreground">{since}</strong> go next, at the start of a day.</> : <>Nothing goes on its own. “Put away everything before” does it by hand.</>}
+      </p>}>
+      <Chips className="shrink-0" options={[{ id: '1', label: '1 day' }, { id: '7', label: '7 days' }, { id: '30', label: '30 days' }, { id: '0', label: 'Never' }]}
+        on={(id) => Number(id) === days} pick={pick} />
+    </Setting>
+  )
+}
 /**
  * Put away everything before a day: every open capture from before it goes,
  * unsorted, into one folder in Archived named for that day. Still found by

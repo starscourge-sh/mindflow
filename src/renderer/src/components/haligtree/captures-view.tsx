@@ -17,7 +17,7 @@ import { voiceOf } from '@/lib/sources'
 import { Proofread } from './proofread'
 import { RecentIsland } from './recent-island'
 import { askProofread } from '@/lib/grammar'
-import { CaptureList, fieldOf, captureEntry, captureMenu, tagCaptures, useCaptures, whereFrom, type CaptureMeta } from '../capture-list'
+import { CaptureList, fieldOf, captureEntry, captureMenu, inInboxWindow, tagCaptures, useCaptures, whereFrom, type CaptureMeta } from '../capture-list'
 import { tagTint } from './tag-icon'
 import { AGES, Display, FilterChips, arrange, islandsOn, period, useView, type Choice, type Density, type Facet, type View } from './display'
 import { useIslands, useShowOpen, type IslandState } from './islands'
@@ -32,7 +32,7 @@ import { toMarkdown } from '@/lib/export'
 import { hoursSaid } from '@/lib/day-plan'
 import { useKept, useNav as useNavNow } from '@/lib/nav'
 import { Switch } from '@/components/ui/switch'
-import { splitTags, unloaded, useLastAsked, useLive, haligtree, type Settings, type Task, type TaskFull } from '@/lib/haligtree'
+import { splitTags, unloaded, useInboxDays, useLastAsked, useLive, haligtree, type Settings, type Task, type TaskFull } from '@/lib/haligtree'
 import { makeTask, makeTasks, oneTask, picked, taskName } from '@/lib/tasks'
 import { useSelectAll } from '@/lib/select-all'
 import { usePicking } from '@/lib/pick-range'
@@ -116,6 +116,14 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
   useKept('tab', sortedToo ? 'sorted' : 'waiting', (tab) => setSortedToo(tab === 'sorted'), 'waiting')
   const everything = inboxPage && sortedToo
   const keep = everything ? keepEverything : given
+  // The Inbox lists the last few days (Settings' “Inbox shows”); the older open
+  // ones wait behind one line at the list's end, which lists them alone.
+  const days = useInboxDays()
+  const windowed = inboxPage && !everything && days > 0
+  const older = windowed ? all.filter((one) => keep(one) && !inInboxWindow(one, days)) : []
+  const [olderAsked, setOlderAsked] = useState(false)
+  const olderShown = olderAsked && older.length > 0
+  const inView = (one: CaptureMeta): boolean => !windowed || inInboxWindow(one, days) !== olderShown
   // Everything: every task too, as a row of its own kind; to do, done or both, as chosen.
   const tasks = useLive(() => (everything ? haligtree.tasks() : Promise.resolve([] as Task[])), [] as Task[], [everything], undefined, 'everything-tasks')
   const [taskState, setTaskState] = useTaskState()
@@ -128,7 +136,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
   const binnedWith = (one: CaptureMeta): boolean => everything && one.status === 'resolved' && sources.binned.has(one.id)
   // Asked for by the chip, a note made into a live task shows whatever the task's state.
   const [madeShown, setMadeShown] = useMadeShown()
-  const kept: Row[] = [...all.filter(keep).filter((one) => (todoShows(one) || (madeShown && sources.became.has(one.id))) && !binnedWith(one)), ...(everything ? tasks.filter(showsTask(taskState)).map(taskRow) : [])]
+  const kept: Row[] = [...all.filter(keep).filter(inView).filter((one) => (todoShows(one) || (madeShown && sources.became.has(one.id))) && !binnedWith(one)), ...(everything ? tasks.filter(showsTask(taskState)).map(taskRow) : [])]
   // Nothing of yours here yet: the page as it will look, with a few made-up notes.
   // Lookups and Archived: whenever the list is empty, whatever has been asked or archived before (words in the Bin say nothing here).
   const lookups = title === 'Lookups'
@@ -174,7 +182,8 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
   // The Inbox emptied in front of you: its moment, not the quiet empty page.
   // Not watched while "Show sorted too" is on: the waiting list is then not on screen, and its
   // going out of sight is not it emptying (that once played the Inbox-cleared chord).
-  const cleared = useJustCleared(title === 'Inbox' && !everything ? kept : [], all, !unloaded(all) && !everything)
+  // Every open one, older ones too: one growing older than the Inbox's days has not been dealt with.
+  const cleared = useJustCleared(title === 'Inbox' && !everything ? all.filter(keep) : [], all, !unloaded(all) && !everything)
   // Spread out, a click looks at a note beside the list; Enter opens it.
   const [peek, setPeek] = useState<string | null>(null)
   // However it was opened, the open one's row shows: its island unfolded, past "Show more".
@@ -543,7 +552,9 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
         {/* Old captures put away on their own this morning: said here, with Undo. */}
         {title === 'Inbox' && <PutAwayLine onSee={() => window.api.openInHome('view', 'archived')} />}
         {/* Old captures to tidy and deciding day: quick capture only catches, so they wait here. */}
-        {title === 'Inbox' && <InboxLines />}
+        {title === 'Inbox' && <InboxLines held={kept.length} />}
+        {/* Going through the older ones: said on top, with the way back. */}
+        {olderShown && <OlderLine days={days} older={older.length} shown onFlip={() => (chime('fold'), setOlderAsked(false), setChosen([]))} />}
         {everything ? (
           // What to see: tasks, notes, quotes… (several at once), and for tasks, to do or done.
           <div data-everything-filter className="list-words flex flex-wrap items-center gap-x-4 gap-y-1.5 pt-2.5 pb-2">
@@ -609,6 +620,11 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
             ) : title === 'Inbox' && cleared ? (
               <InboxZero onReview={() => window.api.openInHome('view', 'review')} onRead={() => readQueue(0)} />
             ) : title === 'Inbox' ? (
+              older.length ? (
+              <Empty title={`Nothing from the last ${days === 1 ? 'day' : `${days} days`}`}>
+                {'Every newer capture has been dealt with. The older ones wait below, for when you want them.'}
+              </Empty>
+              ) :
               <Empty title={all.length ? 'Nothing waiting' : 'Your Inbox'}>
                 {all.length ? <><strong>Written down, a thought can leave your head.</strong> Every capture has been dealt with. ⌘. catches the next one, from anywhere.</> : 'Press ⌘. in any app, write the thought, and send it with ⌘↵. It waits here until you come back to it.'}
               </Empty>
@@ -623,6 +639,8 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
             )}
           </Rest>
         )}
+        {/* The older open captures, out of the list but never out of reach: one line at its end. */}
+        {windowed && !olderShown && older.length > 0 && !graphed && <OlderLine days={days} older={older.length} onFlip={() => (chime('open'), setOlderAsked(true), setChosen([]))} />}
       </Page>
       )}
       {readFrom !== null && (
@@ -782,6 +800,26 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
         </Apart></ShowInListContext.Provider>
       ) : null}
     </ReadsIn>
+  )
+}
+
+/**
+ * The Inbox's line for its older open captures: at the list's end, how many
+ * and since when, with “Go through them” to list those alone; while they are
+ * listed, on top, with the way back to the recent ones.
+ */
+function OlderLine({ days, older, shown = false, onFlip }: { days: number; older: number; shown?: boolean; onFlip: () => void }): React.JSX.Element {
+  const since = dayjs().subtract(days, 'day').format('D MMMM')
+  const link = 'font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60'
+  return (
+    <p data-inbox-older={shown ? 'shown' : 'line'} className={`mx-5 flex min-h-8 items-center text-body text-foreground/80 ${shown ? 'mt-2' : 'mt-1 mb-6'}`}>
+      <span className="min-w-0">
+        {shown
+          ? <><strong className="font-semibold text-foreground">{older === 1 ? '1 older capture' : `${num(older)} older captures`}</strong>, from before {since}.{' '}</>
+          : <>{older === 1 ? '1 older capture' : `${num(older)} older captures`}, from before {since}{' · '}</>}
+        <button type="button" className={link} onClick={onFlip}>{shown ? `Back to the last ${days === 1 ? 'day' : `${days} days`}` : 'Go through them'}</button>
+      </span>
+    </p>
   )
 }
 
