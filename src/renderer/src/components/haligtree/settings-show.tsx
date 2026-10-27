@@ -579,7 +579,8 @@ export function TypewriterSample({ on }: { on: boolean }): React.JSX.Element {
   return (
     <span data-preview="typewriter" className="relative flex h-9 w-28 overflow-hidden rounded-md border bg-background">
       <span className="absolute inset-x-2 top-[0.5px] flex flex-col" style={{ transform: `translateY(${-shift}px)`, transition: quiet ? undefined : 'transform 360ms var(--mf-ease)' }}>
-        {Array.from({ length: line + 6 }, (_, i) => (
+        {/* Always as many lines (the most it shows): lines added and dropped as it played moved the page round it. */}
+        {Array.from({ length: 14 }, (_, i) => (
           <span key={i} className="flex h-[7px] items-center">
             <span className={`block h-[2px] rounded-full ${i === at ? 'bg-[var(--tt-brand-color-400)]' : i < at ? 'bg-foreground/45' : 'bg-transparent'}`} style={{ width: `${widths[i % widths.length]}%` }} />
           </span>
