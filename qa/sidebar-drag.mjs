@@ -78,7 +78,7 @@ try {
   await c.v('settings:set', { sidebarOrder: [], sidebarGroups: {} }); await c.h.waitForTimeout(900)
   await lands(c, 'Inbox below Calendar', 'inbox', (await box(c.h, 'calendar')).bottom - 2)
   // 4. Lookups, shown, into the top block.
-  const shownNow = (await c.v('settings')).sidebarShown ?? ['inbox', 'home', 'day', 'articles', 'nuggets', 'review', 'today', 'calendar', 'tags', 'discarded']
+  const shownNow = (await c.v('settings')).sidebarShown ?? ['inbox', 'home', 'day', 'articles', 'nuggets', 'review', 'today', 'calendar', 'pinned', 'recent', 'tags', 'discarded']
   await c.v('settings:set', { sidebarShown: [...new Set([...shownNow, 'lookups'])] }); await c.h.waitForTimeout(1200)
   await lands(c, 'Lookups into the top block', 'lookups', (await box(c.h, 'articles')).top + 2)
 

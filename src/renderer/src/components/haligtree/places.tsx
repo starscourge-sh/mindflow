@@ -1,5 +1,5 @@
 import { type ComponentType, type CSSProperties, type RefAttributes } from 'react'
-import { Archive, BookOpen, BookUser, Calendar, CalendarFold, Compass, Flag, ListVideo, Newspaper, Sprout, type LucideIcon } from 'lucide-react'
+import { Archive, BookOpen, BookUser, Calendar, CalendarFold, Compass, Flag, ListVideo, Newspaper, Pin, Sprout, type LucideIcon } from 'lucide-react'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import { Switch } from '@/components/ui/switch'
 import { chime } from '@/lib/sound'
@@ -84,7 +84,20 @@ export const SECTIONS: (Place & { key: string })[] = [
   { id: 'powers', label: `What ${APP_NAME} can do`, icon: Compass, key: 'f', tint: 'green' }
 ]
 
-/** What every book's sidebar shows to start: the two runs, then Tags and the Bin (main/sidebar-shape.ts). */
+/**
+ * The sidebar's two lists of notes, not pages: Pinned (what you pinned) and
+ * Recent (the last few you opened), under the first run of pages. Each is
+ * switched on or off with the pages (`sidebarShown`), but has no G key, no ⌘K
+ * line and nothing to open: switched off, its heading and its notes are gone
+ * from the sidebar. They sit where the sidebar draws them, so they do not drag.
+ */
+export const SIDE_GROUPS: Place[] = [
+  { id: 'pinned', label: 'Pinned', icon: Pin, tint: 'yellow' },
+  { id: 'recent', label: 'Recent', icon: History, alive: HistoryCircleIcon, tint: 'gray' }
+]
+const isGroup = (id: string): boolean => SIDE_GROUPS.some((one) => one.id === id)
+
+/** What every book's sidebar shows to start: the two runs, Pinned and Recent, then Tags and the Bin (main/sidebar-shape.ts). */
 export const SHAPE = SIDEBAR_SHAPE
 
 /**
@@ -248,8 +261,10 @@ export async function dropInBlock(id: string, block: string, before: string | nu
  */
 export function showWords(place: Place, on: boolean): { label: string; said: string } {
   const where = place.group ? `in ${place.group}` : 'in the sidebar'
+  // Pinned and Recent are no page to open: Customize is the way back.
+  const back = isGroup(place.id) ? '“Customize sidebar…” shows it again' : `${place.key ? `G ${place.key.toUpperCase()} or ` : ''}⌘K still opens it`
   return on
-    ? { label: 'Hide from the sidebar', said: `“${place.label}” hidden. ${place.key ? `G ${place.key.toUpperCase()} or ` : ''}⌘K still opens it` }
+    ? { label: 'Hide from the sidebar', said: `“${place.label}” hidden. ${back}` }
     : { label: 'Show in the sidebar', said: `“${place.label}” shows ${where} now` }
 }
 
@@ -304,28 +319,31 @@ export function ShowList({ places: given, setting, counts }: { places: Place[]; 
     ? sidebarParts(sections, ordered as typeof SECTIONS, places.map((place) => place.id), groups).map((part): [string, Place[]] => [part.key, part.list])
     : [['top', ordered]]
   // Every one switched on at once, said with Undo; the order stays yours.
-  const hidden = places.filter((place) => !shown.includes(place.id))
+  const noteLists = setting === 'sidebarShown' ? SIDE_GROUPS : []
+  const hidden = [...places, ...noteLists].filter((place) => !shown.includes(place.id))
+  // The pages shown: Pinned and Recent alone are not somewhere to be.
+  const pagesOn = shown.filter((id) => places.some((place) => place.id === id))
   const showEvery = async (): Promise<void> => {
     const was = (await haligtree.settings())[setting] ?? SHOWN[setting]
     chime('on')
     await haligtree.setSettings({ [setting]: [...new Set([...was, ...hidden.map((place) => place.id)])] })
     toast(`${hidden.length === 1 ? `“${hidden[0].label}” shows` : `${num(hidden.length)} more show`} ${setting === 'sidebarShown' ? 'in the sidebar' : 'as tabs'} now`, () => void haligtree.setSettings({ [setting]: was }))
   }
-  const row = (place: Place, among: string[]): React.JSX.Element => {
+  // `fixed`: Pinned and Recent, where the sidebar draws them, with no grip and no moves.
+  const row = (place: Place, among: string[], fixed = false): React.JSX.Element => {
     const on = shown.includes(place.id)
     // A switch that cannot be turned off says why, pointed at.
-    const why = on && shown.length === 1 ? 'One has to stay, so there is somewhere to be' : ''
+    const why = on && !fixed && pagesOn.length === 1 ? 'One has to stay, so there is somewhere to be' : ''
     const control = <Switch checked={on} disabled={!!why} onCheckedChange={(next) => void flip(place.id, next)} aria-label={`Show ${place.label}`} />
-    return (
-      <SortableRow key={place.id} id={place.id} glide={`show-${setting}-${place.id}`}>
+    const line = (
         <RowMenu items={[
-          ...orderItems({ setting: order, usual, id: place.id, among, what, name: place.label }, custom),
+          ...(fixed ? [] : orderItems({ setting: order, usual, id: place.id, among, what, name: place.label }, custom)),
           'separator',
           !why && { label: setting === 'sidebarShown' ? showWords(place, on).label : on ? 'Hide this tab' : 'Show this tab', run: () => void flip(place.id, !on) }
         ]}>
           <label data-show-row={place.id}
             className={`group flex cursor-default items-center gap-2.5 rounded-md px-2 py-1.5 text-control text-foreground/80 hover:bg-accent/60 [&>:not(:last-child)]:transition-opacity ${on ? '' : '[&>:not(:last-child)]:opacity-45'}`}>
-            <GripVertical aria-hidden className="-mx-1 size-3.5 shrink-0 cursor-grab text-muted-foreground/0 transition-colors group-hover:text-muted-foreground" />
+            {fixed ? <span aria-hidden className="-mx-1 size-3.5 shrink-0" /> : <GripVertical aria-hidden className="-mx-1 size-3.5 shrink-0 cursor-grab text-muted-foreground/0 transition-colors group-hover:text-muted-foreground" />}
             <PlaceIcon place={place} full={on} />
             <span className={`flex-1 truncate transition-colors ${on ? '' : 'text-muted-foreground'}`}>{place.label}</span>
             {place.key && <span className="flex gap-0.5 opacity-60"><Pressed keys={`G ${place.key.toUpperCase()}`} /></span>}
@@ -345,8 +363,8 @@ export function ShowList({ places: given, setting, counts }: { places: Place[]; 
             {why ? <Tip label={why}><span className="inline-flex">{control}</span></Tip> : control}
           </label>
         </RowMenu>
-      </SortableRow>
     )
+    return fixed ? <div key={place.id}>{line}</div> : <SortableRow key={place.id} id={place.id} glide={`show-${setting}-${place.id}`}>{line}</SortableRow>
   }
   return (
     <LayoutGroup id={`show-${setting}`}>
@@ -361,7 +379,7 @@ export function ShowList({ places: given, setting, counts }: { places: Place[]; 
           <button type="button" data-show-every onClick={() => void showEvery()}
             className="mb-1.5 flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-control font-medium text-foreground transition-colors hover:bg-accent/60 hover:text-foreground">
             <AliveIcon icon={EyeIcon} size={14} />
-            {setting === 'sidebarShown' ? 'Show every page' : 'Show every tab'}
+            {setting === 'sidebarShown' ? (hidden.some((place) => isGroup(place.id)) ? 'Show everything' : 'Show every page') : 'Show every tab'}
           </button>
         )}
         {setting === 'sidebarShown' ? (
@@ -375,6 +393,8 @@ export function ShowList({ places: given, setting, counts }: { places: Place[]; 
               <div key={block} data-show-part={block} className="flex flex-col">
                 {at > 0 && items.length > 0 && <div data-side-gap aria-hidden className="mt-2.5 mb-0.5 min-h-1" />}
                 {box}
+                {/* Pinned and Recent, under the first run, as the sidebar has them. */}
+                {block === 'Write' && <div data-show-groups className="mt-2.5 flex flex-col gap-px">{SIDE_GROUPS.map((group) => row(group, [], true))}</div>}
               </div>
             )}
           />

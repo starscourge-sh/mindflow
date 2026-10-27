@@ -92,7 +92,7 @@ import { Passes, openPass } from '@/components/haligtree/pass'
 import { noteActions } from '@/lib/notes'
 import { headingIn } from '@/lib/capture-links'
 import { openApart } from '@/lib/apart'
-import { G_ALIASES, PlaceIcon, SECTIONS, ShowList, TASK_PAGES, dropInBlock, dropOrder, orderItems, risen, litRow, showWords, sidebarParts, useInOrder, useOrder, useSections, useShown } from '@/components/haligtree/places'
+import { G_ALIASES, PlaceIcon, SECTIONS, SIDE_GROUPS, ShowList, type Place, TASK_PAGES, dropInBlock, dropOrder, orderItems, risen, litRow, showWords, sidebarParts, useInOrder, useOrder, useSections, useShown } from '@/components/haligtree/places'
 import { BlockList, SortableList, SortableRow } from '@/components/haligtree/sortable'
 import { pageTravel } from '@/lib/page-travel'
 import { Branches } from '@/components/haligtree/branches'
@@ -1518,7 +1518,7 @@ export function Home(): React.JSX.Element {
             // Where a promoted capture or a new task flies to (lib/fly-home.ts).
             const homeOf = (id: string): string | undefined => (id === 'nuggets' ? 'nugget' : id === 'today' ? 'task' : id === 'articles' ? 'question' : undefined)
             // Shown or hidden from a row's right click, said with a way back.
-            const showIt = async (section: (typeof SECTIONS)[number], on: boolean): Promise<void> => {
+            const showIt = async (section: Place, on: boolean): Promise<void> => {
               const was = (await haligtree.settings()).sidebarShown ?? shown
               chime(on ? 'on' : 'off')
               await haligtree.setSettings({ sidebarShown: on ? [...was.filter((one) => one !== section.id), section.id] : was.filter((one) => one !== section.id) })
@@ -1527,7 +1527,8 @@ export function Home(): React.JSX.Element {
             // What a right click on a place offers: go there (here or beside), move it, hide it, or bring back one hidden.
             const placeMenu = (section: (typeof SECTIONS)[number], among: string[]): RowItem[] => {
               const on = shown.includes(section.id)
-              const stays = section.id === 'home' || (on && shown.length === 1)
+              // The last page shown stays; Pinned and Recent are not somewhere to be.
+              const stays = section.id === 'home' || (on && shown.filter((id) => sections.some((one) => one.id === id)).length === 1)
               const hidden = ordered.filter((one) => !shown.includes(one.id))
               return [
                 view.id !== section.id && { label: 'Open', run: () => setView({ id: section.id }) },
@@ -1683,9 +1684,14 @@ export function Home(): React.JSX.Element {
         </Unfold>
             </>)
             // A group's name, small: a click folds it. Which pages it holds is set in "Customize sidebar…", not here.
-            const heading = (label: string, open: boolean, fold: (open: boolean) => void, near?: string): React.JSX.Element =>
-              narrow ? <div key={label} className="mt-3" /> : (
-                <div key={label} className="group/head relative mt-2.5 mb-0.5 flex min-h-6 items-center">
+            // A right click hides the whole group, heading and notes, as a page's row hides itself.
+            const heading = (group: Place, open: boolean, fold: (open: boolean) => void, near?: string): React.JSX.Element =>
+              narrow ? <div key={group.id} className="mt-3" /> : (
+                <RowMenu key={group.id} items={[
+                  { label: showWords(group, true).label, run: () => void showIt(group, false) },
+                  { label: 'Customize the sidebar…', run: () => void setTimeout(() => setCustomizing(true), 120) }
+                ]}>
+                <div data-side-heading={group.id} className="group/head relative mt-2.5 mb-0.5 flex min-h-6 items-center">
                   <button
                     type="button"
                     aria-expanded={open}
@@ -1694,11 +1700,16 @@ export function Home(): React.JSX.Element {
                     onClick={() => (chime(open ? 'fold' : 'slide'), fold(!open))}
                     className={`flex min-h-6 flex-1 items-center gap-1 rounded-md py-0.5 pl-2 pr-2 text-left text-meta text-muted-foreground transition-colors duration-80 hover:text-foreground data-[fluid-hover-active]:text-foreground`}
                   >
-                    {label}
+                    {group.label}
                     <ChevronRight className={`size-3 transition-[rotate,opacity] duration-80 ${open ? 'rotate-90 opacity-0 group-hover/head:opacity-100' : ''}`} />
                   </button>
                 </div>
+                </RowMenu>
               )
+            // Pinned and Recent, each drawn only while switched on in "Customize sidebar…" or Settings.
+            const [pinsGroup, recentGroup] = SIDE_GROUPS
+            const pinsOn = shown.includes(pinsGroup.id)
+            const recentOn = shown.includes(recentGroup.id)
             // Not drawn, even unseen, until settings say which rows show: a row
             // the settings then take away held its room for a frame once the sidebar showed.
             const parts = settings && !unloaded(away) ? sidebarParts(sections, ordered, shown, settings.sidebarGroups) : []
@@ -1749,14 +1760,14 @@ export function Home(): React.JSX.Element {
                 </>)
               })()}
               {/* Pinned, Notion's Favourites: only there while something is, or while a note is carried to it. */}
-              {pins.length === 0 && layouts.length === 0 && !narrow && (
+              {pinsOn && pins.length === 0 && layouts.length === 0 && !narrow && (
                 <div data-side-drop="pinned" className="hidden rounded-md data-[queue-hot]:bg-[color-mix(in_oklab,var(--primary)_12%,transparent)] data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--primary)_40%,transparent)] [html[data-split-pin]_&]:block">
                   <div className="mt-3 mb-0.5 px-2 py-0.5 text-meta text-muted-foreground">Pinned</div>
                   <p className="px-2 pb-1.5 text-control text-muted-foreground">Drop here to pin</p>
                 </div>
               )}
-              {!quiet && (pins.length > 0 || layouts.length > 0) && (<div data-side-drop="pinned" className="rounded-md data-[queue-hot]:bg-[color-mix(in_oklab,var(--primary)_12%,transparent)] data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--primary)_40%,transparent)]">
-                {heading('Pinned', pinsOpen, setPinsOpen)}
+              {pinsOn && !quiet && (pins.length > 0 || layouts.length > 0) && (<div data-side-drop="pinned" className="rounded-md data-[queue-hot]:bg-[color-mix(in_oklab,var(--primary)_12%,transparent)] data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--primary)_40%,transparent)]">
+                {heading(pinsGroup, pinsOpen, setPinsOpen)}
                 <Unfold open={pinsOpen || narrow}><Branches current={-1} bare={narrow} className={`flex flex-col gap-px ${narrow ? '' : 'ml-5'}`}>{[
                   ...layouts.map((one) => {
                     const live = split.panes.length > 1 && sameLayout(one.views, split.panes.map((pane) => pane.trail.views[pane.trail.at]))
@@ -1800,10 +1811,10 @@ export function Home(): React.JSX.Element {
               {(() => {
                 // Not the note open now, nor one already pinned above it: five at most.
                 const rows = recents.filter((one) => one.id !== view.focus && !pins.some((pin) => pin.id === one.id)).slice(0, 5)
-                if (quiet || narrow || !rows.length) return null
+                if (!recentOn || quiet || narrow || !rows.length) return null
                 return (
                   <div data-side-recent>
-                    {heading('Recent', recentOpen, setRecentOpen)}
+                    {heading(recentGroup, recentOpen, setRecentOpen)}
                     <Unfold open={recentOpen}><Branches current={-1} className="ml-5 flex flex-col gap-px">{rows.map((one) => {
                       const Icon = openedIcon(one)
                       return (

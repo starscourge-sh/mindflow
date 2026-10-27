@@ -357,7 +357,7 @@ export function SandboxHost(): React.JSX.Element | null {
       // Its bars are lightsabers whatever yours are: the book is someone else's, and they love Star Wars.
       const settings = { ...(carry?.settings ?? {}), progressBars: 'saber', scenery: true, sceneryFolders: [await builtInScenery()], coversFolder: '', boxAutoHide: true,
         // Its sidebar, laid out by its owner: the Feed with the writing, and the places they use most switched on.
-        sidebarShown: ['inbox', 'home', 'day', 'articles', 'nuggets', 'feed', 'review', 'today', 'calendar', 'tags', 'goals', 'queue', 'sources', 'stats', 'map', 'discarded', 'powers'],
+        sidebarShown: ['inbox', 'home', 'day', 'articles', 'nuggets', 'feed', 'review', 'today', 'calendar', 'pinned', 'recent', 'tags', 'goals', 'queue', 'sources', 'stats', 'map', 'discarded', 'powers'],
         sidebarOrder: ['inbox', 'home', 'day', 'articles', 'nuggets', 'feed', 'review', 'today', 'calendar', 'weekpage', 'monthpage', 'lookups', 'goals', 'queue', 'tags', 'sources', 'stats', 'map', 'discarded', 'archived', 'powers'],
         sidebarGroups: { feed: 'Write' } }
       sabersWorn()
