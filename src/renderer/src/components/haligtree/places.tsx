@@ -86,18 +86,26 @@ export const SECTIONS: (Place & { key: string })[] = [
 
 /**
  * The sidebar's two lists of notes, not pages: Pinned (what you pinned) and
- * Recent (the last few you opened), under the first run of pages. Each is
- * switched on or off with the pages (`sidebarShown`), but has no G key, no ⌘K
- * line and nothing to open: switched off, its heading and its notes are gone
- * from the sidebar. They sit where the sidebar draws them, so they do not drag.
+ * Recent (the last few you opened), under the first run of pages. Each has a
+ * switch beside the pages', kept apart as the ones switched off
+ * (`sidebarGroupsOff`), so every book shows both until one is switched off.
+ * No G key, no ⌘K line and nothing to open: switched off, its heading and its
+ * notes are gone from the sidebar. They sit where the sidebar draws them, so they do not drag.
  */
 export const SIDE_GROUPS: Place[] = [
   { id: 'pinned', label: 'Pinned', icon: Pin, tint: 'yellow' },
   { id: 'recent', label: 'Recent', icon: History, alive: HistoryCircleIcon, tint: 'gray' }
 ]
 const isGroup = (id: string): boolean => SIDE_GROUPS.some((one) => one.id === id)
+/** Pinned or Recent switched on or off, read and written whole; answers with what was switched off before, for Undo. */
+export async function showGroup(id: string, on: boolean): Promise<string[]> {
+  const was = (await haligtree.settings()).sidebarGroupsOff ?? []
+  chime(on ? 'on' : 'off')
+  await haligtree.setSettings({ sidebarGroupsOff: on ? was.filter((one) => one !== id) : [...was.filter((one) => one !== id), id] })
+  return was
+}
 
-/** What every book's sidebar shows to start: the two runs, Pinned and Recent, then Tags and the Bin (main/sidebar-shape.ts). */
+/** What every book's sidebar shows to start: the two runs, then Tags and the Bin (main/sidebar-shape.ts). */
 export const SHAPE = SIDEBAR_SHAPE
 
 /**
@@ -319,27 +327,31 @@ export function ShowList({ places: given, setting, counts }: { places: Place[]; 
     ? sidebarParts(sections, ordered as typeof SECTIONS, places.map((place) => place.id), groups).map((part): [string, Place[]] => [part.key, part.list])
     : [['top', ordered]]
   // Every one switched on at once, said with Undo; the order stays yours.
-  const noteLists = setting === 'sidebarShown' ? SIDE_GROUPS : []
-  const hidden = [...places, ...noteLists].filter((place) => !shown.includes(place.id))
-  // The pages shown: Pinned and Recent alone are not somewhere to be.
-  const pagesOn = shown.filter((id) => places.some((place) => place.id === id))
+  const hiddenPages = places.filter((place) => !shown.includes(place.id))
+  // Pinned and Recent switched off, kept apart from the pages (SIDE_GROUPS).
+  const groupsOff = settings?.sidebarGroupsOff ?? []
+  const hiddenGroups = setting === 'sidebarShown' ? SIDE_GROUPS.filter((group) => groupsOff.includes(group.id)) : []
+  const hidden = [...hiddenPages, ...hiddenGroups]
   const showEvery = async (): Promise<void> => {
-    const was = (await haligtree.settings())[setting] ?? SHOWN[setting]
+    const now = await haligtree.settings()
+    const shownWas = now[setting] ?? SHOWN[setting]
+    const was = { [setting]: shownWas, ...(hiddenGroups.length ? { sidebarGroupsOff: now.sidebarGroupsOff ?? [] } : {}) }
     chime('on')
-    await haligtree.setSettings({ [setting]: [...new Set([...was, ...hidden.map((place) => place.id)])] })
-    toast(`${hidden.length === 1 ? `“${hidden[0].label}” shows` : `${num(hidden.length)} more show`} ${setting === 'sidebarShown' ? 'in the sidebar' : 'as tabs'} now`, () => void haligtree.setSettings({ [setting]: was }))
+    await haligtree.setSettings({ [setting]: [...new Set([...shownWas, ...hiddenPages.map((place) => place.id)])], ...(hiddenGroups.length ? { sidebarGroupsOff: [] } : {}) })
+    toast(`${hidden.length === 1 ? `“${hidden[0].label}” shows` : `${num(hidden.length)} more show`} ${setting === 'sidebarShown' ? 'in the sidebar' : 'as tabs'} now`, () => void haligtree.setSettings(was))
   }
   // `fixed`: Pinned and Recent, where the sidebar draws them, with no grip and no moves.
   const row = (place: Place, among: string[], fixed = false): React.JSX.Element => {
-    const on = shown.includes(place.id)
+    const on = fixed ? !groupsOff.includes(place.id) : shown.includes(place.id)
     // A switch that cannot be turned off says why, pointed at.
-    const why = on && !fixed && pagesOn.length === 1 ? 'One has to stay, so there is somewhere to be' : ''
-    const control = <Switch checked={on} disabled={!!why} onCheckedChange={(next) => void flip(place.id, next)} aria-label={`Show ${place.label}`} />
+    const why = on && !fixed && shown.length === 1 ? 'One has to stay, so there is somewhere to be' : ''
+    const set = (next: boolean): void => void (fixed ? showGroup(place.id, next) : flip(place.id, next))
+    const control = <Switch checked={on} disabled={!!why} onCheckedChange={set} aria-label={`Show ${place.label}`} />
     const line = (
         <RowMenu items={[
           ...(fixed ? [] : orderItems({ setting: order, usual, id: place.id, among, what, name: place.label }, custom)),
           'separator',
-          !why && { label: setting === 'sidebarShown' ? showWords(place, on).label : on ? 'Hide this tab' : 'Show this tab', run: () => void flip(place.id, !on) }
+          !why && { label: setting === 'sidebarShown' ? showWords(place, on).label : on ? 'Hide this tab' : 'Show this tab', run: () => set(!on) }
         ]}>
           <label data-show-row={place.id}
             className={`group flex cursor-default items-center gap-2.5 rounded-md px-2 py-1.5 text-control text-foreground/80 hover:bg-accent/60 [&>:not(:last-child)]:transition-opacity ${on ? '' : '[&>:not(:last-child)]:opacity-45'}`}>

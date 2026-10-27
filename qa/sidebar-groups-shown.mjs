@@ -31,7 +31,8 @@ try {
   await h.locator('[data-section="Appearance"]').click(); await wait(900)
   await h.locator('[data-show-row="pinned"]').scrollIntoViewIfNeeded(); await wait(300)
 
-  check('every book starts with both on', (await v('settings')).sidebarShown.includes('pinned') && (await v('settings')).sidebarShown.includes('recent'), JSON.stringify((await v('settings')).sidebarShown))
+  const start = await v('settings')
+  check('every book starts with both on: none saved off, and neither is among the pages', !(start.sidebarGroupsOff ?? []).length && !start.sidebarShown.some((id) => id === 'pinned' || id === 'recent'), JSON.stringify({ off: start.sidebarGroupsOff, shown: start.sidebarShown }))
   check('Settings lists Pinned and Recent, switched on', (await isOn('pinned')) && (await isOn('recent')))
   const before = await side()
   check('the sidebar draws both, with rows', before.pinned && before.pinRows > 0 && before.recent && before.recentRows > 0, JSON.stringify(before))
@@ -51,7 +52,8 @@ try {
   await flip('pinned'); await flip('recent')
   const off = await side()
   check('both off: neither heading nor its notes is drawn', !off.pinned && !off.pinRows && !off.recent && !off.recentRows, JSON.stringify(off))
-  check('saved off', !(await v('settings')).sidebarShown.some((id) => id === 'pinned' || id === 'recent'))
+  const offNow = (await v('settings')).sidebarGroupsOff
+  check('saved off, apart from the pages', ['pinned', 'recent'].every((id) => (offNow ?? []).includes(id)), JSON.stringify(offNow))
   await shot('groups-off')
 
   await flip('pinned'); await flip('recent')
@@ -70,9 +72,11 @@ try {
   const menu = await h.evaluate(() => [...document.querySelectorAll('[role="menuitem"]')].map((one) => one.textContent.trim()))
   check('the heading offers "Hide from the sidebar"', menu.some((one) => one.startsWith('Hide from the sidebar')), menu.join(' / '))
   await h.locator('[role="menuitem"]', { hasText: 'Hide from the sidebar' }).click(); await wait(800)
-  check('and hides Pinned', !(await side()).pinned && !(await v('settings')).sidebarShown.includes('pinned'))
+  check('and hides Pinned', !(await side()).pinned && (await v('settings')).sidebarGroupsOff.includes('pinned'))
   check('said with the way back', await h.evaluate(() => document.body.innerText.includes('“Pinned” hidden. “Customize sidebar…” shows it again')))
   check('Settings shows it off', !(await isOn('pinned')))
+  await h.locator('[data-show-every]').first().click(); await wait(800)
+  check('"Show everything" brings it back', (await side()).pinned && !(await v('settings')).sidebarGroupsOff.length)
   check('no page errors', !c.errors?.some((one) => /PAGEERROR/.test(one)), (c.errors ?? []).slice(0, 2).join(' | '))
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])

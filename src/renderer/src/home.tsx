@@ -92,7 +92,7 @@ import { Passes, openPass } from '@/components/haligtree/pass'
 import { noteActions } from '@/lib/notes'
 import { headingIn } from '@/lib/capture-links'
 import { openApart } from '@/lib/apart'
-import { G_ALIASES, PlaceIcon, SECTIONS, SIDE_GROUPS, ShowList, type Place, TASK_PAGES, dropInBlock, dropOrder, orderItems, risen, litRow, showWords, sidebarParts, useInOrder, useOrder, useSections, useShown } from '@/components/haligtree/places'
+import { G_ALIASES, PlaceIcon, SECTIONS, SIDE_GROUPS, ShowList, showGroup, type Place, TASK_PAGES, dropInBlock, dropOrder, orderItems, risen, litRow, showWords, sidebarParts, useInOrder, useOrder, useSections, useShown } from '@/components/haligtree/places'
 import { BlockList, SortableList, SortableRow } from '@/components/haligtree/sortable'
 import { pageTravel } from '@/lib/page-travel'
 import { Branches } from '@/components/haligtree/branches'
@@ -1518,7 +1518,7 @@ export function Home(): React.JSX.Element {
             // Where a promoted capture or a new task flies to (lib/fly-home.ts).
             const homeOf = (id: string): string | undefined => (id === 'nuggets' ? 'nugget' : id === 'today' ? 'task' : id === 'articles' ? 'question' : undefined)
             // Shown or hidden from a row's right click, said with a way back.
-            const showIt = async (section: Place, on: boolean): Promise<void> => {
+            const showIt = async (section: (typeof SECTIONS)[number], on: boolean): Promise<void> => {
               const was = (await haligtree.settings()).sidebarShown ?? shown
               chime(on ? 'on' : 'off')
               await haligtree.setSettings({ sidebarShown: on ? [...was.filter((one) => one !== section.id), section.id] : was.filter((one) => one !== section.id) })
@@ -1527,8 +1527,7 @@ export function Home(): React.JSX.Element {
             // What a right click on a place offers: go there (here or beside), move it, hide it, or bring back one hidden.
             const placeMenu = (section: (typeof SECTIONS)[number], among: string[]): RowItem[] => {
               const on = shown.includes(section.id)
-              // The last page shown stays; Pinned and Recent are not somewhere to be.
-              const stays = section.id === 'home' || (on && shown.filter((id) => sections.some((one) => one.id === id)).length === 1)
+              const stays = section.id === 'home' || (on && shown.length === 1)
               const hidden = ordered.filter((one) => !shown.includes(one.id))
               return [
                 view.id !== section.id && { label: 'Open', run: () => setView({ id: section.id }) },
@@ -1685,10 +1684,14 @@ export function Home(): React.JSX.Element {
             </>)
             // A group's name, small: a click folds it. Which pages it holds is set in "Customize sidebar…", not here.
             // A right click hides the whole group, heading and notes, as a page's row hides itself.
+            const hideGroup = async (group: Place): Promise<void> => {
+              const was = await showGroup(group.id, false)
+              toast(showWords(group, true).said, () => void haligtree.setSettings({ sidebarGroupsOff: was }).then(() => chime('on')))
+            }
             const heading = (group: Place, open: boolean, fold: (open: boolean) => void, near?: string): React.JSX.Element =>
               narrow ? <div key={group.id} className="mt-3" /> : (
                 <RowMenu key={group.id} items={[
-                  { label: showWords(group, true).label, run: () => void showIt(group, false) },
+                  { label: showWords(group, true).label, run: () => void hideGroup(group) },
                   { label: 'Customize the sidebar…', run: () => void setTimeout(() => setCustomizing(true), 120) }
                 ]}>
                 <div data-side-heading={group.id} className="group/head relative mt-2.5 mb-0.5 flex min-h-6 items-center">
@@ -1708,8 +1711,9 @@ export function Home(): React.JSX.Element {
               )
             // Pinned and Recent, each drawn only while switched on in "Customize sidebar…" or Settings.
             const [pinsGroup, recentGroup] = SIDE_GROUPS
-            const pinsOn = shown.includes(pinsGroup.id)
-            const recentOn = shown.includes(recentGroup.id)
+            const groupsOff = settings?.sidebarGroupsOff ?? []
+            const pinsOn = !groupsOff.includes(pinsGroup.id)
+            const recentOn = !groupsOff.includes(recentGroup.id)
             // Not drawn, even unseen, until settings say which rows show: a row
             // the settings then take away held its room for a frame once the sidebar showed.
             const parts = settings && !unloaded(away) ? sidebarParts(sections, ordered, shown, settings.sidebarGroups) : []

@@ -603,6 +603,8 @@ const DEFAULTS = {
   // The numbers beside the sidebar's pages, folders and tags: all of them, and the pages switched off one by one.
   sidebarCounts: true,
   sidebarCountsOff: [] as string[],
+  // Pinned and Recent switched off (places.tsx, SIDE_GROUPS): none to start, so every book shows both.
+  sidebarGroupsOff: [] as string[],
   // Pointing at a sidebar row, or a row of the Haligtree menu, shows a card of what that page is.
   pagePreviews: true,
   // The box's tabs; Recent is a ⇧⌘Y or ⌘K away until shown.
