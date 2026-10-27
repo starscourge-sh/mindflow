@@ -1,5 +1,5 @@
 import { type ComponentType, type CSSProperties, type RefAttributes } from 'react'
-import { Archive, BookOpen, BookUser, Calendar, CalendarFold, Compass, Flag, ListVideo, Newspaper, Pin, Sprout, type LucideIcon } from 'lucide-react'
+import { Archive, Images, BookOpen, BookUser, Calendar, CalendarFold, Compass, Flag, ListVideo, Newspaper, Pin, Sprout, type LucideIcon } from 'lucide-react'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import { Switch } from '@/components/ui/switch'
 import { chime } from '@/lib/sound'
@@ -80,6 +80,8 @@ export const SECTIONS: (Place & { key: string })[] = [
   { id: 'stats', emoji: '📊', label: 'Stats', icon: BarChart3, alive: ChartBarIcon, key: 's', tint: 'blue' },
   // Every note you have linked, as a map of dots and lines.
   { id: 'map', emoji: '🗺️', label: 'Map', icon: Links, alive: LinkIcon, key: 'x', tint: 'purple' },
+  // Every picture, GIF, PDF and recording your notes keep, as a grid (media-view.tsx). G and the comma: every letter is taken.
+  { id: 'media', emoji: '🖼️', label: 'Media', icon: Images, key: ',', tint: 'purple' },
   { id: 'discarded', emoji: '🗑️', label: 'Bin', icon: Trash2, alive: TrashIcon, key: 'd', tint: 'gray' },
   // Out of sight, not let go: apart from the exits.
   { id: 'archived', emoji: '🗄️', label: 'Archived', icon: Archive, key: 'v', tint: 'gray' },

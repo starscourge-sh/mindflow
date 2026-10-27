@@ -31,7 +31,9 @@ export function jumpTo(editor: Editor, pos: number): void {
   const { view } = editor
   if (isFolded(view.state, pos)) editor.commands.toggleFold(pos)
   const tr = view.state.tr
-  tr.setSelection(TextSelection.near(tr.doc.resolve(pos + 1))).setMeta(landed, pos)
+  // A picture or a file is picked whole; a line takes the cursor.
+  const node = tr.doc.nodeAt(pos)
+  tr.setSelection(node?.isAtom && NodeSelection.isSelectable(node) ? NodeSelection.create(tr.doc, pos) : TextSelection.near(tr.doc.resolve(pos + 1))).setMeta(landed, pos)
   view.dispatch(tr)
   view.focus()
   cue("heading")

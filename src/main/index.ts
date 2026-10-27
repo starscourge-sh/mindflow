@@ -71,6 +71,7 @@ import { celebrationFile, registerCelebrations } from './celebrate'
 import type { Nudge } from './nudge'
 import { firstRun, isWelcoming, noteChord, pretendTaken, registerOnboarding, whenWelcoming, whereTray } from './onboarding'
 import { registerUnused } from './unused'
+import { registerMedia } from './media'
 import { registerPeople } from './people'
 import { registerSources } from './sources'
 import { registerFeed } from './feed'
@@ -3619,6 +3620,7 @@ app.whenReady().then(() => {
   registerCelebrations()
   registerOnboarding()
   registerUnused()
+  registerMedia()
   registerObsidian()
   registerPictures()
   registerPeople()

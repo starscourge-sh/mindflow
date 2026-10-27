@@ -92,6 +92,7 @@ import { Passes, openPass } from '@/components/haligtree/pass'
 import { noteActions } from '@/lib/notes'
 import { headingIn } from '@/lib/capture-links'
 import { openApart } from '@/lib/apart'
+import { MediaView } from '@/components/haligtree/media-view'
 import { G_ALIASES, PlaceIcon, SECTIONS, SIDE_GROUPS, ShowList, showGroup, type Place, TASK_PAGES, dropInBlock, dropOrder, orderItems, risen, litRow, showWords, sidebarParts, useInOrder, useOrder, useSections, useShown } from '@/components/haligtree/places'
 import { BlockList, SortableList, SortableRow } from '@/components/haligtree/sortable'
 import { pageTravel } from '@/lib/page-travel'
@@ -1268,6 +1269,8 @@ export function Home(): React.JSX.Element {
           <StatsView key={`${view.focus}-${view.nonce}`} recap={view.focus} />
         ) : view.id === 'map' ? (
           <MapView onOpen={go} />
+        ) : view.id === 'media' ? (
+          <MediaView onOpen={go} />
         ) : view.id === 'whatsnew' ? (
           <WhatsNewPage focus={view.focus} onView={(id, focus) => setView({ id, focus }, key)} />
         ) : view.id === 'feed' ? (

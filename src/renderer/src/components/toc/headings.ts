@@ -84,6 +84,16 @@ export function goToHeading(editor: Editor, text: string): boolean {
     if (line) jumpTo(editor as Parameters<typeof jumpTo>[0], line.pos)
     return !!line
   }
+  // A stored picture or file (opened from Media): where it sits.
+  if (/^(haligtree|mindflow):\/\/assets\//.test(text)) {
+    let at: number | undefined
+    editor.state.doc.descendants((node, pos) => {
+      if (at === undefined && node.attrs?.src === text) at = pos
+      return at === undefined
+    })
+    if (at !== undefined) jumpTo(editor as Parameters<typeof jumpTo>[0], at)
+    return at !== undefined
+  }
   const wanted = text.trim().toLowerCase()
   // No heading by that name: the first line that starts with the words, as a
   // card written in a note ("question :: answer") is found by its question.

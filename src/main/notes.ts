@@ -193,8 +193,8 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
     if (!name) return ''
     // A huge original is never opened for a list: it shows its kind instead.
     if (((await stat(join(assets(), name)).catch(() => null))?.size ?? 0) > 30 * 1024 * 1024) return (small.set(key, ''), '')
-    // A video's first frame, as Finder's Quick Look draws it: no player needed.
-    if (/\.(mp4|m4v|mov|webm)$/.test(name)) {
+    // A video's first frame, or a PDF's first page, as Finder's Quick Look draws it: no player or reader needed.
+    if (/\.(mp4|m4v|mov|webm|pdf)$/.test(name)) {
       const frame = await nativeImage.createThumbnailFromPath(join(assets(), name), { width: tall * 2, height: tall * 2 }).catch(() => null)
       const made = frame && !frame.isEmpty() ? `data:image/jpeg;base64,${frame.toJPEG(72).toString('base64')}` : ''
       small.set(key, made)

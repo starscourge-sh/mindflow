@@ -527,7 +527,7 @@ const rowClass = (
 ): string =>
   `${ROW_SHAPE} transition-colors ${compact ? 'min-h-6 py-1' : ROW_PAD} ${dim ? 'opacity-50' : ''} ${picked ? PICKED : open ? 'bg-accent' : at ? 'bg-accent/50' : ''}`
 // The ring is drawn over the tile, not under it, so a picture never hides it.
-const tileClass = (at: boolean, open: boolean, picked: boolean, dim = false): string =>
+export const tileClass = (at: boolean, open: boolean, picked: boolean, dim = false): string =>
   `group/row relative flex w-full flex-col overflow-hidden rounded-lg text-left after:pointer-events-none after:absolute after:inset-0 after:rounded-lg after:ring-inset after:transition-[box-shadow] ${dim ? 'opacity-50' : ''} ${picked ? `${PICKED} after:ring-2 after:ring-[var(--tt-brand-color-400)]` : at ? 'after:ring-2 after:ring-ring' : open ? 'after:ring-2 after:ring-foreground/40' : 'after:ring-1 after:ring-border hover:after:ring-foreground/25'}`
 
 /**
