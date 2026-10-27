@@ -2290,3 +2290,7 @@ html[data-book-hue] [data-book-tint] {
    menu emoji greyed, as Vivaldi's monochrome icons. A tag's chip and words keep their colour: there it is the tag. */
 :root[data-icon-colour='off'] { --mf-icon-tint: color-mix(in oklab, var(--foreground) 72%, transparent); }
 :root[data-icon-colour='off'] .mf-emoji-icon { filter: grayscale(1); opacity: 0.85; }
+
+/* Writing mode and the writing room, nothing but the words: no scrollbar anywhere in the window while everything
+   else is faded or covered (the wheel and the keys still scroll). */
+:root:is([data-day-writing], [data-in-room]) * { scrollbar-width: none; }

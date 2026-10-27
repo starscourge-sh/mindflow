@@ -58,6 +58,9 @@ try {
   check('1. with its caption over the words', /pages: /.test(day?.caption ?? ''), JSON.stringify(day?.caption))
   check('1. a quiet foot: title, words, time, the way out', /^.*Today, .*·\s*\d+ words\s*·\s*(\d+ minutes?|under a minute)\s*·\s*Esc to leave/.test(day?.foot ?? ''), day?.foot)
   check('1. the caret is in the words', await h.evaluate(() => !!document.activeElement?.closest('[data-room]')))
+  // No scrollbar anywhere in the room: whatever scrolls, its bar is hidden.
+  const bars = await h.evaluate(() => [...document.querySelectorAll('*')].filter((one) => one.scrollHeight > one.clientHeight + 2 && /auto|scroll/.test(getComputedStyle(one).overflowY) && one.getBoundingClientRect().width > 0 && getComputedStyle(one).scrollbarWidth !== 'none').map((one) => one.tagName + '.' + String(one.className).slice(0, 40)))
+  check('1. no scrollbar shows in the room', bars.length === 0, JSON.stringify(bars))
   if (shots) await h.screenshot({ path: `${shots}/room-day.png` })
   check('1. the page\'s own writer\'s line stays out of the room: it has its own foot', await h.evaluate(() => { const one = document.querySelector('[data-writer-line]'); return !one || getComputedStyle(one).display === 'none' }))
   /** How a line of words is set: its size, ink, spacing and how far it sits off the window's foot. */
