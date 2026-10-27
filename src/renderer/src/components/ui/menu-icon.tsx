@@ -202,7 +202,8 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^eras/i, Eraser]
 ]
 
-/** Each drawing as an emoji, for "Menu icons: Emoji" (Settings, Appearance). A line no rule knows keeps its quiet dot. */
+/** Each drawing as an emoji, for "Icons: Emoji" (Settings, Appearance). A line no rule knows keeps its quiet dot.
+ * None of the plain dark-grey ones (➕ ✖️ ✔️ ☑️): on a dark theme they all but vanished. */
 const EMOJI = new Map<LucideIcon, string>([
   [AlarmClock, '⏰'],
   [AppWindow, '🪟'],
@@ -231,7 +232,7 @@ const EMOJI = new Map<LucideIcon, string>([
   [CheckCheck, '✅'],
   [ChevronsDownUp, '🔼'],
   [ChevronsUpDown, '🔽'],
-  [CircleCheck, '✔️'],
+  [CircleCheck, '✅'],
   [CircleOff, '⭕'],
   [CircleX, '❌'],
   [Clipboard, '📋'],
@@ -268,7 +269,7 @@ const EMOJI = new Map<LucideIcon, string>([
   [Lightbulb, '💡'],
   [Link, '🔗'],
   [List, '📃'],
-  [ListChecks, '☑️'],
+  [ListChecks, '✅'],
   [ListStart, '⏭️'],
   [Lock, '🔒'],
   [LockOpen, '🔓'],
@@ -292,7 +293,7 @@ const EMOJI = new Map<LucideIcon, string>([
   [Pencil, '✏️'],
   [Pin, '📌'],
   [PinOff, '📍'],
-  [Plus, '➕'],
+  [Plus, '🆕'],
   [Quote, '💬'],
   [Repeat, '🔁'],
   [RotateCcw, '🔄'],
@@ -304,7 +305,7 @@ const EMOJI = new Map<LucideIcon, string>([
   [Smile, '😊'],
   [Snowflake, '❄️'],
   [Sparkles, '✨'],
-  [SquareCheck, '☑️'],
+  [SquareCheck, '✅'],
   [SquareKanban, '📋'],
   [SquarePen, '📝'],
   [Star, '⭐'],
@@ -326,7 +327,7 @@ const EMOJI = new Map<LucideIcon, string>([
   [VolumeX, '🔇'],
   [WandSparkles, '🪄'],
   [Wrench, '🔧'],
-  [X, '✖️'],
+  [X, '❌'],
   [Zap, '⚡'],
   [PenLine, '🖊️'],
   [SpellCheck, '🔡']

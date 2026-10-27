@@ -214,7 +214,9 @@ const holdsNotes = (id: string): boolean => !['home', 'day', 'weekpage', 'monthp
 const turnsPage = (view: View): boolean => !!view.focus && holdsNotes(view.id) && !['today', 'tomorrow', 'upcoming', 'routines', 'later', 'goals', 'week', 'matrix', 'discarded'].includes(view.id)
 /** Where one thing opens: a view by name, a day's page, or a note or task in its section. */
 const stepOf = (type: string, id: string): View =>
-  type === 'view' ? { id } : type === 'day' ? { id: 'day', focus: id } : type === 'event' ? { id: 'calendar', focus: `event:${id}` } : { id: type === 'capture' ? 'all' : type === 'task' ? 'upcoming' : `${type}s`, focus: id }
+  // A Writing or Gems folder: "article:<group>" or "nugget:<group>", its list opened inside it.
+  type === 'folder' ? { id: id.startsWith('article:') ? 'articles' : 'nuggets', folder: id.slice(id.indexOf(':') + 1) }
+  : type === 'view' ? { id } : type === 'day' ? { id: 'day', focus: id } : type === 'event' ? { id: 'calendar', focus: `event:${id}` } : { id: type === 'capture' ? 'all' : type === 'task' ? 'upcoming' : `${type}s`, focus: id }
 /** Pages that show one day, week, month or year: with no focus, or a focus in the present one, they are on now. */
 const DATED = ['day', 'weekpage', 'monthpage', 'yearpage']
 const atNow = (view: View): boolean => {
@@ -1611,7 +1613,7 @@ export function Home(): React.JSX.Element {
               {folders && list && (
                 // Its own drags, not the row's: a folder pressed on is not Writing carried away.
                 <div onPointerDown={(event) => event.stopPropagation()}>
-                  <SideFolders list={list} counted={countsOn} open={unfolded} here={inFolder} shown={shownIn(list, folders)} onOpen={(id) => setView({ id: section.id, folder: id })} onUnfold={() => setUnfolded(true)} />
+                  <SideFolders list={list} counted={countsOn} open={unfolded} here={inFolder} shown={shownIn(list, folders)} onOpen={(id) => (asideClick() ? (spendAsideClick(), aside({ id: section.id, folder: id })) : setView({ id: section.id, folder: id }))} onUnfold={() => setUnfolded(true)} />
                 </div>
               )}
               </SortableRow>

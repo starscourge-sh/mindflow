@@ -1,3 +1,4 @@
+import { asideItem } from '@/lib/split'
 import { useEffect, useState } from 'react'
 import { Branches } from './branches'
 import { createPortal } from 'react-dom'
@@ -225,6 +226,8 @@ function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen
   const left = '0.5rem'
   const menu: RowItem[] = [
     { label: 'Open', run: () => onOpen(group.id) },
+    // Beside the page in front, as a page's row offers it (⌥-click on the row does it too).
+    asideItem('folder', `${list}:${group.id}`),
     { label: 'Rename…', run: () => setTimeout(onRename, 120) },
     { label: 'Change icon…', run: () => setTimeout(() => setPicking(true), 120) },
     depth < DEPTH - 1 && { label: 'New folder inside', run: () => newFolder(list, group.id) },

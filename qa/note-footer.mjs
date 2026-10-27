@@ -37,8 +37,16 @@ try {
   if (process.env.SHOTS) await h.screenshot({ path: `${process.env.SHOTS}/folder-open.png` })
   check('a note opened in a folder: the folder\'s path bar stays', before.path && after.path, JSON.stringify({ before, after }))
   check('and the list still holds only the folder\'s notes', before.rows === after.rows, JSON.stringify({ before, after }))
+  // A folder's own menu opens it to the side, as a page's row does: the folder's path bar in the new pane.
+  await h.keyboard.press('Escape'); await h.mouse.move(5, 400); await wait(400)
+  await h.locator('aside [data-side-folder]').filter({ hasText: 'Films and books' }).first().click({ button: 'right', timeout: 8000 }); await wait(500)
+  const lines = await h.evaluate(() => [...document.querySelectorAll('[role=menu] [role=menuitem]')].map((one) => one.textContent.trim()))
+  check('a folder\'s menu offers "Open to the side"', lines.some((one) => one.startsWith('Open to the side')), JSON.stringify(lines))
+  await h.locator('[role=menu] [role=menuitem]').filter({ hasText: 'Open to the side' }).first().click(); await wait(1800)
+  const panes = await h.evaluate(() => [...document.querySelectorAll('[data-pane]')].map((one) => !!one.querySelector('[data-path-bar]')))
+  check('and it opens beside, inside the folder', panes.length >= 2 && panes.at(-1), JSON.stringify(panes))
 } catch (error) {
-  check('the run finished', false, error.message.split('\n')[0])
+  check('the run finished', false, process.env.SHOW ? error.message : error.message.split('\n')[0])
 } finally {
   await c.close?.()
 }
