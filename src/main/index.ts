@@ -387,6 +387,11 @@ function wearIcon(): void {
 }
 
 /** Motion off in Settings, or Reduce motion on in the Mac's Accessibility settings. */
+// The app's theme decides the frosting behind every window, not the system's: see-through, the text sits on it.
+// A solid theme hides it, so then the Mac's own look is followed and its dialogs (Save, Open) and menus match the
+// Mac, unless glass stickies are on, whose frosting must still match the theme. Worn again when that setting changes.
+let worn = { mode: 'dark', solid: false }
+const wear = (): void => void (nativeTheme.themeSource = worn.solid && !stickyGlass() ? 'system' : worn.mode === 'light' ? 'light' : 'dark')
 const stillness = (): boolean => !motionOn() || systemPreferences.getAnimationSettings().prefersReducedMotion
 /** How long a glide takes: quick, since a key asks for it, but long enough for the eye to follow. */
 const GLIDE = 240
@@ -3818,8 +3823,7 @@ app.whenReady().then(() => {
       // Nothing was brought in.
     }
   })
-  // The app's theme decides the frosting behind every window, not the system's.
-  ipcMain.on('appearance', (_event, mode: string) => void (nativeTheme.themeSource = mode === 'light' ? 'light' : 'dark'))
+  ipcMain.on('appearance', (_event, mode: string, solid: unknown) => ((worn = { mode, solid: solid === true }), wear()))
   // The box's backing, as its theme says. A solid theme (Paper, Light,
   // Midnight) paints the page fully, so the frosting under it only ever showed
   // where the page had not painted yet: the strip a growing window uncovers
@@ -4192,6 +4196,7 @@ app.whenReady().then(() => {
   // sound whichever way it went, from the window in front if it is Haligtree's, else the box: never a sticky being hidden.
   let stickiesShown = stickyPrefs().shown
   whenStickies(() => {
+    wear()
     const { shown } = stickyPrefs()
     if (shown && stuck.some((one) => one.hidden)) stuck.forEach((one) => delete one.hidden), keepStuck()
     const front = BrowserWindow.getFocusedWindow()

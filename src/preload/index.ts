@@ -473,7 +473,7 @@ const api = {
   /** The answer to Haligtree's own "Go back to this copy?" sheet. */
   answerRestore: (token: string, ok: boolean): void => ipcRenderer.send('backup:restore-answer', token, ok),
   /** The frosted backing follows the theme: dark under a dark theme. */
-  setAppearance: (mode: 'light' | 'dark'): void => ipcRenderer.send('appearance', mode),
+  setAppearance: (mode: 'light' | 'dark', solid = false): void => ipcRenderer.send('appearance', mode, solid),
   /** Bring up the main window with one thing open in it. */
   openInHome: (type: string, id: string, heading?: string): void => ipcRenderer.send('home:open', type, id, heading),
   /** In the main window: where the prompt sent you, now and from here on. */

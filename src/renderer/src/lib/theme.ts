@@ -142,7 +142,7 @@ let turning = 0
 /** The newest theme waiting for its turn-over to take the old picture (applyTheme). */
 let queued: (() => void) | null = null
 /** The appearance last told to the window, so a preview only tells it on a change. */
-let told: "light" | "dark" | null = null
+let told: string | null = null
 
 /**
  * Put it on the document, and remember it.
@@ -175,6 +175,13 @@ export function applyTheme(theme: Theme, remember = true): void {
     if (isLight(theme)) document.documentElement.dataset.light = ""
     else delete document.documentElement.dataset.light
     tellSurface()
+    // The window is see-through over macOS's frosted backing: it has to be dark frosting under a dark theme, or the
+    // text lands on white. A solid theme hides the backing, so the Mac's own dialogs (Save, Open) may follow the Mac
+    // instead (main decides, glass stickies kept in mind). A sticky is solid whatever the theme: it says nothing.
+    // Told only when it changes: each telling redraws the frosting.
+    const appearance = `${isLight(theme) ? "light" : "dark"}${solidColour() ? " solid" : ""}`
+    if (!sticky && appearance !== told) window.api?.setAppearance?.(isLight(theme) ? "light" : "dark", !!solidColour())
+    if (!sticky) told = appearance
   }
   // Chosen with the pointer, the whole window turns over as one picture,
   // through a breath of blur (main.css): the page, its words and its lines
@@ -215,12 +222,6 @@ export function applyTheme(theme: Theme, remember = true): void {
   if (remember) {
     localStorage.setItem("theme", theme)
   }
-  // The window is see-through over macOS's frosted backing: it has to be
-  // dark frosting under a dark theme, or the text lands on white.
-  // Told only when it changes: each telling redraws the frosting.
-  const appearance = isLight(theme) ? "light" : "dark"
-  if (appearance !== told) window.api?.setAppearance?.(appearance)
-  told = appearance
 }
 
 /**
