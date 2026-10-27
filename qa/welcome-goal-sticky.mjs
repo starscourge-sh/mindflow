@@ -12,6 +12,8 @@ import { join } from 'path'
 import { sandbox } from './sandbox-lib.mjs'
 // A fresh install, never the sandbox.
 process.env.QA_ARGS = (process.env.QA_ARGS ?? '').replace('--sandbox', '').trim()
+// Each window keeps the place it was given while really parked off screen, so the sticky's and its tab's places can be read.
+process.env.HALIGTREE_QA_VIRTUAL = '1'
 
 const SHOTS = process.argv[2] ?? ''
 const THEME = process.argv[3] ?? 'light'
