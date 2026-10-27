@@ -390,10 +390,13 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
         return redraw()
       }
       const from = { ...view }
-      const start = performance.now()
+      // Timed from its first frame's own clock: a frame's time is when the frame began, which can be a moment
+      // before this was asked, and a time before the start eased below zero.
+      let start = -1
       goal = to
       // Zoomed in log space, so the speed of the zoom feels even all the way.
       const step = (now: number): void => {
+        if (start < 0) start = now
         const t = Math.min(1, (now - start) / ms), e = ease(t)
         const k = Math.exp(Math.log(from.k) + (Math.log(to.k) - Math.log(from.k)) * e)
         // The point under the middle moves in a straight line in the map's own units.
@@ -699,7 +702,8 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
     let queued = 0
     const redraw = (): void => void (queued ||= requestAnimationFrame(() => ((queued = 0), draw(), arrive.size && redraw())))
 
-    // A short fade in and out, so the light follows the pointer rather than snapping.
+    // A fade in and out, so the light follows the pointer rather than snapping. The whole map dims for it, a big
+    // change of light, so it eases in and out over a quarter second (a little quicker back).
     const fade = (to: number): void => {
       cancelAnimationFrame(fading)
       if (still()) {
@@ -708,10 +712,13 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
         return draw()
       }
       const from = amount
-      const start = performance.now()
+      // From its first frame's own clock, as the glide: a time before the start made the light go below none, and
+      // the canvas, refusing that, drew one frame with the last dim it had (a flash of the whole map gone dark).
+      let start = -1
       const step = (now: number): void => {
-        const t = Math.min(1, (now - start) / 140)
-        amount = from + (to - from) * ease(t)
+        if (start < 0) start = now
+        const t = Math.min(1, (now - start) / (to > from ? 260 : 200))
+        amount = from + (to - from) * (t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2)
         if (to === 0 && t === 1) shown = null
         draw()
         if (t < 1) fading = requestAnimationFrame(step)
