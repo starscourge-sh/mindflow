@@ -37,7 +37,7 @@ const short = (text: string, n = 40): string => clip(text, n) || 'Untitled'
  * `all` shows them all as chips). With none of those, a line ending in "?"
  * is offered as a question of its own: "Keep as a question", on the same key.
  */
-export function BoxOffers({ words, linked, all, onHidden, onClue, onLog, onAsk }: { words: string; /** The note as saved (JSON): what it links to already. */ linked?: string; all: boolean; onHidden: (count: number) => void; onClue: (question: PinnedQuestion) => void; onLog: (goal: Item) => void; /** Keep the box's words as a new question, this line its name. */ onAsk: (line: string) => void }): React.JSX.Element | null {
+export function BoxOffers({ words, linked, all, onHidden, onClue, onLog, onAsk, quietAsk = false }: { words: string; /** Said on the line of what it will be (WillDo's "or a question"): Tab still takes it, nothing shown here. */ quietAsk?: boolean; /** The note as saved (JSON): what it links to already. */ linked?: string; all: boolean; onHidden: (count: number) => void; onClue: (question: PinnedQuestion) => void; onLog: (goal: Item) => void; /** Keep the box's words as a new question, this line its name. */ onAsk: (line: string) => void }): React.JSX.Element | null {
   const settings = useLive(haligtree.settings, null as Settings | null)
   const pinned = useLive(haligtree.pinnedQuestions, [] as PinnedQuestion[])
   const goals = useLive(() => haligtree.items('goal'), [] as Item[], [], ['item'])
@@ -100,7 +100,7 @@ export function BoxOffers({ words, linked, all, onHidden, onClue, onLog, onAsk }
   }
   return (
     <AnimatePresence initial={false}>
-      {best && (
+      {best && !(quietAsk && best.kind === 'ask') && (
         <motion.div key={best.kind === 'ask' ? 'ask' : best.one.id} data-chrome data-box-offers data-offer={best.kind}
           initial={{ opacity: 0, transform: shift('translateY(3px)') }} animate={{ opacity: 1, transform: shift('translateY(0px)') }} exit={{ opacity: 0 }} transition={{ duration: 0.2, ease: EASE }}
           className="flex min-w-0 items-center gap-1.5 px-[4.75rem] pb-1 text-xs text-muted-foreground">

@@ -2,7 +2,7 @@ import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 
 import type { BoxPlan, BoxToken } from '@/lib/box-tokens'
-import { Tip } from './ui'
+import { Kbd, Tip } from './ui'
 import { loud } from '@/lib/loud'
 
 type Item = { key: string; effect: string; color: string; tokens: BoxToken[]; notTask?: true; card?: true; info?: true }
@@ -13,7 +13,9 @@ type Item = { key: string; effect: string; color: string; tokens: BoxToken[]; no
  * words as plain text, as a click on them does. A "+name" that matches
  * nothing offers to start that question, or to leave the words be.
  */
-export function WillDo({ plan, list, onSort, onKeep, onNotTask, onNewQuestion, onUncard }: {
+export function WillDo({ plan, list, onSort, onKeep, onNotTask, onNewQuestion, onUncard, orQuestion }: {
+  /** It will be a task and a line asks something: "or a question" makes it one instead. */
+  orQuestion?: () => void
   plan: BoxPlan | null
   /** A task written as a list: what Create makes of it, "7 tasks, 5 steps". */
   list?: string | null
@@ -64,6 +66,7 @@ export function WillDo({ plan, list, onSort, onKeep, onNotTask, onNewQuestion, o
   // "!milestone" that marks nothing: said in grey, with what it needs.
   const unmarked = plan.tokens.find((one) => one.kind === 'milestone-miss')
   if (!items.length && !miss && !unmarked && !onSort) return null
+  // It will be a task, and a line asks something: one line says so, Tab makes it a question instead (BoxOffers takes the key).
   return (
     <div data-chrome data-will-do className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-1 px-[4.75rem] pt-1.5 text-xs text-muted-foreground animate-in fade-in-0 duration-200">
       {items.length > 0 && <span className="mr-0.5 text-muted-foreground">This will:</span>}
@@ -91,6 +94,17 @@ export function WillDo({ plan, list, onSort, onKeep, onNotTask, onNewQuestion, o
           </Tip>}
         </span>
       ))}
+      {orQuestion && items.length > 0 && (
+        <span data-will="or-question" className="inline-flex shrink-0 items-center gap-1 animate-in fade-in-0 duration-200">
+          <span aria-hidden className="text-muted-foreground/50">·</span>
+          <Tip label="A question of its own in Writing instead: it collects dated clues until you know the answer">
+            <button type="button" data-will-question className="flex items-center gap-1 rounded-md px-1 py-0.5 font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+              onMouseDown={(event) => event.preventDefault()} onClick={orQuestion}>
+              or a question <Kbd>⇥</Kbd>
+            </button>
+          </Tip>
+        </span>
+      )}
       {onSort && (
         <span data-will="sort" className="inline-flex min-w-0 flex-wrap items-center gap-1.5 animate-in fade-in-0 duration-200">
           {items.length > 0 && <span aria-hidden className="text-muted-foreground/50">·</span>}

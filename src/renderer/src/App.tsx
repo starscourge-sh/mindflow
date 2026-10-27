@@ -50,7 +50,7 @@ import { KeptPanel } from './components/haligtree/kept-panel'
 import { startQuestion } from './components/haligtree/questions-view'
 import { clueInto } from './components/haligtree/pinned-questions'
 import { logInto } from './components/haligtree/goals-view'
-import { BoxOffers } from './components/haligtree/box-offers'
+import { BoxOffers, askedLine } from './components/haligtree/box-offers'
 import { RecentPanel } from './components/haligtree/recent-panel'
 import { BOX_TABS, dropOrder, orderItems, useInOrder, useOrder, useShown, type Place } from './components/haligtree/places'
 import { SortableList, SortableRow } from './components/haligtree/sortable'
@@ -1940,6 +1940,7 @@ export default function App(): React.JSX.Element {
             {!editing && (
               <WillDo
                 plan={plan}
+                orQuestion={plan?.kind === 'todo' && askedLine(textOf(body)) ? () => keepAsQuestion(askedLine(textOf(body))!) : undefined}
                 list={listed && !listed.mixed ? tasksSaid(listed.list) : null}
                 // The same as Create: the page kept, then sorted line by line.
                 onSort={listed?.mixed ? () => latestSubmit.current() : null}
@@ -2033,7 +2034,7 @@ export default function App(): React.JSX.Element {
             {/* Where else it could go, the questions kept in view and the open goals, on
                 one quiet line, and only once a few words are written: an empty box asks nothing. */}
             {started && !plus && !focus && !lesson && textOf(body).trim().split(/\s+/).length >= 3 && (
-              <div data-under-tall-toast><BoxOffers words={textOf(body)} linked={JSON.stringify(body)} all={offersAll} onHidden={setOffersHidden} onClue={clueToPinned} onLog={logToGoal} onAsk={keepAsQuestion} /></div>
+              <div data-under-tall-toast><BoxOffers quietAsk={plan?.kind === 'todo'} words={textOf(body)} linked={JSON.stringify(body)} all={offersAll} onHidden={setOffersHidden} onClue={clueToPinned} onLog={logToGoal} onAsk={keepAsQuestion} /></div>
             )}
             {/* A hint sits at the foot of the box: a glance at something you
                 wrote once, while you are here to write. Usually empty. */}

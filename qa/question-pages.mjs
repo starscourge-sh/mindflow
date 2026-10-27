@@ -95,6 +95,16 @@ try {
   await page.keyboard.press('Backspace')
   await page.evaluate(() => window.api.hidePrompt())
 
+  // A task that asks something ("#feature … ?"): one line says it will be a task, "or a question ⇥" beside it.
+  await v('tag:set', 'feature', { action: true }); await page.waitForTimeout(600)
+  await page.keyboard.press('Meta+A'); await page.keyboard.press('Backspace')
+  await page.keyboard.type('#feature ability to save a note as an image?', { delay: 8 })
+  await page.waitForTimeout(900)
+  const one = await page.evaluate(() => ({ will: document.querySelector('[data-will-do]')?.textContent ?? '', ask: !!document.querySelector('[data-offer="ask"]') }))
+  check('a task that asks: one line, "a task", with "or a question ⇥" on it, and no second line', /tasks/.test(one.will) && /or a question/.test(one.will) && !one.ask, JSON.stringify(one))
+  await page.keyboard.press('Tab'); await page.waitForTimeout(1200)
+  check('and Tab makes it a question instead', !!(await v('items', 'question')).find((x) => /save a note as an image/.test(x.title)))
+
   // Answered: writing from the clues, oldest first.
   await send('question', id)
   await h.waitForTimeout(1200)
