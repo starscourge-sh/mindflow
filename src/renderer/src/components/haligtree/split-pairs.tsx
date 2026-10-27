@@ -133,7 +133,9 @@ export function PairRow({ names, live, isPinned, narrow, menu, onOpen, onClose, 
         onPointerEnter={() => (clearTimeout(timer.current), (timer.current = setTimeout(() => !renaming && setCard(row.current?.getBoundingClientRect() ?? null), card ? 0 : 450)))}
         onPointerLeave={leave}
         onContextMenu={() => (clearTimeout(timer.current), setCard(null))}
-        className={`flex h-8 min-w-0 items-center rounded-md px-0.5 ${live ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_9%,transparent)]' : 'ring-1 ring-inset ring-foreground/8 hover:bg-accent/60'}`}
+        // No light of its own: the sidebar's one light lies on the half pointed at. A second, the whole row's, went
+        // at once on leaving while that one faded, so the light seemed to shrink to the half.
+        className={`flex h-8 min-w-0 items-center rounded-md px-0.5 ${live ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_9%,transparent)]' : 'ring-1 ring-inset ring-foreground/8'}`}
       >
         {renaming ? (
           <input
