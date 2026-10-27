@@ -366,7 +366,7 @@ export function Home(): React.JSX.Element {
       // Nor is the section you are in, asked for again: what is open stays.
       // A day's, week's or month's page asked for by name goes to now, from any other day it is on.
       // A tab asked for (the Inbox's "Show sorted too", from an Everything link) is a change of its own.
-      if (here.id === next.id && (here.focus === next.focus || (next.focus === undefined && atNow(here) && !here.focus?.startsWith('g:'))) && here.nonce === next.nonce && (next.tab === undefined || next.tab === here.tab)) return trail
+      if (here.id === next.id && here.folder === next.folder && (here.focus === next.focus || (next.focus === undefined && atNow(here))) && here.nonce === next.nonce && (next.tab === undefined || next.tab === here.tab)) return trail
       if (here.id === next.id && next.focus === undefined && !atNow(here)) chime(here.id === 'day' ? 'page' : 'season')
       // One sound a move: a place reached by something that already spoke (a map dot, ⌘K's Year) stays quiet.
       // A note opened on another page is heard as its page turn alone.
@@ -394,16 +394,14 @@ export function Home(): React.JSX.Element {
       const scroll = scrolled(key)
       setTrail(key, (trail) => {
         const here = trail.views[trail.at]
-        if (here.id !== view.id || (here.focus ?? null) === focus || (!focus && here.focus?.startsWith('g:'))) return trail
-        return push(trail, { id: here.id, focus: focus ?? undefined, tab: here.tab }, scroll)
+        if (here.id !== view.id || (here.focus ?? null) === focus) return trail
+        return push(trail, { id: here.id, focus: focus ?? undefined, folder: here.folder, tab: here.tab }, scroll)
       })
     },
     keep: (patch) =>
       setTrail(key, (trail) => {
         const here = trail.views[trail.at]
         if (here.id !== view.id || Object.entries(patch).every(([name, value]) => here[name as keyof View] === value)) return trail
-        // A folder open (g: and its id) is no note: a note shut under it leaves it open.
-        if ('focus' in patch && !patch.focus && here.focus?.startsWith('g:')) return trail
         return { ...trail, views: trail.views.map((one, index) => (index === trail.at ? { ...one, ...patch } : one)) }
       })
   })
@@ -735,10 +733,10 @@ export function Home(): React.JSX.Element {
   const newPage = settings?.newMakes === 'page'
   // In one of Writing's or Gems' folders, "New" (and ⌘N) makes a note there, of its list (groups.ts).
   const inFolderRef = useRef<{ id: string; tier: string } | null>(null)
-  inFolderRef.current = (view.id === 'articles' || view.id === 'nuggets') && view.focus?.startsWith('g:') ? { id: view.focus.slice(2), tier: view.id === 'articles' ? 'article' : 'nugget' } : null
+  inFolderRef.current = (view.id === 'articles' || view.id === 'nuggets') && view.folder ? { id: view.folder, tier: view.id === 'articles' ? 'article' : 'nugget' } : null
   const makeNew = (): void => {
     const folder = inFolderRef.current
-    if (folder) return void groups.note(folder.id).then((id) => id && (chime('promote'), open(folder.tier, id)))
+    if (folder) return void groups.note(folder.id).then((id) => id && (chime('promote'), setView({ id: folder.tier === 'article' ? 'articles' : 'nuggets', focus: id, folder: folder.id })))
     if (!newPage) return void (chime('open'), window.api.showPrompt())
     void haligtree.newArticle().then((id) => (chime('promote'), open('article', id)))
   }
@@ -1252,8 +1250,8 @@ export function Home(): React.JSX.Element {
           <MatrixView focus={view.focus} onOpen={go} />
         ) : view.id === 'nuggets' || view.id === 'articles' || view.id === 'questions' ? (
           // Questions are pages in Pages: sent to one, Writing opens with its "Questions" chip on.
-          <ItemsView tier={view.id === 'nuggets' ? 'nugget' : 'article'} only={view.id === 'questions' ? 'questions' : undefined} focus={view.focus?.startsWith('g:') ? undefined : view.focus}
-            folder={view.id !== 'questions' && view.focus?.startsWith('g:') ? view.focus.slice(2) : undefined} onFolder={(id) => setView({ id: view.id, focus: id ? `g:${id}` : undefined })} onOpen={go} />
+          <ItemsView tier={view.id === 'nuggets' ? 'nugget' : 'article'} only={view.id === 'questions' ? 'questions' : undefined} focus={view.focus}
+            folder={view.id !== 'questions' ? view.folder : undefined} onFolder={(id) => setView({ id: view.id, folder: id ?? undefined })} onOpen={go} />
         ) : view.id === 'goals' ? (
           <GoalsView focus={view.focus} onOpen={go} />
         ) : view.id === 'queue' ? (
@@ -1554,7 +1552,7 @@ export function Home(): React.JSX.Element {
               const list = section.id === 'articles' ? 'article' : section.id === 'nuggets' ? 'nugget' : null
               const folders = list && !narrow && settings?.sidebarFolders?.[list] !== false ? (list === 'article' ? articles : nuggets) : null
               const [unfolded, setUnfolded] = list === 'article' ? [articleFolders, setArticleFolders] : [nuggetFolders, setNuggetFolders]
-              const inFolder = view.id === section.id && view.focus?.startsWith('g:') ? view.focus.slice(2) : undefined
+              const inFolder = view.id === section.id ? view.folder : undefined
               const here = lit(section.id) && !inFolder
               return (
               <SortableRow key={section.id} id={section.id} glide={still ? undefined : `side-${section.id}`}>
@@ -1613,7 +1611,7 @@ export function Home(): React.JSX.Element {
               {folders && list && (
                 // Its own drags, not the row's: a folder pressed on is not Writing carried away.
                 <div onPointerDown={(event) => event.stopPropagation()}>
-                  <SideFolders list={list} counted={countsOn} open={unfolded} here={inFolder} shown={shownIn(list, folders)} onOpen={(id) => setView({ id: section.id, focus: `g:${id}` })} onUnfold={() => setUnfolded(true)} />
+                  <SideFolders list={list} counted={countsOn} open={unfolded} here={inFolder} shown={shownIn(list, folders)} onOpen={(id) => setView({ id: section.id, folder: id })} onUnfold={() => setUnfolded(true)} />
                 </div>
               )}
               </SortableRow>

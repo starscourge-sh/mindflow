@@ -90,10 +90,14 @@ export async function drawBlocks(page: HTMLElement, blocks: HTMLElement[]): Prom
   const frame = document.createElement('div')
   frame.setAttribute('aria-hidden', 'true')
   frame.dataset.pictureFrame = ''
-  const top = Math.max(0, blocks[0].getBoundingClientRect().top - PAD)
+  // Where the blocks' own words start on screen: the frame is put so its words land on them, and the flash moves nothing.
+  const said = document.createRange()
+  said.setStartBefore(blocks[0])
+  said.setEndAfter(blocks.at(-1)!)
+  const top = Math.max(0, said.getBoundingClientRect().top - PAD)
   // In the top layer, shown last: over every menu and bar, even one still fading out as this starts.
   frame.popover = 'manual'
-  frame.style.cssText = `position:fixed;inset:auto;left:0;top:0;margin:0;border:0;height:auto;max-width:none;max-height:none;pointer-events:none;box-sizing:content-box;width:${column}px;padding:${PAD}px;overflow:hidden;background:${backgroundOf(page)};color:${pageStyle.color};zoom:${SCALE / devicePixelRatio}`
+  frame.style.cssText = `position:fixed;inset:auto;left:0;top:0;margin:0;border:0;height:auto;max-width:none;max-height:none;pointer-events:none;visibility:hidden;box-sizing:content-box;width:${column}px;padding:${PAD}px;overflow:hidden;background:${backgroundOf(page)};color:${pageStyle.color};zoom:${SCALE / devicePixelRatio}`
   frame.append(outer)
   document.body.append(frame)
   frame.showPopover()
@@ -118,6 +122,8 @@ export async function drawBlocks(page: HTMLElement, blocks: HTMLElement[]): Prom
       // CSS zoom scales the offsets too: they are written in the frame's own pixels.
       frame.style.left = `${left / zoom}px`
       frame.style.top = `${(y - slice * innerHeight) / zoom}px`
+      // Shown only once it is in place: never a frame of it at the window's corner first.
+      frame.style.visibility = 'visible'
       // Drawn on screen before it is taken: after the next frame has been painted.
       await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))
       const height = Math.min(innerHeight, size.height - slice * innerHeight)

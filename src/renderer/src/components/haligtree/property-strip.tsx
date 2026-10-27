@@ -190,7 +190,7 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated,
   )
   return (
     <div data-property-strip data-in-panel={panel ? '' : undefined} data-properties-open={shut ? undefined : ''} ref={strip}
-      className={panel ? 'mb-2 flex flex-col border-b border-border/60 pb-2 text-control' : '@container/props flex flex-col py-1 text-meta'} onMouseDown={(event) => event.stopPropagation()}>
+      className={panel ? 'mb-2 flex flex-col border-b border-border/60 pb-2 text-control' : '@container/props flex flex-col pt-1 pb-5 text-meta'} onMouseDown={(event) => event.stopPropagation()}>
       {empty ? addButton : (
         <>
           {panel ? (

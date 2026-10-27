@@ -7,7 +7,8 @@ import { inBin, type BinKind } from './to-bin'
  * shows: opening a note is a step (`go`), a tab, a filter or the day on show
  * is kept in the step you are on (`keep`), never a step of its own.
  */
-export type Step = { id: string; focus?: string; nonce?: number; tab?: string; scroll?: [string, number][] }
+/** `folder`: a Writing or Gems folder the list is in; a note opened there keeps it, as Finder's window stays in its folder. */
+export type Step = { id: string; focus?: string; folder?: string; nonce?: number; tab?: string; scroll?: [string, number][] }
 export type Nav = {
   here: Step
   /** Something else opened in this page, or nothing (null): a step. */

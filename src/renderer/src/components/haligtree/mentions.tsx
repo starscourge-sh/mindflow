@@ -131,7 +131,7 @@ export function Mentions({ id, onOpen, compact = false }: {
   ].filter(Boolean).join(' · ')
   if (compact && !shown) {
     return (
-      <section data-chrome className="page-narrow mx-auto mt-4 mb-6 w-full border-t px-[4.5rem] pt-2 text-body">
+      <section data-chrome className="page-narrow mx-auto mt-10 mb-6 w-full border-t px-[4.5rem] pt-3 text-body">
         <button type="button" onClick={() => show(true)} className="flex items-center gap-1 rounded-md px-2 py-1 text-meta text-muted-foreground hover:bg-accent/50 hover:text-foreground">
           <ChevronRight className="size-3" />
           Mentions <span className="tabular-nums opacity-70">{counts}</span>
@@ -141,7 +141,7 @@ export function Mentions({ id, onOpen, compact = false }: {
   }
 
   return (
-    <section data-chrome className={`page-narrow mx-auto w-full border-t text-body ${compact ? 'mt-4 mb-6 px-[4.5rem] pt-2' : 'mt-6 mb-16 px-10 pt-4'}`}>
+    <section data-chrome className={`page-narrow mx-auto w-full border-t text-body ${compact ? 'mt-10 mb-6 px-[4.5rem] pt-3' : 'mt-16 mb-16 px-10 pt-6'}`}>
       {compact && (
         <button type="button" onClick={() => show(false)} className="mb-1 flex items-center gap-1 rounded-md px-2 py-1 text-meta text-muted-foreground hover:bg-accent/50 hover:text-foreground">
           <ChevronRight className="size-3 rotate-90" />
