@@ -163,7 +163,7 @@ export function DayView({ onOpen, start, onScale, onView }: {
         )}
         {data?.day === day && !past && (
           // The words on the page itself, no box: today a still caption over them for the hour, a click anywhere under them puts the caret in.
-          <div data-day-write {...room.room} spellCheck={settings?.spellJournal === false ? false : undefined} onClick={(event) => void (event.target === event.currentTarget && writer && !writer.isDestroyed && writer.commands.focus('end'))}
+          <div data-day-write data-caret-room {...room.room} spellCheck={settings?.spellJournal === false ? false : undefined} onClick={(event) => void (event.target === event.currentTarget && writer && !writer.isDestroyed && writer.commands.focus('end'))}
             className="relative mt-2 min-h-36 cursor-text [--mf-padding:0.25rem_0]">
           {day === today && <p data-day-caption className="mb-1 text-sm text-muted-foreground">{caption}</p>}
           <HaligtreeEditor

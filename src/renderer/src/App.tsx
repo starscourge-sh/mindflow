@@ -5,6 +5,7 @@ import { useStickiesOut } from '@/lib/stickies-out'
 import { START_FOCUS, useAbandonAction } from '@/lib/abandon'
 import { useOffer, usePracticeActions } from '@/lib/practices'
 import { PracticeOfferCard } from '@/components/haligtree/practice-pill'
+import { LivingCaret } from '@/components/haligtree/day-writing'
 import React, { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { cardUp, cardsUp } from './lib/link-card'
 import { AnimatePresence, motion } from 'motion/react'
@@ -2370,11 +2371,13 @@ const CapturePrompt = ({
   onReady: (editor: Editor) => void
   onOpenNote: (id: string, heading?: string) => void
 }): React.JSX.Element => {
+  const [editor, setEditor] = useState<Editor | null>(null)
   return (
     // mf-faded: the note fades out at its top and bottom edges as it scrolls,
     // the way Raycast Notes reads, instead of being cut by a hard line. No
     // card edge or shadow of its own: the box is one frosted sheet throughout.
-    <div className="mf-faded relative flex min-h-0 w-full flex-1 flex-col overflow-hidden"
+    // data-caret-room: the Journal's caret, two pixels and the accent's colour, where the system's one pixel was hard to see.
+    <div data-caret-room className="mf-faded relative flex min-h-0 w-full flex-1 flex-col overflow-hidden"
       style={{ transform: 'translate(0,0)' }}>
 
       {/* The same, spelled out. See `docs/components.md` for what each one
@@ -2400,7 +2403,7 @@ const CapturePrompt = ({
         // vim is left out, so it follows the page switch.
         vimStart="insert"
         autofocus={autofocus}
-        onReady={onReady}
+        onReady={(one) => (setEditor(one), onReady(one))}
         showSource={false}
         readOnly={locked}
 
@@ -2418,6 +2421,7 @@ const CapturePrompt = ({
         // A focus session running, the time and the words written show at the foot.
         foot={(editor) => <SessionFooter editor={editor} note={from ? `capture-${from}` : 'box'} />}
       />
+      <LivingCaret editor={editor} />
     </div>
   )
 }

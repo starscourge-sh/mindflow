@@ -85,7 +85,7 @@ export function useWritingQuiet(editor: Editor | null, day: string): number {
     }
     const writing = (): void => {
       if (root.hasAttribute('data-day-writing')) return
-      const box = dom.closest<HTMLElement>('[data-day-write]')
+      const box = dom.closest<HTMLElement>('[data-caret-room]')
       root.style.setProperty('--mf-day-shift', `${box ? Math.round(shiftOf(box)) : 0}px`)
       root.setAttribute('data-day-writing', '')
     }
@@ -151,7 +151,7 @@ export function PageCap({ editor }: { editor: Editor | null }): React.JSX.Elemen
   useEffect(() => {
     if (!editor || editor.isDestroyed) return
     const dom = editor.view.dom as HTMLElement
-    const box = dom.closest<HTMLElement>('[data-day-write]')
+    const box = dom.closest<HTMLElement>('[data-caret-room]')
     const frame = dom.closest<HTMLElement>('.haligtree-editor-wrapper')
     if (!box || !frame) return
     const measure = (): void => {
@@ -205,7 +205,9 @@ export function PageCap({ editor }: { editor: Editor | null }): React.JSX.Elemen
  * A caret in the accent colour, a touch thicker than the system's, that
  * glides to each new letter and blinks slowly once you pause. Under reduced
  * motion the editor keeps a plain accent caret of its own (main.css). The
- * spelling pill is every editor's own (SpellPill).
+ * spelling pill is every editor's own (SpellPill). Drawn in the nearest
+ * `data-caret-room` (the Journal's words, quick capture's note); in Vim's
+ * normal mode the block caret is the cue, so this one steps aside.
  */
 export function LivingCaret({ editor }: { editor: Editor | null }): React.JSX.Element | null {
   const calm = useStill()
@@ -214,7 +216,7 @@ export function LivingCaret({ editor }: { editor: Editor | null }): React.JSX.El
   useEffect(() => {
     if (!editor || editor.isDestroyed) return
     const dom = editor.view.dom
-    const box = dom.closest<HTMLElement>('[data-day-write]')
+    const box = dom.closest<HTMLElement>('[data-caret-room]')
     if (!box) return
     let frame = 0
     let still = 0
@@ -223,7 +225,7 @@ export function LivingCaret({ editor }: { editor: Editor | null }): React.JSX.El
       frame = requestAnimationFrame(() => {
         if (editor.isDestroyed) return
         const { selection } = editor.state
-        const on = editor.isFocused && selection.empty && document.hasFocus()
+        const on = editor.isFocused && selection.empty && document.hasFocus() && dom.getAttribute('data-vim-mode') !== 'normal'
         setShown(on)
         const one = caret.current
         if (!on || !one) return
@@ -243,10 +245,25 @@ export function LivingCaret({ editor }: { editor: Editor | null }): React.JSX.El
     editor.on('focus', place)
     editor.on('blur', place)
     window.addEventListener('resize', place)
+    // The words moving under it with no edit: a picture loading above it, the room scrolled, Vim's mode changed.
+    const sized = new ResizeObserver(place)
+    sized.observe(dom)
+    box.addEventListener('scroll', place, true)
+    // A picture growing to its size once loaded or let go of (the editor itself may not change size, filling its
+    // room), and any change of size that eases in: placed again once each lands.
+    dom.addEventListener('load', place, true)
+    dom.addEventListener('transitionend', place, true)
+    const moded = new MutationObserver(place)
+    moded.observe(dom, { attributes: true, subtree: true })
     place()
     return () => {
       cancelAnimationFrame(frame)
       clearTimeout(still)
+      sized.disconnect()
+      moded.disconnect()
+      box.removeEventListener('scroll', place, true)
+      dom.removeEventListener('load', place, true)
+      dom.removeEventListener('transitionend', place, true)
       editor.off('selectionUpdate', place)
       editor.off('update', place)
       editor.off('focus', place)

@@ -2160,7 +2160,7 @@ html[data-book-hue] [data-book-tint] {
 /* The living caret: the system's is hidden and this one glides to each letter,
    solid while you type and a slow soft blink once you rest. Under reduced
    motion it is not drawn, and the plain accent caret above stays. */
-[data-day-write]:has(.mf-living-caret[data-shown]) .tiptap.ProseMirror { caret-color: transparent; }
+[data-caret-room]:has(> .mf-living-caret[data-shown]) .tiptap.ProseMirror { caret-color: transparent; }
 .mf-living-caret {
   /* Starting on the letter's own edge, never before it: at a line's start it sits on the text's left edge. */
   position: absolute; top: 0; left: 0; z-index: 2;
