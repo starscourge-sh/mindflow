@@ -28,6 +28,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 const endOfToday = (): number => startOfDay(1)
 const startOfToday = (): number => startOfDay()
 
+/** The task lists' sorts: by when each was made, either way; your own order is the list's as it stands. */
+const TASK_SORTS: Record<string, (a: Task, b: Task) => number> = {
+  newest: (a, b) => b.createdAt.localeCompare(a.createdAt),
+  oldest: (a, b) => a.createdAt.localeCompare(b.createdAt)
+}
 type Scope = 'today' | 'upcoming' | 'routines' | keyof typeof BUCKETS | 'backlog' | 'waiting'
 const EMPTY: Record<Scope, { title: string; text: string }> = {
   today: { title: 'Nothing due today', text: 'A clear day. Anything with a date lands here on the day, and anything late stays on top until it is done.' },
@@ -77,9 +82,11 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
   // Every task list, not only today's: the same cuts as the main window.
   const [scope, setScope] = useState<Scope>('today')
   // Narrowed as in the main window: marked, tag, where it came from.
-  const [view, setView] = useView('prompt:tasks', { sort: 'manual', group: 'none' })
+  // Newest first to start: what was caught last is on top. Your own order is a choice in Display.
+  const [view, setView] = useView('prompt:tasks', { sort: 'newest', group: 'none' })
   const facets = taskFacets(tasks)
-  const [[, narrowed]] = arrange(tasks, view, facets, {})
+  // Today, Upcoming and Routines keep their own order (the first three, the days); the sort is for the lists with no day.
+  const [[, narrowed]] = arrange(tasks, view, facets, ['today', 'upcoming', 'routines'].includes(scope) ? {} : TASK_SORTS)
   const due = narrowed.filter((task) => task.status === 'open' && SCOPES[scope].test(task))
 
   const add = useRef<HTMLInputElement>(null)
@@ -152,7 +159,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
-      <span className="ml-auto shrink-0"><Display compact view={view} onChange={setView} facets={facets} sorts={[{ id: 'manual', label: 'Your order' }]} /></span>
+      <span className="ml-auto shrink-0"><Display compact view={view} onChange={setView} facets={facets} sorts={[{ id: 'newest', label: 'Newest' }, { id: 'oldest', label: 'Oldest' }, { id: 'manual', label: 'Your order' }]} /></span>
       </Strip>
       <form
         className="list-box mb-2 flex items-center gap-2 rounded-md border py-1.5 pr-2 focus-within:border-ring"
