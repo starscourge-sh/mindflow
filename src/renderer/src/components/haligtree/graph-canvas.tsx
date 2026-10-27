@@ -252,19 +252,19 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
     // --- each dot drawn once into a small canvas of its own, a chip, and
     // stamped from then on: a soft shadow, a lighter top, a darker rim, a fine
     // ring inside and the kind's icon. Made again at another zoom or theme.
-    const sprites = new Map<string, { image: HTMLCanvasElement; half: number }>()
-    const chipOf = (dot: Dot, scale: number, hot = false): { image: HTMLCanvasElement; half: number } => {
+    type Chip = { image: HTMLCanvasElement; half: number; picture: boolean }
+    const sprites = new Map<string, Chip>()
+    // Two layers a dot: its disc (or a hub's picture), and its kind's icon on its own, so the icon can fade in and
+    // out as the dot grows on the screen or lights, never popping on or off.
+    const chipOf = (dot: Dot, scale: number, layer: 'disc' | 'icon' = 'disc'): Chip => {
       const token = tokenOf(dot)
       const picture = pictures.get(dot.picture ?? '') ?? null
       const dpr = devicePixelRatio
       // One screen pixel, in the map's own units at this zoom.
       const px = dpr / scale
       const onScreen = dot.r / px
-      // One plain disc from far off; the kind's icon once it is big enough to
-      // read (or pointed at), and a hub's picture only close up.
-      // The icon kept quiet: only on a dot big on the screen, or one pointed at or lit
-      // and still big enough to hold it; never on the small ones.
-      const shows = picture && onScreen >= 24 ? 'picture' : onScreen >= (hot ? 9 : 18) ? 'icon' : 'plain'
+      // A plain disc, and a hub's picture only close up; the icon is the other layer (iconShare says how much of it).
+      const shows = layer === 'icon' ? 'icon' : picture && onScreen >= 24 ? 'picture' : 'plain'
       const emoji = shows === 'icon' && emojiIcons() ? KIND_EMOJI[iconId(dot.kind)] : undefined
       const key = `${token}|${dot.r}|${dot.rings}|${shows === 'picture' ? dot.picture : shows === 'icon' ? iconId(dot.kind) + (emoji ? '|emoji' : '') : shows}|${scale}`
       let made = sprites.get(key)
@@ -278,69 +278,71 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
       c.scale(scale, scale)
       c.translate(half, half)
       const tone = shadesOf(token)
-      // A hub's one faint ring.
-      if (dot.rings) {
+      if (shows !== 'icon') {
+        // A hub's one faint ring.
+        if (dot.rings) {
+          c.beginPath()
+          c.arc(0, 0, dot.r + ringGap, 0, Math.PI * 2)
+          c.lineWidth = px
+          c.strokeStyle = brutal ? text : tone.base
+          c.globalAlpha = brutal ? 0.4 : 0.38
+          c.stroke()
+        }
+        c.globalAlpha = 1
+        // A faint shadow where the dot meets the page, a little below it, so it sits on
+        // the map rather than in it. Brutal stays flat: its outline is the whole point.
+        if (!brutal) {
+          const drop = Math.max(px, dot.r * 0.08)
+          const shadow = c.createRadialGradient(0, drop, dot.r * 0.7, 0, drop, dot.r * 1.18)
+          shadow.addColorStop(0, `rgba(0,0,0,${dark ? 0.34 : 0.13})`)
+          shadow.addColorStop(1, 'rgba(0,0,0,0)')
+          c.beginPath()
+          c.arc(0, drop, dot.r * 1.18, 0, Math.PI * 2)
+          c.fillStyle = shadow
+          c.fill()
+        }
+        // The disc in the tag's muted hue.
         c.beginPath()
-        c.arc(0, 0, dot.r + ringGap, 0, Math.PI * 2)
-        c.lineWidth = px
-        c.strokeStyle = brutal ? text : tone.base
-        c.globalAlpha = brutal ? 0.4 : 0.38
+        c.arc(0, 0, dot.r, 0, Math.PI * 2)
+        c.fillStyle = tone.base
+        c.fill()
+        if (!brutal && shows !== 'picture') {
+          // Quiet depth: light from the top left, a little darker toward the rim.
+          const light = c.createRadialGradient(-dot.r * 0.38, -dot.r * 0.42, 0, -dot.r * 0.38, -dot.r * 0.42, dot.r * 1.25)
+          light.addColorStop(0, tone.light)
+          light.addColorStop(1, 'rgba(255,255,255,0)')
+          c.globalAlpha = dark ? 0.32 : style === 'paper' ? 0.4 : 0.55
+          c.fillStyle = light
+          c.fill()
+          const rim = c.createRadialGradient(0, 0, dot.r * 0.62, 0, 0, dot.r)
+          rim.addColorStop(0, 'rgba(0,0,0,0)')
+          rim.addColorStop(1, tone.rim)
+          c.globalAlpha = dark ? 0.6 : 0.45
+          c.fillStyle = rim
+          c.fill()
+          c.globalAlpha = 1
+        }
+        if (shows === 'picture') {
+          // Cut to the circle and filled edge to edge, the middle kept.
+          c.save()
+          c.beginPath()
+          c.arc(0, 0, dot.r - px, 0, Math.PI * 2)
+          c.clip()
+          const side = Math.min(picture!.naturalWidth, picture!.naturalHeight)
+          c.drawImage(picture!, (picture!.naturalWidth - side) / 2, (picture!.naturalHeight - side) / 2, side, side, -dot.r, -dot.r, dot.r * 2, dot.r * 2)
+          c.restore()
+        }
+        // An edge of the page's own colour, so touching dots stay apart; Brutal's thick outline
+        // instead, and Paper's hairline in the ink.
+        c.beginPath()
+        const line = brutal ? Math.min(2 * px, dot.r * 0.3) : style === 'paper' ? Math.min(px, dot.r * 0.2) : Math.min(1.2 * px, dot.r * 0.25)
+        c.arc(0, 0, dot.r - line / 2, 0, Math.PI * 2)
+        c.lineWidth = line
+        c.strokeStyle = brutal || style === 'paper' ? text : ring
+        c.globalAlpha = brutal ? 1 : style === 'paper' ? 0.55 : 0.9
         c.stroke()
-      }
-      c.globalAlpha = 1
-      // A faint shadow where the dot meets the page, a little below it, so it sits on
-      // the map rather than in it. Brutal stays flat: its outline is the whole point.
-      if (!brutal) {
-        const drop = Math.max(px, dot.r * 0.08)
-        const shadow = c.createRadialGradient(0, drop, dot.r * 0.7, 0, drop, dot.r * 1.18)
-        shadow.addColorStop(0, `rgba(0,0,0,${dark ? 0.34 : 0.13})`)
-        shadow.addColorStop(1, 'rgba(0,0,0,0)')
-        c.beginPath()
-        c.arc(0, drop, dot.r * 1.18, 0, Math.PI * 2)
-        c.fillStyle = shadow
-        c.fill()
-      }
-      // The disc in the tag's muted hue.
-      c.beginPath()
-      c.arc(0, 0, dot.r, 0, Math.PI * 2)
-      c.fillStyle = tone.base
-      c.fill()
-      if (!brutal && shows !== 'picture') {
-        // Quiet depth: light from the top left, a little darker toward the rim.
-        const light = c.createRadialGradient(-dot.r * 0.38, -dot.r * 0.42, 0, -dot.r * 0.38, -dot.r * 0.42, dot.r * 1.25)
-        light.addColorStop(0, tone.light)
-        light.addColorStop(1, 'rgba(255,255,255,0)')
-        c.globalAlpha = dark ? 0.32 : style === 'paper' ? 0.4 : 0.55
-        c.fillStyle = light
-        c.fill()
-        const rim = c.createRadialGradient(0, 0, dot.r * 0.62, 0, 0, dot.r)
-        rim.addColorStop(0, 'rgba(0,0,0,0)')
-        rim.addColorStop(1, tone.rim)
-        c.globalAlpha = dark ? 0.6 : 0.45
-        c.fillStyle = rim
-        c.fill()
         c.globalAlpha = 1
       }
-      if (shows === 'picture') {
-        // Cut to the circle and filled edge to edge, the middle kept.
-        c.save()
-        c.beginPath()
-        c.arc(0, 0, dot.r - px, 0, Math.PI * 2)
-        c.clip()
-        const side = Math.min(picture!.naturalWidth, picture!.naturalHeight)
-        c.drawImage(picture!, (picture!.naturalWidth - side) / 2, (picture!.naturalHeight - side) / 2, side, side, -dot.r, -dot.r, dot.r * 2, dot.r * 2)
-        c.restore()
-      }
-      // An edge of the page's own colour, so touching dots stay apart; Brutal's thick outline
-      // instead, and Paper's hairline in the ink.
-      c.beginPath()
-      const line = brutal ? Math.min(2 * px, dot.r * 0.3) : style === 'paper' ? Math.min(px, dot.r * 0.2) : Math.min(1.2 * px, dot.r * 0.25)
-      c.arc(0, 0, dot.r - line / 2, 0, Math.PI * 2)
-      c.lineWidth = line
-      c.strokeStyle = brutal || style === 'paper' ? text : ring
-      c.globalAlpha = brutal ? 1 : style === 'paper' ? 0.55 : 0.9
-      c.stroke()
-      c.globalAlpha = 1
       if (emoji) {
         // "Icons: Emoji": the kind's emoji on the disc, a little quiet; greyed with "Coloured icons" off.
         c.font = `${dot.r * 0.95}px system-ui`
@@ -365,7 +367,7 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
         c.stroke(iconOf(dot.kind))
         c.restore()
       }
-      made = { image, half }
+      made = { image, half, picture: shows === 'picture' }
       sprites.set(key, made)
       return made
     }
@@ -492,6 +494,13 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
     // Thicker the more often the two link: once, twice, three times or more.
     const thickness = (line: Line): number => [0.75, 1.15, 1.6][Math.min(3, line.weight) - 1]
 
+    // How much of a dot's icon shows: none on a small dot, all once it is 20px across or more on the screen, eased
+    // between; a lit dot (pointed at, or a neighbour) shows it from smaller, as the light comes in.
+    const ramp = (value: number, from: number, to: number): number => Math.max(0, Math.min(1, (value - from) / (to - from)))
+    const iconShare = (dot: Dot, hot: boolean): number => {
+      const onScreen = dot.r * view.k
+      return Math.max(ramp(onScreen, 14, 20), hot ? amount * ramp(onScreen, 7, 11) : 0)
+    }
     const draw = (): void => {
       const now = performance.now()
       const dpr = devicePixelRatio
@@ -571,8 +580,14 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
         const lit = !shown || dot === shown ? 1 : faded + (1 - faded) * Math.max(0, Math.min(1, (reach - 0.55) / 0.45))
         context.globalAlpha = (on(dot) ? lit : faded) * alpha(dot)
         if (!context.globalAlpha) continue
-        const { image, half } = chipOf(dot, scale, dot === shown || (!!shown && on(dot)))
-        context.drawImage(image, dot.px - half, dot.py - half, half * 2, half * 2)
+        const chip = chipOf(dot, scale)
+        context.drawImage(chip.image, dot.px - chip.half, dot.py - chip.half, chip.half * 2, chip.half * 2)
+        if (chip.picture) continue
+        const share = iconShare(dot, dot === shown || (!!shown && on(dot)))
+        if (share <= 0) continue
+        context.globalAlpha *= share
+        const icon = chipOf(dot, scale, 'icon')
+        context.drawImage(icon.image, dot.px - icon.half, dot.py - icon.half, icon.half * 2, icon.half * 2)
       }
       // Names, the busiest first, each beside its dot on the side away from
       // the middle, else the other side, above or below; one that would run
