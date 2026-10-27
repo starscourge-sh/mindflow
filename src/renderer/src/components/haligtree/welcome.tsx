@@ -6,7 +6,7 @@ import { WelcomeStamp } from './welcome-marks'
 import { Condense, DRAG_MS, REACH_MS, WelcomePointer, type Move } from './welcome-pointer'
 import { TAGLINE } from '../../../../main/tagline'
 import { fittedTitle, quoted } from '../../../../main/clip'
-import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { Fragment, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react'
 import { AnimatePresence, MotionConfig, motion, useIsPresent } from 'motion/react'
 import { ArrowUp, Compass, CornerDownLeft, FolderInput, Volume2, VolumeX } from 'lucide-react'
 import { shift, spring, still } from '@/lib/motion'
@@ -29,6 +29,7 @@ import { ThemeDial } from './theme-dial'
 import { Kbd, toast } from './ui'
 import { FULL_TURN, glyph, inClay, konami } from './welcome-eggs'
 import { WelcomeBackdrop, type Family } from './welcome-backdrop'
+import { Grainient } from '@/components/ui/grainient'
 import { BACK_END, BACK_START, ComeBack, type BackShot } from './welcome-day'
 import { CURSOR_MS, FLOW_END, FLOW_START, FLOW_WORDS, FlowTree, type FlowShot } from './welcome-flow'
 import {
@@ -1566,7 +1567,17 @@ function BoxKeys(): React.JSX.Element {
  * standing still, under a film of grain. With no scenery, the grain
  * on the page's own colour.
  */
+/**
+ * Which background the welcome wears: "grainient", the flowing ember gradient
+ * (React Bits' Grainient, stirred by the pointer), or "paper", the still marks
+ * on the theme's own page it had before. One word here to go back.
+ */
+const WELCOME_BACKGROUND: 'grainient' | 'paper' = 'grainient'
+/** The ember gradient's colours, darkest first: the first is the page's own edge. */
+const EMBER = ['#120f17', '#2a0f0a', '#9a3412', '#fbbe2a', '#fed7aa']
+
 export function Backdrop({ family }: { family: Family }): React.JSX.Element {
+  if (WELCOME_BACKGROUND === 'grainient') return <GrainBackdrop />
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0">
       {/* No painting: under the words it had to be veiled for reading, which hid it on most themes and showed it on a few.
@@ -1575,6 +1586,33 @@ export function Backdrop({ family }: { family: Family }): React.JSX.Element {
       {/* One quiet family of marks a chapter, over the scenery and under the words (welcome-backdrop.tsx). */}
       <WelcomeBackdrop family={family} />
       <div className="absolute inset-0 bg-[radial-gradient(120%_80%_at_0%_100%,color-mix(in_oklab,var(--background)_70%,transparent),transparent_70%)]" />
+    </div>
+  )
+}
+
+/**
+ * The ember gradient behind the welcome, in the theme's light or dark: on a
+ * light theme its light version (white first, the colours deepest last), so the
+ * words stay dark on light. A veil of the page's own colour toward the words'
+ * side keeps them first to read.
+ */
+/** Whether the theme worn is a light one, followed as it changes (the welcome's own dial changes it). */
+const lightNow = (): boolean => { const root = document.documentElement; return root.classList.contains('light') || root.classList.contains('paper') || root.hasAttribute('data-light') }
+const watchTheme = (changed: () => void): (() => void) => {
+  const watch = new MutationObserver(changed)
+  watch.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-light'] })
+  return () => watch.disconnect()
+}
+const useLightTheme = (): boolean => useSyncExternalStore(watchTheme, lightNow)
+
+function GrainBackdrop(): React.JSX.Element {
+  const light = useLightTheme()
+  return (
+    <div aria-hidden className="absolute inset-0">
+      <Grainient colors={EMBER} lightMode={light} angle={55} flow={0.8} silk={0.35} grainAmount={0.08} />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,color-mix(in_oklab,var(--background)_82%,transparent)_0%,color-mix(in_oklab,var(--background)_55%,transparent)_45%,transparent_80%)]" />
+      {/* On a dark theme the gradient's bright end sits under light words and cards: a film of the page's colour over all of it. */}
+      {!light && <div className="pointer-events-none absolute inset-0 bg-[color-mix(in_oklab,var(--background)_45%,transparent)]" />}
     </div>
   )
 }
