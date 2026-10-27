@@ -34,7 +34,8 @@ let volume = 1
 export const setVolume = (level: number): void => {
   volume = Math.max(0, Math.min(1, level))
   if (bed) bed.out.gain.setTargetAtTime(volume, bed.context.currentTime, 0.1)
-  if (scape) (scape.out.gain.cancelScheduledValues(scape.context.currentTime), scape.out.gain.setTargetAtTime(SCAPE_LEVEL * volume, scape.context.currentTime, 0.1))
+  // Mid-build, the build goes on at the new level, never jumping to full.
+  if (scape) buildRest(scape, SCAPE_LEVEL * volume)
   if (!volume) scapeStop(0.3)
 }
 
@@ -1251,11 +1252,27 @@ export const SCAPES = [
   { id: 'hearth', label: 'Hearth' }
 ] as const
 export type Scape = (typeof SCAPES)[number]['id']
-/** How long it takes to come in once you start writing. */
-export const SCAPE_IN = 6
+/**
+ * How long it takes to come in once you start writing: a long build, as a film's score does, never a switch. The
+ * bed comes first out of near silence, slow to start, and the chord's voices come in under it one by one, low to
+ * high, the last about a minute and a half in.
+ */
+export const SCAPE_IN = 90
 const SCAPE_LEVEL = 0.55
-let scape: { kind: Scape; context: AudioContext; out: GainNode; sources: AudioScheduledSourceNode[]; timer: number } | null = null
-;(window as unknown as { haligtreeScape?: () => unknown }).haligtreeScape = () => scape && { kind: scape.kind, level: scape.out.gain.value, volume }
+let scape: { kind: Scape; context: AudioContext; out: GainNode; sources: AudioScheduledSourceNode[]; timer: number; start: number; slow: boolean } | null = null
+/** How far into its build a soundscape is, 0 to 1. */
+const built = (one: NonNullable<typeof scape>): number => (one.slow ? Math.min(1, (one.context.currentTime - one.start) / SCAPE_IN) : 1)
+/** The build's curve from where it is now to its end, at the level `to`: slow to start, then swelling (its square). */
+const buildRest = (one: NonNullable<typeof scape>, to: number): void => {
+  const now = one.context.currentTime
+  const from = built(one)
+  one.out.gain.cancelScheduledValues(now)
+  if (from >= 1) return void one.out.gain.setTargetAtTime(to, now, 0.1)
+  const steps = 64
+  const curve = new Float32Array(steps).map((_, i) => to * Math.pow(from + (1 - from) * (i / (steps - 1)), 2))
+  one.out.gain.setValueCurveAtTime(curve, now, (1 - from) * SCAPE_IN)
+}
+;(window as unknown as { haligtreeScape?: () => unknown }).haligtreeScape = () => scape && { kind: scape.kind, level: scape.out.gain.value, volume, built: built(scape) }
 
 /** Noise, dark (`smooth` near 1) or bright, `seconds` long, its two ends meeting at a whisper so a loop has no seam. */
 function noise(context: BaseAudioContext, seconds: number, smooth: number, lift: number): AudioBuffer {
@@ -1271,8 +1288,8 @@ function noise(context: BaseAudioContext, seconds: number, smooth: number, lift:
 /** A slow glide to somewhere new between `from` and `to`. */
 const roam = (param: AudioParam, at: number, from: number, to: number, over: number): void => void param.setTargetAtTime(from + Math.random() * (to - from), at, over)
 
-/** The writing soundscape, `kind`, fading in over SCAPE_IN; a new kind takes over from the last. */
-export function scapeStart(kind: Scape): void {
+/** The writing soundscape, `kind`, building over SCAPE_IN (or in a second, `slow` false, for a taste); a new kind takes over from the last. */
+export function scapeStart(kind: Scape, slow = true): void {
   if (kind === 'off') return scapeStop()
   if (scape?.kind === kind) return
   scapeStop(1.5)
@@ -1281,12 +1298,15 @@ export function scapeStart(kind: Scape): void {
   const now = context.currentTime
   const out = context.createGain()
   out.gain.setValueAtTime(0, now)
-  out.gain.linearRampToValueAtTime(SCAPE_LEVEL * volume, now + SCAPE_IN)
+  // Slow to start, then swelling: the level along a curve that lingers low (its square), so the first half minute is
+  // felt more than heard. A taste comes in within a second.
+  if (!slow) out.gain.linearRampToValueAtTime(SCAPE_LEVEL * volume, now + 1)
   out.connect(context.destination)
   out.connect(room(context))
-  const { sources, wander } = scapeGraph(context, kind, out, now)
+  const { sources, wander } = scapeGraph(context, kind, out, now, 'all', slow)
   wander(now)
-  scape = { kind, context, out, sources, timer: window.setInterval(() => wander(context.currentTime), 4000) }
+  scape = { kind, context, out, sources, timer: window.setInterval(() => wander(context.currentTime), 4000), start: now, slow }
+  if (slow) buildRest(scape, SCAPE_LEVEL * volume)
   hear(`scape:${kind}`)
 }
 
@@ -1295,7 +1315,7 @@ export function scapeStart(kind: Scape): void {
  * `wander`, called every 4 s, moves them on and lays down the next drops or
  * crackle). `parts` leaves one out, for the probe that measures them.
  */
-function scapeGraph(context: BaseAudioContext, kind: Exclude<Scape, 'off'>, out: AudioNode, now: number, parts: 'all' | 'chord' | 'bed' = 'all'): { sources: AudioScheduledSourceNode[]; wander: (at: number) => void } {
+function scapeGraph(context: BaseAudioContext, kind: Exclude<Scape, 'off'>, out: AudioNode, now: number, parts: 'all' | 'chord' | 'bed' = 'all', slow = false): { sources: AudioScheduledSourceNode[]; wander: (at: number) => void } {
   const sources: AudioScheduledSourceNode[] = []
   // A part left out goes to a gain connected to nothing.
   const chordOut = parts === 'bed' ? context.createGain() : out
@@ -1307,8 +1327,11 @@ function scapeGraph(context: BaseAudioContext, kind: Exclude<Scape, 'off'>, out:
     const level = full * look.chord
     const gain = context.createGain()
     gain.gain.setValueAtTime(0, now)
-    gain.gain.setValueAtTime(0, now + enter)
-    gain.gain.linearRampToValueAtTime(level, now + enter + 3)
+    // Built slowly, each voice waits its turn under the bed (the lowest about twenty seconds in, the next ones
+    // fourteen apart) and takes twenty seconds to arrive; a taste has them all in a few seconds.
+    const wait = slow ? 20 + enter * 17.5 : enter
+    gain.gain.setValueAtTime(0, now + wait)
+    gain.gain.linearRampToValueAtTime(level, now + wait + (slow ? 20 : 3))
     gain.connect(chordOut)
     const tone = ([-4, 4] as const).map((detune) => {
       const voice = context.createOscillator()
@@ -1331,7 +1354,7 @@ function scapeGraph(context: BaseAudioContext, kind: Exclude<Scape, 'off'>, out:
   filter.Q.value = look.q
   const tide = context.createGain()
   tide.gain.setValueAtTime(0, now)
-  tide.gain.linearRampToValueAtTime(look.bed, now + 2.5)
+  tide.gain.linearRampToValueAtTime(look.bed, now + (slow ? 25 : 2.5))
   bed.connect(filter).connect(tide).connect(bedOut)
   bed.start(now)
   sources.push(bed)
@@ -1452,7 +1475,7 @@ export function scapeSample(kind: Scape): void {
   scapeStop(0.6)
   clearTimeout(sampled)
   if (kind === 'off') return
-  scapeStart(kind)
+  scapeStart(kind, false)
   const playing = scape
   if (!playing) return
   playing.out.gain.cancelScheduledValues(playing.context.currentTime)

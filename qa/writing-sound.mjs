@@ -1,5 +1,5 @@
 // Sound while you write: the soundscape (Shore, Rain, Hearth). Off at first;
-// once chosen, it fades in over about 6 seconds when you write on today's page
+// once chosen, it builds over about a minute and a half when you write on today's page
 // and goes when you leave, stop for a while, or turn sounds off; it follows
 // the volume. Read through the test hooks (haligtreeScape, haligtreeHeard), so
 // it runs muted.
@@ -36,27 +36,29 @@ try {
   check('off: typing plays nothing', (await scape()) === null)
   check('the writer\'s line says "Sound: Off"', (await h.textContent('[data-writer-line] [data-writing-sound]'))?.trim() === 'Sound: Off')
 
-  // The soundscape comes in over about 6 seconds once you write.
+  // The soundscape builds, slowly, as a film's score does: out of near silence, felt before it is heard, then swelling.
   await v('settings:set', { writingSound: 'shore' })
   await wait(400)
   await into()
   await h.keyboard.type(' a', { delay: 60 })
   const levels = []
-  for (const at of [300, 1500, 3000, 4500, 6500]) {
+  for (const at of [500, 3000, 8000, 16000, 26000]) {
     await wait(at - (levels.at(-1)?.at ?? 0))
-    levels.push({ at, level: (await scape())?.level ?? -1 })
+    levels.push({ at, level: (await scape())?.level ?? -1, built: (await scape())?.built ?? -1 })
   }
   const full = 0.55 * 0.8
   check('Shore: its synthesis starts on the first key', (await heard()).includes('scape:shore'))
-  check('it fades in, rising each step', levels.every((one, i) => !i || one.level > levels[i - 1].level - 1e-4), levels.map((one) => `${one.at}ms ${one.level.toFixed(3)}`).join(', '))
-  check('about 6 seconds to full: under half at 1.5s, full by 6.5s', levels[1].level < full / 2 && Math.abs(levels[4].level - full) < 0.01, `${levels[1].level.toFixed(3)} then ${levels[4].level.toFixed(3)} of ${full}`)
+  check('it builds, rising each step', levels.every((one, i) => !i || one.level > levels[i - 1].level - 1e-4), levels.map((one) => `${one.at}ms ${one.level.toFixed(4)}`).join(', '))
+  check('slowly: barely there at 3 s, still well under half at 26 s (full at about a minute and a half)', levels[1].level < full * 0.01 && levels[4].level < full * 0.1 && levels[4].level > levels[2].level * 4, levels.map((one) => one.level.toFixed(4)).join(' '))
   check('the writer\'s line says "Sound: Shore"', (await h.textContent('[data-writer-line] [data-writing-sound]'))?.trim() === 'Sound: Shore')
 
   // It follows the volume.
   await v('settings:set', { volume: 0.4 })
   await wait(1200)
-  const quieter = (await scape())?.level ?? -1
-  check('it follows the volume: 0.8 to 0.4 halves it', Math.abs(quieter - 0.55 * 0.4) < 0.01, quieter.toFixed(3))
+  const now = await scape()
+  const quieter = now?.level ?? -1
+  // Mid-build, at the new volume: where the build has got to, at 0.4, never a jump to full.
+  check('it follows the volume, building on at 0.4', Math.abs(quieter - 0.55 * 0.4 * Math.pow(now?.built ?? 0, 2)) < 0.01 && quieter < 0.55 * 0.4 * 0.5, `${quieter.toFixed(4)} at ${(now?.built ?? 0).toFixed(2)} built`)
 
   // Sounds off stops it, and nothing starts while off.
   await v('settings:set', { sounds: false })

@@ -7,7 +7,7 @@ import { SCAPES, chime, scapeSample, scapeStart, scapeStop, type Scape } from '@
 
 /**
  * Sound while you write on today's page or in the writing room: the chosen
- * soundscape comes in over about six seconds once you start, and goes when
+ * soundscape builds over about a minute and a half once you start, and goes when
  * you leave, close the window, or stop for two minutes.
  */
 export function useWritingSound(editor: Editor | null, on: boolean): void {
