@@ -97,7 +97,9 @@ export function NotePreview(): React.JSX.Element | null {
       if ((event.target as Element | null)?.closest?.('[data-note-preview]')) return void clearTimeout(leaving)
       // An @ link in a note, or a row's title that offers the same card (the Bin's: data-note-hover).
       const link = (event.target as Element | null)?.closest?.('a.tiptap-note-link[data-note], [data-note-hover][data-note]') ?? null
-      if (link === over) return void clearTimeout(leaving)
+      // Still on the same link: the card stays. Still off every link: its leaving keeps running (a move here once put
+      // it off, so a card left open while the pointer kept moving elsewhere).
+      if (link === over) return void (link && clearTimeout(leaving))
       // A link brought under a resting pointer (a scroll, a note opening) is
       // not being pointed at: only a real move shows its card. Off a link, it goes either way.
       if (link && !realMove(event)) return
