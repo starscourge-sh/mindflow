@@ -1752,7 +1752,7 @@ export function Home(): React.JSX.Element {
               })()}
               {/* Pinned, Notion's Favourites: only there while something is, or while a note is carried to it. */}
               {pins.length === 0 && layouts.length === 0 && !narrow && (
-                <div data-side-drop="pinned" className="hidden rounded-md data-[queue-hot]:bg-[color-mix(in_oklab,var(--primary)_12%,transparent)] data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--primary)_40%,transparent)] [html[data-split-drag]_&]:block">
+                <div data-side-drop="pinned" className="hidden rounded-md data-[queue-hot]:bg-[color-mix(in_oklab,var(--primary)_12%,transparent)] data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--primary)_40%,transparent)] [html[data-split-pin]_&]:block">
                   <div className="mt-3 mb-0.5 px-2 py-0.5 text-meta text-muted-foreground">Pinned</div>
                   <p className="px-2 pb-1.5 text-control text-muted-foreground">Drop here to pin</p>
                 </div>

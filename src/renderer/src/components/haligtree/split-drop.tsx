@@ -48,7 +48,7 @@ const OUTSIDE = 24
 const START = 8
 
 /** What can be carried from where the pointer went down, or null for anything else. */
-function sourceOf(target: EventTarget | null): { node: HTMLElement; carried: Carried; column: boolean } | null {
+function sourceOf(target: EventTarget | null): { node: HTMLElement; carried: Carried; column: boolean; edgeOnly?: boolean } | null {
   if (!(target instanceof Element)) return null
   if (target.closest('input, textarea, select, [data-no-split], [role="menu"], [role="separator"]')) return null
   const chip = target.closest<HTMLElement>('a.tiptap-note-link[data-note]')
@@ -66,7 +66,20 @@ function sourceOf(target: EventTarget | null): { node: HTMLElement; carried: Car
   const pane = row?.closest('[data-pane]')?.getAttribute('data-pane')
   if (!row || !pane || row.closest('[data-group-row]')) return null
   // A row that drags into your own order waits until it leaves its column.
-  return { node: row, carried: { row: { pane, id: row.dataset.id! }, title: titleOf(row), kind: row.dataset.dragKind }, column: !!row.closest('[data-sortable-id]') }
+  // Any other list row (a task in Today, Upcoming, Later) waits too, until the
+  // pointer is at the page's very edge: a row nudged up or down in its list,
+  // or carried over the task open beside it, never brings the places up, nor
+  // lets go into one by surprise.
+  const sorts = !!row.closest('[data-sortable-id]')
+  return { node: row, carried: { row: { pane, id: row.dataset.id! }, title: titleOf(row), kind: row.dataset.dragKind }, column: true, edgeOnly: !sorts }
+}
+
+/** Whether a sidebar place takes what is carried: Pinned takes a note (never a task or a list's row), the Queue anything but a task. */
+const takes = (place: HTMLElement, carried: Carried, node: HTMLElement | undefined): boolean => {
+  const task = carried.open?.startsWith('task:') || !!node?.closest('[data-task-row]')
+  if (place.dataset.sideDrop) return !!carried.open && !task
+  if (place.dataset.queueDrop !== undefined) return !task
+  return true
 }
 
 /** A sidebar folder of one list, and a row of the other carried over it. */
@@ -87,10 +100,11 @@ type Zone = { side: Side; left: number; top: number; width: number; height: numb
  * a thin strip that grows. Beside a list's own drag, only as wide as the room
  * either side of its column allows, so it never covers what it could drop in.
  */
-const zonesIn = (area: DOMRect, column?: DOMRect): Zone[] => {
+const zonesIn = (area: DOMRect, column?: DOMRect, edge = false): Zone[] => {
   const INSET = 24
   const full = Math.max(180, Math.min(320, area.width * 0.24))
-  const width = column ? Math.max(NARROW, Math.min(full, column.left - area.left - INSET - OUTSIDE - 8, area.right - column.right - INSET - OUTSIDE - 8)) : full
+  // Brought up only at the page's edge (a task row): a strip there, never over the list or the task open beside it.
+  const width = edge ? NARROW : column ? Math.max(NARROW, Math.min(full, column.left - area.left - INSET - OUTSIDE - 8, area.right - column.right - INSET - OUTSIDE - 8)) : full
   const height = Math.max(220, Math.min(640, area.height * 0.72))
   const top = area.top + (area.height - height) / 2
   return [
@@ -157,6 +171,7 @@ export function SplitDrop({ onDrop }: { onDrop: (carried: Carried, side: Side) =
       if (queued) (delete queued.dataset.queueHot, delete queued.dataset.folderNo)
       queued = null
       delete document.documentElement.dataset.splitDrag
+      delete document.documentElement.dataset.splitPin
       setCarried(null)
       setHot(null)
     }
@@ -168,6 +183,7 @@ export function SplitDrop({ onDrop }: { onDrop: (carried: Carried, side: Side) =
       if (queued) (delete queued.dataset.queueHot, delete queued.dataset.folderNo)
       queued = null
       delete document.documentElement.dataset.splitDrag
+      delete document.documentElement.dataset.splitPin
       setCarried(null)
       setHot(null)
     }
@@ -197,7 +213,9 @@ export function SplitDrop({ onDrop }: { onDrop: (carried: Carried, side: Side) =
         cardX.set(toX)
         cardY.set(toY)
       }
-      const queue = target ? null : queueAt(px, py)
+      const found = target ? null : queueAt(px, py)
+      // A place that would not take it stays unlit: lit, it promises what letting go there would not do.
+      const queue = found && down && !takes(found, down.source.carried, down.source.node) ? null : found
       if (queue !== queued) {
         if (queued) (delete queued.dataset.queueHot, delete queued.dataset.folderNo)
         // A folder of the other list takes no note: it stays unlit, and says why on letting go.
@@ -217,11 +235,15 @@ export function SplitDrop({ onDrop }: { onDrop: (carried: Carried, side: Side) =
       if (!box || !down) return
       active = true
       quiet = still()
-      shown = zonesIn(box, down.source.column ? down.column : undefined)
+      shown = zonesIn(box, down.source.column ? down.column : undefined, !!down.source.edgeOnly)
+      // Up only at an edge, only that edge's place: the other side's would sit over the list for nothing.
+      if (down.source.edgeOnly) shown = shown.filter((zone) => zone.side === (px < box.left + box.width / 2 ? 'left' : 'right'))
       document.documentElement.dataset.splitDrag = ''
+      // Pinned's "Drop here to pin" comes up only for what it takes (home.tsx).
+      if (down.source.carried.open && !down.source.carried.open.startsWith('task:')) document.documentElement.dataset.splitPin = ''
       document.getSelection()?.removeAllRanges()
-      // A list row already sounded its lift; anything else lifts now.
-      if (!down.source.column) chime('lift')
+      // A list row in your own order already sounded its lift; anything else lifts now.
+      if (!down.source.column || down.source.edgeOnly) chime('lift')
       // The card starts where the pointer is, not flying in from the corner.
       card.x.jump(px)
       card.y.jump(py)
@@ -251,7 +273,7 @@ export function SplitDrop({ onDrop }: { onDrop: (carried: Carried, side: Side) =
         const elsewhere = !!side && !side.contains(down.source.node)
         const atEdge = !!box && ((px >= box.left && px < box.left + EDGE) || (px <= box.right && px > box.right - EDGE))
         // Out past the list's own column to either side (Pages' rows sit in a narrow column): the list is left, the places come up.
-        const out = px < down.column.left - OUTSIDE || px > down.column.right + OUTSIDE
+        const out = !down.source.edgeOnly && (px < down.column.left - OUTSIDE || px > down.column.right + OUTSIDE)
         const edge = elsewhere || atEdge || out
         // Back in over its column, away from the edge: they go, and the list's drag carries on.
         const back = !elsewhere && !out && (!box || (px > box.left + 10 + NARROW + 12 && px < box.right - 10 - NARROW - 12) || px < box.left || px > box.right)
@@ -261,7 +283,15 @@ export function SplitDrop({ onDrop }: { onDrop: (carried: Carried, side: Side) =
       if (active) return follow(event.clientX, event.clientY)
       begin(event.clientX, event.clientY)
     }
+    // The click a release makes lands on nothing.
+    const swallowClick = (): void => {
+      const swallow = (late: MouseEvent): void => (late.stopPropagation(), late.preventDefault())
+      window.addEventListener('click', swallow, { capture: true, once: true })
+      setTimeout(() => window.removeEventListener('click', swallow, { capture: true }), 80)
+    }
     const onUp = (event: PointerEvent): void => {
+      // A task row carried and let go short of the edge was a drag, not a click: it does not open.
+      if (!active && down?.source.edgeOnly && Math.hypot(event.clientX - down.x, event.clientY - down.y) >= START) swallowClick()
       if (!active || !down) return void (down = null)
       const side = over
       const what = down.source.carried
@@ -287,10 +317,7 @@ export function SplitDrop({ onDrop }: { onDrop: (carried: Carried, side: Side) =
       } else if (side) {
         dropListDrag()
         event.preventDefault()
-        // The click this release would make lands on nothing.
-        const swallow = (late: MouseEvent): void => (late.stopPropagation(), late.preventDefault())
-        window.addEventListener('click', swallow, { capture: true, once: true })
-        setTimeout(() => window.removeEventListener('click', swallow, { capture: true }), 80)
+        swallowClick()
         dropRef.current(what, side)
       }
       reset()
@@ -321,6 +348,7 @@ export function SplitDrop({ onDrop }: { onDrop: (carried: Carried, side: Side) =
       window.removeEventListener('dragstart', onDragStart, true)
       window.removeEventListener('blur', reset)
       delete document.documentElement.dataset.splitDrag
+      delete document.documentElement.dataset.splitPin
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
