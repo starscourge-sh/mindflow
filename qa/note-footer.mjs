@@ -29,6 +29,14 @@ try {
   const props = await h.evaluate(() => { const strip = document.querySelector('[data-property-strip]:not([data-in-panel])'); const first = [...document.querySelectorAll('.tiptap > p')].find((one) => one.textContent.trim()); const add = strip?.querySelector('[data-add-property]') ?? strip; return add && first ? Math.round(first.getBoundingClientRect().top - add.getBoundingClientRect().bottom) : null })
   check('Writing: Properties have room under them (32px or more to the words)', props >= 32, String(props))
     if (process.env.SHOTS) await h.screenshot({ path: `${process.env.SHOTS}/note-footer.png` })
+  // A note opened inside a folder keeps the folder: its path bar and only its notes, as a Finder window stays in its folder.
+  await h.locator('aside').getByText('Films and books', { exact: true }).first().click(); await wait(1200)
+  const before = await h.evaluate(() => ({ path: !!document.querySelector('[data-path-bar]'), rows: [...document.querySelectorAll('.list-edge *')].filter((one) => !one.children.length && /^(What The Matrix|On Gandalf|Hermione|Reading this winter|Mnemosyne|The Rosetta)/.test(one.textContent)).map((one) => one.textContent).sort().join('|') }))
+  await h.locator('[data-list-edge], .list-edge').getByText('On Gandalf and the time given us', { exact: true }).first().click(); await wait(1500)
+  const after = await h.evaluate(() => ({ path: !!document.querySelector('[data-path-bar]'), rows: [...document.querySelectorAll('.list-edge *')].filter((one) => !one.children.length && /^(What The Matrix|On Gandalf|Hermione|Reading this winter|Mnemosyne|The Rosetta)/.test(one.textContent)).map((one) => one.textContent).sort().join('|'), title: document.querySelector('textarea, [data-note-head] h1')?.value ?? '' }))
+  if (process.env.SHOTS) await h.screenshot({ path: `${process.env.SHOTS}/folder-open.png` })
+  check('a note opened in a folder: the folder\'s path bar stays', before.path && after.path, JSON.stringify({ before, after }))
+  check('and the list still holds only the folder\'s notes', before.rows === after.rows, JSON.stringify({ before, after }))
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])
 } finally {
