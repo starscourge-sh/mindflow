@@ -108,7 +108,9 @@ export function NotePreview(): React.JSX.Element | null {
       clearTimeout(leaving)
       // Off the link: a moment to reach the card before it goes.
       if (!link) return void (leaving = setTimeout(() => (setShown(null), (warmTill = Math.min(warmTill, Date.now() + 600))), 260))
-      setShown(null)
+      // The card of the link before stays until this one's words are read, then
+      // gives way to it in one step: put away at once, each pill along a line of
+      // them blinked out for a frame and back, over and over.
       // A pause first: a pointer passing over a link is not asking.
       timer = setTimeout(() => {
         const raw = link.getAttribute('data-note') ?? ''
@@ -154,7 +156,9 @@ export function NotePreview(): React.JSX.Element | null {
           ? window.api.captures.get(id).then((found) => found && { title: found.label || found.title || '', body: found.body, private: !!found.private })
           : haligtree.item(id).then((found) => found && { title: found.title, body: found.body, private: !!found.private, gem: found.tier === 'nugget' ? gemmed(found) : undefined })
         void load.then((found) => {
-          if (!found || over !== link) return
+          if (over !== link) return
+          // Nothing to show for it: the last link's card must not stay on as if it were this one's.
+          if (!found) return void setShown(null)
           const box = link.getBoundingClientRect()
           const line = block ? blockIn(found.body, block) : null
           const read = (line ? wordsOf(line) : glance(found.body)).trim()

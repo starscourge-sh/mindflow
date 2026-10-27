@@ -55,6 +55,23 @@ const shiftOf = (box: HTMLElement): number => {
 }
 
 /**
+ * Every element on the way up from a day's words to the page's body marked
+ * `data-day-path`, for main.css to fade everything beside that way. Asked of
+ * the page as `body :has([data-day-write])`, it made the browser look again
+ * at every element in the window each time anything was added anywhere
+ * (about 20 ms a time on a full page, several times over as a note or a tag
+ * opened), whether a day page was open or not.
+ */
+function markDayPaths(): void {
+  for (const one of document.querySelectorAll('[data-day-path]')) one.removeAttribute('data-day-path')
+  const open = document.querySelectorAll('[data-day-write]')
+  for (const words of open)
+    for (let up = words.parentElement; up && up !== document.body; up = up.parentElement) up.setAttribute('data-day-path', '')
+  // And a day page open at all, said on the root: asked of the page as :root:has([data-day-write]), it cost the same look at every element.
+  document.documentElement.toggleAttribute('data-day-open', open.length > 0)
+}
+
+/**
  * Typing in the day's words: the count goes at the first key,
  * and a few words in the rest of the page fades to nothing, the sidebar with
  * it, and the words slide calmly to the window's middle (main.css). A
@@ -70,6 +87,7 @@ export function useWritingQuiet(editor: Editor | null, day: string): number {
     const dom = editor?.view.dom
     if (!dom || editor.isDestroyed) return
     const root = document.documentElement
+    markDayPaths()
     let typed = 0
     let words = 0
     let last = 0
@@ -85,6 +103,8 @@ export function useWritingQuiet(editor: Editor | null, day: string): number {
     }
     const writing = (): void => {
       if (root.hasAttribute('data-day-writing')) return
+      // Marked again: the page around the words may have been drawn anew since it opened.
+      markDayPaths()
       const box = dom.closest<HTMLElement>('[data-caret-room]')
       root.style.setProperty('--mf-day-shift', `${box ? Math.round(shiftOf(box)) : 0}px`)
       root.setAttribute('data-day-writing', '')
@@ -127,6 +147,8 @@ export function useWritingQuiet(editor: Editor | null, day: string): number {
       off()
       clearTimeout(backLater)
       back()
+      // Run once the page is gone: only the day pages still open keep their way marked.
+      markDayPaths()
       dom.removeEventListener('keydown', onKey, true)
       window.removeEventListener('keydown', onEsc, true)
       window.removeEventListener('pointermove', onMove, true)

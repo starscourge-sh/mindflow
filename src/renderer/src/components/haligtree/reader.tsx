@@ -1,4 +1,5 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { readNow } from '@/lib/early-read'
 import { useLive, haligtree, type ItemFull, type TaskFull } from '@/lib/haligtree'
 import { TaskDetail } from './tasks-view'
 import { ItemDetail } from './items-view'
@@ -13,8 +14,14 @@ export function Reader({ type, id, onOpen, onClose }: {
   onOpen: (type: string, id: string) => void
   onClose: () => void
 }): React.JSX.Element | null {
-  const task = useLive(() => (type === 'task' ? haligtree.task(id) : Promise.resolve(null)), null as TaskFull | null, [type, id])
-  const item = useLive(() => (type === 'task' ? Promise.resolve(null) : haligtree.item(id)), null as ItemFull | null, [type, id])
+  // Read already (the pointer rested on its row, or it was open lately): drawn on those words at once,
+  // not empty first and again once a read comes back. A copy, as the read below marks what it starts on.
+  const [early] = useState(() => {
+    const got = readNow<TaskFull | ItemFull>(type, id)
+    return got ? { ...got } : null
+  })
+  const task = useLive(() => (type === 'task' ? haligtree.task(id) : Promise.resolve(null)), (type === 'task' ? early : null) as TaskFull | null, [type, id])
+  const item = useLive(() => (type === 'task' ? Promise.resolve(null) : haligtree.item(id)), (type === 'task' ? null : early) as ItemFull | null, [type, id])
   // Moved to the Bin (from the panel beside it, the main window, anywhere): it closes, back to your note,
   // rather than staying open as if it were still there.
   const binned = type === 'task' ? task?.id === id && task.status === 'dropped' : item?.id === id && !!(item as { binnedAt?: string | null }).binnedAt

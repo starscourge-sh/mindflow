@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { EASE, byKeys, shift } from '@/lib/motion'
@@ -20,6 +20,7 @@ import { Rest } from './scenery'
 import { GlossButton, GlossLine } from './gloss-line'
 import { num, startOfDay } from '../../../../main/dates'
 import { useHere } from '@/lib/split'
+import { readAhead } from '@/lib/early-read'
 import { PICKED_ROW, useTaskPick } from './task-pick'
 import { Check } from '@/components/ui/icons'
 import { ChevronDown } from 'lucide-react'
@@ -123,6 +124,13 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
   })
 
 
+  // What a row does, read when it is used: each row is drawn again only when
+  // its own task or marks change, so opening one redraws two rows, not all of
+  // them (a long No date list took a fifth of a second to draw over on a click).
+  const act = useRef<RowActs>(null as unknown as RowActs)
+  act.current = { onOpen, tick, move, frog, now, several, gloss: setGlossing, endGloss: () => setGlossing(null) }
+  const room = markRoom(due)
+
   // How many open tasks a list holds, counted from yours only, as the Display narrows them: an example never adds to a number.
   const count = (id: Scope): number => narrowed.filter((task) => real.includes(task) && task.status === 'open' && SCOPES[id].test(task)).length
 
@@ -203,62 +211,11 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
       )}
       <Example on={example && due.length > 0} compact tryIt="type a task in the line above with the day in the words, like ‘call Mum Friday 6pm’.">
       <AnimatePresence initial={false}>
-        {due.map((task, index) => {
-          const late = (placed(task) ?? Infinity) < startOfToday()
-          const later = bucket(task)
-          return (
-            <motion.div
-              key={task.id}
-              layout="position"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              // Done by a key, it simply goes; by a click it slides off the way a tick sends it.
-              variants={{ gone: () => (byKeys() ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, transform: shift('translateX(16px)'), transition: { duration: 0.16, ease: EASE } }) }}
-              exit="gone"
-              className={`group group/item relative flex flex-wrap items-start gap-2 rounded-sm px-2 py-1.5 pr-8 hover:bg-accent/50 ${several.chosen.includes(task.id) ? PICKED_ROW : task.id === open ? "bg-accent" : index === cursor ? "bg-accent/50" : ""}`}
-            >
-              <Tip label="Complete">
-              <button
-                type="button"
-                data-task-tick
-                onClick={() => tick(task)}
-                // The tick shows only over the circle itself: the row opens the
-                // task, and a tick there read as if a click would complete it.
-                className="group/tick relative after:absolute after:-inset-1 after:rounded-full mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors"
-                style={{
-                  // Red only for late, amber for today's, plain for later days: an
-                  // amber ring on a task weeks off read as if it were already pressing.
-                  borderColor: late ? 'var(--tt-color-text-red)' : scope === 'today' ? 'var(--tt-color-text-orange)' : 'var(--muted-foreground)',
-                  background: ticking(task.id) ? 'var(--tt-color-text-green)' : undefined
-                }}
-              >
-                <Check className={`size-2.5 transition-opacity ${ticking(task.id) ? 'opacity-100' : 'opacity-0 group-hover/tick:opacity-60'}`} />
-              </button>
-              </Tip>
-              {/* The mark in a column of its own, so the title and the line under it start in one place. */}
-              {markRoom(due) && <span className="mt-[3px] flex shrink-0"><TaskPriority task={task} room /></span>}
-              {/* The row opens the task where its notes and sessions are. */}
-              <RowMenu items={several.menu(task) ?? [
-                ...taskMenu(task, { open: () => onOpen(task.id), complete: () => tick(task), move, frog, now, thought: () => setGlossing(task.id) }),
-                ...several.rowItems(task.id)
-              ]}>
-              <button type="button" data-row data-id={task.id} data-open={task.id === open || undefined} data-cursor={index === cursor || undefined} data-picked={several.chosen.includes(task.id) || undefined} className={`min-w-0 flex-1 text-left ${task.id === open ? 'font-medium' : ''}`} onClick={(event) => several.click(event, task.id) || onOpen(task.id)}>
-                <p className="flex items-center gap-1.5">
-                  <span data-task-title className={`truncate ${ticking(task.id) ? 'mf-strike' : ''}`}>{taskName(task.title).text}</span>
-                  <Tags tags={taskName(task.title).tags} />
-                </p>
-                <p data-task-meta className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <TaskWhen task={task} />
-                  {later && !task.dueAt && <span>{BUCKETS[later]}</span>}
-                </p>
-              </button>
-              </RowMenu>
-              {/* A thought without opening it: on hover, top right, or ; on the row. */}
-              <GlossButton onClick={() => setGlossing(task.id)} />
-              {glossing === task.id && <GlossLine id={task.id} open onDone={() => setGlossing(null)} placeholder="A thought on it, kept with its logs" className="basis-full pl-6" />}
-            </motion.div>
-          )
-        })}
+        {due.map((task, index) => (
+          <TaskRow key={task.id} task={task} act={act} scope={scope} room={room}
+            open={task.id === open} cursor={index === cursor} picked={several.chosen.includes(task.id)} picking={several.chosen.length}
+            ticking={ticking(task.id)} glossing={glossing === task.id} frog={frog} focus={now.focus} />
+        ))}
       </AnimatePresence>
       </Example>
       {!due.length && !unloaded(tasks) && (
@@ -267,3 +224,92 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
     </div>
   )
 }
+
+type RowActs = {
+  onOpen: (id: string) => void
+  tick: (task: Task) => void
+  move: typeof moveTo
+  frog: ReturnType<typeof frogOn>
+  now: ReturnType<typeof useTaskNow>
+  several: ReturnType<typeof useTaskPick>
+  gloss: (id: string) => void
+  endGloss: () => void
+}
+
+/**
+ * One task's row. Drawn again only when what it shows changes: its task, its
+ * marks (open, cursor, picked, ticking), how many are picked (its menu), the
+ * frog or a focus session (its menu too).
+ */
+const TaskRow = memo(function TaskRow({ task, act, scope, room, open, cursor, picked, picking, ticking, glossing }: {
+  task: Task
+  act: React.RefObject<RowActs>
+  scope: Scope
+  room: boolean
+  open: boolean
+  cursor: boolean
+  picked: boolean
+  picking: number
+  ticking: boolean
+  glossing: boolean
+  frog: unknown
+  focus: unknown
+}): React.JSX.Element {
+  void picking
+  const late = (placed(task) ?? Infinity) < startOfToday()
+  const later = bucket(task)
+  const { several, move, frog, now, gloss } = act.current
+  return (
+    <motion.div
+      layout="position"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      // Done by a key, it simply goes; by a click it slides off the way a tick sends it.
+      variants={{ gone: () => (byKeys() ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, transform: shift('translateX(16px)'), transition: { duration: 0.16, ease: EASE } }) }}
+      exit="gone"
+      className={`group group/item relative flex flex-wrap items-start gap-2 rounded-sm px-2 py-1.5 pr-8 hover:bg-accent/50 ${picked ? PICKED_ROW : open ? "bg-accent" : cursor ? "bg-accent/50" : ""}`}
+    >
+      <Tip label="Complete">
+      <button
+        type="button"
+        data-task-tick
+        onClick={() => act.current.tick(task)}
+        // The tick shows only over the circle itself: the row opens the
+        // task, and a tick there read as if a click would complete it.
+        className="group/tick relative after:absolute after:-inset-1 after:rounded-full mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors"
+        style={{
+          // Red only for late, amber for today's, plain for later days: an
+          // amber ring on a task weeks off read as if it were already pressing.
+          borderColor: late ? 'var(--tt-color-text-red)' : scope === 'today' ? 'var(--tt-color-text-orange)' : 'var(--muted-foreground)',
+          background: ticking ? 'var(--tt-color-text-green)' : undefined
+        }}
+      >
+        <Check className={`size-2.5 transition-opacity ${ticking ? 'opacity-100' : 'opacity-0 group-hover/tick:opacity-60'}`} />
+      </button>
+      </Tip>
+      {/* The mark in a column of its own, so the title and the line under it start in one place. */}
+      {room && <span className="mt-[3px] flex shrink-0"><TaskPriority task={task} room /></span>}
+      {/* The row opens the task where its notes and sessions are. */}
+      <RowMenu items={several.menu(task) ?? [
+        ...taskMenu(task, { open: () => act.current.onOpen(task.id), complete: () => act.current.tick(task), move, frog, now, thought: () => act.current.gloss(task.id) }),
+        ...several.rowItems(task.id)
+      ]}>
+      <button type="button" data-row data-id={task.id} data-open={open || undefined} data-cursor={cursor || undefined} data-picked={picked || undefined} className={`min-w-0 flex-1 text-left ${open ? 'font-medium' : ''}`}
+        // Read while the pointer rests on it: the click then opens it on its words in the same frame.
+        onPointerEnter={() => readAhead('task', [task.id])} onClick={(event) => act.current.several.click(event, task.id) || act.current.onOpen(task.id)}>
+        <p className="flex items-center gap-1.5">
+          <span data-task-title className={`truncate ${ticking ? 'mf-strike' : ''}`}>{taskName(task.title).text}</span>
+          <Tags tags={taskName(task.title).tags} />
+        </p>
+        <p data-task-meta className="flex items-center gap-2 text-xs text-muted-foreground">
+          <TaskWhen task={task} />
+          {later && !task.dueAt && <span>{BUCKETS[later]}</span>}
+        </p>
+      </button>
+      </RowMenu>
+      {/* A thought without opening it: on hover, top right, or ; on the row. */}
+      <GlossButton onClick={() => gloss(task.id)} />
+      {glossing && <GlossLine id={task.id} open onDone={act.current.endGloss} placeholder="A thought on it, kept with its logs" className="basis-full pl-6" />}
+    </motion.div>
+  )
+})
