@@ -406,7 +406,7 @@ export const menuIconChoices = (): { id: string; label: string; show: ReactNode 
       <span data-menu-icons-sample={one.id} className="absolute inset-0 flex flex-col items-start justify-center gap-1.5 px-3 text-[12px] leading-none text-foreground">
         {MENU_SAMPLE.map(([Icon, label, emoji]) => (
           <span key={label} className="flex items-center gap-2">
-            {one.id === 'emoji' ? <span className="mf-menu-emoji flex size-3.5 items-center justify-center text-[0.8125rem]">{emoji}</span> : <Icon className="size-3.5 text-muted-foreground" />}
+            {one.id === 'emoji' ? <span className="mf-emoji-icon flex size-3.5 items-center justify-center text-[0.8125rem]">{emoji}</span> : <Icon className="size-3.5 text-muted-foreground" />}
             {label}
           </span>
         ))}

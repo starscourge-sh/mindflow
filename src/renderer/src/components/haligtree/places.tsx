@@ -4,6 +4,7 @@ import { AliveIcon } from '@/components/ui/alive-icon'
 import { Switch } from '@/components/ui/switch'
 import { chime } from '@/lib/sound'
 import { useLive, haligtree, type Settings } from '@/lib/haligtree'
+import { useEmojiIcons } from '@/lib/icon-style'
 import { Pressed, Tip, toast, quietly } from './ui'
 import { RowMenu, type RowItem } from './row-menu'
 import { BlockList, SortableList, SortableRow } from './sortable'
@@ -30,6 +31,8 @@ export type Group = 'Write'
 /** A place the main window's sidebar or the box's tabs can show. */
 export type Place = {
   id: string; label: string; icon: LucideIcon; tint: string; key?: string; group?: Group
+  /** Its emoji, for "Icons: Emoji" (lib/icon-style.ts). */
+  emoji?: string
   /** The same drawing, moving when its row is pointed at, where itshover has one. */
   alive?: ComponentType<AnimatedIconProps & RefAttributes<AnimatedIconHandle>>
 }
@@ -46,42 +49,42 @@ export type Place = {
  */
 export const SECTIONS: (Place & { key: string })[] = [
   // Where everything you catch lands first: on top.
-  { id: 'inbox', label: 'Inbox', icon: Inbox, key: 'i', tint: 'blue', group: 'Write' },
+  { id: 'inbox', emoji: '📥', label: 'Inbox', icon: Inbox, key: 'i', tint: 'blue', group: 'Write' },
   // Where things come back to you: shelves of what you opened and kept, and the card for the moment.
-  { id: 'home', label: 'Home', icon: House, alive: HomeIcon, key: 'y', tint: 'orange', group: 'Write' },
+  { id: 'home', emoji: '🏠', label: 'Home', icon: House, alive: HomeIcon, key: 'y', tint: 'orange', group: 'Write' },
   // Journal, the Day page: the day's writing on top, today's tasks under it. The window opens here.
   // Its Week, Month and Year keep this row lit (litRow), unless that page is a row of its own.
-  { id: 'day', label: 'Journal', icon: Sun, key: 'p', tint: 'orange', group: 'Write' },
-  { id: 'articles', label: 'Writing', icon: FileText, alive: FileDescriptionIcon, key: 'a', tint: 'brown', group: 'Write' },
-  { id: 'nuggets', label: 'Gems', icon: Gem, key: 'n', tint: 'pink', group: 'Write' },
-  { id: 'review', label: 'Review', icon: Brain, key: 'r', tint: 'purple', group: 'Write' },
+  { id: 'day', emoji: '☀️', label: 'Journal', icon: Sun, key: 'p', tint: 'orange', group: 'Write' },
+  { id: 'articles', emoji: '📝', label: 'Writing', icon: FileText, alive: FileDescriptionIcon, key: 'a', tint: 'brown', group: 'Write' },
+  { id: 'nuggets', emoji: '💎', label: 'Gems', icon: Gem, key: 'n', tint: 'pink', group: 'Write' },
+  { id: 'review', emoji: '🧠', label: 'Review', icon: Brain, key: 'r', tint: 'purple', group: 'Write' },
   // One row for every task list: Today, Upcoming, Later and Routines are its tabs (tasks-view.tsx).
-  { id: 'today', label: 'Tasks', icon: ListChecks, key: 't', tint: 'green', group: 'Write' },
+  { id: 'today', emoji: '✅', label: 'Tasks', icon: ListChecks, key: 't', tint: 'green', group: 'Write' },
   // Day, week and month by the hour, the way a calendar app has them (calendar-view.tsx).
-  { id: 'calendar', label: 'Calendar', icon: Calendar, key: 'c', tint: 'red', group: 'Write' },
+  { id: 'calendar', emoji: '📅', label: 'Calendar', icon: Calendar, key: 'c', tint: 'red', group: 'Write' },
   // The rest: off to start, a G and its letter or ⌘K away, each switched on in "Customize sidebar…".
-  { id: 'weekpage', label: "Week's page", icon: CalendarFold, key: 'k', tint: 'yellow' },
-  { id: 'monthpage', label: "Month's page", icon: Sprout, key: 'm', tint: 'yellow' },
+  { id: 'weekpage', emoji: '🗓️', label: "Week's page", icon: CalendarFold, key: 'k', tint: 'yellow' },
+  { id: 'monthpage', emoji: '🌱', label: "Month's page", icon: Sprout, key: 'm', tint: 'yellow' },
   // The day's twenty or so of your own things, as a timeline that ends (feed-view.tsx).
   // W, not G: G G is a list's first row, as in Vim.
-  { id: 'feed', label: 'Feed', icon: Newspaper, key: 'w', tint: 'pink' },
+  { id: 'feed', emoji: '📰', label: 'Feed', icon: Newspaper, key: 'w', tint: 'pink' },
   // Words and questions asked and waiting on an answer: a Word with no meaning written yet.
-  { id: 'lookups', label: 'Lookups', icon: BookOpen, key: '.', tint: 'green' },
+  { id: 'lookups', emoji: '📖', label: 'Lookups', icon: BookOpen, key: '.', tint: 'green' },
   // Goals: a day you are working toward, and the road there.
-  { id: 'goals', label: 'Goals', icon: Flag, key: 'e', tint: 'orange' },
+  { id: 'goals', emoji: '🚩', label: 'Goals', icon: Flag, key: 'e', tint: 'orange' },
   // What you mean to read next, in order, Spotify's way.
-  { id: 'queue', label: 'Queue', icon: ListVideo, key: 'b', tint: 'blue' },
-  { id: 'tags', label: 'Tags', icon: Tag, alive: HashtagIcon, key: '#', tint: 'red' },
+  { id: 'queue', emoji: '🎞️', label: 'Queue', icon: ListVideo, key: 'b', tint: 'blue' },
+  { id: 'tags', emoji: '#️⃣', label: 'Tags', icon: Tag, alive: HashtagIcon, key: '#', tint: 'red' },
   // Every person and source your notes are from, a page each (source-page.tsx).
-  { id: 'sources', label: 'Sources', icon: BookUser, key: 'j', tint: 'blue' },
-  { id: 'stats', label: 'Stats', icon: BarChart3, alive: ChartBarIcon, key: 's', tint: 'blue' },
+  { id: 'sources', emoji: '👤', label: 'Sources', icon: BookUser, key: 'j', tint: 'blue' },
+  { id: 'stats', emoji: '📊', label: 'Stats', icon: BarChart3, alive: ChartBarIcon, key: 's', tint: 'blue' },
   // Every note you have linked, as a map of dots and lines.
-  { id: 'map', label: 'Map', icon: Links, alive: LinkIcon, key: 'x', tint: 'purple' },
-  { id: 'discarded', label: 'Bin', icon: Trash2, alive: TrashIcon, key: 'd', tint: 'gray' },
+  { id: 'map', emoji: '🗺️', label: 'Map', icon: Links, alive: LinkIcon, key: 'x', tint: 'purple' },
+  { id: 'discarded', emoji: '🗑️', label: 'Bin', icon: Trash2, alive: TrashIcon, key: 'd', tint: 'gray' },
   // Out of sight, not let go: apart from the exits.
-  { id: 'archived', label: 'Archived', icon: Archive, key: 'v', tint: 'gray' },
+  { id: 'archived', emoji: '🗄️', label: 'Archived', icon: Archive, key: 'v', tint: 'gray' },
   // Every power Haligtree keeps out of sight, a card each (powers-view.tsx).
-  { id: 'powers', label: `What ${APP_NAME} can do`, icon: Compass, key: 'f', tint: 'green' }
+  { id: 'powers', emoji: '🧭', label: `What ${APP_NAME} can do`, icon: Compass, key: 'f', tint: 'green' }
 ]
 
 /**
@@ -93,8 +96,8 @@ export const SECTIONS: (Place & { key: string })[] = [
  * notes are gone from the sidebar. They sit where the sidebar draws them, so they do not drag.
  */
 export const SIDE_GROUPS: Place[] = [
-  { id: 'pinned', label: 'Pinned', icon: Pin, tint: 'yellow' },
-  { id: 'recent', label: 'Recent', icon: History, alive: HistoryCircleIcon, tint: 'gray' }
+  { id: 'pinned', emoji: '📌', label: 'Pinned', icon: Pin, tint: 'yellow' },
+  { id: 'recent', emoji: '🕰️', label: 'Recent', icon: History, alive: HistoryCircleIcon, tint: 'gray' }
 ]
 const isGroup = (id: string): boolean => SIDE_GROUPS.some((one) => one.id === id)
 /** Pinned or Recent switched on or off, read and written whole; answers with what was switched off before, for Undo. */
@@ -137,11 +140,11 @@ export function useSections(): typeof SECTIONS {
 export const risen = new Set<string>()
 /** The box's tabs, in their row's order; ⌃1 to ⌃5 reach each, shown or not. */
 export const BOX_TABS: Place[] = [
-  { id: 'inbox', label: 'Inbox', icon: Inbox, tint: 'blue' },
-  { id: 'today', label: 'Tasks', icon: ListChecks, tint: 'green' },
-  { id: 'review', label: 'Review', icon: Brain, tint: 'purple' },
+  { id: 'inbox', emoji: '📥', label: 'Inbox', icon: Inbox, tint: 'blue' },
+  { id: 'today', emoji: '✅', label: 'Tasks', icon: ListChecks, tint: 'green' },
+  { id: 'review', emoji: '🧠', label: 'Review', icon: Brain, tint: 'purple' },
   { id: 'kept', label: 'Saved', icon: Gem, tint: 'pink' },
-  { id: 'recent', label: 'Recent', icon: History, alive: HistoryCircleIcon, tint: 'gray' }
+  { id: 'recent', emoji: '🕰️', label: 'Recent', icon: History, alive: HistoryCircleIcon, tint: 'gray' }
 ]
 
 /** Every page in the sidebar from the start, to hide the ones you never use; the box keeps its few tabs. */
@@ -278,6 +281,8 @@ export function showWords(place: Place, on: boolean): { label: string; said: str
 
 /** A place's icon in its theme colour, softened unless `full`. */
 export function PlaceIcon({ place, full }: { place: Place; full?: boolean }): React.JSX.Element {
+  const emoji = useEmojiIcons()
+  if (emoji && place.emoji) return <span aria-hidden className={`mf-emoji-icon flex size-4 shrink-0 items-center justify-center text-[0.875rem] leading-none`}>{place.emoji}</span>
   const className = `size-4 shrink-0 transition-colors duration-80 ${full ? 'text-[var(--tint)]' : 'text-[color-mix(in_oklab,var(--tint)_55%,var(--muted-foreground))] group-hover:text-[var(--tint)] group-data-[fluid-hover-active]:text-[var(--tint)]'}`
   // Its own colour, unless "Coloured icons" is off: then the one colour the root gives (main.css).
   const style = { '--tint': `var(--mf-icon-tint, var(--tt-color-text-${place.tint}))` } as CSSProperties

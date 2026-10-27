@@ -582,9 +582,9 @@ export function SettingsView(): React.JSX.Element {
           </Setting>
           <Setting title="Highlights" note="The colours you mark words with: “Soft” pastels, or “Rich”, deeper and fuller." keywords="highlight colour color marker pastel rich pale saturated vivid mark"
             below={<Choices label="Highlights" options={highlightChoices(!document.documentElement.hasAttribute('data-light'))} on={(id) => id === (settings.highlights ?? 'soft')} pick={(highlights) => set({ highlights: highlights as Settings['highlights'] })} />} />
-          <Setting title="Menu icons" note="The drawing before each line of a menu: “Lines”, or each line's own emoji." keywords="menu icons emoji lines symbols right click context"
-            below={<Choices label="Menu icons" options={menuIconChoices()} on={(id) => id === (settings.menuIcons ?? 'lines')} pick={(menuIcons) => set({ menuIcons: menuIcons as Settings['menuIcons'] })} />} />
-          <Setting title="Coloured icons" note="The sidebar's pages and tags each in their own colour. Off, all in one colour, menu emoji too." keywords="monochrome icons colour color grey gray sidebar vivaldi plain tint"
+          <Setting title="Icons" note="In menus and the sidebar's pages and tags: “Lines”, or each one's own emoji." keywords="menu icons emoji lines symbols right click context sidebar tags pages"
+            below={<Choices label="Icons" options={menuIconChoices()} on={(id) => id === (settings.menuIcons ?? 'lines')} pick={(menuIcons) => set({ menuIcons: menuIcons as Settings['menuIcons'] })} />} />
+          <Setting title="Coloured icons" note="The sidebar's pages and tags each in their own colour. Off, all in one colour, emoji greyed too." keywords="monochrome icons colour color grey gray sidebar vivaldi plain tint"
             ><IconColourSample />
             <Switch checked={settings.iconColour !== false} onCheckedChange={(iconColour) => set({ iconColour })} />
           </Setting>

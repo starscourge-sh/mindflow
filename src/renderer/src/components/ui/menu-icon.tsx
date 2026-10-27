@@ -1,3 +1,4 @@
+import { emojiIcons } from '@/lib/icon-style'
 import { Children, type ReactNode } from 'react'
 import {
   AlarmClock, AppWindow, Archive, ArchiveRestore, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ArrowUpDown, Ban, Bell, Braces, BookCopy, BookOpen, Bookmark, Brain, Calendar,
@@ -352,7 +353,7 @@ export function withMenuIcon(children: ReactNode): ReactNode {
   if (!words.trim()) return children
   const Icon = menuIcon(words)
   // Read as the menu opens (menus are drawn only while open): the setting is worn on the page's root.
-  const emoji = document.documentElement.dataset.menuIcons === 'emoji' ? EMOJI.get(Icon) : undefined
-  if (emoji) return [<span key="menu-icon" aria-hidden data-menu-icon="emoji" className="mf-menu-emoji flex size-3.5 shrink-0 items-center justify-center text-[0.8125rem] leading-none">{emoji}</span>, ...parts]
+  const emoji = emojiIcons() ? EMOJI.get(Icon) : undefined
+  if (emoji) return [<span key="menu-icon" aria-hidden data-menu-icon="emoji" className="mf-emoji-icon flex size-3.5 shrink-0 items-center justify-center text-[0.8125rem] leading-none">{emoji}</span>, ...parts]
   return [<Icon key="menu-icon" aria-hidden data-menu-icon="" className="size-3.5 shrink-0 text-muted-foreground" />, ...parts]
 }

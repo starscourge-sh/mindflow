@@ -1,3 +1,4 @@
+import { useEmojiIcons } from '@/lib/icon-style'
 import { Tag } from 'lucide-react'
 import { tagHue } from '@/extensions/tokens'
 
@@ -26,5 +27,8 @@ export function TagChip({ tag, color, className = '', children }: { tag: string;
  * "Coloured icons" off (main.css).
  */
 export function TagIcon({ tag, color, tint, className = 'size-4' }: { tag: string; color?: string | null; tint?: string; className?: string }): React.JSX.Element {
+  // "Icons: Emoji": the same for every tag (its name and chip still carry its colour). Not the label emoji: pale
+  // cream, it read as faded on a paper page.
+  if (useEmojiIcons()) return <span aria-hidden className={`mf-emoji-icon flex shrink-0 items-center justify-center text-[0.8125rem] leading-none ${className}`}>#️⃣</span>
   return <Tag aria-hidden className={`shrink-0 ${className}`} style={{ color: `var(--mf-icon-tint, ${tint ?? tagTint(tag, color)})` }} />
 }

@@ -3,7 +3,8 @@ import { Button } from '@/components/ui/button'
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { notes, type NoteMap } from '@/lib/notes'
 import { realMove } from '@/lib/real-move'
-import { GraphCanvas, NOTE_TINT, kindOf, tintOf } from './graph-canvas'
+import { GraphCanvas, KIND_EMOJI, NOTE_TINT, kindOf, tintOf } from './graph-canvas'
+import { useEmojiIcons } from '@/lib/icon-style'
 import { useLive } from '@/lib/haligtree'
 import { exampleMap } from '@/lib/examples'
 import { Example } from './example'
@@ -89,6 +90,7 @@ function LinkMap({ onOpen, modes }: { onOpen: (type: string, id: string) => void
   const fit = useRef<() => void>(() => undefined)
   const fly = useRef<(id: string) => boolean>(() => false)
 
+  const emoji = useEmojiIcons()
   // The tags that colour the map and the kinds on it, for the key in the corner.
   const { kinds, tags, untagged } = useMemo(() => {
     const seen = new Set<string>()
@@ -131,7 +133,7 @@ function LinkMap({ onOpen, modes }: { onOpen: (type: string, id: string) => void
               <span className="whitespace-nowrap text-foreground">The icon is the kind</span>
               {kinds.map((type) => {
                 const Icon = type.icon
-                return <span key={type.id} className="flex items-center gap-1"><Icon className="size-3" />{type.label}</span>
+                return <span key={type.id} className="flex items-center gap-1">{emoji && KIND_EMOJI[type.id] ? <span aria-hidden className="mf-emoji-icon text-[0.75rem] leading-none">{KIND_EMOJI[type.id]}</span> : <Icon className="size-3" />}{type.label}</span>
               })}
             </div>
           </div>

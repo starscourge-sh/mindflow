@@ -9,6 +9,7 @@ import { spread } from '@/extensions/tokens'
 import { withoutTags } from '../../../../main/tag-words'
 import { clip } from '../../../../main/clip'
 import { still } from '@/lib/motion'
+import { emojiIcons } from '@/lib/icon-style'
 import { wornStyle, type Style } from '@/lib/theme'
 
 /** `px`, `py`: where it is drawn this frame, a breath away from where it sits. `rings`: one per band of links. */
@@ -50,6 +51,8 @@ const ICONS: Record<string, string> = {
   // A tag on the Inbox's tag graph (lucide's hash).
   tag: 'M4 9h16 M4 15h16 M10 3 8 21 M16 3l-2 18',
 }
+/** Each kind as an emoji, for "Icons: Emoji" (lib/icon-style.ts); the legend under the Map says the same. */
+export const KIND_EMOJI: Record<string, string> = { note: '📄', todo: '✅', quote: '💬', word: '🔖', link: '🔗', checkback: '⏳', person: '👤', source: '📖', tag: '#️⃣' }
 let paths: Record<string, Path2D> | null = null
 const iconId = (kind: string): string => (kind === 'person' || kind === 'source' || kind === 'tag' ? kind : kindOf(kind)?.id ?? 'note')
 const iconOf = (kind: string): Path2D => (paths ??= Object.fromEntries(Object.entries(ICONS).map(([id, d]) => [id, new Path2D(d)])))[iconId(kind)] ?? paths.note
@@ -262,7 +265,8 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
       // The icon kept quiet: only on a dot big on the screen, or one pointed at or lit
       // and still big enough to hold it; never on the small ones.
       const shows = picture && onScreen >= 24 ? 'picture' : onScreen >= (hot ? 9 : 18) ? 'icon' : 'plain'
-      const key = `${token}|${dot.r}|${dot.rings}|${shows === 'picture' ? dot.picture : shows === 'icon' ? iconId(dot.kind) : shows}|${scale}`
+      const emoji = shows === 'icon' && emojiIcons() ? KIND_EMOJI[iconId(dot.kind)] : undefined
+      const key = `${token}|${dot.r}|${dot.rings}|${shows === 'picture' ? dot.picture : shows === 'icon' ? iconId(dot.kind) + (emoji ? '|emoji' : '') : shows}|${scale}`
       let made = sprites.get(key)
       if (made) return made
       if (sprites.size > 800) sprites.clear()
@@ -337,7 +341,17 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
       c.globalAlpha = brutal ? 1 : style === 'paper' ? 0.55 : 0.9
       c.stroke()
       c.globalAlpha = 1
-      if (shows === 'icon') {
+      if (emoji) {
+        // "Icons: Emoji": the kind's emoji on the disc, a little quiet; greyed with "Coloured icons" off.
+        c.font = `${dot.r * 0.95}px system-ui`
+        c.textAlign = 'center'
+        c.textBaseline = 'middle'
+        c.globalAlpha = 0.9
+        if (document.documentElement.dataset.iconColour === 'off') c.filter = 'grayscale(1)'
+        c.fillText(emoji, 0, dot.r * 0.06)
+        c.filter = 'none'
+        c.globalAlpha = 1
+      } else if (shows === 'icon') {
         // Small and near the dot's own colour: there to be found, not to be read first.
         const size = dot.r * 0.86
         c.save()
@@ -845,7 +859,7 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
     document.addEventListener('visibilitychange', wake)
     wake()
     const themed = new MutationObserver(() => (colours(), wake(), draw()))
-    themed.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style', 'data-theme', 'data-style', 'data-reveal', 'data-motion'] })
+    themed.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style', 'data-theme', 'data-style', 'data-reveal', 'data-motion', 'data-menu-icons', 'data-icon-colour'] })
 
     // Sent here to one note: brought close and lit, its neighbours named.
     const wanted = focusOn.current ? byId.get(focusOn.current) : undefined
