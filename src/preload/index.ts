@@ -111,7 +111,7 @@ const api = {
   // A word spelt right but in the wrong case ("monday", "i") is squiggled by the Mac too, though the page's
   // checker calls it spelt right and has nothing to offer: its capitals, then, for the words always written so.
   /** The Mac's own guesses for a word, from the spellchecker that draws the underline (main, spell-guesses.ts). */
-  macGuesses: (word: string): Promise<string[]> => ipcRenderer.invoke('spell:guesses', word),
+  macGuesses: (word: string): Promise<string[] | null> => ipcRenderer.invoke('spell:guesses', word),
   misspelt: (word: string): string[] | null => {
     if (webFrame.isWordMisspelled(word)) return webFrame.getWordSuggestions(word)
     return CAPITALS.test(word) && word === word.toLowerCase() ? [word.charAt(0).toUpperCase() + word.slice(1)] : null

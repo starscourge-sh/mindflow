@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom"
 import { useEffect, useRef, useState } from "react"
 import type { Editor } from "@tiptap/react"
 
@@ -74,7 +75,8 @@ export function SpellPill({ editor }: { editor: Editor | null }): React.JSX.Elem
         const { selection } = editor.state
         if (typing || !editor.isFocused || !selection.empty || !document.hasFocus()) return setHint(null)
         const at = editor.view.coordsAtPos(selection.head)
-        const from = box.getBoundingClientRect()
+        // Placed on the window itself, over everything: inside the editor's box it was cut off on the last line.
+        const from = { left: 0, top: 0 }
         // Just under the caret's line, never over the word.
         const y = at.bottom - from.top + 2
         const left = (pos: number): number => editor.view.coordsAtPos(pos).left - from.left
@@ -90,6 +92,9 @@ export function SpellPill({ editor }: { editor: Editor | null }): React.JSX.Elem
           void spellFixes(here.word).then((fixes) => {
             const now = editor.state.selection
             if (gone || ask !== asked || typing || !fixes.length || editor.isDestroyed || !now.empty || now.head < here.from || now.head > here.to || editor.state.doc.textBetween(here.from, here.to) !== here.word) return
+            // The whole word there now, not only its start: an answer for "feelin" never lands on "feeling".
+            const coords = editor.view.coordsAtPos(now.head)
+            if (wordAt(editor, coords.left - 1, (coords.top + coords.bottom) / 2)?.word !== here.word) return
             setHint({ ...here, suggestions: fixes, x: left(here.from), y, tab })
           })
           return setHint(null)
@@ -153,13 +158,14 @@ export function SpellPill({ editor }: { editor: Editor | null }): React.JSX.Elem
     }
   }, [editor])
   if (!hint) return null
-  return (
-    <span data-spell-hint data-spell-tab={hint.tab || undefined} aria-hidden
+  return createPortal(
+    <span data-spell-hint data-spell-word={hint.word} data-spell-tab={hint.tab || undefined} aria-hidden
       // A press on it takes the word; held off the editor, so the caret stays where it was.
       onPointerDown={(event) => (event.preventDefault(), takeRef.current(hint))}
-      className="mf-spell-hint absolute top-0 left-0 z-[3] inline-flex h-6 cursor-pointer items-center gap-1.5 rounded-full border border-foreground/10 bg-background ps-2.5 pe-1 text-control whitespace-nowrap text-foreground/80 shadow-xs select-none"
+      className="mf-spell-hint fixed top-0 left-0 z-[60] inline-flex h-6 cursor-pointer items-center gap-1.5 rounded-full border border-foreground/10 bg-background ps-2.5 pe-1 text-control whitespace-nowrap text-foreground/80 shadow-xs select-none"
       style={{ translate: `${hint.x}px ${hint.y}px`, paddingInlineEnd: hint.tab ? undefined : "0.625rem" }}>
       {hint.suggestions[0]}{hint.tab && <Kbd className="rounded border border-border/80 text-key">Tab</Kbd>}
-    </span>
+    </span>,
+    document.body
   )
 }

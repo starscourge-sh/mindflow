@@ -56,6 +56,17 @@ const round = async (where, pg, sel) => {
   for (let i = 0; i < 20 && !(await pill(pg, sel, 'everthing')); i++) await wait(250)
   const two = await pill(pg, sel, 'everthing')
   check(`${where}: "everthing" offers "everything"`, /everything/.test(two?.text ?? ''), JSON.stringify(two))
+  // Seen whole on the last line, never cut off by the page's edge.
+  const whole = await pg.evaluate(() => { const one = document.querySelector('[data-spell-hint]'); if (!one) return null; const r = one.getBoundingClientRect(); const at = document.elementFromPoint(r.left + r.width / 2, r.bottom - 2); return !!at && one.contains(at) })
+  check(`${where}: the pill shows whole, never cut off`, whole === true, String(whole))
+  // Words spelt right get nothing, however the Mac would guess at them ("feeding" for "feeling", "talks" for "tasks").
+  for (const good of ['feeling', 'tasks', 'afternoon']) {
+    // To the end of the line, as a Mac does it (End only scrolls).
+    await pg.keyboard.press('Meta+ArrowRight')
+    await pg.keyboard.type(` ${good}`, { delay: 30 })
+    await wait(2600)
+    check(`${where}: "${good}" is spelt right, no pill`, !(await pg.evaluate(() => document.querySelector('[data-spell-hint]')?.textContent ?? '')), await pg.evaluate(() => { const one = document.querySelector('[data-spell-hint]'); return one ? one.textContent + ' for ' + one.getAttribute('data-spell-word') : '' }))
+  }
   await pg.keyboard.press('End')
   await pg.keyboard.type(' from Sligoo', { delay: 30 })
   await wait(2200)
