@@ -6,6 +6,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { SlotText } from 'slot-text/react'
 import { Check, ChevronRight, CircleX, type LucideIcon } from 'lucide-react'
 import { AliveIcon } from '@/components/ui/alive-icon'
+import XIcon from '@/components/ui/x-icon'
 import { AnimatePresence, motion } from 'motion/react'
 import { byKeys, EASE, glideWay, hush, shift, speak, speakAfter, spring as springs, still, useFirstVisit } from '@/lib/motion'
 import { detent, slotTicker } from '@/lib/proximity'
@@ -478,6 +479,22 @@ export function Props({ children, className, fold = false }: { children: ReactNo
 export const startAt = (list: { id: string }[], open: string | null | undefined, cursor: number): number => {
   const at = open ? list.findIndex((one) => one.id === open) : -1
   return at >= 0 ? at : Math.max(0, cursor)
+}
+
+/**
+ * The ✕ that puts away what is open beside a list (a task's page and its
+ * details), drawn as a split pane's own ✕: the same size, icon and place at
+ * the right of its top row. Esc does the same from the list.
+ */
+export function CloseBeside({ onClose, className = '' }: { onClose: () => void; className?: string }): React.JSX.Element {
+  return (
+    <Tip label="Close  Esc">
+      <button type="button" data-close-beside aria-label="Close" onClick={() => (chime('fold'), onClose())}
+        className={`flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ${className}`}>
+        <AliveIcon icon={XIcon} size={14} />
+      </button>
+    </Tip>
+  )
 }
 
 /**

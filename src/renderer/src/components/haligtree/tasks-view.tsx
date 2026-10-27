@@ -21,7 +21,7 @@ import { PRIORITY_NAMES } from '../../../../main/task-words'
 import { PriorityIcon, PriorityMark, TaskInput, markRoom, planFor, setPriority } from './task-input'
 import { useArrivals } from './note-list'
 import { TagRow } from './pass'
-import { Empty, Island, Kbd, Page, Prop, PropInput, Props, Rolling, Tags, toast, useListKeys, typing, VirtualList, Stepper, quietly } from './ui'
+import { Empty, Island, Kbd, Page, Prop, PropInput, Props, Rolling, Tags, toast, useListKeys, typing, VirtualList, Stepper, quietly, CloseBeside } from './ui'
 import { Chips, Display, arrange, openDisplay, useView, type Facet } from './display'
 import { DayList, writeOutDay } from './day-list'
 import { MatrixView } from './matrix-view'
@@ -755,7 +755,9 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
     const at = shown.findIndex((one) => one.id === open?.id)
     if (at >= 0 && !example) readAhead('task', [shown[at - 1]?.id, shown[at + 1]?.id])
   }, [open?.id]) // eslint-disable-line react-hooks/exhaustive-deps
-  const [cursor, setCursor] = useListKeys(example ? 0 : shown.length, { onOpen: (index) => pick(shown[index].id), enabled: !matrixed, opened: shown.findIndex((one) => one.id === (coming ?? open?.id)), onExtend: (from, to) => several.extend(shown[from]?.id, shown[to].id) })
+  const [cursor, setCursor] = useListKeys(example ? 0 : shown.length, { onOpen: (index) => pick(shown[index].id), enabled: !matrixed, opened: shown.findIndex((one) => one.id === (coming ?? open?.id)), onExtend: (from, to) => several.extend(shown[from]?.id, shown[to].id),
+    // Esc in the list puts the open task away, as its ✕ does: never while some are picked (Esc lets those go first) or a menu is up.
+    onEscape: () => void (open && !several.chosen.length && !document.querySelector('[role="menu"], [role="dialog"]') && (chime('fold'), setOpen(null))) })
   // Back from the Bin by Undo: open again if a task was open, else the keyboard on its row.
   useCameBack(shown.map((one) => one.id), (id) => (open ? pick(id) : setCursor(shown.findIndex((one) => one.id === id))))
   // “Show in list” (⌥⌘L): every group here is open, so its row is only scrolled to and lit.
@@ -1162,7 +1164,8 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
     <div data-open={first.id} className="note-pane flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[16rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
       {/* Its own words, cards and subtasks scroll as one beside the details, never a short box of notes. */}
       <div data-grow className="flex min-h-0 min-w-0 flex-1 flex-col pt-6 @[40rem]/page:overflow-y-auto">
-        {top && <div className="-mt-3 mb-1 flex px-3 @[40rem]/page:px-[4.25rem]">{top}</div>}
+        {/* Where it sits in the list, and on the right the ✕ that puts it away, as a split pane has. */}
+        <div className="-mt-3 mb-1 flex items-center px-3 @[40rem]/page:px-[4.25rem]">{top}<CloseBeside className="ml-auto" onClose={onClose} /></div>
         {/* Where you said you would pick up, as the last session ended: on its own line, plain to see. */}
         {task.pickup && task.status === 'open' && (
           <div data-pickup-note className="page-narrow mx-auto mb-3 flex w-full items-start gap-3 px-12">
