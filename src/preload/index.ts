@@ -51,6 +51,10 @@ ipcRenderer.on('menu:app-size', (_event, way: 1 | -1 | 0) => void window.dispatc
 ipcRenderer.on('menu:select-all', () => {
   if (window.dispatchEvent(new Event('haligtree:select-all', { cancelable: true }))) document.execCommand('selectAll')
 })
+// File > Close (⌘W): the page closes what is open in front if it can (it cancels the event); otherwise the window.
+ipcRenderer.on('menu:close', () => {
+  if (window.dispatchEvent(new Event('haligtree:close-front', { cancelable: true }))) window.close()
+})
 // A note renamed and the links to it written again: the window it was renamed in says so, with an Undo.
 ipcRenderer.on('links:renamed', (_event, info: unknown) => window.dispatchEvent(new CustomEvent('haligtree:links-renamed', { detail: info })))
 // A book made, renamed or deleted: every list of them looks again.

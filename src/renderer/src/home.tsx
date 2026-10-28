@@ -533,6 +533,28 @@ export function Home(): React.JSX.Element {
     placeAt(next, side)
   }
   /** ⌃W: the pane in front closes, and the one beside it takes the keys. */
+  // ⌘W (File > Close): the frontmost thing open goes, as its ✕ or Esc would: a dialog or panel, then the note or
+  // task open beside the front pane's list, then the front pane of a split; the window only when none is open.
+  useEffect(() => {
+    const onClose = (event: Event): void => {
+      if (document.querySelector('[role="dialog"], [data-radix-popper-content-wrapper], [role="menu"]')) {
+        event.preventDefault()
+        // As Esc pressed where the keys are: a field's own Esc (search's) hears it, and it rises to the page's panels.
+        return void (document.activeElement ?? document.body).dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }))
+      }
+      const key = frontRef.current
+      const pane = splitRef.current.panes.find((one) => one.key === key)
+      const here = pane?.trail.views[pane.trail.at]
+      if (here?.focus && holdsNotes(here.id)) {
+        event.preventDefault()
+        chime('fold')
+        return setTrail(key, (trail) => ({ ...trail, views: trail.views.map((one, index) => (index === trail.at ? { ...one, focus: undefined } : one)) }))
+      }
+      if (splitRef.current.panes.length > 1) return void (event.preventDefault(), closePane(key))
+    }
+    window.addEventListener('haligtree:close-front', onClose)
+    return () => window.removeEventListener('haligtree:close-front', onClose)
+  })
   const closePane = (key = frontRef.current): void => {
     const now = splitRef.current
     if (now.panes.length < 2) return void chime('nope')
