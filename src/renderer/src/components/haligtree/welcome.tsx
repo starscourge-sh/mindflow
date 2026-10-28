@@ -1505,19 +1505,19 @@ function NameChapter({ play, report, onNext }: { play: boolean; report: (now: Re
       <Words title="Name your book." still={!play} done>{NAME_LINE}</Words>
       <div className="flex min-h-0 flex-1 flex-wrap items-center justify-center gap-x-[clamp(2rem,7vw,6rem)] gap-y-6 pb-2">
         <motion.div data-name-field className="flex w-[min(24rem,100%)] flex-col gap-3" initial={play ? { opacity: 0, y: 8 } : false} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: ENTER, delay: 0.1 }}>
-          {/* "Draw another" beside the label, so the line under the field is whole and never shares a row with it. */}
-          <div className="-mb-1 flex items-center justify-between gap-3">
-            <label htmlFor="mf-book-name" className="text-[1.0625rem] font-medium text-foreground">Your book's name</label>
-            <button type="button" data-name-draw onClick={() => (chime('anew'), setDrawn((was) => drawBookName(Math.random, was)))} className={`${QUIET_BUTTON} -mr-3 shrink-0`}>
+          <label htmlFor="mf-book-name" className="-mb-1 text-[1.0625rem] font-medium text-foreground">Your book's name</label>
+          {/* "Draw another" inside the field at its end, on its row and its edge, as a field's own button sits. */}
+          <div className="relative">
+            <input id="mf-book-name" data-welcome-book-name autoFocus spellCheck={false} className={`${FIELD} h-12 w-full pr-40 text-[1.125rem]`} placeholder={drawn} value={value} maxLength={60}
+              onChange={(event) => setTyped(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') (event.preventDefault(), onNext())
+                else if (event.key === 'Escape') (event.preventDefault(), event.currentTarget.blur())
+              }} />
+            <button type="button" data-name-draw onClick={() => (chime('anew'), setDrawn((was) => drawBookName(Math.random, was)))} className={`${QUIET_BUTTON} absolute top-1/2 right-1.5 -translate-y-1/2`}>
               <Shuffle className="size-4" strokeWidth={1.8} /> Draw another
             </button>
           </div>
-          <input id="mf-book-name" data-welcome-book-name autoFocus spellCheck={false} className={`${FIELD} h-12 w-full text-[1.125rem]`} placeholder={drawn} value={value} maxLength={60}
-            onChange={(event) => setTyped(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') (event.preventDefault(), onNext())
-              else if (event.key === 'Escape') (event.preventDefault(), event.currentTarget.blur())
-            }} />
           <p data-name-keeps className="text-[0.9375rem] leading-snug text-(--mf-wl-body)">{value.trim() ? <>Press <Kbd className="mx-0.5 h-6 min-w-6 align-[-0.2em]"><CornerDownLeft className="size-3" strokeWidth={2.4} /></Kbd> to go on.</> : <>Left empty, it is called “{drawn}”.</>}</p>
         </motion.div>
         <motion.div className="shrink-0" initial={play ? { opacity: 0, scale: 0.96 } : false} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4, ease: ENTER, delay: 0.2 }}>
@@ -1761,12 +1761,12 @@ function GrainBackdrop({ page, arrival, arriving, onBloomed }: { page: number; a
     <div aria-hidden className="absolute inset-0">
       {/* A new canvas for each arrival, so each one blooms from the page's colour; skipped, it is whole at once. */}
       {/* The spark at the very centre, on the glow's own clock: a bright point lit at once, steady, then drawing in a
-          breath (brighter, a touch larger: something is about to happen) just before the light bursts out from it. */}
+          breath (brighter, a touch larger: something is about to happen) just before the light bursts out from it, and it stays as the light's bright heart, widening with it, going only as the light reaches the edges. */}
       {arriving && !still() && <motion.span key={`spark-${arrival}`} aria-hidden data-intro-spark className="pointer-events-none absolute top-1/2 left-1/2 z-[1] size-3 -translate-x-1/2 -translate-y-1/2 rounded-full mix-blend-screen"
         style={{ background: 'radial-gradient(circle, #fffbe8 0%, #ffe9a8 30%, rgb(250 189 47 / 0.55) 55%, transparent 72%)', boxShadow: '0 0 18px 6px rgb(250 189 47 / 0.35)' }}
         initial={{ opacity: 0, scale: 0.4 }}
-        animate={{ opacity: [0, 1, 0.85, 1, 1, 0], scale: [0.4, 1, 0.92, 1, 1.9, 3.2] }}
-        transition={{ delay: INTRO_DELAY, duration: INTRO_SECONDS * SPARK_HOLD + 0.8, times: [0, 0.12, 0.45, 0.62, 0.86, 1], ease: 'easeInOut' }} />}
+        animate={{ opacity: [0, 1, 0.85, 1, 1, 1, 0], scale: [0.4, 1, 0.92, 1, 1.9, 3.6, 4.2] }}
+        transition={{ delay: INTRO_DELAY, duration: INTRO_SECONDS, times: [0, 0.08, 0.3, 0.45, SPARK_HOLD, 0.9, 1], ease: 'easeInOut' }} />}
       <Grainient key={arrival} ref={grain} intro={arriving} onIntroDone={onBloomed} colors={colours} angle={55} speed={0.6} flow={0.8} silk={light ? 0.2 : 0.35} saturation={light ? 0.8 : 1} grainAmount={light ? 0.06 : 0.08} />
       {/* The veil toward the words' side: not over the arrival, which fills the whole window as Arc's does, then in as the first words come. */}
       <div className={`pointer-events-none absolute inset-0 transition-opacity duration-[1600ms] ${arriving ? 'opacity-0' : 'opacity-100'} bg-[linear-gradient(90deg,color-mix(in_oklab,var(--background)_55%,transparent)_0%,color-mix(in_oklab,var(--background)_30%,transparent)_45%,transparent_80%)]`} />
