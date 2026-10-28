@@ -59,7 +59,8 @@ export function Proofread({ editor, ask = false }: { editor: Editor | null; /** 
     if (!editor) return
     const start = (): void => {
       setState('loading')
-      void findings(editor.state.doc).then((list) => show(list, 0), () => setState(null))
+      // Stopped (Esc) while it was still reading: what it finds then is not shown.
+      void findings(editor.state.doc).then((list) => setState((was) => (was === 'loading' ? (show(list, 0), was) : was)), () => setState(null))
     }
     window.addEventListener('haligtree:proofread', start)
     return () => window.removeEventListener('haligtree:proofread', start)
@@ -70,12 +71,20 @@ export function Proofread({ editor, ask = false }: { editor: Editor | null; /** 
     const gone = setTimeout(() => setState(null), 1800)
     return () => clearTimeout(gone)
   }, [state])
-  // Tab takes the fix, Esc skips; before anything else hears them (the writing room's Esc, the editor's Tab).
+  // Tab takes the fix, ↓ skips to the next, Esc stops proofreading (still reading it through, too); before anything
+  // else hears them (the writing room's Esc, the editor's Tab). Esc used to skip, so on a long page with hundreds of
+  // findings it could not get you out of Proofread, nor out of the writing room behind it.
   useEffect(() => {
-    if (!editor || !state || typeof state === 'string') return
+    if (!editor || !state) return
     const onKey = (event: KeyboardEvent): void => {
-      const one = state.list[state.at]
       if (event.key === 'Escape') {
+        event.preventDefault(); event.stopImmediatePropagation()
+        chime('fold')
+        return void (mark(null), setState(null))
+      }
+      if (typeof state === 'string') return
+      const one = state.list[state.at]
+      if (event.key === 'ArrowDown' && !event.metaKey && !event.altKey && !event.shiftKey) {
         event.preventDefault(); event.stopImmediatePropagation()
         chime('tick')
         return show(state.list, state.at + 1)
@@ -117,7 +126,7 @@ export function Proofread({ editor, ask = false }: { editor: Editor | null; /** 
   return createPortal(
     <div data-proofing={typeof state === 'string' ? state : 'one'} role="status" className="fixed inset-x-0 bottom-28 z-[70] flex justify-center px-4 pointer-events-none">
       <div className="pointer-events-auto flex max-w-[40rem] items-center gap-3 rounded-xl bg-popover px-4 py-2.5 text-body text-popover-foreground shadow-[0_8px_24px_-8px_rgb(0_0_0/0.3)] ring-1 ring-foreground/10">
-        {state === 'loading' && <span className="text-muted-foreground">Reading it through…</span>}
+        {state === 'loading' && <span className="text-muted-foreground">Reading it through… <kbd className="ml-1 rounded border border-foreground/15 px-1 text-meta">Esc</kbd> stops</span>}
         {state === 'clean' && <span data-proof-clean>Clean.</span>}
         {one && (
           <>
@@ -129,7 +138,8 @@ export function Proofread({ editor, ask = false }: { editor: Editor | null; /** 
             <span className="ml-auto flex shrink-0 items-center gap-2 text-meta text-muted-foreground">
               <span className="tabular-nums">{run!.at + 1} of {run!.list.length}</span>
               {one.replacement !== null && <><kbd className="rounded border border-foreground/15 px-1">Tab</kbd> takes it</>}
-              <kbd className="rounded border border-foreground/15 px-1">Esc</kbd> skips
+              <kbd className="rounded border border-foreground/15 px-1">↓</kbd> skips
+              <kbd className="rounded border border-foreground/15 px-1">Esc</kbd> stops
             </span>
           </>
         )}

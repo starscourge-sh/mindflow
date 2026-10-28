@@ -1,5 +1,5 @@
 // Proofread, on this computer (Harper, harper.js): no WebAssembly is fetched as the app comes up; in the writing
-// room of a piece of Writing, "Proofread" goes through what it finds one at a time with a plain reason, Esc skips,
+// room of a piece of Writing, "Proofread" goes through what it finds one at a time with a plain reason, ↓ skips, Esc stops,
 // Tab takes the fix (a planted "is is" made "is"), and it ends "Clean."; the Prose report says what it found; the
 // Journal has it only when asked (no checking as you write). Prints the first load's time.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 [SHOTS=<dir>] node qa/proofread.mjs
@@ -64,7 +64,7 @@ try {
   let skipped = false
   for (let i = 0; i < 12 && !/is is/.test((await bar())?.text ?? ''); i++) {
     const was = (await bar())?.text
-    await h.keyboard.press('Escape'); await wait(300)
+    await h.keyboard.press('ArrowDown'); await wait(300)
     skipped ||= (await bar())?.text !== was
   }
   const planted = await bar()
@@ -72,14 +72,21 @@ try {
   await h.keyboard.press('Tab'); await wait(1200)
   const after = await words(piece)
   check('Tab takes the fix', /This is a planted mistake/.test(after) && !/\bis is\b/.test(after), after)
-  check('still in the writing room after Tab and Esc', (await h.locator('[data-room]').count()) === 1)
+  check('still in the writing room after Tab', (await h.locator('[data-room]').count()) === 1)
   for (let i = 0; i < 12 && (await bar())?.state === 'one'; i++) {
     const was = (await bar())?.text
-    await h.keyboard.press('Escape'); await wait(300)
+    await h.keyboard.press('ArrowDown'); await wait(300)
     skipped ||= (await bar())?.text !== was
   }
-  check('Esc skips to the next', skipped || first?.text?.includes('is is'))
+  check('↓ skips to the next', skipped || first?.text?.includes('is is'))
   check('it ends "Clean."', (await bar())?.state === 'clean' && /Clean\./.test((await bar())?.text ?? ''), JSON.stringify(await bar()))
+  // Esc stops proofreading at once, however many it found; a second Esc leaves the room (it skipped one at a time before, and a long page held you in).
+  await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:proofread')))
+  await until(async () => ['one', 'clean', 'loading'].includes((await bar())?.state))
+  await h.keyboard.press('Escape'); await wait(400)
+  check('Esc stops Proofread at once', !(await bar()) || (await bar())?.state === 'clean', JSON.stringify(await bar()))
+  await h.keyboard.press('Escape'); await wait(500)
+  check('and the next Esc leaves the writing room', (await h.locator('[data-room]').count()) === 0)
   check('the checker loaded on first use', (await wasm()) >= 1 && (await h.evaluate(() => window.qaGrammarLoad)) > 0, `${await wasm()}`)
   // An Inbox note: Proofread from its menu, the same one finding at a time.
   const note = await v('capture', { body: 'This is is a note from the Inbox.' }).catch(() => null)
