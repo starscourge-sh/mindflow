@@ -18,14 +18,6 @@ const TWIRL_LIFE = 2.6
 /** The bloom (`intro`): a moment of the bare page first, then the glow grows from the middle to fill the field. */
 const INTRO_DELAY = 2.2
 const INTRO_SECONDS = 7.4
-// The first part of the intro the glow spends small in the middle, how far it reaches then, and its breath: slow at first, quickening
-// as it gathers (a held tension, as a film's score builds), then let go as it spreads.
-const SEED_PART = 0.55
-const SEED_REACH = 0.15
-const BREATH_SECONDS = 2.4
-const QUICKEN = 0.07
-const smooth = (x: number): number => x * x * (3 - 2 * x)
-const smoother = (x: number): number => x * x * x * (x * (x * 6 - 15) + 10)
 /** A nudge: how far the field's pattern turns over, and how quickly it settles there (about a second). */
 const NUDGE_SHIFT = 0.14
 const NUDGE_EASE = 0.3
@@ -377,8 +369,6 @@ export function Grainient({
     let time = 0
     // Below 0 while the bare page holds, before the glow starts.
     let introClock = settingsRef.current.intro && !reduce ? -INTRO_DELAY / INTRO_SECONDS : 1
-    // How far the glow has reached once its breathing ends: from there it only ever grows.
-    let reached = 0
     let frameSeed = 0
     let grainClock = 0
     let raf = 0
@@ -433,19 +423,11 @@ export function Grainient({
       const opened = clamp(introClock, 0, 1)
       const eased = opened * opened * (3 - 2 * opened)
       gl.uniform1f(fu.uSettle, eased)
-      // The build-up, as Arc's: a small glow comes up in the middle and breathes there a while, then
-      // gathers itself and spreads past the corners. The breath fades as the spreading takes over.
-      // It comes up slowly out of the dark: barely there for its first breaths.
-      const seed = smooth(clamp(opened / SEED_PART, 0, 1)) ** 1.6
-      const grow = smoother(clamp((opened - SEED_PART) / (1 - SEED_PART), 0, 1))
-      const t = opened * INTRO_SECONDS
-      const breath = Math.sin(Math.PI * 2 * (t / BREATH_SECONDS + QUICKEN * t * t))
-      // The breath settles over the last of the small glow's time, so it is still as the spreading begins: a breath
-      // still going as it spread read as the glow shrinking back halfway, a bounce. And once settled it never shrinks.
-      const settle = 1 - smooth(clamp((opened - SEED_PART * 0.6) / (SEED_PART * 0.4), 0, 1))
-      let reveal = SEED_REACH * seed * (1 + 0.2 * breath * settle) + (1 - SEED_REACH) * grow
-      if (opened >= SEED_PART * 0.6) reveal = reached = Math.max(reached, reveal)
-      gl.uniform1f(fu.uReveal, reveal)
+      // The build-up, as Arc's: a small glow comes up slowly out of the dark in the middle, then gathers
+      // itself and spreads past the corners. One rise, never back.
+      // One curve, so it never pauses where one stage would hand over to the next: slow for a long while (a quarter of
+      // the way at half the time), quicker as it gathers, easing in to whole.
+      gl.uniform1f(fu.uReveal, 1 - (1 - opened ** 3) ** 1.6)
       gl.drawArrays(gl.TRIANGLES, 0, 3)
       gl.bindFramebuffer(gl.FRAMEBUFFER, null)
       gl.viewport(0, 0, canvas.width, canvas.height)
