@@ -278,12 +278,12 @@ export function WeekPage({ start, onOpen, onScale, onRecent, recentOpen, onDay }
         </div>
         {/* The week's writing on top, then the week's tasks: the Day page's shape, a week wide. */}
         {page && <div key={`write-${key}`}>
-            <h2 className="mt-6 mb-1 flex items-baseline gap-2 text-body font-semibold">
+            <h2 className="mt-8 mb-3 flex items-baseline gap-2 text-body font-semibold">
               This week in notes
               <span className="text-xs font-normal text-muted-foreground">{"write freely about the week as a whole"}</span>
             </h2>
             {/* A box that reads as a place to type, as the Day page's does. */}
-            <div data-week-write className="min-h-28 cursor-text rounded-xl border border-border bg-background px-4 py-2 shadow-xs transition-colors focus-within:border-ring hover:border-foreground/25 [--mf-padding:0.25rem_0]">
+            <div data-week-write className="min-h-28 cursor-text rounded-xl border border-border bg-background px-5 py-4 shadow-xs transition-colors focus-within:border-ring hover:border-foreground/25 [--mf-padding:0.25rem_0]">
             <HaligtreeEditor
               key={`week-${monday}`}
               host={window.api}
@@ -313,7 +313,7 @@ export function WeekPage({ start, onOpen, onScale, onRecent, recentOpen, onDay }
               <Field label="Projects" value={fields.projects ?? ''} placeholder="What you worked on" onSave={(text) => saveField(key, 'projects', text)} />
             </Island>
             {/* The weekly review: wins, what was learned, and what you mean to do next. */}
-            <h2 className="mt-8 mb-1 text-body font-semibold text-foreground">The week's review</h2>
+            <h2 className="mt-10 mb-3 text-body font-semibold text-foreground">The week's review</h2>
             {/* A goal that passed halfway or was made this week: said first, the review's starting point. */}
             {milestones.length > 0 && (
               <ul data-week-goal-lines className="mb-2 flex flex-col gap-0.5">
