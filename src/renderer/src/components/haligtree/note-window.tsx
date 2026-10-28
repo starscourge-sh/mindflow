@@ -8,6 +8,8 @@ import { CaptureProps, captureDots } from './captures-view'
 import { ItemDetail } from './items-view'
 import { NotePreview } from './note-preview'
 import { Mentions } from './mentions'
+import { SourceFoot } from './source-page'
+import { PageThoughts } from './gloss-line'
 import { notePowers } from './note-powers'
 import { Tip, Toaster, pin, useEscapeLeavesEditor } from './ui'
 import { NoteHeader } from './note-extras'
@@ -202,10 +204,10 @@ function CaptureWindow({ id }: { id: string }): React.JSX.Element | null {
         <HaligtreeEditor
           key={`${id}-${rev}`}
           typewriter
-          {...notePowers({ table: 'captures', id, kind: capture.kind, fields: capture.fields, text: capture.label, created: capture.capturedAt, updated: capture.editedAt, origin: { captureId: id, from: id }, onOpen: elsewhere })}
+          {...notePowers({ table: 'captures', id, kind: capture.kind, fields: capture.fields, text: capture.label, created: capture.capturedAt, updated: capture.editedAt, origin: { captureId: id, from: id }, cites: { who: capture.attribution, where: capture.medium }, onOpen: elsewhere })}
           defaultContent={(capture.body as JSONContent | string | null) ?? ''}
           onOpenNote={(to, heading) => (to === id && heading ? headingIn('capture', id, heading) : follow(to, (type, at) => elsewhere(type, at, heading)))}
-          after={<Mentions id={id} onOpen={elsewhere} />}
+          after={<><SourceFoot who={capture.attribution} where={capture.medium} quote={capture.kind === 'quote'} cite={{ table: 'captures', id, fields: capture.fields }} /><PageThoughts id={id} /><Mentions id={id} onOpen={elsewhere} /></>}
           onReady={(ready) => (words.ready(ready), setEditor(ready))}
           onChange={words.save}
         />

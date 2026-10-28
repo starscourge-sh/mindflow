@@ -3993,6 +3993,7 @@ html[data-motion="off"] .tiptap.ProseMirror :is(.mf-kept, .mf-kept-icon button) 
    part of the words (extensions/property-lines.ts), the same place whether
    it holds none or many. */
 .tiptap.ProseMirror > .mf-property-holder > .mf-property-strip {
+  position: relative;
   margin: 0.125rem 0 0.5rem -0.375rem;
   user-select: none;
   white-space: normal;

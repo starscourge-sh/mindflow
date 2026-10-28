@@ -44,7 +44,7 @@ import { Apart } from '@/lib/apart'
 import { chime, tear, pageTurn } from '@/lib/sound'
 import { Empty, focusField, Island, Page, Prop, Props, Remembered, Rolling, refuse, toast, useListKeys, useReadKey, typing, pin, askQuestion, Stepper, startAt, showTopTitle, Pressed, quietly, askClearWho } from './ui'
 import { Term } from './term'
-import { GlossTimeline, useRowGloss } from './gloss-line'
+import { GlossTimeline, PageThoughts, useRowGloss } from './gloss-line'
 import { ThoughtDock } from './thought-bar'
 import { RemindMe } from './items-view'
 import { addToQuestion } from './questions-view'
@@ -753,7 +753,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
             <HaligtreeEditor
               key={`${open.id}-${rev}`}
               typewriter
-              {...notePowers({ table: 'captures', id: open.id, kind: meta.kind, fields: meta.fields, text: meta.label, created: meta.capturedAt, updated: meta.editedAt, origin: { captureId: open.id, from: open.id }, onOpen: (type, id) => onOpen?.(type, id) })}
+              {...notePowers({ table: 'captures', id: open.id, kind: meta.kind, fields: meta.fields, text: meta.label, created: meta.capturedAt, updated: meta.editedAt, origin: { captureId: open.id, from: open.id }, cites: { who: meta.attribution, where: meta.medium }, onOpen: (type, id) => onOpen?.(type, id) })}
               onTitleOut={(title) => !onBoard.current && sayTitle(title)}
               defaultContent={(open.body as JSONContent | string | null) ?? ''}
               onOpenNote={(link, heading) => follow(link, (type, id) => (type === 'capture' ? pick(id) : onOpen?.(type, id)), heading)}
@@ -775,8 +775,9 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
                     </Tip>
                   </div>
                 )}
-                {meta.kind !== 'todo' && <SourceFoot who={meta.attribution} where={meta.medium} quote={meta.kind === 'quote'} />}
+                {meta.kind !== 'todo' && <SourceFoot who={meta.attribution} where={meta.medium} quote={meta.kind === 'quote'} cite={{ table: 'captures', id: open.id, fields: meta.fields }} />}
                 {/* Named after its page: offered, in place, to be named after its topic. */}
+                <PageThoughts id={open.id} />
                 {meta.kind === 'link' && <div data-chrome className="page-narrow mx-auto mt-1 w-full px-[4.5rem]"><TopicName id={open.id} /></div>}
                 {later && <Mentions id={open.id} onOpen={(type, id) => (type === 'capture' ? pick(id) : onOpen?.(type, id))} />}
               </ReadsIn>}

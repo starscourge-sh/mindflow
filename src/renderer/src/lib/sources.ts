@@ -1,12 +1,14 @@
 import { call } from './haligtree'
-import type { Margin, RenameResult, SourceFacts, SourceField, SourceGraph, SourceNear, SourcePage, SourceSummary } from '../../../main/sources'
+import type { Margin, RenameResult, SourceCard, SourceFacts, SourceField, SourceGraph, SourceNear, SourcePage, SourceSummary } from '../../../main/sources'
 
-export type { Margin, SourceFacts, SourceNear, SourceField, SourceGraph, SourceItem, SourcePage, SourceSummary } from '../../../main/sources'
+export type { Margin, SourceCard, SourceFacts, SourceRef, SourceNear, SourceField, SourceGraph, SourceItem, SourcePage, SourceSummary } from '../../../main/sources'
 export { VOICE_SAID, pageRef, voiceOf, type Voice } from '../../../main/voice'
 
 export const sources = {
   list: () => call<SourceSummary[]>('sources'),
   page: (field: SourceField, name: string) => call<SourcePage | null>('source', field, name),
+  /** The card in a note's margin, from its who and where. */
+  card: (who: string | null | undefined, where: string | null | undefined) => call<SourceCard | null>('source:card', who ?? '', where ?? ''),
   set: (field: SourceField, name: string, thoughts?: string) => call<boolean>('source:set', field, name, thoughts),
   /** Remove empty pages, and the Undo that brings each back with the thoughts written on it. */
   dropAll: async (list: { field: SourceField; name: string }[]): Promise<() => void> => {

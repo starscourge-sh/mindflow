@@ -27,7 +27,8 @@ const tally = (one: { count: number; quotes: number }): string => {
 }
 import { setAvatar, pickAvatar, useAvatar } from '@/lib/people'
 import { PersonMenu } from './avatar'
-import type { SourceFacts, SourcePage } from '@/lib/sources'
+import type { SourceCard, SourceFacts, SourcePage } from '@/lib/sources'
+import { notes, type NoteTable } from '@/lib/notes'
 
 const kindOf = (id: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.find((type) => type.id === id) ?? CAPTURE_TYPES[0]
 const FIELD_SAID: Record<SourceField, { one: string; icon: typeof User }> = { attribution: { one: 'Person', icon: User }, medium: { one: 'Source', icon: BookOpen } }
@@ -62,14 +63,80 @@ function SourceLinks({ who, where }: { who?: string | null; where?: string | nul
  * with no source has drifted from whoever said it; a gem with none is only a
  * note of yours.
  */
-export function SourceFoot({ who, where, quote = false, gem = false }: { who?: string | null; where?: string | null; quote?: boolean; gem?: boolean }): React.JSX.Element | null {
+export function SourceFoot({ who, where, quote = false, gem = false, cite }: { who?: string | null; where?: string | null; quote?: boolean; gem?: boolean; /** The note itself, for the page in its source it is from. */ cite?: { table: NoteTable; id: string; fields?: string | null } }): React.JSX.Element | null {
   const sourced = !!(who?.trim() || where?.trim())
-  if (sourced) return <div data-chrome className="page-narrow mx-auto w-full px-[4rem]"><SourceLinks who={who} where={where} /></div>
+  if (sourced) return (
+    <div data-chrome className="page-narrow mx-auto w-full px-[4rem]">
+      {cite && (quote || gem) && <PageNumber {...cite} />}
+      <SourceLinks who={who} where={where} />
+    </div>
+  )
   if (!quote && !gem) return null
   return (
     <p data-chrome data-no-source className="page-narrow mx-auto mt-2 w-full px-[4.5rem] text-body text-foreground">
       {quote ? 'No source yet. Say who said it in the details, so this quote stays with them.' : 'No source yet, so this counts as a note of yours. Say who or where it is from in the details to keep it as their idea.'}
     </p>
+  )
+}
+
+/** The property a quote or a gem keeps its page in its source under. */
+export const PAGE_FIELD = 'Page'
+
+/** The page it is on in its source, read from its properties. */
+const pageOf = (fields: string | null | undefined): string => {
+  try {
+    const value = (JSON.parse(fields ?? 'null') ?? {})[PAGE_FIELD]
+    return value == null ? '' : String(value)
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * Under a quote or a gem from a source: the page it is on, "p. 49", typed
+ * where it is shown. With none yet, a quiet place to give one.
+ */
+function PageNumber({ table, id, fields }: { table: NoteTable; id: string; fields?: string | null }): React.JSX.Element {
+  const page = pageOf(fields)
+  const save = (raw: string): void => {
+    const next = raw.replace(/^p(age|\.)?\s*/i, '').trim().slice(0, 20)
+    if (next === page) return
+    void notes.setField(table, id, PAGE_FIELD, next || null).then(() => chime('noted'))
+  }
+  return (
+    <p data-page-number className="flex items-baseline px-1.5 pt-1 text-control text-muted-foreground">
+      {page && <span aria-hidden>p.</span>}
+      <input aria-label="Page in its source" defaultValue={page} key={page} placeholder="Add the page it is on" maxLength={20}
+        onKeyDown={(event) => event.key === 'Enter' && event.currentTarget.blur()} onBlur={(event) => save(event.target.value)}
+        className="min-w-[2ch] rounded-md bg-transparent px-1 py-0.5 text-control text-muted-foreground tabular-nums outline-none [field-sizing:content] placeholder:text-muted-foreground/80 hover:bg-accent hover:text-foreground focus:bg-accent focus:text-foreground" />
+    </p>
+  )
+}
+
+/**
+ * The card in a note's margin, as on a commonplace spread: the source it
+ * cites (its title opens its page), its year and kind, who wrote it, and
+ * where it was found. Plain muted words with a thin rule on their right,
+ * beside the title when the window has room for it, else one quiet line
+ * under the title (main.css, .mf-margin-card).
+ */
+export function MarginCard({ who, where }: { who?: string | null; where?: string | null }): React.JSX.Element | null {
+  const card = useLive(() => (who?.trim() || where?.trim() ? sources.card(who, where) : Promise.resolve(null)), null as SourceCard | null, [who, where])
+  if (!card) return null
+  const via = card.viaPage
+  const line = [card.born && (card.died && card.field === 'attribution' ? `${card.born} to ${card.died}` : card.born), card.what].filter(Boolean)
+  return (
+    <aside data-margin-card data-chrome contentEditable={false} className="mf-margin-card">
+      <button type="button" data-margin-title onClick={() => (chime('page'), openSource(card.field, card.name))}
+        className="mf-margin-title rounded text-left text-foreground/85 hover:underline hover:underline-offset-2">{card.name}</button>
+      {line.length > 0 && <span data-margin-line>{line.join(' · ')}</span>}
+      {card.author && <span data-margin-author>{card.author}</span>}
+      {card.via && (
+        <span data-margin-via>via {via
+          ? <button type="button" onClick={() => (chime('page'), openSource(via.field, via.name))} className="rounded hover:text-foreground hover:underline hover:underline-offset-2">{card.via}</button>
+          : card.via}</span>
+      )}
+    </aside>
   )
 }
 
@@ -311,9 +378,11 @@ export function SourcePageView({ focus, onOpen }: { focus?: string; onOpen: (typ
           <div className="min-w-0">
             <p className="text-control text-muted-foreground">{FIELD_SAID[which.field].one}</p>
             <SourceName field={which.field} name={name} />
+            <SourceLine page={page} name={name} />
           </div>
         </div>
         )}
+        <FoundThrough page={page} />
         {section('theirs', 'No quotes from here yet. A quote with this as its who or where shows up here.')}
         {section('understood', 'Nothing yet. A gem from here, or words ending in a page in brackets like (p131), shows up here.')}
         {/* Your own words about the source, apart from theirs: the gloss. */}
@@ -330,6 +399,54 @@ export function SourcePageView({ focus, onOpen }: { focus?: string; onOpen: (typ
         {voices.mine.length > 0 && section('mine', '')}
       </div>
     </Page>
+  )
+}
+
+/**
+ * The plain line under a source's name, typed into where it is shown: what
+ * kind it is, its year, and where it was found. A "via" that names another
+ * page in the book opens it.
+ */
+function SourceLine({ page, name }: { page: SourcePage | null; name: string }): React.JSX.Element {
+  const facts = (patch: Partial<SourceFacts>): void => void sources.facts('medium', name, patch).then(() => chime('noted'))
+  const via = page?.viaPage
+  return (
+    <p data-source-line className="-ml-1 mt-0.5 flex flex-wrap items-baseline text-body text-foreground">
+      <Fact label="Kind" placeholder="Book, podcast, film" value={page?.what ?? ''} onSave={(what) => facts({ what })} />
+      <span aria-hidden className="px-0.5">·</span>
+      <Fact label="Year" placeholder="Year" value={page?.born ?? ''} onSave={(born) => facts({ born })} />
+      <span aria-hidden className="px-0.5">·</span>
+      <span className="px-0.5 text-muted-foreground">via</span>
+      <Fact label="Via" placeholder="where you found it" value={page?.via ?? ''} onSave={(next) => facts({ via: next })} />
+      {via && (
+        <button type="button" data-via-open onClick={() => (chime('page'), openSource(via.field, via.name))}
+          className="ml-1 rounded-md px-1 py-0.5 text-control text-muted-foreground hover:bg-accent hover:text-foreground">Open {via.name}’s page</button>
+      )}
+    </p>
+  )
+}
+
+/** Every page whose "via" names this one: what you found through it. Nothing when there is none. */
+function FoundThrough({ page }: { page: SourcePage | null }): React.JSX.Element | null {
+  if (!page?.found.length) return null
+  return (
+    <section data-found-through className="mt-6 px-5">
+      <h3 className="mb-1 text-heading font-semibold">Found through it</h3>
+      <ul className="-mx-1.5 flex flex-col">
+        {page.found.map((one) => {
+          const Icon = FIELD_SAID[one.field].icon
+          return (
+            <li key={`${one.field}:${one.name}`}>
+              <button type="button" onClick={() => (chime('page'), openSource(one.field, one.name))}
+                className="flex max-w-full items-center gap-2 rounded-md px-1.5 py-1 text-body text-foreground transition-colors hover:bg-accent">
+                {one.field === 'attribution' ? <Avatar name={one.name} size={16} /> : <Icon className="size-4 shrink-0 text-muted-foreground" />}
+                <span className="truncate">{one.name}</span>
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
   )
 }
 

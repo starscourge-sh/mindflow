@@ -71,7 +71,7 @@ import { useOpened } from '@/lib/nav'
 import { readAhead, readFresh, readNow, useAfterFirstPaint } from '@/lib/early-read'
 import { NoteComing } from './note-coming'
 import { QuestionDetail, questionEntry, questionMenu, startQuestion } from './questions-view'
-import { GlossTimeline, useRowGloss } from './gloss-line'
+import { GlossTimeline, PageThoughts, useRowGloss } from './gloss-line'
 import { ThoughtDock } from './thought-bar'
 import { dayjs, num } from '../../../../main/dates'
 import { moment } from '@/lib/clock'
@@ -976,7 +976,7 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
         <HaligtreeEditor
           key={restored?.rev ?? 0}
           // A tag opens its page: everything carrying it.
-          {...notePowers({ table: 'nuggets', id: item.id, kind: item.kind, fields: item.fields, text: item.title, titled: item.tier === 'article', created: item.createdAt, updated: item.updatedAt, origin: { captureId: item.captureId ?? undefined, attribution: item.attribution, from: item.id }, onOpen: (type, id) => onOpen?.(type, id) })}
+          {...notePowers({ table: 'nuggets', id: item.id, kind: item.kind, fields: item.fields, text: item.title, titled: item.tier === 'article', created: item.createdAt, updated: item.updatedAt, origin: { captureId: item.captureId ?? undefined, attribution: item.attribution, from: item.id }, cites: { who: item.attribution, where: item.medium }, onOpen: (type, id) => onOpen?.(type, id) })}
           onTitleOut={(title) => !onBoard.current && showTopTitle(title)}
           defaultContent={((restored ? restored.body : item.body) as JSONContent | string | null) ?? ''}
           onOpenNote={(link, heading) => onOpen && follow(link, onOpen, heading)}
@@ -993,7 +993,7 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
                 </Tip>
               </div>
             )}
-            <SourceFoot who={item.attribution} where={item.medium} quote={item.kind === 'quote'} gem={item.tier === 'nugget'} />
+            <SourceFoot who={item.attribution} where={item.medium} quote={item.kind === 'quote'} gem={item.tier === 'nugget'} cite={{ table: 'nuggets', id: item.id, fields: item.fields }} />
             {/* No question yet: the way into Review, said once under the words. */}
             {/* Offered on the day it was kept only: after that, it is not asked again. */}
             {item.tier === 'nugget' && !prompt && !item.supersededBy && recallOffered(item.createdAt) && (
@@ -1004,6 +1004,7 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
                   toast('In Review now: it comes back as a new card', () => (setPrompt(''), void haligtree.saveItem(item.id, { prompt: null }))))
               }} />
             )}
+            <PageThoughts id={item.id} />
             {later && <Mentions id={item.id} onOpen={onOpen} />}
           </ReadsIn>}
           onReady={(instance) => {

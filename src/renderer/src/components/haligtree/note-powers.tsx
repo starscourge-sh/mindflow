@@ -1,6 +1,7 @@
 import type { HaligtreeEditorProps } from './haligtree-editor'
 import { TAGS } from '../haligtree'
 import { PropertyStrip, keepPropertyLine } from './property-strip'
+import { MarginCard } from './source-page'
 import { CopyAsImage, selectionActions } from './selection-actions'
 import type { Origin } from './reword'
 import { findCaptures, findHeadings, follow } from '@/lib/capture-links'
@@ -18,7 +19,7 @@ type NoteTable = 'captures' | 'nuggets'
  * `reading`: the note locked for reading. Nothing to edit, but words can
  * still be picked and kept as a capture or a gem (a reader keeps lines).
  */
-export function notePowers({ table, id, kind, fields, text, origin, onOpen, reading = false, titled = false, created, updated }: {
+export function notePowers({ table, id, kind, fields, text, origin, onOpen, reading = false, titled = false, created, updated, cites }: {
   table: NoteTable
   id: string
   kind: string
@@ -34,7 +35,10 @@ export function notePowers({ table, id, kind, fields, text, origin, onOpen, read
   /** When it was made and last changed, shown read-only in the Properties block. */
   created?: string | null
   updated?: string | null
+  /** Who and where it is from: its source's card, beside the title (source-page.tsx, MarginCard). */
+  cites?: { who?: string | null; where?: string | null }
 }): Partial<HaligtreeEditorProps> {
+  const card = cites && (cites.who?.trim() || cites.where?.trim()) ? <MarginCard who={cites.who} where={cites.where} /> : null
   return {
     host: window.api,
     tokens: TAGS,
@@ -43,7 +47,8 @@ export function notePowers({ table, id, kind, fields, text, origin, onOpen, read
     readOnly: reading,
     documentId: `${table === 'captures' ? 'capture' : 'item'}-${id}`,
     // Locked, the page is words only; the block comes with the keys.
-    belowTitle: reading ? undefined : <PropertyStrip table={table} id={id} kind={kind} fields={fields} text={text} created={created} updated={updated} />,
+    // Its source's card goes with it, locked or not.
+    belowTitle: reading ? card ?? undefined : <>{card}<PropertyStrip table={table} id={id} kind={kind} fields={fields} text={text} created={created} updated={updated} /></>,
     stripFirst: titled,
     onPropertyLine: keepPropertyLine(table, id),
     findNotes: findCaptures,

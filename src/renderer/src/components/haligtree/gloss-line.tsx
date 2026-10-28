@@ -257,6 +257,31 @@ export function GlossLine({ id, className, placeholder = 'A thought on it, in yo
   )
 }
 
+/**
+ * Thoughts at the foot of a note's page, after its words: the keeper's own
+ * words last, as in a commonplace book, each in the pen's hand and dated
+ * small, oldest first. Nothing at all until there is one; the composer under
+ * the page writes the next.
+ */
+export function PageThoughts({ id, className }: { id: string; className?: string }): React.JSX.Element | null {
+  const glosses = useLive(() => haligtree.glosses(id), [] as Gloss[], [id])
+  useReading(unloaded(glosses))
+  if (!glosses.length) return null
+  return (
+    <section data-page-thoughts data-chrome className={cn('page-narrow mx-auto mt-6 w-full px-[4.5rem]', className)}>
+      <h3 className="mb-1.5 text-control text-muted-foreground">My thoughts</h3>
+      <ol className="flex flex-col gap-3">
+        {[...glosses].reverse().map((one) => (
+          <li key={one.id} data-page-thought>
+            <p className="mf-thought private-text whitespace-pre-line wrap-break-word">{one.body}</p>
+            <p className="text-meta text-muted-foreground tabular-nums">{when(one.createdAt)}</p>
+          </li>
+        ))}
+      </ol>
+    </section>
+  )
+}
+
 /** How many thoughts on a note show before "Show more". */
 const GLOSS_FEW = 20
 
