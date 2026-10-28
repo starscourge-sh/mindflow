@@ -2264,7 +2264,7 @@ html[data-book-hue] [data-book-tint] {
 :root[data-day-open] :is(:is(body, [data-day-path]) > :not([data-day-path], [data-day-write], [data-writer-line], .tiptap-suggestion-popup, :has(.tiptap-suggestion-popup)), :is(body, [data-day-path]) > .contents:not([data-day-path]) > *) {
   transition: opacity 800ms var(--mf-ease) 250ms;
 }
-:root[data-day-writing] :is(:is(body, [data-day-path]) > :not([data-day-path], [data-day-write], [data-writer-line], .tiptap-suggestion-popup, :has(.tiptap-suggestion-popup)), :is(body, [data-day-path]) > .contents:not([data-day-path]) > *) {
+:root[data-day-writing] :is(:is(body, [data-day-path]) > :not([data-day-path], [data-day-write], [data-writer-line], .tiptap-suggestion-popup, :has(.tiptap-suggestion-popup), [data-radix-popper-content-wrapper], :has([data-scape-choice])), :is(body, [data-day-path]) > .contents:not([data-day-path]) > *) {
   opacity: 0; pointer-events: none;
   transition: opacity 900ms ease-in-out;
 }

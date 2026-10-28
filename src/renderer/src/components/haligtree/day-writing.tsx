@@ -8,7 +8,6 @@ import type { Editor } from '@tiptap/react'
 import { useCounts } from '@/components/count/word-count'
 import { useStill } from '@/lib/motion'
 import { useLive, haligtree, type Settings } from '@/lib/haligtree'
-import { chime } from '@/lib/sound'
 import { read as aimOf } from '@/components/count/word-aim'
 import { Rolling } from './ui'
 import { clock, num } from '../../../../main/dates'
@@ -31,11 +30,6 @@ export const dayCaption = (hour = new Date().getHours()): string =>
 
 /** A pause this long and you are no longer typing: the count and the squiggles come back. */
 const TYPING = 1200
-/** A pause this long, and what stepped back comes back. */
-const BACK = 9000
-/** A hand on the pointer means it when it travels this far, in px, within MOVE ms: a jiggle is not a move. */
-const REACH = 40
-const MOVE = 300
 /** Words typed in a run before the rest of the page steps back. */
 const WORDS_IN = 3
 /** A gap between keys longer than this is not time spent writing. */
@@ -77,14 +71,12 @@ function markDayPaths(): void {
 /**
  * Typing in the day's words: the count goes at the first key,
  * and a few words in the rest of the page fades to nothing, the sidebar with
- * it, and the words slide calmly to the window's middle (main.css). A
- * deliberate move of the pointer, about nine seconds' pause, or Esc brings it
- * all back; with "Page stays hidden till Esc" chosen, only Esc. Keeps the time spent
- * writing that day, too.
+ * it, and the words slide calmly to the window's middle (main.css). It stays
+ * so until Esc or a click outside the words and their line; a pause or a move
+ * of the pointer never ends it. Keeps the time spent writing that day, too.
  */
 export function useWritingQuiet(editor: Editor | null, day: string): number {
   const [spent, setSpent] = useState(() => timeOf(day))
-  const stay = useLive(haligtree.settings, null as Settings | null)?.writingStay === true
   useEffect(() => {
     setSpent(timeOf(day))
     const dom = editor?.view.dom
@@ -94,7 +86,6 @@ export function useWritingQuiet(editor: Editor | null, day: string): number {
     let typed = 0
     let words = 0
     let last = 0
-    let from: { x: number; y: number; t: number } | null = null
     const quiet = (): void => {
       clearTimeout(typed)
       root.removeAttribute('data-day-typing')
@@ -112,7 +103,6 @@ export function useWritingQuiet(editor: Editor | null, day: string): number {
       root.style.setProperty('--mf-day-shift', `${box ? Math.round(shiftOf(box)) : 0}px`)
       root.setAttribute('data-day-writing', '')
     }
-    let backLater = 0
     const onKey = (event: KeyboardEvent): void => {
       if (event.metaKey || event.ctrlKey || event.isComposing) return
       if (event.key.length !== 1 && event.key !== 'Backspace' && event.key !== 'Enter') return
@@ -123,15 +113,15 @@ export function useWritingQuiet(editor: Editor | null, day: string): number {
       clearTimeout(typed)
       typed = window.setTimeout(quiet, TYPING)
       if ((event.key === ' ' || event.key === 'Enter') && ++words >= WORDS_IN) writing()
-      clearTimeout(backLater)
-      if (!stay) backLater = window.setTimeout(back, BACK)
     }
-    // Only a hand that means it: REACH px in MOVE ms. A jiggle, or the move Chromium fires at a still pointer as the page changes, is not one.
-    const onMove = (event: PointerEvent): void => {
-      if (stay || !root.hasAttribute('data-day-writing')) return void (from = null)
-      const now = { x: event.screenX, y: event.screenY, t: event.timeStamp }
-      if (!from || now.t - from.t > MOVE) return void (from = now)
-      if (Math.hypot(now.x - from.x, now.y - from.y) >= REACH) back()
+    // Once begun, writing mode stays until you leave it: Esc, or a click outside the words and their line. A pause
+    // or a move of the pointer never ends it (the user found being put in and out of it by those confusing), and a
+    // click on the writer's line (its sound) keeps it.
+    const onPress = (event: PointerEvent): void => {
+      if (!root.hasAttribute('data-day-writing')) return
+      const at = event.target as Element | null
+      if (at?.closest?.('[data-writer-line], [data-radix-popper-content-wrapper], [role="menu"]') || (at && dom.contains(at))) return
+      back()
     }
     // Esc brings it all back at once, and is taken: it is not the page's Esc too.
     const onEsc = (event: KeyboardEvent): void => {
@@ -140,25 +130,24 @@ export function useWritingQuiet(editor: Editor | null, day: string): number {
       event.stopPropagation()
       back()
     }
-    const off = (): void => (quiet(), stay ? undefined : back())
+    const off = (): void => quiet()
     dom.addEventListener('keydown', onKey, true)
     window.addEventListener('keydown', onEsc, true)
-    window.addEventListener('pointermove', onMove, true)
+    window.addEventListener('pointerdown', onPress, true)
     dom.addEventListener('blur', off)
     window.addEventListener('blur', off)
     return () => {
       off()
-      clearTimeout(backLater)
       back()
       // Run once the page is gone: only the day pages still open keep their way marked.
       markDayPaths()
       dom.removeEventListener('keydown', onKey, true)
       window.removeEventListener('keydown', onEsc, true)
-      window.removeEventListener('pointermove', onMove, true)
+      window.removeEventListener('pointerdown', onPress, true)
       dom.removeEventListener('blur', off)
       window.removeEventListener('blur', off)
     }
-  }, [editor, day, stay])
+  }, [editor, day])
   return spent
 }
 
@@ -392,10 +381,8 @@ export function WriterLine({ editor, day, spent, today }: { editor: Editor | nul
           // A sound chosen stays reachable whenever the line shows, so whatever is playing can always be turned off here.
           today && (writingNow || (settings?.writingSound ?? 'off') !== 'off') && <WritingSound key="sound" className="pointer-events-auto -mx-1.5" />,
           // Quietly here: the rest of the page stays gone till Esc, not just till a pause.
-          today && writingNow && <button key="stay" type="button" data-writing-stay data-on={settings?.writingStay || undefined} aria-pressed={!!settings?.writingStay}
-            onPointerDown={(event) => event.preventDefault()}
-            onClick={() => (chime('tap'), void haligtree.setSettings({ writingStay: !settings?.writingStay }))}
-            className="pointer-events-auto -mx-1.5 rounded-md px-1.5 py-0.5 transition-colors hover:text-foreground data-on:bg-accent data-on:text-foreground">{settings?.writingStay ? 'Page stays hidden till Esc' : 'Page comes back when you pause'}</button>
+          // How to leave, said once writing mode has begun: nothing else ends it.
+          writingNow && <span key="leave" data-writing-leave>Esc to leave</span>
         ].filter(Boolean).flatMap((one, i) => (i ? [<span key={`dot-${i}`} aria-hidden>·</span>, one] : [one]))}
       </span>
     </div>,

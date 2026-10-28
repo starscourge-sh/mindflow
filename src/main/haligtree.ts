@@ -384,8 +384,6 @@ const DEFAULTS = {
   // Each place's own say under it: the Journal's day pages, and Writing's pages.
   spellJournal: true,
   spellWriting: true,
-  // Today's page in writing mode keeps the rest gone until Esc, not just till a pause (day-writing.tsx).
-  writingStay: false,
   spellLanguages: [] as string[],
   noteFont: 'system' as string,
   // The font is the whole app's unless this says it is only for notes.

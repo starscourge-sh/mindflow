@@ -1,8 +1,8 @@
 // Today's page in writing mode: the writer's line from the first moment
 // (the time; once writing mode begins, the sound and what pausing does; no "0 words"); no count chip
 // of the editor's own under the words; a jiggle of the pointer or a short
-// pause keeps the rest gone, a deliberate move or Esc brings it back; "Stay in
-// writing mode" keeps it gone until Esc; the words slide to the window's
+// pause or a deliberate move keeps the rest gone, Esc or a click away brings it back; the sound
+// is picked from its line without leaving it; the words slide to the window's
 // middle with the sidebar gone, and stay put with it closed before; the
 // Journal's spellcheck switch turns squiggles and the suggestion off there.
 //
@@ -53,7 +53,7 @@ try {
   check('no count chip of the editor\'s own under the day\'s words', !(await h.evaluate(() => document.querySelector('[data-day-write] .tiptap-word-count'))))
   check('a few words in, writing mode', await writing())
   const shown = await line()
-  check('now its controls, each saying what it does', /·(No sound|[A-Za-z, ]+) while writing·Page comes back when you pause$/.test(shown ?? ''), String(shown))
+  check('now its sound, and how to leave', /·(No sound|[A-Za-z, ]+) while writing·Esc to leave$/.test(shown ?? ''), String(shown))
   // A jiggle: a few px at a time.
   for (let i = 0; i < 6; i++) await h.mouse.move(600 + (i % 2) * 6, 400 + (i % 2) * 4)
   check('a jiggle of the pointer keeps the rest gone', await writing())
@@ -70,29 +70,33 @@ try {
   }
   await wait(4000)
   check('five seconds\' pause, still gone', await writing())
+  // A deliberate move and a long pause no longer end it (the user found being put in and out confusing).
   await h.mouse.move(700, 420)
   await h.mouse.move(800, 480)
-  check('a deliberate move brings it back', !(await writing()))
+  check('a deliberate move keeps it', await writing())
+  await wait(9500)
+  check('nine seconds\' pause keeps it', await writing())
+  // Its sound picked from the line, in writing mode: the menu opens, the pick holds, and writing mode stays.
+  await h.click('[data-writing-sound]')
+  await wait(400)
+  check('the sound menu opens from the line in writing mode', (await h.locator('[data-scape-choice="rain"]').count()) === 1 && await writing())
+  await h.click('[data-scape-choice="rain"]'); await wait(400)
+  check('a sound picked there is kept and said', (await v('settings')).writingSound === 'rain' && /Rain while writing/.test((await line()) ?? ''), String(await line()))
+  await v('settings:set', { writingSound: 'off' })
+  check('and writing mode stays through it', await writing())
+  // A click away from the words ends it.
+  await h.mouse.click(60, 400); await wait(300)
+  check('a click outside the words brings the page back', !(await writing()))
   await wait(1500)
   check('and the words slide back where they were', (await slid()) === 0, String(await slid()))
-  await into()
-  await wait(9500)
-  check('about nine seconds\' pause brings it back', !(await writing()))
+  await h.click('[data-page] [data-day-write] .ProseMirror')
   await into()
   await h.keyboard.press('Escape')
   check('Esc brings it back at once', !(await writing()))
   check('and Esc stays in the words', await h.evaluate(() => !!document.activeElement?.closest('[data-day-write]')))
 
-  // The page kept hidden till Esc.
-  await h.click('[data-writing-stay]')
-  await wait(300)
-  check('"Page stays hidden till Esc" shows as on, saying so', (await line())?.endsWith('Page stays hidden till Esc') && await h.evaluate(() => document.querySelector('[data-writing-stay]')?.hasAttribute('data-on')))
   await h.click('[data-page] [data-day-write] .ProseMirror')
   await into()
-  await wait(10_000)
-  await h.mouse.move(300, 300)
-  await h.mouse.move(500, 500)
-  check('with it on, neither a pause nor a move brings the rest back', await writing())
   if (shots) {
     await h.keyboard.press('Meta+ArrowDown')
   await h.keyboard.type(' recieve', { delay: 30 })
