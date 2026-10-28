@@ -2411,3 +2411,5 @@ html[data-tuck-open="left"] .mf-card { border-top-right-radius: 0; border-bottom
   background-size: 100% 100%, var(--mf-paper-step) var(--mf-paper-step), var(--mf-paper-step) var(--mf-paper-step);
   background-attachment: local;
 }
+/* The welcome's easter egg (welcome.tsx, useNameEgg): the word "Haligtree" lit gold for a moment as it is said. */
+::highlight(mf-name-said) { background-color: color-mix(in oklab, #fabd2f 45%, transparent); color: inherit; }

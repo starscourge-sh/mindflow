@@ -12,7 +12,7 @@ import { ArrowUp, Compass, CornerDownLeft, FolderInput, Shuffle, Volume2, Volume
 import { ReaderCard, drawBookName, seedOf } from './reader-card'
 import { renameBook, useShelf } from '@/lib/books'
 import { shift, spring, still } from '@/lib/motion'
-import { ARRIVE_MS, BEAT_MS, PENTA, soundOn, ambience, bedResolve, bedShift, bell, chime, click, fold, pageTurn, quietBed, titleChime } from '@/lib/sound'
+import { sayName, ARRIVE_MS, BEAT_MS, PENTA, soundOn, ambience, bedResolve, bedShift, bell, chime, click, fold, pageTurn, quietBed, titleChime } from '@/lib/sound'
 import { applyTheme, currentTheme, type Theme } from '@/lib/theme'
 import { comboOf, fixed, keyFor, listen, saveKeys, useKeyChanges } from '@/lib/keys'
 import { NO_SETUP, onboarding, type Onboarding, type Setup } from '@/lib/onboarding'
@@ -144,6 +144,64 @@ const PAGE = {
   gone: { opacity: 0, transition: { duration: 0 } }
 }
 
+/**
+ * The welcome's easter egg, all through it: wherever the word "Haligtree" is written (a headline, a line, a card),
+ * the pointer turns to a hand over it, and a click says the name aloud and lights the word for a moment. Found by
+ * the word under the pointer, so no line has to be written differently for it; never inside a field or a button,
+ * which keep their own clicks. The title card's own wordmark has its bounce too (welcome-title.tsx).
+ */
+const NAME_LIT = 'mf-name-said'
+function nameAt(x: number, y: number): Range | null {
+  const at = document.caretRangeFromPoint?.(x, y)
+  const node = at?.startContainer
+  if (!at || !node || node.nodeType !== Node.TEXT_NODE) return null
+  const host = node.parentElement
+  if (!host || host.closest('button, a, input, textarea, [contenteditable="true"], [data-title-name]')) return null
+  const text = node.textContent ?? ''
+  for (const found of text.matchAll(/Haligtree/g)) {
+    if (at.startOffset < found.index || at.startOffset > found.index + found[0].length) continue
+    const word = document.createRange()
+    word.setStart(node, found.index)
+    word.setEnd(node, found.index + found[0].length)
+    // The pointer really over the word's letters, not only nearest to them.
+    if (![...word.getClientRects()].some((box) => x >= box.left && x <= box.right && y >= box.top && y <= box.bottom)) return null
+    return word
+  }
+  return null
+}
+function useNameEgg(root: React.RefObject<HTMLElement | null>, shown: boolean): void {
+  useEffect(() => {
+    const el = root.current
+    if (!el) return
+    let over = false
+    let frame = 0
+    const move = (event: PointerEvent): void => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        const now = !!nameAt(event.clientX, event.clientY)
+        if (now !== over) (over = now), el.style.setProperty('cursor', now ? 'pointer' : '')
+      })
+    }
+    const down = (event: PointerEvent): void => {
+      const word = event.button === 0 ? nameAt(event.clientX, event.clientY) : null
+      if (!word) return
+      // Its own: never also the page's "settle" or "skip" that a click elsewhere on the page means.
+      event.stopPropagation()
+      event.preventDefault()
+      sayName()
+      const lit = (CSS as unknown as { highlights?: Map<string, unknown> }).highlights
+      const Highlight = (window as unknown as { Highlight?: new (...ranges: Range[]) => unknown }).Highlight
+      if (lit && Highlight) {
+        lit.set(NAME_LIT, new Highlight(word))
+        window.setTimeout(() => lit.delete(NAME_LIT), 900)
+      }
+    }
+    el.addEventListener('pointermove', move)
+    el.addEventListener('pointerdown', down, true)
+    return () => void (cancelAnimationFrame(frame), el.removeEventListener('pointermove', move), el.removeEventListener('pointerdown', down, true), el.style.removeProperty('cursor'))
+  }, [root, shown])
+}
+
 export function Welcome(): React.JSX.Element | null {
   const [at, setAt] = useState(-1)
   // Whether the page reads light (dark words): its gold is chosen by what is on screen, not by the theme's dark class.
@@ -205,6 +263,8 @@ export function Welcome(): React.JSX.Element | null {
   // A second press of Next within 400ms is one press, not two.
   const pressedAt = useRef(0)
   const dialog = useRef<HTMLDivElement>(null)
+  // Watched once the welcome is on screen (before, there is no page to watch).
+  useNameEgg(dialog, at >= 0)
   // Whether the page on screen still plays, for Next to show (Primary).
   const [cue, setCue] = useState<Cue>({ done: true, part: null })
   const cueAt = useRef<Cue>(cue)
