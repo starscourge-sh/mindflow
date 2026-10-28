@@ -64,7 +64,7 @@ const card = () => h.evaluate(() => {
     hues: at.getAttribute('data-hues'),
     paper: getComputedStyle(at).backgroundColor,
     ink: getComputedStyle(at).color,
-    nameLines: (() => { const one = at.querySelector('[data-reader-name]'); return Math.round(one.getBoundingClientRect().height / parseFloat(getComputedStyle(one).lineHeight)) })(),
+    nameLines: (() => { const one = at.querySelector('[data-reader-name]'); return Math.round(one.offsetHeight / parseFloat(getComputedStyle(one).lineHeight)) })(),
     nameCut: (() => { const one = at.querySelector('[data-reader-name]'); return one.scrollHeight > one.clientHeight + parseFloat(getComputedStyle(one).lineHeight) / 2 })(),
     // Its own size: on screen it stands turned, a book in 3D, so its box on the page is narrower and taller.
     size: `${at.offsetWidth}x${at.offsetHeight}`,
@@ -141,6 +141,78 @@ try {
   await h.evaluate(() => delete document.documentElement.dataset.motion)
   check('with Motion off it stays flat', calm < 0.1, `${calm}°`)
   await shot('reader-card-github')
+  // The book as a hardback: its light follows how each face stands to a light above and to the right, its shadow
+  // follows its turn, and a ribbon hangs from its foot.
+  const bookShot = async (name) => {
+    if (!process.env.SHOTS) return
+    const box = await h.locator('[data-reader-hold]').boundingBox()
+    await h.screenshot({ path: `${process.env.SHOTS}/${name}.png`, clip: { x: box.x - 70, y: box.y - 50, width: box.width + 140, height: box.height + 110 } })
+  }
+  const light = () => h.evaluate(() => Object.fromEntries([...document.querySelectorAll('[data-reader-light]')].map((one) => [one.dataset.readerLight, +(+getComputedStyle(one).opacity).toFixed(3)])))
+  const shadow = () => h.evaluate(() => getComputedStyle(document.querySelector('[data-reader-shadow]')).transform)
+  const shine = () => h.evaluate(() => +(+getComputedStyle(document.querySelector('[data-reader-shine="front"]')).opacity).toFixed(3))
+  // In and out again with Motion on, so it stands at rest (it was left facing you with Motion off).
+  await h.mouse.move(held.x + held.width / 2, held.y + held.height / 2, { steps: 2 }); await wait(300)
+  await h.mouse.move(held.x - 200, held.y + held.height / 2, { steps: 2 }); await wait(1500)
+  const rest = { light: await light(), shadow: await shadow(), shine: await shine() }
+  await bookShot('book-rest')
+  await h.mouse.move(held.x + held.width / 2, held.y + held.height / 2, { steps: 4 }); await wait(1200)
+  const faced = { light: await light(), shadow: await shadow(), shine: await shine() }
+  await bookShot('book-facing')
+  check('at rest the spine, turned from the light, is darker than the cover', rest.light.spine > rest.light.front + 0.2, JSON.stringify(rest.light))
+  check('facing you, the cover is shown as printed, no veil on it', faced.light.front < 0.02, JSON.stringify(faced.light))
+  check('the shadow and the gloss move as it turns', rest.shadow !== faced.shadow && rest.shine !== faced.shine, `${rest.shadow} / ${faced.shadow}; shine ${rest.shine} / ${faced.shine}`)
+  const parts = await h.evaluate(() => {
+    const cover = document.querySelector('[data-reader-card]').getBoundingClientRect()
+    const ribbon = document.querySelector('[data-reader-ribbon]').getBoundingClientRect()
+    return { ribbonBelow: Math.round(ribbon.bottom - cover.bottom), boards: document.querySelectorAll('[data-reader-board]').length }
+  })
+  check('a ribbon hangs from the foot, and both boards have an edge', parts.ribbonBelow > 20 && parts.boards === 2, JSON.stringify(parts))
+  // Held turned to show its spine, its fore-edge and its back: the light on each face as it comes round.
+  const centre = { x: held.x + held.width / 2, y: held.y + held.height / 2 }
+  for (const [name, dx, dy, face] of [['book-spine', 120, -40, 'spine'], ['book-fore-edge', -110, -40, 'fore'], ['book-back', 300, 0, 'back']]) {
+    await h.mouse.move(centre.x, centre.y); await h.mouse.down()
+    await h.mouse.move(centre.x + dx, centre.y + dy, { steps: 10 }); await wait(900)
+    const lit = await light()
+    await bookShot(name)
+    check(`held round to its ${face}, that face is lit by how it stands to the light`, lit[face] < rest.light[face] || lit[face] < 0.3, `${lit[face]} (at rest ${rest.light[face]})`)
+    await h.mouse.up(); await h.mouse.move(held.x - 200, centre.y, { steps: 2 }); await wait(2600)
+  }
+  // Thrown: let go mid-swing it carries on the way it was going, slows, and settles home; every frame a small step
+  // from the last, and caught again mid-spin it stops under the hand with no jump.
+  const angle = 'const m = new DOMMatrix(getComputedStyle(document.querySelector("[data-reader-card]").parentElement).transform); return Math.atan2(m.m31, m.m33) * 180 / Math.PI'
+  const record = (ms) => h.evaluate(({ ms, angle }) => new Promise((done) => {
+    const read = new Function(angle)
+    const frames = []
+    const start = performance.now()
+    const step = () => (frames.push(read()), performance.now() - start < ms ? requestAnimationFrame(step) : done(frames))
+    requestAnimationFrame(step)
+  }), { ms, angle })
+  await h.mouse.move(centre.x, centre.y); await h.mouse.down()
+  for (let i = 1; i <= 8; i++) (await h.mouse.move(centre.x + i * 18, centre.y), await wait(8))
+  const thrownAt = await h.evaluate(angle => new Function(angle)(), angle)
+  const watching = record(2600)
+  await h.mouse.up(); await h.mouse.move(held.x - 200, centre.y)
+  const frames = await watching
+  // Unwrapped, so a turn past 180° reads on round, not back to -180°.
+  const flat = frames.reduce((all, one) => (all.push(all.length ? all.at(-1) + (((one - frames[all.length - 1] + 540) % 360) - 180) : one), all), [])
+  // Smooth is no sudden change of speed: a fast spin moves far each frame, a jump moves far in one frame alone.
+  const speeds = flat.slice(1).map((one, at) => one - flat[at])
+  const steps = speeds.slice(1).map((one, at) => Math.abs(one - speeds[at]))
+  const carried = Math.max(...flat.slice(0, 20)) - thrownAt
+  check('thrown, it carries on, then settles home, each frame a small step', carried > 15 && Math.max(...steps) < 6 && (await turned()) > 30 && (await turned()) < 50,
+    `carried ${carried.toFixed(1)}° past ${thrownAt.toFixed(1)}°, largest change of step ${Math.max(...steps).toFixed(1)}° over ${frames.length} frames, home ${await turned()}°`)
+  await h.mouse.move(centre.x, centre.y); await h.mouse.down()
+  for (let i = 1; i <= 8; i++) (await h.mouse.move(centre.x + i * 18, centre.y), await wait(8))
+  await h.mouse.up(); await wait(120)
+  const catching = record(400)
+  await h.mouse.move(centre.x + 144, centre.y); await h.mouse.down()
+  const caught = await catching
+  const moves = caught.slice(1).map((one, at) => ((one - caught[at] + 540) % 360) - 180)
+  const jolt = Math.max(...moves.slice(1).map((one, at) => Math.abs(one - moves[at])))
+  await h.mouse.up(); await h.mouse.move(held.x - 200, centre.y); await wait(2600)
+  check('caught again mid-spin, it stops under the hand with no jump', jolt < 6, `largest change of step ${jolt.toFixed(1)}°`)
+  if (process.env.SHOTS) (await import('node:fs')).writeFileSync(`${process.env.SHOTS}/throw-frames.json`, JSON.stringify({ frames: flat, caught }))
   // A long name wraps to a second line, never cut short ("Chapel of Anticipati…" was). The sandbox's book cannot be
   // renamed, so the name is written into the card for the look of it, and put back after.
   const named = (text) => h.evaluate((one) => { document.querySelector('[data-reader-name]').textContent = one }, text)

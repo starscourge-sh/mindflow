@@ -1,7 +1,7 @@
 import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react'
 import { Gem, Link2, Rows2, Shapes, Shuffle } from 'lucide-react'
 import { Coolshape, shapes } from 'coolshapes-react'
-import { motion, useSpring, useTransform } from 'motion/react'
+import { animate, motion, useMotionValue, useSpring, useTransform, type MotionValue } from 'motion/react'
 import { Button } from '@/components/ui/button'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import CopyIcon from '@/components/ui/copy-icon'
@@ -106,6 +106,11 @@ const ROUND = 5
 const BOOK_CORNERS = '2px 5px 5px 2px'
 /** How thick the book is, and how far it stands turned at rest, its spine toward you. */
 const THICK = 30
+/** How thick each board is, and how far the boards stand out past the pages at the head, foot and fore-edge. */
+const BOARD = 3
+const OVERHANG = 3
+const WIDE_BOOK = 250
+const HIGH_BOOK = 375
 const REST_TURN = 34
 const REST_LEAN = 10
 /**
@@ -119,6 +124,64 @@ const EDGE_LINES = (way: 'down' | 'across'): string =>
   `repeating-linear-gradient(${way === 'down' ? 90 : 180}deg, rgb(110 85 35 / 0.28) 0 0.6px, transparent 0.6px 1.9px, rgb(110 85 35 / 0.14) 1.9px 2.4px, transparent 2.4px 3.4px)`
 /** The cover's cloth: fine grey noise, laid on with multiply so the cream reads as a bound cover, not a screen. */
 const CLOTH = `url("data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 0.5  0 0 0 0 0.45  0 0 0 0 0.35  0 0 0 0.9 0"/></filter><rect width="160" height="160" filter="url(#n)"/></svg>')}")`
+
+/**
+ * Where the light comes from: above, a little to the right and in front, as a window over your shoulder. A unit
+ * vector in the page's own terms: x to the right, y down, z toward you.
+ */
+const LIGHT = ((x: number, y: number, z: number) => [x, y, z].map((one) => one / Math.hypot(x, y, z)))(0.35, -0.5, 0.8)
+/** Halfway between the light and your eye: a face turned along it shines. */
+const HALF = ((x: number, y: number, z: number) => [x, y, z].map((one) => one / Math.hypot(x, y, z)))(LIGHT[0], LIGHT[1], LIGHT[2] + 1)
+type Normal = [number, number, number]
+/** A face's outward direction once the book is turned: tipped by `pitch`, then turned by `turn` (rotateX, then rotateY, as motion writes them). */
+function facing([x, y, z]: Normal, pitch: number, turn: number): Normal {
+  const across = (turn * Math.PI) / 180
+  const tip = (pitch * Math.PI) / 180
+  const x1 = Math.cos(across) * x + Math.sin(across) * z
+  const z1 = -Math.sin(across) * x + Math.cos(across) * z
+  return [x1, Math.cos(tip) * y - Math.sin(tip) * z1, Math.sin(tip) * y + Math.cos(tip) * z1]
+}
+/** How bright a face is: a little light from the room everywhere, and the rest by how square it stands to the light. */
+const toneOf = (normal: Normal): number => 0.5 + 0.5 * Math.max(0, normal[0] * LIGHT[0] + normal[1] * LIGHT[1] + normal[2] * LIGHT[2])
+/** The cover facing you sets the scale: as bright as that, a face is shown as it is printed. */
+const FACING = toneOf([0, 0, 1])
+
+/**
+ * One face's light as the book turns: `shade`, how much darker than the cover facing you it is (a black veil's
+ * opacity), `glint`, how much brighter (a white one's), and `shine`, the gloss where it catches the light square on
+ * (Blinn's half-way rule), with `slide`, how far across the face that shine sits. All motion values, read off the
+ * turn each frame, so the light moves without React drawing anything.
+ */
+function useLight(normal: Normal, pitch: MotionValue<number>, turn: MotionValue<number>, lit: MotionValue<number>): Record<'shade' | 'glint' | 'shine' | 'slide', MotionValue<number>> {
+  const seen = useTransform(() => facing(normal, pitch.get(), turn.get()))
+  const shade = useTransform(() => lit.get() * Math.min(0.4, Math.max(0, 1 - toneOf(seen.get()) / FACING)))
+  const glint = useTransform(() => lit.get() * Math.min(0.2, Math.max(0, toneOf(seen.get()) / FACING - 1)))
+  const shine = useTransform(() => {
+    const [x, y, z] = seen.get()
+    return lit.get() * Math.max(0, x * HALF[0] + y * HALF[1] + z * HALF[2]) ** 24
+  })
+  // The face turning past the light carries the shine across it, the way a laminated cover's gloss runs as it turns.
+  const slide = useTransform(() => (seen.get()[0] - HALF[0]) * -180)
+  return { shade, glint, shine, slide }
+}
+
+/** A face's light laid over it: the veil, the glint, and with `gloss` the shine that runs across as it turns. */
+function Lit({ light, gloss = 0, face }: { light: ReturnType<typeof useLight>; gloss?: number; face: string }): React.JSX.Element {
+  const x = useTransform(light.slide, (at) => `${at}%`)
+  const opacity = useTransform(light.shine, (at) => at * gloss)
+  return (
+    <>
+      <motion.span aria-hidden data-reader-light={face} className="pointer-events-none absolute inset-0 rounded-[inherit] bg-[#1c140a]" style={{ opacity: light.shade }} />
+      <motion.span aria-hidden className="pointer-events-none absolute inset-0 rounded-[inherit] bg-white" style={{ opacity: light.glint }} />
+      {gloss > 0 && (
+        <span aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]">
+          <motion.span data-reader-shine={face} className="absolute inset-y-0 -left-full w-[300%] mix-blend-soft-light"
+            style={{ x, opacity, background: 'linear-gradient(100deg, transparent 38%, rgb(255 255 255 / 0.55) 47%, rgb(255 255 255 / 0.9) 50%, rgb(255 255 255 / 0.55) 53%, transparent 62%)' }} />
+        </span>
+      )}
+    </>
+  )
+}
 
 /**
  * The card alone as a PNG, its corners see-through: taken square (cream to the
@@ -275,30 +338,52 @@ export function ReaderCard({ seed: saved, picture = 'shape', point, named, bare 
   // A real book, as Stripe Press's: at rest it stands turned a little, its spine to you; pointed at, it turns to face
   // you and leans toward the pointer. Motion off, it faces you and stays.
   const turn = useSpring(still() ? 0 : REST_TURN, { stiffness: 140, damping: 20 })
-  // Grabbed and dragged, it turns in the hand, any way round (its back, its spine, its pages); let go, it eases back.
-  const spinY = useSpring(0, { stiffness: 90, damping: 16 })
-  const spinX = useSpring(0, { stiffness: 90, damping: 16 })
+  // Grabbed and dragged, it turns in the hand, any way round (its back, its spine, its pages); let go, it carries on
+  // with the throw, slows, and settles home on a soft spring. Plain values, moved by hand and by animate(), so a grab
+  // mid-spin takes it from wherever it is, at no jump.
+  const spinY = useMotionValue(0)
+  const spinX = useMotionValue(0)
   const grab = useRef<{ x: number; y: number; ry: number; rx: number } | null>(null)
   const turned = useTransform(() => turn.get() + tilt.y.get() + spinY.get())
   // And at rest it leans back a little too, as a book stood on a shelf is seen from just above (Stripe Press's pose).
   const lean = useSpring(still() ? 0 : REST_LEAN, { stiffness: 140, damping: 20 })
   const pitched = useTransform(() => tilt.x.get() + spinX.get() + lean.get())
+  // The light on each face, from where it points now; 0 while its picture is taken, so the cover is shown as printed.
+  const lit = useMotionValue(1)
+  const front = useLight([0, 0, 1], pitched, turned, lit)
+  const back = useLight([0, 0, -1], pitched, turned, lit)
+  const spine = useLight([-1, 0, 0], pitched, turned, lit)
+  const fore = useLight([1, 0, 0], pitched, turned, lit)
+  const head = useLight([0, -1, 0], pitched, turned, lit)
+  const foot = useLight([0, 1, 0], pitched, turned, lit)
+  // Its shadow on the table: narrower as it turns edge on (a book is wide but thin), and off to the left, away from
+  // the light, a little further as the spine comes round.
+  const shadowWide = useTransform(() => Math.max(0.22, (Math.abs(Math.cos((turned.get() * Math.PI) / 180)) * WIDE_BOOK + Math.abs(Math.sin((turned.get() * Math.PI) / 180)) * THICK) / WIDE_BOOK))
+  const shadowAt = useTransform(() => -10 + Math.sin((turned.get() * Math.PI) / 180) * 14)
   const letGo = (): void => {
     if (!grab.current) return
     grab.current = null
-    // The shortest way home: a whole turn or two is the same book, so it never spins all the way back round.
+    // Carried on as far as the throw would take it, then home by the nearest whole turn (the same book), so a hard
+    // throw spins round once or twice and a soft one only eases back.
     const y = spinY.get()
-    spinY.jump(y - 360 * Math.round(y / 360))
-    spinY.set(0)
-    spinX.set(0)
+    const throwY = spinY.getVelocity()
+    const home = 360 * Math.round((y + throwY * 0.35) / 360)
+    void animate(spinY, home, { type: 'spring', velocity: throwY, stiffness: 60, damping: 13, restDelta: 0.01 }).then(() => {
+      if (!grab.current) spinY.jump(spinY.get() - home)
+    })
+    void animate(spinX, 0, { type: 'spring', velocity: spinX.getVelocity(), stiffness: 90, damping: 15 })
   }
   // Flat at once, no spring and no sheen, before its picture is taken.
   const level = (): void => {
     turn.jump(0)
     lean.jump(0)
     tilt.flat()
-    for (const one of [tilt.x, tilt.y, tilt.glow]) one.jump(0)
+    for (const one of [tilt.x, tilt.y, tilt.glow, spinX, spinY, lit]) one.jump(0)
     tilt.grow.jump(1)
+  }
+  const unlevel = (): void => {
+    lit.set(1)
+    if (!still()) (turn.set(REST_TURN), lean.set(REST_LEAN))
   }
   useEffect(() => void (point && card.current?.scrollIntoView({ block: 'center' })), [point])
   const name = named ?? shelf?.name ?? ''
@@ -306,8 +391,8 @@ export function ReaderCard({ seed: saved, picture = 'shape', point, named, bare 
   const { title, hues, shape } = cardOf(seed)
   const stamps = facts ? stampsOf(facts) : []
   const actions: { tip: string; icon: ReactNode; data: string; run: () => void }[] = [
-    { tip: 'Copy as image', icon: <AliveIcon icon={CopyIcon} size={15} />, data: 'data-reader-copy', run: () => void shareCard(card.current, false, name, level).finally(() => !still() && (turn.set(REST_TURN), lean.set(REST_LEAN))) },
-    { tip: 'Save as image…', icon: <AliveIcon icon={DownloadIcon} size={15} />, data: 'data-reader-save', run: () => void shareCard(card.current, true, name, level).finally(() => !still() && (turn.set(REST_TURN), lean.set(REST_LEAN))) },
+    { tip: 'Copy as image', icon: <AliveIcon icon={CopyIcon} size={15} />, data: 'data-reader-copy', run: () => void shareCard(card.current, false, name, level).finally(unlevel) },
+    { tip: 'Save as image…', icon: <AliveIcon icon={DownloadIcon} size={15} />, data: 'data-reader-save', run: () => void shareCard(card.current, true, name, level).finally(unlevel) },
     picture === 'shape'
       ? { tip: 'Show two bands instead', icon: <Rows2 className="size-[15px]" />, data: 'data-reader-picture', run: () => void haligtree.setSettings({ readerPicture: 'bands' }) }
       : { tip: 'Show a shape instead', icon: <Shapes className="size-[15px]" />, data: 'data-reader-picture', run: () => void haligtree.setSettings({ readerPicture: 'shape' }) },
@@ -326,15 +411,18 @@ export function ReaderCard({ seed: saved, picture = 'shape', point, named, bare 
       {/* The pointer is read on a wrapper that never tips, as Tilt does: read on the card, a corner tips out from under it and flickers. */}
       {/* A press nudges the book where it is pressed, a little further back and a touch smaller, and on letting go it
           springs back to lean toward the pointer again. */}
-      <div data-reader-hold className="relative mb-[22px]" onPointerEnter={() => (turn.set(0), lean.set(0))} onPointerMove={(event) => {
+      <div data-reader-hold className="relative mb-[34px]" onPointerEnter={() => (turn.set(0), lean.set(0))} onPointerMove={(event) => {
           const held = grab.current
-          if (held) return void (spinY.jump(held.ry + (event.clientX - held.x) * 0.6), spinX.jump(Math.max(-70, Math.min(70, held.rx - (event.clientY - held.y) * 0.4))))
+          if (held) return void (spinY.set(held.ry + (event.clientX - held.x) * 0.6), spinX.set(Math.max(-70, Math.min(70, held.rx - (event.clientY - held.y) * 0.4))))
           if (!event.buttons) tilt.lean(event, event.currentTarget)
         }}
         onPointerLeave={() => (grab.current || tilt.flat(), !still() && !grab.current && (turn.set(REST_TURN), lean.set(REST_LEAN)))}
         onPointerDown={(event) => {
           if (event.button !== 0) return
           event.currentTarget.setPointerCapture(event.pointerId)
+          // Caught where it is, even mid-throw: the spin stops under the hand and goes on from there.
+          spinY.stop()
+          spinX.stop()
           grab.current = { x: event.clientX, y: event.clientY, ry: spinY.get(), rx: spinX.get() }
           tilt.flat()
           turn.set(0)
@@ -342,32 +430,72 @@ export function ReaderCard({ seed: saved, picture = 'shape', point, named, bare 
         }}
         onPointerUp={(event) => (letGo(), tilt.lean({ ...event, buttons: 0 }, event.currentTarget))} onPointerCancel={letGo} onLostPointerCapture={letGo}
         style={{ cursor: grab.current ? 'grabbing' : 'grab', touchAction: 'none' }}>
-        {/* Cream paper in every theme, as a printed card is: its words take the card's own colour, never the theme's. */}
-        {/* Its shadow on the table under it. */}
-        <div aria-hidden className="pointer-events-none absolute right-2 -bottom-4 left-4 h-6 rounded-[50%] bg-black/35 blur-[14px]" />
-        {/* The book is a box in 3D: the cover at its front, the back cover behind, the spine down its left side, and the
-            old yellowed pages at its fore-edge, head and foot, each leaf a fine line. It turns and tips as one. */}
-        <motion.div className="relative h-[375px] w-[250px] [transform-style:preserve-3d]" style={{ rotateX: pitched, rotateY: turned, scale: tilt.grow, transformPerspective: 1000 }}>
+        {/* Its shadow on the table under it: a wide soft one from the room, and a tight dark one where it stands,
+            both narrowing as it turns edge on and lying away from the light. */}
+        <motion.div aria-hidden data-reader-shadow className="pointer-events-none absolute inset-x-3 -bottom-5 h-8 rounded-[50%] bg-black/25 blur-[18px]" style={{ x: shadowAt, scaleX: shadowWide }} />
+        <motion.div aria-hidden className="pointer-events-none absolute inset-x-6 -bottom-1.5 h-3 rounded-[50%] bg-black/40 blur-[6px]" style={{ x: shadowAt, scaleX: shadowWide }} />
+        {/* The book is a box in 3D, built as a hardback is: two boards (the cover at the front, the back behind), each
+            with its own thickness at the head, foot and fore-edge, standing a little proud of the old yellowed pages
+            set in between, and the spine round the left. Each face takes the light by how it stands to it. */}
+        {/* Its colours are set on the whole book, so the spine and the cover wear the same ink. Cream paper in every
+            theme, as a printed card is: its words take the card's own colour, never the theme's. */}
+        <motion.div className="relative h-[375px] w-[250px] [transform-style:preserve-3d]" style={{ rotateX: pitched, rotateY: turned, scale: tilt.grow, transformPerspective: 1000, ...({ transition: '--mf-card-a 700ms ease-out, --mf-card-b 700ms ease-out, --mf-card-c 700ms ease-out', '--mf-card-a': inked(hues[0], 0.82, 0.13), '--mf-card-b': inked(hues[1], 0.66, 0.19), '--mf-card-c': inked(hues[2], 0.44, 0.15) } as CSSProperties) }}>
           {/* The back cover: plain cloth, the press's mark small in its middle, as a hardback's back board. */}
           <div aria-hidden data-reader-back className="absolute inset-0 flex flex-col items-center justify-center gap-1 [backface-visibility:hidden]" style={{ transform: `rotateY(180deg) translateZ(${THICK / 2}px)`, borderRadius: '5px 2px 2px 5px', background: `${CLOTH}, #f3ecd6`, color: 'var(--mf-card-c)' }}>
             <img src={markGold} alt="" draggable={false} className="size-9 opacity-80" />
             <span className="text-[0.5rem] font-semibold tracking-[0.18em] uppercase" style={{ fontFamily: "'Fraunces Variable', Georgia, serif" }}>Haligtree</span>
+            <span aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-[18px] rounded-r-[inherit] bg-[linear-gradient(to_left,rgb(0_0_0/0.16),rgb(0_0_0/0.05)_35%,rgb(255_255_255/0.12)_55%,rgb(0_0_0/0.04)_64%,rgb(0_0_0/0.24)_70%,rgb(0_0_0/0.1)_76%,rgb(255_255_255/0.5)_82%,rgb(255_255_255/0.12)_90%,transparent)]" />
+            <Lit light={back} gloss={0.5} face="back" />
           </div>
-          <div aria-hidden data-reader-spine-face className="absolute top-0 flex h-full items-center justify-center overflow-hidden [backface-visibility:hidden]"
-            style={{ left: (250 - THICK) / 2, width: THICK, transform: `rotateY(-90deg) translateZ(125px)`, background: `linear-gradient(to right, rgb(0 0 0 / 0.3), transparent 30%, rgb(255 255 255 / 0.18) 55%, transparent 75%, rgb(0 0 0 / 0.25)), ${CLOTH}, var(--mf-card-c)`, color: '#fffbea' }}>
-            {/* A quarter binding, as many cloth books have: the spine in the cover's ink, its name stamped down it. */}
-            <span className="text-[0.6875rem] font-bold tracking-[0.06em] whitespace-nowrap" style={{ writingMode: 'vertical-rl', fontFamily: "'Fraunces Variable', Georgia, serif" }}>{name}</span>
+          {/* The spine: rounded, so lit in a band down its middle and falling dark to either hinge. */}
+          <div aria-hidden data-reader-spine-face className="absolute top-0 flex h-full items-center justify-center overflow-hidden rounded-[3px] [backface-visibility:hidden]"
+            style={{ left: (WIDE_BOOK - THICK) / 2, width: THICK, transform: `rotateY(-90deg) translateZ(${WIDE_BOOK / 2}px)`, background: `linear-gradient(to right, rgb(0 0 0 / 0.42), rgb(0 0 0 / 0.08) 22%, rgb(255 255 255 / 0.16) 48%, rgb(255 255 255 / 0.05) 62%, rgb(0 0 0 / 0.12) 80%, rgb(0 0 0 / 0.45)), ${CLOTH}, var(--mf-card-c)` }}>
+            {/* A quarter binding, as many cloth books have: the spine in the cover's ink, its name blocked down it in gold
+                foil between two gold rules at the head and foot. */}
+            <span className="absolute inset-x-[5px] top-[18px] h-[3px] border-y border-[#d9bd78]/80" />
+            <span className="absolute inset-x-[5px] bottom-[18px] h-[3px] border-y border-[#d9bd78]/80" />
+            <span className="bg-[linear-gradient(to_bottom,#f3dfa2,#c9a55a_45%,#f0d894_60%,#b8924a)] bg-clip-text text-[0.6875rem] font-bold tracking-[0.06em] whitespace-nowrap text-transparent" style={{ writingMode: 'vertical-rl', fontFamily: "'Fraunces Variable', Georgia, serif" }}>{name}</span>
+            <Lit light={spine} gloss={0.8} face="spine" />
           </div>
-          <div aria-hidden data-reader-pages className="absolute top-[2px] [backface-visibility:hidden]" style={{ left: (250 - THICK) / 2, width: THICK, height: 371, transform: `rotateY(90deg) translateZ(123px)`, background: `${EDGE_LINES('down')}, ${OLD_PAGES}` }} />
-          <div aria-hidden className="absolute left-[3px] [backface-visibility:hidden]" style={{ top: (375 - THICK) / 2, height: THICK, width: 244, transform: `rotateX(90deg) translateZ(185.5px)`, background: `${EDGE_LINES('across')}, ${OLD_PAGES}` }} />
-          <div aria-hidden className="absolute left-[3px] [backface-visibility:hidden]" style={{ top: (375 - THICK) / 2, height: THICK, width: 244, transform: `rotateX(-90deg) translateZ(185.5px)`, background: `${EDGE_LINES('across')}, ${OLD_PAGES}` }} />
+          {/* The page block, set in from the boards' edges, its leaves a fine line each and shadowed where the boards
+              close over them. */}
+          <div aria-hidden data-reader-pages className="absolute [backface-visibility:hidden]"
+            style={{ top: OVERHANG, left: (WIDE_BOOK - (THICK - 2 * BOARD)) / 2, width: THICK - 2 * BOARD, height: HIGH_BOOK - 2 * OVERHANG, transform: `rotateY(90deg) translateZ(${WIDE_BOOK / 2 - OVERHANG}px)`, background: `linear-gradient(to right, rgb(60 40 10 / 0.35), transparent 22%, transparent 80%, rgb(60 40 10 / 0.3)), ${EDGE_LINES('down')}, ${OLD_PAGES}` }}>
+            <Lit light={fore} face="fore" />
+          </div>
+          {[head, foot].map((light, at) => (
+            <div key={at} aria-hidden className="absolute [backface-visibility:hidden]"
+              style={{ left: 2, top: (HIGH_BOOK - (THICK - 2 * BOARD)) / 2, height: THICK - 2 * BOARD, width: WIDE_BOOK - 2 - OVERHANG, transform: `rotateX(${at ? -90 : 90}deg) translateZ(${HIGH_BOOK / 2 - OVERHANG}px)`, background: `linear-gradient(to bottom, rgb(60 40 10 / 0.35), transparent 22%, transparent 80%, rgb(60 40 10 / 0.3)), ${EDGE_LINES('across')}, ${OLD_PAGES}` }}>
+              {/* The headband (and tailband): a little coloured thread where the pages meet the spine. */}
+              <span className="absolute inset-y-[2px] left-0 w-[5px] rounded-r-[1px] bg-[repeating-linear-gradient(to_bottom,var(--mf-card-a)_0_1.5px,var(--mf-card-b)_1.5px_3px)]" />
+              <Lit light={light} face={at ? 'foot' : 'head'} />
+            </div>
+          ))}
+          {/* Each board's own edge, cloth turned over a board: at the fore-edge, the head and the foot of each. */}
+          {[1, -1].map((side) => [
+            <div key={`fore${side}`} aria-hidden data-reader-board className="absolute top-0 h-full [backface-visibility:hidden]"
+              style={{ left: (WIDE_BOOK - BOARD) / 2, width: BOARD, transform: `translateZ(${side * (THICK / 2 - BOARD / 2)}px) rotateY(90deg) translateZ(${WIDE_BOOK / 2}px)`, background: `${CLOTH}, #e6dcbc` }}>
+              <Lit light={fore} face="board" />
+            </div>,
+            ...[head, foot].map((light, at) => (
+              <div key={`${at}${side}`} aria-hidden className="absolute left-[2px] [backface-visibility:hidden]"
+                style={{ top: (HIGH_BOOK - BOARD) / 2, height: BOARD, width: WIDE_BOOK - 2, transform: `translateZ(${side * (THICK / 2 - BOARD / 2)}px) rotateX(${at ? -90 : 90}deg) translateZ(${HIGH_BOOK / 2}px)`, background: `${CLOTH}, #e6dcbc` }}>
+                <Lit light={light} face="board" />
+              </div>
+            ))
+          ])}
+          {/* A ribbon to keep your place, laid in at the head and hanging out at the foot between the pages. */}
+          <div aria-hidden data-reader-ribbon className="absolute left-[176px] w-[9px]"
+            style={{ top: HIGH_BOOK - 12, height: 50, transform: 'translateZ(2px) rotate(4deg)', transformOrigin: 'top', clipPath: 'polygon(0 0, 100% 0, 100% 100%, 50% 88%, 0 100%)', background: 'linear-gradient(to right, rgb(0 0 0 / 0.3), transparent 30%, rgb(255 255 255 / 0.18) 50%, transparent 70%, rgb(0 0 0 / 0.3)), repeating-linear-gradient(to bottom, rgb(0 0 0 / 0.12) 0 1px, transparent 1px 2px), #7d1d22' }}>
+            <Lit light={front} face="ribbon" />
+          </div>
         <div
           ref={card}
           data-reader-card
           data-hues={hues.join(' ')}
           data-picture={picture}
           className="absolute inset-0 flex flex-col bg-[#fffbea] py-4 pr-4 pl-[1.75rem] [backface-visibility:hidden]"
-          style={{ transform: `translateZ(${THICK / 2}px)`, ...({ borderRadius: BOOK_CORNERS, transition: '--mf-card-a 700ms ease-out, --mf-card-b 700ms ease-out, --mf-card-c 700ms ease-out', color: 'var(--mf-card-c)', '--mf-card-a': inked(hues[0], 0.82, 0.13), '--mf-card-b': inked(hues[1], 0.66, 0.19), '--mf-card-c': inked(hues[2], 0.44, 0.15) } as CSSProperties) }}
+          style={{ transform: `translateZ(${THICK / 2}px)`, borderRadius: BOOK_CORNERS, color: 'var(--mf-card-c)' }}
         >
           {picture === 'shape' ? <ShapePicture shape={shape} /> : <div className="overflow-hidden rounded-[2px]"><Bands /></div>}
           <p data-reader-name className="mt-3 line-clamp-2 text-[1.375rem] leading-[1.12] font-bold tracking-[-0.015em] break-words" style={{ fontFamily: "'Fraunces Variable', Georgia, serif" }}>{name || ' '}</p>
@@ -401,13 +529,14 @@ export function ReaderCard({ seed: saved, picture = 'shape', point, named, bare 
           {/* A tooled frame on the cover, two fine rules in its ink, as a cloth binding is blocked; clear of the spine. */}
           <span aria-hidden data-reader-frame className="pointer-events-none absolute top-[7px] right-[7px] bottom-[7px] left-[19px] rounded-[2px] border border-current opacity-[0.22]" />
           <span aria-hidden className="pointer-events-none absolute top-[10px] right-[10px] bottom-[10px] left-[22px] rounded-[1px] border border-current opacity-[0.12]" />
-          {/* The headband and tailband: a little coloured thread at the top and foot of the spine. */}
-          <span aria-hidden className="pointer-events-none absolute top-0 left-[3px] h-[3px] w-[8px] rounded-b-[1px] bg-[var(--mf-card-a)] opacity-80" />
-          <span aria-hidden className="pointer-events-none absolute bottom-0 left-[3px] h-[3px] w-[8px] rounded-t-[1px] bg-[var(--mf-card-a)] opacity-80" />
-          <span aria-hidden data-reader-spine className="pointer-events-none absolute inset-y-0 left-0 w-[16px] rounded-l-[inherit] bg-[linear-gradient(to_right,rgb(0_0_0/0.16),rgb(0_0_0/0.05)_50%,rgb(255_255_255/0.4)_66%,rgb(0_0_0/0.12)_78%,rgb(0_0_0/0.03)_88%,transparent)]" />
+          {/* The hinge: the cloth pressed into a groove a little in from the spine, where the cover bends open; shadowed on
+              its spine side, catching the light on the other, and the strip before it rounded over the joint. */}
+          <span aria-hidden data-reader-spine className="pointer-events-none absolute inset-y-0 left-0 w-[18px] rounded-l-[inherit] bg-[linear-gradient(to_right,rgb(0_0_0/0.16),rgb(0_0_0/0.05)_35%,rgb(255_255_255/0.12)_55%,rgb(0_0_0/0.04)_64%,rgb(0_0_0/0.24)_70%,rgb(0_0_0/0.1)_76%,rgb(255_255_255/0.5)_82%,rgb(255_255_255/0.12)_90%,transparent)]" />
           <span aria-hidden data-reader-grain className="pointer-events-none absolute inset-0 rounded-[inherit] opacity-[0.22] mix-blend-multiply" style={{ backgroundImage: CLOTH }} />
           {/* A soft light where the pointer is, as the card tips. */}
           <motion.span aria-hidden className="pointer-events-none absolute inset-0 rounded-[inherit]" style={{ background: tilt.sheen, opacity: tilt.glow }} />
+          {/* And the room's light on the cover as it turns: darker turned away, and a gloss that runs across it. */}
+          <Lit light={front} gloss={0.55} face="front" />
         </div>
         </motion.div>
       </div>
