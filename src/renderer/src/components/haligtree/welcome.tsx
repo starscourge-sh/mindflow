@@ -1553,6 +1553,8 @@ function NameChapter({ play, report, onNext }: { play: boolean; report: (now: Re
   // "Draw another" draws a new card with the name (a new picture, colours and title), whether or not the card was
   // drawn before; typing keeps the card as it is.
   const [redrawn, setRedrawn] = useState<number | null>(null)
+  // The names Draw another has put in the field, so one written by hand is told apart and never replaced.
+  const drawnNames = useRef(new Set<string>())
   const seed = redrawn ?? look?.seed ?? seedOf(drawn)
   const kept = useRef({ shown, seed, shelf, look, redrawn })
   kept.current = { shown, seed, shelf, look, redrawn }
@@ -1577,7 +1579,15 @@ function NameChapter({ play, report, onNext }: { play: boolean; report: (now: Re
                 if (event.key === 'Enter') (event.preventDefault(), onNext())
                 else if (event.key === 'Escape') (event.preventDefault(), event.currentTarget.blur())
               }} />
-            <button type="button" data-name-draw onClick={() => { chime('anew'); const next = drawBookName(Math.random, value.trim() || drawn); setDrawn(next); setTyped(next); setRedrawn(seedOf(next)) }} className={`${QUIET_BUTTON} absolute top-1/2 right-1.5 -translate-y-1/2`}>
+            <button type="button" data-name-draw onClick={() => {
+              chime('anew')
+              // A name written by hand is theirs: kept, and only the card is drawn again. A drawn one (or none) is drawn anew with it.
+              const own = !!value.trim() && !drawnNames.current.has(value.trim())
+              const next = own ? value.trim() : drawBookName(Math.random, value.trim() || drawn)
+              drawnNames.current.add(next)
+              if (!own) (setDrawn(next), setTyped(next))
+              setRedrawn(own ? Math.floor(Math.random() * 2 ** 31) : seedOf(next))
+            }} className={`${QUIET_BUTTON} absolute top-1/2 right-1.5 -translate-y-1/2`}>
               <Shuffle className="size-4" strokeWidth={1.8} /> Draw another
             </button>
           </div>
