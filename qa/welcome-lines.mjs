@@ -27,7 +27,11 @@ const measure = (h) => h.evaluate(() => {
   const lines = ['kept', 'gem', 'task'].map((one) => {
     const path = document.querySelector(`[data-link="${one}"]`)
     const mark = document.querySelector(`[data-flow="note"] [data-mark="${one}"]`)
-    const card = document.querySelector(`[data-flow="${one}"]`).getBoundingClientRect()
+    const block = document.querySelector(`[data-flow="${one}"]`)
+    const card = block.getBoundingClientRect()
+    // A gem's line lands on its own words' first line.
+    const lands = block.querySelector('[data-lands]')
+    const landY = lands ? lands.getBoundingClientRect().top + parseFloat(getComputedStyle(lands).lineHeight) / 2 : (card.top + card.bottom) / 2
     const svg = path.ownerSVGElement.getBoundingClientRect()
     const length = path.getTotalLength()
     const points = Array.from({ length: 41 }, (_, i) => path.getPointAtLength((length * i) / 40)).map((p) => [svg.left + p.x, svg.top + p.y])
@@ -40,11 +44,15 @@ const measure = (h) => h.evaluate(() => {
       level: (last.top + last.bottom) / 2,
       // Any point of the line over the paragraph's own box: through or under its words.
       over: points.filter(([x, y]) => x < para.right - 1 && y > para.top && y < para.bottom).length,
-      card: [card.left, (card.top + card.bottom) / 2]
+      card: [card.left, landY]
     }
   })
   const all = [...document.querySelectorAll('[data-flow], [data-flow-last]')].map((el) => el.getBoundingClientRect())
   const words = document.querySelector('.mf-welcome h1').parentElement.getBoundingClientRect().bottom
+  // The gems leave the page as one line, from between their two phrases.
+  const gems = lines.filter((one) => one.id !== 'task')
+  const between = (gems[0].level + gems[1].level) / 2
+  for (const one of gems) one.level = between
   return { right: note.right, lines, room: Math.round(foot - Math.max(...all.map((r) => r.bottom))), head: Math.round(Math.min(...all.map((r) => r.top)) - words), fits: all.every((r) => r.right <= innerWidth && r.left >= 0) }
 })
 
@@ -76,9 +84,11 @@ for (const theme of ['light', 'dark']) {
         check(`${at}: each line leaves from the page's right edge, level with its own marked words`, m.lines.every((one) => Math.abs(one.start[0] - m.right) <= 2 && Math.abs(one.start[1] - one.level) <= 10), m.lines.map((one) => `${one.id} ${Math.round(one.start[0] - m.right)},${Math.round(one.start[1] - one.level)}`).join(' | '))
         check(`${at}: no line runs through or under the paragraph`, m.lines.every((one) => one.over === 0), m.lines.map((one) => `${one.id} ${one.over}`).join(' | '))
         check(`${at}: each line lands on its own card`, m.lines.every((one) => Math.abs(one.end[0] - one.card[0]) <= 2 && Math.abs(one.end[1] - one.card[1]) <= 2))
-        const byStart = [...m.lines].sort((a, b) => a.start[1] - b.start[1]).map((one) => one.id).join()
-        const byEnd = [...m.lines].sort((a, b) => a.end[1] - b.end[1]).map((one) => one.id).join()
-        const apart = [...m.lines].sort((a, b) => a.start[1] - b.start[1]).every((one, i, all) => !i || one.start[1] - all[i - 1].start[1] >= 6)
+        // The gems' line and the task's: the gems' leaves higher and lands higher, the two well apart. The gems' share a start, and fork in page order.
+        const [kept, gem, task] = m.lines
+        const byStart = kept.start[1] < task.start[1] && Math.abs(kept.start[1] - gem.start[1]) < 1 ? 'gems,task' : 'crossed'
+        const byEnd = Math.max(kept.end[1], gem.end[1]) < task.end[1] && kept.end[1] < gem.end[1] ? 'gems,task' : 'crossed'
+        const apart = task.start[1] - kept.start[1] >= 6
         check(`${at}: the lines never cross: a phrase higher in the page goes to a higher card`, byStart === byEnd && apart, `${byStart} / ${byEnd}`)
         check(`${at}: the cards and the closing line fit between the page's words and the footer`, m.room >= 0 && m.head >= 0 && m.fits, `${m.head}px under the words, ${m.room}px over the footer`)
         if (SHOTS) await h.screenshot({ path: `${SHOTS}/${theme}-${id}-${w}x${hh}.png` })

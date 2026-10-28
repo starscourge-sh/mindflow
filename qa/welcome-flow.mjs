@@ -116,7 +116,9 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
         inkKept: [css('[data-flow="note"] [data-ink="kept"]', 'color'), css('[data-flow="kept"] [data-ink="kept"]', 'color')],
         kept: document.querySelector('[data-flow="kept"]')?.innerText.replace(/\s+/g, ' ') ?? '',
         // How each gem comes back, said beside the Gems list's own mark: an icon drawn first in the line, and only the gem with a question has a question box.
-        marks: ['kept', 'gem'].map((one) => { const line = document.querySelector(`[data-flow="${one}"] [data-comes]`); return line ? `${line.dataset.comes}:${line.querySelector('svg') ? 'icon' : 'none'}:${line.querySelector('svg')?.outerHTML.length ?? 0}` : '' }),
+        // Each row leads with its own mark (the card's head says gem once).
+        marks: ['kept', 'gem'].map((one) => { const line = document.querySelector(`[data-flow="${one}"] [data-comes]`); const mark = document.querySelector(`[data-flow="${one}"] [data-comes-mark] svg`); return line ? `${line.dataset.comes}:${mark ? 'icon' : 'none'}:${mark?.outerHTML.length ?? 0}` : '' }),
+        icons: document.querySelectorAll('[data-gems] svg').length,
         keptAsks: !!document.querySelector('[data-flow="kept"] [data-question]'),
         inkTask: [css('[data-flow="note"] [data-ink="task"]', 'color'), css('[data-flow="task"] [data-ink="task"]', 'color')],
         inkGem: [css('[data-flow="note"] [data-ink="gem"]', 'color'), css('[data-flow="gem"] [data-ink="gem"]', 'color')],
@@ -138,7 +140,10 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
           const last = rects[rects.length - 1]
           const [x, y] = [svg.left + start.x, svg.top + start.y]
           const edge = document.querySelector('[data-flow="note"]').getBoundingClientRect().right
-          return Math.round(Math.max(Math.abs(x - edge), Math.abs(y - (last.top + last.bottom) / 2) > 10 ? 99 : 0))
+          // The gems leave as one line, from between their two phrases.
+          const level = (name) => { const r = [...document.querySelector(`[data-flow="note"] [data-mark="${name}"]`).getClientRects()].pop(); return (r.top + r.bottom) / 2 }
+          const want = one === 'task' ? (last.top + last.bottom) / 2 : (level('kept') + level('gem')) / 2
+          return Math.round(Math.max(Math.abs(x - edge), Math.abs(y - want) > 10 ? 99 : 0))
         }),
         // The page: a print from the book, loaded; one paragraph, the gem's sentence and the task's phrase marked inside it.
         print: (() => { const img = document.querySelector('[data-flow="note"] [data-print] img'); return !!img && img.complete && img.naturalWidth > 100 })(),
@@ -153,8 +158,9 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
     check(`${theme}: the plain gem's line wears the gem's colour too`, same(look.washKept) && same(look.inkKept) && look.washKept[0] === look.washGem[0], JSON.stringify([look.washKept, look.inkKept]))
     check(`${theme}: the two colours differ`, look.washTask[0] !== look.washGem[0] && look.inkTask[0] !== look.inkGem[0])
     check(`${theme}: the task is named without its day, and its day read as ${DAY}`, look.task.includes(S.task) && !new RegExp(`on ${DAY}`).test(look.task.split('Now a task')[0]) && new RegExp(`Now a task, due ${DAY}`).test(look.task), look.task)
-    check(`${theme}: the gem keeps the sentence and takes a question for Review`, look.gem.includes(gemOf(S)) && /“Review” asks it as you start to forget/.test(look.gem) && look.question === S.question, look.gem)
-    check(`${theme}: the plain gem keeps its sentence with no question, and comes back now and then`, look.kept.includes(S.kept) && /Comes back now and then/.test(look.kept) && !look.keptAsks, look.kept)
+    check(`${theme}: the gem keeps the sentence and takes a question for Review`, look.gem.includes(gemOf(S)) && /“Review” asks you before you forget/.test(look.gem) && look.question === S.question, look.gem)
+    check(`${theme}: the plain gem keeps its sentence with no question, and comes back now and then`, look.kept.includes(S.kept) && /Shows up now and then in the app/.test(look.kept) && !look.keptAsks, look.kept)
+    check(`${theme}: the Gems card says gem once, in its head, and each row leads with its own mark`, look.icons === 3, String(look.icons))
     check(`${theme}: each gem wears its own mark from the Gems list (Eye for now and then, Brain for Review), the two different`, look.marks[0].startsWith('feed:icon') && look.marks[1].startsWith('review:icon') && look.marks[0].split(':')[2] !== look.marks[1].split(':')[2], look.marks.join(' | '))
     const taskWords = `${S.task[0].toLowerCase()}${S.task.slice(1)} on ${DAY}`
     check(`${theme}: the page is a print from the book and one paragraph: the story's sentences as written, then "I should ..." with the task's phrase`, look.print && look.paragraphs === 1 && look.prose === `${S.words.join(' ')} I should ${taskWords}.`, look.prose)
@@ -162,7 +168,7 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
     check(`${theme}: the closing line is shown`, look.last === 'Nothing is copied out: each one stays linked to its line in the note.', look.last)
     check(`${theme}: no em or en dashes on the page`, look.dashes === 0, `${look.dashes}`)
     check(`${theme}: four lines drawn, the note parting in three`, look.links.join() === 'note,task,kept,gem', look.links.join())
-    check(`${theme}: each branch leaves from the page's edge, level with its own marked words`, look.leaves.every((one) => one <= 3), look.leaves.join())
+    check(`${theme}: each branch leaves from the page's edge, level with its own marked words (the gems' one line from between theirs)`, look.leaves.every((one) => one <= 3), look.leaves.join())
     check(`${theme}: the example note never wears your tag`, look.tag === null, String(look.tag))
 
     // Back to Catch and on again: the same story, its page on Write titled as before.

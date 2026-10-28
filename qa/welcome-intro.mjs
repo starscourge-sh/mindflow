@@ -52,7 +52,7 @@ try {
   let nameAt = 0
   let lineAt = 0
   const opacity = (selector) => h.evaluate((selector) => { const el = document.querySelector(selector); return el ? Number(getComputedStyle(el).opacity) : 0 }, selector)
-  for (let t = await sinceMist(); t < 12500; t = await sinceMist()) {
+  for (let t = await sinceMist(); t < 16000; t = await sinceMist()) {
     looks++
     title ||= await h.evaluate(() => document.querySelector('[data-title-card]')?.innerText ?? '')
     if (await seen('[data-title-card]')) card++
@@ -62,16 +62,16 @@ try {
     else if ((await opacity('[data-title-card] h1')) > 0.05) earlyWords = true
     if (!nameAt && (await opacity('[data-title-card] h1')) > 0.95) nameAt = t
     if (!lineAt && (await opacity('[data-title-card] p')) > 0.95) lineAt = t
-    if (SHOTS && t > [900, 1600, 2600, 3600, 4800, 5800, 7400, 11000][frame]) await shot(`0${frame++}-card-${(t / 1000).toFixed(1)}s`)
+    if (SHOTS && t > [1500, 3000, 4500, 6000, 7500, 9000, 10500, 14000][frame]) await shot(`0${frame++}-card-${(t / 1000).toFixed(1)}s`)
     // No mark over the words now, and the wordmark's weight.
-    if (t > 7000 && !mark) mark = await h.evaluate(() => ({ drawn: document.querySelectorAll('[data-title-card] canvas, [data-title-mark]').length, weight: Number(getComputedStyle(document.querySelector('[data-title-card] h1')).fontWeight) }))
+    if (t > 10500 && !mark) mark = await h.evaluate(() => ({ drawn: document.querySelectorAll('[data-title-card] canvas, [data-title-mark]').length, weight: Number(getComputedStyle(document.querySelector('[data-title-card] h1')).fontWeight) }))
     await h.waitForTimeout(200)
   }
   check('the title card shows in the mist, all the way to its lift', card === looks && looks > 5, `${card} of ${looks} looks`)
   check('it reads as a title page: Haligtree, a commonplace book kept by its owner', /Haligtree/.test(title) && /A commonplace book( kept by \S+)?/.test(title), title.replace(/\s+/g, ' '))
   check('no mark over the words: the words alone', mark?.drawn === 0, String(mark?.drawn))
   check('the wordmark is bold', (mark?.weight ?? 0) >= 600, String(mark?.weight))
-  check('a small glow breathes, then spreads whole, in about six seconds', bloomAt > 5500 && bloomAt < 7500, `${bloomAt}ms`)
+  check('dark, then a small glow breathes, then spreads whole, in about ten seconds', bloomAt > 8800 && bloomAt < 11000, `${bloomAt}ms`)
   check('no words while it blooms', !earlyWords)
   check('then Haligtree, then the line under it', nameAt > bloomAt && lineAt > nameAt, `bloom ${bloomAt}ms, name ${nameAt}ms, line ${lineAt}ms`)
   const middle = await asked()
@@ -79,7 +79,7 @@ try {
   await h.waitForSelector('[data-thesis="line"]', { timeout: 6000 })
   const waited = Date.now()
   const wordsAt = (await sinceMist()) - (Date.now() - waited)
-  check('the first words come at about fifteen seconds, after the title card has told its story', wordsAt > 13500 && wordsAt < 17500, `${wordsAt}ms after the mist`)
+  check('the first words come at about eighteen seconds, after the title card has told its story', wordsAt > 17000 && wordsAt < 21000, `${wordsAt}ms after the mist`)
   await h.waitForTimeout(600)
   check('the title card is gone once the words come', (await h.locator('[data-title-card]').count()) === 0 && !wordsWithCard)
   await h.waitForTimeout(900)

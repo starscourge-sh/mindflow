@@ -67,8 +67,8 @@ export const FLOW_SAID = {
   page: 'Written out as a page, in “Writing”',
   task: `Now a task, due ${STORY_DAY}`,
   /** How each gem comes back, said as the Gems list says it under a gem (items-view.tsx, rowOf), beside the same mark. */
-  kept: 'Comes back now and then',
-  gem: '“Review” asks it as you start to forget'
+  kept: 'Shows up now and then in the app',
+  gem: '“Review” asks you before you forget'
 }
 
 export const FLOW_LAST = 'Nothing is copied out: each one stays linked to its line in the note.'
@@ -145,6 +145,9 @@ const BESIDE = 10
 const BAR_RISE = 40
 /** The least room between two lines leaving the page's edge. */
 const APART = 8
+/** The gems' two lines, which leave the page as one; and how far before their card it forks. */
+const GEMS = ['kept', 'gem']
+const FORK = 26
 /** About the button's width, to know whether it fits beside. */
 const BAR_W = 130
 
@@ -201,9 +204,11 @@ function Marked({ on, shot, quiet, children }: { on: Pick; shot: FlowShot; quiet
 
 /** A gem's row in the Gems card: its icon in the gem's colour, then its words with their wash, as the page marked them. */
 function GemRow({ on, words }: { on: 'kept' | 'gem'; words: string }): React.JSX.Element {
+  // The card's head says gem once; each row leads with how it comes back instead, the Gems list's own mark (items-view.tsx, rowOf).
+  const Mark = on === 'gem' ? Brain : Eye
   return (
-    <p className="flex items-start gap-1.5 font-heading text-[1rem] leading-snug text-foreground">
-      <span data-ink={on} className="mt-[0.3em] flex shrink-0" style={{ color: HUE.gem.ink }}><Gem className="size-3.5" /></span>
+    <p data-lands className="flex items-start gap-1.5 font-heading text-[1rem] leading-snug text-foreground">
+      <span data-ink={on} data-comes-mark={on} className="mt-[0.3em] flex shrink-0" style={{ color: HUE.gem.ink }}><Mark className="size-3.5" /></span>
       <span><span data-wash={on} className="rounded-[3px] [box-decoration-break:clone] px-0.5" style={{ background: HUE.gem.wash }}>{words}</span></span>
     </p>
   )
@@ -236,7 +241,12 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
       return { x0: x, x1: x + one.offsetWidth, y: y + one.offsetHeight / 2 }
     }
     const next: Record<string, { x0: number; x1: number; y: number }> = {}
-    for (const one of el.querySelectorAll<HTMLElement>('[data-flow]')) next[one.dataset.flow!] = place(one)
+    for (const one of el.querySelectorAll<HTMLElement>('[data-flow]')) {
+      next[one.dataset.flow!] = place(one)
+      // A gem's line lands on its own words' first line, not the middle of its row (the question under it would pull it down).
+      const lands = one.querySelector<HTMLElement>('[data-lands]')
+      if (lands) next[one.dataset.flow!].y = place(lands).y - lands.offsetHeight / 2 + parseFloat(getComputedStyle(lands).lineHeight) / 2
+    }
     setSpots(next)
     // Each picked line's words, letter to letter, in the picture's space: the note's own scale (while it lands) taken out.
     const note = el.querySelector<HTMLElement>('[data-flow="note"]')
@@ -281,11 +291,18 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
             const [sel, card, to] = [link.from.startsWith('line:') ? sels[link.from.slice(5)] : undefined, spots[link.from], spots[link.to]]
             const from = sel ? spots.note && { x0: spots.note.x1, x1: spots.note.x1, y: leave[link.id] } : card && { ...card, x0: card.x1 }
             if (!from || !to) return null
-            const [x1, y1, x2, y2] = [from.x1, from.y, to.x0, to.y]
-            const mx = (x1 + x2) / 2
+            const [x1, x2, y2] = [from.x1, to.x0, to.y]
             const on = shot.shown >= link.at
+            // The gems share one line out of the page, from between their two phrases, that forks just before their card into a branch for each row.
+            const fork = sel && GEMS.includes(link.id) && GEMS.every((one) => leave[one] !== undefined && spots[one])
+            const y1 = fork ? (leave.kept + leave.gem) / 2 : from.y
+            const [fx, fy] = fork ? [x2 - FORK, (spots.kept.y + spots.gem.y) / 2] : [x2, y2]
+            const mx = (x1 + fx) / 2
+            const d = fork
+              ? `M${from.x0},${y1} H${x1} C${mx},${y1} ${mx},${fy} ${fx},${fy} C${fx + FORK / 2},${fy} ${fx + FORK / 2},${y2} ${x2},${y2}`
+              : `M${from.x0},${y1} H${x1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`
             return (
-              <motion.path key={link.id} data-link={link.id} d={`M${from.x0},${y1} H${x1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`} fill="none" stroke={link.ink} strokeWidth={link.at > 2 ? 1.75 : 1.5} strokeLinecap="round"
+              <motion.path key={link.id} data-link={link.id} d={d} fill="none" stroke={link.ink} strokeWidth={link.at > 2 ? 1.75 : 1.5} strokeLinecap="round"
                 initial={false} animate={{ pathLength: on ? 1 : 0, opacity: on ? 1 : 0 }} transition={draw} />
             )
           })}
@@ -364,7 +381,7 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
               <p className={`${HEAD} px-3.5 pt-2.5`}><Gem className="size-3.5" style={{ color: HUE.gem.ink }} />Gems</p>
               <Landed id="kept" on={shot.shown >= 4} quiet={quiet} className="px-3.5 pt-1.5 pb-2">
                 <GemRow on="kept" words={words.kept} />
-                <p data-comes="feed" className={`${SUB} mt-1 flex items-center gap-1.5`}><Eye className="size-3.5 shrink-0" />{FLOW_SAID.kept}</p>
+                <p data-comes="feed" className={`${SUB} mt-1 pl-5`}>{FLOW_SAID.kept}</p>
               </Landed>
               <Landed id="gem" on={shot.shown >= 5} quiet={quiet} className="border-t border-foreground/10 px-3.5 pt-1.5 pb-2">
                 <GemRow on="gem" words={words.gem} />
@@ -372,7 +389,7 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
                   {shot.question || <span className="text-muted-foreground">The question it answers, for review</span>}
                   {typing && !quiet && <span className="mf-ghost-caret" data-typing="" />}
                 </p>
-                <p data-comes="review" className={`${SUB} mt-1 flex items-center gap-1.5`}><Brain className="size-3.5 shrink-0" />{FLOW_SAID.gem}</p>
+                <p data-comes="review" className={`${SUB} mt-1 pl-5`}>{FLOW_SAID.gem}</p>
               </Landed>
             </motion.div>
             <Landed id="task" on={shot.shown >= 3} quiet={quiet}>

@@ -1651,24 +1651,20 @@ const resolve = (color: string): string => {
   probe.remove()
   return said
 }
-/** How colourful a resolved oklab colour is: near 0 for a grey. */
-const chroma = (oklab: string): number => {
-  const [, a = 0, b = 0] = (oklab.match(/-?[\d.]+/g) ?? []).map(Number)
-  return Math.hypot(a, b)
-}
 /**
- * The theme's colours for the gradient, joined in one line so a theme change is
- * one new value: its page, then its accent (the first of the accent, the book's
- * hue and blue with any colour to it, so a grey accent still gives a gradient).
+ * The gradient's colours, joined in one line so a theme change is one new
+ * value: the theme's page at the edges, then the logo's own gold and bronze
+ * (build/logo), whatever the theme or the book's colour, so every welcome is
+ * an old book: gilt on leather on a dark theme, foxed parchment on a light one.
  */
+const GOLD = '#C9961C'
+const GILT = '#F2C24A'
 const paletteNow = (): string => {
-  const accent = ['var(--primary)', 'var(--tt-brand-color-400)', 'var(--tt-color-text-blue)'].map(resolve).find((one) => chroma(one) > 0.04) ?? resolve('var(--primary)')
-  const mix = (share: number, other = 'var(--background)'): string => resolve(`color-mix(in oklab, ${accent} ${share}%, ${other})`)
-  // Light: the accent no more than half in, its brightest a wash of it on white. Dark: down to the page from the full
-  // accent, its brightest a step toward the words' colour.
+  const mix = (share: number, other = 'var(--background)', ink = GOLD): string => resolve(`color-mix(in oklab, ${ink} ${share}%, ${other})`)
+  // Light: the gold no more than half in, its brightest a wash of gilt on white. Dark: bronze deepening from the page up to the gold, its brightest the gilt.
   const colours = lightNow()
-    ? [resolve('var(--background)'), mix(12), mix(26), mix(42), mix(20, 'white')]
-    : [resolve('var(--background)'), mix(28), mix(60), accent, mix(60, 'var(--foreground)')]
+    ? [resolve('var(--background)'), mix(12), mix(26), mix(42), mix(24, 'white', GILT)]
+    : [resolve('var(--background)'), mix(28), mix(60), resolve(GOLD), mix(80, 'var(--background)', GILT)]
   return colours.join('|')
 }
 const usePalette = (): string[] => useSyncExternalStore(watchTheme, paletteNow).split('|')
@@ -1689,7 +1685,7 @@ function GrainBackdrop({ page, arrival, arriving, onBloomed }: { page: number; a
   return (
     <div aria-hidden className="absolute inset-0">
       {/* A new canvas for each arrival, so each one blooms from the page's colour; skipped, it is whole at once. */}
-      <Grainient key={arrival} ref={grain} intro={arriving} onIntroDone={onBloomed} colors={colours} angle={55} flow={0.8} silk={light ? 0.2 : 0.35} saturation={light ? 0.8 : 1} grainAmount={light ? 0.06 : 0.08} />
+      <Grainient key={arrival} ref={grain} intro={arriving} onIntroDone={onBloomed} colors={colours} angle={55} speed={0.6} flow={0.8} silk={light ? 0.2 : 0.35} saturation={light ? 0.8 : 1} grainAmount={light ? 0.06 : 0.08} />
       {/* The veil toward the words' side: not over the arrival, which fills the whole window as Arc's does, then in as the first words come. */}
       <div className={`pointer-events-none absolute inset-0 transition-opacity duration-[1600ms] ${arriving ? 'opacity-0' : 'opacity-100'} bg-[linear-gradient(90deg,color-mix(in_oklab,var(--background)_55%,transparent)_0%,color-mix(in_oklab,var(--background)_30%,transparent)_45%,transparent_80%)]`} />
       {/* On a dark theme the gradient's bright end sits under light words and cards: a film of the page's colour over all of it. */}
