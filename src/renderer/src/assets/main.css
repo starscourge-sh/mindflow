@@ -2384,24 +2384,14 @@ html[data-tuck-open] [style*="--tilt"] { --tilt: 0deg !important; }
 html[data-tuck-open="right"] .mf-card { border-top-left-radius: 0; border-bottom-left-radius: 0; border-left-width: 0; }
 html[data-tuck-open="left"] .mf-card { border-top-right-radius: 0; border-bottom-right-radius: 0; border-right-width: 0; }
 
-/* The paper a page is written on (Settings › Paper): a note's, the Journal's day page and the writing room, as a notebook's: lines, dots or squares in a
+/* The paper a page is written on (Settings › Paper): a note's, the Journal's day page and the writing room, as a notebook's: dots or squares in a
    faint mix of the ink, scrolling with the words. The samples in Settings wear the same paper. */
 :root {
-  --mf-paper-ink: color-mix(in oklab, var(--foreground) 9%, transparent);
+  --mf-paper-ink: color-mix(in oklab, var(--foreground) 5%, transparent);
   --mf-paper-step: 22px;
 }
-:root[data-paper='ruled'] .note-pane .haligtree-editor-wrapper:not(.is-line) > .haligtree-editor-content > .ProseMirror,
-:root[data-paper='ruled'] :is([data-day-write], [data-room]) .haligtree-editor-wrapper:not(.is-line) > .haligtree-editor-content > .ProseMirror,
-.mf-paper[data-paper-sample='ruled'] {
-  background-image: linear-gradient(to bottom, transparent calc(100% - 1px), var(--mf-paper-ink) calc(100% - 1px));
-  /* A rule a paragraph's line apart (its 1.7 line height), from where the words begin, so a paragraph's lines sit
-     on them as a printed notebook's do; a heading or a quote is taller, and the rules carry on under it. */
-  background-size: 100% 1.7em;
-  background-origin: content-box;
-}
-/* The swatches are small: their lines and squares come closer, so each shows several, as a page would. */
+/* The swatches are small: their dots and squares come closer, so each shows several, as a page would. */
 .mf-paper[data-paper-sample] { --mf-paper-step: 12px; }
-.mf-paper[data-paper-sample='ruled'] { background-size: 100% 12px; }
 :root[data-paper='dots'] .note-pane .haligtree-editor-wrapper:not(.is-line) > .haligtree-editor-content,
 :root[data-paper='dots'] :is([data-day-write], [data-room]) .haligtree-editor-wrapper:not(.is-line) > .haligtree-editor-content,
 .mf-paper[data-paper-sample='dots'] {
@@ -2412,7 +2402,9 @@ html[data-tuck-open="left"] .mf-card { border-top-right-radius: 0; border-bottom
 :root[data-paper='grid'] .note-pane .haligtree-editor-wrapper:not(.is-line) > .haligtree-editor-content,
 :root[data-paper='grid'] :is([data-day-write], [data-room]) .haligtree-editor-wrapper:not(.is-line) > .haligtree-editor-content,
 .mf-paper[data-paper-sample='grid'] {
-  background-image: linear-gradient(var(--mf-paper-ink) 1px, transparent 1px), linear-gradient(90deg, var(--mf-paper-ink) 1px, transparent 1px);
-  background-size: var(--mf-paper-step) var(--mf-paper-step);
+  /* Faint, and fading into the page at its edges (the page's own colour laid over the squares there), so they sit
+     in the paper rather than over it. */
+  background-image: radial-gradient(ellipse at 50% 40%, transparent 45%, var(--background) 100%), linear-gradient(var(--mf-paper-ink) 1px, transparent 1px), linear-gradient(90deg, var(--mf-paper-ink) 1px, transparent 1px);
+  background-size: 100% 100%, var(--mf-paper-step) var(--mf-paper-step), var(--mf-paper-step) var(--mf-paper-step);
   background-attachment: local;
 }

@@ -444,7 +444,6 @@ export const highlightChoices = (dark: boolean): { id: string; label: string; sh
 /** The paper a note's page is written on, each choice drawn as a swatch of itself. */
 export const paperChoices = [
   { id: 'plain', label: 'Plain' },
-  { id: 'ruled', label: 'Ruled' },
   { id: 'dots', label: 'Dots' },
   { id: 'grid', label: 'Grid' }
 ].map((one) => ({ ...one, show: <span data-paper-sample={one.id} className="mf-paper absolute inset-0" /> }))
