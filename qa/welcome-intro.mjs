@@ -90,6 +90,7 @@ try {
   await h.waitForTimeout(900)
   check('Skip intro: the mist and the title card go', (await h.locator('[data-welcome-mist]').count()) === 0 && (await h.locator('[data-title-card]').count()) === 0)
   check('and the first screen is there', (await h.locator('[data-thesis="line"]').count()) === 1)
+  if (SHOTS) (await h.waitForTimeout(2500), await shot('06-first-screen'))
   await h.keyboard.press('Escape')
   await h.waitForTimeout(500)
   check('and settles whole', await h.evaluate(() => [...document.querySelectorAll('[data-thesis]')].length >= 6))

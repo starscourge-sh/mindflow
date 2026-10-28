@@ -1608,10 +1608,15 @@ export function Backdrop({ family }: { family: Family }): React.JSX.Element {
  * side keeps them first to read.
  */
 /** Whether the theme worn is a light one, followed as it changes (the welcome's own dial changes it). */
-const lightNow = (): boolean => { const root = document.documentElement; return root.classList.contains('light') || root.classList.contains('paper') || root.hasAttribute('data-light') }
+// Read off the words' own colour, the one thing the gradient must suit: dark words want the light version. A theme's
+// class name, or even its light flag, can say otherwise (a dark custom theme over a paper class).
+const lightNow = (): boolean => {
+  const [r, g, b] = (getComputedStyle(document.body).color.match(/[\d.]+/g) ?? ['255', '255', '255']).map(Number)
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b < 128
+}
 const watchTheme = (changed: () => void): (() => void) => {
   const watch = new MutationObserver(changed)
-  watch.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-light'] })
+  watch.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style', 'data-light', 'data-theme'] })
   return () => watch.disconnect()
 }
 const useLightTheme = (): boolean => useSyncExternalStore(watchTheme, lightNow)
