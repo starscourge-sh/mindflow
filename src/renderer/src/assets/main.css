@@ -2318,3 +2318,9 @@ html[data-book-hue] [data-book-tint] {
 :where(button:not(:disabled), [role='button']:not([aria-disabled='true']), a[href], [data-row], [role='tab'], [role='switch'], [role='checkbox'], [role='radio'], [role='option'], summary, label:has(> input[type='checkbox'])) {
   cursor: pointer;
 }
+
+/* A sticky slid out of its tucked tab stands straight, so the tab's strip laid over its inner edge meets it as one paper (tuck-tab.tsx). */
+html[data-tuck-open] [style*="--tilt"] { --tilt: 0deg !important; }
+/* Its inner side meets the strip square, with the strip's dashed fold for an edge. */
+html[data-tuck-open="right"] .mf-card { border-top-left-radius: 0; border-bottom-left-radius: 0; border-left-width: 0; }
+html[data-tuck-open="left"] .mf-card { border-top-right-radius: 0; border-bottom-right-radius: 0; border-right-width: 0; }

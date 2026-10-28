@@ -2015,13 +2015,28 @@ const TUCK = { tabs: { width: 40, height: 150 }, flat: { width: 10, height: 44 }
 const TUCK_HANG = 16
 /** Named tabs overlap as file tabs do, each lower one over the foot of the one above; flat pills sit apart. */
 const TUCK_STEP = { tabs: TUCK.tabs.height - 22, flat: TUCK.flat.height + 3 }
+/** Each lower named tab shows this much more paper than the one above (up to TUCK_STAGGER_MAX steps), so the stack's edge is staggered. */
+const TUCK_STAGGER = 5
+const TUCK_STAGGER_MAX = 4
+/**
+ * Clear room round a named tab's paper, inside its own window, for the shadow it casts: most above, where
+ * it falls on the foot of the tab over it, some on the screen's side and below. A window draws nothing
+ * outside itself, so the shadow needs this room; the paper still shows TUCK.tabs.width and more past the edge.
+ */
+const TUCK_ROOM = { side: 14, top: 16, bottom: 10 }
+/** Opened out of its tab, the card keeps the tab's strip with the name on its screen side, and runs a little past the edge. */
+const TUCK_STRIP = 40
+const TUCK_OPEN_HANG = 10
+/** Cards opened out of a named tab: drawn with its strip until they fold back. */
+const openedTab = new Set<string>()
+type Peek = { side: 'left' | 'right'; nudge: boolean; flat: boolean; tucked: boolean; opened?: boolean; room?: typeof TUCK_ROOM; hang?: number; strip?: number }
 /** The side and kind of tab each peeking card was made as, so a change of either remakes it. */
 const tabShape = new Map<string, string>()
 /** What each tab was last told it is, asked for again by a sticky's page as it loads (a reload, or told before it listened). */
-const peekSaid = new Map<string, { side: 'left' | 'right'; nudge: boolean; flat: boolean; tucked: boolean }>()
+const peekSaid = new Map<string, Peek>()
 ipcMain.handle('beacon:peek:now', (event) => {
   const key = keyOfSticky(BrowserWindow.fromWebContents(event.sender))
-  return key && peeking.has(key) ? (peekSaid.get(key) ?? null) : null
+  return key && (peeking.has(key) || openedTab.has(key)) ? (peekSaid.get(key) ?? null) : null
 })
 /** When each card was last seen whole, and the day it last peeked out by itself: kept across restarts. */
 type Seen = { last: Record<string, number>; nudged: Record<string, string> }
@@ -2099,8 +2114,13 @@ function shapeCard(key: string, win: BrowserWindow): void {
     const y = tuck === 'off'
       ? Math.max(area.y, Math.min(rest.y + insetOf(key).top, area.y + area.height - size.height))
       : Math.max(area.y, Math.min(area.y + Math.round(area.height * 0.18) + nth * TUCK_STEP[tuck], area.y + area.height - size.height))
-    const hang = tuck === 'tabs' ? TUCK_HANG : 0
-    const tab = { x: left ? area.x - hang : area.x + area.width - size.width, y, width: size.width + hang, height: size.height }
+    // A named tab: its paper (wider down the stack) runs TUCK_HANG past the edge, with clear room for its shadow round the rest.
+    const named = tuck === 'tabs'
+    const hang = named ? TUCK_HANG : 0
+    const shows = size.width + (named ? Math.min(nth, TUCK_STAGGER_MAX) * TUCK_STAGGER : 0)
+    const room = named ? TUCK_ROOM : { side: 0, top: 0, bottom: 0 }
+    const width = room.side + shows + hang
+    const tab = { x: left ? area.x - hang : area.x + area.width - shows - room.side, y: y - room.top, width, height: room.top + size.height + room.bottom }
     const now = win.getBounds()
     const shape = `${left}:${tuck}`
     if (peeking.has(key) && tabShape.get(key) === shape && now.x === tab.x && now.y === tab.y && now.width === tab.width) return
@@ -2108,15 +2128,20 @@ function shapeCard(key: string, win: BrowserWindow): void {
     peeking.set(key, rest)
     tabShape.set(key, shape)
     if (fresh) {
-      const peek = { side: left ? 'left' : 'right', nudge: nudging.delete(key), flat: tuck === 'flat', tucked: tuck !== 'off' } as const
+      const peek: Peek = { side: left ? 'left' : 'right', nudge: nudging.delete(key), flat: tuck === 'flat', tucked: tuck !== 'off', ...(named ? { room, hang } : {}) }
       peekSaid.set(key, peek)
       win.webContents.send('beacon:peek', peek)
     }
+    openedTab.delete(key)
+    // Real glass fills its whole window, so a named tab drops it while tucked: its clear room stays clear and only
+    // its paper shows, rounded on the screen's side alone (the window's own rounded corners fall in the clear room).
+    if (builtGlass.get(key)) (win.setVibrancy(named ? null : 'popover'), win.setHasShadow(!named))
     win.setMinimumSize(1, 1)
     placed.set(win, { x: tab.x, y: tab.y })
     win.setBounds(tab)
     return
   }
+  const wasNamed = tabShape.get(key)?.endsWith(':tabs') ?? false
   tabShape.delete(key)
   const rest = peeking.get(key)!
   peeking.delete(key)
@@ -2124,11 +2149,27 @@ function shapeCard(key: string, win: BrowserWindow): void {
   // while you read it; come out by the clock, it goes back to its own place.
   const tab = win.getBounds()
   const area = screen.getDisplayMatching(tab).workArea
-  const top = Math.max(area.y, Math.min(tab.y - insetOf(key).top, area.y + area.height - rest.height))
-  const to = beaconHeld.has(key) ? { ...rest, x: tab.x <= area.x ? area.x : area.x + area.width - rest.width, y: top } : rest
+  const inset = insetOf(key)
+  const top = Math.max(area.y, Math.min(tab.y + (wasNamed ? TUCK_ROOM.top : 0) - inset.top, area.y + area.height - rest.height))
+  // Pointed at as a named tab, the card slides out of it: the tab's strip with its name on the screen side,
+  // a fold, then the note, running a little past the edge so only the screen-side corners are round.
+  const fromTab = beaconHeld.has(key) && stickyTuck() === 'tabs'
+  const wide = rest.width + (fromTab ? TUCK_STRIP : 0)
+  const atLeft = tab.x + tab.width / 2 < area.x + area.width / 2
+  const hang = fromTab ? TUCK_OPEN_HANG + (atLeft ? inset.left : inset.right) : 0
+  const to = beaconHeld.has(key) ? { ...rest, width: wide, x: atLeft ? area.x - hang : area.x + area.width - wide + hang, y: top } : rest
   if (to !== rest) openedAt.set(key, rest)
-  peekSaid.delete(key)
-  win.webContents.send('beacon:peek', null)
+  if (builtGlass.get(key)) (win.setVibrancy('popover'), win.setHasShadow(true))
+  if (fromTab) {
+    const peek: Peek = { side: atLeft ? 'left' : 'right', nudge: false, flat: false, tucked: true, opened: true, hang, strip: TUCK_STRIP }
+    openedTab.add(key)
+    peekSaid.set(key, peek)
+    win.webContents.send('beacon:peek', peek)
+  } else {
+    openedTab.delete(key)
+    peekSaid.delete(key)
+    win.webContents.send('beacon:peek', null)
+  }
   placed.set(win, { x: to.x, y: to.y })
   win.setMinimumSize(214, 124)
   win.setBounds(to)

@@ -205,16 +205,18 @@ const firstInSight = (box: HTMLElement | null): { text: string; top: number } | 
 }
 const lineOf = (box: HTMLElement, text: string): Element | undefined => linesIn(box).find((one) => one.textContent === text)
 
+/** Paper with nothing showing through: plain paper's, and a tucked tab's, which has no glass behind it even on glass. */
+export const SOLID_PAPER: CSSProperties = { backgroundImage: 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(var(--mf-paper-tint), var(--mf-paper-tint)), linear-gradient(var(--mf-paper), var(--mf-paper)), linear-gradient(var(--background), var(--background))', backgroundColor: 'Canvas' }
 /** Real glass: the Mac's blur shows through a thin wash of the theme's paper, enough to read on. */
 export const PAPER: CSSProperties = GLASS
   ? { backgroundImage: 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(var(--mf-paper-tint), var(--mf-paper-tint)), linear-gradient(color-mix(in oklab, var(--mf-paper) 90%, transparent), color-mix(in oklab, var(--mf-paper) 90%, transparent))' }
-  : { backgroundImage: 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(var(--mf-paper-tint), var(--mf-paper-tint)), linear-gradient(var(--mf-paper), var(--mf-paper)), linear-gradient(var(--background), var(--background))', backgroundColor: 'Canvas' }
+  : SOLID_PAPER
 /**
  * The card itself: on glass, straight with its words lifting on hover; as paper, leaning, and straightening as it lifts.
  * One lift for both, 240ms on one curve, the same as a glass window's own rise (LIFT_MS in main/sticky-place.ts).
  * Picked up by your hand (data-held), it lifts further: paper straightens with a deeper shadow, glass's words rise a little more.
  */
-export const CARD = GLASS ? 'group relative flex h-full flex-col rounded-[10px] text-control text-foreground [&>*]:transition-transform [&>*]:duration-240 [&>*]:ease-[cubic-bezier(0.22,1,0.36,1)] hover:[&>*]:-translate-y-0.5 data-held:[&>*]:-translate-y-1! motion-reduce:[&>*]:transition-none' : 'group relative flex h-full rotate-(--tilt) flex-col rounded-lg border text-control text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.14),0_4px_10px_-2px_rgb(0_0_0/0.16)] transition-[rotate,scale,box-shadow] duration-240 ease-[cubic-bezier(0.22,1,0.36,1)] hover:scale-102 hover:rotate-0 hover:shadow-[0_2px_4px_rgb(0_0_0/0.12),0_10px_18px_-4px_rgb(0_0_0/0.24)] data-held:scale-103! data-held:rotate-0! data-held:shadow-[0_4px_8px_rgb(0_0_0/0.14),0_18px_30px_-6px_rgb(0_0_0/0.3)]! motion-reduce:transition-none'
+export const CARD = GLASS ? 'mf-card group relative flex h-full flex-col rounded-[10px] text-control text-foreground [&>*]:transition-transform [&>*]:duration-240 [&>*]:ease-[cubic-bezier(0.22,1,0.36,1)] hover:[&>*]:-translate-y-0.5 data-held:[&>*]:-translate-y-1! motion-reduce:[&>*]:transition-none' : 'mf-card group relative flex h-full rotate-(--tilt) flex-col rounded-lg border text-control text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.14),0_4px_10px_-2px_rgb(0_0_0/0.16)] transition-[rotate,scale,box-shadow] duration-240 ease-[cubic-bezier(0.22,1,0.36,1)] hover:scale-102 hover:rotate-0 hover:shadow-[0_2px_4px_rgb(0_0_0/0.12),0_10px_18px_-4px_rgb(0_0_0/0.24)] data-held:scale-103! data-held:rotate-0! data-held:shadow-[0_4px_8px_rgb(0_0_0/0.14),0_18px_30px_-6px_rgb(0_0_0/0.3)]! motion-reduce:transition-none'
 
 /**
  * Told now and then to stir (see main), the card lifts a little and settles,
