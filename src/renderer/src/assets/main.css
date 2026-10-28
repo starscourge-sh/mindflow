@@ -1856,11 +1856,10 @@ button.mf-signed:hover .mf-signature { text-decoration: underline; text-decorati
 :root[data-motion='off'] .mf-tape { transition: none; }
 @media (prefers-reduced-motion: reduce) { .mf-tape { transition: none; } }
 
-/* A row that can be dragged shows the plain arrow, as any row does, pressed
-   too: a click opens it, and a hand there for every click was odd. The hand
-   closes only once the row is really carried. A faint grip in the margin says
-   it can be dragged, after a moment's rest on it. */
-[data-sortable-id], [data-sortable-id] *, [data-sortable-id] button:not(:disabled) { cursor: default; }
+/* A row that can be dragged shows the hand, as every row that opens on a click does (Writing, Gems, the Inbox:
+   asked for twice); the hand closes only once the row is really carried. A faint grip in the margin says it can
+   be dragged, after a moment's rest on it. */
+[data-sortable-id], [data-sortable-id] *:not(input, textarea, [contenteditable='true'], [contenteditable='true'] *), [data-sortable-id] button:not(:disabled) { cursor: pointer; }
 /* A folder row is different: a click folds it, every time, so it shows the hand; so does its icon, which a click changes. */
 button[data-group-row]:not(:disabled), button[data-group-row]:not(:disabled) *, button[data-folder-icon], [data-sortable-id] button[data-folder-icon], [data-sortable-id] button[data-folder-icon] * { cursor: pointer; }
 /* The sidebar's rows too, places, folders, pins, Recent and the headings that fold them: each opens or folds on a click,
@@ -2299,3 +2298,13 @@ html[data-book-hue] [data-book-tint] {
 /* Writing mode and the writing room, nothing but the words: no scrollbar anywhere in the window while everything
    else is faded or covered (the wheel and the keys still scroll). */
 :root:is([data-day-writing], [data-in-room]) * { scrollbar-width: none; }
+
+/* The hand over everything that is pressed: a row of any list (Writing, Gems, the Inbox, the Bin, tasks), a
+   button, a link, a tab, a chip, a switch; over the words inside it too, where the text cursor showed. Weightless
+   (:where), so a part that says otherwise (a drag handle's grab, a disabled control's arrow) keeps its own, and
+   never over what is typed in. */
+:where(button:not(:disabled), [role='button']:not([aria-disabled='true']), a[href], [data-row], [role='tab'], [role='switch'], [role='checkbox'], [role='radio'], [role='option'], summary, label:has(> input[type='checkbox']))
+  :where(*:not(input, textarea, select, [contenteditable='true'], [contenteditable='true'] *)),
+:where(button:not(:disabled), [role='button']:not([aria-disabled='true']), a[href], [data-row], [role='tab'], [role='switch'], [role='checkbox'], [role='radio'], [role='option'], summary, label:has(> input[type='checkbox'])) {
+  cursor: pointer;
+}
