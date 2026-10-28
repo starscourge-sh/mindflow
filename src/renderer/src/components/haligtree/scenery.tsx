@@ -227,10 +227,9 @@ export function Scenery({ place, seed, mood, text = 'none', fade = false, wide =
   }[text]
   const melt = fade ? 'linear-gradient(to bottom, black 0%, black 40%, transparent 96%)' : undefined
   return (
-    <div aria-hidden data-scene={place} data-shown={shown || late ? '' : undefined} className={`pointer-events-none overflow-hidden ${rounded} ${className}`} style={{ maskImage: melt, background: shown || !late ? undefined : `color-mix(in srgb, ${scene.color} 30%, transparent)` }}>
-      {/* While the full picture decodes: its small copy, softened, so the page
-          starts on the picture rather than on a flat colour. */}
-      {!shown && late && scene.small && <img src={scene.small} alt="" className="absolute inset-0 size-full scale-110 object-cover blur-xl" />}
+    // Nothing stands in for the picture: no blurred small copy, no tinted colour (both read as the picture broken, a
+    // flash, for a file on this Mac). Until it is decoded the box is the page itself; then the painting fades in.
+    <div aria-hidden data-scene={place} data-shown={shown ? '' : undefined} className={`pointer-events-none overflow-hidden ${rounded} ${className}`} style={{ maskImage: melt }}>
       {/* The painting breathes: a slow pan and zoom, and now and then a wash of
           light (or a cloud's shadow) across it. Transform only, on the
           compositor; still while away, while you type, and under reduced motion (main.css). */}
@@ -263,7 +262,8 @@ export function Scenery({ place, seed, mood, text = 'none', fade = false, wide =
       </AnimatePresence>
       </div>
       {shown && <div data-wash={cloudy ? 'cloud' : 'light'} className="mf-wash absolute inset-0" />}
-      <div className="absolute inset-0" style={{ background: over }} />
+      {/* The veil for the words, with the painting only: alone on the empty box it was a dark gradient, the flash. */}
+      {shown && <div className="absolute inset-0" style={{ background: over }} />}
     </div>
   )
 }
