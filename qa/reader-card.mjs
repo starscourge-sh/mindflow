@@ -3,7 +3,7 @@
 // as image" puts a PNG of the card alone on the clipboard, its corners see-through (what was there is put back at the end);
 // ⌘K's "Your reader card" opens it. The card sits beside its title and line, its picture (a coolshape, or two bands) has a
 // film grain that is in the PNG too, and it tips toward the pointer and lies flat again when the pointer leaves (not with
-// Motion off), its picture and name standing off the paper as it tips, the picture's shadow on it. Pictures of the row in paper, light, dark and catppuccin, of three draws, and of the bands.
+// Motion off). Pictures of the row in paper, light, dark and catppuccin, of three draws, and of the bands.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-p/main/index.js HALIGTREE_QA_AWAY=1 [SHOTS=<dir>] node qa/reader-card.mjs
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
@@ -52,15 +52,6 @@ const turned = () => h.evaluate(() => {
   if (at === 'none') return 0
   const m = new DOMMatrix(at)
   return +(Math.abs(Math.asin(Math.max(-1, Math.min(1, m.m13)))) * 180 / Math.PI + Math.abs(Math.asin(Math.max(-1, Math.min(1, m.m23)))) * 180 / Math.PI).toFixed(2)
-})
-// How far the picture and name layers stand moved from their place on the paper, and how much the picture's shadow shows.
-const layers = () => h.evaluate(() => {
-  const moved = (el) => { const m = new DOMMatrix(getComputedStyle(el).transform); return { x: +m.m41.toFixed(2), y: +m.m42.toFixed(2) } }
-  return {
-    picture: moved(document.querySelector('[data-reader-layer="picture"]')),
-    name: moved(document.querySelector('[data-reader-layer="name"]')),
-    shadow: +Number(getComputedStyle(document.querySelector('[data-reader-shadow]')).opacity).toFixed(2)
-  }
 })
 const card = () => h.evaluate(() => {
   const at = document.querySelector('[data-reader-card]')
@@ -127,25 +118,17 @@ try {
   await h.mouse.move(held.x + held.width / 2, held.y + held.height / 2)
   await h.mouse.move(held.x + held.width * 0.85, held.y + held.height * 0.2, { steps: 6 }); await wait(600)
   const tipped = await turned()
-  const lifted = await layers()
-  if (process.env.SHOTS) await h.screenshot({ path: `${process.env.SHOTS}/reader-card-tipped.png`, clip: { x: held.x - 40, y: held.y - 40, width: held.width + 80, height: held.height + 80 } })
   await h.mouse.move(held.x - 200, held.y + held.height / 2, { steps: 4 }); await wait(1200)
   const after = await turned()
-  const settled = await layers()
   check('it tips toward the pointer, and lies flat when it leaves', tipped > 2 && after < 0.1, `${tipped}° then ${after}°`)
-  // Layers: the picture stands furthest off the paper and slides most, toward the side that comes forward (up and right,
-  // with the pointer up and right); the name a little; the picture's shadow shows on the paper. All flat again after.
-  check('tipped, the picture slides more than the name, both toward the pointer, its shadow on the paper', lifted.picture.x > 2 && lifted.picture.y < -1 && lifted.name.x > 0.5 && lifted.picture.x > lifted.name.x * 2 && lifted.shadow > 0.5, JSON.stringify(lifted))
-  check('flat again, the layers lie on the paper and the shadow is gone', Math.abs(settled.picture.x) < 0.1 && Math.abs(settled.name.x) < 0.1 && settled.shadow < 0.05, JSON.stringify(settled))
   // Not with Motion off.
   await h.evaluate(() => (document.documentElement.dataset.motion = 'off'))
   await h.mouse.move(held.x + held.width / 2, held.y + held.height / 2)
   await h.mouse.move(held.x + held.width * 0.85, held.y + held.height * 0.2, { steps: 6 }); await wait(600)
   const calm = await turned()
-  const flat = await layers()
   await h.mouse.move(held.x - 200, held.y + held.height / 2)
   await h.evaluate(() => delete document.documentElement.dataset.motion)
-  check('with Motion off it stays flat, its layers too', calm < 0.1 && Math.abs(flat.picture.x) < 0.1 && flat.shadow < 0.05, `${calm}°, ${JSON.stringify(flat)}`)
+  check('with Motion off it stays flat', calm < 0.1, `${calm}°`)
   await shot('reader-card-github')
   // A long name wraps to a second line, never cut short ("Chapel of Anticipati…" was). The sandbox's book cannot be
   // renamed, so the name is written into the card for the look of it, and put back after.
