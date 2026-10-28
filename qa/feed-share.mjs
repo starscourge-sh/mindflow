@@ -134,20 +134,14 @@ if (process.env.QA_ARGS) {
     await h.waitForTimeout(900)
     check("the card goes once the day's Feed is read to its end", (await h.locator('[data-todays-feed]').count()) === 0)
 
-    // The box: the typed words as a post, while the pointer rests on Create.
+    // The box shows no Feed preview on Create: never asked for.
     await electron.evaluate(({ BrowserWindow }, url) => { const box = BrowserWindow.getAllWindows().find((w) => w.webContents.getURL() === url); box?.setBounds({ x: 60, y: 60, width: 900, height: 640 }); box?.show() }, page.url())
     await page.waitForTimeout(800)
     await page.click(EDITOR)
-    await page.keyboard.type('A preview of the feed\nIt shows the typed words as a post.', { delay: 3 })
-    await page.waitForTimeout(500)
+    await page.keyboard.type('A preview of the feed', { delay: 3 })
     await page.locator('[data-zen-row] button').last().hover()
     await page.waitForTimeout(900)
-    const preview = await page.locator('[data-capture-preview]').textContent().catch(() => '')
-    check('the box shows how it will look in the Feed', preview.includes('A preview of the feed') && preview.includes('typed words as a post'), preview)
-    await page.screenshot({ path: `${SHOTS}/capture-preview.png` })
-    await page.mouse.move(10, 10)
-    await page.waitForTimeout(300)
-    check('and it goes when the pointer leaves', (await page.locator('[data-capture-preview]').count()) === 0)
+    check('resting on Create shows no Feed preview', (await page.locator('[data-capture-preview]').count()) === 0)
     await page.click(EDITOR)
     await page.keyboard.press('Meta+A')
     await page.keyboard.press('Backspace')
