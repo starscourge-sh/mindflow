@@ -1,6 +1,6 @@
 import { motion } from 'motion/react'
 import { ARRIVE_MS } from '@/lib/sound'
-import markGold from '@/assets/mark-gold.svg'
+import markGold from '@/assets/mark-gold-leaves.png'
 
 /** When the window may gather in from the whole screen (main: gatherIn): only once the title card is whole and held a breath, so the two never move at once. */
 export const GATHER_AT = 14200

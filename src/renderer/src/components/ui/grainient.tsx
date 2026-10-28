@@ -18,8 +18,8 @@ const TWIRL_LIFE = 2.6
 /** The bloom (`intro`): a moment of the bare page first, then the glow grows from the middle to fill the field. */
 const INTRO_DELAY = 2.2
 const INTRO_SECONDS = 7.4
-// How far the first small shine reaches, before the glow begins to spread.
-const GLINT = 0.11
+// The share of the glow's growth that is steady from the first moment; the rest quickens towards the end.
+const STEADY = 0.32
 /** A nudge: how far the field's pattern turns over, and how quickly it settles there (about a second). */
 const NUDGE_SHIFT = 0.14
 const NUDGE_EASE = 0.3
@@ -427,11 +427,10 @@ export function Grainient({
       gl.uniform1f(fu.uSettle, eased)
       // The build-up, as Arc's: a small glow comes up slowly out of the dark in the middle, then gathers
       // itself and spreads past the corners. One rise, never back.
-      // First a small shine in the middle, there long enough to wonder what it is: it comes up over the first
-      // tenth and holds. Then one curve that starts slow and only ever quickens, all the way to whole (its edge is
-      // past the corners before the end, so it never stops short). Never back: the larger of the two.
-      const glint = GLINT * Math.min(1, opened / 0.1) ** 0.6
-      gl.uniform1f(fu.uReveal, Math.max(glint, opened ** 2.6))
+      // One unbroken movement, as Arc's: a small shine comes up in the middle and grows at a steady, unhurried pace
+      // (long enough to wonder what it is), then only ever quickens until it is whole. Its speed never drops, so it
+      // never seems to start, stop and start again.
+      gl.uniform1f(fu.uReveal, STEADY * opened + (1 - STEADY) * opened ** 3)
       gl.drawArrays(gl.TRIANGLES, 0, 3)
       gl.bindFramebuffer(gl.FRAMEBUFFER, null)
       gl.viewport(0, 0, canvas.width, canvas.height)

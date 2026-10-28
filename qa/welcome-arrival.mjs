@@ -97,6 +97,7 @@ try {
   const sounds = await heard()
   const count = (name) => sounds.filter((one) => one === name).length
   check('the chord rises first', sounds[0] === 'cue:ambience' || sounds.includes('cue:ambience'), sounds.slice(0, 4).join())
+  check('the name is said in music: three notes as Haligtree rises', count('bell:title') === 3, String(count('bell:title')))
   check('the first words land on a glass note', count('bell:arrive') === 1)
   // The headline is quiet now: no note a word (it ran up the scale like a lesson).
   check('the headline comes with no note a word', count('bell:word') === 0, String(count('bell:word')))

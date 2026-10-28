@@ -1212,10 +1212,10 @@ export function quietWind(seconds = 0.8): void {
  * partials above it, as a struck glass has, dying away through the room. For
  * the welcome's words and its few key moments; heard as `name`.
  */
-export function bell(hz: number, level = 0.02, name = 'bell'): void {
+export function bell(hz: number, level = 0.02, name = 'bell', delay = 0): void {
   const context = audio()
   if (!context) return
-  const now = context.currentTime
+  const now = context.currentTime + delay
   const out = context.createGain()
   out.gain.value = volume
   out.connect(context.destination)
@@ -1236,6 +1236,14 @@ export function bell(hz: number, level = 0.02, name = 'bell'): void {
     tone.stop(now + length + 0.05)
   }
   hear(`bell:${name}`)
+}
+
+/**
+ * The name, said in music: as "Haligtree" rises on the title card, three glass notes go up through the welcome's
+ * key (D, A, then the D above), over the chord already sounding, so the moment it is revealed is heard too.
+ */
+export function titleChime(delay = 0): void {
+  for (const [i, hz] of [PENTA[0], PENTA[3], PENTA[0] * 2].entries()) bell(hz, 0.022 - i * 0.003, 'title', delay + i * 0.32)
 }
 
 /*
