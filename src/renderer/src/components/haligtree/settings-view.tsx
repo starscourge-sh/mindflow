@@ -183,27 +183,27 @@ const SECTIONS: { title: string; icon: LucideIcon; tint: string }[] = [
 /** The section on show, unless a search shows every section's matches. */
 const Shown = createContext('')
 
-/** Settings that belong together, in one rounded island under a heading. Gone while a search leaves none of them, or while another section is on show. */
-function Group({ title, section = title, children }: { title: string; section?: string; children: ReactNode }): React.JSX.Element | null {
+/** Settings that belong together, in one rounded island under a heading (or straight on the page, `bare`, for one that is a picture of its own, the reader card). Gone while a search leaves none of them, or while another section is on show. */
+function Group({ title, section = title, bare = false, children }: { title: string; section?: string; bare?: boolean; children: ReactNode }): React.JSX.Element | null {
   const { query } = useContext(Query)
   const shown = useContext(Shown)
   if (!query.trim() && section !== shown) return null
   return (
     <Query.Provider value={{ query, all: !!query.trim() && matches(query, title, section) }}>
-      <GroupIsland title={title} section={section} query={query}>{children}</GroupIsland>
+      <GroupIsland title={title} section={section} query={query} bare={bare}>{children}</GroupIsland>
     </Query.Provider>
   )
 }
 
 /** A group as it appears: a section picked with a click brings its groups in one after another; one reached by keys or a search is simply there. */
-function GroupIsland({ title, section, query, children }: { title: string; section: string; query: string; children: ReactNode }): React.JSX.Element {
+function GroupIsland({ title, section, query, bare, children }: { title: string; section: string; query: string; bare: boolean; children: ReactNode }): React.JSX.Element {
   const first = useFirstVisit(`settings:${section}`)
   const [enter] = useState(() => first && !byKeys())
   return (
     <section data-group={title} className={`mt-6 first:mt-0 [&:not(:has([data-setting]))]:hidden ${enter ? 'mf-rise' : ''}`}>
       {/* Searching, rows from every section show at once, so each island says whose it is. */}
       <h3 className="mb-2 px-1 text-body font-semibold text-foreground">{query.trim() && <span className="font-normal text-muted-foreground">{section} · </span>}<Marked text={title} query={query} /></h3>
-      <div className="mf-island divide-y divide-border/60 overflow-hidden rounded-xl border bg-accent/25">{children}</div>
+      <div className={bare ? '' : 'mf-island divide-y divide-border/60 overflow-hidden rounded-xl border bg-accent/25'}>{children}</div>
     </section>
   )
 }
@@ -550,7 +550,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
       <div ref={holdColumn} className="w-full max-w-2xl px-6 pt-4 pb-16 [&:has([data-setting])>[data-none]]:hidden">
         {!searching && <h2 className="px-1 text-lg font-semibold text-foreground"><Term>{section}</Term></h2>}
         <p data-none className="px-1 text-body text-muted-foreground">Nothing here matches “{query}”. Try fewer letters, or what it changes.</p>
-        <Group section="Appearance" title="You">
+        <Group section="Appearance" title="You" bare>
           <Setting title="Reader card" note="Your book on a card: a title drawn for you, the day it began, and a stamp for each milestone." more="“Randomize” draws another title and colours; the card is kept until you do. Stamps come at 100 and 1,000 notes, a first link, a first gem reviewed, 30 days of Journal and a year in." keywords="reader card member profile name title stamps milestones share picture image randomize arc"
             below={<ReaderCard seed={settings.readerSeed} point={asked === 'reader-card' ? nonce : undefined} />} />
         </Group>
