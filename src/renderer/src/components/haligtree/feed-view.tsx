@@ -221,26 +221,6 @@ export function TodaysFeedCard({ onView }: { onView: (id: string) => void }): Re
   )
 }
 
-/**
- * How a note being written will look in your Feed: the same post, without
- * its controls. Quick capture shows it while the pointer rests on Create.
- */
-export function FeedPreview({ kind, text, who, secret }: { kind: string; text: string; who: string; secret: boolean }): React.JSX.Element {
-  const lines = text.trim().split('\n').map((line) => line.trim()).filter(Boolean)
-  const quote = kind === 'quote'
-  const post: FeedPost = {
-    type: 'capture', id: '', kind, title: lines[0]?.slice(0, 120) ?? '', text: quote ? lines.join('\n') : lines.slice(1).join('\n'), who: who.trim() || null,
-    made: new Date().toISOString(), seen: null, gloss: null, clue: null, react: null, replies: 0, firstReply: null, seenTimes: 0, faded: 0, liked: 0, tags: [], restack: null
-  }
-  return (
-    <div data-feed-preview className="flex flex-col gap-2">
-      <p className="text-control font-medium text-muted-foreground">How it will look in your Feed</p>
-      {secret ? <p data-feed-preview-private className="text-body text-foreground">Private notes never come up in the Feed.</p>
-        : <ol className="pointer-events-none"><Post post={post} preview onOpen={() => {}} onOpenOther={() => {}} /></ol>}
-    </div>
-  )
-}
-
 export function FeedView({ onOpen }: { onOpen: (type: string, id: string) => void }): React.JSX.Element {
   const [tab, setTab] = useState<FeedTab>(keptTab)
   const choose = (next: FeedTab): void => {

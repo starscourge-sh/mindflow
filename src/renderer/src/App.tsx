@@ -24,7 +24,6 @@ import { CaptureList, inInboxWindow, tagCaptures, useCaptures, type CaptureMeta 
 import { Example } from './components/haligtree/example'
 import { exampleInbox } from './lib/examples'
 import { Waiting, textOf } from './components/rot-cards'
-import { FeedPreview } from './components/haligtree/feed-view'
 import { BOX_PINS } from './components/pins'
 import { THROWS, comboOf } from './lib/keys'
 import { GraphChip, InboxGraph, useGraphShown } from './components/haligtree/inbox-graph'
@@ -448,9 +447,6 @@ export default function App(): React.JSX.Element {
   const asks = asksFor(kind, boxText)
   // Who said it and where you met it. Null who means the words are yours.
   const [attribution, setAttribution] = useState('')
-  // The pointer resting on Create: the Feed preview shows.
-  const [peek, setPeek] = useState(false)
-  const peekTimer = useRef<number | undefined>(undefined)
   const [medium, setMedium] = useState('')
   // Who and where for a saved note: shown only with something in them, or once
   // asked for from the gear menu (and kept while you clear them, so typing never loses its field).
@@ -2079,14 +2075,7 @@ export default function App(): React.JSX.Element {
                 </label>
                 </Tip>
               )}
-              {/* Resting on Create, a moment: how this will look in your Feed, over the row, never in the writing's way while you write. */}
-              <span className="relative inline-flex shrink-0" onPointerEnter={() => (window.clearTimeout(peekTimer.current), (peekTimer.current = window.setTimeout(() => setPeek(true), 450)))}
-                onPointerLeave={() => (window.clearTimeout(peekTimer.current), setPeek(false))}>
-              {peek && !editing && boxText.trim() && (
-                <div data-capture-preview className="pointer-events-none absolute right-0 bottom-full z-40 mb-11 w-[26rem] max-w-[calc(100vw-2rem)] rounded-xl border bg-background p-4 shadow-lg animate-in fade-in-0 slide-in-from-bottom-1 duration-200">
-                  <FeedPreview kind={kind} text={boxText} who={attribution} secret={secret} />
-                </div>
-              )}
+              <span className="relative inline-flex shrink-0">
               {/* The button shows its own words and ⌘↵: the tip says only what it does not. */}
               <Tip label={createMore && !editing ? 'Then empties quick capture for the next one' : (editing ? 'Back to your draft: changes already save as you make them' : 'Then empties it for the next one:  ⌥⌘↵')}>
               <Button variant="secondary" onClick={(event) => submit(event.altKey)} className="shrink-0 text-control">
