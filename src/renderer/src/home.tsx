@@ -295,6 +295,22 @@ function saveSplit(split: SplitState): void {
  * novelty on the tiers and the resurfacing, and nothing on the chrome: a
  * sidebar with counts, G and a letter to jump, C to capture, ⌘K to search.
  */
+/**
+ * The lists commonplace keepers share as ideas for a first page (r/commonplacebook): each a
+ * folder of Gems, made with its emoji, with Undo.
+ */
+const STARTER_LISTS: [string, string][] = [
+  ['👂', 'Overheard'], ['🔎', 'Random research'], ['📛', 'Interesting names'], ['🌸', 'Scents'],
+  ['🙏', 'Grateful for'], ['🧩', 'Words from crosswords'], ['🍲', 'Recipes to keep'], ['🙈', 'Searches I would not admit to']
+]
+async function startList(icon: string, name: string): Promise<string> {
+  const made = await groups.make('nugget', name)
+  await groups.set(made, { icon })
+  chime('settled')
+  toast(`“${name}” is a list in Gems now`, () => void groups.remove(made))
+  return made
+}
+
 export function Home(): React.JSX.Element {
   // Escape in a note lets go of the note, and never goes back: ⌘[ does.
   useEscapeLeavesEditor()
@@ -1574,6 +1590,8 @@ export function Home(): React.JSX.Element {
                 asideItem('view', section.id),
                 // Writing and Gems hold folders: a new one, named at once (side-folders.tsx).
                 (section.id === 'articles' || section.id === 'nuggets') && { label: 'New folder', run: () => setTimeout(() => newFolder(section.id === 'articles' ? 'article' : 'nugget'), 120) },
+                // The lists commonplace keepers start with, one press each: a folder of Gems, named, given its emoji and opened.
+                section.id === 'nuggets' && { label: 'Start a list', items: STARTER_LISTS.map(([icon, name]) => ({ label: name, icon: <span aria-hidden className="flex size-4 items-center justify-center text-[0.9rem] leading-none">{icon}</span>, run: () => void startList(icon, name).then((folder) => setView({ id: 'nuggets', folder })) })) },
                 'separator',
                 ...orderItems({ setting: 'sidebarOrder', usual: sections.map((one) => one.id), id: section.id, among, what: 'The sidebar', name: section.label }, sidebarSaved.length > 0 || Object.keys(settings?.sidebarGroups ?? {}).length > 0),
                 'separator',
