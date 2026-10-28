@@ -280,10 +280,11 @@ export function NotePreview(): React.JSX.Element | null {
       data-preview-picture={shown.picture ? '' : undefined}
       onMouseLeave={() => setShown(null)}
       // As Wikipedia's: with a picture it is wider, the picture filling its right side edge to edge; without, words only and narrower.
-      className={`fixed z-[70] ${shown.picture ? 'flex w-[30rem] overflow-hidden' : 'w-80 p-3'} rounded-lg border bg-popover text-control shadow-(--mf-panel-shadow) animate-in fade-in-0 duration-150 motion-reduce:animate-none`}
+      className={`fixed z-[70] ${shown.picture ? 'flex w-max max-w-[30rem] overflow-hidden' : 'w-80 p-3'} rounded-lg border bg-popover text-control shadow-(--mf-panel-shadow) animate-in fade-in-0 duration-150 motion-reduce:animate-none`}
       style={{ left: Math.max(12, shown.x), top: shown.y, transform: shown.above ? 'translateY(-100%)' : undefined }}
     >
-      <div className={shown.picture ? 'min-w-0 flex-1 p-3.5' : undefined}>
+      {/* With a picture the card is as wide as its words need, up to a line's length, never a wide box round two short lines. */}
+      <div className={shown.picture ? 'w-max min-w-[13rem] max-w-[19rem] p-3.5' : undefined}>
       {shown.gem ? (
         <p className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
           <Gem className="size-3.5 shrink-0" style={{ color: 'var(--tt-color-text-pink)' }} />
@@ -356,7 +357,7 @@ export function NotePreview(): React.JSX.Element | null {
       {/* Edge to edge, square, the card's own corner rounding it: never a small framed thumbnail. The words
           set the card's height and the picture is cropped to it, so a tall portrait never makes a tall card. */}
       {shown.picture && (
-        <div className="relative min-h-32 w-[34%] shrink-0 border-l">
+        <div className="relative min-h-32 w-36 shrink-0 border-l">
           <img data-preview-image src={shown.picture} alt="" draggable={false} onError={(event) => (event.currentTarget.style.display = 'none')} className="absolute inset-0 size-full object-cover" style={{ objectPosition: 'center 22%' }} />
         </div>
       )}
