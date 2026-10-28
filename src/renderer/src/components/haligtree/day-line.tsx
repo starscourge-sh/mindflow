@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Extension, type Editor } from '@tiptap/core'
+import { emojis, shortcodeToEmoji } from '@tiptap/extension-emoji'
 import type { Node as PMNode } from '@tiptap/pm/model'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
@@ -33,6 +34,11 @@ export function lineOf(doc: PMNode): { text: string; link?: AtLink; at: number[]
       if (!link) link = { id: String(node.attrs.id), plain: [{ from: text.length, to: text.length + name.length }] }
       for (let n = 0; n < name.length; n++) at.push(-1)
       text += name
+    } else if (node.type.name === 'emoji') {
+      // A typed or pasted emoji is its own node in the editor: read back as itself, never dropped.
+      const emoji = shortcodeToEmoji(String(node.attrs.name), emojis)?.emoji ?? `:${node.attrs.name}:`
+      for (let n = 0; n < emoji.length; n++) at.push(-1)
+      text += emoji
     } else if (node.type.name === 'hardBreak') {
       at.push(-1)
       text += ' '
