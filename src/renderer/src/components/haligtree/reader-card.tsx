@@ -9,6 +9,7 @@ import DownloadIcon from '@/components/ui/download-icon'
 import { call, haligtree, useLive } from '@/lib/haligtree'
 import { useShelf } from '@/lib/books'
 import { chime } from '@/lib/sound'
+import { still } from '@/lib/motion'
 import { dayMonth } from '../../../../main/dates'
 import { Rolling, Tip, refuse, toast } from './ui'
 import { useTilt } from './tilt'
@@ -99,8 +100,20 @@ function stampsOf(facts: Facts): { label: ReactNode; said: string }[] {
   ].filter((one) => !!one) as { label: ReactNode; said: string }[]
 }
 
-/** The card's corners, rounded as on screen. */
+/** The card's corners, rounded as on screen: a book's, square at the spine, a little round at the fore-edge. */
 const ROUND = 5
+const BOOK_CORNERS = '2px 5px 5px 2px'
+/**
+ * Old paper seen edge on: fine leaf lines (vertical at the fore-edge, across at the foot, crossed here so both show),
+ * a grain, and a yellowing that deepens toward the outer edges as old books' pages do.
+ */
+const LEAVES = `url("data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120"><filter id="g"><feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 0.45  0 0 0 0 0.35  0 0 0 0 0.15  0 0 0 0.55 0"/></filter><rect width="120" height="120" filter="url(#g)"/></svg>')}")`
+const OLD_PAGES = [LEAVES, 'radial-gradient(120% 120% at 30% 25%, #f1e6c4, #e2d09c 70%, #cdb377)'].join(', ')
+/** Each leaf's edge, a fine line: running down the fore-edge, across the foot, a little uneven as real pages lie. */
+const EDGE_LINES = (way: 'down' | 'across'): string =>
+  `repeating-linear-gradient(${way === 'down' ? 90 : 180}deg, rgb(110 85 35 / 0.28) 0 0.6px, transparent 0.6px 1.9px, rgb(110 85 35 / 0.14) 1.9px 2.4px, transparent 2.4px 3.4px)`
+/** The cover's cloth: fine grey noise, laid on with multiply so the cream reads as a bound cover, not a screen. */
+const CLOTH = `url("data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 0.5  0 0 0 0 0.45  0 0 0 0 0.35  0 0 0 0.9 0"/></filter><rect width="160" height="160" filter="url(#n)"/></svg>')}")`
 
 /**
  * The card alone as a PNG, its corners see-through: taken square (cream to the
@@ -261,7 +274,7 @@ export function ReaderCard({ seed: saved, picture = 'shape', point, named, bare 
     tilt.grow.jump(1)
   }
   useEffect(() => void (point && card.current?.scrollIntoView({ block: 'center' })), [point])
-  const name = shelf?.name ?? ''
+  const name = named ?? shelf?.name ?? ''
   const seed = saved ?? seedOf(name)
   const { title, hues, shape } = cardOf(seed)
   const stamps = facts ? stampsOf(facts) : []
@@ -284,21 +297,36 @@ export function ReaderCard({ seed: saved, picture = 'shape', point, named, bare 
   return (
     <div className="flex flex-col items-center gap-3 pt-1">
       {/* The pointer is read on a wrapper that never tips, as Tilt does: read on the card, a corner tips out from under it and flickers. */}
-      <div data-reader-hold onPointerMove={(event) => void tilt.lean(event, event.currentTarget)} onPointerLeave={tilt.flat}>
+      {/* A press nudges the book where it is pressed, a little further back and a touch smaller, and on letting go it
+          springs back to lean toward the pointer again. */}
+      <div data-reader-hold className="mr-[13px] mb-[13px]" onPointerMove={(event) => void (!event.buttons && tilt.lean(event, event.currentTarget))} onPointerLeave={tilt.flat}
+        onPointerDown={(event) => { if (event.button !== 0 || still()) return; tilt.lean({ ...event, buttons: 0, pointerType: 'mouse' }, event.currentTarget); tilt.x.set(tilt.x.get() * 2.4); tilt.y.set(tilt.y.get() * 2.4); tilt.grow.set(0.97); chime('tap') }}
+        onPointerUp={(event) => void tilt.lean({ ...event, buttons: 0 }, event.currentTarget)}>
         {/* Cream paper in every theme, as a printed card is: its words take the card's own colour, never the theme's. */}
-        <motion.div
+        {/* The book tips as one: its block of pages behind, the cover over it. */}
+        <motion.div className="relative" style={{ rotateX: tilt.x, rotateY: tilt.y, scale: tilt.grow, transformPerspective: 700 }}>
+        {/* The pages under the cover, thick and showing at the fore-edge and the foot as on a closed book: old paper,
+            yellowed and grainy, each leaf's edge a fine line. The book's shadow falls from the block. */}
+        <div aria-hidden data-reader-pages className="pointer-events-none absolute top-[5px] left-[6px] -right-[13px] -bottom-[13px] overflow-hidden rounded-[1px_5px_5px_1px]"
+          style={{ background: OLD_PAGES, boxShadow: '0 1px 2px rgb(0 0 0 / 0.12), 8px 18px 34px -10px rgb(0 0 0 / 0.4)' }}>
+          <span className="absolute top-0 right-0 bottom-[13px] w-[13px] rounded-tr-[inherit]" style={{ backgroundImage: EDGE_LINES('down') }} />
+          <span className="absolute right-0 bottom-0 left-0 h-[13px] rounded-b-[inherit]" style={{ backgroundImage: EDGE_LINES('across') }} />
+        </div>
+        <div
           ref={card}
           data-reader-card
           data-hues={hues.join(' ')}
           data-picture={picture}
-          className="relative flex h-[375px] w-[250px] shrink-0 flex-col bg-[#fffbea] p-3 shadow-[0_1px_2px_rgb(0_0_0/0.08),0_12px_32px_-8px_rgb(0_0_0/0.28)]"
-          style={{ rotateX: tilt.x, rotateY: tilt.y, scale: tilt.grow, transformPerspective: 700, ...({ borderRadius: ROUND, transition: '--mf-card-a 700ms ease-out, --mf-card-b 700ms ease-out, --mf-card-c 700ms ease-out', color: 'var(--mf-card-c)', '--mf-card-a': inked(hues[0], 0.82, 0.13), '--mf-card-b': inked(hues[1], 0.66, 0.19), '--mf-card-c': inked(hues[2], 0.44, 0.15) } as CSSProperties) }}
+          className="relative flex h-[375px] w-[250px] shrink-0 flex-col bg-[#fffbea] py-4 pr-4 pl-[1.75rem]"
+          style={{ boxShadow: '1px 1px 0 rgb(0 0 0 / 0.1), 2px 2px 3px -1px rgb(0 0 0 / 0.18)', ...({ borderRadius: BOOK_CORNERS, transition: '--mf-card-a 700ms ease-out, --mf-card-b 700ms ease-out, --mf-card-c 700ms ease-out', color: 'var(--mf-card-c)', '--mf-card-a': inked(hues[0], 0.82, 0.13), '--mf-card-b': inked(hues[1], 0.66, 0.19), '--mf-card-c': inked(hues[2], 0.44, 0.15) } as CSSProperties) }}
         >
           {picture === 'shape' ? <ShapePicture shape={shape} /> : <div className="overflow-hidden rounded-[2px]"><Bands /></div>}
           <p data-reader-name className="mt-3 line-clamp-2 text-[1.375rem] leading-[1.12] font-bold tracking-[-0.015em] break-words" style={{ fontFamily: "'Fraunces Variable', Georgia, serif" }}>{name || ' '}</p>
           <p data-reader-title={title} className="mt-1.5 font-mono text-[0.625rem] font-medium tracking-[0.16em] uppercase"><Rolling text={title} by="word" /></p>
-          <div className="mt-auto flex items-end justify-between gap-2">
-            <div className="flex min-w-0 flex-col items-start gap-2">
+          {/* The foot: the stamps with "Commonplace Book" beside them, and the day's tag under both, so the two never meet
+              on a cover narrowed by its spine. */}
+          <div className="mt-auto flex flex-col items-stretch gap-2">
+            <div className="flex items-end justify-between gap-2">
               {/* Room for a row of stamps, kept even before the first, so the card never changes. */}
               <div data-reader-stamps className="flex min-h-[30px] pl-1.5">
                 {stamps.map((one, at) => (
@@ -311,16 +339,27 @@ export function ReaderCard({ seed: saved, picture = 'shape', point, named, bare 
                   </Tip>
                 ))}
               </div>
+              <p aria-hidden data-reader-book className="shrink-0 text-right text-[0.5625rem] leading-[1.2] font-semibold tracking-[0.08em] uppercase" style={{ fontFamily: "'Fraunces Variable', Georgia, serif" }}>Commonplace<br />Book</p>
+            </div>
+            <div className="flex">
               <span data-reader-since className="flex items-stretch border border-current font-mono text-[0.4375rem] leading-none font-medium tracking-[0.05em] whitespace-nowrap uppercase">
                 <span className="px-1 py-[3px]">Haligtree</span>
                 <span aria-hidden className="w-2.5 border-x border-current bg-[repeating-linear-gradient(135deg,currentColor_0_1px,transparent_1px_3px)]" />
                 <span className="px-1 py-[3px]">{facts?.since ? dayMonth(facts.since, 'always') : 'Not begun'}</span>
               </span>
             </div>
-            <p aria-hidden data-reader-book className="shrink-0 text-right text-[0.5625rem] leading-[1.2] font-semibold tracking-[0.08em] uppercase" style={{ fontFamily: "'Fraunces Variable', Georgia, serif" }}>Commonplace<br />Book</p>
           </div>
+          {/* A tooled frame on the cover, two fine rules in its ink, as a cloth binding is blocked; clear of the spine. */}
+          <span aria-hidden data-reader-frame className="pointer-events-none absolute top-[7px] right-[7px] bottom-[7px] left-[19px] rounded-[2px] border border-current opacity-[0.22]" />
+          <span aria-hidden className="pointer-events-none absolute top-[10px] right-[10px] bottom-[10px] left-[22px] rounded-[1px] border border-current opacity-[0.12]" />
+          {/* The headband and tailband: a little coloured thread at the top and foot of the spine. */}
+          <span aria-hidden className="pointer-events-none absolute top-0 left-[3px] h-[3px] w-[8px] rounded-b-[1px] bg-[var(--mf-card-a)] opacity-80" />
+          <span aria-hidden className="pointer-events-none absolute bottom-0 left-[3px] h-[3px] w-[8px] rounded-t-[1px] bg-[var(--mf-card-a)] opacity-80" />
+          <span aria-hidden data-reader-spine className="pointer-events-none absolute inset-y-0 left-0 w-[16px] rounded-l-[inherit] bg-[linear-gradient(to_right,rgb(0_0_0/0.16),rgb(0_0_0/0.05)_50%,rgb(255_255_255/0.4)_66%,rgb(0_0_0/0.12)_78%,rgb(0_0_0/0.03)_88%,transparent)]" />
+          <span aria-hidden data-reader-grain className="pointer-events-none absolute inset-0 rounded-[inherit] opacity-[0.22] mix-blend-multiply" style={{ backgroundImage: CLOTH }} />
           {/* A soft light where the pointer is, as the card tips. */}
           <motion.span aria-hidden className="pointer-events-none absolute inset-0 rounded-[inherit]" style={{ background: tilt.sheen, opacity: tilt.glow }} />
+        </div>
         </motion.div>
       </div>
       {!bare && <div className="flex gap-1">

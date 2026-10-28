@@ -41,14 +41,14 @@ const copied = async () => {
         return +(sum / count).toFixed(2)
       }
       // In the top band, or the middle of the shape; and the cream margin beside the picture.
-      return { size, corner: at(0, 0), inside: at(Math.round(8 * scale), Math.round(2 * scale)), grain: shape ? steps(115, 102) : steps(60, 30), cream: steps(2, 150, 8) }
+      return { size, corner: at(0, 0), inside: at(Math.round(40 * scale), Math.round(3 * scale)), grain: shape ? steps(115, 102) : steps(60, 30), cream: steps(2, 150, 8) }
     }
     return null
   }, shape)
 }
 // The card's transform as drawn: "none", or how far it is turned.
 const turned = () => h.evaluate(() => {
-  const at = getComputedStyle(document.querySelector('[data-reader-card]')).transform
+  const at = getComputedStyle(document.querySelector('[data-reader-card]').parentElement).transform
   if (at === 'none') return 0
   const m = new DOMMatrix(at)
   return +(Math.abs(Math.asin(Math.max(-1, Math.min(1, m.m13)))) * 180 / Math.PI + Math.abs(Math.asin(Math.max(-1, Math.min(1, m.m23)))) * 180 / Math.PI).toFixed(2)
@@ -69,7 +69,8 @@ const card = () => h.evaluate(() => {
     size: (() => { const box = at.getBoundingClientRect(); return `${Math.round(box.width)}x${Math.round(box.height)}` })(),
     seen: (() => { const box = at.getBoundingClientRect(); return box.top >= 0 && box.bottom <= innerHeight })(),
     // The tag's right edge and "Commonplace Book"'s left, to see they never run into each other.
-    gap: Math.round(at.querySelector('[data-reader-book]').getBoundingClientRect().left - at.querySelector('[data-reader-since]').getBoundingClientRect().right)
+    // Apart either across or down: the tag sits under the stamps and "Commonplace Book" now, on the book's narrower cover.
+    gap: (() => { const [a, b] = [at.querySelector('[data-reader-book]').getBoundingClientRect(), at.querySelector('[data-reader-since]').getBoundingClientRect()]; return Math.round(Math.max(a.left - b.right, b.left - a.right, a.top - b.bottom, b.top - a.bottom)) })()
   }
 })
 
@@ -159,8 +160,9 @@ try {
     const corners = await copied()
     const size = corners?.size
     check(`"Copy as image" puts a PNG of the card on the clipboard (${look})`, !!size && Math.abs(size.width / size.height - box.width / box.height) < 0.05, `${JSON.stringify(size)} for ${Math.round(box.width)}x${Math.round(box.height)}`)
-    check(`its picture has a grain in the PNG, the cream none (${look})`, corners?.grain > 2.5 && corners?.cream < 1, JSON.stringify(corners && { grain: corners.grain, cream: corners.cream }))
-    check(`its corners see-through and its edge cream (${look})`, corners?.corner[3] === 0 && corners?.inside[3] === 255 && corners.inside[2] > 245 && corners.inside[1] > 240 && corners.inside[0] > 220, JSON.stringify(corners && { corner: corners.corner, inside: corners.inside }))
+    // The cover is cloth now (a book's), so it has a grain of its own, finer than the picture's.
+    check(`its picture has a grain in the PNG, the cover a finer one (${look})`, corners?.grain > 2.5 && corners?.cream < corners?.grain, JSON.stringify(corners && { grain: corners.grain, cream: corners.cream }))
+    check(`its corners see-through and its edge cream (${look})`, corners?.corner[3] === 0 && corners?.inside[3] === 255 && corners.inside[2] > 200 && corners.inside[1] > 215 && corners.inside[0] > 215, JSON.stringify(corners && { corner: corners.corner, inside: corners.inside }))
     await shot(`reader-card-${look}`)
   }
   // Back to the shape, the default.
