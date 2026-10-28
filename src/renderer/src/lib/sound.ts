@@ -293,7 +293,9 @@ export function chime(cue: Cue): void {
  * editor's own menus take `openChime`, the sound alone.
  */
 export const openChime = (node: HTMLElement | null): void => void (node && chime('open'))
-export const openCue = (node: HTMLElement | null): void => void (node && (chime('open'), markKeyed(node)))
+// Once per panel: React's development checks attach a ref twice to the same node, and the open sound played twice.
+const cued = new WeakSet<HTMLElement>()
+export const openCue = (node: HTMLElement | null): void => void (node && !cued.has(node) && (cued.add(node), chime('open'), markKeyed(node)))
 
 let chimedAt = -Infinity
 /** When a row's press last ticked: the move it makes says nothing on top. */
