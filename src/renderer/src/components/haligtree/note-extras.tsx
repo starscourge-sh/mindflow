@@ -1,3 +1,4 @@
+import { useVim } from '@/lib/vim'
 import { useEffect, useRef, useState } from 'react'
 import { useShowLine } from '@/lib/show-in-list'
 import { layerOpen } from '@/lib/menu-keys'
@@ -624,6 +625,8 @@ export function NoteHeader({ left, back, type = 'capture', edited, captured, mad
   const detailsOut = useDetailsShown()
   const inPane = usePane()
   const width = widthOf(useLive(haligtree.settings, null))
+  // Its line says Vim's keys only to someone who has Vim on.
+  const vim = useVim()
   return (
     <div data-note-head className={`@container/head flex min-h-7 items-center justify-between gap-2 px-3 @[40rem]/page:px-[clamp(0.75rem,10%,4.25rem)] ${className}`}>
       {reading && <ReadThrough items={[{ type, id: versions.id }]} onClose={() => setReading(false)} />}
@@ -668,7 +671,7 @@ export function NoteHeader({ left, back, type = 'capture', edited, captured, mad
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel data-view-group>View</DropdownMenuLabel>
                 {[
-                  { label: 'Read', says: 'Read it through; Vim and ⌘L to edit; L opens its links in place', run: () => (chime('open'), setReading(true)) },
+                  { label: 'Read', says: vim ? 'Read it through; Vim and ⌘L to edit; L opens its links in place' : 'Read it through; ⌘L to edit; L opens its links in place', run: () => (chime('open'), setReading(true)) },
                   ...(board ? [{ label: 'Board view', says: 'Its lines as cards on a board', run: board.toggle, keys: '⌥⌘B', on: board.on }] : []),
                   ...viewed.map((item) => ({ label: item.label, says: VIEW_SAYS[item.label], run: item.run, keys: item.keys }))
                 ].map((one) => (
