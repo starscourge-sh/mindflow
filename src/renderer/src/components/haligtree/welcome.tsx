@@ -1744,6 +1744,35 @@ const paletteNow = (): string => {
 }
 const usePalette = (): string[] => useSyncExternalStore(watchTheme, paletteNow).split('|')
 
+/**
+ * The spark the arrival's light comes from, as Arc's opening has it: a tiny, very bright point that pops in at the
+ * centre of the dark with a soft halo, and glimmers there (never pulsing in and out), its halo slowly gathering as
+ * if something were building. A breath before the burst it draws in, a quick squeeze, and then lets go: a flash,
+ * the halo rolling out ahead of the gradient, the point staying bright at the heart of it until the light has
+ * reached the edges, then gone into it. On the glow's own clock (grainient.tsx), all transform and opacity.
+ */
+function IntroSpark(): React.JSX.Element {
+  // Points in the intro (0 to 1, the glow's own `opened`): in, the long glimmer, gathering, the squeeze, the release.
+  const at = [0, 0.05, 0.2, 0.34, 0.48, SPARK_HOLD - 0.06, SPARK_HOLD - 0.015, SPARK_HOLD, SPARK_HOLD + 0.12, 0.94, 1]
+  const timing = { delay: INTRO_DELAY, duration: INTRO_SECONDS, times: at, ease: 'easeInOut' as const }
+  return (
+    <span aria-hidden data-intro-spark className="pointer-events-none absolute inset-0 z-[1] grid place-items-center mix-blend-screen">
+      {/* The halo: wide and soft, gathering through the hold, then rolling out ahead of the light. */}
+      <motion.span className="col-start-1 row-start-1 size-40 rounded-full"
+        style={{ background: 'radial-gradient(circle, rgb(255 233 168 / 0.55) 0%, rgb(250 189 47 / 0.22) 35%, rgb(250 189 47 / 0.06) 60%, transparent 72%)' }}
+        initial={{ opacity: 0, scale: 0.3 }}
+        animate={{ opacity: [0, 0.45, 0.5, 0.55, 0.62, 0.85, 0.7, 1, 0.75, 0.3, 0], scale: [0.3, 0.8, 0.85, 0.9, 0.98, 1.25, 1, 2.2, 7, 11, 12] }}
+        transition={timing} />
+      {/* The point itself: a hot white-gold core, glimmering slightly, squeezed and then flashing as it lets go. */}
+      <motion.span className="col-start-1 row-start-1 size-[7px] rounded-full bg-[#fffaf0]"
+        style={{ boxShadow: '0 0 6px 2px rgb(255 240 200 / 0.95), 0 0 18px 6px rgb(250 189 47 / 0.55), 0 0 42px 14px rgb(250 189 47 / 0.22)' }}
+        initial={{ opacity: 0, scale: 0.2 }}
+        animate={{ opacity: [0, 1, 0.9, 1, 0.92, 1, 1, 1, 1, 0.9, 0], scale: [0.2, 1, 0.94, 1.05, 0.97, 1.12, 0.7, 2.1, 1.6, 1.3, 1] }}
+        transition={timing} />
+    </span>
+  )
+}
+
 function GrainBackdrop({ page, arrival, arriving, onBloomed }: { page: number; arrival: number; arriving: boolean; onBloomed?: () => void }): React.JSX.Element {
   const light = useLightTheme()
   const colours = usePalette()
@@ -1760,13 +1789,7 @@ function GrainBackdrop({ page, arrival, arriving, onBloomed }: { page: number; a
   return (
     <div aria-hidden className="absolute inset-0">
       {/* A new canvas for each arrival, so each one blooms from the page's colour; skipped, it is whole at once. */}
-      {/* The spark at the very centre, on the glow's own clock: a bright point lit at once, steady, then drawing in a
-          breath (brighter, a touch larger: something is about to happen) just before the light bursts out from it, and it stays as the light's bright heart, widening with it, going only as the light reaches the edges. */}
-      {arriving && !still() && <motion.span key={`spark-${arrival}`} aria-hidden data-intro-spark className="pointer-events-none absolute top-1/2 left-1/2 z-[1] size-3 -translate-x-1/2 -translate-y-1/2 rounded-full mix-blend-screen"
-        style={{ background: 'radial-gradient(circle, #fffbe8 0%, #ffe9a8 30%, rgb(250 189 47 / 0.55) 55%, transparent 72%)', boxShadow: '0 0 18px 6px rgb(250 189 47 / 0.35)' }}
-        initial={{ opacity: 0, scale: 0.4 }}
-        animate={{ opacity: [0, 1, 0.85, 1, 1, 1, 0], scale: [0.4, 1, 0.92, 1, 1.9, 3.6, 4.2] }}
-        transition={{ delay: INTRO_DELAY, duration: INTRO_SECONDS, times: [0, 0.08, 0.3, 0.45, SPARK_HOLD, 0.9, 1], ease: 'easeInOut' }} />}
+      {arriving && !still() && <IntroSpark key={`spark-${arrival}`} />}
       <Grainient key={arrival} ref={grain} intro={arriving} onIntroDone={onBloomed} colors={colours} angle={55} speed={0.6} flow={0.8} silk={light ? 0.2 : 0.35} saturation={light ? 0.8 : 1} grainAmount={light ? 0.06 : 0.08} />
       {/* The veil toward the words' side: not over the arrival, which fills the whole window as Arc's does, then in as the first words come. */}
       <div className={`pointer-events-none absolute inset-0 transition-opacity duration-[1600ms] ${arriving ? 'opacity-0' : 'opacity-100'} bg-[linear-gradient(90deg,color-mix(in_oklab,var(--background)_55%,transparent)_0%,color-mix(in_oklab,var(--background)_30%,transparent)_45%,transparent_80%)]`} />

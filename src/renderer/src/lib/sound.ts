@@ -1077,6 +1077,8 @@ export function ambience(): void {
   wave.start(now)
   sources.push(surf, wave)
   bed = { context, out, swell, voices, sources }
+  // The spark heard as it is seen: one small high glass note as it pops in at the centre of the dark.
+  bell(PENTA[4] * 2, 0.007, 'spark', INTRO_DELAY + 0.05)
   hear('cue:ambience')
 }
 

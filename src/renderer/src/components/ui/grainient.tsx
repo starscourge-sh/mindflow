@@ -21,7 +21,8 @@ export const INTRO_DELAY = 2.2
 export const INTRO_SECONDS = 4.8
 // The spark: how far it reaches, how quickly it comes (share of the intro), and how long it then holds still, small,
 // long enough to wonder "what's that?" before it bursts open.
-const SPARK = 0.09
+// Kept faint: the spark (welcome.tsx, IntroSpark) is what is seen; the glow under it only warms the dark round it.
+const SPARK = 0.045
 const SPARK_IN = 0.08
 export const SPARK_HOLD = 0.62
 /**

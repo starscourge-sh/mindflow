@@ -64,7 +64,7 @@ try {
     if (!lineAt && (await opacity('[data-title-card] p')) > 0.95) lineAt = t
     if (SHOTS && t > [1500, 3900, 5300, 5800, 6300, 6700, 7100, 12000][frame]) await shot(`0${frame++}-card-${(t / 1000).toFixed(1)}s`)
     // The logo over the words, and the wordmark's weight.
-    if (t > 10500 && !mark) mark = await h.evaluate(() => ({ drawn: document.querySelectorAll('[data-title-card] img[data-title-mark]').length, weight: Number(getComputedStyle(document.querySelector('[data-title-card] h1')).fontWeight) }))
+    if (t > 9000 && !mark) mark = await h.evaluate(() => ({ drawn: document.querySelectorAll('[data-title-card] img[data-title-mark]').length, weight: Number(getComputedStyle(document.querySelector('[data-title-card] h1')).fontWeight) }))
     await h.waitForTimeout(200)
   }
   check('the title card shows in the mist, all the way to its lift', card === looks && looks > 5, `${card} of ${looks} looks`)
