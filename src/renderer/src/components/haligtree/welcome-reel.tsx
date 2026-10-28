@@ -5,7 +5,8 @@ import { spring } from '@/lib/motion'
 import { chime, click, type Cue } from '@/lib/sound'
 import { Button } from '@/components/ui/button'
 import { CAPTURE_TYPES, type CaptureType } from '@/components/capture-kinds/capture-kind-picker'
-import { STARTERS, type Starter } from '@/lib/welcome-box'
+import { starters, type Starter } from '@/lib/welcome-box'
+import { story } from '@/lib/welcome-stories'
 import { seeded, typingWaits } from '@/lib/typing'
 export { seeded }
 import { dayjs } from '../../../../main/dates'
@@ -53,7 +54,7 @@ export const MORPH = { type: 'spring' as const, duration: 0.75, bounce: 0 }
 export const LAND = { type: 'spring' as const, duration: 0.45, bounce: 0.18 }
 
 export type Kind = Starter['kind']
-export const starterOf = (kind: Kind): Starter => STARTERS.find((one) => one.kind === kind) as Starter
+export const starterOf = (kind: Kind): Starter => starters().find((one) => one.kind === kind) as Starter
 export const typeOf = (kind: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.find((type) => type.id === kind) ?? CAPTURE_TYPES[0]
 
 // --- the timeline ------------------------------------------------------------------
@@ -279,7 +280,9 @@ function KindChip({ kind }: { kind: CaptureType }): React.JSX.Element {
 }
 
 /** A short name for a thing caught, for a chip or a dot. */
-export const shortOf = (kind: Kind): string => ({ note: 'Why do old movies…', todo: 'Rewatch Empire…', quote: 'Do or do not…', word: 'petrichor', link: LINK_PAGE.title })[kind]
+/** A few words of each, for its chip: the note, quote and task are the story's told now. */
+const first = (text: string, words: number): string => `${text.replace(/^[“"]/, '').split(' ').slice(0, words).join(' ').replace(/[,.;:!?]$/, '')}…`
+export const shortOf = (kind: Kind): string => ({ note: first(story().caught, 3), todo: first(story().task, 2), quote: first(story().quote.text, 3), word: 'petrichor', link: LINK_PAGE.title })[kind]
 
 /** The link's page as Haligtree would fetch it, kept here so the welcome works offline. */
 export const LINK_PAGE = { title: 'Dune (novel)', site: 'en.wikipedia.org' }
@@ -383,7 +386,7 @@ export function PostcardResult({ words, who, where, signed, id = 'reel-item-quot
           </p>
           {/* Signed whole and never cut short: "said by" and the pen's stroke arrive together, the name
               drawn left to right (its clip reaches past the letters, so no swash shows early), and
-              where it is from wraps under it when the line is full ("in The Empire Strikes Back", which reads on either line where a dot would be left starting one). */}
+              where it is from wraps under it when the line is full ("in Pride and Prejudice", which reads on either line where a dot would be left starting one). */}
           <p className="mt-1 flex min-h-[1.6em] flex-wrap items-baseline gap-x-1.5 text-meta text-(--mf-wl-quiet) [&_.mf-signature]:overflow-visible [&_.mf-signature]:text-clip">
             {signed && (
               <motion.span className="inline-flex shrink-0" initial={{ clipPath: 'inset(-40% 100% -40% -20%)' }} animate={{ clipPath: 'inset(-40% -20% -40% -20%)' }} transition={{ duration: 0.9, ease: [0.65, 0, 0.35, 1] }}>
@@ -426,4 +429,5 @@ export function Rise({ text, still, delay = 0 }: { text: string; still: boolean;
 }
 
 /** The starters' parts, as the stage and the results show them. */
-export const QUOTE = starterOf('quote')
+/** The quote Catch catches: the story's own line. */
+export const quoteNow = (): Starter => starterOf('quote')

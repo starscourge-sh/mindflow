@@ -3,6 +3,7 @@ import type { Editor } from '@tiptap/core'
 import { dayjs } from '../../../main/dates'
 import { seeded, typingWaits } from './typing'
 import { still } from '@/lib/motion'
+import { story } from './welcome-stories'
 
 /**
  * The box, while the welcome runs. The welcome lives in the main window and
@@ -29,19 +30,23 @@ export type Starter = { kind: 'note' | 'todo' | 'quote' | 'word' | 'link'; text:
 /** The day the welcome's story falls on: two days from now by name, so the day read back is that day and never "today". */
 export const STORY_DAY = dayjs().add(2, 'day').format('dddd')
 
-/** One of each kind, each showing off what its kind does: a plain thought first, the todo last. Catch shows the quote and the todo (with the thought the story follows, welcome-flow.tsx); the rest are the sandbox's. */
-export const STARTERS: Starter[] = [
+/**
+ * One of each kind, each showing off what its kind does: a plain thought first, the todo last. Catch shows the quote and
+ * the todo (with the thought the story follows, welcome-flow.tsx), both from the story told now (welcome-stories.ts):
+ * a line from its book, and its task on the story's day. The rest are the sandbox's.
+ */
+export const starters = (): Starter[] => [
   // The most common thing caught: a thought of your own, about a book.
   { kind: 'note', text: 'In Frankenstein, Victor never names the creature. Maybe that is the point.' },
   // A thought first, never a chore: Haligtree is a book of things worth keeping before it is a task list.
-  // Yoda, to Luke on Dagobah, in The Empire Strikes Back (1980).
-  { kind: 'quote', text: '“Do or do not. There is no try.”', who: 'Yoda', where: 'The Empire Strikes Back' },
+  // A line from the story's book, in its own words.
+  { kind: 'quote', ...story().quote },
   // The sandbox keeps the same word in the same words (sandbox-seed.ts).
   { kind: 'word', text: 'petrichor\nThe smell of rain on dry earth.' },
   // Its name and picture are fetched when it is kept (cardUp); the welcome shows them from LINK_PAGE.
   { kind: 'link', text: 'https://en.wikipedia.org/wiki/Dune_(novel)' },
-  // The film the quote is from, seen again on the story's day (Remember shows it on that day's sticky).
-  { kind: 'todo', text: `Rewatch The Empire Strikes Back on ${STORY_DAY} 8pm` }
+  // The story's task, on the story's day (Remember shows it on that day's sticky).
+  { kind: 'todo', text: `${story().task} on ${STORY_DAY} 8pm` }
 ]
 
 /**
@@ -213,7 +218,7 @@ export function useWelcomePlaceholder(onFields?: (who: string, where: string, ki
       const editor = (document.querySelector(EDITOR) as (HTMLElement & { editor?: Editor }) | null)?.editor
       if (!editor || editor.isDestroyed) return
       const now = editor.getText({ blockSeparator: '\n' }).trim()
-      if (!editor.isEmpty && !STARTERS.some((one) => one.text === now)) return void localStorage.removeItem(FILL)
+      if (!editor.isEmpty && !starters().some((one) => one.text === now)) return void localStorage.removeItem(FILL)
       localStorage.removeItem(FILL)
       if (now === asked.text) return void fields.current?.(asked.who ?? '', asked.where ?? '', asked.kind)
       const lines = asked.text.split('\n').map((line) => ({ type: 'paragraph', content: [{ type: 'text', text: line }] }))

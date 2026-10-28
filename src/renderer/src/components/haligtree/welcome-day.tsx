@@ -10,7 +10,7 @@ import { Flip } from './review-view'
 import { Tape } from './tape'
 import { CARD, PAPER } from './sticky-note'
 import { flowTask, flowWords, HUE } from './welcome-flow'
-import { LAND, PostcardResult, QUOTE } from './welcome-reel'
+import { LAND, PostcardResult, quoteNow, shortOf } from './welcome-reel'
 
 /**
  * The welcome's Remember chapter: the three things kept so far (the task and
@@ -24,8 +24,8 @@ import { LAND, PostcardResult, QUOTE } from './welcome-reel'
 /** A ticked task's line through its words, a little below the middle of each line. */
 const STRIKE = 'linear-gradient(transparent calc(55% - 0.5px), color-mix(in oklab, var(--foreground) 50%, transparent) calc(55% - 0.5px), color-mix(in oklab, var(--foreground) 50%, transparent) calc(55% + 0.5px), transparent calc(55% + 0.5px))'
 
-/** The story's day's tasks on the sticky note: the one from the note first, ticked off there; the film from Catch. */
-const today = (): [string, string?][] => [[flowTask().title], ['Rewatch The Empire Strikes Back', clock(dayjs().hour(20).minute(0))], ['Return the library books']]
+/** The story's day's tasks on the sticky note: the story's task first (caught in Catch for 8pm, and picked out of the note in Write), ticked off there. */
+const today = (): [string, string?][] => [[flowTask().title, clock(dayjs().hour(20).minute(0))], ['Return the library books']]
 
 /**
  * The day's sticky on the desktop, over another app's window, drawn as plain
@@ -110,7 +110,7 @@ const clip = (text: string, words = 4): string => {
 export const back =(): { kind: 'task' | 'gem' | 'quote'; kept: string; when: string; said: string }[] => [
   { kind: 'task', kept: clip(flowTask().title), when: `${STORY_DAY}, ${clock(dayjs().hour(9).minute(0))}`, said: 'With “Stick Today on the desktop”, your tasks *sit on your desktop*. Tick them off there.' },
   { kind: 'gem', kept: clip(flowWords().gem, 3), when: `${dayjs().add(5, 'day').format('dddd')}, ${clock(dayjs().hour(21).minute(30))}`, said: 'A gem with a question *comes back in “Review”* as you start to forget it. A plain one turns up in your “Feed”.' },
-  { kind: 'quote', kept: 'Do or do not…', when: 'A year on', said: 'The line you saved *shows up on “Home”*, and as a hint, like a postcard from your past self.' }
+  { kind: 'quote', kept: shortOf('quote'), when: 'A year on', said: 'The line you saved *shows up on “Home”*, and as a hint, like a postcard from your past self.' }
 ]
 const ICON = { task: ListTodo, gem: Gem, quote: Quote }
 const CHIP = 'flex h-9 items-center gap-1.5 overflow-hidden rounded-full border border-foreground/15 bg-popover px-3 text-[0.9375rem] whitespace-nowrap text-foreground shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_12%,transparent)]'
@@ -158,7 +158,7 @@ export function ComeBack({ shot, quiet, said }: { shot: BackShot; quiet: boolean
                   // The postcard a year on, floating in once, as it does on Home; nothing in its place until it comes. A little smaller on a short window, so the curve under it has room.
                   <motion.div className="w-full max-w-[21rem] [@media(max-height:760px)]:[zoom:0.82]" initial={false}
                     animate={{ opacity: on ? 1 : 0, y: on ? 0 : 12, rotate: on ? -2 : 0 }} transition={quiet ? { duration: 0 } : { type: 'spring', duration: 0.7, bounce: 0.15 }}>
-                    {on && <PostcardResult id="day-postcard" words={QUOTE.text} who={QUOTE.who!} where={QUOTE.where} signed={shot.signed} write={!quiet && shot !== BACK_END} />}
+                    {on && <PostcardResult id="day-postcard" words={quoteNow().text} who={quoteNow().who!} where={quoteNow().where} signed={shot.signed} write={!quiet && shot !== BACK_END} />}
                   </motion.div>
                 )}
               </motion.div>

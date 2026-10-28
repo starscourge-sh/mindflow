@@ -186,7 +186,7 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
     check(`${theme}: on Remember`, (await chapter(h)).includes('Remember'), await chapter(h))
     const kept = await h.evaluate(() => [...document.querySelectorAll('[data-kept]')].map((el) => `${el.dataset.kept}:${el.innerText.trim()}`))
     const before = await h.evaluate(() => document.querySelectorAll('[data-moment][data-shown]').length)
-    check(`${theme}: Remember opens on the things kept, already there: the task, both gems, the quote`, kept.length === 4 && kept[0].startsWith(`task:${S.task.split(' ').slice(0, 3).join(' ')}`) && kept[1].startsWith(`gem:${gemOf(S).split(' ').slice(0, 2).join(' ')}`) && kept[2].startsWith(`kept:${S.kept.split(' ').slice(0, 2).join(' ')}`) && /^quote:Do or do not/.test(kept[3]) && before === 0, `${kept.join(' | ')}; ${before} shown`)
+    check(`${theme}: Remember opens on the things kept, already there: the task, both gems, the quote`, kept.length === 4 && kept[0].startsWith(`task:${S.task.split(' ').slice(0, 3).join(' ')}`) && kept[1].startsWith(`gem:${gemOf(S).split(' ').slice(0, 2).join(' ')}`) && kept[2].startsWith(`kept:${S.kept.split(' ').slice(0, 2).join(' ')}`) && kept[3].startsWith(`quote:${S.quote.text.replace(/^“/, "").split(" ")[0]}`) && before === 0, `${kept.join(' | ')}; ${before} shown`)
     const chips = await h.evaluate(() => ['gem', 'kept'].map((one) => { const el = document.querySelector(`[data-kept="${one}"]`); const marks = el ? [...el.querySelectorAll('svg')] : []; const box = el?.getBoundingClientRect(); return { marks: marks.length, label: el?.querySelector('.sr-only')?.textContent ?? '', h: Math.round(box?.height ?? 0), top: Math.round(box?.top ?? 0), task: Math.round(document.querySelector('[data-kept="task"]')?.getBoundingClientRect().height ?? -1) } }))
     check(`${theme}: Remember's two gem chips sit in one row, the one with a question marked for Review, the plain one for the Feed`, chips.every((one) => one.marks === 2 && one.h === one.task) && chips[0].top === chips[1].top && /Review/.test(chips[0].label) && /Feed/.test(chips[1].label), JSON.stringify(chips))
     const said = await h.evaluate(() => document.querySelector('[data-moment="1"] [data-answer]')?.getAttribute('aria-label') ?? '')
@@ -274,7 +274,7 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
       check(`${theme} ${w}x${hh}: the curve is under all three columns, at least two wide; the three equal`, rowOk(r), JSON.stringify(r))
     }
     const sticky = await h.evaluate(() => document.querySelector('[data-moment="0"]')?.innerText ?? '')
-    check(`${theme}: the sticky is the story's day, with the note's task and the film from Catch`, sticky.includes(DAY) && sticky.replace(/\s+/g, ' ').includes(S.task) && /Rewatch The Empire Strikes Back/.test(sticky), sticky.replace(/\s+/g, ' ').slice(0, 140))
+    check(`${theme}: the sticky is the story's day, with the story's task, caught in Catch and picked out in Write`, sticky.includes(DAY) && sticky.replace(/\s+/g, ' ').includes(S.task) && !/Empire/.test(sticky), sticky.replace(/\s+/g, ' ').slice(0, 140))
   } finally {
     if (c.errors.length) console.log(c.errors.join('\n'))
     await c.close()

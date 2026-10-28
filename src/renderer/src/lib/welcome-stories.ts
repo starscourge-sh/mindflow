@@ -25,6 +25,8 @@ export type Story = {
   task: string
   /** The gem's question, as Review asks it. */
   question: string
+  /** A real line from the book, in its public-domain words, caught as a quote in Catch: who says it, and where. */
+  quote: { text: string; who: string; where: string }
 }
 
 export const STORIES: readonly Story[] = [
@@ -41,7 +43,8 @@ export const STORIES: readonly Story[] = [
     ],
     kept: 'A scuffed boot tells him a whole life story.',
     task: 'Find the exact quote from A Scandal in Bohemia',
-    question: 'According to Holmes, what is the key difference between seeing and observing?'
+    question: 'According to Holmes, what is the key difference between seeing and observing?',
+    quote: { text: '“It is a capital mistake to theorize before one has data.”', who: 'Sherlock Holmes', where: 'A Scandal in Bohemia' }
   },
   {
     id: 'frankenstein',
@@ -56,7 +59,8 @@ export const STORIES: readonly Story[] = [
     ],
     kept: 'Victor abandons his creature out of fear the moment it wakes up.',
     task: "Outline key quotes from the creature's speech on the glacier",
-    question: 'What drives the creature from seeking affection to committing violent acts?'
+    question: 'What drives the creature from seeking affection to committing violent acts?',
+    quote: { text: '“I was benevolent and good; misery made me a fiend.”', who: 'The creature', where: 'Frankenstein' }
   },
   {
     id: 'dracula',
@@ -71,7 +75,8 @@ export const STORIES: readonly Story[] = [
     ],
     kept: 'Reading personal records makes the horror feel real and unedited.',
     task: "Save Jonathan Harker's journal entry from his first night at the castle",
-    question: 'Why does an epistolary format make supernatural stories feel grounded?'
+    question: 'Why does an epistolary format make supernatural stories feel grounded?',
+    quote: { text: '“Welcome to my house! Enter freely and of your own will!”', who: 'Count Dracula', where: 'Dracula' }
   },
   {
     id: 'pride',
@@ -86,7 +91,8 @@ export const STORIES: readonly Story[] = [
     ],
     kept: 'He assumes his high social standing hides his poor manners.',
     task: 'Re-read the letter Darcy writes Elizabeth after the proposal',
-    question: "Why does Darcy misjudge Elizabeth's reaction to his proposal?"
+    question: "Why does Darcy misjudge Elizabeth's reaction to his proposal?",
+    quote: { text: '“I could easily forgive his pride, if he had not mortified mine.”', who: 'Elizabeth Bennet', where: 'Pride and Prejudice' }
   },
   {
     id: 'odyssey',
@@ -101,7 +107,9 @@ export const STORIES: readonly Story[] = [
     ],
     kept: 'Clever wordplay saves his crew when fighting cannot.',
     task: "Map out the main stops on Odysseus's journey home",
-    question: 'What lesson does the Cyclops escape teach about solving impossible conflicts?'
+    question: 'What lesson does the Cyclops escape teach about solving impossible conflicts?',
+    // Samuel Butler's translation (1900), in the public domain.
+    quote: { text: '“My name is Noman; this is what my father and mother and my friends have always called me.”', who: 'Odysseus', where: 'The Odyssey' }
   }
 ]
 

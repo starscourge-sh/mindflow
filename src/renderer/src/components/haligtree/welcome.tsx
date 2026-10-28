@@ -36,7 +36,7 @@ import { Grainient, type GrainientHandle } from '@/components/ui/grainient'
 import { BACK_END, BACK_START, ComeBack, type BackShot } from './welcome-day'
 import { CURSOR_MS, FLOW_START, flowEnd, flowParts, flowWords, FlowTree, PICKS, type FlowShot, type Pick } from './welcome-flow'
 import {
-  CAM, ENTER, MOVE, leadMs, EMPTY_BOX, LAND, QUOTE, Rise, Caught, Stage,
+  CAM, ENTER, MOVE, leadMs, EMPTY_BOX, LAND, quoteNow, Rise, Caught, Stage,
   cue, seeded, starterOf, typed, useScript, type Beat, type Box, type Kind, type Part
 } from './welcome-reel'
 import { APP_NAME } from '../../../../main/name'
@@ -1003,7 +1003,7 @@ function Shine({ children, done = false }: { children: ReactNode; done?: boolean
 
 // --- 3 Catch ------------------------------------------------------------------------
 
-/** What Catch catches, in order: the thought the story follows, a line from the film it is about, then a plan to see the film again. */
+/** What Catch catches, in order: the thought the story follows, a line from its book, then the story's task. */
 const CAUGHT: Kind[] = ['note', 'quote', 'todo']
 
 type CatchState = { keys: boolean; down: number[]; box: Box | null; filled: Kind[]; said: Kind[]; kinds: boolean; aha: 'keys' | null }
@@ -1050,6 +1050,7 @@ function catchBeats(): Beat<CatchState>[] {
   }
   catchOne('note', flowWords().caught, (sofar) => ({ text: sofar }), null, 'note', () => undefined, 1500)
   // Past the closing mark: who said it, and where, lit as Haligtree reads them.
+  const QUOTE = quoteNow()
   const said = `${QUOTE.text} - ${QUOTE.who}, ${QUOTE.where}`
   catchOne('quote', said, (sofar) => {
     if (sofar.length <= QUOTE.text.length + 2) return { text: sofar }
@@ -1460,7 +1461,6 @@ function DialChapter({ play, report, onPick, mine }: { play: boolean; report: (n
   )
 }
 
-// --- the parts kept from before -------------------------------------------------
 // --- 7 Name it -------------------------------------------------------------------
 
 const NAME_LINE = 'It shows on your reader card, in the sidebar and in “Settings”, where you can change it any time.'
@@ -1522,6 +1522,7 @@ function NameChapter({ play, report, onNext }: { play: boolean; report: (now: Re
   )
 }
 
+// --- the parts kept from before -------------------------------------------------
 
 /** The moment the welcome opened, as a diary dates an entry: the day, then the hour in your Mac's own style. */
 export const dateline = (): string => `${dayjs().format('dddd D MMMM')}, ${clock(new Date())}`

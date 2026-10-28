@@ -1,5 +1,5 @@
 import type { JSONContent } from '@tiptap/core'
-import { EXAMPLES, STARTERS } from '@/lib/welcome-box'
+import { EXAMPLES, starters } from '@/lib/welcome-box'
 import { flowTask, flowWords } from '@/components/haligtree/welcome-flow'
 // The same desert the welcome's Dune card shows (welcome-reel.tsx).
 import dunesUrl from '@/assets/welcome/dunes.webp'
@@ -1605,11 +1605,12 @@ Later: ${link(florence, 'How Florence learned perspective', 'article')}`)
   await call('sandbox:age', renAges)
 
   // --- the welcome's own examples, word for word, so whatever it shows can be found here ---
-  // Its cards (welcome-box.ts STARTERS), quick capture's typed examples (EXAMPLES) and the story Catch, Write and Remember follow (welcome-flow.tsx).
-  const starter = (kind: string): string => STARTERS.find((one) => one.kind === kind)!.text
+  // Its cards (welcome-box.ts starters), quick capture's typed examples (EXAMPLES) and the story Catch, Write and Remember follow (welcome-flow.tsx).
+  const starter = (kind: string): string => starters().find((one) => one.kind === kind)!.text
+  const bookLine = starters().find((one) => one.kind === 'quote')!
   const thought = await capture({}, at(-3, '08:12'))
   await write(thought, `${starter('note')}\n\nA plain thought, kept as written: most of what anyone catches is one of these.`)
-  const yoda = await capture({ kind: 'quote', attribution: 'Yoda', medium: 'The Empire Strikes Back (1980)' }, at(-6, '21:30'))
+  const yoda = await capture({ kind: 'quote', attribution: bookLine.who, medium: bookLine.where }, at(-6, '21:30'))
   await write(yoda, `${starter('quote')}\n\nA quote keeps who said it and where. A year from today it can come back to you as a postcard.`)
   const duneLink = await capture({ kind: 'link', title: 'Dune (novel)' }, at(-9, '19:10'))
   await write(duneLink, `

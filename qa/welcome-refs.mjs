@@ -8,7 +8,7 @@ import { STORIES, gemOf } from '../src/renderer/src/lib/welcome-stories.ts'
 process.env.QA_ARGS ??= '--sandbox'
 const c = await sandbox({ width: 1000, height: 700 })
 const { h } = c
-const asks = ['Do or do not. There is no try', 'petrichor', 'Rewatch The Empire Strikes Back',
+const asks = ['petrichor',
   'Frodo never wanted the ring', 'All we have to decide is what to do with the time', 'anagnorisis', 'Rosetta Stone', 'Ask Hermione for the potions notes',
 ]
 let failed = 0
