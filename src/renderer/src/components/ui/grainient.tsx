@@ -377,6 +377,8 @@ export function Grainient({
     let time = 0
     // Below 0 while the bare page holds, before the glow starts.
     let introClock = settingsRef.current.intro && !reduce ? -INTRO_DELAY / INTRO_SECONDS : 1
+    // How far the glow has reached once its breathing ends: from there it only ever grows.
+    let reached = 0
     let frameSeed = 0
     let grainClock = 0
     let raf = 0
@@ -438,7 +440,12 @@ export function Grainient({
       const grow = smoother(clamp((opened - SEED_PART) / (1 - SEED_PART), 0, 1))
       const t = opened * INTRO_SECONDS
       const breath = Math.sin(Math.PI * 2 * (t / BREATH_SECONDS + QUICKEN * t * t))
-      gl.uniform1f(fu.uReveal, SEED_REACH * seed * (1 + 0.2 * breath * (1 - grow)) + (1 - SEED_REACH) * grow)
+      // The breath settles over the last of the small glow's time, so it is still as the spreading begins: a breath
+      // still going as it spread read as the glow shrinking back halfway, a bounce. And once settled it never shrinks.
+      const settle = 1 - smooth(clamp((opened - SEED_PART * 0.6) / (SEED_PART * 0.4), 0, 1))
+      let reveal = SEED_REACH * seed * (1 + 0.2 * breath * settle) + (1 - SEED_REACH) * grow
+      if (opened >= SEED_PART * 0.6) reveal = reached = Math.max(reached, reveal)
+      gl.uniform1f(fu.uReveal, reveal)
       gl.drawArrays(gl.TRIANGLES, 0, 3)
       gl.bindFramebuffer(gl.FRAMEBUFFER, null)
       gl.viewport(0, 0, canvas.width, canvas.height)
