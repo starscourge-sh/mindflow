@@ -1504,11 +1504,12 @@ function NameChapter({ play, report, onNext }: { play: boolean; report: (now: Re
     <>
       <Words title="Name your book." still={!play} done>{NAME_LINE}</Words>
       <div className="flex min-h-0 flex-1 flex-wrap items-center justify-center gap-x-[clamp(2rem,7vw,6rem)] gap-y-6 pb-2">
-        <motion.div data-name-field className="flex w-[min(24rem,100%)] flex-col gap-3" initial={play ? { opacity: 0, y: 8 } : false} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: ENTER, delay: 0.1 }}>
+        <motion.div data-name-field className="flex w-[min(28rem,100%)] flex-col gap-3" initial={play ? { opacity: 0, y: 8 } : false} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: ENTER, delay: 0.1 }}>
           <label htmlFor="mf-book-name" className="-mb-1 text-[1.0625rem] font-medium text-foreground">Your book's name</label>
-          {/* "Draw another" inside the field at its end, on its row and its edge, as a field's own button sits. */}
+          {/* Written in the pen's hand, as the owner signs a new book inside its cover (the title card's line). "Draw
+              another" inside the field at its end, on its row and its edge, as a field's own button sits. */}
           <div className="relative">
-            <input id="mf-book-name" data-welcome-book-name autoFocus spellCheck={false} className={`${FIELD} h-12 w-full pr-40 text-[1.125rem]`} placeholder={drawn} value={value} maxLength={60}
+            <input id="mf-book-name" data-welcome-book-name autoFocus spellCheck={false} className={`${FIELD} h-14 w-full pr-40 text-[1.625rem] leading-none tracking-[-0.01em] [font-family:'Haligtree_Signature',cursive] placeholder:text-(--mf-wl-quiet)`} placeholder={drawn} value={value} maxLength={60}
               onChange={(event) => setTyped(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter') (event.preventDefault(), onNext())
