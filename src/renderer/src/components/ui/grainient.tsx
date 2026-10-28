@@ -23,7 +23,7 @@ export const INTRO_SECONDS = 4.8
 // long enough to wonder "what's that?" before it bursts open.
 const SPARK = 0.09
 const SPARK_IN = 0.08
-const SPARK_HOLD = 0.62
+export const SPARK_HOLD = 0.62
 /**
  * How far the glow has grown at `opened` (0 to 1): a small spark comes up at once (about a third of a second), holds
  * still for over two seconds, then opens out fast, filling the window in under two.
