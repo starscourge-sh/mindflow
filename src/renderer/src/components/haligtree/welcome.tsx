@@ -18,6 +18,7 @@ import { ImportMap, sourceFrom } from './welcome-import'
 import { answered, applySetup, Payoff, YouPage } from './welcome-you'
 import { enterSandbox, SANDBOX, sandboxState, type Carry } from '@/lib/sandbox'
 import { examples, fillBox, holdKeys, STORY_DAY, tellBox } from '@/lib/welcome-box'
+import { pickStory, story } from '@/lib/welcome-stories'
 import keycapsUrl from '@/assets/welcome/keycaps.webp'
 import type { CaptureMeta } from '@/components/capture-list'
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
@@ -31,7 +32,7 @@ import { FULL_TURN, glyph, inClay, konami } from './welcome-eggs'
 import { WelcomeBackdrop, type Family } from './welcome-backdrop'
 import { Grainient, type GrainientHandle } from '@/components/ui/grainient'
 import { BACK_END, BACK_START, ComeBack, type BackShot } from './welcome-day'
-import { CURSOR_MS, FLOW_END, FLOW_START, FLOW_WORDS, FlowTree, type FlowShot } from './welcome-flow'
+import { CURSOR_MS, FLOW_START, flowEnd, flowParts, flowWords, FlowTree, type FlowShot } from './welcome-flow'
 import {
   CAM, ENTER, MOVE, leadMs, EMPTY_BOX, LAND, QUOTE, Rise, Caught, Stage,
   cue, seeded, starterOf, typed, useScript, type Beat, type Box, type Kind, type Part
@@ -232,6 +233,8 @@ export function Welcome(): React.JSX.Element | null {
   }
 
   const open = (again: boolean): void => {
+    // A story of its own for each run of the welcome (welcome-stories.ts), kept until it opens again, so Back and Next show the same one.
+    pickStory()
     void Promise.all([window.api.captures.list(), onboarding.state()]).then(([list, now]) => {
       before.current = new Set(list.map((one) => one.id))
       veteran.current = !now.welcomed && list.length > 0
@@ -534,7 +537,7 @@ export function Welcome(): React.JSX.Element | null {
   return (
     <MotionConfig reducedMotion={quiet ? 'always' : 'never'}>
     <motion.div ref={dialog} tabIndex={-1} role="dialog" aria-modal aria-label={`Welcome to ${APP_NAME}`} inert={opening} onKeyDown={(event) => event.stopPropagation()}
-      data-closing={closing ? '' : undefined} onPointerDown={() => void (closing && closed())}
+      data-closing={closing ? '' : undefined} data-story={story().id} onPointerDown={() => void (closing && closed())}
       initial={false} animate={{ opacity: closing ? 0 : 1 }} transition={closing ? { delay: 0.45, duration: 0.9, ease: MOVE } : { duration: 0 }}
       className="mf-welcome fixed inset-0 z-[70] flex outline-none flex-col overflow-clip bg-background text-foreground [container-type:inline-size]">
       <Backdrop family={at === WRITE ? 'ruled' : at === DIAL ? 'dots' : 'none'} page={at} arrival={arrival} arriving={mist && veiled && at === WHY} onBloomed={() => setBloomed(true)} />
@@ -1038,7 +1041,7 @@ function catchBeats(): Beat<CatchState>[] {
     beats.push({ at: sent + 60, to: { box: { ...EMPTY_BOX }, filled: CAUGHT.slice(0, CAUGHT.indexOf(item) + 1), said: CAUGHT.slice(0, CAUGHT.indexOf(item) + 1), aha: null } })
     t = sent + 550
   }
-  catchOne('note', FLOW_WORDS.caught, (sofar) => ({ text: sofar }), null, 'note', () => undefined, 1500)
+  catchOne('note', flowWords().caught, (sofar) => ({ text: sofar }), null, 'note', () => undefined, 1500)
   // Past the closing mark: who said it, and where, lit as Haligtree reads them.
   const said = `${QUOTE.text} - ${QUOTE.who}, ${QUOTE.where}`
   catchOne('quote', said, (sofar) => {
@@ -1231,7 +1234,7 @@ function writeBeats(): Beat<FlowShot>[] {
   const random = seeded(31)
   const beats: Beat<FlowShot>[] = [{ at: 0, to: {} }]
   // The thought is written first, a key at a time, as it was on the walk; only then does it grow into a note.
-  const written = typed<FlowShot>(FLOW_WORDS.caught, 400, (sofar) => ({ caught: sofar }), random, 0.9, 1700)
+  const written = typed<FlowShot>(flowWords().caught, 400, (sofar) => ({ caught: sofar }), random, 0.9, 1700)
   beats.push(...written.beats)
   // You choose to write about it: "New page" comes up beside the capture, the pointer presses it, and the page opens
   // with the thought as its title, typed, then its lines written in one after another. Writing at length, not a copy.
@@ -1241,10 +1244,10 @@ function writeBeats(): Beat<FlowShot>[] {
   const press = offer + 250 + CURSOR_MS.button + 260
   beats.push({ at: press, to: { pressed: true }, cue: () => click('tick') })
   beats.push({ at: press + 170, to: { pressed: false, newPage: 'off', cursor: null, shown: 2 }, cue: cue('slide') })
-  const title = typed<FlowShot>(FLOW_WORDS.note, press + 600, (sofar) => ({ title: sofar }), random, 0.85, 1400)
+  const title = typed<FlowShot>(flowWords().note, press + 600, (sofar) => ({ title: sofar }), random, 0.85, 1400)
   beats.push(...title.beats)
   let line = title.end + 350
-  for (let n = 1; n <= FLOW_WORDS.lines.length + 1; n++) (beats.push({ at: line, to: { body: n }, cue: () => click('soft') }), (line += 420))
+  for (let n = 1; n <= flowParts(); n++) (beats.push({ at: line, to: { body: n }, cue: () => click('soft') }), (line += 420))
   const grows = line
   // You pick a line: the pointer comes to its start, drags across it (the selection grows with it), its one action
   // shows beside the selection, the pointer presses it, and only then is the line marked and what it becomes set down.
@@ -1264,7 +1267,7 @@ function writeBeats(): Beat<FlowShot>[] {
   t = pick(t + 450, 'gem', 4, cue('promote'))
   // The pointer steps away once the gem is made: what is left is yours.
   beats.push({ at: t + 500, to: { cursor: null } })
-  const question = typed<FlowShot>(FLOW_WORDS.question, t + 450, (sofar) => ({ question: sofar }), random, 0.75, 1500)
+  const question = typed<FlowShot>(flowWords().question, t + 450, (sofar) => ({ question: sofar }), random, 0.75, 1500)
   beats.push(...question.beats)
   beats.push({ at: question.end + 500, to: { last: true }, cue: cue('settled') })
   // The closing line stays up: it is read while Next waits.
@@ -1280,7 +1283,7 @@ function WriteChapter({ play, report, setup }: { play: boolean; report: (now: Re
     <>
       <Words title={WRITE_TITLE} still={!play} done={show.done} wide>{WRITE_LINE}<ForYou setup={setup} at="write" /></Words>
       <div className="relative flex min-h-0 flex-1 flex-col pb-2">
-        <FlowTree shot={show.done ? FLOW_END : show.state} quiet={!play} />
+        <FlowTree shot={show.done ? flowEnd() : show.state} quiet={!play} />
       </div>
     </>
   )

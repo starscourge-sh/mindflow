@@ -8,7 +8,7 @@ import { clock, dayjs } from '../../../../main/dates'
 import { Flip } from './review-view'
 import { Tape } from './tape'
 import { CARD, PAPER } from './sticky-note'
-import { FLOW_WORDS, HUE } from './welcome-flow'
+import { flowTask, flowWords, HUE } from './welcome-flow'
 import { LAND, PostcardResult, QUOTE } from './welcome-reel'
 
 /**
@@ -20,8 +20,11 @@ import { LAND, PostcardResult, QUOTE } from './welcome-reel'
  * pictures only: nothing here takes a click or reads your data.
  */
 
+/** A ticked task's line through its words, a little below the middle of each line. */
+const STRIKE = 'linear-gradient(transparent calc(55% - 0.5px), color-mix(in oklab, var(--foreground) 50%, transparent) calc(55% - 0.5px), color-mix(in oklab, var(--foreground) 50%, transparent) calc(55% + 0.5px), transparent calc(55% + 0.5px))'
+
 /** The story's day's tasks on the sticky note: the one from the note first, ticked off there; the film from Catch. */
-const TODAY: [string, string?][] = [['Find photos of the Yoda puppet'], ['Rewatch The Empire Strikes Back', clock(dayjs().hour(20).minute(0))], ['Return the library books']]
+const today = (): [string, string?][] => [[flowTask().title], ['Rewatch The Empire Strikes Back', clock(dayjs().hour(20).minute(0))], ['Return the library books']]
 
 /**
  * The day's sticky on the desktop, over another app's window, drawn as plain
@@ -52,15 +55,16 @@ export function DeskSticky({ on, ticked }: { on: boolean; ticked: boolean }): Re
               <span className="text-xs text-muted-foreground tabular-nums">{ticked ? '1/3 done' : '0/3 done'}</span>
             </div>
             <ul className="px-3 pt-1 pb-3">
-              {TODAY.map(([title, time], i) => {
+              {today().map(([title, time], i) => {
                 const done = ticked && i === 0
                 return (
                   <li key={title} className="flex items-start gap-2 py-1">
                     <span className="mt-[0.2em] grid size-3.5 shrink-0 place-items-center rounded-full border-[1.5px] transition-colors duration-150"
                       style={{ borderColor: done ? 'var(--tt-color-text-green)' : 'color-mix(in oklab, var(--muted-foreground) 70%, transparent)', background: done ? 'var(--tt-color-text-green)' : undefined }} />
-                    <span className={`relative min-w-0 flex-1 leading-snug ${done ? 'text-muted-foreground' : 'text-foreground'}`}>
-                      {title}
-                      <motion.span aria-hidden className="absolute top-[55%] left-0 h-px w-full origin-left bg-foreground/50" initial={false} animate={{ scaleX: done ? 1 : 0 }} transition={{ duration: 0.35, ease: EASE }} />
+                    <span className={`min-w-0 flex-1 leading-snug ${done ? 'text-muted-foreground' : 'text-foreground'}`}>
+                      {/* Struck through as it is ticked: one line drawn along the words, across each wrap in turn (one background, sliced). */}
+                      <motion.span className="bg-no-repeat" style={{ backgroundImage: STRIKE }} initial={false}
+                        animate={{ backgroundSize: done ? '100% 100%' : '0% 100%' }} transition={{ duration: 0.35, ease: EASE }}>{title}</motion.span>
                     </span>
                     {time && <span className="shrink-0 pt-px text-xs text-muted-foreground tabular-nums">{time}</span>}
                   </li>
@@ -83,8 +87,8 @@ export function EveningReview({ over }: { over: boolean }): React.JSX.Element {
       <div aria-hidden className={`${face} absolute inset-0 translate-x-2.5 translate-y-2.5 rotate-2 opacity-60`} />
       <div className="relative">
         <Flip over={over} onTurn={() => undefined}
-          front={<div className={face}><p className="text-xs text-muted-foreground">Review · 3 due</p><h2 className="mt-1.5 font-heading text-[1.1875rem] leading-snug font-semibold text-foreground">{FLOW_WORDS.question}</h2></div>}
-          back={<div className={face}><p className="text-xs text-muted-foreground">{FLOW_WORDS.question}</p><p className="mt-1.5 font-heading text-[1.125rem] leading-snug text-foreground">{FLOW_WORDS.gem}</p><p className="mt-2 text-xs text-muted-foreground">From “{FLOW_WORDS.note}”</p></div>} />
+          front={<div className={face}><p className="text-xs text-muted-foreground">Review · 3 due</p><h2 className="mt-1.5 font-heading text-[1.1875rem] leading-snug font-semibold text-foreground">{flowWords().question}</h2></div>}
+          back={<div className={face}><p className="text-xs text-muted-foreground">{flowWords().question}</p><p className="mt-1.5 font-heading text-[1.125rem] leading-snug text-foreground">{flowWords().gem}</p><p className="mt-2 text-xs text-muted-foreground">From “{flowWords().note}”</p></div>} />
       </div>
     </div>
   )
@@ -95,10 +99,16 @@ export type BackShot = { shown: number; ticked: boolean; over: boolean; curve: b
 export const BACK_START: BackShot = { shown: 0, ticked: false, over: false, curve: false, signed: false }
 export const BACK_END: BackShot = { shown: 3, ticked: true, over: true, curve: true, signed: true }
 
-/** Each thing kept and how it comes back: what it is, when, and what Haligtree does, its key words *marked*. */
-export const BACK: { kind: 'task' | 'gem' | 'quote'; kept: string; when: string; said: string }[] = [
-  { kind: 'task', kept: 'Find photos of the puppet', when: `${STORY_DAY}, ${clock(dayjs().hour(9).minute(0))}`, said: 'With “Stick Today on the desktop”, your tasks *sit on your desktop*. Tick them off there.' },
-  { kind: 'gem', kept: 'Perfection erases…', when: `${dayjs().add(5, 'day').format('dddd')}, ${clock(dayjs().hour(21).minute(30))}`, said: 'Your gem *turns into a question* in “Review”, and waits longer each time you remember it.' },
+/** The first few words of what was kept, for its chip, with "…" when there is more. */
+const clip = (text: string, words = 4): string => {
+  const all = text.split(' ')
+  return all.length > words ? `${all.slice(0, words).join(' ').replace(/[,.]$/, '')}…` : text
+}
+
+/** Each thing kept and how it comes back, in the words of the story told now: what it is, when, and what Haligtree does, its key words *marked*. */
+export const back =(): { kind: 'task' | 'gem' | 'quote'; kept: string; when: string; said: string }[] => [
+  { kind: 'task', kept: clip(flowTask().title), when: `${STORY_DAY}, ${clock(dayjs().hour(9).minute(0))}`, said: 'With “Stick Today on the desktop”, your tasks *sit on your desktop*. Tick them off there.' },
+  { kind: 'gem', kept: clip(flowWords().gem, 3), when: `${dayjs().add(5, 'day').format('dddd')}, ${clock(dayjs().hour(21).minute(30))}`, said: 'Your gem *turns into a question* in “Review”, and waits longer each time you remember it.' },
   { kind: 'quote', kept: 'Do or do not…', when: 'A year on', said: 'The line you saved *shows up on “Home”*, and as a hint, like a postcard from your past self.' }
 ]
 const ICON = { task: ListTodo, gem: Gem, quote: Quote }
@@ -116,7 +126,7 @@ export function ComeBack({ shot, quiet, said }: { shot: BackShot; quiet: boolean
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col gap-y-[clamp(0.75rem,calc(4vh-0.75rem),2.25rem)] pt-[clamp(0rem,calc(4vh-1.75rem),1rem)]">
       <div data-moments className="grid w-full shrink-0 grid-cols-3 items-start gap-x-[clamp(1rem,3vw,2.5rem)]">
-        {BACK.map((one, i) => {
+        {back().map((one, i) => {
           const Icon = ICON[one.kind]
           const on = shot.shown > i
           return (

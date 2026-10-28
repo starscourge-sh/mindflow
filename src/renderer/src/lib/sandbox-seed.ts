@@ -1,6 +1,6 @@
 import type { JSONContent } from '@tiptap/core'
 import { EXAMPLES, STARTERS } from '@/lib/welcome-box'
-import { FLOW_WORDS } from '@/components/haligtree/welcome-flow'
+import { flowTask, flowWords } from '@/components/haligtree/welcome-flow'
 // The same desert the welcome's Dune card shows (welcome-reel.tsx).
 import dunesUrl from '@/assets/welcome/dunes.webp'
 
@@ -1641,14 +1641,16 @@ host: en.wikipedia.org
 \`\`\`
 `)
   await task(EXAMPLES.todo)
-  // The welcome's story: the thought caught on a walk, the note it became, and the task and the gem picked out of its lines.
+  // The welcome's story, the one it told (welcome-stories.ts): the thought caught on a walk, the page it became, and the task and the gem picked out of it.
+  const told = flowWords()
   const story = await capture({}, at(-3, '09:13'))
-  await write(story, `${FLOW_WORDS.caught}\n\nThought of on a walk.`)
-  await essay(FLOW_WORDS.note, FLOW_WORDS.lines.join('\n\n'))
-  // The line says its own day, read as the app reads it.
-  await task(FLOW_WORDS.task)
-  const perfection = await call<string>('nugget:from', FLOW_WORDS.gem, {})
-  await call('item:save', perfection, { title: FLOW_WORDS.gem, prompt: FLOW_WORDS.question })
+  await write(story, `${told.caught}\n\nThought of on a walk.`)
+  await essay(told.note, `${told.words.join(' ')} I should ${told.phrase}.`)
+  // Named as the page names it, due on the day the page reads.
+  const storyTask = flowTask()
+  await call('task:save', await task(storyTask.title), { title: storyTask.title, due: storyTask.due, allDay: storyTask.allDay ? 1 : 0 })
+  const storyGem = await call<string>('nugget:from', told.gem, {})
+  await call('item:save', storyGem, { title: told.gem, prompt: told.question })
   nuggets++
 
   // The deck that teaches Haligtree itself, tagged with LEARN_TAG: a few new cards a day in Review.

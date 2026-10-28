@@ -4,14 +4,21 @@
 //
 //   npx electron-vite build --outDir out-welcome && QA_ARGS=--sandbox QA_ENTRY=out-welcome/main/index.js node qa/welcome-refs.mjs
 import { sandbox } from './sandbox-lib.mjs'
+import { STORIES, gemOf } from '../src/renderer/src/lib/welcome-stories.ts'
 process.env.QA_ARGS ??= '--sandbox'
 const c = await sandbox({ width: 1000, height: 700 })
 const { h } = c
 const asks = ['Do or do not. There is no try', 'petrichor', 'Rewatch The Empire Strikes Back',
   'Frodo never wanted the ring', 'All we have to decide is what to do with the time', 'anagnorisis', 'Rosetta Stone', 'Ask Hermione for the potions notes',
-  'Why do old movies feel more real', 'Why old movies feel real', 'Find photos of the Yoda puppet', 'Perfection erases human presence']
+]
 let failed = 0
 try {
+  // The story the welcome told (one of five, welcome-stories.ts): the one whose caught thought the sandbox holds, then its page, task and gem.
+  const told = []
+  for (const one of STORIES) if ((await h.evaluate((q) => window.api.captures.find(q), one.caught)).some((hit) => hit.label.toLowerCase().includes(one.caught.toLowerCase()))) told.push(one)
+  if (told.length !== 1) failed++
+  console.log(`${told.length === 1 ? 'PASS' : 'FAIL'} the sandbox holds one of the five stories  (${told.map((one) => one.id).join() || 'none'})`)
+  if (told[0]) asks.push(told[0].caught, told[0].note, told[0].task, gemOf(told[0]))
   for (const ask of asks) {
     const found = await h.evaluate((q) => window.api.captures.find(q), ask)
     // Its own words in the title it is listed by, not just a note that shares a word with it.

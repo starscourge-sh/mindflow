@@ -1,0 +1,29 @@
+Pictures from the books the welcome's stories are about (src/renderer/src/lib/welcome-stories.ts),
+shown as a small print at the top of the page in the welcome's "Write it out" step (welcome-flow.tsx).
+Each is public domain; each file page's licence section was read before it was used. Resized to webp,
+600px wide, from the copies named below; the originals were not changed.
+
+  sherlock.webp       Sidney Paget (1860 to 1908), "Then he stood before the fire", for A Scandal in Bohemia,
+                      The Strand Magazine, July 1891.
+                      From https://commons.wikimedia.org/wiki/File:A_Scandal_in_Bohemia-01.jpg
+                      Licence: public domain (PD-old: author died more than 100 years ago; published before 1931).
+
+  frankenstein.webp   Theodor von Holst (1810 to 1844), frontispiece to Frankenstein, 1831 edition (steel engraving).
+                      From https://commons.wikimedia.org/wiki/File:Frontispiece_to_Frankenstein_1831.jpg
+                      Licence: public domain (PD-Art, PD-old-100: a faithful copy of a flat work by an author dead more than 100 years).
+
+  dracula.webp        Cover of Dracula, Westminster: Archibald Constable and Company, 1901 (the abridged sixpenny edition).
+                      Artist unknown (signed "Nathan").
+                      From https://commons.wikimedia.org/wiki/File:Dracula_Archibald_Constable_and_Company_1901.jpg
+                      Licence: public domain (PD-US: published before 1931).
+
+  pride.webp          Hugh Thomson (1860 to 1920), illustration for Pride and Prejudice, chapter 36,
+                      "...any wish of doing him justice", London: George Allen, 1894 (the Peacock edition).
+                      From https://commons.wikimedia.org/wiki/File:Thomson-PP-Ch36.jpg
+                      Licence: public domain (PD-old: author died more than 100 years ago).
+
+  odyssey.webp        Rider Painter, Odysseus and his men blinding Polyphemus, Laconian black-figure cup,
+                      565 to 560 BC. Cabinet des Medailles, Paris (190).
+                      Photograph by Bibi Saint-Pol, 2007, released into the public domain by its author.
+                      From https://commons.wikimedia.org/wiki/File:Odysseus_Polyphemos_Cdm_Paris_190.jpg
+                      Licence: public domain (PD-self for the photograph; the cup itself is ancient).
