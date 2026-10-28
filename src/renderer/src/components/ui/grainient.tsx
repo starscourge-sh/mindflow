@@ -16,8 +16,14 @@ const STIR_LIFE = 1.3
 const STIR_STEP = 0.06
 const TWIRL_LIFE = 2.6
 /** The bloom (`intro`): a moment of the bare page first, then the glow grows from the middle to fill the field. */
-const INTRO_DELAY = 0.7
-const INTRO_SECONDS = 2.4
+const INTRO_DELAY = 1.1
+const INTRO_SECONDS = 5.2
+// The first part of the intro the glow spends small in the middle, how far it reaches then, and how long one breath of it takes.
+const SEED_PART = 0.38
+const SEED_REACH = 0.2
+const BREATH_SECONDS = 1.7
+const smooth = (x: number): number => x * x * (3 - 2 * x)
+const smoother = (x: number): number => x * x * x * (x * (x * 6 - 15) + 10)
 /** A nudge: how far the field's pattern turns over, and how quickly it settles there (about a second). */
 const NUDGE_SHIFT = 0.14
 const NUDGE_EASE = 0.3
@@ -175,7 +181,8 @@ void main() {
   // corners. Its edge stays wide and soft, and it shines a little while it grows, as a light coming up.
   float far = length((vUv - 0.5) * vec2(uAspect, 1.0)) / length(vec2(uAspect, 1.0) * 0.5);
   float reach = uReveal * 1.7;
-  float bloom = 1.0 - smoothstep(reach - 0.7, reach, far);
+  // Its edge narrows while it is small, so the first glow is a glow and not a smudge.
+  float bloom = 1.0 - smoothstep(reach - min(0.7, reach * 1.3 + 0.04), reach, far);
   lab.x += bloom * (1.0 - uReveal) * 0.06;
   lab = mix(uRamp[0], lab, bloom);
   lab.x = (lab.x - 0.55) * uContrast + 0.55;
@@ -422,7 +429,12 @@ export function Grainient({
       const opened = clamp(introClock, 0, 1)
       const eased = opened * opened * (3 - 2 * opened)
       gl.uniform1f(fu.uSettle, eased)
-      gl.uniform1f(fu.uReveal, eased)
+      // The build-up, as Arc's: a small glow comes up in the middle and breathes there a while, then
+      // gathers itself and spreads past the corners. The breath fades as the spreading takes over.
+      const seed = smooth(clamp(opened / SEED_PART, 0, 1))
+      const grow = smoother(clamp((opened - SEED_PART) / (1 - SEED_PART), 0, 1))
+      const breath = Math.sin(opened * INTRO_SECONDS * Math.PI * (2 / BREATH_SECONDS))
+      gl.uniform1f(fu.uReveal, SEED_REACH * seed * (1 + 0.14 * breath * (1 - grow)) + (1 - SEED_REACH) * grow)
       gl.drawArrays(gl.TRIANGLES, 0, 3)
       gl.bindFramebuffer(gl.FRAMEBUFFER, null)
       gl.viewport(0, 0, canvas.width, canvas.height)
