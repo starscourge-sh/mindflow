@@ -2337,6 +2337,9 @@ html[data-tuck-open="left"] .mf-card { border-top-right-radius: 0; border-bottom
   background-size: 100% 28px;
   background-attachment: local;
 }
+/* The swatches are small: their lines and squares come closer, so each shows several, as a page would. */
+.mf-paper[data-paper-sample] { --mf-paper-step: 12px; }
+.mf-paper[data-paper-sample='ruled'] { background-size: 100% 12px; }
 :root[data-paper='dots'] .note-pane .haligtree-editor-wrapper:not(.is-line) > .haligtree-editor-content,
 .mf-paper[data-paper-sample='dots'] {
   background-image: radial-gradient(circle at 1px 1px, color-mix(in oklab, var(--foreground) 22%, transparent) 1px, transparent 1.4px);
