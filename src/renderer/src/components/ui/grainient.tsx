@@ -15,7 +15,9 @@ const MAX_TWIRLS = 4
 const STIR_LIFE = 1.3
 const STIR_STEP = 0.06
 const TWIRL_LIFE = 2.6
-const INTRO_SECONDS = 1.6
+/** The bloom (`intro`): a moment of the bare page first, then the glow grows from the middle to fill the field. */
+const INTRO_DELAY = 0.7
+const INTRO_SECONDS = 2.4
 /** A nudge: how far the field's pattern turns over, and how quickly it settles there (about a second). */
 const NUDGE_SHIFT = 0.14
 const NUDGE_EASE = 0.3
@@ -169,7 +171,13 @@ void main() {
     float diffuse = dot(normal, light) - light.z;
     lab = uRamp[0] + (lab - uRamp[0]) * (1.0 + (diffuse * 0.35 + max(diffuse, 0.0) * diffuse * 0.6) * uSilk);
   }
-  lab = mix(uRamp[0], lab, smoothstep(0.0, 1.0, uReveal * 1.5 - length(vUv - 0.5) * 0.6));
+  // The bloom: a soft round glow of the gradient from the middle of the page's colour, growing past the
+  // corners. Its edge stays wide and soft, and it shines a little while it grows, as a light coming up.
+  float far = length((vUv - 0.5) * vec2(uAspect, 1.0)) / length(vec2(uAspect, 1.0) * 0.5);
+  float reach = uReveal * 1.7;
+  float bloom = 1.0 - smoothstep(reach - 0.7, reach, far);
+  lab.x += bloom * (1.0 - uReveal) * 0.06;
+  lab = mix(uRamp[0], lab, bloom);
   lab.x = (lab.x - 0.55) * uContrast + 0.55;
   lab.yz *= uSaturation;
   outColor = vec4(encode(labToRgb(lab)), 1.0);
@@ -276,7 +284,10 @@ export type GrainientProps = {
   interactive?: boolean
   stir?: number
   clickSwirl?: boolean
+  /** The bloom from the page's colour on mounting; set false while it plays, it is whole at once. */
   intro?: boolean
+  /** Called once the bloom is whole. */
+  onIntroDone?: () => void
   lightMode?: boolean
   dpr?: number
   className?: string
@@ -286,8 +297,10 @@ export type GrainientProps = {
 export function Grainient({
   colors = DEFAULT_COLORS, type = 'linear', angle = 55, bands = 1, speed = 1, flow = 0.8, scale = 1, softness = 1, silk = 0.35,
   grainAmount = 0.08, grainSize = 1.2, grainAnimated = true, contrast = 1, saturation = 1, variation = 0, interactive = true, stir = 1,
-  clickSwirl = true, intro = true, lightMode = false, dpr, className = '', style, ref
+  clickSwirl = true, intro = true, onIntroDone, lightMode = false, dpr, className = '', style, ref
 }: GrainientProps): React.JSX.Element {
+  const doneRef = useRef(onIntroDone)
+  doneRef.current = onIntroDone
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wakeRef = useRef<(() => void) | null>(null)
@@ -353,7 +366,8 @@ export function Grainient({
     const pointer = { x: 0.5, y: 0.5, sx: 0.5, sy: 0.5, vx: 0, inside: false, fresh: true }
     let paletteKey = ''
     let time = 0
-    let introClock = settingsRef.current.intro && !reduce ? 0 : 1
+    // Below 0 while the bare page holds, before the glow starts.
+    let introClock = settingsRef.current.intro && !reduce ? -INTRO_DELAY / INTRO_SECONDS : 1
     let frameSeed = 0
     let grainClock = 0
     let raf = 0
@@ -405,8 +419,10 @@ export function Grainient({
       gl.uniform2f(fu.uSeed, (s.variation + shift.now) * 3.17, (s.variation + shift.now) * 1.91)
       gl.uniform1f(fu.uContrast, s.contrast)
       gl.uniform1f(fu.uSaturation, s.saturation)
-      gl.uniform1f(fu.uSettle, introClock * introClock * (3 - 2 * introClock))
-      gl.uniform1f(fu.uReveal, introClock)
+      const opened = clamp(introClock, 0, 1)
+      const eased = opened * opened * (3 - 2 * opened)
+      gl.uniform1f(fu.uSettle, eased)
+      gl.uniform1f(fu.uReveal, eased)
       gl.drawArrays(gl.TRIANGLES, 0, 3)
       gl.bindFramebuffer(gl.FRAMEBUFFER, null)
       gl.viewport(0, 0, canvas.width, canvas.height)
@@ -499,7 +515,10 @@ export function Grainient({
       const dt = last ? clamp((now - last) / 1000, 0.001, 0.05) : 1 / 60
       last = now
       if (!reduce) time += dt * s.speed * 0.16
-      if (introClock < 1) introClock = Math.min(1, introClock + dt / INTRO_SECONDS)
+      if (introClock < 1) {
+        introClock = s.intro ? Math.min(1, introClock + dt / INTRO_SECONDS) : 1
+        if (introClock === 1) doneRef.current?.()
+      }
       grainClock += dt
       if (s.grainAnimated && !reduce && grainClock > 1 / 24) {
         grainClock = 0

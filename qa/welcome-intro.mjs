@@ -1,6 +1,7 @@
 // The welcome's intro on a first run, after Dia's: the window spread over the
-// whole screen gathering in to a window of its own; the title card in the mist
-// before the first words, and gone after; "Sound on" and "Skip intro" there
+// whole screen gathering in to a window of its own; as Arc's, the gradient
+// blooming from the page's colour first and then the title card's words, no
+// mark, before the first words, and gone after; "Sound on" and "Skip intro" there
 // from the first frame, Skip intro landing on the settled first screen; and
 // "Open my book" turning the welcome over onto Home with no frame of neither,
 // Home saying when the book was opened.
@@ -25,49 +26,54 @@ const asked = () => electron.evaluate(({ BrowserWindow, screen }) => {
   return { bounds: win?.qaBounds ?? null, seen: win?.qaBoundsSeen ?? [], screen: screen.getPrimaryDisplay().bounds }
 })
 const seen = (selector) => h.evaluate((selector) => [...document.querySelectorAll(selector)].some((el) => Number(getComputedStyle(el).opacity) > 0.05), selector)
-// The page notes when the mist first comes, so the times below are from the arrival itself.
+// The page notes when the arrival first comes (its controls), so the times below are from the arrival itself.
 await c.electron.context().addInitScript(() => {
   new MutationObserver((_, watch) => {
-    if (document.querySelector('[data-welcome-mist]')) (window.qaMistAt = performance.now()), watch.disconnect()
+    if (document.querySelector('[data-intro]')) (window.qaMistAt = performance.now()), watch.disconnect()
   }).observe(document, { childList: true, subtree: true })
 })
 const sinceMist = () => h.evaluate(() => Math.round(performance.now() - window.qaMistAt))
 try {
   await c.theme(THEME)
-  await h.waitForSelector('[data-welcome-mist]', { timeout: 8000 })
+  await h.waitForSelector('[data-intro]', { timeout: 8000 })
   const first = await asked()
   check('a first run\'s window starts over the whole screen', first.seen.some((one) => one.width === first.screen.width && one.height === first.screen.height), JSON.stringify(first.seen.slice(0, 4)))
   check('the sound button is there from the first frame', await h.locator('[data-intro-sound]').isVisible())
   check('Skip intro, with its key, is there from the first frame', /Skip intro/.test(await h.locator('[data-skip-intro]').innerText()) && (await h.locator('[data-skip-intro] kbd').count()) === 1)
-  // The title card, whole in the mist, before any of the first words.
+  // The title card, before any of the first words: its words only once the gradient has bloomed.
   let card = 0
   let wordsWithCard = false
   let frame = 0
   let title = ''
   let looks = 0
   let mark = null
+  let bloomAt = 0
+  let earlyWords = false
+  let nameAt = 0
+  let lineAt = 0
+  const opacity = (selector) => h.evaluate((selector) => { const el = document.querySelector(selector); return el ? Number(getComputedStyle(el).opacity) : 0 }, selector)
   for (let t = await sinceMist(); t < 10000; t = await sinceMist()) {
     looks++
     title ||= await h.evaluate(() => document.querySelector('[data-title-card]')?.innerText ?? '')
     if (await seen('[data-title-card]')) card++
     if ((await h.locator('[data-thesis="line"]').count()) && (await seen('[data-title-card]'))) wordsWithCard = true
-    if (SHOTS && t > [1500, 3000, 4800, 6200, 8000, 9300][frame]) await shot(`0${frame++}-card-${(t / 1000).toFixed(1)}s`)
-    // The mark whole (the logo's leaf fan in squares), read from its own canvas, and the wordmark's weight.
-    if (t > 4200 && !mark) mark = await h.evaluate(() => {
-      const canvas = document.querySelector('[data-title-card] canvas')
-      if (!canvas) return null
-      const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data
-      let inked = 0
-      for (let i = 3; i < data.length; i += 4) if (data[i] > 20) inked++
-      return { inked, png: canvas.toDataURL('image/png'), weight: Number(getComputedStyle(document.querySelector('[data-title-card] h1')).fontWeight) }
-    })
+    const ready = await h.evaluate(() => document.querySelector('[data-title-card]')?.hasAttribute('data-ready') ?? false)
+    if (ready) bloomAt ||= t
+    else if ((await opacity('[data-title-card] h1')) > 0.05) earlyWords = true
+    if (!nameAt && (await opacity('[data-title-card] h1')) > 0.95) nameAt = t
+    if (!lineAt && (await opacity('[data-title-card] p')) > 0.95) lineAt = t
+    if (SHOTS && t > [900, 1800, 3000, 4600, 6500, 9300][frame]) await shot(`0${frame++}-card-${(t / 1000).toFixed(1)}s`)
+    // No mark over the words now, and the wordmark's weight.
+    if (t > 4200 && !mark) mark = await h.evaluate(() => ({ drawn: document.querySelectorAll('[data-title-card] canvas, [data-title-mark]').length, weight: Number(getComputedStyle(document.querySelector('[data-title-card] h1')).fontWeight) }))
     await h.waitForTimeout(200)
   }
   check('the title card shows in the mist, all the way to its lift', card === looks && looks > 5, `${card} of ${looks} looks`)
   check('it reads as a title page: Haligtree, a commonplace book kept by its owner', /Haligtree/.test(title) && /A commonplace book( kept by \S+)?/.test(title), title.replace(/\s+/g, ' '))
-  check('the logo is drawn in squares over it', (mark?.inked ?? 0) > 2000, String(mark?.inked))
+  check('no mark over the words: the words alone', mark?.drawn === 0, String(mark?.drawn))
   check('the wordmark is bold', (mark?.weight ?? 0) >= 600, String(mark?.weight))
-  if (SHOTS && mark?.png) writeFileSync(join(SHOTS, `title-mark-${THEME}.png`), Buffer.from(mark.png.split(',')[1], 'base64'))
+  check('the gradient blooms whole first, in about three seconds', bloomAt > 2500 && bloomAt < 4500, `${bloomAt}ms`)
+  check('no words while it blooms', !earlyWords)
+  check('then Haligtree, then the line under it', nameAt > bloomAt && lineAt > nameAt, `bloom ${bloomAt}ms, name ${nameAt}ms, line ${lineAt}ms`)
   const middle = await asked()
   check('the window gathers in to a window of its own', !!middle.bounds && middle.bounds.width < middle.screen.width, JSON.stringify(middle.bounds))
   await h.waitForSelector('[data-thesis="line"]', { timeout: 6000 })
@@ -111,7 +117,7 @@ try {
   await h.evaluate(() => document.activeElement?.blur())
   await h.keyboard.press('Enter')
   await h.waitForTimeout(800)
-  check('↵ in the mist skips the intro', (await h.locator('[data-welcome-mist]').count()) === 0)
+  check('↵ in the arrival skips the intro', (await h.locator('[data-title-card]').count()) === 0 && (await h.locator('[data-thesis="line"]').count()) === 1)
 
   // Open my book: the welcome turns over onto Home, never a frame of neither.
   await h.click('footer [data-skip]')

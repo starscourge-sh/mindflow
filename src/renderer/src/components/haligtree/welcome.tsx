@@ -166,6 +166,10 @@ export function Welcome(): React.JSX.Element | null {
   // The arrival: a mist over everything that lifts, a sound swelling in, and the first words only once it has thinned.
   const [mist, setMist] = useState(false)
   const [veiled, setVeiled] = useState(false)
+  // Each arrival played, counted: the gradient blooms afresh from the page's colour for each one. The title's words
+  // wait for its bloom to be whole (the paper's mist has none to wait for).
+  const [arrival, setArrival] = useState(0)
+  const [bloomed, setBloomed] = useState(false)
   // Which way the last page turned: on (1) or back (-1).
   const [turning, setTurning] = useState(1)
   const veilTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -252,6 +256,8 @@ export function Welcome(): React.JSX.Element | null {
       setMist(true)
       setVeiled(true)
       setRushed(false)
+      setArrival((n) => n + 1)
+      setBloomed(WELCOME_BACKGROUND !== 'grainient')
       ambience()
       // Nothing but the mist and the chord until the arrival's beat: then the first words.
       clearTimeout(veilTimer.current)
@@ -531,7 +537,7 @@ export function Welcome(): React.JSX.Element | null {
       data-closing={closing ? '' : undefined} onPointerDown={() => void (closing && closed())}
       initial={false} animate={{ opacity: closing ? 0 : 1 }} transition={closing ? { delay: 0.45, duration: 0.9, ease: MOVE } : { duration: 0 }}
       className="mf-welcome fixed inset-0 z-[70] flex outline-none flex-col overflow-clip bg-background text-foreground [container-type:inline-size]">
-      <Backdrop family={at === WRITE ? 'ruled' : at === DIAL ? 'dots' : 'none'} page={at} />
+      <Backdrop family={at === WRITE ? 'ruled' : at === DIAL ? 'dots' : 'none'} page={at} arrival={arrival} arriving={mist && veiled && at === WHY} onBloomed={() => setBloomed(true)} />
       {/* The first screen's autumn leaves, blowing behind the words; Next blows them away, and a
           few small ones drift on through the rest (not over the dial, which has its own light). On the
           dial's page and the last, a slow stream of them is drawn in and sinks behind the dial's ring or
@@ -539,10 +545,11 @@ export function Welcome(): React.JSX.Element | null {
       {/* Not with the ember gradient: it is the movement there. */}
       {WELCOME_BACKGROUND === 'paper' && <WelcomeLeaves on={at === WHY && play} open={play} motes={at !== DIAL} middle={at === BACK ? 0 : 0.3} gather={at === LAST && !closing}
         lure={closing ? null : at === LAST ? '.mf-welcome [data-recommended]' : at === DIAL ? '.mf-welcome [role="slider"][aria-label="Theme"]' : null} />}
-      {mist && <WelcomeMist hurry={rushed} onGone={() => setMist(false)} />}
-      {/* Before the first words, in the mist: the book's title page. */}
+      {/* The paper's arrival is a mist; the gradient's is its own bloom (GrainBackdrop). */}
+      {mist && WELCOME_BACKGROUND === 'paper' && <WelcomeMist hurry={rushed} onGone={() => setMist(false)} />}
+      {/* Before the first words: the book's title page. */}
       {/* The book is yours whether it is the first welcome or one played again: its title page always names you. */}
-      {mist && veiled && at === WHY && <WelcomeTitle name={state?.name ?? ''} hurry={rushed} />}
+      {mist && veiled && at === WHY && <WelcomeTitle name={state?.name ?? ''} hurry={rushed} ready={bloomed} />}
       <div data-drag-strip="" className="relative h-11 shrink-0" style={{ WebkitAppRegion: 'drag' } as CSSProperties} />
       {at === LAST && <TrayArrow tray={state?.tray ?? null} />}
       {/* The chapter's thumb index on the fore-edge, moving down a place each chapter. */}
@@ -576,7 +583,8 @@ export function Welcome(): React.JSX.Element | null {
         {/* The arrival's own two controls, in the footer's place, from its first frame: the sound, and
             the way past the intro. The footer comes up in their place once the first words have. */}
         {mist && at === WHY && (
-          <div data-intro="" className={`pointer-events-auto absolute inset-x-0 bottom-0 z-50 flex h-[clamp(4rem,9vmin,5.5rem)] items-center px-[clamp(1.5rem,5vw,4rem)] transition-opacity duration-700 ${veiled ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
+          // With no mist to say the arrival is over, it is over once these have faded out.
+          <div data-intro="" onTransitionEnd={(event) => void (event.target === event.currentTarget && !veiled && WELCOME_BACKGROUND !== 'paper' && setMist(false))} className={`pointer-events-auto absolute inset-x-0 bottom-0 z-50 flex h-[clamp(4rem,9vmin,5.5rem)] items-center px-[clamp(1.5rem,5vw,4rem)] transition-opacity duration-700 ${veiled ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
             <button type="button" data-intro-sound="" aria-pressed={loud} aria-label={loud ? 'Sounds on' : 'Sounds off'} onClick={() => {
               const next = !loud
               setLoud(next)
@@ -1590,8 +1598,9 @@ function BoxKeys(): React.JSX.Element {
  */
 const WELCOME_BACKGROUND: 'grainient' | 'paper' = 'grainient'
 
-export function Backdrop({ family, page }: { family: Family; page: number }): React.JSX.Element {
-  if (WELCOME_BACKGROUND === 'grainient') return <GrainBackdrop page={page} />
+/** `arrival` counts the arrivals played; `arriving` is true while one is on; `onBloomed` once its gradient is whole. */
+export function Backdrop({ family, page, arrival = 0, arriving = false, onBloomed }: { family: Family; page: number; arrival?: number; arriving?: boolean; onBloomed?: () => void }): React.JSX.Element {
+  if (WELCOME_BACKGROUND === 'grainient') return <GrainBackdrop page={page} arrival={arrival} arriving={arriving} onBloomed={onBloomed} />
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0">
       {/* No painting: under the words it had to be veiled for reading, which hid it on most themes and showed it on a few.
@@ -1658,7 +1667,7 @@ const paletteNow = (): string => {
 }
 const usePalette = (): string[] => useSyncExternalStore(watchTheme, paletteNow).split('|')
 
-function GrainBackdrop({ page }: { page: number }): React.JSX.Element {
+function GrainBackdrop({ page, arrival, arriving, onBloomed }: { page: number; arrival: number; arriving: boolean; onBloomed?: () => void }): React.JSX.Element {
   const light = useLightTheme()
   const colours = usePalette()
   const grain = useRef<GrainientHandle>(null)
@@ -1673,8 +1682,10 @@ function GrainBackdrop({ page }: { page: number }): React.JSX.Element {
   }, [page])
   return (
     <div aria-hidden className="absolute inset-0">
-      <Grainient ref={grain} colors={colours} angle={55} flow={0.8} silk={light ? 0.2 : 0.35} saturation={light ? 0.8 : 1} grainAmount={light ? 0.06 : 0.08} />
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,color-mix(in_oklab,var(--background)_82%,transparent)_0%,color-mix(in_oklab,var(--background)_55%,transparent)_45%,transparent_80%)]" />
+      {/* A new canvas for each arrival, so each one blooms from the page's colour; skipped, it is whole at once. */}
+      <Grainient key={arrival} ref={grain} intro={arriving} onIntroDone={onBloomed} colors={colours} angle={55} flow={0.8} silk={light ? 0.2 : 0.35} saturation={light ? 0.8 : 1} grainAmount={light ? 0.06 : 0.08} />
+      {/* The veil toward the words' side: not over the arrival, which fills the whole window as Arc's does, then in as the first words come. */}
+      <div className={`pointer-events-none absolute inset-0 transition-opacity duration-[1600ms] ${arriving ? 'opacity-0' : 'opacity-100'} bg-[linear-gradient(90deg,color-mix(in_oklab,var(--background)_82%,transparent)_0%,color-mix(in_oklab,var(--background)_55%,transparent)_45%,transparent_80%)]`} />
       {/* On a dark theme the gradient's bright end sits under light words and cards: a film of the page's colour over all of it. */}
       {!light && <div className="pointer-events-none absolute inset-0 bg-[color-mix(in_oklab,var(--background)_45%,transparent)]" />}
     </div>
