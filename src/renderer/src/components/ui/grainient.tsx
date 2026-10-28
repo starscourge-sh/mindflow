@@ -544,7 +544,8 @@ export function Grainient({
       gl.deleteVertexArray(vao)
       gl.deleteProgram(field.program)
       gl.deleteProgram(composite.program)
-      gl.getExtension('WEBGL_lose_context')?.loseContext()
+      // The context itself is left to go with its canvas: lost here on purpose, the same canvas mounted again (React's
+      // development checks do it on every mount) handed back that dead context and drew nothing, only the page behind.
     }
   }, [])
   // A new colour or setting: drawn on the next frame.
