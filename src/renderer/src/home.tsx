@@ -304,6 +304,9 @@ const STARTER_LISTS: [string, string][] = [
   ['🙏', 'Grateful for'], ['🧩', 'Words from crosswords'], ['🍲', 'Recipes to keep'], ['🙈', 'Searches I would not admit to']
 ]
 async function startList(icon: string, name: string): Promise<string> {
+  // Started already: that one is opened, never a second of the same name.
+  const had = (await groups.list('nugget')).find((one) => !one.parent && one.name.trim().toLowerCase() === name.toLowerCase())
+  if (had) return (toast(`“${name}” is already a list in Gems`), had.id)
   const made = await groups.make('nugget', name)
   await groups.set(made, { icon })
   chime('settled')
