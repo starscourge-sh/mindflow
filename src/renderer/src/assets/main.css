@@ -267,6 +267,14 @@
     0 1px 2px color-mix(in oklab, var(--mf-shadow-ink) 16%, transparent),
     0 12px 32px -6px color-mix(in oklab, var(--mf-shadow-ink) 32%, transparent);
 }
+/* On a dark page a shadow of the page's own dark ink is the page's colour and cannot be seen: a floating menu (the
+   @ and / menus, every popover) then sat flat on it, its hairline alone saying it floats. Black, and fuller. */
+.dark {
+  --mf-shadow-ink: oklch(0 0 0);
+  --mf-panel-shadow:
+    0 1px 2px color-mix(in oklab, var(--mf-shadow-ink) 40%, transparent),
+    0 14px 36px -6px color-mix(in oklab, var(--mf-shadow-ink) 62%, transparent);
+}
 
 /* Words on a filled accent button that can always be read: dark ink on a
    light accent, white on a deep one, cut at oklch lightness 0.62 (every
