@@ -675,6 +675,8 @@ export type Settings = typeof DEFAULTS & {
   calendarHidden?: string[]
   /** The reader card's draw (Settings): its title and colours follow from it; unset, from the book's name. */
   readerSeed?: number
+  /** The reader card's picture: a coolshape, or two bands of colour; unset, a shape. */
+  readerPicture?: 'shape' | 'bands'
 }
 
 /**

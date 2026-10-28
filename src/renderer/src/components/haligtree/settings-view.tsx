@@ -119,7 +119,7 @@ function AeroSpaceSetting(): React.JSX.Element | null {
 /** A slider's value beside it: one width for every slider, so the sliders line up down a section. */
 const SLIDER_VALUE = 'w-24 text-right tabular-nums'
 
-function Setting({ title, aka, children, note, more, below, keywords = '', under = false, off }: {
+function Setting({ title, aka, children, note, more, below, beside, keywords = '', under = false, off }: {
   title: string
   /** What the one-line note had no room for, behind a “?” beside the title. Searched too. */
   more?: string
@@ -130,6 +130,12 @@ function Setting({ title, aka, children, note, more, below, keywords = '', under
   children?: ReactNode
   note: string
   below?: ReactNode
+  /**
+   * Something large set beside the words instead of under them (the reader
+   * card): the words keep to the top, it takes the right, and on a narrow
+   * pane it drops under them, centred.
+   */
+  beside?: ReactNode
   /** More words it is found by: the names of what it offers, a theme's or a font's. */
   keywords?: string
   /** A choice within the row above it, set in a little under it. */
@@ -140,7 +146,7 @@ function Setting({ title, aka, children, note, more, below, keywords = '', under
   const shown = all ? '' : query
   return (
     <div data-setting data-setting-title={title} className={`py-3 pr-4 ${under ? 'pl-9' : 'pl-4'}`}>
-      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+      <div className={`flex flex-wrap justify-between gap-x-6 ${beside ? 'items-start gap-y-4' : 'items-center gap-y-2'}`}>
         <div className="min-w-0 flex-[1_1_13rem]">
           <div className="text-body font-medium text-foreground"><Marked text={title} query={shown} />{aka && <span className="ml-1.5 font-normal text-muted-foreground">(<Term>{aka}</Term>)</span>}
             {more && (
@@ -153,6 +159,7 @@ function Setting({ title, aka, children, note, more, below, keywords = '', under
           <p className="mf-prose mt-1 max-w-md text-[0.8125rem] text-muted-foreground [&_strong]:font-medium [&_strong]:text-foreground/80"><Lead text={note} show={(words) => <Marked text={words} query={shown} />} /></p>
           {off && <p data-setting-off className="mt-1 text-[0.8125rem] font-medium text-foreground/80">{off}</p>}
         </div>
+        {beside && <div className="mx-auto shrink-0">{beside}</div>}
         {children && <div className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2 text-control"><SettingName.Provider value={title}>{children}</SettingName.Provider></div>}
       </div>
       {below}
@@ -551,8 +558,8 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
         {!searching && <h2 className="px-1 text-lg font-semibold text-foreground"><Term>{section}</Term></h2>}
         <p data-none className="px-1 text-body text-muted-foreground">Nothing here matches “{query}”. Try fewer letters, or what it changes.</p>
         <Group section="Appearance" title="You" bare>
-          <Setting title="Reader card" note="Your book on a card: a title drawn for you, the day it began, and a stamp for each milestone." more="“Randomize” draws another title and colours; the card is kept until you do. Stamps come at 100 and 1,000 notes, a first link, a first gem reviewed, 30 days of Journal and a year in." keywords="reader card member profile name title stamps milestones share picture image randomize arc"
-            below={<ReaderCard seed={settings.readerSeed} point={asked === 'reader-card' ? nonce : undefined} />} />
+          <Setting title="Reader card" note="Your book on a card: a title drawn for you, the day it began, and a stamp for each milestone." more="“Randomize” draws another title, colours and shape; the card is kept until you do. The button beside it swaps the shape for two bands of colour, and back. Stamps come at 100 and 1,000 notes, a first link, a first gem reviewed, 30 days of Journal and a year in." keywords="reader card member profile name title stamps milestones share picture image randomize arc shape coolshapes bands"
+            beside={<ReaderCard seed={settings.readerSeed} picture={settings.readerPicture} point={asked === 'reader-card' ? nonce : undefined} />} />
         </Group>
         <Group section="Appearance" title="Colours">
           <Setting title="Theme" note={settings.themePreview ? 'Point at one to try it on, click to keep it.' : 'Click one to wear it.'} below={<ThemeTiles preview={settings.themePreview === true} />} keywords={`${allThemes().map(themeName).join(' ')} preview hover try`}>
