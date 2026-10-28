@@ -208,7 +208,11 @@ function SourceName({ field, name }: { field: SourceField; name: string }): Reac
 function Fact({ value, placeholder, label, onSave }: { value: string; placeholder: string; label: string; onSave: (value: string) => void }): React.JSX.Element {
   return (
     <input data-fact={label} aria-label={label} defaultValue={value} key={value} placeholder={placeholder} maxLength={80}
-      onKeyDown={(event) => event.key === 'Enter' && event.currentTarget.blur()}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') event.currentTarget.blur()
+        // Esc puts back what was there, as the page number does.
+        if (event.key === 'Escape') (event.preventDefault(), event.stopPropagation(), event.currentTarget.value = value, event.currentTarget.blur())
+      }}
       onBlur={(event) => event.target.value.trim() !== value && onSave(event.target.value.trim())}
       className="min-w-[2ch] rounded-md bg-transparent px-1 py-0.5 text-body text-foreground outline-none [field-sizing:content] placeholder:text-foreground/55 hover:bg-accent focus:bg-accent" />
   )
