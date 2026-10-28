@@ -37,7 +37,7 @@ export const THEMES = [
 ] as const
 
 /** What a new window wears before anything is chosen. */
-export const DEFAULT_THEME = "github"
+export const DEFAULT_THEME = "paper"
 
 /** A scheme the stylesheet ships, or one imported from a file (`custom-…`). */
 export type Theme = (typeof THEMES)[number] | `custom-${string}`
