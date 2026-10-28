@@ -1,7 +1,7 @@
 import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react'
 import { Gem, Link2, Rows2, Shapes, Shuffle } from 'lucide-react'
 import { Coolshape, shapes } from 'coolshapes-react'
-import { motion } from 'motion/react'
+import { motion, useTransform } from 'motion/react'
 import { Button } from '@/components/ui/button'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import CopyIcon from '@/components/ui/copy-icon'
@@ -261,7 +261,18 @@ export function ReaderCard({ seed: saved, picture = 'shape', point, named, bare 
     tilt.grow.jump(1)
   }
   useEffect(() => void (point && card.current?.scrollIntoView({ block: 'center' })), [point])
-  const name = shelf?.name ?? ''
+  // Layers, as a parallax card has them: the picture stands furthest off the paper, the name a little,
+  // so as the card tips they slide toward the side that comes forward, by how far off it they stand.
+  // Read from the tilt's own springs: flat with Motion off, and flat for a moment before a picture is taken.
+  const pictureX = useTransform(tilt.y, (deg) => deg * 0.9)
+  const pictureY = useTransform(tilt.x, (deg) => -deg * 0.9)
+  const pictureScale = useTransform(tilt.glow, [0, 1], [1, 1.03])
+  const nameX = useTransform(tilt.y, (deg) => deg * 0.35)
+  const nameY = useTransform(tilt.x, (deg) => -deg * 0.35)
+  // The picture's shadow on the paper: it falls away from the light, and shows only while the picture stands off the card.
+  const shadowX = useTransform(tilt.y, (deg) => -deg * 0.5)
+  const shadowY = useTransform(tilt.x, (deg) => 5 + deg * 0.5)
+  const name = named ?? shelf?.name ?? ''
   const seed = saved ?? seedOf(name)
   const { title, hues, shape } = cardOf(seed)
   const stamps = facts ? stampsOf(facts) : []
@@ -294,9 +305,18 @@ export function ReaderCard({ seed: saved, picture = 'shape', point, named, bare 
           className="relative flex h-[375px] w-[250px] shrink-0 flex-col bg-[#fffbea] p-3 shadow-[0_1px_2px_rgb(0_0_0/0.08),0_12px_32px_-8px_rgb(0_0_0/0.28)]"
           style={{ rotateX: tilt.x, rotateY: tilt.y, scale: tilt.grow, transformPerspective: 700, ...({ borderRadius: ROUND, transition: '--mf-card-a 700ms ease-out, --mf-card-b 700ms ease-out, --mf-card-c 700ms ease-out', color: 'var(--mf-card-c)', '--mf-card-a': inked(hues[0], 0.82, 0.13), '--mf-card-b': inked(hues[1], 0.66, 0.19), '--mf-card-c': inked(hues[2], 0.44, 0.15) } as CSSProperties) }}
         >
-          {picture === 'shape' ? <ShapePicture shape={shape} /> : <div className="overflow-hidden rounded-[2px]"><Bands /></div>}
+          <div className="relative">
+            {/* The shadow it casts on the paper: soft, under the picture's middle, there only while the card tips. */}
+            <motion.span aria-hidden data-reader-shadow className={`pointer-events-none absolute ${picture === 'shape' ? 'inset-[18%] rounded-full' : 'inset-[4%] rounded-[3px]'} bg-black/30 blur-[14px]`}
+              style={{ x: shadowX, y: shadowY, opacity: tilt.glow }} />
+            <motion.div data-reader-layer="picture" className="relative" style={{ x: pictureX, y: pictureY, scale: pictureScale }}>
+              {picture === 'shape' ? <ShapePicture shape={shape} /> : <div className="overflow-hidden rounded-[2px]"><Bands /></div>}
+            </motion.div>
+          </div>
+          <motion.div data-reader-layer="name" style={{ x: nameX, y: nameY }}>
           <p data-reader-name className="mt-3 line-clamp-2 text-[1.375rem] leading-[1.12] font-bold tracking-[-0.015em] break-words" style={{ fontFamily: "'Fraunces Variable', Georgia, serif" }}>{name || ' '}</p>
           <p data-reader-title={title} className="mt-1.5 font-mono text-[0.625rem] font-medium tracking-[0.16em] uppercase"><Rolling text={title} by="word" /></p>
+          </motion.div>
           <div className="mt-auto flex items-end justify-between gap-2">
             <div className="flex min-w-0 flex-col items-start gap-2">
               {/* Room for a row of stamps, kept even before the first, so the card never changes. */}
