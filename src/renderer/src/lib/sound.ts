@@ -1,5 +1,6 @@
 import { INTRO_DELAY, INTRO_SECONDS, introRise } from '@/components/ui/grainient'
 import tearUrl from '@/assets/sounds/paper-rip.m4a'
+import saidUrl from '@/assets/sounds/haligtree-said.mp3'
 import foldUrl from '@/assets/sounds/paper-fold.m4a'
 import pageUrl from '@/assets/sounds/page-turn.m4a'
 import slideUrl from '@/assets/sounds/paper-slide.m4a'
@@ -719,6 +720,8 @@ function recording(url: string, level: number, name: string, options: { loop?: b
   })
 }
 // The one sound of anything going to the Bin. The page that opens next in its place (the next note) turns no page on top: one action, one sound.
+/** The welcome's easter egg: the name, said aloud, when the word "Haligtree" on the title card is clicked. */
+export const sayName = (): void => void recording(saidUrl, 0.9, 'said')
 export const tear = (): void => void ((spokeAt = performance.now() + 700), recording(tearUrl, 0.55, 'tear'))
 /** A review card turned over. */
 export const fold = (): void => void recording(foldUrl, 0.5, 'fold')
