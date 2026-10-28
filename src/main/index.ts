@@ -2179,7 +2179,9 @@ function shapeCard(key: string, win: BrowserWindow): void {
   // Pointed at as a named tab, the card slides out of it: the tab's strip with its name on the screen side,
   // a fold, then the note, running a little past the edge so only the screen-side corners are round.
   const fromTab = beaconHeld.has(key) && stickyTuck() === 'tabs'
-  const wide = rest.width + (fromTab ? TUCK_STRIP : 0)
+  // The card keeps its own width: the strip is taken from inside it, never added to it (added, the card came out
+  // 40 points wider than it stands on the desktop, its dot grid stretched to fill).
+  const wide = rest.width
   const atLeft = tab.x + tab.width / 2 < area.x + area.width / 2
   const hang = fromTab ? TUCK_OPEN_HANG + (atLeft ? inset.left : inset.right) : 0
   const to = beaconHeld.has(key) ? { ...rest, width: wide, x: atLeft ? area.x - hang : area.x + area.width - wide + hang, y: top } : rest
