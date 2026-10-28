@@ -1514,7 +1514,7 @@ function NameChapter({ play, report, onNext }: { play: boolean; report: (now: Re
                 if (event.key === 'Enter') (event.preventDefault(), onNext())
                 else if (event.key === 'Escape') (event.preventDefault(), event.currentTarget.blur())
               }} />
-            <button type="button" data-name-draw onClick={() => (chime('anew'), setDrawn((was) => drawBookName(Math.random, was)))} className={`${QUIET_BUTTON} absolute top-1/2 right-1.5 -translate-y-1/2`}>
+            <button type="button" data-name-draw onClick={() => { chime('anew'); const next = drawBookName(Math.random, value.trim() || drawn); setDrawn(next); setTyped(next) }} className={`${QUIET_BUTTON} absolute top-1/2 right-1.5 -translate-y-1/2`}>
               <Shuffle className="size-4" strokeWidth={1.8} /> Draw another
             </button>
           </div>

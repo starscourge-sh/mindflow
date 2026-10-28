@@ -111,7 +111,8 @@ const BOARD = 3
 const OVERHANG = 3
 const WIDE_BOOK = 250
 const HIGH_BOOK = 375
-const REST_TURN = 34
+// Turned the other way at rest: its fore-edge and old pages toward you, the spine round the far side.
+const REST_TURN = -34
 const REST_LEAN = 10
 /**
  * Old paper seen edge on: fine leaf lines (vertical at the fore-edge, across at the foot, crossed here so both show),
