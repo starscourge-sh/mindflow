@@ -65,6 +65,9 @@ export const underPointer: Modifier = ({ transform, activatorEvent, activeNodeRe
   }
 }
 
+/** A place a row can be dropped on (`data-row-drop`), lit as a calendar's day is while a row is over it. */
+export const DROP_LIT = 'transition-colors data-[drop-hot]:bg-accent data-[drop-hot]:text-foreground data-[drop-hot]:ring-1 data-[drop-hot]:ring-ring'
+
 /** Whether rows here can be dragged at all: a list not in your own order never drags. */
 const On = createContext(false)
 /** Which way the rows go: down a list, or along a row of tabs. */
@@ -102,19 +105,38 @@ export function Lifted({ shot }: { shot: Shot | null }): React.JSX.Element | nul
  * itself from the moment you let go until the saved one comes back, so the
  * row never jumps back to where it was while the save is on its way.
  */
-export function SortableList<T>({ items, keyOf, onMove, axis = 'y', children }: {
+export function SortableList<T>({ items, keyOf, onMove, axis = 'y', places, children }: {
   items: T[]
   /** Down a list (the usual), or along a row (tabs). */
   axis?: 'y' | 'x'
   keyOf: (item: T) => string
   /** A row dropped onto another lands before it (going up) or after it (going down). */
   onMove?: (id: string, target: string, after: boolean) => void
+  /**
+   * Places on the page a row can be dropped on, as well as among its rows (a
+   * tab, a folded section's heading, a card): any element marked
+   * `data-row-drop` with what it is. Lit while the row is over one, what
+   * dropping does said under the lifted row, and `foot` drawn under the rows
+   * only while one is carried, for places the page has nowhere else.
+   */
+  places?: { drop: (id: string, place: string) => void; said: (place: string) => string; foot?: ReactNode }
   children: (items: T[]) => ReactNode
 }): React.JSX.Element {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const [held, setHeld] = useState<string[] | null>(null)
   const [shot, setShot] = useState<Shot | null>(null)
   const [sorting, setSorting] = useState(false)
+  // The place the row is over, if any: its element lit, its name said.
+  const [aim, setAim] = useState<string | null>(null)
+  const aimed = useRef<HTMLElement | null>(null)
+  const aimAt = (next: HTMLElement | null): void => {
+    if (aimed.current === next) return
+    if (aimed.current) delete aimed.current.dataset.dropHot
+    if (next) next.dataset.dropHot = ''
+    aimed.current = next
+    setAim(next?.dataset.rowDrop ?? null)
+    if (next) chime('tick')
+  }
   const settle = useRef<ReturnType<typeof setTimeout>>(undefined)
   const done = (): void => (clearTimeout(settle.current), void (settle.current = setTimeout(() => setSorting(false), 320)))
   // A soft tick as the lifted row comes over each new place in the list.
@@ -123,6 +145,16 @@ export function SortableList<T>({ items, keyOf, onMove, axis = 'y', children }: 
   const incoming = ids.join('\n')
   // The saved order (or anything else) has arrived: it is the truth again.
   useEffect(() => setHeld(null), [incoming])
+  // The place under the pointer itself, wherever it goes: the lifted row goes up and down only, and a drag's own move is the row's.
+  const follow = useRef((event: PointerEvent): void => {
+    const under = document.elementsFromPoint(event.clientX, event.clientY)
+    aimAt(under.map((one) => one.closest<HTMLElement>('[data-row-drop]')).find((one) => !!one) ?? null)
+  })
+  const following = (on: boolean): void => {
+    if (on && places) window.addEventListener('pointermove', follow.current)
+    else window.removeEventListener('pointermove', follow.current)
+  }
+  useEffect(() => () => following(false), []) // eslint-disable-line react-hooks/exhaustive-deps
   if (!onMove) return <>{children(items)}</>
   const byId = new Map(items.map((item) => [keyOf(item), item]))
   const shown = held ? held.map((id) => byId.get(id)).filter((one): one is T => !!one) : items
@@ -132,10 +164,15 @@ export function SortableList<T>({ items, keyOf, onMove, axis = 'y', children }: 
     setSorting(true)
     ticks.start(String(active.id))
     setShot(snapshot(String(active.id)))
+    following(true)
   }
   const onDragEnd = ({ active, over }: DragEndEvent): void => {
     setShot(null)
     done()
+    following(false)
+    const place = aimed.current?.dataset.rowDrop
+    aimAt(null)
+    if (place && places) return places.drop(String(active.id), place)
     if (!over || over.id === active.id) return chime('stay')
     const order = shown.map(keyOf)
     const from = order.indexOf(String(active.id))
@@ -145,12 +182,23 @@ export function SortableList<T>({ items, keyOf, onMove, axis = 'y', children }: 
   }
   return (
     // Its screen-reader lines go to the page's foot, never among the rows (a tree of rows counts its children).
-    <DndContext accessibility={{ container: document.body }} sensors={sensors} collisionDetection={closestCenter} modifiers={[axis === 'x' ? sideways : upDown]} onDragStart={onDragStart} onDragOver={({ over }) => ticks(over?.id)} onDragEnd={onDragEnd} onDragCancel={() => (setShot(null), done())}>
+    <DndContext accessibility={{ container: document.body }} sensors={sensors}
+      // Over a place, the rows stay where they are: it goes there, not among them.
+      collisionDetection={(args) => (aimed.current ? [] : closestCenter(args))}
+      modifiers={[axis === 'x' ? sideways : upDown]} onDragStart={onDragStart} onDragOver={({ over }) => ticks(over?.id)} onDragEnd={onDragEnd} onDragCancel={() => (setShot(null), following(false), aimAt(null), done())}>
       <SortableContext items={shown.map(keyOf)} strategy={axis === 'x' ? horizontalListSortingStrategy : verticalListSortingStrategy}>
         <Axis.Provider value={axis}><Sorting.Provider value={sorting}><On.Provider value>{children(shown)}</On.Provider></Sorting.Provider></Axis.Provider>
       </SortableContext>
-      <Overlay dropAnimation={still() ? null : SETTLE}>
-        <Lifted shot={shot} />
+      {shot && places?.foot}
+      <Overlay dropAnimation={still() || aim ? null : SETTLE}>
+        {shot && (
+          <div className="flex flex-col items-start gap-1">
+            {/* Over a place, the row's picture steps aside so the lit place under it shows. */}
+            <div className={aim ? 'opacity-0' : undefined}><Lifted shot={shot} /></div>
+            {/* What letting go here does, in the words the refused note uses for where it cannot go. */}
+            {aim && places && <div data-drop-said={aim} className="rounded-md bg-popover px-2 py-1 text-control text-foreground shadow-(--mf-shadow-lift) ring-1 ring-foreground/10">{places.said(aim)}</div>}
+          </div>
+        )}
       </Overlay>
     </DndContext>
   )

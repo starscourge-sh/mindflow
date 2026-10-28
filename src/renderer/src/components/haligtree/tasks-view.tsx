@@ -395,7 +395,7 @@ const dateWanted = (id: string): boolean => !!dateAsked && dateAsked.id === id &
  * list opens it; from the desktop sticky, a note's window or quick capture, the
  * main window comes up on the task with its calendar already open there.
  */
-const pickDate = (id: string, open: () => void): void => {
+export const pickDate = (id: string, open: () => void): void => {
   if (new URLSearchParams(location.search).get('view') === 'home') return void (askDate(id), open())
   chime('open')
   window.api.openInHome('task-date', id)
@@ -861,7 +861,9 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   // Their pill on the list's box edge and their words on its ink edge, as every row of tabs (qa/list-edges.mjs).
   const lead = (
     <div data-list-tabs className="flex" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink))' }}>
-      <Chips options={TASK_TABS} on={(id) => id === mode} pick={(id) => id !== mode && onOpen?.('view', id)} className="flex-nowrap" />
+      <Chips options={TASK_TABS} on={(id) => id === mode} pick={(id) => id !== mode && onOpen?.('view', id)} className="flex-nowrap"
+        // Today's lines, dragged onto a tab, go there (day-list.tsx).
+        drops={mode === 'today' ? { upcoming: 'upcoming', later: 'later' } : undefined} />
     </div>
   )
   const writeOut = (

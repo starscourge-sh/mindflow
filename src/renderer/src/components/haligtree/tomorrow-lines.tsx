@@ -8,6 +8,7 @@ import { clock } from '@/lib/clock'
 import { Tip, Typed, toast } from './ui'
 import { RowMenu, type RowItem } from './row-menu'
 import { taskMenu, useTaskNow } from './tasks-view'
+import { DROP_LIT } from './sortable'
 import { FromNote, type AtLink } from './at-notes'
 import { DayLine, type LineHandle } from './day-line'
 
@@ -356,10 +357,10 @@ export function TomorrowBox({ className = '' }: { className?: string }): React.J
   // After midnight, tomorrow is today: its lines are on today's list already.
   const today = day === dayKey(now)
   return (
-    <section ref={box} data-tomorrow-box aria-label="For tomorrow"
+    <section ref={box} data-tomorrow-box data-row-drop="tomorrow" aria-label="For tomorrow"
       onFocus={() => setHeld(night)}
       onBlur={(event) => !box.current?.contains(event.relatedTarget as Node | null) && setHeld(null)}
-      className={`rounded-xl border bg-background px-4 pt-3 pb-3.5 ${keyed ? '' : 'animate-in fade-in-0 slide-in-from-bottom-1 duration-300'} ${className}`}>
+      className={`rounded-xl border bg-background px-4 pt-3 pb-3.5 ${DROP_LIT} ${keyed ? '' : 'animate-in fade-in-0 slide-in-from-bottom-1 duration-300'} ${className}`}>
       <header className="mb-1 flex items-baseline gap-2">
         {/* Past midnight the day named is already today: “tomorrow” would be wrong beside it. */}
         <h3 className="text-lg font-semibold text-foreground">{today ? 'For the morning' : 'For tomorrow'}</h3>

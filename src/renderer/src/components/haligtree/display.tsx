@@ -14,6 +14,7 @@ import { AliveIcon } from '@/components/ui/alive-icon'
 import { dayjs, daysSince, num } from '../../../../main/dates'
 import { useHere } from '@/lib/split'
 import { Check, ChevronDown, LayoutGrid, List as LayoutList } from '@/components/ui/icons'
+import { DROP_LIT } from './sortable'
 
 /**
  * Display, the way Todoist and Linear do it: one button on a list that holds
@@ -174,8 +175,10 @@ export function useSideways(): { ref: (node: HTMLElement | null) => void; style:
   }
 }
 
-export function Chips({ options, on, pick, className = 'flex-wrap', sideways = false }: {
+export function Chips({ options, on, pick, className = 'flex-wrap', sideways = false, drops }: {
   options: readonly Choice[]
+  /** Chips a dragged row can be dropped on (sortable.tsx's places), by the place each one is. */
+  drops?: Partial<Record<string, string>>
   on: (id: string) => boolean
   pick: (id: string) => void
   className?: string
@@ -201,11 +204,12 @@ export function Chips({ options, on, pick, className = 'flex-wrap', sideways = f
           // Named plainly: the label is drawn twice over and letter by letter as it rolls.
           aria-label={option.label}
           aria-pressed={on(option.id)}
+          data-row-drop={drops?.[option.id]}
           onClick={() => {
             chime('tap')
             pick(option.id)
           }}
-          className={`rounded-md px-2 py-1 text-xs transition-colors duration-80 ${on(option.id) ? `${single ? '' : 'bg-accent'} text-foreground` : 'text-muted-foreground hover:text-foreground data-[fluid-hover-active]:text-foreground'}`}
+          className={`rounded-md px-2 py-1 text-xs transition-colors duration-80 ${drops?.[option.id] ? DROP_LIT : ''} ${on(option.id) ? `${single ? '' : 'bg-accent'} text-foreground` : 'text-muted-foreground hover:text-foreground data-[fluid-hover-active]:text-foreground'}`}
         >
           <Weighted on={on(option.id)}><Rolling text={option.label} /></Weighted>
         </button>

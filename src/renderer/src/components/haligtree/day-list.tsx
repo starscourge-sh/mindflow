@@ -10,11 +10,11 @@ import { byKeys, useByKeys } from '@/lib/motion'
 import { readLines, tasksOf } from '../../../../main/day-lines'
 import { dayKey, num, startOfDay } from '../../../../main/dates'
 import { Count, Book, Kbd, Rolling, Tags, Tip, Typed, refuse, toast, quietly } from './ui'
-import { SortableList, SortableRow } from './sortable'
+import { DROP_LIT, SortableList, SortableRow } from './sortable'
 import { Struck, Tick } from './marks'
-import { completeTask, dayCleared, landed, moveTo, onToday, shiftTo, startOn, taskMenu, useTaskNow } from './tasks-view'
+import { completeTask, dayCleared, landed, moveTo, onToday, pickDate, shiftTo, startOn, taskMenu, useTaskNow } from './tasks-view'
 import { RowMenu, type RowItem } from './row-menu'
-import { PriorityMark } from './task-input'
+import { PriorityMark, planFor } from './task-input'
 import { dayClosed, openCloseDay } from './close-day'
 import { useArrivals } from './note-list'
 import { TomorrowBox } from './tomorrow-lines'
@@ -48,6 +48,22 @@ const SECTIONS: { id: Section; label: string; said: string }[] = [
   { id: 'next', label: 'Next', said: 'Next, no day yet' },
   { id: 'later', label: 'Later', said: 'Someday' }
 ]
+
+/** Where a line can be sent from Today: by a drag, its right-click menu, or a key once it is picked (Esc). */
+type Place = 'today' | 'tomorrow' | 'week' | 'next' | 'month' | 'someday'
+const PLACES: { id: Place; label: string; said: string; key?: string }[] = [
+  { id: 'today', label: 'Today', said: 'Drop to do it today', key: 'T' },
+  { id: 'tomorrow', label: 'Tomorrow', said: 'Drop to do it tomorrow', key: 'M' },
+  { id: 'week', label: 'Next week', said: 'Drop to do it next week', key: 'W' },
+  { id: 'next', label: 'Next, no day yet', said: 'Drop to take its day off, into Next', key: 'N' },
+  { id: 'month', label: 'Later, this month', said: 'Drop to put it in This month' },
+  { id: 'someday', label: 'Later, someday', said: 'Drop to put it in Later, Someday', key: 'L' }
+]
+/** A drop place's name as a place a line goes: Upcoming's tab is tomorrow, Later's is someday. */
+const placeOf = (drop: string): Place | undefined => {
+  const id = drop === 'upcoming' ? 'tomorrow' : drop === 'later' ? 'someday' : drop
+  return PLACES.find((one) => one.id === id)?.id
+}
 
 /** Where the caret goes after the next draw: a line by its key, at its end, its start, or a place. */
 type Want = { key: string; at: 'end' | 'start' | number; until: number }
@@ -160,6 +176,8 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
   const [cleared, setCleared] = useState<string[]>(() => readCleared(today))
   const [draft, setDraft] = useState<Draft | null>(null)
   const [open, setOpen] = useState<Record<Section, boolean>>({ now: true, next: false, later: false })
+  // The line picked with Esc (lit, no caret in it): T, M, W, N and L move it, ↑ ↓ pick the one beside it, ↵ writes in it again.
+  const [picked, setPicked] = useState<{ id: string; section: Section } | null>(null)
   const fields = useRef(new Map<string, LineHandle>())
   const want = useRef<Want | null>(null)
   const box = useRef<HTMLDivElement>(null)
@@ -356,6 +374,36 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     go(`t:${task.id}`)
   }
 
+  /**
+   * A line sent somewhere else, by a drag, its menu or a key: today, tomorrow,
+   * next week, Next (no day yet) or Later. Said in a notice with Undo, as a
+   * task moved from any list is.
+   */
+  const sendTo = async (task: Task, section: Section, place: Place): Promise<void> => {
+    if (task.status !== 'open') return chime('nope')
+    if (place === 'tomorrow' || place === 'week') return moveTo(task, place === 'week' ? 7 : 1)
+    if (place === 'month' || place === 'someday') return planFor(task, place)
+    const target: Section = place === 'today' ? 'now' : 'next'
+    if (target === section) return chime('stay')
+    const was = { due: task.dueAt, plan: task.planFor, sortOrder: task.sortOrder }
+    setOpen((all) => ({ ...all, [target]: true }))
+    await haligtree.saveTask(task.id, into(target, task))
+    // At the top of Next, where it is seen; at the end of today's list.
+    const list = lists[target].map((one) => one.id).filter((id) => id !== task.id)
+    await renumber(target === 'next' ? [task.id, ...list] : [...list, task.id])
+    if (target === 'now') onWrite?.()
+    chime('move')
+    toast(target === 'now' ? 'Moved to Today' : 'Moved to Next, with no day yet', () => void haligtree.saveTask(task.id, { due: was.due, plan: was.plan, sortOrder: was.sortOrder }))
+  }
+  /** What a place does with a line, said under the line while it is carried there and on its button. */
+  const placeSaid = (drop: string): string => PLACES.find((one) => one.id === placeOf(drop))?.said ?? ''
+  /** A line dropped on a place (a tab, the box for tomorrow, Next's heading, one at the list's foot). */
+  const dropOn = (section: Section) => (id: string, place: string): void => {
+    const task = lists[section].find((one) => one.id === id)
+    const to = placeOf(place)
+    if (task && to) void sendTo(task, section, to)
+  }
+
   /** Tab: the line becomes a step of the one above it. */
   const indent = async (task: Task, section: Section): Promise<void> => {
     const list = lists[section]
@@ -468,6 +516,8 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     if (event.key === 'Tab' && event.shiftKey) return (rename(task, text, link), false)
     if (event.key === 'Tab') return (rename(task, text, link), void indent(task, section), true)
     if (event.altKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) return (rename(task, text, link), void shiftLine(task, section, event.key === 'ArrowUp' ? -1 : 1), true)
+    // Esc: done writing, the line left picked, so a key can move it (as a row on the Tasks pages is moved).
+    if (event.key === 'Escape') return (rename(task, text, link), line.blur(), setPicked({ id: task.id, section }), true)
     return sharedLine(event, line, key)
   }
   const stepKeys = (parent: Task, n: number, section: Section) => (event: KeyboardEvent, line: LineHandle): boolean => {
@@ -617,6 +667,62 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     return true
   }
 
+  // The picked line's keys, ahead of the page's own (the Journal's T for today, the Tasks page's row keys).
+  useEffect(() => {
+    if (!picked) return
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.metaKey || event.ctrlKey || event.altKey || event.defaultPrevented) return
+      if (document.activeElement?.closest('input, textarea, [contenteditable=true], [role=menu], [role=dialog]')) return
+      const list = lists[picked.section]
+      const at = list.findIndex((one) => one.id === picked.id)
+      if (at < 0) return setPicked(null)
+      const take = (): void => (event.preventDefault(), event.stopImmediatePropagation())
+      if (event.key === 'Escape') return (take(), setPicked(null))
+      if (event.key === 'Enter') return (take(), setPicked(null), go(`t:${picked.id}`))
+      if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+        take()
+        const to = list[at + (event.key === 'ArrowUp' ? -1 : 1)]
+        return to ? (chime('tick'), setPicked({ id: to.id, section: picked.section })) : chime('nope')
+      }
+      const place = PLACES.find((one) => one.key && one.key.toLowerCase() === event.key.toLowerCase())
+      if (!place) return
+      take()
+      setPicked(null)
+      void sendTo(list[at], picked.section, place.id)
+    }
+    // A press anywhere but on the line (or its menu) lets it go.
+    const off = (event: PointerEvent): void => {
+      if (!(event.target as Element | null)?.closest(`[data-day-line="${CSS.escape(picked.id)}"], [role=menu]`)) setPicked(null)
+    }
+    window.addEventListener('keydown', onKey, true)
+    window.addEventListener('pointerdown', off, true)
+    return () => (window.removeEventListener('keydown', onKey, true), window.removeEventListener('pointerdown', off, true))
+  })
+  /** The ways to send a line elsewhere, first in its right-click menu: the places, then a date of its own. */
+  const sendItems = (task: Task, section: Section, open: () => void): RowItem[] => task.status !== 'open' ? [] : [
+    { heading: 'Move it to' },
+    ...PLACES.filter((one) => !(one.id === 'today' && section === 'now') && !(one.id === 'next' && section === 'next'))
+      .map((one) => ({ label: one.label, keys: one.key, run: () => void sendTo(task, section, one.id) })),
+    { label: 'Pick a date…', run: () => pickDate(task.id, open) },
+    'separator'
+  ]
+  /** Places a carried line can go that the page shows nowhere else: under the list, only while it is carried. */
+  const foot = (section: Section): React.ReactNode => {
+    const shown = (compact ? ['tomorrow', 'next', 'someday'] as Place[] : document.querySelector('[data-tomorrow-box]') ? [] : ['tomorrow'] as Place[])
+      .filter((id) => !(id === 'next' && section === 'next') && !(id === 'someday' && section === 'later'))
+    if (!shown.length) return null
+    return (
+      <div data-drop-foot className="mt-2 flex flex-wrap items-center gap-1.5 pl-6">
+        <span className="mr-1 text-control text-muted-foreground">Or drop it on</span>
+        {shown.map((id) => (
+          <div key={id} data-row-drop={id} className={`flex h-8 items-center rounded-md border border-dashed border-foreground/25 px-3 text-control font-medium text-muted-foreground ${DROP_LIT}`}>
+            {id === 'tomorrow' ? 'Tomorrow' : id === 'next' ? 'Next' : 'Later'}
+          </div>
+        ))}
+      </div>
+    )
+  }
+
   // --- drawn -----------------------------------------------------------------
 
   // A line told of as it arrives (the caret put there when it was asked for), and as it goes, unless another took its place.
@@ -673,14 +779,19 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     return (
       <SortableRow key={task.id} id={task.id}>
         <div data-day-line={task.id} data-section={section} data-done={struck || undefined} data-top={first || undefined} data-rank={rank || undefined}
-          className={`group/line relative rounded-md ${task.id === openId ? 'bg-accent/50' : ''} ${arrived(task.id) ? 'mf-arrive' : ''}`}>
+          data-picked={picked?.id === task.id || undefined}
+          className={`group/line relative rounded-md ${task.id === openId || picked?.id === task.id ? 'bg-accent/50' : ''} ${arrived(task.id) ? 'mf-arrive' : ''}`}>
           {/* Right-clicked, the menu a task has on every list, with the words' own Cut, Copy and Paste after it. */}
-          <RowMenu writes items={taskMenu(task, { open: () => (chime('open'), onOpenTask ? onOpenTask(task.id) : window.api.openInHome('task', task.id)), complete: () => tick(task), now: taskNow })}>
+          {/* Where it can go first, each with its key once the line is picked (Esc). */}
+          <RowMenu writes items={(() => {
+            const open = (): void => (chime('open'), onOpenTask ? onOpenTask(task.id) : window.api.openInHome('task', task.id))
+            return [...sendItems(task, section, open), ...taskMenu(task, { open, complete: () => tick(task), now: taskNow })]
+          })()}>
           <div className="flex items-start gap-2.5 py-1 pr-1">
             {/* The handle, shown on pointing; the whole row drags, the words never. */}
             {/* Shown on the line being written too: it says the line can move, and ⌥↑ ⌥↓ (said under the list) moves it from the keys. */}
             {/* One of the day's three: its number in the same place, giving way to the handle on pointing. */}
-            <span title="Drag to move it, or ⌥↑ ⌥↓" className="relative mt-[0.3rem] w-3.5 shrink-0 cursor-grab">
+            <span title="Drag to reorder it, or onto “Next”, “Later” or tomorrow. ⌥↑ ⌥↓ reorder; Esc, then M, W, N or L, moves it." className="relative mt-[0.3rem] w-3.5 shrink-0 cursor-grab">
               {rank > 0 && <ThreeMark n={rank} done={struck} className="absolute inset-x-0 -top-[0.15rem] text-center leading-[1.3rem] transition-opacity group-hover/line:opacity-0 group-focus-within/line:opacity-0" />}
               <GripVertical aria-hidden className="size-3.5 text-muted-foreground opacity-0 transition-opacity group-hover/line:opacity-60 group-focus-within/line:opacity-60" />
             </span>
@@ -827,7 +938,9 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     // short list, which has no headings, keeps plain space.
     return (
       <section key={id} data-day-section={id} aria-label={label} className={id === 'now' ? '' : compact ? 'mt-7' : 'mt-8 border-t border-foreground/[0.08] pt-7'}>
-        <header className={`mb-1 flex items-baseline gap-2 pl-6 ${compact ? 'sr-only' : ''}`}>
+        {/* A line carried onto a heading goes into that section: Now is today, Next takes its day off, Later is someday. */}
+        <header data-row-drop={compact ? undefined : id === 'now' ? 'today' : id === 'next' ? 'next' : 'someday'}
+          className={`mb-1 flex items-baseline gap-2 rounded-md pl-6 ${compact ? 'sr-only' : DROP_LIT}`}>
           {id === 'now' ? (
             <h3 className="text-lg font-semibold text-foreground">{label}</h3>
           ) : (
@@ -852,7 +965,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
         )}
         {(id === 'now' || open[id]) && (
           <>
-            <SortableList items={longer ? shown.slice(0, 8) : shown} keyOf={(task) => task.id} onMove={move(id)}>
+            <SortableList items={longer ? shown.slice(0, 8) : shown} keyOf={(task) => task.id} onMove={move(id)} places={{ drop: dropOn(id), said: placeSaid, foot: foot(id) }}>
               {/* The top three and the rest: a heading of its own under the third, with room above it as a section has, only when there is a rest.
                   Its own line between the rows, never part of one, so a row dragged leaves it where it is. */}
               {(items) => items.flatMap((task) => id === 'now' && task.id === openNow[2]?.id && openNow.length > 3 ? [row(task, id), (
@@ -935,9 +1048,10 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
           <span><Kbd>↵</Kbd> next line</span>
           <span><Kbd>@</Kbd> link a note</span>
           <span><Kbd>⇥</Kbd> a step of the line above</span>
-          <span><Kbd>⌥↑</Kbd> <Kbd>⌥↓</Kbd> move</span>
+          <span><Kbd>⌥↑</Kbd> <Kbd>⌥↓</Kbd> reorder</span>
+          <span><Kbd>Esc</Kbd> then <Kbd>M</Kbd> <Kbd>W</Kbd> <Kbd>N</Kbd> <Kbd>L</Kbd> tomorrow, next week, Next, Later</span>
           <span><Kbd>⌘↵</Kbd> tick</span>
-          <span><Kbd>Esc</Kbd> stop writing</span>
+
         </p>
       )}
     </div>
