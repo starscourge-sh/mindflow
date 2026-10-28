@@ -68,6 +68,8 @@ export function Tour(): React.JSX.Element | null {
     chime(skipped ? 'away' : 'done')
     // The whole tour seen: Getting started ticks it.
     if (!skipped && stops.length > 1) void onboarding.mark('tour')
+    // Gone through to the end: Home's line, which offered it, folds away.
+    if (!skipped) window.dispatchEvent(new CustomEvent('haligtree:toured'))
     setAt(-1)
   }
   const go = (to: number): void => {

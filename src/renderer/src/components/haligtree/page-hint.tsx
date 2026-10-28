@@ -86,6 +86,8 @@ let arrived = false
 export function PageHint({ page: shown }: { page: string }): React.JSX.Element | null {
   const page = SAME_LINE[shown] ?? shown
   const state = useOnboarding()
+  const latest = useRef(state)
+  latest.current = state
   // Into the sandbox: where you are and that your notes are safe, docked
   // under the top bar rather than a toast over the page, then out of the way.
   // Never folded away on a timer: that pulled the page you were reading up
@@ -100,13 +102,26 @@ export function PageHint({ page: shown }: { page: string }): React.JSX.Element |
   // The page's thing just done, with its line up: "You've got it", then away.
   const [got, setGot] = useState<string | null>(null)
   const showing = useRef<(() => void) | null>(null)
-  useEffect(() => onCue((cue) => {
-    if (!showing.current || !LEARNED[page]?.includes(cue)) return
-    const put = showing.current
-    showing.current = null
-    setGot(page)
-    setTimeout(put, GOT_IT_MS)
-  }), [page])
+  useEffect(() => {
+    const learned = (): void => {
+      if (!showing.current) return
+      const put = showing.current
+      showing.current = null
+      setGot(page)
+      setTimeout(put, GOT_IT_MS)
+    }
+    // Home's line offers the tour: gone through to its end, the line has done its job. It is hidden while the
+    // tour runs, so it is put away as it is, not learned.
+    const toured = (): void => {
+      const now = latest.current
+      if (page !== 'home' || !now || now.hintsSeen.includes('home')) return
+      setGone((was) => [...was, 'home'])
+      void onboarding.set({ hintsSeen: [...now.hintsSeen, 'home'] })
+    }
+    window.addEventListener('haligtree:toured', toured)
+    const off = onCue((cue) => void (LEARNED[page]?.includes(cue) && learned()))
+    return () => (off(), window.removeEventListener('haligtree:toured', toured))
+  }, [page])
   // Only the page's own line, while it is up, can be learned: set again below when it is.
   showing.current = null
   const busy = (): boolean => document.documentElement.hasAttribute('data-welcoming') || document.documentElement.hasAttribute('data-touring')
