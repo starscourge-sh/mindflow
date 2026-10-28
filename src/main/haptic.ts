@@ -1,8 +1,8 @@
 import hapticFile from '../../resources/haptic.node?asset&asarUnpack'
 
 /**
- * A light tap on a Force Touch trackpad (native/haptic.mm), as the Mac gives
- * when a window lines up with a guide. Kept rare: a sticky or a goal's
+ * A firm tap on a Force Touch trackpad (native/haptic.mm), the Mac's level-change
+ * pattern, the strongest it lets an app play. Kept rare: a sticky or a goal's
  * card coming into line with an edge or another sticky while you drag it,
  * and a dragged row coming over a new place in a list (the renderer's
  * slotTicker, at most one each 60ms).
@@ -26,5 +26,8 @@ export function tap(kind: 'align' | 'level' = 'align'): void {
   taps += 1
   // Tests count the taps and never play one (HALIGTREE_QA_AWAY).
   if (process.env.HALIGTREE_QA_AWAY) return
-  tapper?.(kind === 'level' ? 1 : 0)
+  // Always the firmer of the Mac's taps (its level change): the alignment tap was too light to feel (the user asked
+  // for stronger). macOS gives no control of strength beyond which pattern plays. `kind` is kept for the callers.
+  void kind
+  tapper?.(1)
 }
