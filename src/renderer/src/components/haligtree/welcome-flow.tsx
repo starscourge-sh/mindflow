@@ -6,7 +6,7 @@ import { STORY_DAY } from '@/lib/welcome-box'
 import { gemOf, story, taskPhrase, type Story } from '@/lib/welcome-stories'
 import { when } from '@/lib/clock'
 import { readTask } from '../../../../main/task-words'
-import { FileText as Article, ListTodo as Check } from '@/components/ui/icons'
+import { FileText as Article, Brain, Eye, ListTodo as Check } from '@/components/ui/icons'
 import sherlockPrint from '@/assets/welcome-books/sherlock.webp'
 import frankensteinPrint from '@/assets/welcome-books/frankenstein.webp'
 import draculaPrint from '@/assets/welcome-books/dracula.webp'
@@ -19,7 +19,8 @@ import odysseyPrint from '@/assets/welcome-books/odyssey.webp'
  * and a drawn pointer selects two phrases in it (dragged across, then
  * "Make a task" or "Make a gem" pressed beside the selection), one made a
  * task (its day read from the words, by the same reader the app uses,
- * task-words.ts) and one a gem with a question for Review. Every card is
+ * task-words.ts) and two gems: one kept as it is, which comes back now and
+ * then, and the last sentence with a question for Review. Every card is
  * drawn as the app draws it (the box, a page, the bar, a task row with its
  * date, the gem card), each picked phrase and the card it becomes in one
  * colour, a line drawn from the very words to the card. Pictures only:
@@ -48,9 +49,9 @@ const PRINT: Record<Story['id'], { src: string; focus: string }> = {
  * thinking asks for, written where it came up with its day: "I should ... on Friday." That phrase becomes
  * the task; the last of its own sentences becomes the gem.
  */
-export function flowWords(): { id: Story['id']; book: string; author: string; caught: string; note: string; words: string[]; phrase: string; task: string; gem: string; question: string } {
+export function flowWords(): { id: Story['id']; book: string; author: string; caught: string; note: string; words: string[]; phrase: string; task: string; kept: string; gem: string; question: string } {
   const one = story()
-  return { id: one.id, book: one.book, author: one.author, caught: one.caught, note: one.note, words: one.words, phrase: taskPhrase(one, STORY_DAY), task: one.task, gem: gemOf(one), question: one.question }
+  return { id: one.id, book: one.book, author: one.author, caught: one.caught, note: one.note, words: one.words, phrase: taskPhrase(one, STORY_DAY), task: one.task, kept: one.kept, gem: gemOf(one), question: one.question }
 }
 
 /** The task as the app reads it from the page's phrase: only its day is read, its name kept as written (so "first night" stays words, not a time). */
@@ -65,7 +66,9 @@ export const FLOW_SAID = {
   caught: 'Caught on a walk',
   page: 'Written out as a page, in “Writing”',
   task: `Now a task, due ${STORY_DAY}`,
-  gem: 'A gem, with a question for “Review”'
+  /** How each gem comes back, said as the Gems list says it under a gem (items-view.tsx, rowOf), beside the same mark. */
+  kept: 'Comes back now and then',
+  gem: '“Review” asks it as you start to forget'
 }
 
 export const FLOW_LAST = 'Nothing is copied out: each one stays linked to its line in the note.'
@@ -76,16 +79,20 @@ export const FLOW_LAST = 'Nothing is copied out: each one stays linked to its li
  * button is `pressed`, `lit` lines marked in the note, the gem's question
  * typed so far, and the closing line.
  */
-export type FlowShot = { /** The caught thought, typed so far. */ caught: string; /** "New page", offered beside the capture and then pressed. */ newPage: 'off' | 'shown'; /** The page's title, typed so far. */ title: string; /** How many of the page's lines are written. */ body: number; shown: number; picked: 'task' | 'gem' | null; pressed: boolean; lit: number; question: string; last: boolean; cursor: Aim | null; bar: boolean }
+export type FlowShot = { /** The caught thought, typed so far. */ caught: string; /** "New page", offered beside the capture and then pressed. */ newPage: 'off' | 'shown'; /** The page's title, typed so far. */ title: string; /** How many of the page's lines are written. */ body: number; shown: number; picked: Pick | null; pressed: boolean; lit: number; question: string; last: boolean; cursor: Aim | null; bar: boolean }
+/** A phrase picked out of the page: the task, the plain gem (kept as it is), or the gem with a question. */
+export type Pick = 'task' | 'kept' | 'gem'
+/** The order they are picked and set down in, each marked when `lit` reaches its place (1, 2, 3). */
+export const PICKS: readonly Pick[] = ['task', 'kept', 'gem']
 /** Where the pointer is headed: a picked line's start, its end (dragging the selection across it), or its "Make a" button. */
-export type Aim = { line: 'task' | 'gem' | 'page'; to: 'start' | 'end' | 'button' }
+export type Aim = { line: Pick | 'page'; to: 'start' | 'end' | 'button' }
 export const FLOW_START: FlowShot = { caught: '', newPage: 'off', title: '', body: 0, shown: 1, picked: null, pressed: false, lit: 0, question: '', last: false, cursor: null, bar: false }
 /** How many steps the page is written in: its picture, each of its sentences, then the task's. */
 export const flowParts = (): number => flowWords().words.length + 2
 /** All of it there, in the words of the story told now. */
 export function flowEnd(): FlowShot {
   const words = flowWords()
-  return { caught: words.caught, newPage: 'off', title: words.note, body: flowParts(), shown: 4, picked: null, pressed: false, lit: 2, question: words.question, last: true, cursor: null, bar: false }
+  return { caught: words.caught, newPage: 'off', title: words.note, body: flowParts(), shown: 5, picked: null, pressed: false, lit: 3, question: words.question, last: true, cursor: null, bar: false }
 }
 /** How long the pointer takes to travel to a line, to drag across it, and to reach its button (welcome.tsx times its beats by these). */
 export const CURSOR_MS = { travel: 520, drag: 480, button: 380 }
@@ -102,7 +109,8 @@ const SPINE = 'color-mix(in oklab, var(--muted-foreground) 55%, transparent)'
 const LINKS: { id: string; from: string; to: string; at: number; ink: string }[] = [
   { id: 'note', from: 'caught', to: 'note', at: 2, ink: SPINE },
   { id: 'task', from: 'line:task', to: 'task', at: 3, ink: `color-mix(in oklab, ${HUE.task.ink} 70%, transparent)` },
-  { id: 'gem', from: 'line:gem', to: 'gem', at: 4, ink: `color-mix(in oklab, ${HUE.gem.ink} 75%, transparent)` }
+  { id: 'kept', from: 'line:kept', to: 'kept', at: 4, ink: `color-mix(in oklab, ${HUE.gem.ink} 75%, transparent)` },
+  { id: 'gem', from: 'line:gem', to: 'gem', at: 5, ink: `color-mix(in oklab, ${HUE.gem.ink} 75%, transparent)` }
 ]
 
 /** A card set down in its place: it fades and grows in, never moves anything else. */
@@ -116,7 +124,7 @@ function Landed({ id, on, quiet, className = '', children }: { id: string; on: b
 }
 
 /** The one action beside a selection, "Make a task" or "Make a gem", pressed by the pointer. A picture of it: it takes no pointer and no focus. */
-function Bar({ on, pressed, at }: { on: 'task' | 'gem'; pressed: boolean; at: Sel }): React.JSX.Element {
+function Bar({ on, pressed, at }: { on: Pick; pressed: boolean; at: Sel }): React.JSX.Element {
   const Icon = on === 'task' ? ListTodo : Gem
   return (
     <motion.span data-overlay data-bar={on} inert aria-hidden className={`pointer-events-none absolute z-20 flex ${at.beside ? '-translate-y-1/2' : '-translate-x-full'} items-center rounded-lg border border-foreground/15 bg-[color-mix(in_oklab,var(--foreground)_5%,var(--popover))] p-1 font-sans text-[0.8125rem] whitespace-nowrap text-muted-foreground shadow-(--mf-panel-shadow) select-none`}
@@ -124,17 +132,19 @@ function Bar({ on, pressed, at }: { on: 'task' | 'gem'; pressed: boolean; at: Se
       initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: spring.fast.exit }} transition={spring.fast}>
       <motion.span className={`flex h-7 items-center gap-1.5 rounded-md px-2 transition-[background-color,color,box-shadow] duration-150 ${pressed ? 'bg-accent text-foreground shadow-[0_0_0_2px_color-mix(in_oklab,var(--primary)_45%,transparent)]' : ''}`}
         animate={{ scale: pressed ? 0.94 : 1 }} transition={{ duration: 0.12, ease: EASE }}>
-        <Icon className="size-4" style={{ color: HUE[on].ink }} />{on === 'task' ? 'Make a task' : 'Make a gem'}
+        <Icon className="size-4" style={{ color: HUE[on === 'task' ? 'task' : 'gem'].ink }} />{on === 'task' ? 'Make a task' : 'Make a gem'}
       </motion.span>
     </motion.span>
   )
 }
 
 /** Where a picked line's words run, in the picture's own space: the first letter, the last, and the top of the line. */
-type Sel = { x0: number; y0: number; x1: number; y1: number; top: number; /** Just under the words' last line, in the gap before the next: where its line leaves for its card. */ foot: number; /** Room in the note to its right for the button: it sits beside the selection, not over the line above. */ beside: boolean }
+type Sel = { x0: number; y0: number; x1: number; y1: number; top: number; /** Room in the note to its right for the button: it sits beside the selection, not over the line above. */ beside: boolean }
 /** The button sits just right of the selection; with no room there, above the line, its right edge at the selection's end. */
 const BESIDE = 10
 const BAR_RISE = 40
+/** The least room between two lines leaving the page's edge. */
+const APART = 8
 /** About the button's width, to know whether it fits beside. */
 const BAR_W = 130
 
@@ -169,22 +179,33 @@ const DRAG = [0.4, 0, 0.5, 1] as const
  * growing behind the words, across a wrap too: one background, sliced), then marked as what it became,
  * a soft highlight in its colour with its small icon right after the words. The words never move.
  */
-function Marked({ on, shot, quiet, children }: { on: 'task' | 'gem'; shot: FlowShot; quiet: boolean; children: ReactNode }): React.JSX.Element {
-  const lit = shot.lit >= (on === 'task' ? 1 : 2)
+function Marked({ on, shot, quiet, children }: { on: Pick; shot: FlowShot; quiet: boolean; children: ReactNode }): React.JSX.Element {
+  const lit = shot.lit >= PICKS.indexOf(on) + 1
   const picked = shot.picked === on
   const Icon = on === 'task' ? Check : Gem
+  const hue = HUE[on === 'task' ? 'task' : 'gem']
   return (
     <motion.span data-mark={on} data-wash={on} data-lit={lit || undefined} data-selected={(picked && !lit) || undefined}
       className={`rounded-[3px] bg-no-repeat px-[0.08em] ${quiet ? '' : 'transition-[background-color] duration-300'}`}
-      style={{ backgroundImage: SELECTION, backgroundSize: '0% 100%', backgroundColor: lit ? HUE[on].wash : 'transparent' }}
+      style={{ backgroundImage: SELECTION, backgroundSize: '0% 100%', backgroundColor: lit ? hue.wash : 'transparent' }}
       initial={false} animate={{ backgroundSize: picked && !lit ? '100% 100%' : '0% 100%' }}
       transition={picked && !lit && !quiet ? { duration: CURSOR_MS.drag / 1000, ease: DRAG } : { duration: 0 }}>
       {children}
-      <motion.span aria-hidden data-ink={on} className="ml-[0.2em] inline-block align-[-0.08em]" style={{ color: HUE[on].ink }}
+      <motion.span aria-hidden data-ink={on} className="ml-[0.2em] inline-block align-[-0.08em]" style={{ color: hue.ink }}
         initial={false} animate={{ opacity: lit ? 1 : 0, scale: lit ? 1 : 0.6 }} transition={quiet ? { duration: 0 } : { duration: 0.3, ease: EASE }}>
         <Icon className="size-[0.85em]" />
       </motion.span>
     </motion.span>
+  )
+}
+
+/** A gem's row in the Gems card: its icon in the gem's colour, then its words with their wash, as the page marked them. */
+function GemRow({ on, words }: { on: 'kept' | 'gem'; words: string }): React.JSX.Element {
+  return (
+    <p className="flex items-start gap-1.5 font-heading text-[1rem] leading-snug text-foreground">
+      <span data-ink={on} className="mt-[0.3em] flex shrink-0" style={{ color: HUE.gem.ink }}><Gem className="size-3.5" /></span>
+      <span><span data-wash={on} className="rounded-[3px] [box-decoration-break:clone] px-0.5" style={{ background: HUE.gem.wash }}>{words}</span></span>
+    </p>
   )
 }
 
@@ -230,9 +251,7 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
       const [a, b] = [rects[0], rects[rects.length - 1]]
       const [x0, y0] = at(a.left, (a.top + a.bottom) / 2)
       const [x1, y1] = at(b.right, (b.top + b.bottom) / 2)
-      // Half the room between the words' line and the next, under the words: the leading less the letters' own height.
-      const gap = Math.max(1, (parseFloat(getComputedStyle(one).lineHeight) * k - b.height) / 2)
-      lines[one.dataset.mark!] = { x0, y0, x1, y1, top: at(a.left, a.top)[1], foot: at(b.right, b.bottom + gap)[1],
+      lines[one.dataset.mark!] = { x0, y0, x1, y1, top: at(a.left, a.top)[1],
         // Beside the words only where the paragraph ends with them; with words after them, above, as an editor's menu sits, so it covers no words of their line.
         beside: !one.parentElement?.nextElementSibling && x1 + BESIDE + BAR_W <= next.note.x1 - 12 }
     }
@@ -240,21 +259,27 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
     const button = el.querySelector<HTMLElement>('[data-new-page]')
     if (button) {
       const spot = place(button)
-      lines.page = { x0: spot.x0, y0: spot.y, x1: spot.x1, y1: spot.y, top: spot.y, foot: spot.y, beside: false }
+      lines.page = { x0: spot.x0, y0: spot.y, x1: spot.x1, y1: spot.y, top: spot.y, beside: false }
     }
     setSels(lines)
   }, [size.w, size.h])
   const draw = quiet ? { duration: 0 } : { duration: 0.45, ease: EASE }
   const fade = quiet ? { duration: 0 } : { duration: 0.3, ease: EASE }
   const typing = shot.question.length > 0 && shot.question !== words.question
+  // Where each picked phrase's line leaves the page's edge: level with its last line of words, top to bottom; two phrases ending on the same line of words part by a few pixels, so their lines never lie on one another.
+  const leave: Record<string, number> = {}
+  let above = -Infinity
+  for (const one of PICKS.filter((pick) => sels[pick]).sort((a, b) => sels[a].y1 - sels[b].y1)) above = leave[one] = Math.max(sels[one].y1, above + APART)
   return (
-    <figure data-story={words.id} aria-label="The thought caught on a walk becomes a page; a phrase in it becomes a task, a sentence a gem with a question for Review" className="flex min-h-0 w-full flex-1 flex-col justify-center">
+    <figure data-story={words.id} aria-label="The thought caught on a walk becomes a page; a phrase in it becomes a task, one sentence a gem that comes back now and then, and another a gem with a question for Review" className="flex min-h-0 w-full flex-1 flex-col justify-center">
       <div ref={root} className="relative flex shrink-0 flex-col">
-        {/* Over the cards, so a picked phrase's line starts at its very words: under them, in the gap before the next line of the page, out to the page's edge, then across to its card. */}
+        {/* Over the cards. A picked phrase's line starts at the page's right edge, level with the phrase's last line of words (marked in place by its
+            highlight and icon), and curves across to its card: it never runs through or under the paragraph. The cards stand in the order their phrases
+            do in the page (both gems, then the task), so the lines never cross. */}
         <svg aria-hidden className="pointer-events-none absolute inset-0 z-10 size-full overflow-visible">
           {LINKS.map((link) => {
             const [sel, card, to] = [link.from.startsWith('line:') ? sels[link.from.slice(5)] : undefined, spots[link.from], spots[link.to]]
-            const from = sel ? spots.note && { x0: sel.x1, x1: spots.note.x1, y: sel.foot } : card && { ...card, x0: card.x1 }
+            const from = sel ? spots.note && { x0: spots.note.x1, x1: spots.note.x1, y: leave[link.id] } : card && { ...card, x0: card.x1 }
             if (!from || !to) return null
             const [x1, y1, x2, y2] = [from.x1, from.y, to.x0, to.y]
             const mx = (x1 + x2) / 2
@@ -320,7 +345,7 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
               <p className="mt-2.5 border-t border-foreground/10 pt-2.5 text-[0.9375rem] leading-[1.6] text-foreground" style={EDITOR_FONT}>
                 {words.words.map((sentence, n) => (
                   <motion.span key={sentence} initial={false} animate={{ opacity: shot.body >= n + 2 ? 1 : 0 }} transition={fade}>
-                    {sentence === words.gem ? <Marked on="gem" shot={shot} quiet={quiet}>{sentence}</Marked> : sentence}{' '}
+                    {sentence === words.gem ? <Marked on="gem" shot={shot} quiet={quiet}>{sentence}</Marked> : sentence === words.kept ? <Marked on="kept" shot={shot} quiet={quiet}>{sentence}</Marked> : sentence}{' '}
                   </motion.span>
                 ))}
                 <motion.span initial={false} animate={{ opacity: shot.body >= words.words.length + 2 ? 1 : 0 }} transition={fade}>
@@ -331,10 +356,28 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
           </Landed>
           <motion.p className={SUB} initial={false} animate={{ opacity: shot.body >= flowParts() ? 1 : 0 }} transition={fade}>{FLOW_SAID.page}</motion.p>
           </div>
-          <div className={`flex flex-col gap-[clamp(0.875rem,3vh,1.75rem)] ${BRANCH}`}>
+          <div className={`flex flex-col gap-[clamp(0.5rem,1.2vh,1rem)] ${BRANCH}`}>
+            {/* Both gems in one card, as the Gems list keeps them: a row each, its words, and under them how it comes back beside the list's own mark
+                (items-view.tsx, rowOf): the eye for one that comes back now and then, the brain for one Review asks. Each row lands as it is made. */}
+            <motion.div data-gems className={`${CARD} overflow-hidden`} initial={false}
+              animate={{ opacity: shot.shown >= 4 ? 1 : 0, scale: shot.shown >= 4 ? 1 : 0.95 }} transition={quiet ? { duration: 0 } : { duration: 0.35, ease: EASE }}>
+              <p className={`${HEAD} px-3.5 pt-2.5`}><Gem className="size-3.5" style={{ color: HUE.gem.ink }} />Gems</p>
+              <Landed id="kept" on={shot.shown >= 4} quiet={quiet} className="px-3.5 pt-1.5 pb-2">
+                <GemRow on="kept" words={words.kept} />
+                <p data-comes="feed" className={`${SUB} mt-1 flex items-center gap-1.5`}><Eye className="size-3.5 shrink-0" />{FLOW_SAID.kept}</p>
+              </Landed>
+              <Landed id="gem" on={shot.shown >= 5} quiet={quiet} className="border-t border-foreground/10 px-3.5 pt-1.5 pb-2">
+                <GemRow on="gem" words={words.gem} />
+                <p data-question className="mt-1.5 flex min-h-7 items-center rounded-md border border-foreground/10 px-2 text-[0.875rem] leading-snug text-foreground">
+                  {shot.question || <span className="text-muted-foreground">The question it answers, for review</span>}
+                  {typing && !quiet && <span className="mf-ghost-caret" data-typing="" />}
+                </p>
+                <p data-comes="review" className={`${SUB} mt-1 flex items-center gap-1.5`}><Brain className="size-3.5 shrink-0" />{FLOW_SAID.gem}</p>
+              </Landed>
+            </motion.div>
             <Landed id="task" on={shot.shown >= 3} quiet={quiet}>
               {/* A task, as the Tasks list draws its row: the box, the name, its day under it. */}
-              <div className={`${CARD} px-3.5 pt-3 pb-3`}>
+              <div className={`${CARD} px-3.5 pt-2.5 pb-2.5`}>
                 <div className={HEAD}><span data-ink="task" className="flex" style={{ color: HUE.task.ink }}><Check className="size-3.5" /></span>Task</div>
                 <div className="mt-1.5 flex items-start gap-2.5">
                   <svg aria-hidden viewBox="0 0 16 16" className="mt-[0.2rem] size-4 shrink-0 text-foreground/40"><circle cx="8" cy="8" r="6.75" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>
@@ -345,27 +388,13 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
                     </span>
                   </div>
                 </div>
-                <p className={`${SUB} mt-2`}>{FLOW_SAID.task}</p>
-              </div>
-            </Landed>
-            <Landed id="gem" on={shot.shown >= 4} quiet={quiet}>
-              {/* A gem, as its card keeps one: the line on its own, and the question it answers, for Review (reword.tsx). */}
-              <div className={`${CARD} px-3.5 pt-3 pb-3`}>
-                <p className={HEAD}><span data-ink="gem" className="flex" style={{ color: HUE.gem.ink }}><Gem className="size-3.5" /></span>Gem</p>
-                <p className="mt-1.5 font-heading text-[1.0625rem] leading-snug text-foreground">
-                  <span data-wash="gem" className="rounded-[3px] [box-decoration-break:clone] px-0.5" style={{ background: HUE.gem.wash }}>{words.gem}</span>
-                </p>
-                <p data-question className="mt-2 flex min-h-8 items-center rounded-md border border-foreground/10 px-2 text-[0.875rem] text-foreground">
-                  {shot.question || <span className="text-muted-foreground">The question it answers, for review</span>}
-                  {typing && !quiet && <span className="mf-ghost-caret" data-typing="" />}
-                </p>
-                <p className={`${SUB} mt-2`}>{FLOW_SAID.gem}</p>
+                <p className={`${SUB} mt-1.5`}>{FLOW_SAID.task}</p>
               </div>
             </Landed>
           </div>
         </div>
       </div>
-      <motion.p data-flow-last className="mt-[clamp(1rem,3.5vh,2rem)] shrink-0 font-heading text-[clamp(1.25rem,min(2.6vw,3.8vh),2rem)] leading-tight text-balance text-foreground"
+      <motion.p data-flow-last className="mt-[clamp(0.625rem,2vh,2rem)] shrink-0 font-heading text-[clamp(1.125rem,min(2.6vw,3.3vh),2rem)] leading-tight text-balance text-foreground"
         initial={false} animate={{ opacity: shot.last ? 1 : 0, y: shot.last ? 0 : 8 }} transition={quiet ? { duration: 0 } : { duration: 0.45, ease: EASE }}>
         {FLOW_LAST}
       </motion.p>
@@ -374,6 +403,6 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
 }
 
 /** The caught thought, the note (the widest, so its lines mostly keep to one), and what it becomes. */
-const COLUMNS = 'minmax(0,0.8fr) minmax(0,1.6fr) minmax(0,1.3fr)'
+const COLUMNS = 'minmax(0,0.7fr) minmax(0,1.55fr) minmax(0,1.45fr)'
 /** Room before what the note becomes, for the two lines to part. */
 const BRANCH = 'pl-[clamp(0.5rem,2.5vw,2rem)]'

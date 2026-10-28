@@ -1,7 +1,8 @@
 /**
  * The welcome's story: a thought about a book caught on a walk, written out
- * as a page, one of its phrases made a task and one of its sentences a gem
- * with a question for Review. One of five, picked at random each time the
+ * as a page, one of its phrases made a task and two of its sentences gems:
+ * one kept as it is, which comes back now and then in the Feed, and the last
+ * one with a question, which Review asks as you start to forget it. One of five, picked at random each time the
  * welcome opens and kept while it stays open, so Back and Next show the same
  * one (welcome.tsx calls pickStory as it opens). Catch, Write, Remember and
  * the sandbox all read story(), so they tell the same one. Words only here:
@@ -15,9 +16,11 @@ export type Story = {
   author: string
   /** The thought caught on a walk, in Catch. */
   caught: string
-  /** The page it grows into: its title, and its sentences as written. The last one is the gem. */
+  /** The page it grows into: its title, and its sentences as written. The last one is the gem with a question. */
   note: string
   words: string[]
+  /** The plain gem: one of the sentences before the last, kept as it is, with no question. */
+  kept: string
   /** The task, as it is named on its card. Written into the page as "I should ..." with its day. */
   task: string
   /** The gem's question, as Review asks it. */
@@ -33,8 +36,10 @@ export const STORIES: readonly Story[] = [
     note: 'Observation vs just looking',
     words: [
       'Watson looks at the world, but Holmes actively studies details like dirt on a shoe or wear on a watch.',
+      'A scuffed boot tells him a whole life story.',
       'You see, but you do not observe.'
     ],
+    kept: 'A scuffed boot tells him a whole life story.',
     task: 'Find the exact quote from A Scandal in Bohemia',
     question: 'According to Holmes, what is the key difference between seeing and observing?'
   },
@@ -49,6 +54,7 @@ export const STORIES: readonly Story[] = [
       'The creature only turns violent after being rejected by everyone it meets.',
       'Isolation turns hurt into cruelty.'
     ],
+    kept: 'Victor abandons his creature out of fear the moment it wakes up.',
     task: "Outline key quotes from the creature's speech on the glacier",
     question: 'What drives the creature from seeking affection to committing violent acts?'
   },
@@ -63,6 +69,7 @@ export const STORIES: readonly Story[] = [
       'Reading personal records makes the horror feel real and unedited.',
       'Firsthand accounts make fiction feel like truth.'
     ],
+    kept: 'Reading personal records makes the horror feel real and unedited.',
     task: "Save Jonathan Harker's journal entry from his first night at the castle",
     question: 'Why does an epistolary format make supernatural stories feel grounded?'
   },
@@ -77,6 +84,7 @@ export const STORIES: readonly Story[] = [
       'He assumes his high social standing hides his poor manners.',
       'Pride blinds us to how others see us.'
     ],
+    kept: 'He assumes his high social standing hides his poor manners.',
     task: 'Re-read the letter Darcy writes Elizabeth after the proposal',
     question: "Why does Darcy misjudge Elizabeth's reaction to his proposal?"
   },
@@ -91,12 +99,13 @@ export const STORIES: readonly Story[] = [
       'Clever wordplay saves his crew when fighting cannot.',
       'Wits win battles that brute force loses.'
     ],
+    kept: 'Clever wordplay saves his crew when fighting cannot.',
     task: "Map out the main stops on Odysseus's journey home",
     question: 'What lesson does the Cyclops escape teach about solving impossible conflicts?'
   }
 ]
 
-/** The gem: the page's last sentence, which is also the answer to its question. */
+/** The gem with a question: the page's last sentence, which is also the answer to its question. */
 export const gemOf = (one: Story): string => one.words[one.words.length - 1]
 
 /** The task as written into the page, its day said, in a sentence of its own: "I should find ... on Friday." */

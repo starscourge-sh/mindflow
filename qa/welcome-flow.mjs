@@ -1,11 +1,12 @@
 // The welcome's thread, Write into Remember, as a first-time reader meets it:
-//  - Write: four cards in order (the caught thought, the note, the task, the gem), each landing with its own words
+//  - Write: five cards in order (the caught thought, the note, the task, the plain gem, the gem with a question), each landing with its own words
 //    under it (nothing narrated first, so the stage never stands empty); the selection bar comes over each picked line
-//    and presses Task, then Gem; the picked lines wear the colours of the cards they become, each line drawn from its
-//    own words; the task's day is read from the note's words; the gem takes its question for Review; the closing line;
+//    and presses Task, then Gem twice; the picked lines wear the colours of the cards they become, each line drawn from its
+//    own words; the task's day is read from the note's words; the plain gem has no question and wears the Gems list's
+//    "now and then" mark (Eye), the other takes its question and wears its Review mark (Brain); the closing line;
 //    the example never wears your tag; no em dashes
 //  - Remember: opens on the three things kept so far, already there; they come back left to right (the task on the
-//    day's sticky, ticked; the gem's question in Review, turned over; the quote a year on, signed) and all three stay up;
+//    day's sticky, ticked; both gems as chips, each with its mark, and the question's in Review, turned over; the quote a year on, signed) and all three stay up;
 //    the three columns the same width; under all three, a banner wider than two of them, the forgetting curve comes a
 //    beat after the gem's card and draws itself on (four review rings, a dashed fall from each, its top and foot named
 //    in words, time along the bottom, no figures but the review counts, no percent), in the gem's colour, ending above
@@ -28,7 +29,8 @@ const check = (name, ok, more = '') => {
 // On, or past Your turn without trying it.
 const next = async (h) => ((await h.$('footer button:has-text("Skip trying it")')) ? h.click('footer button:has-text("Skip trying it")') : h.click('footer button:has-text("Next"), footer button:has-text("Show me")'))
 const chapter = (h) => h.evaluate(() => document.querySelector('.mf-welcome footer .sr-only')?.textContent ?? '')
-const ORDER = ['caught', 'note', 'task', 'gem']
+const ORDER = ['caught', 'note', 'task', 'kept', 'gem']
+const PICKED = ['task', 'kept', 'gem']
 // The story's day, as the welcome names it: two days from today.
 const DAY = new Date(Date.now() + 2 * 86400000).toLocaleDateString('en-GB', { weekday: 'long' })
 
@@ -78,8 +80,8 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
           words: [...document.querySelectorAll('.mf-welcome [data-flow][data-shown]')].filter((el) => up(el) > 0.5).map((el) => el.innerText.trim().length),
           bar: bar ? `${bar.dataset.bar}:${[...bar.children].find((one) => one.className.includes('bg-accent'))?.textContent ?? ''}` : '',
           cursor: document.querySelector('.mf-welcome [data-cursor]')?.dataset.cursor ?? '',
-          selected: ['task', 'gem'].filter((one) => { const el = document.querySelector(`[data-flow="note"] [data-mark="${one}"][data-selected]`); return !!el && parseFloat(getComputedStyle(el).backgroundSize) > 5 }),
-          washed: ['task', 'gem'].filter((one) => !!document.querySelector(`[data-flow="note"] [data-wash="${one}"][data-lit]`)),
+          selected: ['task', 'kept', 'gem'].filter((one) => { const el = document.querySelector(`[data-flow="note"] [data-mark="${one}"][data-selected]`); return !!el && parseFloat(getComputedStyle(el).backgroundSize) > 5 }),
+          washed: ['task', 'kept', 'gem'].filter((one) => !!document.querySelector(`[data-flow="note"] [data-wash="${one}"][data-lit]`)),
           last: up(document.querySelector('[data-flow-last]') ?? document.body) > 0.9 && !!document.querySelector('[data-flow-last]'),
           done: [...document.querySelectorAll('.mf-welcome [data-reel]')].every((el) => el.dataset.reel === 'done')
         }
@@ -100,16 +102,22 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
     const cursorLeft = await h.evaluate(() => document.querySelectorAll('.mf-welcome [data-cursor]').length)
     check(`${theme}: a pointer comes to each line, drags across it and goes to its button`, ['start', 'end', 'button'].every((one) => pointer.seen.has(one)), [...pointer.seen].join())
     check(`${theme}: the pointer is gone by the end`, cursorLeft === 0, `${cursorLeft} left`)
-    check(`${theme}: each line is selected before it takes its wash`, ['task', 'gem'].every((one) => first.selected[one] && first.washed[one] && first.selected[one] < first.washed[one]), JSON.stringify(first))
-    check(`${theme}: four cards, in order`, landed.join() === ORDER.join(), landed.join())
+    check(`${theme}: each line is selected before it takes its wash`, PICKED.every((one) => first.selected[one] && first.washed[one] && first.selected[one] < first.washed[one]), JSON.stringify(first))
+    check(`${theme}: five cards, in order`, landed.join() === ORDER.join(), landed.join())
     check(`${theme}: no card stands empty while the page plays`, empty.length === 0, empty.slice(0, 3).join(' | '))
-    check(`${theme}: “Make a task” shows beside the task's line and is pressed, then “Make a gem” beside the gem's`, ['task:', 'task:Make a task', 'gem:', 'gem:Make a gem'].every((one) => bars.includes(one)) && bars.indexOf('task:Make a task') < bars.indexOf('gem:Make a gem'), bars.join(' > '))
+    check(`${theme}: “Make a task” shows beside the task's line and is pressed, then “Make a gem” beside each gem's`, ['task:', 'task:Make a task', 'kept:', 'kept:Make a gem', 'gem:', 'gem:Make a gem'].every((one) => bars.includes(one)) && bars.indexOf('task:Make a task') < bars.indexOf('kept:Make a gem') && bars.indexOf('kept:Make a gem') < bars.indexOf('gem:Make a gem'), bars.join(' > '))
     const look = await h.evaluate(() => {
       const css = (sel, prop) => { const el = document.querySelector(sel); return el ? getComputedStyle(el)[prop] : null }
       const text = document.querySelector('.mf-welcome main')?.innerText ?? ''
       return {
         washTask: [css('[data-flow="note"] [data-wash="task"]', 'backgroundColor'), css('[data-flow="task"] [data-wash="task"]', 'backgroundColor')],
         washGem: [css('[data-flow="note"] [data-wash="gem"]', 'backgroundColor'), css('[data-flow="gem"] [data-wash="gem"]', 'backgroundColor')],
+        washKept: [css('[data-flow="note"] [data-wash="kept"]', 'backgroundColor'), css('[data-flow="kept"] [data-wash="kept"]', 'backgroundColor')],
+        inkKept: [css('[data-flow="note"] [data-ink="kept"]', 'color'), css('[data-flow="kept"] [data-ink="kept"]', 'color')],
+        kept: document.querySelector('[data-flow="kept"]')?.innerText.replace(/\s+/g, ' ') ?? '',
+        // How each gem comes back, said beside the Gems list's own mark: an icon drawn first in the line, and only the gem with a question has a question box.
+        marks: ['kept', 'gem'].map((one) => { const line = document.querySelector(`[data-flow="${one}"] [data-comes]`); return line ? `${line.dataset.comes}:${line.querySelector('svg') ? 'icon' : 'none'}:${line.querySelector('svg')?.outerHTML.length ?? 0}` : '' }),
+        keptAsks: !!document.querySelector('[data-flow="kept"] [data-question]'),
         inkTask: [css('[data-flow="note"] [data-ink="task"]', 'color'), css('[data-flow="task"] [data-ink="task"]', 'color')],
         inkGem: [css('[data-flow="note"] [data-ink="gem"]', 'color'), css('[data-flow="gem"] [data-ink="gem"]', 'color')],
         task: document.querySelector('[data-flow="task"]')?.innerText.replace(/\s+/g, ' ') ?? '',
@@ -119,8 +127,8 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
         tag: (document.querySelector('[data-flow="note"]')?.innerText.match(/#[\w-]+/) ?? [null])[0],
         dashes: (text.match(/[—–]/g) ?? []).length,
         links: [...document.querySelectorAll('[data-link]')].map((el) => el.getAttribute('data-link')),
-        // Each branch leaves from its very words: at the end of the marked phrase's last line, just under it (before the next line's letters).
-        leaves: ['task', 'gem'].map((one) => {
+        // Each branch leaves from the page's right edge, level with its marked phrase's last line of words (qa/welcome-lines.mjs checks all five stories).
+        leaves: ['task', 'kept', 'gem'].map((one) => {
           const path = document.querySelector(`[data-link="${one}"]`)
           const mark = document.querySelector(`[data-flow="note"] [data-mark="${one}"]`)
           if (!path || !mark) return 999
@@ -129,28 +137,32 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
           const rects = [...mark.getClientRects()]
           const last = rects[rects.length - 1]
           const [x, y] = [svg.left + start.x, svg.top + start.y]
-          return Math.round(Math.max(Math.abs(x - last.right), y < last.bottom - 1 ? 99 : 0, y > last.bottom + 8 ? 99 : 0))
+          const edge = document.querySelector('[data-flow="note"]').getBoundingClientRect().right
+          return Math.round(Math.max(Math.abs(x - edge), Math.abs(y - (last.top + last.bottom) / 2) > 10 ? 99 : 0))
         }),
         // The page: a print from the book, loaded; one paragraph, the gem's sentence and the task's phrase marked inside it.
         print: (() => { const img = document.querySelector('[data-flow="note"] [data-print] img'); return !!img && img.complete && img.naturalWidth > 100 })(),
         paragraphs: document.querySelectorAll('[data-flow="note"] p.border-t').length,
         prose: document.querySelector('[data-flow="note"] p.border-t')?.innerText.replace(/\s+/g, ' ').trim().replace(/ \.$/, '.') ?? '',
-        marked: ['task', 'gem'].map((one) => document.querySelector(`[data-flow="note"] [data-mark="${one}"]`)?.textContent ?? '')
+        marked: ['task', 'kept', 'gem'].map((one) => document.querySelector(`[data-flow="note"] [data-mark="${one}"]`)?.textContent ?? '')
       }
     })
     const same = ([a, b]) => !!a && a === b
     check(`${theme}: the task line's highlight is the task card's colour`, same(look.washTask) && same(look.inkTask), JSON.stringify([look.washTask, look.inkTask]))
     check(`${theme}: the gem line's highlight is the gem card's colour`, same(look.washGem) && same(look.inkGem), JSON.stringify([look.washGem, look.inkGem]))
+    check(`${theme}: the plain gem's line wears the gem's colour too`, same(look.washKept) && same(look.inkKept) && look.washKept[0] === look.washGem[0], JSON.stringify([look.washKept, look.inkKept]))
     check(`${theme}: the two colours differ`, look.washTask[0] !== look.washGem[0] && look.inkTask[0] !== look.inkGem[0])
     check(`${theme}: the task is named without its day, and its day read as ${DAY}`, look.task.includes(S.task) && !new RegExp(`on ${DAY}`).test(look.task.split('Now a task')[0]) && new RegExp(`Now a task, due ${DAY}`).test(look.task), look.task)
-    check(`${theme}: the gem keeps the sentence and takes a question for Review`, look.gem.includes(gemOf(S)) && /question for “Review”/.test(look.gem) && look.question === S.question, look.gem)
+    check(`${theme}: the gem keeps the sentence and takes a question for Review`, look.gem.includes(gemOf(S)) && /“Review” asks it as you start to forget/.test(look.gem) && look.question === S.question, look.gem)
+    check(`${theme}: the plain gem keeps its sentence with no question, and comes back now and then`, look.kept.includes(S.kept) && /Comes back now and then/.test(look.kept) && !look.keptAsks, look.kept)
+    check(`${theme}: each gem wears its own mark from the Gems list (Eye for now and then, Brain for Review), the two different`, look.marks[0].startsWith('feed:icon') && look.marks[1].startsWith('review:icon') && look.marks[0].split(':')[2] !== look.marks[1].split(':')[2], look.marks.join(' | '))
     const taskWords = `${S.task[0].toLowerCase()}${S.task.slice(1)} on ${DAY}`
     check(`${theme}: the page is a print from the book and one paragraph: the story's sentences as written, then "I should ..." with the task's phrase`, look.print && look.paragraphs === 1 && look.prose === `${S.words.join(' ')} I should ${taskWords}.`, look.prose)
-    check(`${theme}: the gem's sentence and the task's phrase are marked in place`, look.marked[0] === taskWords && look.marked[1] === gemOf(S), look.marked.join(' | '))
+    check(`${theme}: the task's phrase and both gems' sentences are marked in place`, look.marked[0] === taskWords && look.marked[1] === S.kept && look.marked[2] === gemOf(S), look.marked.join(' | '))
     check(`${theme}: the closing line is shown`, look.last === 'Nothing is copied out: each one stays linked to its line in the note.', look.last)
     check(`${theme}: no em or en dashes on the page`, look.dashes === 0, `${look.dashes}`)
-    check(`${theme}: three lines drawn, the note parting in two`, look.links.join() === 'note,task,gem', look.links.join())
-    check(`${theme}: each branch leaves from the end of its own marked words`, look.leaves.every((one) => one <= 3), look.leaves.join())
+    check(`${theme}: four lines drawn, the note parting in three`, look.links.join() === 'note,task,kept,gem', look.links.join())
+    check(`${theme}: each branch leaves from the page's edge, level with its own marked words`, look.leaves.every((one) => one <= 3), look.leaves.join())
     check(`${theme}: the example note never wears your tag`, look.tag === null, String(look.tag))
 
     // Back to Catch and on again: the same story, its page on Write titled as before.
@@ -168,7 +180,11 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
     check(`${theme}: on Remember`, (await chapter(h)).includes('Remember'), await chapter(h))
     const kept = await h.evaluate(() => [...document.querySelectorAll('[data-kept]')].map((el) => `${el.dataset.kept}:${el.innerText.trim()}`))
     const before = await h.evaluate(() => document.querySelectorAll('[data-moment][data-shown]').length)
-    check(`${theme}: Remember opens on the three things kept, already there: the task, the gem, the quote`, kept.length === 3 && kept[0].startsWith(`task:${S.task.split(' ').slice(0, 3).join(' ')}`) && kept[1].startsWith(`gem:${gemOf(S).split(' ').slice(0, 2).join(' ')}`) && /^quote:Do or do not/.test(kept[2]) && before === 0, `${kept.join(' | ')}; ${before} shown`)
+    check(`${theme}: Remember opens on the things kept, already there: the task, both gems, the quote`, kept.length === 4 && kept[0].startsWith(`task:${S.task.split(' ').slice(0, 3).join(' ')}`) && kept[1].startsWith(`gem:${gemOf(S).split(' ').slice(0, 2).join(' ')}`) && kept[2].startsWith(`kept:${S.kept.split(' ').slice(0, 2).join(' ')}`) && /^quote:Do or do not/.test(kept[3]) && before === 0, `${kept.join(' | ')}; ${before} shown`)
+    const chips = await h.evaluate(() => ['gem', 'kept'].map((one) => { const el = document.querySelector(`[data-kept="${one}"]`); const marks = el ? [...el.querySelectorAll('svg')] : []; const box = el?.getBoundingClientRect(); return { marks: marks.length, label: el?.querySelector('.sr-only')?.textContent ?? '', h: Math.round(box?.height ?? 0), top: Math.round(box?.top ?? 0), task: Math.round(document.querySelector('[data-kept="task"]')?.getBoundingClientRect().height ?? -1) } }))
+    check(`${theme}: Remember's two gem chips sit in one row, the one with a question marked for Review, the plain one for the Feed`, chips.every((one) => one.marks === 2 && one.h === one.task) && chips[0].top === chips[1].top && /Review/.test(chips[0].label) && /Feed/.test(chips[1].label), JSON.stringify(chips))
+    const said = await h.evaluate(() => document.querySelector('[data-moment="1"] [data-answer]')?.getAttribute('aria-label') ?? '')
+    check(`${theme}: Remember says where each gem comes back: Review and the Feed`, /“Review”/.test(said) && /“Feed”/.test(said), said)
     await shot('remember-start')
     const order = []
     const seen = { ticked: false, over: false, signed: false }
@@ -323,7 +339,7 @@ for (const [w, hh, theme] of [[900, 700, 'light'], [1600, 1000, 'dark'], [900, 7
     for (let i = 0; i < 8 && !(await chapter(h)).includes('Write'); i++) (await next(h), await h.waitForTimeout(600))
     await h.waitForTimeout(400)
     const whole = await h.evaluate(() => ({ cards: document.querySelectorAll('[data-flow][data-shown]').length, last: Number(getComputedStyle(document.querySelector('[data-flow-last]')).opacity), cursor: document.querySelectorAll('[data-cursor]').length }))
-    check('motion off: Write is whole at once, with no pointer', whole.cards === 4 && whole.last === 1 && whole.cursor === 0, JSON.stringify(whole))
+    check('motion off: Write is whole at once, with no pointer', whole.cards === 5 && whole.last === 1 && whole.cursor === 0, JSON.stringify(whole))
     if (SHOTS) await h.screenshot({ path: `${SHOTS}/still-write.png` })
     await next(h)
     await h.waitForTimeout(500)

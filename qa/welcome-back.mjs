@@ -178,7 +178,7 @@ for (const [theme, width, height] of [['light', 1280, 800], ['dark', 1280, 800]]
     await backButton(h)
     await h.waitForTimeout(900)
     const write = await h.evaluate(() => ({ cards: document.querySelectorAll('[data-flow][data-shown]').length, question: document.querySelector('[data-question]')?.textContent ?? '' }))
-    check(`${theme}: Back from Remember goes to Write, whole, as it was left`, (await chapter(h)).includes('Write') && (await done(h)) && write.cards === 4 && /perfection/i.test(write.question), `${await chapter(h)} ${JSON.stringify(write)}`)
+    check(`${theme}: Back from Remember goes to Write, whole, as it was left`, (await chapter(h)).includes('Write') && (await done(h)) && write.cards === 5 && write.question.endsWith("?"), `${await chapter(h)} ${JSON.stringify(write)}`)
     await h.click('footer [data-next]')
     await h.waitForTimeout(900)
     const whole = await h.evaluate(() => document.querySelectorAll('[data-moment][data-shown]').length)

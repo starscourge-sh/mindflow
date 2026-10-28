@@ -32,7 +32,7 @@ import { FULL_TURN, glyph, inClay, konami } from './welcome-eggs'
 import { WelcomeBackdrop, type Family } from './welcome-backdrop'
 import { Grainient, type GrainientHandle } from '@/components/ui/grainient'
 import { BACK_END, BACK_START, ComeBack, type BackShot } from './welcome-day'
-import { CURSOR_MS, FLOW_START, flowEnd, flowParts, flowWords, FlowTree, type FlowShot } from './welcome-flow'
+import { CURSOR_MS, FLOW_START, flowEnd, flowParts, flowWords, FlowTree, PICKS, type FlowShot, type Pick } from './welcome-flow'
 import {
   CAM, ENTER, MOVE, leadMs, EMPTY_BOX, LAND, QUOTE, Rise, Caught, Stage,
   cue, seeded, starterOf, typed, useScript, type Beat, type Box, type Kind, type Part
@@ -52,9 +52,9 @@ import { APP_NAME } from '../../../../main/name'
  *     film (its source read) and a plan to see it again (its day read) are
  *     caught; the kinds there are; then your turn
  *   4 Write: the thought becomes a long note; a line of it a task, another a
- *     gem with a question
- *   5 Remember: the task on the desktop, the gem's question in Review, the
- *     quote a year on as a postcard
+ *     gem kept as it is, and the last a gem with a question
+ *   5 Remember: the task on the desktop, the plain gem in the Feed and the
+ *     other's question in Review, the quote a year on as a postcard
  *   6 Make it yours: the theme dial
  *   7 Ready: start, the sandbox, or your notes
  *
@@ -1227,7 +1227,8 @@ const WRITE_LINE = 'What you catch waits in your Inbox. When it needs room, writ
  * milliseconds: "New page" is pressed and it is written out as a page, its
  * title typed and its lines one after another; the pointer selects one line, presses
  * "Make a task", and the task lands with its day; another line, "Make a gem",
- * and the gem lands, its question typed in; then the closing line.
+ * and a plain gem lands; the last line, "Make a gem" again, and the gem
+ * with a question lands, its question typed in; then the closing line.
  * Each card lands with its own words under it, so nothing waits to be said.
  */
 function writeBeats(): Beat<FlowShot>[] {
@@ -1251,7 +1252,7 @@ function writeBeats(): Beat<FlowShot>[] {
   const grows = line
   // You pick a line: the pointer comes to its start, drags across it (the selection grows with it), its one action
   // shows beside the selection, the pointer presses it, and only then is the line marked and what it becomes set down.
-  const pick = (t: number, line: 'task' | 'gem', shown: number, sound: () => void): number => {
+  const pick = (t: number, line: Pick, shown: number, sound: () => void): number => {
     const dragAt = t + CURSOR_MS.travel + 60
     const barAt = dragAt + CURSOR_MS.drag + 40
     const pressAt = barAt + 180 + CURSOR_MS.button + 40
@@ -1260,11 +1261,13 @@ function writeBeats(): Beat<FlowShot>[] {
     beats.push({ at: barAt, to: { bar: true } })
     beats.push({ at: barAt + 180, to: { cursor: { line, to: 'button' } } })
     beats.push({ at: pressAt, to: { pressed: true }, cue: () => click('tick') })
-    beats.push({ at: pressAt + 160, to: { picked: null, bar: false, pressed: false, lit: line === 'task' ? 1 : 2, shown }, cue: sound })
+    beats.push({ at: pressAt + 160, to: { picked: null, bar: false, pressed: false, lit: PICKS.indexOf(line) + 1, shown }, cue: sound })
     return pressAt + 160
   }
   let t = pick(grows + 500, 'task', 3, cue('tag'))
-  t = pick(t + 450, 'gem', 4, cue('promote'))
+  // Two gems: one kept as it is, then the last sentence, which takes a question.
+  t = pick(t + 450, 'kept', 4, cue('promote'))
+  t = pick(t + 450, 'gem', 5, cue('promote'))
   // The pointer steps away once the gem is made: what is left is yours.
   beats.push({ at: t + 500, to: { cursor: null } })
   const question = typed<FlowShot>(flowWords().question, t + 450, (sofar) => ({ question: sofar }), random, 0.75, 1500)

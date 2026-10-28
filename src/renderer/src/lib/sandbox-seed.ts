@@ -1641,7 +1641,7 @@ host: en.wikipedia.org
 \`\`\`
 `)
   await task(EXAMPLES.todo)
-  // The welcome's story, the one it told (welcome-stories.ts): the thought caught on a walk, the page it became, and the task and the gem picked out of it.
+  // The welcome's story, the one it told (welcome-stories.ts): the thought caught on a walk, the page it became, and the task and the two gems picked out of it.
   const told = flowWords()
   const story = await capture({}, at(-3, '09:13'))
   await write(story, `${told.caught}\n\nThought of on a walk.`)
@@ -1649,9 +1649,11 @@ host: en.wikipedia.org
   // Named as the page names it, due on the day the page reads.
   const storyTask = flowTask()
   await call('task:save', await task(storyTask.title), { title: storyTask.title, due: storyTask.due, allDay: storyTask.allDay ? 1 : 0 })
+  // Two gems, as the page made them: one kept as it is (no question, so it comes back now and then in the Feed), and the last sentence with its question for Review.
+  await call<string>('nugget:from', told.kept, {})
   const storyGem = await call<string>('nugget:from', told.gem, {})
   await call('item:save', storyGem, { title: told.gem, prompt: told.question })
-  nuggets++
+  nuggets += 2
 
   // The deck that teaches Haligtree itself, tagged with LEARN_TAG: a few new cards a day in Review.
   nuggets += await call<number>('learn:add')

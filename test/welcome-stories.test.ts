@@ -31,6 +31,15 @@ test('the gem is the page\'s last sentence, and no story has an em or en dash', 
   }
 })
 
+test('each story keeps two gems: a plain one from the sentences before the last, and the last with its question', () => {
+  for (const one of STORIES) {
+    const at = one.words.indexOf(one.kept)
+    assert.ok(at >= 0 && at < one.words.length - 1, `${one.id}: the plain gem is one of the page's earlier sentences`)
+    assert.notEqual(one.kept, gemOf(one), one.id)
+    assert.ok(one.question.trim().endsWith('?'), `${one.id}: the gem with a question has one`)
+  }
+})
+
 test('the task written into the page is read back as its name, due on its day, its name kept as words (welcome-flow.tsx flowTask)', () => {
   for (const one of STORIES) {
     const read = readTask(taskPhrase(one, 'Wednesday'), at, [{ from: 0, to: one.task.length }])

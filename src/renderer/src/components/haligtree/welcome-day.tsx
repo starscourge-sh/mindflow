@@ -4,6 +4,7 @@ import { cubicBezier, motion } from 'motion/react'
 import { Gem, ListTodo, Quote } from 'lucide-react'
 import { EASE } from '@/lib/motion'
 import { STORY_DAY } from '@/lib/welcome-box'
+import { Brain, Eye } from '@/components/ui/icons'
 import { clock, dayjs } from '../../../../main/dates'
 import { Flip } from './review-view'
 import { Tape } from './tape'
@@ -13,9 +14,9 @@ import { LAND, PostcardResult, QUOTE } from './welcome-reel'
 
 /**
  * The welcome's Remember chapter: the three things kept so far (the task and
- * the gem from Write, the quote from Catch), each coming back, left to
+ * the two gems from Write, the quote from Catch), each coming back, left to
  * right, as the app brings it back: the task on the day's sticky on the
- * desktop, the gem's question in Review, the quote a year on as a postcard
+ * desktop, the gem with a question in Review (the plain one in the Feed), the quote a year on as a postcard
  * on Home. All three stay up once shown. Each drawn from the app's own parts;
  * pictures only: nothing here takes a click or reads your data.
  */
@@ -108,10 +109,11 @@ const clip = (text: string, words = 4): string => {
 /** Each thing kept and how it comes back, in the words of the story told now: what it is, when, and what Haligtree does, its key words *marked*. */
 export const back =(): { kind: 'task' | 'gem' | 'quote'; kept: string; when: string; said: string }[] => [
   { kind: 'task', kept: clip(flowTask().title), when: `${STORY_DAY}, ${clock(dayjs().hour(9).minute(0))}`, said: 'With “Stick Today on the desktop”, your tasks *sit on your desktop*. Tick them off there.' },
-  { kind: 'gem', kept: clip(flowWords().gem, 3), when: `${dayjs().add(5, 'day').format('dddd')}, ${clock(dayjs().hour(21).minute(30))}`, said: 'Your gem *turns into a question* in “Review”, and waits longer each time you remember it.' },
+  { kind: 'gem', kept: clip(flowWords().gem, 3), when: `${dayjs().add(5, 'day').format('dddd')}, ${clock(dayjs().hour(21).minute(30))}`, said: 'A gem with a question *comes back in “Review”* as you start to forget it. A plain one turns up in your “Feed”.' },
   { kind: 'quote', kept: 'Do or do not…', when: 'A year on', said: 'The line you saved *shows up on “Home”*, and as a hint, like a postcard from your past self.' }
 ]
 const ICON = { task: ListTodo, gem: Gem, quote: Quote }
+const CHIP = 'flex h-9 items-center gap-1.5 overflow-hidden rounded-full border border-foreground/15 bg-popover px-3 text-[0.9375rem] whitespace-nowrap text-foreground shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_12%,transparent)]'
 const TINT = { task: HUE.task.ink, gem: HUE.gem.ink, quote: 'var(--tt-color-text-purple)' }
 
 /**
@@ -132,8 +134,14 @@ export function ComeBack({ shot, quiet, said }: { shot: BackShot; quiet: boolean
           return (
             <div key={one.kind} data-moment={i} data-shown={on || undefined} className="flex min-w-0 flex-col items-start gap-[clamp(0.5rem,1.6vh,0.875rem)]">
               {/* What was kept, as a chip: the same words the chapters before made. */}
-              <span data-kept={one.kind} className="flex h-9 max-w-full items-center gap-1.5 overflow-hidden rounded-full border border-foreground/15 bg-popover px-3 text-[0.9375rem] whitespace-nowrap text-foreground shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_12%,transparent)]">
-                <Icon className="size-4 shrink-0" style={{ color: TINT[one.kind] }} /><span className="truncate">{one.kept}</span>
+              {/* The two gems side by side, each with the Gems list's own mark for how it comes back (items-view.tsx, rowOf): Review's for the one with a question, the Feed's for the plain one. */}
+              <span className="flex max-w-full min-w-0 gap-1.5">
+                {(one.kind === 'gem' ? [{ id: 'gem', words: one.kept, Mark: Brain, how: 'In “Review”' }, { id: 'kept', words: clip(flowWords().kept, 2), Mark: Eye, how: 'In your “Feed”' }] : [{ id: one.kind, words: one.kept, Mark: null, how: '' }]).map(({ id, words, Mark, how }) => (
+                  <span key={id} data-kept={id} className={`${CHIP} ${Mark ? 'min-w-0' : 'max-w-full'}`}>
+                    <Icon className="size-4 shrink-0" style={{ color: TINT[one.kind] }} /><span className="truncate">{words}</span>
+                    {Mark && <Mark aria-label={how} className="size-3.5 shrink-0 text-muted-foreground" />}
+                  </span>
+                ))}
               </span>
               {/* Down to how it comes back, drawn as it does. */}
               <motion.span aria-hidden className="ml-4 h-[clamp(0.5rem,calc(4vh-1.25rem),1.5rem)] w-[2px] origin-top rounded-full" style={{ background: `color-mix(in oklab, ${TINT[one.kind]} 60%, transparent)` }}

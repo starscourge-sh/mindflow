@@ -122,15 +122,16 @@ for (const theme of ['light', 'dark']) {
     await settled(h)
     await shot('write-end')
     if (theme === 'light') {
-      for (const [w, hh] of [[1100, 700], [1280, 800], [1600, 1000]]) {
+      for (const [w, hh] of [[1100, 700], [1100, 720], [1280, 800], [1440, 900], [1600, 1000]]) {
         await c.size(w, hh)
         await h.waitForTimeout(600)
         // Every card and the closing line whole inside the window, over the footer.
         const fit = await h.evaluate(() => {
           const foot = document.querySelector('.mf-welcome footer').getBoundingClientRect().top
-          return [...document.querySelectorAll('[data-flow], [data-flow-last]')].every((el) => { const r = el.getBoundingClientRect(); return r.bottom <= foot + 1 && r.right <= innerWidth && r.left >= 0 })
+          const all = [...document.querySelectorAll('[data-flow], [data-flow-last]')].map((el) => el.getBoundingClientRect())
+          return { ok: all.every((r) => r.bottom <= foot + 1 && r.right <= innerWidth && r.left >= 0), room: Math.round(foot - Math.max(...all.map((r) => r.bottom))) }
         })
-        check(`${w}x${hh}: the note, its cards and the closing line fit above the footer`, fit)
+        check(`${w}x${hh}: the note, its cards and the closing line fit above the footer`, fit.ok, `${fit.room}px to spare`)
         await shot(`write-${w}x${hh}`)
       }
     }
@@ -161,7 +162,7 @@ for (const theme of ['light', 'dark']) {
     await until(h, 'Write')
     await h.waitForTimeout(400)
     const whole = await h.evaluate(() => ({ cards: document.querySelectorAll('[data-flow][data-shown]').length, question: document.querySelector('[data-question]')?.textContent ?? '' }))
-    check('motion off: Write is whole at once, the gem\'s question written', whole.cards === 4 && /perfection/i.test(whole.question), JSON.stringify(whole))
+    check('motion off: Write is whole at once, the gem\'s question written', whole.cards === 5 && whole.question.endsWith("?"), JSON.stringify(whole))
   } finally {
     if (c.errors.length) console.log(c.errors.join('\n'))
     await c.close()
