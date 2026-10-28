@@ -1999,7 +1999,9 @@ const peekingOut = new Map<string, number>()
 /** A peeking card's tab: its ring and days left, a little taller than wide. */
 const TAB = { width: 46, height: 116 }
 /** Every sticky tucked: a tab with its name written down it, or only a small coloured pill. */
-const TUCK = { tabs: { width: 30, height: 124 }, flat: { width: 10, height: 44 } }
+/** Every sticky tucked: a strip of the card itself (its paper, its corner, its label down it), as Raycast's tucked notes;
+ * or only a small coloured pill. Wide enough to read as a card's edge, not a pill. */
+const TUCK = { tabs: { width: 40, height: 132 }, flat: { width: 10, height: 44 } }
 /** Stacked close, as file tabs are. */
 const TUCK_GAP = 3
 /** The side and kind of tab each peeking card was made as, so a change of either remakes it. */
