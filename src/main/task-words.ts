@@ -296,7 +296,9 @@ function notADate(said: string, before: string, after: string): boolean {
 export function readTask(text: string, at = new Date(), plain: { from: number; to: number }[] = []): ReadTask {
   // Words you said to keep as plain text: covered while reading, so nothing
   // is taken from them, and put back for the title.
-  const kept = plain.filter((one) => one.from >= 0 && one.to <= text.length && one.from < one.to)
+  // A #tag is a name, never a when: "#daily" tags the task, it does not repeat it.
+  const tags = [...text.matchAll(/(?<![\p{L}\p{N}_])#[\p{L}\p{N}_-]+/gu)].map((one) => ({ from: one.index, to: one.index + one[0].length }))
+  const kept = [...plain, ...tags].filter((one) => one.from >= 0 && one.to <= text.length && one.from < one.to)
   let rest = kept.reduce((words, one) => words.slice(0, one.from) + '\uE000'.repeat(one.to - one.from) + words.slice(one.to), text)
   const spans: Span[] = []
   const take = (from: number, to: number, kind: Span['kind'], more: Pick<Span, 'guess' | 'week'> = {}): void => {
