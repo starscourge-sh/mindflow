@@ -40,6 +40,13 @@ try {
   await open()
   const empty = await line()
   check('the writer\'s line shows on an empty today: the time alone, its controls not yet (nothing for them to do before writing)', /^\d{1,2}:\d{2}( [AP]M)?$/.test(empty ?? ''), String(empty))
+  // A sound chosen is always on the line, so what plays can always be turned off from it.
+  await v('settings:set', { writingSound: 'rain' })
+  await wait(400)
+  check('with a sound chosen, it is on the line before writing too', /Rain while writing/.test((await line()) ?? ''), String(await line()))
+  await v('settings:set', { writingSound: 'off' })
+  await wait(300)
+  await h.click('[data-page] [data-day-write] .ProseMirror')
   check('no "0 words" in it', !/words?/.test(empty ?? ''))
   if (shots) await h.screenshot({ path: `${shots}/empty-line-light.png` })
   await into()

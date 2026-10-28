@@ -425,9 +425,9 @@ export function Grainient({
       gl.uniform1f(fu.uSettle, eased)
       // The build-up, as Arc's: a small glow comes up slowly out of the dark in the middle, then gathers
       // itself and spreads past the corners. One rise, never back.
-      // One curve, so it never pauses where one stage would hand over to the next: slow for a long while (a quarter of
-      // the way at half the time), quicker as it gathers, easing in to whole.
-      gl.uniform1f(fu.uReveal, 1 - (1 - opened ** 3) ** 1.6)
+      // One curve, so it never pauses where one stage would hand over to the next: it starts slow and only ever
+      // quickens, all the way to whole (its edge is past the corners before the end, so it never stops short).
+      gl.uniform1f(fu.uReveal, opened ** 2.6)
       gl.drawArrays(gl.TRIANGLES, 0, 3)
       gl.bindFramebuffer(gl.FRAMEBUFFER, null)
       gl.viewport(0, 0, canvas.width, canvas.height)

@@ -389,7 +389,8 @@ export function WriterLine({ editor, day, spent, today }: { editor: Editor | nul
           minutes > 0 && <span key="minutes"><Rolling text={num(minutes)} /> {minutes === 1 ? 'minute' : 'minutes'}</span>,
           today && <span key="time" data-writer-time>{clock(Date.now())}</span>,
           // Its two controls only once writing mode has begun (the page faded): before that there is nothing for them to do.
-          today && writingNow && <WritingSound key="sound" className="pointer-events-auto -mx-1.5" />,
+          // A sound chosen stays reachable whenever the line shows, so whatever is playing can always be turned off here.
+          today && (writingNow || (settings?.writingSound ?? 'off') !== 'off') && <WritingSound key="sound" className="pointer-events-auto -mx-1.5" />,
           // Quietly here: the rest of the page stays gone till Esc, not just till a pause.
           today && writingNow && <button key="stay" type="button" data-writing-stay data-on={settings?.writingStay || undefined} aria-pressed={!!settings?.writingStay}
             onPointerDown={(event) => event.preventDefault()}
