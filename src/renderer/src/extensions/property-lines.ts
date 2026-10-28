@@ -20,8 +20,9 @@ export type PropertyLinesOptions = {
  */
 /** Where the strip goes: after the title line, or at the very start when the title is kept apart, or when the note
  * opens with no line of words to be its title (a code block, a picture, a list): under that, it read as a footer. */
+// An empty first line is no title either: the strip went under it, an empty line and then Properties.
 const spot = (doc: ProseMirrorNode, top: boolean): number =>
-  top || !["paragraph", "heading"].includes(doc.firstChild?.type.name ?? "") ? 0 : doc.firstChild?.nodeSize ?? 0
+  top || !["paragraph", "heading"].includes(doc.firstChild?.type.name ?? "") || (doc.childCount > 1 && !doc.firstChild?.textContent.trim()) ? 0 : doc.firstChild?.nodeSize ?? 0
 
 function placed(doc: ProseMirrorNode, strip: HTMLElement | null, top: boolean): DecorationSet {
   if (!strip || !doc.firstChild) return DecorationSet.empty

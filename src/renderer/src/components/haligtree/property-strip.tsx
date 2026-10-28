@@ -227,6 +227,7 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated,
                         </Tip>
                       </span>
                     ))}
+                    <AddTag node={() => strip.current} />
                   </div>
                 </div>
               )}
@@ -280,6 +281,54 @@ const stamp = (iso: string, short = false): string => {
 /** The editor the block sits in, or in the details, the page beside them: tiptap keeps itself on its page's element. */
 const editorOf = (node: HTMLElement | null): Editor | null =>
   (((node?.closest('.ProseMirror') ?? node?.closest('.mf-details')?.parentElement?.querySelector('.ProseMirror')) as (HTMLElement & { editor?: Editor }) | null | undefined)?.editor ?? null)
+
+/**
+ * A tag put on from the strip, as the chips are made: written into the words as a #tag after the last one there
+ * (or at the end of the title line), so the words and the strip never disagree. Undoable with ⌘Z.
+ */
+function retag(tag: string, node: HTMLElement | null): boolean {
+  const editor = editorOf(node)
+  const name = tag.trim().replace(/^#+/, '').replace(/\s+/g, '-')
+  if (!editor || !name) return false
+  let at = -1
+  editor.state.doc.descendants((child, pos) => {
+    if (!child.isText || !child.text) return
+    for (const hit of child.text.matchAll(/(^|\s)#[\p{L}\p{N}_/-]+/gu)) at = pos + (hit.index ?? 0) + hit[0].length
+  })
+  if (at < 0) {
+    const first = editor.state.doc.firstChild
+    at = first?.isTextblock ? first.nodeSize - 1 : editor.state.doc.content.size
+  }
+  const before = editor.state.doc.textBetween(Math.max(0, at - 1), at)
+  editor.view.dispatch(editor.state.tr.insertText(`${before && !/\s/.test(before) ? ' ' : ''}#${name}`, at))
+  chime('on')
+  return true
+}
+
+/** "+" after the tag chips: a tag typed there goes on the note (Enter, a comma or a space); Esc puts the field away. */
+function AddTag({ node }: { node: () => HTMLElement | null }): React.JSX.Element {
+  const [open, setOpen] = useState(false)
+  const [text, setText] = useState('')
+  const put = (): void => {
+    if (text.trim() && retag(text, node())) setText('')
+  }
+  if (!open) return (
+    <Tip label="Add a tag">
+      <button type="button" data-tag-add aria-label="Add a tag" onClick={() => (chime('tap'), setOpen(true))}
+        className="grid size-6 place-items-center rounded-full text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground"><Plus className="size-3.5" /></button>
+    </Tip>
+  )
+  return (
+    <input data-tag-input autoFocus value={text} placeholder="tag" aria-label="New tag" spellCheck={false}
+      onChange={(event) => setText(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ',' || (event.key === ' ' && text.trim())) (event.preventDefault(), put())
+        else if (event.key === 'Escape') (event.preventDefault(), event.stopPropagation(), setText(''), setOpen(false))
+      }}
+      onBlur={() => (put(), setOpen(false))}
+      className="h-6 w-24 rounded-full bg-foreground/[0.06] px-2.5 text-foreground outline-none placeholder:text-muted-foreground/60 focus-visible:ring-1 focus-visible:ring-ring" />
+  )
+}
 
 /** A tag taken off: every #tag in the words goes, in one step ⌘Z or the toast brings back. */
 function untag(tag: string, node: HTMLElement | null): void {
