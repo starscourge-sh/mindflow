@@ -365,6 +365,69 @@ for (const [w, hh, theme] of [[900, 700, 'light'], [1600, 1000, 'dark'], [900, 7
     await c.close()
   }
 }
+// Name it: the book's name typed on its reader card, light then dark. Typed and kept with Enter; then, played again,
+// started from that name, cleared and left empty, the drawn name kept. Saved as the book's name: books:list, the sidebar.
+for (const theme of ['light', 'dark']) {
+  const c = await sandbox({ width: 1280, height: 800, seeded: false })
+  const { h } = c
+  try {
+    await c.theme(theme)
+    // The data folder is kept from run to run: the book starts unnamed, as a first welcome finds it.
+    await c.v('books:rename', 'default', 'My book')
+    if (!(await h.waitForSelector('.mf-welcome', { timeout: 8000 }).then(() => true, () => false))) await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:welcome')))
+    await h.waitForSelector('.mf-welcome', { timeout: 8000 })
+    for (let i = 0; i < 30 && !(await chapter(h)).includes('Name it'); i++) (await next(h), await h.waitForTimeout(500))
+    check(`${theme}: Name it comes after Make it yours, before Ready`, /Chapter 7 of 8: Name it/.test(await chapter(h)), await chapter(h))
+    await h.waitForSelector('[data-welcome-book-name]', { timeout: 4000 })
+    await h.waitForTimeout(700)
+    const read = () => h.evaluate(() => ({
+      card: document.querySelector('.mf-welcome [data-reader-name]')?.textContent ?? '',
+      placeholder: document.querySelector('[data-welcome-book-name]')?.getAttribute('placeholder') ?? '',
+      value: document.querySelector('[data-welcome-book-name]')?.value ?? '',
+      focused: document.activeElement?.hasAttribute('data-welcome-book-name') ?? false,
+      keeps: document.querySelector('[data-name-keeps]')?.textContent ?? '',
+      buttons: document.querySelectorAll('.mf-welcome [data-reader-copy], .mf-welcome [data-reader-randomize]').length,
+      dashes: /—/.test(document.querySelector('.mf-welcome main')?.textContent ?? '')
+    }))
+    const first = await read()
+    check(`${theme}: the field is empty and focused, the drawn name its placeholder and on the card`, first.value === '' && first.focused && first.placeholder.length > 3 && first.card === first.placeholder, JSON.stringify(first))
+    check(`${theme}: under the field, in body text, what an empty field keeps`, first.keeps.includes(`“${first.placeholder}”`), first.keeps)
+    check(`${theme}: the card alone, without its buttons; no em dashes`, first.buttons === 0 && !first.dashes, JSON.stringify(first))
+    if (SHOTS) await h.screenshot({ path: `${SHOTS}/name-${theme}-empty.png` })
+    await h.click('[data-name-draw]')
+    await h.waitForTimeout(300)
+    const drawn = await read()
+    check(`${theme}: “Draw another” draws a new name, on the card too`, drawn.placeholder !== first.placeholder && drawn.card === drawn.placeholder, `${first.placeholder} -> ${drawn.placeholder}`)
+    await h.focus('[data-welcome-book-name]')
+    await h.keyboard.type('Chapel of Anticipation', { delay: 15 })
+    await h.waitForTimeout(250)
+    const typed = await read()
+    check(`${theme}: the card's name follows the typing`, typed.card === 'Chapel of Anticipation', typed.card)
+    if (SHOTS) await h.screenshot({ path: `${SHOTS}/name-${theme}-typed.png` })
+    await h.keyboard.press('Enter')
+    await h.waitForTimeout(900)
+    check(`${theme}: Enter goes on to Ready`, (await chapter(h)).includes('Ready'), await chapter(h))
+    const saved = await c.v('books:list')
+    check(`${theme}: saved as the book's name`, saved.name === 'Chapel of Anticipation', saved.name)
+    // Played again: the name it has now is in the field. Cleared and left empty, the drawn name is kept.
+    await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:welcome')))
+    for (let i = 0; i < 30 && !(await chapter(h)).includes('Name it'); i++) (await next(h), await h.waitForTimeout(400))
+    await h.waitForSelector('[data-welcome-book-name]', { timeout: 4000 })
+    await h.waitForTimeout(500)
+    const again = await read()
+    check(`${theme}: played again, the field starts with the book's name`, again.value === 'Chapel of Anticipation' && again.card === again.value, JSON.stringify(again))
+    await h.fill('[data-welcome-book-name]', '')
+    await h.waitForTimeout(200)
+    const empty = await read()
+    await h.click('footer button:has-text("Next")')
+    await h.waitForTimeout(900)
+    const kept = await c.v('books:list')
+    check(`${theme}: left empty, the drawn name is the book's name`, kept.name === empty.placeholder && empty.card === empty.placeholder, `${kept.name} vs ${empty.placeholder}`)
+  } finally {
+    if (c.errors.length) console.log(c.errors.join('\n'))
+    await c.close()
+  }
+}
 // Each run of the welcome picks its story afresh: opened 40 times, all five come up.
 {
   const c = await sandbox({ width: 1280, height: 800, seeded: false })

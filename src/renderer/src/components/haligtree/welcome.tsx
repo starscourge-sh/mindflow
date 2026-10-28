@@ -8,14 +8,16 @@ import { TAGLINE } from '../../../../main/tagline'
 import { fittedTitle, quoted } from '../../../../main/clip'
 import { Fragment, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react'
 import { AnimatePresence, MotionConfig, motion, useIsPresent } from 'motion/react'
-import { ArrowUp, Compass, CornerDownLeft, FolderInput, Volume2, VolumeX } from 'lucide-react'
+import { ArrowUp, Compass, CornerDownLeft, FolderInput, Shuffle, Volume2, VolumeX } from 'lucide-react'
+import { ReaderCard, drawBookName, seedOf } from './reader-card'
+import { renameBook, useShelf } from '@/lib/books'
 import { shift, spring, still } from '@/lib/motion'
 import { ARRIVE_MS, BEAT_MS, PENTA, soundOn, ambience, bedResolve, bedShift, bell, chime, click, fold, pageTurn, quietBed } from '@/lib/sound'
 import { applyTheme, currentTheme, type Theme } from '@/lib/theme'
 import { comboOf, fixed, keyFor, listen, saveKeys, useKeyChanges } from '@/lib/keys'
 import { NO_SETUP, onboarding, type Onboarding, type Setup } from '@/lib/onboarding'
 import { ImportMap, sourceFrom } from './welcome-import'
-import { answered, applySetup, Payoff, YouPage } from './welcome-you'
+import { FIELD, answered, applySetup, Payoff, YouPage } from './welcome-you'
 import { enterSandbox, SANDBOX, sandboxState, type Carry } from '@/lib/sandbox'
 import { examples, fillBox, holdKeys, STORY_DAY, tellBox } from '@/lib/welcome-box'
 import { pickStory, story } from '@/lib/welcome-stories'
@@ -56,7 +58,8 @@ import { APP_NAME } from '../../../../main/name'
  *   5 Remember: the task on the desktop, the plain gem in the Feed and the
  *     other's question in Review, the quote a year on as a postcard
  *   6 Make it yours: the theme dial
- *   7 Ready: start, the sandbox, or your notes
+ *   7 Name it: your book's name, on its reader card
+ *   8 Ready: start, the sandbox, or your notes
  *
  * Any key or click while a chapter plays settles it at its end; the next
  * press moves on. Esc settles a chapter, and never goes back a page. Motion off or
@@ -64,15 +67,18 @@ import { APP_NAME } from '../../../../main/name'
  */
 
 // Why first: the whole idea in one screen, so someone who stops there still has it.
-const CHAPTERS = ['Why', 'You', 'Catch', 'Write', 'Remember', 'Make it yours', 'Ready']
+const CHAPTERS = ['Why', 'You', 'Catch', 'Write', 'Remember', 'Make it yours', 'Name it', 'Ready']
 const WHY = 1
 const YOU = 2
 const CATCH = 3
 const WRITE = 4
 const BACK = 5
 const DIAL = 6
-const LAST = 7
+const NAME = 7
+const LAST = 8
 const EASE = ENTER
+/** The name a book has until it is given one (main/books.ts, DEFAULT_NAME). */
+const DEFAULT_BOOK = 'My book'
 const capsOf = (keys: string): string[] => keys.match(/[⌃⌥⇧⌘]|[^⌃⌥⇧⌘]+/g) ?? []
 /**
  * How long a chapter's headline and line hold the stage still before its
@@ -578,6 +584,7 @@ export function Welcome(): React.JSX.Element | null {
               {at === WRITE && <WriteChapter play={play} report={report} setup={setup} />}
               {at === BACK && <RememberChapter play={play} report={report} setup={setup} />}
               {at === DIAL && <DialChapter play={play} report={report} onPick={(theme) => (picked.current = theme)} mine={mine} />}
+              {at === NAME && <NameChapter play={play} report={report} onNext={next} />}
               {at === LAST && <WelcomeStamp still={!play} />}
               {at === LAST && <Start state={state} onState={setState} name={name} kept={before.current.size + caught.length} mine={caught.length} skipped={skipped} importing={importing} still={!play} onPick={start} setup={setup} onImport={(what) => (leave('notes'), void window.api.importFrom(what))} />}
             </motion.section>
@@ -1454,6 +1461,67 @@ function DialChapter({ play, report, onPick, mine }: { play: boolean; report: (n
 }
 
 // --- the parts kept from before -------------------------------------------------
+// --- 7 Name it -------------------------------------------------------------------
+
+const NAME_LINE = 'It shows on your reader card, in the sidebar and in “Settings”, where you can change it any time.'
+
+/**
+ * Your book's name, typed on its reader card: the first time the card is
+ * seen, its name changing as you type. A name is drawn for you ("Chapel of
+ * Anticipation"), shown as the field's placeholder, and “Draw another” draws
+ * a new one (and a new card with it). Enter goes on; left empty, the drawn
+ * name is kept. Saved as the page is left, by any way out, as the open
+ * book's name: the sidebar's switcher, the card and “Settings” all read it.
+ */
+function NameChapter({ play, report, onNext }: { play: boolean; report: (now: Reel) => void; onNext: () => void }): React.JSX.Element {
+  useReport(report, true, () => undefined)
+  const shelf = useShelf()
+  const [drawn, setDrawn] = useState(() => drawBookName())
+  const [typed, setTyped] = useState<string | null>(null)
+  const [look, setLook] = useState<{ seed?: number; picture?: 'shape' | 'bands' } | null>(null)
+  useEffect(() => void haligtree.settings().then((now) => setLook({ seed: now.readerSeed, picture: now.readerPicture })), [])
+  // A book already named (the welcome played again) starts with its name; "My book" is no one's name, so it starts empty.
+  const own = shelf && shelf.name !== DEFAULT_BOOK && shelf.current !== 'sandbox' ? shelf.name : ''
+  const value = typed ?? own
+  const shown = value.trim() || drawn
+  // A card never randomized takes its look from the drawn name, so "Draw another" draws a new card too; typing keeps it.
+  const seed = look?.seed ?? seedOf(drawn)
+  const kept = useRef({ shown, seed, shelf, look })
+  kept.current = { shown, seed, shelf, look }
+  useEffect(() => () => {
+    const { shown, seed, shelf, look } = kept.current
+    if (!shelf || !look || SANDBOX || shelf.current === 'sandbox') return
+    if (look.seed === undefined) void haligtree.setSettings({ readerSeed: seed })
+    if (shown !== shelf.name) void renameBook(shelf.current, shown)
+  }, [])
+  return (
+    <>
+      <Words title="Name your book." still={!play} done>{NAME_LINE}</Words>
+      <div className="flex min-h-0 flex-1 flex-wrap items-center justify-center gap-x-[clamp(2rem,7vw,6rem)] gap-y-6 pb-2">
+        <motion.div data-name-field className="flex w-[min(24rem,100%)] flex-col gap-3" initial={play ? { opacity: 0, y: 8 } : false} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: ENTER, delay: 0.1 }}>
+          {/* "Draw another" beside the label, so the line under the field is whole and never shares a row with it. */}
+          <div className="-mb-1 flex items-center justify-between gap-3">
+            <label htmlFor="mf-book-name" className="text-[1.0625rem] font-medium text-foreground">Your book's name</label>
+            <button type="button" data-name-draw onClick={() => (chime('anew'), setDrawn((was) => drawBookName(Math.random, was)))} className={`${QUIET_BUTTON} -mr-3 shrink-0`}>
+              <Shuffle className="size-4" strokeWidth={1.8} /> Draw another
+            </button>
+          </div>
+          <input id="mf-book-name" data-welcome-book-name autoFocus spellCheck={false} className={`${FIELD} h-12 w-full text-[1.125rem]`} placeholder={drawn} value={value} maxLength={60}
+            onChange={(event) => setTyped(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') (event.preventDefault(), onNext())
+              else if (event.key === 'Escape') (event.preventDefault(), event.currentTarget.blur())
+            }} />
+          <p data-name-keeps className="text-[0.9375rem] leading-snug text-(--mf-wl-body)">{value.trim() ? <>Press <Kbd className="mx-0.5 h-6 min-w-6 align-[-0.2em]"><CornerDownLeft className="size-3" strokeWidth={2.4} /></Kbd> to go on.</> : <>Left empty, it is called “{drawn}”.</>}</p>
+        </motion.div>
+        <motion.div className="shrink-0" initial={play ? { opacity: 0, scale: 0.96 } : false} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4, ease: ENTER, delay: 0.2 }}>
+          <ReaderCard seed={seed} picture={look?.picture} named={shown} bare />
+        </motion.div>
+      </div>
+    </>
+  )
+}
+
 
 /** The moment the welcome opened, as a diary dates an entry: the day, then the hour in your Mac's own style. */
 export const dateline = (): string => `${dayjs().format('dddd D MMMM')}, ${clock(new Date())}`

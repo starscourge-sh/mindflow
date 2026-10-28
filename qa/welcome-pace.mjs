@@ -70,7 +70,7 @@ for (const [theme, width, height] of [['light', 1600, 1000], ['dark', 820, 620]]
     // plays, Esc and Enter only hurry it, so the steps below start from Why's settled first screen.
     await h.click('[data-skip-intro]').catch(() => {})
     await h.waitForFunction(() => { const v = document.querySelector('[data-intro]'); return !v || Number(getComputedStyle(v).opacity) < 0.05 }, null, { timeout: 8000 }).catch(() => {})
-    const steps = ['Why', 'You', 'Catch', 'Write', 'Remember', 'Make it yours', 'Ready']
+    const steps = ['Why', 'You', 'Catch', 'Write', 'Remember', 'Make it yours', 'Name it', 'Ready']
     for (const step of steps) {
       if (!(await chapter(h)).includes(step)) {
         check(`${tag}: reached ${step}`, false, await chapter(h))

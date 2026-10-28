@@ -46,8 +46,22 @@ function drawsFrom(seed: number): () => number {
   }
 }
 
+/**
+ * A name for a book no one has named yet, drawn the way the card's title is:
+ * a room and what it keeps ("Chapel of Anticipation"). The welcome offers one
+ * (Name your book), and it is kept if nothing else is written.
+ */
+const ROOMS = ['Chapel', 'Library', 'Reading Room', 'Archive', 'Garden', 'Tower', 'Study', 'Lantern Hall', 'Cloister', 'Observatory', 'Atelier', 'Annex']
+const KEPT = ['Anticipation', 'Small Hours', 'Second Thoughts', 'Margins', 'Wonder', 'Lamplight', 'Kept Things', 'Quiet Hours', 'Loose Ends', 'First Light', 'Patience', 'Questions']
+export function drawBookName(random: () => number = Math.random, not = ''): string {
+  for (;;) {
+    const name = `${ROOMS[Math.floor(random() * ROOMS.length)]} of ${KEPT[Math.floor(random() * KEPT.length)]}`
+    if (name !== not) return name
+  }
+}
+
 /** A seed from the book's name, for a card never randomized: each book its own. */
-const seedOf = (name: string): number => [...name].reduce((sum, letter) => (Math.imul(sum, 31) + letter.charCodeAt(0)) >>> 0, 7)
+export const seedOf = (name: string): number => [...name].reduce((sum, letter) => (Math.imul(sum, 31) + letter.charCodeAt(0)) >>> 0, 7)
 
 /** The title, the picture's three hues (three neighbours in the run, either way round, light to deep) and the shape a seed gives. */
 export function cardOf(seed: number): { title: string; hues: [string, string, string]; shape: Shape } {
@@ -224,8 +238,12 @@ function ShapePicture({ shape }: { shape: Shape }): React.JSX.Element {
   )
 }
 
-export function ReaderCard({ seed: saved, picture = 'shape', point }: {
+export function ReaderCard({ seed: saved, picture = 'shape', point, named, bare = false }: {
   seed: number | undefined
+  /** The name to show in place of the open book's: the welcome's, as it is typed. */
+  named?: string
+  /** The card alone, without its copy, save, picture and Randomize buttons. */
+  bare?: boolean
   /** The picture at the top: a coolshape, or the two bands (readerPicture). */
   picture?: 'shape' | 'bands'
   /** Changed when ⌘K's “Your reader card” asks for it: brought into view. */
@@ -305,13 +323,13 @@ export function ReaderCard({ seed: saved, picture = 'shape', point }: {
           <motion.span aria-hidden className="pointer-events-none absolute inset-0 rounded-[inherit]" style={{ background: tilt.sheen, opacity: tilt.glow }} />
         </motion.div>
       </div>
-      <div className="flex gap-1">
+      {!bare && <div className="flex gap-1">
         {actions.map((one) => (
           <Tip key={one.tip} label={one.tip}>
             <Button variant="ghost" size="icon" aria-label={one.tip} {...{ [one.data]: '' }} onClick={one.run} className="text-muted-foreground hover:text-foreground">{one.icon}</Button>
           </Tip>
         ))}
-      </div>
+      </div>}
     </div>
   )
 }
