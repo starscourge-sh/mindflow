@@ -2317,11 +2317,18 @@ html[data-book-hue] [data-book-tint] {
 :root[data-in-room] :where(:has([data-room])) { translate: none !important; }
 :root[data-in-room] :is(:has([data-room])) { scale: none !important; }
 [data-room] [data-room-foot] {
-  position: fixed; left: 0; right: 0; bottom: 0; padding: 0.875rem 1.5rem 1.125rem;
-  background: linear-gradient(to top, var(--background) 60%, transparent);
+  /* Over the words as they scroll under it (above the page's own layers), and fading them out well before its lines. */
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; padding: 3rem 1.5rem 1.125rem;
+  background: linear-gradient(to top, var(--background) 70%, transparent);
 }
 [data-room] :is([data-apart='foot'], [data-day-count], .tiptap-word-count, [data-property-strip], :has(> [data-composer])) { display: none; }
 [data-room] > [data-note-head] { display: none; }
+/* The words run the room's whole height and the room scrolls them: the page's own editor kept the pane's height and
+   scrolled inside it, so in the room the words stopped two thirds down the window, cut off above the foot. */
+[data-room] .haligtree-editor-wrapper:not(.is-line),
+[data-room] .haligtree-editor-wrapper:not(.is-line) > .haligtree-editor-content { height: auto; max-height: none; overflow: visible; flex: none; }
+/* The page's outline, in the room, at the window's right edge: inside the column it stood over the words. */
+[data-room] .tiptap-toc { position: fixed; right: max(1rem, env(safe-area-inset-right, 0px)); }
 /* The focus band (writer-tools.tsx): all but the sentence or paragraph you
    are on fades back into the page. */
 .tiptap.ProseMirror[data-focus-band] > * { color: color-mix(in oklab, var(--foreground) 30%, transparent); transition: color 260ms ease-out; }

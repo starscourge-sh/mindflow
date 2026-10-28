@@ -930,7 +930,7 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
               { label: propsOut ? 'Hide details' : 'Show details', run: () => (chime(propsOut ? 'fold' : 'slide'), setPropsOut(!propsOut)) },
               'separator' as const
             ] : []),
-            ...(item.tier === 'article' && !boardShown ? [{ label: room.on ? 'Leave the writing room' : 'Writing room', keys: '⇧⌘↵', run: room.toggle }, { label: 'Writing tools', items: writerMenu(ready, room.focus, (text) => toast(text, undefined, 'info')) }, 'separator' as const] : []),
+            ...(item.tier === 'article' && !boardShown ? [{ label: room.on ? 'Leave the writing room' : 'Writing room', keys: '⇧⌘↵', run: room.toggle }, { label: 'Writing tools', items: writerMenu(ready, (text) => toast(text, undefined, 'info')) }, 'separator' as const] : []),
             // Proofread when asked, on any page; a piece of Writing has it in its writer's lines above.
             ...(item.tier !== 'article' ? [{ label: 'Proofread', hint: 'Spelling, grammar and style, one at a time', run: askProofread }] : []),
             ...itemMenu(item),

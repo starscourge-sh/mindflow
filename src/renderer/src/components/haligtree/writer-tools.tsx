@@ -63,14 +63,14 @@ const focusPlugin = (focus: Exclude<Focus, 'off'>): Plugin => new Plugin({
   }
 })
 
-/** The focus band on this editor, as chosen. */
-export function useFocusBand(editor: Editor | null): void {
+/** The focus band on this editor, as chosen, and only in the writing room (`on`): chosen there, it never dims a page read or written outside it. */
+export function useFocusBand(editor: Editor | null, on: boolean): void {
   const focus = useFocus()
   useEffect(() => {
-    if (!editor || editor.isDestroyed || focus === 'off') return
+    if (!editor || editor.isDestroyed || focus === 'off' || !on) return
     editor.registerPlugin(focusPlugin(focus))
     return () => void (!editor.isDestroyed && editor.unregisterPlugin(band))
-  }, [editor, focus])
+  }, [editor, focus, on])
 }
 
 const STOP = new Set('the and that this with from have were they them their there then than what when which while would could should about into your just like been some will said over also more only very much even well back after before because where being other those these here something nothing really still'.split(' '))
@@ -101,14 +101,14 @@ export function proseReport(editor: Editor): string {
 export const askAim = (): void => void window.dispatchEvent(new CustomEvent('haligtree:aim'))
 
 /** The tools as rows for a page's own menu. */
-export function writerMenu(editor: Editor | null, focus: Focus, report: (text: string) => void): { label: string; run: () => void }[] {
+export function writerMenu(editor: Editor | null, report: (text: string) => void): { label: string; run: () => void }[] {
   return [
-    ...(['sentence', 'paragraph'] as const).map((to) => ({ label: focus === to ? 'Focus off' : `Focus on the ${to}`, run: () => setFocus(focus === to ? 'off' : to) })),
+    // Focusing on a sentence or paragraph is the writing room's own: it is chosen there, where it shows.
     { label: 'Set a word aim', run: askAim },
     ...(editor ? [
-      { label: 'Prose report', run: () => void fullReport(editor).then(report) },
+      { label: 'How it reads', run: () => void fullReport(editor).then(report) },
       { label: 'Proofread', run: askProofread },
-      { label: checkingLive() ? 'Stop checking as I write' : 'Check as I write', run: () => (setCheckingLive(!checkingLive()), chime(checkingLive() ? 'on' : 'off')) }
+      { label: checkingLive() ? 'Stop marking mistakes as I write' : 'Mark mistakes as I write', run: () => (setCheckingLive(!checkingLive()), chime(checkingLive() ? 'on' : 'off')) }
     ] : [])
   ]
 }
@@ -133,19 +133,20 @@ export function WriterTools({ editor, proof = false, live = proof }: { editor: E
   return (
     <span data-writer-tools className="flex items-center gap-1">
       {report && <span data-prose-report className="absolute inset-x-0 bottom-full mx-auto mb-2 max-w-[40rem] px-6 text-center text-body text-foreground/80 text-pretty">{report}</span>}
-      <span>Focus</span>
-      {(['off', 'sentence', 'paragraph'] as const).map((to) => (
-        <button key={to} type="button" data-focus={to} data-on={focus === to || undefined} className={pick} onClick={() => setFocus(to)}>
-          {to === 'off' ? 'Off' : to === 'sentence' ? 'Sentence' : 'Paragraph'}
+      {/* Each says what it does; pressed again, it is off. */}
+      <span>Focus on the</span>
+      {(['sentence', 'paragraph'] as const).map((to) => (
+        <button key={to} type="button" data-focus={to} data-on={focus === to || undefined} aria-pressed={focus === to} className={pick} onClick={() => setFocus(focus === to ? 'off' : to)}>
+          {to === 'sentence' ? 'sentence' : 'paragraph'}
         </button>
       ))}
       <span aria-hidden className="mx-1">·</span>
-      <button type="button" data-aim-ask className={pick} onClick={askAim}>Aim</button>
-      <button type="button" data-report-ask data-on={!!report || undefined} className={pick} onClick={ask}>Prose report</button>
+      <button type="button" data-aim-ask className={pick} onClick={askAim}>Word aim</button>
+      <button type="button" data-report-ask data-on={!!report || undefined} className={pick} onClick={ask}>How it reads</button>
       {proof && (
         <>
           <button type="button" data-proofread-ask className={pick} onClick={() => (setReport(null), askProofread())}>Proofread</button>
-          {live && <button type="button" data-grammar-live data-on={checking || undefined} className={pick} onClick={() => (setCheckingLive(!checking), setChecking(!checking), chime(checking ? 'off' : 'on'))}>Check as I write</button>}
+          {live && <button type="button" data-grammar-live data-on={checking || undefined} className={pick} onClick={() => (setCheckingLive(!checking), setChecking(!checking), chime(checking ? 'off' : 'on'))}>Mark mistakes as I write</button>}
         </>
       )}
       <span aria-hidden className="mx-1">·</span>

@@ -15,11 +15,20 @@ import { WriterTools, useFocus, useFocusBand, type Focus } from './writer-tools'
  * the undo history and the words stay as they are. Read through reads a list;
  * this writes one page.
  */
+/**
+ * Something over the page that Esc should close first: a menu, a dialog, a popover or Proofread, open and on
+ * screen. One left in the page but shut or hidden (a closed dialog kept mounted, an empty popper) is not one:
+ * counted, it kept Esc from ever leaving the room.
+ */
+const overPage = (): boolean =>
+  [...document.querySelectorAll<HTMLElement>('[role="menu"], [role="dialog"], [data-radix-popper-content-wrapper], [data-proofing]')]
+    .some((one) => one.getClientRects().length > 0 && one.getAttribute('data-state') !== 'closed' && getComputedStyle(one).visibility !== 'hidden' && !one.closest('[aria-hidden="true"], [hidden], [inert]'))
+
 export function useWritingRoom(editor: Editor | null): { on: boolean; toggle: () => void; room: { 'data-room'?: '' }; focus: Focus } {
   const [on, setOn] = useState(false)
-  // The focus band, if chosen, on this page in the room or out of it.
-  useFocusBand(editor)
+  // The focus band, if chosen: in the room only.
   const focus = useFocus()
+  useFocusBand(editor, on)
   const toggle = (): void => setOn((was) => (chime(was ? 'fold' : 'open'), !was))
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
@@ -27,7 +36,7 @@ export function useWritingRoom(editor: Editor | null): { on: boolean; toggle: ()
       if (!mine) return
       if (event.key === 'Enter' && event.metaKey && event.shiftKey) return void (event.preventDefault(), event.stopPropagation(), toggle())
       // Esc leaves, unless something over the page (a menu, the format bar's popover) is the one it closes.
-      if (on && event.key === 'Escape' && !document.querySelector('[role="menu"], [role="dialog"], [data-radix-popper-content-wrapper], [data-proofing]')) {
+      if (on && event.key === 'Escape' && !overPage()) {
         event.preventDefault()
         event.stopPropagation()
         toggle()

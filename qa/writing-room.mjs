@@ -1,9 +1,9 @@
 // The writing room and the writer's tools. Today's page and a piece of
 // Writing each go into the room (the "Writing room" button, or ⇧⌘↵): only the
 // words and their caption or title over the whole window, fading in, with a
-// quiet foot (title, words, minutes) and the tools: Focus off, sentence or
-// paragraph (all but the sentence or paragraph you are on fades back), Aim
-// (a word aim: the thin line that fills), and Prose report (reading time,
+// quiet foot (title, words, minutes) and the tools: Focus on the sentence or
+// paragraph (all but the one you are on fades back, in the room only), Word
+// aim (the thin line that fills), and How it reads (reading time,
 // long sentences, words used a lot, adverbs). Esc leaves. The page's own menu
 // on a piece of Writing has the same tools.
 //
@@ -88,7 +88,14 @@ try {
   await wait(300)
   const paragraph = await band()
   check('2. Focus on the paragraph: the whole paragraph is lit', paragraph.mode === 'paragraph' && /^The morning was grey/.test(paragraph.lit ?? ''), JSON.stringify(paragraph))
-  await h.click('[data-writer-tools] [data-focus="off"]')
+  // Chosen in the room, it stays in the room: left, the page is not dimmed (the user found it dimming every page).
+  await h.keyboard.press('Escape')
+  await wait(500)
+  check('2. out of the room, the focus never dims the page', (await h.evaluate(() => document.querySelectorAll('[data-focus-band]').length)) === 0)
+  await h.click('[data-room-open]')
+  await wait(500)
+  // Pressed again, it is off.
+  await h.click('[data-writer-tools] [data-focus="paragraph"]')
   await wait(200)
   check('2. Focus off: nothing fades', (await band()).mode === null, JSON.stringify(await band()) + await h.evaluate(() => localStorage.getItem('writing-focus') + [...document.querySelectorAll('[data-focus]')].map((b) => b.dataset.focus + b.hasAttribute('data-on')).join() + document.querySelectorAll('[data-focus-band]').length))
 
@@ -166,7 +173,7 @@ try {
   await h.click('[data-open] [data-note-head] [aria-label="More"]')
   await wait(400)
   const rows = await h.evaluate(() => [...document.querySelectorAll('[role="menuitem"]')].map((one) => one.textContent.trim()))
-  check('6. its own menu has the writing room and the tools', ['Writing room', 'Focus on the sentence', 'Focus on the paragraph', 'Set a word aim', 'Prose report'].every((one) => rows.some((row) => row.startsWith(one))), JSON.stringify(rows))
+  check('6. its own menu has the writing room and the tools', ['Writing room', 'Writing tools'].every((one) => rows.some((row) => row.startsWith(one))), JSON.stringify(rows))
   await h.keyboard.press('Escape')
   check('no page errors', !c.errors.some((one) => one.includes('PAGEERROR')), c.errors.join(' | '))
 } catch (error) {
