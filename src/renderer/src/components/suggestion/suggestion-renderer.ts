@@ -91,6 +91,11 @@ export function createSuggestionRenderer<I>(
           editor: props.editor,
           className: "tiptap-suggestion-popup",
         })
+        // A click on a row keeps the caret in the words: the editor is never left
+        // for the menu, so a line that keeps its words on leaving (Today's) is still being written.
+        renderer.element.addEventListener("mousedown", (event) => {
+          if (!(event.target as Element | null)?.closest?.("input, textarea")) event.preventDefault()
+        })
         unmount = props.mount(renderer.element)
         caret = props.clientRect
         window.addEventListener("keydown", onEscape, true)

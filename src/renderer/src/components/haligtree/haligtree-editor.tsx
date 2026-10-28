@@ -184,6 +184,8 @@ const HANDLE_POSITION = { middleware: [offset({ mainAxis: 24, crossAxis: 2 })] }
  * pickers, and this file may not reach into the app around it.
  */
 const MENU_OPEN = "[cmdk-root], [role=menu], [role=listbox], .tiptap-suggestion-popup"
+/** The same, a suggestion menu counted only while it shows rows. */
+const MENU_SHOWING = "[cmdk-root], [role=menu], [role=listbox], .tiptap-suggestion-popup:not(:empty)"
 
 // --- UI Primitives ---
 import {
@@ -886,8 +888,9 @@ function Surface({
       // Here rather than in a keyboard shortcut because ProseMirror checks
       // these props before any plugin, and vim swallows Return in normal mode.
       handleKeyDown: (view, event) => {
-        // The caller's keys first, unless a menu is open and the key is its.
-        if (keyed.current && !event.isComposing && !document.querySelector(MENU_OPEN) && keyed.current(event)) {
+        // The caller's keys first, unless a menu is open and the key is its. A suggestion menu with
+        // nothing in it (a #word no tag starts with) shows nothing and takes no key.
+        if (keyed.current && !event.isComposing && !document.querySelector(MENU_SHOWING) && keyed.current(event)) {
           event.preventDefault()
           return true
         }

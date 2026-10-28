@@ -83,6 +83,8 @@ export type LineHandle = {
   /** Whether the caret is in it. */
   focused: () => boolean
   blur: () => void
+  /** Its words gone, the caret kept in it: a new line made into a task, ready for the next. */
+  clear: () => void
 }
 
 /** Notes only, as a task is made from a note. */
@@ -90,20 +92,25 @@ const findNotes = async (query: string): ReturnType<typeof findCaptures> => (awa
 
 const contentOf = (text: string) => ({ type: 'doc', content: [{ type: 'paragraph', content: text ? [{ type: 'text', text }] : [] }] })
 
-export function DayLine({ lineKey, value, register, onKey, onLeave, onPaste, placeholder = '', label, className = '' }: {
+export function DayLine({ lineKey, value, register, onKey, onLeave, onPaste, onText, placeholder = '', label, className = '', attrs }: {
   /** Its name among the list's lines: on its element, for stepping between them. */
   lineKey: string
   value: string
-  register: (handle: LineHandle | null) => void
+  /** Told of the line once its editor is there, and of its going (null, with the handle that goes). */
+  register: (handle: LineHandle | null, was?: LineHandle) => void
   /** A key, before the line's own: true when it was taken. */
   onKey: (event: KeyboardEvent, line: LineHandle) => boolean
   /** The caret left the line (not into its own menu): its words as they stand. */
   onLeave?: (read: { text: string; link?: AtLink }) => void
   /** Several lines pasted: true when the list took them. */
   onPaste?: (text: string) => boolean
+  /** Its words, as each change is typed. */
+  onText?: (text: string) => void
   placeholder?: string
   label: string
   className?: string
+  /** Names of its own on its element (data-new, data-draft), for the list and its probes to find it by. */
+  attrs?: Record<`data-${string}`, string | boolean | undefined>
 }): React.JSX.Element {
   const editor = useRef<Editor | null>(null)
   const handle = useRef<LineHandle>({
@@ -123,7 +130,8 @@ export function DayLine({ lineKey, value, register, onKey, onLeave, onPaste, pla
     },
     edge: (way) => !!editor.current?.view.endOfTextblock(way),
     focused: () => !!editor.current?.isFocused,
-    blur: () => void editor.current?.commands.blur()
+    blur: () => void editor.current?.commands.blur(),
+    clear: () => void editor.current?.commands.setContent(contentOf(''), { emitUpdate: false })
   })
   // The words from the task, when they change anywhere else, unless the line is being written in.
   useEffect(() => {
@@ -131,15 +139,21 @@ export function DayLine({ lineKey, value, register, onKey, onLeave, onPaste, pla
     if (!one || one.isDestroyed || one.isFocused || lineOf(one.state.doc).text === value) return
     one.commands.setContent(contentOf(value), { emitUpdate: false })
   }, [value])
-  useEffect(() => () => register(null), []) // eslint-disable-line react-hooks/exhaustive-deps
+  // Told again when an effect runs twice (a development build's StrictMode), as the editor, built once, never says so twice.
+  useEffect(() => {
+    if (editor.current) register(handle.current)
+    return () => register(null, handle.current)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const keys = useRef(onKey)
   keys.current = onKey
   const leave = useRef(onLeave)
   leave.current = onLeave
   const pasted = useRef(onPaste)
   pasted.current = onPaste
+  const typed = useRef(onText)
+  typed.current = onText
   return (
-    <div data-line data-line-key={lineKey} aria-label={label} className={`relative min-w-0 ${className}`}
+    <div {...attrs} data-line data-line-key={lineKey} aria-label={label} className={`relative min-w-0 ${className}`}
       onPasteCapture={(event) => {
         const text = event.clipboardData.getData('text/plain')
         if (pasted.current?.(text)) (event.preventDefault(), event.stopPropagation())
@@ -170,6 +184,7 @@ export function DayLine({ lineKey, value, register, onKey, onLeave, onPaste, pla
         onKeyDown={(event) => keys.current(event, handle.current)}
         onReady={(one) => {
           editor.current = one
+          one.on('update', () => typed.current?.(lineOf(one.state.doc).text))
           register(handle.current)
         }}
       />

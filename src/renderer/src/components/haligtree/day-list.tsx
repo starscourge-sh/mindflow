@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { TAGS } from '@/extensions/tokens'
 import { ArrowRight, ArrowUpLeft, ChevronRight, GripVertical } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -20,13 +20,12 @@ import { useArrivals } from './note-list'
 import { TomorrowBox } from './tomorrow-lines'
 import { TAG } from '../../../../main/tag-words'
 import { Timer } from '@/components/ui/icons'
-import { FromNote, useAtNotes, type AtLink } from './at-notes'
+import { FromNote, type AtLink } from './at-notes'
 import { DayLine, type LineHandle } from './day-line'
 import { readTask } from '../../../../main/task-words'
 
 /** A line split round its #tags: the tags at the odd places. */
 const byTags = (text: string): string[] => text.split(new RegExp(`(#${TAG})`, 'gu'))
-const hasTagIn = (text: string): boolean => new RegExp(`#${TAG}`, 'u').test(text)
 
 /**
  * Write out your day: Today as a page you write, the way a running list in
@@ -161,11 +160,13 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
   const [cleared, setCleared] = useState<string[]>(() => readCleared(today))
   const [draft, setDraft] = useState<Draft | null>(null)
   const [open, setOpen] = useState<Record<Section, boolean>>({ now: true, next: false, later: false })
-  const fields = useRef(new Map<string, HTMLTextAreaElement | LineHandle>())
+  const fields = useRef(new Map<string, LineHandle>())
   const want = useRef<Want | null>(null)
   const box = useRef<HTMLDivElement>(null)
   // Lines made here this sitting: taking one out deletes it, as if it was never written.
   const fresh = useRef(new Set<string>())
+  // The note each line was last linked to with @ here, so a pick is put on its task once.
+  const sourced = useRef(new Map<string, string>())
 
   const start = startOfDay()
   const ids = new Set(tasks.map((task) => task.id))
@@ -191,23 +192,16 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
   // How the three stand, the ones cleared after ticking counted as done.
   const threeDone = three.filter((id) => cleared.includes(id) || now.some((task) => task.id === id && done(task))).length
   const threeThere = three.filter((id) => cleared.includes(id) || now.some((task) => task.id === id)).length
-  const mention = useAtNotes()
   const arrived = useArrivals([...now, ...next, ...later].map((task) => task.id), 'day-list')
 
   // The caret where it was asked for, once the line it asked for is drawn:
-  // asked for again on the draws just after, since a line that moves (a new
-  // line made a step) is a new field, and the old one goes with the caret in it.
+  // asked for again on the draws just after, and as a line arrives, since a
+  // line that moves (a new line made a step) is a new editor, and the old one
+  // goes with the caret in it.
   const place = (asked: Want): boolean => {
-    const field = fields.current.get(asked.key)
-    if (!field) return false
-    // A written line, an editor of its own: the caret put there unless it is in it already.
-    if (!(field instanceof HTMLTextAreaElement)) return (field.focused() || field.focus(asked.at), true)
-    if (!field.isConnected) return false
-    if (document.activeElement !== field) {
-      field.focus()
-      const at = asked.at === 'end' ? field.value.length : asked.at === 'start' ? 0 : asked.at
-      field.setSelectionRange(at, at)
-    }
+    const line = fields.current.get(asked.key)
+    if (!line) return false
+    if (!line.focused()) line.focus(asked.at)
     return true
   }
   useLayoutEffect(() => {
@@ -345,8 +339,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
       chime('shift')
       ;[list[at], list[to]] = [list[to], list[at]]
       await renumber(list)
-      const field = fields.current.get(`t:${task.id}`)
-      return go(`t:${task.id}`, field instanceof HTMLTextAreaElement ? field.selectionStart : field?.caret().at ?? 'end')
+      return go(`t:${task.id}`, fields.current.get(`t:${task.id}`)?.caret().at ?? 'end')
     }
     const target = SECTIONS[SECTIONS.findIndex((one) => one.id === section) + by]?.id
     if (!target || compact) return chime('nope')
@@ -437,11 +430,8 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     const to = all[all.findIndex((one) => one === from || one.contains(from)) + by]
     if (!to) return false
     const line = to.dataset.lineKey ? fields.current.get(to.dataset.lineKey) : undefined
-    if (line && !(line instanceof HTMLTextAreaElement)) return (line.focus(by < 0 ? 'end' : 'start'), true)
-    if (!(to instanceof HTMLTextAreaElement)) return false
-    to.focus()
-    const at = by < 0 ? to.value.length : 0
-    to.setSelectionRange(at, at)
+    if (!line) return false
+    line.focus(by < 0 ? 'end' : 'start')
     return true
   }
   /** A written line's own element, to step from. */
@@ -455,25 +445,14 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     if (plain && event.key === 'ArrowDown' && line.edge('down')) return !!from && step(from, 1)
     return false
   }
-  /** Keys every line shares: up and down, Escape. True when the key was taken. */
-  const shared = (event: React.KeyboardEvent<HTMLTextAreaElement>): boolean => {
-    const field = event.currentTarget
-    const atStart = field.selectionStart === 0 && field.selectionEnd === 0
-    const atEnd = field.selectionStart === field.value.length
-    if (event.key === 'Escape') return (field.blur(), true)
-    if (!event.altKey && !event.metaKey && !event.shiftKey && event.key === 'ArrowUp' && (atStart || !field.value.slice(0, field.selectionStart).includes('\n') && field.scrollHeight <= field.clientHeight + 4)) return step(field, -1)
-    if (!event.altKey && !event.metaKey && !event.shiftKey && event.key === 'ArrowDown' && (atEnd || field.scrollHeight <= field.clientHeight + 4)) return step(field, 1)
-    return false
-  }
-
   const taskKeys = (task: Task, section: Section) => (event: KeyboardEvent, line: LineHandle): boolean => {
     const list = lists[section]
     const at = list.findIndex((one) => one.id === task.id)
     const key = `t:${task.id}`
-    const { text } = line.read()
+    const { text, link } = line.read()
     if (event.key === 'Enter' && event.metaKey) return (tick(task), true)
     if (event.key === 'Enter' && !event.shiftKey) {
-      rename(task, text)
+      rename(task, text, link)
       // From the start of a line with words, a new line above it, as in any editor.
       if (line.caret().start && text.trim()) return (setDraft({ section, after: list[at - 1]?.id ?? null, text: '' }), go('draft'), true)
       if (!list[at + 1]) return (go(`new:${section}`), true)
@@ -486,9 +465,9 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
       return (void remove(task, section), true)
     }
     // Shift-Tab on a line that is not a step: out of the page, as it goes anywhere else, rather than a "nope".
-    if (event.key === 'Tab' && event.shiftKey) return (rename(task, text), false)
-    if (event.key === 'Tab') return (rename(task, text), void indent(task, section), true)
-    if (event.altKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) return (rename(task, text), void shiftLine(task, section, event.key === 'ArrowUp' ? -1 : 1), true)
+    if (event.key === 'Tab' && event.shiftKey) return (rename(task, text, link), false)
+    if (event.key === 'Tab') return (rename(task, text, link), void indent(task, section), true)
+    if (event.altKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) return (rename(task, text, link), void shiftLine(task, section, event.key === 'ArrowUp' ? -1 : 1), true)
     return sharedLine(event, line, key)
   }
   const stepKeys = (parent: Task, n: number, section: Section) => (event: KeyboardEvent, line: LineHandle): boolean => {
@@ -497,6 +476,13 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     const { text } = line.read()
     if (event.key === 'Enter' && event.metaKey) return (tickStep(parent, n), true)
     if (event.key === 'Enter' && !event.shiftKey) {
+      // An empty step: Enter brings it out a level, a new line of its own under the line it was in, as outliners do.
+      if (!text.trim()) {
+        chime('untuck')
+        void saveSteps(parent, steps.filter((_, at) => at !== n))
+        setDraft({ section, after: parent.id, text: '' })
+        return (go('draft'), true)
+      }
       renameStep(parent, n, text)
       setDraft({ section, after: parent.id, parent: { id: parent.id, at: n + 1 }, text: '' })
       return (go('draft'), true)
@@ -519,66 +505,71 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     }
     return sharedLine(event, line, key)
   }
-  /** The new line at a section's end, and a draft between lines: both become a task on Enter. */
-  const draftKeys = (section: Section, key: string, after: () => string | null, parent?: { id: string; at: number }) => (event: React.KeyboardEvent<HTMLTextAreaElement>): void => {
-    const field = event.currentTarget
-    const text = field.value
+  /**
+   * The new line at a section's end, or a draft between lines (a step, under
+   * a line), made a task or a step: by Enter and by the right-click menu alike.
+   */
+  const commit = (section: Section, key: string, after: () => string | null, parent: Draft['parent'], line: LineHandle): void => {
+    const { text, link } = line.read()
     const owner = parent ? lists[section].find((one) => one.id === parent.id) : undefined
-    // The @ menu open: its keys first.
-    if (!parent && mention.keys(event)) return void event.preventDefault()
-    if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault()
-      if (!text.trim()) {
-        // An empty step: Enter steps back out, as in any outline.
-        if (parent) return void (setDraft({ section, after: parent.id, text: '' }), go('draft'))
-        if (key === 'draft') return void (setDraft(null), step(field, 1))
-        return chime('nope')
+    if (!text.trim()) {
+      // An empty step: Enter brings it out a level, as in any outline.
+      if (parent) return void (chime('untuck'), setDraft({ section, after: parent.id, text: '' }), go('draft'))
+      if (key === 'draft') {
+        const from = lineEl(key)
+        if (from) step(from, 1)
+        return setDraft(null)
       }
-      if (parent && owner) {
-        // Emptied first, so the same field, kept for the next step, never saves these words twice.
-        field.value = ''
-        const steps = owner.subtasks ?? []
-        void saveSteps(owner, [...steps.slice(0, parent.at), { text: text.trim(), done: false }, ...steps.slice(parent.at)]).then(() => {
-          chime('bead')
-          setDraft({ section, after: owner.id, parent: { id: owner.id, at: parent.at + 1 }, text: '' })
-          go('draft')
-        })
-        return
-      }
-      const link = mention.linkOf(field, text)
-      field.value = ''
-      if (key === 'draft') setDraft(null)
-      void add(section, text, after(), undefined, link).then((id) => {
-        if (!id) return
-        if (key === 'draft') {
-          setDraft({ section, after: id, text: '' })
-          go('draft')
-        } else go(key)
+      return chime('nope')
+    }
+    // Emptied first, so the line, kept for the next one, never saves these words twice.
+    line.clear()
+    if (parent && owner) {
+      const steps = owner.subtasks ?? []
+      void saveSteps(owner, [...steps.slice(0, parent.at), { text: text.trim(), done: false }, ...steps.slice(parent.at)]).then(() => {
+        chime('bead')
+        // The next step right under it, at the same depth.
+        setDraft({ section, after: owner.id, parent: { id: owner.id, at: parent.at + 1 }, text: '' })
+        go('draft')
       })
       return
     }
-    if (event.key === 'Tab' && !event.shiftKey && !parent) {
-      // A new line made a step of the line above it.
-      event.preventDefault()
+    if (key === 'draft') setDraft(null)
+    void add(section, text, after(), undefined, link).then((id) => {
+      if (!id) return
+      if (key === 'draft') (setDraft({ section, after: id, text: '' }), go('draft'))
+      else go(key)
+    })
+  }
+  const draftKeys = (section: Section, key: string, after: () => string | null, parent?: Draft['parent']) => (event: KeyboardEvent, line: LineHandle): boolean => {
+    const { text } = line.read()
+    if (event.key === 'Enter' && !event.shiftKey && !event.metaKey) return (commit(section, key, after, parent, line), true)
+    if (event.key === 'Tab' && !event.shiftKey) {
+      // A step is as deep as a line goes: said, and the caret stays where it is.
+      if (parent) return (chime('nope'), true)
+      // A new line made a step of the line above it, its words going with it.
       const above = after() ? lists[section].find((one) => one.id === after()) : lists[section].at(-1)
-      if (!above) return chime('nope')
+      if (!above) return (chime('nope'), true)
       chime('tuck')
+      line.clear()
       setDraft({ section, after: above.id, parent: { id: above.id, at: (above.subtasks ?? []).length }, text })
-      return go('draft')
+      return (go('draft'), true)
     }
-    if (event.key === 'Tab' && event.shiftKey && parent) {
-      event.preventDefault()
+    if (event.key === 'Tab' && event.shiftKey) {
+      // Shift-Tab on a line that is not a step: out of the page, as it goes anywhere else.
+      if (!parent) return false
       chime('untuck')
+      line.clear()
       setDraft({ section, after: parent.id, text })
-      return go('draft')
+      return (go('draft'), true)
     }
     if (event.key === 'Backspace' && !text && key === 'draft') {
-      event.preventDefault()
+      const from = lineEl(key)
+      if (from) step(from, -1)
       setDraft(null)
-      step(field, -1)
-      return
+      return true
     }
-    if (shared(event)) event.preventDefault()
+    return sharedLine(event, line, key)
   }
 
   /**
@@ -586,10 +577,12 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
    * into them is read as quick capture reads it, taken out of the words and
    * set on the task, with Undo.
    */
-  const rename = (task: Task, text: string): void => {
+  const rename = (task: Task, text: string, link?: AtLink): void => {
+    if (link) source(task, link)
     const words = text.trim()
     if (!words || words === task.title) return
-    const read = readTask(words)
+    // A note's name picked with @ is read as words, never as a date.
+    const read = readTask(words, new Date(), link?.plain.map(({ from, to }) => ({ from: from - text.indexOf(words), to: to - text.indexOf(words) })) ?? [])
     const said = read.priority || read.estimate || read.due || read.deadline
     if (!said || !read.title.trim()) return void haligtree.saveTask(task.id, { title: words })
     const was = { title: task.title, priority: task.priority ?? 0, estimate: task.estimate ?? null, due: task.dueAt ?? null, deadline: task.deadline ?? null }
@@ -600,6 +593,16 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
       ...(read.due ? { due: read.due, allDay: read.allDay ? 1 : 0 } : {}),
       ...(read.deadline ? { deadline: read.deadline } : {})
     }).then(() => (chime('tap'), quietly(() => void haligtree.saveTask(task.id, was))))
+  }
+  /** A note picked with @ in a written line: the task is made from it now, with Undo. */
+  const source = (task: Task, link: AtLink): void => {
+    // Once for each pick: Enter and then leaving the line read the same note, and the task as drawn may not have it yet.
+    if (link.id === task.captureId || sourced.current.get(task.id) === link.id) return
+    sourced.current.set(task.id, link.id)
+    void haligtree.sourceTask(task.id, link.id).then((was) => {
+      chime('settled')
+      toast('Made from that note now', () => void haligtree.sourceTask(task.id, was))
+    })
   }
   const renameStep = (parent: Task, n: number, text: string): void => {
     const steps = parent.subtasks ?? []
@@ -613,58 +616,52 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     void paste(section, text, after)
     return true
   }
-  /** A paste of several lines: each a line of its own. One line pastes as words. */
-  const onPaste = (section: Section, after: () => string | null) => (event: React.ClipboardEvent<HTMLTextAreaElement>): void => {
-    const text = event.clipboardData.getData('text/plain')
-    if (readLines(text).length < 2) return
-    event.preventDefault()
-    void paste(section, text, after())
-  }
 
   // --- drawn -----------------------------------------------------------------
 
-  const field = (key: string) => (node: HTMLTextAreaElement | LineHandle | null): void => {
-    if (node) fields.current.set(key, node)
-    else fields.current.delete(key)
+  // A line told of as it arrives (the caret put there when it was asked for), and as it goes, unless another took its place.
+  const field = (key: string) => (line: LineHandle | null, was?: LineHandle): void => {
+    if (line) {
+      fields.current.set(key, line)
+      const asked = want.current
+      if (asked?.key === key && Date.now() <= asked.until) place(asked)
+    } else if (fields.current.get(key) === was) fields.current.delete(key)
   }
   /**
    * A line being written, right-clicked: its words made a task (a step, under
    * a line) as Enter makes them, and the words' own Cut, Copy and Paste.
    */
-  const writtenMenu = (step: boolean) => (field: HTMLElement | null): RowItem[] =>
-    field instanceof HTMLTextAreaElement && field.value.trim()
-      ? [{ label: step ? 'Make it a step' : 'Make it a task', keys: '↵', run: () => void setTimeout(() => (field.focus(), field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))), 0) }]
+  const writtenMenu = (section: Section, key: string, after: () => string | null, parent?: Draft['parent']) => (): RowItem[] => {
+    const line = fields.current.get(key)
+    return line?.read().text.trim()
+      ? [{ label: parent ? 'Make it a step' : 'Make it a task', keys: '↵', run: () => commit(section, key, after, parent, line) }]
       : []
-  /** Focus gone into a right-click menu: the line is still being written, not left. */
-  const intoMenu = (event: React.FocusEvent): boolean => !!(event.relatedTarget as Element | null)?.closest?.('[role=menu]')
-  const draftLine = (section: Section, depth: 0 | 1): React.JSX.Element => (
-    <RowMenu writes items={writtenMenu(!!draft?.parent)}>
-    <div className={`flex items-start gap-2.5 py-1 ${depth ? 'pl-8' : 'pl-6'}`}>
-      <span aria-hidden className={`mt-[0.3rem] shrink-0 rounded-full border-[1.5px] border-dashed border-muted-foreground/50 ${depth ? 'size-3.5' : 'size-[1.0625rem]'}`} />
-      <div className="relative min-w-0 flex-1">
-      <TagTint />
-      <textarea data-line data-draft ref={field('draft')} rows={1} defaultValue={draft?.text} aria-label="A new line"
-        onKeyDown={draftKeys(section, 'draft', () => draft?.after ?? null, draft?.parent)}
-        onInput={(event) => !draft?.parent && mention.input(event.currentTarget)}
-        onPaste={onPaste(section, () => draft?.after ?? null)}
-        onBlur={(event) => {
-          if (intoMenu(event)) return
-          mention.close()
-          // Left with words in it, they are kept; left empty, the draft goes.
-          const text = event.currentTarget.value.trim()
-          const was = draft
-          setDraft(null)
-          if (!text || !was) return
-          if (was.parent) {
-            const owner = lists[section].find((one) => one.id === was.parent!.id)
-            if (owner) void saveSteps(owner, [...(owner.subtasks ?? []).slice(0, was.parent.at), { text, done: false }, ...(owner.subtasks ?? []).slice(was.parent.at)])
-          } else void add(section, text, was.after, undefined, mention.linkOf(event.currentTarget, text))
-        }}
-        className={`relative block w-full resize-none bg-transparent leading-snug outline-none [field-sizing:content] placeholder:text-muted-foreground ${depth ? 'text-control' : 'text-[0.9375rem]'}`} />
-      </div>
-    </div>
-    </RowMenu>
-  )
+  }
+  const draftLine = (section: Section, depth: 0 | 1): React.JSX.Element => {
+    const after = (): string | null => draft?.after ?? null
+    const was = draft
+    return (
+      <RowMenu writes items={writtenMenu(section, 'draft', after, draft?.parent)}>
+        {/* At the depth it is written at: a step's place and size under a line, a line's at the top. */}
+        <div className={depth ? 'flex items-start gap-2 py-0.5 pl-12' : 'flex items-start gap-2.5 py-1 pl-6'}>
+          <span aria-hidden className={`mt-[0.2rem] shrink-0 rounded-full border-[1.5px] border-dashed border-muted-foreground/50 ${depth ? 'size-3.5' : 'size-[1.0625rem]'}`} />
+          <DayLine lineKey="draft" register={field('draft')} value={draft?.text ?? ''} label="A new line" attrs={{ 'data-draft': depth ? 'step' : 'line' }}
+            onKey={draftKeys(section, 'draft', after, draft?.parent)}
+            onPaste={(text) => !draft?.parent && pasteLines(section, text, after())}
+            onLeave={({ text, link }) => {
+              // Left with words in it, they are kept; left empty, the draft goes. A draft moved on since (by Tab) stays.
+              setDraft((now) => (now === was ? null : now))
+              if (!text.trim() || !was) return
+              if (was.parent) {
+                const owner = lists[section].find((one) => one.id === was.parent!.id)
+                if (owner) void saveSteps(owner, [...(owner.subtasks ?? []).slice(0, was.parent.at), { text: text.trim(), done: false }, ...(owner.subtasks ?? []).slice(was.parent.at)])
+              } else void add(section, text, was.after, undefined, link)
+            }}
+            className={`min-w-0 flex-1 leading-snug text-foreground ${depth ? 'text-control' : 'text-[0.9375rem]'}`} />
+        </div>
+      </RowMenu>
+    )
+  }
 
   const row = (task: Task, section: Section): React.JSX.Element => {
     const struck = done(task)
@@ -704,7 +701,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
                 <DayLine lineKey={`t:${task.id}`} register={field(`t:${task.id}`)} value={task.title} label={task.title}
                   onKey={taskKeys(task, section)}
                   onPaste={(text) => pasteLines(section, text, task.id)}
-                  onLeave={({ text }) => rename(task, text)}
+                  onLeave={({ text, link }) => rename(task, text, link)}
                   className={`w-full leading-snug text-foreground ${first ? 'text-[0.9375rem] font-semibold' : 'text-[0.9375rem]'}`} />
               )}
               <FromNote task={task} />
@@ -792,30 +789,28 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     )
   }
 
-  const newLine = (section: Section, placeholder: string): React.JSX.Element => (
-    <RowMenu writes items={writtenMenu(false)}>
-    <div className="flex items-start gap-2.5 py-1 pl-6">
-      <span aria-hidden className="mt-[0.3rem] size-[1.0625rem] shrink-0 rounded-full border-[1.5px] border-dashed border-muted-foreground/40" />
-      <div className="relative min-w-0 flex-1">
-      <TagTint />
-      <textarea data-line data-new={section} ref={field(`new:${section}`)} rows={1} aria-label={`A new line in ${SECTIONS.find((one) => one.id === section)!.label}`} placeholder={placeholder}
-        onKeyDown={draftKeys(section, `new:${section}`, () => lists[section].at(-1)?.id ?? null)}
-        onInput={(event) => mention.input(event.currentTarget)}
-        onPaste={onPaste(section, () => lists[section].at(-1)?.id ?? null)}
-        onBlur={(event) => {
-          const text = event.currentTarget.value.trim()
-          if (intoMenu(event)) return
-          mention.close()
-          if (!text) return
-          const link = mention.linkOf(event.currentTarget, text)
-          event.currentTarget.value = ''
-          void add(section, text, lists[section].at(-1)?.id ?? null, undefined, link)
-        }}
-        className="relative block w-full resize-none bg-transparent text-[0.9375rem] leading-snug outline-none [field-sizing:content] placeholder:text-muted-foreground/80" />
-      </div>
-    </div>
-    </RowMenu>
-  )
+  const newLine = (section: Section, placeholder: string): React.JSX.Element => {
+    const key = `new:${section}`
+    const after = (): string | null => lists[section].at(-1)?.id ?? null
+    return (
+      <RowMenu writes items={writtenMenu(section, key, after)}>
+        <div className="flex items-start gap-2.5 py-1 pl-6">
+          <span aria-hidden className="mt-[0.2rem] size-[1.0625rem] shrink-0 rounded-full border-[1.5px] border-dashed border-muted-foreground/40" />
+          <DayLine lineKey={key} register={field(key)} value="" placeholder={placeholder} attrs={{ 'data-new': section }}
+            label={`A new line in ${SECTIONS.find((one) => one.id === section)!.label}`}
+            onKey={draftKeys(section, key, after)}
+            onPaste={(text) => pasteLines(section, text, after())}
+            onLeave={({ text, link }) => {
+              // Left with words in it, they are a line.
+              if (!text.trim()) return
+              fields.current.get(key)?.clear()
+              void add(section, text, after(), undefined, link)
+            }}
+            className="min-w-0 flex-1 text-[0.9375rem] leading-snug text-foreground" />
+        </div>
+      </RowMenu>
+    )
+  }
 
   const move = (section: Section) => (id: string, target: string, after: boolean): void => {
     const list = lists[section].map((one) => one.id).filter((one) => one !== id)
@@ -934,7 +929,6 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
       {!compact && <TomorrowBox className="mt-6" />}
       {!compact && section('next')}
       {!compact && section('later')}
-      {mention.menu}
       {!compact && (
         <p className="mt-8 flex flex-wrap items-center gap-x-3 gap-y-1 pl-6 text-sm text-muted-foreground">
           <span><Kbd>↵</Kbd> next line</span>
@@ -945,46 +939,6 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
           <span><Kbd>Esc</Kbd> stop writing</span>
         </p>
       )}
-    </div>
-  )
-}
-
-/**
- * A written line's #tags tinted where they are typed, as a note tints them:
- * the words drawn again behind the field, see-through, with only each tag's
- * ground showing, in its colour from the Tags page. Read from the field (the
- * one after it) as it is typed in, left or filled again, in its own font.
- */
-function TagTint(): React.JSX.Element {
-  const ref = useRef<HTMLDivElement>(null)
-  const [text, setText] = useState('')
-  const [font, setFont] = useState<React.CSSProperties>({})
-  const read = useCallback((): void => {
-    const field = ref.current?.nextElementSibling
-    if (!(field instanceof HTMLTextAreaElement)) return
-    setText(field.value)
-    if (!hasTagIn(field.value)) return
-    // Each part of the font on its own: the shorthand reads empty when the font has features or a variable axis set.
-    const look = getComputedStyle(field)
-    const next: React.CSSProperties = { fontFamily: look.fontFamily, fontSize: look.fontSize, fontWeight: look.fontWeight, fontStyle: look.fontStyle, lineHeight: look.lineHeight, letterSpacing: look.letterSpacing, wordSpacing: look.wordSpacing, fontFeatureSettings: look.fontFeatureSettings, fontVariationSettings: look.fontVariationSettings, fontOpticalSizing: look.fontOpticalSizing as React.CSSProperties['fontOpticalSizing'] }
-    setFont((was) => (JSON.stringify(was) === JSON.stringify(next) ? was : next))
-  }, [])
-  // Each draw, as the words may have been put back from the task under it.
-  useLayoutEffect(read)
-  useEffect(() => {
-    const field = ref.current?.nextElementSibling
-    if (!field) return
-    const again = (): void => (read(), void requestAnimationFrame(read))
-    const events = ['input', 'focusin', 'focusout']
-    for (const one of events) field.addEventListener(one, again)
-    return () => { for (const one of events) field.removeEventListener(one, again) }
-  }, [read])
-  const color = TAGS[0].color as (value: string) => string
-  return (
-    <div ref={ref} aria-hidden data-tag-tint style={font} className="pointer-events-none absolute inset-0 overflow-hidden break-words whitespace-pre-wrap text-transparent select-none">
-      {hasTagIn(text) && byTags(text).map((part, at) => at % 2
-        ? <span key={at} data-tag-tint-tag className="rounded-[0.25rem]" style={{ background: `var(--tt-color-highlight-${color(part.slice(1))})`, boxShadow: `0 0 0 0.12em var(--tt-color-highlight-${color(part.slice(1))})` }}>{part}</span>
-        : part)}
     </div>
   )
 }

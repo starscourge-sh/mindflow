@@ -8,7 +8,8 @@ import { clock } from '@/lib/clock'
 import { Tip, Typed, toast } from './ui'
 import { RowMenu, type RowItem } from './row-menu'
 import { taskMenu, useTaskNow } from './tasks-view'
-import { FromNote, useAtNotes, type AtLink } from './at-notes'
+import { FromNote, type AtLink } from './at-notes'
+import { DayLine, type LineHandle } from './day-line'
 
 /**
  * Tomorrow, written down before bed: one line per thing on your mind, each an
@@ -125,11 +126,14 @@ export function TomorrowLines({ night, alsoAbove = false, label = 'A line for to
   const lines = entries.map((one) => ({ ...one, task: byId.get(one.id) })).filter((one): one is Entry & { task: Task } => !!one.task && one.task.status !== 'dropped')
   const [draft, setDraft] = useState('')
   const box = useRef<HTMLDivElement>(null)
-  const fresh = useRef<HTMLTextAreaElement>(null)
+  // Each line by its key (`t:` and its task, or `new`), to step between and to empty.
+  const fields = useRef(new Map<string, LineHandle>())
+  const field = (key: string) => (line: LineHandle | null, was?: LineHandle): void => {
+    if (line) fields.current.set(key, line)
+    else if (fields.current.get(key) === was) fields.current.delete(key)
+  }
   const kept = useRef('')
   kept.current = draft
-
-  const mention = useAtNotes()
   const add = async (text: string, link?: AtLink): Promise<Entry | null> => {
     const words = text.trim()
     if (!words) return null
@@ -156,11 +160,10 @@ export function TomorrowLines({ night, alsoAbove = false, label = 'A line for to
     chime('gather')
     toast(made.length === 1 ? 'A line for tomorrow' : `${num(made.length)} lines for tomorrow`, () => void takeBack(night, made.map((one) => one.id)))
   }
-  const onPaste = (event: React.ClipboardEvent<HTMLTextAreaElement>): void => {
-    const text = event.clipboardData.getData('text/plain')
-    if (readLines(text).filter((one) => one.text.trim()).length < 2) return
-    event.preventDefault()
+  const onPaste = (text: string): boolean => {
+    if (readLines(text).filter((one) => one.text.trim()).length < 2) return false
     void paste(text)
+    return true
   }
 
   /** A line taken out, with Undo: one made here is gone as if never written. */
@@ -189,53 +192,50 @@ export function TomorrowLines({ night, alsoAbove = false, label = 'A line for to
     if (words && words !== task.title) void haligtree.saveTask(task.id, { title: words })
   }
 
-  const fields = (): HTMLTextAreaElement[] => [...(box.current?.querySelectorAll<HTMLTextAreaElement>('textarea[data-tomorrow-field]') ?? [])]
-  const step = (from: HTMLTextAreaElement, by: -1 | 1): boolean => {
-    const all = fields()
-    const to = all[all.indexOf(from) + by]
-    if (!to) return false
-    to.focus()
-    const at = by < 0 ? to.value.length : 0
-    to.setSelectionRange(at, at)
+  /** Up and down between the lines, as one list. */
+  const step = (key: string, by: -1 | 1): boolean => {
+    const all = [...(box.current?.querySelectorAll<HTMLElement>('[data-line]') ?? [])]
+    const at = all.findIndex((one) => one.dataset.lineKey === key)
+    const to = all[at + by]?.dataset.lineKey
+    const line = to ? fields.current.get(to) : undefined
+    if (!line) return false
+    line.focus(by < 0 ? 'end' : 'start')
     return true
   }
-  const shared = (event: React.KeyboardEvent<HTMLTextAreaElement>): boolean => {
-    const field = event.currentTarget
+  const shared = (event: KeyboardEvent, line: LineHandle, key: string): boolean => {
     if (event.altKey || event.metaKey || event.shiftKey) return false
-    if (event.key === 'Escape') return (field.blur(), false)
-    if (event.key === 'ArrowUp' && !field.value.slice(0, field.selectionStart).includes('\n') && field.scrollHeight <= field.clientHeight + 4) return step(field, -1)
-    if (event.key === 'ArrowDown' && field.scrollHeight <= field.clientHeight + 4) return step(field, 1)
+    if (event.key === 'Escape') return (line.blur(), false)
+    if (event.key === 'ArrowUp' && line.edge('up')) return step(key, -1)
+    if (event.key === 'ArrowDown' && line.edge('down')) return step(key, 1)
     return false
   }
-  const lineKeys = (one: Entry & { task: Task }) => (event: React.KeyboardEvent<HTMLTextAreaElement>): void => {
-    const field = event.currentTarget
+  const lineKeys = (one: Entry & { task: Task }) => (event: KeyboardEvent, line: LineHandle): boolean => {
+    const key = `t:${one.id}`
+    const { text } = line.read()
     if (event.key === 'Enter' && !event.shiftKey && !event.metaKey) {
-      event.preventDefault()
-      rename(one.task, field.value)
-      return void fresh.current?.focus()
+      rename(one.task, text)
+      fields.current.get('new')?.focus('end')
+      return true
     }
-    if (event.key === 'Backspace' && !field.value && field.selectionStart === 0) {
-      event.preventDefault()
-      step(field, -1) || step(field, 1)
-      return void remove(one)
+    if (event.key === 'Backspace' && !text && line.caret().start) {
+      if (!step(key, -1)) step(key, 1)
+      return (void remove(one), true)
     }
-    if (shared(event)) event.preventDefault()
+    return shared(event, line, key)
   }
-  const draftKeys = (event: React.KeyboardEvent<HTMLTextAreaElement>): void => {
-    const field = event.currentTarget
-    // The @ menu open: its keys first.
-    if (mention.keys(event)) return void event.preventDefault()
-    if (event.key === 'Enter' && !event.shiftKey && !event.metaKey) {
-      event.preventDefault()
-      if (!draft.trim()) return
-      const text = draft
-      setDraft('')
-      void add(text, mention.linkOf(field, text))
-      return
-    }
+  /** The new line's words made a line for tomorrow: by Enter and by the right-click menu alike. */
+  const commit = (line: LineHandle): void => {
+    const { text, link } = line.read()
+    if (!text.trim()) return
+    line.clear()
+    setDraft('')
+    void add(text, link)
+  }
+  const draftKeys = (event: KeyboardEvent, line: LineHandle): boolean => {
+    if (event.key === 'Enter' && !event.shiftKey && !event.metaKey) return (commit(line), true)
     // Backspace on the empty new line: back up to the end of the line above, as any editor joins up.
-    if (event.key === 'Backspace' && !field.value) return void (step(field, -1) && event.preventDefault())
-    if (shared(event)) event.preventDefault()
+    if (event.key === 'Backspace' && !line.read().text) return step('new', -1)
+    return shared(event, line, 'new')
   }
 
   // The examples take turns while the line is empty: a new one every few seconds, typed in.
@@ -246,7 +246,7 @@ export function TomorrowLines({ night, alsoAbove = false, label = 'A line for to
     return () => clearInterval(every)
   }, [draft])
 
-  const lineClass = 'relative block w-full resize-none bg-transparent text-[0.9375rem] leading-snug text-foreground outline-none [field-sizing:content]'
+  const lineClass = 'w-full text-[0.9375rem] leading-snug text-foreground'
   return (
     <div ref={box} data-tomorrow-lines={night}>
       {alsoAbove && lines.length > 0 && (
@@ -271,8 +271,8 @@ export function TomorrowLines({ night, alsoAbove = false, label = 'A line for to
                 {/* A bullet, not a tick box: these are for tomorrow, ticked there. */}
                 <span aria-hidden className="grid h-[1.4rem] w-[1.0625rem] shrink-0 place-items-center"><span className="size-1.5 rounded-full" style={{ background: task.status === 'done' ? 'var(--tt-color-text-green)' : 'var(--muted-foreground)' }} /></span>
                 <div className="min-w-0 flex-1">
-                  <textarea data-tomorrow-field rows={1} defaultValue={task.title} aria-label={task.title} key={task.title}
-                    onKeyDown={lineKeys(one)} onPaste={onPaste} onBlur={(event) => rename(task, event.currentTarget.value)}
+                  <DayLine lineKey={`t:${one.id}`} register={field(`t:${one.id}`)} value={task.title} label={task.title} attrs={{ 'data-tomorrow-field': true }}
+                    onKey={lineKeys(one)} onPaste={onPaste} onLeave={({ text }) => rename(task, text)}
                     className={`${lineClass} ${task.status === 'done' ? 'text-muted-foreground line-through' : ''}`} />
                   <FromNote task={task} />
                 </div>
@@ -290,7 +290,10 @@ export function TomorrowLines({ night, alsoAbove = false, label = 'A line for to
           )
         })}
       </ul>
-      <RowMenu writes items={(field) => (field instanceof HTMLTextAreaElement && field.value.trim() ? [{ label: 'Make it a line', hint: 'A line for tomorrow', keys: '↵', run: () => void (setDraft(''), add(field.value)) }] : [])}>
+      <RowMenu writes items={() => {
+        const line = fields.current.get('new')
+        return line?.read().text.trim() ? [{ label: 'Make it a line', hint: 'A line for tomorrow', keys: '↵', run: () => commit(line) }] : []
+      }}>
         <div className="flex items-start gap-2.5 py-1">
           <span aria-hidden className="mt-[0.3rem] size-[1.0625rem] shrink-0 rounded-full border-[1.5px] border-dashed border-muted-foreground/45" />
           <div className="relative min-w-0 flex-1">
@@ -300,22 +303,18 @@ export function TomorrowLines({ night, alsoAbove = false, label = 'A line for to
                 <Typed key={example} text={lines.length ? 'Another one' : `${EXAMPLES[example]}`} step={30} delay={600} />
               </span>
             )}
-            <textarea ref={fresh} data-tomorrow-field data-tomorrow-new rows={1} value={draft} aria-label={label}
-              onChange={(event) => (setDraft(event.target.value.replace(/\n/g, '')), mention.input(event.target))}
-              onKeyDown={draftKeys} onPaste={onPaste}
-              onBlur={(event) => {
-                if ((event.relatedTarget as Element | null)?.closest?.('[role=menu]')) return
-                mention.close()
-                if (!draft.trim()) return
-                const text = draft
+            <DayLine lineKey="new" register={field('new')} value="" label={label} attrs={{ 'data-tomorrow-field': true, 'data-tomorrow-new': true }}
+              onText={setDraft} onKey={draftKeys} onPaste={onPaste}
+              onLeave={({ text, link }) => {
+                if (!text.trim()) return
+                fields.current.get('new')?.clear()
                 setDraft('')
-                void add(text, mention.linkOf(event.currentTarget, text))
+                void add(text, link)
               }}
               className={lineClass} />
           </div>
         </div>
       </RowMenu>
-      {mention.menu}
     </div>
   )
 }

@@ -53,7 +53,7 @@ await wait(1200)
 
 // 1. The start of the day.
 check('the empty day asks what matters', await h.locator('[data-day-empty]').isVisible())
-check('the caret waits on the first line', await h.evaluate(() => document.activeElement?.getAttribute('data-new') === 'now'))
+check('the caret waits on the first line', await h.evaluate(() => document.activeElement?.closest('[data-new]')?.getAttribute('data-new') === 'now'))
 await wait(2500)
 await shot('1-empty')
 
@@ -68,7 +68,7 @@ const written = ['Send the draft to Ana', 'Book the dentist', 'Fix the gate latc
 check('each line is a task due today', written.every((one) => one && isToday(one) && one.status === 'open'), written.map((one) => one?.title).join(', '))
 check('the order written is their order', written.every((one, at) => one?.sortOrder === at), written.map((one) => one?.sortOrder).join(','))
 check('the top three carry it', (await h.locator('[data-day-line][data-top]').count()) === 3)
-check('the caret is on the next new line', await h.evaluate(() => document.activeElement?.getAttribute('data-new') === 'now'))
+check('the caret is on the next new line', await h.evaluate(() => document.activeElement?.closest('[data-new]')?.getAttribute('data-new') === 'now'))
 
 // 3. A step: Enter after "Fix the gate latch", then Tab.
 await h.locator(`[data-day-line="${written[2].id}"] [data-line] .ProseMirror`).first().click()
@@ -119,9 +119,9 @@ const toggle = h.locator('[data-section-toggle="next"]')
 check('Next shows it opens', await toggle.locator('svg').count() === 1 && (await toggle.getAttribute('aria-expanded')) !== null)
 if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click()
 await wait(300)
-await h.locator('textarea[data-new="next"]').click()
+await h.locator('[data-new="next"] .ProseMirror').click()
 await h.evaluate(() => {
-  const field = document.querySelector('textarea[data-new="next"]')
+  const field = document.querySelector('[data-new="next"] .ProseMirror')
   const data = new DataTransfer()
   data.setData('text/plain', '- [ ] Plan the garden\n  - [x] Measure the beds\n  - [ ] Pick seeds\n- [ ] Sort the loft')
   field.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }))
@@ -142,12 +142,12 @@ await h.keyboard.press('Escape')
 await h.locator('body').click({ position: { x: 5, y: 400 } }).catch(() => {})
 await h.keyboard.press('a')
 await wait(400)
-check('A starts a new line on the page', await h.evaluate(() => document.activeElement?.getAttribute('data-new') === 'now'))
+check('A starts a new line on the page', await h.evaluate(() => document.activeElement?.closest('[data-new]')?.getAttribute('data-new') === 'now'))
 await h.keyboard.press('Escape')
 
 // 9. A line that was already a task: no second one.
 const before = (await tasks()).length
-await h.locator('textarea[data-new="now"]').click()
+await h.locator('[data-new="now"] .ProseMirror').click()
 await h.keyboard.type('Sort the loft', { delay: 8 })
 await h.keyboard.press('Enter')
 await wait(900)
@@ -183,7 +183,7 @@ await wait(800)
 check('“To today” makes it today’s', isToday(await lineOf('Return the library books')))
 
 // 12. Ten and more.
-await h.locator('textarea[data-new="now"]').click()
+await h.locator('[data-new="now"] .ProseMirror').click()
 for (let n = 1; n <= 6; n++) {
   await h.keyboard.type(`Small thing ${n}`, { delay: 4 })
   await h.keyboard.press('Enter')

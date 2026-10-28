@@ -44,7 +44,7 @@ const shot = async (name, clip) => {
   await wait(250)
 }
 const box = '[data-tomorrow-box]'
-const lines = () => h.$$eval(`${box} [data-tomorrow-line]`, (all) => all.map((one) => one.querySelector('textarea').value))
+const lines = () => h.$$eval(`${box} [data-tomorrow-line]`, (all) => all.map((one) => one.querySelector('[data-tomorrow-field] .ProseMirror').innerText.trim()))
 const undo = async () => { await h.locator('button', { hasText: 'Undo' }).last().click(); await wait(900) }
 
 await v('settings:set', { motion: false, hintRate: 0 })
@@ -76,7 +76,7 @@ await shot('1-today-empty')
 // 3. Lines become tasks due tomorrow; a said time is kept, tags too.
 const field = h.locator(`${box} [data-tomorrow-new]`)
 /** Typed only once the new line has the caret and is empty: on a busy machine the last line's Enter may still be settling. */
-const ready = (sel) => h.waitForFunction((sel) => { const el = document.querySelector(sel); return !!el && document.activeElement === el && el.value === '' }, sel, { timeout: 4000 }).catch(() => {})
+const ready = (sel) => h.waitForFunction((sel) => { const el = document.querySelector(sel); return !!el && !!document.activeElement?.closest(sel) && el.innerText.trim() === '' }, sel, { timeout: 4000 }).catch(() => {})
 await field.click()
 for (const line of ['Call Sam at 3', 'Water the plants #home']) {
   await ready(`${box} [data-tomorrow-new]`)
@@ -110,7 +110,7 @@ check('one Undo takes the three back out', (await lines()).length === 2 && !(awa
 
 // 5. Backspace on an emptied line takes it out.
 await h.evaluate(() => (document.activeElement)?.blur?.())
-await h.locator(`${box} [data-tomorrow-line] textarea`).nth(1).click()
+await h.locator(`${box} [data-tomorrow-line] .ProseMirror`).nth(1).click()
 await h.keyboard.press('Meta+a')
 await h.keyboard.press('Backspace')
 await h.keyboard.press('Backspace')
@@ -144,7 +144,7 @@ for (const line of ['Pick up the parcel', 'Water the plants #home']) {
   await h.keyboard.press('Enter')
   await wait(800)
 }
-const inStep = await h.$$eval(`${step} [data-tomorrow-line] textarea`, (all) => all.map((one) => one.value))
+const inStep = await h.$$eval(`${step} [data-tomorrow-line] .ProseMirror`, (all) => all.map((one) => one.innerText.trim()))
 check('a line already there is not listed twice', inStep.filter((one) => /Water the plants/.test(one)).length === 1 && inStep.length === 3, inStep.join(' | '))
 check('nor made twice', (await tasks()).filter((one) => /Water the plants/.test(one.title) && one.status === 'open').length === 1)
 check('a new line here is a task for tomorrow, and a choice for tomorrow’s first', onTomorrow((await tasks()).find((one) => one.title === 'Pick up the parcel')) && (await h.locator('[data-close-frog] [role="radio"]', { hasText: 'Pick up the parcel' }).count()) === 1)

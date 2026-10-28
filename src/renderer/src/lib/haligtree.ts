@@ -384,6 +384,8 @@ export const haligtree = {
   undoneTask: (id: string, was: Finished) => call('task:undone', id, was),
   /** A task made by mistake: see `makeTask`. */
   unmakeTask: (id: string, existed: boolean, links: string[], reopen: string[]) => call('task:unmake', id, existed, links, reopen),
+  /** The note a task is made from, set, changed or taken off (null); gives back the one it had, for Undo. */
+  sourceTask: (id: string, itemId: string | null) => call<string | null>('task:source', id, itemId),
   /** Tasks turned back into notes in the Inbox; what it gives back is for `unnoteTasks`. */
   taskToNote: (ids: string[]) => call<unknown[]>('task:to-note', ids),
   unnoteTasks: (kept: unknown[]) => call('task:to-note:undo', kept),

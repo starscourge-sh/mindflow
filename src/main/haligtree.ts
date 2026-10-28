@@ -3416,6 +3416,13 @@ export function registerHaligtree(): void {
     for (const capture of reopen) db.prepare("update captures set status = 'open' where id = ? and status = 'resolved'").run(capture)
     return write(true)
   })
+  // The note a task is made from, set or changed from its line (a note picked
+  // with @ in it), or taken off with null. Gives back the one it had, for Undo.
+  handle('task:source', (id: string, itemId: string | null) => {
+    const was = (db.prepare('select origin_capture_id as origin from tasks where id = ?').get(id) as { origin: string | null } | undefined)?.origin ?? null
+    db.prepare('update tasks set origin_capture_id = ? where id = ?').run(typeof itemId === 'string' && itemId ? itemId : null, id)
+    return write(was)
+  })
   // Tasks turned back into notes: the note each came from is back in the
   // Inbox, or a new note holds its words when it was never one. The task goes
   // to the Bin, its done days and focus sessions still its own, and the Undo
