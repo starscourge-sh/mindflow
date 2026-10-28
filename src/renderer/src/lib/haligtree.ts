@@ -823,6 +823,7 @@ export function useAppearance(): void {
     document.documentElement.toggleAttribute('data-postcards', !!settings.postcards)
     document.documentElement.dataset.postcardBorder = settings.postcardBorder ?? 'auto'
     document.documentElement.dataset.highlights = settings.highlights ?? 'soft'
+    document.documentElement.dataset.paper = settings.paper ?? 'plain'
     document.documentElement.dataset.menuIcons = settings.menuIcons ?? 'lines'
     document.documentElement.dataset.iconColour = settings.iconColour === false ? 'off' : 'on'
     document.documentElement.dataset.barWords = settings.barWords ? 'on' : 'off'
@@ -849,7 +850,7 @@ export function useAppearance(): void {
     soundOn(settings.sounds)
     setVolume(settings.volume)
     setPack(settings.soundPack)
-  }, [settings?.fullWidth, settings?.pageWidth, settings?.linkPictures, settings?.avatars, settings?.motion, settings?.postcards, settings?.postcardBorder, settings?.highlights, settings?.menuIcons, settings?.iconColour, settings?.barWords, settings?.marks, settings?.progressBars, settings?.blur, settings?.boxDim, settings?.spellcheck, settings?.interfaceSize, settings?.sounds, settings?.volume, settings?.soundPack])
+  }, [settings?.fullWidth, settings?.pageWidth, settings?.linkPictures, settings?.avatars, settings?.motion, settings?.postcards, settings?.postcardBorder, settings?.highlights, settings?.paper, settings?.menuIcons, settings?.iconColour, settings?.barWords, settings?.marks, settings?.progressBars, settings?.blur, settings?.boxDim, settings?.spellcheck, settings?.interfaceSize, settings?.sounds, settings?.volume, settings?.soundPack])
 }
 
 /** The settings as this window last read them, for code that is not a component (a row's menu). */

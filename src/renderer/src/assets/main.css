@@ -2324,3 +2324,28 @@ html[data-tuck-open] [style*="--tilt"] { --tilt: 0deg !important; }
 /* Its inner side meets the strip square, with the strip's dashed fold for an edge. */
 html[data-tuck-open="right"] .mf-card { border-top-left-radius: 0; border-bottom-left-radius: 0; border-left-width: 0; }
 html[data-tuck-open="left"] .mf-card { border-top-right-radius: 0; border-bottom-right-radius: 0; border-right-width: 0; }
+
+/* The paper a note's page is written on (Settings › Paper), as a notebook's: lines, dots or squares in a
+   faint mix of the ink, scrolling with the words. The samples in Settings wear the same paper. */
+:root {
+  --mf-paper-ink: color-mix(in oklab, var(--foreground) 9%, transparent);
+  --mf-paper-step: 22px;
+}
+:root[data-paper='ruled'] .note-pane .haligtree-editor-wrapper:not(.is-line) > .haligtree-editor-content,
+.mf-paper[data-paper-sample='ruled'] {
+  background-image: linear-gradient(to bottom, transparent calc(100% - 1px), var(--mf-paper-ink) calc(100% - 1px));
+  background-size: 100% 28px;
+  background-attachment: local;
+}
+:root[data-paper='dots'] .note-pane .haligtree-editor-wrapper:not(.is-line) > .haligtree-editor-content,
+.mf-paper[data-paper-sample='dots'] {
+  background-image: radial-gradient(circle at 1px 1px, color-mix(in oklab, var(--foreground) 22%, transparent) 1px, transparent 1.4px);
+  background-size: var(--mf-paper-step) var(--mf-paper-step);
+  background-attachment: local;
+}
+:root[data-paper='grid'] .note-pane .haligtree-editor-wrapper:not(.is-line) > .haligtree-editor-content,
+.mf-paper[data-paper-sample='grid'] {
+  background-image: linear-gradient(var(--mf-paper-ink) 1px, transparent 1px), linear-gradient(90deg, var(--mf-paper-ink) 1px, transparent 1px);
+  background-size: var(--mf-paper-step) var(--mf-paper-step);
+  background-attachment: local;
+}

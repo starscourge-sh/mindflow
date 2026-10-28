@@ -398,6 +398,8 @@ const DEFAULTS = {
   postcardBorder: 'auto' as 'auto' | 'white' | 'cream' | 'black' | 'accent',
   // Highlighted words: 'soft' pastels, or 'rich', deeper and fuller.
   highlights: 'soft' as 'soft' | 'rich',
+  // The paper a note's page is written on, as a notebook's: plain, ruled, dotted or squared.
+  paper: 'plain' as 'plain' | 'ruled' | 'dots' | 'grid',
   // A menu line's drawing: 'lines', or 'emoji' (each line's own emoji).
   menuIcons: 'lines' as 'lines' | 'emoji',
   // The sidebar's pages each in their own colour; off, all in one, as Vivaldi's monochrome icons (emoji greyed too).
