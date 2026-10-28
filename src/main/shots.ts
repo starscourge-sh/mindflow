@@ -27,7 +27,7 @@ if (FAKE_CAMERA && FAKE_CAMERA !== 'denied') {
 }
 
 /** Refused: `asked` when macOS has just asked; `restart` when allowed since Haligtree started, so usable once it starts again. */
-export type ScreenShot = { png: Buffer; app: string } | { denied: true; asked: boolean; restart?: boolean }
+export type ScreenShot = { png: Buffer; app: string } | { denied: true; asked: boolean; restart?: boolean; /** The picture came back black: macOS let the call through but showed nothing. */ blank?: boolean }
 
 const screenAllowed = (): string => (process.platform === 'darwin' ? systemPreferences.getMediaAccessStatus('screen') : 'granted')
 
@@ -110,7 +110,9 @@ export async function shootScreen(display: Display, protectedWin?: BrowserWindow
   const before = screenAllowed()
   if (before === 'denied' || before === 'restricted') return { denied: true, asked: false }
   const named = frontApp(display)
-  const shown = BrowserWindow.getAllWindows().filter((win) => !win.isDestroyed() && win.isVisible() && win.getOpacity() > 0 && win !== protectedWin)
+  // A window in full screen is not made see-through: it is its own Space, and see-through it leaves that Space
+  // black, which is what the picture then caught (a session's shot taken with Haligtree in full screen).
+  const shown = BrowserWindow.getAllWindows().filter((win) => !win.isDestroyed() && win.isVisible() && win.getOpacity() > 0 && win !== protectedWin && !win.isFullScreen() && !win.isSimpleFullScreen())
   const opacity = new Map(shown.map((win) => [win, win.getOpacity()]))
   for (const win of shown) win.setOpacity(0)
   try {
@@ -125,12 +127,24 @@ export async function shootScreen(display: Display, protectedWin?: BrowserWindow
     if (screenAllowed() !== 'granted') return { denied: true, asked: before === 'not-determined' }
     const source = sources.find((one) => one.display_id === String(display.id)) ?? sources[0]
     if (!source || source.thumbnail.isEmpty()) return { denied: true, asked: false }
+    // A black picture is never kept: macOS answers with one when it will not show the screen after all (a grant
+    // left from an older build, a Space it hides). Said as that, not attached to the task as if it were the screen.
+    if (blackOut(source.thumbnail)) return { denied: true, asked: false, blank: true }
     return { png: source.thumbnail.toPNG(), app: await named }
   } catch {
     return { denied: true, asked: false }
   } finally {
     for (const [win, was] of opacity) if (!win.isDestroyed()) win.setOpacity(was)
   }
+}
+
+/** Whether a picture is all but black: nearly every pixel of a small copy of it under a faint grey. */
+function blackOut(image: Electron.NativeImage): boolean {
+  const small = image.resize({ width: 64 })
+  const bytes = small.toBitmap()
+  let dark = 0
+  for (let at = 0; at < bytes.length; at += 4) if (Math.max(bytes[at], bytes[at + 1], bytes[at + 2]) < 14) dark++
+  return dark / (bytes.length / 4) > 0.985
 }
 
 /**

@@ -453,7 +453,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
   const [typing, setTyping] = useState(false)
   const [words, setWords] = useState('')
   const [attached, setAttached] = useState<Attachment | null>(null)
-  const [denied, setDenied] = useState<false | 'refused' | 'asked' | 'restart'>(false)
+  const [denied, setDenied] = useState<false | 'refused' | 'asked' | 'restart' | 'blank'>(false)
   // While it says the screen cannot be seen, it asks again whenever the pill
   // comes to the front and every two seconds (a panel is rarely in front), so
   // it follows System Settings: gone once allowed, or asking for a restart.
@@ -886,7 +886,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
       setAttached({ url: shot.url, name: `Screenshot ${clockTime(new Date().toISOString())}`, picture: true })
       setDenied(false)
       chime('shutter')
-    } else setDenied(shot && 'restart' in shot && shot.restart ? 'restart' : shot && 'asked' in shot && shot.asked ? 'asked' : 'refused')
+    } else setDenied(shot && 'restart' in shot && shot.restart ? 'restart' : shot && 'blank' in shot && shot.blank ? 'blank' : shot && 'asked' in shot && shot.asked ? 'asked' : 'refused')
     field.current?.focus()
   }
   // A selfie: the camera opens in the pill, and what is kept waits here like a screenshot.
@@ -1261,7 +1261,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
                 </>
               ) : (
                 <>
-                  <span className="min-w-0 flex-1"><b className="font-semibold text-foreground">{denied === 'asked' ? `Allow ${APP_NAME} in the window macOS opened` : `${APP_NAME} can’t see the screen yet`}</b>{denied === 'asked' ? ', then try again.' : '. Paste or drop a picture instead. Already on? Turn it off and on, then restart.'}</span>
+                  <span className="min-w-0 flex-1"><b className="font-semibold text-foreground">{denied === 'asked' ? `Allow ${APP_NAME} in the window macOS opened` : denied === 'blank' ? 'The screenshot came out black, so it was not kept' : `${APP_NAME} can’t see the screen yet`}</b>{denied === 'asked' ? ', then try again.' : denied === 'blank' ? `. In “Privacy settings”, turn ${APP_NAME} off and on under Screen Recording, then restart it. Or paste or drop a picture.` : '. Paste or drop a picture instead. Already on? Turn it off and on, then restart.'}</span>
                   <button type="button" onClick={() => window.api.privacySettings('screen')} className="shrink-0 rounded-full px-2 py-0.5 font-medium text-foreground hover:bg-accent">Open Privacy settings</button>
                 </>
               )}

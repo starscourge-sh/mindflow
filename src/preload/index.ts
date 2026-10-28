@@ -190,7 +190,7 @@ const api = {
     return () => ipcRenderer.off('focus:slept', relay)
   },
   /** A screenshot of the pill's screen for the session's log, stored; denied without Screen Recording. */
-  focusShot: (): Promise<{ url: string } | { denied: true; asked?: boolean; restart?: boolean } | null> => ipcRenderer.invoke('focus:shot'),
+  focusShot: (): Promise<{ url: string } | { denied: true; asked?: boolean; restart?: boolean; blank?: boolean } | null> => ipcRenderer.invoke('focus:shot'),
   /** A screenshot of the box's screen for its note, without Haligtree's windows; with the app in front there. */
   screenShot: (area = false): Promise<{ url: string; app: string } | { denied: true; asked: boolean; restart?: boolean } | { cancelled: true } | null> => ipcRenderer.invoke('shots:screen', area),
   /** The camera, asked for before its first use: granted or denied. */
