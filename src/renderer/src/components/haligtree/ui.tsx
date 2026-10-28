@@ -1899,6 +1899,17 @@ export function VirtualList<T>({ items, keyOf, holds, cursor, estimate = 48, siz
     const again = setInterval(() => findScroller() && clearInterval(again), 100)
     return () => clearInterval(again)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // The list keeps its own place as rows above the screen change height (the
+  // virtualizer moves the scroll by as much), so the browser's own anchoring
+  // is off in its scroller: both at once, a group opened at the list's end
+  // grew upward, its heading sliding away from the pointer, as the browser
+  // held the row under it still.
+  useLayoutEffect(() => {
+    if (!scroller) return
+    const was = scroller.style.overflowAnchor
+    scroller.style.overflowAnchor = 'none'
+    return () => void (scroller.style.overflowAnchor = was)
+  }, [scroller])
   // Where the list starts in its scroller, read whenever what holds it changes
   // size (after layout, from the observer), never in the middle of a draw:
   // read on every draw, it laid out the whole page each time a list showed.
@@ -1971,13 +1982,18 @@ export function VirtualList<T>({ items, keyOf, holds, cursor, estimate = 48, siz
     window.addEventListener('haligtree:show-row', show)
     return () => window.removeEventListener('haligtree:show-row', show)
   }, [scroller]) // eslint-disable-line react-hooks/exhaustive-deps
+  const drawn = rows.getVirtualItems()
   return (
-    <div ref={box} data-vlist="" className={`relative ${className}`} style={{ height: rows.getTotalSize() }}>
+    // As tall as the rows drawn and the room kept for those above and below them, never a height of its own: a height
+    // set from the measure was a frame or two behind a group folding inside it, so the list stayed long while the group
+    // shut, and at the list's end the rows under it rose and then dropped back as the scroll caught up.
+    <div ref={box} data-vlist="" className={`relative ${className}`}
+      style={{ paddingBottom: Math.max(0, rows.getTotalSize() - (drawn.length ? drawn[drawn.length - 1].end - margin : 0)) }}>
       {/* The rows on show stand one under the other, in the page's own flow from where the first one starts: a row that
           changes height (a group folding, or taking in a dropped row) moves the ones under it in the same frame, never
           drawn over them while the measure catches up. */}
-      <div style={{ paddingTop: (rows.getVirtualItems()[0]?.start ?? margin) - margin }}>
-        {rows.getVirtualItems().map(({ index, key }) => (
+      <div style={{ paddingTop: (drawn[0]?.start ?? margin) - margin }}>
+        {drawn.map(({ index, key }) => (
           // A sliver of room under each row, so two lit rows (the open one and the
           // cursor) never touch. Padding, not margin: the measure counts padding.
           <div key={key} data-index={index} ref={rows.measureElement} className={`w-full ${rowClass}`}>

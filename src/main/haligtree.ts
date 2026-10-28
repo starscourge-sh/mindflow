@@ -621,6 +621,8 @@ const DEFAULTS = {
   sidebarGroups: {} as Record<string, string>,
   // Writing's and Gems' groups as folders under their rows in the sidebar.
   sidebarFolders: { article: true, nugget: true } as Record<'article' | 'nugget', boolean>,
+  // Writing's and Gems' folders, and the tags, unfolded while their page is open and folded away once you leave it.
+  foldersFollow: false,
   boxTabsOrder: [] as string[],
   pinOrder: [] as string[],
   // The sidebar's tags in your own order, by name; the rest follow by how often they are used.

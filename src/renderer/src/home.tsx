@@ -692,15 +692,15 @@ export function Home(): React.JSX.Element {
     setRecentState(recent ? null : { until: null })
   }
   // Folded away unless you open them, and kept the way you left them.
-  const [tagsOpen, setTagsOpen] = useRemembered('sidebar:tags')
+  const [tagsKept, keepTags] = useRemembered('sidebar:tags')
   // Pinned folds, Notion's way, and starts open.
   const [pinsOpen, setPinsOpen] = useRemembered('sidebar:pinned', true)
   // Recent: the last few notes you opened, under Pinned, a short list (five at most), kept folded or open as you left it.
   const [recentOpen, setRecentOpen] = useRemembered('sidebar:recent', true)
   const [recents, setRecents] = useState<Opened[]>([])
   // Writing's and Gems' folders, open to start (side-folders.tsx).
-  const [articleFolders, setArticleFolders] = useRemembered('sidebar:folders:article', true)
-  const [nuggetFolders, setNuggetFolders] = useRemembered('sidebar:folders:nugget', true)
+  const [articleKept, keepArticle] = useRemembered('sidebar:folders:article', true)
+  const [nuggetKept, keepNugget] = useRemembered('sidebar:folders:nugget', true)
   const [customizing, setCustomizing] = useState(false)
   // One light for the whole sidebar list, gliding to the row nearest the
   // pointer, and the page you are on marked by one fill that travels to the
@@ -710,6 +710,18 @@ export function Home(): React.JSX.Element {
   const sideChosen = useChosen(sideList, '[data-side-row][aria-current="page"]:not([inert] *)', `${view.id}:${view.focus ?? ''}`)
   // A calm sidebar: what serves capturing and coming back. One switched off is not there at all, a G or ⌘K away.
   const settings = useLive(haligtree.settings, null as Settings | null)
+  // With "Open folders on their page", Writing's and Gems' folders and the tags follow the page open: unfolded on
+  // their page (or one of its folders), folded away elsewhere. The arrow still turns them by hand, for as long as you
+  // stay on that page; leaving it forgets what the hand did.
+  const follow = !!settings?.foldersFollow
+  const [byHand, setByHand] = useState<{ page: string; open: Record<string, boolean> }>({ page: view.id, open: {} })
+  if (byHand.page !== view.id) setByHand({ page: view.id, open: {} })
+  const hand = byHand.page === view.id ? byHand.open : {}
+  const following = (key: string, page: string, kept: boolean, keep: (open: boolean) => void): [boolean, (open: boolean) => void] =>
+    follow ? [hand[key] ?? view.id === page, (open) => setByHand({ page: view.id, open: { ...hand, [key]: open } })] : [kept, keep]
+  const [tagsOpen, setTagsOpen] = following('tags', 'tags', tagsKept, keepTags)
+  const [articleFolders, setArticleFolders] = following('article', 'articles', articleKept, keepArticle)
+  const [nuggetFolders, setNuggetFolders] = following('nugget', 'nuggets', nuggetKept, keepNugget)
   const shownAll = useShown('sidebarShown')
   // Back after a long time away: only the Inbox, Journal and Tasks, until the next start or "Show everything".
   const away = useLive(() => call<{ days: number; quiet: boolean }>('return:quiet'), { days: 0, quiet: false })

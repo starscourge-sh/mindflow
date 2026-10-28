@@ -394,6 +394,26 @@ function PeekSample({ side, on }: { side: 'left' | 'right'; on: boolean }): Reac
   )
 }
 
+/**
+ * Writing and Gems with a folder under each: Writing is the page open, and
+ * pointing at the sample goes to Gems. With the setting on, the folders
+ * follow the page open; off, they stay as they were left.
+ */
+function FoldersFollowSample({ on }: { on: boolean }): React.JSX.Element {
+  const line = (name: string, first: boolean): React.JSX.Element => (
+    <>
+      <span className={`rounded-sm px-1.5 transition-colors duration-200 motion-reduce:transition-none ${first ? 'bg-accent group-hover/follow:bg-transparent' : 'group-hover/follow:bg-accent'}`}>{name}</span>
+      <span className={`overflow-hidden pl-4 text-muted-foreground transition-[opacity,max-height] duration-200 motion-reduce:transition-none ${!on ? 'max-h-5 opacity-100' : first ? 'max-h-5 opacity-100 group-hover/follow:max-h-0 group-hover/follow:opacity-0' : 'max-h-0 opacity-0 group-hover/follow:max-h-5 group-hover/follow:opacity-100'}`}>📁 {first ? 'Money' : 'Quotes'}</span>
+    </>
+  )
+  return (
+    <span data-follow-sample className="group/follow inline-flex w-28 flex-col rounded-md border border-border bg-background p-1 text-control text-foreground">
+      {line('Writing', true)}
+      {line('Gems', false)}
+    </span>
+  )
+}
+
 export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from ⌘K's “Your reader card”: its section, and the card brought into view. */ focus?: string; nonce?: number } = {}): React.JSX.Element {
   const settings = useLive(haligtree.settings, null as Settings | null)
   // The search at the top: rows that do not match go, and the words are marked.
@@ -706,6 +726,10 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
               </Setting>
             )
           })}
+          <Setting title="Open folders on their page" note="Writing's and Gems' folders, and your tags, unfold while their page is open and fold away when you go elsewhere." more="The arrow still opens or shuts them by hand until you leave the page. Point at the sample to see it." keywords="folders tags fold unfold follow auto open close collapse expand sidebar page">
+            <FoldersFollowSample on={!!settings.foldersFollow} />
+            <Switch checked={!!settings.foldersFollow} onCheckedChange={(foldersFollow) => set({ foldersFollow })} aria-label="Open folders on their page" />
+          </Setting>
           <Setting title="Sidebar" note="The sections in the main window's sidebar; drag one to move it." more="One switched off leaves the sidebar; G with its letter, or ⌘K, still opens it." keywords="customize sections menu more hide show order reorder move drag" below={<div className="-mx-2 mt-2"><ShowList places={PLACES} setting="sidebarShown" /></div>} />
           <Setting title="Quick capture tabs" note="The tabs beside quick capture; drag one to move it." more="A hidden one is still ⌃ and its number away, and shows while it is open." keywords="prompt panel inbox tasks review kept recent hide show order reorder move drag" below={<div className="-mx-2 mt-2"><ShowList places={BOX_TABS} setting="boxTabs" /></div>} />
         </Group>
