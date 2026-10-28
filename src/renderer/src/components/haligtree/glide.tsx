@@ -369,9 +369,11 @@ export function Highlight({ spot, session = 0, snap, from, travel = spring.fast,
  */
 export function Weighted({ on, children, className }: { on: boolean; children: ReactNode; className?: string }): React.JSX.Element {
   return (
-    // The one not shown is also hidden once faded (visibility goes with the
-    // opacity), so the label's words are read out, and copied, once.
-    <span className={cn('inline-grid min-w-0 *:col-start-1 *:row-start-1 *:truncate *:[transition:opacity_80ms,visibility_80ms]', className)}>
+    // The one not shown is hidden, so the label's words are read out, and
+    // copied, once. Swapped at once, never crossfaded: halfway through a fade
+    // both copies are half there, and a page opening behind it (Journal, the
+    // Inbox) held the frame there, the label dim for as long as it took.
+    <span className={cn('inline-grid min-w-0 *:col-start-1 *:row-start-1 *:truncate', className)}>
       <span className={on ? 'invisible opacity-0' : ''} style={{ fontWeight: WEIGHT.normal }}>{children}</span>
       <span className={on ? '' : 'invisible opacity-0'} style={{ fontWeight: WEIGHT.chosen }}>{children}</span>
     </span>
