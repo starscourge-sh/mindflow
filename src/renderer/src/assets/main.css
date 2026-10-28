@@ -2387,7 +2387,7 @@ html[data-tuck-open="left"] .mf-card { border-top-right-radius: 0; border-bottom
 /* The paper a page is written on (Settings › Paper): a note's, the Journal's day page and the writing room, as a notebook's: dots or squares in a
    faint mix of the ink, scrolling with the words. The samples in Settings wear the same paper. */
 :root {
-  --mf-paper-ink: color-mix(in oklab, var(--foreground) 3%, transparent);
+  --mf-paper-ink: color-mix(in oklab, var(--foreground) 5%, transparent);
   --mf-paper-step: 22px;
 }
 /* The swatches are small: their dots and squares come closer, so each shows several, as a page would. */
@@ -2395,8 +2395,9 @@ html[data-tuck-open="left"] .mf-card { border-top-right-radius: 0; border-bottom
 :root[data-paper='dots'] .note-pane .haligtree-editor-wrapper:not(.is-line) > .haligtree-editor-content,
 :root[data-paper='dots'] :is([data-day-write], [data-room]) .haligtree-editor-wrapper:not(.is-line) > .haligtree-editor-content,
 .mf-paper[data-paper-sample='dots'] {
-  background-image: radial-gradient(circle at 1px 1px, color-mix(in oklab, var(--foreground) 22%, transparent) 1px, transparent 1.4px);
-  background-size: var(--mf-paper-step) var(--mf-paper-step);
+  /* As faint as the grid's squares (a dot is a point, so a little more ink), fading into the page at its edges the same way. */
+  background-image: radial-gradient(ellipse at 50% 35%, transparent 25%, var(--background) 90%), radial-gradient(circle at 1px 1px, color-mix(in oklab, var(--foreground) 10%, transparent) 1px, transparent 1.4px);
+  background-size: 100% 100%, var(--mf-paper-step) var(--mf-paper-step);
   background-attachment: local;
 }
 :root[data-paper='grid'] .note-pane .haligtree-editor-wrapper:not(.is-line) > .haligtree-editor-content,
@@ -2404,7 +2405,7 @@ html[data-tuck-open="left"] .mf-card { border-top-right-radius: 0; border-bottom
 .mf-paper[data-paper-sample='grid'] {
   /* Faint, and fading into the page at its edges (the page's own colour laid over the squares there), so they sit
      in the paper rather than over it. */
-  background-image: radial-gradient(ellipse at 50% 35%, transparent 25%, var(--background) 90%), linear-gradient(var(--mf-paper-ink) 1px, transparent 1px), linear-gradient(90deg, var(--mf-paper-ink) 1px, transparent 1px);
+  background-image: radial-gradient(ellipse at 50% 40%, transparent 45%, var(--background) 100%), linear-gradient(var(--mf-paper-ink) 1px, transparent 1px), linear-gradient(90deg, var(--mf-paper-ink) 1px, transparent 1px);
   background-size: 100% 100%, var(--mf-paper-step) var(--mf-paper-step), var(--mf-paper-step) var(--mf-paper-step);
   background-attachment: local;
 }
