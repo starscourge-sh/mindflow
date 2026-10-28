@@ -67,7 +67,7 @@ try {
   let line = 0
   const when = { slanted: Infinity, asked: Infinity, noted: Infinity, typed: Infinity }
   // Watched for up to 40 seconds (the intro is 22 beats), a frame every ~400ms while shots are wanted.
-  while (Date.now() - start < 40000) {
+  while (Date.now() - start < 60000) {
     const now = await look()
     const t = Number.isNaN(now.t) ? Date.now() - start : Math.round(now.t)
     if (now.shown > 0 && first === Infinity) first = t

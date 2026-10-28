@@ -1,3 +1,4 @@
+import { INTRO_DELAY, INTRO_SECONDS, introRise } from '@/components/ui/grainient'
 import tearUrl from '@/assets/sounds/paper-rip.m4a'
 import foldUrl from '@/assets/sounds/paper-fold.m4a'
 import pageUrl from '@/assets/sounds/page-turn.m4a'
@@ -1020,7 +1021,11 @@ export function ambience(): void {
   out.connect(room(context))
   const swell = context.createGain()
   const at = ARRIVE_MS / 1000
-  swell.gain.setValueAtTime(1, now)
+  // From silence, built as the glow is (grainient.tsx's own clock and curve): nothing while the page holds dark,
+  // then rising with the light, steady from its first moment and only quickening, whole as the glow fills the window.
+  swell.gain.setValueAtTime(0, now)
+  const rise = Float32Array.from({ length: 64 }, (_, i) => introRise(i / 63))
+  swell.gain.setValueCurveAtTime(rise, now + INTRO_DELAY, INTRO_SECONDS)
   // The held breath: the chord eases back a little just before the words, and comes in again with them.
   swell.gain.setValueAtTime(1, now + at - 1.2)
   swell.gain.linearRampToValueAtTime(0.72, now + at - 0.15)

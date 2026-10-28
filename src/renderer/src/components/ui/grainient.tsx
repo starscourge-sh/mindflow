@@ -16,10 +16,13 @@ const STIR_LIFE = 1.3
 const STIR_STEP = 0.06
 const TWIRL_LIFE = 2.6
 /** The bloom (`intro`): a moment of the bare page first, then the glow grows from the middle to fill the field. */
-const INTRO_DELAY = 2.2
-const INTRO_SECONDS = 7.4
+/** How long the bare page holds, and how long the glow then takes to fill it (the welcome's music builds on the same clock). */
+export const INTRO_DELAY = 2.2
+export const INTRO_SECONDS = 7.4
 // The share of the glow's growth that is steady from the first moment; the rest quickens towards the end.
-const STEADY = 0.32
+export const STEADY = 0.32
+/** How far the glow has grown at `opened` (0 to 1): steady from the first moment, then only quickening. */
+export const introRise = (opened: number): number => STEADY * opened + (1 - STEADY) * opened ** 3
 /** A nudge: how far the field's pattern turns over, and how quickly it settles there (about a second). */
 const NUDGE_SHIFT = 0.14
 const NUDGE_EASE = 0.3
@@ -430,7 +433,7 @@ export function Grainient({
       // One unbroken movement, as Arc's: a small shine comes up in the middle and grows at a steady, unhurried pace
       // (long enough to wonder what it is), then only ever quickens until it is whole. Its speed never drops, so it
       // never seems to start, stop and start again.
-      gl.uniform1f(fu.uReveal, STEADY * opened + (1 - STEADY) * opened ** 3)
+      gl.uniform1f(fu.uReveal, introRise(opened))
       gl.drawArrays(gl.TRIANGLES, 0, 3)
       gl.bindFramebuffer(gl.FRAMEBUFFER, null)
       gl.viewport(0, 0, canvas.width, canvas.height)

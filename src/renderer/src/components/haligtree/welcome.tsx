@@ -137,13 +137,17 @@ type Turn = 'idle' | 'open' | 'away' | 'kept'
  */
 const PAGE = {
   enter: (way: number) => ({ opacity: 0, transform: `perspective(1800px) translateX(${way * 2.5}%) rotateY(0deg)` }),
-  rest: { opacity: 1, transform: 'perspective(1800px) translateX(0%) rotateY(0deg)', transition: { duration: 0.6, ease: ENTER, delay: 0.16 } },
-  leave: (way: number) => ({ opacity: 0, transform: `perspective(1800px) translateX(${way * -4}%) rotateY(${way * -16}deg)`, transition: { duration: 0.5, ease: MOVE } }),
+  // The page in front fades out first (its words gone in 0.22s, while it keeps turning away) and the next comes in only
+  // then: overlapping, the two pages' words showed through each other for a moment, going back most of all.
+  rest: { opacity: 1, transform: 'perspective(1800px) translateX(0%) rotateY(0deg)', transition: { duration: 0.6, ease: ENTER, delay: 0.24 } },
+  leave: (way: number) => ({ opacity: 0, transform: `perspective(1800px) translateX(${way * -4}%) rotateY(${way * -16}deg)`, transition: { duration: 0.5, ease: MOVE, opacity: { duration: 0.22, ease: 'easeOut' } } }),
   gone: { opacity: 0, transition: { duration: 0 } }
 }
 
 export function Welcome(): React.JSX.Element | null {
   const [at, setAt] = useState(-1)
+  // Whether the page reads light (dark words): its gold is chosen by what is on screen, not by the theme's dark class.
+  const lightPage = useLightTheme()
   // Opened again from a menu: nothing is first about it.
   const [replay, setReplay] = useState(false)
   // Skipped ahead, and from where: the last page gets a line of its own.
@@ -543,7 +547,7 @@ export function Welcome(): React.JSX.Element | null {
   return (
     <MotionConfig reducedMotion={quiet ? 'always' : 'never'}>
     <motion.div ref={dialog} tabIndex={-1} role="dialog" aria-modal aria-label={`Welcome to ${APP_NAME}`} inert={opening} onKeyDown={(event) => event.stopPropagation()}
-      data-closing={closing ? '' : undefined} data-story={story().id} data-dial={at === DIAL ? '' : undefined} onPointerDown={() => void (closing && closed())}
+      data-closing={closing ? '' : undefined} data-story={story().id} data-dial={at === DIAL ? '' : undefined} data-page={lightPage ? 'light' : 'dark'} onPointerDown={() => void (closing && closed())}
       initial={false} animate={{ opacity: closing ? 0 : 1 }} transition={closing ? { delay: 0.45, duration: 0.9, ease: MOVE } : { duration: 0 }}
       className="mf-welcome fixed inset-0 z-[70] flex outline-none flex-col overflow-clip bg-background text-foreground [container-type:inline-size]">
       <Backdrop family={at === WRITE ? 'ruled' : at === DIAL ? 'dots' : 'none'} page={at} arrival={arrival} arriving={mist && veiled && at === WHY} onBloomed={() => (setBloomed(true), !rushed && titleChime(0.45))} />
@@ -776,21 +780,23 @@ function thesisBeats(): Beat<ThesisState>[] {
     beats.push({ at: t, to: { words: i + 1 } })
     t += BEAT_MS / 4
   })
-  // Read the line whole before anything else comes.
-  t += 600
+  // Read the line whole, and taken in, before anything else comes: the user found the three starting before the
+  // headline had sunk in.
+  t += Math.max(2200, leadMs(THESIS))
   // Each kind of app lands in bold, what it keeps comes up beside it, and a pointer selects that and sets it in italics, then goes on to the next.
   THREE.forEach((_, i) => {
     // Read before anything moves: the bold words alone a moment, then the rest of the line, and only once
     // both have been read does the pointer set out for it.
     beats.push({ at: t, to: { gaps: i + 1 }, cue: cue('bead') })
-    beats.push({ at: t + 450, to: { kept: i + 1 } })
-    const reach = t + 450 + Math.max(600, leadMs(THREE[i][1]) - 600)
+    beats.push({ at: t + 800, to: { kept: i + 1 } })
+    const reach = t + 800 + Math.max(900, leadMs(THREE[i][1]) - 400)
     beats.push({ at: reach, to: { line: i, move: 'reach' } })
     const press = reach + REACH_MS + 160
     beats.push({ at: press, to: { move: 'drag' }, cue: cue('select') })
     beats.push({ at: press + DRAG_MS + 40, to: { move: 'held' } })
     beats.push({ at: press + DRAG_MS + 300, to: { slanted: i + 1 }, cue: cue('slant') })
-    t = press + DRAG_MS + 500
+    // A breath after each, before the next kind of app comes.
+    t = press + DRAG_MS + 1000
   })
   beats.push({ at: t, to: { line: -1, move: 'leave' } })
   // The cause, read whole (it stays up).

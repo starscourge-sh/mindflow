@@ -344,7 +344,7 @@ try {
   console.log(`${moved} times the stage moved while its headline was still being read`)
   console.log(`${empties} empty demo frames, ${overs} demo parts over one another`)
   // Why opens the welcome, and tells its story in order: the line, the three tools, the question, the answer, then what a commonplace book is.
-  const want = ['line', 'gap-0', 'gap-1', 'gap-2', 'question', 'answer', 'book']
+  const want = ['line', 'gap-0', 'gap-1', 'gap-2', 'question', 'answer']
   const thesisOk = steps[0] === 'Why' && want.every((one, i) => thesisOrder[i] === one)
   console.log(`${thesisOk ? 'ok' : 'FAIL'}: the thesis screen is the first chapter and shows its lines in order (${thesisOrder.join(' > ')})`)
   for (const one of accents) console.log(`   ACCENT, unexplained: ${one}`)

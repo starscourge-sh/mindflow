@@ -1452,18 +1452,20 @@ input[type='number']::-webkit-outer-spin-button {
   --mf-wl-body: color-mix(in oklab, var(--foreground) 88%, var(--background));
   --mf-wl-quiet: color-mix(in oklab, var(--foreground) 78%, var(--background));
 }
-/* The welcome is an old book whatever the theme: its accent is the logo's gold, not the book's colour (which
-   sat green over the gold gradient). Deep gold with white on a light page, gilt with dark ink on a dark one.
-   Not on the theme dial's step, where each theme shows its own accent as you try it. */
-.mf-welcome:not([data-dial]) {
-  --primary: #8e6a0e;
+/* The welcome is an old book whatever the theme: its accent is the logo's gold (gruvbox's yellow, #fabd2f), not the
+   book's colour. On a dark page the gold itself, with dark ink on it; on a light page a deep gruvbox yellow, dark
+   enough to read on the cream gradient (4.5:1 or better), with light ink. Chosen by what the page shows (data-page, from the words' own
+   colour), never the theme's dark class, which a light page can carry. Not on the theme dial's step, where each
+   theme shows its own accent as you try it. */
+.mf-welcome[data-page='light']:not([data-dial]) {
+  --primary: #7c4f09;
   --primary-foreground: #fffaf0;
-  --ring: #8e6a0e;
+  --ring: #7c4f09;
 }
-.dark .mf-welcome:not([data-dial]) {
-  --primary: #e2b33c;
+.mf-welcome[data-page='dark']:not([data-dial]) {
+  --primary: #fabd2f;
   --primary-foreground: #1d1608;
-  --ring: #e2b33c;
+  --ring: #fabd2f;
 }
 /* A pen's stroke drawn once (.mf-pen below). */
 @keyframes mf-ink { to { stroke-dashoffset: 0; } }
