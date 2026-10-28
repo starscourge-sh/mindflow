@@ -1581,7 +1581,7 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     return `Folder ${n}`
   }
   const make = (ids: string[] = []) => (): { id: string; name: string } => ({ id: crypto.randomUUID(), name: naming(ids) })
-  const commit = (raw: Layout, cue: Cue, said?: string, unsort?: () => void): void => {
+  const commit = (raw: Layout, cue: Cue, said?: string, unsort?: () => void, loud = false): void => {
     const was = layout
     // A group left with one note comes apart, in the same step, and the same Undo.
     const { layout: next, dissolved } = tidy(raw)
@@ -1604,8 +1604,9 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
       const made = Object.keys(next.groups).filter((id) => !(id in was.groups))
       void noteGroupsApi.arrange(tier, { top: was.top, groups: was.groups, revive }).then(() => made.forEach((id) => void noteGroupsApi.separate(id)))
     }
-    // A new group is drawn in front of you with its name open for typing: no toast, ⌘Z still takes it back.
-    void noteGroupsApi.arrange(tier, next).then(() => said && (next.make && !apart.length ? quietly(back) : toast(apart.length ? `${said}: ${apart.join(', ')} came apart` : said, back)))
+    // A new group is drawn in front of you with its name open for typing: no toast, ⌘Z still takes it back. One a drop
+    // made (`loud`) says so, with its Undo: a drag can make one you did not mean to.
+    void noteGroupsApi.arrange(tier, next).then(() => said && (next.make && !apart.length && !loud ? quietly(back) : toast(apart.length ? `${said}: ${apart.join(', ')} came apart` : said, back)))
   }
   // In an open folder, every move keeps what it moves inside that folder.
   const inside = (from: Layout, key: string): boolean => {
@@ -1721,7 +1722,7 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
       const name = (id?: string): string => (id && (info.get(id)?.name ?? next.make?.name)) || 'the folder'
       const n = ids.length > 1 ? ` ${ids.length}` : ''
       commit(next, next.make || (lands && lands !== was) ? 'gather' : was && !lands ? 'separate' : 'shift',
-        next.make ? 'New folder' : lands && lands !== was ? `Added${n} to ${name(lands)}` : was && !lands ? `Removed${n} from ${name(was)}` : `Moved${n}`, unsort)
+        next.make ? `Made a new folder, ${next.make.name}` : lands && lands !== was ? `Added${n} to ${name(lands)}` : was && !lands ? `Removed${n} from ${name(was)}` : `Moved${n}`, unsort, !!next.make)
     },
     picked: chosen,
     onLetGo: () => done(),

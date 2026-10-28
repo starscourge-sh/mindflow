@@ -183,8 +183,8 @@ export function gather(layout: Layout, target: string, ids: string[], make: { id
   return { top, groups: { ...groups, [make.id]: members }, make }
 }
 
-/** How a carried row is let go over another: on its middle (gathered with it), or just before or after it. */
-export type How = 'join' | 'before' | 'after'
+/** How a carried row is let go over another: on its middle (gathered with it), just before or after it, or carried left out of its folder (`out`, over that folder's own row). */
+export type How = 'join' | 'before' | 'after' | 'out'
 
 /** Put `key` just before or after `anchor`, in `group` (or the top level, null). */
 function beside(layout: Layout, key: string, group: string | null, anchor: string, how: 'before' | 'after'): Layout {
@@ -206,6 +206,8 @@ function beside(layout: Layout, key: string, group: string | null, anchor: strin
 export function drop(layout: Layout, active: string, target: string, how: How, folded: Set<string>, make: () => { id: string; name: string }): Layout | null {
   if (active === target) return null
   const own = groupOf(layout, active)
+  // Out of its folder, to just under it, in whatever holds that folder: as a step out with the keys does.
+  if (how === 'out') return own && target === KEY + own ? moveTo(layout, active, { group: parentOf(layout, own) ?? null, after: target }) : null
   if (isGroup(active)) {
     const me = groupId(active)
     if (how === 'join') {

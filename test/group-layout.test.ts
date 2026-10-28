@@ -190,3 +190,9 @@ test('a subgroup let go on another subgroup goes inside it, a third level; besid
   assert.equal(sameLayout(next, layout), false)
   assert.equal(sameLayout(drop(layout, 'b', 'a', 'after', none, make)!, layout), true)
 })
+
+test('carried left out of its folder, a note lands just under it, and nowhere else', () => {
+  assert.deepEqual(drop(base(), 'b', 'g:G', 'out', new Set(), make), { top: ['a', 'g:G', 'b', 'd', 'e'], groups: { G: ['c'] } })
+  assert.equal(drop(base(), 'a', 'g:G', 'out', new Set(), make), null)
+  assert.equal(drop(base(), 'b', 'c', 'out', new Set(), make), null)
+})

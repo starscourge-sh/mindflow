@@ -1,5 +1,5 @@
 // Groups in a kept list, end to end, with frames of every change as it
-// happens: a drag over a row's middle (the group about to form) and near its
+// happens: a drag rested on a row's middle (the group about to form) and near its
 // edge (only a line), a note carried out of its group, a group forming,
 // picking rows with ⌘-click and the menu that speaks for them, ⌃⌘N, ← and →
 // on a group's row, folding, Separate and its Undo; then a restart to see it
@@ -92,13 +92,14 @@ if (c) try {
   await articles(c)
   check('the list is in your own order, with no groups yet', (await groupsNow(c)).length === 0)
 
-  // 1. Over the middle of a row: it lifts, a panel opens around it with room for the carried one, and the label says New group.
+  // 1. Rested on the middle of a row: it lifts, a panel opens around it with room for the carried one, and the label says New folder.
   await carry(c, row(c, 'How memory palaces work'), row(c, 'Spaced repetition, a primer'), 0.5, {
     up: false,
     hold: async () => {
+      await c.h.waitForTimeout(700)
       await frames(c, 'a-middle', 6, 40)
       check('over a row\'s middle, a preview of the group shows', await c.h.locator('[data-preview]').count() === 1)
-      check('and the label says so', (await said(c)) === 'New folder', await said(c))
+      check('and the label says so, naming the row', (await said(c)) === 'New folder with Spaced repetition, a pr…', await said(c))
       check('and no insertion line', await c.h.locator('[data-drop-line]').count() === 0)
     }
   })
@@ -278,8 +279,9 @@ if (c) try {
   await (await reach(c, "Mnemosyne's problem")).click({ modifiers: ['Meta'] })
   await carry(c, row(c, "Mnemosyne's problem"), row(c, 'What The Matrix gets right'), 0.5, {
     hold: async () => {
-      await c.h.waitForTimeout(200)
-      check('over a lone row, the label says a group of three', (await said(c)) === 'New folder of 3', await said(c))
+      // A new folder only once the pointer has rested on the row.
+      await c.h.waitForTimeout(900)
+      check('over a lone row, the label says a group of three', (await said(c)).startsWith('New folder of 3 with What The Matrix'), await said(c))
     }
   })
   await c.h.waitForTimeout(700)

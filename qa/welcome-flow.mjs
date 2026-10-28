@@ -397,8 +397,10 @@ for (const theme of ['light', 'dark']) {
     await h.click('[data-name-draw]')
     await h.waitForTimeout(300)
     const drawn = await read()
-    check(`${theme}: “Draw another” draws a new name, on the card too`, drawn.placeholder !== first.placeholder && drawn.card === drawn.placeholder, `${first.placeholder} -> ${drawn.placeholder}`)
+    check(`${theme}: “Draw another” draws a new name, in the field and on the card too`, drawn.placeholder !== first.placeholder && drawn.value === drawn.placeholder && drawn.card === drawn.placeholder, `${first.placeholder} -> ${JSON.stringify(drawn)}`)
+    // A name of their own written in its place: the drawn one is picked whole and typed over.
     await h.focus('[data-welcome-book-name]')
+    await h.keyboard.press('Meta+a')
     await h.keyboard.type('Chapel of Anticipation', { delay: 15 })
     await h.waitForTimeout(250)
     const typed = await read()

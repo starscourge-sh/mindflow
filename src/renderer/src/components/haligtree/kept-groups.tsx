@@ -105,6 +105,12 @@ const collide: CollisionDetection = (args) => {
 /** Emil's ease-out, the curve everything here settles on. */
 const OUT = 'cubic-bezier(0.23, 1, 0.32, 1)'
 const INDENT = 0
+/** How long the pointer rests on a row's middle before letting go there would make a new folder: a plain drag across rows only moves. */
+const DWELL = 550
+/** How far left of where it was taken up a row is carried before it means "out of its folder", as dragging left outdents in Notion. */
+const OUTDENT = 40
+/** A row's name in the hint, short enough to leave the carried one readable. */
+const short = (text: string): string => (text.length > 24 ? `${text.slice(0, 23).trimEnd()}…` : text || 'Untitled')
 
 /**
  * What letting go now would do, and the words for it: read off the layout the
@@ -371,8 +377,9 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
     const from = activatorEvent instanceof PointerEvent ? activatorEvent.clientX : null
     if (from !== null) {
       const follow = (event: PointerEvent): void => dragX.set(event.clientX - from)
-      const done = (): void => (dragX.set(0), window.removeEventListener('pointermove', follow), window.removeEventListener('pointerup', done), window.removeEventListener('pointercancel', done))
-      window.addEventListener('pointermove', follow)
+      const done = (): void => (dragX.set(0), window.removeEventListener('pointermove', follow, true), window.removeEventListener('pointerup', done), window.removeEventListener('pointercancel', done))
+      // Caught on the way down, before the list's own drag reads the same move: what is aimed at always knows how far left it is.
+      window.addEventListener('pointermove', follow, true)
       window.addEventListener('pointerup', done)
       window.addEventListener('pointercancel', done)
     }
@@ -407,6 +414,20 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
     if (spring.current) clearTimeout(spring.current.timer)
     spring.current = null
   }
+  // Rested on a row's middle: once it has been there DWELL, letting go there makes a new folder, and the row lights to say so.
+  const dwell = useRef<{ key: string; since: number; timer: ReturnType<typeof setTimeout> } | null>(null)
+  const undwell = (): void => {
+    if (dwell.current) clearTimeout(dwell.current.timer)
+    dwell.current = null
+  }
+  const rested = (key: string): boolean => {
+    if (dwell.current?.key === key) return performance.now() - dwell.current.since >= DWELL
+    undwell()
+    // A pointer held still sends no moves: the aim is read again once the rest is long enough.
+    dwell.current = { key, since: performance.now(), timer: setTimeout(() => lastMove.current && onDragMove(lastMove.current), DWELL) }
+    return false
+  }
+  const titles = useMemo(() => new Map(bundles.flatMap((one) => [...one.entries, ...(one.parts ?? []).flatMap(function all(part: Part): Entry[] { return 'entry' in part ? [part.entry] : [...part.entries, ...(part.parts ?? []).flatMap(all)] })].map((entry) => [entry.id, entry.title] as const))), [bundles])
   const name = (group: string | null | undefined): string => info.get(group ?? '')?.name ?? 'the folder'
   // A group carried over the middle of anything inside a top-level group (its row, a subgroup's row, a note) aims at that group as a whole.
   const outerOf = (key: string): string | undefined => {
@@ -453,7 +474,12 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
     if (manyRef.current.length > 1 && manyRef.current.includes(target)) return point(null)
     const ids = manyRef.current.length > 1 ? manyRef.current : [id]
     const at = (pointer.y - over.rect.top) / over.rect.height
-    const middle = at > 0.28 && at < 0.72
+    // Carried well to the left: out of its folder, never into a new one.
+    const mover = ids[0]
+    const homeFolder = isGroup(mover) ? parentOf.get(mover.slice(KEY.length)) : home.get(mover)
+    const outward = -dragX.get() > OUTDENT
+    const middle = !outward && at > 0.28 && at < 0.72
+    if (!middle) undwell()
     // A group carried over anything inside another group's block goes beside that whole block, so which side is read
     // against the block, not the row under the pointer: else every row's middle inside it flipped the room from above
     // the block to below it.
@@ -476,6 +502,8 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
     sided.current = { key: beside, how }
     // What to try, in turn: over a row's middle, gathering with it (or going into its group); else, or where that does nothing, beside it.
     const tries: [string, How][] = []
+    // Left of where it was, over its own folder's rows (or that folder's own row): out of the folder, to just under it.
+    if (outward && homeFolder && (target === KEY + homeFolder || home.get(target) === homeFolder || (isGroup(target) && parentOf.get(target.slice(KEY.length)) === homeFolder))) tries.push([KEY + homeFolder, 'out'])
     // Once going inside a group, a group carried stays going inside it while the pointer is anywhere but its block's ends.
     const whole = isGroup(id) ? outerOf(target) : undefined
     const inside = !!whole && aimed.current?.how === 'join' && aimed.current.target === KEY + whole && side > 0.2 && side < 0.8
@@ -491,6 +519,8 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
       const into = groupOf(land.after, lead) ?? null
       const around = groupsAround(land.after, lead)
       const make = !!land.after.make
+      // A new folder only once the pointer has rested on the row: until then it is a move beside it.
+      if (make && how === 'join' && !rested(where)) continue
       // The room opens after the row it will follow on show, leaving out what is carried and what a carried group takes along.
       const known = new Set(keys)
       const seq = land.shown.filter((key) => key === lead || (known.has(key) && !ids.includes(key)))
@@ -502,7 +532,7 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
       const count = n > 1 ? `${n} ` : ''
       const outer = make ? groupOf(land.after, KEY + into) ?? null : null
       const words =
-        make ? (outer ? (n > 1 ? `New folder of ${n + 1} in ${name(outer)}` : `New folder in ${name(outer)}`) : n > 1 ? `New folder of ${n + 1}` : 'New folder')
+        make ? `${n > 1 ? `New folder of ${n + 1}` : 'New folder'} with ${short(titles.get(where) ?? '')}${outer ? ` in ${name(outer)}` : ''}`
         : into !== own ? (into ? (isGroup(lead) ? `Put inside ${name(into)}` : own ? `Move ${count}to ${name(into)}` : `Add ${count}to ${name(into)}`) : isGroup(lead) ? `Move out of ${name(own)}` : `Remove ${count}from ${name(own)}`)
         : `${n > 1 ? `Move ${num(n)} here` : 'Move here'}${ordered ? '' : ' · Custom order'}`
       // In the gap row's own group (or first in the group whose row it is), the room sits close under it.
@@ -536,6 +566,7 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
     lastMove.current = null
     sided.current = null
     unspring()
+    undwell()
     setMany([])
     setCarried(null)
     point(null)
@@ -814,7 +845,7 @@ function OwnOrderHint(): React.JSX.Element | null {
   return (
     <p data-own-order-hint="" className="mb-1 flex items-center gap-2 px-2 text-xs text-muted-foreground animate-in fade-in-0 duration-300">
       <GripVertical aria-hidden className="size-3 shrink-0" />
-      <span className="min-w-0 flex-1">Drag a row to move it; drop it on another row to make a group.</span>
+      <span className="min-w-0 flex-1">Drag a row to move it, or to the left to take it out of its folder. Hold it on another row to make a folder.</span>
       <button type="button" onClick={done} className="flex h-6 shrink-0 items-center rounded px-1.5 hover:bg-accent hover:text-foreground">Got it</button>
     </p>
   )
