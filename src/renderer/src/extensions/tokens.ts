@@ -153,6 +153,27 @@ function scan(doc: ProseMirrorNode, patterns: TokenPattern[], from = 0, to = doc
 }
 
 /**
+ * The same matches in one line of plain text, `from` and `to` as offsets into
+ * it: for a line drawn as text until it is written in, painted as the editor
+ * would paint it. Earlier patterns win an overlap, as in the editor.
+ */
+export function tokensInText(text: string, patterns: TokenPattern[]): TokenMatch[] {
+  const found: TokenMatch[] = []
+  for (const token of patterns) {
+    const flags = token.pattern.flags.includes("g") ? token.pattern.flags : `${token.pattern.flags}g`
+    for (const match of text.matchAll(new RegExp(token.pattern.source, flags))) {
+      if (!match[0]) continue
+      const from = match.index ?? 0
+      const to = from + match[0].length
+      if (found.some((other) => from < other.to && to > other.from)) continue
+      const value = match[1] ?? match[0]
+      found.push({ name: token.name, color: colorOf(token, value), text: match[0], value, from, to })
+    }
+  }
+  return found.sort((a, b) => a.from - b.from)
+}
+
+/**
  * Colours chosen for tags on the Tags page, by name. Filled by the app; read
  * each time a tag is painted, so a choice shows on the next edit, in every
  * editor, without each one being built again.

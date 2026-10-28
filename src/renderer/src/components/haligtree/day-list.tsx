@@ -709,7 +709,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
             {/* On pointing: start on it, give it a length, or put it off a day. */}
             {!struck && (
               // Over the end of the line rather than beside it, so the words keep the whole width in a narrow pane.
-              <span className="pointer-events-none absolute top-0.5 right-0 flex items-center gap-0.5 rounded-md bg-background pl-2 opacity-0 transition-opacity group-focus-within/line:pointer-events-auto group-focus-within/line:opacity-100 group-hover/line:pointer-events-auto group-hover/line:opacity-100">
+              <InUse className="pointer-events-none absolute top-0.5 right-0 flex items-center gap-0.5 rounded-md bg-background pl-2 opacity-0 transition-opacity starting:opacity-0 group-focus-within/line:pointer-events-auto group-focus-within/line:opacity-100 group-hover/line:pointer-events-auto group-hover/line:opacity-100">{() => <>
                 {section === 'now' ? (
                   <>
                     {focusToolsShown() && <Tip label="Start a session on it">
@@ -745,7 +745,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
                     <button type="button" data-open-line={task.id} aria-label="Open it" onClick={() => (chime('tap'), onOpenTask(task.id))} className="flex h-6 items-center gap-1 rounded-md px-1.5 text-control text-muted-foreground hover:bg-accent hover:text-foreground">Open<ChevronRight className="size-3.5" /></button>
                   </Tip>
                 )}
-              </span>
+              </>}</InUse>
             )}
             {/* A length given, and how much it matters, kept in sight when not pointing; the words keep the line's start. */}
             {!struck && task.priority ? <span className="mt-[0.2rem] shrink-0 group-hover/line:hidden group-focus-within/line:hidden"><PriorityMark level={task.priority} /></span> : null}
@@ -941,6 +941,26 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
       )}
     </div>
   )
+}
+
+/**
+ * What a line shows only while it is pointed at or written in (its tools),
+ * made only then, so a long list draws them for the line in use and not for
+ * every line. Kept while one of its menus is open.
+ */
+function InUse({ className, children }: { className: string; children: () => React.ReactNode }): React.JSX.Element {
+  const ref = useRef<HTMLSpanElement>(null)
+  const [inUse, setInUse] = useState(false)
+  useEffect(() => {
+    const row = ref.current?.closest<HTMLElement>('[data-day-line]')
+    if (!row) return
+    const look = (): void => setInUse(row.matches(':hover') || row.contains(document.activeElement) || !!ref.current?.querySelector('[data-state=open]'))
+    const events = ['pointerenter', 'pointerleave', 'focusin', 'focusout']
+    for (const one of events) row.addEventListener(one, look)
+    look()
+    return () => { for (const one of events) row.removeEventListener(one, look) }
+  }, [])
+  return <span ref={ref} className={className}>{inUse ? children() : null}</span>
 }
 
 /** A line's words as written, each #tag on its tinted ground, as the line had it before it was ticked. */

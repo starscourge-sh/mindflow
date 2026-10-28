@@ -44,6 +44,22 @@ try {
   check('three lines written are three tasks', !!(alpha && beta && gamma))
   check('the caret is on the new line after each', await focusIn('[data-new="now"]'))
 
+  // A line not being written is drawn as text, an editor only once it is pressed: nothing moves as it becomes one.
+  const where = (id) => h.evaluate((id) => {
+    const line = document.querySelector(`[data-day-line="${id}"] [data-line]`)
+    const text = document.createTreeWalker(line, NodeFilter.SHOW_TEXT).nextNode()
+    const range = document.createRange(); range.setStart(text, 0); range.setEnd(text, text.length)
+    const box = line.getBoundingClientRect(), words = range.getBoundingClientRect()
+    return { editor: !!line.querySelector('[contenteditable]'), at: [box.top, box.height, words.left, words.top, words.width, words.height].map((n) => Math.round(n * 10) / 10) }
+  }, id)
+  check('lines not being written are drawn as text, no editor each', (await h.evaluate(() => document.querySelectorAll('[data-day-list] [data-day-line] [contenteditable]').length)) <= 1)
+  const drawn = await where(gamma.id)
+  await lineOf(gamma.id).click({ position: { x: 4, y: 6 } }); await wait(300)
+  const writing = await where(gamma.id)
+  check('pressed, it becomes an editor with the caret in it, its words where they were to the pixel', !drawn.editor && writing.editor && await focusIn(`[data-day-line="${gamma.id}"]`) && JSON.stringify(drawn.at) === JSON.stringify(writing.at), JSON.stringify({ drawn: drawn.at, writing: writing.at }))
+  await h.keyboard.press('Escape'); await wait(300)
+  check('left, it is drawn as text again', !(await where(gamma.id)).editor)
+
   // Tab on a line written before: a step of the one above. Shift-Tab: a line again.
   await endOf(lineOf(beta.id)); await h.keyboard.press('Tab'); await wait(900)
   let a = await v('task', alpha.id)
