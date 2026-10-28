@@ -92,7 +92,7 @@ import { registerSimilar } from './similar'
 import { registerJournal } from './journal'
 import { registerWordLog } from './word-log'
 import { frostWindow, registerFrost, retellFrost } from './frost'
-import { BOOK, SANDBOX, arrived, windingDown, onHandOff, readShelf, realRoot, registerSandbox, relaunch, restartNow, useDataFolder, writeShelf } from './sandbox'
+import { BOOK, SANDBOX, arrived, handedOff, windingDown, onHandOff, readShelf, realRoot, registerSandbox, relaunch, restartNow, useDataFolder, writeShelf } from './sandbox'
 import { MOVED, shortPath, untoldMove, type Moved } from './old-data'
 import { books, here, nameOf, nextImport, registerBooks } from './books'
 import { wideThumb } from './video-thumbs'
@@ -962,9 +962,11 @@ const nudgeHeld = (sender: Electron.WebContents): { win: BrowserWindow; waiting:
  * so the desktop looks the same after a restart.
  */
 const stickies = new Map<string, BrowserWindow>()
-// Switching book or into the sandbox: the stickies of the book being left go at once, while its main
-// window stays up until the new run's is on screen; the new run's are dealt in after it (afterHome).
-onHandOff(() => { for (const win of stickies.values()) if (!win.isDestroyed()) win.hide() })
+// Switching book or into the sandbox: everything of the book being left that floats on the desktop
+// (its stickies and their tabs, the focus pill, nudge cards, a note's own window) goes at once, while
+// its main window stays up until the new run's is on screen; the new run's are dealt in after it
+// (afterHome). gate() is a blackout from here on, so none of them comes back while this run lingers.
+onHandOff(() => { for (const win of BrowserWindow.getAllWindows()) if (!win.isDestroyed() && win !== home) win.hide() })
 /**
  * Where Haligtree itself last put a sticky (a wiggle, a lift). A window found there
  * was moved by Haligtree, not by you: not kept as its place, nor nudged on screen.
@@ -1224,6 +1226,9 @@ function applyStickies(): void {
     if (stickyUp(key)) void (stickyReady.has(win) && arriveSticky(win))
     else win.hide()
   }
+  // Named tabs overlap down their edge: each lower one sits over the foot of the one above, as file tabs do.
+  if (stickyTuck() === 'tabs')
+    for (const [, win] of [...stickies].filter(([key, win]) => !win.isDestroyed() && peeking.has(key) && win.isVisible()).sort(([, a], [, b]) => a.getBounds().y - b.getBounds().y)) win.moveTop()
   // Frosted or plain paper, as the setting says now.
   retellFrost()
   tellStickiesOut()
@@ -1232,6 +1237,8 @@ function applyStickies(): void {
 const builtGlass = new Map<string, boolean>()
 
 function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangle): void {
+  // A run that handed off to another book never puts a sticky up again: they belong to the book it left.
+  if (on && handedOff()) return
   const key = `${type}:${id}`
   const open = stickies.get(key)
   // A goal's page says whether its card is up, so it hears when that changes.
@@ -1998,12 +2005,16 @@ const peeking = new Map<string, Electron.Rectangle>()
 const peekingOut = new Map<string, number>()
 /** A peeking card's tab: its ring and days left, a little taller than wide. */
 const TAB = { width: 46, height: 116 }
-/** Every sticky tucked: a tab with its name written down it, or only a small coloured pill. */
-/** Every sticky tucked: a strip of the card itself (its paper, its corner, its label down it), as Raycast's tucked notes;
- * or only a small coloured pill. Wide enough to read as a card's edge, not a pill. */
-const TUCK = { tabs: { width: 40, height: 132 }, flat: { width: 10, height: 44 } }
-/** Stacked close, as file tabs are. */
-const TUCK_GAP = 3
+/**
+ * Every sticky tucked: the edge of the note itself left showing, its name written down it, or only a
+ * small coloured pill. The width is what shows; a named tab's window runs TUCK_HANG further, past the
+ * screen's edge, so its square side is out of sight and only its rounded inner corners show, the way a
+ * note pushed off the screen looks (TuckTab draws to match).
+ */
+const TUCK = { tabs: { width: 40, height: 150 }, flat: { width: 10, height: 44 } }
+const TUCK_HANG = 16
+/** Named tabs overlap as file tabs do, each lower one over the foot of the one above; flat pills sit apart. */
+const TUCK_STEP = { tabs: TUCK.tabs.height - 22, flat: TUCK.flat.height + 3 }
 /** The side and kind of tab each peeking card was made as, so a change of either remakes it. */
 const tabShape = new Map<string, string>()
 /** What each tab was last told it is, asked for again by a sticky's page as it loads (a reload, or told before it listened). */
@@ -2087,8 +2098,9 @@ function shapeCard(key: string, win: BrowserWindow): void {
     const nth = side.findIndex(([one]) => one === key)
     const y = tuck === 'off'
       ? Math.max(area.y, Math.min(rest.y + insetOf(key).top, area.y + area.height - size.height))
-      : Math.max(area.y, Math.min(area.y + Math.round(area.height * 0.18) + nth * (size.height + TUCK_GAP), area.y + area.height - size.height))
-    const tab = { x: left ? area.x : area.x + area.width - size.width, y, ...size }
+      : Math.max(area.y, Math.min(area.y + Math.round(area.height * 0.18) + nth * TUCK_STEP[tuck], area.y + area.height - size.height))
+    const hang = tuck === 'tabs' ? TUCK_HANG : 0
+    const tab = { x: left ? area.x - hang : area.x + area.width - size.width, y, width: size.width + hang, height: size.height }
     const now = win.getBounds()
     const shape = `${left}:${tuck}`
     if (peeking.has(key) && tabShape.get(key) === shape && now.x === tab.x && now.y === tab.y && now.width === tab.width) return

@@ -41,17 +41,18 @@ try {
   check('1. choosing it again shows them', up.some((one) => one.shown))
   check('1. and the tick is back', (await ticked()) === true)
 
-  // 2. Tucked away: every sticky a named tab at the edge, stacked, never overlapping.
+  // 2. Tucked away: every sticky's inner edge left showing at the screen's edge, 40 wide with 16 more past it, overlapping a little down the edge as file tabs do.
   check('2. the menu bar offers "Tuck sticky notes away"', (await tray()).some((one) => one.label === 'Tuck sticky notes away'))
   const before = (await stickies()).filter((one) => one.shown)
   await choose('Tuck sticky notes away')
   await h.waitForTimeout(1500)
   let tabs = (await stickies()).filter((one) => one.shown)
   const area = await electron.evaluate(({ screen }, at) => screen.getDisplayMatching(at).workArea, tabs[0])
-  check('2. each is a slim tab', tabs.length === before.length && tabs.every((one) => one.width === 40 && one.height === 132), JSON.stringify(tabs.map((one) => [one.x, one.y, one.width, one.height])))
-  check('2. on the screen\'s edge', tabs.every((one) => one.x === area.x || one.x + one.width === area.x + area.width), JSON.stringify(area))
-  const overlap = tabs.some((a, i) => tabs.some((b, j) => i !== j && a.x === b.x && a.y < b.y + b.height && b.y < a.y + a.height))
-  check('2. never on top of each other', !overlap)
+  check('2. each is a slim tab', tabs.length === before.length && tabs.every((one) => one.width === 56 && one.height === 150), JSON.stringify(tabs.map((one) => [one.x, one.y, one.width, one.height])))
+  check('2. run past the screen\'s edge, 40 showing', tabs.every((one) => one.x === area.x - 16 || one.x + 40 === area.x + area.width), JSON.stringify(area))
+  // Each lower one over the foot of the one above: a 22 point overlap, never more, so each name stays in view.
+  const steps = tabs.filter((one) => one.x === tabs[0].x).map((one) => one.y).sort((a, b) => a - b).slice(1).map((y, i, all) => y - (i ? all[i - 1] : tabs.filter((one) => one.x === tabs[0].x).map((one) => one.y).sort((a, b) => a - b)[0]))
+  check('2. stacked down the edge, each over the foot of the one above', steps.every((step) => step === 128), JSON.stringify(steps))
   const page = electron.windows().find((w) => w.url().includes(new URL(tabs[0].url).search))
   const said = await page.evaluate(() => ({ tab: document.querySelector('[data-tuck-tab]')?.dataset.tuckTab, name: document.querySelector('[data-tuck-tab] [aria-label]')?.getAttribute('aria-label') }))
   check('2. the tab carries the note\'s name', said.tab === 'tab' && !!said.name, JSON.stringify(said))
@@ -71,7 +72,7 @@ try {
   await shot('tucked-opened', page)
   await h.waitForTimeout(1500)
   const back = (await stickies()).find((one) => one.id === tabs[0].id)
-  check('2. the pointer gone, it folds back to its tab', back.width === 40, `${back.width}`)
+  check('2. the pointer gone, it folds back to its tab', back.width === 56, `${back.width}`)
   await choose('Tuck them flat')
   await h.waitForTimeout(1200)
   tabs = (await stickies()).filter((one) => one.shown)

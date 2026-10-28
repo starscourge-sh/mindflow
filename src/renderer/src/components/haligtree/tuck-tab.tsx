@@ -20,13 +20,19 @@ type Tuck = { side: 'left' | 'right'; flat: boolean }
 const params = new URLSearchParams(location.search)
 const SPRING = { type: 'spring', stiffness: 420, damping: 34, mass: 0.8 } as const
 
+/** How far a named tab's window runs past the screen's edge, out of sight (TUCK_HANG in main/index.ts). */
+const HANG = 16
+
 /**
  * Every sticky tucked away (the menus' "Tuck sticky notes away", ⌃⌥⌘H): the
- * window is a tab on the screen's edge in the note's own colour, its name
- * written down it; flat, only a small coloured pill. Pointed at, main opens
- * the card out of it, and the card slides in from the edge; the pointer gone,
- * it folds back. The note itself stays drawn underneath, only hidden, so it
- * comes out whole with nothing to load.
+ * note is pushed off the screen's edge, so only its inner edge shows, in its
+ * own paper and colour, square where it runs past the edge and rounded on the
+ * screen's side, its name written up it near the top as a file tab's is. The
+ * tabs overlap down the edge, each over the foot of the one above. Flat, only
+ * a small coloured pill. Pointed at, main opens the card out of it, and the
+ * card slides in from the edge; the pointer gone, it folds back. The note
+ * itself stays drawn underneath, only hidden, so it comes out whole with
+ * nothing to load.
  */
 export function TuckTab(): React.JSX.Element | null {
   const [tuck, setTuck] = useState<Tuck | null>(null)
@@ -57,19 +63,16 @@ export function TuckTab(): React.JSX.Element | null {
         initial={still() ? false : { opacity: 0, x: right ? 20 : -20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={SPRING}
-        style={{ ...PAPER, boxShadow: '0 1px 2px rgb(0 0 0 / 0.14), 0 4px 12px -3px rgb(0 0 0 / 0.22)' }}
-        className={`relative flex h-full w-full items-center justify-center overflow-hidden border text-foreground ${right ? 'rounded-l-[10px] border-r-0' : 'rounded-r-[10px] border-l-0'}`}
+        // The note's own paper, square and without a border where it runs past the edge.
+        style={{ ...PAPER, ...(tuck.flat ? {} : right ? { paddingRight: HANG } : { paddingLeft: HANG }) }}
+        className={`flex h-full w-full justify-center overflow-hidden border border-foreground/10 text-foreground ${tuck.flat ? 'items-center' : 'items-start'} ${right ? (tuck.flat ? 'rounded-l-[12px]' : 'rounded-l-[14px]') + ' border-r-0' : (tuck.flat ? 'rounded-r-[12px]' : 'rounded-r-[14px]') + ' border-l-0'}`}
       >
         {tuck.flat ? (
           // Flat: the note's colour alone, a stronger stripe of it down the pill.
           <span className="h-[70%] w-1 rounded-full bg-foreground/35" style={document.documentElement.hasAttribute('data-tint') ? { background: 'oklch(0.7 0.13 var(--mf-tint-hue))' } : undefined} />
         ) : (
-          // A label, not a title: its first words in small capitals, read from the bottom up as a file tab's is; past it,
-          // the card's own fold, dashed, toward the screen's edge: the rest of the card is tucked behind it.
-          <>
-          <span aria-hidden className={`absolute inset-y-2 w-0 border-l border-dashed border-foreground/20 ${right ? 'right-1.5' : 'left-1.5'}`} />
-          <span className="py-3 text-[10.5px] leading-none font-semibold tracking-[0.12em] whitespace-nowrap text-foreground/60 uppercase" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>{tabWords(name)}</span>
-          </>
+          // A label, not a title: its first words in small capitals, read from the bottom up and set near the top, as a file tab's is.
+          <span data-tuck-label className="mt-4 text-[11px] leading-none font-bold tracking-[0.14em] whitespace-nowrap text-foreground/50 uppercase" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>{tabWords(name)}</span>
         )}
       </motion.div>
     </div>

@@ -209,6 +209,13 @@ export function windingDown(): void {
 
 /** Let go of everything only one Haligtree may hold, keeping the windows. */
 let released = false
+/**
+ * This run has handed the desktop to the next (the sandbox, your notes or
+ * another book): its own book's stickies, cards and notifications may no
+ * longer come out, even though its clocks still tick until it ends (and, in
+ * development, the first run never ends).
+ */
+export const handedOff = (): boolean => released
 function release(): void {
   if (released) return
   released = true

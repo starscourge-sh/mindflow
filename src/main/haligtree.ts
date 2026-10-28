@@ -14,7 +14,7 @@ import { docList, tasksSaid } from './day-lines'
 import { advance, leadingTag, readTask } from './task-words'
 import { clock, dayKey, dayMonth, dayjs, daysFromToday, monthName, noon, num, startOfDay } from './dates'
 import { backUpWatched, backupDir, backupStatus, checkMarkdown, chooseFolder } from './backup'
-import { SANDBOX } from './sandbox'
+import { SANDBOX, handedOff } from './sandbox'
 import { retireKinds, tagged as hasTag, withTag } from './kinds'
 import { foldKept, goalsOut, toCheckBack } from './properties'
 import { celebrateAfter, goalPassed, watches, type MomentKind } from './celebrate'
@@ -880,6 +880,8 @@ function settings(): Settings {
 export const feedTakesPages = (): boolean => settings().feedPages === true
 
 export function gate(): { blackout: boolean; hidePrivate: boolean } {
+  // Handed off to another book or the sandbox: nothing of this one surfaces any more.
+  if (handedOff()) return { blackout: true, hidePrivate: true }
   const { safeMode, quietStart, quietEnd } = settings()
   if (safeMode) return { blackout: true, hidePrivate: true }
   const time = new Date().toTimeString().slice(0, 5)
