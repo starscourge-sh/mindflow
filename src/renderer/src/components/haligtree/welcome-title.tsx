@@ -3,7 +3,7 @@ import { ARRIVE_MS } from '@/lib/sound'
 import markGold from '@/assets/mark-gold-leaves.png'
 
 /** When the window may gather in from the whole screen (main: gatherIn): only once the title card is whole and held a breath, so the two never move at once. */
-export const GATHER_AT = 14200
+export const GATHER_AT = 11000
 /** When the title card lifts, clearing the way for the first words on the arrival's beat. */
 export const LIFT_AT = ARRIVE_MS - 2000
 

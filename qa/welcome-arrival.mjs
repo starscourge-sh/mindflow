@@ -82,9 +82,9 @@ try {
   }
   // The last italic has crossed over.
   await h.waitForTimeout(800)
-  // The intro is 22 beats at 72 a minute (ARRIVE_MS in sound.ts, about 18.3 s): the first words only after it.
-  check('no words before the intro is done: the bloom, the chord and the title card first', first >= 17000, `first words at ${first}ms`)
-  check('the first words come by about twenty-one seconds', first <= 21000, `first words at ${first}ms`)
+  // The intro is 18 beats at 72 a minute (ARRIVE_MS in sound.ts, 15 s): the first words only after it.
+  check('no words before the intro is done: the bloom, the chord and the title card first', first >= 14000, `first words at ${first}ms`)
+  check('the first words come by about eighteen seconds', first <= 18000, `first words at ${first}ms`)
   check('the headline resolves a word at a time', line > 0, `seen part-way at ${line} words`)
   const end = await look()
   check('the headline resolves whole', end.words === 9, String(end.words))
@@ -92,7 +92,7 @@ try {
   check('each line\'s selection grows with the drag to its whole width', most.every((one) => one > 0.95), JSON.stringify(most))
   check('each line ends in italics', end.slant.every((one) => one === 'on'), JSON.stringify(end.slant))
   const italic = await h.evaluate(() => [0, 1, 2].map((i) => [...document.querySelectorAll(`[data-thesis="gap-${i}"] .inline-grid > span`)].filter((el) => getComputedStyle(el).visibility !== 'hidden' && Number(getComputedStyle(el).opacity) > 0.5).map((el) => getComputedStyle(el).fontStyle).join()))
-  check('then the cause, then the margin note, then the answer typed', when.slanted <= when.asked && when.asked + 1200 <= when.noted && when.noted + 2500 <= when.typed && when.typed < Infinity, JSON.stringify(when))
+  check('then the cause, then the margin note, then the answer typed', when.slanted <= when.asked && when.asked + 1000 <= when.noted && when.noted + 2500 <= when.typed && when.typed < Infinity, JSON.stringify(when))
   check('what each kind keeps shows only in italic, once', italic.every((one) => one === 'italic'), JSON.stringify(italic))
   const sounds = await heard()
   const count = (name) => sounds.filter((one) => one === name).length

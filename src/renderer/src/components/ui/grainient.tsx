@@ -18,11 +18,22 @@ const TWIRL_LIFE = 2.6
 /** The bloom (`intro`): a moment of the bare page first, then the glow grows from the middle to fill the field. */
 /** How long the bare page holds, and how long the glow then takes to fill it (the welcome's music builds on the same clock). */
 export const INTRO_DELAY = 2.2
-export const INTRO_SECONDS = 7.4
-// The share of the glow's growth that is steady from the first moment; the rest quickens towards the end.
-export const STEADY = 0.32
-/** How far the glow has grown at `opened` (0 to 1): steady from the first moment, then only quickening. */
-export const introRise = (opened: number): number => STEADY * opened + (1 - STEADY) * opened ** 3
+export const INTRO_SECONDS = 4.8
+// The spark: how far it reaches, how quickly it comes (share of the intro), and how long it then holds still, small,
+// long enough to wonder "what's that?" before it bursts open.
+const SPARK = 0.09
+const SPARK_IN = 0.08
+const SPARK_HOLD = 0.62
+/**
+ * How far the glow has grown at `opened` (0 to 1): a small spark comes up at once (about a third of a second), holds
+ * still for over two seconds, then opens out fast, filling the window in under two.
+ */
+export const introRise = (opened: number): number => {
+  if (opened < SPARK_IN) return SPARK * (1 - (1 - opened / SPARK_IN) ** 3)
+  if (opened < SPARK_HOLD) return SPARK
+  const t = (opened - SPARK_HOLD) / (1 - SPARK_HOLD)
+  return SPARK + (1 - SPARK) * (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2)
+}
 /** A nudge: how far the field's pattern turns over, and how quickly it settles there (about a second). */
 const NUDGE_SHIFT = 0.14
 const NUDGE_EASE = 0.3
