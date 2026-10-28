@@ -242,7 +242,12 @@ export async function findCaptures(query: string): Promise<NoteSuggestion[]> {
     ...tags.filter(({ tag }) => tag.includes(words.replace(/^#/, ''))).slice(0, 3).map(({ tag, color }) => ({ ...row('tag', { id: `tag:${tag}`, label: `#${tag}` }), icon: <TagIcon tag={tag} color={color} /> }))
   ]
   const order = Object.keys(linkKinds())
-  return rows.sort((a, b) => order.indexOf(a.kind!) - order.indexOf(b.kind!))
+  // Within a kind, a name that starts with what was typed, then one with a word that does, then the rest ("ray": "raycast notes" before "Copy, paste, pray").
+  const fit = (label: string): number => {
+    const name = label.toLowerCase().replace(/^#/, '')
+    return !words || name.startsWith(words) ? 0 : name.split(/[^\p{L}\p{N}]+/u).some((one) => one.startsWith(words)) ? 1 : 2
+  }
+  return rows.sort((a, b) => order.indexOf(a.kind!) - order.indexOf(b.kind!) || fit(a.label) - fit(b.label))
 }
 
 /** The headings in what an @ link points at, for `@Note#` to offer. */

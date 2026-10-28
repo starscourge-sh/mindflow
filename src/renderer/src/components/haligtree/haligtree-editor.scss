@@ -420,7 +420,7 @@
 
 // Typed tokens. These are decorations, so the underlying text is untouched;
 // the tint is only a hint that something was recognised.
-// The `/` and whatever is being typed after it, while the menu is open. It is
+// The `/` (or `@`, `[[`) and whatever is being typed after it, while the menu is open. It is
 // a place you are inside of rather than text you have written - the menu takes
 // the keys, Escape takes the characters back out - and looking like a chip is
 // what says so. The same shape as a tag, in the page's own selection colour

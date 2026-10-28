@@ -581,10 +581,12 @@ export const NoteLink = Node.create<NoteLinkOptions>({
       // A link to nothing yet: pointed at a page by that name if one turns up; none is made until it is opened.
       if (!props.id && props.label && !props.heading && props.blockIndex === undefined) setTimeout(() => void pointOrMake(editor, props.label, findNotes))
       const attrs = { id: props.id, label: props.label, key: props.key ?? "", heading: props.heading ?? "", kind: props.kind ?? "", block: props.block ?? "", blockText: props.blockText ?? "" }
+      // A space already after it (an @ typed in the middle of a line) is the one that follows the link, not a second.
+      const to = editor.state.doc.textBetween(range.to, Math.min(range.to + 1, editor.state.doc.content.size), "", "") === " " ? range.to + 1 : range.to
       editor
         .chain()
         .focus()
-        .insertContentAt(range, [{ type: "noteLink", attrs }, { type: "text", text: " " }])
+        .insertContentAt({ from: range.from, to }, [{ type: "noteLink", attrs }, { type: "text", text: " " }])
         .run()
       space(editor)
       // A line with no lasting name yet is given one where it lives, and the link learns it.
@@ -610,6 +612,8 @@ export const NoteLink = Node.create<NoteLinkOptions>({
         editor: this.editor,
         char: "@",
         pluginKey: noteLinkPluginKey,
+        // The `@` and what is typed after it lit as one chip while the menu is open, as `/` is: it ends at the caret, not the next word.
+        decorationClass: "tiptap-slash-token",
         // "@1y", "@6m", "@2w" is a letter to future you (lib/box-tokens.ts), not a link being looked up.
         shouldShow: typedOnly(({ query }) => !/^\d{1,3}[dwmy]$/i.test(query)),
         items: noteItems,
@@ -624,6 +628,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
         editor: this.editor,
         char: "[[",
         pluginKey: wikiPluginKey,
+        decorationClass: "tiptap-slash-token",
         // Spaces inside a name, but a space straight after `[[` is writing, not a link: it closes.
         shouldShow: typedOnly(({ query }) => !/^\s/.test(query)),
         allowSpaces: true,

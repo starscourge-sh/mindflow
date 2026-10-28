@@ -708,8 +708,9 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
             </div>
             {/* On pointing: start on it, give it a length, or put it off a day. */}
             {!struck && (
-              // Over the end of the line rather than beside it, so the words keep the whole width in a narrow pane.
-              <InUse className="pointer-events-none absolute top-0.5 right-0 flex items-center gap-0.5 rounded-md bg-background pl-2 opacity-0 transition-opacity starting:opacity-0 group-focus-within/line:pointer-events-auto group-focus-within/line:opacity-100 group-hover/line:pointer-events-auto group-hover/line:opacity-100">{() => <>
+              // Over the end of the line rather than beside it, so the words keep the whole width in a narrow pane;
+              // beside it on the line being written, which its own tools must never cover.
+              <InUse className="pointer-events-none absolute top-0.5 right-0 group-focus-within/line:static group-focus-within/line:-mt-0.5 group-focus-within/line:shrink-0 flex items-center gap-0.5 rounded-md bg-background pl-2 opacity-0 transition-opacity starting:opacity-0 group-focus-within/line:pointer-events-auto group-focus-within/line:opacity-100 group-hover/line:pointer-events-auto group-hover/line:opacity-100">{() => <>
                 {section === 'now' ? (
                   <>
                     {focusToolsShown() && <Tip label="Start a session on it">
