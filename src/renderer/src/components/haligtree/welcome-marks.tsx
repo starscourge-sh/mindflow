@@ -57,7 +57,8 @@ export function WelcomeStamp({ still }: { still: boolean }): React.JSX.Element {
   }, [still])
   // Settled before it pressed: the listeners above go quiet once it is down.
   const instant = quick.current || stillNow()
-  const ink = 'var(--tt-color-text-red)'
+  // Oxblood, as a library stamp's: it holds on the gold gradient where a bright red went pink and muddy.
+  const ink = '#8c2a1e'
   const seal = (
     <svg viewBox="0 0 100 100" className="size-full overflow-visible" style={{ filter: `url(#${id}-rough)` }}>
       <defs>

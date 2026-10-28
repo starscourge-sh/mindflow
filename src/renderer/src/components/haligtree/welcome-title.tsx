@@ -12,7 +12,7 @@ const EASE = [0.22, 1, 0.36, 1] as const
  * The welcome's title card, before the first words, as Arc's opening: the
  * gradient blooms first, and only once it is whole (`ready`) do the words
  * come, the wordmark and then the line under it (the year, or your name),
- * centred on a soft pool of the page's colour so they read on any theme. It
+ * with a soft glow of the page's colour behind their letters so they read on any theme. It
  * lifts away before the first words; `hurry` takes it at once.
  */
 export function WelcomeTitle({ name, hurry = false, ready = true }: { name: string; hurry?: boolean; ready?: boolean }): React.JSX.Element {
@@ -25,13 +25,8 @@ export function WelcomeTitle({ name, hurry = false, ready = true }: { name: stri
   // What it is and whose, as a title page says it: "A commonplace book kept by Reed"; with no name to be read, "A commonplace book".
   const under = name ? `A commonplace book kept by ${name}` : 'A commonplace book'
   return (
-    <motion.div aria-hidden data-title-card="" data-ready={ready ? '' : undefined} className="pointer-events-none absolute inset-0 z-40 flex flex-col items-center justify-center gap-[clamp(0.6rem,1.6vmin,1rem)] text-foreground"
+    <motion.div aria-hidden data-title-card="" data-ready={ready ? '' : undefined} className="pointer-events-none absolute inset-0 z-40 flex flex-col items-center justify-center gap-[clamp(0.6rem,1.6vmin,1rem)] text-foreground [text-shadow:0_0_24px_color-mix(in_oklab,var(--background)_55%,transparent),0_1px_2px_color-mix(in_oklab,var(--background)_40%,transparent)]"
       initial={{ opacity: 1 }} animate={hurry ? { opacity: 0, transition: { duration: 0.4 } } : undefined}>
-      {/* A soft pool of the page's colour behind the words, much wider than they are and with no edge: they read on the brightest part of the gradient. */}
-      <Leave order={2} className="absolute inset-0 -z-10">
-      <motion.div className="absolute top-1/2 left-1/2 -z-10 h-[min(70vh,34rem)] w-[min(96vw,64rem)] -translate-x-1/2 -translate-y-1/2 bg-[radial-gradient(closest-side,color-mix(in_oklab,var(--background)_62%,transparent),color-mix(in_oklab,var(--background)_30%,transparent)_55%,transparent)]"
-        initial={{ opacity: 0 }} animate={ready ? { opacity: 1 } : undefined} transition={{ duration: 1.6, ease: EASE }} />
-      </Leave>
       <Leave order={0}>
       <motion.h1 {...rise(0.5)} className="font-heading text-[clamp(3rem,9vmin,6.5rem)] leading-none font-semibold tracking-[-0.02em]">Haligtree</motion.h1>
       </Leave>
@@ -50,7 +45,7 @@ export function WelcomeTitle({ name, hurry = false, ready = true }: { name: stri
   )
 }
 
-/** One part of the title card lifting away, in the order it came: the wordmark, then the line under it a beat later, then the pool behind them. */
+/** One part of the title card lifting away, in the order it came: the wordmark, then the line under it a beat later. */
 function Leave({ order, className, children }: { order: number; className?: string; children: React.ReactNode }): React.JSX.Element {
   return (
     <motion.div className={className} initial={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
