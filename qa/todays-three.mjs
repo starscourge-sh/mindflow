@@ -48,7 +48,7 @@ try {
 
   // Before any is ticked, a line moved up into the first three changes them (⌥↑ is the drag's own key).
   const id = async (t) => (await v('tasks')).find((one) => one.title === t)?.id
-  await h.locator(`[data-day-line="${await id('Read chapter 4')}"] textarea`).first().click(); await wait(200)
+  await h.locator(`[data-day-line="${await id('Read chapter 4')}"] [data-line] .ProseMirror`).first().click(); await wait(200)
   await h.keyboard.press('Alt+ArrowUp'); await wait(600)
   await h.keyboard.press('Escape'); await wait(400)
   r = await ranks()
@@ -65,7 +65,7 @@ try {
   check('a line from the rest moved up into Now, bold and unnumbered', above.join() === '1,2*,3*,-*', above.join())
 
   // After the three are kept, moving a rest line up past them no longer changes them.
-  await h.locator(`[data-day-line="${await id('Fix the gate latch')}"] textarea`).first().click(); await wait(200)
+  await h.locator(`[data-day-line="${await id('Fix the gate latch')}"] [data-line] .ProseMirror`).first().click(); await wait(200)
   await h.keyboard.press('Alt+ArrowUp'); await wait(600)
   await h.keyboard.press('Escape'); await wait(400)
   r = await ranks()

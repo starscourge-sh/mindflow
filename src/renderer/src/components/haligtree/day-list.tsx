@@ -21,6 +21,8 @@ import { TomorrowBox } from './tomorrow-lines'
 import { TAG } from '../../../../main/tag-words'
 import { Timer } from '@/components/ui/icons'
 import { FromNote, useAtNotes, type AtLink } from './at-notes'
+import { DayLine, type LineHandle } from './day-line'
+import { readTask } from '../../../../main/task-words'
 
 /** A line split round its #tags: the tags at the odd places. */
 const byTags = (text: string): string[] => text.split(new RegExp(`(#${TAG})`, 'gu'))
@@ -159,7 +161,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
   const [cleared, setCleared] = useState<string[]>(() => readCleared(today))
   const [draft, setDraft] = useState<Draft | null>(null)
   const [open, setOpen] = useState<Record<Section, boolean>>({ now: true, next: false, later: false })
-  const fields = useRef(new Map<string, HTMLTextAreaElement>())
+  const fields = useRef(new Map<string, HTMLTextAreaElement | LineHandle>())
   const want = useRef<Want | null>(null)
   const box = useRef<HTMLDivElement>(null)
   // Lines made here this sitting: taking one out deletes it, as if it was never written.
@@ -197,7 +199,10 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
   // line made a step) is a new field, and the old one goes with the caret in it.
   const place = (asked: Want): boolean => {
     const field = fields.current.get(asked.key)
-    if (!field || !field.isConnected) return false
+    if (!field) return false
+    // A written line, an editor of its own: the caret put there unless it is in it already.
+    if (!(field instanceof HTMLTextAreaElement)) return (field.focused() || field.focus(asked.at), true)
+    if (!field.isConnected) return false
     if (document.activeElement !== field) {
       field.focus()
       const at = asked.at === 'end' ? field.value.length : asked.at === 'start' ? 0 : asked.at
@@ -340,7 +345,8 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
       chime('shift')
       ;[list[at], list[to]] = [list[to], list[at]]
       await renumber(list)
-      return go(`t:${task.id}`, fields.current.get(`t:${task.id}`)?.selectionStart ?? 'end')
+      const field = fields.current.get(`t:${task.id}`)
+      return go(`t:${task.id}`, field instanceof HTMLTextAreaElement ? field.selectionStart : field?.caret().at ?? 'end')
     }
     const target = SECTIONS[SECTIONS.findIndex((one) => one.id === section) + by]?.id
     if (!target || compact) return chime('nope')
@@ -426,14 +432,28 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
   // --- the keys of a line ---------------------------------------------------
 
   /** Up and down between lines, as one page: the line before or after this one on screen. */
-  const step = (from: HTMLTextAreaElement, by: -1 | 1): boolean => {
-    const all = [...(box.current?.querySelectorAll<HTMLTextAreaElement>('textarea[data-line]') ?? [])]
-    const to = all[all.indexOf(from) + by]
+  const step = (from: HTMLElement, by: -1 | 1): boolean => {
+    const all = [...(box.current?.querySelectorAll<HTMLElement>('[data-line]') ?? [])]
+    const to = all[all.findIndex((one) => one === from || one.contains(from)) + by]
     if (!to) return false
+    const line = to.dataset.lineKey ? fields.current.get(to.dataset.lineKey) : undefined
+    if (line && !(line instanceof HTMLTextAreaElement)) return (line.focus(by < 0 ? 'end' : 'start'), true)
+    if (!(to instanceof HTMLTextAreaElement)) return false
     to.focus()
     const at = by < 0 ? to.value.length : 0
     to.setSelectionRange(at, at)
     return true
+  }
+  /** A written line's own element, to step from. */
+  const lineEl = (key: string): HTMLElement | null => box.current?.querySelector<HTMLElement>(`[data-line-key="${CSS.escape(key)}"]`) ?? null
+  /** Keys every written line shares: up and down off its edges, Escape. True when the key was taken. */
+  const sharedLine = (event: KeyboardEvent, line: LineHandle, key: string): boolean => {
+    const from = lineEl(key)
+    if (event.key === 'Escape') return (line.blur(), true)
+    const plain = !event.altKey && !event.metaKey && !event.shiftKey && !event.ctrlKey
+    if (plain && event.key === 'ArrowUp' && line.edge('up')) return !!from && step(from, -1)
+    if (plain && event.key === 'ArrowDown' && line.edge('down')) return !!from && step(from, 1)
+    return false
   }
   /** Keys every line shares: up and down, Escape. True when the key was taken. */
   const shared = (event: React.KeyboardEvent<HTMLTextAreaElement>): boolean => {
@@ -445,62 +465,59 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     if (!event.altKey && !event.metaKey && !event.shiftKey && event.key === 'ArrowDown' && (atEnd || field.scrollHeight <= field.clientHeight + 4)) return step(field, 1)
     return false
   }
-  const caretAtStart = (event: React.KeyboardEvent<HTMLTextAreaElement>): boolean => event.currentTarget.selectionStart === 0 && event.currentTarget.selectionEnd === 0
 
-  const taskKeys = (task: Task, section: Section) => (event: React.KeyboardEvent<HTMLTextAreaElement>): void => {
+  const taskKeys = (task: Task, section: Section) => (event: KeyboardEvent, line: LineHandle): boolean => {
     const list = lists[section]
     const at = list.findIndex((one) => one.id === task.id)
-    const field = event.currentTarget
-    if (event.key === 'Enter' && event.metaKey) return void (event.preventDefault(), tick(task))
+    const key = `t:${task.id}`
+    const { text } = line.read()
+    if (event.key === 'Enter' && event.metaKey) return (tick(task), true)
     if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault()
-      rename(task, field.value)
+      rename(task, text)
       // From the start of a line with words, a new line above it, as in any editor.
-      if (caretAtStart(event) && field.value.trim()) return void setDraft({ section, after: list[at - 1]?.id ?? null, text: '' }), go('draft')
-      const below = list[at + 1]
-      if (!below) return go(`new:${section}`)
+      if (line.caret().start && text.trim()) return (setDraft({ section, after: list[at - 1]?.id ?? null, text: '' }), go('draft'), true)
+      if (!list[at + 1]) return (go(`new:${section}`), true)
       setDraft({ section, after: task.id, text: '' })
-      return go('draft')
+      return (go('draft'), true)
     }
-    if (event.key === 'Backspace' && caretAtStart(event) && !field.value) {
-      event.preventDefault()
-      step(field, -1)
-      return void remove(task, section)
+    if (event.key === 'Backspace' && line.caret().start && !text) {
+      const from = lineEl(key)
+      if (from) step(from, -1)
+      return (void remove(task, section), true)
     }
-    // ⇧⇥ on a line that is not a step: out of the page, as ⇧⇥ goes anywhere else, rather than a "nope".
-    if (event.key === 'Tab' && event.shiftKey) return void rename(task, field.value)
-    if (event.key === 'Tab') return void (event.preventDefault(), rename(task, field.value), void indent(task, section))
-    if (event.altKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) return void (event.preventDefault(), rename(task, field.value), void shiftLine(task, section, event.key === 'ArrowUp' ? -1 : 1))
-    if (shared(event)) event.preventDefault()
+    // Shift-Tab on a line that is not a step: out of the page, as it goes anywhere else, rather than a "nope".
+    if (event.key === 'Tab' && event.shiftKey) return (rename(task, text), false)
+    if (event.key === 'Tab') return (rename(task, text), void indent(task, section), true)
+    if (event.altKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) return (rename(task, text), void shiftLine(task, section, event.key === 'ArrowUp' ? -1 : 1), true)
+    return sharedLine(event, line, key)
   }
-  const stepKeys = (parent: Task, n: number, section: Section) => (event: React.KeyboardEvent<HTMLTextAreaElement>): void => {
+  const stepKeys = (parent: Task, n: number, section: Section) => (event: KeyboardEvent, line: LineHandle): boolean => {
     const steps = parent.subtasks ?? []
-    const field = event.currentTarget
-    if (event.key === 'Enter' && event.metaKey) return void (event.preventDefault(), tickStep(parent, n))
+    const key = `s:${parent.id}:${n}`
+    const { text } = line.read()
+    if (event.key === 'Enter' && event.metaKey) return (tickStep(parent, n), true)
     if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault()
-      renameStep(parent, n, field.value)
+      renameStep(parent, n, text)
       setDraft({ section, after: parent.id, parent: { id: parent.id, at: n + 1 }, text: '' })
-      return go('draft')
+      return (go('draft'), true)
     }
-    if (event.key === 'Backspace' && caretAtStart(event) && !field.value) {
-      event.preventDefault()
-      step(field, -1)
-      return takeStep(parent, n)
+    if (event.key === 'Backspace' && line.caret().start && !text) {
+      const from = lineEl(key)
+      if (from) step(from, -1)
+      return (takeStep(parent, n), true)
     }
-    if (event.key === 'Tab' && event.shiftKey) return void (event.preventDefault(), renameStep(parent, n, field.value), void outdent(parent, n, section))
-    if (event.key === 'Tab') return void (event.preventDefault(), chime('nope'))
+    if (event.key === 'Tab' && event.shiftKey) return (renameStep(parent, n, text), void outdent(parent, n, section), true)
+    if (event.key === 'Tab') return (chime('nope'), true)
     if (event.altKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
-      event.preventDefault()
       const to = n + (event.key === 'ArrowUp' ? -1 : 1)
-      if (to < 0 || to >= steps.length) return chime('nope')
+      if (to < 0 || to >= steps.length) return (chime('nope'), true)
       const moved = [...steps]
       ;[moved[n], moved[to]] = [moved[to], moved[n]]
       chime('shift')
       void saveSteps(parent, moved).then(() => go(`s:${parent.id}:${to}`))
-      return
+      return true
     }
-    if (shared(event)) event.preventDefault()
+    return sharedLine(event, line, key)
   }
   /** The new line at a section's end, and a draft between lines: both become a task on Enter. */
   const draftKeys = (section: Section, key: string, after: () => string | null, parent?: { id: string; at: number }) => (event: React.KeyboardEvent<HTMLTextAreaElement>): void => {
@@ -564,16 +581,37 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     if (shared(event)) event.preventDefault()
   }
 
+  /**
+   * A line's words kept as its title. A priority, a length or a day written
+   * into them is read as quick capture reads it, taken out of the words and
+   * set on the task, with Undo.
+   */
   const rename = (task: Task, text: string): void => {
     const words = text.trim()
     if (!words || words === task.title) return
-    void haligtree.saveTask(task.id, { title: words })
+    const read = readTask(words)
+    const said = read.priority || read.estimate || read.due || read.deadline
+    if (!said || !read.title.trim()) return void haligtree.saveTask(task.id, { title: words })
+    const was = { title: task.title, priority: task.priority ?? 0, estimate: task.estimate ?? null, due: task.dueAt ?? null, deadline: task.deadline ?? null }
+    void haligtree.saveTask(task.id, {
+      title: read.title.trim(),
+      ...(read.priority ? { priority: read.priority } : {}),
+      ...(read.estimate ? { estimate: read.estimate } : {}),
+      ...(read.due ? { due: read.due, allDay: read.allDay ? 1 : 0 } : {}),
+      ...(read.deadline ? { deadline: read.deadline } : {})
+    }).then(() => (chime('tap'), quietly(() => void haligtree.saveTask(task.id, was))))
   }
   const renameStep = (parent: Task, n: number, text: string): void => {
     const steps = parent.subtasks ?? []
     const words = text.trim()
     if (!words || words === steps[n]?.text) return
     void saveSteps(parent, steps.map((one, at) => (at === n ? { ...one, text: words } : one)))
+  }
+  /** A paste of several lines into a written line: each a line of its own. True when taken; one line pastes as words. */
+  const pasteLines = (section: Section, text: string, after: string | null): boolean => {
+    if (readLines(text).length < 2) return false
+    void paste(section, text, after)
+    return true
   }
   /** A paste of several lines: each a line of its own. One line pastes as words. */
   const onPaste = (section: Section, after: () => string | null) => (event: React.ClipboardEvent<HTMLTextAreaElement>): void => {
@@ -585,7 +623,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
 
   // --- drawn -----------------------------------------------------------------
 
-  const field = (key: string) => (node: HTMLTextAreaElement | null): void => {
+  const field = (key: string) => (node: HTMLTextAreaElement | LineHandle | null): void => {
     if (node) fields.current.set(key, node)
     else fields.current.delete(key)
   }
@@ -663,12 +701,11 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
                   <span className="block min-w-0 text-[0.9375rem] leading-snug text-muted-foreground"><Struck seed={task.id} draw={!!ticked[task.id]?.pen}><TintedWords text={task.title} /></Struck></span>
                 </button>
               ) : (
-                <LineField data-line register={field(`t:${task.id}`)} value={task.title} aria-label={task.title}
-                  onPointerDown={(event) => event.stopPropagation()}
-                  onKeyDown={taskKeys(task, section)}
-                  onPaste={onPaste(section, () => task.id)}
-                  onBlur={(event) => rename(task, event.currentTarget.value)}
-                  className={`block w-full resize-none bg-transparent leading-snug text-foreground outline-none [field-sizing:content] ${first ? 'text-[0.9375rem] font-semibold' : 'text-[0.9375rem]'}`} />
+                <DayLine lineKey={`t:${task.id}`} register={field(`t:${task.id}`)} value={task.title} label={task.title}
+                  onKey={taskKeys(task, section)}
+                  onPaste={(text) => pasteLines(section, text, task.id)}
+                  onLeave={({ text }) => rename(task, text)}
+                  className={`w-full leading-snug text-foreground ${first ? 'text-[0.9375rem] font-semibold' : 'text-[0.9375rem]'}`} />
               )}
               <FromNote task={task} />
             </div>
@@ -733,12 +770,10 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
                 style={{ borderColor: one.done ? 'var(--tt-color-text-green)' : 'color-mix(in oklab, var(--muted-foreground) 65%, transparent)', background: one.done ? 'var(--tt-color-text-green)' : undefined }}>
                 {one.done && <Tick seed={`${task.id}:${n}`} className="size-2 text-white" />}
               </button>
-              <LineField data-line register={field(`s:${task.id}:${n}`)} value={one.text} aria-label={one.text}
-                onPointerDown={(event) => event.stopPropagation()}
-                onKeyDown={stepKeys(task, n, section)}
-                onBlur={(event) => renameStep(task, n, event.currentTarget.value)}
-                wrap="min-w-0 flex-1"
-                className={`resize-none bg-transparent text-control leading-snug outline-none [field-sizing:content] ${one.done ? 'text-muted-foreground line-through decoration-foreground/40' : 'text-foreground'}`} />
+              <DayLine lineKey={`s:${task.id}:${n}`} register={field(`s:${task.id}:${n}`)} value={one.text} label={one.text}
+                onKey={stepKeys(task, n, section)}
+                onLeave={({ text }) => renameStep(task, n, text)}
+                className={`flex-1 text-control leading-snug ${one.done ? 'text-muted-foreground line-through decoration-foreground/40' : 'text-foreground'}`} />
             </div>
             </RowMenu>
           )).flatMap((line, n) => (draftHere && draft.parent?.at === n ? [<div key={`d${n}`}>{draftLine(section, 1)}</div>, line] : [line]))}
@@ -910,25 +945,6 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
           <span><Kbd>Esc</Kbd> stop writing</span>
         </p>
       )}
-    </div>
-  )
-}
-
-/**
- * A line's words, written straight into: kept as typed while it has the
- * caret, and brought up to date from the task when it does not, so a rename
- * from anywhere else shows without the field being made again under you.
- */
-function LineField({ value, register, wrap = 'w-full', className, ...rest }: { value: string; register: (node: HTMLTextAreaElement | null) => void; /** The box around it, in its row. */ wrap?: string } & Omit<React.ComponentProps<'textarea'>, 'value' | 'ref'>): React.JSX.Element {
-  const ref = useRef<HTMLTextAreaElement | null>(null)
-  useEffect(() => {
-    const node = ref.current
-    if (node && document.activeElement !== node && node.value !== value) node.value = value
-  }, [value])
-  return (
-    <div className={`relative ${wrap}`}>
-      <TagTint />
-      <textarea rows={1} defaultValue={value} ref={(node) => { ref.current = node; register(node) }} className={`relative block w-full ${className ?? ''}`} {...rest} />
     </div>
   )
 }

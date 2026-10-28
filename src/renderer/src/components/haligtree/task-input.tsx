@@ -88,7 +88,7 @@ export function planFor(task: Pick<Task, 'id' | 'dueAt' | 'deadline' | 'planFor'
   })
 }
 
-const TINT: Record<Span['kind'], BlockColor> = { date: 'blue', deadline: 'red', repeat: 'purple', priority: 'orange', plan: 'green', notify: 'pink', length: 'gray', snooze: 'gray', ready: 'yellow' }
+export const TINT: Record<Span['kind'], BlockColor> = { date: 'blue', deadline: 'red', repeat: 'purple', priority: 'orange', plan: 'green', notify: 'pink', length: 'gray', snooze: 'gray', ready: 'yellow' }
 
 /** What the words were read as, one small chip each: the date, the deadline, the repeat, the priority. */
 export function TaskChips({ read }: { read: ReadTask | null }): React.JSX.Element {

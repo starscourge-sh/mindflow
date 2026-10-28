@@ -71,7 +71,7 @@ check('the top three carry it', (await h.locator('[data-day-line][data-top]').co
 check('the caret is on the next new line', await h.evaluate(() => document.activeElement?.getAttribute('data-new') === 'now'))
 
 // 3. A step: Enter after "Fix the gate latch", then Tab.
-await h.locator(`[data-day-line="${written[2].id}"] textarea`).first().click()
+await h.locator(`[data-day-line="${written[2].id}"] [data-line] .ProseMirror`).first().click()
 await h.keyboard.press('End')
 await h.keyboard.press('Enter')
 await wait(200)
@@ -86,7 +86,7 @@ const gate = await lineOf('Fix the gate latch')
 check('Tab makes a step of the line above, once', gate?.subtasks?.length === 1 && gate.subtasks[0].text === 'Buy a new spring', JSON.stringify(gate?.subtasks))
 
 // 4. ⌥↓ moves a line down.
-await h.locator(`[data-day-line="${written[0].id}"] textarea`).first().click()
+await h.locator(`[data-day-line="${written[0].id}"] [data-line] .ProseMirror`).first().click()
 await h.keyboard.press('Alt+ArrowDown')
 await wait(600)
 all = await tasks()
@@ -159,7 +159,7 @@ await h.keyboard.type('Something to take out', { delay: 8 })
 await h.keyboard.press('Enter')
 await wait(700)
 const gone = await lineOf('Something to take out')
-await h.locator(`[data-day-line="${gone.id}"] textarea`).first().click()
+await h.locator(`[data-day-line="${gone.id}"] [data-line] .ProseMirror`).first().click()
 await h.keyboard.press('Meta+a')
 await h.keyboard.press('Backspace')
 await h.keyboard.press('Backspace')

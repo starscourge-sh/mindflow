@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react"
 import { createPortal } from "react-dom"
-import type { JSONContent } from "@tiptap/core"
+import type { Extensions, JSONContent } from "@tiptap/core"
 import { Fragment, Slice } from "@tiptap/pm/model"
 import { NodeSelection, Selection as PMSelection, type EditorState, type Transaction } from "@tiptap/pm/state"
 import { onlyWordsChanged } from "@/lib/tiptap-utils"
@@ -410,6 +410,14 @@ export interface HaligtreeEditorProps {
    */
   onSubmit?: () => void
   /**
+   * A key, before the editor's own: true when the caller took it. Not asked
+   * while a menu (the @ or / menu) has the keys, so its Return and arrows
+   * stay its own. For a line that is one of many, as a list's lines are.
+   */
+  onKeyDown?: (event: KeyboardEvent) => boolean
+  /** More of the editor's own parts, beside the built in ones. Read once, at mount. */
+  extensions?: Extensions
+  /**
    * Patterns to tint as they are typed, and report back. Read once at mount:
    * the extension captures them when the editor is built.
    *
@@ -592,6 +600,8 @@ function Surface({
   className = "",
   style,
   onSubmit,
+  onKeyDown,
+  extensions: more = [],
   tokens = TAGS,
   findNotes = () => [],
   onOpenNote,
@@ -795,6 +805,8 @@ function Surface({
   const allowed = marks ?? (shape === "line" ? LINE_MARKS : ALL_MARKS)
   const has = (mark: MarkName): boolean => allowed.includes(mark)
   const submit = useLatest(onSubmit)
+  const keyed = useLatest(onKeyDown)
+  const [extra] = useState(more)
   const pending = useRef<ReturnType<typeof setTimeout>>(undefined)
   // Which block the drag handle is pointing at, so its menu needs no selection.
   // A ref rather than state: `onNodeChange` fires on every pointer move across a
@@ -874,6 +886,11 @@ function Surface({
       // Here rather than in a keyboard shortcut because ProseMirror checks
       // these props before any plugin, and vim swallows Return in normal mode.
       handleKeyDown: (view, event) => {
+        // The caller's keys first, unless a menu is open and the key is its.
+        if (keyed.current && !event.isComposing && !document.querySelector(MENU_OPEN) && keyed.current(event)) {
+          event.preventDefault()
+          return true
+        }
         // Escape with words selected lets go of them first, rather than going
         // straight on to hide the window. Not in vim's visual mode, which
         // leaves it itself, and not while a menu has the key.
@@ -920,8 +937,9 @@ function Surface({
           return true
         }
 
-        // A single line has no second line to go to, so Return commits it.
-        if (shape !== "line" || !submit.current) return false
+        // A single line has no second line to go to, so Return commits it:
+        // unless the @ menu is open, whose Return picks the note.
+        if (shape !== "line" || !submit.current || document.querySelector(MENU_OPEN)) return false
         event.preventDefault()
         submit.current()
         return true
@@ -1364,6 +1382,7 @@ function Surface({
       ImagePlaceholder,
       // Pictures pasted from Obsidian come in as pictures, not their paths.
       ObsidianEmbeds,
+      ...extra,
     ],
     // A string is Markdown: what an imported note, or one pasted from a file,
     // is. A page's is read once the editor exists, in pieces (see onCreate).
