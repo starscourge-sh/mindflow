@@ -239,7 +239,7 @@ export function FeedView({ onOpen }: { onOpen: (type: string, id: string) => voi
       <TabChips name="feed" tabs={FEED_TABS} value={tab} onChange={choose} />
       {tab === 'notes' && settings && (
         // Set as the Inbox's "Show sorted too" is: the switch, then its words, on a row that lights on hover.
-        <label data-feed-pages className="-mr-2 ml-auto flex h-7 cursor-default items-center gap-2 rounded-md px-2 text-control whitespace-nowrap text-foreground/85 hover:bg-accent/60">
+        <label data-feed-pages className="-mr-2 ml-auto flex h-7 cursor-pointer items-center gap-2 rounded-md px-2 text-control whitespace-nowrap text-foreground/85 hover:bg-accent/60">
           <Switch checked={pages} onCheckedChange={(feedPages) => (chime(feedPages ? 'tick' : 'tap'), void haligtree.setSettings({ feedPages }))} />
           Pages too
         </label>

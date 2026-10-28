@@ -362,7 +362,7 @@ export function ShowList({ places: given, setting, counts }: { places: Place[]; 
           !why && { label: setting === 'sidebarShown' ? showWords(place, on).label : on ? 'Hide this tab' : 'Show this tab', run: () => set(!on) }
         ]}>
           <label data-show-row={place.id}
-            className={`group flex cursor-default items-center gap-2.5 rounded-md px-2 py-1.5 text-control text-foreground/80 hover:bg-accent/60 [&>:not(:last-child)]:transition-opacity ${on ? '' : '[&>:not(:last-child)]:opacity-45'}`}>
+            className={`group flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 text-control text-foreground/80 hover:bg-accent/60 [&>:not(:last-child)]:transition-opacity ${on ? '' : '[&>:not(:last-child)]:opacity-45'}`}>
             {fixed ? <span aria-hidden className="-mx-1 size-3.5 shrink-0" /> : <GripVertical aria-hidden className="-mx-1 size-3.5 shrink-0 cursor-grab text-muted-foreground/0 transition-colors group-hover:text-muted-foreground" />}
             <PlaceIcon place={place} full={on} />
             <span className={`flex-1 truncate transition-colors ${on ? '' : 'text-muted-foreground'}`}>{place.label}</span>
@@ -375,7 +375,7 @@ export function ShowList({ places: given, setting, counts }: { places: Place[]; 
                 <span role="switch" tabIndex={countsOn ? 0 : -1} aria-checked={!countsOff.includes(place.id)} aria-label={`${place.label}'s count`} data-count-chip={place.id}
                   onClick={(event) => (event.preventDefault(), void flipCount(place.id))}
                   onKeyDown={(event) => (event.key === ' ' || event.key === 'Enter') && (event.preventDefault(), void flipCount(place.id))}
-                  className={`w-10 shrink-0 truncate cursor-default rounded-md bg-accent/70 px-1 py-px text-center text-xs tabular-nums transition-opacity hover:bg-accent ${!countsOn ? 'pointer-events-none opacity-30' : countsOff.includes(place.id) ? 'text-muted-foreground opacity-45' : 'text-foreground/80'}`}>
+                  className={`w-10 shrink-0 truncate cursor-pointer rounded-md bg-accent/70 px-1 py-px text-center text-xs tabular-nums transition-opacity hover:bg-accent ${!countsOn ? 'pointer-events-none opacity-30' : countsOff.includes(place.id) ? 'text-muted-foreground opacity-45' : 'text-foreground/80'}`}>
                   {counts ? num(counts[place.id] ?? 0) : 'Count'}
                 </span>
               </Tip>
@@ -390,7 +390,7 @@ export function ShowList({ places: given, setting, counts }: { places: Place[]; 
     <LayoutGroup id={`show-${setting}`}>
       <div className="flex flex-col gap-px">
         {setting === 'sidebarShown' && (
-          <label data-show-counts className="mb-1.5 flex cursor-default items-center gap-2.5 rounded-md px-2 py-1.5 text-control font-medium text-foreground hover:bg-accent/60">
+          <label data-show-counts className="mb-1.5 flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 text-control font-medium text-foreground hover:bg-accent/60">
             <span className="flex-1">Show counts</span>
             <Switch checked={countsOn} onCheckedChange={(sidebarCounts) => (chime(sidebarCounts ? 'on' : 'off'), void haligtree.setSettings({ sidebarCounts }))} aria-label="Show counts" />
           </label>

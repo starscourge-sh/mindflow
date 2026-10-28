@@ -479,7 +479,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
         // What the Inbox holds, waiting only or sorted too: a filter, so at the line's left, always in the same place, away from Go through and the views on the right.
         lead={inboxPage && !chosen.length ? (
           <Tip label={everything ? 'Every note and task, sorted or not. Off: only what waits' : 'What was sorted out of the Inbox too, and every task'}>
-            <label data-sorted-too className="-ml-2 flex h-7 cursor-default items-center gap-2 rounded-md px-2 text-control whitespace-nowrap text-foreground/85 hover:bg-accent/60">
+            <label data-sorted-too className="-ml-2 flex h-7 cursor-pointer items-center gap-2 rounded-md px-2 text-control whitespace-nowrap text-foreground/85 hover:bg-accent/60">
               <Switch checked={everything} onCheckedChange={(on) => (setChosen([]), setSortedToo(on))} aria-label="Show sorted too" />
               {/* Its words only while the list has the page's width: beside a note (or one looked at, spread out) the switch alone. */}
               {!open && !task && !(spread && peek) ? 'Show sorted too' : <span className="sr-only">Show sorted too</span>}

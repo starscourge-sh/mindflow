@@ -922,7 +922,7 @@ export function GoalStrip({ onOpen, className = '' }: { onOpen?: (type: string, 
           <div key={goal.id} role="button" tabIndex={0} data-strip-goal={goal.id} data-private={goal.private ? '' : undefined}
             onClick={() => (chime('open'), onOpen?.('goal', goal.id))}
             onKeyDown={(event) => event.key === 'Enter' && event.target === event.currentTarget && onOpen?.('goal', goal.id)}
-            className="group/goal flex cursor-default flex-col gap-1.5 rounded-md px-2 py-1.5 text-control outline-none transition-colors hover:bg-foreground/[0.045] focus-visible:bg-foreground/[0.045]">
+            className="group/goal flex cursor-pointer flex-col gap-1.5 rounded-md px-2 py-1.5 text-control outline-none transition-colors hover:bg-foreground/[0.045] focus-visible:bg-foreground/[0.045]">
             <span className="flex min-w-0 items-center gap-2">
               <Flag className="size-3.5 shrink-0" style={{ color: warmth(Math.max(left, 0)) }} />
               <span className="private-text min-w-0 flex-1 truncate font-medium text-foreground">{goal.title}</span>

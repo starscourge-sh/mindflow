@@ -2715,7 +2715,7 @@ $media-brand: var(--tt-brand-color-500, currentColor);
   border-radius: 0.625rem;
   background-color: var(--tt-card-bg-color);
   text-align: left;
-  cursor: default;
+  cursor: pointer;
 
   &:hover {
     background-color: var(--mf-surface);

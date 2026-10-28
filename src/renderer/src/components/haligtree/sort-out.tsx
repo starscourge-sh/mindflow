@@ -240,7 +240,7 @@ function Sheet({ text, origin, onClose }: { text: string; origin: string | null;
           </p>
           {!origin && (
             // The app's own switch, set as the Inbox's "Show sorted too" is: the switch, then its words.
-            <label data-keep-page className="flex h-7 cursor-default items-center gap-2 rounded-md px-2 text-control whitespace-nowrap text-foreground/85 hover:bg-accent/60">
+            <label data-keep-page className="flex h-7 cursor-pointer items-center gap-2 rounded-md px-2 text-control whitespace-nowrap text-foreground/85 hover:bg-accent/60">
               <Switch checked={keepPage} onCheckedChange={(on) => (chime(on ? 'on' : 'off'), setKeepPage(on))} />
               Keep the page as a note too
             </label>

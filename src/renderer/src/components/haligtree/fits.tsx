@@ -196,7 +196,7 @@ function Fits({ start, onClose }: { start: number; onClose: () => void }): React
           <div role="button" tabIndex={-1} data-fit-row={task.id} data-fit-at={here || undefined} data-picked={live.includes(task.id) || undefined}
             onMouseMove={(event) => realMove(event) && index !== at && setAt(index)}
             onClick={(event) => (event.shiftKey || event.metaKey ? toggle(task.id) : begin(task))}
-            className={`group/fit flex cursor-default items-center gap-2.5 rounded-md px-2 py-1.5 ${live.includes(task.id) ? PICKED_ROW : here ? 'bg-accent' : ''}`}>
+            className={`group/fit flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 ${live.includes(task.id) ? PICKED_ROW : here ? 'bg-accent' : ''}`}>
             <Tip label={`${quad.title}: ${quad.said.split('.')[0].toLowerCase()}`}>
               <span role="img" aria-label={quad.title} data-quad={quad.id} className="h-4 w-[3px] shrink-0 rounded-full" style={{ background: `var(--tt-color-text-${quad.tint})` }} />
             </Tip>
