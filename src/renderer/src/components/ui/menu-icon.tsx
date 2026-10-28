@@ -19,6 +19,7 @@ import {
 const RULES: [RegExp, LucideIcon][] = [
   // A picture's quick look (Space), and its caption: the words under it.
   [/^look$/i, Eye],
+  [/^turn it into/i, WandSparkles],
   // Menu lines that once fell back to the dot while the lines beside them had a drawing.
   [/^pause$/i, Pause],
   [/^writing tools/i, PenLine],

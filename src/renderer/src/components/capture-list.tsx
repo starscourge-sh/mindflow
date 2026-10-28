@@ -130,14 +130,22 @@ export async function tagCaptures(ids: string[]): Promise<void> {
 export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void): RowItem[] => [
   { label: 'Open', run: () => onPick?.(capture.id), keys: '↵' },
   'separator',
+  // Resolve on its own line, the one most taken; everything it can become, together on one line beside it, so the
+  // menu stays short (each still has its key: P, H). The Bin is the menu's last line, as on every card.
   ...(capture.status === 'open'
-    // The Bin is not among them here: it is the menu's last line, as on every card.
-    ? EXITS.filter((one) => one.status !== 'discarded').map((one) => ({ label: one.label, keys: one.key.toUpperCase(), run: () => void exit(capture.id, one.status) }))
+    ? [
+        { label: 'Resolve', keys: 'R', run: () => void exit(capture.id, 'resolved') },
+        { label: 'Turn it into', items: [
+          ...EXITS.filter((one) => one.status === 'promoted' || one.status === 'question').map((one) => ({ label: one.label, keys: one.key.toUpperCase(), run: () => void exit(capture.id, one.status) })),
+          { label: 'Make it a task', run: () => void makeTask({ capture: capture.id }) },
+          { label: 'Add as a clue to a question…', hint: 'Files this note under a question you already have', run: () => void addToQuestion(capture.id) },
+          'separator' as const,
+          { label: 'Change kind…', run: () => void changeKind('captures', capture.id, capture.kind) }
+        ] }
+      ]
     : [
         capture.status !== 'promoted' && { label: 'Back to the Inbox', run: () => void window.api.captures.save(capture.id, { status: 'open' }).then(() => chime('undo')) }
       ]),
-  capture.status === 'open' && { label: 'Make it a task', run: () => void makeTask({ capture: capture.id }) },
-  capture.status === 'open' && { label: 'Add as a clue to a question…', hint: 'Files this note under a question you already have', run: () => void addToQuestion(capture.id) },
   capture.status !== 'discarded' && snoozeItems('capture', capture, () => onPick?.(capture.id)),
   'separator',
   { label: 'Add a tag…', run: () => void tagCaptures([capture.id]) },
@@ -149,7 +157,7 @@ export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void)
   asideItem('capture', capture.id),
   queueMenu(capture.id),
   'separator',
-  { label: 'Change kind…', run: () => void changeKind('captures', capture.id, capture.kind) },
+  capture.status !== 'open' && { label: 'Change kind…', run: () => void changeKind('captures', capture.id, capture.kind) },
   { label: capture.archivedAt ? 'Unarchive' : 'Archive', hint: capture.archivedAt ? 'Back in sight' : 'Kept, out of sight', run: () => void archive('captures', [capture.id], !capture.archivedAt) },
   { label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copy(noteLinkText(capture.id, capture.label), 'Copied a link: paste it into any note') },
   // Taking it elsewhere, together, so the menu stays short.

@@ -695,7 +695,7 @@ export function NoteHeader({ left, back, type = 'capture', edited, captured, mad
                     <DropdownMenuSub key={item.label}>
                       <DropdownMenuSubTrigger>{item.label}</DropdownMenuSubTrigger>
                       <DropdownMenuSubContent>
-                        {flat(item.items).map((one, at) => one === 'separator' ? <DropdownMenuSeparator key={`separator-${at}`} /> : one && <DropdownMenuItem key={one.label} onSelect={one.run}>{one.label}</DropdownMenuItem>)}
+                        {flat(item.items).map((one, at) => one === 'separator' ? <DropdownMenuSeparator key={`separator-${at}`} /> : one && <DropdownMenuItem key={one.label} onSelect={one.run}>{one.label}{one.keys && keyFor(one.keys) && <DropdownMenuShortcut>{keyFor(one.keys)}</DropdownMenuShortcut>}</DropdownMenuItem>)}
                       </DropdownMenuSubContent>
                     </DropdownMenuSub>
                   ) : (
