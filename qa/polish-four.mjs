@@ -74,7 +74,7 @@ try {
   const post = h.locator(`[data-feed-id="${replied.id}"]`)
   await post.scrollIntoViewIfNeeded()
   const latest = await post.locator('[data-feed-latest]').innerText().catch(() => '')
-  check('the latest reply shows without "Your note"', latest.length > 0 && !/Your note/.test(latest), latest)
+  check('the latest reply shows without "Your thought"', latest.length > 0 && !/Your thought/.test(latest), latest)
   check('its date is at its end', /·\s*(AI, )?[^·]+ago$|·\s*(AI, )?(today|yesterday|just now)$/i.test(latest.trim()) || /· .+$/.test(latest.trim()), latest)
   const all = await post.locator('[data-feed-replies]').innerText().catch(() => '')
   check('"Show all N replies" sits under it', /^Show all \d+ replies/.test(all), all)
