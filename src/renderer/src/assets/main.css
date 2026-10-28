@@ -2385,11 +2385,13 @@ html[data-tuck-open="left"] .mf-card { border-top-right-radius: 0; border-bottom
   --mf-paper-ink: color-mix(in oklab, var(--foreground) 9%, transparent);
   --mf-paper-step: 22px;
 }
-:root[data-paper='ruled'] .note-pane .haligtree-editor-wrapper:not(.is-line) > .haligtree-editor-content,
+:root[data-paper='ruled'] .note-pane .haligtree-editor-wrapper:not(.is-line) > .haligtree-editor-content > .ProseMirror,
 .mf-paper[data-paper-sample='ruled'] {
   background-image: linear-gradient(to bottom, transparent calc(100% - 1px), var(--mf-paper-ink) calc(100% - 1px));
-  background-size: 100% 28px;
-  background-attachment: local;
+  /* A rule a paragraph's line apart (its 1.7 line height), from where the words begin, so a paragraph's lines sit
+     on them as a printed notebook's do; a heading or a quote is taller, and the rules carry on under it. */
+  background-size: 100% 1.7em;
+  background-origin: content-box;
 }
 /* The swatches are small: their lines and squares come closer, so each shows several, as a page would. */
 .mf-paper[data-paper-sample] { --mf-paper-step: 12px; }

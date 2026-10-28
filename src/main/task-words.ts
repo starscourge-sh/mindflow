@@ -81,9 +81,17 @@ export type DateFound = { index: number; text: string; date: Date; start: Parsed
  * November), the next one to come. A reading that could as well have been
  * another says so in `guess`, so it is shown as one and never set silently.
  */
+/** Where each #tag sits in the words: a name, never a when (#tomorrow, #daily). */
+const tagSpans = (text: string): { from: number; to: number }[] =>
+  [...text.matchAll(/(?<![\p{L}\p{N}_])#[\p{L}\p{N}_-]+/gu)].map((one) => ({ from: one.index, to: one.index + one[0].length }))
+
 export function datesIn(text: string, at = new Date()): DateFound[] {
   const { fixed, starts, ends, edits } = mend(text)
-  return chrono.en.GB.parse(fixed, at, { forwardDate: true }).map((found) => {
+  const tags = tagSpans(text)
+  return chrono.en.GB.parse(fixed, at, { forwardDate: true }).filter((found) => {
+    const [from, to] = [starts[found.index], ends[found.index + found.text.length - 1]]
+    return !tags.some((tag) => from < tag.to && to > tag.from)
+  }).map((found) => {
     const from = starts[found.index]
     const to = ends[found.index + found.text.length - 1]
     let date = found.start.date()
@@ -297,8 +305,7 @@ export function readTask(text: string, at = new Date(), plain: { from: number; t
   // Words you said to keep as plain text: covered while reading, so nothing
   // is taken from them, and put back for the title.
   // A #tag is a name, never a when: "#daily" tags the task, it does not repeat it.
-  const tags = [...text.matchAll(/(?<![\p{L}\p{N}_])#[\p{L}\p{N}_-]+/gu)].map((one) => ({ from: one.index, to: one.index + one[0].length }))
-  const kept = [...plain, ...tags].filter((one) => one.from >= 0 && one.to <= text.length && one.from < one.to)
+  const kept = [...plain, ...tagSpans(text)].filter((one) => one.from >= 0 && one.to <= text.length && one.from < one.to)
   let rest = kept.reduce((words, one) => words.slice(0, one.from) + '\uE000'.repeat(one.to - one.from) + words.slice(one.to), text)
   const spans: Span[] = []
   const take = (from: number, to: number, kind: Span['kind'], more: Pick<Span, 'guess' | 'week'> = {}): void => {

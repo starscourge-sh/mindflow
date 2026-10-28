@@ -24,7 +24,12 @@ try {
     await go('nuggets')
     await h.locator('[data-row], [data-item-row], li button').first().click().catch(() => {})
     await h.waitForTimeout(700)
-    const drawn = await h.evaluate(() => { const one = document.querySelector('.note-pane .haligtree-editor-wrapper:not(.is-line) > .haligtree-editor-content'); return one ? getComputedStyle(one).backgroundImage : null })
+    const drawn = await h.evaluate(() => { const box = document.querySelector('.note-pane .haligtree-editor-wrapper:not(.is-line) > .haligtree-editor-content'); if (!box) return null; const drawn = [box, box.querySelector(':scope > .ProseMirror')].map((one) => one && getComputedStyle(one).backgroundImage).find((one) => one && one !== 'none'); return drawn ?? 'none' })
+    // Ruled: a rule under each of a paragraph's lines, not across them.
+    if (paper === 'ruled') {
+      const fit = await h.evaluate(() => { const pm = document.querySelector('.note-pane .haligtree-editor-content > .ProseMirror'); const p = pm?.querySelector('p'); if (!p) return null; const step = parseFloat(getComputedStyle(pm).backgroundSize.split(' ')[1]); return { step: Math.round(step * 10) / 10, line: Math.round(parseFloat(getComputedStyle(p).lineHeight) * 10) / 10 } })
+      check('ruled lines are a paragraph line apart', fit && Math.abs(fit.step - fit.line) < 0.5, JSON.stringify(fit))
+    }
     check(`a note's page on ${paper} paper`, drawn !== null && (paper === 'plain' ? drawn === 'none' : drawn !== 'none'), String(drawn).slice(0, 60))
     if (SHOTS) await h.screenshot({ path: `${SHOTS}/paper-${paper}.png` })
   }
