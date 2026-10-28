@@ -26,7 +26,8 @@ import { ArrowUp, Quote as MessageSquareText } from '@/components/ui/icons'
 
 export { ago }
 
-const said = (one: Gloss): string => `${one.author === 'ai' ? 'AI note' : 'Your note'}, ${ago(one.createdAt)}:`
+// Every thought is written by you: nothing in the app writes one for you.
+const said = (one: Gloss): string => `Your thought, ${ago(one.createdAt)}:`
 
 /** Open the gloss line for this item, wherever it is on screen: what the ; key does. */
 export const openGloss = (id: string): void => void window.dispatchEvent(new CustomEvent('haligtree:gloss', { detail: id }))

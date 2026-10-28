@@ -203,7 +203,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
 
         <Section title="The doing, this week" big={{ value: stats.lead.exits, label: stats.lead.exits === 1 ? 'thing sorted from your Inbox' : 'things sorted from your Inbox' }}>
           <p>
-            No target here, only the trend. This week: <span className="whitespace-nowrap"><N>{`${plural(stats.lead.exits, 'thing', 'things')} sorted`}</N>,</span> <span className="whitespace-nowrap"><N>{`${plural(stats.lead.glosses, 'note', 'notes')} added`}</N>,</span>{' '}
+            No target here, only the trend. This week: <span className="whitespace-nowrap"><N>{`${plural(stats.lead.exits, 'thing', 'things')} sorted`}</N>,</span> <span className="whitespace-nowrap"><N>{`${plural(stats.lead.glosses, 'thought', 'thoughts')} added`}</N>,</span>{' '}
             reviews on <N>{plural(stats.lead.reviewDays, 'day', 'days')}</N> and <N>{plural(stats.lead.articles, 'page', 'pages')}</N> started.
           </p>
           <p>
