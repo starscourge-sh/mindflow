@@ -1547,7 +1547,7 @@ export function Primary({ children, keys = '↵', onClick, hidden = false, wait 
 
 /**
  * Once a page waits for you: a short arrow in the accent beside the way on,
- * drawn in Haligtree's own line (round ends, the same weight as its keys), easing
+ * drawn by hand as the margin note's arrow is (a sagging shaft, an uneven head, drawn on as it comes), easing
  * toward the button and back, a nudge every couple of seconds. It comes a
  * moment after the button's ring, and goes the moment Next is pressed. With
  * Motion off or Reduce motion: there, still.
@@ -1560,12 +1560,14 @@ export function NextArrow({ on, page, quiet }: { on: boolean; /** Each page's ow
           <motion.span key={page} data-next-arrow className="flex text-primary"
             initial={quiet ? { opacity: 0 } : { opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, transition: { duration: 0.12, ease: MOVE } }}
             transition={quiet ? { duration: 0.2 } : { duration: 0.35, ease: ENTER, delay: 0.35 }}>
-            <motion.svg viewBox="0 0 28 14" className="h-3.5 w-7 overflow-visible" fill="none" stroke="currentColor" strokeWidth={2.25} strokeLinecap="round" strokeLinejoin="round"
+            {/* Drawn by hand, as the margin note's arrow is: a shaft that sags a little, a head not quite even, drawn on
+                as it comes (the shaft, then the head), then the nudge toward the button. */}
+            <motion.svg viewBox="0 0 28 14" className="h-4 w-8 overflow-visible" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round"
               data-still={quiet || undefined}
               animate={quiet ? undefined : { x: [0, 5, 0] }}
-              transition={quiet ? undefined : { duration: 1.1, ease: MOVE, repeat: Infinity, repeatDelay: 0.9, delay: 0.7 }}>
-              <path d="M3 7h20" />
-              <path d="M18 2.5 23.5 7 18 11.5" />
+              transition={quiet ? undefined : { duration: 1.1, ease: MOVE, repeat: Infinity, repeatDelay: 0.9, delay: 1.1 }}>
+              <motion.path d="M2.5 7.6 C 8 5.4, 14.5 9.1, 23.6 6.6" initial={quiet ? false : { pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.38, ease: [0.65, 0, 0.35, 1], delay: 0.4 }} />
+              <motion.path d="M17.8 2.4 L 23.6 6.7 L 18.4 11.3" initial={quiet ? false : { pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.2, ease: [0.65, 0, 0.35, 1], delay: 0.78 }} />
             </motion.svg>
           </motion.span>
         )}
