@@ -1,3 +1,4 @@
+import { dayPart } from '../../../../main/journal-words'
 import { useEffect, useRef, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { WritingSound } from './writing-sound'
@@ -20,9 +21,11 @@ import { clock, num } from '../../../../main/dates'
  * `data-day-writing` on the root.
  */
 
-/** The caption over today's words, for the hour the page opened in. */
+/** The caption over today's words, for the hour the page opened in: the same parts of the day the page's question
+ * takes (dayPart), so 4:51 in the morning is late at night for both, never "Morning pages" over "What's keeping you up?". */
 export const dayCaption = (hour = new Date().getHours()): string =>
-  hour < 12 ? 'Morning pages: whatever is on your mind.'
+  dayPart(hour) === 'late' ? 'Night pages: whatever will not let you sleep.'
+    : hour < 12 ? 'Morning pages: whatever is on your mind.'
     : hour < 18 ? 'Afternoon pages: wherever the day has got to.'
       : 'Evening pages: what happened, what stayed with you.'
 

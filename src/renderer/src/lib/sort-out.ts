@@ -39,5 +39,5 @@ export const markSorted = (): void => (write(SORTED_KEY, today()), void window.d
 export const sortAway = (): void => (write(AWAY_KEY, today()), void window.dispatchEvent(new CustomEvent('haligtree:morning-sorted')))
 /** Whether the morning offer is due: on, from 4 until noon, and not started or put away today. */
 export function sortDue(on: boolean | undefined, now = new Date()): boolean {
-  return on !== false && now.getHours() >= 4 && now.getHours() < 12 && read(SORTED_KEY) !== today() && read(AWAY_KEY) !== today()
+  return on !== false && now.getHours() >= 5 && now.getHours() < 12 && read(SORTED_KEY) !== today() && read(AWAY_KEY) !== today()
 }
