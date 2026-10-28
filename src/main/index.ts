@@ -353,7 +353,12 @@ function arrive(win: BrowserWindow): void {
   arriving?.()
   settle()
   win.setOpacity(1)
-  if (win === prompt) boxUp(true)
+  // Out of the Dock only when summoned from another app. With a Haligtree window in front (the welcome's Catch, the main
+  // window), turning into a menu bar app makes macOS take Haligtree out of the front: the box lost the keys the moment it
+  // had them and put itself away (blur, `boxAutoHide`). It opens over Haligtree's own window then, so there is nothing
+  // for AeroSpace to file it under that is not already where you are.
+  const front = BrowserWindow.getFocusedWindow()
+  if (win === prompt && front !== win) boxUp(!front)
   win.show()
   // Stepping out of the Dock (boxUp) can hand the box its window buttons back after 'show' has fired.
   if (win === prompt && process.platform === 'darwin') setImmediate(() => !win.isDestroyed() && win.setWindowButtonVisibility(false))
