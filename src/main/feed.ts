@@ -368,7 +368,11 @@ export function registerFeed(): void {
       // ones not yet shown (in a new book, a liked quote seen yesterday outranked gems never shown at all, day after day).
       const NEVER = 10 * 365 * 86_400_000
       const due = (row: Row): number => { const seenAt = lastSeen(row); return seenAt ? (Date.now() - new Date(seenAt).getTime()) * (row.weight ?? 1) : NEVER + (Date.now() - new Date(row.made).getTime()) }
-      const order = (list: Row[]): Row[] => list.sort((a, b) => due(b) - due(a))
+      // Seen in the last fortnight: it rests, whatever its hearts, and comes only once nothing else is left. A heart
+      // brings a note back sooner after its rest, never the next day.
+      const rested = dayjs().subtract(14, 'day').toISOString()
+      const resting = (row: Row): number => ((lastSeen(row) ?? '') >= rested ? 1 : 0)
+      const order = (list: Row[]): Row[] => list.sort((a, b) => resting(a) - resting(b) || due(b) - due(a))
       // A list kept in its order, but taken one per voice in turns, each voice at most `most` times.
       const spread = (list: Row[], voice: (row: Row) => string, most: number): Row[] => {
         const voices = new Map<string, Row[]>()
