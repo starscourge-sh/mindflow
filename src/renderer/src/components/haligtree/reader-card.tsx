@@ -10,6 +10,7 @@ import { call, haligtree, useLive } from '@/lib/haligtree'
 import { useShelf } from '@/lib/books'
 import { chime } from '@/lib/sound'
 import { still } from '@/lib/motion'
+import markGold from '@/assets/mark-gold-leaves.png'
 import { dayMonth } from '../../../../main/dates'
 import { Rolling, Tip, refuse, toast } from './ui'
 import { useTilt } from './tilt'
@@ -106,6 +107,7 @@ const BOOK_CORNERS = '2px 5px 5px 2px'
 /** How thick the book is, and how far it stands turned at rest, its spine toward you. */
 const THICK = 30
 const REST_TURN = 34
+const REST_LEAN = 10
 /**
  * Old paper seen edge on: fine leaf lines (vertical at the fore-edge, across at the foot, crossed here so both show),
  * a grain, and a yellowing that deepens toward the outer edges as old books' pages do.
@@ -273,10 +275,27 @@ export function ReaderCard({ seed: saved, picture = 'shape', point, named, bare 
   // A real book, as Stripe Press's: at rest it stands turned a little, its spine to you; pointed at, it turns to face
   // you and leans toward the pointer. Motion off, it faces you and stays.
   const turn = useSpring(still() ? 0 : REST_TURN, { stiffness: 140, damping: 20 })
-  const turned = useTransform(() => turn.get() + tilt.y.get())
+  // Grabbed and dragged, it turns in the hand, any way round (its back, its spine, its pages); let go, it eases back.
+  const spinY = useSpring(0, { stiffness: 90, damping: 16 })
+  const spinX = useSpring(0, { stiffness: 90, damping: 16 })
+  const grab = useRef<{ x: number; y: number; ry: number; rx: number } | null>(null)
+  const turned = useTransform(() => turn.get() + tilt.y.get() + spinY.get())
+  // And at rest it leans back a little too, as a book stood on a shelf is seen from just above (Stripe Press's pose).
+  const lean = useSpring(still() ? 0 : REST_LEAN, { stiffness: 140, damping: 20 })
+  const pitched = useTransform(() => tilt.x.get() + spinX.get() + lean.get())
+  const letGo = (): void => {
+    if (!grab.current) return
+    grab.current = null
+    // The shortest way home: a whole turn or two is the same book, so it never spins all the way back round.
+    const y = spinY.get()
+    spinY.jump(y - 360 * Math.round(y / 360))
+    spinY.set(0)
+    spinX.set(0)
+  }
   // Flat at once, no spring and no sheen, before its picture is taken.
   const level = (): void => {
     turn.jump(0)
+    lean.jump(0)
     tilt.flat()
     for (const one of [tilt.x, tilt.y, tilt.glow]) one.jump(0)
     tilt.grow.jump(1)
@@ -287,8 +306,8 @@ export function ReaderCard({ seed: saved, picture = 'shape', point, named, bare 
   const { title, hues, shape } = cardOf(seed)
   const stamps = facts ? stampsOf(facts) : []
   const actions: { tip: string; icon: ReactNode; data: string; run: () => void }[] = [
-    { tip: 'Copy as image', icon: <AliveIcon icon={CopyIcon} size={15} />, data: 'data-reader-copy', run: () => void shareCard(card.current, false, name, level).finally(() => !still() && turn.set(REST_TURN)) },
-    { tip: 'Save as image…', icon: <AliveIcon icon={DownloadIcon} size={15} />, data: 'data-reader-save', run: () => void shareCard(card.current, true, name, level).finally(() => !still() && turn.set(REST_TURN)) },
+    { tip: 'Copy as image', icon: <AliveIcon icon={CopyIcon} size={15} />, data: 'data-reader-copy', run: () => void shareCard(card.current, false, name, level).finally(() => !still() && (turn.set(REST_TURN), lean.set(REST_LEAN))) },
+    { tip: 'Save as image…', icon: <AliveIcon icon={DownloadIcon} size={15} />, data: 'data-reader-save', run: () => void shareCard(card.current, true, name, level).finally(() => !still() && (turn.set(REST_TURN), lean.set(REST_LEAN))) },
     picture === 'shape'
       ? { tip: 'Show two bands instead', icon: <Rows2 className="size-[15px]" />, data: 'data-reader-picture', run: () => void haligtree.setSettings({ readerPicture: 'bands' }) }
       : { tip: 'Show a shape instead', icon: <Shapes className="size-[15px]" />, data: 'data-reader-picture', run: () => void haligtree.setSettings({ readerPicture: 'shape' }) },
@@ -307,16 +326,33 @@ export function ReaderCard({ seed: saved, picture = 'shape', point, named, bare 
       {/* The pointer is read on a wrapper that never tips, as Tilt does: read on the card, a corner tips out from under it and flickers. */}
       {/* A press nudges the book where it is pressed, a little further back and a touch smaller, and on letting go it
           springs back to lean toward the pointer again. */}
-      <div data-reader-hold className="relative mx-[18px] mb-[22px]" onPointerEnter={() => turn.set(0)} onPointerMove={(event) => void (!event.buttons && tilt.lean(event, event.currentTarget))} onPointerLeave={() => (tilt.flat(), !still() && turn.set(REST_TURN))}
-        onPointerDown={(event) => { if (event.button !== 0 || still()) return; tilt.lean({ ...event, buttons: 0, pointerType: 'mouse' }, event.currentTarget); tilt.x.set(tilt.x.get() * 2.4); tilt.y.set(tilt.y.get() * 2.4); tilt.grow.set(0.97); chime('tap') }}
-        onPointerUp={(event) => void tilt.lean({ ...event, buttons: 0 }, event.currentTarget)}>
+      <div data-reader-hold className="relative mb-[22px]" onPointerEnter={() => (turn.set(0), lean.set(0))} onPointerMove={(event) => {
+          const held = grab.current
+          if (held) return void (spinY.jump(held.ry + (event.clientX - held.x) * 0.6), spinX.jump(Math.max(-70, Math.min(70, held.rx - (event.clientY - held.y) * 0.4))))
+          if (!event.buttons) tilt.lean(event, event.currentTarget)
+        }}
+        onPointerLeave={() => (grab.current || tilt.flat(), !still() && !grab.current && (turn.set(REST_TURN), lean.set(REST_LEAN)))}
+        onPointerDown={(event) => {
+          if (event.button !== 0) return
+          event.currentTarget.setPointerCapture(event.pointerId)
+          grab.current = { x: event.clientX, y: event.clientY, ry: spinY.get(), rx: spinX.get() }
+          tilt.flat()
+          turn.set(0)
+          chime('tap')
+        }}
+        onPointerUp={(event) => (letGo(), tilt.lean({ ...event, buttons: 0 }, event.currentTarget))} onPointerCancel={letGo} onLostPointerCapture={letGo}
+        style={{ cursor: grab.current ? 'grabbing' : 'grab', touchAction: 'none' }}>
         {/* Cream paper in every theme, as a printed card is: its words take the card's own colour, never the theme's. */}
         {/* Its shadow on the table under it. */}
         <div aria-hidden className="pointer-events-none absolute right-2 -bottom-4 left-4 h-6 rounded-[50%] bg-black/35 blur-[14px]" />
         {/* The book is a box in 3D: the cover at its front, the back cover behind, the spine down its left side, and the
             old yellowed pages at its fore-edge, head and foot, each leaf a fine line. It turns and tips as one. */}
-        <motion.div className="relative h-[375px] w-[250px] [transform-style:preserve-3d]" style={{ rotateX: tilt.x, rotateY: turned, scale: tilt.grow, transformPerspective: 1000 }}>
-          <div aria-hidden className="absolute inset-0 [backface-visibility:hidden]" style={{ transform: `rotateY(180deg) translateZ(${THICK / 2}px)`, borderRadius: BOOK_CORNERS, background: `${CLOTH}, #f3ecd6` }} />
+        <motion.div className="relative h-[375px] w-[250px] [transform-style:preserve-3d]" style={{ rotateX: pitched, rotateY: turned, scale: tilt.grow, transformPerspective: 1000 }}>
+          {/* The back cover: plain cloth, the press's mark small in its middle, as a hardback's back board. */}
+          <div aria-hidden data-reader-back className="absolute inset-0 flex flex-col items-center justify-center gap-1 [backface-visibility:hidden]" style={{ transform: `rotateY(180deg) translateZ(${THICK / 2}px)`, borderRadius: '5px 2px 2px 5px', background: `${CLOTH}, #f3ecd6`, color: 'var(--mf-card-c)' }}>
+            <img src={markGold} alt="" draggable={false} className="size-9 opacity-80" />
+            <span className="text-[0.5rem] font-semibold tracking-[0.18em] uppercase" style={{ fontFamily: "'Fraunces Variable', Georgia, serif" }}>Haligtree</span>
+          </div>
           <div aria-hidden data-reader-spine-face className="absolute top-0 flex h-full items-center justify-center overflow-hidden [backface-visibility:hidden]"
             style={{ left: (250 - THICK) / 2, width: THICK, transform: `rotateY(-90deg) translateZ(125px)`, background: `linear-gradient(to right, rgb(0 0 0 / 0.3), transparent 30%, rgb(255 255 255 / 0.18) 55%, transparent 75%, rgb(0 0 0 / 0.25)), ${CLOTH}, var(--mf-card-c)`, color: '#fffbea' }}>
             {/* A quarter binding, as many cloth books have: the spine in the cover's ink, its name stamped down it. */}

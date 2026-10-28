@@ -123,7 +123,15 @@ try {
   await h.mouse.move(held.x - 200, held.y + held.height / 2, { steps: 4 }); await wait(1200)
   const after = await turned()
   // A book: it faces you while pointed at and leans to the pointer; left, it turns back to stand with its spine to you.
-  check('it tips toward the pointer, and turns back to stand spine-on when it leaves', tipped > 2 && Math.abs(after - 34) < 1, `${tipped}° then ${after}°`)
+  check('it tips toward the pointer, and turns back to stand spine-on when it leaves', tipped > 2 && after > 30 && after < 50, `${tipped}° then ${after}°`)
+  // Grabbed and dragged it turns in the hand, round to its back; let go, it eases home to stand spine-on again.
+  await h.mouse.move(held.x + held.width / 2, held.y + held.height / 2)
+  await h.mouse.down()
+  await h.mouse.move(held.x + held.width / 2 + 260, held.y + held.height / 2, { steps: 12 }); await wait(200)
+  const spun = await h.evaluate(() => document.querySelector('[data-reader-back]').getBoundingClientRect().width > 60 && getComputedStyle(document.querySelector('[data-reader-card]').parentElement).transform !== 'none')
+  await h.mouse.up(); await h.mouse.move(held.x - 200, held.y + held.height / 2, { steps: 4 }); await wait(2000)
+  const home = await turned()
+  check('dragged, it turns round in the hand; let go, it eases home', spun && home > 30 && home < 50, `${spun} then ${home}°`)
   // Not with Motion off.
   await h.evaluate(() => (document.documentElement.dataset.motion = 'off'))
   await h.mouse.move(held.x + held.width / 2, held.y + held.height / 2)
@@ -183,7 +191,7 @@ try {
   const stacked = await h.evaluate(() => {
     const words = document.querySelector('[data-setting-title="Reader card"] .text-body').parentElement.getBoundingClientRect()
     const row = document.querySelector('[data-setting-title="Reader card"]').getBoundingClientRect()
-    const card = document.querySelector('[data-reader-card]').getBoundingClientRect()
+    const card = document.querySelector('[data-reader-hold]').getBoundingClientRect()
     return { below: Math.round(card.top - words.bottom), offCentre: Math.round(card.left + card.width / 2 - (row.left + row.width / 2)) }
   })
   check('on a narrow pane the card sits under its words, centred', stacked.below > 0 && Math.abs(stacked.offCentre) < 12, JSON.stringify(stacked))
