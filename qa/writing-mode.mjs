@@ -1,5 +1,5 @@
 // Today's page in writing mode: the writer's line from the first moment
-// (the time, "Sound" and "Stay in writing mode", no "0 words"); no count chip
+// (the time; once writing mode begins, the sound and what pausing does; no "0 words"); no count chip
 // of the editor's own under the words; a jiggle of the pointer or a short
 // pause keeps the rest gone, a deliberate move or Esc brings it back; "Stay in
 // writing mode" keeps it gone until Esc; the words slide to the window's
@@ -39,12 +39,14 @@ try {
   await v('settings:set', { sounds: false, hintRate: 0, writingStay: false, spellJournal: true })
   await open()
   const empty = await line()
-  check('the writer\'s line shows on an empty today: the time, "Sound", "Stay in writing mode"', /^\d{1,2}:\d{2}( [AP]M)?·Sound: [A-Za-z, ]+·Stay in writing mode$/.test(empty ?? ''), String(empty))
+  check('the writer\'s line shows on an empty today: the time alone, its controls not yet (nothing for them to do before writing)', /^\d{1,2}:\d{2}( [AP]M)?$/.test(empty ?? ''), String(empty))
   check('no "0 words" in it', !/words?/.test(empty ?? ''))
   if (shots) await h.screenshot({ path: `${shots}/empty-line-light.png` })
   await into()
   check('no count chip of the editor\'s own under the day\'s words', !(await h.evaluate(() => document.querySelector('[data-day-write] .tiptap-word-count'))))
   check('a few words in, writing mode', await writing())
+  const shown = await line()
+  check('now its controls, each saying what it does', /·(No sound|[A-Za-z, ]+) while writing·Page comes back when you pause$/.test(shown ?? ''), String(shown))
   // A jiggle: a few px at a time.
   for (let i = 0; i < 6; i++) await h.mouse.move(600 + (i % 2) * 6, 400 + (i % 2) * 4)
   check('a jiggle of the pointer keeps the rest gone', await writing())
@@ -74,10 +76,10 @@ try {
   check('Esc brings it back at once', !(await writing()))
   check('and Esc stays in the words', await h.evaluate(() => !!document.activeElement?.closest('[data-day-write]')))
 
-  // Stay in writing mode.
+  // The page kept hidden till Esc.
   await h.click('[data-writing-stay]')
   await wait(300)
-  check('"Stay in writing mode" shows as on', await h.evaluate(() => document.querySelector('[data-writing-stay]')?.hasAttribute('data-on')))
+  check('"Page stays hidden till Esc" shows as on, saying so', (await line())?.endsWith('Page stays hidden till Esc') && await h.evaluate(() => document.querySelector('[data-writing-stay]')?.hasAttribute('data-on')))
   await h.click('[data-page] [data-day-write] .ProseMirror')
   await into()
   await wait(10_000)

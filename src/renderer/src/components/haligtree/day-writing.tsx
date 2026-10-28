@@ -79,7 +79,7 @@ function markDayPaths(): void {
  * and a few words in the rest of the page fades to nothing, the sidebar with
  * it, and the words slide calmly to the window's middle (main.css). A
  * deliberate move of the pointer, about nine seconds' pause, or Esc brings it
- * all back; with "Stay in writing mode" on, only Esc. Keeps the time spent
+ * all back; with "Page stays hidden till Esc" chosen, only Esc. Keeps the time spent
  * writing that day, too.
  */
 export function useWritingQuiet(editor: Editor | null, day: string): number {
@@ -324,10 +324,18 @@ export function WriterLine({ editor, day, spent, today }: { editor: Editor | nul
   }, [])
   // Only while the page is in use: the caret in it, or writing mode on. Read or passed by, the line keeps out of the way.
   const [inUse, setInUse] = useState(() => !!editor?.isFocused || document.documentElement.hasAttribute('data-day-writing'))
+  const [writingNow, setWritingNow] = useState(() => document.documentElement.hasAttribute('data-day-writing'))
   useEffect(() => {
     if (!editor || editor.isDestroyed) return
     const root = document.documentElement
-    const check = (): void => setInUse(editor.isFocused || root.hasAttribute('data-day-writing'))
+    // Once writing mode has begun the controls stay while the page is in use, so the pointer coming to them (which brings the
+    // page back) does not take them away; they go when the words are left.
+    const check = (): void => {
+      const writing = root.hasAttribute('data-day-writing')
+      const using = editor.isFocused || writing
+      setInUse(using)
+      setWritingNow((was) => writing || (was && using))
+    }
     const watch = new MutationObserver(check)
     watch.observe(root, { attributes: true, attributeFilter: ['data-day-writing'] })
     editor.on('focus', check)
@@ -380,13 +388,13 @@ export function WriterLine({ editor, day, spent, today }: { editor: Editor | nul
           </span>,
           minutes > 0 && <span key="minutes"><Rolling text={num(minutes)} /> {minutes === 1 ? 'minute' : 'minutes'}</span>,
           today && <span key="time" data-writer-time>{clock(Date.now())}</span>,
-          today && <WritingSound key="sound" className="pointer-events-auto -mx-1.5" />,
+          // Its two controls only once writing mode has begun (the page faded): before that there is nothing for them to do.
+          today && writingNow && <WritingSound key="sound" className="pointer-events-auto -mx-1.5" />,
           // Quietly here: the rest of the page stays gone till Esc, not just till a pause.
-          today && <button key="stay" type="button" data-writing-stay data-on={settings?.writingStay || undefined} aria-pressed={!!settings?.writingStay}
-            title="The rest of the page stays gone until you press Esc"
+          today && writingNow && <button key="stay" type="button" data-writing-stay data-on={settings?.writingStay || undefined} aria-pressed={!!settings?.writingStay}
             onPointerDown={(event) => event.preventDefault()}
             onClick={() => (chime('tap'), void haligtree.setSettings({ writingStay: !settings?.writingStay }))}
-            className="pointer-events-auto -mx-1.5 rounded-md px-1.5 py-0.5 transition-colors hover:text-foreground data-on:bg-accent data-on:text-foreground">Stay in writing mode</button>
+            className="pointer-events-auto -mx-1.5 rounded-md px-1.5 py-0.5 transition-colors hover:text-foreground data-on:bg-accent data-on:text-foreground">{settings?.writingStay ? 'Page stays hidden till Esc' : 'Page comes back when you pause'}</button>
         ].filter(Boolean).flatMap((one, i) => (i ? [<span key={`dot-${i}`} aria-hidden>·</span>, one] : [one]))}
       </span>
     </div>,
