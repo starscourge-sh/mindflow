@@ -790,7 +790,8 @@ function thesisBeats(): Beat<ThesisState>[] {
   // Then a reader's note written on in the margin to its right, a letter at a time, its arrow drawn to it after;
   // nothing else moves on the page while it writes, and it is read before the answer comes.
   beats.push({ at: t, to: { noted: true }, cue: () => bell(PENTA[2], 0.009, 'note') })
-  t += noteWrites().end * 1000 + Math.max(900, leadMs(MARGIN_NOTE) - noteWrites().end * 1000)
+  // Then read whole, once written: a reader finishes a handwritten line slower than it was written.
+  t += noteWrites().end * 1000 + Math.max(1800, leadMs(MARGIN_NOTE))
   // The answer, typed in as a person would (read as it types), its key words shining.
   beats.push({ at: t, to: { answer: true }, cue: () => bell(PENTA[0] * 2, 0.014, 'answer') })
   const answer = typed<ThesisState>(plainOf(ANSWER), t + 250, (sofar) => ({ said: sofar.length }), random, 0.9, 2200)
