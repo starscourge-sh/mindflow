@@ -66,7 +66,8 @@ const card = () => h.evaluate(() => {
     ink: getComputedStyle(at).color,
     nameLines: (() => { const one = at.querySelector('[data-reader-name]'); return Math.round(one.getBoundingClientRect().height / parseFloat(getComputedStyle(one).lineHeight)) })(),
     nameCut: (() => { const one = at.querySelector('[data-reader-name]'); return one.scrollHeight > one.clientHeight + parseFloat(getComputedStyle(one).lineHeight) / 2 })(),
-    size: (() => { const box = at.getBoundingClientRect(); return `${Math.round(box.width)}x${Math.round(box.height)}` })(),
+    // Its own size: on screen it stands turned, a book in 3D, so its box on the page is narrower and taller.
+    size: `${at.offsetWidth}x${at.offsetHeight}`,
     seen: (() => { const box = at.getBoundingClientRect(); return box.top >= 0 && box.bottom <= innerHeight })(),
     // The tag's right edge and "Commonplace Book"'s left, to see they never run into each other.
     // Apart either across or down: the tag sits under the stamps and "Commonplace Book" now, on the book's narrower cover.
@@ -121,7 +122,8 @@ try {
   const tipped = await turned()
   await h.mouse.move(held.x - 200, held.y + held.height / 2, { steps: 4 }); await wait(1200)
   const after = await turned()
-  check('it tips toward the pointer, and lies flat when it leaves', tipped > 2 && after < 0.1, `${tipped}° then ${after}°`)
+  // A book: it faces you while pointed at and leans to the pointer; left, it turns back to stand with its spine to you.
+  check('it tips toward the pointer, and turns back to stand spine-on when it leaves', tipped > 2 && Math.abs(after - 34) < 1, `${tipped}° then ${after}°`)
   // Not with Motion off.
   await h.evaluate(() => (document.documentElement.dataset.motion = 'off'))
   await h.mouse.move(held.x + held.width / 2, held.y + held.height / 2)
@@ -154,7 +156,7 @@ try {
   for (let i = 0; i < 6 && hues === kept.hues; i++) (await h.locator('[data-reader-randomize]').click(), await wait(600), (hues = (await card()).hues))
   check('"Randomize" draws other colours', hues !== kept.hues, `${kept.hues} → ${hues}`)
 
-  const box = await h.locator('[data-reader-card]').boundingBox()
+  const box = await h.locator('[data-reader-card]').evaluate((one) => ({ width: one.offsetWidth, height: one.offsetHeight }))
   for (const look of ['shape', 'bands']) {
     if ((await h.evaluate(() => document.querySelector('[data-reader-card]').dataset.picture)) !== look) (await h.locator('[data-reader-picture]').click(), await wait(900))
     const corners = await copied()

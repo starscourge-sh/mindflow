@@ -1,7 +1,7 @@
 import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react'
 import { Gem, Link2, Rows2, Shapes, Shuffle } from 'lucide-react'
 import { Coolshape, shapes } from 'coolshapes-react'
-import { motion } from 'motion/react'
+import { motion, useSpring, useTransform } from 'motion/react'
 import { Button } from '@/components/ui/button'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import CopyIcon from '@/components/ui/copy-icon'
@@ -103,6 +103,9 @@ function stampsOf(facts: Facts): { label: ReactNode; said: string }[] {
 /** The card's corners, rounded as on screen: a book's, square at the spine, a little round at the fore-edge. */
 const ROUND = 5
 const BOOK_CORNERS = '2px 5px 5px 2px'
+/** How thick the book is, and how far it stands turned at rest, its spine toward you. */
+const THICK = 30
+const REST_TURN = 34
 /**
  * Old paper seen edge on: fine leaf lines (vertical at the fore-edge, across at the foot, crossed here so both show),
  * a grain, and a yellowing that deepens toward the outer edges as old books' pages do.
@@ -267,8 +270,13 @@ export function ReaderCard({ seed: saved, picture = 'shape', point, named, bare 
   const card = useRef<HTMLDivElement>(null)
   // The card tips toward the pointer as a picture in full screen does (tilt.tsx), a little less far: it is held, not studied.
   const tilt = useTilt(7, 1.02)
+  // A real book, as Stripe Press's: at rest it stands turned a little, its spine to you; pointed at, it turns to face
+  // you and leans toward the pointer. Motion off, it faces you and stays.
+  const turn = useSpring(still() ? 0 : REST_TURN, { stiffness: 140, damping: 20 })
+  const turned = useTransform(() => turn.get() + tilt.y.get())
   // Flat at once, no spring and no sheen, before its picture is taken.
   const level = (): void => {
+    turn.jump(0)
     tilt.flat()
     for (const one of [tilt.x, tilt.y, tilt.glow]) one.jump(0)
     tilt.grow.jump(1)
@@ -279,8 +287,8 @@ export function ReaderCard({ seed: saved, picture = 'shape', point, named, bare 
   const { title, hues, shape } = cardOf(seed)
   const stamps = facts ? stampsOf(facts) : []
   const actions: { tip: string; icon: ReactNode; data: string; run: () => void }[] = [
-    { tip: 'Copy as image', icon: <AliveIcon icon={CopyIcon} size={15} />, data: 'data-reader-copy', run: () => void shareCard(card.current, false, name, level) },
-    { tip: 'Save as image…', icon: <AliveIcon icon={DownloadIcon} size={15} />, data: 'data-reader-save', run: () => void shareCard(card.current, true, name, level) },
+    { tip: 'Copy as image', icon: <AliveIcon icon={CopyIcon} size={15} />, data: 'data-reader-copy', run: () => void shareCard(card.current, false, name, level).finally(() => !still() && turn.set(REST_TURN)) },
+    { tip: 'Save as image…', icon: <AliveIcon icon={DownloadIcon} size={15} />, data: 'data-reader-save', run: () => void shareCard(card.current, true, name, level).finally(() => !still() && turn.set(REST_TURN)) },
     picture === 'shape'
       ? { tip: 'Show two bands instead', icon: <Rows2 className="size-[15px]" />, data: 'data-reader-picture', run: () => void haligtree.setSettings({ readerPicture: 'bands' }) }
       : { tip: 'Show a shape instead', icon: <Shapes className="size-[15px]" />, data: 'data-reader-picture', run: () => void haligtree.setSettings({ readerPicture: 'shape' }) },
@@ -299,26 +307,31 @@ export function ReaderCard({ seed: saved, picture = 'shape', point, named, bare 
       {/* The pointer is read on a wrapper that never tips, as Tilt does: read on the card, a corner tips out from under it and flickers. */}
       {/* A press nudges the book where it is pressed, a little further back and a touch smaller, and on letting go it
           springs back to lean toward the pointer again. */}
-      <div data-reader-hold className="mr-[13px] mb-[13px]" onPointerMove={(event) => void (!event.buttons && tilt.lean(event, event.currentTarget))} onPointerLeave={tilt.flat}
+      <div data-reader-hold className="relative mx-[18px] mb-[22px]" onPointerEnter={() => turn.set(0)} onPointerMove={(event) => void (!event.buttons && tilt.lean(event, event.currentTarget))} onPointerLeave={() => (tilt.flat(), !still() && turn.set(REST_TURN))}
         onPointerDown={(event) => { if (event.button !== 0 || still()) return; tilt.lean({ ...event, buttons: 0, pointerType: 'mouse' }, event.currentTarget); tilt.x.set(tilt.x.get() * 2.4); tilt.y.set(tilt.y.get() * 2.4); tilt.grow.set(0.97); chime('tap') }}
         onPointerUp={(event) => void tilt.lean({ ...event, buttons: 0 }, event.currentTarget)}>
         {/* Cream paper in every theme, as a printed card is: its words take the card's own colour, never the theme's. */}
-        {/* The book tips as one: its block of pages behind, the cover over it. */}
-        <motion.div className="relative" style={{ rotateX: tilt.x, rotateY: tilt.y, scale: tilt.grow, transformPerspective: 700 }}>
-        {/* The pages under the cover, thick and showing at the fore-edge and the foot as on a closed book: old paper,
-            yellowed and grainy, each leaf's edge a fine line. The book's shadow falls from the block. */}
-        <div aria-hidden data-reader-pages className="pointer-events-none absolute top-[5px] left-[6px] -right-[13px] -bottom-[13px] overflow-hidden rounded-[1px_5px_5px_1px]"
-          style={{ background: OLD_PAGES, boxShadow: '0 1px 2px rgb(0 0 0 / 0.12), 8px 18px 34px -10px rgb(0 0 0 / 0.4)' }}>
-          <span className="absolute top-0 right-0 bottom-[13px] w-[13px] rounded-tr-[inherit]" style={{ backgroundImage: EDGE_LINES('down') }} />
-          <span className="absolute right-0 bottom-0 left-0 h-[13px] rounded-b-[inherit]" style={{ backgroundImage: EDGE_LINES('across') }} />
-        </div>
+        {/* Its shadow on the table under it. */}
+        <div aria-hidden className="pointer-events-none absolute right-2 -bottom-4 left-4 h-6 rounded-[50%] bg-black/35 blur-[14px]" />
+        {/* The book is a box in 3D: the cover at its front, the back cover behind, the spine down its left side, and the
+            old yellowed pages at its fore-edge, head and foot, each leaf a fine line. It turns and tips as one. */}
+        <motion.div className="relative h-[375px] w-[250px] [transform-style:preserve-3d]" style={{ rotateX: tilt.x, rotateY: turned, scale: tilt.grow, transformPerspective: 1000 }}>
+          <div aria-hidden className="absolute inset-0 [backface-visibility:hidden]" style={{ transform: `rotateY(180deg) translateZ(${THICK / 2}px)`, borderRadius: BOOK_CORNERS, background: `${CLOTH}, #f3ecd6` }} />
+          <div aria-hidden data-reader-spine-face className="absolute top-0 flex h-full items-center justify-center overflow-hidden [backface-visibility:hidden]"
+            style={{ left: (250 - THICK) / 2, width: THICK, transform: `rotateY(-90deg) translateZ(125px)`, background: `linear-gradient(to right, rgb(0 0 0 / 0.3), transparent 30%, rgb(255 255 255 / 0.18) 55%, transparent 75%, rgb(0 0 0 / 0.25)), ${CLOTH}, var(--mf-card-c)`, color: '#fffbea' }}>
+            {/* A quarter binding, as many cloth books have: the spine in the cover's ink, its name stamped down it. */}
+            <span className="text-[0.6875rem] font-bold tracking-[0.06em] whitespace-nowrap" style={{ writingMode: 'vertical-rl', fontFamily: "'Fraunces Variable', Georgia, serif" }}>{name}</span>
+          </div>
+          <div aria-hidden data-reader-pages className="absolute top-[2px] [backface-visibility:hidden]" style={{ left: (250 - THICK) / 2, width: THICK, height: 371, transform: `rotateY(90deg) translateZ(123px)`, background: `${EDGE_LINES('down')}, ${OLD_PAGES}` }} />
+          <div aria-hidden className="absolute left-[3px] [backface-visibility:hidden]" style={{ top: (375 - THICK) / 2, height: THICK, width: 244, transform: `rotateX(90deg) translateZ(185.5px)`, background: `${EDGE_LINES('across')}, ${OLD_PAGES}` }} />
+          <div aria-hidden className="absolute left-[3px] [backface-visibility:hidden]" style={{ top: (375 - THICK) / 2, height: THICK, width: 244, transform: `rotateX(-90deg) translateZ(185.5px)`, background: `${EDGE_LINES('across')}, ${OLD_PAGES}` }} />
         <div
           ref={card}
           data-reader-card
           data-hues={hues.join(' ')}
           data-picture={picture}
-          className="relative flex h-[375px] w-[250px] shrink-0 flex-col bg-[#fffbea] py-4 pr-4 pl-[1.75rem]"
-          style={{ boxShadow: '1px 1px 0 rgb(0 0 0 / 0.1), 2px 2px 3px -1px rgb(0 0 0 / 0.18)', ...({ borderRadius: BOOK_CORNERS, transition: '--mf-card-a 700ms ease-out, --mf-card-b 700ms ease-out, --mf-card-c 700ms ease-out', color: 'var(--mf-card-c)', '--mf-card-a': inked(hues[0], 0.82, 0.13), '--mf-card-b': inked(hues[1], 0.66, 0.19), '--mf-card-c': inked(hues[2], 0.44, 0.15) } as CSSProperties) }}
+          className="absolute inset-0 flex flex-col bg-[#fffbea] py-4 pr-4 pl-[1.75rem] [backface-visibility:hidden]"
+          style={{ transform: `translateZ(${THICK / 2}px)`, ...({ borderRadius: BOOK_CORNERS, transition: '--mf-card-a 700ms ease-out, --mf-card-b 700ms ease-out, --mf-card-c 700ms ease-out', color: 'var(--mf-card-c)', '--mf-card-a': inked(hues[0], 0.82, 0.13), '--mf-card-b': inked(hues[1], 0.66, 0.19), '--mf-card-c': inked(hues[2], 0.44, 0.15) } as CSSProperties) }}
         >
           {picture === 'shape' ? <ShapePicture shape={shape} /> : <div className="overflow-hidden rounded-[2px]"><Bands /></div>}
           <p data-reader-name className="mt-3 line-clamp-2 text-[1.375rem] leading-[1.12] font-bold tracking-[-0.015em] break-words" style={{ fontFamily: "'Fraunces Variable', Georgia, serif" }}>{name || ' '}</p>
