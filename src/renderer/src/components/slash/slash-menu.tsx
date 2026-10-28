@@ -15,7 +15,7 @@ import {
   type SuggestionListHandle,
 } from "@/components/suggestion/suggestion-renderer"
 import type { SlashItem } from "@/extensions/slash-command"
-import { listDirection, step } from "@/lib/menu-keys"
+import { listDirection, step, revealRow } from "@/lib/menu-keys"
 import { realMove } from "@/lib/real-move"
 import { SlashPeek } from "./slash-peek"
 
@@ -47,7 +47,7 @@ const SlashList = forwardRef(function SlashList(
 
   // Arrowing past the fold has to bring the row with it.
   useEffect(() => {
-    selectedRef.current?.scrollIntoView({ block: "nearest" })
+    revealRow(selectedRef.current)
   }, [selected])
 
   const choose = (index: number) => {

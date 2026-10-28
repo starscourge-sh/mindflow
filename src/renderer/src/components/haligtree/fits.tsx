@@ -1,3 +1,4 @@
+import { revealRow } from '@/lib/menu-keys'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { chime } from '@/lib/sound'
@@ -100,7 +101,7 @@ function Fits({ start, onClose }: { start: number; onClose: () => void }): React
   const live = picked.filter((id) => rows.some((task) => task.id === id))
   const list = useRef<HTMLDivElement>(null)
   useEffect(() => void setAt((was) => Math.min(was, Math.max(rows.length - 1, 0))), [rows.length])
-  useEffect(() => void list.current?.querySelector('[data-fit-at]')?.scrollIntoView({ block: 'nearest' }), [at])
+  useEffect(() => void revealRow(list.current?.querySelector('[data-fit-at]')), [at])
 
   const choices = FIT_CHOICES.includes(minutes as (typeof FIT_CHOICES)[number]) ? [...FIT_CHOICES] : [...FIT_CHOICES, minutes].sort((a, b) => a - b)
   const pickLength = (next: number): void => {

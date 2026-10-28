@@ -6,7 +6,7 @@ import {
   type SuggestionListHandle,
 } from "@/components/suggestion/suggestion-renderer"
 import { linkKind, noteLinkPluginKey, tagPluginKey, wikiPluginKey, type NoteSuggestion } from "@/extensions/note-link"
-import { listDirection, step } from "@/lib/menu-keys"
+import { listDirection, step, revealRow } from "@/lib/menu-keys"
 import { realMove } from "@/lib/real-move"
 import { TagIcon } from "@/components/haligtree/tag-icon"
 import { hoverNote } from "@/components/haligtree/note-preview"
@@ -18,7 +18,7 @@ export const NoteList = forwardRef<SuggestionListHandle, Pick<SuggestionProps<No
     // Moving past the fold brings the row with it, as in the / menu.
     const selectedRef = useRef<HTMLButtonElement>(null)
     useEffect(() => {
-      selectedRef.current?.scrollIntoView({ block: "nearest" })
+      revealRow(selectedRef.current)
     }, [selected])
     useEffect(() => setSelected(0), [items])
 

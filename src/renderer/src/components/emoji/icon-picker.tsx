@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { emojis } from "@tiptap/extension-emoji"
 
 import { BLOCK_COLORS, type BlockColor } from "@/extensions/block-color"
-import { listDirection } from "@/lib/menu-keys"
+import { listDirection, revealRow } from "@/lib/menu-keys"
 import { realMove } from "@/lib/real-move"
 
 type Emoji = (typeof emojis)[number] & { emoji: string }
@@ -115,7 +115,7 @@ export function IconPicker({
 
   // Walking past the fold has to bring the row with it.
   useEffect(() => {
-    activeRef.current?.scrollIntoView({ block: "nearest" })
+    revealRow(activeRef.current)
   }, [active])
 
   const move = (by: number): void =>

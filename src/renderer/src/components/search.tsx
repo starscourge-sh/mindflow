@@ -1,3 +1,4 @@
+import { revealRow } from '@/lib/menu-keys'
 import { Fragment, useEffect, useRef, useState, useSyncExternalStore, type ComponentProps } from 'react'
 import { TASK_KIND } from './haligtree/everything'
 import { FLOAT } from '@/lib/float'
@@ -186,7 +187,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
   useEffect(() => setAt(0), [titleOnly, types, kinds])
   // The highlighted result stays in view as the arrows move it.
   useEffect(() => {
-    document.querySelector('[data-search-at]')?.scrollIntoView({ block: 'nearest' })
+    revealRow(document.querySelector('[data-search-at]'))
   }, [at, results.length])
   const current = at >= doing.length ? results[at - doing.length] : undefined
   const action = at < doing.length ? doing[at] : undefined
@@ -234,7 +235,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
     applyTheme(theme, false)
   }, [picking, theme])
   useEffect(() => {
-    document.querySelector('[data-theme-at]')?.scrollIntoView({ block: 'nearest' })
+    revealRow(document.querySelector('[data-theme-at]'))
   }, [themeAt, picking])
   // Closed mid-way (a click outside), the old theme comes back too.
   useEffect(() => () => void (before.current && applyTheme(before.current, false)), [])

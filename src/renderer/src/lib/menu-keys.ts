@@ -53,3 +53,26 @@ export function layerOpen(also = ''): boolean {
   // A picker that floats (a popover's list) always counts; a tip, though it floats too, never does.
   return [...document.querySelectorAll('[role=listbox], [cmdk-root]')].some((one) => shown(one) && (one.contains(document.activeElement) || !!one.closest('[data-radix-popper-content-wrapper]')))
 }
+
+/**
+ * Bring a menu's chosen row into view as the keys move it, its group's heading with it: moved onto the first row
+ * of a group (wrapping from the bottom back to the top, above all), the heading above it shows too, and the very
+ * first or last row takes the list right to its top or foot. `scrollIntoView({ block: "nearest" })` alone left the
+ * list a heading short of its top after a wrap, so it looked as if it had not scrolled with the row.
+ */
+export function revealRow(row: Element | null | undefined): void {
+  if (!row) return
+  let box = row.parentElement
+  while (box && !(box.scrollHeight > box.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(box).overflowY))) box = box.parentElement
+  if (!box) return void row.scrollIntoView({ block: 'nearest' })
+  const rows = [...box.querySelectorAll(row.tagName)].filter((one) => one.getClientRects().length)
+  const at = rows.indexOf(row)
+  if (at === 0) return void (box.scrollTop = 0)
+  if (at === rows.length - 1) return void (box.scrollTop = box.scrollHeight)
+  // A heading just above the row (a group's first row): the heading is what must show at the top.
+  const before = row.previousElementSibling
+  const top = before && before.tagName !== row.tagName ? before : row
+  const [area, from, to] = [box.getBoundingClientRect(), top.getBoundingClientRect(), row.getBoundingClientRect()]
+  if (from.top < area.top) box.scrollTop -= area.top - from.top
+  else if (to.bottom > area.bottom) box.scrollTop += to.bottom - area.bottom
+}
