@@ -23,8 +23,8 @@ import { clip, cut } from '../../../main/clip'
  * The box reads plain words as commands: "5m tea" is a timer, "+name:" a clue,
  * "tomorrow 5pm" a task's date, "#bug" a task. Each one is lit where it stands
  * as you type, Todoist's way, in the colour of what it will do, and each can be
- * kept as plain text instead: click it, press Backspace straight after it, or
- * its × under the box. Nothing is written into the words; what was kept plain
+ * kept as plain text instead: click it, press Backspace straight after it (not a
+ * quote's "- who, where", whose Backspace mends a typo), or its × under the box. Nothing is written into the words; what was kept plain
  * is a list of places held beside them, moved as you type, for this capture
  * only. The send reads the same plan, so what is lit is what happens.
  */
@@ -607,7 +607,10 @@ export function boxTokensPlugin({ context, onPlan, onKept, onHover }: BoxTokensO
         const { empty, from } = view.state.selection
         if (!empty) return false
         const token = state.plan.tokens.find((one) => one.to === from)
-        if (!token) return false
+        // A quote's "- who, where" is words being written, not a command: Backspace mends a typo in it and it is read
+        // again as typed. Kept plain at the first press, a mistyped "where from" lost the whole credit. Its click and
+        // its x under the box still keep it plain.
+        if (!token || token.kind === 'signature') return false
         onKept(token, keepPlain(view, token))
         return true
       },

@@ -248,6 +248,17 @@ await check('signature: lit, who said it', async () => {
   expect(kept?.attribution === 'Leonardo', `attribution ${kept?.attribution}`)
 })
 
+await check('signature: Backspace mends a mistyped where, and it is still read', async () => {
+  await type('"It is a truth universally acknowledged" - Jane Austen, Pride and Prejudicx')
+  await page.keyboard.press('Backspace')
+  await page.keyboard.type('e')
+  await wait()
+  expect(await lit('signature') === 1, 'the credit was kept plain by Backspace')
+  await send()
+  const kept = await capture('It is a truth')
+  expect(kept?.attribution === 'Jane Austen' && /Pride and Prejudice$/.test(kept?.medium ?? ''), `who ${kept?.attribution}, where ${kept?.medium}`)
+})
+
 // --- a bare link --------------------------------------------------------------
 await check('link: kept plain, a note; lit, a link', async () => {
   await type('https://example.com/one')
