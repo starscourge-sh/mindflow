@@ -1512,10 +1512,11 @@ button.mf-signed:hover .mf-signature { text-decoration: underline; text-decorati
   color: var(--muted-foreground);
 }
 .mf-margin-card > * + *::before { content: '·'; margin-inline-end: 0.5em; color: var(--muted-foreground); }
-@container note (min-width: 66rem) {
+.mf-margin-card button { text-align: inherit; }
+@container note (min-width: 62rem) {
   html[data-width='page'] .mf-margin-card {
-    position: absolute; top: 0; right: calc(100% + 3.5rem);
-    width: 10rem; margin: 0;
+    position: absolute; top: 0; right: calc(100% + 3rem);
+    width: 9rem; margin: 0;
     flex-direction: column; align-items: flex-end; row-gap: 0.125rem;
     padding: 0.125rem 0.75rem 0.125rem 0;
     border-inline-end: 1px solid var(--border);
@@ -1523,10 +1524,10 @@ button.mf-signed:hover .mf-signature { text-decoration: underline; text-decorati
   }
   html[data-width='page'] .mf-margin-card > * + *::before { content: none; }
 }
-@container note (min-width: 82rem) {
+@container note (min-width: 78rem) {
   html[data-width='wide'] .mf-margin-card {
-    position: absolute; top: 0; right: calc(100% + 3.5rem);
-    width: 10rem; margin: 0;
+    position: absolute; top: 0; right: calc(100% + 3rem);
+    width: 9rem; margin: 0;
     flex-direction: column; align-items: flex-end; row-gap: 0.125rem;
     padding: 0.125rem 0.75rem 0.125rem 0;
     border-inline-end: 1px solid var(--border);

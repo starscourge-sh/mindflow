@@ -79,8 +79,11 @@ export function SourceFoot({ who, where, quote = false, gem = false, cite }: { w
   )
 }
 
-/** The property a quote or a gem keeps its page in its source under. */
-export const PAGE_FIELD = 'Page'
+/** Where in its source a quote is: the quote kind's own "Page or place" (kind-fields.ts). */
+export const PAGE_FIELD = 'location'
+
+/** A bare number is a page, "p. 49"; anything else ("chapter 3") reads as it was written. */
+const isPage = (value: string): boolean => /^\d+([–-]\d+)?$/.test(value)
 
 /** The page it is on in its source, read from its properties. */
 const pageOf = (fields: string | null | undefined): string => {
@@ -99,16 +102,22 @@ const pageOf = (fields: string | null | undefined): string => {
 function PageNumber({ table, id, fields }: { table: NoteTable; id: string; fields?: string | null }): React.JSX.Element {
   const page = pageOf(fields)
   const save = (raw: string): void => {
-    const next = raw.replace(/^p(age|\.)?\s*/i, '').trim().slice(0, 20)
+    const bare = raw.replace(/^p(age|p?\.)?\s*/i, '').trim()
+    const next = (isPage(bare) ? bare : raw.trim()).slice(0, 40)
     if (next === page) return
-    void notes.setField(table, id, PAGE_FIELD, next || null).then(() => chime('noted'))
+    void notes.setField(table, id, PAGE_FIELD, next || null).then(() => (chime('noted'),
+      toast(next ? `Kept as ${isPage(next) ? `p. ${next}` : next}` : 'Page taken off', () => void notes.setField(table, id, PAGE_FIELD, page || null).then(() => chime('undo')))))
   }
   return (
-    <p data-page-number className="flex items-baseline px-1.5 pt-1 text-control text-muted-foreground">
-      {page && <span aria-hidden>p.</span>}
-      <input aria-label="Page in its source" defaultValue={page} key={page} placeholder="Add the page it is on" maxLength={20}
-        onKeyDown={(event) => event.key === 'Enter' && event.currentTarget.blur()} onBlur={(event) => save(event.target.value)}
-        className="min-w-[2ch] rounded-md bg-transparent px-1 py-0.5 text-control text-muted-foreground tabular-nums outline-none [field-sizing:content] placeholder:text-muted-foreground/80 hover:bg-accent hover:text-foreground focus:bg-accent focus:text-foreground" />
+    <p data-page-number className="flex items-baseline px-1.5 pt-1 text-body text-foreground">
+      {isPage(page) && <span aria-hidden>p.</span>}
+      {/* Esc puts back what was there, as a page's name does. */}
+      <input aria-label="Page or place in its source" defaultValue={page} key={page} placeholder="Add the page it is on" maxLength={40}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') event.currentTarget.blur()
+          if (event.key === 'Escape') (event.preventDefault(), event.stopPropagation(), event.currentTarget.value = page, event.currentTarget.blur())
+        }} onBlur={(event) => save(event.target.value)}
+        className="min-w-[2ch] rounded-md bg-transparent px-1 py-0.5 text-body text-foreground tabular-nums outline-none [field-sizing:content] placeholder:text-foreground/55 hover:bg-accent focus:bg-accent" />
     </p>
   )
 }
@@ -124,11 +133,11 @@ export function MarginCard({ who, where }: { who?: string | null; where?: string
   const card = useLive(() => (who?.trim() || where?.trim() ? sources.card(who, where) : Promise.resolve(null)), null as SourceCard | null, [who, where])
   if (!card) return null
   const via = card.viaPage
-  const line = [card.born && (card.died && card.field === 'attribution' ? `${card.born} to ${card.died}` : card.born), card.what].filter(Boolean)
+  const line = [card.what, card.born && (card.died && card.field === 'attribution' ? `${card.born} to ${card.died}` : card.born)].filter(Boolean)
   return (
     <aside data-margin-card data-chrome contentEditable={false} className="mf-margin-card">
       <button type="button" data-margin-title onClick={() => (chime('page'), openSource(card.field, card.name))}
-        className="mf-margin-title rounded text-left text-foreground/85 hover:underline hover:underline-offset-2">{card.name}</button>
+        className="mf-margin-title rounded text-foreground/85 hover:underline hover:underline-offset-2">{card.name}</button>
       {line.length > 0 && <span data-margin-line>{line.join(' · ')}</span>}
       {card.author && <span data-margin-author>{card.author}</span>}
       {card.via && (
@@ -420,7 +429,7 @@ function SourceLine({ page, name }: { page: SourcePage | null; name: string }): 
       <Fact label="Via" placeholder="where you found it" value={page?.via ?? ''} onSave={(next) => facts({ via: next })} />
       {via && (
         <button type="button" data-via-open onClick={() => (chime('page'), openSource(via.field, via.name))}
-          className="ml-1 rounded-md px-1 py-0.5 text-control text-muted-foreground hover:bg-accent hover:text-foreground">Open {via.name}’s page</button>
+          className="ml-1 rounded-md px-1 py-0.5 text-control text-foreground hover:bg-accent">Open {via.name}’s page</button>
       )}
     </p>
   )
