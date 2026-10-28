@@ -537,7 +537,7 @@ export function Welcome(): React.JSX.Element | null {
   return (
     <MotionConfig reducedMotion={quiet ? 'always' : 'never'}>
     <motion.div ref={dialog} tabIndex={-1} role="dialog" aria-modal aria-label={`Welcome to ${APP_NAME}`} inert={opening} onKeyDown={(event) => event.stopPropagation()}
-      data-closing={closing ? '' : undefined} data-story={story().id} onPointerDown={() => void (closing && closed())}
+      data-closing={closing ? '' : undefined} data-story={story().id} data-dial={at === DIAL ? '' : undefined} onPointerDown={() => void (closing && closed())}
       initial={false} animate={{ opacity: closing ? 0 : 1 }} transition={closing ? { delay: 0.45, duration: 0.9, ease: MOVE } : { duration: 0 }}
       className="mf-welcome fixed inset-0 z-[70] flex outline-none flex-col overflow-clip bg-background text-foreground [container-type:inline-size]">
       <Backdrop family={at === WRITE ? 'ruled' : at === DIAL ? 'dots' : 'none'} page={at} arrival={arrival} arriving={mist && veiled && at === WHY} onBloomed={() => setBloomed(true)} />

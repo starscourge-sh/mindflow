@@ -622,7 +622,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
           </Setting>
           <Setting title="Highlights" note="The colours you mark words with: “Soft” pastels, or “Rich”, deeper and fuller." keywords="highlight colour color marker pastel rich pale saturated vivid mark"
             below={<Choices label="Highlights" options={highlightChoices(!document.documentElement.hasAttribute('data-light'))} on={(id) => id === (settings.highlights ?? 'soft')} pick={(highlights) => set({ highlights: highlights as Settings['highlights'] })} />} />
-          <Setting title="Paper" note="What a note's page is written on, as a notebook's: plain, ruled, dots or a grid." keywords="paper ruled lined dots dotted grid squared graph notebook page background lines"
+          <Setting title="Paper" note="What your pages are written on (notes, the Journal and the writing room), as a notebook's: plain, ruled, dots or a grid." keywords="paper ruled lined dots dotted grid squared graph notebook page background lines"
             below={<Choices label="Paper" options={paperChoices} on={(id) => id === (settings.paper ?? 'plain')} pick={(paper) => set({ paper: paper as Settings['paper'] })} />} />
           <Setting title="Icons" note="The sidebar's pages and tags, and the Map's dots: “Lines”, or each one's own emoji. Menus keep their lines." keywords="icons emoji lines symbols sidebar tags pages map"
             below={<Choices label="Icons" options={menuIconChoices()} on={(id) => id === (settings.menuIcons ?? 'lines')} pick={(menuIcons) => set({ menuIcons: menuIcons as Settings['menuIcons'] })} />} />

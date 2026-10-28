@@ -69,6 +69,7 @@ try {
   await h.waitForTimeout(800)
   const fields = await h.evaluate(([id]) => window.api.haligtree('notes:fields', 'nuggets', id), [gem.id])
   check('the page number is changed where it shows', String(fields.location) === '50', fields)
+  check('and shows once: not again as "Page or place" in Properties', !(await h.evaluate(() => document.body.innerText.includes('Page or place'))))
 
   if (shots) {
     await h.evaluate(() => document.querySelector('[data-margin-card]')?.scrollIntoView({ block: 'center' }))

@@ -33,6 +33,19 @@ try {
     check(`a note's page on ${paper} paper`, drawn !== null && (paper === 'plain' ? drawn === 'none' : drawn !== 'none'), String(drawn).slice(0, 60))
     if (SHOTS) await h.screenshot({ path: `${SHOTS}/paper-${paper}.png` })
   }
+  // The Journal's day page and the writing room wear it too.
+  await v('settings:set', { paper: 'grid' })
+  await go('day')
+  await h.waitForSelector('[data-day-write] .ProseMirror', { timeout: 10000 })
+  const onDay = await h.evaluate(() => getComputedStyle(document.querySelector('[data-day-write] .haligtree-editor-wrapper:not(.is-line) > .haligtree-editor-content')).backgroundImage)
+  check('the Journal\'s day page is on the same paper', onDay !== 'none', onDay.slice(0, 40))
+  await h.click('[data-room-open]')
+  await h.waitForSelector('[data-room]', { timeout: 5000 })
+  const inRoom = await h.evaluate(() => getComputedStyle(document.querySelector('[data-room] .haligtree-editor-wrapper:not(.is-line) > .haligtree-editor-content')).backgroundImage)
+  check('and so is the writing room', inRoom !== 'none', inRoom.slice(0, 40))
+  if (SHOTS) (await h.waitForTimeout(700), await h.screenshot({ path: `${SHOTS}/paper-room.png` }))
+  await h.keyboard.press('Escape')
+  await v('settings:set', { paper: 'plain' })
   check('no page errors', !c.errors.some((one) => one.includes('PAGEERROR')), c.errors.join(' | '))
 } catch (error) {
   check('ran', false, error.stack)

@@ -1476,6 +1476,8 @@ export function Home(): React.JSX.Element {
             } },
             { label: recordable ? 'Hide from recordings' : 'Show in recordings', hint: `${APP_NAME} in screen recordings and shares`, cue: recordable ? 'off' : 'on', icon: recordable ? CameraOffIcon : CameraIcon, run: () => recordAll(!recordable, settings?.inRecordings) },
             // Not in safe mode: the notes it would bring are meant to be put away then.
+            // The starter lists, found by name too ("Start a list: Overheard"), not only from Gems' right-click.
+            ...STARTER_LISTS.map(([icon, name]) => ({ label: `Start a list: ${name}`, hint: `${icon} A folder of Gems`, cue: null, run: () => void startList(icon, name).then((folder) => setView({ id: 'nuggets', folder })) })),
             ...(settings?.safeMode ? [] : [{ label: 'Bring sticky notes here', cue: null, run: () => window.api.gatherStickies() }]),
             ...(settings?.safeMode || !stickiesOut ? [] : [{ label: 'Tidy stickies', keys: '⌃⌥⌘T', cue: null, run: () => window.api.tidyStickies() }]),
             { label: 'reveal' in document.documentElement.dataset ? 'Blur private titles again' : 'Show private titles', hint: 'For now', cue: 'reveal' in document.documentElement.dataset ? 'off' : 'on', run: () => {

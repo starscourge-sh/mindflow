@@ -59,7 +59,9 @@ function LinkName({ link }: { link: string }): React.JSX.Element {
  * Check back's day) shows even while empty, faint, so you see what it asks
  * for; "Add property" (⌥⌘P) is always at the end, in the same place.
  */
-export function PropertyStrip({ table, id, kind, fields, text, created, updated, panel = false }: {
+export function PropertyStrip({ table, id, kind, fields, text, created, updated, panel = false, sourced = false }: {
+  /** From a source: its page in it shows under its words as "p. 49" (source-page.tsx), so it is not a property too. */
+  sourced?: boolean
   table: NoteTable
   id: string
   kind: string
@@ -96,8 +98,8 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated,
   useReading(read.of !== `${table}:${id}`)
   const typeFor = (name: string): PropType | null => (names.find((one) => one.name.toLowerCase() === name.toLowerCase())?.type as PropType | null) ?? null
   const optionsFor = (name: string): string[] => names.find((one) => one.name.toLowerCase() === name.toLowerCase())?.options ?? []
-  const fromTags: Prop[] = groups.flatMap(([tag, fields]) => fields.filter((field) => field.type !== 'hidden').map((field) => ({ key: field.key, label: field.label, type: typeOf(field), options: field.options ?? [], tag, field, value: values[field.key] })))
-  const own: Prop[] = Object.keys(values).filter((key) => !KEPT.has(key) && !fromTags.some((prop) => prop.key === key)).map((key) => {
+  const fromTags: Prop[] = groups.flatMap(([tag, fields]) => fields.filter((field) => field.type !== 'hidden' && !(sourced && field.key === 'location')).map((field) => ({ key: field.key, label: field.label, type: typeOf(field), options: field.options ?? [], tag, field, value: values[field.key] })))
+  const own: Prop[] = Object.keys(values).filter((key) => !KEPT.has(key) && !(sourced && key === 'location') && !fromTags.some((prop) => prop.key === key)).map((key) => {
     const value = values[key]
     const guessed: PropType = typeof value === 'boolean' ? 'bool' : typeof value === 'number' ? 'number' : typeof value === 'string' && /^\d{4}-\d\d-\d\dT/.test(value) ? 'date' : 'text'
     return { key, label: OLD_LABELS[key] ?? key, type: typeFor(key) ?? guessed, options: optionsFor(key), tag: null, value }

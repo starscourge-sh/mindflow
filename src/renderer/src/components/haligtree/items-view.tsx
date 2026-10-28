@@ -1039,7 +1039,7 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
 
       {(!boardShown || propsOut) && <Props fold={!boardShown}>
         {/* The note's properties head its details, as Linear's issues have them. */}
-        <PropertyStrip panel table="nuggets" id={item.id} kind={item.kind} fields={item.fields} text={item.title} created={item.createdAt} updated={item.updatedAt} />
+        <PropertyStrip panel table="nuggets" id={item.id} kind={item.kind} fields={item.fields} text={item.title} created={item.createdAt} updated={item.updatedAt} sourced={!!(item.attribution?.trim() || item.medium?.trim())} />
         {item.tier === 'article' && <Marginalia id={item.id} names={named} editor={() => editor.current} />}
         {item.tier === 'nugget' && (
           <>
