@@ -755,41 +755,38 @@ const ANSWER = `${APP_NAME} changes the direction. Instead of asking you to sear
 type ThesisState = { noted: boolean; opened: boolean; words: number; gaps: number; kept: number; line: number; move: Move; slanted: number; asked: boolean; answer: boolean; said: number; book: boolean }
 const THESIS_START: ThesisState = { noted: false, opened: false, words: 0, gaps: 0, kept: 0, line: -1, move: 'off', slanted: 0, asked: false, answer: false, said: 0, book: false }
 const THESIS_END: ThesisState = { noted: true, opened: true, words: Infinity, gaps: THREE.length, kept: THREE.length, line: -1, move: 'off', slanted: THREE.length, asked: true, answer: true, said: Infinity, book: true }
-/** The headline's tune, a note a word, in the arrival chord's key: up the scale and home again on "again." */
-const MELODY = [0, 1, 2, 3, 4, 3, 2, 1, 0]
 
 function thesisBeats(): Beat<ThesisState>[] {
   const random = seeded(41)
   // The chapter opens on the arrival's beat (ARRIVE_MS): the date and the tagline first, on a glass note.
   const beats: Beat<ThesisState>[] = [{ at: 0, to: { opened: true }, cue: () => bell(PENTA[0] * 2, 0.014, 'arrive') }]
-  // Two beats later the headline, a word to each half beat, each on its note; the last word held a little longer.
-  let t = BEAT_MS * 2
-  THESIS.split(' ').forEach((_, i, all) => {
-    if (i === all.length - 1) t += BEAT_MS * 0.25
-    beats.push({ at: t, to: { words: i + 1 }, cue: () => bell(PENTA[MELODY[i % MELODY.length]], 0.011, 'word') })
-    t += BEAT_MS / 2
+  // A beat later the headline, a word to each quarter beat, quietly: a note a word ran up the scale like a lesson.
+  let t = BEAT_MS
+  THESIS.split(' ').forEach((_, i) => {
+    beats.push({ at: t, to: { words: i + 1 } })
+    t += BEAT_MS / 4
   })
   // Read the line whole before anything else comes.
-  t += 900
+  t += 600
   // Each kind of app lands in bold, what it keeps comes up beside it, and a pointer selects that and sets it in italics, then goes on to the next.
   THREE.forEach((_, i) => {
     // Read before anything moves: the bold words alone a moment, then the rest of the line, and only once
     // both have been read does the pointer set out for it.
     beats.push({ at: t, to: { gaps: i + 1 }, cue: cue('bead') })
-    beats.push({ at: t + 750, to: { kept: i + 1 } })
-    const reach = t + 750 + Math.max(900, leadMs(THREE[i][1]) - 300)
+    beats.push({ at: t + 450, to: { kept: i + 1 } })
+    const reach = t + 450 + Math.max(600, leadMs(THREE[i][1]) - 600)
     beats.push({ at: reach, to: { line: i, move: 'reach' } })
     const press = reach + REACH_MS + 160
     beats.push({ at: press, to: { move: 'drag' }, cue: cue('select') })
     beats.push({ at: press + DRAG_MS + 40, to: { move: 'held' } })
     beats.push({ at: press + DRAG_MS + 300, to: { slanted: i + 1 }, cue: cue('slant') })
-    t = press + DRAG_MS + 900
+    t = press + DRAG_MS + 500
   })
   beats.push({ at: t, to: { line: -1, move: 'leave' } })
   // The cause, read whole (it stays up).
-  t += 500
+  t += 300
   beats.push({ at: t, to: { asked: true } })
-  t += Math.max(1600, leadMs(QUESTION))
+  t += Math.max(1200, leadMs(QUESTION) - 400)
   // Then a reader's note written on in the margin to its right, a letter at a time, its arrow drawn to it after;
   // nothing else moves on the page while it writes, and it is read before the answer comes.
   beats.push({ at: t, to: { noted: true }, cue: () => bell(PENTA[2], 0.009, 'note') })

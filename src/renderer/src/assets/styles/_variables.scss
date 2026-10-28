@@ -365,9 +365,10 @@ $mf-themes: (
     "green": #9ccfd8, "blue": #3e8fb0, "purple": #c4a7e7, "pink": #ebbcba, "red": #eb6f92
   ),
   /* Paper: old paper and brown ink, for long reading. Lower contrast than
-     Light on purpose, and every hue pulled toward the page so nothing shouts. */
+     Light on purpose, and every hue pulled toward the page so nothing shouts.
+     Its accent a golden brown, as Gruvbox light's: the light Gruvbox, on paper. */
   "paper": (
-    "bg": #f3ead7, "ink": #4a4034, "accent": #9a5a2c,
+    "bg": #f3ead7, "ink": #4a4034, "accent": #8f5c0c,
     "gray": #6e6457, "brown": #85603f, "orange": #985424, "yellow": #816421,
     "green": #4f6e3c, "blue": #3f6787, "purple": #6f5486, "pink": #94506e, "red": #a2433a
   ),
