@@ -2,6 +2,7 @@
 // "via", and its thoughts at the foot of its page in the pen's hand.
 // QA_SHOTS=<folder> keeps screenshots, light and dark, beside sibling pages.
 import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
 
 const shots = process.env.QA_SHOTS
 const s = await sandbox({ width: 1500, height: 900 })
