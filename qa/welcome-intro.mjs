@@ -63,13 +63,13 @@ try {
     if (!nameAt && (await opacity('[data-title-card] h1')) > 0.95) nameAt = t
     if (!lineAt && (await opacity('[data-title-card] p')) > 0.95) lineAt = t
     if (SHOTS && t > [1500, 3000, 4500, 6000, 7500, 9000, 10500, 14000][frame]) await shot(`0${frame++}-card-${(t / 1000).toFixed(1)}s`)
-    // No mark over the words now, and the wordmark's weight.
-    if (t > 10500 && !mark) mark = await h.evaluate(() => ({ drawn: document.querySelectorAll('[data-title-card] canvas, [data-title-mark]').length, weight: Number(getComputedStyle(document.querySelector('[data-title-card] h1')).fontWeight) }))
+    // The logo over the words, and the wordmark's weight.
+    if (t > 10500 && !mark) mark = await h.evaluate(() => ({ drawn: document.querySelectorAll('[data-title-card] img[data-title-mark]').length, weight: Number(getComputedStyle(document.querySelector('[data-title-card] h1')).fontWeight) }))
     await h.waitForTimeout(200)
   }
   check('the title card shows in the mist, all the way to its lift', card === looks && looks > 5, `${card} of ${looks} looks`)
   check('it reads as a title page: Haligtree, a commonplace book kept by its owner', /Haligtree/.test(title) && /A commonplace book( kept by \S+)?/.test(title), title.replace(/\s+/g, ' '))
-  check('no mark over the words: the words alone', mark?.drawn === 0, String(mark?.drawn))
+  check('the logo over the wordmark', mark?.drawn === 1, String(mark?.drawn))
   check('the wordmark is bold', (mark?.weight ?? 0) >= 600, String(mark?.weight))
   check('dark, then a small glow breathes, then spreads whole, in about ten seconds', bloomAt > 8800 && bloomAt < 11000, `${bloomAt}ms`)
   check('no words while it blooms', !earlyWords)

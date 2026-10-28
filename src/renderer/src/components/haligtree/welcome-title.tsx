@@ -1,5 +1,6 @@
 import { motion } from 'motion/react'
 import { ARRIVE_MS } from '@/lib/sound'
+import markGold from '@/assets/mark-gold.svg'
 
 /** When the window may gather in from the whole screen (main: gatherIn): only once the title card is whole and held a breath, so the two never move at once. */
 export const GATHER_AT = 14200
@@ -28,6 +29,8 @@ export function WelcomeTitle({ name, hurry = false, ready = true }: { name: stri
     <motion.div aria-hidden data-title-card="" data-ready={ready ? '' : undefined} className="pointer-events-none absolute inset-0 z-40 flex flex-col items-center justify-center gap-[clamp(0.6rem,1.6vmin,1rem)] text-foreground [text-shadow:0_0_24px_color-mix(in_oklab,var(--background)_55%,transparent),0_1px_2px_color-mix(in_oklab,var(--background)_40%,transparent)]"
       initial={{ opacity: 1 }} animate={hurry ? { opacity: 0, transition: { duration: 0.4 } } : undefined}>
       <Leave order={0}>
+      {/* The logo over the wordmark, rising with it a beat ahead: the book's mark, then its name. */}
+      <motion.img data-title-mark src={markGold} alt="" draggable={false} {...rise(0.2)} className="mx-auto mb-[clamp(0.4rem,1.2vmin,0.75rem)] block size-[clamp(3rem,8vmin,5rem)] drop-shadow-[0_2px_10px_color-mix(in_oklab,var(--background)_45%,transparent)]" />
       <motion.h1 {...rise(0.5)} className="font-heading text-[clamp(3rem,9vmin,6.5rem)] leading-none font-semibold tracking-[-0.02em]">Haligtree</motion.h1>
       </Leave>
       <Leave order={1}>
