@@ -20,8 +20,9 @@ import { Rolling, Tip, refuse, toast } from './ui'
  * settings (readerSeed), so the same card shows every time until “Randomize”.
  */
 
-const KINDS = ['Vague', 'Mighty', 'Ancient', 'Patient', 'Restless', 'Gentle', 'Wandering', 'Precious', 'Quiet', 'Curious', 'Tireless', 'Midnight']
-const READERS = ['Archivist', 'Collector', 'Scribe', 'Gardener', 'Reader', 'Annotator', 'Keeper', 'Wanderer', 'Marginalist', 'Cartographer', 'Gleaner', 'Copyist']
+// Mostly the Lands Between (Elden Ring), a few from Lordran and Drangleic (Dark Souls), and a few of the book's own.
+const KINDS = ['Grace-Given', 'Erdtree', 'Haligtree', 'Golden', 'Starscourge', 'Ashen', 'Undead', 'Chosen', 'Hollow', 'Moonlit', 'Carian', 'Crucible', 'Rune-Bearing', 'Wandering', 'Restless', 'Patient', 'Midnight', 'Dragon-Kin', 'Bell-Bearing']
+const READERS = ['Tarnished', 'Elden Lord', 'Finger Reader', 'Lorekeeper', 'Scholar', 'Sorcerer', 'Knight', 'Pilgrim', 'Maiden', 'Hunter', 'Archivist', 'Gleaner', 'Sentinel', 'Firekeeper', 'Wretch', 'Prophet', 'Astrologer', 'Vagabond', 'Confessor', 'Champion']
 /** The theme's own hues (the tags'), warm to cool, so three in a row always sit well together. Never green beside yellow (their mix is olive), and no brown: both only muddied the bands. */
 const HUES = ['yellow', 'orange', 'red', 'pink', 'purple', 'blue', 'green']
 
