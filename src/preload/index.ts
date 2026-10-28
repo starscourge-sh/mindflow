@@ -390,6 +390,12 @@ const api = {
   },
   /** The box's own colour behind the page, or null for the frosted backing: see setSurface in main. */
   setSurface: (color: string | null): void => ipcRenderer.send('window:surface', color),
+  /** In the box: the welcome starting or ending (it wears no side panel while it runs). */
+  onWelcoming: (listen: (on: boolean) => void): (() => void) => {
+    const relay = (_event: unknown, on: boolean): void => listen(on)
+    ipcRenderer.on('box:welcoming', relay)
+    return () => ipcRenderer.off('box:welcoming', relay)
+  },
   /** Each time the window is brought up: the moment the rot cards reshuffle and a hint may show. */
   onShown: (listen: () => void): (() => void) => {
     const relay = (): void => listen()

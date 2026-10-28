@@ -1,11 +1,12 @@
-import { useEffect, useRef, type CSSProperties } from 'react'
+import { useEffect, useImperativeHandle, useRef, type CSSProperties, type Ref } from 'react'
 
 /**
  * Grainient, from React Bits (reactbits.dev/backgrounds/grainient, MIT): a
  * flowing, grainy gradient in a few colours, drawn with WebGL 2, that the
  * pointer can stir like paint and a click twists into a swirl. Typed for this
  * app; the drawing is the original's. Under Reduce motion it holds still and
- * only the grain is drawn once.
+ * only the grain is drawn once. Its `ref` can `nudge()` it: a slow swirl at a
+ * place and a small turn of the whole field, eased in over about a second.
  */
 
 const MAX_COLORS = 8
@@ -15,6 +16,9 @@ const STIR_LIFE = 1.3
 const STIR_STEP = 0.06
 const TWIRL_LIFE = 2.6
 const INTRO_SECONDS = 1.6
+/** A nudge: how far the field's pattern turns over, and how quickly it settles there (about a second). */
+const NUDGE_SHIFT = 0.14
+const NUDGE_EASE = 0.3
 const DEFAULT_COLORS = ['#120f17', '#2a0f0a', '#9a3412', '#f97316', '#fed7aa']
 const TYPES = { linear: 0, radial: 1 } as const
 const LIFT = 0.2
@@ -247,7 +251,13 @@ const link = (gl: WebGL2RenderingContext, fragmentSource: string): Linked | null
   return { program, uniforms }
 }
 
+export type GrainientHandle = {
+  /** A calm stir at `x`, `y` (0 to 1 across and down the field), turning one way or the other: nothing under Reduce motion. */
+  nudge: (x: number, y: number, direction?: 1 | -1) => void
+}
+
 export type GrainientProps = {
+  ref?: Ref<GrainientHandle>
   colors?: string[]
   type?: keyof typeof TYPES
   angle?: number
@@ -276,11 +286,13 @@ export type GrainientProps = {
 export function Grainient({
   colors = DEFAULT_COLORS, type = 'linear', angle = 55, bands = 1, speed = 1, flow = 0.8, scale = 1, softness = 1, silk = 0.35,
   grainAmount = 0.08, grainSize = 1.2, grainAnimated = true, contrast = 1, saturation = 1, variation = 0, interactive = true, stir = 1,
-  clickSwirl = true, intro = true, lightMode = false, dpr, className = '', style
+  clickSwirl = true, intro = true, lightMode = false, dpr, className = '', style, ref
 }: GrainientProps): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wakeRef = useRef<(() => void) | null>(null)
+  const nudgeRef = useRef<GrainientHandle['nudge'] | null>(null)
+  useImperativeHandle(ref, () => ({ nudge: (x, y, direction) => nudgeRef.current?.(x, y, direction) }), [])
   const palette = (colors.length ? colors : DEFAULT_COLORS).slice(0, MAX_COLORS)
   const settings = {
     colors: palette.length > 1 ? palette : [palette[0], palette[0]], type: TYPES[type] ?? 0, angle, bands: clamp(bands, 1, 8),
@@ -335,7 +347,9 @@ export function Grainient({
     const twirls = new Float32Array(MAX_TWIRLS * 4)
     type Sample = { x: number; y: number; vx: number; vy: number; age: number; grow: number; done: boolean }
     const trail: Sample[] = []
-    const spins: { x: number; y: number; age: number; direction: number }[] = []
+    // A click's swirl is quick and tight; a nudge's (wide) slower, gentler and broader.
+    const spins: { x: number; y: number; age: number; direction: number; wide?: boolean }[] = []
+    const shift = { now: 0, to: 0 }
     const pointer = { x: 0.5, y: 0.5, sx: 0.5, sy: 0.5, vx: 0, inside: false, fresh: true }
     let paletteKey = ''
     let time = 0
@@ -388,7 +402,7 @@ export function Grainient({
       gl.uniform4fv(fu.uStir, stirs)
       gl.uniform1fv(fu.uStirWeight, stirWeights)
       gl.uniform4fv(fu.uTwirl, twirls)
-      gl.uniform2f(fu.uSeed, s.variation * 3.17, s.variation * 1.91)
+      gl.uniform2f(fu.uSeed, (s.variation + shift.now) * 3.17, (s.variation + shift.now) * 1.91)
       gl.uniform1f(fu.uContrast, s.contrast)
       gl.uniform1f(fu.uSaturation, s.saturation)
       gl.uniform1f(fu.uSettle, introClock * introClock * (3 - 2 * introClock))
@@ -467,6 +481,12 @@ export function Grainient({
         const spin = spins[i]
         if (!spin) { twirls[i * 4 + 2] = 0; continue }
         const k = spin.age / TWIRL_LIFE
+        if (spin.wide) {
+          // Swells over the first second, then lets go as slowly.
+          const envelope = Math.sin(Math.PI * Math.min(1, k * 1.1)) ** 2
+          twirls.set([spin.x, spin.y, spin.direction * 1.3 * envelope, 0.3 + 0.12 * k], i * 4)
+          continue
+        }
         const envelope = Math.min(1, spin.age / 0.18) * (1 - k) * (1 - k)
         twirls.set([spin.x, spin.y, spin.direction * 2.4 * envelope, 0.16 + 0.1 * Math.min(1, spin.age / 0.5)], i * 4)
       }
@@ -485,9 +505,11 @@ export function Grainient({
         grainClock = 0
         frameSeed = (frameSeed + 1) % 97
       }
+      shift.now += (shift.to - shift.now) * (1 - Math.exp(-dt / NUDGE_EASE))
+      if (Math.abs(shift.to - shift.now) < 0.0005) shift.now = shift.to
       updateTouches(dt, view.width / view.height)
       draw()
-      const busy = (!reduce && (s.speed > 0 || s.grainAnimated)) || introClock < 1 || trail.length > 0 || spins.length > 0
+      const busy = (!reduce && (s.speed > 0 || s.grainAnimated)) || introClock < 1 || trail.length > 0 || spins.length > 0 || shift.now !== shift.to
       if (busy) raf = requestAnimationFrame(frame)
       else last = 0
     }
@@ -515,6 +537,13 @@ export function Grainient({
       if (spins.length > MAX_TWIRLS) spins.pop()
       wake()
     }
+    nudgeRef.current = (x, y, direction = 1) => {
+      if (reduce) return
+      spins.unshift({ x: (x - 0.5) * (view.width / view.height), y: 0.5 - y, age: 0, direction, wide: true })
+      if (spins.length > MAX_TWIRLS) spins.pop()
+      shift.to += NUDGE_SHIFT * direction
+      wake()
+    }
     const onPointerLeave = (): void => void (pointer.inside = false)
     const onVisibility = (): void => ((last = 0), wake())
     const resizeObserver = new ResizeObserver(resize)
@@ -533,6 +562,7 @@ export function Grainient({
     return () => {
       cancelAnimationFrame(raf)
       wakeRef.current = null
+      nudgeRef.current = null
       resizeObserver.disconnect()
       intersection.disconnect()
       window.removeEventListener('pointermove', onPointerMove)

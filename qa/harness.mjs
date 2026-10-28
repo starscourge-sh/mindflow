@@ -8,7 +8,7 @@
  *
  *   npm run build && node qa/harness.mjs
  */
-import { existsSync, mkdtempSync } from 'fs'
+import { existsSync, mkdtempSync, readFileSync } from 'fs'
 import { execFile } from 'child_process'
 import { homedir, tmpdir } from 'os'
 import { join } from 'path'
@@ -24,6 +24,14 @@ const LINES = `${EDITOR} li > p, ${EDITOR} li > div > p, ${EDITOR} > p, ${EDITOR
  * PASS or FAIL line and returns whether it passed; `done()` prints
  * "N/M passed" and ends the run, failing it when any check failed.
  */
+/**
+ * Whether the welcome wears its paper background, the one with leaves
+ * (WELCOME_BACKGROUND in welcome.tsx). With the gradient there are none, so the
+ * leaf checks have nothing to look at.
+ */
+export const welcomeHasLeaves = () =>
+  /WELCOME_BACKGROUND:[^=]*=\s*'paper'/.test(readFileSync(new URL('../src/renderer/src/components/haligtree/welcome.tsx', import.meta.url), 'utf8'))
+
 export function checks() {
   const results = []
   const check = (name, ok, detail = '') => {

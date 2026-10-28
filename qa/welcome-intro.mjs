@@ -7,7 +7,7 @@
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-a/main/index.js HALIGTREE_QA_AWAY=1 node qa/welcome-intro.mjs [shots folder] [light|dark]
 import { mkdirSync, writeFileSync } from 'fs'
 import { join } from 'path'
-import { checks } from './harness.mjs'
+import { checks, welcomeHasLeaves } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 
 delete process.env.QA_ARGS
@@ -135,9 +135,12 @@ try {
   gale = Math.max(gale, await windNow())
   await h.waitForTimeout(3000)
   const calmAfter = await windNow()
-  check('the leaves are calm with the pointer away', calmBefore >= 0 && calmBefore < 0.05, String(calmBefore))
-  check('the pointer coming fast at Open my book blows on them', gale > 0.3, String(gale))
-  check('held still there, the wind dies down', calmAfter < 0.05, String(calmAfter))
+  // Leaves only with the paper background: the gradient has none to blow on.
+  if (welcomeHasLeaves()) {
+    check('the leaves are calm with the pointer away', calmBefore >= 0 && calmBefore < 0.05, String(calmBefore))
+    check('the pointer coming fast at Open my book blows on them', gale > 0.3, String(gale))
+    check('held still there, the wind dies down', calmAfter < 0.05, String(calmAfter))
+  }
   if (SHOTS && galePng) writeFileSync(join(SHOTS, `last-wind-${THEME}.png`), Buffer.from(galePng.split(',')[1], 'base64'))
   // Every frame for 2.8s from the press, in the page: the welcome, Home, and the sidebar with its Inbox row.
   await h.evaluate(() => {

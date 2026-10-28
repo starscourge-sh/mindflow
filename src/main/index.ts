@@ -233,11 +233,16 @@ let fit = FIT_MIN
 /** The side panel and the expander, as the page last asked. */
 let panelOpen = true
 let expandedNow = false
+/**
+ * The side panel as the box wears it now: never while the welcome runs, which
+ * teaches the small box alone. Your own choice (panelOpen) is kept for after.
+ */
+const panelShown = (): boolean => panelOpen && !isWelcoming()
 /** How wide the box should be now: one of its two widths, never one a glide left it at. */
-const boxWidth = (): number => (panelOpen ? WITH_PANEL : WIDTH)
+const boxWidth = (): number => (panelShown() ? WITH_PANEL : WIDTH)
 /** How tall the box should be now. */
 const boxHeight = (): number =>
-  expandedNow ? SIZES.expanded.height : panelOpen ? SIZES.compact.height : Math.round(Math.min(SIZES.compact.height, Math.max(FIT_MIN, fit)))
+  expandedNow ? SIZES.expanded.height : panelShown() ? SIZES.compact.height : Math.round(Math.min(SIZES.compact.height, Math.max(FIT_MIN, fit)))
 
 /** Keys as Settings writes them (⌥⌘S) in Electron's words (Alt+Command+S); null for none, or two in a row. */
 function accelerator(keys: string | null | undefined): string | null {
@@ -742,6 +747,8 @@ let focusWanted = false
 const pillUp = (): boolean => focusWanted && focusBubbleShown() && !gate().blackout && !isWelcoming()
 // The welcome opening puts the bubble away; closing it brings the bubble back if a session still runs.
 whenWelcoming((on) => {
+  // The box draws its side panel only when the welcome is not running: told as it changes.
+  if (prompt && !prompt.isDestroyed()) prompt.webContents.send('box:welcoming', on)
   if (!focusPill || focusPill.isDestroyed()) return
   if (on) focusPill.hide()
   else if (pillUp()) (placeFocus(), focusPill.showInactive())
@@ -3901,7 +3908,7 @@ app.whenReady().then(() => {
     if (!win) return false
     panelOpen = Boolean(open)
     const bounds = boundsOf(win)
-    const width = open ? WITH_PANEL : WIDTH
+    const width = boxWidth()
     // Wide already: only the height may be owed (the box opened short).
     if (width === bounds.width) return (await refit(win), Boolean(open))
     const back = !open && panelFrom && panelFrom.became === bounds.x ? panelFrom.x : undefined

@@ -111,7 +111,7 @@ import { ShortcutSheet } from '@/components/haligtree/shortcut-sheet'
 import { WordNotes } from '@/components/haligtree/term'
 import { FocusScenery, Rest } from './components/haligtree/scenery'
 import { brief, dayjs, num } from '../../main/dates'
-import { holdKeys, useLesson, useWelcomePlaceholder } from './lib/welcome-box'
+import { holdKeys, useLesson, useWelcomePlaceholder, useWelcoming } from './lib/welcome-box'
 import { SandboxChip } from '@/components/haligtree/sandbox'
 import { DefineGhost, defineable, fixIn, useDefinition } from '@/components/haligtree/word-define'
 import { notes } from './lib/notes'
@@ -335,7 +335,7 @@ const Header = ({ panel, drawn, onPanel, onNew, menu, nav, title, aside }: {
           </Tip>
           <span className="flex">{menu(expanded, toggle)}</span>
           <Tip label={`${panel ? 'Hide' : 'Show'} Inbox, Tasks, Review, Saved and Recent  ⌘\\`}>
-            <button type="button" tabIndex={-1} aria-label={panel ? 'Hide the side panel' : 'Show the side panel'} aria-pressed={panel}
+            <button type="button" tabIndex={-1} data-lesson="hide" aria-label={panel ? 'Hide the side panel' : 'Show the side panel'} aria-pressed={panel}
               className="relative flex size-[22px] after:absolute after:-inset-0.5 after:rounded-full items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground aria-pressed:text-foreground"
               onMouseDown={(event) => event.preventDefault()} onClick={onPanel}>
               <AliveIcon icon={LayoutSidebarRightIcon} size={14} />
@@ -744,12 +744,17 @@ export default function App(): React.JSX.Element {
   // The side panel is open to start (⌘\ hides it). Remembered, and the
   // window is sized to match on every start. A new key, so a panel shut
   // before it opened by default starts open once.
-  const [panel, setPanelOpen] = useStoredFlag('boxPanel', true, ['open', 'closed'])
+  const [chosenPanel, setPanelOpen] = useStoredFlag('boxPanel', true, ['open', 'closed'])
+  // While the welcome runs the box is its small self, the panel unopened whatever was chosen
+  // (main sizes the window to match); the choice itself is kept for after.
+  const welcoming = useWelcoming()
+  const panel = chosenPanel && !welcoming
   const [tab, setTab] = useState<Tab>('inbox')
   // The panel stays drawn while the window glides shut, so closing slides
   // it out of view instead of leaving an empty strip, and is drawn before
   // the window starts to widen, so opening uncovers it from the right.
-  const [panelDrawn, setPanelDrawn] = useState(panel)
+  const [panelKept, setPanelDrawn] = useState(panel)
+  const panelDrawn = panelKept && !welcoming
   const panelWanted = useRef(panel)
   panelWanted.current = panel
   const setPanel = (open: boolean): void => {

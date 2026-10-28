@@ -29,7 +29,7 @@ import { ThemeDial } from './theme-dial'
 import { Kbd, toast } from './ui'
 import { FULL_TURN, glyph, inClay, konami } from './welcome-eggs'
 import { WelcomeBackdrop, type Family } from './welcome-backdrop'
-import { Grainient } from '@/components/ui/grainient'
+import { Grainient, type GrainientHandle } from '@/components/ui/grainient'
 import { BACK_END, BACK_START, ComeBack, type BackShot } from './welcome-day'
 import { CURSOR_MS, FLOW_END, FLOW_START, FLOW_WORDS, FlowTree, type FlowShot } from './welcome-flow'
 import {
@@ -531,7 +531,7 @@ export function Welcome(): React.JSX.Element | null {
       data-closing={closing ? '' : undefined} onPointerDown={() => void (closing && closed())}
       initial={false} animate={{ opacity: closing ? 0 : 1 }} transition={closing ? { delay: 0.45, duration: 0.9, ease: MOVE } : { duration: 0 }}
       className="mf-welcome fixed inset-0 z-[70] flex outline-none flex-col overflow-clip bg-background text-foreground [container-type:inline-size]">
-      <Backdrop family={at === WRITE ? 'ruled' : at === DIAL ? 'dots' : 'none'} />
+      <Backdrop family={at === WRITE ? 'ruled' : at === DIAL ? 'dots' : 'none'} page={at} />
       {/* The first screen's autumn leaves, blowing behind the words; Next blows them away, and a
           few small ones drift on through the rest (not over the dial, which has its own light). On the
           dial's page and the last, a slow stream of them is drawn in and sinks behind the dial's ring or
@@ -936,6 +936,9 @@ function ForYou({ setup, at }: { setup?: Setup; at: Where }): React.JSX.Element 
  * the note written on as a pen writes, a letter at a time left to right. With no
  * room to its right, left out, never squeezed over words.
  */
+/** The note's width: room for it in two lines, as a hand writes it, not three short ones. */
+const NOTE_WIDTH_REM = 16
+
 function MarginNote({ on, quick }: { on: boolean; quick: boolean }): React.JSX.Element {
   const box = useRef<HTMLSpanElement>(null)
   const [room, setRoom] = useState(false)
@@ -945,7 +948,7 @@ function MarginNote({ on, quick }: { on: boolean; quick: boolean }): React.JSX.E
       const line = box.current?.parentElement?.getBoundingClientRect()
       if (!line) return
       const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
-      setRoom(window.innerWidth - line.right - 3.4 * rem - 11 * rem >= 12)
+      setRoom(window.innerWidth - line.right - 3.4 * rem - NOTE_WIDTH_REM * rem >= 12)
     }
     fit()
     addEventListener('resize', fit)
@@ -957,7 +960,7 @@ function MarginNote({ on, quick }: { on: boolean; quick: boolean }): React.JSX.E
   const now = (at: number): number => (quick || !shown ? 0 : at)
   return (
     <span ref={box} aria-hidden={!room || undefined} data-margin-note={on ? 'on' : 'off'} data-side={room ? 'right' : 'none'} className={room ? '' : 'invisible'}>
-      <span data-margin-words="" className="pointer-events-none absolute top-1/2 left-[calc(100%+3.4rem)] w-[11rem] -translate-y-1/2 rotate-2 text-left font-heading text-[0.98rem] leading-snug text-primary italic">
+      <span data-margin-words="" className="pointer-events-none absolute top-1/2 left-[calc(100%+3.4rem)] w-[16rem] -translate-y-1/2 rotate-2 text-left text-balance font-heading text-[0.98rem] leading-snug text-primary italic">
         {words.map((word, i) => (
           <Fragment key={i}>
             {/* Each word written on left to right as a pen goes, the next begun once this one is down. */}
@@ -1580,16 +1583,15 @@ function BoxKeys(): React.JSX.Element {
  * on the page's own colour.
  */
 /**
- * Which background the welcome wears: "grainient", the flowing ember gradient
- * (React Bits' Grainient, stirred by the pointer), or "paper", the still marks
- * on the theme's own page it had before. One word here to go back.
+ * Which background the welcome wears: "grainient", the flowing gradient in the
+ * theme's own colours (React Bits' Grainient, stirred by the pointer), or
+ * "paper", the still marks on the theme's own page it had before. One word
+ * here to go back.
  */
 const WELCOME_BACKGROUND: 'grainient' | 'paper' = 'grainient'
-/** The ember gradient's colours, darkest first: the first is the page's own edge. */
-const EMBER = ['#120f17', '#2a0f0a', '#9a3412', '#fbbe2a', '#fed7aa']
 
-export function Backdrop({ family }: { family: Family }): React.JSX.Element {
-  if (WELCOME_BACKGROUND === 'grainient') return <GrainBackdrop />
+export function Backdrop({ family, page }: { family: Family; page: number }): React.JSX.Element {
+  if (WELCOME_BACKGROUND === 'grainient') return <GrainBackdrop page={page} />
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0">
       {/* No painting: under the words it had to be veiled for reading, which hid it on most themes and showed it on a few.
@@ -1603,10 +1605,12 @@ export function Backdrop({ family }: { family: Family }): React.JSX.Element {
 }
 
 /**
- * The ember gradient behind the welcome, in the theme's light or dark: on a
- * light theme its light version (white first, the colours deepest last), so the
- * words stay dark on light. A veil of the page's own colour toward the words'
- * side keeps them first to read.
+ * The gradient behind the welcome, in the worn theme's own colours: its page
+ * first, so the edges are the page, then its accent deep, mid and full, and a
+ * light touch of it last. On a light theme the accent comes in paler and less
+ * saturated, so the page stays calm and the words stay dark on light. A veil
+ * of the page's own colour toward the words' side keeps them first to read.
+ * Each turn of the page stirs it once, toward the words.
  */
 /** Whether the theme worn is a light one, followed as it changes (the welcome's own dial changes it). */
 // Read off the words' own colour, the one thing the gradient must suit: dark words want the light version. A theme's
@@ -1622,11 +1626,54 @@ const watchTheme = (changed: () => void): (() => void) => {
 }
 const useLightTheme = (): boolean => useSyncExternalStore(watchTheme, lightNow)
 
-function GrainBackdrop(): React.JSX.Element {
+/** A colour as the page works it out, mixes and all, in oklab's words ("oklab(0.6 0.1 0.05)"), which the gradient reads. */
+const resolve = (color: string): string => {
+  const probe = document.createElement('i')
+  probe.style.display = 'none'
+  probe.style.color = `color-mix(in oklab, ${color} 100%, transparent 0%)`
+  document.body.append(probe)
+  const said = getComputedStyle(probe).color
+  probe.remove()
+  return said
+}
+/** How colourful a resolved oklab colour is: near 0 for a grey. */
+const chroma = (oklab: string): number => {
+  const [, a = 0, b = 0] = (oklab.match(/-?[\d.]+/g) ?? []).map(Number)
+  return Math.hypot(a, b)
+}
+/**
+ * The theme's colours for the gradient, joined in one line so a theme change is
+ * one new value: its page, then its accent (the first of the accent, the book's
+ * hue and blue with any colour to it, so a grey accent still gives a gradient).
+ */
+const paletteNow = (): string => {
+  const accent = ['var(--primary)', 'var(--tt-brand-color-400)', 'var(--tt-color-text-blue)'].map(resolve).find((one) => chroma(one) > 0.04) ?? resolve('var(--primary)')
+  const mix = (share: number, other = 'var(--background)'): string => resolve(`color-mix(in oklab, ${accent} ${share}%, ${other})`)
+  // Light: the accent no more than half in, its brightest a wash of it on white. Dark: down to the page from the full
+  // accent, its brightest a step toward the words' colour.
+  const colours = lightNow()
+    ? [resolve('var(--background)'), mix(12), mix(26), mix(42), mix(20, 'white')]
+    : [resolve('var(--background)'), mix(28), mix(60), accent, mix(60, 'var(--foreground)')]
+  return colours.join('|')
+}
+const usePalette = (): string[] => useSyncExternalStore(watchTheme, paletteNow).split('|')
+
+function GrainBackdrop({ page }: { page: number }): React.JSX.Element {
   const light = useLightTheme()
+  const colours = usePalette()
+  const grain = useRef<GrainientHandle>(null)
+  // A page turned: one slow swirl toward the words' side, the way it went. Not on the first page shown, nor with motion off.
+  const was = useRef(page)
+  useEffect(() => {
+    if (was.current === page) return
+    const forward = page > was.current
+    was.current = page
+    if (page < 0 || still()) return
+    grain.current?.nudge(0.38, 0.45, forward ? -1 : 1)
+  }, [page])
   return (
     <div aria-hidden className="absolute inset-0">
-      <Grainient colors={EMBER} lightMode={light} angle={55} flow={0.8} silk={0.35} grainAmount={0.08} />
+      <Grainient ref={grain} colors={colours} angle={55} flow={0.8} silk={light ? 0.2 : 0.35} saturation={light ? 0.8 : 1} grainAmount={light ? 0.06 : 0.08} />
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,color-mix(in_oklab,var(--background)_82%,transparent)_0%,color-mix(in_oklab,var(--background)_55%,transparent)_45%,transparent_80%)]" />
       {/* On a dark theme the gradient's bright end sits under light words and cards: a film of the page's colour over all of it. */}
       {!light && <div className="pointer-events-none absolute inset-0 bg-[color-mix(in_oklab,var(--background)_45%,transparent)]" />}

@@ -128,6 +128,22 @@ export function useLesson(): boolean {
 }
 
 /**
+ * Whether the welcome is running, for the box: true from the moment it starts,
+ * already known before the box is next shown, so it opens at its size at once.
+ * Lesson mode (above) only begins once the box is up.
+ */
+export function useWelcoming(): boolean {
+  const [on, setOn] = useState(false)
+  useEffect(() => {
+    let live = true
+    void window.api.haligtree<boolean>('onboarding:welcoming').then((now) => void (live && setOn(!!now)), () => undefined)
+    const off = window.api.onWelcoming(setOn)
+    return () => ((live = false), off())
+  }, [])
+  return on
+}
+
+/**
  * A quote's "- Name" at the end of its line: the name, for Who said it, and
  * after a comma where it is from ("- Marcus Aurelius, Meditations"). Only
  * after a closing quote mark, so a dash in the middle of a thought is left alone.

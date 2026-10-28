@@ -4,10 +4,15 @@
 //   QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/welcome-leaves.mjs [shots folder] [light|dark]
 import { mkdirSync } from 'fs'
 import { join } from 'path'
-import { checks } from './harness.mjs'
+import { checks, welcomeHasLeaves } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 
 delete process.env.QA_ARGS
+// Leaves only come with the paper background: with the gradient there is nothing here to check.
+if (!welcomeHasLeaves()) {
+  console.log('SKIP  the welcome wears the gradient, which has no leaves (WELCOME_BACKGROUND in welcome.tsx)')
+  process.exit(0)
+}
 const SHOTS = process.argv[2] ?? ''
 const THEME = process.argv[3] ?? 'light'
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
