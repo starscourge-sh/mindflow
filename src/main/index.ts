@@ -1101,7 +1101,7 @@ function arriveSticky(win: BrowserWindow): void {
     placed.set(win, { x: rest.x, y: rest.y - drop })
     win.setPosition(rest.x, rest.y - drop)
     win.showInactive()
-    qaTrace(`sticky-${(key ?? '').replace(/[^a-z0-9]+/gi, '-')}`, win, { ready: stickyReady.has(win) })
+    qaTrace(`sticky-${(key ?? '').replace(/[^a-z0-9]+/gi, '-')}`, win, { ready: stickyReady.has(win), key, bounds: rest, peek: peeking.has(key ?? '') })
     if (!quiet) win.webContents.send('sticky:arrive')
     moving.add(win)
     tween(180, (t) => {
@@ -1444,6 +1444,12 @@ function tintSticky(key: string, tint: string): void {
   const win = stickies.get(key)
   if (win && !win.isDestroyed()) win.webContents.send('sticky:tint', tint)
 }
+/**
+ * Whether the stickies left last time have been read back yet. Until then no goal card is made: one made first
+ * (the goals told as the book opens) landed in a fresh spot, and the place kept for it was lost, so after a
+ * restart (into the sandbox and back, say) a card could come back where another had been.
+ */
+let stickiesRestored = false
 /** The stickies left on the desktop last time, back where they were. */
 async function restoreStickies(): Promise<void> {
   try {
@@ -1466,6 +1472,7 @@ async function restoreStickies(): Promise<void> {
   } catch {
     // None yet.
   }
+  stickiesRestored = true
 }
 
 /**
@@ -1896,7 +1903,22 @@ const beaconModes = new Map<string, 'always' | 'sometimes'>()
 /** The goal cards the pointer is on: they never tuck away. */
 const beaconHeld = new Set<string>()
 const tuckTimers = new Map<string, ReturnType<typeof setTimeout>>()
-const momentsDone = new Map<string, string>()
+/**
+ * Which of the day's moments have come (wake, open), by the day they came, kept in the book's folder: a run started
+ * by the one before (into the sandbox and back, another book, a restore) is not a new opening of the day, so a
+ * now-and-then card tucked away stays tucked through it.
+ */
+const momentsFile = (): string => join(app.getPath('userData'), 'beacon-moments.json')
+let momentsDone: Map<string, string> | null = null
+const moments = (): Map<string, string> => {
+  if (momentsDone) return momentsDone
+  try {
+    momentsDone = new Map(Object.entries(JSON.parse(readFileSync(momentsFile(), 'utf8')) as Record<string, string>))
+  } catch {
+    momentsDone = new Map()
+  }
+  return momentsDone
+}
 let lastAppear = Date.now()
 /** A goal's beacon as it should be now. */
 const beaconMode = (goal: { goalAt: string; beacon: 'always' | 'sometimes' | 'off' | null }): 'always' | 'sometimes' | 'off' => {
@@ -1905,6 +1927,8 @@ const beaconMode = (goal: { goalAt: string; beacon: 'always' | 'sometimes' | 'of
 }
 /** Every goal's beacon made, taken down or tucked as its goal says now. */
 function beacons(): void {
+  // Read back first (restoreStickies then calls this): each card where it was left, never a fresh spot.
+  if (!stickiesRestored) return
   // Open goals come nearest day first, so one past its day is first of all.
   const goals = openGoals()
   const want = new Map(goals.map((goal) => [goal.id, beaconMode(goal)]))
@@ -1976,8 +2000,9 @@ function beaconMoment(kind: 'wake' | 'open' | 'active'): void {
   const { blackout, hidePrivate } = gate()
   if (blackout || hidePrivate || !stickyPrefs().shown) return
   if (kind !== 'active') {
-    if (momentsDone.get(kind) === dayKey()) return
-    momentsDone.set(kind, dayKey())
+    if (moments().get(kind) === dayKey()) return
+    moments().set(kind, dayKey())
+    void writeFile(momentsFile(), JSON.stringify(Object.fromEntries(moments()))).catch(() => undefined)
   }
   const keys = [...beaconModes].filter(([, mode]) => mode === 'sometimes').map(([key]) => key)
   if (!keys.length) return

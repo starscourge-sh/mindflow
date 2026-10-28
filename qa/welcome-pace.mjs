@@ -66,6 +66,10 @@ for (const [theme, width, height] of [['light', 1600, 1000], ['dark', 820, 620]]
       await h.waitForTimeout(250)
     }
     check(`${tag}: no arrow while Why still plays`, early === 0, `${early} looks`)
+    // The intro (gradient bloom and title card, 22 beats, qa/welcome-intro.mjs) is skipped by its own button: while it
+    // plays, Esc and Enter only hurry it, so the steps below start from Why's settled first screen.
+    await h.click('[data-skip-intro]').catch(() => {})
+    await h.waitForFunction(() => { const v = document.querySelector('[data-intro]'); return !v || Number(getComputedStyle(v).opacity) < 0.05 }, null, { timeout: 8000 }).catch(() => {})
     const steps = ['Why', 'You', 'Catch', 'Write', 'Remember', 'Make it yours', 'Ready']
     for (const step of steps) {
       if (!(await chapter(h)).includes(step)) {

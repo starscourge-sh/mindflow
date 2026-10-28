@@ -395,7 +395,7 @@ if (c) try {
   check('after a restart the groups are kept', memory?.color === 'blue' && memory.members.length === 3 && memory.folded === 1 && !!(await named(c, 'Reading')), JSON.stringify(await groupsNow(c)))
   check('and Memory is still drawn folded', (await row(c, 'The forgetting curve').count()) === 0)
   const rest = await row(c, 'Interleaving beats blocking').evaluate((el) => getComputedStyle(el).cursor)
-  check('a row at rest shows the plain arrow', rest === 'default', rest)
+  check('a row at rest shows the hand (it opens on a click)', rest === 'pointer', rest)
   // A faint grip at its left edge, only after a moment's rest on it.
   await row(c, 'Interleaving beats blocking').hover()
   await c.h.waitForTimeout(80)
@@ -407,7 +407,7 @@ if (c) try {
   // The grip in the margin is the handle: the open hand over it.
   const gripCursor = await c.h.evaluate(() => { const g = document.querySelector('[data-sortable-id] [data-grip]'); return g ? getComputedStyle(g).cursor : 'no grip' })
   check('the grip shows the open hand', gripCursor === 'grab', gripCursor)
-  // Pressed but not moved, as a click to open it: still the plain arrow.
+  // Pressed but not moved, as a click to open it: still the hand, not the closed one of a carry.
   const box = await row(c, 'Interleaving beats blocking').boundingBox()
   await c.h.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
   await c.h.mouse.down()
@@ -415,7 +415,7 @@ if (c) try {
   await c.h.keyboard.press('Escape')
   await c.h.mouse.up()
   await c.h.waitForTimeout(400)
-  check('a row pressed to open it keeps the plain arrow', pressed === 'default', pressed)
+  check('a row pressed to open it keeps the hand', pressed === 'pointer', pressed)
   // That press opened it, as a click does: back to the list.
   await c.go('home')
   await articles(c)

@@ -1,8 +1,8 @@
-// The welcome's arrival as one composed piece: silence and mist, the chord
-// rising, the title card, a held breath, and the first words only after about eight seconds,
-// on the beat; the headline resolving a word to a note; a pointer that drags
+// The welcome's arrival as one composed piece: the chord rising under the
+// intro's gradient bloom and title card (timed by qa/welcome-intro.mjs), and the
+// first words only once it is done, on the beat; the headline resolving a word to a note; a pointer that drags
 // across what each kind of app keeps and sets it in italics; Esc or a click
-// showing the page whole at once (during the mist too); the bed of sound
+// showing the page whole at once (during the intro too); the bed of sound
 // shifting with each page and coming home on the last; reduced motion with
 // the words simply there.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-w/main/index.js HALIGTREE_QA_AWAY=1 node qa/welcome-arrival.mjs [shots folder] [light|dark]
@@ -44,21 +44,21 @@ const look = () => h.evaluate(() => {
     asked: (() => { const q = document.querySelector('[data-thesis="question"]'); return !!q && Number(getComputedStyle(q).opacity) > 0.5 })(),
     noted: document.querySelector('[data-margin-note]')?.dataset.marginNote === 'on',
     typed: Number(document.querySelector('[data-thesis="answer"]')?.dataset.typed ?? 0) > 0,
-    t: performance.now() - (window.qaMistAt ?? NaN)
+    t: performance.now() - (window.qaIntroAt ?? NaN)
   }
 })
 try {
-  // The page notes when the mist first comes (a watcher put in before it loads), so every time below is from the arrival itself.
+  // The page notes when the intro first comes (a watcher put in before it loads), so every time below is from the arrival itself.
   await c.electron.context().addInitScript(() => {
     new MutationObserver((_, watch) => {
-      if (document.querySelector('[data-welcome-mist]')) (window.qaMistAt = performance.now()), watch.disconnect()
+      if (document.querySelector('[data-intro]')) (window.qaIntroAt = performance.now()), watch.disconnect()
     }).observe(document, { childList: true, subtree: true })
   })
   {
     await c.theme(THEME)
     if (!(await h.$('.mf-welcome'))) await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:welcome')))
   }
-  await h.waitForSelector('[data-welcome-mist]', { timeout: 8000 })
+  await h.waitForSelector('[data-intro]', { timeout: 8000 })
   const start = Date.now()
   let first = Infinity
   let frame = 0
@@ -66,7 +66,7 @@ try {
   let pointed = false
   let line = 0
   const when = { slanted: Infinity, asked: Infinity, noted: Infinity, typed: Infinity }
-  // Watched for up to 40 seconds (the title card is fifteen beats), a frame every ~400ms while shots are wanted.
+  // Watched for up to 40 seconds (the intro is 22 beats), a frame every ~400ms while shots are wanted.
   while (Date.now() - start < 40000) {
     const now = await look()
     const t = Number.isNaN(now.t) ? Date.now() - start : Math.round(now.t)
@@ -82,9 +82,9 @@ try {
   }
   // The last italic has crossed over.
   await h.waitForTimeout(800)
-  // The title card is fifteen beats at 72 a minute (12.5 s); the headline's first word comes two beats after (about 14.2 s).
-  check('no words before twelve seconds: mist, the chord and the fifteen-beat title card first', first >= 12000, `first words at ${first}ms`)
-  check('the first words come by about fifteen seconds', first <= 15500, `first words at ${first}ms`)
+  // The intro is 22 beats at 72 a minute (ARRIVE_MS in sound.ts, about 18.3 s): the first words only after it.
+  check('no words before the intro is done: the bloom, the chord and the title card first', first >= 17000, `first words at ${first}ms`)
+  check('the first words come by about twenty-one seconds', first <= 21000, `first words at ${first}ms`)
   check('the headline resolves a word at a time', line > 0, `seen part-way at ${line} words`)
   const end = await look()
   check('the headline resolves whole', end.words === 9, String(end.words))
@@ -98,7 +98,8 @@ try {
   const count = (name) => sounds.filter((one) => one === name).length
   check('the chord rises first', sounds[0] === 'cue:ambience' || sounds.includes('cue:ambience'), sounds.slice(0, 4).join())
   check('the first words land on a glass note', count('bell:arrive') === 1)
-  check('the headline is heard a note a word', count('bell:word') === 9, String(count('bell:word')))
+  // The headline is quiet now: no note a word (it ran up the scale like a lesson).
+  check('the headline comes with no note a word', count('bell:word') === 0, String(count('bell:word')))
   check('a press for each selection, a lift for each italic', count('cue:select') === 3 && count('cue:slant') === 3, `${count('cue:select')} ${count('cue:slant')}`)
   check('no typing clicks under the headline', !sounds.slice(0, sounds.indexOf('cue:select')).some((one) => /click/.test(one)), sounds.join())
 
@@ -107,15 +108,15 @@ try {
   await h.waitForTimeout(700)
   check('Esc shows the whole page, in order', JSON.stringify(await words()) === JSON.stringify(WHOLE), (await words()).join(' | '))
 
-  // Played again, and Esc in the mist: the mist goes and the page is whole, the bed of sound carries on.
+  // Played again, and Esc in the intro: the intro goes and the page is whole, the bed of sound carries on.
   await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:welcome')))
-  await h.waitForSelector('[data-welcome-mist]', { timeout: 4000 })
+  await h.waitForSelector('[data-intro]', { timeout: 4000 })
   await h.waitForTimeout(1200)
   const before = (await heard()).length
   await h.keyboard.press('Escape')
   await h.waitForTimeout(900)
-  check('Esc in the mist shows the whole page at once', JSON.stringify(await words()) === JSON.stringify(WHOLE), (await words()).join(' | '))
-  check('and the mist goes', (await h.locator('[data-welcome-mist]').count()) === 0)
+  check('Esc in the intro shows the whole page at once', JSON.stringify(await words()) === JSON.stringify(WHOLE), (await words()).join(' | '))
+  check('and the title card goes', (await h.locator('[data-title-card]').count()) === 0)
   check('and the sound carries on', !(await heard()).slice(before).includes('cue:bed-end'), (await heard()).slice(before).join())
   check('no pointer once settled', (await h.locator('[data-pointer]').count()) === 0)
 
@@ -141,11 +142,15 @@ try {
   await h.waitForTimeout(600)
   check('leaving the welcome fades the sound out', (await heard()).slice(-6).includes('cue:bed-end'))
 
-  // Reduced motion: no mist, no pointer, the words simply there.
+  // Reduced motion: no title card, no pointer, the words simply there.
+  // Once the welcome has really gone (it turns over onto Home): asked again while it goes, it went anyway.
+  await h.waitForSelector('.mf-welcome', { state: 'detached', timeout: 8000 }).catch(() => {})
   await h.emulateMedia({ reducedMotion: 'reduce' })
   await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:welcome')))
-  await h.waitForTimeout(350)
-  check('reduced motion: no mist', (await h.locator('[data-welcome-mist]').count()) === 0)
+  // There as soon as the page is: nothing types or resolves (the page itself takes a moment to come up).
+  await h.waitForFunction(() => document.querySelectorAll('[data-thesis]').length > 0, null, { timeout: 5000 }).catch(() => {})
+  await h.waitForTimeout(150)
+  check('reduced motion: no title card', (await h.locator('[data-title-card]').count()) === 0)
   check('reduced motion: the words are there at once', JSON.stringify(await words()) === JSON.stringify(WHOLE), (await words()).join(' | '))
   check('reduced motion: no pointer', (await h.locator('[data-pointer]').count()) === 0)
   check('no page errors', errors.length === 0, errors.join(' | '))

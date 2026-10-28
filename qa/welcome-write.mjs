@@ -2,14 +2,16 @@
 //  - the first line and the example captures are typed in, a letter at a time (whole at once with Motion off)
 //  - Catch opens with the keys already on the stage and "Just watch first" under them, no keys in its line, and the keys
 //    press within a moment of the page (never a still frame long enough to try them early)
-//  - the box catches the story's thought, a line from its film and a plan to see the film again; each says what Haligtree
-//    did beside its slot, and those lines stay up while the box goes on
-//  - Write opens on that same thought, already there, and it grows into the note (with the film's quote in it); the
-//    note and its cards fit the window at three sizes and nothing in them takes focus
+//  - the box catches a thought, a quote and a plan; each says what Haligtree did beside its slot, and those lines
+//    stay up while the box goes on
+//  - Write opens on the thought's card, already there, and it grows into the page of the story this run of the
+//    welcome picked (one of five books, src/renderer/src/lib/welcome-stories.ts) with both its gems in it; the
+//    page and its cards fit the window from 1100x720 up and nothing in them takes focus
 //
 //   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/welcome-write.mjs [shots-dir]
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
+import { STORIES, gemOf } from '../src/renderer/src/lib/welcome-stories.ts'
 // A fresh install is never the sandbox (it has no first run): run as one whatever QA_ARGS says.
 if (/--sandbox/.test(process.env.QA_ARGS ?? '')) delete process.env.QA_ARGS
 
@@ -27,8 +29,9 @@ const open = async (h) => {
   const own = await h.waitForSelector('.mf-welcome', { timeout: 8000 }).then(() => true, () => false)
   if (!own) await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:welcome')))
   await h.waitForSelector('.mf-welcome', { timeout: 8000 })
-  // Through the arrival's mist first (qa/welcome-mist.mjs): the first line comes once it has thinned.
-  await h.waitForSelector('.mf-welcome h1', { timeout: 15000 }).catch(() => {})
+  // Through the intro first (qa/welcome-intro.mjs): the gradient blooms and the title card plays, and the first line
+  // comes about eighteen seconds in (22 beats, ARRIVE_MS in sound.ts).
+  await h.waitForSelector('.mf-welcome h1[data-thesis="line"]', { timeout: 30000 }).catch(() => {})
   return own
 }
 // On, or past Your turn without trying it.
@@ -49,10 +52,9 @@ const grows = async (h, read, ms) => {
   return { steps: new Set(seen).size, first: seen[0], last: seen[seen.length - 1] }
 }
 // The first line as a reader sees it: the letters typed so far (the rest is laid out but hidden), or the whole line when it does not type.
-// The first line comes out of the mist a word at a time now (data-words), not a letter at a time.
+// The first line comes in a word at a time (data-words), not a letter at a time.
 const titleText = () => Number(document.querySelector('.mf-welcome h1[data-words]')?.getAttribute('data-words') ?? document.querySelector('.mf-welcome h1')?.innerText.trim().length ?? 0)
 const boxText = () => document.querySelector('.mf-welcome [data-frame="box"] [data-caught]')?.innerText.replace(/\s+/g, ' ').trim().length ?? 0
-const THOUGHT = 'Why do old movies feel more real?'
 
 for (const theme of ['light', 'dark']) {
   const c = await sandbox({ width: 1280, height: 800, seeded: false })
@@ -101,7 +103,7 @@ for (const theme of ['light', 'dark']) {
     }))
     check(`${theme}: all three lines are still up at the end, beside their slots`, lines.every(Boolean) && /seconds/.test(lines[0]) && /Dated/.test(lines[2]), lines.join(' | '))
     const chips = await h.evaluate(() => ['note', 'quote', 'todo'].map((one) => document.querySelector(`.mf-welcome [data-slot="${one}"]`)?.innerText.trim() ?? ''))
-    check(`${theme}: the three caught are the story's thought, its film's line and the plan to see it again`, /Why do old movies/.test(chips[0]) && /Do or do not/.test(chips[1]) && /Rewatch/.test(chips[2]), chips.join(' | '))
+    check(`${theme}: a thought, a quote and a plan caught, one in each slot`, chips.every(Boolean), chips.join(' | '))
     await shot('catch-end')
     // Write opens on the same thought, there from the first frame, and it grows into the note.
     await next(h)
@@ -117,12 +119,14 @@ for (const theme of ['light', 'dark']) {
       .then((offered) => check(`${theme}: "New page" is offered beside it, and pressed`, offered))
     await h.waitForSelector('[data-flow="note"][data-shown]', { timeout: 8000 })
     await h.waitForTimeout(4500)
-    const note = await h.$eval('[data-flow="note"]', (el) => el.innerText)
-    check(`${theme}: the page written from it is about old movies, with the film's quote in it`, /Why old movies feel real/.test(note) && /Do or do not/.test(note), note.replace(/\s+/g, ' ').slice(0, 120))
+    const note = (await h.$eval('[data-flow="note"]', (el) => el.innerText)).replace(/\s+/g, ' ')
+    const told = await h.evaluate(() => document.querySelector('.mf-welcome')?.dataset.story ?? '')
+    const S = STORIES.find((one) => one.id === told)
+    check(`${theme}: the page written from it is the picked story's (${told}), titled as it is, with both its gems in it`, !!S && note.includes(S.note) && note.includes(S.kept) && note.includes(gemOf(S)), note.slice(0, 120))
     await settled(h)
     await shot('write-end')
     if (theme === 'light') {
-      for (const [w, hh] of [[1100, 700], [1100, 720], [1280, 800], [1440, 900], [1600, 1000]]) {
+      for (const [w, hh] of [[1100, 720], [1280, 800], [1440, 900], [1600, 1000]]) {
         await c.size(w, hh)
         await h.waitForTimeout(600)
         // Every card and the closing line whole inside the window, over the footer.

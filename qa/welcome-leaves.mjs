@@ -23,7 +23,7 @@ const NEXT = 'footer button:has-text("Show me"), footer button:has-text("Next")'
 try {
   if (THEME === 'light') await h.evaluate(() => { localStorage.setItem('theme', 'paper'); document.documentElement.classList.remove('dark') })
   await h.waitForSelector('[data-welcome-leaves]', { timeout: 8000 })
-  // Through the arrival's mist first (qa/welcome-mist.mjs).
+  // Through the arrival's intro first (qa/welcome-intro.mjs).
   await h.waitForSelector('[data-thesis="line"]', { timeout: 15000 })
   await h.waitForTimeout(4500)
   const look = () => h.evaluate(() => {
