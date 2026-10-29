@@ -153,9 +153,10 @@ export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void)
   { label: capture.private ? 'Make it not private' : 'Make it private', run: () => void haligtree.setPrivate('captures', capture.id, !capture.private) },
   { label: 'Stick on the desktop', run: () => stickOnDesktop('capture', capture.id) },
   { label: 'Open in a new window', keys: '⌥⌘-click', run: () => openApart('capture', capture.id) },
-  { label: 'Read', hint: 'Read it through, the notes it links to open in place', run: () => openRead(capture.id) },
+  // A Word is one word and its meaning: nothing to read through or queue up.
+  capture.kind !== 'word' && { label: 'Read', hint: 'Read it through, the notes it links to open in place', run: () => openRead(capture.id) },
   asideItem('capture', capture.id),
-  queueMenu(capture.id),
+  capture.kind !== 'word' && queueMenu(capture.id),
   'separator',
   capture.status !== 'open' && { label: 'Change kind…', run: () => void changeKind('captures', capture.id, capture.kind) },
   { label: capture.archivedAt ? 'Unarchive' : 'Archive', hint: capture.archivedAt ? 'Back in sight' : 'Kept, out of sight', run: () => void archive('captures', [capture.id], !capture.archivedAt) },
@@ -187,7 +188,8 @@ export const captureEntry = (capture: CaptureMeta, onPick?: (id: string) => void
     // Only one still waiting goes stale: one that took its exit is done.
     ageTint: capture.status === 'open' ? ageTint(capture.capturedAt, capture.importedAt) : undefined,
     // A dimmed one says why: which exit it took. One hidden until a day, or back from it today, says so.
-    sub: [capture.snoozedUntil && capture.status !== 'discarded' && (capture.snoozedUntil > dayKey() ? `Hidden until ${whenInLine(capture.snoozedUntil)}` : capture.snoozedUntil === dayKey() && backSaid(capture)),
+    // A Word still waiting for its meaning says so first: that is what the Words page is for.
+    sub: [capture.lookup === 'asked' && 'No meaning yet', capture.snoozedUntil && capture.status !== 'discarded' && (capture.snoozedUntil > dayKey() ? `Hidden until ${whenInLine(capture.snoozedUntil)}` : capture.snoozedUntil === dayKey() && backSaid(capture)),
       capture.status !== 'open' && statusSaid(capture.status, capture.keptIn), capture.attribution, whereFrom(capture.source, capture.label)].filter(Boolean).join(' · ') || undefined,
     marks: (
       <>

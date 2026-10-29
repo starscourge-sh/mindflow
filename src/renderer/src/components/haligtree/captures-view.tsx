@@ -1077,7 +1077,7 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
     // In the one order, Note first (kindRank): with tasks among them, the tasks' chip stands where Task does.
     { key: 'kind', label: 'Kind', options: CAPTURE_TYPES.flatMap((type) => (withTasks && type.id === 'todo' ? [TASK_KIND] : kept.some((one) => one.kind === type.id) ? [{ id: type.id, label: type.label, icon: type.icon, tint: type.tint }] : [])) as Choice[], test: (one, kind) => one.kind === kind || (withTasks && kind === 'task' && one.kind === 'todo') },
     // A Word is a lookup: asked until its answer is written. Offered once there is one.
-    ...(kept.some((one) => one.lookup) ? [{ key: 'lookup', label: 'Lookup', options: [{ id: 'asked', label: 'Asked, no answer yet' }, { id: 'answered', label: 'Answered' }], test: (one: CaptureMeta, state: string) => one.lookup === state }] : []),
+    ...(kept.some((one) => one.lookup) ? [{ key: 'lookup', label: 'Meaning', options: [{ id: 'asked', label: 'No meaning yet' }, { id: 'answered', label: 'Written' }], test: (one: CaptureMeta, state: string) => one.lookup === state }] : []),
     { key: 'when', label: 'Captured', options: AGES, test: (one, when) => period(one.capturedAt) === when },
     { key: 'tag', label: 'Tag', options: [...new Set(kept.flatMap((one) => splitTags(one.label).tags))].sort().map((tag) => ({ id: tag, label: `#${tag}`, icon: Tag, tint: tagTint(tag) })), test: (one, tag) => splitTags(one.label).tags.includes(tag) },
     { key: 'from', label: 'Came from', options: [{ id: 'typed', label: 'Typed here' }, { id: 'imported', label: 'Imported' }], test: (one, from) => (one.source ? 'imported' : 'typed') === from },
@@ -1087,6 +1087,13 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
     ...(stars.length ? [{ key: 'rating', label: 'Rating', options: stars.map((n) => ({ id: String(n), label: '★'.repeat(n) })), test: (one: CaptureMeta, value: string) => fieldOf(one.fields, 'rating') === value }] : []),
     { key: 'flags', label: 'Marked', options: [{ id: 'pinned', label: 'Pinned' }, { id: 'private', label: 'Private' }, ...(archived ? [] : [{ id: 'archived', label: 'Archived' }])], test: (one, flag) => (flag === 'pinned' ? !!one.pinnedAt : flag === 'archived' ? !!one.archivedAt : !!one.private) }
   ]
+  // A choice only where some note here has it (or it is picked now): a list of Words offers no "Someone else", no grid of blank tiles.
+  const offered = facets.map((facet) => ({ ...facet, options: facet.options.filter((option) => (view.filter[facet.key] ?? []).includes(option.id) || kept.some((one) => facet.test(one, option.id))) }))
+  const kindsHere = new Set(kept.map((one) => one.kind)).size
+  const rated = kept.some((one) => fieldOf(one.fields, 'rating'))
+  const sources = new Set(kept.map((one) => !!one.source)).size
+  // A Word has no picture of its own: a grid of them is blank tiles.
+  const pictured = !kept.length || kept.some((one) => one.kind !== 'word')
   // Any property in use is a way to sort (lib/property-sorts.ts).
   const byProp = propertySorts(kept, (a, b) => b.capturedAt.localeCompare(a.capturedAt))
   const groups = arrange(kept, view, facets, {
@@ -1111,10 +1118,11 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
     <Display
       view={view}
       onChange={setView}
-      facets={facets}
+      facets={offered}
       defaults={filter ?? {}}
-      sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Longest unchanged' }, { id: 'name', label: 'A to Z' }, { id: 'kind', label: 'Kind' }, { id: 'rating', label: 'Rating' }, ...byProp.choices, { id: 'manual', label: 'Custom order' }]}
-      groups={[{ id: 'kind', label: 'Kind' }, { id: 'none', label: 'None' }, { id: 'date', label: 'Date' }, { id: 'source', label: 'Where from' }, ...(showArchived ? [{ id: 'folder', label: 'Folder' }] : [])]}
+      sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Longest unchanged' }, { id: 'name', label: 'A to Z' }, ...(kindsHere > 1 ? [{ id: 'kind', label: 'Kind' }] : []), ...(rated ? [{ id: 'rating', label: 'Rating' }] : []), ...byProp.choices, { id: 'manual', label: 'Custom order' }]}
+      groups={[...(kindsHere > 1 ? [{ id: 'kind', label: 'Kind' }] : []), { id: 'none', label: 'None' }, { id: 'date', label: 'Date' }, ...(sources > 1 ? [{ id: 'source', label: 'Where from' }] : []), ...(showArchived ? [{ id: 'folder', label: 'Folder' }] : [])]}
+      densities={pictured ? undefined : ['compact', 'list']}
       density={density}
       onDensity={(next) => setView({ ...view, [wide ? 'wideDensity' : 'density']: next })}
     />
