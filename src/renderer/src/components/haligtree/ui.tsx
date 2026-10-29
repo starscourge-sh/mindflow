@@ -542,7 +542,7 @@ export function Stepper({ at, total, onStep, turns = false }: { at: number; tota
  * icon, the words, a hover. No boxes of different shapes down one column.
  * Enter or leaving keeps it.
  */
-export function PropInput({ icon: Icon, value, placeholder, onSave, suffix, type = 'text', ghost, does }: {
+export function PropInput({ icon: Icon, value, placeholder, onSave, suffix, type = 'text', ghost, does, lead }: {
   icon: LucideIcon
   value: string
   placeholder: string
@@ -553,10 +553,13 @@ export function PropInput({ icon: Icon, value, placeholder, onSave, suffix, type
   ghost?: string
   /** What the field does, in a line on hover, while it is empty. */
   does?: string
+  /** A quiet word before what was saved, saying what it is ("Waiting on Sam"), as a date picker's lead does. */
+  lead?: string
 }): React.JSX.Element {
   const field = (
     <label data-ghost-field={ghost && !value ? '' : undefined} className="flex w-full cursor-text items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent focus-within:bg-accent">
       <Icon className="size-4 shrink-0" />
+      {lead && value && <span data-lead className="shrink-0 text-control text-muted-foreground/80">{lead}</span>}
       <input
         type={type}
         min={type === 'number' ? 0 : undefined}

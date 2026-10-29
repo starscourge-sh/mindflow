@@ -824,9 +824,9 @@ export function EventDetail({ eventKey, onKey, onClose, onOpen }: { eventKey: st
         </Island>
         <RemindPicker value={one.remind} allDay={one.allDay} start={one.start} onSave={(remind) => void save({ remind }, remind === null ? 'No reminder now' : `Reminds you ${remindName(remind).toLowerCase()}`)} />
         <Island compact title="Details">
-          <PropInput icon={MapPin} value={one.place ?? ''} placeholder="Place" ghost="Place: Cafe on the corner" does="Where it is. It shows on the block, and in the reminder" onSave={(place) => place !== (one.place ?? '') && void save({ place: place || null }, place ? `At ${place}` : 'No place now')} />
+          <PropInput key={`place-${one.place ?? ''}`} icon={MapPin} value={one.place ?? ''} placeholder="Place" lead="At" ghost="Place: Cafe on the corner" does="Where it is. It shows on the block, and in the reminder" onSave={(place) => place !== (one.place ?? '') && void save({ place: place || null }, place ? `At ${place}` : 'No place now')} />
           <PeopleField people={one.people} known={known} onSave={(people) => void save({ people }, people.length ? `With ${people.join(', ')}` : 'Nobody named now')} />
-          <PropInput icon={Video} value={one.video ?? ''} placeholder="Video link" ghost="Video link: https://…" does="A call's address. “Join the video call” opens it, only when you click it" onSave={(video) => video !== (one.video ?? '') && void save({ video: video || null }, video ? 'Video link kept' : 'No video link now')} />
+          <PropInput key={`video-${one.video ?? ''}`} icon={Video} value={one.video ?? ''} placeholder="Video link" ghost="Video link: https://…" does="A call's address. “Join the video call” opens it, only when you click it" onSave={(video) => video !== (one.video ?? '') && void save({ video: video || null }, video ? 'Video link kept' : 'No video link now')} />
         </Island>
         <Island compact title="Event">
           <Prop icon={Trash2} onClick={() => void dropOne(one).then((gone) => gone && onClose())}>Move to the Bin <span className="font-normal">(⌫)</span></Prop>
