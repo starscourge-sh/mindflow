@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { CirclePlus, Keyboard } from 'lucide-react'
 import { chime, click } from '@/lib/sound'
 import { SHORTCUTS, findShortcuts, grouped, whereSaid, type Shortcut } from '@/lib/shortcuts'
@@ -279,10 +280,12 @@ export function ShortcutSheet(): React.JSX.Element | null {
       if (!command && !plain) return
       event.preventDefault()
       chime('open')
+      setQuery('')
       setOpen(true)
     }
     // The palette's "Keyboard shortcuts" asks for it by name.
-    const onAsk = (): void => (chime('open'), setOpen(true))
+    // Reading's ? asks for its own keys: the list opens found on “Reading”.
+    const onAsk = (event: Event): void => (chime('open'), setQuery(typeof (event as CustomEvent).detail === 'string' ? (event as CustomEvent).detail : ''), setOpen(true))
     window.addEventListener('keydown', onKey)
     window.addEventListener('haligtree:shortcuts', onAsk)
     return () => {
@@ -309,8 +312,8 @@ export function ShortcutSheet(): React.JSX.Element | null {
     return () => window.removeEventListener('keydown', onEscape, true)
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
   if (!open) return null
-  // Asked for with ? all day: there at once, the way Raycast's own is.
-  return (
+  // Asked for with ? all day: there at once, the way Raycast’s own is. On the body, so it comes over Reading too.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[8vh]" onMouseDown={close}>
       <div
         role="dialog"
@@ -343,6 +346,7 @@ export function ShortcutSheet(): React.JSX.Element | null {
           <ShortcutList query={query} columns />
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

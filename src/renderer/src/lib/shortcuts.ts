@@ -264,6 +264,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Reading', keys: '⌫', does: 'On a capture: move it to the Bin (D too)', where: 'Reading' },
   { group: 'Reading', keys: 'H', does: 'On a capture: hold as a question', where: 'Reading' },
   { group: 'Reading', keys: ';', does: 'Add a thought on the page', where: 'Reading' },
+  { group: 'Reading', keys: 'L', does: 'The notes it links to, open under it, or shut again', where: 'Reading' },
   { group: 'Reading', keys: '?', does: 'The keys for reading, over the page (⌘/ for this whole list)', where: 'Reading' },
   { group: 'Reading', keys: 'Esc', does: 'Stop reading', where: 'Reading' },
   { group: 'Reading', keys: ']', does: 'Reading the queue: the next one, this one kept in the queue', where: 'Reading' },

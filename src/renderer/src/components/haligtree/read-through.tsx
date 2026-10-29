@@ -595,6 +595,8 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
       if (next) setAt((n) => (stepFrom(n, 1) >= 0 ? stepFrom(n, 1) : n))
       else if (back) setAt((n) => (stepFrom(n, -1) >= 0 ? stepFrom(n, -1) : n))
       else if (event.key === 'Escape') onClose()
+      // ? the keys for reading, over the page.
+      else if (event.key === '?') (event.stopImmediatePropagation(), window.dispatchEvent(new CustomEvent('haligtree:shortcuts', { detail: 'Reading' })))
       // ; a thought on the page in front of you, kept beside it, dated.
       else if (event.key === ';' && composerFor) openGloss(composerFor)
       else if ((event.key === 'e' || event.key === 'Enter') && item && item.body === undefined) {
