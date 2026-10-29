@@ -731,9 +731,18 @@ export function rowPlace(top: number, bottom: number, view: { top: number; botto
   return bottom > view.top - near && top < view.bottom + near ? 'edge' : 'centre'
 }
 
-/** A row drawn on the page, brought into view by the rule above. */
+/**
+ * A row drawn on the page, brought into view by the rule above. Measured once
+ * the frame it was drawn in has been laid out (an IntersectionObserver first
+ * reports then), never at once: reading where it is in the middle of opening
+ * a note made the browser lay out the whole new page early, 30 to 60ms.
+ */
 export function showRow(row: Element | null | undefined): void {
   if (!row) return
+  const watch = new IntersectionObserver(() => (watch.disconnect(), row.isConnected && placeRow(row)))
+  watch.observe(row)
+}
+function placeRow(row: Element): void {
   let box = row.parentElement
   while (box && !/auto|scroll/.test(getComputedStyle(box).overflowY)) box = box.parentElement
   if (!box) return
