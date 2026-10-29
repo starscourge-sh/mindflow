@@ -2346,7 +2346,7 @@ const CapturePrompt = ({
   tokens = TAGS,
   autofocus = true
 }: {
-  /** Whether the caret lands in the words: not for a capture clicked in the list, whose keys stay the list's. */
+  /** Whether the caret lands in the words, at their end (a draft or a send brought back carries on where it stopped): not for a capture clicked in the list, whose keys stay the list's. */
   autofocus?: boolean
   /** Under the words, inside their scroll: the note's mentions, for one already kept. */
   after?: React.ReactNode
@@ -2396,7 +2396,7 @@ const CapturePrompt = ({
         search={true}
         // vim is left out, so it follows the page switch.
         vimStart="insert"
-        autofocus={autofocus}
+        autofocus={autofocus ? 'end' : false}
         onReady={(one) => (setEditor(one), onReady(one))}
         showSource={false}
         readOnly={locked}
