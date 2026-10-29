@@ -334,22 +334,27 @@ export function planKey(which: keyof typeof BUCKETS): string {
  * A task's new name, read as quick capture reads words: a day, a time, a
  * length, a priority or a "by friday" written into it is taken out of the
  * name and set on the task. One way for every place a name is typed (a
- * Today line, the task's page). Gives back what it set, in words, and how to take it
+ * Today line, a line on tomorrow's list, the task's page). `on`: the day
+ * the line is for, when it is not today. Gives back what it set, in words, and how to take it
  * back, or null when the words were only a name and are kept as typed.
  */
-export async function renameTask(task: Pick<Task, 'id' | 'title' | 'priority' | 'estimate' | 'dueAt' | 'allDay' | 'deadline'>, words: string, plain: { from: number; to: number }[] = []): Promise<{ said: string; undo: () => void } | null> {
+export async function renameTask(task: Pick<Task, 'id' | 'title' | 'priority' | 'estimate' | 'dueAt' | 'allDay' | 'deadline' | 'deadlineTimed' | 'recurrence' | 'repeatUntil' | 'planFor'>, words: string, plain: { from: number; to: number }[] = [], on?: string): Promise<{ said: string; undo: () => void } | null> {
   if (!words || words === task.title) return null
   const read = readTask(words, new Date(), plain)
-  if (!(read.priority || read.estimate || read.due || read.deadline) || !read.title.trim()) return void (await haligtree.saveTask(task.id, { title: words })), null
-  const was = { title: task.title, priority: task.priority ?? 0, estimate: task.estimate ?? null, due: task.dueAt ?? null, allDay: task.allDay ?? 0, deadline: task.deadline ?? null }
+  // A line for a later day (tomorrow's list): a time with no day of its own is on that day, as a line made there is.
+  if (on && read.due && !read.recurrence && dayKey(read.due) < on) read.due = dayjs(on).hour(dayjs(read.due).hour()).minute(dayjs(read.due).minute()).startOf('minute').toISOString()
+  if (!(read.priority || read.estimate || read.due || read.deadline || read.recurrence || read.plan) || !read.title.trim()) return void (await haligtree.saveTask(task.id, { title: words })), null
+  const was = { title: task.title, priority: task.priority ?? 0, estimate: task.estimate ?? null, due: task.dueAt ?? null, allDay: task.allDay ?? 0, deadline: task.deadline ?? null, deadlineTimed: task.deadlineTimed ? 1 : 0, recurrence: task.recurrence ?? null, until: task.repeatUntil ?? null, plan: task.planFor ?? null }
   await haligtree.saveTask(task.id, {
     title: read.title.trim(),
     ...(read.priority ? { priority: read.priority } : {}),
     ...(read.estimate ? { estimate: read.estimate } : {}),
     ...(read.due ? { due: read.due, allDay: read.allDay ? 1 : 0 } : {}),
-    ...(read.deadline ? { deadline: read.deadline } : {})
+    ...(read.deadline ? { deadline: read.deadline, deadlineTimed: read.deadlineTimed ? 1 : 0 } : {}),
+    ...(read.recurrence ? { recurrence: read.recurrence, until: read.until } : {}),
+    ...(read.plan && !read.due ? { plan: read.plan } : {})
   })
-  const said = [read.due && `Moved to ${whenInLine(read.due, read.allDay)}`, read.deadline && `due by ${whenInLine(read.deadline, !read.deadlineTimed)}`, read.priority && `${PRIORITY_NAMES[read.priority]} priority`, read.estimate && `${read.estimate} minutes`].filter(Boolean).join(', ')
+  const said = [read.due && `Moved to ${whenInLine(read.due, read.allDay)}`, read.deadline && `due by ${whenInLine(read.deadline, !read.deadlineTimed)}`, read.recurrence && `repeats ${read.recurrence.replace(/^every!?\s*/i, 'every ')}`, read.plan && !read.due && `moved to ${BUCKETS[bucketOf(read.plan) ?? 'someday']}`, read.priority && `${PRIORITY_NAMES[read.priority]} priority`, read.estimate && `${read.estimate} minutes`].filter(Boolean).join(', ')
   return { said: said.charAt(0).toUpperCase() + said.slice(1), undo: () => void haligtree.saveTask(task.id, was) }
 }
 

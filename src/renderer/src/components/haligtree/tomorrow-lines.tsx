@@ -5,7 +5,8 @@ import { unloaded, useLive, haligtree, type Settings, type Task } from '@/lib/ha
 import { readLines } from '../../../../main/day-lines'
 import { dated, dayjs, dayKey, num } from '../../../../main/dates'
 import { clock } from '@/lib/clock'
-import { Tip, Typed, toast } from './ui'
+import { Tip, Typed, quietly, toast } from './ui'
+import { renameTask } from '@/lib/tasks'
 import { RowMenu, openFromGrip, type RowItem } from './row-menu'
 import { taskMenu, useTaskNow } from './tasks-view'
 import { DROP_LIT } from './sortable'
@@ -190,7 +191,8 @@ export function TomorrowLines({ night, alsoAbove = false, label = 'A line for to
   }
   const rename = (task: Task, text: string): void => {
     const words = text.trim()
-    if (words && words !== task.title) void haligtree.saveTask(task.id, { title: words })
+    // A day, a time or a priority in the words is read as a Today line reads it: taken out and set, with ⌘Z.
+    void renameTask(task, words, [], day).then((set) => set && (chime('tap'), quietly(set.undo)))
   }
 
   /** Up and down between the lines, as one list. */
