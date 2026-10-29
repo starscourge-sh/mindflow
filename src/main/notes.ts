@@ -321,12 +321,6 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
     changed()
     return true
   })
-  // How often and how recently each kind is used, for ordering the kind list:
-  // each note counts 1 on its day, half after a week (lib/frecency.ts).
-  handle('notes:kind-uses', () =>
-    Object.fromEntries((db.prepare(`select kind, sum(1.0 / (1 + max(0, julianday('now') - julianday(at)) / 7)) as score from (
-      select kind, captured_at as at from captures where status != 'discarded' and captured_at > datetime('now', '-365 days')
-      union all select kind, created_at from nuggets where created_at > datetime('now', '-365 days')) group by kind`).all() as { kind: string; score: number }[]).map((row) => [row.kind, row.score])))
   handle('notes:kind:undo', (name: string, id: string, was: { kind: string; fields: string | null }) => {
     db.prepare(`update ${table(name)} set kind = ?, fields = ? where id = ?`).run(was.kind, was.fields, id)
     changed()
