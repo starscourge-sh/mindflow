@@ -9,7 +9,7 @@ import { findCaptures, findHeadings, follow, statusSaid } from '@/lib/capture-li
 import { dayOf, notes, type Day, type DayEntry } from '@/lib/notes'
 import { chime } from '@/lib/sound'
 import { unloaded, useLive, haligtree, type Pin, type Settings, type Task } from '@/lib/haligtree'
-import { RowMenu } from './row-menu'
+import { RowMenu, copyLink } from './row-menu'
 import { taskMenu, useTaskNow } from './tasks-view'
 import { sideMenu, useFullMenu } from './side-menu'
 import { exampleDay } from '@/lib/examples'
@@ -27,7 +27,7 @@ import { Proofread } from './proofread'
 import { useWritingSound } from './writing-sound'
 import { DayMarks } from './milestones'
 import { markDay } from '@/lib/milestones'
-import { FlagTriangleRight, Maximize2 } from 'lucide-react'
+import { FlagTriangleRight, Link2, Maximize2 } from 'lucide-react'
 import { GoalStrip } from './goals-view'
 import { GlossButton, GlossLine } from './gloss-line'
 import { DaySessions } from './session-timeline'
@@ -47,6 +47,8 @@ import { dayPrompt } from '../../../../main/journal-words'
 
 /** A day's date, as you would say it: "Monday 5 October". */
 const named = (day: string): string => dayName(noon(day))
+/** What a link to a day says: its name, as its page says it. */
+export const dayLinkName = named
 const shift = (day: string, by: number): string => dayKey(noon(day).add(by, 'day'))
 
 /**
@@ -211,6 +213,9 @@ export function DayView({ onOpen, start, onScale, onView }: {
         <span data-period-actions className="flex items-center gap-1">
           <Tip label="Only the words, over the whole window  ⇧⌘↵">
             <Button data-room-open variant="ghost" size="sm" disabled={!writer} onClick={room.toggle}><Maximize2 className="size-3.5" /> Writing room</Button>
+          </Tip>
+          <Tip label="Paste it into any note to link to this day">
+            <Button data-copy-day-link variant="ghost" size="sm" onClick={() => copyLink(`day:${day}`, named(day))}><Link2 className="size-3.5" /> Copy link</Button>
           </Tip>
           <Tip label="Name what this day is for, like Exam or Launch">
             <Button variant="ghost" size="sm" onClick={() => void markDay(day)}><FlagTriangleRight className="size-3.5" /> Mark</Button>

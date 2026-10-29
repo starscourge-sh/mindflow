@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Chips } from './display'
 import { NoteList, type Entry } from './note-list'
-import { RowMenu, copy, type MenuItem } from './row-menu'
+import { RowMenu, copy, copyLinkItem, type MenuItem } from './row-menu'
 import { PICKED_MARK } from './pick-mixed'
 import { usePickLines } from '@/lib/pick-lines'
 import { Empty, Island, Kbd, Page, Prop, Props, Rolling, Stepper, Tip, Typed, refuse, toast, useListKeys, quietly } from './ui'
@@ -34,7 +34,6 @@ import { inkOf, useMilestones, type Milestone } from '@/lib/milestones'
 import { stickOnDesktop } from './sticky-note'
 import { usePickNotes } from './pick-notes'
 import { asideItem, useHere } from '@/lib/split'
-import { noteLinkText } from '@/lib/capture-links'
 import { daysBetween, daysLeft, journey, leftSaid, percent, wayThrough, type Dot } from '../../../../main/goal-days'
 import { leftLoud, loud } from '@/lib/loud'
 import { clip, quoted } from '../../../../main/clip'
@@ -303,7 +302,7 @@ const goalMenu = (item: Item): MenuItem[] => [
   binItem([{ type: 'goal', id: item.id }]),
   'separator',
   { label: 'Stick all goals on the desktop', hint: 'Each in its own colour, with a legend', run: showAllGoals },
-  { label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copy(noteLinkText(`goal:${item.id}`, item.title), 'Copied a link: paste it into any note') },
+  copyLinkItem(`goal:${item.id}`, item.title),
   { label: 'Copy the goal', run: () => copy(item.title) }
 ]
 

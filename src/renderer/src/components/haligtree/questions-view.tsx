@@ -24,7 +24,7 @@ import { Lineage } from './lineage'
 import { pinQuestion } from './pinned-questions'
 import { Mentions } from './mentions'
 import { Aliases, LocalGraph, NoteHeader } from './note-extras'
-import { RowMenu, copy, type MenuItem } from './row-menu'
+import { RowMenu, copy, copyLinkItem, type MenuItem } from './row-menu'
 import { PICKED_MARK } from './pick-mixed'
 import { usePickLines } from '@/lib/pick-lines'
 import { Island, Prop, Props, Rolling, Tip, Typed, ask, refuse, showTopTitle, toast, quietly } from './ui'
@@ -204,7 +204,7 @@ export const questionMenu = (item: Item, shown: boolean): MenuItem[] => [
   { label: item.archivedAt ? 'Unarchive' : 'Archive', hint: item.archivedAt ? 'Back in sight' : 'Kept, out of sight', run: () => void archive('nuggets', [item.id], !item.archivedAt) },
   binItem([{ type: 'question', id: item.id }]),
   'separator',
-  { label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copy(noteLinkText(`question:${item.id}`, item.title), 'Copied a link: paste it into any note') },
+  copyLinkItem(`question:${item.id}`, item.title),
   { label: 'Copy the question', run: () => copy(item.title) }
 ]
 

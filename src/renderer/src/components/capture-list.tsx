@@ -5,11 +5,11 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { chime } from '@/lib/sound'
 
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
-import { EXITS, exit, noteLinkText, statusSaid } from '@/lib/capture-links'
+import { EXITS, exit, statusSaid } from '@/lib/capture-links'
 import { splitTags, together, unread, haligtree } from '@/lib/haligtree'
 import { backSaid, makeTask, snoozeItems } from '@/lib/tasks'
 import { Tip, ask, pin, toast, quietly } from './haligtree/ui'
-import { copy, type RowItem } from './haligtree/row-menu'
+import { copy, copyLinkItem, type RowItem } from './haligtree/row-menu'
 import { stickOnDesktop } from './haligtree/sticky-note'
 import { NoteList, type Entry } from './haligtree/note-list'
 import type { Density } from './haligtree/display'
@@ -159,7 +159,7 @@ export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void)
   'separator',
   capture.status !== 'open' && { label: 'Change kind…', run: () => void changeKind('captures', capture.id, capture.kind) },
   { label: capture.archivedAt ? 'Unarchive' : 'Archive', hint: capture.archivedAt ? 'Back in sight' : 'Kept, out of sight', run: () => void archive('captures', [capture.id], !capture.archivedAt) },
-  { label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copy(noteLinkText(capture.id, capture.label), 'Copied a link: paste it into any note') },
+  copyLinkItem(capture.id, capture.label),
   // Taking it elsewhere, together, so the menu stays short.
   { label: 'Export', items: [
     { label: 'Copy text', run: () => copy(capture.label) },

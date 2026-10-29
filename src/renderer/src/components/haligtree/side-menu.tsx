@@ -3,11 +3,11 @@ import { useLive, haligtree, type Item, type Task } from '@/lib/haligtree'
 import { captureMenu, useCaptures } from '../capture-list'
 import { gemMenu } from './items-view'
 import { taskMenu, type TaskNow } from './tasks-view'
-import { copy, type RowItem } from './row-menu'
+import { copyLinkItem, type RowItem } from './row-menu'
 import { ask, pin, quietly } from './ui'
 import { asideItem } from '@/lib/split'
 import { openApart } from '@/lib/apart'
-import { exit, noteLinkText } from '@/lib/capture-links'
+import { exit } from '@/lib/capture-links'
 import { makeTask } from '@/lib/tasks'
 import { binItem } from '@/lib/to-bin'
 
@@ -65,7 +65,7 @@ export function sideMenu(type: string, id: string, title: string, { onOpen, pinn
         void haligtree.saveItem(id, { title: next }).then(() => (chime('noted'), quietly(() => void haligtree.saveItem(id, { title }))))
       })
     },
-    { label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copy(noteLinkText(capture ? id : `${type}:${id}`, title), 'Copied a link: paste it into any note') },
+    copyLinkItem(capture ? id : `${type}:${id}`, title),
     'separator',
     pinned
       ? { label: 'Unpin', run: () => pin(tableOf(type), id, false) }

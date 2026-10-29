@@ -1,6 +1,6 @@
 import { seeTheBin } from './to-bin'
 import { via } from './usage'
-import { CircleArrowUp, CircleCheck, CircleDashed, CircleX, FileText, Flag, Gem, Hash, ListChecks, Orbit, UserRound } from 'lucide-react'
+import { CalendarDays, CircleArrowUp, CircleCheck, CircleDashed, CircleX, FileText, Flag, Gem, Hash, ListChecks, Orbit, UserRound, Sun } from 'lucide-react'
 
 import { Avatar } from '@/components/haligtree/avatar'
 import { ask, askQuestion, refuse, toast } from '@/components/haligtree/ui'
@@ -172,6 +172,8 @@ export const linkKinds = (): Record<string, LinkKind & { group: string }> => (ki
   question: { label: 'Question', group: 'Questions', icon: Orbit, color: 'gray' },
   goal: { label: 'Goal', group: 'Goals', icon: Flag, color: 'orange' },
   task: { label: 'Task', group: 'Tasks', icon: ListChecks, color: 'green' },
+  event: { label: 'Event', group: 'Events', icon: CalendarDays, color: 'blue' },
+  day: { label: 'Day', group: 'Journal', icon: Sun, color: 'orange' },
   person: { label: 'Person', group: 'People', icon: UserRound, color: 'blue' },
   tag: { label: 'Tag', group: 'Tags', icon: Hash, color: 'gray' }
 })
@@ -189,7 +191,7 @@ setLinkKinds({
   // A new window of its own, for the notes that can have one.
   aside: (link) => {
     const [type, id] = link.includes(':') ? link.split(':') : ['capture', link]
-    if (['task', 'person', 'tag'].includes(type)) return false
+    if (['task', 'person', 'tag', 'event', 'day'].includes(type)) return false
     openApart(type, id)
     return true
   },

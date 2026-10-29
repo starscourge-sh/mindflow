@@ -5,7 +5,6 @@ import { ArrowLeft, ArrowUpRight, Check, Heart, CornerDownRight, EyeOff, ImageDo
 import { call, haligtree, splitTags, unloaded, unread, useLive, type Gloss } from '@/lib/haligtree'
 import { thumbsRead, useThumb } from '@/lib/notes'
 import { useDecoded } from '@/lib/decoded'
-import { noteLinkText } from '@/lib/capture-links'
 import { chime, type Cue } from '@/lib/sound'
 import { cn } from '@/lib/cn'
 import { ago, dayjs, num } from '../../../../main/dates'
@@ -18,7 +17,8 @@ import { Switch } from '@/components/ui/switch'
 import { Avatar } from './avatar'
 import { GlossLine, cutWords, openGloss } from './gloss-line'
 import { MenuButton } from './collection-header'
-import { copy, type MenuItem } from './row-menu'
+import { copyLinkItem, type MenuItem } from './row-menu'
+import { dayLinkName } from './day-view'
 import { moveToBin } from '@/lib/to-bin'
 import { motion } from 'motion/react'
 import { GoalPreview, ReadyMoment, useReady } from './goal-preview'
@@ -447,7 +447,7 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
     post.type !== 'day' && reaction('less'),
     'separator',
     { id: 'open', label: 'Open', icon: <ArrowUpRight className="size-4" />, run: onOpen },
-    post.type !== 'day' && { label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copy(noteLinkText(link, post.title), 'Copied a link: paste it into any note') },
+    copyLinkItem(link, post.type === 'day' ? dayLinkName(post.id) : post.title),
     // The Feed never shows a private note, so every post here may be a picture.
     'separator',
     { id: 'save-image', label: 'Save as image', hint: 'A picture of this post, in the current theme', icon: <ImageDown className="size-4" />, run: () => void saveImage() },

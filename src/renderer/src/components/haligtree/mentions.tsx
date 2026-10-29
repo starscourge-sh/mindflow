@@ -11,8 +11,7 @@ import { chime } from '@/lib/sound'
 import { useThumb } from '@/lib/notes'
 import { openApart } from '@/lib/apart'
 import { asideItem, canSplit, openAside } from '@/lib/split'
-import { noteLinkText } from '@/lib/capture-links'
-import { RowMenu, copy, type RowItem } from './row-menu'
+import { RowMenu, copyLinkItem, type RowItem } from './row-menu'
 import { unloaded, unread, haligtree } from '@/lib/haligtree'
 import { Thumb } from './note-extras'
 import { Count, Tags, Tip, quietly, refuse } from './ui'
@@ -95,7 +94,7 @@ export function Mentions({ id, onOpen, compact = false }: {
       { label: 'Open in a new window', run: () => openApart(one.type, one.id) },
       'separator',
       !!link && { label: 'Link this mention', run: linkIt },
-      { label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copy(noteLinkText(one.type === 'capture' ? one.id : `${one.type}:${one.id}`, one.title), 'Copied a link: paste it into any note') }
+      copyLinkItem(one.type === 'capture' ? one.id : `${one.type}:${one.id}`, one.title)
     ]
     return (
     <RowMenu key={one.id} items={items}>

@@ -9,7 +9,7 @@ import { tagTint } from './tag-icon'
 
 import { HaligtreeEditor } from '../haligtree'
 import { chime, step } from '@/lib/sound'
-import { noteLinkText, typeSaid } from '@/lib/capture-links'
+import { typeSaid } from '@/lib/capture-links'
 import { call, focusToolsShown, useFocusTools, splitTags, unloaded, useLastAsked, useLive, haligtree, when, whenInLine, type Focus, type Made, type Session, type Settings, type Task, type TaskFull } from '@/lib/haligtree'
 import { useOpened } from '@/lib/nav'
 import { moveToBin, useCameBack } from '@/lib/to-bin'
@@ -30,7 +30,7 @@ import { DatePicker } from './date-picker'
 import { Lineage } from './lineage'
 import { TaskRemindBefore } from './calendar-events'
 import { TomorrowBox } from './tomorrow-lines'
-import { RowMenu, copy, type RowItem } from './row-menu'
+import { RowMenu, copy, copyLinkItem, type RowItem } from './row-menu'
 import { Input } from '@/components/ui/input'
 import { Command, CommandItem, CommandList } from '@/components/ui/command'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
@@ -608,7 +608,7 @@ export function taskMenu(task: Task, { open, complete = () => void completeTask(
     asideItem('task', task.id),
     thought && { label: 'Add a thought…', keys: ';', run: thought },
     'separator',
-    { label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copy(noteLinkText(`task:${task.id}`, splitTags(task.title).text || task.title), 'Copied a link: paste it into any note') },
+    copyLinkItem(`task:${task.id}`, splitTags(task.title).text || task.title),
     { label: 'Copy the task', run: () => copy(splitTags(task.title).text || task.title, 'Task copied') },
     'separator',
     // Said as every list says it, so a task picked with ⌘A reads the same as a note: ⌫ does it.

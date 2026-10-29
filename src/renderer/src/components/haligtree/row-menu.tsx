@@ -4,6 +4,7 @@ import { Tip, refuse, toast } from './ui'
 import { chime } from '@/lib/sound'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuLabel, ContextMenuSeparator, ContextMenuShortcut, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { keyFor } from '@/lib/keys'
+import { noteLinkText } from '@/lib/capture-links'
 
 /** One line of a right-click menu, a line that opens a few more beside it, or a rule between groups. */
 export type MenuItem = { label: string; /** What it means, as a tip to its right: the label stays a short name. */ hint?: string; run: () => void; keys?: string; danger?: boolean; icon?: ReactNode; trail?: ReactNode; /** A name for it on the page (data-menu-item), for a probe. */ id?: string } | 'separator' | false | null | undefined
@@ -205,6 +206,11 @@ export const copy = (text: string, said = 'Copied'): void => void navigator.clip
     chime('copy')
     toast(said)
   }, () => refuse('Could not copy it', 'error'))
+
+/** A link to anything (a note, a task, an event, a day), put on the clipboard to paste into a note. */
+export const copyLink = (key: string, words: string): void => copy(noteLinkText(key, words), 'Copied a link: paste it into any note')
+/** "Copy link", as every kind's menu says it. */
+export const copyLinkItem = (key: string, words: string): MenuItem => ({ label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copyLink(key, words) })
 
 /**
  * The same lines in a menu the Mac draws, for a window too small to hold one

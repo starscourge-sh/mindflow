@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { createRoot } from 'react-dom/client'
 import { AnimatePresence, motion } from 'motion/react'
-import { AlignLeft, Ban, Bell, CalendarDays, Check, Clock, Copy, CopyPlus, FileText, Globe, MapPin, Pencil, Plus, Repeat as RepeatIcon, Scissors, Trash2, Users, Video, X } from 'lucide-react'
+import { AlignLeft, Ban, Bell, CalendarDays, Check, Clock, Copy, CopyPlus, FileText, Globe, Link2, MapPin, Pencil, Plus, Repeat as RepeatIcon, Scissors, Trash2, Users, Video, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -21,7 +21,7 @@ import { lengthSaid } from '../../../../main/day-load'
 import { dayjs, dayKey } from '../../../../main/dates'
 import { DatePicker } from './date-picker'
 import { TimeField } from './time-field'
-import { RowMenu, type RowItem } from './row-menu'
+import { RowMenu, copyLink, copyLinkItem, type RowItem } from './row-menu'
 import { Island, Kbd, Prop, PropInput, Props, Tip, toast } from './ui'
 
 /** As the grid draws hours: one hour's height, and the steps a time snaps to. */
@@ -215,6 +215,7 @@ function eventMenu(one: Shown, { open, onOpen, calendars = [] }: { open: () => v
     { label: 'Cut', icon: <Scissors />, keys: '⌘X', run: () => cutEvent(one) },
     { label: 'Copy', icon: <Copy />, keys: '⌘C', run: () => copyEvent(one) },
     { label: 'Duplicate', icon: <CopyPlus />, keys: '⌘D', run: () => void duplicateEvent(one) },
+    copyLinkItem(`event:${one.key}`, one.title),
     { label: one.cancelled ? 'Not called off' : 'Call it off', icon: <Ban />, hint: 'Kept on the calendar, struck through', run: () => void changeOne(one, { cancelled: !one.cancelled }, one.cancelled ? 'On again' : 'Called off, struck through') },
     'separator',
     { label: 'Delete', icon: <Trash2 />, keys: '⌫', danger: true, run: () => void dropOne(one) }
@@ -758,6 +759,9 @@ export function EventDetail({ eventKey, onKey, onClose, onOpen }: { eventKey: st
         <div className="page-narrow mx-auto mb-1 flex w-full items-center gap-2 px-12">
           <span aria-hidden className="size-3 shrink-0 rounded-[4px]" style={{ background: color }} />
           <span className="text-control font-medium text-foreground">Event</span>
+          <Tip label="Paste it into any note to link to this event">
+            <Button data-copy-event-link variant="ghost" size="sm" className="ml-auto" onClick={() => copyLink(`event:${one.key}`, one.title)}><Link2 className="size-3.5" /> Copy link</Button>
+          </Tip>
         </div>
         <textarea key={one.title} rows={1} data-event-title aria-label="The event's name" defaultValue={one.title}
           className="page-narrow mx-auto mb-1 block w-full shrink-0 resize-none overflow-hidden bg-transparent px-12 font-heading text-title font-semibold tracking-[-0.018em] text-balance outline-none [field-sizing:content]"

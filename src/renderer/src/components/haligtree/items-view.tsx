@@ -39,7 +39,7 @@ import { useSameWords } from '@/lib/same-words'
 import { Empty, focusField, Island, Page, Prop, Props, Remembered, refuse, quietly, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, Typed, showTopTitle, Pressed, askClearWho, Rolling } from './ui'
 import { Term } from './term'
 import { AGES, Chips, Display, FilterChips, arrange, period, useView, type Density, type Facet, type View } from './display'
-import { copy, type MenuItem, type RowItem } from './row-menu'
+import { copy, copyLinkItem, type MenuItem, type RowItem } from './row-menu'
 import { stickOnDesktop } from './sticky-note'
 import { Lineage } from './lineage'
 import { ReviewHistory } from './review-view'
@@ -553,7 +553,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     'separator',
     ...folding.menu([item.id]),
     'separator',
-    { label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copy(noteLinkText(`${item.tier}:${item.id}`, item.title), 'Copied a link: paste it into any note') },
+    copyLinkItem(`${item.tier}:${item.id}`, item.title),
     { label: 'Copy title', run: () => copy(item.title) },
     'separator',
     binItem(binRefs([item.id]))
@@ -822,7 +822,7 @@ export const gemMenu = (item: Item, open: () => void): RowItem[] => [
   { label: item.pinnedAt ? 'Unpin' : 'Pin to the sidebar', run: () => pin('nuggets', item.id, !item.pinnedAt) },
   ...itemMenu(item),
   'separator',
-  { label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copy(noteLinkText(`${item.tier}:${item.id}`, item.title), 'Copied a link: paste it into any note') },
+  copyLinkItem(`${item.tier}:${item.id}`, item.title),
   { label: 'Copy title', run: () => copy(item.title) },
   'separator',
   binItem([{ type: item.tier, id: item.id }])

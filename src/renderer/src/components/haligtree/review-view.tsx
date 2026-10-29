@@ -33,9 +33,8 @@ import { onboarding } from '@/lib/onboarding'
 import { LearnMode } from './learn-mode'
 import { closeness, isLeech, suggestGrade } from '../../../../main/study'
 import { Star } from 'lucide-react'
-import { RowMenu, copy, type RowItem } from './row-menu'
+import { RowMenu, copyLinkItem, type RowItem } from './row-menu'
 import { binItem } from '@/lib/to-bin'
-import { noteLinkText } from '@/lib/capture-links'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import { InkLine } from './ink-line'
@@ -267,7 +266,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
   const drop = (id: string): void => setQueue((cards) => cards && cards.filter((one) => one.id !== id))
   const cardMenu: RowItem[] = card ? [
     { label: 'Open', run: () => (chime('open'), window.api.openInHome('nugget', card.id)) },
-    { label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copy(noteLinkText(`nugget:${card.id}`, card.title || card.prompt || 'Card'), 'Copied a link: paste it into any note') },
+    copyLinkItem(`nugget:${card.id}`, card.title || card.prompt || 'Card'),
     { label: 'Pause', hint: 'Out of Review until you bring it back', run: () => setAside(card, true, () => drop(card.id)) },
     'separator',
     binItem([{ type: 'nugget', id: card.id }], () => drop(card.id))
