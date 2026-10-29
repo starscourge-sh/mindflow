@@ -74,7 +74,11 @@ test('a quote names who said it before or after the words, and the line says whe
   assert.equal(cut('Tom said “the way out is through”'), '“the way out is through”')
   assert.equal(saidBy('Mum: “wear a coat”').who, 'Mum')
   assert.equal(cut('“Stay hungry,” said Steve Jobs'), '“Stay hungry,”')
-  assert.deepEqual([saidBy('"Less is more" - Mies van der Rohe, 1947').who, saidBy('"Less is more" - Mies van der Rohe, 1947').where], ['Mies van der Rohe', '1947'])
+  // A year after the name is the quote's Year, not where it is from; a page is its page.
+  const mies = saidBy('"Less is more" - Mies van der Rohe, 1947')
+  assert.deepEqual([mies.who, mies.where, mies.year], ['Mies van der Rohe', '', '1947'])
+  const shelley = saidBy('"I was benevolent and good" - Mary Shelley, Frankenstein, 1818, p. 42')
+  assert.deepEqual([shelley.who, shelley.where, shelley.year, shelley.page], ['Mary Shelley', 'Frankenstein', '1818', 'p. 42'])
   // A pronoun is a quote all the same, with no one to name.
   assert.equal(kindOf('she said "no way"'), 'quote')
   assert.equal(saidBy('she said "no way"').who, '')
