@@ -1092,8 +1092,8 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
   const kindsHere = new Set(kept.map((one) => one.kind)).size
   const rated = kept.some((one) => fieldOf(one.fields, 'rating'))
   const sources = new Set(kept.map((one) => !!one.source)).size
-  // A Word has no picture of its own: a grid of them is blank tiles.
-  const pictured = !kept.length || kept.some((one) => one.kind !== 'word')
+  // A page of Words reads best as tiles: short names, each on its own sketch.
+  const wordsOnly = kept.length > 0 && kept.every((one) => one.kind === 'word')
   // Any property in use is a way to sort (lib/property-sorts.ts).
   const byProp = propertySorts(kept, (a, b) => b.capturedAt.localeCompare(a.capturedAt))
   const groups = arrange(kept, view, facets, {
@@ -1113,7 +1113,7 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
   })
   // Spread over the page, the list keeps a size of its own: a grid, unless you chose another.
   const wide = view.pane === 'wide'
-  const density = (wide ? view.wideDensity ?? 'grid' : view.density) ?? 'list'
+  const density = (wide ? view.wideDensity ?? 'grid' : view.density) ?? (wordsOnly ? 'small' : 'list')
   const display = (
     <Display
       view={view}
@@ -1122,7 +1122,6 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
       defaults={filter ?? {}}
       sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Longest unchanged' }, { id: 'name', label: 'A to Z' }, ...(kindsHere > 1 ? [{ id: 'kind', label: 'Kind' }] : []), ...(rated ? [{ id: 'rating', label: 'Rating' }] : []), ...byProp.choices, { id: 'manual', label: 'Custom order' }]}
       groups={[...(kindsHere > 1 ? [{ id: 'kind', label: 'Kind' }] : []), { id: 'none', label: 'None' }, { id: 'date', label: 'Date' }, ...(sources > 1 ? [{ id: 'source', label: 'Where from' }] : []), ...(showArchived ? [{ id: 'folder', label: 'Folder' }] : [])]}
-      densities={pictured ? undefined : ['compact', 'list']}
       density={density}
       onDensity={(next) => setView({ ...view, [wide ? 'wideDensity' : 'density']: next })}
     />
