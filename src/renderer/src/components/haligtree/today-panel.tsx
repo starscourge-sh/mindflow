@@ -45,7 +45,7 @@ const EMPTY: Record<Scope, { title: string; text: string }> = {
   next: { title: 'Nothing next year', text: '“next year” keeps a task here, without a day, until the year comes round.' },
   someday: { title: 'Nothing for someday', text: '“learn Welsh someday”: the things you might do, kept where they do not nag.' },
   backlog: { title: 'Nothing without a date', text: 'A task with no date goes here, out of the way until you give it one.' },
-  waiting: { title: 'Waiting on no one', text: 'Say who a task is waiting on and it comes here, with a day to chase them.' }
+  waiting: { title: 'Waiting on no one', text: 'Fill in “Waiting on…” on a task’s page and it comes here, with a day to chase them.' }
 }
 // A task shows on the day it is scheduled, or the day it is due by if that is sooner.
 const SCOPES: Record<Scope, { label: string; test: (task: Task) => boolean }> = {
