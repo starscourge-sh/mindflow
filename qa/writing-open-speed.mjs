@@ -138,17 +138,13 @@ const profiled = async (run) => {
   console.log(`--- self\n${top(self, 30)}\n--- inclusive\n${top(total, 70)}`)
 }
 const sets = {}
-// QA_AB=1: every other open with the pages' blocks all laid out (the old way), to compare in one run on a busy machine.
+// QA_AB=<name>: every other open the old way (window.__qaOld = name, read by the app's own code while a change is measured), to compare in one run on a busy machine.
 let turn = 0
 const ab = async () => {
   if (!process.env.QA_AB) return ''
   const off = turn++ % 2 === 1
-  await h.evaluate((off) => {
-    let style = document.getElementById('qa-ab')
-    if (!style) (style = document.createElement('style'), style.id = 'qa-ab', document.head.append(style))
-    style.textContent = off ? '.tiptap.ProseMirror.haligtree-editor > * { content-visibility: visible !important; contain-intrinsic-size: none !important }' : ''
-  }, off)
-  return off ? ' (all laid out)' : ''
+  await h.evaluate(([off, old]) => void (window.__qaOld = off ? old : undefined), [off, process.env.QA_AB])
+  return off ? ` (old ${process.env.QA_AB})` : ''
 }
 const record = (set, got) => (sets[set] ??= []).push(got)
 const idOf = (title) => h.evaluate((title) => [...document.querySelectorAll('[data-row][data-id]')].find((one) => one.textContent.includes(title))?.getAttribute('data-id'), title)
