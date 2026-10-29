@@ -3344,7 +3344,7 @@ export function registerHaligtree(): void {
     if ((patch.due || patch.plan) && patch.snoozedUntil === undefined) db.prepare("update tasks set snoozed_until = null where id = ? and snoozed_until <= date('now', 'localtime')").run(id)
     // Waiting on someone needs a day to chase them, or it becomes a second
     // rot pool: three days out, if it has no date of its own.
-    if (patch.waitingOn) db.prepare('update tasks set due_at = ? where id = ? and due_at is null').run(dayjs().add(3, 'day').toISOString(), id)
+    if (patch.waitingOn) db.prepare('update tasks set due_at = ?, all_day = 1 where id = ? and due_at is null').run(dayjs().add(3, 'day').hour(9).startOf('hour').toISOString(), id)
     if (patch.subtasks !== undefined) db.prepare('update tasks set subtasks = ? where id = ?').run(JSON.stringify(patch.subtasks), id)
     if (patch.notes !== undefined) db.prepare('update tasks set notes = ? where id = ?').run(JSON.stringify(patch.notes), id)
     if (patch.due !== undefined) {

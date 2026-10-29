@@ -520,6 +520,21 @@ export function freshStart(): void {
   })
 }
 
+/**
+ * Who a task is waiting on, set or cleared, said with an Undo: with no day of
+ * its own it is given one three days out, to chase them, and the notice says so.
+ */
+export const setWaiting = (task: Pick<Task, 'id' | 'waitingOn' | 'dueAt' | 'allDay' | 'planFor'>, who: string | null): void => {
+  if ((task.waitingOn ?? null) === who) return
+  const was = { waitingOn: task.waitingOn ?? null, due: task.dueAt, allDay: task.allDay, plan: task.planFor }
+  void haligtree.saveTask(task.id, { waitingOn: who }).then(async () => {
+    chime(who ? 'tap' : 'off')
+    const now = await haligtree.task(task.id)
+    const chase = who && !task.dueAt && now?.dueAt ? `, to chase ${whenInLine(now.dueAt, true)}` : ''
+    toast(who ? `Waiting on ${who}${chase}` : 'Not waiting on anyone', () => void haligtree.saveTask(task.id, was))
+  })
+}
+
 /** The lengths a task can be given from its menu, as the day page offers them. */
 const MENU_LENGTHS = [15, 30, 45, 60, 90, 120]
 /** A length given or taken away, undoable. */
@@ -1311,9 +1326,9 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
         {/* The rest of what a task can carry, each one row like the rest. */}
         <Island compact title="Details">
           <BlockedBy task={task} onOpen={onOpen} />
-          <PropInput icon={Timer} type="number" value={task.estimate ? String(task.estimate) : ''} placeholder="Estimate" ghost="Estimate: 45" does="How long you think it will take. Stats sets it beside the time your focus sessions took" suffix="minutes" onSave={(minutes) => void haligtree.saveTask(task.id, { estimate: minutes ? Number(minutes) : null })} />
-          <PropInput icon={Hourglass} value={task.waitingOn ?? ''} placeholder="Waiting on…" ghost="Waiting on: Jane's letter" does="Someone else has the next move. It leaves your lists and waits under “Waiting on someone” in Upcoming" onSave={(waitingOn) => void haligtree.saveTask(task.id, { waitingOn: waitingOn || null })} />
-          <PropInput icon={Repeat} value={task.recurrence ?? ''} placeholder="Repeats" ghost="Repeats: every monday" does="Comes back on its own once you tick it off, and moves to Routines" onSave={(recurrence) => void haligtree.saveTask(task.id, { recurrence: recurrence || null })} />
+          <PropInput icon={Timer} type="number" value={task.estimate ? String(task.estimate) : ''} placeholder="Estimate" ghost="Estimate: 45" does="How long you think it will take. Stats sets it beside the time your focus sessions took" suffix="minutes" onSave={(minutes) => giveLength(task, minutes ? Number(minutes) : null)} />
+          <PropInput icon={Hourglass} value={task.waitingOn ?? ''} placeholder="Waiting on…" ghost="Waiting on: Jane's letter" does="Someone else has the next move. It leaves your lists and waits under “Waiting on someone” in Upcoming" onSave={(waitingOn) => setWaiting(task, waitingOn.trim() || null)} />
+          <PropInput icon={Repeat} value={task.recurrence ?? ''} placeholder="Repeats" ghost="Repeats: every monday" does="Comes back on its own once you tick it off, and moves to Routines" onSave={(recurrence) => setRepeat(task, recurrence.trim() || null)} />
           {/* A repeating task's last day, set or changed here as well as typed with “until”. */}
           {task.recurrence && <div data-repeat-until><DatePicker lead={task.repeatUntil ? 'Ends' : undefined} value={task.repeatUntil} onChange={(until) => void haligtree.saveTask(task.id, { until })} placeholder="Repeats with no end date" /></div>}
           <p className="px-2 py-1.5 text-xs leading-relaxed">
