@@ -186,6 +186,9 @@ function FitActions({ children, keep, room }: { children: ReactNode; /** Never f
           <PopoverContent align="end" className="w-auto max-w-[min(22rem,calc(100vw-2rem))] p-1.5 text-xs text-muted-foreground [&>*]:flex-wrap [&>*]:justify-end">
             {children}
           </PopoverContent>
+          {/* Folded and shut, they stay on the page unseen, so their keys still answer:
+              F opens Display (as a sheet, its button out of sight) beside an open note too. */}
+          {!open && <div hidden>{children}</div>}
         </Popover>
       ) : children}
       </div>

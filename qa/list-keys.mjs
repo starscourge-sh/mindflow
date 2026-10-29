@@ -1,5 +1,5 @@
 // The shortcut list's Lists keys, driven on the Inbox: P saves the row as a gem, R resolves it,
-// H makes it a question, each with a notice and Undo; X picks the row.
+// H makes it a question, each with a notice and Undo; X picks the row; F opens Display.
 //
 //   npx electron-vite build --outDir out-lk
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-lk/main/index.js HALIGTREE_QA_AWAY=1 node qa/list-keys.mjs
@@ -43,7 +43,19 @@ try {
   await h.keyboard.press('x')
   await wait(400)
   check('X: the row is picked', await h.evaluate((id) => !!document.querySelector(`[data-pane] [data-row][data-id="${id}"][data-picked], [data-pane] [data-picked] [data-row][data-id="${id}"]`), id))
-  // F (Display) is left out: on the Inbox with a note open beside it, it opens nothing (audit pass 4).
+  // F: Display opens, with the note open beside the list, and F again puts it away.
+  await h.keyboard.press('Escape')
+  await wait(300)
+  await onRow((await rows())[0])
+  const shown = () => h.evaluate(() => [...document.querySelectorAll('[role=dialog], [data-radix-popper-content-wrapper]')].some((one) => one.getBoundingClientRect().width > 0 && /Sort by/.test(one.textContent ?? '')))
+  const debug = await h.evaluate(() => ({ active: document.activeElement?.tagName + ' ' + (document.activeElement?.getAttribute('data-id') ?? ''), panes: document.querySelectorAll('[data-pane]').length }))
+  await h.keyboard.press('f')
+  await wait(700)
+  check('F: Display (filter, sort and group) opens beside an open note', await shown(), JSON.stringify(debug))
+  if (process.argv[2]) await h.screenshot({ path: `${process.argv[2]}/inbox-display.png` })
+  await h.keyboard.press('Escape')
+  await wait(400)
+  check('Esc puts Display away', !(await shown()))
 } finally {
   await c.close()
 }
