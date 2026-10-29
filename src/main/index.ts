@@ -2669,22 +2669,9 @@ function createWindow(): void {
   load(mainWindow)
 }
 
-// Every web request carries a short line saying what browser is asking. This edits that line to stop announcing Electron.
-// What the line looks like. Electron's default, on your machine:
-// Mozilla/5.0 (Macintosh; …) Chrome/152.0.7977.78 haligtree/1.0.0 Electron/44.3.0 Safari/537.36
-//                                                 └─ cut ─┘        └──── cut ────┘
-// The two marked pieces come off. What is left is what I measured in the running app:
-// Mozilla/5.0 (Macintosh; …) Chrome/152.0.7977.78 Safari/537.36
-// Indistinguishable from ordinary Chrome.
-// Why bother. Plenty of sites read that line and decide what to send back. A name they do not recognise often gets a stripped page, or a block. Since the link preview fetch sends this exact string, a bookmark card is the thing that quietly comes back empty.
-// The two replaces.
-// .replace(/ Electron\/[\d.]+/, '')
-// Finds a space, then Electron/, then a run of digits and dots, and deletes it. [\d.]+ is the version number, whatever it happens to be, so this keeps working after an upgrade.
-//
-// .replace(new RegExp(` ${app.getName()}\\/[\\d.]+`, 'i'), '')
-// Same shape, but the name has to be built while the app is running, because it comes from package.json and this file cannot know it in advance. That is the only reason one is written as a plain pattern and the other is assembled. The \\/ is an escaped slash, awkward only because it lives inside a string first. The 'i' makes it case-insensitive, so Haligtree and haligtree both go.
-//
-// Two details worth knowing. Each replace hits only the first match, which is fine since each token appears once. And this must run before the app is ready, like the scheme registration, or requests have already started going out with the old line.
+// Web requests say they come from plain Chrome: the app's name and Electron/x come
+// off the browser line, since sites often send a stripped page (or none) to a name
+// they do not know, and link previews fetch with it. Set before the app is ready.
 app.userAgentFallback = app.userAgentFallback
   .replace(/ Electron\/[\d.]+/, '')
   .replace(new RegExp(` ${app.getName()}\\/[\\d.]+`, 'i'), '')
