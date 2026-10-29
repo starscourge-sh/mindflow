@@ -25,7 +25,7 @@ export const SHORTCUTS: Shortcut[] = [
   // From anywhere on the Mac, Haligtree in front or not.
   { group: 'Anywhere', keys: '⌘.', does: 'Open or hide quick capture', where: 'Anywhere' },
   { group: 'Anywhere', keys: '⇧⌘.', does: 'Pick an area of the screen: quick capture opens with the picture, ready to write under it', where: 'Anywhere' },
-  { group: 'Anywhere', keys: '⌥⌘S', does: 'Safe mode on or off, for sharing your screen: nothing comes up on its own (no hints, old captures or pinned notes)', where: 'Anywhere' },
+  { group: 'Getting around', keys: '⌥⌘S', does: 'Safe mode on or off, for sharing your screen: nothing comes up on its own (no hints, old captures or pinned notes)', where: 'Both windows' },
   { group: 'Anywhere', keys: '⌃⌥⌘N', does: 'Show or hide every sticky note on the desktop', where: 'Anywhere' },
   { group: 'Anywhere', keys: '⌃⌥⌘T', does: 'Tidy the sticky notes down the right middle of the screen, when stickies are open', where: 'Anywhere' },
   { group: 'Anywhere', keys: '⌃⌥⌘H', does: 'Tuck every sticky note into a tab at the screen’s edge, or bring them back out', where: 'Anywhere' },

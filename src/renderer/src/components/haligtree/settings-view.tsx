@@ -1025,10 +1025,10 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
             <span className="text-muted-foreground">to</span>
             <TimeField label="Quiet hours end" value={settings.quietEnd} onChange={(quietEnd) => set({ quietEnd })} />
           </Setting>
-          <Setting title="Safe mode" note="Nothing comes up unasked at all, for screen shares; ⌥⌘S from anywhere." more="No hints, old captures coming back or pins on Home, and sticky notes, goal cards, the session bubble and notes in their own windows hide.">
+          <Setting title="Safe mode" note="Nothing comes up unasked at all, for screen shares; ⌥⌘S in any Haligtree window." more="No hints, old captures coming back or pins on Home, and sticky notes, goal cards, the session bubble and notes in their own windows hide.">
             <Switch checked={settings.safeMode} onCheckedChange={(safeMode) => {
               set({ safeMode })
-              // The switch and its note say it; ⌥⌘S from anywhere keeps its toast.
+              // The switch and its note say it; ⌥⌘S keeps its toast.
               quietly(() => set({ safeMode: !safeMode }))
             }} />
           </Setting>

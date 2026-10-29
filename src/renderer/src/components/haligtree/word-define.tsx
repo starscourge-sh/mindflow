@@ -21,7 +21,7 @@ import './word-define.css'
  * or a click); Create alone keeps just the word. Esc puts it away for this
  * word; its right-click menu can stop it for good (Settings, “Word
  * meanings”). While it is asked, nothing shows for the first moment; a
- * longer wait shows two faint lines where it will appear.
+ * longer wait shows the orb where it will appear.
  * Offline, the one shared line says so once (lib/offline.ts), and the
  * word is looked up again when the connection is back.
  */
@@ -43,7 +43,7 @@ type Definition = {
   kept: boolean
 }
 
-/** How long a lookup may take before its two faint lines show: a quick answer never flickers them. */
+/** How long a lookup may take before the orb shows: a quick answer never flickers it. */
 const WAIT_SHOWN = 300
 
 export function useDefinition(word: string | null): { definition: Definition | null; keep: () => void; hide: () => void } {
@@ -170,7 +170,7 @@ export function DefineGhost({ definition, onKeep, onHide, onFix, picked = false,
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   }, [])
-  // The two faint lines only once the wait is long enough to notice.
+  // The orb only once the wait is long enough to notice.
   const [late, setLate] = useState(false)
   const shownLate = useRef(false)
   shownLate.current = late

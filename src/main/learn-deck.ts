@@ -23,7 +23,7 @@ export const LEARN_DECK: { question: string; answer: string }[] = [
   { question: 'What is a session’s log?', answer: 'Thoughts and pictures you add from the session bubble while a session runs, each stamped with its time. Afterwards they read as a timeline in the task and on the day’s page.' },
   { question: 'How do you link one note to another as you write?', answer: 'Type @ and the start of the other note’s name, then pick it. A nickname under “Also called” works too.' },
   { question: 'How do you keep a note blurred in every list?', answer: 'Tag it bit, with a # in front (written here without one, so this card is not tagged too). It stays blurred until you point at it, and never comes back as a hint.' },
-  { question: 'Which key stops anything coming up on its own while you share your screen?', answer: '⌥⌘S, from anywhere: safe mode. Press it again to come back.' },
+  { question: 'Which key stops anything coming up on its own while you share your screen?', answer: '⌥⌘S, in any Haligtree window (or from the menu-bar icon): safe mode. Press it again to come back.' },
   { question: 'How do you get a sum worked out in a note?', answer: 'Write the sum and an equals sign, like “12 × 4 =”. The answer appears after it, and Tab writes it in.' },
   { question: 'How do you tuck everything under a heading out of the way?', answer: 'Put the cursor in the heading and press ⌥⌘[. The same key unfolds it.' },
   { question: 'A gem turns out to be wrong. How do you fix it without losing it?', answer: 'Open it and choose “This turned out wrong…” under “Wrong?”. You write what is true, and the old one stays, marked “Replaced” and out of Review.' },

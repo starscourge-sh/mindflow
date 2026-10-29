@@ -64,7 +64,7 @@ function mathTarget(state: EditorState): {
 }
 
 interface ObsidianShortcutOptions {
-  /** Mod-e, Obsidian's key for source view (⌥⌘S is safe mode, held system-wide). The panel belongs to the editor, so it only asks. */
+  /** Mod-e, Obsidian's key for source view (⌥⌘S is safe mode, the menu bar's). The panel belongs to the editor, so it only asks. */
   onToggleSource?: () => void
 }
 

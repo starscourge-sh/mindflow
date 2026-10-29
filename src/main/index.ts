@@ -3512,7 +3512,9 @@ function appMenu(): void {
     inHome,
     view: (id) => sendHome('view', id, undefined, 'window'),
     importVault: () => void importVault(),
-    importFiles: () => void importFiles()
+    importFiles: () => void importFiles(),
+    safeKey: chordFor('⌥⌘S'),
+    safeMode: () => (toggleSafeMode(), updateTray())
   })
 }
 
@@ -5052,7 +5054,7 @@ app.whenReady().then(() => {
     }
     take('⌘.', toggleWindow)
     take('⇧⌘.', () => void areaIntoBox())
-    take('⌥⌘S', () => (toggleSafeMode(), updateTray()))
+    // Safe mode's ⌥⌘S is the menu bar's (app-menu.ts), not the whole Mac's: taken here, it was VS Code's and Xcode's “Save All” too.
     take('⌃⌥⌘N', () => showStickies())
     take('⌃⌥⌘T', () => void tidyStickies())
     // Every sticky tucked into a tab at the edge, or brought back out.

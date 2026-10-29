@@ -647,7 +647,7 @@ There's no place like 127.0.0.1 #bit
 
 Tagged #bit (a joke, a line for later), a note starts private: blurred in lists until you point at it, and never brought up unasked.
 
-**Try it:** press ⌥⌘S for safe mode, from any app, and watch the stickies, pins and hints leave the screen. Press it again to bring them all back.
+**Try it:** press ⌥⌘S for safe mode, in any Haligtree window, and watch the stickies, pins and hints leave the screen. Press it again to bring them all back.
 `)
 
   await write(book, `

@@ -16,6 +16,9 @@ type MenuActs = {
   view: (id: string) => void
   importVault: () => void
   importFiles: () => void
+  /** Safe mode on or off, and its key: heard only while a Haligtree window is in front, so ⌥⌘S stays “Save All” elsewhere. */
+  safeKey?: string
+  safeMode: () => void
 }
 
 /** The places the View menu goes to, in the sidebar's order (places.tsx SECTIONS). */
@@ -104,6 +107,8 @@ export function setAppMenu(acts: MenuActs): void {
         // ⌘B and ⌘\ are the page's own keys (home.tsx): told them, as a press would.
         { label: 'Show or Hide Sidebar', ...shown('Command+B'), click: () => acts.inHome('haligtree:sidebar') },
         { label: 'Open in a split to the right', ...shown('Command+\\'), click: () => acts.inHome('haligtree:split-right') },
+        { type: 'separator' },
+        { label: 'Safe Mode', accelerator: acts.safeKey, click: acts.safeMode },
         { type: 'separator' },
         // No page zoom: these step the app's own size, saved and the same in every window. Pressed, ⌘+ ⌘− ⌘0 are
         // the page's first (with ⌥, the text in notes); these are for a click.

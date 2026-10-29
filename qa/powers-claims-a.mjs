@@ -525,7 +525,10 @@ await card('window', async () => {
 })
 
 await card('safe', async () => {
-  expect(await mainKey('Alt+Command+S'), '⌥⌘S is not registered')
+  // The menu bar's key, heard only in Haligtree: never taken from the whole Mac, where ⌥⌘S is other apps' "Save All".
+  expect(!(await mainKey('Alt+Command+S')), '⌥⌘S is still taken from every app')
+  const item = await electron.evaluate(({ Menu }) => { const find = (menu) => { for (const one of menu?.items ?? []) { if (one.label === 'Safe Mode') return one.accelerator; const deep = find(one.submenu); if (deep) return deep } return null }; return find(Menu.getApplicationMenu()) })
+  expect(/Alt\+Command\+S|Command\+Alt\+S/.test(item ?? ''), `the menu bar has no Safe Mode on ⌥⌘S: ${item}`)
   const was = (await v('settings')).safeMode
   expect(await palette('safe mode on'), '⌘K offers no safe mode')
   const on = (await v('settings')).safeMode
