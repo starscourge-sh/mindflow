@@ -75,11 +75,8 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
   // The row under the cursor, kept here so moving through the list can be heard.
   const [row, setRow] = useState('')
   // Three and a half rows tall: the half row, cut off under a light shade,
-  // says there are more below, without the box filling the window. The shade
-  // only while rows are really out of sight: measured as the list opens, as a
-  // search shrinks it and as it scrolls.
-  const [more, setMore] = useState(false)
-  const fade = (list: HTMLElement): void => setMore(list.scrollTop + list.clientHeight < list.scrollHeight - 4)
+  // says there are more below, without the box filling the window. The fade
+  // at the cut is CommandList's own (mf-more), as on every menu.
   const watchList = useCallback((list: HTMLDivElement | null) => {
     if (!list) return
     // Row to row, gaps between them included: three whole rows, then the fourth cut through its words
@@ -99,7 +96,7 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
       list.style.maxHeight = `${top + pitch * whole + first.offsetHeight * 0.66}px`
     }
     size()
-    const watch = new ResizeObserver(() => (size(), fade(list)))
+    const watch = new ResizeObserver(size)
     watch.observe(list)
     if (list.firstElementChild) watch.observe(list.firstElementChild)
     return () => watch.disconnect()
@@ -153,9 +150,6 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
           <CommandInput placeholder="Change type…" shortcut="⌃L" />
           <CommandList
             ref={watchList}
-            onScroll={(event) => fade(event.currentTarget)}
-            // Light enough that the cut row still reads as one.
-            className={more ? '[mask-image:linear-gradient(to_bottom,black_80%,rgb(0_0_0/0.35))]' : ''}
           >
             <CommandEmpty>No type</CommandEmpty>
             {order.map((id) => {

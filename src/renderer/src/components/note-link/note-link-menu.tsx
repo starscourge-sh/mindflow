@@ -42,7 +42,7 @@ export const NoteList = forwardRef<SuggestionListHandle, Pick<SuggestionProps<No
 
     return (
       <div className="tiptap-slash-menu">
-        <div className="tiptap-slash-menu-list" data-note-side>
+        <div className="tiptap-slash-menu-list mf-more" data-note-side>
           {items.map((item, index) => (
             <Fragment key={`${item.id}#${item.heading ?? ""}#${item.blockIndex ?? ""}`}>
               {item.group && item.group !== items[index - 1]?.group ? (

@@ -505,9 +505,9 @@
 .tiptap-image-panel,
 .tiptap-icon-picker {
   border: 1px solid var(--tt-border-color);
-  // The `kind` popover is the one to match: it is shadcn's, and every menu in
-  // the app that is not the editor's own looks like it. `rounded-lg`, 8px.
-  border-radius: 0.5rem;
+  // The right-click menu is the one to match: every menu in the app that is
+  // not the editor's own looks like it. `rounded-lg`, the theme's own token.
+  border-radius: var(--radius-lg, 0.625rem);
   // Opaque on purpose. The window behind it is transparent, so a panel with no
   // background of its own shows the document through it, and then the desktop.
   background-color: var(--tt-card-bg-color);
@@ -1129,13 +1129,19 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 0.25rem;
+  // Clear of the edge fade (mf-more) when the arrows bring a row into view.
+  scroll-padding-block: 2rem;
+  // Over the shared light, as in every menu (context-menu.tsx MenuScroll).
+  position: relative;
+  isolation: isolate;
 
   // The icon sizing in button.scss is scoped to .tiptap-button, which these
   // rows are not - without this an SVG with no intrinsic size fills the row.
+  // 14px, the icon every other menu row carries.
   svg {
     flex: none;
-    width: 1rem;
-    height: 1rem;
+    width: 0.875rem;
+    height: 0.875rem;
   }
 
   button,
@@ -1144,10 +1150,13 @@
     align-items: center;
     gap: 0.5rem;
     width: 100%;
-    // `px-2 py-1.5`, `rounded-md`, `text-sm` - a cmdk row, to the pixel.
-    padding: 0.375rem 0.5rem;
+    // `min-h-7 px-2 py-1`, `rounded-md`, `text-control`: a context menu row, to
+    // the pixel, as every menu and picker in the app now has it.
+    min-height: 1.75rem;
+    padding: 0.25rem 0.5rem;
     border-radius: 0.375rem;
-    font-size: 0.875rem;
+    font-size: var(--text-control);
+    line-height: var(--text-control--line-height);
     text-align: left;
     cursor: pointer;
 
@@ -1249,7 +1258,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.875rem;
+  font-size: var(--text-control);
 }
 
 .tiptap-slash-menu-hint {

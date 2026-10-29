@@ -374,7 +374,7 @@ export function BlockMenu({
           }}
         />
 
-        <div className="tiptap-block-menu-list">
+        <div className="tiptap-block-menu-list mf-more">
         {spelling && !term ? <SpellingRows editor={editor} spelling={spelling} /> : null}
 
         {convertible && !term ? (

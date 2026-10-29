@@ -59,7 +59,8 @@ function CommandList({
         // has. Radix measures the gap to the window edge for us; the 3.5rem is
         // the search box above, which is part of that room and not this list.
         "max-h-[calc(var(--radix-popover-content-available-height,100vh)-3.5rem)]",
-        "scroll-py-1 overflow-x-hidden overflow-y-auto p-1",
+        // mf-more: the same edge fade as every menu while rows are hidden past it (context-menu.tsx).
+        "mf-more relative isolate scroll-py-8 overflow-x-hidden overflow-y-auto overscroll-contain p-1",
         className
       )}
       {...props}
@@ -88,7 +89,7 @@ function CommandItem({
       data-slot="command-item"
       onPointerMoveCapture={stopStillMoves}
       className={cn(
-        "relative flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-hidden select-none data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0",
+        "relative flex min-h-7 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-control outline-hidden select-none data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0",
         className
       )}
       {...props}

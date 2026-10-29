@@ -116,7 +116,7 @@ const SlashList = forwardRef(function SlashList(
       {peeking && items[selected] ? (
         <SlashPeek title={items[selected].title} menuRef={menuRef} fresh={!seen.current} />
       ) : null}
-      <div className="tiptap-slash-menu-list">
+      <div className="tiptap-slash-menu-list mf-more">
         {items.map((item, index) => {
           // Found by a search, best first: the groups no longer hold together.
           const header = !query && item.group !== lastGroup ? item.group : null
