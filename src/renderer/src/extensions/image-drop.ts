@@ -6,7 +6,7 @@ import { dropPoint } from "@tiptap/pm/transform"
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 import type { EditorView } from "@tiptap/pm/view"
 
-export interface ImageDropOptions {
+interface ImageDropOptions {
   /** Told about anything that could not be added, so nothing fails in silence. */
   onError: (problems: string[]) => void
 }

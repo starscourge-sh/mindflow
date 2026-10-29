@@ -191,7 +191,7 @@ export const dropOrder = (setting: Ordered, usual: string[], nameOf?: (id: strin
   void reorder(setting, usual, (order) => moved(order, id, target, after), `Moved${nameOf?.(id) ? ` “${nameOf(id)}”` : ''}`)
 
 /** The usual order back, said, with Undo. */
-export async function backToUsual(setting: Ordered, what: string): Promise<void> {
+async function backToUsual(setting: Ordered, what: string): Promise<void> {
   const settings = await haligtree.settings()
   const was = settings[setting] ?? []
   // The sidebar's blocks go back with its order: every page in its own again.
@@ -226,7 +226,7 @@ export function orderItems({ setting, usual, id, among, what, name, sideways = f
  * run has a heading: a gap sits between them. A row dragged into another run
  * stays in it (`groups`, saved as `sidebarGroups`). A part with nothing shown is gone.
  */
-export type SidebarPart = { key: string; group?: Group; list: (typeof SECTIONS)[number][] }
+type SidebarPart = { key: string; group?: Group; list: (typeof SECTIONS)[number][] }
 /** Which block a place is in: the one it was dragged into, else its own ("rest" for the ungrouped). */
 export const blockOf = (place: Place, groups: Record<string, string> = {}): string => {
   const block = groups[place.id] ?? place.group ?? 'rest'
@@ -300,7 +300,7 @@ export function PlaceIcon({ place, full }: { place: Place; full?: boolean }): Re
  * right-click it to move it a step.
  */
 /** The sidebar's pages that carry a count beside them (home.tsx, counts); the rest only show something, or are a place to set things down. */
-export const COUNTED = ['review', 'today', 'nuggets', 'articles', 'questions', 'goals', 'queue', 'lookups', 'sources']
+const COUNTED = ['review', 'today', 'nuggets', 'articles', 'questions', 'goals', 'queue', 'lookups', 'sources']
 
 export function ShowList({ places: given, setting, counts }: { places: Place[]; setting: Shown; counts?: Record<string, number> }): React.JSX.Element {
   const shown = useShown(setting)

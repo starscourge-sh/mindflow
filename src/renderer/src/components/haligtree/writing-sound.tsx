@@ -42,7 +42,7 @@ export function useWritingSound(editor: Editor | null, on: boolean): void {
 }
 
 /** What the control says, as what it does: "No sound while writing", "Rain while writing". */
-export const soundWords = (kind: Scape): string => (kind === 'off' ? 'No sound while writing' : `${SCAPES.find((one) => one.id === kind)?.label ?? 'A sound'} while writing`)
+const soundWords = (kind: Scape): string => (kind === 'off' ? 'No sound while writing' : `${SCAPES.find((one) => one.id === kind)?.label ?? 'A sound'} while writing`)
 
 /**
  * The quiet "No sound while writing" control, in the writing room's foot and the day's

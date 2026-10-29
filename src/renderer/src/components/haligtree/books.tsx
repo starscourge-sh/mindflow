@@ -50,7 +50,7 @@ function HueMark({ id, hue, onPicked }: { id: string; hue: Hue | null; onPicked:
 }
 
 /** A book's colour as a dot: filled with its hue, or a ring for none. */
-export function HueDot({ hue, className = 'size-2.5' }: { hue: Hue | null; className?: string }): React.JSX.Element {
+function HueDot({ hue, className = 'size-2.5' }: { hue: Hue | null; className?: string }): React.JSX.Element {
   return <span aria-hidden className={`shrink-0 rounded-full ${className}`} style={hue ? { background: hueVar(hue) } : { boxShadow: 'inset 0 0 0 1.5px var(--muted-foreground)' }} />
 }
 

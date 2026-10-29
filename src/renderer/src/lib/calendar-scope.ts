@@ -21,7 +21,7 @@ import { changeOne, dropOne } from '@/components/haligtree/calendar-events'
  * front; ⌘K reads it as it opens.
  */
 type Mode = 'day' | 'week' | 'month'
-export type CalendarHere = {
+type CalendarHere = {
   /** The task clicked or focused on the grid, or open in its side panel. */
   chosen: () => Task | null
   /** The day it shows, as YYYY-MM-DD. */

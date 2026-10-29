@@ -9,7 +9,7 @@
 export type Voice = 'theirs' | 'understood' | 'mine'
 
 /** A page reference: "p131" or "p. 131" is a direct quote, "(p131)" a paraphrase. */
-export type PageRef = { page: string; direct: boolean }
+type PageRef = { page: string; direct: boolean }
 
 /** The page reference at the end of some words, or in a page field by itself. */
 export function pageRef(text: string | null | undefined): PageRef | null {

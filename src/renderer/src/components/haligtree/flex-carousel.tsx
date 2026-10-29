@@ -15,7 +15,7 @@ import { useByKeys } from '@/lib/motion'
 import type { CSSProperties } from 'react'
 import { Renderer, Program, Mesh, Triangle, Plane, Texture, RenderTarget } from 'ogl'
 
-export interface FlexCarouselItem {
+interface FlexCarouselItem {
   src: string
   title?: string
 }

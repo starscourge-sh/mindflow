@@ -100,7 +100,7 @@ export type Exam = { tag: string; at: string; days: number; total: number; solid
 export type TagRead = { id: string; type: string; kind: string; status: string; title: string; label: string; body: unknown; private: boolean; at: string; changed: string; tags: string[]; keptIn?: string | null; /** Done: kept under a click, not counted. */ later: boolean; /** A gem: the note it was saved from, which then shows only as this. */ fromNote?: string | null }
 /** A capture in one of the two passes; `why` says how it got into the deciding one. */
 export type PassItem = { id: string; number: number; label: string; kind: string; status: string; private: number; capturedAt: string; attribution: string | null; medium?: string | null; body: unknown; backAt: string | null; why?: 'back' | 'untidied' | 'longest' }
-export type PassState = { backAt: string | null; tidiedAt: string | null; passedAt: string | null }
+type PassState = { backAt: string | null; tidiedAt: string | null; passedAt: string | null }
 /** A month or a year, Wrapped's way. */
 export type Recap = {
   label: string
@@ -176,7 +176,7 @@ export type Task = {
   fromTitle?: string | null
   subtasks?: Subtask[]
 }
-export type Subtask = { text: string; done: boolean }
+type Subtask = { text: string; done: boolean }
 /** What a save changed on its own, for an undo to put back: the reschedule count and when it was last told about. */
 export type TaskWas = { reschedules: number; notifiedAt: string | null }
 /** What a task was before it was done, so it can be put back. */
@@ -758,7 +758,7 @@ export const appSizeOf = (settings: Pick<Settings, 'interfaceSize'> | null | und
   return saved === 'small' ? 95 : saved === 'large' ? 110 : 100
 }
 /** The root font size at a size in percent: every size in the app is in rem, so this scales all of it. */
-export const rootSizeAt = (percent: number): string => `${(17 * percent) / 100}px`
+const rootSizeAt = (percent: number): string => `${(17 * percent) / 100}px`
 /**
  * Whether this window grows with the app size: the main window, a note's
  * window, a drawing's, the look window. The others (quick capture, the focus

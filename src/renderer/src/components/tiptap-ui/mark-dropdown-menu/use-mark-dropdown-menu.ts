@@ -21,7 +21,7 @@ import {
 /**
  * The marks shown in the dropdown when no `types` are given.
  */
-export const DEFAULT_MARK_TYPES: Mark[] = [
+const DEFAULT_MARK_TYPES: Mark[] = [
   "bold",
   "italic",
   "strike",
@@ -62,7 +62,7 @@ export interface UseMarkDropdownMenuConfig {
 /**
  * Gets the first active mark from the available types
  */
-export function getActiveMarkType(
+function getActiveMarkType(
   editor: Editor | null,
   types: Mark[] = DEFAULT_MARK_TYPES
 ): Mark | undefined {

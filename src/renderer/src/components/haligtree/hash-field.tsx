@@ -16,7 +16,7 @@ export const asTag = (text: string): string =>
   Array.from(text.replace(/#/g, '').trimStart().toLowerCase().replace(/\s+/g, '-').replace(new RegExp(`(?!${TAG_PART}).`, 'gsu'), '')).slice(0, 40).join('')
 
 /** Why `text` cannot be kept as it is, in plain words; null when it can. */
-export const tagProblem = (text: string): string | null => {
+const tagProblem = (text: string): string | null => {
   const raw = text.replace(/#/g, '').trim()
   if (!raw) return null
   const tag = asTag(raw)

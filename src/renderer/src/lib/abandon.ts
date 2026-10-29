@@ -52,12 +52,12 @@ export function useAbandonAction(): SessionAction[] {
 /** ⌘K's “Start focus” row, by its name: ⌃⌥⌘S opens ⌘K on its lengths. */
 export const START_FOCUS = 'Start focus…'
 /** The lengths “Start focus” offers first; any other is typed (“40”, “1h30”). */
-export const FOCUS_LENGTHS = [25, 45, 60]
+const FOCUS_LENGTHS = [25, 45, 60]
 /** A bare session, no task: as long as asked, with the bubble up. Named while it runs, or after. */
-export const startBareFocus = (ms: number): void =>
+const startBareFocus = (ms: number): void =>
   void haligtree.startFocus(ms).then(() => (chime('slide'), window.api.showFocus(true)))
 /** A typed length as minutes: “40”, “40 min”, “1h30”, “1:30”, between 1 minute and 8 hours. */
-export const minutesTyped = (typed: string): number | null => {
+const minutesTyped = (typed: string): number | null => {
   const words = typed.trim().toLowerCase().replace(/^(start\s+)?focus\s*(for\s*)?/, '')
   if (!words) return null
   const clock = words.match(/^(\d+):(\d{2})$/)
@@ -71,7 +71,7 @@ const minutesSaid = (minutes: number): string => (minutes % 60 ? (minutes > 60 ?
  * how long (25, 45 or 60 minutes, or one typed), and ↵ starts it. “focus 40”
  * typed straight in starts that long at once. ⌃⌥⌘S opens it from anywhere.
  */
-export function startFocusAction(running: boolean): SessionAction {
+function startFocusAction(running: boolean): SessionAction {
   const pick = (minutes: number): Choice => ({ label: minutesSaid(minutes), run: () => startBareFocus(minutes * 60_000) })
   return {
     label: START_FOCUS, hint: running ? 'A new focus session with no task; the one running ends, kept' : 'A focus session with no task: pick how long', keys: '⌃⌥⌘S', cue: null, run: () => {},

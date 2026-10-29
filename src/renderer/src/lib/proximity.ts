@@ -36,7 +36,7 @@ function feel(): void {
  * places and back is not heard twice. `start` names where the drag began,
  * which is not an arrival.
  */
-export type SlotTicker = ((slot: string | number | null | undefined) => void) & { start: (slot: string | number | null | undefined) => void }
+type SlotTicker = ((slot: string | number | null | undefined) => void) & { start: (slot: string | number | null | undefined) => void }
 export function slotTicker(): SlotTicker {
   let last: string | number | null = null
   const tick = (slot: string | number | null | undefined): void => {

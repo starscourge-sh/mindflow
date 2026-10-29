@@ -3,7 +3,7 @@ import { ReactNodeViewRenderer } from "@tiptap/react"
 import { AttachmentView } from "@/components/attachment/attachment-view"
 import { captioned } from "@/extensions/caption"
 
-export interface AttachmentAttributes {
+interface AttachmentAttributes {
   /** A `haligtree://` URL into the asset store. */
   src: string
   /** The name it was dropped under. The store addresses by hash, not by name. */

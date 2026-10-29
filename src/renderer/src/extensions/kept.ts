@@ -19,7 +19,7 @@ import { Tip } from "@/components/haligtree/ui"
  * taken back with Undo, the mark goes.
  */
 
-export type KeptKind = "nugget" | "capture" | "task"
+type KeptKind = "nugget" | "capture" | "task"
 type State = "live" | "bin" | "gone"
 
 const NAME = "kept"
@@ -153,7 +153,7 @@ export function markKept(at: Spot | null | undefined, kind: KeptKind, id: string
 }
 
 /** The mark of `id` taken off, wherever it is in the note; the words stay. */
-export function unmarkKept(editor: Editor, id: string): void {
+function unmarkKept(editor: Editor, id: string): void {
   if (editor.isDestroyed) return
   const tr = editor.state.tr
   editor.state.doc.descendants((node, pos) => {

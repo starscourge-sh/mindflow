@@ -4,7 +4,7 @@
  * for them, as its menus and popovers do. The small windows (the box, the
  * focus pill, nudges, stickies) have none.
  */
-export const LIGHTS = /(home|note|drawing)\.html$/.test(location.pathname) || /[?&](view=home|note=|drawing=)/.test(location.search)
+const LIGHTS = /(home|note|drawing)\.html$/.test(location.pathname) || /[?&](view=home|note=|drawing=)/.test(location.search)
 
 /** Room kept from the window's edges by a floating thing: the traffic lights' 52px at the top where there are any. */
 export const roomFrom = (edge: number): number | { top: number; right: number; bottom: number; left: number } =>

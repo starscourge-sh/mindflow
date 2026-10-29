@@ -44,7 +44,7 @@ const f = (n: number): string => n.toFixed(2)
  * round and a bit past, the end not quite meeting the start, as a quick pen
  * makes it. In the caller's units, so it can sit inside another drawing.
  */
-export function ringPath(cx: number, cy: number, rx: number, ry: number, seed: string): string {
+function ringPath(cx: number, cy: number, rx: number, ry: number, seed: string): string {
   const r = seeded(seed)
   const tilt = wobble(r) * 0.18
   const from = -Math.PI * (0.62 + r() * 0.12)

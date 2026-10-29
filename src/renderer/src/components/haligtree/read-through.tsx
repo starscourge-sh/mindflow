@@ -190,7 +190,7 @@ function MetaUnderLead({ host, meta, onTag }: { host: HTMLElement | null; meta: 
  * where you were.
  */
 /** Read as a long piece, Substack's way: a serif column, its first line and its length under the title, and its own bar at the foot. */
-export type Longform = {
+type Longform = {
   dek: string
   minutes: number
   /** When it was written. */

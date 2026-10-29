@@ -151,7 +151,7 @@ function stepTextSize(settings: Settings, way: 1 | -1): void {
 }
 
 /** The whole app a step bigger (1), smaller (−1) or back to 100% (0), as ⌘+, ⌘− and ⌘0 do, and the View menu. */
-export function stepAppSize(settings: Settings, way: 1 | -1 | 0): void {
+function stepAppSize(settings: Settings, way: 1 | -1 | 0): void {
   const now = asked('app', appSizeOf(settings))
   const at = APP_SIZES.indexOf(APP_SIZES.reduce((near, size) => (Math.abs(size - now) < Math.abs(near - now) ? size : near)))
   const size = way === 0 ? 100 : APP_SIZES[Math.max(0, Math.min(APP_SIZES.length - 1, at + way))]

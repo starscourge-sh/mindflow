@@ -25,7 +25,7 @@ import { LOOKABLE, lookAtPicture } from '@/components/image/image-look'
 const PICTURE = /\.(png|jpe?g|gif|webp|avif|bmp|heic|svg)$/i
 
 /** What an entry carries besides its words: a picture to look at, or a file to open. */
-export function Attached({ entry, className }: { entry: LogEntry; className?: string }): React.JSX.Element | null {
+function Attached({ entry, className }: { entry: LogEntry; className?: string }): React.JSX.Element | null {
   if (!entry.asset) return null
   if (PICTURE.test(entry.asset))
     return (

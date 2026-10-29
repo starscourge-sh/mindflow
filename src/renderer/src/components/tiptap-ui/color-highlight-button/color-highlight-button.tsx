@@ -21,7 +21,7 @@ import { Badge } from "@/components/tiptap-ui-primitive/badge"
 // --- Styles ---
 import "@/components/tiptap-ui/color-highlight-button/color-highlight-button.scss"
 
-export interface ColorHighlightButtonProps
+interface ColorHighlightButtonProps
   extends Omit<ButtonProps, "type">, UseColorHighlightConfig {
   /**
    * Optional text to display alongside the icon.
@@ -34,7 +34,7 @@ export interface ColorHighlightButtonProps
   showShortcut?: boolean
 }
 
-export function ColorHighlightShortcutBadge({
+function ColorHighlightShortcutBadge({
   shortcutKeys = COLOR_HIGHLIGHT_SHORTCUT_KEY,
 }: {
   shortcutKeys?: string

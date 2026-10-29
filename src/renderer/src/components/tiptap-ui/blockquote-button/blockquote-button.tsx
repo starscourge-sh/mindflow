@@ -18,7 +18,7 @@ import type { ButtonProps } from "@/components/tiptap-ui-primitive/button"
 import { Button } from "@/components/tiptap-ui-primitive/button"
 import { Badge } from "@/components/tiptap-ui-primitive/badge"
 
-export interface BlockquoteButtonProps
+interface BlockquoteButtonProps
   extends Omit<ButtonProps, "type">, UseBlockquoteConfig {
   /**
    * Optional text to display alongside the icon.
@@ -31,7 +31,7 @@ export interface BlockquoteButtonProps
   showShortcut?: boolean
 }
 
-export function BlockquoteShortcutBadge({
+function BlockquoteShortcutBadge({
   shortcutKeys = BLOCKQUOTE_SHORTCUT_KEY,
 }: {
   shortcutKeys?: string

@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Minus, Plus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -11,10 +10,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
-import { NOTE_FONTS, TEXT_SIZES, familyOf, systemFonts } from '@/lib/editor-setup'
-import { chime, step } from '@/lib/sound'
+import { NOTE_FONTS, familyOf, systemFonts } from '@/lib/editor-setup'
+import { chime } from '@/lib/sound'
 import { haligtree } from '@/lib/haligtree'
-import { Rolling, Pressed } from './ui'
+import { Rolling } from './ui'
 import { ChevronDown } from '@/components/ui/icons'
 
 /**
@@ -64,23 +63,5 @@ export function FontPicker({ value, setting = 'noteFont', same }: {
         </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
-  )
-}
-
-/** Smaller, the size now, bigger: the same steps ⌥⌘− and ⌥⌘+ take. */
-export function TextSize({ value }: { value: number }): React.JSX.Element {
-  const at = TEXT_SIZES.reduce((best, size, index) => (Math.abs(size - value) < Math.abs(TEXT_SIZES[best] - value) ? index : best), 0)
-  const go = (to: number): void => {
-    step(to)
-    void haligtree.setSettings({ textSize: TEXT_SIZES[to] })
-  }
-  return (
-    <>
-      <Pressed keys="⌥⌘−" />
-      <Button variant="ghost" size="icon-sm" aria-label="Smaller text" disabled={at <= 0} onClick={() => go(at - 1)}><Minus /></Button>
-      <span className="w-10 text-center tabular-nums"><Rolling text={`${Math.round(value * 100)}%`} /></span>
-      <Button variant="ghost" size="icon-sm" aria-label="Bigger text" disabled={at >= TEXT_SIZES.length - 1} onClick={() => go(at + 1)}><Plus /></Button>
-      <Pressed keys="⌥⌘+" />
-    </>
   )
 }

@@ -63,7 +63,7 @@ function mathTarget(state: EditorState): {
   return { from: at, to: at, latex: "x" }
 }
 
-export interface ObsidianShortcutOptions {
+interface ObsidianShortcutOptions {
   /** Mod-e, Obsidian's key for source view (⌥⌘S is safe mode, held system-wide). The panel belongs to the editor, so it only asks. */
   onToggleSource?: () => void
 }

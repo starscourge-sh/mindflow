@@ -18,7 +18,7 @@ export const tagWritten = (tag: string, before = String.raw`(^|\s)`, flags = 'gi
   new RegExp(`${before}#${tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?!${TAG_PART})`, flags)
 
 /** A #tag in running text: at the start or after a space. The tag is group 1. */
-export const tagPattern = (flags = 'gu'): RegExp => new RegExp(String.raw`(?:^|\s)#(${TAG})`, flags)
+const tagPattern = (flags = 'gu'): RegExp => new RegExp(String.raw`(?:^|\s)#(${TAG})`, flags)
 
 /** Every tag in some text, lower case, each once: "#Work and #français" gives work, français. */
 // Most names hold no "#" at all: those skip the patterns, which are slow to

@@ -3,13 +3,13 @@ import { still } from './motion'
 import { useHere } from './split'
 import { refuse } from '@/components/haligtree/ui'
 
-export type ShowLine = { label: string; keys?: string; run: () => void }
+type ShowLine = { label: string; keys?: string; run: () => void }
 /** The open note's “Show in list”, from the page whose list holds it: its header's ⋯ menu and its right-click menu read it. */
 export const ShowInListContext = createContext<ShowLine | null>(null)
 export const useShowLine = (): ShowLine | null => useContext(ShowInListContext)
 
 /** The key for “Show in list”: free everywhere in the app. */
-export const SHOW_KEY = '⌥⌘L'
+const SHOW_KEY = '⌥⌘L'
 const isShowKey = (event: KeyboardEvent): boolean => event.metaKey && event.altKey && !event.shiftKey && event.code === 'KeyL'
 
 /**

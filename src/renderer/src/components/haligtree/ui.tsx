@@ -725,7 +725,7 @@ export const pin = (table: 'captures' | 'nuggets', id: string, on: boolean): voi
  * with ↓), and centred when it was far off (opened from a link, ⌘K, Back).
  * `top` and `bottom` are where the row is, `view` the box that scrolls.
  */
-export function rowPlace(top: number, bottom: number, view: { top: number; bottom: number }): 'still' | 'edge' | 'centre' {
+function rowPlace(top: number, bottom: number, view: { top: number; bottom: number }): 'still' | 'edge' | 'centre' {
   if (top >= view.top && bottom <= view.bottom) return 'still'
   const near = (bottom - top) * 2.5
   return bottom > view.top - near && top < view.bottom + near ? 'edge' : 'centre'
@@ -884,9 +884,9 @@ export function Strip({ className, children }: { className?: string; children: R
 }
 
 /** One next step a toast can offer beside its undo, with a key: Q, for a question. */
-export type ToastAction = { label: string; key: string; run: () => void }
+type ToastAction = { label: string; key: string; run: () => void }
 /** What a toast means, so its colour and mark say it too: done, only news, careful, or not done. */
-export type ToastTone = 'success' | 'info' | 'warning' | 'error'
+type ToastTone = 'success' | 'info' | 'warning' | 'error'
 /**
  * Say what an action did, briefly, with a way back. The answer to "did that
  * work?" and the plan's undo-everywhere in one: three seconds, then gone.
@@ -2021,7 +2021,7 @@ export function VirtualList<T>({ items, keyOf, holds, cursor, estimate = 48, siz
 }
 
 /** How many waves the speaker shows at a level: none at 0, then one, two or three as it gets louder. */
-export const wavesAt = (on: boolean, level: number): 0 | 1 | 2 | 3 => (!on || level <= 0 ? 0 : level <= 0.34 ? 1 : level <= 0.67 ? 2 : 3)
+const wavesAt = (on: boolean, level: number): 0 | 1 | 2 | 3 => (!on || level <= 0 ? 0 : level <= 0.34 ? 1 : level <= 0.67 ? 2 : 3)
 
 const WAVES = ['M15.5 10a2.8 2.8 0 0 1 0 4', 'M18 7.6a6.2 6.2 0 0 1 0 8.8', 'M20.5 5.2a9.6 9.6 0 0 1 0 13.6']
 

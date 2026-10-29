@@ -13,7 +13,7 @@ import { absorbCaptions } from "@/extensions/caption"
  * left at every block, so one long note cost the square of its length. A
  * megabyte took over ten seconds; in pieces it takes well under one.
  */
-export function markdownPieces(markdown: string, size = 16000): string[] {
+function markdownPieces(markdown: string, size = 16000): string[] {
   // `[x][1]` needs its `[1]: address` in the same piece; rare enough to read whole.
   if (markdown.length <= size || /^ {0,3}\[[^\]^]+\]:\s/m.test(markdown)) return [markdown]
   const lines = markdown.split("\n")
@@ -103,7 +103,7 @@ const FILE_LINK = /^haligtree:\/\/assets\/[a-f0-9]{64}\.(?!png|jpe?g|gif|webp|sv
  * `|300` is its width, and a paragraph that is only a link to a stored file is
  * that file's card.
  */
-export function tidyDocument(node: JSONContent, inText = false): JSONContent {
+function tidyDocument(node: JSONContent, inText = false): JSONContent {
   if (node.type === "codeBlock" && node.attrs?.language === "cardlink") {
     const card = readCardLink((node.content ?? []).map((child) => child.text ?? "").join(""))
     if (card) return { type: "bookmark", attrs: { ...card, loading: false } }

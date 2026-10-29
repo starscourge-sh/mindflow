@@ -20,7 +20,7 @@ export const usePostcard = (memory: boolean): boolean => !!useLive(haligtree.set
  * middle, and wavy cancel lines trailing to the left. Drawn in the text's own
  * ink, faint, so it reads as stamped rather than printed.
  */
-export function Postmark({ at, className = '' }: { at: string; className?: string }): React.JSX.Element {
+function Postmark({ at, className = '' }: { at: string; className?: string }): React.JSX.Element {
   const day = dayjs(at)
   const id = `mf-postmark-${day.format('YYYYMMDD')}`
   return (

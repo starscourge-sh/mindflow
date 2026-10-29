@@ -108,7 +108,7 @@ const paragraphs = (markdown: string): JSONContent => ({
 /** A link to another example by its id, the form the editor reads back as a link; with a heading, it lands on that heading. */
 const link = (id: string, name: string, type = '', heading = ''): string => `[[@${type ? `${type}:` : ''}${id}${heading ? `#${heading}` : ''}|${name}]]`
 
-export type SeedCounts = { captures: number; nuggets: number; tasks: number }
+type SeedCounts = { captures: number; nuggets: number; tasks: number }
 
 /** Set the sandbox out. `read` turns Markdown into a document, as an open editor would. */
 export async function seedSandbox(read: Read): Promise<SeedCounts> {

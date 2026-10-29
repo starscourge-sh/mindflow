@@ -40,7 +40,7 @@ const SPACES: Record<Use, string[]> = {
 /** What was made from the answers, so it is made once, follows a changed answer, and can be taken back. */
 type Made = NonNullable<Setup['made']>
 /** A thing made from the answers that can be undone on its own. */
-export type Piece = 'sidebar' | 'exam' | 'goal'
+type Piece = 'sidebar' | 'exam' | 'goal'
 
 /** The day a goal is for: the day asked, else the exam's, else three months on. */
 // A day already gone (kept from a welcome seen before) is not a goal's day: three months on instead.
@@ -111,7 +111,7 @@ const TIP_KEYS = ['⌘.', '⌘↵']
 const keyNow = (keys: string): string => keyFor(keys) || keys
 
 /** A tip for each tool you came from, the step to bring its notes over on the first. */
-export function tipsOf(setup: Setup): { tool: string; line: string }[] {
+function tipsOf(setup: Setup): { tool: string; line: string }[] {
   const from = setup.from.filter((one) => one !== 'Nothing yet' && FROM_SAID[one])
   const source = sourceFrom(setup.from)
   // The step to bring notes over goes under the app they come from, never under one with nothing to bring (Raycast, Todoist).
@@ -245,7 +245,7 @@ const OWN_TAGS = ['reading-list', 'side-project', 'big-ideas', 'chapter-3']
  * the field focused or filled) stops it on `rest`; with Motion off from the
  * start it shows the first example whole.
  */
-export function useTypedHint(words: string[], still: boolean, rest: string): string {
+function useTypedHint(words: string[], still: boolean, rest: string): string {
   const off = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
   const [shown, setShown] = useState(() => (off() ? words[0] : ''))
   const [stopped, setStopped] = useState(false)

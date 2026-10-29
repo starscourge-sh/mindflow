@@ -131,7 +131,7 @@ export function shouldShowButton(props: {
 /**
  * Gets the formatted mark name
  */
-export function getFormattedMarkName(type: Mark): string {
+function getFormattedMarkName(type: Mark): string {
   return type.charAt(0).toUpperCase() + type.slice(1)
 }
 

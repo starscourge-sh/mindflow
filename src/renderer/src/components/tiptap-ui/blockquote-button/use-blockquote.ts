@@ -44,7 +44,7 @@ export interface UseBlockquoteConfig {
 /**
  * Checks if blockquote can be toggled in the current editor state
  */
-export function canToggleBlockquote(
+function canToggleBlockquote(
   editor: Editor | null,
   turnInto: boolean = true
 ): boolean {

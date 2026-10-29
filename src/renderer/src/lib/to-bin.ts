@@ -15,7 +15,7 @@ import { shred } from './fly-home'
  * comes back there; a gem it was saved as stays in Gems. A task is closed
  * without doing; a gem, writing, question or goal is put in the Bin.
  */
-export type BinRef = { type: string; id: string; status?: string }
+type BinRef = { type: string; id: string; status?: string }
 
 /** What a pane can hold open beside a list, asked the same way. */
 export type BinKind = 'task' | 'capture' | 'item'

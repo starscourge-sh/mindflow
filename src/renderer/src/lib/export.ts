@@ -9,7 +9,7 @@ export const toMarkdown = (editor: Editor): string =>
   // A line a link lands on ends in its `^id`, as Obsidian writes one.
   editor.storage.markdown.manager.serialize(withBlockMarks(editor.getJSON()))
 
-export type ExportFormat = "markdown" | "json" | "html" | "pdf"
+type ExportFormat = "markdown" | "json" | "html" | "pdf"
 
 /** What each format is called and what it is saved as. */
 export const EXPORTS: Array<{ format: ExportFormat; label: string; extension: string }> = [

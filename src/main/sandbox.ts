@@ -32,7 +32,7 @@ export const SANDBOX = process.argv.includes('--sandbox')
 /** Your own data folder: a test run's, or the one the app has always used. */
 export const realRoot = (): string => process.env.HALIGTREE_USER_DATA ?? join(app.getPath('appData'), 'haligtree')
 /** The sandbox's folder, inside yours, which never reads it. */
-export const sandboxRoot = (): string => join(realRoot(), 'sandbox')
+const sandboxRoot = (): string => join(realRoot(), 'sandbox')
 
 /**
  * Books: more than one Haligtree of your own, each a data folder like the

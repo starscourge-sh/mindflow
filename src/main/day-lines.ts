@@ -86,7 +86,7 @@ const LINK_HEADS = /^(links?|reading|to read|read later|watch(list)?|to watch)$/
 const KNOWN = [TASK_HEADS, SAYING_HEADS, WORD_HEADS, LINK_HEADS]
 
 /** A heading: "Now:", "## Next", "LATER", a short line ending in a colon with nothing after it. */
-export function headingOf(line: string): string | null {
+function headingOf(line: string): string | null {
   const text = line.trim()
   const hashed = /^#{1,6}\s+(.+)$/.exec(text)
   if (hashed) return hashed[1].replace(/:$/, '').trim()
@@ -176,7 +176,7 @@ const ITEMS = new Set(['listItem', 'taskItem'])
  * deep it sits, whether its to-do is ticked, and whether it is a list item at
  * all. Code is left out. The same reading as the note editor's (lib/line-tasks.ts).
  */
-export function docLines(doc: unknown): (Line & { item: boolean })[] {
+function docLines(doc: unknown): (Line & { item: boolean })[] {
   const out: (Line & { item: boolean })[] = []
   const words = (node: DocNode): string =>
     node.type === 'noteLink' ? String(node.attrs?.label ?? '') : node.text ?? (node.content ?? []).map(words).join('')

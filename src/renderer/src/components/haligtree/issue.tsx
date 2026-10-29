@@ -33,7 +33,7 @@ export const weekSpan = (monday: string): string => {
   return start.month() === end.month() ? `${start.format('D')}–${end.format("D MMM 'YY")}` : `${start.format('D MMM')} – ${end.format("D MMM 'YY")}`
 }
 /** The week of the year, Monday first, as a calendar prints it. */
-export const weekOfYear = (monday: string): number => noon(monday).isoWeek()
+const weekOfYear = (monday: string): number => noon(monday).isoWeek()
 
 /** Facts in a row, set in the typewriter face, a quiet dot between each. */
 export function IssueLine({ parts, className = '' }: { parts: ReactNode[]; className?: string }): React.JSX.Element {

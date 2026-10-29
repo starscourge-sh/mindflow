@@ -141,7 +141,7 @@ type Done = { day: string; habit: string }
 const WEEKS = 12
 
 /** A habit's days, worked out: runs, the longest gap, and the last 30 days set beside the 30 before. */
-export function habitNumbers(days: Set<string>, today = dayjs().format('YYYY-MM-DD')): { run: number; best: number; gap: number; last30: number; before30: number } {
+function habitNumbers(days: Set<string>, today = dayjs().format('YYYY-MM-DD')): { run: number; best: number; gap: number; last30: number; before30: number } {
   const first = [...days].sort()[0]
   if (!first) return { run: 0, best: 0, gap: 0, last30: 0, before30: 0 }
   const span = Math.max(0, dayjs(today).diff(dayjs(first), 'day'))

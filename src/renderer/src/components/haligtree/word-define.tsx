@@ -32,7 +32,7 @@ export const defineable = (text: string): string | null => {
   return /^(?:define\s+)?(\p{L}[\p{L}'-]{2,40})(?:\s+meaning)?$/iu.exec(line)?.[1] ?? null
 }
 
-export type Definition = {
+type Definition = {
   word: string
   /** `none`: the dictionary does not know it and has no nearer spelling. `quiet`: offline, nothing said. */
   state: 'looking' | 'found' | 'fix' | 'none' | 'quiet'
@@ -43,7 +43,7 @@ export type Definition = {
 }
 
 /** How long a lookup may take before its two faint lines show: a quick answer never flickers them. */
-export const WAIT_SHOWN = 300
+const WAIT_SHOWN = 300
 
 export function useDefinition(word: string | null): { definition: Definition | null; keep: () => void; hide: () => void } {
   const key = word?.toLowerCase() ?? null
@@ -134,7 +134,7 @@ const say = async (found: Defined): Promise<void> => {
 const backToWriting = (): void => document.querySelector<HTMLElement>('.tiptap.ProseMirror')?.focus()
 
 /** Turned off from the moment itself, said where to bring it back, and undoable. */
-export function stopLookingUp(before: 'one-word' | 'word-kind' = 'one-word'): void {
+function stopLookingUp(before: 'one-word' | 'word-kind' = 'one-word'): void {
   chime('off')
   void haligtree.setSettings({ wordMeanings: 'off' })
   toast('Word meanings are off. Undo, or turn them back on in Settings › “Word meanings”.', () => void haligtree.setSettings({ wordMeanings: before }), 'info')

@@ -1598,9 +1598,6 @@ function NameChapter({ play, report, onNext }: { play: boolean; report: (now: Re
 
 // --- the parts kept from before -------------------------------------------------
 
-/** The moment the welcome opened, as a diary dates an entry: the day, then the hour in your Mac's own style. */
-export const dateline = (): string => `${dayjs().format('dddd D MMMM')}, ${clock(new Date())}`
-
 /**
  * A key, drawn as a key: a cap with a darker lip under it and a highlight
  * along its top. Pressed, it sinks and the lip goes, in 60ms; let go, it
@@ -1665,7 +1662,7 @@ function KeycapPicture({ down, width }: { down: Set<number>; width: number }): R
  * is full and gone, the button comes up to full colour, and a ring goes out
  * from it once. With Motion off: no line and no ring, just the ready state.
  */
-export function Primary({ children, keys = '↵', onClick, hidden = false, wait = null }: { children: ReactNode; keys?: ReactNode; onClick: () => void; hidden?: boolean; wait?: Part | null }): React.JSX.Element {
+function Primary({ children, keys = '↵', onClick, hidden = false, wait = null }: { children: ReactNode; keys?: ReactNode; onClick: () => void; hidden?: boolean; wait?: Part | null }): React.JSX.Element {
   const [rang, setRang] = useState(0)
   const waited = useRef(!!wait)
   useEffect(() => {
@@ -1701,7 +1698,7 @@ export function Primary({ children, keys = '↵', onClick, hidden = false, wait 
  * moment after the button's ring, and goes the moment Next is pressed. With
  * Motion off or Reduce motion: there, still.
  */
-export function NextArrow({ on, page, quiet }: { on: boolean; /** Each page's own arrow: a press goes on, its arrow goes, even when the next page is ready at once. */ page: number; quiet: boolean }): React.JSX.Element {
+function NextArrow({ on, page, quiet }: { on: boolean; /** Each page's own arrow: a press goes on, its arrow goes, even when the next page is ready at once. */ page: number; quiet: boolean }): React.JSX.Element {
   return (
     <span aria-hidden className="relative -mr-1 flex h-6 w-8 shrink-0 items-center justify-end [@container(max-width:560px)]:hidden">
       <AnimatePresence>
@@ -1891,20 +1888,18 @@ function TrayArrow({ tray }: { tray: { x: number; y: number } | null }): React.J
  * never a faint grey.
  */
 /** The first screen's: the establishing shot, the largest words in the welcome. */
-export const HEADLINE_XL = 'font-heading text-[clamp(2.25rem,min(5.6vw,8.4vh),5.25rem)] leading-[1.02] font-medium tracking-[-0.03em] text-balance text-foreground'
+const HEADLINE_XL = 'font-heading text-[clamp(2.25rem,min(5.6vw,8.4vh),5.25rem)] leading-[1.02] font-medium tracking-[-0.03em] text-balance text-foreground'
 /** A chapter's title once it has made room for the stage. */
-export const DOCKED = 'font-heading text-[clamp(1.5rem,min(3vw,4.6vh),2.75rem)] leading-[1.08] font-medium tracking-[-0.022em] text-balance text-foreground'
+const DOCKED = 'font-heading text-[clamp(1.5rem,min(3vw,4.6vh),2.75rem)] leading-[1.08] font-medium tracking-[-0.022em] text-balance text-foreground'
 export const BODY = 'max-w-[32ch] text-[clamp(1.0625rem,min(2.5vw,3.6vh),1.75rem)] leading-[1.4] text-pretty text-(--mf-wl-body)'
 export const QUIET = 'text-[clamp(0.9375rem,min(2.2vw,3.2vh),1.5rem)] leading-snug text-(--mf-wl-quiet)'
 /** Keys inside a line of the larger type: sized to it, not to the app's small caps. */
 const LINE_KEY = 'h-[1.3em] min-w-[1.3em] rounded-[0.3em] px-[0.3em] text-[0.62em]'
 /** A way past a page, beside the one accent button: quiet until pointed at. */
-export const QUIET_BUTTON = 'flex h-[clamp(2rem,4.2vmin,2.5rem)] items-center gap-2 rounded-[0.6rem] px-3 text-[clamp(0.8125rem,1.8vmin,1rem)] text-(--mf-wl-quiet) transition-colors hover:bg-foreground/[0.06] hover:text-foreground active:scale-[0.97]'
-/** A date or a count set in the type: figures that line up, in the quiet ink. */
-export const FIGURES = 'text-[clamp(0.875rem,min(1.9vw,2.8vh),1.25rem)] tabular-nums text-(--mf-wl-quiet)'
+const QUIET_BUTTON = 'flex h-[clamp(2rem,4.2vmin,2.5rem)] items-center gap-2 rounded-[0.6rem] px-3 text-[clamp(0.8125rem,1.8vmin,1rem)] text-(--mf-wl-quiet) transition-colors hover:bg-foreground/[0.06] hover:text-foreground active:scale-[0.97]'
 
 /** Keys written in a sentence, as small caps. */
-export function InlineKeys({ keys }: { keys: string }): React.JSX.Element {
+function InlineKeys({ keys }: { keys: string }): React.JSX.Element {
   return <span className="inline-flex translate-y-[-0.08em] gap-[0.12em] align-middle">{capsOf(keys).map((key, i) => <Kbd key={i} className={LINE_KEY}>{glyph(key, i === capsOf(keys).length - 1)}</Kbd>)}</span>
 }
 

@@ -18,7 +18,7 @@ import { quietly } from './ui'
  * split is closed, and a click lays it out again.
  */
 
-export type PinnedLayout = { id: string; views: Step[]; sizes: number[] }
+type PinnedLayout = { id: string; views: Step[]; sizes: number[] }
 const KEY = 'split-pins'
 let pinned: PinnedLayout[] = read()
 const told = new Set<() => void>()

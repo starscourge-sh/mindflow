@@ -105,7 +105,7 @@ const REACTIONS: { value: Reaction; label: string; tip: string; icon: typeof Hea
 /** How often "Less of this" has faded it, in words: "once", "twice", "3 times". */
 const timesSaid = (n: number): string => (n === 1 ? 'once' : n === 2 ? 'twice' : `${num(n)} times`)
 /** "Show as before": every fade taken back, with Undo. */
-export const showAsBefore = (type: string, id: string): void => {
+const showAsBefore = (type: string, id: string): void => {
   chime('on')
   void call<number | null>('feed:unfade', type, id).then((was) => {
     if (was == null) return
@@ -174,7 +174,7 @@ export function TabChips<T extends string>({ name, tabs, value, onChange, classN
 
 const FINISHED = 'feedFinished'
 /** The day whose Feed you read to its end, for Home's card. */
-export const feedFinished = (): string | null => {
+const feedFinished = (): string | null => {
   try {
     return localStorage.getItem(FINISHED)
   } catch {
@@ -841,7 +841,7 @@ function Quoted({ note, onOpen }: { note: NonNullable<FeedPost['restack']> | Res
 }
 
 /** What a restack quotes: a post, or a Page from Reading. */
-export type Restackable = Pick<FeedPost, 'type' | 'id' | 'kind' | 'title' | 'text' | 'who'>
+type Restackable = Pick<FeedPost, 'type' | 'id' | 'kind' | 'title' | 'text' | 'who'>
 /** Restack: a new gem in your words, the old note quoted under it. ⌘↵ keeps it; it comes first in tomorrow's Feed. `initial`: a line chosen from it, to say again. */
 export function Restack({ post, onDone, onOpen, initial = '' }: { post: Restackable; onDone: () => void; onOpen: (id: string) => void; initial?: string }): React.JSX.Element {
   const [words, setWords] = useState(initial)

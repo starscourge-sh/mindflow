@@ -49,7 +49,7 @@ export const leadMs = (text: string): number => Math.max(1200, (text.trim().spli
 /** The camera: every shared-element morph. */
 export const CAM = { type: 'spring' as const, duration: 0.55, bounce: 0 }
 /** The caught words shrinking into their slot: slow enough to follow with the eye. */
-export const MORPH = { type: 'spring' as const, duration: 0.75, bounce: 0 }
+const MORPH = { type: 'spring' as const, duration: 0.75, bounce: 0 }
 /** An object set down: the postcard, the radar. The only bounce in the reel. */
 export const LAND = { type: 'spring' as const, duration: 0.45, bounce: 0.18 }
 
@@ -259,7 +259,7 @@ export function Stage({ box }: { box: Box }): React.JSX.Element {
  * their own size: moved by position alone, the morph's stretch undone on them,
  * so words are never squashed or pulled wide on the way.
  */
-export function Unstretched({ children, className = '' }: { children: ReactNode; className?: string }): React.JSX.Element {
+function Unstretched({ children, className = '' }: { children: ReactNode; className?: string }): React.JSX.Element {
   return <motion.div layout="position" transition={CAM} className={className}>{children}</motion.div>
 }
 
@@ -290,7 +290,7 @@ export const LINK_PAGE = { title: 'Dune (novel)', site: 'en.wikipedia.org' }
 /** Where the caught words last sat in the box, on screen: their chip flies from there. */
 let caughtAt: DOMRect | null = null
 /** Kept fresh by the box as it draws its words (Stage, `data-caught`). */
-export const noteCaught = (el: Element | null): void => void (el && (caughtAt = el.getBoundingClientRect()))
+const noteCaught = (el: Element | null): void => void (el && (caughtAt = el.getBoundingClientRect()))
 
 /** A caught thing, small: its kind's icon and a few of its words. Shares its layoutId with the thing it becomes. */
 export function Chip({ kind, fly = false }: { kind: Kind; /** Just caught: it flies in from the box's words, one transform on the compositor. */ fly?: boolean }): React.JSX.Element {

@@ -430,7 +430,7 @@ export function registerPractices(): void {
  * every day or every weekday; any other repeat (every 2 weeks, monthly) on
  * the weekday it is next due.
  */
-export function ruleDays(rule: string | null, due: Date | null): number[] {
+function ruleDays(rule: string | null, due: Date | null): number[] {
   const said = (rule ?? '').toLowerCase()
   if (/\bweekday/.test(said)) return [1, 2, 3, 4, 5]
   const names = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']

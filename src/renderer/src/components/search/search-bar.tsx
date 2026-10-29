@@ -13,7 +13,7 @@ import { ChevronDown, ChevronRight, ChevronUp, X } from "@/components/ui/icons"
  * input. Regex and the match options are deliberately left out. A replace is
  * an ordinary edit, so ⌘Z takes it back.
  */
-export interface SearchBarProps {
+interface SearchBarProps {
   editor: Editor | null
   open: boolean
   onOpen: () => void

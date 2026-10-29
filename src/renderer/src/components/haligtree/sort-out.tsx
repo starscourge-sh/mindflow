@@ -255,7 +255,7 @@ function Sheet({ text, origin, onClose }: { text: string; origin: string | null;
 // --- the morning sort: "Sort this out" over the Inbox, about ten minutes
 
 /** How long the morning sort is meant to take. A guide, never a cut-off. */
-export const SORT_MINUTES = 10
+const SORT_MINUTES = 10
 
 type Way = 'task' | 'gem' | 'resolve' | 'bin' | 'leave'
 const WAYS: { id: Way; label: string; key: string; tint: string; said: [string, string] }[] = [

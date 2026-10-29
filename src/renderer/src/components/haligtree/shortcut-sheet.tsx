@@ -22,7 +22,7 @@ export const Keys = ({ keys, className }: { keys: string; className?: string }):
 )
 
 /** The shortcuts that match, in their groups: what Settings and the ? sheet both show. */
-export function ShortcutList({ query, columns = false, quiet = false }: { query: string; columns?: boolean; quiet?: boolean }): React.JSX.Element | null {
+function ShortcutList({ query, columns = false, quiet = false }: { query: string; columns?: boolean; quiet?: boolean }): React.JSX.Element | null {
   useKeyChanges()
   // As you press them now; one you cleared is not a shortcut any more.
   const found = findShortcuts(query, keyFor).filter((one) => keyFor(one.keys))

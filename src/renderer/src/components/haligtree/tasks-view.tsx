@@ -187,7 +187,7 @@ export function LengthChip({ minutes }: { minutes: number }): React.JSX.Element 
 }
 
 /** The frog: the task picked to do first today, last night or with “Do this first today”. */
-export function FrogChip(): React.JSX.Element {
+function FrogChip(): React.JSX.Element {
   return (
     <Tip label="Picked to do first today">
       <span data-frog className="shrink-0 rounded-md px-1.5 py-px text-xs font-semibold" style={{ background: 'var(--mf-chip-bg-green)', color: 'var(--mf-chip-ink-green)' }}>
@@ -253,7 +253,7 @@ export const setRepeat = (task: Pick<Task, 'id' | 'recurrence'>, rule: string | 
   })
 }
 /** A repeat's last day set, changed or taken off, said with an Undo as the repeat itself is. The picker makes the sound. */
-export const setRepeatEnd = (task: Pick<Task, 'id' | 'repeatUntil'>, until: string | null): void => {
+const setRepeatEnd = (task: Pick<Task, 'id' | 'repeatUntil'>, until: string | null): void => {
   const was = task.repeatUntil ?? null
   void haligtree.saveTask(task.id, { until }).then(() => {
     toast(until ? `Repeats until ${whenInLine(until, true)}` : 'Repeats with no end date', () => void haligtree.saveTask(task.id, { until: was }))
@@ -309,7 +309,7 @@ export function setDue(task: Pick<Task, 'id' | 'dueAt' | 'allDay' | 'planFor'>, 
 }
 
 /** A task's must-be-done-by day, pressable where it shows, as its date is: changed or taken off, with an Undo. */
-export function TaskDeadline({ task, children }: { task: Pick<Task, 'id' | 'deadline' | 'deadlineTimed'>; children: React.ReactNode }): React.JSX.Element {
+function TaskDeadline({ task, children }: { task: Pick<Task, 'id' | 'deadline' | 'deadlineTimed'>; children: React.ReactNode }): React.JSX.Element {
   return <DatePicker chip quick time allDay={!task.deadlineTimed} value={task.deadline} onChange={(deadline, timed) => setDeadline(task, deadline, timed)} tip="The day it must be done by. Click to change it">{children}</DatePicker>
 }
 
@@ -318,7 +318,7 @@ export function TaskDeadline({ task, children }: { task: Pick<Task, 'id' | 'dead
  * Undo, and a time set makes it due at that hour (it alerts then). The picker
  * makes the sound.
  */
-export function setDeadline(task: Pick<Task, 'id' | 'deadline' | 'deadlineTimed'>, deadline: string | null, timed = false): void {
+function setDeadline(task: Pick<Task, 'id' | 'deadline' | 'deadlineTimed'>, deadline: string | null, timed = false): void {
   const was = { deadline: task.deadline, deadlineTimed: task.deadlineTimed ? 1 : 0 }
   const keep = timed || (!!task.deadlineTimed && !!deadline)
   void haligtree.saveTask(task.id, { deadline, deadlineTimed: keep ? 1 : 0 }).then(() => {
@@ -386,8 +386,8 @@ export const startOn = (task: Pick<Task, 'id' | 'title' | 'estimate'>): void =>
  * "Try it for 5 minutes": the smallest start there is. A focus round of five
  * minutes on the task; once it ends, carrying on is up to you.
  */
-export const TRY_MINUTES = 5
-export const tryFive = (task: Pick<Task, 'id' | 'title'>): void =>
+const TRY_MINUTES = 5
+const tryFive = (task: Pick<Task, 'id' | 'title'>): void =>
   void haligtree.startSession(task.id, splitTags(task.title).text || task.title, TRY_MINUTES * 60_000).then(() => {
     chime('windup')
     window.api.showFocus(true)
@@ -445,7 +445,7 @@ export function skipTask(task: Pick<Task, 'id'>): void {
 /** How many times a task was carried over: each day left undone past its day, and each time it was pushed later. */
 export const carried = (task: Pick<Task, 'rollovers' | 'reschedules'>): number => (task.rollovers ?? 0) + (task.reschedules ?? 0)
 /** Skipped this many times in a row, a routine asks whether it is still wanted. */
-export const SKIP_ASK = 3
+const SKIP_ASK = 3
 
 /** The way into Someday, with no count left over to ask again; Undo puts the day and the counts back. */
 const toSomeday = (task: Task): void => {
@@ -468,7 +468,7 @@ const freshCount = (task: Task): Promise<unknown> => {
  * after a routine is skipped again and again, is it still wanted? Never a
  * verdict, and every answer can be taken back.
  */
-export function TaskAsk({ task, ask, onPick, onClose, className = '' }: { task: Task; ask: number; onPick: () => void; onClose?: () => void; className?: string }): React.JSX.Element | null {
+function TaskAsk({ task, ask, onPick, onClose, className = '' }: { task: Task; ask: number; onPick: () => void; onClose?: () => void; className?: string }): React.JSX.Element | null {
   if (task.status !== 'open') return null
   const times = carried(task)
   const skipped = !!task.recurrence && (task.skips ?? 0) >= SKIP_ASK
@@ -519,7 +519,7 @@ const byHow = (list: Task[]): [string, Task[]][] => {
 }
 
 /** A fresh start: every open task on hold in one move, nothing deleted. Each comes back on its day, or when you open it. */
-export function freshStart(): void {
+function freshStart(): void {
   void call<{ at: string; held: number }>('tasks:fresh-start').then(({ at, held }) => {
     if (!held) return void (chime('nope'), toast('Nothing open to put on hold'))
     chime('away')
@@ -531,7 +531,7 @@ export function freshStart(): void {
  * Who a task is waiting on, set or cleared, said with an Undo: with no day of
  * its own it is given one three days out, to chase them, and the notice says so.
  */
-export const setWaiting = (task: Pick<Task, 'id' | 'waitingOn' | 'dueAt' | 'allDay' | 'planFor'>, who: string | null): void => {
+const setWaiting = (task: Pick<Task, 'id' | 'waitingOn' | 'dueAt' | 'allDay' | 'planFor'>, who: string | null): void => {
   if ((task.waitingOn ?? null) === who) return
   const was = { waitingOn: task.waitingOn ?? null, due: task.dueAt, allDay: task.allDay, plan: task.planFor }
   void haligtree.saveTask(task.id, { waitingOn: who }).then(async () => {

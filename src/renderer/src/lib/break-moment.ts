@@ -18,7 +18,7 @@ export type BreakMoment = {
   /** The hint event it was logged as, so how long it stayed is kept as a hint's is. */
   event?: number
 }
-export type BreakSource = () => Promise<BreakMoment | null>
+type BreakSource = () => Promise<BreakMoment | null>
 
 /** A body's words, short: the stored title is usually its first line already. */
 const wordsOf = (title: string | undefined, body: unknown): string => {

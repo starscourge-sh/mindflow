@@ -7,7 +7,7 @@
  * Pure, so the rules can be read and tested apart from any window.
  */
 export type Rest = 'show' | 'peek' | 'tuck'
-export type TuckRules = { on: boolean; showUntil: string; showFrom: string; between: 'peek' | 'tuck'; inFocus: 'tuck' | 'peek' | 'stay'; peekOut: boolean }
+type TuckRules = { on: boolean; showUntil: string; showFrom: string; between: 'peek' | 'tuck'; inFocus: 'tuck' | 'peek' | 'stay'; peekOut: boolean }
 
 /** "HH:MM" as minutes into the day; a value that does not read is null. */
 const minutes = (time: string): number | null => {

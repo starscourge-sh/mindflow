@@ -216,7 +216,7 @@ export function liftFrom(from: HTMLElement | null, home: Home): (() => void) | u
  * it returns a `land` for once the change is made.
  */
 /** How long a strip takes to fall: about one and a half times the first cut, which went by too fast to see. */
-export const SHRED_MS = 420
+const SHRED_MS = 420
 /** Quick capture's window: no view of its own in the address. */
 const inBox = (): boolean => !/[?&](view|note|drawing)=/.test(location.search)
 

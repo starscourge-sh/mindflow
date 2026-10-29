@@ -166,7 +166,7 @@ export function takePendingHeading(): string | null {
 }
 
 /** A tag already in use, for the `#` menu: how often, and its colour if it has one. */
-export interface TagSuggestion {
+interface TagSuggestion {
   tag: string
   count: number
   color?: string | null
@@ -219,7 +219,7 @@ export function showHeading(documentId: string, heading: string): void {
 /** `[[Note]]`, `[[Note#Heading]]`, `[[Note|shown]]`, `[[#Heading]]` and the rest. */
 const WIKI = /\[\[([^[\]|#]*)(?:#([^[\]|]+))?(?:\|([^[\]]+))?\]\]/
 
-export interface NoteLinkOptions {
+interface NoteLinkOptions {
   /** Which notes match what has been typed after `@`. */
   findNotes: (query: string) => NoteSuggestion[] | Promise<NoteSuggestion[]>
   /**

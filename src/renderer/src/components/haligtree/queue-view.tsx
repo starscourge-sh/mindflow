@@ -38,7 +38,7 @@ import { X } from '@/components/ui/icons'
  * How far through the queue you are: the ones read since the oldest one still
  * waiting was added, out of those and the ones waiting. "4 of 12".
  */
-export function progressOf({ queue, read }: { queue: QueueRow[]; read: QueueRow[] }): { done: number; total: number } {
+function progressOf({ queue, read }: { queue: QueueRow[]; read: QueueRow[] }): { done: number; total: number } {
   if (!queue.length) return { done: 0, total: 0 }
   const since = queue.reduce((first, row) => (row.addedAt < first ? row.addedAt : first), queue[0].addedAt)
   const done = read.filter((row) => row.addedAt >= since).length

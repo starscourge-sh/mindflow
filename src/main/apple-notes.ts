@@ -21,10 +21,10 @@ import { lookAhead } from './pictures'
  */
 
 export type NotesFolder = { id: string; name: string; count: number }
-export type NotesNote = { folder: string; id: string; title: string; html: string; created: string; modified: string; locked?: boolean }
+type NotesNote = { folder: string; id: string; title: string; html: string; created: string; modified: string; locked?: boolean }
 /** What asking Notes came to: its folders, or why there are none to show. */
 export type Asked = { folders: NotesFolder[] } | { refused: 'denied' | 'waiting' | 'none' | 'failed'; detail?: string }
-export type NotesReader = {
+type NotesReader = {
   folders: () => Promise<Asked>
   /** Each note of these folders in turn, until done, refused or stopped. */
   read: (folders: string[], each: (note: NotesNote) => Promise<void>, signal: AbortSignal) => Promise<'done' | 'denied' | 'stopped' | 'failed'>
@@ -180,7 +180,7 @@ async function keepPicture(data: string): Promise<string | null> {
   return `haligtree://assets/${name}`
 }
 
-export type NotesBrought = { made: string[]; byFolder: Map<string, string[]>; already: number; locked: number; empty: number; pictures: number; missing: number; stopped: boolean; denied: boolean }
+type NotesBrought = { made: string[]; byFolder: Map<string, string[]>; already: number; locked: number; empty: number; pictures: number; missing: number; stopped: boolean; denied: boolean }
 
 /**
  * The chosen folders' notes as articles in Pages, each "not yet sorted",

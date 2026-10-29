@@ -34,7 +34,7 @@ export function pickedBlocks(editor: Editor): HTMLElement[] {
 }
 
 /** The page of a note open in this window ("capture-…" or "item-…"), if it is. */
-export const notePage = (document: string): HTMLElement | null =>
+const notePage = (document: string): HTMLElement | null =>
   globalThis.document.querySelector<HTMLElement>(`[data-document="${CSS.escape(document)}"] .tiptap.ProseMirror`)
 
 /** The first colour painted behind the page: the note's own background. */
@@ -64,7 +64,7 @@ function cleanClone(block: HTMLElement): HTMLElement {
 }
 
 /** The blocks as a PNG; `blocks` are the page's own children, never moved or changed. */
-export async function drawBlocks(page: HTMLElement, blocks: HTMLElement[]): Promise<Uint8Array> {
+async function drawBlocks(page: HTMLElement, blocks: HTMLElement[]): Promise<Uint8Array> {
   const pageStyle = getComputedStyle(page)
   const column = page.clientWidth - parseFloat(pageStyle.paddingLeft) - parseFloat(pageStyle.paddingRight)
 

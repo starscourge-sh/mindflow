@@ -4,7 +4,7 @@ import type { BrowserWindow, Rectangle } from 'electron'
  * What a small window looked like as it opens into the main one, so the page
  * can grow out of it: its title, and its paper's colour and corner.
  */
-export type GrowLook = { title: string; tint?: string; round?: number }
+type GrowLook = { title: string; tint?: string; round?: number }
 
 /**
  * Something small (a sticky, a note's own window, the box) opened into the

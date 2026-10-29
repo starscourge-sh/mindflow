@@ -4,7 +4,7 @@ import { app, BrowserWindow, Menu, type MenuItemConstructorOptions } from 'elect
 const appSize = (way: 1 | -1 | 0): MenuItemConstructorOptions['click'] => (_item, win) => (win instanceof BrowserWindow ? win : BrowserWindow.getFocusedWindow())?.webContents.send('menu:app-size', way)
 
 /** What the menu bar's items do, each the same as its twin in the tray menu, the Dock or ⌘K (index.ts). */
-export type MenuActs = {
+type MenuActs = {
   name: string
   /** The capture key as it is now (⌘. unless changed in Settings), as an accelerator. */
   captureKey?: string

@@ -33,7 +33,7 @@ export const backupBase = (): string =>
     ? join(ICLOUD, 'haligtree')
     : join(realRoot(), 'backups'))
 /** The backup folder chosen in Settings, kept with the list of books so every book uses it; null for the usual place. */
-export const chosenFolder = (): string | null => {
+const chosenFolder = (): string | null => {
   const chosen = (readShelf() as Kept).backupFolder
   return typeof chosen === 'string' && chosen ? chosen : null
 }
@@ -43,7 +43,7 @@ export function chooseFolder(folder: string | null): void {
   writeShelf({ ...shelf, backupFolder: folder ?? undefined } as Kept)
 }
 /** One book's copies: null is My book. */
-export const backupDirFor = (book: string | null): string => (book ? join(backupBase(), 'books', book) : backupBase())
+const backupDirFor = (book: string | null): string => (book ? join(backupBase(), 'books', book) : backupBase())
 /** This run's: the sandbox keeps its own inside its folder. */
 export const backupDir = (): string => (SANDBOX ? join(app.getPath('userData'), 'backups') : backupDirFor(BOOK))
 
@@ -96,7 +96,7 @@ export async function backupStatus(): Promise<{ at: number | null; failing: stri
 }
 
 /** Today's copy of the database, if there is none yet, and any new assets. */
-export async function backUp(db: DatabaseSync): Promise<void> {
+async function backUp(db: DatabaseSync): Promise<void> {
   const dir = join(backupDir(), 'database')
   await mkdir(dir, { recursive: true })
 

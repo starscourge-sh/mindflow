@@ -78,7 +78,7 @@ export const useMadeShown = (): [boolean, (on: boolean) => void] => {
 }
 
 /** The words of the box that brings captures made into tasks back into the list. */
-export const MADE_SAID = 'Also show captures already made into tasks'
+const MADE_SAID = 'Also show captures already made into tasks'
 
 /**
  * A box to tick under the kind chips, worded as what it does to the list:
@@ -130,7 +130,7 @@ export function SnoozedChip(): React.JSX.Element | null {
   )
 }
 /** The words of that box. */
-export const SNOOZED_SAID = 'Also show what is hidden until a later day'
+const SNOOZED_SAID = 'Also show what is hidden until a later day'
 
 /** What each task was made from, and what each capture became: one read for the whole list. */
 /** `binned`: notes made only into tasks now in the Bin. */

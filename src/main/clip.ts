@@ -23,7 +23,7 @@ export function clip(text: string, n: number): string {
 }
 
 /** The most a title holds; past it, the words go on in the notes. */
-export const TITLE_MOST = 500
+const TITLE_MOST = 500
 
 /**
  * A title that fits: its first line, cut at a word near `most` characters

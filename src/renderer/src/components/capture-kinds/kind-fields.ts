@@ -29,7 +29,7 @@ export type Field = {
   when?: [key: string, value: string]
 }
 
-export const KIND_FIELDS: Record<string, Field[]> = {
+const KIND_FIELDS: Record<string, Field[]> = {
   note: [],
   todo: [],
   // A long quote is what an excerpt was: where in the book it is.
@@ -59,7 +59,7 @@ export const KIND_FIELDS: Record<string, Field[]> = {
  * What a tag asks for, whatever the note's kind: #book makes any note a book,
  * the way a tag marked "makes a task" makes it a todo.
  */
-export const TAG_FIELDS: Record<string, Field[]> = {
+const TAG_FIELDS: Record<string, Field[]> = {
   book: [
     { key: 'author', label: 'Author', placeholder: 'Who wrote it', does: 'Who wrote it, so the books page can list them by author' },
     { key: 'status', label: 'Status', type: 'choice', options: ['Want to read', 'Reading', 'Finished', 'Dropped'], does: "Where you are with it. The year's books page counts the ones you finish" },

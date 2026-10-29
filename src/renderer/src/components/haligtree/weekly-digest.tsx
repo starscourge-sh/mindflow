@@ -18,7 +18,7 @@ type Week = { caught: number; kept: number; reviewed: number; finished: number }
 const AWAY = 'weekly-digest:away'
 
 /** What moved most against the week before, said plainly: "12 finished, 4 more than last week". */
-export function weekChange(week: Week, last: Week | null): string | null {
+function weekChange(week: Week, last: Week | null): string | null {
   if (!last) return null
   const labels: (keyof Week)[] = ['finished', 'reviewed', 'kept', 'caught']
   const moved = labels.map((label) => ({ label, now: week[label], by: week[label] - last[label] })).sort((a, b) => Math.abs(b.by) - Math.abs(a.by))[0]

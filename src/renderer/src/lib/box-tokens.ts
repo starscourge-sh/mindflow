@@ -29,7 +29,7 @@ import { clip, cut } from '../../../main/clip'
  * only. The send reads the same plan, so what is lit is what happens.
  */
 
-export type TokenKind = 'clue' | 'clue-miss' | 'timer' | 'rounds' | Span['kind'] | 'task-tag' | 'book' | 'bit' | 'signature' | 'link' | 'milestone' | 'milestone-miss' | 'later'
+type TokenKind = 'clue' | 'clue-miss' | 'timer' | 'rounds' | Span['kind'] | 'task-tag' | 'book' | 'bit' | 'signature' | 'link' | 'milestone' | 'milestone-miss' | 'later'
 
 export type BoxToken = {
   /** Stable while you type: the kind and the words. */
@@ -168,7 +168,7 @@ export function markOf(line: string, now = new Date()): { title: string; day: st
 export const LATER = /(?:^|\s)(@(\d{1,3})([dwmy]))(?=[\s.,;:!?)]|$)/gi
 const LATER_UNIT = { d: 'day', w: 'week', m: 'month', y: 'year' } as const
 /** The day "@1y" lands on, from now. */
-export const laterDay = (n: number, unit: string, now = new Date()): string => dayKey(dayjs(now).add(n, LATER_UNIT[unit.toLowerCase() as keyof typeof LATER_UNIT]).toDate())
+const laterDay = (n: number, unit: string, now = new Date()): string => dayKey(dayjs(now).add(n, LATER_UNIT[unit.toLowerCase() as keyof typeof LATER_UNIT]).toDate())
 /** The words with "@1y" taken off once, and the space it leaves: "Still want the farm? @1y" is kept as "Still want the farm?". */
 export const withoutWord = (text: string, word: string): string =>
   text.replace(new RegExp(`(^|\\s)${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s|(?=[.,;:!?)]|$))`), (_, before: string, after: string) => (after ? before : ''))
@@ -254,7 +254,7 @@ function listLines(doc: ProseMirrorNode, blocks: Block[]): { block: Block; start
 const EMPTY: BoxPlan ={ tokens: [], kind: 'note', clue: null, miss: null, timer: null, url: null, task: false, taskPlain: [], plainTags: [], signature: null, signatureKept: false, card: null }
 
 /** What the box will do with these words, given what was kept plain. */
-export function planBox(doc: ProseMirrorNode, ctx: BoxContext, kept: Kept[] = [], now = new Date()): BoxPlan {
+function planBox(doc: ProseMirrorNode, ctx: BoxContext, kept: Kept[] = [], now = new Date()): BoxPlan {
   if (ctx.off) return { ...EMPTY, kind: ctx.kind }
   const blocks = blocksOf(doc)
   // The first line with words in it, as the stored note's name is read.
@@ -522,7 +522,7 @@ export function replan(editor: Editor | null | undefined): void {
 /** What a plan says, for telling whether it changed: everything but where. */
 const said = (plan: BoxPlan): string => JSON.stringify({ ...plan, card: plan.card && [plan.card.href, plan.card.title, plan.card.loading], tokens: plan.tokens.map((one) => [one.id, one.effect, one.guess]), clue: plan.clue && [plan.clue.question.id, plan.clue.rest], url: plan.url?.href })
 
-export type BoxTokensOptions = {
+type BoxTokensOptions = {
   context: () => BoxContext
   /** The plan changed in what it says. */
   onPlan: (plan: BoxPlan) => void

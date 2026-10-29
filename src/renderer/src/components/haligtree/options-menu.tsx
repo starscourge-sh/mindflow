@@ -26,7 +26,7 @@ import { Swatch } from '../theme/theme-picker'
 import { keyFor } from '@/lib/keys'
 
 /** One setting the box can have switched on or off. */
-export type Option = { label: string; /** What it means, as a tip on the line: the label stays a short name. */ hint?: string; on: boolean; keys?: string; set: (on: boolean) => void; icon?: ComponentProps<typeof AliveIcon>['icon'] }
+type Option = { label: string; /** What it means, as a tip on the line: the label stays a short name. */ hint?: string; on: boolean; keys?: string; set: (on: boolean) => void; icon?: ComponentProps<typeof AliveIcon>['icon'] }
 /** Something to do rather than switch: a new box, a bigger window. */
 export type Action = { label: string; hint?: string; keys?: string; run: () => void }
 /**
@@ -116,7 +116,7 @@ function Item({ one }: { one: Option | Action }): React.JSX.Element {
 }
 
 /** The sections, each under its heading, a rule between them. */
-export function MenuSections({ sections }: { sections: Section[] }): React.JSX.Element {
+function MenuSections({ sections }: { sections: Section[] }): React.JSX.Element {
   const shown = sections.filter((one) => one.items.length > 0)
   return (
     <>

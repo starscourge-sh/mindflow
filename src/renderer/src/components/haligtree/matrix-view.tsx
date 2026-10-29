@@ -357,7 +357,7 @@ const MATRIX_FEW = 40
 type TodayScope = { ids: string[]; done: number; actions: ReactNode; /** The Tasks row's tabs, on the left of the bar. */ lead?: ReactNode; onAll: () => void }
 
 /** The two rows of boxes, always equal: a box with more than fits scrolls inside itself (in a short window the page scrolls rather than squash either row below 12rem). */
-export const matrixRows = (): string => 'minmax(12rem, 1fr) minmax(12rem, 1fr)'
+const matrixRows = (): string => 'minmax(12rem, 1fr) minmax(12rem, 1fr)'
 
 /** An empty box, said for where it is. Every task on today is due soon, so on Today the two calm boxes are where a task goes to leave the day. */
 const emptySaid = (box: Quadrant, carrying: boolean, today: boolean): string =>

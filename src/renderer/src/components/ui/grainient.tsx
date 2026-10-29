@@ -282,7 +282,7 @@ export type GrainientHandle = {
   nudge: (x: number, y: number, direction?: 1 | -1) => void
 }
 
-export type GrainientProps = {
+type GrainientProps = {
   ref?: Ref<GrainientHandle>
   colors?: string[]
   type?: keyof typeof TYPES

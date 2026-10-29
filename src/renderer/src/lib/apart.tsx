@@ -23,7 +23,7 @@ type Box = { x: number; y: number; width: number; height: number }
 type Carry = { from: number; to: number; top: number | null }
 
 /** In a note's own window, the note it holds ('capture:id'); null anywhere else. */
-export const noteWindowLink = (): string | null => (typeof location === 'undefined' ? null : new URLSearchParams(location.search).get('note'))
+const noteWindowLink = (): string | null => (typeof location === 'undefined' ? null : new URLSearchParams(location.search).get('note'))
 const idOf = (link: string): string => link.slice(link.indexOf(':') + 1)
 
 // --- which notes are away in a window of their own, as this window knows it

@@ -21,17 +21,17 @@ import { dayKey, num } from '../../../../main/dates'
  */
 
 /** "2026-Q4": the quarter a day is in. */
-export const seasonKey = (at = new Date()): string => `${at.getFullYear()}-Q${Math.floor(at.getMonth() / 3) + 1}`
+const seasonKey = (at = new Date()): string => `${at.getFullYear()}-Q${Math.floor(at.getMonth() / 3) + 1}`
 /** How long into a quarter it is still offered. */
 const WEEKS = 3
 /** Whether Close the week has the season's part now: early in a quarter, and not closed or skipped for it yet. */
-export function seasonDue(closed: string | undefined, at = new Date()): boolean {
+function seasonDue(closed: string | undefined, at = new Date()): boolean {
   const start = new Date(at.getFullYear(), Math.floor(at.getMonth() / 3) * 3, 1)
   return closed !== seasonKey(at) && at.getTime() - start.getTime() < WEEKS * 7 * 86_400_000
 }
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 /** The season just gone, in words: "July to September", with its year when it is not this one. */
-export function lastSeason(at = new Date()): { said: string; kept: string } {
+function lastSeason(at = new Date()): { said: string; kept: string } {
   const first = new Date(at.getFullYear(), Math.floor(at.getMonth() / 3) * 3 - 3, 1)
   const said = `${MONTHS[first.getMonth()]} to ${MONTHS[first.getMonth() + 2]}`
   return { said: first.getFullYear() === at.getFullYear() ? said : `${said} ${first.getFullYear()}`, kept: `${said} ${first.getFullYear()}` }

@@ -82,25 +82,3 @@ export function SessionRow({ one, now }: { one: SpanSession; now: number }): Rea
     </RowMenu>
   )
 }
-
-/** A session in a day of the week: small, its start and name, in the same stripes or faint block. */
-export function SessionChip({ one, now }: { one: SpanSession; now: number }): React.JSX.Element {
-  const end = sessionEnd(one, now)
-  const running = !one.endedAt
-  return (
-    <RowMenu items={sessionMenu(one)}>
-      <button type="button" data-week-session={one.id} data-running={running || undefined} onClick={() => (chime('open'), window.api.openInHome('task', one.taskId))}
-        style={running ? STRIPES : FAINT}
-        className={`flex w-full min-w-0 flex-col items-start rounded-md px-2 py-1 text-left text-xs ring-1 ring-inset ${running ? 'ring-[color-mix(in_oklab,var(--tt-brand-color-400)_45%,transparent)]' : 'ring-[color-mix(in_oklab,var(--tt-brand-color-400)_18%,transparent)]'}`}>
-        {/* The tip on the words inside: the right-click menu needs the button itself. */}
-        <Tip label={`Focus session: ${one.title || 'Focus'}, ${standing(one, end, now)}`}>
-          <span className="flex w-full min-w-0 flex-col items-start">
-            {/* A narrow week wraps these, never cuts them to a letter or two. */}
-            <span data-session-name className="line-clamp-2 w-full font-semibold break-words text-foreground">{one.title || 'Focus'}</span>
-            <span data-session-when className="w-full text-foreground tabular-nums">{clock(one.startedAt)} <span className="whitespace-nowrap">to {end === null ? 'no end' : clock(end)}</span></span>
-          </span>
-        </Tip>
-      </button>
-    </RowMenu>
-  )
-}

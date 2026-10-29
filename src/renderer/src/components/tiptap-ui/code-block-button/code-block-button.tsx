@@ -18,7 +18,7 @@ import type { ButtonProps } from "@/components/tiptap-ui-primitive/button"
 import { Button } from "@/components/tiptap-ui-primitive/button"
 import { Badge } from "@/components/tiptap-ui-primitive/badge"
 
-export interface CodeBlockButtonProps
+interface CodeBlockButtonProps
   extends Omit<ButtonProps, "type">, UseCodeBlockConfig {
   /**
    * Optional text to display alongside the icon.
@@ -31,7 +31,7 @@ export interface CodeBlockButtonProps
   showShortcut?: boolean
 }
 
-export function CodeBlockShortcutBadge({
+function CodeBlockShortcutBadge({
   shortcutKeys = CODE_BLOCK_SHORTCUT_KEY,
 }: {
   shortcutKeys?: string

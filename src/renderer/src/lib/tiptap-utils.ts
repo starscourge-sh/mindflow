@@ -9,7 +9,7 @@ import {
 } from "@tiptap/pm/state"
 import type { Editor } from "@tiptap/react"
 
-export const MAC_SYMBOLS: Record<string, string> = {
+const MAC_SYMBOLS: Record<string, string> = {
   mod: "⌘",
   command: "⌘",
   meta: "⌘",
@@ -48,7 +48,7 @@ export function isMac(): boolean {
  * @param capitalize - Whether to capitalize the key (default: true)
  * @returns Formatted shortcut key symbol
  */
-export const formatShortcutKey = (
+const formatShortcutKey = (
   key: string,
   isMac: boolean,
   capitalize: boolean = true
@@ -168,7 +168,7 @@ export function isExtensionAvailable(
  * @param position The position in the document to find the node
  * @returns The node at the specified position, or null if not found
  */
-export function findNodeAtPosition(editor: Editor, position: number) {
+function findNodeAtPosition(editor: Editor, position: number) {
   try {
     const node = editor.state.doc.nodeAt(position)
     if (!node) {

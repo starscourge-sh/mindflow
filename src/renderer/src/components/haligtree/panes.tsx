@@ -13,7 +13,7 @@ import { RowMenu, type RowItem } from './row-menu'
 /** What the main window needs of a pane to keep Back exact: how its page is scrolled, and where to put it back. */
 export type PaneApi = { scrolled: () => [string, number][]; restore: (scroll: [string, number][] | null) => void }
 /** A pane as drawn: `label` is what it shows, its open note's name, or its page's when no note is open. */
-export type PaneShown = { key: string; label: string; private?: boolean; at: number; width?: PaneWidth; node: ReactNode }
+type PaneShown = { key: string; label: string; private?: boolean; at: number; width?: PaneWidth; node: ReactNode }
 
 // Whether the last thing pressed was Tab: only then does focus arriving in a
 // pane bring it to the front. A menu closing hands the focus back to the row

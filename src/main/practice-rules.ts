@@ -8,7 +8,7 @@
 /** The start is always this short: five minutes gets you past the hardest bit. */
 export const START_MIN = 5
 /** An offer stays up this long after its time, then is simply gone for the day. */
-export const OFFER_WINDOW_MIN = 180
+const OFFER_WINDOW_MIN = 180
 /** Untouched this long, a practice pauses itself, so the record stays honest. */
 export const IDLE_PAUSE_SEC = 180
 /** Declined this many times in a row at one time, a better time is suggested. */

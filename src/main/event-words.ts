@@ -9,7 +9,7 @@ import type { Repeat } from './event-repeat'
  * reads it as you type to show what it understood, and makes the event from
  * it. Written with plain imports so node's test runner loads it on its own.
  */
-export type ReadEvent = {
+type ReadEvent = {
   title: string
   /** When it starts and ends; null when the words name no day (the slot clicked fills it in). */
   start: string | null

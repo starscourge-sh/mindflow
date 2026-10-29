@@ -234,7 +234,7 @@ function PeekingCard({ id, today, side, nudge }: { id: string; today: string; si
 }
 
 /** The tab itself: square on the screen's edge, round on the side facing in. Also Settings' preview of it. */
-export function GoalTab({ side, nudge = false, gone, left, ink, title, className = '' }: { side: 'left' | 'right'; nudge?: boolean; gone: number; left: number | null; ink: string; title: string; className?: string }): React.JSX.Element {
+function GoalTab({ side, nudge = false, gone, left, ink, title, className = '' }: { side: 'left' | 'right'; nudge?: boolean; gone: number; left: number | null; ink: string; title: string; className?: string }): React.JSX.Element {
   const R = 11
   const round = 2 * Math.PI * R
   const away = side === 'right' ? 24 : -24

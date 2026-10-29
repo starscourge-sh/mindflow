@@ -3,7 +3,7 @@ import type { AnimatedIconHandle, AnimatedIconProps } from "./types";
 import { motion } from "motion/react";
 import { useBeat } from "./beat";
 
-export interface TrashIconProps extends AnimatedIconProps {
+interface TrashIconProps extends AnimatedIconProps {
   shakeOnClick?: boolean;
   dangerHover?: boolean;
   keepOpenOnDelete?: boolean;

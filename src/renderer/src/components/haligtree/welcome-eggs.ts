@@ -16,7 +16,7 @@
  *   a pen line that grows with each blot it reaches (ink-line.tsx). Esc
  *   leaves; its sounds follow the sound setting.
  */
-export const EGGS = true
+const EGGS = true
 
 /** Said under the dial after a full turn. */
 export const FULL_TURN = 'Indecisive. Respect.'

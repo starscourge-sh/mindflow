@@ -29,7 +29,7 @@ const dayFor = (where: Where, nth: number): dayjs.Dayjs =>
   typeof where === 'object' ? dayjs(where.day) : dayjs().startOf('day').add(where === 'today' ? 0 : where === 'tomorrow' ? 1 : where === 'week' ? 7 : nth % 3, 'day')
 
 /** `noun`: how the notice names them, one and many. */
-export async function rescheduleAll(list: Task[], where: Where, noun: [string, string] = ['the late task', 'late tasks']): Promise<void> {
+async function rescheduleAll(list: Task[], where: Where, noun: [string, string] = ['the late task', 'late tasks']): Promise<void> {
   if (!list.length) return chime('nope')
   const was = list.map((task) => ({ id: task.id, due: task.dueAt, plan: task.planFor }))
   const before = await Promise.all(list.map((task, nth) => {

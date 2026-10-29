@@ -24,7 +24,7 @@ const edit = (a: string, b: string): { at: number; cut: number; put: string } =>
  * added), and only where the other change did not touch: anything you cut or
  * rewrote is kept whole instead, by the caller.
  */
-export function foldIn(base: unknown, mine: unknown, theirs: unknown): unknown | null {
+function foldIn(base: unknown, mine: unknown, theirs: unknown): unknown | null {
   const [was, yours, now] = [base, mine, theirs].map((doc) => JSON.stringify(doc ?? null))
   const own = edit(was, yours)
   if (own.cut) return null

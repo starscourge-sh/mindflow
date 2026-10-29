@@ -1,10 +1,10 @@
-import { Fragment, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { motion } from 'motion/react'
 import { chime } from '@/lib/sound'
 import { unloaded, useLive, haligtree, type Settings, type Task, type TaskWas } from '@/lib/haligtree'
 import { calendar, useMacEvents, type MacCalendar, type MacEvent } from '@/lib/mac-calendar'
 import { Button } from '@/components/ui/button'
-import { Rolling, Tip, toast } from './ui'
+import { Rolling, toast } from './ui'
 import { taskName } from '@/lib/tasks'
 import { busyMinutes, lengthSaid, loadOf, loadSaid, onDay, planMoves, taskDay, unsizedSaid, type DayLoad, type Move } from '../../../../main/day-load'
 import { dated, dayjs, dayKey, num } from '../../../../main/dates'
@@ -12,8 +12,8 @@ import { APP_NAME } from '../../../../main/name'
 
 /**
  * Whether a day fits: its meetings (your Mac's calendar) and its tasks'
- * lengths against a working day of about N hours (Settings). Said on each day
- * of the week view, and in Close the week as "Does next week fit?", where an
+ * lengths against a working day of about N hours (Settings). Said in Close
+ * the week as "Does next week fit?", where an
  * over-full day can move its least pressing tasks on in one click, shown
  * first and undone in one.
  */
@@ -22,13 +22,13 @@ const ORANGE = 'var(--tt-color-text-orange)'
 const BLUE = 'var(--tt-color-text-blue)'
 
 /** The working day, in minutes: Settings' "A working day is about N hours", 8 until changed. */
-export function useWorkRoom(): number {
+function useWorkRoom(): number {
   const settings = useLive(haligtree.settings, null as Settings | null)
   return Math.round((settings?.workHours ?? 8) * 60)
 }
 
 /** The events of one day, of a span read at once. */
-export const eventsOn = (events: MacEvent[], day: string): MacEvent[] => {
+const eventsOn = (events: MacEvent[], day: string): MacEvent[] => {
   const from = dayjs(day).startOf('day').valueOf()
   const to = dayjs(day).add(1, 'day').startOf('day').valueOf()
   return events.filter((one) => Date.parse(one.start) < to && Date.parse(one.end) > from).sort((a, b) => Date.parse(a.start) - Date.parse(b.start))
@@ -37,31 +37,6 @@ export const eventsOn = (events: MacEvent[], day: string): MacEvent[] => {
 /** Said on a day: "4h free", "1h over", or nothing for an empty day. */
 const restSaid = (load: DayLoad): string => (load.over ? `${lengthSaid(load.over)} over` : `${lengthSaid(load.free)} free`)
 
-/**
- * One day's load under its date in the week view: "5h meetings · 4h tasks",
- * each part whole so a narrow day wraps rather than cuts it, and "1h over"
- * in amber on its own line when it is. Tasks with no length are said in the
- * tip only: most have none, and seven columns of it would be noise.
- */
-export function DayLoadLine({ load }: { load: DayLoad }): React.JSX.Element | null {
-  if (!load.meetings && !load.tasks) return null
-  const tip = [
-    `${loadSaid(load)} against a working day of about ${lengthSaid(load.room)}.`,
-    load.over ? `${lengthSaid(load.over)} over your working day (Today counts only what is left of today).` : `${lengthSaid(load.free)} still free.`,
-    load.unsized ? `And ${unsizedSaid(load.unsized)}, counted as no time: write ~30m on one to give it a length.` : ''
-  ].filter(Boolean).join(' ')
-  const parts = [load.meetings ? [lengthSaid(load.meetings), 'meetings'] : null, load.tasks ? [lengthSaid(load.tasks), 'tasks'] : null].filter((one) => one !== null)
-  // A length never splits inside "9 h" or "30 min"; in a narrow column it
-  // wraps between them, and the word under it, rather than being cut.
-  return (
-    <Tip label={tip}>
-      <p data-day-load={load.day} data-over={load.over || undefined} className="mb-1 flex min-w-0 flex-wrap items-baseline gap-x-1.5 px-1 text-xs leading-snug text-foreground/75 tabular-nums">
-        {parts.map(([length, word], at) => <span key={at} className="min-w-0"><Length text={length} /> <Rolling by="word" text={word} />{at < parts.length - 1 && <span aria-hidden className="ml-1.5">·</span>}</span>)}
-        {load.over > 0 && <span data-day-over className="min-w-0 basis-full font-semibold" style={{ color: ORANGE }}><Length text={lengthSaid(load.over)} /> over</span>}
-      </p>
-    </Tip>
-  )
-}
 
 /** A day as a bar: meetings, then tasks, against a mark where the working day ends; past it, amber. */
 function LoadBar({ load, scale }: { load: DayLoad; scale: number }): React.JSX.Element {
@@ -128,14 +103,6 @@ const tasksByDay = (tasks: Task[]): Map<string, Task[]> => {
 /** "“Read chapter 4” (1h) to Wednesday": one move, said. */
 const moveSaid = (move: Move, task: Task | undefined): string => `“${taskName(task?.title ?? '').text}” (${lengthSaid(move.minutes)}) to ${dayjs(move.to).format('dddd')}`
 const list = (parts: string[]): string => (parts.length < 2 ? parts.join('') : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`)
-
-/** "10 h 20 min" kept as "10 h" and "20 min", each whole, so a narrow column wraps between them. */
-function Length({ text }: { text: string }): React.JSX.Element {
-  const pieces = text.match(/\d+ \S+/g) ?? [text]
-  // The space between the pieces sits outside them: inside a nowrap piece it
-  // could never break, and "10 h 20 min" ran past a narrow column whole.
-  return <>{pieces.map((piece, at) => <Fragment key={at}>{at > 0 && ' '}<span className="whitespace-nowrap"><Rolling by="word" text={piece} /></span></Fragment>)}</>
-}
 
 /**
  * Close the week's "Does next week fit?": next week's seven days, each with

@@ -33,7 +33,7 @@ const listFile = (): string => join(dir(), 'results.json')
 const keyOf = (saved: string): string =>
   process.env.HALIGTREE_USER_DATA ? process.env.HALIGTREE_GIPHY_KEY ?? '' : saved.trim() || import.meta.env.MAIN_VITE_GIPHY_KEY || ''
 
-export const giphyPrefs = (): { on: boolean; key: string; words: string; stars: string[] } => {
+const giphyPrefs = (): { on: boolean; key: string; words: string; stars: string[] } => {
   const prefs = celebrationPrefs()
   return { on: prefs.on, key: keyOf(prefs.giphyKey), words: prefs.giphyWords.trim() || 'ed edd n eddy celebrate', stars: prefs.giphyStars }
 }

@@ -146,7 +146,7 @@ function Tile({ value, label, note }: { value: ReactNode; label: string; note?: 
 const PART = { morning: 'Mornings', afternoon: 'Afternoons', evening: 'Evenings', night: 'Late at night' }
 
 /** Made up, for Stats' example page: ten weeks of mornings, as the sandbox has. */
-export function exampleFocus(): FocusStats {
+function exampleFocus(): FocusStats {
   const rows: FocusRow[] = []
   for (let n = 60; n >= 1; n--) {
     if (n > 8 && (n % 7 === 3 || n % 11 === 5)) continue

@@ -30,7 +30,7 @@ export type Carry = { local: Record<string, string>; settings: Record<string, un
 
 /** The blade's curves. Lit: fast out of the hilt, then settling as the hum does. Put away: quick to answer too (never a slow-starting curve, which held the blade still just as you watch it). */
 export const SABER_OUT = 'cubic-bezier(0.16, 1, 0.3, 1)'
-export const SABER_IN = 'cubic-bezier(0.23, 1, 0.32, 1)'
+const SABER_IN = 'cubic-bezier(0.23, 1, 0.32, 1)'
 
 /** What the overlay is told: its words, which way the blade goes, and for how long. */
 export type Going = { text: string; up: boolean; ms: number }
@@ -152,5 +152,5 @@ export async function startSandboxOver(): Promise<void> {
   await window.api.haligtree('sandbox:reset')
 }
 
-export type SandboxState = { on: boolean; seeded: boolean; seededOn: string | null }
+type SandboxState = { on: boolean; seeded: boolean; seededOn: string | null }
 export const sandboxState = (): Promise<SandboxState> => window.api.haligtree<SandboxState>('sandbox:state')

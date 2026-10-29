@@ -11,8 +11,6 @@ const DIVIDER = /^(?:---|—-|___\s|\*\*\*\s)$/
  */
 const RIBBON = /^===$/
 
-/** How a divider is drawn. No value is the plain line, so every old note is unchanged. */
-export type DividerVariant = "ribbon" | null
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {

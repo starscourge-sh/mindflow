@@ -52,7 +52,7 @@ const wordsOf = (node: Doc): string =>
 const cut = (text: string, room: number): string => (text.length > room ? text.slice(0, room) : text)
 
 /** The media in one stored body, each with the words around it. */
-export function mediaIn(body: string | null): Omit<Media, 'type' | 'id' | 'title' | 'private' | 'at'>[] {
+function mediaIn(body: string | null): Omit<Media, 'type' | 'id' | 'title' | 'private' | 'at'>[] {
   if (!body) return []
   let doc: unknown
   try {

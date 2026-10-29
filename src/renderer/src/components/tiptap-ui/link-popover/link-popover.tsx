@@ -33,7 +33,7 @@ import { ButtonGroup } from "@/components/tiptap-ui-primitive/button-group"
 
 import "./link-popover.scss"
 
-export interface LinkMainProps {
+interface LinkMainProps {
   /**
    * The URL to set for the link.
    */
@@ -60,7 +60,7 @@ export interface LinkMainProps {
   isActive: boolean
 }
 
-export interface LinkPopoverProps
+interface LinkPopoverProps
   extends Omit<ButtonProps, "type">, UseLinkPopoverConfig {
   /**
    * Callback for when the popover opens or closes.
@@ -76,7 +76,7 @@ export interface LinkPopoverProps
 /**
  * Link button component for triggering the link popover
  */
-export const LinkButton = forwardRef<HTMLButtonElement, ButtonProps>(
+const LinkButton = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, children, ...props }, ref) => {
     return (
       <Button

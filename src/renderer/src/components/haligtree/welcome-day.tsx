@@ -32,7 +32,7 @@ const today = (): [string, string?][] => [[flowTask().title, clock(dayjs().hour(
  * shapes so it is no one's real app: the paper, the tape, the lean, and a
  * small lift now and then, as the real stickies do.
  */
-export function DeskSticky({ on, ticked }: { on: boolean; ticked: boolean }): React.JSX.Element {
+function DeskSticky({ on, ticked }: { on: boolean; ticked: boolean }): React.JSX.Element {
   return (
     // The window grows to hold the note when a narrow column wraps its tasks, so the note never hangs over what is under it.
     <div inert className="relative flex min-h-[clamp(9rem,calc(18vh+2.75rem),14rem)] w-full max-w-[22rem] items-start justify-end pt-[clamp(1.25rem,3.5vh,2rem)] pr-[5%] pb-1.5 select-none">
@@ -80,7 +80,7 @@ export function DeskSticky({ on, ticked }: { on: boolean; ticked: boolean }): Re
 }
 
 /** The gem's question in Review, turning over to its answer, with where it came from. */
-export function EveningReview({ over }: { over: boolean }): React.JSX.Element {
+function EveningReview({ over }: { over: boolean }): React.JSX.Element {
   const face = 'flex h-full min-h-[8.5rem] flex-col justify-center rounded-xl border bg-popover px-5 py-4 text-popover-foreground shadow-(--mf-panel-shadow)'
   return (
     // Played, never handled: the card turns by itself, and takes no click or drag.
@@ -271,7 +271,7 @@ function Key({ kind, ink }: { kind: 'alone' | 'reviewed'; ink: string }): React.
  * words, and takes the height left under the three moments, up to a calm
  * shape, so it never runs under the footer.
  */
-export function ForgettingCurve({ on, quiet }: { on: boolean; quiet: boolean }): React.JSX.Element {
+function ForgettingCurve({ on, quiet }: { on: boolean; quiet: boolean }): React.JSX.Element {
   const drawn = on || quiet
   const [box, { w, h }] = useSize<HTMLDivElement>()
   const { x, y, saw, area, falls, along } = useMemo(() => plot(Math.max(w, 1), Math.max(h, COUNTS + 2)), [w, h])

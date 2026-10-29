@@ -36,7 +36,7 @@ import {
 } from "@/components/tiptap-ui/color-highlight-button"
 import { ButtonGroup } from "@/components/tiptap-ui-primitive/button-group"
 
-export interface ColorHighlightPopoverContentProps {
+interface ColorHighlightPopoverContentProps {
   /**
    * The Tiptap editor instance.
    */
@@ -53,7 +53,7 @@ export interface ColorHighlightPopoverContentProps {
   useColorValue?: boolean
 }
 
-export interface ColorHighlightPopoverProps
+interface ColorHighlightPopoverProps
   extends
     Omit<ButtonProps, "type">,
     Pick<
@@ -72,7 +72,7 @@ export interface ColorHighlightPopoverProps
   useColorValue?: boolean
 }
 
-export const ColorHighlightPopoverButton = forwardRef<
+const ColorHighlightPopoverButton = forwardRef<
   HTMLButtonElement,
   ButtonProps
 >(({ className, children, ...props }, ref) => (

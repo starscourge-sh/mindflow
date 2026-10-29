@@ -14,7 +14,7 @@ import { openSort } from './sort-out'
  * Everything that becomes a task: words typed, a capture, several captures,
  * a nugget to study, a line picked out of a note.
  */
-export type TaskSource =
+type TaskSource =
   | { text: string; today?: boolean; origin?: string }
   | { capture: string; /** Words in its first line kept as plain text, not read as a date or a priority. */ plain?: { from: number; to: number; text: string }[]
       /** One task however many lines it has; otherwise a list makes a task a line. */ whole?: boolean }
@@ -244,7 +244,7 @@ export { readySaid }
 export const READY_LEADS = [3, 7, 14]
 
 /** The day getting ready starts, as a number to compare: its due-by day less the lead; null without both. */
-export const readyDay = (task: Pick<Task, 'deadline'> & Later): number | null =>
+const readyDay = (task: Pick<Task, 'deadline'> & Later): number | null =>
   task.deadline && task.getReady ? dayjs(task.deadline).startOf('day').subtract(task.getReady, 'day').valueOf() : null
 /** Getting ready now: past the day it starts, before the day it is due by, and still open. */
 export const gettingReady = (task: Pick<Task, 'deadline' | 'status'> & Later): boolean =>

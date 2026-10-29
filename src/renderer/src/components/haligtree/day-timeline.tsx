@@ -110,7 +110,7 @@ const EVENTS_SHOWN = 12
  * The dozen events worth showing on a crowded day: all-day ones, then those
  * not over yet in time order; any room left goes to the latest ones gone by.
  */
-export function fewEvents(events: MacEvent[], now: number, room = EVENTS_SHOWN): MacEvent[] {
+function fewEvents(events: MacEvent[], now: number, room = EVENTS_SHOWN): MacEvent[] {
   if (events.length <= room) return events
   const timed = events.filter((one) => !one.allDay).sort((a, b) => Date.parse(a.start) - Date.parse(b.start))
   const allDay = events.filter((one) => one.allDay).slice(0, room)

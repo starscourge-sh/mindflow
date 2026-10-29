@@ -24,7 +24,7 @@ const partsOf = (link: string): { table: 'captures' | 'nuggets'; id: string } =>
   link.includes(':') ? { table: 'nuggets', id: link.slice(link.indexOf(':') + 1) } : { table: 'captures', id: link }
 
 /** The name a note goes by now, '' when it is gone or in the Bin. */
-export function nameNow(link: string): string {
+function nameNow(link: string): string {
   const { table, id } = partsOf(link)
   const row = (table === 'captures'
     ? database().prepare(`select ${LABEL} as name from captures where id = ? and status != 'discarded'`).get(id)

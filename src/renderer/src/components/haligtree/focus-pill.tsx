@@ -65,7 +65,7 @@ const glowScreen = (...args: Parameters<typeof window.api.glow>): void => {
  * A session or timer over: light around the screen's edge and a sound, one
  * pair for finished and another for called off.
  */
-export const glowEnd = (tone: 'done' | 'cancel'): void => {
+const glowEnd = (tone: 'done' | 'cancel'): void => {
   chime(tone === 'done' ? 'finish' : 'called')
   glowScreen(tone)
 }
@@ -277,7 +277,7 @@ const breakFill = (light: boolean, style: Style): string => style === 'paper'
   : style !== 'soft' ? (light ? 'oklch(0.9 0.12 158)' : 'oklch(0.4 0.09 165)')
   : light ? 'linear-gradient(165deg, oklch(0.975 0.035 140), oklch(0.93 0.06 168))' : 'linear-gradient(165deg, oklch(0.31 0.055 172), oklch(0.24 0.05 195))'
 /** Short lines a break says in turn, under its cup: playful, never an order. */
-export const BREAK_LINES = ['Break time', 'Stretch a little', 'Look at something far away', 'Water, maybe?', 'Shoulders down', 'Breathe out slowly', 'Stand up, walk about', 'Unclench your jaw', 'Nothing to do for a bit']
+const BREAK_LINES = ['Break time', 'Stretch a little', 'Look at something far away', 'Water, maybe?', 'Shoulders down', 'Breathe out slowly', 'Stand up, walk about', 'Unclench your jaw', 'Nothing to do for a bit']
 
 /** The pill's width at rest and open, and the capsule it starts as. */
 const WIDE = 324
@@ -1872,7 +1872,7 @@ const BREAK_CSS = `@keyframes mf-break-breath { 0%, 100% { transform: translateX
 @keyframes mf-cup-pop { 0% { transform: scale(.2) translateY(2px); opacity: 0 } 55% { transform: scale(1.22); opacity: 1 } 80% { transform: scale(.94) } 100% { transform: none } }
 @keyframes mf-spark { 0% { transform: translate(0, 0) scale(.4); opacity: 0 } 10% { opacity: 1 } 70% { opacity: 1 } 100% { transform: translate(var(--dx), var(--dy)) scale(.9) rotate(var(--turn)); opacity: 0 } }
 @keyframes mf-notch-breath { 0%, 100% { opacity: .55; transform: scaleX(.9) } 50% { opacity: 1; transform: scaleX(1.06) } }`
-export function BreakSurface({ light, style, moving }: { light: boolean; style: Style; moving: boolean }): React.JSX.Element {
+function BreakSurface({ light, style, moving }: { light: boolean; style: Style; moving: boolean }): React.JSX.Element {
   const glow = light ? 'rgb(255 255 255 / 0.75)' : 'oklch(0.75 0.12 160 / 0.28)'
   const brutal = style === 'brutal'
   const sweep = brutal
@@ -1897,7 +1897,7 @@ export function BreakSurface({ light, style, moving }: { light: boolean; style: 
 }
 
 /** A break's ring: the break so far around a small cup, its steam curling up while the break runs. */
-export function BreakRing({ share, paused, moving, pop = false }: { share: number | null; paused: boolean; moving: boolean; /** Pops in, as a break arrives. */ pop?: boolean }): React.JSX.Element {
+function BreakRing({ share, paused, moving, pop = false }: { share: number | null; paused: boolean; moving: boolean; /** Pops in, as a break arrives. */ pop?: boolean }): React.JSX.Element {
   const r = 9.5
   const around = 2 * Math.PI * r
   const steam = (delay: number): CSSProperties => (moving && !paused ? { animation: `mf-steam 2.6s ease-in-out ${delay}s infinite`, transformBox: 'fill-box' } : { opacity: 0.6 })
@@ -1927,7 +1927,7 @@ export function BreakRing({ share, paused, moving, pop = false }: { share: numbe
  * open on the same three. Still (Motion off, paused, or over): the first words only.
  */
 let lineAt = 0
-export function BreakLine({ first, still }: { first: string; still: boolean }): React.JSX.Element {
+function BreakLine({ first, still }: { first: string; still: boolean }): React.JSX.Element {
   const [line, setLine] = useState<string>(first)
   useEffect(() => {
     setLine(first)

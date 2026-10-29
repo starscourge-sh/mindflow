@@ -91,7 +91,7 @@ export function planFor(task: Pick<Task, 'id' | 'dueAt' | 'deadline' | 'planFor'
 export const TINT: Record<Span['kind'], BlockColor> = { date: 'blue', deadline: 'red', repeat: 'purple', priority: 'orange', plan: 'green', notify: 'pink', length: 'gray', snooze: 'gray', ready: 'yellow' }
 
 /** What the words were read as, one small chip each: the date, the deadline, the repeat, the priority. */
-export function TaskChips({ read }: { read: ReadTask | null }): React.JSX.Element {
+function TaskChips({ read }: { read: ReadTask | null }): React.JSX.Element {
   const chips: { key: string; icon: React.ReactNode; label: string; tint: string; guess?: string }[] = []
   // A date only guessed at says so: a "?" and a dashed ring, and why on hover.
   const guess = (kind: string): string | undefined => read?.spans.find((one) => one.kind === kind && one.guess)?.guess

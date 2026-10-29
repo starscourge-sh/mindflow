@@ -123,7 +123,7 @@ export function journey(from: string, target: string, today = dayKey()): Journey
 }
 
 /** A goal as far as its milestones need it: its name, its days, and how it ended, if it has. */
-export type GoalRoad = { title: string; goalFrom: string | null; goalAt: string | null; closedAt: string | null; closedHow: string | null; private?: number | boolean }
+type GoalRoad = { title: string; goalFrom: string | null; goalAt: string | null; closedAt: string | null; closedHow: string | null; private?: number | boolean }
 
 /**
  * What goals did in the week from this Monday, for its Journal page: one

@@ -140,7 +140,7 @@ function withLine(body: unknown, block: string, content: JSONContent[] | undefin
  * place the line is shown. A gem shown in an article stays one gem, still in
  * Review. Changed elsewhere, it changes here, unless you are typing in it.
  */
-export function EmbeddedLine({ link, block, label, onUnembed }: { link: string; block: string; label: string; onUnembed?: () => void }): React.JSX.Element {
+function EmbeddedLine({ link, block, label, onUnembed }: { link: string; block: string; label: string; onUnembed?: () => void }): React.JSX.Element {
   const { table, id } = partsOf(link)
   const [note, setNote] = useState<{ title: string; line: JSONContent | null } | null | undefined>(undefined)
   const editor = useRef<Editor | null>(null)

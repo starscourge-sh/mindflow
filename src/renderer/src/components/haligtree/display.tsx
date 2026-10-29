@@ -35,7 +35,7 @@ export type Choice = {
 export type Facet<T> = { key: string; label: string; options: Choice[]; test: (item: T, option: string) => boolean }
 /** How a list is drawn, from the most rows on screen to the most picture. */
 export type Density = 'compact' | 'list' | 'small' | 'grid'
-export const DENSITIES: { id: Density; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+const DENSITIES: { id: Density; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'compact', label: 'Compact', icon: AlignJustify },
   { id: 'list', label: 'List', icon: LayoutList },
   { id: 'small', label: 'Small grid', icon: Grid3x3 },

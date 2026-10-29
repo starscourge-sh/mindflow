@@ -80,7 +80,7 @@ import { Typewriter } from "@/extensions/typewriter"
 import { useStoredFlag } from "@/lib/use-stored-flag"
 
 /** Every mark the editor can register. */
-export type MarkName =
+type MarkName =
   | "bold"
   | "italic"
   | "strike"

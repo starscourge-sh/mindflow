@@ -288,7 +288,7 @@ export function TopicName({ id }: { id: string }): React.JSX.Element | null {
  * beside it like a link's. A date written as words before this was a date
  * shows as it was, until one is picked.
  */
-export function DateField({ field, value, settled, onSave }: { field: Field; value: string | number | undefined; settled: boolean; onSave: (iso: string | null) => void }): React.JSX.Element {
+function DateField({ field, value, settled, onSave }: { field: Field; value: string | number | undefined; settled: boolean; onSave: (iso: string | null) => void }): React.JSX.Element {
   const iso = typeof value === 'string' && /^\d{4}-\d\d-\d\dT/.test(value) ? value : null
   const due = !!iso && !settled && daysFromToday(iso) <= 0
   return (

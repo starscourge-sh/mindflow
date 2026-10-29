@@ -10,7 +10,7 @@ import { READS, SHORTCUTS } from './shortcuts'
  *
  * Saved in settings as { default keys: your keys, or null for none }.
  */
-export type KeyChanges = Record<string, string | null>
+type KeyChanges = Record<string, string | null>
 
 let changes: KeyChanges = {}
 const told = new Set<() => void>()

@@ -24,7 +24,7 @@ import { cut } from './clip'
 
 export const DEFAULT_NAME = 'My book'
 /** "default" for My book, a book's id, or "sandbox": what the renderer and the menus pass around. */
-export type BookId = string
+type BookId = string
 
 export const here = (): BookId => (SANDBOX ? 'sandbox' : (BOOK ?? 'default'))
 export const nameOf = (id: BookId): string => {
@@ -136,7 +136,7 @@ function relink(body: unknown, ids: Map<string, string>): unknown {
 }
 
 /** What has arrived for this book from another, taken in as its own notes. */
-export async function takeArrivals(): Promise<number> {
+async function takeArrivals(): Promise<number> {
   const dir = join(dataRoot(), ARRIVING)
   const files = existsSync(dir) ? (await readdir(dir)).filter((name) => name.endsWith('.json')).sort() : []
   if (!files.length) return 0

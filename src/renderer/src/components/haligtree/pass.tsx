@@ -26,7 +26,7 @@ import { Brush, X } from '@/components/ui/icons'
 import { useVim } from '@/lib/vim'
 
 /** How old a capture is, said the way a person would: "A week", "3 weeks", "5 months", "A year". */
-export function ageOf(at: string, now = dayjs()): string {
+function ageOf(at: string, now = dayjs()): string {
   const days = now.diff(dayjs(at), 'day')
   const said = (n: number, one: string): string => (n <= 1 ? `A ${one}` : `${num(n)} ${one}s`)
   if (days < 14) return 'A week'
@@ -36,7 +36,7 @@ export function ageOf(at: string, now = dayjs()): string {
 }
 
 
-export type PassMode = 'tidy' | 'decide'
+type PassMode = 'tidy' | 'decide'
 
 /** Open a pass over whichever window asks: the tidy one, or the deciding one. `ids` walks just those. */
 export const openPass = (mode: PassMode, ids?: string[]): void =>

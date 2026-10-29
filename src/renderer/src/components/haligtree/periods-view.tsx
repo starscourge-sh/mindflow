@@ -41,7 +41,7 @@ export type Scale = 'day' | 'week' | 'month' | 'year'
 export const SCALE_VIEW: Record<Scale, string> = { day: 'day', week: 'weekpage', month: 'monthpage', year: 'yearpage' }
 
 /** Day, Week, Month, Year: the same four on each of the pages. */
-export function ScaleSwitch({ scale, onScale }: { scale: Scale; onScale?: (scale: Scale) => void }): React.JSX.Element | null {
+function ScaleSwitch({ scale, onScale }: { scale: Scale; onScale?: (scale: Scale) => void }): React.JSX.Element | null {
   if (!onScale) return null
   return (
     <Chips className="shrink-0" options={[{ id: 'day', label: 'Day' }, { id: 'week', label: 'Week' }, { id: 'month', label: 'Month' }, { id: 'year', label: 'Year' }]}

@@ -19,7 +19,7 @@ import {
 /**
  * The alignments shown in the dropdown when no `aligns` are given.
  */
-export const DEFAULT_TEXT_ALIGNS: TextAlign[] = [
+const DEFAULT_TEXT_ALIGNS: TextAlign[] = [
   "left",
   "center",
   "right",
@@ -49,7 +49,7 @@ export interface UseTextAlignDropdownMenuConfig {
 /**
  * Gets the currently active alignment from the available alignments
  */
-export function getActiveTextAlign(
+function getActiveTextAlign(
   editor: Editor | null,
   aligns: TextAlign[] = DEFAULT_TEXT_ALIGNS
 ): TextAlign | undefined {

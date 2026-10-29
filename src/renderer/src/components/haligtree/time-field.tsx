@@ -5,7 +5,7 @@ import { chime } from '@/lib/sound'
 import { cn } from '@/lib/cn'
 
 /** "9", "930", "9:30", "21.30", "9pm", "9:30 am" as "09:30" or "21:30"; null when it is not a time. */
-export function readTime(words: string): string | null {
+function readTime(words: string): string | null {
   const found = words.trim().toLowerCase().match(/^(\d{1,2})(?:[:.h]?(\d{2}))?\s*(am|pm|a|p)?$/)
   if (!found) return null
   let hours = Number(found[1])

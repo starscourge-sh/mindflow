@@ -232,7 +232,7 @@ export const POWERS: Power[] = [
 ]
 
 /** What your own notes say you have done: each cheap to read, and only what is certain. */
-export type Signs = {
+type Signs = {
   steps: Record<string, boolean>
   items: Item[]
   tasks: { notify: string | null; recurrence: string | null; estimate?: number | null }[]

@@ -17,7 +17,7 @@ import type { ButtonProps } from "@/components/tiptap-ui-primitive/button"
 import { Button } from "@/components/tiptap-ui-primitive/button"
 import { Badge } from "@/components/tiptap-ui-primitive/badge"
 
-export interface MarkButtonProps
+interface MarkButtonProps
   extends Omit<ButtonProps, "type">, UseMarkConfig {
   /**
    * Optional text to display alongside the icon.
@@ -30,7 +30,7 @@ export interface MarkButtonProps
   showShortcut?: boolean
 }
 
-export function MarkShortcutBadge({
+function MarkShortcutBadge({
   type,
   shortcutKeys = MARK_SHORTCUT_KEYS[type],
 }: {

@@ -74,7 +74,7 @@ function mend(text: string): { fixed: string; starts: number[]; ends: number[]; 
 }
 
 /** A date chrono found in the words: where it sits in them as typed, the moment, and why it is only a guess, if it is. */
-export type DateFound = { index: number; text: string; date: Date; start: ParsedComponents; guess?: string }
+type DateFound = { index: number; text: string; date: Date; start: ParsedComponents; guess?: string }
 
 /**
  * Every date in the words, read the British way (1/11 is the 1st of
@@ -208,7 +208,7 @@ export type Span = {
   week?: 'this week' | 'next week'
 }
 /** How a task tells you its time has come, over the setting: "!pull", "!quiet" or "!alert". */
-export type Notify = 'pull' | 'quiet' | 'alerts'
+type Notify = 'pull' | 'quiet' | 'alerts'
 export type ReadTask = {
   title: string
   /** When you mean to do it: "Scheduled". */
@@ -238,9 +238,9 @@ export type ReadTask = {
  * "~30m", "~1h", "~1h30m", "~1.5h", "~90 min", "~2p" (pomodoros): how long a task should take,
  * in minutes. The tilde is what says it, so "read 20 min" stays in the name.
  */
-export const LENGTH_SAID = /(?:^|\s)(~\s?(\d+(?:\.\d+)?)\s*(pomodoros?|poms?|p|h|hrs?|hours?|m|mins?|minutes?)(?:\s*(\d+)\s*(?:m|mins?|minutes?))?)(?=\s|$|[,.;!])/i
+const LENGTH_SAID = /(?:^|\s)(~\s?(\d+(?:\.\d+)?)\s*(pomodoros?|poms?|p|h|hrs?|hours?|m|mins?|minutes?)(?:\s*(\d+)\s*(?:m|mins?|minutes?))?)(?=\s|$|[,.;!])/i
 /** One pomodoro: 25 minutes, so "~2p" or "~3 pomodoros" is a length like any other. */
-export const POMODORO = 25
+const POMODORO = 25
 export function minutesOf(said: string): number | null {
   const match = LENGTH_SAID.exec(` ${said.trim()}`)
   if (!match) return null

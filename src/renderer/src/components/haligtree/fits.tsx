@@ -4,12 +4,10 @@ import { AnimatePresence, motion } from 'motion/react'
 import { chime } from '@/lib/sound'
 import { realMove } from '@/lib/real-move'
 import { byKeys, EASE, sheetMotion, still } from '@/lib/motion'
-import { unloaded, useLive, haligtree, type Settings, type Task } from '@/lib/haligtree'
+import { unloaded, useLive, haligtree, type Task } from '@/lib/haligtree'
 import { placed, taskName } from '@/lib/tasks'
 import { hoursSaid } from '@/lib/day-plan'
 import { moveToBin } from '@/lib/to-bin'
-import { AliveIcon } from '@/components/ui/alive-icon'
-import ClockIcon from '@/components/ui/clock-icon'
 import { Chips } from './display'
 import { RowMenu, copy, type RowItem } from './row-menu'
 import { Kbd, Rolling, Tags, Tip, toast, quietly } from './ui'
@@ -50,21 +48,6 @@ export function fitsHeard(typed: string): number | null {
 const doable = (task: Task): boolean =>
   task.status === 'open' && !task.waitingOn && (!task.recurrence || (placed(task) ?? Infinity) < startOfDay(1))
 
-
-/** On Today's header: the length last asked for, one click from what fits it. */
-export function FitsButton(): React.JSX.Element {
-  const settings = useLive(haligtree.settings, null as Settings | null)
-  const minutes = settings?.fitMinutes ?? DEFAULT_MINUTES
-  return (
-    <Tip label="What fits in the time you have, to start one">
-      <button type="button" data-fits-button onClick={() => openFits()}
-        className="flex h-7 items-center gap-1.5 rounded-md px-2 text-control whitespace-nowrap text-muted-foreground hover:bg-accent hover:text-foreground">
-        <AliveIcon icon={ClockIcon} size={14} />
-        <span>I have <Rolling text={minutes} /> min</span>
-      </button>
-    </Tip>
-  )
-}
 
 /** The sheet, over the main window, when asked for. */
 export function FitsSheet(): React.JSX.Element {

@@ -119,7 +119,7 @@ function useReflow(box: RefObject<HTMLElement | null>, then: () => void): void {
   }, [])
 }
 
-export type FluidHover = {
+type FluidHover = {
   /** Where the light is, or null while the pointer is away. */
   spot: Spot | null
   /** Counts each time the pointer comes in, so the light fades in where it lands instead of sliding over from where it last was. */

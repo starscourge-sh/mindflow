@@ -5,7 +5,7 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 
 import { propertyLine } from "../../../main/property-words"
 
-export type PropertyLinesOptions = {
+type PropertyLinesOptions = {
   /** Where the note's property strip is drawn: under its first line. Null draws none. */
   strip: () => HTMLElement | null
   /** The title is not in the words (an article's own title box): the strip goes before the first line, not after it. */

@@ -27,7 +27,7 @@ if (FAKE_CAMERA && FAKE_CAMERA !== 'denied') {
 }
 
 /** Refused: `asked` when macOS has just asked; `restart` when allowed since Haligtree started, so usable once it starts again. */
-export type ScreenShot = { png: Buffer; app: string } | { denied: true; asked: boolean; restart?: boolean; /** The picture came back black: macOS let the call through but showed nothing. */ blank?: boolean }
+type ScreenShot = { png: Buffer; app: string } | { denied: true; asked: boolean; restart?: boolean; /** The picture came back black: macOS let the call through but showed nothing. */ blank?: boolean }
 
 const screenAllowed = (): string => (process.platform === 'darwin' ? systemPreferences.getMediaAccessStatus('screen') : 'granted')
 
@@ -184,7 +184,7 @@ const at = (b: Box): string => `${b.x},${b.y} ${b.width}x${b.height}`
  * `look` checks it again; `back` brings it back. Target, actual and how much
  * is in view go to the terminal in dev.
  */
-export async function tuckAway(win: BrowserWindow | null): Promise<{ look: (when: string) => void; back: () => Promise<void> }> {
+async function tuckAway(win: BrowserWindow | null): Promise<{ look: (when: string) => void; back: () => Promise<void> }> {
   if (!win || win.isDestroyed() || !win.isVisible()) return { look: () => {}, back: async () => {} }
   const from = win.getBounds()
   const opacity = win.getOpacity()

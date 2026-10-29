@@ -143,7 +143,7 @@ async function inside(root: string, path: string): Promise<{ path: string; size:
  * name, as Obsidian itself finds `![[name.png]]`. Several by that name: the
  * one whose path ends the same way, then the open vault's, then the newest.
  */
-export async function findEmbed(raw: string): Promise<string | null> {
+async function findEmbed(raw: string): Promise<string | null> {
   const ref = cleanRef(raw)
   if (!ref) return null
   const known = await vaults()
@@ -176,7 +176,7 @@ export async function findEmbed(raw: string): Promise<string | null> {
 }
 
 /** What a found file became in Haligtree's store. */
-export interface BroughtIn {
+interface BroughtIn {
   src: string
   name: string
   size: number

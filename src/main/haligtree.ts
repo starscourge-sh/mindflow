@@ -930,7 +930,7 @@ const filled = (node: Node): boolean => !!plainOf(node).trim() || (node.type !==
  * files and every line after the first, so a task made from it still has
  * everything that was in it. Null when the name is all there is.
  */
-export function bodyAsNotes(captureId: string): string | null {
+function bodyAsNotes(captureId: string): string | null {
   const row = database().prepare(`select title, body, ${LABEL} as label from captures where id = ?`).get(captureId) as { title: string | null; body: string | null; label: string | null } | undefined
   if (!row?.body) return null
   let doc: Node | null = null
@@ -4191,7 +4191,7 @@ export function badge(): { due: number; tasks: number; safe: boolean } {
  * is due; up to two hours late if Haligtree was not running at the time. Gives
  * back what it said, or null.
  */
-export function remindNow(): string | null {
+function remindNow(): string | null {
   const { reviewReminder: at, sounds } = settings()
   if (!at || !/^\d{2}:\d{2}$/.test(at)) return null
   const [hours, minutes] = at.split(':').map(Number)

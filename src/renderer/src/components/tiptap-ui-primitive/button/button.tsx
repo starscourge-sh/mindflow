@@ -16,9 +16,9 @@ import { cn, parseShortcutKeys } from "@/lib/tiptap-utils"
 import "@/components/tiptap-ui-primitive/button/button-colors.scss"
 import "@/components/tiptap-ui-primitive/button/button.scss"
 
-export type ButtonStyle = "ghost" | "primary"
-export type ButtonVariant = ButtonStyle | "check"
-export type ButtonSize = "small" | "default" | "large"
+type ButtonStyle = "ghost" | "primary"
+type ButtonVariant = ButtonStyle | "check"
+type ButtonSize = "small" | "default" | "large"
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   showTooltip?: boolean

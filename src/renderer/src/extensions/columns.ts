@@ -168,7 +168,7 @@ const LISTS = new Set(["bulletList", "orderedList", "taskList"])
  * item of, the column it was the only block in, and the row that leaves with
  * one column - a row of one is just its blocks, so they go back in line.
  */
-export function removeBlock(tr: Transaction, from: number, to: number): void {
+function removeBlock(tr: Transaction, from: number, to: number): void {
   const $from = tr.doc.resolve(from)
   const parent = $from.parent
   const whole = from === $from.start() && to === $from.end()
@@ -275,7 +275,7 @@ class BesideLine {
 }
 
 /** Watches a drag for the sides of blocks, and draws where it would land. */
-export const columnDrop = (): Plugin<Beside | null> =>
+const columnDrop = (): Plugin<Beside | null> =>
   new Plugin<Beside | null>({
     key: besideKey,
     state: {

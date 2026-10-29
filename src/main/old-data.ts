@@ -19,7 +19,7 @@ import { isRealFolder, refuseRun } from './real-folder.ts'
  */
 
 /** Every name an older build's data folder had. On a Mac the disk ignores case, so some are the same folder. */
-export const OLD_NAMES = ['mindflow', 'MindFlow', 'Vigil', 'vigil']
+const OLD_NAMES = ['mindflow', 'MindFlow', 'Vigil', 'vigil']
 /** Left in the new folder by a move: where from, and whether the app has said so yet. Its being there means never move again. */
 export const MOVED = 'moved-in.json'
 export type Moved = { from: string; at: string; told?: boolean }
@@ -202,7 +202,7 @@ const ICLOUD = (): string => join(homedir(), 'Library/Mobile Documents/com~apple
  * Copy `old` into `root` (made new, or replacing one with no notes of its
  * own), and say what was done. Reads `old` only.
  */
-export function bringIn(old: string, root: string): { databases: number; files: number; links: number } {
+function bringIn(old: string, root: string): { databases: number; files: number; links: number } {
   const temp = `${root}.moving`
   const work = `${root}.moving-db`
   rmSync(temp, { recursive: true, force: true })

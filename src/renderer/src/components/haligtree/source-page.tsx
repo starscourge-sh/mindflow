@@ -80,7 +80,7 @@ export function SourceFoot({ who, where, quote = false, gem = false, cite }: { w
 }
 
 /** Where in its source a quote is: the quote kind's own "Page or place" (kind-fields.ts). */
-export const PAGE_FIELD = 'location'
+const PAGE_FIELD = 'location'
 
 /** A bare number is a page, "p. 49"; anything else ("chapter 3") reads as it was written. */
 const isPage = (value: string): boolean => /^\d+([–-]\d+)?$/.test(value)
@@ -154,7 +154,7 @@ export function MarginCard({ who, where }: { who?: string | null; where?: string
  * @mentions), asking first when the new name is someone else's, then one
  * notice with Undo. Leaves their page open under the name it now has.
  */
-export async function renameSource(field: SourceField, from: string, to: string): Promise<boolean> {
+async function renameSource(field: SourceField, from: string, to: string): Promise<boolean> {
   const name = to.trim()
   if (!name || name === from.trim()) return false
   let done = await sources.rename(field, from, name)

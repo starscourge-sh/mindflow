@@ -5,7 +5,7 @@ import { chime } from '@/lib/sound'
 import { TagIcon } from './tag-icon'
 import { quietly } from './ui'
 
-export const TAG_COLOURS = ['gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'] as const
+const TAG_COLOURS = ['gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'] as const
 
 /**
  * A tag's icon that changes its colour on a click, as a group's icon opens its

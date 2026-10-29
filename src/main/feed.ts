@@ -100,9 +100,9 @@ export type FeedSide = { quiet: { kind: 'source' | 'tag'; name: string; last: st
 
 const SIZE = 24
 /** Times faded, from its weight: each "Less of this" is one step of LESS. */
-export const fadedSteps = (weight: number | null | undefined): number => (weight && weight < 0.99 ? Math.max(1, Math.round(Math.log(weight) / Math.log(LESS))) : 0)
+const fadedSteps = (weight: number | null | undefined): number => (weight && weight < 0.99 ? Math.max(1, Math.round(Math.log(weight) / Math.log(LESS))) : 0)
 /** Times liked, from its weight: each like is one step up. */
-export const likedSteps = (weight: number | null | undefined): number => (weight && weight > 1.01 ? Math.max(1, Math.round(Math.log(weight) / Math.log(1.5))) : 0)
+const likedSteps = (weight: number | null | undefined): number => (weight && weight > 1.01 ? Math.max(1, Math.round(Math.log(weight) / Math.log(1.5))) : 0)
 /** A Page's dek: about this long, cut at a word. */
 const DEK = 180
 /** A link's label clipped short: "Rosetta Stone, found in 1799: one decre…". */

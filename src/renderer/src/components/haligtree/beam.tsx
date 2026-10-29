@@ -15,9 +15,9 @@ import './beam.css'
  * not done, warm orange when a timer lights. Nothing at rest, and nothing at
  * all with Motion off or Reduce motion on (beam.css).
  */
-export type BeamFlash = 'success' | 'info' | 'warning' | 'error' | 'warm'
+type BeamFlash = 'success' | 'info' | 'warning' | 'error' | 'warm'
 /** Kept for the old name: a toast's tone, or nothing. */
-export type BeamState = BeamFlash | null
+type BeamState = BeamFlash | null
 
 /**
  * One short sweep round the window, in the answer's colour. Done by a key

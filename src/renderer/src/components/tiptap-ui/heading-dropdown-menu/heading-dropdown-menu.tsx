@@ -22,7 +22,7 @@ import {
   DropdownMenuGroup,
 } from "@/components/tiptap-ui-primitive/dropdown-menu"
 
-export interface HeadingDropdownMenuProps
+interface HeadingDropdownMenuProps
   extends Omit<ButtonProps, "type">, UseHeadingDropdownMenuConfig {
   /**
    * Callback for when the dropdown opens or closes

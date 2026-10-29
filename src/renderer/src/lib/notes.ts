@@ -183,7 +183,7 @@ export function useAnyNoteOpen(): boolean {
 // --- the actions, each with its sound and its way back
 
 /** Ask for a kind, in the small list the Kind picker has. Null if let go. */
-export const pickKind = (current: string): Promise<string | null> =>
+const pickKind = (current: string): Promise<string | null> =>
   new Promise((answer) => void window.dispatchEvent(new CustomEvent('haligtree:pick-kind', { detail: { current, answer } })))
 
 /** A new kind for a note: every property it has stays, and the new kind's own are offered. Undoable. */
@@ -220,7 +220,7 @@ export async function saveAttachments(list?: { table: NoteTable; id: string }[])
 }
 
 /** Go to today's page, in the main window. */
-export const openToday = (): void => {
+const openToday = (): void => {
   chime('day')
   window.api.openInHome('view', 'day')
 }

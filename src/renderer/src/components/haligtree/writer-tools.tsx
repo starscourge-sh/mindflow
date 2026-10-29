@@ -79,7 +79,7 @@ const quote = (word: string): string => `“${word}”`
 const list = (words: string[]): string => (words.length < 2 ? words.join('') : `${words.slice(0, -1).join(', ')} and ${words.at(-1)}`)
 
 /** A short report on the prose, in plain sentences: reading time, long sentences, words used a lot, adverbs. */
-export function proseReport(editor: Editor): string {
+function proseReport(editor: Editor): string {
   const text = editor.state.doc.textBetween(0, editor.state.doc.content.size, '\n', ' ')
   const words = text.match(/[\p{L}\p{M}'’]+/gu) ?? []
   if (!words.length) return 'Nothing written yet.'
@@ -98,7 +98,7 @@ export function proseReport(editor: Editor): string {
 }
 
 /** Ask for a word aim for the page in front (word-aim.tsx answers it). */
-export const askAim = (): void => void window.dispatchEvent(new CustomEvent('haligtree:aim'))
+const askAim = (): void => void window.dispatchEvent(new CustomEvent('haligtree:aim'))
 
 /** The tools as rows for a page's own menu. */
 export function writerMenu(editor: Editor | null, report: (text: string) => void): { label: string; run: () => void }[] {
@@ -114,7 +114,7 @@ export function writerMenu(editor: Editor | null, report: (text: string) => void
 }
 
 /** The Prose report with what the grammar checker found folded in (it loads on first use). */
-export const fullReport = (editor: Editor): Promise<string> => grammarSentence(editor.state.doc).then((line) => `${proseReport(editor)} ${line}`, () => proseReport(editor))
+const fullReport = (editor: Editor): Promise<string> => grammarSentence(editor.state.doc).then((line) => `${proseReport(editor)} ${line}`, () => proseReport(editor))
 
 /** The tools in the writing room's foot: Focus (off, sentence, paragraph), Aim, and the report over the foot. */
 export function WriterTools({ editor, proof = false, live = proof }: { editor: Editor | null; /** Proofread and the grammar line in the report: Writing and the Journal. */ proof?: boolean; /** "Check as I write" too: Writing only, so a day's pages are never marked up as they are written. */ live?: boolean }): React.JSX.Element {

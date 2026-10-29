@@ -19,7 +19,7 @@ import { Button } from "@/components/tiptap-ui-primitive/button"
 import { Badge } from "@/components/tiptap-ui-primitive/badge"
 import { useTiptapEditor } from "@/hooks/use-tiptap-editor"
 
-export interface HeadingButtonProps
+interface HeadingButtonProps
   extends Omit<ButtonProps, "type">, UseHeadingConfig {
   /**
    * Optional text to display alongside the icon.
@@ -32,7 +32,7 @@ export interface HeadingButtonProps
   showShortcut?: boolean
 }
 
-export function HeadingShortcutBadge({
+function HeadingShortcutBadge({
   level,
   shortcutKeys = HEADING_SHORTCUT_KEYS[level],
 }: {

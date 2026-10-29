@@ -242,7 +242,7 @@ function Row({ id, className, children }: { id: string; className?: string; chil
 }
 
 /** A row's new place: the block it goes into, and the row it goes before (null: that block's end). */
-export type BlockDrop = { block: string; before: string | null }
+type BlockDrop = { block: string; before: string | null }
 type Slot = BlockDrop & { y: number; left: number; width: number }
 /** No row slides aside here: a line shows where the carried one will land. */
 const stayPut = (): null => null

@@ -10,7 +10,7 @@ import { toast } from '@/components/haligtree/ui'
  * whether it is still true, and keeps a line on what mattered most.
  */
 
-export const PLAYBOOK_TITLE = 'How I work'
+const PLAYBOOK_TITLE = 'How I work'
 /** Where the season's line goes, under its own heading at the end. */
 const MATTERED = 'What mattered most'
 

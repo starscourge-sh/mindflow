@@ -39,7 +39,7 @@ const minutesOf = (at?: string): number => {
   return h * 60 + (m || 0)
 }
 /** Whether the box is offered now: on, and past the evening hour or in the small hours. */
-export function eveningNow(settings: Pick<Settings, 'closeDayAt' | 'tomorrowBox'> | null, now = new Date()): boolean {
+function eveningNow(settings: Pick<Settings, 'closeDayAt' | 'tomorrowBox'> | null, now = new Date()): boolean {
   if (!settings || settings.tomorrowBox === false) return false
   return now.getHours() < NIGHT_ENDS || now.getHours() * 60 + now.getMinutes() >= minutesOf(settings.closeDayAt)
 }

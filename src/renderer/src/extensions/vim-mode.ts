@@ -38,9 +38,9 @@ import { wordRangeAt } from "@/lib/word-range"
  * row, because they walk screen coordinates rather than positions.
  */
 
-export type VimModeName = "normal" | "insert" | "visual" | "visualLine"
+type VimModeName = "normal" | "insert" | "visual" | "visualLine"
 
-export interface VimModeOptions {
+interface VimModeOptions {
   /** Master switch. Everything below is inert while this is false. */
   enabled: boolean
   /**

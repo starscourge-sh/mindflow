@@ -37,7 +37,7 @@ export const THEMES = [
 ] as const
 
 /** What a new window wears before anything is chosen. */
-export const DEFAULT_THEME = "paper"
+const DEFAULT_THEME = "paper"
 
 /** A scheme the stylesheet ships, or one imported from a file (`custom-…`). */
 export type Theme = (typeof THEMES)[number] | `custom-${string}`
@@ -229,7 +229,7 @@ export function applyTheme(theme: Theme, remember = true): void {
  * is a class like any other: the rules are written into one style tag, which
  * every window rebuilds from the same storage.
  */
-export type CustomTheme = { id: `custom-${string}`; name: string; vars: Record<string, string>; light: boolean }
+type CustomTheme = { id: `custom-${string}`; name: string; vars: Record<string, string>; light: boolean }
 
 export function customThemes(): CustomTheme[] {
   try {
@@ -326,7 +326,7 @@ export function importTheme(fileName: string, text: string): (CustomTheme & { un
 }
 
 /** A theme taken away, with where it stood in the list and whether it was being worn. */
-export type RemovedTheme = CustomTheme & { at: number; wearing: boolean }
+type RemovedTheme = CustomTheme & { at: number; wearing: boolean }
 
 /** Take one away. Returns it, so it can be put back. */
 export function removeTheme(id: Theme): RemovedTheme | undefined {
@@ -357,7 +357,7 @@ function saveCustom(list: CustomTheme[]): void {
  * The imported themes as rules, in one style tag: each as a class, like the
  * shipped ones, and its swatch the three colours the picker shows.
  */
-export function paintCustom(): void {
+function paintCustom(): void {
   let tag = document.getElementById("mf-custom-themes")
   if (!tag) {
     tag = document.createElement("style")

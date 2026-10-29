@@ -73,7 +73,7 @@ const lit = (doc: PMNode): DecorationSet => {
   }
   return DecorationSet.create(doc, marks)
 }
-export const TaskWords = Extension.create({
+const TaskWords = Extension.create({
   name: 'taskWords',
   addProseMirrorPlugins: () => [new Plugin({
     key: KEY,

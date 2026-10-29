@@ -62,7 +62,7 @@ export function flowTask(): { title: string; due: string | null; allDay: boolean
 }
 
 /** What each card says of itself, under it. */
-export const FLOW_SAID = {
+const FLOW_SAID = {
   caught: 'Caught on a walk',
   page: 'Written out as a page, in “Writing”',
   task: `Now a task, due ${STORY_DAY}`,
@@ -71,7 +71,7 @@ export const FLOW_SAID = {
   gem: '“Review” asks you before you forget'
 }
 
-export const FLOW_LAST = 'Nothing is copied out: each one stays linked to its line in the note.'
+const FLOW_LAST = 'Nothing is copied out: each one stays linked to its line in the note.'
 
 /**
  * How far it has got: `shown` cards set down (the caught thought, the note,

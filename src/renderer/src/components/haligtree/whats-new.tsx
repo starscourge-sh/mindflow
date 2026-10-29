@@ -35,7 +35,7 @@ const markSeen = (): void => {
 }
 
 /** The entries since the newest one you saw; none when you are up to date. */
-export function unseenNews(seen = seenId()): News[] {
+function unseenNews(seen = seenId()): News[] {
   const at = seen ? NEWS.findIndex((one) => one.id === seen) : -1
   return at < 0 ? NEWS.slice(0, 6) : NEWS.slice(0, at)
 }

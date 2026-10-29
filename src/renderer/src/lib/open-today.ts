@@ -15,7 +15,7 @@ const KEEP_MAX = 120
 
 const same = (one: { type: string; id: string }, type: string, id: string): boolean => one.type === type && one.id === id
 
-export function readOpen(): OpenNote[] {
+function readOpen(): OpenNote[] {
   try {
     const list = JSON.parse(localStorage.getItem(KEY) ?? '[]') as OpenNote[]
     return Array.isArray(list) ? list.filter((one) => typeof one?.type === 'string' && typeof one.id === 'string' && typeof one.at === 'string') : []

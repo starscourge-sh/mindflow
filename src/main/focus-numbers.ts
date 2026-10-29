@@ -72,7 +72,7 @@ export type FocusStats = {
 const GRACE = 60_000
 const WINDOW = 84
 
-export const focusedMs = (row: Pick<FocusRow, 'startedAt' | 'endedAt' | 'pausedMs'>): number =>
+const focusedMs = (row: Pick<FocusRow, 'startedAt' | 'endedAt' | 'pausedMs'>): number =>
   Math.max(0, new Date(row.endedAt).getTime() - new Date(row.startedAt).getTime() - (row.pausedMs || 0))
 
 export const outcomeOf = (row: FocusRow): Outcome =>

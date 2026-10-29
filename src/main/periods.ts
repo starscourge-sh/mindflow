@@ -27,7 +27,7 @@ const parse = <T>(text: string | null | undefined, fallback: T): T => {
 }
 
 /** How many questions can be kept in view at once: Feynman's twelve. */
-export const QUESTION_PINS = 12
+const QUESTION_PINS = 12
 
 export function registerPeriods(): void {
   const db = database()

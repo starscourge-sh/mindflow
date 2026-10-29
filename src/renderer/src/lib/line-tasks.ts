@@ -41,7 +41,7 @@ export function linesIn(editor: Editor, from: number, to: number): NoteLine[] {
  * top a task, each line indented under it a step of it, and a line ending in
  * a colon over its steps ("camping:") a task named without the colon.
  */
-export function lineTasks(lines: NoteLine[]): { text: string; line: NoteLine; steps: { text: string; done: boolean }[] }[] {
+function lineTasks(lines: NoteLine[]): { text: string; line: NoteLine; steps: { text: string; done: boolean }[] }[] {
   const least = Math.min(...lines.map((line) => line.depth))
   const out: { text: string; line: NoteLine; steps: { text: string; done: boolean }[] }[] = []
   for (const line of lines) {

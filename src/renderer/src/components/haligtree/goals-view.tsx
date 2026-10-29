@@ -47,7 +47,7 @@ import { ArchiveRestore, Check, Eye, EyeOff, X } from '@/components/ui/icons'
  * for, a dot a day. Once the day has passed it asks how it went.
  */
 
-export type Beacon = 'always' | 'sometimes' | 'off'
+type Beacon = 'always' | 'sometimes' | 'off'
 const ACCENT = 'var(--tt-brand-color-400)'
 
 /** The colours a goal can wear (main's GOAL_COLORS), the names a tag's colours use. */
@@ -57,7 +57,7 @@ export const goalInk = (goal: { goalColor?: string | null }): string => `var(--t
 /** The goal a marked day is for: one linked to a goal (its note is `goal:<id>`), else none. */
 export const markOf = (one: Pick<Milestone, 'note'>): string | null => (one.note?.startsWith('goal:') ? one.note.slice(5) : null)
 /** All the open goals on one sticky, each in its colour with a legend: put up, or back on screen. */
-export const showAllGoals = (): void => stickOnDesktop('goals', 'all')
+const showAllGoals = (): void => stickOnDesktop('goals', 'all')
 
 /** Today's date, kept current: again at midnight, and each minute when `minutes`. */
 export function useToday(minutes = false): string {
@@ -76,7 +76,7 @@ export const openOnes = (all: Item[]): Item[] =>
 /** A someday goal: on the life list, no day to it, so nothing counts down. */
 export const someday = (goal: Pick<Item, 'goalAt'>): boolean => !goal.goalAt
 /** The open someday goals, the newest first. */
-export const somedayOnes = (all: Item[]): Item[] =>
+const somedayOnes = (all: Item[]): Item[] =>
   all.filter((one) => !one.closedAt && !one.archivedAt && someday(one)).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
 /** A someday goal's line in a list: its logs, and how long since the last. */
 const somedaySaid = (item: Pick<Item, 'clues' | 'lastLog'>): string => item.clues ? `${logsSaid(item.clues)}, last ${ago(item.lastLog ?? '')}` : 'no logs yet'
@@ -93,7 +93,7 @@ const setOnHome = (goal: Item, on: boolean): void => {
 }
 
 /** The short name a goal is logged under in quick capture: its last two words, as "+chapter three:" is for "Finish chapter three" (clueTarget finds the goal from it). */
-export const goalWord = (goal: string): string => goal.trim().toLowerCase().replace(/[^\p{L}\p{N}\s-]/gu, '').split(/\s+/).slice(-2).join(' ')
+const goalWord = (goal: string): string => goal.trim().toLowerCase().replace(/[^\p{L}\p{N}\s-]/gu, '').split(/\s+/).slice(-2).join(' ')
 
 /** A line as it is written in quick capture to log progress on a goal: "+name:" lit as the box lights it, then what was done. */
 export function LogLine({ goal, did }: { goal: string; did: string }): React.JSX.Element {
@@ -104,10 +104,10 @@ export function LogLine({ goal, did }: { goal: string; did: string }): React.JSX
   )
 }
 
-export const logsSaid = (n: number): string => (n ? `${num(n)} ${n === 1 ? 'log' : 'logs'}` : 'no logs yet')
+const logsSaid = (n: number): string => (n ? `${num(n)} ${n === 1 ? 'log' : 'logs'}` : 'no logs yet')
 const HOW: Record<string, string> = { 'made it': 'Made it', missed: 'Missed', 'let go': 'Gave it up' }
 /** Paused: out of every open list, its countdown stopped, under “On ice” until taken off. */
-export const onIce = (item: Pick<Item, 'closedHow'>): boolean => item.closedHow === 'on ice'
+const onIce = (item: Pick<Item, 'closedHow'>): boolean => item.closedHow === 'on ice'
 /** How a settled goal ended, and when: "Made it on 14 Dec"; or since when it is on ice. */
 const settledSaid = (item: Item): string => onIce(item) ? `On ice since ${dayMonth(item.closedAt!)}`
   : `${someday(item) && item.closedHow === 'made it' ? 'Crossed off' : HOW[item.closedHow ?? ''] ?? 'Ended'} on ${dayMonth(item.closedAt!)}`
@@ -449,7 +449,7 @@ export function Answers({ item, small = false, onPick }: { item: { id: string; g
  * the road (a dot a day), then the logs, newest first. Down the right, its
  * dates, the beacon and the ways it can end.
  */
-export function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNode }): React.JSX.Element {
+function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNode }): React.JSX.Element {
   const today = useToday()
   const settings = useLive(haligtree.settings, null as Settings | null)
   // A someday goal: no day, so no countdown, no road and nothing warming; its own colour, calm.

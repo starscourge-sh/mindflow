@@ -44,7 +44,7 @@ async function patch(one: Returning, next: Record<string, string | null>): Promi
 }
 
 /** Asked again later: a new day, from today if the day has passed. */
-export async function askAgain(one: Returning, days: number): Promise<void> {
+async function askAgain(one: Returning, days: number): Promise<void> {
   const next = dayjs(Math.max(Date.parse(one.at), Date.now())).add(days, 'day').hour(12).startOf('hour').toISOString()
   const undo = await patch(one, { back: next })
   chime('pin')

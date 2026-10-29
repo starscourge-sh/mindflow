@@ -8,7 +8,7 @@ import { Rolling } from './ui'
 import { MORE_STEP } from './show-more'
 
 /** How many of a kind show before "Show 12 more". */
-export const ISLAND_FEW = 5
+const ISLAND_FEW = 5
 
 /** One island's state, as the list draws it. */
 export type IslandState = {
@@ -28,7 +28,7 @@ export type IslandState = {
 }
 
 /** A kind's icon and colour, by the name its group is given (Tasks, Note, Quote...). */
-export function kindOfGroup(name: string): (typeof CAPTURE_TYPES)[number] | undefined {
+function kindOfGroup(name: string): (typeof CAPTURE_TYPES)[number] | undefined {
   return CAPTURE_TYPES.find((type) => type.label === name || type.id === name || (name === 'Tasks' && type.id === 'todo'))
 }
 
@@ -116,7 +116,7 @@ export function useReveal(id: string | null | undefined, shows: boolean, reveal:
 }
 
 /** The top of an island: the kind's icon, its name and how many, and the fold. */
-export function IslandHead({ name, island, icon }: { name: string; island: IslandState; /** Where the group is not a capture's kind (a Gem, an Article). */ icon?: ReactNode }): React.JSX.Element {
+function IslandHead({ name, island, icon }: { name: string; island: IslandState; /** Where the group is not a capture's kind (a Gem, an Article). */ icon?: ReactNode }): React.JSX.Element {
   const kind = kindOfGroup(name)
   const Icon = icon ? null : kind?.icon
   return (
@@ -132,7 +132,7 @@ export function IslandHead({ name, island, icon }: { name: string; island: Islan
 }
 
 /** "Show 12 more" under an island's first few (a hundred at a time, for a kind of thousands), or "Show fewer" once it is whole. */
-export function IslandMore({ island, shown }: { island: IslandState; shown: number }): React.JSX.Element | null {
+function IslandMore({ island, shown }: { island: IslandState; shown: number }): React.JSX.Element | null {
   const more = island.total - shown
   if (!island.whole && more <= 0) return null
   if (island.whole && island.total <= ISLAND_FEW) return null

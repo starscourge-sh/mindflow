@@ -23,7 +23,7 @@ import {
   DropdownMenuGroup,
 } from "@/components/tiptap-ui-primitive/dropdown-menu"
 
-export interface ListDropdownMenuProps extends Omit<ButtonProps, "type"> {
+interface ListDropdownMenuProps extends Omit<ButtonProps, "type"> {
   /**
    * The Tiptap editor instance.
    */

@@ -201,7 +201,7 @@ setLinkKinds({
 })
 
 /** What a link points at, as stored: a capture's body, or a gem's, an article's or a question's. */
-export async function bodyOf(link: string): Promise<unknown> {
+async function bodyOf(link: string): Promise<unknown> {
   const [type, id] = link.includes(':') ? [link.slice(0, link.indexOf(':')), link.slice(link.indexOf(':') + 1)] : ['capture', link]
   return type === 'capture' ? (await window.api.captures.get(id))?.body : (await haligtree.item(id))?.body
 }

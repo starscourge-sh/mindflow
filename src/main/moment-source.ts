@@ -8,7 +8,7 @@
  */
 export type MomentSource = 'drawing' | 'file' | 'giphy'
 
-export type SourceSettings = {
+type SourceSettings = {
   celebrationSources?: Partial<Record<string, MomentSource>>
   celebrationPicks?: Partial<Record<string, string[]>>
   giphyPins?: Partial<Record<string, unknown>>

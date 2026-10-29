@@ -32,7 +32,7 @@ export interface SlashItem {
   run: (editor: Editor, value: string) => void
 }
 
-export interface SlashCommandOptions {
+interface SlashCommandOptions {
   items: SlashItem[]
   /** Supplied by the app, which owns the popup rendering. */
   render: NonNullable<SuggestionOptions<SlashItem>["render"]>

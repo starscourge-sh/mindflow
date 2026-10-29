@@ -49,7 +49,7 @@ import { ArchiveRestore, Download, Eye, EyeOff, Orbit, Bookmark as Pin, Bookmark
 
 /** How long it has been held, in plain words and a calm colour: "held 2 years". */
 export { heldFor }
-export const cluesSaid = (n: number): string => (n ? `${num(n)} ${n === 1 ? 'clue' : 'clues'}` : 'no clues yet')
+const cluesSaid = (n: number): string => (n ? `${num(n)} ${n === 1 ? 'clue' : 'clues'}` : 'no clues yet')
 
 /** A new question, asked for in your own words, then opened to write in. Undoable. */
 export async function startQuestion(open: (type: string, id: string) => void): Promise<void> {
@@ -88,7 +88,7 @@ export function clueTarget(line: string | null | undefined, held: Item[]): { nam
 
 type Picked = { id: string; title: string } | { title: string; id?: undefined }
 /** Ask which question, from the open ones; words that match none can start one. */
-export const pickQuestion = (): Promise<Picked | null> =>
+const pickQuestion = (): Promise<Picked | null> =>
   new Promise((answer) => void window.dispatchEvent(new CustomEvent('haligtree:pick-question', { detail: { answer } })))
 
 /**

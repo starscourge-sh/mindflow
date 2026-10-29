@@ -88,7 +88,7 @@ const PEEKS: Record<string, BlockPeek> = {
   ...Object.fromEntries(Object.keys(TABLE_TEXT).map((title) => [title, { text: TABLE_TEXT[title], art: () => <Grid {...TABLE_LIT[title]} /> }]))
 }
 
-export function blockPeek(title: string): BlockPeek | undefined {
+function blockPeek(title: string): BlockPeek | undefined {
   const exported = /^Export as (.+)$/.exec(title)
   if (exported) return {
     text: `**Save this note as ${/^[AEHIOU]/.test(exported[1]) ? 'an' : 'a'} ${exported[1]} file.** You choose where it goes.`,

@@ -18,7 +18,7 @@ import {
 import { HighlighterIcon } from "@/components/tiptap-icons/highlighter-icon"
 
 export const COLOR_HIGHLIGHT_SHORTCUT_KEY = "mod+shift+h"
-export const HIGHLIGHT_COLORS = [
+const HIGHLIGHT_COLORS = [
   {
     label: "Default background",
     value: "var(--tt-bg-color)",
@@ -82,7 +82,7 @@ export const HIGHLIGHT_COLORS = [
 ]
 export type HighlightColor = (typeof HIGHLIGHT_COLORS)[number]
 
-export type HighlightMode = "mark" | "node"
+type HighlightMode = "mark" | "node"
 
 /**
  * Configuration for the color highlight functionality
@@ -143,7 +143,7 @@ export function pickHighlightColorsByValue(values: string[]) {
 /**
  * Gets the appropriate color value based on configuration
  */
-export function getHighlightColorValue(
+function getHighlightColorValue(
   color: string,
   useColorValue: boolean = false
 ): string {
@@ -169,7 +169,7 @@ export function canColorHighlight(editor: Editor | null): boolean {
 /**
  * Checks if highlight is currently active
  */
-export function isColorHighlightActive(
+function isColorHighlightActive(
   editor: Editor | null,
   highlightColor?: string
 ): boolean {
@@ -183,7 +183,7 @@ export function isColorHighlightActive(
 /**
  * Removes highlight based on the mode
  */
-export function removeHighlight(editor: Editor | null): boolean {
+function removeHighlight(editor: Editor | null): boolean {
   if (!editor || !editor.isEditable) return false
   if (!canColorHighlight(editor)) return false
 

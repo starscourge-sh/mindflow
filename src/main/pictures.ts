@@ -23,7 +23,7 @@ import { bandsOf, fourThree } from './letterbox'
  * read), and the share of its height taken by black bands baked in at the top
  * and the bottom (0 when there are none), which are left out wherever it is shown.
  */
-export type PictureLook = [number, number, string, number, number]
+type PictureLook = [number, number, string, number, number]
 
 const PICTURE = /^[a-f0-9]{64}\.(png|jpe?g|gif|webp|avif|bmp|heic|svg)$/
 const store = (): string => join(app.getPath('userData'), 'assets')

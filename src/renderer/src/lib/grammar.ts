@@ -9,8 +9,7 @@ import type { LocalLinter } from 'harper.js'
  */
 let linter: Promise<LocalLinter> | null = null
 /** How long the first load took, for the probes. */
-export let loadedIn: number | null = null
-export const grammarLoaded = (): boolean => loadedIn !== null
+let loadedIn: number | null = null
 export function grammar(): Promise<LocalLinter> {
   return (linter ??= (async () => {
     const start = performance.now()

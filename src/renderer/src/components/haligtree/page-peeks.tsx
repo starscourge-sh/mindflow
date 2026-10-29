@@ -15,7 +15,7 @@ dayjs.extend(isoWeek)
  * made-up rows from lib/examples.ts, and one line on what the page is for,
  * its name first. Kinds are `kind:quote` and so on, as the sidebar names them.
  */
-export type PagePeek = { text: string; art: () => ReactNode }
+type PagePeek = { text: string; art: () => ReactNode }
 
 const kindOf = (id: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.find((type) => type.id === id) ?? CAPTURE_TYPES[0]
 const Capture = ({ kind, children, meta }: { kind: string; children: ReactNode; meta?: ReactNode }): React.JSX.Element => {

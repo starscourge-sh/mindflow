@@ -54,7 +54,7 @@ export const listIcons = {
   taskList: ListTodoIcon,
 }
 
-export const listLabels: Record<ListType, string> = {
+const listLabels: Record<ListType, string> = {
   bulletList: "Bullet List",
   orderedList: "Ordered List",
   taskList: "Checklist",

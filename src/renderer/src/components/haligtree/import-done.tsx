@@ -14,7 +14,7 @@ import { hoverNote } from './note-preview'
 type Progress = { done: number; total: number; what: 'notes' | 'pictures' | 'files'; stop?: boolean }
 
 /** What an import says it did, sent by main once it is over (main/index.ts). */
-export type ImportDone = {
+type ImportDone = {
   from: string
   made: number
   inbox?: number

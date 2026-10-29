@@ -28,7 +28,7 @@ export const worked = (session: Session): string => {
 }
 
 /** Keep "how it went" on a session already ended, with its sound and a way back. */
-export async function keepRecap(id: string, text: string, onUndo?: (words: string) => void): Promise<void> {
+async function keepRecap(id: string, text: string, onUndo?: (words: string) => void): Promise<void> {
   const words = text.trim()
   if (!words) return
   const was = await haligtree.recapSession(id, words)
@@ -41,7 +41,7 @@ export async function keepRecap(id: string, text: string, onUndo?: (words: strin
  * the session's recap; Escape, or leaving it empty, skips it: asked, never
  * insisted on.
  */
-export function RecapLine({ id, focus = true, onDone, className, again = '', onUndone }: { id: string; focus?: boolean; onDone: () => void; className?: string; /** Words taken back with Undo, in the line again. */ again?: string; /** What was kept here was undone: the line is wanted back with these words. */ onUndone?: (words: string) => void }): React.JSX.Element {
+function RecapLine({ id, focus = true, onDone, className, again = '', onUndone }: { id: string; focus?: boolean; onDone: () => void; className?: string; /** Words taken back with Undo, in the line again. */ again?: string; /** What was kept here was undone: the line is wanted back with these words. */ onUndone?: (words: string) => void }): React.JSX.Element {
   const [words, setWords] = useState(again)
   const field = useRef<HTMLTextAreaElement>(null)
   // Only takes the keys when this window already has them: a session ended

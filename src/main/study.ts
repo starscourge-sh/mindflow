@@ -12,7 +12,7 @@ export const LEECH_AT = 4
 export const isLeech = (lapses: number): boolean => Number(lapses) >= LEECH_AT
 
 /** One card written on a line: the words before :: ask, the words after answer. */
-export type LineCard = { question: string; answer: string }
+type LineCard = { question: string; answer: string }
 
 /**
  * A line that is a card: "question :: answer", with a space either side of
@@ -91,7 +91,7 @@ export const BUCKETS: { id: Bucket; label: string }[] = [
   { id: 'new', label: 'New' }
 ]
 /** Not looked at for this many days, a card is old. */
-export const OLD_DAYS = 30
+const OLD_DAYS = 30
 
 /**
  * Which bucket a card is in, the way an exam's readiness counts them:

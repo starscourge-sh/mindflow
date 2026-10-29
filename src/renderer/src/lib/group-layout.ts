@@ -117,15 +117,13 @@ const HOMES = new WeakMap<Layout, Map<string, string>>()
 /** The group a group sits in, for a subgroup; undefined for one at the top level. */
 export const parentOf = (layout: Layout, group: string): string | undefined => groupOf(layout, KEY + group)
 /** How deep a group sits: 1 at the top level, 2 in a group, 3 in a subgroup. */
-export const levelIn = (layout: Layout, group: string): number => {
+const levelIn = (layout: Layout, group: string): number => {
   let level = 1
   for (let at = parentOf(layout, group); at && level < DEPTH + 1; at = parentOf(layout, at)) level++
   return level
 }
 /** How many levels a group is, itself and its subgroups': 1 with none. */
 const heightIn = (layout: Layout, group: string): number => 1 + Math.max(0, ...(layout.groups[group] ?? []).filter(isGroup).map((one) => heightIn(layout, groupId(one))))
-/** Whether a group holds subgroups of its own. */
-export const hasSubgroups = (layout: Layout, group: string): boolean => (layout.groups[group] ?? []).some(isGroup)
 /** The row at the top level a key is drawn under: itself, or the outermost group holding it. */
 const topKey = (layout: Layout, key: string): string => {
   let at = key

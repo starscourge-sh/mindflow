@@ -9,7 +9,7 @@ import { execFile } from 'child_process'
  * read here into the parts the box shows.
  */
 
-export type MacEntry = { word: string; phonetic: string; part: string; definition: string; example: string; also: string }
+type MacEntry = { word: string; phonetic: string; part: string; definition: string; example: string; also: string }
 
 // JavaScript for Automation: the word arrives as an argument, never as code.
 const SCRIPT = `ObjC.import('CoreServices')

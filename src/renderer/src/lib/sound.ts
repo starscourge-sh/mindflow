@@ -1277,7 +1277,7 @@ export type Scape = (typeof SCAPES)[number]['id']
  * bed comes first out of near silence, slow to start, and the chord's voices come in under it one by one, low to
  * high, the last about a minute and a half in.
  */
-export const SCAPE_IN = 90
+const SCAPE_IN = 90
 const SCAPE_LEVEL = 0.55
 let scape: { kind: Scape; context: AudioContext; out: GainNode; sources: AudioScheduledSourceNode[]; timer: number; start: number; slow: boolean } | null = null
 /** How far into its build a soundscape is, 0 to 1. */

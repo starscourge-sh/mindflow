@@ -17,7 +17,7 @@ export const newBlockId = (): string => Math.random().toString(36).slice(2, 8).p
  * document, a paragraph a line, so one of its lines can be named. Only words
  * with no Markdown in them: anything marked up is left for the editor to read.
  */
-export function plainDoc(body: unknown): JSONContent | null {
+function plainDoc(body: unknown): JSONContent | null {
   if (typeof body !== 'string') return (body as JSONContent | null) ?? null
   if (/[*_`#>|~=![\]<\\]|^\s*([-+]|\d+\.)\s/m.test(body)) return null
   const lines = body.split(/\n+/).map((one) => one.trim()).filter(Boolean)

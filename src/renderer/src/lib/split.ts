@@ -117,7 +117,7 @@ export function setPaneNotes(ids: (string | null)[]): void {
   marks.forEach((tell) => tell())
 }
 /** Where a note is open while the page is split: L, M or R, or null. */
-export function paneMarkOf(id: string): 'L' | 'M' | 'R' | null {
+function paneMarkOf(id: string): 'L' | 'M' | 'R' | null {
   if (open.length < 2) return null
   const at = open.indexOf(id)
   return at < 0 ? null : at === 0 ? 'L' : at === open.length - 1 ? 'R' : 'M'

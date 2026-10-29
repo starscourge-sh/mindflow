@@ -8,7 +8,7 @@ import { APP_NAME } from '../../../main/name'
  * anything worth telling, with a bold lead-in, one sentence and where Show me
  * points. A new top entry is what makes the card come back on Home, once.
  */
-export type Release = { id: string; day: string; title: string; version?: string }
+type Release = { id: string; day: string; title: string; version?: string }
 export const RELEASES: Release[] = [
   { id: 'planning', day: '2026-10-10', title: 'Planning and sessions', version: '1.0.0' },
   { id: 'map-and-gems', day: '2026-10-10', title: 'The Map, gems and Brutal' },

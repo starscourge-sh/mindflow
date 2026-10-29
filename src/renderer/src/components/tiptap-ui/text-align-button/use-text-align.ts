@@ -84,7 +84,7 @@ export function canSetTextAlign(
   }
 }
 
-export function hasSetTextAlign(
+function hasSetTextAlign(
   commands: ChainedCommands
 ): commands is ChainedCommands & {
   setTextAlign: (align: TextAlign) => ChainedCommands

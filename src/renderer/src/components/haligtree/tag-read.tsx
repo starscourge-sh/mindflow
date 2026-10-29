@@ -35,7 +35,7 @@ const ICON = { nugget: Gem, article: FileText, question: Orbit, task: ListTodo }
 const NAME: Record<string, string> = { capture: 'Capture', nugget: 'Gem', article: 'Page', question: 'Question', task: 'Task' }
 
 /** What a tag holds, named once: notes, tasks, or items for both. */
-export const heldSaid = (list: { type: string }[]): [string, string] => {
+const heldSaid = (list: { type: string }[]): [string, string] => {
   const tasks = list.filter((one) => one.type === 'task').length
   return tasks === 0 ? ['note', 'notes'] : tasks === list.length ? ['task', 'tasks'] : ['item', 'items']
 }

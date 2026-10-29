@@ -161,12 +161,12 @@ export function dayMenu(day: string, all: Milestone[], onOpenDay?: (day: string)
 }
 
 /** Right-click anything that stands for a day to mark it. */
-export function DayMarkMenu({ day, all, onOpenDay, children }: { day: string; all: Milestone[]; onOpenDay?: (day: string) => void; children: ReactElement }): React.JSX.Element {
+function DayMarkMenu({ day, all, onOpenDay, children }: { day: string; all: Milestone[]; onOpenDay?: (day: string) => void; children: ReactElement }): React.JSX.Element {
   return <RowMenu items={dayMenu(day, all, onOpenDay)}>{children}</RowMenu>
 }
 
 /** The marks on a day, as small flags: in a week's or a month's grid. With `named`, the first one's name beside it. */
-export function DayFlags({ marks, named = false, className = '' }: { marks: Milestone[]; named?: boolean; className?: string }): React.JSX.Element | null {
+function DayFlags({ marks, named = false, className = '' }: { marks: Milestone[]; named?: boolean; className?: string }): React.JSX.Element | null {
   if (!marks.length) return null
   const first = marks[0]
   return (
@@ -181,7 +181,7 @@ export function DayFlags({ marks, named = false, className = '' }: { marks: Mile
 }
 
 /** What a right-click on one mark offers: open what it belongs to, change it, unmark it, its day's page. */
-export function markMenu(one: Milestone, open: (type: string, id: string) => void, onOpenDay?: (day: string) => void): RowItem[] {
+function markMenu(one: Milestone, open: (type: string, id: string) => void, onOpenDay?: (day: string) => void): RowItem[] {
   return [
     { heading: `${one.icon ? `${one.icon} ` : ''}${one.title}` },
     { label: one.exam ? 'Open the tag' : one.note ? 'Open the note' : `Change ${one.title}…`, run: () => openMark(one, open) },
