@@ -3324,6 +3324,9 @@ export function registerHaligtree(): void {
         patch = { ...patch, title: fitted }
       }
     }
+    // A day given to a task that had none, with no time said, is all day: it was
+    // saved at a made-up 09:00 and drawn and alerted at that hour.
+    if (patch.due && patch.allDay === undefined && !(db.prepare('select due_at from tasks where id = ?').get(id) as { due_at: string | null } | undefined)?.due_at) patch = { ...patch, allDay: 1 }
     const deadlineWas = patch.deadline !== undefined ? (db.prepare('select deadline_at from tasks where id = ?').get(id) as { deadline_at: string | null } | undefined)?.deadline_at : undefined
     for (const [key, column] of Object.entries(TASK_COLUMNS))
       if (patch[key as keyof typeof patch] !== undefined) db.prepare(`update tasks set ${column} = ? where id = ?`).run(patch[key as keyof typeof patch] as string | number | null, id)
