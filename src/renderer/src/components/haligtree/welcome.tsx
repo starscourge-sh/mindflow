@@ -139,7 +139,7 @@ const PAGE = {
   enter: (way: number) => ({ opacity: 0, transform: `perspective(1800px) translateX(${way * 2.5}%) rotateY(0deg)` }),
   // The page in front fades out first (its words gone in 0.22s, while it keeps turning away) and the next comes in only
   // then: overlapping, the two pages' words showed through each other for a moment, going back most of all.
-  rest: { opacity: 1, transform: 'perspective(1800px) translateX(0%) rotateY(0deg)', transition: { duration: 0.6, ease: ENTER, delay: 0.24 } },
+  rest: { opacity: 1, transform: 'perspective(1800px) translateX(0%) rotateY(0deg)', transition: { duration: 0.45, ease: ENTER, delay: 0.22 } },
   leave: (way: number) => ({ opacity: 0, transform: `perspective(1800px) translateX(${way * -4}%) rotateY(${way * -16}deg)`, transition: { duration: 0.5, ease: MOVE, opacity: { duration: 0.22, ease: 'easeOut' } } }),
   gone: { opacity: 0, transition: { duration: 0 } }
 }

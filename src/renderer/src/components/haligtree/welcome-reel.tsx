@@ -363,6 +363,8 @@ export function Caught({ kinds, filled, said, lines }: { kinds: Kind[]; filled: 
 
 /** A quote, as it comes back a year from today: a postcard, signed, set down a little askew. */
 export function PostcardResult({ words, who, where, signed, id = 'reel-item-quote', themed = false, write = false }: { words: string; who: string; where?: string; signed: boolean; id?: string; /** Its white print frame in the page's own colours, to wear the theme with it. */ themed?: boolean; /** The line written onto the card as it lands, a word at a time, as ink takes. */ write?: boolean }): React.JSX.Element {
+  // When the last word is written: the signature waits for it.
+  const inked = write ? 0.35 + (words.split(' ').length - 1) * 0.11 + 0.42 : 0
   return (
     <motion.div layoutId={id} transition={CAM} style={{ borderRadius: 12 }} className="w-full" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
       <Unstretched>
@@ -383,16 +385,18 @@ export function PostcardResult({ words, who, where, signed, id = 'reel-item-quot
               </Fragment>
             ))}
           </p>
+          {/* Signed only once the last word is written (a moment after it), so the words, then the name, read in turn. */}
           {/* Signed whole and never cut short: "said by" and the pen's stroke arrive together, the name
               drawn left to right (its clip reaches past the letters, so no swash shows early), and
               where it is from wraps under it when the line is full ("in Pride and Prejudice", which reads on either line where a dot would be left starting one). */}
           <p className="mt-1 flex min-h-[1.6em] flex-wrap items-baseline gap-x-1.5 text-meta text-(--mf-wl-quiet) [&_.mf-signature]:overflow-visible [&_.mf-signature]:text-clip">
             {signed && (
-              <motion.span className="inline-flex shrink-0" initial={{ clipPath: 'inset(-40% 100% -40% -20%)' }} animate={{ clipPath: 'inset(-40% -20% -40% -20%)' }} transition={{ duration: 0.9, ease: [0.65, 0, 0.35, 1] }}>
+              <motion.span className="inline-flex shrink-0" initial={{ clipPath: 'inset(-40% 100% -40% -20%)' }} animate={{ clipPath: 'inset(-40% -20% -40% -20%)' }} transition={{ duration: 0.9, ease: [0.65, 0, 0.35, 1], delay: inked }}>
                 <Signed who={who} />
               </motion.span>
             )}
-            {where && signed && <span className="min-w-0">in {where}</span>}
+            {/* Where it is from comes last, once the name is signed: one thing at a time, the words, the name, the book. */}
+            {where && signed && <motion.span className="min-w-0" initial={write ? { opacity: 0 } : false} animate={{ opacity: 1 }} transition={{ duration: 0.3, ease: EASE, delay: inked + 0.75 }}>in {where}</motion.span>}
           </p>
         </MemoryPostcard>
       </div>

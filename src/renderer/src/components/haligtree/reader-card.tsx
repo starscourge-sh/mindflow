@@ -313,7 +313,24 @@ export function ReaderCard({ seed: saved, point, named, bare = false, arrive }: 
   // And at rest it leans back a little too, as a book stood on a shelf is seen from just above (Stripe Press's pose).
   const lean = useSpring(still() ? 0 : REST_LEAN, { stiffness: 140, damping: 20 })
   // Arriving, it starts from lying back and turned away, then the springs stand it up into its pose, once.
-  useEffect(() => void (arrive === 'go' && rise.get() > 0 && animate(rise, 0, { type: 'spring', stiffness: 55, damping: 15, restDelta: 0.001 })), [arrive]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Soft enough to stand a touch past its pose and settle back, as a book set down rocks once.
+  useEffect(() => void (arrive === 'go' && rise.get() > 0 && animate(rise, 0, { type: 'spring', stiffness: 55, damping: 10, restDelta: 0.001 })), [arrive]) // eslint-disable-line react-hooks/exhaustive-deps
+  // On the welcome it keeps an eye on the pointer about the page: turned and leaned a few degrees toward wherever it
+  // is, on the pose's own springs, until the pointer comes onto the book and it faces you.
+  const over = useRef(false)
+  useEffect(() => {
+    if (!arrive || still()) return
+    const follow = (event: PointerEvent): void => {
+      const box = card.current?.getBoundingClientRect()
+      if (!box || over.current || grab.current) return
+      const dx = Math.max(-1, Math.min(1, (event.clientX - (box.left + box.width / 2)) / (innerWidth / 2)))
+      const dy = Math.max(-1, Math.min(1, (event.clientY - (box.top + box.height / 2)) / (innerHeight / 2)))
+      turn.set(REST_TURN + dx * 10)
+      lean.set(REST_LEAN - dy * 6)
+    }
+    addEventListener('pointermove', follow)
+    return () => removeEventListener('pointermove', follow)
+  }, [arrive]) // eslint-disable-line react-hooks/exhaustive-deps
   const pitched = useTransform(() => tilt.x.get() + spinX.get() + lean.get() + rise.get() * (ARRIVE_LEAN - REST_LEAN))
   // The light on each face, from where it points now; 0 while its picture is taken, so the cover is shown as printed.
   const lit = useMotionValue(1)
@@ -375,12 +392,12 @@ export function ReaderCard({ seed: saved, point, named, bare = false, arrive }: 
       {/* The pointer is read on a wrapper that never tips, as Tilt does: read on the card, a corner tips out from under it and flickers. */}
       {/* A press nudges the book where it is pressed, a little further back and a touch smaller, and on letting go it
           springs back to lean toward the pointer again. */}
-      <div data-reader-hold className="relative mb-[34px]" onPointerEnter={() => (turn.set(0), lean.set(0))} onPointerMove={(event) => {
+      <div data-reader-hold className="relative mb-[34px]" onPointerEnter={() => ((over.current = true), turn.set(0), lean.set(0))} onPointerMove={(event) => {
           const held = grab.current
           if (held) return void (spinY.set(held.ry + (event.clientX - held.x) * 0.6), spinX.set(Math.max(-70, Math.min(70, held.rx - (event.clientY - held.y) * 0.4))))
           if (!event.buttons) tilt.lean(event, event.currentTarget)
         }}
-        onPointerLeave={() => (grab.current || tilt.flat(), !still() && !grab.current && (turn.set(REST_TURN), lean.set(REST_LEAN)))}
+        onPointerLeave={() => ((over.current = false), grab.current || tilt.flat(), !still() && !grab.current && (turn.set(REST_TURN), lean.set(REST_LEAN)))}
         onPointerDown={(event) => {
           if (event.button !== 0) return
           event.currentTarget.setPointerCapture(event.pointerId)
