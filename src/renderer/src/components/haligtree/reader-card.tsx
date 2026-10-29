@@ -114,6 +114,9 @@ const HIGH_BOOK = 375
 // Turned the other way at rest: its fore-edge and old pages toward you, the spine round the far side.
 const REST_TURN = -34
 const REST_LEAN = 10
+/** Where it comes up from the first time it is shown: lying back, near flat, turned further away. */
+const ARRIVE_TURN = -62
+const ARRIVE_LEAN = 68
 /**
  * Old paper seen edge on: fine leaf lines (vertical at the fore-edge, across at the foot, crossed here so both show),
  * a grain, and a yellowing that deepens toward the outer edges as old books' pages do.
@@ -279,7 +282,7 @@ function ShapePicture({ shape }: { shape: Shape }): React.JSX.Element {
   )
 }
 
-export function ReaderCard({ seed: saved, point, named, bare = false }: {
+export function ReaderCard({ seed: saved, point, named, bare = false, arrive }: {
   seed: number | undefined
   /** The name to show in place of the open book's: the welcome's, as it is typed. */
   named?: string
@@ -287,6 +290,8 @@ export function ReaderCard({ seed: saved, point, named, bare = false }: {
   bare?: boolean
   /** Changed when ⌘K's “Your reader card” asks for it: brought into view. */
   point?: number
+  /** Shown for the first time (the welcome's “Name it”): it waits lying nearly flat ("wait"), then comes up into its pose ("go"), as Stripe Press's books do. Given "go" once it can be seen. */
+  arrive?: 'wait' | 'go'
 }): React.JSX.Element {
   const shelf = useShelf()
   const facts = useLive(() => call<Facts>('reader:card'), null as Facts | null)
@@ -296,16 +301,20 @@ export function ReaderCard({ seed: saved, point, named, bare = false }: {
   // A real book, as Stripe Press's: at rest it stands turned a little, its spine to you; pointed at, it turns to face
   // you and leans toward the pointer. Motion off, it faces you and stays.
   const turn = useSpring(still() ? 0 : REST_TURN, { stiffness: 140, damping: 20 })
+  // Arriving: 1 while it waits lying back, eased to 0 on a slow soft spring of its own as it stands up (the pointer's springs stay quick).
+  const rise = useMotionValue(arrive && !still() ? 1 : 0)
   // Grabbed and dragged, it turns in the hand, any way round (its back, its spine, its pages); let go, it carries on
   // with the throw, slows, and settles home on a soft spring. Plain values, moved by hand and by animate(), so a grab
   // mid-spin takes it from wherever it is, at no jump.
   const spinY = useMotionValue(0)
   const spinX = useMotionValue(0)
   const grab = useRef<{ x: number; y: number; ry: number; rx: number } | null>(null)
-  const turned = useTransform(() => turn.get() + tilt.y.get() + spinY.get())
+  const turned = useTransform(() => turn.get() + tilt.y.get() + spinY.get() + rise.get() * (ARRIVE_TURN - REST_TURN))
   // And at rest it leans back a little too, as a book stood on a shelf is seen from just above (Stripe Press's pose).
   const lean = useSpring(still() ? 0 : REST_LEAN, { stiffness: 140, damping: 20 })
-  const pitched = useTransform(() => tilt.x.get() + spinX.get() + lean.get())
+  // Arriving, it starts from lying back and turned away, then the springs stand it up into its pose, once.
+  useEffect(() => void (arrive === 'go' && rise.get() > 0 && animate(rise, 0, { type: 'spring', stiffness: 55, damping: 15, restDelta: 0.001 })), [arrive]) // eslint-disable-line react-hooks/exhaustive-deps
+  const pitched = useTransform(() => tilt.x.get() + spinX.get() + lean.get() + rise.get() * (ARRIVE_LEAN - REST_LEAN))
   // The light on each face, from where it points now; 0 while its picture is taken, so the cover is shown as printed.
   const lit = useMotionValue(1)
   const front = useLight([0, 0, 1], pitched, turned, lit)
