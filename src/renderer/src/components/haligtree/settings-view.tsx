@@ -175,6 +175,7 @@ function Setting({ title, aka, children, note, more, below, beside, keywords = '
  * section goes in this list too.
  */
 const SECTIONS: { title: string; icon: LucideIcon; tint: string }[] = [
+  { title: 'Your book', icon: BookHeart, tint: 'orange' },
   { title: 'Appearance', icon: Palette, tint: 'purple' },
   { title: 'Writing', icon: PenLine, tint: 'orange' },
   { title: 'What comes back to you', icon: Sparkles, tint: 'yellow' },
@@ -185,7 +186,6 @@ const SECTIONS: { title: string; icon: LucideIcon; tint: string }[] = [
   { title: 'Sound', icon: Volume2, tint: 'red' },
   { title: 'Import and backups', icon: HardDrive, tint: 'gray' },
   { title: 'Keys', icon: Keyboard, tint: 'purple' },
-  { title: 'Your book', icon: BookHeart, tint: 'orange' },
   { title: 'Help', icon: LifeBuoy, tint: 'blue' }
 ]
 /** The section on show, unless a search shows every section's matches. */
