@@ -131,12 +131,17 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
       .map((as): Action => ({ label: `Keep “${said}” ${KEPT_AS[as]}`, keep: as, cue: null, run: () => onKeep?.(as, typed) }))
     : []
   const heard = typed ? actions.flatMap((one) => one.heard?.(typed) ?? []) : []
+  // The actions answer the same words as the results under them, so the two change together, in one
+  // frame, when a reply lands: matched to the box instead, they changed a frame early and the Enter
+  // word under the list rolled twice a letter.
+  const settled = searched ?? ''
+  const settledWords = settled.toLowerCase().split(/\s+/).filter((word) => word && !word.startsWith('kind:'))
   const acting = [
     ...(asked ? [{ label: `What ${APP_NAME} means by ${asked.forms[0]}`, cue: null, run: () => openWord(asked.id) }] : []),
     ...heard,
     ...[...actions, { label: `${APP_NAME}’s words`, hint: 'What its own names mean', typed: true, cue: null, run: () => openWord(ALL_WORDS) }]
-      .filter((one) => !(heard.length && one.heard) && (!one.typed || query.trim()) && words.every((word) => `${one.label} ${one.hint ?? ''}`.toLowerCase().includes(word)))
-      .sort((a, b) => (query.trim() ? Number(!!b.own) - Number(!!a.own) : 0)).slice(0, query.trim() ? 4 : 12)
+      .filter((one) => !(heard.length && one.heard) && (!one.typed || settled.trim()) && settledWords.every((word) => `${one.label} ${one.hint ?? ''}`.toLowerCase().includes(word)))
+      .sort((a, b) => (settled.trim() ? Number(!!b.own) - Number(!!a.own) : 0)).slice(0, settled.trim() ? 4 : 12)
   ]
   // An action the words name ("What's new") is what Enter does; keeping the words as a note comes after it.
   const keepFirst = !acting.length
