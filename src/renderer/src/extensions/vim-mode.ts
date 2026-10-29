@@ -2893,3 +2893,22 @@ export const VimMode = Extension.create<VimModeOptions>({
     ]
   },
 })
+
+/**
+ * Tab and Shift-Tab while writing with Vim on stay in the note. Behind every
+ * other Tab (a list nesting, a table's next cell, a code block's own tab, a
+ * worked answer), so this only takes the ones nothing used: the browser would
+ * otherwise move the focus to the next field, mid-sentence. In normal mode Tab
+ * still goes from the note to the title and back.
+ */
+export const VimTabStays = Extension.create({
+  name: "vimTabStays",
+  priority: 1,
+  addKeyboardShortcuts() {
+    const writing = (): boolean => {
+      const vim = vimPluginKey.getState(this.editor.state)
+      return !!vim?.enabled && vim.mode === "insert"
+    }
+    return { Tab: writing, "Shift-Tab": writing }
+  },
+})

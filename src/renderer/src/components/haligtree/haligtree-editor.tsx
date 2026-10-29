@@ -42,7 +42,7 @@ import "katex/dist/katex.min.css"
 
 // --- Extensions ---
 import { ObsidianShortcuts } from "@/extensions/obsidian-shortcuts"
-import { VimMode } from "@/extensions/vim-mode"
+import { VimMode, VimTabStays } from "@/extensions/vim-mode"
 import { TAGS, Tokens, type TokenMatch, type TokenPattern } from "@/extensions/tokens"
 import { SlashCommand } from "@/extensions/slash-command"
 import { ToggleHeading, headingRank } from "@/extensions/toggle-heading"
@@ -1366,6 +1366,7 @@ function Surface({
       ObsidianShortcuts.configure({
         onToggleSource: () => (toggleSource.current ? toggleSource.current() : setSourceRef.current(!sourceOpenRef.current)),
       }),
+      VimTabStays,
       VimMode.configure({
         enabled: vimOn,
         // An empty document opens ready to type, whatever the default: in
