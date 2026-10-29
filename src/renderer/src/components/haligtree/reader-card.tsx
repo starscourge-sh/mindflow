@@ -1,5 +1,5 @@
 import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react'
-import { Gem, Link2, Rows2, Shapes, Shuffle } from 'lucide-react'
+import { Gem, Link2, Shuffle } from 'lucide-react'
 import { Coolshape, shapes } from 'coolshapes-react'
 import { animate, motion, useMotionValue, useSpring, useTransform, type MotionValue } from 'motion/react'
 import { Button } from '@/components/ui/button'
@@ -17,8 +17,8 @@ import { useTilt } from './tilt'
 
 /**
  * The reader card, Arc's member card for a commonplace book: a printed card of
- * cream paper with a picture at the top (a shape from coolshapes, or two bands
- * of colour parted by a cream arch, both with a film grain), your book's
+ * cream paper with a picture at the top (a shape from coolshapes, with a
+ * film grain), your book's
  * name, a title drawn from two lists ("Patient Marginalist"), a round stamp
  * for each milestone reached and a small tag with the day the book began. Its colours are three of the theme's own hues, made
  * rich enough to print, and the title and hues follow from one number kept in
@@ -28,7 +28,7 @@ import { useTilt } from './tilt'
 // Mostly the Lands Between (Elden Ring), a few from Lordran and Drangleic (Dark Souls), and a few of the book's own.
 const KINDS = ['Grace-Given', 'Erdtree', 'Haligtree', 'Golden', 'Starscourge', 'Ashen', 'Undead', 'Chosen', 'Hollow', 'Moonlit', 'Carian', 'Crucible', 'Rune-Bearing', 'Wandering', 'Restless', 'Patient', 'Midnight', 'Dragon-Kin', 'Bell-Bearing']
 const READERS = ['Tarnished', 'Elden Lord', 'Finger Reader', 'Lorekeeper', 'Scholar', 'Sorcerer', 'Knight', 'Pilgrim', 'Maiden', 'Hunter', 'Archivist', 'Gleaner', 'Sentinel', 'Firekeeper', 'Wretch', 'Prophet', 'Astrologer', 'Vagabond', 'Confessor', 'Champion']
-/** The theme's own hues (the tags'), warm to cool, so three in a row always sit well together. Never green beside yellow (their mix is olive), and no brown: both only muddied the bands. */
+/** The theme's own hues (the tags'), warm to cool, so three in a row always sit well together. Never green beside yellow (their mix is olive), and no brown: both only muddy the picture. */
 const HUES = ['yellow', 'orange', 'red', 'pink', 'purple', 'blue', 'green']
 /** The coolshapes (coolshap.es, MIT) a card may draw: the soft ones that read as a picture, not the numbers, triangles and boxes. */
 const SHAPES = ['star', 'flower', 'wheel', 'polygon', 'moon', 'misc'] as const
@@ -234,54 +234,13 @@ async function shareCard(card: HTMLElement | null, save: boolean, name: string, 
   }
 }
 
-/** The picture's size, in its own units: the card's width less its margins. */
-const WIDE = 226
-const HIGH = 200
-
-/**
- * Two bands of colour with a cream arch between: the top band's lower edge
- * bows down, the bottom band's upper edge bows up, so the cream is thinnest in
- * the middle. Each band is a gradient of the card's colours, which glide to
- * the new ones on “Randomize” (they are registered colours, main.css). A film
- * grain lies over the bands alone, as on the welcome's gradient: fine grey
- * noise, laid on with “overlay” so it lightens and darkens the colour beneath
- * without greying it, and kept off the cream.
- */
-function Bands(): React.JSX.Element {
-  return (
-    <svg aria-hidden viewBox={`0 0 ${WIDE} ${HIGH}`} className="block w-full">
-      <defs>
-        <linearGradient id="mf-card-top" x1="0" y1="0" x2="0.35" y2="1">
-          <stop offset="0" style={{ stopColor: 'var(--mf-card-a)' }} />
-          <stop offset="1" style={{ stopColor: 'var(--mf-card-b)' }} />
-        </linearGradient>
-        <linearGradient id="mf-card-bottom" x1="0.65" y1="0" x2="0" y2="1">
-          <stop offset="0" style={{ stopColor: 'var(--mf-card-b)' }} />
-          <stop offset="1" style={{ stopColor: 'var(--mf-card-c)' }} />
-        </linearGradient>
-        <filter id="mf-card-grain" x="0" y="0" width="100%" height="100%" colorInterpolationFilters="sRGB">
-          <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch" seed="7" result="noise" />
-          {/* Grey, and as strong everywhere: the noise's own see-through spots would only thin it. */}
-          <feColorMatrix in="noise" type="matrix" values="0.33 0.33 0.33 0 0  0.33 0.33 0.33 0 0  0.33 0.33 0.33 0 0  0 0 0 0 0.55" result="grey" />
-          <feBlend in="grey" in2="SourceGraphic" mode="overlay" result="grained" />
-          <feComposite in="grained" in2="SourceGraphic" operator="in" />
-        </filter>
-      </defs>
-      <g filter="url(#mf-card-grain)">
-        <path d={`M0 0H${WIDE}V96Q${WIDE / 2} 128 0 96Z`} fill="url(#mf-card-top)" />
-        <path d={`M0 ${HIGH}V142Q${WIDE / 2} 106 ${WIDE} 142V${HIGH}Z`} fill="url(#mf-card-bottom)" />
-      </g>
-    </svg>
-  )
-}
-
 /**
  * One coolshape on the cream, in the card's colours: its blurred blobs give
  * the light and dark, and a filter maps the dark to the card's deepest hue,
  * the middle to its middle one and the light to its lightest, then lays on
- * the bands' grain. So a star or a flower wears the same colours as the name
- * under it, and glides with them on “Randomize”. Pictured at the bands' size,
- * so the card never changes.
+ * a film grain. So a star or a flower wears the same colours as the name
+ * under it, and glides with them on “Randomize”. Pictured at one size, so the
+ * card never changes.
  */
 function ShapePicture({ shape }: { shape: Shape }): React.JSX.Element {
   return (
@@ -307,7 +266,7 @@ function ShapePicture({ shape }: { shape: Shape }): React.JSX.Element {
           <feComposite in="c" in2="wc" operator="arithmetic" k1="1" result="pc" />
           <feComposite in="pa" in2="pb" operator="arithmetic" k2="1" k3="1" result="pab" />
           <feComposite in="pab" in2="pc" operator="arithmetic" k2="1" k3="1" result="mixed" />
-          {/* The same grain as the bands', then cut back to the shape. */}
+          {/* A film grain, cut back to the shape. */}
           <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch" seed="7" result="noise" />
           <feColorMatrix in="noise" type="matrix" values="0.33 0.33 0.33 0 0  0.33 0.33 0.33 0 0  0.33 0.33 0.33 0 0  0 0 0 0 0.55" result="speckle" />
           <feBlend in="speckle" in2="mixed" mode="overlay" result="grained" />
@@ -320,14 +279,12 @@ function ShapePicture({ shape }: { shape: Shape }): React.JSX.Element {
   )
 }
 
-export function ReaderCard({ seed: saved, picture = 'shape', point, named, bare = false }: {
+export function ReaderCard({ seed: saved, point, named, bare = false }: {
   seed: number | undefined
   /** The name to show in place of the open book's: the welcome's, as it is typed. */
   named?: string
-  /** The card alone, without its copy, save, picture and Randomize buttons. */
+  /** The card alone, without its copy, save and Randomize buttons. */
   bare?: boolean
-  /** The picture at the top: a coolshape, or the two bands (readerPicture). */
-  picture?: 'shape' | 'bands'
   /** Changed when ⌘K's “Your reader card” asks for it: brought into view. */
   point?: number
 }): React.JSX.Element {
@@ -394,9 +351,6 @@ export function ReaderCard({ seed: saved, picture = 'shape', point, named, bare 
   const actions: { tip: string; icon: ReactNode; data: string; run: () => void }[] = [
     { tip: 'Copy as image', icon: <AliveIcon icon={CopyIcon} size={15} />, data: 'data-reader-copy', run: () => void shareCard(card.current, false, name, level).finally(unlevel) },
     { tip: 'Save as image…', icon: <AliveIcon icon={DownloadIcon} size={15} />, data: 'data-reader-save', run: () => void shareCard(card.current, true, name, level).finally(unlevel) },
-    picture === 'shape'
-      ? { tip: 'Show two bands instead', icon: <Rows2 className="size-[15px]" />, data: 'data-reader-picture', run: () => void haligtree.setSettings({ readerPicture: 'bands' }) }
-      : { tip: 'Show a shape instead', icon: <Shapes className="size-[15px]" />, data: 'data-reader-picture', run: () => void haligtree.setSettings({ readerPicture: 'shape' }) },
     {
       tip: 'Randomize', icon: <Shuffle className="size-[15px]" />, data: 'data-reader-randomize', run: () => {
         let next = seed
@@ -494,11 +448,10 @@ export function ReaderCard({ seed: saved, picture = 'shape', point, named, bare 
           ref={card}
           data-reader-card
           data-hues={hues.join(' ')}
-          data-picture={picture}
           className="absolute inset-0 flex flex-col bg-[#fffbea] py-4 pr-4 pl-[1.75rem] [backface-visibility:hidden]"
           style={{ transform: `translateZ(${THICK / 2}px)`, borderRadius: BOOK_CORNERS, color: 'var(--mf-card-c)' }}
         >
-          {picture === 'shape' ? <ShapePicture shape={shape} /> : <div className="overflow-hidden rounded-[2px]"><Bands /></div>}
+          <ShapePicture shape={shape} />
           <p data-reader-name className="mt-3 line-clamp-2 text-[1.375rem] leading-[1.12] font-bold tracking-[-0.015em] break-words" style={{ fontFamily: "'Fraunces Variable', Georgia, serif" }}>{name || ' '}</p>
           <p data-reader-title={title} className="mt-1.5 font-mono text-[0.625rem] font-medium tracking-[0.16em] uppercase"><Rolling text={title} by="word" /></p>
           {/* The foot: the stamps with "Commonplace Book" beside them, and the day's tag under both, so the two never meet

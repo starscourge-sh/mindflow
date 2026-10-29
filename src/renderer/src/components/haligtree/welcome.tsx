@@ -1544,8 +1544,8 @@ function NameChapter({ play, report, onNext }: { play: boolean; report: (now: Re
   const shelf = useShelf()
   const [drawn, setDrawn] = useState(() => drawBookName())
   const [typed, setTyped] = useState<string | null>(null)
-  const [look, setLook] = useState<{ seed?: number; picture?: 'shape' | 'bands' } | null>(null)
-  useEffect(() => void haligtree.settings().then((now) => setLook({ seed: now.readerSeed, picture: now.readerPicture })), [])
+  const [look, setLook] = useState<{ seed?: number } | null>(null)
+  useEffect(() => void haligtree.settings().then((now) => setLook({ seed: now.readerSeed })), [])
   // A book already named (the welcome played again) starts with its name; "My book" is no one's name, so it starts empty.
   const own = shelf && shelf.name !== DEFAULT_BOOK && shelf.current !== 'sandbox' ? shelf.name : ''
   const value = typed ?? own
@@ -1594,7 +1594,7 @@ function NameChapter({ play, report, onNext }: { play: boolean; report: (now: Re
           <p data-name-keeps className="text-[0.9375rem] leading-snug text-(--mf-wl-body)">{value.trim() ? <>Press <Kbd className="mx-0.5 h-6 min-w-6 align-[-0.2em]"><CornerDownLeft className="size-3" strokeWidth={2.4} /></Kbd> to go on.</> : <>Left empty, it is called “{drawn}”.</>}</p>
         </motion.div>
         <motion.div className="shrink-0" initial={play ? { opacity: 0, scale: 0.96 } : false} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4, ease: ENTER, delay: 0.2 }}>
-          <ReaderCard seed={seed} picture={look?.picture} named={shown} bare />
+          <ReaderCard seed={seed} named={shown} bare />
         </motion.div>
       </div>
     </>

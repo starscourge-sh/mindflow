@@ -1,9 +1,9 @@
-// The reader card (Settings, Appearance, "You"): a cream card the same in every theme, the book's name, a drawn title, the
+// The reader card (Settings, "Your book"): a cream card the same in every theme, the book's name, a drawn title, the
 // day the book began, and only the stamps reached. "Randomize" draws another title and colours, kept after a reload; "Copy
 // as image" puts a PNG of the card alone on the clipboard, its corners see-through (what was there is put back at the end);
-// ⌘K's "Your reader card" opens it. The card sits beside its title and line, its picture (a coolshape, or two bands) has a
+// ⌘K's "Your reader card" opens it. The card sits beside its title and line, its picture (a coolshape) has a
 // film grain that is in the PNG too, and it tips toward the pointer and lies flat again when the pointer leaves (not with
-// Motion off). Pictures of the row in paper, light, dark and catppuccin, of three draws, and of the bands.
+// Motion off). Pictures of the row in paper, light, dark and catppuccin, of three draws.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-p/main/index.js HALIGTREE_QA_AWAY=1 [SHOTS=<dir>] node qa/reader-card.mjs
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
@@ -24,8 +24,7 @@ const shot = async (name) => {
 const copied = async () => {
   await electron.evaluate(({ clipboard }) => clipboard.clear())
   await h.locator('[data-reader-copy]').click(); await wait(1500)
-  const shape = await h.evaluate(() => document.querySelector('[data-reader-card]').dataset.picture === 'shape')
-  return electron.evaluate(async ({ clipboard, nativeImage }, shape) => {
+  return electron.evaluate(async ({ clipboard, nativeImage }) => {
     for (const item of await clipboard.read()) {
       if (!item.types.includes('image/png')) continue
       const image = nativeImage.createFromBuffer(Buffer.from(await (await item.getType('image/png')).arrayBuffer()))
@@ -40,11 +39,11 @@ const copied = async () => {
           for (let x = Math.round(left * scale); x < Math.round((left + wide) * scale); x++) (sum += Math.abs(at(x + 1, y)[1] - at(x, y)[1])), count++
         return +(sum / count).toFixed(2)
       }
-      // In the top band, or the middle of the shape; and the cream margin beside the picture.
-      return { size, corner: at(0, 0), inside: at(Math.round(40 * scale), Math.round(3 * scale)), grain: shape ? steps(115, 102) : steps(60, 30), cream: steps(2, 150, 8) }
+      // The middle of the shape, and the cream margin beside the picture.
+      return { size, corner: at(0, 0), inside: at(Math.round(40 * scale), Math.round(3 * scale)), grain: steps(115, 102), cream: steps(2, 150, 8) }
     }
     return null
-  }, shape)
+  })
 }
 // The card's transform as drawn: "none", or how far it is turned.
 const turned = () => h.evaluate(() => {
@@ -237,18 +236,16 @@ try {
   check('"Randomize" draws other colours', hues !== kept.hues, `${kept.hues} → ${hues}`)
 
   const box = await h.locator('[data-reader-card]').evaluate((one) => ({ width: one.offsetWidth, height: one.offsetHeight }))
-  for (const look of ['shape', 'bands']) {
-    if ((await h.evaluate(() => document.querySelector('[data-reader-card]').dataset.picture)) !== look) (await h.locator('[data-reader-picture]').click(), await wait(900))
+  {
     const corners = await copied()
     const size = corners?.size
-    check(`"Copy as image" puts a PNG of the card on the clipboard (${look})`, !!size && Math.abs(size.width / size.height - box.width / box.height) < 0.05, `${JSON.stringify(size)} for ${Math.round(box.width)}x${Math.round(box.height)}`)
+    check('"Copy as image" puts a PNG of the card on the clipboard', !!size && Math.abs(size.width / size.height - box.width / box.height) < 0.05, `${JSON.stringify(size)} for ${Math.round(box.width)}x${Math.round(box.height)}`)
     // The cover is cloth now (a book's), so it has a grain of its own, finer than the picture's.
-    check(`its picture has a grain in the PNG, the cover a finer one (${look})`, corners?.grain > 2.5 && corners?.cream < corners?.grain, JSON.stringify(corners && { grain: corners.grain, cream: corners.cream }))
-    check(`its corners see-through and its edge cream (${look})`, corners?.corner[3] === 0 && corners?.inside[3] === 255 && corners.inside[2] > 200 && corners.inside[1] > 215 && corners.inside[0] > 215, JSON.stringify(corners && { corner: corners.corner, inside: corners.inside }))
-    await shot(`reader-card-${look}`)
+    check('its picture has a grain in the PNG, the cover a finer one', corners?.grain > 2.5 && corners?.cream < corners?.grain, JSON.stringify(corners && { grain: corners.grain, cream: corners.cream }))
+    check('its corners see-through and its edge cream', corners?.corner[3] === 0 && corners?.inside[3] === 255 && corners.inside[2] > 200 && corners.inside[1] > 215 && corners.inside[0] > 215, JSON.stringify(corners && { corner: corners.corner, inside: corners.inside }))
+    check('one picture only: no button swaps it for bands', (await h.locator('[data-reader-picture]').count()) === 0)
+    await shot('reader-card-shape')
   }
-  // Back to the shape, the default.
-  await h.locator('[data-reader-picture]').click(); await wait(600)
 
   for (const theme of ['paper', 'light', 'dark', 'catppuccin']) {
     await c.theme(theme)
@@ -270,8 +267,6 @@ try {
   await shot('reader-card-narrow')
   await electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((one) => one.isVisible() && one.getSize()[0] === 760)?.setSize(1300, 900)); await wait(800)
   for (let i = 1; i <= 4; i++) (await h.locator('[data-reader-randomize]').click(), await wait(1000), await shot(`reader-card-draw-${i}`))
-  await h.locator('[data-reader-picture]').click(); await wait(900)
-  for (let i = 1; i <= 2; i++) (await h.locator('[data-reader-randomize]').click(), await wait(1000), await shot(`reader-card-bands-draw-${i}`))
   check('no page errors', !c.errors?.some((one) => /PAGEERROR/.test(one)), (c.errors ?? []).slice(0, 2).join(' | '))
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])

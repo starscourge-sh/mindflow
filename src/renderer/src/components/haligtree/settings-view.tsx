@@ -72,7 +72,7 @@ import { backedUpAgo, chooseBackupFolder } from '@/lib/backups'
 import { ThemeDial } from './theme-dial'
 import { TimeField } from './time-field'
 import { BarWordsSample, BlurSample, CentredSample, DayHintsSample, FoldSample, SpellSample, HomeMonthSample, TimeGoneSample, TitleTopSample, TypewriterSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, StirSample, TempusSample, ThemeFileGuide, TuckSample, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, highlightChoices, paperChoices, IconColourSample, menuIconChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices } from './settings-show'
-import { Brain, HardDrive, CircleHelp as LifeBuoy, ListTodo as ListChecks, Camera as Mountain, Brush as Palette, Pencil as PenLine, Search as SearchIcon, Sparkles, Volume2, X } from '@/components/ui/icons'
+import { BookOpen as BookHeart, Brain, HardDrive, CircleHelp as LifeBuoy, ListTodo as ListChecks, Camera as Mountain, Brush as Palette, Pencil as PenLine, Search as SearchIcon, Sparkles, Volume2, X } from '@/components/ui/icons'
 import { APP_NAME } from '../../../../main/name'
 
 /**
@@ -185,6 +185,7 @@ const SECTIONS: { title: string; icon: LucideIcon; tint: string }[] = [
   { title: 'Sound', icon: Volume2, tint: 'red' },
   { title: 'Import and backups', icon: HardDrive, tint: 'gray' },
   { title: 'Keys', icon: Keyboard, tint: 'purple' },
+  { title: 'Your book', icon: BookHeart, tint: 'orange' },
   { title: 'Help', icon: LifeBuoy, tint: 'blue' }
 ]
 /** The section on show, unless a search shows every section's matches. */
@@ -492,7 +493,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
   useEffect(() => {
     if (asked !== 'reader-card') return
     setQuery('')
-    setSection(SECTIONS[0].title)
+    setSection('Your book')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [asked, nonce])
   if (!settings) return <section className="flex-1" />
@@ -577,10 +578,6 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
       <div ref={holdColumn} className="w-full max-w-2xl px-6 pt-4 pb-16 [&:has([data-setting])>[data-none]]:hidden">
         {!searching && <h2 className="px-1 text-lg font-semibold text-foreground"><Term>{section}</Term></h2>}
         <p data-none className="px-1 text-body text-muted-foreground">Nothing here matches “{query}”. Try fewer letters, or what it changes.</p>
-        <Group section="Appearance" title="You" bare>
-          <Setting title="Reader card" note="Your book on a card: a title drawn for you, the day it began, and a stamp for each milestone." more="“Randomize” draws another title, colours and shape; the card is kept until you do. The button beside it swaps the shape for two bands of colour, and back. Stamps come at 100 and 1,000 notes, a first link, a first gem reviewed, 30 days of Journal and a year in." keywords="reader card member profile name title stamps milestones share picture image randomize arc shape coolshapes bands"
-            beside={<ReaderCard seed={settings.readerSeed} picture={settings.readerPicture} point={asked === 'reader-card' ? nonce : undefined} />} />
-        </Group>
         <Group section="Appearance" title="Colours">
           <Setting title="Theme" note={settings.themePreview ? 'Point at one to try it on, click to keep it.' : 'Click one to wear it.'} below={<ThemeTiles preview={settings.themePreview === true} />} keywords={`${allThemes().map(themeName).join(' ')} preview hover try`}>
             <span className="text-muted-foreground">Preview on hover</span>
@@ -1159,6 +1156,10 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
           </Setting>
         </Group>
 
+        <Group section="Your book" title="Your card" bare>
+          <Setting title="Reader card" note="Your book on a card: a title drawn for you, the day it began, and a stamp for each milestone." more="“Randomize” draws another title, colours and shape; the card is kept until you do. Stamps come at 100 and 1,000 notes, a first link, a first gem reviewed, 30 days of Journal and a year in." keywords="reader card member profile name title stamps milestones share picture image randomize arc shape coolshapes"
+            beside={<ReaderCard seed={settings.readerSeed} point={asked === 'reader-card' ? nonce : undefined} />} />
+        </Group>
         <Group section="Help" title="Getting started">
           <WelcomeRow />
           <Setting title="Tour" note="Five places to know, each lit up in turn." more="The Inbox, Review, quick capture, search and Getting started." keywords="tour coach marks show me around where things are">
