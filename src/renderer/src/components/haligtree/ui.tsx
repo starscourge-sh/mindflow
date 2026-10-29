@@ -2359,7 +2359,7 @@ function FoldingIsland({ title, name, actions, className, children }: { title: R
           </div>
         )}
       </div>
-      <div className="grid transition-[grid-template-rows] duration-200 ease-[var(--mf-ease)] motion-reduce:transition-none" style={{ gridTemplateRows: open ? '1fr' : '0fr' }} inert={!open}>
+      <div className="grid" style={{ gridTemplateRows: open ? '1fr' : '0fr' }} inert={!open}>
         <div className="min-h-0 overflow-hidden">
           <div data-island-body className={cn(ISLAND, ISLAND_COMPACT, 'mt-1 mb-1')}>{children}</div>
         </div>

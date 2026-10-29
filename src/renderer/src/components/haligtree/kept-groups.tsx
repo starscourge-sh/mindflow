@@ -16,7 +16,7 @@ import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { chime, click } from '@/lib/sound'
 import { slotTicker } from '@/lib/proximity'
 import { archive } from '@/lib/notes'
-import { byKeys, spring as springs, still } from '@/lib/motion'
+import { spring as springs, still } from '@/lib/motion'
 import { GROUP_COLORS, groups, tintOf } from '@/lib/groups'
 import { KEY, groupOf, groupsAround, isGroup, type How, type Layout } from '@/lib/group-layout'
 import { cn } from '@/lib/cn'
@@ -951,9 +951,6 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
   const tint = tintOf(group.color)
   const key = KEY + group.id
   const { aim, shapes, hand, snap } = useContext(Carrying)
-  // Folded at once as it is lifted, and open again at once where it lands.
-  const [wasCarried, setWasCarried] = useState(carried)
-  if (wasCarried !== carried) setWasCarried(carried)
   // Carrying, the panel lights only when letting go would leave the row in this very group, never one around it.
   const landing = !!aim && aim.into === group.id
   // Its edges follow its rows as they make room or close over a gap, on the compositor.
@@ -1145,7 +1142,7 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
           </Node>
         </div>
       </div>
-      <Fold open={group.open && !carried} instant={carried || wasCarried}>
+      <Fold open={group.open && !carried}>
         {(() => {
           const one = ({ part, at }: (typeof placed)[number], index: number): React.JSX.Element =>
             'entry' in part
@@ -1217,44 +1214,17 @@ function PanelParts({ shape, tall, lit, snap }: { shape: Shape; tall: number; li
 }
 
 /**
- * What a group holds, opening to its height and closing to nothing on the
- * grid-rows trick, its notes drawing up into the row as they go: under a
- * quarter of a second, easing out, and at once with Reduce motion. Shut, its
- * notes leave the page, so nothing hidden can be dropped on.
+ * What a group holds: there when open, gone when shut, at once. No slide: the
+ * box snaps to its header and the rows under it move up in the same frame, for
+ * three notes or for six hundred (a slide left a tall empty box under the
+ * header while it ran, and in a big group drawn a screenful at a time it read
+ * as broken). Shut, its notes leave the page, so nothing hidden can be dropped on.
  */
-function Fold({ open, instant: now = false, children }: { open: boolean; instant?: boolean; children: ReactNode }): React.JSX.Element {
-  const [kept, setKept] = useState(open)
-  const [settled, setSettled] = useState(open)
-  const was = useRef(open)
-  // Folded by a key (an arrow, Enter), it is open or shut at once.
-  const keyed = useRef(false)
-  if (was.current !== open) {
-    was.current = open
-    keyed.current = byKeys() || now
-    const instant = still() || keyed.current
-    if (open && !kept) setKept(true)
-    setSettled(instant)
-    if (!open && instant) setKept(false)
-  }
+function Fold({ open, children }: { open: boolean; children: ReactNode }): React.JSX.Element {
+  // min-w-0: as wide as the panel, so the rows' titles end in an ellipsis instead of running past it.
   return (
-    <div
-      data-fold=""
-      inert={!open}
-      onTransitionEnd={(event) => {
-        if (event.target !== event.currentTarget || event.propertyName !== 'grid-template-rows') return
-        setSettled(true)
-        if (!open) setKept(false)
-      }}
-      className={cn('grid transition-[grid-template-rows,opacity] duration-200 motion-reduce:transition-none', keyed.current && 'transition-none')}
-      style={{ transitionTimingFunction: OUT, gridTemplateRows: open ? '1fr' : '0fr', opacity: open ? 1 : 0 }}
-    >
-      {/* Cut only while it moves: open and still, a row lifted past its edge shows whole. */}
-      {/* min-w-0: a grid item is as wide as its longest title otherwise, and the rows' titles ran past the panel instead of ending in an ellipsis. */}
-      <div className={cn('min-h-0 min-w-0', !(open && settled) && 'overflow-hidden')}>
-        <div className={cn('transition-[translate] duration-200 motion-reduce:transition-none', keyed.current && 'transition-none')} style={{ transitionTimingFunction: OUT, translate: open ? '0 0' : '0 -8px' }}>
-          {kept && children}
-        </div>
-      </div>
+    <div data-fold="" inert={!open} className="min-w-0">
+      {open && children}
     </div>
   )
 }

@@ -77,6 +77,8 @@ const Axis = createContext<'y' | 'x'>('y')
  * (moved from a menu) stays put then, since the drag has already carried it.
  */
 const Sorting = createContext(false)
+/** The list's order, as one string: a row glides only when this changes, never when a row above it grows or folds. */
+const Order = createContext<string | undefined>(undefined)
 
 /**
  * The lifted row, as it looked when picked up. A picture of it rather than the
@@ -187,7 +189,7 @@ export function SortableList<T>({ items, keyOf, onMove, axis = 'y', places, chil
       collisionDetection={(args) => (aimed.current ? [] : closestCenter(args))}
       modifiers={[axis === 'x' ? sideways : upDown]} onDragStart={onDragStart} onDragOver={({ over }) => ticks(over?.id)} onDragEnd={onDragEnd} onDragCancel={() => (setShot(null), following(false), aimAt(null), done())}>
       <SortableContext items={shown.map(keyOf)} strategy={axis === 'x' ? horizontalListSortingStrategy : verticalListSortingStrategy}>
-        <Axis.Provider value={axis}><Sorting.Provider value={sorting}><On.Provider value>{children(shown)}</On.Provider></Sorting.Provider></Axis.Provider>
+        <Axis.Provider value={axis}><Sorting.Provider value={sorting}><On.Provider value><Order.Provider value={shown.map(keyOf).join('\n')}>{children(shown)}</Order.Provider></On.Provider></Sorting.Provider></Axis.Provider>
       </SortableContext>
       {shot && places?.foot}
       <Overlay dropAnimation={still() || aim ? null : SETTLE}>
@@ -213,9 +215,11 @@ export function SortableList<T>({ items, keyOf, onMove, axis = 'y', places, chil
 export function SortableRow({ id, glide, className, children }: { id: string; glide?: string; className?: string; children: ReactNode }): React.JSX.Element {
   const on = useContext(On)
   const sorting = useContext(Sorting)
+  // Folding a group of rows above it (the sidebar's folders) moves it at once, in the same frame: only a change of order glides.
+  const order = useContext(Order)
   const row = on ? <Row id={id} className={className}>{children}</Row> : <div className={className}>{children}</div>
   if (!glide) return row
-  return <motion.div layout={sorting || still() ? false : 'position'} layoutId={glide} transition={spring.moderate} className={className}>{row}</motion.div>
+  return <motion.div layout={sorting || still() ? false : 'position'} layoutDependency={order} layoutId={glide} transition={spring.moderate} className={className}>{row}</motion.div>
 }
 
 function Row({ id, className, children }: { id: string; className?: string; children: ReactNode }): React.JSX.Element {
@@ -349,7 +353,7 @@ export function BlockList<T>({ blocks, keyOf, onMove, refuse, row, around }: {
   return (
     <DndContext accessibility={{ container: document.body }} sensors={sensors} collisionDetection={closestCenter} modifiers={[upDown]} onDragStart={onDragStart} onDragMove={onDragMove} onDragEnd={onDragEnd} onDragCancel={() => (mark(null, false), setShot(null), done())}>
       <SortableContext items={shown.flatMap((one) => one.items.map(keyOf))} strategy={stayPut}>
-        <Axis.Provider value="y"><Sorting.Provider value={sorting}><On.Provider value>{shown.map(draw)}</On.Provider></Sorting.Provider></Axis.Provider>
+        <Axis.Provider value="y"><Sorting.Provider value={sorting}><On.Provider value><Order.Provider value={shown.map((one) => one.key + ':' + one.items.map(keyOf).join(',')).join('\n')}>{shown.map(draw)}</Order.Provider></On.Provider></Sorting.Provider></Axis.Provider>
       </SortableContext>
       {/* Where it will land, the one hint: a line, in whichever block that is. */}
       {slot && createPortal(<div data-drop-line={`${slot.block}:${slot.before ?? ''}`} aria-hidden className="pointer-events-none fixed z-[70] h-0.5 rounded-full bg-primary" style={{ top: Math.round(slot.y) - 1, left: slot.left + 4, width: slot.width - 8 }} />, document.body)}

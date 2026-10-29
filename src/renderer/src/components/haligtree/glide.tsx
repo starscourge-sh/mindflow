@@ -381,62 +381,16 @@ export function Weighted({ on, children, className }: { on: boolean; children: R
 }
 
 /**
- * What a fold holds, opening to its own height and closing to nothing: the
- * words fade a little ahead of the edge, so they dissolve rather than being
- * cut. Opening springs; closing is quicker, a decision already made. A change
- * inside that is not the fold itself (a row added) is followed at once, never
- * chased. Shut, what it held leaves the page.
+ * What a fold holds: there when open, gone when shut, at once, the app's one
+ * fold (the sidebar's folders, tags, pins and Recent among them). No slide:
+ * what sits under it moves up or down in the same frame the fold is clicked,
+ * as a group in a list does (kept-groups.tsx Fold). A slide left the rows under
+ * it gliding after the click, and the user asked for folding to be instant.
  */
 export function Unfold({ open, children, className }: { open: boolean; children: ReactNode; className?: string }): React.JSX.Element {
-  const inner = useRef<HTMLDivElement>(null)
-  const [height, setHeight] = useState<number | null>(null)
-  const [gone, setGone] = useState(!open)
-  // When it was last turned: only a change that soon after is the fold's own.
-  const turned = useRef(-Infinity)
-  // Turned by a key (Enter, Space, an arrow), it is open or shut at once.
-  const keyed = useRef(false)
-  const was = useRef(open)
-  const still = useReducedMotion()
-  if (was.current !== open) {
-    was.current = open
-    turned.current = performance.now()
-    keyed.current = byKeys()
-    if (open && gone) setGone(false)
-  }
-  // Read before the first frame shows it, so the fold opens to the right height.
-  // Not as it first comes in: open from the start it is its own height ('auto'),
-  // and measured then it laid out the whole page in the middle of drawing it
-  // (a note's first frame); its observer reads its height before that frame paints.
-  const mounted = useRef(false)
-  useLayoutEffect(() => {
-    if (!mounted.current) return void (mounted.current = true)
-    if (inner.current) setHeight(inner.current.offsetHeight)
-  }, [open, gone])
-  useEffect(() => {
-    const el = inner.current
-    if (!el) return
-    const sized = new ResizeObserver(() => setHeight(el.offsetHeight))
-    sized.observe(el)
-    return () => sized.disconnect()
-  }, [])
-  const own = performance.now() - turned.current < 250
-  const travel: Transition = !own || still || keyed.current ? { duration: 0 } : open ? spring.fast : { type: 'tween', ...spring.fast.exit }
   return (
-    // A height on purpose, not a clip or a scale: what sits under a fold has
-    // to move with it, and only a height carries it without the page jumping
-    // when the fold ends. It is short (80ms, a few rows), and goes at once
-    // from the keys or with Reduce motion.
-    <motion.div
-      initial={false}
-      // Cut only along the edge that folds, so what hangs off a side (the
-      // sidebar's branches, drawn in the margin) still shows.
-      className={cn('[clip-path:inset(-100vh_-100vw_0_-100vw)]', className)}
-      animate={{ height: open ? (height ?? 'auto') : 0, opacity: open ? 1 : 0 }}
-      transition={{ height: travel, opacity: { duration: keyed.current ? 0 : open ? spring.fast.exit.duration : 0.04 } }}
-      onAnimationComplete={() => void (!open && setGone(true))}
-      inert={!open}
-    >
-      <div ref={inner}>{!gone && children}</div>
-    </motion.div>
+    <div className={className} inert={!open}>
+      {open && children}
+    </div>
   )
 }

@@ -145,7 +145,8 @@ async function sideTurn(name, button, measure) {
   const downs = steps.filter((d) => d > 0).length
   const slow = frames.slice(2).filter((one) => one.dt > 40)
   if (process.env.FRAMES) console.log(JSON.stringify(frames.map((one) => one.under)))
-  check(`${name}: it moves one way only, in more than one step`, (ups === 0 || downs === 0) && steps.length > 1, `${ups} up, ${downs} down`)
+  // Instant, as asked: one step, no slide (qa/fold-instant.mjs checks it lands in the first frame).
+  check(`${name}: it moves one way only, in one step`, steps.length === 1, `${ups} up, ${downs} down`)
   console.log(`      frames over 40ms: ${slow.map((one) => one.dt).join(', ') || 'none'}`)
 }
 const gemsTop = `document.querySelector('aside [data-side-row][aria-label="Gems"]')?.getBoundingClientRect().top`
