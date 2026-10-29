@@ -582,3 +582,31 @@ $mf-themes: (
 :root[data-highlights="rich"]:not([data-light]) {
   --mf-highlight-weight: 70%;
 }
+
+/* A chip's words on its own colour (a tag, a lit word), set by lightness so
+   they always read (4.5:1, qa/chip-contrast.mjs). "Soft": the colour's wash,
+   its words the colour made dark (a light page) or light (a dark one). "Rich":
+   the colour itself, solid and mid-dark, its words near white, in every theme. */
+:root {
+  --mf-chip-ink-l: 0.4;
+  --mf-chip-ink-c: 0.14;
+  @each $name in ("gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red") {
+    --mf-chip-bg-#{$name}: var(--tt-color-highlight-#{$name});
+    --mf-chip-ink-#{$name}: oklch(from var(--tt-color-text-#{$name}) var(--mf-chip-ink-l) min(c, var(--mf-chip-ink-c)) h);
+  }
+}
+:root:not([data-light]) {
+  --mf-chip-ink-l: 0.97;
+  --mf-chip-ink-c: 0.06;
+  /* A softer wash than a highlight's on a dark page: bright theme colours (Dracula's yellow) left near-white words too little to stand off. */
+  @each $name in ("gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red") {
+    --mf-chip-bg-#{$name}: color-mix(in srgb, var(--tt-color-text-#{$name}) 30%, transparent);
+  }
+}
+/* After the dark page's softer wash, so "Rich" stays solid there too. */
+:root[data-highlights="rich"] {
+  @each $name in ("gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red") {
+    --mf-chip-bg-#{$name}: oklch(from var(--tt-color-text-#{$name}) 0.46 min(c, 0.16) h);
+    --mf-chip-ink-#{$name}: oklch(0.98 0 0);
+  }
+}

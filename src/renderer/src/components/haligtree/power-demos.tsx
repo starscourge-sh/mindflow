@@ -97,7 +97,7 @@ const Row = ({ children, className = '', style }: { children: ReactNode; classNa
 )
 const Chip = ({ children, tint, className = '' }: { children: ReactNode; tint?: string; className?: string }): React.JSX.Element => (
   <span className={`inline-flex h-5 shrink-0 items-center gap-1 rounded-full px-2 text-meta whitespace-nowrap ${className}`}
-    style={{ background: tint ? `var(--tt-color-highlight-${tint})` : 'color-mix(in oklab, var(--foreground) 7%, transparent)', color: tint ? `var(--tt-color-text-${tint})` : 'var(--muted-foreground)' }}>{children}</span>
+    style={{ background: tint ? `var(--mf-chip-bg-${tint})` : 'color-mix(in oklab, var(--foreground) 7%, transparent)', color: tint ? `var(--mf-chip-ink-${tint})` : 'var(--muted-foreground)' }}>{children}</span>
 )
 const Line = ({ w, className = '' }: { w: string; className?: string }): React.JSX.Element => <span className={`block h-1.5 rounded-full bg-foreground/12 ${className}`} style={{ width: w }} />
 const rise = { initial: { opacity: 0, transform: 'translateY(6px)' }, animate: { opacity: 1, transform: 'translateY(0px)' }, exit: { opacity: 0, transform: 'translateY(-4px)' }, transition: { duration: 0.32, ease: EASE } }

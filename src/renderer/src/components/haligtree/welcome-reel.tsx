@@ -226,7 +226,7 @@ export function Stage({ box }: { box: Box }): React.JSX.Element {
       {/* Under the writing: only what Haligtree read, once it has read it. */}
       <div className="flex min-h-[2.6rem] flex-wrap items-center gap-1.5 px-7 py-2">
         {box.date && !box.fold && (
-          <motion.span layoutId="reel-date" {...lift} className={DATE_PILL} style={{ background: 'var(--tt-color-highlight-blue)', color: 'var(--tt-color-text-blue)' }}>
+          <motion.span layoutId="reel-date" {...lift} className={DATE_PILL} style={{ background: 'var(--mf-chip-bg-blue)', color: 'var(--mf-chip-ink-blue)' }}>
             <CalendarDays className="size-3" />{box.date}
           </motion.span>
         )}

@@ -100,7 +100,7 @@ const slug = (text: string): string => text.toLowerCase().replace(/\W+/g, '-')
 
 /** The soft tick: done, said quietly. */
 const Tick = (): React.JSX.Element => (
-  <span className="flex size-4 shrink-0 items-center justify-center rounded-full" style={{ background: 'var(--tt-color-highlight-green)', color: 'var(--tt-color-text-green)' }}>
+  <span className="flex size-4 shrink-0 items-center justify-center rounded-full" style={{ background: 'var(--mf-chip-bg-green)', color: 'var(--mf-chip-ink-green)' }}>
     <Check className="size-2.5" strokeWidth={3.5} />
   </span>
 )

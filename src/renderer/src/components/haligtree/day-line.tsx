@@ -52,8 +52,8 @@ export function lineOf(doc: PMNode): { text: string; link?: AtLink; at: number[]
 const wordLook = (span: { kind: keyof typeof TINT; guess?: unknown }): React.CSSProperties & Record<string, string> => {
   const tint = TINT[span.kind]
   return {
-    background: `var(--tt-color-highlight-${tint})`,
-    color: `var(--tt-color-text-${tint})`,
+    background: `var(--mf-chip-bg-${tint})`,
+    color: `var(--mf-chip-ink-${tint})`,
     ...(span.guess ? { outline: '1px dashed currentColor', outlineOffset: '-1px' } : {})
   }
 }

@@ -14,7 +14,7 @@ export function TagChip({ tag, color, className = '', children }: { tag: string;
   const hue = tagHue(tag, color)
   return (
     <span data-tag-chip={tag} className={`flex items-center gap-0.5 rounded-full py-0.5 pr-1 pl-2 ${className}`}
-      style={{ background: `var(--tt-color-highlight-${hue})`, color: `var(--tt-color-text-${hue})` }}>
+      style={{ background: `var(--mf-chip-bg-${hue})`, color: `var(--mf-chip-ink-${hue})` }}>
       #{tag}
       {children}
     </span>

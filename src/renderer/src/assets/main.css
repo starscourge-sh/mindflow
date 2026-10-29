@@ -1967,15 +1967,15 @@ html[data-drag-refused], html[data-drag-refused] * { cursor: not-allowed !import
 .box-token:hover { filter: saturate(1.25) brightness(0.97); }
 /* A date read as a guess: a dashed ring, so it never passes for a sure one. */
 .box-token[data-guess] { box-shadow: inset 0 0 0 1px transparent; outline: 1px dashed color-mix(in srgb, var(--token-ink) 75%, transparent); outline-offset: -1px; }
-.box-token[data-token-color="gray"] { --token-tint: var(--tt-color-highlight-gray); --token-ink: var(--tt-color-text-gray); }
-.box-token[data-token-color="brown"] { --token-tint: var(--tt-color-highlight-brown); --token-ink: var(--tt-color-text-brown); }
-.box-token[data-token-color="orange"] { --token-tint: var(--tt-color-highlight-orange); --token-ink: var(--tt-color-text-orange); }
-.box-token[data-token-color="yellow"] { --token-tint: var(--tt-color-highlight-yellow); --token-ink: var(--tt-color-text-yellow); }
-.box-token[data-token-color="green"] { --token-tint: var(--tt-color-highlight-green); --token-ink: var(--tt-color-text-green); }
-.box-token[data-token-color="blue"] { --token-tint: var(--tt-color-highlight-blue); --token-ink: var(--tt-color-text-blue); }
-.box-token[data-token-color="purple"] { --token-tint: var(--tt-color-highlight-purple); --token-ink: var(--tt-color-text-purple); }
-.box-token[data-token-color="pink"] { --token-tint: var(--tt-color-highlight-pink); --token-ink: var(--tt-color-text-pink); }
-.box-token[data-token-color="red"] { --token-tint: var(--tt-color-highlight-red); --token-ink: var(--tt-color-text-red); }
+.box-token[data-token-color="gray"] { --token-tint: var(--mf-chip-bg-gray); --token-ink: var(--mf-chip-ink-gray); }
+.box-token[data-token-color="brown"] { --token-tint: var(--mf-chip-bg-brown); --token-ink: var(--mf-chip-ink-brown); }
+.box-token[data-token-color="orange"] { --token-tint: var(--mf-chip-bg-orange); --token-ink: var(--mf-chip-ink-orange); }
+.box-token[data-token-color="yellow"] { --token-tint: var(--mf-chip-bg-yellow); --token-ink: var(--mf-chip-ink-yellow); }
+.box-token[data-token-color="green"] { --token-tint: var(--mf-chip-bg-green); --token-ink: var(--mf-chip-ink-green); }
+.box-token[data-token-color="blue"] { --token-tint: var(--mf-chip-bg-blue); --token-ink: var(--mf-chip-ink-blue); }
+.box-token[data-token-color="purple"] { --token-tint: var(--mf-chip-bg-purple); --token-ink: var(--mf-chip-ink-purple); }
+.box-token[data-token-color="pink"] { --token-tint: var(--mf-chip-bg-pink); --token-ink: var(--mf-chip-ink-pink); }
+.box-token[data-token-color="red"] { --token-tint: var(--mf-chip-bg-red); --token-ink: var(--mf-chip-ink-red); }
 /* A tag that does something is lit for what it does, not in its own tag colour as well. */
 .box-token .tiptap-token, .tiptap-token:has(> .box-token) { background-color: transparent !important; padding: 0; }
 

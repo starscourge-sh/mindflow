@@ -121,7 +121,7 @@ export function TaskChips({ read }: { read: ReadTask | null }): React.JSX.Elemen
             data-guess={chip.guess ? 'true' : undefined}
             title={chip.guess ? `A guess: ${chip.guess.replace(/^Read/, 'read')}` : undefined}
             className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs whitespace-nowrap"
-            style={{ background: `var(--tt-color-highlight-${chip.tint})`, color: `var(--tt-color-text-${chip.tint})`, ...(chip.guess && { outline: '1px dashed currentColor', outlineOffset: -1 }) }}
+            style={{ background: `var(--mf-chip-bg-${chip.tint})`, color: `var(--mf-chip-ink-${chip.tint})`, ...(chip.guess && { outline: '1px dashed currentColor', outlineOffset: -1 }) }}
           >
             {chip.icon}
             <Rolling text={chip.guess ? `${chip.label}?` : chip.label} by="word" />
@@ -203,7 +203,7 @@ export function TaskInput({ value, onChange, inputRef, placeholder, className = 
   for (const span of spans) {
     if (span.from < cut) continue
     pieces.push(value.slice(cut, span.from))
-    pieces.push(<mark key={span.from} className="rounded-sm text-inherit" style={{ background: `var(--tt-color-highlight-${span.tint})`, color: `var(--tt-color-text-${span.tint})`, ...(span.guess && { outline: '1px dashed currentColor', outlineOffset: -1 }) }}>{value.slice(span.from, span.to)}</mark>)
+    pieces.push(<mark key={span.from} className="rounded-sm text-inherit" style={{ background: `var(--mf-chip-bg-${span.tint})`, color: `var(--mf-chip-ink-${span.tint})`, ...(span.guess && { outline: '1px dashed currentColor', outlineOffset: -1 }) }}>{value.slice(span.from, span.to)}</mark>)
     cut = span.to
   }
   pieces.push(value.slice(cut))

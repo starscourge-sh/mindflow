@@ -180,7 +180,7 @@ const setReminder = (task: Pick<Task, 'id' | 'notify'>, level: Task['notify']): 
 /** How long a task should take, from "~30m": a small grey chip after its name. */
 export function LengthChip({ minutes }: { minutes: number }): React.JSX.Element {
   return (
-    <span data-length-chip className="shrink-0 rounded-md px-1.5 py-px text-xs tabular-nums" style={{ background: 'var(--tt-color-highlight-gray)', color: 'var(--tt-color-text-gray)' }}>
+    <span data-length-chip className="shrink-0 rounded-md px-1.5 py-px text-xs tabular-nums" style={{ background: 'var(--mf-chip-bg-gray)', color: 'var(--mf-chip-ink-gray)' }}>
       ~{hoursSaid(minutes)}
     </span>
   )
@@ -190,7 +190,7 @@ export function LengthChip({ minutes }: { minutes: number }): React.JSX.Element 
 export function FrogChip(): React.JSX.Element {
   return (
     <Tip label="Picked to do first today">
-      <span data-frog className="shrink-0 rounded-md px-1.5 py-px text-xs font-semibold" style={{ background: 'var(--tt-color-highlight-green)', color: 'var(--tt-color-text-green)' }}>
+      <span data-frog className="shrink-0 rounded-md px-1.5 py-px text-xs font-semibold" style={{ background: 'var(--mf-chip-bg-green)', color: 'var(--mf-chip-ink-green)' }}>
         One big thing
       </span>
     </Tip>
