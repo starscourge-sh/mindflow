@@ -43,6 +43,9 @@ export function setAppMenu(acts: MenuActs): void {
           label: acts.name,
           submenu: [
             { role: 'about' as const, label: `About ${acts.name}` },
+            // The welcome's goodbye and What Haligtree can do say both wait here, as in ⌘K.
+            { label: "What's new", click: () => acts.inHome('haligtree:whats-new') },
+            { label: 'Show the welcome again', click: () => acts.inHome('haligtree:welcome') },
             { type: 'separator' as const },
             { label: 'Settings…', ...shown('Command+,'), click: () => acts.view('settings') },
             { type: 'separator' as const },

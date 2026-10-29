@@ -215,7 +215,7 @@ export const POWERS: Power[] = [
     show: { view: 'inbox', at: ROW, text: 'Press ⌥⌘S, and again to come back.' } },
   { id: 'notch', group: 'Windows', name: 'The bubble in the notch', tryIt: 'In Settings, set “Bubble sits” to “Under the notch”.', line: 'On a Mac with a notch, the session bubble can sit tucked around it, the time beside it, and open when you point at it.',
     show: { view: 'settings', settings: 'Appearance', find: 'Bubble sits', at: '[data-setting]', text: 'Choose “Under the notch”. On a Mac without one, the bubble stays where you put it.' } },
-  { id: 'news', group: 'Windows', name: 'What’s new', tryIt: 'Press ⌘K and choose “What’s new”.', line: 'After an update, Home shows what changed once, each with a “Show me”; ⌘K and the menu bar open the whole list any time.', keys: ['⌘K'],
+  { id: 'news', group: 'Windows', name: 'What’s new', tryIt: 'Press ⌘K and choose “What’s new”.', line: `After an update, Home shows what changed once, each with a “Show me”; ⌘K and the ${APP_NAME} menu open the whole list any time.`, keys: ['⌘K'],
     show: { view: 'day', text: 'Press ⌘K and choose “What’s new”.' } },
   { id: 'bin', group: 'Windows', name: 'One Bin, with Restore', tryIt: 'Press G D.', line: 'Captures, tasks closed without doing and notes you move to the Bin wait in one place, each with “Restore”, until you hold to empty it.', keys: ['G D'],
     show: { view: 'discarded', at: '[data-bin]', text: '“Restore” brings one back; “Hold to empty” lets them all go for good.' } },
