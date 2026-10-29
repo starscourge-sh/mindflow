@@ -2347,11 +2347,14 @@ html[data-book-hue] [data-book-tint] {
 /* The page's outline, in the room, at the window's right edge: inside the column it stood over the words. */
 [data-room] .tiptap-toc { position: fixed; right: max(1rem, env(safe-area-inset-right, 0px)); }
 /* The focus band (writer-tools.tsx): all but the sentence or paragraph you
-   are on fades back into the page. */
-.tiptap.ProseMirror[data-focus-band] > * { color: color-mix(in oklab, var(--foreground) 30%, transparent); transition: color 260ms ease-out; }
-.tiptap.ProseMirror[data-focus-band] .mf-in-focus,
-.tiptap.ProseMirror[data-focus-band='paragraph'] > .mf-in-focus { color: var(--foreground); }
-@media (prefers-reduced-motion: reduce) { .tiptap.ProseMirror[data-focus-band] > * { transition: none; } }
+   are on fades back into the page, every kind of block alike: faded with opacity, so a code block, a heading or a
+   bold lead line with a colour of its own fades the same as a paragraph. */
+.tiptap.ProseMirror[data-focus-band] > *,
+.tiptap.ProseMirror[data-focus-band] .mf-out-focus { transition: opacity 260ms ease-out; }
+.tiptap.ProseMirror[data-focus-band] .mf-out-focus { opacity: 0.3; }
+.tiptap.ProseMirror[data-focus-band] .mf-out-marker::marker { color: color-mix(in oklab, currentColor 30%, transparent); }
+.tiptap.ProseMirror[data-focus-band] .mf-out-marker > label { opacity: 0.3; }
+@media (prefers-reduced-motion: reduce) { .tiptap.ProseMirror[data-focus-band] > *, .tiptap.ProseMirror[data-focus-band] .mf-out-focus { transition: none; } }
 
 /* Grammar and style (proofread.tsx): a straight dotted line in a cool hue of its own, never the spellchecker's wavy
    one, and the words Proofread is on, lit softly. */

@@ -43,22 +43,57 @@ const sentenceAt = (text: string, at: number): [number, number] => {
   const next = /[.!?…]["'’”)]*(\s|$)/.exec(text.slice(at))
   return [from, next ? at + next.index + next[0].trimEnd().length : text.length]
 }
+/**
+ * What is lit: the sentence with the caret, or its block (a list item when it is in a list, else the whole block,
+ * whatever kind: a heading, a code block, a quote, a table, a picture). Everything else is faded with opacity, never
+ * a text colour: code blocks, headings and bold lead lines carry colours of their own and stayed bright under one.
+ * Blocks wholly outside are faded whole; inside the block that holds the lit part, the words around it are faded,
+ * and so are the list markers and pictures there.
+ */
 const focusPlugin = (focus: Exclude<Focus, 'off'>): Plugin => new Plugin({
   key: band,
   props: {
     attributes: { 'data-focus-band': focus },
     decorations: (state) => {
+      const { doc } = state
       const { $head } = state.selection
       if ($head.depth < 1) return null
-      if (focus === 'paragraph') {
-        const at = $head.before(1)
-        const node = state.doc.nodeAt(at)
-        return node ? DecorationSet.create(state.doc, [Decoration.node(at, at + node.nodeSize, { class: 'mf-in-focus' })]) : null
+      const top = $head.before(1)
+      const topNode = doc.nodeAt(top)
+      if (!topNode) return null
+      const topEnd = top + topNode.nodeSize
+      let from = top
+      let to = topEnd
+      const lit: Decoration[] = []
+      if (focus === 'sentence' && $head.parent.isTextblock) {
+        // One character for each inline leaf, so offsets in the text are offsets in the block.
+        const [a, z] = sentenceAt($head.parent.textBetween(0, $head.parent.content.size, undefined, '￼'), $head.parentOffset)
+        from = $head.start() + a
+        to = $head.start() + Math.max(a + 1, z)
+        lit.push(Decoration.inline(from, to, { class: 'mf-in-focus' }))
+      } else {
+        // In a list, the item the caret is in; anywhere else, the block.
+        for (let depth = $head.depth; depth > 1; depth--) {
+          if (/item/i.test($head.node(depth).type.name)) { from = $head.before(depth); to = $head.after(depth); break }
+        }
+        lit.push(Decoration.node(from, to, { class: 'mf-in-focus' }))
       }
-      if (!$head.parent.isTextblock) return null
-      // One character for each inline leaf, so offsets in the text are offsets in the block.
-      const [from, to] = sentenceAt($head.parent.textBetween(0, $head.parent.content.size, undefined, '￼'), $head.parentOffset)
-      return DecorationSet.create(state.doc, [Decoration.inline($head.start() + from, $head.start() + Math.max(from + 1, to), { class: 'mf-in-focus' })])
+      const out: Decoration[] = []
+      doc.forEach((node, at) => { if (at !== top) out.push(Decoration.node(at, at + node.nodeSize, { class: 'mf-out-focus' })) })
+      if (from > top || to < topEnd) {
+        for (const [a, z] of [[top + 1, from], [to, topEnd - 1]]) if (z > a) out.push(Decoration.inline(a, z, { class: 'mf-out-focus' }))
+        topNode.descendants((node, offset) => {
+          const at = top + 1 + offset
+          const end = at + node.nodeSize
+          if (end <= from || at >= to) {
+            // A list item or a picture wholly outside the lit part: its marker or its image fades too.
+            if (/item/i.test(node.type.name)) out.push(Decoration.node(at, end, { class: 'mf-out-marker' }))
+            else if (node.isAtom && !node.isText) out.push(Decoration.node(at, end, { class: 'mf-out-focus' }))
+          }
+          return true
+        })
+      }
+      return DecorationSet.create(doc, [...out, ...lit])
     }
   }
 })

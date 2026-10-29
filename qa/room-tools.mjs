@@ -22,7 +22,16 @@ const inRoom = () => h.evaluate(() => !!document.querySelector('[data-room]'))
 try {
   await v('settings:set', { sounds: false, hintRate: 0 })
   const today = new Date().toLocaleDateString('en-CA')
-  await v('notes:day:save', today, { body: { type: 'doc', content: [para('The morning was grey. I walked to teh river and back.')] } })
+  const block = (type, content, attrs) => ({ type, ...(attrs ? { attrs } : {}), content })
+  const item = (text) => block('listItem', [para(text)])
+  await v('notes:day:save', today, { body: { type: 'doc', content: [
+    para('The morning was grey. I walked to teh river and back.'),
+    block('heading', [{ type: 'text', text: 'A heading here' }], { level: 2 }),
+    block('codeBlock', [{ type: 'text', text: 'const river = 1' }]),
+    block('bulletList', [item('First item in the list'), item('Second item in the list')]),
+    block('blockquote', [para('A quote set apart')]),
+    para('Last plain line. Its second sentence.')
+  ] } })
   await go('day')
   await wait(800)
   await h.click('[data-room-open]')
@@ -77,6 +86,40 @@ try {
     await h.screenshot({ path: `${shots}/room-foot-dark.png` })
     await h.evaluate(() => (document.documentElement.className = ''))
   }
+
+  // d. The focus band fades every kind of block alike, and lights whichever kind the caret is in.
+  /** How bright each block's words are on screen: every opacity from the words up to the page, multiplied. */
+  const lit = () => h.evaluate(() => {
+    const root = document.querySelector('[data-room] .tiptap')
+    const seen = (sel) => { const one = root.querySelector(sel); if (!one) return null; const walk = document.createTreeWalker(one, NodeFilter.SHOW_TEXT); const text = walk.nextNode(); let at = text?.parentElement ?? one; let o = 1; while (at && at !== root.parentElement) { o *= Number(getComputedStyle(at).opacity); at = at.parentElement } return Math.round(o * 100) / 100 }
+    return { para: seen(':scope > p'), heading: seen('h2'), code: seen('pre'), first: seen('li:first-child'), second: seen('li:last-child'), quote: seen('blockquote'), last: seen(':scope > p:last-of-type') }
+  })
+  await h.click('[data-writer-tools] [data-focus="paragraph"]')
+  await h.click('[data-room] li:last-child p')
+  await wait(500)
+  const inList = await lit()
+  check('d. Focus on the paragraph, in a list: only that item is lit', inList.second === 1 && [inList.para, inList.heading, inList.code, inList.first, inList.quote, inList.last].every((o) => o <= 0.3), JSON.stringify(inList))
+  await h.click('[data-room] pre')
+  await wait(500)
+  const inCode = await lit()
+  check('d. in a code block: the code block is lit, the heading faded', inCode.code === 1 && inCode.heading <= 0.3 && inCode.second <= 0.3, JSON.stringify(inCode))
+  if (shots) {
+    await h.evaluate(() => (document.documentElement.className = 'dark'))
+    await wait(400)
+    await h.screenshot({ path: `${shots}/room-band-dark.png` })
+    await h.evaluate(() => (document.documentElement.className = ''))
+  }
+  await h.click('[data-writer-tools] [data-focus="sentence"]')
+  await h.click('[data-room] h2')
+  await wait(500)
+  const inHeading = await lit()
+  check('d. Focus on the sentence, in a heading: the heading is lit, the code faded', inHeading.heading === 1 && inHeading.code <= 0.3 && inHeading.para <= 0.3, JSON.stringify(inHeading))
+  await h.click('[data-room] li:first-child p')
+  await wait(500)
+  const inItem = await lit()
+  check('d. and in a list item: that sentence lit, the next item faded', inItem.first === 1 && inItem.second <= 0.3, JSON.stringify(inItem))
+  await h.click('[data-writer-tools] [data-focus="sentence"]')
+  await wait(300)
 
   // c. Vim: Esc goes to normal mode first, then leaves.
   await h.evaluate(() => { localStorage.setItem('vim', 'on'); window.dispatchEvent(new StorageEvent('storage', { key: 'vim', newValue: 'on' })) })

@@ -78,11 +78,11 @@ try {
   const band = () => h.evaluate(() => {
     const words = document.querySelector('[data-room] .tiptap')
     const lit = words.querySelector('.mf-in-focus')
-    return { mode: words.getAttribute('data-focus-band'), lit: lit?.textContent ?? null, litColor: lit && getComputedStyle(lit).color, restColor: getComputedStyle(words.firstElementChild).color }
+    return { mode: words.getAttribute('data-focus-band'), lit: lit?.textContent ?? null, litColor: lit && getComputedStyle(lit).opacity, restColor: getComputedStyle(words.querySelector('.mf-out-focus') ?? words.firstElementChild).opacity }
   })
   const sentence = await band()
   check('2. Focus on the sentence: only the last sentence is lit', sentence.mode === 'sentence' && sentence.lit === 'It was quietly lovely, really lovely.', JSON.stringify(sentence))
-  check('2. and the rest fades back', sentence.litColor !== sentence.restColor, JSON.stringify(sentence))
+  check('2. and the rest fades back', sentence.litColor === '1' && Number(sentence.restColor) < 0.5, JSON.stringify(sentence))
   await h.click('[data-writer-tools] [data-focus="paragraph"]')
   await h.evaluate(() => document.querySelector('[data-room] .tiptap')?.focus())
   await wait(300)
