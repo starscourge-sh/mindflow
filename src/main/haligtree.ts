@@ -2421,24 +2421,26 @@ export function registerHaligtree(): void {
   // (glosses, kept by the same 'clue' channel), never reviewed, never rotting.
   // It ends when you say how it went: made it, missed, or let go.
   const isDay = (day: unknown): day is string => typeof day === 'string' && /^\d{4}-\d\d-\d\d$/.test(day)
-  handle('goal:new', (title: string, target: string, from?: string | null, why?: string | null) => {
-    if (!isDay(target)) return null
+  // A null `target` is a someday goal: on the life list, no day to it, no countdown.
+  handle('goal:new', (title: string, target: string | null, from?: string | null, why?: string | null) => {
+    if (target !== null && !isDay(target)) return null
     const start = isDay(from) ? from : dayKey()
     const id = randomUUID()
     db.prepare("insert into nuggets (id, tier, kind, title, body, why, goal_at, goal_from, goal_color, created_at, updated_at) values (?, 'goal', 'note', ?, 'null', ?, ?, ?, ?, ?, ?)")
-      .run(id, cut(String(title ?? '').trim(), 300) || 'Untitled', why?.trim() || null, target, start > target ? target : start, freeGoalColor(), now(), now())
+      .run(id, cut(String(title ?? '').trim(), 300) || 'Untitled', why?.trim() || null, target, target && start > target ? target : start, freeGoalColor(), now(), now())
     goalPassed(id)
     goalsTold()
     return write(id)
   })
   // Its dates moved: the start never after the target. Milestones it has
   // already passed on the new dates are marked, so none floods in.
-  handle('goal:dates', (id: string, dates: { target?: string; from?: string }) => {
-    const row = db.prepare("select goal_at, goal_from from nuggets where id = ? and tier = 'goal'").get(id) as { goal_at: string; goal_from: string } | undefined
+  // `target: null` takes its day away: a someday goal. One given a day starts its road today.
+  handle('goal:dates', (id: string, dates: { target?: string | null; from?: string }) => {
+    const row = db.prepare("select goal_at, goal_from from nuggets where id = ? and tier = 'goal'").get(id) as { goal_at: string | null; goal_from: string | null } | undefined
     if (!row) return null
-    const target = isDay(dates.target) ? dates.target : row.goal_at
-    const from = isDay(dates.from) ? dates.from : row.goal_from
-    db.prepare('update nuggets set goal_at = ?, goal_from = ?, updated_at = ? where id = ?').run(target, from > target ? target : from, now(), id)
+    const target = dates.target === null ? null : isDay(dates.target) ? dates.target : row.goal_at
+    const from = isDay(dates.from) ? dates.from : !row.goal_at && target ? dayKey() : row.goal_from ?? dayKey()
+    db.prepare('update nuggets set goal_at = ?, goal_from = ?, updated_at = ? where id = ?').run(target, target && from > target ? target : from, now(), id)
     goalPassed(id)
     goalsTold()
     return write(true)
@@ -2455,10 +2457,11 @@ export function registerHaligtree(): void {
   // Off ice: open again, its day moved out by the days it was on ice, so the
   // pause cost it none. Gives back the days moved and the day it was for, for Undo.
   handle('goal:thaw', (id: string) => {
-    const row = db.prepare("select goal_at, closed_at from nuggets where id = ? and tier = 'goal' and closed_how = 'on ice'").get(id) as { goal_at: string; closed_at: string } | undefined
+    const row = db.prepare("select goal_at, closed_at from nuggets where id = ? and tier = 'goal' and closed_how = 'on ice'").get(id) as { goal_at: string | null; closed_at: string } | undefined
     if (!row) return null
-    const days = Math.max(0, daysBetween(dayKey(row.closed_at), dayKey()))
-    const target = dayKey(noon(row.goal_at).add(days, 'day').toDate())
+    // A someday goal has no day to move: it is simply open again.
+    const days = row.goal_at ? Math.max(0, daysBetween(dayKey(row.closed_at), dayKey())) : 0
+    const target = row.goal_at && dayKey(noon(row.goal_at).add(days, 'day').toDate())
     db.prepare('update nuggets set closed_at = null, closed_how = null, goal_at = ?, updated_at = ? where id = ?').run(target, now(), id)
     goalPassed(id)
     goalsTold()

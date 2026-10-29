@@ -147,7 +147,10 @@ export const exampleGoals = (): Item[] => [
   item(1, { tier: 'goal', title: 'Read twelve classics this year', goalFrom: dayKey(-120), goalAt: dayKey(80), clues: 7 }),
   item(2, { tier: 'goal', title: 'Learn the Hamlet soliloquy by heart', goalFrom: dayKey(-10), goalAt: dayKey(20), clues: 2 }),
   item(3, { tier: 'goal', title: 'Finish the first draft of the essay', goalFrom: dayKey(-30), goalAt: dayKey(6), clues: 4 }),
-  item(4, { tier: 'goal', title: 'Watch all three Lord of the Rings, extended editions', goalFrom: dayKey(-150), goalAt: dayKey(-20), clues: 9, closedAt: at(-20), closedHow: 'made it' })
+  item(4, { tier: 'goal', title: 'Watch all three Lord of the Rings, extended editions', goalFrom: dayKey(-150), goalAt: dayKey(-20), clues: 9, closedAt: at(-20), closedHow: 'made it' }),
+  // Someday goals: the life list, no day to them.
+  item(5, { tier: 'goal', title: 'Visit Hobbiton', goalFrom: dayKey(-200), clues: 1, lastLog: at(-40) }),
+  item(6, { tier: 'goal', title: 'Take my parents to Victoria Falls', goalFrom: dayKey(-90) })
 ]
 
 // --- tags, stats, the map

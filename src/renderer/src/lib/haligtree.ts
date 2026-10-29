@@ -334,10 +334,10 @@ export const haligtree = {
   closeQuestion: (id: string, how: 'answered' | 'let go', again = false, at?: string | null) => call<{ article: string | null } | null>('question:close', id, how, again, at),
   reopenQuestion: (id: string, article?: string | null) => call('question:reopen', id, article),
   /** A goal: its name, the day it is for, the day it was set (today if not said) and why it matters. `dropGoal` takes it back. */
-  newGoal: (title: string, target: string, from?: string | null, why?: string | null) => call<string | null>('goal:new', title, target, from, why),
-  goalDates: (id: string, dates: { target?: string; from?: string }) => call<boolean | null>('goal:dates', id, dates),
+  newGoal: (title: string, target: string | null, from?: string | null, why?: string | null) => call<string | null>('goal:new', title, target, from, why),
+  goalDates: (id: string, dates: { target?: string | null; from?: string }) => call<boolean | null>('goal:dates', id, dates),
   closeGoal: (id: string, how: 'made it' | 'missed' | 'let go' | 'on ice', at?: string | null) => call<boolean | null>('goal:close', id, how, at),
-  thawGoal: (id: string) => call<{ days: number; was: string; iced: string } | null>('goal:thaw', id),
+  thawGoal: (id: string) => call<{ days: number; was: string | null; iced: string } | null>('goal:thaw', id),
   reopenGoal: (id: string) => call<boolean>('goal:reopen', id),
   dropGoal: (id: string) => call<boolean>('goal:drop', id),
   /** How often a goal's beacon shows; null follows Settings. */

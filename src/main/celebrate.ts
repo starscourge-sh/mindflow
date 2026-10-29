@@ -261,9 +261,10 @@ function goalSteps(): Moment | null {
 /** A goal made: once a goal, and not when an undo puts it back. */
 function madeIt(id: unknown): Moment | null {
   if (typeof id !== 'string' || fired(`goal:${id}:made`)) return null
-  const row = database().prepare("select title, private from nuggets where id = ? and tier = 'goal' and closed_how = 'made it'").get(id) as { title: string; private: number } | undefined
+  const row = database().prepare("select title, private, goal_at as goalAt from nuggets where id = ? and tier = 'goal' and closed_how = 'made it'").get(id) as { title: string; private: number; goalAt: string | null } | undefined
   if (!row) return null
-  return { id: `goal:${id}:made`, kind: 'goalMade', rank: 80, headline: 'You made it', line: named(row), mark: '✓', tint: TINT.green }
+  // A someday goal is a line on a life list: crossed off rather than reached by a day.
+  return { id: `goal:${id}:made`, kind: 'goalMade', rank: 80, headline: row.goalAt ? 'You made it' : 'Crossed off your list', line: named(row), mark: '✓', tint: TINT.green }
 }
 
 /**
@@ -273,10 +274,11 @@ function madeIt(id: unknown): Moment | null {
  */
 export function goalPassed(id: string): void {
   try {
-    const goal = database().prepare("select goal_at as goalAt, goal_from as goalFrom from nuggets where id = ? and tier = 'goal'").get(id) as { goalAt: string; goalFrom: string } | undefined
-    if (!goal) return
+    const goal = database().prepare("select goal_at as goalAt, goal_from as goalFrom from nuggets where id = ? and tier = 'goal'").get(id) as { goalAt: string | null; goalFrom: string } | undefined
+    // A someday goal has no road, so no steps along it.
+    if (!goal?.goalAt) return
     const mark = database().prepare("insert or ignore into celebrations (id, at) values (?, '1970-01-01T00:00:00.000Z')")
-    for (const step of stepsReached(goal)) mark.run(`goal:${id}:${step}`)
+    for (const step of stepsReached({ goalAt: goal.goalAt, goalFrom: goal.goalFrom })) mark.run(`goal:${id}:${step}`)
   } catch {
     // A milestone is never worth a failed save.
   }
