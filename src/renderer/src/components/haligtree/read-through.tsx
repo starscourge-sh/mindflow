@@ -567,18 +567,20 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
         return openGloss(composerFor)
       }
       if (event.metaKey || event.ctrlKey || event.altKey) return
+      // A letter is the same key with ⇧ or without: the list writes them as capitals (E, J, L).
+      const letter = event.key.length === 1 ? event.key.toLowerCase() : event.key
       // A question asked over the page (who said it?) has the keys.
       if (document.querySelector('[role="dialog"]:not([aria-label="Reading"])')) return
       // The queue's own: ] the next one, ⇧→ this one read and the next, O a link's page.
-      if (queue && ((event.key === 'ArrowRight' && event.shiftKey) || event.key === ']' || (event.key === 'o' && queue[at]?.url))) {
+      if (queue && ((event.key === 'ArrowRight' && event.shiftKey) || event.key === ']' || (letter === 'o' && queue[at]?.url))) {
         event.preventDefault()
         event.stopPropagation()
         if (event.key === ']') return upNext.skip()
-        if (event.key === 'o') return upNext.open()
+        if (letter === 'o') return upNext.open()
         return upNext.done()
       }
-      const next = event.key === 'j' || event.key === 'ArrowDown' || event.key === 'ArrowRight' || event.key === ' '
-      const back = event.key === 'k' || event.key === 'ArrowUp' || event.key === 'ArrowLeft'
+      const next = letter === 'j' || event.key === 'ArrowDown' || event.key === 'ArrowRight' || event.key === ' '
+      const back = letter === 'k' || event.key === 'ArrowUp' || event.key === 'ArrowLeft'
       // Every plain key is Read's while it is open: none reaches the list
       // or the note underneath, where a stray letter would act or type.
       if (event.key.length === 1 || next || back || event.key === 'Escape') {
@@ -599,18 +601,18 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
       else if (event.key === '?') (event.stopImmediatePropagation(), window.dispatchEvent(new CustomEvent('haligtree:shortcuts', { detail: 'Reading' })))
       // ; a thought on the page in front of you, kept beside it, dated.
       else if (event.key === ';' && composerFor) openGloss(composerFor)
-      else if ((event.key === 'e' || event.key === 'Enter') && item && item.body === undefined) {
+      else if ((letter === 'e' || event.key === 'Enter') && item && item.body === undefined) {
         event.preventDefault()
         toggleLock()
       }
       // L: the notes it links to, open under it in place, or shut again.
-      else if (event.key === 'l' || event.key === 'L') toggleLinks()
+      else if (letter === 'l') toggleLinks()
       // Deal with it while it is in front of you: an exit or a task, then the
       // next page. ⌘Z still takes it back.
       // ⌫ is the Bin, as on every list; D too.
-      else if (item?.type === 'capture' && (event.key === 'Backspace' || event.key === 'Delete' || (event.key.length === 1 && 'prdth'.includes(event.key)))) {
+      else if (item?.type === 'capture' && (event.key === 'Backspace' || event.key === 'Delete' || (event.key.length === 1 && 'prdth'.includes(letter)))) {
         event.preventDefault()
-        const key = event.key === 'Backspace' || event.key === 'Delete' ? 'd' : event.key
+        const key = event.key === 'Backspace' || event.key === 'Delete' ? 'd' : letter
         const next = (): void => setAt((n) => (stepFrom(n, 1) >= 0 ? stepFrom(n, 1) : n))
         // Undone, it is back where you left it: the page you took it from.
         const here = at
