@@ -48,7 +48,7 @@ export function notePowers({ table, id, kind, fields, text, origin, onOpen, read
     documentId: `${table === 'captures' ? 'capture' : 'item'}-${id}`,
     // Locked, the page is words only; the block comes with the keys.
     // Its source's card goes with it, locked or not.
-    belowTitle: reading ? card ?? undefined : <>{card}<PropertyStrip table={table} id={id} kind={kind} fields={fields} text={text} created={created} updated={updated} sourced={!!card} /></>,
+    belowTitle: reading ? card ?? undefined : <>{card}<PropertyStrip table={table} id={id} kind={kind} fields={fields} text={text} created={created} updated={updated} sourced={!!card} cited={!!cites?.where?.trim()} /></>,
     stripFirst: titled,
     onPropertyLine: keepPropertyLine(table, id),
     findNotes: findCaptures,

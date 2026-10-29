@@ -115,6 +115,7 @@ import { holdKeys, useLesson, useWelcomePlaceholder, useWelcoming } from './lib/
 import { SandboxChip } from '@/components/haligtree/sandbox'
 import { DefineGhost, defineable, fixIn, useDefinition } from '@/components/haligtree/word-define'
 import { notes } from './lib/notes'
+import { sources } from './lib/sources'
 import { DatePicker } from './components/haligtree/date-picker'
 import { useFitBox } from './lib/fit-box'
 import { menuShowing, layerOpen } from '@/lib/menu-keys'
@@ -658,7 +659,9 @@ export default function App(): React.JSX.Element {
       autoWho.current = by.who
       setAttribution(by.who)
     }
-    if (medium === autoWhere.current && by.where !== medium && (by.where || plan.signatureKept || emptied)) {
+    // Still signed but naming no source now: what it read as one a key ago was part of a year being typed
+    // ("194" on the way to "1947"), and goes.
+    if (medium === autoWhere.current && by.where !== medium && (by.where || plan.signatureKept || emptied || !!plan.signature)) {
       autoWhere.current = by.where
       setMedium(by.where)
     }
@@ -1470,8 +1473,14 @@ export default function App(): React.JSX.Element {
         // A letter to future you: out of every list until its day, then back on Today saying when you wrote it.
         if (later && !action) await haligtree.snoozeCapture(id, later.day)
         if (sorted === 'checkback' && back) await notes.setField('captures', id, 'back', back)
-        // "- Mary Shelley, Frankenstein, 1818, p. 42": the year and the page are the quote's own fields.
-        if (sorted === 'quote' && plan?.signature?.year) await notes.setField('captures', id, 'year', plan.signature.year)
+        // "- Mary Shelley, Frankenstein, 1818, p. 42": the page is the quote's own; the year is its source's (set
+        // on Frankenstein if it has none yet), and the quote's own only when it names no source.
+        const year = sorted === 'quote' ? plan?.signature?.year : ''
+        const source = (plan?.signature?.where || medium).trim()
+        if (year && source) {
+          const card = await sources.card(null, source)
+          if (!card?.born.trim()) await sources.facts('medium', source, { born: year })
+        } else if (year) await notes.setField('captures', id, 'year', year)
         if (sorted === 'quote' && plan?.signature?.page) await notes.setField('captures', id, 'location', plan.signature.page)
         if (action) {
           // The welcome shows the task it became itself; the box says nothing over it.

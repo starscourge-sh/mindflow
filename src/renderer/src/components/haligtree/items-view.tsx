@@ -24,7 +24,7 @@ import { firstLineOf } from '@/extensions/tokens'
 import { ReadThrough } from './read-through'
 import { enqueue } from '@/lib/reading-queue'
 import { CAPTURE_TYPES, CaptureKindPicker, kindOf, asksFor, byKind, type CaptureType } from '../capture-kinds/capture-kind-picker'
-import { age } from '../capture-list'
+import { age, fieldOf } from '../capture-list'
 import { follow, noteLinkText, recallOffered } from '@/lib/capture-links'
 import { splitTags, unloaded, unread, useLastAsked, useLive, haligtree, whenInLine, type Item, type ItemFull, type Settings } from '@/lib/haligtree'
 import { exampleIdeas, exampleQuestions, exampleWriting } from '@/lib/examples'
@@ -988,7 +988,7 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
                 {/* Signed, and changed from the signature: a click goes to “Who said it” beside the page. */}
                 <Tip label="Change who said it">
                   <button type="button" data-signed-edit className="rounded hover:bg-accent" onClick={() => focusField(() => document.querySelector<HTMLInputElement>('[data-gem-source]'))}>
-                    <span {...hoverNote('person', item.attribution)}><Signed who={item.attribution} className="private-text" /></span>
+                    <span {...hoverNote('person', item.attribution)}><Signed who={item.attribution} where={item.medium} year={fieldOf(item.fields, 'year')} className="private-text" /></span>
                   </button>
                 </Tip>
               </div>
@@ -1039,7 +1039,7 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
 
       {(!boardShown || propsOut) && <Props fold={!boardShown}>
         {/* The note's properties head its details, as Linear's issues have them. */}
-        <PropertyStrip panel table="nuggets" id={item.id} kind={item.kind} fields={item.fields} text={item.title} created={item.createdAt} updated={item.updatedAt} sourced={!!(item.attribution?.trim() || item.medium?.trim())} />
+        <PropertyStrip panel table="nuggets" id={item.id} kind={item.kind} fields={item.fields} text={item.title} created={item.createdAt} updated={item.updatedAt} sourced={!!(item.attribution?.trim() || item.medium?.trim())} cited={!!item.medium?.trim()} />
         {item.tier === 'article' && <Marginalia id={item.id} names={named} editor={() => editor.current} />}
         {item.tier === 'nugget' && (
           <>

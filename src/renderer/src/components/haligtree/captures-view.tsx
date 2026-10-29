@@ -770,7 +770,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
                         // Opened, and its group unfolded if folded shut, then the caret in it.
                         focusField(() => page?.querySelector<HTMLInputElement>(`input[placeholder="${ASKS.quote?.who ?? 'Who'}"]`))
                       }}>
-                        <Signed who={meta.attribution} year={fieldOf(meta.fields, 'year')} className="private-text" />
+                        <Signed who={meta.attribution} where={meta.medium} year={fieldOf(meta.fields, 'year')} className="private-text" />
                       </button>
                     </Tip>
                   </div>
@@ -884,7 +884,7 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
   return (
     <Props className={className} fold={fold}>
       {/* Beside its page, the note's properties head its details, as Linear's issues have them. */}
-      {fold && <PropertyStrip panel table="captures" id={capture.id} kind={capture.kind} fields={capture.fields} text={capture.label} created={capture.capturedAt} updated={capture.editedAt} />}
+      {fold && <PropertyStrip panel table="captures" id={capture.id} kind={capture.kind} fields={capture.fields} text={capture.label} created={capture.capturedAt} updated={capture.editedAt} cited={!!capture.medium?.trim()} />}
       <Island compact title="Status">
         <Prop icon={Status} active>
           {/* A status that changes rolls to the new word: the change is seen. */}
