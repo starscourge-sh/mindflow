@@ -170,7 +170,7 @@ try {
     await h.screenshot({ path: `${process.env.QA_SHOTS}/day-writing-dark.png` })
     await h.evaluate((was) => (document.documentElement.className = was), was)
   }
-  check('5. the writer\'s line shows at the foot, words and minutes and the time, then the sound and what pausing does, each saying what it does', writer?.o === '1' && writer.events === 'none' && writer.bottom === 0 && /^\d+ words?(·\d+ minutes?)?·\d{1,2}:\d{2}( [AP]M)?·(No sound|[A-Za-z, ]+) while writing·Page (comes back when you pause|stays hidden till Esc)$/.test(writer.text), JSON.stringify(writer))
+  check('5. the writer\'s line shows at the foot, words and minutes and the time, then the sound and how to leave, each saying what it does', writer?.o === '1' && writer.events === 'none' && writer.bottom === 0 && /^\d+ words?(·\d+ minutes?)?·\d{1,2}:\d{2}( [AP]M)?·(No sound|[A-Za-z, ]+) while writing·Esc to leave$/.test(writer.text), JSON.stringify(writer))
   check('5. it says the words so far, on a pause', Number(writer?.text.match(/^\d+/)?.[0]) >= 6, JSON.stringify(writer))
   check('5. nothing moved: opacity only', (await geometry()) === shape, `${shape} vs ${await geometry()}`)
   check('5. the caption never changed while typing', (await h.evaluate(() => document.querySelector('[data-day-caption]')?.textContent)) === caption)
@@ -178,18 +178,20 @@ try {
   await h.mouse.move(400, 400)
   await h.mouse.move(460, 420)
   await wait(1400)
-  const backAgain = await fade()
-  check('5. a hand on the pointer brings it back', JSON.stringify(backAgain) === JSON.stringify(rested), JSON.stringify(backAgain))
+  // Writing mode stays until Esc or a click outside the words: a move of the pointer does not end it.
+  const stillAway = await fade()
+  check('5. a hand on the pointer leaves it as it is', stillAway.every((o) => o === 0), JSON.stringify(stillAway))
   check('5. and the writer\'s line stays, the same line in the same place', (await line())?.o === '1' && (await lineAt()) === writerAt, `${writerAt} vs ${await lineAt()}`)
-  check('5. what came back takes clicks again', (await others()).some((one) => one.hit))
   const before = (await line())?.text
   await h.keyboard.type('and then some more words came ', { delay: 30 })
   await wait(700)
-  check('5. while keys go, the line holds still', (await line())?.text === before, `${before} vs ${(await line())?.text}`)
+  // The clock in it may tick over a minute meanwhile; the count is what must hold.
+  const noClock = (text) => text?.replace(/\d{1,2}:\d{2}( [AP]M)?/, '')
+  check('5. while keys go, the line holds still', noClock((await line())?.text) === noClock(before), `${before} vs ${(await line())?.text}`)
   check('5. typing again, it steps back again', (await fade()).every((o) => o < 0.5))
   check('5. nothing moved this time either', (await geometry()) === shape, `${shape} vs ${await geometry()}`)
   await wait(9500)
-  check('5. and a pause of about nine seconds brings it back', JSON.stringify(await fade()) === JSON.stringify(rested), JSON.stringify(await fade()))
+  check('5. and a pause of about nine seconds does not end it either', (await fade()).every((o) => o === 0), JSON.stringify(await fade()))
   const count = await line()
   check('5. on a pause the line has rolled on to the words so far', Number(count?.text.match(/^\d+/)?.[0]) > Number(writer?.text.match(/^\d+/)?.[0]) && (await lineAt()) === writerAt, JSON.stringify(count))
   check('5. the squiggles come back on a pause', await h.evaluate(() => document.querySelector('[data-day-write] .tiptap').getAttribute('spellcheck') === 'true'))
@@ -225,6 +227,11 @@ try {
   // The Mac's own guesses are asked once per word, a moment after the pause.
   for (let i = 0; i < 20 && !/everything/.test(await h.evaluate(() => document.querySelector('[data-spell-hint]')?.textContent ?? '')); i++) await wait(200)
   check('5. "everthing" offers "everything"', /everything/.test(await h.evaluate(() => document.querySelector('[data-spell-hint]')?.textContent ?? '')), await h.evaluate(() => document.querySelector('[data-spell-hint]')?.textContent ?? 'none'))
+  // Esc, as the line says, brings the page back, and what came back takes clicks again.
+  await h.keyboard.press('Escape')
+  await wait(1400)
+  check('5. Esc brings it back', JSON.stringify(await fade()) === JSON.stringify(rested), JSON.stringify(await fade()))
+  check('5. what came back takes clicks again', (await others()).some((one) => one.hit))
 
   // 3. An empty past day: its own prompt, no beam.
   const past = new Date(); past.setDate(past.getDate() - 40)
