@@ -156,6 +156,30 @@ export function unstamp(chunk: string): { text: string; at: string | null } {
 /** A joke or a bit by its first words: a note that gets #bit, and so stays private. */
 export const isBit = (line: string): boolean => /^(joke|bit)\b/i.test(line.trim())
 
+/** How a quote names who said it, before or after the words: "said", "told me", "wrote", "put it". */
+const SAID = String.raw`(?:once |always |used to |would )?(?:said|says|say|told me|tells me|wrote|writes|asked|asks|put it|puts it)`
+
+/**
+ * Who said a quote, and where its line says so (`from` to `to`), so the box
+ * can light it and the note keep the words without it. Read three ways:
+ * “Words” - Marcus Aurelius, Meditations · “Words,” said Tom · Tom said “words”
+ * (or Tom: “words”). Only beside quote marks, so a dash or a "said" in the
+ * middle of a thought is left alone. Empty when the line names no one.
+ */
+export function saidBy(line: string): { who: string; where: string; from: number; to: number; said: boolean } {
+  const tail = /[”"']\s*([-–—]\s*([^-–—”"']{2,90}?))\s*$/.exec(line)
+  if (tail) {
+    const [who = '', ...rest] = tail[2].trim().split(',')
+    return { who: who.trim(), where: rest.join(',').trim(), from: tail.index + 1, to: line.length, said: true }
+  }
+  const after = new RegExp(String.raw`[”"]([,.]?\s*${SAID}\s+([^,”"“.!?]{2,40}?))\s*[.!]?\s*$`, 'i').exec(line)
+  const before = new RegExp(String.raw`^(\s*([^"“”:]{1,40}?)(?:\s+${SAID}[,:]?|:)\s*)(?=["“])`, 'i').exec(line)
+  const who = (after?.[2] ?? before?.[2] ?? '').trim()
+  // "She said “…”" is a quote all the same; only a name goes in Who said it.
+  if (!who || /^(i|we|you|it|this|that|he|she|they|someone|somebody)$/i.test(who)) return { who: '', where: '', from: -1, to: -1, said: !!who }
+  return after ? { who, where: '', from: after.index + 1, to: line.length, said: true } : { who, where: '', from: 0, to: before![1].length, said: true }
+}
+
 /**
  * What a line of text most likely is, from how it is worded: the kind the
  * capture box suggests as you type, and the import's guess. Null when it reads
@@ -173,7 +197,7 @@ export function kindOf(line: string): string | null {
   if (/^(decided|decision|going with|chose|we('ll| will) go with)\b/i.test(text)) return 'checkback'
   // A question is a question, not a todo; "Name: words" is a quote only when
   // there are words enough to be said, not a label like "Shopping list: eggs".
-  if (/^["“].+["”]/.test(text) || /^[A-Z][\w.'-]*(?: [A-Z][\w.'-]*){0,2}( \([^)]*\))?: (?:\S+\s+){4,}\S/.test(text) || /^["“'].+["”']\s*[-—]\s*\w/.test(text)) return 'quote'
+  if (/^["“].+["”]/.test(text) || (/["“].+["”]/.test(text) && saidBy(text).said) || /^[A-Z][\w.'-]*(?: [A-Z][\w.'-]*){0,2}( \([^)]*\))?: (?:\S+\s+){4,}\S/.test(text) || /^["“'].+["”']\s*[-—]\s*\w/.test(text)) return 'quote'
   if (/^[\p{L}\p{N}_'-]+$/u.test(text) || /\bmeaning$/i.test(text) || /^(define|what does .+ mean)/i.test(text)) return 'word'
   return null
 }

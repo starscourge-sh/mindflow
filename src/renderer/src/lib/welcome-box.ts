@@ -148,16 +148,8 @@ export function useWelcoming(): boolean {
   return on
 }
 
-/**
- * A quote's "- Name" at the end of its line: the name, for Who said it, and
- * after a comma where it is from ("- Marcus Aurelius, Meditations"). Only
- * after a closing quote mark, so a dash in the middle of a thought is left alone.
- */
-export const saidBy = (line: string): { who: string; where: string } => {
-  const tail = /[”"']\s*[-–—]\s*([^-–—”"']{2,90}?)\s*$/.exec(line)?.[1]?.trim() ?? ''
-  const [who = '', ...rest] = tail.split(',')
-  return { who: who.trim(), where: rest.join(',').trim() }
-}
+// Who said a quote, read the same way everywhere (main/import.ts).
+export { saidBy } from '../../../main/import'
 
 const read = <T>(key: string): T | null => {
   try {

@@ -82,7 +82,7 @@ import { stickOnDesktop } from './components/haligtree/sticky-note'
 import { NotePreview } from './components/haligtree/note-preview'
 
 import { CAPTURE_TYPES, CaptureKindPicker, asksFor, type CaptureType } from './components/capture-kinds/capture-kind-picker'
-import { firstLine } from '../../main/import'
+import { firstLine, saidBy } from '../../main/import'
 import {
   Sheet,
   SheetContent,
@@ -444,6 +444,9 @@ export default function App(): React.JSX.Element {
   useEffect(() => void (!started && setOffersAll(false)), [started])
   // Who and where, as this kind (or a #book) asks; and what a tag that does something will do.
   const boxText = textOf(body)
+  // The box holds one line, and it asks something: it is kept as a question in Writing, as a task line goes to the tasks. Picking a kind (× on its line) keeps it a note.
+  const loneQuestion = (plan: BoxPlan | null, words: string): string | null =>
+    !chosen && plan?.kind === 'note' && !plan.task && !plan.clue && !plan.miss && !plan.url && !plan.timer && askedLine(words) === words.trim() ? words.trim() : null
   const asks = asksFor(kind, boxText)
   // Who said it and where you met it. Null who means the words are yours.
   const [attribution, setAttribution] = useState('')
@@ -635,7 +638,7 @@ export default function App(): React.JSX.Element {
   const signedBy = plan?.signature ? plan.tokens.find((one) => one.kind === 'signature')?.text : undefined
   const readWho = !!signedBy && !!attribution && attribution === plan?.signature?.who && attribution === autoWho.current
   const readWhere = !!signedBy && !!medium && medium === plan?.signature?.where && medium === autoWhere.current
-  const readTip = signedBy ? `Read from “${clip(signedBy, 48)}” in your words. Write “- who, where” after a quote to fill these.` : ''
+  const readTip = signedBy ? `Read from “${clip(signedBy.trim(), 48)}” in your words. Write “- who, where” after a quote, or “Tom said” before it, to fill these.` : ''
   // A quote's "- Name" fills Who said it, unless you wrote one there; kept
   // as plain text, the name it filled goes again.
   useEffect(() => {
@@ -1313,6 +1316,12 @@ export default function App(): React.JSX.Element {
     const later = plan?.later ?? null
     const doc = later ? laterOff(signed, later.text) : signed
     const text = textOf(doc).trim()
+    const asked = loneQuestion(plan, text)
+    if (asked) {
+      keepAsQuestion(asked)
+      if (!more) putAway()
+      return
+    }
     const back = backOn
     // Nothing to keep: said with the "not allowed" sound, not in silence. A
     // picture or a drawing with no words is still something.
@@ -1943,6 +1952,7 @@ export default function App(): React.JSX.Element {
               <WillDo
                 plan={plan}
                 orQuestion={plan?.kind === 'todo' && askedLine(textOf(body)) ? () => keepAsQuestion(askedLine(textOf(body))!) : undefined}
+                asks={!!loneQuestion(plan, boxText)}
                 list={listed && !listed.mixed ? tasksSaid(listed.list) : null}
                 // The same as Create: the page kept, then sorted line by line.
                 onSort={listed?.mixed ? () => latestSubmit.current() : null}
@@ -2036,7 +2046,7 @@ export default function App(): React.JSX.Element {
             {/* Where else it could go, the questions kept in view and the open goals, on
                 one quiet line, and only once a few words are written: an empty box asks nothing. */}
             {started && !plus && !focus && !lesson && textOf(body).trim().split(/\s+/).length >= 3 && (
-              <div data-under-tall-toast><BoxOffers quietAsk={plan?.kind === 'todo'} words={textOf(body)} linked={JSON.stringify(body)} all={offersAll} onHidden={setOffersHidden} onClue={clueToPinned} onLog={logToGoal} onAsk={keepAsQuestion} /></div>
+              <div data-under-tall-toast><BoxOffers quietAsk={plan?.kind === 'todo' || !!loneQuestion(plan, boxText)} words={textOf(body)} linked={JSON.stringify(body)} all={offersAll} onHidden={setOffersHidden} onClue={clueToPinned} onLog={logToGoal} onAsk={keepAsQuestion} /></div>
             )}
             {/* A hint sits at the foot of the box: a glance at something you
                 wrote once, while you are here to write. Usually empty. */}
@@ -2124,17 +2134,25 @@ function cardsSettled(doc: JSONContent | null): JSONContent | null {
 }
 
 /**
- * A quote whose line ends "- Name" (or "- Name, Source") with that name in Who said it: kept
- * without the tail, so the name is said once, as its signature.
+ * A quote that names who said it in its line ("- Name, Source", "said Tom",
+ * "Tom said") with that name in Who said it: kept without those words, so the
+ * name is said once, as its signature. Read by saidBy, as the box lit it.
  */
 function withoutTail(doc: JSONContent | null, who: string): JSONContent | null {
   if (!doc?.content || !who) return doc
   const at = doc.content.findIndex((node) => node.content?.some((one) => one.text?.trim()))
   const block = doc.content[at]
-  const last = block?.content?.[block.content.length - 1]
-  const tail = new RegExp(`(["”'])\\s*[-–—]\\s*${who.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s*,[^"”']*)?\\s*$`)
-  if (!block?.content || !last?.text || !tail.test(last.text)) return doc
-  const content = [...block.content.slice(0, -1), { ...last, text: last.text.replace(tail, '$1') }]
+  if (!block?.content) return doc
+  const by = saidBy(block.content.map((one) => one.text ?? '').join(''))
+  if (by.who !== who) return doc
+  let offset = 0
+  const content = block.content.flatMap((one) => {
+    const start = offset
+    offset += one.text?.length ?? 0
+    if (one.text === undefined || offset <= by.from || start >= by.to) return [one]
+    const text = one.text.slice(0, Math.max(0, by.from - start)) + one.text.slice(Math.max(0, by.to - start))
+    return text ? [{ ...one, text }] : []
+  })
   return { ...doc, content: doc.content.map((node, i) => (i === at ? { ...block, content } : node)) }
 }
 

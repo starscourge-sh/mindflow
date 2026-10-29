@@ -13,7 +13,9 @@ type Item = { key: string; effect: string; color: string; tokens: BoxToken[]; no
  * words as plain text, as a click on them does. A "+name" that matches
  * nothing offers to start that question, or to leave the words be.
  */
-export function WillDo({ plan, list, onSort, onKeep, onNotTask, onNewQuestion, onUncard, orQuestion }: {
+export function WillDo({ plan, list, onSort, onKeep, onNotTask, onNewQuestion, onUncard, orQuestion, asks = false }: {
+  /** One line that asks something: it will be kept as a question; its × keeps it a note. */
+  asks?: boolean
   /** It will be a task and a line asks something: "or a question" makes it one instead. */
   orQuestion?: () => void
   plan: BoxPlan | null
@@ -60,6 +62,7 @@ export function WillDo({ plan, list, onSort, onKeep, onNotTask, onNewQuestion, o
   else if (onSort) items.unshift({ key: 'task', effect: 'Keep the page, then pick what each line becomes', color: 'orange', tokens: [], notTask: true })
   else if (plan.task && plan.kind === 'todo' && !plan.tokens.some((one) => one.kind === 'task-tag'))
     items.unshift({ key: 'task', effect: 'Add to your tasks', color: 'green', tokens: [], notTask: true })
+  else if (asks) items.unshift({ key: 'question', effect: 'Keep as a question in Writing', color: 'purple', tokens: [], notTask: true })
   // A link that already made its card: kept as that link, or × for the plain address.
   if (plan.card && plan.url) items.push({ key: 'card', effect: `Save as a link from ${plan.url.hostname.replace(/^www\./, '')}`, color: 'blue', tokens: [], card: true })
   const miss = plan.tokens.find((one) => one.kind === 'clue-miss')
@@ -80,11 +83,11 @@ export function WillDo({ plan, list, onSort, onKeep, onNotTask, onNewQuestion, o
               <span data-will-guess {...loud('warn', 'shrink-0 cursor-default')}>a guess</span>
             </Tip>
           )}
-          {!item.info && <Tip label={item.notTask ? (list || onSort ? 'Keep it all as one note, not tasks' : 'Keep it as a note, not a task') : item.card ? 'Back to the plain address' : 'Keep as plain text'}>
+          {!item.info && <Tip label={item.notTask ? (list || onSort ? 'Keep it all as one note, not tasks' : item.key === 'question' ? 'Keep it as a note, not a question' : 'Keep it as a note, not a task') : item.card ? 'Back to the plain address' : 'Keep as plain text'}>
             <button
               type="button"
               data-will-off
-              aria-label={item.notTask ? (list || onSort ? 'Keep it as one note' : `Not a task`) : `Keep as plain text: ${item.effect}`}
+              aria-label={item.notTask ? (list || onSort ? 'Keep it as one note' : item.key === 'question' ? 'Not a question' : `Not a task`) : `Keep as plain text: ${item.effect}`}
               className="relative after:absolute after:-inset-1 after:rounded-full flex size-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => (item.notTask ? onNotTask() : item.card ? onUncard() : onKeep(item.tokens))}

@@ -458,14 +458,11 @@ export function planBox(doc: ProseMirrorNode, ctx: BoxContext, kept: Kept[] = []
   let signatureKept = false
   if (kind === 'quote') {
     const by = saidBy(first.text)
-    // Where its dash stands, read as saidBy reads it.
-    const tail = /[”"']\s*([-–—]\s*[^-–—”"']{2,90}?)\s*$/.exec(first.text)
-    const dash = tail ? tail.index + tail[0].indexOf(tail[1]) : -1
-    if (by.who && dash >= 0) {
-      const [from, to] = [pos(dash), pos(first.text.length)]
+    if (by.who) {
+      const [from, to] = [pos(by.from), pos(by.to)]
       if (isKept('signature', from, to)) signatureKept = true
       else {
-        signature = by
+        signature = { who: by.who, where: by.where }
         tokens.push(token('signature', from, to, `Said by ${by.who}${by.where ? `, in ${by.where}` : ''}`))
       }
     }

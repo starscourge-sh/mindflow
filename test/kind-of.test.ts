@@ -65,3 +65,20 @@ test('the retired kinds move over once, keeping what they were and every field',
   db.exec('update captures set kind = kind_was where kind_was is not null')
   assert.deepEqual(db.prepare('select kind from captures order by id').all().map((one) => one.kind), ['bit', 'excerpt', 'book', 'note', 'book'])
 })
+
+test('a quote names who said it before or after the words, and the line says where', async () => {
+  const { saidBy, kindOf } = await import('../src/main/import.ts')
+  const cut = (line: string): string => { const by = saidBy(line); return line.slice(0, by.from) + line.slice(by.to) }
+  assert.equal(kindOf('person t said "x y z"'), 'quote')
+  assert.equal(saidBy('person t said "x y z"').who, 'person t')
+  assert.equal(cut('Tom said “the way out is through”'), '“the way out is through”')
+  assert.equal(saidBy('Mum: “wear a coat”').who, 'Mum')
+  assert.equal(cut('“Stay hungry,” said Steve Jobs'), '“Stay hungry,”')
+  assert.deepEqual([saidBy('"Less is more" - Mies van der Rohe, 1947').who, saidBy('"Less is more" - Mies van der Rohe, 1947').where], ['Mies van der Rohe', '1947'])
+  // A pronoun is a quote all the same, with no one to name.
+  assert.equal(kindOf('she said "no way"'), 'quote')
+  assert.equal(saidBy('she said "no way"').who, '')
+  // No quote marks, no quote.
+  assert.equal(kindOf('Tom said we should meet'), null)
+  assert.equal(saidBy('Tom said we should meet').who, '')
+})
