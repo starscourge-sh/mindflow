@@ -30,7 +30,7 @@ const PLACES: [string, string][] = [
  * A key the page or the main process already hears is only shown here
  * (`registerAccelerator: false`). macOS ignores that flag and the menu still
  * takes any key the page lets go, so the page calls preventDefault on each key
- * it takes (⌘\ in home.tsx) and one press never does a thing twice.
+ * it takes (⌘B and ⌘\ in home.tsx) and one press never does a thing twice.
  * Edit > Select All (⌘A) asks the window first, so a list with the focus picks
  * every row, as Finder does, whichever of the page and the menu hears the key
  * first. With no list listening, or while writing, it selects the words as before (preload).
@@ -101,8 +101,9 @@ export function setAppMenu(acts: MenuActs): void {
       submenu: [
         ...PLACES.map(([id, label]) => ({ label, click: () => acts.view(id) })),
         { type: 'separator' },
-        // ⌘\ is the page's own key (home.tsx): told it, as a press would.
-        { label: 'Show or Hide Sidebar', ...shown('Command+\\'), click: () => acts.inHome('haligtree:sidebar') },
+        // ⌘B and ⌘\ are the page's own keys (home.tsx): told them, as a press would.
+        { label: 'Show or Hide Sidebar', ...shown('Command+B'), click: () => acts.inHome('haligtree:sidebar') },
+        { label: 'Open in a split to the right', ...shown('Command+\\'), click: () => acts.inHome('haligtree:split-right') },
         { type: 'separator' },
         // No page zoom: these step the app's own size, saved and the same in every window. Pressed, ⌘+ ⌘− ⌘0 are
         // the page's first (with ⌥, the text in notes); these are for a click.

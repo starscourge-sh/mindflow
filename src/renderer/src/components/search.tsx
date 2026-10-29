@@ -1,4 +1,5 @@
 import { revealRow } from '@/lib/menu-keys'
+import { useSeen } from '@/lib/reads-in'
 import { Fragment, memo, useEffect, useRef, useState, useSyncExternalStore, type ComponentProps, type ReactNode } from 'react'
 import { TASK_KIND } from './haligtree/everything'
 import { FLOAT } from '@/lib/float'
@@ -79,7 +80,7 @@ const groupOf = (at: string): string => {
  * they were captured, with the one under the cursor previewed on the right.
  * Arrows move, Enter opens, Escape closes.
  */
-export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'task', 'question'], initial = '', actions: everyAction = [], placeholder, menus = true, scope, choose: chooseFirst }: { /** Opened straight on one action's choices, by its label (“Start focus…” from its key anywhere). */ choose?: string; /** Opened about one thing (a task picked on the Calendar): its name before the words, and only its actions until ⌫ leaves it. */ scope?: { label: string; actions: Action[] }; onOpen: (type: string, id: string) => void; /** ⌥↵: open it beside the page, in a pane of its own (the main window's split view). */ onAside?: (type: string, id: string) => void; onClose: () => void; /** Words that match nothing, kept as something new (Arc's "search or make"). */ onKeep?: (as: Keep, text: string) => void; keeps?: Keep[]; initial?: string; actions?: Action[]; placeholder?: string; /** A right click on a result offers what its list's would; off where a pick is all a result is for. */ menus?: boolean }): React.JSX.Element {
+export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'task', 'question'], initial = '', actions: everyAction = [], placeholder, menus = true, scope, choose: chooseFirst, inPane }: { /** Drawn inside a pane of the split (⌘\\) as its page, not over the window: no scrim, not a dialog, and Esc (onClose) closes the pane. What it opens takes the pane's place. */ inPane?: { title: string; lead: ReactNode }; /** Opened straight on one action's choices, by its label (“Start focus…” from its key anywhere). */ choose?: string; /** Opened about one thing (a task picked on the Calendar): its name before the words, and only its actions until ⌫ leaves it. */ scope?: { label: string; actions: Action[] }; onOpen: (type: string, id: string) => void; /** ⌥↵: open it beside the page, in a pane of its own (the main window's split view). */ onAside?: (type: string, id: string) => void; onClose: () => void; /** Words that match nothing, kept as something new (Arc's "search or make"). */ onKeep?: (as: Keep, text: string) => void; keeps?: Keep[]; initial?: string; actions?: Action[]; placeholder?: string; /** A right click on a result offers what its list's would; off where a pick is all a result is for. */ menus?: boolean }): React.JSX.Element {
   const [query, setQuery] = useState(initial)
   const [scoped, setScoped] = useState(!!scope)
   const actions = scoped && scope ? scope.actions : everyAction
@@ -92,7 +93,9 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
   const [sheet] = useState(() => sheetMotion(byKeys()))
   useEffect(() => void (!present && box.current?.blur()), [present])
   // Opening search sends out one ping.
-  useEffect(() => chime('search'), [])
+  useEffect(() => void (!inPane && chime('search')), []) // eslint-disable-line react-hooks/exhaustive-deps
+  // In a pane, whatever is picked replaces the picker there: nothing to close first.
+  const leave = (): void => void (!inPane && onClose())
   const [found, setFound] = useState<Capture[]>([])
   // A search still out after 300ms: the last words' results go, and the orb
   // says it is looking. A quick one never shows either.
@@ -172,6 +175,9 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
   // Tab on a result asks who said it, without leaving search.
   const [asking, setAsking] = useState(false)
   const box = useRef<HTMLInputElement>(null)
+  // In a pane, the page is unseen until its reads are in (page-swap.tsx), and an unseen box takes no focus: it takes the keys the moment it is seen.
+  const seen = useSeen()
+  useEffect(() => void (inPane && seen && box.current?.focus({ preventScroll: true })), [seen]) // eslint-disable-line react-hooks/exhaustive-deps
   // Notion's highlight pane: on by default, and a button to put it away.
   const [pane, setPane] = useState(true)
   const roomy = useSyncExternalStore(followRoomy, () => matchMedia(ROOMY).matches)
@@ -212,7 +218,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
   // One size and one shape from the moment it opens: the filters are always
   // there, and the preview half stays put whatever is highlighted, so
   // nothing grows or jumps as the arrows move or a letter is typed.
-  const shown = pane && roomy && !choosing
+  const shown = pane && roomy && !choosing && !inPane
   const preview = shown && !!current
   // A gloss on anything found, a task included: there it lands in the task's log.
   const glossable = !!current && current.type !== 'day'
@@ -227,7 +233,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
   const choices = choosing ? [...(ownChoice ? [ownChoice] : []), ...choosing.list.filter((one) => choiceQuery.trim().toLowerCase().split(/\s+/).every((word) => `${one.label} ${one.note ?? ''}`.toLowerCase().includes(word)))] : []
   const unchoose = (): void => (chime('fold'), setChoosing(null))
   const choose = (one: Choice): void => {
-    onClose()
+    leave()
     one.run()
   }
   const [themeQuery, setThemeQuery] = useState('')
@@ -266,7 +272,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
     const was = before.current ?? undefined
     before.current = null
     chime('settled')
-    onClose()
+    leave()
     picking?.themes?.(one, was)
   }
   // An action with nothing more to say than its name: a word asked about says what it means instead.
@@ -284,7 +290,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
     }
     // null: the action sounds for itself (the sound switch, the panel).
     if (action.cue !== null) chime(action.cue ?? 'tap')
-    onClose()
+    leave()
     action.run()
   }
 
@@ -292,12 +298,19 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
     // A dialog, said so: what is under it (the box's keys, a celebration's Escape) knows to leave the keys alone.
     // Arc's command bar, by click: the scrim fades in over 120ms and the panel
     // rises 6px into place. By ⌘K it is simply there (sheetMotion).
-    <motion.div role={present ? 'dialog' : undefined} aria-modal={present || undefined} aria-label="Search"
-      {...sheet.scrim}
-      className={`fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[10vh] ${present ? '' : 'pointer-events-none'}`} onMouseDown={onClose}>
+    // In a pane it is the page itself: the same box, list and keys, with a calm line over them saying what the pane is for.
+    <motion.div role={present && !inPane ? 'dialog' : undefined} aria-modal={(present && !inPane) || undefined} aria-label="Search"
+      {...(inPane ? {} : sheet.scrim)} data-pane-picker={inPane ? '' : undefined}
+      className={inPane ? 'flex min-h-0 min-w-0 flex-1 flex-col' : `fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[10vh] ${present ? '' : 'pointer-events-none'}`} onMouseDown={inPane ? undefined : onClose}>
+      {inPane && (
+        <div className="shrink-0 px-5 pt-8 pb-4">
+          <h2 className="text-title font-medium">{inPane.title}</h2>
+          <p className="mt-1 leading-relaxed text-muted-foreground">{inPane.lead}</p>
+        </div>
+      )}
       <motion.div
-        {...sheet.panel}
-        className={`flex h-[70vh] w-[min(56rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl text-sm ${FLOAT}`} onMouseDown={(event) => event.stopPropagation()}>
+        {...(inPane ? {} : sheet.panel)}
+        className={inPane ? 'mx-3 mb-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border text-sm' : `flex h-[70vh] w-[min(56rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl text-sm ${FLOAT}`} onMouseDown={(event) => event.stopPropagation()}>
         <label className="flex items-center gap-3 border-b px-4 py-3">
           <span className="text-muted-foreground"><AliveIcon icon={MagnifierIcon} size={16} /></span>
           {scoped && scope && !picking && !choosing && (
@@ -329,7 +342,8 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
                 else return
                 event.preventDefault()
               }
-              else if (event.key === 'Escape') { event.preventDefault(); chime('fold'); onClose() }
+              // In a pane, closing the pane makes its own sound.
+              else if (event.key === 'Escape') { event.preventDefault(); if (!inPane) chime('fold'); onClose() }
               // ⌫ in an empty box opened about one thing: every action again.
               else if (event.key === 'Backspace' && scoped && !query) { chime('fold'); setScoped(false); setAt(0) }
               // ⌘A: the words first, as any box; pressed again with them all selected (or none typed), every result.
@@ -353,7 +367,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
             }}
           />
           <Tip label={pane ? 'Hide the preview' : 'Show the preview'}>
-          <button type="button" aria-label={pane ? 'Hide the preview' : 'Show the preview'} className={`rounded p-1 hover:bg-accent ${pane ? 'text-foreground' : 'text-muted-foreground'} ${roomy ? '' : 'hidden'}`} onClick={() => { chime(pane ? 'fold' : 'slide'); setPane(!pane); box.current?.focus() }}>
+          <button type="button" aria-label={pane ? 'Hide the preview' : 'Show the preview'} className={`rounded p-1 hover:bg-accent ${pane ? 'text-foreground' : 'text-muted-foreground'} ${roomy && !inPane ? '' : 'hidden'}`} onClick={() => { chime(pane ? 'fold' : 'slide'); setPane(!pane); box.current?.focus() }}>
             <AliveIcon icon={LayoutSidebarRightIcon} size={16} />
           </button>
           </Tip>
@@ -573,7 +587,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
           {!picking && !choosing && results.length > 0 && current !== results[0] && <span className="flex items-center gap-1.5 [@media(max-height:520px)]:hidden"><Kbd>⇧↵</Kbd> open the top result</span>}
           {onAside && !picking && !choosing && !action && current && <span className="flex items-center gap-1.5 [@media(max-height:520px)]:hidden"><Kbd>⌥↵</Kbd> to the side</span>}
           {!picking && !choosing && results.length > 1 && <span className="flex items-center gap-1.5 [@media(max-height:520px)]:hidden"><Kbd>⌘</Kbd>-click selects</span>}
-          <span className="flex items-center gap-1.5"><Kbd>esc</Kbd> <Rolling text={picking || choosing ? 'back' : 'close'} /></span>
+          <span className="flex items-center gap-1.5"><Kbd>esc</Kbd> <Rolling text={picking || choosing ? 'back' : inPane ? 'close the pane' : 'close'} /></span>
         </div>
         )}
       </motion.div>

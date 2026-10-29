@@ -9,7 +9,7 @@ import CameraIcon from '@/components/ui/camera-icon'
 import CameraOffIcon from '@/components/ui/camera-off-icon'
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { AnimatePresence, motion } from 'motion/react'
-import { EASE, byKeys, keyedMotion, shift, spring } from './lib/motion'
+import { EASE, byKeys, byPointer, keyedMotion, shift, spring } from './lib/motion'
 import { Highlight, Unfold, useChosen, useFluidHover, Weighted } from './components/haligtree/glide'
 import { chime, chimedWithin, pageTurn, paper, soundOn, tickedWithin, turnedNow } from './lib/sound'
 import { peekRead, readOnPress, whenRead } from './lib/early-read'
@@ -52,7 +52,7 @@ import { CalendarView } from './components/haligtree/calendar-view'
 import { MatrixView } from './components/haligtree/matrix-view'
 import { bucket, onToday, picked, taskName } from './lib/tasks'
 import { stickOnDesktop } from './components/haligtree/sticky-note'
-import { Count, Toaster, toast, refuse, typing, HELD, FocusNote, useFocusMode, SoundToggle, quietly } from './components/haligtree/ui'
+import { Count, Kbd, Toaster, toast, refuse, typing, HELD, FocusNote, useFocusMode, SoundToggle, quietly } from './components/haligtree/ui'
 import { GrowFrom } from './components/haligtree/grow-from'
 import { FocusScenery } from './components/haligtree/scenery'
 import { TooltipProvider } from './components/ui/tooltip'
@@ -210,7 +210,13 @@ function landing(view: View): View {
   return view
 }
 /** Pages that hold one note open beside their list, its id as the step's focus. */
-const holdsNotes = (id: string): boolean => !['home', 'day', 'weekpage', 'monthpage', 'yearpage', 'tags', 'sources', 'source', 'stats', 'map', 'feed', 'powers', 'whatsnew', 'settings', 'review', 'queue', 'calendar', 'practices', 'kind:practice'].includes(id)
+/** Words selected in the note being written in: ⌘B is Bold for them, and the sidebar's anywhere else (a selection left in a note you have clicked away from counts for nothing). */
+const selectedInNote = (): boolean => {
+  const editor = document.activeElement?.closest('.ProseMirror')
+  const picked = getSelection()
+  return !!editor && !!picked && !picked.isCollapsed && !!picked.anchorNode && editor.contains(picked.anchorNode)
+}
+const holdsNotes = (id: string): boolean => !['pick', 'home', 'day', 'weekpage', 'monthpage', 'yearpage', 'tags', 'sources', 'source', 'stats', 'map', 'feed', 'powers', 'whatsnew', 'settings', 'review', 'queue', 'calendar', 'practices', 'kind:practice'].includes(id)
 /** A step onto a note (not a task, a day or an event): the page that shows it turns, as a book's does. */
 const turnsPage = (view: View): boolean => !!view.focus && holdsNotes(view.id) && !['today', 'tomorrow', 'upcoming', 'routines', 'later', 'goals', 'week', 'matrix', 'discarded'].includes(view.id)
 /** Where one thing opens: a view by name, a day's page, or a note or task in its section. */
@@ -393,6 +399,8 @@ export function Home(): React.JSX.Element {
       // One sound a move: a place reached by something that already spoke (a map dot, ⌘K's Year) stays quiet.
       // A note opened on another page is heard as its page turn alone.
       if (here.id !== next.id && !chimedWithin(150) && !turnedNow(next.focus) && !tickedWithin(200)) chime('tap')
+      // A new pane's picker (⌘\) is not a step: what it opens takes its place, and Back never returns to it.
+      if (here.id === 'pick') return { ...trail, views: [...trail.views.slice(0, trail.at), next] }
       return push(trail, next, scroll)
     })
   }
@@ -604,6 +612,22 @@ export function Home(): React.JSX.Element {
   /** ⌥⌘\: the page in front, again beside it. A note stays in one pane, so the copy shows its list with nothing open. */
   const splitFront = (): void => {
     aside(holdsNotes(view.id) ? { id: view.id, tab: view.tab } : { id: view.id, focus: view.focus, tab: view.tab })
+  }
+  /**
+   * ⌘\, Obsidian's way: a new pane right of the one in front, with the keys,
+   * opening on a picker (⌘K's search, in the pane) for anything to open there.
+   * Split already, it goes in beside the front one; there is no limit (aside).
+   */
+  const splitRight = (): void => {
+    const now = splitRef.current
+    const at = Math.max(0, now.panes.findIndex((one) => one.key === now.front))
+    chime('slide')
+    const made = fresh([{ id: 'pick' }])
+    const n = now.panes.length + 1
+    const kept = now.sizes.length === now.panes.length ? now.sizes : now.panes.map(() => 1 / now.panes.length)
+    const total = kept.reduce((sum, one) => sum + one, 0) || 1
+    const rest = kept.map((one) => (one / total) * ((n - 1) / n))
+    setSplit({ ...now, panes: [...now.panes.slice(0, at + 1), made, ...now.panes.slice(at + 1)], front: made.key, sizes: [...rest.slice(0, at + 1), 1 / n, ...rest.slice(at + 1)] })
   }
   // One note, one pane: two editors on one note would each save over the
   // other's words. The pane in front keeps it; any other lets it go.
@@ -964,10 +988,10 @@ export function Home(): React.JSX.Element {
       // The Calendar's side panel is a task picked there: ⌘K over it is about that task.
       if (document.querySelector('[data-day-side]') && event.metaKey && !event.altKey && !event.shiftKey && event.key === 'k') return (event.preventDefault(), calendarAside(), setSearching('all'))
       if (held) return
-      // Split view. ⌥⌘\ opens the page in front again beside it.
-      if (event.metaKey && event.altKey && !event.ctrlKey && !event.shiftKey && event.code === 'Backslash') {
+      // Split view. ⌥⌘\ opens the page in front again beside it; ⌘\ a new pane to its right, to open anything in.
+      if (event.metaKey && !event.ctrlKey && !event.shiftKey && event.code === 'Backslash') {
         event.preventDefault()
-        return splitFront()
+        return event.altKey ? splitFront() : splitRight()
       }
       // ⌃H and ⌃L move between panes as Vim moves between windows, ⌃W closes
       // one. Only while split, and taken before the editor (which keeps none
@@ -996,17 +1020,13 @@ export function Home(): React.JSX.Element {
       // ⌥⌘[ is the editor's fold, not Back.
       if (event.metaKey && !event.altKey && event.key === '[') return step(-1)
       if (event.metaKey && !event.altKey && event.key === ']') return step(1)
-      // Taken here: on macOS the menu's ⌘\ (app-menu.ts) also fires for a key the page lets go.
-      if (event.metaKey && !event.altKey && event.key === '\\') {
+      // ⌘B the sidebar, as in Obsidian, while you write too: only words
+      // selected in a note keep it as Bold. ⇧⌘B puts every side away at once
+      // (or brings them back), the page on its own. Taken before the editor,
+      // and the menu's ⌘B (app-menu.ts) never fires for a key the page took.
+      if (event.metaKey && !event.altKey && !event.ctrlKey && event.code === 'KeyB' && (event.shiftKey || !selectedInNote())) {
         event.preventDefault()
-        chime(sidebar ? 'fold' : 'slide')
-        return setSidebar((open) => !open)
-      }
-      // ⌘B the sidebar too, as in Finder and most editors; while you write it
-      // stays Bold. ⇧⌘B puts every side away at once (or brings them back),
-      // the page on its own.
-      if (event.metaKey && !event.altKey && event.key.toLowerCase() === 'b' && !typing()) {
-        event.preventDefault()
+        event.stopPropagation()
         const open = event.shiftKey ? sidebar || detailsShown() : sidebar
         chime(open ? 'fold' : 'slide')
         if (event.shiftKey) showDetails(!open)
@@ -1086,6 +1106,9 @@ export function Home(): React.JSX.Element {
     const onNewPage = (): void => void haligtree.newArticle().then((id) => (chime('promote'), open('article', id)))
     const onExport = (): void => void exportEverything()
     const onSidebar = (): void => (chime(sidebar ? 'fold' : 'slide'), setSidebar(!sidebar))
+    // View > Open in a split to the right, clicked: the new pane eases in, as anything a pointer opens.
+    const onSplitRight = (): void => (byPointer(), splitRight())
+    window.addEventListener('haligtree:split-right', onSplitRight)
     window.addEventListener('haligtree:new-page', onNewPage)
     window.addEventListener('haligtree:export-all', onExport)
     window.addEventListener('haligtree:sidebar', onSidebar)
@@ -1093,6 +1116,7 @@ export function Home(): React.JSX.Element {
       window.removeEventListener('haligtree:new-page', onNewPage)
       window.removeEventListener('haligtree:export-all', onExport)
       window.removeEventListener('haligtree:sidebar', onSidebar)
+      window.removeEventListener('haligtree:split-right', onSplitRight)
     }
   })
   useEffect(() => window.api.onSentTo((type, id, heading) => {
@@ -1135,7 +1159,7 @@ export function Home(): React.JSX.Element {
   /** A page's name, for the top bar; a pane is named by its note first (paneName). */
   /** The sidebar row lit for the page you are on, whichever date a day's, week's, month's or year's page shows (litRow). */
   const lit = (id: string): boolean => litRow(view.id, shown) === id
-  const labelOf = (view: View): string => datedName(view) ?? (view.id === 'matrix' ? 'Urgent and important' : TASK_PAGES.includes(view.id) ? 'Tasks' : view.id === 'questions' ? 'Questions' : null) ?? SECTIONS.find((section) => section.id === view.id)?.label ?? kind(view)?.label ?? (view.id === 'source' ? view.focus?.slice(view.focus.indexOf(':') + 1) || 'Source' : view.id === 'settings' ? 'Settings' : view.id === 'whatsnew' ? "What's new" : view.id === 'practices' ? 'Practices' : view.id === 'yearpage' ? 'Year' : view.id === 'day' ? 'Day' : view.id === 'weekpage' ? 'Week' : view.id === 'monthpage' ? 'Month' : '')
+  const labelOf = (view: View): string => datedName(view) ?? (view.id === 'matrix' ? 'Urgent and important' : TASK_PAGES.includes(view.id) ? 'Tasks' : view.id === 'questions' ? 'Questions' : null) ?? SECTIONS.find((section) => section.id === view.id)?.label ?? kind(view)?.label ?? (view.id === 'source' ? view.focus?.slice(view.focus.indexOf(':') + 1) || 'Source' : view.id === 'settings' ? 'Settings' : view.id === 'pick' ? 'New pane' : view.id === 'whatsnew' ? "What's new" : view.id === 'practices' ? 'Practices' : view.id === 'yearpage' ? 'Year' : view.id === 'day' ? 'Day' : view.id === 'weekpage' ? 'Week' : view.id === 'monthpage' ? 'Month' : '')
   const paneWidth = (key: string, width: PaneWidth): void => {
     chime(width === 'narrow' ? 'fold' : 'slide')
     setSplit((now) => ({ ...now, panes: now.panes.map((one) => (one.key === key ? { ...one, width } : one)) }))
@@ -1255,6 +1279,13 @@ export function Home(): React.JSX.Element {
     ]
   }
 
+  /** Every place to go, as ⌘K offers them, opened in a pane (the one in front unless said). */
+  const placesTo = (key?: string): Action[] => [
+    ...SECTIONS.map((section) => ({ label: `Go to ${section.label}`, keys: `G ${section.key.toUpperCase()}`, run: () => setView({ id: section.id }, key) })),
+    // The Tasks row's other tabs, and the pages that are a chip or a menu line now: still a G and a letter away.
+    ...([['Upcoming', 'upcoming', 'U'], ['Later', 'later', 'Z'], ['Routines', 'routines', 'O'], ['Urgent and important', 'matrix', 'Q'], ['Questions', 'questions', 'H']] as const).map(([name, id, letter]) => ({ label: `Go to ${name}`, keys: `G ${letter}`, run: () => setView({ id }, key) }))
+  ]
+
   /** A pane's page: the step it is on, drawn with everything it opens kept in that pane. */
   const pageFor = (key: string, view: View): React.JSX.Element => {
     const go = (type: string, id: string): void => open(type, id, key)
@@ -1278,7 +1309,12 @@ export function Home(): React.JSX.Element {
         transition={{ duration: 0.16, ease: EASE }}
         className="flex min-w-0 flex-1"
       >
-        {view.id === 'home' ? (
+        {view.id === 'pick' ? (
+          // ⌘\'s new pane: ⌘K's own search, as the pane's page, for anything to open here.
+          <Search inPane={{ title: 'Open anything here', lead: <>A page, a list, a note, a task, a day, or a place like the Inbox or the Calendar. <Kbd>↵</Kbd> opens it in this pane, <Kbd>esc</Kbd> closes the pane.</> }}
+            actions={placesTo(key)} placeholder="Type a name, or a place to go…" onClose={() => closePane(key)}
+            onOpen={(type, id) => (via('search'), go(type, id))} onAside={(type, id) => (via('search'), aside(stepOf(type, id), key))} />
+        ) : view.id === 'home' ? (
           <HomeView onOpen={(type, id) => (via('home'), go(type, id))} onView={(id, focus) => (via('home'), setView({ id, focus }, key))} />
         ) : view.id === 'discarded' ? (
           <BinView onOpen={go} />
@@ -1442,12 +1478,11 @@ export function Home(): React.JSX.Element {
             // Either welcome, to feel which is right: played in the sandbox, so your own book is never touched.
             { label: 'Show the welcome in the sandbox', hint: 'Your own notes stay as they are', cue: null, run: () => void tryWelcome() },
             { label: 'Try a celebration', cue: null, run: () => tryCelebration() },
-            ...SECTIONS.map((section) => ({ label: `Go to ${section.label}`, keys: `G ${section.key.toUpperCase()}`, run: () => setView({ id: section.id }) })),
-            // The Tasks row's other tabs, and the pages that are a chip or a menu line now: still a G and a letter away.
-            ...([['Upcoming', 'upcoming', 'U'], ['Later', 'later', 'Z'], ['Routines', 'routines', 'O'], ['Urgent and important', 'matrix', 'Q'], ['Questions', 'questions', 'H']] as const).map(([name, id, key]) => ({ label: `Go to ${name}`, keys: `G ${key}`, run: () => setView({ id }) })),
+            ...placesTo(),
             { label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘B', cue: sidebar ? 'fold' : 'slide', run: () => (setSidebar(!sidebar), (sidebar ? toast('Sidebar hidden. ⌘B brings it back', () => setSidebar(sidebar)) : quietly(() => setSidebar(sidebar)))) },
             { label: sidebar || detailsShown() ? 'Hide every sidebar' : 'Show every sidebar', keys: '⇧⌘B', cue: null, run: () => { const open = sidebar || detailsShown(); chime(open ? 'fold' : 'slide'); showDetails(!open); setSidebar(!open); (open ? toast('Every sidebar hidden. ⇧⌘B brings them back', () => (showDetails(open), setSidebar(open))) : quietly(() => (showDetails(open), setSidebar(open)))) } },
             { label: fill ? 'Back to compact' : 'Fill the screen', keys: '⌃⇧F', cue: null, run: () => (setFill(!fill), (fill ? quietly(() => setFill(fill)) : toast('Filling the screen. ⌃⇧F goes back', () => setFill(fill)))) },
+            { label: 'Open in a split to the right', hint: 'Split: a new pane beside this one, to open anything in', keys: '⌘\\', cue: null, run: splitRight },
             { label: 'Split the page', hint: 'Split: this page again, beside it', keys: '⌥⌘\\', cue: null, run: () => {
               splitFront()
               toast(`Split: ${paneName(view).title} is on the right too. ⌃W closes it`)

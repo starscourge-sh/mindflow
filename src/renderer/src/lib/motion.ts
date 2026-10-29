@@ -111,6 +111,8 @@ addEventListener('pointerdown', () => void (keyed = false), true)
 // another app, still says its line.
 addEventListener('focus', () => void (keyed = false))
 export const byKeys = (): boolean => keyed
+/** Something opened from outside the page by a pointer (a menu bar click): what it opens may ease in. */
+export const byPointer = (): void => void (keyed = false)
 
 /**
  * Whether something was reached by a key, read once each time `shown`
