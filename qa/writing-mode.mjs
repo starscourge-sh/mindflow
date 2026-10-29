@@ -112,14 +112,14 @@ try {
   await v('settings:set', { writingStay: false })
 
   // Sidebar closed before: nothing slides.
-  await h.keyboard.press('Meta+Backslash')
+  await h.keyboard.press('Meta+b')
   await wait(600)
   await h.click('[data-page] [data-day-write] .ProseMirror')
   await into()
   await wait(1500)
   check(`with the sidebar closed before, the words stay where they are (${await slid()}px)`, Math.abs(await slid()) <= 2)
   await h.keyboard.press('Escape')
-  await h.keyboard.press('Meta+Backslash')
+  await h.keyboard.press('Meta+b')
   await wait(600)
 
   // The Journal's own spellcheck switch.

@@ -1,5 +1,5 @@
-// One ⌘\ is one toggle: the main window's sidebar (from the page, from a
-// note's editor, from today's Journal words) and the capture window's side
+// One press is one toggle: ⌘B for the main window's sidebar (from the page,
+// from today's Journal words) and ⌘\ for the capture window's side
 // panel each change once and stay changed. Sampled over a second after each press.
 //
 //   npx electron-vite build --outDir out-m
@@ -14,11 +14,11 @@ const { h, page, go, v, send } = c
 const wait = (ms) => h.waitForTimeout(ms)
 
 /** The sidebar's width, sampled every 40ms for a second after one press. */
-const press = async (where, read) => {
+const press = async (where, read, key = 'Meta+b') => {
   const before = await read()
   // A press the page lets go is the menu's too on macOS (app-menu.ts): a second toggle.
-  await where.evaluate(() => window.addEventListener('keydown', (e) => (window.__let = e.key === '\\' && !e.defaultPrevented), { once: true }))
-  await where.keyboard.press('Meta+Backslash')
+  await where.evaluate(() => window.addEventListener('keydown', (e) => (window.__let = (e.code === 'KeyB' || e.code === 'Backslash') && !e.defaultPrevented), { once: true }))
+  await where.keyboard.press(key)
   const letGo = await where.evaluate(() => window.__let)
   const seen = [before]
   for (let i = 0; i < 25; i++) (seen.push(await read()), await wait(40))
@@ -45,9 +45,9 @@ try {
   await wait(900)
   await page.bringToFront()
   const panel = () => page.evaluate(() => !!document.querySelector('[data-box-panel]'))
-  const a = await press(page, panel)
+  const a = await press(page, panel, 'Meta+Backslash')
   check(`capture window: one press, one change (${a.flips} change)`, a.flips === 1)
-  const b = await press(page, panel)
+  const b = await press(page, panel, 'Meta+Backslash')
   check(`capture window, back: one press, one change (${b.flips} change)`, b.flips === 1)
 } finally {
   await c.close()

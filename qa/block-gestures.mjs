@@ -136,15 +136,15 @@ try {
   // 6. Four panes: the sidebar away, then ⌥⌘\ three times.
   await c.go('ideas')
   await h.evaluate(() => document.activeElement?.blur?.())
-  await h.keyboard.press('Meta+Backslash'); await wait(400)
+  await h.keyboard.press('Meta+b'); await wait(400)
   for (let i = 0; i < 3; i++) { await h.keyboard.press('Meta+Alt+Backslash'); await wait(700) }
   const panes = await h.evaluate(() => document.querySelectorAll('[data-pane]').length)
   check('split view opens a fourth pane', panes === 4, `${panes} panes`)
   await h.keyboard.press('Meta+Alt+Backslash'); await wait(700)
   const still = await h.evaluate(() => document.querySelectorAll('[data-pane]').length)
-  check('and never a fifth', still === 4, `${still} panes`)
-  for (let i = 0; i < 3; i++) { await h.keyboard.press('Control+w'); await wait(400) }
-  await h.keyboard.press('Meta+Backslash'); await wait(300)
+  check('and a fifth, as there is no limit (the row scrolls sideways)', still === 5, `${still} panes`)
+  for (let i = 0; i < 4; i++) { await h.keyboard.press('Control+w'); await wait(400) }
+  await h.keyboard.press('Meta+b'); await wait(300)
   const errors = c.errors.filter((one) => !/net::|Failed to load resource/.test(one))
   check('no page errors', !errors.length, errors.slice(0, 3).join(' / '))
 } catch (error) {
