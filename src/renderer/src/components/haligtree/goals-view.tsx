@@ -2,7 +2,7 @@ import { dropLines, keepLines } from '@/lib/clue-lines'
 import { ReadsIn, useReading } from '@/lib/reads-in'
 import { binItem } from '@/lib/to-bin'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Archive, CalendarPlus, Flag, House, Plus, Snowflake, StickyNote, Wind } from 'lucide-react'
+import { CalendarPlus, Flag, House, Plus, Snowflake, StickyNote, Wind } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
 
@@ -141,6 +141,21 @@ function thaw(item: Item): void {
   })
 }
 
+/** Several open goals on ice at once, in one notice; undoable all together. */
+const iceAll = (ids: string[]): Promise<unknown> => Promise.all(ids.map((id) => haligtree.closeGoal(id, 'on ice'))).then(() => {
+  chime('unstick')
+  toast(`On ice: ${num(ids.length)} ${ids.length === 1 ? 'goal' : 'goals'}, their countdowns stopped, waiting under “On ice”`, () => void Promise.all(ids.map((id) => haligtree.reopenGoal(id))))
+})
+
+/** Several goals off ice at once, each day moved out by the days it waited; undoable back onto the ice. */
+const thawAll = (ids: string[]): Promise<unknown> => Promise.all(ids.map((id) => haligtree.thawGoal(id).then((back) => back && { id, ...back }))).then((all) => {
+  const backs = all.filter((one) => !!one)
+  if (!backs.length) return chime('nope')
+  chime('hold')
+  toast(`Off ice: ${num(backs.length)} ${backs.length === 1 ? 'goal' : 'goals'} open again, each day moved out by the days it waited`,
+    () => void Promise.all(backs.map((back) => haligtree.goalDates(back.id, { target: back.was }).then(() => haligtree.closeGoal(back.id, 'on ice', back.iced)))))
+})
+
 /** A settled goal open again; undoable back to how it was settled. */
 function reopen(item: Item): void {
   const how = (item.closedHow ?? 'let go') as 'made it' | 'missed' | 'let go'
@@ -245,7 +260,8 @@ const goalMenu = (item: Item): MenuItem[] => [
     : !item.closedAt && { label: 'Put on ice', hint: 'Paused: its countdown stops', run: () => settle(item, 'on ice') },
   !item.closedAt && { label: onHome(item) ? 'Take off Home' : 'Show on Home', hint: onHome(item) ? 'The nearest show instead' : 'First at the top of Home', run: () => setOnHome(item, !onHome(item)) },
   { label: item.private ? 'Not private' : 'Private', run: () => void haligtree.setPrivate('nuggets', item.id, !item.private) },
-  { label: item.archivedAt ? 'Unarchive' : 'Archive', hint: item.archivedAt ? 'Back in sight' : 'Kept, out of sight', run: () => void archive('nuggets', [item.id], !item.archivedAt) },
+  // Goals pause on ice, not in the archive: only one archived before keeps a way back.
+  !!item.archivedAt && { label: 'Unarchive', hint: 'Back in sight', run: () => void archive('nuggets', [item.id], false) },
   binItem([{ type: 'goal', id: item.id }]),
   'separator',
   { label: 'Stick all goals on the desktop', hint: 'Each in its own colour, with a legend', run: showAllGoals },
@@ -300,7 +316,8 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
   const [cursor, setCursor] = useListKeys(items.length, { onOpen: (index) => pick(items[index].id), opened: items.findIndex((one) => one.id === (coming ?? open?.id)), onExtend: (from, to) => several.picking.extend(items[from]?.id, items[to].id) })
   const go = (type: string, id: string): void => (type === 'goal' ? pick(id) : onOpen?.(type, id))
   // x, ⇧-click and ⌘A pick several, for the queue or the archive together.
-  const several = usePickNotes(items.map((one) => one.id), cursor, { here: useHere(), noun: ['goal', 'goals'], tier: 'goal', titleOf: (id) => items.find((one) => one.id === id)?.title })
+  const several = usePickNotes(items.map((one) => one.id), cursor, { here: useHere(), noun: ['goal', 'goals'], tier: 'goal', titleOf: (id) => items.find((one) => one.id === id)?.title,
+    put: show === 'open' ? { label: 'Put on ice', hint: 'Paused: their countdowns stop', run: iceAll } : show === 'iced' ? { label: 'Take off ice', hint: 'Open again, each day moved out by the days it waited', run: thawAll } : undefined })
   // Sent here for one goal: the goal is drawn first and the list beside it
   // the frame after, whole (Page's `apart`), so its words never wait behind the list.
   const sent = !!focus && (coming ?? open?.id) === focus
@@ -551,9 +568,10 @@ export function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNod
           <Prop icon={item.private ? EyeOff : Eye} active={!!item.private} onClick={() => void haligtree.setPrivate('nuggets', item.id, !item.private)}>
             {item.private ? 'Private: its name stays hidden' : 'Its name can show'}
           </Prop>
-          <Prop icon={item.archivedAt ? ArchiveRestore : Archive} active={!!item.archivedAt} onClick={() => void archive('nuggets', [item.id], !item.archivedAt)} tip={item.archivedAt ? 'Bring it back' : 'Kept, out of sight'}>
-            {item.archivedAt ? 'Unarchive' : 'Archive'}
-          </Prop>
+          {/* Goals pause on ice instead; only one archived before keeps a way back. */}
+          {item.archivedAt && (
+            <Prop icon={ArchiveRestore} active onClick={() => void archive('nuggets', [item.id], false)} tip="Bring it back">Unarchive</Prop>
+          )}
         </Island>
       </Props>
     </div>

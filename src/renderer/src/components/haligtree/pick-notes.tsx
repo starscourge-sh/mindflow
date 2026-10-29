@@ -4,8 +4,6 @@ import { chime } from '@/lib/sound'
 import { useSelectAll } from '@/lib/select-all'
 import { usePicking, type Picking } from '@/lib/pick-range'
 import { binItem, moveToBin } from '@/lib/to-bin'
-import { archive } from '@/lib/notes'
-import { enqueue } from '@/lib/reading-queue'
 import { num } from '../../../../main/dates'
 import { Button } from '@/components/ui/button'
 import { Tip, typing } from './ui'
@@ -14,10 +12,10 @@ import type { MenuItem } from './row-menu'
 /**
  * Picking several kept notes (questions, goals), the way the Inbox and Gems
  * pick: x on the row under the cursor, ⇧-click, ⌘A for all on show, Escape to
- * let them go. What is picked can go to the reading queue or the archive
- * together, each with its own notice, sound and undo.
+ * let them go. What is picked can go to the Bin together, or wherever the
+ * page's own `put` sends it (goals: on ice), each with its notice and undo.
  */
-export function usePickNotes(shown: string[], cursor: number, { here, noun, tier, titleOf }: { here: () => boolean; noun: [string, string]; /** What they are, for the Bin: question, goal. */ tier: string; /** Their words, for ⌘C. */ titleOf?: (id: string) => string | undefined }): {
+export function usePickNotes(shown: string[], cursor: number, { here, noun, tier, titleOf, put }: { here: () => boolean; noun: [string, string]; /** What they are, for the Bin: question, goal. */ tier: string; /** Their words, for ⌘C. */ titleOf?: (id: string) => string | undefined; /** The page's own move for what is picked, beside the Bin. */ put?: { label: string; hint: string; run: (ids: string[]) => Promise<unknown> } }): {
   chosen: string[]
   toggle: (id: string) => void
   /** ⌘-click, ⇧-click, ⇧↑ and ⇧↓, as Finder picks. */
@@ -55,16 +53,10 @@ export function usePickNotes(shown: string[], cursor: number, { here, noun, tier
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
-  const queue = (next: boolean): void => void enqueue(live, next).then(() => setChosen([]))
-  const shelve = (): void => void archive('nuggets', live, true).then(() => setChosen([]))
+  const move = (): void => void put?.run(live).then(() => setChosen([]))
   const bar = live.length ? (
     <span className="flex items-center gap-1">
-      <Tip label="At the end of your reading queue; ⌥-click to read them next">
-        <Button variant="ghost" size="sm" onClick={(event) => queue(event.altKey)}>Add to queue</Button>
-      </Tip>
-      <Tip label="Kept, out of sight: find them again in Archived">
-        <Button variant="ghost" size="sm" onClick={shelve}>Archive</Button>
-      </Tip>
+      {put && <Tip label={put.hint}><Button variant="ghost" size="sm" onClick={move}>{put.label}</Button></Tip>}
       <Tip label={`Into the Bin, where ${live.length === 1 ? 'it' : 'they'} can come back  ⌫`}>
         <Button variant="ghost" size="sm" onClick={() => toBin(live)}>Move to the Bin</Button>
       </Tip>
@@ -73,9 +65,8 @@ export function usePickNotes(shown: string[], cursor: number, { here, noun, tier
     </span>
   ) : null
   const menu = (id: string): MenuItem[] | null => live.includes(id) && live.length > 1 ? [
-    { label: `Add ${num(live.length)} ${noun[1]} to the queue`, run: () => queue(false) },
-    { label: `Archive ${num(live.length)} ${noun[1]}`, hint: 'Kept, out of sight', run: shelve },
-    'separator',
+    put && { label: `${put.label}: ${num(live.length)} ${noun[1]}`, hint: put.hint, run: move },
+    put && 'separator',
     binItem(live.map((id) => ({ type: tier, id })), () => setChosen([])),
     'separator',
     !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
