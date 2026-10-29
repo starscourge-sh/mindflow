@@ -745,35 +745,69 @@ export function importMarkdown(name: string, text: string, jokes = false): numbe
 
 /**
  * Bookmarks, as links: the HTML file Raindrop, and every browser, exports.
- * Each keeps its title, its address as the body, the day it was saved, and
- * its site as where it came from. One already imported is skipped.
+ * Each keeps its title, its address, the day it was saved, and its site as
+ * where it came from. Raindrop's highlights come too, each as a quote under
+ * the link's card, and its folder (all but "Unsorted") and tags as #tags. A
+ * link already in the book is not made twice: only highlights it does not
+ * have yet are added under it.
  */
 export function importBookmarks(name: string, html: string): number {
   // Matched on the address anywhere in the body: once a link becomes its card,
   // the body is the card, and a second import must still see it.
-  const seen = db.prepare('select 1 from captures where source = ? and body like ?')
+  const seen = db.prepare('select id, number, body from captures where source = ? and body like ?')
   const where = db.prepare('update captures set medium = ? where id = ?')
+  const again = db.prepare('update captures set body = ? where id = ?')
   let added = 0
   const plain = (text: string): string =>
     text.replace(/&(amp|quot|#39|lt|gt);/g, (_, code: string) => ({ amp: '&', quot: '"', '#39': "'", lt: '<', gt: '>' })[code]!).trim()
-  for (const [, url, attrs, raw] of html.matchAll(/<a\s+href="([^"]+)"([^>]*)>([^<]*)<\/a>/gi)) {
+  const tagOf = (word: string): string => word.trim().toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '')
+  type Block = { type: string; attrs?: Record<string, unknown>; content?: Block[]; text?: string }
+  // A highlight's lines, without what a copied search answer leaves behind ("+2", "·Great Books In 10 Minutes").
+  const quote = (raw: string): Block | null => {
+    const lines = plain(raw.replace(/<[^>]+>/g, '')).split(/\r?\n/).map((line) => line.trim()).filter((line) => line && !/^\+\d+$/.test(line) && !/^·/.test(line))
+    return lines.length ? { type: 'blockquote', content: lines.map((line) => ({ type: 'paragraph', content: [{ type: 'text', text: line }] })) } : null
+  }
+  let folder = ''
+  // Each entry: a folder heading, or a link with what follows it up to the next entry (its highlights).
+  for (const [, heading, url, attrs, raw, after] of html.matchAll(/<h3[^>]*>([^<]*)<\/h3>|<a\s+href="([^"]+)"([^>]*)>([^<]*)<\/a>([\s\S]*?)(?=<dt>|<\/dl>|$)/gi)) {
+    if (heading !== undefined) {
+      folder = /^unsorted$/i.test(plain(heading)) ? '' : plain(heading)
+      continue
+    }
     const title = plain(raw)
     // An address that does not parse ("http://[bad") is skipped, not the rest of the file.
     const host = URL.canParse(url) ? new URL(url).hostname.replace(/^www\./, '') : null
-    if (!host || !/^https?:/.test(url) || seen.get(name, `%${url}%`)) continue
+    if (!host || !/^https?:/.test(url)) continue
+    const quotes = [...after.matchAll(/<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi)].map(([, text]) => quote(text)).filter((one): one is Block => !!one)
+    const was = seen.get(name, `%${url}%`) as { id: string; number: number; body: string } | undefined
+    if (was) {
+      // Already here: only the highlights it does not have yet.
+      const body = JSON.parse(was.body) as unknown
+      const doc: Block = body && typeof body === 'object' ? (body as Block) : { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: String(body ?? url) }] }] }
+      const has = JSON.stringify(doc)
+      const fresh = quotes.filter((one) => !has.includes(JSON.stringify(one.content![0].content![0].text).slice(1, 41)))
+      if (!fresh.length) continue
+      again.run(JSON.stringify({ ...doc, content: [...(doc.content ?? []), ...fresh] }), was.id)
+      added += 1
+      continue
+    }
     const saved = /add_date="(\d+)"/i.exec(attrs)?.[1]
-    const { id, number } = insert(
-      { title: title || url, kind: 'link', body: url, source: name },
-      saved ? new Date(Number(saved) * 1000).toISOString() : new Date().toISOString()
-    )
+    const cover = /data-cover="([^"]+)"/i.exec(attrs)?.[1] ?? ''
+    const tags = [folder, ...(/tags="([^"]*)"/i.exec(attrs)?.[1] ?? '').split(',')].map(tagOf).filter(Boolean)
+    // With highlights, the card is made here from what Raindrop kept, so the quotes sit under it; a bare link stays
+    // its address, and becomes its card as any link does (link-card.ts).
+    const card: Block = { type: 'bookmark', attrs: { href: url, title: title || url, description: '', image: cover, icon: '', site: host, id: randomUUID(), loading: false } }
+    const tagLine: Block[] = tags.length ? [{ type: 'paragraph', content: [{ type: 'text', text: tags.map((tag) => `#${tag}`).join(' ') }] }] : []
+    const body = quotes.length || tags.length ? { type: 'doc', content: [card, ...quotes, ...tagLine] } : url
+    const { id, number } = insert({ title: title || url, kind: 'link', body, source: name }, saved ? new Date(Number(saved) * 1000).toISOString() : new Date().toISOString())
     where.run(host, id)
-    void writeMarkdown(number, `[${title || url}](${url})`)
+    const lines = quotes.map((one) => one.content!.map((line) => `> ${line.content![0].text}`).join('\n'))
+    void writeMarkdown(number, [`[${title || url}](${url})`, ...lines, ...(tags.length ? [tags.map((tag) => `#${tag}`).join(' ')] : [])].join('\n\n'))
     added += 1
   }
   if (added) changed()
   return added
 }
-
 /**
  * A drawing whose note went away while its window was still open: kept as a
  * note of its own in the Inbox rather than lost with the window.
