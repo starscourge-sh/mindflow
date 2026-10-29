@@ -484,6 +484,11 @@ export function registerCaptures(): void {
   // A journal day: its page and its two answers (journal.ts), found as one, by its day.
   const DAYS = 'select day from day_pages union select day from journal'
   const DAY_WORDS = "(coalesce(words('day:' || d.day, (select body from day_pages p where p.day = d.day)), '') || ' ' || coalesce((select group_concat(answer, ' ') from journal j where j.day = d.day), ''))"
+  // An event's words: its name, place, people and notes.
+  const EVENT_WORDS = "(title || ' ' || coalesce(place, '') || ' ' || coalesce(people, '') || ' ' || coalesce(notes, ''))"
+  // A gem's, Page's or question's words are its body; a goal's page shows no
+  // body, so a goal is found by the "Why it matters" its page does show.
+  const SHOWN_WORDS = "(case when tier = 'goal' then coalesce(why, '') else words(id, body) end)"
   ipcMain.handle('captures:find', (_event, query: unknown) => {
     const said = String(query ?? '').toLowerCase().split(/\s+/).filter(Boolean)
     // `author:le guin`: a property filter (property-words.ts), its value running to the next filter.
@@ -507,11 +512,11 @@ export function registerCaptures(): void {
          select 'capture' as type, id, number, kind, status, source, attribution, ${LABEL} as label, captured_at as capturedAt
            from captures where status != 'discarded' and ${match(`(${LABEL} || ' ' || words(id, body) || ' ' || coalesce(medium, '') || ' ' || coalesce(attribution, '') || ' ' || coalesce(fields, '') || ' ' || coalesce(aliases, ''))`)}
          union all
-         select tier, id, null, kind, 'open', '', attribution, coalesce(nullif(title, ''), label('', body)), created_at from nuggets where tier != 'card' and binned_at is null and ${match("(coalesce(title, '') || ' ' || words(id, body) || ' ' || coalesce(attribution, '') || ' ' || coalesce(fields, '') || ' ' || coalesce(aliases, ''))")}
+         select tier, id, null, kind, 'open', '', attribution, coalesce(nullif(title, ''), label('', body)), created_at from nuggets where tier != 'card' and binned_at is null and ${match(`(coalesce(title, '') || ' ' || ${SHOWN_WORDS} || ' ' || coalesce(attribution, '') || ' ' || coalesce(fields, '') || ' ' || coalesce(aliases, ''))`)}
          union all
          select 'task', id, number, 'todo', status, '', null, title, created_at from tasks where status != 'dropped' and ${match("(title || ' ' || coalesce(notes, ''))")}
          union all
-         select 'event', id, null, 'event', 'open', '', null, title, created_at from events where binned_at is null and series_id is null and ${match("(title || ' ' || coalesce(place, '') || ' ' || coalesce(people, '') || ' ' || coalesce(notes, ''))")}
+         select 'event', id, null, 'event', 'open', '', null, title, created_at from events where binned_at is null and series_id is null and ${match(EVENT_WORDS)}
          union all
          select 'day', day, null, 'day', 'open', '', null, day, day || 'T12:00:00.000Z' from (${DAYS}) d where ${match(DAY_WORDS)}
        ) ${kind ? 'where kind = ?' : ''} order by capturedAt desc limit 60`
@@ -529,9 +534,11 @@ export function registerCaptures(): void {
            from captures where status != 'discarded'
          union all
          select tier, id, null, kind, 'open', '', attribution, coalesce(nullif(title, ''), label('', body)), created_at,
-           (coalesce(title, '') || ' ' || words(id, body) || ' ' || coalesce(attribution, '') || ' ' || coalesce(aliases, '')) from nuggets where tier != 'card' and binned_at is null
+           (coalesce(title, '') || ' ' || ${SHOWN_WORDS} || ' ' || coalesce(attribution, '') || ' ' || coalesce(aliases, '')) from nuggets where tier != 'card' and binned_at is null
          union all
          select 'task', id, number, 'todo', status, '', null, title, created_at, (title || ' ' || coalesce(notes, '')) from tasks where status != 'dropped'
+         union all
+         select 'event', id, null, 'event', 'open', '', null, title, created_at, ${EVENT_WORDS} from events where binned_at is null and series_id is null
          union all
          select 'day', day, null, 'day', 'open', '', null, day, day || 'T12:00:00.000Z', ${DAY_WORDS} from (${DAYS}) d
        ) ${kind ? 'where kind = ?' : ''} order by capturedAt desc limit 3000`

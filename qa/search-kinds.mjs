@@ -38,7 +38,8 @@ try {
   made.push({ what: 'question', type: 'question', id: questionId, name: 'Zephyrquestionname', body: 'Quillonquestionbody' })
   const goal = await v('goal:new', 'Zephyrgoalname', null)
   const goalId = typeof goal === 'string' ? goal : goal.id
-  await v('item:save', goalId, { body: doc('Quillongoalbody') })
+  // A goal's page shows "Why it matters", not a body: found by that, and never by words it hides.
+  await v('item:save', goalId, { why: 'Quillongoalbody', body: doc('Hiddengoalwords') })
   made.push({ what: 'goal', type: 'goal', id: goalId, name: 'Zephyrgoalname', body: 'Quillongoalbody' })
   const start = new Date(Date.now() + 86400000).toISOString()
   const event = await v('event:add', { title: 'Zephyreventname', start, end: new Date(Date.now() + 90000000).toISOString(), notes: 'Quilloneventbody' })
@@ -53,6 +54,14 @@ try {
     const byBody = await h.evaluate((w) => window.api.captures.find(w), one.body)
     check(`${one.what}: found by a word in its name`, byName.some((r) => r.id === one.id), byName.map((r) => r.type).join(',') || 'nothing')
     check(`${one.what}: found by a word in its body`, byBody.some((r) => r.id === one.id), byBody.map((r) => r.type).join(',') || 'nothing')
+  }
+  const hidden = await h.evaluate((w) => window.api.captures.find(w), 'Hiddengoalwords')
+  check('goal: words its page does not show are not found', !hidden.some((r) => r.id === goalId), JSON.stringify(hidden.map((r) => r.type)))
+  // A slip of the keys forgiven for every kind, events too.
+  for (const one of made) {
+    const slip = one.body.slice(0, -2) + one.body.slice(-1) + one.body.slice(-2, -1)
+    const found = await h.evaluate((w) => window.api.captures.find(w), slip)
+    check(`${one.what}: found with a slip ("${slip}")`, found.some((r) => r.id === one.id), found.map((r) => r.type).join(',') || 'nothing')
   }
   for (const word of ['Quillondaybody', 'Quillonjournalbody']) {
     const found = await h.evaluate((w) => window.api.captures.find(w), word)
