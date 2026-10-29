@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'motion/react'
 import { chime, tear } from '@/lib/sound'
 import { realMove } from '@/lib/real-move'
-import { EASE, useByKeys } from '@/lib/motion'
+import { EASE, still as calm, useByKeys } from '@/lib/motion'
 import { unloaded, useLive, haligtree, type PeriodPage, type Task } from '@/lib/haligtree'
 import { Button } from '@/components/ui/button'
 import { Kbd, Tags, toast } from './ui'
@@ -40,7 +40,7 @@ export function weekDue(eveningAt = '18:00', now = new Date()): boolean {
   const [h, m] = eveningAt.split(':').map(Number)
   return now.getDay() === 0 && now.getHours() * 60 + now.getMinutes() >= h * 60 + (m || 0) && !weekClosed()
 }
-export const weekClosed = (): boolean => read(DONE_KEY) === mondayNow()
+const weekClosed = (): boolean => read(DONE_KEY) === mondayNow()
 
 /** The pass, over the window, when asked for. */
 export function CloseWeekSheet(): React.JSX.Element | null {
@@ -232,8 +232,6 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
     </div>
   )
 }
-
-const calm = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
 
 /** The week as a ring: a seventh a day, the days gone by drawn, closed all the way round once the week is. */
 function WeekRing({ gone, closed }: { gone: number; closed: boolean }): React.JSX.Element {

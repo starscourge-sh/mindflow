@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'motion/react'
-import { shift } from '@/lib/motion'
+import { EASE, shift } from '@/lib/motion'
 
 import { chime } from '@/lib/sound'
 import { useLive } from '@/lib/haligtree'
@@ -22,7 +22,6 @@ import { ArrowLeft, ArrowRight, X } from '@/components/ui/icons'
  * for it beat any the app could find.
  */
 
-const EASE = [0.16, 1, 0.3, 1] as const
 /** Topic colours, always in this order; anything past them is Other, in grey. */
 const TOPIC = ['purple', 'blue', 'green', 'orange', 'pink'].map((name) => `var(--tt-color-text-${name})`)
 

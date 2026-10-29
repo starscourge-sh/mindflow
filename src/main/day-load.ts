@@ -1,5 +1,5 @@
 import dayjs from 'dayjs'
-import { howLong } from './dates.ts'
+import { dayKey, howLong } from './dates.ts'
 
 /**
  * Does a day fit? Its meetings (calendar events, all-day ones left out and
@@ -11,8 +11,8 @@ import { howLong } from './dates.ts'
  * tests run it as it is.
  */
 
-export type LoadEvent = { start: string; end: string; allDay: boolean }
-export type LoadTask = { id: string; estimate: number | null; priority: number; important: number | boolean; dueAt: string | null; deadline: string | null }
+type LoadEvent = { start: string; end: string; allDay: boolean }
+type LoadTask = { id: string; estimate: number | null; priority: number; important: number | boolean; dueAt: string | null; deadline: string | null }
 export type DayLoad = {
   day: string
   /** Minutes of meetings, overlaps once. */
@@ -31,7 +31,6 @@ export type DayLoad = {
 }
 export type Move = { id: string; from: string; to: string; minutes: number }
 
-const dayKey = (at: dayjs.ConfigType): string => dayjs(at).format('YYYY-MM-DD')
 
 /** The day a task is for: the day it is planned, else the day it is due by. */
 export const taskDay = (task: Pick<LoadTask, 'dueAt' | 'deadline'>): string | null => (task.dueAt ? dayKey(task.dueAt) : task.deadline ? dayKey(task.deadline) : null)

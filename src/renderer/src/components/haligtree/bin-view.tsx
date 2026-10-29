@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import type { JSONContent } from '@tiptap/core'
 import { ArchiveRestore, Trash2, X } from 'lucide-react'
 import { AnimatePresence, PresenceContext, motion } from 'motion/react'
-import { EASE, byKeys, shift, spring } from '@/lib/motion'
+import { EASE, byKeys, shift, spring, still } from '@/lib/motion'
 import { chime } from '@/lib/sound'
 import { unloaded, useLive, haligtree, whenInLine, type BinPeek } from '@/lib/haligtree'
 import { HaligtreeEditor } from '@/components/haligtree'
@@ -348,11 +348,10 @@ function QuickLook({ one, at, total, onStep, onClose, onRestore, onForget }: {
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
-  const still = document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
   return createPortal(
     <div data-bin-look className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-6" onClick={(event) => event.target === event.currentTarget && onClose()}>
       <motion.div role="dialog" aria-modal="true" aria-label={`${kindSaid(one)} in the Bin`}
-        initial={still || byKeys() ? false : { opacity: 0, transform: 'scale(0.96)' }} animate={{ opacity: 1, transform: 'scale(1)' }} transition={spring.moderate}
+        initial={still() || byKeys() ? false : { opacity: 0, transform: 'scale(0.96)' }} animate={{ opacity: 1, transform: 'scale(1)' }} transition={spring.moderate}
         className="flex max-h-[88vh] w-[min(60rem,94vw)] flex-col overflow-hidden rounded-xl border bg-background shadow-(--mf-panel-shadow)">
         <header className="flex h-11 shrink-0 items-center gap-2 border-b px-4">
           <span className="text-control font-medium text-foreground">Quick Look</span>
