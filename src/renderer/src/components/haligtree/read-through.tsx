@@ -1,3 +1,4 @@
+import { fieldOf } from '../capture-list'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { chime, paper } from '@/lib/sound'
@@ -106,7 +107,7 @@ export type Readable = { type: string; id: string; body?: string; title?: string
 
 type Page = { id: string; title?: string; body: JSONContent | string | null; meta?: string[]; private?: boolean;
   /** What the property strip and the selection bar need, as every note surface has them (note-powers.tsx). */
-  kind?: string; fields?: string | null; label?: string; created?: string | null; updated?: string | null; captureId?: string; attribution?: string | null; /** Who said it, for a quote: signed under the words. */ who?: string }
+  kind?: string; fields?: string | null; label?: string; created?: string | null; updated?: string | null; captureId?: string; attribution?: string | null; /** Who said it, for a quote: signed under the words. */ who?: string; /** Where it is from: its source's year signs it too. */ where?: string | null }
 
 /** The #tags in a note's words, the first few, for the line under its title. */
 const tagsOf = (body: unknown): string[] => {
@@ -465,8 +466,8 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
     setPage(null)
     if (item.body !== undefined) return setPage({ id: item.id, title: item.title, body: item.body })
     const load: Promise<Omit<Page, 'id'> | null> = item.type === 'capture'
-      ? window.api.captures.get(item.id).then((found) => found && { body: found.body as JSONContent, private: !!found.private, ...said(found.kind, found.attribution), meta: metaOf(found.kind, found.capturedAt, [said(found.kind, found.attribution).who ? null : found.attribution, found.medium, found.source]), kind: found.kind, fields: found.fields, label: found.label, created: found.capturedAt, updated: found.editedAt })
-      : haligtree.item(item.id).then((found) => found && { title: found.tier === 'article' || found.tier === 'question' ? found.title : undefined, body: found.body as JSONContent, private: !!found.private, ...said(found.kind, found.attribution), meta: metaOf(found.kind, found.createdAt, [said(found.kind, found.attribution).who ? null : found.attribution, found.context]), kind: found.kind, fields: found.fields, label: found.title, created: found.createdAt, updated: found.updatedAt, captureId: found.captureId ?? undefined, attribution: found.attribution })
+      ? window.api.captures.get(item.id).then((found) => found && { body: found.body as JSONContent, private: !!found.private, ...said(found.kind, found.attribution), where: found.medium, meta: metaOf(found.kind, found.capturedAt, [said(found.kind, found.attribution).who ? null : found.attribution, found.medium, found.source]), kind: found.kind, fields: found.fields, label: found.label, created: found.capturedAt, updated: found.editedAt })
+      : haligtree.item(item.id).then((found) => found && { title: found.tier === 'article' || found.tier === 'question' ? found.title : undefined, body: found.body as JSONContent, private: !!found.private, ...said(found.kind, found.attribution), where: found.medium, meta: metaOf(found.kind, found.createdAt, [said(found.kind, found.attribution).who ? null : found.attribution, found.context]), kind: found.kind, fields: found.fields, label: found.title, created: found.createdAt, updated: found.updatedAt, captureId: found.captureId ?? undefined, attribution: found.attribution })
     let current = true
     void load.then((next) => current && setPage({ id: item.id, ...(next ?? { body: null }) }))
     return () => void (current = false)
@@ -856,7 +857,7 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
                 {linked.map((one) => <EmbeddedNote key={`${one}-${writing}`} link={one} label="" powers reading={!writing} onLeave={onClose} />)}
               </section>
             )}
-            {shown?.who && <p data-private={hidden} className="mt-5 text-control text-muted-foreground"><Signed who={shown.who} className="private-text" /></p>}
+            {shown?.who && <p data-private={hidden} className="mt-5 text-control text-muted-foreground"><Signed who={shown.who} where={shown.where} year={fieldOf(shown.fields, 'year')} className="private-text" /></p>}
             {/* Thoughts kept on it stay with the words; a new one goes in the
                 composer under the page. */}
             {longform && shown && <div data-read-foot="" className="mt-14">{longform.foot}</div>}

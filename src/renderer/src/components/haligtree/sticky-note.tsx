@@ -1,3 +1,4 @@
+import { fieldOf } from '../capture-list'
 import { Tape } from './tape'
 import { currentVim, onVimChange } from '@/lib/vim'
 import { usePatience } from '@/lib/patience'
@@ -381,9 +382,9 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
   useAppearance()
   const note = useLive(
     () => (type === 'capture'
-      ? window.api.captures.get(id).then((found) => found && { title: found.title || '', body: found.body, private: !!found.private, tier: 'capture', who: found.kind === 'quote' ? found.attribution : null, binned: found.status === 'discarded' })
-      : haligtree.item(id).then((found) => found && { title: found.title, body: found.body, private: !!found.private, tier: found.tier as string, who: found.kind === 'quote' ? found.attribution : null, binned: !!(found as { binnedAt?: string | null }).binnedAt })),
-    undefined as { title: string; body: unknown; private: boolean; tier: string; who: string | null; binned: boolean } | null | undefined,
+      ? window.api.captures.get(id).then((found) => found && { title: found.title || '', body: found.body, private: !!found.private, tier: 'capture', who: found.kind === 'quote' ? found.attribution : null, where: found.medium, year: fieldOf(found.fields, 'year'), binned: found.status === 'discarded' })
+      : haligtree.item(id).then((found) => found && { title: found.title, body: found.body, private: !!found.private, tier: found.tier as string, who: found.kind === 'quote' ? found.attribution : null, where: found.medium, year: fieldOf(found.fields, 'year'), binned: !!(found as { binnedAt?: string | null }).binnedAt })),
+    undefined as { title: string; body: unknown; private: boolean; tier: string; who: string | null; where?: string | null; year?: string | null; binned: boolean } | null | undefined,
     [type, id]
   )
   // A see-through window: only the card is drawn.
@@ -718,7 +719,7 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
             {/* Nothing written yet: where to start, in the card's own dimmed words. */}
             {empty && !gone && <p className="my-1 text-muted-foreground/80">Double-click to write here.</p>}
             {/* A quote signed under its words, in a pen's hand. */}
-            {note?.who && <p className="mt-1.5"><Signed who={note.who} /></p>}
+            {note?.who && <p className="mt-1.5"><Signed who={note.who} where={note.where} year={note.year} /></p>}
           </>}
         </div>
         {/* Its note gone to the Bin (or for good): the card greys, says so with the way back, then peels off. */}
