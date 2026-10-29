@@ -1151,7 +1151,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
         </>}
 
         <Group section="Writing" title="With each capture">
-          <Setting title="Weather" note="Each capture keeps the weather when you caught it, like 12°C, light rain." more="Today's brief shows it now. It asks wttr.in, which guesses your town from your connection with no account or location permission; left out when offline.">
+          <Setting title="Weather" note="Each capture keeps the weather when you caught it, like 12°C, light rain." more="Today's report shows it now. It asks wttr.in, which guesses your town from your connection with no account or location permission; left out when offline.">
             <Switch checked={settings.weather} onCheckedChange={(weather) => set({ weather })} />
           </Setting>
         </Group>
@@ -2062,7 +2062,7 @@ function MacCalendarSetting({ on, set }: { on: boolean; set: (on: boolean) => vo
   }
   const line = status === 'asking' ? 'Waiting for macOS to ask you…' : status === 'denied' ? `macOS has not let ${APP_NAME} read your calendar.` : status === 'on' ? 'Reading your calendar: today’s events show in the brief and the week.' : null
   return (
-    <Setting title="Your Mac's calendar" note="Your calendar's events on Today's brief and the week, read only." more={`macOS asks once before ${APP_NAME} can see them; nothing is ever changed or sent.`} keywords="calendar mac apple ical events meetings eventkit today week">
+    <Setting title="Your Mac's calendar" note="Your calendar's events on Today's report and the week, read only." more={`macOS asks once before ${APP_NAME} can see them; nothing is ever changed or sent.`} keywords="calendar mac apple ical events meetings eventkit today week">
       <span className="flex items-center gap-2">
         {on && line && <span data-calendar-status className="text-control text-muted-foreground">{line}</span>}
         {on && status === 'denied' && <Button size="sm" variant="outline" onClick={() => void window.api.haligtree('calendar:privacy')}>Open Privacy settings</Button>}

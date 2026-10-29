@@ -245,6 +245,12 @@ export function DayBrief({ day, onOpen, onListed, between }: {
   const named = sceneCredit(scene)
   const picture = !!scene || !!grain
   const time = clock(now)
+  // Where today sits in the year, as a log is numbered: "Day 302". In December, the count runs down to the new year instead: "T-minus 3".
+  const year = dayjs(now).startOf('year')
+  const left = year.add(1, 'year').diff(dayjs(now).startOf('day'), 'day')
+  const count = dayjs(now).month() === 11
+    ? { text: `T-minus ${left}`, tip: `${left === 1 ? 'The last day' : `${left} days left`} of ${year.year()}` }
+    : { text: `Day ${dayjs(now).startOf('day').diff(year, 'day') + 1}`, tip: `Day ${dayjs(now).startOf('day').diff(year, 'day') + 1} of ${year.add(1, 'year').diff(year, 'day')} in ${year.year()}` }
 
   return (
     <div className="pt-5 @min-[66rem]/page:pt-8">
@@ -271,10 +277,10 @@ export function DayBrief({ day, onOpen, onListed, between }: {
               textShadow: picture ? '0 1px 2px rgb(0 0 0 / 0.25), 0 4px 28px rgb(0 0 0 / 0.35)' : undefined
             }}>
             {/* The title is simply there: the greeting below is the line that speaks (lib/motion.ts). */}
-            <span className="font-semibold tracking-[-0.02em] text-[clamp(1.75rem,4.2vw,3rem)] text-balance">The {weekday} Brief</span>
-            {/* The date, the time (each new minute) and the weather: one calm line under the title. */}
+            <span className="font-semibold tracking-[-0.02em] text-[clamp(1.75rem,4.2vw,3rem)] text-balance">The {weekday} Report</span>
+            {/* The date, the day of the year, the time (each new minute) and the weather: one calm line under the title. */}
             <span data-today-line className="mt-3 font-sans text-[clamp(0.9375rem,1.5vw,1.125rem)] leading-normal font-medium tracking-normal tabular-nums" style={{ opacity: picture ? 0.92 : 0.8 }}>
-              {[dayjs(now).format('D MMMM'), time, sky].filter(Boolean).join(' · ')}
+              {dayjs(now).format('D MMMM')} · <Tip label={count.tip}><span data-day-count>{count.text}</span></Tip> · {[time, sky].filter(Boolean).join(' · ')}
             </span>
           </h2>
         </div>

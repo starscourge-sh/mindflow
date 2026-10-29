@@ -1,4 +1,4 @@
-// The Brief's painting never shows a stand-in: from the first frame to the painting, every frame shows either
+// The Report's painting never shows a stand-in: from the first frame to the painting, every frame shows either
 // nothing in its box (the page) or the painting itself; never its blurred small copy, a tinted colour, or the dark
 // veil alone on the empty box. Watched frame by frame with the picture's file read slowly (as on a busy start).
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/brief-no-standin.mjs
@@ -25,7 +25,7 @@ try {
   await h.reload(); await h.waitForTimeout(4000)
   const frames = await h.evaluate(() => window.__frames)
   const bad = frames.filter((one) => one.standin || one.tint || one.veil)
-  check('the Brief\'s box was watched', frames.length > 10, String(frames.length))
+  check('the Report\'s box was watched', frames.length > 10, String(frames.length))
   check('no frame shows a stand-in, a tint or the veil alone', bad.length === 0, `${bad.length} of ${frames.length}: ${JSON.stringify(bad[0] ?? null)}`)
   check('and the painting comes', frames.some((one) => one.shown), JSON.stringify(frames.at(-1)))
 } catch (error) {

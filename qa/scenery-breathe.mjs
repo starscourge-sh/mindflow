@@ -37,7 +37,7 @@ try {
   await root('data-awake', true)
   await wait(500)
   const first = await drift()
-  check('the Brief\'s painting sways, held by hand (no zoom)', first?.name.includes('mf-sway') && first.name.includes('mf-roll') && first.state === 'running', JSON.stringify(first))
+  check('the Report\'s painting sways, held by hand (no zoom)', first?.name.includes('mf-sway') && first.name.includes('mf-roll') && first.state === 'running', JSON.stringify(first))
   const samples = []
   for (let i = 0; i < 6; i++) (samples.push(await drift()), await wait(1000))
   const line = samples.map((one) => `(${one.x.toFixed(2)}, ${one.y.toFixed(2)}) ${one.rot.toFixed(3)}deg`).join(' → ')

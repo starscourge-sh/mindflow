@@ -127,7 +127,7 @@ try {
   // Where it is laid out: the calm slide to the window's middle while writing (a translate) taken off.
   const lineAt = () => h.evaluate(() => { const one = document.querySelector('[data-writer-line]'); const r = one?.getBoundingClientRect(); return r && [r.x - (parseFloat(getComputedStyle(one).translate) || 0), r.y, r.width, r.height].map(Math.round).join(',') })
   // Sizes, and where each sits against the caption: typewriter scrolling may move the page as a whole.
-  // The Brief's line of date, time and weather is centred and grows as the weather comes in: its
+  // The Report's line of date, time and weather is centred and grows as the weather comes in: its
   // middle and top are where it sits, not its width.
   // The words' slide to the middle is a translate, taken off: laid out, nothing moves.
   const geometry = () => h.evaluate(() => { const top = document.querySelector('[data-day-caption]').getBoundingClientRect().y; const slid = parseFloat(getComputedStyle(document.querySelector('[data-day-write]').closest('[data-pane]')).translate) || 0; return [...document.querySelectorAll('[data-page] header, [data-today-line], [data-day-caption], [data-day-write] .tiptap')].map((el) => { const r = el.getBoundingClientRect(); const x = r.x - (el.closest('[data-pane]') ? slid : 0); const y = el.closest('header') ? 0 : r.y - top; return (el.matches('[data-today-line]') ? [x + r.width / 2, y] : el.matches('.tiptap') ? [x, r.width] : [x, y, r.width, r.height]).map(Math.round).join(',') }).join('|') })

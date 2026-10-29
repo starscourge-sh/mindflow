@@ -24,7 +24,7 @@ import { APP_NAME } from '../../../../main/name'
  * task still open sent to Tomorrow, moved to Next week, or moved to the Bin (T, N, B or D);
  * anything on your mind for tomorrow, a task a line (tomorrow-lines.tsx);
  * one line for today's page; and tomorrow's first task, the frog, which leads
- * Today and the day brief in the morning. Offered on Home once an evening
+ * Today and the day's report in the morning. Offered on Home once an evening
  * after the hour Settings gives, and from ⌘K any time.
  */
 
@@ -397,7 +397,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
                 ))}
               </ul>
             ) : <p className="mt-1 text-body text-muted-foreground">Send a task to Tomorrow above, and pick the one to do first.</p>}
-            {frog && <p className="mt-1.5 text-control text-muted-foreground">It will be first on tomorrow's list, and in the morning's brief.</p>}
+            {frog && <p className="mt-1.5 text-control text-muted-foreground">It will be first on tomorrow's list, and in the morning's report.</p>}
           </section>
         </div>
         <div className="flex items-center gap-2 border-t px-5 py-3">
