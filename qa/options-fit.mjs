@@ -52,6 +52,13 @@ try {
   const asked = await menu()
   if (SHOTS) await h.screenshot({ path: join(SHOTS, 'question-menu.png') })
   check('a question’s menu says “Move to the Bin” once', asked.filter((one) => one === 'Move to the Bin').length === 1, asked.join(', '))
+  check('a question says “Make it private”, as a note and a gem do', asked.includes('Make it private'), asked.join(', '))
+  await h.keyboard.press('Escape'); await h.waitForTimeout(300)
+
+  await go('goals'); await h.waitForTimeout(1500)
+  await h.locator('[data-row]').first().click({ button: 'right' }); await h.waitForTimeout(600)
+  const goal = await menu()
+  check('a goal says “Make it private”, as a note and a gem do', goal.includes('Make it private'), goal.join(', '))
   await h.keyboard.press('Escape'); await h.waitForTimeout(300)
 
   await page.evaluate(() => window.api.showPrompt()); await page.waitForTimeout(900)

@@ -200,7 +200,7 @@ export const questionMenu = (item: Item, shown: boolean): MenuItem[] => [
   ...queueItems(item.id),
   'separator',
   ...(item.closedAt ? [] : [{ label: shown ? 'Hide from quick capture' : 'Show in quick capture', run: () => void pinQuestion(item.id, item.title, !shown) }]),
-  { label: item.private ? 'Not private' : 'Private', run: () => void haligtree.setPrivate('nuggets', item.id, !item.private) },
+  { label: item.private ? 'Make it not private' : 'Make it private', run: () => void haligtree.setPrivate('nuggets', item.id, !item.private) },
   { label: item.archivedAt ? 'Unarchive' : 'Archive', hint: item.archivedAt ? 'Back in sight' : 'Kept, out of sight', run: () => void archive('nuggets', [item.id], !item.archivedAt) },
   'separator',
   copyLinkItem(`question:${item.id}`, item.title),

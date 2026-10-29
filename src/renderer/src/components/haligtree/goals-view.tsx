@@ -296,7 +296,7 @@ const goalMenu = (item: Item): MenuItem[] => [
   onIce(item) ? { label: 'Take off ice', hint: 'Open again, its day moved out by the days it waited', run: () => thaw(item) }
     : !item.closedAt && { label: 'Put on ice', hint: someday(item) ? 'Paused: out of the list until taken off' : 'Paused: its countdown stops', run: () => settle(item, 'on ice') },
   !item.closedAt && !someday(item) && { label: onHome(item) ? 'Take off Home' : 'Show on Home', hint: onHome(item) ? 'The nearest show instead' : 'First at the top of Home', run: () => setOnHome(item, !onHome(item)) },
-  { label: item.private ? 'Not private' : 'Private', run: () => void haligtree.setPrivate('nuggets', item.id, !item.private) },
+  { label: item.private ? 'Make it not private' : 'Make it private', run: () => void haligtree.setPrivate('nuggets', item.id, !item.private) },
   // Goals pause on ice, not in the archive: only one archived before keeps a way back.
   !!item.archivedAt && { label: 'Unarchive', hint: 'Back in sight', run: () => void archive('nuggets', [item.id], false) },
   binItem([{ type: 'goal', id: item.id }]),
