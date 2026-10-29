@@ -45,7 +45,7 @@ import iconBronze from '../../resources/icon-bronze.png?asset'
 import iconGold from '../../resources/icon-gold.png?asset'
 import { registerUsage, type Via } from './usage'
 import { resolveWaiting, resolveWithin } from './renames'
-import { alreadyImported, captureText, changed, rescueDrawing, database, shutDatabase, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, dropDuplicateTags, setImporting, type Imported } from './captures'
+import { alreadyImported, captureText, changed, rescueDrawing, database, shutDatabase, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, whenChanged, dropDuplicateTags, setImporting, type Imported } from './captures'
 import { isPrivateFile, looksPrivate } from './import'
 import { warmChrono } from './lazy/chrono'
 import { warmEmoji } from './lazy/emoji'
@@ -3382,6 +3382,8 @@ function createTray(): void {
   updateTray()
   // Kept current without a window open: the count changes as the day goes on.
   setInterval(() => (updateTray(), beacons()), 30_000)
+  // A task done, moved or renamed, a goal renamed, anywhere: the menu bar says so at once, not at the next half minute.
+  whenChanged(updateTray)
 }
 
 let tempusDrawn: { key: string; images: Electron.NativeImage[] } | null = null

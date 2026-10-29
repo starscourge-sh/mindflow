@@ -269,6 +269,10 @@ const untold = new WeakMap<BrowserWindow, Change[] | null>()
  * `what` says which note it was, so a list that does not show that kind of
  * thing stays as it is; nothing means anything may have changed.
  */
+/** Told after every change the windows are told of: the menu bar, which is no window, follows it so. */
+const afterChange: (() => void)[] = []
+export const whenChanged = (tell: () => void): void => void afterChange.push(tell)
+
 export const changed = (what?: Change): void => {
   if (listed && what?.kind === 'capture') {
     const at = listed.rows.findIndex((row) => row.id === what.id)
@@ -301,6 +305,8 @@ export const changed = (what?: Change): void => {
     }
     untold.set(win, was === null || !what ? null : [...(was ?? []), what].slice(-50))
   }
+  // A note's words change nothing the menu bar shows.
+  if (what?.kind !== 'capture') for (const tell of afterChange) tell()
 }
 
 export function registerCaptures(): void {
