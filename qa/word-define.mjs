@@ -142,6 +142,17 @@ await check('mac: a slip of the key offers its fix, in one click', async () => {
   expect((await text()) === 'receive', `the words are now: ${await text()}`)
   expect(await until(async () => (await define()) === 'ghost'), 'no meaning after the fix')
 })
+await check('one suggestion at a time: a Word being looked up gets no spelling pill on top of its own line', async () => {
+  await type('jac')
+  // Past the spelling pill's pause, while the Word's own line (its meaning, or a fix) shows.
+  let pills = 0
+  for (let i = 0; i < 20; i++) {
+    pills += await page.evaluate(() => document.querySelectorAll('[data-spell-hint]').length)
+    await wait(150)
+  }
+  expect(!!(await define()), 'no line under the word')
+  expect(pills === 0, `a spelling pill showed beside the Word's own line (${await define()})`)
+})
 await check('two words, a sentence or a timer are never looked up', async () => {
   const before = hits.length
   await type('two words')
@@ -162,7 +173,7 @@ await check('not in any dictionary: nothing said for a guessed Word, said plainl
 })
 
 // --- the web, behind it --------------------------------------------------------------
-await check('web: a slow answer shows two faint lines in place, after a moment, then the meaning there', async () => {
+await check('web: a slow answer shows the orb in place, after a moment, then the meaning there', async () => {
   await watch()
   await page.keyboard.type('glimmerwick', { delay: 20 })
   // The last key: the pause (450ms) and the quiet first moment (300ms) both come after it.
@@ -304,12 +315,13 @@ await check('setting: “Never” asks nothing; “Only when you pick Word” wa
   await page.keyboard.press('Meta+4')
   expect(await until(async () => (await define()) === 'ghost'), 'nothing once Word was picked')
 })
-await check('motion off: the wait is still, and the meaning simply appears', async () => {
+await check('the wait is the orb, saying what it looks up', async () => {
   await page.evaluate(() => (document.documentElement.dataset.motion = 'off'))
   await type('driftwordle')
   expect(await until(async () => (await define()) === 'looking' && (await page.evaluate(() => getComputedStyle(document.querySelector('[data-define]')).visibility)) === 'visible', 3000), 'no wait shown')
-  const moving = await page.evaluate(() => getComputedStyle(document.querySelector('.mf-define-wait > span')).animationName)
-  expect(moving === 'none', `the wait moves with Motion off: ${moving}`)
+  // The wait is the app's own orb, as a link card shows while it loads, saying what it looks up.
+  const says = await page.evaluate(() => document.querySelector('[data-define="looking"]')?.textContent ?? '')
+  expect(says.includes('Looking up') && says.includes('driftwordle'), `the wait says: ${says}`)
 })
 
 /** The main window, on Settings › Writing, with “Word meanings” in view. */

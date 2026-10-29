@@ -451,6 +451,8 @@ export interface HaligtreeEditorProps {
   onToggleSource?: () => void
   /** Shown after the document, scrolling with it: backlinks, as Obsidian keeps them. */
   after?: ReactNode
+  /** A line under the words already offers the word's fix (a Word being defined): no spelling pill as well. */
+  quietSpelling?: boolean
   /** The note's properties, drawn in the page under its first line (property-strip.tsx). */
   belowTitle?: ReactNode
   /** The title is kept apart from the words (an article's title box): the strip opens the words instead of following their first line. */
@@ -581,6 +583,7 @@ function Surface({
   showSource = false,
   onToggleSource,
   after,
+  quietSpelling = false,
   belowTitle,
   stripFirst = false,
   onPropertyLine,
@@ -1889,7 +1892,7 @@ function Surface({
         <LinkEditor editor={editor} />
         {editor && <TaskLinkMenu editor={editor} />}
         {/* A misspelt word's likely fix, under it on a pause; Tab takes it. In every page you write in. */}
-        {shape === "document" && !readOnly && <SpellPill editor={editor} />}
+        {shape === "document" && !readOnly && !quietSpelling && <SpellPill editor={editor} />}
         {!handles && editor && <SpellingMenu editor={editor} spelling={spelling} at={menuAt} onClose={() => setSpelling(null)} />}
 
         {/* How much is written, quietly in the corner of a document. */}

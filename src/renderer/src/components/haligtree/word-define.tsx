@@ -1,3 +1,4 @@
+import { Orb } from './orb'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { noteOffline, offline, whenOnline } from '@/lib/offline'
 import type { Editor } from '@tiptap/core'
@@ -224,8 +225,9 @@ export function DefineGhost({ definition, onKeep, onHide, onFix, picked = false,
   const hold = { visibility: 'hidden' } as const
   if (definition.state === 'looking') {
     return (
-      <div ref={box} style={hold} data-define="looking" aria-label={`Looking up ${definition.word}`} className={LINE}>
-        <div className="mf-define-wait w-[min(22rem,70%)]"><span className="w-[85%]" /><span className="w-[55%]" /></div>
+      // The app's one sign of something on its way, the orb, as a link card shows while it loads.
+      <div ref={box} style={hold} data-define="looking" className={`${LINE} mf-define-arrive pt-1.5 text-control`}>
+        <Orb state="searching" label={`Looking up \u201c${definition.word}\u201d\u2026`} />
       </div>
     )
   }

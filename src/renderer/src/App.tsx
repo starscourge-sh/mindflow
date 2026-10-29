@@ -626,7 +626,8 @@ export default function App(): React.JSX.Element {
   // or words lit to do something else (a timer, a clue, a task).
   const meanings = appSettings?.wordMeanings ?? 'one-word'
   const asksMeaning = meanings === 'one-word' ? kind === 'word' : meanings === 'word-kind' && chosen && kind === 'word'
-  const { definition, keep: keepDefinition, hide: hideDefinition } = useDefinition(!editing && !lesson && !secret && asksMeaning && !plan?.timer && !plan?.clue && !plan?.task ? defineable(boxText) : null)
+  const defining = !editing && !lesson && !secret && asksMeaning && !plan?.timer && !plan?.clue && !plan?.task ? defineable(boxText) : null
+  const { definition, keep: keepDefinition, hide: hideDefinition } = useDefinition(defining)
   // A timer newly lit is about to act: a brief warm light round the box says so.
   const timerLit = !editing && (!!plan?.timer || !!plan?.rounds)
   useEffect(() => void (timerLit && beam('warm')), [timerLit])
@@ -1934,6 +1935,7 @@ export default function App(): React.JSX.Element {
               from={editing?.id}
               // A kept note's mentions under it; a new draft has none yet.
               // A new Word's meaning, faint under the word itself, where it lands once kept.
+              quietSpelling={!!defining}
               after={editing ? <Mentions id={editing.id} compact onOpen={(type, id) => openAny(type, id)} /> : definition && <DefineGhost definition={definition} onKeep={keepDefinition} onHide={hideDefinition} picked={chosen} mode={meanings === 'off' ? 'one-word' : meanings} onFix={(fix) => definition && fixIn(editorRef.current, definition.word, fix)} />}
               onSource={() => setSource((open) => !open)}
               // A tag opens everything carrying it, in search.
@@ -2389,6 +2391,7 @@ const CapturePrompt = ({
   onTag,
   onTitleOut,
   after,
+  quietSpelling = false,
   tokens = TAGS,
   autofocus = true
 }: {
@@ -2396,6 +2399,8 @@ const CapturePrompt = ({
   autofocus?: boolean
   /** Under the words, inside their scroll: the note's mentions, for one already kept. */
   after?: React.ReactNode
+  /** A line under the words already offers the word's fix (a Word being defined): the spelling pill stays away, so two suggestions never stack. */
+  quietSpelling?: boolean
   onSource: () => void
   /** What the editor lights up: tags, and a todo's date and priority words. */
   tokens?: TokenPattern[]
@@ -2458,6 +2463,7 @@ const CapturePrompt = ({
         onOpenNote={onOpenNote}
         onTitleOut={onTitleOut}
         after={after}
+        quietSpelling={quietSpelling}
         // A focus session running, the time and the words written show at the foot.
         foot={(editor) => <SessionFooter editor={editor} note={from ? `capture-${from}` : 'box'} />}
       />
