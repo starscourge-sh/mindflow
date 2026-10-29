@@ -1435,6 +1435,8 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false):
       view={view}
       onChange={setView}
       facets={facets}
+      // Archived ones too, so Marked can still ask for them.
+      items={every}
       count={all.length}
       // By kind only where there is more than one kind; by next review only where something is due for one (pieces of writing never are).
       sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Longest unchanged' }, { id: 'name', label: 'A to Z' }, ...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), ...(all.some((one) => one.dueAt) ? [{ id: 'due', label: 'Next review' }] : []), ...(rated ? [{ id: 'rating', label: 'Highest rated' }] : []), ...byProp.choices, { id: 'manual', label: 'Custom order' }, ...(withGroups ? [{ id: 'groups', label: 'Folders first' }] : [])]}

@@ -420,7 +420,7 @@ const DISPLAY_ASKED = 'haligtree:display'
 /** Open the Display of the page in front, from a menu line where it has no button of its own. */
 export const openDisplay = (): void => void window.dispatchEvent(new CustomEvent(DISPLAY_ASKED))
 
-export function Display<T>({ view, onChange, facets, sorts: given, groups: offered = [], defaults = {}, compact = false, density, onDensity, densities = DENSITIES.map((one) => one.id), count, hidden = false, sortNote }: {
+export function Display<T>({ view, onChange, facets, sorts: given, groups: offered = [], defaults = {}, compact = false, density, onDensity, densities = DENSITIES.map((one) => one.id), count, hidden = false, sortNote, items }: {
   /** No button of its own: opened by F, or from a page's ⋯ (openDisplay), as a sheet from the right. */
   hidden?: boolean
   /** Icon only, where the row beside it needs the room. */
@@ -432,6 +432,8 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
   defaults?: View['filter']
   onChange: (view: View) => void
   facets: Facet<T>[]
+  /** The whole list, filters aside: given, a filter choice shows only when some item here has it, and a filter only when it splits the list. */
+  items?: T[]
   /** The first of each is the list's own default. */
   sorts: Choice[]
   /** What the chosen order does with the list's groups, on its own line under the choices. */
@@ -506,7 +508,11 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
     const list = view.filter[key] ?? []
     onChange({ ...view, filter: { ...view.filter, [key]: list.includes(id) ? list.filter((one) => one !== id) : [...list, id] } })
   }
-  const shownFacets = facets.filter((facet) => facet.options.length > 1 || (view.filter[facet.key] ?? []).length > 0)
+  // Given the list, a choice no item here has changes nothing: a page of Words has no "Someone else", Writing no "Forgotten often".
+  // A filter whose one choice every item has changes nothing either. A choice picked now always stays, so it can be taken off.
+  const picked = (facet: Facet<T>): string[] => view.filter[facet.key] ?? []
+  const shownFacets = (items ? facets.map((facet) => ({ ...facet, options: facet.options.filter((option) => picked(facet).includes(option.id) || items.some((one) => facet.test(one, option.id))) })) : facets)
+    .filter((facet) => facet.options.length > 1 || picked(facet).length > 0 || (!!items && facet.options.length === 1 && !items.every((one) => facet.test(one, facet.options[0].id))))
   const sortName = (sorts.find((one) => one.id === view.sort) ?? sorts[0])?.label ?? ''
   const Shown = DENSITIES.find((one) => one.id === density)?.icon
   const pickDensity = (next: Density): void => {
