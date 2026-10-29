@@ -37,6 +37,7 @@ import { ALL_WORDS, openWord } from './haligtree/term'
 import { realMove } from '@/lib/real-move'
 import { typeSaid } from '@/lib/capture-links'
 import { EVENT_KIND, EventPeek } from './haligtree/calendar-events'
+import { Sun } from 'lucide-react'
 import { PICKED_MARK, usePickMixed } from './haligtree/pick-mixed'
 import { clip } from '../../../main/clip'
 import { APP_NAME } from '../../../main/name'
@@ -153,6 +154,8 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
     const task = one.type === 'task' ? tasks.find((each) => each.id === one.id) : null
     // An event found: its own menu is on the Calendar; here it opens.
     if (one.type === 'event') return [{ label: 'Open on the Calendar', run: () => onOpen('event', one.id) }]
+    // A journal day found: its page opens.
+    if (one.type === 'day') return [{ label: 'Open in the Journal', run: () => onOpen('day', one.id) }]
     const own = task
       ? taskMenu(task, { open: () => onOpen('task', one.id), now: taskNow })
       : fullMenu(one.type, one.id, () => onOpen(one.type, one.id)) ?? sideMenu(one.type, one.id, one.label, { onOpen, pinned: pins.some((pin) => pin.id === one.id), kind: one.kind, status: one.status })
@@ -205,7 +208,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
   const shown = pane && roomy && !choosing
   const preview = shown && !!current
   // A gloss on anything found, a task included: there it lands in the task's log.
-  const glossable = !!current
+  const glossable = !!current && current.type !== 'day'
   // ⌘; pressed with the preview put away: the line opens under the row instead.
   const [glossing, setGlossing] = useState(false)
   useEffect(() => setGlossing(false), [current?.id])
@@ -435,7 +438,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
             )}
             {results.map((capture, index) => {
               // A task wears the task mark it has everywhere else, not the to-do kind's.
-              const kind = capture.type === 'task' ? TASK_KIND : capture.type === 'event' ? EVENT_KIND : CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]
+              const kind = capture.type === 'task' ? TASK_KIND : capture.type === 'event' ? EVENT_KIND : capture.type === 'day' ? DAY_KIND : CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]
               const group = groupFor(index)
               return (
                 <Fragment key={capture.id}>
@@ -455,7 +458,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
                     onClick={(event) => (several.click(event, capture) ? box.current?.focus() : onOpen(capture.type, capture.id))}
                   >
                     <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
-                    <span {...(shown ? {} : hoverNote(capture.type, capture.id, { kind: capture.kind }))} className="min-w-0 truncate">{(capture.type === 'task' ? taskName(capture.label ?? '').text : capture.label) || 'Untitled'}</span>
+                    <span {...(shown ? {} : hoverNote(capture.type, capture.id, { kind: capture.kind }))} className="min-w-0 truncate">{(capture.type === 'task' ? taskName(capture.label ?? '').text : capture.type === 'day' ? dayName(capture.id) : capture.label) || 'Untitled'}</span>
                     {capture.type === 'task' && <Tags tags={taskName(capture.label ?? '').tags} go={false} />}
                     {/* After the words, so a task's title starts where a note's does. */}
                     {capture.type === 'task' && !!tasks.find((one) => one.id === capture.id)?.priority && <PriorityMark level={tasks.find((one) => one.id === capture.id)!.priority} />}
@@ -530,6 +533,8 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
                   before.current && <span className="flex items-center gap-1.5"><Swatch theme={before.current} /> Was {themeName(before.current)}</span>
                 ) : current?.type === 'event' ? (
                   <span><Kbd>↵</Kbd> open it on the Calendar</span>
+                ) : current?.type === 'day' ? (
+                  <span><Kbd>↵</Kbd> open it in the Journal</span>
                 ) : current ? (
                   <>
                     <div className="min-w-0 flex-1"><GlossLine key={current.id} id={current.id} open={glossing} onDone={backToBox} keys="⌘;" /></div>
@@ -569,6 +574,10 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
  * A note as the preview shows it: its start, read only, fetched for the one
  * highlighted rather than sent along with every result.
  */
+/** A journal day found, as the Journal and the Feed name it. */
+const DAY_KIND = { icon: Sun, tint: 'var(--tt-color-text-orange)' }
+const dayName = (day: string): string => dayjs(day).format(dayjs(day).year() === dayjs().year() ? 'dddd D MMMM' : 'dddd D MMMM YYYY')
+
 function NotePreview({ type, id }: { type: string; id: string }): React.JSX.Element | null {
   // The last one stays until the next arrives: no blank flash between rows.
   const [shown, setShown] = useState<{ id: string; body: unknown } | null>(null)

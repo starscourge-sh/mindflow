@@ -475,6 +475,9 @@ export function registerCaptures(): void {
   // Search: every word you type must appear, in any order, in the name or the
   // words; `kind:quote` narrows to one kind. Captures, nuggets and tasks alike,
   // newest first, each saying what it is.
+  // A journal day: its page and its two answers (journal.ts), found as one, by its day.
+  const DAYS = 'select day from day_pages union select day from journal'
+  const DAY_WORDS = "(coalesce(words('day:' || d.day, (select body from day_pages p where p.day = d.day)), '') || ' ' || coalesce((select group_concat(answer, ' ') from journal j where j.day = d.day), ''))"
   ipcMain.handle('captures:find', (_event, query: unknown) => {
     const said = String(query ?? '').toLowerCase().split(/\s+/).filter(Boolean)
     // `author:le guin`: a property filter (property-words.ts), its value running to the next filter.
@@ -503,9 +506,11 @@ export function registerCaptures(): void {
          select 'task', id, number, 'todo', status, '', null, title, created_at from tasks where status != 'dropped' and ${match("(title || ' ' || coalesce(notes, ''))")}
          union all
          select 'event', id, null, 'event', 'open', '', null, title, created_at from events where binned_at is null and series_id is null and ${match("(title || ' ' || coalesce(place, '') || ' ' || coalesce(people, '') || ' ' || coalesce(notes, ''))")}
+         union all
+         select 'day', day, null, 'day', 'open', '', null, day, day || 'T12:00:00.000Z' from (${DAYS}) d where ${match(DAY_WORDS)}
        ) ${kind ? 'where kind = ?' : ''} order by capturedAt desc limit 60`
-    ).all(...args(4), ...(kind ? [kind] : [])) as { type: string; id: string }[])
-    if (filters.length) return found.filter((one) => one.type !== 'task' && one.type !== 'event' && passes(fieldsOf(db, one.type, one.id), filters))
+    ).all(...args(5), ...(kind ? [kind] : [])) as { type: string; id: string }[])
+    if (filters.length) return found.filter((one) => one.type !== 'task' && one.type !== 'event' && one.type !== 'day' && passes(fieldsOf(db, one.type, one.id), filters))
     // Few or none as typed: spelling forgiven (near.ts), the closest words standing in for a slip of the keys.
     // Read over the newest 3000 only, so a slip in a big book never stalls the typing; the Bin is left out as above.
     const plain = words.filter((word) => !word.startsWith('kind:'))
@@ -521,6 +526,8 @@ export function registerCaptures(): void {
            (coalesce(title, '') || ' ' || words(id, body) || ' ' || coalesce(attribution, '') || ' ' || coalesce(aliases, '')) from nuggets where tier != 'card' and binned_at is null
          union all
          select 'task', id, number, 'todo', status, '', null, title, created_at, (title || ' ' || coalesce(notes, '')) from tasks where status != 'dropped'
+         union all
+         select 'day', day, null, 'day', 'open', '', null, day, day || 'T12:00:00.000Z', ${DAY_WORDS} from (${DAYS}) d
        ) ${kind ? 'where kind = ?' : ''} order by capturedAt desc limit 3000`
     ).all(...(kind ? [kind] : [])) as { type: string; id: string; text: string }[]
     const forgiven = all.filter((one) => !seen.has(`${one.type}:${one.id}`) && forgives(plain, one.text ?? '')).slice(0, 60 - found.length).map(({ text: _, ...one }) => one)
@@ -530,7 +537,7 @@ export function registerCaptures(): void {
   // What search previews: the start of one note, the first 30 blocks, which
   // fill the pane; a 2 MB note whole took longer to draw than to read.
   ipcMain.handle('captures:peek', (_event, type: unknown, id: unknown) => {
-    const row = db.prepare(`select body from ${type === 'capture' ? 'captures' : 'nuggets'} where id = ?`).get(String(id)) as { body: string | null } | undefined
+    const row = db.prepare(type === 'day' ? 'select body from day_pages where day = ?' : `select body from ${type === 'capture' ? 'captures' : 'nuggets'} where id = ?`).get(String(id)) as { body: string | null } | undefined
     let body: unknown
     try {
       body = JSON.parse(row?.body ?? 'null')
