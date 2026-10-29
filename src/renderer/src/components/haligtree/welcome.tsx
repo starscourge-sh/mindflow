@@ -1213,6 +1213,25 @@ function CatchChapter({ play, report, state, onState, setup, turn, mine }: { pla
   useReport(report, show.done, show.settle, show.part)
   const s = show.state
   const [choosing, setChoosing] = useState(false)
+  // Where the box is drawn here: quick capture, opened while the welcome runs, lands on it (main/index.ts, summonedAt), under the step's words.
+  const frame = useRef<HTMLDivElement>(null)
+  const told = useRef('')
+  const tellSpot = (): void => {
+    const r = frame.current?.getBoundingClientRect()
+    if (!r) return
+    const spot = { x: Math.round(r.left), y: Math.round(r.top), width: Math.round(r.width) }
+    if (JSON.stringify(spot) === told.current) return
+    told.current = JSON.stringify(spot)
+    void onboarding.set({ boxSpot: spot })
+  }
+  // After every change on the stage (the frame moves as lines come and go), and as the window changes size.
+  useEffect(tellSpot)
+  useEffect(() => {
+    const watch = new ResizeObserver(() => tellSpot())
+    if (frame.current) watch.observe(frame.current)
+    watch.observe(document.documentElement)
+    return () => (watch.disconnect(), void onboarding.set({ boxSpot: null }))
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const keys = keyFor('⌘.') || '⌘.'
   const caps = capsOf(keys)
   const down = new Set(s.down)
@@ -1245,7 +1264,7 @@ function CatchChapter({ play, report, state, onState, setup, turn, mine }: { pla
         )}
       </Words>
       <div className="relative flex min-h-0 flex-1 flex-wrap content-center items-center gap-x-[clamp(1.5rem,4vw,3.5rem)] gap-y-[clamp(0.75rem,2.5vh,1.5rem)] pb-2">
-        <div data-frame="box" className="relative w-[min(40rem,100%)] shrink-0 @min-[880px]:w-[min(40rem,56%)]">
+        <div ref={frame} data-frame="box" className="relative w-[min(40rem,100%)] shrink-0 @min-[880px]:w-[min(40rem,56%)]">
           {s.keys && (
             <>
               <motion.div layoutId="reel-box" transition={CAM} className="flex items-end gap-2" initial={play ? { opacity: 0, scale: 0.95 } : false} animate={{ opacity: 1, scale: 1 }}>

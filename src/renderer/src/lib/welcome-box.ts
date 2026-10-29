@@ -161,9 +161,12 @@ const read = <T>(key: string): T | null => {
 
 const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 
-export function useWelcomePlaceholder(onFields?: (who: string, where: string, kind: Starter['kind']) => void): void {
+export function useWelcomePlaceholder(onFields?: (who: string, where: string, kind: Starter['kind']) => void, onExample?: (typed: string) => void): void {
   const fields = useRef(onFields)
   fields.current = onFields
+  // Told each example as it starts to type in, whole, so the kind chip shows what it guesses the line is, once per line.
+  const example = useRef(onExample)
+  example.current = onExample
   useEffect(() => {
     const root = document.documentElement
     let timers: ReturnType<typeof setTimeout>[] = []
@@ -174,6 +177,7 @@ export function useWelcomePlaceholder(onFields?: (who: string, where: string, ki
       on = false
       chip = null
       watchChip.disconnect()
+      example.current?.('')
       delete root.dataset.welcomePh
       delete root.dataset.welcomeFirst
       root.style.removeProperty('--mf-welcome-ph')
@@ -189,6 +193,7 @@ export function useWelcomePlaceholder(onFields?: (who: string, where: string, ki
       // Every line types in, the first too, as soon as the box is up: it opens without the caret so they can be watched.
       // Typed as a person types (lib/typing.ts), never more than 2.6s a line; with Motion off, whole.
       let at = 0
+      example.current?.(line)
       if (still()) show(line)
       else {
         show('')

@@ -69,7 +69,7 @@ import { macTwelveHour } from './mac-clock'
 import { registerScenery, sceneryDir } from './scenery'
 import { celebrationFile, registerCelebrations } from './celebrate'
 import type { Nudge } from './nudge'
-import { firstRun, isWelcoming, noteChord, pretendTaken, registerOnboarding, whenWelcoming, whereTray } from './onboarding'
+import { firstRun, isWelcoming, noteChord, welcomeBoxSpot, pretendTaken, registerOnboarding, whenWelcoming, whereTray } from './onboarding'
 import { registerUnused } from './unused'
 import { registerMedia } from './media'
 import { registerPeople } from './people'
@@ -296,10 +296,13 @@ let cameFrom: BrowserWindow | null = null
 function hideWindow(win: BrowserWindow): void {
   // A glide under way lands first, so the window is put away at its new size.
   if (pending?.win === win) (arriving?.(), settle())
-  lastBounds = boundsOf(win)
-  // A screen it was thrown to keeps where it was left there, moved since or not.
-  const on = screen.getDisplayMatching(lastBounds).id
-  if (thrownSpots().has(on)) keepSpot(on, lastBounds)
+  // Where the welcome put it is the welcome's, not where you left it.
+  if (!(win === prompt && welcomeBoxSpot())) {
+    lastBounds = boundsOf(win)
+    // A screen it was thrown to keeps where it was left there, moved since or not.
+    const on = screen.getDisplayMatching(lastBounds).id
+    if (thrownSpots().has(on)) keepSpot(on, lastBounds)
+  }
   // Told before it goes, so the page can clear itself while hidden and come
   // back already blank rather than showing the old note for a frame.
   win.webContents.send('window:hiding')
@@ -2523,6 +2526,14 @@ function summonedAt(win: BrowserWindow): { place: Electron.Rectangle; top: numbe
   // Placed by its full size, so its top is the same however tall it opens.
   const full = SIZES.compact.height
   const put = (at: Electron.Rectangle): { place: Electron.Rectangle; top: number } => ({ place: onScreen({ ...at, width, height }), top: at.y })
+  // While the welcome runs, over the welcome's own picture of the box, under the step's words: never on top of them.
+  const welcomeSpot = welcomeBoxSpot()
+  if (welcomeSpot && home && !home.isDestroyed() && home.isVisible()) {
+    // Its page fills the window to the top (hiddenInset).
+    const content = home.getBounds()
+    const zoom = home.webContents.getZoomFactor()
+    return put({ width, height, x: Math.round(content.x + (welcomeSpot.x + welcomeSpot.width / 2) * zoom - width / 2), y: Math.round(content.y + welcomeSpot.y * zoom) })
+  }
   if (place === 'top') return put(topMiddle(area, width, full))
   if (place === 'centre') return put({ width, height, x: Math.round(area.x + (area.width - width) / 2), y: Math.round(area.y + (area.height - full) / 2) })
   if (sameBox(area, was)) return put(left)

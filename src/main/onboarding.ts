@@ -146,7 +146,12 @@ function state(): unknown {
   }
 }
 
-const PATCHABLE = new Set(['welcomed', 'newsSeen', 'hintsSeen', 'pageHints', 'welcoming', 'setup'])
+const PATCHABLE = new Set(['welcomed', 'newsSeen', 'hintsSeen', 'pageHints', 'welcoming', 'setup', 'boxSpot'])
+
+/** Where the welcome draws its picture of the box, in its window's page (CSS pixels): quick capture opens there while the welcome runs, under the step's words, never over them. */
+type BoxSpot = { x: number; y: number; width: number }
+let boxSpot: BoxSpot | null = null
+export const welcomeBoxSpot = (): BoxSpot | null => (welcoming ? boxSpot : null)
 
 /** Whether the welcome is open now, for the box to say something warmer while it is. */
 let welcoming = false
@@ -169,6 +174,7 @@ export function registerOnboarding(): void {
         // Begun and not finished (quit after one catch): it opens again next time, as a first run.
         if (welcoming && !read<string | null>('welcomed', null)) write('welcomeBegun', true)
       }
+      else if (key === 'boxSpot') boxSpot = value && typeof value === 'object' ? (value as BoxSpot) : null
       else write(key, value)
     }
     if ('hidden' in (patch ?? {})) write('onboarding', { ...read<Progress>('onboarding', { marks: {}, hidden: false, doneAt: null }), hidden: !!patch.hidden })

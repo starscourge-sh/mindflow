@@ -1616,6 +1616,8 @@ button.mf-signed:hover .mf-signature { text-decoration: underline; text-decorati
    and the window's own buttons (new note, actions, the side panel) wait. */
 :root[data-welcome-ph] [data-lesson='calm'] { opacity: 0.4; pointer-events: none; }
 :root[data-welcome-ph] .mf-pill { display: none; }
+/* The examples typing into the empty line are not blocks yet: no "+" or grip beside them. */
+:root[data-welcome-ph] :has(> .tiptap.ProseMirror.haligtree-editor:not(.is-line) > .is-empty:only-child) .tiptap-drag-handle { visibility: hidden !important; }
 :root[data-welcome-ph] :is([data-lesson='hide'], .tiptap-word-count) { display: none !important; }
 /* The welcome's theme dial changes the page with a quick plain crossfade,
    colours only, the dial itself live on its own layer (welcome.tsx). */

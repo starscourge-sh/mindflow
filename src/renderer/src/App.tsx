@@ -372,6 +372,11 @@ export default function App(): React.JSX.Element {
     setMedium(where)
     autoWho.current = who
     autoWhere.current = where
+  }, (typed) => {
+    // An example typing into the empty line: the chip guesses from it as it would from your words (a link is a Link, one word a Word).
+    if (chosen || !editorRef.current?.isEmpty) return
+    const guess = (typed.trim() && boxGuess(typed)) || 'note'
+    setKind((now) => (now === guess ? now : guess))
   })
   const lesson = useLesson()
   // A name read from a quote's "- Name" tail, kept up to date while it is still ours, not yours.

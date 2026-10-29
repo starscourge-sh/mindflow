@@ -30,7 +30,7 @@ export type Onboarding = {
 
 export const onboarding = {
   state: () => call<Onboarding>('onboarding:state'),
-  set: (patch: Partial<{ welcomed: string; newsSeen: boolean; hintsSeen: string[]; pageHints: boolean; hidden: boolean; welcoming: boolean; setup: Setup }>) =>
+  set: (patch: Partial<{ welcomed: string; newsSeen: boolean; hintsSeen: string[]; pageHints: boolean; hidden: boolean; welcoming: boolean; setup: Setup; boxSpot: { x: number; y: number; width: number } | null }>) =>
     call<Onboarding>('onboarding:set', patch).then((now) => (tell(), now)),
   mark: (step: string) => call<Onboarding>('onboarding:mark', step).then((now) => (tell(), now)),
   finish: (name: string) => call<unknown>('onboarding:finish', name)
