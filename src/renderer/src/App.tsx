@@ -1470,6 +1470,9 @@ export default function App(): React.JSX.Element {
         // A letter to future you: out of every list until its day, then back on Today saying when you wrote it.
         if (later && !action) await haligtree.snoozeCapture(id, later.day)
         if (sorted === 'checkback' && back) await notes.setField('captures', id, 'back', back)
+        // "- Mary Shelley, Frankenstein, 1818, p. 42": the year and the page are the quote's own fields.
+        if (sorted === 'quote' && plan?.signature?.year) await notes.setField('captures', id, 'year', plan.signature.year)
+        if (sorted === 'quote' && plan?.signature?.page) await notes.setField('captures', id, 'location', plan.signature.page)
         if (action) {
           // The welcome shows the task it became itself; the box says nothing over it.
           // Undone, the capture goes too and the box comes back as it was sent.

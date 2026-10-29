@@ -80,7 +80,7 @@ export type BoxPlan = {
   undated?: number
   plainTags: string[]
   /** The quote's "- Name" is read into Who said it and taken off its line. */
-  signature: { who: string; where: string } | null
+  signature: { who: string; where: string; year?: string; page?: string } | null
   /** The quote's "- Name" was kept as plain text. */
   signatureKept: boolean
   /** A link already made its card, and nothing else written: sent as that link. */
@@ -463,8 +463,8 @@ function planBox(doc: ProseMirrorNode, ctx: BoxContext, kept: Kept[] = [], now =
       const [from, to] = [pos(by.from), pos(by.to)]
       if (isKept('signature', from, to)) signatureKept = true
       else {
-        signature = { who: by.who, where: by.where }
-        tokens.push(token('signature', from, to, `Said by ${by.who}${by.where ? `, in ${by.where}` : ''}`))
+        signature = { who: by.who, where: by.where, year: by.year, page: by.page }
+        tokens.push(token('signature', from, to, `Said by ${by.who}${by.where ? `, in ${by.where}` : ''}${by.year ? `, ${by.year}` : ''}${by.page ? `, ${by.page}` : ''}`))
       }
     }
   }

@@ -166,18 +166,21 @@ const SAID = String.raw`(?:once |always |used to |would )?(?:said|says|say|told 
  * (or Tom: “words”). Only beside quote marks, so a dash or a "said" in the
  * middle of a thought is left alone. Empty when the line names no one.
  */
-export function saidBy(line: string): { who: string; where: string; from: number; to: number; said: boolean } {
+export function saidBy(line: string): { who: string; where: string; year: string; page: string; from: number; to: number; said: boolean } {
   const tail = /[”"']\s*([-–—]\s*([^-–—”"']{2,90}?))\s*$/.exec(line)
   if (tail) {
-    const [who = '', ...rest] = tail[2].trim().split(',')
-    return { who: who.trim(), where: rest.join(',').trim(), from: tail.index + 1, to: line.length, said: true }
+    const [who = '', ...rest] = tail[2].trim().split(',').map((part) => part.trim())
+    // A year ("1818") and a page ("p. 42") after the source are their own fields, not part of its name.
+    const year = rest.find((part) => /^(1\d|20)\d\d$/.test(part)) ?? ''
+    const page = rest.find((part) => /^pp?\.?\s*\d+(\s*[-–]\s*\d+)?$/i.test(part)) ?? ''
+    return { who, where: rest.filter((part) => part && part !== year && part !== page).join(', '), year, page, from: tail.index + 1, to: line.length, said: true }
   }
   const after = new RegExp(String.raw`[”"]([,.]?\s*${SAID}\s+([^,”"“.!?]{2,40}?))\s*[.!]?\s*$`, 'i').exec(line)
   const before = new RegExp(String.raw`^(\s*([^"“”:]{1,40}?)(?:\s+${SAID}[,:]?|:)\s*)(?=["“])`, 'i').exec(line)
   const who = (after?.[2] ?? before?.[2] ?? '').trim()
   // "She said “…”" is a quote all the same; only a name goes in Who said it.
-  if (!who || /^(i|we|you|it|this|that|he|she|they|someone|somebody)$/i.test(who)) return { who: '', where: '', from: -1, to: -1, said: !!who }
-  return after ? { who, where: '', from: after.index + 1, to: line.length, said: true } : { who, where: '', from: 0, to: before![1].length, said: true }
+  if (!who || /^(i|we|you|it|this|that|he|she|they|someone|somebody)$/i.test(who)) return { who: '', where: '', year: '', page: '', from: -1, to: -1, said: !!who }
+  return after ? { who, where: '', year: '', page: '', from: after.index + 1, to: line.length, said: true } : { who, where: '', year: '', page: '', from: 0, to: before![1].length, said: true }
 }
 
 /**

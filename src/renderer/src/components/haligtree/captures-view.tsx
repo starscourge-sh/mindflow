@@ -770,7 +770,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
                         // Opened, and its group unfolded if folded shut, then the caret in it.
                         focusField(() => page?.querySelector<HTMLInputElement>(`input[placeholder="${ASKS.quote?.who ?? 'Who'}"]`))
                       }}>
-                        <Signed who={meta.attribution} className="private-text" />
+                        <Signed who={meta.attribution} year={fieldOf(meta.fields, 'year')} className="private-text" />
                       </button>
                     </Tip>
                   </div>

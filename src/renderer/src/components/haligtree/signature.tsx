@@ -6,7 +6,7 @@ import { Avatar } from './avatar'
  * quote, and only the name: never body text. The hand and its colour live in
  * main.css (.mf-signature), so Margin marks off gives the plain font back.
  */
-export function Signed({ who, className = '' }: { who: string | null | undefined; className?: string }): React.JSX.Element | null {
+export function Signed({ who, year, className = '' }: { who: string | null | undefined; year?: string | null; className?: string }): React.JSX.Element | null {
   const name = who?.trim()
   if (!name) return null
   return (
@@ -14,6 +14,7 @@ export function Signed({ who, className = '' }: { who: string | null | undefined
       <span className="mf-signed-by">said by</span>
       <Avatar name={name} size={15} />
       <span className="mf-signature" dir="auto" title={name}>{name}</span>
+      {year?.trim() && <span data-signed-year className="text-muted-foreground">, {year.trim()}</span>}
     </span>
   )
 }
