@@ -83,7 +83,7 @@ import { registerDefine } from './define'
 import { isVault, registerObsidian, vaultChoices } from './obsidian'
 import { bringAppleNotes, notesReader, type NotesFolder } from './apple-notes'
 import { fileIntoGroups, filedSaid, registerNoteImports } from './note-imports'
-import { lookAhead, registerPictures } from './pictures'
+import { assetsDir, lookAhead, registerPictures } from './pictures'
 import { registerSessionLog, sleptThrough } from './session-log'
 import { registerSiteBlock } from './site-block'
 import { cameraAccess, displayOf, noteScreenAtStart, privacySettings, screenAccess, shootArea, shootScreen, tuckedWindow, unseen } from './shots'
@@ -170,7 +170,6 @@ import { registerSpellGuesses } from './spell-guesses'
         It is a default, not a law.
 **/
 // Where dropped and pasted images live.
-const assetsDir = (): string => join(app.getPath('userData'), 'assets')
 
 /**
  * Images are addressed by the hash of their bytes, not by name.

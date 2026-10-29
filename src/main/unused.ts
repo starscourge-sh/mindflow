@@ -2,6 +2,7 @@ import { app, ipcMain, shell } from 'electron'
 import { readdir, readFile, stat } from 'fs/promises'
 import { join } from 'path'
 import { database } from './captures'
+import { assetsDir } from './pictures'
 
 /**
  * Pictures and files no note points at any more: found first and shown, then
@@ -15,7 +16,6 @@ import { database } from './captures'
  * copies live in their own folder and are never looked at.
  */
 
-const assets = (): string => join(app.getPath('userData'), 'assets')
 /** What the store names its files: a hash and an ending. Anything else is left alone. */
 const STORED = /^([a-f0-9]{64})\.[a-z0-9]+$/
 const HASH = /[a-f0-9]{64}/g
@@ -73,12 +73,12 @@ async function find(extra: string[]): Promise<Unused[] | { error: string } | nul
     if (error instanceof Stopped) return null
     return { error: 'Could not read your notes, so nothing was looked at.' }
   }
-  const names = await readdir(assets()).catch(() => [] as string[])
+  const names = await readdir(assetsDir()).catch(() => [] as string[])
   const found: Unused[] = []
   for (const name of names) {
     const hash = STORED.exec(name)?.[1]
     if (!hash || keep.has(hash)) continue
-    const info = await stat(join(assets(), name)).catch(() => null)
+    const info = await stat(join(assetsDir(), name)).catch(() => null)
     if (!info?.isFile() || Date.now() - info.mtimeMs < FRESH) continue
     found.push({ name, size: info.size, image: IMAGE.test(name), at: info.mtimeMs })
     if (mine !== scan) return null
@@ -99,7 +99,7 @@ export function registerUnused(): void {
     let size = 0
     for (const name of names) {
       if (typeof name !== 'string' || !still.has(name)) continue
-      await shell.trashItem(join(assets(), name)).then(() => (moved++, (size += still.get(name) ?? 0)), () => undefined)
+      await shell.trashItem(join(assetsDir(), name)).then(() => (moved++, (size += still.get(name) ?? 0)), () => undefined)
     }
     return { moved, size }
   })

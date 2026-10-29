@@ -1,10 +1,10 @@
-import { app, ipcMain } from 'electron'
+import { ipcMain } from 'electron'
 import { createHash, randomUUID } from 'crypto'
 import { mkdir, readFile, readdir, realpath, rename, stat, writeFile } from 'fs/promises'
 import { homedir } from 'os'
 import { join, sep } from 'path'
 import { PICTURE, SHOWN, cleanRef, nameOf, tailOf } from './embeds'
-import { lookAhead } from './pictures'
+import { assetsDir, lookAhead } from './pictures'
 
 /**
  * Finding a picture a note pasted from Obsidian points at, with no setup:
@@ -203,7 +203,7 @@ async function keep(path: string, assets: string): Promise<BroughtIn | null> {
 }
 
 /** Each reference as the stored file it became, or null where none was found. */
-export async function bringEmbeds(refs: string[], assets = join(app.getPath('userData'), 'assets')): Promise<(BroughtIn | null)[]> {
+export async function bringEmbeds(refs: string[], assets = assetsDir()): Promise<(BroughtIn | null)[]> {
   return Promise.all(refs.map(async (ref) => {
     const path = await findEmbed(ref).catch(() => null)
     return path ? keep(path, assets).catch(() => null) : null

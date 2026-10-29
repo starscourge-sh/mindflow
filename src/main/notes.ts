@@ -1,10 +1,10 @@
-import { BrowserWindow, app, dialog, ipcMain, nativeImage, screen } from 'electron'
+import { BrowserWindow, dialog, ipcMain, nativeImage, screen } from 'electron'
 import { copyFile, mkdir, readFile, stat } from 'fs/promises'
 import { join } from 'path'
 
 import { LABEL, atomically, changed, database } from './captures'
 import { celebrateAfter, watches } from './celebrate'
-import { known } from './pictures'
+import { assetsDir, known } from './pictures'
 import { gate, plain, tellGoals } from './haligtree'
 import { syncLineCards } from './line-cards'
 import { centredOn, glide, stillNow } from './glide'
@@ -34,7 +34,6 @@ const parse = (text: string | null | undefined): unknown => {
     return text
   }
 }
-const assets = (): string => join(app.getPath('userData'), 'assets')
 /** A stored picture's address: the first one in a body is its thumbnail. */
 const PICTURE = /haligtree:\/\/assets\/[a-f0-9]{64}\.(?:png|jpe?g|gif|webp|avif|bmp|heic|svg)/
 /** A stored video: a note with no picture shows its first frame instead. */
@@ -192,21 +191,21 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
     const name = stored(src)
     if (!name) return ''
     // A huge original is never opened for a list: it shows its kind instead.
-    if (((await stat(join(assets(), name)).catch(() => null))?.size ?? 0) > 30 * 1024 * 1024) return (small.set(key, ''), '')
+    if (((await stat(join(assetsDir(), name)).catch(() => null))?.size ?? 0) > 30 * 1024 * 1024) return (small.set(key, ''), '')
     // A video's first frame, or a PDF's first page, as Finder's Quick Look draws it: no player or reader needed.
     if (/\.(mp4|m4v|mov|webm|pdf)$/.test(name)) {
-      const frame = await nativeImage.createThumbnailFromPath(join(assets(), name), { width: tall * 2, height: tall * 2 }).catch(() => null)
+      const frame = await nativeImage.createThumbnailFromPath(join(assetsDir(), name), { width: tall * 2, height: tall * 2 }).catch(() => null)
       const made = frame && !frame.isEmpty() ? `data:image/jpeg;base64,${frame.toJPEG(72).toString('base64')}` : ''
       small.set(key, made)
       return made
     }
     if (!/\.(png|jpe?g|gif|webp|avif|bmp|heic|svg)$/.test(name)) return ''
-    const image = nativeImage.createFromPath(join(assets(), name))
+    const image = nativeImage.createFromPath(join(assetsDir(), name))
     // A picture the system cannot shrink (an SVG, often a WebP) is shown as it
     // is; a small one as a data URL, so a canvas may still read its colour.
     const kind = name.match(/\.(\w+)$/)?.[1]
-    const whole = image.isEmpty() && kind && kind !== 'svg' && ((await stat(join(assets(), name)).catch(() => null))?.size ?? Infinity) < 2 * 1024 * 1024
-      ? `data:image/${kind === 'jpg' ? 'jpeg' : kind};base64,${(await readFile(join(assets(), name))).toString('base64')}`
+    const whole = image.isEmpty() && kind && kind !== 'svg' && ((await stat(join(assetsDir(), name)).catch(() => null))?.size ?? Infinity) < 2 * 1024 * 1024
+      ? `data:image/${kind === 'jpg' ? 'jpeg' : kind};base64,${(await readFile(join(assetsDir(), name))).toString('base64')}`
       : src
     // Black bands baked into it (a YouTube thumbnail's) are cut away, so the row shows the picture.
     // Only when already known: a list never waits for pictures still being looked at.
@@ -519,7 +518,7 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
         let one = base
         for (let k = 2; taken.has(one.toLowerCase()); k++) one = base.replace(/(\.[^.]+)?$/, ` ${k}$1`)
         taken.add(one.toLowerCase())
-        await copyFile(join(assets(), file), join(folder, one)).then(() => saved++, () => undefined)
+        await copyFile(join(assetsDir(), file), join(folder, one)).then(() => saved++, () => undefined)
       }
     }
     // What was written, out of how many: a file missing from the store is told, not counted.

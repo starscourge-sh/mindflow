@@ -26,7 +26,8 @@ import { bandsOf, fourThree } from './letterbox'
 type PictureLook = [number, number, string, number, number]
 
 const PICTURE = /^[a-f0-9]{64}\.(png|jpe?g|gif|webp|avif|bmp|heic|svg)$/
-const store = (): string => join(app.getPath('userData'), 'assets')
+/** The folder every picture and file a note holds is kept in. */
+export const assetsDir = (): string => join(app.getPath('userData'), 'assets')
 
 let made = false
 const db = (): ReturnType<typeof database> => {
@@ -72,7 +73,7 @@ function rgbaOf(image: Electron.NativeImage): { w: number; h: number; rgba: Uint
  * leave no black edge), and the colours of what is between them at 100px.
  */
 async function measure(name: string): Promise<PictureLook | null> {
-  const path = join(store(), name)
+  const path = join(assetsDir(), name)
   const size = await imageSizeFromFile(path).catch(() => null)
   if (!size?.width || !size.height) return null
   // Turned on its side by its camera: drawn the way it is turned.

@@ -1,4 +1,3 @@
-import { app } from 'electron'
 import { spawn } from 'child_process'
 import { createHash, randomUUID } from 'crypto'
 import { mkdir, readFile, rename, stat, writeFile } from 'fs/promises'
@@ -8,7 +7,7 @@ import { createInterface } from 'readline'
 import { alreadyImported, database } from './captures'
 import { looksPrivate } from './import'
 import { dataPictures, notesMarkdown } from './notes-html'
-import { lookAhead } from './pictures'
+import { assetsDir, lookAhead } from './pictures'
 
 /**
  * Apple Notes, read through the Notes app itself with Apple's scripting
@@ -171,7 +170,7 @@ async function keepPicture(data: string): Promise<string | null> {
   if (!match || !ext || ext === 'heic' || ext === 'tiff') return null
   const bytes = Buffer.from(match[2], 'base64')
   if (!bytes.byteLength) return null
-  const dir = join(app.getPath('userData'), 'assets')
+  const dir = assetsDir()
   const name = `${createHash('sha256').update(bytes).digest('hex')}.${ext}`
   await mkdir(dir, { recursive: true })
   const temporary = join(dir, `${name}.${randomUUID()}.tmp`)
