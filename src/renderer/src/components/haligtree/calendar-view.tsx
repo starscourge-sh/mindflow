@@ -275,6 +275,8 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
       const take = (run: () => void): void => (event.preventDefault(), run())
       if (key === 'd' || key === 'w' || key === 'm') return take(() => setMode(({ d: 'day', w: 'week', m: 'month' } as const)[key]))
       if (key === 't') return take(today)
+      // Esc lets go of the task or event picked, as on every list, so ⌘K is the Calendar's own again.
+      if (key === 'Escape' && !panel && !peek && (chosen || chosenEvent)) return take(() => (chime('away'), setChosen(null), setChosenEvent(null), (document.activeElement as HTMLElement | null)?.blur()))
       if (key === '.') return take(() => (chime('open'), setJump(true)))
       if (key === 'ArrowLeft' || key === 'ArrowRight') return take(() => step(key === 'ArrowLeft' ? -1 : 1))
     }
