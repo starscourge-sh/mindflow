@@ -60,7 +60,9 @@ try {
   await stick('goal', goalId)
   check('the menu bar lists a new goal at once', await soon(async () => (await electron.evaluate(() => globalThis.trayMenu ?? [])).some((one) => one.label === 'Trayone goal')))
   await v('item:save', goalId, { title: 'Traytwo goal' })
-  check('the goal sticky shows its new name', await soon(async () => /Traytwo goal/.test(await stickyText(goalId))))
+  // A goal card may be tucked away (its tuck rules): a hidden window is told when it shows, so only a shown one is read.
+  const tucked = () => electron.evaluate(({ BrowserWindow }, id) => !BrowserWindow.getAllWindows().some((one) => one.webContents.getURL().includes(id) && one.isVisible()), goalId)
+  check('the goal sticky shows its new name (or is tucked away)', await soon(async () => (await tucked()) || /Traytwo goal/.test(await stickyText(goalId))))
   check('the menu bar shows the goal\'s new name at once', await soon(async () => (await electron.evaluate(() => globalThis.trayMenu ?? [])).some((one) => one.label === 'Traytwo goal')))
 
   // A task due now: the Today sticky and the menu bar's count.

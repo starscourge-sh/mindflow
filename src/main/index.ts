@@ -3369,6 +3369,8 @@ function quit(): void {
  * refers to is collected, and the icon vanishes a few seconds after launch.
  */
 let tray: Tray | null = null
+// What the menu bar's menu last said (updateTray), so the same words are not built again.
+let trayShape = ''
 
 function createTray(): void {
   const image = nativeImage.createFromBuffer(readFileSync(trayIcon), { scaleFactor: 2 })
@@ -3377,6 +3379,7 @@ function createTray(): void {
   image.setTemplateImage(true)
 
   tray = new Tray(image)
+  trayShape = ''
   onHandOff(() => tray?.destroy())
   whereTray(() => (tray && !tray.isDestroyed() ? tray.getBounds() : null))
   updateTray()
@@ -3642,6 +3645,10 @@ function updateTray(): void {
   // A test run keeps the menu's words where a probe can read them.
   if (process.env.HALIGTREE_QA_AWAY) (globalThis as { trayTitle?: string }).trayTitle = title
   if (process.env.HALIGTREE_QA_AWAY) (globalThis as { trayMenu?: unknown }).trayMenu = template.flatMap((item) => [item, ...((Array.isArray(item.submenu) ? item.submenu : []) as Electron.MenuItemConstructorOptions[])]).map((item) => ({ type: item.type ?? 'normal', label: item.label ?? '', sublabel: item.sublabel ?? '', toolTip: item.toolTip ?? '', enabled: item.enabled !== false, checked: item.checked === true, drawn: !!item.icon && !item.label }))
+  // Told of every change, it builds the menu again only when what it says changed: a hundred moved to the Bin build it once, not a hundred times.
+  const shape = JSON.stringify([template, goals.slice(0, 3).map((goal) => goal.id), tempusDrawn?.key === tempusKey], (key, value) => (key === 'icon' ? !!value : value))
+  if (shape === trayShape) return
+  trayShape = shape
   const menu = Menu.buildFromTemplate(template)
   // And the menu itself, so a probe can choose an item as a click would.
   if (process.env.HALIGTREE_QA_AWAY) (globalThis as { trayBuilt?: unknown }).trayBuilt = menu
