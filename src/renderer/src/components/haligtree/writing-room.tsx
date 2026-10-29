@@ -35,8 +35,10 @@ export function useWritingRoom(editor: Editor | null): { on: boolean; toggle: ()
       const mine = editor && !editor.isDestroyed && (editor.isFocused || on)
       if (!mine) return
       if (event.key === 'Enter' && event.metaKey && event.shiftKey) return void (event.preventDefault(), event.stopPropagation(), toggle())
-      // Esc leaves, unless something over the page (a menu, the format bar's popover) is the one it closes.
-      if (on && event.key === 'Escape' && !overPage()) {
+      // Esc leaves, unless something over the page (a menu, the format bar's popover) is the one it closes, or Vim
+      // is in insert or visual mode: then Esc goes back to normal mode first, as in the read-through.
+      const vim = editor?.view.dom.getAttribute('data-vim-mode')
+      if (on && event.key === 'Escape' && !overPage() && !(vim && !/normal/i.test(vim))) {
         event.preventDefault()
         event.stopPropagation()
         toggle()

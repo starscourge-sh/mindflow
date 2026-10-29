@@ -129,12 +129,14 @@ export function WriterTools({ editor, proof = false, live = proof }: { editor: E
     if (proof) void fullReport(editor).then((full) => setReport((was) => (was ? full : was)))
     editor.commands.focus()
   }
-  const pick = 'rounded-md px-1.5 py-0.5 transition-colors hover:text-foreground data-on:bg-accent data-on:text-foreground'
+  // Each tool a button you can see is one (a faint outline, darker words), so the plain words before them read as
+  // their label: "Focus on the" blended in with "sentence" and "paragraph" when all three were the same grey words.
+  const pick = 'cursor-pointer rounded-md border border-foreground/12 px-1.5 py-0.5 text-foreground/80 transition-colors hover:border-foreground/25 hover:text-foreground data-on:border-transparent data-on:bg-accent data-on:text-foreground'
   return (
     <span data-writer-tools className="flex items-center gap-1">
       {report && <span data-prose-report className="absolute inset-x-0 bottom-full mx-auto mb-2 max-w-[40rem] px-6 text-center text-body text-foreground/80 text-pretty">{report}</span>}
       {/* Each says what it does; pressed again, it is off. */}
-      <span>Focus on the</span>
+      <span data-focus-label className="mr-0.5">Focus on the</span>
       {(['sentence', 'paragraph'] as const).map((to) => (
         <button key={to} type="button" data-focus={to} data-on={focus === to || undefined} aria-pressed={focus === to} className={pick} onClick={() => setFocus(focus === to ? 'off' : to)}>
           {to === 'sentence' ? 'sentence' : 'paragraph'}
@@ -150,7 +152,7 @@ export function WriterTools({ editor, proof = false, live = proof }: { editor: E
         </>
       )}
       <span aria-hidden className="mx-1">·</span>
-      <WritingSound />
+      <WritingSound className={pick} />
     </span>
   )
 }

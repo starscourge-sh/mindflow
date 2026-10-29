@@ -2310,7 +2310,9 @@ html[data-book-hue] [data-book-tint] {
    Everything else about the page (its header, what sits under the words) is
    left behind. */
 [data-room] {
-  position: fixed; inset: 0; z-index: 60;
+  /* Just under the app's own sheets, toasts and pop-ups (z 60 and up): level with them, the word aim's question and
+     its toast opened behind the room, so "Word aim" seemed to do nothing. */
+  position: fixed; inset: 0; z-index: 59;
   margin: 0; overflow-y: auto;
   background: var(--background);
   padding: 16vh max(1.5rem, calc(50% - 21rem)) 30vh;
