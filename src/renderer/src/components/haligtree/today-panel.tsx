@@ -88,7 +88,9 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
   const [view, setView] = useView('prompt:tasks', { sort: 'newest', group: 'none' })
   const facets = taskFacets(tasks)
   // Today, Upcoming and Routines keep their own order (the first three, the days); the sort is for the lists with no day.
-  const [[, narrowed]] = arrange(tasks, view, facets, ['today', 'upcoming', 'routines'].includes(scope) ? {} : TASK_SORTS)
+  // Those keep their order whatever is picked, so Display offers them no order to pick.
+  const dayOrdered = ['today', 'upcoming', 'routines'].includes(scope)
+  const [[, narrowed]] = arrange(tasks, view, facets, dayOrdered ? {} : TASK_SORTS)
   const due = narrowed.filter((task) => task.status === 'open' && SCOPES[scope].test(task))
 
   const add = useRef<HTMLInputElement>(null)
@@ -171,7 +173,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
-      <span className="ml-auto shrink-0"><Display compact view={view} onChange={setView} facets={facets} sorts={[{ id: 'newest', label: 'Newest' }, { id: 'oldest', label: 'Oldest' }, { id: 'manual', label: 'Your order' }]} /></span>
+      <span className="ml-auto shrink-0"><Display compact view={view} onChange={setView} facets={facets} items={tasks} sorts={dayOrdered ? [] : [{ id: 'newest', label: 'Newest' }, { id: 'oldest', label: 'Oldest' }, { id: 'manual', label: 'Your order' }]} /></span>
       </Strip>
       <form
         className="list-box mb-2 flex items-center gap-2 rounded-md border py-1.5 pr-2 focus-within:border-ring"
