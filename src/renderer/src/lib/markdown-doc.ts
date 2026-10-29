@@ -97,6 +97,22 @@ const marked = (content: JSONContent[]): JSONContent[] => {
 
 const FILE_LINK = /^haligtree:\/\/assets\/[a-f0-9]{64}\.(?!png|jpe?g|gif|webp|svg|avif|bmp)[a-z0-9]+$/
 
+/** A paragraph the reader ran together from several lines, as one paragraph a line. */
+function ownLines(paragraph: JSONContent): JSONContent[] {
+  const lines: JSONContent[][] = [[]]
+  for (const part of paragraph.content ?? []) {
+    if (part.type !== "text" || !part.text?.includes("\n")) {
+      lines[lines.length - 1].push(part)
+      continue
+    }
+    part.text.split("\n").forEach((text, at) => {
+      if (at) lines.push([])
+      if (text) lines[lines.length - 1].push({ ...part, text })
+    })
+  }
+  return lines.map((content) => (content.length ? { ...paragraph, content } : { type: "paragraph" }))
+}
+
 /**
  * What Obsidian writes that plain Markdown has no word for, put right once the
  * text is read: a `cardlink` block is the link card it describes, a picture's
@@ -149,6 +165,10 @@ function tidyDocument(node: JSONContent, inText = false): JSONContent {
     const lead = at === 0 && /^(listItem|taskItem)$/.test(node.type ?? "") ? [{ type: "paragraph" }] : []
     if (only && plainText(only) && PICTURES.test(only.text)) return [...lead, ...pictures(only.text)]
     if (!inline && plainText(child) && PICTURES.test(child.text)) return [...lead, ...pictures(child.text)]
+    // Lines one under the other stay lines, the way they read in the file and
+    // the way the same words pasted without any Markdown in them land.
+    if (!inline && child.type === "paragraph" && child.content?.some((part) => part.type === "text" && part.text?.includes("\n")))
+      return [...ownLines(child).map((line) => tidyDocument(line, false))]
     const tidied = tidyDocument(child, inline)
     if (tidied.type === "files") return [...lead, ...(tidied.content ?? [])]
     return /^(paragraph|heading)$/.test(child.type ?? "") && tidied.type === "attachment" ? [...lead, tidied] : [tidied]
