@@ -45,6 +45,8 @@ export const CAPTURE_TYPES = [
   // A date, then a question back to you: what a decision and an experiment both were.
   { id: "checkback", label: "Check back", icon: CalendarClock, tint: tint("red"), does: "Asks you again on a date" },
 ] as const
+/** A kind by its id; an unknown one reads as a Note. */
+export const kindOf = (id: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.find((type) => type.id === id) ?? CAPTURE_TYPES[0]
 
 export type CaptureType = (typeof CAPTURE_TYPES)[number]["id"]
 

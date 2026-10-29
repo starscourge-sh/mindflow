@@ -5,7 +5,7 @@ import { Camera, Fit } from '@/components/ui/icons'
 import { openLook } from '@/components/image/image-look'
 
 import { Button } from '@/components/ui/button'
-import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
+import { kindOf } from '@/components/capture-kinds/capture-kind-picker'
 import { chime } from '@/lib/sound'
 import { unloaded, useLive, haligtree } from '@/lib/haligtree'
 import { VOICE_SAID, VOICE_TINT, askRename, openSource, pageRef, readFocus, sources, type SourceField, type SourceItem, type SourceSummary, type Voice } from '@/lib/sources'
@@ -30,7 +30,6 @@ import { PersonMenu } from './avatar'
 import type { SourceCard, SourceFacts, SourcePage } from '@/lib/sources'
 import { notes, type NoteTable } from '@/lib/notes'
 
-const kindOf = (id: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.find((type) => type.id === id) ?? CAPTURE_TYPES[0]
 const FIELD_SAID: Record<SourceField, { one: string; icon: typeof User }> = { attribution: { one: 'Person', icon: User }, medium: { one: 'Source', icon: BookOpen } }
 
 /** Give a note a who, wherever it lives: a capture's field, or a gem's. */

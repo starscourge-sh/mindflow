@@ -23,7 +23,7 @@ import { textOf } from '../rot-cards'
 import { firstLineOf } from '@/extensions/tokens'
 import { ReadThrough } from './read-through'
 import { enqueue } from '@/lib/reading-queue'
-import { CAPTURE_TYPES, CaptureKindPicker, asksFor, byKind, type CaptureType } from '../capture-kinds/capture-kind-picker'
+import { CAPTURE_TYPES, CaptureKindPicker, kindOf, asksFor, byKind, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { age } from '../capture-list'
 import { follow, noteLinkText, recallOffered } from '@/lib/capture-links'
 import { splitTags, unloaded, unread, useLastAsked, useLive, haligtree, whenInLine, type Item, type ItemFull, type Settings } from '@/lib/haligtree'
@@ -88,7 +88,6 @@ import { loud } from '@/lib/loud'
 import { pictureItems } from '@/lib/note-picture'
 import { ArchiveRestore, BookOpen, Brain, Download, Eye, EyeOff, FileText, History, Layers, Bookmark as Pin, Quote, Repeat as RefreshCw, TriangleAlert, X } from '@/components/ui/icons'
 
-const kindOf = (id: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.find((type) => type.id === id) ?? CAPTURE_TYPES[0]
 
 /**
  * A nugget or an article as any list draws it. A nugget reads as its own

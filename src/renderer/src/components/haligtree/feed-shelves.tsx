@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import { ChevronLeft, ChevronRight, FileText, Heart } from 'lucide-react'
 
-import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
+import { kindOf } from '@/components/capture-kinds/capture-kind-picker'
 import { openSource } from '@/lib/sources'
 import { asideItem } from '@/lib/split'
 import { still } from '@/lib/motion'
@@ -104,7 +104,6 @@ function Along({ way, shown, onClick }: { way: 1 | -1; shown: boolean; onClick: 
   )
 }
 
-const kindOf = (id: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.find((type) => type.id === id) ?? CAPTURE_TYPES[0]
 
 /** One note: its picture, or its cover, square; its title; and what kind it is. */
 function Card({ card, onOpen }: { card: ShelfCard; onOpen: (type: string, id: string) => void }): React.JSX.Element {

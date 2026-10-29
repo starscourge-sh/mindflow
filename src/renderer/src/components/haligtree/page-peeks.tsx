@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Archive, Bell, BookOpen, FileText, Flag, Gem, GripVertical, Hash, Lock, Sparkles, Trash2 } from 'lucide-react'
-import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
+import { kindOf } from '@/components/capture-kinds/capture-kind-picker'
 import { exampleCard, exampleGoals, exampleIdeas, exampleInbox, exampleMonth, exampleTags, exampleTasks, exampleWriting } from '@/lib/examples'
 import { MCard, MChip, MLabel, MLines, MRow, MTitle, Peek, tinted } from './peek'
 import { taskName } from '@/lib/tasks'
@@ -17,7 +17,6 @@ dayjs.extend(isoWeek)
  */
 type PagePeek = { text: string; art: () => ReactNode }
 
-const kindOf = (id: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.find((type) => type.id === id) ?? CAPTURE_TYPES[0]
 const Capture = ({ kind, children, meta }: { kind: string; children: ReactNode; meta?: ReactNode }): React.JSX.Element => {
   const type = kindOf(kind)
   return <MRow icon={type.icon} tint={type.tint} meta={meta}>{children}</MRow>

@@ -4,7 +4,7 @@ import { CalendarDays } from 'lucide-react'
 import { spring } from '@/lib/motion'
 import { chime, click, type Cue } from '@/lib/sound'
 import { Button } from '@/components/ui/button'
-import { CAPTURE_TYPES, type CaptureType } from '@/components/capture-kinds/capture-kind-picker'
+import { kindOf, type CaptureType } from '@/components/capture-kinds/capture-kind-picker'
 import { starters, type Starter } from '@/lib/welcome-box'
 import { story } from '@/lib/welcome-stories'
 import { seeded, typingWaits } from '@/lib/typing'
@@ -55,7 +55,6 @@ export const LAND = { type: 'spring' as const, duration: 0.45, bounce: 0.18 }
 
 export type Kind = Starter['kind']
 export const starterOf = (kind: Kind): Starter => starters().find((one) => one.kind === kind) as Starter
-export const typeOf = (kind: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.find((type) => type.id === kind) ?? CAPTURE_TYPES[0]
 
 // --- the timeline ------------------------------------------------------------------
 
@@ -265,7 +264,7 @@ function Unstretched({ children, className = '' }: { children: ReactNode; classN
 
 /** The kind chip: dashed while it is a guess, ringed in the accent while the welcome runs, its name rolling as the guess changes. */
 function KindChip({ kind }: { kind: CaptureType }): React.JSX.Element {
-  const type = typeOf(kind)
+  const type = kindOf(kind)
   const Icon = type.icon
   return (
     <motion.span layout transition={spring.moderate}
@@ -294,7 +293,7 @@ const noteCaught = (el: Element | null): void => void (el && (caughtAt = el.getB
 
 /** A caught thing, small: its kind's icon and a few of its words. Shares its layoutId with the thing it becomes. */
 export function Chip({ kind, fly = false }: { kind: Kind; /** Just caught: it flies in from the box's words, one transform on the compositor. */ fly?: boolean }): React.JSX.Element {
-  const type = typeOf(kind)
+  const type = kindOf(kind)
   const Icon = type.icon
   const ref = useRef<HTMLDivElement>(null)
   const x = useMotionValue(0)
@@ -331,7 +330,7 @@ export function Chip({ kind, fly = false }: { kind: Kind; /** Just caught: it fl
 
 /** An empty slot's size: the chip that will land in it, unseen. */
 function ChipSize({ kind }: { kind: Kind }): React.JSX.Element {
-  const Icon = typeOf(kind).icon
+  const Icon = kindOf(kind).icon
   return <span aria-hidden className="invisible flex h-9 items-center gap-1.5 border border-transparent px-3 text-[0.9375rem] whitespace-nowrap"><Icon className="size-4 shrink-0" />{shortOf(kind)}</span>
 }
 

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Check, Lightbulb } from 'lucide-react'
-import { EASE } from '@/lib/motion'
+import { EASE, still as calm } from '@/lib/motion'
 import { chime } from '@/lib/sound'
 import type { Setup } from '@/lib/onboarding'
 import { haligtree, unloaded, useLive, type Item } from '@/lib/haligtree'
@@ -246,13 +246,12 @@ const OWN_TAGS = ['reading-list', 'side-project', 'big-ideas', 'chapter-3']
  * start it shows the first example whole.
  */
 function useTypedHint(words: string[], still: boolean, rest: string): string {
-  const off = (): boolean => document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches
-  const [shown, setShown] = useState(() => (off() ? words[0] : ''))
+  const [shown, setShown] = useState(() => (calm() ? words[0] : ''))
   const [stopped, setStopped] = useState(false)
   useEffect(() => {
     if (still) return void setStopped(true)
     setStopped(false)
-    if (off()) return void setShown(words[0])
+    if (calm()) return void setShown(words[0])
     const random = seeded(7)
     const timers: ReturnType<typeof setTimeout>[] = []
     // It starts once the page's headline has been glanced at: nothing on the page moves while it is.
