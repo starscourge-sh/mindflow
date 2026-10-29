@@ -1947,8 +1947,22 @@ export default function App(): React.JSX.Element {
                 <span className="flex shrink-0 items-center gap-1"><Pressed keys="⌘[" /> takes you back.</span>
               </div>
             )}
+            {/* "start" (or "focus", "timer") alone, as Raycast's focus command is typed: how long, one press away. */}
+            {!editing && /^(start|focus|timer)$/i.test(boxText.trim()) && (
+              <div data-start-lengths className="flex flex-wrap items-center gap-1.5 px-[4.75rem] pt-1.5 text-xs text-muted-foreground animate-in fade-in-0 duration-150">
+                <span className="mr-0.5">How long?</span>
+                {[5, 10, 15, 25, 45, 60].map((minutes) => (
+                  <button key={minutes} type="button" data-start-length={minutes}
+                    className="rounded-md bg-accent/60 px-2 py-0.5 text-foreground tabular-nums transition-colors hover:bg-accent"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => (chime('tap'), editorRef.current?.chain().focus('end').insertContent({ type: 'text', text: `${/\s$/.test(boxText) ? '' : ' '}${minutes}m ` }).run())}>
+                    {minutes} min
+                  </button>
+                ))}
+              </div>
+            )}
             {/* What sending it will do, read from the lit words, each with its ×. */}
-            {!editing && (
+            {!editing && !/^(start|focus|timer)$/i.test(boxText.trim()) && (
               <WillDo
                 plan={plan}
                 orQuestion={plan?.kind === 'todo' && askedLine(textOf(body)) ? () => keepAsQuestion(askedLine(textOf(body))!) : undefined}

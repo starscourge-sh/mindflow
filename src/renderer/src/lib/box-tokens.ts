@@ -11,7 +11,7 @@ import { isProse, kindOf } from '../../../main/import'
 import { dayKey, dayMonth } from '../../../main/dates'
 import { short } from '@/lib/clock'
 import dayjs from 'dayjs'
-import { lengthSaid, roundsFrom, timerFrom, type Rounds } from './timer'
+import { lengthSaid, roundsFrom, timerAsked, timerFrom, type Rounds } from './timer'
 import { saidBy } from './welcome-box'
 import { clueTarget } from '@/components/haligtree/questions-view'
 import { TAG_DOES } from '@/components/capture-kinds/kind-fields'
@@ -369,7 +369,8 @@ export function planBox(doc: ProseMirrorNode, ctx: BoxContext, kept: Kept[] = []
 
   // "5m tea", "timer 25m": a countdown, not a capture. Not when a kind was
   // picked or it is a todo, nor when the rest has a date, a repeat or a tag.
-  const timed = ctx.timers !== false && !ctx.chosen && kind !== 'todo' && single ? timerFrom(full) : null
+  // Said outright ("start 25m email"), it is a timer even with focus tools off, and even though "start" reads as something to do.
+  const timed = !ctx.chosen && single && (timerAsked(full) || (ctx.timers !== false && kind !== 'todo')) ? timerFrom(full) : null
   if (timed) {
     const rest = readTask(timed.goal, now)
     const on = !rest.due && !rest.deadline && !rest.recurrence && !rest.plan && !tagsIn(full).length

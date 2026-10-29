@@ -1,6 +1,6 @@
 import { howLong } from '../../../main/dates.ts'
 /**
- * A timer said in plain words in the box: "5m tea", "timer 25m", "25 min
+ * A timer said in plain words in the box: "5m tea", "timer 25m", "start 25m email", "25 min
  * pasta", "set a timer for 1h 30m", "timer tea 10 minutes". Null for anything
  * else, so a note that merely starts with a length ("5 minutes of reading a
  * day is enough") stays a note: without the word "timer", the length comes
@@ -15,10 +15,15 @@ const lengthOf = (said: string): number =>
     return ms + Number(n) * per
   }, 0)
 
+/** The words that ask for a timer outright: "timer", "set a timer for", and Raycast's "start" and "focus" ("start 25m email", "focus 20m on the inbox"). */
+const ASKED = /^(?:(?:set\s+a\s+)?timer|start|focus)\b(?:\s+(?:a\s+)?(?:timer|session))?(?:\s+(?:for|on))?\s*/i
+/** The line asks for a timer outright, so it is one whatever else the box would read it as (a task, with focus tools off). */
+export const timerAsked = (text: string): boolean => ASKED.test(text.trim()) && timerFrom(text) !== null
+
 export function timerFrom(text: string): { ms: number; goal: string; spans: { from: number; to: number }[] } | null {
   const line = text.trim()
   if (!line || line.includes('\n') || line.length > 60) return null
-  const asked = /^(?:set\s+a\s+)?timer\b(?:\s+for)?\s*/i.exec(line)
+  const asked = ASKED.exec(line)
   const rest = asked ? line.slice(asked[0].length) : line
   const skip = asked ? asked[0].length : 0
   // The words that say it is a timer, by where they sit in the trimmed line.
@@ -37,7 +42,7 @@ export function timerFrom(text: string): { ms: number; goal: string; spans: { fr
     goal = rest.slice(0, at)
     spans.push({ from: skip + at, to: skip + at + length[0].trimEnd().length })
   } else return null
-  goal = goal.replace(/^\s*(?:for|of|-|:)\s+/i, '').replace(/^[-:]\s*/, '').trim()
+  goal = goal.replace(/^\s*(?:for|of|on|-|:)\s+/i, '').replace(/^[-:]\s*/, '').trim()
   // Not said "timer": a short name only, and nothing that reads like a sentence.
   if (!asked && (goal.split(/\s+/).length > 4 || /[.!?,;]/.test(goal))) return null
   const ms = lengthOf(length[1])
