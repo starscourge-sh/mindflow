@@ -281,7 +281,10 @@ export function NotePreview(): React.JSX.Element | null {
       onMouseLeave={() => setShown(null)}
       // As Wikipedia's: with a picture it is wider, the picture filling its right side edge to edge; without, words only and narrower.
       className={`fixed z-[70] ${shown.picture ? 'flex w-max max-w-[30rem] overflow-hidden' : 'w-80 p-3'} rounded-lg border bg-popover text-control shadow-(--mf-panel-shadow) animate-in fade-in-0 duration-150 motion-reduce:animate-none`}
-      style={{ left: Math.max(12, shown.x), top: shown.y, transform: shown.above ? 'translateY(-100%)' : undefined }}
+      // Above its link it hangs from its bottom edge, not lifted by a transform: the
+      // fade-in's own transform replaced that lift while it ran, so the card first
+      // landed on the pointer, then jumped off it and shut as the pointer "left" it, over and over.
+      style={{ left: Math.max(12, shown.x), ...(shown.above ? { bottom: window.innerHeight - shown.y } : { top: shown.y }) }}
     >
       {/* With a picture the card is as wide as its words need, up to a line's length, never a wide box round two short lines. */}
       <div className={shown.picture ? 'w-max min-w-[13rem] max-w-[19rem] p-3.5' : undefined}>

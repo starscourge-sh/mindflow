@@ -57,10 +57,14 @@ export function TitleTips(): React.JSX.Element | null {
   }, [])
   if (!tip) return null
   return (
-    <div role="tooltip" data-title-tips
-      className={cn(FLOAT, 'pointer-events-none fixed z-[100] w-fit max-w-[min(20rem,calc(100vw-1rem))] rounded-md px-2.5 py-1.5 text-xs [overflow-wrap:anywhere] animate-in fade-in-0 zoom-in-95 duration-100')}
-      style={{ left: tip.x, top: tip.y, transform: `translate(-50%, ${tip.below ? '0' : '-100%'})` }}>
-      {tip.text}
+    // Placed by the outer box and faded in by the inner one: on one box the
+    // fade's own transform replaced the placing one while it ran, so the tip
+    // first showed over the thing pointed at, then jumped above it.
+    <div className="pointer-events-none fixed z-[100]" style={{ left: tip.x, top: tip.y, transform: `translate(-50%, ${tip.below ? '0' : '-100%'})` }}>
+      <div role="tooltip" data-title-tips
+        className={cn(FLOAT, 'w-fit max-w-[min(20rem,calc(100vw-1rem))] rounded-md px-2.5 py-1.5 text-xs [overflow-wrap:anywhere] animate-in fade-in-0 zoom-in-95 duration-100')}>
+        {tip.text}
+      </div>
     </div>
   )
 }
