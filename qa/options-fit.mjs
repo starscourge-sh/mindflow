@@ -37,6 +37,15 @@ try {
   const gems = await lines(h)
   check('Gems still filter by kind and by review', gems.includes('Kind') && gems.includes('Review'), gems.join(', '))
   await h.keyboard.press('Escape'); await h.waitForTimeout(300)
+  // A Word kept as a gem, as a word in the Inbox: nothing to read through or queue.
+  await h.locator('[data-row]', { hasText: 'Petrichor' }).first().click({ button: 'right' }); await h.waitForTimeout(600)
+  const word = await menu()
+  if (SHOTS) await h.screenshot({ path: join(SHOTS, 'word-gem-menu.png') })
+  check('a Word gem has no Read or Reading queue', word.length > 0 && !word.includes('Read') && !word.includes('Reading queue'), word.join(', '))
+  await h.keyboard.press('Escape'); await h.waitForTimeout(300)
+  await h.locator('[data-row]', { hasNotText: 'Petrichor' }).first().click({ button: 'right' }); await h.waitForTimeout(600)
+  check('other gems still offer Read', (await menu()).includes('Read'))
+  await h.keyboard.press('Escape'); await h.waitForTimeout(300)
 
   await go('questions'); await h.waitForTimeout(1500)
   await h.locator('[data-row]').first().click({ button: 'right' }); await h.waitForTimeout(600)

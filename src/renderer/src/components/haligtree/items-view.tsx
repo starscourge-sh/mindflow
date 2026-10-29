@@ -800,9 +800,10 @@ const itemMenu = (item: Item): (MenuItem | { label: string; items: RowItem[] })[
   { label: item.private ? 'Make it not private' : 'Make it private', run: () => void haligtree.setPrivate('nuggets', item.id, !item.private) },
   { label: 'Stick on the desktop', run: () => stickOnDesktop('nugget', item.id) },
   { label: 'Open in a new window', keys: '⌥⌘-click', run: () => openApart(item.tier, item.id) },
-  { label: 'Read', hint: 'Read it through, the notes it links to open in place', run: () => openRead(`${item.tier}:${item.id}`) },
+  // A Word kept as a gem is one word and its meaning, as in the Inbox: nothing to read through or queue up.
+  item.kind !== 'word' && { label: 'Read', hint: 'Read it through, the notes it links to open in place', run: () => openRead(`${item.tier}:${item.id}`) },
   asideItem(item.tier, item.id),
-  queueMenu(item.id),
+  item.kind !== 'word' && queueMenu(item.id),
   'separator',
   item.tier === 'nugget' && { label: 'Change kind…', run: () => void changeKind('nuggets', item.id, item.kind) },
   { label: item.archivedAt ? 'Unarchive' : 'Archive', hint: item.archivedAt ? 'Back in sight' : 'Kept, out of sight', run: () => void archive('nuggets', [item.id], !item.archivedAt) },
