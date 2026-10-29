@@ -140,6 +140,15 @@ try {
   await page.waitForTimeout(1000)
   const clicked = (await v('questions:pinned')).find((one) => /spinning/.test(one.title))
   check('a click on Add adds it too', clicked && after && clicked.clues === after.clues + 1, `${after?.clues} → ${clicked?.clues}`)
+
+  // A saved link asks who made it and the site, and nothing nags under them (no "Why is it worth reading?").
+  await fresh()
+  await page.keyboard.type('https://x.com/someone/status/12345 ', { delay: 8 })
+  await page.waitForTimeout(1200)
+  const link = await under()
+  const nag = await page.evaluate(() => /worth reading|on the next line/i.test(document.body.innerText))
+  check('a link asks who made it and the site, with no nagging line under them', link.fields.some((one) => one.startsWith('Who made it')) && !nag, `${link.fields.join(', ')} nag=${nag}`)
+  await shoot('box-link')
 } catch (error) {
   console.log('ERROR', error.message)
   results.push(false)

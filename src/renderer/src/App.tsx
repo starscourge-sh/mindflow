@@ -2041,10 +2041,6 @@ export default function App(): React.JSX.Element {
                   </Button>
                 </Tip>
               )}
-              {asks.why && boxText.trim().split('\n').filter(Boolean).length < 2 && (
-                // Wrapped, not cut: an ellipsis lands mid-word over words that type in.
-                <span className="min-w-0 px-1.5 text-xs text-muted-foreground"><Typed text={asks.why} /></span>
-              )}
               {like && !plus && !lesson && !listed && (
                 <Tip label={`Open it: ${like.title}`}>
                 <button
