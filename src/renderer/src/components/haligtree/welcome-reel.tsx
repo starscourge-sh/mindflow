@@ -363,8 +363,10 @@ export function Caught({ kinds, filled, said, lines }: { kinds: Kind[]; filled: 
 
 /** A quote, as it comes back a year from today: a postcard, signed, set down a little askew. */
 export function PostcardResult({ words, who, where, signed, id = 'reel-item-quote', themed = false, write = false }: { words: string; who: string; where?: string; signed: boolean; id?: string; /** Its white print frame in the page's own colours, to wear the theme with it. */ themed?: boolean; /** The line written onto the card as it lands, a word at a time, as ink takes. */ write?: boolean }): React.JSX.Element {
-  // When the last word is written: the signature waits for it.
-  const inked = write ? 0.35 + (words.split(' ').length - 1) * 0.11 + 0.42 : 0
+  // When the last word is written, from when the card came: the signature waits for whatever of that is left
+  // (signed a beat later, as Remember does, it does not wait again).
+  const born = useRef(performance.now())
+  const inked = write ? Math.max(0, 0.35 + (words.split(' ').length - 1) * 0.11 + 0.42 - (performance.now() - born.current) / 1000) : 0
   return (
     <motion.div layoutId={id} transition={CAM} style={{ borderRadius: 12 }} className="w-full" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
       <Unstretched>

@@ -1386,8 +1386,9 @@ const BACK_BEATS: Beat<BackShot>[] = [
   { at: 8000, to: { shown: 3 }, cue: cue('memory') },
   // Signed once its line is written on.
   { at: 9900, to: { signed: true } },
-  // The last moment stays up: it is looked at while Next waits.
-  { at: 11100, to: {} }
+  // The last moment stays up: it is looked at while Next waits, a full second after the card's last line (where
+  // the quote is from) is in, so Next never arrives with it.
+  { at: 12400, to: {} }
 ]
 
 /** An answer's words with the ones that carry the point marked *so*: as parts, each said plain or stood out. */
@@ -1858,7 +1859,8 @@ function GrainBackdrop({ page, arrival, arriving, onBloomed }: { page: number; a
     <div aria-hidden className="absolute inset-0">
       {/* A new canvas for each arrival, so each one blooms from the page's colour; skipped, it is whole at once. */}
       {arriving && !still() && <IntroSpark key={`spark-${arrival}`} />}
-      <Grainient key={arrival} ref={grain} intro={arriving} onIntroDone={onBloomed} colors={colours} angle={55} speed={0.6} flow={0.8} silk={light ? 0.2 : 0.35} saturation={light ? 0.8 : 1} grainAmount={light ? 0.06 : 0.08} />
+      {/* Slow as a swell or drifting sand (speed 0.38, was 0.6, which read as running; 0.22 looked still), its grain still, as paper's is. */}
+      <Grainient key={arrival} ref={grain} intro={arriving} onIntroDone={onBloomed} colors={colours} angle={55} speed={0.38} flow={0.8} grainAnimated={false} silk={light ? 0.2 : 0.35} saturation={light ? 0.8 : 1} grainAmount={light ? 0.06 : 0.08} />
       {/* The veil toward the words' side: not over the arrival, which fills the whole window as Arc's does, then in as the first words come. */}
       <div className={`pointer-events-none absolute inset-0 transition-opacity duration-[1600ms] ${arriving ? 'opacity-0' : 'opacity-100'} bg-[linear-gradient(90deg,color-mix(in_oklab,var(--background)_55%,transparent)_0%,color-mix(in_oklab,var(--background)_30%,transparent)_45%,transparent_80%)]`} />
       {/* On a dark theme the gradient's bright end sits under light words and cards: a film of the page's colour over all of it. */}

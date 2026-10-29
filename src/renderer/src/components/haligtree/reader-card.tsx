@@ -112,6 +112,8 @@ const OVERHANG = 3
 const WIDE_BOOK = 250
 const HIGH_BOOK = 375
 // Turned the other way at rest: its fore-edge and old pages toward you, the spine round the far side.
+// The pose's springs: soft and a little bouncy, so the book sways into each pose and rocks once, never snaps.
+const POSE = { stiffness: 90, damping: 11 }
 const REST_TURN = -34
 const REST_LEAN = 10
 /** Where it comes up from the first time it is shown: lying back, near flat, turned further away. */
@@ -300,7 +302,7 @@ export function ReaderCard({ seed: saved, point, named, bare = false, arrive }: 
   const tilt = useTilt(7, 1.02)
   // A real book, as Stripe Press's: at rest it stands turned a little, its spine to you; pointed at, it turns to face
   // you and leans toward the pointer. Motion off, it faces you and stays.
-  const turn = useSpring(still() ? 0 : REST_TURN, { stiffness: 140, damping: 20 })
+  const turn = useSpring(still() ? 0 : REST_TURN, POSE)
   // Arriving: 1 while it waits lying back, eased to 0 on a slow soft spring of its own as it stands up (the pointer's springs stay quick).
   const rise = useMotionValue(arrive && !still() ? 1 : 0)
   // Grabbed and dragged, it turns in the hand, any way round (its back, its spine, its pages); let go, it carries on
@@ -311,13 +313,15 @@ export function ReaderCard({ seed: saved, point, named, bare = false, arrive }: 
   const grab = useRef<{ x: number; y: number; ry: number; rx: number } | null>(null)
   const turned = useTransform(() => turn.get() + tilt.y.get() + spinY.get() + rise.get() * (ARRIVE_TURN - REST_TURN))
   // And at rest it leans back a little too, as a book stood on a shelf is seen from just above (Stripe Press's pose).
-  const lean = useSpring(still() ? 0 : REST_LEAN, { stiffness: 140, damping: 20 })
+  const lean = useSpring(still() ? 0 : REST_LEAN, POSE)
   // Arriving, it starts from lying back and turned away, then the springs stand it up into its pose, once.
   // Soft enough to stand a touch past its pose and settle back, as a book set down rocks once.
-  useEffect(() => void (arrive === 'go' && rise.get() > 0 && animate(rise, 0, { type: 'spring', stiffness: 55, damping: 10, restDelta: 0.001 })), [arrive]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => void (arrive === 'go' && rise.get() > 0 && animate(rise, 0, { type: 'spring', stiffness: 50, damping: 8, restDelta: 0.001 })), [arrive]) // eslint-disable-line react-hooks/exhaustive-deps
   // On the welcome it keeps an eye on the pointer about the page: turned and leaned a few degrees toward wherever it
   // is, on the pose's own springs, until the pointer comes onto the book and it faces you.
   const over = useRef(false)
+  // Turned to face you: at once with motion off, on the pose's springs otherwise.
+  const face = (): void => void (still() ? (turn.jump(0), lean.jump(0)) : (turn.set(0), lean.set(0)))
   useEffect(() => {
     if (!arrive || still()) return
     const follow = (event: PointerEvent): void => {
@@ -392,7 +396,7 @@ export function ReaderCard({ seed: saved, point, named, bare = false, arrive }: 
       {/* The pointer is read on a wrapper that never tips, as Tilt does: read on the card, a corner tips out from under it and flickers. */}
       {/* A press nudges the book where it is pressed, a little further back and a touch smaller, and on letting go it
           springs back to lean toward the pointer again. */}
-      <div data-reader-hold className="relative mb-[34px]" onPointerEnter={() => ((over.current = true), turn.set(0), lean.set(0))} onPointerMove={(event) => {
+      <div data-reader-hold className="relative mb-[34px]" onPointerEnter={() => ((over.current = true), face())} onPointerMove={(event) => {
           const held = grab.current
           if (held) return void (spinY.set(held.ry + (event.clientX - held.x) * 0.6), spinX.set(Math.max(-70, Math.min(70, held.rx - (event.clientY - held.y) * 0.4))))
           if (!event.buttons) tilt.lean(event, event.currentTarget)
@@ -406,7 +410,7 @@ export function ReaderCard({ seed: saved, point, named, bare = false, arrive }: 
           spinX.stop()
           grab.current = { x: event.clientX, y: event.clientY, ry: spinY.get(), rx: spinX.get() }
           tilt.flat()
-          turn.set(0)
+          face()
           chime('tap')
         }}
         onPointerUp={(event) => (letGo(), tilt.lean({ ...event, buttons: 0 }, event.currentTarget))} onPointerCancel={letGo} onLostPointerCapture={letGo}
