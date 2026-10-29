@@ -56,6 +56,9 @@ try {
   await h.locator('[role=status] button:has-text("Undo")').last().click(); await wait(800)
   task = await v('task', one.id)
   check('Undo takes the repeat off', !task.recurrence && task.title === 'water plants', `${task.title} / ${task.recurrence}`)
+  task = await rename(one.id, 'learn welsh someday')
+  check('“someday” in the name puts it on Someday, with no day', task.title === 'learn welsh' && task.planFor === 'someday' && !task.dueAt, `${task.title} plan=${task.planFor} due=${task.dueAt}`)
+  check('said with Undo', /[Mm]oved to Someday/.test(await said()), await said())
   task = await rename(one.id, 'send the report by friday 5pm')
   check('a timed due-by in the name is due at that hour', task.title === 'send the report' && !!task.deadline && new Date(task.deadline).getHours() === 17 && task.deadlineTimed === 1, `${task.title} ${task.deadline} timed=${task.deadlineTimed}`)
   // 3. The page's "Due by" picker takes a time, said with Undo.
