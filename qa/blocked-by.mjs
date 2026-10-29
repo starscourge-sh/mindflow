@@ -41,7 +41,10 @@ try {
   check('Down moves the choice through the list', (await chosen()) === b, `${first} -> ${await chosen()}`)
   await h.keyboard.press('ArrowUp'); const up = await chosen(); await h.keyboard.press('ArrowDown')
   check('and Up moves it back', up !== b && (await chosen()) === b)
+  await h.evaluate(() => { window.__said = []; addEventListener('haligtree:toast', (e) => window.__said.push(`${e.detail.text}${e.detail.undo ? ' [Undo]' : ''}`)) })
   await h.keyboard.press('Enter'); await wait(900)
+  const said = await h.evaluate(() => window.__said.join(' / '))
+  check('the notice says where it went, with Undo', /Waiting on another task.*\[Undo\]/.test(said), said)
   const linked = await one(a)
   check('Enter links the real task', linked.blockedBy === b, JSON.stringify({ blockedBy: linked.blockedBy, blocker: linked.blocker }))
   const row = h.locator(`[data-blocked-by="${b}"]`)
@@ -50,6 +53,16 @@ try {
   await h.reload(); await wait(1500); await go('today'); await wait(1200)
   const meta = await h.evaluate((id) => document.querySelector(`[data-task-row][data-id="${id}"] [data-task-meta]`)?.textContent ?? '', a)
   check('the list row says what blocks it', meta.includes('Blocked: Chip at the wall'), meta || (await h.evaluate((id) => `rows ${document.querySelectorAll('[data-task-row]').length}, ours ${!!document.querySelector(`[data-id="${id}"]`)} ${document.querySelector(`[data-id="${id}"]`)?.outerHTML.slice(0, 300)}`, a)))
+
+  // Blocked, it has a place of its own on Today: the last heading, with it under it.
+  const place = await h.evaluate((id) => {
+    const heads = [...document.querySelectorAll('h2')].filter((one) => /Waiting on another task/.test(one.textContent))
+    const row = document.querySelector(`[data-task-row][data-id="${id}"]`)
+    return { heads: heads.length, below: !!heads[0] && !!row && !!(heads[0].compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING) }
+  }, a)
+  check('Today shows a “Waiting on another task” group', place.heads === 1, JSON.stringify(place))
+  check('and the blocked task is in it', place.below, JSON.stringify(place))
+  await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/blocked-group.png` })
 
   // A click opens it.
   await openTask(a)

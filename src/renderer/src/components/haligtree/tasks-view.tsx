@@ -767,6 +767,15 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
           // Chasing is not doing: what you are waiting on gets its own place.
           ['Waiting on someone', waiting]
         ]) as [string, Task[], string?][], ...heldGroup]
+  // A task waiting on another task gets a place of its own at the foot of the
+  // day lists, so blocking one never makes it seem gone: the notice names it.
+  if (view.group === 'when' && (mode === 'today' || mode === 'tomorrow' || mode === 'upcoming')) {
+    const blocked = groups.flatMap(([, list]) => list.filter(waitsOnTask))
+    if (blocked.length) {
+      for (const group of groups) group[1] = group[1].filter((task) => !waitsOnTask(task))
+      groups.push([WAITS_ON_TASK, blocked, 'blocked'])
+    }
+  }
   const shown = groups.flatMap(([, list]) => list)
   // The priority mark's room, kept only when some task here has a mark.
   const room = markRoom(shown)
@@ -1600,6 +1609,9 @@ export function shiftTo(days: number, from?: string | null): string {
  */
 /** Whether a task's blocker is one of your tasks that is done now: it is free to go. */
 export const freed = (task: Pick<Task, 'blockedBy' | 'blockedByStatus'>): boolean => !!task.blockedBy && task.blockedByStatus === 'done'
+/** Open and held up by another task that is not done yet: it waits under “Waiting on another task”. */
+export const waitsOnTask = (task: Pick<Task, 'status' | 'blockedBy' | 'blockedByStatus'>): boolean => task.status === 'open' && !!task.blockedBy && task.blockedByStatus === 'open'
+export const WAITS_ON_TASK = 'Waiting on another task'
 
 /**
  * "Blocked by", in a task's details: type and your open tasks whose names
@@ -1670,7 +1682,8 @@ function BlockedBy({ task, onOpen }: { task: TaskFull; onOpen?: (type: string, i
     void haligtree.saveTask(task.id, { blockedBy: one.id, blocker: name }).then(async () => {
       const now = await haligtree.task(task.id)
       const left = onToday(task) && !!now && !onToday(now)
-      toast(`Blocked by “${name.length > 40 ? `${name.slice(0, 39)}…` : name}”. ${left ? 'It moved off Today.' : onToday(task) ? 'It stays on Today, marked Blocked.' : 'Its row says Blocked.'}`,
+      const where = left ? 'It moved off Today, to “Waiting on another task” in Upcoming.' : onToday(task) ? 'It waits under “Waiting on another task” at the foot of Today.' : bucket(task) || task.recurrence ? 'Its row says Blocked.' : 'It waits under “Waiting on another task” in Upcoming.'
+      toast(`Blocked by “${name.length > 40 ? `${name.slice(0, 39)}…` : name}”. ${where}`,
         () => void haligtree.saveTask(task.id, was).then(() => chime('undo')))
     })
   }
