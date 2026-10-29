@@ -1,5 +1,6 @@
 // Raycast's way, in quick capture: "start" offers how long; "start 15m reply to emails" and ⌘↵ starts a 15-minute
-// timer for it, with focus tools off (the default); "start the essay" with no length is still a task.
+// timer for it, with focus tools off (the default); "start the essay" with no length is still a task; words that
+// name an open task ("start 25m write the long report") start a session on that task instead.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/box-start.mjs [shots folder]
 import { mkdirSync } from 'fs'
 import { join } from 'path'
@@ -34,6 +35,18 @@ try {
   await page.keyboard.type('start the essay', { delay: 8 }); await page.waitForTimeout(900)
   const task = await page.evaluate(() => document.querySelector('[data-will-do]')?.textContent ?? '')
   check('“start the essay” with no length is still a task', /Add to your tasks/.test(task) && !/timer/.test(task), task)
+  // Words that name an open task time that task: a session on it, not a plain timer.
+  await page.keyboard.press('Escape'); await page.waitForTimeout(300)
+  const made = await v('task:add', 'Write the long report')
+  const id = typeof made === 'string' ? made : made?.id
+  await page.evaluate(() => window.api.showPrompt()); await page.waitForTimeout(800)
+  await page.keyboard.press('Meta+a'); await page.keyboard.press('Backspace')
+  await page.keyboard.type('start 25m write the long report', { delay: 8 }); await page.waitForTimeout(900)
+  await page.keyboard.press('Meta+Enter'); await page.waitForTimeout(1500)
+  const on = await v('focus:now')
+  check('a timer named like an open task is a session on that task', !!on && !!on.taskId && (!id || on.taskId === id), JSON.stringify(on)?.slice(0, 200))
+  const kept = on?.taskId ? await v('sessions', on.taskId) : []
+  check('and it shows in that task’s sessions', Array.isArray(kept) && kept.length >= 1, JSON.stringify(kept)?.slice(0, 160))
 } finally {
   const passed = results.filter(Boolean).length
   console.log(`${passed}/${results.length} passed`)

@@ -64,7 +64,7 @@ import { notePromoted } from './lib/promote'
 import { noteActions, useOpenNote } from './lib/notes'
 import { haligtree, type Item, type PinnedQuestion, type Settings } from './lib/haligtree'
 import { markFromBox } from './lib/milestones'
-import { makeListTasks, makeTask, makeTasks, oneTask, picked } from './lib/tasks'
+import { makeListTasks, makeTask, makeTasks, oneTask, picked, taskName } from './lib/tasks'
 import { boxKind, boxList } from './lib/line-tasks'
 import { openSort } from './lib/sort-out'
 import { tasksSaid } from '../../main/day-lines'
@@ -1378,12 +1378,18 @@ export default function App(): React.JSX.Element {
     if (timer) {
       chime('timer')
       beam('success')
-      void haligtree.startTimer(timer.goal, timer.ms).then((id) => {
-        window.api.showFocus(true)
-        // Undone, the words come back into the box as they were typed.
-        toast(`Timer set: ${lengthSaid(timer.ms)}${timer.goal === 'Timer' ? '' : ` for ${timer.goal}`}`, () => {
-          void haligtree.cancelSession(id)
-          bringBack(sent)
+      // Words that name an open task ("start 25m reply to emails") time that task: a session on it, kept in its
+      // Sessions and in Stats, as starting one from the task does. Anything else is a plain timer.
+      const named = timer.goal.toLowerCase()
+      void haligtree.tasks().then((list) => {
+        const task = named === 'timer' ? undefined : list.find((one) => one.status === 'open' && taskName(one.title).text.trim().toLowerCase() === named)
+        void (task ? haligtree.startSession(task.id, undefined, timer.ms) : haligtree.startTimer(timer.goal, timer.ms)).then((id) => {
+          window.api.showFocus(true)
+          // Undone, the words come back into the box as they were typed.
+          toast(task ? `Session on “${taskName(task.title).text}”: ${lengthSaid(timer.ms)}` : `Timer set: ${lengthSaid(timer.ms)}${timer.goal === 'Timer' ? '' : ` for ${timer.goal}`}`, () => {
+            void haligtree.cancelSession(id)
+            bringBack(sent)
+          })
         })
       })
       fresh()
@@ -1884,7 +1890,7 @@ export default function App(): React.JSX.Element {
             >
             {offer && !editing && !lesson && (
               <div data-box-practice className="px-[4.25rem] pt-1 pb-1">
-                <PracticeOfferCard key={`${offer.id}:${offerKeys}`} offer={offer} autoFocus={!hasContent(body)}
+                <PracticeOfferCard key={`${offer.id}:${offerKeys}`} offer={offer}
                   onDone={() => editorRef.current?.commands.focus()} onType={() => editorRef.current?.commands.focus()} />
               </div>
             )}

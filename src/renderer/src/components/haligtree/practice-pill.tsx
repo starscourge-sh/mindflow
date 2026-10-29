@@ -129,18 +129,13 @@ export function usePracticeGuard(focus: Focus, ms: number): { asking: boolean; i
 
 /**
  * The offer itself: one gentle card, "9:00 Design patterns, 5 minutes?", with
- * ↵ start, N not tonight, S in 30 min. Its keys work whenever it holds the
- * keys (the box focuses it when it opens empty); a click does the same.
+ * ↵ start, N not tonight, S in 30 min. Its keys work once it holds the keys
+ * (a click or Tab); a click on a button does the same. Never taken from the
+ * box by itself: a first "s" typed into quick capture put the offer off.
  * Declined again and again at one time, it says when else seems to suit you.
  */
-export function PracticeOfferCard({ offer, onDone, autoFocus = false, compact = false, onType }: { offer: Offer; onDone?: () => void; autoFocus?: boolean; compact?: boolean; /** Any other key: the keys go back to where you write, and the key with them. */ onType?: () => void }): React.JSX.Element {
+export function PracticeOfferCard({ offer, onDone, compact = false, onType }: { offer: Offer; onDone?: () => void; compact?: boolean; /** Any other key: the keys go back to where you write, and the key with them. */ onType?: () => void }): React.JSX.Element {
   const card = useRef<HTMLDivElement>(null)
-  // A beat after the box draws, so it lands after the note's own focus.
-  useEffect(() => {
-    if (!autoFocus) return
-    const later = setTimeout(() => card.current?.focus({ preventScroll: true }), 120)
-    return () => clearTimeout(later)
-  }, [autoFocus, offer.id])
   const start = (): void => void startPractice(offer.id).then(() => onDone?.())
   const skip = (): void => (answerOffer(offer, 'skip'), onDone?.())
   const later = (): void => (answerOffer(offer, 'later'), onDone?.())
