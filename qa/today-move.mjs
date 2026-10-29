@@ -71,7 +71,7 @@ const glide = async (to, steps = 14) => {
 const carry = async (id, target, look) => {
   await h.locator(`[data-day-line="${id}"]`).first().evaluate((el) => el.scrollIntoView({ block: 'center' }))
   await wait(300)
-  const start = await centre(`[data-day-line="${id}"] [title^="Drag"]`)
+  const start = await centre(`[data-day-line="${id}"] [data-grip]`)
   await h.mouse.move(start.x, start.y)
   at = start
   await h.mouse.down()
@@ -142,8 +142,13 @@ await wait(900)
 check('“Next week” moves it a week on', dayOf((await task(ids[1])).dueAt, 7))
 await undo()
 check('Undo puts it back on today', dayOf((await task(ids[1])).dueAt))
-await h.locator(`[data-day-line="${ids[1]}"] [data-line]`).first().click({ button: 'right' })
+// The grip clicked (not dragged) opens the same menu, as the editor's handle does, with no caret put in the words.
+await h.locator(`[data-day-line="${ids[1]}"]`).first().hover()
+await h.locator(`[data-day-line="${ids[1]}"] [data-grip]`).first().click()
 await wait(500)
+const fromGrip = await h.evaluate(() => ({ menu: document.querySelector('[role=menu]')?.innerText ?? '', typing: !!document.activeElement?.closest('[contenteditable=true], textarea') }))
+check('clicking the grip opens the line\'s menu, the words left alone', /Move it to/.test(fromGrip.menu) && !fromGrip.typing, JSON.stringify({ menu: fromGrip.menu.slice(0, 40), typing: fromGrip.typing }))
+await shot('4b-grip-menu')
 await h.locator('[role=menu]').last().getByRole('menuitem', { name: /Later, this month/ }).click()
 await wait(900)
 check('“Later, this month” puts it in This month', /^\d{4}-\d{2}$/.test((await task(ids[1])).planFor ?? ''), (await task(ids[1])).planFor)

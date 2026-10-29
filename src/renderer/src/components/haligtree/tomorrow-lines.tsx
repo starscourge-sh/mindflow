@@ -6,7 +6,7 @@ import { readLines } from '../../../../main/day-lines'
 import { dated, dayjs, dayKey, num } from '../../../../main/dates'
 import { clock } from '@/lib/clock'
 import { Tip, Typed, toast } from './ui'
-import { RowMenu, type RowItem } from './row-menu'
+import { RowMenu, openFromGrip, type RowItem } from './row-menu'
 import { taskMenu, useTaskNow } from './tasks-view'
 import { DROP_LIT } from './sortable'
 import { FromNote, type AtLink } from './at-notes'
@@ -270,7 +270,8 @@ export function TomorrowLines({ night, alsoAbove = false, label = 'A line for to
             <RowMenu key={one.id} writes items={items}>
               <li data-tomorrow-line={task.id} className="mf-arrive flex items-start gap-2.5 py-1">
                 {/* A bullet, not a tick box: these are for tomorrow, ticked there. */}
-                <span aria-hidden className="grid h-[1.4rem] w-[1.0625rem] shrink-0 place-items-center"><span className="size-1.5 rounded-full" style={{ background: task.status === 'done' ? 'var(--tt-color-text-green)' : 'var(--muted-foreground)' }} /></span>
+                {/* Clicked, the line's menu, as Today's grip opens it: a right click in the words would put the caret there first. */}
+                <span data-grip title="Click for its menu" onClick={openFromGrip} className="grid h-[1.4rem] w-[1.0625rem] shrink-0 cursor-pointer place-items-center rounded hover:bg-accent"><span aria-hidden className="size-1.5 rounded-full" style={{ background: task.status === 'done' ? 'var(--tt-color-text-green)' : 'var(--muted-foreground)' }} /></span>
                 <div className="min-w-0 flex-1">
                   <DayLine lineKey={`t:${one.id}`} register={field(`t:${one.id}`)} value={task.title} label={task.title} attrs={{ 'data-tomorrow-field': true }}
                     onKey={lineKeys(one)} onPaste={onPaste} onLeave={({ text }) => rename(task, text)}

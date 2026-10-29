@@ -13,7 +13,7 @@ import { Count, Book, Kbd, Rolling, Tags, Tip, Typed, refuse, toast, quietly } f
 import { DROP_LIT, SortableList, SortableRow } from './sortable'
 import { Struck, Tick } from './marks'
 import { completeTask, dayCleared, landed, moveTo, onToday, pickDate, shiftTo, startOn, taskMenu, useTaskNow } from './tasks-view'
-import { RowMenu, type RowItem } from './row-menu'
+import { RowMenu, openFromGrip, type RowItem } from './row-menu'
 import { PriorityMark, planFor } from './task-input'
 import { dayClosed, openCloseDay } from './close-day'
 import { useArrivals } from './note-list'
@@ -791,7 +791,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
             {/* The handle, shown on pointing; the whole row drags, the words never. */}
             {/* Shown on the line being written too: it says the line can move, and ⌥↑ ⌥↓ (said under the list) moves it from the keys. */}
             {/* One of the day's three: its number in the same place, giving way to the handle on pointing. */}
-            <span title="Drag to reorder it, or onto “Next”, “Later” or tomorrow. ⌥↑ ⌥↓ reorder; Esc, then M, W, N or L, moves it." className="relative mt-[0.3rem] w-3.5 shrink-0 cursor-grab">
+            <span title="Click for its menu. Drag to reorder it, or onto “Next”, “Later” or tomorrow. ⌥↑ ⌥↓ reorder; Esc, then M, W, N or L, moves it." data-grip onClick={openFromGrip} className="relative mt-[0.3rem] w-3.5 shrink-0 cursor-pointer active:cursor-grabbing">
               {rank > 0 && <ThreeMark n={rank} done={struck} className="absolute inset-x-0 -top-[0.15rem] text-center leading-[1.3rem] transition-opacity group-hover/line:opacity-0 group-focus-within/line:opacity-0" />}
               <GripVertical aria-hidden className="size-3.5 text-muted-foreground opacity-0 transition-opacity group-hover/line:opacity-60 group-focus-within/line:opacity-60" />
             </span>
@@ -873,7 +873,9 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
               'separator',
               { label: 'Take the step out', danger: true, run: () => takeStep(task, n) }
             ]}>
-            <div data-day-step={`${task.id}:${n}`} className={`flex items-start gap-2 py-0.5 pl-12 transition-opacity ${struck ? 'opacity-55' : ''}`}>
+            <div data-day-step={`${task.id}:${n}`} className={`group/step relative flex items-start gap-2 py-0.5 pl-12 transition-opacity ${struck ? 'opacity-55' : ''}`}>
+              {/* Its menu from a grip, as the line's: a right click in the words would put the caret there first. */}
+              {!struck && <span data-grip title="Click for its menu" onClick={openFromGrip} className="absolute top-[0.3rem] left-[1.75rem] cursor-pointer"><GripVertical aria-hidden className="size-3 text-muted-foreground opacity-0 transition-opacity group-hover/step:opacity-60" /></span>}
               <button type="button" role="checkbox" aria-checked={one.done} aria-label={one.text} onClick={() => tickStep(task, n)}
                 className="relative after:absolute after:-inset-[5px] after:rounded-full mt-[0.2rem] grid size-3.5 shrink-0 place-items-center rounded-full border-[1.5px] transition-colors"
                 style={{ borderColor: one.done ? 'var(--tt-color-text-green)' : 'color-mix(in oklab, var(--muted-foreground) 65%, transparent)', background: one.done ? 'var(--tt-color-text-green)' : undefined }}>

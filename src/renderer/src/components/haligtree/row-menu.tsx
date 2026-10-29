@@ -188,6 +188,18 @@ export function RowMenu({ items, writes, children }: { items: RowItem[] | ((fiel
   )
 }
 
+/**
+ * A row's grip, clicked (not dragged): its right-click menu, opened under the
+ * grip, as the editor's block handle and Notion's do. A right click on the
+ * words would put the caret in them first; the grip never does.
+ */
+export function openFromGrip(event: React.MouseEvent<HTMLElement>): void {
+  event.preventDefault()
+  event.stopPropagation()
+  const box = event.currentTarget.getBoundingClientRect()
+  event.currentTarget.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: box.left, clientY: box.bottom + 4, button: 2 }))
+}
+
 /** Put text on the clipboard and say so. */
 export const copy = (text: string, said = 'Copied'): void => void navigator.clipboard.writeText(text).then(() => {
     chime('copy')
