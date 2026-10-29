@@ -513,7 +513,7 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
       const around = shown ? near.get(shown.id)! : null
       const on = (dot: Dot): boolean => !around || dot === shown || around.has(dot.id)
       if (shown !== reachFor) ((reachFor = shown), (reachAt = now))
-      const reach = !shown || still() ? 1 : ease(Math.min(1, (now - reachAt) / 420))
+      const reach = !shown || still() ? 1 : ease(Math.min(1, (now - reachAt) / 240))
       const alpha = (dot: Dot): number => (growing ? seen(dot, now) : 1) * (shown ? 1 : far(dot))
       // The rest fades as far as the lit neighbours stand out.
       // The rest steps back, never out: still there to see, so the page does not flare when most of it goes.
@@ -580,14 +580,16 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
         const lit = !shown || dot === shown ? 1 : faded + (1 - faded) * Math.max(0, Math.min(1, (reach - 0.55) / 0.45))
         context.globalAlpha = (on(dot) ? lit : faded) * alpha(dot)
         if (!context.globalAlpha) continue
-        const chip = chipOf(dot, scale)
-        context.drawImage(chip.image, dot.px - chip.half, dot.py - chip.half, chip.half * 2, chip.half * 2)
+        // Arriving, a dot grows from most of its size as it fades in, so it lands rather than blinks on.
+        const grow = growing ? 0.7 + 0.3 * seen(dot, now) : 1
+        const chip = chipOf(dot, scale), half = chip.half * grow
+        context.drawImage(chip.image, dot.px - half, dot.py - half, half * 2, half * 2)
         if (chip.picture) continue
         const share = iconShare(dot, dot === shown || (!!shown && on(dot)))
         if (share <= 0) continue
         context.globalAlpha *= share
-        const icon = chipOf(dot, scale, 'icon')
-        context.drawImage(icon.image, dot.px - icon.half, dot.py - icon.half, icon.half * 2, icon.half * 2)
+        const icon = chipOf(dot, scale, 'icon'), inner = icon.half * grow
+        context.drawImage(icon.image, dot.px - inner, dot.py - inner, inner * 2, inner * 2)
       }
       // Names, the busiest first, each beside its dot on the side away from
       // the middle, else the other side, above or below; one that would run
@@ -740,7 +742,7 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
     const redraw = (): void => void (queued ||= requestAnimationFrame(() => ((queued = 0), draw(), arrive.size && redraw())))
 
     // A fade in and out, so the light follows the pointer rather than snapping. The whole map dims for it, a big
-    // change of light, so it eases in and out over a quarter second (a little quicker back).
+    // change of light, so it eases out fast, as a hover answers at once (and quicker back).
     const fade = (to: number): void => {
       cancelAnimationFrame(fading)
       if (still()) {
@@ -754,8 +756,8 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
       let start = -1
       const step = (now: number): void => {
         if (start < 0) start = now
-        const t = Math.min(1, (now - start) / (to > from ? 260 : 200))
-        amount = from + (to - from) * (t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2)
+        const t = Math.min(1, (now - start) / (to > from ? 220 : 160))
+        amount = from + (to - from) * ease(t)
         if (to === 0 && t === 1) shown = null
         draw()
         if (t < 1) fading = requestAnimationFrame(step)
@@ -913,6 +915,8 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
       } else fade(0)
     }
     let drag: { dot: Dot | null; x: number; y: number; moved: boolean } | null = null
+    // How fast the space was being dragged, in pixels a millisecond, so letting go mid-swipe carries on.
+    let flick = { vx: 0, vy: 0, at: 0 }
     const down = (event: PointerEvent): void => {
       if (event.button !== 0) return
       el.setPointerCapture(event.pointerId)
@@ -940,6 +944,8 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
         goal = null
         view.x += dx
         view.y += dy
+        const now = performance.now(), ms = Math.max(1, now - flick.at)
+        flick = ms > 80 ? { vx: 0, vy: 0, at: now } : { vx: 0.6 * (dx / ms) + 0.4 * flick.vx, vy: 0.6 * (dy / ms) + 0.4 * flick.vy, at: now }
         drag.x = event.clientX
         drag.y = event.clientY
         setHover(null)
@@ -950,10 +956,16 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
       if (!drag) return
       const { dot, moved } = drag
       drag = null
+      if (!dot && moved && performance.now() - flick.at < 60 && Math.hypot(flick.vx, flick.vy) > 0.3) {
+        // Carried on and slowed, as a map thrown on a trackpad does: an ease out whose first speed is the hand's.
+        const ms = 500
+        glide({ k: view.k, x: view.x + (flick.vx * ms) / 3, y: view.y + (flick.vy * ms) / 3 }, ms)
+      }
       if (dot) {
         dot.fx = null
         dot.fy = null
-        sim.alphaTarget(0)
+        // Settles soon after letting go, instead of the neighbours drifting on for seconds.
+        sim.alphaTarget(0).alpha(Math.min(sim.alpha(), 0.1))
         if (!moved) {
           chime('open')
           onOpen(dot.type === 'capture' ? 'capture' : dot.type, dot.id)
@@ -982,9 +994,8 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
         view.y -= event.deltaY
       }
       setHover(null)
-      focus = null
-      shown = null
-      amount = 0
+      // The light goes out on its usual fade, never all at once mid-fade (the whole map flashed back).
+      if (focus) ((focus = null), fade(0))
       redraw()
     }
     el.addEventListener('pointerdown', down)

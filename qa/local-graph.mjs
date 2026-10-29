@@ -69,7 +69,7 @@ const tip = () => h.evaluate(() => document.querySelector('[data-map-tip]')?.tex
 try {
   // --- the note and its 220 neighbours
   const make = (title, kind, links = []) => h.evaluate(([title, kind, links]) => window.api.captures.create({ kind, title, body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: `${title} ` }, ...links.map((id) => ({ type: 'noteLink', attrs: { id, label: 'x' } }))] }] } }), [title, kind, links])
-  const kinds = ['note', 'quote', 'word', 'link', 'decision', 'experiment', 'todo']
+  const kinds = ['note', 'quote', 'word', 'link', 'checkback', 'note', 'todo']
   const services = ['AppSync', 'Artifact', 'Backup', 'Batch', 'Braket', 'Budgets', 'Chime', 'Cloud9', 'CloudFront', 'CloudTrail', 'CodeBuild', 'Cognito', 'Comprehend', 'Config', 'DataSync']
   const outs = []
   for (let i = 0; i < 15; i++) outs.push(await make(`AWS ${services[i]}`, kinds[i % 7]))

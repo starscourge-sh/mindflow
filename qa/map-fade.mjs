@@ -1,4 +1,4 @@
-// Pointing at a dot on the Map dims the rest over a quarter second, never in a frame or two, and never with a
+// Pointing at a dot on the Map dims the rest over about a fifth of a second, never in a frame or two, and never with a
 // frame of the whole map gone dark first: the map's light is sampled each frame and no single frame takes more
 // than half the change.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/map-fade.mjs
@@ -47,7 +47,7 @@ try {
   const back = Math.max(0, ...values.slice(1).map((v, i) => v - Math.min(...values.slice(0, i + 1))))
   check('it only ever dims, never a dark frame and back', back <= total * 0.05, `${back} back up of ${total}`)
   check('no frame takes half the change at once', biggest <= total / 2, `${biggest} of ${total}`)
-  check('the dimming takes 120ms or more, not a frame or two', span >= 120, `${span}ms over ${moving.length} frames`)
+  check('the dimming is seen over several frames (60ms or more of visible change), not one or two', span >= 60 && moving.length >= 4, `${span}ms over ${moving.length} frames`)
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])
 } finally {
