@@ -69,7 +69,7 @@ try {
   }
 
   // Through ⌘K itself: typed, the row is there, and a click opens it.
-  const viaPalette = async (what, words, key, shown) => {
+  const viaPalette = async (what, words, key, shown, preview) => {
     await go('home')
     await h.keyboard.press('Meta+k')
     await h.waitForTimeout(500)
@@ -83,6 +83,12 @@ try {
       await h.waitForTimeout(300)
       return
     }
+    if (preview) {
+      await row.first().hover()
+      await h.waitForTimeout(700)
+      const pane = await h.evaluate(() => document.querySelector('div[aria-label="Search"]')?.innerText ?? '')
+      check(`⌘K's preview of the ${what} shows ${JSON.stringify(preview)}`, pane.includes(preview), pane.slice(-200).replace(/\s+/g, ' '))
+    }
     if (shots) await h.screenshot({ path: `${shots}/search-${what.replace(/\W+/g, '-')}.png` })
     await row.first().click()
     await h.waitForTimeout(1500)
@@ -94,7 +100,7 @@ try {
   }
   // A gem's page shows its words, not a name.
   for (const one of made) await viaPalette(one.what, one.body, `${one.type}:${one.id}`, one.type === 'nugget' ? one.body : one.name)
-  await viaPalette('journal day', 'Quillonjournalbody', `day:${day}`, 'Quillondaybody')
+  await viaPalette('journal day', 'Quillonjournalbody', `day:${day}`, 'Quillondaybody', 'What went well today?')
   check('no page errors', !c.errors.filter((e) => /PAGEERROR/.test(e)).length, c.errors.join(' | ').slice(0, 300))
 } finally {
   await c.close()

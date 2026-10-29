@@ -1,4 +1,5 @@
 import { forgives } from './near'
+import { QUESTIONS, type Question } from './journal-words'
 import { app, BrowserWindow, ipcMain } from 'electron'
 import { randomUUID } from 'crypto'
 import type { DatabaseSync } from 'node:sqlite'
@@ -559,7 +560,18 @@ export function registerCaptures(): void {
     }
     if (typeof body === 'string') return body.slice(0, 6000)
     const doc = body as { content?: unknown[] } | null
-    return Array.isArray(doc?.content) && doc.content.length > 30 ? { ...doc, content: doc.content.slice(0, 30) } : body
+    const shown = Array.isArray(doc?.content) && doc.content.length > 30 ? { ...doc, content: doc.content.slice(0, 30) } : body
+    if (type !== 'day') return shown
+    // A day is found by its two answers as well as its page: both previewed, each under its question.
+    const answers = db.prepare("select question, answer from journal where day = ? and coalesce(answer, '') != ''").all(String(id)) as { question: Question; answer: string }[]
+    if (!answers.length) return shown
+    const text = (words: string): unknown => ({ type: 'text', text: words })
+    const asked = answers.flatMap((one) => [
+      { type: 'heading', attrs: { level: 3 }, content: [text(QUESTIONS[one.question] ?? one.question)] },
+      { type: 'paragraph', content: [text(one.answer)] }
+    ])
+    const page = (shown as { content?: unknown[] } | null)?.content ?? []
+    return { type: 'doc', content: [...page, ...asked] }
   })
 
   ipcMain.handle('captures:get', (_event, id: unknown) => {
