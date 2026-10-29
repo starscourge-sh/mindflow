@@ -32,17 +32,18 @@ const h2 = (text) => ({ type: 'heading', attrs: { level: 2 }, content: [{ type: 
 const first = await sandbox({ width: 1400, height: 900 })
 await first.v('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, pageHints: false })
 await first.v('settings:set', { sounds: false, hintRate: 0, countIn: false })
-const pictures = await first.h.evaluate(async () => {
+// One photo per page, none shared: a picture decoded once is kept, and a shared one would hide what decoding costs.
+const pictures = await first.h.evaluate(async (count) => {
   const out = []
-  for (let k = 0; k < 8; k++) {
+  for (let k = 0; k < count; k++) {
     const canvas = new OffscreenCanvas(4000, 2600)
     const g = canvas.getContext('2d')
-    for (let i = 0; i < 3000; i++) { g.fillStyle = `hsl(${(k * 45 + i * 7) % 360} 55% ${25 + (i % 50)}%)`; g.fillRect((i * 997) % 4000, (i * 613) % 2600, 90 + (i % 140), 60 + (i % 90)) }
+    for (let i = 0; i < 3000; i++) { g.fillStyle = `hsl(${(k * 37 + i * 7) % 360} 55% ${25 + ((i + k) % 50)}%)`; g.fillRect((i * 997 + k * 131) % 4000, (i * 613 + k * 89) % 2600, 90 + (i % 140), 60 + (i % 90)) }
     const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.92 })
     out.push(await window.api.saveImage('image/jpeg', new Uint8Array(await blob.arrayBuffer())))
   }
   return out
-})
+}, PAGES)
 await first.close()
 const db = new DatabaseSync(join(process.env.QA_DATA, 'sandbox', 'haligtree.db'))
 db.exec('begin')
