@@ -90,7 +90,8 @@ export function datesIn(text: string, at = new Date()): DateFound[] {
   const tags = tagSpans(text)
   return chrono.en.GB.parse(fixed, at, { forwardDate: true }).filter((found) => {
     const [from, to] = [starts[found.index], ends[found.index + found.text.length - 1]]
-    return !tags.some((tag) => from < tag.to && to > tag.from)
+    // "you now have" is no time: "now" alone is how people talk, never when a task is for.
+    return !/^(?:right )?now$/i.test(found.text.trim()) && !tags.some((tag) => from < tag.to && to > tag.from)
   }).map((found) => {
     const from = starts[found.index]
     const to = ends[found.index + found.text.length - 1]

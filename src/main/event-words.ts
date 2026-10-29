@@ -69,7 +69,8 @@ export function readEvent(words: string, now = new Date(), known: string[] = [])
   let start: Date | null = null
   let end: Date | null = null
   let ends = minutes !== null
-  const found = chrono.en.GB.parse(text, now, { forwardDate: true })[0]
+  // "now" alone is how people talk, never when an event is (task-words.ts reads it the same way).
+  const found = chrono.en.GB.parse(text, now, { forwardDate: true }).find((one) => !/^(?:right )?now$/i.test(one.text.trim()))
   if (found) {
     start = found.start.date()
     end = found.end?.date() ?? null

@@ -185,9 +185,13 @@ export function saidBy(line: string): { who: string; where: string; from: number
  * capture box suggests as you type, and the import's guess. Null when it reads
  * as a plain note.
  */
+/** A line too long to be a task: a task is said in a few words; past 20 it is a thought or a brief, whatever its first word. */
+export const isProse = (line: string): boolean => line.trim().split(/\s+/).length > 20
+
 export function kindOf(line: string): string | null {
   const text = line.trim()
   if (/^https?:\/\/\S+$/.test(text)) return 'link'
+  if (isProse(text)) return /^["“].+["”]/.test(text) || (/["“].+["”]/.test(text) && saidBy(text).said) ? 'quote' : null
   // Starts with something to do, or to tell someone: "tell rory to", "ping Sam".
   // Done again counts too: "rewatch", "reread", "resend".
   if (/^(?:re-?)?(todo|to do|fix|add|buy|call|phone|ring|book|email|mail|ask|tell|ping|text|message|reply|respond|chase|follow up|check|look into|look up|find|remind|cancel|pay|get|send|order|renew|schedule|arrange|organise|organize|plan|prepare|return|pick up|drop off|collect|finish|start|sort out|set up|install|update|clean|tidy|move|write|read|watch|try|visit|meet|contact|confirm|sign|submit|file|build|make|create|design|draft|research|learn|study|practi[cs]e|review|refactor|deploy|ship|implement|test|debug|publish|post|upload|download|back up|prep|apply|register|sign up|wash|cook|bake|repair|replace|print|scan|share|invite|thank|figure out|work on|need to|have to|must|should|remember to|don'?t forget)\b(?!\s*:)/i.test(text) && !/\?\s*$/.test(text)) return 'todo'

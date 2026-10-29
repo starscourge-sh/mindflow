@@ -82,3 +82,8 @@ test('a quote names who said it before or after the words, and the line says whe
   assert.equal(kindOf('Tom said we should meet'), null)
   assert.equal(saidBy('Tom said we should meet').who, '')
 })
+
+test('a long line is a thought or a brief, never a task, whatever its first word', () => {
+  assert.equal(kindOf('create a skill on uploading categories, you now have a good understanding of how it works with real data and repeated customer interactions'), null)
+  assert.equal(kindOf('create a skill on uploading categories'), 'todo')
+})

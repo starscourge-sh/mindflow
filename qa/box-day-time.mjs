@@ -31,7 +31,8 @@ try {
   const left = (await page.evaluate(() => window.api.captures.list())).filter((one) => (one.label ?? '').includes('dentist') && one.status === 'open')
   check('and no note left in the Inbox', !left.length, JSON.stringify(left.map((one) => [one.kind, one.status])))
   await send('are we meeting friday 3pm?')
-  check('a question with a time stays a note', (await captured('are we meeting')) && !(await task('are we meeting')))
+  // One line that asks something is kept as a question in Writing (box-question.mjs), never a task.
+  check('a question with a time is kept as a question, not a task', (await v('items', 'question')).some((one) => one.title.startsWith('are we meeting')) && !(await task('are we meeting')))
   await send('a thought about tides')
   check('a plain thought stays a note', (await captured('tides')) && !(await task('tides')))
   await send('the talk was yesterday 3pm')

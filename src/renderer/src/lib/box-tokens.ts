@@ -7,7 +7,7 @@ import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
 import type { BlockColor } from '@/extensions/block-color'
 import type { Item } from '@/lib/haligtree'
 import { readTask, readySaid, PRIORITY_NAMES, bucketOf, datesIn, type Span } from '../../../main/task-words'
-import { kindOf } from '../../../main/import'
+import { isProse, kindOf } from '../../../main/import'
 import { dayKey, dayMonth } from '../../../main/dates'
 import { short } from '@/lib/clock'
 import dayjs from 'dayjs'
@@ -190,7 +190,7 @@ const reads = new Map<string, Read>()
  */
 export function boxGuess(text: string, now = new Date()): CaptureType | null {
   const guessed = kindOf(text) as CaptureType | null
-  if (guessed || /\?\s*$/.test(text)) return guessed
+  if (guessed || /\?\s*$/.test(text) || isProse(text)) return guessed
   const read = readTask(text, now)
   return read.due && !read.allDay && !dayjs(read.due).isBefore(dayjs(now).startOf('day')) ? 'todo' : null
 }

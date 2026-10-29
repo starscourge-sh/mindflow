@@ -249,3 +249,8 @@ test('"get ready 1 week before" sets a lead before the due-by date', () => {
   assert.equal(read.title, 'hand in the essay')
   assert.equal(readTask('pack get ready 3 days before by friday', at).getReady, 3)
 })
+
+test('"now" in a sentence is no time', () => {
+  assert.equal(readTask('you now have a good understanding', new Date('2026-10-29T12:00:00')).due, null)
+  assert.equal(readTask('call mum now', new Date('2026-10-29T12:00:00')).title, 'call mum now')
+})
