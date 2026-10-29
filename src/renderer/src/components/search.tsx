@@ -1,5 +1,5 @@
 import { revealRow } from '@/lib/menu-keys'
-import { Fragment, useEffect, useRef, useState, useSyncExternalStore, type ComponentProps } from 'react'
+import { Fragment, memo, useEffect, useRef, useState, useSyncExternalStore, type ComponentProps, type ReactNode } from 'react'
 import { TASK_KIND } from './haligtree/everything'
 import { FLOAT } from '@/lib/float'
 import { motion, useIsPresent } from 'motion/react'
@@ -161,6 +161,9 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
       : fullMenu(one.type, one.id, () => onOpen(one.type, one.id)) ?? sideMenu(one.type, one.id, one.label, { onOpen, pinned: pins.some((pin) => pin.id === one.id), kind: one.kind, status: one.status })
     return several.menu(one) ?? [...own, ...several.rowItems(one)]
   }
+  // What a kept row's clicks and menu reach for: always this render's, though the row was drawn earlier.
+  const live = useRef({ menuOf, several, onOpen, doing: doing.length })
+  live.current = { menuOf, several, onOpen, doing: doing.length }
   // Tab on a result asks who said it, without leaving search.
   const [asking, setAsking] = useState(false)
   const box = useRef<HTMLInputElement>(null)
@@ -170,19 +173,18 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
   useEffect(() => {
     let old = false
     const late = setTimeout(() => setSlow(true), 300)
-    // Asked once the typing pauses, not for every letter of a word on the way.
-    const ask = setTimeout(() => void window.api.captures.find(query).then((list) => {
+    // Asked at every letter, at once: a reply for words since changed is dropped, so an older one never lands over a newer.
+    void window.api.captures.find(query).then((list) => {
       if (old) return
       clearTimeout(late)
       setSlow(false)
       setFound(list)
       setSearched(query)
       setAt(0)
-    }), 80)
+    })
     return () => {
       old = true
       clearTimeout(late)
-      clearTimeout(ask)
     }
   }, [query])
   // The kinds are many: one Kind chip opens them.
@@ -440,22 +442,25 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
               // A task wears the task mark it has everywhere else, not the to-do kind's.
               const kind = capture.type === 'task' ? TASK_KIND : capture.type === 'event' ? EVENT_KIND : capture.type === 'day' ? DAY_KIND : CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]
               const group = groupFor(index)
+              const on = index + doing.length === at
               return (
                 <Fragment key={capture.id}>
                   {group !== (index ? groupFor(index - 1) : '') && (
                     <div className="px-2 pt-3 pb-1 text-xs text-muted-foreground">{group}</div>
                   )}
-                  <RowMenu items={menus ? menuOf(capture) : []}>
+                  {/* Drawn again only when what it shows changes: an arrow press redraws two rows, not sixty menus. */}
+                  <Kept deps={[capture, index, on, several.picked(capture), several.count, results.length, tasks, pins, shown, menus, on && !asking && !preview]} draw={() => (
+                  <RowMenu items={menus ? live.current.menuOf(capture) : []}>
                   <button
                     type="button"
                     className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left ${PICKED_MARK}`}
-                    data-search-at={index + doing.length === at || undefined}
-                    onMouseMove={(event) => realMove(event) && setAt(index + doing.length)}
+                    data-search-at={on || undefined}
+                    onMouseMove={(event) => realMove(event) && setAt(live.current.doing + index)}
                     data-row
                     data-drag-open={`${capture.type}:${capture.id}`}
                     data-picked={several.picked(capture) || undefined}
                     // ⌘-click one in or out, ⇧-click a run, as in every list; a plain click opens it.
-                    onClick={(event) => (several.click(event, capture) ? box.current?.focus() : onOpen(capture.type, capture.id))}
+                    onClick={(event) => (live.current.several.click(event, capture) ? box.current?.focus() : live.current.onOpen(capture.type, capture.id))}
                   >
                     <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
                     <span {...(shown ? {} : hoverNote(capture.type, capture.id, { kind: capture.kind }))} className="min-w-0 truncate">{(capture.type === 'task' ? taskName(capture.label ?? '').text : capture.type === 'day' ? dayName(capture.id) : capture.label) || 'Untitled'}</span>
@@ -466,9 +471,10 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
                     {/* A task's day, ahead or gone by, so a future one is told from a past one at a glance. */}
                     {capture.type === 'task' && <TaskDay task={tasks.find((one) => one.id === capture.id)} />}
                     {whereFrom(capture.source, capture.label) && <span className="min-w-0 max-w-[40%] truncate text-xs text-muted-foreground">· {whereFrom(capture.source, capture.label)}</span>}
-                    {index + doing.length === at && !asking && !preview && capture.type === 'capture' && <span className="ml-auto shrink-0 text-xs text-muted-foreground">{capture.attribution ?? 'Tab: who said it'}</span>}
+                    {on && !asking && !preview && capture.type === 'capture' && <span className="ml-auto shrink-0 text-xs text-muted-foreground">{capture.attribution ?? 'Tab: who said it'}</span>}
                   </button>
                   </RowMenu>
+                  )} />
                   {index + doing.length === at && glossing && !preview && glossable && (
                     <div className="px-8 pb-1"><GlossLine id={capture.id} open onDone={backToBox} /></div>
                   )}
@@ -574,6 +580,9 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
  * A note as the preview shows it: its start, read only, fetched for the one
  * highlighted rather than sent along with every result.
  */
+/** What `draw` gives, drawn again only when one of `deps` changes. */
+const Kept = memo(({ draw }: { deps: unknown[]; draw: () => ReactNode }) => <>{draw()}</>, (was, now) => was.deps.length === now.deps.length && was.deps.every((one, at) => Object.is(one, now.deps[at])))
+
 /** A journal day found, as the Journal and the Feed name it. */
 const DAY_KIND = { icon: Sun, tint: 'var(--tt-color-text-orange)' }
 const dayName = (day: string): string => dayjs(day).format(dayjs(day).year() === dayjs().year() ? 'dddd D MMMM' : 'dddd D MMMM YYYY')
