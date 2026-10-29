@@ -202,7 +202,6 @@ export const questionMenu = (item: Item, shown: boolean): MenuItem[] => [
   ...(item.closedAt ? [] : [{ label: shown ? 'Hide from quick capture' : 'Show in quick capture', run: () => void pinQuestion(item.id, item.title, !shown) }]),
   { label: item.private ? 'Not private' : 'Private', run: () => void haligtree.setPrivate('nuggets', item.id, !item.private) },
   { label: item.archivedAt ? 'Unarchive' : 'Archive', hint: item.archivedAt ? 'Back in sight' : 'Kept, out of sight', run: () => void archive('nuggets', [item.id], !item.archivedAt) },
-  binItem([{ type: 'question', id: item.id }]),
   'separator',
   copyLinkItem(`question:${item.id}`, item.title),
   { label: 'Copy the question', run: () => copy(item.title) }
@@ -256,7 +255,7 @@ export function QuestionDetail({ item, onOpen, top, back }: { item: ItemFull; on
       <div className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
         <NoteHeader className="-mt-3 mb-1" left={top} back={back} type={item.tier} table="nuggets" id={item.id} copyKey={noteLinkText(`question:${item.id}`, item.title)} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })}
           onRestored={() => void haligtree.item(item.id).then((fresh) => fresh && setRestored((was) => ({ body: fresh.body, rev: (was?.rev ?? 0) + 1 })))}
-          edited={item.updatedAt} captured={item.createdAt} made="Asked" menu={[...ends, 'separator', ...questionMenu(item, inView)]} />
+          edited={item.updatedAt} captured={item.createdAt} made="Asked" menu={[...ends, 'separator', ...questionMenu(item, inView), 'separator', binItem([{ type: 'question', id: item.id }])]} />
         {reading !== null && (
           <ReadThrough items={clues.map((clue) => ({ type: 'clue', id: clue.id, body: clue.body, title: dayName(clue.createdAt) }))} start={reading} onClose={() => setReading(null)} clueTo={item.id} />
         )}
