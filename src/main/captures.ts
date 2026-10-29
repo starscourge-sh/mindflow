@@ -1,4 +1,4 @@
-import { forgives } from './near'
+import { forgives, wordsOf } from './near'
 import { QUESTIONS, type Question } from './journal-words'
 import { app, BrowserWindow, ipcMain } from 'electron'
 import { randomUUID } from 'crypto'
@@ -490,6 +490,33 @@ export function registerCaptures(): void {
   // A gem's, Page's or question's words are its body; a goal's page shows no
   // body, so a goal is found by the "Why it matters" its page does show.
   const SHOWN_WORDS = "(case when tier = 'goal' then coalesce(why, '') else words(id, body) end)"
+  // Everything search can find, newest first, each with its words in lower case: read once and
+  // kept until anything is written, so a letter typed is a pass over memory, not over the book.
+  type Found = { type: string; id: string; number: number | null; kind: string; status: string; source: string; attribution: string | null; label: string; capturedAt: string }
+  type Searchable = Found & { text: string; there?: string[] }
+  let everything: { at: number; rows: Searchable[] } | null = null
+  const searchable = (): Searchable[] => {
+    if (everything?.at === writes()) return everything.rows
+    const rows = db.prepare(
+      `select * from (
+         select 'capture' as type, id, number, kind, status, source, attribution, ${LABEL} as label, captured_at as capturedAt,
+           (${LABEL} || ' ' || words(id, body) || ' ' || coalesce(medium, '') || ' ' || coalesce(attribution, '') || ' ' || coalesce(fields, '') || ' ' || coalesce(aliases, '')) as text
+           from captures where status != 'discarded'
+         union all
+         select tier, id, null, kind, 'open', '', attribution, coalesce(nullif(title, ''), label('', body)), created_at,
+           (coalesce(title, '') || ' ' || ${SHOWN_WORDS} || ' ' || coalesce(attribution, '') || ' ' || coalesce(fields, '') || ' ' || coalesce(aliases, '')) from nuggets where tier != 'card' and binned_at is null
+         union all
+         select 'task', id, number, 'todo', status, '', null, title, created_at, (title || ' ' || coalesce(notes, '')) from tasks where status != 'dropped'
+         union all
+         select 'event', id, null, 'event', 'open', '', null, title, created_at, ${EVENT_WORDS} from events where binned_at is null and series_id is null
+         union all
+         select 'day', day, null, 'day', 'open', '', null, day, day || 'T12:00:00.000Z', ${DAY_WORDS} from (${DAYS}) d
+       ) order by capturedAt desc`
+    ).all() as unknown as Searchable[]
+    for (const one of rows) one.text = String(one.text ?? '').toLowerCase()
+    everything = { at: writes(), rows }
+    return rows
+  }
   ipcMain.handle('captures:find', (_event, query: unknown) => {
     const said = String(query ?? '').toLowerCase().split(/\s+/).filter(Boolean)
     // `author:le guin`: a property filter (property-words.ts), its value running to the next filter.
@@ -498,53 +525,28 @@ export function registerCaptures(): void {
     const asked = words.find((word) => word.startsWith('kind:'))?.slice(5)
     const retired = asked ? RETIRED[asked] : undefined
     const kind = retired ? (retired.tag ? undefined : retired.kind) : asked
-    // % and _ are a search's own wildcards; typed, they mean themselves.
-    const terms = [...words.filter((word) => !word.startsWith('kind:')), ...(retired?.tag ? [`#${retired.tag}`] : []), ...filters.map((one) => one.value).filter(Boolean)].map((word) => `%${like(word)}%`)
-    const match = (text: string): string => terms.map(() => `${text} like ? escape '\\'`).join(' and ') || '1'
-    const args = (n: number): string[] => [...Array(n)].flatMap(() => terms)
+    const terms = [...words.filter((word) => !word.startsWith('kind:')), ...(retired?.tag ? [`#${retired.tag}`] : []), ...filters.map((one) => one.value).filter(Boolean)].map((word) => word.toLowerCase())
     // A note saved as a gem shows once, as the gem, when the gem is found too.
     const fromNote = db.prepare('select capture_id from nuggets where id = ? and capture_id is not null')
     const once = <T extends { type: string; id: string }>(rows: T[]): T[] => {
       const gems = new Set(rows.filter((one) => one.type === 'nugget').map((one) => (fromNote.get(one.id) as { capture_id: string } | undefined)?.capture_id))
       return rows.filter((one) => one.type !== 'capture' || !gems.has(one.id))
     }
-    const found = once(db.prepare(
-      `select * from (
-         select 'capture' as type, id, number, kind, status, source, attribution, ${LABEL} as label, captured_at as capturedAt
-           from captures where status != 'discarded' and ${match(`(${LABEL} || ' ' || words(id, body) || ' ' || coalesce(medium, '') || ' ' || coalesce(attribution, '') || ' ' || coalesce(fields, '') || ' ' || coalesce(aliases, ''))`)}
-         union all
-         select tier, id, null, kind, 'open', '', attribution, coalesce(nullif(title, ''), label('', body)), created_at from nuggets where tier != 'card' and binned_at is null and ${match(`(coalesce(title, '') || ' ' || ${SHOWN_WORDS} || ' ' || coalesce(attribution, '') || ' ' || coalesce(fields, '') || ' ' || coalesce(aliases, ''))`)}
-         union all
-         select 'task', id, number, 'todo', status, '', null, title, created_at from tasks where status != 'dropped' and ${match("(title || ' ' || coalesce(notes, ''))")}
-         union all
-         select 'event', id, null, 'event', 'open', '', null, title, created_at from events where binned_at is null and series_id is null and ${match(EVENT_WORDS)}
-         union all
-         select 'day', day, null, 'day', 'open', '', null, day, day || 'T12:00:00.000Z' from (${DAYS}) d where ${match(DAY_WORDS)}
-       ) ${kind ? 'where kind = ?' : ''} order by capturedAt desc limit 60`
-    ).all(...args(5), ...(kind ? [kind] : [])) as { type: string; id: string }[])
+    const rows = searchable().filter((one) => !kind || one.kind === kind)
+    const take = (keep: (one: Searchable) => boolean, n: number): Searchable[] => {
+      const out: Searchable[] = []
+      for (const one of rows) if (out.length < n && keep(one)) out.push(one)
+      return out
+    }
+    const shown = ({ text: _, there: __, ...one }: Searchable): Found => one
+    const found = once(take((one) => terms.every((term) => one.text.includes(term)), 60).map(shown))
     if (filters.length) return found.filter((one) => one.type !== 'task' && one.type !== 'event' && one.type !== 'day' && passes(fieldsOf(db, one.type, one.id), filters))
     // Few or none as typed: spelling forgiven (near.ts), the closest words standing in for a slip of the keys.
     // Read over the newest 3000 only, so a slip in a big book never stalls the typing; the Bin is left out as above.
     const plain = words.filter((word) => !word.startsWith('kind:'))
     if (found.length >= 5 || !plain.some((word) => word.length >= 4)) return found
     const seen = new Set(found.map((one) => `${one.type}:${one.id}`))
-    const all = db.prepare(
-      `select * from (
-         select 'capture' as type, id, number, kind, status, source, attribution, ${LABEL} as label, captured_at as capturedAt,
-           (${LABEL} || ' ' || words(id, body) || ' ' || coalesce(attribution, '') || ' ' || coalesce(aliases, '')) as text
-           from captures where status != 'discarded'
-         union all
-         select tier, id, null, kind, 'open', '', attribution, coalesce(nullif(title, ''), label('', body)), created_at,
-           (coalesce(title, '') || ' ' || ${SHOWN_WORDS} || ' ' || coalesce(attribution, '') || ' ' || coalesce(aliases, '')) from nuggets where tier != 'card' and binned_at is null
-         union all
-         select 'task', id, number, 'todo', status, '', null, title, created_at, (title || ' ' || coalesce(notes, '')) from tasks where status != 'dropped'
-         union all
-         select 'event', id, null, 'event', 'open', '', null, title, created_at, ${EVENT_WORDS} from events where binned_at is null and series_id is null
-         union all
-         select 'day', day, null, 'day', 'open', '', null, day, day || 'T12:00:00.000Z', ${DAY_WORDS} from (${DAYS}) d
-       ) ${kind ? 'where kind = ?' : ''} order by capturedAt desc limit 3000`
-    ).all(...(kind ? [kind] : [])) as { type: string; id: string; text: string }[]
-    const forgiven = all.filter((one) => !seen.has(`${one.type}:${one.id}`) && forgives(plain, one.text ?? '')).slice(0, 60 - found.length).map(({ text: _, ...one }) => one)
+    const forgiven = rows.slice(0, 3000).filter((one) => !seen.has(`${one.type}:${one.id}`) && forgives(plain, one.text, (one.there ??= wordsOf(one.text)))).slice(0, 60 - found.length).map(shown)
     return once([...found, ...forgiven])
   })
 
