@@ -115,7 +115,7 @@ export function WelcomePointer({ root, phrases, marks, line, move }: { root: Ref
  * little low, settling sharp into its place one after another. The words keep
  * their places from the start, so nothing around them moves. Still, simply there.
  */
-export function Condense({ text, on, quick, delay = 0, stagger = 0.06 }: { text: string; on: boolean; quick: boolean; delay?: number; stagger?: number }): React.JSX.Element {
+export function Condense({ text, on, quick, delay = 0, stagger = 0.06, each }: { text: string; on: boolean; quick: boolean; delay?: number; stagger?: number; /** Each word dressed inside its own moving span (a shine has to sit inside, or the move hides it). */ each?: (word: string) => React.ReactNode }): React.JSX.Element {
   const words = text.split(' ')
   return (
     <span aria-label={text}>
@@ -124,7 +124,7 @@ export function Condense({ text, on, quick, delay = 0, stagger = 0.06 }: { text:
           <motion.span aria-hidden className="inline-block" initial={false}
             animate={on ? { opacity: 1, filter: 'blur(0px)', transform: 'translateY(0em)' } : { opacity: 0, filter: 'blur(10px)', transform: 'translateY(0.28em)' }}
             transition={{ duration: quick ? 0 : 1.1, delay: quick || !on ? 0 : delay + i * stagger, ease: ENTER }}>
-            {word}
+            {each ? each(word) : word}
           </motion.span>
           {i < words.length - 1 && ' '}
         </Fragment>

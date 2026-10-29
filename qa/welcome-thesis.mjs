@@ -84,7 +84,8 @@ try {
   check('Why names no app: a newcomer who has never heard of them is never lost', !why.some((one) => /Notion|Obsidian|Todoist|Anki|Evernote|Apple Notes|Quizlet/i.test(one)), why.join(' | '))
   check('no split picture on Why (the story is told once, in Catch, Write and Remember)', !(await h.$('[data-thread]')))
   const shine = await h.evaluate(() => [...document.querySelectorAll('[data-thesis="answer"] .mf-sheen')].map((el) => el.textContent))
-  check('only the answer\'s key words shine', shine.join() === 'back to you', shine.join())
+  // Each word comes up on its own, so each shines on its own.
+  check('only the answer\'s key words shine', shine.join(' ') === 'back to you', shine.join(' '))
   // The margin note to the right of the cause, its arrow drawn to it.
   check('a note in the margin, its arrow drawn', await h.evaluate(() => document.querySelector('[data-margin-note]')?.dataset.marginNote === 'on' && /^But\u2026 you never write anything down to do nothing with it\.$/.test(document.querySelector('[data-margin-words]')?.textContent?.replace(/\s+/g, ' ').trim() ?? '')))
   check('the note sits in the margin to the right of the cause, level with it and clear of it', await h.evaluate(() => { const box = document.querySelector('[data-margin-note]'); const n = document.querySelector('[data-margin-words]').getBoundingClientRect(); const q = document.querySelector('[data-thesis="question"]').getBoundingClientRect(); const mid = (n.top + n.bottom) / 2; return box.dataset.side === 'right' && box.parentElement.contains(document.querySelector('[data-thesis="question"]')) && n.left >= q.right + 30 && mid > q.top - 40 && mid < q.bottom + 40 && n.right <= innerWidth }))

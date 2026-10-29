@@ -791,7 +791,7 @@ function useReport(report: (now: Reel) => void, done: boolean, settle: () => voi
  * not have to go back to them): the day, dated as a diary dates an entry;
  * most notes are never seen again; where thinking lives now, three kinds of
  * thing in three apps (said plainly, no brands, so a newcomer is never lost);
- * why: in each, going back is your job; and the answer typed in: Haligtree
+ * why: in each, going back is your job; and the answer, come up a word at a time: Haligtree
  * is one place for all three, and they come back on their own, a memory card on Home (hint-card,
  * this day last year) and a spaced question in Review; and what a commonplace
  * book is, in one line. One thing at a time.
@@ -826,12 +826,11 @@ const QUESTION = 'In each one, going back is your job. So mostly, nobody does.'
 // One thing is pitched: the three are one thought, growing. What Haligtree is was said at the top, in the tagline.
 const ANSWER = `${APP_NAME} changes the direction. Instead of asking you to search, it brings your writing, plans, and practice *back to you*.`
 
-type ThesisState = { noted: boolean; opened: boolean; words: number; gaps: number; kept: number; line: number; move: Move; slanted: number; asked: boolean; answer: boolean; said: number; book: boolean }
-const THESIS_START: ThesisState = { noted: false, opened: false, words: 0, gaps: 0, kept: 0, line: -1, move: 'off', slanted: 0, asked: false, answer: false, said: 0, book: false }
-const THESIS_END: ThesisState = { noted: true, opened: true, words: Infinity, gaps: THREE.length, kept: THREE.length, line: -1, move: 'off', slanted: THREE.length, asked: true, answer: true, said: Infinity, book: true }
+type ThesisState = { noted: boolean; opened: boolean; words: number; gaps: number; kept: number; line: number; move: Move; slanted: number; asked: boolean; answer: boolean; book: boolean }
+const THESIS_START: ThesisState = { noted: false, opened: false, words: 0, gaps: 0, kept: 0, line: -1, move: 'off', slanted: 0, asked: false, answer: false, book: false }
+const THESIS_END: ThesisState = { noted: true, opened: true, words: Infinity, gaps: THREE.length, kept: THREE.length, line: -1, move: 'off', slanted: THREE.length, asked: true, answer: true, book: true }
 
 function thesisBeats(): Beat<ThesisState>[] {
-  const random = seeded(41)
   // The chapter opens on the arrival's beat (ARRIVE_MS): the date and the tagline first, on a glass note.
   const beats: Beat<ThesisState>[] = [{ at: 0, to: { opened: true }, cue: () => bell(PENTA[0] * 2, 0.014, 'arrive') }]
   // A beat later the headline, a word to each quarter beat, quietly: a note a word ran up the scale like a lesson.
@@ -868,12 +867,10 @@ function thesisBeats(): Beat<ThesisState>[] {
   beats.push({ at: t, to: { noted: true }, cue: () => bell(PENTA[2], 0.009, 'note') })
   // Then read whole, once written: a reader finishes a handwritten line slower than it was written.
   t += noteWrites().end * 1000 + Math.max(1800, leadMs(MARGIN_NOTE))
-  // The answer, typed in as a person would (read as it types), its key words shining.
+  // The answer comes up out of the mist a word at a time, as the headline and the three did, its key words shining.
   beats.push({ at: t, to: { answer: true }, cue: () => bell(PENTA[0] * 2, 0.014, 'answer') })
-  const answer = typed<ThesisState>(plainOf(ANSWER), t + 250, (sofar) => ({ said: sofar.length }), random, 0.9, 2200)
-  beats.push(...answer.beats)
-  // The answer read, a breath before the page is done.
-  t = answer.end + 700
+  // Up once its last word has cleared (ANSWER_STAGGER apart, 1.1s each), then read whole, a breath before the page is done.
+  t += (plainOf(ANSWER).split(' ').length * ANSWER_STAGGER + 1.1) * 1000 + Math.max(1200, leadMs(plainOf(ANSWER)) - 1200) + 700
   beats.push({ at: t, to: { book: true } })
   beats.push({ at: t + 900, to: {} })
   return beats
@@ -941,8 +938,8 @@ function ThesisChapter({ play, report }: { play: boolean; report: (now: Reel) =>
           </motion.p>
           <MarginNote on={s.noted} quick={quick} />
         </div>
-        <motion.p data-thesis="answer" data-typed={Math.min(s.said, plainOf(ANSWER).length)} aria-label={plainOf(ANSWER)} className="font-heading text-[clamp(1.375rem,min(2.8vw,4vh),2.25rem)] leading-tight text-foreground" {...come(s.answer)}>
-          <TypedAnswer said={ANSWER} upTo={s.said} />
+        <motion.p data-thesis="answer" data-typed={s.answer ? plainOf(ANSWER).length : 0} aria-label={plainOf(ANSWER)} className="font-heading text-[clamp(1.375rem,min(2.8vw,4vh),2.25rem)] leading-tight text-foreground" {...come(s.answer)}>
+          <MistAnswer said={ANSWER} on={s.answer} quick={quick} />
         </motion.p>
       </div>
       {play && !show.done && <WelcomePointer root={root} phrases={phrases} marks={marks} line={s.line} move={s.move} />}
@@ -1398,22 +1395,20 @@ const parts = (said: string): { text: string; key: boolean }[] => said.split('*'
 const plainOf = (said: string): string => said.replace(/\*/g, '')
 const shining = (said: string): ReactNode => parts(said).map((part, i) => (part.key ? <Shine key={i}>{part.text}</Shine> : <span key={i}>{part.text}</span>))
 
-/** An answer as far as it is typed: the rest laid out but unseen, so nothing moves as it types; the key words shining. */
-function TypedAnswer({ said, upTo }: { said: string; upTo: number }): React.JSX.Element {
-  let left = upTo
+/** A word's gap in the answer's reveal: a little slower than the headline's, as it is a longer line read more slowly. */
+const ANSWER_STAGGER = 0.07
+
+/** An answer coming up out of the mist a word at a time, as the page's other lines do (Condense); the key words shining. */
+function MistAnswer({ said, on, quick }: { said: string; on: boolean; quick: boolean }): React.JSX.Element {
+  let before = 0
   return (
     <>
       {parts(said).map((part, i) => {
-        const shown = part.text.slice(0, Math.max(0, left))
-        const rest = part.text.slice(shown.length)
-        left -= part.text.length
-        // The words that carry the point shine (main.css, .mf-sheen); the rest of a part waits unseen beside it, never inside it.
-        return (
-          <span key={i}>
-            {shown && (part.key ? <Shine>{shown}</Shine> : shown)}
-            {rest && <span className={`opacity-0 ${part.key ? 'font-semibold' : ''}`}>{rest}</span>}
-          </span>
-        )
+        const delay = before * ANSWER_STAGGER
+        const lead = part.text.startsWith(' ') ? ' ' : ''
+        const words = part.text.trim()
+        before += words.split(' ').length
+        return <span key={i}>{lead}<Condense text={words} on={on} quick={quick} delay={delay} stagger={ANSWER_STAGGER} each={part.key ? (word) => <Shine>{word}</Shine> : undefined} />{part.text.endsWith(' ') && words ? ' ' : ''}</span>
       })}
     </>
   )
