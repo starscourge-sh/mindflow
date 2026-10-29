@@ -14,6 +14,8 @@ export type ReadEvent = {
   /** When it starts and ends; null when the words name no day (the slot clicked fills it in). */
   start: string | null
   end: string | null
+  /** Whether the words said how long ("1-2pm", "for 2h"), not the hour it is given when they do not. */
+  ends: boolean
   allDay: boolean
   place: string | null
   people: string[]
@@ -66,10 +68,12 @@ export function readEvent(words: string, now = new Date(), known: string[] = [])
   if (whole) (allDay = true), (text = without(text, whole.index, whole[0].length))
   let start: Date | null = null
   let end: Date | null = null
+  let ends = minutes !== null
   const found = chrono.en.GB.parse(text, now, { forwardDate: true })[0]
   if (found) {
     start = found.start.date()
     end = found.end?.date() ?? null
+    if (end) ends = true
     if (!found.start.isCertain('hour')) allDay = true
     text = without(text, found.index, found.text.length)
   }
@@ -98,6 +102,7 @@ export function readEvent(words: string, now = new Date(), known: string[] = [])
     title: title ? title[0].toUpperCase() + title.slice(1) : '',
     start: start?.toISOString() ?? null,
     end: end?.toISOString() ?? null,
+    ends: !!end && ends,
     allDay,
     place,
     people: [...new Set(people)],

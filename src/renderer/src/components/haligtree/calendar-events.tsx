@@ -13,6 +13,8 @@ import { moveToBin } from '@/lib/to-bin'
 import { useLive, haligtree, type Settings } from '@/lib/haligtree'
 import { changeEvent, events, inZone, inkOf, useCalendars, whenSaid, zoneGap, zoneShort, ZONES, cityOf, type Occurrence, type Repeat, type Scope, type useLayers } from '@/lib/events'
 import { readEvent } from '../../../../main/event-words'
+import { atOn, timeAlone } from '@/lib/tasks'
+import { readTask } from '../../../../main/task-words'
 import { isLast, nthOf, repeatSaid } from '../../../../main/event-repeat'
 import { remindSaid } from '../../../../main/event-said'
 import { lengthSaid } from '../../../../main/day-load'
@@ -725,6 +727,21 @@ export function EventDetail({ eventKey, onKey, onClose, onOpen }: { eventKey: st
   }
   const start = dayjs(one.start)
   const end = dayjs(one.end)
+  // A new name read as the new-event box reads words, as a task's name is: "standup 4pm @Room 2" moves it to 4pm on its own day and sets the place, said with Undo.
+  const rename = (title: string, field: HTMLTextAreaElement): Promise<void> => {
+    const read = readEvent(title, new Date(), known)
+    // Only when the task reader finds a when too: "Lunch with May" names a person, not a month.
+    if (!read.start || !read.title || !readTask(title).due) return save({ title }, 'Renamed')
+    // A time alone keeps its day; a day alone keeps a timed event's hour, as a task's do.
+    // The words read are taken out of the name in place, as a task's name is (the field keeps its key when the name comes out the same).
+    field.value = read.title
+    const dayOnly = read.allDay && !one.allDay
+    const allDay = read.allDay && !dayOnly
+    const from = dayjs(timeAlone(title) ? atOn(read.start, one.start) : dayOnly ? atOn(one.start, read.start) : read.start)
+    const to = allDay ? from.add(1, 'day') : read.ends && read.end ? from.add(dayjs(read.end).diff(dayjs(read.start)), 'ms') : from.add(Math.max(1, end.diff(start, 'minute')), 'minute')
+    return save({ title: read.title, start: from.toISOString(), end: to.toISOString(), allDay, ...(read.place && { place: read.place }), ...(read.people.length && { people: [...new Set([...(one.people ?? []), ...read.people])] }) },
+      `Renamed, ${whenSaid(from.toISOString(), to.toISOString(), allDay, clock)}${read.place ? `, at ${read.place}` : ''}`)
+  }
   const hhmm = (at: dayjs.Dayjs): string => at.format('HH:mm')
   const atTime = (day: dayjs.Dayjs, time: string): dayjs.Dayjs => { const [h, m] = time.split(':').map(Number); return day.startOf('day').hour(h).minute(m) }
   const color = inkOf(calendars.find((cal) => cal.id === one.calendarId)?.color)
@@ -745,7 +762,7 @@ export function EventDetail({ eventKey, onKey, onClose, onOpen }: { eventKey: st
         <textarea key={one.title} rows={1} data-event-title aria-label="The event's name" defaultValue={one.title}
           className="page-narrow mx-auto mb-1 block w-full shrink-0 resize-none overflow-hidden bg-transparent px-12 font-heading text-title font-semibold tracking-[-0.018em] text-balance outline-none [field-sizing:content]"
           onKeyDown={(event) => event.key === 'Enter' && (event.preventDefault(), event.currentTarget.blur())}
-          onBlur={(event) => { const title = event.target.value.replace(/\s*\n\s*/g, ' ').trim(); if (title && title !== one.title) void save({ title }, 'Renamed') }} />
+          onBlur={(event) => { const title = event.target.value.replace(/\s*\n\s*/g, ' ').trim(); if (title && title !== one.title) void rename(title, event.target) }} />
         {/* When, on its own line and plain to read. */}
         <div data-event-when className="page-narrow mx-auto mb-3 flex w-full flex-col gap-1 px-12 text-[0.9375rem] text-foreground">
           {one.allDay ? <p>{whenSaid(one.start, one.end, one.allDay, clock)}</p> : (
