@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { chime } from '@/lib/sound'
-import { makeTask } from '@/lib/tasks'
+import { atOn, makeTask, timeAlone } from '@/lib/tasks'
 import { sameTask } from '@/lib/calendar'
 import { haligtree, whenInLine, type TaskFull } from '@/lib/haligtree'
 import { clock, dayjs } from '../../../../main/dates'
@@ -202,14 +202,18 @@ function NewTask({ ask, first, onMade, onBack }: {
     // The same task is already on the list: it stays on its own day unless asked to move here, and opens.
     if (made.existed && got) return (sameTask(got, { due: at.toISOString(), allDay: minute === null ? 1 : 0 }), onMade(made.id, null))
     // Words that named a day of their own ("call mum friday") keep it; otherwise it is for this day.
-    const own = !!got?.dueAt
+    // Only a time ("call the dentist 10am"): at that time on this day.
+    const alone = !!got?.dueAt && timeAlone(words)
+    const own = !!got?.dueAt && !alone
+    const due = alone ? atOn(got!.dueAt!, day) : at.toISOString()
+    const allDay = !alone && minute === null
     await haligtree.saveTask(made.id, {
-      ...(own ? {} : { due: at.toISOString(), allDay: minute === null ? 1 : 0 }),
+      ...(own ? {} : { due, allDay: allDay ? 1 : 0 }),
       ...(length && !got?.estimate ? { estimate: length } : {})
     })
     chime('noted')
     const undo = (): void => (void haligtree.unmakeTask(made.id, made.existed, [], []), onBack(made.id, words))
-    toast(`Added for ${whenInLine(own ? got!.dueAt! : at.toISOString(), own ? !!got!.allDay : minute === null)}`, undo)
+    toast(`Added for ${whenInLine(own ? got!.dueAt! : due, own ? !!got!.allDay : allDay)}`, undo)
     onMade(made.id, undo)
   }
   return (

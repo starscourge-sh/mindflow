@@ -1,6 +1,6 @@
 import { toast } from '@/components/haligtree/ui'
 import { chime } from './sound'
-import { makeTask } from './tasks'
+import { atOn, makeTask, timeAlone } from './tasks'
 import { useLive, haligtree, whenInLine, type Task } from './haligtree'
 import { dayjs, dayKey } from '../../../main/dates'
 
@@ -56,9 +56,12 @@ export async function addForDay(text: string, day: string): Promise<boolean> {
   const task = (await haligtree.tasks()).find((one) => one.id === made.id)
   if (made.existed && task) return (sameTask(task, { due: dayjs(day).hour(9).minute(0).startOf('minute').toISOString(), allDay: 1 }), true)
   // Words that named a day of their own ("call mum friday") keep it; otherwise it is for this day.
-  if (!task?.dueAt) await haligtree.saveTask(made.id, { due: dayjs(day).hour(9).minute(0).startOf('minute').toISOString() })
+  // Only a time ("call the dentist 10am"): at that time on this day.
+  const alone = !!task?.dueAt && timeAlone(text)
+  const due = alone ? atOn(task!.dueAt!, dayjs(day).format('YYYY-MM-DD')) : task?.dueAt ?? dayjs(day).hour(9).minute(0).startOf('minute').toISOString()
+  if (alone || !task?.dueAt) await haligtree.saveTask(made.id, { due })
   chime('noted')
-  toast(`Added for ${whenInLine(task?.dueAt ?? dayjs(day).hour(9).toISOString())}`, () => void haligtree.unmakeTask(made.id, made.existed, [], []))
+  toast(`Added for ${whenInLine(due, alone ? false : !task?.dueAt || !!task.allDay)}`, () => void haligtree.unmakeTask(made.id, made.existed, [], []))
   return true
 }
 

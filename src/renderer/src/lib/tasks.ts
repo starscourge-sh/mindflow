@@ -331,6 +331,19 @@ export function planKey(which: keyof typeof BUCKETS): string {
 }
 
 /**
+ * Words whose only when is a time ("call the dentist 10am", "at 3"): typed
+ * on a day (a calendar day's panel, its New task box), they are for that day
+ * at that time, not today.
+ */
+export function timeAlone(words: string): boolean {
+  const read = readTask(words, new Date())
+  const span = read.spans.find((one) => one.kind === 'date')
+  return !!span && !read.recurrence && /^(at\s+)?(\d{1,2}([:.]\d{2})?\s*(am|pm)?|noon|midday|midnight)$/i.test(words.slice(span.from, span.to).trim())
+}
+/** The hour and minute of `iso`, on `day`. */
+export const atOn = (iso: string, day: string): string => dayjs(day).hour(dayjs(iso).hour()).minute(dayjs(iso).minute()).startOf('minute').toISOString()
+
+/**
  * A task's new name, read as quick capture reads words: a day, a time, a
  * length, a priority or a "by friday" written into it is taken out of the
  * name and set on the task. One way for every place a name is typed (a
