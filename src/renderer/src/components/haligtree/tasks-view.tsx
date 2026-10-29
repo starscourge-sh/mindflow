@@ -252,6 +252,13 @@ export const setRepeat = (task: Pick<Task, 'id' | 'recurrence'>, rule: string | 
     toast(rule ? `Repeats ${rule}` : 'No longer repeats', () => void haligtree.saveTask(task.id, { recurrence: was }))
   })
 }
+/** A repeat's last day set, changed or taken off, said with an Undo as the repeat itself is. The picker makes the sound. */
+export const setRepeatEnd = (task: Pick<Task, 'id' | 'repeatUntil'>, until: string | null): void => {
+  const was = task.repeatUntil ?? null
+  void haligtree.saveTask(task.id, { until }).then(() => {
+    toast(until ? `Repeats until ${whenInLine(until, true)}` : 'Repeats with no end date', () => void haligtree.saveTask(task.id, { until: was }))
+  })
+}
 /** The repeat choices, with the task's own first when it is one of its own making ("every 3 days"). */
 const repeatChoices = (task: Pick<Task, 'id' | 'recurrence'>): { label: string; on?: boolean; run: () => void }[] => [
   ...(task.recurrence && !REPEATS.includes(task.recurrence) ? [{ label: sayRepeat(task.recurrence), on: true, run: () => setRepeat(task, task.recurrence ?? null) }] : []),
@@ -1330,7 +1337,7 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
           <PropInput icon={Hourglass} value={task.waitingOn ?? ''} placeholder="Waiting on…" ghost="Waiting on: Jane's letter" does="Someone else has the next move. It leaves your lists and waits under “Waiting on someone” in Upcoming" onSave={(waitingOn) => setWaiting(task, waitingOn.trim() || null)} />
           <PropInput icon={Repeat} value={task.recurrence ?? ''} placeholder="Repeats" ghost="Repeats: every monday" does="Comes back on its own once you tick it off, and moves to Routines" onSave={(recurrence) => setRepeat(task, recurrence.trim() || null)} />
           {/* A repeating task's last day, set or changed here as well as typed with “until”. */}
-          {task.recurrence && <div data-repeat-until><DatePicker lead={task.repeatUntil ? 'Ends' : undefined} value={task.repeatUntil} onChange={(until) => void haligtree.saveTask(task.id, { until })} placeholder="Repeats with no end date" /></div>}
+          {task.recurrence && <div data-repeat-until><DatePicker lead={task.repeatUntil ? 'Ends' : undefined} value={task.repeatUntil} onChange={(until) => setRepeatEnd(task, until)} placeholder="Repeats with no end date" /></div>}
           <p className="px-2 py-1.5 text-xs leading-relaxed">
             “every monday” keeps to the calendar. “every! 3 days” counts from the last time you did it.
           </p>
