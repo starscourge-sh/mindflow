@@ -7,7 +7,8 @@
 /** A property's name as it reads anywhere it is shown: its first letter capital ("tags" reads "Tags"); the stored key is never changed. */
 export const propSaid = (name: string): string => name.charAt(0).toUpperCase() + name.slice(1)
 
-const KEPT = new Set(['_kept', 'decidedAt', 'heldAt', 'answeredAt', 'rating', 'status'])
+// kanban-plugin is the switch that draws a note as a board (board-view.tsx), Obsidian's own name for it: not a property to sort by.
+const KEPT = new Set(['_kept', 'decidedAt', 'heldAt', 'answeredAt', 'rating', 'status', 'kanban-plugin'])
 
 const read = (fields: string | null | undefined): Record<string, unknown> => {
   try {
@@ -19,7 +20,10 @@ const read = (fields: string | null | undefined): Record<string, unknown> => {
 }
 
 export function propertySorts<T extends { fields?: string | null }>(rows: T[], tie: (a: T, b: T) => number): { choices: { id: string; label: string }[]; compare: Record<string, (a: T, b: T) => number> } {
-  const names = [...new Set(rows.flatMap((one) => Object.keys(read(one.fields))))].filter((name) => !KEPT.has(name)).sort((a, b) => a.localeCompare(b)).slice(0, 12)
+  const all = rows.map((one) => read(one.fields))
+  // Only a property two or more notes hold, with different values: with one note, or one value, there is nothing to order.
+  const differs = (name: string): boolean => new Set(all.map((one) => one[name]).filter((v) => v !== undefined && v !== null && v !== '').map((v) => JSON.stringify(v))).size > 1
+  const names = [...new Set(all.flatMap((one) => Object.keys(one)))].filter((name) => !KEPT.has(name) && differs(name)).sort((a, b) => a.localeCompare(b)).slice(0, 12)
   const compare: Record<string, (a: T, b: T) => number> = {}
   for (const name of names) {
     compare[`prop:${name}`] = (a, b) => {

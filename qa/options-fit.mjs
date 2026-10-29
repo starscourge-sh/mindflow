@@ -21,6 +21,15 @@ try {
   const writing = await lines(h)
   if (SHOTS) await h.screenshot({ path: join(SHOTS, 'writing-display.png') })
   check('Writing has no “Review” filter, no page is tested', !writing.includes('Review'), writing.join(', '))
+  check('Writing has no “By Kanban-plugin” sort, the board switch is not a property', !writing.includes('By Kanban-plugin'), writing.join(', '))
+  await h.keyboard.press('Escape'); await h.waitForTimeout(300)
+
+  await go('inbox'); await h.waitForTimeout(1500)
+  await h.keyboard.press('f'); await h.waitForTimeout(600)
+  const inbox = await lines(h)
+  if (SHOTS) await h.screenshot({ path: join(SHOTS, 'inbox-display.png') })
+  // Before: By Ask, By Back, By Options weighed, By Reopen only if, By Takeaway, By The call, each held by one note.
+  check('the Inbox offers no “By” sort that only one note can answer', inbox.filter((one) => /^By /.test(one)).length < 6, inbox.join(', '))
   await h.keyboard.press('Escape'); await h.waitForTimeout(300)
 
   await go('nuggets'); await h.waitForTimeout(1500)
