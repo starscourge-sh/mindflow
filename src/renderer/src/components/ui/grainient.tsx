@@ -225,7 +225,9 @@ float clump(vec2 p) {
 
 void main() {
   vec3 color = texture(uField, vUv).rgb;
-  vec2 pixel = gl_FragCoord.xy + uFrame * vec2(17.0, 59.0);
+  // The grain drifts a whole pixel at a time, slowly and one way, as sand slides: never reshuffled each frame,
+  // which read as static racing across the page.
+  vec2 pixel = gl_FragCoord.xy + vec2(floor(uFrame * 0.6), floor(uFrame));
   float fine = hash(pixel) + hash(pixel + 7.13) - 1.0;
   float coarse = (clump(pixel / max(uGrainSize, 1.0)) - 0.5) * 2.0;
   float grain = mix(fine, coarse, clamp(uGrainSize - 1.0, 0.0, 1.0) * 0.8);
@@ -387,7 +389,6 @@ export function Grainient({
     // Below 0 while the bare page holds, before the glow starts.
     let introClock = settingsRef.current.intro && !reduce ? -INTRO_DELAY / INTRO_SECONDS : 1
     let frameSeed = 0
-    let grainClock = 0
     let raf = 0
     let last = 0
     let visible = true
@@ -542,11 +543,8 @@ export function Grainient({
         introClock = s.intro ? Math.min(1, introClock + dt / INTRO_SECONDS) : 1
         if (introClock === 1) doneRef.current?.()
       }
-      grainClock += dt
-      if (s.grainAnimated && !reduce && grainClock > 1 / 24) {
-        grainClock = 0
-        frameSeed = (frameSeed + 1) % 97
-      }
+      // About 9 pixels a second, so the grain creeps rather than flickers.
+      if (s.grainAnimated && !reduce) frameSeed = (frameSeed + dt * 9) % 100000
       shift.now += (shift.to - shift.now) * (1 - Math.exp(-dt / NUDGE_EASE))
       if (Math.abs(shift.to - shift.now) < 0.0005) shift.now = shift.to
       updateTouches(dt, view.width / view.height)
