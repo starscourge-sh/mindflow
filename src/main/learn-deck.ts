@@ -16,7 +16,7 @@ export const LEARN_DECK: { question: string; answer: string }[] = [
   { question: 'What is the difference between “every 3 days” and “every! 3 days” on a task?', answer: '“every” follows the calendar. “every!” counts from when you last did it.' },
   { question: 'How do you make a fill-in-the-blank card from a gem?', answer: 'Open the gem, select a word or two, and choose “Blank the selected words”. Review asks you to fill them back in.' },
   { question: 'How do you go through a list one note at a time, full size?', answer: 'Press ⇧⌘R on a list of notes or gems: “Read through”.' },
-  { question: 'How do you put two pages side by side, and move between them?', answer: '⌥⌘\\ opens the page again in a pane beside it. ⌃H and ⌃L give the keys to the pane on the left or right; ⌃W closes the one in front.' },
+  { question: 'How do you put two pages side by side, and move between them?', answer: '⌘\\ opens a new pane on the right, to open anything in; ⌥⌘\\ opens the page again beside it. ⌃H and ⌃L give the keys to the pane on the left or right; ⌃W closes the one in front.' },
   { question: 'How do you line up notes to read later, in order?', answer: 'Right-click a note and choose “Queue”, then “Add to queue”, or “Read next” to put it first. G B opens the queue.' },
   { question: 'How do you mark a day, like an exam or a birthday?', answer: 'Right-click any day on the year, month or week, or type “!milestone Exam on 3 Dec” in quick capture. It counts down on Home and in the menu bar.' },
   { question: 'Which key lines your sticky notes up down the side of the screen?', answer: '⌃⌥⌘T tidies them down the right middle of the screen, from anywhere. ⌃⌥⌘N hides or shows them all.' },

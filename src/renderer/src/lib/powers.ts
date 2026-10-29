@@ -211,6 +211,8 @@ export const POWERS: Power[] = [
     show: { view: 'settings', settings: 'What comes back to you', find: 'Hide from recordings', at: '[data-setting]', text: 'Each kind of window is hidden from recordings while its switch is on. Turn one on before you share your screen.' } },
   { id: 'window', group: 'Windows', name: 'A note in its own window', line: '⌥⌘-click a note in your Inbox to open it in a window of its own, beside whatever you are doing (⌘-click picks it, as in Finder).',
     show: { view: 'inbox', at: ROW, text: '⌥⌘-click a row to open it in its own window.' } },
+  { id: 'split', group: 'Windows', name: 'Pages side by side', line: 'Press ⌘\\ for a new pane on the right, then type to open anything in it: a page, a note, a task, a day or a place like the Inbox. ⌘B puts the sidebar away for room; ⌃H and ⌃L move between panes, ⌃W closes one.', keys: ['⌘\\', '⌘B'],
+    show: { view: 'inbox', at: ROW, text: 'Press ⌘\\, type the name of a page, then ↵.' } },
   { id: 'safe', group: 'Windows', name: 'Safe mode', line: 'One key stops hints, old captures and pinned notes coming up on their own, for when someone is looking over your shoulder.', keys: ['⌥⌘S'],
     show: { view: 'inbox', at: ROW, text: 'Press ⌥⌘S, and again to come back.' } },
   { id: 'notch', group: 'Windows', name: 'The bubble in the notch', tryIt: 'In Settings, set “Bubble sits” to “Under the notch”.', line: 'On a Mac with a notch, the session bubble can sit tucked around it, the time beside it, and open when you point at it.',
