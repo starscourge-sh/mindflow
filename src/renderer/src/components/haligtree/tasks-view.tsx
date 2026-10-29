@@ -16,7 +16,7 @@ import { moveToBin, useCameBack } from '@/lib/to-bin'
 import { ShowInListContext, useShowInList, useShowLine } from '@/lib/show-in-list'
 import { readAhead, readFresh, readNow, useAfterFirstPaint } from '@/lib/early-read'
 import { NoteComing } from './note-coming'
-import { BUCKETS, READY_LEADS, bucket, closeTask, gettingReady, makeTask, onToday, placed, readySaid, setReady, snooze, snoozeDays, snoozeItems, snoozed, taskName, taskToNote, toNoteItem } from '@/lib/tasks'
+import { BUCKETS, READY_LEADS, bucket, closeTask, gettingReady, makeTask, renameTask, onToday, placed, readySaid, setReady, snooze, snoozeDays, snoozeItems, snoozed, taskName, taskToNote, toNoteItem } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../../main/task-words'
 import { PriorityIcon, PriorityMark, TaskInput, markRoom, planFor, setPriority } from './task-input'
 import { useArrivals } from './note-list'
@@ -286,13 +286,19 @@ export function TaskLength({ task }: { task: Task }): React.JSX.Element | null {
  * top; the change is said with an Undo (⌘Z), as a move by key is.
  */
 export function TaskDate({ task, tip, children, className }: { task: Pick<Task, 'id' | 'dueAt' | 'allDay' | 'planFor'>; tip: string; children: React.ReactNode; className?: string }): React.JSX.Element {
-  const change = (due: string | null): void => {
-    const was = { due: task.dueAt, plan: task.planFor }
-    void haligtree.saveTask(task.id, { due }).then((before) => {
-      toast(due ? `Moved to ${whenInLine(due, !!task.allDay)}` : 'No date now', () => void haligtree.saveTask(task.id, { ...was, ...(before === true ? {} : before) }))
-    })
-  }
-  return <DatePicker chip quick time={!task.allDay} value={task.dueAt} onChange={change} tip={`${tip}. Click to change the date`} className={className}>{children}</DatePicker>
+  return <DatePicker chip quick time={!task.allDay} value={task.dueAt} onChange={(due, timed) => setDue(task, due, timed)} tip={`${tip}. Click to change the date`} className={className}>{children}</DatePicker>
+}
+
+/**
+ * A task's day picked, from wherever its date is shown: said with Undo, and a
+ * time set gives it its hour on the calendar (no longer all day).
+ */
+export function setDue(task: Pick<Task, 'id' | 'dueAt' | 'allDay' | 'planFor'>, due: string | null, timed = false): void {
+  const was = { due: task.dueAt, plan: task.planFor, allDay: task.allDay }
+  const allDay = timed ? false : !!task.allDay
+  void haligtree.saveTask(task.id, { due, ...(timed ? { allDay: 0 } : {}) }).then((before) => {
+    toast(due ? `Moved to ${whenInLine(due, allDay)}` : 'No date now', () => void haligtree.saveTask(task.id, { ...was, ...(before === true ? {} : before) }))
+  })
 }
 
 /** A task's must-be-done-by day, pressable where it shows, as its date is: changed or taken off, with an Undo. */
@@ -1154,6 +1160,13 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
   const named = splitTags(task.title)
   const saveName = (text: string, tags: string[]): Promise<unknown> =>
     haligtree.saveTask(task.id, { title: [text.trim(), ...[...new Set(tags)].map((tag) => `#${tag}`)].filter(Boolean).join(' ') || task.title })
+  // A day, a time or a priority written into the name is read as everywhere else a task is typed, and said with Undo.
+  const rename = (text: string): Promise<unknown> =>
+    renameTask(task, [text.trim(), ...[...new Set(named.tags)].map((tag) => `#${tag}`)].filter(Boolean).join(' ')).then((set) => {
+      if (!set) return
+      chime('tap')
+      toast(set.said, set.undo)
+    })
   // "Pick a date…" from a task's menu: the Scheduled picker opens, here or as this panel first shows.
   const [dating, setDating] = useState(() => (dateWanted(first.id) ? 1 : 0))
   const settings = useLive(haligtree.settings, null as Settings | null)
@@ -1186,9 +1199,10 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
           ref={title}
           rows={1}
           className="page-narrow mx-auto mb-2 block w-full shrink-0 resize-none overflow-hidden bg-transparent px-12 font-heading text-title font-semibold tracking-[-0.018em] text-balance outline-none [field-sizing:content]"
+          key={task.title}
           defaultValue={named.text}
           onKeyDown={(event) => event.key === 'Enter' && (event.preventDefault(), event.currentTarget.blur())}
-          onBlur={(event) => void saveName(event.target.value.replace(/\s*\n\s*/g, ' '), named.tags)}
+          onBlur={(event) => void rename(event.target.value.replace(/\s*\n\s*/g, ' '))}
         />
         {/* A #tag typed with the task is kept here, as a tag, never left in its name. */}
         <div data-task-tags className="page-narrow mx-auto w-full px-12">
@@ -1224,7 +1238,7 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
               </Button>
             ))}
           </div>
-          <DatePicker key={dating} startOpen={dating > 0} time value={task.dueAt} onChange={(due) => void haligtree.saveTask(task.id, { due })} placeholder="Not scheduled" />
+          <DatePicker key={dating} startOpen={dating > 0} time allDay={!!task.allDay} value={task.dueAt} onChange={(due, timed) => setDue(task, due, timed)} placeholder="Not scheduled" />
           {/* Or no day yet: one of the later lists, two by two. */}
           <div className="grid grid-cols-2 gap-1 p-1">
             {(Object.keys(BUCKETS) as (keyof typeof BUCKETS)[]).map((which) => (

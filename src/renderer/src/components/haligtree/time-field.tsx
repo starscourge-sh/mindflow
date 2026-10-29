@@ -49,7 +49,7 @@ export function TimeField({ value, onChange, label, className }: { value: string
   // The nearest half hour in view, as the list opens or the time changes.
   useEffect(() => {
     if (!open) return
-    const near = asTime(Math.round(minutesOf(typed ?? value) / 30) * 30)
+    const near = asTime(Math.round(minutesOf(typed ?? (value || '09:00')) / 30) * 30)
     requestAnimationFrame(() => list.current?.querySelector<HTMLElement>(`[data-time="${near}"]`)?.scrollIntoView({ block: 'center' }))
   }, [open, typed, value])
   return (
@@ -64,6 +64,7 @@ export function TimeField({ value, onChange, label, className }: { value: string
           inputMode="numeric"
           className={cn('h-8 w-24 tabular-nums', className)}
           value={draft}
+          placeholder="All day"
           onFocus={(event) => (event.currentTarget.select(), setOpen(true))}
           onClick={() => setOpen(true)}
           onChange={(event) => setDraft(event.target.value)}

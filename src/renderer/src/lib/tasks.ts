@@ -5,8 +5,8 @@ import { shred } from './fly-home'
 import { splitTags, taskSaid, haligtree, type Made, type Task } from './haligtree'
 import { flying } from './capture-links'
 import { ask, refuse, toast } from '@/components/haligtree/ui'
-import { bucketOf, monthKey, readySaid } from '../../../main/task-words'
-import { ago, dated, dayjs, dayKey, daysSince, num, startOfDay } from '../../../main/dates'
+import { PRIORITY_NAMES, bucketOf, monthKey, readTask, readySaid } from '../../../main/task-words'
+import { ago, dated, dayjs, dayKey, daysSince, num, startOfDay, whenInLine } from '../../../main/dates'
 import { tasksSaid, type ListTask } from '../../../main/day-lines'
 import { openSort } from './sort-out'
 
@@ -328,6 +328,29 @@ export const BUCKETS = { month: 'This month', year: 'This year', next: 'Next yea
 export function planKey(which: keyof typeof BUCKETS): string {
   const now = dayjs()
   return which === 'someday' ? 'someday' : which === 'year' ? String(now.year()) : which === 'next' ? String(now.year() + 1) : monthKey(now.toDate())
+}
+
+/**
+ * A task's new name, read as quick capture reads words: a day, a time, a
+ * length, a priority or a "by friday" written into it is taken out of the
+ * name and set on the task. One way for every place a name is typed (a
+ * Today line, the task's page). Gives back what it set, in words, and how to take it
+ * back, or null when the words were only a name and are kept as typed.
+ */
+export async function renameTask(task: Pick<Task, 'id' | 'title' | 'priority' | 'estimate' | 'dueAt' | 'allDay' | 'deadline'>, words: string, plain: { from: number; to: number }[] = []): Promise<{ said: string; undo: () => void } | null> {
+  if (!words || words === task.title) return null
+  const read = readTask(words, new Date(), plain)
+  if (!(read.priority || read.estimate || read.due || read.deadline) || !read.title.trim()) return void (await haligtree.saveTask(task.id, { title: words })), null
+  const was = { title: task.title, priority: task.priority ?? 0, estimate: task.estimate ?? null, due: task.dueAt ?? null, allDay: task.allDay ?? 0, deadline: task.deadline ?? null }
+  await haligtree.saveTask(task.id, {
+    title: read.title.trim(),
+    ...(read.priority ? { priority: read.priority } : {}),
+    ...(read.estimate ? { estimate: read.estimate } : {}),
+    ...(read.due ? { due: read.due, allDay: read.allDay ? 1 : 0 } : {}),
+    ...(read.deadline ? { deadline: read.deadline } : {})
+  })
+  const said = [read.due && `Moved to ${whenInLine(read.due, read.allDay)}`, read.deadline && `due by ${whenInLine(read.deadline, !read.deadlineTimed)}`, read.priority && `${PRIORITY_NAMES[read.priority]} priority`, read.estimate && `${read.estimate} minutes`].filter(Boolean).join(', ')
+  return { said: said.charAt(0).toUpperCase() + said.slice(1), undo: () => void haligtree.saveTask(task.id, was) }
 }
 
 /**

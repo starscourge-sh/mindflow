@@ -5,7 +5,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Button } from '@/components/ui/button'
 import { chime, tear } from '@/lib/sound'
 import { focusToolsShown, useLive, unloaded, haligtree, when, type Finished, type Task } from '@/lib/haligtree'
-import { bucket, placed, taskName } from '@/lib/tasks'
+import { bucket, placed, renameTask, taskName } from '@/lib/tasks'
 import { byKeys, useByKeys } from '@/lib/motion'
 import { readLines, tasksOf } from '../../../../main/day-lines'
 import { dayKey, num, startOfDay } from '../../../../main/dates'
@@ -22,7 +22,6 @@ import { TAG } from '../../../../main/tag-words'
 import { Timer } from '@/components/ui/icons'
 import { FromNote, type AtLink } from './at-notes'
 import { DayLine, type LineHandle } from './day-line'
-import { readTask } from '../../../../main/task-words'
 
 /** A line split round its #tags: the tags at the odd places. */
 const byTags = (text: string): string[] => text.split(new RegExp(`(#${TAG})`, 'gu'))
@@ -632,17 +631,8 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     const words = text.trim()
     if (!words || words === task.title) return
     // A note's name picked with @ is read as words, never as a date.
-    const read = readTask(words, new Date(), link?.plain.map(({ from, to }) => ({ from: from - text.indexOf(words), to: to - text.indexOf(words) })) ?? [])
-    const said = read.priority || read.estimate || read.due || read.deadline
-    if (!said || !read.title.trim()) return void haligtree.saveTask(task.id, { title: words })
-    const was = { title: task.title, priority: task.priority ?? 0, estimate: task.estimate ?? null, due: task.dueAt ?? null, deadline: task.deadline ?? null }
-    void haligtree.saveTask(task.id, {
-      title: read.title.trim(),
-      ...(read.priority ? { priority: read.priority } : {}),
-      ...(read.estimate ? { estimate: read.estimate } : {}),
-      ...(read.due ? { due: read.due, allDay: read.allDay ? 1 : 0 } : {}),
-      ...(read.deadline ? { deadline: read.deadline } : {})
-    }).then(() => (chime('tap'), quietly(() => void haligtree.saveTask(task.id, was))))
+    void renameTask(task, words, link?.plain.map(({ from, to }) => ({ from: from - text.indexOf(words), to: to - text.indexOf(words) })) ?? [])
+      .then((set) => set && (chime('tap'), quietly(set.undo)))
   }
   /** A note picked with @ in a written line: the task is made from it now, with Undo. */
   const source = (task: Task, link: AtLink): void => {
