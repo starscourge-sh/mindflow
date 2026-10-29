@@ -74,7 +74,7 @@ import { PickDays } from './components/haligtree/late-tasks'
 import { binItem, moveToBin } from './lib/to-bin'
 import TrashIcon from './components/ui/trash-icon'
 import { WillDo, TokenHint } from './components/haligtree/will-do'
-import { boxTokensPlugin, withoutWord, keepPlain, keptMessage, planNow, rearm, replan, type BoxContext, type BoxPlan, type BoxToken } from './lib/box-tokens'
+import { boxTokensPlugin, boxGuess, withoutWord, keepPlain, keptMessage, planNow, rearm, replan, type BoxContext, type BoxPlan, type BoxToken } from './lib/box-tokens'
 import { chime, soundOn } from './lib/sound'
 import { crumpleFrom, liftFrom } from './lib/fly-home'
 import { lengthSaid } from './lib/timer'
@@ -82,7 +82,7 @@ import { stickOnDesktop } from './components/haligtree/sticky-note'
 import { NotePreview } from './components/haligtree/note-preview'
 
 import { CAPTURE_TYPES, CaptureKindPicker, asksFor, type CaptureType } from './components/capture-kinds/capture-kind-picker'
-import { firstLine, kindOf } from '../../main/import'
+import { firstLine } from '../../main/import'
 import {
   Sheet,
   SheetContent,
@@ -1387,7 +1387,7 @@ export default function App(): React.JSX.Element {
     const url = plan ? plan.url : null
     // The suggestion is worked out a moment after typing stops; a save before
     // then works it out here, so a quick "Call the plumber" is still a todo.
-    const said = plan ? plan.kind : chosen ? kind : ((kindOf(firstLine(doc)) as CaptureType | null) ?? kind)
+    const said = plan ? plan.kind : chosen ? kind : (boxGuess(firstLine(doc)) ?? kind)
     const sorted = said !== 'note' ? said : url ? 'link' : text.length > 600 ? 'quote' : said
     const where = medium || (url ? linkSite(url, plan?.card?.title) : '')
     // A tag marked "makes a task" (#bug, #fix and the rest by default) is a
@@ -1922,7 +1922,7 @@ export default function App(): React.JSX.Element {
                 // The kind follows the wording of the first line until you
                 // choose one; a link kept as plain text is a note. A quote's
                 // "- Name" fills Who said it, from the plan (see above).
-                const guess = (chosen ? kind : (planNow(editor)?.kind ?? kindOf(firstLine(doc)) ?? 'note')) as CaptureType
+                const guess = (chosen ? kind : (planNow(editor)?.kind ?? boxGuess(firstLine(doc)) ?? 'note')) as CaptureType
                 if (!chosen && !editing) setKind(guess)
                 // Only a capture already kept is written as you type; a new note's
                 // Markdown is made once, when it is saved, not on every pause.

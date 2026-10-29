@@ -182,6 +182,19 @@ type Read = ReturnType<typeof readTask>
  * in it, and the minute.
  */
 const reads = new Map<string, Read>()
+/**
+ * What the box reads a first line as, before a kind is picked: the wording's
+ * guess (kindOf), and a line with a day and a clock time still to come
+ * ("dentist friday 3pm") is a task, as every other task box makes it, so it
+ * lands on the calendar at its hour. A question stays a note.
+ */
+export function boxGuess(text: string, now = new Date()): CaptureType | null {
+  const guessed = kindOf(text) as CaptureType | null
+  if (guessed || /\?\s*$/.test(text)) return guessed
+  const read = readTask(text, now)
+  return read.due && !read.allDay && !dayjs(read.due).isBefore(dayjs(now).startOf('day')) ? 'todo' : null
+}
+
 function readCached(text: string, now: Date, plain: { from: number; to: number }[]): Read {
   const id = `${Math.floor(now.getTime() / 60_000)}|${plain.map((one) => `${one.from}-${one.to}`).join(',')}|${text}`
   const got = reads.get(id)
@@ -339,7 +352,7 @@ export function planBox(doc: ProseMirrorNode, ctx: BoxContext, kept: Kept[] = []
       }
     }
   }
-  const guessed = kindOf(first.text) as CaptureType | null
+  const guessed = boxGuess(first.text, now)
   // The kind the wording suggests until one is picked; a link kept as plain text is a note.
   let kind: CaptureType = ctx.chosen ? ctx.kind : guessed === 'link' ? (url ? 'link' : 'note') : (guessed ?? 'note')
 
