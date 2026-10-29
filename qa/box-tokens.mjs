@@ -19,10 +19,23 @@ process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'haligtree-tokens-'))
 const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 // Under load the first window can be slow to show its box: tried again, a few times.
 // The welcome is marked done, so the box is the everyday one: the welcome holds ⌘K back.
+// Run as the sandbox (QA_ARGS=--sandbox), a launch first lays down the examples:
+// quit halfway, the next start finds half a book and sets it out again from
+// nothing, restarting itself (the box and its draft go with it). So every
+// launch waits for that to finish before anything else, a quit included.
+async function settled(page) {
+  for (let i = 0; i < 300; i++) {
+    const state = await page.evaluate(() => window.api.haligtree('sandbox:state')).catch(() => null)
+    if (state && (state.seeded || !state.on)) return
+    await page.waitForTimeout(200)
+  }
+  throw new Error('the sandbox never finished setting out its examples')
+}
 async function launch() {
   for (let i = 0; ; i++) {
     try {
       const first = await open()
+      await settled(first.page)
       const welcomed = await first.page.evaluate(() => window.api.haligtree('onboarding:state').then((state) => !!state?.welcomed))
       if (welcomed) return first
       // Marked welcomed, then opened again: the welcome no longer starts.
@@ -31,7 +44,9 @@ async function launch() {
       await first.close?.()
       try { child.kill('SIGKILL') } catch {}
       await new Promise((done) => setTimeout(done, 1500))
-      return await open()
+      const again = await open()
+      await settled(again.page)
+      return again
     } catch (error) {
       if (i === 2) throw error
       // A launch that never showed its box still holds the one-copy lock: put it down first.
