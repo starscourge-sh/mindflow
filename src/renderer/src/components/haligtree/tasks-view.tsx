@@ -303,14 +303,20 @@ export function setDue(task: Pick<Task, 'id' | 'dueAt' | 'allDay' | 'planFor'>, 
 
 /** A task's must-be-done-by day, pressable where it shows, as its date is: changed or taken off, with an Undo. */
 export function TaskDeadline({ task, children }: { task: Pick<Task, 'id' | 'deadline' | 'deadlineTimed'>; children: React.ReactNode }): React.JSX.Element {
-  const change = (deadline: string | null): void => {
-    const was = task.deadline
-    void haligtree.saveTask(task.id, { deadline }).then(() => {
-      chime(deadline ? 'tap' : 'off')
-      toast(deadline ? `Due by ${whenInLine(deadline, !task.deadlineTimed)}` : 'No date it must be done by', () => void haligtree.saveTask(task.id, { deadline: was }))
-    })
-  }
-  return <DatePicker chip quick time={!!task.deadlineTimed} value={task.deadline} onChange={change} tip="The day it must be done by. Click to change it">{children}</DatePicker>
+  return <DatePicker chip quick time allDay={!task.deadlineTimed} value={task.deadline} onChange={(deadline, timed) => setDeadline(task, deadline, timed)} tip="The day it must be done by. Click to change it">{children}</DatePicker>
+}
+
+/**
+ * A task's must-be-done-by day, from a row's chip or its page: said with
+ * Undo, and a time set makes it due at that hour (it alerts then). The picker
+ * makes the sound.
+ */
+export function setDeadline(task: Pick<Task, 'id' | 'deadline' | 'deadlineTimed'>, deadline: string | null, timed = false): void {
+  const was = { deadline: task.deadline, deadlineTimed: task.deadlineTimed ? 1 : 0 }
+  const keep = timed || (!!task.deadlineTimed && !!deadline)
+  void haligtree.saveTask(task.id, { deadline, deadlineTimed: keep ? 1 : 0 }).then(() => {
+    toast(deadline ? `Due by ${whenInLine(deadline, !keep)}` : 'No date it must be done by', () => void haligtree.saveTask(task.id, was))
+  })
 }
 
 /** Move a task to a day from now, and say where: one wording for keys, menus and buttons. */
@@ -1250,7 +1256,7 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
         </Island>
         {/* When it must be done by, apart from when you mean to do it: Todoist's deadline. */}
         <Island compact title="Due by">
-          <DatePicker value={task.deadline} onChange={(deadline) => void haligtree.saveTask(task.id, { deadline })} placeholder="No due date" />
+          <DatePicker time allDay={!task.deadlineTimed} value={task.deadline} onChange={(deadline, timed) => setDeadline(task, deadline, timed)} placeholder="No due date" />
           {/* How long before it to start: it comes up on Today with its steps, "Get ready: due Friday". */}
           {task.deadline && <p className="px-2 pt-1.5 text-xs">Get ready before it</p>}
           {task.deadline && (
