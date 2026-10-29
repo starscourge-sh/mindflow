@@ -294,7 +294,9 @@ export function Typed({ text, className, step = 40, delay: asked = 700, story = 
   // A line in a sequence takes its turn as told; any other may always speak,
   // except while the welcome holds the screen, and its turn is found below.
   if (turn.current?.text !== text) turn.current = { text, speaks: story ? speak(id, text, long, true) : !root.hasAttribute('data-welcoming') && !root.hasAttribute('data-welcome-ph') }
-  const speaks = turn.current.speaks && root.dataset.motion !== 'off'
+  // Another line on screen already has the voice: this one is simply there (lib/motion.ts, speakAfter).
+  const [hushed, setHushed] = useState(false)
+  const speaks = turn.current.speaks && !hushed && root.dataset.motion !== 'off'
   const line = useRef<HTMLSpanElement>(null)
   // Its place in the queue, found once the page it is on is the one showing
   // (a page just left no longer counts), and before anything is painted.
@@ -303,10 +305,11 @@ export function Typed({ text, className, step = 40, delay: asked = 700, story = 
   // words would start late twice over.
   const queued = useRef<string | null>(null)
   useLayoutEffect(() => {
-    if (story || !speaks || queued.current === text) return
+    if (story || queued.current === text) return
     queued.current = text
-    const wait = speakAfter(id, long) ?? 0
-    if (wait) line.current?.querySelectorAll<HTMLElement>('.mf-typed').forEach((one) => void (one.style.animationDelay = `${parseFloat(one.style.animationDelay) + wait}ms`))
+    if (!turn.current?.speaks || root.dataset.motion === 'off') return
+    // Set before the first paint, so a line that does not speak is never seen typing.
+    setHushed(speakAfter(id, long) === null)
   }, [text]) // eslint-disable-line react-hooks/exhaustive-deps
   // Its turn given up a moment after it goes, not at once: the same checks
   // stop this effect while the line is still on screen and start it again.

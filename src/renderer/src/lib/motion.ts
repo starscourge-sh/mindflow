@@ -163,26 +163,26 @@ export function speak(id: string, text: string, ms: number, story = false): bool
 }
 
 /**
- * When the line `id` may start typing itself in, in ms from now: at once if
- * no other line is speaking, or once the one speaking has finished, so two
- * lines on a page take turns rather than the second simply appearing. Every
- * visit and every way of arriving (a key too) gets its beat; only the
- * welcome, which holds the screen, keeps lines still (null).
+ * Whether the line `id` may type itself in now (0), or must simply be there
+ * (null): one voice per screen. The first line to arrive speaks; any other
+ * arriving while it is still speaking on screen is already written, never
+ * queued behind it (queued, a page landed with three lines typing in one
+ * after another, which read as all at once). The welcome, which holds the
+ * screen, keeps every line still.
  */
 export function speakAfter(id: string, ms: number): number | null {
   const root = document.documentElement
   if (root.hasAttribute('data-welcoming') || root.hasAttribute('data-welcome-ph')) return null
   const now = performance.now()
   for (const [one, until] of turns) if (until <= now) turns.delete(one)
-  // Behind the lines still speaking on screen (a page kept but out of view
-  // does not count); never long, whatever is queued.
+  // Another line speaking on screen (a page kept but out of view does not count) has the voice.
   const seen = (one: string): boolean => !!document.querySelector<HTMLElement>(`[data-line="${CSS.escape(one)}"]`)?.offsetParent
-  const wait = Math.min(2000, Math.max(0, ...[...turns].filter(([one]) => one !== id && seen(one)).map(([, until]) => until - now)))
-  turns.set(id, now + wait + ms)
+  if ([...turns.keys()].some((one) => one !== id && seen(one))) return null
+  turns.set(id, now + ms)
   root.setAttribute('data-voice', '')
   clearTimeout(quiet)
   quiet = setTimeout(() => (turns.clear(), root.removeAttribute('data-voice')), Math.max(...turns.values()) - now)
-  return wait
+  return 0
 }
 /** The lines taking turns now, and when each is done. A line gone from the page gives its turn up. */
 const turns = new Map<string, number>()
