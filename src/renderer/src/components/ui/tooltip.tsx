@@ -137,7 +137,7 @@ function TooltipContent({
         className={cn(
           FLOAT,
           // Closing, it fades out over 90ms rather than blinking away.
-          "z-[100] inline-flex w-fit max-w-[min(20rem,calc(100vw-1rem))] [overflow-wrap:anywhere] origin-(--radix-tooltip-content-transform-origin) items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-[90ms] has-data-[slot=kbd]:pr-1.5 data-[side=bottom]:slide-in-from-top-1 data-[side=left]:slide-in-from-right-1 data-[side=right]:slide-in-from-left-1 data-[side=top]:slide-in-from-bottom-1 **:data-[slot=kbd]:relative **:data-[slot=kbd]:isolate **:data-[slot=kbd]:z-50 **:data-[slot=kbd]:rounded-sm data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-[state=delayed-open]:zoom-in-95",
+          "z-[100] ease-[var(--mf-ease)] inline-flex w-fit max-w-[min(20rem,calc(100vw-1rem))] [overflow-wrap:anywhere] origin-(--radix-tooltip-content-transform-origin) items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-[90ms] has-data-[slot=kbd]:pr-1.5 data-[side=bottom]:slide-in-from-top-1 data-[side=left]:slide-in-from-right-1 data-[side=right]:slide-in-from-left-1 data-[side=top]:slide-in-from-bottom-1 **:data-[slot=kbd]:relative **:data-[slot=kbd]:isolate **:data-[slot=kbd]:z-50 **:data-[slot=kbd]:rounded-sm data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-[state=delayed-open]:zoom-in-95",
           className
         )}
         {...props}

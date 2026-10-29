@@ -2,6 +2,7 @@ import * as React from "react"
 import { FLOAT } from '@/lib/float'
 import { quietClose } from "@/lib/quiet-focus"
 import { cn } from "@/lib/cn"
+import { byKeys } from "@/lib/motion"
 import { openCue } from "@/lib/sound"
 
 import { Popover as PopoverPrimitive } from "radix-ui"
@@ -50,9 +51,11 @@ function PopoverContent({
         sideOffset={sideOffset}
         collisionPadding={collisionPadding}
         sticky="always"
+        // Opened by a key (F for Display, a menu's key), it is simply there: no entrance for what a key asked for (lib/motion.ts).
+        data-keyed={byKeys() || undefined}
         className={cn(
           FLOAT,
-          "z-50 flex max-h-(--radix-popover-content-available-height) w-72 origin-(--radix-popover-content-transform-origin) flex-col gap-4 overflow-y-auto rounded-lg p-2.5 text-xs outline-hidden duration-150 data-[state=closed]:duration-100 data-[side=bottom]:slide-in-from-top-1 data-[side=left]:slide-in-from-right-1 data-[side=right]:slide-in-from-left-1 data-[side=top]:slide-in-from-bottom-1 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95",
+          "z-50 flex max-h-(--radix-popover-content-available-height) w-72 origin-(--radix-popover-content-transform-origin) flex-col gap-4 overflow-y-auto rounded-lg p-2.5 text-xs outline-hidden duration-150 ease-[var(--mf-ease)] data-[keyed]:animate-none data-[state=closed]:duration-100 data-[side=bottom]:slide-in-from-top-1 data-[side=left]:slide-in-from-right-1 data-[side=right]:slide-in-from-left-1 data-[side=top]:slide-in-from-bottom-1 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95",
           className
         )}
         {...props}

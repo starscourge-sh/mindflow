@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { byKeys, still } from '@/lib/motion'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'motion/react'
 import { Plus, X } from 'lucide-react'
@@ -107,7 +108,7 @@ export function DaySide({ ask, onClose, onOpen, inline = false }: {
     <AnimatePresence initial={!inline}>
       {ask && (
         <motion.div ref={panel} key="day-side" data-day-side={asking ? 'new' : eventKey ? 'event' : 'task'} role="dialog" data-beside aria-label={asking ? (kind === 'event' ? 'A new event' : 'A new task') : eventKey ? 'The event' : 'The task'} tabIndex={-1}
-          initial={inline ? { opacity: 0 } : { x: 32, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={inline ? { opacity: 0, transition: { duration: 0 } } : { x: 32, opacity: 0, transition: { duration: 0.14 } }} transition={inline ? { duration: 0.16 } : { type: 'spring', stiffness: 520, damping: 44 }}
+          initial={byKeys() || still() ? false : inline ? { opacity: 0 } : { transform: 'translateX(32px)', opacity: 0 }} animate={{ transform: 'translateX(0px)', opacity: 1 }} exit={inline || byKeys() ? { opacity: 0, transition: { duration: 0 } } : { transform: 'translateX(32px)', opacity: 0, transition: { duration: 0.14 } }} transition={inline ? { duration: 0.16 } : { type: 'spring', stiffness: 520, damping: 44 }}
           onKeyDown={(event) => {
             if (event.key === 'Escape') {
               event.preventDefault()
