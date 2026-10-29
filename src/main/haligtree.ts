@@ -4290,7 +4290,7 @@ export function activeSession(): { title: string; startedAt: string } | null {
 // --- Home: what comes back to you, read in one go -------------------------
 
 /** One thing on a Home shelf: a capture, nugget, article or question. */
-type Shelved = { type: string; id: string; title: string; kind: string; private: number; at: string; who?: string | null }
+type Shelved = { type: string; id: string; title: string; kind: string; private: number; at: string; who?: string | null; where?: string | null; year?: string | null }
 /** A Check back whose day has come: `at` is that day, `ask` what it asks you then, `answer` what you said last time. */
 type Returning = Shelved & { ask: string; answer: string }
 
@@ -4320,10 +4320,10 @@ export function registerHome(): void {
   })
 
   // Every note in view, as a shelf shows it: newest change first.
-  const NOTES = `select id, 'capture' as type, ${LABEL} as title, kind, private, coalesce(edited_at, captured_at) as at, captured_at as made, body, attribution as who from captures where status != 'discarded' and archived_at is null
-    union all select id, tier, coalesce(nullif(title, ''), label('', body)), kind, private, coalesce(updated_at, created_at), created_at, body, attribution from nuggets where archived_at is null and superseded_by is null and tier != 'card'`
-  // Who said it, only for a quote: its card signs it.
-  const strip = ({ type, id, title, kind, private: hidden, at, who }: Shelved): Shelved => ({ type, id, title, kind, private: hidden, at, ...(kind === 'quote' && who ? { who } : {}) })
+  const NOTES = `select id, 'capture' as type, ${LABEL} as title, kind, private, coalesce(edited_at, captured_at) as at, captured_at as made, body, attribution as who, medium as "where", case when json_valid(fields) then nullif(cast(json_extract(fields, '$.year') as text), '') end as year from captures where status != 'discarded' and archived_at is null
+    union all select id, tier, coalesce(nullif(title, ''), label('', body)), kind, private, coalesce(updated_at, created_at), created_at, body, attribution, medium, case when json_valid(fields) then nullif(cast(json_extract(fields, '$.year') as text), '') end from nuggets where archived_at is null and superseded_by is null and tier != 'card'`
+  // Who said it, only for a quote: its card signs it, with where it is from and its year, as the capture page does.
+  const strip = ({ type, id, title, kind, private: hidden, at, who, where, year }: Shelved): Shelved => ({ type, id, title, kind, private: hidden, at, ...(kind === 'quote' && who ? { who, where, year } : {}) })
 
   // A Check back on its day, not answered since: one of the kind, or a page
   // (a question page among them) tagged #checkback and given its day and its

@@ -50,6 +50,16 @@ try {
   await c.send('capture', two.id); await h.waitForTimeout(1500)
   const signed2 = await h.evaluate(() => document.querySelector('[data-signed]')?.textContent ?? '')
   check('and shows it after who said it', /Mies van der Rohe, 1947/.test(signed2), signed2)
+  // Home's cards sign a quote the same way: who said it, then the year (Vasari's, given one here).
+  const caps = await page.evaluate(() => window.api.captures.list())
+  const gems = await v('items', 'nugget'); const all = [...caps.map((one) => ['captures', one]), ...((gems.items ?? gems).map((one) => ['nuggets', one]))]
+  // Its capture and the gem made from it (Home shows the gem).
+  const vasari = all.filter(([, one]) => one.attribution === 'Giorgio Vasari')
+  for (const [table, one] of vasari) await h.evaluate(([table, id]) => window.api.haligtree('notes:fields:set', table, id, 'year', '1550'), [table, one.id])
+  await c.go('home'); await h.waitForTimeout(2000)
+  const home = await h.evaluate(() => [...document.querySelectorAll('.mf-signed')].map((one) => one.textContent.replace(/\s+/g, ' ').trim()))
+  check('Home signs a quote with who said it and its year', home.some((one) => /Giorgio Vasari, \d{4}/.test(one)), `${vasari.map(([t]) => t).join(',')} | ${home.join(' | ')}`)
+  await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/quote-year-home.png` })
 } finally {
   await c.close()
 }

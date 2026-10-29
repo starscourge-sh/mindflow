@@ -64,7 +64,7 @@ import { ArrowRight, BookOpen, Check, ChevronLeft, ChevronRight, Orbit, Bookmark
  */
 
 type Kind = 'capture' | 'nugget' | 'article' | 'question' | 'task'
-type Card = { type: Kind; id: string; title: string; kind: string; private: number; at: string; excerpt?: string; sub?: string; clue?: string | null; count?: number; foot?: ReactNode; who?: string | null }
+type Card = { type: Kind; id: string; title: string; kind: string; private: number; at: string; excerpt?: string; sub?: string; clue?: string | null; count?: number; foot?: ReactNode; who?: string | null; where?: string | null; year?: string | null }
 type HomeData = {
   opened: Card[]
   edited: Card[]
@@ -509,7 +509,7 @@ function Feature({ card, line, actions }: { card: Card; line: string; actions: A
             <span className="text-xs font-medium text-foreground/80">{line}</span>
             <h2 className="private-text line-clamp-2 font-heading text-[1.25rem] leading-[1.15] font-semibold tracking-[-0.02em] text-balance text-foreground @[44rem]/page:text-[1.5rem]">{nameOf(card)}</h2>
             {!real && wordsOf(card.excerpt) && <p className="private-text line-clamp-2 max-w-[60ch] text-control text-muted-foreground">{wordsOf(card.excerpt)}</p>}
-            <Signed who={card.who} className="private-text text-control text-muted-foreground" />
+            <Signed who={card.who} where={card.where} year={card.year} className="private-text text-control text-muted-foreground" />
             <div className="mt-2 flex items-center gap-1.5">
               <button type="button" data-nav data-drag-open={`${card.type}:${card.id}`} onClick={(event) => actions.open(card, event)}
                 className="flex h-8 items-center gap-1.5 rounded-full bg-primary px-3.5 text-control font-semibold text-primary-foreground shadow-[0_6px_16px_-8px_rgb(0_0_0/0.5)] outline-none transition-transform duration-150 motion-safe:hover:scale-[1.03] focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.97]">
@@ -591,7 +591,7 @@ function Quotes({ title, onAll, cards, actions }: { title: ReactNode; onAll?: ()
                 className={`flex w-full flex-1 flex-col gap-2 rounded-xl p-4 text-left outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring/50 ${card.foot ? 'pb-2 hover:bg-foreground/[0.03]' : 'bg-foreground/[0.04] hover:bg-foreground/[0.07]'}`}>
                 <span className="private-text pr-7 font-heading text-[1.0625rem] leading-snug [overflow-wrap:anywhere] text-foreground">{nameOf(card)}</span>
                 {wordsOf(card.excerpt) && <span className="private-text line-clamp-3 text-xs leading-relaxed text-muted-foreground">{wordsOf(card.excerpt)}</span>}
-                <Signed who={card.who} className="private-text -mt-0.5 text-xs text-muted-foreground" />
+                <Signed who={card.who} where={card.where} year={card.year} className="private-text -mt-0.5 text-xs text-muted-foreground" />
                 <span className="mt-auto flex items-center gap-1.5 text-xs text-muted-foreground/80">
                   <KindMark card={card} grain={false} className="size-4 rounded-[4px] [&_svg]:size-2.5" />{card.sub}
                 </span>

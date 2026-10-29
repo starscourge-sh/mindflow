@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { fieldOf } from '@/components/capture-list'
 import { quoted } from '../../../../main/clip'
 import { RecallScore } from './recall-score'
 import type { JSONContent } from '@tiptap/core'
@@ -550,7 +551,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
             {card.context && <p className="-mt-2 text-sm leading-relaxed whitespace-pre-line text-muted-foreground">{card.context}</p>}
             <Why card={card} />
             {/* Where it came from, which a flashcard app never knows. */}
-            <Origin id={card.id} quote={card.kind === 'quote'} attribution={card.attribution} said={`${card.prompt ?? ''}\n${textOf(card.body)}`} />
+            <Origin id={card.id} quote={card.kind === 'quote'} attribution={card.attribution} where={card.medium} year={fieldOf(card.fields, 'year')} said={`${card.prompt ?? ''}\n${textOf(card.body)}`} />
             {/* Made from a selection: the exact words it was lifted from, and the way to them in their note. */}
             {card.passage && (
               <figure data-card-passage className="-mt-2 flex flex-col gap-1.5 rounded-lg border px-3 py-2">
@@ -866,7 +867,7 @@ const plain = (text: string): string => text.toLowerCase().replace(/[^\p{L}\p{N}
  * out when the card already says it: a card made from a capture's own words
  * only repeated them here.
  */
-function Origin({ id, quote, attribution, said }: { id: string; quote?: boolean; attribution: string | null; said: string }): React.JSX.Element | null {
+function Origin({ id, quote, attribution, where, year, said }: { id: string; quote?: boolean; attribution: string | null; where?: string | null; year?: string | null; said: string }): React.JSX.Element | null {
   const lineage = useLive(() => haligtree.lineage(id), null, [id])
   const card = plain(said)
   const fresh = (text: string | null | undefined): text is string => !!text && !card.includes(plain(text))
@@ -876,7 +877,7 @@ function Origin({ id, quote, attribution, said }: { id: string; quote?: boolean;
   if (!who && !source) return null
   const whence = source && `from ${/^["“‘'«]/.test(source) ? source : `“${source}”`}`
   // A quote is signed: the name in a pen's hand, then where it came from.
-  if (quote && who) return <p className="-mt-2 flex min-w-0 items-baseline text-xs text-muted-foreground"><Signed who={who} className="private-text" />{whence && <span className="truncate">, {whence}</span>}</p>
+  if (quote && who) return <p className="-mt-2 flex min-w-0 items-baseline text-xs text-muted-foreground"><Signed who={who} where={where} year={year} className="private-text" />{whence && <span className="truncate">, {whence}</span>}</p>
   return (
     <p className="-mt-2 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
       {who && <Avatar name={who} size={14} />}
