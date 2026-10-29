@@ -25,7 +25,8 @@ try {
   const of = (label) => menu.find((top) => top.label === label)?.items ?? []
   console.log(JSON.stringify(menu))
   check('the app menu is Haligtree\'s, with About and Settings…', of('Haligtree').includes('About Haligtree') && of('Haligtree').includes('Settings…') && of('Haligtree').includes('Quit Haligtree'))
-  check('File makes and brings in notes', ['Quick capture', 'New note', 'New page', 'Import', 'Export everything…', 'Close Window'].every((one) => of('File').includes(one)), of('File').join(' | '))
+  // ⌘W closes what is in front first (a panel, the note beside a list, a pane), the window only when nothing is: so "Close", not "Close Window".
+  check('File makes and brings in notes', ['Quick capture', 'New note', 'New page', 'Import', 'Export everything…', 'Close'].every((one) => of('File').includes(one)), of('File').join(' | '))
   check('Edit keeps Select All', of('Edit').includes('Select All'))
   check('View goes to the places', ['Inbox', 'Home', 'Journal', 'Writing', 'Gems', 'Feed', 'Review', 'Tasks', 'Calendar'].every((one) => of('View').includes(one)) && of('View').includes('Show or Hide Sidebar'), of('View').join(' | '))
   check('Help has What Haligtree can do and the shortcuts', of('Help').includes('What Haligtree can do') && of('Help').includes('Keyboard shortcuts'), of('Help').join(' | '))
