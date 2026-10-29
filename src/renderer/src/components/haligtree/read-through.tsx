@@ -438,7 +438,9 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
   // E, Enter or a click starts it; Escape puts the keys back to reading.
   // Sorting, the note is open to write in from the start: the caret is already in it.
   const [writing, setWriting] = useState(!!sorting)
-  useEffect(() => setWriting(!!sorting), [item?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => (setWriting(!!sorting), setOpenAt(null)), [item?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  /** Where the caret goes in on unlocking: the spot last clicked, or the end. */
+  const [openAt, setOpenAt] = useState<number | null>(null)
   // The save waiting to happen, kept with the note it belongs to, and made at
   // once when the page turns rather than dropped by the next page's typing.
   const saving = useRef<{ timer: ReturnType<typeof setTimeout>; run: () => void } | null>(null)
@@ -487,6 +489,8 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
       return setWriting(false)
     }
     chime('on')
+    setOpenAt(caret.current)
+    caret.current = null
     setWriting(true)
   }
   /** A tag in the title, the meta line or the words: reading ends and the tag's page opens. */
@@ -820,17 +824,15 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
                       ? notePowers({ table: item.type === 'capture' ? 'captures' : 'nuggets', id: item.id, kind: shown.kind ?? item.type, fields: shown.fields, text: shown.label, titled: !!shown.title, created: shown.created, updated: shown.updated, origin: item.type === 'capture' ? { captureId: item.id, from: item.id } : { captureId: shown.captureId, attribution: shown.attribution, from: item.id }, onOpen: (type, id) => (type === 'tag' ? openTag(id) : window.api.openInHome(type, id)), reading: !writing })
                       : { host: window.api, readOnly: true, tokens: TAGS, onTokenClick: (token: { name: string; value: string }) => token.name === 'tag' && openTag(token.value) })}
                     // Where the click was, or the end when E asked.
-                    autofocus={writing && caret.current === null ? 'end' : false}
+                    // Kept in state, not read from the click's ref at each render: an editor made again (StrictMode) is made with the same spot.
+                    autofocus={writing && openAt === null ? 'end' : false}
                     onReady={(editor) => {
                       reader.current = editor
                       // Locked or unlocked, the page stays where it was scrolled to.
                       const kept = keptScroll.current
                       keptScroll.current = null
                       if (kept !== null) requestAnimationFrame(() => scroller.current && (scroller.current.scrollTop = kept))
-                      if (!writing || caret.current === null) return
-                      const at = Math.min(caret.current, editor.state.doc.content.size)
-                      caret.current = null
-                      editor.commands.focus(at, { scrollIntoView: false })
+                      if (writing && openAt !== null) editor.commands.focus(Math.min(openAt, editor.state.doc.content.size), { scrollIntoView: false })
                     }}
                     defaultContent={shown.body ?? ''}
                     onChange={(doc, editor) => {
