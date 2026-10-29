@@ -422,9 +422,9 @@ const Editor = memo(function Editor({ scene, onChange, onApi, onState }: {
           // The note's own background shows through, so a drawing reads as
           // part of the page rather than a white card dropped onto it.
           viewBackgroundColor: 'transparent',
-          // The dot grid stands in for Excalidraw's lines, which read as graph
-          // paper; snapping to other shapes is what lines boxes up by eye.
-          gridModeEnabled: false,
+          // Shapes snap to the grid from the start, as asked; ⌘' turns it off,
+          // leaving the dot grid as a guide and snapping to other shapes only.
+          gridModeEnabled: true,
           objectsSnapModeEnabled: true
         },
         scrollToContent: true
