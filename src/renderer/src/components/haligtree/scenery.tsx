@@ -396,10 +396,19 @@ export function DayBanner({ day, seed = `day:${day}` }: { day: string; /** A wee
 }
 
 /** The day's scene itself, the same one its banner shows: for words that name it. */
+/** The painting each day showed first, this session (see useDayScene). */
+const dayPicks = new Map<string, string>()
+
 export function useDayScene(day: string): Scene | null | undefined {
   const { settings, scenes, loading, scanning } = useScenery()
   const on = !!settings?.scenery && !!settings.sceneryToday
-  const scene = settings && on && !loading && !scanning ? choose(scenes, `day:${day}:${settings.sceneryShuffle ?? 0}`, ['day', 'dusk', 'night', 'interior'], true) : null
+  const seed = `day:${day}:${settings?.sceneryShuffle ?? 0}`
+  // The day keeps the painting it first showed: the folders are read in while they are still being looked through,
+  // and a pick made again from the longer list swapped the picture under the words a moment after the app opened.
+  const kept = dayPicks.get(seed)
+  const picked = settings && on && !loading && !scanning ? (scenes.find((one) => one.url === kept) ?? choose(scenes, seed, ['day', 'dusk', 'night', 'interior'], true)) : null
+  if (picked) dayPicks.set(seed, picked.url)
+  const scene = picked
   // Nor is a picture not yet decoded, for a moment: its page holds its first paint for it, so a window
   // just opened (a book switch) draws the painting in its first frame, not its stand-in.
   const [, redraw] = useState(0)

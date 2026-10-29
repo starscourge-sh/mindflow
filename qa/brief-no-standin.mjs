@@ -28,6 +28,28 @@ try {
   check('the Report\'s box was watched', frames.length > 10, String(frames.length))
   check('no frame shows a stand-in, a tint or the veil alone', bad.length === 0, `${bad.length} of ${frames.length}: ${JSON.stringify(bad[0] ?? null)}`)
   check('and the painting comes', frames.some((one) => one.shown), JSON.stringify(frames.at(-1)))
+  // A busy start, as in a real book: the list of paintings itself answers late (past the page's 1.5s wait). The box
+  // stays empty until the painting: never the day's grainy cover first, swapped for the painting a moment later.
+  await c.electron.evaluate(({ ipcMain }) => {
+    const all = ipcMain._invokeHandlers
+    const real = all.get('haligtree:scenery')
+    all.set('haligtree:scenery', async (...args) => { await new Promise((ok) => setTimeout(ok, 2500)); return real(...args) })
+  })
+  await h.addInitScript(() => {
+    window.__cover = []
+    const look = () => {
+      const box = document.querySelector('[data-today-line]')?.closest('.isolate')
+      if (box && getComputedStyle(box).visibility === 'visible') window.__cover.push({ grain: !!box.querySelector(':scope > span img'), painting: !!box.querySelector('[data-scene][data-shown] img') })
+      if (performance.now() < 9000) setTimeout(look, 16)
+    }
+    look()
+  })
+  await h.unrouteAll().catch(() => {})
+  await h.reload(); await h.waitForTimeout(9000)
+  const cover = await h.evaluate(() => window.__cover)
+  const grainFirst = cover.findIndex((one) => one.grain), paintingAt = cover.findIndex((one) => one.painting)
+  check('a slow list of paintings never shows the grain cover first', grainFirst < 0, `grain at frame ${grainFirst}, painting at ${paintingAt} of ${cover.length}`)
+  check('and the painting still comes', paintingAt >= 0, JSON.stringify(cover.at(-1)))
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])
 } finally {

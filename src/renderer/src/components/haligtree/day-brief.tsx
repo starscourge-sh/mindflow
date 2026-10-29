@@ -80,8 +80,9 @@ export function DayBrief({ day, onOpen, onListed, between }: {
     return () => void (current = false)
   }, [half])
   const scene = useDayScene(day)
-  // Scenery off, or no pictures: the day's grain cover, the same all day.
-  const grain = useCover(scene ? null : `day:${day}`)
+  // Scenery off, or no pictures: the day's grain cover, the same all day. Only once that is known: while the paintings
+  // were still being read in, the grain cover showed first and the painting replaced it, a flash of a grainy gradient.
+  const grain = useCover(scene === null ? `day:${day}` : null)
   const coversRead = useCoversRead()
   const settings = useLive(haligtree.settings, null as Settings | null)
   const tasks = useLive(haligtree.tasks, [] as Task[])
