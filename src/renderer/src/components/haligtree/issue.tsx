@@ -1,4 +1,4 @@
-import { Fragment, useState, type ReactNode } from 'react'
+import { Fragment, useRef, useState, type ReactNode } from 'react'
 import { motion } from 'motion/react'
 import { EASE, byKeys, shift, useFirstVisit } from '@/lib/motion'
 import isoWeek from 'dayjs/plugin/isoWeek.js'
@@ -6,6 +6,7 @@ import isoWeek from 'dayjs/plugin/isoWeek.js'
 import { chime } from '@/lib/sound'
 import { Button } from '@/components/ui/button'
 import { useLive } from '@/lib/haligtree'
+import { Highlight, useFluidHover } from './glide'
 import { issues, type PastIssue } from '@/lib/issues'
 import { dayjs, noon, num } from '../../../../main/dates'
 
@@ -65,18 +66,22 @@ export function EarlierPages({ scale, current, onPick }: { scale: 'week' | 'mont
   const all = useLive(() => (browsing ? issues.past(scale, current, scale === 'week' ? 520 : 120) : Promise.resolve([] as PastIssue[])), [] as PastIssue[], [scale, current, browsing])
   const older = all.slice(3)
   const years = [...new Set(older.map((issue) => issue.start.slice(0, 4)))]
+  // The cards answer the hand as every other list does: one light glides to the nearest.
+  const cards = useRef<HTMLOListElement | null>(null)
+  const hover = useFluidHover(cards, { items: ':scope > li', axis: 'xy' })
   if (!past.length) return null
   return (
     <section className="mt-16 border-t pt-8" aria-label={scale === 'week' ? 'Earlier weeks' : 'Earlier months'}>
       <h2 className={`mb-5 text-center text-title font-normal text-foreground ${SERIF}`}>{scale === 'week' ? 'Earlier weeks' : 'Earlier months'}</h2>
-      <ol className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(11.5rem,1fr))]">
+      <ol ref={cards} data-hover-quiet {...hover.handlers} className="relative isolate grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(11.5rem,1fr))]">
+        <Highlight spot={hover.spot} session={hover.session} snap={hover.snap} className="rounded-xl bg-accent/45" />
         {past.map((issue, index) => {
           const headline = scale === 'week' ? issue.fields.theme || firstLine(issue.fields.summary) : issue.fields.season || issue.fields.focus
           const date = scale === 'week' ? `Week ${weekOfYear(issue.start)}` : dayjs(issue.start).format("MMM 'YY")
           return (
             <motion.li key={issue.key} initial={enter ? { opacity: 0, transform: shift('translateY(8px)') } : false} animate={{ opacity: 1, transform: shift('translateY(0px)') }} transition={{ delay: Math.min(index, 3) * 0.02, duration: 0.18, ease: EASE }}>
                 <button type="button" onClick={() => (chime('season'), onPick(issue.start))}
-                  className="mf-island group flex h-full w-full flex-col items-center gap-2 rounded-xl border bg-accent/25 px-4 pt-4 pb-5 text-center transition-[background-color,translate] duration-200 ease-(--mf-ease) pointer-fine:hover:-translate-y-0.5 hover:bg-accent/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  className="mf-island group flex h-full w-full flex-col items-center gap-2 rounded-xl border bg-accent/25 px-4 pt-4 pb-5 text-center cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                   <IssueLine className="justify-center" parts={[date, !!headline && scale === 'week' && weekSpan(issue.start)]} />
                   <span className={`line-clamp-3 ${SERIF} text-[1.0625rem] leading-snug text-balance ${headline ? 'text-foreground' : 'text-muted-foreground italic'}`}>
                     {headline || (scale === 'week' ? weekSpan(issue.start) : dayjs(issue.start).format('MMMM'))}
