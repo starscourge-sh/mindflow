@@ -18,7 +18,10 @@ const blocks = (h) => h.evaluate(() => [...document.querySelectorAll('aside nav 
 })))
 const flat = (all) => all.map((one) => `${one.key}: ${one.rows.join(' ')}`).join(' | ')
 const box = (h, id) => h.evaluate((id) => {
-  const r = document.querySelector(`aside nav [data-sortable-id="${id}"]`)?.getBoundingClientRect()
+  // In sight first: the sidebar is taller than the window now (Journal's scales under its row), and Bin sits below it.
+  const el = document.querySelector(`aside nav [data-sortable-id="${id}"]`)
+  el?.scrollIntoView({ block: 'nearest' })
+  const r = el?.getBoundingClientRect()
   return r && { x: r.left + r.width / 2, y: r.top + r.height / 2, top: r.top, bottom: r.bottom }
 }, id)
 
@@ -83,6 +86,8 @@ try {
   await lands(c, 'Lookups into the top block', 'lookups', (await box(c.h, 'articles')).top + 2)
 
   // 5. Onto Pinned: refused, shown, and back where it was.
+  // Home brought into sight first, so the sidebar does not scroll between reading where Pinned is and carrying to it.
+  await box(c.h, 'home')
   const pinned = await c.h.evaluate(() => { const r = document.querySelector('aside nav [data-side-drop="pinned"]')?.getBoundingClientRect(); return r && r.height > 0 ? r.top + r.height / 2 : null })
   check('there is a Pinned part to try', pinned !== null)
   if (pinned !== null) {
