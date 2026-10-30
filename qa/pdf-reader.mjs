@@ -273,6 +273,14 @@ try {
   check("the gem's link opens the PDF at its page", back.open && back.field === '3' && back.top !== null && back.top < 60, JSON.stringify(back))
   check('with the mark drawn again and flashing', back.flash, JSON.stringify(back))
   await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-link-back.png` })
+  // ⌥-click Open: the PDF to the side, the note beside it.
+  await h.keyboard.press('Meta+BracketLeft'); await wait(1200)
+  await h.keyboard.down('Alt'); await h.click('.is-pdf button[aria-label="Open probe-book.pdf"]'); await h.keyboard.up('Alt')
+  await h.waitForSelector('.pdf-reader .pdf-page[data-page="1"] canvas', { timeout: 10000 }).catch(() => {})
+  await wait(800)
+  const side = await h.evaluate(() => ({ reader: !!document.querySelector('.pdf-reader'), note: !!document.querySelector('.tiptap-attachment.is-pdf') }))
+  check('⌥-click Open puts the PDF beside the note', side.reader && side.note, JSON.stringify(side))
+  await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-beside-note.png` })
 } catch (error) {
   check('ran without throwing', false, String(error?.stack ?? error))
 } finally {

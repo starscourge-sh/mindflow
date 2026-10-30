@@ -5,6 +5,7 @@ import { isInTable } from '@tiptap/pm/tables'
 import { isValidYoutubeUrl } from '@tiptap/extension-youtube'
 
 import { saveAttachment } from '@/extensions/image-drop'
+import { FileText } from '@/components/ui/icons'
 import { EXPORTS, exportDocument } from '@/lib/export'
 import { host, said } from '@/lib/host'
 import { fitToWidth } from '@/lib/table'
@@ -36,6 +37,33 @@ const RibbonIcon = (): React.JSX.Element => (
  * What `/` offers. The hints are the markdown shortcuts that already work, so
  * the menu doubles as a way to learn them.
  */
+/**
+ * A file picked and attached where the cursor is: a PDF shows its pages, any
+ * other file its card. The browser's own picker rather than a dialog through
+ * the main process: it hands back a `File`, which is what the store takes.
+ */
+function attachFile(editor: Editor, accept?: string): void {
+  const input = document.createElement('input')
+  input.type = 'file'
+  if (accept) input.accept = accept
+  input.onchange = async () => {
+    const file = input.files?.[0]
+    if (!file) return
+    try {
+      editor
+        .chain()
+        .focus()
+        .setAttachment(await saveAttachment(file))
+        .run()
+    } catch (cause) {
+      console.error(cause)
+      const why = cause instanceof Error && cause.message ? cause.message : 'it could not be saved'
+      said(`Not attached: ${why[0].toLowerCase()}${why.slice(1)}`, false)
+    }
+  }
+  input.click()
+}
+
 export const slashItems: SlashItem[] = [
   {
     title: 'Text',
@@ -234,28 +262,15 @@ export const slashItems: SlashItem[] = [
     keywords: ['attachment', 'upload'],
     hint: 'attach',
     icon: <Paperclip />,
-    // The browser's own picker rather than a dialog through the main process:
-    // it hands back a `File`, which is exactly what the store already takes.
-    run: (editor) => {
-      const input = document.createElement('input')
-      input.type = 'file'
-      input.onchange = async () => {
-        const file = input.files?.[0]
-        if (!file) return
-        try {
-          editor
-            .chain()
-            .focus()
-            .setAttachment(await saveAttachment(file))
-            .run()
-        } catch (cause) {
-          console.error(cause)
-          const why = cause instanceof Error && cause.message ? cause.message : 'it could not be saved'
-          said(`Not attached: ${why[0].toLowerCase()}${why.slice(1)}`, false)
-        }
-      }
-      input.click()
-    }
+    run: (editor) => attachFile(editor)
+  },
+  {
+    title: 'PDF',
+    group: 'Media',
+    keywords: ['document', 'book', 'paper', 'reader'],
+    hint: 'its pages in the note',
+    icon: <FileText />,
+    run: (editor) => attachFile(editor, 'application/pdf,.pdf')
   },
   {
     title: 'Drawing',
