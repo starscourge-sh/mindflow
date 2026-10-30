@@ -256,6 +256,16 @@ export function Page({ title, lead, count, unit = ['item', 'items'], actions, se
   ) as React.JSX.Element
 }
 
+/** Marks a line tells you to type ([[, @, /, #), standing alone as a word: drawn as code, so they read as what to press. */
+export const TYPED_MARKS = ['[[', '@', '/', '#']
+export function TypedMark({ children }: { children: string }): React.JSX.Element {
+  return <code className="rounded bg-accent px-1 font-mono text-[0.92em]">{children}</code>
+}
+/** Plain words with any mark standing alone in them drawn as a TypedMark. */
+export function WithMarks({ text }: { text: string }): React.JSX.Element {
+  return <>{text.split(/(\s+)/).map((word, i) => (TYPED_MARKS.includes(word) ? <TypedMark key={i}>{word}</TypedMark> : word))}</>
+}
+
 /**
  * A sentence that tells you something, typed out a word at a time as it
  * arrives, a beat after the page paints so the motion is seen rather than
@@ -332,7 +342,7 @@ export function Typed({ text, className, step = 40, delay: asked = 700, story = 
                   const [, keys, mark = ''] = word.match(/^(.*[⌃⌥⇧⌘].*[^⌃⌥⇧⌘])([.,;:])$/) ?? [, word]
                   return <><KbdGroup className="translate-y-[-1px] align-middle">{Array.from(keys!).map((key, n) => <Kbd key={n}>{key}</Kbd>)}</KbdGroup>{mark}</>
                 })()
-              : word}
+              : TYPED_MARKS.includes(word) ? <TypedMark>{word}</TypedMark> : word}
           </span>
         )
       )}

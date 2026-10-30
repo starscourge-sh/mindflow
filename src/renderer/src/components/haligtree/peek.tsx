@@ -5,7 +5,7 @@ import type { LucideIcon } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { realMove } from '@/lib/real-move'
 import { splitLead } from './lead'
-import { Pressed } from './ui'
+import { Pressed, WithMarks } from './ui'
 
 /**
  * Notion's slash-menu preview, for anything whose name alone does not say
@@ -42,7 +42,7 @@ export function PeekCard({ art, text, keys, fit = false, whole = false }: { art:
         <p className="min-w-0 flex-1 text-[13px] leading-snug text-foreground/75">
           {lead && <strong className="font-semibold text-foreground">{lead}</strong>}
           {lead && rest && ' '}
-          {rest}
+          {rest && <WithMarks text={rest} />}
         </p>
         {keys && <span className="flex shrink-0 gap-0.5 pb-px"><Pressed keys={keys} /></span>}
       </div>

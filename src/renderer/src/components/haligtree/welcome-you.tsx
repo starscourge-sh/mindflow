@@ -6,7 +6,7 @@ import { chime } from '@/lib/sound'
 import type { Setup } from '@/lib/onboarding'
 import { haligtree, unloaded, useLive, type Item } from '@/lib/haligtree'
 import { keyFor } from '@/lib/keys'
-import { Kbd, refuse } from './ui'
+import { Kbd, refuse, TYPED_MARKS, TypedMark } from './ui'
 import { dated, dayjs } from '../../../../main/dates'
 import { DatePicker } from './date-picker'
 import { HashField, isTag } from './hash-field'
@@ -118,12 +118,15 @@ function tipsOf(setup: Setup): { tool: string; line: string }[] {
   return from.map((tool) => ({ tool, line: `${TIP_KEYS.reduce((line, keys) => line.replaceAll(keys, keyNow(keys)), FROM_SAID[tool])}${tool === source ? ` Bringing your ${source} notes over is one step at the end.` : ''}` }))
 }
 
-/** A tip's line with its keys drawn as keys. */
+/** A mark a tip says to type, standing alone between spaces, so a slash or @ inside a word stays text. */
+const typedAlone = `(?<=\\s)(?:${TYPED_MARKS.map((mark) => mark.replace(/[[/]/g, '\\$&')).join('|')})(?=\\s)`
+
+/** A tip's line with its keys drawn as keys and the marks you type drawn as code. */
 function TipLine({ line }: { line: string }): React.JSX.Element {
   const keys = TIP_KEYS.map(keyNow).filter(Boolean)
   const escape = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const parts = keys.length ? line.split(new RegExp(`(${keys.map(escape).join('|')})`)) : [line]
-  return <>{parts.map((part, i) => (keys.includes(part) ? <Kbd key={i} className="mx-[0.1em] h-[1.3em] min-w-[1.3em] translate-y-[-0.08em] rounded-[0.3em] px-[0.3em] align-middle text-[0.72em]">{part}</Kbd> : part))}</>
+  const parts = line.split(new RegExp(`(${[...keys.map(escape), typedAlone].join('|')})`)).filter(Boolean)
+  return <>{parts.map((part, i) => (keys.includes(part) ? <Kbd key={i} className="mx-[0.1em] h-[1.3em] min-w-[1.3em] translate-y-[-0.08em] rounded-[0.3em] px-[0.3em] align-middle text-[0.72em]">{part}</Kbd> : TYPED_MARKS.includes(part) ? <TypedMark key={i}>{part}</TypedMark> : part))}</>
 }
 
 /** A line of the summary: what was done, in a bold lead-in and a plain line, and the piece Undo takes back. */

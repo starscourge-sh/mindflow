@@ -9,7 +9,7 @@ import { useLive } from '@/lib/haligtree'
 import { exampleMap } from '@/lib/examples'
 import { Example } from './example'
 import { chime } from '@/lib/sound'
-import { Empty, Rolling, Tip } from './ui'
+import { Empty, Rolling, Tip, TypedMark } from './ui'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { History, Palette, Pause, Play, Search as SearchIcon, Unlink, X } from 'lucide-react'
 import { Slider } from '@/components/ui/slider'
@@ -155,7 +155,7 @@ function LinkMap({ onOpen, modes }: { onOpen: (type: string, id: string) => void
         </div>
       </header> : null}
       {count ? (
-        <Example on={example} flush className="min-h-0 flex-1" tryIt="type @ in any note and pick another one. The two show up here as dots, joined by a line.">
+        <Example on={example} flush className="min-h-0 flex-1" tryIt={<>type <TypedMark>@</TypedMark> in any note and pick another one. The two show up here as dots, joined by a line.</>}>
         <GraphCanvas map={map!} onOpen={onOpen} fit={fit} fly={fly} replay={replay} className="flex-1">
           {replaying && !example && <Replay nodes={map!.nodes} show={replay} onClose={() => (chime('off'), setReplaying(false))} />}
           {/* The map's foot, one row that never lays one part over another: the key on the left (folded into
@@ -180,7 +180,7 @@ function LinkMap({ onOpen, modes }: { onOpen: (type: string, id: string) => void
         <div className="page-column">
           <div className="px-5 pt-3">{modes}</div>
           <Empty title="No links yet">
-            Type @ in a note and pick another to link them. Every note you link shows up here as a dot, joined to the notes it points to.
+            Type <TypedMark>@</TypedMark> in a note and pick another to link them. Every note you link shows up here as a dot, joined to the notes it points to.
           </Empty>
         </div>
       )}
@@ -360,7 +360,7 @@ function Lonely({ count, notes: list, onOpen }: { count: number; notes: NonNulla
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" side="top" className="w-80 gap-0 p-0 text-control">
-        <p className="border-b px-3 py-2 text-foreground">Open one and type @ to link it to another note. Linked, it joins the map.</p>
+        <p className="border-b px-3 py-2 text-foreground">Open one and type <TypedMark>@</TypedMark> to link it to another note. Linked, it joins the map.</p>
         <ul className="max-h-72 overflow-y-auto p-1">
           {list.map((one) => {
             const kind = kindOf(one.kind) ?? CAPTURE_TYPES[0]

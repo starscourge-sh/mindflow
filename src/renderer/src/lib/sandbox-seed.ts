@@ -443,7 +443,7 @@ Some days are clearer written down as a list. Open Tasks and choose “Write out
 
 A link can land partway down a note: ${link(prestige, 'Every great trick has three acts', '', 'The Turn')} opens that note at its second act, unfolded.
 
-**Try it:** click it. To make your own, type @ and a note's name, then # to pick one of its headings.
+**Try it:** click it. To make your own, type \`@\` and a note's name, then \`#\` to pick one of its headings.
 
 *Nisaba, keeper of the tablets*
 `)
