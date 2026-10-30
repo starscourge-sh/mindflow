@@ -771,7 +771,7 @@ export function Home(): React.JSX.Element {
   const quiet = away.quiet
   // Week's and Month's pages are reached through Journal (its Week and Month under its row), never rows of their own
   // for now, so a book that once showed them does not list them twice.
-  const shown = quiet ? ['day', 'inbox', 'today'] : shownAll.filter((id) => id !== 'weekpage' && id !== 'monthpage')
+  const shown = quiet ? ['day', 'inbox', 'today'] : shownAll.filter((id) => !OFF_SIDEBAR.includes(id))
   const quietOpened = useRef(false)
   useEffect(() => {
     if (!quiet || quietOpened.current) return
