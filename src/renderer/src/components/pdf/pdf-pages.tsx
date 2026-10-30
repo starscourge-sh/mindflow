@@ -85,10 +85,12 @@ export function PdfPages({
     return () => watch.disconnect()
   }, [])
 
-  // Which sheets are on show: drawn, with one either side.
+  // Which sheets are on show: drawn, with one either side. Watched once the
+  // sheets exist, which needs both the document and the box's width.
+  const laidOut = !!size && width > 0
   useEffect(() => {
     const el = box.current
-    if (!el || !doc) return
+    if (!el || !doc || !laidOut) return
     const seen = new Set<number>()
     const watch = new IntersectionObserver(
       (entries) => {
@@ -105,7 +107,7 @@ export function PdfPages({
     )
     el.querySelectorAll<HTMLElement>(".pdf-page").forEach((sheet) => watch.observe(sheet))
     return () => watch.disconnect()
-  }, [doc, scroller])
+  }, [doc, scroller, laidOut])
 
   if (failed) return <div className="pdf-pages is-failed">This PDF could not be read.</div>
   const scale = size && width ? (width / size.w) * zoom : 0

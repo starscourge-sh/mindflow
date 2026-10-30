@@ -79,6 +79,50 @@ try {
   })
   check('its text can be selected', /quiet sentence worth keeping/.test(picked), picked)
   await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-in-note.png` })
+
+  // Open: full size in the pane, under the title the PDF carries.
+  await h.click('.is-pdf button[aria-label="Open probe-book.pdf"]')
+  await h.waitForSelector('.pdf-reader .pdf-page[data-page="1"] .textLayer span', { timeout: 15000 }).catch(() => {})
+  await wait(600)
+  const title = await h.evaluate(() => document.querySelector('.pdf-reader-title')?.textContent ?? '')
+  check('Open shows it full size in the pane', !!title, 'no .pdf-reader')
+  check("under the PDF's own title", title === 'The Probe Book', title)
+  await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-pane-open.png` })
+  const widthAt = () => h.evaluate(() => document.querySelector('.pdf-reader .pdf-page')?.getBoundingClientRect().width ?? 0)
+  const before = await widthAt()
+  await h.click('.pdf-reader button[aria-label="Larger"]', { timeout: 4000 }); await wait(200)
+  await h.click('.pdf-reader button[aria-label="Larger"]'); await wait(800)
+  const after = await widthAt()
+  check('Larger zooms the pages in', after > before * 1.15, `${before} -> ${after}`)
+  const zoomed = await h.evaluate(() => {
+    const span = [...document.querySelectorAll('.pdf-reader .pdf-page[data-page="1"] .textLayer span')].find((one) => /quiet sentence/.test(one.textContent))
+    if (!span) return { text: '', fits: false }
+    const range = document.createRange()
+    range.selectNodeContents(span)
+    getSelection().removeAllRanges()
+    getSelection().addRange(range)
+    const words = span.getBoundingClientRect(), sheet = span.closest('.pdf-page').getBoundingClientRect()
+    return { text: getSelection().toString(), fits: words.width > 0.4 * sheet.width && words.right <= sheet.right }
+  })
+  check('zoomed in, the text still selects and sits over its words', /quiet sentence/.test(zoomed.text) && zoomed.fits, JSON.stringify(zoomed))
+  await h.click('.pdf-reader button[aria-label="Fit width"]'); await wait(600)
+  check('Fit width puts it back', Math.abs((await widthAt()) - before) < 2, String(await widthAt()))
+  await h.fill('.pdf-reader-page-field', '3'); await h.keyboard.press('Enter'); await wait(800)
+  const onPage = await h.evaluate(() => {
+    const box = document.querySelector('.pdf-reader-scroll').getBoundingClientRect()
+    const sheet = document.querySelector('.pdf-reader .pdf-page[data-page="3"]').getBoundingClientRect()
+    return { field: document.querySelector('.pdf-reader-page-field').value, top: Math.round(sheet.top - box.top) }
+  })
+  await wait(1500)
+  const drawnNow = await h.evaluate(() => [...document.querySelectorAll('.pdf-reader .pdf-page')].map((one) => `${one.dataset.page}:${one.querySelector('canvas') ? 'drawn' : 'empty'}`).join(' '))
+  check('the page gone to is drawn', /3:drawn/.test(drawnNow), drawnNow)
+  check('typing a page goes there', onPage.field === '3' && onPage.top < 60, JSON.stringify(onPage))
+  await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-pane.png` })
+  await h.click('.pdf-reader button[aria-label="Dark pages"]'); await wait(400)
+  await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-pane-dark.png` })
+  await h.click('.pdf-reader button[aria-label="Light pages"]')
+  await h.keyboard.press('Meta+BracketLeft'); await wait(1200)
+  check('Back returns to the note', await h.evaluate(() => !document.querySelector('.pdf-reader') && !!document.querySelector('.is-pdf')), '')
 } catch (error) {
   check('ran without throwing', false, String(error?.stack ?? error))
 } finally {

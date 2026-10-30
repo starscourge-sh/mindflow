@@ -2,7 +2,8 @@
 .pdf-pages {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  /* Safe: a page zoomed wider than the pane still scrolls to its left edge. */
+  align-items: safe center;
   gap: 0.75rem;
   width: 100%;
 }
@@ -104,8 +105,103 @@
   max-height: 70vh;
   padding: 0.75rem;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   border: 1px solid var(--tt-border-color);
   border-top: 0;
   border-radius: 0 0 0.625rem 0.625rem;
   background-color: var(--mf-surface);
+}
+
+/* Full size, in a pane of its own. */
+.pdf-reader {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
+}
+
+.pdf-reader-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--tt-border-color);
+}
+
+.pdf-reader-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 1rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pdf-reader-page {
+  display: flex;
+  align-items: center;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.pdf-reader-page-field {
+  width: 2.75rem;
+  padding: 0.25rem 0.375rem;
+  border: 1px solid var(--tt-border-color);
+  border-radius: 0.375rem;
+  background: var(--tt-card-bg-color);
+  color: inherit;
+  font: inherit;
+  text-align: center;
+  cursor: text;
+  outline: none;
+}
+
+.pdf-reader-page-field:focus {
+  border-color: var(--tt-brand-color-500);
+}
+
+.pdf-reader-of {
+  color: var(--mf-muted);
+  margin-inline-start: 0.25rem;
+}
+
+.pdf-reader-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+}
+
+.pdf-reader-tools button {
+  cursor: pointer;
+}
+
+.pdf-reader-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  /* Room for the scrollbar kept from the start: its coming and going never resizes the pages. */
+  scrollbar-gutter: stable;
+  padding: 1.5rem;
+  background-color: var(--mf-surface);
+}
+
+/* Dark pages: the paper turned to night, its colours turned back round so they keep their hue. */
+.pdf-reader.is-dark .pdf-page {
+  background: #1d1b19;
+}
+
+.pdf-reader.is-dark .pdf-canvas {
+  filter: invert(0.9) hue-rotate(180deg);
+}
+
+/* Fit width means a reading width, as a note's column: a wide pane never blows a page up past it. */
+.pdf-reader .pdf-pages {
+  max-width: 56rem;
+  margin-inline: auto;
 }

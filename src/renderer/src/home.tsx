@@ -114,6 +114,7 @@ import type { RowItem } from '@/components/haligtree/row-menu'
 import { asideClick, asideItem, keepTitle, setPaneNotes, setPanes, spendAsideClick, titleOf, type PaneWidth } from '@/lib/split'
 import XIcon from '@/components/ui/x-icon'
 import { WhatsNewPage, openWhatsNew } from '@/components/haligtree/whats-new'
+import { PdfReader, fromPdfFocus, pdfFocus } from '@/components/pdf/pdf-reader'
 import { BinView } from '@/components/haligtree/bin-view'
 import { CloseDaySheet, openCloseDay } from '@/components/haligtree/close-day'
 import { writeOutDay } from '@/components/haligtree/day-list'
@@ -217,7 +218,7 @@ const selectedInNote = (): boolean => {
   const picked = getSelection()
   return !!editor && !!picked && !picked.isCollapsed && !!picked.anchorNode && editor.contains(picked.anchorNode)
 }
-const holdsNotes = (id: string): boolean => !['pick', 'home', 'day', 'weekpage', 'monthpage', 'yearpage', 'tags', 'sources', 'source', 'stats', 'map', 'feed', 'powers', 'whatsnew', 'settings', 'review', 'queue', 'calendar', 'practices', 'kind:practice'].includes(id)
+const holdsNotes = (id: string): boolean => !['pick', 'home', 'day', 'weekpage', 'monthpage', 'yearpage', 'tags', 'sources', 'source', 'stats', 'map', 'feed', 'powers', 'whatsnew', 'settings', 'review', 'queue', 'calendar', 'practices', 'kind:practice', 'pdf'].includes(id)
 /** A step onto a note (not a task, a day or an event): the page that shows it turns, as a book's does. */
 const turnsPage = (view: View): boolean => !!view.focus && holdsNotes(view.id) && !['today', 'tomorrow', 'upcoming', 'routines', 'later', 'alltasks', 'goals', 'week', 'matrix', 'discarded'].includes(view.id)
 /** Where one thing opens: a view by name, a day's page, or a note or task in its section. */
@@ -665,6 +666,20 @@ export function Home(): React.JSX.Element {
     const onNews = (): void => (chime('page'), setView({ id: 'whatsnew' }))
     window.addEventListener('haligtree:whats-new', onNews)
     return () => window.removeEventListener('haligtree:whats-new', onNews)
+  })
+  // A PDF opened full size (a note's PDF block, a gem's link back): a step in the pane in front, or beside it on ⌥-click.
+  useEffect(() => {
+    const onPdf = (event: Event): void => {
+      const { src, name, page } = (event as CustomEvent<{ src: string; name: string; page?: number }>).detail
+      const step: View = { id: 'pdf', focus: pdfFocus(src, name), tab: page ? String(page) : undefined }
+      const side = asideClick()
+      if (side) spendAsideClick()
+      chime('page')
+      if (side) asideRef.current(step)
+      else setView(step)
+    }
+    window.addEventListener('haligtree:pdf', onPdf)
+    return () => window.removeEventListener('haligtree:pdf', onPdf)
   })
   // Opened to the side from anywhere in the window: a row's menu, a note's ⋯, an @ link's card.
   useEffect(() => {
@@ -1182,7 +1197,7 @@ export function Home(): React.JSX.Element {
   /** A page's name, for the top bar; a pane is named by its note first (paneName). */
   /** The sidebar row lit for the page you are on, whichever date a day's, week's, month's or year's page shows (litRow). */
   const lit = (id: string): boolean => litRow(view.id, shown) === id
-  const labelOf = (view: View): string => datedName(view) ?? (view.id === 'matrix' ? 'Urgent and important' : TASK_PAGES.includes(view.id) ? 'Tasks' : view.id === 'questions' ? 'Questions' : null) ?? SECTIONS.find((section) => section.id === view.id)?.label ?? kind(view)?.label ?? (view.id === 'source' ? view.focus?.slice(view.focus.indexOf(':') + 1) || 'Source' : view.id === 'settings' ? 'Settings' : view.id === 'pick' ? 'New pane' : view.id === 'whatsnew' ? "What's new" : view.id === 'practices' ? 'Practices' : view.id === 'yearpage' ? 'Year' : view.id === 'day' ? 'Day' : view.id === 'weekpage' ? 'Week' : view.id === 'monthpage' ? 'Month' : '')
+  const labelOf = (view: View): string => datedName(view) ?? (view.id === 'matrix' ? 'Urgent and important' : TASK_PAGES.includes(view.id) ? 'Tasks' : view.id === 'questions' ? 'Questions' : null) ?? SECTIONS.find((section) => section.id === view.id)?.label ?? kind(view)?.label ?? (view.id === 'source' ? view.focus?.slice(view.focus.indexOf(':') + 1) || 'Source' : view.id === 'settings' ? 'Settings' : view.id === 'pick' ? 'New pane' : view.id === 'whatsnew' ? "What's new" : view.id === 'pdf' ? fromPdfFocus(view.focus ?? '').name.replace(/\.pdf$/i, '') || 'PDF' : view.id === 'practices' ? 'Practices' : view.id === 'yearpage' ? 'Year' : view.id === 'day' ? 'Day' : view.id === 'weekpage' ? 'Week' : view.id === 'monthpage' ? 'Month' : '')
   const paneWidth = (key: string, width: PaneWidth): void => {
     chime(width === 'narrow' ? 'fold' : 'slide')
     setSplit((now) => ({ ...now, panes: now.panes.map((one) => (one.key === key ? { ...one, width } : one)) }))
@@ -1383,6 +1398,8 @@ export function Home(): React.JSX.Element {
           <MapView onOpen={go} />
         ) : view.id === 'media' ? (
           <MediaView onOpen={go} />
+        ) : view.id === 'pdf' && view.focus ? (
+          <PdfReader key={view.focus} {...fromPdfFocus(view.focus)} page={Number(view.tab) || undefined} onPage={(page) => navFor(key, view).keep({ tab: String(page) })} />
         ) : view.id === 'whatsnew' ? (
           <WhatsNewPage focus={view.focus} onView={(id, focus) => setView({ id, focus }, key)} />
         ) : view.id === 'feed' ? (
