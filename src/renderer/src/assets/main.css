@@ -824,6 +824,10 @@ button:not(:disabled):not(.tiptap-drag-handle *) {
 button:not(:disabled):not(.tiptap-drag-handle *):active {
   transform: scale(0.97);
 }
+/* A list's row takes its pressed highlight in the next frame, not over 120ms: the fade made a press read as late. */
+button[data-row]:not(:disabled):active {
+  transition-property: transform;
+}
 @media (prefers-reduced-motion: reduce) {
   button:not(:disabled):not(.tiptap-drag-handle *):active {
     transform: none;
