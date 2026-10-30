@@ -48,9 +48,9 @@ function choose(scenes: Scene[], seed: string, moods: Mood[] | null, wide: boole
   // like a carousel. It stays until the seed changes (a new day, a reshuffle).
   const kept = scenes.find((one) => one.url === (picked.get(key) ?? restTaken()[key]))
   if (kept) return (picked.set(key, kept.url), kept)
-  // A rest moment's picture is one no other place has today, while there are
-  // enough to go round: by chance, two empty pages showed the same one.
-  const taken = seed.startsWith('rest:') ? new Set(Object.values(restTaken())) : new Set<string>()
+  // A rest moment's picture, and a day's, week's or month's banner, is one no other of them shows, while there are
+  // enough to go round: by chance, two empty pages, or the Week's and Month's pages, showed the same one.
+  const taken = /^(rest|day|week|month):/.test(seed) ? new Set([...Object.values(restTaken()), ...picked.values()]) : new Set<string>()
   // The hour's mood first; once its pictures are all in use, one of another mood before a repeat.
   const free = tiers.map((tier) => tier.filter((one) => !taken.has(one.url))).find((one) => one.length) ?? []
   // Each picture scored on its own against the seed, so where it sits in the
