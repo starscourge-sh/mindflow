@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react"
 import { createPortal } from "react-dom"
-import type { Extensions, JSONContent } from "@tiptap/core"
+import type { Attributes, Extensions, JSONContent } from "@tiptap/core"
 import { Fragment, Slice } from "@tiptap/pm/model"
 import { NodeSelection, Selection as PMSelection, type EditorState, type Transaction } from "@tiptap/pm/state"
 import { onlyWordsChanged } from "@/lib/tiptap-utils"
@@ -15,6 +15,7 @@ import { Markdown } from "@tiptap/markdown"
 import { Marked, type marked } from "marked"
 import { Image } from "@tiptap/extension-image"
 import { ListItem, TaskItem, TaskList } from "@tiptap/extension-list"
+import { isToDoList, toDoState } from "@/lib/pasted-todos"
 import { TextAlign } from "@tiptap/extension-text-align"
 import { Typography } from "@tiptap/extension-typography"
 import { Highlight } from "@tiptap/extension-highlight"
@@ -1189,9 +1190,22 @@ function Surface({
       ListItem.extend({
         content: "(paragraph|details|bulletList|orderedList|taskList) block*"
       }),
-      TaskList,
+      // To-dos pasted from Notion, Apple Notes or a web page come in as checklist items, ticked as they were,
+      // in every editor (lib/pasted-todos.ts); a plain list stays bullets.
+      TaskList.extend({
+        parseHTML() {
+          return [...(this.parent?.() ?? []), { tag: "ul", priority: 52, getAttrs: (element) => (isToDoList(element) ? null : false) }]
+        },
+      }),
       TaskItem.configure({ nested: true }).extend({
         content: "(paragraph|details|bulletList|orderedList|taskList) block*",
+        addAttributes() {
+          const own: Attributes = this.parent?.() ?? {}
+          return { ...own, checked: { ...own.checked, parseHTML: (element: HTMLElement) => own.checked?.parseHTML?.(element) || toDoState(element) === true } }
+        },
+        parseHTML() {
+          return [...(this.parent?.() ?? []), { tag: "li", priority: 52, getAttrs: (element) => (element.parentElement && isToDoList(element.parentElement) && toDoState(element) !== null ? null : false) }]
+        },
       }),
       ...(has("highlight") ? [Highlight.configure({ multicolor: true }), FullLineHighlight] : []),
       // "question :: answer": a review card, marked at the line's end.
