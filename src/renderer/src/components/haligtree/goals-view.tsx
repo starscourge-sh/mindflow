@@ -85,6 +85,13 @@ const setOnHome = (goal: Item, on: boolean): void => {
     toast(on ? 'Shown on Home: it comes first at the top of Home' : 'Off Home: the nearest goals show there instead', () => void haligtree.star(goal.id, !on)))
 }
 
+/** The goals strip put away from Home and today's Journal page; undoable, and Settings › Goals brings it back. */
+const hideStrip = (): void => {
+  chime('unstick')
+  void haligtree.setSettings({ goalStrip: false }).then(() =>
+    toast('Goals hidden here. “Goals at the top” in Settings brings them back', () => void haligtree.setSettings({ goalStrip: true })))
+}
+
 /** The short name a goal is logged under in quick capture: its last two words, as "+chapter three:" is for "Finish chapter three" (clueTarget finds the goal from it). */
 const goalWord = (goal: string): string => goal.trim().toLowerCase().replace(/[^\p{L}\p{N}\s-]/gu, '').split(/\s+/).slice(-2).join(' ')
 
@@ -1033,8 +1040,16 @@ export function GoalStrip({ onOpen, className = '' }: { onOpen?: (type: string, 
       {shown.map((goal) => {
         const left = daysLeft(goal.goalAt!, today)
         const way = wayThrough(goal.goalFrom ?? today, goal.goalAt!)
+        // Right-click: what to do with this goal here, and the strip itself put away (Settings, Goals, brings it back).
+        const menu: MenuItem[] = [
+          { label: 'Open the goal', run: () => onOpen?.('goal', goal.id) },
+          { label: onHome(goal) ? 'Stop putting it first' : 'Put it first', run: () => setOnHome(goal, !onHome(goal)) },
+          'separator',
+          { label: 'Hide goals here', run: hideStrip }
+        ]
         return (
-          <div key={goal.id} role="button" tabIndex={0} data-strip-goal={goal.id} data-private={goal.private ? '' : undefined}
+          <RowMenu key={goal.id} items={menu}>
+          <div role="button" tabIndex={0} data-strip-goal={goal.id} data-private={goal.private ? '' : undefined}
             onClick={() => (chime('open'), onOpen?.('goal', goal.id))}
             onKeyDown={(event) => event.key === 'Enter' && event.target === event.currentTarget && onOpen?.('goal', goal.id)}
             className="group/goal flex cursor-pointer flex-col gap-1.5 rounded-md px-2 py-1.5 text-control outline-none transition-colors hover:bg-foreground/[0.045] focus-visible:bg-foreground/[0.045]">
@@ -1055,6 +1070,7 @@ export function GoalStrip({ onOpen, className = '' }: { onOpen?: (type: string, 
             </span>
             <GoalBar left={left} way={way} className="ml-5.5" />
           </div>
+          </RowMenu>
         )
       })}
       {open.length > shown.length && (

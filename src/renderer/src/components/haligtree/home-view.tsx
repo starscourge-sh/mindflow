@@ -843,7 +843,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
       <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[20rem] transition-[background-color] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]"
         style={{ backgroundColor: band ?? 'transparent', maskImage: 'linear-gradient(to bottom, black 0%, black 20%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 20%, transparent 100%)' }} />
       {opened && <BookOpened opened={opened} />}
-      {/* Open goals, quiet, above everything else: never hidden while one is open. */}
+      {/* Open goals, quiet, above everything else, unless put away (Settings, “Goals at the top”, or right-click a goal). */}
       <GoalStrip onOpen={(type, id) => (type === 'view' ? onView(id) : onOpen(type, id))} className="page-column relative w-full px-3 pt-3 @[44rem]/page:px-6" />
       {/* Now: the one card that fits the moment on top, the rest behind "2
           more" (now-slot.tsx). Each keeps its own moment; ranked here by how

@@ -926,7 +926,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
           </Setting>
         </Group>
         <Group section="What comes back to you" title="Goals">
-          <Setting title="Goals at the top" note="Open goals in a slim strip in the Journal." more="The days left, a line of the time gone, and when you last logged." keywords="goals strip home today countdown">
+          <Setting title="Goals at the top" note="Open goals in a slim strip at the top of Home and of today in the Journal." more="The days left, a line of the time gone, and when you last logged. Right-click a goal there to put it first, or to hide the strip." keywords="goals strip home journal today countdown hide show visibility">
             <Switch checked={settings.goalStrip !== false} onCheckedChange={(goalStrip) => set({ goalStrip })} />
           </Setting>
           <Setting title="Time as dots" note="How far through the day, week, month and year you are, in the menu bar." more="As beads, or as plain bars." keywords="tempus menu bar day week month year dots bars progress">
