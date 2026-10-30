@@ -7,12 +7,33 @@ import { keyFor } from '@/lib/keys'
 import { noteLinkText } from '@/lib/capture-links'
 
 /** One line of a right-click menu, a line that opens a few more beside it, or a rule between groups. */
-export type MenuItem = { label: string; /** What it means, as a tip to its right: the label stays a short name. */ hint?: string; run: () => void; keys?: string; danger?: boolean; icon?: ReactNode; trail?: ReactNode; /** A name for it on the page (data-menu-item), for a probe. */ id?: string } | 'separator' | false | null | undefined
+export type MenuItem = { label: string; /** What it means, as a tip to its right: the label stays a short name. */ hint?: string; run: () => void; keys?: string; danger?: boolean; icon?: ReactNode; trail?: ReactNode; /** A name for it on the page (data-menu-item), for a probe. */ id?: string
+  /** About the whole list or picking in it, not the thing right-clicked (Select, Select all, every goal on a sticky): never in an item's menu, only in the list's own. */
+  about?: 'list'
+  /** Whether it can run here, read as the menu opens: false leaves it out, so a menu never offers what then refuses. */
+  can?: () => boolean } | 'separator' | false | null | undefined
 /** A row menu's line can also open a few more beside it (Group with…). */
 export type RowItem = MenuItem | { label: string; items: RowItem[]; icon?: ReactNode } | { heading: string }
   /** A row of colour swatches, the one in use ticked (an event's colour). */
   | { swatches: { color: string; label: string; on: boolean; run: () => void }[] }
 type Shown = Exclude<RowItem, false | null | undefined>
+
+/**
+ * The one rule every menu passes through: a line shows only where it fits.
+ * An item's menu (a row, a pin, a card) leaves out what is about the whole
+ * list, and every menu leaves out a line that cannot run where it was opened,
+ * so nothing is offered that then says no. Nested lines are held to it too.
+ */
+export const fits = (items: RowItem[], list = false): RowItem[] =>
+  items.flatMap((item): RowItem[] => {
+    if (!item || item === 'separator') return [item]
+    if ('items' in item) {
+      const inner = fits(item.items, list)
+      return inner.some((one) => one && one !== 'separator') ? [{ ...item, items: inner }] : []
+    }
+    if (!('run' in item)) return [item]
+    return (item.about === 'list' && !list) || (item.can && !item.can()) ? [] : [item]
+  })
 
 /** Rules only between groups of lines: never first, last or twice in a row, whatever was left out. */
 export const tidy = <T,>(items: (T | 'separator')[]): (T | 'separator')[] =>
@@ -43,7 +64,7 @@ export function nest(items: RowItem[]): RowItem[] {
 
 /** A menu with its nested lines laid out flat again, for a menu that cannot open one beside it. */
 export const flat = (items: RowItem[]): MenuItem[] =>
-  items.flatMap((item): MenuItem[] => (item && item !== 'separator' && 'items' in item ? flat(item.items) : item && item !== 'separator' && ('heading' in item || 'swatches' in item) ? [] : [item as MenuItem]))
+  fits(items).flatMap((item): MenuItem[] => (item && item !== 'separator' && 'items' in item ? flat(item.items) : item && item !== 'separator' && ('heading' in item || 'swatches' in item) ? [] : [item as MenuItem]))
 
 /** The lines of a menu, drawn: shared by the menu and the ones that open beside it. */
 const lines = (items: Shown[]): React.ReactNode =>
@@ -120,8 +141,10 @@ const pasteInto = (field: HTMLElement): void =>
  * Given an element, the lines act on it (a note's editor) whatever was clicked.
  * `items` may be read as the menu opens, from the field right-clicked.
  */
-export function RowMenu({ items, writes, children }: { items: RowItem[] | ((field: HTMLElement | null) => RowItem[]); writes?: boolean | HTMLElement; children: ReactElement }): React.JSX.Element {
+export function RowMenu({ items, writes, list = false, children }: { items: RowItem[] | ((field: HTMLElement | null) => RowItem[]); writes?: boolean | HTMLElement; /** The list's own menu (its empty space, its heading): lines about the whole list belong here. */ list?: boolean; children: ReactElement }): React.JSX.Element {
   const [writing, setWriting] = useState<Writing | null>(null)
+  // Read again each time it opens: whether a line can run (a note on show to picture) is a question of that moment.
+  const [, setOpened] = useState(0)
   // A line chosen that moves on (Open, Pick a date…) keeps where it went; an edit line, or none, comes back to the words.
   const after = useRef<'back' | 'stay' | (() => void)>('back')
   const editable = !!writing && !(writing.field instanceof HTMLTextAreaElement || writing.field instanceof HTMLInputElement ? writing.field.readOnly || writing.field.disabled : false)
@@ -133,14 +156,14 @@ export function RowMenu({ items, writes, children }: { items: RowItem[] | ((fiel
         editable && { label: 'Paste', keys: '⌘V', run: () => void (after.current = () => pasteInto(writing.field)) }
       ]
     : []
-  const own = typeof items === 'function' ? items(writing?.field ?? null) : items
+  const own = fits(typeof items === 'function' ? items(writing?.field ?? null) : items, list)
   const mark = (list: RowItem[]): RowItem[] => list.map((item) => (item && item !== 'separator' && 'run' in item ? { ...item, run: () => ((after.current = 'stay'), item.run()) } : item && item !== 'separator' && 'items' in item ? { ...item, items: mark(item.items) } : item))
   // The edit lines after the nesting: their Copy is the words', never folded in with the row's copies.
   const shown = [...nest(writes ? mark(own) : own), ...edits].filter(Boolean) as Shown[]
   // Nothing to offer: the row's own right click, not an empty menu.
   if (!writes && !shown.some((item) => item !== 'separator')) return children
   return (
-    <ContextMenu onOpenChange={(open) => open && (after.current = 'back')}>
+    <ContextMenu onOpenChange={(open) => open && ((after.current = 'back'), setOpened((count) => count + 1))}>
       <ContextMenuTrigger asChild onContextMenuCapture={writes ? (event) => {
         const field = writes instanceof HTMLElement ? writes : fieldOf(event.target)
         setWriting(field ? writingAt(field) : null)
@@ -216,11 +239,11 @@ export const copyLinkItem = (key: string, words: string): MenuItem => ({ label: 
  * The same lines in a menu the Mac draws, for a window too small to hold one
  * of ours (a sticky): the line chosen runs as it would in the row's menu.
  */
-export async function nativeMenu(items: RowItem[]): Promise<void> {
+export async function nativeMenu(items: RowItem[], list = false): Promise<void> {
   // Folded as the row's menu folds them, at the top only: what is folded in stays as it is.
   const shown = (list: RowItem[]): Shown[] => tidy(list.filter((one) => one && !(one !== 'separator' && 'heading' in one)) as Shown[])
   const lines = (list: Shown[]): unknown[] => list.map((one) => (one === 'separator' ? { separator: true } : 'items' in one ? { label: one.label, submenu: lines(shown(one.items)) } : { label: 'label' in one ? one.label : '' }))
-  const top = shown(nest(items))
+  const top = shown(nest(fits(items, list)))
   const path = await window.api.stickyMenu(lines(top))
   if (!path) return
   let at: Shown | undefined = top[path[0]]

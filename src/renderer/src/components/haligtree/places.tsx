@@ -141,6 +141,9 @@ export const litRow = (id: string, shown: string[] = []): string =>
     : (id === 'weekpage' || id === 'monthpage') && shown.includes(id) ? id : id === 'weekpage' || id === 'monthpage' || id === 'yearpage' ? 'day' : id
 
 /** The sidebar's places, in their usual order: the same in every book. */
+/** Pages reached under Journal only, never sidebar rows: no menu or switch offers to put them there. */
+export const OFF_SIDEBAR = ['weekpage', 'monthpage']
+
 export function useSections(): typeof SECTIONS {
   return SECTIONS
 }
@@ -309,7 +312,8 @@ export function PlaceIcon({ place, full }: { place: Place; full?: boolean }): Re
 /** The sidebar's pages that carry a count beside them (home.tsx, counts); the rest only show something, or are a place to set things down. */
 const COUNTED = ['review', 'today', 'nuggets', 'articles', 'questions', 'goals', 'queue', 'lookups', 'sources']
 
-export function ShowList({ places: given, setting, counts }: { places: Place[]; setting: Shown; counts?: Record<string, number> }): React.JSX.Element {
+export function ShowList({ places: every, setting, counts }: { places: Place[]; setting: Shown; counts?: Record<string, number> }): React.JSX.Element {
+  const given = setting === 'sidebarShown' ? every.filter((one) => !OFF_SIDEBAR.includes(one.id)) : every
   const shown = useShown(setting)
   // The sidebar's own places for this book, laid out as it lays them out.
   const sections = useSections()

@@ -3,7 +3,7 @@
 // pointed at; its rows starting and ending where every other row does; two of
 // a group's notes dropped one on the other making a subgroup in it; a group
 // dropped on another's row going inside it; all of it kept after a reload;
-// and "Read as one page" reading the folder's notes as one stream.
+// and a folder's menu offering what acts on the folder, never "Read as one page".
 //
 //   npx electron-vite build --outDir out-x
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=<dir> node qa/group-nest.mjs
@@ -122,20 +122,13 @@ try {
   await c.go('articles')
   await wait(900)
 
-  // 41: a group's own page.
+  // 41: a folder's menu acts on the folder: no "Read as one page" in it.
   await head('Design patterns').click({ button: 'right' })
   await wait(400)
-  await h.getByRole('menuitem', { name: 'Read as one page' }).click()
-  await wait(1500)
-  check('"Read as one page" reads the folder as a page of its own', await h.locator('[data-group-page="dp"]').count() === 1)
-  const notes = await h.locator('[data-group-note]').count()
-  check('with every note in it, its subgroups\' too', notes === 6, String(notes))
-  const heads = await h.evaluate(() => [...document.querySelectorAll('[data-group-part] h2')].map((one) => one.textContent.trim()))
-  check('each subgroup under its own name', heads.includes('Structural'), heads.join(', '))
-  await h.screenshot({ path: `${dir}/41-group-page.png` })
+  const lines = await h.locator('[role="menu"] [role="menuitem"]').allInnerTexts()
+  check('a folder\'s menu has no "Read as one page"', lines.length > 0 && !lines.some((one) => /one page/i.test(one)), lines.join(' | '))
   await h.keyboard.press('Escape')
-  await wait(700)
-  check('Escape goes back to the list', await h.locator('[data-group-page]').count() === 0 && await h.locator('[data-group-block="dp"]').count() === 1)
+  await wait(400)
   check('no errors on the page', c.errors.length === 0, c.errors.slice(0, 3).join(' | '))
 } finally { await c.close() }
 const passed = results.filter(Boolean).length

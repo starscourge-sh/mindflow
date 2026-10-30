@@ -69,9 +69,9 @@ export function usePickNotes(shown: string[], cursor: number, { here, noun, tier
     put && 'separator',
     binItem(live.map((id) => ({ type: tier, id })), () => setChosen([])),
     'separator',
-    !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
+    !allPicked && { label: 'Select all', about: 'list', keys: '⌘A', run: selectAll },
     { label: 'Clear the selection', keys: 'esc', run: clear }
   ] : null
-  const rowItems = (id: string): MenuItem[] => ['separator', { label: live.includes(id) ? 'Unselect' : 'Select', keys: 'X', run: () => toggle(id) }, !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll }]
+  const rowItems = (id: string): MenuItem[] => ['separator', { label: live.includes(id) ? 'Unselect' : 'Select', about: 'list', keys: 'X', run: () => toggle(id) }, !allPicked && { label: 'Select all', about: 'list', keys: '⌘A', run: selectAll }]
   return { chosen: live, toggle, picking, bar, menu, rowItems }
 }

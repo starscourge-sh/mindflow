@@ -102,8 +102,8 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
     // Out of sight, not gone: the same way out as in the main window, undoable.
     { label: 'Archive', hint: 'Kept, out of sight', run: () => void archive('nuggets', [item.id], true) },
     binItem(binRefs([item.id])),
-    { label: chosenSet.has(item.id) ? 'Unselect' : 'Select', keys: 'X', run: () => choose(item.id) },
-    !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
+    { label: chosenSet.has(item.id) ? 'Unselect' : 'Select', about: 'list', keys: 'X', run: () => choose(item.id) },
+    !allPicked && { label: 'Select all', about: 'list', keys: '⌘A', run: selectAll },
     'separator',
     { label: 'Copy the question', run: () => copy(item.title) }
   ]
@@ -118,7 +118,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
     { label: `Archive ${num(chosen.length)}`, hint: 'Kept, out of sight', run: () => void archive('nuggets', chosen, true).then(() => setChosen([])) },
     binItem(binRefs(chosen), () => setChosen([])),
     'separator',
-    !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
+    !allPicked && { label: 'Select all', about: 'list', keys: '⌘A', run: selectAll },
     { label: 'Clear the selection', keys: 'esc', run: () => (chime('off'), setChosen([])) }
   ] : null
   const menuFor = (item: Item): MenuItem[] => manyMenu && chosenSet.has(item.id) ? manyMenu : [
@@ -133,8 +133,8 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
     { label: 'Archive', hint: 'Kept, out of sight', run: () => void archive('nuggets', [item.id], true) },
     binItem(binRefs([item.id])),
     'separator',
-    { label: chosenSet.has(item.id) ? 'Unselect' : 'Select', keys: 'X', run: () => choose(item.id) },
-    !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
+    { label: chosenSet.has(item.id) ? 'Unselect' : 'Select', about: 'list', keys: 'X', run: () => choose(item.id) },
+    !allPicked && { label: 'Select all', about: 'list', keys: '⌘A', run: selectAll },
     'separator',
     { label: 'Copy title', run: () => copy(item.title) }
   ]

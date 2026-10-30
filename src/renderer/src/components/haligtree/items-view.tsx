@@ -5,7 +5,6 @@ import { FadedLine } from './feed-view'
 import { openRead } from './read-through'
 import { propertySorts } from '@/lib/property-sorts'
 import { ReadsIn } from '@/lib/reads-in'
-import { GroupPage, type GroupParts } from './group-page'
 import { quoted } from '../../../../main/clip'
 import { voiceOf } from '@/lib/sources'
 import { SourceFoot } from './source-page'
@@ -531,14 +530,14 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     'separator',
     binItem(binRefs(chosen), () => setChosen([])),
     'separator',
-    !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
+    !allPicked && { label: 'Select all', about: 'list', keys: '⌘A', run: selectAll },
     { label: 'Clear the selection', keys: 'esc', run: () => (chime('off'), setChosen([])) }
   ] : null
   const menuFor = (item: Item): RowItem[] => manyMenu && chosenSet.has(item.id) ? manyMenu : item.tier === 'question' ? [
     { label: 'Open', keys: '↵', run: () => pick(item.id) },
     ...questionMenu(item, inView.has(item.id)),
-    { label: chosenSet.has(item.id) ? 'Unselect' : 'Select', keys: 'X', run: () => toggle(item.id) },
-    !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
+    { label: chosenSet.has(item.id) ? 'Unselect' : 'Select', about: 'list', keys: 'X', run: () => toggle(item.id) },
+    !allPicked && { label: 'Select all', about: 'list', keys: '⌘A', run: selectAll },
     'separator',
     binItem(binRefs([item.id]))
   ] : [
@@ -547,8 +546,8 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     { label: item.pinnedAt ? 'Unpin' : 'Pin to the sidebar', run: () => pin('nuggets', item.id, !item.pinnedAt) },
     ...itemMenu(item),
     item.unsorted ? { label: 'Mark as sorted', hint: 'Kept where it is', run: () => markSorted([item.id], true) } : null,
-    { label: chosenSet.has(item.id) ? 'Unselect' : 'Select', keys: 'X', run: () => toggle(item.id) },
-    !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
+    { label: chosenSet.has(item.id) ? 'Unselect' : 'Select', about: 'list', keys: 'X', run: () => toggle(item.id) },
+    !allPicked && { label: 'Select all', about: 'list', keys: '⌘A', run: selectAll },
     'separator',
     ...folding.menu([item.id]),
     'separator',
@@ -558,8 +557,6 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     binItem(binRefs([item.id]))
   ]
 
-  // A group read as a page of its own, in place of the list.
-  const [ownPage, setOwnPage] = useState<string | null>(null)
   // A row (or every picked row, it among them) carried onto one of this list's folders in the sidebar (split-drop.tsx).
   const moveIntoRef = useRef(folding.moveInto)
   moveIntoRef.current = folding.moveInto
@@ -572,10 +569,6 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     window.addEventListener('haligtree:folder-drop', onDrop)
     return () => window.removeEventListener('haligtree:folder-drop', onDrop)
   }, [chosen])
-  // A group read as one page only when asked for from its row; a folder from the sidebar opens as a list.
-  const pageGroup = ownPage
-  const setPageGroup = setOwnPage
-  const paged = pageGroup ? noteGroups.find((one) => one.id === pageGroup) : undefined
   // A question is drawn as one, with its "?" mark, how long it has been held and its clues.
   const entryOf = (one: Item): Entry => (one.tier === 'question' ? questionEntry(one, inView.has(one.id), menuFor(one) as MenuItem[]) : itemEntry(one, () => menuFor(one)))
   const entries: [string, Entry[]][] = !listShown && !(open && (pane === 'rail' || boarded)) ? [] : tiles || folder
@@ -593,7 +586,6 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     : groups.map(([name, list]) => [name, list.map(entryOf)] as [string, Entry[]])
   // Until the notes and your groups are read, the list and where a note sits in it are not known.
   const listUnread = unloaded(all) || unloaded(noteGroups) || (writing && unloaded(pinnedQuestions))
-  if (paged) return <GroupPage group={paged} parts={folding.partsOf(paged.id, noteGroups)} onClose={() => setPageGroup(null)} onOpen={(id) => (setPageGroup(null), pick(id))} />
   return (
     // The list and the note open beside it come in together, once both are read (lib/reads-in.tsx); sent here for a note, the note never waits for the list.
     <ReadsIn className="contents">
@@ -756,7 +748,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
           <NoteList groups={entries} density={density} table="nuggets" selected={spread ? peek ?? undefined : coming ?? open?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
             onPick={spread ? (id) => (isGroup(id) ? pick(id) : (setPeek(id), setCursor(items.findIndex((one) => one.id === id)))) : pick} onOpen={spread ? pick : undefined}
             picking={picking} onMove={view.sort === 'manual' ? onMove : undefined} after={glossAfter} className={spread ? 'list-edge my-3' : 'list-edge my-2'}
-            folds={folding.rows ? { ...folding.folds(menuFor), onNewNote: pick, onSort: setSorting, onSorted: markSorted, onPage: setPageGroup, onOpenFolder: onFolder ?? undefined } : undefined} />
+            folds={folding.rows ? { ...folding.folds(menuFor), onNewNote: pick, onSort: setSorting, onSorted: markSorted, onOpenFolder: onFolder ?? undefined } : undefined} />
         ) : questionsOnly && !unloaded(all) && !all.length ? (
           // No questions yet: the page as it will look, as every other list shows itself.
           <Example tryIt="press H on a note in your Inbox, or “New question” above. It is held here, gathering dated clues until you know.">
@@ -1477,8 +1469,6 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
   menu: (ids: string[]) => RowItem[]
   /** A new group of these, named at once. */
   gatherNew: (ids: string[]) => void
-  /** A group's notes in order, for its own page: its own, and each subgroup's under its name. */
-  partsOf: (id: string, all: NoteGroup[]) => GroupParts
   folds: (menuFor: (item: Item) => RowItem[]) => Omit<Folds, 'onNewNote'>
   reveal: (id: string) => boolean
   /** These notes carried onto a folder in the sidebar: into that group, at its end. */
@@ -1739,19 +1729,6 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
   })
   const tiles = (list: Item[]): ({ group: NoteGroup; items: Item[] } | { item: Item })[] =>
     blocks(layout, list).flatMap((one): ({ group: NoteGroup; items: Item[] } | { item: Item })[] => (one.group && info.get(one.group) ? [{ group: info.get(one.group)!, items: one.items }] : one.items.map((item) => ({ item }))))
-  const partsOf = (id: string, all: NoteGroup[]): GroupParts => {
-    const every_ = blocks(layout, every, null)
-    const found = every_.find((one) => one.group === id)
-    // A subgroup (opened from its folder in the sidebar): its notes, as its group holds them.
-    if (!found) return every_.flatMap((one) => one.parts ?? []).flatMap((part) => ('sub' in part && part.sub === id ? [{ items: part.items }] : []))
-    // Its own notes first, in order, then each subgroup's under its name.
-    const parts = found?.parts ?? []
-    const own = parts.flatMap((part) => ('item' in part ? [part.item] : []))
-    return [
-      ...(own.length ? [{ items: own }] : []),
-      ...parts.flatMap((part) => ('sub' in part ? [{ sub: all.find((one) => one.id === part.sub), items: part.items }] : []))
-    ]
-  }
   // The open note's group (and subgroup) opened for now, quietly, when it is shut: its row is never out of sight.
   const reveal = (id: string): boolean => {
     const one = blocks(layout).find((block) => block.group && block.items.some((item) => item.id === id))
@@ -1785,5 +1762,5 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     return true
   }
   const newFolder = (): void => void noteGroupsApi.make(tier, 'New folder', within ?? null).then((id) => (chime('promote'), setRenaming(id), setBorn(id), quietly(() => void noteGroupsApi.remove(id))))
-  return { rows: shown ? rowsOf(layout) : null, tiles, step, menu, gatherNew, folds, partsOf, reveal, moveInto, newFolder }
+  return { rows: shown ? rowsOf(layout) : null, tiles, step, menu, gatherNew, folds, reveal, moveInto, newFolder }
 }

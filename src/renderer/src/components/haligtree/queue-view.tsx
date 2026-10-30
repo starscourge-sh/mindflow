@@ -250,10 +250,10 @@ export function QueueView(): React.JSX.Element {
       'separator',
       { label: `Take ${num(live.length)} out of the queue`, keys: '⌫', danger: true, run: () => takeOut(live) },
       'separator',
-      !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
+      !allPicked && { label: 'Select all', about: 'list', keys: '⌘A', run: selectAll },
       { label: 'Clear the selection', keys: 'esc', run: clear }
     ] : null,
-    rowItems: ['separator', { label: live.includes(row.id) ? 'Unselect' : 'Select', keys: 'X', run: () => toggle(row.id) }, !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll }]
+    rowItems: ['separator', { label: live.includes(row.id) ? 'Unselect' : 'Select', about: 'list', keys: 'X', run: () => toggle(row.id) }, !allPicked && { label: 'Select all', about: 'list', keys: '⌘A', run: selectAll }]
   })
   return (
     <Page title="Queue" count={live.length || queue.length} unit={live.length ? ['selected', 'selected'] : ['to read', 'to read']}
@@ -329,7 +329,7 @@ export function QueueView(): React.JSX.Element {
                       'separator',
                       { label: `Take ${num(readLive.length)} out of Read`, keys: '⌫', danger: true, run: () => forgetRead(readLive) },
                       'separator',
-                      readLive.length < readIds.length && { label: 'Select all', keys: '⌘A', run: selectAllRead },
+                      readLive.length < readIds.length && { label: 'Select all', about: 'list', keys: '⌘A', run: selectAllRead },
                       { label: 'Clear the selection', keys: 'esc', run: () => (chime('off'), setReadChosen([])) }
                     ] : [
                       { label: 'Open', run: () => window.api.openInHome(row.type, row.itemId) },
@@ -338,8 +338,8 @@ export function QueueView(): React.JSX.Element {
                       'separator',
                       { label: 'Take out of Read', hint: 'It stays where it is', keys: '⌫', danger: true, run: () => forgetRead([row.id]) },
                       'separator',
-                      { label: picked ? 'Unselect' : 'Select', keys: 'X', run: () => readToggle(row.id) },
-                      readLive.length < readIds.length && { label: 'Select all', keys: '⌘A', run: selectAllRead }
+                      { label: picked ? 'Unselect' : 'Select', about: 'list', keys: 'X', run: () => readToggle(row.id) },
+                      readLive.length < readIds.length && { label: 'Select all', about: 'list', keys: '⌘A', run: selectAllRead }
                     ]
                     return (
                       <RowMenu key={row.id} items={menu}>

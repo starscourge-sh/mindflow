@@ -111,12 +111,12 @@ export function useTaskPick(shown: Task[], cursor: number, { here, off = false }
     toNoteItem(live, () => setChosen([])),
     binItem(binRefs(live), () => setChosen([])),
     'separator',
-    !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
+    !allPicked && { label: 'Select all', about: 'list', keys: '⌘A', run: selectAll },
     { label: 'Clear the selection', keys: 'esc', run: clear }
   ] : null
   const rowItems = (id: string): RowItem[] => [
-    { label: live.includes(id) ? 'Unselect' : 'Select', keys: 'X', run: () => toggle(id) },
-    !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll }
+    { label: live.includes(id) ? 'Unselect' : 'Select', about: 'list', keys: 'X', run: () => toggle(id) },
+    !allPicked && { label: 'Select all', about: 'list', keys: '⌘A', run: selectAll }
   ]
   return { chosen: live, toggle, click: picking.click, extend: picking.extend, bar, menu, rowItems }
 }

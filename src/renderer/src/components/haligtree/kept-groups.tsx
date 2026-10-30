@@ -5,7 +5,7 @@ import { SortableContext, useSortable, type SortingStrategy } from '@dnd-kit/sor
 /** dnd-kit moves no row itself: where each one slides is worked out once, for rows and panels alike (Shaped). */
 const unmoved: SortingStrategy = () => null
 import { AnimatePresence, animate, motion, motionValue, useMotionValue, useSpring, useTransform, type MotionValue } from 'motion/react'
-import { BookOpen, ChevronRight, GripVertical, ImagePlus, Layers, Plus, X as Cross } from 'lucide-react'
+import { ChevronRight, GripVertical, ImagePlus, Layers, Plus, X as Cross } from 'lucide-react'
 import { saveImage } from '@/extensions/image-drop'
 
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu'
@@ -80,8 +80,6 @@ export type Folds = {
   onFold: (group: GroupView, open: boolean) => void
   /** A note just made in a group, to open. */
   onNewNote: (id: string) => void
-  /** A group read as a page of its own. */
-  onPage?: (id: string) => void
   /** A folder opened, as Finder opens one: the list shows only what it holds. */
   onOpenFolder?: (id: string) => void
   /** The group whose name is being written, as one just made is. */
@@ -304,7 +302,7 @@ function Node({ id, children, inner, indent = 0 }: { id: string; children: React
  * every list does; `index` counts rows on show, which is what the keyboard's
  * cursor counts.
  */
-export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo, onFold, onNewNote, onPage, onOpenFolder, renaming, onRenaming, born, onSort, onSorted, face, after, arrived, cursor, estimate, className }: Folds & {
+export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo, onFold, onNewNote, onOpenFolder, renaming, onRenaming, born, onSort, onSorted, face, after, arrived, cursor, estimate, className }: Folds & {
   face: (entry: Entry, index: number) => React.JSX.Element
   after?: (entry: Entry) => ReactNode
   arrived: (id: string) => boolean
@@ -596,7 +594,7 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
   // A group's block, and inside it each subgroup's, drawn the same way one level in.
   const block = (group: GroupView, entries: Entry[], parts: Part[] | undefined, start: number, inner = false): React.JSX.Element => (
     <GroupBlock key={group.id} group={group} entries={entries} parts={parts} start={start} cursor={cursor} estimate={estimate} row={row} inner={inner} carried={carried === KEY + group.id} renaming={renaming === group.id}
-      born={born === group.id} onRenaming={(on) => onRenaming(on ? group.id : null)} onFold={(open) => onFold(group, open)} onNewNote={onNewNote} onPage={onPage} onOpenFolder={onOpenFolder} onSort={onSort} onSorted={onSorted}
+      born={born === group.id} onRenaming={(on) => onRenaming(on ? group.id : null)} onFold={(open) => onFold(group, open)} onNewNote={onNewNote} onOpenFolder={onOpenFolder} onSort={onSort} onSorted={onSorted}
       sub={(child, at) => block(child.group, child.entries, child.parts, at, true)} />
   )
   return (
@@ -902,8 +900,7 @@ const change = (group: GroupView, patch: Parameters<typeof groups.set>[1]): void
   })
 }
 
-function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carried, renaming, born, onRenaming, onFold, onNewNote, onPage, onOpenFolder, onSort, onSorted, sub, inner = false }: {
-  onPage?: (id: string) => void
+function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carried, renaming, born, onRenaming, onFold, onNewNote, onOpenFolder, onSort, onSorted, sub, inner = false }: {
   onOpenFolder?: (id: string) => void
   group: GroupView
   entries: Entry[]
@@ -1099,7 +1096,7 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
                   )}
                 </ContextMenuTrigger>
                 </Tip>
-                <GroupMenu group={group} members={entries.map((entry) => entry.id)} onPage={onPage && (() => (chime('open'), onPage(group.id)))} onOpenFolder={onOpenFolder && (() => (chime('open'), onOpenFolder(group.id)))} onSeparate={separate} onRename={() => onRenaming(true)} onIcon={() => setPicking(true)} onNewNote={onNewNote} onSort={onSort} onSorted={onSorted} />
+                <GroupMenu group={group} members={entries.map((entry) => entry.id)} onOpenFolder={onOpenFolder && (() => (chime('open'), onOpenFolder(group.id)))} onSeparate={separate} onRename={() => onRenaming(true)} onIcon={() => setPicking(true)} onNewNote={onNewNote} onSort={onSort} onSorted={onSorted} />
               </ContextMenu>
               {/* Open until an icon is picked, Esc, or a click elsewhere: the focus moving on as the menu shuts never closes it. */}
               <PopoverContent align="start" className="w-auto gap-0 overflow-hidden p-0" onFocusOutside={(event) => event.preventDefault()}>
@@ -1230,9 +1227,8 @@ function Fold({ open, children }: { open: boolean; children: ReactNode }): React
 }
 
 /** A right click on a group's row: Haligtree's own menu, with its colours as a row of dots. */
-function GroupMenu({ group, members, onPage, onOpenFolder, onSeparate, onRename, onIcon, onNewNote, onSort, onSorted }: {
+function GroupMenu({ group, members, onOpenFolder, onSeparate, onRename, onIcon, onNewNote, onSort, onSorted }: {
   group: GroupView
-  onPage?: () => void
   onOpenFolder?: () => void
   members: string[]
   onSeparate: () => void
@@ -1247,8 +1243,7 @@ function GroupMenu({ group, members, onPage, onOpenFolder, onSeparate, onRename,
   return (
     <ContextMenuContent className="w-56" onCloseAutoFocus={(event) => event.preventDefault()}>
       {onOpenFolder && <ContextMenuItem data-group-open onSelect={later(onOpenFolder)}>Open folder</ContextMenuItem>}
-      {onPage && <ContextMenuItem data-group-open-page onSelect={later(onPage)}><BookOpen className="size-3.5" />Read as one page</ContextMenuItem>}
-      {(onOpenFolder || onPage) && <ContextMenuSeparator />}
+      {onOpenFolder && <ContextMenuSeparator />}
       {left.length > 0 && onSort && <ContextMenuItem onSelect={later(() => onSort(left))}>Sort these ({left.length})</ContextMenuItem>}
       {left.length > 0 && onSorted && <ContextMenuItem onSelect={() => onSorted(left, true)}>Mark all as sorted</ContextMenuItem>}
       {left.length > 0 && <ContextMenuSeparator />}

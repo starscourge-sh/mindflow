@@ -21,7 +21,7 @@ import { tintFor } from '@/lib/pictures'
 import { notes, smallPicture, useThumb, type GraphNode, type MapEdge, type NoteTable, type Version } from '@/lib/notes'
 import { useLive, haligtree } from '@/lib/haligtree'
 import { Chips } from './display'
-import { copy, flat, type MenuItem, type RowItem } from './row-menu'
+import { copy, fits, flat, type MenuItem, type RowItem } from './row-menu'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import BookIcon from '@/components/ui/book-icon'
@@ -611,7 +611,7 @@ export function NoteHeader({ left, back, type = 'capture', edited, captured, mad
   const OWN = ['Pin', 'Unpin', 'Pin to the sidebar', 'Copy link', 'Version history', 'Read']
   // Opened away from its own list (search, a link, its own window): that list, the main window's, opened on it, which shows its row.
   const show = useShowLine() ?? { label: 'Show in list', run: () => window.api.openInHome(type, String(versions.id), 'show-in-list') }
-  const all = [...(show ? [show, 'separator' as const] : []), ...menu].filter((item) => item && (item === 'separator' || !OWN.includes(item.label))) as Exclude<MenuItem | { label: string; items: RowItem[] }, false | null | undefined>[]
+  const all = (fits([...(show ? [show, 'separator' as const] : []), ...menu]) as typeof menu).filter((item) => item && (item === 'separator' || !OWN.includes(item.label))) as Exclude<MenuItem | { label: string; items: RowItem[] }, false | null | undefined>[]
   // The ways to look at this note, together at the top of "…", each saying how it differs from the others.
   const VIEW_SAYS: Record<string, string> = {
     'Writing room': 'The page alone, full screen, to write',

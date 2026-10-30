@@ -4,7 +4,7 @@
 // in the sidebar, the folder row and the header, New and ⇧⌘N make things
 // inside, a note carried onto the path goes up (and Undo brings it back),
 // F2 renames, "Delete folder, keep its notes" keeps them, an empty folder
-// says so calmly, and "Read as one page" opens the folder as one stream.
+// says so calmly, and a folder's menu never offers "Read as one page".
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 [SHOTS=<dir>] node qa/folders-finder.mjs
 process.env.QA_ARGS ??= '--sandbox'
 const { sandbox } = await import('./sandbox-lib.mjs')
@@ -94,21 +94,15 @@ try {
   const kept = (await named('Renaissance')).members
   await h.locator(`[data-group-row="${renaissance.id}"]`).click({ button: 'right' }); await wait(400)
   check('the menu says "Delete folder, keep its notes"', (await h.locator('[data-folder-delete]').innerText()).trim() === 'Delete folder, keep its notes')
-  check('and "Read as one page"', (await h.locator('[data-group-open-page]').innerText()).trim() === 'Read as one page')
+  check('and no "Read as one page"', (await h.locator('[data-group-open-page]').count()) === 0)
   await h.locator('[data-folder-delete]').click(); await wait(1200)
   const after = await named('History')
   check('deleted, its notes move up into History', !(await named('Renaissance')) && kept.every((id) => after.members.includes(id)), JSON.stringify(after.members))
   check('and its subfolder goes up too', (await named('Leonardo'))?.parent === history.id)
 
-  // 8. "Read as one page" opens the folder as one stream.
   await h.keyboard.press('Escape')
-  const films = await named('Films and books')
-  await h.locator('[data-path-part]').filter({ hasText: 'Writing' }).click(); await wait(900)
-  await h.locator(`[data-group-row="${films.id}"]`).click({ button: 'right' }); await wait(400)
-  await h.locator('[data-group-open-page]').click(); await wait(900)
-  check('"Read as one page" opens it as one page', (await h.locator(`[data-group-page="${films.id}"]`).count()) === 1)
-  // 9. New, in a folder, makes the page inside it.
-  await h.keyboard.press('Escape'); await wait(300)
+  // 8. New, in a folder, makes the page inside it.
+  await wait(300)
   await h.locator(`[data-side-folder="${history.id}"]`).first().click(); await wait(900)
   const before = (await named('History')).members.length
   await h.keyboard.press('Meta+n'); await wait(1200)

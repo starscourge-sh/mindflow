@@ -215,7 +215,7 @@ export function BinView({ onOpen }: { onOpen?: (type: string, id: string) => voi
               'separator',
               { label: `Delete ${num(chosen.length)} for good…`, keys: '⌫', danger: true, run: () => ask(chosen) },
               'separator',
-              !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
+              !allPicked && { label: 'Select all', about: 'list', keys: '⌘A', run: selectAll },
               { label: 'Clear the selection', keys: 'esc', run: clear }
             ] : null}
             onToggle={toggle} onSelectAll={allPicked ? undefined : selectAll} /></div>
@@ -416,8 +416,8 @@ function Rows({ list, onRestore, onForget, cursor = -1, chosen = [], looked = nu
           { label: 'Restore', keys: '↵', run: () => onRestore(one) },
           !!onLook && { label: 'Quick Look', keys: 'Space', run: () => onLook(one) },
           { label: 'Copy text', run: () => copy(one.title) },
-          !!onToggle && { label: picked ? 'Unselect' : 'Select', keys: 'X', run: () => onToggle(key) },
-          !!onSelectAll && { label: 'Select all', keys: '⌘A', run: onSelectAll },
+          !!onToggle && { label: picked ? 'Unselect' : 'Select', about: 'list', keys: 'X', run: () => onToggle(key) },
+          !!onSelectAll && { label: 'Select all', about: 'list', keys: '⌘A', run: onSelectAll },
           'separator',
           !!onForget && { label: 'Delete for good…', keys: '⌫', danger: true, run: () => onAsk?.([key]) }
         ]}>

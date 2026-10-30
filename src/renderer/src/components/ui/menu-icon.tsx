@@ -23,6 +23,10 @@ const RULES: [RegExp, LucideIcon][] = [
   // Menu lines that once fell back to the dot while the lines beside them had a drawing.
   [/^pause$/i, Pause],
   [/^writing tools/i, PenLine],
+  [/^how it reads/i, BookOpen],
+  [/^try it for/i, Timer],
+  [/^how long it takes/i, Hourglass],
+  [/^hidden pages/i, EyeOff],
   [/^peek$|^details$/i, PanelRight],
   [/^window$/i, AppWindow],
   [/^keep it pinned/i, Pin],

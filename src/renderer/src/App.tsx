@@ -2848,9 +2848,9 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                     'separator',
                     binItem(binRefs(chosen), () => setChosen([])),
                     'separator',
-                    !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll },
+                    !allPicked && { label: 'Select all', about: 'list', keys: '⌘A', run: selectAll },
                     { label: 'Clear the selection', keys: 'esc', run: () => (chime('off'), setChosen([])) }
-                  ] : [...usual, 'separator', { label: chosen.includes(capture.id) ? 'Unselect' : 'Select', keys: 'X', run: () => choose(capture.id) }, !allPicked && { label: 'Select all', keys: '⌘A', run: selectAll }]} />}
+                  ] : [...usual, 'separator', { label: chosen.includes(capture.id) ? 'Unselect' : 'Select', about: 'list', keys: 'X', run: () => choose(capture.id) }, !allPicked && { label: 'Select all', about: 'list', keys: '⌘A', run: selectAll }]} />}
                 {/* The older open ones, never out of reach: one line under the list, to the Inbox page that lists them. */}
                 {older > 0 && !unloaded(captures) && !(graphed && listed > 0) && (
                   <p data-inbox-older="box" className="px-2 py-2 text-body text-foreground/80">

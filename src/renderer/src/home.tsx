@@ -93,7 +93,7 @@ import { noteActions } from '@/lib/notes'
 import { headingIn } from '@/lib/capture-links'
 import { openApart } from '@/lib/apart'
 import { MediaView } from '@/components/haligtree/media-view'
-import { G_ALIASES, JOURNAL_SCALES, PlaceIcon, SECTIONS, SIDE_GROUPS, ShowList, showGroup, type Place, TASK_PAGES, dropInBlock, dropOrder, orderItems, risen, litRow, showWords, sidebarParts, useInOrder, useOrder, useSections, useShown } from '@/components/haligtree/places'
+import { G_ALIASES, JOURNAL_SCALES, OFF_SIDEBAR, PlaceIcon, SECTIONS, SIDE_GROUPS, ShowList, showGroup, type Place, TASK_PAGES, dropInBlock, dropOrder, orderItems, risen, litRow, showWords, sidebarParts, useInOrder, useOrder, useSections, useShown } from '@/components/haligtree/places'
 import { BlockList, SortableList, SortableRow } from '@/components/haligtree/sortable'
 import { pageTravel } from '@/lib/page-travel'
 import { Branches } from '@/components/haligtree/branches'
@@ -1634,7 +1634,7 @@ export function Home(): React.JSX.Element {
             const placeMenu = (section: (typeof SECTIONS)[number], among: string[]): RowItem[] => {
               const on = shown.includes(section.id)
               const stays = section.id === 'home' || (on && shown.length === 1)
-              const hidden = ordered.filter((one) => !shown.includes(one.id))
+              const hidden = ordered.filter((one) => !shown.includes(one.id) && !OFF_SIDEBAR.includes(one.id))
               return [
                 view.id !== section.id && { label: 'Open', run: () => setView({ id: section.id }) },
                 asideItem('view', section.id),
@@ -1646,8 +1646,8 @@ export function Home(): React.JSX.Element {
                 ...orderItems({ setting: 'sidebarOrder', usual: sections.map((one) => one.id), id: section.id, among, what: 'The sidebar', name: section.label }, sidebarSaved.length > 0 || Object.keys(settings?.sidebarGroups ?? {}).length > 0),
                 'separator',
                 !stays && { label: showWords(section, on).label, run: () => void showIt(section, !on) },
-                // The pages switched off, quietly: pick one to put it back where it belongs.
-                hidden.length > 0 && { label: 'Show hidden pages', items: hidden.map((one) => ({ label: one.label, icon: <PlaceIcon place={one} />, run: () => void showIt(one, true) })) },
+                // The pages switched off from the sidebar, each named with what choosing it does: put it back there.
+                hidden.length > 0 && { label: 'Hidden pages', items: hidden.map((one) => ({ label: `Show “${one.label}” in the sidebar`, icon: <PlaceIcon place={one} />, run: () => void showIt(one, true) })) },
                 // Once the menu has shut and handed the focus back, or the panel would take that as a click away.
                 { label: 'Customize the sidebar…', run: () => void setTimeout(() => setCustomizing(true), 120) }
               ]

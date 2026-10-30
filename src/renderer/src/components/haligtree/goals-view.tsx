@@ -301,7 +301,7 @@ const goalMenu = (item: Item): MenuItem[] => [
   !!item.archivedAt && { label: 'Unarchive', hint: 'Back in sight', run: () => void archive('nuggets', [item.id], false) },
   binItem([{ type: 'goal', id: item.id }]),
   'separator',
-  { label: 'Stick all goals on the desktop', hint: 'Each in its own colour, with a legend', run: showAllGoals },
+  { label: 'Stick all goals on the desktop', hint: 'Each in its own colour, with a legend', about: 'list', run: showAllGoals },
   copyLinkItem(`goal:${item.id}`, item.title),
   { label: 'Copy the goal', run: () => copy(item.title) }
 ]
@@ -955,7 +955,7 @@ function Logs({ item, picked, onClear }: { item: ItemFull; picked: Dot | null; o
                 'separator',
                 { label: `Remove ${num(lines.count)} logs`, keys: '⌫', danger: true, run: () => lines.remove(logs.filter((one) => lines.picked(one.id)).map((one) => one.id)) },
                 'separator',
-                lines.count < logs.length && { label: 'Select all', keys: '⌘A', run: lines.all },
+                lines.count < logs.length && { label: 'Select all', about: 'list', keys: '⌘A', run: lines.all },
                 { label: 'Clear the selection', keys: 'esc', run: lines.clear }
               ] : [
                 { label: 'Change the words…', run: () => void reword(log.id, log.body, 'log') },
@@ -963,8 +963,8 @@ function Logs({ item, picked, onClear }: { item: ItemFull; picked: Dot | null; o
                 'separator',
                 { label: 'Remove the log', keys: '⌫', danger: true, run: () => lines.remove([log.id]) },
                 'separator',
-                { label: lines.picked(log.id) ? 'Unselect' : 'Select', keys: 'X', run: () => lines.toggle(log.id) },
-                lines.count < logs.length && { label: 'Select all', keys: '⌘A', run: lines.all }
+                { label: lines.picked(log.id) ? 'Unselect' : 'Select', about: 'list', keys: 'X', run: () => lines.toggle(log.id) },
+                lines.count < logs.length && { label: 'Select all', about: 'list', keys: '⌘A', run: lines.all }
               ]
               return (
                 <RowMenu key={log.id} items={menu}>

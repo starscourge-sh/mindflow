@@ -419,7 +419,7 @@ function Clues({ item, onRead }: { item: ItemFull; onRead: (from: number) => voi
                 'separator',
                 { label: `Remove ${num(lines.count)} clues`, keys: '⌫', danger: true, run: () => lines.remove(clues.filter((one) => lines.picked(one.id)).map((one) => one.id)) },
                 'separator',
-                lines.count < clues.length && { label: 'Select all', keys: '⌘A', run: lines.all },
+                lines.count < clues.length && { label: 'Select all', about: 'list', keys: '⌘A', run: lines.all },
                 { label: 'Clear the selection', keys: 'esc', run: lines.clear }
               ] : [
                 { label: 'Read from here', run: () => onRead(index) },
@@ -428,8 +428,8 @@ function Clues({ item, onRead }: { item: ItemFull; onRead: (from: number) => voi
                 'separator',
                 { label: 'Remove the clue', keys: '⌫', danger: true, run: () => lines.remove([clue.id]) },
                 'separator',
-                { label: lines.picked(clue.id) ? 'Unselect' : 'Select', keys: 'X', run: () => lines.toggle(clue.id) },
-                lines.count < clues.length && { label: 'Select all', keys: '⌘A', run: lines.all }
+                { label: lines.picked(clue.id) ? 'Unselect' : 'Select', about: 'list', keys: 'X', run: () => lines.toggle(clue.id) },
+                lines.count < clues.length && { label: 'Select all', about: 'list', keys: '⌘A', run: lines.all }
               ]
               return (
                 <RowMenu key={clue.id} items={menu}>

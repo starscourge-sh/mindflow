@@ -173,7 +173,7 @@ export async function sharePicture(page: HTMLElement | null, blocks: HTMLElement
 }
 
 /** A note's menu lines for its picture: the whole note, copied or saved. */
-export const pictureItems = (document: string, name: string): { label: string; hint: string; run: () => void }[] => [
-  { label: 'Copy as image', hint: 'The whole note as a picture, ready to paste', run: () => void sharePicture(notePage(document), null) },
-  { label: 'Save as image…', hint: 'The whole note as a PNG file', run: () => void sharePicture(notePage(document), null, { save: true, name }) }
+export const pictureItems = (document: string, name: string): { label: string; hint: string; can: () => boolean; run: () => void }[] => [
+  { label: 'Copy as image', hint: 'The whole note as a picture, ready to paste', can: () => !!notePage(document), run: () => void sharePicture(notePage(document), null) },
+  { label: 'Save as image…', hint: 'The whole note as a PNG file', can: () => !!notePage(document), run: () => void sharePicture(notePage(document), null, { save: true, name }) }
 ]

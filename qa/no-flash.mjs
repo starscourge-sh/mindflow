@@ -238,7 +238,7 @@ try {
     // Tomorrow and This week's tasks are the top of Upcoming now; Everything (all) is the Inbox with "Show sorted too" on.
     'home', 'inbox', 'all', 'archived', 'lookups', 'articles', 'nuggets', 'questions', 'goals', 'today', 'upcoming', 'routines', 'later',
     'calendar@day', 'calendar@week', 'calendar@month', 'matrix', 'review', 'queue', 'tags', 'tag', 'sources', 'stats', 'map', 'settings', 'practices',
-    'day', 'weekpage', 'monthpage', 'yearpage', 'discarded', 'group',
+    'day', 'weekpage', 'monthpage', 'yearpage', 'discarded',
     // A note opened cold, beside its list: one in Pages, a gem, a question, a goal, a capture in the Inbox, a task.
     'open:article', 'open:nugget', 'open:question', 'open:goal', 'open:capture', 'open:task'
   ]
@@ -249,8 +249,6 @@ try {
     if (mode && id !== 'open') return { id, root: `[data-page="${id}"]`, open: () => send('view', id), store: ['vigil.calendar.mode', mode] }
     if (id === 'tag') return { id, root: '[data-page="tags"]', open: () => send('tag', tag) }
     if (id === 'day') return { id, root: '[data-page="day"]', open: () => send('day', new Date().toISOString().slice(0, 10)) }
-    // A group's page: Writing opened warm, then the group's own page asked for cold.
-    if (id === 'group') return { id, base: 'articles', group: true }
     if (id === 'open') {
       const page = { article: 'articles', nugget: 'nuggets', question: 'questions', goal: 'goals', capture: 'inbox', task: 'today' }[mode]
       return { id, root: `[data-page="${page}"]`, open: async () => {
@@ -269,22 +267,7 @@ try {
       const base = spec.base ?? (spec.id === 'settings' ? 'map' : 'settings')
       await send('view', base); await wait(400)
       if (spec.store) await h.evaluate(([k, value]) => localStorage.setItem(k, value), spec.store)
-      // A group opens as a page from its heading, which Writing shows as a list.
-      if (spec.group) await h.evaluate(() => localStorage.setItem('view:article', JSON.stringify({ ...JSON.parse(localStorage.getItem('view:article') ?? '{}'), density: 'list', group: 'none' })))
       await h.reload(); await wait(1800)
-      if (spec.group) {
-        // Its page opened from its own heading's menu, "Open as a page", in Writing (a reload opens on Home).
-        await send('view', 'articles'); await wait(1500)
-        await h.locator('[data-group-row]').filter({ hasText: 'Drawn once' }).first().click({ button: 'right' }).catch(() => {})
-        await wait(400)
-        await h.evaluate(() => window.__flashWatch('[data-group-page]'))
-        const item = h.locator('[data-group-open-page]').first()
-        if (!(await item.count())) console.log('  (group: no "Open as a page" in the menu:', await h.evaluate(() => document.querySelector('[role="menu"]')?.textContent?.slice(0, 200) ?? 'no menu'), ')')
-        await item.click().catch(() => {})
-        await wait(3400)
-        report(`${name}${ROUNDS > 1 ? ` (round ${round + 1})` : ''}`, await framesOf(h))
-        continue
-      }
       await h.evaluate((root) => window.__flashWatch(root), spec.root)
       await spec.open()
       await wait(3400)
