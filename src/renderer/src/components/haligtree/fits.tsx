@@ -1,4 +1,4 @@
-import { revealRow } from '@/lib/menu-keys'
+import { revealRow, menuOpen } from '@/lib/menu-keys'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { chime } from '@/lib/sound'
@@ -143,7 +143,7 @@ function Fits({ start, onClose }: { start: number; onClose: () => void }): React
   // The keys, while it is open: taken before the page under it hears them.
   const keys = useRef<(event: KeyboardEvent) => void>(() => {})
   keys.current = (event) => {
-    if (document.querySelector('[role="menu"]')) return
+    if (menuOpen()) return
     const task = rows[at]
     const plain = !event.metaKey && !event.ctrlKey && !event.altKey
     const index = choices.indexOf(minutes)

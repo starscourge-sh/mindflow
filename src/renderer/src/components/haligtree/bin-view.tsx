@@ -24,6 +24,7 @@ import { RowMenu, copy, type MenuItem } from './row-menu'
 import { num } from '../../../../main/dates'
 import { quoted } from '../../../../main/clip'
 import { linkKinds } from '@/lib/capture-links'
+import { menuOpen } from '@/lib/menu-keys'
 
 /**
  * The Bin: one place for everything moved there, of every kind. A capture,
@@ -112,7 +113,7 @@ export function BinView({ onOpen }: { onOpen?: (type: string, id: string) => voi
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (!here() || typing() || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
-      if (document.querySelector('[role="menu"]')) return
+      if (menuOpen()) return
       // Escape says no to the question first, then puts the preview away and lets the picked rows go, together.
       if (event.key === 'Escape' && (now.current.asking || now.current.looking || now.current.chosen.length)) {
         event.preventDefault()

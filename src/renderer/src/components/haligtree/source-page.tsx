@@ -29,6 +29,7 @@ import { setAvatar, pickAvatar, useAvatar } from '@/lib/people'
 import { PersonMenu } from './avatar'
 import type { SourceCard, SourceFacts, SourcePage } from '@/lib/sources'
 import { notes, type NoteTable } from '@/lib/notes'
+import { menuOpen } from '@/lib/menu-keys'
 
 const FIELD_SAID: Record<SourceField, { one: string; icon: typeof User }> = { attribution: { one: 'Person', icon: User }, medium: { one: 'Source', icon: BookOpen } }
 
@@ -555,7 +556,7 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
   useSelectAll(() => shown, live, setChosen, { onDelete: remove, deleteSaid: '⌫ removes the empty ones', titleOf: (id) => summary(id)?.name })
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key !== 'Escape' || !count || typing() || document.querySelector('[role="menu"]')) return
+      if (event.key !== 'Escape' || !count || typing() || menuOpen()) return
       event.preventDefault()
       event.stopPropagation()
       chime('off')

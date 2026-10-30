@@ -26,6 +26,7 @@ import { Example } from './example'
 import { exampleQueue } from '@/lib/examples'
 import { ago, dayMonth, num } from '../../../../main/dates'
 import { X } from '@/components/ui/icons'
+import { menuOpen } from '@/lib/menu-keys'
 
 /**
  * The reading queue, in the main window: what you mean to read next, in
@@ -213,7 +214,7 @@ export function QueueView(): React.JSX.Element {
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (!here() || typing() || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
-      if (event.key === 'Escape' && (now.current.live.length || now.current.readLive.length) && !document.querySelector('[role="menu"]')) {
+      if (event.key === 'Escape' && (now.current.live.length || now.current.readLive.length) && !menuOpen()) {
         event.preventDefault()
         event.stopPropagation()
         return void (chime('off'), setChosen([]), setReadChosen([]))

@@ -86,6 +86,7 @@ import { Apart } from '@/lib/apart'
 import { loud } from '@/lib/loud'
 import { pictureItems } from '@/lib/note-picture'
 import { ArchiveRestore, BookOpen, Brain, Download, Eye, EyeOff, FileText, History, Layers, Bookmark as Pin, Quote, Repeat as RefreshCw, TriangleAlert, X } from '@/components/ui/icons'
+import { menuOpen } from '@/lib/menu-keys'
 
 
 /**
@@ -496,7 +497,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
       // Escape lets the selection go, and only that: taken first, so the
       // list does not also close what is open.
       // An open menu takes its own Escape: closing it keeps what is picked.
-      if (event.key === 'Escape' && chosen.length && !document.querySelector('[role="menu"]')) {
+      if (event.key === 'Escape' && chosen.length && !menuOpen()) {
         event.preventDefault()
         chime('off')
         return setChosen([])

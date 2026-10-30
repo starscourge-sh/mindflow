@@ -8,6 +8,7 @@ import { num } from '../../../../main/dates'
 import { Button } from '@/components/ui/button'
 import { Tip, typing } from './ui'
 import type { MenuItem } from './row-menu'
+import { menuOpen } from '@/lib/menu-keys'
 
 /**
  * Picking several kept notes (questions, goals), the way the Inbox and Gems
@@ -39,7 +40,7 @@ export function usePickNotes(shown: string[], cursor: number, { here, noun, tier
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (!here() || typing() || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
-      if (event.key === 'Escape' && now.current.live.length && !document.querySelector('[role="menu"]')) {
+      if (event.key === 'Escape' && now.current.live.length && !menuOpen()) {
         event.preventDefault()
         event.stopPropagation()
         return clear()

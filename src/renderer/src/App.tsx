@@ -118,7 +118,7 @@ import { notes } from './lib/notes'
 import { sources } from './lib/sources'
 import { DatePicker } from './components/haligtree/date-picker'
 import { useFitBox } from './lib/fit-box'
-import { menuShowing, layerOpen } from '@/lib/menu-keys'
+import { menuShowing, layerOpen, menuOpen } from '@/lib/menu-keys'
 import { clip, quoted } from '../../main/clip'
 import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight, EyeOff, Tag as Hashtag, X } from '@/components/ui/icons'
 import { caretInLink } from './extensions/link-tidy'
@@ -2695,7 +2695,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
       // A focused card takes its own P, R and D.
       if ((event.target as Element | null)?.closest?.('[data-card]')) return
       // An open menu takes its own Escape: closing it keeps what is picked.
-      if (event.key === 'Escape' && chosen.length && !document.querySelector('[role="menu"]')) {
+      if (event.key === 'Escape' && chosen.length && !menuOpen()) {
         event.preventDefault()
         chime('off')
         return setChosen([])

@@ -84,6 +84,7 @@ import { ShowAgain, TaskDetail, completeTask, useTaskNow } from './tasks-view'
 import { MadeChip, MadeCue, SnoozedChip, TASK_KIND, TaskStateMenu, becameSaid, doneTasks, emptyFor, fromSaid, showsTask, taskEntry, taskGroups, taskRow, useMadeShown, useSources, useTaskState, type Row } from './everything'
 import { Paperclip } from 'lucide-react'
 import { ArchiveRestore, ArrowUpRight, CheckCircle2, CloudSun, Download, Eye, EyeOff, FileText, Tag as Hash, Inbox, Laptop, ListTodo, Orbit, Bookmark as Pin, Timer, Trash2, X } from '@/components/ui/icons'
+import { menuOpen } from '@/lib/menu-keys'
 
 type Capture = NonNullable<Awaited<ReturnType<typeof window.api.captures.get>>>
 
@@ -378,7 +379,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
       // Escape lets a selection go, the way Linear's does.
       // Taken first, so the list does not also close what is open.
       // An open menu takes its own Escape: closing it keeps what is picked.
-      if (event.key === 'Escape' && chosen.length && !document.querySelector('[role="menu"]')) {
+      if (event.key === 'Escape' && chosen.length && !menuOpen()) {
         event.preventDefault()
         chime('off')
         return setChosen([])

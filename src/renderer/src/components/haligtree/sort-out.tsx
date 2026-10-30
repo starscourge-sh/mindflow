@@ -15,6 +15,7 @@ import { ChevronDown, Undo2, X } from 'lucide-react'
 import { takeExit, unpromote } from '@/lib/capture-links'
 import { markSorted, openInboxSort, sortAway, sortDue } from '@/lib/sort-out'
 import { realMove } from '@/lib/real-move'
+import { menuOpen } from '@/lib/menu-keys'
 
 /**
  * Sort this out: a running page pasted in (the kind kept in Raycast Notes or
@@ -140,7 +141,7 @@ function Sheet({ text, origin, onClose }: { text: string; origin: string | null;
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       // An open kind menu takes its own Escape: only that closes, every choice kept.
-      if (event.key === 'Escape' && document.querySelector('[role="menu"]')) return
+      if (event.key === 'Escape' && menuOpen()) return
       if (event.key === 'Escape') return void (event.preventDefault(), event.stopImmediatePropagation(), close())
       if (event.key === 'Enter' && event.metaKey) return void (event.preventDefault(), void sort())
     }

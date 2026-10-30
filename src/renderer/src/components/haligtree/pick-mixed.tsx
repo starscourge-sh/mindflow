@@ -11,6 +11,7 @@ import { num } from '../../../../main/dates'
 import { Button } from '@/components/ui/button'
 import { Tip, typing } from './ui'
 import type { MenuItem, RowItem } from './row-menu'
+import { menuOpen } from '@/lib/menu-keys'
 
 /** A thing on a page that mixes kinds (Home, a tag, search): enough to act on it. */
 export type Pickable = { type: string; id: string; title: string; status?: string; private?: boolean | number }
@@ -70,7 +71,7 @@ export function usePickMixed(shown: Pickable[], { here = () => true, keys = true
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (!here() || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
-      if (event.key === 'Escape' && now.current.length && !document.querySelector('[role="menu"]') && (!typing() || !keys)) {
+      if (event.key === 'Escape' && now.current.length && !menuOpen() && (!typing() || !keys)) {
         event.preventDefault()
         event.stopPropagation()
         return clear()

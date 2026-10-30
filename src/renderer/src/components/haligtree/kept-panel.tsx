@@ -24,6 +24,7 @@ import { AliveIcon } from '@/components/ui/alive-icon'
 import { questionEntry, startQuestion } from './questions-view'
 import { num } from '../../../../main/dates'
 import { useHere } from '@/lib/split'
+import { menuOpen } from '@/lib/menu-keys'
 
 const TIERS = [{ id: 'nugget', label: 'Gems' }, { id: 'article', label: 'Writing' }, { id: 'question', label: 'Questions' }] as const
 
@@ -60,7 +61,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
         chime('tap')
         return setGlossing(items[cursor].id)
       }
-      if (event.key === 'Escape' && chosen.length && !document.querySelector('[role="menu"]')) {
+      if (event.key === 'Escape' && chosen.length && !menuOpen()) {
         event.preventDefault()
         chime('off')
         return setChosen([])

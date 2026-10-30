@@ -40,6 +40,11 @@ export function menuShowing(selector = '[cmdk-root], [role=menu], [role=listbox]
   return [...document.querySelectorAll(selector)].some((one) => one.checkVisibility() && one.getBoundingClientRect().width > 0)
 }
 
+/** Whether a menu (a dropdown or a right-click menu) is open now: the one check every list's Escape asks first. */
+export function menuOpen(): boolean {
+  return menuShowing('[role=menu]')
+}
+
 /**
  * Whether something over the page holds the keys: a menu, a dialog, a popover
  * or an editor's suggestions, shown now. A list drawn into the page itself (a

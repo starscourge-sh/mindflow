@@ -13,6 +13,7 @@ import TrashIcon from '@/components/ui/trash-icon'
 import { Tip, toast, typing } from './ui'
 import type { RowItem } from './row-menu'
 import { shiftTo } from './tasks-view'
+import { menuOpen } from '@/lib/menu-keys'
 
 /** The tint a picked task row takes: the same as a picked note's. */
 export const PICKED_ROW = 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_18%,transparent)] shadow-[inset_0_0_0_1.5px_color-mix(in_srgb,var(--tt-brand-color-400)_65%,transparent)]'
@@ -53,7 +54,7 @@ export function useTaskPick(shown: Task[], cursor: number, { here, off = false }
     const onKey = (event: KeyboardEvent): void => {
       if (!here() || typing() || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
       // An open menu takes its own Escape: closing it keeps what is picked.
-      if (event.key === 'Escape' && now.current.live.length && !document.querySelector('[role="menu"]')) {
+      if (event.key === 'Escape' && now.current.live.length && !menuOpen()) {
         event.preventDefault()
         event.stopPropagation()
         return clear()
