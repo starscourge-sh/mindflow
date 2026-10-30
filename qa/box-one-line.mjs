@@ -67,6 +67,24 @@ await shoot('pill')
 await page.keyboard.type('Call Mu')
 await page.waitForTimeout(500)
 check('typing a line keeps the pill', (await visible()).pill && (await height()) === 56)
+// One clean line: the kind icon alone at the left (no block handle beside it, no disc behind it), the ends drag the window.
+await page.hover(EDITOR); await page.mouse.move(300, 28); await page.waitForTimeout(300)
+const looks = await page.evaluate(() => ({
+  handles: [...document.querySelectorAll('.tiptap-drag-handle')].filter((one) => one.getClientRects().length && getComputedStyle(one).display !== 'none').length,
+  disc: getComputedStyle(document.querySelector('[data-pill-kind]')).backgroundColor,
+  drag: [...document.querySelectorAll('[data-pill-drag]')].map((one) => getComputedStyle(one).getPropertyValue('-webkit-app-region') || one.style.webkitAppRegion)
+}))
+check('the pill shows no block handle beside the kind icon', looks.handles === 0, JSON.stringify(looks))
+await page.hover('[data-pill-kind]'); await page.waitForTimeout(300)
+const hovered = await page.evaluate(() => getComputedStyle(document.querySelector('[data-pill-kind]')).backgroundColor)
+check('the kind icon sits in no grey disc, even under the pointer', /rgba\(0, 0, 0, 0\)|transparent/.test(hovered), hovered)
+check('both ends of the pill drag the window', looks.drag.length === 2 && looks.drag.every((one) => one === 'drag'), JSON.stringify(looks.drag))
+// A word spelt wrong on the one line: its fix sits beside it, inside the window, not cut off under the line.
+await page.keyboard.press('End'); await page.keyboard.type(' teh'); await page.waitForTimeout(2200)
+const hint = await page.evaluate(() => { const el = document.querySelector('[data-spell-hint]'); if (!el) return null; const r = el.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, h: innerHeight } })
+check('a spelling fix on the pill sits inside the window', !hint || (hint.top >= 0 && hint.bottom <= hint.h), JSON.stringify(hint))
+await shoot('spelling')
+for (let i = 0; i < 4; i++) await page.keyboard.press('Backspace')
 await shoot('typed')
 
 // The / menu from the pill: shown only once there is room for it, all of it inside the window; Esc closes it and the pill comes back.

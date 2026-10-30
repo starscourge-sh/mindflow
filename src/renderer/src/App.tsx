@@ -1687,24 +1687,31 @@ export default function App(): React.JSX.Element {
   return (
     <TooltipProvider delayDuration={500}>
     <div data-one-line={oneLine || undefined} data-pill={pill || undefined} className={`app-container ${pointerIn ? 'pointer-in' : ''} isolate flex flex-col items-center justify-center relative flex h-full w-full flex-col pt-10 color-white`}>
-      {/* The pill's two ends: the kind it will be kept as (pressed, the box grows to show the kind picker) and ⌘↵. The ends drag the window, as the header does. */}
+      {/* The pill's two ends: the kind it will be kept as (pressed, the box grows to show the kind picker) and ⌘↵.
+          With no header, the room at each end drags the window, as the header does; the line between is for writing. */}
       {oneLine && !reading && (
-        <div data-pill-ends aria-hidden={!pill} className={cn('pointer-events-none absolute inset-x-0 top-0 z-10 flex h-14 items-center justify-between px-5', !pill && 'transition-opacity duration-150 ease-out motion-reduce:transition-none')} style={{ opacity: pill ? 1 : 0 }}>
+        <div data-pill-ends aria-hidden={!pill} className={cn('pointer-events-none absolute inset-x-0 top-0 z-10 flex h-14 items-center justify-between', !pill && 'transition-opacity duration-150 ease-out motion-reduce:transition-none')} style={{ opacity: pill ? 1 : 0 }}>
           {/* Back as the pill (by a key: Esc, ⌫, ⌘↵), the ends are simply there; growing, they fade as the row under the writing arrives. */}
           {(() => {
             const Icon = (CAPTURE_TYPES.find((one) => one.id === kind) ?? CAPTURE_TYPES[0]).icon
             return (
-              <Tip label="Kind, and more">
-                <button type="button" data-pill-kind tabIndex={-1} aria-label="Show the kind and more" disabled={!pill}
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => (chime('slide'), setOpened(true))}
-                  className={cn('flex size-8 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-[color,background-color,scale] duration-150 ease-out hover:bg-accent/60 hover:text-foreground active:scale-[0.97] [&_svg]:size-4', pill && 'pointer-events-auto')}>
-                  <Icon />
-                </button>
-              </Tip>
+              <div data-pill-drag="start" className="flex h-full w-[4.5rem] items-center pl-4" style={pill ? ({ WebkitAppRegion: 'drag' } as CSSProperties) : undefined}>
+                {/* To its right: above, in a window one line tall, it was cut off. */}
+                <Tip label="Kind, and more" side="right">
+                  <button type="button" data-pill-kind tabIndex={-1} aria-label="Show the kind and more" disabled={!pill}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => (chime('slide'), setOpened(true))}
+                    style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
+                    className={cn('flex size-8 cursor-pointer items-center justify-center text-muted-foreground transition-[color,scale] duration-150 ease-out hover:text-foreground active:scale-[0.97] [&_svg]:size-4', pill && 'pointer-events-auto')}>
+                    <Icon />
+                  </button>
+                </Tip>
+              </div>
             )
           })()}
-          <kbd className="font-sans text-key text-muted-foreground">⌘↵</kbd>
+          <div data-pill-drag="end" className="flex h-full w-[4.5rem] items-center justify-end pr-5" style={pill ? ({ WebkitAppRegion: 'drag' } as CSSProperties) : undefined}>
+            <kbd className="font-sans text-key text-muted-foreground">⌘↵</kbd>
+          </div>
         </div>
       )}
       {/* Toasts sit above the box's footer here, clear of Create. */}

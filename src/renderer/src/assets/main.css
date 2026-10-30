@@ -2469,3 +2469,6 @@ html[data-tuck-open="left"] .mf-card { border-top-right-radius: 0; border-bottom
 .app-container[data-one-line] [data-drag-strip] { display: none; }
 .app-container[data-pill] [data-chrome] { display: none; }
 .app-container[data-pill] .ProseMirror { overflow: hidden; }
+/* The pill is one line: the kind icon is its only control at the left, so the
+   editor's block handles (the + and the grip) stay away while it is the pill. */
+.app-container[data-pill] .tiptap-drag-handle { display: none !important; }

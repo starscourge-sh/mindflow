@@ -8,6 +8,8 @@ import { misspeltAt, wordAt, type Misspelling } from "./spelling"
 
 /** A pause this long and you are no longer typing: the suggestion may come. */
 const TYPING = 1200
+/** The pill's height (h-6), to know whether it fits under the line. */
+const PILL_HEIGHT = 24
 
 /** How many letters apart two words are (added, dropped or changed), stopping early past 2. */
 const apart = (a: string, b: string): number => {
@@ -78,8 +80,11 @@ export function SpellPill({ editor }: { editor: Editor | null }): React.JSX.Elem
         // Placed on the window itself, over everything: inside the editor's box it was cut off on the last line.
         const from = { left: 0, top: 0 }
         // Just under the caret's line, never over the word.
-        const y = at.bottom - from.top + 2
-        const left = (pos: number): number => editor.view.coordsAtPos(pos).left - from.left
+        // On a line with no room under it (quick capture as one line, the window's last line), beside the
+        // word instead, on its line: under it, it was cut off at the window's foot.
+        const room = at.bottom + 2 + PILL_HEIGHT <= innerHeight
+        const y = room ? at.bottom - from.top + 2 : Math.round((at.top + at.bottom - PILL_HEIGHT) / 2) - from.top
+        const left = (word: { from: number; to: number }): number => (room ? editor.view.coordsAtPos(word.from).left : editor.view.coordsAtPos(word.to).right + 8) - from.left
         const tab = !tabTaken(editor)
         const flagged = misspeltAt(editor, at.left - 1, (at.top + at.bottom) / 2)
         // Underlined but with nothing from the page's checker (its list is short): Harper's dictionary, asked once
@@ -95,7 +100,7 @@ export function SpellPill({ editor }: { editor: Editor | null }): React.JSX.Elem
             // The whole word there now, not only its start: an answer for "feelin" never lands on "feeling".
             const coords = editor.view.coordsAtPos(now.head)
             if (wordAt(editor, coords.left - 1, (coords.top + coords.bottom) / 2)?.word !== here.word) return
-            setHint({ ...here, suggestions: fixes, x: left(here.from), y, tab })
+            setHint({ ...here, suggestions: fixes, x: left(here), y, tab })
           })
           return setHint(null)
         }
@@ -105,7 +110,7 @@ export function SpellPill({ editor }: { editor: Editor | null }): React.JSX.Elem
         const best = flagged.suggestions[0]
         if (named(editor, flagged)) return setHint(null)
         if (flagged.word === flagged.word.toLowerCase() && best !== best.toLowerCase() && apart(best.toLowerCase(), flagged.word) > 1) return setHint(null)
-        setHint({ ...flagged, x: left(flagged.from), y, tab })
+        setHint({ ...flagged, x: left(flagged), y, tab })
       })
     }
     const take = (one: Hint): void => {
