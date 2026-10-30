@@ -6,8 +6,8 @@ import { Toolbar, ToolbarGroup } from "@/components/tiptap-ui-primitive/toolbar"
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu"
 import { Roll } from "@/lib/roll"
 import { call } from "@/lib/haligtree"
-import { said } from "@/lib/host"
-import { keysHere, usePane } from "@/lib/split"
+import { host, said } from "@/lib/host"
+import { canSplit, keysHere, usePane } from "@/lib/split"
 import { chime } from "@/lib/sound"
 import { cue } from "@/lib/cues"
 import { PdfPages, offsetsIn, pdfTitle, type PdfMark } from "./pdf-pages"
@@ -37,6 +37,20 @@ export function followPdfLink(href: string): boolean {
   const hash = new URLSearchParams(found[2] ?? "")
   openPdf(found[1], hash.get("name") ?? "", Number(hash.get("page")) || undefined, hash.get("mark") ?? undefined)
   return true
+}
+
+/** A link to a PDF on the web: its path ends in `.pdf`. */
+export const isWebPdf = (href: string | null | undefined): boolean => !!href && /^https?:\/\/[^?#]+\.pdf(?:[?#]|$)/i.test(href)
+
+/**
+ * A PDF on the web in the reader: fetched once into the book's own files (as
+ * a card's picture is kept), then opened in the main window like any PDF.
+ */
+export async function openWebPdf(href: string): Promise<void> {
+  const kept = await host().fetchPdf?.(href)
+  if (!kept) return void (chime("nope"), said("That PDF could not be fetched", false))
+  if (canSplit()) openPdf(kept.src, kept.name)
+  else window.api.openInHome("pdf", pdfFocus(kept.src, kept.name))
 }
 
 /** Titles read out of PDFs, by address: what the window's top bar and a pane's tab call it. */

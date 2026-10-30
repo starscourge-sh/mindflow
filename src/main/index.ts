@@ -4649,8 +4649,9 @@ app.whenReady().then(() => {
   // The same store, for files that are not pictures. The extension is taken
   // from the name rather than a mime type, because a dropped file carries no
   // trustworthy one, and anything unrecognised is stored as .bin.
-  ipcMain.handle('save-file', async (_event, name: unknown, bytes: unknown) => {
-    if (typeof name !== 'string' || !(bytes instanceof Uint8Array)) return ''
+  ipcMain.handle('save-file', async (_event, name: unknown, bytes: unknown) =>
+    typeof name === 'string' && bytes instanceof Uint8Array ? storeFile(name, bytes) : '')
+  async function storeFile(name: string, bytes: Uint8Array): Promise<string> {
     if (!bytes.byteLength) return ''
 
     const extension = (name.split('.').pop() ?? '').toLowerCase()
@@ -4664,6 +4665,31 @@ app.whenReady().then(() => {
     await rename(temporary, destination)
 
     return `haligtree://assets/${hash}.${suffix}`
+  }
+
+  // A link to a PDF on the web, opened in the reader: fetched once into the
+  // book's own files, as a card's picture is, and kept by its address, so
+  // opening it again needs no trip and works offline.
+  ipcMain.handle('pdf-fetch', async (_event, href: unknown) => {
+    if (typeof href !== 'string' || !/^https?:\/\//i.test(href)) return null
+    database().exec('create table if not exists pdf_downloads (href text primary key, src text not null, name text not null)')
+    const kept = database().prepare('select src, name from pdf_downloads where href = ?').get(href) as { src: string; name: string } | undefined
+    if (kept && existsSync(join(assetsDir(), kept.src.replace('haligtree://assets/', '')))) return kept
+    try {
+      const response = await fetchOutside(href, { signal: AbortSignal.timeout(60000) })
+      if (!response.ok) return null
+      const bytes = new Uint8Array(await response.arrayBuffer())
+      // A PDF by its first bytes, whatever the server called it.
+      if (Buffer.from(bytes.subarray(0, 5)).toString('latin1') !== '%PDF-') return null
+      const last = decodeURIComponent(new URL(href).pathname.split('/').pop() ?? '')
+      const name = /\.pdf$/i.test(last) ? last : `${last || 'document'}.pdf`
+      const src = await storeFile(name, bytes)
+      if (!src) return null
+      database().prepare('insert or replace into pdf_downloads (href, src, name) values (?, ?, ?)').run(href, src, name)
+      return { src, name }
+    } catch {
+      return null
+    }
   })
 
   // Write text the renderer produced to a file the user picks: JSON, markdown

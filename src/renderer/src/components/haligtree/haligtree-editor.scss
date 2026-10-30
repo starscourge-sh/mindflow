@@ -1353,6 +1353,11 @@
   }
 }
 
+// Beside "Copy URL", on a card for a PDF.
+.tiptap-bookmark-copy.is-read {
+  right: 2.625rem;
+}
+
 .tiptap-bookmark:hover .tiptap-bookmark-copy,
 .tiptap-bookmark:focus-within .tiptap-bookmark-copy {
   opacity: 1;

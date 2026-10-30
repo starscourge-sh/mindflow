@@ -82,6 +82,8 @@ const api = {
   /** Store any file and get back the URL that reads it again. */
   saveFile: (name: string, bytes: Uint8Array): Promise<string> =>
     ipcRenderer.invoke('save-file', name, bytes),
+  /** A PDF on the web, kept in the book's files once: where it is kept now, and its name. Null when it is not a PDF or cannot be fetched. */
+  fetchPdf: (href: string): Promise<{ src: string; name: string } | null> => ipcRenderer.invoke('pdf-fetch', href),
 
   /** Write text to a file the user picks. */
   exportText: (name: string, text: string): Promise<boolean> =>

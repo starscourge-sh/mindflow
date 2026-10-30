@@ -8,7 +8,8 @@ import { useTiptapEditor } from "@/hooks/use-tiptap-editor"
 
 // --- Icons ---
 import { CornerDownLeftIcon } from "@/components/tiptap-icons/corner-down-left-icon"
-import { ArrowUpRight as ExternalLinkIcon, Link as LinkIcon, Unlink } from "@/components/ui/icons"
+import { ArrowUpRight as ExternalLinkIcon, BookOpen, Link as LinkIcon, Unlink } from "@/components/ui/icons"
+import { isWebPdf, openWebPdf } from "@/components/pdf/pdf-reader"
 
 // --- Tiptap UI ---
 import type { UseLinkPopoverConfig } from "@/components/tiptap-ui/link-popover"
@@ -169,6 +170,21 @@ const LinkMain: React.FC<LinkMainProps> = ({
                 <ExternalLinkIcon className="tiptap-button-icon" />
               </Button>
             </ButtonGroup>
+
+            {/* A PDF on the web: read in the reader too, kept in the book once. */}
+            {isWebPdf(url) && (
+              <ButtonGroup>
+                <Button
+                  type="button"
+                  onClick={() => void openWebPdf(url)}
+                  title="Open in the reader"
+                  aria-label="Open in the reader"
+                  variant="ghost"
+                >
+                  <BookOpen className="tiptap-button-icon" />
+                </Button>
+              </ButtonGroup>
+            )}
 
             <ButtonGroup>
               <Button

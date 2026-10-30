@@ -7,7 +7,8 @@ import { Orb } from "@/components/haligtree/orb"
 import { isYouTube, wideThumb } from "../../../../main/video-thumbs"
 import { lookOf, paintWhileLoading, withoutBands } from "@/lib/pictures"
 import { said } from "@/lib/host"
-import { Check, Copy } from "@/components/ui/icons"
+import { BookOpen, Check, Copy } from "@/components/ui/icons"
+import { isWebPdf, openWebPdf } from "@/components/pdf/pdf-reader"
 
 /**
  * The link preview card.
@@ -112,6 +113,21 @@ export function BookmarkView(props: NodeViewProps): React.JSX.Element {
         </span>
       </span>
 
+      {/* A PDF on the web: read here, in the reader, as well as in the browser. */}
+      {isWebPdf(href) && !loading && (
+        <button
+          type="button"
+          className="tiptap-bookmark-copy is-read"
+          aria-label="Open in the reader"
+          title="Open in the reader"
+          onClick={(event) => {
+            event.stopPropagation()
+            void openWebPdf(href)
+          }}
+        >
+          <BookOpen />
+        </button>
+      )}
       <button
         type="button"
         className="tiptap-bookmark-copy"
