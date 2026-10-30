@@ -22,6 +22,7 @@ import { chunks, createdOf, firstLine, guessKind, isBit, kindOf, propertiesOf, t
 import { cut, fittedTitle } from './clip'
 import { registerRenames, resolveWaiting, watchName } from './renames'
 import { NOTE_KEY } from './name'
+import { pdfsToFind } from './pdf-highlights'
 
 /** What the list shows. The body is only read when one is opened. */
 export interface CaptureMeta {
@@ -514,6 +515,9 @@ export function registerCaptures(): void {
        ) order by capturedAt desc`
     ).all() as unknown as Searchable[]
     for (const one of rows) one.text = String(one.text ?? '').toLowerCase()
+    // The PDFs kept in notes, by their titles, among the rest by when their note was made.
+    const pdfs = pdfsToFind(db)
+    if (pdfs.length) rows.push(...pdfs), rows.sort((a, b) => (a.capturedAt < b.capturedAt ? 1 : a.capturedAt > b.capturedAt ? -1 : 0))
     everything = { at: writes(), rows }
     return rows
   }

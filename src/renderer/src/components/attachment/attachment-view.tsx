@@ -12,8 +12,8 @@ import { cue } from "@/lib/cues"
 import { Roll } from "@/lib/roll"
 
 import { host } from "@/lib/host"
-import { PdfPages } from "@/components/pdf/pdf-pages"
-import { openPdf } from "@/components/pdf/pdf-reader"
+import { PdfPages, pdfTitle } from "@/components/pdf/pdf-pages"
+import { learnTitle, openPdf } from "@/components/pdf/pdf-reader"
 import { canSplit } from "@/lib/split"
 import { isNodeSelected } from "@/extensions/selected-nodes"
 import { startCaption } from "@/extensions/caption"
@@ -382,7 +382,7 @@ function PdfBlock(props: NodeViewProps): React.JSX.Element {
         </button>
       </div>
       <div ref={scroller} className="tiptap-pdf-scroll" contentEditable={false} onMouseDown={(event) => event.stopPropagation()}>
-        <PdfPages src={src} scroller={scroller} onLoad={(doc) => setPages(doc.numPages)} />
+        <PdfPages src={src} scroller={scroller} onLoad={(doc) => (setPages(doc.numPages), void pdfTitle(doc, name).then((read) => learnTitle(src, read)))} />
       </div>
     </NodeViewWrapper>
   )

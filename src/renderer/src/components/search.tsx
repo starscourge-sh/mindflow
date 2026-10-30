@@ -39,6 +39,7 @@ import { realMove } from '@/lib/real-move'
 import { typeSaid } from '@/lib/capture-links'
 import { EVENT_KIND, EventPeek } from './haligtree/calendar-events'
 import { Sun } from 'lucide-react'
+import { FileText } from '@/components/ui/icons'
 import { PICKED_MARK, usePickMixed } from './haligtree/pick-mixed'
 import { clip } from '../../../main/clip'
 import { APP_NAME } from '../../../main/name'
@@ -164,6 +165,8 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
     if (one.type === 'event') return [{ label: 'Open on the Calendar', run: () => onOpen('event', one.id) }]
     // A journal day found: its page opens.
     if (one.type === 'day') return [{ label: 'Open in the Journal', run: () => onOpen('day', one.id) }]
+    // A PDF found: it opens in the reader.
+    if (one.type === 'pdf') return [{ label: 'Open in the reader', run: () => onOpen('pdf', one.id) }]
     const own = task
       ? taskMenu(task, { open: () => onOpen('task', one.id), now: taskNow })
       : fullMenu(one.type, one.id, () => onOpen(one.type, one.id)) ?? sideMenu(one.type, one.id, one.label, { onOpen, pinned: pins.some((pin) => pin.id === one.id), kind: one.kind, status: one.status })
@@ -459,7 +462,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
             )}
             {results.map((capture, index) => {
               // A task wears the task mark it has everywhere else, not the to-do kind's.
-              const kind = capture.type === 'task' ? TASK_KIND : capture.type === 'event' ? EVENT_KIND : capture.type === 'day' ? DAY_KIND : CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]
+              const kind = capture.type === 'task' ? TASK_KIND : capture.type === 'event' ? EVENT_KIND : capture.type === 'day' ? DAY_KIND : capture.type === 'pdf' ? PDF_KIND : CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]
               const group = groupFor(index)
               const on = index + doing.length === at
               return (
@@ -482,7 +485,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
                     onClick={(event) => (live.current.several.click(event, capture) ? box.current?.focus() : live.current.onOpen(capture.type, capture.id))}
                   >
                     <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
-                    <span {...(shown ? {} : hoverNote(capture.type, capture.id, { kind: capture.kind }))} className="min-w-0 truncate">{/* A task's or an Inbox note's #tags as tags, never in its name: so it reads as it does on its own list. */}{(capture.type === 'task' || capture.type === 'capture' ? taskName(capture.label ?? '').text : capture.type === 'day' ? dayName(capture.id) : capture.label) || 'Untitled'}</span>
+                    <span {...(shown || capture.type === 'pdf' ? {} : hoverNote(capture.type, capture.id, { kind: capture.kind }))} className="min-w-0 truncate">{/* A task's or an Inbox note's #tags as tags, never in its name: so it reads as it does on its own list. */}{(capture.type === 'task' || capture.type === 'capture' ? taskName(capture.label ?? '').text : capture.type === 'day' ? dayName(capture.id) : capture.label) || 'Untitled'}</span>
                     {(capture.type === 'task' || capture.type === 'capture') && <Tags tags={taskName(capture.label ?? '').tags} go={false} />}
                     {/* After the words, so a task's title starts where a note's does. */}
                     {capture.type === 'task' && !!tasks.find((one) => one.id === capture.id)?.priority && <PriorityMark level={tasks.find((one) => one.id === capture.id)!.priority} />}
@@ -536,7 +539,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
                     </div>
                   )
                   : current
-                  ? current.type === 'task' ? <TaskPreview id={current.id} /> : current.type === 'event' ? <EventPeek id={current.id} /> : <NotePreview type={current.type} id={current.id} />
+                  ? current.type === 'task' ? <TaskPreview id={current.id} /> : current.type === 'pdf' ? <PdfPeek label={current.label} id={current.id} /> : current.type === 'event' ? <EventPeek id={current.id} /> : <NotePreview type={current.type} id={current.id} />
                   : action?.keep
                     // Nothing found: the half says so, and what Enter does with the words.
                     ? <div key={action.label} className="flex flex-col gap-2 p-4">
@@ -560,6 +563,8 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
                   <span><Kbd>↵</Kbd> open it on the Calendar</span>
                 ) : current?.type === 'day' ? (
                   <span><Kbd>↵</Kbd> open it in the Journal</span>
+                ) : current?.type === 'pdf' ? (
+                  <span><Kbd>↵</Kbd> open it in the reader</span>
                 ) : current ? (
                   <>
                     <div className="min-w-0 flex-1"><GlossLine key={current.id} id={current.id} open={glossing} onDone={backToBox} keys="⌘;" /></div>
@@ -604,6 +609,18 @@ const Kept = memo(({ draw }: { deps: unknown[]; draw: () => ReactNode }) => <>{d
 
 /** A journal day found, as the Journal and the Feed name it. */
 const DAY_KIND = { icon: Sun, tint: 'var(--tt-color-text-orange)' }
+const PDF_KIND = { icon: FileText, tint: 'var(--tt-color-text-red)' }
+
+/** Search's preview of a PDF: its title and the file it came as. */
+function PdfPeek({ label, id }: { label: string; id: string }): React.JSX.Element {
+  const name = id.slice(id.indexOf('|') + 1)
+  return (
+    <div className="flex flex-col gap-2 p-4">
+      <p className="text-base font-medium text-pretty text-foreground">{label}</p>
+      <p className="text-body text-muted-foreground">PDF{name ? `, ${name}` : ''}</p>
+    </div>
+  )
+}
 const dayName = (day: string): string => dayjs(day).format(dayjs(day).year() === dayjs().year() ? 'dddd D MMMM' : 'dddd D MMMM YYYY')
 
 function NotePreview({ type, id }: { type: string; id: string }): React.JSX.Element | null {

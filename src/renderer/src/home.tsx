@@ -225,7 +225,7 @@ const turnsPage = (view: View): boolean => !!view.focus && holdsNotes(view.id) &
 const stepOf = (type: string, id: string): View =>
   // A Writing or Gems folder: "article:<group>" or "nugget:<group>", its list opened inside it.
   type === 'folder' ? { id: id.startsWith('article:') ? 'articles' : 'nuggets', folder: id.slice(id.indexOf(':') + 1) }
-  : type === 'view' ? { id } : type === 'day' ? { id: 'day', focus: id } : type === 'event' ? { id: 'calendar', focus: `event:${id}` } : { id: type === 'capture' ? 'all' : type === 'task' ? 'upcoming' : `${type}s`, focus: id }
+  : type === 'view' ? { id } : type === 'pdf' ? { id: 'pdf', focus: id } : type === 'day' ? { id: 'day', focus: id } : type === 'event' ? { id: 'calendar', focus: `event:${id}` } : { id: type === 'capture' ? 'all' : type === 'task' ? 'upcoming' : `${type}s`, focus: id }
 /** Pages that show one day, week, month or year: with no focus, or a focus in the present one, they are on now. */
 const DATED = ['day', 'weekpage', 'monthpage', 'yearpage']
 const atNow = (view: View): boolean => {

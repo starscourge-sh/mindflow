@@ -43,9 +43,11 @@ export function followPdfLink(href: string): boolean {
 const titles = new Map<string, string>()
 /** A PDF's title once read, else the name it arrived under without `.pdf`. */
 export const pdfName = (src: string, name: string): string => titles.get(src) ?? (name.replace(/\.pdf$/i, "") || "PDF")
-const learnTitle = (src: string, title: string): void => {
+export const learnTitle = (src: string, title: string): void => {
   if (titles.get(src) === title) return
   titles.set(src, title)
+  // Kept, so ⌘K finds the PDF by its title too.
+  void call("pdf:title", src, title)
   window.dispatchEvent(new CustomEvent("haligtree:pdf-title"))
 }
 

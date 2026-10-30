@@ -362,6 +362,7 @@ export function LinkField({ label, placeholder, ghost, does, value, onSave, onOp
           onOpen={(type, id) => {
             setPicking(false)
             if (type === 'task') return refuse('A task cannot be linked here. Pick a day or a note')
+            if (type === 'pdf') return refuse('A PDF cannot be linked here. Pick a day or a note')
             onSave(type === 'capture' ? id : `${type}:${id}`)
           }}
         />,
