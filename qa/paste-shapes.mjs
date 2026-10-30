@@ -12,17 +12,18 @@ const wait = (ms) => h.waitForTimeout(ms)
 const EDITOR = '[data-open] .tiptap'
 
 /** A fresh note, the words pasted as plain text, and what it holds after. */
-const paste = async (words) => {
+const paste = async (words, html = '') => {
   const id = await v('article:new')
   await v('item:save', id, { title: 'Pasted', body: { type: 'doc', content: [{ type: 'paragraph' }] } })
   await c.send('article', id); await wait(1400)
-  await h.evaluate(([sel, words]) => {
+  await h.evaluate(([sel, words, html]) => {
     const ed = document.querySelector(sel).editor
     ed.commands.focus('end')
     const data = new DataTransfer()
     data.setData('text/plain', words)
+    if (html) data.setData('text/html', html)
     ed.view.dom.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }))
-  }, [EDITOR, words])
+  }, [EDITOR, words, html])
   await wait(600)
   return h.evaluate((sel) => {
     const ed = document.querySelector(sel).editor
@@ -46,6 +47,17 @@ try {
   check('and the indented ones stay nested under them', at('socks')?.depth === 2 && at('charger')?.depth === 2, JSON.stringify(lines))
   check('every one is still a checklist item', lines.every((l) => l.list === 'taskItem'), JSON.stringify(lines))
 
+  // The same list indented with tabs, and with four spaces.
+  for (const [said, words] of [['tabs', '- [ ] pack\n\t- [ ] socks\n\t- [ ] charger\n- [ ] leave'], ['four spaces', '- [ ] pack\n    - [ ] socks\n    - [ ] charger\n- [ ] leave']]) {
+    lines = await paste(words)
+    check(`indented with ${said}: the nested ones stay nested`, at('pack')?.depth === 1 && at('socks')?.depth === 2 && at('charger')?.depth === 2 && at('leave')?.depth === 1, JSON.stringify(lines))
+  }
+  // As Notion and Apple Notes put a nested checklist on the clipboard: HTML lists inside lists.
+  const plain = 'pack\nsocks\ncharger\nleave'
+  lines = await paste(plain, '<ul class="to-do-list"><li><div class="checkbox checkbox-off"></div> <span class="to-do-children-unchecked">pack</span><div class="indented"><ul class="to-do-list"><li><div class="checkbox checkbox-off"></div> <span>socks</span></li><li><div class="checkbox checkbox-off"></div> <span>charger</span></li></ul></div></li><li><div class="checkbox checkbox-off"></div> <span>leave</span></li></ul>')
+  check('Notion HTML: the nested ones stay nested', at('pack')?.depth === 1 && at('socks')?.depth === 2 && at('leave')?.depth === 1, JSON.stringify(lines))
+  lines = await paste(plain, '<ul class="Apple-dash-list"><li>pack</li><ul class="Apple-dash-list"><li>socks</li><li>charger</li></ul><li>leave</li></ul>')
+  check('Apple Notes HTML (a list right inside a list): the nested ones stay nested', at('pack')?.depth === 1 && at('socks')?.depth === 2 && at('leave')?.depth === 1, JSON.stringify(lines))
   lines = await paste('→ step one\n→ step two\n→ step three')
   check('lines starting with arrows stay three lines', lines.length === 3 && lines[1].text === '→ step two', JSON.stringify(lines))
   lines = await paste('a -> b\nb -> c\nc -> d')
