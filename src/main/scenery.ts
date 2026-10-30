@@ -7,6 +7,7 @@ import { mkdir, readFile, readdir, rm, stat, writeFile } from 'fs/promises'
 import { watch, type FSWatcher } from 'fs'
 import { basename, dirname, extname, isAbsolute, join } from 'path'
 import { changed } from './captures'
+import { isPack, packFolder } from './sandbox'
 
 /**
  * Scenery: pictures from folders you choose, shown at the quiet moments (an
@@ -307,7 +308,8 @@ async function list(folders: string[], use = 'scenery'): Promise<{ scenes: Scene
 export function registerScenery(): void {
   ipcMain.handle('haligtree:scenery', (_event, folders: unknown, use: unknown) =>
     // Whole folders only, named from the top of the disk: nothing relative to wherever the app runs.
-    list(Array.isArray(folders) ? folders.filter((one): one is string => typeof one === 'string' && isAbsolute(one)) : [], use === 'covers' ? 'covers' : 'scenery'))
+    // Haligtree's paintings are always the pack where it is written now, so every one shipped is there.
+    list([...new Set(Array.isArray(folders) ? folders.filter((one): one is string => typeof one === 'string' && isAbsolute(one)).map((one) => (isPack(one) ? packFolder() : one)) : [])], use === 'covers' ? 'covers' : 'scenery'))
   ipcMain.handle('haligtree:scenery:folder', async () => {
     const { filePaths } = await dialog.showOpenDialog({ title: 'Choose a folder of pictures', buttonLabel: 'Use this folder', properties: ['openDirectory'] })
     return filePaths[0] ?? null

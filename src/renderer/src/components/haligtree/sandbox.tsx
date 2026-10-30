@@ -276,7 +276,13 @@ export function SandboxHost(): React.JSX.Element | null {
       // first start is not a bare page. Your own folders, once chosen, replace them.
       void haligtree.settings().then(async (settings) => {
         // Haligtree's paintings already in use: written again, so a newer version's added ones show up there too.
-        if (settings.sceneryFolders.some(isBuiltInScenery)) return void builtInScenery()
+        // And the setting names where the pack is written now, not an old copy's folder (from before a rename or a move).
+        if (settings.sceneryFolders.some(isBuiltInScenery)) {
+          const pack = await builtInScenery()
+          const folders = [...new Set(settings.sceneryFolders.map((one) => (isBuiltInScenery(one) ? pack : one)))]
+          if (folders.join() !== settings.sceneryFolders.join()) await window.api.haligtree('settings:set', { sceneryFolders: folders })
+          return
+        }
         if (!settings.scenery || settings.sceneryFolders.length || localStorage.getItem('scenery-built-in')) return
         // Marked done only once the folder is really set: copying the pictures
         // takes a moment, and a reload (⌘R) in that moment, marked first, left

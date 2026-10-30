@@ -75,6 +75,14 @@ moveOldIn(app.getPath('appData'), realRoot(), process.env, SANDBOX)
 /** This run's book, or null for My book (and for the sandbox). */
 export const BOOK = pickBook()
 /** Where this run keeps everything. */
+/** Where Haligtree's own paintings are written: always the book's own folder now, wherever an older one was. */
+export const packFolder = (): string => (SANDBOX ? join(sandboxRoot(), 'Sandbox scenery') : join(dataRoot(), 'Scenery'))
+/**
+ * Whether a chosen folder is Haligtree's own paintings (any copy of them, under this app's support folder, by its
+ * old name or new), not a folder of the user's own. A book renamed, moved or carried over kept the path of an old
+ * copy, which never got the paintings added since; it is read as the pack wherever it was.
+ */
+export const isPack = (folder: string): boolean => /\/Application Support\/(haligtree|mindflow|vigil)\/.*\/?(Scenery|Sandbox scenery)$/i.test(folder)
 export const dataRoot = (): string => (SANDBOX ? sandboxRoot() : BOOK ? bookRoot(BOOK) : realRoot())
 /** A test run or the sandbox: no iCloud, no login item, no copies anywhere else. */
 export const apart = (): boolean => SANDBOX || !!process.env.HALIGTREE_USER_DATA
@@ -461,7 +469,7 @@ export function registerSandbox(): void {
   // sandbox's, or yours on a first start with no folder of your own chosen.
   handle('scenery', async (files: unknown) => {
     if (!Array.isArray(files)) return ''
-    const folder = SANDBOX ? join(sandboxRoot(), 'Sandbox scenery') : join(dataRoot(), 'Scenery')
+    const folder = packFolder()
     await mkdir(folder, { recursive: true })
     for (const file of files as { name: unknown; bytes: unknown }[]) {
       if (typeof file?.name !== 'string' || !/^[a-z-]+\.webp$/.test(file.name) || !(file.bytes instanceof Uint8Array)) continue
