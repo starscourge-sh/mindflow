@@ -27,7 +27,7 @@ import { Kbd } from "@/components/haligtree/ui"
 import { useShowLine } from "@/lib/show-in-list"
 import { BLOCK_TYPES, nameBlock } from "@/extensions/block-ids"
 import { haligtree } from "@/lib/haligtree"
-import { isWebPdf, openWebPdf } from "@/components/pdf/pdf-reader"
+import { isWebPage, openArticle } from "@/components/pdf/web-reader"
 
 /**
  * What belongs to the whole table rather than to a row or a column.
@@ -472,9 +472,9 @@ export function BlockMenu({
           </DropdownMenuItem>
         ) : null}
 
-        {href && isWebPdf(href) && matches("Open in the reader") ? (
+        {href && isWebPage(href) && matches("Open in the reader") ? (
           <DropdownMenuItem asChild>
-            <button type="button" onClick={() => void openWebPdf(href)}>
+            <button type="button" onClick={() => openArticle(href)}>
               <MenuGlyph label="Open in the reader" />
               <span className="tiptap-slash-menu-title">Open in the reader</span>
             </button>

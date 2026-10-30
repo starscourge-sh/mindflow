@@ -8,7 +8,7 @@ import { isYouTube, wideThumb } from "../../../../main/video-thumbs"
 import { lookOf, paintWhileLoading, withoutBands } from "@/lib/pictures"
 import { said } from "@/lib/host"
 import { BookOpen, Check, Copy } from "@/components/ui/icons"
-import { isWebPdf, openWebPdf } from "@/components/pdf/pdf-reader"
+import { openArticle } from "@/components/pdf/web-reader"
 
 /**
  * The link preview card.
@@ -113,8 +113,8 @@ export function BookmarkView(props: NodeViewProps): React.JSX.Element {
         </span>
       </span>
 
-      {/* A PDF on the web: read here, in the reader, as well as in the browser. */}
-      {isWebPdf(href) && !loading && (
+      {/* Read here, in the reader, as well as in the browser: a PDF in the PDF reader, any other page as an article. */}
+      {/^https?:\/\//i.test(href) && !loading && (
         <button
           type="button"
           className="tiptap-bookmark-copy is-read"
@@ -122,7 +122,7 @@ export function BookmarkView(props: NodeViewProps): React.JSX.Element {
           title="Open in the reader"
           onClick={(event) => {
             event.stopPropagation()
-            void openWebPdf(href)
+            openArticle(href)
           }}
         >
           <BookOpen />

@@ -19,8 +19,9 @@ type FoundArticle = { type: 'web'; id: string; number: null; kind: string; statu
 /** Every kept article, as ⌘K lists it: found by its title, site and byline. */
 export function articlesToFind(db: DatabaseSync): FoundArticle[] {
   db.exec(TABLE)
-  const rows = db.prepare('select id, title, byline, site, saved_at as at from web_articles').all() as { id: string; title: string; byline: string; site: string; at: string }[]
-  return rows.map((one) => ({ type: 'web', id: one.id, number: null, kind: 'web', status: 'open', source: one.site, attribution: one.site, label: one.title, capturedAt: one.at, text: `${one.title} ${one.site} ${one.byline}`.toLowerCase() }))
+  const rows = db.prepare('select href, title, byline, site, saved_at as at from web_articles').all() as { href: string; title: string; byline: string; site: string; at: string }[]
+  // Its id is the reader's own address for it: the page's link.
+  return rows.map((one) => ({ type: 'web', id: one.href, number: null, kind: 'web', status: 'open', source: one.site, attribution: one.site, label: one.title, capturedAt: one.at, text: `${one.title} ${one.site} ${one.byline}`.toLowerCase() }))
 }
 
 /**
@@ -104,14 +105,18 @@ export function registerWebArticles(keep: (src: string) => Promise<string>): voi
     return { id }
   }
 
+  const kept = (href: string): Article | null =>
+    (db.prepare('select id, href, title, byline, site, published, html, saved_at as savedAt from web_articles where href = ?').get(href) as Article | undefined) ?? null
+  // A page read once is read from the book after that: offline, or after the site changes, it reads as it did.
   ipcMain.handle('article-fetch', async (_event, href: unknown) => {
     if (typeof href !== 'string' || !/^https?:\/\//i.test(href)) return { error: WHY.notPage }
+    const known = kept(href)
+    if (known) return { article: known }
     try {
-      return await read(href)
+      const done = await read(href)
+      return 'error' in done ? done : { article: kept(href) }
     } catch {
       return { error: WHY.script }
     }
   })
-  ipcMain.handle('haligtree:article:get', (_event, id: unknown) =>
-    (db.prepare('select id, href, title, byline, site, published, html, saved_at as savedAt from web_articles where id = ?').get(String(id)) as Article | undefined) ?? null)
 }

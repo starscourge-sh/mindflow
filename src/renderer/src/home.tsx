@@ -115,6 +115,7 @@ import { asideClick, asideItem, keepTitle, setPaneNotes, setPanes, spendAsideCli
 import XIcon from '@/components/ui/x-icon'
 import { WhatsNewPage, openWhatsNew } from '@/components/haligtree/whats-new'
 import { PdfReader, fromPdfFocus, pdfFocus, pdfName } from '@/components/pdf/pdf-reader'
+import { WebReader, articleName } from '@/components/pdf/web-reader'
 import { BinView } from '@/components/haligtree/bin-view'
 import { CloseDaySheet, openCloseDay } from '@/components/haligtree/close-day'
 import { writeOutDay } from '@/components/haligtree/day-list'
@@ -218,14 +219,14 @@ const selectedInNote = (): boolean => {
   const picked = getSelection()
   return !!editor && !!picked && !picked.isCollapsed && !!picked.anchorNode && editor.contains(picked.anchorNode)
 }
-const holdsNotes = (id: string): boolean => !['pick', 'home', 'day', 'weekpage', 'monthpage', 'yearpage', 'tags', 'sources', 'source', 'stats', 'map', 'feed', 'powers', 'whatsnew', 'settings', 'review', 'queue', 'calendar', 'practices', 'kind:practice', 'pdf'].includes(id)
+const holdsNotes = (id: string): boolean => !['pick', 'home', 'day', 'weekpage', 'monthpage', 'yearpage', 'tags', 'sources', 'source', 'stats', 'map', 'feed', 'powers', 'whatsnew', 'settings', 'review', 'queue', 'calendar', 'practices', 'kind:practice', 'pdf', 'web'].includes(id)
 /** A step onto a note (not a task, a day or an event): the page that shows it turns, as a book's does. */
 const turnsPage = (view: View): boolean => !!view.focus && holdsNotes(view.id) && !['today', 'tomorrow', 'upcoming', 'routines', 'later', 'alltasks', 'goals', 'week', 'matrix', 'discarded'].includes(view.id)
 /** Where one thing opens: a view by name, a day's page, or a note or task in its section. */
 const stepOf = (type: string, id: string): View =>
   // A Writing or Gems folder: "article:<group>" or "nugget:<group>", its list opened inside it.
   type === 'folder' ? { id: id.startsWith('article:') ? 'articles' : 'nuggets', folder: id.slice(id.indexOf(':') + 1) }
-  : type === 'view' ? { id } : type === 'pdf' ? { id: 'pdf', focus: id } : type === 'day' ? { id: 'day', focus: id } : type === 'event' ? { id: 'calendar', focus: `event:${id}` } : { id: type === 'capture' ? 'all' : type === 'task' ? 'upcoming' : `${type}s`, focus: id }
+  : type === 'view' ? { id } : type === 'pdf' || type === 'web' ? { id: type, focus: id } : type === 'day' ? { id: 'day', focus: id } : type === 'event' ? { id: 'calendar', focus: `event:${id}` } : { id: type === 'capture' ? 'all' : type === 'task' ? 'upcoming' : `${type}s`, focus: id }
 /** Pages that show one day, week, month or year: with no focus, or a focus in the present one, they are on now. */
 const DATED = ['day', 'weekpage', 'monthpage', 'yearpage']
 const atNow = (view: View): boolean => {
@@ -680,6 +681,19 @@ export function Home(): React.JSX.Element {
     }
     window.addEventListener('haligtree:pdf', onPdf)
     return () => window.removeEventListener('haligtree:pdf', onPdf)
+  })
+  // A web page in the reader (a link card, a link's popover, ⌘K, a gem's link back): as a PDF is.
+  useEffect(() => {
+    const onWeb = (event: Event): void => {
+      const step: View = { id: 'web', focus: (event as CustomEvent<{ href: string }>).detail.href }
+      const side = asideClick()
+      if (side) spendAsideClick()
+      chime('page')
+      if (side) asideRef.current(step)
+      else setView(step)
+    }
+    window.addEventListener('haligtree:web', onWeb)
+    return () => window.removeEventListener('haligtree:web', onWeb)
   })
   // A PDF's own title, read as it opens: the top bar and its pane's tab say it too.
   const [, pdfTitled] = useState(0)
@@ -1213,7 +1227,7 @@ export function Home(): React.JSX.Element {
   /** A page's name, for the top bar; a pane is named by its note first (paneName). */
   /** The sidebar row lit for the page you are on, whichever date a day's, week's, month's or year's page shows (litRow). */
   const lit = (id: string): boolean => litRow(view.id, shown) === id
-  const labelOf = (view: View): string => datedName(view) ?? (view.id === 'matrix' ? 'Urgent and important' : TASK_PAGES.includes(view.id) ? 'Tasks' : view.id === 'questions' ? 'Questions' : null) ?? SECTIONS.find((section) => section.id === view.id)?.label ?? kind(view)?.label ?? (view.id === 'source' ? view.focus?.slice(view.focus.indexOf(':') + 1) || 'Source' : view.id === 'settings' ? 'Settings' : view.id === 'pick' ? 'New pane' : view.id === 'whatsnew' ? "What's new" : view.id === 'pdf' ? pdfName(fromPdfFocus(view.focus ?? '').src, fromPdfFocus(view.focus ?? '').name) : view.id === 'practices' ? 'Practices' : view.id === 'yearpage' ? 'Year' : view.id === 'day' ? 'Day' : view.id === 'weekpage' ? 'Week' : view.id === 'monthpage' ? 'Month' : '')
+  const labelOf = (view: View): string => datedName(view) ?? (view.id === 'matrix' ? 'Urgent and important' : TASK_PAGES.includes(view.id) ? 'Tasks' : view.id === 'questions' ? 'Questions' : null) ?? SECTIONS.find((section) => section.id === view.id)?.label ?? kind(view)?.label ?? (view.id === 'source' ? view.focus?.slice(view.focus.indexOf(':') + 1) || 'Source' : view.id === 'settings' ? 'Settings' : view.id === 'pick' ? 'New pane' : view.id === 'whatsnew' ? "What's new" : view.id === 'pdf' ? pdfName(fromPdfFocus(view.focus ?? '').src, fromPdfFocus(view.focus ?? '').name) : view.id === 'web' ? articleName(view.focus ?? '') : view.id === 'practices' ? 'Practices' : view.id === 'yearpage' ? 'Year' : view.id === 'day' ? 'Day' : view.id === 'weekpage' ? 'Week' : view.id === 'monthpage' ? 'Month' : '')
   const paneWidth = (key: string, width: PaneWidth): void => {
     chime(width === 'narrow' ? 'fold' : 'slide')
     setSplit((now) => ({ ...now, panes: now.panes.map((one) => (one.key === key ? { ...one, width } : one)) }))
@@ -1416,6 +1430,8 @@ export function Home(): React.JSX.Element {
           <MediaView onOpen={go} />
         ) : view.id === 'pdf' && view.focus ? (
           <PdfReader key={view.focus} {...fromPdfFocus(view.focus)} page={Number(view.tab) || undefined} onPage={(page) => navFor(key, view).keep({ tab: String(page) })} />
+        ) : view.id === 'web' && view.focus ? (
+          <WebReader key={view.focus} href={view.focus} />
         ) : view.id === 'whatsnew' ? (
           <WhatsNewPage focus={view.focus} onView={(id, focus) => setView({ id, focus }, key)} />
         ) : view.id === 'feed' ? (
