@@ -32,12 +32,37 @@ export const pdfLink = (src: string, name: string, page: number, mark: string): 
  * page with its mark flashed. Says whether it was one.
  */
 export function followPdfLink(href: string): boolean {
+  // A link back into a kept article: it opens in the reader with its mark flashed.
+  const article = /^(?:haligtree|mindflow):\/\/article\?(.*)$/i.exec(href)
+  if (article) {
+    const hash = new URLSearchParams(article[1])
+    const page = hash.get("href")
+    if (page) openArticle(page, hash.get("mark") ?? undefined)
+    return !!page
+  }
   const found = /^((?:haligtree|mindflow):\/\/assets\/[^#?]+\.pdf)(?:#(.*))?$/i.exec(href)
   if (!found) return false
   const hash = new URLSearchParams(found[2] ?? "")
   openPdf(found[1], hash.get("name") ?? "", Number(hash.get("page")) || undefined, hash.get("mark") ?? undefined)
   return true
 }
+
+/** A web page in the reader: a step in the pane in front, or beside it on ⌥-click. A PDF link opens the PDF reader instead. */
+export const openArticle = (href: string, mark?: string): void => {
+  if (isWebPdf(href)) return void openWebPdf(href)
+  articleFlash = mark ?? null
+  if (canSplit()) window.dispatchEvent(new CustomEvent("haligtree:web", { detail: { href } }))
+  else window.api.openInHome("web", href)
+}
+/** The mark an article's link came back to: taken (once) by the reader that opens next. */
+let articleFlash: string | null = null
+export const takeArticleFlash = (): string | null => {
+  const mark = articleFlash
+  articleFlash = null
+  return mark
+}
+/** A link back into an article, as a gem keeps it: the page's link and the mark. */
+export const articleLink = (href: string, mark: string): string => `haligtree://article?href=${encodeURIComponent(href)}&mark=${mark}`
 
 /** A link to a PDF on the web: its path ends in `.pdf`. */
 export const isWebPdf = (href: string | null | undefined): boolean => !!href && /^https?:\/\/[^?#]+\.pdf(?:[?#]|$)/i.test(href)
@@ -427,7 +452,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
 }
 
 /** "Keep", floating over the picked words as the editor's own selection bar does. */
-function KeepBar({ at, onKeep }: { at: { x: number; y: number }; onKeep: () => void }): React.JSX.Element {
+export function KeepBar({ at, onKeep }: { at: { x: number; y: number }; onKeep: () => void }): React.JSX.Element {
   const bar = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
   useLayoutEffect(() => setWidth(bar.current?.offsetWidth ?? 0), [])

@@ -31,7 +31,7 @@ export async function pdfTitle(doc: PDFDocumentProxy, name: string): Promise<str
 }
 
 /** Words kept from a page: where on its text they start and end, and the words themselves. */
-export type PdfMark = { id: string; page: number; quote: string; start: number; end: number; gemId?: string | null }
+export type PdfMark = { id: string; page: number; quote: string; start: number; end: number; prefix?: string; suffix?: string; gemId?: string | null }
 
 /** Every run of words in a page's text layer, in reading order. */
 const textNodes = (layer: Element): Text[] => {
@@ -51,12 +51,15 @@ export function offsetsIn(layer: Element, range: Range): { start: number; end: n
 }
 
 /** The range a mark covers on a drawn page; found again by its words if the offsets no longer match. */
-function rangeOf(layer: Element, mark: PdfMark): Range | null {
+export function rangeOf(layer: Element, mark: PdfMark): Range | null {
   const nodes = textNodes(layer)
   const text = nodes.map((node) => node.data).join("")
   let { start, end } = mark
   if (text.slice(start, end) !== mark.quote) {
-    const at = text.indexOf(mark.quote)
+    // The words with those around them first, so a phrase that comes twice finds the right one.
+    const near = `${mark.prefix ?? ""}${mark.quote}${mark.suffix ?? ""}`
+    const whole = mark.prefix || mark.suffix ? text.indexOf(near) : -1
+    const at = whole >= 0 ? whole + (mark.prefix ?? "").length : text.indexOf(mark.quote)
     if (at < 0) return null
     ;[start, end] = [at, at + mark.quote.length]
   }

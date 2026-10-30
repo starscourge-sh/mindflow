@@ -51,15 +51,20 @@ export function pdfsToFind(db: DatabaseSync): FoundPdf[] {
  */
 export function registerPdfHighlights(): void {
   const db = database()
-  db.exec('create table if not exists pdf_highlights (id text primary key, src text not null, page integer not null, quote text not null, start integer not null, end integer not null, gem_id text, created_at text not null)')
+  // One store for every reader: a PDF's marks by page, an article's (src is
+  // its link, page 0) by where they sit in its words. The words just before
+  // and after each mark find it again if the page's text ever shifts.
+  db.exec("create table if not exists pdf_highlights (id text primary key, src text not null, page integer not null, quote text not null, start integer not null, end integer not null, gem_id text, created_at text not null, prefix text not null default '', suffix text not null default '')")
+  const columns = (db.prepare('pragma table_info(pdf_highlights)').all() as { name: string }[]).map((one) => one.name)
+  for (const name of ['prefix', 'suffix']) if (!columns.includes(name)) db.exec(`alter table pdf_highlights add column ${name} text not null default ''`)
   ipcMain.handle('haligtree:pdf:highlights', (_event, src: unknown) =>
-    db.prepare('select id, page, quote, start, end, gem_id as gemId from pdf_highlights where src = ? order by page, start').all(String(src)))
+    db.prepare('select id, page, quote, start, end, prefix, suffix, gem_id as gemId from pdf_highlights where src = ? order by page, start').all(String(src)))
   ipcMain.handle('haligtree:pdf:highlight', (_event, src: unknown, mark: unknown) => {
-    const { id: given, page, quote, start, end, gemId } = (mark ?? {}) as { id?: string; page?: number; quote?: string; start?: number; end?: number; gemId?: string }
+    const { id: given, page, quote, start, end, gemId, prefix, suffix } = (mark ?? {}) as { id?: string; page?: number; quote?: string; start?: number; end?: number; gemId?: string; prefix?: string; suffix?: string }
     if (!src || !quote || !Number.isInteger(page) || !Number.isInteger(start) || !Number.isInteger(end)) return null
     const id = typeof given === 'string' && given ? given : randomUUID()
-    db.prepare('insert into pdf_highlights (id, src, page, quote, start, end, gem_id, created_at) values (?, ?, ?, ?, ?, ?, ?, ?)')
-      .run(id, String(src), page!, quote, start!, end!, gemId ?? null, new Date().toISOString())
+    db.prepare('insert into pdf_highlights (id, src, page, quote, start, end, gem_id, created_at, prefix, suffix) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(id, String(src), page!, quote, start!, end!, gemId ?? null, new Date().toISOString(), String(prefix ?? ''), String(suffix ?? ''))
     return id
   })
   ipcMain.handle('haligtree:pdf:unhighlight', (_event, id: unknown) => db.prepare('delete from pdf_highlights where id = ?').run(String(id)).changes > 0)
