@@ -16,7 +16,7 @@ let base = null
 const theme = async (one) => { base = await h.evaluate(([t, was]) => { const r = document.documentElement; was ??= r.className; r.className = t === 'dark' ? 'dark' : was.replace(/dark/, ''); return was }, [one, base]); await wait(300) }
 const sheet = (sel) => h.evaluate((sel) => {
   const one = document.querySelector(sel); if (!one) return null
-  const s = getComputedStyle(one); const title = getComputedStyle(one.querySelector('p'))
+  const s = getComputedStyle(one); const title = getComputedStyle(one.querySelector('h2, p'))
   return { radius: s.borderTopLeftRadius, pad: s.paddingTop, width: Math.round(one.getBoundingClientRect().width), title: title.fontSize + ' ' + title.fontWeight, caps: one.querySelectorAll('kbd').length }
 }, sel)
 // The gaps, top to bottom: caption, bar, count, first line of the words.

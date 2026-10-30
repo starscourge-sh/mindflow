@@ -101,7 +101,7 @@ export function RoomFoot({ editor, title, spent, proof, live = proof }: { editor
       {/* One quiet bar: what it is, how far, how long on the left; "How it reads", the tools and the way out on the right. */}
       <div className="relative mx-auto flex max-w-[46rem] items-center gap-3">
         <span className="flex min-w-0 items-center gap-2">
-          <span data-room-title className="min-w-0 truncate text-foreground/80">{title}</span>
+          <span data-room-title className="min-w-0 truncate">{title}</span>
           <span aria-hidden>·</span>
           <span className="shrink-0">{num(words)} {words === 1 ? 'word' : 'words'}</span>
           <span aria-hidden>·</span>

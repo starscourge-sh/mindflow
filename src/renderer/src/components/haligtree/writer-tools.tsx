@@ -165,23 +165,20 @@ export function WriterTools({ editor, proof = false, live = proof }: { editor: E
     window.addEventListener('haligtree:proofread-count', heard)
     return () => window.removeEventListener('haligtree:proofread-count', heard)
   }, [])
-  // Asked for and not yet read through: the report shows once, whole. It showed the prose lines, then grew upward
-  // as the grammar line came in, so the card jumped from top to bottom as it opened.
-  const [reading, setReading] = useState(false)
+  // The prose lines show at once; the grammar line (Writing and the Journal) has its own line kept under them from the
+  // start, said as being read until it is. It grew in above the prose lines once read, so the card jumped as it opened.
+  const [grammar, setGrammar] = useState<string | null>(null)
   const asked = useRef(0)
   const ask = (): void => {
     asked.current += 1
-    if (report || reading || !editor) return void (chime('fold'), setReport(null), setReading(false), editor?.commands.focus())
+    if (report || !editor) return void (chime('fold'), setReport(null), editor?.commands.focus())
     chime('open')
     editor.commands.focus()
-    if (!proof) return setReport(proseReport(editor))
+    setGrammar(null)
+    setReport(proseReport(editor))
+    if (!proof) return
     const mine = asked.current
-    setReading(true)
-    void fullReport(editor).then((full) => {
-      if (asked.current !== mine) return
-      setReading(false)
-      setReport(full)
-    })
+    void grammarSentence(editor.state.doc).then((line) => asked.current === mine && setGrammar(line), () => asked.current === mine && setGrammar(''))
   }
   // One quiet bar, as Dia or Apple would draw it: the one thing asked for most ("How it reads") said in words, and the
   // rest (Focus, Word aim, Proofread, marking mistakes, a sound) behind one "Tools" control. It was a wall of nine
@@ -191,11 +188,18 @@ export function WriterTools({ editor, proof = false, live = proof }: { editor: E
   const seg = 'flex-1 cursor-pointer rounded-md px-2 py-1 whitespace-nowrap text-control text-foreground/70 transition-colors hover:text-foreground data-on:bg-background data-on:text-foreground data-on:shadow-xs'
   // A tool that opens something of its own (Word aim's question, Proofread) closes the panel first.
   const [open, setOpen] = useState(false)
-  const lit = focus !== 'off' || checking || found !== null
+  const lit = focus !== 'off' || checking
   return (
     <span data-writer-tools className="flex items-center gap-1">
-      {report && <span data-prose-report className="mf-report-in absolute inset-x-0 bottom-full mx-auto mb-2 max-w-[40rem] px-6 text-center text-body text-foreground/80 text-pretty">{report}</span>}
-      <button type="button" data-report-ask data-on={!!report || reading || undefined} aria-busy={reading || undefined} className={quiet} onClick={ask}>How it reads</button>
+      {report && (
+        <span data-prose-report aria-busy={(proof && grammar === null) || undefined} className="mf-report-in absolute inset-x-0 bottom-full mx-auto mb-2 max-w-[40rem] px-6 text-center text-body text-foreground/80 text-pretty">
+          {report}
+          {proof && grammar !== '' && <span data-grammar-line className={`block min-h-[1lh] transition-opacity duration-300 ${grammar === null ? 'text-muted-foreground' : 'mf-report-in'}`}>{grammar ?? 'Reading it through for grammar…'}</span>}
+        </span>
+      )}
+      <button type="button" data-report-ask data-on={!!report || undefined} className={quiet} onClick={ask}>How it reads</button>
+      {/* Proofread at work stays in sight with its count, where it is clicked again to stop, never hidden in Tools. */}
+      {proof && found !== null && <button type="button" data-proofread-ask data-on className={quiet} onClick={() => (setReport(null), askProofread())}>Proofread<span data-proof-count className="tabular-nums"> · {found}</span></button>}
       <Popover modal={false} open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <button type="button" data-room-tools data-on={lit || undefined} className={`${quiet} inline-flex items-center gap-1.5`}>
@@ -212,7 +216,7 @@ export function WriterTools({ editor, proof = false, live = proof }: { editor: E
             ))}
           </div>
           <button type="button" data-aim-ask className={row} onClick={() => (setOpen(false), askAim())}>Word aim…</button>
-          {proof && <button type="button" data-proofread-ask data-on={found !== null || undefined} className={row} onClick={() => (setOpen(false), setReport(null), askProofread())}>Proofread{found !== null && <span data-proof-count className="text-muted-foreground tabular-nums">{found}</span>}</button>}
+          {proof && found === null && <button type="button" data-proofread-ask className={row} onClick={() => (setOpen(false), setReport(null), askProofread())}>Proofread</button>}
           {proof && live && (
             <button type="button" data-grammar-live data-on={checking || undefined} role="switch" aria-checked={checking} className={row} onClick={() => (setCheckingLive(!checking), setChecking(!checking), chime(checking ? 'off' : 'on'))}>
               Mark mistakes as I write<span aria-hidden className={`relative h-4 w-7 shrink-0 rounded-full transition-colors ${checking ? 'bg-primary' : 'bg-foreground/15'}`}><span className={`absolute top-0.5 size-3 rounded-full bg-background shadow-xs transition-[left] ${checking ? 'left-3.5' : 'left-0.5'}`} /></span>

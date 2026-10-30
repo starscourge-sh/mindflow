@@ -56,7 +56,7 @@ try {
   const day = await room()
   check('1. the day page fills the whole window', day?.covers && day.on, JSON.stringify(day) + await h.evaluate(() => { const out = []; for (let at = document.querySelector('[data-room]')?.parentElement; at; at = at.parentElement) { const s = getComputedStyle(at); const odd = ['transform', 'translate', 'scale', 'filter', 'contain', 'containerType', 'willChange', 'backdropFilter', 'contentVisibility', 'perspective', 'zoom'].filter((k) => !['none', 'normal', 'auto', 'visible', '1', ''].includes(s[k])).map((k) => k + '=' + s[k]); if (odd.length) out.push(at.tagName + '.' + String(at.className).slice(0, 30) + ':' + odd.join(';')) } return out.join(' | ') }))
   check('1. with its caption over the words', /pages: /.test(day?.caption ?? ''), JSON.stringify(day?.caption))
-  check('1. a quiet foot: title, words, time, the way out', /^.*Today, .*·\s*\d+ words\s*·\s*(\d+ minutes?|under a minute)\s*·\s*Esc to leave/.test(day?.foot ?? ''), day?.foot)
+  check('1. a quiet foot: title, words, time, the way out', /^.*Today, .*·\s*\d+ words\s*·\s*(\d+ minutes?|under a minute)\s*How it reads\s*Tools\s*Esc to leave/.test(day?.foot ?? ''), day?.foot)
   check('1. the caret is in the words', await h.evaluate(() => !!document.activeElement?.closest('[data-room]')))
   // No scrollbar anywhere in the room: whatever scrolls, its bar is hidden.
   const bars = await h.evaluate(() => [...document.querySelectorAll('*')].filter((one) => one.scrollHeight > one.clientHeight + 2 && /auto|scroll/.test(getComputedStyle(one).overflowY) && one.getBoundingClientRect().width > 0 && getComputedStyle(one).scrollbarWidth !== 'none').map((one) => one.tagName + '.' + String(one.className).slice(0, 40)))

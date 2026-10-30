@@ -141,9 +141,10 @@ try {
 
   // Settings: the slider grows the app as it moves and says how big.
   await go('settings')
+  await h.click('[data-section="Appearance"]'); await h.waitForTimeout(600)
   const row = h.locator('[data-setting-title="Text and controls size"]')
   await row.scrollIntoViewIfNeeded()
-  check('Settings shows “App size”', await row.count() === 1)
+  check('Settings shows “Text and controls size”', await row.count() === 1)
   check('it says 100%', await row.locator('[data-app-size]').getAttribute('data-app-size') === '100')
   await row.getByRole('slider').focus()
   await h.keyboard.press('ArrowRight')

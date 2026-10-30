@@ -1103,14 +1103,15 @@ function SureAsker(): React.JSX.Element | null {
   return (
     <div className="fixed inset-0 z-[80] flex items-start justify-center bg-black/40 pt-[22vh]" onMouseDown={() => answer(false)}>
       <div role="alertdialog" aria-modal="true" aria-label={asked.question} data-sure
-        className="flex w-[min(30rem,90vw)] flex-col gap-3 rounded-xl bg-popover p-5 shadow-(--mf-panel-shadow)"
+        className="flex w-[min(34rem,90vw)] flex-col gap-3 rounded-2xl bg-popover px-7 pt-6 pb-5 shadow-(--mf-panel-shadow)"
         onMouseDown={(event) => event.stopPropagation()}
         onKeyDown={(event) => {
           event.stopPropagation()
           if (event.key === 'Escape') answer(false)
         }}>
-        <p className="text-base font-semibold text-foreground">{asked.question}</p>
-        <p className="text-body text-foreground">{asked.detail}</p>
+        {/* The same sheet as a question asked for words (Asker): the Day page's serif title, the detail a quiet line. */}
+        <h2 className="text-[1.625rem] leading-tight font-semibold tracking-[-0.02em] text-balance text-foreground" style={{ fontFamily: 'var(--font-heading)' }}>{asked.question}</h2>
+        <p className="-mt-1.5 text-[0.9375rem] leading-snug text-pretty text-foreground">{asked.detail}</p>
         <div className="mt-1 flex items-center justify-end gap-2">
           <Button variant="ghost" size="sm" onClick={() => answer(false)}>Cancel <ShadKbd>Esc</ShadKbd></Button>
           <Button autoFocus data-sure-yes size="sm" onClick={() => answer(true)}>{asked.yes} <ShadKbd>↵</ShadKbd></Button>
