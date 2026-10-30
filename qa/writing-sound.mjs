@@ -32,9 +32,10 @@ try {
   await go('day')
   await wait(800)
   await into()
-  await h.keyboard.type(' quiet', { delay: 80 })
+  // Three words begin writing mode, where the control shows even with no sound chosen.
+  await h.keyboard.type(' quiet and still ', { delay: 80 })
   check('off: typing plays nothing', (await scape()) === null)
-  check('the writer\'s line says "Sound: Off"', (await h.textContent('[data-writer-line] [data-writing-sound]'))?.trim() === 'Sound: Off')
+  check('the writer\'s line says "No sound while writing"', (await h.textContent('[data-writer-line] [data-writing-sound]'))?.trim() === 'No sound while writing')
 
   // The soundscape builds, slowly, as a film's score does: out of near silence, felt before it is heard, then swelling.
   await v('settings:set', { writingSound: 'shore' })
@@ -50,7 +51,7 @@ try {
   check('Shore: its synthesis starts on the first key', (await heard()).includes('scape:shore'))
   check('it builds, rising each step', levels.every((one, i) => !i || one.level > levels[i - 1].level - 1e-4), levels.map((one) => `${one.at}ms ${one.level.toFixed(4)}`).join(', '))
   check('slowly: barely there at 3 s, still well under half at 26 s (full at about a minute and a half)', levels[1].level < full * 0.01 && levels[4].level < full * 0.1 && levels[4].level > levels[2].level * 4, levels.map((one) => one.level.toFixed(4)).join(' '))
-  check('the writer\'s line says "Sound: Shore"', (await h.textContent('[data-writer-line] [data-writing-sound]'))?.trim() === 'Sound: Shore')
+  check('the writer\'s line says "Shore while writing"', (await h.textContent('[data-writer-line] [data-writing-sound]'))?.trim() === 'Shore while writing')
 
   // It follows the volume.
   await v('settings:set', { volume: 0.4 })
@@ -107,7 +108,7 @@ try {
   await h.click('[data-room-open]')
   await wait(700)
   if (!(await h.locator('[data-room-tools-panel]').count())) { await h.click('[data-room-tools]'); await h.waitForTimeout(250) }
-  check('the writing room\'s foot has it beside Focus and Aim', (await h.textContent('[data-room-tools-panel] [data-writing-sound]'))?.trim() === 'Sound: Rain')
+  check('the writing room\'s foot has it beside Focus and Aim', (await h.textContent('[data-room-tools-panel] [data-writing-sound]'))?.trim() === 'Rain while writing')
   if (!(await h.locator('[data-room-tools-panel]').count())) { await h.click('[data-room-tools]'); await h.waitForTimeout(250) }
   await h.click('[data-room-tools-panel] [data-writing-sound]')
   await wait(400)
