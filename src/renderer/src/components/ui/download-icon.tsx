@@ -15,42 +15,19 @@ const DownloadIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
       if (isAnimatingRef.current) return;
       isAnimatingRef.current = true;
 
-      while (isAnimatingRef.current) {
-        // 1. Initial Arrow Drop through Tray
-        animate(
-          ".arrow-head",
-          { y: [0, 8, 8, -8, 0], opacity: [1, 0, 0, 0, 1] },
-          {
-            duration: 0.3,
-            times: [0, 0.4, 0.5, 0.6, 1],
-            ease: "easeInOut",
-          },
-        );
-
-        await animate(
-          ".arrow-stem",
-          { y: [0, 8, 8, -8, 0], opacity: [1, 0, 0, 0, 1] },
-          {
-            duration: 0.3,
-            times: [0, 0.3, 0.4, 0.5, 1],
-            ease: "easeInOut",
-          },
-        );
-
-        if (!isAnimatingRef.current) break;
-
-        // 2. Tray "Weight" Pulse
-        await animate(
-          ".tray",
-          { y: [0, 2, 0], scale: [1, 1.05, 1] },
-          { duration: 0.3, ease: "easeOut" },
-        );
-
-        if (!isAnimatingRef.current) break;
-
-        // Slight pause between cycles
-        await new Promise((resolve) => setTimeout(resolve, 200));
-      }
+      // Once per hover or press, never on a loop: run over and over it read as a flicker.
+      animate(
+        ".arrow-head",
+        { y: [0, 8, 8, -8, 0], opacity: [1, 0, 0, 0, 1] },
+        { duration: 0.3, times: [0, 0.4, 0.5, 0.6, 1], ease: "easeInOut" },
+      );
+      await animate(
+        ".arrow-stem",
+        { y: [0, 8, 8, -8, 0], opacity: [1, 0, 0, 0, 1] },
+        { duration: 0.3, times: [0, 0.3, 0.4, 0.5, 1], ease: "easeInOut" },
+      );
+      if (isAnimatingRef.current) await animate(".tray", { y: [0, 2, 0], scale: [1, 1.05, 1] }, { duration: 0.3, ease: "easeOut" });
+      isAnimatingRef.current = false;
     }, [animate]);
 
     const stop = useCallback(() => {

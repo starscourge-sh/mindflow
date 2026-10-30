@@ -6,6 +6,7 @@ import { smallPicture } from '@/lib/notes'
 import { headingIn } from '@/lib/capture-links'
 import { canSplit, openAside } from '@/lib/split'
 import { chime } from '@/lib/sound'
+import { still } from '@/lib/motion'
 import { Empty, Page, refuse, toast, VirtualList } from './ui'
 import { Chip } from './display'
 import { ListSearch, tileClass } from './note-list'
@@ -156,6 +157,58 @@ function Face({ one }: { one: Media }): React.JSX.Element {
   )
 }
 
+/** The six bars of the waveform mark (lucide's AudioLines): where each stands across, and its height at rest. */
+const BARS = [[2, 3], [6, 11], [10, 18], [14, 7], [18, 13], [22, 3]] as const
+/** One Web Audio graph per recording element: an element can be wired into one only once. */
+const heard = new WeakMap<HTMLAudioElement, AnalyserNode>()
+let ears: AudioContext | null = null
+
+/**
+ * The waveform mark, moving with what is playing: each bar's height follows the loudness of its own band of the
+ * sound, read every frame from an analyser, so speech and music move it differently. Still at its drawn heights when
+ * paused or with Motion off. Written straight onto the bars each frame, so nothing re-renders as it moves.
+ */
+function LiveBars({ sound, playing }: { sound: React.RefObject<HTMLAudioElement | null>; playing: boolean }): React.JSX.Element {
+  const bars = useRef<(SVGLineElement | null)[]>([])
+  useEffect(() => {
+    const audio = sound.current
+    const rest = (): void => bars.current.forEach((bar) => bar?.removeAttribute('transform'))
+    if (!playing || !audio || still()) return rest()
+    ears ??= new AudioContext()
+    void ears.resume()
+    let analyser = heard.get(audio)
+    if (!analyser) {
+      analyser = ears.createAnalyser()
+      analyser.fftSize = 64
+      analyser.smoothingTimeConstant = 0.7
+      ears.createMediaElementSource(audio).connect(analyser).connect(ears.destination)
+      heard.set(audio, analyser)
+    }
+    const levels = new Uint8Array(analyser.frequencyBinCount)
+    let frame = 0
+    const draw = (): void => {
+      analyser.getByteFrequencyData(levels)
+      BARS.forEach(([, tall], at) => {
+        // Each bar its own slice of the low and middle bands, where voices and most music are.
+        const level = levels[1 + at * 3] / 255
+        // From a short stub to the full height of the mark, about its middle.
+        const scale = Math.max(2, level * 18) / tall
+        bars.current[at]?.setAttribute('transform', `translate(0 ${12 * (1 - scale)}) scale(1 ${scale})`)
+      })
+      frame = requestAnimationFrame(draw)
+    }
+    frame = requestAnimationFrame(draw)
+    return () => (cancelAnimationFrame(frame), rest())
+  }, [playing, sound])
+  return (
+    <svg data-media-wave aria-hidden viewBox="0 0 24 24" className="size-7 overflow-visible" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+      {BARS.map(([x, tall], at) => (
+        <line key={x} ref={(bar) => void (bars.current[at] = bar)} x1={x} x2={x} y1={12 - tall / 2} y2={12 + tall / 2} vectorEffect="non-scaling-stroke" />
+      ))}
+    </svg>
+  )
+}
+
 /** A recording: plays where it sits, without opening its note. */
 function AudioFace({ one }: { one: Media }): React.JSX.Element {
   const sound = useRef<HTMLAudioElement>(null)
@@ -169,14 +222,14 @@ function AudioFace({ one }: { one: Media }): React.JSX.Element {
   }
   return (
     <span className="flex size-full flex-col items-center justify-center gap-2 text-muted-foreground">
-      <AudioLines className="size-7" />
+      <LiveBars sound={sound} playing={playing} />
       <span role="button" tabIndex={0} aria-label={playing ? 'Pause' : 'Play'} data-media-play onClick={flip}
         onKeyDown={(event) => (event.key === 'Enter' || event.key === ' ') && (event.preventDefault(), event.stopPropagation(), flip(event as unknown as React.MouseEvent))}
         className="flex h-7 items-center gap-1.5 rounded-full border bg-background px-3 text-xs font-medium text-foreground transition-colors hover:bg-accent">
         {playing ? <Pause className="size-3.5" /> : <Play className="size-3.5" />}
         {playing ? 'Pause' : 'Play'}
       </span>
-      <audio ref={sound} src={one.src} preload="none" onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => setPlaying(false)} />
+      <audio ref={sound} src={one.src} crossOrigin="anonymous" preload="none" onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => setPlaying(false)} />
     </span>
   )
 }

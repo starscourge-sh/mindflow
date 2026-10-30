@@ -582,11 +582,18 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
       {/* The latest thought hangs off the post on a bent line, the sidebar's Pinned tree's way; the rest are in its thread. */}
       {hang && (
         <div data-feed-hanging className="flex gap-3 pt-2.5 pb-2">
-          <div aria-hidden className="relative w-9 shrink-0">
-            {/* Down from the line under the picture, then bent toward the reply's first line. */}
-            <svg className="absolute -top-[14px] left-[17.5px] h-[25px] w-[26px] overflow-visible text-border" viewBox="0 0 26 25" fill="none">
-              <path d="M0.5 0 V19.5 Q0.5 24.5 5.5 24.5 H26" stroke="currentColor" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-            </svg>
+          {/* Down from the line under the picture, then bent toward the reply's first line. Laid out as that line is
+              (a hair-wide strip centred in the same column) and measured in rem as the gaps are, so its corner meets
+              the line and the words at every text size: fixed pixels drifted off both once the app was not at 100%. */}
+          <div aria-hidden className="flex w-9 shrink-0 flex-col items-center">
+            {/* Up through this row's top padding and the post's gap (0.625rem + 0.25rem), down to the middle of the first line (half of 1.125rem). */}
+            <span data-feed-bend className="relative -mt-[0.875rem] h-[calc(1.4375rem+0.5px)] w-px">
+              <span className="absolute top-0 bottom-[5px] left-0 w-px bg-border" />
+              <svg className="absolute bottom-0 left-0 size-[6px] overflow-visible text-border" viewBox="0 0 6 6" fill="none">
+                <path d="M0.5 0 Q0.5 5.5 6 5.5" stroke="currentColor" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+              </svg>
+              <span data-feed-bend-end className="absolute bottom-0 left-[6px] h-px w-[calc(1.875rem-9.5px)] bg-border" />
+            </span>
           </div>
           <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
             <button type="button" data-feed-latest onClick={onThread} title={hang.body}

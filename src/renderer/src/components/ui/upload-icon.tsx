@@ -15,31 +15,11 @@ const UploadIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
       if (isAnimatingRef.current) return;
       isAnimatingRef.current = true;
 
-      while (isAnimatingRef.current) {
-        // 1. Fly Up and Fade Out
-        await animate(
-          ".arrow-group",
-          { y: -12, opacity: 0 },
-          { duration: 0.3, ease: "easeOut" },
-        );
-
-        if (!isAnimatingRef.current) break;
-
-        // 2. Instant Reset to Bottom
-        await animate(".arrow-group", { y: 12, opacity: 0 }, { duration: 0 });
-
-        // 3. Fly In from Bottom to Center
-        await animate(
-          ".arrow-group",
-          { y: 0, opacity: 1 },
-          { duration: 0.3, ease: "easeOut" },
-        );
-
-        if (!isAnimatingRef.current) break;
-
-        // Small pause at center for "intention"
-        await new Promise((resolve) => setTimeout(resolve, 200));
-      }
+      // Once per hover or press, never on a loop: run over and over it read as a flicker.
+      await animate(".arrow-group", { y: -12, opacity: 0 }, { duration: 0.3, ease: "easeOut" });
+      await animate(".arrow-group", { y: 12, opacity: 0 }, { duration: 0 });
+      await animate(".arrow-group", { y: 0, opacity: 1 }, { duration: 0.3, ease: "easeOut" });
+      isAnimatingRef.current = false;
     }, [animate]);
 
     const stop = useCallback(() => {

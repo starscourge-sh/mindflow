@@ -19,10 +19,29 @@ import waveUrl from '@/assets/scenery/ninth-wave.webp'
 import haywainUrl from '@/assets/scenery/hay-wain.webp'
 import yellowstoneUrl from '@/assets/scenery/yellowstone.webp'
 import andesUrl from '@/assets/scenery/heart-of-the-andes.webp'
+import stormRockyMountainsUrl from '@/assets/scenery/storm-rocky-mountains.webp'
+import yosemiteValleyUrl from '@/assets/scenery/yosemite-valley.webp'
+import cotopaxiUrl from '@/assets/scenery/cotopaxi.webp'
+import theIcebergsUrl from '@/assets/scenery/the-icebergs.webp'
+import savageStateUrl from '@/assets/scenery/savage-state.webp'
+import schroonMountainUrl from '@/assets/scenery/schroon-mountain.webp'
+import chasmOfTheColoradoUrl from '@/assets/scenery/chasm-of-the-colorado.webp'
+import greenRiverCliffsUrl from '@/assets/scenery/green-river-cliffs.webp'
+import moonriseOverTheSeaUrl from '@/assets/scenery/moonrise-over-the-sea.webp'
+import riesengebirgeUrl from '@/assets/scenery/riesengebirge.webp'
+import rainSteamSpeedUrl from '@/assets/scenery/rain-steam-speed.webp'
+import didoBuildingCarthageUrl from '@/assets/scenery/dido-building-carthage.webp'
+import salisburyCathedralUrl from '@/assets/scenery/salisbury-cathedral.webp'
+import wivenhoeParkUrl from '@/assets/scenery/wivenhoe-park.webp'
+import ryeUrl from '@/assets/scenery/rye.webp'
+import dnieperMoonlightUrl from '@/assets/scenery/dnieper-moonlight.webp'
+import lakeGeorgeUrl from '@/assets/scenery/lake-george.webp'
+import approachingThunderStormUrl from '@/assets/scenery/approaching-thunder-storm.webp'
+import birchGroveUrl from '@/assets/scenery/birch-grove.webp'
 
 /** The public-domain landscapes Haligtree ships with, written to a folder of its own; that folder's path. */
 export async function builtInScenery(): Promise<string> {
-  const files = await Promise.all(([['wanderer.webp', wandererUrl], ['mont-blanc.webp', montBlancUrl], ['lake-tahoe.webp', tahoeUrl], ['landers-peak.webp', landersUrl], ['bernina.webp', berninaUrl], ['evening-prairie.webp', prairieUrl], ['jungfrau.webp', jungfrauUrl], ['harbor-entrance.webp', harborUrl], ['grand-manan.webp', mananUrl], ['lake-lucerne.webp', lucerneUrl], ['penobscot-bay.webp', penobscotUrl], ['sierra-nevada.webp', sierraUrl], ['the-oxbow.webp', oxbowUrl], ['twilight-wilderness.webp', twilightUrl], ['fighting-temeraire.webp', temeraireUrl], ['pine-forest.webp', pineUrl], ['ninth-wave.webp', waveUrl], ['hay-wain.webp', haywainUrl], ['yellowstone.webp', yellowstoneUrl], ['heart-of-the-andes.webp', andesUrl]] as const)
+  const files = await Promise.all(([['wanderer.webp', wandererUrl], ['mont-blanc.webp', montBlancUrl], ['lake-tahoe.webp', tahoeUrl], ['landers-peak.webp', landersUrl], ['bernina.webp', berninaUrl], ['evening-prairie.webp', prairieUrl], ['jungfrau.webp', jungfrauUrl], ['harbor-entrance.webp', harborUrl], ['grand-manan.webp', mananUrl], ['lake-lucerne.webp', lucerneUrl], ['penobscot-bay.webp', penobscotUrl], ['sierra-nevada.webp', sierraUrl], ['the-oxbow.webp', oxbowUrl], ['twilight-wilderness.webp', twilightUrl], ['fighting-temeraire.webp', temeraireUrl], ['pine-forest.webp', pineUrl], ['ninth-wave.webp', waveUrl], ['hay-wain.webp', haywainUrl], ['yellowstone.webp', yellowstoneUrl], ['heart-of-the-andes.webp', andesUrl], ['storm-rocky-mountains.webp', stormRockyMountainsUrl], ['yosemite-valley.webp', yosemiteValleyUrl], ['cotopaxi.webp', cotopaxiUrl], ['the-icebergs.webp', theIcebergsUrl], ['savage-state.webp', savageStateUrl], ['schroon-mountain.webp', schroonMountainUrl], ['chasm-of-the-colorado.webp', chasmOfTheColoradoUrl], ['green-river-cliffs.webp', greenRiverCliffsUrl], ['moonrise-over-the-sea.webp', moonriseOverTheSeaUrl], ['riesengebirge.webp', riesengebirgeUrl], ['rain-steam-speed.webp', rainSteamSpeedUrl], ['dido-building-carthage.webp', didoBuildingCarthageUrl], ['salisbury-cathedral.webp', salisburyCathedralUrl], ['wivenhoe-park.webp', wivenhoeParkUrl], ['rye.webp', ryeUrl], ['dnieper-moonlight.webp', dnieperMoonlightUrl], ['lake-george.webp', lakeGeorgeUrl], ['approaching-thunder-storm.webp', approachingThunderStormUrl], ['birch-grove.webp', birchGroveUrl]] as const)
     .map(async ([name, url]) => ({ name, bytes: new Uint8Array(await (await fetch(url)).arrayBuffer()) })))
   return call<string>('sandbox:scenery', files)
 }

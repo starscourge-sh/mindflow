@@ -99,7 +99,7 @@ try {
   check('the card shows the book\'s name', first?.name === shelf.name, `${first?.name} / ${shelf.name}`)
   check('a title of two or three words in capitals', /^[A-Z][a-z]+(-[A-Z][a-z]+)?( [A-Z][a-z]+)+$/.test(first?.title ?? ''), first?.title)
   const day = new Date(facts.since).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).replace('Sept', 'Sep')
-  check('the day the book began, in the tag', first?.since === `Haligtree${day}`, `${first?.since} / ${day}`)
+  check('the day the book began, in the tag', first?.since === `Kept since ${day}`, `${first?.since} / ${day}`)
   check('a cream card of 250 by 375', first?.paper === 'rgb(255, 251, 234)' && first?.size === '250x375', `${first?.paper} ${first?.size}`)
   check('the name whole, on two lines at most', !first?.nameCut && first?.nameLines <= 2, `${first?.nameLines} lines, cut ${first?.nameCut}`)
   const year = Date.now() - new Date(facts.since).getTime() >= 365 * 86400000

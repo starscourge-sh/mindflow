@@ -374,7 +374,26 @@ const PAINTINGS: Record<string, string> = {
   'ninth-wave': 'The Ninth Wave, Ivan Aivazovsky',
   'hay-wain': 'The Hay Wain, John Constable',
   'yellowstone': 'The Grand Canyon of the Yellowstone, Thomas Moran',
-  'heart-of-the-andes': 'The Heart of the Andes, Frederic Edwin Church'
+  'heart-of-the-andes': 'The Heart of the Andes, Frederic Edwin Church',
+  'storm-rocky-mountains': "A Storm in the Rocky Mountains, Mt. Rosalie, Albert Bierstadt",
+  'yosemite-valley': "Looking Down Yosemite Valley, California, Albert Bierstadt",
+  'cotopaxi': "Cotopaxi, Frederic Edwin Church",
+  'the-icebergs': "The Icebergs, Frederic Edwin Church",
+  'savage-state': "The Course of Empire: The Savage State, Thomas Cole",
+  'schroon-mountain': "View of Schroon Mountain, Essex County, New York, After a Storm, Thomas Cole",
+  'chasm-of-the-colorado': "The Chasm of the Colorado, Thomas Moran",
+  'green-river-cliffs': "Green River Cliffs, Wyoming, Thomas Moran",
+  'moonrise-over-the-sea': "Moonrise over the Sea, Caspar David Friedrich",
+  'riesengebirge': "Morning in the Riesengebirge, Caspar David Friedrich",
+  'rain-steam-speed': "Rain, Steam and Speed, J. M. W. Turner",
+  'dido-building-carthage': "Dido building Carthage, J. M. W. Turner",
+  'salisbury-cathedral': "Salisbury Cathedral from the Meadows (sketch), John Constable",
+  'wivenhoe-park': "Wivenhoe Park, Essex, John Constable",
+  'rye': "Rye, Ivan Shishkin",
+  'dnieper-moonlight': "Moonlit Night on the Dnieper, Arkhip Kuindzhi",
+  'lake-george': "Lake George, John Frederick Kensett",
+  'approaching-thunder-storm': "Approaching Thunder Storm, Martin Johnson Heade",
+  'birch-grove': "Birch Grove, Arkhip Kuindzhi"
 }
 /** A credit for the day's picture, the way a caption names a painting: its name, then where it hangs. */
 const credit = (name?: string, folder?: string): string | null =>

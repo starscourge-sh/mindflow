@@ -105,20 +105,31 @@ function LinkMap({ onOpen, modes }: { onOpen: (type: string, id: string) => void
   }, [map])
 
   const count = map?.nodes.length ?? 0
-  const legend = (<>
-    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-      <span className="whitespace-nowrap text-foreground">Colour is the tag</span>
-      {tags.map(([tag, { tint }]) => <span key={tag} className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: tint }} />#{tag}</span>)}
-      {untagged && <span className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: NOTE_TINT }} />No tag</span>}
-    </div>
-    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-      <span className="whitespace-nowrap text-foreground">The icon is the kind</span>
-      {kinds.map((type) => {
-        const Icon = type.icon
-        return <span key={type.id} className="flex items-center gap-1">{emoji && KIND_EMOJI[type.id] ? <span aria-hidden className="mf-emoji-icon text-[0.75rem] leading-none">{KIND_EMOJI[type.id]}</span> : <Icon className="size-3" />}{type.label}</span>
-      })}
-    </div>
-  </>)
+  // A calm key, as a printed map's: two groups, each a short word then its marks, never broken across lines.
+  // Wide, one quiet line with a hairline between the groups; in the "Key" popover, each group a small table.
+  const legend = (stacked: boolean): React.JSX.Element => {
+    const group = (label: string, items: React.ReactNode[]): React.JSX.Element => (
+      <div data-map-key-group={label} className={stacked ? 'flex flex-col gap-1.5' : 'contents whitespace-nowrap'}>
+        <span className="font-medium text-foreground/80">{label}</span>
+        <div className={stacked ? 'grid grid-cols-2 gap-x-4 gap-y-1' : 'flex items-center gap-3'}>{items}</div>
+      </div>
+    )
+    const tagItems = [
+      ...tags.map(([tag, { tint }]) => <span key={tag} className="flex min-w-0 items-center gap-1.5"><span className="size-2 shrink-0 rounded-full" style={{ background: tint }} /><span className="truncate">#{tag}</span></span>),
+      ...(untagged ? [<span key=" none" className="flex items-center gap-1.5"><span className="size-2 shrink-0 rounded-full" style={{ background: NOTE_TINT }} />No tag</span>] : [])
+    ]
+    const kindItems = kinds.map((type) => {
+      const Icon = type.icon
+      return <span key={type.id} className="flex items-center gap-1.5">{emoji && KIND_EMOJI[type.id] ? <span aria-hidden className="mf-emoji-icon text-[0.75rem] leading-none">{KIND_EMOJI[type.id]}</span> : <Icon className="size-3 shrink-0" />}{type.label}</span>
+    })
+    return (
+      <>
+        {group('Colour: tag', tagItems)}
+        {stacked && <span aria-hidden className="h-px bg-border" />}
+        {group('Icon: kind', kindItems)}
+      </>
+    )
+  }
   return (
     <section className="relative flex min-w-0 flex-1 flex-col">
       {/* Like every page, the line goes when it has nothing to count. */}
@@ -140,14 +151,14 @@ function LinkMap({ onOpen, modes }: { onOpen: (type: string, id: string) => void
               one "Key" button when the map is narrow), the notes left off on the right. */}
           <div data-map-foot className="@container/foot pointer-events-none absolute inset-x-4 bottom-3 flex items-end justify-between gap-3">
             {/* What the colours and icons mean: the colour is the tag, the icon the kind. */}
-            <div data-map-key className="hidden max-w-[40rem] min-w-0 flex-col gap-1 rounded-lg bg-background px-2.5 py-1.5 text-meta text-muted-foreground @[52rem]/foot:flex">{legend}</div>
+            <div data-map-key className="hidden min-w-0 grid-cols-[auto_auto] items-center gap-x-3 gap-y-1 rounded-lg border bg-background px-3 py-1.5 text-meta text-muted-foreground @[52rem]/foot:grid">{legend(false)}</div>
             <Popover onOpenChange={(open) => open && chime('open')}>
               <PopoverTrigger asChild>
                 <Button data-map-key-button variant="outline" className="pointer-events-auto h-10 gap-2 bg-background px-3 text-control dark:bg-background @[52rem]/foot:hidden">
                   <Palette className="size-4" />Key
                 </Button>
               </PopoverTrigger>
-              <PopoverContent align="start" side="top" className="flex w-72 flex-col gap-1.5 p-3 text-meta text-muted-foreground">{legend}</PopoverContent>
+              <PopoverContent align="start" side="top" className="flex w-72 flex-col gap-2.5 p-3 text-meta text-muted-foreground">{legend(true)}</PopoverContent>
             </Popover>
             {/* The notes left off, one click away: each opens, ready for an @ to put it on the map. */}
             {map!.alone && !example ? <Lonely count={map!.alone} notes={map!.lonely ?? []} onOpen={onOpen} /> : null}

@@ -222,9 +222,9 @@ async function pictureOf(card: HTMLElement): Promise<Uint8Array> {
 }
 
 /** Copy the card, or save it to a file, and say so. */
-async function shareCard(card: HTMLElement | null, save: boolean, name: string, level: () => void): Promise<void> {
+async function shareCard(card: HTMLElement | null, save: boolean, name: string, level: () => Promise<void>): Promise<void> {
   if (!card) return
-  level()
+  await level()
   try {
     const png = await pictureOf(card)
     if (save) {
@@ -320,6 +320,8 @@ export function ReaderCard({ seed: saved, point, named, bare = false, arrive }: 
   // On the welcome it keeps an eye on the pointer about the page: turned and leaned a few degrees toward wherever it
   // is, on the pose's own springs, until the pointer comes onto the book and it faces you.
   const over = useRef(false)
+  // While its picture is taken: the pointer over it leaves it be.
+  const shooting = useRef(false)
   // Turned to face you: at once with motion off, on the pose's springs otherwise.
   const face = (): void => void (still() ? (turn.jump(0), lean.jump(0)) : (turn.set(0), lean.set(0)))
   useEffect(() => {
@@ -361,16 +363,24 @@ export function ReaderCard({ seed: saved, point, named, bare = false, arrive }: 
     })
     void animate(spinX, 0, { type: 'spring', velocity: spinX.getVelocity(), stiffness: 90, damping: 15 })
   }
-  // Flat at once, no spring and no sheen, before its picture is taken.
-  const level = (): void => {
-    turn.jump(0)
-    lean.jump(0)
-    tilt.flat()
-    for (const one of [tilt.x, tilt.y, tilt.glow, spinX, spinY, lit]) one.jump(0)
+  // Before its picture is taken it eases round to face you, flat and unlit (no spring, no sheen), then is set exactly
+  // flat; it was snapped there at once, an abrupt jump the moment Copy or Save was pressed. Motion off, it is set at once.
+  const level = async (): Promise<void> => {
+    if (!still()) {
+      const ease = { duration: 0.35, ease: [0.25, 0.1, 0.25, 1] as const }
+      for (const one of [turn, lean, tilt.x, tilt.y, tilt.glow, spinX, spinY, lit]) one.stop()
+      shooting.current = true
+      await Promise.all([...[turn, lean, tilt.x, tilt.y, tilt.glow, spinX, spinY, lit].map((one) => animate(one, 0, ease)), animate(tilt.grow, 1, ease)])
+      // The pose's springs follow the ease a beat behind: let them come in before the last exact set, so it lands, not jumps.
+      for (let frame = 0; frame < 30 && (Math.abs(turned.get()) > 0.3 || Math.abs(pitched.get()) > 0.3); frame++) await new Promise((done) => requestAnimationFrame(done))
+    }
+    for (const one of [turn, lean, tilt.x, tilt.y, tilt.glow, spinX, spinY, lit]) one.jump(0)
     tilt.grow.jump(1)
   }
+  // And eases back into its pose after, on the pose's own springs.
   const unlevel = (): void => {
-    lit.set(1)
+    shooting.current = false
+    void animate(lit, 1, { duration: 0.35 })
     if (!still()) (turn.set(REST_TURN), lean.set(REST_LEAN))
   }
   useEffect(() => void (point && card.current?.scrollIntoView({ block: 'center' })), [point])
@@ -396,12 +406,13 @@ export function ReaderCard({ seed: saved, point, named, bare = false, arrive }: 
       {/* The pointer is read on a wrapper that never tips, as Tilt does: read on the card, a corner tips out from under it and flickers. */}
       {/* A press nudges the book where it is pressed, a little further back and a touch smaller, and on letting go it
           springs back to lean toward the pointer again. */}
-      <div data-reader-hold className="relative mb-[34px]" onPointerEnter={() => ((over.current = true), face())} onPointerMove={(event) => {
+      <div data-reader-hold className="relative mb-[34px]" onPointerEnter={() => ((over.current = true), shooting.current || face())} onPointerMove={(event) => {
           const held = grab.current
+          if (shooting.current) return
           if (held) return void (spinY.set(held.ry + (event.clientX - held.x) * 0.6), spinX.set(Math.max(-70, Math.min(70, held.rx - (event.clientY - held.y) * 0.4))))
           if (!event.buttons) tilt.lean(event, event.currentTarget)
         }}
-        onPointerLeave={() => ((over.current = false), grab.current || tilt.flat(), !still() && !grab.current && (turn.set(REST_TURN), lean.set(REST_LEAN)))}
+        onPointerLeave={() => ((over.current = false), grab.current || tilt.flat(), !still() && !grab.current && !shooting.current && (turn.set(REST_TURN), lean.set(REST_LEAN)))}
         onPointerDown={(event) => {
           if (event.button !== 0) return
           event.currentTarget.setPointerCapture(event.pointerId)
@@ -485,36 +496,33 @@ export function ReaderCard({ seed: saved, point, named, bare = false, arrive }: 
           <p data-reader-name className="mt-3 line-clamp-2 text-[1.375rem] leading-[1.12] font-bold tracking-[-0.015em] break-words" style={{ fontFamily: "'Fraunces Variable', Georgia, serif" }}>{name || ' '}</p>
           {/* Plain words, not rolled: a roll measures its letters on the page, and on a book turned in 3D (it turns toward the
               pointer) they measure short, so the words were cut through their middles. */}
-          <p data-reader-title={title} className="mt-1.5 font-mono text-[0.625rem] font-medium tracking-[0.16em] uppercase">{title}</p>
+          <p data-reader-title={title} className="mt-2 font-mono text-[0.5625rem] font-medium tracking-[0.16em] uppercase opacity-80">{title}</p>
           {/* The foot: the stamps with "Commonplace Book" beside them, and the day's tag under both, so the two never meet
               on a cover narrowed by its spine. */}
-          <div className="mt-auto flex flex-col items-stretch gap-2">
+          <div className="mt-auto flex flex-col items-stretch gap-2.5 border-t border-current/15 pt-2.5">
             <div className="flex items-end justify-between gap-2">
               {/* Room for a row of stamps, kept even before the first, so the card never changes. */}
-              <div data-reader-stamps className="flex min-h-[30px] pl-1.5">
-                {stamps.map((one, at) => (
+              <div data-reader-stamps className="flex min-h-[26px] gap-1">
+                {stamps.map((one) => (
                   <Tip key={one.said} label={one.said}>
                     <span
                       data-reader-stamp={one.said}
-                      className="-ml-1.5 grid size-[30px] place-items-center rounded-full border-[1.5px] border-current bg-[#fffbea] font-mono text-[0.5625rem] font-bold tracking-tight"
-                      style={{ rotate: `${((seed >>> at) % 5) * 2 - 4}deg` }}
+                      className="grid size-[26px] place-items-center rounded-full border border-current/60 font-mono text-[0.5625rem] font-medium tracking-tight"
                     >{one.label}</span>
                   </Tip>
                 ))}
               </div>
-              <p aria-hidden data-reader-book className="shrink-0 text-right text-[0.5625rem] leading-[1.2] font-semibold tracking-[0.08em] uppercase" style={{ fontFamily: "'Fraunces Variable', Georgia, serif" }}>Commonplace<br />Book</p>
+              <p aria-hidden data-reader-book className="shrink-0 text-right font-mono text-[0.5rem] leading-[1.3] font-medium tracking-[0.14em] uppercase opacity-70">Commonplace<br />Book</p>
             </div>
             <div className="flex">
-              <span data-reader-since className="flex items-stretch border border-current font-mono text-[0.4375rem] leading-none font-medium tracking-[0.05em] whitespace-nowrap uppercase">
-                <span className="px-1 py-[3px]">Haligtree</span>
-                <span aria-hidden className="w-2.5 border-x border-current bg-[repeating-linear-gradient(135deg,currentColor_0_1px,transparent_1px_3px)]" />
-                <span className="px-1 py-[3px]">{facts?.since ? dayMonth(facts.since, 'always') : 'Not begun'}</span>
+              {/* One quiet line, as a member card's "Member since": no box, no hatching. */}
+              <span data-reader-since className="font-mono text-[0.5rem] leading-none font-medium tracking-[0.14em] whitespace-nowrap uppercase opacity-70">
+                {facts?.since ? `Kept since ${dayMonth(facts.since, 'always')}` : 'Not begun'}
               </span>
             </div>
           </div>
           {/* A tooled frame on the cover, two fine rules in its ink, as a cloth binding is blocked; clear of the spine. */}
-          <span aria-hidden data-reader-frame className="pointer-events-none absolute top-[7px] right-[7px] bottom-[7px] left-[19px] rounded-[2px] border border-current opacity-[0.22]" />
-          <span aria-hidden className="pointer-events-none absolute top-[10px] right-[10px] bottom-[10px] left-[22px] rounded-[1px] border border-current opacity-[0.12]" />
+          <span aria-hidden data-reader-frame className="pointer-events-none absolute top-[7px] right-[7px] bottom-[7px] left-[19px] rounded-[2px] border border-current opacity-[0.14]" />
           {/* The hinge: the cloth pressed into a groove a little in from the spine, where the cover bends open; shadowed on
               its spine side, catching the light on the other, and the strip before it rounded over the joint. */}
           <span aria-hidden data-reader-spine className="pointer-events-none absolute inset-y-0 left-0 w-[18px] rounded-l-[inherit] bg-[linear-gradient(to_right,rgb(0_0_0/0.16),rgb(0_0_0/0.05)_35%,rgb(255_255_255/0.12)_55%,rgb(0_0_0/0.04)_64%,rgb(0_0_0/0.24)_70%,rgb(0_0_0/0.1)_76%,rgb(255_255_255/0.5)_82%,rgb(255_255_255/0.12)_90%,transparent)]" />

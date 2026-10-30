@@ -94,3 +94,44 @@ Quotes in that thread, all public domain and checked word for word against these
 Architects, tr. Gaston du C. de Vere (1912 to 1915), Lives of Masaccio, Brunelleschi and
 Michelagnolo; Leonardo da Vinci, The Notebooks, tr. Jean Paul Richter (1883), §4, §19 and §571.
 Alberti's line is his own Latin (De pictura, 1435) with a translation written for the seed.
+
+More scenery, added October 2026: each a faithful photograph of a two-dimensional
+painting whose painter died before 1950 (public domain), cropped to 16:9 at 1600x900.
+  scenery/storm-rocky-mountains.webp  Albert Bierstadt (1830 to 1902), A Storm in the Rocky Mountains, Mt. Rosalie, 1866.
+      https://commons.wikimedia.org/wiki/File:Albert_Bierstadt_-_A_Storm_in_the_Rocky_Mountains,_Mt._Rosalie_-_Google_Art_Project.jpg
+  scenery/yosemite-valley.webp  Albert Bierstadt (1830 to 1902), Looking Down Yosemite Valley, California, 1865.
+      https://commons.wikimedia.org/wiki/File:Looking_Down_Yosemite-Valley.jpg
+  scenery/cotopaxi.webp  Frederic Edwin Church (1826 to 1900), Cotopaxi, 1862.
+      https://commons.wikimedia.org/wiki/File:Cotopaxi_church.jpg
+  scenery/the-icebergs.webp  Frederic Edwin Church (1826 to 1900), The Icebergs, 1861.
+      https://commons.wikimedia.org/wiki/File:The_Icebergs_(Frederic_Edwin_Church),_1861_(color).jpg
+  scenery/savage-state.webp  Thomas Cole (1801 to 1848), The Course of Empire: The Savage State, 1836.
+      https://commons.wikimedia.org/wiki/File:Cole_Thomas_The_Course_of_Empire_The_Savage_State_1836.jpg
+  scenery/schroon-mountain.webp  Thomas Cole (1801 to 1848), View of Schroon Mountain, Essex County, New York, After a Storm, 1838.
+      https://commons.wikimedia.org/wiki/File:Thomas_Cole_-_View_of_Schroon_Mountain,_Essex_County,_New_York,_After_a_Storm_-_1335.1917_-_Cleveland_Museum_of_Art.tiff
+  scenery/chasm-of-the-colorado.webp  Thomas Moran (1837 to 1926), The Chasm of the Colorado, 1874.
+      https://commons.wikimedia.org/wiki/File:Smithsonian-Moran-The_Chasm_of_the_Colorado-2287.jpg
+  scenery/green-river-cliffs.webp  Thomas Moran (1837 to 1926), Green River Cliffs, Wyoming, 1881.
+      https://commons.wikimedia.org/wiki/File:Thomas_Moran,_Green_River_Cliffs,_Wyoming,_1881,_oil_on_canvas.jpg
+  scenery/moonrise-over-the-sea.webp  Caspar David Friedrich (1774 to 1840), Moonrise over the Sea, 1822.
+      https://commons.wikimedia.org/wiki/File:Caspar_David_Friedrich_-_Mondaufgang_am_Meer_-_Google_Art_Project.jpg
+  scenery/riesengebirge.webp  Caspar David Friedrich (1774 to 1840), Morning in the Riesengebirge, 1811.
+      https://commons.wikimedia.org/wiki/File:Caspar_David_Friedrich,_Morgen_im_Riesengebirge.jpg
+  scenery/rain-steam-speed.webp  J. M. W. Turner (1775 to 1851), Rain, Steam and Speed, 1844.
+      https://commons.wikimedia.org/wiki/File:Turner_-_Rain,_Steam_and_Speed_-_National_Gallery_file.jpg
+  scenery/dido-building-carthage.webp  J. M. W. Turner (1775 to 1851), Dido building Carthage, 1815.
+      https://commons.wikimedia.org/wiki/File:Turner_-_Dido.jpg
+  scenery/salisbury-cathedral.webp  John Constable (1776 to 1837), Salisbury Cathedral from the Meadows (sketch).
+      https://commons.wikimedia.org/wiki/File:Constable_-_SALISBURY_CATHEDRAL_FROM_THE_MEADOWS,_lot.96.jpg
+  scenery/wivenhoe-park.webp  John Constable (1776 to 1837), Wivenhoe Park, Essex, 1816.
+      https://commons.wikimedia.org/wiki/File:John_Constable_-_Wivenhoe_Park,_Essex_-_Google_Art_Project.jpg
+  scenery/rye.webp  Ivan Shishkin (1832 to 1898), Rye, 1878.
+      https://commons.wikimedia.org/wiki/File:Ivan_Ivanovich_Shishkin_-_Rye_field,_1878.jpg
+  scenery/dnieper-moonlight.webp  Arkhip Kuindzhi (1842 to 1910), Moonlit Night on the Dnieper, 1880.
+      https://commons.wikimedia.org/wiki/File:Kuindzhi_Moonlit_night_on_the_Dnieper_1880_grm_x2.jpg
+  scenery/lake-george.webp  John Frederick Kensett (1816 to 1872), Lake George, 1869.
+      https://commons.wikimedia.org/wiki/File:Kensett_John_F_Lake_George.jpg
+  scenery/approaching-thunder-storm.webp  Martin Johnson Heade (1819 to 1904), Approaching Thunder Storm, 1859.
+      https://commons.wikimedia.org/wiki/File:Martin_Johnson_Heade_Approaching_Thunderstorm_ATC.jpg
+  scenery/birch-grove.webp  Arkhip Kuindzhi (1842 to 1910), Birch Grove, 1879.
+      https://commons.wikimedia.org/wiki/File:0828Ha._Kuindzhi_A.I._Birch_Grove,_1879.jpg

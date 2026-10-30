@@ -205,10 +205,10 @@ const EXTENSIONS: Record<string, string> = {
 // needs to run before the app (outside of app.whenReady()) is ready because, the browser engine builds its list of known address types once, as it starts
 protocol.registerSchemesAsPrivileged([
   // `stream`, so a stored video or recording can play (and seek) in a note.
-  { scheme: 'haligtree', privileges: { standard: true, secure: true, stream: true } },
+  { scheme: 'haligtree', privileges: { standard: true, secure: true, stream: true, corsEnabled: true } },
   // The first name, still answered: older backups and exported notes hold
   // mindflow:// links, and a restored one should still show its pictures.
-  { privileges: { standard: true, secure: true, stream: true }, scheme: 'mindflow' }
+  { privileges: { standard: true, secure: true, stream: true, corsEnabled: true }, scheme: 'mindflow' }
 ])
 
 /** The capture box's sizes: the toolbar's expander changes the height, the side panel the width. */
@@ -3801,7 +3801,12 @@ app.whenReady().then(() => {
         }
         // The range asked for is passed on, so a clip can loop and seek.
         const range = request.headers.get('range')
-        return await net.fetch(pathToFileURL(path).toString(), range ? { headers: { range } } : undefined)
+        const file = await net.fetch(pathToFileURL(path).toString(), range ? { headers: { range } } : undefined)
+        // Open to the app's own pages, so a recording can be listened to as it plays (Media's moving waveform reads
+        // its loudness through Web Audio, which hears only silence from a file another origin has not opened to it).
+        const headers = new Headers(file.headers)
+        headers.set('access-control-allow-origin', '*')
+        return new Response(file.body, { status: file.status, statusText: file.statusText, headers })
       } catch {
         return new Response('not found', { status: 404 })
       }
