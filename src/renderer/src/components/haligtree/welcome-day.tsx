@@ -152,11 +152,11 @@ export function ComeBack({ shot, quiet, said }: { shot: BackShot; quiet: boolean
               </motion.div>
               <motion.div className="w-full pt-1" initial={false} animate={{ opacity: on ? 1 : 0 }} transition={fade}>
                 {/* The sticky and the card a little smaller on a short window too, as the postcard is, so the curve under them has room. */}
-                {one.kind === 'task' && <div className="[@media(max-height:760px)]:[zoom:0.82]"><DeskSticky on={on} ticked={shot.ticked} /></div>}
-                {one.kind === 'gem' && <div className="[@media(max-height:760px)]:[zoom:0.82]"><EveningReview over={shot.over} /></div>}
+                {one.kind === 'task' && <div className="[@media(max-height:760px)]:[zoom:0.82] [@media(max-height:660px)]:[zoom:0.66]!"><DeskSticky on={on} ticked={shot.ticked} /></div>}
+                {one.kind === 'gem' && <div className="[@media(max-height:760px)]:[zoom:0.82] [@media(max-height:660px)]:[zoom:0.66]!"><EveningReview over={shot.over} /></div>}
                 {one.kind === 'quote' && (
                   // The postcard a year on, floating in once, as it does on Home; nothing in its place until it comes. A little smaller on a short window, so the curve under it has room.
-                  <motion.div className="w-full max-w-[21rem] [@media(max-height:760px)]:[zoom:0.82]" initial={false}
+                  <motion.div className="w-full max-w-[21rem] [@media(max-height:760px)]:[zoom:0.82] [@media(max-height:660px)]:[zoom:0.66]!" initial={false}
                     animate={{ opacity: on ? 1 : 0, y: on ? 0 : 12, rotate: on ? -2 : 0 }} transition={quiet ? { duration: 0 } : { type: 'spring', duration: 0.7, bounce: 0.15 }}>
                     {on && <PostcardResult id="day-postcard" words={quoteNow().text} who={quoteNow().who!} where={quoteNow().where} signed={shot.signed} write={!quiet && shot !== BACK_END} />}
                   </motion.div>
@@ -283,7 +283,7 @@ function ForgettingCurve({ on, quiet }: { on: boolean; quiet: boolean }): React.
   const small = 'text-[clamp(0.75rem,min(1.2vw,1.7vh),0.875rem)] leading-none'
   return (
     // A banner under all three moments, named for the gem in the middle, and come a beat after its card. On a wide window the words stand left of the chart; on a narrow one, over it.
-    <motion.figure data-curve className="mx-auto flex max-h-[clamp(6rem,24vh,13rem)] min-h-min w-full max-w-[62rem] flex-1 flex-col gap-x-[clamp(1.5rem,3vw,2.75rem)] gap-y-[clamp(0.25rem,1vh,0.625rem)] @min-[46rem]:flex-row"
+    <motion.figure data-curve className="mx-auto flex max-h-[clamp(6rem,30vh,20rem)] min-h-min w-full max-w-[62rem] flex-1 flex-col gap-x-[clamp(1.5rem,3vw,2.75rem)] gap-y-[clamp(0.25rem,1vh,0.625rem)] @min-[46rem]:flex-row"
       aria-label="Memory fades fast when a thing is left alone. Each review brings it back to the top, and it fades more slowly after each one."
       initial={false} animate={{ opacity: drawn ? 1 : 0, y: drawn ? 0 : 8 }} transition={quiet ? { duration: 0 } : { duration: 0.45, ease: EASE }}>
       {/* What it is for, then the point, a line for each kind of line, with the chart’s key in its words. */}
