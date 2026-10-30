@@ -177,7 +177,8 @@ function PaneFrame({ pane, apis, split, front, hidden, head, least, menu, onClos
   // Each box as last scrolled, since a page that has just opened another
   // note has already reset the box it showed in. Read once, then let go.
   // Kept by place, so a box swapped for the next note's still counts.
-  const seen = useRef(new Map<string, number>())
+  // With the box it was heard from, to tell a box still there from one swapped for the next note's.
+  const seen = useRef(new Map<string, { box: Element; top: number }>())
   // Heard since the last step was read: only these stand in for a box since swapped.
   const heard = useRef(new Map<string, number>())
   useEffect(() => {
@@ -185,7 +186,7 @@ function PaneFrame({ pane, apis, split, front, hidden, head, least, menu, onClos
     const onScroll = (event: Event): void => {
       if (!root || !(event.target instanceof Element)) return
       const path = pathTo(root, event.target)
-      seen.current.set(path, event.target.scrollTop)
+      seen.current.set(path, { box: event.target, top: event.target.scrollTop })
       heard.current.set(path, event.target.scrollTop)
     }
     root?.addEventListener('scroll', onScroll, true)
@@ -198,12 +199,13 @@ function PaneFrame({ pane, apis, split, front, hidden, head, least, menu, onClos
       const root = pageRef.current
       if (!root) return []
       // Only what has scrolled since the pane was made (every scroll is heard
-      // above), read as it is now: walking every box on the page took a
-      // whole layout at the start of each step.
+      // above), as last heard: the page is never read here. Asked as a note
+      // opens, reading a box's scrollTop made the browser lay out the whole
+      // new note early, 20 to 28ms before its words could show.
       const tops: [string, number][] = []
-      for (const path of seen.current.keys()) {
-        // A box swapped for the next note's reads 0 with no scroll heard: the last one heard since the last step is where it was.
-        const top = atPath(root, path)?.scrollTop || heard.current.get(path) || 0
+      for (const [path, last] of seen.current) {
+        // A box swapped for the next note's: the last one heard since the last step is where it was, or nothing.
+        const top = atPath(root, path) === last.box ? last.top : heard.current.get(path) || 0
         if (top > 0) tops.push([path, top])
         else seen.current.delete(path)
       }
