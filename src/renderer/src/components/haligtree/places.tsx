@@ -444,6 +444,9 @@ export function ShowList({ places: given, setting, counts }: { places: Place[]; 
   )
 }
 
+/** Whether a place is in the sidebar now, read once (not as a hook): a hidden page is not somewhere to land. */
+export const inSidebar = async (id: string): Promise<boolean> => ((await haligtree.settings()).sidebarShown ?? SHOWN.sidebarShown).includes(id)
+
 /** Which places a setting shows, the default until it has been changed. */
 export function useShown(setting: Shown): string[] {
   const settings = useLive(haligtree.settings, null as Settings | null)

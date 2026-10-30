@@ -1,3 +1,4 @@
+import { inSidebar } from './places'
 import { WelcomeLeaves } from './welcome-leaves'
 import { WelcomeMist } from './welcome-mist'
 import { GATHER_AT, WelcomeTitle } from './welcome-title'
@@ -447,7 +448,9 @@ export function Welcome(): React.JSX.Element | null {
     }
     if (how === 'fresh') {
       chime('decided')
-      window.api.openInHome('view', 'home')
+      // Home, unless it is hidden from the sidebar: then the Inbox, where the tour's first stop points, never a page
+      // you put away (restarted from a hidden Home, the welcome ended on it).
+      void inSidebar('home').then((shown) => window.api.openInHome('view', shown ? 'home' : 'inbox'))
       // Once the paper has gone and Home has said it was opened: then the tour's first stop.
       setTimeout(() => window.dispatchEvent(new CustomEvent('haligtree:tour-stops')), quiet ? 450 : 4000)
     } else if (how === 'sandbox') {
