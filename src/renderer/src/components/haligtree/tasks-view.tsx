@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useToday } from '@/lib/use-today'
 import { PractiseIt } from './practise-it'
 import { ReadsIn, useReading } from '@/lib/reads-in'
 import { Highlight, useFluidHover } from './glide'
@@ -685,6 +686,8 @@ const byWhen = (list: Task[]): [string, Task[]][] => {
 
 export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' | 'upcoming' | 'routines' | 'later' | 'alltasks'; focus?: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   const real = useLive(haligtree.tasks, [] as Task[])
+  // Drawn again at midnight: Overdue, Today and Tomorrow are the new day's when the page is left open.
+  useToday()
   // What a fresh start holds: its own list at the foot of Later, each one back the moment it is opened.
   // Kept by name, as the lists are: Back to this page draws it at once from what was read last, and reads afresh.
   const held = useLive(() => (mode === 'later' ? call<Task[]>('tasks:held') : Promise.resolve([] as Task[])), [] as Task[], [mode], undefined, 'tasks-held')

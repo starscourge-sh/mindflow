@@ -2,6 +2,7 @@ import { dropLines, keepLines } from '@/lib/clue-lines'
 import { ReadsIn, useReading } from '@/lib/reads-in'
 import { binItem } from '@/lib/to-bin'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useToday } from '@/lib/use-today'
 import { CalendarOff, CalendarPlus, Flag, House, Mountain, Plus, Snowflake, StickyNote, Wind } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
@@ -59,16 +60,8 @@ export const markOf = (one: Pick<Milestone, 'note'>): string | null => (one.note
 /** All the open goals on one sticky, each in its colour with a legend: put up, or back on screen. */
 const showAllGoals = (): void => stickOnDesktop('goals', 'all')
 
-/** Today's date, kept current: again at midnight, and each minute when `minutes`. */
-export function useToday(minutes = false): string {
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    const next = minutes ? 60_000 - (Date.now() % 60_000) : new Date().setHours(24, 0, 0, 50) - Date.now()
-    const timer = setTimeout(() => setNow(Date.now()), next)
-    return () => clearTimeout(timer)
-  }, [now, minutes])
-  return dayKey(now)
-}
+/** Today's date, kept current (lib/use-today.ts), for the goals' importers. */
+export { useToday }
 
 /** The open goals with a day, nearest first: the ones that count down (Home, the stickies, the menu bar). */
 export const openOnes = (all: Item[]): Item[] =>

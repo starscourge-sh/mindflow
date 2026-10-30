@@ -1,4 +1,5 @@
 import { detailsShown, showDetails } from '@/lib/reading'
+import { useToday } from '@/lib/use-today'
 import { showInList } from '@/lib/show-in-list'
 import { TagColourPick } from './components/haligtree/tag-colour-pick'
 import { themeActions } from '@/lib/theme'
@@ -940,7 +941,8 @@ export function Home(): React.JSX.Element {
   }
   // No Inbox count: the inbox is a place to set things down, never a queue to clear.
   // Archived ones are out of sight in their lists, so out of the counts too.
-  const today = dayKey()
+  // Kept current: left open past midnight, the sidebar counts the new day.
+  const today = useToday()
   const counts: Record<string, number> = useMemo(() => ({
     review: due,
     // The one rule the Today list, the desktop Today sticky and Today's brief count by.

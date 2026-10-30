@@ -9,6 +9,7 @@ import { bucket, placed, renameTask, taskName } from '@/lib/tasks'
 import { byKeys, useByKeys } from '@/lib/motion'
 import { readLines, tasksOf } from '../../../../main/day-lines'
 import { dayKey, num, startOfDay } from '../../../../main/dates'
+import { useToday } from '@/lib/use-today'
 import { Count, Book, Kbd, Rolling, Tags, Tip, Typed, refuse, toast, quietly } from './ui'
 import { DROP_LIT, SortableList, SortableRow } from './sortable'
 import { Struck, Tick } from './marks'
@@ -170,7 +171,8 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
 }): React.JSX.Element | null {
   const tasks = useLive(haligtree.tasks, [] as Task[])
   const taskNow = useTaskNow()
-  const today = dayKey()
+  // Kept current: left open past midnight, the list is drawn again for the new day.
+  const today = useToday()
   const [ticked, setTicked] = useState<Record<string, { task: Task; was?: Finished; pen: boolean; day: string }>>({})
   const [cleared, setCleared] = useState<string[]>(() => readCleared(today))
   // Left open past midnight: what was ticked or cleared yesterday is yesterday's, not today's Now.
