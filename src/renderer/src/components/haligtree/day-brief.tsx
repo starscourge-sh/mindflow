@@ -281,7 +281,7 @@ export function DayBrief({ day, onOpen, onListed, between }: {
             <span className="font-semibold tracking-[-0.02em] text-[clamp(1.75rem,4.2vw,3rem)] text-balance">The {weekday} Report</span>
             {/* The date, the day of the year, the time (each new minute) and the weather: one calm line under the title. */}
             <span data-today-line className="mt-3 font-sans text-[clamp(0.9375rem,1.5vw,1.125rem)] leading-normal font-medium tracking-normal tabular-nums" style={{ opacity: picture ? 0.92 : 0.8 }}>
-              {dayjs(now).format('D MMMM')} · <Tip label={count.tip}><span data-day-count>{count.text}</span></Tip> · {[time, sky].filter(Boolean).join(' · ')}
+              {dayjs(now).format('D MMMM')} · <Tip label={count.tip}><span data-report-count>{count.text}</span></Tip> · {[time, sky].filter(Boolean).join(' · ')}
             </span>
           </h2>
         </div>

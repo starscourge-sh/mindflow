@@ -139,7 +139,7 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^study|^review|tested/i, GraduationCap],
   [/thought|^comment/i, MessageSquare],
   [/idea|\bgems?\b/i, Lightbulb],
-  [/^goal|^set a goal/i, Target],
+  [/^goal|^set a goal|^make it a goal/i, Target],
   [/^like$/i, ThumbsUp],
   [/^less of this/i, ThumbsDown],
   [/^play next|^go back to it/i, ListStart],

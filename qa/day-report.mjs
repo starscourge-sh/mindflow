@@ -10,7 +10,7 @@ if (SHOTS) mkdirSync(SHOTS, { recursive: true })
 const { check, done } = checks()
 const c = await sandbox({ width: 1400, height: 900 })
 const { h, errors, close, go, v } = c
-const read = () => h.evaluate(() => ({ title: document.querySelector('h2 span')?.textContent ?? '', line: document.querySelector('[data-today-line]')?.textContent ?? '', count: document.querySelector('[data-day-count]')?.textContent ?? '' }))
+const read = () => h.evaluate(() => ({ title: document.querySelector('h2 span')?.textContent ?? '', line: document.querySelector('[data-today-line]')?.textContent ?? '', count: document.querySelector('[data-report-count]')?.textContent ?? '' }))
 try {
   await v('settings:set', { sounds: false, hintRate: 0 })
   const now = new Date()
