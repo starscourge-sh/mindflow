@@ -95,6 +95,6 @@ test('a long line is a thought or a brief, never a task, whatever its first word
 test('a short "What is X?" is a Word to look up; a longer question is not', () => {
   for (const line of ['What is entropy?', "What's a gerund?", 'what is the Krebs cycle?', 'What are mitochondria?', 'What’s petrichor?'])
     assert.equal(kindOf(line), 'word', line)
-  for (const line of ['What is the point of all this work?', 'What is it like to be a bat, really?', 'Why is the sky blue?'])
+  for (const line of ['What is the point of all this work?', 'What is it like to be a bat, really?', 'Why is the sky blue?', 'What is the meaning of life?', 'What is the point?', "What's the best plan?"])
     assert.notEqual(kindOf(line), 'word', line)
 })

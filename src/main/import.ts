@@ -191,8 +191,9 @@ export function saidBy(line: string): { who: string; where: string; year: string
 /** A line too long to be a task: a task is said in a few words; past 20 it is a thought or a brief, whatever its first word. */
 export const isProse = (line: string): boolean => line.trim().split(/\s+/).length > 20
 
-/** "What is entropy?", "What's a gerund?": a few words asked after, a Word to look up (Lookups), not a question to carry for weeks. */
-const SHORT_WHAT = /^what(?:'s|’s| is| are) (?:an? |the )?[\p{L}\p{N}'’-]+(?: [\p{L}\p{N}'’-]+){0,2}\s*\?$/iu
+/** "What is entropy?", "What's a gerund?": a few words asked after, a Word to look up (Lookups), not a question to carry for weeks.
+ * Not "What is the meaning of life?" or "What is the point?": words that ask for a view, not a definition. */
+const SHORT_WHAT = /^what(?:'s|’s| is| are) (?!(?:an? |the )?(?:meaning|point|purpose|reason|difference|best|right|answer|truth|future|plan|catch)\b)(?:an? |the )?[\p{L}\p{N}'’-]+(?: [\p{L}\p{N}'’-]+){0,2}\s*\?$/iu
 
 export function kindOf(line: string): string | null {
   const text = line.trim()
