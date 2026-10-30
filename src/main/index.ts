@@ -32,9 +32,10 @@ import { app, shell, BrowserWindow, clipboard, ClipboardItem, dialog, globalShor
 
 import { createHash, randomUUID } from 'crypto'
 import { execFile } from 'child_process'
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'fs'
 import { catchFreezes } from './freeze-catch'
 import { appendFile, copyFile, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'fs/promises'
+import { writeWhole, writeWholeSync } from './write-whole'
 import { basename, dirname, join, relative } from 'path'
 import { uptime } from 'os'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -1018,7 +1019,7 @@ const stickyFile = (): string => join(app.getPath('userData'), 'stickies.json')
 // Tint: its paper's colour from its right-click menu (STICKY_TINTS); plain when none.
 type Stuck = { type: string; id: string; bounds?: Electron.Rectangle; hidden?: boolean; tint?: string }
 let stuck: Stuck[] = []
-const keepStuck = (): void => void writeFile(stickyFile(), JSON.stringify(stuck)).catch(() => undefined)
+const keepStuck = (): void => void writeWhole(stickyFile(), JSON.stringify(stuck)).catch(() => undefined)
 const stuckAs = (key: string): Stuck | undefined => stuck.find((one) => `${one.type}:${one.id}` === key)
 /** The paper colours a sticky can have, in the order Tidy keeps them: plain first. */
 const STICKY_TINTS = [['plain', 'Plain'], ['butter', 'Butter'], ['rose', 'Rose'], ['sage', 'Sage'], ['sky', 'Sky']] as const
@@ -1712,7 +1713,7 @@ function keepHomePlace(win: BrowserWindow): void {
   homeKeep = setTimeout(() => {
     homeKeep = null
     if (win.isDestroyed() || win.isFullScreen() || !win.isVisible() || pending?.win === win || gathering) return
-    void writeFile(homeFile(), JSON.stringify(win.getBounds())).catch(() => undefined)
+    void writeWhole(homeFile(), JSON.stringify(win.getBounds())).catch(() => undefined)
   }, 400)
 }
 
@@ -2040,7 +2041,7 @@ function beaconMoment(kind: 'wake' | 'open' | 'active'): void {
   if (kind !== 'active') {
     if (moments().get(kind) === dayKey()) return
     moments().set(kind, dayKey())
-    void writeFile(momentsFile(), JSON.stringify(Object.fromEntries(moments()))).catch(() => undefined)
+    void writeWhole(momentsFile(), JSON.stringify(Object.fromEntries(moments()))).catch(() => undefined)
   }
   const keys = [...beaconModes].filter(([, mode]) => mode === 'sometimes').map(([key]) => key)
   if (!keys.length) return
@@ -2489,7 +2490,7 @@ function thrownSpots(): Map<number, { x: number; y: number }> {
 function keepSpot(display: number, at: { x: number; y: number }): void {
   thrownSpots().set(display, { x: at.x, y: at.y })
   try {
-    writeFileSync(spotsFile(), JSON.stringify(Object.fromEntries(thrownSpots())))
+    writeWholeSync(spotsFile(), JSON.stringify(Object.fromEntries(thrownSpots())))
   } catch {
     // Kept for this run only.
   }

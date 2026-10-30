@@ -1,6 +1,7 @@
 import { app, net } from 'electron'
 import { createHash } from 'crypto'
 import { mkdir, readFile, readdir, rename, stat, unlink, writeFile } from 'fs/promises'
+import { writeWhole } from './write-whole'
 import { join } from 'path'
 import { celebrationPrefs, type Pin } from './haligtree'
 import { cut } from './clip'
@@ -57,7 +58,7 @@ async function load(): Promise<Kept | null> {
 async function save(): Promise<void> {
   if (!kept) return
   await mkdir(dir(), { recursive: true })
-  await writeFile(listFile(), JSON.stringify(kept)).catch(() => undefined)
+  await writeWhole(listFile(), JSON.stringify(kept)).catch(() => undefined)
 }
 
 /** Giphy's answer, read down to what is kept. A clip that is not there is passed over. */
