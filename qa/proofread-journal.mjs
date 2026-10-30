@@ -26,10 +26,6 @@ try {
   await go('day'); await wait(900)
   await h.click('[data-room-open]'); await wait(700)
   await h.click('[data-proofread-ask]')
-  const states = []
-  for (let i = 0; i < 30; i++) { states.push((await bar())?.state ?? '-'); await wait(150) }
-  console.log('bar over 4.5s:', states.join(' '))
-  console.log(await h.evaluate(() => [...document.querySelectorAll("[data-proofing]")].map((o) => o.getAttribute("data-proofing") + ":" + o.textContent.slice(0, 80))))
   const seen = await until(async () => (await bar())?.state === 'one')
   const first = await bar()
   check('1. Proofread on a Journal day full of misspellings shows a finding', seen, JSON.stringify(first))
