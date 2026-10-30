@@ -15,18 +15,29 @@ const run = await open()
 const app = run.electron
 try {
   const page = run.page
-  const shownAfterBlur = async () => {
-    await app.evaluate(({ BrowserWindow }) => {
+  // Where the focus went, as macOS tells it: another app came to the front ('app'), the main window took the keys
+  // ('main'), or a window of the box's own did ('child', a picture it opened). Read at once: no wait decides it.
+  const shownAfterBlur = async (to = 'app') => {
+    await app.evaluate(({ app: a, BrowserWindow }, to) => {
       const win = BrowserWindow.getAllWindows().find((one) => !one.webContents.getURL().includes('view='))
       win.show()
       win.emit('blur')
-    })
-    await wait(800)
+      if (to === 'app') a.emit('did-resign-active')
+      if (to === 'main') a.emit('browser-window-focus', {}, BrowserWindow.getAllWindows().find((one) => one.webContents.getURL().includes('view=home')))
+      if (to === 'child') {
+        const child = new BrowserWindow({ parent: win, show: false })
+        a.emit('browser-window-focus', {}, child)
+        child.destroy()
+      }
+    }, to)
+    await wait(50)
     return app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((one) => !one.webContents.getURL().includes('view='))?.isVisible())
   }
   const first = await page.evaluate(() => window.api.haligtree('settings'))
   check('on to start', first.boxAutoHide !== false, String(first.boxAutoHide))
-  check('on: clicking away puts the box away', (await shownAfterBlur()) === false)
+  check('on: clicking into another app puts the box away', (await shownAfterBlur('app')) === false)
+  check('on: clicking into the main window puts the box away', (await shownAfterBlur('main')) === false)
+  check('on: a window of the box\'s own leaves it up', (await shownAfterBlur('child')) === true)
   await page.evaluate(() => window.api.haligtree('settings:set', { boxAutoHide: false }))
   check('off: clicking away leaves the box up', (await shownAfterBlur()) === true)
 } finally {

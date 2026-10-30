@@ -2640,14 +2640,24 @@ function createWindow(): void {
   // Clicked away from, the box puts itself away, as Raycast's does. Not for
   // a window of its own (a picture it opened) or a dialog it asked for, and
   // not in a test run, whose box sits parked while another window is driven.
-  mainWindow.on('blur', () => {
-    if (!boxAutoHide() || dialogs > 0 || (process.env.HALIGTREE_QA_AWAY && !process.env.HALIGTREE_QA_AUTOHIDE)) return
-    setTimeout(() => {
-      if (mainWindow.isDestroyed() || !mainWindow.isVisible() || mainWindow.isFocused() || dialogs > 0) return
-      if (BrowserWindow.getFocusedWindow()?.getParentWindow() === mainWindow) return
-      if (mainWindow.webContents.isDevToolsFocused()) return
-      hideWindow(mainWindow)
-    }, 120)
+  // Told by where the focus went, not by a wait: another app came to the front
+  // (the app resigned), or another of Haligtree's windows took the keys.
+  const box = mainWindow
+  const boxMayGo = (): boolean =>
+    boxAutoHide() && dialogs === 0 && !(process.env.HALIGTREE_QA_AWAY && !process.env.HALIGTREE_QA_AUTOHIDE) &&
+    !box.isDestroyed() && box.isVisible() && !box.isFocused() && !box.webContents.isDevToolsFocused()
+  const toOtherApp = (): void => void (boxMayGo() && hideWindow(box))
+  const toOtherWindow = (_e: Electron.Event, win: BrowserWindow): void => {
+    if (win !== box && win.getParentWindow() !== box && boxMayGo()) hideWindow(box)
+  }
+  // Off macOS there is no "resigned": a blur with none of the app's windows focused is the same thing.
+  const blurred = (): void => void (!BrowserWindow.getFocusedWindow() && toOtherApp())
+  app.on('did-resign-active', toOtherApp)
+  app.on('browser-window-focus', toOtherWindow)
+  if (process.platform !== 'darwin') mainWindow.on('blur', blurred)
+  mainWindow.once('closed', () => {
+    app.off('did-resign-active', toOtherApp)
+    app.off('browser-window-focus', toOtherWindow)
   })
   mainWindow.on('ready-to-show', () => {
     if (!process.env.HALIGTREE_USER_DATA) return

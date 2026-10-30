@@ -22,7 +22,6 @@ import { FIELD, answered, applySetup, Payoff, YouPage } from './welcome-you'
 import { enterSandbox, SANDBOX, sandboxState, type Carry } from '@/lib/sandbox'
 import { examples, fillBox, holdKeys, STORY_DAY, tellBox } from '@/lib/welcome-box'
 import { pickStory, story } from '@/lib/welcome-stories'
-import keycapsUrl from '@/assets/welcome/keycaps.webp'
 import type { CaptureMeta } from '@/components/capture-list'
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { dayjs } from '../../../../main/dates'
@@ -1656,27 +1655,92 @@ function Keycap({ label, down, size = 64 }: { label: string; down: boolean; size
 }
 
 /**
- * ⌘ and . as two real keys, from a render: one picture split down the middle so
- * each half presses on its own, sinking a little into the desk and dimming, as
- * a key does under a finger. Only for ⌘. itself; any other key is drawn as caps.
+ * ⌘ and . as two real keys, drawn here: a cap in the ink of the page (dark on
+ * paper, pale in the dark), its dished top lit from above, sides falling into
+ * shade, a soft shadow on the desk. Pressed, a key sinks into its switch (its
+ * foot slips out of sight), its shadow tightens and its mark takes the accent;
+ * let go, it springs back. Only for ⌘. itself; any other key is drawn as caps.
  */
 function KeycapPicture({ down, width }: { down: Set<number>; width: number }): React.JSX.Element {
   return (
-    <span aria-hidden className="flex" style={{ width, height: Math.round((width * 320) / 520) }}>
-      {[0, 1].map((i) => (
-        <span key={i} className="relative h-full w-1/2 overflow-hidden">
-          <motion.img
-            src={keycapsUrl}
-            alt=""
-            draggable={false}
-            className="absolute top-0 h-full max-w-none mix-blend-multiply dark:mix-blend-normal"
-            style={{ width: width, left: i ? '-100%' : 0 }}
-            animate={{ transform: `translateY(${down.has(i) ? width * 0.012 : 0}px) scale(${down.has(i) ? 0.985 : 1})`, filter: `brightness(${down.has(i) ? 0.82 : 1}) drop-shadow(0 ${down.has(i) ? 8 : 14}px ${down.has(i) ? 10 : 18}px rgb(0 0 0 / 0.35))` }}
-            transition={down.has(i) ? { duration: 0.06, ease: 'easeOut' } : { type: 'spring', duration: 0.24, bounce: 0.35 }}
-          />
-        </span>
-      ))}
+    <span aria-hidden data-keycaps className="flex items-center justify-center" style={{ width, height: Math.round((width * 320) / 520), gap: width * 0.03 }}>
+      <DrawnKey mark="⌘" down={down.has(0)} size={width * 0.46} tilt={-5} />
+      <DrawnKey mark="." down={down.has(1)} size={width * 0.46} tilt={4} />
     </span>
+  )
+}
+
+/** One cap, drawn in SVG from the theme's own ink. */
+function DrawnKey({ mark, down, size, tilt }: { mark: string; down: boolean; size: number; tilt: number }): React.JSX.Element {
+  const id = `kc-${mark === '.' ? 'dot' : 'cmd'}`
+  // The cap's own colour, the page's opposite (near black on paper, near white
+  // in the dark, a hint of the theme's hue), and its lights and shades.
+  const ink = 'oklch(from var(--background) calc(1.1 - l * 0.92) calc(c * 0.5) h)'
+  const lit = (n: number): string => `color-mix(in oklab, ${ink} ${100 - n}%, white)`
+  const dim = (n: number): string => `color-mix(in oklab, ${ink} ${100 - n}%, black)`
+  const press = down ? { duration: 0.06, ease: 'easeOut' as const } : { type: 'spring' as const, duration: 0.24, bounce: 0.35 }
+  const top = 'M60 22 H140 Q162 22 162 44 V110 Q162 132 140 132 H60 Q38 132 38 110 V44 Q38 22 60 22 Z'
+  const front = 'M46 124 H154 Q167 126 171 140 L179 161 Q181 176 166 176 H34 Q19 176 21 161 L29 140 Q33 126 46 124 Z'
+  return (
+    <svg data-key={mark} data-down={down || undefined} viewBox="0 0 200 212" width={size} height={size * 1.06} style={{ transform: `rotate(${tilt}deg)`, overflow: 'visible' }}>
+      <defs>
+        <linearGradient id={`${id}-side`} x1="0" x2="1" y1="0" y2="0">
+          <stop offset="0" style={{ stopColor: lit(12) }} />
+          <stop offset="0.5" style={{ stopColor: dim(16) }} />
+          <stop offset="1" style={{ stopColor: dim(42) }} />
+        </linearGradient>
+        <linearGradient id={`${id}-front`} x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" style={{ stopColor: dim(36) }} />
+          <stop offset="0.4" style={{ stopColor: dim(14) }} />
+          <stop offset="1" style={{ stopColor: lit(6) }} />
+        </linearGradient>
+        <linearGradient id={`${id}-front-x`} x1="0" x2="1" y1="0" y2="0">
+          <stop offset="0" style={{ stopColor: 'white', stopOpacity: 0.12 }} />
+          <stop offset="0.6" style={{ stopColor: 'white', stopOpacity: 0 }} />
+          <stop offset="1" style={{ stopColor: 'black', stopOpacity: 0.24 }} />
+        </linearGradient>
+        <linearGradient id={`${id}-top`} x1="0.2" x2="0.6" y1="0" y2="1">
+          <stop offset="0" style={{ stopColor: lit(18) }} />
+          <stop offset="0.55" style={{ stopColor: ink }} />
+          <stop offset="1" style={{ stopColor: dim(10) }} />
+        </linearGradient>
+        <radialGradient id={`${id}-dish`} cx="0.5" cy="0.4" r="0.62">
+          <stop offset="0" style={{ stopColor: 'black', stopOpacity: 0.18 }} />
+          <stop offset="0.7" style={{ stopColor: 'black', stopOpacity: 0.05 }} />
+          <stop offset="1" style={{ stopColor: 'black', stopOpacity: 0 }} />
+        </radialGradient>
+        <linearGradient id={`${id}-rim`} x1="0" x2="0.4" y1="0" y2="1">
+          <stop offset="0" style={{ stopColor: 'white', stopOpacity: 0.55 }} />
+          <stop offset="0.5" style={{ stopColor: 'white', stopOpacity: 0.06 }} />
+          <stop offset="1" style={{ stopColor: 'white', stopOpacity: 0.32 }} />
+        </linearGradient>
+        <filter id={`${id}-blur`} x="-30%" y="-80%" width="160%" height="260%"><feGaussianBlur stdDeviation="9" /></filter>
+        {/* The switch the cap sinks into: nothing shows below the desk line. */}
+        <clipPath id={`${id}-desk`}><rect x="-20" y="-20" width="240" height="196.5" /></clipPath>
+      </defs>
+      {/* Its shadow on the desk: tighter and darker as the key goes down. */}
+      <motion.ellipse cx="104" cy="178" rx="86" ry="13" filter={`url(#${id}-blur)`} style={{ fill: 'var(--mf-shadow-ink)', transformOrigin: '104px 178px' }}
+        initial={false} animate={{ opacity: down ? 0.55 : 0.34, scaleX: down ? 0.92 : 1 }} transition={press} />
+      <g clipPath={`url(#${id}-desk)`}>
+        <motion.g initial={false} animate={{ y: down ? 8 : 0 }} transition={press}>
+          {/* The skirt: the sides, light on the left, shade on the right. */}
+          <path d="M52 18 H148 Q166 18 167 36 L180 160 Q181 176 166 176 H34 Q19 176 20 160 L33 36 Q34 18 52 18 Z" fill={`url(#${id}-side)`} />
+          {/* The front face, falling from the lip into shade and lit again at the foot. */}
+          <path d={front} fill={`url(#${id}-front)`} />
+          <path d={front} fill={`url(#${id}-front-x)`} />
+          {/* The top, dished, with a light along its rim. */}
+          <path d={top} fill={`url(#${id}-top)`} />
+          <path d={top} fill={`url(#${id}-dish)`} />
+          <path d={top} fill="none" stroke={`url(#${id}-rim)`} strokeWidth="1.6" />
+          {/* The mark printed on it: the accent while pressed. */}
+          <g style={{ fill: down ? 'var(--primary)' : 'color-mix(in oklab, var(--background) 80%, var(--foreground))', transition: 'fill 120ms ease-out' }}>
+            {mark === '.'
+              ? <circle cx="100" cy="77" r="5.5" />
+              : <text x="100" y="78" textAnchor="middle" dominantBaseline="central" fontSize="46" fontFamily='-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif'>⌘</text>}
+          </g>
+        </motion.g>
+      </g>
+    </svg>
   )
 }
 
