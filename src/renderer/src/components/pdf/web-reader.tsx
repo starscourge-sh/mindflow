@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import {
   ChevronDown,
   ChevronUp,
@@ -66,6 +66,9 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
   const [size, setSize] = useState(1)
   const [paper, setPaper] = useState(() => localStorage.getItem('pdf-paper') === '1')
   const pane = usePane()
+  // This reader's own highlight names: the browser keeps one list per name for
+  // the whole window, so two articles side by side would otherwise draw over each other's.
+  const names = `web${useId().replace(/[^a-zA-Z0-9]/g, '')}`
 
   // Highlights, kept in the PDF reader's store under the page's link: each found
   // again by its offsets, else by its words and those around them.
@@ -79,24 +82,17 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
   useEffect(() => {
     const root = body.current
     if (!root || !('highlights' in CSS)) return
-    // Found again whenever the article's text nodes change under them (the
-    // app's own passes over note text rewrite them, which empties a range).
-    const draw = (): void => {
-      drawn.current = marks.flatMap((mark) => {
-        const range = rangeOf(root, mark)
-        return range ? [{ mark, range }] : []
-      })
-      CSS.highlights.set('web-mark', new Highlight(...drawn.current.map((one) => one.range)))
-      const lit = drawn.current.find((one) => one.mark.id === flash)?.range
-      CSS.highlights.set('web-flash', new Highlight(...(lit ? [lit] : [])))
-    }
-    draw()
+    drawn.current = marks.flatMap((mark) => {
+      const range = rangeOf(root, mark)
+      return range ? [{ mark, range }] : []
+    })
+    CSS.highlights.set(`${names}-mark`, new Highlight(...drawn.current.map((one) => one.range)))
     // A gem's link back: its words lit until the next click, and brought into view.
-    drawn.current.find((one) => one.mark.id === flash)?.range.startContainer.parentElement?.scrollIntoView({ block: 'center' })
-    const watch = new MutationObserver(draw)
-    watch.observe(root, { subtree: true, childList: true, characterData: true })
-    return () => (watch.disconnect(), CSS.highlights.delete('web-mark'), CSS.highlights.delete('web-flash'), undefined)
-  }, [marks, article, flash])
+    const lit = drawn.current.find((one) => one.mark.id === flash)?.range
+    CSS.highlights.set(`${names}-flash`, new Highlight(...(lit ? [lit] : [])))
+    lit?.startContainer.parentElement?.scrollIntoView({ block: 'center' })
+    return () => (CSS.highlights.delete(`${names}-mark`), CSS.highlights.delete(`${names}-flash`), undefined)
+  }, [marks, article, flash, names])
 
   // A selection inside the article's words offers "Keep"; anything else hides it.
   const [picked, setPicked] = useState<{
@@ -214,14 +210,14 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
   }
   useEffect(() => {
     if (!('highlights' in CSS)) return
-    CSS.highlights.set('web-found', new Highlight(...found))
-    CSS.highlights.set('web-found-now', new Highlight(...(found[at] ? [found[at]] : [])))
+    CSS.highlights.set(`${names}-found`, new Highlight(...found))
+    CSS.highlights.set(`${names}-found-now`, new Highlight(...(found[at] ? [found[at]] : [])))
     return () => (
-      CSS.highlights.delete('web-found'),
-      CSS.highlights.delete('web-found-now'),
+      CSS.highlights.delete(`${names}-found`),
+      CSS.highlights.delete(`${names}-found-now`),
       undefined
     )
-  }, [found, at])
+  }, [found, at, names])
   const stepFind = (back: boolean): void => {
     if (!found.length) return cue('find-miss')
     const next = (at + (back ? found.length - 1 : 1)) % found.length
@@ -280,6 +276,10 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     )
   })
 
+  // One object for the article's HTML, kept while the article is: React 19 sets
+  // innerHTML again whenever this prop is a new object, which rebuilds every
+  // word and empties the highlights and the picked words.
+  const words = useMemo(() => ({ __html: article?.html ?? '' }), [article])
   const title = article?.title ?? articleName(href)
   const when = article?.published ? new Date(article.published) : null
   const meta = [
@@ -294,6 +294,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
 
   return (
     <div className={`pdf-reader web-reader${paper ? ' is-paper' : ''}`}>
+      <style>{tint(`${names}-mark`, 28) + tint(`${names}-found`, 25) + tint(`${names}-found-now`, 55) + tint(`${names}-flash`, 55)}</style>
       <div className="pdf-reader-bar">
         <span className="pdf-reader-title" title={title}>
           {title}
@@ -447,7 +448,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
                   <div
                     ref={body}
                     className="tiptap ProseMirror haligtree-editor web-reader-body"
-                    dangerouslySetInnerHTML={{ __html: article.html }}
+                    dangerouslySetInnerHTML={words}
                   />
                 </>
               )}
@@ -475,6 +476,10 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     </div>
   )
 }
+
+/** A highlight's colour: the theme's own brand colour, this much of it (as the PDF reader's marks are). */
+const tint = (name: string, percent: number): string =>
+  `::highlight(${name}) { background-color: color-mix(in srgb, var(--tt-brand-color-500, #c08a2e) ${percent}%, transparent) }`
 
 /** Every run of words under a node, in reading order. */
 export const textNodes = (root: Node): Text[] => {

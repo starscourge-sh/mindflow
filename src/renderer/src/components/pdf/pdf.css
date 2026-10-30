@@ -401,16 +401,3 @@
   cursor: pointer;
   word-break: break-all;
 }
-
-::highlight(web-found) {
-  background-color: color-mix(in srgb, var(--tt-brand-color-500, #c08a2e) 25%, transparent);
-}
-
-::highlight(web-found-now),
-::highlight(web-flash) {
-  background-color: color-mix(in srgb, var(--tt-brand-color-500, #c08a2e) 55%, transparent);
-}
-
-::highlight(web-mark) {
-  background-color: color-mix(in srgb, var(--tt-brand-color-500, #c08a2e) 28%, transparent);
-}
