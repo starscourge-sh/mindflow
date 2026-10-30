@@ -3,7 +3,7 @@
 // would not know how to close it); switched off, it stays up.
 //
 //   npx electron-vite build --outDir out-bb
-//   QA_DATA=$(mktemp -d) QA_ENTRY=out-bb/main/index.js HALIGTREE_QA_AWAY=1 HALIGTREE_QA_AUTOHIDE=1 node qa/box-blur.mjs
+//   QA_DATA=$(mktemp -d) QA_ENTRY=out-bb/main/index.js HALIGTREE_QA_AWAY=1 node qa/box-blur.mjs
 const { open } = await import('./harness.mjs')
 const results = []
 const check = (name, ok, detail = '') => {
@@ -15,6 +15,9 @@ const run = await open()
 const app = run.electron
 try {
   const page = run.page
+  // A test run keeps the box up when clicked away from (HALIGTREE_QA_AWAY); this probe needs it as a person has it,
+  // so it turns that back on itself rather than relying on the command line.
+  await app.evaluate(() => void (process.env.HALIGTREE_QA_AUTOHIDE = '1'))
   // Where the focus went, as macOS tells it: another app came to the front ('app'), the main window took the keys
   // ('main'), or a window of the box's own did ('child', a picture it opened). Read at once: no wait decides it.
   const shownAfterBlur = async (to = 'app') => {

@@ -25,38 +25,38 @@ try {
     await h.reload()
     await h.waitForLoadState('domcontentloaded')
     await wait(1200)
+    // Watched in the page from before the welcome opens: the keys show for a moment before the box, and the . is down
+    // for a tenth of a second, so a probe on a busy machine reading late would miss them. What they were at first sight is kept.
+    await h.evaluate(() => {
+      const seen = (window.__keys = { first: null, down: new Set() })
+      new MutationObserver(() => {
+        const box = document.querySelector('[data-keycaps]')
+        if (!box) return
+        const stop = box.querySelector('svg[data-key="⌘"] stop')
+        if (!seen.first && stop) seen.first = { imgs: box.querySelectorAll('img').length, keys: [...box.querySelectorAll('svg[data-key]')].map((k) => k.dataset.key), ink: getComputedStyle(stop).stopColor }
+        box.querySelectorAll('svg[data-down]').forEach((k) => seen.down.add(k.dataset.key))
+      }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['data-down'] })
+    })
     await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:welcome')))
     await h.waitForSelector('.mf-welcome', { timeout: 8000 })
     const chapter = () => h.evaluate(() => document.querySelector('.mf-welcome footer .sr-only')?.textContent ?? '')
     const next = async () => ((await h.$('footer button:has-text("Skip trying it")')) ? h.click('footer button:has-text("Skip trying it")') : h.click('footer button:has-text("Next"), footer button:has-text("Show me")'))
     for (let i = 0; i < 16 && !(await chapter()).includes('Catch'); i++) (await next(), await wait(700))
-    const el = await h.waitForSelector('[data-keycaps]', { timeout: 8000 }).catch(() => null)
-    check(`${name}: on Catch, the ⌘ . keys are drawn live`, !!el)
-    if (!el) continue
-    const keys = await h.evaluate(() => {
-      const box = document.querySelector('[data-keycaps]')
-      return box && { imgs: box.querySelectorAll('img').length, keys: [...box.querySelectorAll('svg[data-key]')].map((k) => k.dataset.key) }
-    })
-    check(`${name}: two keys, ⌘ and ., and no picture`, keys?.imgs === 0 && keys.keys.join('') === '⌘.', JSON.stringify(keys))
-    await wait(250)
-    tones[name] = await h.evaluate(() => { const s = document.querySelector('[data-keycaps] svg[data-key="⌘"] stop'); return s ? getComputedStyle(s).stopColor : '' })
-    const b = await el.boundingBox()
+    // A picture of them while still up (a picture is a look, not a check).
+    const el = await h.$('[data-keycaps]')
+    const b = el && (await el.boundingBox())
     if (b) await h.screenshot({ path: `${shots}/keycaps-${name}.png`, clip: { x: b.x - 40, y: b.y - 30, width: b.width + 80, height: b.height + 60 } })
-    // Each key goes down on its own while the page shows the shortcut (the . only for a tenth of a second: watched in the page).
-    await h.evaluate(() => {
-      const seen = (window.__keysDown = new Set())
-      const box = document.querySelector('[data-keycaps]')
-      new MutationObserver(() => box.querySelectorAll('svg[data-down]').forEach((k) => seen.add(k.dataset.key))).observe(box, { subtree: true, attributes: true, attributeFilter: ['data-down'] })
-    })
-    let shot = false
-    for (let i = 0; i < 80; i++) {
-      const now = await h.evaluate(() => [...window.__keysDown])
-      if (now.length && !shot && b) (shot = true), await h.screenshot({ path: `${shots}/keycaps-${name}-down.png`, clip: { x: b.x - 40, y: b.y - 30, width: b.width + 80, height: b.height + 60 } })
-      if (now.length === 2) break
-      await wait(50)
+    let first = null
+    for (let i = 0; i < 100; i++) {
+      first = await h.evaluate(() => window.__keys.first)
+      if (first && (await h.evaluate(() => window.__keys.down.size)) === 2) break
+      await wait(100)
     }
-    const seen = new Set(await h.evaluate(() => [...window.__keysDown]))
-    check(`${name}: each key presses down`, seen.size === 2, [...seen].join(''))
+    check(`${name}: on Catch, the ⌘ . keys are drawn live`, !!first, JSON.stringify(first))
+    check(`${name}: two keys, ⌘ and ., and no picture`, first?.imgs === 0 && first.keys.join('') === '⌘.', JSON.stringify(first))
+    tones[name] = first?.ink ?? ''
+    const down = await h.evaluate(() => [...window.__keys.down])
+    check(`${name}: each key presses down`, down.length === 2, down.join(''))
   }
   await h.evaluate(() => localStorage.setItem('theme', 'paper'))
   check('the keys take the theme: dark caps on paper, pale caps in the dark', !!tones.light && !!tones.dark && tones.light !== tones.dark, JSON.stringify(tones))
