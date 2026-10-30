@@ -73,6 +73,12 @@
   color: transparent;
 }
 
+/* A PDF block picked as a whole in a note: the editor hides the browser's
+   selection, and the words under it must not show it either. */
+.ProseMirror-hideselection .pdf-page .textLayer ::selection {
+  background: transparent;
+}
+
 .pdf-page .textLayer br::selection {
   background: transparent;
 }
