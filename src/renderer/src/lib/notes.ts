@@ -27,6 +27,8 @@ export type MapNode = {
   tag?: string; tint?: string
   /** The first picture in it. */
   picture?: string
+  /** When it was caught (a gem: when its note was), for the Map's replay. */
+  at?: string
 }
 /** Two linked notes, and how many times either links to the other. */
 export type MapEdge = [string, string, number?]

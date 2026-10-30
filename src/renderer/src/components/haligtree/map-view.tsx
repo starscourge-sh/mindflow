@@ -1,9 +1,9 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { notes, type NoteMap } from '@/lib/notes'
 import { realMove } from '@/lib/real-move'
-import { GraphCanvas, KIND_EMOJI, NOTE_TINT, kindOf, tintOf } from './graph-canvas'
+import { GraphCanvas, KIND_EMOJI, NOTE_TINT, REPLAY_FADE, kindOf, replayOrder, tintOf } from './graph-canvas'
 import { useEmojiIcons } from '@/lib/icon-style'
 import { useLive } from '@/lib/haligtree'
 import { exampleMap } from '@/lib/examples'
@@ -11,11 +11,13 @@ import { Example } from './example'
 import { chime } from '@/lib/sound'
 import { Empty, Rolling, Tip } from './ui'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Palette, Search as SearchIcon, Unlink } from 'lucide-react'
+import { History, Palette, Pause, Play, Search as SearchIcon, Unlink, X } from 'lucide-react'
+import { Slider } from '@/components/ui/slider'
+import { still } from '@/lib/motion'
 import { Fit } from '@/components/ui/icons'
 import { Chips } from './display'
 import { openSource, sources, type SourceGraph } from '@/lib/sources'
-import { num } from '../../../../main/dates'
+import { dayMonth, num } from '../../../../main/dates'
 
 /**
  * Every note that links to another, as a dot, and every link as a line: the
@@ -89,6 +91,8 @@ function LinkMap({ onOpen, modes }: { onOpen: (type: string, id: string) => void
   const map = example ? examples : real
   const fit = useRef<() => void>(() => undefined)
   const fly = useRef<(id: string) => boolean>(() => false)
+  const replay = useRef<(at: number | null) => void>(() => undefined)
+  const [replaying, setReplaying] = useState(false)
 
   const emoji = useEmojiIcons()
   // The tags that colour the map and the kinds on it, for the key in the corner.
@@ -138,6 +142,12 @@ function LinkMap({ onOpen, modes }: { onOpen: (type: string, id: string) => void
         <span className="min-w-0 truncate whitespace-nowrap tabular-nums"><Rolling text={count} /> linked {count === 1 ? 'note' : 'notes'}</span>
         <span className="hidden whitespace-nowrap tabular-nums @2xl:inline">· <Rolling text={map!.edges.length} /> {map!.edges.length === 1 ? 'link' : 'links'}</span>
         <div className="ml-auto flex shrink-0 items-center gap-1">
+          <Tip label="Replay how the map grew">
+            <Button data-map-replay variant="ghost" size="sm" aria-pressed={replaying} className={replaying ? 'bg-accent text-foreground' : ''}
+              onClick={() => (chime(replaying ? 'off' : 'rewind'), setReplaying(!replaying))}>
+              <History className="size-3.5" /><span className="hidden @xl:inline">Replay</span>
+            </Button>
+          </Tip>
           <FindOnMap nodes={map!.nodes} onPick={(id) => fly.current(id)} />
           <Tip label="Fit the map">
             <Button variant="ghost" size="icon-sm" onClick={() => (chime('tap'), fit.current())}><Fit className="size-3.5" /></Button>
@@ -146,7 +156,8 @@ function LinkMap({ onOpen, modes }: { onOpen: (type: string, id: string) => void
       </header> : null}
       {count ? (
         <Example on={example} flush className="min-h-0 flex-1" tryIt="type @ in any note and pick another one. The two show up here as dots, joined by a line.">
-        <GraphCanvas map={map!} onOpen={onOpen} fit={fit} fly={fly} className="flex-1">
+        <GraphCanvas map={map!} onOpen={onOpen} fit={fit} fly={fly} replay={replay} className="flex-1">
+          {replaying && !example && <Replay nodes={map!.nodes} show={replay} onClose={() => (chime('off'), setReplaying(false))} />}
           {/* The map's foot, one row that never lays one part over another: the key on the left (folded into
               one "Key" button when the map is narrow), the notes left off on the right. */}
           <div data-map-foot className="@container/foot pointer-events-none absolute inset-x-4 bottom-3 flex items-end justify-between gap-3">
@@ -174,6 +185,89 @@ function LinkMap({ onOpen, modes }: { onOpen: (type: string, id: string) => void
         </div>
       )}
     </section>
+  )
+}
+
+const SPEEDS = [1, 2, 4]
+
+/**
+ * The Map grown again from the first note caught to the last: dots arrive in
+ * the order they were caught, a link draws once both its ends are there, and
+ * the date runs above. Play and pause, drag to any moment, pick a speed; Esc
+ * or the close button shows the whole map again. With Motion off it opens on
+ * the whole map, to be dragged through by hand.
+ */
+function Replay({ nodes, show, onClose }: { nodes: NoteMap['nodes']; show: React.RefObject<(at: number | null) => void>; onClose: () => void }): React.JSX.Element {
+  const order = useMemo(() => replayOrder(nodes), [nodes])
+  // The end: the last dot fully in.
+  const end = order.length - 1 + REPLAY_FADE
+  const [at, setAt] = useState(() => (still() ? end : 0))
+  const [playing, setPlaying] = useState(() => !still())
+  const [speed, setSpeed] = useState(1)
+  const now = useRef(at)
+  now.current = at
+  // Each change of place drawn on the map, and again when the map's data reloads under it.
+  useEffect(() => show.current(at), [show, at, nodes])
+  useEffect(() => () => show.current(null), [show])
+  // Played at an even pace of dots, not of days, so a quiet month does not stall it: a whole map over 4 to 20s.
+  useEffect(() => {
+    if (!playing) return
+    const perDot = Math.min(20000, Math.max(4000, order.length * 60)) / end / speed
+    let last = -1, frame = requestAnimationFrame(function step(time) {
+      if (last < 0) last = time
+      // A frame held up (the window away, the machine busy) carries on from where it was, never leaps ahead.
+      const next = Math.min(end, now.current + Math.min(100, time - last) / perDot)
+      last = time
+      now.current = next
+      setAt(next)
+      if (next >= end) (setPlaying(false), chime('settled'))
+      else frame = requestAnimationFrame(step)
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [playing, speed, end, order.length])
+  // Esc stops it, before anything else on the page hears the key.
+  useEffect(() => {
+    const key = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      event.stopPropagation()
+      onClose()
+    }
+    window.addEventListener('keydown', key, true)
+    return () => window.removeEventListener('keydown', key, true)
+  }, [onClose])
+  const reached = order[Math.max(0, Math.min(order.length - 1, Math.floor(at)))]
+  const shown = Math.min(order.length, Math.floor(at) + 1)
+  const toggle = (): void => {
+    chime('tap')
+    if (playing) return setPlaying(false)
+    // At the end, play starts again from the first note; with Motion off there is nothing to play, so it shows the end.
+    if (still()) return setAt(end)
+    if (at >= end) setAt(0)
+    setPlaying(true)
+  }
+  return (
+    <div data-map-replay-bar className="pointer-events-auto absolute top-3 left-1/2 flex w-[min(34rem,calc(100%-2rem))] -translate-x-1/2 items-center gap-3 rounded-lg border bg-background py-1.5 pr-1.5 pl-2 text-control shadow-[0_8px_24px_-12px_rgb(0_0_0/0.3)]">
+      <Tip label={playing ? 'Pause' : 'Play'}>
+        <Button data-map-replay-play variant="ghost" size="icon-sm" onClick={toggle} aria-label={playing ? 'Pause' : 'Play'}>
+          {playing ? <Pause className="size-3.5" /> : <Play className="size-3.5" />}
+        </Button>
+      </Tip>
+      {/* The date it has reached, the one thing to read, large and first; the count after it. */}
+      <div className="flex w-36 shrink-0 flex-col leading-tight">
+        <span data-map-replay-date className="font-semibold text-foreground tabular-nums">{reached?.at ? dayMonth(reached.at, 'always') : 'Undated'}</span>
+        <span className="text-meta text-muted-foreground tabular-nums">{num(shown)} of {num(order.length)} notes</span>
+      </div>
+      <Slider aria-label="When" min={0} max={end} step={0.01} value={[at]} className="min-w-0 flex-1 cursor-pointer"
+        onValueChange={([value]) => (setPlaying(false), setAt(value))} />
+      <Tip label="Speed">
+        <Button data-map-replay-speed variant="ghost" size="sm" className="w-10 shrink-0 tabular-nums"
+          onClick={() => (chime('tap'), setSpeed(SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length]))}>{speed}×</Button>
+      </Tip>
+      <Tip label="Stop the replay  Esc">
+        <Button data-map-replay-close variant="ghost" size="icon-sm" onClick={onClose} aria-label="Stop the replay"><X className="size-3.5" /></Button>
+      </Tip>
+    </div>
   )
 }
 

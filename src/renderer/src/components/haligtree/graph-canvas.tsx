@@ -119,6 +119,12 @@ function resolve(css: string): string {
   return getComputedStyle(probe).color
 }
 
+/** The order the Map's replay brings the dots in: as they were caught, the oldest first. */
+export const replayOrder = <T extends Pick<MapNode, 'at' | 'id'>>(nodes: T[]): T[] =>
+  [...nodes].sort((a, b) => (a.at ?? '').localeCompare(b.at ?? '') || a.id.localeCompare(b.id))
+/** How many dots' worth of the replay one dot takes to fade in: a few overlap, so it flows rather than ticks. */
+export const REPLAY_FADE = 3
+
 // The note the Map should open on, left here by "Show on the Map" for the Map to pick up.
 let asked: string | null = null
 /** Open the Map on this note next time it is drawn. */
@@ -137,13 +143,16 @@ const takeFocus = (): string | null => ((id) => ((asked = null), id))(asked)
  * scroll left to the page around it. `focus` lights a note up and brings it
  * close once drawn.
  */
-export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, children }: {
+export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, replay, className, children }: {
   map: Graph
   onOpen: (type: string, id: string) => void
   centre?: string
   fit?: React.RefObject<() => void>
   /** Glide to a note and light it, as a find does; false when it is not on the map. */
   fly?: React.RefObject<(id: string) => boolean>
+  /** Show the map as it grew: `at` counts the dots in, in `replayOrder`, the last one fading in over `REPLAY_FADE`
+   * of them; a link shows once both ends are there. Null shows it whole again. */
+  replay?: React.RefObject<(at: number | null) => void>
   className?: string
   children?: React.ReactNode
 }): React.JSX.Element {
@@ -446,6 +455,11 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
     }
     // On a note's own map the far ones are faded, so the near ones read first.
     let reach = 1
+    // How far the replay has come, in dots, and each dot's place in it.
+    let cut: number | null = null
+    const rank = new Map(replayOrder(dots).map((dot, at) => [dot as Dot, at]))
+    /** How much of a dot the replay shows: none before its turn, all of it a few dots after. */
+    const got = (dot: Dot): number => (cut === null ? 1 : Math.max(0, Math.min(1, (cut - rank.get(dot)!) / REPLAY_FADE)))
     const far = (dot: Dot): number => (middle && dot !== middle ? 1 - 0.55 * Math.max(0, Math.min(1, (Math.hypot(dot.x!, dot.y!) / reach - 0.45) / 0.55)) : 1)
 
     // --- breathing: each dot drifts a pixel or two on a slow loop of its own,
@@ -514,7 +528,7 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
       const on = (dot: Dot): boolean => !around || dot === shown || around.has(dot.id)
       if (shown !== reachFor) ((reachFor = shown), (reachAt = now))
       const reach = !shown || still() ? 1 : ease(Math.min(1, (now - reachAt) / 240))
-      const alpha = (dot: Dot): number => (growing ? seen(dot, now) : 1) * (shown ? 1 : far(dot))
+      const alpha = (dot: Dot): number => (growing ? seen(dot, now) : 1) * (shown ? 1 : far(dot)) * got(dot)
       // The rest fades as far as the lit neighbours stand out.
       // The rest steps back, never out: still there to see, so the page does not flare when most of it goes.
       const faded = 1 - 0.55 * amount
@@ -525,14 +539,14 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
       const grown = growing ? Math.max(0, Math.min(1, (now - began) / Math.max(1, arriving - began))) : 1
       // Only from far off, where they say where the groups are; close up they fade away.
       const afar = Math.max(0, Math.min(1, (1.4 * fitK - view.k) / (0.7 * fitK)))
-      for (const wash of afar ? washOf() : []) {
+      for (const wash of afar && cut === null ? washOf() : []) {
         context.globalAlpha = (dark ? 0.045 : 0.03) * faded * grown * afar
         context.fillStyle = wash.colour
         context.fill(wash.path)
       }
       context.strokeStyle = edge
       const quietLines = lines.filter((line) => !shown || (line.source !== shown && line.target !== shown))
-      if (growing || middle) {
+      if (growing || middle || cut !== null) {
         // One by one while they fade in, or as far out as they reach.
         for (const line of quietLines) {
           context.globalAlpha = faded * Math.min(alpha(line.source), alpha(line.target))
@@ -616,7 +630,7 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
         const list: Dot[] = []
         for (const dot of ranked) {
           if (list.length >= 80) break
-          if (inFrame(dot) && (dot.rings || dot.r * view.k >= 9)) list.push(dot)
+          if (inFrame(dot) && (dot.rings || dot.r * view.k >= 9) && got(dot) > 0) list.push(dot)
         }
         return list
       }
@@ -698,7 +712,7 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
           if (!spot) continue
           said++
           taken.push({ dot: shown ?? dot, box: pill ? [spot[0] - pad, spot[1] - pad / 2, spot[2] + pad, spot[3] + pad / 2] : spot })
-          context.globalAlpha = strength * (growing ? seen(dot, now) : 1)
+          context.globalAlpha = strength * (growing ? seen(dot, now) : 1) * got(dot)
           if (!context.globalAlpha) continue
           const sx = dot.px - dot.x!, sy = dot.py - dot.y!
           if (leader) {
@@ -840,6 +854,12 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
       fittedOnce = true
       if (shown && !drag) ((focus = null), fade(0))
     }
+    if (replay) replay.current = (at) => {
+      cut = at
+      // How many dots are in, for a probe and a screen reader.
+      el.dataset.replayed = at === null ? '' : String(dots.filter((dot) => got(dot) >= 1).length)
+      redraw()
+    }
     if (fly) fly.current = (id: string) => {
       const dot = byId.get(id)
       if (!dot || !width) return false
@@ -907,7 +927,7 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
       const rect = el.getBoundingClientRect()
       const [x, y] = toWorld(event.clientX - rect.left, event.clientY - rect.top)
       const found = sim.find(x, y, 24 / view.k)
-      return found && Math.hypot(found.x! - x, found.y! - y) <= found.r + 4 / view.k ? found : null
+      return found && got(found) > 0 && Math.hypot(found.x! - x, found.y! - y) <= found.r + 4 / view.k ? found : null
     }
     const point = (dot: Dot | null, event?: PointerEvent): void => {
       el.style.cursor = drag ? 'grabbing' : dot && dot !== middle ? 'pointer' : 'grab'

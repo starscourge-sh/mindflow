@@ -413,10 +413,10 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
   handle('notes:graph:all', () => {
     const rows = [
       // A note saved as a gem is on the map once, as the gem.
-      ...db.prepare(`select 'capture' as type, id, ${LABEL} as title, kind, body from captures where status != 'discarded' and private = 0
+      ...db.prepare(`select 'capture' as type, id, ${LABEL} as title, kind, body, captured_at as at from captures where status != 'discarded' and private = 0
         and not (status = 'promoted' and exists (select 1 from nuggets n where n.capture_id = captures.id and n.private = 0 and n.tier != 'card'))`).all(),
-      ...db.prepare("select tier as type, id, coalesce(nullif(title, ''), label('', body)) as title, kind, body from nuggets where private = 0 and tier != 'card'").all()
-    ] as (Node & { kind: string; body: string | null })[]
+      ...db.prepare("select tier as type, id, coalesce(nullif(title, ''), label('', body)) as title, kind, body, coalesce((select captured_at from captures c where c.id = nuggets.capture_id), created_at) as at from nuggets where private = 0 and tier != 'card'").all()
+    ] as (Node & { kind: string; body: string | null; at: string })[]
     const known = new Set(rows.map((row) => row.id))
     // Each pair once, weighed by how often either one links to the other.
     const pairs = new Map<string, [string, string, number]>()
@@ -453,10 +453,10 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
     for (const [tag] of [...counted].sort((a, b) => b[1] - a[1]))
       if (!hue.has(tag)) hue.set(tag, free.length ? free[next++ % free.length] : HUES[next++ % HUES.length])
     return {
-      nodes: linked.map(({ type, id, title, kind, body }) => {
+      nodes: linked.map(({ type, id, title, kind, body, at }) => {
         const tag = mains.get(id)
         const picture = body?.includes('haligtree://assets/') ? PICTURE.exec(body)?.[0] : undefined
-        return { type, id, title, kind, links: links.get(id)!, ...(tag ? { tag, tint: hue.get(tag)! } : {}), ...(picture ? { picture } : {}) }
+        return { type, id, title, kind, links: links.get(id)!, at, ...(tag ? { tag, tint: hue.get(tag)! } : {}), ...(picture ? { picture } : {}) }
       }),
       edges: [...pairs.values()],
       alone: rows.length - links.size,
