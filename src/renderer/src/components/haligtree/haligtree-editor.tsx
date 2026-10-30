@@ -54,6 +54,7 @@ import { ObsidianEmbeds } from "@/extensions/obsidian-embeds"
 import { BlockColor } from "@/extensions/block-color"
 import { JoinLists } from "@/extensions/join-lists"
 import { OutdentLists } from "@/extensions/outdent-lists"
+import { PlainCopy } from "@/extensions/plain-copy"
 import { CurrentItem } from "@/extensions/current-item"
 import { FullLineHighlight } from "@/extensions/full-line-highlight"
 import { LineCards } from "@/extensions/line-cards"
@@ -1251,6 +1252,7 @@ function Surface({
       // grows past the page and scrolls sideways, rather than crushing each.
       TableKit.configure({ table: { resizable: true, cellMinWidth: 128 } }),
       OutdentLists,
+      PlainCopy,
       Bookmark,
       Callout,
       Caption,
