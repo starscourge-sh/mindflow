@@ -1780,8 +1780,19 @@ function showVisual(
     const headLine = lineOnly(view.state, last)
 
     const upwards = headLine.from < anchorLine.from
-    selAnchor = upwards ? anchorLine.to - 1 : anchorLine.from + 1
-    selHead = upwards ? headLine.from + 1 : headLine.to - 1
+    // A block's span runs from before it to after it, so its words sit one in
+    // from each end. A code line's span is its words already (with the
+    // newline beside it), so it is drawn from its first character to its last.
+    const words = (pos: number, span: LineSpan): LineSpan => {
+      const $pos = doc.resolve(Math.max(0, Math.min(doc.content.size, pos)))
+      if (!$pos.parent.type.spec.code) return { from: span.from + 1, to: span.to - 1 }
+      const line = textLineAt($pos)
+      return { from: line.start, to: line.end }
+    }
+    const anchorWords = words(anchor, anchorLine)
+    const headWords = words(head, headLine)
+    selAnchor = upwards ? anchorWords.to : anchorWords.from
+    selHead = upwards ? headWords.from : headWords.to
   }
 
   const clamp = (pos: number) => Math.max(0, Math.min(doc.content.size, pos))
@@ -2575,8 +2586,9 @@ export const VimMode = Extension.create<VimModeOptions>({
               }
 
               // Visual-line grows by whole lines. Walking visual rows would
-              // get stuck inside a list item that wraps.
-              if (linewise && (key === "j" || key === "k")) {
+              // get stuck inside a list item that wraps. In code each line is
+              // a line of its own, so j and k step through them, not past the block.
+              if (linewise && (key === "j" || key === "k") && !view.state.selection.$head.parent.type.spec.code) {
                 stepBlock(view, key === "j" ? 1 : -1, count)
                 return afterMotion()
               }
