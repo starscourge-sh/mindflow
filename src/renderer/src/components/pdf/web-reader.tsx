@@ -477,9 +477,14 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
   )
 }
 
-/** A highlight's colour: the theme's own brand colour, this much of it (as the PDF reader's marks are). */
+/**
+ * A highlight's colour: the theme's own brand colour, this much of it, as the
+ * PDF reader's marks are on light pages. On a dark theme the same share is
+ * lost against the background, so it is half as strong again.
+ */
 const tint = (name: string, percent: number): string =>
-  `::highlight(${name}) { background-color: color-mix(in srgb, var(--tt-brand-color-500, #c08a2e) ${percent}%, transparent) }`
+  `::highlight(${name}) { background-color: color-mix(in srgb, var(--tt-brand-color-500, #c08a2e) ${Math.round(percent * 1.6)}%, transparent) }` +
+  `:root:is(.light, .paper, [data-light]) ::highlight(${name}) { background-color: color-mix(in srgb, var(--tt-brand-color-500, #c08a2e) ${percent}%, transparent) }`
 
 /** Every run of words under a node, in reading order. */
 export const textNodes = (root: Node): Text[] => {

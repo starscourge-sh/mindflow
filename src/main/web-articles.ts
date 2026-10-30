@@ -93,7 +93,11 @@ export function registerWebArticles(keep: (src: string) => Promise<string>): voi
         const link = clean.createElement('a')
         link.setAttribute('href', kept)
         link.textContent = `Picture: ${one.getAttribute('alt')?.trim() || 'on the site'}`
-        one.replaceWith(link)
+        // On a line of its own where the picture stood, unless it stood inside a line of words already.
+        if (one.closest('p, li, figcaption, td, th, h1, h2, h3, h4, h5, h6')) return void one.replaceWith(link)
+        const line = clean.createElement('p')
+        line.append(link)
+        one.replaceWith(line)
       })
     )
     // Readability's own wrappers (a page div, the site's article) unwrapped, so the words sit straight in the reader's column.

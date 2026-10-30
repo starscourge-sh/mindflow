@@ -83,7 +83,7 @@ try {
     const s = p && getComputedStyle(p)
     return s ? { family: s.fontFamily, size: s.fontSize } : null
   })
-  await h.screenshot({ path: `${shots}/web-note-pane.png` })
+  await c.both(`${shots}/web-note-pane`)
   const button = '.tiptap-bookmark button[aria-label="Open in the reader"]'
   check('a link card offers "Open in the reader"', await h.evaluate((sel) => !!document.querySelector(sel), button), '')
   await h.click(button)
@@ -154,7 +154,7 @@ try {
   check('it links back to the article and mark', body.includes(`haligtree://article?href=${encodeURIComponent(`${SITE}/article`)}&mark=${marks[0]?.id}`), body.slice(0, 400))
   check('the highlight is drawn', (await drawnIn()).join() === '1', JSON.stringify(await drawnIn()))
   check('Keep left the words as they were drawn (nothing rebuilt them)', await h.evaluate(() => window.__firstWords === document.querySelector('.web-reader-body p')?.firstChild), '')
-  await h.screenshot({ path: `${shots}/web-mark.png` })
+  await c.both(`${shots}/web-mark`)
 
   // Right-click on it: open its gem, or remove the highlight.
   const at = await h.evaluate(() => {
@@ -211,7 +211,7 @@ try {
     await h.waitForSelector('.web-reader-failed', { timeout: 10000 }).catch(() => {})
     const said = await h.evaluate(() => document.querySelector('.web-reader-failed')?.textContent ?? '')
     check(`a page at ${path} says why it cannot be read`, words.test(said) && /link stays/.test(said), said)
-    await h.screenshot({ path: `${shots}/web-failed${path.replace('/', '-')}.png` })
+    await c.both(`${shots}/web-failed${path.replace('/', '-')}`)
   }
   await net({ blocked: true })
   await open(`${SITE}/never-kept`)
