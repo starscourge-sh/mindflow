@@ -1715,6 +1715,9 @@ function DrawnKey({ mark, down, size, tilt }: { mark: string; down: boolean; siz
           <stop offset="1" style={{ stopColor: 'white', stopOpacity: 0.32 }} />
         </linearGradient>
         <filter id={`${id}-blur`} x="-30%" y="-80%" width="160%" height="260%"><feGaussianBlur stdDeviation="9" /></filter>
+        <filter id={`${id}-soft`} x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="3" /></filter>
+        <filter id={`${id}-sheen`} x="-50%" y="-80%" width="200%" height="260%"><feGaussianBlur stdDeviation="10" /></filter>
+        <clipPath id={`${id}-face`}><path d={top} /></clipPath>
         {/* The switch the cap sinks into: nothing shows below the desk line. */}
         <clipPath id={`${id}-desk`}><rect x="-20" y="-20" width="240" height="196.5" /></clipPath>
       </defs>
@@ -1728,8 +1731,11 @@ function DrawnKey({ mark, down, size, tilt }: { mark: string; down: boolean; siz
           {/* The front face, falling from the lip into shade and lit again at the foot. */}
           <path d={front} fill={`url(#${id}-front)`} />
           <path d={front} fill={`url(#${id}-front-x)`} />
-          {/* The top, dished, with a light along its rim. */}
+          {/* The lip's shadow falling on the front face. */}
+          <path d={top} transform="translate(0 5)" fill="black" opacity="0.32" filter={`url(#${id}-soft)`} />
+          {/* The top, dished, with a light along its rim and a sheen where the light falls. */}
           <path d={top} fill={`url(#${id}-top)`} />
+          <ellipse cx="80" cy="44" rx="46" ry="18" fill="white" opacity="0.13" filter={`url(#${id}-sheen)`} clipPath={`url(#${id}-face)`} />
           <path d={top} fill={`url(#${id}-dish)`} />
           <path d={top} fill="none" stroke={`url(#${id}-rim)`} strokeWidth="1.6" />
           {/* The mark printed on it: the accent while pressed. */}
