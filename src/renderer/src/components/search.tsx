@@ -482,8 +482,8 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
                     onClick={(event) => (live.current.several.click(event, capture) ? box.current?.focus() : live.current.onOpen(capture.type, capture.id))}
                   >
                     <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
-                    <span {...(shown ? {} : hoverNote(capture.type, capture.id, { kind: capture.kind }))} className="min-w-0 truncate">{(capture.type === 'task' ? taskName(capture.label ?? '').text : capture.type === 'day' ? dayName(capture.id) : capture.label) || 'Untitled'}</span>
-                    {capture.type === 'task' && <Tags tags={taskName(capture.label ?? '').tags} go={false} />}
+                    <span {...(shown ? {} : hoverNote(capture.type, capture.id, { kind: capture.kind }))} className="min-w-0 truncate">{/* A task's or an Inbox note's #tags as tags, never in its name: so it reads as it does on its own list. */}{(capture.type === 'task' || capture.type === 'capture' ? taskName(capture.label ?? '').text : capture.type === 'day' ? dayName(capture.id) : capture.label) || 'Untitled'}</span>
+                    {(capture.type === 'task' || capture.type === 'capture') && <Tags tags={taskName(capture.label ?? '').tags} go={false} />}
                     {/* After the words, so a task's title starts where a note's does. */}
                     {capture.type === 'task' && !!tasks.find((one) => one.id === capture.id)?.priority && <PriorityMark level={tasks.find((one) => one.id === capture.id)!.priority} />}
                     {capture.type !== 'capture' && <span className="shrink-0 rounded bg-accent px-1.5 text-xs text-muted-foreground">{typeSaid(capture.type)}</span>}
