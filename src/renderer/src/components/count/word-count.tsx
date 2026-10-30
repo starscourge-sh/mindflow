@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import { useEditorDom } from '@/lib/editor-dom'
 import type { Editor } from "@tiptap/react"
 import type { Node as PMNode } from "@tiptap/pm/model"
 import { num } from '../../../../main/dates'
@@ -63,8 +64,8 @@ export function WordCount({ editor }: { editor: Editor | null }) {
   // or a picture it steps aside.
   const pill = useRef<HTMLSpanElement>(null)
   const [clear, setClear] = useState(false)
+  const dom = useEditorDom(editor)
   useEffect(() => {
-    const dom = editor?.view.dom
     if (!dom || !counts) return
     let frame = 0
     const check = (): void => {
@@ -97,7 +98,7 @@ export function WordCount({ editor }: { editor: Editor | null }) {
       document.removeEventListener("scroll", check, { capture: true })
       window.removeEventListener("resize", check)
     }
-  }, [editor, counts])
+  }, [dom, counts])
 
   if (!editor || !counts) return null
   const { words, characters } = counts

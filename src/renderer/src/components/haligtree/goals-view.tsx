@@ -119,15 +119,16 @@ export const warmth = (left: number): string =>
   left > 30 ? 'var(--muted-foreground)' : left > 7 ? ACCENT : 'var(--tt-color-text-red)'
 
 /** A new goal, asked for (its name, its day, why), then opened. Undoable. */
-export async function startGoal(open: (type: string, id: string) => void): Promise<void> {
+export async function startGoal(open: (type: string, id: string) => void, title = ''): Promise<string | null> {
   const asked = await new Promise<{ title: string; target: string | null; why: string } | null>((answer) =>
-    window.dispatchEvent(new CustomEvent('haligtree:new-goal', { detail: { answer } })))
-  if (!asked) return
+    window.dispatchEvent(new CustomEvent('haligtree:new-goal', { detail: { answer, title } })))
+  if (!asked) return null
   const id = await haligtree.newGoal(asked.title, asked.target, null, asked.why)
-  if (!id) return
+  if (!id) return null
   chime('goal')
   toast(asked.target ? `A goal for ${dayMonth(`${asked.target}T12:00`)}: log as you go` : 'On your someday list: log whenever you take a step', () => void haligtree.dropGoal(id))
   open('goal', id)
+  return id
 }
 
 /** Settle a goal: made it, missed, or gave it up; or put it on ice for now. Undoable. */
@@ -179,7 +180,7 @@ function reopen(item: Item): void {
 
 /** The new goal over the page: its name, the day, and why, if you want to say. */
 export function GoalAsker(): React.JSX.Element | null {
-  const [asked, setAsked] = useState<{ answer: (goal: { title: string; target: string | null; why: string } | null) => void } | null>(null)
+  const [asked, setAsked] = useState<{ answer: (goal: { title: string; target: string | null; why: string } | null) => void; title?: string } | null>(null)
   const [title, setTitle] = useState('')
   const [target, setTarget] = useState<string | null>(null)
   // No day to it: a someday goal, for the life list.
@@ -191,7 +192,8 @@ export function GoalAsker(): React.JSX.Element | null {
     const onAsk = (event: Event): void => {
       chime('open')
       setMissing(null)
-      setTitle('')
+      // Made from something already written (an Inbox capture's "Make it a goal"): its words are the name to start.
+      setTitle((event as CustomEvent).detail.title ?? '')
       setTarget(null)
       setDateless(false)
       setWhy('')

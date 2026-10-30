@@ -171,8 +171,15 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
   const tasks = useLive(haligtree.tasks, [] as Task[])
   const taskNow = useTaskNow()
   const today = dayKey()
-  const [ticked, setTicked] = useState<Record<string, { task: Task; was?: Finished; pen: boolean }>>({})
+  const [ticked, setTicked] = useState<Record<string, { task: Task; was?: Finished; pen: boolean; day: string }>>({})
   const [cleared, setCleared] = useState<string[]>(() => readCleared(today))
+  // Left open past midnight: what was ticked or cleared yesterday is yesterday's, not today's Now.
+  const [dayOf, setDayOf] = useState(today)
+  if (dayOf !== today) {
+    setDayOf(today)
+    setCleared(readCleared(today))
+    setTicked((all) => Object.fromEntries(Object.entries(all).filter(([, one]) => one.day === today)))
+  }
   const [draft, setDraft] = useState<Draft | null>(null)
   const [open, setOpen] = useState<Record<Section, boolean>>({ now: true, next: false, later: false })
   // The line picked with Esc (lit, no caret in it): T, M, W, N and L move it, ↑ ↓ pick the one beside it, ↵ writes in it again.
@@ -187,7 +194,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
 
   const start = startOfDay()
   const ids = new Set(tasks.map((task) => task.id))
-  const written = [...tasks.filter(inNow), ...Object.values(ticked).map((one) => one.task).filter((task) => !ids.has(task.id) || !inNow(tasks.find((one) => one.id === task.id)!))]
+  const written = [...tasks.filter(inNow), ...Object.values(ticked).filter((one) => one.day === today).map((one) => one.task).filter((task) => !ids.has(task.id) || !inNow(tasks.find((one) => one.id === task.id)!))]
     .filter((task, at, all) => all.findIndex((one) => one.id === task.id) === at && !cleared.includes(task.id))
     .sort(order)
   // The day's three first, in the order they were kept (or the first three still), then the rest in your order.
@@ -198,7 +205,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
   const next = tasks.filter((task) => task.status === 'open' && !task.waitingOn && !task.dueAt && !task.deadline && !task.planFor && !task.recurrence).sort(order)
   const later = tasks.filter((task) => task.status === 'open' && !task.waitingOn && !task.dueAt && !!bucket(task)).sort(order)
   const lists: Record<Section, Task[]> = { now, next, later }
-  const done = (task: Task): boolean => !!ticked[task.id] || task.status === 'done'
+  const done = (task: Task): boolean => ticked[task.id]?.day === today || task.status === 'done'
   const openNow = now.filter((task) => !done(task))
   const top = new Set(openNow.slice(0, 3).map((task) => task.id))
   // The first of the three ticked, here or anywhere: they are kept for the day from now on.
@@ -319,9 +326,9 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
       return
     }
     chime('done')
-    setTicked((all) => ({ ...all, [task.id]: { task, pen: !byKeys() } }))
+    setTicked((all) => ({ ...all, [task.id]: { task, pen: !byKeys(), day: today } }))
     void haligtree.doneTask(task.id).then(async (was) => {
-      setTicked((all) => ({ ...all, [task.id]: { task, was, pen: all[task.id]?.pen ?? false } }))
+      setTicked((all) => ({ ...all, [task.id]: { task, was, pen: all[task.id]?.pen ?? false, day: today } }))
       const back = (): void => {
         chime('undo')
         setTicked(({ [task.id]: _, ...rest }) => rest)
@@ -946,7 +953,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
           )}
           {id !== 'now' && <span className="text-sm text-muted-foreground">· {said.replace(/^Next, /, '')}</span>}
           {/* Late ones still open count too, so this says what Today's List and Close the day say. */}
-          {id === 'now' && <NowCount open={openNow.length + before.length} done={now.length - openNow.length} three={threeThere === 3 ? threeDone : undefined} />}
+          {id === 'now' && <NowCount open={openNow.length + before.length} late={before.length} done={now.length - openNow.length} three={threeThere === 3 ? threeDone : undefined} />}
           <span className="flex-1" />
           {id === 'now' && now.some(done) && !compact && (
             <button type="button" onClick={clearTicked} className="flex h-6 items-center rounded-md px-2 text-control text-muted-foreground hover:bg-accent hover:text-foreground">Clear ticked</button>
@@ -1079,11 +1086,11 @@ function TintedWords({ text }: { text: string }): React.JSX.Element {
 }
 
 /**
- * "Your three: 2 of 3 done" once the day has three, then "4 of 9 in all"
- * when there is more; with fewer than three, "2 of 5 done". Rolling as it
+ * "Your three: 2 of 3 done" once the day has three, then "4 done today, 5 to go"
+ * when there is more (the late ones named); with fewer than three, the same. Rolling as it
  * changes; nothing before anything is written.
  */
-function NowCount({ open, done, three }: { open: number; done: number; /** How many of the day's three are done, when it has three. */ three?: number }): React.JSX.Element | null {
+function NowCount({ open, late, done, three }: { open: number; /** Of the open, those from earlier days, in "Still open from before". */ late: number; done: number; /** How many of the day's three are done, when it has three. */ three?: number }): React.JSX.Element | null {
   const all = open + done
   if (!all) return null
   return (
@@ -1096,7 +1103,8 @@ function NowCount({ open, done, three }: { open: number; done: number; /** How m
       {/* Before anything is ticked, the page's own count says it; past the three, the whole list. */}
       {done > 0 && (three === undefined || all > 3) && (
         <span data-now-count className="text-sm font-medium tabular-nums" style={{ color: !open ? 'var(--tt-color-text-green)' : 'var(--muted-foreground)' }}>
-          <Rolling text={three === undefined ? `${num(done)} of ${num(all)} done` : `${num(done)} of ${num(all)} in all`} by="word" />
+          {/* Said as what it is: done today, and what is left, the late ones from earlier days named, since they sit in their own box. */}
+          <Rolling text={`${num(done)} done today, ${num(open)} to go${late ? ` (${num(late)} from before)` : ''}`} by="word" />
         </span>
       )}
     </>

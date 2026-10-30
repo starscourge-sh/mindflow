@@ -48,7 +48,7 @@ try {
   await v('settings:set', { dayHints: true }); await wait(1000)
   const on = await layout()
   check('on: all three lines show', on.hints.every(Boolean), JSON.stringify(on.hints))
-  check('on: the done line reads as a count', /\d+ of \d+ done/.test(await h.$eval('[data-day-progress]', (one) => one.dataset.said ?? '').catch(() => '')))
+  check('on: the done line reads as a count', /\d+ done today, \d+ to go/.test(await h.$eval('[data-day-progress]', (one) => one.dataset.said ?? '').catch(() => '')))
   check('on: the hours line reads planned and left', /planned, .* left today/.test(await h.$eval('[data-day-budget]', (one) => one.dataset.said ?? '').catch(() => '')))
   check('on: the short-day note is there', /more than a short day holds/.test(await h.$eval('[data-today-cap]', (one) => one.textContent ?? '').catch(() => '')))
   check('header, chips and add box do not move', on.header === off.header && on.form === off.form && on.chips === off.chips, JSON.stringify({ off, on }))

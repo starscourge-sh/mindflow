@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useEditorDom } from '@/lib/editor-dom'
 import type { Editor } from '@tiptap/react'
 import dayjs from 'dayjs'
 
@@ -88,8 +89,8 @@ export function WordAim({ editor, id }: { editor: Editor | null; id: string }): 
   // Lined up with the words' own column, wherever the page puts it.
   const [column, setColumn] = useState<{ left: number; width: number } | null>(null)
   const bar = useRef<HTMLDivElement>(null)
+  const dom = useEditorDom(editor)
   useEffect(() => {
-    const dom = editor?.view.dom
     const holder = bar.current?.parentElement
     if (!aim || !dom || !holder) return
     const measure = (): void => {
@@ -104,7 +105,7 @@ export function WordAim({ editor, id }: { editor: Editor | null; id: string }): 
     watch.observe(dom)
     watch.observe(holder)
     return () => watch.disconnect()
-  }, [aim, editor, !!counts])
+  }, [dom, aim, editor, !!counts])
 
   // The aim met: said once, with its chord, and never again for that aim.
   const words = counts?.words ?? 0

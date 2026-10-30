@@ -22,6 +22,7 @@ import { taskName } from '@/lib/tasks'
 import { DayBanner } from './scenery'
 import { DayBrief } from './day-brief'
 import { LivingCaret, PageCap, WriterLine, dayCaption, useWritingQuiet } from './day-writing'
+import { domOf, useEditorDom } from '@/lib/editor-dom'
 import { RoomFoot, useWritingRoom } from './writing-room'
 import { Proofread } from './proofread'
 import { useWritingSound } from './writing-sound'
@@ -325,7 +326,7 @@ function CaretIn({ editor, day }: { editor: Editor | null; day: string }): null 
     if (!seen || !editor || editor.isDestroyed || placed.current === day) return
     const frame = requestAnimationFrame(() => {
       // The day before's editor, already taken down as this day's comes in: wait for this day's.
-      if (editor.isDestroyed || !editor.view.dom.isConnected) return
+      if (!domOf(editor)?.isConnected) return
       placed.current = day
       const held = document.activeElement
       if (held?.matches('input, textarea, select, [contenteditable="true"]') && !held.closest('[data-day-write]')) return
@@ -352,9 +353,10 @@ const beat = (letter: string): number => (/[?.!]/.test(letter) ? 260 : /[,;]/.te
 function DayBreath({ editor, day }: { editor: Editor | null; day: string }): null {
   const seen = useSeen()
   const calm = useStill()
+  const dom = useEditorDom(editor)
   useEffect(() => {
-    if (!seen || !editor || editor.isDestroyed) return
-    const box = editor.view.dom.closest<HTMLElement>('[data-day-write]')
+    if (!seen || !editor || !dom) return
+    const box = dom.closest<HTMLElement>('[data-day-write]')
     if (!box) return
     const ask = (text: string): void => box.style.setProperty('--mf-day-ph', JSON.stringify(text))
     let nth = 0
@@ -416,6 +418,6 @@ function DayBreath({ editor, day }: { editor: Editor | null; day: string }): nul
       window.removeEventListener('keydown', onKey, true)
       box.style.removeProperty('--mf-day-ph')
     }
-  }, [seen, editor, day, calm])
+  }, [seen, editor, dom, day, calm])
   return null
 }

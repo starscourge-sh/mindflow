@@ -1,4 +1,5 @@
 import { voiceOf } from '@/lib/sources'
+import { startGoal } from '@/components/haligtree/goals-view'
 import type { Picking } from '@/lib/pick-range'
 import { openRead } from './haligtree/read-through'
 import { useEffect, useState, type ReactNode } from 'react'
@@ -138,6 +139,8 @@ export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void)
         { label: 'Turn it into', items: [
           ...EXITS.filter((one) => one.status === 'promoted' || one.status === 'question').map((one) => ({ label: one.label, keys: one.key.toUpperCase(), run: () => void exit(capture.id, one.status) })),
           { label: 'Make it a task', run: () => void makeTask({ capture: capture.id }) },
+          // A goal, with a day or none (Someday, for the life list): named from the capture's words, opened on Goals.
+          { label: 'Make it a goal…', hint: 'With a day, or Someday with none', run: () => void startGoal((type, id) => window.api.openInHome(type, id), capture.label.split('\n')[0].slice(0, 120)) },
           { label: 'Add as a clue to a question…', hint: 'Files this note under a question you already have', run: () => void addToQuestion(capture.id) },
           'separator' as const,
           { label: 'Change kind…', run: () => void changeKind('captures', capture.id, capture.kind) }

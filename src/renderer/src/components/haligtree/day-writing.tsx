@@ -11,6 +11,8 @@ import { useLive, haligtree, type Settings } from '@/lib/haligtree'
 import { read as aimOf } from '@/components/count/word-aim'
 import { Rolling } from './ui'
 import { clock, num } from '../../../../main/dates'
+import { useEditorDom } from '@/lib/editor-dom'
+
 
 /**
  * Today's writing as a page rather than a form: a still caption over the
@@ -77,10 +79,10 @@ function markDayPaths(): void {
  */
 export function useWritingQuiet(editor: Editor | null, day: string): number {
   const [spent, setSpent] = useState(() => timeOf(day))
+  const dom = useEditorDom(editor)
   useEffect(() => {
     setSpent(timeOf(day))
-    const dom = editor?.view.dom
-    if (!dom || editor.isDestroyed) return
+    if (!dom || !editor || editor.isDestroyed) return
     const root = document.documentElement
     markDayPaths()
     let typed = 0
@@ -147,7 +149,7 @@ export function useWritingQuiet(editor: Editor | null, day: string): number {
       dom.removeEventListener('blur', off)
       window.removeEventListener('blur', off)
     }
-  }, [editor, day])
+  }, [editor, dom, day])
   return spent
 }
 
@@ -162,9 +164,9 @@ export function PageCap({ editor }: { editor: Editor | null }): React.JSX.Elemen
   const openRef = useRef(open)
   openRef.current = open
   const reveal = useRef<() => void>(() => {})
+  const dom = useEditorDom(editor)
   useEffect(() => {
-    if (!editor || editor.isDestroyed) return
-    const dom = editor.view.dom as HTMLElement
+    if (!editor || !dom) return
     const box = dom.closest<HTMLElement>('[data-caret-room]')
     const frame = dom.closest<HTMLElement>('.haligtree-editor-wrapper')
     if (!box || !frame) return
@@ -204,7 +206,7 @@ export function PageCap({ editor }: { editor: Editor | null }): React.JSX.Elemen
       box.removeAttribute('data-page-open')
       box.removeAttribute('data-page-capped')
     }
-  }, [editor])
+  }, [editor, dom])
   if (open || more < 1) return null
   return (
     <div data-page-more className="relative z-[2] -mt-9 flex justify-center">
@@ -227,9 +229,9 @@ export function LivingCaret({ editor }: { editor: Editor | null }): React.JSX.El
   const calm = useStill()
   const caret = useRef<HTMLSpanElement>(null)
   const [shown, setShown] = useState(false)
+  const dom = useEditorDom(editor)
   useEffect(() => {
-    if (!editor || editor.isDestroyed) return
-    const dom = editor.view.dom
+    if (!editor || !dom) return
     const box = dom.closest<HTMLElement>('[data-caret-room]')
     if (!box) return
     let frame = 0
@@ -284,7 +286,7 @@ export function LivingCaret({ editor }: { editor: Editor | null }): React.JSX.El
       editor.off('blur', place)
       window.removeEventListener('resize', place)
     }
-  }, [editor])
+  }, [editor, dom])
   return calm ? null : <span ref={caret} aria-hidden data-living-caret data-shown={shown || undefined} className="mf-living-caret" />
 }
 
@@ -333,8 +335,8 @@ export function WriterLine({ editor, day, spent, today }: { editor: Editor | nul
     return () => void (watch.disconnect(), editor.off('focus', check), editor.off('blur', check))
   }, [editor])
   // Lined up with the words' column, wherever the page puts it.
+  const dom = useEditorDom(editor)
   useEffect(() => {
-    const dom = editor?.view.dom
     if (!dom) return
     const measure = (): void => {
       const box = dom.getBoundingClientRect()
@@ -345,7 +347,7 @@ export function WriterLine({ editor, day, spent, today }: { editor: Editor | nul
     watch.observe(dom)
     window.addEventListener('resize', measure)
     return () => (watch.disconnect(), window.removeEventListener('resize', measure))
-  }, [editor])
+  }, [dom])
   const [, tick] = useState(0)
   // The time moves on once a minute, never per frame.
   useEffect(() => {

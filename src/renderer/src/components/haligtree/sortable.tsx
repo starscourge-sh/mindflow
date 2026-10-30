@@ -191,7 +191,8 @@ export function SortableList<T>({ items, keyOf, onMove, axis = 'y', places, chil
       <SortableContext items={shown.map(keyOf)} strategy={axis === 'x' ? horizontalListSortingStrategy : verticalListSortingStrategy}>
         <Axis.Provider value={axis}><Sorting.Provider value={sorting}><On.Provider value><Order.Provider value={shown.map(keyOf).join('\n')}>{children(shown)}</Order.Provider></On.Provider></Sorting.Provider></Axis.Provider>
       </SortableContext>
-      {shot && places?.foot}
+      {/* Laid over what is under the list, never in its flow: a drag starting moves nothing else on the page. */}
+      {shot && places?.foot && <div data-drop-foot-over className="relative z-10 h-0"><div className="absolute inset-x-0 top-0 bg-background pb-2">{places.foot}</div></div>}
       <Overlay dropAnimation={still() || aim ? null : SETTLE}>
         {shot && (
           <div className="flex flex-col items-start gap-1">

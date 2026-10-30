@@ -4,7 +4,7 @@ import { TagColourPick } from './components/haligtree/tag-colour-pick'
 import { themeActions } from '@/lib/theme'
 import { useAbandonAction } from '@/lib/abandon'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
-import { FileText, PanelsTopLeft, Plus } from 'lucide-react'
+import { ChevronsDownUp, ChevronsUpDown, FileText, PanelsTopLeft, Plus } from 'lucide-react'
 import CameraIcon from '@/components/ui/camera-icon'
 import CameraOffIcon from '@/components/ui/camera-off-icon'
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -752,6 +752,8 @@ export function Home(): React.JSX.Element {
   // Writing's and Gems' folders, open to start (side-folders.tsx).
   const [articleKept, keepArticle] = useRemembered('sidebar:folders:article', true)
   const [nuggetKept, keepNugget] = useRemembered('sidebar:folders:nugget', true)
+  // Journal's Week, Month and Year fold as Writing's folders do, open to start.
+  const [journalOpen, setJournalOpen] = useRemembered('sidebar:journal', true)
   const [customizing, setCustomizing] = useState(false)
   // One light for the whole sidebar list, gliding to the row nearest the
   // pointer, and the page you are on marked by one fill that travels to the
@@ -1602,7 +1604,7 @@ export function Home(): React.JSX.Element {
             ever slides under the window's buttons. */}
         {/* In the Mac's full screen there are no traffic lights here, so the room closes up. */}
         <div data-drag-strip="" className="h-10 shrink-0 [:root[data-fullscreen]_&]:h-2" style={{ WebkitAppRegion: 'drag' } as CSSProperties} />
-        <div className="shrink-0 px-2 pb-2">
+        <div className="flex shrink-0 items-center gap-1 px-2 pb-2">
           <button
             type="button"
             data-tour="search"
@@ -1614,6 +1616,21 @@ export function Home(): React.JSX.Element {
             {!narrow && <span className="flex-1 text-left">Search…</span>}
             {!narrow && <Pressed keys="⌘K" />}
           </button>
+          {/* Every fold in the sidebar at once: shut them all while any is open, else open them all. */}
+          {!narrow && (() => {
+            const folds: [boolean, (open: boolean) => void][] = [[pinsOpen, setPinsOpen], [recentOpen, setRecentOpen], [articleFolders, setArticleFolders], [nuggetFolders, setNuggetFolders], [journalOpen, setJournalOpen], [tagsOpen, setTagsOpen]]
+            const anyOpen = folds.some(([open]) => open)
+            const label = anyOpen ? 'Fold everything in the sidebar' : 'Unfold everything in the sidebar'
+            return (
+              <Tip label={label}>
+                <button type="button" data-side-fold-all={anyOpen ? 'fold' : 'unfold'} aria-label={label}
+                  onClick={() => (chime(anyOpen ? 'fold' : 'slide'), folds.forEach(([open, set]) => open !== !anyOpen && set(!anyOpen)))}
+                  className="flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-4">
+                  {anyOpen ? <ChevronsDownUp /> : <ChevronsUpDown />}
+                </button>
+              </Tip>
+            )
+          })()}
         </div>
         <div ref={sideList} {...sideHover.handlers}
           // A place, a pin or a tag clicked while split opens on its own, the split kept under "Side by side"; ⌥-click still opens beside.
@@ -1666,12 +1683,14 @@ export function Home(): React.JSX.Element {
             const row = (section: (typeof SECTIONS)[number], among: string[] = [], still = false): React.JSX.Element => {
               // Writing and Gems hold their groups as folders, folded with the chevron over the row's icon.
               const list = section.id === 'articles' ? 'article' : section.id === 'nuggets' ? 'nugget' : null
-              const folders = list && !narrow && settings?.sidebarFolders?.[list] !== false ? (list === 'article' ? articles : nuggets) : null
-              const [unfolded, setUnfolded] = list === 'article' ? [articleFolders, setArticleFolders] : [nuggetFolders, setNuggetFolders]
-              const inFolder = view.id === section.id ? view.folder : undefined
               // Journal's other scales hang under it as Writing's folders do: Day is Journal itself, so it is not one;
               // a scale with a row of its own in the sidebar is not listed twice.
               const scales = section.id === 'day' && !narrow ? JOURNAL_SCALES.filter((one) => !shown.includes(one.id)) : []
+              const folders = list && !narrow && settings?.sidebarFolders?.[list] !== false ? (list === 'article' ? articles : nuggets) : null
+              const [unfolded, setUnfolded] = list === 'article' ? [articleFolders, setArticleFolders] : list === 'nugget' ? [nuggetFolders, setNuggetFolders] : [journalOpen, setJournalOpen]
+              // What the chevron over the icon folds: Writing's or Gems' folders, or Journal's scales.
+              const folds = !!(folders && list) || scales.length > 0
+              const inFolder = view.id === section.id ? view.folder : undefined
               const inScale = scales.some((one) => one.id === view.id)
               const here = lit(section.id) && !inFolder && !inScale
               return (
@@ -1696,7 +1715,7 @@ export function Home(): React.JSX.Element {
               >
                 {/* Each icon keeps its colour, softened while at rest so the hues do not
                     shout at once; the one you are on, or reaching for, is in full. */}
-                <span className={`flex shrink-0 transition-opacity duration-80 ${folders ? 'group-hover/fold:opacity-0' : ''}`}><PlaceIcon place={section} full={lit(section.id)} /></span>
+                <span className={`flex shrink-0 transition-opacity duration-80 ${folds ? 'group-hover/fold:opacity-0' : ''}`}><PlaceIcon place={section} full={lit(section.id)} /></span>
                 {!narrow && <Weighted on={here} className="flex-1 text-left">{section.label}</Weighted>}
                 {!narrow && countsIn && countOf(section.id) ? (
                   // Each count says what it counts, pointed at: the orange one is what is due today.
@@ -1718,8 +1737,8 @@ export function Home(): React.JSX.Element {
                 </Tip>
               )}
               {/* Writing's and Gems' fold: quiet, over the icon, until pointed at (Notion's way). */}
-              {folders && list && (
-                <button type="button" data-folders-fold={list} aria-label={unfolded ? `Fold ${section.label}'s folders away` : `Show ${section.label}'s folders`} aria-expanded={unfolded}
+              {folds && (
+                <button type="button" data-folders-fold={list ?? 'journal'} aria-label={list ? (unfolded ? `Fold ${section.label}'s folders away` : `Show ${section.label}'s folders`) : unfolded ? `Fold ${section.label}'s pages away` : `Show ${section.label}'s pages`} aria-expanded={unfolded}
                   onClick={() => (chime(unfolded ? 'fold' : 'slide'), setUnfolded(!unfolded))}
                   className="absolute top-1/2 left-1.5 flex size-5 -translate-y-1/2 items-center justify-center rounded text-muted-foreground opacity-0 transition-[opacity,background-color] duration-80 group-hover/fold:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100">
                   <ChevronRight className={`size-3.5 transition-transform duration-80 ${unfolded ? 'rotate-90' : ''}`} />
@@ -1729,6 +1748,7 @@ export function Home(): React.JSX.Element {
               </motion.div>
               </RowMenu>
               {scales.length > 0 && (
+                <Unfold open={journalOpen || inScale}>
                 <Branches current={scales.findIndex((one) => one.id === view.id)} className="ml-5 flex flex-col gap-px">
                   {scales.map((one) => (
                     <button key={one.id} type="button" data-side-row data-side-scale={one.id} aria-current={view.id === one.id ? 'page' : undefined}
@@ -1740,6 +1760,7 @@ export function Home(): React.JSX.Element {
                     </button>
                   ))}
                 </Branches>
+                </Unfold>
               )}
               {folders && list && (
                 // Its own drags, not the row's: a folder pressed on is not Writing carried away.

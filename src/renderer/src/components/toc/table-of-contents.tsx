@@ -1,4 +1,5 @@
 import { memo, useEffect, useRef, useState } from "react"
+import { useEditorDom } from '@/lib/editor-dom'
 import type { Editor } from "@tiptap/react"
 
 import { OPEN, headingsOf, land, type Heading } from "@/components/toc/headings"
@@ -66,9 +67,9 @@ export function TableOfContents({ editor, shown = true }: { editor: Editor | nul
   const lit = keyed ?? active
 
   // ⇧⌘O in this editor: the outline takes the keys, on the heading you are under.
+  const dom = useEditorDom(editor)
   useEffect(() => {
-    const dom = editor?.view.dom
-    if (!dom) return
+    if (!dom || !editor) return
     const open = (): void => {
       if (!headingsOf(editor).length) return
       cue("outline")
@@ -79,7 +80,7 @@ export function TableOfContents({ editor, shown = true }: { editor: Editor | nul
     }
     dom.addEventListener(OPEN, open)
     return () => dom.removeEventListener(OPEN, open)
-  }, [editor])
+  }, [dom, editor])
 
   // Focus once the outline is actually drawn. With it hidden there is nothing
   // to focus until this render, and a next-frame focus could still miss it.

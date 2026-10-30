@@ -820,6 +820,9 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   const listLater = useAfterFirstPaint()
   const listShown = listFirst || listLater
   const leftToday = mode === 'today' ? real.filter(onToday).length : 0
+  // Of those, the ones from earlier days: named in the count, so "to go" is not a riddle.
+  const lateToday = mode === 'today' ? real.filter((task) => onToday(task) && (placed(task) ?? Infinity) < startOfDay()).length : 0
+  const daySaid = `${num(dayDone)} done today, ${num(leftToday)} to go${lateToday ? ` (${num(lateToday)} from before)` : ''}`
   // "2 of 5 done", the day's hours and the short-day note: only when asked for in Settings.
   const hints = settings?.dayHints === true
   // Cleared just now, in front of you: the rest rises in rather than being there.
@@ -1011,8 +1014,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
         </form>
         {/* How far through the day: "2 of 5 done" and a thin bar, which reaches its end on the last one. */}
         {mode === 'today' && hints && !example && !reading && dayDone > 0 && (
-          <div data-day-progress data-said={`${num(dayDone)} of ${dayDone + leftToday} done`} className="list-words mt-3 flex items-center gap-3">
-            <span className="shrink-0 text-[0.9375rem] font-medium tabular-nums text-foreground"><Rolling text={`${num(dayDone)} of ${num(dayDone + leftToday)} done`} by="word" /></span>
+          <div data-day-progress data-said={daySaid} className="list-words mt-3 flex items-center gap-3">
+            <span className="shrink-0 text-[0.9375rem] font-medium tabular-nums text-foreground"><Rolling text={daySaid} by="word" /></span>
             <ProgressBar value={dayDone / (dayDone + leftToday)} label="Today's tasks done" thick={3} className="min-w-16 flex-1" />
           </div>
         )}
