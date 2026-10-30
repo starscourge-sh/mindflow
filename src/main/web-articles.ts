@@ -91,15 +91,20 @@ export function registerWebArticles(keep: (src: string) => Promise<string>): voi
         else one.remove()
       })
     )
+    // Readability's own wrappers (a page div, the site's article) unwrapped, so the words sit straight in the reader's column.
+    let inner = clean.body as unknown as Element
+    while (inner.children.length === 1 && /^(div|article|section|main)$/i.test(inner.children[0].tagName) && [...inner.childNodes].every((node) => node.nodeType === 1 || !(node.textContent ?? '').trim())) inner = inner.children[0]
+    const html = inner.innerHTML
     const id = (db.prepare('select id from web_articles where href = ?').get(href) as { id: string } | undefined)?.id ?? randomUUID()
     db.prepare('insert or replace into web_articles (id, href, title, byline, site, published, html, saved_at) values (?, ?, ?, ?, ?, ?, ?, ?)').run(
       id,
       href,
-      (found.title || meta('og:title') || base.hostname).trim(),
+      // The page's title without the site's name it often trails ("The Essay | Probe Times").
+      (meta('og:title') || found.title || base.hostname).replace(new RegExp(`\\s*[|\\-–—:·]\\s*${(found.siteName || site).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'i'), '').trim(),
       (found.byline ?? '').trim(),
       (found.siteName || site).trim(),
       (found.publishedTime || meta('article:published_time') || '').trim(),
-      clean.body.innerHTML,
+      html,
       new Date().toISOString()
     )
     return { id }

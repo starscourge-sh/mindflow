@@ -79,16 +79,23 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
   useEffect(() => {
     const root = body.current
     if (!root || !('highlights' in CSS)) return
-    drawn.current = marks.flatMap((mark) => {
-      const range = rangeOf(root, mark)
-      return range ? [{ mark, range }] : []
-    })
-    CSS.highlights.set('web-mark', new Highlight(...drawn.current.map((one) => one.range)))
+    // Found again whenever the article's text nodes change under them (the
+    // app's own passes over note text rewrite them, which empties a range).
+    const draw = (): void => {
+      drawn.current = marks.flatMap((mark) => {
+        const range = rangeOf(root, mark)
+        return range ? [{ mark, range }] : []
+      })
+      CSS.highlights.set('web-mark', new Highlight(...drawn.current.map((one) => one.range)))
+      const lit = drawn.current.find((one) => one.mark.id === flash)?.range
+      CSS.highlights.set('web-flash', new Highlight(...(lit ? [lit] : [])))
+    }
+    draw()
     // A gem's link back: its words lit until the next click, and brought into view.
-    const lit = drawn.current.find((one) => one.mark.id === flash)?.range
-    CSS.highlights.set('web-flash', new Highlight(...(lit ? [lit] : [])))
-    lit?.startContainer.parentElement?.scrollIntoView({ block: 'center' })
-    return () => (CSS.highlights.delete('web-mark'), CSS.highlights.delete('web-flash'), undefined)
+    drawn.current.find((one) => one.mark.id === flash)?.range.startContainer.parentElement?.scrollIntoView({ block: 'center' })
+    const watch = new MutationObserver(draw)
+    watch.observe(root, { subtree: true, childList: true, characterData: true })
+    return () => (watch.disconnect(), CSS.highlights.delete('web-mark'), CSS.highlights.delete('web-flash'), undefined)
   }, [marks, article, flash])
 
   // A selection inside the article's words offers "Keep"; anything else hides it.
@@ -417,7 +424,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
           >
             <article
               className="web-reader-column"
-              style={{ fontSize: `calc(1.1875rem * var(--mf-text-scale, 1) * ${size})` }}
+              style={{ fontSize: `calc(1rem * var(--mf-text-scale, 1) * ${size})` }}
             >
               {failed ? (
                 <div className="web-reader-failed" role="status">
@@ -439,7 +446,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
                   {meta && <p className="web-reader-meta">{meta}</p>}
                   <div
                     ref={body}
-                    className="tiptap ProseMirror web-reader-body"
+                    className="tiptap ProseMirror haligtree-editor web-reader-body"
                     dangerouslySetInnerHTML={{ __html: article.html }}
                   />
                 </>

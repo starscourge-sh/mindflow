@@ -329,9 +329,10 @@
 }
 
 .web-reader-column {
-  max-width: calc(36em + 8rem);
+  /* The note's own column: its width and gutters, so an article reads as a note does. */
+  max-width: calc(var(--mf-col-note, 40rem) + 9.5rem);
   margin: 0 auto;
-  padding: 3rem 4rem 4rem;
+  padding: 3rem 4.75rem 4rem;
 }
 
 .web-reader-heading {
@@ -350,13 +351,16 @@
   font-size: 0.8125rem;
 }
 
-.web-reader-body.tiptap.ProseMirror {
-  padding: 0;
+.web-reader-body.tiptap.ProseMirror.haligtree-editor {
+  padding: 0 !important;
   font-size: 1em;
+  /* A page's HTML, not the editor's: its line breaks between tags are not lines. */
+  white-space: normal;
 }
 
-.web-reader-body :is(p, li, blockquote) {
-  line-height: 1.7;
+/* The words start right under the byline, as a note's start under its title. */
+.web-reader-body > :first-child {
+  margin-top: 0 !important;
 }
 
 .web-reader-body img {
