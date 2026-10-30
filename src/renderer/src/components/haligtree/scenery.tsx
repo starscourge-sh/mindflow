@@ -381,7 +381,6 @@ const PAINTINGS: Record<string, string> = {
   'the-icebergs': "The Icebergs, Frederic Edwin Church",
   'savage-state': "The Course of Empire: The Savage State, Thomas Cole",
   'schroon-mountain': "View of Schroon Mountain, Essex County, New York, After a Storm, Thomas Cole",
-  'chasm-of-the-colorado': "The Chasm of the Colorado, Thomas Moran",
   'green-river-cliffs': "Green River Cliffs, Wyoming, Thomas Moran",
   'moonrise-over-the-sea': "Moonrise over the Sea, Caspar David Friedrich",
   'riesengebirge': "Morning in the Riesengebirge, Caspar David Friedrich",

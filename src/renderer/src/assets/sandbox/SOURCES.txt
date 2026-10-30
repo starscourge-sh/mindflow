@@ -109,8 +109,6 @@ painting whose painter died before 1950 (public domain), cropped to 16:9 at 1600
       https://commons.wikimedia.org/wiki/File:Cole_Thomas_The_Course_of_Empire_The_Savage_State_1836.jpg
   scenery/schroon-mountain.webp  Thomas Cole (1801 to 1848), View of Schroon Mountain, Essex County, New York, After a Storm, 1838.
       https://commons.wikimedia.org/wiki/File:Thomas_Cole_-_View_of_Schroon_Mountain,_Essex_County,_New_York,_After_a_Storm_-_1335.1917_-_Cleveland_Museum_of_Art.tiff
-  scenery/chasm-of-the-colorado.webp  Thomas Moran (1837 to 1926), The Chasm of the Colorado, 1874.
-      https://commons.wikimedia.org/wiki/File:Smithsonian-Moran-The_Chasm_of_the_Colorado-2287.jpg
   scenery/green-river-cliffs.webp  Thomas Moran (1837 to 1926), Green River Cliffs, Wyoming, 1881.
       https://commons.wikimedia.org/wiki/File:Thomas_Moran,_Green_River_Cliffs,_Wyoming,_1881,_oil_on_canvas.jpg
   scenery/moonrise-over-the-sea.webp  Caspar David Friedrich (1774 to 1840), Moonrise over the Sea, 1822.
