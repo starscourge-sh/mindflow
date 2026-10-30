@@ -323,6 +323,9 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   const [listFirst] = useState(!focus)
   const listLater = useAfterFirstPaint()
   const listShown = listFirst || listLater
+  // A row pressed: the page turns on the press, not once the note has been
+  // read, so the row's own click never sounds first (two sounds for one open).
+  const pickRow = (id: string): void => (isGroup(id) ? undefined : pageTurn(false, id), pick(id))
   const pick = (id: string): void => {
     // A folder card opens the folder, as a row's click does (only its contents, under the path bar); in place where there is no path.
     if (isGroup(id)) return onFolder ? (chime('untuck'), onFolder(groupId(id)), setCursor(0)) : (chime('untuck'), setInGroup(groupId(id)), setCursor(0))
@@ -591,7 +594,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     <ReadsIn className="contents">
       {/* Folded to a rail: by you, or by a board that needs the room. */}
       {open && (boarded ? !listOut : pane === 'rail') ? (
-        <NoteRail entries={entries.flatMap(([, list]) => list)} cursor={cursor} selected={open.id} onPick={pick} onShow={() => (boarded ? setListOut(true) : setPane('list'))} />
+        <NoteRail entries={entries.flatMap(([, list]) => list)} cursor={cursor} selected={open.id} onPick={pickRow} onShow={() => (boarded ? setListOut(true) : setPane('list'))} />
       ) : (
       <Page aside={!!open || !!coming}
         // The count, Display's sort and the list come with the notes and your groups, together.
@@ -746,7 +749,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
             </Empty>
         ) : items.length || (folding.rows && noteGroups.some((one) => one.members.some((id) => all.some((item) => item.id === id && !item.archivedAt)))) ? (
           <NoteList groups={entries} density={density} table="nuggets" selected={spread ? peek ?? undefined : coming ?? open?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
-            onPick={spread ? (id) => (isGroup(id) ? pick(id) : (setPeek(id), setCursor(items.findIndex((one) => one.id === id)))) : pick} onOpen={spread ? pick : undefined}
+            onPick={spread ? (id) => (isGroup(id) ? pick(id) : (setPeek(id), setCursor(items.findIndex((one) => one.id === id)))) : pickRow} onOpen={spread ? pickRow : undefined}
             picking={picking} onMove={view.sort === 'manual' ? onMove : undefined} after={glossAfter} className={spread ? 'list-edge my-3' : 'list-edge my-2'}
             folds={folding.rows ? { ...folding.folds(menuFor), onNewNote: pick, onSort: setSorting, onSorted: markSorted, onOpenFolder: onFolder ?? undefined } : undefined} />
         ) : questionsOnly && !unloaded(all) && !all.length ? (

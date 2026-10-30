@@ -114,6 +114,15 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
   const nav = useNavNow()
   const [sortedToo, setSortedToo] = useState(nav?.here.tab === 'sorted')
   useKept('tab', sortedToo ? 'sorted' : 'waiting', (tab) => setSortedToo(tab === 'sorted'), 'waiting')
+  // The older captures, listed alone: on top, with the list's start in sight. Esc, the line's own
+  // “Back to the last … days” and Back all return to the recent ones.
+  const showOlder = (on: boolean): void => {
+    chime(on ? 'open' : 'fold')
+    setChosen([])
+    setOlderAsked(on)
+    if (nav && on) nav.step({ tab: OLDER })
+    else if (nav && nav.here.tab === OLDER) nav.step({ tab: undefined })
+  }
   const everything = inboxPage && sortedToo
   const keep = everything ? keepEverything : given
   // The Inbox lists the last few days (Settings' “Inbox shows”); the older open
@@ -121,12 +130,31 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
   const days = useInboxDays()
   const windowed = inboxPage && !everything && days > 0
   const older = windowed ? all.filter((one) => keep(one) && !inInboxWindow(one, days)) : []
-  const [olderAsked, setOlderAsked] = useState(() => !!focus && older.some((one) => one.id === focus))
+  const [olderAsked, setOlderAsked] = useState(() => nav?.here.tab === OLDER || (!!focus && older.some((one) => one.id === focus)))
+  // Going through the older ones is a step of its own (Back and Forward, the mouse's side buttons), kept as the step's tab.
+  const olderTab = nav?.here.tab === OLDER
+  const [stepTab, setStepTab] = useState(olderTab)
+  if (stepTab !== olderTab) (setStepTab(olderTab), setOlderAsked(olderTab))
   // Sent to one (a link, a tag's page, ⌘K, Pinned): the list it is in is the one shown, older or newer, so its row is there beside it.
   const [sentTo, setSentTo] = useState(focus)
   if (sentTo !== focus) (setSentTo(focus), focus && windowed && all.some((one) => one.id === focus && keep(one)) && setOlderAsked(older.some((one) => one.id === focus)))
   const olderShown = olderAsked && older.length > 0
   const inView = (one: CaptureMeta): boolean => !windowed || inInboxWindow(one, days) !== olderShown
+  // Pressed at the list's end, the older ones are read from their start: the line saying what they are, at the top.
+  useEffect(() => {
+    if (olderShown) document.querySelector('[data-inbox-older="shown"]')?.scrollIntoView({ block: 'nearest' })
+  }, [olderShown])
+  // Esc with nothing open and nothing picked: back to the recent ones.
+  useEffect(() => {
+    if (!olderShown) return
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape' || event.defaultPrevented || open || task || chosen.length || (event.target as HTMLElement | null)?.closest('input, textarea, [contenteditable="true"], [role="menu"], [role="dialog"]')) return
+      event.preventDefault()
+      showOlder(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
   // Everything: every task too, as a row of its own kind; to do, done or both, as chosen.
   const tasks = useLive(() => (everything ? haligtree.tasks() : Promise.resolve([] as Task[])), [] as Task[], [everything], undefined, 'everything-tasks')
   const [taskState, setTaskState] = useTaskState()
@@ -215,6 +243,10 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
       return asked(readFresh('task', id, haligtree.task), (found) => (found ? (setComing(null), setOpen(null), setTask(found)) : note()))
     note()
   }
+  // A row pressed: the page turns on the press, as every list's does, not once
+  // the note has been read. A turn that waited for the read came after the
+  // row's own click: two sounds for one open, and a click alone for a task.
+  const pickRow = (id: string): void => (pageTurn(false, id), pick(id))
   const setPane = (next: typeof pane): void => {
     if (next === 'wide') {
       setPeek(open?.id ?? shown[Math.max(0, cursor)]?.id ?? null)
@@ -469,7 +501,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
     <ReadsIn className="contents">
       {/* Folded to a rail: by you, or by a board that needs the room. */}
       {open && (boardShown ? !listOut : pane === 'rail') ? (
-        <NoteRail entries={shown.map((one) => entryOf?.(one) ?? captureEntry(one, pick))} cursor={cursor} selected={open.id} onPick={pick} onShow={() => (boardShown ? setListOut(true) : setPane('list'))} />
+        <NoteRail entries={shown.map((one) => entryOf?.(one) ?? captureEntry(one, pick))} cursor={cursor} selected={open.id} onPick={pickRow} onShow={() => (boardShown ? setListOut(true) : setPane('list'))} />
       ) : (
       <Page aside={!!open || !!task || !!coming}
         // Its count and Display come with the list: for Everything, with its tasks and which captures became them too.
@@ -557,7 +589,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
         {/* Old captures to tidy and deciding day: quick capture only catches, so they wait here. */}
         {title === 'Inbox' && <InboxLines held={kept.length} />}
         {/* Going through the older ones: said on top, with the way back. */}
-        {olderShown && <OlderLine days={days} older={older.length} shown onFlip={() => (chime('fold'), setOlderAsked(false), setChosen([]))} />}
+        {olderShown && <OlderLine days={days} older={older.length} shown onFlip={() => showOlder(false)} />}
         {everything ? (
           // What to see: tasks, notes, quotes… (several at once), and for tasks, to do or done.
           <div data-everything-filter className="list-words flex flex-wrap items-center gap-x-4 gap-y-1.5 pt-2.5 pb-2">
@@ -575,7 +607,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
           <div className="flex min-h-0 flex-1 flex-col px-4 pb-4"><InboxGraph captures={narrowed.flatMap(([, list]) => list)} onOpen={onOpen ?? (() => undefined)} /></div>
         ) : (islands ? groups.length : shown.length) ? (!listShown ? null :
           <CaptureList groups={groups} islands={islands} density={density} selected={spread ? peek ?? undefined : coming ?? open?.id ?? task?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
-            onPick={spread ? (id) => (taskOf(id) ? pick(id) : (setPeek(id), setCursor(shown.findIndex((one) => one.id === id)))) : pick} onOpen={spread ? pick : undefined}
+            onPick={spread ? (id) => (taskOf(id) ? pickRow(id) : (setPeek(id), setCursor(shown.findIndex((one) => one.id === id)))) : pickRow} onOpen={spread ? pickRow : undefined}
             picking={picking} entryOf={entryOf}
             // Right-clicked among several picked, the menu speaks for all of them.
             menu={(capture, usual) => chosen.includes(capture.id) && chosen.length > 1 ? [
@@ -643,7 +675,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
           </Rest>
         )}
         {/* The older open captures, out of the list but never out of reach: one line at its end. */}
-        {windowed && !olderShown && older.length > 0 && !graphed && <OlderLine days={days} older={older.length} onFlip={() => (chime('open'), setOlderAsked(true), setChosen([]))} />}
+        {windowed && !olderShown && older.length > 0 && !graphed && <OlderLine days={days} older={older.length} onFlip={() => showOlder(true)} />}
       </Page>
       )}
       {readFrom !== null && (
@@ -812,6 +844,9 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
  * and since when, with “Go through them” to list those alone; while they are
  * listed, on top, with the way back to the recent ones.
  */
+/** The step's tab while the Inbox lists its older captures alone. */
+const OLDER = 'older'
+
 function OlderLine({ days, older, shown = false, onFlip }: { days: number; older: number; shown?: boolean; onFlip: () => void }): React.JSX.Element {
   const since = dayjs().subtract(days, 'day').format('D MMMM')
   const link = 'font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60'
