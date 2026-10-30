@@ -227,6 +227,7 @@ export function PageContents({ page, scroller, label }: { page: HTMLElement | nu
         }
       }}
     >
+      <div className="tiptap-toc-list mf-more">
       {entries.map((entry, index) => (
         <button
           key={`${entry.level}:${entry.text}:${index}`}
@@ -249,6 +250,7 @@ export function PageContents({ page, scroller, label }: { page: HTMLElement | nu
           </span>
         </button>
       ))}
+      </div>
     </nav>
   )
 }

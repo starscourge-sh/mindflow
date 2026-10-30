@@ -171,6 +171,7 @@ export function TableOfContents({ editor, shown = true }: { editor: Editor | nul
         }
       }}
     >
+      <div className="tiptap-toc-list mf-more">
       {headings.map((heading, index) => (
         <Entry
           key={index}
@@ -183,6 +184,7 @@ export function TableOfContents({ editor, shown = true }: { editor: Editor | nul
           onGo={goRef}
         />
       ))}
+      </div>
     </nav>
   )
 }

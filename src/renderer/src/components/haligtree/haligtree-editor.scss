@@ -676,6 +676,10 @@
 
 // The outline, parked against the editor's right edge. Collapsed it is one rule
 // per heading; hovering the strip swaps the rules for the headings themselves.
+// Opened, it is the right-click menu's twin (context-menu.tsx, measured by
+// qa/toc-menu.mjs): its corners, surface, 28px rows, text size and highlight;
+// levels step in by indent alone, and the heading you are under is the one in
+// full weight, as the sidebar marks the page you are on.
 .tiptap-toc {
   position: absolute;
   top: 50%;
@@ -685,70 +689,81 @@
   transform: translateY(-50%);
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  // No gap, and no padding between the items: only the items take the pointer,
-  // so any space between them is a hole that drops the hover and collapses the
-  // strip mid-movement. The breathing room lives inside each item instead.
-  gap: 0;
-  padding: 0.25rem;
   width: max-content;
   max-width: 17rem;
   max-height: 60vh;
-  overflow-y: auto;
   pointer-events: none;
-  border: 1px solid transparent;
-  border-radius: 0.75rem;
-  transition: background-color 120ms var(--mf-ease), border-color 120ms var(--mf-ease);
+  border-radius: var(--radius);
+  transition: background-color 120ms var(--mf-ease), box-shadow 120ms var(--mf-ease);
 
-  // Nothing here may change the layout: a size change under the pointer moves
-  // the items out from under it and the panel flickers open and shut.
   // Opened by ⇧⌘O it looks the same as hovered.
   &:hover,
   &[data-open] {
-    border-color: var(--tt-border-color);
-    background-color: var(--tt-card-bg-color);
-    box-shadow: var(--tt-shadow-elevated-md);
+    background-color: var(--popover);
+    color: var(--popover-foreground);
+    box-shadow: var(--mf-panel-shadow), 0 0 0 1px color-mix(in oklab, var(--foreground) 10%, transparent);
   }
 }
 
+// The rows scroll inside the card, fading at an edge only while there is more
+// past it (.mf-more), as a long menu does.
+.tiptap-toc-list {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  // No gap: only the items take the pointer, so any space between them is a
+  // hole that drops the hover and collapses the strip mid-movement.
+  gap: 0;
+  min-height: 0;
+  padding: 0.25rem;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 .tiptap-toc-item {
+  --toc-indent: 0rem;
   pointer-events: auto;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   width: 100%;
+  min-width: 0;
   // Flex items shrink by default, and a column with a max-height is exactly
-  // where that bites: once the outline outgrows the panel every row squashes
-  // toward its min-height instead of the panel scrolling. That is why a long
-  // outline looked cramped and a short one did not.
+  // where that bites: every row would squash instead of the list scrolling.
   flex: none;
   // A 2px rule is not a hover target; the row around it is.
   min-height: 0.875rem;
-  border-radius: 0.375rem;
+  padding-left: var(--toc-indent);
+  border-radius: calc(var(--radius) - 2px);
   color: var(--mf-muted);
 
-  // Deeper headings sit further in, which is what makes the collapsed strip
-  // readable as a shape rather than a list.
+  // Deeper headings sit further in: the only thing that tells the levels apart.
   &[data-level="2"] {
-    padding-left: 0.75rem;
+    --toc-indent: 0.75rem;
   }
 
   &[data-level="3"] {
-    padding-left: 1.5rem;
+    --toc-indent: 1.5rem;
   }
 
   &[data-active="true"] {
-    color: var(--tt-cursor-color);
+    color: var(--foreground);
   }
 
-  // Weight rather than size: a long outline needs the levels to read at a
-  // glance, and changing the size makes the rows jump around.
-  &[data-level="1"] .tiptap-toc-text {
-    font-weight: 600;
+  .tiptap-toc:hover &,
+  .tiptap-toc[data-open] & {
+    min-height: 1.75rem;
+    padding-left: 0;
+    color: var(--popover-foreground);
   }
 
-  &[data-level="3"] .tiptap-toc-text {
-    opacity: 0.75;
+  // The menu's highlight, on the whole row.
+  .tiptap-toc:hover &:hover,
+  .tiptap-toc &[data-keyed] {
+    background-color: var(--accent);
+    color: var(--accent-foreground);
   }
 }
 
@@ -779,27 +794,24 @@
 
 .tiptap-toc-text {
   display: none;
-  padding: 0.1875rem 0.5rem;
+  min-width: 0;
+  padding: 0.25rem 0.5rem 0.25rem calc(0.5rem + var(--toc-indent));
   width: 100%;
-  font-size: 0.8125rem;
-  line-height: 1.35;
+  font-size: var(--text-control);
+  line-height: var(--text-control--line-height);
   text-align: left;
-  // A long heading takes a second line rather than losing its end.
-  white-space: normal;
+  // One line, as a menu row is: a long heading ends in "…", its full words on hover.
+  white-space: nowrap;
   overflow: hidden;
-  overflow-wrap: anywhere;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  text-overflow: ellipsis;
 
   .tiptap-toc:hover &,
   .tiptap-toc[data-open] & {
-    display: -webkit-box;
+    display: block;
   }
 
-  .tiptap-toc-item:hover &,
-  .tiptap-toc-item[data-keyed] & {
-    background-color: var(--mf-surface);
-    border-radius: 0.375rem;
+  .tiptap-toc-item[data-active="true"] & {
+    font-weight: 600;
   }
 }
 

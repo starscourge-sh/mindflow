@@ -38,12 +38,9 @@
   color: var(--foreground);
 }
 
-/* The lit row in the open list: the theme's accent, readable on any page. */
+/* The lit row in the open list: in full, as the note's outline marks it (haligtree-editor.scss). */
 .mf-page-toc .tiptap-toc-item[data-active='true'] .tiptap-toc-text {
-  color: var(--tt-cursor-color);
-}
-.mf-page-toc .tiptap-toc-item[data-active='true'] .tiptap-toc-rule {
-  background-color: var(--tt-cursor-color);
+  color: var(--foreground);
 }
 
 /* Where a jump landed: the setting glows for a moment, then is itself again. */
