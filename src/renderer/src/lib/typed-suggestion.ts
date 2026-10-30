@@ -15,10 +15,21 @@ export function typedOnly<P extends Shown>(also?: (props: P) => boolean): (props
   return (props) => {
     const { $from } = props.transaction.selection
     const inCode = $from.parent.type.spec.code || $from.marks().some((mark) => mark.type.name === "code")
-    // A paste brings words in; it does not type a mark.
-    const typed = props.transaction.docChanged && props.transaction.getMeta("uiEvent") !== "paste"
+    // A paste brings words in; it does not type a mark. Nor does a note being loaded or tidied as it opens (a
+    // gem ending "#astrophysics" opened its tag menu, and its sound, on every open): typed is a change that ends at the caret.
+    const typed = props.transaction.getMeta("uiEvent") !== "paste" && endsAtCaret(props.transaction)
     const shown = !inCode && (typed || open.get(props.editor) === true) && (also?.(props) ?? true)
     open.set(props.editor, shown)
     return shown
   }
+}
+
+/** Whether some text the transaction put in ends where the caret now sits, as a key just typed does. */
+function endsAtCaret(transaction: Transaction): boolean {
+  const caret = transaction.selection.from
+  return transaction.mapping.maps.some((map, index) => {
+    let hit = false
+    map.forEach((_from, _to, start, end) => void (end > start && transaction.mapping.slice(index + 1).map(end) === caret && (hit = true)))
+    return hit
+  })
 }

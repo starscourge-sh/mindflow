@@ -294,9 +294,9 @@ export function chime(cue: Cue): void {
  * a panel opened from the keys, so it shows at once (lib/motion.ts); the
  * editor's own menus take `openChime`, the sound alone.
  */
-export const openChime = (node: HTMLElement | null): void => void (node && chime('open'))
 // Once per panel: React's development checks attach a ref twice to the same node, and the open sound played twice.
 const cued = new WeakSet<HTMLElement>()
+export const openChime = (node: HTMLElement | null): void => void (node && !cued.has(node) && (cued.add(node), chime('open')))
 export const openCue = (node: HTMLElement | null): void => void (node && !cued.has(node) && (cued.add(node), chime('open'), markKeyed(node)))
 
 let chimedAt = -Infinity
