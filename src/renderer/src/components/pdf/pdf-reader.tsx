@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import type { PDFDocumentProxy } from "pdfjs-dist"
-import { ChevronDown, ChevronUp, Minus, Plus, ScrollText, Search, X } from "lucide-react"
+import { ChevronDown, ChevronUp, ListTree, Minus, Plus, ScrollText, Search, X } from "lucide-react"
 import { Button } from "@/components/tiptap-ui-primitive/button"
 import { Toolbar, ToolbarGroup } from "@/components/tiptap-ui-primitive/toolbar"
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu"
@@ -123,6 +123,37 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     window.addEventListener("keydown", onKey, true)
     return () => window.removeEventListener("keydown", onKey, true)
   })
+
+  // The PDF's own outline, if it has one: each entry's title, depth and page.
+  const [outline, setOutline] = useState<{ title: string; depth: number; page: number }[]>([])
+  const [showOutline, setShowOutline] = useState(false)
+  useEffect(() => {
+    if (!doc) return
+    let live = true
+    const pageOf = async (dest: unknown): Promise<number | null> => {
+      const explicit = typeof dest === "string" ? await doc.getDestination(dest) : dest
+      const ref = Array.isArray(explicit) ? explicit[0] : null
+      if (!ref) return null
+      return typeof ref === "number" ? ref + 1 : (await doc.getPageIndex(ref)) + 1
+    }
+    type Item = { title: string; dest: unknown; items: Item[] }
+    const flat = async (items: Item[], depth: number): Promise<{ title: string; depth: number; page: number }[]> => {
+      const rows: { title: string; depth: number; page: number }[] = []
+      for (const item of items) {
+        const page = await pageOf(item.dest).catch(() => null)
+        if (page) rows.push({ title: item.title, depth, page })
+        rows.push(...(await flat(item.items ?? [], depth + 1)))
+      }
+      return rows
+    }
+    void doc.getOutline().then(async (items) => {
+      const rows = items ? await flat(items as Item[], 0) : []
+      if (live) setOutline(rows)
+    })
+    return () => {
+      live = false
+    }
+  }, [doc])
 
   // The mark under a right click.
   const [hit, setHit] = useState<PdfMark | null>(null)
@@ -250,6 +281,11 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           <span className="pdf-reader-of"> / {doc?.numPages ?? "…"}</span>
         </span>
         <span className="pdf-reader-tools">
+          {outline.length > 0 && (
+            <Button data-style="ghost" aria-label="Outline" title="Outline" data-active-state={showOutline ? "on" : "off"} onClick={() => setShowOutline(!showOutline)}>
+              <ListTree className="tiptap-button-icon" />
+            </Button>
+          )}
           <Button data-style="ghost" aria-label="Find" title="Find  ⌘F" data-active-state={finding ? "on" : "off"} onClick={() => (finding ? closeFind() : (setFinding(true), requestAnimationFrame(() => findField.current?.focus())))}>
             <Search className="tiptap-button-icon" />
           </Button>
@@ -276,6 +312,16 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           </Button>
         </span>
       </div>
+      {showOutline && outline.length > 0 && (
+        <nav className="pdf-outline" aria-label="Outline">
+          {outline.map((row, index) => (
+            <button key={index} type="button" className={`pdf-outline-row${row.page === page ? " is-here" : ""}`} style={{ paddingInlineStart: `${0.75 + row.depth * 0.875}rem` }} onClick={() => go(row.page)}>
+              <span className="pdf-outline-title">{row.title}</span>
+              <span className="pdf-outline-page">{row.page}</span>
+            </button>
+          ))}
+        </nav>
+      )}
       {finding && (
         <div className="tiptap-find-bar pdf-find-bar">
           <div className="tiptap-find-bar-row">

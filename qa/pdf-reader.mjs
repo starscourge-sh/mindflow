@@ -29,6 +29,19 @@ const makePdf = async () => {
     page.drawText(`A quiet sentence worth keeping on page ${n}.`, { x: 40, y: 460, size: 12, font })
     page.drawImage(picture, { x: 40, y: 300, width: 80, height: 80 })
   }
+  // An outline, as a book's contents: one entry for each page.
+  const { PDFName, PDFNull, PDFNumber, PDFString } = await import('pdf-lib')
+  const ctx = pdf.context
+  const root = ctx.nextRef()
+  const refs = pdf.getPages().map(() => ctx.nextRef())
+  pdf.getPages().forEach((page, n) => {
+    const entry = ctx.obj({ Title: PDFString.of(`Chapter ${n + 1}`), Parent: root, Dest: [page.ref, PDFName.of('XYZ'), PDFNull, PDFNull, PDFNull] })
+    if (n > 0) entry.set(PDFName.of('Prev'), refs[n - 1])
+    if (n < refs.length - 1) entry.set(PDFName.of('Next'), refs[n + 1])
+    ctx.assign(refs[n], entry)
+  })
+  ctx.assign(root, ctx.obj({ Type: 'Outlines', First: refs[0], Last: refs[refs.length - 1], Count: PDFNumber.of(refs.length) }))
+  pdf.catalog.set(PDFName.of('Outlines'), root)
   return Array.from(await pdf.save())
 }
 
@@ -143,6 +156,15 @@ try {
   await wait(800)
   check("the View menu's Actual Size fits the PDF again", Math.abs((await widthAt()) - before) < 2, String(await widthAt()))
   check("and the app's own size is untouched", (await appSize()) === sizeBefore, `${sizeBefore} -> ${await appSize()}`)
+  // The PDF's own outline: its entries, each going to its page.
+  await h.waitForSelector('.pdf-reader button[aria-label="Outline"]', { timeout: 4000 }).catch(() => {})
+  await h.click('.pdf-reader button[aria-label="Outline"]', { timeout: 4000 }); await wait(300)
+  const entries = await h.evaluate(() => [...document.querySelectorAll('.pdf-outline-row')].map((one) => one.textContent))
+  check("the outline lists the PDF's own contents", JSON.stringify(entries) === JSON.stringify(['Chapter 11', 'Chapter 22', 'Chapter 33']), JSON.stringify(entries))
+  await h.click('.pdf-outline-row:nth-child(2)'); await wait(800)
+  check('an entry goes to its page', await h.evaluate(() => document.querySelector('.pdf-reader-page-field').value) === '2', '')
+  await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-outline.png` })
+  await h.click('.pdf-reader button[aria-label="Outline"]'); await wait(300)
   // ⌘F: every match counted, Return steps to the next page's, each one marked on its page.
   await h.click('.pdf-reader-scroll'); await h.keyboard.press('Meta+KeyF'); await wait(300)
   check('⌘F opens find in the PDF', await h.evaluate(() => document.activeElement?.getAttribute('aria-label') === 'Find in PDF'), '')
