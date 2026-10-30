@@ -53,9 +53,25 @@ function choose(scenes: Scene[], seed: string, moods: Mood[] | null, wide: boole
   const taken = /^(rest|day|week|month):/.test(seed) ? new Set([...Object.values(restTaken()), ...picked.values()]) : new Set<string>()
   // The hour's mood first; once its pictures are all in use, one of another mood before a repeat.
   const free = tiers.map((tier) => tier.filter((one) => !taken.has(one.url))).find((one) => one.length) ?? []
-  // Each picture scored on its own against the seed, so where it sits in the
-  // list does not matter, and a picture added later only wins its share.
-  const best = (free.length ? free : pool).reduce<Scene | null>((top, one) => (!top || hash(`${seed}:${one.id}`) > hash(`${seed}:${top.id}`) ? one : top), null)
+  // A day's, week's or month's banner takes the next picture in a fixed shuffled order, one step a day (or week, or
+  // month), so none comes back until every other one has had its turn. Scored afresh each day, as before, the same
+  // painting came back two days out of three (with 11 pictures, the Wanderer on the 28th and the 30th).
+  const dated = /^(day|week|month):(\d{4})-(\d{2})(?:-(\d{2}))?/.exec(seed)
+  const from = free.length ? free : pool
+  let best: Scene | null = null
+  if (dated && from.length) {
+    const [, unit, y, m, d] = dated
+    const days = Math.floor(Date.UTC(Number(y), Number(m) - 1, Number(d ?? 1)) / 86_400_000)
+    const turn = unit === 'day' ? days : unit === 'week' ? Math.floor(days / 7) + 3 : Number(y) * 12 + Number(m) + 7
+    // The order is the whole pool's, so a picture taken by another banner is passed over, never reshuffled around.
+    const order = [...pool].sort((a, b) => hash(`order:${a.id}`) - hash(`order:${b.id}`))
+    for (let step = 0; step < order.length && !best; step++) {
+      const one = order[(turn + step) % order.length]
+      if (from.includes(one)) best = one
+    }
+  }
+  // Anything else: each picture scored on its own against the seed, so where it sits in the list does not matter.
+  best ??= from.reduce<Scene | null>((top, one) => (!top || hash(`${seed}:${one.id}`) > hash(`${seed}:${top.id}`) ? one : top), null)
   if (best) {
     picked.set(key, best.url)
     if (seed.startsWith('rest:')) keepRest(key, best.url)
