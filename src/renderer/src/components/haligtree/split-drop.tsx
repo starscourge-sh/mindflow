@@ -171,6 +171,7 @@ export function SplitDrop({ onDrop }: { onDrop: (carried: Carried, side: Side) =
       if (queued) (delete queued.dataset.queueHot, delete queued.dataset.folderNo)
       queued = null
       delete document.documentElement.dataset.splitDrag
+      delete document.documentElement.dataset.splitRoom
       delete document.documentElement.dataset.splitPin
       setCarried(null)
       setHot(null)
@@ -183,6 +184,7 @@ export function SplitDrop({ onDrop }: { onDrop: (carried: Carried, side: Side) =
       if (queued) (delete queued.dataset.queueHot, delete queued.dataset.folderNo)
       queued = null
       delete document.documentElement.dataset.splitDrag
+      delete document.documentElement.dataset.splitRoom
       delete document.documentElement.dataset.splitPin
       setCarried(null)
       setHot(null)
@@ -239,6 +241,9 @@ export function SplitDrop({ onDrop }: { onDrop: (carried: Carried, side: Side) =
       // Up only at an edge, only that edge's place: the other side's would sit over the list for nothing.
       if (down.source.edgeOnly) shown = shown.filter((zone) => zone.side === (px < box.left + box.width / 2 ? 'left' : 'right'))
       document.documentElement.dataset.splitDrag = ''
+      // Narrow strips at the edge: the page eases in from that side to make room for them (main.css), so a strip never
+      // sits over what is at the page's edge (the Matrix's "Do now" lost 70 pixels under "Open on the left").
+      if (shown.every((zone) => zone.width <= NARROW)) document.documentElement.dataset.splitRoom = shown.map((zone) => zone.side).join(' ')
       // Pinned's "Drop here to pin" comes up only for what it takes (home.tsx).
       if (down.source.carried.open && !down.source.carried.open.startsWith('task:')) document.documentElement.dataset.splitPin = ''
       document.getSelection()?.removeAllRanges()
@@ -348,6 +353,7 @@ export function SplitDrop({ onDrop }: { onDrop: (carried: Carried, side: Side) =
       window.removeEventListener('dragstart', onDragStart, true)
       window.removeEventListener('blur', reset)
       delete document.documentElement.dataset.splitDrag
+      delete document.documentElement.dataset.splitRoom
       delete document.documentElement.dataset.splitPin
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
