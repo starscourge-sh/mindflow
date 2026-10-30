@@ -15,6 +15,8 @@ export type Nav = {
   go: (focus: string | null) => void
   /** Kept in the step you are on: what Back returns to. */
   keep: (patch: Partial<Pick<Step, 'focus' | 'tab'>>) => void
+  /** Another tab of this page, as a step of its own: Back returns to the one before (the Inbox's older captures). */
+  step: (patch: Partial<Pick<Step, 'tab'>>) => void
 }
 export const NavContext = createContext<Nav | null>(null)
 export const useNav = (): Nav | null => useContext(NavContext)

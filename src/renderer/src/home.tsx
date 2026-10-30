@@ -428,6 +428,14 @@ export function Home(): React.JSX.Element {
         return push(trail, { id: here.id, focus: focus ?? undefined, folder: here.folder, tab: here.tab }, scroll)
       })
     },
+    step: (patch) => {
+      const scroll = scrolled(key)
+      setTrail(key, (trail) => {
+        const here = trail.views[trail.at]
+        if (here.id !== view.id || Object.entries(patch).every(([name, value]) => here[name as keyof View] === value)) return trail
+        return push(trail, { ...here, scroll: undefined, ...patch }, scroll)
+      })
+    },
     keep: (patch) =>
       setTrail(key, (trail) => {
         const here = trail.views[trail.at]
