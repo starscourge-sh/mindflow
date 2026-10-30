@@ -92,6 +92,7 @@ import { registerFocusStats } from './focus-stats'
 import { registerSimilar } from './similar'
 import { registerJournal } from './journal'
 import { registerPdfHighlights } from './pdf-highlights'
+import { registerWebArticles } from './web-articles'
 import { registerWordLog } from './word-log'
 import { frostWindow, registerFrost, retellFrost } from './frost'
 import { BOOK, SANDBOX, arrived, handedOff, windingDown, onHandOff, readShelf, realRoot, registerSandbox, relaunch, restartNow, useDataFolder, writeShelf } from './sandbox'
@@ -5111,6 +5112,8 @@ app.whenReady().then(() => {
     const [image, icon] = await Promise.all([keepWide(found.image), keep(found.icon)])
     return { ...found, image, icon, imageSource: found.image, iconSource: found.icon }
   })
+  // A web page in the reader: its article kept offline, its pictures kept as a card's are.
+  registerWebArticles(keep)
   // A card made before its pictures were kept, or imported with the site's
   // addresses: the very pictures it shows, kept now. Each one that cannot be
   // fetched comes back as it was.

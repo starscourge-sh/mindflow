@@ -84,6 +84,7 @@ const api = {
     ipcRenderer.invoke('save-file', name, bytes),
   /** A PDF on the web, kept in the book's files once: where it is kept now, and its name. Null when it is not a PDF or cannot be fetched. */
   fetchPdf: (href: string): Promise<{ src: string; name: string } | null> => ipcRenderer.invoke('pdf-fetch', href),
+  fetchArticle: (href: string): Promise<{ id: string } | { error: string }> => ipcRenderer.invoke('article-fetch', href),
 
   /** Write text to a file the user picks. */
   exportText: (name: string, text: string): Promise<boolean> =>
@@ -562,7 +563,7 @@ const api = {
     /** Links and captures holding a card, to tidy: read without counting as an open. */
     cards: (): Promise<{ id: string; kind: string; body: unknown }[]> => ipcRenderer.invoke('captures:cards'),
     /** Search the titles and bodies, newest first. */
-    find: (query: string): Promise<{ type: 'capture' | 'pdf' | 'nugget' | 'article' | 'question' | 'goal' | 'task' | 'event' | 'day'; id: string; number: number | null; kind: string; status: string; source: string; attribution: string | null; label: string; capturedAt: string }[]> => ipcRenderer.invoke('captures:find', query),
+    find: (query: string): Promise<{ type: 'capture' | 'pdf' | 'web' | 'nugget' | 'article' | 'question' | 'goal' | 'task' | 'event' | 'day'; id: string; number: number | null; kind: string; status: string; source: string; attribution: string | null; label: string; capturedAt: string }[]> => ipcRenderer.invoke('captures:find', query),
     /** Three open captures, leaning old: the rot sampler. */
     rot: (): Promise<Capture[]> => ipcRenderer.invoke('captures:rot'),
     /** What `@` offers for the text typed after it. */

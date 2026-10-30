@@ -24,6 +24,8 @@ export interface HaligtreeHost {
   copiedFiles?: () => Promise<{ name: string; bytes: Uint8Array }[]>
   /** A PDF on the web, kept in the book's files once: where it is kept now, and its name. */
   fetchPdf?: (href: string) => Promise<{ src: string; name: string } | null>
+  /** A web page read into an article and kept offline: its id, or why it could not be read. */
+  fetchArticle?: (href: string) => Promise<{ id: string } | { error: string }>
   /** Read a linked image the page's own content policy will not fetch. */
   fetchImage?: (href: string) => Promise<{ mime: string; bytes: Uint8Array } | null>
   /**
