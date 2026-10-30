@@ -727,7 +727,8 @@ function Progress({ at, seen, onBack }: { at: number; /** The chapters already s
         className={`-ml-3 flex h-[clamp(2rem,4.2vmin,2.5rem)] items-center rounded-[0.6rem] px-3 transition-colors hover:bg-foreground/[0.06] hover:text-foreground active:scale-[0.97] ${at > WHY ? '' : 'invisible'}`}>
         Back
       </button>
-      <span aria-hidden className="flex items-center gap-1">
+      {/* Narrower still (the smallest window), the marks make room too, so the skip link is never under the way on. */}
+      <span aria-hidden className="flex items-center gap-1 [@container(max-width:680px)]:hidden">
         {CHAPTERS.map((_, i) => (
           <motion.span key={i} className="h-[3px] w-5 origin-left rounded-full bg-foreground" initial={false}
             animate={{ opacity: i + 1 === at ? 0.85 : seen.has(i + 1) ? 0.4 : 0.14, scaleX: i + 1 === at ? 1 : 0.55 }} transition={spring.moderate} />
