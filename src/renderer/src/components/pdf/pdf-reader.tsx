@@ -9,6 +9,7 @@ import { call } from "@/lib/haligtree"
 import { said } from "@/lib/host"
 import { keysHere, usePane } from "@/lib/split"
 import { chime } from "@/lib/sound"
+import { cue } from "@/lib/cues"
 import { PdfPages, offsetsIn, pdfTitle, type PdfMark } from "./pdf-pages"
 
 /** The zoom steps, as Preview's: fit width is 1. */
@@ -102,16 +103,22 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     setAt(0)
     if (hits[0]) go(hits[0].page)
   }
+  // Heard as the note's own find bar is: opening, each step, a miss, closing.
   const stepFind = (back: boolean): void => {
-    if (!found.length) return
+    if (!found.length) return cue("find-miss")
     const next = (at + (back ? found.length - 1 : 1)) % found.length
     setAt(next)
     go(found[next].page)
+    cue("find-step", next)
   }
   const closeFind = (): void => {
     setFinding(false)
     setFound([])
+    cue("find-close")
   }
+  useEffect(() => {
+    if (finding) cue("find")
+  }, [finding])
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (!event.metaKey || event.altKey || event.shiftKey || event.code !== "KeyF" || !keysHere(pane)) return
