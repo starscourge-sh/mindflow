@@ -93,7 +93,7 @@ import { noteActions } from '@/lib/notes'
 import { headingIn } from '@/lib/capture-links'
 import { openApart } from '@/lib/apart'
 import { MediaView } from '@/components/haligtree/media-view'
-import { G_ALIASES, JOURNAL_SCALES, OFF_SIDEBAR, PlaceIcon, SECTIONS, SIDE_GROUPS, ShowList, showGroup, type Place, TASK_PAGES, dropInBlock, dropOrder, orderItems, risen, litRow, showWords, sidebarParts, useInOrder, useOrder, useSections, useShown } from '@/components/haligtree/places'
+import { G_ALIASES, JOURNAL_SCALES, OFF_SIDEBAR, startPageOf, PlaceIcon, SECTIONS, SIDE_GROUPS, ShowList, showGroup, type Place, TASK_PAGES, dropInBlock, dropOrder, orderItems, risen, litRow, showWords, sidebarParts, useInOrder, useOrder, useSections, useShown } from '@/components/haligtree/places'
 import { BlockList, SortableList, SortableRow } from '@/components/haligtree/sortable'
 import { pageTravel } from '@/lib/page-travel'
 import { Branches } from '@/components/haligtree/branches'
@@ -880,8 +880,9 @@ export function Home(): React.JSX.Element {
     // Back after a long gap, Today wins for that run (above): the page you chose is for every other start.
     if (!settings || started.current || quiet) return
     started.current = true
-    const to = settings.startPage
-    if (!to || to === 'day' || !SECTIONS.some((one) => one.id === to)) return
+    // Chosen, then hidden from the sidebar: the first page it shows, never a page you put away.
+    const to = startPageOf(settings)
+    if (to === 'day'|| !SECTIONS.some((one) => one.id === to)) return
     setSplit((now) => now.panes.length === 1 && now.panes[0].trail.views.length === 1 && now.panes[0].trail.views[0].id === 'day'
       ? { ...now, panes: [{ ...now.panes[0], trail: { views: [{ id: to }], at: 0 } }] }
       : now)
@@ -1548,6 +1549,9 @@ export function Home(): React.JSX.Element {
             ...themeActions((text, undo) => toast(text, undo)),
             { label: settings?.blur === false ? 'Turn blurring on' : 'Turn blurring off', cue: null, run: blurring },
             { label: 'Settings', keys: '⌘,', run: () => setView({ id: 'settings' }) },
+            // For anyone who finds it all too small: said the way they would ask, with the keys that do it.
+            { label: 'Make everything bigger', hint: 'Text and controls, in every window', keys: '⌘+', cue: null, run: () => void window.dispatchEvent(new CustomEvent('haligtree:app-size', { detail: 1 })) },
+            { label: 'Make everything smaller', hint: 'Text and controls, in every window', keys: '⌘−', cue: null, run: () => void window.dispatchEvent(new CustomEvent('haligtree:app-size', { detail: -1 })) },
             { label: 'Your reader card', hint: 'Your book on a card, in Settings', cue: null, run: () => setView({ id: 'settings', focus: 'reader-card', nonce: Date.now() }) },
             // The wrench on a sidebar heading shows only on pointing: found here too.
             { label: 'Customize the sidebar…', cue: null, run: () => void setTimeout(() => setCustomizing(true), 120) },

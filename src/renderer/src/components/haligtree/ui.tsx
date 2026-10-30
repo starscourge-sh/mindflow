@@ -963,9 +963,11 @@ export const whyFailed = (error: unknown): string => {
 /**
  * A question that needs a line from you before something can go on, asked in
  * place: Enter answers, Escape lets it go. Resolves to the words, or null.
+ * With `skip` (its label, "Keep it without"), the line is asked for, never
+ * forced: Enter on nothing, or that button, resolves to '' and it goes on.
  */
-export const ask = (question: string, placeholder = '', field?: 'attribution' | 'medium' | 'tag', initial = ''): Promise<string | null> =>
-  new Promise((answer) => void window.dispatchEvent(new CustomEvent('haligtree:ask', { detail: { question, placeholder, field, initial, answer } })))
+export const ask = (question: string, placeholder = '', field?: 'attribution' | 'medium' | 'tag', initial = '', skip?: string): Promise<string | null> =>
+  new Promise((answer) => void window.dispatchEvent(new CustomEvent('haligtree:ask', { detail: { question, placeholder, field, initial, skip, answer } })))
 
 /** The question's field when it is a tag: "#" drawn before the caret, and what is typed read as a tag (hash-field.tsx). */
 function AskTag({ initial, placeholder, onDone }: { initial: string; placeholder: string; onDone: (words: string | null) => void }): React.JSX.Element {
@@ -1000,13 +1002,24 @@ function AskRemembered({ field, initial, placeholder, onDone }: { field: 'attrib
 }
 
 /**
- * The question's field, the app's own: a soft well with a hairline that darkens while you type in it, the words at
- * body size. It was a stock form box (small grey type, a green focus ring) that read as borrowed from a web form.
+ * The question's field, a line to write on as the Journal's Day page is: no box, the serif at reading size on a
+ * hairline that darkens while you write. It was a soft grey well, still a form box, that read as borrowed.
  */
-const ASK_FIELD = 'flex h-10 w-full min-w-0 items-center rounded-lg bg-foreground/[0.04] px-3 text-body text-foreground outline-none ring-1 ring-foreground/10 transition-shadow placeholder:text-muted-foreground focus-within:ring-foreground/30 [&_input]:bg-transparent [&_input]:outline-none'
+const ASK_FIELD = "flex h-11 w-full min-w-0 items-center border-b border-foreground/15 bg-transparent font-['Fraunces_Variable',Georgia,serif] text-[1.125rem] text-foreground outline-none transition-colors placeholder:text-foreground/35 placeholder:italic focus-within:border-foreground/45 [&_input]:bg-transparent [&_input]:outline-none [&_input]:placeholder:italic [&_input]:placeholder:text-foreground/35"
+
+/**
+ * The question said as the Day page says things: its question as the title, what led to it as a quiet line under.
+ * "A line in your own words, beside it. What does it say to you?" is titled "What does it say to you?".
+ */
+export const askParts = (question: string): { title: string; hint: string } => {
+  const sentences = question.match(/[^.?!]+[.?!]?/g)?.map((one) => one.trim()).filter(Boolean) ?? [question]
+  const at = sentences.findIndex((one) => one.endsWith('?'))
+  if (at < 0 || sentences.length < 2) return { title: question, hint: '' }
+  return { title: sentences[at], hint: sentences.filter((_, i) => i !== at).join(' ') }
+}
 
 function Asker(): React.JSX.Element | null {
-  const [asked, setAsked] = useState<{ question: string; placeholder: string; field?: 'attribution' | 'medium' | 'tag'; initial?: string; answer: (words: string | null) => void } | null>(null)
+  const [asked, setAsked] = useState<{ question: string; placeholder: string; field?: 'attribution' | 'medium' | 'tag'; initial?: string; skip?: string; answer: (words: string | null) => void } | null>(null)
   useEffect(() => {
     const onAsk = (event: Event): void => {
       chime('open')
@@ -1018,44 +1031,53 @@ function Asker(): React.JSX.Element | null {
   if (!asked) return null
   const done = (words: string | null): void => {
     if (words?.trim()) chime('tap')
-    asked.answer(words?.trim() || null)
+    // Optional, nothing written is an answer (kept without); Escape still is not.
+    asked.answer(words?.trim() || (asked.skip && words !== null ? '' : null))
     setAsked(null)
   }
+  const { title, hint } = askParts(asked.question)
   return (
     <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/40 pt-[22vh]" onMouseDown={() => done(null)}>
-      {/* A click on its padding keeps the focus in the box, so Escape still answers it. */}
-      {/* The same sheet as a yes-or-no question (SureAsker): its width, radius, padding, type and keycaps. */}
-      <div role="dialog" aria-modal="true" aria-label={asked.question} data-ask className="flex w-[min(30rem,90vw)] flex-col gap-3 rounded-xl bg-popover p-5 shadow-(--mf-panel-shadow)"
+      {/* A click on its padding keeps the focus in the field, so Escape still answers it. */}
+      <div role="dialog" aria-modal="true" aria-label={asked.question} data-ask className="flex w-[min(34rem,90vw)] flex-col rounded-2xl bg-popover px-7 pt-6 pb-5 shadow-(--mf-panel-shadow)"
         onMouseDown={(event) => {
           event.stopPropagation()
-          if (!(event.target instanceof HTMLInputElement)) event.preventDefault()
+          if (!(event.target instanceof HTMLInputElement) && !(event.target instanceof Element && event.target.closest('button'))) event.preventDefault()
         }}>
-        <p className="text-base font-semibold text-foreground">{asked.question}</p>
-        {asked.field === 'tag' ? (
-          // A tag: the "#" drawn in the field, fixed, so it is never a question whether to type it.
-          <AskTag initial={asked.initial ?? ''} placeholder={asked.placeholder} onDone={done} />
-        ) : asked.field ? (
-          // Who said it before, completing as you type: it gets quicker with use.
-          <AskRemembered field={asked.field} initial={asked.initial ?? ''} placeholder={asked.placeholder} onDone={done} />
-        ) : (
-        <input
-          autoFocus
-          data-ask-field
-          className={ASK_FIELD}
-          // Again a beat later: a right-click menu hands the focus back to
-          // its row as it closes, after autofocus has already run.
-          ref={(input) => void (input && setTimeout(() => input.focus(), 30))}
-          placeholder={asked.placeholder}
-          // A guess (a name already in the words) is offered, never kept unasked.
-          defaultValue={asked.initial}
-          onKeyDown={(event) => {
-            event.stopPropagation()
-            if (event.key === 'Enter') done(event.currentTarget.value)
-            if (event.key === 'Escape') done(null)
-          }}
-        />
-        )}
-        <p data-ask-keys className="flex items-center justify-end gap-1.5 text-meta text-foreground/70"><ShadKbd>↵</ShadKbd> keeps it<span className="w-2" /><ShadKbd>Esc</ShadKbd> leaves it</p>
+        {/* The Day page's way: a serif title at the page's scale, one quiet line under it. */}
+        <h2 data-ask-title className="text-[1.625rem] leading-tight font-semibold tracking-[-0.02em] text-balance text-foreground" style={{ fontFamily: 'var(--font-heading)' }}>{title}</h2>
+        {hint && <p data-ask-hint className="mt-1.5 text-[0.9375rem] leading-snug text-pretty text-muted-foreground">{hint}</p>}
+        <div className="mt-4">
+          {asked.field === 'tag' ? (
+            // A tag: the "#" drawn in the field, fixed, so it is never a question whether to type it.
+            <AskTag initial={asked.initial ?? ''} placeholder={asked.placeholder} onDone={done} />
+          ) : asked.field ? (
+            // Who said it before, completing as you type: it gets quicker with use.
+            <AskRemembered field={asked.field} initial={asked.initial ?? ''} placeholder={asked.placeholder} onDone={done} />
+          ) : (
+            <input
+              autoFocus
+              data-ask-field
+              className={ASK_FIELD}
+              // Again a beat later: a right-click menu hands the focus back to
+              // its row as it closes, after autofocus has already run.
+              ref={(input) => void (input && setTimeout(() => input.focus(), 30))}
+              placeholder={asked.placeholder}
+              // A guess (a name already in the words) is offered, never kept unasked.
+              defaultValue={asked.initial}
+              onKeyDown={(event) => {
+                event.stopPropagation()
+                if (event.key === 'Enter') done(event.currentTarget.value)
+                if (event.key === 'Escape') done(null)
+              }}
+            />
+          )}
+        </div>
+        <div data-ask-keys className="mt-4 flex items-center gap-1.5 text-meta text-foreground/70">
+          {asked.skip && <button type="button" data-ask-skip className="-ml-2 cursor-pointer rounded-md px-2 py-1 transition-colors hover:bg-foreground/[0.05] hover:text-foreground" onClick={() => done('')}>{asked.skip}</button>}
+          <span className="flex-1" />
+          <ShadKbd>↵</ShadKbd> keeps it<span className="w-2" /><ShadKbd>Esc</ShadKbd> leaves it
+        </div>
       </div>
     </div>
   )

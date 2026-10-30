@@ -37,6 +37,7 @@ try {
   await v('notes:day:save', today, { body: { type: 'doc', content: [para('I keep telling myself stories at night and I did not sleep again.')] } })
   await go('day'); await wait(900)
   await h.click('[data-room-open]'); await wait(700)
+  if (!(await h.locator('[data-room-tools-panel]').count())) { await h.click('[data-room-tools]'); await h.waitForTimeout(250) }
   await h.click('[data-aim-ask]'); await wait(500)
   const asked = await sheet('[role="dialog"]')
   const field = await h.evaluate(() => { const one = document.querySelector('[role="dialog"] input'); const s = getComputedStyle(one); return { size: s.fontSize, height: one.getBoundingClientRect().height } })

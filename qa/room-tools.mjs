@@ -37,18 +37,20 @@ try {
   await h.click('[data-room-open]')
   await wait(600)
 
-  // a. The label reads as a label, the choices as choices.
+  // a. The label reads as a label, the choices as choices, in the one "Tools" panel.
+  await h.click('[data-room-tools]'); await wait(300)
   const look = await h.evaluate(() => {
-    const label = document.querySelector('[data-writer-tools] [data-focus-label]')
-    const choice = document.querySelector('[data-writer-tools] [data-focus="sentence"]')
+    const label = document.querySelector('[data-room-tools-panel] [data-focus-label]')
+    const choice = document.querySelector('[data-room-tools-panel] [data-focus="sentence"]')
     if (!label || !choice) return null
     const l = getComputedStyle(label); const ch = getComputedStyle(choice)
     return { labelInk: l.color, choiceInk: ch.color, choiceRing: ch.borderTopStyle !== 'none' && ch.borderTopWidth !== '0px', cursor: ch.cursor }
   })
-  check('a. "Focus on the" is a label apart from its choices', look && look.labelInk !== look.choiceInk && look.choiceRing, JSON.stringify(look))
-  check('a. every tool in the foot shows the hand', await h.evaluate(() => [...document.querySelectorAll('[data-room-foot] button')].every((b) => getComputedStyle(b).cursor === 'pointer')))
+  check('a. "Focus on the" is a label apart from its choices', look && look.labelInk !== look.choiceInk, JSON.stringify(look))
+  check('a. every tool in the foot shows the hand', await h.evaluate(() => [...document.querySelectorAll('[data-room-foot] button, [data-room-tools-panel] button')].every((b) => getComputedStyle(b).cursor === 'pointer')))
 
   // b. Word aim: asks, and its line shows in the room.
+  if (!(await h.locator('[data-room-tools-panel]').count())) { await h.click('[data-room-tools]'); await h.waitForTimeout(250) }
   await h.click('[data-aim-ask]')
   await wait(400)
   const asked = await h.evaluate(() => { const one = document.querySelector('[role="dialog"]'); if (!one) return false; const r = one.getBoundingClientRect(); return !!document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.closest('[role="dialog"]') })
@@ -61,6 +63,7 @@ try {
   check('b. still in the room', await inRoom())
 
   // b. Proofread: something shows.
+  if (!(await h.locator('[data-room-tools-panel]').count())) { await h.click('[data-room-tools]'); await h.waitForTimeout(250) }
   await h.click('[data-proofread-ask]')
   await wait(2500)
   const proof = await h.evaluate(() => { const one = document.querySelector('[data-proofing]'); if (!one) return null; const r = one.firstElementChild.getBoundingClientRect(); const top = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return { state: one.getAttribute('data-proofing'), seen: !!top?.closest('[data-proofing]'), text: one.textContent } })
@@ -77,7 +80,8 @@ try {
   await h.click('[data-report-ask]')
 
   // b. The sound: shows what it picked.
-  const sound = await h.evaluate(() => [...document.querySelectorAll('[data-room-foot] button')].map((b) => b.textContent).join('|'))
+  if (!(await h.locator('[data-room-tools-panel]').count())) { await h.click('[data-room-tools]'); await wait(250) }
+  const sound = await h.evaluate(() => [...document.querySelectorAll('[data-room-foot] button, [data-room-tools-panel] button')].map((b) => b.textContent).join('|'))
   check('b. the sound choice is in the foot', /sound/i.test(sound), sound)
   if (shots) {
     await h.screenshot({ path: `${shots}/room-foot.png` })
@@ -94,7 +98,8 @@ try {
     const seen = (sel) => { const one = root.querySelector(sel); if (!one) return null; const walk = document.createTreeWalker(one, NodeFilter.SHOW_TEXT); const text = walk.nextNode(); let at = text?.parentElement ?? one; let o = 1; while (at && at !== root.parentElement) { o *= Number(getComputedStyle(at).opacity); at = at.parentElement } return Math.round(o * 100) / 100 }
     return { para: seen(':scope > p'), heading: seen('h2'), code: seen('pre'), first: seen('li:first-child'), second: seen('li:last-child'), quote: seen('blockquote'), last: seen(':scope > p:last-of-type') }
   })
-  await h.click('[data-writer-tools] [data-focus="paragraph"]')
+  if (!(await h.locator('[data-room-tools-panel]').count())) { await h.click('[data-room-tools]'); await h.waitForTimeout(250) }
+  await h.click('[data-room-tools-panel] [data-focus="paragraph"]')
   await h.click('[data-room] li:last-child p')
   await wait(500)
   const inList = await lit()
@@ -109,7 +114,8 @@ try {
     await h.screenshot({ path: `${shots}/room-band-dark.png` })
     await h.evaluate(() => (document.documentElement.className = ''))
   }
-  await h.click('[data-writer-tools] [data-focus="sentence"]')
+  if (!(await h.locator('[data-room-tools-panel]').count())) { await h.click('[data-room-tools]'); await h.waitForTimeout(250) }
+  await h.click('[data-room-tools-panel] [data-focus="sentence"]')
   await h.click('[data-room] h2')
   await wait(500)
   const inHeading = await lit()
@@ -118,9 +124,12 @@ try {
   await wait(500)
   const inItem = await lit()
   check('d. and in a list item: that sentence lit, the next item faded', inItem.first === 1 && inItem.second <= 0.3, JSON.stringify(inItem))
-  await h.click('[data-writer-tools] [data-focus="sentence"]')
+  if (!(await h.locator('[data-room-tools-panel]').count())) { await h.click('[data-room-tools]'); await h.waitForTimeout(250) }
+  await h.click('[data-room-tools-panel] [data-focus="sentence"]')
   await wait(300)
 
+  // The Tools panel shut first, so Esc is Vim's and the room's.
+  if (await h.locator('[data-room-tools-panel]').count()) { await h.keyboard.press('Escape'); await wait(300) }
   // c. Vim: Esc goes to normal mode first, then leaves.
   await h.evaluate(() => { localStorage.setItem('vim', 'on'); window.dispatchEvent(new StorageEvent('storage', { key: 'vim', newValue: 'on' })) })
   await wait(300)

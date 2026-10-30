@@ -159,7 +159,7 @@ function stepAppSize(settings: Settings, way: 1 | -1 | 0): void {
   ask('app', size)
   step(APP_SIZES.indexOf(size) - APP_SIZES.indexOf(100))
   void haligtree.setSettings({ interfaceSize: size })
-  said(`App size ${size}%`)
+  said(`Text and controls ${size}%`)
 }
 
 /**

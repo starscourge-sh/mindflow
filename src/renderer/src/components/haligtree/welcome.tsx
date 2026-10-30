@@ -1486,7 +1486,7 @@ const DIAL_BEATS: Beat<DialState>[] = [
 ]
 
 /** Named from the dial's own list (lib/theme.ts, THEMES): Paper is the lightest, Gruvbox a warm dark one. */
-const DIAL_LINE = 'Pick how your pages look, from Paper to Gruvbox. Change it any time in “Settings”.'
+const DIAL_LINE = 'Pick how your pages look, from Paper to Gruvbox. Too small to read? ⌘+ makes everything bigger. Change either any time in “Settings”.'
 /** The note behind the dial when you have not written one yet: a line anyone might keep, from no book shown before. */
 const DIAL_NOTE = 'Rain on the train window, and everyone quiet.'
 

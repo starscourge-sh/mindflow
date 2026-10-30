@@ -29,6 +29,7 @@ try {
   await go('day'); await wait(1200)
   await h.click('[data-room-open]').catch(() => {})
   await wait(500)
+  if (!(await h.locator('[data-room-tools-panel]').count())) { await h.click('[data-room-tools]'); await h.waitForTimeout(250) }
   check('the Journal\'s writing room offers Proofread, not "Check as I write"', (await h.locator('[data-proofread-ask]').count()) === 1 && (await h.locator('[data-grammar-live]').count()) === 0)
   check('and nothing loads there until it is asked for', (await wasm()) === 0)
   await h.keyboard.press('Escape'); await wait(400)
@@ -51,6 +52,7 @@ try {
     await h.screenshot({ path: `${shots}/prose-report-${theme}.png` })
   }
   await h.click('[data-report-ask]'); await wait(300)
+  if (!(await h.locator('[data-room-tools-panel]').count())) { await h.click('[data-room-tools]'); await h.waitForTimeout(250) }
   await h.click('[data-proofread-ask]')
   check('Proofread shows one finding at a time with a plain reason', await until(async () => (await bar())?.state === 'one'), JSON.stringify(await bar()))
   const first = await bar()

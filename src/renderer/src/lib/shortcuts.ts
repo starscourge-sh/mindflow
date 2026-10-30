@@ -35,7 +35,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Getting around', keys: '⌘K', does: 'Search everything, and every action', where: 'Both windows' },
   { group: 'Getting around', keys: '⌘P', does: 'Open a note by name: search only, no actions', where: 'Both windows' },
   { group: 'Getting around', keys: '⌘,', does: 'Settings', where: 'Both windows' },
-  { group: 'Getting around', keys: '⌘+', does: 'Bigger: the whole app, in every window (Settings, “App size”)', where: 'Both windows' },
+  { group: 'Getting around', keys: '⌘+', does: 'Bigger: the whole app, in every window (Settings, “Text and controls size”)', where: 'Both windows' },
   { group: 'Getting around', keys: '⌘−', does: 'Smaller: the whole app, in every window', where: 'Both windows' },
   { group: 'Getting around', keys: '⌘0', does: 'The whole app back to 100%', where: 'Both windows' },
   { group: 'Getting around', keys: '?', does: 'This list of shortcuts', where: 'Both windows' },

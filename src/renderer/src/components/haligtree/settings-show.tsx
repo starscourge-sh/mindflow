@@ -347,7 +347,7 @@ export function PictureSample({ tilt = false, follow = false, frame, caption = '
   const [riding, setRiding] = useState(false)
   lean.onFlat(() => undefined)
   return (
-    <span data-picture-sample className={`flex shrink-0 flex-col items-center gap-1 ${className}`}>
+    <span data-picture-sample className={`flex shrink-0 flex-col items-end gap-1 ${className}`}>
       <span className="relative block"
         onPointerMove={(event) => {
           if (tilt) lean.lean(event, event.currentTarget)

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/react'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
@@ -6,6 +6,8 @@ import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import { chime } from '@/lib/sound'
 import { num } from '../../../../main/dates'
 import { WritingSound } from './writing-sound'
+import { SlidersHorizontal } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { askProofread, checkingLive, grammarSentence, setCheckingLive } from '@/lib/grammar'
 
 /**
@@ -163,38 +165,62 @@ export function WriterTools({ editor, proof = false, live = proof }: { editor: E
     window.addEventListener('haligtree:proofread-count', heard)
     return () => window.removeEventListener('haligtree:proofread-count', heard)
   }, [])
+  // Asked for and not yet read through: the report shows once, whole. It showed the prose lines, then grew upward
+  // as the grammar line came in, so the card jumped from top to bottom as it opened.
+  const [reading, setReading] = useState(false)
+  const asked = useRef(0)
   const ask = (): void => {
-    if (report || !editor) return void (chime('fold'), setReport(null), editor?.commands.focus())
+    asked.current += 1
+    if (report || reading || !editor) return void (chime('fold'), setReport(null), setReading(false), editor?.commands.focus())
     chime('open')
-    setReport(proseReport(editor))
-    // The grammar line follows, once it is read through.
-    if (proof) void fullReport(editor).then((full) => setReport((was) => (was ? full : was)))
     editor.commands.focus()
+    if (!proof) return setReport(proseReport(editor))
+    const mine = asked.current
+    setReading(true)
+    void fullReport(editor).then((full) => {
+      if (asked.current !== mine) return
+      setReading(false)
+      setReport(full)
+    })
   }
-  // Each tool a button you can see is one (a faint outline, darker words), so the plain words before them read as
-  // their label: "Focus on the" blended in with "sentence" and "paragraph" when all three were the same grey words.
-  const pick = 'cursor-pointer rounded-md border border-foreground/12 px-1.5 py-0.5 text-foreground/80 transition-colors hover:border-foreground/25 hover:text-foreground data-on:border-transparent data-on:bg-accent data-on:text-foreground'
+  // One quiet bar, as Dia or Apple would draw it: the one thing asked for most ("How it reads") said in words, and the
+  // rest (Focus, Word aim, Proofread, marking mistakes, a sound) behind one "Tools" control. It was a wall of nine
+  // outlined pills across the foot, every tool as loud as the next.
+  const quiet = 'cursor-pointer rounded-md px-2 py-1 text-foreground/70 transition-colors hover:bg-foreground/[0.05] hover:text-foreground data-on:text-foreground data-[state=open]:bg-foreground/[0.05] data-[state=open]:text-foreground'
+  const row = 'flex w-full cursor-pointer items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left text-control text-foreground transition-colors hover:bg-accent'
+  const seg = 'flex-1 cursor-pointer rounded-md px-2 py-1 whitespace-nowrap text-control text-foreground/70 transition-colors hover:text-foreground data-on:bg-background data-on:text-foreground data-on:shadow-xs'
+  // A tool that opens something of its own (Word aim's question, Proofread) closes the panel first.
+  const [open, setOpen] = useState(false)
+  const lit = focus !== 'off' || checking || found !== null
   return (
     <span data-writer-tools className="flex items-center gap-1">
-      {report && <span data-prose-report className="absolute inset-x-0 bottom-full mx-auto mb-2 max-w-[40rem] px-6 text-center text-body text-foreground/80 text-pretty">{report}</span>}
-      {/* Each says what it does; pressed again, it is off. */}
-      <span data-focus-label className="mr-0.5">Focus on the</span>
-      {(['sentence', 'paragraph'] as const).map((to) => (
-        <button key={to} type="button" data-focus={to} data-on={focus === to || undefined} aria-pressed={focus === to} className={pick} onClick={() => setFocus(focus === to ? 'off' : to)}>
-          {to === 'sentence' ? 'sentence' : 'paragraph'}
-        </button>
-      ))}
-      <span aria-hidden className="mx-1">·</span>
-      <button type="button" data-aim-ask className={pick} onClick={askAim}>Word aim</button>
-      <button type="button" data-report-ask data-on={!!report || undefined} className={pick} onClick={ask}>How it reads</button>
-      {proof && (
-        <>
-          <button type="button" data-proofread-ask className={pick} data-on={found !== null || undefined} onClick={() => (setReport(null), askProofread())}>Proofread{found !== null && <span data-proof-count className="tabular-nums"> · {found}</span>}</button>
-          {live && <button type="button" data-grammar-live data-on={checking || undefined} className={pick} onClick={() => (setCheckingLive(!checking), setChecking(!checking), chime(checking ? 'off' : 'on'))}>Mark mistakes as I write</button>}
-        </>
-      )}
-      <span aria-hidden className="mx-1">·</span>
-      <WritingSound className={pick} />
+      {report && <span data-prose-report className="mf-report-in absolute inset-x-0 bottom-full mx-auto mb-2 max-w-[40rem] px-6 text-center text-body text-foreground/80 text-pretty">{report}</span>}
+      <button type="button" data-report-ask data-on={!!report || reading || undefined} aria-busy={reading || undefined} className={quiet} onClick={ask}>How it reads</button>
+      <Popover modal={false} open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button type="button" data-room-tools data-on={lit || undefined} className={`${quiet} inline-flex items-center gap-1.5`}>
+            <SlidersHorizontal className="size-3.5" />Tools{lit && <span aria-hidden className="size-1.5 rounded-full bg-primary" />}
+          </button>
+        </PopoverTrigger>
+        <PopoverContent data-room-tools-panel side="top" align="end" className="z-[70] w-72 gap-1 p-1.5" onCloseAutoFocus={(event) => (event.preventDefault(), !document.querySelector('[data-ask]') && editor?.commands.focus())}>
+          {/* Each says what it does; pressed again, it is off. */}
+          <p data-focus-label className="px-2 pt-1 pb-1 text-meta text-muted-foreground">Focus on the</p>
+          <div className="mx-1 mb-1 flex gap-0.5 rounded-lg bg-foreground/[0.05] p-0.5">
+            <button type="button" data-focus="off" data-on={focus === 'off' || undefined} aria-pressed={focus === 'off'} className={seg} onClick={() => setFocus('off')}>whole page</button>
+            {(['sentence', 'paragraph'] as const).map((to) => (
+              <button key={to} type="button" data-focus={to} data-on={focus === to || undefined} aria-pressed={focus === to} className={seg} onClick={() => setFocus(focus === to ? 'off' : to)}>{to}</button>
+            ))}
+          </div>
+          <button type="button" data-aim-ask className={row} onClick={() => (setOpen(false), askAim())}>Word aim…</button>
+          {proof && <button type="button" data-proofread-ask data-on={found !== null || undefined} className={row} onClick={() => (setOpen(false), setReport(null), askProofread())}>Proofread{found !== null && <span data-proof-count className="text-muted-foreground tabular-nums">{found}</span>}</button>}
+          {proof && live && (
+            <button type="button" data-grammar-live data-on={checking || undefined} role="switch" aria-checked={checking} className={row} onClick={() => (setCheckingLive(!checking), setChecking(!checking), chime(checking ? 'off' : 'on'))}>
+              Mark mistakes as I write<span aria-hidden className={`relative h-4 w-7 shrink-0 rounded-full transition-colors ${checking ? 'bg-primary' : 'bg-foreground/15'}`}><span className={`absolute top-0.5 size-3 rounded-full bg-background shadow-xs transition-[left] ${checking ? 'left-3.5' : 'left-0.5'}`} /></span>
+            </button>
+          )}
+          <WritingSound className={`${row} justify-start`} />
+        </PopoverContent>
+      </Popover>
     </span>
   )
 }

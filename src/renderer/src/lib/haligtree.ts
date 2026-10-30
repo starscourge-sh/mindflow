@@ -305,7 +305,7 @@ export const haligtree = {
   pin: (table: 'captures' | 'nuggets', id: string, on: boolean) => call<boolean>('pin', table, id, on),
   pins: () => call<Pin[]>('pins'),
   reviewTuning: () => call<{ cap: number; tuned: boolean; behind: number }>('review:tuning'),
-  promote: (id: string, words?: string) => call<string | null>('promote', id, words),
+  promote: (id: string, words?: string, bare = false) => call<string | null>('promote', id, words, bare),
   /** `forgetWho`: the source was asked for while promoting, so it goes too. */
   unpromote: (captureId: string, nuggetId: string, forgetWho = false) => call<boolean>('promote:undo', captureId, nuggetId, forgetWho),
   /** What it came from, what it became, and what links to it. */

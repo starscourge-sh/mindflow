@@ -55,7 +55,7 @@ import DownloadIcon from '@/components/ui/download-icon'
 import UploadIcon from '@/components/ui/upload-icon'
 import { ago, dayjs, num, weekdayName } from '../../../../main/dates'
 import { TomorrowPreview } from './tomorrow-lines'
-import { BOX_TABS, SECTIONS as PLACES, ShowList } from './places'
+import { BOX_TABS, SECTIONS as PLACES, ShowList, shownPages, startPageOf } from './places'
 import { SpellLanguages } from './spell-languages'
 import { isMac } from '@/lib/tiptap-utils'
 import { currentVim, onVimChange, setVim } from '@/lib/vim'
@@ -291,7 +291,7 @@ function TextSizeSetting({ value, onSave }: { value: number; onSave: (value: num
   const shown = Math.round((live ?? value) * 100)
   const preview = (size: number): void => (setLive(size), document.documentElement.style.setProperty('--mf-text-scale', String(size)))
   return (
-    <Setting title="Text size" note="How big the words in notes are; ⌥⌘+ and ⌥⌘− do the same." more="Only the words you write grow; “App size” grows everything." keywords="font text bigger smaller zoom" below={<Sample text />}>
+    <Setting title="Text size" note="How big the words in notes are; ⌥⌘+ and ⌥⌘− do the same." more="Only the words you write grow; “Text and controls size” grows everything." keywords="font text bigger smaller zoom" below={<Sample text />}>
       <SettingSlider min={0} max={TEXT_SIZES.length - 1} step={1} rest={TEXT_SIZES.indexOf(1)} value={nearest(value)} onSave={(at) => onSave(TEXT_SIZES[at])} onLive={(at) => preview(TEXT_SIZES[at])} />
       <span data-text-size={shown} className="w-10 text-right tabular-nums"><Rolling text={`${shown}%`} /></span>
       <Tip label="Back to 100%">
@@ -312,7 +312,9 @@ function AppSize({ value, onSave }: { value: number; onSave: (value: number) => 
   useEffect(() => void (live === value && setLive(null)), [value, live])
   const shown = live ?? value
   return (
-    <Setting title="App size" note="How big everything is, in every window; ⌘+ and ⌘− do the same." more="⌘0 puts it back. Quick capture, the focus pill and stickies keep their size." keywords="zoom scale interface bigger smaller ui font size">
+    // Named for what people who find it all too small look for: the words and the buttons, not "the app".
+    <Setting title="Text and controls size" note="How big everything is, words and buttons, in every window; ⌘+ and ⌘− do the same." more="⌘0 puts it back. Quick capture, the focus pill and stickies keep their size." keywords="app size zoom scale interface bigger smaller ui font size too small hard to read accessibility large"
+      below={<ControlsSample />}>
       <SettingSlider min={80} max={150} step={5} rest={100} value={value} onSave={onSave} onLive={(size) => {
         setLive(size)
         document.documentElement.style.fontSize = windowRootSize(size)
@@ -327,6 +329,17 @@ function AppSize({ value, onSave }: { value: number; onSave: (value: number) => 
         }}><RotateCcw /></Button>
       </Tip>
     </Setting>
+  )
+}
+
+/** A sidebar row and a button as the app draws them, in its own sizes: they grow and shrink with the slider beside them. */
+function ControlsSample(): React.JSX.Element {
+  return (
+    <div data-controls-sample aria-hidden className="mt-3 mb-1 flex items-center gap-3 rounded-lg border border-border/60 bg-background/60 px-4 py-3 text-foreground">
+      <span className="inline-flex h-8 items-center gap-2 rounded-md bg-accent px-2.5 text-control"><span className="size-2 rounded-full bg-[var(--tt-color-text-blue)]" />Inbox<span className="text-muted-foreground tabular-nums">12</span></span>
+      <span className="text-body">The quick brown fox jumps over the lazy dog.</span>
+      <span className="ml-auto inline-flex h-8 items-center rounded-md border border-border px-3 text-control">Keep</span>
+    </div>
   )
 }
 
@@ -708,7 +721,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
         </Group>
         <Group section="Appearance" title="Sidebar and tabs">
           <Setting title={`Open ${APP_NAME} to`} note={`The page the main window shows when ${APP_NAME} starts.`} more="Any other page is a G and its letter, or ⌘K, away." keywords="start page open first launch home today inbox map default landing"
-            below={<div data-start-page><Chips options={START_PAGES.map((id) => ({ id, label: PLACES.find((one) => one.id === id)?.label ?? id }))} on={(id) => id === (settings.startPage || 'day')} pick={(startPage) => (chime('tap'), set({ startPage }))} className="mt-3 flex-wrap" /></div>} />
+            below={<div data-start-page><Chips options={START_PAGES.filter((id) => shownPages(settings).includes(id)).map((id) => ({ id, label: PLACES.find((one) => one.id === id)?.label ?? id }))} on={(id) => id === startPageOf(settings, START_PAGES)} pick={(startPage) => (chime('tap'), set({ startPage }))} className="mt-3 flex-wrap" /></div>} />
           <Setting title="Sidebar side" note="Which side of the main window the sidebar sits on." keywords="sidebar left right side swap flip mirror position"
             below={<Choices label="Sidebar side" min="6rem" options={(['left', 'right'] as const).map((side) => ({ id: side, label: side === 'left' ? 'Left' : 'Right', show: <SideSample side={side} /> }))} on={(id) => id === (settings.sidebarSide ?? 'left')} pick={(sidebarSide) => set({ sidebarSide: sidebarSide as Settings['sidebarSide'] })} />} />
           <Setting title="Peek the hidden sidebar" note="With the sidebar hidden (⌘B), point at the window's edge and it slides out; move away and it goes." more="Point at the edge of this sample to see it." keywords="peek sidebar hover edge slide out reveal hidden dia arc auto hide">

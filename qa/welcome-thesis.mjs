@@ -185,7 +185,7 @@ try {
   check('with Motion off the sheen holds still, and still shines', !!still && still.anim === 'none' && /gradient/.test(still.image), JSON.stringify(still))
   await h.evaluate(() => delete document.documentElement.dataset.motion)
   await until('Make it yours')
-  check('Make it yours names real themes, Paper to Gruvbox', /Pick how your pages look, from Paper to Gruvbox\. Change it any time in “Settings”\./.test(await h.innerText('.mf-welcome')))
+  check('Make it yours names real themes, Paper to Gruvbox', /Pick how your pages look, from Paper to Gruvbox\. Too small to read\? ⌘\+ makes everything bigger\. Change either any time in “Settings”\./.test(await h.innerText('.mf-welcome')))
   // Replayed, the welcome never touches the sidebar: someone's own arrangement stays theirs.
   const arranged = ['inbox', 'today', 'week', 'upcoming', 'review']
   await c.v('settings:set', { sidebarShown: arranged })

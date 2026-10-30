@@ -166,6 +166,21 @@ const SHOWN: Record<Shown, string[]> = {
   boxTabs: ['inbox', 'today', 'review', 'kept']
 }
 
+/** The pages the sidebar shows, in its order (yours, if you moved them): what "Open Haligtree to" may offer. */
+export const shownPages = (settings: Settings | null): string[] => {
+  const shown = (settings?.sidebarShown ?? SHOWN.sidebarShown).filter((id) => !OFF_SIDEBAR.includes(id))
+  const order = settings?.sidebarOrder ?? []
+  const at = (id: string): number => (order.includes(id) ? order.indexOf(id) : order.length + SECTIONS.findIndex((one) => one.id === id))
+  return SECTIONS.map((one) => one.id).filter((id) => shown.includes(id)).sort((a, b) => at(a) - at(b))
+}
+
+/** The page Haligtree opens on: the one chosen, or, hidden from the sidebar since, the first page it shows. */
+export const startPageOf = (settings: Settings | null, offered: string[] = SECTIONS.map((one) => one.id)): string => {
+  const shown = shownPages(settings)
+  const chosen = settings?.startPage || 'day'
+  return shown.includes(chosen) ? chosen : shown.find((id) => offered.includes(id)) ?? shown[0] ?? 'day'
+}
+
 /** A list kept in your own order, and which list's order each show-setting goes with. */
 export type Ordered = 'sidebarOrder' | 'boxTabsOrder' | 'pinOrder' | 'tagOrder'
 const ORDER_OF: Record<Shown, Ordered> = { sidebarShown: 'sidebarOrder', boxTabs: 'boxTabsOrder' }

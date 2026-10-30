@@ -70,7 +70,8 @@ try {
   // 2. Focus on the sentence: the sentence with the caret stays, the rest fades.
   await h.keyboard.press('Meta+ArrowDown')
   await h.keyboard.press('End')
-  await h.click('[data-writer-tools] [data-focus="sentence"]')
+  if (!(await h.locator('[data-room-tools-panel]').count())) { await h.click('[data-room-tools]'); await h.waitForTimeout(250) }
+  await h.click('[data-room-tools-panel] [data-focus="sentence"]')
   await wait(400)
   await h.evaluate(() => document.querySelector('[data-room] .tiptap')?.focus())
   await h.keyboard.press('Meta+ArrowDown')
@@ -83,7 +84,8 @@ try {
   const sentence = await band()
   check('2. Focus on the sentence: only the last sentence is lit', sentence.mode === 'sentence' && sentence.lit === 'It was quietly lovely, really lovely.', JSON.stringify(sentence))
   check('2. and the rest fades back', sentence.litColor === '1' && Number(sentence.restColor) < 0.5, JSON.stringify(sentence))
-  await h.click('[data-writer-tools] [data-focus="paragraph"]')
+  if (!(await h.locator('[data-room-tools-panel]').count())) { await h.click('[data-room-tools]'); await h.waitForTimeout(250) }
+  await h.click('[data-room-tools-panel] [data-focus="paragraph"]')
   await h.evaluate(() => document.querySelector('[data-room] .tiptap')?.focus())
   await wait(300)
   const paragraph = await band()
@@ -95,7 +97,8 @@ try {
   await h.click('[data-room-open]')
   await wait(500)
   // Pressed again, it is off.
-  await h.click('[data-writer-tools] [data-focus="paragraph"]')
+  if (!(await h.locator('[data-room-tools-panel]').count())) { await h.click('[data-room-tools]'); await h.waitForTimeout(250) }
+  await h.click('[data-room-tools-panel] [data-focus="paragraph"]')
   await wait(200)
   check('2. Focus off: nothing fades', (await band()).mode === null, JSON.stringify(await band()) + await h.evaluate(() => localStorage.getItem('writing-focus') + [...document.querySelectorAll('[data-focus]')].map((b) => b.dataset.focus + b.hasAttribute('data-on')).join() + document.querySelectorAll('[data-focus-band]').length))
 
@@ -108,6 +111,7 @@ try {
   await h.click('[data-report-ask]')
 
   // 4. Aim: a word aim for the page, the line that fills.
+  if (!(await h.locator('[data-room-tools-panel]').count())) { await h.click('[data-room-tools]'); await h.waitForTimeout(250) }
   await h.click('[data-aim-ask]')
   await wait(300)
   await h.keyboard.type('40')

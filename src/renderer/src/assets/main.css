@@ -1091,6 +1091,8 @@ body:has([data-card]:focus) [data-cursor] {
 :root[data-motion='off'] .mf-typed { animation: none; opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .mf-typed { animation-name: mf-fade; } }
 @keyframes mf-fade { from { opacity: 0; } to { opacity: 1; } }
+/* "How it reads" over the writing room's foot: it eases in where it will stay, whole, never growing as it opens. */
+.mf-report-in { animation: mf-fade 280ms var(--mf-ease) both; }
 
 /* A page's groups arriving together come in one after another, 20ms apart,
    so the eye reads them top down instead of taking one flash: 250ms in all
@@ -2337,7 +2339,10 @@ html[data-book-hue] [data-book-tint] {
   /* Over the words as they scroll under it (above the page's own layers), and fading them out well before its lines. */
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; padding: 3rem 1.5rem 1.125rem;
   background: linear-gradient(to top, var(--background) 70%, transparent);
+  transition: opacity 400ms var(--mf-ease);
 }
+/* Typing, the bar steps out of the way; the pointer moving brings it back (writing-room.tsx). A tool's panel open keeps it. */
+[data-room] [data-room-foot][data-typing]:not(:has([data-state='open'])) { opacity: 0; pointer-events: none; }
 [data-room] :is([data-apart='foot'], [data-day-count], .tiptap-word-count, [data-property-strip], :has(> [data-composer])) { display: none; }
 [data-room] > [data-note-head] { display: none; }
 /* The words run the room's whole height and the room scrolls them: the page's own editor kept the pane's height and

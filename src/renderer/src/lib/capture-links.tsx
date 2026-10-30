@@ -13,6 +13,7 @@ import { headingsIn } from '@/components/toc/headings'
 import { linesIn } from '../../../main/blocks'
 import type { JSONContent } from '@tiptap/core'
 import { haligtree } from '@/lib/haligtree'
+import { UNATTRIBUTED } from '@/lib/sources'
 import { TagIcon } from '@/components/haligtree/tag-icon'
 import type { SaveResult } from '../../../main/captures'
 import { clip, cut, quoted } from '../../../main/clip'
@@ -140,8 +141,10 @@ export async function takeExit(id: string, status: string): Promise<unknown> {
     // suggested answer, there to accept or change, never kept unasked.
     const title = (await window.api.captures.get(id))?.label ?? ''
     const guess = /["”']\s*[-—–]\s*([^"“”]{2,60})$/.exec(title)?.[1]?.trim() ?? /^([^:"“]{2,40}):/.exec(title)?.[1]?.trim() ?? ''
-    const who = await ask('Who said it? A quote is kept with its source.', 'e.g. Alan Kay, or a colleague in standup', 'attribution', guess)
-    if (!who) return 'cancelled'
+    // Not known: "Unattributed" is its source, said once, never asked again.
+    const said = await ask('Who said it? A quote is kept with its source.', 'e.g. Alan Kay, or a colleague in standup', 'attribution', guess, UNATTRIBUTED)
+    if (said === null) return 'cancelled'
+    const who = said || UNATTRIBUTED
     await haligtree.setCapture(id, 'attribution', who)
     askedWho.add(id)
     result = await haligtree.promote(id)
@@ -152,9 +155,9 @@ export async function takeExit(id: string, status: string): Promise<unknown> {
     return meaning ? haligtree.promote(id, meaning) : 'cancelled'
   }
   if (result !== 'needs-words') return result
-  // A quote is kept with a line of yours beside it, or not at all.
-  const words = await ask('A quote keeps a line in your own words. What does it say to you?', 'Why it is worth keeping…')
-  return words ? haligtree.promote(id, words) : 'cancelled'
+  // A line of yours beside the quote, asked for and never forced: Enter on nothing, or Skip, keeps it without one.
+  const words = await ask('A line in your own words, beside it. What does it say to you?', 'Why it is worth keeping…', undefined, '', 'Keep it without')
+  return words === null ? 'cancelled' : haligtree.promote(id, words, !words)
 }
 
 /**

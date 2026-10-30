@@ -1461,7 +1461,7 @@ export function registerHaligtree(): void {
   // --- the capture exits
   // Promote: a nugget made from the capture, which stays as it was. A word
   // comes with its prompt, the one kind with a natural question and answer.
-  const promote = (id: string, line?: string): string | null => {
+  const promote = (id: string, line?: string, bare = false): string | null => {
     const capture = db.prepare(`select kind, body, private, attribution, medium, status, ${LABEL} as title from captures where id = ?`).get(id) as Record<string, string> | undefined
     if (!capture) return null
     // An exit is taken from the inbox only: promoted twice is two nuggets.
@@ -1472,8 +1472,9 @@ export function registerHaligtree(): void {
     if (capture.kind === 'quote' && !capture.attribution) return 'needs-source'
     // Nor until it says something in your own words: someone else's sentence
     // kept with nothing of yours beside it is a quote you collected, not one
-    // you understood. Those words become its first gloss.
-    if (capture.kind === 'quote' && !line?.trim()) return 'needs-words'
+    // you understood. Those words become its first gloss. Asked, never forced:
+    // passed over (`bare`), it is kept with no line beside it.
+    if (capture.kind === 'quote' && !line?.trim() && !bare) return 'needs-words'
     // A goal kept is a goal: on the Goals page, aiming for the day its words name, or a month on.
     if (capture.kind === 'goal') {
       const named = parseDate(capture.title ?? '', new Date(), { forwardDate: true })

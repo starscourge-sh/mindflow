@@ -50,7 +50,8 @@ try {
     check(`${name}: the room's control is set as Aim beside it`, room && room.size[0] === room.size[1] && room.ink[0] === room.ink[1] && room.font && room.weight[0] === room.weight[1], JSON.stringify(room))
     const rf = await h.evaluate(() => document.querySelector('[data-room-foot]')?.getBoundingClientRect())
     if (rf) await h.screenshot({ path: `${shots}/room-foot-${name}.png`, clip: { x: rf.x - 40, y: rf.y - 20, width: rf.width + 80, height: rf.height + 30 } })
-    await h.click('[data-room-foot] [data-writing-sound]')
+    if (!(await h.locator('[data-room-tools-panel]').count())) { await h.click('[data-room-tools]'); await h.waitForTimeout(250) }
+    await h.click('[data-room-tools-panel] [data-writing-sound]')
     await wait(500)
     const menu = await h.evaluate(() => document.querySelector('[role="menu"]')?.getBoundingClientRect())
     if (menu && rf) await h.screenshot({ path: `${shots}/room-menu-${name}.png`, clip: { x: Math.min(menu.x, rf.x) - 30, y: menu.y - 20, width: Math.max(menu.right, rf.right) - Math.min(menu.x, rf.x) + 60, height: rf.bottom - menu.y + 40 } })

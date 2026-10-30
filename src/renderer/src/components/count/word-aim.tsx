@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useEditorDom } from '@/lib/editor-dom'
 import type { Editor } from '@tiptap/react'
 import dayjs from 'dayjs'
+import { X } from 'lucide-react'
 
 import { useCounts } from './word-count'
 import { parseAim } from './aim-words'
@@ -69,16 +70,19 @@ export function WordAim({ editor, id }: { editor: Editor | null; id: string }): 
     window.addEventListener('haligtree:aim', onAsk)
     return () => window.removeEventListener('haligtree:aim', onAsk)
   })
+  /** The aim let go, as a tag chip's x lets its tag go: Undo puts it back. */
+  const clear = (): void => {
+    const now = read(id)
+    if (!now) return
+    write(id, null)
+    chime('off')
+    toast('Word aim cleared', () => write(id, now))
+  }
   const setOrChange = async (): Promise<void> => {
     const now = read(id)
-    const said = await ask(now ? 'A new aim for this piece (empty clears it)' : 'An aim for this piece', '800 words, or 800 by Friday', undefined, now ? `${now.words}${now.by ? ` by ${dated(now.by, 'D MMMM')}` : ''}` : '')
+    const said = await ask(now ? 'A new aim for this piece? Empty clears it.' : 'How many words is this piece aiming for? 800, or 800 by a day.', '800 words, or 800 by Friday', undefined, now ? `${now.words}${now.by ? ` by ${dated(now.by, 'D MMMM')}` : ''}` : '')
     if (said === null) return
-    if (!said.trim()) {
-      if (!now) return
-      write(id, null)
-      chime('off')
-      return toast('Word aim cleared', () => write(id, now))
-    }
+    if (!said.trim()) return clear()
     const next = parseAim(said)
     if (!next) return void (chime('nope'), toast('Say how many words: 800, or 800 by Friday', undefined, 'info'))
     write(id, { ...next, reached: !!now && now.reached && next.words <= now.words })
@@ -134,19 +138,26 @@ export function WordAim({ editor, id }: { editor: Editor | null; id: string }): 
           <div className={`mf-aim-fill absolute inset-0 origin-left rounded-full transition-[transform,background-color] duration-500 ${done || charging ? 'bg-primary' : 'bg-foreground/45'}`}
             style={{ transform: `scaleX(${share})`, transitionTimingFunction: 'var(--mf-ease)' }} />
         </div>
-        <button type="button" onClick={() => void setOrChange()}
-          className="pointer-events-auto absolute top-3.5 right-0 rounded-md px-1 text-control whitespace-nowrap tabular-nums text-foreground/75 transition-colors hover:bg-accent hover:text-foreground"
-          aria-label="Change or clear the word aim">
-          {said ? (
-            <span key="said" className={`font-semibold text-foreground ${still() ? '' : 'animate-in fade-in-0 slide-in-from-bottom-1 duration-300'}`}>{num(aim.words)}. That's the piece.</span>
-          ) : done ? (
-            <span>{num(words)} words, the aim met</span>
-          ) : charging ? (
-            <span><span className="font-semibold text-foreground">Nearly there:</span> {num(left)} to go</span>
-          ) : (
-            <span>{num(words)} of {num(aim.words)} words{aim.by ? <> · <span className={late ? 'font-semibold text-[var(--tt-color-text-orange)]' : ''}>{late ? `was due ${dayWords(aim.by)}` : `by ${dayWords(aim.by)}`}</span></> : ''}</span>
-          )}
-        </button>
+        {/* The aim's words change it; the x beside them lets it go, as a tag chip's does. */}
+        <span className="pointer-events-auto absolute top-3.5 right-0 flex items-center gap-0.5">
+          <button type="button" onClick={() => void setOrChange()}
+            className="cursor-pointer rounded-md px-1 text-control whitespace-nowrap tabular-nums text-foreground/75 transition-colors hover:bg-accent hover:text-foreground"
+            aria-label="Change the word aim">
+            {said ? (
+              <span key="said" className={`font-semibold text-foreground ${still() ? '' : 'animate-in fade-in-0 slide-in-from-bottom-1 duration-300'}`}>{num(aim.words)}. That's the piece.</span>
+            ) : done ? (
+              <span>{num(words)} words, the aim met</span>
+            ) : charging ? (
+              <span><span className="font-semibold text-foreground">Nearly there:</span> {num(left)} to go</span>
+            ) : (
+              <span>{num(words)} of {num(aim.words)} words{aim.by ? <> · <span className={late ? 'font-semibold text-[var(--tt-color-text-orange)]' : ''}>{late ? `was due ${dayWords(aim.by)}` : `by ${dayWords(aim.by)}`}</span></> : ''}</span>
+            )}
+          </button>
+          <button type="button" data-aim-clear aria-label="Clear the word aim" title="Clear the word aim" onClick={clear}
+            className="grid size-6 cursor-pointer place-items-center rounded-md text-foreground/50 transition-colors hover:bg-accent hover:text-foreground">
+            <X className="size-3.5" />
+          </button>
+        </span>
       </div>
     </div>
   )

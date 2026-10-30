@@ -4,6 +4,12 @@ import type { Margin, RenameResult, SourceCard, SourceFacts, SourceField, Source
 export type { Margin, SourceCard, SourceFacts, SourceRef, SourceNear, SourceField, SourceGraph, SourceItem, SourcePage, SourceSummary } from '../../../main/sources'
 export { VOICE_SAID, pageRef, voiceOf, type Voice } from '../../../main/voice'
 
+/**
+ * A quote whose speaker is not known, said so: a source like any other, so the quote is kept with it and never
+ * listed or asked about again as having none. Offered wherever "Who said it?" is asked.
+ */
+export const UNATTRIBUTED = 'Unattributed'
+
 export const sources = {
   list: () => call<SourceSummary[]>('sources'),
   page: (field: SourceField, name: string) => call<SourcePage | null>('source', field, name),

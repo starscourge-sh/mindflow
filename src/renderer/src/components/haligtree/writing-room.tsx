@@ -3,6 +3,7 @@ import type { Editor } from '@tiptap/react'
 
 import { useCounts } from '@/components/count/word-count'
 import { chime } from '@/lib/sound'
+import { Kbd } from './ui'
 import { num } from '../../../../main/dates'
 import { WriterTools, useFocus, useFocusBand, type Focus } from './writer-tools'
 
@@ -70,18 +71,46 @@ export function RoomFoot({ editor, title, spent, proof, live = proof }: { editor
   }, [])
   const minutes = Math.round((spent ?? Date.now() - since) / 60_000)
   const words = counts?.words ?? 0
+  // Out of the way while you write: it fades as you type and comes back as soon as the pointer moves.
+  const [typing, setTyping] = useState(false)
+  useEffect(() => {
+    const dom = editor?.view.dom
+    if (!dom) return
+    // A real move of the pointer brings it back, never a nudge of a hand resting on the trackpad.
+    let from: { x: number; y: number } | null = null
+    let quiet = false
+    const typed = (event: KeyboardEvent): void => {
+      if (event.metaKey || event.ctrlKey || event.key.length !== 1) return
+      quiet = true
+      from = null
+      setTyping(true)
+    }
+    const moved = (event: PointerEvent): void => {
+      if (!quiet) return
+      from ??= { x: event.clientX, y: event.clientY }
+      if (Math.hypot(event.clientX - from.x, event.clientY - from.y) < 8) return
+      quiet = false
+      setTyping(false)
+    }
+    dom.addEventListener('keydown', typed)
+    window.addEventListener('pointermove', moved)
+    return () => (dom.removeEventListener('keydown', typed), window.removeEventListener('pointermove', moved))
+  }, [editor])
   return (
-    <div data-room-foot className="flex flex-col items-center gap-1.5 text-sm text-muted-foreground tabular-nums">
-      <WriterTools editor={editor} proof={proof} live={live} />
-      <span className="flex items-center justify-center gap-3">
-      <span className="max-w-[24rem] truncate">{title}</span>
-      <span aria-hidden>·</span>
-      <span>{num(words)} {words === 1 ? 'word' : 'words'}</span>
-      <span aria-hidden>·</span>
-      <span>{minutes ? `${num(minutes)} ${minutes === 1 ? 'minute' : 'minutes'}` : 'under a minute'}</span>
-      <span aria-hidden>·</span>
-      <span>Esc to leave</span>
-      </span>
+    <div data-room-foot data-typing={typing || undefined} className="text-sm text-muted-foreground tabular-nums">
+      {/* One quiet bar: what it is, how far, how long on the left; "How it reads", the tools and the way out on the right. */}
+      <div className="relative mx-auto flex max-w-[46rem] items-center gap-3">
+        <span className="flex min-w-0 items-center gap-2">
+          <span data-room-title className="min-w-0 truncate text-foreground/80">{title}</span>
+          <span aria-hidden>·</span>
+          <span className="shrink-0">{num(words)} {words === 1 ? 'word' : 'words'}</span>
+          <span aria-hidden>·</span>
+          <span className="shrink-0">{minutes ? `${num(minutes)} ${minutes === 1 ? 'minute' : 'minutes'}` : 'under a minute'}</span>
+        </span>
+        <span className="flex-1" />
+        <WriterTools editor={editor} proof={proof} live={live} />
+        <span className="flex shrink-0 items-center gap-1.5 pl-1"><Kbd>Esc</Kbd> to leave</span>
+      </div>
     </div>
   )
 }

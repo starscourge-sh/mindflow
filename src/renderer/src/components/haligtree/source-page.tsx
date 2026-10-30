@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { kindOf } from '@/components/capture-kinds/capture-kind-picker'
 import { chime } from '@/lib/sound'
 import { unloaded, useLive, haligtree } from '@/lib/haligtree'
-import { VOICE_SAID, VOICE_TINT, askRename, openSource, pageRef, readFocus, sources, type SourceField, type SourceItem, type SourceSummary, type Voice } from '@/lib/sources'
+import { UNATTRIBUTED, VOICE_SAID, VOICE_TINT, askRename, openSource, pageRef, readFocus, sources, type SourceField, type SourceItem, type SourceSummary, type Voice } from '@/lib/sources'
 import { Avatar } from './avatar'
 import { NoteList, type Entry } from './note-list'
 import { Example } from './example'
@@ -503,8 +503,10 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
     openSource(field, name)
   }
   const give = async (item: { type: string; id: string; label: string }): Promise<void> => {
-    const who = (await ask('Who said it? A quote is kept with its source.', 'e.g. Alan Kay', 'attribution'))?.trim()
-    if (!who) return
+    // Not known: "Unattributed" is its source, and it is not asked about again.
+    const said = await ask('Who said it? A quote is kept with its source.', 'e.g. Alan Kay', 'attribution', '', UNATTRIBUTED)
+    if (said === null) return
+    const who = said.trim() || UNATTRIBUTED
     await setSource(item, 'attribution', who)
     chime('noted')
     toast(`Kept with ${who}`, () => void setSource(item, 'attribution', null))

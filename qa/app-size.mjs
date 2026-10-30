@@ -57,7 +57,7 @@ try {
   check('⌘+ leaves the note text size alone', (await settings()).textSize === 1)
   if (note) check('the note window grows too', await until(async () => await root(note) === '17.85px'), await root(note))
   check('Chromium zoom stays 1 in every window after ⌘+', (await zooms()).every((one) => one.zoom === 1), await zooms())
-  check('a toast says the new size', await until(() => h.evaluate(() => document.body.innerText.includes('App size 105%'))))
+  check('a toast says the new size', await until(() => h.evaluate(() => document.body.innerText.includes('Text and controls 105%'))))
 
   await h.keyboard.press('Meta+Equal')
   await h.keyboard.press('Meta+Minus')
@@ -141,7 +141,7 @@ try {
 
   // Settings: the slider grows the app as it moves and says how big.
   await go('settings')
-  const row = h.locator('[data-setting-title="App size"]')
+  const row = h.locator('[data-setting-title="Text and controls size"]')
   await row.scrollIntoViewIfNeeded()
   check('Settings shows “App size”', await row.count() === 1)
   check('it says 100%', await row.locator('[data-app-size]').getAttribute('data-app-size') === '100')

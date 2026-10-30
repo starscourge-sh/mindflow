@@ -106,8 +106,10 @@ try {
   await wait(400)
   await h.click('[data-room-open]')
   await wait(700)
-  check('the writing room\'s foot has it beside Focus and Aim', (await h.textContent('[data-room-foot] [data-writer-tools] [data-writing-sound]'))?.trim() === 'Sound: Rain')
-  await h.click('[data-room-foot] [data-writing-sound]')
+  if (!(await h.locator('[data-room-tools-panel]').count())) { await h.click('[data-room-tools]'); await h.waitForTimeout(250) }
+  check('the writing room\'s foot has it beside Focus and Aim', (await h.textContent('[data-room-tools-panel] [data-writing-sound]'))?.trim() === 'Sound: Rain')
+  if (!(await h.locator('[data-room-tools-panel]').count())) { await h.click('[data-room-tools]'); await h.waitForTimeout(250) }
+  await h.click('[data-room-tools-panel] [data-writing-sound]')
   await wait(400)
   const menu = await h.evaluate(() => [...document.querySelectorAll('[data-scape-choice]')].map((one) => one.textContent.trim()).join(', '))
   check('its menu: Off, Shore, Rain, Hearth', menu === 'Off, Shore, Rain, Hearth', menu)
