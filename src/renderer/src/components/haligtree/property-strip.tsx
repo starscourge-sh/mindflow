@@ -221,7 +221,7 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated,
                   {nameCell(Tags, 'tags')}
                   <div className={`flex ${size.minH} flex-wrap items-center gap-1 py-0.5`}>
                     {tags.map((tag) => (
-                      <span key={tag} data-tag-chip={tag} className="inline-flex h-6 items-center gap-0.5 rounded-full bg-foreground/[0.06] pr-1 pl-2.5" style={{ color: tagTint(tag) }}>
+                      <span key={tag} data-tag-chip={tag} className="inline-flex h-6 items-center gap-0.5 rounded-full bg-foreground/[0.06] pr-1 pl-2.5" style={{ color: tagTint(tag), '--mf-tag-dot': tagTint(tag) } as React.CSSProperties}>
                         {/* The tag is a way to its page, as everywhere (⌥-click beside); the × only takes it off. */}
                         <button type="button" data-tag-open={tag} {...hoverNote('tag', tag)} onClick={(event) => openTag(tag, event.altKey)} className="rounded-sm hover:underline">{tag}</button>
                         <Tip label={`Take #${tag} off this note`}>

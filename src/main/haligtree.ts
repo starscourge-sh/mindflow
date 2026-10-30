@@ -396,6 +396,8 @@ const DEFAULTS = {
   postcardBorder: 'auto' as 'auto' | 'white' | 'cream' | 'black' | 'accent',
   // Highlighted words: 'soft' pastels, or 'rich', deeper and fuller.
   highlights: 'soft' as 'soft' | 'rich',
+  // How a #tag chip looks: 'solid', its colour's wash behind its colour's words, or 'dot', an outline with a dot of its colour.
+  tagLook: 'solid' as 'solid' | 'dot',
   // The paper a page is written on, as a notebook's: plain, dotted or squared.
   paper: 'plain' as 'plain' | 'dots' | 'grid',
   // A menu line's drawing: 'lines', or 'emoji' (each line's own emoji).

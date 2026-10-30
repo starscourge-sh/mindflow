@@ -7,14 +7,15 @@ export const tagTint = (tag: string, color?: string | null): string => `var(--tt
 
 /**
  * A tag as a chip, the one way a tag is drawn as a thing of its own (a task's
- * tags, a note's): its colour's wash behind its colour's words. `children`
+ * tags, a note's): its colour's wash behind its colour's words, or with "Tag look:
+ * Dot" an outline with its colour's dot before the name (main.css). `children`
  * follow the name, as a chip's × does.
  */
 export function TagChip({ tag, color, className = '', children }: { tag: string; color?: string | null; className?: string; children?: React.ReactNode }): React.JSX.Element {
   const hue = tagHue(tag, color)
   return (
     <span data-tag-chip={tag} className={`flex items-center gap-0.5 rounded-full py-0.5 pr-1 pl-2 ${className}`}
-      style={{ background: `var(--mf-chip-bg-${hue})`, color: `var(--mf-chip-ink-${hue})` }}>
+      style={{ background: `var(--mf-chip-bg-${hue})`, color: `var(--mf-chip-ink-${hue})`, '--mf-tag-dot': `var(--tt-color-text-${hue})` } as React.CSSProperties}>
       #{tag}
       {children}
     </span>

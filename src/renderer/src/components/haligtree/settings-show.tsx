@@ -441,6 +441,30 @@ export const highlightChoices = (dark: boolean): { id: string; label: string; sh
     }
   })
 
+/** A #tag chip in one look, drawn as itself whatever the app's look is now, so both choices show side by side. */
+const SampleTag = ({ look, tag, hue }: { look: string; tag: string; hue: string }): React.JSX.Element =>
+  look === 'dot' ? (
+    <span className="flex items-center gap-1.5 rounded-full py-0.5 pr-2 pl-1.5 text-foreground shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--foreground)_20%,transparent)]">
+      <span className="size-1.5 rounded-full" style={{ background: `var(--tt-color-text-${hue})` }} />#{tag}
+    </span>
+  ) : (
+    <span className="rounded-full px-2 py-0.5" style={{ background: `var(--mf-chip-bg-${hue})`, color: `var(--mf-chip-ink-${hue})` }}>#{tag}</span>
+  )
+
+/** How a #tag chip looks, each choice drawn with two chips of its own. */
+export const tagLookChoices = [
+  { id: 'solid', label: 'Solid' },
+  { id: 'dot', label: 'Dot' }
+].map((one) => ({
+  ...one,
+  show: (
+    <span data-tag-look-sample={one.id} className="absolute inset-0 flex flex-wrap items-center justify-center gap-1.5 px-2 text-[12px] leading-none">
+      <SampleTag look={one.id} tag="reading" hue="blue" />
+      <SampleTag look={one.id} tag="ideas" hue="green" />
+    </span>
+  )
+}))
+
 /** The paper a note's page is written on, each choice drawn as a swatch of itself. */
 export const paperChoices = [
   { id: 'plain', label: 'Plain' },

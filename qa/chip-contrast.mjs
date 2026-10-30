@@ -1,5 +1,6 @@
 // Every coloured chip (a tag, a lit word in quick capture) is readable: its words reach 4.5:1 against the chip they
-// sit on, in every theme, light and dark, with highlights "Soft" or "Rich", for every colour.
+// sit on, in every theme, light and dark, with highlights "Soft" or "Rich", for every colour; with "Tag look: Dot"
+// the words are the page's and the dot reaches 3:1 against the page (scored as 1.5 times its ratio, so 4.5 means 3:1).
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox node qa/chip-contrast.mjs
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
@@ -12,8 +13,9 @@ try {
   const worst = []
   for (const theme of THEMES) {
     await c.theme(theme)
-    for (const weight of ['soft', 'rich']) {
-      const got = await h.evaluate((weight) => {
+    for (const [weight, look] of [['soft', 'solid'], ['rich', 'solid'], ['soft', 'dot'], ['rich', 'dot']]) {
+      const got = await h.evaluate(([weight, look]) => {
+        document.documentElement.dataset.tagLook = look
         if (weight === 'rich') document.documentElement.setAttribute('data-highlights', 'rich')
         else document.documentElement.removeAttribute('data-highlights')
         // Any CSS colour (oklab, color-mix, hsl) as sRGB, read back from a canvas.
@@ -33,18 +35,21 @@ try {
           chip.setAttribute('data-tag-chip', 'probe')
           chip.style.background = `var(--mf-chip-bg-${hue}, var(--tt-color-highlight-${hue}))`
           chip.style.color = `var(--mf-chip-ink-${hue}, var(--tt-color-text-${hue}))`
+          chip.style.setProperty('--mf-tag-dot', `var(--tt-color-text-${hue})`)
           chip.textContent = '#probe'
           document.body.append(chip)
           const s = getComputedStyle(chip)
           const bg = over(parse(s.backgroundColor), page)
-          out.push({ hue, ratio: Math.round(ratio(over(parse(s.color), bg), bg) * 100) / 100 })
+          // "Dot": the dot is a mark, not words, so it needs 3:1 against the page, as any control's edge does.
+          const dot = look === 'dot' ? ratio(over(parse(getComputedStyle(chip, '::before').backgroundColor), page), page) : 99
+          out.push({ hue, ratio: Math.round(Math.min(ratio(over(parse(s.color), bg), bg), dot * 1.5) * 100) / 100 })
           chip.remove()
         }
         return out
-      }, weight)
+      }, [weight, look])
       const low = got.reduce((a, b) => (b.ratio < a.ratio ? b : a))
-      worst.push(`${theme}/${weight}: ${low.hue} ${low.ratio}`)
-      check(`${theme}, ${weight}: every colour's chip reads at 4.5:1 or more`, got.every((one) => one.ratio >= 4.5), got.filter((one) => one.ratio < 4.5).map((one) => `${one.hue} ${one.ratio}`).join(', '))
+      worst.push(`${theme}/${weight}/${look}: ${low.hue} ${low.ratio}`)
+      check(`${theme}, ${weight}, ${look}: every colour's chip reads at 4.5:1 or more`, got.every((one) => one.ratio >= 4.5), got.filter((one) => one.ratio < 4.5).map((one) => `${one.hue} ${one.ratio}`).join(', '))
     }
   }
   console.log('lowest per theme:', worst.join(' | '))

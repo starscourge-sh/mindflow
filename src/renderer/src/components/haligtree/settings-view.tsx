@@ -71,7 +71,7 @@ import { Lead, plain } from './lead'
 import { backedUpAgo, chooseBackupFolder } from '@/lib/backups'
 import { ThemeDial } from './theme-dial'
 import { TimeField } from './time-field'
-import { BarWordsSample, BlurSample, CentredSample, DayHintsSample, FoldSample, SpellSample, HomeMonthSample, TimeGoneSample, TitleTopSample, TypewriterSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, StirSample, TempusSample, ThemeFileGuide, TuckSample, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, highlightChoices, paperChoices, IconColourSample, menuIconChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices } from './settings-show'
+import { BarWordsSample, BlurSample, CentredSample, DayHintsSample, FoldSample, SpellSample, HomeMonthSample, TimeGoneSample, TitleTopSample, TypewriterSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, StirSample, TempusSample, ThemeFileGuide, TuckSample, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, highlightChoices, paperChoices, tagLookChoices, IconColourSample, menuIconChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices } from './settings-show'
 import { BookOpen as BookHeart, Brain, HardDrive, CircleHelp as LifeBuoy, ListTodo as ListChecks, Camera as Mountain, Brush as Palette, Pencil as PenLine, Search as SearchIcon, Sparkles, Volume2, X } from '@/components/ui/icons'
 import { APP_NAME } from '../../../../main/name'
 
@@ -619,6 +619,8 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
           </Setting>
           <Setting title="Highlights" note="The colours you mark words with: “Soft” pastels, or “Rich”, deeper and fuller." keywords="highlight colour color marker pastel rich pale saturated vivid mark"
             below={<Choices label="Highlights" options={highlightChoices(!document.documentElement.hasAttribute('data-light'))} on={(id) => id === (settings.highlights ?? 'soft')} pick={(highlights) => set({ highlights: highlights as Settings['highlights'] })} />} />
+          <Setting title="Tag look" note="How a #tag is drawn everywhere: “Solid”, filled with its colour, or “Dot”, an outline with a dot of its colour." keywords="tag tags chip badge pill dot outline solid filled hashtag"
+            below={<Choices label="Tag look" options={tagLookChoices} on={(id) => id === (settings.tagLook ?? 'solid')} pick={(tagLook) => set({ tagLook: tagLook as Settings['tagLook'] })} />} />
           <Setting title="Paper" note="What your pages are written on (notes, the Journal, the week's notes and the writing room), as a notebook's: plain, dots or a grid." keywords="paper dots dotted grid squared graph notebook page background lines"
             below={<Choices label="Paper" options={paperChoices} on={(id) => id === (settings.paper ?? 'plain')} pick={(paper) => set({ paper: paper as Settings['paper'] })} />} />
           <Setting title="Icons" note="The sidebar's pages and tags, and the Map's dots: “Lines”, or each one's own emoji. Menus keep their lines." keywords="icons emoji lines symbols sidebar tags pages map"
