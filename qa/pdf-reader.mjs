@@ -29,7 +29,8 @@ h.on('pageerror', (e) => errors.push(String(e)))
 const EDITOR = '[data-open] .tiptap'
 
 try {
-  await v('settings:set', { sounds: false, hintRate: 0 })
+  // App size off 100%, so the View menu's Actual Size would show if it changed it.
+  await v('settings:set', { sounds: false, hintRate: 0, interfaceSize: 110 })
   const id = await v('article:new')
   await v('item:save', id, { title: 'With a PDF', body: { type: 'doc', content: [{ type: 'paragraph' }] } })
   await c.send('article', id); await wait(1400)
@@ -112,6 +113,20 @@ try {
   check('zoomed in, the text still selects and sits over its words', /quiet sentence/.test(zoomed.text) && zoomed.fits, JSON.stringify(zoomed))
   await h.click('.pdf-reader button[aria-label="Fit width"]'); await wait(600)
   check('Fit width puts it back', Math.abs((await widthAt()) - before) < 2, String(await widthAt()))
+  // ⌘+ and ⌘0, pressed and from the View menu: the pages zoom, the app's size stays.
+  const appSize = async () => (await v('settings')).interfaceSize ?? 100
+  const sizeBefore = await appSize()
+  await h.keyboard.press('Meta+Equal'); await wait(800)
+  check('⌘+ zooms the PDF', (await widthAt()) > before * 1.05, `${before} -> ${await widthAt()}`)
+  await c.electron.evaluate(({ Menu, BrowserWindow }) => {
+    const find = (items) => { for (const item of items) { if (item.label === 'Actual Size') return item; const inner = item.submenu && find(item.submenu.items); if (inner) return inner } return null }
+    const item = find(Menu.getApplicationMenu().items)
+    const win = BrowserWindow.getAllWindows().find((one) => one.webContents.getURL().includes('view=home'))
+    item.click(undefined, win, win.webContents)
+  })
+  await wait(800)
+  check("the View menu's Actual Size fits the PDF again", Math.abs((await widthAt()) - before) < 2, String(await widthAt()))
+  check("and the app's own size is untouched", (await appSize()) === sizeBefore, `${sizeBefore} -> ${await appSize()}`)
   await h.fill('.pdf-reader-page-field', '3'); await h.keyboard.press('Enter'); await wait(800)
   const onPage = await h.evaluate(() => {
     const box = document.querySelector('.pdf-reader-scroll').getBoundingClientRect()

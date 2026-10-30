@@ -44,8 +44,11 @@ ipcRenderer.on('notes:opened-apart', (_event, id: string) => window.dispatchEven
 ipcRenderer.on('notes:apart', (_event, what: string, link: string) => window.dispatchEvent(new CustomEvent('haligtree:apart', { detail: { what, link } })))
 // The menu bar's Reset the sandbox: asked in the pill, where Start over is held.
 ipcRenderer.on('sandbox:ask-reset', () => window.dispatchEvent(new CustomEvent('haligtree:sandbox-reset')))
-// The View menu's app size items, clicked: the page steps the size (lib/editor-setup.ts).
-ipcRenderer.on('menu:app-size', (_event, way: 1 | -1 | 0) => void window.dispatchEvent(new CustomEvent('haligtree:app-size', { detail: way })))
+// The View menu's app size items, pressed or clicked: offered first to what is in
+// front (a PDF zooms its pages), else the page steps the size (lib/editor-setup.ts).
+ipcRenderer.on('menu:app-size', (_event, way: 1 | -1 | 0) => {
+  if (window.dispatchEvent(new CustomEvent('haligtree:zoom-key', { detail: way, cancelable: true }))) window.dispatchEvent(new CustomEvent('haligtree:app-size', { detail: way }))
+})
 // Edit > Select All from the menu bar: a list with the focus takes it
 // (lib/select-all.ts cancels the event); otherwise the words, as before.
 ipcRenderer.on('menu:select-all', () => {

@@ -118,7 +118,7 @@ export function useEditorSetup(settings: Settings | null): void {
       if (!event.metaKey || event.ctrlKey || !settings || event.defaultPrevented) return
       // By the key's place, not its letter: with ⌥ held, = types ≠ and − types –.
       const way = event.code === 'Equal' || event.code === 'NumpadAdd' ? 1 : event.code === 'Minus' || event.code === 'NumpadSubtract' ? -1 : event.code === 'Digit0' || event.code === 'Numpad0' ? 0 : null
-      if (way === null) return
+      if (way === null || event.defaultPrevented) return
       if (event.altKey) {
         // ⌥⌘0 is a math block in a note, so the text size has no reset key: Settings puts it back.
         if (way === 0) return
