@@ -105,14 +105,25 @@ export async function cardUp(capture: { id: string; kind: string; body: unknown 
   let changed = false
   const visit = async (node: Node): Promise<void> => {
     if (node.type === 'bookmark' && node.attrs && (remote(node.attrs.image) || remote(node.attrs.icon))) {
-      const card = await look(String(node.attrs.href)).catch(() => null)
+      // The pictures the card shows, from the addresses it already holds: the
+      // page is not asked again, so a site that has since changed its picture
+      // does not swap the one you saw.
+      const was = { image: String(node.attrs.image ?? ''), icon: String(node.attrs.icon ?? '') }
+      const now = await window.api.keepCardPictures(was.image, was.icon).catch(() => was)
       // Only a picture that is now stored replaces the address: offline, or
       // with nothing to store, the card is left as it was.
-      const kept = (was: unknown, now?: string): unknown => (remote(was) && now && !remote(now) ? now : was)
-      const image = kept(node.attrs.image, card?.image)
-      const icon = kept(node.attrs.icon, card?.icon)
-      if (image !== node.attrs.image || icon !== node.attrs.icon) {
-        node.attrs = { ...node.attrs, image, icon }
+      const kept = (before: string, after: string): string => (remote(before) && after && !remote(after) ? after : before)
+      const image = kept(was.image, now.image)
+      const icon = kept(was.icon, now.icon)
+      if (image !== was.image || icon !== was.icon) {
+        node.attrs = {
+          ...node.attrs,
+          image,
+          icon,
+          // The site's address stays with the card, beside the copy.
+          imageSource: node.attrs.imageSource || (image !== was.image ? was.image : ''),
+          iconSource: node.attrs.iconSource || (icon !== was.icon ? was.icon : '')
+        }
         changed = true
       }
     }
@@ -122,7 +133,10 @@ export async function cardUp(capture: { id: string; kind: string; body: unknown 
   if (changed) await window.api.captures.save(id, { body, fetched: true, base })
 }
 
-/** Every link and card once, one at a time, in the background. */
+/**
+ * Every link and card once, one at a time, in the background: at launch, and
+ * after an import, whose cards arrive holding the site's addresses.
+ */
 export async function cardsUp(): Promise<void> {
   for (const capture of await window.api.captures.cards()) await cardUp(capture)
 }

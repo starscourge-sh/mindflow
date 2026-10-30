@@ -406,7 +406,8 @@ export default function App(): React.JSX.Element {
   useEffect(() => {
     const later = setTimeout(convertImports, 1500)
     const stop = window.api.captures.onChange(convertImports)
-    const landed = window.api.onImported(convertImports)
+    // Bookmarks come in already documents, so their cards are looked at here too.
+    const landed = window.api.onImported(() => (convertImports(), void cardsUp()))
     return () => (clearTimeout(later), stop(), landed())
   }, [])
 

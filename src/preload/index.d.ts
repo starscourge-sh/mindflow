@@ -11,6 +11,9 @@ export interface LinkMetadata {
   image: string
   icon: string
   site: string
+  /** The site's own address for the picture and icon, kept beside the copies in `image` and `icon`. */
+  imageSource?: string
+  iconSource?: string
 }
 
 /** A picture as the look window shows it; `rect` is where it sits on screen, if it is in view. */

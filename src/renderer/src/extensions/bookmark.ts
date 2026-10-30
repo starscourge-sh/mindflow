@@ -17,6 +17,9 @@ export interface BookmarkAttributes {
   image: string
   icon: string
   site: string
+  /** Where the picture and icon came from on the site; `image` and `icon` hold the copies kept with the notes. */
+  imageSource?: string
+  iconSource?: string
   /** Identifies the card so the fetch that follows can find it again. */
   id?: string
   loading?: boolean
@@ -53,6 +56,8 @@ export const Bookmark = Node.create({
       image: text("image"),
       icon: text("icon"),
       site: text("site"),
+      imageSource: { default: "", parseHTML: (element: HTMLElement) => element.getAttribute("data-image-source") ?? "", renderHTML: (attrs: Record<string, string>) => (attrs.imageSource ? { "data-image-source": attrs.imageSource } : {}) },
+      iconSource: { default: "", parseHTML: (element: HTMLElement) => element.getAttribute("data-icon-source") ?? "", renderHTML: (attrs: Record<string, string>) => (attrs.iconSource ? { "data-icon-source": attrs.iconSource } : {}) },
       // Neither belongs in the HTML: a copied card would come back stuck on
       // "Loading..." and sharing its id with the original, so the fetch that
       // is still running would patch the wrong one.

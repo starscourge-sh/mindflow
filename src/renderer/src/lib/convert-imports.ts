@@ -1,4 +1,5 @@
 import { readMarkdown } from '../components/haligtree'
+import { cardsUp } from './link-card'
 
 let running = false
 
@@ -23,6 +24,8 @@ export function convertImports(): void {
         await window.api.haligtree('imports:converted', tbl, id, markdown, doc)
         await new Promise((breathe) => setTimeout(breathe, 0))
       }
+      // Cards in what came in keep their pictures now, not at the next launch.
+      if (pending.length) await cardsUp()
     } finally {
       running = false
     }

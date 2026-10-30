@@ -179,6 +179,9 @@ import { registerSpellGuesses } from './spell-guesses'
  * three notes should not be stored three times. The hash solves both, and makes
  * the write idempotent: the same bytes always produce the same file.
  */
+/** The largest picture a link card keeps, in bytes. */
+const PICTURE_CAP = 10_000_000
+
 const EXTENSIONS: Record<string, string> = {
   'image/png': 'png',
   'image/jpeg': 'jpg',
@@ -3368,6 +3371,8 @@ async function importFiles(): Promise<void> {
     importProgress({ done: filePaths.length, total: filePaths.length, what: 'files' })
   })
   importProgress(null)
+  // Bookmarks come in as cards holding their sites' pictures: the windows keep copies (link-card.ts cardsUp).
+  for (const win of BrowserWindow.getAllWindows()) win.webContents.send('imports:ready')
   // Where they went, said first, and the card's button opens it.
   // Some of them: "1 is", "4 are".
   const some = (n: number): string => (n === total ? (total === 1 ? 'It is' : 'They are') : `${num(n)} ${n === 1 ? 'is' : 'are'}`)
@@ -5025,12 +5030,15 @@ app.whenReady().then(() => {
   // as it did. Either one that cannot be fetched stays a link to the site.
   const keep = async (src: string): Promise<string> => {
     if (!/^https?:/.test(src)) return src
-    // A picture on this machine or its network is not one to show, either.
-    if (!(await isOutside(new URL(src)).catch(() => false))) return ''
     try {
+      // A picture on this machine or its network is not one to show, either.
+      if (!(await isOutside(new URL(src)))) return ''
       const response = await fetchOutside(src, { signal: AbortSignal.timeout(8000) })
       const mime = (response.headers.get('content-type') ?? '').split(';')[0].trim()
-      return (response.ok && (await storeImage(mime, new Uint8Array(await response.arrayBuffer())))) || src
+      // Only a picture, and only one of a sane size: a card is no reason to download a film.
+      if (!response.ok || !EXTENSIONS[mime] || Number(response.headers.get('content-length')) > PICTURE_CAP) return src
+      const bytes = new Uint8Array(await response.arrayBuffer())
+      return (bytes.byteLength <= PICTURE_CAP && (await storeImage(mime, bytes))) || src
     } catch {
       return src
     }
@@ -5043,10 +5051,19 @@ app.whenReady().then(() => {
     const kept = await keep(max)
     return /^https?:/.test(kept) ? keep(wideThumb(src)!) : kept
   }
+  // The site's own addresses go along as imageSource and iconSource, so
+  // nothing is lost by keeping the copies.
   ipcMain.handle('fetch-link-metadata', async (_event, url: unknown) => {
     const found = await lookUp(url)
     const [image, icon] = await Promise.all([keepWide(found.image), keep(found.icon)])
-    return { ...found, image, icon }
+    return { ...found, image, icon, imageSource: found.image, iconSource: found.icon }
+  })
+  // A card made before its pictures were kept, or imported with the site's
+  // addresses: the very pictures it shows, kept now. Each one that cannot be
+  // fetched comes back as it was.
+  ipcMain.handle('keep-card-pictures', async (_event, image: unknown, icon: unknown) => {
+    const [kept, keptIcon] = await Promise.all([keepWide(typeof image === 'string' ? image : ''), keep(typeof icon === 'string' ? icon : '')])
+    return { image: kept, icon: keptIcon }
   })
 
   // Opening Haligtree opens the main window, as any app's does. Started at login

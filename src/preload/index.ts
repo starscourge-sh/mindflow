@@ -68,6 +68,9 @@ const api = {
   book: (): string => String(ipcRenderer.sendSync('book:here')),
   fetchLinkMetadata: (url: string): Promise<LinkMetadata> =>
     ipcRenderer.invoke('fetch-link-metadata', url),
+  /** A card's picture and icon kept with the notes: each comes back local, or as it was. */
+  keepCardPictures: (image: string, icon: string): Promise<{ image: string; icon: string }> =>
+    ipcRenderer.invoke('keep-card-pictures', image, icon),
 
   /** Store image bytes and get back the URL that reads them again. */
   saveImage: (mime: string, bytes: Uint8Array): Promise<string> =>
