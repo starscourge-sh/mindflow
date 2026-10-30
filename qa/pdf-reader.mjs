@@ -251,7 +251,17 @@ try {
   await h.mouse.click(at.x, at.y, { button: 'right' }); await wait(500)
   const menu = await h.evaluate(() => [...document.querySelectorAll('[role="menuitem"]')].map((one) => one.textContent.trim()))
   check('right-click on a mark offers its gem and removing it', menu.includes('Open its gem') && menu.includes('Remove highlight'), JSON.stringify(menu))
-  await h.keyboard.press('Escape'); await wait(300)
+  // "Open its gem" opens the gem Keep made, in place of the reader; Back returns to the PDF.
+  await h.click('[role="menuitem"]:has-text("Open its gem")'); await wait(1200)
+  const gemShown = await h.evaluate((gemId) => ({ open: !!document.querySelector(`[data-open="${gemId}"]`), reader: !!document.querySelector('.pdf-reader'), words: document.querySelector(`[data-open="${gemId}"]`)?.textContent.includes('quiet sentence worth keeping') ?? false }), marks[0]?.gemId)
+  check('"Open its gem" opens the gem with its quote', gemShown.open && gemShown.words && !gemShown.reader, JSON.stringify(gemShown))
+  await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-open-gem.png` })
+  await h.keyboard.press('Meta+BracketLeft')
+  await h.waitForSelector('.pdf-reader .pdf-page[data-page="3"] canvas', { timeout: 10000 }).catch(() => {})
+  await wait(800)
+  const returned = await h.evaluate(() => ({ reader: !!document.querySelector('.pdf-reader'), page: document.querySelector('.pdf-reader-page-field')?.value }))
+  check('Back from the gem returns to the PDF', returned.reader, JSON.stringify(returned))
+  await h.fill('.pdf-reader-page-field', '3'); await h.keyboard.press('Enter'); await wait(1000)
 
   // Paper pages, read off the screen: the white turns warm, the orange square stays orange.
   const pixels = async () => {
