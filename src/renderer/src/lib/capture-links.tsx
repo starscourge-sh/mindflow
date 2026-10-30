@@ -269,8 +269,25 @@ export const follow = (link: string, open: (type: string, id: string) => void, h
   const [type, id] = link.includes(':') ? [link.slice(0, link.indexOf(':')), link.slice(link.indexOf(':') + 1)] : ['capture', link]
   // A person or a tag is a place in the main window, not a note: its tag page, or a search for their name.
   if (type === 'person' || type === 'tag') return window.api.openInHome(type, id)
+  if (type === 'capture') return void keptAs(id).then((to) => {
+    open(to.type, to.id)
+    if (heading) headingIn(to.type, to.id, heading)
+  })
   open(type, id)
   if (heading) headingIn(type, id, heading)
+}
+
+/**
+ * Where a link to a capture lands: a capture turned into a page, a gem, a goal
+ * or a question is that now, and its link opens what it became, not the old
+ * capture filed in the Inbox. Any other capture opens as itself.
+ */
+const keptAs = async (id: string): Promise<{ type: string; id: string }> => {
+  const capture = await window.api.captures.get(id)
+  if (capture?.status !== 'promoted') return { type: 'capture', id }
+  const { became } = await haligtree.lineage(id)
+  const made = became.find((one) => ['article', 'nugget', 'goal', 'question'].includes(one.type))
+  return made ? { type: made.type, id: made.id } : { type: 'capture', id }
 }
 
 /** Land on a heading in a note just opened, by the editor id every view gives it. */
