@@ -364,6 +364,115 @@ try {
   const slashed = await h.evaluate((sel) => ({ accept: window.__accept, words: document.querySelector(`${sel} .tiptap-attachment.is-pdf .pdf-page[data-page="1"] .textLayer`)?.textContent ?? '', slash: document.querySelector(sel).textContent.includes('/pdf') }), FRESH)
   check('"PDF" picks only PDFs and puts its pages in the note, the /pdf gone', /pdf/.test(slashed.accept) && /Page 1 of the probe book/.test(slashed.words) && !slashed.slash, JSON.stringify(slashed))
   await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-slash.png` })
+
+  // ⌘K finds the PDF by its own title and by the file's name, and opens it in the reader.
+  const byTitle = await h.evaluate(() => window.api.captures.find('probe book'))
+  const byName = await h.evaluate(() => window.api.captures.find('probe-book.pdf'))
+  check('search finds the PDF by its title, once', byTitle.filter((one) => one.type === 'pdf').length === 1 && byTitle.find((one) => one.type === 'pdf')?.label === 'The Probe Book', JSON.stringify(byTitle.map((one) => [one.type, one.label])))
+  check('and by its file name', byName.some((one) => one.type === 'pdf'), JSON.stringify(byName.map((one) => [one.type, one.label])))
+  await h.keyboard.press('Escape'); await h.click('.pdf-reader-scroll, [data-open] .tiptap', { timeout: 3000 }).catch(() => {})
+  await h.keyboard.press('Meta+k'); await wait(600)
+  await h.keyboard.type('The Probe Book', { delay: 30 }); await wait(1200)
+  const row = await h.evaluate(() => [...document.querySelectorAll('[data-drag-open^="pdf:"]')].map((one) => one.textContent.trim()))
+  check('⌘K lists the PDF under its title', row.some((one) => one.includes('The Probe Book')), JSON.stringify(row))
+  await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-search.png` })
+  await h.click('[data-drag-open^="pdf:"]'); await wait(300)
+  await h.waitForSelector('.pdf-reader .pdf-page[data-page="1"] canvas', { timeout: 10000 }).catch(() => {})
+  check('picking it opens it in the reader', await h.evaluate(() => document.querySelector('.pdf-reader-title')?.textContent) === 'The Probe Book', '')
+
+  // A PDF file copied in Finder and pasted into a note: its block, not its icon or name.
+  const { writeFileSync } = await import('node:fs')
+  const { join } = await import('node:path')
+  const finderFile = join(process.env.QA_DATA ?? '/tmp', 'finder-book.pdf')
+  writeFileSync(finderFile, Buffer.from(bytes))
+  const pasted = await v('article:new')
+  await v('item:save', pasted, { title: 'Pasted PDF', body: { type: 'doc', content: [{ type: 'paragraph' }] } })
+  await c.send('article', pasted); await wait(1400)
+  const PASTED = `[data-open="${pasted}"] .tiptap`
+  const clipWas = await c.electron.evaluate(({ clipboard }) => clipboard.readText())
+  const { pathToFileURL } = await import('node:url')
+  await c.electron.evaluate(async ({ clipboard, ClipboardItem }, url) => {
+    await clipboard.write([new ClipboardItem({ 'electron application/osclipboard;format="public.file-url"': new Blob([url]) })])
+  }, pathToFileURL(finderFile).href)
+  await h.click(`${PASTED} p`); await h.keyboard.press('Meta+v')
+  await h.waitForSelector(`${PASTED} .tiptap-attachment.is-pdf .pdf-page[data-page="1"] .textLayer span`, { timeout: 15000 }).catch(() => {})
+  const fromFinder = await h.evaluate((sel) => ({ name: document.querySelector(`${sel} .tiptap-attachment.is-pdf .tiptap-attachment-name`)?.textContent, words: document.querySelector(`${sel} .is-pdf .pdf-page[data-page="1"] .textLayer`)?.textContent ?? '', pictures: document.querySelectorAll(`${sel} img`).length }), PASTED)
+  check('a PDF copied in Finder pastes as its PDF block', fromFinder.name === 'finder-book.pdf' && /Page 1 of the probe book/.test(fromFinder.words) && !fromFinder.pictures, JSON.stringify(fromFinder))
+  await c.electron.evaluate(({ clipboard }, text) => clipboard.writeText(text), clipWas)
+  // A PDF on the clipboard as a file (as Chromium hands some apps' copies over): the same.
+  await h.evaluate(([sel, bytes]) => {
+    const ed = document.querySelector(sel).editor
+    ed.commands.focus('end')
+    const data = new DataTransfer()
+    data.items.add(new File([new Uint8Array(bytes)], 'clip-book.pdf', { type: 'application/pdf' }))
+    ed.view.dom.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }))
+  }, [PASTED, bytes])
+  await wait(1500)
+  check('a PDF file on the clipboard pastes as its block too', await h.evaluate((sel) => [...document.querySelectorAll(`${sel} .tiptap-attachment.is-pdf .tiptap-attachment-name`)].some((one) => one.textContent === 'clip-book.pdf'), PASTED), '')
+
+  // A link card for a PDF on the web: "Open in the reader" fetches it once into the book and opens it.
+  const SITE = 'http://93.184.216.34'
+  await c.electron.evaluate((_, [site, pdf]) => {
+    globalThis.__realFetch ??= globalThis.fetch
+    globalThis.__pdfHits = 0
+    globalThis.fetch = async (input, init) => {
+      const url = String(input instanceof URL ? input.href : (input?.url ?? input))
+      if (!url.startsWith(site + '/')) return globalThis.__realFetch(input, init)
+      globalThis.__pdfHits += 1
+      if (new URL(url).pathname === '/papers/web-book.pdf') return new Response(Buffer.from(pdf), { headers: { 'content-type': 'application/pdf' } })
+      return new Response('', { status: 404 })
+    }
+  }, [SITE, bytes])
+  await h.evaluate(([sel, href]) => document.querySelector(sel).editor.chain().focus('end').insertContent({ type: 'bookmark', attrs: { href, title: 'A web book', site: '93.184.216.34' } }).run(), [PASTED, `${SITE}/papers/web-book.pdf`])
+  await wait(600)
+  const card = h.locator(`${PASTED} .tiptap-bookmark`).last()
+  await card.hover(); await wait(200)
+  check('a card for a PDF offers "Open in the reader"', await card.locator('button[aria-label="Open in the reader"]').count() === 1, '')
+  await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-web-card.png` })
+  await card.locator('button[aria-label="Open in the reader"]').click()
+  await h.waitForSelector('.pdf-reader .pdf-page[data-page="1"] canvas', { timeout: 10000 }).catch(() => {})
+  await wait(400)
+  const webOpen = await h.evaluate(() => ({ title: document.querySelector('.pdf-reader-title')?.textContent, src: document.querySelector('.pdf-reader') ? 'open' : '' }))
+  check('it opens in the reader', webOpen.title === 'The Probe Book', JSON.stringify(webOpen))
+  await h.keyboard.press('Meta+BracketLeft'); await wait(1200)
+  await h.locator(`${PASTED} .tiptap-bookmark`).last().hover()
+  await h.locator(`${PASTED} .tiptap-bookmark button[aria-label="Open in the reader"]`).last().click()
+  await h.waitForSelector('.pdf-reader .pdf-page[data-page="1"] canvas', { timeout: 10000 }).catch(() => {})
+  const hits = await c.electron.evaluate(() => globalThis.__pdfHits)
+  check('opened again, it is not fetched again', hits === 1 && await h.evaluate(() => !!document.querySelector('.pdf-reader')), `fetched ${hits} times`)
+  await h.keyboard.press('Meta+BracketLeft'); await wait(1000)
+
+  // Quick capture: a PDF dropped in is kept with the capture, and shows as its block once the capture opens.
+  await c.page.evaluate(() => window.api.showPrompt()); await c.page.waitForTimeout(800)
+  await c.page.evaluate(([bytes]) => {
+    const ed = document.querySelector('.haligtree-editor[contenteditable=true]').editor
+    const data = new DataTransfer()
+    data.items.add(new File([new Uint8Array(bytes)], 'box-book.pdf', { type: 'application/pdf' }))
+    const box = ed.view.dom.getBoundingClientRect()
+    ed.view.dom.dispatchEvent(new DragEvent('drop', { dataTransfer: data, bubbles: true, cancelable: true, clientX: box.left + 10, clientY: box.top + 10 }))
+  }, [bytes])
+  await c.page.waitForSelector('.tiptap-attachment.is-pdf', { timeout: 10000 }).catch(() => {})
+  await c.page.waitForTimeout(600)
+  check('dropped into quick capture, it shows as the PDF block', await c.page.evaluate(() => !!document.querySelector('.tiptap-attachment.is-pdf')), '')
+  await c.page.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-quick-capture.png` })
+  await c.page.keyboard.press('Alt+Meta+Enter'); await c.page.waitForTimeout(1200)
+  let boxed = null
+  for (let i = 0; i < 30 && !boxed; i++) {
+    boxed = await h.evaluate(async () => {
+      for (const meta of await window.api.captures.list()) {
+        const one = await window.api.captures.get(meta.id)
+        if (JSON.stringify(one?.body ?? '').includes('box-book.pdf')) return meta.id
+      }
+      return null
+    })
+    if (!boxed) await wait(300)
+  }
+  check('the capture keeps the PDF', !!boxed, '')
+  if (boxed) {
+    await c.send('capture', boxed); await wait(1500)
+    await h.waitForSelector(`[data-open="${boxed}"] .tiptap-attachment.is-pdf .pdf-page[data-page="1"] .textLayer span`, { timeout: 15000 }).catch(() => {})
+    check('opened, the capture shows the PDF block with its pages', /Page 1 of the probe book/.test(await h.evaluate((id) => document.querySelector(`[data-open="${id}"] .is-pdf .pdf-page[data-page="1"] .textLayer`)?.textContent ?? '', boxed)), '')
+  }
 } catch (error) {
   check('ran without throwing', false, String(error?.stack ?? error))
 } finally {
