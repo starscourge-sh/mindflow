@@ -191,13 +191,18 @@
   background-color: var(--mf-surface);
 }
 
-/* Dark pages: the paper turned to night, its colours turned back round so they keep their hue. */
-.pdf-reader.is-dark .pdf-page {
-  background: #1d1b19;
+/* Paper pages: the white of the page becomes the app's own warm paper, the
+   ink stays ink, and a picture only takes the faint warmth a printed one would. */
+.pdf-reader.is-paper .pdf-page {
+  background: #f4ecdb;
 }
 
-.pdf-reader.is-dark .pdf-canvas {
-  filter: invert(0.9) hue-rotate(180deg);
+.pdf-reader.is-paper .pdf-canvas {
+  mix-blend-mode: multiply;
+}
+
+.pdf-reader.is-paper .pdf-page {
+  isolation: isolate;
 }
 
 /* Fit width means a reading width, as a note's column: a wide pane never blows a page up past it. */
@@ -220,9 +225,6 @@
   mix-blend-mode: multiply;
 }
 
-.pdf-reader.is-dark .pdf-mark {
-  mix-blend-mode: screen;
-}
 
 /* The mark a gem's link came back to: it glows twice, then settles. */
 .pdf-mark.is-flash {

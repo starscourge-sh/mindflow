@@ -1,20 +1,33 @@
 // A PDF dropped into a note shows its pages in the note, page 1's words
 // readable and selectable, with its page count.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-pdf/main/index.js HALIGTREE_QA_AWAY=1 node qa/pdf-reader.mjs
+import zlib from 'node:zlib'
 import { PDFDocument, StandardFonts } from 'pdf-lib'
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
+
+/** An 8 by 8 orange PNG, built by hand: the picture dark pages must leave as it is. */
+const orangePng = () => {
+  const crcTable = Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0 })
+  const crc = (buf) => { let c = 0xffffffff; for (const b of buf) c = crcTable[(c ^ b) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0 }
+  const chunk = (type, data) => { const len = Buffer.alloc(4); len.writeUInt32BE(data.length); const body = Buffer.concat([Buffer.from(type), data]); const sum = Buffer.alloc(4); sum.writeUInt32BE(crc(body)); return Buffer.concat([len, body, sum]) }
+  const head = Buffer.alloc(13); head.writeUInt32BE(8, 0); head.writeUInt32BE(8, 4); head[8] = 8; head[9] = 2
+  const rows = Buffer.concat(Array.from({ length: 8 }, () => Buffer.from([0, ...Array.from({ length: 8 }, () => [240, 120, 20]).flat()])))
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', head), chunk('IDAT', zlib.deflateSync(rows)), chunk('IEND', Buffer.alloc(0))])
+}
 
 /** Three pages of real text, each saying which page it is. */
 const makePdf = async () => {
   const pdf = await PDFDocument.create()
   pdf.setTitle('The Probe Book')
   const font = await pdf.embedFont(StandardFonts.Helvetica)
+  const picture = await pdf.embedPng(orangePng())
   for (let n = 1; n <= 3; n++) {
     const page = pdf.addPage([400, 560])
     page.drawText(`Page ${n} of the probe book`, { x: 40, y: 500, size: 18, font })
     page.drawText(`A quiet sentence worth keeping on page ${n}.`, { x: 40, y: 460, size: 12, font })
+    page.drawImage(picture, { x: 40, y: 300, width: 80, height: 80 })
   }
   return Array.from(await pdf.save())
 }
@@ -180,9 +193,27 @@ try {
   check('right-click on a mark offers its gem and removing it', menu.includes('Open its gem') && menu.includes('Remove highlight'), JSON.stringify(menu))
   await h.keyboard.press('Escape'); await wait(300)
 
-  await h.click('.pdf-reader button[aria-label="Dark pages"]'); await wait(400)
-  await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-pane-dark.png` })
-  await h.click('.pdf-reader button[aria-label="Light pages"]')
+  // Paper pages, read off the screen: the white turns warm, the orange square stays orange.
+  const pixels = async () => {
+    const sheet = await h.evaluate(() => { const r = document.querySelector('.pdf-reader .pdf-page[data-page="3"]').getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height } })
+    const shot = await h.screenshot({ clip: { x: sheet.x, y: sheet.y, width: sheet.w, height: sheet.h } })
+    return h.evaluate(async ([b64, w]) => {
+      const img = new Image(); img.src = `data:image/png;base64,${b64}`; await img.decode()
+      const canvas = document.createElement('canvas'); canvas.width = img.width; canvas.height = img.height
+      const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0)
+      // Measured on the page in CSS pixels, then into the shot's own pixels.
+      const scale = img.width / w
+      const at = (x, y) => [...ctx.getImageData(Math.round((x / 400) * w * scale), Math.round((y / 400) * w * scale), 1, 1).data].slice(0, 3)
+      return { paper: at(300, 120), picture: at(80, 220) }
+    }, [shot.toString('base64'), sheet.w])
+  }
+  const light = await pixels()
+  await h.click('.pdf-reader button[aria-label="Paper pages"]'); await wait(600)
+  const warm = await pixels()
+  check('paper pages: the white turns to warm paper', warm.paper[0] > warm.paper[2] + 12 && light.paper.every((one) => one > 245), JSON.stringify({ light, warm }))
+  check('and the picture keeps its colour', warm.picture.every((one, i) => Math.abs(one - light.picture[i]) < 24) && warm.picture[0] > warm.picture[1] + 80, JSON.stringify({ light, warm }))
+  await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-pane-paper.png` })
+  await h.click('.pdf-reader button[aria-label="White pages"]')
   await h.keyboard.press('Meta+BracketLeft'); await wait(1200)
   check('Back returns to the note', await h.evaluate(() => !document.querySelector('.pdf-reader') && !!document.querySelector('.is-pdf')), '')
 

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import type { PDFDocumentProxy } from "pdfjs-dist"
-import { Minus, Moon, Plus, Sun } from "lucide-react"
+import { Minus, Plus, ScrollText } from "lucide-react"
 import { Button } from "@/components/tiptap-ui-primitive/button"
 import { Toolbar, ToolbarGroup } from "@/components/tiptap-ui-primitive/toolbar"
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu"
@@ -57,7 +57,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   const [zoom, setZoom] = useState(1)
   const [page, setPage] = useState(start ?? 1)
   const [typed, setTyped] = useState<string | null>(null)
-  const [dark, setDark] = useState(() => localStorage.getItem("pdf-dark") === "1")
+  const [paper, setPaper] = useState(() => localStorage.getItem("pdf-paper") === "1")
   const [marks, setMarks] = useState<PdfMark[]>([])
   const [flash] = useState(() => {
     const mark = flashNext
@@ -171,7 +171,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   }
 
   return (
-    <div className={`pdf-reader${dark ? " is-dark" : ""}`}>
+    <div className={`pdf-reader${paper ? " is-paper" : ""}`}>
       <div className="pdf-reader-bar">
         <span className="pdf-reader-title" title={title}>{title}</span>
         <span className="pdf-reader-page">
@@ -203,15 +203,15 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           </Button>
           <Button
             data-style="ghost"
-            aria-label={dark ? "Light pages" : "Dark pages"}
-            title={dark ? "Light pages" : "Dark pages"}
-            data-active-state={dark ? "on" : "off"}
+            aria-label={paper ? "White pages" : "Paper pages"}
+            title={paper ? "White pages" : "Paper pages: easier on the eyes, pictures kept true"}
+            data-active-state={paper ? "on" : "off"}
             onClick={() => {
-              localStorage.setItem("pdf-dark", dark ? "0" : "1")
-              setDark(!dark)
+              localStorage.setItem("pdf-paper", paper ? "0" : "1")
+              setPaper(!paper)
             }}
           >
-            {dark ? <Sun className="tiptap-button-icon" /> : <Moon className="tiptap-button-icon" />}
+            <ScrollText className="tiptap-button-icon" />
           </Button>
         </span>
       </div>
