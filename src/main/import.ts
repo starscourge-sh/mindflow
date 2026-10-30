@@ -191,6 +191,9 @@ export function saidBy(line: string): { who: string; where: string; year: string
 /** A line too long to be a task: a task is said in a few words; past 20 it is a thought or a brief, whatever its first word. */
 export const isProse = (line: string): boolean => line.trim().split(/\s+/).length > 20
 
+/** "What is entropy?", "What's a gerund?": a few words asked after, a Word to look up (Lookups), not a question to carry for weeks. */
+const SHORT_WHAT = /^what(?:'s|’s| is| are) (?:an? |the )?[\p{L}\p{N}'’-]+(?: [\p{L}\p{N}'’-]+){0,2}\s*\?$/iu
+
 export function kindOf(line: string): string | null {
   const text = line.trim()
   if (/^https?:\/\/\S+$/.test(text)) return 'link'
@@ -205,7 +208,7 @@ export function kindOf(line: string): string | null {
   // A question is a question, not a todo; "Name: words" is a quote only when
   // there are words enough to be said, not a label like "Shopping list: eggs".
   if (/^["“].+["”]/.test(text) || (/["“].+["”]/.test(text) && saidBy(text).said) || /^[A-Z][\w.'-]*(?: [A-Z][\w.'-]*){0,2}( \([^)]*\))?: (?:\S+\s+){4,}\S/.test(text) || /^["“'].+["”']\s*[-—]\s*\w/.test(text)) return 'quote'
-  if (/^[\p{L}\p{N}_'-]+$/u.test(text) || /\bmeaning$/i.test(text) || /^(define|what does .+ mean)/i.test(text)) return 'word'
+  if (/^[\p{L}\p{N}_'-]+$/u.test(text) || /\bmeaning$/i.test(text) || /^(define|what does .+ mean)/i.test(text) || SHORT_WHAT.test(text)) return 'word'
   return null
 }
 

@@ -207,7 +207,7 @@ const PAGE_LINES: Record<string, string> = {
   calendar: 'Your days by the hour.',
   weekpage: 'The week in a few lines, then its tasks.',
   monthpage: 'The month, and the season of life it was.',
-  lookups: 'Words waiting for their meaning.',
+  lookups: 'Words and terms waiting for a meaning.',
   goals: 'Days you are working toward.',
   queue: 'What you mean to read next.',
   tags: 'Every tag, and what some of them do.',

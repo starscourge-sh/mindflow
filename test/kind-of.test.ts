@@ -91,3 +91,10 @@ test('a long line is a thought or a brief, never a task, whatever its first word
   assert.equal(kindOf('create a skill on uploading categories, you now have a good understanding of how it works with real data and repeated customer interactions'), null)
   assert.equal(kindOf('create a skill on uploading categories'), 'todo')
 })
+
+test('a short "What is X?" is a Word to look up; a longer question is not', () => {
+  for (const line of ['What is entropy?', "What's a gerund?", 'what is the Krebs cycle?', 'What are mitochondria?', 'What’s petrichor?'])
+    assert.equal(kindOf(line), 'word', line)
+  for (const line of ['What is the point of all this work?', 'What is it like to be a bat, really?', 'Why is the sky blue?'])
+    assert.notEqual(kindOf(line), 'word', line)
+})

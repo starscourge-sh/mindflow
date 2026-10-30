@@ -77,7 +77,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Getting around', keys: 'G M', does: "Go to the month's page", where: 'Main window' },
   { group: 'Getting around', keys: 'G E', does: 'Go to Goals: the days you are working toward', where: 'Main window' },
   { group: 'Getting around', keys: 'G B', does: 'Go to Queue: what you mean to read next, in order', where: 'Main window' },
-  { group: 'Getting around', keys: 'G .', does: 'Go to Lookups: words and questions waiting for an answer', where: 'Main window' },
+  { group: 'Getting around', keys: 'G .', does: 'Go to Lookups: words and terms waiting for a meaning', where: 'Main window' },
   { group: 'Getting around', keys: 'G #', does: 'Go to Tags', where: 'Main window' },
   { group: 'Getting around', keys: 'G J', does: 'Go to Sources: the people and works your notes come from', where: 'Main window' },
   { group: 'Getting around', keys: 'G S', does: 'Go to Stats', where: 'Main window' },

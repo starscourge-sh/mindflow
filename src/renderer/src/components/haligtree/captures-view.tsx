@@ -632,8 +632,8 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
                 {all.length ? <><strong>Written down, a thought can leave your head.</strong> Every capture has been dealt with. ⌘. catches the next one, from anywhere.</> : 'Press ⌘. in any app, write the thought, and send it with ⌘↵. It waits here until you come back to it.'}
               </Empty>
             ) : title === 'Lookups' ? (
-              <Empty title="Nothing waiting on an answer">
-                {'A word or a question saved as a Word waits here, asked, until you write what it means. Press ⌘. and pick Word, or look a word up as you type it.'}
+              <Empty title="No word waiting for a meaning">
+                {'A word or term saved as a Word waits here, asked, until you write what it means. Press ⌘. and type it, or ask “What is …?”. A question to carry for weeks belongs in Questions.'}
               </Empty>
             ) : (
               <Empty title="Nothing here yet">

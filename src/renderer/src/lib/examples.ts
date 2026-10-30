@@ -66,7 +66,7 @@ export const exampleArchived = (): CaptureMeta[] => [
   capture(1, { kind: 'quote', label: 'To be, or not to be, that is the question', attribution: 'William Shakespeare', archivedAt: minutesAgo(6000), status: 'promoted' })
 ]
 
-/** Lookups: words and questions asked, waiting for what they mean. */
+/** Lookups: words and terms waiting for a meaning. */
 export const exampleLookups = (): CaptureMeta[] => [
   capture(3, { kind: 'word', label: 'Hubris', lookup: 'asked' }),
   capture(2, { kind: 'word', label: 'Why does Gatsby watch the green light?', lookup: 'asked' }),

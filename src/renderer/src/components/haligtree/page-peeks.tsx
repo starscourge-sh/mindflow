@@ -133,7 +133,7 @@ const PEEKS: Record<string, PagePeek> = {
     )
   },
   lookups: {
-    text: '**Lookups: words and questions waiting for an answer.** Catch one as a Word; it waits here until you write down what it means.',
+    text: '**Lookups: words and terms waiting for a meaning.** Catch one as a Word, or ask “What is …?” in quick capture; it waits here until you write down what it means.',
     art: () => (<>
       <MTitle count={2}>Lookups</MTitle>
       <Capture kind="word">Palimpsest</Capture>

@@ -37,6 +37,13 @@ try {
   check('a question among other lines stays a note, with “Keep as a question” offered', !/Keep as a question in Writing/.test(await will()) && /Keep as a question/.test(await page.evaluate(() => document.body.innerText)))
   await page.keyboard.press('Meta+Enter'); await page.waitForTimeout(1500)
   check('sent, it is a note', (await noted('notes from the talk'))?.kind === 'note')
+  await page.keyboard.press('Escape'); await page.waitForTimeout(400)
+
+  // A short "What is X?" is a word to look up (Lookups), not a question to carry.
+  await open('What is entropy?')
+  check('a short “What is X?” is not offered as a question', !/Keep as a question in Writing/.test(await will()), await will())
+  await page.keyboard.press('Meta+Enter'); await page.waitForTimeout(1500)
+  check('sent, it is a Word waiting in Lookups, not a question', (await noted('What is entropy'))?.kind === 'word' && !(await asked('What is entropy?')), JSON.stringify((await noted('What is entropy'))?.kind))
 } finally {
   const passed = results.filter(Boolean).length
   console.log(`${passed}/${results.length} passed`)

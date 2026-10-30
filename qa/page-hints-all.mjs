@@ -10,7 +10,7 @@ process.env.QA_ARGS ??= '--sandbox'
 const { check, done } = checks()
 const c = await sandbox({ width: 1280, height: 860 })
 const { h, go, v } = c
-const WORDS = { feed: 'Your own notes, coming back as a feed.', calendar: 'Your days, with your tasks on them.', sources: 'The people and books your notes cite.', discarded: 'What you moved to the Bin.', archived: 'Notes kept out of sight, never deleted.', lookups: 'Words you looked up.' }
+const WORDS = { feed: 'Your own notes, coming back as a feed.', calendar: 'Your days, with your tasks on them.', sources: 'The people and books your notes cite.', discarded: 'What you moved to the Bin.', archived: 'Notes kept out of sight, never deleted.', lookups: 'Words and terms waiting for a meaning.' }
 try {
   await v('settings:set', { sounds: false })
   for (const [page, line] of Object.entries(WORDS)) {
