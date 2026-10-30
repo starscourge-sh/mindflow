@@ -543,8 +543,8 @@ export function Grainient({
         introClock = s.intro ? Math.min(1, introClock + dt / INTRO_SECONDS) : 1
         if (introClock === 1) doneRef.current?.()
       }
-      // About 16 pixels a second, so the grain creeps rather than flickers.
-      if (s.grainAnimated && !reduce) frameSeed = (frameSeed + dt * 16) % 100000
+      // About 19 pixels a second, so the grain creeps rather than flickers.
+      if (s.grainAnimated && !reduce) frameSeed = (frameSeed + dt * 19) % 100000
       shift.now += (shift.to - shift.now) * (1 - Math.exp(-dt / NUDGE_EASE))
       if (Math.abs(shift.to - shift.now) < 0.0005) shift.now = shift.to
       updateTouches(dt, view.width / view.height)
