@@ -405,7 +405,20 @@ function wearIcon(): void {
 // Mac, unless glass stickies are on, whose frosting must still match the theme. Worn again when that setting changes.
 let worn = { mode: 'dark', solid: false }
 const wear = (): void => void (nativeTheme.themeSource = worn.solid && !stickyGlass() ? 'system' : worn.mode === 'light' ? 'light' : 'dark')
-const stillness = (): boolean => !motionOn() || systemPreferences.getAnimationSettings().prefersReducedMotion
+/**
+ * A sticky chord from anywhere (⌃⌥⌘N, ⌃⌥⌘T, ⌃⌥⌘H) is under way: what it does lands at once, as Motion off
+ * does, since a key is pressed many times a day and should never wait on a glide. The menu bar's items still glide.
+ */
+let byKey = false
+const keyed = (run: () => void) => (): void => {
+  byKey = true
+  try {
+    run()
+  } finally {
+    byKey = false
+  }
+}
+const stillness = (): boolean => byKey || !motionOn() || systemPreferences.getAnimationSettings().prefersReducedMotion
 /** How long a glide takes: quick, since a key asks for it, but long enough for the eye to follow. */
 const GLIDE = 240
 
@@ -2077,7 +2090,7 @@ const TUCK_STRIP = 40
 const TUCK_OPEN_HANG = 10
 /** Cards opened out of a named tab: drawn with its strip until they fold back. */
 const openedTab = new Set<string>()
-type Peek = { side: 'left' | 'right'; nudge: boolean; flat: boolean; tucked: boolean; opened?: boolean; room?: typeof TUCK_ROOM; hang?: number; strip?: number }
+type Peek = { side: 'left' | 'right'; nudge: boolean; flat: boolean; tucked: boolean; opened?: boolean; room?: typeof TUCK_ROOM; hang?: number; strip?: number; width?: number }
 /** The side and kind of tab each peeking card was made as, so a change of either remakes it. */
 const tabShape = new Map<string, string>()
 /** What each tab was last told it is, asked for again by a sticky's page as it loads (a reload, or told before it listened). */
@@ -2178,7 +2191,7 @@ function shapeCard(key: string, win: BrowserWindow): void {
     if (fresh) {
       const peek: Peek = { side: left ? 'left' : 'right', nudge: nudging.delete(key), flat: tuck === 'flat', tucked: tuck !== 'off', ...(named ? { room, hang } : {}) }
       peekSaid.set(key, peek)
-      win.webContents.send('beacon:peek', peek)
+      win.webContents.send('beacon:peek', peek, byKey)
     }
     openedTab.delete(key)
     // Real glass fills its whole window, so a named tab drops it while tucked: its clear room stays clear and only
@@ -2211,14 +2224,14 @@ function shapeCard(key: string, win: BrowserWindow): void {
   if (to !== rest) openedAt.set(key, rest)
   if (builtGlass.get(key)) (win.setVibrancy('popover'), win.setHasShadow(true))
   if (fromTab) {
-    const peek: Peek = { side: atLeft ? 'left' : 'right', nudge: false, flat: false, tucked: true, opened: true, hang, strip: TUCK_STRIP }
+    const peek: Peek = { side: atLeft ? 'left' : 'right', nudge: false, flat: false, tucked: true, opened: true, hang, strip: TUCK_STRIP, width: to.width }
     openedTab.add(key)
     peekSaid.set(key, peek)
     win.webContents.send('beacon:peek', peek)
   } else {
     openedTab.delete(key)
     peekSaid.delete(key)
-    win.webContents.send('beacon:peek', null)
+    win.webContents.send('beacon:peek', null, byKey)
   }
   placed.set(win, { x: to.x, y: to.y })
   win.setMinimumSize(214, 124)
@@ -5065,6 +5078,9 @@ app.whenReady().then(() => {
   // Safe mode from anywhere, before a screen share, with no window to open:
   // the menu bar says it took. Both keys can be changed in Settings, so they
   // are taken again whenever the keys change.
+  // What each chord from anywhere runs, for a probe to press it (qa/sticky-keys.mjs): the Mac's own keys cannot be sent from a test.
+  const chordRuns = new Map<string, () => void>()
+  ;(globalThis as { haligtreeChords?: Map<string, () => void> }).haligtreeChords = chordRuns
   const anywhere = (keys: Record<string, string | null>): void => {
     // The menus say the keys as they are now.
     chosenKeys = keys
@@ -5076,16 +5092,17 @@ app.whenReady().then(() => {
       const chord = accelerator(now)
       // Told to the welcome, which offers another key when the one it teaches is taken.
       const ok = !!chord && !pretendTaken(now) && globalShortcut.register(chord, run)
+      chordRuns.set(made, run)
       if (chord && !ok) console.error(`Could not register ${chord}: something else already has it`)
       noteChord(made, now, ok)
     }
     take('⌘.', toggleWindow)
     take('⇧⌘.', () => void areaIntoBox())
     // Safe mode's ⌥⌘S is the menu bar's (app-menu.ts), not the whole Mac's: taken here, it was VS Code's and Xcode's “Save All” too.
-    take('⌃⌥⌘N', () => showStickies())
-    take('⌃⌥⌘T', () => void tidyStickies())
+    take('⌃⌥⌘N', keyed(() => showStickies()))
+    take('⌃⌥⌘T', keyed(() => void tidyStickies()))
     // Every sticky tucked into a tab at the edge, or brought back out.
-    take('⌃⌥⌘H', () => tuckStickies(stickyTuck() === 'off' ? 'tabs' : 'off'))
+    take('⌃⌥⌘H', keyed(() => tuckStickies(stickyTuck() === 'off' ? 'tabs' : 'off')))
     // Ten more minutes on the session or break running, from anywhere; the pill rolls its time up and says so.
     take('⌃⌥⌘=', () => void extendRunning(10 * 60_000))
     // A bare focus session from anywhere, no task first: quick capture opens on “Start focus”'s lengths.

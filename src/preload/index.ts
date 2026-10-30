@@ -309,9 +309,9 @@ const api = {
     return () => ipcRenderer.off('frost', relay)
   },
   /** Told now and then to stir, so a sticky is seen again. */
-  /** A sticky told to be a tab at the screen's edge (tucked: every sticky tucked away; flat: only a small pill), or a goal's card told to peek as a slim tab at that edge of the screen (nudge: it came out by itself), or to be its whole card again (null); opened: a card slid out of its named tab, the tab's strip kept on its screen side. */
-  onBeaconPeek: (listen: (peek: { side: 'left' | 'right'; nudge: boolean; tucked?: boolean; flat?: boolean; opened?: boolean; room?: { side: number; top: number; bottom: number }; hang?: number; strip?: number } | null) => void): (() => void) => {
-    const relay = (_event: unknown, peek: { side: 'left' | 'right'; nudge: boolean; tucked?: boolean; flat?: boolean; opened?: boolean; room?: { side: number; top: number; bottom: number }; hang?: number; strip?: number } | null): void => listen(peek)
+  /** A sticky told to be a tab at the screen's edge (tucked: every sticky tucked away; flat: only a small pill), or a goal's card told to peek as a slim tab at that edge of the screen (nudge: it came out by itself), or to be its whole card again (null); opened: a card slid out of its named tab, the tab's strip kept on its screen side; instant: asked by a key, so it lands without a slide. */
+  onBeaconPeek: (listen: (peek: { side: 'left' | 'right'; nudge: boolean; tucked?: boolean; flat?: boolean; opened?: boolean; room?: { side: number; top: number; bottom: number }; hang?: number; strip?: number; width?: number } | null, instant?: boolean) => void): (() => void) => {
+    const relay = (_event: unknown, peek: { side: 'left' | 'right'; nudge: boolean; tucked?: boolean; flat?: boolean; opened?: boolean; room?: { side: number; top: number; bottom: number }; hang?: number; strip?: number; width?: number } | null, instant?: boolean): void => listen(peek, instant)
     ipcRenderer.on('beacon:peek', relay)
     // As it starts listening: what it is now, in case it was told before (or before a reload).
     void ipcRenderer.invoke('beacon:peek:now').then((peek) => peek && listen({ ...peek, nudge: false }), () => undefined)

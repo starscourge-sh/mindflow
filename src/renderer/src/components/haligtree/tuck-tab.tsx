@@ -17,7 +17,7 @@ const tabWords = (name: string): string => {
 }
 
 type Room = { side: number; top: number; bottom: number }
-type Tuck = { side: 'left' | 'right'; flat: boolean; opened: boolean; room: Room; hang: number; strip: number }
+type Tuck = { side: 'left' | 'right'; flat: boolean; opened: boolean; room: Room; hang: number; strip: number; width: number }
 const params = new URLSearchParams(location.search)
 const SPRING = { type: 'spring', stiffness: 420, damping: 34, mass: 0.8 } as const
 /** The card's clear room round it in its window: none on glass, 20 round paper (insetOf in main/index.ts). */
@@ -47,11 +47,18 @@ const Label = ({ name }: { name: string }): React.JSX.Element => (
 export function TuckTab(): React.JSX.Element | null {
   const [tuck, setTuck] = useState<Tuck | null>(null)
   const [name, setName] = useState('')
-  useEffect(() => window.api.onBeaconPeek((peek) => {
-    const now = peek?.tucked ? { side: peek.side, flat: !!peek.flat, opened: !!peek.opened, room: peek.room ?? NO_ROOM, hang: peek.hang ?? 0, strip: peek.strip ?? 0 } : null
+  // Tucked or brought back by its key (⌃⌥⌘H): there at once, no slide.
+  const [instant, setInstant] = useState(false)
+  useEffect(() => window.api.onBeaconPeek((peek, byKey = false) => {
+    const now = peek?.tucked ? { side: peek.side, flat: !!peek.flat, opened: !!peek.opened, room: peek.room ?? NO_ROOM, hang: peek.hang ?? 0, strip: peek.strip ?? 0, width: peek.width ?? innerWidth } : null
+    setInstant(byKey)
     setTuck((was) => {
-      // Out of its tab: the card slides in from the edge it was tucked at, on a soft spring.
-      if (was && !was.opened && (!now || now.opened) && !still()) void animate(document.body, { x: [was.side === 'right' ? 28 : -28, 0], opacity: [0, 1] }, SPRING)
+      if (!was || was.opened || (now && !now.opened) || byKey || still()) return now
+      // Pointed at, the card is drawn out of its tab: it starts with only the tab's strip on the screen and slides
+      // the rest of the way out, as a card pulled from a file. Brought back from the menu bar, a short slide in from its edge.
+      const sign = was.side === 'right' ? 1 : -1
+      const far = now?.opened ? Math.max(28, now.width - now.hang - now.strip) : 28
+      void animate(document.body, { transform: [`translateX(${sign * far}px)`, 'translateX(0px)'], opacity: [now?.opened ? 0.6 : 0, 1] }, SPRING)
       return now
     })
   }), [])
@@ -94,8 +101,8 @@ export function TuckTab(): React.JSX.Element | null {
       <motion.div
         aria-label={name}
         onPointerEnter={() => (chime('slide'), window.api.holdBeacon(true))}
-        initial={still() ? false : { opacity: 0, x: right ? 20 : -20 }}
-        animate={{ opacity: 1, x: 0 }}
+        initial={still() || instant ? false : { opacity: 0, transform: `translateX(${right ? 20 : -20}px)` }}
+        animate={{ opacity: 1, transform: 'translateX(0px)' }}
         transition={SPRING}
         // The note's own paper, square and without a border where it runs past the edge, in clear room for its shadow.
         style={tuck.flat ? PAPER : { ...SOLID_PAPER, boxShadow: SHADOW, top: room.top, bottom: room.bottom, ...(right ? { left: room.side, right: 0, paddingRight: hang } : { right: room.side, left: 0, paddingLeft: hang }) }}
