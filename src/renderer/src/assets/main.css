@@ -2412,18 +2412,9 @@ html[data-tuck-open="left"] .mf-card { border-top-right-radius: 0; border-bottom
 :root[data-paper='dots'] .note-pane .haligtree-editor-wrapper:not(.is-line) > .haligtree-editor-content,
 :root[data-paper='dots'] :is([data-day-write], [data-week-write], [data-room]) .haligtree-editor-wrapper:not(.is-line) > .haligtree-editor-content,
 .mf-paper[data-paper-sample='dots'] {
-  /* As faint as the grid's squares (a dot is a point, so a little more ink), fading into the page at its edges the same way. */
+  /* Faint, a little more ink than a line would need (a dot is a point), fading into the page at its edges. */
   background-image: radial-gradient(ellipse at 50% 35%, transparent 25%, var(--background) 90%), radial-gradient(circle at 1px 1px, color-mix(in oklab, var(--foreground) 14%, transparent) 1px, transparent 1.4px);
   background-size: 100% 100%, var(--mf-paper-step) var(--mf-paper-step);
-  background-attachment: local;
-}
-:root[data-paper='grid'] .note-pane .haligtree-editor-wrapper:not(.is-line) > .haligtree-editor-content,
-:root[data-paper='grid'] :is([data-day-write], [data-week-write], [data-room]) .haligtree-editor-wrapper:not(.is-line) > .haligtree-editor-content,
-.mf-paper[data-paper-sample='grid'] {
-  /* Faint, and fading into the page at its edges (the page's own colour laid over the squares there), so they sit
-     in the paper rather than over it. */
-  background-image: radial-gradient(ellipse at 50% 40%, transparent 45%, var(--background) 100%), linear-gradient(var(--mf-paper-ink) 1px, transparent 1px), linear-gradient(90deg, var(--mf-paper-ink) 1px, transparent 1px);
-  background-size: 100% 100%, var(--mf-paper-step) var(--mf-paper-step), var(--mf-paper-step) var(--mf-paper-step);
   background-attachment: local;
 }
 /* The welcome's easter egg (welcome.tsx, useNameEgg): the word "Haligtree" lit gold for a moment as it is said. */

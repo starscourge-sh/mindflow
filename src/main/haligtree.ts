@@ -401,7 +401,7 @@ const DEFAULTS = {
   // How a #tag chip looks: 'solid', its colour's wash behind its colour's words, or 'dot', an outline with a dot of its colour.
   tagLook: 'solid' as 'solid' | 'dot',
   // The paper a page is written on, as a notebook's: plain, dotted or squared.
-  paper: 'plain' as 'plain' | 'dots' | 'grid',
+  paper: 'plain' as 'plain' | 'dots',
   // A menu line's drawing: 'lines', or 'emoji' (each line's own emoji).
   menuIcons: 'lines' as 'lines' | 'emoji',
   // The sidebar's pages each in their own colour; off, all in one, as Vivaldi's monochrome icons (emoji greyed too).

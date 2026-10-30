@@ -16,10 +16,10 @@ try {
   await h.locator('input[type="search"], input[placeholder*="Search" i]').first().fill('paper')
   await h.waitForSelector('[data-paper-sample]', { timeout: 8000 })
   const samples = await h.evaluate(() => [...document.querySelectorAll('[data-paper-sample]')].map((one) => [one.dataset.paperSample, getComputedStyle(one).backgroundImage !== 'none']))
-  check('Settings shows three papers (plain, dots, grid), each drawn as itself', samples.length === 3 && samples.filter(([, drawn]) => drawn).length === 2 && !samples.find(([id]) => id === 'plain')[1], JSON.stringify(samples))
-  if (SHOTS) await h.locator('[data-paper-sample="grid"]').first().evaluate((one) => one.closest('[data-setting]')?.scrollIntoView({ block: 'center' }))
+  check('Settings shows two papers (plain, dots; no grid, which fought a note’s own lines), each drawn as itself', samples.length === 2 && samples.filter(([, drawn]) => drawn).length === 1 && !samples.find(([id]) => id === 'plain')[1], JSON.stringify(samples))
+  if (SHOTS) await h.locator('[data-paper-sample="dots"]').first().evaluate((one) => one.closest('[data-setting]')?.scrollIntoView({ block: 'center' }))
   if (SHOTS) await h.screenshot({ path: `${SHOTS}/paper-settings.png` })
-  for (const paper of ['dots', 'grid', 'plain']) {
+  for (const paper of ['dots', 'plain']) {
     await v('settings:set', { paper })
     await go('nuggets')
     await h.locator('[data-row], [data-item-row], li button').first().click().catch(() => {})
@@ -29,7 +29,7 @@ try {
     if (SHOTS) await h.screenshot({ path: `${SHOTS}/paper-${paper}.png` })
   }
   // The Journal's day page and the writing room wear it too.
-  await v('settings:set', { paper: 'grid' })
+  await v('settings:set', { paper: 'dots' })
   await go('day')
   await h.waitForSelector('[data-day-write] .ProseMirror', { timeout: 10000 })
   const onDay = await h.evaluate(() => getComputedStyle(document.querySelector('[data-day-write] .haligtree-editor-wrapper:not(.is-line) > .haligtree-editor-content')).backgroundImage)

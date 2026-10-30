@@ -29,12 +29,12 @@ try {
     check(`${view}: clicked, its row alone is lit and Journal is not`, now.find((one) => one.id === id)?.lit && now.filter((one) => one.lit).length === 1 && !(await journalLit()), JSON.stringify(now.map((one) => one.lit)) + on)
     if (SHOT) await h.screenshot({ path: `${SHOT}/journal-${id}.png`, clip: { x: 0, y: 0, width: 320, height: 520 } })
   }
-  // A scale with a row of its own is not listed twice.
   const shown = (await v('settings')).sidebarShown
   if (shown) {
     await v('settings:set', { sidebarShown: [...shown, 'weekpage'] }); await h.waitForTimeout(800)
     const after = await rows()
-    check("Week's page as its own row: Week is not listed under Journal too", !after.some((one) => one.id === 'weekpage'), JSON.stringify(after.map((one) => one.id)))
+    // Week's and Month's pages are never rows of their own now: reached only through Journal, even in a book that once showed them.
+    check("Week's page once shown as its own row: Week is still under Journal, and no row of its own", after.some((one) => one.id === 'weekpage') && !(await h.$('aside[data-chrome] [data-side-row][aria-label="Week\'s page"]')), JSON.stringify(after.map((one) => one.id)))
   }
   await c.theme('dark'); await c.go('monthpage')
   if (SHOT) await h.screenshot({ path: `${SHOT}/journal-dark.png`, clip: { x: 0, y: 0, width: 320, height: 520 } })

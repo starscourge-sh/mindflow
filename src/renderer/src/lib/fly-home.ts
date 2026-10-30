@@ -233,8 +233,8 @@ export function shredFrom(from: HTMLElement | null): (() => void) | undefined {
   const { box, picture, x, y } = shot
   return () => {
     // Narrow as a shredder cuts, whatever the width: a long row is many strips, not a few blocks.
-    // At most a dozen, so a long row is not dozens of copies falling at once.
-    const strips = Math.max(8, Math.min(12, Math.round(box.width / 14)))
+    // Twice as many as before (16 to 24), so it reads as shredded, not cut in a few.
+    const strips = Math.max(16, Math.min(24, Math.round(box.width / 7)))
     const width = box.width / strips
     for (let n = 0; n < strips; n++) {
       const strip = document.createElement('div')

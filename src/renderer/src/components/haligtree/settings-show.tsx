@@ -468,8 +468,7 @@ export const tagLookChoices = [
 /** The paper a note's page is written on, each choice drawn as a swatch of itself. */
 export const paperChoices = [
   { id: 'plain', label: 'Plain' },
-  { id: 'dots', label: 'Dots' },
-  { id: 'grid', label: 'Grid' }
+  { id: 'dots', label: 'Dots' }
 ].map((one) => ({ ...one, show: <span data-paper-sample={one.id} className="mf-paper absolute inset-0" /> }))
 
 export const linkChoices = [

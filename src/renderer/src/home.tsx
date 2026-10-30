@@ -769,7 +769,9 @@ export function Home(): React.JSX.Element {
   // Back after a long time away: only the Inbox, Journal and Tasks, until the next start or "Show everything".
   const away = useLive(() => call<{ days: number; quiet: boolean }>('return:quiet'), { days: 0, quiet: false })
   const quiet = away.quiet
-  const shown = quiet ? ['day', 'inbox', 'today'] : shownAll
+  // Week's and Month's pages are reached through Journal (its Week and Month under its row), never rows of their own
+  // for now, so a book that once showed them does not list them twice.
+  const shown = quiet ? ['day', 'inbox', 'today'] : shownAll.filter((id) => id !== 'weekpage' && id !== 'monthpage')
   const quietOpened = useRef(false)
   useEffect(() => {
     if (!quiet || quietOpened.current) return
@@ -1053,7 +1055,15 @@ export function Home(): React.JSX.Element {
       else if (event.key === 'c') (chime('open'), window.api.showPrompt())
     }
     window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
+    // A mouse's own back and forward buttons (the side buttons, 3 and 4) step through the pane's trail, as ⌘[ and ⌘]
+    // do, the way they go back and forward in a browser and in Finder.
+    const onMouse = (event: MouseEvent): void => {
+      if (event.button !== 3 && event.button !== 4) return
+      event.preventDefault()
+      step(event.button === 3 ? -1 : 1)
+    }
+    window.addEventListener('mouseup', onMouse)
+    return () => (window.removeEventListener('keydown', onKey, true), window.removeEventListener('mouseup', onMouse))
   })
 
   // Somewhere else sent you to one thing: open its section with it open.

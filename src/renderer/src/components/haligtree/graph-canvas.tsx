@@ -583,6 +583,15 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, className, 
         // Arriving, a dot grows from most of its size as it fades in, so it lands rather than blinks on.
         const grow = growing ? 0.7 + 0.3 * seen(dot, now) : 1
         const chip = chipOf(dot, scale), half = chip.half * grow
+        // The page under the dot first, as solid as the dot is there: a faded or tinted dot reads paler, never
+        // see-through, so the lines that run to it never show across its face.
+        const shade = context.globalAlpha
+        context.globalAlpha = Math.min(1, shade * 2)
+        context.beginPath()
+        context.arc(dot.px, dot.py, dot.r * grow, 0, Math.PI * 2)
+        context.fillStyle = ring
+        context.fill()
+        context.globalAlpha = shade
         context.drawImage(chip.image, dot.px - half, dot.py - half, half * 2, half * 2)
         if (chip.picture) continue
         const share = iconShare(dot, dot === shown || (!!shown && on(dot)))
