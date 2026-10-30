@@ -69,7 +69,7 @@ import { macTwelveHour } from './mac-clock'
 import { registerScenery, sceneryDir } from './scenery'
 import { celebrationFile, registerCelebrations } from './celebrate'
 import type { Nudge } from './nudge'
-import { firstRun, isWelcoming, noteChord, welcomeBoxSpot, pretendTaken, registerOnboarding, whenWelcoming, whereTray } from './onboarding'
+import { firstRun, isWelcoming, keepWindowBeforeWelcome, noteChord, welcomeBoxSpot, windowBeforeWelcome, pretendTaken, registerOnboarding, whenWelcoming, whereTray } from './onboarding'
 import { registerUnused } from './unused'
 import { registerMedia } from './media'
 import { registerPeople } from './people'
@@ -756,6 +756,20 @@ const pillUp = (): boolean => focusWanted && focusBubbleShown() && !gate().black
 whenWelcoming((on) => {
   // The box draws its side panel only when the welcome is not running: told as it changes.
   if (prompt && !prompt.isDestroyed()) prompt.webContents.send('box:welcoming', on)
+  // While the welcome runs, the main window fills the screen's work area (maximised, never full screen); when it ends,
+  // finished or skipped, it goes back to the size and place it had, kept on disk in case of a quit halfway.
+  // Set by hand rather than the Mac's zoom, whose way back lands a moment later and over the size put back here.
+  // A first run's opening gathers in to the work area itself (gatherIn); its window-to-be is the size kept.
+  if (home && !home.isDestroyed() && !home.isFullScreen()) {
+    if (on) {
+      if (!windowBeforeWelcome()) keepWindowBeforeWelcome({ bounds: gathering?.rest ?? home.getNormalBounds(), maximized: home.isMaximized() })
+      if (!gathering) home.setBounds(screen.getDisplayMatching(home.getBounds()).workArea)
+    } else {
+      const was = windowBeforeWelcome()
+      keepWindowBeforeWelcome(null)
+      if (was && !was.maximized) home.setBounds(was.bounds)
+    }
+  }
   if (!focusPill || focusPill.isDestroyed()) return
   if (on) focusPill.hide()
   else if (pillUp()) (placeFocus(), focusPill.showInactive())
@@ -1710,7 +1724,9 @@ function spread(win: BrowserWindow): void {
 }
 function gatherIn(win: BrowserWindow): void {
   if (!gathering || gathering.going || win.isDestroyed()) return
-  const { from, rest, at } = gathering
+  const { from, at } = gathering
+  // While the welcome runs it lands filling the work area; its window-to-be is where the welcome's end puts it.
+  const rest = isWelcoming() ? { ...screen.getDisplayMatching(from).workArea } : gathering.rest
   clearTimeout(at)
   gathering.going = true
   const start = performance.now()

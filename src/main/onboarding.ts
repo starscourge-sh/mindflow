@@ -153,6 +153,11 @@ type BoxSpot = { x: number; y: number; width: number }
 let boxSpot: BoxSpot | null = null
 export const welcomeBoxSpot = (): BoxSpot | null => (welcoming ? boxSpot : null)
 
+/** The main window's place before the welcome filled the screen with it, kept on disk so a quit mid-welcome still puts it back when the welcome ends. */
+type WindowWas = { bounds: { x: number; y: number; width: number; height: number }; maximized: boolean }
+export const windowBeforeWelcome = (): WindowWas | null => read<WindowWas | null>('welcomeWindowWas', null)
+export const keepWindowBeforeWelcome = (was: WindowWas | null): void => write('welcomeWindowWas', was)
+
 /** Whether the welcome is open now, for the box to say something warmer while it is. */
 let welcoming = false
 export const isWelcoming = (): boolean => welcoming
