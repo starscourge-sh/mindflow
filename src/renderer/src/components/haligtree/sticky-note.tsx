@@ -15,7 +15,8 @@ import '@/components/tiptap-node/list-node/list-node.scss'
 import './sticky-note.scss'
 import { glance } from './note-preview'
 import { captionOf } from '@/components/image/image-look'
-import { Rolling, Tip, toast } from './ui'
+import { Rolling, Tags, Tip, toast } from './ui'
+import { itemName } from '@/lib/tasks'
 import { chime, paper } from '@/lib/sound'
 import { useAppearance, useLive, haligtree } from '@/lib/haligtree'
 import { doneById, shownDone, taskAt } from '../../../../main/linked-lines'
@@ -563,9 +564,11 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
   // The title is not said twice: a first line that is the title is left out below it.
   const twice = !!opening && opening === title
   titled.current = title
-  titleNow.current = title
+  // A task's or an Inbox note's #tags as tags after its words, never in its name, as on every list.
+  const named = itemName(type, title)
+  titleNow.current = named.text || title
   // Said down its tab when the stickies are tucked away.
-  document.title = title || 'A sticky note'
+  document.title = titleNow.current || 'A sticky note'
   // Nothing written yet below its title: where to start.
   const empty = !(doc.content ?? []).some((child, at) => (at || !twice) && (child.type !== 'paragraph' || !!child.content?.length))
 
@@ -623,7 +626,7 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
         <SandboxStamp />
         {/* The strip of tape that holds it up. */}
         <Tape inside={GLASS} />
-        <StickyHead title={title} titleClass="private-text" open={asking}
+        <StickyHead title={named.tags.length ? <span className="flex min-w-0 items-center gap-1.5"><span className="truncate">{named.text}</span><Tags tags={named.tags} go={false} /></span> : title} titleClass="private-text" open={asking}
           // "All done" gives way first when the title needs the room, down to a ✓.
           slot={todos.length > 0 && !left ? 'basis-15' : ''}
           count={todos.length > 0 && (left ? (

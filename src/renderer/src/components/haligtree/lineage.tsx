@@ -3,7 +3,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { hierarchy, tree } from 'd3-hierarchy'
 
 import { useLive, haligtree, type Task } from '@/lib/haligtree'
-import { taskName } from '@/lib/tasks'
+import { itemName } from '@/lib/tasks'
 import { RowMenu } from './row-menu'
 import { taskMenu, useTaskNow } from './tasks-view'
 import { EASE, spring, WEIGHT } from '@/lib/motion'
@@ -59,7 +59,7 @@ const Row = ({ one, onOpen }: { one: One; onOpen?: (type: string, id: string) =>
 }
 
 /** A task's words as every list shows them, without its #tags. */
-const titleOf = (one: { type: string; title: string }): string => (one.type === 'task' ? taskName(one.title).text : one.title)
+const titleOf = (one: { type: string; title: string }): string => itemName(one.type, one.title).text
 
 /** A task in the tree right-clicks with its own menu, as in every list. */
 function TaskMenu({ id, onOpen, children }: { id: string; onOpen?: (type: string, id: string) => void; children: React.ReactElement }): React.JSX.Element {

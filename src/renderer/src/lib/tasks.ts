@@ -208,6 +208,14 @@ export function taskName(title: string): { text: string; tags: string[] } {
 }
 
 /**
+ * Any row's name, as every list shows it: a task's or an Inbox note's words
+ * without their #tags (a task line kept from quick capture is an Inbox note
+ * until it is made a task), the tags apart; anything else as it is titled.
+ */
+export const itemName = (type: string, title: string): { text: string; tags: string[] } =>
+  type === 'task' || type === 'capture' ? taskName(title) : { text: title, tags: [] }
+
+/**
  * On Today: open, not waiting on someone, and set or due by today or before
  * (late ones count). The one rule the sidebar, the Today list, the desktop
  * Today sticky, Today's brief and Close the day all count by.

@@ -3,7 +3,8 @@ import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { chime } from '@/lib/sound'
 import { useLive } from '@/lib/haligtree'
 import { notes, type Day, type DayEntry } from '@/lib/notes'
-import { taskName } from '@/lib/tasks'
+import { itemName } from '@/lib/tasks'
+import { Tags } from './ui'
 import { TIME_COLUMN, clock } from '@/lib/clock'
 import { Brain, CheckCircle2, Gem, Inbox, ListTodo } from '@/components/ui/icons'
 import { CalendarClock } from 'lucide-react'
@@ -67,7 +68,7 @@ export function DayLog({ day, given, only, onOpen, title = 'The day, hour by hou
           {rows.map((row) => {
             const kind = row.type === 'capture' ? CAPTURE_TYPES.find((type) => type.id === row.kind) : undefined
             const Icon = row.what === 'captured' && kind ? kind.icon : row.type === 'nugget' && row.what === 'studied' ? Gem : SAID[row.what].icon
-            const name = row.type === 'task' ? taskName(row.title).text : row.title
+            const name = itemName(row.type, row.title)
             const timed = row.at && !(row.what === 'dated' && row.allDay)
             return (
               <li key={`${row.what}:${row.id}`} data-log-row={row.what} data-private={row.private ? '' : undefined}>
@@ -77,7 +78,8 @@ export function DayLog({ day, given, only, onOpen, title = 'The day, hour by hou
                   <Icon className="size-3.5 shrink-0 translate-y-0.5" style={kind && row.what === 'captured' ? { color: kind.tint } : { color: 'var(--muted-foreground)' }} />
                   <span className="min-w-0 flex-1 text-body text-foreground">
                     <span className="mr-1.5 text-control font-medium text-foreground/75">{SAID[row.what].verb}</span>
-                    <span className="private-text [overflow-wrap:anywhere]">{name || 'Untitled'}</span>
+                    <span className="private-text [overflow-wrap:anywhere]">{name.text || 'Untitled'}</span>
+                    {!!name.tags.length && <span className="ml-1.5 inline-flex align-middle"><Tags tags={name.tags} go={false} /></span>}
                   </span>
                 </button>
               </li>

@@ -15,7 +15,7 @@ import { useTaskNow } from './tasks-view'
 import { PICKED_MARK, usePickMixed } from './pick-mixed'
 import { listInFront, useListScope } from '@/lib/list-front'
 import { moveToBin } from '@/lib/to-bin'
-import { taskName } from '@/lib/tasks'
+import { itemName } from '@/lib/tasks'
 import { Highlight, useFluidHover } from './glide'
 import { dayKey as dayOf, dayName, daysFromToday } from '../../../../main/dates'
 import { clock } from '@/lib/clock'
@@ -138,7 +138,7 @@ export function RecentPanel({ until, onOpen, onClose, className = '' }: {
             const Mark = one.type === 'capture' ? kind?.icon ?? CAPTURE_TYPES[0].icon : TIER[one.type as keyof typeof TIER] ?? Gem
             const header = index === 0 || dayKey(list[index - 1].at) !== dayKey(one.at)
             const task = one.type === 'task' ? tasks.find((t) => t.id === one.id) : undefined
-            const name = one.type === 'task' ? taskName(one.title) : { text: one.title, tags: [] as string[] }
+            const name = itemName(one.type, one.title)
             return (
               <Fragment key={`${one.type}-${one.id}`}>
                 {header && <h3 className="px-2 pt-3 pb-1 text-meta text-muted-foreground">{dayHeader(one.at)}</h3>}

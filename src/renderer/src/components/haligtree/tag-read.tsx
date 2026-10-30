@@ -26,7 +26,7 @@ import { ago, dayKey, dayMonth, dayName, dayjs, noon, num } from '../../../../ma
 import { asideItem, useHere } from '@/lib/split'
 import { queueItems } from '@/lib/reading-queue'
 import { PICKED_MARK, usePickMixed } from './pick-mixed'
-import { taskName } from '@/lib/tasks'
+import { itemName } from '@/lib/tasks'
 import { FileText, Gem, Inbox, List, ListTodo, Orbit, Bookmark as Pin, Bookmark as PinOff } from '@/components/ui/icons'
 import { IslandBox, useIslands } from './islands'
 import { useFullMenu } from './side-menu'
@@ -342,7 +342,7 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
     const day = item.type === 'task' ? (task?.dueAt ? dayMonth(task.dueAt) : 'No day') : dayMonth(item.at)
     return {
       key: `${item.type}-${item.id}`,
-      title: item.type === 'task' ? taskName(item.title || item.label).text : item.title || item.label,
+      title: itemName(item.type, item.title || item.label).text,
       icon: <Icon className="size-4 shrink-0 text-muted-foreground" style={kind && item.type === 'capture' ? { color: kind.tint } : undefined} />,
       cells: [day, `${num(words)} ${words === 1 ? 'word' : 'words'}`],
       private: item.private,

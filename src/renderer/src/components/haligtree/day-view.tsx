@@ -18,7 +18,7 @@ import { useKept } from '@/lib/nav'
 import { showIn } from '@/lib/same-words'
 import { Island, Page, Rolling, Tags, Tip, typing, quietly } from './ui'
 import { PICKED_MARK, usePickMixed } from './pick-mixed'
-import { taskName } from '@/lib/tasks'
+import { itemName } from '@/lib/tasks'
 import { DayBanner } from './scenery'
 import { DayBrief } from './day-brief'
 import { LivingCaret, PageCap, WriterLine, dayCaption, useWritingQuiet } from './day-writing'
@@ -289,8 +289,8 @@ export function DayView({ onOpen, start, onScale, onView }: {
                   {/* Dealt with, it stays where it was made, struck through: the page keeps what you meant to do and that you did it. */}
                   {/* A task reads as it does in every list: its words without the #tags, the tags small and coloured after. */}
                   <span className={`private-text flex min-w-0 flex-1 items-center gap-1.5 ${title === 'Captured' && entry.status && entry.status !== 'open' ? 'text-muted-foreground line-through decoration-foreground/40' : ''}`}>
-                    <span className="truncate">{(entry.type === 'task' ? taskName(entry.title).text : entry.title) || 'Untitled'}</span>
-                    {entry.type === 'task' && <Tags tags={taskName(entry.title).tags} />}
+                    <span className="truncate">{itemName(entry.type, entry.title).text || 'Untitled'}</span>
+                    <Tags tags={itemName(entry.type, entry.title).tags} />
                   </span>
                   {/* Why a row is struck or where it went, in words: never the stored status. */}
                   {entry.status && entry.status !== 'open' && !(title === 'Done' && entry.status === 'done') && <span className="text-xs text-muted-foreground">{({ done: 'Done', dropped: 'In the Bin', closed: 'Closed' } as Record<string, string>)[entry.status] ?? statusSaid(entry.status)}</span>}
