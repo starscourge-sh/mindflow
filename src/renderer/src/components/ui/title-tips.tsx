@@ -3,11 +3,16 @@ import { FLOAT } from '@/lib/float'
 import { cn } from '@/lib/cn'
 import { onScrollAway } from '@/lib/scroll-away'
 
+/** Whether an element, or any box in it, hides part of its words (an ellipsis or a clamped line). */
+const cutShort = (element: Element): boolean =>
+  [element, ...element.querySelectorAll('*')].some((one) => one.scrollWidth > one.clientWidth + 1 || one.scrollHeight > one.clientHeight + 1)
+
 /**
  * Every `title` in the app shown as the app's own tip, never the system's grey
  * box: a title is taken off its element as the pointer arrives (so the system
  * never draws it), kept as `data-title-tip`, and shown here after the tips'
- * own wait, above the element (below where there is no room). It goes as the
+ * own wait, above the element (below where there is no room), unless it only
+ * repeats words already showing in full. It goes as the
  * pointer leaves, on a press or a key, and when the element scrolls. One place,
  * so a title written anywhere later looks like the rest.
  */
@@ -26,6 +31,9 @@ export function TitleTips(): React.JSX.Element | null {
       const text = target.getAttribute('data-title-tip')?.trim()
       hide()
       if (!text) return
+      // Words showing in full get no tip that only says them again; cut short, they do.
+      const shown = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement ? target.value : target.textContent
+      if (text === shown?.trim() && !cutShort(target)) return
       on = target
       timer = window.setTimeout(() => {
         if (on !== target || !target.isConnected) return
