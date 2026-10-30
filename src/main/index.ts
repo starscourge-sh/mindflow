@@ -208,11 +208,12 @@ const EXTENSIONS: Record<string, string> = {
 // `secure: true` - says treat it as trustworthy (like https) , without it browser will refuse and not trust files from this scheme
 // needs to run before the app (outside of app.whenReady()) is ready because, the browser engine builds its list of known address types once, as it starts
 protocol.registerSchemesAsPrivileged([
-  // `stream`, so a stored video or recording can play (and seek) in a note.
-  { scheme: 'haligtree', privileges: { standard: true, secure: true, stream: true, corsEnabled: true } },
+  // `stream`, so a stored video or recording can play (and seek) in a note;
+  // `supportFetchAPI`, so the PDF reader can fetch a stored PDF's bytes.
+  { scheme: 'haligtree', privileges: { standard: true, secure: true, stream: true, corsEnabled: true, supportFetchAPI: true } },
   // The first name, still answered: older backups and exported notes hold
   // mindflow:// links, and a restored one should still show its pictures.
-  { privileges: { standard: true, secure: true, stream: true, corsEnabled: true }, scheme: 'mindflow' }
+  { privileges: { standard: true, secure: true, stream: true, corsEnabled: true, supportFetchAPI: true }, scheme: 'mindflow' }
 ])
 
 /** The capture box's sizes: the toolbar's expander changes the height, the side panel the width. */

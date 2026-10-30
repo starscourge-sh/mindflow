@@ -1,0 +1,111 @@
+/* A PDF's pages, as sheets of paper on the app's own surface. */
+.pdf-pages {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.pdf-pages.is-failed {
+  padding: 1rem;
+  color: var(--mf-muted);
+  font-size: 0.9375rem;
+}
+
+.pdf-page {
+  position: relative;
+  flex: none;
+  overflow: hidden;
+  border-radius: 0.25rem;
+  background: #fff;
+  box-shadow: 0 0 0 1px var(--tt-border-color), 0 2px 8px -4px rgb(0 0 0 / 0.18);
+  --scale-round-x: 1px;
+  --scale-round-y: 1px;
+}
+
+.pdf-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* The words over each page, from pdf.js's own viewer: clear text in place, so it selects. */
+.pdf-page .textLayer {
+  position: absolute;
+  inset: 0;
+  overflow: clip;
+  line-height: 1;
+  text-align: initial;
+  transform-origin: 0 0;
+  z-index: 0;
+  --min-font-size: 1;
+  --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+  --min-font-size-inv: calc(1 / var(--min-font-size));
+}
+
+.pdf-page .textLayer :is(span, br) {
+  position: absolute;
+  color: transparent;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+  user-select: text;
+}
+
+.pdf-page .textLayer > :not(.markedContent),
+.pdf-page .textLayer .markedContent span:not(.markedContent) {
+  z-index: 1;
+  --font-height: 0;
+  font-size: calc(var(--text-scale-factor) * var(--font-height));
+  --scale-x: 1;
+  --rotate: 0deg;
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
+}
+
+.pdf-page .textLayer .markedContent {
+  display: contents;
+}
+
+.pdf-page .textLayer ::selection {
+  background: color-mix(in srgb, var(--tt-brand-color-500, #6366f1) 30%, transparent);
+  color: transparent;
+}
+
+.pdf-page .textLayer br::selection {
+  background: transparent;
+}
+
+.pdf-page .textLayer .endOfContent {
+  position: absolute;
+  inset: 100% 0 0;
+  display: block;
+  z-index: 0;
+  cursor: default;
+  user-select: none;
+}
+
+.pdf-page .textLayer.selecting .endOfContent {
+  top: 0;
+}
+
+/* In a note: the pages in a box of their own, never taller than most of the window. */
+.tiptap-attachment.is-pdf .tiptap-attachment-card {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  cursor: default;
+}
+
+.tiptap-attachment.is-pdf .tiptap-attachment-save + .tiptap-attachment-save {
+  margin-inline-start: 0;
+}
+
+.tiptap-pdf-scroll {
+  max-height: 70vh;
+  padding: 0.75rem;
+  overflow-y: auto;
+  border: 1px solid var(--tt-border-color);
+  border-top: 0;
+  border-radius: 0 0 0.625rem 0.625rem;
+  background-color: var(--mf-surface);
+}
