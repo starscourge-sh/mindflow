@@ -30,6 +30,77 @@ export async function pdfTitle(doc: PDFDocumentProxy, name: string): Promise<str
   return title || name.replace(/\.pdf$/i, "")
 }
 
+/** Words kept from a page: where on its text they start and end, and the words themselves. */
+export type PdfMark = { id: string; page: number; quote: string; start: number; end: number; gemId?: string | null }
+
+/** Every run of words in a page's text layer, in reading order. */
+const textNodes = (layer: Element): Text[] => {
+  const walk = document.createTreeWalker(layer, NodeFilter.SHOW_TEXT)
+  const nodes: Text[] = []
+  for (let node = walk.nextNode(); node; node = walk.nextNode()) nodes.push(node as Text)
+  return nodes
+}
+
+/** Where a selection starts and ends on its page's text, as counts of characters: the same at any zoom. */
+export function offsetsIn(layer: Element, range: Range): { start: number; end: number } {
+  const before = document.createRange()
+  before.setStart(layer, 0)
+  before.setEnd(range.startContainer, range.startOffset)
+  const start = before.toString().length
+  return { start, end: start + range.toString().length }
+}
+
+/** The range a mark covers on a drawn page; found again by its words if the offsets no longer match. */
+function rangeOf(layer: Element, mark: PdfMark): Range | null {
+  const nodes = textNodes(layer)
+  const text = nodes.map((node) => node.data).join("")
+  let { start, end } = mark
+  if (text.slice(start, end) !== mark.quote) {
+    const at = text.indexOf(mark.quote)
+    if (at < 0) return null
+    ;[start, end] = [at, at + mark.quote.length]
+  }
+  const range = document.createRange()
+  let seen = 0
+  let placed = false
+  for (const node of nodes) {
+    const next = seen + node.data.length
+    if (!placed && start < next) {
+      range.setStart(node, start - seen)
+      placed = true
+    }
+    if (placed && end <= next) {
+      range.setEnd(node, end - seen)
+      return range
+    }
+    seen = next
+  }
+  return null
+}
+
+/** The page's marks, drawn as soft bands under its words, measured fresh at the zoom it is drawn at. */
+function paintMarks(sheet: HTMLElement, marks: PdfMark[], flash: string | null | undefined): void {
+  sheet.querySelector(".pdf-marks")?.remove()
+  const layer = sheet.querySelector(".textLayer")
+  if (!layer || !marks.length) return
+  const box = sheet.getBoundingClientRect()
+  const paint = document.createElement("div")
+  paint.className = "pdf-marks"
+  for (const mark of marks) {
+    const range = rangeOf(layer, mark)
+    if (!range) continue
+    for (const rect of range.getClientRects()) {
+      if (!rect.width || !rect.height) continue
+      const band = document.createElement("div")
+      band.className = `pdf-mark${mark.id === flash ? " is-flash" : ""}`
+      band.dataset.mark = mark.id
+      Object.assign(band.style, { left: `${rect.left - box.left}px`, top: `${rect.top - box.top}px`, width: `${rect.width}px`, height: `${rect.height}px` })
+      paint.append(band)
+    }
+  }
+  sheet.insertBefore(paint, layer)
+}
+
 /** How many pages either side of the ones on show are drawn ahead. */
 const AHEAD = 1
 
@@ -44,12 +115,21 @@ export function PdfPages({
   zoom = 1,
   scroller,
   onLoad,
+  marks = [],
+  flash,
+  land,
 }: {
   src: string
   zoom?: number
   /** What scrolls the pages; their own box when not given. */
   scroller?: React.RefObject<HTMLElement | null>
   onLoad?: (doc: PDFDocumentProxy) => void
+  /** Kept words to draw, on whichever pages they are on. */
+  marks?: PdfMark[]
+  /** A mark to flash once as its page is drawn: the one a gem's link came back to. */
+  flash?: string | null
+  /** The page to open at, scrolled to once the sheets are laid out. */
+  land?: number
 }): React.JSX.Element {
   const box = useRef<HTMLDivElement>(null)
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null)
@@ -106,6 +186,7 @@ export function PdfPages({
       { root: scroller?.current ?? null },
     )
     el.querySelectorAll<HTMLElement>(".pdf-page").forEach((sheet) => watch.observe(sheet))
+    if (land && land > 1) el.querySelector<HTMLElement>(`.pdf-page[data-page="${land}"]`)?.scrollIntoView({ block: "start" })
     return () => watch.disconnect()
   }, [doc, scroller, laidOut])
 
@@ -115,16 +196,24 @@ export function PdfPages({
     <div ref={box} className="pdf-pages">
       {doc && scale > 0 &&
         Array.from({ length: doc.numPages }, (_, index) => (
-          <PdfPage key={index + 1} doc={doc} page={index + 1} scale={scale} guess={size!} drawn={shown.has(index + 1)} />
+          <PdfPage key={index + 1} doc={doc} page={index + 1} scale={scale} guess={size!} drawn={shown.has(index + 1)} marks={marks.filter((mark) => mark.page === index + 1)} flash={flash} />
         ))}
     </div>
   )
 }
 
 /** One sheet: its size always, its picture and words only while near the view. */
-function PdfPage({ doc, page, scale, guess, drawn }: { doc: PDFDocumentProxy; page: number; scale: number; guess: { w: number; h: number }; drawn: boolean }): React.JSX.Element {
+function PdfPage({ doc, page, scale, guess, drawn, marks, flash }: { doc: PDFDocumentProxy; page: number; scale: number; guess: { w: number; h: number }; drawn: boolean; marks: PdfMark[]; flash?: string | null }): React.JSX.Element {
   const sheet = useRef<HTMLDivElement>(null)
   const [own, setOwn] = useState<{ w: number; h: number } | null>(null)
+  // The words on this page are laid out: marks can be measured against them.
+  const [worded, setWorded] = useState(0)
+  const key = marks.map((mark) => mark.id).join(" ")
+  useEffect(() => {
+    if (sheet.current && worded) paintMarks(sheet.current, marks, flash)
+    // Marks are compared by their ids: a new array with the same ones is no change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [worded, key, flash])
   const size = own ?? guess
 
   useEffect(() => {
@@ -160,7 +249,9 @@ function PdfPage({ doc, page, scale, guess, drawn }: { doc: PDFDocumentProxy; pa
         .then(() => {
           if (!live) return
           el.replaceChildren(canvas, words)
-          return text.render()
+          return text.render().then(() => {
+            if (live) setWorded((count) => count + 1)
+          })
         })
         .catch(() => {})
     })

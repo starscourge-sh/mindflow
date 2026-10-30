@@ -61,6 +61,11 @@ try {
     }
   })
   check('the dropped PDF becomes a PDF block in the note', !!seen, 'no .is-pdf block')
+  const pdfSrc = await h.evaluate((sel) => {
+    let src = ''
+    document.querySelector(sel).editor.state.doc.descendants((node) => void (node.type.name === 'attachment' && (src = node.attrs.src)))
+    return src
+  }, EDITOR)
   if (!seen?.sheets) console.log('errors:', errors.slice(-5))
   check("page 1's words are laid over it", /Page 1 of the probe book/.test(seen?.words ?? ''), seen?.words)
   check('a sheet for every page', seen?.sheets === 3, String(seen?.sheets))
@@ -118,11 +123,73 @@ try {
   check('the page gone to is drawn', /3:drawn/.test(drawnNow), drawnNow)
   check('typing a page goes there', onPage.field === '3' && onPage.top < 60, JSON.stringify(onPage))
   await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-pane.png` })
+  // Highlight to gem: words picked on page 3 offer "Keep"; Keep makes a gem with the quote, the book and the page.
+  await h.evaluate(() => {
+    const span = [...document.querySelectorAll('.pdf-reader .pdf-page[data-page="3"] .textLayer span')].find((one) => /quiet sentence/.test(one.textContent))
+    const text = span.firstChild
+    const range = document.createRange()
+    range.setStart(text, 2)
+    range.setEnd(text, 'A quiet sentence worth keeping'.length)
+    getSelection().removeAllRanges()
+    getSelection().addRange(range)
+  })
+  await h.waitForSelector('.pdf-keep-bar button[aria-label="Keep"]', { timeout: 4000 }).catch(() => {})
+  check('picked words offer Keep', await h.evaluate(() => !!document.querySelector('.pdf-keep-bar button[aria-label="Keep"]')), '')
+  await h.click('.pdf-keep-bar button[aria-label="Keep"]'); await wait(900)
+  const kept = await h.evaluate(async () => {
+    const one = document.querySelector('.pdf-reader .pdf-mark')
+    return { band: !!one, page: one?.closest('.pdf-page')?.dataset.page }
+  })
+  check('the kept words are marked on their page', kept.band && kept.page === '3', JSON.stringify(kept))
+  const marks = await v('pdf:highlights', pdfSrc)
+  check('the highlight is saved with its page and words', marks.length === 1 && marks[0].page === 3 && marks[0].quote === 'quiet sentence worth keeping', JSON.stringify(marks))
+  const gem = marks[0]?.gemId ? await v('item', marks[0].gemId) : null
+  const body = JSON.stringify(gem?.body ?? '')
+  check('Keep made a gem holding the quote', /quiet sentence worth keeping/.test(body), body.slice(0, 200))
+  check('the gem names the book and page', gem?.attribution === 'The Probe Book, p. 3', String(gem?.attribution))
+  check('the gem links back to the page and mark', body.includes(`#page=3&mark=${marks[0]?.id}`), body.slice(0, 300))
+  // Zoomed in, the mark is drawn again over the same words.
+  await h.click('.pdf-reader button[aria-label="Larger"]'); await wait(1200)
+  const overWords = await h.evaluate(() => {
+    const band = document.querySelector('.pdf-reader .pdf-page[data-page="3"] .pdf-mark')?.getBoundingClientRect()
+    const span = [...document.querySelectorAll('.pdf-reader .pdf-page[data-page="3"] .textLayer span')].find((one) => /quiet sentence/.test(one.textContent))?.getBoundingClientRect()
+    return band && span ? { top: Math.round(band.top - span.top), left: Math.round(band.left - span.left), w: Math.round(band.width), sw: Math.round(span.width) } : null
+  })
+  check('zoomed in, the mark is redrawn over its words', overWords && Math.abs(overWords.top) < 4 && overWords.left > 0 && overWords.w < overWords.sw, JSON.stringify(overWords))
+  await h.click('.pdf-reader button[aria-label="Fit width"]'); await wait(600)
+  await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-mark.png` })
+  // Right-click on it: open its gem, or remove the highlight.
+  const at = await h.evaluate(() => { const r = document.querySelector('.pdf-reader .pdf-mark').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })
+  await h.mouse.click(at.x, at.y, { button: 'right' }); await wait(500)
+  const menu = await h.evaluate(() => [...document.querySelectorAll('[role="menuitem"]')].map((one) => one.textContent.trim()))
+  check('right-click on a mark offers its gem and removing it', menu.includes('Open its gem') && menu.includes('Remove highlight'), JSON.stringify(menu))
+  await h.keyboard.press('Escape'); await wait(300)
+
   await h.click('.pdf-reader button[aria-label="Dark pages"]'); await wait(400)
   await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-pane-dark.png` })
   await h.click('.pdf-reader button[aria-label="Light pages"]')
   await h.keyboard.press('Meta+BracketLeft'); await wait(1200)
   check('Back returns to the note', await h.evaluate(() => !document.querySelector('.pdf-reader') && !!document.querySelector('.is-pdf')), '')
+
+  // Reopened, the highlight is drawn again; the gem's link opens the PDF at page 3 with it flashing.
+  const link = await h.evaluate(async (src) => {
+    const marks = await window.api.haligtree('pdf:highlights', src)
+    return `${src}#page=3&mark=${marks[0].id}&name=probe-book.pdf`
+  }, pdfSrc)
+  await h.evaluate((href) => document.querySelector('[data-open] .tiptap').editor.chain().focus('end').insertContent(`<p><a href="${href}">back to the book</a></p>`).run(), link)
+  await wait(400)
+  const linkBox = await h.evaluate(() => { const r = [...document.querySelectorAll('[data-open] .tiptap a')].find((one) => one.textContent === 'back to the book').getBoundingClientRect(); return { x: r.left + 10, y: r.top + r.height / 2 } })
+  await h.keyboard.down('Meta'); await h.mouse.click(linkBox.x, linkBox.y); await h.keyboard.up('Meta')
+  await h.waitForSelector('.pdf-reader .pdf-mark', { timeout: 10000 }).catch(() => {})
+  await wait(300)
+  const back = await h.evaluate(() => {
+    const box = document.querySelector('.pdf-reader-scroll')?.getBoundingClientRect()
+    const sheet = document.querySelector('.pdf-reader .pdf-page[data-page="3"]')?.getBoundingClientRect()
+    return { open: !!box, field: document.querySelector('.pdf-reader-page-field')?.value, top: box && sheet ? Math.round(sheet.top - box.top) : null, flash: !!document.querySelector('.pdf-reader .pdf-mark.is-flash') }
+  })
+  check("the gem's link opens the PDF at its page", back.open && back.field === '3' && back.top !== null && back.top < 60, JSON.stringify(back))
+  check('with the mark drawn again and flashing', back.flash, JSON.stringify(back))
+  await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-link-back.png` })
 } catch (error) {
   check('ran without throwing', false, String(error?.stack ?? error))
 } finally {

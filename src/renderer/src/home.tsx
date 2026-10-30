@@ -681,6 +681,15 @@ export function Home(): React.JSX.Element {
     window.addEventListener('haligtree:pdf', onPdf)
     return () => window.removeEventListener('haligtree:pdf', onPdf)
   })
+  // One thing opened by name from a surface with no `onOpen` of its own (a PDF's mark opening its gem).
+  useEffect(() => {
+    const onOpen = (event: Event): void => {
+      const { type, id } = (event as CustomEvent<{ type: string; id: string }>).detail
+      open(type, id)
+    }
+    window.addEventListener('haligtree:open', onOpen)
+    return () => window.removeEventListener('haligtree:open', onOpen)
+  })
   // Opened to the side from anywhere in the window: a row's menu, a note's ⋯, an @ link's card.
   useEffect(() => {
     const onAside = (event: Event): void => {

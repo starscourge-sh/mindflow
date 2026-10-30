@@ -8,6 +8,7 @@ import { NodeSelection, Selection as PMSelection, type EditorState, type Transac
 import { onlyWordsChanged } from "@/lib/tiptap-utils"
 import type { Node as ProseMirrorNode, ResolvedPos } from "@tiptap/pm/model"
 import { EditorContent, EditorContext, useEditor } from "@tiptap/react"
+import { followPdfLink } from "@/components/pdf/pdf-reader"
 
 // --- Tiptap Core Extensions ---
 import { StarterKit } from "@tiptap/starter-kit"
@@ -959,7 +960,7 @@ function Surface({
           const { href } = selection.node.attrs
           if (typeof href !== "string" || !href) return false
           event.preventDefault()
-          window.open(href, "_blank", "noopener")
+          if (!followPdfLink(href)) window.open(href, "_blank", "noopener")
           return true
         }
 
@@ -1114,8 +1115,8 @@ function Surface({
           ?.getAttribute("href")
         if (!href) return false
 
-        // setWindowOpenHandler in main sends it to the real browser.
-        window.open(href, "_blank", "noopener")
+        // A PDF's link opens the reader; setWindowOpenHandler in main sends the rest to the real browser.
+        if (!followPdfLink(href)) window.open(href, "_blank", "noopener")
         return true
       },
       // A list pasted into an empty bullet takes that bullet's place.
@@ -1176,6 +1177,8 @@ function Surface({
         link: has("link") && {
           openOnClick: false,
           enableClickSelection: true,
+          // A stored file can be linked to: a gem keeps its way back into a PDF so.
+          protocols: ["haligtree", "mindflow"],
           // Only words that really are an address: "haligtree.app", never "the.re" (link-tidy.ts).
           shouldAutoLink: looksLikeAddress,
         },

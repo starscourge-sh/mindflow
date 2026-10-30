@@ -1,3 +1,4 @@
+import { followPdfLink } from "@/components/pdf/pdf-reader"
 import { useCallback, useEffect, useState } from "react"
 import type { Editor } from "@tiptap/react"
 
@@ -169,7 +170,8 @@ function useLinkHandler(props: LinkHandlerProps) {
 
   const openLink = useCallback(
     (target: string = "_blank", features: string = "noopener,noreferrer") => {
-      if (!url) return
+      // A PDF's link (a gem's way back to its page) opens the reader.
+      if (!url || followPdfLink(url)) return
 
       const safeUrl = sanitizeUrl(url, window.location.href)
       if (safeUrl !== "#") {

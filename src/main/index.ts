@@ -91,6 +91,7 @@ import { cameraAccess, displayOf, noteScreenAtStart, privacySettings, screenAcce
 import { registerFocusStats } from './focus-stats'
 import { registerSimilar } from './similar'
 import { registerJournal } from './journal'
+import { registerPdfHighlights } from './pdf-highlights'
 import { registerWordLog } from './word-log'
 import { frostWindow, registerFrost, retellFrost } from './frost'
 import { BOOK, SANDBOX, arrived, handedOff, windingDown, onHandOff, readShelf, realRoot, registerSandbox, relaunch, restartNow, useDataFolder, writeShelf } from './sandbox'
@@ -3748,6 +3749,7 @@ app.whenReady().then(() => {
   registerSiteBlock({ notify: (notice) => void showNudge(notice) })
   registerSimilar()
   registerJournal()
+  registerPdfHighlights()
   registerSandbox()
   atLogin()
   registerHome()

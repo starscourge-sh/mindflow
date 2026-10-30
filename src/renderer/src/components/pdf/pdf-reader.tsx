@@ -1,16 +1,42 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import type { PDFDocumentProxy } from "pdfjs-dist"
 import { Minus, Moon, Plus, Sun } from "lucide-react"
 import { Button } from "@/components/tiptap-ui-primitive/button"
+import { Toolbar, ToolbarGroup } from "@/components/tiptap-ui-primitive/toolbar"
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu"
 import { Roll } from "@/lib/roll"
-import { PdfPages, pdfTitle } from "./pdf-pages"
+import { call } from "@/lib/haligtree"
+import { said } from "@/lib/host"
+import { keysHere, usePane } from "@/lib/split"
+import { chime } from "@/lib/sound"
+import { PdfPages, offsetsIn, pdfTitle, type PdfMark } from "./pdf-pages"
 
 /** The zoom steps, as Preview's: fit width is 1. */
 const ZOOMS = [0.5, 0.67, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3]
 
 /** Where a PDF opens full size: `haligtree:pdf`, read by the main window, which opens it in a pane. */
-export const openPdf = (src: string, name: string, page?: number): void =>
-  void window.dispatchEvent(new CustomEvent("haligtree:pdf", { detail: { src, name, page } }))
+export const openPdf = (src: string, name: string, page?: number, mark?: string): void => {
+  flashNext = mark ?? null
+  window.dispatchEvent(new CustomEvent("haligtree:pdf", { detail: { src, name, page } }))
+}
+/** The mark a gem's link came back to: flashed by the reader that opens next. */
+let flashNext: string | null = null
+
+/** A link back into a PDF, as a gem keeps it: the stored file, the page, the mark and the file's name. */
+export const pdfLink = (src: string, name: string, page: number, mark: string): string =>
+  `${src}#page=${page}&mark=${mark}&name=${encodeURIComponent(name)}`
+
+/**
+ * A link followed anywhere in the app: a PDF's opens in the reader, at its
+ * page with its mark flashed. Says whether it was one.
+ */
+export function followPdfLink(href: string): boolean {
+  const found = /^((?:haligtree|mindflow):\/\/assets\/[^#?]+\.pdf)(?:#(.*))?$/i.exec(href)
+  if (!found) return false
+  const hash = new URLSearchParams(found[2] ?? "")
+  openPdf(found[1], hash.get("name") ?? "", Number(hash.get("page")) || undefined, hash.get("mark") ?? undefined)
+  return true
+}
 
 /** A pane's `focus` for a PDF: its address and the name it arrived under. */
 export const pdfFocus = (src: string, name: string): string => `${src}|${name}`
@@ -32,6 +58,61 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   const [page, setPage] = useState(start ?? 1)
   const [typed, setTyped] = useState<string | null>(null)
   const [dark, setDark] = useState(() => localStorage.getItem("pdf-dark") === "1")
+  const [marks, setMarks] = useState<PdfMark[]>([])
+  const [flash] = useState(() => {
+    const mark = flashNext
+    flashNext = null
+    return mark
+  })
+  // The words picked on one page, and where to show "Keep" over them.
+  const [picked, setPicked] = useState<{ page: number; quote: string; start: number; end: number; x: number; y: number } | null>(null)
+  // The mark under a right click.
+  const [hit, setHit] = useState<PdfMark | null>(null)
+
+  useEffect(() => {
+    void call<PdfMark[]>("pdf:highlights", src).then(setMarks)
+  }, [src])
+
+  // A selection inside one page's words offers "Keep"; anything else hides it.
+  useEffect(() => {
+    const onChange = (): void => {
+      const chosen = getSelection()
+      const box = scroller.current
+      if (!chosen || chosen.isCollapsed || !chosen.rangeCount || !box) return setPicked(null)
+      const range = chosen.getRangeAt(0)
+      const layer = (range.startContainer.parentElement ?? null)?.closest(".textLayer")
+      const sheet = layer?.closest<HTMLElement>(".pdf-page")
+      const quote = range.toString().replace(/\s+/g, " ").trim()
+      if (!layer || !sheet || !box.contains(sheet) || !layer.contains(range.endContainer) || !quote) return setPicked(null)
+      const { start, end } = offsetsIn(layer, range)
+      const rect = range.getBoundingClientRect()
+      const frame = box.getBoundingClientRect()
+      setPicked({ page: Number(sheet.dataset.page), quote, start, end, x: rect.left + rect.width / 2 - frame.left, y: rect.top - frame.top + box.scrollTop })
+    }
+    document.addEventListener("selectionchange", onChange)
+    return () => document.removeEventListener("selectionchange", onChange)
+  }, [])
+
+  /** The picked words as a gem: the quote, the book and page it came from, and a link back here. */
+  const keep = async (): Promise<void> => {
+    if (!picked) return
+    const id = crypto.randomUUID()
+    const where = `${title}, p. ${picked.page}`
+    const gemId = await call<string>("nugget:from", `${picked.quote}\n\n[${where}](${pdfLink(src, name, picked.page, id)})`, { attribution: where })
+    await call("pdf:highlight", src, { id, page: picked.page, quote: picked.quote, start: picked.start, end: picked.end, gemId })
+    setMarks((all) => [...all, { id, page: picked.page, quote: picked.quote, start: picked.start, end: picked.end, gemId }])
+    getSelection()?.removeAllRanges()
+    setPicked(null)
+    chime("saved")
+    said("Kept as a gem")
+  }
+
+  const remove = async (mark: PdfMark): Promise<void> => {
+    await call("pdf:unhighlight", mark.id)
+    setMarks((all) => all.filter((one) => one.id !== mark.id))
+    chime("away")
+    said("Highlight removed")
+  }
 
   const go = (to: number): void => {
     if (!doc) return
@@ -50,21 +131,27 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     const at = ZOOMS.findIndex((one) => one >= zoom - 0.001)
     setZoom(ZOOMS[Math.min(Math.max(0, (at < 0 ? ZOOMS.length - 1 : at) + by), ZOOMS.length - 1)])
   }
-  // ⌘+ ⌘− ⌘0 while the pointer or focus is in the reader: its own zoom, not the app's size.
+  // ⌘+ ⌘− ⌘0 while this reader is in the pane in front: its own zoom, not the
+  // app's size. The menu's keys are offered here first (preload), and the
+  // page's own key handler steps aside once this one has taken them.
+  const pane = usePane()
   useEffect(() => {
-    const onKey = (event: KeyboardEvent): void => {
-      if (!event.metaKey || event.altKey || !scroller.current) return
-      const here = scroller.current.closest(".pdf-reader")
-      if (!here || !(here.contains(document.activeElement) || here.matches(":hover"))) return
-      const by = event.key === "=" || event.key === "+" ? 1 : event.key === "-" ? -1 : event.key === "0" ? 0 : null
-      if (by === null) return
+    const zoomBy = (way: number): void => (way === 0 ? setZoom(1) : step(way))
+    const onMenu = (event: Event): void => {
+      if (!keysHere(pane)) return
       event.preventDefault()
-      event.stopPropagation()
-      if (by === 0) setZoom(1)
-      else step(by)
+      zoomBy((event as CustomEvent<number>).detail)
     }
+    const onKey = (event: KeyboardEvent): void => {
+      if (!event.metaKey || event.altKey || !keysHere(pane)) return
+      const way = event.code === "Equal" || event.code === "NumpadAdd" ? 1 : event.code === "Minus" || event.code === "NumpadSubtract" ? -1 : event.code === "Digit0" || event.code === "Numpad0" ? 0 : null
+      if (way === null) return
+      event.preventDefault()
+      zoomBy(way)
+    }
+    window.addEventListener("haligtree:zoom-key", onMenu)
     window.addEventListener("keydown", onKey, true)
-    return () => window.removeEventListener("keydown", onKey, true)
+    return () => (window.removeEventListener("haligtree:zoom-key", onMenu), window.removeEventListener("keydown", onKey, true))
   })
 
   // The page on show: the last sheet whose top has passed a third of the way down.
@@ -128,17 +215,67 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           </Button>
         </span>
       </div>
-      <div ref={scroller} className="pdf-reader-scroll" onScroll={onScroll}>
-        <PdfPages
-          src={src}
-          zoom={zoom}
-          scroller={scroller}
-          onLoad={(loaded) => {
-            setDoc(loaded)
-            void pdfTitle(loaded, name).then(setTitle)
-          }}
-        />
-      </div>
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <div
+            ref={scroller}
+            className="pdf-reader-scroll"
+            onScroll={onScroll}
+            // Only a mark has a menu: anywhere else a right click does nothing here.
+            onContextMenu={(event) => {
+              const band = [...(scroller.current?.querySelectorAll<HTMLElement>(".pdf-mark") ?? [])].find((one) => {
+                const r = one.getBoundingClientRect()
+                return event.clientX >= r.left && event.clientX <= r.right && event.clientY >= r.top && event.clientY <= r.bottom
+              })
+              const mark = band ? marks.find((one) => one.id === band.dataset.mark) ?? null : null
+              setHit(mark)
+              if (!mark) event.preventDefault()
+            }}
+          >
+            <PdfPages
+              src={src}
+              zoom={zoom}
+              scroller={scroller}
+              marks={marks}
+              flash={flash}
+              land={start}
+              onLoad={(loaded) => {
+                setDoc(loaded)
+                void pdfTitle(loaded, name).then(setTitle)
+              }}
+            />
+            {picked && <KeepBar at={picked} onKeep={() => void keep()} />}
+          </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent>
+          {hit?.gemId && <ContextMenuItem onSelect={() => window.dispatchEvent(new CustomEvent("haligtree:open", { detail: { type: "nugget", id: hit.gemId } }))}>Open its gem</ContextMenuItem>}
+          {hit && <ContextMenuItem onSelect={() => void remove(hit)}>Remove highlight</ContextMenuItem>}
+        </ContextMenuContent>
+      </ContextMenu>
+    </div>
+  )
+}
+
+/** "Keep", floating over the picked words as the editor's own selection bar does. */
+function KeepBar({ at, onKeep }: { at: { x: number; y: number }; onKeep: () => void }): React.JSX.Element {
+  const bar = useRef<HTMLDivElement>(null)
+  const [width, setWidth] = useState(0)
+  useLayoutEffect(() => setWidth(bar.current?.offsetWidth ?? 0), [])
+  return (
+    <div
+      ref={bar}
+      className="pdf-keep-bar"
+      style={{ left: Math.max(8, at.x - width / 2), top: Math.max(8, at.y - 48) }}
+      // The words stay picked while the bar is pressed.
+      onMouseDown={(event) => event.preventDefault()}
+    >
+      <Toolbar variant="floating">
+        <ToolbarGroup>
+          <Button data-style="ghost" aria-label="Keep" title="Keep as a gem" onClick={onKeep}>
+            <span className="tiptap-button-text">Keep</span>
+          </Button>
+        </ToolbarGroup>
+      </Toolbar>
     </div>
   )
 }

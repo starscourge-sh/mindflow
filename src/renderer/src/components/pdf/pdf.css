@@ -205,3 +205,48 @@
   max-width: 56rem;
   margin-inline: auto;
 }
+
+/* Kept words: a soft band under them, in the app's own accent. */
+.pdf-marks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.pdf-mark {
+  position: absolute;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--tt-brand-color-500, #c08a2e) 28%, transparent);
+  mix-blend-mode: multiply;
+}
+
+.pdf-reader.is-dark .pdf-mark {
+  mix-blend-mode: screen;
+}
+
+/* The mark a gem's link came back to: it glows twice, then settles. */
+.pdf-mark.is-flash {
+  animation: pdf-mark-flash 1.4s cubic-bezier(0.16, 1, 0.3, 1) 2;
+}
+
+@keyframes pdf-mark-flash {
+  0%, 100% { box-shadow: 0 0 0 0 transparent; }
+  40% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--tt-brand-color-500, #c08a2e) 45%, transparent); background: color-mix(in srgb, var(--tt-brand-color-500, #c08a2e) 50%, transparent); }
+}
+
+.pdf-reader-scroll {
+  position: relative;
+}
+
+.pdf-keep-bar {
+  position: absolute;
+  z-index: 5;
+}
+
+.pdf-keep-bar button {
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pdf-mark.is-flash { animation: none; background: color-mix(in srgb, var(--tt-brand-color-500, #c08a2e) 50%, transparent); }
+}
