@@ -120,7 +120,16 @@ const profiled = async (run) => {
   if (!process.env.QA_PROFILE || !profileNow) return run()
   cdp ??= await c.electron.context().newCDPSession(h)
   await cdp.send('Profiler.enable'); await cdp.send('Profiler.setSamplingInterval', { interval: 200 }); await cdp.send('Profiler.start')
+  if (process.env.QA_SLOWSET) await h.evaluate(() => {
+    const set = Element.prototype.setAttribute
+    window.__slow = []
+    Element.prototype.setAttribute = function (name, value) {
+      const t = performance.now(); set.call(this, name, value); const ms = performance.now() - t
+      if (ms > 1) window.__slow.push(`${ms.toFixed(1)}ms ${this.tagName}.${String(this.className).slice(0, 40)} ${name}=${String(value).slice(0, 60)} connected=${this.isConnected}\n${new Error().stack.split('\n').slice(2, 22).join('\n')}`)
+    }
+  })
   await run()
+  if (process.env.QA_SLOWSET) console.log('slow setAttribute:', await h.evaluate(() => window.__slow))
   profileNow = false
   const { profile } = await cdp.send('Profiler.stop')
   if (process.env.QA_PROFILE_DIR) (await import('fs')).writeFileSync(join(process.env.QA_PROFILE_DIR, 'open.cpuprofile'), JSON.stringify(profile))
@@ -178,14 +187,14 @@ try {
   await go('home'); await wait(400)
   await go('articles'); await wait(2500)
   // Cold by click: 15 pages never opened here.
-  for (let i = 0; i < 15; i++) await openByClick('click cold', i * 2)
+  for (let i = 0; i < 15; i++) { profileNow = process.env.QA_PROFILE === 'cold' && i === 3; await openByClick('click cold', i * 2) }
   // Cold by ↓: from page 30 down 14 times, each a page not opened before.
   await openByClick('click cold', 30)
   for (let i = 31; i < 45; i++) await step('↓ cold', 'ArrowDown', i)
   // Warm by ↑: back up over the same pages.
   for (let i = 43; i >= 30; i--) await step('↑ warm', 'ArrowUp', i)
   // Warm by click: the first pages again.
-  for (let i = 0; i < 15; i++) { profileNow = i === 3; await openByClick('click warm', i * 2) }
+  for (let i = 0; i < 15; i++) { profileNow = process.env.QA_PROFILE !== 'cold' && i === 3; await openByClick('click warm', i * 2) }
   await h.screenshot({ path: process.env.QA_SHOT ?? '/tmp/writing-open.png' }).catch(() => {})
   console.log(`book: ${PAGES} Writing pages (properties, 12 headings, a 4000x2600 photo, 3 link cards, about 2,100 words each), ${CAPTURES} captures`)
   console.log('set            n   title p50/p95   body p50/p95   picture p50/p95   ready p50/p95   (ms from the press)')

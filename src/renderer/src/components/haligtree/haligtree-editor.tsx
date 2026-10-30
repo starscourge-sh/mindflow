@@ -263,6 +263,23 @@ const laidIn = new WeakSet<object>()
 const readers = new Set<Editor>()
 
 /**
+ * The editor's own element skips a write that changes nothing.
+ *
+ * ProseMirror writes every attribute of it again whenever it rebuilds its view
+ * of the note: when tiptap hands it the node views as a note opens, and when it
+ * takes them away again as the note's page goes. Chromium takes contenteditable
+ * written, even to the value it already had, as a new editing host and works
+ * out the whole note again: about 22ms each time on a long note, twice for
+ * every note opened, a third of the open.
+ */
+function quietAttributes(dom: HTMLElement): void {
+  const write = dom.setAttribute
+  dom.setAttribute = (name: string, value: string): void => {
+    if (dom.getAttribute(name) !== String(value)) write.call(dom, name, value)
+  }
+}
+
+/**
  * Markdown as this editor's document, read the way a page opening it would:
  * for a host that keeps documents, so it can turn Markdown into one once
  * rather than on every opening. Null until a document editor is on the page.
@@ -1417,6 +1434,7 @@ function Surface({
     onMount: ({ editor: instance }) => {
       if (laidIn.has(instance)) return
       laidIn.add(instance)
+      quietAttributes(instance.view.dom)
       if (typeof defaultContent === "string" && shape !== "line" && defaultContent.trim()) {
         // Not an edit: nothing to undo back to, and nothing to save.
         try {
