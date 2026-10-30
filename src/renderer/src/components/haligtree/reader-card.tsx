@@ -12,7 +12,7 @@ import { chime } from '@/lib/sound'
 import { still } from '@/lib/motion'
 import markGold from '@/assets/mark-gold-leaves.png'
 import { dayMonth } from '../../../../main/dates'
-import { Rolling, Tip, refuse, toast } from './ui'
+import { Tip, refuse, toast } from './ui'
 import { useTilt } from './tilt'
 
 /**
@@ -483,7 +483,9 @@ export function ReaderCard({ seed: saved, point, named, bare = false, arrive }: 
         >
           <ShapePicture shape={shape} />
           <p data-reader-name className="mt-3 line-clamp-2 text-[1.375rem] leading-[1.12] font-bold tracking-[-0.015em] break-words" style={{ fontFamily: "'Fraunces Variable', Georgia, serif" }}>{name || ' '}</p>
-          <p data-reader-title={title} className="mt-1.5 font-mono text-[0.625rem] font-medium tracking-[0.16em] uppercase"><Rolling text={title} by="word" /></p>
+          {/* Plain words, not rolled: a roll measures its letters on the page, and on a book turned in 3D (it turns toward the
+              pointer) they measure short, so the words were cut through their middles. */}
+          <p data-reader-title={title} className="mt-1.5 font-mono text-[0.625rem] font-medium tracking-[0.16em] uppercase">{title}</p>
           {/* The foot: the stamps with "Commonplace Book" beside them, and the day's tag under both, so the two never meet
               on a cover narrowed by its spine. */}
           <div className="mt-auto flex flex-col items-stretch gap-2">
