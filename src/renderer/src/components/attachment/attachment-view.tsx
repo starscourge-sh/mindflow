@@ -12,6 +12,7 @@ import { cue } from "@/lib/cues"
 import { Roll } from "@/lib/roll"
 
 import { host } from "@/lib/host"
+import { PdfPages } from "@/components/pdf/pdf-pages"
 import { isNodeSelected } from "@/extensions/selected-nodes"
 import { startCaption } from "@/extensions/caption"
 import { FileText as File, FileText, Fit as Maximize, Volume2, VolumeX } from "@/components/ui/icons"
@@ -351,6 +352,40 @@ function AudioBlock(props: NodeViewProps): React.JSX.Element {
 }
 
 /**
+ * A PDF: its name, page count and size over its pages, which scroll in a box
+ * of their own inside the note. "Open" shows it full size.
+ */
+function PdfBlock(props: NodeViewProps): React.JSX.Element {
+  const { src, name, size } = props.node.attrs
+  const selected = isNodeSelected(props)
+  const scroller = useRef<HTMLDivElement>(null)
+  const [pages, setPages] = useState(0)
+  const open = (): void => void host().openFile?.(src)
+  return (
+    <NodeViewWrapper className={`tiptap-attachment is-pdf${selected ? " is-selected" : ""}`}>
+      <div className="tiptap-attachment-card" data-drag-handle="">
+        <FileText className="tiptap-attachment-icon" />
+        <span className="tiptap-attachment-body">
+          <span className="tiptap-attachment-name">{name || "PDF"}</span>
+          <span className="tiptap-attachment-size">
+            {[pages ? `${pages} ${pages === 1 ? "page" : "pages"}` : "", readableSize(size)].filter(Boolean).join(" · ")}
+          </span>
+        </span>
+        <button type="button" aria-label={`Open ${name || "PDF"}`} title="Open" className="tiptap-attachment-save" onClick={(event) => { event.stopPropagation(); open() }}>
+          <AliveIcon icon={ExternalLinkIcon} size={16} />
+        </button>
+        <button type="button" aria-label={`Save ${name || "PDF"}`} title="Save" className="tiptap-attachment-save" onClick={(event) => { event.stopPropagation(); void host().saveFileAs?.(src, name) }}>
+          <AliveIcon icon={DownloadIcon} size={16} />
+        </button>
+      </div>
+      <div ref={scroller} className="tiptap-pdf-scroll" contentEditable={false} onMouseDown={(event) => event.stopPropagation()}>
+        <PdfPages src={src} scroller={scroller} onLoad={(doc) => setPages(doc.numPages)} />
+      </div>
+    </NodeViewWrapper>
+  )
+}
+
+/**
  * The card: an icon, the name it arrived under, how big it is, and a way out.
  * A video or a recording plays where it sits instead.
  */
@@ -359,6 +394,7 @@ export function AttachmentView(props: NodeViewProps): React.JSX.Element {
   const selected = isNodeSelected(props)
   if (/\.(mp4|m4v|mov|webm)$/i.test(name)) return <VideoBlock {...props} />
   if (/\.(mp3|m4a|wav|ogg|aac|flac)$/i.test(name)) return <AudioBlock {...props} />
+  if (/\.pdf$/i.test(name)) return <PdfBlock {...props} />
 
   return (
     <NodeViewWrapper
