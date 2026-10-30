@@ -194,9 +194,10 @@ function Marked({ on, shot, quiet, children }: { on: Pick; shot: FlowShot; quiet
       initial={false} animate={{ backgroundSize: picked && !lit ? '100% 100%' : '0% 100%' }}
       transition={picked && !lit && !quiet ? { duration: CURSOR_MS.drag / 1000, ease: DRAG } : { duration: 0 }}>
       {children}
-      <motion.span aria-hidden data-ink={on} className="ml-[0.2em] inline-block align-[-0.08em]" style={{ color: hue.ink }}
-        initial={false} animate={{ opacity: lit ? 1 : 0, scale: lit ? 1 : 0.6 }} transition={quiet ? { duration: 0 } : { duration: 0.3, ease: EASE }}>
-        <Icon className="size-[0.85em]" />
+      {/* No room kept for the icon before it comes, so the line reads whole: it opens its own room as it arrives. */}
+      <motion.span aria-hidden data-ink={on} className="inline-block overflow-visible align-[-0.08em] whitespace-nowrap" style={{ color: hue.ink }}
+        initial={false} animate={{ opacity: lit ? 1 : 0, scale: lit ? 1 : 0.6, width: lit ? "1.05em" : 0 }} transition={quiet ? { duration: 0 } : { duration: 0.3, ease: EASE }}>
+        <Icon className="ml-[0.2em] size-[0.85em]" />
       </motion.span>
     </motion.span>
   )
