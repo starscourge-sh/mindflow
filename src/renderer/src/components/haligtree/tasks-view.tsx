@@ -153,7 +153,8 @@ const TRY_TASKS = {
   upcoming: "type ‘book seats for Hamlet on the 14th’ above. It lands on that day.",
   tomorrow: "type ‘water the plants tomorrow’ above. It waits here for the morning.",
   routines: "type ‘bins every week’ above. It comes back each week on the same day.",
-  later: "type ‘learn German someday’ above. It waits here until you give it a day."
+  later: "type ‘learn German someday’ above. It waits here until you give it a day.",
+  alltasks: "type ‘pay the gas bill friday’ above. Every task still to do shows here, late ones first."
 }
 
 /** The Scheduled island's buttons: one size, and a faint fill so each reads as a button on a light page too. */
@@ -665,9 +666,24 @@ const byNote = (list: Task[]): [string, Task[], string][] =>
  * time it was done, and a way back to the capture it came from.
  */
 /** The one Tasks row's tabs: Tomorrow and This week are the top of Upcoming; routines due today are in Today too. */
-const TASK_TABS = [{ id: 'today', label: 'Today' }, { id: 'upcoming', label: 'Upcoming' }, { id: 'later', label: 'Later' }, { id: 'routines', label: 'Routines' }] as const
+const TASK_TABS = [{ id: 'today', label: 'Today' }, { id: 'upcoming', label: 'Upcoming' }, { id: 'later', label: 'Later' }, { id: 'routines', label: 'Routines' }, { id: 'alltasks', label: 'All' }] as const
 
-export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' | 'upcoming' | 'routines' | 'later'; focus?: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
+/** Every open task in one list, by when: overdue, today, tomorrow, this week, later, no date. */
+const byWhen = (list: Task[]): [string, Task[]][] => {
+  const weekEnd = dayjs().startOf('week').add(1, 'week').valueOf()
+  const after = list.filter((task) => dayOf(task) >= weekEnd)
+  return [
+    ['Overdue', list.filter((task) => dayOf(task) < startOfDay())],
+    ['Today', list.filter((task) => dayOf(task) >= startOfDay() && dayOf(task) < startOfDay(1))],
+    ['Tomorrow', list.filter((task) => dayOf(task) >= startOfDay(1) && dayOf(task) < startOfDay(2))],
+    ['This week', list.filter((task) => dayOf(task) >= startOfDay(2) && dayOf(task) < weekEnd)],
+    // A day after this week, or put off to a later list (this month, this year, someday).
+    ['Later', after.filter((task) => dayOf(task) < Infinity || !!bucket(task))],
+    ['No date', after.filter((task) => dayOf(task) === Infinity && !bucket(task))]
+  ]
+}
+
+export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' | 'upcoming' | 'routines' | 'later' | 'alltasks'; focus?: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   const real = useLive(haligtree.tasks, [] as Task[])
   // What a fresh start holds: its own list at the foot of Later, each one back the moment it is opened.
   // Kept by name, as the lists are: Back to this page draws it at once from what was read last, and reads afresh.
@@ -708,7 +724,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   // off to a later list waits there, out of the lists with days, except on the
   // day it comes back from hiding: then it is on Today too, saying "Back today",
   // as the sidebar's count (onToday) has it.
-  const live = chosenTasks.filter((task) => task.status === 'open' && !task.waitingOn && (mode === 'later' ? !!bucket(task) : !bucket(task) || !!task.deadline || (mode === 'today' && task.snoozedUntil === dayKey())) && (mode === 'routines' ? task.recurrence : !task.recurrence || mode === 'today'))
+  const live = mode === 'alltasks' ? chosenTasks.filter((task) => task.status === 'open') : chosenTasks.filter((task) => task.status === 'open' && !task.waitingOn && (mode === 'later' ? !!bucket(task) : !bucket(task) || !!task.deadline || (mode === 'today' && task.snoozedUntil === dayKey())) && (mode === 'routines' ? task.recurrence : !task.recurrence || mode === 'today'))
   const waiting = mode === 'upcoming' ? chosenTasks.filter((task) => task.status === 'open' && task.waitingOn) : []
   const base = mode === 'today' ? live.filter((task) => dayOf(task) < startOfDay(1)) : mode === 'tomorrow' ? live.filter((task) => dayOf(task) >= startOfDay(1) && dayOf(task) < startOfDay(2)) : live
   // Pull, the gentlest of the three: a task whose time has come rises to the
@@ -742,6 +758,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
       ? [['Tomorrow', base]]
       : mode === 'routines'
       ? [['Every so often', live]]
+      : mode === 'alltasks'
+      ? byWhen(live)
       : mode === 'later'
       ? (Object.keys(BUCKETS) as (keyof typeof BUCKETS)[]).map((which) => [BUCKETS[which], live.filter((task) => bucket(task) === which)])
       : mode === 'today' && view.group === '135'
@@ -926,16 +944,16 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   const actions = (
         <span className="flex items-center gap-1">
           {writeOut}
-          {/* Sort, group and filter: F, or from ⋯; no button of its own in the bar. */}
+          {/* Sort, group and filter, on every tab: its button here, F, or from ⋯. */}
           {!written && (
             <Display
-              hidden
               view={view}
               onChange={setView}
               facets={facets}
               items={tasks}
-              sorts={matrixed ? [{ id: view.sort, label: '' }] : [{ id: 'manual', label: 'Your order' }, { id: 'priority', label: 'Priority' }, { id: 'name', label: 'Name' }, { id: 'due', label: 'Scheduled' }, { id: 'deadline', label: 'Due by' }, { id: 'added', label: 'Date added' }]}
-              groups={matrixed ? [] : [{ id: 'when', label: mode === 'later' ? 'By list' : 'By date' }, ...(mode === 'today' ? [{ id: '135', label: '1-3-5' }] : []), { id: 'tag', label: 'By how it’s done' }, { id: 'note', label: 'By note' }, { id: 'none', label: 'None' }]}
+              // Only what applies on this tab: a later list has no day to sort by, a routine no due-by.
+              sorts={matrixed ? [{ id: view.sort, label: '' }] : [{ id: 'manual', label: 'Your order' }, { id: 'priority', label: 'Priority' }, { id: 'name', label: 'Name' }, ...(mode === 'later' ? [] : [{ id: 'due', label: 'Scheduled' }]), ...(mode === 'routines' ? [] : [{ id: 'deadline', label: 'Due by' }]), { id: 'added', label: 'Date added' }]}
+              groups={matrixed ? [] : [{ id: 'when', label: mode === 'later' ? 'By list' : mode === 'routines' ? 'Together' : 'By date' }, ...(mode === 'today' ? [{ id: '135', label: '1-3-5' }] : []), { id: 'tag', label: 'By how it’s done' }, { id: 'note', label: 'By note' }, { id: 'none', label: 'None' }]}
             />
           )}
           <OptionsMenu label="More" side="bottom" align="end" sections={[
@@ -1169,13 +1187,15 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
           </Rest>
         ) : (
           <Rest seed="today" off={mode !== 'today'}>
-          <Empty title={mode === 'today' ? 'Nothing due today' : mode === 'tomorrow' ? 'Nothing for tomorrow yet' : mode === 'routines' ? 'No routines' : mode === 'later' ? 'Nothing put off' : 'Nothing coming up'}>
+          <Empty title={mode === 'today' ? 'Nothing due today' : mode === 'tomorrow' ? 'Nothing for tomorrow yet' : mode === 'routines' ? 'No routines' : mode === 'later' ? 'Nothing put off' : mode === 'alltasks' ? 'No open tasks' : 'Nothing coming up'}>
             {mode === 'routines'
               ? 'A routine is a task that repeats, kept here so it does not crowd Today. To make one, type it in the line above with how often: “bins every week”, or “water the plants every! 3 days” to count from when you last did it.'
               : mode === 'today'
               ? 'A clear day. Anything with a date lands here on the day, and anything late stays on top until it is done.'
               : mode === 'tomorrow'
               ? 'Type a task above with “tomorrow” in the words, or press M on a task to move it here.'
+              : mode === 'alltasks'
+              ? 'Every task still to do shows here, late ones first, then by when it is due. Type one in the line above.'
               : mode === 'later'
               ? 'For what has no day yet: say “this month”, “this year” or “someday” in the words, and it waits here, out of the way.'
               : 'Tasks with a date further out show here, grouped by day. Type one above with the date in the words.'}

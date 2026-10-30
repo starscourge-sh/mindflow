@@ -218,7 +218,7 @@ const selectedInNote = (): boolean => {
 }
 const holdsNotes = (id: string): boolean => !['pick', 'home', 'day', 'weekpage', 'monthpage', 'yearpage', 'tags', 'sources', 'source', 'stats', 'map', 'feed', 'powers', 'whatsnew', 'settings', 'review', 'queue', 'calendar', 'practices', 'kind:practice'].includes(id)
 /** A step onto a note (not a task, a day or an event): the page that shows it turns, as a book's does. */
-const turnsPage = (view: View): boolean => !!view.focus && holdsNotes(view.id) && !['today', 'tomorrow', 'upcoming', 'routines', 'later', 'goals', 'week', 'matrix', 'discarded'].includes(view.id)
+const turnsPage = (view: View): boolean => !!view.focus && holdsNotes(view.id) && !['today', 'tomorrow', 'upcoming', 'routines', 'later', 'alltasks', 'goals', 'week', 'matrix', 'discarded'].includes(view.id)
 /** Where one thing opens: a view by name, a day's page, or a note or task in its section. */
 const stepOf = (type: string, id: string): View =>
   // A Writing or Gems folder: "article:<group>" or "nugget:<group>", its list opened inside it.
@@ -1304,7 +1304,7 @@ export function Home(): React.JSX.Element {
   const placesTo = (key?: string): Action[] => [
     ...SECTIONS.map((section) => ({ label: `Go to ${section.label}`, keys: `G ${section.key.toUpperCase()}`, run: () => setView({ id: section.id }, key) })),
     // The Tasks row's other tabs, and the pages that are a chip or a menu line now: still a G and a letter away.
-    ...([['Upcoming', 'upcoming', 'U'], ['Later', 'later', 'Z'], ['Routines', 'routines', 'O'], ['Urgent and important', 'matrix', 'Q'], ['Questions', 'questions', 'H']] as const).map(([name, id, letter]) => ({ label: `Go to ${name}`, keys: `G ${letter}`, run: () => setView({ id }, key) }))
+    ...([['Upcoming', 'upcoming', 'U'], ['Later', 'later', 'Z'], ['Routines', 'routines', 'O'], ['All tasks', 'alltasks', '*'], ['Urgent and important', 'matrix', 'Q'], ['Questions', 'questions', 'H']] as const).map(([name, id, letter]) => ({ label: `Go to ${name}`, keys: `G ${letter}`, run: () => setView({ id }, key) }))
   ]
 
   /** A pane's page: the step it is on, drawn with everything it opens kept in that pane. */
@@ -1355,7 +1355,7 @@ export function Home(): React.JSX.Element {
           <CapturesView title={kind(view)!.label} keep={(capture) => capture.kind === kind(view)!.id && capture.status !== 'discarded'} focus={view.focus} onOpen={go} />
         ) : view.id === 'review' ? (
           <ReviewView />
-        ) : view.id === 'today' || view.id === 'upcoming' || view.id === 'routines' || view.id === 'later' ? (
+        ) : view.id === 'today' || view.id === 'upcoming' || view.id === 'routines' || view.id === 'later' || view.id === 'alltasks' ? (
           <TasksView mode={view.id} focus={view.focus} onOpen={go} />
         ) : view.id === 'calendar' ? (
           <CalendarView focus={view.focus} onOpen={go} />
