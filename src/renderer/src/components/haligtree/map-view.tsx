@@ -11,7 +11,7 @@ import { Example } from './example'
 import { chime } from '@/lib/sound'
 import { Empty, Rolling, Tip } from './ui'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Search as SearchIcon, Unlink } from 'lucide-react'
+import { Palette, Search as SearchIcon, Unlink } from 'lucide-react'
 import { Fit } from '@/components/ui/icons'
 import { Chips } from './display'
 import { openSource, sources, type SourceGraph } from '@/lib/sources'
@@ -105,6 +105,20 @@ function LinkMap({ onOpen, modes }: { onOpen: (type: string, id: string) => void
   }, [map])
 
   const count = map?.nodes.length ?? 0
+  const legend = (<>
+    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+      <span className="whitespace-nowrap text-foreground">Colour is the tag</span>
+      {tags.map(([tag, { tint }]) => <span key={tag} className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: tint }} />#{tag}</span>)}
+      {untagged && <span className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: NOTE_TINT }} />No tag</span>}
+    </div>
+    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+      <span className="whitespace-nowrap text-foreground">The icon is the kind</span>
+      {kinds.map((type) => {
+        const Icon = type.icon
+        return <span key={type.id} className="flex items-center gap-1">{emoji && KIND_EMOJI[type.id] ? <span aria-hidden className="mf-emoji-icon text-[0.75rem] leading-none">{KIND_EMOJI[type.id]}</span> : <Icon className="size-3" />}{type.label}</span>
+      })}
+    </div>
+  </>)
   return (
     <section className="relative flex min-w-0 flex-1 flex-col">
       {/* Like every page, the line goes when it has nothing to count. */}
@@ -122,23 +136,22 @@ function LinkMap({ onOpen, modes }: { onOpen: (type: string, id: string) => void
       {count ? (
         <Example on={example} flush className="min-h-0 flex-1" tryIt="type @ in any note and pick another one. The two show up here as dots, joined by a line.">
         <GraphCanvas map={map!} onOpen={onOpen} fit={fit} fly={fly} className="flex-1">
-          {/* What the colours and icons mean: the colour is the tag, the icon the kind. */}
-          <div className="pointer-events-none absolute bottom-3 left-4 flex max-w-[calc(100%-18rem)] flex-col gap-1 rounded-lg bg-background px-2.5 py-1.5 text-meta text-muted-foreground">
-            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-              <span className="whitespace-nowrap text-foreground">Colour is the tag</span>
-              {tags.map(([tag, { tint }]) => <span key={tag} className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: tint }} />#{tag}</span>)}
-              {untagged && <span className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: NOTE_TINT }} />No tag</span>}
-            </div>
-            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-              <span className="whitespace-nowrap text-foreground">The icon is the kind</span>
-              {kinds.map((type) => {
-                const Icon = type.icon
-                return <span key={type.id} className="flex items-center gap-1">{emoji && KIND_EMOJI[type.id] ? <span aria-hidden className="mf-emoji-icon text-[0.75rem] leading-none">{KIND_EMOJI[type.id]}</span> : <Icon className="size-3" />}{type.label}</span>
-              })}
-            </div>
+          {/* The map's foot, one row that never lays one part over another: the key on the left (folded into
+              one "Key" button when the map is narrow), the notes left off on the right. */}
+          <div data-map-foot className="@container/foot pointer-events-none absolute inset-x-4 bottom-3 flex items-end justify-between gap-3">
+            {/* What the colours and icons mean: the colour is the tag, the icon the kind. */}
+            <div data-map-key className="hidden max-w-[40rem] min-w-0 flex-col gap-1 rounded-lg bg-background px-2.5 py-1.5 text-meta text-muted-foreground @[52rem]/foot:flex">{legend}</div>
+            <Popover onOpenChange={(open) => open && chime('open')}>
+              <PopoverTrigger asChild>
+                <Button data-map-key-button variant="outline" className="pointer-events-auto h-10 gap-2 bg-background px-3 text-control dark:bg-background @[52rem]/foot:hidden">
+                  <Palette className="size-4" />Key
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="start" side="top" className="flex w-72 flex-col gap-1.5 p-3 text-meta text-muted-foreground">{legend}</PopoverContent>
+            </Popover>
+            {/* The notes left off, one click away: each opens, ready for an @ to put it on the map. */}
+            {map!.alone && !example ? <Lonely count={map!.alone} notes={map!.lonely ?? []} onOpen={onOpen} /> : null}
           </div>
-          {/* The notes left off, one click away: each opens, ready for an @ to put it on the map. */}
-          {map!.alone && !example ? <Lonely count={map!.alone} notes={map!.lonely ?? []} onOpen={onOpen} /> : null}
         </GraphCanvas>
         </Example>
       ) : !map ? null : (
@@ -232,10 +245,12 @@ function Lonely({ count, notes: list, onOpen }: { count: number; notes: NonNulla
     <Popover onOpenChange={(open) => open && chime('open')}>
       <PopoverTrigger asChild>
         {/* Said as what you could do next, not a pile left undone (notes wandering, not unlinked): the count large, the way in beside it. */}
-        <Button variant="outline" className="absolute right-4 bottom-3 h-10 gap-2 bg-background px-3 text-control dark:bg-background">
+        <Button data-map-lonely variant="outline" className="pointer-events-auto ml-auto h-10 min-w-0 shrink-0 gap-2 bg-background px-3 text-control dark:bg-background">
           <Unlink className="size-4" />
           <span className="text-lg leading-none font-semibold tabular-nums">{num(count)}</span>
-          <span>{count === 1 ? 'note wandering on its own' : 'notes wandering on their own'}</span>
+          {/* Said in full where there is room; on a narrow map, the short way. */}
+          <span className="hidden @[40rem]/foot:inline">{count === 1 ? 'note wandering on its own' : 'notes wandering on their own'}</span>
+          <span className="@[40rem]/foot:hidden">{count === 1 ? 'on its own' : 'on their own'}</span>
           <span className="font-medium text-primary">Find them company</span>
         </Button>
       </PopoverTrigger>
