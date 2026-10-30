@@ -4,6 +4,7 @@ import type { Editor } from '@tiptap/react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useLive, haligtree, type Settings } from '@/lib/haligtree'
 import { SCAPES, chime, scapeSample, scapeStart, scapeStop, type Scape } from '@/lib/sound'
+import { useEditorDom } from '@/lib/editor-dom'
 
 /**
  * Sound while you write on today's page or in the writing room: the chosen
@@ -13,8 +14,10 @@ import { SCAPES, chime, scapeSample, scapeStart, scapeStop, type Scape } from '@
 export function useWritingSound(editor: Editor | null, on: boolean): void {
   const settings = useLive(haligtree.settings, null as Settings | null)
   const kind = (settings?.writingSound ?? 'off') as Scape
+  // The editor's words once on the page: tiptap's view.dom throws before (lib/editor-dom.ts).
+  const page = useEditorDom(editor ?? null)
   useEffect(() => {
-    const dom = editor && !editor.isDestroyed ? editor.view.dom : null
+    const dom = page
     if (!dom || !on || kind === 'off') return
     let idle = 0
     const rest = (): void => scapeStop(6)
@@ -38,7 +41,7 @@ export function useWritingSound(editor: Editor | null, on: boolean): void {
       document.removeEventListener('visibilitychange', away)
       window.removeEventListener('pagehide', gone)
     }
-  }, [editor, on, kind])
+  }, [page, editor, on, kind])
 }
 
 /** What the control says, as what it does: "No sound while writing", "Rain while writing". */

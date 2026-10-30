@@ -7,6 +7,7 @@ import { Button } from "@/components/tiptap-ui-primitive/button"
 import { Pencil, Unlink } from "@/components/ui/icons"
 import { hrefFor, linkAround, looksLikeAddress, refusedLinks } from "@/extensions/link-tidy"
 import { chime } from "@/lib/sound"
+import { useEditorDom } from '@/lib/editor-dom'
 
 /** Ask the editor's link box to open on the link at the caret. */
 /** The link card's quieter buttons: a faint resting fill, so they read as buttons. */
@@ -51,9 +52,12 @@ export function LinkEditor({ editor }: { editor: Editor | null }): React.JSX.Ele
   const [value, setValue] = useState("")
   const [wrong, setWrong] = useState(false)
   const input = useRef<HTMLInputElement>(null)
+  // The editor's words once on the page: tiptap's view.dom throws before (lib/editor-dom.ts).
+  const page = useEditorDom(editor ?? null)
   useEffect(() => {
     if (!editor) return
-    const dom = editor.view.dom
+    const dom = page
+    if (!dom) return
     const show = (): void => {
       const link = linkAround(editor.state)
       if (!link) return
@@ -66,7 +70,7 @@ export function LinkEditor({ editor }: { editor: Editor | null }): React.JSX.Ele
     }
     dom.addEventListener("mf:edit-link", show)
     return () => dom.removeEventListener("mf:edit-link", show)
-  }, [editor])
+  }, [page, editor])
   useEffect(() => {
     if (!open) return
     const id = requestAnimationFrame(() => (input.current?.focus(), input.current?.select()))

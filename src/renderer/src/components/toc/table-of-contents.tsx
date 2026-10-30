@@ -104,7 +104,7 @@ export function TableOfContents({ editor, shown = true }: { editor: Editor | nul
   const drawn = !!editor && headings.length >= 2 && shown
   useEffect(() => {
     const nav = navRef.current
-    const page = editor?.view.dom as HTMLElement | undefined
+    const page = dom
     if (!drawn || !nav || !page) return
     const fit = (): void => {
       if (nav.matches(":hover, [data-open]")) return
@@ -121,7 +121,7 @@ export function TableOfContents({ editor, shown = true }: { editor: Editor | nul
       watch.disconnect()
       page.style.paddingRight = ""
     }
-  }, [drawn, editor, headings.length])
+  }, [drawn, dom, headings.length])
 
   if (!editor || headings.length < (keyed === null ? 2 : 1)) return null
   if (!shown && keyed === null) return null

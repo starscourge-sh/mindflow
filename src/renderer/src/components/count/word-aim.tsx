@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useEditorDom } from '@/lib/editor-dom'
+import { domOf, useEditorDom } from '@/lib/editor-dom'
 import type { Editor } from '@tiptap/react'
 import dayjs from 'dayjs'
 import { X } from 'lucide-react'
@@ -61,7 +61,7 @@ export function WordAim({ editor, id }: { editor: Editor | null; id: string }): 
   // ⌘K's "Set a word aim": answered by the note in front, in the pane that has the keys.
   useEffect(() => {
     const onAsk = (): void => {
-      const dom = editor?.view.dom
+      const dom = domOf(editor)
       if (!dom?.isConnected || !(dom as HTMLElement).offsetParent) return
       const pane = dom.closest('[data-pane]')?.getAttribute('data-pane')
       if (pane && frontPane() && pane !== frontPane()) return

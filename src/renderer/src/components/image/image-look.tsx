@@ -16,6 +16,7 @@ import { chime } from "@/lib/sound"
 import { EASE, byKeys, still } from "@/lib/motion"
 import { useLive, haligtree, type Settings } from "@/lib/haligtree"
 import { ChevronLeft, ChevronRight, Copy, X } from "@/components/ui/icons"
+import { useEditorDom } from '@/lib/editor-dom'
 
 /** Asked for by the image menu's own Look button. */
 const LOOK = "mf-look"
@@ -149,8 +150,11 @@ export function ImageLook({ editor }: { editor: Editor | null }): React.JSX.Elem
     [editor]
   )
 
+  // The editor's words once on the page: tiptap's view.dom throws before (lib/editor-dom.ts).
+  const page = useEditorDom(editor ?? null)
   useEffect(() => {
-    const dom = editor?.view.dom
+    const dom = page
+    if (!dom) return
     if (!editor || !dom) return
     const picture = (target: EventTarget | null): HTMLImageElement | null =>
       target instanceof HTMLImageElement && whole(target) && !target.closest("[data-type='emoji'], .tiptap-bookmark-image") ? target : null
@@ -187,7 +191,7 @@ export function ImageLook({ editor }: { editor: Editor | null }): React.JSX.Elem
       dom.removeEventListener("keydown", onKey, true)
       dom.removeEventListener(LOOK, onLook)
     }
-  }, [editor, lookAt])
+  }, [page, editor, lookAt])
 
   return createPortal(
     <>
@@ -244,8 +248,11 @@ function PictureTilt({ editor }: { editor: Editor }): React.ReactNode {
     fade(null)
   })
 
+  // The editor's words once on the page: tiptap's view.dom throws before (lib/editor-dom.ts).
+  const page = useEditorDom(editor ?? null)
   useEffect(() => {
-    const dom = editor.view.dom
+    const dom = page
+    if (!dom) return
     let typed = 0
     // Tilted with the switch on, or in Focus (⇧⌘F) or full screen.
     const tips = (): boolean =>
@@ -360,7 +367,7 @@ function PictureTilt({ editor }: { editor: Editor }): React.ReactNode {
       on.current = null
       area.current = null
     }
-  }, [editor]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [page, editor]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return name.label(caption)
 }

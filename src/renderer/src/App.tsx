@@ -123,6 +123,7 @@ import { clip, quoted } from '../../main/clip'
 import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight, EyeOff, Tag as Hashtag, X } from '@/components/ui/icons'
 import { caretInLink } from './extensions/link-tidy'
 import { APP_NAME } from '../../main/name'
+import { domOf } from '@/lib/editor-dom'
 
 /**
  * A new note half written, kept as you type so it survives quitting and
@@ -1109,7 +1110,7 @@ export default function App(): React.JSX.Element {
       // Put there, and kept there for half a second while the opened note settles (its editor can be made again as it loads).
       const caret = (tries = 0, held = 0): void => {
         const editor = editorRef.current
-        const ready = !!editor && !editor.isDestroyed && !!editor.view.dom.querySelector('img')
+        const ready = !!editor && !!domOf(editor)?.querySelector('img')
         // Saved, a note loses its empty last line: the line to write on is put back under the picture.
         if (ready && editor.state.doc.lastChild?.type.name !== 'paragraph') editor.chain().insertContentAt(editor.state.doc.content.size, { type: 'paragraph' }).run()
         if (ready && !(editor.isFocused && editor.state.selection.empty && editor.state.selection.to >= editor.state.doc.content.size - 1)) editor.commands.focus('end')

@@ -253,6 +253,7 @@ import "@/assets/styles/_variables.scss"
 import "@/assets/styles/_keyframe-animations.scss"
 import "@/components/haligtree/haligtree-editor.scss"
 import { GripVertical } from '@/components/ui/icons'
+import { domOf, useEditorDom } from '@/lib/editor-dom'
 
 /** The page's document editors, any of which can read Markdown for `readMarkdown`. */
 /** Editors whose Markdown is already laid in: a view mounted again keeps what was typed since. */
@@ -1437,8 +1438,11 @@ function Surface({
 
   // No squiggles while the words are coming, as iA Writer does: the
   // spellchecker looks again once you pause.
+  // The editor's words once on the page: tiptap's view.dom throws before (lib/editor-dom.ts).
+  const page = useEditorDom(editor ?? null)
   useEffect(() => {
-    const dom = editor?.view.dom
+    const dom = page
+    if (!dom) return
     if (!dom) return
     let timer = 0
     // Back to what the page around it says (Settings' switches, on the root or a place's wrapper),
@@ -1453,7 +1457,7 @@ function Surface({
     dom.addEventListener("keydown", onKey, true)
     dom.addEventListener("blur", back)
     return () => (back(), dom.removeEventListener("keydown", onKey, true), dom.removeEventListener("blur", back))
-  }, [editor])
+  }, [page, editor])
 
   // Unmount covers switching notes with a `key`; `pagehide` covers closing the
   // window, which never unmounts anything.
@@ -1471,8 +1475,8 @@ function Surface({
   // Not the plugin's own lock: a locked handle cannot be dragged. Top-level
   // blocks need none of this; the gutter beside them maps back to them already.
   useEffect(() => {
-    if (!editor || !handles) return
-    const dom = editor.view.dom
+    if (!editor || !handles || !page) return
+    const dom = page
     const onMove = (event: MouseEvent): void => {
       const at = blockTarget.current?.pos
       if (at == null || event.buttons || editor.state.doc.resolve(at).depth === 0) return
@@ -1529,7 +1533,7 @@ function Surface({
       dom.removeEventListener("mousemove", onMove, true)
       dom.removeEventListener("contextmenu", onContext)
     }
-  }, [editor, handles])
+  }, [page, editor, handles])
 
   // Without handles there is no block menu, so a misspelt word gets one of
   // its own; anywhere else the right-click is left alone.
@@ -1542,9 +1546,9 @@ function Surface({
       setMenuAt({ x: event.clientX, y: event.clientY })
       setSpelling(found)
     }
-    editor.view.dom.addEventListener("contextmenu", onContext)
-    return () => editor.view.dom.removeEventListener("contextmenu", onContext)
-  }, [editor, handles])
+    page?.addEventListener("contextmenu", onContext)
+    return () => page?.removeEventListener("contextmenu", onContext)
+  }, [page, editor, handles])
 
   // Only when the switch actually moves. The extension is built with `vimOn`
   // already, so running this on mount changed nothing except the one thing it
@@ -1561,7 +1565,7 @@ function Surface({
   // the browser's broken-picture icon. Only what is drawn changes: the note
   // keeps its link, so the image comes back if the file does.
   useEffect(() => {
-    const dom = editor?.view.dom
+    const dom = page
     if (!dom) return
     // Named by what it was called, or the end of its address; a stored file's
     // address is only a hash, which says nothing.
@@ -1589,7 +1593,7 @@ function Surface({
     // Any that failed before this was listening.
     dom.querySelectorAll("img").forEach((img) => img.complete && !img.naturalWidth && img.src && missing(img))
     return () => dom.removeEventListener("error", onError, true)
-  }, [editor])
+  }, [page, editor])
 
   // Known by its id while open, so a heading link to this same document lands
   // here rather than waiting for an editor that will never mount.
@@ -1630,7 +1634,7 @@ function Surface({
     // Again when the first block is replaced: a new heading or a paste swaps
     // its element for a new one with the same words.
     const check = (): void => {
-      const first = editor.isDestroyed ? null : editor.view.dom.firstElementChild
+      const first = domOf(editor)?.firstElementChild ?? null
       if (first !== watched) {
         if (watched) watch.unobserve(watched)
         watched = first
@@ -1952,9 +1956,12 @@ function Surface({
 function LinkPreview({ editor }: { editor: Editor | null }): React.JSX.Element | null {
   const [link, setLink] = useState<{ href: string; top?: number; bottom?: number; left: number } | null>(null)
 
+  // The editor's words once on the page: tiptap's view.dom throws before (lib/editor-dom.ts).
+  const page = useEditorDom(editor ?? null)
   useEffect(() => {
     if (!editor) return
-    const root = editor.view.dom
+    const root = page
+    if (!root) return
     const hide = (): void => setLink(null)
 
     const show = (event: Event): void => {
@@ -1983,7 +1990,7 @@ function LinkPreview({ editor }: { editor: Editor | null }): React.JSX.Element |
       root.removeEventListener("pointerleave", hide)
       window.removeEventListener("scroll", hide, true)
     }
-  }, [editor])
+  }, [page, editor])
 
   if (!link?.href) return null
 

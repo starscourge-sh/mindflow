@@ -1,5 +1,6 @@
 import type { Editor } from "@tiptap/react"
 import { useEffect, useState } from "react"
+import { useEditorDom } from '@/lib/editor-dom'
 
 type Orientation = "horizontal" | "vertical" | "both"
 
@@ -70,6 +71,7 @@ export function useMenuNavigation<T>({
     autoSelectFirstItem ? 0 : -1
   )
 
+  const page = useEditorDom(editor ?? null)
   useEffect(() => {
     const handleKeyboardNavigation = (event: KeyboardEvent) => {
       if (!items.length) return false
@@ -162,7 +164,8 @@ export function useMenuNavigation<T>({
     let targetElement: HTMLElement | null = null
 
     if (editor) {
-      targetElement = editor.view.dom
+      // Its words once on the page: tiptap's view.dom throws before (lib/editor-dom.ts).
+      targetElement = page
     } else if (containerRef?.current) {
       targetElement = containerRef.current
     }
@@ -181,6 +184,7 @@ export function useMenuNavigation<T>({
 
     return undefined
   }, [
+    page,
     editor,
     containerRef,
     items,

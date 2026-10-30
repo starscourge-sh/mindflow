@@ -9,6 +9,7 @@ import {
 import { useEffect, useState } from "react"
 import { host } from "@/lib/host"
 import { spellFixes } from "@/lib/grammar"
+import { domOf } from '@/lib/editor-dom'
 
 /** A misspelt word in the document, where it sits, and what it might be. */
 export interface Misspelling {
@@ -23,7 +24,7 @@ export interface Misspelling {
  * you type (no squiggles mid-word) and only put back on a pause, so the page
  * around it (Settings' switches, on the root or a place's wrapper) has the say.
  */
-const spellOn = (editor: Editor): boolean => editor.view.dom.spellcheck && editor.view.dom.parentElement?.spellcheck !== false
+const spellOn = (editor: Editor): boolean => !!domOf(editor)?.spellcheck && domOf(editor)?.parentElement?.spellcheck !== false
 
 /** Letters, with an apostrophe inside allowed: "don't" is one word. */
 const WORD = /[\p{L}\p{M}]+(?:['’][\p{L}\p{M}]+)*/gu

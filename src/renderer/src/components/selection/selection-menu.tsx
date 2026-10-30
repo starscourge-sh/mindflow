@@ -3,6 +3,7 @@ import { BubbleMenu, type BubbleMenuProps } from '@tiptap/react/menus'
 import { AllSelection, TextSelection, type EditorState } from '@tiptap/pm/state'
 import { posToDOMRect } from '@tiptap/core'
 import { EditorContext, useEditorState, type Editor } from '@tiptap/react'
+import { domOf, useEditorDom } from '@/lib/editor-dom'
 
 import { Toolbar } from '@/components/tiptap-ui-primitive/toolbar'
 
@@ -73,7 +74,9 @@ function useFloat(editor: Editor | null, reading = false, code = false) {
   const bar = useRef<HTMLDivElement>(null)
   const [tight, setTight] = useState(false)
   const full = useRef(0)
-  const box = editor && !editor.isDestroyed ? (editor.view.dom.closest('.haligtree-editor-wrapper') as HTMLElement | null) : null
+  // The editor's words once they are on the page (lib/editor-dom.ts): tiptap's view.dom throws before.
+  const page = useEditorDom(editor ?? null)
+  const box = page?.closest('.haligtree-editor-wrapper') as HTMLElement | null ?? null
   // Held for the editor's life: a new object each render would make the menu
   // reconfigure its plugin on every keystroke.
   const [held] = useState(() => {
@@ -119,15 +122,15 @@ function useFloat(editor: Editor | null, reading = false, code = false) {
     return { getBoundingClientRect: () => rect, getClientRects: () => [rect] }
   }, [editor, held])
   const appendTo = useMemo(() => () => {
-    const host = (editor && !editor.isDestroyed ? editor.view.dom.closest('[role=dialog]') : null) ?? document.body
+    const host = domOf(editor)?.closest('[role=dialog]') ?? document.body
     if (held.layer.parentElement !== host) host.appendChild(held.layer)
     return held.layer
   }, [editor, held])
   useEffect(() => () => void held.layer.remove(), [held])
   // Any scroll that moves the words moves the bar with them.
   useEffect(() => {
-    if (!editor || editor.isDestroyed) return
-    const dom = editor.view.dom
+    const dom = page
+    if (!dom) return
     const moved = (event: Event): void => {
       const target = event.target
       if (target === document || (target instanceof Node && target.contains(dom))) held.scrolled.dispatchEvent(new Event('scroll'))
@@ -140,7 +143,7 @@ function useFloat(editor: Editor | null, reading = false, code = false) {
       dom.removeEventListener('keydown', keyed, true)
       clearTimeout(held.later.timer)
     }
-  }, [editor, held])
+  }, [page, held])
   // A selection is offered the bar once it has lasted a moment with no key
   // since; ⌘A then ⌫ is gone before then, so the bar never flashes up.
   const shouldShow = useMemo<BubbleMenuProps['shouldShow']>(() => (props) => {

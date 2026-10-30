@@ -5,6 +5,7 @@ import { haligtree, type Focus, type Task } from '@/lib/haligtree'
 import { frogOn } from '@/lib/day-plan'
 import { RowMenu } from './row-menu'
 import { taskMenu } from './tasks-view'
+import { useEditorDom } from '@/lib/editor-dom'
 
 /**
  * A task in a note, a linked to-do or a task link, right-clicked: the menu a
@@ -15,8 +16,11 @@ export function TaskLinkMenu({ editor }: { editor: Editor }): React.JSX.Element 
   const [shown, setShown] = useState<{ task: Task; focus: Focus | null; frog: string | null; x: number; y: number } | null>(null)
   const anchor = useRef<HTMLSpanElement>(null)
 
+  // The editor's words once on the page: tiptap's view.dom throws before (lib/editor-dom.ts).
+  const page = useEditorDom(editor ?? null)
   useEffect(() => {
-    const dom = editor.view.dom
+    const dom = page
+    if (!dom) return
     const onContext = (event: MouseEvent): void => {
       const target = event.target as HTMLElement | null
       if (!target?.closest || target.closest('.tiptap-excalidraw-canvas')) return
@@ -34,7 +38,7 @@ export function TaskLinkMenu({ editor }: { editor: Editor }): React.JSX.Element 
     }
     dom.addEventListener('contextmenu', onContext, true)
     return () => dom.removeEventListener('contextmenu', onContext, true)
-  }, [editor])
+  }, [page, editor])
 
   // The menu opens where the pointer was, as a right click on a row opens it.
   useEffect(() => {
@@ -48,7 +52,7 @@ export function TaskLinkMenu({ editor }: { editor: Editor }): React.JSX.Element 
   const open = (): void => (follow ? follow(`task:${task.id}`) : window.api.openInHome('task', task.id))
   return (
     // The note's own Cut, Copy and Paste after the task's lines, so editing still works from here.
-    <RowMenu writes={editor.view.dom} items={taskMenu(task, { open, now: { focus, frog } })}>
+    <RowMenu writes={page ?? undefined} items={taskMenu(task, { open, now: { focus, frog } })}>
       <span ref={anchor} aria-hidden className="pointer-events-none fixed size-0" style={{ left: shown.x, top: shown.y }} />
     </RowMenu>
   )

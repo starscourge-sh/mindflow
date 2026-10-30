@@ -4,6 +4,7 @@ import { CellSelection, TableMap } from '@tiptap/pm/tables'
 import { useEditorState, type Editor } from '@tiptap/react'
 
 import { grow, moveColumn, moveRow } from '@/lib/table'
+import { useEditorDom } from '@/lib/editor-dom'
 
 /** Where each row and column sits, relative to the editor's own box. */
 interface Geometry {
@@ -110,13 +111,16 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
   // without this the grips stay put while the columns slide under them. Every
   // table has its own wrapper, so this listens at the root in the capture phase
   // rather than picking one: scroll does not bubble.
+  // The editor's words once on the page: tiptap's view.dom throws before (lib/editor-dom.ts).
+  const page = useEditorDom(editor ?? null)
   useEffect(() => {
     if (!editor) return
-    const dom = editor.view.dom
+    const dom = page
+    if (!dom) return
     const onScroll = (): void => setGeometry(measure(editor))
     dom.addEventListener('scroll', onScroll, { capture: true, passive: true })
     return () => dom.removeEventListener('scroll', onScroll, { capture: true })
-  }, [editor])
+  }, [page, editor])
 
   /** Select a whole row or column by its index. */
   const select = useCallback(
@@ -151,7 +155,7 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
   // Which row and column the pointer is over. Measured against the same box the
   // geometry was, so the two agree.
   const [hover, setHover] = useState<Hover>(null)
-  const host = editor?.view.dom.parentElement ?? null
+  const host = page?.parentElement ?? null
 
   useEffect(() => {
     if (!host || !geometry) return

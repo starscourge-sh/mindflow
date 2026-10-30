@@ -5,6 +5,7 @@ import type { Editor } from "@tiptap/react"
 import { Kbd } from "@/components/ui/kbd"
 import { spellFixes } from "@/lib/grammar"
 import { misspeltAt, wordAt, type Misspelling } from "./spelling"
+import { useEditorDom } from '@/lib/editor-dom'
 
 /** A pause this long and you are no longer typing: the suggestion may come. */
 const TYPING = 1200
@@ -59,9 +60,12 @@ export function SpellPill({ editor }: { editor: Editor | null }): React.JSX.Elem
   const shown = useRef(hint)
   shown.current = hint
   const takeRef = useRef<(one: Hint) => void>(() => {})
+  // The editor's words once on the page: tiptap's view.dom throws before (lib/editor-dom.ts).
+  const page = useEditorDom(editor ?? null)
   useEffect(() => {
     if (!editor || editor.isDestroyed) return
-    const dom = editor.view.dom
+    const dom = page
+    if (!dom) return
     const box = dom.closest<HTMLElement>(".haligtree-editor-wrapper")
     if (!box) return
     let frame = 0
@@ -161,7 +165,7 @@ export function SpellPill({ editor }: { editor: Editor | null }): React.JSX.Elem
       window.removeEventListener("blur", place)
       window.removeEventListener("focus", place)
     }
-  }, [editor])
+  }, [page, editor])
   if (!hint) return null
   return createPortal(
     <span data-spell-hint data-spell-word={hint.word} data-spell-tab={hint.tab || undefined} aria-hidden
