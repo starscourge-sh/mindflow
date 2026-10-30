@@ -31,8 +31,10 @@ const pages = {
   '/article': `<html><head><title>The Garden Essay | Probe Times</title><meta property="og:site_name" content="Probe Times"><meta property="article:published_time" content="2026-09-14T08:00:00Z"></head><body>
     <nav><a href="/">Home</a> <a href="/about">About</a></nav>
     <article><h1>The Garden Essay</h1><p class="byline">By Ada Probe</p>
-    ${para(1)}<p>A quiet sentence worth keeping sits here, in the middle of the essay.</p>${para(2)}<img src="/pic.png" alt="A garden">${para(3)}${para(4)}<script>alert(1)</script></article>
+    ${para(1)}<p>A quiet sentence worth keeping sits here, in the middle of the essay.</p>${para(2)}<img src="/pic.png" alt="A garden">${para(3)}<img src="/missing.png" alt="The old gate">${para(4)}<script>alert(1)</script></article>
     <footer>Subscribe to our newsletter</footer></body></html>`,
+  '/second': `<html><head><title>A Second Essay</title><meta property="og:site_name" content="Probe Times"></head><body><article><h1>A Second Essay</h1>${para(5)}${para(6)}${para(7)}</article></body></html>`,
+  '/paid': `<html><head><title>Members only</title><script type="application/ld+json">{"@type":"NewsArticle","isAccessibleForFree":false}</script></head><body><article><h1>Members only</h1><p>Subscribe to read the rest.</p></article></body></html>`,
   '/login': `<html><head><title>Sign in</title></head><body><form><input name="user"><input type="password" name="pw"><button>Sign in</button></form></body></html>`,
   '/app': `<html><head><title>App</title></head><body><div id="root"></div><script src="/bundle.js"></script></body></html>`
 }
@@ -45,6 +47,11 @@ const shots = process.env.QA_SHOTS ?? '/tmp'
 const errors = []
 h.on('pageerror', (e) => errors.push(String(e)))
 const net = (patch) => electron.evaluate((_, p) => Object.assign(globalThis.__webNet, p), patch)
+/** How many words each open reader has drawn as highlights (its own names, from its own style), in pane order. */
+const drawnIn = (kind = 'mark') => h.evaluate((kind) => [...document.querySelectorAll('.web-reader')].map((reader) => {
+  const name = /::highlight\((web\w+)-mark\)/.exec(reader.querySelector('style')?.textContent ?? '')?.[1]
+  return name ? (CSS.highlights.get(`${name}-${kind}`)?.size ?? 0) : -1
+}), kind)
 const open = (href) => h.evaluate((href) => window.dispatchEvent(new CustomEvent('haligtree:web', { detail: { href } })), href)
 try {
   await electron.evaluate((_, [site, pages, pic]) => {
@@ -92,6 +99,8 @@ try {
       meta: document.querySelector('.web-reader-meta')?.textContent,
       words: body?.textContent ?? '',
       img: body?.querySelector('img')?.getAttribute('src') ?? '',
+      imgs: body?.querySelectorAll('img').length,
+      missing: [...(body?.querySelectorAll('a') ?? [])].map((one) => [one.textContent, one.getAttribute('href')]).find(([words]) => /old gate/.test(words)),
       scripts: body?.querySelectorAll('script, nav, footer').length ?? -1,
       family: s?.fontFamily,
       tools: [...document.querySelectorAll('.web-reader .pdf-reader-tools button')].map((one) => one.getAttribute('aria-label'))
@@ -101,6 +110,7 @@ try {
   check('with its byline, site and date', /Ada Probe/.test(shown.meta ?? '') && /Probe Times/.test(shown.meta ?? '') && /2026/.test(shown.meta ?? ''), shown.meta)
   check('its words are there, the menus and footer gone', /quiet sentence worth keeping/.test(shown.words) && !/Subscribe|About/.test(shown.words) && shown.scripts === 0, shown.words.slice(0, 120))
   check('its picture is kept with the notes', /^haligtree:\/\/assets\/[a-f0-9]{64}\.png$/.test(shown.img), shown.img)
+  check('a picture that could not be kept stays a link to it on the site', shown.imgs === 1 && shown.missing?.[1] === `${SITE}/missing.png` && shown.missing?.[0] === 'Picture: The old gate', JSON.stringify([shown.imgs, shown.missing]))
   check("in the note's reading type", noteType && shown.family === noteType.family, `${shown.family} vs ${noteType?.family}`)
   check('the top bar has find, size and paper pages', ['Find', 'Smaller', 'Larger', 'Paper pages'].every((one) => shown.tools.includes(one)), JSON.stringify(shown.tools))
   await h.screenshot({ path: `${shots}/web-reader.png` })
@@ -120,6 +130,7 @@ try {
   check('⌘F finds every "garden" in it', /^1 of [4-9]/.test(count ?? ''), count)
   await h.keyboard.press('Escape'); await wait(200)
 
+  await h.evaluate(() => (window.__firstWords = document.querySelector('.web-reader-body p')?.firstChild))
   // Picked words offer Keep; Keep makes a gem with the quote, "Article title, Site", and a link back.
   await h.evaluate(() => {
     const p = [...document.querySelectorAll('.web-reader-body p')].find((one) => /quiet sentence/.test(one.textContent))
@@ -141,12 +152,14 @@ try {
   check('the gem holds the quote', /quiet sentence worth keeping/.test(body), body.slice(0, 200))
   check('its source is "Article title, Site"', gem?.attribution === 'The Garden Essay, Probe Times', String(gem?.attribution))
   check('it links back to the article and mark', body.includes(`haligtree://article?href=${encodeURIComponent(`${SITE}/article`)}&mark=${marks[0]?.id}`), body.slice(0, 400))
-  check('the highlight is drawn', await h.evaluate(() => CSS.highlights.get('web-mark')?.size === 1), '')
+  check('the highlight is drawn', (await drawnIn()).join() === '1', JSON.stringify(await drawnIn()))
+  check('Keep left the words as they were drawn (nothing rebuilt them)', await h.evaluate(() => window.__firstWords === document.querySelector('.web-reader-body p')?.firstChild), '')
   await h.screenshot({ path: `${shots}/web-mark.png` })
 
   // Right-click on it: open its gem, or remove the highlight.
   const at = await h.evaluate(() => {
-    const r = [...CSS.highlights.get('web-mark')][0].getClientRects()[0]
+    const name = /::highlight\((web\w+)-mark\)/.exec(document.querySelector('.web-reader style').textContent)[1]
+    const r = [...CSS.highlights.get(`${name}-mark`)][0].getClientRects()[0]
     return { x: r.left + r.width / 2, y: r.top + r.height / 2 }
   })
   await h.mouse.click(at.x, at.y, { button: 'right' }); await wait(500)
@@ -167,14 +180,33 @@ try {
   await h.keyboard.down('Meta'); await h.mouse.click(linkBox.x, linkBox.y); await h.keyboard.up('Meta')
   await h.waitForSelector('.web-reader-body p', { timeout: 10000 }).catch(() => {})
   await wait(500)
-  const back = await h.evaluate(() => ({ open: !!document.querySelector('.web-reader-body'), marks: CSS.highlights.get('web-mark')?.size ?? 0, lit: CSS.highlights.get('web-flash')?.size ?? 0 }))
+  const back = { open: await h.evaluate(() => !!document.querySelector('.web-reader-body')), marks: (await drawnIn())[0], lit: (await drawnIn('flash'))[0] }
   check("the gem's link opens the article with the highlight lit", back.open && back.marks === 1 && back.lit === 1, JSON.stringify(back))
   check('read from the book, not the site, when offline', (await electron.evaluate(() => globalThis.__webNet.hits)) === 0, '')
   await h.screenshot({ path: `${shots}/web-link-back.png` })
   await net({ blocked: false })
 
+  // Two articles side by side: each keeps its own highlights.
+  await v('item:save', note, { title: 'Reading list', body: { type: 'doc', content: [
+    { type: 'bookmark', attrs: { href: `${SITE}/article`, title: 'The Garden Essay', site: 'Probe Times' } },
+    { type: 'bookmark', attrs: { href: `${SITE}/second`, title: 'A Second Essay', site: 'Probe Times' } },
+    { type: 'paragraph' }
+  ] } })
+  await c.send('article', note); await wait(1400)
+  await h.keyboard.down('Alt'); await h.locator(button).nth(0).click(); await h.keyboard.up('Alt')
+  await h.waitForSelector('.web-reader-body p', { timeout: 10000 }).catch(() => {})
+  await wait(600)
+  await h.locator(`[data-open="${note}"] ${button}`).nth(1).click()
+  await h.waitForFunction(() => document.querySelectorAll('.web-reader-body p').length > 0 && document.querySelectorAll('.web-reader').length === 2, null, { timeout: 10000 }).catch(() => {})
+  await wait(600)
+  const side = await h.evaluate(() => [...document.querySelectorAll('.web-reader .pdf-reader-title')].map((one) => one.textContent))
+  const both = await drawnIn()
+  check('two articles open side by side', side.length === 2 && side.includes('The Garden Essay') && side.includes('A Second Essay'), JSON.stringify(side))
+  check('each keeps its own highlights: the first still drawn, none on the second', both.length === 2 && both[side.indexOf('The Garden Essay')] === 1 && both[side.indexOf('A Second Essay')] === 0, JSON.stringify(both))
+  await h.screenshot({ path: `${shots}/web-side-by-side.png` })
+
   // Pages the reader cannot read say why, never a blank pane.
-  for (const [path, words] of [['/login', /sign in/], ['/app', /scripts/]]) {
+  for (const [path, words] of [['/login', /sign in/], ['/paid', /paywall/], ['/app', /scripts/]]) {
     await open(`${SITE}${path}`)
     await h.waitForSelector('.web-reader-failed', { timeout: 10000 }).catch(() => {})
     const said = await h.evaluate(() => document.querySelector('.web-reader-failed')?.textContent ?? '')

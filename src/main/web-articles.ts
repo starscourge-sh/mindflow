@@ -87,8 +87,13 @@ export function registerWebArticles(keep: (src: string) => Promise<string>): voi
       [...clean.querySelectorAll('img')].map(async (one) => {
         const to = URL.parse(one.getAttribute('src') ?? '', base)
         const kept = to && /^https?:$/.test(to.protocol) ? await keep(to.href) : ''
-        if (kept) one.setAttribute('src', kept)
-        else one.remove()
+        if (kept.startsWith('haligtree:')) return void one.setAttribute('src', kept)
+        // A picture that could not be kept stays a link to it on the site; one on this machine's network goes.
+        if (!kept) return void one.remove()
+        const link = clean.createElement('a')
+        link.setAttribute('href', kept)
+        link.textContent = `Picture: ${one.getAttribute('alt')?.trim() || 'on the site'}`
+        one.replaceWith(link)
       })
     )
     // Readability's own wrappers (a page div, the site's article) unwrapped, so the words sit straight in the reader's column.
