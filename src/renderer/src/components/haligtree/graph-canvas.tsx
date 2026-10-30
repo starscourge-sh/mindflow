@@ -193,6 +193,9 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, replay, cla
   const placed = useRef(new Map<string, { x: number; y: number }>())
   const [asks] = useState(() => (small ? null : takeFocus()))
   const focusOn = useRef(asks)
+  // How far the replay has come, kept across reloads of the data: the map built again for a new link carries on
+  // from the same moment. (The bar's own effect runs before this one rebuilds, so it cannot be told again.)
+  const replayAt = useRef<number | null>(null)
 
   useEffect(() => {
     const el = canvas.current
@@ -456,7 +459,7 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, replay, cla
     // On a note's own map the far ones are faded, so the near ones read first.
     let reach = 1
     // How far the replay has come, in dots, and each dot's place in it.
-    let cut: number | null = null
+    let cut = replayAt.current
     const rank = new Map(replayOrder(dots).map((dot, at) => [dot as Dot, at]))
     /** How much of a dot the replay shows: none before its turn, all of it a few dots after. */
     const got = (dot: Dot): number => (cut === null ? 1 : Math.max(0, Math.min(1, (cut - rank.get(dot)!) / REPLAY_FADE)))
@@ -855,11 +858,13 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, replay, cla
       if (shown && !drag) ((focus = null), fade(0))
     }
     if (replay) replay.current = (at) => {
-      cut = at
-      // How many dots are in, for a probe and a screen reader.
-      el.dataset.replayed = at === null ? '' : String(dots.filter((dot) => got(dot) >= 1).length)
+      cut = replayAt.current = at
+      told()
       redraw()
     }
+    // How many dots are in, for a probe and a screen reader; said again when the map is built anew mid-replay.
+    const told = (): void => void (el.dataset.replayed = cut === null ? '' : String(dots.filter((dot) => got(dot) >= 1).length))
+    told()
     if (fly) fly.current = (id: string) => {
       const dot = byId.get(id)
       if (!dot || !width) return false

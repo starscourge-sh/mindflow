@@ -13,6 +13,8 @@ const { check, done } = checks()
 const c = await sandbox({ width: 1200, height: 800 })
 const { h, v } = c
 const replayed = () => h.evaluate(() => document.querySelector('canvas')?.dataset.replayed ?? null)
+// Which canvas and bar are on the page: a new one means the map or the replay was built again under it.
+const ids = () => h.evaluate(() => [document.querySelector('canvas'), document.querySelector('[data-map-replay-bar]')].map((el) => el ? (el.dataset.qaId ??= Math.random().toString(36).slice(2, 6)) : '-').join('/'))
 const date = () => h.evaluate(() => document.querySelector('[data-map-replay-date]')?.textContent ?? null)
 try {
   await v('settings:set', { sounds: false, hintRate: 0, motion: true })
@@ -26,14 +28,17 @@ try {
 
   await h.click('[data-map-replay]')
   // Frame by frame: the count only grows, and the date never goes back.
-  const counts = [], dates = []
+  const counts = [], dates = [], seenIds = []
   for (let n = 0; n < 12; n++) {
     counts.push(Number(await replayed()))
+    seenIds.push(await ids())
     dates.push(await date())
     if (n === 6 && SHOT) await h.screenshot({ path: `${SHOT}/replay-light-early.png` })
     await h.waitForTimeout(120)
   }
   console.log('counts', counts.join(' '))
+  console.log('canvas/bar', [...new Set(seenIds)].join(' then '))
+  check('the map and the replay are never built again while it plays', new Set(seenIds).size === 1, [...new Set(seenIds)].join(' then '))
   console.log('dates', [...new Set(dates)].join(' | '))
   check('it starts from the first note or so', counts[0] <= 2, counts[0])
   check('dots arrive as it plays', counts.at(-1) > counts[0], counts.join(' '))
@@ -44,6 +49,12 @@ try {
   const paused = Number(await replayed())
   await h.waitForTimeout(500)
   check('pause holds it where it is', Number(await replayed()) === paused, `${paused} then ${await replayed()}`)
+
+  // A new link written while it is paused: the map is built again from fresh data, and the replay holds its place.
+  const gem = (await v('items', 'nugget')).find((one) => map.nodes.some((node) => node.id === one.id))
+  if (gem) await v('item:save', gem.id, { title: `${gem.title} (again)` })
+  await h.waitForTimeout(1000)
+  check('a data refresh mid-replay keeps its place, never shows the whole map', gem && Number(await replayed()) === paused && !!(await date()), `${paused} then ${await replayed()}`)
 
   const speed = await h.textContent('[data-map-replay-speed]')
   await h.click('[data-map-replay-speed]')
