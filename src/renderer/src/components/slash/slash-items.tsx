@@ -34,10 +34,6 @@ const RibbonIcon = (): React.JSX.Element => (
 )
 
 /**
- * What `/` offers. The hints are the markdown shortcuts that already work, so
- * the menu doubles as a way to learn them.
- */
-/**
  * A file picked and attached where the cursor is: a PDF shows its pages, any
  * other file its card. The browser's own picker rather than a dialog through
  * the main process: it hands back a `File`, which is what the store takes.
@@ -64,6 +60,10 @@ function attachFile(editor: Editor, accept?: string): void {
   input.click()
 }
 
+/**
+ * What `/` offers. The hints are the markdown shortcuts that already work, so
+ * the menu doubles as a way to learn them.
+ */
 export const slashItems: SlashItem[] = [
   {
     title: 'Text',

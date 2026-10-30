@@ -53,6 +53,25 @@ const errors = []
 h.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 h.on('pageerror', (e) => errors.push(String(e)))
 const EDITOR = '[data-open] .tiptap'
+/** How much of a span's box on page 1 of the note's PDF block reads as white page: a grey band behind the words reads near 0. */
+const whiteUnderWords = async () => {
+  const box = await h.evaluate(() => {
+    const span = [...document.querySelectorAll('.tiptap-attachment.is-pdf .pdf-page[data-page="1"] .textLayer span')].find((one) => /probe book/.test(one.textContent))
+    const r = span?.getBoundingClientRect()
+    return r ? { x: r.left, y: r.top, width: r.width, height: r.height } : null
+  })
+  if (!box) return -1
+  const shot = await h.screenshot({ clip: box })
+  return h.evaluate(async (b64) => {
+    const img = new Image(); img.src = `data:image/png;base64,${b64}`; await img.decode()
+    const canvas = document.createElement('canvas'); canvas.width = img.width; canvas.height = img.height
+    const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0)
+    const data = ctx.getImageData(0, 0, img.width, img.height).data
+    let white = 0
+    for (let i = 0; i < data.length; i += 4) if (data[i] > 245 && data[i + 1] > 245 && data[i + 2] > 245) white++
+    return white / (data.length / 4)
+  }, shot.toString('base64'))
+}
 
 try {
   // App size off 100%, so the View menu's Actual Size would show if it changed it.
@@ -94,6 +113,10 @@ try {
     return src
   }, EDITOR)
   if (!seen?.sheets) console.log('errors:', errors.slice(-5))
+  // The block picked as a whole (as a drop leaves it): no grey band behind page 1's words.
+  const picked1 = await h.evaluate((sel) => document.querySelector(sel).editor.state.selection.node?.type.name ?? '', EDITOR)
+  const white1 = await whiteUnderWords()
+  check('the block picked whole shows no band behind its words', white1 > 0.5, `${picked1}: ${white1}`)
   check("page 1's words are laid over it", /Page 1 of the probe book/.test(seen?.words ?? ''), seen?.words)
   check('a sheet for every page', seen?.sheets === 3, String(seen?.sheets))
   check('it says how many pages', /3 pages/.test(seen?.count ?? ''), seen?.count)
@@ -281,6 +304,35 @@ try {
   const side = await h.evaluate(() => ({ reader: !!document.querySelector('.pdf-reader'), note: !!document.querySelector('.tiptap-attachment.is-pdf') }))
   check('⌥-click Open puts the PDF beside the note', side.reader && side.note, JSON.stringify(side))
   await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-beside-note.png` })
+  const white2 = await whiteUnderWords()
+  check('beside the reader, the block shows no band behind its words', white2 > 0.5, String(white2))
+
+  // The slash menu's "PDF" in a fresh note, typed as a person types: the picker hands back a PDF, its pages show.
+  await h.evaluate(([bytes]) => {
+    const file = new File([new Uint8Array(bytes)], 'slash-book.pdf', { type: 'application/pdf' })
+    // The picker stands in for Finder's: clicking the file input picks this PDF.
+    HTMLInputElement.prototype.click = function () {
+      if (this.type !== 'file') return
+      const data = new DataTransfer(); data.items.add(file)
+      this.files = data.files
+      window.__accept = this.accept
+      this.dispatchEvent(new Event('change'))
+    }
+  }, [bytes])
+  const fresh = await v('article:new')
+  await v('item:save', fresh, { title: 'Slash PDF', body: { type: 'doc', content: [{ type: 'paragraph' }] } })
+  await c.send('article', fresh); await wait(1400)
+  // Two notes are open side by side now: type in the fresh one.
+  const FRESH = `[data-open="${fresh}"] .tiptap`
+  await h.click(`${FRESH} p`)
+  await h.keyboard.type('/pdf'); await wait(600)
+  const offered = await h.evaluate(() => [...document.querySelectorAll('.tiptap-slash-menu-title')].map((one) => one.textContent.trim()))
+  check('typing /pdf in a fresh note shows the slash menu with "PDF"', offered.includes('PDF'), JSON.stringify(offered))
+  await h.click('.tiptap-slash-menu-title:text-is("PDF")', { timeout: 3000 }).catch(() => {})
+  await h.waitForSelector(`${FRESH} .tiptap-attachment.is-pdf .pdf-page[data-page="1"] .textLayer span`, { timeout: 15000 }).catch(() => {})
+  const slashed = await h.evaluate((sel) => ({ accept: window.__accept, words: document.querySelector(`${sel} .tiptap-attachment.is-pdf .pdf-page[data-page="1"] .textLayer`)?.textContent ?? '', slash: document.querySelector(sel).textContent.includes('/pdf') }), FRESH)
+  check('"PDF" picks only PDFs and puts its pages in the note, the /pdf gone', /pdf/.test(slashed.accept) && /Page 1 of the probe book/.test(slashed.words) && !slashed.slash, JSON.stringify(slashed))
+  await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-slash.png` })
 } catch (error) {
   check('ran without throwing', false, String(error?.stack ?? error))
 } finally {
