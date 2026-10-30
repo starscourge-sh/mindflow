@@ -1,7 +1,7 @@
 // The writing room's foot answers every click, and Esc backs out one layer at
 // a time with Vim on. "Focus on the" reads as a label, its choices as buttons;
 // "Word aim" asks for an aim and its line shows; "Proofread" shows what it
-// found (or "Clean."); "How it reads" shows its report; the sound choice shows
+// found (or "Nothing to fix"); "How it reads" shows its report; the sound choice shows
 // what it picked. With Vim on: Esc in insert mode goes to normal mode first,
 // a second Esc leaves the room.
 //

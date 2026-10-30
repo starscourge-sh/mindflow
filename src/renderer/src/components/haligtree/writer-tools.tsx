@@ -156,6 +156,13 @@ export function WriterTools({ editor, proof = false, live = proof }: { editor: E
   const focus = useFocus()
   const [report, setReport] = useState<string | null>(null)
   const [checking, setChecking] = useState(checkingLive)
+  // How many Proofread found ("Proofread · 7", "Proofread · 0"), while it runs (proofread.tsx says).
+  const [found, setFound] = useState<number | null>(null)
+  useEffect(() => {
+    const heard = (event: Event): void => setFound((event as CustomEvent<number | null>).detail)
+    window.addEventListener('haligtree:proofread-count', heard)
+    return () => window.removeEventListener('haligtree:proofread-count', heard)
+  }, [])
   const ask = (): void => {
     if (report || !editor) return void (chime('fold'), setReport(null), editor?.commands.focus())
     chime('open')
@@ -182,7 +189,7 @@ export function WriterTools({ editor, proof = false, live = proof }: { editor: E
       <button type="button" data-report-ask data-on={!!report || undefined} className={pick} onClick={ask}>How it reads</button>
       {proof && (
         <>
-          <button type="button" data-proofread-ask className={pick} onClick={() => (setReport(null), askProofread())}>Proofread</button>
+          <button type="button" data-proofread-ask className={pick} data-on={found !== null || undefined} onClick={() => (setReport(null), askProofread())}>Proofread{found !== null && <span data-proof-count className="tabular-nums"> · {found}</span>}</button>
           {live && <button type="button" data-grammar-live data-on={checking || undefined} className={pick} onClick={() => (setCheckingLive(!checking), setChecking(!checking), chime(checking ? 'off' : 'on'))}>Mark mistakes as I write</button>}
         </>
       )}

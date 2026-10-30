@@ -5,7 +5,7 @@ import type { LocalLinter } from 'harper.js'
  * Grammar and style, checked on this computer by Harper (harper.js, Apache-2.0):
  * its slim WebAssembly build, fetched from the app's own files the first time
  * it is asked for and never at startup. Nothing leaves the computer.
- * Spelling is left to the spellchecker the editor already has.
+ * Marking as you write leaves spelling to the spellchecker the editor already has; Proofread counts it.
  */
 let linter: Promise<LocalLinter> | null = null
 /** How long the first load took, for the probes. */
@@ -30,7 +30,7 @@ const REASONS: Record<string, string> = {
   Repetition: 'repeated word', Agreement: 'words that do not agree', Grammar: 'grammar', Punctuation: 'punctuation', Capitalization: 'capital letter',
   Readability: 'hard to read', Redundancy: 'says it twice', Style: 'style', WordChoice: 'word choice', Usage: 'usage', Typo: 'typo',
   Eggcorn: 'a mixed-up phrase', Malapropism: 'the wrong word', BoundaryError: 'words run together or split', Formatting: 'spacing',
-  Enhancement: 'could be clearer', Nonstandard: 'nonstandard', Regionalism: 'regional word', WordOrder: 'word order', Miscellaneous: 'worth a look'
+  Enhancement: 'could be clearer', Spelling: 'spelling', Nonstandard: 'nonstandard', Regionalism: 'regional word', WordOrder: 'word order', Miscellaneous: 'worth a look'
 }
 const reasonOf = (kind: string, message: string): string => (/passive/i.test(message) ? 'passive voice' : (REASONS[kind] ?? 'worth a look'))
 
@@ -83,15 +83,19 @@ export function spellFixes(word: string): Promise<string[]> {
   return found
 }
 
-/** What Harper finds in a document, in order, spelling left out. */
-export async function findings(doc: PMNode): Promise<Finding[]> {
+/**
+ * What Harper finds in a document, in order. Spelling is counted only when asked (Proofread, the report): a page
+ * full of misspellings came back "Clean.", so Proofread seemed to do nothing. Marking as you write leaves it out,
+ * the spellchecker's own wavy line already shows it.
+ */
+export async function findings(doc: PMNode, spelling = false): Promise<Finding[]> {
   const { text, at } = textOf(doc)
   if (!text.trim()) return []
   const one = await grammar()
   const lints = await one.lint(text, { language: 'plaintext' })
   const out = lints.flatMap((lint): Finding[] => {
     const kind = lint.lint_kind()
-    if (kind === 'Spelling') return []
+    if (kind === 'Spelling' && !spelling) return []
     const span = lint.span()
     const suggestion = lint.suggestions()[0]
     const replacement = !suggestion ? null : suggestion.kind() === 1 ? '' : suggestion.kind() === 2 ? lint.get_problem_text() + suggestion.get_replacement_text() : suggestion.get_replacement_text()
@@ -102,7 +106,7 @@ export async function findings(doc: PMNode): Promise<Finding[]> {
 
 /** For the Prose report: what Harper found, in a sentence. */
 export async function grammarSentence(doc: PMNode): Promise<string> {
-  const found = await findings(doc)
+  const found = await findings(doc, true)
   if (!found.length) return 'Grammar and style: nothing to look at.'
   const by = new Map<string, number>()
   for (const one of found) by.set(one.reason, (by.get(one.reason) ?? 0) + 1)
