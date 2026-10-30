@@ -139,6 +139,10 @@ const api = {
 
   /** The picture on the system clipboard, read by the system rather than from a pasted file that may not open. */
   clipboardImage: (): Promise<{ mime: string; bytes: Uint8Array } | null> => ipcRenderer.invoke('clipboard-image'),
+  /** The names of files copied in Finder, if the clipboard holds any: asked at once, as a paste decides there and then. */
+  copiedFileNames: (): string[] => ipcRenderer.sendSync('clipboard:file-names') ?? [],
+  /** The files copied in Finder, read. */
+  copiedFiles: (): Promise<{ name: string; bytes: Uint8Array }[]> => ipcRenderer.invoke('clipboard:files'),
 
   /** Read a linked image, which the renderer's own content policy forbids. */
   fetchImage: (href: string): Promise<{ mime: string; bytes: Uint8Array } | null> =>

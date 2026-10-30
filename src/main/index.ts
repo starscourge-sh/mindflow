@@ -1,6 +1,6 @@
 import { ANCHOR } from './tagline'
 import { registerMacCalendar } from './mac-calendar'
-import { pathToFileURL } from 'url'
+import { fileURLToPath, pathToFileURL } from 'url'
 import { app, shell, BrowserWindow, clipboard, ClipboardItem, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, net, powerMonitor, protocol, screen, session, systemPreferences, Tray } from 'electron'
 /*
  * app - Control your application's event lifecycle.
@@ -4835,6 +4835,30 @@ app.whenReady().then(() => {
   // hands the page a file that points into Notes' own folder and cannot be
   // read; the picture itself is still on the clipboard, and this reads it.
   // A TIFF (what Notes often offers) goes through the system's reader into a PNG.
+  // Files copied in Finder: the clipboard holds where they are (and their icon
+  // and name, which a paste would take otherwise). Asked at once, as the paste
+  // decides there and then; the bytes are read after.
+  const copiedFiles = async (): Promise<string[]> => {
+    try {
+      for (const item of await clipboard.read()) {
+        if (!item.types.includes('text/uri-list')) continue
+        const list = await (await item.getType('text/uri-list') as Blob).text()
+        return list.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.startsWith('file://')).map((line) => fileURLToPath(line))
+      }
+    } catch {
+      // Nothing readable: the paste goes on as it would have.
+    }
+    return []
+  }
+  ipcMain.on('clipboard:file-names', (event) => void copiedFiles().then((paths) => (event.returnValue = paths.map((path) => basename(path)))))
+  ipcMain.handle('clipboard:files', async () => {
+    const found: { name: string; bytes: Uint8Array }[] = []
+    for (const path of await copiedFiles()) {
+      const info = await stat(path).catch(() => null)
+      if (info?.isFile()) found.push({ name: basename(path), bytes: new Uint8Array(await readFile(path)) })
+    }
+    return found
+  })
   ipcMain.handle('clipboard-image', async () => {
     try {
       for (const item of await clipboard.read()) {

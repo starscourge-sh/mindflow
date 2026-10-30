@@ -27,6 +27,9 @@ let nextId = 0
 const reason = (cause: unknown): string =>
   cause instanceof Error ? cause.message : String(cause)
 
+/** A picture copied in Finder, known by its name's ending. */
+const PICTURE_TYPES: Record<string, string> = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp" }
+
 /** The images on a drop or a paste, and whatever else came with them. */
 function sort(data: DataTransfer | null): { images: File[]; rest: File[] } {
   const files = [...(data?.files ?? [])]
@@ -299,7 +302,27 @@ export const ImageDrop = Extension.create<ImageDropOptions>({
           },
 
           handlePaste(view, event, slice) {
-            const { images } = sort(event.clipboardData)
+            const { images, rest } = sort(event.clipboardData)
+            // Files copied in Finder come in as dropping them does: a PDF its
+            // block, a picture a picture, anything else a card. Not the icon
+            // or the file's name, which the clipboard holds as well.
+            const copied = rest.length ? [] : (host().copiedFileNames?.() ?? [])
+            if (rest.length || copied.length) {
+              event.preventDefault()
+              const { schema } = view.state
+              const { from, to } = view.state.selection
+              const save = (file: File): Promise<ProseMirrorNode> => file.type.startsWith("image/")
+                ? saveImage(file).then((src) => schema.nodes.image.create({ src }))
+                : saveAttachment(file).then((attrs) => schema.nodes.attachment.create(attrs))
+              const read = (name: string, n: number): Promise<ProseMirrorNode> => (host().copiedFiles?.() ?? Promise.resolve([])).then((found) => {
+                const one = found[n]
+                if (!one) throw new Error(`${name} could not be read`)
+                const ext = one.name.split(".").pop()?.toLowerCase() ?? ""
+                return save(new File([one.bytes as BlobPart], one.name, { type: PICTURE_TYPES[ext] ?? "" }))
+              })
+              hold(view, rest.length ? [...images, ...rest].map(save) : copied.map(read), { from, to }, onError)
+              return true
+            }
             if (!images.length) return false
             event.preventDefault()
 
