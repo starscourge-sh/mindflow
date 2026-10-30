@@ -243,7 +243,10 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
 
   const step = (by: number): void => {
     const at = ZOOMS.findIndex((one) => one >= zoom - 0.001)
-    setZoom(ZOOMS[Math.min(Math.max(0, (at < 0 ? ZOOMS.length - 1 : at) + by), ZOOMS.length - 1)])
+    const next = ZOOMS[Math.min(Math.max(0, (at < 0 ? ZOOMS.length - 1 : at) + by), ZOOMS.length - 1)]
+    // At its smallest or largest: the "nope" a note's text size gives at its ends.
+    if (next === zoom) return chime("nope")
+    setZoom(next)
   }
   // ⌘+ ⌘− ⌘0 while this reader is in the pane in front: its own zoom, not the
   // app's size. The menu's keys are offered here first (preload), and the

@@ -179,6 +179,22 @@ try {
   await wait(800)
   check("the View menu's Actual Size fits the PDF again", Math.abs((await widthAt()) - before) < 2, String(await widthAt()))
   check("and the app's own size is untouched", (await appSize()) === sizeBefore, `${sizeBefore} -> ${await appSize()}`)
+  // At its smallest and largest, ⌘− and ⌘+ play the "nope" the note's text size plays at its ends (heard by name; the window is muted).
+  await v('settings:set', { sounds: true })
+  const heardSince = async (run) => {
+    const from = await h.evaluate(() => (window.haligtreeHeard ?? []).length)
+    await run(); await wait(300)
+    return h.evaluate((n) => (window.haligtreeHeard ?? []).slice(n), from)
+  }
+  const downSteps = await heardSince(async () => { for (let i = 0; i < 4; i++) { await h.keyboard.press('Meta+Minus'); await wait(120) } })
+  const atSmallest = await heardSince(() => h.keyboard.press('Meta+Minus'))
+  check('zooming out to the smallest plays no "nope" on the way', !downSteps.includes('cue:nope'), downSteps.join(','))
+  check('⌘− at the smallest plays "nope"', atSmallest.includes('cue:nope'), atSmallest.join(','))
+  for (let i = 0; i < 11; i++) { await h.keyboard.press('Meta+Equal'); await wait(80) }
+  const atLargest = await heardSince(() => h.keyboard.press('Meta+Equal'))
+  check('⌘+ at the largest plays "nope"', atLargest.includes('cue:nope'), atLargest.join(','))
+  await v('settings:set', { sounds: false })
+  await h.keyboard.press('Meta+Digit0'); await wait(800)
   // The PDF's own outline: its entries, each going to its page.
   await h.waitForSelector('.pdf-reader button[aria-label="Outline"]', { timeout: 4000 }).catch(() => {})
   await h.click('.pdf-reader button[aria-label="Outline"]', { timeout: 4000 }); await wait(300)
