@@ -9,7 +9,7 @@ import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import PaintIcon from '@/components/ui/paint-icon'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { LOOKABLE, openLook } from '@/components/image/image-look'
-import { RowMenu, flat, type MenuItem, type RowItem } from './row-menu'
+import { RowMenu, dangerLast, fits, flat, type MenuItem, type RowItem } from './row-menu'
 import { Tip } from './ui'
 import { GrainFill, PAPER_INK, useNoteCover } from './grain'
 import { Tilt } from './tilt'
@@ -239,7 +239,8 @@ export function QuietAction({ label, onClick, pressed, children }: { label: stri
 
 /** ··· as a button: the same lines a right click gives. */
 export function MenuButton({ items, label = 'More', small = false, name }: { items: MenuItem[]; label?: string; small?: boolean; /** Its data-menu, for a probe. */ name?: string }): React.JSX.Element {
-  const shown = items.filter(Boolean) as Exclude<MenuItem, false | null | undefined>[]
+  // The same rule as a right click: a page's own ⋯ is the list's menu, so only lines that cannot run here are left out.
+  const shown = dangerLast(fits(items, true)).filter(Boolean) as Exclude<MenuItem, false | null | undefined>[]
   return (
     <DropdownMenu modal={false}>
       <Tip label={label}>

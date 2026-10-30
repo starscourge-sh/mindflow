@@ -35,6 +35,12 @@ export const fits = (items: RowItem[], list = false): RowItem[] =>
     return (item.about === 'list' && !list) || (item.can && !item.can()) ? [] : [item]
   })
 
+/** One order in every menu: a line that takes the thing away (Move to the Bin, Delete) comes last, after a rule, wherever its menu put it. */
+export const dangerLast = (items: RowItem[]): RowItem[] => {
+  const away = items.filter((item) => item && item !== 'separator' && 'run' in item && item.danger)
+  return away.length ? [...items.filter((item) => !away.includes(item)), 'separator', ...away] : items
+}
+
 /** Rules only between groups of lines: never first, last or twice in a row, whatever was left out. */
 export const tidy = <T,>(items: (T | 'separator')[]): (T | 'separator')[] =>
   items.filter((item, index) => item !== 'separator' || (index > 0 && index < items.length - 1 && items[index - 1] !== 'separator'))
@@ -156,7 +162,7 @@ export function RowMenu({ items, writes, list = false, children }: { items: RowI
         editable && { label: 'Paste', keys: '⌘V', run: () => void (after.current = () => pasteInto(writing.field)) }
       ]
     : []
-  const own = fits(typeof items === 'function' ? items(writing?.field ?? null) : items, list)
+  const own = dangerLast(fits(typeof items === 'function' ? items(writing?.field ?? null) : items, list))
   const mark = (list: RowItem[]): RowItem[] => list.map((item) => (item && item !== 'separator' && 'run' in item ? { ...item, run: () => ((after.current = 'stay'), item.run()) } : item && item !== 'separator' && 'items' in item ? { ...item, items: mark(item.items) } : item))
   // The edit lines after the nesting: their Copy is the words', never folded in with the row's copies.
   const shown = [...nest(writes ? mark(own) : own), ...edits].filter(Boolean) as Shown[]
@@ -164,7 +170,7 @@ export function RowMenu({ items, writes, list = false, children }: { items: RowI
   if (!writes && !shown.some((item) => item !== 'separator')) return children
   return (
     <ContextMenu onOpenChange={(open) => open && ((after.current = 'back'), setOpened((count) => count + 1))}>
-      <ContextMenuTrigger asChild onContextMenuCapture={writes ? (event) => {
+      <ContextMenuTrigger asChild data-row-menu onContextMenuCapture={writes ? (event) => {
         const field = writes instanceof HTMLElement ? writes : fieldOf(event.target)
         setWriting(field ? writingAt(field) : null)
         // Off the words with nothing of the row's own to offer: no empty menu.
@@ -243,7 +249,7 @@ export async function nativeMenu(items: RowItem[], list = false): Promise<void> 
   // Folded as the row's menu folds them, at the top only: what is folded in stays as it is.
   const shown = (list: RowItem[]): Shown[] => tidy(list.filter((one) => one && !(one !== 'separator' && 'heading' in one)) as Shown[])
   const lines = (list: Shown[]): unknown[] => list.map((one) => (one === 'separator' ? { separator: true } : 'items' in one ? { label: one.label, submenu: lines(shown(one.items)) } : { label: 'label' in one ? one.label : '' }))
-  const top = shown(nest(fits(items, list)))
+  const top = shown(nest(dangerLast(fits(items, list))))
   const path = await window.api.stickyMenu(lines(top))
   if (!path) return
   let at: Shown | undefined = top[path[0]]

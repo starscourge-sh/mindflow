@@ -1,10 +1,9 @@
 import { askRename, openSource } from '@/lib/sources'
-import type { CSSProperties, ReactElement } from 'react'
+import { useState, type CSSProperties, type ReactElement } from 'react'
 
 import { hueOf, initials, pasteAvatar, peopleRead, pickAvatar, setAvatar, useAvatar } from '@/lib/people'
 import { useDecoded } from '@/lib/decoded'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuLabel, ContextMenuTrigger } from '@/components/ui/context-menu'
-import { toast } from './ui'
 import { SHAPES, TINTS } from './coolshapes'
 import './box-extras.css'
 
@@ -63,15 +62,18 @@ export function Avatar({ name, size = 16, className = '', look }: { name: string
 export function PersonMenu({ name, children }: { name: string; children: ReactElement }): React.JSX.Element {
   const avatar = useAvatar(name)
   const who = name.trim()
+  // Read as the menu opens: "Paste a picture" only with a picture on the clipboard, so it never answers "none there".
+  const [clipped, setClipped] = useState(false)
+  const look = (open: boolean): void => void (open && navigator.clipboard.read().then((items) => setClipped(items.some((item) => item.types.some((type) => type.startsWith('image/')))), () => setClipped(false)))
   return (
-    <ContextMenu>
-      <ContextMenuTrigger asChild disabled={!who}>{children}</ContextMenuTrigger>
+    <ContextMenu onOpenChange={look}>
+      <ContextMenuTrigger asChild data-row-menu disabled={!who}>{children}</ContextMenuTrigger>
       <ContextMenuContent className="w-56">
         <ContextMenuLabel className="flex items-center gap-2"><Avatar name={who} size={18} /><span className="truncate">{who}</span></ContextMenuLabel>
         <ContextMenuItem onSelect={() => openSource('attribution', who)}>Open {who}’s page</ContextMenuItem>
         <ContextMenuItem data-person-rename onSelect={() => askRename('attribution', who)}>Rename…</ContextMenuItem>
         <ContextMenuItem onSelect={() => void pickAvatar(who)}>{avatar ? 'Change the picture…' : 'Add a picture…'}</ContextMenuItem>
-        <ContextMenuItem onSelect={() => void pasteAvatar(who).then((done) => done || toast('No picture on the clipboard', undefined, 'info'))}>Paste a picture</ContextMenuItem>
+        {clipped && <ContextMenuItem onSelect={() => void pasteAvatar(who)}>Paste a picture</ContextMenuItem>}
         {avatar && <ContextMenuItem variant="destructive" onSelect={() => void setAvatar(who, null)}>Remove the picture</ContextMenuItem>}
       </ContextMenuContent>
     </ContextMenu>

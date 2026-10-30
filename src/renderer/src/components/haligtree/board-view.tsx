@@ -602,16 +602,19 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
           </DropdownMenuSubContent>
         </DropdownMenuSub>
         <DropdownMenuSeparator />
-        <DropdownMenuItem disabled={at === 0} onSelect={() => (chime('shift'), move([lane, at], [lane, 0]))}>Move to top</DropdownMenuItem>
-        <DropdownMenuItem disabled={at === last} onSelect={() => (chime('shift'), move([lane, at], [lane, last]))}>Move to bottom</DropdownMenuItem>
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger>Move to list</DropdownMenuSubTrigger>
-          <DropdownMenuSubContent>
-            {shape.lanes.map((other, to) => (
-              <DropdownMenuItem key={to} disabled={to === lane} onSelect={() => (chime('move'), move([lane, at], [to, other.cards.length]))}>{other.title || 'Untitled'}</DropdownMenuItem>
-            ))}
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
+        {/* Only where it would move: a line that cannot run is left out, never shown greyed. */}
+        {at > 0 && <DropdownMenuItem onSelect={() => (chime('shift'), move([lane, at], [lane, 0]))}>Move to top</DropdownMenuItem>}
+        {at < last && <DropdownMenuItem onSelect={() => (chime('shift'), move([lane, at], [lane, last]))}>Move to bottom</DropdownMenuItem>}
+        {shape.lanes.length > 1 && (
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>Move to list</DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              {shape.lanes.map((other, to) => to !== lane && (
+                <DropdownMenuItem key={to} onSelect={() => (chime('move'), move([lane, at], [to, other.cards.length]))}>{other.title || 'Untitled'}</DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        )}
         <DropdownMenuItem onSelect={() => (chime('copy'), edit(editor, (model) => (model.lanes[lane].cards.splice(at + 1, 0, structuredClone(model.lanes[lane].cards[at])), [lane])))}>Duplicate</DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onSelect={() => remove(lane, at)}>Delete card<DropdownMenuShortcut>⌫</DropdownMenuShortcut></DropdownMenuItem>
@@ -669,7 +672,7 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
                     <>
                       <DropdownMenuItem onSelect={() => setAdding(at)}>Add a card<DropdownMenuShortcut>{keyFor('N')}</DropdownMenuShortcut></DropdownMenuItem>
                       <DropdownMenuItem onSelect={() => flipFold(lane.title)}>{folded ? 'Unfold' : 'Fold'}</DropdownMenuItem>
-                      <DropdownMenuItem onSelect={() => archiveDone(at)}>Archive done cards</DropdownMenuItem>
+                      {lane.title !== 'Archive' && lane.cards.some((card) => card.node.attrs.checked) && <DropdownMenuItem onSelect={() => archiveDone(at)}>Archive done cards</DropdownMenuItem>}
                     </>
                   }>
                   <SortableContext items={cards.map((one) => one.id)} strategy={verticalListSortingStrategy}>

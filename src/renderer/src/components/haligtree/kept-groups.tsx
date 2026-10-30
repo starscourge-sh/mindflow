@@ -1042,7 +1042,7 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
             <Popover open={picking} onOpenChange={setPicking}>
               <ContextMenu onOpenChange={setMenu}>
                 <Tip label={renaming || menu || !onOpenFolder ? '' : 'Click to fold or unfold. ⌘-click, or “Open folder” in its menu, opens it as its own page'}>
-                <ContextMenuTrigger asChild>
+                <ContextMenuTrigger asChild data-row-menu>
                   {renaming ? (
                     <div className={cn(ROW_SHAPE, HEAD, 'data-[state=open]:bg-transparent!')}>
                       <PopoverAnchor asChild><GroupTile group={group} /></PopoverAnchor>
@@ -1240,6 +1240,9 @@ function GroupMenu({ group, members, onOpenFolder, onSeparate, onRename, onIcon,
 }): React.JSX.Element {
   const later = (run: () => void) => () => void setTimeout(run, 0)
   const left = group.unsorted ?? []
+  // Read as the menu opens (it is drawn only while open): its notes' web links, for "Copy all links".
+  const [links, setLinks] = useState<string[]>([])
+  useEffect(() => void groups.links(group.id).then(setLinks), [group.id])
   return (
     <ContextMenuContent className="w-56" onCloseAutoFocus={(event) => event.preventDefault()}>
       {onOpenFolder && <ContextMenuItem data-group-open onSelect={later(onOpenFolder)}>Open folder</ContextMenuItem>}
@@ -1248,7 +1251,6 @@ function GroupMenu({ group, members, onOpenFolder, onSeparate, onRename, onIcon,
       {left.length > 0 && onSorted && <ContextMenuItem onSelect={() => onSorted(left, true)}>Mark all as sorted</ContextMenuItem>}
       {left.length > 0 && <ContextMenuSeparator />}
       <ContextMenuItem onSelect={() => void groups.note(group.id).then((id) => id && (chime('promote'), onNewNote(id)))}>New note in folder</ContextMenuItem>
-      <ContextMenuItem data-folder-delete onSelect={onSeparate}>Delete folder, keep its notes</ContextMenuItem>
       <ContextMenuItem
         onSelect={() =>
           void groups.duplicate(group.id).then((made) => made && (chime('copy'), toast('Duplicated, with a copy of each note', () => void groups.unclone(made.ids))))
@@ -1256,13 +1258,12 @@ function GroupMenu({ group, members, onOpenFolder, onSeparate, onRename, onIcon,
       >
         Duplicate folder
       </ContextMenuItem>
-      <ContextMenuItem
-        onSelect={() =>
-          void groups.links(group.id).then((links) => (links.length ? copy(links.join('\n'), `Copied ${links.length === 1 ? 'one link' : `${num(links.length)} links`}`) : refuse('No web links in this folder')))
-        }
-      >
-        Copy all links
-      </ContextMenuItem>
+      {/* Only when its notes hold a web link: a line that would say "no links" is not offered. */}
+      {links.length > 0 && (
+        <ContextMenuItem onSelect={() => copy(links.join('\n'), `Copied ${links.length === 1 ? 'one link' : `${num(links.length)} links`}`)}>
+          Copy all links
+        </ContextMenuItem>
+      )}
       <ContextMenuSeparator />
       <div role="group" aria-label="Colour" className="flex items-center justify-between px-1 py-0.5">
         {GROUP_COLORS.map((color) => (
@@ -1291,6 +1292,7 @@ function GroupMenu({ group, members, onOpenFolder, onSeparate, onRename, onIcon,
       <ContextMenuItem onSelect={later(onIcon)}>Change icon…</ContextMenuItem>
       <ContextMenuSeparator />
       <ContextMenuItem onSelect={() => void archive('nuggets', members, true)}>Archive folder</ContextMenuItem>
+      <ContextMenuItem data-folder-delete variant="destructive" onSelect={onSeparate}>Delete folder, keep its notes</ContextMenuItem>
     </ContextMenuContent>
   )
 }
