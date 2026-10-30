@@ -15,7 +15,6 @@ import Lenis from 'lenis'
 import { useLive, haligtree } from '@/lib/haligtree'
 import { useReadsIn, useSeen } from '@/lib/reads-in'
 import { chime, quietFor, setVolume, soundOn } from '@/lib/sound'
-import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/cn'
 import { useStoredFlag } from '@/lib/use-stored-flag'
@@ -33,7 +32,7 @@ import { ImportFolders } from './import-folders'
 import { GoalAsker } from './goals-view'
 import { MilestoneAsker } from './milestones'
 import { RestoreAsker } from './restore-ask'
-import { HashField, INPUT_FRAME, asTag, isTag } from './hash-field'
+import { HashField, asTag, isTag } from './hash-field'
 import { brief, num } from '../../../../main/dates'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -973,7 +972,7 @@ function AskTag({ initial, placeholder, onDone }: { initial: string; placeholder
   const [tag, setTag] = useState(() => asTag(initial))
   return (
     <HashField ref={(input) => void (input && setTimeout(() => input.focus(), 30))} autoFocus value={tag} onChange={setTag} placeholder={placeholder} aria-label="Tag"
-      className={`${INPUT_FRAME} h-7 w-full`}
+      className={ASK_FIELD}
       onKeyDown={(event) => {
         event.stopPropagation()
         if (event.key === 'Enter') {
@@ -991,7 +990,7 @@ function AskRemembered({ field, initial, placeholder, onDone }: { field: 'attrib
   const [words, setWords] = useState(initial)
   return (
     <Remembered field={field} value={words} onChange={setWords} placeholder={placeholder} autoFocus
-      className="h-9 w-full rounded-md border px-3 text-body"
+      className={ASK_FIELD}
       onKeyDown={(event) => {
         event.stopPropagation()
         if (event.key === 'Enter') onDone(words)
@@ -999,6 +998,12 @@ function AskRemembered({ field, initial, placeholder, onDone }: { field: 'attrib
       }} />
   )
 }
+
+/**
+ * The question's field, the app's own: a soft well with a hairline that darkens while you type in it, the words at
+ * body size. It was a stock form box (small grey type, a green focus ring) that read as borrowed from a web form.
+ */
+const ASK_FIELD = 'flex h-10 w-full min-w-0 items-center rounded-lg bg-foreground/[0.04] px-3 text-body text-foreground outline-none ring-1 ring-foreground/10 transition-shadow placeholder:text-muted-foreground focus-within:ring-foreground/30 [&_input]:bg-transparent [&_input]:outline-none'
 
 function Asker(): React.JSX.Element | null {
   const [asked, setAsked] = useState<{ question: string; placeholder: string; field?: 'attribution' | 'medium' | 'tag'; initial?: string; answer: (words: string | null) => void } | null>(null)
@@ -1019,12 +1024,13 @@ function Asker(): React.JSX.Element | null {
   return (
     <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/40 pt-[22vh]" onMouseDown={() => done(null)}>
       {/* A click on its padding keeps the focus in the box, so Escape still answers it. */}
-      <div role="dialog" aria-modal="true" aria-label={asked.question} className="w-[min(32rem,90vw)] rounded-xl bg-popover p-4 shadow-(--mf-panel-shadow)"
+      {/* The same sheet as a yes-or-no question (SureAsker): its width, radius, padding, type and keycaps. */}
+      <div role="dialog" aria-modal="true" aria-label={asked.question} data-ask className="flex w-[min(30rem,90vw)] flex-col gap-3 rounded-xl bg-popover p-5 shadow-(--mf-panel-shadow)"
         onMouseDown={(event) => {
           event.stopPropagation()
           if (!(event.target instanceof HTMLInputElement)) event.preventDefault()
         }}>
-        <p className="mb-2 text-sm">{asked.question}</p>
+        <p className="text-base font-semibold text-foreground">{asked.question}</p>
         {asked.field === 'tag' ? (
           // A tag: the "#" drawn in the field, fixed, so it is never a question whether to type it.
           <AskTag initial={asked.initial ?? ''} placeholder={asked.placeholder} onDone={done} />
@@ -1032,8 +1038,10 @@ function Asker(): React.JSX.Element | null {
           // Who said it before, completing as you type: it gets quicker with use.
           <AskRemembered field={asked.field} initial={asked.initial ?? ''} placeholder={asked.placeholder} onDone={done} />
         ) : (
-        <Input
+        <input
           autoFocus
+          data-ask-field
+          className={ASK_FIELD}
           // Again a beat later: a right-click menu hands the focus back to
           // its row as it closes, after autofocus has already run.
           ref={(input) => void (input && setTimeout(() => input.focus(), 30))}
@@ -1047,7 +1055,7 @@ function Asker(): React.JSX.Element | null {
           }}
         />
         )}
-        <p className="mt-2 text-xs text-muted-foreground">Enter to keep · Escape to leave it</p>
+        <p data-ask-keys className="flex items-center justify-end gap-1.5 text-meta text-foreground/70"><ShadKbd>↵</ShadKbd> keeps it<span className="w-2" /><ShadKbd>Esc</ShadKbd> leaves it</p>
       </div>
     </div>
   )

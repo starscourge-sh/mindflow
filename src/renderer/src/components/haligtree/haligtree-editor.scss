@@ -3845,9 +3845,10 @@ html[data-motion="off"] .tiptap.ProseMirror.haligtree-editor .mf-contents-landed
 }
 
 // A word aim's hairline over the words (word-aim.tsx): room above the first
-// line for it, a light running along it from 90%, and one flare at the aim.
+// line for it, a light running along it from 90%, and one flare at the aim. The bar sits a step under what is
+// above it, its count a step under the bar, and the words a step under the count: at 2.25rem all three touched.
 .haligtree-editor-wrapper:has(> .mf-aim) > .haligtree-editor-content {
-  padding-top: 2.25rem;
+  padding-top: 4rem;
 }
 // The light is a band of its own moved on a transform, so typing near the aim
 // never waits on a repaint of the bar.

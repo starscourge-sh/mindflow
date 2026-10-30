@@ -125,16 +125,16 @@ export function WordAim({ editor, id }: { editor: Editor | null; id: string }): 
   const late = aim.by && !done && dayjs(aim.by).endOf('day').isBefore(dayjs())
   const left = Math.max(0, aim.words - words)
   return (
-    <div ref={bar} data-word-aim={done ? 'done' : charging ? 'charging' : 'on'} className="mf-aim pointer-events-none absolute inset-x-0 top-0 z-20 h-9 bg-background"
+    <div ref={bar} data-word-aim={done ? 'done' : charging ? 'charging' : 'on'} className="mf-aim pointer-events-none absolute inset-x-0 top-0 z-20 h-16 bg-background"
       style={column ? undefined : { visibility: 'hidden' }}>
-      <div className="absolute top-2" style={column ? { left: column.left, width: column.width } : undefined}>
+      <div className="absolute top-3" style={column ? { left: column.left, width: column.width } : undefined}>
         <div className="relative h-[3px] overflow-hidden rounded-full bg-foreground/10">
           {/* The whole width, scaled from the left: each word grows it on the compositor. */}
           <div className={`mf-aim-fill absolute inset-0 origin-left rounded-full transition-[transform,background-color] duration-500 ${done || charging ? 'bg-primary' : 'bg-foreground/45'}`}
             style={{ transform: `scaleX(${share})`, transitionTimingFunction: 'var(--mf-ease)' }} />
         </div>
         <button type="button" onClick={() => void setOrChange()}
-          className="pointer-events-auto absolute top-1.5 right-0 rounded-md px-1 text-control whitespace-nowrap tabular-nums text-foreground/75 transition-colors hover:bg-accent hover:text-foreground"
+          className="pointer-events-auto absolute top-3.5 right-0 rounded-md px-1 text-control whitespace-nowrap tabular-nums text-foreground/75 transition-colors hover:bg-accent hover:text-foreground"
           aria-label="Change or clear the word aim">
           {said ? (
             <span key="said" className={`font-semibold text-foreground ${still() ? '' : 'animate-in fade-in-0 slide-in-from-bottom-1 duration-300'}`}>{num(aim.words)}. That's the piece.</span>

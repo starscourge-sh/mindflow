@@ -16,12 +16,12 @@ import { WriterTools, useFocus, useFocusBand, type Focus } from './writer-tools'
  * this writes one page.
  */
 /**
- * Something over the page that Esc should close first: a menu, a dialog, a popover or Proofread, open and on
+ * Something over the page that Esc should close first: a menu, a dialog or yes-or-no sheet, a popover or Proofread, open and on
  * screen. One left in the page but shut or hidden (a closed dialog kept mounted, an empty popper) is not one:
  * counted, it kept Esc from ever leaving the room.
  */
 const overPage = (): boolean =>
-  [...document.querySelectorAll<HTMLElement>('[role="menu"], [role="dialog"], [data-radix-popper-content-wrapper], [data-proofing]')]
+  [...document.querySelectorAll<HTMLElement>('[role="menu"], [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-proofing]')]
     .some((one) => one.getClientRects().length > 0 && one.getAttribute('data-state') !== 'closed' && getComputedStyle(one).visibility !== 'hidden' && !one.closest('[aria-hidden="true"], [hidden], [inert]'))
 
 export function useWritingRoom(editor: Editor | null): { on: boolean; toggle: () => void; room: { 'data-room'?: '' }; focus: Focus } {
