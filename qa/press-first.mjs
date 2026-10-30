@@ -45,9 +45,19 @@ try {
       }
       document.addEventListener('pointerdown', () => (window.__t.start = performance.now(), requestAnimationFrame(tick)), { once: true, capture: true })
     }, [id, lit])
+    // QA_PROFILE_ROW=<n>: a CPU profile of that row's open, written to QA_PROFILE_DIR with when it was pressed and its words came.
+    const profiling = Number(process.env.QA_PROFILE_ROW) === n
+    const cdp = profiling ? await c.electron.context().newCDPSession(h) : null
+    if (cdp) (await cdp.send('Profiler.enable'), await cdp.send('Profiler.setSamplingInterval', { interval: 250 }), await cdp.send('Profiler.start'))
     await h.mouse.down(); await h.waitForTimeout(80); await h.mouse.up()
     await h.waitForTimeout(1200)
     const t = await h.evaluate(() => window.__t)
+    if (cdp) {
+      const { profile } = await cdp.send('Profiler.stop')
+      const { writeFileSync } = await import('fs')
+      writeFileSync(`${process.env.QA_PROFILE_DIR ?? '.'}/row.cpuprofile`, JSON.stringify(profile))
+      writeFileSync(`${process.env.QA_PROFILE_DIR ?? '.'}/row.json`, JSON.stringify({ ...t, origin: await h.evaluate(() => performance.timeOrigin) }))
+    }
     results.push({ marked: Math.round(t.marked - t.start), words: Math.round(t.words - t.start - 80), bodyReads: await h.evaluate(() => window.__bodyReads) })
   }
   console.log(JSON.stringify(results), '(words: from letting go)')
