@@ -1719,14 +1719,16 @@ export function Home(): React.JSX.Element {
                 onClick={() => open('view', section.id)}
                 className={`group relative flex items-center gap-2.5 rounded-md py-1.5 transition-colors duration-80 ${narrow ? 'justify-center px-0' : 'px-2'} ${here || inFolder || inScale ? 'text-foreground' : 'text-foreground/80'} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]`}
               >
+                {/* While anything is being dragged, a fold row keeps its icon and count: the row moving under a still
+                    pointer flipped it to its chevron and back. */}
                 {/* Each icon keeps its colour, softened while at rest so the hues do not
                     shout at once; the one you are on, or reaching for, is in full. */}
-                <span className={`flex shrink-0 transition-opacity duration-80 ${folds ? 'group-hover/fold:opacity-0' : ''}`}><PlaceIcon place={section} full={lit(section.id)} /></span>
+                <span className={`flex shrink-0 transition-opacity duration-80 ${folds ? 'group-hover/fold:opacity-0 [:root[data-dragging]_&]:!opacity-100' : ''}`}><PlaceIcon place={section} full={lit(section.id)} /></span>
                 {!narrow && <Weighted on={here} className="flex-1 text-left">{section.label}</Weighted>}
                 {!narrow && countsIn && countOf(section.id) ? (
                   // Each count says what it counts, pointed at: the orange one is what is due today.
                   <Tip label={countSaid(section.id, counts[section.id])}>
-                    <span data-side-count={section.id} className={list && settings?.sidebarFolders?.[list] !== false ? 'transition-opacity duration-80 group-hover/fold:opacity-0' : undefined}>
+                    <span data-side-count={section.id} className={list && settings?.sidebarFolders?.[list] !== false ? 'transition-opacity duration-80 group-hover/fold:opacity-0 [:root[data-dragging]_&]:!opacity-100' : undefined}>
                       <Count tip={!countSaid(section.id, counts[section.id])} n={counts[section.id]} className={`text-xs ${section.id === 'today' ? 'text-[var(--tt-color-text-orange)]' : 'text-muted-foreground'}`} />
                     </span>
                   </Tip>
@@ -1737,7 +1739,7 @@ export function Home(): React.JSX.Element {
               {list && !narrow && settings?.sidebarFolders?.[list] !== false && (
                 <Tip label="New folder">
                   <button type="button" data-folder-new={list} aria-label={`New folder in ${section.label}`} onClick={() => newFolder(list)}
-                    className="absolute top-1/2 right-1.5 flex size-5 -translate-y-1/2 items-center justify-center rounded text-muted-foreground opacity-0 transition-[opacity,background-color] duration-80 group-hover/fold:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100">
+                    className="absolute top-1/2 right-1.5 flex size-5 -translate-y-1/2 items-center justify-center rounded text-muted-foreground opacity-0 transition-[opacity,background-color] duration-80 group-hover/fold:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100 [:root[data-dragging]_&]:!opacity-0">
                     <Plus className="size-3.5" />
                   </button>
                 </Tip>
@@ -1746,7 +1748,7 @@ export function Home(): React.JSX.Element {
               {folds && (
                 <button type="button" data-folders-fold={list ?? 'journal'} aria-label={list ? (unfolded ? `Fold ${section.label}'s folders away` : `Show ${section.label}'s folders`) : unfolded ? `Fold ${section.label}'s pages away` : `Show ${section.label}'s pages`} aria-expanded={unfolded}
                   onClick={() => (chime(unfolded ? 'fold' : 'slide'), setUnfolded(!unfolded))}
-                  className="absolute top-1/2 left-1.5 flex size-5 -translate-y-1/2 items-center justify-center rounded text-muted-foreground opacity-0 transition-[opacity,background-color] duration-80 group-hover/fold:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100">
+                  className="absolute top-1/2 left-1.5 flex size-5 -translate-y-1/2 items-center justify-center rounded text-muted-foreground opacity-0 transition-[opacity,background-color] duration-80 group-hover/fold:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100 [:root[data-dragging]_&]:!opacity-0">
                   <ChevronRight className={`size-3.5 transition-transform duration-80 ${unfolded ? 'rotate-90' : ''}`} />
                 </button>
               )}
