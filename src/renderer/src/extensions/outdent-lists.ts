@@ -1,7 +1,10 @@
 import { Extension } from "@tiptap/core"
+import { TextSelection } from "@tiptap/pm/state"
 
 /** A bullet, a number, a checkbox. */
 const ITEMS = ["listItem", "taskItem"]
+/** A bulleted, numbered or checked list. */
+const LISTS = ["bulletList", "orderedList", "taskList"]
 
 /**
  * Shift-Tab on a selection covering more than one level.
@@ -58,6 +61,27 @@ export const OutdentLists = Extension.create({
           .setTextSelection({ from: level[0].from, to: level[level.length - 1].to })
           .liftListItem(level[0].name)
           .run()
+      },
+      // Tab on the first item of a list that starts straight after another list (a bullet under "1. jh reported
+      // issues:"): there is no item before it in its own list, so the ordinary indent did nothing at all. As in
+      // Notion and Obsidian, the whole list goes in under the last item of the list above it.
+      Tab: () => {
+        const { state, view } = this.editor
+        const { $from, empty } = state.selection
+        if (!empty) return false
+        let depth = $from.depth
+        while (depth > 0 && !ITEMS.includes($from.node(depth).type.name)) depth--
+        if (depth < 2 || $from.index(depth - 1) !== 0) return false
+        const list = $from.node(depth - 1)
+        const at = $from.before(depth - 1)
+        const above = state.doc.resolve(at).nodeBefore
+        if (!above || !LISTS.includes(above.type.name) || !LISTS.includes(list.type.name)) return false
+        // Inside the last item above, at its end: its close and the list's close are the two positions before `at`.
+        const into = at - 2
+        const tr = state.tr.delete(at, at + list.nodeSize).insert(into, list)
+        tr.setSelection(TextSelection.create(tr.doc, into + ($from.pos - at)))
+        view.dispatch(tr.scrollIntoView())
+        return true
       },
     }
   },
