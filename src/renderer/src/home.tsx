@@ -93,7 +93,7 @@ import { noteActions } from '@/lib/notes'
 import { headingIn } from '@/lib/capture-links'
 import { openApart } from '@/lib/apart'
 import { MediaView } from '@/components/haligtree/media-view'
-import { G_ALIASES, PlaceIcon, SECTIONS, SIDE_GROUPS, ShowList, showGroup, type Place, TASK_PAGES, dropInBlock, dropOrder, orderItems, risen, litRow, showWords, sidebarParts, useInOrder, useOrder, useSections, useShown } from '@/components/haligtree/places'
+import { G_ALIASES, JOURNAL_SCALES, PlaceIcon, SECTIONS, SIDE_GROUPS, ShowList, showGroup, type Place, TASK_PAGES, dropInBlock, dropOrder, orderItems, risen, litRow, showWords, sidebarParts, useInOrder, useOrder, useSections, useShown } from '@/components/haligtree/places'
 import { BlockList, SortableList, SortableRow } from '@/components/haligtree/sortable'
 import { pageTravel } from '@/lib/page-travel'
 import { Branches } from '@/components/haligtree/branches'
@@ -1651,7 +1651,11 @@ export function Home(): React.JSX.Element {
               const folders = list && !narrow && settings?.sidebarFolders?.[list] !== false ? (list === 'article' ? articles : nuggets) : null
               const [unfolded, setUnfolded] = list === 'article' ? [articleFolders, setArticleFolders] : [nuggetFolders, setNuggetFolders]
               const inFolder = view.id === section.id ? view.folder : undefined
-              const here = lit(section.id) && !inFolder
+              // Journal's other scales hang under it as Writing's folders do: Day is Journal itself, so it is not one;
+              // a scale with a row of its own in the sidebar is not listed twice.
+              const scales = section.id === 'day' && !narrow ? JOURNAL_SCALES.filter((one) => !shown.includes(one.id)) : []
+              const inScale = scales.some((one) => one.id === view.id)
+              const here = lit(section.id) && !inFolder && !inScale
               return (
               <SortableRow key={section.id} id={section.id} glide={still ? undefined : `side-${section.id}`}>
               <RowMenu items={placeMenu(section, among)}>
@@ -1670,7 +1674,7 @@ export function Home(): React.JSX.Element {
                 aria-label={section.label}
                 aria-current={here ? 'page' : undefined}
                 onClick={() => open('view', section.id)}
-                className={`group relative flex items-center gap-2.5 rounded-md py-1.5 transition-colors duration-80 ${narrow ? 'justify-center px-0' : 'px-2'} ${here || inFolder ? 'text-foreground' : 'text-foreground/80'} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]`}
+                className={`group relative flex items-center gap-2.5 rounded-md py-1.5 transition-colors duration-80 ${narrow ? 'justify-center px-0' : 'px-2'} ${here || inFolder || inScale ? 'text-foreground' : 'text-foreground/80'} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]`}
               >
                 {/* Each icon keeps its colour, softened while at rest so the hues do not
                     shout at once; the one you are on, or reaching for, is in full. */}
@@ -1706,6 +1710,19 @@ export function Home(): React.JSX.Element {
               </div>
               </motion.div>
               </RowMenu>
+              {scales.length > 0 && (
+                <Branches current={scales.findIndex((one) => one.id === view.id)} className="ml-5 flex flex-col gap-px">
+                  {scales.map((one) => (
+                    <button key={one.id} type="button" data-side-row data-side-scale={one.id} aria-current={view.id === one.id ? 'page' : undefined}
+                      onPointerDown={(event) => event.stopPropagation()}
+                      onClick={() => (asideClick() ? (spendAsideClick(), aside({ id: one.id })) : setView({ id: one.id }))}
+                      className={`group flex w-full min-w-0 items-center gap-2 rounded-md py-1 pr-2 pl-2 ${view.id === one.id ? 'text-foreground' : 'text-foreground/80'}`}>
+                      <span className="flex size-4 shrink-0 items-center justify-center [&_svg]:size-3.5"><PlaceIcon place={one} full={view.id === one.id} /></span>
+                      <Weighted on={view.id === one.id} className="flex-1 text-left">{one.label}</Weighted>
+                    </button>
+                  ))}
+                </Branches>
+              )}
               {folders && list && (
                 // Its own drags, not the row's: a folder pressed on is not Writing carried away.
                 <div onPointerDown={(event) => event.stopPropagation()}>

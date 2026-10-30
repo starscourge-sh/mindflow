@@ -1,5 +1,5 @@
 import { type ComponentType, type CSSProperties, type RefAttributes } from 'react'
-import { Archive, Images, BookOpen, BookUser, Calendar, CalendarFold, Compass, Flag, ListVideo, Newspaper, Pin, Sprout, type LucideIcon } from 'lucide-react'
+import { Archive, Images, BookOpen, BookUser, Calendar, CalendarFold, CalendarRange, Compass, Flag, ListVideo, Newspaper, Pin, Sprout, type LucideIcon } from 'lucide-react'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import { Switch } from '@/components/ui/switch'
 import { chime } from '@/lib/sound'
@@ -68,7 +68,7 @@ export const SECTIONS: (Place & { key: string })[] = [
   // The day's twenty or so of your own things, as a timeline that ends (feed-view.tsx).
   // W, not G: G G is a list's first row, as in Vim.
   { id: 'feed', emoji: '📰', label: 'Feed', icon: Newspaper, key: 'w', tint: 'pink' },
-  // Words and questions asked and waiting on an answer: a Word with no meaning written yet.
+  // Words and terms waiting for a meaning: a Word with none written yet. Questions you carry are pages in Writing.
   { id: 'lookups', emoji: '📖', label: 'Lookups', icon: BookOpen, key: '.', tint: 'green' },
   // Goals: a day you are working toward, and the road there.
   { id: 'goals', emoji: '🚩', label: 'Goals', icon: Flag, key: 'e', tint: 'orange' },
@@ -87,6 +87,13 @@ export const SECTIONS: (Place & { key: string })[] = [
   { id: 'archived', emoji: '🗄️', label: 'Archived', icon: Archive, key: 'v', tint: 'gray' },
   // Every power Haligtree keeps out of sight, a card each (powers-view.tsx).
   { id: 'powers', emoji: '🧭', label: `What ${APP_NAME} can do`, icon: Compass, key: 'f', tint: 'green' }
+]
+
+/** Journal's Week, Month and Year, hung under its row in the sidebar as Writing's folders are (home.tsx). */
+export const JOURNAL_SCALES: Place[] = [
+  { id: 'weekpage', emoji: '🗓️', label: 'Week', icon: CalendarFold, tint: 'yellow' },
+  { id: 'monthpage', emoji: '🌱', label: 'Month', icon: Sprout, tint: 'yellow' },
+  { id: 'yearpage', emoji: '🗺️', label: 'Year', icon: CalendarRange, tint: 'yellow' }
 ]
 
 /**
