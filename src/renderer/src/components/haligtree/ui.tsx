@@ -13,6 +13,7 @@ import { detent, slotTicker } from '@/lib/proximity'
 import { Arrow } from './marks'
 import Lenis from 'lenis'
 import { useLive, haligtree } from '@/lib/haligtree'
+import { UNATTRIBUTED } from '@/lib/sources'
 import { useReadsIn, useSeen } from '@/lib/reads-in'
 import { chime, quietFor, setVolume, soundOn } from '@/lib/sound'
 import { Button } from '@/components/ui/button'
@@ -1784,32 +1785,41 @@ export const askClearWho = (name: string, clear: () => Promise<unknown>, putBack
 }
 
 /**
- * Who said it, asked in place: one key from a rot card or a search result
- * opens it, Enter keeps it, Escape leaves it as it was.
+ * Who said it, asked in place: one key from a search result opens it, Enter
+ * keeps it, Escape leaves it as it was. "Unattributed" beside it, as the sheet
+ * asking for a gem's source has: not known is an answer, never asked again.
  */
 export function AskWho({ id, initial = '', onDone }: { id: string; initial?: string; onDone: (who?: string) => void }): React.JSX.Element {
   // Starts from the name it has, so a fix is an edit rather than a retype.
   const [who, setWho] = useState(initial)
+  const keep = (name: string): void => {
+    void haligtree.setCapture(id, 'attribution', name || null)
+    onDone(name)
+  }
   return (
-    <Remembered
-      autoFocus
-      field="attribution"
-      value={who}
-      onChange={setWho}
-      placeholder="Who said it?  ↵"
-      className="w-full px-1.5 py-0.5 text-control"
-      onBlur={() => onDone()}
-      onKeyDown={(event) => {
-        event.stopPropagation()
-        if (event.key === 'Escape') onDone()
-        if (event.key !== 'Enter') return
-        event.preventDefault()
-        // Emptied and Enter clears it: a wrong name can be taken off, once asked.
-        if (!who.trim() && initial.trim()) return void (askClearWho(initial.trim(), () => haligtree.setCapture(id, 'attribution', null), () => setWho(initial)), onDone(initial.trim()))
-        void haligtree.setCapture(id, 'attribution', who.trim() || null)
-        onDone(who.trim())
-      }}
-    />
+    <div data-ask-who className="flex items-center gap-1">
+      <Remembered
+        autoFocus
+        field="attribution"
+        value={who}
+        onChange={setWho}
+        placeholder="Who said it?  ↵"
+        className="min-w-0 flex-1 px-1.5 py-0.5 text-control"
+        onBlur={() => onDone()}
+        onKeyDown={(event) => {
+          event.stopPropagation()
+          if (event.key === 'Escape') onDone()
+          if (event.key !== 'Enter') return
+          event.preventDefault()
+          // Emptied and Enter clears it: a wrong name can be taken off, once asked.
+          if (!who.trim() && initial.trim()) return void (askClearWho(initial.trim(), () => haligtree.setCapture(id, 'attribution', null), () => setWho(initial)), onDone(initial.trim()))
+          keep(who.trim())
+        }}
+      />
+      {/* Pressed without taking the focus from the field, so its blur does not close the line first. */}
+      <button type="button" data-ask-who-unattributed className="shrink-0 cursor-pointer rounded-md px-2 py-0.5 text-meta text-foreground/70 transition-colors hover:bg-foreground/[0.05] hover:text-foreground"
+        onPointerDown={(event) => event.preventDefault()} onClick={() => keep(UNATTRIBUTED)}>{UNATTRIBUTED}</button>
+    </div>
   )
 }
 
