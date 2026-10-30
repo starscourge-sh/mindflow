@@ -9,6 +9,8 @@ import type { Editor } from '@tiptap/react'
  * FIT_MIN and SIZES.compact there.
  */
 const SHORT = 280
+/** "One line to start": the pill, one line and nothing else (PILL in main). */
+const PILL = 56
 const FULL = 600
 /** Shorter by this much at once (a block deleted) and the box shrinks now; by a line or two, after a pause, so it never bounces as you type. */
 const CLEARLY = 72
@@ -71,15 +73,19 @@ function needed(column: HTMLElement | null): number | null {
  * not scrolled into view (the growing shows it), so the writing never jumps
  * up and settles back down.
  */
-export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean): { held: { current: boolean }; refit: () => void; guard: (editor: Editor) => void } {
+export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, pill = false): { held: { current: boolean }; refit: () => void; guard: (editor: Editor) => void } {
   const sent = useRef(0)
   const wait = useRef<ReturnType<typeof setTimeout>>(undefined)
   const held = useRef(false)
   const fullNow = useRef(full)
   fullNow.current = full
+  const pillNow = useRef(pill)
+  pillNow.current = pill
 
   const want = useCallback((): number => {
-    const height = fullNow.current || document.querySelector(POPS) ? FULL : (needed(column.current) ?? FULL)
+    const popped = document.querySelector(POPS)
+    if (pillNow.current && !popped) return PILL
+    const height = fullNow.current || popped ? FULL : (needed(column.current) ?? FULL)
     return Math.min(FULL, Math.max(SHORT, height))
   }, [column])
 
@@ -164,6 +170,8 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean):
 
   // A task read here, or back to the note: at once.
   useEffect(() => refit(true), [full, refit])
+  // The pill grown or folded back: in the one glide, never in steps.
+  useEffect(() => refit(true), [pill, refit])
 
   const guard = useCallback((editor: Editor): void => {
     editor.registerPlugin(new Plugin({ props: { handleScrollToSelection: () => {

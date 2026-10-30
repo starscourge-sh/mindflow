@@ -360,7 +360,9 @@ holdKeys(() => document.documentElement.hasAttribute('data-welcome-ph'), true, h
 
 export default function App(): React.JSX.Element {
   // Here, not in the writing, so a task or idea open in its place hides too.
-  useEscapeToHide()
+  // A pill grown by hand folds back first (see oneLine below).
+  const foldPill = useRef<() => boolean>(() => false)
+  useEscapeToHide(foldPill)
   // While the welcome runs, the empty line offers examples, a starter picked
   // there arrives written in with its fields filled, and the box is in lesson
   // mode: what is not being taught is calm, what draws on your history is hidden.
@@ -760,7 +762,9 @@ export default function App(): React.JSX.Element {
   // While the welcome runs the box is its small self, the panel unopened whatever was chosen
   // (main sizes the window to match); the choice itself is kept for after.
   const welcoming = useWelcoming()
-  const panel = chosenPanel && !welcoming
+  // “One line to start” has no side panel: the pill is the box alone.
+  const oneLineOn = appSettings?.boxOneLine === true
+  const panel = chosenPanel && !welcoming && !oneLineOn
   const [tab, setTab] = useState<Tab>('inbox')
   // The panel stays drawn while the window glides shut, so closing slides
   // it out of view instead of leaving an empty strip, and is drawn before
@@ -782,7 +786,7 @@ export default function App(): React.JSX.Element {
       box.refit()
     })
   }
-  useEffect(() => void window.api.setPanel(panel), []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => void window.api.setPanel(panel), [oneLineOn]) // eslint-disable-line react-hooks/exhaustive-deps
   // From the writing to the list and back without the mouse: ⌃J or ⌃K leaves
   // the note for the panel's list (opening the panel if it is shut), and I
   // comes back, as vim's insert does. A menu open in the note keeps ⌃J and ⌃K.
@@ -908,8 +912,28 @@ export default function App(): React.JSX.Element {
     else fresh(true, true)
   }
   const column = useRef<HTMLDivElement>(null)
-  // The window as tall as the writing, from short to full: see fit-box.
-  const box = useFitBox(column, Boolean(reading))
+  // “One line to start” (Settings): the box opens as one line, a pill, and
+  // grows once there is more to show: a second line, what sending it will
+  // do, or the kind picker asked for from the pill's icon. Never while the
+  // welcome runs, which teaches the whole box.
+  const oneLine = oneLineOn && !welcoming
+  const [opened, setOpened] = useState(false)
+  const [wraps, setWraps] = useState(false)
+  const pill = oneLine && !reading && !editing && !offer && !lesson && !opened && !wraps && !plan?.tokens.length
+  // Measured before it is drawn, so a second line grows the box in the frame it appears.
+  React.useLayoutEffect(() => {
+    if (!oneLine) return
+    const doc = column.current?.querySelector<HTMLElement>('.ProseMirror')
+    const first = doc?.firstElementChild as HTMLElement | null | undefined
+    if (!doc || !first) return
+    const line = parseFloat(getComputedStyle(first).lineHeight) || 26
+    setWraps(doc.childElementCount > 1 || first.offsetHeight > line * 1.5)
+  })
+  // Emptied (sent, or cleared): back to the pill for the next one.
+  useEffect(() => void (!boxText.trim() && setOpened(false)), [boxText])
+  foldPill.current = () => (oneLine && opened && !wraps && !plan?.tokens.length ? (chime('fold'), setOpened(false), true) : false)
+  // The window as tall as the writing, from short to full (or one line, as the pill): see fit-box.
+  const box = useFitBox(column, Boolean(reading), pill)
   // No two-finger swipe back and forward here: ⌘ and two fingers throw the box, and the two fought. ⌘[ and ⌘] still step back and on.
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
@@ -1662,7 +1686,27 @@ export default function App(): React.JSX.Element {
   const [noteMenuAt, setNoteMenuAt] = useState<{ x: number; y: number } | null>(null)
   return (
     <TooltipProvider delayDuration={500}>
-    <div className={`app-container ${pointerIn ? 'pointer-in' : ''} isolate flex flex-col items-center justify-center relative flex h-full w-full flex-col pt-10 color-white`}>
+    <div data-one-line={oneLine || undefined} data-pill={pill || undefined} className={`app-container ${pointerIn ? 'pointer-in' : ''} isolate flex flex-col items-center justify-center relative flex h-full w-full flex-col pt-10 color-white`}>
+      {/* The pill's two ends: the kind it will be kept as (pressed, the box grows to show the kind picker) and ⌘↵. The ends drag the window, as the header does. */}
+      {oneLine && !reading && (
+        <div data-pill-ends aria-hidden={!pill} className={cn('pointer-events-none absolute inset-x-0 top-0 z-10 flex h-14 items-center justify-between px-5', !pill && 'transition-opacity duration-150 ease-out motion-reduce:transition-none')} style={{ opacity: pill ? 1 : 0 }}>
+          {/* Back as the pill (by a key: Esc, ⌫, ⌘↵), the ends are simply there; growing, they fade as the row under the writing arrives. */}
+          {(() => {
+            const Icon = (CAPTURE_TYPES.find((one) => one.id === kind) ?? CAPTURE_TYPES[0]).icon
+            return (
+              <Tip label="Kind, and more">
+                <button type="button" data-pill-kind tabIndex={-1} aria-label="Show the kind and more" disabled={!pill}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => (chime('slide'), setOpened(true))}
+                  className={cn('flex size-8 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-[color,background-color,scale] duration-150 ease-out hover:bg-accent/60 hover:text-foreground active:scale-[0.97] [&_svg]:size-4', pill && 'pointer-events-auto')}>
+                  <Icon />
+                </button>
+              </Tip>
+            )
+          })()}
+          <kbd className="font-sans text-key text-muted-foreground">⌘↵</kbd>
+        </div>
+      )}
       {/* Toasts sit above the box's footer here, clear of Create. */}
       {/* Toasts over the note, above its footer: clear of Create and of the panel. */}
       <div ref={toasts} className={toastLane ? 'contents' : `contents [--toast-bottom:6.5rem] ${panel ? `[--toast-right:${PANEL_WIDTH}px]` : ''}`} style={toastLane}><Toaster /></div>
@@ -2222,7 +2266,7 @@ function laterOff(doc: JSONContent | null, word: string): JSONContent | null {
  * state, does not claim it, or Escape could never reach the window from
  * inside the editor. Vim is off unless turned on.
  */
-function useEscapeToHide(): void {
+function useEscapeToHide(fold: { current: () => boolean }): void {
   useEffect(() => {
     // The editor marks every Escape as handled, so whether it was spent is
     // read before it gets there: in the editor, Escape hides the window only
@@ -2243,6 +2287,7 @@ function useEscapeToHide(): void {
       if (event.key !== 'Escape') return
       if ((event.defaultPrevented && !free) || layered) return void (layered = false)
       free = false
+      if (fold.current()) return
       window.api.hideWindow()
     }
     window.addEventListener('keydown', before, true)

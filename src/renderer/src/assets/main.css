@@ -2468,3 +2468,13 @@ html[data-tuck-open="left"] .mf-card { border-top-right-radius: 0; border-bottom
   vertical-align: 0.1em;
   background: var(--mf-tag-dot, currentColor);
 }
+
+/* “One line to start”: quick capture as one line, a pill. No header strip in
+   either state, so the writing stays exactly where it is as the pill grows
+   into the box and folds back: the window grows down under it, nothing moves.
+   While it is the pill, everything around the line (fields, the row with
+   Create, the hint) is out of the layout, not just faded. */
+.app-container[data-one-line] { padding-top: 0; }
+.app-container[data-one-line] [data-drag-strip] { display: none; }
+.app-container[data-pill] [data-chrome] { display: none; }
+.app-container[data-pill] .ProseMirror { overflow: hidden; }

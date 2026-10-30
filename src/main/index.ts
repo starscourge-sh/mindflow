@@ -51,7 +51,7 @@ import { warmChrono } from './lazy/chrono'
 import { warmEmoji } from './lazy/emoji'
 import { backupBase, backupDir } from './backup'
 import { pageFor } from './pages'
-import { activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tuckRules, tempusDots, blurOn, boxAutoHide, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerHaligtree, showStickies, stickyPrefs, stickyTuck, tuckStickies, toggleSafeMode, whenKeys, whenRecordings, whenIcon, appIcon, recordingPrefs, type Recordings, type OpenGoal, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, focusToolsOn, whenFocusShows, pillInNotch, sleepChoice } from './haligtree'
+import { activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tuckRules, tempusDots, blurOn, boxAutoHide, boxOneLine, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerHaligtree, showStickies, stickyPrefs, stickyTuck, tuckStickies, toggleSafeMode, whenKeys, whenRecordings, whenIcon, appIcon, recordingPrefs, type Recordings, type OpenGoal, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, focusToolsOn, whenFocusShows, pillInNotch, sleepChoice } from './haligtree'
 import { daysLeft, percent, tempus, wayThrough } from './goal-days'
 import { PEEK_OUT_MS, peeksOut, restNow, type Rest } from './goal-tuck'
 import { tap, taps } from './haptic'
@@ -227,6 +227,8 @@ const SIZES = {
  * height whatever is written.
  */
 const FIT_MIN = 280
+/** "One line to start": the pill, as short as its one line (PILL in fit-box). */
+const PILL = 56
 /** What the writing asks for, as the page last measured it. */
 let fit = FIT_MIN
 /** The side panel and the expander, as the page last asked. */
@@ -236,12 +238,12 @@ let expandedNow = false
  * The side panel as the box wears it now: never while the welcome runs, which
  * teaches the small box alone. Your own choice (panelOpen) is kept for after.
  */
-const panelShown = (): boolean => panelOpen && !isWelcoming()
+const panelShown = (): boolean => panelOpen && !isWelcoming() && !boxOneLine()
 /** How wide the box should be now: one of its two widths, never one a glide left it at. */
 const boxWidth = (): number => (panelShown() ? WITH_PANEL : WIDTH)
 /** How tall the box should be now. */
 const boxHeight = (): number =>
-  expandedNow ? SIZES.expanded.height : panelShown() ? SIZES.compact.height : Math.round(Math.min(SIZES.compact.height, Math.max(FIT_MIN, fit)))
+  expandedNow ? SIZES.expanded.height : panelShown() ? SIZES.compact.height : Math.round(Math.min(SIZES.compact.height, Math.max(boxOneLine() && !isWelcoming() ? PILL : FIT_MIN, fit)))
 
 /** Keys as Settings writes them (⌥⌘S) in Electron's words (Alt+Command+S); null for none, or two in a row. */
 function accelerator(keys: string | null | undefined): string | null {

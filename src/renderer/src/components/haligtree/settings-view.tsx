@@ -60,6 +60,7 @@ import { SpellLanguages } from './spell-languages'
 import { isMac } from '@/lib/tiptap-utils'
 import { currentVim, onVimChange, setVim } from '@/lib/vim'
 import { useStoredFlag } from '@/lib/use-stored-flag'
+import { cn } from '@/lib/cn'
 import { RECORDING_KINDS } from '@/lib/recordings'
 import { SANDBOX, enterSandbox, leaveSandbox, startSandboxOver } from '@/lib/sandbox'
 import { HoldButton } from './hold-button'
@@ -695,7 +696,12 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
             <span aria-hidden className="flex h-7 w-16 items-center gap-1 rounded-md border border-border bg-popover px-2"><span className="h-1 flex-1 rounded-full bg-foreground/50" /><span className="h-3 w-3 rounded-sm border border-foreground/40 transition-opacity duration-200" style={{ opacity: settings.boxHideButtons ? 0.12 : 1 }} /></span>
             <Switch checked={settings.boxHideButtons === true} onCheckedChange={(boxHideButtons) => set({ boxHideButtons })} />
           </Setting>
-          <Setting title="Where quick capture appears" note="Where quick capture opens when you call it up." more="⌃⌘C puts it in the middle of the screen whenever it is up." keywords="box window summon open position place top middle centre center last shortcut"
+          <Setting title="One line to start" note="Quick capture opens as one line, and grows only once there is more to show." more="A second line, what sending it will do, or the kind picker (its icon on the left) grows it. Esc folds a grown one back. No side panel while it is on." keywords="one line pill minimal minimalist small compact single line spotlight raycast grow box window">
+            {/* The sample: the pill, or the whole box with its row under the writing. */}
+            <span aria-hidden className={cn('flex w-16 flex-col justify-center gap-1 border border-border bg-popover px-2 transition-[height,border-radius] duration-200 ease-out motion-reduce:transition-none', settings.boxOneLine ? 'h-4 rounded-full' : 'h-7 rounded-md')}><span className="h-1 w-full rounded-full bg-foreground/50" />{!settings.boxOneLine && <span className="h-1 w-6 self-end rounded-full bg-foreground/30" />}</span>
+            <Switch checked={settings.boxOneLine === true} onCheckedChange={(boxOneLine) => set({ boxOneLine })} />
+          </Setting>
+          <Setting title="Where quick capture appears"note="Where quick capture opens when you call it up." more="⌃⌘C puts it in the middle of the screen whenever it is up." keywords="box window summon open position place top middle centre center last shortcut"
             below={<Choices label="Where quick capture appears" options={boxPlaceChoices} on={(id) => id === (settings.boxPlace ?? 'last')} pick={(boxPlace) => set({ boxPlace: boxPlace as Settings['boxPlace'] })} />} />
           <Setting title="Which screen" note="With two or more screens: the one the pointer is on, or the last one." keywords="box window display monitor screen pointer second"
             below={<Choices label="Which screen" options={boxScreenChoices} on={(id) => id === (settings.boxScreen ?? 'pointer')} pick={(boxScreen) => set({ boxScreen: boxScreen as Settings['boxScreen'] })} />} />

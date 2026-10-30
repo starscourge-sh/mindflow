@@ -347,6 +347,8 @@ const DEFAULTS = {
   boxDim: true,
   // Quick capture's buttons out of sight until pointed at (⌥⌘,). Off to start, so nobody is left looking for them.
   boxHideButtons: false,
+  // Quick capture opens as one line (a pill) and grows only once there is more to show. Off to start.
+  boxOneLine: false,
   // The Dock's icon: the leaves in bronze or gold.
   appIcon: 'bronze' as 'bronze' | 'gold',
   // A single word's meaning, faint under it in quick capture, from the Mac's
@@ -827,6 +829,8 @@ export const appIcon = (): 'bronze' | 'gold' => settings().appIcon
 export const blurOn = (): boolean => settings().blur !== false
 /** Whether the box puts itself away when it loses the focus. */
 export const boxAutoHide = (): boolean => settings().boxAutoHide !== false
+/** Quick capture opens as one line: no side panel, and as short as the line. */
+export const boxOneLine = (): boolean => settings().boxOneLine === true
 /** Where the box goes: see boxCentred, boxPlace and boxScreen above. */
 export const boxPlacement = (): { centred: boolean; place: 'last' | 'top' | 'centre'; screen: 'pointer' | 'same' } => {
   const now = settings()
