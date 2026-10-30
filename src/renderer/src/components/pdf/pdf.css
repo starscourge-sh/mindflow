@@ -252,3 +252,23 @@
 @media (prefers-reduced-motion: reduce) {
   .pdf-mark.is-flash { animation: none; background: color-mix(in srgb, var(--tt-brand-color-500, #c08a2e) 50%, transparent); }
 }
+
+/* Find in a PDF: the note's own find bar, under the reader's bar. */
+.pdf-find-bar {
+  flex: none;
+  margin: 0.5rem 1rem 0;
+  align-self: flex-end;
+}
+
+.pdf-find-bar button {
+  cursor: pointer;
+}
+
+.pdf-mark.is-find {
+  background: color-mix(in srgb, #f5c542 45%, transparent);
+}
+
+.pdf-mark.is-find.is-current {
+  background: color-mix(in srgb, #f59e0b 70%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, #f59e0b 55%, transparent);
+}

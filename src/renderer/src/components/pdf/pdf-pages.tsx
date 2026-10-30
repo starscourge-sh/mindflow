@@ -92,7 +92,9 @@ function paintMarks(sheet: HTMLElement, marks: PdfMark[], flash: string | null |
     for (const rect of range.getClientRects()) {
       if (!rect.width || !rect.height) continue
       const band = document.createElement("div")
-      band.className = `pdf-mark${mark.id === flash ? " is-flash" : ""}`
+      // A find match is drawn as the note's find draws one; the one stepped to stands out.
+      const find = mark.id.startsWith("find:")
+      band.className = `pdf-mark${find ? " is-find" : ""}${mark.id === flash ? (find ? " is-current" : " is-flash") : ""}`
       band.dataset.mark = mark.id
       Object.assign(band.style, { left: `${rect.left - box.left}px`, top: `${rect.top - box.top}px`, width: `${rect.width}px`, height: `${rect.height}px` })
       paint.append(band)

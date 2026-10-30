@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import type { PDFDocumentProxy } from "pdfjs-dist"
-import { Minus, Plus, ScrollText } from "lucide-react"
+import { ChevronDown, ChevronUp, Minus, Plus, ScrollText, Search, X } from "lucide-react"
 import { Button } from "@/components/tiptap-ui-primitive/button"
 import { Toolbar, ToolbarGroup } from "@/components/tiptap-ui-primitive/toolbar"
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu"
@@ -76,6 +76,54 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   })
   // The words picked on one page, and where to show "Keep" over them.
   const [picked, setPicked] = useState<{ page: number; quote: string; start: number; end: number; x: number; y: number } | null>(null)
+  // ⌘F: the words looked for, every place they are, and the one on show.
+  const [finding, setFinding] = useState(false)
+  const [found, setFound] = useState<PdfMark[]>([])
+  const [at, setAt] = useState(0)
+  const pageTexts = useRef<Map<number, string>>(new Map())
+  const findField = useRef<HTMLInputElement>(null)
+  const find = async (words: string): Promise<void> => {
+    if (!doc || !words.trim()) return setFound([])
+    const look = words.toLowerCase()
+    const hits: PdfMark[] = []
+    for (let n = 1; n <= doc.numPages; n++) {
+      let text = pageTexts.current.get(n)
+      if (text === undefined) {
+        const content = await (await doc.getPage(n)).getTextContent()
+        // The same characters the page's text layer holds, in the same order, so offsets agree.
+        text = content.items.map((item) => ("str" in item ? item.str : "")).join("")
+        pageTexts.current.set(n, text)
+      }
+      const lower = text.toLowerCase()
+      for (let from = lower.indexOf(look); from >= 0; from = lower.indexOf(look, from + look.length))
+        hits.push({ id: `find:${hits.length}`, page: n, quote: text.slice(from, from + look.length), start: from, end: from + look.length })
+    }
+    setFound(hits)
+    setAt(0)
+    if (hits[0]) go(hits[0].page)
+  }
+  const stepFind = (back: boolean): void => {
+    if (!found.length) return
+    const next = (at + (back ? found.length - 1 : 1)) % found.length
+    setAt(next)
+    go(found[next].page)
+  }
+  const closeFind = (): void => {
+    setFinding(false)
+    setFound([])
+  }
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (!event.metaKey || event.altKey || event.shiftKey || event.code !== "KeyF" || !keysHere(pane)) return
+      event.preventDefault()
+      event.stopPropagation()
+      setFinding(true)
+      requestAnimationFrame(() => findField.current?.select())
+    }
+    window.addEventListener("keydown", onKey, true)
+    return () => window.removeEventListener("keydown", onKey, true)
+  })
+
   // The mark under a right click.
   const [hit, setHit] = useState<PdfMark | null>(null)
 
@@ -202,6 +250,9 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           <span className="pdf-reader-of"> / {doc?.numPages ?? "…"}</span>
         </span>
         <span className="pdf-reader-tools">
+          <Button data-style="ghost" aria-label="Find" title="Find  ⌘F" data-active-state={finding ? "on" : "off"} onClick={() => (finding ? closeFind() : (setFinding(true), requestAnimationFrame(() => findField.current?.focus())))}>
+            <Search className="tiptap-button-icon" />
+          </Button>
           <Button data-style="ghost" aria-label="Smaller" title="Smaller  ⌘−" onClick={() => step(-1)}>
             <Minus className="tiptap-button-icon" />
           </Button>
@@ -225,6 +276,38 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           </Button>
         </span>
       </div>
+      {finding && (
+        <div className="tiptap-find-bar pdf-find-bar">
+          <div className="tiptap-find-bar-row">
+            <input
+              ref={findField}
+              type="text"
+              placeholder="Find"
+              aria-label="Find in PDF"
+              autoFocus
+              onChange={(event) => void find(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault()
+                  stepFind(event.shiftKey)
+                } else if (event.key === "Escape") closeFind()
+              }}
+            />
+            <span className="tiptap-find-bar-count" aria-label={`${found.length ? at + 1 : 0} of ${found.length}`}>
+              <Roll text={found.length ? at + 1 : 0} />/<Roll text={found.length} />
+            </span>
+            <button type="button" onClick={() => stepFind(true)} aria-label="Previous match" title="Previous  ⇧↵">
+              <ChevronUp className="size-3.5" />
+            </button>
+            <button type="button" onClick={() => stepFind(false)} aria-label="Next match" title="Next  ↵">
+              <ChevronDown className="size-3.5" />
+            </button>
+            <button type="button" onClick={closeFind} aria-label="Close find" title="Close  Esc">
+              <X className="size-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
       <ContextMenu>
         <ContextMenuTrigger asChild>
           <div
@@ -246,8 +329,8 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
               src={src}
               zoom={zoom}
               scroller={scroller}
-              marks={marks}
-              flash={flash}
+              marks={found.length ? [...marks, ...found] : marks}
+              flash={found.length ? found[at]?.id : flash}
               land={start}
               onLoad={(loaded) => {
                 setDoc(loaded)

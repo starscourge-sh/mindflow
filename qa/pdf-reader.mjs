@@ -143,6 +143,18 @@ try {
   await wait(800)
   check("the View menu's Actual Size fits the PDF again", Math.abs((await widthAt()) - before) < 2, String(await widthAt()))
   check("and the app's own size is untouched", (await appSize()) === sizeBefore, `${sizeBefore} -> ${await appSize()}`)
+  // ⌘F: every match counted, Return steps to the next page's, each one marked on its page.
+  await h.click('.pdf-reader-scroll'); await h.keyboard.press('Meta+KeyF'); await wait(300)
+  check('⌘F opens find in the PDF', await h.evaluate(() => document.activeElement?.getAttribute('aria-label') === 'Find in PDF'), '')
+  await h.keyboard.type('quiet sentence'); await wait(800)
+  const count = await h.evaluate(() => document.querySelector('.pdf-find-bar .tiptap-find-bar-count')?.getAttribute('aria-label'))
+  check('it finds the words on all 3 pages', count === '1 of 3', String(count))
+  await h.keyboard.press('Enter'); await h.keyboard.press('Enter'); await wait(1000)
+  const onMatch = await h.evaluate(() => ({ field: document.querySelector('.pdf-reader-page-field').value, current: document.querySelector('.pdf-mark.is-find.is-current')?.closest('.pdf-page')?.dataset.page }))
+  check('Return steps to the match on page 3, marked', onMatch.field === '3' && onMatch.current === '3', JSON.stringify(onMatch))
+  await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-find.png` })
+  await h.keyboard.press('Escape'); await wait(300)
+  check('Esc closes find and its marks', await h.evaluate(() => !document.querySelector('.pdf-find-bar') && !document.querySelector('.pdf-mark.is-find')), '')
   await h.fill('.pdf-reader-page-field', '3'); await h.keyboard.press('Enter'); await wait(800)
   const onPage = await h.evaluate(() => {
     const box = document.querySelector('.pdf-reader-scroll').getBoundingClientRect()
