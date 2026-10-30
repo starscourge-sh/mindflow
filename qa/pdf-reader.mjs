@@ -259,8 +259,13 @@ try {
   await h.keyboard.press('Meta+BracketLeft')
   await h.waitForSelector('.pdf-reader .pdf-page[data-page="3"] canvas', { timeout: 10000 }).catch(() => {})
   await wait(800)
-  const returned = await h.evaluate(() => ({ reader: !!document.querySelector('.pdf-reader'), page: document.querySelector('.pdf-reader-page-field')?.value }))
+  const returned = await h.evaluate(() => {
+    const box = document.querySelector('.pdf-reader-scroll')?.getBoundingClientRect()
+    const sheet = document.querySelector('.pdf-reader .pdf-page[data-page="3"]')?.getBoundingClientRect()
+    return { reader: !!document.querySelector('.pdf-reader'), page: document.querySelector('.pdf-reader-page-field')?.value, top: box && sheet ? Math.round(sheet.top - box.top) : null }
+  })
   check('Back from the gem returns to the PDF', returned.reader, JSON.stringify(returned))
+  check('at the page you were on, not page 1', returned.page === '3' && returned.top !== null && Math.abs(returned.top) < 60, JSON.stringify(returned))
   await h.fill('.pdf-reader-page-field', '3'); await h.keyboard.press('Enter'); await wait(1000)
 
   // Paper pages, read off the screen: the white turns warm, the orange square stays orange.

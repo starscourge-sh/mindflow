@@ -231,8 +231,10 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     const n = Math.min(Math.max(1, Math.round(to)), doc.numPages)
     scroller.current?.querySelector<HTMLElement>(`.pdf-page[data-page="${n}"]`)?.scrollIntoView({ block: "start" })
     setPage(n)
+    // Kept as the pane's page, so Back from anywhere comes back to it.
+    if (n !== start) onPage?.(n)
   }
-  // Opened at a page (a gem's link back): there once the sheets are laid out.
+  // Opened at a page (a gem's link back, or Back to it): the sheets land there as they are laid out.
   // Back and Forward bring a page back too; the page you scroll to is kept, so it never jumps.
   useEffect(() => {
     if (doc && start && start !== page) go(start)
