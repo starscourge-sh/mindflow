@@ -114,7 +114,7 @@ import type { RowItem } from '@/components/haligtree/row-menu'
 import { asideClick, asideItem, keepTitle, setPaneNotes, setPanes, spendAsideClick, titleOf, type PaneWidth } from '@/lib/split'
 import XIcon from '@/components/ui/x-icon'
 import { WhatsNewPage, openWhatsNew } from '@/components/haligtree/whats-new'
-import { PdfReader, fromPdfFocus, pdfFocus } from '@/components/pdf/pdf-reader'
+import { PdfReader, fromPdfFocus, pdfFocus, pdfName } from '@/components/pdf/pdf-reader'
 import { BinView } from '@/components/haligtree/bin-view'
 import { CloseDaySheet, openCloseDay } from '@/components/haligtree/close-day'
 import { writeOutDay } from '@/components/haligtree/day-list'
@@ -681,6 +681,13 @@ export function Home(): React.JSX.Element {
     window.addEventListener('haligtree:pdf', onPdf)
     return () => window.removeEventListener('haligtree:pdf', onPdf)
   })
+  // A PDF's own title, read as it opens: the top bar and its pane's tab say it too.
+  const [, pdfTitled] = useState(0)
+  useEffect(() => {
+    const onTitle = (): void => pdfTitled((n) => n + 1)
+    window.addEventListener('haligtree:pdf-title', onTitle)
+    return () => window.removeEventListener('haligtree:pdf-title', onTitle)
+  }, [])
   // One thing opened by name from a surface with no `onOpen` of its own (a PDF's mark opening its gem).
   useEffect(() => {
     const onOpen = (event: Event): void => {
@@ -1206,7 +1213,7 @@ export function Home(): React.JSX.Element {
   /** A page's name, for the top bar; a pane is named by its note first (paneName). */
   /** The sidebar row lit for the page you are on, whichever date a day's, week's, month's or year's page shows (litRow). */
   const lit = (id: string): boolean => litRow(view.id, shown) === id
-  const labelOf = (view: View): string => datedName(view) ?? (view.id === 'matrix' ? 'Urgent and important' : TASK_PAGES.includes(view.id) ? 'Tasks' : view.id === 'questions' ? 'Questions' : null) ?? SECTIONS.find((section) => section.id === view.id)?.label ?? kind(view)?.label ?? (view.id === 'source' ? view.focus?.slice(view.focus.indexOf(':') + 1) || 'Source' : view.id === 'settings' ? 'Settings' : view.id === 'pick' ? 'New pane' : view.id === 'whatsnew' ? "What's new" : view.id === 'pdf' ? fromPdfFocus(view.focus ?? '').name.replace(/\.pdf$/i, '') || 'PDF' : view.id === 'practices' ? 'Practices' : view.id === 'yearpage' ? 'Year' : view.id === 'day' ? 'Day' : view.id === 'weekpage' ? 'Week' : view.id === 'monthpage' ? 'Month' : '')
+  const labelOf = (view: View): string => datedName(view) ?? (view.id === 'matrix' ? 'Urgent and important' : TASK_PAGES.includes(view.id) ? 'Tasks' : view.id === 'questions' ? 'Questions' : null) ?? SECTIONS.find((section) => section.id === view.id)?.label ?? kind(view)?.label ?? (view.id === 'source' ? view.focus?.slice(view.focus.indexOf(':') + 1) || 'Source' : view.id === 'settings' ? 'Settings' : view.id === 'pick' ? 'New pane' : view.id === 'whatsnew' ? "What's new" : view.id === 'pdf' ? pdfName(fromPdfFocus(view.focus ?? '').src, fromPdfFocus(view.focus ?? '').name) : view.id === 'practices' ? 'Practices' : view.id === 'yearpage' ? 'Year' : view.id === 'day' ? 'Day' : view.id === 'weekpage' ? 'Week' : view.id === 'monthpage' ? 'Month' : '')
   const paneWidth = (key: string, width: PaneWidth): void => {
     chime(width === 'narrow' ? 'fold' : 'slide')
     setSplit((now) => ({ ...now, panes: now.panes.map((one) => (one.key === key ? { ...one, width } : one)) }))

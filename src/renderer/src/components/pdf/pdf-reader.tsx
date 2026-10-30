@@ -38,6 +38,16 @@ export function followPdfLink(href: string): boolean {
   return true
 }
 
+/** Titles read out of PDFs, by address: what the window's top bar and a pane's tab call it. */
+const titles = new Map<string, string>()
+/** A PDF's title once read, else the name it arrived under without `.pdf`. */
+export const pdfName = (src: string, name: string): string => titles.get(src) ?? (name.replace(/\.pdf$/i, "") || "PDF")
+const learnTitle = (src: string, title: string): void => {
+  if (titles.get(src) === title) return
+  titles.set(src, title)
+  window.dispatchEvent(new CustomEvent("haligtree:pdf-title"))
+}
+
 /** A pane's `focus` for a PDF: its address and the name it arrived under. */
 export const pdfFocus = (src: string, name: string): string => `${src}|${name}`
 export const fromPdfFocus = (focus: string): { src: string; name: string } => {
@@ -53,7 +63,7 @@ export const fromPdfFocus = (focus: string): { src: string; name: string } => {
 export function PdfReader({ src, name, page: start, onPage }: { src: string; name: string; page?: number; onPage?: (page: number) => void }): React.JSX.Element {
   const scroller = useRef<HTMLDivElement>(null)
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null)
-  const [title, setTitle] = useState(name.replace(/\.pdf$/i, ""))
+  const [title, setTitle] = useState(() => pdfName(src, name))
   const [zoom, setZoom] = useState(1)
   const [page, setPage] = useState(start ?? 1)
   const [typed, setTyped] = useState<string | null>(null)
@@ -241,7 +251,10 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
               land={start}
               onLoad={(loaded) => {
                 setDoc(loaded)
-                void pdfTitle(loaded, name).then(setTitle)
+                void pdfTitle(loaded, name).then((read) => {
+                  setTitle(read)
+                  learnTitle(src, read)
+                })
               }}
             />
             {picked && <KeepBar at={picked} onKeep={() => void keep()} />}
