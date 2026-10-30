@@ -205,7 +205,8 @@ function useNameEgg(root: React.RefObject<HTMLElement | null>, shown: boolean): 
 export function Welcome(): React.JSX.Element | null {
   const [at, setAt] = useState(-1)
   // Whether the page reads light (dark words): its gold is chosen by what is on screen, not by the theme's dark class.
-  const lightPage = useLightTheme()
+  // Read only while the welcome is open: it is mounted in Home always, and reading the words' colour forces a style pass.
+  const lightPage = useLightTheme(at >= 0)
   // Opened again from a menu: nothing is first about it.
   const [replay, setReplay] = useState(false)
   // Skipped ahead, and from where: the last page gets a line of its own.
@@ -1876,7 +1877,10 @@ const watchTheme = (changed: () => void): (() => void) => {
   watch.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style', 'data-light', 'data-theme'] })
   return () => watch.disconnect()
 }
-const useLightTheme = (): boolean => useSyncExternalStore(watchTheme, lightNow)
+const unwatched = (): (() => void) => () => undefined
+const notRead = (): boolean => false
+/** `on` false (the welcome closed): nothing is read or watched, so a render of Home costs no style pass. */
+const useLightTheme = (on = true): boolean => useSyncExternalStore(on ? watchTheme : unwatched, on ? lightNow : notRead)
 
 /** A colour as the page works it out, mixes and all, in oklab's words ("oklab(0.6 0.1 0.05)"), which the gradient reads. */
 const resolve = (color: string): string => {

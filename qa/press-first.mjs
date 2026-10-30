@@ -17,6 +17,13 @@ try {
   const lit = await h.locator('[data-row][data-open]').first().evaluate((row) => getComputedStyle(row).backgroundColor)
   console.log('open row:', lit)
   const results = []
+  // Every read of the page's own style (the body's) in the middle of an open makes the browser work out every style first:
+  // the welcome, always mounted and closed, read it on every draw of Home.
+  await h.evaluate(() => {
+    const read = window.getComputedStyle
+    window.__bodyReads = 0
+    window.getComputedStyle = function (el, ...rest) { if (el === document.body) window.__bodyReads++; return read.call(this, el, ...rest) }
+  })
   for (let n = 1; n <= 4; n++) {
     const rows = h.locator('[data-row]')
     const row = rows.nth(n)
@@ -25,6 +32,8 @@ try {
     const id = await row.getAttribute('data-id')
     await h.evaluate(([id, lit]) => {
       window.__t = { start: 0, marked: 0, words: 0 }
+      // Counted from letting go: a press can start a drag, whose library looks for scrolling boxes up from the row.
+      document.addEventListener('pointerup', () => void (window.__bodyReads = 0), { once: true, capture: true })
       const before = document.querySelector('.note-pane .ProseMirror')
       const tick = () => {
         const now = performance.now()
@@ -39,10 +48,13 @@ try {
     await h.mouse.down(); await h.waitForTimeout(80); await h.mouse.up()
     await h.waitForTimeout(1200)
     const t = await h.evaluate(() => window.__t)
-    results.push({ marked: Math.round(t.marked - t.start), words: Math.round(t.words - t.start - 80) })
+    results.push({ marked: Math.round(t.marked - t.start), words: Math.round(t.words - t.start - 80), bodyReads: await h.evaluate(() => window.__bodyReads) })
   }
   console.log(JSON.stringify(results), '(words: from letting go)')
   check('each row is marked as soon as it is pressed (under 20ms)', results.every((one) => one.marked > 0 && one.marked < 20), JSON.stringify(results))
+  // The third note's open builds a drag-and-drop area whose library walks up from it reading each box's style, the
+  // body's too (14 reads, the same before and after): a cost of its own, left out here.
+  check('no read of the page\'s whole style while a note opens (the welcome, shut, reads nothing)', results.every((one, at) => at === 2 || one.bodyReads === 0), JSON.stringify(results.map((one) => one.bodyReads)))
   check('and marked before its note\'s words are in', results.every((one) => one.marked <= one.words + 80), JSON.stringify(results))
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])

@@ -159,9 +159,10 @@ function FitActions({ children, keep, room }: { children: ReactNode; /** Never f
         if (box.scrollWidth > box.clientWidth + 1) setFolded(true)
       } else if (box.clientWidth >= need.current) setFolded(false)
     }
-    // Once now, and again as sizes change, each time before the frame is painted: measured a frame
-    // later, a narrow line drew every button and then folded them into "More".
-    fit()
+    // Measured by the observer alone, which reports once as it starts and again as sizes change, each
+    // time after the browser's own layout and before the frame is painted: measured a frame later, a
+    // narrow line drew every button and then folded them into "More"; measured here and now, it made
+    // the browser lay out the whole window in the middle of opening a note.
     const watch = new ResizeObserver(() => flushSync(fit))
     watch.observe(box)
     if (box.firstElementChild) watch.observe(box.firstElementChild)
