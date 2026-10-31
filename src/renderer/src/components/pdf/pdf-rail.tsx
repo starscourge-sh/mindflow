@@ -1,4 +1,8 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { ChevronRight } from "lucide-react"
+import { Branches } from "@/components/haligtree/branches"
+import { Highlight, Unfold, useChosen, useFluidHover, Weighted } from "@/components/haligtree/glide"
+import { spring } from "@/lib/motion"
 import type { PDFDocumentProxy } from "pdfjs-dist"
 
 /** Which list the rail shows: the pages small, or the PDF's own outline. Highlights are in Details. */
@@ -152,21 +156,95 @@ export function PdfSide({ doc, page, outline, tab, onTab, onGo }: { doc: PDFDocu
   // The chapter lit comes into view in the rail, as Preview's does.
   const list = useRef<HTMLElement>(null)
   useEffect(() => {
-    list.current?.querySelector<HTMLElement>(".pdf-outline-row.is-here")?.scrollIntoView({ block: "nearest" })
+    list.current?.querySelector<HTMLElement>("[data-outline-row][aria-current]")?.scrollIntoView({ block: "nearest" })
   }, [hereAt, shown])
   return (
     <PdfRail tab={shown} tabs={[{ id: "pages", label: "Pages" }, ...(outline.length ? [{ id: "outline" as const, label: "Outline" }] : [])]} onTab={onTab}>
       {shown === "pages" && Array.from({ length: doc.numPages }, (_, index) => <PdfThumb key={index} doc={doc} page={index + 1} here={index + 1 === page} onGo={() => onGo(index + 1)} />)}
-      {shown === "outline" && (
-        <nav ref={list} className="pdf-outline" aria-label="Outline">
-          {outline.map((row, index) => (
-            <button key={index} type="button" className={`pdf-outline-row${index === hereAt ? " is-here" : ""}`} style={{ paddingInlineStart: `${0.5 + row.depth * 0.75}rem` }} onClick={() => onGo(row.page)}>
-              <span className="pdf-outline-title">{row.title}</span>
-              <span className="pdf-outline-page">{row.page}</span>
-            </button>
-          ))}
-        </nav>
-      )}
+      {shown === "outline" && <PdfOutline outline={outline} hereAt={hereAt} list={list} onGo={onGo} />}
     </PdfRail>
+  )
+}
+
+/** One entry of the outline with the entries under it. */
+type OutlineNode = { at: number; row: OutlineRow; kids: OutlineNode[] }
+
+/** The flat rows, each depth a step down, back into a tree: an entry holds every deeper one after it. */
+function treeOf(outline: OutlineRow[]): OutlineNode[] {
+  const top: OutlineNode[] = []
+  const path: OutlineNode[] = []
+  outline.forEach((row, at) => {
+    const node: OutlineNode = { at, row, kids: [] }
+    while (path.length && path[path.length - 1].row.depth >= row.depth) path.pop()
+    ;(path.length ? path[path.length - 1].kids : top).push(node)
+    path.push(node)
+  })
+  return top
+}
+
+const holds = (node: OutlineNode, at: number): boolean => node.at === at || node.kids.some((one) => holds(one, at))
+
+/**
+ * The PDF's outline as the sidebar draws a nest: each level hung off a thin
+ * trunk with a curved branch to each entry, the way down to the chapter you
+ * are in lit, a chapter's sections folded under its chevron, and the same
+ * rows, light and hover as the sidebar's.
+ */
+function PdfOutline({ outline, hereAt, list, onGo }: { outline: OutlineRow[]; hereAt: number; list: React.RefObject<HTMLElement | null>; onGo: (page: number) => void }): React.JSX.Element {
+  const tree = useMemo(() => treeOf(outline), [outline])
+  // Folded by you; a chapter you read your way into opens again, so the lit way down is never hidden.
+  const [folded, setFolded] = useState<Set<number>>(() => new Set())
+  useEffect(() => {
+    setFolded((was) => {
+      const opened = [...was].filter((at) => at < hereAt && outline.slice(at + 1, hereAt + 1).every((row) => row.depth > outline[at].depth))
+      if (!opened.length) return was
+      const next = new Set(was)
+      for (const at of opened) next.delete(at)
+      return next
+    })
+  }, [hereAt, outline])
+  const hover = useFluidHover(list, { items: "[data-outline-row]:not([inert] *)" })
+  const chosen = useChosen(list, "[data-outline-row][aria-current]", `${hereAt}:${folded.size}`)
+  const fold = (at: number, open: boolean): void =>
+    setFolded((was) => {
+      const next = new Set(was)
+      if (open) next.add(at)
+      else next.delete(at)
+      return next
+    })
+  const level = (nodes: OutlineNode[]): React.JSX.Element => (
+    <Branches current={nodes.findIndex((one) => holds(one, hereAt))} className="ml-5 flex flex-col gap-px">
+      {nodes.flatMap((node) => {
+        const open = !folded.has(node.at)
+        const here = node.at === hereAt
+        return [
+          <button key={node.at} type="button" data-outline-row aria-current={here ? "location" : undefined} title={node.row.title}
+            onClick={() => onGo(node.row.page)}
+            className={`flex min-w-0 items-center gap-2.5 rounded-md px-2 py-1.5 text-left ${here ? "text-foreground" : "text-foreground/80"}`}>
+            <Weighted on={here} className="min-w-0">{node.row.title}</Weighted>
+            {node.kids.length > 0 && (
+              <span data-outline-fold role="button" aria-label={open ? "Fold" : "Unfold"} aria-expanded={open}
+                className="-m-0.5 grid shrink-0 cursor-pointer place-items-center rounded-sm p-0.5 text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
+                onClick={(event) => (event.stopPropagation(), fold(node.at, open))}>
+                <ChevronRight aria-hidden className={`size-3 transition-[rotate] duration-80 ${open ? "rotate-90" : ""}`} />
+              </span>
+            )}
+            <span className="ml-auto shrink-0 pl-1 text-xs tabular-nums text-muted-foreground">{node.row.page}</span>
+          </button>,
+          node.kids.length > 0 && (
+            <Unfold key={`${node.at}:in`} open={open}>
+              <div data-no-twig="">{level(node.kids)}</div>
+            </Unfold>
+          )
+        ]
+      })}
+    </Branches>
+  )
+  return (
+    <nav ref={list} {...hover.handlers} className="pdf-outline relative isolate" aria-label="Outline">
+      <Highlight spot={chosen.spot} snap={chosen.snap} travel={spring.moderate} className="bg-accent" />
+      <Highlight spot={hover.spot} session={hover.session} snap={hover.snap} from={chosen.spot} />
+      <div className="-ml-3">{level(tree)}</div>
+    </nav>
   )
 }

@@ -99,7 +99,7 @@ try {
   await wait(900)
   check('a page in the sidebar goes to it', (await state()).page === '3', JSON.stringify(await state()))
   await press('Show this page in contents')
-  const here = await h.evaluate((sel) => document.querySelector(`${sel} .pdf-outline-row.is-here .pdf-outline-title`)?.textContent ?? '', BLOCK)
+  const here = await h.evaluate((sel) => (({ el }) => el?.getAttribute('title') ?? el?.getAttribute('data-title-tip') ?? '')({ el: document.querySelector(`${sel} [data-outline-row][aria-current]`) }), BLOCK)
   check('"Show this page in contents" lights its chapter in the outline', here === 'Chapter 3', here)
   await h.screenshot({ path: `${SHOTS}/note-pdf-sidebar-light.png` })
 

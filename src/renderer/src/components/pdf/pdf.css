@@ -580,8 +580,11 @@
   min-width: 0;
 }
 
+/* The app's own size, as the sidebar's, even inside a note, whose words are larger. */
 .pdf-rail {
   position: relative;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
   display: flex;
   flex: none;
   flex-direction: column;
