@@ -1,10 +1,12 @@
 import { typedAsGaps } from '@/lib/blanks'
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { onScrollAway } from '@/lib/scroll-away'
 
-import { haligtree } from '@/lib/haligtree'
+import { haligtree, when } from '@/lib/haligtree'
 import { backIn } from '@/lib/back-in'
-import { Gem } from 'lucide-react'
+import { Gem, UserRound } from 'lucide-react'
+import { CARD } from '@/lib/float'
+import { Quote as MessageSquareText } from '@/components/ui/icons'
 import { canSplit, openAside } from '@/lib/split'
 import { byKeys, EASE, still } from '@/lib/motion'
 import { realMove } from '@/lib/real-move'
@@ -27,13 +29,34 @@ const pictureIn = (body: unknown): string | null => {
   return body && typeof body === 'object' ? walk(body as { content?: unknown[] }) : null
 }
 
-/** The words of a stored body, for a glance: no markup, first lines only. */
+/** Blocks whose children are words on one line: every other block's children are lines of their own. */
+const INLINE = new Set(['paragraph', 'heading', 'codeBlock', 'text'])
+
+/** The words of a stored body, for a glance: no markup, each heading and paragraph on its own line. */
 export const glance = (body: unknown): string => {
   if (typeof body === 'string') return body.replace(/\[\[@[^|\]]+\|([^\]]+)\]\]/g, '$1')
   const walk = (node: { type?: string; text?: string; attrs?: { label?: string }; content?: unknown[] }): string =>
     node.type === 'noteLink' ? `@${node.attrs?.label ?? ''}` :
-    node.text ?? (node.content ?? []).map((child) => walk(child as typeof node)).join(node.content?.some((child) => (child as { text?: string }).text !== undefined) ? '' : ' ')
+    node.type === 'hardBreak' ? '\n' :
+    node.text ?? (node.content ?? []).map((child) => walk(child as typeof node)).join(INLINE.has(node.type ?? '') ? '' : '\n')
   return body ? walk(body as { content?: unknown[] }) : ''
+}
+
+/**
+ * A card's words without its title said again: a first line that is the
+ * title, or holds it whole ("PER - On discipline" under "On discipline"), is
+ * left out, so the bold title is the only place it reads.
+ */
+export const pastTitle = (read: string, title: string): string => {
+  const plain = (text: string): string => text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
+  const [first, ...rest] = read.split('\n')
+  const named = plain(title)
+  if (!named || !first) return read
+  const opening = plain(first)
+  if (opening === named || (` ${opening} `.includes(` ${named} `) && opening.length <= named.length + 24)) return rest.join('\n').trim()
+  // Run together on one line with the words after it: the title cut off the front.
+  if (opening.startsWith(`${named} `) && plain(read.slice(0, title.length)) === named) return read.slice(title.length).trim()
+  return read
 }
 
 /**
@@ -71,7 +94,20 @@ export const hoverNote = (type: string, id: string, { kind, binned = false }: { 
   ...(binned ? { 'data-note-binned': '' } : {})
 })
 
+/**
+ * A thought shown on a row (the Feed's latest under a post): the same card,
+ * "Thought" with its date, its words, and the note it is on.
+ */
+export const hoverThought = (itemId: string, glossId: string, on: string): Record<string, string> => ({
+  'data-note-hover': '',
+  'data-note': `thought:${itemId}`,
+  'data-thought': glossId,
+  'data-thought-on': on
+})
+
 /** How a gem comes back, for its preview: the question Review asks it by, and when. */
+/** A thought's card: when it was written, and the title of the note it is on. */
+type Thought = { when: string; on: string }
 type Gemmed = { asks: string | null; tested: boolean; when: string }
 const plainly = (text: string): string => text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
 const gemmed = (item: { title: string; prompt: string | null; dueAt: string | null; suspended: number }): Gemmed => ({
@@ -87,7 +123,7 @@ const gemmed = (item: { title: string; prompt: string | null; dueAt: string | nu
  * are. Once per window, for every editor in it.
  */
 export function NotePreview(): React.JSX.Element | null {
-  const [shown, setShown] = useState<{ x: number; y: number; above: boolean; private: boolean; title: string; text: string; line?: boolean; lost?: boolean; el?: Element; kind: string; aside: boolean; type: string; id: string; queue: boolean; gem?: Gemmed; binned?: boolean; row?: boolean; anchor: Element; picture?: string | null; lead?: string; tally?: string; latest?: string[]; foot?: string } | null>(null)
+  const [shown, setShown] = useState<{ x: number; y: number; above: boolean; private: boolean; title: string; text: string; line?: boolean; lost?: boolean; el?: Element; kind: string; aside: boolean; type: string; id: string; queue: boolean; gem?: Gemmed; binned?: boolean; row?: boolean; anchor: Element; picture?: string | null; lead?: string; tally?: string; latest?: string[]; foot?: string; thought?: Thought } | null>(null)
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined
     let leaving: ReturnType<typeof setTimeout> | undefined
@@ -127,8 +163,13 @@ export function NotePreview(): React.JSX.Element | null {
         // A row's title, not an @ link: its own click does what it always did, so the card does not say "Click to open".
         const row = link.hasAttribute('data-note-hover')
         // A person or a tag is a place to go, not a note with words to show.
-        const load: Promise<{ title: string; lead?: string; body: unknown; private: boolean; gem?: Gemmed; picture?: string | null; tally?: string; latest?: string[] } | null> =
-          binned ? haligtree.binPeek(type, id).then((found) => found && { title: found.title, body: found.body, private: found.private })
+        const load: Promise<{ title: string; lead?: string; body: unknown; private: boolean; gem?: Gemmed; picture?: string | null; tally?: string; latest?: string[]; thought?: Thought } | null> =
+          // A thought: its words whole, dated, and the note it is on.
+          type === 'thought' ? haligtree.glosses(id).then((all) => {
+            const one = all.find((gloss) => gloss.id === link.getAttribute('data-thought'))
+            return one ? { title: '', body: one.body, private: false, picture: null, thought: { when: `${one.author === 'ai' ? 'Written by AI, ' : ''}${when(one.createdAt)}`, on: link.getAttribute('data-thought-on') ?? '' } } : null
+          })
+          : binned ? haligtree.binPeek(type, id).then((found) => found && { title: found.title, body: found.body, private: found.private })
           // A person reads as Wikipedia's card does: who they were, their years, your thoughts, their picture.
           : type === 'person' ? sources.page('attribution', id).then((page) => {
             // "(born 1973) is an American comedian and actor.", after the name in bold, as Wikipedia's lead reads.
@@ -138,7 +179,9 @@ export function NotePreview(): React.JSX.Element | null {
             return {
               title: page?.name ?? id,
               lead: [years, is].filter(Boolean).join(' '),
-              body: [page?.thoughts, page?.items.length ? `${page.items.length} ${page.items.length === 1 ? 'note' : 'notes'} with their words.` : 'Every note with their words.'].filter(Boolean).join('\n'),
+              body: page?.thoughts ?? '',
+              // How many, as a tag's card says it: what a tip on their face said, said here instead.
+              tally: page?.items.length ? `${page.items.length} ${page.items.length === 1 ? 'note' : 'notes'} with their words` : undefined,
               private: false,
               picture: avatarOf(id)
             }
@@ -167,11 +210,9 @@ export function NotePreview(): React.JSX.Element | null {
           if (!found) return void setShown(null)
           const box = link.getBoundingClientRect()
           const line = block ? blockIn(found.body, block) : null
-          const read = (line ? wordsOf(line) : glance(found.body)).trim()
+          const read = (line ? wordsOf(line) : glance(found.body)).replace(/\n\s*\n+/g, '\n').trim()
           // A note whose first line is its title says it once, in bold, not again as the start of its words.
-          const lead = found.title ? read.slice(0, found.title.length) : ''
-          const titled = !line && !!found.title && lead.toLowerCase() === found.title.toLowerCase() && !/[\p{L}\p{N}]/u.test(read[found.title.length] ?? '')
-          const text = titled ? read.slice(found.title.length).trim() : read
+          const text = line || !found.title ? read : pastTitle(read, found.title)
           // In a menu or a picker (data-note-side on the list), beside the list
           // rather than over the rows under the pointer, where there is room.
           const list = link.closest('[data-note-side]')?.getBoundingClientRect()
@@ -182,16 +223,17 @@ export function NotePreview(): React.JSX.Element | null {
             y: side !== null ? Math.max(8, Math.min(box.top, window.innerHeight - 280)) : above ? box.top - 8 : box.bottom + 8,
             above,
             private: found.private,
-            title: found.title || cut(read.split('\n')[0], 80) || 'Untitled',
+            title: found.thought ? '' : found.title || cut(read.split('\n')[0], 80) || 'Untitled',
+            thought: found.thought,
             line: !!block,
             el: block && line ? link : undefined,
             lost: !!block && !line,
-            text: cut(text, 420),
+            text: found.thought ? cut(found.body as string, 900) : cut(text, 420),
             kind,
-            aside: !binned && !['task', 'person', 'tag', 'pdf', 'web'].includes(type),
+            aside: !binned && !['task', 'person', 'tag', 'pdf', 'web', 'thought'].includes(type),
             type,
             id,
-            queue: !binned && !['task', 'person', 'tag', 'goal', 'pdf', 'web'].includes(type),
+            queue: !binned && !['task', 'person', 'tag', 'goal', 'pdf', 'web', 'thought'].includes(type),
             gem: found.gem,
             binned,
             row,
@@ -231,6 +273,16 @@ export function NotePreview(): React.JSX.Element | null {
     if (!shown) return
     return onScrollAway(() => shown.anchor, () => setShown(null), () => document.querySelector('[data-note-preview]'))
   }, [shown])
+  // Kept whole in the window: moved in from any edge it would cross, 12px clear, as menus are.
+  const place = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const card = place.current
+    if (!shown || !card) return
+    const box = card.getBoundingClientRect()
+    if (box.right > window.innerWidth - 12) card.style.left = `${Math.max(12, window.innerWidth - 12 - box.width)}px`
+    if (box.bottom > window.innerHeight - 12) Object.assign(card.style, { top: `${Math.max(12, window.innerHeight - 12 - box.height)}px`, bottom: '' })
+    if (box.top < 12) Object.assign(card.style, { top: '12px', bottom: '' })
+  }, [shown])
   // Esc puts the card away, and only the card: the note under it keeps the
   // keys. The pointer still on the link, it stays away until the pointer leaves.
   useEffect(() => {
@@ -246,6 +298,11 @@ export function NotePreview(): React.JSX.Element | null {
   }, [shown])
   if (!shown) return null
   const look = linkKind(shown.kind)
+  // A face round, any other picture with soft corners: small, beside the title, as a contact card shows one.
+  const picture = shown.picture ? (
+    <img data-preview-image src={shown.picture} alt="" draggable={false} onError={(event) => (event.currentTarget.style.display = 'none')}
+      className={`size-10 shrink-0 border object-cover ${shown.type === 'person' ? 'rounded-full' : 'rounded-md'}`} style={{ objectPosition: 'center 22%' }} />
+  ) : null
   /**
    * Arc's Peek, kept: the card grows into the pane the note opens in beside
    * the one in front, and the pane slides in under it as it fades.
@@ -288,19 +345,30 @@ export function NotePreview(): React.JSX.Element | null {
       data-note-preview
       data-preview-picture={shown.picture ? '' : undefined}
       onMouseLeave={() => setShown(null)}
-      // As Wikipedia's: with a picture it is wider, the picture filling its right side edge to edge; without, words only and narrower.
-      className={`fixed z-[70] ${shown.picture ? 'flex w-max max-w-[30rem] overflow-hidden' : 'w-80 p-3'} rounded-lg border bg-popover text-control shadow-(--mf-panel-shadow) animate-in fade-in-0 duration-150 motion-reduce:animate-none`}
+      ref={place}
+      // One size and shape for every card, a picture or not: a picture is a small one beside the title, never a tall panel.
+      className={`fixed z-[70] w-80 max-w-[calc(100vw-1.5rem)] p-3 text-control ${CARD} animate-in fade-in-0 duration-150 motion-reduce:animate-none`}
       // Above its link it hangs from its bottom edge, not lifted by a transform: the
       // fade-in's own transform replaced that lift while it ran, so the card first
       // landed on the pointer, then jumped off it and shut as the pointer "left" it, over and over.
       style={{ left: Math.max(12, shown.x), ...(shown.above ? { bottom: window.innerHeight - shown.y } : { top: shown.y }) }}
     >
-      {/* With a picture the card is as wide as its words need, up to a line's length, never a wide box round two short lines. */}
-      <div className={shown.picture ? 'w-max min-w-[13rem] max-w-[19rem] p-3.5' : undefined}>
-      {shown.gem ? (
+      {shown.thought ? (
+        <p data-preview-kind className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+          <MessageSquareText className="size-3.5 shrink-0" />
+          <span>Thought</span>
+          <span aria-hidden>·</span>
+          <span className="tabular-nums">{shown.thought.when}</span>
+        </p>
+      ) : shown.gem ? (
         <p className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
           <Gem className="size-3.5 shrink-0" style={{ color: 'var(--tt-color-text-pink)' }} />
           A gem: an idea you kept, in your own words
+        </p>
+      ) : shown.type === 'person' ? (
+        <p data-preview-kind className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+          <UserRound className="size-3.5 shrink-0" />
+          Person
         </p>
       ) : look && !shown.lead && (
         <p className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -309,21 +377,30 @@ export function NotePreview(): React.JSX.Element | null {
         </p>
       )}
       {/* A person: one lead sentence, the name in bold, as an encyclopedia opens. */}
-      {shown.lead !== undefined ? (
-        <p data-preview-title className="private-text mb-1.5 text-foreground"><span className="font-semibold">{shown.title}</span>{shown.lead && <span> {shown.lead}</span>}</p>
+      {shown.thought ? null : shown.lead !== undefined ? (
+        <div className="mb-1.5 flex items-start gap-2.5">
+          <p data-preview-title className="private-text min-w-0 flex-1 text-foreground"><span className="font-semibold">{shown.title}</span>{shown.lead && <span> {shown.lead}</span>}</p>
+          {picture}
+        </div>
       ) : (
-        <p data-preview-title className="private-text mb-1 line-clamp-3 font-semibold [overflow-wrap:anywhere] text-foreground">{shown.title}</p>
+        <div className="mb-1 flex items-start gap-2.5">
+          <p data-preview-title className="private-text line-clamp-3 min-w-0 flex-1 font-semibold [overflow-wrap:anywhere] text-foreground">{shown.title}</p>
+          {picture}
+        </div>
       )}
       {/* One line linked: that line, as it reads now, in full ink, marked as a quote of the note. */}
       {shown.line ? (
         shown.lost
           ? <p data-preview-line className="text-foreground">That line is not in the note any more.</p>
           : <p data-preview-line className="private-text line-clamp-6 whitespace-pre-line rounded-md bg-foreground/[0.04] px-2.5 py-2 text-foreground">{shown.text}</p>
+      ) : shown.thought ? (
+        // Its words in full ink: a thought is read, not glanced at.
+        <p data-preview-text className="private-text max-h-[10lh] overflow-hidden whitespace-pre-line [overflow-wrap:anywhere] text-foreground [mask-image:linear-gradient(to_bottom,black_8lh,transparent_10lh)]">{shown.text}</p>
       ) : shown.text && (
         // A few lines that fade out where they are cut, not a hard stop mid-word.
         <p data-preview-text className="private-text max-h-[7.5lh] overflow-hidden whitespace-pre-line text-muted-foreground [mask-image:linear-gradient(to_bottom,black_5.5lh,transparent_7.5lh)]">{shown.text}</p>
       )}
-      {shown.tally && <p data-preview-count className="text-body font-semibold text-foreground">{shown.tally}</p>}
+      {shown.tally && <p data-preview-count className={`${shown.text ? 'mt-1.5 ' : ''}text-body font-semibold text-foreground`}>{shown.tally}</p>}
       {!!shown.latest?.length && (
         <ul data-preview-latest className="private-text mt-1.5 flex flex-col gap-0.5 text-foreground">
           {shown.latest.map((title, at) => <li key={at} className="truncate">{title}</li>)}
@@ -345,7 +422,14 @@ export function NotePreview(): React.JSX.Element | null {
         </div>
       )}
       {/* The foot only when it has something to say: a row's own title has no "Click to open" and no actions. */}
-      {(shown.binned || !shown.row || shown.foot || shown.el || (shown.aside && canSplit()) || shown.queue) && (
+      {/* A thought's foot: the note it is on. */}
+      {shown.thought?.on && (
+        <div data-preview-on className="mt-2 flex min-w-0 items-center gap-1.5 border-t pt-2 text-xs text-muted-foreground">
+          <span className="shrink-0">On</span>
+          <span className="private-text truncate font-medium text-foreground">{shown.thought.on}</span>
+        </div>
+      )}
+      {!shown.thought && (shown.binned || !shown.row || shown.foot || shown.el || (shown.aside && canSplit()) || shown.queue) && (
       <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 border-t pt-2 text-xs text-muted-foreground">
         {(shown.binned || !shown.row || shown.foot) && <span className="basis-full">{shown.binned ? 'In the Bin. Click the row to look inside, or Space to see it large.' : shown.foot ? shown.foot : `Click to open${canSplit() ? ', ⌥-click to the side' : ''}${shown.aside ? ', ⌘-click for its own window' : ''}`}</span>}
         {/* A link to one line: the line itself shown here instead, live. */}
@@ -364,14 +448,6 @@ export function NotePreview(): React.JSX.Element | null {
           </span>
         )}
       </div>
-      )}
-      </div>
-      {/* Edge to edge, square, the card's own corner rounding it: never a small framed thumbnail. The words
-          set the card's height and the picture is cropped to it, so a tall portrait never makes a tall card. */}
-      {shown.picture && (
-        <div className="relative min-h-32 w-36 shrink-0 border-l">
-          <img data-preview-image src={shown.picture} alt="" draggable={false} onError={(event) => (event.currentTarget.style.display = 'none')} className="absolute inset-0 size-full object-cover" style={{ objectPosition: 'center 22%' }} />
-        </div>
       )}
     </div>
   )

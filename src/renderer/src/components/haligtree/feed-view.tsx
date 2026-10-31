@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { hoverNote } from './note-preview'
+import { hoverNote, hoverThought } from './note-preview'
 import { ArrowLeft, ArrowUpRight, Check, Heart, CornerDownRight, EyeOff, ImageDown, MessageCircle, Repeat2, RefreshCcw, Share, Trash2, X } from 'lucide-react'
 
 import { call, haligtree, splitTags, unloaded, unread, useLive, type Gloss } from '@/lib/haligtree'
@@ -613,7 +613,7 @@ export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joine
             </span>
           </div>
           <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
-            <button type="button" data-feed-latest onClick={onThread} title={hang.body}
+            <button type="button" data-feed-latest onClick={onThread} {...hoverThought(post.id, hang.id, title)}
               className="group/hang line-clamp-2 min-w-0 rounded-sm text-left text-control text-foreground/85 [overflow-wrap:anywhere] hover:text-foreground">
               <span className="private-text group-hover/hang:underline">{cutWords(hang.body, 140)}</span>
               <span data-feed-latest-date className="text-meta whitespace-nowrap text-muted-foreground"> · {hang.author === 'ai' ? 'AI, ' : ''}{ago(hang.createdAt)}</span>
