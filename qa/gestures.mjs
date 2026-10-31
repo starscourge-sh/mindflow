@@ -80,10 +80,27 @@ async function surface(name, w, root, open, { click = true, rows: only, emptied,
   // ⌫: to the Bin at once.
   // Quick capture stays up when Escape only closes a menu.
   if (w === box) check(`${name}: Escape that closes the menu leaves quick capture open`, await c.electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((one) => /index\.html\?sandbox/.test(one.webContents.getURL()))?.isVisible()))
+  // Watched frame by frame: the first frame the row is gone, was the notice already up?
+  await w.evaluate(([root, first]) => {
+    const watch = (window.__binWatch = { left: false, said: false })
+    const scope = document.querySelector(root) ?? document.body
+    const step = () => {
+      const row = scope.querySelector(`[data-row][data-id="${first}"], [data-pick="${first}"], [data-drag-open="${first}"]`)
+      if (!row || !row.getBoundingClientRect().height) {
+        watch.left = true
+        watch.said = [...document.querySelectorAll('[role=status][aria-live]')].some((one) => /to the Bin/.test(one.textContent))
+        return
+      }
+      requestAnimationFrame(step)
+    }
+    requestAnimationFrame(step)
+  }, [root, first])
   await w.keyboard.press('Backspace')
-  // Many at once take a moment to leave, and the notice comes once every write is in (rows can leave a moment before it): up to five seconds for both.
+  // Many at once take a moment to leave: given up to five seconds.
   const t0 = Date.now()
-  do { await w.waitForTimeout(300); s = await read(w, root) } while ((s.rows.includes(first) || !/to the Bin/.test(s.toast)) && Date.now() - t0 < 5000)
+  do { await w.waitForTimeout(300); s = await read(w, root) } while (s.rows.includes(first) && Date.now() - t0 < 5000)
+  const frame = await w.evaluate(() => window.__binWatch)
+  if (frame.left) check(`${name}: the notice is up in the same frame the rows leave`, frame.said, JSON.stringify(frame))
   // The Day page keeps what happened that day: a row moved to the Bin stays, struck through, saying so.
   const gone = !s.rows.includes(first) || (kept && await w.evaluate(([root, first]) => /In the Bin/.test(document.querySelector(`${root} [data-pick="${first}"], ${root} [data-drag-open="${first}"]`)?.textContent ?? ''), [root, first]))
   if (!gone) console.log(`  ${name}: still shown after ⌫: ${first}`)

@@ -1,8 +1,8 @@
 import { createElement, useEffect, useRef, type ReactNode } from 'react'
 import { Trash2 } from 'lucide-react'
-import { tear } from './sound'
+import { chime, tear } from './sound'
 import { haligtree } from './haligtree'
-import { refuse, toast } from '@/components/haligtree/ui'
+import { refuse, toast, whyFailed } from '@/components/haligtree/ui'
 import { num } from '../../../main/dates'
 import { shred } from './fly-home'
 
@@ -54,38 +54,58 @@ export async function moveToBin(refs: BinRef[], onUndo?: () => void): Promise<nu
   // one call a row made 95 rows take two seconds of every list reloading, going and coming back.
   const captures = going.filter((one) => one.type === 'capture')
   const others = going.filter((one) => one.type !== 'capture' && one.type !== 'task')
-  const [saved] = await Promise.all([
-    captures.length ? window.api.captures.saveMany(captures.map((one) => ({ id: one.id, patch: { status: 'discarded', bin: true } }))) : [],
-    others.length ? haligtree.toBinMany(others.map((one) => one.id)) : null
-  ])
-  const back: (() => Promise<unknown>)[] = []
-  if (captures.length) back.push(() => window.api.captures.saveMany(captures.map((one, at) => ({ id: one.id, patch: { status: (saved[at]?.was ?? 'open') as 'open', bin: true } }))))
-  if (others.length) back.push(() => haligtree.restoreMany(others.map((one) => ({ type: one.type, id: one.id }))))
-  // A task keeps its own way: a done one comes back done at the time it was done.
-  const undos = [...back, ...await Promise.all(going.filter((one) => one.type === 'task').map(async (one): Promise<() => Promise<unknown>> => {
-    const was = one.status && one.status !== 'dropped' ? one.status : 'open'
-    const doneAt = was === 'done' ? ((await haligtree.task(one.id))?.completedAt ?? null) : null
-    await haligtree.saveTask(one.id, { status: 'dropped' })
-    return () => haligtree.saveTask(one.id, { status: was, ...(doneAt ? { completedAt: doneAt } : {}) })
-  }))]
-  for (const land of shreds) land?.()
-  // Heard by each page with one open beside its list (lib/nav.ts useOpened): off it, onto the next.
-  binned(going.map((one) => one.id))
-  // Paper through the shredder, from every list and every kind.
-  tear()
+  const tasks = going.filter((one) => one.type === 'task')
+  // Every write at once, each giving back how to take it back. Settled one by one, so a part
+  // that fails leaves the rest moved and still undoable.
+  const parts: { count: number; write: Promise<(() => Promise<unknown>)[]> }[] = [
+    ...(captures.length ? [{ count: captures.length, write: window.api.captures.saveMany(captures.map((one) => ({ id: one.id, patch: { status: 'discarded', bin: true } })))
+      .then((saved) => [() => window.api.captures.saveMany(captures.map((one, at) => ({ id: one.id, patch: { status: (saved[at]?.was ?? 'open') as 'open', bin: true } })))]) }] : []),
+    ...(others.length ? [{ count: others.length, write: haligtree.toBinMany(others.map((one) => one.id)).then(() => [() => haligtree.restoreMany(others.map((one) => ({ type: one.type, id: one.id })))]) }] : []),
+    // A task keeps its own way: a done one comes back done at the time it was done.
+    ...tasks.map((one) => ({ count: 1, write: (async () => {
+      const was = one.status && one.status !== 'dropped' ? one.status : 'open'
+      const doneAt = was === 'done' ? ((await haligtree.task(one.id))?.completedAt ?? null) : null
+      await haligtree.saveTask(one.id, { status: 'dropped' })
+      return [() => haligtree.saveTask(one.id, { status: was, ...(doneAt ? { completedAt: doneAt } : {}) })]
+    })() }))
+  ]
+  const settled = Promise.allSettled(parts.map((part) => part.write))
   const gems = going.filter((one) => one.type === 'capture' && one.status === 'promoted').length
   const already = refs.length - going.length
   const extra = [
     gems ? `${gems === 1 ? 'its gem stays' : 'their gems stay'} in Gems` : '',
     already ? `${num(already)} ${already === 1 ? 'was' : 'were'} in the Bin already` : ''
   ].filter(Boolean).join('; ')
+  // Undo at any moment, even with writes still landing: it waits for them, then puts back every one that went.
   const undo = (): void => {
     if (last?.undo === undo) last = null
-    void Promise.all(undos.map((one) => one())).then(() => (onUndo?.(), window.dispatchEvent(new CustomEvent('haligtree:came-back', { detail: going.map((one) => one.id) }))))
+    void settled
+      .then((all) => Promise.all(all.flatMap((one) => (one.status === 'fulfilled' ? one.value : [])).map((back) => back())))
+      .then(() => (onUndo?.(), window.dispatchEvent(new CustomEvent('haligtree:came-back', { detail: going.map((one) => one.id) }))))
   }
   last = { ids: going.map((one) => one.id), undo, at: Date.now(), page: pageInFront() }
+  // Said as the writes go out, before the first lands: the rows never leave ahead of the notice and its Undo.
   toast(`${saidOf(going.length)}${extra ? `: ${extra}` : ''}`, undo, 'success', seeTheBin, { type: 'view', id: 'discarded', at: going.map((one) => one.id).join(',') })
-  return going.length
+  const all = await settled
+  let count = going.length
+  const failed = all.flatMap((one, at) => (one.status === 'rejected' ? [{ count: parts[at].count, why: one.reason }] : []))
+  if (failed.length) {
+    // Some did not go: the notice says so, with what did, and Undo still takes back what went.
+    const stayed = failed.reduce((sum, one) => sum + one.count, 0)
+    const moved = going.length - stayed
+    chime('nope')
+    toast(moved
+      ? `${saidOf(moved)}; ${num(stayed)} could not be moved: ${whyFailed(failed[0].why)}.`
+      : `Not moved to the Bin: ${whyFailed(failed[0].why)}.`, moved ? undo : undefined, 'error')
+    if (!moved) return 0
+    count = moved
+  }
+  for (const land of shreds) land?.()
+  // Heard by each page with one open beside its list (lib/nav.ts useOpened): off it, onto the next.
+  binned(going.map((one) => one.id))
+  // Paper through the shredder, from every list and every kind.
+  tear()
+  return count
 }
 
 /** Said to every page once these are in the Bin, by any way there: what is open moves off them. False once a page has moved on. */
