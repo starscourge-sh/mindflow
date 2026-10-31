@@ -5,20 +5,20 @@ const CHANGED = "haligtree:pdf-paper"
 
 // Said on the page itself too, for covers drawn outside any reader (the library,
 // Continue reading, a PDF's card in a note): they are pages as well.
-const mark = (): void => void document.documentElement.classList.toggle("paper-pages", localStorage.getItem("pdf-paper") === "1")
+const mark = (): void => void document.documentElement.classList.toggle("paper-pages", localStorage.getItem("pdf-paper") !== "0")
 mark()
 window.addEventListener(CHANGED, mark)
 window.addEventListener("storage", mark)
 
 /**
- * "Paper pages": PDF pages in the app's warm paper rather than white, one
+ * "Paper pages", on unless turned off: PDF pages in the app's warm paper rather than white, one
  * setting for the reader, an article and a PDF in a note alike, so a page
  * never reads one way in the reader and another in the note beside it.
  */
 export function usePaperPages(): [boolean, (on: boolean) => void] {
-  const [paper, setPaper] = useState(() => localStorage.getItem("pdf-paper") === "1")
+  const [paper, setPaper] = useState(() => localStorage.getItem("pdf-paper") !== "0")
   useEffect(() => {
-    const read = (): void => setPaper(localStorage.getItem("pdf-paper") === "1")
+    const read = (): void => setPaper(localStorage.getItem("pdf-paper") !== "0")
     window.addEventListener(CHANGED, read)
     window.addEventListener("storage", read)
     return () => (window.removeEventListener(CHANGED, read), window.removeEventListener("storage", read))

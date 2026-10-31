@@ -66,7 +66,7 @@ try {
   await wait(800)
 
   const labels = await h.evaluate((sel) => [...document.querySelectorAll(`${sel} [data-pdf-bar] button`)].map((one) => one.getAttribute('aria-label')), BLOCK)
-  check('the bar holds the reader\'s view choices', JSON.stringify(labels) === JSON.stringify(['Sidebar', 'Show this page in contents', 'Fit width', 'Fit height', 'One page', 'Two pages', 'Paper pages']), JSON.stringify(labels))
+  check('the bar holds the reader\'s view choices (paper pages on by default, so its switch offers white)', JSON.stringify(labels) === JSON.stringify(['Sidebar', 'Show this page in contents', 'Fit width', 'Fit height', 'One page', 'Two pages', 'White pages']), JSON.stringify(labels))
   const startAt = await state()
   check('it starts at fit width, one page, no sidebar', startAt.fit === 'width' && startAt.spread === 'one' && !startAt.rail, JSON.stringify(startAt))
   let [one] = await sheets()

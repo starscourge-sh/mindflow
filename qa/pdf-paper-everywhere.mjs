@@ -1,4 +1,4 @@
-// "Paper pages" tints every page of a PDF, not only the big ones: the side strip's
+// "Paper pages" (on by default) tints every page of a PDF, not only the big ones: the side strip's
 // thumbnails, the hover preview and the book's cover take the same paper.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox node qa/pdf-paper-everywhere.mjs
 import { PDFDocument, StandardFonts } from 'pdf-lib'
@@ -30,6 +30,7 @@ try {
     ed.view.dom.dispatchEvent(new DragEvent('drop', { dataTransfer: data, bubbles: true, cancelable: true, clientX: box.left + 20, clientY: box.top + 10 }))
   }, [EDITOR, bytes])
   await h.waitForSelector('.tiptap-attachment.is-pdf .pdf-page canvas', { timeout: 15000 })
+  check('paper pages are on by default', (await bg('.tiptap-attachment.is-pdf .pdf-page')) === PAPER, await bg('.tiptap-attachment.is-pdf .pdf-page'))
   // Paper on, as its switch does it.
   await h.evaluate(() => { localStorage.setItem('pdf-paper', '1'); window.dispatchEvent(new CustomEvent('haligtree:pdf-paper')) })
   await h.click('.tiptap-attachment.is-pdf button[aria-label="Sidebar"]')

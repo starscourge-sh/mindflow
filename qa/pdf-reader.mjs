@@ -109,6 +109,8 @@ const whiteUnderWords = async () => {
 try {
   // App size off 100%, so the View menu's Actual Size would show if it changed it.
   await v('settings:set', { sounds: false, hintRate: 0, interfaceSize: 110 })
+  // Paper pages are on by default; this run starts from white to see the switch turn them.
+  await h.evaluate(() => { localStorage.setItem('pdf-paper', '0'); window.dispatchEvent(new CustomEvent('haligtree:pdf-paper')) })
   const id = await v('article:new')
   await v('item:save', id, { title: 'With a PDF', body: { type: 'doc', content: [{ type: 'paragraph' }] } })
   await c.send('article', id); await wait(1400)
