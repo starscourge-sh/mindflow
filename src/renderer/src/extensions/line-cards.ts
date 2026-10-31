@@ -60,17 +60,21 @@ function marks(doc: ProseMirrorNode): DecorationSet {
     if (!node.isTextblock) return true
     if (lineCard(lineText(node))) found.push(Decoration.widget(pos + node.nodeSize - 1, mark, { side: 1, key: "line-card", ignoreSelection: true }))
     // A time in a line, "[13:03]", plays the note's video from there; "(p. 14)" opens its PDF at that page.
+    // Their tip is given as `data-title-tip`, never `title`: the app's tips
+    // (components/ui/title-tips.tsx) move a `title` there on hover, and that
+    // change inside the editor made ProseMirror redraw the line, so the
+    // span under the pointer was gone before the click reached it.
     node.forEach((child, offset) => {
       if (!child.isText || child.marks.some((one) => one.type.name === "code")) return
       if (video)
         for (const match of child.text!.matchAll(TIME)) {
           const from = pos + 1 + offset + match.index!
-          found.push(Decoration.inline(from, from + match[0].length, { class: "mf-time-link", "data-seconds": String(secondsOf(match[1])), title: "Play the note's video from here" }))
+          found.push(Decoration.inline(from, from + match[0].length, { class: "mf-time-link", "data-seconds": String(secondsOf(match[1])), "data-title-tip": "Play the note's video from here" }))
         }
       if (pdf)
         for (const match of child.text!.matchAll(PAGE)) {
           const from = pos + 1 + offset + match.index!
-          found.push(Decoration.inline(from, from + match[0].length, { class: "mf-time-link mf-page-link", "data-page": match[1], title: "Open the note's PDF at this page" }))
+          found.push(Decoration.inline(from, from + match[0].length, { class: "mf-time-link mf-page-link", "data-page": match[1], "data-title-tip": "Open the note's PDF at this page" }))
         }
     })
     return false

@@ -80,15 +80,11 @@ try {
   await c.send('capture', mathsId)
   check('its card mark shows in the note', await waitFor(() => h.evaluate(() => document.querySelectorAll('.mf-line-card').length === 1)))
   check('the time in the line is a link', await waitFor(() => h.evaluate(() => document.querySelector('.mf-time-link')?.textContent === '[0:42]')))
-  // A click as the page gets one (down, up, click on the time): in this
-  // fresh-book window Playwright's own mouse never reaches the page (not even
-  // a pointerdown on window), while its keys do, so the click is given here.
-  await h.evaluate(() => {
-    const time = document.querySelector('.mf-time-link')
-    const box = time.getBoundingClientRect()
-    const at = { bubbles: true, cancelable: true, clientX: box.left + 5, clientY: box.top + 5, button: 0, detail: 1, view: window }
-    for (const type of ['mousedown', 'mouseup', 'click']) time.dispatchEvent(new MouseEvent(type, at))
-  })
+  // A real click, the pointer moving onto the time first, as a person's does
+  // (its tip once redrew the line under the pointer and the click was lost).
+  await h.locator('.mf-time-link').scrollIntoViewIfNeeded()
+  await h.hover('.mf-time-link'); await h.waitForTimeout(300)
+  await h.click('.mf-time-link')
   check('clicking it plays the note\'s video from 0:42', await waitFor(() => h.evaluate(() => document.querySelector('[data-youtube-video]')?.dataset.from === '42' && !!document.querySelector('[data-youtube-video] iframe[src*="start=42"]'))), await h.evaluate(() => document.querySelector('[data-youtube-video]')?.outerHTML.slice(0, 200)))
   // "(p. 2)" in a note with a PDF opens that PDF at page 2; with no PDF it stays words.
   const reading = { type: 'doc', content: [{ type: 'attachment', attrs: { src: 'haligtree://assets/probe-paper.pdf', name: 'Probe paper.pdf' } }, { type: 'paragraph', content: [{ type: 'text', text: 'Working memory holds about four things (p. 2)' }] }] }
@@ -98,11 +94,9 @@ try {
   await h.evaluate(() => {
     window.__opened = null
     window.addEventListener('haligtree:pdf', (event) => (window.__opened = event.detail), { once: true })
-    const page = document.querySelector('.mf-page-link')
-    const box = page.getBoundingClientRect()
-    const at = { bubbles: true, cancelable: true, clientX: box.left + 5, clientY: box.top + 5, button: 0, detail: 1, view: window }
-    for (const type of ['mousedown', 'mouseup', 'click']) page.dispatchEvent(new MouseEvent(type, at))
   })
+  await h.hover('.mf-page-link'); await h.waitForTimeout(300)
+  await h.click('.mf-page-link')
   check('clicking it opens the note\'s PDF at that page', await waitFor(() => h.evaluate(() => window.__opened?.page === 2 && window.__opened?.src === 'haligtree://assets/probe-paper.pdf')), JSON.stringify(await h.evaluate(() => window.__opened)))
   await c.send('capture', id)
   check('with no video or PDF in the note, nothing is drawn as a link', await waitFor(() => h.evaluate(() => !!document.querySelector('.mf-line-card') && !document.querySelector('.mf-time-link'))))
