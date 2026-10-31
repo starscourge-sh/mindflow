@@ -147,6 +147,30 @@ try {
   await page.keyboard.press('Meta+Enter')
   await page.waitForFunction((sel) => document.querySelectorAll(`${sel} .tiptap-attachment.is-audio`).length === 2, EDITOR, { timeout: 8000 }).catch(() => {})
   check('⌘↵ while recording stops and keeps it too (not a save without it)', (await audios()) === 2 && !(await page.$('[data-voice-recorder]')), `${await audios()} ${JSON.stringify(before)}`)
+
+  // The user's box: a lone word being looked up ("Looking up …", held on screen:
+  // the lookup never answers and shows at once), then a voice note kept under it.
+  // The orb never covers the empty line's "Write a thought…" or the recording.
+  await c.electron.evaluate(({ ipcMain }) => { ipcMain.removeHandler('haligtree:define'); ipcMain.handle('haligtree:define', () => new Promise(() => {})) })
+  await page.evaluate(() => { window.__qaDefineWaits = { pause: 0, shown: 0 } })
+  await page.click(EDITOR); await page.keyboard.press('Meta+a'); await page.keyboard.press('Backspace')
+  await page.keyboard.type('ihekfw', { delay: 30 }); await wait(900)
+  const asked = await page.evaluate(() => !!document.querySelector('[data-define="looking"]'))
+  check('a lone word is being looked up ("Looking up" on screen)', asked)
+  await page.keyboard.press('Enter')
+  await record(); await wait(1200)
+  await page.click('[data-create]')
+  await page.waitForSelector(`${EDITOR} .tiptap-attachment.is-audio`, { timeout: 8000 }).catch(() => {})
+  await wait(900)
+  const cover = await page.evaluate((sel) => {
+    const meets = (a, b) => a.width && b.width && a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
+    const empty = [...document.querySelectorAll(`${sel} > p.is-empty`)].map((p) => p.getBoundingClientRect())
+    const card = document.querySelector(`${sel} .tiptap-attachment-card`)?.getBoundingClientRect()
+    const orb = [...document.querySelectorAll('[data-define]')].filter((el) => getComputedStyle(el).visibility !== 'hidden').flatMap((el) => [...el.querySelectorAll('*')].map((k) => k.getBoundingClientRect()).filter((r) => r.width))
+    return { orb: orb.length, onPlaceholder: orb.some((r) => empty.some((p) => meets(r, p))), onCard: !!card && orb.some((r) => meets(r, card)) }
+  }, EDITOR)
+  check('with a recording kept under the word, the orb covers neither "Write a thought…" nor the recording', !cover.onPlaceholder && !cover.onCard, JSON.stringify(cover))
+  await page.screenshot({ path: `${shots}/qc-orb-after-recording.png` })
 } catch (error) {
   check('ran without throwing', false, String(error?.stack ?? error))
 } finally {

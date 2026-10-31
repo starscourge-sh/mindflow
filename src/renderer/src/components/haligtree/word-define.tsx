@@ -45,6 +45,8 @@ type Definition = {
 
 /** How long a lookup may take before the orb shows: a quick answer never flickers it. */
 const WAIT_SHOWN = 300
+/** The two waits, which a probe sets (window.__qaDefineWaits) to see the "Looking up" orb at once and keep it. */
+const waits = (): { pause: number; shown: number } => ({ pause: 450, shown: WAIT_SHOWN, ...(window as { __qaDefineWaits?: { pause?: number; shown?: number } }).__qaDefineWaits })
 
 export function useDefinition(word: string | null): { definition: Definition | null; keep: () => void; hide: () => void } {
   const key = word?.toLowerCase() ?? null
@@ -67,7 +69,7 @@ export function useDefinition(word: string | null): { definition: Definition | n
         else if (answer && 'miss' in answer) setDefinition({ word: key, state: 'none', kept: false })
         else quiet()
       }, () => live && quiet())
-    }, 450)
+    }, waits().pause)
     let unwatch = (): void => undefined
     const quiet = (): void => {
       setDefinition({ word: key, state: 'quiet', kept: false })
@@ -177,7 +179,7 @@ export function DefineGhost({ definition, onKeep, onHide, onFix, picked = false,
   const looking = definition?.state === 'looking'
   useEffect(() => {
     if (!looking) return setLate(false)
-    const timer = setTimeout(() => setLate(true), WAIT_SHOWN)
+    const timer = setTimeout(() => setLate(true), waits().shown)
     return () => clearTimeout(timer)
   }, [looking])
   // Up against the word and lined up with it, laid over the room the editor

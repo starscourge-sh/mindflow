@@ -40,8 +40,9 @@ try {
     localStorage.setItem('capture-draft', JSON.stringify({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'ihekfw' }] }, { type: 'attachment', attrs: { src: 'haligtree://assets/' + 'a'.repeat(64) + '.m4a', name: 'Voice note 31 Oct 9.12.m4a', size: 935731, duration: 56.4 } }, { type: 'paragraph' }] }))
     localStorage.setItem('capture-draft-at', String(Date.now() - 3 * 3600_000))
   })
-  // The word's lookup never answers: its "Looking up" orb stays on screen for the check below.
+  // The word's lookup never answers and shows at once: its "Looking up" orb stays on screen for the check below.
   await electron.evaluate(({ ipcMain }) => { ipcMain.removeHandler('haligtree:define'); ipcMain.handle('haligtree:define', () => new Promise(() => {})) })
+  await page.evaluate(() => { window.__qaDefineWaits = { pause: 0, shown: 0 } })
   // Left hours ago, it waits in the "Still to keep" chip: one click puts it back in the box.
   await reopen()
   await page.click('[data-leftover]'); await wait(600)
@@ -67,7 +68,7 @@ try {
       return { define: el.dataset.define, onPlaceholder: !!placeholder && inner.some((r) => meets(r, placeholder)), onCard: inner.some((r) => meets(r, card)) }
     }) }
   }, EDITOR)
-  // Whether the lookup is on screen here depends on timing (it waits for a pause, then 300ms): not checked on its own.
+  // A word with a recording after it is not looked up at all here; the orb itself is held on screen in qa/qc-recording.mjs.
   check('…and never covers "Write a thought…" or the recording', cover.shown.every((one) => !one.onPlaceholder && !one.onCard), JSON.stringify(cover))
   // A recording with no words under it says so, with the way to get them.
   const words = await page.evaluate((sel) => [...document.querySelectorAll(`${sel} .tiptap-attachment.is-audio [data-no-words]`)].find((el) => el.offsetParent)?.innerText.replace(/\s+/g, ' ').trim() ?? null, EDITOR)
