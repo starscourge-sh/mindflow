@@ -1,4 +1,4 @@
-import { useLive } from '@/lib/haligtree'
+import { haligtree, useLive } from '@/lib/haligtree'
 import { useReading } from '@/lib/reads-in'
 import { DaysHeatmap } from './days-heatmap'
 import { Bars } from './focus-stats'
@@ -34,6 +34,9 @@ function Axis({ left, right }: { left: string; right: string }): React.JSX.Eleme
 export function StudySection({ example }: { example: boolean }): React.JSX.Element | null {
   const real = useLive(() => window.api.haligtree('study:stats') as Promise<Studied>, null as Studied | null, [], ['item'])
   const studied = example ? EXAMPLE : real
+  // Days reviewed of the last seven, today included: the week first, which one day off cannot break.
+  const today = useLive(haligtree.reviewToday, null as Awaited<ReturnType<typeof haligtree.reviewToday>> | null, [], ['item'])
+  const week = example ? 5 : today?.week ?? 0
   useReading(!studied)
   if (!studied) return null
   const reviews = studied.month.reduce((sum, one) => sum + one.reviews, 0)
@@ -46,6 +49,7 @@ export function StudySection({ example }: { example: boolean }): React.JSX.Eleme
         {retention === null ? ', none of them seen before, so there is nothing yet to say how well they stay.' : <> and remembered <N>{`${retention}%`}</N> of those you had seen before ({num(studied.recalled)} of {num(studied.checked)}).</>}{' '}
         <N>{plural(studied.due[0], 'card is', 'cards are')}</N> due today, and <N>{num(coming)}</N> in all over the next two weeks.
       </p>
+      {week > 0 && <p data-study-week={week}><N>{`${num(week)} of the last 7 days`}</N> reviewed: one day off cannot break that.</p>}
       {/* The honest ones: known means remembered across 15 days, not just seen. */}
       <p data-study-honest>
         {studied.known ? <><N>{num(studied.known)}</N> of your <N>{plural(studied.cards, 'card', 'cards')}</N> {studied.known === 1 ? 'is' : 'are'} known: remembered after a gap of 15 days or more.</>
