@@ -165,3 +165,35 @@ export function onlyBlank(prompt: string, answers: string[], keep: number): stri
   let n = -1
   return prompt.replace(BLANK_AT, (gap) => (++n === keep ? gap : answers[n] ?? gap))
 }
+
+/** Anki's own blanks, typed by hand: {{c1::word}}, {{c1::word::hint}}, {{c2::...}}. */
+const CLOZE = /\{\{c(\d+)::([\s\S]*?)(?:::([\s\S]*?))?\}\}/g
+
+/** The cloze numbers in a question, in order, each once: [1, 2] for c1 and c2. */
+export function clozeNumbers(prompt: string | null): number[] {
+  return [...new Set([...(prompt ?? '').matchAll(CLOZE)].map((match) => Number(match[1])))].sort((a, b) => a - b)
+}
+
+/**
+ * A question with typed Anki blanks, as Review asks it: the blanks of one
+ * number (the lowest, unless said) become gaps, a hint inside its gap as the
+ * blank button writes it ("_____ (how many mL)"); the others show their words.
+ * Gives back the question and each gap's answer, read from inside its braces.
+ */
+export function askCloze(prompt: string, number = clozeNumbers(prompt)[0]): { asked: string; answers: string[] } {
+  const answers: string[] = []
+  const asked = prompt.replace(CLOZE, (_all, n: string, words: string, hint?: string) => {
+    if (Number(n) !== number) return words
+    answers.push(words.trim())
+    return hint?.trim() ? `${BLANK} (${hint.trim()})` : BLANK
+  })
+  return { asked, answers }
+}
+
+/** The question keeping only one number's blanks as blanks, the others written out: one card of several. */
+export function onlyCloze(prompt: string, number: number): string {
+  return prompt.replace(CLOZE, (all, n: string, words: string) => (Number(n) === number ? all : words))
+}
+
+/** Every typed Anki blank shown as a gap, its hint inside: for a question shown in a list, never its answers. */
+export const typedAsGaps = (text: string): string => text.replace(CLOZE, (_all, _n: string, _words: string, hint?: string) => (hint?.trim() ? `${BLANK} (${hint.trim()})` : BLANK))

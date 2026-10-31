@@ -1,3 +1,4 @@
+import { answersOf, askCloze, clozeNumbers } from '@/lib/blanks'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { JSONContent } from '@tiptap/core'
 
@@ -16,7 +17,11 @@ import { TAG } from '../../../../main/tag-words'
 import { clip } from '../../../../main/clip'
 
 /** A card's answer as one short line, for a choice or a typed check. */
-const answerLine = (body: unknown): string => {
+const answerLine = (card: Pick<Due, 'prompt' | 'body'>): string => {
+  // A fill-in-the-blank's answer is what goes in its gaps, typed Anki-style or made with the blank button.
+  const gaps = clozeNumbers(card.prompt).length ? askCloze(card.prompt!).answers : card.prompt?.includes('_____') ? answersOf(card.prompt, textOf(card.body)) : null
+  if (gaps?.length) return clip(gaps.join(', '), 140)
+  const body = card.body
   // A picture or sound kept in the book is not words to pick: an Anki card's "[bell.mp3](haligtree://assets/...)" read as "bell.mp3".
   const own = typeof body === 'string' ? body.replace(/!?\[[^\]]*\]\(haligtree:\/\/assets\/[^)]*\)/g, '') : body
   const text = textOf(own).replace(new RegExp(`#${TAG}`, 'gu'), '').replace(/\s+/g, ' ').trim()
@@ -58,8 +63,8 @@ export function LearnMode({ onDone }: { onDone: () => void }): React.JSX.Element
     // Each choice once, and never the right answer again: two cards with the same answer (an Anki
     // cloze note's blanks, a reversed pair) gave two buttons of the same words under one key, and
     // the round stuck on them.
-    const right = answerLine(step.card.body)
-    const others = [...new Set(cards.filter((one) => one.id !== step.card.id).map((one) => answerLine(one.body)))].filter((one) => one && one !== right)
+    const right = answerLine(step.card)
+    const others = [...new Set(cards.filter((one) => one.id !== step.card.id).map((one) => answerLine(one)))].filter((one) => one && one !== right)
     const pool = [right, ...others.sort(() => Math.random() - 0.5).slice(0, 3)]
     return pool.sort(() => Math.random() - 0.5)
   }, [step, cards])
@@ -85,7 +90,7 @@ export function LearnMode({ onDone }: { onDone: () => void }): React.JSX.Element
   }
   const check = (): void => {
     if (!step || said || !typed.trim()) return
-    answer(suggestGrade(closeness(typed, answerLine(step.card.body))) >= 3)
+    answer(suggestGrade(closeness(typed, answerLine(step.card))) >= 3)
   }
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
@@ -97,7 +102,7 @@ export function LearnMode({ onDone }: { onDone: () => void }): React.JSX.Element
       if (step?.kind === 'choice' && !said && /^[1-4]$/.test(event.key) && choices[Number(event.key) - 1]) {
         event.preventDefault()
         const picked = choices[Number(event.key) - 1]
-        answer(picked === answerLine(step.card.body), picked)
+        answer(picked === answerLine(step.card), picked)
       }
       if (event.key === 'Escape' && !typing()) leave()
     }
@@ -128,7 +133,7 @@ export function LearnMode({ onDone }: { onDone: () => void }): React.JSX.Element
           {step.kind === 'choice' ? (
             <div className="grid gap-2" data-choices>
               {choices.map((choice, at) => {
-                const isRight = choice === answerLine(step.card.body)
+                const isRight = choice === answerLine(step.card)
                 const tone = said && (isRight ? 'border-[var(--tt-color-text-green)] bg-[color-mix(in_srgb,var(--tt-color-text-green)_10%,var(--background))]' : said.picked === choice ? 'border-[var(--tt-color-text-red)] bg-[color-mix(in_srgb,var(--tt-color-text-red)_8%,var(--background))]' : 'opacity-60')
                 return (
                   <button key={choice} type="button" disabled={!!said} onClick={() => answer(isRight, choice)}

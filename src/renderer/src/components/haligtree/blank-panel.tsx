@@ -2,9 +2,22 @@ import { useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { haligtree } from '@/lib/haligtree'
 import { chime } from '@/lib/sound'
-import { BLANK, addsUp, answersOf, blanksIn, onlyBlank } from '@/lib/blanks'
+import { BLANK, addsUp, answersOf, blanksIn, clozeNumbers, onlyBlank, onlyCloze } from '@/lib/blanks'
 import { Chips } from './display'
 import { refuse, toast } from './ui'
+
+/**
+ * Anki's blanks typed by hand with two or more numbers ({{c1::...}} and
+ * {{c2::...}}): one card for each number, as Anki makes them. This card keeps
+ * c1; each other number is a new card with the gem's own answer, context,
+ * source and tags. Gives back this card's question and the new cards' ids.
+ */
+export async function cardPerNumber(id: string, prompt: string, text: string, body: unknown): Promise<{ prompt: string; made: string[] } | null> {
+  const numbers = clozeNumbers(prompt)
+  if (numbers.length < 2) return null
+  const made = await Promise.all(numbers.slice(1).map((n) => haligtree.another(id, onlyCloze(prompt, n), text || prompt, body)))
+  return { prompt: onlyCloze(prompt, numbers[0]), made: made.filter((one): one is string => !!one) }
+}
 
 /** A blank's hint written into the question: "_____ (how many mL)", or the bare blank again. */
 function withHint(prompt: string, which: number, hint: string): string {

@@ -1,3 +1,4 @@
+import { typedAsGaps } from '@/lib/blanks'
 import { useEffect, useState } from 'react'
 import { onScrollAway } from '@/lib/scroll-away'
 
@@ -74,7 +75,7 @@ type Gemmed = { asks: string | null; tested: boolean; when: string }
 const plainly = (text: string): string => text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
 const gemmed = (item: { title: string; prompt: string | null; dueAt: string | null; suspended: number }): Gemmed => ({
   // A gem written as its own question is not asked twice over.
-  asks: item.prompt && plainly(item.prompt) !== plainly(item.title) ? item.prompt : null,
+  asks: item.prompt && plainly(item.prompt) !== plainly(item.title) ? typedAsGaps(item.prompt) : null,
   tested: !!item.prompt,
   when: item.suspended ? 'Paused: it does not come back until you choose' : !item.dueAt ? 'A new card: it joins Review soon' : new Date(item.dueAt) <= new Date() ? 'Due for review now' : `Back in Review ${backIn(item.dueAt)}`
 })

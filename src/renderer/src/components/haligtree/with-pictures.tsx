@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef } from 'react'
 import katex from '@/lib/shims/katex'
+import { typedAsGaps } from '@/lib/blanks'
 import 'katex/dist/katex.min.css'
 
 /** A `$...$` formula in a line, by the editor's own rule (extensions/math.ts): "$20 and $500" stays money. */
@@ -26,7 +27,8 @@ function WithFormulas({ text }: { text: string }): React.JSX.Element {
  * written small and grey inside its gap, so it reads as part of the blank.
  */
 function WithBlanks({ text }: { text: string }): React.JSX.Element {
-  const parts = text.split(/_____(?: \(([^)\n]{1,80})\))?/)
+  // Anki's blanks typed by hand ({{c1::word::hint}}) are gaps too, never their answers.
+  const parts = typedAsGaps(text).split(/_____(?: \(([^)\n]{1,80})\))?/)
   if (parts.length === 1) return <>{text}</>
   return (
     <>

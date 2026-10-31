@@ -39,8 +39,9 @@ import { Star } from 'lucide-react'
 import { RowMenu, copyLinkItem, type RowItem } from './row-menu'
 import { binItem } from '@/lib/to-bin'
 import { AnotherWay } from './another-way'
+import { cardPerNumber } from './blank-panel'
 import { pictureIn, withPicture } from '@/lib/answer-picture'
-import { answersOf } from '@/lib/blanks'
+import { answersOf, askCloze, clozeNumbers } from '@/lib/blanks'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import { InkLine } from './ink-line'
@@ -127,8 +128,8 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
     setSlipping(null)
     setCameBack(false)
     setLast(null)
-    started.current = Date.now()
     undos.current = []
+    started.current = Date.now()
   }
   const startRound = (bucket: Round): void => void working(haligtree.round(bucket)).then((cards) => (chime('riffle'), fresh(cards, bucket)))
   const leaveRound = (): void => void working(haligtree.queue()).then((cards) => (chime('fold'), fresh(cards, null)))
@@ -178,7 +179,7 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
   // A video time on a note's card ("[13:03] What does...") says where it is
   // from, not what is asked: it leaves the question for the "From" line.
   const timeOn = card?.lineOf ? (/\[((?:\d{1,2}:)?\d{1,2}:[0-5]\d)\]/.exec(card.prompt ?? '')?.[1] ?? null) : null
-  const asked = card ? masked(card.prompt ?? '', answer).replace(timeOn ? /\s*\[(?:\d{1,2}:)?\d{1,2}:[0-5]\d\]\s*/g : /$^/, ' ').trim() : ''
+  const asked = card ? masked(askedOf(card.prompt), answer).replace(timeOn ? /\s*\[(?:\d{1,2}:)?\d{1,2}:[0-5]\d\]\s*/g : /$^/, ' ').trim() : ''
 
   const reveal = (): void => {
     setOver(true)
@@ -195,9 +196,9 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
   const [last, setLast] = useState<{ card: Due; at: number; said: string; grade: 1 | 2 | 3 | 4 | null; reviewed: boolean; lapses: number; counted: boolean } | null>(null)
   // A picture pasted (⌘V) or dropped while the answer shows: under the answer
   // at once, no editor to open and no leaving the queue, with Undo.
-  const pictureOnAnswer = (file: File): void => {
   // What ⌘Z takes back here, newest last: a grade (Review's `last`) or a picture put on an answer.
   const undos = useRef<({ grade: true } | { undo: () => void; done: () => boolean })[]>([])
+  const pictureOnAnswer = (file: File): void => {
     const on = card
     if (!on) return
     void file.arrayBuffer().then((bytes) => window.api.saveImage(file.type, new Uint8Array(bytes))).then((src) => {
@@ -257,8 +258,8 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
   }
   const grade = (value: 1 | 2 | 3 | 4): void => {
     if (!card || !shown) return
-    if (!round) setLast({ card, at, said, grade: value, reviewed: !!card.reviewed, lapses: card.lapses, counted: reviewed.has(card.id) })
     if (!round) undos.current.push({ grade: true })
+    if (!round) setLast({ card, at, said, grade: value, reviewed: !!card.reviewed, lapses: card.lapses, counted: reviewed.has(card.id) })
     setMissed(null)
     // What you typed before turning it over is kept, as a dated thought on the card.
     if (said.trim()) void keepGloss(card.id, said)
@@ -309,8 +310,8 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
     // In a practice round, Not today only skips: an extra round moves nothing you did not grade.
     if (round) chime('later')
     else {
-      setLast({ card, at, said, grade: null, reviewed: !!card.reviewed, lapses: card.lapses, counted: reviewed.has(card.id) })
       undos.current.push({ grade: true })
+      setLast({ card, at, said, grade: null, reviewed: !!card.reviewed, lapses: card.lapses, counted: reviewed.has(card.id) })
       void haligtree.bury(card.id).then(() => (chime('later'), toast('Back tomorrow')))
     }
     setShown(false)
@@ -637,6 +638,22 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
                   setEditing(false)
                   setRewrites((n) => n + 1)
                   if (!prompt || prompt === card.prompt) return
+                  // Anki's blanks typed with two or more numbers: a card for each, this one keeping c1.
+                  if (clozeNumbers(prompt).length > 1) {
+                    const was = card.prompt
+                    void cardPerNumber(card.id, prompt, textOf(card.body), card.body).then((split) => {
+                      if (!split) return
+                      card.prompt = split.prompt
+                      setRewrites((n) => n + 1)
+                      void haligtree.saveItem(card.id, { prompt: split.prompt }).then(() => toast(`${clozeNumbers(prompt).length} cards, one for each number`, () => {
+                        for (const one of split.made) void haligtree.unlift('nugget', one)
+                        card.prompt = was
+                        setRewrites((n) => n + 1)
+                        void haligtree.saveItem(card.id, { prompt: was })
+                      }))
+                    })
+                    return
+                  }
                   // The card in the queue too, so an Again brings back the new words.
                   const before = card.prompt
                   card.prompt = prompt
@@ -1093,8 +1110,13 @@ function titleWithFormulas(title: string, prompt: string | null, answer: string)
 
 /** A cloze's answer, its blanks' answers in order when it has several ("25, 13, 3"). */
 function answerOf(prompt: string | null, body: unknown): string | null {
+  // Anki's own blanks typed in the question ({{c1::word::hint}}): the answers are inside them.
+  if (clozeNumbers(prompt).length) return askCloze(prompt!).answers.join(', ') || null
   return answersOf(prompt, textOf(body))?.join(', ') ?? null
 }
+
+/** The question as asked: typed Anki blanks drawn as gaps, the button's blanks as they are. */
+const askedOf = (prompt: string | null): string => (clozeNumbers(prompt).length ? askCloze(prompt!).asked : (prompt ?? ''))
 
 /** The question with each answer blanked wherever else it appears. */
 function masked(prompt: string, answer: string | null): string {

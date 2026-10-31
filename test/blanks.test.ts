@@ -62,3 +62,27 @@ test('a picture goes under the answer, as a block or as Markdown', () => {
   assert.equal(withPicture('Baku', 'haligtree://assets/a.png'), 'Baku\n\n![](haligtree://assets/a.png)')
   assert.deepEqual(pictureInText('On the Caspian', 14, 'haligtree://assets/m.png'), { text: 'On the Caspian\n![](haligtree://assets/m.png)', caret: 44 })
 })
+
+test('a Context keeps its words and pictures apart, and together again', async () => {
+  const { picturesIn, wordsOf, withPictures } = await import('../src/renderer/src/lib/answer-picture.ts')
+  const text = 'On the Caspian\n![](haligtree://assets/m.png)\nOil capital'
+  assert.deepEqual(picturesIn(text), ['haligtree://assets/m.png'])
+  assert.equal(wordsOf(text), 'On the Caspian\n\nOil capital')
+  assert.equal(withPictures('On the Caspian', ['haligtree://assets/m.png']), 'On the Caspian\n![](haligtree://assets/m.png)')
+})
+
+test('Anki blanks typed by hand are read as blanks, with hints, one number a card', async () => {
+  const { askCloze, clozeNumbers, onlyCloze } = await import('../src/renderer/src/lib/blanks.ts')
+  const typed = 'Surfactant is made by {{c1::type 2 cells::which cells}} and taken up by {{c2::macrophages}}'
+  assert.deepEqual(clozeNumbers(typed), [1, 2])
+  assert.deepEqual(askCloze(typed), { asked: 'Surfactant is made by _____ (which cells) and taken up by macrophages', answers: ['type 2 cells'] })
+  assert.deepEqual(askCloze(typed, 2).answers, ['macrophages'])
+  assert.equal(onlyCloze(typed, 2), 'Surfactant is made by type 2 cells and taken up by {{c2::macrophages}}')
+  assert.deepEqual(askCloze('{{c1::25}} L and {{c1::13}} L').answers, ['25', '13'])
+  assert.deepEqual(clozeNumbers('No blanks'), [])
+})
+
+test('a question with typed blanks is shown with gaps, never its answers', async () => {
+  const { typedAsGaps } = await import('../src/renderer/src/lib/blanks.ts')
+  assert.equal(typedAsGaps('{{c1::Baku::a city}} is the capital of {{c2::Azerbaijan}}'), '_____ (a city) is the capital of _____')
+})

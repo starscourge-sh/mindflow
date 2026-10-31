@@ -115,11 +115,43 @@ try {
   const pictured = (await item(front.id)).body
   check('⌘V puts the picture in the card\'s answer', JSON.stringify(pictured).includes('haligtree://assets/'))
   check('and it shows under the answer at once', await shown.locator('img[src^="haligtree://assets/"]').count() >= 1)
+  check('with no selection ring on it', await shown.locator('.ProseMirror-selectednode').count() === 0)
   check('the context shows after the answer', /Kept context/.test(await h.locator('[data-card-context]').textContent().catch(() => '')))
   await h.keyboard.press('Meta+z'); await wait(900)
   check('⌘Z takes the picture off', !JSON.stringify((await item(front.id)).body).includes('haligtree://assets/'), JSON.stringify(was).slice(0, 60))
   await paste(png(30, 110, 200)); await wait(1200)
   if (shots) await both(`${shots}/picture-on-answer`)
+  const asset = /haligtree:\/\/assets\/[^)"\s\\]+/.exec(JSON.stringify((await item(front.id)).body))?.[0]
+
+  // ⌘Z in order: the picture first, then the grade before it.
+  const firstAsked = await face.textContent()
+  await h.keyboard.press('3'); await wait(900)
+  const second = (await h.locator('[data-review-card] h2').first().textContent())
+  check('graded, the next card shows', second !== firstAsked)
+  const secondId = (await v('review:queue')).find((one) => one.prompt && second.includes(one.prompt.slice(0, 12)))?.id
+  await h.keyboard.press(' '); await wait(700)
+  await paste(png(200, 110, 30)); await wait(1200)
+  await h.keyboard.press('Meta+z'); await wait(900)
+  check('the first ⌘Z takes the picture off', !!secondId && !JSON.stringify((await item(secondId)).body).includes('haligtree://assets/'), secondId)
+  check('and leaves the card in front', (await h.locator('[data-review-card] h2').first().textContent().catch(() => '')) === second || await h.locator('[data-answer-side]').count() > 0)
+  await h.keyboard.press('Meta+z'); await wait(900)
+  check('the next ⌘Z takes back the grade', (await h.locator('[data-review-card] h2').first().textContent()) === firstAsked)
+
+  // A Context with a picture: drawn, never written out, in Review and on the gem's page.
+  await v('item:save', front.id, { context: `Kept context: the bigger story\n![](${asset})` })
+  await go('inbox'); await go('review'); await wait(1500)
+  await h.keyboard.press(' '); await wait(700)
+  check('Review draws the context\'s picture', await h.locator('[data-card-context] img').count() === 1)
+  check('and never writes it out', !/!\[/.test(await h.locator('[data-card-context]').textContent()))
+  await h.evaluate((id) => window.api.openInHome('nugget', id), front.id); await wait(1500)
+  const opener = h.locator('button[aria-label="Details"][aria-pressed="false"]').first()
+  if (await opener.count()) { await opener.click(); await wait(700) }
+  const fold = h.locator('[data-details-group="Context"] button[aria-expanded="false"]')
+  if (await fold.count()) { await fold.first().click(); await wait(400) }
+  const field = h.locator('textarea[aria-label="Context"]:visible')
+  check('the gem\'s Context field holds the words only', (await field.inputValue().catch(() => '?')) === 'Kept context: the bigger story', await field.inputValue().catch(() => '?'))
+  check('and draws the picture under it', await h.locator('[data-context-pictures]:visible img').count() === 1)
+  if (shots) await both(`${shots}/context-picture`)
 
   // --- Blanks
   const text = 'Body water: intracellular 25 L, interstitial 13 L, plasma 3 L, about 41 L in all.'
@@ -129,7 +161,7 @@ try {
   const blanked = (await item(gem)).prompt
   check('three blanks, each unit kept outside', blanked === 'Body water: intracellular _____ L, interstitial _____ L, plasma _____ L, about 41 L in all.', blanked)
   check('numbers that add up: asked together, with the reason', /41 minus 25 minus 13 is 3/.test(await h.locator('[data-blank-reason]:visible').textContent().catch(() => '')))
-  check('the unit note says the unit is the cue', /kept “L” showing/.test(await h.locator('[data-blank-panel]:visible').textContent()))
+  check('the unit note says the unit is the cue', /“L” stays showing as the cue/.test(await h.locator('[data-blank-panel]:visible').textContent()))
   await h.locator('[data-blank-hint]:visible').first().fill('how many L inside cells'); await h.locator('[data-blank-hint]:visible').first().press('Enter'); await wait(700)
   check('a hint goes inside its blank', (await item(gem)).prompt.startsWith('Body water: intracellular _____ (how many L inside cells) L'), (await item(gem)).prompt)
   if (shots) await both(`${shots}/blanks-together`)
@@ -140,13 +172,38 @@ try {
   check('an item of a list is warned about', /one item of a list of 3/.test(await h.locator('[data-blank-panel]:visible').textContent()))
   await blankIt('organ')
   check('"an" goes inside the blank', /The heart is _____\.$/.test((await item(list)).prompt), (await item(list)).prompt)
+  const notes = await h.locator('[data-blank-panel]:visible').textContent()
+  check('both blanks keep their notes', /list of 3/.test(notes) && /“an” went inside/.test(notes), notes.slice(0, 160))
   const count = (await v('items', 'nugget')).length
   await details()
   if (shots) await h.screenshot({ path: `${shots}/before-apart.png` })
   await h.locator('[data-blank-panel]:visible button[aria-label="Ask apart"]').click({ timeout: 5000 }); await wait(1200)
   check('asked apart: a card for each blank', (await v('items', 'nugget')).length === count + 1)
+  const apart = (await v('items', 'nugget')).find((one) => one.prompt === 'The plasma proteins are albumin, fibrinogen and globulins. The heart is _____.')
+  const apartBody = apart && (await item(apart.id)).body
+  check('the card asked apart keeps the answer as the gem has it, not plain text', apartBody?.type === 'doc', JSON.stringify(apartBody ?? null).slice(0, 60))
   check('this card keeps the first blank, the second filled in', /fibrinogen/.test((await item(list)).prompt) === false && /an organ/.test((await item(list)).prompt), (await item(list)).prompt)
   if (shots) await both(`${shots}/blanks-apart`)
+
+  // Anki's blanks typed by hand.
+  const typed = await v('nugget:from', 'Surfactant is made by type 2 cells and taken up by macrophages.', {})
+  await h.evaluate((id) => window.api.openInHome('nugget', id), typed); await wait(1500)
+  await details()
+  const ask = h.locator('textarea[aria-label="A question this answers"]:visible')
+  await ask.fill('Surfactant is made by {{c1::type 2 cells::which cells}} and taken up by {{c2::macrophages}}')
+  const n = (await v('items', 'nugget')).length
+  // Left, as a click elsewhere leaves it (a window in the back never moves its focus).
+  await ask.evaluate((el) => el.dispatchEvent(new FocusEvent('focusout', { bubbles: true }))); await wait(1500)
+  check('typed c1 and c2 make a card each', (await v('items', 'nugget')).length === n + 1)
+  check('lists show the typed blank as a gap, never its answer', await h.evaluate(() => { const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT); const out = []; for (let n = w.nextNode(); n; n = w.nextNode()) if (n.textContent.includes('{{c1::') && !n.parentElement.closest('textarea, input')) out.push(n.parentElement.outerHTML.slice(0, 120)); return out }).then((out) => (out.length ? console.log(out) : 0, out.length === 0)))
+  check('this one keeps c1, c2 written out', (await item(typed)).prompt === 'Surfactant is made by {{c1::type 2 cells::which cells}} and taken up by macrophages', (await item(typed)).prompt)
+  await go('review'); await wait(1500)
+  const inFront = (await v('review:queue'))[0]
+  await v('item:save', inFront.id, { prompt: 'The capital of Azerbaijan is {{c1::Baku::a city on the Caspian}}' })
+  await go('inbox'); await go('review'); await wait(1500)
+  const asked = h.locator('[data-review-card] h2').first()
+  check('Review draws a typed blank as a gap with its hint inside', (await asked.locator('[data-blank]').textContent().catch(() => '')) === 'a city on the Caspian' && !/\{\{/.test(await asked.textContent()), await asked.textContent())
+  if (shots) await both(`${shots}/typed-cloze`)
 } finally {
   await c.close()
 }

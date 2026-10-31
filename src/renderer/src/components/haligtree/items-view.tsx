@@ -1,5 +1,5 @@
-import { BlankPanel } from './blank-panel'
-import { BLANK, addBlank, listItemCount } from '@/lib/blanks'
+import { BlankPanel, cardPerNumber } from './blank-panel'
+import { BLANK, addBlank, clozeNumbers, listItemCount, typedAsGaps } from '@/lib/blanks'
 import { ContextField } from './context-field'
 import { notePowers } from './note-powers'
 import { hoverNote } from './note-preview'
@@ -123,7 +123,7 @@ const rowOf = (item: Item): Entry => {
   // when it comes back, the question it asks (when that is not its own words
   // again), and who said it. A card not reviewed yet is a small hollow dot.
   const same = (a: string, b: string): boolean => a.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim() === b.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
-  const asks = recall && item.prompt && !same(item.prompt, text) ? `Asks “${item.prompt.replace(/[?.\s]+$/, '')}?”` : null
+  const asks = recall && item.prompt && !same(item.prompt, text) ? `Asks “${typedAsGaps(item.prompt).replace(/[?.\s]+$/, '')}?”` : null
   // One paused says so first: it is dimmed for that reason, and comes back only when you choose.
   const comes = item.suspended ? 'Paused: not coming back until you choose' : recall ? (item.dueAt ? (due ? null : `Back in Review ${backIn(item.dueAt)}`) : null) : item.mode === 'pushed' ? 'Comes back often' : 'Comes back now and then'
   // With nothing else to say, the hollow dot is named, so it never stands alone.
@@ -932,6 +932,21 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
   const savePrompt = (): void => {
     if ((item.prompt ?? '') === prompt.trim()) return
     const before = item.prompt ?? null
+    // Anki's blanks typed with two or more numbers: a card for each number, as Anki makes them.
+    const numbers = clozeNumbers(prompt)
+    if (numbers.length > 1 && editor.current) {
+      const typed = prompt.trim()
+      void cardPerNumber(item.id, typed, editor.current.getText(), editor.current.getJSON()).then((split) => {
+        if (!split) return
+        setPrompt(split.prompt)
+        void haligtree.saveItem(item.id, { prompt: split.prompt }).then(() => toast(`${numbers.map((n) => `c${n}`).join(', ')}: ${numbers.length} cards, one for each number`, () => {
+          for (const one of split.made) void haligtree.unlift('nugget', one)
+          setPrompt(before ?? '')
+          void haligtree.saveItem(item.id, { prompt: before })
+        }))
+      })
+      return
+    }
     void haligtree.saveItem(item.id, { prompt: prompt.trim() || null }).then(() =>
       toast(prompt.trim() ? 'Now tested: it will come up in review' : 'Back to coming up on its own', () => (setPrompt(before ?? ''), void haligtree.saveItem(item.id, { prompt: before })))
     )
