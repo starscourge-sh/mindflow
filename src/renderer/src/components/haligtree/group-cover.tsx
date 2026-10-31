@@ -79,13 +79,13 @@ export function coverOf(name: string, label: Corner | null = 'bl'): { big: Outli
   return { big, small, at, other, turn: [Math.round(next() * 360), Math.round(next() * 360)], size: [105 + Math.round(next() * 35), 48 + Math.round(next() * 20)] }
 }
 
-/** A shape `size`% of the cover's width, its centre near `corner` so a good part of it is cut off by the edge. */
+/** A shape `size`% of the cover's shorter side, its centre near `corner` so a good part of it is cut off by the edge: a wide glass front shows whole shapes, not a slice. */
 const placed = (corner: Corner, size: number, turn: number, reach: number): CSSProperties => ({
   position: 'absolute',
-  width: `${size}%`,
+  width: `${size}cqmin`,
   aspectRatio: '1',
-  [corner[0] === 't' ? 'top' : 'bottom']: `${-size * reach}cqw`,
-  [corner[1] === 'l' ? 'left' : 'right']: `${-size * reach}cqw`,
+  [corner[0] === 't' ? 'top' : 'bottom']: `${-size * reach}cqmin`,
+  [corner[1] === 'l' ? 'left' : 'right']: `${-size * reach}cqmin`,
   rotate: `${turn}deg`
 })
 
@@ -121,11 +121,11 @@ export function GroupCover({ name, tint, label = 'bl', className = '', style }: 
   const soft = `color-mix(in oklab, ${tint} 45%, var(--background))`
   return (
     <div aria-hidden data-group-cover={name} data-cover={`${cover.big.id}/${cover.small.id}/${cover.at}${cover.other}/${cover.turn.join('.')}`} data-cover-tint={tint}
-      className={`relative overflow-hidden [container-type:inline-size] ${className}`} style={{ background: `color-mix(in oklab, ${tint} 12%, var(--background))`, ...style }}>
+      className={`relative overflow-hidden [container-type:size] ${className}`} style={{ background: `color-mix(in oklab, ${tint} 12%, var(--background))`, ...style }}>
       <Shape outline={cover.small} fill={[soft, `color-mix(in oklab, ${tint} 70%, var(--background))`]} style={placed(cover.other, cover.size[1], cover.turn[1], 0.22)} />
       <Shape outline={cover.big} fill={[tint, deep]} style={placed(cover.at, cover.size[0], cover.turn[0], 0.3)} />
       {label && (
-        <span data-cover-label className={`absolute max-w-[80%] truncate font-heading text-[clamp(9px,9cqw,15px)] leading-tight font-semibold ${label[0] === 't' ? 'top-[7cqw]' : 'bottom-[7cqw]'} ${label[1] === 'l' ? 'left-[8cqw]' : 'right-[8cqw]'}`}
+        <span data-cover-label className={`absolute max-w-[80%] truncate font-heading text-[clamp(9px,9cqmin,15px)] leading-tight font-semibold ${label[0] === 't' ? 'top-[7cqmin]' : 'bottom-[7cqmin]'} ${label[1] === 'l' ? 'left-[8cqmin]' : 'right-[8cqmin]'}`}
           style={{ color: `color-mix(in oklab, ${tint} 40%, var(--foreground))` }}>{name}</span>
       )}
     </div>

@@ -154,6 +154,15 @@ export function Poster({ card, over, onTurn, picked, onPick, question, answer, s
   )
 }
 
+/**
+ * The group's cover drawn on its glass front, the shapes in its own tones over
+ * the glass's tint (no page behind them), so a pocket says which it is at a
+ * glance. `quiet` fades them where words sit on the glass.
+ */
+const Front = ({ name, tint, quiet = false }: { name: string; tint: string; quiet?: boolean }): React.JSX.Element => (
+  <GroupCover name={name} tint={tint} label={null} className="pointer-events-none !absolute inset-0" style={{ background: 'transparent', opacity: quiet ? 0.45 : 0.9 }} />
+)
+
 /** Four screws, one in each corner of a glass front or ledge. */
 const Screws = (): React.JSX.Element => (
   <>{['top-2 left-2', 'top-2 right-2', 'bottom-2 left-2', 'bottom-2 right-2'].map((at) => <span key={at} aria-hidden className={`mf-screw absolute ${at}`} />)}</>
@@ -201,10 +210,11 @@ export function Pocket({ name, cards, onOpen }: { name: string; cards: BrowsedCa
             </div>
           )
         })}
-        {/* The glass front, in the group's colour, its feet showing through. */}
-        <div className="mf-glass absolute inset-x-0 bottom-0 z-10 flex h-[46%] flex-col justify-end rounded-xl px-4 pb-3" style={{ '--tint': tint } as React.CSSProperties}>
+        {/* The glass front, in the group's colour, its cover's shapes on it. */}
+        <div className="mf-glass absolute inset-x-0 bottom-0 z-10 flex h-[46%] flex-col justify-end overflow-hidden rounded-xl px-4 pb-3" style={{ '--tint': tint } as React.CSSProperties}>
+          <Front name={name} tint={tint} />
           <Screws />
-          {due > 0 && <span data-pocket-due className="self-end rounded-full bg-background/85 px-2 py-0.5 text-xs font-medium tabular-nums text-foreground">{num(due)} due</span>}
+          {due > 0 && <span data-pocket-due className="relative self-end rounded-full bg-background/85 px-2 py-0.5 text-xs font-medium tabular-nums text-foreground">{num(due)} due</span>}
         </div>
       </div>
       <span className="flex max-w-full items-baseline gap-1.5 text-control">
@@ -226,10 +236,11 @@ export function EmptyPocket({ deck, onPaste }: { deck: string; /** Paste cards i
     <div data-pocket={name} data-pocket-empty={deck} className="flex flex-col items-center gap-2 rounded-xl p-2">
       <div className="relative h-52 w-full max-w-[15rem] [overflow-x:clip]">
         <div className="absolute inset-x-12 top-1 h-40 overflow-hidden rounded-md opacity-60 shadow-sm"><Cover name={name} tint={tint} className="h-full w-full" /></div>
-        <div className="mf-glass absolute inset-x-0 bottom-0 z-10 flex h-[46%] flex-col items-center justify-center gap-1.5 rounded-xl px-4" style={{ '--tint': tint } as React.CSSProperties}>
+        <div className="mf-glass absolute inset-x-0 bottom-0 z-10 flex h-[46%] flex-col items-center justify-center gap-1.5 overflow-hidden rounded-xl px-4" style={{ '--tint': tint } as React.CSSProperties}>
+          <Front name={name} tint={tint} quiet />
           <Screws />
-          <span className="text-control text-foreground">Paste cards or make one</span>
-          <span className="flex gap-1.5">
+          <span className="relative text-control text-foreground">Paste cards or make one</span>
+          <span className="relative flex gap-1.5">
             <button type="button" data-pocket-paste onClick={() => (chime('open'), onPaste(false))} className="cursor-pointer rounded-md bg-background/85 px-2 py-0.5 text-xs font-medium text-foreground hover:bg-background">Paste cards</button>
             <button type="button" data-pocket-make onClick={() => (chime('open'), onPaste(true))} className="cursor-pointer rounded-md bg-background/85 px-2 py-0.5 text-xs font-medium text-foreground hover:bg-background">Make one</button>
           </span>
@@ -269,7 +280,7 @@ export function Shelf({ name, count, onOpen, children }: { name: string; count: 
   return (
     <section ref={shelf} data-shelf={name} className="mt-6 first:mt-1">
       <header className="mb-2 flex items-baseline gap-3 px-1">
-        <Cover name={name} tint={tint} className="size-7 shrink-0 self-center rounded-md" />
+        <Cover name={name} tint={tint} className="size-12 shrink-0 self-center rounded-lg" />
         <button type="button" onClick={onOpen} className="min-w-0 truncate font-heading text-heading font-semibold text-foreground hover:underline">{name}</button>
         <span className="ml-auto shrink-0 text-control text-foreground/60 tabular-nums">{num(count)} {count === 1 ? 'card' : 'cards'}</span>
         <button type="button" aria-label="Back along" disabled={!row.edges.left} onClick={() => slide(-1)} className="rounded p-1 text-foreground/70 hover:bg-accent disabled:opacity-30"><ChevronLeft className="size-4" /></button>
