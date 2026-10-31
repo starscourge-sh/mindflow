@@ -75,10 +75,11 @@ try {
   check('a recording without words says "No transcript · Transcribe"', words === 'No transcript · Transcribe', String(words))
   // The header's top right: the "pinned" chip and the window's pill, one shape.
   const header = await page.evaluate(() => {
-    const look = (el) => { if (!el) return null; const s = getComputedStyle(el); return { h: Math.round(el.getBoundingClientRect().height), border: s.borderTopWidth + ' ' + s.borderTopColor, fill: s.backgroundColor, radius: s.borderTopLeftRadius } }
-    return { chip: look(document.querySelector('[data-waiting]')), pill: look(document.querySelector('.mf-pill')) }
+    // Quick capture's controls are round surfaces of their own above the card now (the overhang): the chip matches one of them.
+    const look = (el) => { if (!el) return null; const s = getComputedStyle(el); return { h: Math.round(el.getBoundingClientRect().height), shadow: s.boxShadow, fill: s.backgroundColor } }
+    return { chip: look(document.querySelector('[data-waiting]')), pill: look(document.querySelector('.mf-pill button')) }
   })
-  check('the "pinned" chip and the window pill are one shape (height, hairline, fill)', header.chip && header.pill && JSON.stringify(header.chip) === JSON.stringify(header.pill), JSON.stringify(header))
+  check('the "pinned" chip and the round controls are one shape (height, hairline and shadow, fill)', header.chip && header.pill && JSON.stringify(header.chip) === JSON.stringify(header.pill), JSON.stringify(header))
   const spots = { 'top right': [box.right - 3, box.top + 3], 'top left': [box.left + 3, box.top + 3], 'bottom right': [box.right - 3, box.bottom - 3], 'bottom left': [box.left + 3, box.bottom - 3], middle: [(box.left + box.right) / 2, (box.top + box.bottom) / 2] }
   for (const [name, [x, y]] of Object.entries(spots)) {
     const under = await page.evaluate(([x, y]) => { const el = document.elementFromPoint(x, y); return `${el?.tagName} ${String(el?.className).slice(0, 60)} inPM=${!!el?.closest('.ProseMirror')}` }, [x, y])
