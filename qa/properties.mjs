@@ -36,7 +36,8 @@ try {
     return { afterTitle: b.top >= words - 1 && b.bottom <= c.top + 1 && Math.abs(b.left - a.left) < 12, text: one.textContent, gaps: [Math.round(b.top - words), Math.round(c.top - b.bottom)] }
   }, strip)
   check('1. a strip sits under the note\'s title, in the page', !!placed?.afterTitle, JSON.stringify(placed))
-  check('1. #book brings its fields, shown empty so you see what it asks', /Status/.test(placed?.text ?? '') && /Rating/.test(placed?.text ?? '') && /Empty/.test(placed?.text ?? ''), placed?.text)
+  // Its Status shows empty (the point of a book); Author, Rating and the rest wait under "Add property" (qa/props-empty.mjs).
+  check('1. #book brings its Status, shown empty; the rest wait until filled', /Status\s*Empty/.test(placed?.text ?? '') && !/Rating|Author/.test(placed?.text ?? ''), placed?.text)
   await shot('1-strip')
 
   // 2. Name:: value on a line of its own becomes a property, and the line goes.

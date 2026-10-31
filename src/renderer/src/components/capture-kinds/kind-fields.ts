@@ -27,21 +27,30 @@ export type Field = {
   does?: string
   /** Shown only once this other field holds this value, or once it has words of its own. */
   when?: [key: string, value: string]
+  /**
+   * Shown in the property strip while empty: the field that is the point of
+   * its kind. Every other one waits under "Add property" until it has words
+   * (property-strip.tsx), so a note never lists a row of "Empty".
+   */
+  always?: boolean
 }
 
 const KIND_FIELDS: Record<string, Field[]> = {
   note: [],
   todo: [],
   // A long quote is what an excerpt was: where in the book it is.
+  // Nothing always shown: the words are the quote, the page and year are extras.
   quote: [
     { key: 'location', label: 'Page or place', placeholder: 'e.g. p. 42, chapter 3' },
     { key: 'year', label: 'Year', placeholder: 'e.g. 1818', does: 'When it was said or written. It shows after who said it' }
   ],
+  // The meaning always shows: until it is written, the word waits in Lookups as asked.
   word: [
-    { key: 'definition', label: 'Meaning or answer', type: 'long', placeholder: 'What it means, or the answer', ghost: 'Feeling sad that a happy time has passed', does: 'What the word means, or the answer to the question. Until it is written, it waits in Lookups as asked' },
+    { key: 'definition', always: true, label: 'Meaning or answer', type: 'long', placeholder: 'What it means, or the answer', ghost: 'Feeling sad that a happy time has passed', does: 'What the word means, or the answer to the question. Until it is written, it waits in Lookups as asked' },
     { key: 'example', label: 'Example', type: 'long', placeholder: 'A sentence it is used in', ghost: 'A wistful look back at the summer', does: 'A sentence that uses it, so you remember how it sounds' },
-    { key: 'language', label: 'Language', placeholder: 'e.g. French' }
+    { key: 'language', label: 'Language', placeholder: 'e.g. French', does: 'The language it is from, when it is not English' }
   ],
+  // Nothing always shown: the link itself is the point; title and site come with it when the page gives them.
   link: [
     { key: 'title', label: 'Title', placeholder: "The page's own title" },
     { key: 'site', label: 'Site', placeholder: 'e.g. nytimes.com' },
@@ -50,9 +59,11 @@ const KIND_FIELDS: Record<string, Field[]> = {
   ],
   // A date, then a question back to you: what a decision and an experiment
   // both were. On its day it comes back and asks; your answer is kept under it.
+  // The day and the question always show: without them it never comes back.
+  // What you found waits until it has come back and been answered.
   checkback: [
-    { key: 'back', label: 'Check back on', type: 'date', placeholder: 'Check back on…', ghost: 'in a month', does: 'On this day it comes back to you and asks the question below', suggest: ['in a week', 'in 2 weeks', 'in a month', 'in 3 months', 'in a year'] },
-    { key: 'ask', label: 'Then ask', type: 'long', placeholder: 'The question to ask you then', ghost: 'Did it work? Does it still hold?', does: 'What it asks you when it comes back' },
+    { key: 'back', always: true, label: 'Check back on', type: 'date', placeholder: 'Check back on…', ghost: 'in a month', does: 'On this day it comes back to you and asks the question below', suggest: ['in a week', 'in 2 weeks', 'in a month', 'in 3 months', 'in a year'] },
+    { key: 'ask', always: true, label: 'Then ask', type: 'long', placeholder: 'The question to ask you then', ghost: 'Did it work? Does it still hold?', does: 'What it asks you when it comes back' },
     { key: 'answer', label: 'What you found', type: 'long', placeholder: 'Your answer, once it comes back', ghost: 'Slept better on the nights with no phone', does: 'Your answer when it came back, short enough to skim later' },
     { key: 'answeredAt', label: 'Answered on', type: 'hidden' }
   ]
@@ -63,9 +74,10 @@ const KIND_FIELDS: Record<string, Field[]> = {
  * the way a tag marked "makes a task" makes it a todo.
  */
 const TAG_FIELDS: Record<string, Field[]> = {
+  // Status always shows: where you are with it is what the books page counts.
   book: [
     { key: 'author', label: 'Author', placeholder: 'Who wrote it', does: 'Who wrote it, so the books page can list them by author' },
-    { key: 'status', label: 'Status', type: 'choice', options: ['Want to read', 'Reading', 'Finished', 'Dropped'], does: "Where you are with it. The year's books page counts the ones you finish" },
+    { key: 'status', always: true, label: 'Status', type: 'choice', options: ['Want to read', 'Reading', 'Finished', 'Dropped'], does: "Where you are with it. The year's books page counts the ones you finish" },
     { key: 'finished', label: 'Finished', type: 'date', does: 'The day you finished it', when: ['status', 'Finished'] },
     { key: 'rating', label: 'Rating', type: 'rating', does: "Rate it once you've read it" },
     { key: 'takeaway', label: 'Takeaway', type: 'long', placeholder: 'What you will keep from it', ghost: 'First impressions can be badly wrong', does: 'The one thing you will keep from it, in a line', when: ['status', 'Finished'] }

@@ -107,6 +107,20 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated,
     return { key, label: OLD_LABELS[key] ?? key, type: typeFor(key) ?? guessed, options: optionsFor(key), tag: null, value }
   })
   const all = [...fromTags, ...own]
+  // A field brought in by "Add property" on this note: shown, empty or not, until you leave the note, so it never goes from under the caret.
+  const [added, setAdded] = useState<{ of: string; keys: string[] }>({ of: '', keys: [] })
+  const addedHere = added.of === `${table}:${id}` ? added.keys : []
+  // A kind's or a shipped tag's own field shows once it has words, or when it is the point of its kind (`always`, kind-fields.ts);
+  // the rest wait under "Add property". A tag you gave fields yourself shows them all, as you asked.
+  const waits = (prop: Prop): boolean => !!prop.tag && !!prop.field && !prop.field.always && !!SUPER_TAGS[prop.tag]?.includes(prop.field)
+    && (prop.value === undefined || prop.value === '') && !addedHere.includes(prop.key) && open !== prop.key
+  const waiting = fromTags.filter(waits)
+  const shown = all.filter((prop) => !waits(prop))
+  const bring = (key: string): void => {
+    setAdded({ of: `${table}:${id}`, keys: [...addedHere, key] })
+    chime('noted')
+    setOpen(key)
+  }
 
   // ⌥⌘P adds one, in the page the keys are in (or the only one open).
   useEffect(() => {
@@ -143,6 +157,8 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated,
   })
   // A name set on the new row: kept with nothing in it yet, then its row's own editor opens, as any row's does.
   const named = async (typed: string): Promise<void> => {
+    const field = waiting.find((one) => one.key.toLowerCase() === typed.toLowerCase() || one.label.toLowerCase() === typed.toLowerCase())
+    if (field) return bring(field.key)
     const key = names.find((one) => one.name.toLowerCase() === typed.toLowerCase())?.name ?? typed
     if (!all.some((prop) => prop.key === key)) {
       if (!typeFor(key)) await notes.setPropType(key, 'text')
@@ -155,7 +171,7 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated,
   const size = panel ? { h: 'h-8', minH: 'min-h-8', pad: 'px-2', icon: 'size-4' } : { h: 'h-7', minH: 'min-h-7', pad: 'px-1.5', icon: 'size-3.5' }
   if (read.of !== `${table}:${id}`) return <div data-property-strip data-in-panel={panel ? '' : undefined} ref={strip} className={size.minH} />
   // Nothing yet: only the quiet way to add one, in the place the block will open. The details keep their heading.
-  const empty = !panel && !all.length && !tags.length && open !== '+'
+  const empty = !panel && !shown.length && !tags.length && open !== '+'
   const addButton = (
     <Tip label="Add property, or type Name:: value on a line of its own (⌥⌘P)">
       <button type="button" data-add-property aria-label="Add property" onClick={() => (chime('open'), setShut(false), setOpen('+'))}
@@ -204,14 +220,14 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated,
                 className="-mx-1 flex min-w-0 flex-1 items-center gap-1 rounded-md px-1 py-1 text-left text-foreground hover:bg-accent/60">
                 <ChevronRight aria-hidden className={`size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 ease-[var(--mf-ease)] motion-reduce:transition-none group-hover/fold:text-foreground ${shut ? '' : 'rotate-90'}`} />
                 <h2 className="min-w-0 truncate text-meta font-semibold">Properties</h2>
-                {shut && <span className="ml-1 text-meta text-muted-foreground">{all.length + (tags.length ? 1 : 0)}</span>}
+                {shut && <span className="ml-1 text-meta text-muted-foreground">{shown.length + (tags.length ? 1 : 0)}</span>}
               </button>
             </div>
           ) : (
           <button type="button" data-properties-head aria-expanded={!shut} onClick={() => (chime(shut ? 'open' : 'fold'), setShut(!shut))}
             className="inline-flex h-7 w-fit items-center gap-1 rounded-md px-1.5 font-medium text-foreground transition-colors hover:bg-accent">
             <ChevronRight className={`size-3.5 text-muted-foreground transition-transform duration-150 ${shut ? '' : 'rotate-90'}`} />Properties
-            {shut && <span className="ml-1 font-normal text-muted-foreground">{all.length + (tags.length ? 1 : 0)}</span>}
+            {shut && <span className="ml-1 font-normal text-muted-foreground">{shown.length + (tags.length ? 1 : 0)}</span>}
           </button>
           )}
           {!shut && (
@@ -233,7 +249,7 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated,
                   </div>
                 </div>
               )}
-              {all.map((prop) => (
+              {shown.map((prop) => (
                 <div key={`${prop.tag ?? ''}:${prop.key}`} className={row}>
                   {nameCell(ICONS[prop.type] ?? Text, prop.label, prop)}
                   <Popover open={open === prop.key} onOpenChange={(next) => setOpen(next ? prop.key : null)}>
@@ -255,7 +271,7 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated,
               ))}
               {open === '+' && (
                 <NewProp className={row} size={size} names={names.filter((one) => !all.some((prop) => prop.key.toLowerCase() === one.name.toLowerCase()))}
-                  onName={(name) => void named(name)} onCancel={() => setOpen(null)} />
+                  waiting={waiting} onField={bring} onName={(name) => void named(name)} onCancel={() => setOpen(null)} />
               )}
               {/* Kept by the app, not typed: shown, never changed here. */}
               {created && <div className={row} data-property="created">{nameCell(Clock, 'created')}<span className={`flex ${panel ? 'min-h-8 py-1.5' : 'h-7'} items-center ${size.pad} text-foreground/80`}>{stamp(created, panel)}</span></div>}
@@ -369,11 +385,14 @@ async function addToTag(tag: string, prop: Prop): Promise<void> {
  * its name typed with the names this book already uses offered under it.
  * Enter or a click sets it; Esc, or leaving it with no name, takes the row away.
  */
-function NewProp({ className, size, names, onName, onCancel }: {
+function NewProp({ className, size, names, waiting, onField, onName, onCancel }: {
   className: string
   /** Its row's height, inset and icon, as the rows around it have them. */
   size: { h: string; pad: string; icon: string }
   names: { name: string; type: string | null }[]
+  /** The note's kind's own fields not shown yet: offered first, by their own names, with what each does. */
+  waiting: Prop[]
+  onField: (key: string) => void
   onName: (name: string) => void
   onCancel: () => void
 }): React.JSX.Element {
@@ -382,14 +401,18 @@ function NewProp({ className, size, names, onName, onCancel }: {
   const [at, setAt] = useState(-1)
   const typed = name.trim().toLowerCase()
   const starts = (one: { name: string }): number => Number(!one.name.toLowerCase().startsWith(typed))
+  const fields = waiting.filter((one) => one.label.toLowerCase().includes(typed))
   const offered = names.filter((one) => one.name.toLowerCase().includes(typed)).sort((a, b) => starts(a) - starts(b)).slice(0, 8)
   const Icon = ICONS[(names.find((one) => one.name.toLowerCase() === typed)?.type ?? 'text') as Prop['type']] ?? Text
   const pick = (one: string): void => (one.trim() ? onName(one.trim()) : onCancel())
+  // The arrows run down the kind's fields, then the names in use.
+  const choose = (index: number): void => (index < fields.length ? onField(fields[index].key) : pick(offered[index - fields.length]?.name ?? name))
+  const count = fields.length + offered.length
   return (
     <div className={className} data-new-property>
       <span className={`relative flex ${size.h} min-w-0 items-center gap-2 ${size.pad} text-muted-foreground`}>
         <Icon className={`${size.icon} shrink-0`} />
-        <input autoFocus value={name} placeholder="Name" aria-label="Property name" role="combobox" aria-expanded={offered.length > 0}
+        <input autoFocus value={name} placeholder="Name" aria-label="Property name" role="combobox" aria-expanded={count > 0}
           onChange={(event) => (setName(event.target.value.replace(/:/g, '')), setAt(-1))}
           onBlur={() => pick(name)}
           onKeyDown={(event) => {
@@ -397,25 +420,42 @@ function NewProp({ className, size, names, onName, onCancel }: {
             event.stopPropagation()
             if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
               event.preventDefault()
-              if (offered.length) setAt((was) => (event.key === 'ArrowDown' ? (was + 1) % offered.length : was <= 0 ? offered.length - 1 : was - 1))
+              if (count) setAt((was) => (event.key === 'ArrowDown' ? (was + 1) % count : was <= 0 ? count - 1 : was - 1))
             } else if (event.key === 'Enter') {
               event.preventDefault()
-              pick(offered[at]?.name ?? name)
+              if (at >= 0) choose(at)
+              else pick(name)
             } else if (event.key === 'Escape') {
               event.preventDefault()
               onCancel()
             }
           }}
           className="h-7 min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground/60" />
-        {offered.length > 0 && (
-          <div role="listbox" data-name-options className={`${FLOAT} absolute top-full left-0 z-50 mt-1 flex max-h-64 w-56 flex-col overflow-y-auto rounded-lg p-1 duration-150 animate-in fade-in-0 slide-in-from-top-1`}>
-            {offered.map((one, index) => {
+        {count > 0 && (
+          <div role="listbox" data-name-options className={`${FLOAT} absolute top-full left-0 z-50 mt-1 flex max-h-80 ${fields.length ? 'w-72' : 'w-56'} flex-col overflow-y-auto rounded-lg p-1 duration-150 animate-in fade-in-0 slide-in-from-top-1`}>
+            {fields.map((one, index) => {
+              const KindIcon = ICONS[one.type] ?? Text
+              return (
+                <button key={`field:${one.key}`} type="button" role="option" aria-selected={index === at} data-field-option={one.key}
+                  onMouseDown={(event) => (event.preventDefault(), onField(one.key))} onMouseEnter={() => setAt(index)}
+                  className="flex shrink-0 cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 text-left text-foreground aria-selected:bg-accent">
+                  <KindIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                  <span className="flex min-w-0 flex-col">
+                    <span className="truncate">{one.label}</span>
+                    {one.field?.does && <span className="text-xs leading-snug text-muted-foreground">{one.field.does}</span>}
+                  </span>
+                </button>
+              )
+            })}
+            {fields.length > 0 && offered.length > 0 && <div aria-hidden className="mx-2 my-1 h-px shrink-0 bg-border/60" />}
+            {offered.map((one, i) => {
+              const index = i + fields.length
               const KindIcon = ICONS[(one.type ?? 'text') as Prop['type']] ?? Text
               return (
                 <button key={one.name} type="button" role="option" aria-selected={index === at} data-name-option={one.name} data-kind={one.type ?? 'text'}
                   // Down, not click: the name box keeps its focus, so this is never taken as leaving it.
                   onMouseDown={(event) => (event.preventDefault(), pick(one.name))} onMouseEnter={() => setAt(index)}
-                  className="flex h-7 shrink-0 items-center gap-2 rounded-md px-2 text-left text-foreground aria-selected:bg-accent">
+                  className="flex h-7 shrink-0 cursor-pointer items-center gap-2 rounded-md px-2 text-left text-foreground aria-selected:bg-accent">
                   <KindIcon className="size-3.5 shrink-0 text-muted-foreground" /><span className="truncate">{propSaid(one.name)}</span>
                 </button>
               )
