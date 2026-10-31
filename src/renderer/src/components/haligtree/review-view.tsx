@@ -730,7 +730,9 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
             {/* Where it came from, which a flashcard app never knows. */}
             <Origin id={card.id} quote={card.kind === 'quote'} attribution={card.attribution} where={card.medium} year={fieldOf(card.fields, 'year')} said={`${card.prompt ?? ''}\n${textOf(card.body)}`} />
             {/* Made from a selection: the exact words it was lifted from, and the way to them in their note. */}
-            {card.passage && (
+            {/* Made in the PDF reader, its place is a page of the book, not a passage of a note: the
+                answer's own "Title, p. N" opens the book there, so no "Show in its note", which it has none of. */}
+            {card.passage && !pdfOf(card) && (
               <figure data-card-passage className="-mt-2 flex flex-col gap-1.5 rounded-lg border px-3 py-2">
                 <figcaption className="text-control font-medium text-foreground/80">The passage it came from</figcaption>
                 <blockquote className="line-clamp-4 text-body whitespace-pre-line text-foreground">{card.passage}</blockquote>
@@ -1099,6 +1101,13 @@ type Source = { type: string; id: string; title: string; body: unknown; needles:
  * ("x^2"): the card's own question, which has them, puts them back where its
  * words open the title, so the "From" line draws the formula.
  */
+/** The page of a PDF a card was made on, when it was made in the reader: the link its answer carries back, `haligtree://assets/….pdf#page=3`. */
+function pdfOf(card: { passage?: string | null; body: unknown }): string | null {
+  if (!/^p\. \d+$/.test(card.passage ?? '')) return null
+  // The stored answer as written (its words, read for showing, drop the link).
+  return /\(((?:haligtree|mindflow):\/\/assets\/[^)\s]+\.pdf#[^)\s"]*)\)/.exec(typeof card.body === 'string' ? card.body : JSON.stringify(card.body ?? ''))?.[1] ?? null
+}
+
 function titleWithFormulas(title: string, prompt: string | null, answer: string): string {
   for (const line of [`${prompt ?? ''} :: ${answer.trim()}`, prompt ?? '']) {
     if (!line.includes('$')) continue
