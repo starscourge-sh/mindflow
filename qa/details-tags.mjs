@@ -83,8 +83,9 @@ try {
   await send('task', task.id)
   await wait(1500)
   const chip = (tag) => h.evaluate((tag) => { const one = document.querySelector(`[data-tag-chip="${tag}"]`); return one ? getComputedStyle(one).color : null }, tag)
-  check('a task\'s #probehue chip wears it', (await chip('probehue')) === purple, String(await chip('probehue')))
-  const plainCss = await hueOf(`var(--tt-color-text-${plainHue})`)
+  // A chip's words are its colour set to a readable lightness (--mf-chip-ink, 4.5:1 on its wash in every theme), not the colour itself.
+  check('a task\'s #probehue chip wears it', (await chip('probehue')) === (await hueOf('var(--mf-chip-ink-purple)')), String(await chip('probehue')))
+  const plainCss = await hueOf(`var(--mf-chip-ink-${plainHue})`)
   check('and an uncoloured tag\'s chip matches the note\'s colour for it', (await chip('probeplain')) === plainCss, `${await chip('probeplain')} vs ${plainCss} (${plainHue})`)
   await h.screenshot({ path: `${dir}/34-task-chips.png`, clip: { x: 220, y: 40, width: 1100, height: 300 } })
   const shown = (await v('settings')).sidebarShown
@@ -95,7 +96,7 @@ try {
   const side = await h.evaluate(() => { const icon = document.querySelector('[data-side-tag="probehue"] svg'); return icon ? getComputedStyle(icon).color : null })
   check('the sidebar\'s #probehue wears it', side === purple, String(side))
   const sidePlain = await h.evaluate(() => { const icon = document.querySelector('[data-side-tag="probeplain"] svg'); return icon ? getComputedStyle(icon).color : null })
-  check('and the sidebar\'s uncoloured tag is not grey', sidePlain === plainCss, String(sidePlain))
+  check('and the sidebar\'s uncoloured tag is not grey', sidePlain === (await hueOf(`var(--tt-color-text-${plainHue})`)), String(sidePlain))
   // Quick capture: a task line's #tag in its own colour.
   const box = c.page
   await c.electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => !w.webContents.getURL().includes('view='))?.show())
