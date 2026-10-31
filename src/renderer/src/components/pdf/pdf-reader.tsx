@@ -1,15 +1,15 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import type { PDFDocumentProxy } from "pdfjs-dist"
 import { ChevronDown, ChevronUp, ListTree, Minus, Plus, ScrollText, Search, X } from "lucide-react"
 import { Button } from "@/components/tiptap-ui-primitive/button"
-import { Toolbar, ToolbarGroup } from "@/components/tiptap-ui-primitive/toolbar"
-import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu"
+import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from "@/components/ui/context-menu"
 import { Roll } from "@/lib/roll"
 import { call } from "@/lib/haligtree"
 import { host, said } from "@/lib/host"
 import { canSplit, keysHere, usePane } from "@/lib/split"
 import { chime } from "@/lib/sound"
 import { cue } from "@/lib/cues"
+import { MarkMenu, PickedMenu, ReadBar, cited, lastColor, readKey, rememberColor, type MarkColor, type ReadActions } from "./read-bar"
 import { PdfPages, offsetsIn, pdfAuthor, pdfTitle, type PdfMark } from "./pdf-pages"
 
 /** The zoom steps, as Preview's: fit width is 1. */
@@ -231,18 +231,57 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     return () => document.removeEventListener("selectionchange", onChange)
   }, [])
 
-  /** The picked words as a gem: the quote, the book and page it came from, and a link back here. */
-  const keep = async (): Promise<void> => {
+  /** "Author, Title, p. 3": where words on a page came from, as a gem and a citation name it. */
+  const whereFrom = async (page: number): Promise<{ author: string; where: string }> => {
+    const author = doc ? await pdfAuthor(doc) : ""
+    return { author, where: `${title}, p. ${page}` }
+  }
+  /** A gem of a mark's words: the quote, the book and page it came from, and a link back to the mark. */
+  const gemOf = async (mark: { id: string; page: number; quote: string }): Promise<string> => {
+    const { author, where } = await whereFrom(mark.page)
+    // The book is the gem's source and the page its place; its author, when the file names one, who said it.
+    return call<string>("nugget:from", `${mark.quote}\n\n[${where}](${pdfLink(src, name, mark.page, mark.id)})`, { attribution: author || null, medium: title, passage: `p. ${mark.page}`, kind: "quote" })
+  }
+  /** The picked words marked in a colour; kept as a gem too when asked. */
+  const mark = async (color: MarkColor, gem: boolean): Promise<void> => {
     if (!picked) return
     const id = crypto.randomUUID()
-    const where = `${title}, p. ${picked.page}`
-    // The book is the gem's source and the page its place; its author, when the file names one, who said it.
-    const author = doc ? await pdfAuthor(doc) : ""
-    const gemId = await call<string>("nugget:from", `${picked.quote}\n\n[${where}](${pdfLink(src, name, picked.page, id)})`, { attribution: author || null, medium: title, passage: `p. ${picked.page}`, kind: "quote" })
-    await call("pdf:highlight", src, { id, page: picked.page, quote: picked.quote, start: picked.start, end: picked.end, gemId })
-    setMarks((all) => [...all, { id, page: picked.page, quote: picked.quote, start: picked.start, end: picked.end, gemId }])
+    const gemId = gem ? await gemOf({ id, page: picked.page, quote: picked.quote }) : null
+    await call("pdf:highlight", src, { id, page: picked.page, quote: picked.quote, start: picked.start, end: picked.end, gemId, color })
+    setMarks((all) => [...all, { id, page: picked.page, quote: picked.quote, start: picked.start, end: picked.end, gemId, color }])
     getSelection()?.removeAllRanges()
     setPicked(null)
+    chime("saved")
+    said(gem ? "Kept as a gem" : "Highlighted")
+  }
+  const copyCited = async (quote: string, page: number): Promise<void> => {
+    const { author, where } = await whereFrom(page)
+    await navigator.clipboard.writeText(cited(quote, author ? `${author}, ${where}` : where))
+    chime("saved")
+    said("Copied with its citation")
+  }
+  const actions: ReadActions = {
+    highlight: (color) => (rememberColor(color), void mark(color, false)),
+    keep: () => void mark(lastColor(), true),
+    copy: () => picked && void copyCited(picked.quote, picked.page),
+  }
+  // The bar's keys, while words are picked here.
+  useEffect(() => {
+    if (!picked) return
+    const onKey = (event: KeyboardEvent): void => {
+      if (keysHere(pane) && readKey(event, actions)) event.preventDefault()
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  })
+
+  /** A mark's colour changed, or the gem it became. */
+  const change = async (one: PdfMark, to: Partial<PdfMark>): Promise<void> => {
+    await call("pdf:mark", one.id, to)
+    setMarks((all) => all.map((each) => (each.id === one.id ? { ...each, ...to } : each)))
+  }
+  const keepMark = async (one: PdfMark): Promise<void> => {
+    await change(one, { gemId: await gemOf(one) })
     chime("saved")
     said("Kept as a gem")
   }
@@ -416,7 +455,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
             ref={scroller}
             className="pdf-reader-scroll"
             onScroll={onScroll}
-            // Only a mark has a menu: anywhere else a right click does nothing here.
+            // A mark has its menu, picked words theirs: anywhere else a right click does nothing here.
             onContextMenu={(event) => {
               const band = [...(scroller.current?.querySelectorAll<HTMLElement>(".pdf-mark") ?? [])].find((one) => {
                 const r = one.getBoundingClientRect()
@@ -424,7 +463,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
               })
               const mark = band ? marks.find((one) => one.id === band.dataset.mark) ?? null : null
               setHit(mark)
-              if (!mark) event.preventDefault()
+              if (!mark && !picked) event.preventDefault()
             }}
           >
             <PdfPages
@@ -442,38 +481,25 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
                 })
               }}
             />
-            {picked && <KeepBar at={picked} onKeep={() => void keep()} />}
+            {picked && <ReadBar at={picked} actions={actions} />}
           </div>
         </ContextMenuTrigger>
         <ContextMenuContent>
-          {hit?.gemId && <ContextMenuItem onSelect={() => window.dispatchEvent(new CustomEvent("haligtree:open", { detail: { type: "nugget", id: hit.gemId } }))}>Open its gem</ContextMenuItem>}
-          {hit && <ContextMenuItem onSelect={() => void remove(hit)}>Remove highlight</ContextMenuItem>}
+          {hit ? (
+            <MarkMenu
+              color={hit.color}
+              gem={!!hit.gemId}
+              onColor={(color) => void change(hit, { color })}
+              onKeep={() => void keepMark(hit)}
+              onOpenGem={() => window.dispatchEvent(new CustomEvent("haligtree:open", { detail: { type: "nugget", id: hit.gemId } }))}
+              onCopy={() => void copyCited(hit.quote, hit.page)}
+              onRemove={() => void remove(hit)}
+            />
+          ) : (
+            picked && <PickedMenu actions={actions} />
+          )}
         </ContextMenuContent>
       </ContextMenu>
-    </div>
-  )
-}
-
-/** "Keep", floating over the picked words as the editor's own selection bar does. */
-export function KeepBar({ at, onKeep }: { at: { x: number; y: number }; onKeep: () => void }): React.JSX.Element {
-  const bar = useRef<HTMLDivElement>(null)
-  const [width, setWidth] = useState(0)
-  useLayoutEffect(() => setWidth(bar.current?.offsetWidth ?? 0), [])
-  return (
-    <div
-      ref={bar}
-      className="pdf-keep-bar"
-      style={{ left: Math.max(8, at.x - width / 2), top: Math.max(8, at.y - 48) }}
-      // The words stay picked while the bar is pressed.
-      onMouseDown={(event) => event.preventDefault()}
-    >
-      <Toolbar variant="floating">
-        <ToolbarGroup>
-          <Button data-style="ghost" aria-label="Keep" title="Keep as a gem" onClick={onKeep}>
-            <span className="tiptap-button-text">Keep</span>
-          </Button>
-        </ToolbarGroup>
-      </Toolbar>
     </div>
   )
 }

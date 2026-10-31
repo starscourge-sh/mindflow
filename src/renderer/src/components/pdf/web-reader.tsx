@@ -15,12 +15,12 @@ import { host } from '@/lib/host'
 import { keysHere, usePane } from '@/lib/split'
 import { chime } from '@/lib/sound'
 import { cue } from '@/lib/cues'
-import { KeepBar, articleLink, openArticle, takeArticleFlash } from './pdf-reader'
+import { articleLink, openArticle, takeArticleFlash } from './pdf-reader'
+import { MARK_COLORS, MarkMenu, PickedMenu, ReadBar, cited, lastColor, readKey, rememberColor, type MarkColor, type ReadActions } from './read-bar'
 import { offsetsIn, rangeOf, type PdfMark } from './pdf-pages'
 import {
   ContextMenu,
   ContextMenuContent,
-  ContextMenuItem,
   ContextMenuTrigger
 } from '@/components/ui/context-menu'
 import { call } from '@/lib/haligtree'
@@ -86,12 +86,14 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
       const range = rangeOf(root, mark)
       return range ? [{ mark, range }] : []
     })
-    CSS.highlights.set(`${names}-mark`, new Highlight(...drawn.current.map((one) => one.range)))
+    // One list per colour: the book's own, then each of the others.
+    for (const one of MARK_COLORS)
+      CSS.highlights.set(markName(names, one.id), new Highlight(...drawn.current.filter(({ mark }) => (mark.color ?? null) === one.id).map(({ range }) => range)))
     // A gem's link back: its words lit until the next click, and brought into view.
     const lit = drawn.current.find((one) => one.mark.id === flash)?.range
     CSS.highlights.set(`${names}-flash`, new Highlight(...(lit ? [lit] : [])))
     lit?.startContainer.parentElement?.scrollIntoView({ block: 'center' })
-    return () => (CSS.highlights.delete(`${names}-mark`), CSS.highlights.delete(`${names}-flash`), undefined)
+    return () => (MARK_COLORS.forEach((one) => CSS.highlights.delete(markName(names, one.id))), CSS.highlights.delete(`${names}-flash`), undefined)
   }, [marks, article, flash, names])
 
   // A selection inside the article's words offers "Keep"; anything else hides it.
@@ -135,18 +137,23 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     return () => document.removeEventListener('selectionchange', onChange)
   }, [])
 
-  /** The picked words as a gem: the quote, "Article title, Site", and a link back that opens here with them lit. */
-  const keep = async (): Promise<void> => {
+  /** "Article title, Site": where an article's words came from, as a gem and a citation name it. */
+  const whereFrom = (): string => [article?.title, article?.site].filter(Boolean).join(', ')
+  const byline = (): string => article?.byline?.replace(/^by\s+/i, '') ?? ''
+  /** A gem of a mark's words: the quote, "Article title, Site", and a link back that opens here with them lit. */
+  const gemOf = (one: { id: string; quote: string }): Promise<string> =>
+    call<string>(
+      'nugget:from',
+      `${one.quote}\n\n[${whereFrom().replace(/[[\]]/g, '\\$&')}](${articleLink(href, one.id)})`,
+      // The article is the gem's source; its byline, when it has one, who said it.
+      { attribution: byline() || null, medium: whereFrom(), kind: 'quote' }
+    )
+  /** The picked words marked in a colour; kept as a gem too when asked. */
+  const mark = async (color: MarkColor, gem: boolean): Promise<void> => {
     if (!picked || !article) return
     const id = crypto.randomUUID()
-    const where = [article.title, article.site].filter(Boolean).join(', ')
-    const gemId = await call<string>(
-      'nugget:from',
-      `${picked.quote}\n\n[${where.replace(/[[\]]/g, '\\$&')}](${articleLink(href, id)})`,
-      // The article is the gem's source; its byline, when it has one, who said it.
-      { attribution: article.byline?.replace(/^by\s+/i, '') || null, medium: where, kind: 'quote' }
-    )
-    const mark: PdfMark = {
+    const gemId = gem ? await gemOf({ id, quote: picked.quote }) : null
+    const made: PdfMark = {
       id,
       page: 0,
       quote: picked.raw,
@@ -154,12 +161,42 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
       end: picked.end,
       prefix: picked.prefix,
       suffix: picked.suffix,
-      gemId
+      gemId,
+      color
     }
-    await call('pdf:highlight', href, mark)
-    setMarks((all) => [...all, mark])
+    await call('pdf:highlight', href, made)
+    setMarks((all) => [...all, made])
     getSelection()?.removeAllRanges()
     setPicked(null)
+    chime('saved')
+    said(gem ? 'Kept as a gem' : 'Highlighted')
+  }
+  const copyCited = async (quote: string): Promise<void> => {
+    await navigator.clipboard.writeText(cited(quote.replace(/\s+/g, ' ').trim(), [byline(), whereFrom()].filter(Boolean).join(', ')))
+    chime('saved')
+    said('Copied with its citation')
+  }
+  const actions: ReadActions = {
+    highlight: (color) => (rememberColor(color), void mark(color, false)),
+    keep: () => void mark(lastColor(), true),
+    copy: () => picked && void copyCited(picked.quote)
+  }
+  // The bar's keys, while words are picked here.
+  useEffect(() => {
+    if (!picked) return
+    const onKey = (event: KeyboardEvent): void => {
+      if (keysHere(pane) && readKey(event, actions)) event.preventDefault()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
+  /** A mark's colour changed, or the gem it became. */
+  const change = async (one: PdfMark, to: Partial<PdfMark>): Promise<void> => {
+    await call('pdf:mark', one.id, to)
+    setMarks((all) => all.map((each) => (each.id === one.id ? { ...each, ...to } : each)))
+  }
+  const keepMark = async (one: PdfMark): Promise<void> => {
+    await change(one, { gemId: await gemOf({ id: one.id, quote: one.quote.replace(/\s+/g, ' ').trim() }) })
     chime('saved')
     said('Kept as a gem')
   }
@@ -295,7 +332,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
 
   return (
     <div className={`pdf-reader web-reader${paper ? ' is-paper' : ''}`}>
-      <style>{tint(`${names}-mark`, 28) + tint(`${names}-found`, 25) + tint(`${names}-found-now`, 55) + tint(`${names}-flash`, 55)}</style>
+      <style>{MARK_COLORS.map((one) => tint(markName(names, one.id), 28, one.css)).join('') + tint(`${names}-found`, 25) + tint(`${names}-found-now`, 55) + tint(`${names}-flash`, 55)}</style>
       <div className="pdf-reader-bar">
         <span className="pdf-reader-title" title={title}>
           {title}
@@ -421,7 +458,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
                 )
               )
               setHit(on?.mark ?? null)
-              if (!on) event.preventDefault()
+              if (!on && !picked) event.preventDefault()
             }}
           >
             <article
@@ -454,23 +491,26 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
                 </>
               )}
             </article>
-            {picked && <KeepBar at={picked} onKeep={() => void keep()} />}
+            {picked && <ReadBar at={picked} actions={actions} />}
           </div>
         </ContextMenuTrigger>
         <ContextMenuContent>
-          {hit?.gemId && (
-            <ContextMenuItem
-              onSelect={() =>
+          {hit ? (
+            <MarkMenu
+              color={hit.color}
+              gem={!!hit.gemId}
+              onColor={(color) => void change(hit, { color })}
+              onKeep={() => void keepMark(hit)}
+              onOpenGem={() =>
                 window.dispatchEvent(
                   new CustomEvent('haligtree:open', { detail: { type: 'nugget', id: hit.gemId } })
                 )
               }
-            >
-              Open its gem
-            </ContextMenuItem>
-          )}
-          {hit && (
-            <ContextMenuItem onSelect={() => void remove(hit)}>Remove highlight</ContextMenuItem>
+              onCopy={() => void copyCited(hit.quote)}
+              onRemove={() => void remove(hit)}
+            />
+          ) : (
+            picked && <PickedMenu actions={actions} />
           )}
         </ContextMenuContent>
       </ContextMenu>
@@ -483,9 +523,12 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
  * PDF reader's marks are on light pages. On a dark theme the same share is
  * lost against the background, so it is half as strong again.
  */
-const tint = (name: string, percent: number): string =>
-  `::highlight(${name}) { background-color: color-mix(in srgb, var(--tt-brand-color-500, #c08a2e) ${Math.round(percent * 1.6)}%, transparent) }` +
-  `:root:is(.light, .paper, [data-light]) ::highlight(${name}) { background-color: color-mix(in srgb, var(--tt-brand-color-500, #c08a2e) ${percent}%, transparent) }`
+const tint = (name: string, percent: number, color = 'var(--tt-brand-color-500, #c08a2e)'): string =>
+  `::highlight(${name}) { background-color: color-mix(in srgb, ${color} ${Math.round(percent * 1.6)}%, transparent) }` +
+  `:root:is(.light, .paper, [data-light]) ::highlight(${name}) { background-color: color-mix(in srgb, ${color} ${percent}%, transparent) }`
+
+/** The highlight list a colour's marks are drawn by: the book's own is the plain `-mark`. */
+const markName = (names: string, color: string | null): string => `${names}-mark${color ? `-${color}` : ''}`
 
 /** Every run of words under a node, in reading order. */
 export const textNodes = (root: Node): Text[] => {

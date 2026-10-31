@@ -301,6 +301,59 @@ try {
   check('at the page you were on, not page 1', returned.page === '3' && returned.top !== null && Math.abs(returned.top) < 60, JSON.stringify(returned))
   await h.fill('.pdf-reader-page-field', '3'); await h.keyboard.press('Enter'); await wait(1000)
 
+  // Picked words offer more than a gem: "Highlight" alone, in a colour, "Keep", and "Copy with citation".
+  const pickHeading = (from, to) => h.evaluate(([from, to]) => {
+    const span = [...document.querySelectorAll('.pdf-reader .pdf-page[data-page="3"] .textLayer span')].find((one) => /Page 3 of the probe/.test(one.textContent))
+    const range = document.createRange()
+    range.setStart(span.firstChild, from)
+    range.setEnd(span.firstChild, to)
+    getSelection().removeAllRanges()
+    getSelection().addRange(range)
+  }, [from, to])
+  await pickHeading(0, 6); await wait(400)
+  const bar = await h.evaluate(() => [...document.querySelectorAll('.pdf-keep-bar button')].map((one) => one.getAttribute('aria-label')))
+  check('the bar offers Highlight, five colours, Keep and Copy with citation', ['Highlight', 'Highlight book colour', 'Highlight yellow', 'Highlight green', 'Highlight blue', 'Highlight pink', 'Keep', 'Copy with citation'].every((one) => bar.includes(one)), JSON.stringify(bar))
+  check('every button on the bar shows the hand', await h.evaluate(() => [...document.querySelectorAll('.pdf-keep-bar button')].every((one) => getComputedStyle(one).cursor === 'pointer')), '')
+  await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-read-bar.png` })
+  await h.click('.pdf-keep-bar button[aria-label="Highlight green"]'); await wait(700)
+  let all = await v('pdf:highlights', pdfSrc)
+  const green = all.find((one) => one.quote === 'Page 3')
+  check('a colour highlights the words without making a gem', green && green.color === 'green' && !green.gemId, JSON.stringify(all))
+  check('and the mark is drawn in that colour', await h.evaluate((id) => document.querySelector(`.pdf-mark[data-mark="${id}"]`)?.style.getPropertyValue('--mark') === '#3fae5a', green?.id), '')
+  // Keys: H highlights in the colour last used; ⇧⌘C copies the words with the book and page.
+  await pickHeading(7, 9); await wait(400)
+  await h.keyboard.press('Meta+Shift+c'); await wait(400)
+  const copied = await c.electron.evaluate(({ clipboard }) => clipboard.readText())
+  check('⇧⌘C copies the words with the book and page', copied === '“of” (The Probe Book, p. 3)', copied)
+  await pickHeading(7, 9); await wait(400)
+  await h.keyboard.press('h'); await wait(700)
+  all = await v('pdf:highlights', pdfSrc)
+  const byKey = all.find((one) => one.quote === 'of')
+  check('H highlights in the colour last used', byKey?.color === 'green' && !byKey.gemId, JSON.stringify(byKey))
+  // Right-click a highlight: its colour, "Keep as a gem" (it has none yet), copy, remove.
+  const greenAt = await h.evaluate((id) => { const r = document.querySelector(`.pdf-mark[data-mark="${id}"]`).getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } }, green?.id)
+  await h.mouse.click(greenAt.x, greenAt.y, { button: 'right' }); await wait(500)
+  const rows = await h.evaluate(() => [...document.querySelectorAll('[role="menuitem"], [role="menuitemradio"]')].map((one) => one.getAttribute('aria-label') ?? one.textContent.trim()))
+  check('right-click on a highlight offers its colours, Keep as a gem, Copy with citation and Remove', ['Blue', 'Keep as a gem', 'Copy with citation', 'Remove highlight'].every((one) => rows.includes(one)), JSON.stringify(rows))
+  await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-mark-menu.png` })
+  await h.click('[role="menuitemradio"][aria-label="Blue"]'); await wait(600)
+  all = await v('pdf:highlights', pdfSrc)
+  check('a colour from the menu recolours the highlight', all.find((one) => one.id === green?.id)?.color === 'blue', JSON.stringify(all))
+  await h.mouse.click(greenAt.x, greenAt.y, { button: 'right' }); await wait(500)
+  await h.click('[role="menuitem"]:has-text("Keep as a gem")'); await wait(900)
+  all = await v('pdf:highlights', pdfSrc)
+  const madeGem = all.find((one) => one.id === green?.id)?.gemId
+  const greenGem = madeGem ? await v('item', madeGem) : null
+  check('"Keep as a gem" on a highlight makes its gem, the book and page as on Keep', greenGem?.medium === 'The Probe Book' && greenGem?.passage === 'p. 3' && greenGem?.kind === 'quote' && JSON.stringify(greenGem?.body).includes(`mark=${green?.id}`), JSON.stringify({ medium: greenGem?.medium, passage: greenGem?.passage }))
+  // Right-click on picked words: the bar's own actions.
+  await pickHeading(10, 13); await wait(400)
+  const pickedAt = await h.evaluate(() => { const r = getSelection().getRangeAt(0).getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })
+  await h.mouse.click(pickedAt.x, pickedAt.y, { button: 'right' }); await wait(500)
+  const pickedRows = await h.evaluate(() => [...document.querySelectorAll('[role="menuitem"]')].map((one) => one.textContent.trim()))
+  check('right-click on picked words offers Highlight, Keep as a gem and Copy with citation', ['Highlight', 'Keep as a gem', 'Copy with citation'].every((one) => pickedRows.some((row) => row.startsWith(one))), JSON.stringify(pickedRows))
+  await h.keyboard.press('Escape'); await wait(300)
+  await h.evaluate(() => getSelection().removeAllRanges())
+
   // Paper pages, read off the screen: the white turns warm, the orange square stays orange.
   const pixels = async () => {
     const sheet = await h.evaluate(() => { const r = document.querySelector('.pdf-reader .pdf-page[data-page="3"]').getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height } })

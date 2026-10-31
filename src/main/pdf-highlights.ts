@@ -74,15 +74,25 @@ export function registerPdfHighlights(): void {
   db.exec("create table if not exists pdf_highlights (id text primary key, src text not null, page integer not null, quote text not null, start integer not null, end integer not null, gem_id text, created_at text not null, prefix text not null default '', suffix text not null default '')")
   const columns = (db.prepare('pragma table_info(pdf_highlights)').all() as { name: string }[]).map((one) => one.name)
   for (const name of ['prefix', 'suffix']) if (!columns.includes(name)) db.exec(`alter table pdf_highlights add column ${name} text not null default ''`)
+  // A mark's colour (none is the book's own) and a note written on it.
+  for (const name of ['color', 'note']) if (!columns.includes(name)) db.exec(`alter table pdf_highlights add column ${name} text`)
   ipcMain.handle('haligtree:pdf:highlights', (_event, src: unknown) =>
-    db.prepare('select id, page, quote, start, end, prefix, suffix, gem_id as gemId from pdf_highlights where src = ? order by page, start').all(String(src)))
+    db.prepare('select id, page, quote, start, end, prefix, suffix, gem_id as gemId, color, note from pdf_highlights where src = ? order by page, start').all(String(src)))
   ipcMain.handle('haligtree:pdf:highlight', (_event, src: unknown, mark: unknown) => {
-    const { id: given, page, quote, start, end, gemId, prefix, suffix } = (mark ?? {}) as { id?: string; page?: number; quote?: string; start?: number; end?: number; gemId?: string; prefix?: string; suffix?: string }
+    const { id: given, page, quote, start, end, gemId, prefix, suffix, color } = (mark ?? {}) as { id?: string; page?: number; quote?: string; start?: number; end?: number; gemId?: string; prefix?: string; suffix?: string; color?: string | null }
     if (!src || !quote || !Number.isInteger(page) || !Number.isInteger(start) || !Number.isInteger(end)) return null
     const id = typeof given === 'string' && given ? given : randomUUID()
-    db.prepare('insert into pdf_highlights (id, src, page, quote, start, end, gem_id, created_at, prefix, suffix) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-      .run(id, String(src), page!, quote, start!, end!, gemId ?? null, new Date().toISOString(), String(prefix ?? ''), String(suffix ?? ''))
+    db.prepare('insert into pdf_highlights (id, src, page, quote, start, end, gem_id, created_at, prefix, suffix, color) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(id, String(src), page!, quote, start!, end!, gemId ?? null, new Date().toISOString(), String(prefix ?? ''), String(suffix ?? ''), typeof color === 'string' && color ? color : null)
     return id
+  })
+  // A mark changed after it was made: its colour, the gem it became, its note.
+  ipcMain.handle('haligtree:pdf:mark', (_event, id: unknown, change: unknown) => {
+    const given = (change ?? {}) as { color?: string | null; gemId?: string | null; note?: string | null }
+    const sets = Object.entries({ color: given.color, gem_id: given.gemId, note: given.note }).filter(([, value]) => value !== undefined)
+    if (!sets.length) return false
+    return db.prepare(`update pdf_highlights set ${sets.map(([name]) => `${name} = ?`).join(', ')} where id = ?`)
+      .run(...sets.map(([, value]) => (typeof value === 'string' && value ? value : null)), String(id)).changes > 0
   })
   ipcMain.handle('haligtree:pdf:unhighlight', (_event, id: unknown) => db.prepare('delete from pdf_highlights where id = ?').run(String(id)).changes > 0)
   // The title read out of a PDF as it opens, kept so search finds it by that.

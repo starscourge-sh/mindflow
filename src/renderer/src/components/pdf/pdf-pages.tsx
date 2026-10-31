@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { GlobalWorkerOptions, TextLayer, getDocument, type PDFDocumentProxy } from "pdfjs-dist"
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url"
 import "./pdf.css"
+import { markCss } from "./read-bar"
 
 // The worker ships beside the page as a file of the app's own, so the page's
 // policy (script-src 'self') lets it run.
@@ -37,7 +38,7 @@ export async function pdfAuthor(doc: PDFDocumentProxy): Promise<string> {
 }
 
 /** Words kept from a page: where on its text they start and end, and the words themselves. */
-export type PdfMark = { id: string; page: number; quote: string; start: number; end: number; prefix?: string; suffix?: string; gemId?: string | null }
+export type PdfMark = { id: string; page: number; quote: string; start: number; end: number; prefix?: string; suffix?: string; gemId?: string | null; color?: string | null; note?: string | null }
 
 /** Every run of words in a page's text layer, in reading order. */
 const textNodes = (layer: Element): Text[] => {
@@ -105,6 +106,8 @@ function paintMarks(sheet: HTMLElement, marks: PdfMark[], flash: string | null |
       const find = mark.id.startsWith("find:")
       band.className = `pdf-mark${find ? " is-find" : ""}${mark.id === flash ? (find ? " is-current" : " is-flash") : ""}`
       band.dataset.mark = mark.id
+      if (mark.color) band.style.setProperty("--mark", markCss(mark.color))
+      if (mark.color) band.style.setProperty("--mark", markCss(mark.color))
       Object.assign(band.style, { left: `${rect.left - box.left}px`, top: `${rect.top - box.top}px`, width: `${rect.width}px`, height: `${rect.height}px` })
       paint.append(band)
     }
@@ -219,10 +222,10 @@ function PdfPage({ doc, page, scale, guess, drawn, marks, flash }: { doc: PDFDoc
   const [own, setOwn] = useState<{ w: number; h: number } | null>(null)
   // The words on this page are laid out: marks can be measured against them.
   const [worded, setWorded] = useState(0)
-  const key = marks.map((mark) => mark.id).join(" ")
+  const key = marks.map((mark) => `${mark.id}:${mark.color ?? ""}`).join(" ")
   useEffect(() => {
     if (sheet.current && worded) paintMarks(sheet.current, marks, flash)
-    // Marks are compared by their ids: a new array with the same ones is no change.
+    // Marks are compared by their ids and colours: a new array with the same ones is no change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [worded, key, flash])
   const size = own ?? guess

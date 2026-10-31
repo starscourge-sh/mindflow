@@ -168,6 +168,46 @@ try {
   check('right-click on the highlight offers its gem and removing it', menu.includes('Open its gem') && menu.includes('Remove highlight'), JSON.stringify(menu))
   await h.keyboard.press('Escape'); await wait(300)
 
+  // A colour on the bar highlights without a gem, drawn in that colour; its menu offers "Keep as a gem" and its colours.
+  const pickSits = () => h.evaluate(() => {
+    const text = [...document.querySelectorAll('.web-reader-body p')].find((one) => /quiet sentence/.test(one.textContent)).firstChild
+    const from = text.data.indexOf('sits here')
+    const range = document.createRange()
+    range.setStart(text, from)
+    range.setEnd(text, from + 'sits here'.length)
+    getSelection().removeAllRanges()
+    getSelection().addRange(range)
+  })
+  await pickSits(); await wait(400)
+  const webBar = await h.evaluate(() => [...document.querySelectorAll('.web-reader .pdf-keep-bar button')].map((one) => one.getAttribute('aria-label')))
+  check('the bar offers Highlight, its colours, Keep and Copy with citation', ['Highlight', 'Highlight blue', 'Keep', 'Copy with citation'].every((one) => webBar.includes(one)), JSON.stringify(webBar))
+  await h.screenshot({ path: `${shots}/web-read-bar.png` })
+  await h.keyboard.press('Meta+Shift+c'); await wait(400)
+  const webCopied = await electron.evaluate(({ clipboard }) => clipboard.readText())
+  check('⇧⌘C copies the words with the author and article', webCopied === '“sits here” (Ada Probe, The Garden Essay, Probe Times)', webCopied)
+  await pickSits(); await wait(400)
+  await h.click('.web-reader .pdf-keep-bar button[aria-label="Highlight blue"]'); await wait(700)
+  let webMarks = await v('pdf:highlights', `${SITE}/article`)
+  const blue = webMarks.find((one) => one.quote === 'sits here')
+  check('a colour highlights the words without a gem', blue?.color === 'blue' && !blue.gemId, JSON.stringify(webMarks))
+  check('drawn in that colour, the book-colour one kept apart', (await drawnIn('mark-blue')).join() === '1' && (await drawnIn()).join() === '1', JSON.stringify([await drawnIn('mark-blue'), await drawnIn()]))
+  const blueAt = await h.evaluate(() => {
+    const name = /::highlight\((web\w+)-mark\)/.exec(document.querySelector('.web-reader style').textContent)[1]
+    const r = [...CSS.highlights.get(`${name}-mark-blue`)][0].getClientRects()[0]
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 }
+  })
+  await h.mouse.click(blueAt.x, blueAt.y, { button: 'right' }); await wait(500)
+  const blueMenu = await h.evaluate(() => [...document.querySelectorAll('[role="menuitem"], [role="menuitemradio"]')].map((one) => one.getAttribute('aria-label') ?? one.textContent.trim()))
+  check('its menu offers its colours and Keep as a gem', ['Pink', 'Keep as a gem', 'Copy with citation', 'Remove highlight'].every((one) => blueMenu.includes(one)), JSON.stringify(blueMenu))
+  await h.click('[role="menuitemradio"][aria-label="Pink"]'); await wait(600)
+  webMarks = await v('pdf:highlights', `${SITE}/article`)
+  check('a colour from the menu recolours it', webMarks.find((one) => one.id === blue?.id)?.color === 'pink' && (await drawnIn('mark-pink')).join() === '1', JSON.stringify(webMarks.map((one) => one.color)))
+  await h.mouse.click(blueAt.x, blueAt.y, { button: 'right' }); await wait(500)
+  await h.click('[role="menuitem"]:has-text("Keep as a gem")'); await wait(900)
+  webMarks = await v('pdf:highlights', `${SITE}/article`)
+  const sitsGem = webMarks.find((one) => one.id === blue?.id)?.gemId ? await v('item', webMarks.find((one) => one.id === blue?.id).gemId) : null
+  check('"Keep as a gem" makes its gem, sourced as Keep does', sitsGem?.medium === 'The Garden Essay, Probe Times' && sitsGem?.attribution === 'Ada Probe' && JSON.stringify(sitsGem?.body).includes('sits here'), JSON.stringify({ medium: sitsGem?.medium, attribution: sitsGem?.attribution }))
+
   // ⌘K finds the article by its title.
   const found = await h.evaluate(() => window.api.captures.find('garden essay'))
   check('search finds the article by its title, once', found.filter((one) => one.type === 'web').length === 1 && found.find((one) => one.type === 'web')?.label === 'The Garden Essay', JSON.stringify(found.map((one) => [one.type, one.label])))
