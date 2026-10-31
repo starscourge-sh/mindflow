@@ -78,6 +78,8 @@ export function WillDo({ plan, list, onSort, onKeep, onNotTask, onNewQuestion, o
           {index > 0 && <span aria-hidden className="mr-0.5 text-muted-foreground/50">·</span>}
           <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ backgroundColor: `var(--tt-color-text-${item.color})` }} />
           <span className="min-w-0 truncate text-foreground/80">{item.effect}</span>
+          {/* Tab keeps it as a question (BoxOffers takes the key): said with its key, as "or a question" is. */}
+          {item.key === 'question' && <Kbd>⇥</Kbd>}
           {item.tokens.find((one) => one.guess) && (
             <Tip label={`${item.tokens.find((one) => one.guess)!.guess}. Check it, or click the words to keep them plain.`}>
               <span data-will-guess {...loud('warn', 'shrink-0 cursor-default')}>a guess</span>

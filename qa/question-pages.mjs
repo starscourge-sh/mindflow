@@ -78,7 +78,8 @@ try {
   await page.keyboard.press('Backspace')
   await page.keyboard.type('Does the harbour silt up every winter?', { delay: 8 })
   await page.waitForTimeout(900)
-  const offer = await page.evaluate(() => document.querySelector('[data-offer="ask"]')?.textContent ?? '')
+  // Said once: on the box's own offer line, or, for a lone question, on "This will:" (App.tsx quietAsk), Tab taking it either way.
+  const offer = await page.evaluate(() => (document.querySelector('[data-offer="ask"]') ?? document.querySelector('[data-will-do]'))?.textContent ?? '')
   check('a line ending in "?" offers "Keep as a question" with its key', /Keep as a question/.test(offer) && /⇥/.test(offer), offer)
   await page.keyboard.press('Tab')
   await page.waitForTimeout(1200)
