@@ -35,7 +35,7 @@ export function PasteCards({ onClose }: { onClose: () => void }): React.JSX.Elem
     const tagged = cards.map(({ term, meaning }) => ({ term, meaning: marks.length ? `${meaning}\n\n${marks.map((one) => `#${one}`).join(' ')}` : meaning }))
     void window.api.haligtree<string[]>('cards:list', tagged).then((ids) => {
       chime('noted')
-      toast(`${num(ids.length)} ${ids.length === 1 ? 'card' : 'cards'} added${marks.length ? ` to #${marks[0]}` : ''}`, () => void window.api.haligtree('cards:list:undo', ids).then(() => chime('undo')))
+      toast(`${ids.length === 1 ? 'Card made' : `${num(ids.length)} cards made`}${marks.length ? ` in #${marks[0]}` : ''}`, () => void window.api.haligtree('cards:list:undo', ids).then(() => chime('undo')), 'success', undefined, ids.length === 1 ? { type: 'nugget', id: ids[0], title: tagged[0].term } : undefined)
       setText('')
       onClose()
     })

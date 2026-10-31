@@ -61,7 +61,7 @@ export async function addForDay(text: string, day: string): Promise<boolean> {
   const due = alone ? atOn(task!.dueAt!, dayjs(day).format('YYYY-MM-DD')) : task?.dueAt ?? dayjs(day).hour(9).minute(0).startOf('minute').toISOString()
   if (alone || !task?.dueAt) await haligtree.saveTask(made.id, { due })
   chime('noted')
-  toast(`Added for ${whenInLine(due, alone ? false : !task?.dueAt || !!task.allDay)}`, () => void haligtree.unmakeTask(made.id, made.existed, [], []))
+  toast(`Added for ${whenInLine(due, alone ? false : !task?.dueAt || !!task.allDay)}`, () => void haligtree.unmakeTask(made.id, made.existed, [], []), 'success', undefined, { type: 'task', id: made.id })
   return true
 }
 

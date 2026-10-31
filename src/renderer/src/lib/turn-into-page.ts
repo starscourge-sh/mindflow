@@ -36,13 +36,13 @@ export async function turnIntoPage(editor: Editor, origin?: string, { embed = fa
   const doc = editor.isDestroyed ? null : editor.state.doc
   if (!doc || to > doc.content.size || doc.textBetween(from, to, '\n').trim() !== text) {
     chime('settled')
-    toast('Made into a page; the words stay here, since the note changed meanwhile')
+    toast('Made into a page; the words stay here, since the note changed meanwhile', undefined, 'success', undefined, { type: 'capture', id, title })
     return id
   }
   const link = { type: 'noteLink', attrs: { id, label: title } }
   const shown = embed && !!editor.schema.nodes.noteEmbed
   editor.chain().focus().insertContentAt({ from, to }, shown ? { type: 'noteEmbed', attrs: { id, label: title } } : inLine ? link : { type: 'paragraph', content: [link] }).run()
   chime('settled')
-  toast(shown ? 'Shared with a new page: edit it here or there, the same words' : 'Moved to a new page: the link takes you there')
+  toast(shown ? 'Shared with a new page: edit it here or there, the same words' : 'Moved to a new page: the link takes you there', undefined, 'success', undefined, { type: 'capture', id, title })
   return id
 }

@@ -570,7 +570,7 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
       return [lane]
     })
     chime('noted')
-    toast(`Made a note: ${title}`, () => (commit(editor, before), void haligtree.unmakeCapture(made, id), chime('undo')), 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('capture', made) })
+    toast(`Made a note: ${title}`, () => (commit(editor, before), void haligtree.unmakeCapture(made, id), chime('undo')), 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('capture', made) }, { type: 'capture', id: made, title })
   }
   /** A date on a card makes it a task on that day, linked back to this note. */
   const dated = async (lane: number, at: number, day: Date): Promise<void> => {
@@ -580,7 +580,7 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
     const due = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 12).toISOString()
     if (!made.existed) await haligtree.saveTask(made.id, { due })
     chime('noted')
-    toast(taskSaid(made, `Task added for ${dayMonth(due)}`))
+    toast(taskSaid(made, `Task added for ${dayMonth(due)}`), undefined, 'success', undefined, { type: 'task', id: made.id })
   }
 
   const menuFor = (lane: number, at: number) => (close: () => void): ReactNode => {

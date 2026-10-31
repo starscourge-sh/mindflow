@@ -86,9 +86,9 @@ export async function keep(kind: Kind, text: string, question: string, origin: O
     // The words stay in the note, marked as kept, their mark opening the gem.
     const unmark = markKept(at, 'nugget', id)
     // One line, so the notice stays clear of the note.
-    toast(unmark ? (asked ? 'Gem saved with its question; the line is marked' : 'Saved as a gem; the line is marked in your note') : asked ? 'Saved as a gem, with its question for review' : 'Saved as a gem',
+    toast(unmark ? (asked ? 'Kept as a gem, with its question; the line is marked' : 'Kept as a gem; the line is marked in your note') : asked ? 'Kept as a gem, with its question for review' : 'Kept as a gem',
       () => (unmark?.(), void haligtree.unlift('nugget', id).then(() => forget(kind, words))),
-      'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('nugget', id) })
+      'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('nugget', id) }, { type: 'nugget', id, title: words })
     return true
   } catch (error) {
     forget(kind, words)

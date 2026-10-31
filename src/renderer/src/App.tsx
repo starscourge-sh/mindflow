@@ -709,7 +709,7 @@ export default function App(): React.JSX.Element {
       void haligtree.newQuestion(line, id).then((question) => {
         if (!question) return refuse('That capture was already dealt with. Put it back in the Inbox first')
         chime('hold')
-        toast('Kept as a question in Writing: add clues as they come', () => void haligtree.dropQuestion(question).then(() => chime('undo')), 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('question', question) })
+        toast('Kept as a question: add clues as they come', () => void haligtree.dropQuestion(question).then(() => chime('undo')), 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('question', question) }, { type: 'question', id: question, title: line })
       })
       return
     }
@@ -719,7 +719,7 @@ export default function App(): React.JSX.Element {
     void haligtree.newQuestion(line).then(async (question) => {
       if (rest) await haligtree.addClue(question, rest)
       chime('hold')
-      toast('Kept as a question in Writing: add clues as they come', () => void haligtree.dropQuestion(question).then(() => (chime('undo'), putDraft(doc), fresh(true))), 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('question', question) })
+      toast('Kept as a question: add clues as they come', () => void haligtree.dropQuestion(question).then(() => (chime('undo'), putDraft(doc), fresh(true))), 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('question', question) }, { type: 'question', id: question, title: line })
     })
     fresh()
   }
@@ -1524,7 +1524,7 @@ export default function App(): React.JSX.Element {
         } else if (!document.documentElement.hasAttribute('data-welcome-ph')) {
           // A plain note takes back the same way as every other send: the
           // capture goes, and the box comes back as it was sent.
-          toast(page ? 'Page kept in your Inbox. Pick what each line becomes' : later ? `A letter to future you: back ${dayjs(later.day).format('ddd D MMM YYYY')}` : 'Kept in your Inbox', () => (void haligtree.unlift('capture', id), bringBack(sent)))
+          toast(page ? 'Page kept in your Inbox. Pick what each line becomes' : later ? `A letter to future you: back ${dayjs(later.day).format('ddd D MMM YYYY')}` : 'Kept in the Inbox', () => (void haligtree.unlift('capture', id), bringBack(sent)), 'success', undefined, { type: 'capture', id })
         }
         if (page) openSort(page, id)
         if (more) return
