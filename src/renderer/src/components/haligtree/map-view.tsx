@@ -9,6 +9,7 @@ import { useLive } from '@/lib/haligtree'
 import { exampleMap } from '@/lib/examples'
 import { Example } from './example'
 import { chime } from '@/lib/sound'
+import { FLOAT } from '@/lib/float'
 import { Empty, Rolling, Tip, TypedMark } from './ui'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { History, Palette, Pause, Play, Search as SearchIcon, Unlink, X } from 'lucide-react'
@@ -320,7 +321,7 @@ function FindOnMap({ nodes, onPick }: { nodes: NoteMap['nodes']; onPick: (id: st
           className="min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground" />
       </label>
       {open && words.trim() && (
-        <ul className="absolute top-full right-0 z-20 mt-1 w-72 rounded-lg border bg-popover p-1 text-control text-popover-foreground shadow-[0_8px_24px_-10px_rgb(0_0_0/0.35)]">
+        <ul className={`absolute top-full right-0 z-20 mt-1 w-72 rounded-lg p-1 text-control ${FLOAT}`}>
           {found.length ? found.map((node, n) => {
             const Icon = (kindOf(node.kind) ?? CAPTURE_TYPES[0]).icon
             return (

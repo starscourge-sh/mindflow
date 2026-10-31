@@ -24,6 +24,7 @@ import { moment } from '@/lib/clock'
 import { isTagWord, tagsIn } from '../../../../main/tag-words'
 import { Brush, X } from '@/components/ui/icons'
 import { useVim } from '@/lib/vim'
+import { FLOAT } from '@/lib/float'
 
 /** How old a capture is, said the way a person would: "A week", "3 weeks", "5 months", "A year". */
 function ageOf(at: string, now = dayjs()): string {
@@ -567,10 +568,10 @@ export function TagRow({ tags, field, onAdd, onRemove, onDone, autoFocus = false
         }}
       />
       {focused && offered.length > 0 && (
-        <div className="absolute top-full left-0 z-30 mt-1 min-w-48 overflow-hidden rounded-lg border bg-popover p-1 text-sm shadow-lg">
+        <div className={`absolute top-full left-0 z-30 mt-1 min-w-48 overflow-hidden rounded-lg p-1 text-control ${FLOAT}`}>
           {offered.map((one, index) => (
             <button key={one.tag} type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => keep(one.tag)}
-              className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-left ${index === pick ? 'bg-accent' : 'hover:bg-accent/60'}`}>
+              className={`flex min-h-7 w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-left ${index === pick ? 'bg-accent' : 'hover:bg-accent/60'}`}>
               <span className="flex-1 truncate" style={{ color: tagTint(one.tag, one.color) }}>#{one.tag}</span>
               <span className="text-xs text-muted-foreground tabular-nums">{one.count}</span>
             </button>

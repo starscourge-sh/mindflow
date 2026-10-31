@@ -2,6 +2,7 @@ import { AnimatePresence, motion, useMotionTemplate, useMotionValue, useSpring, 
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { still } from '@/lib/motion'
+import { FLOAT } from '@/lib/float'
 
 // Smaller than this, a picture is an icon, not a thing you could pick up.
 const SMALLEST = 56
@@ -74,7 +75,7 @@ export function useTilt(by: number, lift = 1.03): {
   return { x, y, grow, glow, sheen, lean, flat, onFlat: (then) => void (also.current = then) }
 }
 
-const LABEL = 'pointer-events-none fixed top-0 left-0 z-50 rounded-md border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md'
+const LABEL = `pointer-events-none fixed top-0 left-0 z-50 rounded-md px-2 py-1 text-xs ${FLOAT}`
 // One line cut short for a card's title; up to three whole lines for a caption.
 const LINE = 'max-w-60 truncate'
 const LINES = 'w-max max-w-[280px] line-clamp-3 break-words leading-snug'

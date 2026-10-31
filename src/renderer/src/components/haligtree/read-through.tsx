@@ -3,6 +3,7 @@ import { fieldOf } from '../capture-list'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { chime, paper } from '@/lib/sound'
+import { FLOAT } from '@/lib/float'
 import type { Editor, JSONContent } from '@tiptap/core'
 import { toMarkdown } from '@/lib/export'
 import { AnimatePresence, motion } from 'motion/react'
@@ -988,7 +989,7 @@ function UpNext({ queue, at, read, onSkip, onDone, onOpen }: { queue: QueueRow[]
   const button = 'flex h-7 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-control transition-colors hover:bg-accent hover:text-foreground'
   return (
     <div data-up-next className="relative z-10 flex shrink-0 justify-center px-4 pb-1">
-      <div className="flex max-w-full min-w-0 items-center gap-1 rounded-full border bg-popover py-1 pr-1 pl-3.5 text-control text-muted-foreground shadow-sm">
+      <div className={`flex max-w-full min-w-0 items-center gap-1 rounded-full py-1 pr-1 pl-3.5 text-control ${FLOAT}`}>
         <span className="shrink-0">{next ? 'Up next:' : 'Last in the queue'}</span>
         {next && (
           <span className="flex min-w-0 items-center gap-1.5 pl-1.5 text-foreground">
@@ -1066,7 +1067,7 @@ function SortBar({ left, tagging, moving, groups, own, onTagging, onMoving, onKe
           </>
         )}
       </div>
-      <div className="flex max-w-full min-w-0 flex-wrap items-center justify-center gap-1 rounded-2xl border bg-popover py-1 pr-1 pl-3.5 text-control shadow-sm">
+      <div className={`flex max-w-full min-w-0 flex-wrap items-center justify-center gap-1 rounded-2xl py-1 pr-1 pl-3.5 text-control ${FLOAT}`}>
         <span className="flex shrink-0 items-center gap-1.5 font-medium text-foreground">
           <span aria-hidden className="size-1.5 rounded-full bg-[var(--tt-color-text-orange)]" />
           <span><Rolling text={left} /> left</span>
