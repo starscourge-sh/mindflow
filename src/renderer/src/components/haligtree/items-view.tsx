@@ -9,7 +9,8 @@ import { openRead } from './read-through'
 import { propertySorts } from '@/lib/property-sorts'
 import { ReadsIn } from '@/lib/reads-in'
 import { quoted } from '../../../../main/clip'
-import { voiceOf } from '@/lib/sources'
+import { openSource, voiceOf } from '@/lib/sources'
+import { openPdf } from '@/components/pdf/pdf-reader'
 import { SourceFoot } from './source-page'
 import { SimilarNotes } from './similar-notes'
 import { chime, pageTurn } from '@/lib/sound'
@@ -90,7 +91,7 @@ import { Apart } from '@/lib/apart'
 import { loud } from '@/lib/loud'
 import { pictureItems } from '@/lib/note-picture'
 import { cardItem } from '@/lib/share-card'
-import { ArchiveRestore, BookOpen, Brain, Download, Eye, EyeOff, FileText, History, Layers, Bookmark as Pin, Quote, Repeat as RefreshCw, TriangleAlert, X } from '@/components/ui/icons'
+import { ArchiveRestore, BookOpen, Brain, Download, Eye, EyeOff, FileText, History, Layers, Pencil, Bookmark as Pin, Quote, Repeat as RefreshCw, TriangleAlert, X } from '@/components/ui/icons'
 import { menuOpen } from '@/lib/menu-keys'
 
 
@@ -850,6 +851,23 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
   useEffect(() => setSource(item.attribution ?? ''), [item.id, item.attribution])
   const [where, setWhere] = useState(item.medium ?? '')
   useEffect(() => setWhere(item.medium ?? ''), [item.id, item.medium])
+  // Each source row is a link until its pencil turns it into its field.
+  const [editingWho, setEditingWho] = useState(false)
+  const [editingWhere, setEditingWhere] = useState(false)
+  useEffect(() => (setEditingWho(false), setEditingWhere(false)), [item.id])
+  // Esc leaves a source field as it was: its blur then saves nothing.
+  const escaped = useRef(false)
+  const leaveOnKeys = (revert: () => void) => (event: React.KeyboardEvent<HTMLInputElement>): void => {
+    if (event.key === 'Enter') return void event.currentTarget.blur()
+    if (event.key !== 'Escape') return
+    event.preventDefault()
+    event.stopPropagation()
+    escaped.current = true
+    revert()
+    event.currentTarget.blur()
+  }
+  // The page of a PDF its words were kept from: the link in its body is the one truth of which page.
+  const pdf = useMemo(() => pdfIn(item.body), [item.body])
   const glossWords = item.glosses.filter((one) => one.author === 'user').reduce((sum, one) => sum + one.body.split(/\s+/).filter(Boolean).length, 0)
   const editor = useRef<Editor | null>(null)
   // A page's margin: who it names, read again a moment after the typing stops, and only when that changed.
@@ -1172,12 +1190,12 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
 
         {item.tier === 'nugget' ? (
           <>
-            <Island compact title="Context">
+            <Island compact title="Context" filled={!!item.context?.trim()}>
               <Does does="What makes the answer make sense. Shown after the answer in Review" set={!!item.context}>
               <ContextField id={item.id} value={item.context} className={`resize-none text-control ${GHOST}`} />
               </Does>
             </Island>
-            <Island compact title="Why">
+            <Island compact title="Why" filled={!!item.why?.trim()}>
               <Does does="Why the answer is so, in a line. Shown under it in Review" set={!!item.why}>
               <Textarea
                 defaultValue={item.why ?? ''}
@@ -1216,28 +1234,37 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
             <Supersede item={item} />
           )}
         </Island>
-        <Island compact title="Where it came from">
-          <label className="flex items-center gap-2 px-2 py-1.5 focus-within:text-foreground hover:bg-accent">
-            <Quote className="size-4 shrink-0" />
+        <Island compact title="Where it came from" filled={!!(item.attribution?.trim() || item.medium?.trim() || pdf)}>
+          {/* Who said it opens their page in Sources; the pencil turns it into its field. */}
+          <SourceRow icon={Quote} name="source" editing={editingWho} setEditing={setEditingWho}
+            label={item.attribution?.trim() ?? ''} tip="Open their page in Sources"
+            open={() => (chime('page'), openSource('attribution', item.attribution ?? ''))}>
             {/* Asked the way its kind asks it (Who said it, Who made it), with the names used before offered. */}
-            <Remembered key={`w${item.id}`} field="attribution" value={source} data-gem-source
+            <Remembered key={`w${item.id}`} field="attribution" value={source} data-gem-source autoFocus={editingWho}
               placeholder={asksFor(item.kind as CaptureType, item.title).who ?? 'Who, or where from'}
               className="min-w-0 flex-1 bg-transparent text-control outline-none placeholder:text-foreground/70"
               onChange={setSource}
+              onKeyDown={leaveOnKeys(() => setSource(item.attribution ?? ''))}
               onBlur={() => {
+                setEditingWho(false)
+                if (escaped.current) return void (escaped.current = false)
                 const next = source.trim() || null
                 if (!next && item.kind === 'quote' && item.attribution?.trim()) return askClearWho(item.attribution.trim(), () => haligtree.saveItem(item.id, { attribution: null }), () => setSource(item.attribution ?? ''))
                 if (next !== (item.attribution ?? null)) void haligtree.saveItem(item.id, { attribution: next }).then(() => chime('noted')) }} />
-          </label>
-          {/* Where it came from (a book, a site), kept from its capture and changed here. */}
-          <label className="flex items-center gap-2 px-2 py-1.5 focus-within:text-foreground hover:bg-accent">
-            <BookOpen className="size-4 shrink-0" />
-            <Remembered key={`m${item.id}`} field="medium" value={where} data-gem-where
+          </SourceRow>
+          {/* Where it came from (a book, a site): a PDF opens at its page (⌥ beside this one), with its pages previewed on hover; any other source opens its page in Sources. */}
+          <SourceRow icon={BookOpen} name="where" editing={editingWhere} setEditing={setEditingWhere}
+            label={pdf ? `${bookOf(item.medium) || pdf.name.replace(/\.pdf$/i, '')}, p. ${pdf.page}` : item.medium?.trim() ?? ''}
+            tip={pdf ? `Open it at p. ${pdf.page}. ⌥-click opens it beside this` : 'Open its page in Sources'}
+            peek={pdf ?? undefined}
+            open={(aside) => (pdf ? (chime('page'), openPdf(pdf.src, pdf.name, pdf.page, pdf.mark, aside)) : (chime('page'), openSource('medium', item.medium ?? '')))}>
+            <Remembered key={`m${item.id}`} field="medium" value={where} data-gem-where autoFocus={editingWhere}
               placeholder={asksFor(item.kind as CaptureType, item.title).where ?? 'Where from'}
               className="min-w-0 flex-1 bg-transparent text-control outline-none placeholder:text-foreground/70"
               onChange={setWhere}
-              onBlur={() => { const next = where.trim() || null; if (next !== (item.medium ?? null)) void haligtree.saveItem(item.id, { medium: next }).then(() => chime('noted')) }} />
-          </label>
+              onKeyDown={leaveOnKeys(() => setWhere(item.medium ?? ''))}
+              onBlur={() => { setEditingWhere(false); if (escaped.current) return void (escaped.current = false); const next = where.trim() || null; if (next !== (item.medium ?? null)) void haligtree.saveItem(item.id, { medium: next }).then(() => chime('noted')) }} />
+          </SourceRow>
         </Island>
         <Island compact title="Details">
           <Prop icon={Calendar}>Saved {whenInLine(item.createdAt)}</Prop>
@@ -1251,6 +1278,69 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
             edit, so the history of your thinking about it stays readable. */}
         <GlossTimeline id={item.id} />
       </Props>}
+    </div>
+  )
+}
+
+/** A link into one of the book's PDFs, as a gem's body keeps it: `haligtree://assets/….pdf#page=3&mark=…&name=…`. */
+const PDF_IN_BODY = /((?:haligtree|mindflow):\/\/assets\/[^#?)\s"\\]+\.pdf)#([^)\s"\\]*)/i
+
+/** The PDF a gem's words were kept from, and the page, read from the link in its body. */
+export function pdfIn(body: unknown): { src: string; name: string; page: number; mark?: string } | null {
+  const found = PDF_IN_BODY.exec(typeof body === 'string' ? body : JSON.stringify(body ?? ''))
+  if (!found) return null
+  const hash = new URLSearchParams(found[2].replace(/&amp;/g, '&'))
+  const page = Number(hash.get('page'))
+  if (!page) return null
+  return { src: found[1], name: hash.get('name') ?? '', page, mark: hash.get('mark') || undefined }
+}
+
+/** A book's name without a page once kept on its end ("The Law Book, p. 93" was the whole source once). */
+const bookOf = (medium: string | null | undefined): string => (medium ?? '').replace(/,\s*p\.\s*\d+\s*$/, '').trim()
+
+/**
+ * A source of a gem, as a link: a click opens it (⌥ beside the page, where it
+ * can), and the pencil that shows on hover turns the row into its field,
+ * where Enter keeps what is typed and Esc leaves it as it was. Empty, the row
+ * is the field, waiting to be filled.
+ */
+function SourceRow({ icon: Icon, name, label, tip, open, peek, editing, setEditing, children }: {
+  icon: React.ComponentType<{ className?: string }>
+  name: 'source' | 'where'
+  label: string
+  tip: string
+  open: (aside: boolean) => void
+  peek?: { src: string; name: string; page: number }
+  editing: boolean
+  setEditing: (on: boolean) => void
+  children: React.ReactNode
+}): React.JSX.Element {
+  if (editing || !label) {
+    return (
+      <label className="flex cursor-text items-center gap-2 px-2 py-1.5 focus-within:text-foreground hover:bg-accent">
+        <Icon className="size-4 shrink-0" />
+        {children}
+      </label>
+    )
+  }
+  return (
+    <div data-source-row={name} className="group/source flex items-center hover:bg-accent">
+      <Tip label={tip}>
+        <button type="button" data-source-link={name}
+          data-pdf-peek={peek?.src} data-pdf-peek-name={peek?.name} data-pdf-peek-page={peek?.page}
+          onClick={(event) => open(event.altKey)}
+          className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-left text-control text-foreground">
+          <Icon className="size-4 shrink-0 text-muted-foreground" />
+          <span className="min-w-0 truncate underline decoration-foreground/25 underline-offset-[3px] group-hover/source:decoration-foreground/60">{label}</span>
+        </button>
+      </Tip>
+      <Tip label="Edit">
+        <button type="button" data-source-edit={name} aria-label={name === 'source' ? 'Edit who it came from' : 'Edit where it came from'}
+          onClick={() => (chime('tap'), setEditing(true))}
+          className="mr-1 shrink-0 rounded-md p-1 text-muted-foreground opacity-0 transition-opacity group-hover/source:opacity-100 hover:bg-background/60 hover:text-foreground focus-visible:opacity-100">
+          <Pencil className="size-3.5" />
+        </button>
+      </Tip>
     </div>
   )
 }

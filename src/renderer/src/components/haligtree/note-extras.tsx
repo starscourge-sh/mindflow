@@ -768,7 +768,7 @@ export function LocalGraph({ id, title, onOpen }: { id: string; title: string; o
   if (!graph) return null
   const linked = graph.nodes.length - 1
   return (
-    <Island compact title="Links">
+    <Island compact title="Links" filled={linked > 0}>
       {!linked ? (
         <p className="px-2 py-1.5 text-xs text-muted-foreground"><Typed text="No links yet. Type @ in the note to link another, and it shows here." step={25} /></p>
       ) : (

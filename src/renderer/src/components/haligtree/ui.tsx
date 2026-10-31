@@ -18,7 +18,7 @@ import { useReadsIn, useSeen } from '@/lib/reads-in'
 import { chime, quietFor, setVolume, soundOn } from '@/lib/sound'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/cn'
-import { useStoredFlag } from '@/lib/use-stored-flag'
+import { useStoredChoice, useStoredFlag } from '@/lib/use-stored-flag'
 import { useDetailsShown } from '@/lib/reading'
 import { keyFor, useKeyChanges, withKeys } from '@/lib/keys'
 import { Kbd as ShadKbd, KbdGroup } from '@/components/ui/kbd'
@@ -1771,7 +1771,9 @@ export function Remembered({ field, value, onChange, placeholder, className: giv
     if (!typed) return undefined
     const same = values.find((one) => one.toLowerCase() === typed)
     if (same) return same
-    return typed.length >= 4 ? values.find((one) => near(one.toLowerCase(), typed)) : undefined
+    // A different number is never a slip of a key: "The Law Book, p. 83" stays p. 83 beside a p. 93 used before.
+    const digits = (text: string): string => text.replace(/\D/g, '')
+    return typed.length >= 4 ? values.find((one) => digits(one) === digits(typed) && near(one.toLowerCase(), typed)) : undefined
   }
   const chip = (
     <span className={cn('relative inline-grid [&>*]:col-start-1 [&>*]:row-start-1', /\bw-full\b/.test(className) && 'w-full')}>
@@ -2383,8 +2385,14 @@ const FoldIslands = createContext(false)
 /** Open at first, of the details sidebar's groups: what can be done with a note, where it sits and what it is. The rest wait folded. */
 const OPEN_AT_FIRST = new Set(['Status', 'Family', 'Links', 'Details', 'In the margin', 'Words to use'])
 
-export function Island({ title, actions, children, className, compact, name, group }: {
+export function Island({ title, actions, children, className, compact, name, group, filled }: {
   title?: ReactNode
+  /**
+   * In a note's details sidebar: whether it holds something written or set.
+   * Given, it starts open when it does and folded when it is empty, unless
+   * the person has opened or folded it themselves, which is remembered and wins.
+   */
+  filled?: boolean
   /** Named in the page's contents (page-contents.tsx), by this name. */
   group?: string
   actions?: ReactNode
@@ -2401,7 +2409,7 @@ export function Island({ title, actions, children, className, compact, name, gro
 }): React.JSX.Element {
   const folds = useContext(FoldIslands) && compact && !!title
   const key = name ?? (typeof title === 'string' ? title : '')
-  if (folds && key) return <FoldingIsland title={title} name={key} actions={actions} className={className}>{children}</FoldingIsland>
+  if (folds && key) return <FoldingIsland title={title} name={key} filled={filled} actions={actions} className={className}>{children}</FoldingIsland>
   return (
     <section data-group={group} className={cn(compact ? 'mt-3 first:mt-0 has-[>div:last-child:empty]:hidden' : 'mt-6 first:mt-0', className)}>
       {(title || actions) && (
@@ -2436,11 +2444,13 @@ export function focusField(find: () => HTMLElement | null | undefined): void {
 }
 
 /** A details group that folds by its heading, remembered per group; Family, Links and Details start open. */
-function FoldingIsland({ title, name, actions, className, children }: { title: ReactNode; name: string; actions?: ReactNode; className?: string; children: ReactNode }): React.JSX.Element {
-  const [open, setOpen] = useStoredFlag(`details-open:${name}`, OPEN_AT_FIRST.has(name))
+function FoldingIsland({ title, name, filled, actions, className, children }: { title: ReactNode; name: string; filled?: boolean; actions?: ReactNode; className?: string; children: ReactNode }): React.JSX.Element {
+  // The person's own choice, when they made one; else open while it holds something.
+  const [chosen, choose] = useStoredChoice(`details-open:${name}`)
+  const open = chosen ?? filled ?? OPEN_AT_FIRST.has(name)
   const toggle = (): void => {
     chime(open ? 'fold' : 'open')
-    setOpen(!open)
+    choose(!open)
   }
   return (
     <section data-details-group={name} data-open={open ? '' : undefined} className={cn('mt-2 first:mt-0 has-[[data-island-body]:empty]:hidden', className)}>

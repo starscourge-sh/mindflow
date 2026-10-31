@@ -61,7 +61,7 @@ export function SimilarNotes({ id, onOpen }: { id: string; onOpen?: (type: strin
   }
   return (
     <div ref={box} data-similar>
-      <Island compact title="Like this note">
+      <Island compact title="Like this note" filled={shown.length > 0}>
         <div className="flex flex-col gap-px py-1">
           {shown.map((one) => (
             <div key={one.id} data-similar-row={one.id} className="group flex items-center gap-1 rounded-md px-2 py-1 hover:bg-accent/60">

@@ -2098,6 +2098,16 @@ export function registerHaligtree(): void {
     const [, book, page] = gem.attribution.match(/^(.*), p\. (\d+)$/) ?? []
     if (book) db.prepare("update nuggets set kind = 'quote', medium = ?, passage = coalesce(passage, ?), attribution = null where id = ?").run(book, `p. ${page}`, gem.id)
   }
+  // The link in a gem's body is the one truth of which page of a PDF it came from: a page
+  // kept beside it that says otherwise ("p. 93" by a link to p. 83), or one left on the
+  // book's name ("The Law Book, p. 93"), is put right from the link.
+  for (const gem of db.prepare("select id, body, medium, passage from nuggets where body like '%.pdf#%page=%'").all() as { id: string; body: string; medium: string | null; passage: string | null }[]) {
+    const page = Number(/(?:haligtree|mindflow):\/\/assets\/[^#?)\s"\\]+\.pdf#[^)\s"\\]*?\bpage=(\d+)/i.exec(gem.body)?.[1])
+    if (!page) continue
+    const book = gem.medium?.replace(/,\s*p\.\s*\d+\s*$/, '').trim() || gem.medium
+    const passage = gem.passage == null || /^p\. \d+$/.test(gem.passage) ? `p. ${page}` : gem.passage
+    if (book !== gem.medium || passage !== gem.passage) db.prepare('update nuggets set medium = ?, passage = ? where id = ?').run(book, passage, gem.id)
+  }
   // Brought in from Apple Notes or Obsidian and not yet kept, tagged, moved or binned (note-imports.ts).
   column('nuggets', 'unsorted integer not null default 0')
   // A goal in the Bin takes its desktop card with it at once.

@@ -37,3 +37,34 @@ export function useStoredFlag(key: string, fallback = false, [yes, no]: [string,
   }, [key, fallback, yes])
   return [on, set]
 }
+
+/**
+ * An on/off choice the person may not have made yet: null until they do, so
+ * the caller can fall back on something that changes (an island open while
+ * it holds something). Kept and shared as useStoredFlag keeps its own.
+ */
+export function useStoredChoice(key: string): [boolean | null, (on: boolean) => void] {
+  const read = (value: string | null): boolean | null => (value === null ? null : value === 'on')
+  const [on, setOn] = useState<boolean | null>(() => {
+    try {
+      return read(localStorage.getItem(key))
+    } catch {
+      return null
+    }
+  })
+  const set = useCallback((next: boolean): void => {
+    setOn(next)
+    try {
+      localStorage.setItem(key, next ? 'on' : 'off')
+      queueMicrotask(() => window.dispatchEvent(new StorageEvent('storage', { key, newValue: next ? 'on' : 'off' })))
+    } catch {
+      // Kept for this window only.
+    }
+  }, [key])
+  useEffect(() => {
+    const onStorage = (event: StorageEvent): void => void (event.key === key && setOn(read(event.newValue)))
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [key])
+  return [on, set]
+}
