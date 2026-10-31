@@ -15,6 +15,7 @@ import { host } from "@/lib/host"
 import { PdfPages, pdfTitle } from "@/components/pdf/pdf-pages"
 import { learnTitle, openPdf } from "@/components/pdf/pdf-reader"
 import { usePaperPages } from "@/components/pdf/paper"
+import { usePdfCover } from "@/components/pdf/pdf-cover"
 import { PdfSide, usePdfOutline, type RailTab } from "@/components/pdf/pdf-rail"
 import type { PDFDocumentProxy } from "pdfjs-dist"
 import { chime } from "@/lib/sound"
@@ -368,6 +369,8 @@ function PdfBlock(props: NodeViewProps): React.JSX.Element {
   const block = useRef<HTMLDivElement>(null)
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null)
   const pages = doc?.numPages ?? 0
+  // Its cover and own title, shared with every card of the same book (kept in the book's store once drawn).
+  const cover = usePdfCover(src, name)
   // Its pages look as the reader's do: white, or "Paper pages" when that is on (one setting for both).
   const [paper, setPaper] = usePaperPages()
   // How its pages sit, as you last left them for every PDF in a note.
@@ -428,12 +431,19 @@ function PdfBlock(props: NodeViewProps): React.JSX.Element {
       data-pdf-page={page}
       data-pdf-outline={outline.length ? "" : undefined}
     >
-      <div className="tiptap-attachment-card" data-drag-handle="">
-        <FileText className="tiptap-attachment-icon" />
+      {/* The book as the reader's Details shows it: its cover, its own title in the serif, and the file under it. */}
+      <div className="tiptap-attachment-card tiptap-pdf-card" data-drag-handle="">
+        {/* A background, not an <img>: a picture in the note is a picture block, this is the book's face. */}
+        <span aria-hidden className="tiptap-pdf-cover" data-pdf-peek={src} data-pdf-peek-name={name} style={cover ? { backgroundImage: `url("${cover.image}")` } : undefined}>
+          {!cover && <FileText className="tiptap-attachment-icon" />}
+        </span>
         <span className="tiptap-attachment-body">
-          <span className="tiptap-attachment-name" data-pdf-peek={src} data-pdf-peek-name={name}>{name || "PDF"}</span>
-          <span className="tiptap-attachment-size">
-            {[pages ? `${pages} ${pages === 1 ? "page" : "pages"}` : "", readableSize(size)].filter(Boolean).join(" · ")}
+          <span className="tiptap-pdf-title">{cover?.title ?? (String(name ?? "").replace(/\.pdf$/i, "") || "PDF")}</span>
+          <span className="tiptap-pdf-file">
+            <span className="tiptap-attachment-name" data-pdf-peek={src} data-pdf-peek-name={name}>{name || "PDF"}</span>
+            <span className="tiptap-attachment-size">
+              {[pages ? `${pages} ${pages === 1 ? "page" : "pages"}` : "", readableSize(size)].filter(Boolean).join(" · ")}
+            </span>
           </span>
         </span>
         <button type="button" aria-label={`Open ${name || "PDF"}`} title="Open" className="tiptap-attachment-save" onClick={(event) => { event.stopPropagation(); open() }}>
