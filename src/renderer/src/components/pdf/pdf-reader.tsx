@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useToolKeys } from "@/lib/tool-keys"
 import type { PDFDocumentProxy } from "pdfjs-dist"
 import { ChevronDown, ChevronUp, Gem, Minus, PanelLeft, PanelRight, Plus, Scissors, ScrollText, Search, SquareStack, X } from "lucide-react"
 import { Button } from "@/components/tiptap-ui-primitive/button"
@@ -433,6 +434,14 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   })
   // C: the question asked where the words were; Return makes the card.
   const [carding, setCarding] = useState<{ page: number; quote: string; x: number; y: number; bottom?: number; markId?: string; gem?: boolean } | null>(null)
+  // The snip's bar keys, as its tips say: C a card of it (⌥C kept as a gem too), K keeps it as a gem.
+  useToolKeys(snipped && !carding ? (event) => {
+    if (!keysHere(pane) || event.metaKey || event.ctrlKey || event.shiftKey) return false
+    if (event.target instanceof HTMLElement && event.target.closest("input, textarea, [contenteditable=true]")) return false
+    if (event.code === "KeyC") return (setCarding({ page: snipped.page, quote: `![](${snipped.src})`, x: snipped.x, y: snipped.y, gem: event.altKey }), setSnipped(null), chime("open"), true)
+    if (event.code === "KeyK" && !event.altKey) return (void keepSnip(snipped), true)
+    return false
+  } : null)
   // The second read: every passage marked "Card later", one after another,
   // each asking for its card's question where it is; Return makes the card and
   // the passage becomes a plain highlight, Esc ends the walk.
@@ -476,14 +485,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     },
   }
   // The bar's keys, while words are picked here.
-  useEffect(() => {
-    if (!picked) return
-    const onKey = (event: KeyboardEvent): void => {
-      if (keysHere(pane) && readKey(event, actions)) event.preventDefault()
-    }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  })
+  useToolKeys(picked ? (event) => keysHere(pane) && readKey(event, actions) : null)
 
   /** A mark's colour changed, or the gem it became. */
   const change = async (one: PdfMark, to: Partial<PdfMark>): Promise<void> => {

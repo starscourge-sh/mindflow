@@ -1,4 +1,5 @@
 import { detailsShown, showDetails } from '@/lib/reading'
+import { toolTakes } from '@/lib/tool-keys'
 import { useToday } from '@/lib/use-today'
 import { showInList } from '@/lib/show-in-list'
 import { TagColourPick } from './components/haligtree/tag-colour-pick'
@@ -1094,6 +1095,10 @@ export function Home(): React.JSX.Element {
   const gPending = useRef(false)
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
+      // A tool that is up with keys of its own (the reader's bar) is asked first: C there makes a card, not a capture (lib/tool-keys.ts).
+      // The key after G is the chord's (G R goes to Review, not "R" on the card in front), unless it names no place.
+      const chord = gPending.current && !event.metaKey && !event.ctrlKey && !event.altKey
+      if (!chord && toolTakes(event)) return
       // ⌘ keys work with the caret in a note too; only something held over
       // the page (Read, a question) keeps them.
       const held = document.querySelector(HELD)
@@ -1162,7 +1167,7 @@ export function Home(): React.JSX.Element {
           event.preventDefault()
           via('keys')
           setView({ id: to })
-        }
+        } else toolTakes(event)
         return
       }
       // Only a small g: ⇧G is the lists' last row.

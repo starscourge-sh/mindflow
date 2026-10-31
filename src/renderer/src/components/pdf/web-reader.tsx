@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useToolKeys } from '@/lib/tool-keys'
 import {
   ChevronDown,
   ChevronUp,
@@ -287,14 +288,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     }
   }
   // The bar's keys, while words are picked here.
-  useEffect(() => {
-    if (!picked) return
-    const onKey = (event: KeyboardEvent): void => {
-      if (keysHere(pane) && readKey(event, actions)) event.preventDefault()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  })
+  useToolKeys(picked ? (event) => keysHere(pane) && readKey(event, actions) : null)
   /** A mark's colour changed, or the gem it became. */
   const change = async (one: PdfMark, to: Partial<PdfMark>): Promise<void> => {
     await call('pdf:mark', one.id, to)
