@@ -183,6 +183,8 @@ test("a note's words, code left out, are where its cards' tags come from", () =>
   assert.equal(wordsIn(doc).includes('#biology'), true)
   assert.equal(wordsIn(doc).includes('#include') || wordsIn(doc).includes('#hex'), false)
   assert.equal(wordsIn('Notes #law\n```\n#not\n```').includes('#not'), false)
+})
+
 test('a typed answer says the one thing that is off, for any subject', () => {
   // An accent left out is part wrong: never Easy.
   assert.deepEqual(typedCheck('murcielago', 'murciélago'), { score: 1, grade: 3, said: 'Right apart from the accent: murciélago', close: false })
