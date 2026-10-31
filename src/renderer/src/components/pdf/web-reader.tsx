@@ -17,6 +17,7 @@ import { keysHere, usePane } from '@/lib/split'
 import { chime } from '@/lib/sound'
 import { cue } from '@/lib/cues'
 import { articleLink, openArticle, takeArticleFlash } from './pdf-reader'
+import { LookUpCard, type LookedUpIn } from './look-up'
 import { MARK_COLORS, MarkMenu, PickedMenu, ReadBar, cited, lastColor, markCss, readKey, rememberColor, type MarkColor, type ReadActions } from './read-bar'
 import { offsetsIn, rangeOf, type PdfMark } from './pdf-pages'
 import {
@@ -177,10 +178,21 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     chime('saved')
     said('Copied with its citation')
   }
+  // Words looked up: the card under them, until Esc or a click away.
+  const [looking, setLooking] = useState<{ words: string; x: number; y: number; from: LookedUpIn } | null>(null)
   const actions: ReadActions = {
     highlight: (color) => (rememberColor(color), void mark(color, false)),
     keep: () => void mark(lastColor(), true),
-    copy: () => picked && void copyCited(picked.quote)
+    copy: () => picked && void copyCited(picked.quote),
+    lookUp: () => {
+      if (!picked) return
+      const text = body.current?.textContent ?? ''
+      const from = Math.max(0, text.lastIndexOf('.', picked.start) + 1)
+      const to = text.indexOf('.', picked.end)
+      const sentence = text.slice(from, to < 0 ? undefined : to + 1).replace(/\s+/g, ' ').trim()
+      setLooking({ words: picked.quote, x: picked.x, y: picked.y + 24, from: { where: whereFrom() || href, link: articleLink(href, ''), sentence } })
+      chime('open')
+    }
   }
   // The bar's keys, while words are picked here.
   useEffect(() => {
@@ -541,7 +553,10 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
                 </>
               )}
             </article>
-            {picked && <ReadBar at={picked} actions={actions} />}
+            {picked && !looking && <ReadBar at={picked} actions={actions} />}
+            {looking && (
+              <LookUpCard words={looking.words} at={looking} from={looking.from} onClose={() => setLooking(null)} />
+            )}
           </div>
         </ContextMenuTrigger>
         <ContextMenuContent>

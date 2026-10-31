@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import type { PDFDocumentProxy } from "pdfjs-dist"
-import { ChevronDown, ChevronUp, Highlighter, ListTree, Minus, Plus, ScrollText, Search, X } from "lucide-react"
+import { ChevronDown, ChevronUp, Minus, PanelLeft, PanelRight, Plus, ScrollText, Search, X } from "lucide-react"
 import { Button } from "@/components/tiptap-ui-primitive/button"
 import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from "@/components/ui/context-menu"
 import { Roll } from "@/lib/roll"
@@ -9,7 +9,12 @@ import { host, said } from "@/lib/host"
 import { canSplit, keysHere, usePane } from "@/lib/split"
 import { chime } from "@/lib/sound"
 import { cue } from "@/lib/cues"
-import { MarkMenu, PickedMenu, ReadBar, cited, lastColor, markCss, readKey, rememberColor, type MarkColor, type ReadActions } from "./read-bar"
+import { MarkMenu, PickedMenu, ReadBar, cited, lastColor, readKey, rememberColor, type MarkColor, type ReadActions } from "./read-bar"
+import { PdfRail, PdfThumb, type RailTab } from "./pdf-rail"
+import { ReadDetails } from "./pdf-details"
+import { LookUpCard, type LookedUpIn } from "./look-up"
+import { usePdfCover } from "./pdf-cover"
+import { showDetails, useDetailsShown } from "@/lib/reading"
 import { PdfPages, offsetsIn, pdfAuthor, pdfTitle, type PdfMark } from "./pdf-pages"
 
 /** The zoom steps, as Preview's: fit width is 1. */
@@ -174,7 +179,6 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
 
   // The PDF's own outline, if it has one: each entry's title, depth and page.
   const [outline, setOutline] = useState<{ title: string; depth: number; page: number }[]>([])
-  const [showOutline, setShowOutline] = useState(false)
   useEffect(() => {
     if (!doc) return
     let live = true
@@ -204,7 +208,19 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   }, [doc])
 
   // Every highlight in the book, in page order, beside the pages: a click goes to it and lights it.
-  const [showMarks, setShowMarks] = useState(false)
+  // Details at the right, shown and hidden with a note's (the same button, and ⇧⌘B).
+  const detailsOut = useDetailsShown()
+  const cover = usePdfCover(src, name)
+  const [author, setAuthor] = useState("")
+  useEffect(() => {
+    if (doc) void pdfAuthor(doc).then(setAuthor)
+  }, [doc])
+  // The left rail, open or shut and on which tab, as you last left it for every PDF.
+  const [rail, setRail] = useState<RailTab | null>(() => (["pages", "outline"].includes(localStorage.getItem("pdf-rail") ?? "") ? (localStorage.getItem("pdf-rail") as RailTab) : null))
+  const showRail = (tab: RailTab | null): void => {
+    localStorage.setItem("pdf-rail", tab ?? "")
+    setRail(tab)
+  }
   const [lit, setLit] = useState<string | null>(null)
   const goToMark = (one: PdfMark): void => {
     go(one.page)
@@ -284,10 +300,22 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     chime("saved")
     said("Copied with its citation")
   }
+  // Words looked up: the card under them, until Esc or a click away.
+  const [looking, setLooking] = useState<{ words: string; x: number; y: number; from: LookedUpIn } | null>(null)
   const actions: ReadActions = {
     highlight: (color) => (rememberColor(color), void mark(color, false)),
     keep: () => void mark(lastColor(), true),
     copy: () => picked && void copyCited(picked.quote, picked.page),
+    lookUp: () => {
+      if (!picked) return
+      // The sentence round the words, kept with what is saved so it says why at a glance.
+      const text = pageTexts.current.get(picked.page) ?? document.querySelector(`.pdf-page[data-page="${picked.page}"] .textLayer`)?.textContent ?? ""
+      const from = Math.max(0, text.lastIndexOf(".", picked.start) + 1)
+      const to = text.indexOf(".", picked.end)
+      const sentence = text.slice(from, to < 0 ? undefined : to + 1).replace(/\s+/g, " ").trim()
+      setLooking({ words: picked.quote, x: picked.x, y: picked.y + 24, from: { where: `${title}, p. ${picked.page}`, link: pdfLink(src, name, picked.page, ""), sentence } })
+      chime("open")
+    },
   }
   // The bar's keys, while words are picked here.
   useEffect(() => {
@@ -406,16 +434,12 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           <span className="pdf-reader-of"> / {doc?.numPages ?? "…"}</span>
         </span>
         <span className="pdf-reader-tools">
-          {marks.length > 0 && (
-            <Button data-style="ghost" aria-label="Highlights" title="Highlights" data-active-state={showMarks ? "on" : "off"} onClick={() => setShowMarks(!showMarks)}>
-              <Highlighter className="tiptap-button-icon" />
-            </Button>
-          )}
-          {outline.length > 0 && (
-            <Button data-style="ghost" aria-label="Outline" title="Outline" data-active-state={showOutline ? "on" : "off"} onClick={() => setShowOutline(!showOutline)}>
-              <ListTree className="tiptap-button-icon" />
-            </Button>
-          )}
+          <Button data-style="ghost" aria-label="Sidebar" title="Pages and outline" data-active-state={rail ? "on" : "off"} onClick={() => showRail(rail ? null : "pages")}>
+            <PanelLeft className="tiptap-button-icon" />
+          </Button>
+          <Button data-style="ghost" aria-label="Details" title={detailsOut ? "Hide details" : "Details"} data-active-state={detailsOut ? "on" : "off"} onClick={() => (chime(detailsOut ? "fold" : "slide"), showDetails(!detailsOut, pane))}>
+            <PanelRight className="tiptap-button-icon" />
+          </Button>
           <Button data-style="ghost" aria-label="Find" title="Find  ⌘F" data-active-state={finding ? "on" : "off"} onClick={() => (finding ? closeFind() : (setFinding(true), requestAnimationFrame(() => findField.current?.focus())))}>
             <Search className="tiptap-button-icon" />
           </Button>
@@ -442,30 +466,6 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           </Button>
         </span>
       </div>
-      {showOutline && outline.length > 0 && (
-        <nav className="pdf-outline" aria-label="Outline">
-          {outline.map((row, index) => (
-            <button key={index} type="button" className={`pdf-outline-row${row.page === page ? " is-here" : ""}`} style={{ paddingInlineStart: `${0.75 + row.depth * 0.875}rem` }} onClick={() => go(row.page)}>
-              <span className="pdf-outline-title">{row.title}</span>
-              <span className="pdf-outline-page">{row.page}</span>
-            </button>
-          ))}
-        </nav>
-      )}
-      {showMarks && marks.length > 0 && (
-        <nav className="pdf-outline pdf-marks-list" aria-label="Highlights">
-          {[...marks].sort((a, b) => a.page - b.page || a.start - b.start).map((one) => (
-            <button key={one.id} type="button" className={`pdf-outline-row${one.id === lit ? " is-here" : ""}`} onClick={() => goToMark(one)}>
-              <span aria-hidden className="pdf-swatch" style={{ background: markCss(one.color) }} />
-              <span className="pdf-outline-title">{one.quote}</span>
-              <span className="pdf-outline-page">{one.page}</span>
-            </button>
-          ))}
-          <button type="button" className="pdf-outline-row pdf-gather" onClick={() => void gather()}>
-            Gather into a note
-          </button>
-        </nav>
-      )}
       {finding && (
         <div className="tiptap-find-bar pdf-find-bar">
           <div className="tiptap-find-bar-row">
@@ -497,6 +497,27 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
             </button>
           </div>
         </div>
+      )}
+      <div className="pdf-reader-body">
+      {rail && doc && (
+        <PdfRail
+          tab={rail === "outline" && !outline.length ? "pages" : rail}
+          tabs={[{ id: "pages", label: "Pages" }, ...(outline.length ? [{ id: "outline" as const, label: "Outline" }] : [])]}
+          onTab={showRail}
+        >
+          {(rail === "pages" || (rail === "outline" && !outline.length)) &&
+            Array.from({ length: doc.numPages }, (_, index) => <PdfThumb key={index} doc={doc} page={index + 1} here={index + 1 === page} onGo={() => go(index + 1)} />)}
+          {rail === "outline" && outline.length > 0 && (
+            <nav className="pdf-outline" aria-label="Outline">
+              {outline.map((row, index) => (
+                <button key={index} type="button" className={`pdf-outline-row${row.page === page ? " is-here" : ""}`} style={{ paddingInlineStart: `${0.5 + row.depth * 0.75}rem` }} onClick={() => go(row.page)}>
+                  <span className="pdf-outline-title">{row.title}</span>
+                  <span className="pdf-outline-page">{row.page}</span>
+                </button>
+              ))}
+            </nav>
+          )}
+        </PdfRail>
       )}
       <ContextMenu>
         <ContextMenuTrigger asChild>
@@ -530,7 +551,8 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
                 })
               }}
             />
-            {picked && <ReadBar at={picked} actions={actions} />}
+            {picked && !looking && <ReadBar at={picked} actions={actions} />}
+            {looking && <LookUpCard words={looking.words} at={looking} from={looking.from} onClose={() => setLooking(null)} />}
           </div>
         </ContextMenuTrigger>
         <ContextMenuContent>
@@ -549,6 +571,8 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           )}
         </ContextMenuContent>
       </ContextMenu>
+      {detailsOut && <ReadDetails src={src} cover={cover?.image} title={title} author={author} pages={doc?.numPages} page={page} marks={marks} lit={lit} onMark={goToMark} onGather={() => void gather()} />}
+      </div>
     </div>
   )
 }

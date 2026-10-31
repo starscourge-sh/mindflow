@@ -45,6 +45,19 @@ const makePdf = async () => {
   return Array.from(await pdf.save())
 }
 
+// The dictionary and Wikipedia, as small servers here (honoured only in a probe): words are looked up without the internet.
+const { createServer } = await import('node:http')
+const lookups = createServer((req, res) => {
+  res.setHeader('content-type', 'application/json')
+  if (req.url.startsWith('/dict/quiet')) return res.end(JSON.stringify([{ word: 'quiet', meanings: [{ partOfSpeech: 'adjective', definitions: [{ definition: 'Making little or no noise.' }] }] }]))
+  if (req.url.startsWith('/wiki/quiet')) return res.end(JSON.stringify({ type: 'standard', title: 'Quiet', description: 'Absence of noise', extract: 'Quiet is the lack of noise or disturbance.', content_urls: { desktop: { page: 'https://en.wikipedia.org/wiki/Quiet' } } }))
+  res.statusCode = 404
+  res.end('{}')
+})
+await new Promise((done) => lookups.listen(0, '127.0.0.1', done))
+process.env.HALIGTREE_QA_DICT = `http://127.0.0.1:${lookups.address().port}/dict/`
+process.env.HALIGTREE_QA_WIKI = `http://127.0.0.1:${lookups.address().port}/wiki/`
+
 const { check, done } = checks()
 const c = await sandbox({ width: 1400, height: 900 })
 const { h, v } = c
@@ -196,14 +209,27 @@ try {
   await v('settings:set', { sounds: false })
   await h.keyboard.press('Meta+Digit0'); await wait(800)
   // The PDF's own outline: its entries, each going to its page.
-  await h.waitForSelector('.pdf-reader button[aria-label="Outline"]', { timeout: 4000 }).catch(() => {})
-  await h.click('.pdf-reader button[aria-label="Outline"]', { timeout: 4000 }); await wait(300)
+  // The sidebar opens beside the pages, never over them: the pages keep the reader's full height.
+  const fullHeight = await h.evaluate(() => Math.round(document.querySelector('.pdf-reader-scroll').getBoundingClientRect().height))
+  await h.click('.pdf-reader button[aria-label="Sidebar"]', { timeout: 4000 }); await wait(600)
+  const rail = await h.evaluate(() => ({ height: Math.round(document.querySelector('.pdf-reader-scroll').getBoundingClientRect().height), tabs: [...document.querySelectorAll('.pdf-rail [role="tab"]')].map((one) => one.textContent), thumbs: document.querySelectorAll('.pdf-rail .pdf-thumb').length, drawn: [...document.querySelectorAll('.pdf-rail .pdf-thumb canvas')].filter((one) => one.width > 0).length, here: document.querySelector('.pdf-thumb.is-here')?.getAttribute('aria-label'), railLeft: Math.round(document.querySelector('.pdf-rail').getBoundingClientRect().right), pagesLeft: Math.round(document.querySelector('.pdf-reader-scroll').getBoundingClientRect().left) }))
+  check('the sidebar sits beside the pages, which keep their full height', rail.height === fullHeight && rail.pagesLeft >= rail.railLeft - 1, JSON.stringify({ fullHeight, ...rail }))
+  check('it opens on the pages, each drawn small, the one on show ringed', JSON.stringify(rail.tabs) === JSON.stringify(['Pages', 'Outline']) && rail.thumbs === 3 && rail.drawn >= 1 && rail.here === 'Page 1', JSON.stringify(rail))
+  await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-rail-pages.png` })
+  await h.click('.pdf-thumb[aria-label="Page 3"]'); await wait(800)
+  check('a page in the sidebar goes to it', await h.evaluate(() => document.querySelector('.pdf-reader-page-field').value) === '3', '')
+  // Its edge dragged makes it wider, kept for the next PDF.
+  const edge = await h.evaluate(() => { const r = document.querySelector('.pdf-rail-edge').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + 200, w: Math.round(document.querySelector('.pdf-rail').getBoundingClientRect().width) } })
+  await h.mouse.move(edge.x, edge.y); await h.mouse.down(); await h.mouse.move(edge.x + 60, edge.y, { steps: 6 }); await h.mouse.up(); await wait(300)
+  const wider = await h.evaluate(() => ({ w: Math.round(document.querySelector('.pdf-rail').getBoundingClientRect().width), kept: localStorage.getItem('pdf-rail-width') }))
+  check('dragging its edge widens it, and the width is kept', wider.w === edge.w + 60 && Number(wider.kept) === wider.w, JSON.stringify({ was: edge.w, ...wider }))
+  await h.click('.pdf-rail [role="tab"]:has-text("Outline")'); await wait(300)
   const entries = await h.evaluate(() => [...document.querySelectorAll('.pdf-outline-row')].map((one) => one.textContent))
   check("the outline lists the PDF's own contents", JSON.stringify(entries) === JSON.stringify(['Chapter 11', 'Chapter 22', 'Chapter 33']), JSON.stringify(entries))
   await h.click('.pdf-outline-row:nth-child(2)'); await wait(800)
   check('an entry goes to its page', await h.evaluate(() => document.querySelector('.pdf-reader-page-field').value) === '2', '')
   await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-outline.png` })
-  await h.click('.pdf-reader button[aria-label="Outline"]'); await wait(300)
+  await h.click('.pdf-reader button[aria-label="Sidebar"]'); await wait(300)
   // ⌘F: every match counted, Return steps to the next page's, each one marked on its page.
   await h.click('.pdf-reader-scroll'); await h.keyboard.press('Meta+KeyF'); await wait(300)
   check('⌘F opens find in the PDF', await h.evaluate(() => document.activeElement?.getAttribute('aria-label') === 'Find in PDF'), '')
@@ -353,22 +379,53 @@ try {
   check('right-click on picked words offers Highlight, Keep as a gem and Copy with citation', ['Highlight', 'Keep as a gem', 'Copy with citation'].every((one) => pickedRows.some((row) => row.startsWith(one))), JSON.stringify(pickedRows))
   await h.keyboard.press('Escape'); await wait(300)
   await h.evaluate(() => getSelection().removeAllRanges())
-  // "Highlights" lists the book's highlights in page order; a row goes to its page and lights it.
-  await h.click('.pdf-reader button[aria-label="Highlights"]'); await wait(400)
-  const listed = await h.evaluate(() => [...document.querySelectorAll('.pdf-marks-list .pdf-outline-title')].map((one) => one.textContent))
-  check('"Highlights" lists every highlight in page order', JSON.stringify(listed) === JSON.stringify(['Page 3', 'of', 'quiet sentence worth keeping']), JSON.stringify(listed))
-  await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-highlights-list.png` })
+  // L looks the words up where they sit: the dictionary's meaning and Wikipedia's summary, each kept as a Lookup with why and where.
+  await h.evaluate(() => {
+    const span = [...document.querySelectorAll('.pdf-reader .pdf-page[data-page="3"] .textLayer span')].find((one) => /quiet sentence/.test(one.textContent))
+    const range = document.createRange()
+    range.setStart(span.firstChild, 2)
+    range.setEnd(span.firstChild, 7)
+    getSelection().removeAllRanges()
+    getSelection().addRange(range)
+  }); await wait(400)
+  await h.keyboard.press('l'); await wait(1500)
+  const lookCard = await h.evaluate(() => { const one = document.querySelector('.look-up'); return one ? { words: one.querySelector('.look-up-words')?.textContent, meaning: one.querySelector('[data-look="dictionary"] .look-up-meaning')?.textContent, wiki: one.querySelector('[data-look="wikipedia"] .look-up-extract')?.textContent, licence: !!one.querySelector('.look-up-licence') } : null })
+  check('L looks the words up: the dictionary and Wikipedia, with its licence', lookCard?.words === 'quiet' && /little or no noise/.test(lookCard.meaning) && /lack of noise/.test(lookCard.wiki) && lookCard.licence, JSON.stringify(lookCard))
+  await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-look-up.png` })
+  await h.fill('.look-up-why', 'for the essay on silence')
+  await h.click('[data-look="wikipedia"] .look-up-save'); await wait(1000)
+  const lookedUp = await h.evaluate(async () => (await window.api.captures.find('quiet')).filter((one) => one.type === 'capture').map((one) => one.label))
+  check('Save keeps it as a Lookup', lookedUp.some((one) => /^Quiet/.test(one)), JSON.stringify(lookedUp))
+  const keptBody = await h.evaluate(async () => { const found = (await window.api.captures.find('quiet')).find((one) => one.type === 'capture' && /^Quiet/.test(one.label)); return found ? JSON.stringify((await window.api.captures.get(found.id))?.body ?? '') : '' })
+  check('with why, the sentence round the words, and where it was looked up', /for the essay on silence/.test(keptBody) && /A quiet sentence worth keeping/.test(keptBody) && /Looked up in/.test(keptBody) && /The Probe Book, p. 3/.test(keptBody), keptBody.slice(0, 300))
+  await h.keyboard.press('Escape'); await wait(300)
+  check('Esc puts the card away', await h.evaluate(() => !document.querySelector('.look-up')), '')
+  await h.evaluate(() => getSelection().removeAllRanges())
+  // Details, at the right of the pages as a note's: what the book is, how far you have read, its highlights (searchable, by colour) and the notes that hold it.
+  await h.click('.pdf-reader button[aria-label="Details"]'); await wait(800)
+  const about = await h.evaluate(() => { const d = document.querySelector('.read-details'); return d ? { title: d.querySelector('.read-details-title')?.textContent, cover: !!d.querySelector('.read-details-cover'), progress: d.querySelector('.read-details-progress')?.getAttribute('aria-label'), marks: [...d.querySelectorAll('.read-details-mark-words')].map((one) => one.textContent), cited: d.querySelectorAll('.read-details-cited').length, pagesLeft: Math.round(document.querySelector('.pdf-reader-scroll').getBoundingClientRect().right), detailsLeft: Math.round(d.getBoundingClientRect().left) } : null })
+  check('Details shows the book, its cover and how far you have read', about?.title === 'The Probe Book' && about.cover && about.progress === 'Read 100%', JSON.stringify(about))
+  check('its highlights are listed in page order', JSON.stringify(about?.marks) === JSON.stringify(['Page 3', 'of', 'quiet sentence worth keeping']), JSON.stringify(about?.marks))
+  check('and the notes and gems that hold the book or link into it', about?.cited >= 2, JSON.stringify(about))
+  check('Details sits beside the pages, never over them', about && about.detailsLeft >= about.pagesLeft - 1, JSON.stringify(about))
+  await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-details.png` })
+  await h.fill('.read-details-find', 'quiet'); await wait(300)
+  check('finding in highlights narrows the list to those words', JSON.stringify(await h.evaluate(() => [...document.querySelectorAll('.read-details-mark-words')].map((one) => one.textContent))) === JSON.stringify(['quiet sentence worth keeping']), '')
+  await h.fill('.read-details-find', ''); await wait(200)
+  await h.click('.read-details-colour[aria-label="Blue"]'); await wait(300)
+  check('a colour shows only its highlights', JSON.stringify(await h.evaluate(() => [...document.querySelectorAll('.read-details-mark-words')].map((one) => one.textContent))) === JSON.stringify(['Page 3']), '')
+  await h.click('.read-details-colour[aria-label="Blue"]'); await wait(300)
   await h.fill('.pdf-reader-page-field', '1'); await h.keyboard.press('Enter'); await wait(800)
-  await h.click('.pdf-marks-list .pdf-outline-row:has-text("quiet sentence")'); await wait(1000)
+  await h.click('.read-details-mark:has-text("quiet sentence")'); await wait(1000)
   const jumped = await h.evaluate(() => ({ page: document.querySelector('.pdf-reader-page-field')?.value, lit: document.querySelector('.pdf-reader .pdf-mark.is-flash')?.closest('.pdf-page')?.dataset.page }))
   check('a row goes to its page and lights the highlight', jumped.page === '3' && jumped.lit === '3', JSON.stringify(jumped))
   // "Gather into a note": one new note with every highlight as a quote, each linking back to its page.
-  await h.click('.pdf-marks-list .pdf-gather'); await wait(1500)
+  await h.click('.read-details-action:has-text("Gather into a note")'); await wait(1500)
   const gathered = await h.evaluate(() => { const ed = document.querySelector('[data-open] .tiptap'); return ed ? { quotes: ed.querySelectorAll('blockquote').length, links: [...ed.querySelectorAll('a')].map((a) => a.textContent) } : null })
   check('"Gather into a note" opens a note with each highlight quoted and linked to its page', gathered?.quotes === 3 && gathered.links.every((one) => one === 'The Probe Book, p. 3'), JSON.stringify(gathered))
   await h.keyboard.press('Meta+BracketLeft'); await wait(1200)
   await h.waitForSelector('.pdf-reader .pdf-page[data-page="3"] canvas', { timeout: 10000 }).catch(() => {})
-  if (await h.evaluate(() => !!document.querySelector('.pdf-marks-list'))) await h.click('.pdf-reader button[aria-label="Highlights"]')
+  if (await h.evaluate(() => !!document.querySelector('.read-details'))) await h.click('.pdf-reader button[aria-label="Details"]')
   await h.fill('.pdf-reader-page-field', '3'); await h.keyboard.press('Enter'); await wait(800)
 
   // Paper pages, read off the screen: the white turns warm, the orange square stays orange.
@@ -403,6 +460,11 @@ try {
   await h.evaluate((href) => document.querySelector('[data-open] .tiptap').editor.chain().focus('end').insertContent(`<p><a href="${href}">back to the book</a></p>`).run(), link)
   await wait(400)
   const linkBox = await h.evaluate(() => { const r = [...document.querySelectorAll('[data-open] .tiptap a')].find((one) => one.textContent === 'back to the book').getBoundingClientRect(); return { x: r.left + 10, y: r.top + r.height / 2 } })
+  // Pointed at, the link shows the book: its cover, its title and the page, not its stored address.
+  await h.mouse.move(linkBox.x, linkBox.y); await wait(1200)
+  const hover = await h.evaluate(() => { const card = document.querySelector('.tiptap-link-preview.is-pdf'); return card ? { title: card.querySelector('.tiptap-link-preview-pdf-title')?.textContent, page: card.querySelector('.tiptap-link-preview-pdf-page')?.textContent, cover: !!card.querySelector('img')?.src.startsWith('data:image') } : null })
+  check('a PDF link pointed at shows its cover, title and page', hover?.title === 'The Probe Book' && hover.page === 'PDF, page 3' && hover.cover, JSON.stringify(hover))
+  await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-link-hover.png` })
   await h.keyboard.down('Meta'); await h.mouse.click(linkBox.x, linkBox.y); await h.keyboard.up('Meta')
   await h.waitForSelector('.pdf-reader .pdf-mark', { timeout: 10000 }).catch(() => {})
   await wait(300)

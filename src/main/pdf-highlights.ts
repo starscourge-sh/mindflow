@@ -3,8 +3,9 @@ import { randomUUID } from 'crypto'
 import { readFile, writeFile } from 'fs/promises'
 import { join } from 'path'
 import { assetsDir } from './pictures'
+import { fetchOutside } from './outside'
 import type { DatabaseSync } from 'node:sqlite'
-import { database } from './captures'
+import { LABEL, database } from './captures'
 import { articlesToFind } from './web-articles'
 
 /** A PDF's own title, as the reader read it out of the file: what search finds it by. */
@@ -107,6 +108,15 @@ export function registerPdfHighlights(): void {
     db.prepare('insert or replace into pdf_reading (src, page, pages, read_at) values (?, ?, ?, ?)').run(src, page as number, pages as number, new Date().toISOString())
     return true
   })
+  // What a book's Details list: every note and gem that holds it or links into it, newest first, and when it first came in.
+  ipcMain.handle('haligtree:pdf:cited', (_event, src: unknown) => {
+    const name = /assets\/([a-f0-9]{64}\.pdf)$/i.exec(String(src))?.[1] ?? (/^https?:/.test(String(src)) ? encodeURIComponent(String(src)) : null)
+    if (!name) return []
+    const like = `%${name}%`
+    return db.prepare(`select 'capture' as type, id, ${LABEL} as title, captured_at as at from captures where status != 'discarded' and body like ?
+      union all select tier as type, id, coalesce(nullif(title, ''), label('', body)) as title, created_at as at from nuggets where binned_at is null and superseded_by is null and body like ?
+      order by at desc`).all(like, like)
+  })
   // A PDF's cover: its first page drawn once by the reader's own renderer and
   // kept beside the file in the book's store (named so no clean-up of unused
   // files ever counts it), so every card shows it at once after that.
@@ -124,6 +134,23 @@ export function registerPdfHighlights(): void {
     await writeFile(join(assetsDir(), file), Buffer.from(data, 'base64'))
     db.prepare('insert or replace into pdf_covers (src, file) values (?, ?)').run(String(src), file)
     return true
+  })
+  // Words looked up on Wikipedia: its free summary of the article they name (CC BY-SA, said with its link), asked from here so no page talks to the internet itself.
+  ipcMain.handle('haligtree:wiki', async (_event, raw: unknown) => {
+    const term = typeof raw === 'string' ? raw.replace(/\s+/g, ' ').trim() : ''
+    if (!term || term.length > 120) return null
+    const base = (process.env.HALIGTREE_USER_DATA && process.env.HALIGTREE_QA_WIKI) || 'https://en.wikipedia.org/api/rest_v1/page/summary/'
+    try {
+      const url = `${base}${encodeURIComponent(term.replace(/ /g, '_'))}?redirect=true`
+      const response = base.startsWith('http://127.0.0.1') ? await fetch(url, { signal: AbortSignal.timeout(5000) }) : await fetchOutside(url, { signal: AbortSignal.timeout(5000), headers: { 'Api-User-Agent': 'Haligtree (a commonplace book)' } })
+      if (response.status === 404) return { missing: true }
+      if (!response.ok) return { offline: true }
+      const page = (await response.json()) as { type?: string; title?: string; description?: string; extract?: string; content_urls?: { desktop?: { page?: string } } }
+      if (!page.extract || page.type === 'disambiguation') return { missing: true }
+      return { title: page.title ?? term, description: page.description ?? '', extract: page.extract, url: page.content_urls?.desktop?.page ?? `https://en.wikipedia.org/wiki/${encodeURIComponent(term.replace(/ /g, '_'))}` }
+    } catch {
+      return { offline: true }
+    }
   })
   // The title read out of a PDF as it opens, kept so search finds it by that.
   db.exec(TITLES)

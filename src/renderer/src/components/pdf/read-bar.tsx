@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "react"
-import { Gem, Highlighter, Quote, Trash2 } from "lucide-react"
+import { BookOpenText, Gem, Highlighter, Quote, Trash2 } from "lucide-react"
 import { Button } from "@/components/tiptap-ui-primitive/button"
 import { Toolbar, ToolbarGroup, ToolbarSeparator } from "@/components/tiptap-ui-primitive/toolbar"
 import { ContextMenuItem, ContextMenuSeparator, ContextMenuShortcut } from "@/components/ui/context-menu"
@@ -36,6 +36,8 @@ export type ReadActions = {
   highlight: (color: MarkColor) => void
   keep: () => void
   copy: () => void
+  /** The words looked up where they sit: the dictionary and Wikipedia. */
+  lookUp: () => void
 }
 
 /** A swatch: a round of the colour, ticked when it is the one in use. */
@@ -89,6 +91,9 @@ export function ReadBar({ at, actions }: { at: { x: number; y: number }; actions
             <Gem className="tiptap-button-icon" />
             <span className="tiptap-button-text">Keep</span>
           </Button>
+          <Button data-style="ghost" aria-label="Look up" title="Look up  L" onClick={actions.lookUp}>
+            <BookOpenText className="tiptap-button-icon" />
+          </Button>
           <Button data-style="ghost" aria-label="Copy with citation" title="Copy with citation  ⇧⌘C" onClick={actions.copy}>
             <Quote className="tiptap-button-icon" />
           </Button>
@@ -110,6 +115,7 @@ export function readKey(event: KeyboardEvent, actions: ReadActions): boolean {
   if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return false
   if (event.code === "KeyH") return actions.highlight(lastColor()), true
   if (event.code === "KeyK") return actions.keep(), true
+  if (event.code === "KeyL") return actions.lookUp(), true
   const digit = /^Digit([1-5])$/.exec(event.code)
   if (digit) return actions.highlight(MARK_COLORS[Number(digit[1]) - 1].id), true
   return false
@@ -131,6 +137,11 @@ export function PickedMenu({ actions }: { actions: ReadActions }): React.JSX.Ele
         <Gem />
         Keep as a gem
         <ContextMenuShortcut>K</ContextMenuShortcut>
+      </ContextMenuItem>
+      <ContextMenuItem onSelect={actions.lookUp}>
+        <BookOpenText />
+        Look up
+        <ContextMenuShortcut>L</ContextMenuShortcut>
       </ContextMenuItem>
       <ContextMenuItem onSelect={actions.copy}>
         <Quote />
