@@ -103,7 +103,7 @@ try {
   // A highlight stays drawn on its words.
   const before = await tintUnder(1)
   await pick(1, 0, 'Genocide is an attempt'.length); await wait(400)
-  await h.click('.pdf-keep-bar button[aria-label="Highlight"]'); await wait(1200)
+  await h.keyboard.press('h'); await wait(1200)
   const saved = await v('pdf:highlights', pdfSrc)
   const after = await tintUnder(1)
   const bands = await h.evaluate(() => document.querySelectorAll('.pdf-reader .pdf-page[data-page="1"] .pdf-mark').length)
@@ -115,7 +115,7 @@ try {
   await h.fill('.pdf-reader-page-field', '3'); await h.keyboard.press('Enter'); await wait(1200)
   const darkBefore = await tintUnder(3)
   await pick(3, 0, 'Genocide is an attempt'.length); await wait(400)
-  await h.click('.pdf-keep-bar button[aria-label="Highlight"]'); await wait(1200)
+  await h.keyboard.press('h'); await wait(1200)
   const darkAfter = await tintUnder(3)
   check('in the dark, a highlight on page 3 is drawn', darkAfter - darkBefore > 15, JSON.stringify({ darkBefore, darkAfter }))
   await h.screenshot({ path: `${SHOTS}/pdf-clarity-highlight-dark.png` })
@@ -138,10 +138,20 @@ try {
     getSelection().addRange(range)
   })
   await wait(400)
-  await h.click('.pdf-keep-bar button[aria-label="Highlight"]'); await wait(1200)
+  await h.keyboard.press('h'); await wait(1200)
   const crossAfter = await tintUnder(2)
   const crossBands = await h.evaluate(() => document.querySelectorAll('.pdf-reader .pdf-page[data-page="2"] .pdf-mark').length)
   check('words picked across a line end are drawn as a highlight', crossBands >= 2 && crossAfter - crossBefore > 15, JSON.stringify({ crossBands, crossBefore, crossAfter }))
+
+  // Picking words shows nothing over the page; the right-click menu holds every action, with its key.
+  await pick(2, 30, 'Genocide is an attempt to destroy'.length); await wait(500)
+  check('picking words shows no bar over the page', await h.evaluate(() => !document.querySelector('.pdf-keep-bar')), '')
+  const wb = await h.evaluate(() => { const r = getSelection().getRangeAt(0).getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })
+  await h.mouse.click(wb.x, wb.y, { button: 'right' }); await wait(500)
+  const rows = await h.evaluate(() => [...document.querySelectorAll('[role="menu"] [role="menuitem"]')].map((one) => one.textContent.trim()))
+  check('the menu on picked words offers every action, Mark for a card and Copy included', ['Highlight', 'Keep as a gem', 'Make a card', 'Fill-in-the-blank card', 'Mark for a card', 'Look up', 'Copy with citation', 'Copy'].every((one) => rows.some((row) => row.startsWith(one))), JSON.stringify(rows))
+  await c.both(`${SHOTS}/pdf-clarity-menu`)
+  await h.keyboard.press('Escape'); await wait(300)
 
   // Opened in the reader, the PDF is in the sidebar's Recent with its cover, and in ⌘K's Recent; a click reopens it where you left it.
   await h.fill('.pdf-reader-page-field', '4'); await h.keyboard.press('Enter'); await wait(1200)

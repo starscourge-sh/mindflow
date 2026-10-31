@@ -1,7 +1,6 @@
 import { useLayoutEffect, useRef, useState } from "react"
-import { BookOpenText, Gem, Highlighter, Quote, SquareDashed, SquareStack, Trash2 } from "lucide-react"
-import { Button } from "@/components/tiptap-ui-primitive/button"
-import { Toolbar, ToolbarGroup, ToolbarSeparator } from "@/components/tiptap-ui-primitive/toolbar"
+import { BookOpenText, Copy, Gem, Highlighter, Quote, SquareDashed, SquareStack, Trash2 } from "lucide-react"
+import { Toolbar } from "@/components/tiptap-ui-primitive/toolbar"
 import { ContextMenuItem, ContextMenuSeparator, ContextMenuShortcut } from "@/components/ui/context-menu"
 
 /**
@@ -114,63 +113,8 @@ function usePlaced(box: React.RefObject<HTMLDivElement | null>, at: { x: number;
   }
 }
 
-export function ReadBar({ at, actions }: { at: { x: number; y: number; bottom?: number }; actions: ReadActions }): React.JSX.Element {
-  const bar = useRef<HTMLDivElement>(null)
-  const place = usePlaced(bar, at)
-  const now = lastColor()
-  return (
-    <div
-      ref={bar}
-      className="pdf-keep-bar"
-      style={place}
-      // The words stay picked while the bar is pressed.
-      onMouseDown={(event) => event.preventDefault()}
-    >
-      <Toolbar variant="floating">
-        <ToolbarGroup>
-          <Button data-style="ghost" aria-label="Highlight" title="Highlight  H" onClick={() => actions.highlight(now)}>
-            <Highlighter className="tiptap-button-icon" style={{ color: markCss(now) }} />
-            <span className="tiptap-button-text">Highlight</span>
-          </Button>
-          <span className="pdf-swatches" role="group" aria-label="Highlight in a colour">
-            {MARK_COLORS.map((one, index) => (
-              <button key={one.label} type="button" className="pdf-swatch-button" aria-label={one.id === "later" ? LATER_TIP : `Highlight ${one.label.toLowerCase()}`} title={one.id === "later" ? `${LATER_TIP}  ${index + 1}` : `${one.label}  ${index + 1}`} onClick={() => actions.highlight(one.id)}>
-                <Swatch color={one.css} on={one.id === now} later={one.id === "later"} />
-              </button>
-            ))}
-          </span>
-        </ToolbarGroup>
-        <ToolbarSeparator />
-        <ToolbarGroup>
-          <Button data-style="ghost" aria-label="Keep" title="Keep as a gem  K" onClick={actions.keep}>
-            <Gem className="tiptap-button-icon" />
-            <span className="tiptap-button-text">Keep</span>
-          </Button>
-          {actions.card && (
-            <Button data-style="ghost" aria-label="Card" title={"Make a card of these words  C\nIn Review only; ⌥C keeps it as a gem too"} onClick={(event) => actions.card?.(event.altKey)}>
-              <SquareStack className="tiptap-button-icon" />
-              <span className="tiptap-button-text">Card</span>
-            </Button>
-          )}
-          {actions.blank && (
-            <Button data-style="ghost" aria-label="Blank" title={"Blank them out in a card  ⇧C\nIn Review only; ⌥⇧C keeps it as a gem too"} onClick={(event) => actions.blank?.(event.altKey)}>
-              <SquareDashed className="tiptap-button-icon" />
-            </Button>
-          )}
-          <Button data-style="ghost" aria-label="Look up" title="Look up  L" onClick={actions.lookUp}>
-            <BookOpenText className="tiptap-button-icon" />
-          </Button>
-          <Button data-style="ghost" aria-label="Copy with citation" title="Copy with citation  ⇧⌘C" onClick={actions.copy}>
-            <Quote className="tiptap-button-icon" />
-          </Button>
-        </ToolbarGroup>
-      </Toolbar>
-    </div>
-  )
-}
-
 /**
- * The keys the bar shows, while words are picked in this reader: H
+ * The keys for picked words in this reader (shown as keycaps on their right-click menu): H
  * highlights in the last colour, 1 to 6 in each colour (6 is "Mark for a card"), K keeps a gem, ⇧⌘C
  * copies with the citation. Says whether the key was one.
  */
@@ -191,7 +135,7 @@ export function readKey(event: KeyboardEvent, actions: ReadActions): boolean {
   return false
 }
 
-/** The right click's rows on picked words: what the bar offers, with the same keys. */
+/** The right click's rows on picked words: everything that can be done with them, each with its key. */
 export function PickedMenu({ actions }: { actions: ReadActions }): React.JSX.Element {
   const now = lastColor()
   return (
@@ -222,6 +166,11 @@ export function PickedMenu({ actions }: { actions: ReadActions }): React.JSX.Ele
           <ContextMenuShortcut>⇧C</ContextMenuShortcut>
         </ContextMenuItem>
       )}
+      <ContextMenuItem onSelect={() => actions.highlight("later")} title={LATER_TIP}>
+        <SquareStack />
+        Mark for a card
+        <ContextMenuShortcut>6</ContextMenuShortcut>
+      </ContextMenuItem>
       <ContextMenuItem onSelect={actions.lookUp}>
         <BookOpenText />
         Look up
@@ -231,6 +180,12 @@ export function PickedMenu({ actions }: { actions: ReadActions }): React.JSX.Ele
         <Quote />
         Copy with citation
         <ContextMenuShortcut>⇧⌘C</ContextMenuShortcut>
+      </ContextMenuItem>
+      <ContextMenuSeparator />
+      <ContextMenuItem onSelect={() => void navigator.clipboard.writeText(getSelection()?.toString() ?? "")}>
+        <Copy />
+        Copy
+        <ContextMenuShortcut>⌘C</ContextMenuShortcut>
       </ContextMenuItem>
     </>
   )
@@ -245,7 +200,7 @@ export function MarkMenu({ color, gem, onColor, onKeep, onOpenGem, onCopy, onRem
       {gem ? (
         <ContextMenuItem onSelect={onOpenGem}>
           <Gem />
-          Open its gem
+          In a gem: Open
         </ContextMenuItem>
       ) : (
         <ContextMenuItem onSelect={onKeep}>

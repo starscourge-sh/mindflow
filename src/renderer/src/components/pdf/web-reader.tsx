@@ -19,7 +19,7 @@ import { chime } from '@/lib/sound'
 import { cue } from '@/lib/cues'
 import { articleLink, openArticle, takeArticleFlash } from './pdf-reader'
 import { LookUpCard, type LookedUpIn } from './look-up'
-import { MARK_COLORS, MarkMenu, PickedMenu, ReadBar, WhyAfter, cited, lastColor, markCss, readKey, rememberColor, type MarkColor, type ReadActions } from './read-bar'
+import { MARK_COLORS, MarkMenu, PickedMenu, WhyAfter, cited, lastColor, markCss, readKey, rememberColor, type MarkColor, type ReadActions } from './read-bar'
 import { usePaperPages } from './paper'
 import { offsetsIn, rangeOf, type PdfMark } from './pdf-pages'
 import {
@@ -649,7 +649,6 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
                 </>
               )}
             </article>
-            {picked && !looking && !whyFor && !carding && <ReadBar at={picked} actions={actions} />}
             {carding && (
               <WhyAfter
                 at={carding}

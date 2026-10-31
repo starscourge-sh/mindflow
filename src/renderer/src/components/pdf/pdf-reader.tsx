@@ -13,7 +13,7 @@ import { host, said } from "@/lib/host"
 import { canSplit, keysHere, usePane } from "@/lib/split"
 import { chime } from "@/lib/sound"
 import { cue } from "@/lib/cues"
-import { MarkMenu, PickedMenu, ReadBar, WhyAfter, cited, lastColor, readKey, rememberColor, type MarkColor, type ReadActions } from "./read-bar"
+import { MarkMenu, PickedMenu, WhyAfter, cited, lastColor, readKey, rememberColor, type MarkColor, type ReadActions } from "./read-bar"
 import { NARROW, PdfSide, chapterAt, railWidth, usePdfOutline, type RailTab } from "./pdf-rail"
 import { ReadDetails } from "./pdf-details"
 import { LookUpCard, type LookedUpIn } from "./look-up"
@@ -861,7 +861,6 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
                 </Toolbar>
               </div>
             )}
-            {picked && !looking && !whyFor && !carding && <ReadBar at={picked} actions={actions} />}
             {carding && (
               <WhyAfter
                 at={carding}
