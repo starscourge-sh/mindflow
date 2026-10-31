@@ -71,11 +71,14 @@ try {
   const hover = await h.evaluate((bars) => {
     const all = [...document.querySelectorAll(bars)]
     const on = Number(document.querySelector('[data-mono-card="minutes"] [data-focus-bars]').getAttribute('data-hovered'))
-    return { on, mine: Number(getComputedStyle(all[on]).opacity), others: Math.max(...all.filter((_, at) => at !== on).map((one) => Number(getComputedStyle(one).opacity))), tip: document.querySelector('[data-mono-card="minutes"] [data-mono-tip]')?.textContent, point: document.querySelector('[data-mono-card="minutes"] [data-mono-point]')?.textContent, said: all[on]?.getAttribute('data-say') }
+    return { on, mine: Number(getComputedStyle(all[on]).opacity), others: Math.max(...all.filter((_, at) => at !== on).map((one) => Number(getComputedStyle(one).opacity))), tip: document.querySelector('[data-mono-card="minutes"] [data-mono-tip]')?.textContent, shown: document.querySelector('[data-mono-card="minutes"] [data-mono-value]')?.getAttribute('data-mono-shown'), point: document.querySelector('[data-mono-card="minutes"] [data-mono-point]')?.textContent, said: all[on]?.getAttribute('data-say') }
   }, bars)
   check('pointing at a bar dims the others and shows its value', hover.mine === 1 && hover.others <= 0.4 && hover.tip === hover.said && hover.point === hover.said, JSON.stringify(hover))
+  check('the big number turns to the bar pointed at', hover.shown === (hover.said.match(/^([\d,.]+)/)?.[1] ?? (/^No /.test(hover.said) ? '0' : null)), `${hover.shown} for "${hover.said}"`)
   await h.mouse.move(5, 5)
   await h.waitForTimeout(300)
+  const back = await h.evaluate(() => { const one = document.querySelector('[data-mono-card="minutes"] [data-mono-value]'); return [one.getAttribute('data-mono-shown'), one.getAttribute('data-mono-value')] })
+  check('and back to the total on leaving', back[0] === back[1], back.join(' vs '))
   // The switch: its pill slides to "7 days" and the bars glide to the last week.
   const pill = () => h.evaluate(() => { const one = document.querySelector('[data-mono-card="minutes"] [data-mono-switch] .bg-accent'); return one ? one.getBoundingClientRect().left : null })
   const width = () => h.evaluate((bars) => document.querySelector(bars)?.getBoundingClientRect().width ?? 0, bars)
@@ -96,7 +99,7 @@ try {
   check('the switch\'s pill slides to "7 days"', pillFrom !== null && pillTo !== pillFrom && Math.abs(pillMid - pillFrom) > 1 && Math.abs(pillMid - pillTo) > 1 && (pillMid - pillFrom) * (pillTo - pillMid) > 0, `${pillFrom} -> ${pillMid} -> ${pillTo}`)
   check('the bars morph to 7, widening on the way', count === 7 && widthMid > widthFrom + 0.5 && widthMid < widthTo - 0.5 && widthTo > widthFrom * 2, `${count} bars, ${widthFrom.toFixed(1)} -> ${widthMid.toFixed(1)} -> ${widthTo.toFixed(1)}`)
   // Watch for the dots in the page itself, and read them two frames after they first appear.
-  const watchDots = () => h.evaluate(() => { window.__dots = null; const look = new MutationObserver(() => { const dots = [...document.querySelectorAll('[data-mono-card="reviews"] [data-mono-dots] > *')]; if (dots.length < 30) return; look.disconnect(); const frames = []; const start = performance.now(); const tick = () => { frames.push(dots.map((one) => Number(getComputedStyle(one).opacity))); if (performance.now() - start < 700) requestAnimationFrame(tick); else window.__dots = frames }; tick() }); look.observe(document.body, { childList: true, subtree: true }) })
+  const watchDots = () => h.evaluate(() => { window.__dots = null; const look = new MutationObserver(() => { const dots = [...document.querySelectorAll('[data-mono-card="reviews"] [data-mono-dots] > *')]; if (dots.length < 30) return; look.disconnect(); const frames = []; const start = performance.now(); const tick = () => { frames.push(Object.assign(dots.map((one) => Number(getComputedStyle(one).opacity)), { seen: getComputedStyle(dots[0]).visibility === 'visible', t: Math.round(performance.now() - start) })); if (performance.now() - start < 700) requestAnimationFrame(tick); else window.__dots = frames }; tick() }); look.observe(document.body, { childList: true, subtree: true }) })
   // The entry stagger: freshly drawn, the first day's dot is further in than the last's.
   await c.go('home')
   await watchDots()
@@ -105,7 +108,11 @@ try {
   const goal = await h.evaluate(() => { const dots = [...document.querySelectorAll('[data-mono-card="reviews"] [data-mono-dots] > *')]; const most = Math.max(1, ...dots.map((one) => Number(one.getAttribute('data-n')))); return dots.map((one) => { const n = Number(one.getAttribute('data-n')); return n === 0 ? 0.08 : 0.3 + 0.7 * Math.min(1, n / most) }) })
   // How far each dot is on its way in, 0 to 1.
   // The frame where the first dot is furthest ahead of the last, each as a share of its way in.
-  const early = (await h.evaluate(() => window.__dots)).map((frame) => frame.map((one, at) => Math.round((one / goal[at]) * 100) / 100)).sort((a, b) => (b[0] - b[29]) - (a[0] - a[29]))[0]
+  // Only frames a person could see count: a Stats page is laid out unseen until every part has read.
+  const watched = await h.evaluate(() => window.__dots.map((frame) => ({ seen: frame.seen, t: frame.t, values: [...frame] })))
+  const shownAt = watched.findIndex((one) => one.seen)
+  console.log(`  dots mounted unseen for ${watched[shownAt]?.t ?? 'all'} ms (${shownAt} frames); last day's dot opacity when shown: ${watched[shownAt]?.values[29]}`)
+  const early = watched.filter((one) => one.seen).map((one) => one.values).map((frame) => frame.map((one, at) => Math.round((one / goal[at]) * 100) / 100)).sort((a, b) => (b[0] - b[29]) - (a[0] - a[29]))[0]
   check('the dots fill in one after another', early?.length === 30 && early[0] > early[29] + 0.05, `first ${early[0]}, last ${early[29]}`)
   await h.emulateMedia({ reducedMotion: 'reduce' })
   await c.go('home')
@@ -114,7 +121,7 @@ try {
   await waitFor(() => h.evaluate(() => !!window.__dots), 8000)
   const finals = await h.evaluate(() => [...document.querySelectorAll('[data-mono-card="reviews"] [data-mono-dots] > *')].map((one) => Number(one.getAttribute('data-n'))))
   const most = Math.max(1, ...finals)
-  const still = (await h.evaluate(() => window.__dots))[0].map((one, at) => Math.abs(one - (finals[at] === 0 ? 0.08 : 0.3 + 0.7 * Math.min(1, finals[at] / most))) < 0.02 ? 1 : one)
+  const still = (await h.evaluate(() => [...window.__dots.find((frame) => frame.seen)])).map((one, at) => Math.abs(one - (finals[at] === 0 ? 0.08 : 0.3 + 0.7 * Math.min(1, finals[at] / most))) < 0.02 ? 1 : one)
   check('with reduced motion every dot is there at once', still.length === 30 && still.every((one) => one === 1), `first ${still[0]}, last ${still[29]}`)
   await h.emulateMedia({ reducedMotion: 'no-preference' })
 

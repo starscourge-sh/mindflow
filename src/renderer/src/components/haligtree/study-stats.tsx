@@ -106,7 +106,7 @@ function StudyCards({ studied, week }: { studied: Studied; week: number }): Reac
       <MonoCard name="minutes" title="Minutes reviewing each day" value={Math.round(shownMinutes.reduce((sum, one) => sum + one.n, 0))} unit={`minutes in ${range === 'week' ? '7' : '30'} days`} chips={studiedDays ? <Chip>{plural(studiedDays, 'day', 'days')}</Chip> : undefined}
         side={<Switch options={[{ id: 'week', label: '7 days' }, { id: 'month', label: '30 days' }]} value={range} pick={setRange} />}
         hovered={onMinutes} point={studied.seconds !== null ? `A card takes you about ${plural(studied.seconds, 'second', 'seconds')}.` : 'Time is counted from the next review on.'}>
-        <PillBars values={shownMinutes.map((one) => one.n)} keys={shownMinutes.map((one) => one.day)} say={(at) => `${shownMinutes[at].n ? `${num(Math.round(shownMinutes[at].n))} min` : 'none'}, ${dayWords(shownMinutes[at].day)}`} onHover={sayMinutes} className="h-16" />
+        <PillBars values={shownMinutes.map((one) => one.n)} keys={shownMinutes.map((one) => one.day)} say={(at) => `${shownMinutes[at].n ? `${num(Math.round(shownMinutes[at].n))} min` : 'No reviews'}, ${dayWords(shownMinutes[at].day)}`} onHover={sayMinutes} className="h-16" />
         <Ends left={range === 'week' ? '7 days ago' : '30 days ago'} right="today" />
       </MonoCard>
       <MonoCard name="known" title="Cards you know" value={studied.known} unit={`of ${plural(studied.cards, 'card', 'cards')}`} chips={last && last.known > firstKnown ? <Chip>{`+${num(last.known - firstKnown)} in 12 weeks`}</Chip> : undefined}
@@ -126,7 +126,7 @@ function StudyCards({ studied, week }: { studied: Studied; week: number }): Reac
       <div data-study-due>
         <MonoCard name="due" title="Cards coming due" value={coming} unit="in two weeks" chips={<Chip>{`${num(studied.due[0])} today`}</Chip>}
           hovered={onDue} point={`${plural(studied.due[0], 'card is', 'cards are')} due today.`}>
-          <PillBars values={studied.due} say={(at) => `${at === 0 ? 'Today' : at === 1 ? 'Tomorrow' : dayMonth(new Date(Date.now() + at * 86400000))}: ${plural(studied.due[at], 'card', 'cards')}`} onHover={sayDue} className="h-16" />
+          <PillBars values={studied.due} say={(at) => `${plural(studied.due[at], 'card', 'cards')} due ${at === 0 ? 'today' : at === 1 ? 'tomorrow' : dayMonth(new Date(Date.now() + at * 86400000))}`} onHover={sayDue} className="h-16" />
           <Ends left="today" right="in two weeks" />
         </MonoCard>
       </div>

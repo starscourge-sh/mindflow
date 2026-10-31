@@ -43,12 +43,24 @@ import { AnimatePresence, motion, useReducedMotion, MotionGlobalConfig } from 'm
 import { Rolling } from './ui'
 import { Chips } from './display'
 import { FLOAT } from '@/lib/float'
+import { useSeen } from '@/lib/reads-in'
 
 const EASE = [0.16, 1, 0.3, 1] as const
 /** recharts' "ease" (CSS ease), the curve its bars and lines grow and morph on. */
 const RECHARTS_EASE = [0.25, 0.1, 0.25, 1] as const
 const DRAW = 0.28
 const useStillness = (): boolean => !!useReducedMotion() || !!MotionGlobalConfig.skipAnimations
+/**
+ * Whether a chart may play its entry: once the page it is on is on show. A
+ * Stats page is laid out unseen until every part has read (lib/reads-in.tsx),
+ * and an entry started then had finished before anyone could see it.
+ */
+const useArrived = (): boolean => {
+  // Both hooks every render, in one order.
+  const seen = useSeen()
+  const still = useStillness()
+  return seen || still
+}
 
 /** A tone of the ink: Amicro's three steps (full, 0.52, 0.22) and its faint track. */
 const INK = 'var(--foreground)'
@@ -74,7 +86,10 @@ export function MonoCard({ name, title, value, unit, chips, side, point, childre
   name: string; title: string; value: string | number; unit?: string; chips?: ReactNode; side?: ReactNode; point: ReactNode; children?: ReactNode; hovered?: string | null
 }): React.JSX.Element {
   const still = useStillness()
+  const arrived = useArrived()
   const stage = useRef<HTMLDivElement>(null)
+  // As Amicro's cards do, the big number turns to the mark pointed at ("6" and "reviews, Sat 31 Oct"), and back on leaving.
+  const swap = hovered ? (/^([\d,.]+%?)\s+(.*)$/.exec(hovered) ?? (/^No /.test(hovered) ? [hovered, '0', hovered.replace(/^No /, '')] : null)) : null
   const [at, setAt] = useState<{ x: number; y: number; w: number } | null>(null)
   const follow = (event: React.PointerEvent): void => {
     const box = stage.current?.getBoundingClientRect()
@@ -82,12 +97,12 @@ export function MonoCard({ name, title, value, unit, chips, side, point, childre
   }
   return (
     <motion.section data-mono-card={name} aria-label={title} className="flex min-w-0 flex-col gap-2 rounded-xl border border-border bg-card p-4"
-      initial={still ? false : { opacity: 0, scale: 0.98, y: 6 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ duration: 0.25, ease: EASE }}>
+      initial={still ? false : { opacity: 0, scale: 0.98, y: 6 }} animate={arrived ? { opacity: 1, scale: 1, y: 0 } : { opacity: 0, scale: 0.98, y: 6 }} transition={{ duration: 0.25, ease: EASE }}>
       <p className="text-xs font-medium text-muted-foreground">{title}</p>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-baseline gap-2">
-          <span data-mono-value={value} className="text-[1.75rem] leading-none font-semibold text-foreground tabular-nums"><Rolling text={typeof value === 'number' ? value.toLocaleString() : value} /></span>
-          {unit && <span className="text-sm text-muted-foreground">{unit}</span>}
+          <span data-mono-value={value} data-mono-shown={swap ? swap[1] : value} className="text-[1.75rem] leading-none font-semibold text-foreground tabular-nums"><Rolling text={swap ? swap[1] : typeof value === 'number' ? value.toLocaleString() : value} /></span>
+          {(swap ? swap[2] : unit) && <span className="text-sm text-muted-foreground">{swap ? swap[2] : unit}</span>}
           {chips}
         </div>
         {side}
@@ -120,6 +135,7 @@ export function useHover(): [string | null, (said: string | null) => void] {
  */
 export function DotMatrix({ days, say, onHover, columns = 7, dot = 14 }: { days: { day: string; n: number }[]; say: (day: { day: string; n: number }) => string; onHover: (said: string | null) => void; /** Rows: 7 for a year of weeks, fewer for a month in one wide band. */ columns?: number; /** The widest a dot may grow, in px. */ dot?: number }): React.JSX.Element {
   const still = useStillness()
+  const arrived = useArrived()
   const most = Math.max(1, ...days.map((one) => one.n))
   const tone = (n: number): number => (n === 0 ? 0.08 : 0.3 + 0.7 * Math.min(1, n / most))
   const across = Math.ceil(days.length / columns)
@@ -128,7 +144,7 @@ export function DotMatrix({ days, say, onHover, columns = 7, dot = 14 }: { days:
       {days.map((one, at) => (
         <motion.span key={one.day} data-day={one.day} data-n={one.n} data-say={say(one)}
           onPointerEnter={() => onHover(say(one))}
-          initial={still ? false : { opacity: 0, scale: 0.4 }} animate={{ opacity: tone(one.n), scale: 1 }} whileHover={still ? undefined : { scale: 1.35, zIndex: 10 }}
+          initial={still ? false : { opacity: 0, scale: 0.4 }} animate={arrived ? { opacity: tone(one.n), scale: 1 } : { opacity: 0, scale: 0.4 }} whileHover={still ? undefined : { scale: 1.35, zIndex: 10 }}
           transition={{ duration: 0.25, ease: EASE, delay: still ? 0 : Math.min(0.6, at * 0.008) }}
           className="aspect-square w-full rounded-full" style={{ background: INK }} />
       ))}
@@ -144,6 +160,7 @@ export function DotMatrix({ days, say, onHover, columns = 7, dot = 14 }: { days:
  */
 export function PillBars({ values, keys, say, onHover, className = 'h-20' }: { values: number[]; keys?: string[]; say: (at: number) => string; onHover: (said: string | null) => void; className?: string }): React.JSX.Element {
   const still = useStillness()
+  const arrived = useArrived()
   const [on, setOn] = useState<number | null>(null)
   const most = Math.max(1, ...values)
   const glide = { duration: still ? 0 : DRAW, ease: RECHARTS_EASE }
@@ -155,7 +172,7 @@ export function PillBars({ values, keys, say, onHover, className = 'h-20' }: { v
             initial={still ? false : { opacity: 0 }} animate={{ opacity: on === null || on === at ? 1 : 0.35 }} exit={still ? undefined : { opacity: 0, transition: { duration: 0.12 } }}
             transition={{ opacity: { duration: 0.15 }, layout: glide }}
             className={`relative flex h-full flex-1 items-end rounded-full px-[1.5px] ${on === at ? 'bg-foreground/[0.06]' : ''}`}>
-            <motion.span initial={still ? false : { height: '0%' }} animate={{ height: `${n ? Math.max(8, (n / most) * 100) : 4}%` }}
+            <motion.span initial={still ? false : { height: '0%' }} animate={{ height: arrived ? `${n ? Math.max(8, (n / most) * 100) : 4}%` : '0%' }}
               transition={{ ...glide, delay: still ? 0 : Math.min(0.3, at * 0.012) }}
               className="block w-full rounded-full" style={{ background: INK, opacity: n ? 1 : 0.12 }} />
           </motion.span>
@@ -168,6 +185,7 @@ export function PillBars({ values, keys, say, onHover, className = 'h-20' }: { v
 /** Amicro's arc gauge: a rounded semi-circle, the ink for the share, a faint track for the rest; it fills on arrival. */
 export function Arc({ percent, label, className = 'max-w-[220px]' }: { percent: number; label: string; className?: string }): React.JSX.Element {
   const still = useStillness()
+  const arrived = useArrived()
   const r = 64
   const path = `M ${80 - r} 80 A ${r} ${r} 0 0 1 ${80 + r} 80`
   return (
@@ -175,7 +193,7 @@ export function Arc({ percent, label, className = 'max-w-[220px]' }: { percent: 
       <svg viewBox="0 0 160 90" className="w-full" role="img" aria-label={label}>
         <path d={path} fill="none" stroke={INK} strokeOpacity={0.1} strokeWidth={14} strokeLinecap="round" />
         <motion.path d={path} fill="none" stroke={INK} strokeWidth={14} strokeLinecap="round"
-          initial={still ? false : { pathLength: 0 }} animate={{ pathLength: Math.max(0.001, percent / 100) }} transition={{ duration: 0.6, ease: EASE }} />
+          initial={still ? false : { pathLength: 0 }} animate={{ pathLength: arrived ? Math.max(0.001, percent / 100) : 0 }} transition={{ duration: 0.6, ease: EASE }} />
       </svg>
       <span className="absolute inset-x-0 bottom-0 text-center text-xs text-muted-foreground">{label}</span>
     </div>
@@ -189,6 +207,7 @@ export function Arc({ percent, label, className = 'max-w-[220px]' }: { percent: 
  */
 export function Spline({ lines, say, onHover }: { lines: { values: number[]; dashed?: boolean; name: string }[]; say: (at: number) => string; onHover: (said: string | null) => void }): React.JSX.Element {
   const still = useStillness()
+  const arrived = useArrived()
   const [on, setOn] = useState<number | null>(null)
   const count = lines[0]?.values.length ?? 0
   const most = Math.max(1, ...lines.flatMap((line) => line.values))
@@ -210,7 +229,7 @@ export function Spline({ lines, say, onHover }: { lines: { values: number[]; das
         {on !== null && <line data-mono-guide x1={x(on)} x2={x(on)} y1={0} y2={h} stroke={INK} strokeOpacity={0.3} strokeWidth={1} strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />}
         {lines.map((line) => (
           <motion.path key={line.name} d={curve(line.values)} fill="none" stroke={INK} strokeOpacity={line.dashed ? 0.4 : 1} strokeWidth={line.dashed ? 1.5 : 3} strokeDasharray={line.dashed ? '4 4' : undefined} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke"
-            initial={still || line.dashed ? false : { pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: DRAW, ease: RECHARTS_EASE }} />
+            initial={still || line.dashed ? false : { pathLength: 0 }} animate={{ pathLength: arrived || line.dashed ? 1 : 0 }} transition={{ duration: DRAW, ease: RECHARTS_EASE }} />
         ))}
       </svg>
       {/* The dots as round marks over the stretched drawing, so they stay round. */}
@@ -228,13 +247,14 @@ export function Spline({ lines, say, onHover }: { lines: { values: number[]; das
 /** One bar split in tones of the ink, each part named under it with its count; the part pointed at stands out. */
 export function ToneBar({ parts }: { parts: { name: string; n: number }[] }): React.JSX.Element {
   const still = useStillness()
+  const arrived = useArrived()
   const total = parts.reduce((sum, one) => sum + one.n, 0)
   return (
     <div data-mono-tones>
       <div className="flex h-4 gap-[3px]">
         {parts.filter((one) => one.n).map((one, at) => (
           <motion.span key={one.name} title={`${one.name}: ${one.n.toLocaleString()}`} className="h-full origin-left rounded-full" style={{ flex: one.n, background: INK, opacity: TONES[parts.indexOf(one)] ?? 0.22 }}
-            initial={still ? false : { scaleX: 0.85, opacity: 0 }} animate={{ scaleX: 1, opacity: TONES[parts.indexOf(one)] ?? 0.22 }} transition={{ delay: still ? 0 : at * 0.05, duration: 0.25 }} />
+            initial={still ? false : { scaleX: 0.85, opacity: 0 }} animate={arrived ? { scaleX: 1, opacity: TONES[parts.indexOf(one)] ?? 0.22 } : { scaleX: 0.85, opacity: 0 }} transition={{ delay: still ? 0 : at * 0.05, duration: 0.25 }} />
         ))}
         {!total && <span className="h-full flex-1 rounded-full" style={{ background: INK, opacity: 0.08 }} />}
       </div>
@@ -250,6 +270,7 @@ export function ToneBar({ parts }: { parts: { name: string; n: number }[] }): Re
 /** Amicro's stage funnel: one rounded bar a row, widest first, staggered in at 0.05s; the row pointed at grows to 1.03 and the rest dim. */
 export function Funnel({ rows, say, onHover }: { rows: { name: string; n: number }[]; say: (row: { name: string; n: number }) => string; onHover: (said: string | null) => void }): React.JSX.Element {
   const still = useStillness()
+  const arrived = useArrived()
   const [on, setOn] = useState<string | null>(null)
   const most = Math.max(1, ...rows.map((one) => one.n))
   return (
@@ -259,7 +280,7 @@ export function Funnel({ rows, say, onHover }: { rows: { name: string; n: number
           <span className="truncate text-muted-foreground">{one.name}</span>
           <span className="h-3">
             <motion.span className="block h-full origin-left rounded-full" style={{ width: `${Math.max(4, (one.n / most) * 100)}%`, background: INK }}
-              initial={still ? false : { scaleX: 0.85, opacity: 0 }} animate={{ scaleX: on === one.name ? 1.03 : 1, opacity: 1 }} transition={{ delay: still || on !== null ? 0 : at * 0.05, duration: on !== null ? 0.2 : 0.25 }} />
+              initial={still ? false : { scaleX: 0.85, opacity: 0 }} animate={arrived ? { scaleX: on === one.name ? 1.03 : 1, opacity: 1 } : { scaleX: 0.85, opacity: 0 }} transition={{ delay: still || on !== null ? 0 : at * 0.05, duration: on !== null ? 0.2 : 0.25 }} />
           </span>
           <strong className="font-semibold text-foreground tabular-nums">{one.n.toLocaleString()}</strong>
         </div>
