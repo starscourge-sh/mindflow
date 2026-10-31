@@ -6,13 +6,13 @@ import { N, Section } from './stats-view'
 import { dayMonth, num, plural } from '../../../../main/dates'
 
 /** What `study:stats` hands back (haligtree.ts). */
-type Studied = { month: { day: string; reviews: number }[]; year: Record<string, number>; checked: number; recalled: number; due: number[] }
+type Studied = { month: { day: string; reviews: number }[]; year: Record<string, number>; checked: number; recalled: number; due: number[]; known: number; cards: number; seconds: number | null; days: { reviewed: number; of: number } }
 
 /** The made-up numbers for the example Stats page. */
 const EXAMPLE: Studied = {
   month: Array.from({ length: 30 }, (_, at) => ({ day: new Date(Date.now() - (29 - at) * 86400000).toISOString().slice(0, 10), reviews: (at * 7) % 5 === 0 ? 0 : ((at * 13) % 30) + 4 })),
   year: Object.fromEntries(Array.from({ length: 200 }, (_, at) => [new Date(Date.now() - at * 86400000).toISOString().slice(0, 10), (at * 11) % 4 === 0 ? 0 : (at * 17) % 40])),
-  checked: 412, recalled: 361, due: [14, 9, 11, 6, 8, 4, 7, 5, 3, 6, 2, 4, 3, 2]
+  checked: 412, recalled: 361, due: [14, 9, 11, 6, 8, 4, 7, 5, 3, 6, 2, 4, 3, 2], known: 238, cards: 540, seconds: 9, days: { reviewed: 148, of: 200 }
 }
 
 /** A small caption under a chart, its axis in words: what each bar is and what its height counts. */
@@ -45,6 +45,12 @@ export function StudySection({ example }: { example: boolean }): React.JSX.Eleme
         In the last 30 days you reviewed <N>{plural(reviews, 'card', 'cards')}</N>
         {retention === null ? ', none of them seen before, so there is nothing yet to say how well they stay.' : <> and remembered <N>{`${retention}%`}</N> of those you had seen before ({num(studied.recalled)} of {num(studied.checked)}).</>}{' '}
         <N>{plural(studied.due[0], 'card is', 'cards are')}</N> due today, and <N>{num(coming)}</N> in all over the next two weeks.
+      </p>
+      {/* The honest ones: known means remembered across 15 days, not just seen. */}
+      <p data-study-honest>
+        <N>{num(studied.known)}</N> of your <N>{plural(studied.cards, 'card', 'cards')}</N> are known: remembered after a gap of 15 days or more.
+        {studied.seconds !== null && <> A card takes you about <N>{plural(studied.seconds, 'second', 'seconds')}</N>.</>}
+        {studied.days.of > 0 && <> You reviewed on <N>{`${Math.round((studied.days.reviewed / studied.days.of) * 100)}%`}</N> of days since you began ({num(studied.days.reviewed)} of {num(studied.days.of)}).</>}
       </p>
       <figure data-study-month>
         <figcaption className="mb-2 text-control font-medium text-foreground">Cards reviewed each day</figcaption>

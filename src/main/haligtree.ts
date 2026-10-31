@@ -2564,6 +2564,16 @@ export function registerHaligtree(): void {
     return { cap: tuned ? Math.floor(newPerDay / 2) : newPerDay, tuned, behind }
   }
   handle('review:tuning', newCap)
+  // Today's sitting in two honest numbers: seconds a card (60 at most each),
+  // and the card you still knew after the longest gap, with the gap in days.
+  handle('review:today', () => {
+    const since = new Date(startOfDay()).toISOString()
+    const pace = (db.prepare('select avg(min(ms, 60000)) ms from review_log where ms is not null and reviewed_at >= ?').get(since) as { ms: number | null }).ms
+    const best = db.prepare(`select r.item_id as id, julianday(r.reviewed_at) - julianday((select max(p.reviewed_at) from review_log p where p.item_id = r.item_id and p.reviewed_at < r.reviewed_at)) as gap
+      from review_log r where r.reviewed_at >= ? and r.grade > 1 order by gap desc limit 1`).get(since) as { id: string; gap: number | null } | undefined
+    const prompt = best?.gap && best.gap >= 7 ? (db.prepare('select prompt from nuggets where id = ?').get(best.id) as { prompt: string | null } | undefined)?.prompt : null
+    return { seconds: pace ? Math.round(pace / 1000) : null, kept: prompt ? { prompt, days: Math.floor(best!.gap!) } : null }
+  })
   // How long a card takes you, from your last 200 reviews, each counted as 60 seconds at most (a card left open is not a slow card).
   handle('review:pace', () => (db.prepare('select avg(min(ms, 60000)) as ms from (select ms from review_log where ms is not null order by reviewed_at desc limit 200)').get() as { ms: number | null }).ms)
   /**
@@ -2843,7 +2853,17 @@ export function registerHaligtree(): void {
     const due = Array.from({ length: 14 }, () => 0)
     for (const row of db.prepare(`select due_at as at from nuggets where coalesce(prompt, '') != '' and suspended = 0 and archived_at is null and binned_at is null and superseded_by is null and due_at is not null and due_at < ?`).all(day(14)) as { at: string }[])
       due[Math.max(0, Math.floor((Date.parse(row.at) - startOfDay(0)) / 86400000))] += 1
-    return { month, year: Object.fromEntries(perDay), checked: kept.n, recalled: kept.recalled, due }
+    // Known: remembered at least once across a gap of 15 days or more, the
+    // only proof a card has moved past short-term memory. Of every card.
+    const known = (db.prepare(`select count(distinct item_id) n from (select item_id, grade, julianday(reviewed_at) - julianday(lag(reviewed_at) over (partition by item_id order by reviewed_at)) gap from review_log)
+      where grade > 1 and gap >= 15 and item_id in (select id from nuggets where coalesce(prompt, '') != '' and archived_at is null and binned_at is null)`).get() as { n: number }).n
+    const cards = (db.prepare(`select count(*) n from nuggets where coalesce(prompt, '') != '' and archived_at is null and binned_at is null and superseded_by is null`).get() as { n: number }).n
+    // Seconds a card, each counted as 60 at most, and the share of days since the first review (up to a year) with any.
+    const pace = (db.prepare('select avg(min(ms, 60000)) ms from review_log where ms is not null and reviewed_at >= ?').get(day(-29)) as { ms: number | null }).ms
+    const first = (db.prepare('select min(reviewed_at) at from review_log').get() as { at: string | null }).at
+    const span = first ? Math.min(365, Math.floor((startOfDay(1) - startOfDay(0, new Date(first))) / 86400000)) : 0
+    const reviewedDays = [...perDay.keys()].filter((key) => key >= local(day(1 - span))).length
+    return { month, year: Object.fromEntries(perDay), checked: kept.n, recalled: kept.recalled, due, known, cards, seconds: pace ? Math.round(pace / 1000) : null, days: { reviewed: reviewedDays, of: span } }
   })
 
   // --- the card browser: every card, with what it is filtered and sorted by

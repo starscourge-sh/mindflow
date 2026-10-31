@@ -842,6 +842,7 @@ function Finished({ count, total, later = 0, compact, onPick, onLearn, ids = [] 
   const counts = useLive(haligtree.buckets, null as Record<Round, number> | null, [], ['item'])
   const days = useLive(haligtree.daysInARow, null as { run: number; banked: number } | null, [], ['item'])
   const inbox = useLive(inboxOpen, null as number | null, [], undefined, 'review-inbox')
+  const sitting = useLive(haligtree.reviewToday, null as Awaited<ReturnType<typeof haligtree.reviewToday>> | null, [], ['item'])
   const exams = useLive(haligtree.exams, [] as Exam[])
   const [practising, setPractising] = useState(false)
   const done = count > 0
@@ -891,6 +892,9 @@ function Finished({ count, total, later = 0, compact, onPick, onLearn, ids = [] 
               : later ? <><strong className="font-semibold text-foreground">{later === 1 ? 'The card you put off comes back tomorrow.' : `The ${num(later)} cards you put off come back tomorrow.`}</strong> Nothing else is due today.</>
               : <><strong className="font-semibold text-foreground">No card is due yet.</strong> Each one comes back as you start to forget it, so there is nothing to do here until then.</>}
           </p>
+          {/* Two honest numbers from the sitting: the card that held longest, and the time a card took. */}
+          {done && sitting?.kept && <p data-still-knew className="text-body text-foreground">You still knew <strong className="font-semibold">“{sitting.kept.prompt}”</strong> after {num(sitting.kept.days)} days.</p>}
+          {done && !!sitting?.seconds && <p data-seconds-each className="text-control text-foreground tabular-nums">About {num(sitting.seconds)} {sitting.seconds === 1 ? 'second' : 'seconds'} a card today.</p>}
           {milestone ? <p data-milestone className="text-body font-semibold text-foreground">{milestone}</p>
             : days && days.run >= 2 && <p data-days-in-a-row className="text-control text-foreground tabular-nums"><strong className="font-semibold">{num(days.run)} days</strong> in a row{days.banked ? <span className="text-muted-foreground">, {num(days.banked)} rest {days.banked === 1 ? 'day' : 'days'} banked</span> : ''}.</p>}
           <div className="mt-2 flex flex-col items-start gap-2.5">
