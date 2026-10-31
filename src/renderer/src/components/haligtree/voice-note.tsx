@@ -5,6 +5,7 @@ import { Mic, Square, X } from 'lucide-react'
 import { saveAttachment } from '@/extensions/image-drop'
 import { refuse } from '@/components/haligtree/ui'
 import { chime } from '@/lib/sound'
+import { FLOAT } from '@/lib/float'
 
 /** The kinds a recording can be kept as, the first the recorder makes: `.m4a` plays anywhere, `.weba` is Chromium's own. */
 const KINDS = [
@@ -165,7 +166,8 @@ function Recorder({ stream, onDone }: { stream: MediaStream; onDone: (file: File
 
   return (
     <div role="dialog" aria-label="Recording a voice note" data-voice-recorder
-      className="fixed bottom-28 left-1/2 z-[1000] flex w-[340px] max-w-[calc(100vw-24px)] -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-popover py-1.5 pr-1.5 pl-2 text-popover-foreground shadow-lg animate-in fade-in-0 slide-in-from-bottom-2 duration-200">
+      // The app's one floating material (lib/float.ts), as the Look Up card and the page peek wear it.
+      className={`fixed bottom-28 left-1/2 z-[1000] flex w-[340px] max-w-[calc(100vw-24px)] -translate-x-1/2 items-center gap-2 rounded-full py-1.5 pr-1.5 pl-2 ${FLOAT} animate-in fade-in-0 slide-in-from-bottom-2 duration-200`}>
       {/* Plain titles: the recorder has a root of its own, outside the tips' provider; the app's title tips draw them. */}
       <button type="button" aria-label="Cancel" title="Throw it away  Esc" onClick={cancel} className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-[0.95]">
         <X className="size-3.5" />
