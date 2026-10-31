@@ -670,7 +670,7 @@ try {
   await pickOn(2, 'quiet'); await wait(500)
   await h.keyboard.press('Shift+C'); await wait(900)
   const blank = (await cardsFromBook()).find((one) => one.prompt?.includes('_____'))
-  check('⇧C makes a fill-in-the-blank card from the sentence', !!blank?.prompt?.endsWith('A _____ sentence worth keeping on page 2.'), JSON.stringify(blank?.prompt))
+  check('⇧C makes a fill-in-the-blank card from the sentence alone, not the heading above it', blank?.prompt === 'A _____ sentence worth keeping on page 2.', JSON.stringify(blank?.prompt))
   check('the count of cards from this source is said', /Card made: 2 from this source/.test(await h.evaluate(() => document.body.textContent)), '')
 } catch (error) {
   check('ran without throwing', false, String(error?.stack ?? error))

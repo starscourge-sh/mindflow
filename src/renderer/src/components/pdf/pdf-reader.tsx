@@ -307,10 +307,34 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   const [looking, setLooking] = useState<{ words: string; x: number; y: number; from: LookedUpIn } | null>(null)
   /** The sentence round picked words, from the page's own text. */
   const sentenceOf = (at: { page: number; start: number; end: number }): string => {
-    const text = pageTexts.current.get(at.page) ?? document.querySelector(`.pdf-page[data-page="${at.page}"] .textLayer`)?.textContent ?? ""
-    const from = Math.max(0, text.lastIndexOf(".", at.start) + 1)
-    const to = text.indexOf(".", at.end)
-    return text.slice(from, to < 0 ? undefined : to + 1).replace(/\s+/g, " ").trim()
+    const layer = document.querySelector(`.pdf-page[data-page="${at.page}"] .textLayer`)
+    const text = pageTexts.current.get(at.page) ?? layer?.textContent ?? ""
+    // The words' own run of text: the page's pieces in the same type size,
+    // so a heading or a caption above (no full stop after it) is never taken
+    // in, and a paragraph's line ends are not walls.
+    let low = 0
+    let high = text.length
+    if (layer) {
+      const pieces = [...layer.querySelectorAll<HTMLElement>(":scope > span, :scope > .markedContent > span")].filter((one) => !one.querySelector("span"))
+      let offset = 0
+      const spans = pieces.map((one) => ({ from: offset, to: (offset += one.textContent?.length ?? 0), size: one.style.fontSize || getComputedStyle(one).fontSize }))
+      const here = spans.findIndex((one) => at.start >= one.from && at.start < one.to)
+      if (here >= 0 && offset === text.length) {
+        let first = here
+        let last = here
+        while (first > 0 && spans[first - 1].size === spans[here].size) first--
+        while (last < spans.length - 1 && spans[last + 1].size === spans[here].size) last++
+        low = spans[first].from
+        high = spans[last].to
+      }
+    }
+    const ends = /[.!?]/g
+    let from = low
+    for (const match of text.slice(low, at.start).matchAll(ends)) from = low + match.index! + 1
+    ends.lastIndex = 0
+    const after = ends.exec(text.slice(at.end, high))
+    const to = after ? at.end + after.index + 1 : high
+    return text.slice(from, to).replace(/\s+/g, " ").trim()
   }
   // Cards made from this PDF, all told: most people keep 10 to 15 from an
   // hour of reading, so past 15 the count says so, gently.
