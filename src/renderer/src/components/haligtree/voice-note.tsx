@@ -31,6 +31,21 @@ const clock = (seconds: number): string => `${Math.floor(seconds / 60)}:${String
  * that place instead, large and calm, rather than floating over the page.
  */
 export async function recordVoice(slot?: HTMLElement | null): Promise<Recording | null> {
+  // One recording per window, ever. Taken before the first wait, not once the
+  // recorder shows: a second click on the mic (or ⌘K's "Record a voice note")
+  // while the microphone is still being asked for started a second recorder,
+  // with a microphone of its own, under the first.
+  if (taken) return null
+  taken = true
+  try {
+    return await openRecorder(slot)
+  } finally {
+    taken = false
+  }
+}
+let taken = false
+
+async function openRecorder(slot?: HTMLElement | null): Promise<Recording | null> {
   if (!(await window.api.haligtree<boolean>('mic:ask'))) {
     refuse('Haligtree may not use the microphone. Allow it in System Settings, under Privacy & Security, then Microphone')
     return null

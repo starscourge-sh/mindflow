@@ -123,7 +123,19 @@ function end(how: 'kept' | 'cancelled'): void {
 
 /** Start listening into the field the caret is in. `tap`: until the talk key is pressed again, Enter, or a click. */
 export async function talkInto(how: 'hold' | 'tap' = 'tap'): Promise<void> {
-  if (session) return
+  // One at a time, counted from the first wait: a second press while the
+  // microphone is still being asked for would hang a second listener on the words.
+  if (session || starting) return
+  starting = true
+  try {
+    await beginTalk(how)
+  } finally {
+    starting = false
+  }
+}
+let starting = false
+
+async function beginTalk(how: 'hold' | 'tap'): Promise<void> {
   const field = fieldHere()
   if (!field) return
   if (!(await window.api.haligtree<boolean>('mic:ask'))) {
