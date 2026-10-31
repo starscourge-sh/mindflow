@@ -200,6 +200,8 @@ type PaneState = { key: string; trail: Trail; width?: PaneWidth }
 /** `id` and `name` once the split has been left and kept under "Side by side" (split-pairs.tsx). */
 type SplitState = { panes: PaneState[]; front: string; sizes: number[]; id?: string; name?: string }
 const SPLIT = 'split'
+/** The one pane, when the window is not split: what launch reopens. */
+const ONE = 'pane-one'
 let made = 0
 const fresh = (views: View[] = [{ id: 'day' }]): PaneState => ({ key: `p${Date.now().toString(36)}${made++}`, trail: { views: views.map(landing), at: views.length - 1 } })
 /** Whether a capture is still in the Inbox without "Show sorted too": asked by `landing` (set by Home). */
@@ -258,7 +260,7 @@ const datedName = (view: View): string | null => {
 }
 function loadSplit(): SplitState {
   try {
-    const kept = JSON.parse(localStorage.getItem(SPLIT) ?? 'null') as SplitState | null
+    const kept = JSON.parse(localStorage.getItem(SPLIT) ?? localStorage.getItem(ONE) ?? 'null') as SplitState | null
     const fine = (pane: PaneState): boolean => typeof pane?.key === 'string' && Array.isArray(pane.trail?.views) && pane.trail.views.every((one) => typeof one?.id === 'string') && pane.trail.at >= 0 && pane.trail.at < pane.trail.views.length
     // One pane or several: launch opens what was open, each pane on the page it was on (a day's page on today's).
     if (kept && Array.isArray(kept.panes) && kept.panes.length > 0 && kept.panes.every(fine)) {
@@ -297,7 +299,10 @@ function loadKept(): KeptSplit[] {
 }
 function saveSplit(split: SplitState): void {
   try {
-    localStorage.setItem(SPLIT, JSON.stringify(bareSplit(split)))
+    // Split: kept as the split (and laid out again under "Side by side"); one pane on its own is kept apart.
+    if (split.panes.length > 1) return (localStorage.setItem(SPLIT, JSON.stringify(bareSplit(split))), localStorage.removeItem(ONE))
+    localStorage.removeItem(SPLIT)
+    localStorage.setItem(ONE, JSON.stringify(bareSplit(split)))
   } catch {
     // Kept for this run only.
   }
