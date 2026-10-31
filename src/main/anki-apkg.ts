@@ -18,6 +18,8 @@ export type ApkgCounts = {
   updated: number
   /** The decks the cards came from, by their own names ("Great Works of Art: Artists, Titles"). */
   names: string[]
+  /** New cards held until their topic is started. */
+  held: number
   /** One card as Review will ask it. */
   sample: { question: string; answer: string } | null
 }
@@ -25,8 +27,11 @@ export type ApkgCounts = {
 /** What there is to ask about once the deck is read: how many of its cards come with past reviews. */
 export type ApkgAsk = { reviewed: number; cards: number; names: string[] }
 
+/** Over this many new cards, a deck is held until each topic is started, unless the person says start them all. */
+export const HOLD_OVER = 200
+
 /** How the person wants the deck brought in. */
-export type ApkgChoice = { keepReviews: boolean }
+export type ApkgChoice = { keepReviews: boolean; hold: boolean }
 
 type Steps = {
   /** Asked once the deck is read, before anything is kept. */
@@ -204,7 +209,8 @@ export async function importApkg(path: string, steps: Steps = {}): Promise<ApkgC
   const collection = files['collection.anki21b'] ?? files['collection.anki21'] ?? files['collection.anki2']
   if (!collection) throw new Error('it holds no Anki collection')
   const folder = await mkdtemp(join(tmpdir(), 'haligtree-apkg-'))
-  const counts: ApkgCounts = { cards: 0, decks: 0, pictures: 0, sounds: 0, skipped: 0, already: 0, paused: 0, updated: 0, names: [], sample: null }
+  const after: (() => void)[] = []
+  const counts: ApkgCounts = { cards: 0, decks: 0, pictures: 0, sounds: 0, skipped: 0, already: 0, paused: 0, updated: 0, held: 0, names: [], sample: null }
   try {
     const file = join(folder, 'collection.sqlite')
     await writeFile(file, unpacked(collection))
@@ -217,7 +223,12 @@ export async function importApkg(path: string, steps: Steps = {}): Promise<ApkgC
       const used = [...new Set(cards.map((card) => decks.get(String(card.did)) ?? ''))].filter((name) => name && name !== 'Default')
       counts.names = deckNames(used.length ? used : [...new Set(cards.map((card) => decks.get(String(card.did)) ?? ''))].filter(Boolean))
       // Asked before anything is kept: a shared deck's reviews are a stranger's.
-      const choice = reviewed && steps.choose ? await steps.choose({ reviewed, cards: cards.length, names: counts.names }) : { keepReviews: false }
+      // Only cards new to this book count: a newer version of a deck already here asks nothing.
+      const here = database().prepare('select 1 from nuggets where source = ? or source = ?')
+      const incoming = cards.filter((card) => !here.get(`anki:${card.guid}:${card.ord}`, `anki:${card.id}`)).length
+      const choice = (reviewed || incoming > HOLD_OVER) && incoming && steps.choose
+        ? await steps.choose({ reviewed, cards: incoming, names: counts.names })
+        : { keepReviews: false, hold: incoming > HOLD_OVER }
 
       // Media: a list from number to name, JSON in older packages.
       const list = files.media ? unpacked(files.media) : new Uint8Array()
@@ -230,25 +241,29 @@ export async function importApkg(path: string, steps: Steps = {}): Promise<ApkgC
       }
       const media = new Map<string, string>()
       await mkdir(assetsDir(), { recursive: true })
-      for (const [number, name] of names.entries()) {
-        steps.progress?.(number + 1, names.length, 'pictures')
-        const raw = files[String(number)]
-        if (!raw || !name) continue
-        const bytes = unpacked(raw)
-        const ending = (name.split('.').pop() ?? 'bin').toLowerCase().replace('jpeg', 'jpg')
-        const stored = `${createHash('sha256').update(bytes).digest('hex')}.${/^[a-z0-9]{1,12}$/.test(ending) ? ending : 'bin'}`
-        // Written beside and renamed in, as every kept file is: never half written.
-        const temporary = join(assetsDir(), `${stored}.${randomUUID()}.tmp`)
-        await stat(join(assetsDir(), stored)).catch(() => writeFile(temporary, bytes).then(() => rename(temporary, join(assetsDir(), stored))))
-        media.set(name, `haligtree://assets/${stored}`)
-        if (PICTURE.test(name)) (counts.pictures += 1, lookAhead(stored))
-        else counts.sounds += 1
+      // Copied a few at a time, each written beside and renamed in (never half written); a picture's look is worked
+      // out once the import is over, so the import is not slowed by it.
+      const looks: string[] = []
+      const entries = [...names.entries()].filter(([number, name]) => name && files[String(number)])
+      for (let at = 0; at < entries.length; at += 8) {
+        await Promise.all(entries.slice(at, at + 8).map(async ([number, name]) => {
+          const bytes = unpacked(files[String(number)])
+          const ending = (name.split('.').pop() ?? 'bin').toLowerCase().replace('jpeg', 'jpg')
+          const stored = `${createHash('sha256').update(bytes).digest('hex')}.${/^[a-z0-9]{1,12}$/.test(ending) ? ending : 'bin'}`
+          const temporary = join(assetsDir(), `${stored}.${randomUUID()}.tmp`)
+          await stat(join(assetsDir(), stored)).catch(() => writeFile(temporary, bytes).then(() => rename(temporary, join(assetsDir(), stored))))
+          media.set(name, `haligtree://assets/${stored}`)
+          if (PICTURE.test(name)) (counts.pictures += 1, looks.push(stored))
+          else counts.sounds += 1
+        }))
+        steps.progress?.(Math.min(at + 8, entries.length), entries.length, 'pictures')
       }
+      after.push(() => looks.forEach((one) => lookAhead(one)))
 
       const db = database()
       const seen = db.prepare('select 1 from nuggets where source = ?')
       const before = db.prepare('select id, body, prompt from nuggets where source = ?')
-      const add = db.prepare("insert into nuggets (id, kind, title, body, prompt, source, state, due_at, suspended, created_at, updated_at) values (?, 'note', ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+      const add = db.prepare("insert into nuggets (id, kind, tier, deck, held, title, body, prompt, source, state, due_at, suspended, created_at, updated_at) values (?, 'note', 'deck', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
       const update = db.prepare('update nuggets set title = ?, body = ?, prompt = ?, updated_at = ? where id = ?')
       const log = db.prepare('insert into review_log (item_id, grade, reviewed_at, ms, first) values (?, ?, ?, ?, ?)')
       const reviewsOf = source.prepare('select id, ease, time, type from revlog where cid = ? order by id')
@@ -325,7 +340,10 @@ export async function importApkg(path: string, steps: Steps = {}): Promise<ApkgC
             state = scheduler().next(state ?? createEmptyCard(when), when, review.ease as Grade).card
             log.run(id, review.ease, when.toISOString(), review.time || null, index ? 0 : 1)
           }
-          add.run(id, title, JSON.stringify(body), front, key, state ? JSON.stringify(state) : null, state ? state.due.toISOString() : null, card.queue === -1 ? 1 : 0, now, now)
+          // A big deck's new cards wait, held, until their topic is started from Review's Decks shelf.
+          const held = choice.hold && !state && card.queue !== -1 ? 1 : 0
+          if (held) counts.held += 1
+          add.run(id, deck && deck !== 'Default' ? deck : used[0]?.split('::')[0] ?? 'Anki', held, title, JSON.stringify(body), front, key, state ? JSON.stringify(state) : null, state ? state.due.toISOString() : null, card.queue === -1 || held ? 1 : 0, now, now)
           // Suspended in Anki (queue -1): paused here, out of Review until brought back.
           if (card.queue === -1) counts.paused += 1
           counts.cards += 1
@@ -342,6 +360,7 @@ export async function importApkg(path: string, steps: Steps = {}): Promise<ApkgC
   } finally {
     await rm(folder, { recursive: true, force: true })
   }
+  for (const one of after) one()
   if (counts.cards || counts.updated) changed()
   return counts
 }

@@ -41,6 +41,7 @@ import type { OrbState } from 'thinking-orbs'
 import { Orb } from './orb'
 import { SaveTroubleLine } from './save-trouble'
 import { ImportDoneCard, ImportProgress } from './import-done'
+import { ApkgAskSheet } from './apkg-ask'
 import { chooseBackupFolder } from '@/lib/backups'
 import { useSaveTrouble } from '@/lib/save-trouble'
 import { Beam, beam, startWorking } from './beam'
@@ -1413,6 +1414,7 @@ export function Toaster(): React.JSX.Element | null {
     <VaultPicker />
     <ImportFolders />
     <ImportDoneCard />
+    <ApkgAskSheet />
     <GoalAsker />
     <MilestoneAsker />
     <RestoreAsker />

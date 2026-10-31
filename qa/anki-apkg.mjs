@@ -69,16 +69,17 @@ const importOnce = (path = file) => electron.evaluate(async ({ dialog, Menu }, p
   find(Menu.getApplicationMenu())?.click()
 }, path)
 // The sandbox's own sample cards are left out: only what came from the deck.
-const gems = () => h.evaluate(async () => Promise.all((await window.api.haligtree('items', 'nugget')).filter((one) => /^(What powers|chat$|cat$|The .*_____|Hear it|Name this|Paused question)/.test(one.prompt ?? '')).map(async (one) => ({ id: one.id, prompt: one.prompt, body: JSON.stringify((await window.api.haligtree('item', one.id))?.body ?? '') }))))
+const gems = () => h.evaluate(async () => Promise.all((await window.api.haligtree('items', 'deck')).filter((one) => /^(What powers|chat$|cat$|The .*_____|Hear it|Name this|Paused question)/.test(one.prompt ?? '')).map(async (one) => ({ id: one.id, prompt: one.prompt, body: JSON.stringify((await window.api.haligtree('item', one.id))?.body ?? '') }))))
 const waitFor = async (test, ms = 8000) => { for (const end = Date.now() + ms; Date.now() < end; await h.waitForTimeout(150)) if (await test()) return true; return false }
 try {
-  // A deck with past reviews asks first: "Start these fresh" is the default; this is the person's own export, so the reviews are kept.
-  await electron.evaluate(({ dialog }) => {
-    globalThis.asked = []
-    dialog.showMessageBox = async (...args) => { const options = args.at(-1); globalThis.asked.push(options); return { response: options.buttons.indexOf('Keep the reviews'), checkboxChecked: false } }
-  })
   // Dropped on the window outside a note: the window would open the file, and imports it instead.
   await h.evaluate((url) => { location.href = url }, `file://${file}`)
+  // A deck with past reviews asks first, in the app's own sheet: "Start these fresh" is picked; this is the person's own export, so the reviews are kept.
+  await waitFor(() => h.evaluate(() => !!document.querySelector('[data-apkg-ask]')))
+  const sheet = await h.evaluate(() => ({ text: document.querySelector('[data-apkg-ask]')?.textContent ?? '', picked: document.querySelector('[data-apkg-option][aria-checked="true"]')?.textContent }))
+  await h.screenshot({ path: join(process.env.QA_SHOTS ?? dir, 'anki-apkg-ask.png') })
+  await h.evaluate(() => document.querySelector('[data-apkg-option="keep"]')?.click())
+  await h.evaluate(() => document.querySelector('[data-apkg-go]')?.click())
   await waitFor(async () => (await gems()).length >= 8)
   const all = await gems()
   console.log(all.map((one) => `${one.prompt} | ${one.body.slice(0, 120)}`).join('\n'))
@@ -89,22 +90,42 @@ try {
   check('a reversed note asks both ways', all.some((one) => one.prompt === 'chat' && one.body.includes('cat')) && all.some((one) => one.prompt === 'cat' && one.body.includes('chat')))
   check('a cloze note is one card per blank, each asking its own', all.some((one) => one.prompt === 'The _____ holds the DNA') && all.some((one) => one.prompt === 'The nucleus holds the _____'))
   check('the cloze answer shows the whole sentence', all.filter((one) => one.prompt.includes('_____')).every((one) => one.body.includes('The nucleus holds the DNA')))
-  const paused = await h.evaluate(async () => (await window.api.haligtree('items', 'nugget')).filter((one) => /^(What powers|chat$|cat$|The .*_____|Hear it|Name this|Paused question)/.test(one.prompt ?? '') && one.suspended).map((one) => one.prompt))
+  const paused = await h.evaluate(async () => (await window.api.haligtree('items', 'deck')).filter((one) => /^(What powers|chat$|cat$|The .*_____|Hear it|Name this|Paused question)/.test(one.prompt ?? '') && one.suspended).map((one) => one.prompt))
   check('a card suspended in Anki comes in paused, and only that one', paused.length === 1 && paused[0] === 'Paused question', JSON.stringify(paused))
   const sound = all.find((one) => one.prompt.startsWith('Hear it'))
   check('a sound is kept and linked, on the answer side', !!sound && sound.prompt === 'Hear it' && /\[bell\.mp3\]\(haligtree:\/\/assets\/[a-f0-9]{64}\.mp3\)/.test(sound.body), sound?.body)
   const history = basic && await h.evaluate((id) => window.api.haligtree('review:history', id), basic.id)
-  const questions = await electron.evaluate(() => globalThis.asked.map((one) => `${one.message} [${one.buttons.join(' / ')}]`))
-  check('a downloaded deck with reviews asks, "Start these fresh" first', questions.length === 1 && /past reviews for 2 cards \[Start these fresh \/ Keep the reviews\]/.test(questions[0]), JSON.stringify(questions))
+  check('a downloaded deck with reviews asks in the app\'s own sheet, "Start these fresh" picked', /past reviews for 2 cards/.test(sheet.text) && sheet.picked === 'Start these fresh', JSON.stringify(sheet))
   check('its four past reviews came with it', history?.reviews.length === 4, JSON.stringify(history?.reviews))
   check('and it keeps its schedule: due in the future, not new', !!history?.dueAt && Date.parse(history.dueAt) > Date.now() + day, history?.dueAt)
   const notice = await h.evaluate(() => document.querySelector('[data-import-done]')?.textContent ?? '')
   check('the notice counts what came in', /^8 cards are in/.test(notice) && /From Biology: Cells/.test(notice) && /8 cards, 1 picture/.test(notice) && /A card as Review asks it/.test(notice) && !/Biology\.apkg/.test(notice) && /1 picture/.test(notice) && /1 sound/.test(notice), notice)
-  check('the notice says what Anki\'s words are here, and where shared decks are', /Coming from Anki\? A deck is a #tag here/.test(notice) && /Review › All cards/.test(notice) && /ankiweb\.net\/shared\/decks/.test(notice), notice)
+  check('the notice says what Anki\'s words are here, and where shared decks are', /Coming from Anki\? A deck sits on Review › Decks/.test(notice) && /Review › All cards/.test(notice) && /ankiweb\.net\/shared\/decks/.test(notice), notice)
   await h.screenshot({ path: join(process.env.QA_SHOTS ?? dir, 'anki-apkg-notice.png') })
   await h.keyboard.press('Escape')
   await waitFor(() => h.evaluate(() => !document.querySelector('[data-import-done]')))
+  // A shared deck lives on its own shelf: out of Gems and Media's grid until the person says otherwise.
+  const inGems = () => h.evaluate(async () => (await window.api.haligtree('items', 'nugget')).filter((one) => /^(What powers|Hear it)/.test(one.prompt ?? '')).length)
+  check('the deck\'s cards stay out of Gems', (await inGems()) === 0)
+  await c.go('media')
+  await waitFor(() => h.evaluate(() => !!document.querySelector('[data-media-decks]')))
+  const mediaGrid = await h.evaluate(() => document.querySelectorAll('[data-media-grid] img').length)
+  await h.evaluate(() => document.querySelector('[data-media-decks] button, [data-media-decks] [role]')?.click())
+  await h.waitForTimeout(400)
+  const deckPictures = await h.evaluate(() => document.querySelectorAll('[data-media-grid] img').length)
+  check('Media keeps the deck\'s pictures under a "Deck pictures" chip, out of its grid', deckPictures >= 1 && deckPictures !== mediaGrid, `grid ${mediaGrid}, deck pictures ${deckPictures}`)
   await c.go('review')
+  await h.evaluate(() => document.querySelector('[data-review-tab="decks"]')?.click())
+  await waitFor(() => h.evaluate(() => !!document.querySelector('[data-deck-shelf]')))
+  const shelf = await h.evaluate(() => document.querySelector('[data-deck-shelf]')?.innerText ?? '')
+  check('Review › Decks shows the deck, its cover and its counts', /Biology/.test(shelf) && /8 cards/.test(shelf) && await h.evaluate(() => !!document.querySelector('[data-deck] img')), shelf)
+  await h.screenshot({ path: join(process.env.QA_SHOTS ?? dir, 'anki-apkg-decks.png') })
+  await h.evaluate(() => document.querySelector('[data-deck-gems]')?.click())
+  check('"Show in Gems" brings them into Gems', await waitFor(async () => (await inGems()) === 2))
+  await waitFor(() => h.evaluate(() => document.querySelector('[data-deck-gems]')?.textContent === 'Keep out of Gems'))
+  await h.evaluate(() => document.querySelector('[data-deck-gems]')?.click())
+  check('"Keep out of Gems" puts them back on the shelf', await waitFor(async () => (await inGems()) === 0))
+  await h.evaluate(() => document.querySelector('[data-review-tab="today"]')?.click())
   // Learn mode: a dozen steps, answered anyhow; what it offers to pick is read at each.
   await waitFor(() => h.evaluate(() => !!document.querySelector('[data-learn-new]')))
   await h.evaluate(() => document.querySelector('[data-learn-new]')?.click())
@@ -137,8 +158,8 @@ try {
   await h.waitForTimeout(2500)
   // Anki 2.1.50's packed export comes in too, its picture unpacked.
   await importOnce(packedFile)
-  const packedCard = await waitFor(async () => (await h.evaluate(async () => (await window.api.haligtree('items', 'nugget')).some((one) => (one.prompt ?? '').startsWith('Packed question'))))) &&
-    await h.evaluate(async () => (await window.api.haligtree('items', 'nugget')).find((one) => (one.prompt ?? '').startsWith('Packed question')).prompt)
+  const packedCard = await waitFor(async () => (await h.evaluate(async () => (await window.api.haligtree('items', 'deck')).some((one) => (one.prompt ?? '').startsWith('Packed question'))))) &&
+    await h.evaluate(async () => (await window.api.haligtree('items', 'deck')).find((one) => (one.prompt ?? '').startsWith('Packed question')).prompt)
   check('a packed (.anki21b) export comes in, its picture unpacked and kept', /haligtree:\/\/assets\/[a-f0-9]{64}\.png/.test(packedCard || ''), packedCard)
   check('importing the same deck again from File adds nothing twice', (await gems()).length === 8, `${(await gems()).length}`)
 } catch (error) {

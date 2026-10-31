@@ -402,7 +402,7 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
     const out = linksIn(row?.body)
     // In: every note whose words hold a link to this one.
     const into = db.prepare(`select 'capture' as type, id, ${LABEL} as title, private from captures where status != 'discarded' and (body like ? or body like ? or body like ? or body like ?)
-      union all select tier, id, coalesce(nullif(title, ''), label('', body)), private from nuggets where tier != 'card' and (body like ? or body like ? or body like ? or body like ?)`)
+      union all select tier, id, coalesce(nullif(title, ''), label('', body)), private from nuggets where tier not in ('card', 'deck') and (body like ? or body like ? or body like ? or body like ?)`)
       .all(...[0, 1].flatMap(() => [`%"id":"${id}"%`, `%"id":"%:${id}"%`, `%[[@%${id}|%`, `%[[@%${id}#%`])) as Node[]
     return {
       out: [...out].map(nodeOf).filter((node): node is Node => !!node && node.id !== id),
@@ -418,8 +418,8 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
     const rows = [
       // A note saved as a gem is on the map once, as the gem.
       ...db.prepare(`select 'capture' as type, id, ${LABEL} as title, kind, body, captured_at as at from captures where status != 'discarded' and private = 0
-        and not (status = 'promoted' and exists (select 1 from nuggets n where n.capture_id = captures.id and n.private = 0 and n.tier != 'card'))`).all(),
-      ...db.prepare("select tier as type, id, coalesce(nullif(title, ''), label('', body)) as title, kind, body, coalesce((select captured_at from captures c where c.id = nuggets.capture_id), created_at) as at from nuggets where private = 0 and tier != 'card'").all()
+        and not (status = 'promoted' and exists (select 1 from nuggets n where n.capture_id = captures.id and n.private = 0 and n.tier not in ('card', 'deck')))`).all(),
+      ...db.prepare("select tier as type, id, coalesce(nullif(title, ''), label('', body)) as title, kind, body, coalesce((select captured_at from captures c where c.id = nuggets.capture_id), created_at) as at from nuggets where private = 0 and tier not in ('card', 'deck')").all()
     ] as (Node & { kind: string; body: string | null; at: string })[]
     const known = new Set(rows.map((row) => row.id))
     // A PDF or a kept article linked from a note is on the map too, as a dot of its own, once.
@@ -553,7 +553,7 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
       // Everything caught that day stays listed, let go or not: the page shows it struck through.
       captured: db.prepare(`select 'capture' as type, id, ${LABEL} as title, kind, status, private, captured_at as at from captures where archived_at is null and ${on('captured_at')} order by captured_at`).all(day),
       resolved: db.prepare(`select 'capture' as type, id, ${LABEL} as title, kind, status, private, exited_at as at from captures where status != 'open' and archived_at is null and ${on('exited_at')} order by exited_at`).all(day),
-      studied: db.prepare(`select n.tier as type, n.id, coalesce(nullif(n.title, ''), label('', n.body)) as title, n.kind, n.private, min(r.reviewed_at) as at from review_log r join nuggets n on n.id = r.item_id where n.archived_at is null and n.tier != 'card' and ${on('r.reviewed_at')} group by n.id order by at`).all(day),
+      studied: db.prepare(`select n.tier as type, n.id, coalesce(nullif(n.title, ''), label('', n.body)) as title, n.kind, n.private, min(r.reviewed_at) as at from review_log r join nuggets n on n.id = r.item_id where n.archived_at is null and n.tier not in ('card', 'deck') and ${on('r.reviewed_at')} group by n.id order by at`).all(day),
       done: db.prepare(`select 'task' as type, t.id, t.title, 0 as private, max(d.done_at) as at from task_done d join tasks t on t.id = d.task_id where ${on('d.done_at')} and t.status != 'dropped' group by t.id order by at`).all(day),
       // Tasks dated for the day, by when they were meant for or due by: the day's time log puts them at that hour.
       dated: db.prepare(`select 'task' as type, id, title, status, 0 as private, coalesce(case when ${on('due_at')} then due_at end, deadline_at) as at, all_day as allDay from tasks

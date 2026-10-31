@@ -1268,6 +1268,11 @@ export function registerHaligtree(): void {
   // Goals only. Each reads only rows of the old shape, so every start is safe.
   column('captures', 'fields text')
   column('nuggets', 'fields text')
+  // A shared deck's card: the Anki deck it came from ("Great Works of Art::Artists"), and whether it waits, held, for its topic to be started.
+  column('nuggets', 'deck text')
+  column('nuggets', 'held integer not null default 0')
+  // An Anki import asks, card by card, whether the card is here already (by its Anki id): without this, each ask read every gem, and a 1,448-card deck into a big book took minutes.
+  db.exec('create index if not exists nuggets_by_source on nuggets(source); create index if not exists nuggets_by_deck on nuggets(deck)')
   foldKept(db)
   toCheckBack(db)
   goalsOut(db, (capture) => {
@@ -1584,7 +1589,7 @@ export function registerHaligtree(): void {
   type Mention = { type: string; id: string; title: string; snippet: string; private: number }
   const everything = (): { type: string; id: string; title: string; body: string; private: number }[] => [
     ...(db.prepare(`select 'capture' as type, id, ${LABEL} as title, body, private from captures where status != 'discarded'`).all() as never[]),
-    ...(db.prepare("select tier as type, id, title, body, private from nuggets where superseded_by is null and tier != 'card'").all() as never[])
+    ...(db.prepare("select tier as type, id, title, body, private from nuggets where superseded_by is null and tier not in ('card', 'deck')").all() as never[])
   ]
   const around = (text: string, at: number, length: number): string => {
     const start = Math.max(0, text.lastIndexOf('\n', at) + 1, at - 80)
@@ -1710,7 +1715,7 @@ export function registerHaligtree(): void {
 
   // What @ offers besides captures: nuggets and articles by name.
   handle('items:find', (query: unknown) =>
-    db.prepare("select id, tier, coalesce(nullif(title, ''), label('', body)) as name, coalesce(nullif(title, ''), label('', body)) as title from nuggets where tier != 'card' and (name like ? escape '\\' or coalesce(aliases, '') like ? escape '\\') and superseded_by is null order by updated_at desc limit 6").all(`%${like(String(query))}%`, `%${like(String(query))}%`))
+    db.prepare("select id, tier, coalesce(nullif(title, ''), label('', body)) as name, coalesce(nullif(title, ''), label('', body)) as title from nuggets where tier not in ('card', 'deck') and (name like ? escape '\\' or coalesce(aliases, '') like ? escape '\\') and superseded_by is null order by updated_at desc limit 6").all(`%${like(String(query))}%`, `%${like(String(query))}%`))
   // A page of your own from nothing: notes on linear algebra, say. An article
   // with no nuggets behind it, there to be written in.
   handle('article:new', () => {
@@ -1808,7 +1813,7 @@ export function registerHaligtree(): void {
     // A third of the time, a note-to-self on rotation: the one that has gone
     // longest unseen, unconditionally. Otherwise a weighted random encounter.
     const pushed = Math.random() < 1 / 3
-      ? (db.prepare(`select id, capture_id as captureId, kind, tier, title, body from nuggets where mode = 'pushed' and tier not in ('question', 'goal', 'card') and suspended = 0 and archived_at is null and coalesce(capture_id, '') not in (select id from captures where surfaced_at >= ?) and private = 0
+      ? (db.prepare(`select id, capture_id as captureId, kind, tier, title, body from nuggets where mode = 'pushed' and tier not in ('question', 'goal', 'card', 'deck') and suspended = 0 and archived_at is null and coalesce(capture_id, '') not in (select id from captures where surfaced_at >= ?) and private = 0
           order by coalesce(last_visited_at, '') limit 1`).get(ago(3)) as Record<string, string> | undefined)
       : undefined
     // Half the time, or always while there are few nuggets, an old capture
@@ -1831,7 +1836,7 @@ export function registerHaligtree(): void {
           order by (julianday('now') - julianday(${AGED})) * surfacing_weight * (abs(random()) % 1000) desc limit 1`).get(ago(3), ago(7), ago(3), kind) as Record<string, string> | undefined)
       : undefined
     // Nuggets the same way: a kind drawn first, then one of its own.
-    const kept = `from nuggets where suspended = 0 and archived_at is null and mode != 'pushed' and tier not in ('question', 'goal', 'card') and coalesce(capture_id, '') not in (select id from captures where surfaced_at >= ?) and private = 0`
+    const kept = `from nuggets where suspended = 0 and archived_at is null and mode != 'pushed' and tier not in ('question', 'goal', 'card', 'deck') and coalesce(capture_id, '') not in (select id from captures where surfaced_at >= ?) and private = 0`
     const keptKinds = (db.prepare(`select distinct kind ${kept}`).all(ago(3)) as { kind: string }[]).map((row) => row.kind)
     const keptKind = keptKinds[Math.floor(Math.random() * keptKinds.length)]
     const hint = pushed ?? old ?? (keptKind === undefined ? undefined : db
@@ -1849,7 +1854,7 @@ export function registerHaligtree(): void {
   })
   // The Luhmann move: two unrelated things side by side, for the connection
   // you would never have gone looking for.
-  handle('random', () => db.prepare("select id, kind, title, body from nuggets where archived_at is null and superseded_by is null and private = 0 and tier not in ('question', 'goal', 'card') order by random() limit 2").all().map(body))
+  handle('random', () => db.prepare("select id, kind, title, body from nuggets where archived_at is null and superseded_by is null and private = 0 and tier not in ('question', 'goal', 'card', 'deck') order by random() limit 2").all().map(body))
   // Dwell: how long the hint was in front of you before the window went. The
   // signal every hint produces, where a vote is the rare one.
   ipcMain.handle('hints:dwell', (_event, event: number, ms: number) =>
@@ -2850,6 +2855,43 @@ export function registerHaligtree(): void {
     return write(true)
   })
 
+  // --- the Decks shelf: shared decks on their own, each with its cover, counts and topics.
+  handle('decks:list', () => {
+    const rows = db.prepare(`select deck, tier, prompt, state, due_at as dueAt, suspended, held from nuggets where deck is not null and binned_at is null and archived_at is null order by created_at, rowid`).all() as
+      { deck: string; tier: string; prompt: string | null; state: string | null; dueAt: string | null; suspended: number; held: number }[]
+    type Topic = { deck: string; label: string; cards: number; held: number }
+    type Shelf = { name: string; cover: string | null; cards: number; fresh: number; due: number; held: number; shown: boolean; topics: Topic[] }
+    const shelves = new Map<string, Shelf>()
+    const at = now()
+    for (const row of rows) {
+      const [top, ...rest] = row.deck.split('::').map((part) => part.trim())
+      const shelf = shelves.get(top) ?? { name: top, cover: null, cards: 0, fresh: 0, due: 0, held: 0, shown: false, topics: [] }
+      shelves.set(top, shelf)
+      shelf.cover ??= /!\[[^\]]*\]\(((?:haligtree|mindflow):\/\/assets\/[^)\s]+)\)/.exec(row.prompt ?? '')?.[1] ?? null
+      shelf.cards += 1
+      if (row.held) shelf.held += 1
+      else if (!row.suspended && !row.state) shelf.fresh += 1
+      else if (!row.suspended && row.dueAt && row.dueAt <= at) shelf.due += 1
+      if (row.tier !== 'deck') shelf.shown = true
+      const label = rest.join(': ') || top
+      let topic = shelf.topics.find((one) => one.deck === row.deck)
+      if (!topic) shelf.topics.push((topic = { deck: row.deck, label, cards: 0, held: 0 }))
+      topic.cards += 1
+      if (row.held) topic.held += 1
+    }
+    return [...shelves.values()]
+  })
+  // Start a held deck, or one topic of it (a deck name, or a top name for all of it): its cards join Review as new.
+  handle('decks:start', (deck: string, on: boolean) => {
+    const where = "(deck = ? or deck like ? || '::%')"
+    const ids = (db.prepare(`select id from nuggets where ${where} and held = ?`).all(deck, deck, on ? 1 : 0) as { id: string }[]).map((row) => row.id)
+    for (const id of ids) db.prepare('update nuggets set held = ?, suspended = ? where id = ?').run(on ? 0 : 1, on ? 0 : 1, id)
+    return write(ids.length)
+  })
+  // "Show in Gems": a deck's cards among your own (Gems, Feed, hints, Home), or back on their shelf.
+  handle('decks:show', (deck: string, on: boolean) =>
+    write(db.prepare(`update nuggets set tier = ? where (deck = ? or deck like ? || '::%') and tier in ('deck', 'nugget')`).run(on ? 'nugget' : 'deck', deck, deck).changes))
+
   // --- the tags on cards in Review, for ⌘K's "Study #tag"
   handle('cards:tags', () => {
     const count = new Map<string, number>()
@@ -3656,7 +3698,7 @@ export function registerHaligtree(): void {
   const tagged = (): { tag: string; id: string; type: string; title: string; private: boolean; later: boolean; fromNote?: string }[] => {
     const rows = [
       ...(db.prepare(`select id, 'capture' as type, ${LABEL} as title, body, private, (${CAPTURE_LATER}) as later from captures where ${TAG_CAPTURES}`).all() as Record<string, string>[]),
-      ...(db.prepare("select id, tier as type, title, body, private, 0 as later, capture_id as fromNote from nuggets where archived_at is null and superseded_by is null and tier != 'card'").all() as Record<string, string>[]),
+      ...(db.prepare("select id, tier as type, title, body, private, 0 as later, capture_id as fromNote from nuggets where archived_at is null and superseded_by is null and tier not in ('card', 'deck')").all() as Record<string, string>[]),
       // A task in the Bin is out of every tag, as a capture there is.
       ...(db.prepare("select id, 'task' as type, title, notes as body, 0 as private, status = 'done' as later from tasks where status != 'dropped'").all() as Record<string, string>[])
     ]
@@ -3722,7 +3764,7 @@ export function registerHaligtree(): void {
     for (const one of tagged()) tagsBy.set(`${one.type}:${one.id}`, [...(tagsBy.get(`${one.type}:${one.id}`) ?? []), one.tag])
     const rows = [
       ...db.prepare(`select id, 'capture' as type, kind, status, '' as title, ${LABEL} as label, body, private, captured_at as at, coalesce(edited_at, captured_at) as changed, ${KEPT_IN} as keptIn, (${CAPTURE_LATER}) as later from captures where ${TAG_CAPTURES}`).all(),
-      ...db.prepare("select id, tier as type, kind, 'open' as status, title, label('', body) as label, body, private, created_at as at, coalesce(updated_at, created_at) as changed, 0 as later, capture_id as fromNote from nuggets where archived_at is null and superseded_by is null and tier != 'card'").all(),
+      ...db.prepare("select id, tier as type, kind, 'open' as status, title, label('', body) as label, body, private, created_at as at, coalesce(updated_at, created_at) as changed, 0 as later, capture_id as fromNote from nuggets where archived_at is null and superseded_by is null and tier not in ('card', 'deck')").all(),
       ...db.prepare("select id, 'task' as type, 'task' as kind, status, title, title as label, notes as body, 0 as private, created_at as at, coalesce(completed_at, created_at) as changed, status = 'done' as later from tasks where status != 'dropped'").all()
     ] as Record<string, string>[]
     return rows.flatMap((row) => {
@@ -4284,7 +4326,7 @@ export function registerHaligtree(): void {
       select distinct t.id, t.type, s.tag from note_tag t join spelled s on s.raw = t.tag
       where case when t.type = 'capture'
         then exists (select 1 from captures c where c.id = t.id and c.status != 'discarded' and c.archived_at is null)
-        else exists (select 1 from nuggets n where n.id = t.id and n.archived_at is null and n.superseded_by is null and n.tier != 'card') end
+        else exists (select 1 from nuggets n where n.id = t.id and n.archived_at is null and n.superseded_by is null and n.tier not in ('card', 'deck')) end
     ),
     spread as (select tag, count(*) as n from alive group by tag)
     select a.type, a.id, sum(1.0 / ln(1 + s.n)) as score, json_group_array(json_array(s.tag, s.n)) as shared
@@ -4482,7 +4524,7 @@ export function registerHome(): void {
 
   // Every note in view, as a shelf shows it: newest change first.
   const NOTES = `select id, 'capture' as type, ${LABEL} as title, kind, private, coalesce(edited_at, captured_at) as at, captured_at as made, body, attribution as who, medium as "where", case when json_valid(fields) then nullif(cast(json_extract(fields, '$.year') as text), '') end as year from captures where status != 'discarded' and archived_at is null
-    union all select id, tier, coalesce(nullif(title, ''), label('', body)), kind, private, coalesce(updated_at, created_at), created_at, body, attribution, medium, case when json_valid(fields) then nullif(cast(json_extract(fields, '$.year') as text), '') end from nuggets where archived_at is null and superseded_by is null and tier != 'card'`
+    union all select id, tier, coalesce(nullif(title, ''), label('', body)), kind, private, coalesce(updated_at, created_at), created_at, body, attribution, medium, case when json_valid(fields) then nullif(cast(json_extract(fields, '$.year') as text), '') end from nuggets where archived_at is null and superseded_by is null and tier not in ('card', 'deck')`
   // Who said it, only for a quote: its card signs it, with where it is from and its year, as the capture page does.
   const strip = ({ type, id, title, kind, private: hidden, at, who, where, year }: Shelved): Shelved => ({ type, id, title, kind, private: hidden, at, ...(kind === 'quote' && who ? { who, where, year } : {}) })
 
@@ -4519,7 +4561,7 @@ export function registerHome(): void {
     const every = db.prepare(NOTES).all() as (Shelved & { made: string; body: string | null })[]
     // A note saved as a gem shows once, as the gem: out of every list here, and opened, it stands for its gem.
     const ids = new Set(every.map((row) => row.id))
-    const gemOf = new Map((db.prepare("select capture_id, id from nuggets where capture_id is not null and tier != 'card'").all() as { capture_id: string; id: string }[])
+    const gemOf = new Map((db.prepare("select capture_id, id from nuggets where capture_id is not null and tier not in ('card', 'deck')").all() as { capture_id: string; id: string }[])
       .filter((one) => ids.has(one.id)).map((one) => [one.capture_id, one.id]))
     const all = every.filter((row) => row.type !== 'capture' || !gemOf.has(row.id))
     const byId = new Map(all.map((row) => [row.id, row]))
@@ -4543,7 +4585,7 @@ export function registerHome(): void {
     const due = (reviewQueue() as { id: string }[]).slice(0, 12)
       .flatMap(({ id }) => { const row = byId.get(id); return row && offered(row) ? [strip(row)] : [] })
     // Unseen means old too: made over three weeks ago and not opened for as long, so nothing new reads "not seen in a while".
-    const unseen = blackout ? [] : (db.prepare("select id from nuggets where tier not in ('question', 'goal', 'card') and suspended = 0 and archived_at is null and superseded_by is null and private = 0 and created_at < ? and coalesce(last_visited_at, '') < ? and id not in (select id from note_opens where at >= ?) order by coalesce(last_visited_at, '') limit 8").all(ago(21), ago(21), ago(21)) as { id: string }[])
+    const unseen = blackout ? [] : (db.prepare("select id from nuggets where tier not in ('question', 'goal', 'card', 'deck') and suspended = 0 and archived_at is null and superseded_by is null and private = 0 and created_at < ? and coalesce(last_visited_at, '') < ? and id not in (select id from note_opens where at >= ?) order by coalesce(last_visited_at, '') limit 8").all(ago(21), ago(21), ago(21)) as { id: string }[])
       .flatMap(({ id }) => { const row = byId.get(id); return row && !due.some((one) => one.id === id) ? [strip(row)] : [] })
     const article = all.filter((row) => row.type === 'article' && offered(row)).sort((a, b) => b.made.localeCompare(a.made))[0]
 

@@ -1195,6 +1195,8 @@ export function Home(): React.JSX.Element {
   useEffect(() => window.api.onSentTo((type, id, heading) => {
     // The passes lay themselves over whatever is open, rather than being a place.
     if (type === 'view' && (id === 'tidy' || id === 'decide')) openPass(id)
+    // Review on one of its pages (":decks" from an import's notice).
+    else if (type === 'view' && id === 'review' && heading?.startsWith(':')) setView({ id, focus: heading })
     else if (type === 'view') (setView({ id }), heading && landOnGroup(heading))
     else if (type === 'recap') setView({ id: 'stats', focus: id, nonce: Date.now() })
     // A wrap, from the Sunday notification or quick capture's menu: the story over the page.
@@ -1602,6 +1604,7 @@ export function Home(): React.JSX.Element {
             ...abandonAction,
             ...practiceActions,
             { label: 'Study stats', hint: 'Reviews a day, how often you remember, what falls due', cue: null, run: () => setView({ id: 'review', focus: ':stats' }) },
+            { label: 'Decks', hint: 'Shared Anki decks on their own shelf: start a topic, hold, show in Gems', cue: null, run: () => setView({ id: 'review', focus: ':decks' }) },
             { label: 'Paste cards', hint: 'A list, one card a line: front | back', cue: null, run: () => setView({ id: 'review', focus: ':paste' }) },
             { label: 'Browse all cards', hint: 'Search, sort, pause and tag them, in Review', cue: null, run: () => setView({ id: 'review', focus: ':cards' }) },
             // Study one tag's cards, scheduled as in any review.

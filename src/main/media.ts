@@ -29,6 +29,8 @@ export type Media = {
   near: string
   /** When the note was made, for the order: newest first. */
   at: string
+  /** It belongs to a shared deck: shown under Media's "Deck pictures" chip, not in the grid. */
+  deck?: boolean
 }
 
 type Doc = { type?: string; text?: string; attrs?: Record<string, unknown>; content?: Doc[] }
@@ -123,9 +125,11 @@ export function registerMedia(): void {
     const HOLDS = "body like '%://assets/%'"
     const rows = [
       ...db.prepare(`select 'capture' as type, id, ${LABEL} as title, body, private, captured_at as at from captures where status != 'discarded' and ${HOLDS}`).all(),
-      ...db.prepare(`select tier as type, id, coalesce(nullif(title, ''), label('', body)) as title, body, private, created_at as at from nuggets where binned_at is null and superseded_by is null and tier != 'card' and ${HOLDS}`).all(),
+      ...db.prepare(`select tier as type, id, coalesce(nullif(title, ''), label('', body)) as title, body, private, created_at as at from nuggets where binned_at is null and superseded_by is null and tier not in ('card', 'deck') and ${HOLDS}`).all(),
+      // A shared deck's pictures sit on its questions: read from the question and the answer together, and marked as the deck's.
+      ...db.prepare(`select 'nugget' as type, id, coalesce(nullif(title, ''), label('', body)) as title, json_quote(coalesce(prompt, '') || char(10) || coalesce(json_extract(body, '$'), '')) as body, private, created_at as at, 1 as deck from nuggets where binned_at is null and tier = 'deck' and (prompt like '%://assets/%' or ${HOLDS})`).all(),
       ...db.prepare(`select 'day' as type, day as id, day as title, body, 0 as private, day as at from day_pages where ${HOLDS}`).all()
-    ] as { type: string; id: string; title: string; body: string; private: number; at: string }[]
+    ] as { type: string; id: string; title: string; body: string; private: number; at: string; deck?: number }[]
     const all: Media[] = []
     const live = new Set<string>()
     for (const row of rows) {
@@ -133,7 +137,7 @@ export function registerMedia(): void {
       live.add(key)
       let kept = read.get(key)
       if (kept?.body !== row.body) read.set(key, (kept = { body: row.body, found: mediaIn(row.body) }))
-      for (const one of kept.found) all.push({ ...one, type: row.type, id: row.id, title: row.type === 'day' ? dayName(row.id) : row.title, private: !!row.private, at: row.at })
+      for (const one of kept.found) all.push({ ...one, type: row.type, id: row.id, title: row.type === 'day' ? dayName(row.id) : row.title, private: !!row.private, at: row.at, ...(row.deck ? { deck: true } : {}) })
     }
     for (const key of read.keys()) if (!live.has(key)) read.delete(key)
     return all.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0))

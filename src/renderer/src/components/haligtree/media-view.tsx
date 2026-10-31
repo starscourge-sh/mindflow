@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { AudioLines, Image as ImageIcon, ImagePlay, Pause } from 'lucide-react'
+import { AudioLines, Image as ImageIcon, ImagePlay, Layers, Pause } from 'lucide-react'
 import { FileText, Play } from '@/components/ui/icons'
 import { call, unloaded, useLive } from '@/lib/haligtree'
 import { smallPicture } from '@/lib/notes'
@@ -37,11 +37,14 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
   const all = useLive(readMedia, [] as Media[])
   const [query, setQuery] = useState('')
   const [kind, setKind] = useState<'all' | MediaKind>('all')
+  // A shared deck's pictures (hundreds of paintings) wait under their own chip, so the book's own stay in view.
+  const [decks, setDecks] = useState(false)
+  const anyDeck = all.some((one) => one.deck)
   const shown = useMemo(() => {
     const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean)
-    return all.filter((one) => (kind === 'all' || one.kind === kind) &&
+    return all.filter((one) => !!one.deck === decks && (kind === 'all' || one.kind === kind) &&
       words.every((word) => `${one.title} ${one.name} ${one.near}`.toLowerCase().includes(word)))
-  }, [all, query, kind])
+  }, [all, query, kind, decks])
 
   // How many tiles fit across, worked out from the grid's own width.
   const box = useRef<HTMLDivElement>(null)
@@ -76,6 +79,9 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
             {KINDS.map((one) => (
               <Chip key={one.id} on={kind === one.id} onClick={() => (chime(kind === one.id ? 'off' : 'on'), setKind(kind === one.id ? 'all' : one.id))} mark={<one.icon className="size-3.5" />}>{one.label}</Chip>
             ))}
+            {anyDeck && (
+              <span data-media-decks="" className="contents"><Chip on={decks} onClick={() => (chime(decks ? 'off' : 'on'), setDecks(!decks))} mark={<Layers className="size-3.5" />}>Deck pictures</Chip></span>
+            )}
           </div>
           {/* PDFs as a library: a shelf of covers, each book once, with an inspector. */}
           {kind === 'pdf' ? (

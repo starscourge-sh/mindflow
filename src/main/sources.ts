@@ -64,7 +64,7 @@ export function registerSources(): void {
       ...db.prepare(`select 'capture' as type, id, kind, ${LABEL} as label, attribution, medium, fields, private, captured_at as at from captures
         where status != 'discarded' and kind != 'task' and id not in (select capture_id from nuggets where capture_id is not null) and (coalesce(trim(attribution), '') != '' or coalesce(trim(medium), '') != '')`).all(),
       ...db.prepare(`select tier as type, id, kind, coalesce(nullif(title, ''), label('', body)) as label, attribution, medium, fields, private, created_at as at from nuggets
-        where tier != 'card' and binned_at is null and (coalesce(trim(attribution), '') != '' or coalesce(trim(medium), '') != '')`).all()
+        where tier not in ('card', 'deck') and binned_at is null and (coalesce(trim(attribution), '') != '' or coalesce(trim(medium), '') != '')`).all()
     ] as { type: string; id: string; kind: string; label: string; attribution: string | null; medium: string | null; fields: string | null; private: number; at: string }[]
     return rows.map(({ fields, ...row }) => {
       let kept: Record<string, unknown> = {}

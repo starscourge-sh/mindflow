@@ -22,6 +22,8 @@ type ImportDone = {
   writing?: number
   /** Anki cards, become gems. */
   gems?: number
+  /** Cards from shared decks, on Review's Decks shelf. */
+  decks?: number
   pictures?: number
   files?: number
   links?: number
@@ -82,7 +84,7 @@ export function ImportProgress(): React.JSX.Element {
 
 /** "1,240 notes are in.", "1 note is in.", "412 cards are in." for Anki alone, or, when everything was here already, says so. */
 const headline = (done: ImportDone): string => {
-  const what = done.gems === done.made ? ['card is', 'cards are'] : ['note is', 'notes are']
+  const what = (done.gems ?? 0) + (done.decks ?? 0) === done.made ? ['card is', 'cards are'] : ['note is', 'notes are']
   return done.made === 0 ? 'Nothing new came in.' : `${num(done.made)} ${done.made === 1 ? what[0] : what[1]} in.`
 }
 
@@ -221,6 +223,11 @@ export function ImportDoneCard(): React.JSX.Element {
                 <>
                   <Button variant="ghost" size="lg" onClick={() => (chime('tap'), close())}>Done</Button>
                   <Button size="lg" data-autofocus="" onClick={toInbox}>Open the Inbox</Button>
+                </>
+              ) : done.decks ? (
+                <>
+                  <Button variant="ghost" size="lg" onClick={() => (chime('tap'), close())}>Done</Button>
+                  <Button size="lg" data-autofocus="" data-open-decks="" onClick={() => (chime('tap'), close(), window.api.openInHome('view', 'review', ':decks'))}>Open Decks</Button>
                 </>
               ) : done.gems ? (
                 <>

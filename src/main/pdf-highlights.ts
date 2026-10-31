@@ -22,7 +22,7 @@ export function pdfsToFind(db: DatabaseSync): FoundPdf[] {
   db.exec(TITLES)
   const titles = new Map((db.prepare('select src, title from pdf_titles').all() as { src: string; title: string }[]).map((one) => [one.src, one.title]))
   const rows = db.prepare(`select body, captured_at as at from captures where status != 'discarded' and body like '%"attachment"%' and body like '%.pdf%'
-    union all select body, created_at from nuggets where binned_at is null and tier != 'card' and body like '%"attachment"%' and body like '%.pdf%'`).all() as { body: string; at: string }[]
+    union all select body, created_at from nuggets where binned_at is null and tier not in ('card', 'deck') and body like '%"attachment"%' and body like '%.pdf%'`).all() as { body: string; at: string }[]
   const found = new Map<string, FoundPdf>()
   type Node = { type?: string; attrs?: Record<string, unknown>; content?: Node[] }
   const walk = (node: Node | null | undefined, at: string): void => {

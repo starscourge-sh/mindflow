@@ -87,7 +87,7 @@ export function registerPeriods(): void {
           where archived_at is null and status != 'discarded' and captured_at > ? and captured_at <= ?
         union all
         select tier, id, coalesce(nullif(title, ''), label('', body)), kind, case when closed_at is null then 'open' else 'closed' end, private, created_at from nuggets
-          where archived_at is null and superseded_by is null and tier != 'card' and created_at > ? and created_at <= ?
+          where archived_at is null and superseded_by is null and tier not in ('card', 'deck') and created_at > ? and created_at <= ?
         union all
         select 'task', id, title, 'todo', status, 0, created_at from tasks where status != 'dropped' and created_at > ? and created_at <= ?
       ) order by at desc limit 400`).all(...range, ...range, ...range)

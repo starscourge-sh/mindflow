@@ -1,4 +1,4 @@
-// Scratch: real shared Anki decks the user downloaded, imported into a throwaway book to see how they come in.
+// Real shared Anki decks the user downloaded (never shipped), imported into a throwaway book to see how they come in, how long each takes, and how Review's Decks shelf and Media show them.
 //   DECKS=dir SHOTS=dir QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox node qa/real-decks.mjs
 import { readdirSync } from 'fs'
 import { join } from 'path'
@@ -18,7 +18,15 @@ try {
       find(Menu.getApplicationMenu())?.click()
     }, join(dir, name))
     let notice = ''
-    for (let i = 0; i < 600 && !notice; i++) { await wait(500); notice = await h.evaluate(() => document.querySelector('[data-import-done]')?.innerText ?? '') }
+    let asked = ''
+    for (let i = 0; i < 600 && !notice; i++) {
+      await wait(500)
+      // A big deck or one with someone's reviews asks first, in the app's own sheet: answered as suggested.
+      const sheet = await h.evaluate(() => document.querySelector('[data-apkg-ask]')?.innerText ?? '')
+      if (sheet && !asked) (asked = sheet, await h.screenshot({ path: join(shots, `ask-${name.slice(0, 12)}.png`) }), await h.evaluate(() => document.querySelector('[data-apkg-go]')?.click()))
+      notice = await h.evaluate(() => document.querySelector('[data-import-done]')?.innerText ?? '')
+    }
+    if (asked) console.log(`asked: ${asked.replace(/\n+/g, ' | ')}`)
     console.log(`== ${name}: ${((Date.now() - t0) / 1000).toFixed(1)}s\n${notice.replace(/\n+/g, ' | ')}`)
     await h.screenshot({ path: join(shots, `notice-${name.slice(0, 12)}.png`) })
     await h.keyboard.press('Escape'); await wait(800)
@@ -31,5 +39,9 @@ try {
   await h.screenshot({ path: join(shots, 'review-1.png') })
   for (let i = 2; i <= 4; i++) { await h.keyboard.press('Space'); await wait(1200); await h.screenshot({ path: join(shots, `review-${i}a.png`) }); await h.keyboard.press('3'); await wait(1200) }
   await go('media'); await wait(2000); await h.screenshot({ path: join(shots, 'media.png') })
+  await go('review'); await wait(1500)
+  await h.evaluate(() => document.querySelector('[data-review-tab="decks"]')?.click()); await wait(1500)
+  console.log('shelf:', (await h.evaluate(() => document.querySelector('[data-deck-shelf]')?.innerText ?? '')).replace(/\n+/g, ' | '))
+  await h.screenshot({ path: join(shots, 'decks.png') })
   console.log('errors:', c.errors.slice(0, 5))
 } catch (e) { console.log('RUN FAILED', e.message.split('\n')[0]) } finally { await c.close?.() }

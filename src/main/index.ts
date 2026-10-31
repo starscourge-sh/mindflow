@@ -46,7 +46,7 @@ import iconBronze from '../../resources/icon-bronze.png?asset'
 import iconGold from '../../resources/icon-gold.png?asset'
 import { registerUsage, type Via } from './usage'
 import { resolveWaiting, resolveWithin } from './renames'
-import { importApkg } from './anki-apkg'
+import { importApkg, HOLD_OVER, type ApkgAsk, type ApkgChoice } from './anki-apkg'
 import { alreadyImported, captureText, changed, rescueDrawing, database, shutDatabase, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, whenChanged, dropDuplicateTags, setImporting, type Imported } from './captures'
 import { isPrivateFile, looksPrivate } from './import'
 import { warmChrono } from './lazy/chrono'
@@ -3334,6 +3334,27 @@ async function restore(): Promise<void> {
  * CSV or JSON file, or Kindle's clippings, is highlights; any other text file
  * is Anki's plain-text export, cards to be tested on.
  */
+/** Sheets asking how a deck comes in, waiting for their answer from the main window. */
+const apkgAsked = new Map<string, (choice: ApkgChoice) => void>()
+ipcMain.handle('haligtree:apkg:answer', (_event, id: string, choice: ApkgChoice) => {
+  apkgAsked.get(id)?.({ keepReviews: !!choice?.keepReviews, hold: !!choice?.hold })
+  apkgAsked.delete(id)
+})
+
+/**
+ * Ask, in the main window's own sheet, how a deck comes in: a stranger's past
+ * reviews kept or started fresh (fresh by default, kept for your own
+ * collection), and a big deck started whole or held until each topic is
+ * started (held by default over HOLD_OVER new cards).
+ */
+function askApkg(ask: ApkgAsk & { own: boolean }): Promise<ApkgChoice> {
+  const id = randomUUID()
+  return new Promise((resolve) => {
+    apkgAsked.set(id, resolve)
+    inHome('haligtree:apkg-ask', { id, ...ask, holdOver: HOLD_OVER })
+  })
+}
+
 async function importFiles(dropped?: string[]): Promise<void> {
   const filePaths = dropped ?? (await dialog.showOpenDialog({
     title: SANDBOX ? 'Import into the sandbox' : BOOK ? `Import into ${nameOf(here())}` : 'Import',
@@ -3345,6 +3366,7 @@ async function importFiles(dropped?: string[]): Promise<void> {
   let total = 0
   let inbox = 0
   let deckFrom = ''
+  let decked = 0
   let gems = 0
   await busy(async () => {
     for (const [at, path] of filePaths.entries()) {
@@ -3358,24 +3380,11 @@ async function importFiles(dropped?: string[]): Promise<void> {
           const own = /\.colpkg$/i.test(name)
           const got = await importApkg(path, {
             progress: (done, all, what) => importProgress({ done, total: all, what }),
-            choose: async ({ reviewed, names }) => {
-              const buttons = own ? ['Keep the reviews', 'Start these fresh'] : ['Start these fresh', 'Keep the reviews']
-              const options = {
-                type: 'question' as const,
-                buttons,
-                defaultId: 0,
-                cancelId: 0,
-                message: `${names.join('; ') || name} comes with past reviews for ${num(reviewed)} ${reviewed === 1 ? 'card' : 'cards'}`,
-                detail: own
-                  ? 'This is a whole Anki collection, so the reviews are yours: kept, every card keeps its place in the schedule.'
-                  : 'A downloaded deck carries whoever made it’s reviews. Fresh, the cards start new, paced to you. Keep them only if this deck is your own export.'
-              }
-              const { response } = await (home && !home.isDestroyed() ? dialog.showMessageBox(home, options) : dialog.showMessageBox(options))
-              return { keepReviews: buttons[response] === 'Keep the reviews' }
-            }
+            // Asked in the app's own sheet (apkg-ask.tsx), before anything is kept.
+            choose: (ask) => askApkg({ ...ask, own })
           })
           total += got.cards
-          gems += got.cards
+          decked += got.cards
           const parts = [`${num(got.cards)} ${got.cards === 1 ? 'card' : 'cards'}`,
             got.pictures && `${num(got.pictures)} ${got.pictures === 1 ? 'picture' : 'pictures'}`, got.sounds && `${num(got.sounds)} ${got.sounds === 1 ? 'sound' : 'sounds'}`].filter(Boolean)
           // Named as the deck calls itself, not by its file: "Great Works of Art: Artists, Titles".
@@ -3383,6 +3392,7 @@ async function importFiles(dropped?: string[]): Promise<void> {
           // One deck: its name heads the notice ("From Great Works of Art: Artists, Titles"), said once.
           if (filePaths.length === 1) (deckFrom = deckName, lines.push(parts.join(', ')))
           else lines.push(`${deckName}: ${parts.join(', ')}`)
+          if (got.held) lines.push(`${num(got.held)} new ${got.held === 1 ? 'card waits' : 'cards wait'}, held: start each topic from Review › Decks when you study it`)
           if (got.updated) lines.push(`${num(got.updated)} ${got.updated === 1 ? 'card was' : 'cards were'} changed by this newer version, keeping your progress`)
           if (got.paused) lines.push(`${num(got.paused)} ${got.paused === 1 ? 'card was' : 'cards were'} suspended in Anki: paused here too, out of Review until you bring ${got.paused === 1 ? 'it' : 'them'} back`)
           if (got.already) lines.push(`${num(got.already)} ${got.already === 1 ? 'card was' : 'cards were'} already here, from an earlier import`)
@@ -3391,7 +3401,7 @@ async function importFiles(dropped?: string[]): Promise<void> {
           if (got.sample) lines.push(`A card as Review asks it: “${got.sample.question.replace(/!\[\]\([^)]*\)/g, '[picture]').replace(/\s+/g, ' ').trim().slice(0, 90)}” Answer: “${got.sample.answer.replace(/!\[\]\([^)]*\)/g, '[picture]').replace(/\s+/g, ' ').trim().slice(0, 90)}”`)
           // Coming from Anki: what each thing is called here, once under the counts however many decks came in.
           if (!lines.some((line) => line.startsWith('Coming from Anki?'))) {
-            lines.push('Coming from Anki? A deck is a #tag here (Biology::Cells is #biology-cells), each card a gem with its question, and the Browser is Review › All cards.')
+            lines.push('Coming from Anki? A deck sits on Review › Decks, out of Gems, and is a #tag too (Biology::Cells is #biology-cells); the Browser is Review › All cards.')
             lines.push('More shared decks are at ankiweb.net/shared/decks: download a .apkg and drop it on this window.')
           }
           continue
@@ -3427,8 +3437,9 @@ async function importFiles(dropped?: string[]): Promise<void> {
   // Where they went, said first, and the card's button opens it.
   // Some of them: "1 is", "4 are".
   const some = (n: number): string => (n === total ? (total === 1 ? 'It is' : 'They are') : `${num(n)} ${n === 1 ? 'is' : 'are'}`)
-  const went = [inbox ? `${some(inbox)} in your Inbox.` : '', gems ? `${some(gems)} in Gems, as cards to review.` : ''].filter(Boolean)
-  if (lines.length) inHome('haligtree:import-done', { from: deckFrom || (filePaths.length === 1 ? basename(filePaths[0]) : `${num(filePaths.length)} files`), made: total, inbox, gems, notes: [...went, ...lines] })
+  const went = [inbox ? `${some(inbox)} in your Inbox.` : '', gems ? `${some(gems)} in Gems, as cards to review.` : '',
+    decked ? `${some(decked)} on Review’s Decks shelf, out of Gems: start a topic when you study it.` : ''].filter(Boolean)
+  if (lines.length) inHome('haligtree:import-done', { from: deckFrom || (filePaths.length === 1 ? basename(filePaths[0]) : `${num(filePaths.length)} files`), made: total, inbox, gems, decks: decked, notes: [...went, ...lines] })
 }
 
 /**

@@ -348,7 +348,7 @@ export function registerFeed(): void {
     if (!candidates.length) return undefined
     const linked = linkedAmong([
       ...db.prepare("select id, body from captures where status != 'discarded' and private = 0").all(),
-      ...db.prepare("select id, body from nuggets where private = 0 and tier != 'card'").all()
+      ...db.prepare("select id, body from nuggets where private = 0 and tier not in ('card', 'deck')").all()
     ] as { id: string; body: string | null }[])
     return candidates.filter((row) => !linked.has(row.id)).sort((a, b) => (lastSeen(a) ?? '').localeCompare(lastSeen(b) ?? '') || a.made.localeCompare(b.made))[0]
   }
@@ -531,7 +531,7 @@ export function registerFeed(): void {
     const since = dayjs().subtract(7, 'day').toISOString()
     const counts = new Map<string, number>()
     const recent = [
-      ...db.prepare("select title, body from nuggets where private = 0 and archived_at is null and superseded_by is null and binned_at is null and tier != 'card' and created_at >= ?").all(since),
+      ...db.prepare("select title, body from nuggets where private = 0 and archived_at is null and superseded_by is null and binned_at is null and tier not in ('card', 'deck') and created_at >= ?").all(since),
       ...db.prepare(`select ${LABEL} as title, body from captures where private = 0 and status != 'discarded' and archived_at is null and captured_at >= ? and id not in (select capture_id from nuggets where capture_id is not null)`).all(since)
     ] as { title: string; body: string | null }[]
     for (const row of recent) for (const tag of tagsOfRow(row)) counts.set(tag, (counts.get(tag) ?? 0) + 1)

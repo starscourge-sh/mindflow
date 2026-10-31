@@ -4,13 +4,15 @@ import { chime } from '@/lib/sound'
 import { ReviewView } from './review-view'
 import { CardBrowser } from './card-browser'
 import { StudySection } from './study-stats'
+import { DeckShelf } from './deck-shelf'
 import { Page } from './ui'
 
-/** Review's own pages: today's cards, every card, and how remembering goes. */
-export type ReviewTab = 'today' | 'cards' | 'stats'
+/** Review's own pages: today's cards, every card, the shared decks on their shelf, and how remembering goes. */
+export type ReviewTab = 'today' | 'cards' | 'decks' | 'stats'
 const TABS: { id: ReviewTab; label: string }[] = [
   { id: 'today', label: 'Today' },
   { id: 'cards', label: 'All cards' },
+  { id: 'decks', label: 'Decks' },
   { id: 'stats', label: 'Stats' }
 ]
 
@@ -20,7 +22,7 @@ const TABS: { id: ReviewTab; label: string }[] = [
  * `focus` is a tag to study, or ":cards" to open on the browser (⌘K).
  */
 export function ReviewArea({ focus, onOpen }: { focus?: string; onOpen: (type: string, id: string) => void }): React.JSX.Element {
-  const [tab, setTab] = useState<ReviewTab>(focus === ':cards' || focus === ':paste' ? 'cards' : focus === ':stats' ? 'stats' : 'today')
+  const [tab, setTab] = useState<ReviewTab>(focus === ':cards' || focus === ':paste' ? 'cards' : focus === ':stats' ? 'stats' : focus === ':decks' ? 'decks' : 'today')
   const tabs = (
     <span role="tablist" data-review-tabs className="flex h-8 items-center rounded-lg border border-foreground/10 bg-accent/40 p-0.5 text-control">
       {TABS.map((one) => (
@@ -37,6 +39,12 @@ export function ReviewArea({ focus, onOpen }: { focus?: string; onOpen: (type: s
     return (
       <Page title="Review" actions={tabs}>
         <div className="page-sheet mx-auto w-full"><CardBrowser onOpen={onOpen} pasting={focus === ':paste'} /></div>
+      </Page>
+    )
+  if (tab === 'decks')
+    return (
+      <Page title="Review" actions={tabs}>
+        <div className="page-sheet mx-auto w-full"><DeckShelf /></div>
       </Page>
     )
   if (tab === 'stats')

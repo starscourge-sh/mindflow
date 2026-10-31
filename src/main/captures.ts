@@ -506,7 +506,7 @@ export function registerCaptures(): void {
            from captures where status != 'discarded'
          union all
          select tier, id, null, kind, 'open', '', attribution, coalesce(nullif(title, ''), label('', body)), created_at,
-           (coalesce(title, '') || ' ' || ${SHOWN_WORDS} || ' ' || coalesce(attribution, '') || ' ' || coalesce(fields, '') || ' ' || coalesce(aliases, '')) from nuggets where tier != 'card' and binned_at is null
+           (coalesce(title, '') || ' ' || ${SHOWN_WORDS} || ' ' || coalesce(attribution, '') || ' ' || coalesce(fields, '') || ' ' || coalesce(aliases, '')) from nuggets where tier not in ('card', 'deck') and binned_at is null
          union all
          select 'task', id, number, 'todo', status, '', null, title, created_at, (title || ' ' || coalesce(notes, '')) from tasks where status != 'dropped'
          union all
