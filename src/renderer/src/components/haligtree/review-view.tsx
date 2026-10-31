@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { byDefault, useToolKeys } from '@/lib/tool-keys'
 import { fieldOf } from '@/components/capture-list'
 import { quoted } from '../../../../main/clip'
 import { RecallScore } from './recall-score'
@@ -437,8 +438,8 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
   const suggested = typedScore === null ? null : two ? (checked!.grade === 1 ? 1 : 3) : checked!.grade
   // Split, only the pane in front answers keys.
   const here = useHere()
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent): void => {
+  // Its keys are a tool's (lib/tool-keys.ts): asked before the app's own, so G then R goes to Review and C, on a card, is never also a capture.
+  const reviewKey = (event: KeyboardEvent): void => {
       if (!here()) return
       // ⌘Z: the last grade or Not today taken back, the card in front again.
       if (event.metaKey && !event.shiftKey && event.key === 'z' && !typing() && !source) {
@@ -532,9 +533,7 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
         openGloss(card.id)
       }
     }
-    window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
-  })
+  useToolKeys(byDefault(reviewKey))
 
   if (!queue || reading) return <Page title="Review" waiting><div /></Page>
   if (source)

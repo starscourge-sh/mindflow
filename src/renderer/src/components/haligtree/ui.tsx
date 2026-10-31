@@ -1,4 +1,5 @@
 import { Children, cloneElement, createContext, isValidElement, useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useToolKeys } from '@/lib/tool-keys'
 import { layerOpen } from '@/lib/menu-keys'
 import { tagHue } from '@/extensions/tokens'
 import { createPortal, flushSync } from 'react-dom'
@@ -1365,6 +1366,14 @@ export function Toaster(): React.JSX.Element | null {
     window.addEventListener('haligtree:undoable', onHeld)
     return () => (clearTimeout(timer), window.removeEventListener('haligtree:undoable', onHeld))
   }, [])
+  // The toast's next step on its own key, while it is up and you are not writing: a tool's key
+  // (lib/tool-keys.ts), asked before the app's own, so a toast's C is never also a new capture.
+  useToolKeys(shown?.action ? (event) => {
+    if (!shown.action || event.metaKey || event.ctrlKey || event.altKey || typing() || event.key.toLowerCase() !== shown.action.key.toLowerCase()) return false
+    setShown(null)
+    shown.action.run()
+    return true
+  } : null)
   // ⌘Z takes back what the toast offers (or the newer quiet change), outside a
   // field or the editor, which keep their own undo.
   useEffect(() => {
@@ -1380,12 +1389,6 @@ export function Toaster(): React.JSX.Element | null {
       else setShown(null)
     }
     const onKey = (event: KeyboardEvent): void => {
-      // The toast's next step on its own key, while it is up and you are not writing.
-      if (shown?.action && !event.metaKey && !event.ctrlKey && !event.altKey && event.key.toLowerCase() === shown.action.key.toLowerCase() && !typing()) {
-        event.preventDefault()
-        setShown(null)
-        return shown.action.run()
-      }
       // Reading full screen counts as a list, not as typing, unless writing in it.
       const reading = !!document.activeElement?.closest?.('[aria-label="Reading"]') && !document.activeElement?.closest?.('[contenteditable="true"]')
       if (!back || !event.metaKey || event.key !== 'z' || event.shiftKey || (typing() && !reading)) return
