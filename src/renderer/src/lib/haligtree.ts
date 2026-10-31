@@ -767,6 +767,23 @@ export function splitTags(text: string): { text: string; tags: string[] } {
 }
 
 /**
+ * A name as it is shown anywhere, a page's title or a line naming it: without
+ * its #tags, which show as tags (in Properties, or as pills). What is stored
+ * keeps them, as typed. A name that is only tags keeps them as its words.
+ */
+export const shownName = (title: string): string => nameWithoutTags(title) || title
+
+/**
+ * A name typed over a shown name: the tags the stored one had, and that were
+ * not typed again, go back on the end, so renaming a page never drops a tag.
+ */
+export function withTagsOf(typed: string, stored: string): string {
+  const had = tagWords(stored)
+  const left = had.filter((tag) => !tagWords(typed).some((one) => one.toLowerCase() === tag.toLowerCase()))
+  return [typed, ...left.map((tag) => `#${tag}`)].join(' ').trim()
+}
+
+/**
  * The app's sizes, ⌘+ and ⌘− a step at a time, in percent of the size it
  * comes at (17px). The small and large of old are 95% and 110% now.
  */

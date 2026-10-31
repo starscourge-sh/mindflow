@@ -28,7 +28,7 @@ import { EXITS, exit } from '@/lib/capture-links'
 import { noteLinkText, follow, headingIn } from '@/lib/capture-links'
 import { toMarkdown } from '@/lib/export'
 import { useSameWords } from '@/lib/same-words'
-import { useAppearance, haligtree, type ItemFull } from '@/lib/haligtree'
+import { useAppearance, haligtree, shownName, type ItemFull } from '@/lib/haligtree'
 import { openInHaligtree, useCarriedHere } from '@/lib/apart'
 import { AppWindowMacIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -182,7 +182,7 @@ function CaptureWindow({ id }: { id: string }): React.JSX.Element | null {
     return () => window.removeEventListener('keydown', onKey)
   }, [id, open, boardShown])
   // A private note's words never become its window's name: titles show in a screen share.
-  useEffect(() => void (document.title = (!meta?.private && meta?.label) || 'Note'), [meta?.label, meta?.private])
+  useEffect(() => void (document.title = (!meta?.private && meta?.label && shownName(meta.label)) || 'Note'), [meta?.label, meta?.private])
   if (!capture || !meta) return null
   return (
     // Drawn once every part of it has read what it shows (lib/reads-in.tsx).
@@ -230,6 +230,6 @@ function ItemWindow({ id }: { id: string }): React.JSX.Element | null {
     load()
     return window.api.captures.onChange(load)
   }, [id])
-  useEffect(() => void (document.title = (!item?.private && item?.title) || 'Note'), [item?.title, item?.private])
+  useEffect(() => void (document.title = (!item?.private && item?.title && shownName(item.title)) || 'Note'), [item?.title, item?.private])
   return item ? <ItemDetail key={id} item={item} onOpen={elsewhere} back={<OpenHere />} /> : null
 }

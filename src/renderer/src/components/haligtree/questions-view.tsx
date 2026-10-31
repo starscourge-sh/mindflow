@@ -10,7 +10,7 @@ import { EASE, shift } from '@/lib/motion'
 
 import { HaligtreeEditor } from '../haligtree'
 import { chime } from '@/lib/sound'
-import { useLive, haligtree, when, type Item, type ItemFull } from '@/lib/haligtree'
+import { useLive, haligtree, when, shownName, withTagsOf, type Item, type ItemFull } from '@/lib/haligtree'
 import { flying, follow, noteLinkText } from '@/lib/capture-links'
 import { archive, saveAttachments, useOpenNote } from '@/lib/notes'
 import { openApart } from '@/lib/apart'
@@ -265,7 +265,8 @@ export function QuestionDetail({ item, onOpen, top, back }: { item: ItemFull; on
             rows={1}
             data-page-title
             className="block w-full resize-none overflow-hidden bg-transparent font-heading text-title font-semibold tracking-[-0.018em] text-balance outline-none [field-sizing:content] placeholder:text-foreground/70"
-            defaultValue={item.title === 'Untitled' ? '' : item.title}
+            // Its name without its #tags, which show in Properties; renamed, they stay on what is stored.
+            defaultValue={item.title === 'Untitled' ? '' : shownName(item.title)}
             autoFocus={!item.title || item.title === 'Untitled'}
             placeholder="What do you keep circling?"
             onKeyDown={(event) => {
@@ -274,7 +275,8 @@ export function QuestionDetail({ item, onOpen, top, back }: { item: ItemFull; on
               event.currentTarget.blur()
             }}
             onBlur={(event) => {
-              const title = event.target.value.replace(/\s*\n\s*/g, ' ').trim()
+              const typed = event.target.value.replace(/\s*\n\s*/g, ' ').trim()
+              const title = typed && withTagsOf(typed, item.title)
               if (title && title !== item.title) void haligtree.saveItem(item.id, { title }).then(() => chime('noted'))
             }}
           />
@@ -484,7 +486,7 @@ export function QuestionBack({ back, onOpen, onDone, again = '', onUndone }: {
   return (
     <>
       <p className="text-sm">
-        <Typed text={`Still open: ${back.title}`} step={28} delay={120} />
+        <Typed text={`Still open: ${shownName(back.title)}`} step={28} delay={120} />
       </p>
       {adding ? (
         <Input

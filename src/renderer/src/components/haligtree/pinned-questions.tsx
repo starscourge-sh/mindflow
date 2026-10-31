@@ -3,7 +3,7 @@ import { AnimatePresence, motion, useAnimate } from 'motion/react'
 import { shift } from '@/lib/motion'
 
 import { chime } from '@/lib/sound'
-import { useLive, haligtree, type PinnedQuestion, type Settings } from '@/lib/haligtree'
+import { useLive, haligtree, shownName, type PinnedQuestion, type Settings } from '@/lib/haligtree'
 import { Tip, refuse, toast } from './ui'
 import { num } from '../../../../main/dates'
 import { clip } from '../../../../main/clip'
@@ -34,7 +34,7 @@ export async function clueInto(question: PinnedQuestion, from: { captureId?: str
     return false
   }
   chime('clue')
-  toast(`A clue in “${short(question.title)}”`, () => void haligtree.dropClue(clue).then(() => (chime('undo'), onUndo?.())))
+  toast(`A clue in “${short(shownName(question.title))}”`, () => void haligtree.dropClue(clue).then(() => (chime('undo'), onUndo?.())))
   return true
 }
 
@@ -77,11 +77,11 @@ export function PinnedQuestions({ onPick, className = '', only, nod }: { onPick:
         {pinned.map((question, index) => (
           <motion.span key={question.id} layout="position" initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.92 }}
             transition={{ duration: 0.18, delay: index * 0.025, ease: [0.16, 1, 0.3, 1] }}>
-            <Nod on={!!nod?.(question.title)}>
-            <Tip label={`Add this to “${short(question.title, 60)}” as a clue, a piece of the answer. It has ${question.clues === 1 ? '1 clue' : `${num(question.clues)} clues`} so far`}>
+            <Nod on={!!nod?.(shownName(question.title))}>
+            <Tip label={`Add this to “${short(shownName(question.title), 60)}” as a clue, a piece of the answer. It has ${question.clues === 1 ? '1 clue' : `${num(question.clues)} clues`} so far`}>
               <button type="button" onClick={() => onPick(question)}
                 className="max-w-48 truncate rounded-full border px-2 py-0.5 text-foreground/80 transition-colors hover:border-foreground/30 hover:bg-accent hover:text-foreground">
-                {short(question.title, 40)}
+                {short(shownName(question.title), 40)}
               </button>
             </Tip>
             </Nod>

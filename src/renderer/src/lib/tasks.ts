@@ -208,12 +208,11 @@ export function taskName(title: string): { text: string; tags: string[] } {
 }
 
 /**
- * Any row's name, as every list shows it: a task's or an Inbox note's words
- * without their #tags (a task line kept from quick capture is an Inbox note
- * until it is made a task), the tags apart; anything else as it is titled.
+ * Any row's name, as every list shows it: its words without their #tags, the
+ * tags apart, whatever its kind (a question titled "what is BC #work" reads
+ * "what is BC", as its page does). A name that is only a tag keeps it.
  */
-export const itemName = (type: string, title: string): { text: string; tags: string[] } =>
-  type === 'task' || type === 'capture' ? taskName(title) : { text: title, tags: [] }
+export const itemName = (_type: string, title: string): { text: string; tags: string[] } => taskName(title)
 
 /**
  * On Today: open, not waiting on someone, and set or due by today or before
