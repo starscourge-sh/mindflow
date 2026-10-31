@@ -72,7 +72,7 @@ const RATES = [1, 1.5, 2]
  * play (the frame lights up) and the end (the controls settle back with a
  * replay in place of play).
  */
-function useMedia(video: boolean): {
+function useMedia(video: boolean, known: number | null, learn: (seconds: number) => void): {
   ref: React.RefObject<HTMLMediaElement | null>
   frame: React.RefObject<HTMLSpanElement | null>
   controls: React.JSX.Element
@@ -94,17 +94,46 @@ function useMedia(video: boolean): {
   // Where the pointer is over the scrubber, and the time there.
   const [hover, setHover] = useState<{ x: number; time: number } | null>(null)
   const [settling, setSettling] = useState(false)
+  // Asking the file for its true length (see below): its place meanwhile is not a place to show.
+  const measuring = useRef(false)
+  const learnRef = useRef(learn)
+  learnRef.current = learn
+  const knownRef = useRef(known)
+  knownRef.current = known
   useEffect(() => {
     const media = ref.current
     if (!media) return
     const sync = (): void => {
+      if (measuring.current) return
       setPlaying(!media.paused)
       setEnded(media.ended)
-      setAt(media.currentTime)
+      // At the end the bar is full, even if the kept length is a little over the sound's.
+      setAt(media.ended ? Infinity : media.currentTime)
       setLength(media.duration)
       setMuted(media.muted)
       setRate(media.playbackRate)
     }
+    // A recorder writes no length into its file, so the player reads it as
+    // endless and learns it only as it plays, the bar racing ahead at first.
+    // Its true length is found once, before play: a seek past the end makes
+    // the player read to the end, and the length it finds is kept on the
+    // block, so it is known from the first frame every time after.
+    const measure = (): void => {
+      if (knownRef.current || Number.isFinite(media.duration) || measuring.current) return
+      measuring.current = true
+      media.currentTime = 1e101
+    }
+    const measured = (): void => {
+      if (!measuring.current || !Number.isFinite(media.duration)) return
+      measuring.current = false
+      const seconds = Math.round(media.duration * 100) / 100
+      media.currentTime = 0
+      if (seconds > 0) learnRef.current(seconds)
+      sync()
+    }
+    media.addEventListener("loadedmetadata", measure)
+    media.addEventListener("durationchange", measured)
+    if (media.readyState >= 1) measure()
     const end = (): void => {
       cue("media-end")
       setMoment("ended")
@@ -116,6 +145,8 @@ function useMedia(video: boolean): {
     return () => {
       events.forEach((name) => media.removeEventListener(name, sync))
       media.removeEventListener("ended", end)
+      media.removeEventListener("loadedmetadata", measure)
+      media.removeEventListener("durationchange", measured)
     }
   }, [])
   // A moment lasts as long as its animation, then the block is plain again.
@@ -127,6 +158,10 @@ function useMedia(video: boolean): {
   const toggle = (): void => {
     const media = ref.current
     if (!media) return
+    if (measuring.current) {
+      measuring.current = false
+      media.currentTime = 0
+    }
     if (media.paused) {
       if (media.ended) {
         cue("media-replay")
@@ -157,7 +192,8 @@ function useMedia(video: boolean): {
     if (which === "pip") void (out ? document.exitPictureInPicture() : media.requestPictureInPicture()).catch(() => {})
     else void (out ? document.exitFullscreen() : (frame.current?.requestFullscreen() ?? Promise.resolve())).catch(() => {})
   }
-  const end = Number.isFinite(length) ? length : 0
+  // The length kept on the block wins: the file's own may still be growing.
+  const end = known || (Number.isFinite(length) ? length : 0)
   const state = ended ? "ended" : playing ? "playing" : "paused"
   const controls = (
     <span className="tiptap-media-controls" contentEditable={false} onMouseDown={(event) => event.stopPropagation()}>
@@ -175,8 +211,8 @@ function useMedia(video: boolean): {
           min={0}
           max={end}
           step="any"
-          value={at}
-          style={{ "--done": `${end ? (at / end) * 100 : 0}%` } as React.CSSProperties}
+          value={Math.min(at, end)}
+          style={{ "--done": `${end ? Math.min(at / end, 1) * 100 : 0}%` } as React.CSSProperties}
           onChange={(event) => {
             if (ref.current) ref.current.currentTime = Number(event.target.value)
           }}
@@ -196,7 +232,7 @@ function useMedia(video: boolean): {
         )}
       </span>
       <span className="tiptap-media-time">
-        <Roll text={clock(at)} /><span className="tiptap-media-total"> / {clock(length)}</span>
+        <Roll text={clock(end ? Math.min(at, end) : at)} /><span className="tiptap-media-total"> / {clock(end)}</span>
       </span>
       <button type="button" className="tiptap-media-speed" aria-label={`Speed ${rate} times`} title="Speed" onClick={speed}>
         <Roll text={`${rate}×`} />
@@ -330,11 +366,43 @@ function MediaToolbar({ props, sized }: { props: NodeViewProps; sized: boolean }
   )
 }
 
+/**
+ * The length a recording or video shows before it plays: the one kept on the
+ * block, and once found for one without (see useMedia), kept there, outside
+ * Undo, as a fact about the file rather than an edit.
+ */
+function useLength(props: NodeViewProps, audio = false): [number | null, (seconds: number) => void] {
+  const known = Number(props.node.attrs.duration) || null
+  const learn = (seconds: number): void => {
+    const at = props.getPos()
+    const { editor } = props
+    if (at == null || !editor.isEditable || editor.state.doc.nodeAt(at)?.type.name !== "attachment") return
+    editor.view.dispatch(editor.state.tr.setNodeAttribute(at, "duration", seconds).setMeta("addToHistory", false))
+  }
+  const learnRef = useRef(learn)
+  learnRef.current = learn
+  // A recording kept before lengths were, or one dropped in: the length its
+  // file claims can be a guess that grows as it plays, so the sound itself is
+  // decoded once and timed. A video's is found by the player (useMedia).
+  const { src } = props.node.attrs
+  useEffect(() => {
+    if (!audio || known || !src) return
+    let gone = false
+    void fetch(src)
+      .then((answer) => answer.arrayBuffer())
+      .then((bytes) => new OfflineAudioContext(1, 1, 44100).decodeAudioData(bytes))
+      .then((sound) => !gone && sound.duration > 0 && learnRef.current(Math.round(sound.duration * 100) / 100))
+      .catch(() => {})
+    return () => void (gone = true)
+  }, [audio, known, src])
+  return [known, learn]
+}
+
 /** A video: the player is the block, sized and placed like a picture. */
 function VideoBlock(props: NodeViewProps): React.JSX.Element {
   const { src, name, width, align } = props.node.attrs
   const selected = isNodeSelected(props)
-  const { ref, frame, controls, toggle, playing, state } = useMedia(true)
+  const { ref, frame, controls, toggle, playing, state } = useMedia(true, ...useLength(props))
   return (
     <NodeViewWrapper className={`tiptap-attachment is-video${selected ? " is-selected" : ""}${playing ? " is-playing" : ""}`} data-state={state} data-align={align ?? undefined} style={{ width: width ?? undefined }}>
       <span ref={frame} className="tiptap-video-frame">
@@ -350,7 +418,7 @@ function VideoBlock(props: NodeViewProps): React.JSX.Element {
 function AudioBlock(props: NodeViewProps): React.JSX.Element {
   const { src, name, size } = props.node.attrs
   const selected = isNodeSelected(props)
-  const { ref, controls, playing, state } = useMedia(false)
+  const { ref, controls, playing, state } = useMedia(false, ...useLength(props, true))
   const listening = useSyncExternalStore(onTranscribing, () => isTranscribing(src))
   // Kept with "Transcribe voice notes as you record them" on: its words start as it first shows, once.
   useEffect(() => {

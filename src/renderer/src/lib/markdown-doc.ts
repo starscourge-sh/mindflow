@@ -95,6 +95,11 @@ const marked = (content: JSONContent[]): JSONContent[] => {
   })
 }
 
+/** A file link's title: its size in bytes, then a recording's length in seconds ("913800 56.2"). */
+const sizeAndLength = (title: unknown): { size: number; duration: number | null } => {
+  const [size, duration] = String(title ?? "").trim().split(/\s+/).map(Number)
+  return { size: size || 0, duration: duration || null }
+}
 const FILE_LINK = /^haligtree:\/\/assets\/[a-f0-9]{64}\.(?!png|jpe?g|gif|webp|svg|avif|bmp)[a-z0-9]+$/
 
 /** A paragraph the reader ran together from several lines, as one paragraph a line. */
@@ -149,7 +154,7 @@ function tidyDocument(node: JSONContent, inText = false): JSONContent {
     const fileOf = (part: JSONContent): JSONContent | null => {
       const link = part.marks?.find((mark) => mark.type === "link")
       const href = String(link?.attrs?.href ?? "")
-      return part.type === "text" && FILE_LINK.test(href) ? { type: "attachment", attrs: { src: href, name: part.text ?? "", size: Number(link?.attrs?.title) || 0 } } : null
+      return part.type === "text" && FILE_LINK.test(href) ? { type: "attachment", attrs: { src: href, name: part.text ?? "", ...sizeAndLength(link?.attrs?.title) } } : null
     }
     const parts = node.content.filter((part) => part.type !== "hardBreak" && !(part.type === "text" && !part.marks?.length && !part.text?.trim()))
     const files = parts.map(fileOf)

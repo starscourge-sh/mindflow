@@ -12,6 +12,8 @@ interface AttachmentAttributes {
   size: number
   /** A recording to turn into words once it shows (lib/transcribe.ts). */
   transcribe?: boolean
+  /** A recording's or a video's length in seconds, when known before it plays. */
+  duration?: number | null
 }
 
 declare module "@tiptap/core" {
@@ -59,6 +61,13 @@ export const Attachment = Node.create({
         rendered: false,
         parseHTML: (element) => Number(element.getAttribute("data-size")) || 0,
       },
+      // Seconds, for a recording or a video. A recorder writes no length into
+      // its file, so the player would only learn it by playing to the end.
+      duration: {
+        default: null,
+        rendered: false,
+        parseHTML: (element) => Number(element.getAttribute("data-duration")) || null,
+      },
       align: {
         default: null,
         parseHTML: (element) => element.getAttribute("data-align"),
@@ -96,6 +105,7 @@ export const Attachment = Node.create({
         "data-attachment": "",
         "data-name": node.attrs.name,
         "data-size": String(node.attrs.size),
+        ...(node.attrs.duration ? { "data-duration": String(node.attrs.duration) } : {}),
         href: node.attrs.src,
       }),
       node.attrs.name,
@@ -108,9 +118,11 @@ export const Attachment = Node.create({
 
   /** A link to the stored file, under the name it arrived with. */
   renderMarkdown(node): string {
-    const { name, src, size } = (node.attrs ?? {}) as Partial<AttachmentAttributes>
-    // The size rides as the link's title, where the reader looks for it.
-    return captioned(`[${name || "Attachment"}](${src}${size ? ` "${size}"` : ""})`, node)
+    const { name, src, size, duration } = (node.attrs ?? {}) as Partial<AttachmentAttributes>
+    // The size rides as the link's title, where the reader looks for it, and a
+    // recording's length after it: "913800 56.2".
+    const title = [size || (duration ? 0 : ""), duration || ""].filter((part) => part !== "").join(" ")
+    return captioned(`[${name || "Attachment"}](${src}${title ? ` "${title}"` : ""})`, node)
   },
 
   addCommands() {

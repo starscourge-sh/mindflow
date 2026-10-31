@@ -21,9 +21,11 @@ const clock = (seconds: number): string => `${Math.floor(seconds / 60)}:${String
  * Record a voice note: the microphone asked for (macOS once), then a pill at
  * the bottom of the window with the sound's level as it comes in, the time,
  * and a red Stop. Esc or × throws it away. Resolves with the recording as a
- * file, or null when cancelled or the microphone is not allowed.
+ * file and its length in seconds (the file itself does not say: a recorder
+ * writes no length into it), or null when cancelled or the microphone is not
+ * allowed.
  */
-export async function recordVoice(): Promise<File | null> {
+export async function recordVoice(): Promise<Recording | null> {
   if (!(await window.api.haligtree<boolean>('mic:ask'))) {
     refuse('Haligtree may not use the microphone. Allow it in System Settings, under Privacy & Security, then Microphone')
     return null
@@ -39,22 +41,22 @@ export async function recordVoice(): Promise<File | null> {
   document.body.appendChild(host)
   const root = createRoot(host)
   return new Promise((resolve) => {
-    const finish = (file: File | null): void => {
+    const finish = (kept: Recording | null): void => {
       stream.getTracks().forEach((track) => track.stop())
       root.unmount()
       host.remove()
-      resolve(file)
+      resolve(kept)
     }
     root.render(<Recorder stream={stream} onDone={finish} />)
   })
 }
 
 /** Record, then keep it where the caret is in this editor. */
-export async function recordInto(editor: { chain: () => { focus: () => { setAttachment: (attrs: { src: string; name: string; size: number; transcribe?: boolean }) => { run: () => boolean } } } }): Promise<void> {
-  const file = await recordVoice()
-  if (!file) return
+export async function recordInto(editor: { chain: () => { focus: () => { setAttachment: (attrs: { src: string; name: string; size: number; transcribe?: boolean; duration?: number }) => { run: () => boolean } } } }): Promise<void> {
+  const kept = await recordVoice()
+  if (!kept) return
   try {
-    editor.chain().focus().setAttachment({ ...(await saveAttachment(file)), transcribe: await wantsWords() }).run()
+    editor.chain().focus().setAttachment({ ...(await saveAttachment(kept.file)), duration: kept.seconds, transcribe: await wantsWords() }).run()
     chime('saved')
   } catch {
     refuse('The recording could not be kept. Try again')
@@ -63,10 +65,10 @@ export async function recordInto(editor: { chain: () => { focus: () => { setAtta
 
 /** Record, then keep it as a new capture of its own, which opens. */
 export async function recordAsCapture(open: (id: string) => void): Promise<void> {
-  const file = await recordVoice()
-  if (!file) return
+  const kept = await recordVoice()
+  if (!kept) return
   try {
-    const attrs = { ...(await saveAttachment(file)), transcribe: await wantsWords() }
+    const attrs = { ...(await saveAttachment(kept.file)), duration: kept.seconds, transcribe: await wantsWords() }
     const id = await window.api.captures.create({ kind: 'note', body: { type: 'doc', content: [{ type: 'attachment', attrs }, { type: 'paragraph' }] } })
     if (!id) return refuse('The recording could not be kept. Try again')
     chime('saved')
@@ -76,7 +78,13 @@ export async function recordAsCapture(open: (id: string) => void): Promise<void>
   }
 }
 
-function Recorder({ stream, onDone }: { stream: MediaStream; onDone: (file: File | null) => void }): React.JSX.Element {
+/** A kept recording, with the length its player shows from the start. */
+export interface Recording {
+  file: File
+  seconds: number
+}
+
+function Recorder({ stream, onDone }: { stream: MediaStream; onDone: (kept: Recording | null) => void }): React.JSX.Element {
   const canvas = useRef<HTMLCanvasElement>(null)
   const recorder = useRef<MediaRecorder | null>(null)
   const [seconds, setSeconds] = useState(0)
@@ -93,8 +101,12 @@ function Recorder({ stream, onDone }: { stream: MediaStream; onDone: (file: File
       if (!keep || !parts.length) return done.current(null)
       const at = new Date()
       const name = `Voice note ${at.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} ${at.getHours()}.${String(at.getMinutes()).padStart(2, '0')}.${kind.extension}`
-      done.current(new File(parts, name, { type: kind.type.split(';')[0] }))
+      // Timed from the recorder's own start and stop, to the hundredth.
+      const seconds = Math.round((performance.now() - begun) / 10) / 100
+      done.current({ file: new File(parts, name, { type: kind.type.split(';')[0] }), seconds })
     }
+    let begun = performance.now()
+    record.onstart = () => (begun = performance.now())
     recorder.current = Object.assign(record, { keep: (yes: boolean) => (keep = yes) })
     record.start(250)
     chime('windup')
