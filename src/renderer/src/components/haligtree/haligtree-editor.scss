@@ -3681,12 +3681,10 @@ img[data-banded] {
 
 // --- Table of contents ------------------------------------------------------
 // The note's headings, placed in the note. Quiet like the text around it: muted
-// rows in the text's own font, the accent only under the pointer, and a thin
-// rule down the side of each level, so the nesting reads without bullets.
+// rows in the text's own font, the accent only under the pointer, and each level
+// hung off a trunk as the sidebar's trees are, so the nesting reads without bullets.
 
 .tiptap.ProseMirror.haligtree-editor .mf-contents {
-  --contents-step: 0.875rem;
-  --contents-rule: color-mix(in srgb, var(--mf-muted) 45%, transparent);
   margin: 0.5em 0;
   padding: 0.25rem 0;
   border-radius: 0.5rem;
@@ -3765,18 +3763,17 @@ img[data-banded] {
   list-style: none;
 }
 
-// One rule per level above this row, a step apart: rows sit flush, so the rules
-// join into lines down the side of each section.
-.tiptap.ProseMirror.haligtree-editor .mf-contents-row {
-  margin: 0;
-  padding: 0 0 0 calc(var(--depth) * var(--contents-step));
-  background-image: repeating-linear-gradient(to right, var(--contents-rule) 0 1px, transparent 1px var(--contents-step));
-  background-size: calc(var(--depth) * var(--contents-step)) 100%;
-  background-repeat: no-repeat;
+// Each level steps in under the row above it, hung off a thin trunk with a
+// curved branch to each row (Branches), as the sidebar's trees are.
+.tiptap.ProseMirror.haligtree-editor .mf-contents-level {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-left: 1.25rem;
+}
 
-  &::before {
-    content: none;
-  }
+.tiptap.ProseMirror.haligtree-editor .mf-contents-list > .mf-contents-level {
+  margin-left: 0.75rem;
 }
 
 .mf-contents-entry {
@@ -3785,7 +3782,7 @@ img[data-banded] {
   gap: 0.5rem;
   width: 100%;
   min-width: 0;
-  padding: 0.1875rem 0.5rem;
+  padding: 0.375rem 0.5rem;
   border-radius: 0.375rem;
   color: var(--mf-muted-strong);
   font: inherit;

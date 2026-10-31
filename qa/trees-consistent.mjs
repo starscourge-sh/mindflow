@@ -83,7 +83,7 @@ try {
   }
   const id = await h.evaluate(() => window.api.captures.create({ kind: 'note', body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Reading for the exam' }] }] } }))
   await send('capture', id)
-  await h.locator(ED).waitFor({ timeout: 10000 })
+  await h.locator(ED).first().waitFor({ timeout: 10000 })
   await wait(2000)
   const side = await readTree('[data-side-recent]', '[data-side-recent-row]')
   const sideRow = side?.rows[0]?.h
@@ -150,6 +150,23 @@ try {
     return light ? getComputedStyle(light).backgroundColor : null
   })
   check('the chosen row has the sidebar\'s own fill', !!fill, String(fill))
+
+  // A note's Contents block: its headings as the same tree, under its "Contents" title.
+  const heading = (level, text) => ({ type: 'heading', attrs: { level }, content: [{ type: 'text', text }] })
+  const para = (text) => ({ type: 'paragraph', content: [{ type: 'text', text }] })
+  const essay = await v('article:new')
+  await v('item:save', essay, { title: 'The law essay', body: { type: 'doc', content: [{ type: 'tableOfContents' }, heading(1, 'Sources of law'), para('One.'), heading(2, 'Custom'), para('Two.'), heading(2, 'Statute'), para('Three.'), heading(1, 'Courts'), para('Four.'), heading(2, 'The high court'), para('Five.')] } })
+  await send('article', essay); await wait(1800)
+  const contents = await readTree('.mf-contents', '.mf-contents-entry')
+  const [sources, cust, stat, courtsH, high] = contents?.rows ?? []
+  check('Contents block: the headings as a tree, a trunk under the title and one under each heading with sections', contents?.rows.length === 5 && contents.trunks === 3, JSON.stringify({ rows: contents?.rows.length, trunks: contents?.trunks }))
+  check('Contents block: sections step in under their heading', cust?.left > sources.left && stat.left === cust.left && courtsH.left === sources.left && high.left === cust.left, JSON.stringify(contents?.rows.map((one) => one.left)))
+  check('Contents block: rows near the sidebar\'s height, in the note\'s own words', contents?.rows.every((one) => Math.abs(one.h - sideRow) <= 3), JSON.stringify({ sideRow, rows: contents?.rows.map((one) => one.h) }))
+  await both(`${SHOTS}/contents-block`)
+  await h.locator('.mf-contents-entry[title="Statute"], .mf-contents-entry[data-title-tip="Statute"]').click()
+  let landed = ''
+  for (let i = 0; i < 30 && !landed; i++) { await wait(100); landed = await h.evaluate(() => document.querySelector('.mf-contents-landed')?.textContent ?? '') }
+  check('Contents block: a row still goes to its heading', /Statute$/.test(landed), landed)
 } catch (error) {
   check('ran to the end', false, String(error?.stack ?? error))
 } finally {
