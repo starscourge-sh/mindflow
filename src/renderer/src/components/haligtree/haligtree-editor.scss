@@ -3851,6 +3851,21 @@ html[data-motion="off"] .tiptap.ProseMirror.haligtree-editor .mf-contents-landed
 
 // A line written as "question :: answer" is a review card: a small card at
 // its end says so (extensions/line-cards.ts). Muted, never a button.
+/* A link into one of the book's PDFs, and a "(p. N)" that opens the note's PDF:
+   a small page before the words, in the PDF's own colour, as a link to a gem
+   or a note shows its kind, so a link to a document reads as one at a glance. */
+.tiptap.ProseMirror.haligtree-editor :is(a[href^="haligtree://assets/"][href*=".pdf"], a[href^="mindflow://assets/"][href*=".pdf"], .mf-page-link)::before {
+  content: "";
+  display: inline-block;
+  width: 0.85em;
+  height: 0.85em;
+  margin-right: 0.25em;
+  vertical-align: -0.1em;
+  background-color: var(--tt-color-text-orange, currentColor);
+  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z'/><path d='M14 2v4a2 2 0 0 0 2 2h4'/><path d='M10 9H8M16 13H8M16 17H8'/></svg>") center / contain no-repeat;
+  mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z'/><path d='M14 2v4a2 2 0 0 0 2 2h4'/><path d='M10 9H8M16 13H8M16 17H8'/></svg>") center / contain no-repeat;
+}
+
 /* A video time in a line, "[13:03]": a link that plays the note's video from there. */
 .tiptap.ProseMirror.haligtree-editor .mf-time-link {
   color: var(--tt-brand-color-500, currentColor);
