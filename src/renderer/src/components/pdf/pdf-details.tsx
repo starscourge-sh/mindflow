@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { Search } from "lucide-react"
 import { call } from "@/lib/haligtree"
 import { MARK_COLORS, markCss } from "./read-bar"
 import type { PdfMark } from "./pdf-pages"
@@ -67,7 +68,10 @@ export function ReadDetails({ src, cover, title, author, pages, page, marks, lit
         </h3>
         {marks.length ? (
           <>
-            <input className="read-details-find" type="text" placeholder="Find in highlights" aria-label="Find in highlights" value={words} onChange={(event) => setWords(event.target.value)} onKeyDown={(event) => event.key === "Escape" && setWords("")} />
+            <label className="read-details-find">
+              <Search aria-hidden className="size-3.5 shrink-0" />
+              <input type="text" placeholder="Find in highlights" aria-label="Find in highlights" value={words} onChange={(event) => setWords(event.target.value)} onKeyDown={(event) => event.key === "Escape" && setWords("")} />
+            </label>
             {used.length > 1 && (
               <div className="read-details-colours" role="group" aria-label="Show one colour">
                 {used.map((one) => (
