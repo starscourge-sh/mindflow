@@ -7,6 +7,26 @@ import { onScrollAway } from '@/lib/scroll-away'
 const cutShort = (element: Element): boolean =>
   [element, ...element.querySelectorAll('*')].some((one) => one.scrollWidth > one.clientWidth + 1 || one.scrollHeight > one.clientHeight + 1)
 
+/** The editor a node sits in, as TipTap hangs it on its root: its view watches the page for changes. */
+type Watched = { editor?: { view?: { domObserver?: { stop: () => void; start: () => void } } } }
+
+/**
+ * A change made where no editor sees it. Inside a note, ProseMirror watches its
+ * page and redraws any line whose attributes change, so moving a `title` aside
+ * on hover replaced the very link under the pointer and its click was lost.
+ * Its watching is paused for the move (and only that), so the line stays as it
+ * is; outside an editor the change is simply made.
+ */
+function unseen(target: Element, change: () => void): void {
+  const observer = (target.closest('.ProseMirror') as (Element & Watched) | null)?.editor?.view?.domObserver
+  observer?.stop()
+  try {
+    change()
+  } finally {
+    observer?.start()
+  }
+}
+
 /**
  * Every `title` in the app shown as the app's own tip, never the system's grey
  * box: a title is taken off its element as the pointer arrives (so the system
@@ -27,7 +47,7 @@ export function TitleTips(): React.JSX.Element | null {
       const target = (event.target as Element | null)?.closest?.('[title], [data-title-tip]')
       if (!target || target === on) return
       const said = target.getAttribute('title')
-      if (said !== null) (target.setAttribute('data-title-tip', said), target.removeAttribute('title'))
+      if (said !== null) unseen(target, () => (target.setAttribute('data-title-tip', said), target.removeAttribute('title')))
       const text = target.getAttribute('data-title-tip')?.trim()
       hide()
       if (!text) return
