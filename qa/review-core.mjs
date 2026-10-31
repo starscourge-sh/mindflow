@@ -82,7 +82,9 @@ try {
   for (const one of await v('items', 'nugget')) if (one.prompt && one.id !== bat && one.id !== cell) await v('item:save', one.id, { suspended: true })
   const ours = (await v('review:queue')).map((one) => one.prompt)
   check('the two typed cards are in the queue', ours.includes('Spanish for bat?') && ours.includes('Where in a cell is ATP made?'), JSON.stringify(ours))
-  await c.go('home')
+  // Review takes its queue once a session: a fresh window starts a new one.
+  await h.reload()
+  await h.waitForTimeout(2500)
   await c.go('review')
   const reach = async (prompt) => {
     for (let i = 0; i < 10; i++) {
