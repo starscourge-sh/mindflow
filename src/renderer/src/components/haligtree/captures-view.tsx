@@ -14,7 +14,7 @@ import { motion } from 'motion/react'
 import { HaligtreeEditor } from '../haligtree'
 import { ASKS, CAPTURE_TYPES, CaptureKindPicker, byKind, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { SourceFoot } from './source-page'
-import { voiceOf } from '@/lib/sources'
+import { openSource, voiceOf } from '@/lib/sources'
 import { Proofread } from './proofread'
 import { RecentIsland } from './recent-island'
 import { askProofread } from '@/lib/grammar'
@@ -47,7 +47,10 @@ import { Empty, focusField, Island, Page, Prop, Props, Remembered, Rolling, refu
 import { Term } from './term'
 import { GlossTimeline, PageThoughts, useRowGloss } from './gloss-line'
 import { ThoughtDock } from './thought-bar'
-import { RemindMe } from './items-view'
+import { RemindMe, SourceRow } from './items-view'
+import { openPdf } from '@/components/pdf/pdf-reader'
+import { bookOf } from '@/lib/pdf-in'
+import { BookOpen, Quote } from 'lucide-react'
 import { addToQuestion } from './questions-view'
 import { ReadThrough } from './read-through'
 import { enqueue, readQueue } from '@/lib/reading-queue'
@@ -909,6 +912,28 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
   const reopen =(): void => void window.api.captures.save(capture.id, { status: 'open' }).then(() => chime('undo'))
   const [who, setWho] = useState(capture.attribution ?? '')
   const [where, setWhere] = useState(capture.medium ?? '')
+  // Saved as typed, as before: a quote's who, emptied, waits for the blur to ask, never saved blank by a retype.
+  const saveWho = (value: string): void => {
+    setWho(value)
+    if (capture.kind === 'quote' && !value.trim() && capture.attribution?.trim()) return
+    void haligtree.setCapture(capture.id, 'attribution', value.trim() || null)
+  }
+  const saveWhere = (value: string): void => {
+    setWhere(value)
+    void haligtree.setCapture(capture.id, 'medium', value.trim() || null)
+  }
+  // Each source row is a link until its pencil turns it into its field; Enter leaves it, Esc puts back what it held.
+  const [editWho, setEditWho] = useState(false)
+  const [editWhere, setEditWhere] = useState(false)
+  const before = useRef('')
+  const leaveOnKeys = (revert: () => void) => (event: React.KeyboardEvent<HTMLInputElement>): void => {
+    if (event.key === 'Enter') return void event.currentTarget.blur()
+    if (event.key !== 'Escape') return
+    event.preventDefault()
+    event.stopPropagation()
+    revert()
+    event.currentTarget.blur()
+  }
   useEffect(() => {
     setWho(capture.attribution ?? '')
     setWhere(capture.medium ?? '')
@@ -1003,24 +1028,29 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
         </Prop>
       </Island>
 
-      {/* Each in a box of its own: the datalist beside it would otherwise count as a row. */}
-      <Island compact title="Where it came from">
-        <div>
-          <Remembered key={`a${capture.id}`} field="attribution" value={who} placeholder={ASKS[capture.kind as CaptureType]?.who ?? 'Who'} className="w-full rounded-none px-2 py-1.5 text-control hover:bg-accent" onChange={(value) => {
-            setWho(value)
-            // A quote's who, emptied, waits for the blur to ask: never saved blank by a retype.
-            if (capture.kind === 'quote' && !value.trim() && capture.attribution?.trim()) return
-            void haligtree.setCapture(capture.id, 'attribution', value.trim() || null)
-          }} onBlur={() => {
+      {/* Who and where as links, each opening its page (a PDF at its page, ⌥ beside); the pencil on hover turns one into its field. */}
+      <Island compact title="Where it came from" filled={!!(capture.attribution?.trim() || capture.medium?.trim() || pdfOfNote)}>
+        <SourceRow icon={Quote} name="source" editing={editWho} setEditing={(on) => ((before.current = who), setEditWho(on))}
+          label={capture.attribution?.trim() ?? ''} tip="Open their page in Sources"
+          open={() => (chime('page'), openSource('attribution', capture.attribution ?? ''))}>
+          <Remembered key={`a${capture.id}`} field="attribution" value={who} data-note-source autoFocus={editWho} placeholder={ASKS[capture.kind as CaptureType]?.who ?? 'Who'}
+            className="min-w-0 flex-1 bg-transparent text-control outline-none placeholder:text-foreground/70"
+            onKeyDown={leaveOnKeys(() => saveWho(before.current))}
+            onChange={saveWho} onBlur={() => {
+            setEditWho(false)
             if (capture.kind === 'quote' && !who.trim() && capture.attribution?.trim()) askClearWho(capture.attribution.trim(), () => haligtree.setCapture(capture.id, 'attribution', null), () => setWho(capture.attribution ?? ''))
           }} />
-        </div>
-        <div>
-          <Remembered key={`m${capture.id}`} field="medium" value={where} placeholder={ASKS[capture.kind as CaptureType]?.where ?? 'Where'} className="w-full rounded-none px-2 py-1.5 text-control hover:bg-accent" onChange={(value) => {
-            setWhere(value)
-            void haligtree.setCapture(capture.id, 'medium', value.trim() || null)
-          }} />
-        </div>
+        </SourceRow>
+        <SourceRow icon={BookOpen} name="where" editing={editWhere} setEditing={(on) => ((before.current = where), setEditWhere(on))}
+          label={pdfOfNote ? `${bookOf(capture.medium) || pdfOfNote.name.replace(/\.pdf$/i, '')}, p. ${pdfOfNote.page}` : capture.medium?.trim() ?? ''}
+          tip={pdfOfNote ? `Open it at p. ${pdfOfNote.page}. ⌥-click opens it beside this` : 'Open its page in Sources'}
+          peek={pdfOfNote ?? undefined}
+          open={(aside) => (chime('page'), pdfOfNote ? openPdf(pdfOfNote.src, pdfOfNote.name, pdfOfNote.page, pdfOfNote.mark, aside) : openSource('medium', capture.medium ?? ''))}>
+          <Remembered key={`m${capture.id}`} field="medium" value={where} data-note-where autoFocus={editWhere} placeholder={ASKS[capture.kind as CaptureType]?.where ?? 'Where'}
+            className="min-w-0 flex-1 bg-transparent text-control outline-none placeholder:text-foreground/70"
+            onKeyDown={leaveOnKeys(() => saveWhere(before.current))}
+            onChange={saveWhere} onBlur={() => setEditWhere(false)} />
+        </SourceRow>
       </Island>
       {/* What it means to you, dated: a capture takes glosses as a nugget does. */}
       <GlossTimeline id={capture.id} />

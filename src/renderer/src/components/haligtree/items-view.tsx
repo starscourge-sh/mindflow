@@ -1292,7 +1292,7 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
  * where Enter keeps what is typed and Esc leaves it as it was. Empty, the row
  * is the field, waiting to be filled.
  */
-function SourceRow({ icon: Icon, name, label, tip, open, peek, editing, setEditing, children }: {
+export function SourceRow({ icon: Icon, name, label, tip, open, peek, editing, setEditing, children }: {
   icon: React.ComponentType<{ className?: string }>
   name: 'source' | 'where'
   label: string
