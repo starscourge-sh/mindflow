@@ -2942,7 +2942,8 @@ export function registerHaligtree(): void {
   // Start a held deck, or one topic of it (a deck name, or a top name for all of it): its cards join Review as new.
   handle('decks:start', (deck: string, on: boolean) => {
     const where = "(deck = ? or deck like ? || '::%')"
-    const ids = (db.prepare(`select id from nuggets where ${where} and held = ?`).all(deck, deck, on ? 1 : 0) as { id: string }[]).map((row) => row.id)
+    // Holding takes only cards not yet started: one already being learnt keeps its place in Review.
+    const ids = (db.prepare(`select id from nuggets where ${where} and held = ? ${on ? '' : 'and state is null and suspended = 0'}`).all(deck, deck, on ? 1 : 0) as { id: string }[]).map((row) => row.id)
     for (const id of ids) db.prepare('update nuggets set held = ?, suspended = ? where id = ?').run(on ? 0 : 1, on ? 0 : 1, id)
     return write(ids.length)
   })

@@ -73,7 +73,7 @@ export function DeckShelf(): React.JSX.Element {
             )}
             <div className="flex flex-wrap gap-2 pt-1">
               <Button size="sm" className="cursor-pointer" data-deck-start onClick={() => startDeck(shelf.name, shelf.name, shelf.held > 0)}>
-                {shelf.held > 0 ? (shelf.held === shelf.cards ? 'Start' : 'Start the rest') : 'Hold'}
+                {shelf.held > 0 ? (shelf.held === shelf.cards ? 'Start' : 'Start the rest') : 'Hold new cards'}
               </Button>
               <Button variant="ghost" size="sm" className="cursor-pointer" data-deck-gems aria-pressed={shelf.shown} onClick={() => show(shelf)}>
                 {shelf.shown ? 'Keep out of Gems' : 'Show in Gems'}

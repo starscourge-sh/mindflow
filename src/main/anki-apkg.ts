@@ -25,7 +25,8 @@ export type ApkgCounts = {
 }
 
 /** What there is to ask about once the deck is read: how many of its cards come with past reviews. */
-export type ApkgAsk = { reviewed: number; cards: number; names: string[] }
+/** `topics`: how many decks the cards sit in; one topic is never held whole, it comes in at the new-card pace. */
+export type ApkgAsk = { reviewed: number; cards: number; names: string[]; topics: number }
 
 /** Over this many new cards, a deck is held until each topic is started, unless the person says start them all. */
 export const HOLD_OVER = 200
@@ -226,9 +227,12 @@ export async function importApkg(path: string, steps: Steps = {}): Promise<ApkgC
       // Only cards new to this book count: a newer version of a deck already here asks nothing.
       const here = database().prepare('select 1 from nuggets where source = ? or source = ?')
       const incoming = cards.filter((card) => !here.get(`anki:${card.guid}:${card.ord}`, `anki:${card.id}`)).length
-      const choice = (reviewed || incoming > HOLD_OVER) && incoming && steps.choose
-        ? await steps.choose({ reviewed, cards: incoming, names: counts.names })
-        : { keepReviews: false, hold: incoming > HOLD_OVER }
+      // Held only when there are topics to start one at a time: a single list (a times table) trickles in at the new-card pace instead.
+      const topics = new Set(cards.map((card) => card.did)).size
+      const holdable = incoming > HOLD_OVER && topics > 1
+      const choice = (reviewed || holdable) && incoming && steps.choose
+        ? await steps.choose({ reviewed, cards: incoming, names: counts.names, topics })
+        : { keepReviews: false, hold: holdable }
 
       // Media: a list from number to name, JSON in older packages.
       const list = files.media ? unpacked(files.media) : new Uint8Array()

@@ -7,7 +7,7 @@ import { chime } from '@/lib/sound'
 import { num } from '../../../../main/dates'
 
 /** What main asks before a deck comes in (index.ts askApkg). */
-type Ask = { id: string; reviewed: number; cards: number; names: string[]; own: boolean; holdOver: number }
+type Ask = { id: string; reviewed: number; cards: number; names: string[]; topics: number; own: boolean; holdOver: number }
 
 /** Two answers side by side, in the look of Review's tabs: the picked one raised. */
 function Pick<T extends string>({ value, options, onPick, name }: { value: T; options: { id: T; label: string }[]; onPick: (id: T) => void; name: string }): React.JSX.Element {
@@ -50,7 +50,8 @@ export function ApkgAskSheet(): React.JSX.Element {
   useEffect(() => void (ask && card.current?.querySelector<HTMLElement>('[data-autofocus]')?.focus()), [ask])
   if (!ask) return <AnimatePresence />
   const fresh = reviews === 'keep' ? ask.cards - Math.min(ask.reviewed, ask.cards) : ask.cards
-  const big = fresh > ask.holdOver
+  // One topic (a times table) is never held whole: it comes in at the new-card pace.
+  const big = fresh > ask.holdOver && ask.topics > 1
   const answer = (keepReviews: boolean, hold: boolean): void => {
     chime('tap')
     void call('apkg:answer', ask.id, { keepReviews, hold })
