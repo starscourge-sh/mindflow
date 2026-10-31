@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import type { Editor } from '@tiptap/core'
 import { NodeSelection } from '@tiptap/pm/state'
-import { Mic, Square, X } from 'lucide-react'
+import { Check, Mic, Square, X } from 'lucide-react'
 
 import { saveAttachment } from '@/extensions/image-drop'
 import { refuse } from '@/components/haligtree/ui'
@@ -10,6 +10,8 @@ import { chime } from '@/lib/sound'
 import { wantsWords } from '@/lib/transcribe'
 import { setRecording } from '@/lib/recording'
 import { cn } from '@/lib/cn'
+import { still } from '@/lib/motion'
+import { useCentreOn } from '@/lib/centre-on'
 
 /** The kinds a recording can be kept as, the first the recorder makes: `.m4a` plays anywhere, `.weba` is Chromium's own. */
 const KINDS = [
@@ -21,6 +23,8 @@ const KINDS = [
 /** 0:42, 12:05, and past an hour 2:00:04, never "120:04". */
 /** Below this the microphone hears only the room; how fast the shown level follows the voice up, and lets go. */
 const HISS = 0.025
+/** How long a kept recording's pill stays, its bars settling and its stop a tick, before it goes. */
+const SETTLE = 250
 const RISE = 0.55
 const FALL = 0.12
 
@@ -39,7 +43,7 @@ const clock = (seconds: number): string => {
  * allowed. Given a `slot` (quick capture's writing area), the recorder takes
  * that place instead, large and calm, rather than floating over the page.
  */
-export async function recordVoice(slot?: HTMLElement | null): Promise<Recording | null> {
+export async function recordVoice(slot?: HTMLElement | null, over?: HTMLElement | null): Promise<Recording | null> {
   // One recording per window, ever. Taken before the first wait, not once the
   // recorder shows: a second click on the mic (or ⌘K's "Record a voice note")
   // while the microphone is still being asked for started a second recorder,
@@ -47,14 +51,14 @@ export async function recordVoice(slot?: HTMLElement | null): Promise<Recording 
   if (taken) return null
   taken = true
   try {
-    return await openRecorder(slot)
+    return await openRecorder(slot, over)
   } finally {
     taken = false
   }
 }
 let taken = false
 
-async function openRecorder(slot?: HTMLElement | null): Promise<Recording | null> {
+async function openRecorder(slot?: HTMLElement | null, over?: HTMLElement | null): Promise<Recording | null> {
   if (!(await window.api.haligtree<boolean>('mic:ask'))) {
     refuse('Haligtree may not use the microphone. Allow it in System Settings, under Privacy & Security, then Microphone')
     return null
@@ -76,13 +80,14 @@ async function openRecorder(slot?: HTMLElement | null): Promise<Recording | null
       host.remove()
       resolve(kept)
     }
-    root.render(<Recorder stream={stream} onDone={finish} inline={!!slot} />)
+    root.render(<Recorder stream={stream} onDone={finish} inline={!!slot} over={over} />)
   })
 }
 
 /** Record, then keep it where the caret is in this editor. */
 export async function recordInto(editor: Editor, slot?: HTMLElement | null): Promise<void> {
-  const kept = await recordVoice(slot)
+  // Floating, the pill is centred on the note it writes into, not on the window (a list or a panel may sit beside it).
+  const kept = await recordVoice(slot, editor.view.dom as HTMLElement)
   if (!kept) return
   try {
     // A block picked (the last recording, just kept) is stepped past, not replaced: two in a row keep both.
@@ -117,8 +122,13 @@ export interface Recording {
   seconds: number
 }
 
-function Recorder({ stream, onDone, inline }: { stream: MediaStream; onDone: (kept: Recording | null) => void; inline?: boolean }): React.JSX.Element {
+function Recorder({ stream, onDone, inline, over }: { stream: MediaStream; onDone: (kept: Recording | null) => void; inline?: boolean; over?: HTMLElement | null }): React.JSX.Element {
   const canvas = useRef<HTMLCanvasElement>(null)
+  // Its middle on the note it writes into (lib/centre-on.ts).
+  const middle = useCentreOn(over)
+  // Kept: for a moment (SETTLE) the bars ease to rest and the stop turns into a tick, then it goes.
+  const [kept, setKept] = useState(false)
+  const settle = useRef<number | null>(null)
   const recorder = useRef<MediaRecorder | null>(null)
   const [seconds, setSeconds] = useState(0)
   const done = useRef(onDone)
@@ -134,13 +144,14 @@ function Recorder({ stream, onDone, inline }: { stream: MediaStream; onDone: (ke
       if (!keep || !parts.length) return done.current(null)
       const at = new Date()
       const name = `Voice note ${at.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} ${at.getHours()}.${String(at.getMinutes()).padStart(2, '0')}.${kind.extension}`
-      // Timed from the recorder's own start and stop, to the hundredth.
-      const seconds = Math.round((performance.now() - begun) / 10) / 100
+      // Timed from the recorder's own start to the press that kept it, to the hundredth.
+      const seconds = Math.round(((pressed ?? performance.now()) - begun) / 10) / 100
       done.current({ file: new File(parts, name, { type: kind.type.split(';')[0] }), seconds })
     }
     let begun = performance.now()
+    let pressed: number | null = null
     record.onstart = () => (begun = performance.now())
-    recorder.current = Object.assign(record, { keep: (yes: boolean) => (keep = yes) })
+    recorder.current = Object.assign(record, { keep: (yes: boolean) => ((keep = yes), (pressed = performance.now())) })
     record.start(250)
     chime('windup')
     const started = performance.now()
@@ -163,13 +174,20 @@ function Recorder({ stream, onDone, inline }: { stream: MediaStream; onDone: (ke
     let frame = 0
     const draw = (): void => {
       frame = requestAnimationFrame(draw)
-      setSeconds(Math.floor((performance.now() - started) / 1000))
+      // Kept and settled: closed now, by the drawing's own clock.
+      if (settle.current !== null && performance.now() >= settle.current) {
+        settle.current = null
+        if (record.state !== 'inactive') record.stop()
+        return
+      }
+      if (settle.current === null) setSeconds(Math.floor((performance.now() - started) / 1000))
       const el = canvas.current
       if (!el) return
       analyser.getByteTimeDomainData(samples)
       let peak = 0
       for (const one of samples) peak = Math.max(peak, Math.abs(one - 128) / 128)
-      const heard = peak < HISS ? 0 : peak
+      // Settling, the voice is no longer listened to: the bars only ease down.
+      const heard = settle.current !== null || peak < HISS ? 0 : peak
       shown += (heard - shown) * (heard > shown ? RISE : FALL)
       levels.push(shown)
       const ratio = devicePixelRatio
@@ -219,7 +237,11 @@ function Recorder({ stream, onDone, inline }: { stream: MediaStream; onDone: (ke
     const record = recorder.current as (MediaRecorder & { keep: (yes: boolean) => void }) | null
     if (!record || record.state === 'inactive') return
     record.keep(keep)
-    record.stop()
+    if (!keep || still()) return void record.stop()
+    // Nothing more is kept from here; the pill shows the tick and its bars settle, then it closes.
+    if (record.state === 'recording') record.pause()
+    setKept(true)
+    settle.current = performance.now() + SETTLE
   }
   const cancel = (): void => (chime('away'), stop(false))
 
@@ -240,7 +262,7 @@ function Recorder({ stream, onDone, inline }: { stream: MediaStream; onDone: (ke
   const stopButton = (
     <button type="button" aria-label="Stop and keep" title="Stop and keep it  ⌘↵" onClick={() => stop(true)}
       className={cn('flex shrink-0 cursor-pointer items-center justify-center rounded-full text-white transition-transform duration-150 active:scale-[0.97]', inline ? 'size-9' : 'size-7')} style={{ background: 'var(--tt-color-text-red)' }}>
-      <Square className={cn('fill-current', inline ? 'size-3' : 'size-2.5')} />
+      {kept ? <Check data-kept className={inline ? 'size-4' : 'size-3.5'} strokeWidth={3} /> : <Square className={cn('fill-current', inline ? 'size-3' : 'size-2.5')} />}
     </button>
   )
   // Faded at both ends, as the level fades in from nothing.
@@ -262,7 +284,8 @@ function Recorder({ stream, onDone, inline }: { stream: MediaStream; onDone: (ke
     <div role="dialog" aria-label="Recording a voice note" data-voice-recorder
       // The app's one floating material (lib/float.ts), as the Look Up card and the page peek wear it.
       // One family with quick capture's round controls (mf-voice-pill, main.css): their paper, hairline and 32px height.
-      className="mf-voice-pill fixed bottom-28 left-1/2 z-[1000] flex h-[32px] w-[340px] max-w-[calc(100vw-24px)] -translate-x-1/2 items-center gap-2 rounded-full pr-0.5 pl-0.5 animate-in fade-in-0 slide-in-from-bottom-2 duration-200">
+      className="mf-voice-pill fixed bottom-28 left-1/2 z-[1000] flex w-[340px] max-w-[calc(100vw-24px)] -translate-x-1/2 items-center gap-2 pr-0.5 pl-0.5 animate-in fade-in-0 slide-in-from-bottom-2 duration-200"
+      style={middle === null ? undefined : { left: middle }}>
       {cancelButton}
       {level}
       {time}

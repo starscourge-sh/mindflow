@@ -68,6 +68,13 @@ try {
     const s = getComputedStyle(el)
     return { h: Math.round(el.getBoundingClientRect().height), fill: s.backgroundColor, page: getComputedStyle(document.body).backgroundColor, ring: s.boxShadow.includes('0px 0px 0px 1px') }
   })
+  // Centred on the note it writes into, not the window (the list beside the note pulled it left).
+  const centred = await h.evaluate((sel) => {
+    const pill = document.querySelector('[data-voice-recorder]').getBoundingClientRect()
+    const note = document.querySelector(sel).getBoundingClientRect()
+    return { pill: Math.round(pill.left + pill.width / 2), note: Math.round(note.left + note.width / 2), window: Math.round(innerWidth / 2) }
+  }, EDITOR)
+  check('the pill is centred on the note, not the window', Math.abs(centred.pill - centred.note) <= 2, JSON.stringify(centred))
   check('the recorder pill is 32 tall, in the page\'s paper with a hairline', pill.h === 32 && pill.ring, JSON.stringify(pill))
   await h.screenshot({ path: `${shots}/audio-record-live.png` })
   await h.keyboard.press('Escape'); await wait(800)
@@ -76,6 +83,9 @@ try {
 
   await slash(); await wait(1500)
   await h.click('[data-voice-recorder] button[aria-label="Stop and keep"]')
+  // Kept: for a moment the pill stays, its stop a tick, its bars settling; then it goes.
+  const settling = await h.evaluate(() => ({ pill: !!document.querySelector('[data-voice-recorder]'), tick: !!document.querySelector('[data-voice-recorder] [data-kept]') }))
+  check('kept, the pill stays a moment with a tick in place of the stop', settling.pill && settling.tick, JSON.stringify(settling))
   await h.waitForSelector(`${EDITOR} .tiptap-attachment.is-audio`, { timeout: 8000 }).catch(() => {})
   await wait(800)
   const kept = await audioBlocks()

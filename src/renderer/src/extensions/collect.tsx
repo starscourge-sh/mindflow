@@ -1,4 +1,5 @@
 import { Extension, type Editor } from "@tiptap/core"
+import { useCentreOn } from "@/lib/centre-on"
 import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state"
 import type { EditorView } from "@tiptap/pm/view"
 import { useEffect, useSyncExternalStore } from "react"
@@ -159,9 +160,11 @@ export function CollectPill({ editor }: { editor: Editor | null }): React.JSX.El
     window.addEventListener("keydown", onKey, true)
     return () => window.removeEventListener("keydown", onKey, true)
   }, [mine])
+  // Centred on its own note, not the window (lib/centre-on.ts).
+  const middle = useCentreOn(mine ? (editor?.view.dom as HTMLElement | undefined) : null)
   if (!mine || !now) return null
   return createPortal(
-    <div data-collecting="" role="status" className={`fixed bottom-24 left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-full py-1.5 pr-1.5 pl-4 text-[13px] ${FLOAT}`}>
+    <div data-collecting="" role="status" style={middle === null ? undefined : { left: middle }} className={`fixed bottom-24 left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-full py-1.5 pr-1.5 pl-4 text-[13px] ${FLOAT}`}>
       <span aria-hidden className="size-2 rounded-full bg-primary motion-safe:animate-pulse" />
       <span>
         Collecting what you copy{now.count ? <span className="text-muted-foreground"> · {now.count} so far</span> : null}

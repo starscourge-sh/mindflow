@@ -353,6 +353,20 @@ html[data-overhang] .mf-pill > * + * {
 html[data-overhang] .mf-pill > * + *::before {
   display: none;
 }
+/* The round surface's shadow and hairline, one recipe for every round control
+   and pill that belongs with them (quick capture's controls, the voice pills). */
+:root {
+  --mf-round-shadow:
+    0 0 0 1px color-mix(in oklab, var(--foreground) 10%, transparent),
+    0 1px 2px color-mix(in oklab, var(--mf-shadow-ink) 16%, transparent),
+    0 6px 16px -6px color-mix(in oklab, var(--mf-shadow-ink) 32%, transparent);
+}
+:root.dark {
+  --mf-round-shadow:
+    0 0 0 1px color-mix(in oklab, var(--foreground) 12%, transparent),
+    0 1px 2px color-mix(in oklab, var(--mf-shadow-ink) 40%, transparent),
+    0 6px 18px -6px color-mix(in oklab, var(--mf-shadow-ink) 62%, transparent);
+}
 html[data-overhang] :is(.mf-pill button, [data-aside] > *) {
   height: 32px;
   min-width: 32px;
@@ -360,10 +374,7 @@ html[data-overhang] :is(.mf-pill button, [data-aside] > *) {
   border-radius: 999px;
   background: var(--background);
   cursor: pointer;
-  box-shadow:
-    0 0 0 1px color-mix(in oklab, var(--foreground) 10%, transparent),
-    0 1px 2px color-mix(in oklab, var(--mf-shadow-ink) 16%, transparent),
-    0 6px 16px -6px color-mix(in oklab, var(--mf-shadow-ink) 32%, transparent);
+  box-shadow: var(--mf-round-shadow);
   transition: background-color 120ms var(--mf-ease), scale 120ms var(--mf-ease);
 }
 html[data-overhang] .mf-pill button {
@@ -374,12 +385,6 @@ html[data-overhang] :is(.mf-pill button, [data-aside] > *):hover {
 }
 html[data-overhang] :is(.mf-pill button, [data-aside] > *):active {
   scale: 0.97;
-}
-html.dark[data-overhang] :is(.mf-pill button, [data-aside] > *) {
-  box-shadow:
-    0 0 0 1px color-mix(in oklab, var(--foreground) 12%, transparent),
-    0 1px 2px color-mix(in oklab, var(--mf-shadow-ink) 40%, transparent),
-    0 6px 18px -6px color-mix(in oklab, var(--mf-shadow-ink) 62%, transparent);
 }
 /* Out of focus, the card dims under a veil of its own page colour, as the main
    window does, never by fading the whole page: faded, the card turned
@@ -2671,10 +2676,9 @@ textarea[data-talking]::selection {
    round controls' own surface, the page's paper, a hairline in the ink and a
    soft shadow, at their 32px height, so the two read as one family. */
 .mf-voice-pill {
+  height: 32px;
+  border-radius: 999px;
   background: var(--background);
   color: var(--foreground);
-  box-shadow:
-    0 0 0 1px color-mix(in oklab, var(--foreground) 10%, transparent),
-    0 1px 2px color-mix(in oklab, var(--mf-shadow-ink, #000) 16%, transparent),
-    0 6px 16px -6px color-mix(in oklab, var(--mf-shadow-ink, #000) 32%, transparent);
+  box-shadow: var(--mf-round-shadow);
 }
