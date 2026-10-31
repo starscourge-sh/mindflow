@@ -179,6 +179,8 @@ try {
   if (shots) await h.screenshot({ path: `${shots}/before-apart.png` })
   await h.locator('[data-blank-panel]:visible button[aria-label="Ask apart"]').click({ timeout: 5000 }); await wait(1200)
   check('asked apart: a card for each blank', (await v('items', 'nugget')).length === count + 1)
+  const left = await h.locator('[data-blank-panel]:visible').textContent().catch(() => '')
+  check('asked apart, this card shows only its own blank\'s note', /“fibrinogen”/.test(left) && !/“an organ”/.test(left), left.slice(0, 120))
   const apart = (await v('items', 'nugget')).find((one) => one.prompt === 'The plasma proteins are albumin, fibrinogen and globulins. The heart is _____.')
   const apartBody = apart && (await item(apart.id)).body
   check('the card asked apart keeps the answer as the gem has it, not plain text', apartBody?.type === 'doc', JSON.stringify(apartBody ?? null).slice(0, 60))

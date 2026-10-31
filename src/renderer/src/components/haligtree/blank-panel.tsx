@@ -55,7 +55,8 @@ export function BlankPanel({ id, prompt, text, body, notes, onPrompt }: { id: st
   }
   return (
     <div data-blank-panel className="flex flex-col gap-2 px-2 py-1.5">
-      {notes.map((note) => <p key={note} data-blank-note className="text-sm leading-relaxed text-[var(--tt-color-text-orange)]">{note}</p>)}
+      {/* Only the notes for blanks this card still has: one filled back in (asked apart) takes its note with it. */}
+      {notes.filter((note) => answers?.some((one) => note.startsWith(`“${one}”`))).map((note) => <p key={note} data-blank-note className="text-sm leading-relaxed text-[var(--tt-color-text-orange)]">{note}</p>)}
       {blanks.map((blank, n) => (
         <label key={n} className="flex flex-col gap-1 text-sm">
           <span className="text-muted-foreground">{blanks.length > 1 ? `Blank ${n + 1}: ` : 'Answer: '}<span className="text-foreground">{answers?.[n] ?? 'not found in the note'}</span></span>
