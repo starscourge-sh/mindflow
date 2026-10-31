@@ -112,9 +112,7 @@ try {
   await both('covers-decks', openDecks)
   // Your month's tag card.
   const openMonth = async () => {
-    await c.go('stats')
-    await waitFor(() => h.evaluate(() => !!document.querySelector('[data-your-month-open]')))
-    await h.evaluate(() => document.querySelector('[data-your-month-open]')?.click())
+    await c.send('recap', 'yourmonth')
     await waitFor(() => h.evaluate(() => !!document.querySelector('[data-your-month]')))
     for (let step = 0; step < 14 && await h.evaluate(() => !['tag', 'end'].includes(document.querySelector('[data-your-month]')?.getAttribute('data-card') ?? 'end')); step++) {
       await h.keyboard.press('ArrowRight')
