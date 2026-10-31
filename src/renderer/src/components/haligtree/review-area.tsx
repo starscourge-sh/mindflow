@@ -44,7 +44,7 @@ export function ReviewArea({ focus, onOpen }: { focus?: string; onOpen: (type: s
   if (tab === 'decks')
     return (
       <Page title="Review" actions={tabs}>
-        <div className="page-sheet mx-auto w-full"><DeckShelf /></div>
+        <div className="page-sheet mx-auto w-full"><DeckShelf onOpen={onOpen} /></div>
       </Page>
     )
   if (tab === 'stats')

@@ -44,6 +44,11 @@ type Steps = {
 const PICTURE = /\.(png|jpe?g|gif|webp|svg|avif|bmp)$/i
 
 /** Fields that say where something came from (links, copyright, credits): kept off the question, shown under the answer. */
+/** Fields naming who made the thing a card is about: the card's "who", so each one is a Sources page. */
+const WHO_FIELD = /^(artist|author|painter|sculptor|composer|creator|poet|writer|director|architect|photographer|scientist|thinker|philosopher|by)$/i
+/** Fields naming the kind of thing it is (a movement, a period, a genre): each value a #tag that links the deck to your own notes. */
+const KIND_FIELD = /movement|period|style|genre|school|era\b|dynasty|tradition/i
+
 const SOURCE_FIELD = /link|source|copyright|licen[cs]e|credit|attribution|\burl\b/i
 
 /** Anki 2.1.50 and later pack the collection and media with zstd; Electron's Node reads it. */
@@ -298,8 +303,8 @@ export async function importApkg(path: string, steps: Steps = {}): Promise<ApkgC
       const db = database()
       const seen = db.prepare('select 1 from nuggets where source = ?')
       const before = db.prepare('select id, body, prompt from nuggets where source = ?')
-      const add = db.prepare("insert into nuggets (id, kind, tier, deck, held, title, body, prompt, source, state, due_at, suspended, created_at, updated_at) values (?, 'note', 'deck', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-      const update = db.prepare('update nuggets set title = ?, body = ?, prompt = ?, updated_at = ? where id = ?')
+      const add = db.prepare("insert into nuggets (id, kind, tier, deck, held, title, body, prompt, source, state, due_at, suspended, created_at, updated_at, attribution) values (?, 'note', 'deck', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+      const update = db.prepare('update nuggets set title = ?, body = ?, prompt = ?, updated_at = ?, attribution = coalesce(?, attribution) where id = ?')
       const log = db.prepare('insert into review_log (item_id, grade, reviewed_at, ms, first) values (?, ?, ?, ?, ?)')
       const reviewsOf = source.prepare('select id, ease, time, type from revlog where cid = ? order by id')
       const usedDecks = new Set<number>()
@@ -353,7 +358,13 @@ export async function importApkg(path: string, steps: Steps = {}): Promise<ApkgC
           const sounds = [...front.matchAll(/(?<!!)\[[^\]]*\]\(haligtree:\/\/assets\/[^)]+\)/g)].map((match) => match[0])
           if (sounds.length) [front, back] = [front.replace(/(?<!!)\[[^\]]*\]\(haligtree:\/\/assets\/[^)]+\)/g, '').trim() || 'Listen', `${back}\n\n${sounds.join('\n')}`]
           const deck = decks.get(String(card.did)) ?? ''
-          const tags = [...new Set([deck && tagWord(deck), ...card.tags.trim().split(/\s+/).filter(Boolean).map(tagWord)].filter(Boolean))]
+          // Who made it (an artist, an author) is the card's "who": a Sources page gathers every card of theirs beside your own notes.
+          const whoField = model.fields.find((name) => WHO_FIELD.test(name.trim()) && wordsOf(values.get(name) ?? '', media))
+          const who = whoField ? cut(wordsOf(values.get(whoField) ?? '', media).replace(/\s+/g, ' '), 120) : null
+          // A movement or period ("Baroque", "Symbolism") is a #tag, so the deck meets your own notes on it; dates and lists are left as words.
+          const kinds = model.fields.filter((name) => KIND_FIELD.test(name)).map((name) => wordsOf(values.get(name) ?? '', media).trim())
+            .filter((value) => value && value.length <= 40 && !/\d|[,;/]/.test(value)).map(tagWord)
+          const tags = [...new Set([deck && tagWord(deck), ...card.tags.trim().split(/\s+/).filter(Boolean).map(tagWord), ...kinds].filter(Boolean))]
           usedDecks.add(card.did)
           // When it was made in Anki is a fact about the deck, not the day it came into this book.
           const made = `Made in Anki, ${new Date(Math.min(card.nid, Date.now())).getFullYear()}`
@@ -363,7 +374,7 @@ export async function importApkg(path: string, steps: Steps = {}): Promise<ApkgC
           if (earlier) {
             // The same again: nothing to do. A newer version: its words change, its place in the schedule stays.
             if (earlier.body === JSON.stringify(body) && earlier.prompt === front) counts.already += 1
-            else (update.run(title, JSON.stringify(body), front, now, earlier.id), (counts.updated += 1))
+            else (update.run(title, JSON.stringify(body), front, now, who, earlier.id), (counts.updated += 1))
             continue
           }
           // Its past reviews, replayed only when the person keeps them: the schedule it had, carried over.
@@ -378,7 +389,7 @@ export async function importApkg(path: string, steps: Steps = {}): Promise<ApkgC
           // A big deck's new cards wait, held, until their topic is started from Review's Decks shelf.
           const held = choice.hold && !state && card.queue !== -1 ? 1 : 0
           if (held) counts.held += 1
-          add.run(id, deck && deck !== 'Default' ? deck : used[0]?.split('::')[0] ?? 'Anki', held, title, JSON.stringify(body), front, key, state ? JSON.stringify(state) : null, state ? state.due.toISOString() : null, card.queue === -1 || held ? 1 : 0, now, now)
+          add.run(id, deck && deck !== 'Default' ? deck : used[0]?.split('::')[0] ?? 'Anki', held, title, JSON.stringify(body), front, key, state ? JSON.stringify(state) : null, state ? state.due.toISOString() : null, card.queue === -1 || held ? 1 : 0, now, now, who)
           // Suspended in Anki (queue -1): paused here, out of Review until brought back.
           if (card.queue === -1) counts.paused += 1
           counts.cards += 1

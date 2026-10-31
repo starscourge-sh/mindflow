@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { chime } from '@/lib/sound'
 import { call, unloaded, useLive } from '@/lib/haligtree'
 import { num } from '../../../../main/dates'
@@ -5,7 +6,7 @@ import { Empty, toast } from './ui'
 import { Button } from '@/components/ui/button'
 
 type Topic = { deck: string; label: string; cards: number; held: number }
-export type Shelf = { name: string; cover: string | null; cards: number; fresh: number; due: number; held: number; shown: boolean; topics: Topic[] }
+export type Shelf = { name: string; cover: string | null; sample: string; pictures: number; cards: number; fresh: number; due: number; held: number; shown: boolean; topics: Topic[] }
 
 const cards = (n: number): string => `${num(n)} ${n === 1 ? 'card' : 'cards'}`
 
@@ -25,7 +26,8 @@ export function startDeck(deck: string, label: string, on: boolean): void {
  * started when you study it. Their cards stay out of Gems, Media, Feed, hints
  * and Home unless "Show in Gems" is on, so your own never drown.
  */
-export function DeckShelf(): React.JSX.Element {
+export function DeckShelf({ onOpen }: { onOpen: (type: string, id: string) => void }): React.JSX.Element {
+  const [gallery, setGallery] = useState<string | null>(null)
   const shelves = useLive(() => call<Shelf[]>('decks:list'), null as Shelf[] | null, [], ['item'])
   if (unloaded(shelves)) return <div />
   if (!shelves?.length)
@@ -46,10 +48,14 @@ export function DeckShelf(): React.JSX.Element {
           {shelf.cover ? (
             <img src={shelf.cover} alt="" className="size-24 shrink-0 rounded-lg object-cover" />
           ) : (
-            <span aria-hidden className="grid size-24 shrink-0 place-items-center rounded-lg bg-accent font-serif text-3xl text-muted-foreground">{shelf.name.slice(0, 1)}</span>
+            // No pictures: its first question as the cover, the way a card would ask it.
+            <span aria-hidden data-deck-cover-card className="grid size-24 shrink-0 place-items-center overflow-hidden rounded-lg border border-foreground/10 bg-background p-2 text-center font-serif text-sm leading-snug text-foreground shadow-sm [overflow-wrap:anywhere]">
+              <span className="line-clamp-4">{shelf.sample || shelf.name}</span>
+            </span>
           )}
           <div className="grid min-w-0 flex-1 content-start gap-2">
-            <h3 className="font-serif text-lg leading-tight text-foreground">{shelf.name}</h3>
+            {/* One line, however long the deck's name: the whole of it shows on hover. */}
+            <h3 title={shelf.name} className="truncate font-serif text-lg leading-tight text-foreground">{shelf.name}</h3>
             {/* The counts that matter on their own line, in the body's size: new, due today, and held. */}
             <p data-deck-counts className="text-sm text-foreground tabular-nums">
               {cards(shelf.cards)}
@@ -72,16 +78,41 @@ export function DeckShelf(): React.JSX.Element {
               </ul>
             )}
             <div className="flex flex-wrap gap-2 pt-1">
-              <Button size="sm" className="cursor-pointer" data-deck-start onClick={() => startDeck(shelf.name, shelf.name, shelf.held > 0)}>
+              <Button size="sm" variant={shelf.held > 0 ? 'default' : 'ghost'} className="cursor-pointer" data-deck-start onClick={() => startDeck(shelf.name, shelf.name, shelf.held > 0)}>
                 {shelf.held > 0 ? (shelf.held === shelf.cards ? 'Start' : 'Start the rest') : 'Hold new cards'}
               </Button>
               <Button variant="ghost" size="sm" className="cursor-pointer" data-deck-gems aria-pressed={shelf.shown} onClick={() => show(shelf)}>
                 {shelf.shown ? 'Keep out of Gems' : 'Show in Gems'}
               </Button>
+              {shelf.pictures > 0 && (
+                <Button variant="ghost" size="sm" className="cursor-pointer" data-deck-gallery aria-expanded={gallery === shelf.name}
+                  onClick={() => (chime(gallery === shelf.name ? 'fold' : 'open'), setGallery(gallery === shelf.name ? null : shelf.name))}>
+                  {gallery === shelf.name ? 'Hide pictures' : 'Pictures'}
+                </Button>
+              )}
             </div>
+            {gallery === shelf.name && <Gallery deck={shelf.name} onOpen={onOpen} />}
           </div>
         </section>
       ))}
     </div>
+  )
+}
+
+/** A deck's pictures as a gallery, each once, with who made it under it; clicked, its card opens. */
+function Gallery({ deck, onOpen }: { deck: string; onOpen: (type: string, id: string) => void }): React.JSX.Element {
+  const pictures = useLive(() => call<{ id: string; src: string; who: string | null }[]>('decks:pictures', deck), null as { id: string; src: string; who: string | null }[] | null, [deck], ['item'])
+  if (unloaded(pictures)) return <div className="h-24" />
+  return (
+    <ul data-deck-pictures className="mt-2 grid grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))] gap-3">
+      {(pictures ?? []).map((one) => (
+        <li key={one.id}>
+          <button type="button" className="group grid w-full cursor-pointer gap-1 text-left" onClick={() => (chime('tap'), onOpen('nugget', one.id))}>
+            <img src={one.src} alt="" loading="lazy" className="aspect-square w-full rounded-md object-cover transition-opacity group-hover:opacity-90" />
+            {one.who && <span className="truncate text-meta text-muted-foreground">{one.who}</span>}
+          </button>
+        </li>
+      ))}
+    </ul>
   )
 }

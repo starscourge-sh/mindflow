@@ -2918,14 +2918,18 @@ export function registerHaligtree(): void {
     const rows = db.prepare(`select deck, tier, prompt, state, due_at as dueAt, suspended, held from nuggets where deck is not null and binned_at is null and archived_at is null order by created_at, rowid`).all() as
       { deck: string; tier: string; prompt: string | null; state: string | null; dueAt: string | null; suspended: number; held: number }[]
     type Topic = { deck: string; label: string; cards: number; held: number }
-    type Shelf = { name: string; cover: string | null; cards: number; fresh: number; due: number; held: number; shown: boolean; topics: Topic[] }
+    type Shelf = { name: string; cover: string | null; sample: string; pictures: number; cards: number; fresh: number; due: number; held: number; shown: boolean; topics: Topic[] }
     const shelves = new Map<string, Shelf>()
     const at = now()
     for (const row of rows) {
       const [top, ...rest] = row.deck.split('::').map((part) => part.trim())
-      const shelf = shelves.get(top) ?? { name: top, cover: null, cards: 0, fresh: 0, due: 0, held: 0, shown: false, topics: [] }
+      const shelf = shelves.get(top) ?? { name: top, cover: null, sample: '', pictures: 0, cards: 0, fresh: 0, due: 0, held: 0, shown: false, topics: [] }
       shelves.set(top, shelf)
-      shelf.cover ??= /!\[[^\]]*\]\(((?:haligtree|mindflow):\/\/assets\/[^)\s]+)\)/.exec(row.prompt ?? '')?.[1] ?? null
+      const picture = /!\[[^\]]*\]\(((?:haligtree|mindflow):\/\/assets\/[^)\s]+)\)/.exec(row.prompt ?? '')?.[1] ?? null
+      shelf.cover ??= picture
+      if (picture) shelf.pictures += 1
+      // A deck with no pictures shows its first question as its cover, as a card would ask it.
+      shelf.sample ||= (row.prompt ?? '').replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\s+/g, ' ').trim().slice(0, 80)
       shelf.cards += 1
       if (row.held) shelf.held += 1
       else if (!row.suspended && !row.state) shelf.fresh += 1
@@ -2939,6 +2943,12 @@ export function registerHaligtree(): void {
     }
     return [...shelves.values()]
   })
+  // A deck's pictures as a gallery: each card's picture, in the deck's own order, each opening its card.
+  handle('decks:pictures', (deck: string) =>
+    (db.prepare(`select id, prompt, attribution from nuggets where (deck = ? or deck like ? || '::%') and binned_at is null and prompt like '%://assets/%' order by created_at, rowid`).all(deck, deck) as { id: string; prompt: string; attribution: string | null }[])
+      .map((row) => ({ id: row.id, src: /!\[[^\]]*\]\(((?:haligtree|mindflow):\/\/assets\/[^)\s]+)\)/.exec(row.prompt)?.[1] ?? '', who: row.attribution }))
+      // One tile per picture: a painting asked twice (Artist?, Title?) shows once.
+      .filter((one, at, all) => one.src && all.findIndex((other) => other.src === one.src) === at))
   // Start a held deck, or one topic of it (a deck name, or a top name for all of it): its cards join Review as new.
   handle('decks:start', (deck: string, on: boolean) => {
     const where = "(deck = ? or deck like ? || '::%')"

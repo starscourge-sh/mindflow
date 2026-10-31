@@ -43,5 +43,32 @@ try {
   await h.evaluate(() => document.querySelector('[data-review-tab="decks"]')?.click()); await wait(1500)
   console.log('shelf:', (await h.evaluate(() => document.querySelector('[data-deck-shelf]')?.innerText ?? '')).replace(/\n+/g, ' | '))
   await h.screenshot({ path: join(shots, 'decks.png') })
+  // Light and dark, beside Review's other pages and Gems.
+  const theme = (dark) => c.theme(dark ? 'dark' : 'light')
+  await theme(true); await go('review'); await wait(1200)
+  await h.evaluate(() => document.querySelector('[data-review-tab="decks"]')?.click()); await wait(1200)
+  await h.screenshot({ path: join(shots, 'decks-dark.png') })
+  for (const tab of ['today', 'cards']) { await h.evaluate((tab) => document.querySelector(`[data-review-tab="${tab}"]`)?.click(), tab); await wait(1200); await h.screenshot({ path: join(shots, `review-${tab}-dark.png`) }) }
+  await go('nuggets'); await wait(1500); await h.screenshot({ path: join(shots, 'gems-dark.png') })
+  await theme(false)
+  await go('nuggets'); await wait(1500); await h.screenshot({ path: join(shots, 'gems.png') })
+  // The art deck's gallery, and a card opened from it.
+  await go('review'); await wait(1200)
+  await h.evaluate(() => document.querySelector('[data-review-tab="decks"]')?.click()); await wait(1200)
+  await h.evaluate(() => document.querySelector('[data-deck-gallery]')?.click()); await wait(2500)
+  console.log('gallery tiles:', await h.evaluate(() => document.querySelectorAll('[data-deck-pictures] img').length), '| first names:', await h.evaluate(() => [...document.querySelectorAll('[data-deck-pictures] li')].slice(0, 4).map((one) => one.innerText).join(' / ')))
+  await h.screenshot({ path: join(shots, 'gallery.png') })
+  await h.evaluate(() => document.querySelector('[data-deck-pictures] button')?.click()); await wait(2000)
+  console.log('opened from gallery:', (await h.evaluate(() => document.querySelector('main, [data-page]')?.innerText ?? document.body.innerText)).slice(0, 300).replace(/\n+/g, ' | '))
+  await h.screenshot({ path: join(shots, 'gallery-open.png') })
+  // A deck picture opened from Media.
+  await go('media'); await wait(1500)
+  await h.evaluate(() => document.querySelector('[data-media-decks] button, [data-media-decks] [role]')?.click()); await wait(1500)
+  await h.evaluate(() => document.querySelector('[data-media-grid] img')?.closest('button, a, [role=button], [data-media-tile]')?.click() ?? document.querySelector('[data-media-grid] img')?.click()); await wait(2000)
+  console.log('opened from Media:', (await h.evaluate(() => document.body.innerText)).slice(0, 300).replace(/\n+/g, ' | '))
+  await h.screenshot({ path: join(shots, 'media-open.png') })
+  // An artist from the deck is a Sources page; a movement is a tag.
+  const pages = await h.evaluate(() => window.api.haligtree('sources').then((all) => all.filter((one) => /Ernst|Rubens|Monet|Picasso|Rembrandt/.test(one.name)).map((one) => `${one.name} (${one.count})`)).catch((e) => String(e)))
+  console.log('sources:', JSON.stringify(pages)?.slice(0, 300))
   console.log('errors:', c.errors.slice(0, 5))
 } catch (e) { console.log('RUN FAILED', e.message.split('\n')[0]) } finally { await c.close?.() }
