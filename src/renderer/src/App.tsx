@@ -253,6 +253,13 @@ const WindowDots = (): React.JSX.Element => (
 const BOX_WIDTH = 640
 const PANEL_WIDTH = 440
 
+/**
+ * The header's one shape: the window's pill (new, actions, panel) and the
+ * chips beside it ("2 pinned", Safe) share its height, hairline and fill, so
+ * the top right reads as one group rather than two kinds of thing.
+ */
+const HEADER_SHAPE = 'h-[28px] rounded-full border border-foreground/15 bg-[color-mix(in_oklab,var(--background)_max(60%,var(--mf-window-tint,20%)),transparent)]'
+
 const Header = ({ panel, drawn, onPanel, onNew, menu, nav, title, aside }: {
   panel: boolean
   /** The panel is on screen, or still gliding away. */
@@ -363,7 +370,7 @@ const Header = ({ panel, drawn, onPanel, onNew, menu, nav, title, aside }: {
         {aside && <span data-aside className="transition-transform delay-150 duration-150 ease-(--mf-ease) motion-reduce:transition-none [.mf-top:has([data-state=open])_&]:-translate-x-[calc(4.625rem+0.375rem)] [.mf-top:has([data-state=open])_&]:delay-0 [.pointer-in_&]:-translate-x-[calc(4.625rem+0.375rem)] [.pointer-in_&]:delay-0">{aside}</span>}
         <span
           data-zen-target
-          className="mf-pill absolute right-0 flex items-center overflow-hidden mf-segs rounded-full border border-foreground/15 bg-[color-mix(in_oklab,var(--background)_max(60%,var(--mf-window-tint,20%)),transparent)] opacity-0 transition-opacity duration-150 [.pointer-in_&]:opacity-100 [.pointer-in_.mf-top:has([data-aside])_&]:delay-150 has-[[data-state=open]]:opacity-100"
+          className={`mf-pill absolute right-0 flex items-center overflow-hidden mf-segs ${HEADER_SHAPE} opacity-0 transition-opacity duration-150 [.pointer-in_&]:opacity-100 [.pointer-in_.mf-top:has([data-aside])_&]:delay-150 has-[[data-state=open]]:opacity-100`}
           style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
         >
           <Tip label="New capture  ⌘N">
@@ -1944,7 +1951,7 @@ export default function App(): React.JSX.Element {
         startOver()
       }} title={appSettings?.topTitle === false ? null : topTitle}
       // Safe mode says so beside the pill, or the quiet looks like nothing happening.
-      aside={appSettings?.safeMode ? <Tip label="Safe mode: no hints or pinned notes come up  ⌥⌘S"><span className="flex h-5 items-center rounded-full bg-accent px-2 text-key leading-none text-[color-mix(in_srgb,var(--tt-brand-color-400)_55%,var(--foreground))]">Safe</span></Tip>
+      aside={appSettings?.safeMode ? <Tip label="Safe mode: no hints or pinned notes come up  ⌥⌘S"><span className={`flex items-center ${HEADER_SHAPE} px-2.5 text-key leading-none text-[color-mix(in_srgb,var(--tt-brand-color-400)_55%,var(--foreground))]`}>Safe</span></Tip>
         // Pinned notes live in the side panel's Inbox; with the panel shut, a
         // chip up here says they are there, and opens it on them. Kept with
         // the panel open too, so it never pops out as the panel slides in.
@@ -1956,7 +1963,7 @@ export default function App(): React.JSX.Element {
                 setTab('inbox')
                 setPanel(true)
               }}
-              className="group/waiting flex h-6 items-center gap-1 rounded-full bg-accent pr-1 pl-2 text-key leading-none text-muted-foreground transition-colors hover:text-foreground">
+              className={`group/waiting flex items-center gap-1 ${HEADER_SHAPE} pr-1.5 pl-2.5 text-key leading-none text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground`}>
               <span><Rolling text={Math.min(BOX_PINS, pinned.length)} /> pinned</span>
               {/* Says it opens something: a chevron that leans on hover. */}
               <ChevronRight aria-hidden className="size-3 transition-transform group-hover/waiting:translate-x-0.5" />
