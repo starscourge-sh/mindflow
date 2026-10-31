@@ -228,6 +228,8 @@ try {
   check("the outline lists the PDF's own contents", JSON.stringify(entries) === JSON.stringify(['Chapter 11', 'Chapter 22', 'Chapter 33']), JSON.stringify(entries))
   await h.click('.pdf-outline-row:nth-child(2)'); await wait(800)
   check('an entry goes to its page', await h.evaluate(() => document.querySelector('.pdf-reader-page-field').value) === '2', '')
+  const lit = await h.evaluate(() => ({ here: document.querySelector('.pdf-outline-row.is-here .pdf-outline-title')?.textContent, chapter: document.querySelector('[data-pdf-chapter]')?.textContent }))
+  check('the chapter you are in is lit in the outline and named under the title', lit.here === 'Chapter 2' && lit.chapter === 'Chapter 2', JSON.stringify(lit))
   await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-outline.png` })
   await h.click('.pdf-reader button[aria-label="Sidebar"]'); await wait(300)
   // ⌘F: every match counted, Return steps to the next page's, each one marked on its page.

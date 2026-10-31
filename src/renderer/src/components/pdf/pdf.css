@@ -148,6 +148,16 @@
   white-space: nowrap;
 }
 
+/* The chapter you are in, under the title, from the PDF's outline. */
+.pdf-reader-chapter {
+  display: block;
+  overflow: hidden;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  text-overflow: ellipsis;
+}
+
 .pdf-reader-page {
   display: flex;
   align-items: center;

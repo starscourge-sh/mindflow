@@ -420,10 +420,18 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     }
   }
 
+  // The chapter you are in: the outline's latest entry that starts on or
+  // before this page, so every page of a chapter lights it, not only its first.
+  const hereAt = outline.reduce((at, row, index) => (row.page <= page && (at < 0 || row.page >= outline[at].page) ? index : at), -1)
+  const chapter = hereAt >= 0 ? outline[hereAt].title : ""
+
   return (
     <div className={`pdf-reader${paper ? " is-paper" : ""}`}>
       <div className="pdf-reader-bar">
-        <span className="pdf-reader-title" title={title}>{title}</span>
+        <span className="pdf-reader-title" title={chapter ? `${title}: ${chapter}` : title}>
+          {title}
+          {chapter && <span data-pdf-chapter className="pdf-reader-chapter">{chapter}</span>}
+        </span>
         <span className="pdf-reader-page">
           <input
             aria-label="Page"
@@ -518,7 +526,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           {rail === "outline" && outline.length > 0 && (
             <nav className="pdf-outline" aria-label="Outline">
               {outline.map((row, index) => (
-                <button key={index} type="button" className={`pdf-outline-row${row.page === page ? " is-here" : ""}`} style={{ paddingInlineStart: `${0.5 + row.depth * 0.75}rem` }} onClick={() => go(row.page)}>
+                <button key={index} type="button" className={`pdf-outline-row${index === hereAt ? " is-here" : ""}`} style={{ paddingInlineStart: `${0.5 + row.depth * 0.75}rem` }} onClick={() => go(row.page)}>
                   <span className="pdf-outline-title">{row.title}</span>
                   <span className="pdf-outline-page">{row.page}</span>
                 </button>
