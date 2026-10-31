@@ -1493,7 +1493,7 @@ export function Home(): React.JSX.Element {
         ) : view.id === 'nuggets' || view.id === 'articles' || view.id === 'questions' ? (
           // Questions are pages in Pages: sent to one, Writing opens with its "Questions" chip on.
           <ItemsView tier={view.id === 'nuggets' ? 'nugget' : 'article'} only={view.id === 'questions' ? 'questions' : undefined} focus={view.focus}
-            ask={view.id === 'questions' && view.folder === 'answered' ? 'answered' : 'open'} onAsk={view.id === 'questions' ? (one: Asked) => setView({ id: 'questions', folder: one }, key) : undefined}
+            ask={view.id === 'questions' && (view.folder === 'answered' || view.folder === 'words') ? view.folder : 'open'} onAsk={view.id === 'questions' ? (one: Asked) => setView({ id: 'questions', folder: one }, key) : undefined}
             folder={view.id !== 'questions' ? view.folder : undefined} onFolder={(id) => setView({ id: view.id, folder: id ?? undefined })} onOpen={go} />
         ) : view.id === 'goals' ? (
           <GoalsView focus={view.focus} onOpen={go} />

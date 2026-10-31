@@ -258,8 +258,10 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   const [wasOnly, setWasOnly] = useState(only)
   if (wasOnly !== only) (setWasOnly(only), setAsks(only ?? 'all'))
   const questionsOnly = writing && asks === 'questions'
-  const all = useMemo(() => (unloaded(own) || unloaded(held) ? unread([] as Item[]) : !writing ? own : questionsOnly ? (onAsk ? held.filter((one) => (ask === 'answered' ? !!one.closedAt : !one.closedAt)) : held) : [...own, ...held.filter((one) => !one.closedAt)]),
-    [own, held, writing, questionsOnly, ask, onAsk])
+  // Questions' Words: the word gems you are learning, read only while that filter is on.
+  const learning = useLive(() => (writing && only === 'questions' && ask === 'words' ? haligtree.items('nugget') : Promise.resolve([] as Item[])), [] as Item[], [writing, only, ask], ['item'], 'questions-words')
+  const all = useMemo(() => (unloaded(own) || unloaded(held) ? unread([] as Item[]) : !writing ? own : questionsOnly && onAsk && ask === 'words' ? (unloaded(learning) ? unread([] as Item[]) : learning.filter((one) => one.kind === 'word')) : questionsOnly ? (onAsk ? held.filter((one) => (ask === 'answered' ? !!one.closedAt : !one.closedAt)) : held) : [...own, ...held.filter((one) => !one.closedAt)]),
+    [own, held, writing, questionsOnly, ask, onAsk, learning])
   // A folder opened from the sidebar: the list as ever, with only what the folder holds (its subfolders' too).
   // Only what is shown narrows: the layout is still read from every note, so a move inside keeps the rest in place.
   const shelf = useGroups(tier)
@@ -621,7 +623,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
         count={chosen.length || groups.reduce((sum, [, list]) => sum + list.length, 0)}
         search={spread && !chosen.length && <ListSearch value={query} onChange={(words) => (setQuery(words), setCursor(-1))} onDone={() => setCursor(0)} placeholder={`Search in ${tier === 'nugget' ? 'Gems' : 'Writing'}`} />}
         // What is picked always shows: the buttons may fold into ⋯ in a narrow window, the count never does.
-        unit={chosen.length ? ['selected', 'selected'] : tier === 'nugget' ? ['gem', 'gems'] : questionsOnly ? ['question', 'questions'] : ['page', 'pages']}
+        unit={chosen.length ? ['selected', 'selected'] : tier === 'nugget' ? ['gem', 'gems'] : questionsOnly ? (onAsk && ask === 'words' ? ['word', 'words'] : ['question', 'questions']) : ['page', 'pages']}
         actions={
           chosen.length ? (
             <span className="flex items-center gap-2 text-muted-foreground">

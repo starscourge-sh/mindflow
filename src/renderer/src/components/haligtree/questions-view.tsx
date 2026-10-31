@@ -56,8 +56,9 @@ export { heldFor }
 const cluesSaid = (n: number): string => (n ? `${num(n)} ${n === 1 ? 'clue' : 'clues'}` : 'no clues yet')
 
 /** Questions, at two speeds: asked and answered at once (Looked up), open and gathering clues, or answered. */
-export type Asked = 'looked' | 'open' | 'answered'
-export const ASKED: { id: Asked; label: string }[] = [{ id: 'looked', label: 'Looked up' }, { id: 'open', label: 'Open' }, { id: 'answered', label: 'Answered' }]
+export type Asked = 'looked' | 'open' | 'answered' | 'words'
+/** Words: the vocabulary you are learning, a word kept as a gem (it comes back in Review). */
+export const ASKED: { id: Asked; label: string }[] = [{ id: 'looked', label: 'Looked up' }, { id: 'open', label: 'Open' }, { id: 'answered', label: 'Answered' }, { id: 'words', label: 'Words' }]
 
 /** The three filters of Questions, at the line's left, in the same place on each. */
 export function QuestionTabs({ on, pick }: { on: Asked; pick: (one: Asked) => void }): React.JSX.Element {
