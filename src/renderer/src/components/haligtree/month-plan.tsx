@@ -10,6 +10,7 @@ import { AliveIcon } from '@/components/ui/alive-icon'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import { Timer as CalendarClock, Bookmark as Telescope } from '@/components/ui/icons'
 import { Tip } from '@/components/haligtree/ui'
+import { slotTicker } from '@/lib/proximity'
 import { Overlay, SETTLE } from './sortable'
 import { MarkChip } from './milestones'
 import { chime, quietFor } from '@/lib/sound'
@@ -152,6 +153,9 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
   const room = Math.max(1, Math.floor((row - 1 - HEAD) / LINE))
   const [carried, setCarried] = useState<Line | { kind: 'mark'; one: Milestone } | null>(null)
   const holding = useRef<{ line?: Line; mark?: Milestone } | null>(null)
+  // A tick and a trackpad tap for each new day a carried task comes over; the day it was lifted from is no arrival.
+  const ticks = useRef(slotTicker()).current
+  const fromDay = useRef(true)
 
   // A sideways swipe, or ⇧ and the wheel, is one month however long it runs
   // on: a swipe's glide keeps sending, so the next month waits for a short
@@ -216,7 +220,8 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
         <MonthShowMenu />
       </div>}
       <DndContext sensors={sensors} collisionDetection={pointerWithin} autoScroll={false} measuring={{ droppable: { strategy: MeasuringStrategy.Always, frequency: 120 } }}
-        onDragStart={({ active }) => { chime('lift'); holding.current = active.data.current as { line?: Line; mark?: Milestone }; setCarried(holding.current.mark ? { kind: 'mark', one: holding.current.mark } : holding.current.line!) }}
+        onDragStart={({ active }) => { chime('lift'); fromDay.current = true; holding.current = active.data.current as { line?: Line; mark?: Milestone }; setCarried(holding.current.mark ? { kind: 'mark', one: holding.current.mark } : holding.current.line!) }}
+        onDragOver={({ over }) => (fromDay.current ? ticks.start(over?.id) : ticks(over?.id), (fromDay.current = false))}
         onDragCancel={() => setCarried(null)}
         onDragEnd={({ over }) => {
           setCarried(null)

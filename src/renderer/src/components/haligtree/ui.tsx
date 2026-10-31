@@ -10,6 +10,7 @@ import { AliveIcon } from '@/components/ui/alive-icon'
 import XIcon from '@/components/ui/x-icon'
 import { AnimatePresence, motion } from 'motion/react'
 import { byKeys, EASE, glideWay, hush, shift, speak, speakAfter, spring as springs, still, useFirstVisit } from '@/lib/motion'
+import { stepTap } from '@/lib/haptics'
 import { detent, slotTicker } from '@/lib/proximity'
 import { Arrow } from './marks'
 import Lenis from 'lenis'
@@ -2290,7 +2291,14 @@ export function SoundToggle({ className = '' }: { className?: string }): React.J
           <span data-volume-level className="text-sm text-muted-foreground tabular-nums">{!on ? 'Off' : level <= 0 ? 'Silent' : `${Math.round(level * 100)}%`}</span>
         </div>
         <Slider aria-label="Volume" min={0} max={1} step={0.05} value={[level]}
-          onValueChange={([raw]) => (clearTimeout(closeTimer.current), set(byKeys() ? Math.round(raw / 0.05) * 0.05 : raw))} />
+          onValueChange={([raw]) => {
+            clearTimeout(closeTimer.current)
+            const next = byKeys() ? Math.round(raw / 0.05) * 0.05 : raw
+            // A light trackpad tap at each 5%; silent and full, firmly.
+            const notch = Math.round(next / 0.05)
+            if (notch !== Math.round(level / 0.05)) stepTap(notch, 0, 20)
+            set(next)
+          }} />
       </PopoverContent>
     </Popover>
   )

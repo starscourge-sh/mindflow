@@ -16,6 +16,7 @@ import { Command, CommandInput, CommandItem, CommandList, CommandShortcut } from
 import { Slider } from '@/components/ui/slider'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
+import { stepTap } from '@/lib/haptics'
 import { chime, step, type Cue } from '@/lib/sound'
 import { tintFor } from '@/lib/pictures'
 import { notes, smallPicture, useThumb, type GraphNode, type MapEdge, type NoteTable, type Version } from '@/lib/notes'
@@ -504,6 +505,8 @@ export function Versions({ table, id, onShow, onRestored, trigger }: {
           const index = list.length - 1 - value
           if (index === at) return
           chime('page')
+          // A light trackpad tap a version; the oldest and the newest, firmly.
+          stepTap(value, 0, list.length - 1)
           show(list, index)
         }} />
       {/* Said in words, so typing into a page that will not change is never a puzzle. */}

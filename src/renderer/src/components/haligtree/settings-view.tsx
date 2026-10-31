@@ -51,6 +51,7 @@ import { sourceOf } from '../../../../main/moment-source'
 import { byKeys, spring, still, useFirstVisit } from '@/lib/motion'
 import { Highlight, useChosen, useFluidHover, Weighted } from './glide'
 import { detent, falloff } from '@/lib/proximity'
+import { stepTap } from '@/lib/haptics'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import DownloadIcon from '@/components/ui/download-icon'
 import UploadIcon from '@/components/ui/upload-icon'
@@ -292,6 +293,8 @@ function SettingSlider({ value, onSave, onLive, rest, sample, ...props }: { valu
             : pulls ? snap(detent(raw, rest!, step * 0.75)) : snap(raw)
           if (next === shown) return
           if (!keyed && at(next)) click('tick')
+          // A light trackpad tap a step; the ends and the value it comes set to, firmly.
+          stepTap(next, min, max, rest === undefined ? undefined : new Set([snap(rest)]))
           setHeld(next)
           onLive?.(next)
           clearTimeout(timer.current)
