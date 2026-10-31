@@ -2125,7 +2125,8 @@ function LinkPreview({ editor }: { editor: Editor | null }): React.JSX.Element |
     const show = (event: Event): void => {
       const anchor = (event.target as HTMLElement | null)?.closest?.("a[href]")
       // Never over a menu: one open is what is being read (lib/menu-showing.ts).
-      if (!(anchor instanceof HTMLAnchorElement) || menuShowing()) return hide()
+      // Nor under a pressed button: that is a click or the start of a drag.
+      if (!(anchor instanceof HTMLAnchorElement) || menuShowing() || (event as PointerEvent).buttons) return hide()
 
       const box = anchor.getBoundingClientRect()
       setLink({

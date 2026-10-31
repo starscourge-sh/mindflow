@@ -47,6 +47,8 @@ export function TitleTips(): React.JSX.Element | null {
     const hide = (): void => (window.clearTimeout(timer), stopScroll(), (on = null), setTip(null))
     const over = (event: PointerEvent): void => {
       const target = (event.target as Element | null)?.closest?.('[title], [data-title-tip]')
+      // A button held down is a press or the start of a drag: no tip comes up under it.
+      if (event.buttons) return hide()
       if (!target || target === on) return
       const said = target.getAttribute('title')
       if (said !== null) unseen(target, () => (target.setAttribute('data-title-tip', said), target.removeAttribute('title')))
@@ -76,6 +78,9 @@ export function TitleTips(): React.JSX.Element | null {
     addEventListener('pointerout', out, true)
     addEventListener('pointerdown', hide, true)
     addEventListener('keydown', hide, true)
+    // Any drag, from here or from another app: no tip while carrying.
+    addEventListener('dragstart', hide, true)
+    addEventListener('dragenter', hide, true)
     addEventListener('blur', hide)
     return () => {
       hide()
@@ -83,6 +88,8 @@ export function TitleTips(): React.JSX.Element | null {
       removeEventListener('pointerout', out, true)
       removeEventListener('pointerdown', hide, true)
       removeEventListener('keydown', hide, true)
+      removeEventListener('dragstart', hide, true)
+      removeEventListener('dragenter', hide, true)
       removeEventListener('blur', hide)
     }
   }, [])

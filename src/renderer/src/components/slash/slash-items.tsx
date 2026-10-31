@@ -280,7 +280,7 @@ export const slashItems: SlashItem[] = [
     keywords: ['talk', 'type', 'speak', 'speech', 'voice', 'dictation', 'microphone', 'mic'],
     hint: 'type by talking',
     icon: <MicIcon />,
-    run: () => talkInto()
+    run: (editor) => void talkInto('tap', editor)
   },
   {
     title: 'PDF',

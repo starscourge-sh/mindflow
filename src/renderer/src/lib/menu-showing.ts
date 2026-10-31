@@ -15,11 +15,16 @@ export function hideForMenus(hide: () => void, { keys = true }: { keys?: boolean
   const watch = new MutationObserver(() => void (menuShowing() && hide()))
   watch.observe(document.body, { childList: true })
   addEventListener('contextmenu', asked, true)
+  // Nor while anything is dragged, from this page or from another app: no card rides along.
+  addEventListener('dragstart', asked, true)
+  addEventListener('dragenter', asked, true)
   // A key is typing, not hovering: "/" opening the slash menu under a link's card puts the card away first.
   if (keys) addEventListener('keydown', asked, true)
   return () => {
     watch.disconnect()
     removeEventListener('contextmenu', asked, true)
+    removeEventListener('dragstart', asked, true)
+    removeEventListener('dragenter', asked, true)
     removeEventListener('keydown', asked, true)
   }
 }

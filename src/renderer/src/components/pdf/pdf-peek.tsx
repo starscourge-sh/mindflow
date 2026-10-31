@@ -158,6 +158,8 @@ export function PdfPeek(): React.JSX.Element | null {
     const over = (event: PointerEvent): void => {
       // Never over a menu: one open is what is being read (lib/menu-showing.ts).
       if (menuShowing()) return
+      // A button held down is a press or the start of a drag: no card comes up under it.
+      if (event.buttons) return away()
       const found = pdfAt(event.target as Element | null)
       if (found && found.target !== on.current && !card.current?.contains(found.target)) show(found.target, found)
     }

@@ -4870,7 +4870,7 @@ app.whenReady().then(() => {
   // store names files by their hash, so a copy under the name it was dropped
   // with (or "Picture") goes instead, in a folder of Haligtree's own.
   const IMAGE_EXT = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'bmp', 'heic', 'svg'])
-  ipcMain.on('drag-out', (event, src: unknown, name: unknown) => {
+  ipcMain.on('drag-out', (event, src: unknown, name: unknown, card: unknown) => {
     const stored = typeof src === 'string' ? src.replace('haligtree://assets/', '') : ''
     if (!/^[a-f0-9]{64}\.[a-z0-9]+$/.test(stored)) return
     const from = join(assetsDir(), stored)
@@ -4886,9 +4886,14 @@ app.whenReady().then(() => {
     } catch {
       return
     }
-    // What follows the pointer: the picture itself, small, or Haligtree's icon for any other file.
-    let face = IMAGE_EXT.has(extension) ? nativeImage.createFromPath(to) : nativeImage.createEmpty()
-    if (!face.isEmpty()) face = face.resize({ width: Math.min(96, face.getSize().width) })
+    // What follows the pointer: the picture itself, small, or for any other
+    // file the small card the note drew of it (drag-out.ts); Haligtree's icon
+    // only if neither could be made.
+    const PNG = 'data:image/png;base64,'
+    // Drawn at twice its size, for sharp edges on a Retina screen.
+    const drawn = typeof card === 'string' && card.startsWith(PNG) ? nativeImage.createFromBuffer(Buffer.from(card.slice(PNG.length), 'base64'), { scaleFactor: 2 }) : nativeImage.createEmpty()
+    let face = IMAGE_EXT.has(extension) ? nativeImage.createFromPath(to) : drawn
+    if (!face.isEmpty() && face !== drawn) face = face.resize({ width: Math.min(96, face.getSize().width) })
     if (face.isEmpty()) face = nativeImage.createFromPath(icon).resize({ width: 64 })
     if (face.isEmpty()) face = nativeImage.createFromBitmap(Buffer.alloc(32 * 32 * 4, 128), { width: 32, height: 32 })
     event.sender.startDrag({ file: to, icon: face })

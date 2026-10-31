@@ -121,23 +121,28 @@ function end(how: 'kept' | 'cancelled'): void {
   tell()
 }
 
-/** Start listening into the field the caret is in. `tap`: until the talk key is pressed again, Enter, or a click. */
-export async function talkInto(how: 'hold' | 'tap' = 'tap'): Promise<void> {
+/**
+ * Start listening into the field the caret is in, or into `editor` at its caret
+ * (the slash menu's “Dictate”, which may have taken the focus when clicked).
+ * `tap`: until the talk key is pressed again, Enter, or a click.
+ */
+export async function talkInto(how: 'hold' | 'tap' = 'tap', editor?: Editor): Promise<void> {
   // One at a time, counted from the first wait: a second press while the
   // microphone is still being asked for would hang a second listener on the words.
   if (session || starting) return
   starting = true
   try {
-    await beginTalk(how)
+    await beginTalk(how, editor)
   } finally {
     starting = false
   }
 }
 let starting = false
 
-async function beginTalk(how: 'hold' | 'tap'): Promise<void> {
-  const field = fieldHere()
+async function beginTalk(how: 'hold' | 'tap', editor?: Editor): Promise<void> {
+  const field: Field | null = editor?.isEditable ? { kind: 'editor', editor, at: editor.state.selection.to } : fieldHere()
   if (!field) return
+  if (field.kind === 'editor') field.editor.view.focus()
   if (!(await window.api.haligtree<boolean>('mic:ask'))) {
     refuse('Haligtree may not use the microphone. Allow it in System Settings, under Privacy & Security, then Microphone')
     return
@@ -204,6 +209,30 @@ export function Talk(): React.JSX.Element | null {
   const settings = useLive(haligtree.settings, null as Settings | null)
   useSyncExternalStore(subscribe, () => session?.heard ?? (session ? '' : null))
   const [, redraw] = useState(0)
+  // Ways out of listening, however it began (the talk key or the slash menu's
+  // “Dictate”, which works with the talk keys off): Esc drops the words, Enter
+  // or a click keeps them.
+  useEffect(() => {
+    const down = (event: KeyboardEvent): void => {
+      if (!session) return
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        event.stopImmediatePropagation()
+        talkCancel()
+      } else if (session.how === 'tap' && event.key === 'Enter') {
+        event.preventDefault()
+        event.stopImmediatePropagation()
+        talkStop()
+      }
+    }
+    const click = (): void => void (session?.how === 'tap' && talkStop())
+    window.addEventListener('keydown', down, true)
+    window.addEventListener('mousedown', click, true)
+    return () => {
+      window.removeEventListener('keydown', down, true)
+      window.removeEventListener('mousedown', click, true)
+    }
+  }, [])
   useEffect(() => {
     if (!settings || settings.talkToType === false) return
     const key = settings.talkKey ?? 'alt-space'
@@ -213,11 +242,6 @@ export function Talk(): React.JSX.Element | null {
     const isTalkKey = (event: KeyboardEvent): boolean =>
       key === 'right-alt' ? event.code === 'AltRight' : event.code === 'Space' && event.altKey && !event.metaKey && !event.ctrlKey && !event.shiftKey
     const down = (event: KeyboardEvent): void => {
-      if (session && event.key === 'Escape') {
-        event.preventDefault()
-        event.stopImmediatePropagation()
-        return talkCancel()
-      }
       if (isTalkKey(event)) {
         if (!fieldHere() && !session) return
         if (key !== 'right-alt') event.preventDefault()
@@ -232,27 +256,20 @@ export function Talk(): React.JSX.Element | null {
         chord = true
         if (session?.how === 'hold' && !session.heard) talkCancel()
       }
-      if (session?.how === 'tap' && event.key === 'Enter') {
-        event.preventDefault()
-        talkStop()
-      }
     }
     const up = (event: KeyboardEvent): void => {
       if (key === 'right-alt' && event.code === 'AltRight' && taps && !chord && !session) return void talkInto('tap')
       const released = key === 'right-alt' ? event.code === 'AltRight' : event.code === 'Space' || event.key === 'Alt'
       if (released && session?.how === 'hold') talkStop()
     }
-    const click = (): void => void (session?.how === 'tap' && talkStop())
     window.addEventListener('keydown', down, true)
     window.addEventListener('keyup', up, true)
-    window.addEventListener('mousedown', click, true)
     // The window put away mid-word: whatever was heard is kept.
     const away = (): void => void (session?.how === 'hold' && talkStop())
     window.addEventListener('blur', away)
     return () => {
       window.removeEventListener('keydown', down, true)
       window.removeEventListener('keyup', up, true)
-      window.removeEventListener('mousedown', click, true)
       window.removeEventListener('blur', away)
     }
   }, [settings])

@@ -130,7 +130,7 @@ const api = {
   tapHard: (): void => ipcRenderer.send('haptic:tap', 'level'),
 
   /** Drag a stored picture or file out to another app: called from dragstart, the system drag starts from here. */
-  dragOut: (src: string, name: string): void => ipcRenderer.send('drag-out', src, name),
+  dragOut: (src: string, name: string, face?: string): void => ipcRenderer.send('drag-out', src, name, face),
   /** Where a dropped file lies on disk, so a picture dragged out and back in is known as the same one. */
   pathOf: (file: File): string => webUtils.getPathForFile(file),
 

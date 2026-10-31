@@ -1,19 +1,15 @@
 import { Extension } from "@tiptap/core"
-import { NodeSelection, Plugin, PluginKey } from "@tiptap/pm/state"
+import { Plugin, PluginKey } from "@tiptap/pm/state"
 import type { EditorView } from "@tiptap/pm/view"
 import { host } from "@/lib/host"
 
 const STORED = /^haligtree:\/\/assets\//
 
-type Api = { dragOut?: (src: string, name: string) => void; pathOf?: (file: File) => string }
+type Api = { dragOut?: (src: string, name: string, face?: string) => void }
 const api = (): Api | undefined => (window as { api?: Api }).api
 
-/** What ProseMirror keeps while one of its blocks is dragged. */
-type Dragging = { slice: ReturnType<NodeSelection["content"]>; move: boolean; node: NodeSelection } | null
-const held = (view: EditorView): { dragging: Dragging } => view as unknown as { dragging: Dragging }
-
-/** The picture or file card being carried out, and the note it came from. */
-let carried: { view: EditorView; src: string } | null = null
+/** The note a card is being carried out of: drops back into it are refused. */
+let carried: EditorView | null = null
 
 /** The block at a node's own DOM, when it is the kind and file looked for. */
 function blockAt(view: EditorView, dom: Element, type: string): number | null {
@@ -27,26 +23,92 @@ function blockAt(view: EditorView, dom: Element, type: string): number | null {
 }
 
 /**
- * The file a drop brings is the one carried out of this note: the system
- * drag lands it as a file, which would otherwise read as a new one from
- * Finder. Main writes it to haligtree-drag/<first 12 of its stored name>/.
+ * What follows the pointer for a file card: a small card in the theme's own
+ * paper and accent, with the kind's mark (a waveform for a voice note, a play
+ * mark for a film, a page for a PDF or any other file) and the file's name,
+ * as a PNG for the system drag. Pictures carry themselves (main/index.ts).
  */
-function isCarried(data: DataTransfer | null, src: string): boolean {
-  const files = [...(data?.files ?? [])]
-  if (files.length !== 1) return false
-  const stored = src.replace(STORED, "")
-  const path = api()?.pathOf?.(files[0]) ?? ""
-  if (path) return path.includes(`/haligtree-drag/${stored.slice(0, 12)}/`)
-  // No path on disk (made in the page itself): known by its kind of file.
-  return files[0].name.toLowerCase().endsWith(`.${stored.split(".").pop()}`)
+function faceOf(card: Element, name: string): string | undefined {
+  const scale = 2
+  const width = 240
+  const height = 44
+  const canvas = document.createElement("canvas")
+  canvas.width = width * scale
+  canvas.height = height * scale
+  const pen = canvas.getContext("2d")
+  if (!pen) return undefined
+  // The theme's colours, read off one element that wears them.
+  const probe = document.createElement("span")
+  probe.className = "bg-popover text-popover-foreground border-primary"
+  probe.style.cssText = "position:fixed;left:-9999px;border-width:1px;border-style:solid"
+  card.append(probe)
+  const look = getComputedStyle(probe)
+  const paper = look.backgroundColor
+  const ink = look.color
+  const accent = look.borderTopColor
+  const font = getComputedStyle(card).fontFamily
+  probe.remove()
+  pen.scale(scale, scale)
+  pen.beginPath()
+  pen.roundRect(0.5, 0.5, width - 1, height - 1, 10)
+  pen.fillStyle = paper
+  pen.fill()
+  pen.strokeStyle = accent
+  pen.lineWidth = 1
+  pen.stroke()
+  pen.fillStyle = accent
+  pen.lineWidth = 1.6
+  pen.lineCap = "round"
+  pen.lineJoin = "round"
+  const x = 14
+  const mid = height / 2
+  if (card.classList.contains("is-audio")) {
+    ;[5, 11, 16, 9, 13, 6].forEach((tall, i) => {
+      pen.beginPath()
+      pen.moveTo(x + 1 + i * 3.4, mid - tall / 2)
+      pen.lineTo(x + 1 + i * 3.4, mid + tall / 2)
+      pen.stroke()
+    })
+  } else if (card.querySelector("video")) {
+    pen.beginPath()
+    pen.moveTo(x + 4, mid - 8)
+    pen.lineTo(x + 17, mid)
+    pen.lineTo(x + 4, mid + 8)
+    pen.closePath()
+    pen.fill()
+  } else {
+    // A page with its corner folded.
+    pen.beginPath()
+    pen.moveTo(x + 3, mid - 9)
+    pen.lineTo(x + 12, mid - 9)
+    pen.lineTo(x + 17, mid - 4)
+    pen.lineTo(x + 17, mid + 9)
+    pen.lineTo(x + 3, mid + 9)
+    pen.closePath()
+    pen.moveTo(x + 12, mid - 9)
+    pen.lineTo(x + 12, mid - 4)
+    pen.lineTo(x + 17, mid - 4)
+    pen.stroke()
+  }
+  pen.fillStyle = ink
+  pen.font = `500 13px ${font}`
+  pen.textBaseline = "middle"
+  const room = width - 44 - 14
+  let words = name || "File"
+  if (pen.measureText(words).width > room) {
+    while (words.length > 1 && pen.measureText(`${words}…`).width > room) words = words.slice(0, -1)
+    words = `${words.trimEnd()}…`
+  }
+  pen.fillText(words, 44, mid + 0.5)
+  return canvas.toDataURL("image/png")
 }
 
 /**
- * A picture or file dragged out of the note goes to the app it lands in
- * (Finder, a chat, a browser, a bug tracker) as the real file, under its own
- * name. Let go back inside the note, it moves there instead, as any block
- * does, and ⌥ held copies it; ⌘Z puts it back. Dragged by the block's
- * handle at the left it never leaves the window at all.
+ * A picture or file card dragged by its body goes out of the note to the app
+ * it lands in (Finder, a chat, a browser, a bug tracker) as the real file,
+ * under its own name, carrying a picture of itself. It is never also a move:
+ * while it is carried this note refuses it (no drop line, nothing added).
+ * The block's grip at the left is the way to move it within the note.
  */
 export const DragOut = Extension.create({
   name: "dragOut",
@@ -55,31 +117,26 @@ export const DragOut = Extension.create({
     return [
       new Plugin({
         key: new PluginKey("dragOut"),
-        // Caught on the window on the way down, before any other drop: a drop
-        // that is not the carried file (one from Finder, after a drag that
-        // went out and was let go there) is never taken for a move.
+        // Caught on the window on the way down, before the note's own drop
+        // line and file drop hear it.
         view: (view) => {
-          const forget = (): void => {
-            if (carried?.view !== view) return
-            // ProseMirror swaps in a fresh copy when the note changes mid-drag.
-            held(view).dragging = null
-            carried = null
-          }
-          const drop = (event: DragEvent): void => {
-            if (carried?.view !== view) return
-            const inside = event.target instanceof Node && view.dom.contains(event.target)
-            if (inside && isCarried(event.dataTransfer, carried.src)) carried = null
-            else forget()
+          const refuse = (event: DragEvent): void => {
+            if (carried !== view || !(event.target instanceof Node) || !view.dom.contains(event.target)) return
+            event.stopPropagation()
+            if (event.type === "drop") event.preventDefault()
+            else if (event.dataTransfer) event.dataTransfer.dropEffect = "none"
           }
           // A press, or the pointer moving with no button down: the drag is over.
+          const forget = (): void => void (carried === view && (carried = null))
           const moved = (event: PointerEvent): void => void (event.buttons === 0 && forget())
-          window.addEventListener("drop", drop, true)
+          const kinds = ["dragenter", "dragover", "drop"] as const
+          kinds.forEach((kind) => window.addEventListener(kind, refuse, true))
           window.addEventListener("pointerdown", forget, true)
           window.addEventListener("pointermove", moved, true)
           return {
             destroy: () => {
               forget()
-              window.removeEventListener("drop", drop, true)
+              kinds.forEach((kind) => window.removeEventListener(kind, refuse, true))
               window.removeEventListener("pointerdown", forget, true)
               window.removeEventListener("pointermove", moved, true)
             },
@@ -106,14 +163,9 @@ export const DragOut = Extension.create({
                 if (pos != null) name = view.state.doc.nodeAt(pos)?.attrs.name ?? ""
               }
               if (pos == null) return false
-              const src: string = view.state.doc.nodeAt(pos)!.attrs.src
               event.preventDefault()
-              // Held as ProseMirror holds a block it drags, so letting go back
-              // in the note is its own move (or, with ⌥, copy).
-              const node = NodeSelection.create(view.state.doc, pos)
-              held(view).dragging = { slice: node.content(), move: true, node }
-              carried = { view, src }
-              out(src, name)
+              carried = view
+              out(view.state.doc.nodeAt(pos)!.attrs.src, name, card && !img ? faceOf(card, name) : undefined)
               return true
             },
           },
