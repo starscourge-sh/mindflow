@@ -1266,6 +1266,8 @@ export function Home(): React.JSX.Element {
     else if (type === 'read') window.dispatchEvent(new CustomEvent('haligtree:read', { detail: id }))
     else if (type === 'write') (setView({ id: 'today' }), writeOutDay())
     else if (type === 'person') (setSearchFor(id), setSearching('all'))
+    // A PDF at a page, from a link followed in the box or a note's window: the reader, at that page.
+    else if (type === 'pdf' && heading) window.dispatchEvent(new CustomEvent('haligtree:pdf', { detail: { ...fromPdfFocus(id), page: Number(heading) || undefined } }))
     // A capture's version history, asked for in the box: opened, then once
     // its page is up, its history.
     else if (type === 'versions') {
@@ -1274,7 +1276,7 @@ export function Home(): React.JSX.Element {
     } else open(type, id)
     // "Show in list" from a note's own window: its row in the list here, lit once its page is up.
     if (heading === 'show-in-list') setTimeout(() => showInList(id), 600)
-    else if (heading && type !== 'view' && !(type === 'task' && heading === 'sessions')) headingIn(type, id, heading)
+    else if (heading && type !== 'view' && type !== 'pdf' && !(type === 'task' && heading === 'sessions')) headingIn(type, id, heading)
     // Promoted from quick capture with ⌘O: the caret lands where it was.
     landPromoted(type, id)
   }), [])

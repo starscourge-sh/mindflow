@@ -61,11 +61,14 @@ try {
     for (const name of ['haligtree:web', 'haligtree:pdf', 'haligtree:video-at']) window.addEventListener(name, (event) => window.__told.push([name, JSON.stringify(event.detail?.seconds ?? event.detail?.page ?? event.detail?.href ?? '')]))
   })
   const told = () => h.evaluate(() => window.__told.splice(0).map(([name, what]) => `${name} ${what}`).join(', '))
+  let hit = ''
   const press = async (win, selector, modifiers = []) => {
     const target = win.locator(selector).first()
     await target.scrollIntoViewIfNeeded()
-    const box = await target.boundingBox()
+    // Aimed at its first line: a link that wraps has a box whose middle is between its lines.
+    const box = await target.evaluate((el) => { const r = el.getClientRects()[0]; return { x: r.left, y: r.top, width: r.width, height: r.height } })
     await win.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 3 }); await win.waitForTimeout(200)
+    hit = await win.evaluate(([x, y]) => { const one = document.elementFromPoint(x, y); return one ? `${one.tagName.toLowerCase()}.${String(one.className).split(' ')[0]} "${(one.textContent ?? '').slice(0, 30)}"` : 'nothing' }, [box.x + box.width / 2, box.y + box.height / 2])
     for (const key of modifiers) await win.keyboard.down(key)
     await win.mouse.down(); await win.mouse.up()
     for (const key of modifiers) await win.keyboard.up(key)
@@ -112,7 +115,7 @@ try {
     await home(); await told(); await press(h, selector)
     s = await shows()
     const heard = await told()
-    check(`${kind}, click: it opens`, gone(s, kind) && (!event || heard.includes(event)), `${heard} ${JSON.stringify(s.pages)}`)
+    check(`${kind}, click: it opens`, gone(s, kind) && (!event || heard.includes(event)), `${heard} ${JSON.stringify(s.pages)} pressed ${hit}`)
     await home(); await press(h, selector, ['Alt'])
     s = await shows()
     check(`${kind}, ⌥-click: it opens to the side`, beside(s), JSON.stringify(s.pages))
@@ -126,6 +129,7 @@ try {
   const caret = (win) => win.evaluate((sel) => { const editor = document.querySelector(sel).editor; const { from, to } = editor.state.selection; return { from, to, text: editor.state.doc.textBetween(from, to, ''), link: editor.isActive('link') } }, EDITOR)
   const editing = async (win, where, opensAt) => {
     // A drag across the web link picks it and opens nothing.
+    await win.locator(WEB).first().scrollIntoViewIfNeeded()
     const link = await win.locator(WEB).first().boundingBox()
     let before = await opensAt()
     await win.mouse.move(link.x - 25, link.y + link.height / 2); await win.mouse.down()
@@ -177,6 +181,8 @@ try {
   const reshow = async () => {
     await electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => !/[?&](view|note)=/.test(w.webContents.getURL()))?.show())
     await box.waitForTimeout(700)
+    // The pointer off the last link, so no card it left up stands over the words.
+    await box.mouse.move(4, 4); await box.keyboard.press('Escape'); await box.waitForTimeout(300)
   }
   const boxText = () => box.evaluate(() => [...document.querySelectorAll('.ProseMirror')].map((one) => one.textContent).join(' | '))
   await reshow(); await fillBox()

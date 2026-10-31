@@ -2002,11 +2002,8 @@ export default function App(): React.JSX.Element {
               quietSpelling={!!defining}
               after={editing ? <Mentions id={editing.id} compact onOpen={(type, id) => openAny(type, id)} /> : definition && <DefineGhost definition={definition} onKeep={keepDefinition} onHide={hideDefinition} picked={chosen} mode={meanings === 'off' ? 'one-word' : meanings} onFix={(fix) => definition && fixIn(editorRef.current, definition.word, fix)} />}
               onSource={() => setSource((open) => !open)}
-              // A tag opens everything carrying it, in search.
-              onTag={(tag) => {
-                setSearchFrom(`#${tag}`)
-                setSearching(true)
-              }}
+              // A tag opens its page in the main window, as a note link opens there.
+              onTag={(tag) => (chime('open'), window.api.openInHome('tag', tag))}
               onChange={(doc, editor) => {
                 // The editor typed into is the one kept, even if it was made without a word to onReady.
                 if (editorRef.current !== editor && editor !== retired.current && !editor.isDestroyed) editorRef.current = editor
