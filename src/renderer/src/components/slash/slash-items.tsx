@@ -6,6 +6,7 @@ import { isValidYoutubeUrl } from '@tiptap/extension-youtube'
 
 import { saveAttachment } from '@/extensions/image-drop'
 import { MicIcon, recordInto } from '@/components/haligtree/voice-note'
+import { talkInto } from '@/components/haligtree/talk'
 import { FileText } from '@/components/ui/icons'
 import { EXPORTS, exportDocument } from '@/lib/export'
 import { host, said } from '@/lib/host'
@@ -268,10 +269,18 @@ export const slashItems: SlashItem[] = [
   {
     title: 'Record',
     group: 'Media',
-    keywords: ['voice', 'audio', 'microphone', 'mic', 'dictate', 'sound'],
+    keywords: ['voice', 'audio', 'microphone', 'mic', 'sound'],
     hint: 'a voice note',
     icon: <MicIcon />,
     run: (editor) => void recordInto(editor)
+  },
+  {
+    title: 'Dictate',
+    group: 'Media',
+    keywords: ['talk', 'type', 'speak', 'speech', 'voice', 'dictation', 'microphone', 'mic'],
+    hint: 'type by talking',
+    icon: <MicIcon />,
+    run: () => talkInto()
   },
   {
     title: 'PDF',

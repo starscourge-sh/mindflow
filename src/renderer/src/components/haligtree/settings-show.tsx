@@ -904,3 +904,31 @@ export function TranscribeSample({ on }: { on: boolean }): React.JSX.Element {
     </div>
   )
 }
+
+/** Talk to type, shown: the key, then the words coming in faint and firming up, as in a note. */
+const TALK_WORDS = ['Pick up', 'Pick up the', 'Pick up the books from', 'Pick up the books from the library.']
+export function TalkSample({ on, keys, taps }: { on: boolean; keys: string; taps: boolean }): React.JSX.Element {
+  const [heard, setHeard] = useState(on ? TALK_WORDS.length : 0)
+  const play = (): void => {
+    chime('listen')
+    setHeard(1)
+  }
+  useEffect(() => {
+    if (!heard || heard >= TALK_WORDS.length) return
+    const next = setTimeout(() => {
+      if (heard + 1 === TALK_WORDS.length) chime('listened')
+      setHeard(heard + 1)
+    }, 450)
+    return () => clearTimeout(next)
+  }, [heard])
+  const listening = heard > 0 && heard < TALK_WORDS.length
+  return (
+    <div data-preview="talk" className="mt-3 flex flex-wrap items-center gap-3">
+      <div className="flex min-h-11 w-72 max-w-full items-center gap-1 rounded-lg border border-border/60 bg-background px-3 py-2 text-control">
+        <span className={listening ? 'mf-talk-faint' : ''}>{heard ? TALK_WORDS[heard - 1] : <span className="text-muted-foreground">{on ? `${taps ? 'Tap' : 'Hold'} ${keys} and talk` : 'Talk to type is off'}</span>}</span>
+        {listening && <Orb state="listening" />}
+      </div>
+      <Button variant="outline" size="sm" onClick={play} disabled={!on || listening}>Show me</Button>
+    </div>
+  )
+}

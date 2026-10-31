@@ -547,6 +547,12 @@ const DEFAULTS = {
   countIn: true,
   // A voice note turned into words on this Mac as soon as it is kept (main/transcribe.ts). Off to start.
   transcribeAsYouRecord: false,
+  // Talk to type: hold a key in any text field and what you say is typed at the caret (main/dictation.ts).
+  talkToType: true,
+  // The key held (or tapped, with talkTaps) to talk: ⌥Space, or the right-hand ⌥ alone.
+  talkKey: 'alt-space' as 'alt-space' | 'right-alt',
+  // Tap the key once to start and again to stop, instead of holding it.
+  talkTaps: false,
   // After a break runs out, the session before it starts again by itself, with no click. Off to start.
   autoNextRound: false,
   // The Mac going to sleep in a session: finished there, counted up to that

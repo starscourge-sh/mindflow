@@ -2540,3 +2540,14 @@ html[data-tuck-open="left"] .mf-card { border-top-right-radius: 0; border-bottom
 ::highlight(look-up) {
   background-color: color-mix(in srgb, var(--tt-brand-color-400, #c08a2e) 30%, transparent);
 }
+
+/* Talk to type (components/haligtree/talk.tsx): the words as they are heard, faint until Apple settles them. */
+.mf-talk-faint {
+  color: var(--muted-foreground);
+  opacity: 0.7;
+}
+input[data-talking]::selection,
+textarea[data-talking]::selection {
+  background: transparent;
+  color: var(--muted-foreground);
+}

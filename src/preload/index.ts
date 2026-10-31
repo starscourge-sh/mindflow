@@ -389,6 +389,12 @@ const api = {
     return () => ipcRenderer.off('onboarding:box-away', relay)
   },
 
+  /** Talk to type: each line the listening helper says (main/dictation.ts), as it says it. */
+  onDictation: (listen: (line: Record<string, unknown>) => void): (() => void) => {
+    const relay = (_event: unknown, line: Record<string, unknown>): void => listen(line)
+    ipcRenderer.on('dictate:line', relay)
+    return () => ipcRenderer.off('dictate:line', relay)
+  },
   /** How much work main has under way (an import, a backup, an export): the beam turns while any is. */
   onBusy: (listen: (count: number) => void): (() => void) => {
     const relay = (_event: unknown, count: number): void => listen(count)

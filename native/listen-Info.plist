@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleIdentifier</key>
+  <string>com.starskourge.haligtree.listen</string>
+  <key>CFBundleName</key>
+  <string>Haligtree</string>
+  <key>NSSpeechRecognitionUsageDescription</key>
+  <string>Haligtree turns what you say into words on this Mac while you hold the talk key. Nothing is sent anywhere.</string>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>Haligtree listens only while you hold the talk key, to type what you say.</string>
+</dict>
+</plist>

@@ -75,6 +75,7 @@ import { firstRun, isWelcoming, keepWindowBeforeWelcome, noteChord, welcomeBoxSp
 import { registerUnused } from './unused'
 import { registerMedia } from './media'
 import { registerTranscribe } from './transcribe'
+import { registerDictation } from './dictation'
 import { registerPeople } from './people'
 import { registerSources } from './sources'
 import { registerFeed } from './feed'
@@ -3840,6 +3841,7 @@ app.whenReady().then(() => {
   registerUnused()
   registerMedia()
   registerTranscribe()
+  registerDictation()
   registerObsidian()
   registerPictures()
   registerPeople()

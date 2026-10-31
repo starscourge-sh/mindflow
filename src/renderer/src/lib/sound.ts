@@ -46,6 +46,9 @@ export const setVolume = (level: number): void => {
 type Note = [frequency: number, delay: number, length?: number, level?: number, to?: number, swell?: number]
 
 const CUES = {
+  // Talk to type: the microphone opens, a soft rise; and closes, the same notes falling.
+  listen: [[523, 0, 0.12, 0.022], [784, 0.06, 0.18, 0.02]],
+  listened: [[784, 0, 0.12, 0.02], [523, 0.06, 0.2, 0.022]],
   // A light tick: switching a tab, moving to a section. Heard more than
   // anything else, so the quietest note here: low, short and soft.
   tap: [[1046, 0, 0.035, 0.03]],

@@ -38,6 +38,7 @@ import { applyTheme, currentTheme } from './lib/theme'
 import { TitleTips } from './components/ui/title-tips'
 import { PdfPeek } from './components/pdf/pdf-peek'
 import { LookUpHost } from './components/pdf/look-up'
+import { Talk } from './components/haligtree/talk'
 import { createRoot } from 'react-dom/client'
 import { MotionConfig } from 'motion/react'
 import { stillTransforms } from './lib/motion'
@@ -138,6 +139,8 @@ export function start(page: ReactNode): void {
             <PdfPeek />
             {/* The one Look Up card for notes and Review (a reader shows its own in its pages). */}
             <LookUpHost />
+            {/* Talk to type: hold the talk key in any text field (talk.tsx). */}
+            <Talk />
           </TooltipProvider>
         </Broken>
       </MotionConfig>
