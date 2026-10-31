@@ -207,7 +207,7 @@ function CaptureWindow({ id }: { id: string }): React.JSX.Element | null {
           {...notePowers({ table: 'captures', id, kind: capture.kind, fields: capture.fields, text: capture.label, created: capture.capturedAt, updated: capture.editedAt, origin: { captureId: id, from: id }, cites: { who: capture.attribution, where: capture.medium }, onOpen: elsewhere })}
           defaultContent={(capture.body as JSONContent | string | null) ?? ''}
           onOpenNote={(to, heading) => (to === id && heading ? headingIn('capture', id, heading) : follow(to, (type, at) => elsewhere(type, at, heading)))}
-          after={<><SourceFoot who={capture.attribution} where={capture.medium} quote={capture.kind === 'quote'} cite={{ table: 'captures', id, fields: capture.fields }} /><PageThoughts id={id} /><Mentions id={id} onOpen={elsewhere} /></>}
+          after={<><SourceFoot who={capture.attribution} where={capture.medium} quote={capture.kind === 'quote'} cite={{ table: 'captures', id, fields: capture.fields }} body={capture.body} /><PageThoughts id={id} /><Mentions id={id} onOpen={elsewhere} /></>}
           onReady={(ready) => (words.ready(ready), setEditor(ready))}
           onChange={words.save}
         />

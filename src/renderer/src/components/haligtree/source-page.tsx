@@ -30,6 +30,10 @@ import { PersonMenu } from './avatar'
 import type { SourceCard, SourceFacts, SourcePage } from '@/lib/sources'
 import { notes, type NoteTable } from '@/lib/notes'
 import { menuOpen } from '@/lib/menu-keys'
+import { bookOf, pdfIn } from '@/lib/pdf-in'
+import { openPdf } from '@/components/pdf/pdf-reader'
+
+type PdfIn = ReturnType<typeof pdfIn>
 
 const FIELD_SAID: Record<SourceField, { one: string; icon: typeof User }> = { attribution: { one: 'Person', icon: User }, medium: { one: 'Source', icon: BookOpen } }
 
@@ -38,11 +42,22 @@ const setSource = (item: { type: string; id: string }, field: SourceField, name:
   item.type === 'capture' ? haligtree.setCapture(item.id, field, name) : haligtree.saveItem(item.id, { [field]: name })
 
 /** Under a note's who and where: a way to each one's page. */
-function SourceLinks({ who, where }: { who?: string | null; where?: string | null }): React.JSX.Element | null {
+function SourceLinks({ who, where, pdf }: { who?: string | null; where?: string | null; pdf?: PdfIn | null }): React.JSX.Element | null {
   const links = [who?.trim() && { field: 'attribution' as const, name: who.trim() }, where?.trim() && { field: 'medium' as const, name: where.trim() }].filter(Boolean) as { field: SourceField; name: string }[]
-  if (!links.length) return null
+  if (!links.length && !pdf) return null
+  // The book's name, read as its source is named; else the file's.
+  const book = bookOf(where) || pdf?.name.replace(/\.pdf$/i, '') || 'The PDF'
   return (
     <div className="flex flex-wrap gap-1 px-1 py-1">
+      {/* The page it came from, opened in the reader (⌥ beside), its pages previewed on hover. */}
+      {pdf && (
+        <button type="button" data-open-pdf-page={pdf.page} onClick={(event) => (chime('page'), openPdf(pdf.src, pdf.name, pdf.page, pdf.mark, event.altKey))}
+          data-pdf-peek={pdf.src} data-pdf-peek-name={pdf.name} data-pdf-peek-page={pdf.page}
+          className="flex max-w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-control text-foreground transition-colors hover:bg-accent">
+          <FileText className="size-3.5 shrink-0" />
+          <span className="truncate">{book}, p. {pdf.page}</span>
+        </button>
+      )}
       {links.map(({ field, name }) => {
         return (
           <button key={field} type="button" data-open-source={field} onClick={() => (chime('page'), openSource(field, name))}
@@ -64,12 +79,13 @@ function SourceLinks({ who, where }: { who?: string | null; where?: string | nul
  * with no source has drifted from whoever said it; a gem with none is only a
  * note of yours.
  */
-export function SourceFoot({ who, where, quote = false, gem = false, cite }: { who?: string | null; where?: string | null; quote?: boolean; gem?: boolean; /** The note itself, for the page in its source it is from. */ cite?: { table: NoteTable; id: string; fields?: string | null } }): React.JSX.Element | null {
-  const sourced = !!(who?.trim() || where?.trim())
+export function SourceFoot({ who, where, quote = false, gem = false, cite, body }: { who?: string | null; where?: string | null; quote?: boolean; gem?: boolean; /** The note itself, for the page in its source it is from. */ cite?: { table: NoteTable; id: string; fields?: string | null }; /** Its words: a link into a kept PDF in them shows here as the page it came from. */ body?: unknown }): React.JSX.Element | null {
+  const pdf = useMemo(() => pdfIn(body), [body])
+  const sourced = !!(who?.trim() || where?.trim() || pdf)
   if (sourced) return (
     <div data-chrome className="page-narrow mx-auto w-full px-[4rem]">
       {cite && (quote || gem) && <PageNumber {...cite} />}
-      <SourceLinks who={who} where={where} />
+      <SourceLinks who={who} where={where} pdf={pdf} />
     </div>
   )
   if (!quote && !gem) return null

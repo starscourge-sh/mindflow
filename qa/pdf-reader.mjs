@@ -443,6 +443,9 @@ try {
   check('with the meaning and Wikipedia together, the sentence round the words and where it was looked up', /lack of noise/.test(keptBody) && /A quiet sentence worth keeping/.test(keptBody) && /Looked up in/.test(keptBody) && /The Probe Book, p. 3/.test(keptBody), keptBody.slice(0, 300))
   const lookupWhy = await h.evaluate(async () => { const found = (await window.api.captures.find('quiet')).find((one) => one.type === 'capture' && /^quiet/i.test(one.label)); return found ? (await window.api.haligtree('glosses', found.id)).map((one) => one.body) : [] })
   check('and why, as its own thought', lookupWhy.includes('for the essay on silence'), JSON.stringify(lookupWhy))
+  // The book is its source and the page its place: one Sources page for the book, never one per page.
+  const lookupSource = await h.evaluate(async () => { const found = (await window.api.captures.find('quiet')).find((one) => one.type === 'capture' && /^quiet/i.test(one.label)); const one = found ? await window.api.captures.get(found.id) : null; return { medium: one?.medium, fields: one?.fields } })
+  check('its source is the book alone, its page kept apart', lookupSource.medium === 'The Probe Book' && JSON.parse(lookupSource.fields ?? '{}').location === '3', JSON.stringify(lookupSource))
   await h.keyboard.press('Escape'); await wait(300)
   check('Esc puts the card away', await h.evaluate(() => !document.querySelector('.look-up')), '')
   await h.evaluate(() => getSelection().removeAllRanges())

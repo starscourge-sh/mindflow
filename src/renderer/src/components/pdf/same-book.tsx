@@ -5,6 +5,7 @@ import { notes, type MapEdge } from "@/lib/notes"
 import { openAside } from "@/lib/split"
 import { Island } from "@/components/haligtree/ui"
 import { GraphCanvas, type Graph } from "@/components/haligtree/graph-canvas"
+export { pdfIn } from "@/lib/pdf-in"
 
 /** A note, gem or card that holds a book or links into it: the pages it links to, in order, and the line it does it in. */
 export type Cited = { type: string; id: string; title: string; at: string; pages: number[]; line: string }
@@ -91,19 +92,6 @@ export function SameBookMap({ src, title, here }: { src: string; title: string; 
       </p>
     </div>
   )
-}
-
-/** A link into one of the book's PDFs, as a gem's body keeps it: `haligtree://assets/….pdf#page=3&mark=…&name=…`. */
-const PDF_IN_BODY = /((?:haligtree|mindflow):\/\/assets\/[^#?)\s"\\]+\.pdf)#([^)\s"\\]*)/i
-
-/** The PDF a gem's words were kept from, and the page, read from the link in its body. */
-export function pdfIn(body: unknown): { src: string; name: string; page: number; mark?: string } | null {
-  const found = PDF_IN_BODY.exec(typeof body === 'string' ? body : JSON.stringify(body ?? ''))
-  if (!found) return null
-  const hash = new URLSearchParams(found[2].replace(/&amp;/g, '&'))
-  const page = Number(hash.get('page'))
-  if (!page) return null
-  return { src: found[1], name: hash.get('name') ?? '', page, mark: hash.get('mark') || undefined }
 }
 
 /**

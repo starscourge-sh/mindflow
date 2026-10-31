@@ -183,6 +183,26 @@ try {
   }
   check('a sibling pointed at says its title and page', /Last words/.test(tipped) && /p\. 3/.test(tipped), tipped)
   check('a click on a sibling opens it', clicked, '')
+  // A plain note from the book (a Lookup): the foot under its words links straight to the page, as well as to everything from the book.
+  const lookup = await h.evaluate(([src]) => window.api.captures.create({ kind: 'word', title: 'quiet', medium: 'The Probe Book', body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'quiet' }] }, { type: 'paragraph', content: [{ type: 'text', text: 'Looked up in ' }, { type: 'text', text: 'The Probe Book, p. 3', marks: [{ type: 'link', attrs: { href: `${src}#page=3&mark=&name=probe-book.pdf` } }] }] }] } }), [src])
+  await send('capture', lookup); await wait(1800)
+  const foot = await h.evaluate(() => {
+    const page = document.querySelector('[data-open-pdf-page]')
+    return { page: page?.textContent, at: page?.dataset.openPdfPage, peek: page?.dataset.pdfPeekPage, cursor: page ? getComputedStyle(page).cursor : '', shelf: document.querySelector('[data-open-source="medium"]')?.textContent }
+  })
+  check('a note from a PDF has the page under its words, beside everything from the book', foot.page === 'The Probe Book, p. 3' && foot.shelf === 'Everything from The Probe Book', JSON.stringify(foot))
+  check('the page link shows the hand and previews the page', foot.cursor === 'pointer' && foot.peek === '3', JSON.stringify(foot))
+  await listen()
+  await h.click('[data-open-pdf-page]'); await wait(1200)
+  await send('capture', lookup); await wait(1500)
+  await h.click('[data-open-pdf-page]', { modifiers: ['Alt'] }); await wait(1000)
+  const footOpens = (await heard()).filter((one) => one.name === 'haligtree:pdf').map((one) => one.detail)
+  check('a click opens the reader at that page, ⌥-click beside', footOpens[0]?.page === 3 && !footOpens[0].aside && footOpens[1]?.page === 3 && footOpens[1].aside === true, JSON.stringify(footOpens))
+  await send('capture', lookup); await wait(1500)
+  const footBox = await h.evaluate(() => { const r = document.querySelector('[data-open-pdf-page]').parentElement.getBoundingClientRect(); return { x: r.left - 12, y: r.top - 60, width: r.width + 24, height: r.height + 80 } })
+  for (const name of ['light', 'dark']) { await c.look(name); await wait(500); await h.screenshot({ path: `${shots}/note-foot-pdf-${name}.png`, clip: footBox }) }
+  await c.look('light')
+
   await openDetails(bare)
   check('a gem from no PDF has no "From the same book"', (await groups())['From the same book'] === undefined, JSON.stringify(await groups()))
   await openDetails(gem)

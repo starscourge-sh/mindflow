@@ -218,6 +218,16 @@ export function registerPdfHighlights(): void {
   })
   // The title read out of a PDF as it opens, kept so search finds it by that.
   db.exec(TITLES)
+  // A note looked up in a PDF once named its source "The Law Book, p. 93", a Sources page for every
+  // page: the book is its source and the page its place. Only where the name is a kept PDF's title.
+  const kept = new Set((db.prepare('select title from pdf_titles').all() as { title: string }[]).map((one) => one.title.trim()))
+  for (const note of db.prepare("select id, medium, fields from captures where medium like '%, p. %'").all() as { id: string; medium: string; fields: string | null }[]) {
+    const [, book, page] = /^(.*), p\. (\d+)$/.exec(note.medium.trim()) ?? []
+    if (!book || !kept.has(book.trim())) continue
+    let fields: Record<string, unknown> = {}
+    try { fields = JSON.parse(note.fields ?? '{}') ?? {} } catch { /* kept as it was, the page added */ }
+    db.prepare('update captures set medium = ?, fields = ? where id = ?').run(book.trim(), JSON.stringify({ ...fields, location: fields.location ?? page }), note.id)
+  }
   ipcMain.handle('haligtree:pdf:title', (_event, src: unknown, title: unknown) => {
     if (typeof src !== 'string' || typeof title !== 'string' || !title.trim()) return false
     if ((db.prepare('select title from pdf_titles where src = ?').get(src) as { title: string } | undefined)?.title === title.trim()) return false

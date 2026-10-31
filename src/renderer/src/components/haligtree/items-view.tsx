@@ -11,7 +11,8 @@ import { ReadsIn } from '@/lib/reads-in'
 import { quoted } from '../../../../main/clip'
 import { openSource, voiceOf } from '@/lib/sources'
 import { openPdf } from '@/components/pdf/pdf-reader'
-import { SameBook, pdfIn } from '@/components/pdf/same-book'
+import { SameBook } from '@/components/pdf/same-book'
+import { bookOf, pdfIn } from '@/lib/pdf-in'
 import { SourceFoot } from './source-page'
 import { SimilarNotes } from './similar-notes'
 import { chime, pageTurn } from '@/lib/sound'
@@ -1284,8 +1285,6 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
   )
 }
 
-/** A book's name without a page once kept on its end ("The Law Book, p. 93" was the whole source once). */
-const bookOf = (medium: string | null | undefined): string => (medium ?? '').replace(/,\s*p\.\s*\d+\s*$/, '').trim()
 
 /**
  * A source of a gem, as a link: a click opens it (⌥ beside the page, where it

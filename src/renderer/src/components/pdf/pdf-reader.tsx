@@ -426,7 +426,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     lookUp: () => {
       if (!picked) return
       // The sentence round the words, kept with what is saved so it says why at a glance.
-      setLooking({ words: picked.quote, x: picked.x, y: picked.y + 24, from: { where: `${title}, p. ${picked.page}`, link: pdfLink(src, name, picked.page, ""), sentence: sentenceOf(picked) } })
+      setLooking({ words: picked.quote, x: picked.x, y: picked.y + 24, from: { where: `${title}, p. ${picked.page}`, source: title, page: picked.page, link: pdfLink(src, name, picked.page, ""), sentence: sentenceOf(picked) } })
       chime("open")
     },
     card: (gem) => {

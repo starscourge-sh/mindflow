@@ -22,7 +22,7 @@ const dayOf = (at: string): string => {
 type Wiki = { title: string; description: string; extract: string; url: string; picture?: string | null } | { missing: true } | { offline: true } | null
 
 /** Where the words were looked up: said on the Lookup kept, with a link back to the very place. */
-export type LookedUpIn = { where: string; link: string; sentence?: string; /** The note it was looked up in, when it was: the Lookup points back to it. */ origin?: string | null }
+export type LookedUpIn = { where: string; link: string; sentence?: string; /** From a PDF: the book alone, and the page, kept apart so the book is one source. */ source?: string; page?: number; /** The note it was looked up in, when it was: the Lookup points back to it. */ origin?: string | null }
 
 /**
  * Picked words looked up where they sit, as a reader's Look Up is: the word
@@ -109,7 +109,9 @@ export function LookUpCard({ words, at, from, range, onClose }: { words: string;
         ...(page ? [{ type: "paragraph", content: [text("From "), text("Wikipedia", page.url), text(", CC BY-SA")] }] : []),
       ],
     }
-    const id = await window.api.captures.create({ kind: "word", title: word, body, medium: from.where || undefined, ...(from.origin ? { origin: from.origin } : {}) })
+    // From a PDF the book is its source and the page its place, never one source per page.
+    const id = await window.api.captures.create({ kind: "word", title: word, body, medium: from.source || from.where || undefined, ...(from.origin ? { origin: from.origin } : {}) })
+    if (from.page) await notes.setField("captures", id, "location", String(from.page))
     await notes.setField("captures", id, "definition", found ? found.definition : page!.extract)
     if (found?.example) await notes.setField("captures", id, "example", found.example)
     setKept({ id, asking: true })

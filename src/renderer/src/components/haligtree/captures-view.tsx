@@ -809,7 +809,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
                     </Tip>
                   </div>
                 )}
-                {meta.kind !== 'todo' && <SourceFoot who={meta.attribution} where={meta.medium} quote={meta.kind === 'quote'} cite={{ table: 'captures', id: open.id, fields: meta.fields }} />}
+                {meta.kind !== 'todo' && <SourceFoot who={meta.attribution} where={meta.medium} quote={meta.kind === 'quote'} cite={{ table: 'captures', id: open.id, fields: meta.fields }} body={open.body} />}
                 {/* Named after its page: offered, in place, to be named after its topic. */}
                 <PageThoughts id={open.id} />
                 {meta.kind === 'link' && <div data-chrome className="page-narrow mx-auto mt-1 w-full px-[4.5rem]"><TopicName id={open.id} /></div>}
