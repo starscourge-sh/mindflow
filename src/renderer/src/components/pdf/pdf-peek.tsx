@@ -35,6 +35,27 @@ function pageImage(src: string, page: number): Promise<string | null> {
   return made
 }
 
+/** A PDF named by what is pointed at: its file, its name and the page to start on. */
+type Named = { src: string; name: string; first: number }
+
+/** A link into one of the book's PDFs, as notes and gems keep them: `haligtree://assets/….pdf#page=3&name=…`. */
+const PDF_LINK = /^((?:haligtree|mindflow):\/\/assets\/[^#?]+\.pdf)(?:#(.*))?$/i
+
+/**
+ * The PDF an element names, if any: one tagged with `data-pdf-peek`, or a
+ * link into a PDF (read from its address, never by changing the link, which
+ * inside a note would make the editor redraw it).
+ */
+function pdfAt(element: Element | null): (Named & { target: HTMLElement }) | null {
+  const tagged = element?.closest?.<HTMLElement>("[data-pdf-peek]")
+  if (tagged?.dataset.pdfPeek) return { target: tagged, src: tagged.dataset.pdfPeek, name: tagged.dataset.pdfPeekName ?? "", first: Number(tagged.dataset.pdfPeekPage) || 1 }
+  const link = element?.closest?.<HTMLAnchorElement>("a[href]")
+  const found = link ? PDF_LINK.exec(link.getAttribute("href") ?? "") : null
+  if (!link || !found) return null
+  const hash = new URLSearchParams(found[2] ?? "")
+  return { target: link, src: found[1], name: hash.get("name") ?? "", first: Number(hash.get("page")) || 1 }
+}
+
 type Peek = { src: string; name: string; x: number; top: number; bottom: number; count: number; page: number; image: string | null; ratio: number }
 
 /**
@@ -54,10 +75,7 @@ export function PdfPeek(): React.JSX.Element | null {
 
   React.useEffect(() => {
 
-    const show = (target: HTMLElement): void => {
-      const src = target.dataset.pdfPeek ?? ""
-      const name = target.dataset.pdfPeekName ?? ""
-      const first = Number(target.dataset.pdfPeekPage) || 1
+    const show = (target: HTMLElement, { src, name, first }: Named): void => {
       const r = target.getBoundingClientRect()
       on.current = target
       void pdfCover(src, name).then(async (cover) => {
@@ -77,8 +95,8 @@ export function PdfPeek(): React.JSX.Element | null {
       })
     }
     const over = (event: PointerEvent): void => {
-      const target = (event.target as Element | null)?.closest?.<HTMLElement>("[data-pdf-peek]")
-      if (target && target !== on.current && !card.current?.contains(target)) show(target)
+      const found = pdfAt(event.target as Element | null)
+      if (found && found.target !== on.current && !card.current?.contains(found.target)) show(found.target, found)
     }
     const out = (event: PointerEvent): void => {
       if (!on.current) return

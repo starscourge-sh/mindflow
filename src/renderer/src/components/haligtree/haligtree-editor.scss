@@ -3592,43 +3592,6 @@ body > div[dir][style*="-10000px"] > .tableWrapper {
   animation: mf-fade-in 120ms var(--mf-ease);
 }
 
-// A link into a PDF: the book's first page small, its title, the page.
-.tiptap-link-preview.is-pdf {
-  padding: 0.4rem;
-}
-
-.tiptap-link-preview-pdf {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-
-  img,
-  .tiptap-link-preview-pdf-blank {
-    flex: none;
-    width: 3rem;
-    height: 4rem;
-    border-radius: 0.25rem;
-    background-color: #fff;
-    object-fit: cover;
-    object-position: top;
-    box-shadow: 0 0 0 1px var(--tt-border-color);
-  }
-}
-
-.tiptap-link-preview-pdf-words {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 0.125rem;
-  padding-inline-end: 0.25rem;
-}
-
-.tiptap-link-preview-pdf-title {
-  color: var(--foreground);
-  font-size: 0.875rem;
-  font-weight: 500;
-}
-
 @keyframes mf-fade-in {
   from {
     opacity: 0;
