@@ -286,8 +286,24 @@ function leftGhost(documentId: string, editor: Editor): void {
   setTimeout(() => {
     if (showing.has(documentId)) return
     ghosts.delete(documentId)
-    void window.api?.haligtree?.("ghost:drop", ghost.id, ghost.name).catch(() => undefined)
+    void window.api?.haligtree?.("ghost:drop", ghost.id, ghost.name).then((dropped: unknown) => dropped && unpoint(ghost.id), () => undefined)
   }, 1500)
+}
+
+/**
+ * A page gone again: the links to it in the notes open now wait for a page by
+ * their name once more, drawn faintly, as the stored notes' links do
+ * (main's unresolveLinks), so the next click makes the page afresh.
+ */
+function unpoint(id: string): void {
+  for (const editor of showing.values()) {
+    if (editor.isDestroyed) continue
+    const tr = editor.state.tr
+    editor.state.doc.descendants((one, pos) => {
+      if (one.type.name === "noteLink" && one.attrs.id === id && one.attrs.label) tr.setNodeMarkup(pos, undefined, { ...one.attrs, id: "", key: "", kind: "" })
+    })
+    if (tr.docChanged) editor.view.dispatch(tr.setMeta("addToHistory", false))
+  }
 }
 
 /** A `[[name]]` with a note of that name already: pointed at it. One with none stays a link to nothing, drawn faintly. */

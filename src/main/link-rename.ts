@@ -129,3 +129,34 @@ export function resolveLinks(body: unknown, byName: Map<string, string>): { body
   const out = body ? walk(body as Doc) : body
   return { body: count ? out : body, count }
 }
+
+/**
+ * The other way round from resolveLinks: a note gone (a page a link made, left
+ * with only its name) and the links that were pointed at it waiting again for
+ * a note by their name, drawn faintly, so a click makes the page afresh.
+ * Markdown's `[[@id|Name]]` goes back to `[[Name]]`.
+ */
+export function unresolveLinks(body: unknown, link: string): { body: unknown; count: number } {
+  let count = 0
+  if (typeof body === 'string') {
+    const text = body.replace(new RegExp(`(!?)\\[\\[@${escape(link)}((?:#[^\\]|]+)?)(?:\\\\?\\|([^\\]]+))?\\]\\]`, 'g'), (whole, bang: string, heading: string, name?: string) => {
+      if (!name) return whole
+      count++
+      return `${bang}[[${name}${heading}]]`
+    })
+    return { body: count ? text : body, count }
+  }
+  const walk = (node: Doc): Doc => {
+    if (!node || typeof node !== 'object') return node
+    let next = node
+    if ((node.type === 'noteLink' || node.type === 'noteEmbed') && node.attrs?.id === link && typeof node.attrs.label === 'string' && node.attrs.label) {
+      count++
+      next = { ...node, attrs: { ...node.attrs, id: '', key: '', kind: '' } }
+    }
+    if (!next.content) return next
+    const kids = next.content.map(walk)
+    return kids.some((kid, at) => kid !== next.content![at]) ? { ...next, content: kids } : next
+  }
+  const out = body ? walk(body as Doc) : body
+  return { body: count ? out : body, count }
+}

@@ -4,7 +4,7 @@ import { randomUUID } from 'crypto'
 import { LABEL, atomically, changed, database, like } from './captures'
 import { writeMarkdown } from './backup'
 import { markdown } from './haligtree'
-import { renameLinks, resolveLinks } from './link-rename'
+import { renameLinks, resolveLinks, unresolveLinks } from './link-rename'
 import { nameLineIn } from './blocks'
 
 /**
@@ -161,6 +161,33 @@ export function resolveWaiting(...links: string[]): number {
   return count
 }
 
+/** A note gone: every link pointed at it waits again for a note by its name (unresolveLinks). */
+function forget(link: string): number {
+  const db = database()
+  const wanted = `%${like(link)}%`
+  const rows = [
+    ...(db.prepare("select 'captures' as tab, id, number, body from captures where body like ? escape '\\'").all(wanted) as { tab: 'captures'; id: string; number: number; body: string }[]),
+    ...(db.prepare("select 'nuggets' as tab, id, null as number, body from nuggets where body like ? escape '\\'").all(wanted) as { tab: 'nuggets'; id: string; number: null; body: string }[])
+  ]
+  let count = 0
+  atomically(() => {
+    for (const row of rows) {
+      let body: unknown
+      try {
+        body = JSON.parse(row.body)
+      } catch {
+        body = row.body
+      }
+      const out = unresolveLinks(body, link)
+      if (!out.count) continue
+      db.prepare(`update ${row.tab} set body = ? where id = ?`).run(typeof out.body === 'string' ? out.body : JSON.stringify(out.body), row.id)
+      count += out.count
+      if (row.tab === 'captures') void writeMarkdown(row.number, typeof out.body === 'string' ? out.body : markdown(out.body))
+    }
+  })
+  return count
+}
+
 /**
  * The other way round: links inside notes just brought in that wait for a note
  * already here (one made by hand before the import) point at it. Every note's
@@ -238,6 +265,8 @@ export function registerRenames(): void {
     const bare = blocks.length <= 1 && (!words || words === String(name).trim()) && blocks.every((block) => ['paragraph', 'heading'].includes(block.type ?? '') && (block.content ?? []).every((one) => one.text !== undefined))
     if (!bare) return false
     db.prepare('delete from captures where id = ?').run(String(id))
+    // Its making pointed the links waiting for its name at it (resolveWaiting): they wait again, not point at nothing.
+    forget(String(id))
     changed()
     return true
   })

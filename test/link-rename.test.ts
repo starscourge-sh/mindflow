@@ -1,7 +1,7 @@
 // Run with: node --test test/link-rename.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { renameLinks, resolveLinks } from '../src/main/link-rename.ts'
+import { renameLinks, resolveLinks, unresolveLinks } from '../src/main/link-rename.ts'
 
 const link = (attrs: Record<string, unknown>) => ({ type: 'noteLink', attrs: { key: '', heading: '', text: '', kind: '', ...attrs } })
 const line = (...content: unknown[]) => ({ type: 'paragraph', content })
@@ -97,4 +97,12 @@ test('in Markdown an import left, [[Name]] waiting is written as a link to the n
   const { body, count } = resolveLinks('See [[Beta]], [[beta#Part|this]] and [[Gone]] and [[@n9|Beta]].', new Map([['beta', 'article:n2']]))
   assert.equal(count, 2)
   assert.equal(body, 'See [[@article:n2|Beta]], [[@article:n2#Part|this]] and [[Gone]] and [[@n9|Beta]].')
+})
+
+test('a page a link made, dropped again: links pointed at it wait for its name once more, others stay', () => {
+  const body = doc(line(link({ id: 'g1', label: 'Ghost page', key: 'N-1', kind: 'note' }), link({ id: 'n2', label: 'Other' })))
+  const { body: out, count } = unresolveLinks(body, 'g1')
+  assert.equal(count, 1)
+  assert.deepEqual((out as { content: { content: { attrs: { id: string; label: string; key: string } }[] }[] }).content[0].content.map((one) => [one.attrs.id, one.attrs.label, one.attrs.key]), [['', 'Ghost page', ''], ['n2', 'Other', '']])
+  assert.equal(unresolveLinks('See [[@g1|Ghost page]], [[@g1#Part|Ghost page]] and [[@n2|Other]].', 'g1').body, 'See [[Ghost page]], [[Ghost page#Part]] and [[@n2|Other]].')
 })
