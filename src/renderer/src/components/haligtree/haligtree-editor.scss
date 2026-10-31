@@ -1756,6 +1756,29 @@ html[data-motion="off"] :is(.prosemirror-dropcursor-block, .prosemirror-dropcurs
     border-radius: 0.75rem;
   }
 
+  // "Pause while I type", quiet under the video: a dot filled when on, a ring when off.
+  .mf-video-type-pause {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 0.4rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 0.5rem;
+    font-size: 12px;
+    color: var(--muted-foreground);
+    cursor: pointer;
+    transition: background-color 120ms var(--mf-ease, ease-out), transform 120ms var(--mf-ease, ease-out);
+    &:hover { background: color-mix(in srgb, var(--foreground) 6%, transparent); color: var(--foreground); }
+    &:active { transform: scale(0.97); }
+  }
+  .mf-video-type-pause-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 999px;
+    border: 1.5px solid var(--primary);
+  }
+  .mf-video-type-pause[data-type-pause="on"] .mf-video-type-pause-dot { background: var(--primary); }
+
   // Its picture and a play button until it is pressed: never a blank frame.
   .mf-video-face {
     position: relative;

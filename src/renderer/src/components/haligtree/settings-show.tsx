@@ -592,6 +592,14 @@ export const FoldSample = ({ on }: { on: boolean }): React.JSX.Element => (
   </span>
 )
 
+/** A video and a line being written under it: on, the video shows paused and the line starts with its time; off, it plays on and the line is plain. */
+export const TypePauseSample = ({ on }: { on: boolean }): React.JSX.Element => (
+  <span data-preview="type-pause" data-on={on || undefined} className="flex h-9 w-40 items-center gap-2 rounded-md border bg-background px-2 text-control text-foreground">
+    <span aria-hidden className="flex h-5 w-7 shrink-0 items-center justify-center rounded-[4px] bg-foreground/80 text-[9px] text-background">{on ? '❙❙' : '▶'}</span>
+    <span className="truncate">{on && <span className="text-primary underline decoration-primary/40 underline-offset-2">[4:05]</span>} tides turn</span>
+  </span>
+)
+
 /** A misspelt word as that place shows it: on, its soft squiggle; off, the word left plain. */
 export const SpellSample = ({ on, words }: { on: boolean; words: string }): React.JSX.Element => (
   <span data-preview="spell" data-on={on || undefined} className="flex h-9 w-40 items-center justify-center rounded-md border bg-background px-2.5 text-control text-foreground">

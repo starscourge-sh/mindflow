@@ -80,6 +80,7 @@ import { ExcalidrawDiagram } from "@/extensions/excalidraw"
 import { ContentsBlock } from "@/extensions/contents-block"
 import { Calc } from "@/extensions/calc"
 import { Collect, CollectPill } from "@/extensions/collect"
+import { TypePause } from "@/extensions/type-pause"
 import { markdownToDocument } from "@/lib/markdown-doc"
 import { LongDocument } from "@/extensions/long-document"
 import { Typewriter } from "@/extensions/typewriter"
@@ -1455,6 +1456,8 @@ function Surface({
       ...((math ?? shape === "document") ? [Calc] : []),
       // Collect what you copy: only a whole note can take copies in.
       ...(shape === "document" ? [Collect] : []),
+      // A note's video pauses as you write, and ⌥K ⌥J ⌥L play and skip it.
+      ...(shape === "document" ? [TypePause] : []),
       ImageDrop,
       DragOut,
       BlockColor,

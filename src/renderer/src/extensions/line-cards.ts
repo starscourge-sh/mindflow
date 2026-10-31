@@ -7,6 +7,9 @@ import { lineCard, termLines } from "../../../main/study"
 import { cardListOf } from "../../../main/card-lists"
 import { openPdf } from "@/components/pdf/pdf-reader"
 import { isAudio } from "@/lib/transcribe"
+
+/** A video file kept in the note, which its times play too. */
+const isVideoFile = (node: ProseMirrorNode): boolean => node.type.name === "attachment" && /\.(mp4|mov|m4v|webm)$/i.test(String(node.attrs.name || node.attrs.src || ""))
 import { num } from "../../../main/dates"
 
 /** A small card, drawn: what marks a line that Review asks you. */
@@ -54,7 +57,7 @@ function marks(doc: ProseMirrorNode): DecorationSet {
   const found: Decoration[] = []
   // Times and pages are links only when the note has the video or PDF they open.
   let video = false
-  doc.descendants((node) => (video ||= node.type.name === "youtube", !video))
+  doc.descendants((node) => (video ||= node.type.name === "youtube" || isVideoFile(node), !video))
   const pdf = pdfIn(doc)
   // The last recording above a line: a time under it plays that recording, as a transcript's times do (lib/transcribe.ts).
   let audio: string | null = null
@@ -207,6 +210,14 @@ export const LineCards = Extension.create({
               return true
             }
             if (time.dataset.audio) return playAt(view.dom, time.dataset.audio, Number(time.dataset.seconds))
+            // A video file in the note plays from the time itself.
+            const file = view.dom.querySelector<HTMLVideoElement>("video.tiptap-attachment-video")
+            if (file && !view.dom.querySelector("[data-youtube-video]")) {
+              file.currentTime = Number(time.dataset.seconds)
+              void file.play()
+              file.scrollIntoView({ block: "center", behavior: "smooth" })
+              return true
+            }
             const video = view.dom.querySelector<HTMLElement>("[data-youtube-video]")
             if (!video) return false
             window.dispatchEvent(new CustomEvent("haligtree:video-at", { detail: { seconds: Number(time.dataset.seconds), video } }))

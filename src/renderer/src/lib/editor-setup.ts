@@ -6,6 +6,7 @@ import '@fontsource/opendyslexic/700.css'
 // whole editor into everything that reads the settings.
 import { setCues, type EditorCue } from '@/lib/cues'
 import { setCalc } from '@/extensions/calc'
+import { setTypePause } from '@/extensions/type-pause'
 import { setFoldHeadings } from '@/extensions/heading-fold'
 import { setTagSource } from '@/extensions/note-link'
 import { chime, step, type Cue } from './sound'
@@ -101,6 +102,7 @@ export function useEditorSetup(settings: Settings | null): void {
   useEffect(() => {
     if (!settings) return
     setCalc(settings.calc)
+    setTypePause(settings.typePause !== false)
     setFoldHeadings(settings.foldHeadings !== false)
     const root = document.documentElement.style
     root.setProperty('--mf-font', familyOf(settings.noteFont))
@@ -111,7 +113,7 @@ export function useEditorSetup(settings: Settings | null): void {
     if (!settings.headingFont || settings.headingFont === 'same') root.removeProperty('--mf-heading-font')
     else root.setProperty('--mf-heading-font', familyOf(settings.headingFont))
     root.setProperty('--mf-text-scale', String(settings.textSize))
-  }, [settings?.calc, settings?.foldHeadings, settings?.noteFont, settings?.fontNotesOnly, settings?.headingFont, settings?.textSize]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [settings?.calc, settings?.typePause, settings?.foldHeadings, settings?.noteFont, settings?.fontNotesOnly, settings?.headingFont, settings?.textSize]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ⌘+ and ⌘− grow and shrink the whole app, in every window, and ⌘0 puts it
   // back; ⌥⌘+ and ⌥⌘− do the same for the words in notes alone. Taken before

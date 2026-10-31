@@ -72,7 +72,7 @@ import { Lead, plain } from './lead'
 import { backedUpAgo, chooseBackupFolder } from '@/lib/backups'
 import { ThemeDial } from './theme-dial'
 import { TimeField } from './time-field'
-import { BarWordsSample, BlurSample, CentredSample, DayHintsSample, FoldSample, SpellSample, HomeMonthSample, TimeGoneSample, TitleTopSample, TypewriterSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, StirSample, TempusSample, ThemeFileGuide, TuckSample, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, highlightChoices, paperChoices, pictureSizeChoices, tagLookChoices, IconColourSample, menuIconChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices, TranscribeSample, TalkSample } from './settings-show'
+import { BarWordsSample, BlurSample, CentredSample, DayHintsSample, FoldSample, TypePauseSample, SpellSample, HomeMonthSample, TimeGoneSample, TitleTopSample, TypewriterSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, StirSample, TempusSample, ThemeFileGuide, TuckSample, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, highlightChoices, paperChoices, pictureSizeChoices, tagLookChoices, IconColourSample, menuIconChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices, TranscribeSample, TalkSample } from './settings-show'
 import { BookOpen as BookHeart, Brain, HardDrive, CircleHelp as LifeBuoy, ListTodo as ListChecks, Camera as Mountain, Brush as Palette, Pencil as PenLine, Search as SearchIcon, Sparkles, Volume2, X } from '@/components/ui/icons'
 import { APP_NAME } from '../../../../main/name'
 
@@ -814,6 +814,10 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
         <Group section="Writing" title="As you write">
           <Setting title="Math as you type" note="End a line with = to see its answer, and Tab or → writes it in." more="lunch = 25 names a number for the lines below, and units, time and money work too: 5 km in mi, 3h 20m + 45m, $40 * 3 in EUR.">
             <Switch checked={settings.calc} onCheckedChange={(calc) => set({ calc })} />
+          </Setting>
+          <Setting title="Pause the video while I type" note="Start writing in a note with a playing video and it pauses; a new line gets the time, [4:05], and it plays on two seconds after you stop." more="For YouTube and video files in the note. ⌥K plays or pauses, ⌥J and ⌥L go back or on five seconds. Each video block has the same switch." keywords="video youtube pause typing time stamp mote">
+            <TypePauseSample on={settings.typePause !== false} />
+            <Switch checked={settings.typePause !== false} onCheckedChange={(typePause) => set({ typePause })} />
           </Setting>
           <Setting title="Fold headings" note="Click the arrow beside a heading to fold away what is under it." more="Up to the next heading as big, and nothing in the note changes; ⌥⌘[ folds the one you are in." keywords="fold collapse heading section outline hide">
             <FoldSample on={settings.foldHeadings !== false} />

@@ -391,6 +391,8 @@ const DEFAULTS = {
   // Notes: a line ending in = shows its answer; the first line rides in the
   // top bar once scrolled away; the font notes are written in, and its size.
   calc: true,
+  // A note's video pauses while you type in the note, and the line gets the time.
+  typePause: true,
   topTitle: true,
   // Misspelt words underlined as you write, in the languages picked; none
   // picked means the Mac's own.
