@@ -63,13 +63,22 @@ export function rangeOf(layer: Element, mark: PdfMark): Range | null {
   const nodes = textNodes(layer)
   const text = nodes.map((node) => node.data).join("")
   let { start, end } = mark
-  if (text.slice(start, end) !== mark.quote) {
+  // The quote is kept as the selection reads, its spaces evened out and a line end read as a space, while
+  // the page's own text runs lines together with no space between: compared without spaces, they agree.
+  const bare = (words: string): string => words.replace(/\s+/g, "")
+  if (bare(text.slice(start, end)) !== bare(mark.quote)) {
+    // Where each letter of the page's text sits, spaces left out, so a match found without them maps back.
+    const at: number[] = []
+    let letters = ""
+    for (let i = 0; i < text.length; i++) if (!/\s/.test(text[i])) (letters += text[i], at.push(i))
+    const quote = bare(mark.quote)
+    if (!quote) return null
     // The words with those around them first, so a phrase that comes twice finds the right one.
-    const near = `${mark.prefix ?? ""}${mark.quote}${mark.suffix ?? ""}`
-    const whole = mark.prefix || mark.suffix ? text.indexOf(near) : -1
-    const at = whole >= 0 ? whole + (mark.prefix ?? "").length : text.indexOf(mark.quote)
-    if (at < 0) return null
-    ;[start, end] = [at, at + mark.quote.length]
+    const before = bare(mark.prefix ?? "")
+    const whole = mark.prefix || mark.suffix ? letters.indexOf(`${before}${quote}${bare(mark.suffix ?? "")}`) : -1
+    const from = whole >= 0 ? whole + before.length : letters.indexOf(quote)
+    if (from < 0) return null
+    ;[start, end] = [at[from], at[from + quote.length - 1] + 1]
   }
   const range = document.createRange()
   let seen = 0
