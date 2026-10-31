@@ -334,12 +334,25 @@
 /* Paper pages: the white of the page becomes the app's own warm paper, the
    ink stays ink, and a picture only takes the faint warmth a printed one would. */
 /* The same in the reader and in a PDF shown in a note, so one page never reads two ways. */
-:is(.pdf-reader, .tiptap-attachment.is-pdf).is-paper .pdf-page {
+/* The pages in the side strip too, and the hover preview (pdf-peek.tsx), so a page is never white beside its paper self. */
+:is(.pdf-reader, .tiptap-attachment.is-pdf).is-paper :is(.pdf-page, .pdf-thumb-sheet),
+.pdf-peek-face.is-paper {
   background: #f4ecdb;
   isolation: isolate;
 }
 
-:is(.pdf-reader, .tiptap-attachment.is-pdf).is-paper .pdf-canvas {
+:is(.pdf-reader, .tiptap-attachment.is-pdf).is-paper :is(.pdf-canvas, .pdf-thumb-sheet canvas),
+.pdf-peek-face.is-paper img {
+  mix-blend-mode: multiply;
+}
+
+/* Covers are pages too: wherever one is drawn, it takes the same paper. */
+.paper-pages :is(.tiptap-pdf-cover, .read-details-cover, .pdf-book-cover, .pdf-inspector-cover, .continue-book-cover) {
+  background-color: #f4ecdb;
+  background-blend-mode: multiply;
+  isolation: isolate;
+}
+.paper-pages :is(.tiptap-pdf-cover, .read-details-cover, .pdf-book-cover, .pdf-inspector-cover, .continue-book-cover) img {
   mix-blend-mode: multiply;
 }
 

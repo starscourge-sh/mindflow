@@ -3,6 +3,13 @@ import { useEffect, useState } from "react"
 /** Told when "Paper pages" is turned on or off, so every reader and every PDF in a note follows at once. */
 const CHANGED = "haligtree:pdf-paper"
 
+// Said on the page itself too, for covers drawn outside any reader (the library,
+// Continue reading, a PDF's card in a note): they are pages as well.
+const mark = (): void => void document.documentElement.classList.toggle("paper-pages", localStorage.getItem("pdf-paper") === "1")
+mark()
+window.addEventListener(CHANGED, mark)
+window.addEventListener("storage", mark)
+
 /**
  * "Paper pages": PDF pages in the app's warm paper rather than white, one
  * setting for the reader, an article and a PDF in a note alike, so a page

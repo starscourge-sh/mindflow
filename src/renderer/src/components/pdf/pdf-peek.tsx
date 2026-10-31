@@ -3,6 +3,7 @@ import { FLOAT } from "@/lib/float"
 import { cn } from "@/lib/cn"
 import { hideForMenus, menuShowing } from "@/lib/menu-showing"
 import { pdfCover } from "./pdf-cover"
+import { usePaperPages } from "./paper"
 import { loadPdf } from "./pdf-pages"
 import { openPdf } from "./pdf-reader"
 
@@ -119,6 +120,8 @@ type Peek = { src: string; name: string; x: number; top: number; bottom: number;
  */
 export function PdfPeek(): React.JSX.Element | null {
   const [peek, setPeek] = React.useState<Peek | null>(null)
+  // "Paper pages" tints the preview as it does the pages, so a page reads one way everywhere.
+  const [paper] = usePaperPages()
   const card = React.useRef<HTMLDivElement>(null)
   const on = React.useRef<Element | null>(null)
   const wanted = React.useRef(0)
@@ -234,7 +237,7 @@ export function PdfPeek(): React.JSX.Element | null {
       <div
         role="button"
         aria-label={`Open ${peek.name || "the PDF"} at page ${peek.page}`}
-        className={cn(FLOAT, "relative size-full cursor-pointer overflow-hidden rounded-md animate-in fade-in-0 zoom-in-95 duration-100")}
+        className={cn(FLOAT, "pdf-peek-face", paper && "is-paper", "relative size-full cursor-pointer overflow-hidden rounded-md animate-in fade-in-0 zoom-in-95 duration-100")}
         onPointerMove={(event) => {
           const r = event.currentTarget.getBoundingClientRect()
           const page = Math.min(peek.count, Math.max(1, Math.floor(((event.clientX - r.left) / r.width) * peek.count) + 1))
@@ -242,7 +245,7 @@ export function PdfPeek(): React.JSX.Element | null {
         }}
         onClick={() => (openPdf(peek.src, peek.name, peek.page), (on.current = null), setPeek(null))}
       >
-        {peek.image ? <img src={peek.image} alt="" draggable={false} className="block size-full bg-white object-cover object-top" /> : <div className="size-full bg-white" />}
+        {peek.image ? <img src={peek.image} alt="" draggable={false} className={cn("block size-full object-cover object-top", !paper && "bg-white")} /> : <div className={cn("size-full", !paper && "bg-white")} />}
         <span data-pdf-peek-page className="absolute right-1.5 bottom-1.5 rounded bg-background px-1.5 py-0.5 text-[0.6875rem] font-medium tabular-nums text-foreground shadow-sm">
           {peek.page} / {peek.count}
         </span>
