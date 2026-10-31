@@ -1048,7 +1048,9 @@ body {
 [data-menu-scroll] [role^='menuitem']:focus-visible { outline: none; }
 
 @property --mf-more { syntax: '<length>'; inherits: false; initial-value: 0px; }
-.mf-more {
+.mf-more,
+[data-reading-pane] .note-pane,
+[data-reading-pane] .note-pane .haligtree-editor-content {
   mask-image: linear-gradient(to bottom, transparent 0, #000 var(--mf-less), #000 calc(100% - var(--mf-more)), transparent 100%);
   animation: mf-less linear both, mf-more linear both;
   animation-timeline: scroll(self), scroll(self);
@@ -1057,7 +1059,7 @@ body {
 @keyframes mf-less { from { --mf-less: 0px; } to { --mf-less: 1.5rem; } }
 @keyframes mf-more { from { --mf-more: 2.5rem; } to { --mf-more: 0px; } }
 /* Not motion, so the Motion setting leaves it on. */
-[data-motion='off'] :is(.mf-more, .mf-fade-end) { animation-duration: auto !important; }
+[data-motion='off'] :is(.mf-more, .mf-fade-end, [data-reading-pane] .note-pane, [data-reading-pane] .note-pane .haligtree-editor-content) { animation-duration: auto !important; }
 
 /* One highlight at a time: a card reached by keyboard, not also a list row. */
 body:has([data-card]:focus) [data-cursor] {

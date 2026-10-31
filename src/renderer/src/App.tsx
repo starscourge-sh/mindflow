@@ -605,6 +605,23 @@ export default function App(): React.JSX.Element {
   // Bumped on a fresh box. The editor is keyed on it, so a new one replaces it.
   const [round, setRound] = useState(0)
   const [leftover, setLeftover] = useState<JSONContent | null>(readLeftover)
+  // A page read in the box: whichever part of it scrolls at this width (the
+  // page itself when narrow, the note's words beside its details when wide).
+  const [readPane, setReadPane] = useState<HTMLDivElement | null>(null)
+  const [readScroller, setReadScroller] = useState<HTMLElement | null>(null)
+  useEffect(() => {
+    if (!readPane) return setReadScroller(null)
+    const find = (): void => {
+      const all = [readPane.querySelector<HTMLElement>('.note-pane'), readPane.querySelector<HTMLElement>('.note-pane .haligtree-editor-content')]
+      setReadScroller(all.find((one) => one && /auto|scroll/.test(getComputedStyle(one).overflowY)) ?? null)
+    }
+    find()
+    const watch = new ResizeObserver(find)
+    watch.observe(readPane)
+    const added = new MutationObserver(find)
+    added.observe(readPane, { childList: true })
+    return () => (watch.disconnect(), added.disconnect())
+  }, [readPane])
   /** The leftover back in the box: in place of an empty one, or after what is there. */
   const leftoverBack = (): void => {
     const editor = editorRef.current
@@ -1994,8 +2011,11 @@ export default function App(): React.JSX.Element {
                   </Button>
                   <Kbd>⌘[</Kbd>
                 </div>
-                <div className="@container/page flex min-h-0 flex-1">
+                <div ref={setReadPane} data-reading-pane className="@container/page relative flex min-h-0 flex-1">
                   <Reader type={reading.type} id={reading.id} onOpen={openAny} onClose={() => setReading(null)} />
+                  {/* The house rules for a long page: edges that fade where more is hidden (main.css), and Top. */}
+                  {/* Above the page's own "Add a thought" bar, never on it. */}
+                  <div className="pointer-events-none absolute inset-x-0 top-0 bottom-20"><BackToTop target={readScroller} /></div>
                 </div>
               </motion.div>
             ) : (
