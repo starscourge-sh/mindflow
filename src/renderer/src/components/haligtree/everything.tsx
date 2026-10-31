@@ -348,9 +348,9 @@ export function emptyFor(kinds: string[], state: TaskState, filtered: boolean, m
 /** Done, many at once: one notice, one sound and one Undo for the lot. */
 export async function doneTasks(tasks: Task[]): Promise<void> {
   if (!tasks.length) return
-  const was = await Promise.all(tasks.map((task) => haligtree.doneTask(task.id)))
+  const was = await haligtree.doneTasks(tasks.map((task) => task.id))
   chime('done')
-  const undo = (): void => void Promise.all(tasks.map((task, at) => haligtree.undoneTask(task.id, was[at])))
+  const undo = (): void => void haligtree.undoneTasks(tasks.map((task, at) => ({ id: task.id, was: was[at] })))
   // One tick shows itself; many at once are counted, with the way back.
   if (tasks.length === 1) quietly(undo)
   else toast(`${num(tasks.length)} done`, undo)

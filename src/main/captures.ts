@@ -639,7 +639,20 @@ export function registerCaptures(): void {
   })
 
   // Only the fields passed are written. `coalesce` keeps the rest as they were.
-  ipcMain.handle('captures:save', (event, id: unknown, raw: unknown): SaveResult => {
+  ipcMain.handle('captures:save', (event, id: unknown, raw: unknown): SaveResult => saveOne(event.sender, id, raw, true))
+  // Many at once (the Bin for every picked row, and its Undo): one write for the lot and one change told to the
+  // windows, not one per note, which with 95 rows took two seconds of lists reloading. Each keeps its own patch.
+  ipcMain.handle('captures:save-many', (event, saves: unknown): SaveResult[] => {
+    const list = z.array(z.object({ id: z.string(), patch: z.unknown() })).parse(saves)
+    const results = atomically(() => list.map((one) => saveOne(event.sender, one.id, one.patch, false)))
+    changed()
+    // The Inbox emptied by them is looked at once, after the last.
+    const last = list.findLast((one, at) => (one.patch as { status?: string })?.status && !results[at].refused)
+    if (last) celebrateAfter('captures:save', event.sender, [last.id, last.patch], results[list.indexOf(last)])
+    return results
+  })
+  /** One capture saved; `tell` says the windows now, or leaves it to a batch's one telling. */
+  function saveOne(sender: Electron.WebContents, id: unknown, raw: unknown, tell: boolean): SaveResult {
     const patch = Patch.parse(raw)
     // Two editors on one note, or an editor and a merge: words written since
     // this editor last looked are never written over. It is told what is
@@ -691,14 +704,14 @@ export function registerCaptures(): void {
     if (row && patch.body !== undefined) syncLineCards(`capture:${String(id)}`, patch.body, (db.prepare('select private from captures where id = ?').get(String(id)) as { private: number }).private)
     if (row && (patch.markdown !== undefined || patch.body !== undefined)) void writeMarkdown(row.number as number, patch.markdown ?? markdown(patch.body))
     else if (patch.status) checkMarkdown(String(id))
-    changed({ kind: 'capture', id: String(id) })
+    if (tell) changed({ kind: 'capture', id: String(id) })
     // Renamed: once the new name rests, every link to it says it (renames.ts).
     // Only a name you changed: a link card filling in its page's title, or a book being set out, is written as fetched and renames nothing.
-    if (row && before && !patch.fetched && (patch.body !== undefined || patch.title !== undefined)) watchName(String(id), before.label ?? '', event.sender)
+    if (row && before && !patch.fetched && (patch.body !== undefined || patch.title !== undefined)) watchName(String(id), before.label ?? '', sender)
     const result = { was, refused, ...(moved ? { conflict: true, body: moved.body } : {}) }
-    if (patch.status) celebrateAfter('captures:save', event.sender, [id, patch], result)
+    if (tell && patch.status) celebrateAfter('captures:save', sender, [id, patch], result)
     return result
-  })
+  }
 }
 
 /** One new row, numbered after the last. */

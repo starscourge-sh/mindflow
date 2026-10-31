@@ -50,22 +50,24 @@ export async function moveToBin(refs: BinRef[], onUndo?: () => void): Promise<nu
   // Each row still on screen goes through the shredder once it is in the Bin, wherever it was binned from
   // (a list, a menu, the box's tabs): its picture is taken now, while it is still there. By a key it simply goes.
   const shreds = going.slice(0, 8).map((one) => shred(one.id))
-  const undos = await Promise.all(going.map(async (one): Promise<() => Promise<unknown>> => {
-    if (one.type === 'capture') {
-      const result = await window.api.captures.save(one.id, { status: 'discarded', bin: true })
-      const was = (result?.was ?? 'open') as 'open'
-      return () => window.api.captures.save(one.id, { status: was, bin: true })
-    }
-    if (one.type === 'task') {
-      const was = one.status && one.status !== 'dropped' ? one.status : 'open'
-      // A done one comes back done at the time it was done, not now.
-      const doneAt = was === 'done' ? ((await haligtree.task(one.id))?.completedAt ?? null) : null
-      await haligtree.saveTask(one.id, { status: 'dropped' })
-      return () => haligtree.saveTask(one.id, { status: was, ...(doneAt ? { completedAt: doneAt } : {}) })
-    }
-    await haligtree.toBin(one.id)
-    return () => haligtree.restore(one.type, one.id)
-  }))
+  // Captures, and gems, pages and the rest, each kind in one write with one change told, and back the same way:
+  // one call a row made 95 rows take two seconds of every list reloading, going and coming back.
+  const captures = going.filter((one) => one.type === 'capture')
+  const others = going.filter((one) => one.type !== 'capture' && one.type !== 'task')
+  const [saved] = await Promise.all([
+    captures.length ? window.api.captures.saveMany(captures.map((one) => ({ id: one.id, patch: { status: 'discarded', bin: true } }))) : [],
+    others.length ? haligtree.toBinMany(others.map((one) => one.id)) : null
+  ])
+  const back: (() => Promise<unknown>)[] = []
+  if (captures.length) back.push(() => window.api.captures.saveMany(captures.map((one, at) => ({ id: one.id, patch: { status: (saved[at]?.was ?? 'open') as 'open', bin: true } }))))
+  if (others.length) back.push(() => haligtree.restoreMany(others.map((one) => ({ type: one.type, id: one.id }))))
+  // A task keeps its own way: a done one comes back done at the time it was done.
+  const undos = [...back, ...await Promise.all(going.filter((one) => one.type === 'task').map(async (one): Promise<() => Promise<unknown>> => {
+    const was = one.status && one.status !== 'dropped' ? one.status : 'open'
+    const doneAt = was === 'done' ? ((await haligtree.task(one.id))?.completedAt ?? null) : null
+    await haligtree.saveTask(one.id, { status: 'dropped' })
+    return () => haligtree.saveTask(one.id, { status: was, ...(doneAt ? { completedAt: doneAt } : {}) })
+  }))]
   for (const land of shreds) land?.()
   // Heard by each page with one open beside its list (lib/nav.ts useOpened): off it, onto the next.
   binned(going.map((one) => one.id))

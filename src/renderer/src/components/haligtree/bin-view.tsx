@@ -151,10 +151,10 @@ export function BinView({ onOpen }: { onOpen?: (type: string, id: string) => voi
   }
   // Several back where they were, in one go, and back in the Bin with one undo.
   const restoreMany = (list: Binned[]): void => {
-    void Promise.all(list.map((one) => haligtree.restore(one.type, one.id))).then(() => {
+    void haligtree.restoreMany(list.map((one) => ({ type: one.type, id: one.id }))).then(() => {
       chime('unshelve')
       setPicked([])
-      toast(`Restored ${num(list.length)}: back where ${list.length === 1 ? 'it was' : 'they were'}`, () => void Promise.all(list.map(unbin)))
+      toast(`Restored ${num(list.length)}: back where ${list.length === 1 ? 'it was' : 'they were'}`, () => void unbinMany(list))
     })
   }
   // Deleted for good, after a held yes: it cannot be undone, so it is said so before, not after.
@@ -377,6 +377,17 @@ const unbin = (one: Binned): Promise<unknown> =>
   one.type === 'capture' ? window.api.captures.save(one.id, { status: 'discarded', bin: true })
     : one.type === 'task' ? haligtree.saveTask(one.id, { status: 'dropped' })
       : haligtree.toBin(one.id)
+
+/** Several back into the Bin, each kind in one write with one change told (tasks one by one, as their status says). */
+const unbinMany = (list: Binned[]): Promise<unknown> => {
+  const captures = list.filter((one) => one.type === 'capture')
+  const others = list.filter((one) => one.type !== 'capture' && one.type !== 'task')
+  return Promise.all([
+    captures.length ? window.api.captures.saveMany(captures.map((one) => ({ id: one.id, patch: { status: 'discarded', bin: true } }))) : null,
+    others.length ? haligtree.toBinMany(others.map((one) => one.id)) : null,
+    ...list.filter((one) => one.type === 'task').map(unbin)
+  ])
+}
 
 /** What the Bin holds when it is empty, as an example: three captures, a task and a gem. */
 const EXAMPLES = (): Binned[] => [

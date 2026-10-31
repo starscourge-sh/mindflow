@@ -121,8 +121,8 @@ function Fits({ start, onClose }: { start: number; onClose: () => void }): React
     setPicked([])
     if (tasks.length === 1) return void completeTask(tasks[0])
     chime('done')
-    void Promise.all(tasks.map((task) => haligtree.doneTask(task.id))).then((was) =>
-      toast(`${num(tasks.length)} done`, () => void Promise.all(tasks.map((task, index) => haligtree.undoneTask(task.id, was[index])))))
+    void haligtree.doneTasks(tasks.map((task) => task.id)).then((was) =>
+      toast(`${num(tasks.length)} done`, () => void haligtree.undoneTasks(tasks.map((task, index) => ({ id: task.id, was: was[index] })))))
   }
   const menuOf = (task: Task): RowItem[] => live.length > 1 && live.includes(task.id)
     ? [

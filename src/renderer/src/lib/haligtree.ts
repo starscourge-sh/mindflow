@@ -237,6 +237,9 @@ export type Stats = {
   unprocessed: { now: number; weekAgo: number }
 }
 
+/** What a task's save may change. */
+export type TaskPatch = Partial<{ allDay: number; title: string; until: string | null; notes: unknown; due: string | null; recurrence: string | null; status: string; waitingOn: string | null; subtasks: Subtask[]; estimate: number | null; sortOrder: number | null; important: number; deadline: string | null; deadlineTimed: number; blocker: string | null; blockedBy: string | null; reschedules: number; notify: string | null; priority: number; plan: string | null; notifiedAt: string | null; completedAt: string | null; snoozedUntil: string | null; getReady: number | null; rollovers: number; skips: number }>
+
 export const haligtree = {
   /** Other names a note goes by; `setAliases` gives back the list it had, for an undo. */
   aliases: (table: 'captures' | 'nuggets', id: string) => call<string[]>('aliases', table, id),
@@ -374,7 +377,7 @@ export const haligtree = {
   task: (id: string) => call<TaskFull | null>('task', id),
   /** `today`: with no date in the words, it is for today. */
   addTask: (text: string, origin?: string, today = false, plain?: { from: number; to: number }[]) => call<Made>('task:add', text, origin, today, plain),
-  saveTask: (id: string, patch: Partial<{ allDay: number; title: string; until: string | null; notes: unknown; due: string | null; recurrence: string | null; status: string; waitingOn: string | null; subtasks: Subtask[]; estimate: number | null; sortOrder: number | null; important: number; deadline: string | null; deadlineTimed: number; blocker: string | null; blockedBy: string | null; reschedules: number; notify: string | null; priority: number; plan: string | null; notifiedAt: string | null; completedAt: string | null; snoozedUntil: string | null; getReady: number | null; rollovers: number; skips: number }>) =>
+  saveTask: (id: string, patch: TaskPatch) =>
     call<TaskWas | true>('task:save', id, patch),
   /** Gives back what it was, for `undoneTask`. */
   doneTask: (id: string) => call<Finished>('task:done', id),
@@ -382,6 +385,9 @@ export const haligtree = {
   skipTask: (id: string) => call<Finished>('task:skip', id),
   /** Open again on the date it had, and that time done no longer counted: a routine's undo too. */
   undoneTask: (id: string, was: Finished) => call('task:undone', id, was),
+  /** Many done, or put back, in one write with one change told. */
+  doneTasks: (ids: string[]) => call<Finished[]>('task:done-many', ids),
+  undoneTasks: (list: { id: string; was: Finished }[]) => call('task:undone-many', list),
   /** A task made by mistake: see `makeTask`. */
   unmakeTask: (id: string, existed: boolean, links: string[], reopen: string[]) => call('task:unmake', id, existed, links, reopen),
   /** The note a task is made from, set, changed or taken off (null); gives back the one it had, for Undo. */
@@ -524,6 +530,11 @@ export const haligtree = {
   binPeek: (type: string, id: string) => call<BinPeek | null>('bin:peek', type, id),
   toBin: (id: string) => call('bin:put', id),
   restore: (type: string, id: string) => call('bin:restore', type, id),
+  /** Many into the Bin, or back out, in one write with one change told. */
+  toBinMany: (ids: string[]) => call('bin:put-many', ids),
+  /** Many tasks saved in one write with one change told, each with its own patch. */
+  saveTasks: (saves: { id: string; patch: TaskPatch }[]) => call('task:save-many', saves),
+  restoreMany: (list: { type: string; id: string }[]) => call('bin:restore-many', list),
   /** One thing in the Bin let go for good. */
   forgetBinned: (type: string, id: string) => call<boolean>('bin:forget', type, id),
   emptyBin: () => call<number>('bin:empty'),

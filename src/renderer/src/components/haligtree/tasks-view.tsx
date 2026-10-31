@@ -889,9 +889,9 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
         const was = view
         if (view.sort !== 'manual') setView({ ...view, sort: 'manual' })
         chime('shift')
-        void Promise.all(order.map((one, index) => haligtree.saveTask(one.id, { sortOrder: index }))).then(() => {
+        void haligtree.saveTasks(order.map((one, index) => ({ id: one.id, patch: { sortOrder: index } }))).then(() => {
           // Said once it switches, so the sort's label never lies; Undo puts both back.
-          if (was.sort !== 'manual') toast('Now in your own order', () => (setView(was), void Promise.all(shown.map((one) => haligtree.saveTask(one.id, { sortOrder: one.sortOrder })))))
+          if (was.sort !== 'manual') toast('Now in your own order', () => (setView(was), void haligtree.saveTasks(shown.map((one) => ({ id: one.id, patch: { sortOrder: one.sortOrder } })))))
         })
         setCursor(to)
         return

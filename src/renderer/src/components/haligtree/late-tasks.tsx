@@ -42,7 +42,7 @@ async function rescheduleAll(list: Task[], where: Where, noun: [string, string] 
   chime('move')
   const said = typeof where === 'object' ? dayjs(where.day).format('dddd D MMMM') : SAID[where]
   toast(`Moved ${list.length === 1 ? noun[0] : `${num(list.length)} ${noun[1]}`} to ${said}`, () =>
-    void Promise.all(was.map((one, at) => haligtree.saveTask(one.id, { due: one.due, plan: one.plan, ...(before[at] === true ? {} : before[at]) }))).then(() => chime('undo')))
+    void haligtree.saveTasks(was.map((one, at) => ({ id: one.id, patch: { due: one.due, plan: one.plan, ...(before[at] === true ? {} : before[at]) } }))).then(() => chime('undo')))
 }
 
 /** "Pick a date…" asked from a right click: the "N late" button opens its calendar. */

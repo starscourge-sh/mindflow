@@ -145,7 +145,7 @@ export function WeekFit({ monday }: { monday: string }): React.JSX.Element {
     const n = was.length
     toast(`Moved ${num(n)} ${n === 1 ? 'task' : 'tasks'} on from ${dayjs(day).format('dddd')}`, () => {
       chime('undo')
-      void Promise.all(was.map(([id, due, before]) => haligtree.saveTask(id, { due, ...(before === true ? {} : before) })))
+      void haligtree.saveTasks(was.map(([id, due, before]) => ({ id, patch: { due, ...(before === true ? {} : before) } })))
     })
   }
 

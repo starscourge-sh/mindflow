@@ -266,7 +266,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
 
   // --- the writes, each heard and each undoable ----------------------------
 
-  const renumber = (list: string[]): Promise<unknown> => Promise.all(list.map((id, at) => haligtree.saveTask(id, { sortOrder: at })))
+  const renumber = (list: string[]): Promise<unknown> => haligtree.saveTasks(list.map((id, at) => ({ id, patch: { sortOrder: at } })))
   /** What moving into a section changes on the task: its day, or its want of one. */
   const into = (section: Section, task?: Pick<Task, 'dueAt'>) =>
     section === 'now' ? { due: shiftTo(0, task?.dueAt) } : section === 'next' ? { due: null, plan: null } : { plan: 'someday' }
@@ -455,11 +455,11 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
   const bring = async (list: Task[]): Promise<void> => {
     if (!list.length) return
     const was = list.map((task) => ({ id: task.id, due: task.dueAt, plan: task.planFor, sortOrder: task.sortOrder }))
-    await Promise.all(list.map((task) => haligtree.saveTask(task.id, into('now', task))))
+    await haligtree.saveTasks(list.map((task) => ({ id: task.id, patch: into('now', task) })))
     await renumber([...now.map((task) => task.id).filter((id) => !list.some((one) => one.id === id)), ...list.map((task) => task.id)])
     onWrite?.()
     chime('gather')
-    quietly(() => void Promise.all(was.map((one) => haligtree.saveTask(one.id, { due: one.due, plan: one.plan, sortOrder: one.sortOrder }))))
+    quietly(() => void haligtree.saveTasks(was.map((one) => ({ id: one.id, patch: { due: one.due, plan: one.plan, sortOrder: one.sortOrder } }))))
   }
   const clearTicked = (): void => {
     const gone = now.filter(done).map((task) => task.id)

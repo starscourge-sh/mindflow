@@ -575,6 +575,9 @@ const api = {
     create: (patch: CapturePatch): Promise<string> => ipcRenderer.invoke('captures:create', patch),
     save: (id: string, patch: CapturePatch): Promise<SaveResult> =>
       ipcRenderer.invoke('captures:save', id, patch),
+    /** Many saved in one write, the windows told once: each its own patch, the results in the same order. */
+    saveMany: (saves: { id: string; patch: CapturePatch }[]): Promise<SaveResult[]> =>
+      ipcRenderer.invoke('captures:save-many', saves),
     /**
      * Any window's write, as it happens: told which notes, or null for
      * anything. With `kinds`, only writes that could touch those.

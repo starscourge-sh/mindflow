@@ -140,9 +140,9 @@ export function MatrixView({ focus, onOpen, today }: { focus?: string; onOpen?: 
     setHeld(list.map((task) => task.id))
     chime('shift')
     saving.current++
-    void Promise.all(list.map((task, index) => haligtree.saveTask(task.id, { sortOrder: index }))).then(() => {
+    void haligtree.saveTasks(list.map((task, index) => ({ id: task.id, patch: { sortOrder: index } }))).then(() => {
       saving.current--
-      quietly(() => void Promise.all(was.map(([id, sortOrder]) => haligtree.saveTask(id, { sortOrder }))))
+      quietly(() => void haligtree.saveTasks(was.map(([id, sortOrder]) => ({ id, patch: { sortOrder } }))))
     })
   }
   /** A task to another box: its importance, and its date when it goes into an urgent one. */

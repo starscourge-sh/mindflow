@@ -207,11 +207,11 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
   const carry = async (): Promise<void> => {
     const rest = open.filter((task) => !chosen[task.id])
     if (!rest.length) return chime('nope')
-    await Promise.all(rest.map((task) => haligtree.saveTask(task.id, { due: shiftTo(ahead, task.dueAt) })))
+    await haligtree.saveTasks(rest.map((task) => ({ id: task.id, patch: { due: shiftTo(ahead, task.dueAt) } })))
     chime('later')
     setChosen((all) => ({ ...all, ...Object.fromEntries(rest.map((task) => [task.id, 'tomorrow' as Choice])) }))
     toast(rest.length === 1 ? 'Carried to tomorrow' : `${num(rest.length)} carried to tomorrow`, () => {
-      void Promise.all(rest.map((task) => haligtree.saveTask(task.id, { due: task.dueAt, plan: task.planFor })))
+      void haligtree.saveTasks(rest.map((task) => ({ id: task.id, patch: { due: task.dueAt, plan: task.planFor } })))
       setChosen((all) => Object.fromEntries(Object.entries(all).filter(([id]) => !rest.some((task) => task.id === id))))
     })
   }

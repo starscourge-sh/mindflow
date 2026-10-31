@@ -444,14 +444,14 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
     // would lose where it went.
     const ids = chosen.filter((id) => all.find((capture) => capture.id === id)?.status === 'open')
     if (!ids.length) return refuse('Nothing changed: none of the picked captures is still in the Inbox')
-    void Promise.all(ids.map((id) => window.api.captures.save(id, { status }))).then((results) => {
+    void window.api.captures.saveMany(ids.map((id) => ({ id, patch: { status } }))).then((results) => {
       // The undo puts back only what this changed, each to the status it had.
       const moved = ids.flatMap((id, at) => (results[at]?.refused ? [] : [{ id, was: (results[at]?.was ?? 'open') as 'open' }]))
       chime('resolve')
       const skipped = chosen.length - moved.length
       setChosen([])
       // Where they went, and why any picked one stayed as it was.
-      toast(`Resolved ${num(moved.length)}: done with, still there with “Show sorted too”${skipped ? `. ${num(skipped)} already dealt with stayed as ${skipped === 1 ? 'it was' : 'they were'}` : ''}`, () => void Promise.all(moved.map((one) => window.api.captures.save(one.id, { status: one.was }))))
+      toast(`Resolved ${num(moved.length)}: done with, still there with “Show sorted too”${skipped ? `. ${num(skipped)} already dealt with stayed as ${skipped === 1 ? 'it was' : 'they were'}` : ''}`, () => void window.api.captures.saveMany(moved.map((one) => ({ id: one.id, patch: { status: one.was } }))))
     })
   }
   // A task's row: its tick, its day, its steps, and the task's own menu.

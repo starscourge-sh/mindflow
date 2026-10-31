@@ -1320,7 +1320,9 @@ export function registerHaligtree(): void {
       if (watches(channel)) void Promise.resolve(result).then((done) => celebrateAfter(channel, event.sender, args, done), () => undefined)
       return result
     })
-  const write = <T>(result: T, what?: Change): T => (changed(what), result)
+  // Above zero while a batch writes many: each one's telling is left to the batch's one.
+  let quiet = 0
+  const write = <T>(result: T, what?: Change): T => (quiet || changed(what), result)
 
   // --- settings and privacy
   handle('settings', () => settings())
@@ -2076,21 +2078,39 @@ export function registerHaligtree(): void {
   // Brought in from Apple Notes or Obsidian and not yet kept, tagged, moved or binned (note-imports.ts).
   column('nuggets', 'unsorted integer not null default 0')
   // A goal in the Bin takes its desktop card with it at once.
-  handle('bin:put', (id: string) => {
+  // One into the Bin, or back out: the windows are told by the caller, once for one or for many.
+  const putInBin = (id: string): unknown => {
     // A calendar event goes by the same door (events.ts).
-    if (eventToBin(id)) return write(true)
-    if (practiceToBin(id)) return write(true)
-    const done = write(db.prepare("update nuggets set binned_at = ?, binned_was = json_object('pinned_at', pinned_at, 'archived_at', archived_at), archived_at = coalesce(archived_at, ?), pinned_at = null where id = ?").run(now(), now(), id))
-    goalsTold()
-    return done
-  })
-  handle('bin:restore', (type: string, id: string) => {
+    if (eventToBin(id)) return true
+    if (practiceToBin(id)) return true
+    return db.prepare("update nuggets set binned_at = ?, binned_was = json_object('pinned_at', pinned_at, 'archived_at', archived_at), archived_at = coalesce(archived_at, ?), pinned_at = null where id = ?").run(now(), now(), id)
+  }
+  const outOfBin = (type: string, id: string): void => {
     if (type === 'capture') db.prepare("update captures set status = coalesce(binned_was, 'open'), binned_was = null where id = ? and status = 'discarded'").run(id)
     else if (type === 'task') db.prepare("update tasks set status = 'open', completed_at = null where id = ? and status = 'dropped'").run(id)
     else if (type === 'event' || type === 'calendar') eventFromBin(id)
     else if (type === 'practice') practiceFromBin(id)
     else db.prepare("update nuggets set binned_at = null, archived_at = json_extract(binned_was, '$.archived_at'), pinned_at = coalesce(pinned_at, json_extract(binned_was, '$.pinned_at')), binned_was = null where id = ?").run(id)
+  }
+  handle('bin:put', (id: string) => {
+    const done = write(putInBin(id))
+    goalsTold()
+    return done
+  })
+  handle('bin:restore', (type: string, id: string) => {
+    outOfBin(type, id)
     if (type !== 'capture' && type !== 'task') goalsTold()
+    return write(true)
+  })
+  // Many at once, picked rows of a list and their Undo: one write and one telling for the lot.
+  handle('bin:put-many', (ids: string[]) => {
+    atomically(() => ids.forEach(putInBin))
+    goalsTold()
+    return write(true)
+  })
+  handle('bin:restore-many', (list: { type: string; id: string }[]) => {
+    atomically(() => list.forEach((one) => outOfBin(one.type, one.id)))
+    if (list.some((one) => one.type !== 'capture' && one.type !== 'task')) goalsTold()
     return write(true)
   })
   // For good: what is in the Bin, and what hangs off it.
@@ -3345,7 +3365,7 @@ export function registerHaligtree(): void {
     return write(task)
   })
   const TASK_COLUMNS = { title: 'title', allDay: 'all_day', recurrence: 'recurrence', waitingOn: 'waiting_on', estimate: 'estimate', sortOrder: 'sort_order', important: 'important', deadline: 'deadline_at', deadlineTimed: 'deadline_timed', blocker: 'blocker', blockedBy: 'blocked_by', reschedules: 'reschedules', notify: 'notify', priority: 'priority', plan: 'plan_for', until: 'repeat_until', snoozedUntil: 'snoozed_until', getReady: 'get_ready', rollovers: 'rollovers', skips: 'skips' } as const
-  handle('task:save', (id: string, patch: { allDay?: number; title?: string; until?: string | null; notes?: unknown; due?: string | null; recurrence?: string | null; status?: string; waitingOn?: string | null; subtasks?: unknown; estimate?: number | null; sortOrder?: number | null; important?: number; deadline?: string | null; deadlineTimed?: number; blocker?: string | null; blockedBy?: string | null; reschedules?: number; notify?: string | null; priority?: number; plan?: string | null; notifiedAt?: string | null; completedAt?: string | null; snoozedUntil?: string | null; getReady?: number | null; rollovers?: number; skips?: number }) => {
+  const saveTaskOne = (id: string, patch: { allDay?: number; title?: string; until?: string | null; notes?: unknown; due?: string | null; recurrence?: string | null; status?: string; waitingOn?: string | null; subtasks?: unknown; estimate?: number | null; sortOrder?: number | null; important?: number; deadline?: string | null; deadlineTimed?: number; blocker?: string | null; blockedBy?: string | null; reschedules?: number; notify?: string | null; priority?: number; plan?: string | null; notifiedAt?: string | null; completedAt?: string | null; snoozedUntil?: string | null; getReady?: number | null; rollovers?: number; skips?: number }) => {
     // What a move changes on its own (the reschedule count, whether it was told
     // about), given back so its undo can put both back exactly.
     const before = db.prepare('select reschedules, notified_at as notifiedAt from tasks where id = ?').get(id) as { reschedules: number; notifiedAt: string | null } | undefined
@@ -3404,6 +3424,21 @@ export function registerHaligtree(): void {
     if (patch.status !== undefined) db.prepare('update tasks set status = ?, completed_at = ? where id = ?').run(patch.status, patch.status === 'done' ? (patch.completedAt ?? now()) : null, id)
     if (patch.notifiedAt !== undefined) db.prepare('update tasks set notified_at = ? where id = ?').run(patch.notifiedAt, id)
     return write(before ?? true)
+  }
+  handle('task:save', saveTaskOne)
+  // Many tasks saved at once (a list put in order, a day's tasks moved on, and their Undos): one write for the
+  // lot and one change told to the windows, not one per task.
+  ipcMain.handle('haligtree:task:save-many', (event, saves: { id: string; patch: Parameters<typeof saveTaskOne>[1] }[]) => {
+    quiet++
+    let results: unknown[]
+    try {
+      results = atomically(() => saves.map((one) => saveTaskOne(one.id, one.patch)))
+    } finally {
+      quiet--
+    }
+    changed()
+    if (watches('task:save') && saves.length) celebrateAfter('task:save', event.sender, [saves.at(-1)!.id, saves.at(-1)!.patch], results.at(-1))
+    return results
   })
   // Done. A routine moves to its next date instead: from the due date when the
   // calendar matters, from today when only the gap does ("every!"), and never
@@ -3445,13 +3480,26 @@ export function registerHaligtree(): void {
   handle('task:skip', (id: string) => finish(id, null, true))
   // Done by mistake: open again, on the date it had, and that time it was
   // done no longer counted. The same for a one-off and a routine.
-  handle('task:undone', (id: string, was: { dueAt: string | null; doneAt: string; notifiedAt: string | null; deadlineAt?: string | null; skips?: number }) => {
+  const undoneOne = (id: string, was: { dueAt: string | null; doneAt: string; notifiedAt: string | null; deadlineAt?: string | null; skips?: number }) => {
     if (typeof was.skips === 'number') db.prepare('update tasks set skips = ? where id = ?').run(was.skips, id)
     db.prepare('delete from task_done where task_id = ? and done_at = ?').run(id, was.doneAt)
     db.prepare("update tasks set status = 'open', completed_at = null, due_at = ?, notified_at = ? where id = ?").run(was.dueAt, was.notifiedAt, id)
     if (was.deadlineAt !== undefined) db.prepare('update tasks set deadline_at = ? where id = ?').run(was.deadlineAt, id)
     return write(true)
-  })
+  }
+  handle('task:undone', undoneOne)
+  // Many done at once (picked rows), and their Undo: one write and one change told for the lot.
+  const many = <T>(run: () => T): T => {
+    quiet++
+    try {
+      return atomically(run)
+    } finally {
+      quiet--
+      changed()
+    }
+  }
+  handle('task:done-many', (ids: string[]) => many(() => ids.map((id) => finish(id))))
+  handle('task:undone-many', (list: { id: string; was: Parameters<typeof undoneOne>[1] }[]) => many(() => list.map((one) => undoneOne(one.id, one.was))))
   // A task made by mistake, from wherever it was made: a new one goes with
   // its links; one it joined loses only the links this added. What was
   // resolved to make it is open again.
