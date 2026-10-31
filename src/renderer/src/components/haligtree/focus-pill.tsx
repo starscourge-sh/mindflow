@@ -213,7 +213,7 @@ function InAnotherBook({ focus, now, notch }: { focus: Elsewhere; now: number; n
   const left = focus.plannedMs ? focus.plannedMs - worked(focus, now) : null
   const time = focus.pausedAt ? 'Paused' : left === null ? clock(worked(focus, now)) : left > 0 ? clock(left) : 'Time’s up'
   return (
-    <div className="mf-floating flex h-screen items-start justify-center overflow-hidden" style={{ paddingTop: notch ? notch + 4 : TOP }}>
+    <div data-clear className="mf-floating flex h-screen items-start justify-center overflow-hidden" style={{ paddingTop: notch ? notch + 4 : TOP }}>
       <button type="button" data-focus-elsewhere={focus.book} onClick={() => (chime('tap'), void window.api.haligtree('books:go', focus.book))}
         style={{ backgroundImage: SOLID, backgroundColor: 'Canvas', filter: lift() }}
         className="flex h-[34px] max-w-[300px] items-center gap-2 rounded-full border px-3 font-[system-ui,-apple-system,sans-serif] text-[13px] text-foreground transition-transform duration-150 active:scale-[0.97]">
@@ -1278,7 +1278,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
     <TipPlace.Provider value={tucked ? { side: 'bottom', clearTop: notch + 2, inset: 14, onShow: setTipping } : { side: 'bottom', inset: 14, onShow: setTipping }}>
     {/* In pixels, not rem: the pill's window is a fixed 340 wide, and at Large
         Interface size a rem-sized pill outgrew it and was cut off. */}
-    <div className="mf-floating flex h-screen items-start justify-center overflow-hidden" style={{ paddingTop: top, ...(tucked ? NOTCH_INKS : {}), ...(onBreak ? (tucked ? { '--tt-brand-color-400': 'oklch(0.82 0.15 158)', '--pill-on-accent': 'oklch(0.22 0.05 170)' } as CSSProperties : breakInks(light, style)) : {}) }}>
+    <div data-clear className="mf-floating flex h-screen items-start justify-center overflow-hidden" style={{ paddingTop: top, ...(tucked ? NOTCH_INKS : {}), ...(onBreak ? (tucked ? { '--tt-brand-color-400': 'oklch(0.82 0.15 158)', '--pill-on-accent': 'oklch(0.22 0.05 170)' } as CSSProperties : breakInks(light, style)) : {}) }}>
       {/* While the session runs, a slow mono glow breathes inside the pill's
           edge: alive, never asking to be looked at. Still when paused or over,
           and between times: it runs for its first moments, under the pointer

@@ -895,6 +895,8 @@ function showFocus(on: boolean): void {
     webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false }
   })
   focusPill.setAlwaysOnTop(true, 'floating')
+  // The window is wider and taller than the pill: the room round it lets clicks through to the app behind.
+  passThrough(focusPill, true)
   focusTucked = false
   placeFocus()
   focusPill.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true })
@@ -985,6 +987,8 @@ function showNudge(nudge: Nudge): boolean {
     })
     win.setAlwaysOnTop(true, 'floating')
     win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true })
+    // The room round and between its cards lets clicks through to the app behind.
+    passThrough(win, true)
     load(win, spot === 'pill' ? '?view=nudge&at=pill' : '?view=nudge')
     held = { win, waiting: [] }
     nudgeWins.set(spot, held)

@@ -110,6 +110,28 @@ try {
   const back = (await winOf(ids[0]))?.b
   check('stuck again, its card is where it was', !!back && back.x === kept.x && back.y === kept.y, JSON.stringify({ kept, back }))
 
+  // The session pill's window is wider and taller than the pill: the room round it lets clicks through too.
+  const tasks = await v('tasks')
+  const task = tasks.find((one) => one.status === 'open' && one.title) ?? tasks[0]
+  await v('session:start', task.id, 'Overhang', 25 * 60000)
+  await h.evaluate(() => window.api.showFocus(true))
+  let pill = null
+  for (let i = 0; i < 50 && !pill; i++) (pill = electron.windows().find((one) => one.url().includes('view=focus')) ?? null), pill || (await wait(200))
+  await pill.waitForLoadState('domcontentloaded')
+  await wait(1500)
+  const pillId = await electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => w.webContents.getURL().includes('view=focus')).id)
+  const pillBox = await pill.evaluate(() => {
+    const r = document.querySelector('[data-clear] > *').getBoundingClientRect()
+    return { x: r.x, y: r.y, width: r.width, height: r.height, innerWidth, innerHeight }
+  })
+  const pillMove = (x, y) => electron.evaluate(({ BrowserWindow }, [id, x, y]) => BrowserWindow.fromId(id).webContents.sendInputEvent({ type: 'mouseMove', x, y }), [pillId, x, y])
+  check('the pill is smaller than its window', pillBox.width < pillBox.innerWidth || pillBox.height < pillBox.innerHeight, JSON.stringify(pillBox))
+  await pillMove(Math.round(pillBox.x + pillBox.width / 2), Math.round(pillBox.y + pillBox.height / 2))
+  await wait(200)
+  check('the pointer over the pill: it takes clicks', (await through(pillId)) === false)
+  await pillMove(3, Math.round(pillBox.y + pillBox.height / 2))
+  await wait(200)
+  check('the pointer beside the pill: clicks pass to the app behind', (await through(pillId)) === true)
 } catch (error) {
   check('ran to the end', false, error.message.split('\n')[0])
 } finally {
