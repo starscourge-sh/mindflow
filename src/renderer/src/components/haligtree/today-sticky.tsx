@@ -137,7 +137,7 @@ export function TodaySticky(): React.JSX.Element {
   }, [allDone, loaded])
 
   return (
-    <div className={GLASS ? 'h-screen' : 'h-screen p-5'}>
+    <div data-clear className={GLASS ? 'h-screen' : 'h-screen p-[20px]'}>
       <div ref={card} onPointerEnter={() => GLASS && window.api.lift()} onMouseLeave={() => setAsking(false)} className={CARD}
         style={{ ...DRAG, '--tilt': `${tilt}deg`, ...PAPER } as unknown as CSSProperties}>
         {!GLASS && <Frost tint="--mf-paper-tint" lift />}

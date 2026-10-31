@@ -1067,6 +1067,28 @@ const keyOfSticky = (win: BrowserWindow | null): string | undefined => (win ? [.
 /** How far in from its window the card is drawn: glass fills it; paper keeps room round it for its lean and shadow (sticky-note.tsx, goal-beacon.tsx). */
 const insetOf = (key: string): Inset => builtGlass.get(key) ? { left: 0, top: 0, right: 0, bottom: 0 } : { left: 20, top: 20, right: 20, bottom: 20 }
 
+/**
+ * Windows drawn larger than their card (paper stickies): clicks on the clear
+ * room round the card go to the app behind, never an invisible wall. The
+ * pointer's moves still reach the page there (forward), which says when it
+ * crosses onto anything drawn (lib/clear-room.ts). Whether clicks pass through
+ * now, by window, for the probes (haligtreeThrough). A QA run's windows stay
+ * unclickable throughout (HALIGTREE_QA_AWAY): only the record changes there.
+ */
+const through = new WeakMap<BrowserWindow, boolean>()
+const passThrough = (win: BrowserWindow, on: boolean): void => {
+  through.set(win, on)
+  win.setIgnoreMouseEvents(on || !!process.env.HALIGTREE_QA_AWAY, { forward: true })
+}
+ipcMain.on('window:solid', (event, solid: unknown) => {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  if (win && !win.isDestroyed() && through.has(win)) passThrough(win, !solid)
+})
+;(globalThis as { haligtreeThrough?: (id: number) => boolean | null }).haligtreeThrough = (id) => {
+  const win = BrowserWindow.fromId(id)
+  return win && through.has(win) ? !!through.get(win) : null
+}
+
 /** Stickies waiting to come in: each 40ms after the last one really did, so a busy moment never lands two at once. */
 const arrivals: (() => void)[] = []
 let arrivalTimer: ReturnType<typeof setTimeout> | null = null
@@ -1330,7 +1352,7 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   // A saved place keeps the card itself on a screen: paper's clear room round it may hang past the edge.
   const place = bounds
     ? cardInView({ ...bounds, ...stickySize(fixed ? size.width : bounds.width, fixed ? size.height : bounds.height, bounds) }, insetOf(key), screen.getDisplayMatching(bounds).workArea)
-    : freeSpot(workArea, size.width, size.height)
+    : freeSpot(workArea, size.width, size.height, insetOf(key))
   const win = new BrowserWindow({
     ...place,
     ...(glass ? { vibrancy: 'popover' as const, visualEffectState: 'active' as const, roundedCorners: true, backgroundColor: '#00000000' } : {}),
@@ -1366,6 +1388,8 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   win.setAlwaysOnTop(true, 'floating')
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true })
   shield(win)
+  // Paper's clear room round the card lets clicks through until the pointer is over the card.
+  if (!glass) passThrough(win, true)
   // The desktop picture, blurred, behind its paper (frost.ts).
   frostWindow(win, () => stickyUp(key), fixed && !glass)
   // Shown once its page has drawn what it holds (sticky:ready, a blank card was seen first) and the main window, if it
@@ -2273,18 +2297,20 @@ function shapeCard(key: string, win: BrowserWindow): void {
  * the screen, under the ones already there with a small gap, then the next
  * column to the left when a column is full. Never on top of another.
  */
-function freeSpot(area: Electron.Rectangle, width: number, height: number): Electron.Rectangle {
+function freeSpot(area: Electron.Rectangle, width: number, height: number, inset: Inset): Electron.Rectangle {
   const gap = 16
-  const taken = [...stickies.values()].filter((win) => !win.isDestroyed()).map((win) => win.getBounds())
+  // Cards apart and on screen, not windows: a paper card's clear room may overlap a neighbour's and hang past the edge.
+  const taken = [...stickies].filter(([, win]) => !win.isDestroyed()).map(([key, win]) => cardOf(win.getBounds(), insetOf(key)))
+  const card = cardOf({ x: 0, y: 0, width, height }, inset)
   const clear = (spot: Electron.Rectangle): boolean =>
     taken.every((one) => spot.x + spot.width + gap <= one.x || one.x + one.width + gap <= spot.x || spot.y + spot.height + gap <= one.y || one.y + one.height + gap <= spot.y)
-  for (let x = area.x + area.width - width - gap; x >= area.x; x -= width + gap) {
-    for (let y = area.y + gap; y + height <= area.y + area.height; y += 8) {
-      const spot = { x, y, width, height }
-      if (clear(spot)) return spot
+  const windowAt = (x: number, y: number): Electron.Rectangle => ({ x: x - inset.left, y: y - inset.top, width, height })
+  for (let x = area.x + area.width - card.width - gap; x >= area.x; x -= card.width + gap) {
+    for (let y = area.y + gap; y + card.height <= area.y + area.height; y += 8) {
+      if (clear({ x, y, width: card.width, height: card.height })) return windowAt(x, y)
     }
   }
-  return { x: area.x + area.width - width - gap, y: area.y + gap, width, height }
+  return windowAt(area.x + area.width - card.width - gap, area.y + gap)
 }
 
 /**
@@ -2299,8 +2325,11 @@ function gatherStickies(): void {
   for (const [key, win] of stickies) {
     // Only those meant to be up: never one put away, nor any in safe mode.
     if (win.isDestroyed() || !stickyUp(key) || peeking.has(key)) continue
-    const { width, height } = win.getBounds()
-    const bounds = onScreen({ width, height, x: workArea.x + workArea.width - width - (n % 2) * 24, y: workArea.y + n * 64 })
+    // The card fanned from the top right; its window's clear room round it may hang past the edge.
+    const inset = insetOf(key)
+    const { width, height } = cardOf(win.getBounds(), inset)
+    const card = onScreen({ width, height, x: workArea.x + workArea.width - width - (n % 2) * 24, y: workArea.y + n * 64 })
+    const bounds = { x: card.x - inset.left, y: card.y - inset.top }
     n += 1
     if (win.isVisible()) {
       moves.push([key, win, { x: bounds.x, y: bounds.y }])
@@ -2402,7 +2431,8 @@ function tidyStickies(asker?: Electron.WebContents): number {
     // Each colour together (plain first), and top to bottom as they were within it, so the order you had them in is kept.
     const shade = (key: string): number => STICKY_TINTS.findIndex(([tint]) => tint === (stuckAs(key)?.tint ?? 'plain'))
     wins.sort(([one, a], [two, b]) => shade(one) - shade(two) || a.getBounds().y - b.getBounds().y || a.getBounds().x - b.getBounds().x)
-    const sizes = wins.map(([, win]) => win.getBounds())
+    // Measured by the cards, not their windows: a paper card's clear room round it may overlap its neighbour's and hang past the edge.
+    const sizes = wins.map(([key, win]) => cardOf(win.getBounds(), insetOf(key)))
     const top = area.y + Math.round(area.height * 0.25)
     const bottom = area.y + area.height - MARGIN
     const room = bottom - top
@@ -2414,10 +2444,12 @@ function tidyStickies(asker?: Electron.WebContents): number {
     const tall = fan ? step * (sizes.length - 1) + last : whole
     let y = Math.max(top, Math.min(bottom - tall, Math.round(area.y + (area.height - tall) / 2)))
     wins.forEach(([key, win], nth) => {
-      const { x, y: was, width, height } = sizes[nth]
+      const { width, height } = sizes[nth]
+      const { left, top: above } = insetOf(key)
       const right = area.x + area.width - MARGIN - width - (fan && nth % 2 ? 16 : 0)
-      back.push([key, win, { x, y: was }])
-      moves.push([key, win, { x: right, y }])
+      const was = win.getBounds()
+      back.push([key, win, { x: was.x, y: was.y }])
+      moves.push([key, win, { x: right - left, y: y - above }])
       y += fan ? step : height + GAP
     })
   }

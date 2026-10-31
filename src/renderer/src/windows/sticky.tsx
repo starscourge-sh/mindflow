@@ -7,6 +7,7 @@ import { TodaySticky } from '../components/haligtree/today-sticky'
 import { Toaster } from '../components/haligtree/ui'
 import { TuckTab } from '../components/haligtree/tuck-tab'
 import { params, start } from '../main'
+import { clearRoom } from '../lib/clear-room'
 
 const type = params.get('type')
 
@@ -19,6 +20,9 @@ start(
     <Toaster />
   </>
 )
+
+// The room round a paper card lets clicks through to the app behind; the card, and anything hanging past it, takes them.
+clearRoom()
 
 // Ready once its words are in: the page has drawn and stopped changing for a moment (its reads answered, its
 // dots and numbers set), with its fonts loaded. Before, a card came onto the desktop blank and filled in after.

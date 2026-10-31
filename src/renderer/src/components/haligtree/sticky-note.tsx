@@ -605,7 +605,7 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
 
   return (
     // Room all round for the lean, the lift and the shadow, so none of it is cut off at the window's edge.
-    <div className={GLASS ? 'h-screen' : 'h-screen p-5'}>
+    <div data-clear className={GLASS ? 'h-screen' : 'h-screen p-[20px]'}>
       <div
         ref={card}
         // Pointed at, a glass note's window rises a little (main sets it down); paper lifts in its own window.

@@ -62,7 +62,8 @@ function Desk({ shown, children, onEnter, onLeave }: { shown: number; children: 
       animate={{ opacity: 1, transform: shift('translateY(0px) scale(1)') }}
       transition={{ duration: 0.24, ease: EASE }}
       // Paper keeps room round the card for its shadow (main's insetOf); glass is the card.
-      className={GLASS ? 'group h-screen' : 'group h-screen p-5'}
+      data-clear
+      className={GLASS ? 'group h-screen' : 'group h-screen p-[20px]'}
       onPointerEnter={() => (onEnter?.(), GLASS && window.api.lift())}
       onPointerLeave={onLeave}
     >
