@@ -557,18 +557,16 @@ const ClozeDemo: Demo = ({ live }) => {
   )
 }
 
-const WHY = { context: 'Deep Work, Cal Newport', why: 'Willpower fades by dusk' }
+const BEHIND = 'Willpower fades by dusk (Deep Work, Cal Newport)'
 const ContextDemo: Demo = ({ live }) => {
-  const at = useSteps([500, typeMs(WHY.context, 30), typeMs(WHY.why, 30), 1800], live, 3)
-  const context = useTyped(WHY.context, at === 1, 30)
-  const why = useTyped(WHY.why, at === 2, 30)
+  const at = useSteps([500, typeMs(BEHIND, 30), 1800], live, 2)
+  const behind = useTyped(BEHIND, at === 1, 30)
   return (
     <Col>
       <div className="rounded-lg border bg-background px-3 py-2">
         <div className="text-control text-foreground">Do the hard thing first</div>
-        <div className="mt-2 grid grid-cols-[3.75rem_1fr] gap-x-2 gap-y-1 text-meta">
-          <span className="text-muted-foreground">Context</span><span className="truncate text-foreground">{at === 0 ? '' : at === 1 ? context : WHY.context}{at === 1 && <Caret />}</span>
-          <span className="text-muted-foreground">Why</span><span className="truncate text-foreground">{at < 2 ? '' : at === 2 ? why : WHY.why}{at === 2 && <Caret />}</span>
+        <div className="mt-2 flex flex-col gap-0.5 text-meta">
+          <span className="text-muted-foreground">Behind the answer</span><span className="truncate text-foreground">{at === 0 ? '\u00a0' : at === 1 ? behind : BEHIND}{at === 1 && <Caret />}</span>
         </div>
       </div>
     </Col>

@@ -7,15 +7,23 @@ import { pictureIn, picturesIn, withPictures, wordsOf } from '@/lib/answer-pictu
 import { refuse, toast } from './ui'
 
 /**
- * A card's Context: the words that make the answer mean something, and its
- * pictures (a map, a diagram, a slide), pasted or dropped in. The field holds
- * the words; each picture is drawn under it, never written out as text, with
- * a way to take it off. Review draws both after the answer.
+ * A card's "Behind the answer": the words that make the answer mean something
+ * (the bigger story, why it is so) and its pictures (a map, a diagram, a
+ * slide), pasted or dropped in. The field holds the words; each picture is
+ * drawn under it, never written out as text, with a way to take it off.
+ * Review draws both after the answer. `value` is the merged Context and Why
+ * (`behindOf`); a save keeps it all in `context` and only then clears `why`.
  */
 export function ContextField({ id, value, className }: { id: string; value: string | null; className?: string }): React.JSX.Element {
   const [words, setWords] = useState(wordsOf(value))
   const [pictures, setPictures] = useState(picturesIn(value))
-  const save = (nextWords: string, nextPictures: string[]): void => void haligtree.saveItem(id, { context: withPictures(nextWords, nextPictures) || null })
+  const [kept, setKept] = useState(value ?? '')
+  const save = (nextWords: string, nextPictures: string[]): void => {
+    const next = withPictures(nextWords, nextPictures)
+    if (next === kept) return
+    setKept(next)
+    void haligtree.saveBehind(id, next)
+  }
   const showAndSave = (nextPictures: string[]): void => {
     setPictures(nextPictures)
     save(words, nextPictures)
@@ -26,7 +34,7 @@ export function ContextField({ id, value, className }: { id: string; value: stri
       const before = pictures
       showAndSave([...pictures.filter((one) => one !== src), src])
       chime('added')
-      toast('Picture added to the context', () => showAndSave(before))
+      toast('Picture added behind the answer', () => showAndSave(before))
     })
   }
   const take = (data: DataTransfer | null, event: React.SyntheticEvent): void => {
@@ -44,9 +52,9 @@ export function ContextField({ id, value, className }: { id: string; value: stri
         onPaste={(event) => take(event.clipboardData, event)}
         onDrop={(event) => take(event.dataTransfer, event)}
         rows={2}
-        placeholder="What makes the answer mean something: a map, a picture, the bigger story. Paste a picture here"
+        placeholder="The picture, the bigger story, why it is so. Paste a picture here"
         data-ghost-field={value ? undefined : ''}
-        aria-label="Context"
+        aria-label="Behind the answer"
         className={className}
       />
       {pictures.length > 0 && (
@@ -59,7 +67,7 @@ export function ContextField({ id, value, className }: { id: string; value: stri
                   const before = pictures
                   showAndSave(pictures.filter((one) => one !== src))
                   chime('away')
-                  toast('Picture taken off the context', () => showAndSave(before))
+                  toast('Picture taken off', () => showAndSave(before))
                 }}
                 className="absolute -top-1.5 -right-1.5 hidden size-5 cursor-pointer items-center justify-center rounded-full border bg-background text-muted-foreground group-hover:flex hover:text-foreground">
                 <X className="size-3" />

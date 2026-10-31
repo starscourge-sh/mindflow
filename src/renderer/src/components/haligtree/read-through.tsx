@@ -1,4 +1,4 @@
-import { picturesIn, wordsOf } from '@/lib/answer-picture'
+import { behindOf, picturesIn, wordsOf } from '@/lib/answer-picture'
 import { fieldOf } from '../capture-list'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -469,7 +469,7 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
     if (item.body !== undefined) return setPage({ id: item.id, title: item.title, body: item.body })
     const load: Promise<Omit<Page, 'id'> | null> = item.type === 'capture'
       ? window.api.captures.get(item.id).then((found) => found && { body: found.body as JSONContent, private: !!found.private, ...said(found.kind, found.attribution), where: found.medium, meta: metaOf(found.kind, found.capturedAt, [said(found.kind, found.attribution).who ? null : found.attribution, found.medium, found.source]), kind: found.kind, fields: found.fields, label: found.label, created: found.capturedAt, updated: found.editedAt })
-      : haligtree.item(item.id).then((found) => found && { title: found.tier === 'article' || found.tier === 'question' ? found.title : undefined, body: found.body as JSONContent, private: !!found.private, ...said(found.kind, found.attribution), where: found.medium, meta: metaOf(found.kind, found.createdAt, [said(found.kind, found.attribution).who ? null : found.attribution, wordsOf(found.context)]), pictures: picturesIn(found.context), kind: found.kind, fields: found.fields, label: found.title, created: found.createdAt, updated: found.updatedAt, captureId: found.captureId ?? undefined, attribution: found.attribution })
+      : haligtree.item(item.id).then((found) => found && { title: found.tier === 'article' || found.tier === 'question' ? found.title : undefined, body: found.body as JSONContent, private: !!found.private, ...said(found.kind, found.attribution), where: found.medium, meta: metaOf(found.kind, found.createdAt, [said(found.kind, found.attribution).who ? null : found.attribution, wordsOf(behindOf(found))]), pictures: picturesIn(behindOf(found)), kind: found.kind, fields: found.fields, label: found.title, created: found.createdAt, updated: found.updatedAt, captureId: found.captureId ?? undefined, attribution: found.attribution })
     let current = true
     void load.then((next) => current && setPage({ id: item.id, ...(next ?? { body: null }) }))
     return () => void (current = false)

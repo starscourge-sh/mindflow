@@ -356,6 +356,11 @@ export const haligtree = {
   item: (id: string) => call<ItemFull | null>('item', id),
   saveItem: (id: string, patch: Partial<{ body: unknown; base: unknown; title: string; prompt: string | null; kind: string; suspended: boolean; attribution: string | null; medium: string | null; context: string | null; mode: string; why: string | null }>) =>
     call('item:save', id, patch),
+  /** "Behind the answer" saved: the merged words into `context` first, and only once they are kept is the old `why` cleared, so nothing is lost. */
+  saveBehind: async (id: string, text: string | null): Promise<void> => {
+    await call('item:save', id, { context: text?.trim() || null })
+    await call('item:save', id, { why: null })
+  },
   article: (ids: string[]) => call<string>('article', ids),
   /** A dated thought on any item or capture; gives back its id, for `dropGloss`. */
   gloss: (id: string, text: string) => call<string>('gloss', id, text),

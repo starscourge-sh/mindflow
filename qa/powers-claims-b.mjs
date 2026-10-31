@@ -115,12 +115,11 @@ try {
     say('cloze', picked && clicked && item.prompt?.includes('_____') && !item.prompt.includes('1799') ? 'PASS' : 'FAIL', `prompt now: ${JSON.stringify(item.prompt)}`)
   })
 
-  // --- context: Context and Why, shown after the answer in Review --------------------------
+  // --- context: "Behind the answer", shown after the answer in Review --------------------------
   await card('context', async () => {
     const id = await gem('Do the hard thing first in the morning.', 'When to do the hard thing?')
     await openGem(id)
-    await unfold('Context')
-    await unfold('Why')
+    await unfold('Behind the answer')
     const fill = (label, value) => h.evaluate(([l, val]) => {
       const el = document.querySelector(`textarea[aria-label="${l}"]`)
       if (!el) return false
@@ -130,7 +129,7 @@ try {
       el.blur()
       return true
     }, [label, value])
-    const ok = (await fill('Context', 'Deep Work, Cal Newport')) && (await fill('Why', 'Willpower fades by dusk'))
+    const ok = await fill('Behind the answer', 'Deep Work, Cal Newport\n\nWillpower fades by dusk')
     await wait(700)
     const item = await v('item', id)
     await onlyDue(id)
@@ -140,7 +139,7 @@ try {
     await wait(800)
     const after = await pageText()
     const shown = after.includes('Deep Work, Cal Newport') && after.includes('Willpower fades by dusk') && !before.includes('Deep Work, Cal Newport')
-    say('context', ok && item.context === 'Deep Work, Cal Newport' && item.why === 'Willpower fades by dusk' && shown ? 'PASS' : 'FAIL', `saved ${JSON.stringify([item.context, item.why])}; after the answer: ${shown}`)
+    say('context', ok && item.context === 'Deep Work, Cal Newport\n\nWillpower fades by dusk' && !item.why && shown ? 'PASS' : 'FAIL', `saved ${JSON.stringify([item.context, item.why])}; after the answer: ${shown}`)
     await v('review:grade', id, 3, 4000)
   })
 

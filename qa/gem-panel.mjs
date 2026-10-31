@@ -71,8 +71,8 @@ try {
   await openDetails(gem)
   const first = await groups()
   check('"Where it came from" opens by itself, holding a source', first['Where it came from'] === true, JSON.stringify(first))
-  check('Context opens by itself, holding words', first.Context === true, JSON.stringify(first))
-  check('Why stays folded, empty', first.Why === false, JSON.stringify(first))
+  check('"Behind the answer" opens by itself, holding words', first['Behind the answer'] === true, JSON.stringify(first))
+  check('no separate Context or Why island', !('Context' in first) && !('Why' in first), JSON.stringify(first))
 
   // One truth for the page: the row says the body link's p. 2, never the stale p. 3.
   const row = await h.evaluate(() => {
@@ -235,15 +235,15 @@ try {
   // A bare gem: its islands wait folded.
   await openDetails(bare)
   const empty = await groups()
-  check('empty islands stay folded', empty.Context === false && empty.Why === false && empty['Where it came from'] === false && empty['Thoughts on this note'] !== true, JSON.stringify(empty))
-  // A person's own choice wins: Why opened on the bare gem stays open, and Context folded on the full one stays folded.
-  await h.locator('[data-details-group="Why"] button[aria-expanded]').click(); await wait(400)
+  check('empty islands stay folded', empty['Behind the answer'] === false && empty['Where it came from'] === false && empty['Thoughts on this note'] !== true, JSON.stringify(empty))
+  // A person's own choice wins: "Behind the answer" opened on the bare gem stays open, and folded on the full one stays folded.
+  await h.locator('[data-details-group="Behind the answer"] button[aria-expanded]').click(); await wait(400)
   await openDetails(gem)
-  await h.locator('[data-details-group="Context"] button[aria-expanded]').click(); await wait(400)
+  await h.locator('[data-details-group="Behind the answer"] button[aria-expanded]').click(); await wait(400)
   await openDetails(bare)
-  check('an island opened by hand stays open where it is empty', (await groups()).Why === true, JSON.stringify(await groups()))
+  check('an island opened by hand stays open where it is empty', (await groups())['Behind the answer'] === true, JSON.stringify(await groups()))
   await openDetails(gem)
-  check('an island folded by hand stays folded where it holds something', (await groups()).Context === false, JSON.stringify(await groups()))
+  check('an island folded by hand stays folded where it holds something', (await groups())['Behind the answer'] === false, JSON.stringify(await groups()))
 } catch (error) { console.log(String(error).slice(0, 300), c.errors.slice(-3).join("\n")) } finally {
   await c.close()
 }

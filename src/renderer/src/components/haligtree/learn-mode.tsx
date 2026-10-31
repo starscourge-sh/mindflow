@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ProgressBar } from './progress-bar'
 import { WithPictures } from './with-pictures'
+import { behindOf } from '@/lib/answer-picture'
 import { Kbd, toast, typing } from './ui'
 import { TAG } from '../../../../main/tag-words'
 import { clip } from '../../../../main/clip'
@@ -154,6 +155,13 @@ export function LearnMode({ onDone }: { onDone: () => void }): React.JSX.Element
                   <HaligtreeEditor defaultContent={(step.card.body as JSONContent | string | null) ?? ''} readOnly toolbar={false} handles={false} slash={false} outline={false} search={false} autofocus={false} />
                 </div>
               )}
+            </div>
+          )}
+          {/* Behind the answer, once it is answered: the picture, the bigger story, why it is so. */}
+          {said && behindOf(step.card) && (
+            <div data-card-context className="flex flex-col gap-0.5 text-sm leading-relaxed">
+              <span className="text-control font-medium text-foreground/80">Behind the answer</span>
+              <div className="text-muted-foreground"><WithPictures text={behindOf(step.card)} /></div>
             </div>
           )}
           {said ? (

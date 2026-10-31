@@ -42,7 +42,7 @@ import { tierItem } from './gem-or-card'
 import { binItem } from '@/lib/to-bin'
 import { AnotherWay } from './another-way'
 import { cardPerNumber } from './blank-panel'
-import { pictureIn, withPicture } from '@/lib/answer-picture'
+import { behindOf, pictureIn, picturesIn, withPicture } from '@/lib/answer-picture'
 import { answersOf, askCloze, clozeNumbers } from '@/lib/blanks'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
@@ -774,10 +774,9 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
                 )}
               </div>
             )}
-            {/* Context: what makes the answer learnable, shown only after it, or
-                it would give the prompt away. */}
-            {card.context && <div data-card-context className="-mt-2 text-sm leading-relaxed text-muted-foreground"><WithPictures text={card.context} /></div>}
-            <Why card={card} />
+            {/* Behind the answer: what makes it learnable (the picture, the bigger
+                story, why it is so), shown only after it, or it would give the prompt away. */}
+            <Behind card={card} />
             {/* Where it came from, which a flashcard app never knows. */}
             <Origin id={card.id} quote={card.kind === 'quote'} attribution={card.attribution} where={card.medium} year={fieldOf(card.fields, 'year')} said={`${card.prompt ?? ''}\n${textOf(card.body)}`} />
             {/* Made from a selection: the exact words it was lifted from, and the way to them in their note. */}
@@ -802,8 +801,8 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
             )}
             <CardSize id={card.id} answer={answer ?? textOf(card.body)} />
             {/* A thought on it now: out of sight until ; opens it or there is one,
-                so the Why field above is the only field under the answer. */}
-            <GlossLine id={card.id} latest={!!card.why} quiet className="-mt-3" />
+                so the Behind the answer field above is the only field under the answer. */}
+            <GlossLine id={card.id} latest={!!behindOf(card)} quiet className="-mt-3" />
             {/* The key shows where there is room for it; in a narrow panel the time comes first. */}
             <div data-grades={grades.length} className={`@container grid gap-2 ${two ? 'grid-cols-2' : 'grid-cols-4'}`}>
               {grades.map(({ grade: value, label, hint, tone }) => (
@@ -1205,29 +1204,43 @@ function masked(prompt: string, answer: string | null): string {
 }
 
 /**
- * Why the answer is so, one line under it: its own, or else your latest
- * gloss, which often already says it. With neither, a line to write one.
+ * Behind the answer, under it: the picture, the bigger story, why it is so
+ * (the card's Context and an older Why, as one). With none, your latest gloss,
+ * which often already says it; with neither, a line to write one, kept as the
+ * card's "Behind the answer".
  */
-function Why({ card }: { card: Due }): React.JSX.Element {
-  const [why, setWhy] = useState(card.why)
-  // A line taken back with Undo: in the field again, the caret at its end.
+function Behind({ card }: { card: Due }): React.JSX.Element {
+  const [behind, setBehind] = useState(() => behindOf(card))
+  // Words taken back to change (a click on a one-line one) or with Undo: in the field again, the caret at its end.
   const [again, setAgain] = useState('')
-  // A saved Why is changed where it is read: a click puts it back in the field.
-  if (why || card.gloss)
+  // One line of words is changed where it is read; a longer one, or one with pictures, on the card's page ("Edit this card beside").
+  const oneLine = !!behind && !behind.includes('\n') && !picturesIn(behind).length
+  const keep = (line: string | null): void => {
+    card.context = line
+    card.why = null
+    setBehind(line ?? '')
+  }
+  if (behind)
+    return (
+      <div data-card-context className="-mt-2 flex flex-col gap-0.5 text-sm leading-relaxed">
+        <span className="text-control font-medium text-foreground/80">Behind the answer</span>
+        {oneLine ? (
+          <Tip label="Click to change it">
+            <button type="button" data-why-saved className="self-start rounded text-left text-muted-foreground hover:bg-accent" onClick={() => { chime('tap'); setAgain(behind); setBehind('') }}>{behind}</button>
+          </Tip>
+        ) : <div className="text-muted-foreground"><WithPictures text={behind} /></div>}
+      </div>
+    )
+  if (card.gloss && !again)
     return (
       <p className="-mt-2 text-sm leading-relaxed">
-        <span className="text-muted-foreground">{why ? 'Why: ' : 'Why, in your own words: '}</span>
-        {why ? (
-          <Tip label="Click to change it">
-            <button type="button" data-why-saved className="rounded text-left hover:bg-accent" onClick={() => { chime('tap'); card.why = null; setAgain(why); setWhy(null) }}>{why}</button>
-          </Tip>
-        ) : card.gloss}
+        <span className="text-muted-foreground">Why, in your own words: </span>{card.gloss}
       </p>
     )
   // The one field under the answer, named: a thought on the card is kept here too (; opens a dated one).
   return (
     <label data-why className="-mt-2 flex flex-col gap-1 text-sm">
-      <span><strong className="font-semibold">Why is it so?</strong> One line, shown under the answer next time.</span>
+      <span><strong className="font-semibold">Why is it so?</strong> One line, shown behind the answer next time.</span>
     <Input
       key={again}
       placeholder="Because…"
@@ -1237,23 +1250,21 @@ function Why({ card }: { card: Due }): React.JSX.Element {
       // A ruled line written on in the serif, as the typed answer above it: not a grey box.
       className="h-9 rounded-none border-0 border-b border-dashed border-foreground/20 bg-transparent px-0.5 font-serif text-body shadow-none placeholder:font-sans placeholder:text-sm placeholder:italic placeholder:text-muted-foreground focus-visible:border-foreground/40 focus-visible:ring-0 dark:bg-transparent"
       // Opened to change it and left as it was: it stays saved and shown.
-      onBlur={(event) => { if (again && event.currentTarget.value.trim() === again) { card.why = again; setWhy(again) } }}
+      onBlur={(event) => { if (again && event.currentTarget.value.trim() === again) setBehind(again) }}
       onKeyDown={(event) => {
         if (event.key === 'Escape') return event.currentTarget.blur()
         const line = event.currentTarget.value.trim()
         if (event.key !== 'Enter' || !line) return
         event.preventDefault()
-        // A Why being changed goes back to what it said before; a new one back to the empty field.
+        // One being changed goes back to what it said before; a new one back to the empty field.
         const before = again || null
-        card.why = line
-        setWhy(line)
+        keep(line)
         chime('noted')
-        void haligtree.saveItem(card.id, { why: line }).then(() =>
-          toast(before ? 'Changed: it shows under the answer' : 'Saved: it shows under the answer', () => {
-            card.why = before
-            setWhy(before)
+        void haligtree.saveBehind(card.id, line).then(() =>
+          toast(before ? 'Changed: it shows behind the answer' : 'Saved: it shows behind the answer', () => {
+            keep(before)
             if (!before) setAgain(line)
-            void haligtree.saveItem(card.id, { why: before })
+            void haligtree.saveBehind(card.id, before)
           }))
         event.currentTarget.blur()
       }}

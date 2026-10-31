@@ -35,7 +35,7 @@ try {
   check('taking it back is one sound', cues.length === 1 && cues[0] === 'cue:undo', cues.join(', '))
   check('the button goes once used', (await h.locator('[data-undo-grade]').count()) === 0)
 
-  // A saved Why is changed where it is read.
+  // A saved "Behind the answer" line is changed where it is read.
   await h.keyboard.press('Space')
   await h.waitForTimeout(400)
   const why = h.locator('[data-why] input')
@@ -45,7 +45,7 @@ try {
     await h.waitForTimeout(500)
   }
   const saved = h.locator('[data-why-saved]')
-  check('a saved Why can be clicked to change', (await saved.count()) === 1)
+  check('a saved "Behind the answer" line can be clicked to change', (await saved.count()) === 1)
   await saved.click()
   await h.waitForTimeout(300)
   check('clicking it puts it back in the field', (await h.locator('[data-why] input').inputValue().catch(() => '')).length > 0)

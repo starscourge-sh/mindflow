@@ -39,3 +39,11 @@ export const wordsOf = (text: string | null | undefined): string => (text ?? '')
 
 /** Words and pictures put back together as a Context keeps them: the words, then each picture on a line of its own. */
 export const withPictures = (words: string, pictures: string[]): string => [words.trim(), ...pictures.map((src) => `![](${src})`)].filter(Boolean).join('\n')
+
+/**
+ * A card's "Behind the answer": the picture, the bigger story, why it is so.
+ * Kept in `context`; a card from before the two were one may still hold a
+ * line in `why`, shown after it with a blank line between until it is saved.
+ */
+export const behindOf = (item: { context?: string | null; why?: string | null }): string =>
+  [item.context?.trim(), item.why?.trim()].filter(Boolean).join('\n\n')

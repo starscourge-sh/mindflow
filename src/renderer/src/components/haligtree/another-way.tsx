@@ -8,7 +8,7 @@ import { Kbd, refuse, toast } from './ui'
  * "Ask another way" (A in Review): one topic asked from many angles, the way
  * a doctor keeps a whole topic on the back and writes "80 different attack
  * angles" at it (Prag), or Anki's Frozen Fields keep the extra while only the
- * question changes. The new card keeps this one's context, source and #tags,
+ * question changes. The new card keeps what is behind this one's answer, its source and #tags,
  * so only a question and its answer are written; the box stays open for the
  * next angle, and says how many were made.
  */
@@ -20,7 +20,7 @@ export function AnotherWay({ card, onClose }: { card: Due; onClose: () => void }
   const [answer, setAnswer] = useState('')
   const [made, setMade] = useState(0)
   const ask = useRef<HTMLTextAreaElement>(null)
-  const kept = [card.context && 'its context', (card.attribution || card.medium || card.passage) && 'its source', /#[\p{L}\p{N}_-]/u.test(`${card.title} ${JSON.stringify(card.body ?? '')}`) && 'its #tags'].filter(Boolean) as string[]
+  const kept = [(card.context || card.why) && 'what is behind the answer', (card.attribution || card.medium || card.passage) && 'its source', /#[\p{L}\p{N}_-]/u.test(`${card.title} ${JSON.stringify(card.body ?? '')}`) && 'its #tags'].filter(Boolean) as string[]
   const save = (): void => {
     if (!question.trim()) return void (ask.current?.focus(), refuse('Write the new question first'))
     if (!answer.trim()) return refuse('Write its answer too')

@@ -2,6 +2,7 @@ import { QuestionTabs, type Asked } from './questions-view'
 import { BlankPanel, cardPerNumber } from './blank-panel'
 import { BLANK, addBlank, clozeNumbers, listItemCount, typedAsGaps } from '@/lib/blanks'
 import { ContextField } from './context-field'
+import { behindOf } from '@/lib/answer-picture'
 import { notePowers } from './note-powers'
 import { hoverNote } from './note-preview'
 import { PropertyStrip } from './property-strip'
@@ -1198,22 +1199,10 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
 
         {item.tier === 'nugget' ? (
           <>
-            <Island compact title="Context" filled={!!item.context?.trim()}>
-              <Does does="What makes the answer make sense. Shown after the answer in Review" set={!!item.context}>
-              <ContextField id={item.id} value={item.context} className={`resize-none text-control ${GHOST}`} />
-              </Does>
-            </Island>
-            <Island compact title="Why" filled={!!item.why?.trim()}>
-              <Does does="Why the answer is so, in a line. Shown under it in Review" set={!!item.why}>
-              <Textarea
-                defaultValue={item.why ?? ''}
-                onBlur={(event) => void haligtree.saveItem(item.id, { why: event.target.value.trim() || null })}
-                rows={1}
-                placeholder="Why it is so, in a line"
-                data-ghost-field={item.why ? undefined : ""}
-                aria-label="Why"
-                className={`resize-none text-control ${GHOST}`}
-              />
+            {/* One field for what used to be Context and Why: people could not tell them apart. */}
+            <Island compact title="Behind the answer" filled={!!behindOf(item)}>
+              <Does does="The picture, the bigger story, why it is so. Shown after the answer in Review" set={!!behindOf(item)}>
+              <ContextField id={item.id} value={behindOf(item) || null} className={`resize-none text-control ${GHOST}`} />
               </Does>
             </Island>
             <Island compact title="Grow it">

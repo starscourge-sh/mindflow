@@ -146,10 +146,10 @@ try {
   await h.evaluate((id) => window.api.openInHome('nugget', id), front.id); await wait(1500)
   const opener = h.locator('button[aria-label="Details"][aria-pressed="false"]').first()
   if (await opener.count()) { await opener.click(); await wait(700) }
-  const fold = h.locator('[data-details-group="Context"] button[aria-expanded="false"]')
+  const fold = h.locator('[data-details-group="Behind the answer"] button[aria-expanded="false"]')
   if (await fold.count()) { await fold.first().click(); await wait(400) }
-  const field = h.locator('textarea[aria-label="Context"]:visible')
-  check('the gem\'s Context field holds the words only', (await field.inputValue().catch(() => '?')) === 'Kept context: the bigger story', await field.inputValue().catch(() => '?'))
+  const field = h.locator('textarea[aria-label="Behind the answer"]:visible')
+  check('the gem\'s "Behind the answer" field holds the words only', (await field.inputValue().catch(() => '?')) === 'Kept context: the bigger story', await field.inputValue().catch(() => '?'))
   check('and draws the picture under it', await h.locator('[data-context-pictures]:visible img').count() === 1)
   if (shots) await both(`${shots}/context-picture`)
 
