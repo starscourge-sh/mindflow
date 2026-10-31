@@ -235,9 +235,8 @@ function OwnDeckShelf({ deck, inside, onStudy, onPaste, onNew }: { deck: OwnDeck
   ]
   return (
     <section data-deck={`#${deck.tag}`} data-own-deck={deck.tag} className="flex gap-4 rounded-xl border border-foreground/10 bg-accent/25 p-4">
-      <span aria-hidden data-deck-cover-card className={`grid size-24 shrink-0 place-items-center overflow-hidden rounded-lg border bg-background p-2 text-center font-serif text-sm leading-snug shadow-sm [overflow-wrap:anywhere] ${deck.cards ? 'border-foreground/10 text-foreground' : 'border-dashed border-foreground/20 text-muted-foreground'}`}>
-        <span className="line-clamp-4">{deck.sample || 'Empty'}</span>
-      </span>
+      {/* Its cover drawn from its #tag, the one its pocket wears in All cards; faded while it has no cards. */}
+      <GroupCover name={`#${deck.tag}`} tint={groupTint(`#${deck.tag}`)} label={null} className={`size-24 shrink-0 rounded-lg shadow-sm ${deck.cards ? '' : 'opacity-60'}`} />
       <div className="grid min-w-0 flex-1 content-start gap-2">
         <div className="flex items-center gap-2">
           <h3 title={`#${deck.tag}`} className="min-w-0 flex-1 truncate font-serif text-lg leading-tight text-foreground">{deck.label}</h3>
