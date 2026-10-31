@@ -80,8 +80,15 @@ try {
   await c.send('capture', mathsId)
   check('its card mark shows in the note', await waitFor(() => h.evaluate(() => document.querySelectorAll('.mf-line-card').length === 1)))
   check('the time in the line is a link', await waitFor(() => h.evaluate(() => document.querySelector('.mf-time-link')?.textContent === '[0:42]')))
-  await h.evaluate(() => document.querySelector('.mf-time-link').dispatchEvent(new MouseEvent('mousedown', { bubbles: true })))
-  await h.click('.mf-time-link')
+  // A click as the page gets one (down, up, click on the time): in this
+  // fresh-book window Playwright's own mouse never reaches the page (not even
+  // a pointerdown on window), while its keys do, so the click is given here.
+  await h.evaluate(() => {
+    const time = document.querySelector('.mf-time-link')
+    const box = time.getBoundingClientRect()
+    const at = { bubbles: true, cancelable: true, clientX: box.left + 5, clientY: box.top + 5, button: 0, detail: 1, view: window }
+    for (const type of ['mousedown', 'mouseup', 'click']) time.dispatchEvent(new MouseEvent(type, at))
+  })
   check('clicking it plays the note\'s video from 0:42', await waitFor(() => h.evaluate(() => document.querySelector('[data-youtube-video]')?.dataset.from === '42' && !!document.querySelector('[data-youtube-video] iframe[src*="start=42"]'))), await h.evaluate(() => document.querySelector('[data-youtube-video]')?.outerHTML.slice(0, 200)))
   await v('cards:pause', (await cardsOf(id)).map((one) => one.id), true); await h.waitForTimeout(600)
   await c.go('review')
