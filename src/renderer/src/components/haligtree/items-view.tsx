@@ -958,6 +958,15 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
           />
           </div>
         )}
+        {/* A shared deck's card opened from its gallery or Media: its question first, as Review asks it (the painting, "Artist?"), then its answer. */}
+        {item.tier === 'deck' && /!\[[^\]]*\]\([^)]+\)/.test(item.prompt ?? '') && (
+          <div data-deck-question className="note-column mb-4 grid shrink-0 justify-items-start gap-2">
+            <p className="text-body font-medium text-foreground">{(item.prompt ?? '').replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\s+/g, ' ').trim()}</p>
+            {[...(item.prompt ?? '').matchAll(/!\[[^\]]*\]\(([^)\s]+)\)/g)].map((one) => (
+              <img key={one[1]} src={one[1]} alt="" className="max-h-[55vh] w-auto max-w-full rounded-lg" />
+            ))}
+          </div>
+        )}
         {past ? (
           <HaligtreeEditor
             key={`past-${past.key}`}

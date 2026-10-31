@@ -36,7 +36,7 @@ export type BinPeek = { type: string; id: string; title: string; kind: string; b
 export type Item = {
   id: string
   /** A card is a "question :: answer" line written in a note (lineOf says which). */
-  tier: 'nugget' | 'article' | 'question' | 'goal' | 'card'
+  tier: 'nugget' | 'article' | 'question' | 'goal' | 'card' | 'deck'
   kind: string
   title: string
   /** Still called the “Untitled” it began with: its first line, for lists to show in muted ink instead. */
