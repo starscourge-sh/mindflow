@@ -405,6 +405,8 @@ const DEFAULTS = {
   tagLook: 'solid' as 'solid' | 'dot',
   // The paper a page is written on, as a notebook's: plain, dotted or squared.
   paper: 'plain' as 'plain' | 'dots',
+  // How wide a picture shows in a note when it was given no size of its own (its menu's S, M, L give one).
+  pictureSize: 'full' as 'full' | 'medium' | 'small',
   // A menu line's drawing: 'lines', or 'emoji' (each line's own emoji).
   menuIcons: 'lines' as 'lines' | 'emoji',
   // The sidebar's pages each in their own colour; off, all in one, as Vivaldi's monochrome icons (emoji greyed too).

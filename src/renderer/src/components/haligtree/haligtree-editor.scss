@@ -4026,3 +4026,12 @@ html[data-motion="off"] .tiptap.ProseMirror :is(.mf-kept, .mf-kept-icon button) 
   white-space: normal;
   cursor: default;
 }
+
+// "Pictures in notes" (Settings): how wide a picture shows when it was given
+// no size of its own. Its menu's S and M are the same widths, so a picture
+// picked there and one left to this setting line up.
+@each $size, $width in (medium: 60%, small: 35%) {
+  html[data-picture-size="#{$size}"] .tiptap.ProseMirror.haligtree-editor img:not([style*="width"]):not([data-type="emoji"] img):not(.tiptap-bookmark img):not([data-missing]) {
+    max-width: $width;
+  }
+}

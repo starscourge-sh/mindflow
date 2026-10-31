@@ -811,6 +811,21 @@ const Column = ({ width }: { width: string }): React.JSX.Element => (
     </span>
   </Screen>
 )
+/** A page with a picture on it, as wide as each “Pictures in notes” choice draws one. */
+const PicturedPage = ({ width }: { width: string }): React.JSX.Element => (
+  <Screen>
+    <span className="absolute inset-x-3 top-[10px] flex flex-col gap-[3px]">
+      <span className="block h-[2px] w-[80%] rounded-full bg-foreground/30" />
+      <span className="block h-7 rounded-[3px] bg-[color-mix(in_oklab,var(--tt-color-text-blue)_35%,transparent)]" style={{ width }} />
+      <span className="block h-[2px] w-[90%] rounded-full bg-foreground/30" />
+    </span>
+  </Screen>
+)
+export const pictureSizeChoices = [
+  { id: 'full', label: 'Full width', show: <PicturedPage width="100%" /> },
+  { id: 'medium', label: 'Medium', show: <PicturedPage width="60%" /> },
+  { id: 'small', label: 'Small', show: <PicturedPage width="35%" /> }
+]
 export const widthChoices = [
   { id: 'narrow', label: 'Narrow', show: <Column width="48%" /> },
   { id: 'wide', label: 'Wide', show: <Column width="74%" /> },
