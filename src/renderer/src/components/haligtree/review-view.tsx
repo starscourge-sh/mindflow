@@ -1058,7 +1058,7 @@ function Finished({ count, total, later = 0, compact, onPick, onLearn, ids = [] 
             transition={{ type: 'spring', visualDuration: 0.6, bounce: 0.25, delay: done ? 0.35 : 0 }} className="mb-3">
             <Book size={compact ? 44 : 56} seed={done ? 'review-done' : 'review-none'} done={done} className="" />
           </motion.div>
-          <h2 className={compact ? 'text-heading font-semibold' : 'text-title font-medium'}>
+          <h2 className={`font-serif ${compact ? 'text-heading font-semibold' : 'text-title font-semibold'}`}>
             {done ? <>Done: <Rolling text={count} /> reviewed</> : later ? 'All put off until tomorrow' : today > 0 ? 'Done for today' : 'Nothing due right now'}
           </h2>
           <p className="leading-relaxed text-muted-foreground">
