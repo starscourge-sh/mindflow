@@ -34,7 +34,7 @@ import { onboarding } from '@/lib/onboarding'
 import { WithPictures } from './with-pictures'
 import { languageOf, sayAgain, speak } from '@/lib/read-aloud'
 import { LearnMode } from './learn-mode'
-import { isLeech, minutesFor, typedCheck, type Strictness } from '../../../../main/study'
+import { isLeech, minutesFor, thingsIn, typedCheck, type Strictness } from '../../../../main/study'
 import { Star } from 'lucide-react'
 import { RowMenu, copyLinkItem, type RowItem } from './row-menu'
 import { binItem } from '@/lib/to-bin'
@@ -206,6 +206,11 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
     // What you typed before turning it over is kept, as a dated thought on the card.
     if (said.trim()) void keepGloss(card.id, said)
     void haligtree.grade(card.id, value, Date.now() - started.current)
+    // Easy the first time it is seen: maybe it was never worth a card. Asked, never decided for you.
+    if (value === 4 && !card.reviewed && !round) {
+      const easy = card
+      toast('You knew it cold. Keep it as a card?', undefined, 'info', { label: 'Set it aside', key: 'A', run: () => setAside(easy, true) })
+    }
     // Counted by card, so one seen twice after Again counts once, and a
     // buried one not at all.
     setReviewed((ids) => new Set(ids).add(card.id))
@@ -633,6 +638,7 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
                 Edit this card beside
               </Button>
             )}
+            <CardSize id={card.id} answer={answer ?? textOf(card.body)} />
             {/* A thought on it now: out of sight until ; opens it or there is one,
                 so the Why field above is the only field under the answer. */}
             <GlossLine id={card.id} latest={!!card.why} quiet className="-mt-3" />
@@ -1157,6 +1163,27 @@ export function Readiness({ exam, named = true }: { exam: Exam; named?: boolean 
         </p>
       )}
     </div>
+  )
+}
+
+/**
+ * When a card is too big, said under its answer while it is in front of you:
+ * an answer holding more than 4 things (Carter's rule), or a card that has
+ * taken you 40 seconds or more each time. Both offer the card's page beside.
+ */
+function CardSize({ id, answer }: { id: string; answer: string }): React.JSX.Element | null {
+  const history = useLive(() => haligtree.history(id), null as Awaited<ReturnType<typeof haligtree.history>> | null, [id])
+  const things = thingsIn(answer)
+  const timed = (history?.reviews ?? []).filter((one) => one.ms).map((one) => Math.min(one.ms!, 60000))
+  const seconds = timed.length >= 2 ? Math.round(timed.reduce((sum, ms) => sum + ms, 0) / timed.length / 1000) : 0
+  const said = things > 4 ? `This answer holds ${num(things)} things; four at most stay together. Split it, group them under a few headings, or add a memory hook (a word from their first letters).`
+    : seconds >= 40 ? `This card takes you about ${num(seconds)} seconds each time. Quick cards stick better: split it into two or three.` : null
+  if (!said) return null
+  return (
+    <p data-card-size className="-mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-body text-[var(--tt-color-text-orange)]">
+      {said}
+      {canSplit() && <Button variant="ghost" size="sm" data-card-size-edit className="-ml-2" onClick={() => (chime('open'), openAside('nugget', id))}>Split it beside</Button>}
+    </p>
   )
 }
 

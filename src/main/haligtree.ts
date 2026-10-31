@@ -2744,7 +2744,7 @@ export function registerHaligtree(): void {
   })
   // A card's own past: each review, its grade, and when it is next due.
   handle('review:history', (id: string) => ({
-    reviews: db.prepare('select reviewed_at as at, grade from review_log where item_id = ? order by reviewed_at').all(id) as { at: string; grade: number }[],
+    reviews: db.prepare('select reviewed_at as at, grade, ms from review_log where item_id = ? order by reviewed_at').all(id) as { at: string; grade: number; ms: number | null }[],
     dueAt: (db.prepare('select due_at from nuggets where id = ?').get(id) as { due_at: string | null } | undefined)?.due_at ?? null
   }))
   // Where a card came from, to reread after missing it: the capture it was

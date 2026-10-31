@@ -264,6 +264,20 @@ export function balancedDay(days: number, load: (day: number) => number, lighter
 }
 
 /**
+ * How many things an answer asks you to recall: its list items (lines that
+ * start with a dash, a bullet or a number, or plain lines), or for a single
+ * line the parts between commas or semicolons. Carter's rule: past 4, a card
+ * stops being remembered as a whole.
+ */
+export function thingsIn(answer: string): number {
+  const lines = answer.split('\n').map((line) => line.trim()).filter(Boolean)
+  if (lines.length > 1) return lines.length
+  const parts = (lines[0] ?? '').split(/[;,]| and /).map((part) => part.trim()).filter(Boolean)
+  // A sentence with commas is not a list: only short parts count as things.
+  return parts.length > 1 && parts.every((part) => part.split(' ').length <= 4) ? parts.length : 1
+}
+
+/**
  * "term - meaning" lines, as pasted from a glossary or a vocabulary list:
  * a dash, en dash, colon or equals sign between the two, each side short.
  * Empty unless at least three lines read that way and most of the list does.

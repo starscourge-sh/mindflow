@@ -1,7 +1,7 @@
 // Run with: node --test test/study.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { balancedDay, bucketOf, closeness, daysInARow, fitFirstDays, isEquation, isLeech, keyWords, LEECH_AT, lineCard, lineCardsIn, matchLineCards, mentions, minutesFor, shuffleNew, suggestGrade, termLines, typedCheck, wordsIn } from '../src/main/study.ts'
+import { balancedDay, bucketOf, closeness, daysInARow, fitFirstDays, isEquation, isLeech, keyWords, LEECH_AT, lineCard, lineCardsIn, matchLineCards, mentions, minutesFor, shuffleNew, suggestGrade, termLines, thingsIn, typedCheck, wordsIn } from '../src/main/study.ts'
 
 test('a line with :: between words is a card', () => {
   assert.deepEqual(lineCard('Capital of Peru :: Lima'), { question: 'Capital of Peru', answer: 'Lima' })
@@ -225,4 +225,13 @@ test('a card coming back in 3 days or more lands on the lightest day in reach', 
   const moved = balancedDay(100, (day) => (day === 104 ? 0 : 50))
   assert.equal(moved, 104)
   assert.equal(balancedDay(100, (day) => (day === 106 ? 0 : 50)), 100)
+})
+
+test('an answer counts the things it asks you to recall', () => {
+  assert.equal(thingsIn('- Mercury\n- Venus\n- Earth\n- Mars\n- Jupiter'), 5)
+  assert.equal(thingsIn('Cyan, magenta, yellow and black'), 4)
+  assert.equal(thingsIn('Ser, estar, tener, ir, hacer, poder'), 6)
+  // A sentence with commas is one thing.
+  assert.equal(thingsIn('Because, as Ebbinghaus found in 1885, memory fades fast at first and then slowly'), 1)
+  assert.equal(thingsIn('Lima'), 1)
 })
