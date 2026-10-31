@@ -50,7 +50,8 @@ try {
   const groups = () => h.evaluate(() => Object.fromEntries([...document.querySelectorAll('[data-details-group]')].map((one) => [one.dataset.detailsGroup, one.hasAttribute('data-open')])))
   const first = await groups()
   check('Family and Details start open', first.Family === true && first.Details === true, JSON.stringify(first))
-  const closed = Object.entries(first).filter(([name]) => !['Family', 'Links', 'Details'].includes(name))
+  // Groups holding something open by themselves (Like this note, here); the rest wait folded.
+  const closed = Object.entries(first).filter(([name]) => !['Family', 'Links', 'Details', 'Like this note'].includes(name))
   check('every other group starts folded', closed.length > 0 && closed.every(([, open]) => !open), JSON.stringify(closed))
   await h.screenshot({ path: `${dir}/31-details-first.png` })
   await h.locator('[data-details-group="Comes back"] button[aria-expanded]').click()
