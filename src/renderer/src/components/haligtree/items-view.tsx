@@ -1688,13 +1688,21 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     const picked = new Set(these)
     const into = (group: string): Layout => moveMany(layout, these, { group, after: (layout.groups[group] ?? []).filter((one) => !picked.has(one)).at(-1) ?? null })
     const others = list.filter((one) => layout.groups[one.id] && !(theirs.size === 1 && theirs.has(one.id)))
+    // Two folders of one name (a "Drafts" in "Notes" and one in "Essays") said with the folders they sit in: "Notes / Drafts".
+    const named = (one: (typeof list)[number]): string => one.name.trim().toLowerCase()
+    const placeOf = (one: (typeof list)[number]): string => {
+      if (list.filter((other) => named(other) === named(one)).length < 2) return one.name
+      const path = [one.name]
+      for (let up = list.find((other) => other.id === one.parent); up && path.length < 4; up = list.find((other) => other.id === up!.parent)) path.unshift(up.name)
+      return path.length > 1 ? path.join(' / ') : one.name
+    }
     return [
       n > 1 && { label: `New folder with ${num(n)} notes`, keys: '⌃⌘N', run: () => gatherNew(these) },
       {
         label: 'Move to folder',
         items: [
           ...others.map((one) => ({
-            label: one.name,
+            label: placeOf(one),
             icon: <GroupIcon icon={one.icon} color={one.color} className="size-3.5" />,
             trail: <span className="ml-auto size-2 rounded-full" style={{ background: tintOf(one.color) ?? 'color-mix(in srgb, var(--foreground) 25%, transparent)' }} />,
             run: () => commit(into(one.id), 'gather', `Moved ${notes(n)} to ${one.name}`)
