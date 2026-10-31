@@ -1,8 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
-import { GlobalWorkerOptions, TextLayer, getDocument, type PDFDocumentProxy } from "pdfjs-dist"
+import { GlobalWorkerOptions, TextLayer, getDocument, type PDFDocumentProxy, type PDFPageProxy } from "pdfjs-dist"
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url"
 import "./pdf.css"
 import { markCss } from "./read-bar"
+import { AHEAD as NEXT_TO, IN_VIEW, drawInTurn, keepPage, keptPage } from "./pdf-draw"
 
 // The worker ships beside the page as a file of the app's own, so the page's
 // policy (script-src 'self') lets it run.
@@ -171,7 +172,8 @@ export function PdfPages({
   const [size, setSize] = useState<{ w: number; h: number } | null>(null)
   const [width, setWidth] = useState(0)
   const [tall, setTall] = useState(0)
-  const [shown, setShown] = useState<Set<number>>(new Set([1]))
+  // The pages drawn, each with how wanted it is: in view, or one either side of those.
+  const [shown, setShown] = useState<Map<number, number>>(() => new Map([[1, IN_VIEW]]))
 
   useEffect(() => {
     let live = true
@@ -222,8 +224,9 @@ export function PdfPages({
           if (entry.isIntersecting) seen.add(page)
           else seen.delete(page)
         }
-        const next = new Set<number>()
-        for (const page of seen) for (let at = page - AHEAD; at <= page + AHEAD; at++) if (at >= 1 && at <= doc.numPages) next.add(at)
+        const next = new Map<number, number>()
+        for (const page of seen) for (let at = page - AHEAD; at <= page + AHEAD; at++) if (at >= 1 && at <= doc.numPages) next.set(at, NEXT_TO)
+        for (const page of seen) next.set(page, IN_VIEW)
         setShown(next)
       },
       { root: scroller?.current ?? null },
@@ -269,14 +272,14 @@ export function PdfPages({
     <div ref={box} className={`pdf-pages${spread ? " is-spread" : ""}`} data-fit={fit}>
       {doc && scale > 0 &&
         Array.from({ length: doc.numPages }, (_, index) => (
-          <PdfPage key={index + 1} doc={doc} page={index + 1} scale={scale} guess={size!} drawn={shown.has(index + 1)} marks={marks.filter((mark) => mark.page === index + 1)} flash={flash} />
+          <PdfPage key={index + 1} doc={doc} page={index + 1} scale={scale} guess={size!} rank={shown.get(index + 1)} marks={marks.filter((mark) => mark.page === index + 1)} flash={flash} />
         ))}
     </div>
   )
 }
 
 /** One sheet: its size always, its picture and words only while near the view. */
-function PdfPage({ doc, page, scale, guess, drawn, marks, flash }: { doc: PDFDocumentProxy; page: number; scale: number; guess: { w: number; h: number }; drawn: boolean; marks: PdfMark[]; flash?: string | null }): React.JSX.Element {
+function PdfPage({ doc, page, scale, guess, rank, marks, flash }: { doc: PDFDocumentProxy; page: number; scale: number; guess: { w: number; h: number }; rank?: number; marks: PdfMark[]; flash?: string | null }): React.JSX.Element {
   const sheet = useRef<HTMLDivElement>(null)
   const [own, setOwn] = useState<{ w: number; h: number } | null>(null)
   // The words on this page are laid out: marks can be measured against them.
@@ -289,6 +292,7 @@ function PdfPage({ doc, page, scale, guess, drawn, marks, flash }: { doc: PDFDoc
   }, [worded, key, flash])
   const size = own ?? guess
 
+  const drawn = rank !== undefined
   useEffect(() => {
     const el = sheet.current
     if (!el) return
@@ -297,43 +301,83 @@ function PdfPage({ doc, page, scale, guess, drawn, marks, flash }: { doc: PDFDoc
       el.replaceChildren()
       return
     }
-    let stop = (): void => {}
     let live = true
-    void doc.getPage(page).then((proxy) => {
-      if (!live) return
+    let stop = (): void => {}
+    const ratio = window.devicePixelRatio || 1
+    const key = `${doc.fingerprints[0]}:${page}:${scale}:${ratio}`
+    /** A canvas for this page at `density` pixels to a point of the view; CSS lays it over the sheet's whole box. */
+    const canvasAt = (viewport: { width: number; height: number }, density: number): HTMLCanvasElement => {
+      const canvas = document.createElement("canvas")
+      canvas.width = Math.floor(viewport.width * density)
+      canvas.height = Math.floor(viewport.height * density)
+      canvas.className = "pdf-canvas"
+      return canvas
+    }
+    /** The words laid over the picture, once it shows: never ahead of it in the worker. */
+    const words = (proxy: PDFPageProxy): Promise<void> => {
+      if (!live) return Promise.resolve()
+      const layer = document.createElement("div")
+      layer.className = "textLayer"
+      const text = new TextLayer({ textContentSource: proxy.streamTextContent(), container: layer, viewport: proxy.getViewport({ scale }) })
+      stop = () => text.cancel()
+      return text.render().then(() => {
+        if (!live) return
+        el.querySelector(".textLayer")?.remove()
+        el.append(layer)
+        setWorded((count) => count + 1)
+      })
+    }
+    const sized = (proxy: PDFPageProxy): void => {
       const base = proxy.getViewport({ scale: 1 })
       setOwn({ w: base.width, h: base.height })
-      const viewport = proxy.getViewport({ scale })
-      // Drawn at the screen's own density, so text is sharp on a Retina display.
-      const ratio = window.devicePixelRatio || 1
-      const canvas = document.createElement("canvas")
-      canvas.width = Math.floor(viewport.width * ratio)
-      canvas.height = Math.floor(viewport.height * ratio)
-      canvas.className = "pdf-canvas"
-      const words = document.createElement("div")
-      words.className = "textLayer"
-      const task = proxy.render({ canvas, viewport, transform: ratio === 1 ? undefined : [ratio, 0, 0, ratio, 0, 0] })
-      const text = new TextLayer({ textContentSource: proxy.streamTextContent(), container: words, viewport })
-      stop = () => {
-        task.cancel()
-        text.cancel()
+    }
+    // Drawn sharp a moment ago: shown at once, without waiting a turn; only its words are laid again.
+    const cached = keptPage(key)
+    if (cached) {
+      void doc.getPage(page).then((proxy) => {
+        if (!live) return
+        sized(proxy)
+        el.replaceChildren(cached)
+        return words(proxy)
+      }).catch(() => {})
+      return () => {
+        live = false
+        stop()
       }
-      void task.promise
-        .then(() => {
-          if (!live) return
-          el.replaceChildren(canvas, words)
-          return text.render().then(() => {
-            if (live) setWorded((count) => count + 1)
-          })
-        })
-        .catch(() => {})
+    }
+    const drop = drawInTurn(rank, async (stopped) => {
+      const proxy = await doc.getPage(page)
+      if (!live || stopped()) return
+      sized(proxy)
+      const viewport = proxy.getViewport({ scale })
+      // A rough picture first, at half the view's size, so the page shows while the sharp one is drawn.
+      // Skipped when a picture of it is already up (a zoom): the old one stays until the sharp one replaces it.
+      if (!el.querySelector("canvas")) {
+        const rough = canvasAt(viewport, 0.5)
+        rough.dataset.pass = "rough"
+        const quick = proxy.render({ canvas: rough, viewport, transform: [0.5, 0, 0, 0.5, 0, 0] })
+        stop = () => quick.cancel()
+        await quick.promise
+        if (!live || stopped()) return
+        el.replaceChildren(rough)
+      }
+      // Drawn at the screen's own density, so text is sharp on a Retina display.
+      const sharp = canvasAt(viewport, ratio)
+      const task = proxy.render({ canvas: sharp, viewport, transform: ratio === 1 ? undefined : [ratio, 0, 0, ratio, 0, 0] })
+      stop = () => task.cancel()
+      await task.promise
+      if (!live) return
+      el.replaceChildren(sharp)
+      keepPage(key, sharp)
+      return words(proxy)
     })
     return () => {
       // The old picture stays until the new one is ready: no blank flash on zoom.
       live = false
+      drop()
       stop()
     }
-  }, [doc, page, scale, drawn])
+  }, [doc, page, scale, drawn, rank])
 
   return (
     <div

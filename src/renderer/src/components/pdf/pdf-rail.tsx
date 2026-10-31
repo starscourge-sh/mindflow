@@ -5,6 +5,7 @@ import { Highlight, useChosen, useFluidHover, Weighted } from "@/components/hali
 import { spring } from "@/lib/motion"
 import { BackToTop } from "@/components/haligtree/ui"
 import type { PDFDocumentProxy } from "pdfjs-dist"
+import { THUMB, drawInTurn } from "./pdf-draw"
 
 /** Which list the rail shows: the pages small, or the PDF's own outline. Highlights are in Details. */
 export type RailTab = "pages" | "outline"
@@ -66,35 +67,49 @@ export function PdfThumb({ doc, page, here, onGo }: { doc: PDFDocumentProxy; pag
   const box = useRef<HTMLButtonElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
   const [shape, setShape] = useState(1.3)
+  // Near the rail's view now: a thumbnail scrolled past stops waiting for its turn.
   const [seen, setSeen] = useState(false)
+  // The width it was last drawn at, in pixels: drawn again only when the rail grows past it.
+  const drawnAt = useRef(0)
   useEffect(() => {
     const el = box.current
     if (!el) return
-    const watch = new IntersectionObserver(([one]) => one.isIntersecting && setSeen(true), { rootMargin: "300px 0px" })
+    const watch = new IntersectionObserver(([one]) => setSeen(one.isIntersecting), { rootMargin: "100px 0px" })
     watch.observe(el)
     return () => watch.disconnect()
   }, [])
   useEffect(() => {
     if (!seen) return
+    // At the rail's own width times the screen's density: sharp, and no more pixels than are shown.
+    const wide = Math.round((canvas.current?.parentElement?.clientWidth || NARROW) * (window.devicePixelRatio || 1))
+    if (drawnAt.current >= wide) return
     let live = true
-    let task: { cancel: () => void } | null = null
-    void doc.getPage(page).then((one) => {
+    let stop = (): void => {}
+    // After every page in view: the thumbnails wait their turn behind them.
+    const drop = drawInTurn(THUMB, async (stopped) => {
+      const one = await doc.getPage(page)
       const flat = one.getViewport({ scale: 1 })
-      if (!live || !canvas.current) return
+      if (!live || stopped() || !canvas.current) return
       setShape(flat.height / flat.width)
-      // As wide as the rail at its widest: sharp on a Retina screen at the usual width.
-      const viewport = one.getViewport({ scale: WIDE / flat.width })
-      canvas.current.width = Math.round(viewport.width)
-      canvas.current.height = Math.round(viewport.height)
-      const ink = canvas.current.getContext("2d")
-      if (!ink) return
-      const render = one.render({ canvasContext: ink, viewport, canvas: canvas.current })
-      task = render
-      render.promise.catch(() => {})
+      const viewport = one.getViewport({ scale: wide / flat.width })
+      // Drawn off to the side, so a cancelled one never leaves half a picture.
+      const off = document.createElement("canvas")
+      off.width = Math.round(viewport.width)
+      off.height = Math.round(viewport.height)
+      const render = one.render({ canvas: off, viewport })
+      stop = () => render.cancel()
+      await render.promise
+      const shown = canvas.current
+      if (!live || !shown) return
+      shown.width = off.width
+      shown.height = off.height
+      shown.getContext("2d")?.drawImage(off, 0, 0)
+      drawnAt.current = wide
     })
     return () => {
       live = false
-      task?.cancel()
+      drop()
+      stop()
     }
   }, [seen, doc, page])
   useEffect(() => {
