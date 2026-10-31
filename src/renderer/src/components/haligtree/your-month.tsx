@@ -7,6 +7,8 @@ import { chime } from '@/lib/sound'
 import { Button } from '@/components/ui/button'
 import { Kbd } from './ui'
 import { Arc, DotMatrix } from './mono-card'
+import { GroupCover } from './group-cover'
+import { groupTint } from './card-shelves'
 import { dayjs, num, plural } from '../../../../main/dates'
 
 const EASE = [0.16, 1, 0.3, 1] as const
@@ -57,7 +59,7 @@ export function YourMonth({ onClose }: { onClose: () => void }): React.JSX.Eleme
     { id: 'retention', picture: <div className="w-[min(26rem,70vw)]"><Arc percent={study.checked ? Math.round((study.recalled / study.checked) * 100) : 0} label="" className="max-w-none" /><div className="-mt-[22%] font-serif text-[clamp(3rem,10vw,5.5rem)] leading-none font-semibold text-foreground tabular-nums"><RollUp n={study.checked ? Math.round((study.recalled / study.checked) * 100) : 0} still={still} />%</div><div className="mt-3 text-heading text-muted-foreground">remembered</div></div>, line: study.checked ? `You remembered ${num(study.recalled)} of ${num(study.checked)} cards you had seen before.` : 'Once a card comes back, this says how well it stayed.' },
     { id: 'new', picture: big(study.newCards, study.newCards === 1 ? 'new card' : 'new cards'), line: study.newCards ? 'New things you chose to keep.' : 'No new cards: a month for what you already have.' },
     ...(study.book ? [{ id: 'book', picture: cover ? <img src={cover} alt="" className="max-h-[42vh] rounded-md shadow-lg" /> : <div className="font-serif text-4xl text-foreground">{study.book.title}</div>, line: `The book you read most: ${study.book.title}.` }] : []),
-    ...(data.tags[0] ? [{ id: 'tag', picture: <div className="font-serif text-[clamp(3rem,10vw,6rem)] leading-none font-semibold text-foreground">#{data.tags[0].name}</div>, line: `The tag you kept most, on ${plural(data.tags[0].n, 'note', 'notes')}.` }] : []),
+    ...(data.tags[0] ? [{ id: 'tag', picture: <GroupCover name={`#${data.tags[0].name}`} tint={groupTint(data.tags[0].name)} className="aspect-square w-[min(42vh,20rem)] rounded-xl shadow-lg" />, line: `The tag you kept most, on ${plural(data.tags[0].n, 'note', 'notes')}.` }] : []),
     ...(study.longest ? [{ id: 'longest', picture: big(study.longest.days, study.longest.days === 1 ? 'day away' : 'days away'), line: `You still knew “${study.longest.title.length > 80 ? `${study.longest.title.slice(0, 80).replace(/\s+\S*$/, '')}…` : study.longest.title}” after ${plural(study.longest.days, 'day', 'days')}.` }] : []),
     ...(data.mostReviewed ? [{ id: 'idea', picture: <div className="max-w-xl font-serif text-[clamp(2rem,6vw,3.5rem)] leading-tight text-foreground text-balance">{data.mostReviewed.title}</div>, line: `The idea that came back most, ${plural(data.mostReviewed.n, 'time', 'times')}.` }] : []),
     ...(data.sources[0] ? [{ id: 'source', picture: <div className="max-w-xl font-serif text-[clamp(2rem,6vw,3.5rem)] leading-tight text-foreground text-balance">{data.sources[0].name}</div>, line: `The source you quoted most, ${plural(data.sources[0].n, 'time', 'times')}.` }] : []),

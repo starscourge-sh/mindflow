@@ -5,6 +5,7 @@ import { num } from '../../../../main/dates'
 import { useSideways } from './display'
 import { Flip } from './review-view'
 import { tagTint } from './tag-icon'
+import { GroupCover } from './group-cover'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { BrowsedCard } from './card-browser'
 
@@ -30,24 +31,9 @@ export const groupTint = (name: string): string => tagTint(name.replace(/^#/, ''
 /** A card's colour: its first tag's, or its deck's. */
 export const cardTint = (card: BrowsedCard): string => groupTint(card.tags[0] ?? card.source ?? card.id)
 
-/**
- * A cover drawn from a name, for a group with no pictures: its first letters
- * set huge in outline, with arcs and rules placed by the name, so no two covers
- * match and none needs a picture (drawn here, so it ships).
- */
+/** A group's cover where it has no picture: its Coolshapes cover (group-cover.tsx), with no name on it, as the name is said beside it. */
 export function Cover({ name, tint, className = '' }: { name: string; tint: string; className?: string }): React.JSX.Element {
-  const n = seed(name)
-  const letters = name.replace(/^#/, '').replace(/[^\p{L}\p{N}]/gu, '').slice(0, 2) || '?'
-  const arcs = Array.from({ length: 3 }, (_, at) => ({ x: (n >>> (at * 5)) % 100, y: (n >>> (at * 7 + 3)) % 140, r: 18 + ((n >>> (at * 3)) % 34) }))
-  return (
-    <svg viewBox="0 0 100 140" preserveAspectRatio="xMidYMid slice" aria-hidden className={className} style={{ background: `color-mix(in oklab, ${tint} 78%, black)` }}>
-      <g fill="none" stroke={`color-mix(in oklab, ${tint} 55%, white)`} strokeWidth="2.2" strokeDasharray={n % 2 ? '7 4' : undefined}>
-        {arcs.map((arc, at) => <circle key={at} cx={arc.x} cy={arc.y} r={arc.r} />)}
-        <line x1="0" y1={(n % 60) + 40} x2="100" y2={((n >>> 4) % 60) + 40} />
-      </g>
-      <text x="6" y="132" fontSize="78" fontWeight="700" fill="none" stroke={`color-mix(in oklab, ${tint} 40%, white)`} strokeWidth="1.6" style={{ fontFamily: 'var(--font-heading, serif)' }}>{letters}</text>
-    </svg>
-  )
+  return <GroupCover name={name} tint={tint} label={null} className={className} />
 }
 
 /**
@@ -283,6 +269,7 @@ export function Shelf({ name, count, onOpen, children }: { name: string; count: 
   return (
     <section ref={shelf} data-shelf={name} className="mt-6 first:mt-1">
       <header className="mb-2 flex items-baseline gap-3 px-1">
+        <Cover name={name} tint={tint} className="size-7 shrink-0 self-center rounded-md" />
         <button type="button" onClick={onOpen} className="min-w-0 truncate font-heading text-heading font-semibold text-foreground hover:underline">{name}</button>
         <span className="ml-auto shrink-0 text-control text-foreground/60 tabular-nums">{num(count)} {count === 1 ? 'card' : 'cards'}</span>
         <button type="button" aria-label="Back along" disabled={!row.edges.left} onClick={() => slide(-1)} className="rounded p-1 text-foreground/70 hover:bg-accent disabled:opacity-30"><ChevronLeft className="size-4" /></button>

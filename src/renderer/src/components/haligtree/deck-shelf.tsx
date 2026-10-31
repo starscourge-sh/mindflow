@@ -8,6 +8,8 @@ import { Chip } from './display'
 import { OptionsMenu, type Section } from './options-menu'
 import { Tree, treeOf } from './branches'
 import { cardsSaid, makeDeck, useOwnDecks, type OwnDeck } from './decks'
+import { GroupCover } from './group-cover'
+import { groupTint } from './card-shelves'
 
 type Topic = { deck: string; label: string; cards: number; held: number }
 export type Shelf = { name: string; cover: string | null; sample: string; pictures: number; cards: number; fresh: number; due: number; held: number; shown: boolean; topics: Topic[] }
@@ -73,10 +75,9 @@ export function DeckShelf({ onOpen, onStudy, onPaste }: { onOpen: (type: string,
           {shelf.cover ? (
             <img src={shelf.cover} alt="" className="size-24 shrink-0 rounded-lg object-cover" />
           ) : (
-            // No pictures: its first question as the cover, the way a card would ask it.
-            <span aria-hidden data-deck-cover-card className="grid size-24 shrink-0 place-items-center overflow-hidden rounded-lg border border-foreground/10 bg-background p-2 text-center font-serif text-sm leading-snug text-foreground shadow-sm [overflow-wrap:anywhere]">
-              <span className="line-clamp-4">{shelf.sample || shelf.name}</span>
-            </span>
+            // No pictures: its cover drawn from its name, in its colour (its name is said beside it).
+            <GroupCover name={shelf.name} tint={groupTint(shelf.name)} label={null} className="size-24 shrink-0 rounded-lg shadow-sm" />
+
           )}
           <div className="grid min-w-0 flex-1 content-start gap-2">
             {/* One line, however long the deck's name: the whole of it shows on hover. */}
