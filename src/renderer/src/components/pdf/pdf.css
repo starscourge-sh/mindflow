@@ -442,3 +442,18 @@
   cursor: pointer;
   word-break: break-all;
 }
+
+/* The book's highlights: each its colour, its words and its page; the way to gather them last. */
+.pdf-marks-list .pdf-outline-row {
+  align-items: center;
+}
+
+.pdf-marks-list .pdf-swatch {
+  flex: none;
+}
+
+.pdf-gather {
+  margin-top: 0.25rem;
+  color: var(--tt-brand-color-500, #c08a2e);
+  font-weight: 500;
+}

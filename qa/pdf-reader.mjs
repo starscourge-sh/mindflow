@@ -353,6 +353,23 @@ try {
   check('right-click on picked words offers Highlight, Keep as a gem and Copy with citation', ['Highlight', 'Keep as a gem', 'Copy with citation'].every((one) => pickedRows.some((row) => row.startsWith(one))), JSON.stringify(pickedRows))
   await h.keyboard.press('Escape'); await wait(300)
   await h.evaluate(() => getSelection().removeAllRanges())
+  // "Highlights" lists the book's highlights in page order; a row goes to its page and lights it.
+  await h.click('.pdf-reader button[aria-label="Highlights"]'); await wait(400)
+  const listed = await h.evaluate(() => [...document.querySelectorAll('.pdf-marks-list .pdf-outline-title')].map((one) => one.textContent))
+  check('"Highlights" lists every highlight in page order', JSON.stringify(listed) === JSON.stringify(['Page 3', 'of', 'quiet sentence worth keeping']), JSON.stringify(listed))
+  await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-highlights-list.png` })
+  await h.fill('.pdf-reader-page-field', '1'); await h.keyboard.press('Enter'); await wait(800)
+  await h.click('.pdf-marks-list .pdf-outline-row:has-text("quiet sentence")'); await wait(1000)
+  const jumped = await h.evaluate(() => ({ page: document.querySelector('.pdf-reader-page-field')?.value, lit: document.querySelector('.pdf-reader .pdf-mark.is-flash')?.closest('.pdf-page')?.dataset.page }))
+  check('a row goes to its page and lights the highlight', jumped.page === '3' && jumped.lit === '3', JSON.stringify(jumped))
+  // "Gather into a note": one new note with every highlight as a quote, each linking back to its page.
+  await h.click('.pdf-marks-list .pdf-gather'); await wait(1500)
+  const gathered = await h.evaluate(() => { const ed = document.querySelector('[data-open] .tiptap'); return ed ? { quotes: ed.querySelectorAll('blockquote').length, links: [...ed.querySelectorAll('a')].map((a) => a.textContent) } : null })
+  check('"Gather into a note" opens a note with each highlight quoted and linked to its page', gathered?.quotes === 3 && gathered.links.every((one) => one === 'The Probe Book, p. 3'), JSON.stringify(gathered))
+  await h.keyboard.press('Meta+BracketLeft'); await wait(1200)
+  await h.waitForSelector('.pdf-reader .pdf-page[data-page="3"] canvas', { timeout: 10000 }).catch(() => {})
+  if (await h.evaluate(() => !!document.querySelector('.pdf-marks-list'))) await h.click('.pdf-reader button[aria-label="Highlights"]')
+  await h.fill('.pdf-reader-page-field', '3'); await h.keyboard.press('Enter'); await wait(800)
 
   // Paper pages, read off the screen: the white turns warm, the orange square stays orange.
   const pixels = async () => {

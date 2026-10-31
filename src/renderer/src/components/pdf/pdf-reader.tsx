@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import type { PDFDocumentProxy } from "pdfjs-dist"
-import { ChevronDown, ChevronUp, ListTree, Minus, Plus, ScrollText, Search, X } from "lucide-react"
+import { ChevronDown, ChevronUp, Highlighter, ListTree, Minus, Plus, ScrollText, Search, X } from "lucide-react"
 import { Button } from "@/components/tiptap-ui-primitive/button"
 import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from "@/components/ui/context-menu"
 import { Roll } from "@/lib/roll"
@@ -9,7 +9,7 @@ import { host, said } from "@/lib/host"
 import { canSplit, keysHere, usePane } from "@/lib/split"
 import { chime } from "@/lib/sound"
 import { cue } from "@/lib/cues"
-import { MarkMenu, PickedMenu, ReadBar, cited, lastColor, readKey, rememberColor, type MarkColor, type ReadActions } from "./read-bar"
+import { MarkMenu, PickedMenu, ReadBar, cited, lastColor, markCss, readKey, rememberColor, type MarkColor, type ReadActions } from "./read-bar"
 import { PdfPages, offsetsIn, pdfAuthor, pdfTitle, type PdfMark } from "./pdf-pages"
 
 /** The zoom steps, as Preview's: fit width is 1. */
@@ -203,6 +203,30 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     }
   }, [doc])
 
+  // Every highlight in the book, in page order, beside the pages: a click goes to it and lights it.
+  const [showMarks, setShowMarks] = useState(false)
+  const [lit, setLit] = useState<string | null>(null)
+  const goToMark = (one: PdfMark): void => {
+    go(one.page)
+    setLit(one.id)
+  }
+  /** Every highlight gathered into one new note, in page order, each with a link back to its page and mark. */
+  const gather = async (): Promise<void> => {
+    const sorted = [...marks].sort((a, b) => a.page - b.page || a.start - b.start)
+    if (!sorted.length) return
+    const body = {
+      type: "doc",
+      content: sorted.flatMap((one) => [
+        { type: "blockquote", content: [{ type: "paragraph", content: [{ type: "text", text: one.quote }] }] },
+        { type: "paragraph", content: [{ type: "text", text: `${title}, p. ${one.page}`, marks: [{ type: "link", attrs: { href: pdfLink(src, name, one.page, one.id) } }] }] },
+      ]),
+    }
+    const id = await window.api.captures.create({ kind: "note", title: `Highlights from ${title}`, body })
+    chime("saved")
+    said(`${sorted.length} highlight${sorted.length === 1 ? "" : "s"} gathered into a note`)
+    window.dispatchEvent(new CustomEvent("haligtree:open", { detail: { type: "capture", id } }))
+  }
+
   // The mark under a right click.
   const [hit, setHit] = useState<PdfMark | null>(null)
 
@@ -376,6 +400,11 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           <span className="pdf-reader-of"> / {doc?.numPages ?? "…"}</span>
         </span>
         <span className="pdf-reader-tools">
+          {marks.length > 0 && (
+            <Button data-style="ghost" aria-label="Highlights" title="Highlights" data-active-state={showMarks ? "on" : "off"} onClick={() => setShowMarks(!showMarks)}>
+              <Highlighter className="tiptap-button-icon" />
+            </Button>
+          )}
           {outline.length > 0 && (
             <Button data-style="ghost" aria-label="Outline" title="Outline" data-active-state={showOutline ? "on" : "off"} onClick={() => setShowOutline(!showOutline)}>
               <ListTree className="tiptap-button-icon" />
@@ -415,6 +444,20 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
               <span className="pdf-outline-page">{row.page}</span>
             </button>
           ))}
+        </nav>
+      )}
+      {showMarks && marks.length > 0 && (
+        <nav className="pdf-outline pdf-marks-list" aria-label="Highlights">
+          {[...marks].sort((a, b) => a.page - b.page || a.start - b.start).map((one) => (
+            <button key={one.id} type="button" className={`pdf-outline-row${one.id === lit ? " is-here" : ""}`} onClick={() => goToMark(one)}>
+              <span aria-hidden className="pdf-swatch" style={{ background: markCss(one.color) }} />
+              <span className="pdf-outline-title">{one.quote}</span>
+              <span className="pdf-outline-page">{one.page}</span>
+            </button>
+          ))}
+          <button type="button" className="pdf-outline-row pdf-gather" onClick={() => void gather()}>
+            Gather into a note
+          </button>
         </nav>
       )}
       {finding && (
@@ -471,7 +514,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
               zoom={zoom}
               scroller={scroller}
               marks={found.length ? [...marks, ...found] : marks}
-              flash={found.length ? found[at]?.id : flash}
+              flash={found.length ? found[at]?.id : lit ?? flash}
               land={start}
               onLoad={(loaded) => {
                 setDoc(loaded)
