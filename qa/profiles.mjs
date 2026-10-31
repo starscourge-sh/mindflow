@@ -72,7 +72,8 @@ try {
   const grid = await h.locator('[data-people-grid] [data-face]').evaluateAll((all) => all.map((one) => one.dataset.face))
   check(grid.length >= 4, `People show as a grid of faces (${grid.length})`)
   check(await h.locator('[data-face="Jane Austen"] .mf-avatar[data-avatar="picture"]').count() === 1, 'Jane Austen’s face is her portrait')
-  check(/notes? · \d+ quotes?/.test(await h.locator('[data-face="Jane Austen"]').textContent()), 'a line of notes and quotes under the name')
+  // Each note counted once (a1f0c722): "5 quotes · 2 other notes", never "7 notes · 5 quotes".
+  check(/\d+ quotes? · \d+ other notes?$|\d+ quotes?$/.test(await h.locator('[data-face="Jane Austen"]').textContent()), 'a line of notes and quotes under the name, each note counted once')
   const columns = await h.locator('[data-people-grid] > div').evaluate((one) => getComputedStyle(one).gridTemplateColumns.split(' ').length)
   check(columns >= 3, `the grid fills the width (${columns} columns)`)
   await h.evaluate(() => localStorage.setItem('view:sources', JSON.stringify({ ...JSON.parse(localStorage.getItem('view:sources')), sort: 'name' })))
@@ -88,6 +89,9 @@ try {
 
   // 1. Your own profile.
   await go('settings')
+  // Your photo and bio are under Appearance; Settings opens on the section left open last.
+  await h.getByText('Appearance', { exact: true }).first().click()
+  await h.waitForTimeout(600)
   await h.locator('[data-your-profile]').scrollIntoViewIfNeeded()
   check((await h.locator('[data-your-bio]').inputValue()).startsWith('Reads on the bus'), 'the sandbox owner has a bio')
   await h.locator('[data-your-bio]').fill('Keeps lines.')
