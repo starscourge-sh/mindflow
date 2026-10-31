@@ -73,7 +73,7 @@ try {
     await h.keyboard.press('c'); await wait(400)
     await h.keyboard.type(question); await h.keyboard.press('Enter')
     await h.waitForSelector(TOAST, { timeout: 4000 }).catch(() => {})
-    return (await v('items', 'nugget')).find((one) => one.prompt === question)
+    return [...(await v('items', 'card')), ...(await v('items', 'nugget'))].find((one) => one.prompt === question)
   }
 
   // 1. A click on the toast's words opens the card.

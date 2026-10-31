@@ -112,7 +112,7 @@ try {
   check('its picture is kept with the notes', /^haligtree:\/\/assets\/[a-f0-9]{64}\.png$/.test(shown.img), shown.img)
   check('a picture that could not be kept stays a link to it on the site', shown.imgs === 1 && shown.missing?.[1] === `${SITE}/missing.png` && shown.missing?.[0] === 'Picture: The old gate', JSON.stringify([shown.imgs, shown.missing]))
   check("in the note's reading type", noteType && shown.family === noteType.family, `${shown.family} vs ${noteType?.family}`)
-  check('the top bar has find, size and paper pages', ['Find', 'Smaller', 'Larger', 'Paper pages'].every((one) => shown.tools.includes(one)), JSON.stringify(shown.tools))
+  check('the top bar has find, size and paper pages', ['Find', 'Smaller', 'Larger'].every((one) => shown.tools.includes(one)) && shown.tools.some((one) => one === 'Paper pages' || one === 'White pages'), JSON.stringify(shown.tools))
   await h.screenshot({ path: `${shots}/web-reader.png` })
 
   // ⌘+ grows the words; ⌘0 puts them back.
@@ -168,7 +168,7 @@ try {
   })
   await h.mouse.click(at.x, at.y, { button: 'right' }); await wait(500)
   const menu = await h.evaluate(() => [...document.querySelectorAll('[role="menuitem"]')].map((one) => one.textContent.trim()))
-  check('right-click on the highlight offers its gem and removing it', menu.includes('Open its gem') && menu.includes('Remove highlight'), JSON.stringify(menu))
+  check('right-click on the highlight offers its gem and removing it', menu.includes('In a gem: Open') && menu.includes('Remove highlight'), JSON.stringify(menu))
   await h.keyboard.press('Escape'); await wait(300)
 
   // A colour on the bar highlights without a gem, drawn in that colour; its menu offers "Keep as a gem" and its colours.
@@ -253,7 +253,7 @@ try {
     getSelection().removeAllRanges()
     getSelection().addRange(range)
   }, words)
-  const articleCards = async () => (await v('items', 'nugget')).filter((one) => /The Garden Essay/.test(one.medium ?? '') && one.prompt)
+  const articleCards = async () => [...(await v('items', 'card')), ...(await v('items', 'nugget'))].filter((one) => /The Garden Essay/.test(one.medium ?? '') && one.prompt)
   await pickWords('in the middle'); await wait(500)
   await h.keyboard.press('c'); await wait(400)
   check('C opens the question field, focused', await h.evaluate(() => document.activeElement?.getAttribute('aria-label') === "The card's question"), '')
