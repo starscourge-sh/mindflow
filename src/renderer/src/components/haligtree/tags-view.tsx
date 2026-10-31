@@ -296,6 +296,17 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                   onChange={(n) => void haligtree.setTag(chosen, { newPerDay: n })} />
               )}
             </span>
+            {/* How much of it to remember, its own, as Anki's desired retention per deck: the same as its deck menu. */}
+            <span data-tag-keep className="flex flex-wrap items-center gap-1.5 text-xs">
+              <span className="whitespace-nowrap font-medium text-foreground">How much to remember:</span>
+              <Chips options={[{ id: '', label: 'As in Settings' }, { id: 'own', label: 'Its own', tip: 'Higher brings its cards back sooner and more often' }]}
+                on={(id) => (id === 'own') === (study.retention?.[chosen] !== undefined)}
+                pick={(id) => { const was = study.retention?.[chosen] ?? null; void haligtree.setTag(chosen, { retention: id === '' ? null : (was ?? 0.9) }).then(() => (chime('settled'), quietly(() => void haligtree.setTag(chosen, { retention: was })))) }} />
+              {study.retention?.[chosen] !== undefined && (
+                <span className="flex items-center gap-0.5"><ScrubField label={`How much to remember of #${chosen}`} min={70} max={99} value={Math.round(study.retention[chosen] * 100)} className={SCRUB}
+                  onChange={(n) => void haligtree.setTag(chosen, { retention: n / 100 })} />%</span>
+              )}
+            </span>
             {/* An alias: this tag counts as another without the words changing. */}
             <TagEntry
               key={`alias-${chosen}`}

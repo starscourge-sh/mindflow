@@ -938,8 +938,8 @@ const cardOf = (state: string | null): Card => {
 }
 // The plan's learning steps, ten minutes then a day, and fuzz so cards learnt
 // together spread over the days around their due date instead of landing at once.
-export const scheduler = (): ReturnType<typeof fsrs> =>
-  fsrs(generatorParameters({ request_retention: settings().retention, learning_steps: ['10m', '1d'], enable_fuzz: true, w: weights() }))
+export const scheduler = (retention?: number | null): ReturnType<typeof fsrs> =>
+  fsrs(generatorParameters({ request_retention: retention || settings().retention, learning_steps: ['10m', '1d'], enable_fuzz: true, w: weights() }))
 /** The scheduler's parameters: its defaults, with how long a new card lasts fitted to you once Settings has done it. */
 const weights = (): number[] => {
   const first = settings().fsrsFirst
@@ -947,8 +947,8 @@ const weights = (): number[] => {
 }
 
 /** When each of the four grades would bring an item back, for the buttons. */
-const preview = (state: string | null, cap: (due: Date) => Date = (due) => due): Record<number, string> => {
-  const record = scheduler().repeat(cardOf(state), new Date())
+const preview = (state: string | null, cap: (due: Date) => Date = (due) => due, retention?: number | null): Record<number, string> => {
+  const record = scheduler(retention).repeat(cardOf(state), new Date())
   return Object.fromEntries([1, 2, 3, 4].map((grade) => [grade, cap(record[grade as Grade].card.due).toISOString()]))
 }
 
@@ -1208,6 +1208,8 @@ export function registerHaligtree(): void {
   // How strictly its typed answers are checked (exact, meaning; usual when empty), and its own new cards a day.
   column('tag_meta', 'typed text')
   column('tag_meta', 'new_per_day integer')
+  // How much of a deck to remember, its own (0.7 to 0.99), as Anki's desired retention per preset; null as in Settings.
+  column('tag_meta', 'retention real')
   // A deck made by hand in Review (New deck): shown as a deck before it holds a card.
   column('tag_meta', 'deck integer not null default 0')
   // Why the answer is so, one line under it in review.
@@ -2721,10 +2723,11 @@ export function registerHaligtree(): void {
       .map((row) => siblingsOf(row.origin)).filter((one): one is string => !!one))
     const queue = burySiblings([...examDue, ...examFresh, ...otherDue, ...fresh], (one) => siblingsOf(one.row.origin as string | null), notesMet)
     const lift = goalLift()
+    const rate = retentionOf()
     const up = lift ? new Set(queue.filter((one) => lift(one.row))) : null
     const lifted = up ? [...queue.filter((one) => up.has(one)), ...queue.filter((one) => !up.has(one))] : queue
     return lifted.map(({ row, exam }) => ({
-      ...body(row), state: undefined, exam: exam?.tag ?? null, intervals: preview(row.state as string | null, (when) => capped(when, exam))
+      ...body(row), state: undefined, exam: exam?.tag ?? null, intervals: preview(row.state as string | null, (when) => capped(when, exam), rate(row))
     }))
   }
   handle('review:queue', () => reviewQueue())
@@ -2733,7 +2736,7 @@ export function registerHaligtree(): void {
     const row = db.prepare(`select ${ITEM}, body, state from nuggets where id = ? and coalesce(prompt, '') != '' and suspended = 0 and private = 0 and archived_at is null and binned_at is null`).get(id) as Record<string, unknown> | undefined
     if (!row) return null
     const exam = examOf()(row)
-    return { ...body(row), state: undefined, intervals: preview(row.state as string | null, (when) => capped(when, exam)) }
+    return { ...body(row), state: undefined, intervals: preview(row.state as string | null, (when) => capped(when, exam), retentionOf()(row)) }
   }
   // Bury: not today. The timing is wrong, the item is fine, and the schedule is
   // left as it was; it is simply back tomorrow.
@@ -2770,7 +2773,7 @@ export function registerHaligtree(): void {
   handle('review:grade', (id: string, grade: Grade, ms: number) => {
     const row = db.prepare(`select ${ITEM}, body, state from nuggets where id = ?`).get(id) as Record<string, unknown> & { state: string | null }
     const before = db.prepare('select state, due_at, edited_since_review from nuggets where id = ?').get(id) as { state: string | null; due_at: string | null; edited_since_review: number }
-    const { card } = scheduler().next(cardOf(row.state), new Date(), grade)
+    const { card } = scheduler(retentionOf()(row)).next(cardOf(row.state), new Date(), grade)
     // Heavy days spread out: a card coming back in 3 days or more lands on
     // the lightest day near its own, and off a lighter weekday if one is set.
     const days = Math.round((card.due.getTime() - startOfDay()) / 86400000)
@@ -2809,6 +2812,16 @@ export function registerHaligtree(): void {
   const tagRules = (): ((row: Record<string, unknown>) => 'paused' | 'maintaining' | null) => {
     const rules = new Map((db.prepare('select tag, priority from tag_meta where priority is not null').all() as { tag: string; priority: 'paused' | 'maintaining' }[]).map((one) => [one.tag, one.priority]))
     return (row) => (rules.size ? ruleOf(rules, row) : null)
+  }
+  // A card's own deck's retention, when its deck (or a deck it sits inside) has one: the highest of them.
+  retentionOf = () => {
+    const own = new Map((db.prepare('select tag, retention from tag_meta where retention is not null').all() as { tag: string; retention: number }[]).map((one) => [one.tag, one.retention]))
+    if (!own.size) return () => null
+    return (row) => {
+      const words = typeof row.body === 'string' ? (() => { try { return plain(JSON.parse(row.body as string)) } catch { return row.body as string } })() : ''
+      const found = tagsIn(`${row.title ?? ''} ${row.prompt ?? ''} ${words}`).flatMap((tag) => [...own].filter(([deck]) => tag === deck || tag.startsWith(`${deck}-`)).map(([, rate]) => rate))
+      return found.length ? Math.max(...found) : null
+    }
   }
   const ruleOf = (rules: Map<string, 'paused' | 'maintaining'>, row: Record<string, unknown>): 'paused' | 'maintaining' | null => {
     const words = typeof row.body === 'string' ? JSON.parse(row.body ?? 'null') : row.body
@@ -3199,14 +3212,14 @@ export function registerHaligtree(): void {
         .filter((one) => tagsIn(`${one.row.title ?? ''} ${one.row.prompt ?? ''} ${plain(JSON.parse((one.row.body as string) ?? 'null'))}`).some(under))
         .sort((a, b) => due(a) - due(b) || a.recall - b.recall), (one) => siblingsOf(one.row.origin as string | null), new Set())
         .slice(0, TAG_ROUND)
-        .map(({ row }) => ({ ...body(row), state: undefined, exam: exam(row)?.tag ?? null, intervals: preview(row.state as string | null, (when) => capped(when, exam(row))) }))
+        .map(({ row }) => ({ ...body(row), state: undefined, exam: exam(row)?.tag ?? null, intervals: preview(row.state as string | null, (when) => capped(when, exam(row)), retentionOf()(row)) }))
     }
     if (bucket !== 'starred' && !ROUND_ORDER[bucket as Bucket]) return []
     const mine = bucket === 'starred'
       ? practice().filter((one) => one.row.starredAt).sort((a, b) => String(b.row.starredAt).localeCompare(String(a.row.starredAt)))
       : practice().filter((one) => one.bucket === bucket).sort(ROUND_ORDER[bucket as Bucket])
     return burySiblings(mine, (one) => siblingsOf(one.row.origin as string | null), new Set()).slice(0, ROUND).map(({ row }) => ({
-      ...body(row), state: undefined, exam: exam(row)?.tag ?? null, intervals: preview(row.state as string | null, (when) => capped(when, exam(row)))
+      ...body(row), state: undefined, exam: exam(row)?.tag ?? null, intervals: preview(row.state as string | null, (when) => capped(when, exam(row)), retentionOf()(row))
     }))
   })
 
@@ -4025,8 +4038,9 @@ export function registerHaligtree(): void {
   handle('tag:speak', () => Object.fromEntries((db.prepare('select tag, speak from tag_meta where speak is not null').all() as { tag: string; speak: string }[]).map((row) => [row.tag, row.speak])))
   // How each tag's typed answers are checked, and the tags with their own new cards a day.
   handle('tag:study', () => {
-    const rows = db.prepare('select tag, typed, new_per_day as newPerDay from tag_meta where typed is not null or new_per_day is not null').all() as { tag: string; typed: string | null; newPerDay: number | null }[]
+    const rows = db.prepare('select tag, typed, new_per_day as newPerDay, retention from tag_meta where typed is not null or new_per_day is not null or retention is not null').all() as { tag: string; typed: string | null; newPerDay: number | null; retention: number | null }[]
     return {
+      retention: Object.fromEntries(rows.filter((row) => row.retention !== null).map((row) => [row.tag, row.retention])) as Record<string, number>,
       typed: Object.fromEntries(rows.filter((row) => row.typed).map((row) => [row.tag, row.typed])) as Record<string, 'exact' | 'meaning'>,
       newPerDay: Object.fromEntries(rows.filter((row) => row.newPerDay !== null).map((row) => [row.tag, row.newPerDay])) as Record<string, number>
     }
@@ -4034,8 +4048,9 @@ export function registerHaligtree(): void {
   // The decks made by hand in Review, held or not by cards yet.
   handle('decks:made', () => (db.prepare('select tag from tag_meta where deck = 1 order by tag').all() as { tag: string }[]).map((row) => row.tag))
   handle('tag:meta', () => db.prepare('select tag, color, action, backdrop, home_hidden as homeHidden from tag_meta').all())
-  handle('tag:set', (tag: string, patch: { deck?: boolean; homeHidden?: boolean; backdrop?: string | null; color?: string | null; action?: boolean; aliasOf?: string | null; examAt?: string | null; priority?: 'maintaining' | 'paused' | null; lands?: string | null; speak?: string | null; typed?: string | null; newPerDay?: number | null }) => {
+  handle('tag:set', (tag: string, patch: { deck?: boolean; homeHidden?: boolean; backdrop?: string | null; color?: string | null; action?: boolean; aliasOf?: string | null; examAt?: string | null; priority?: 'maintaining' | 'paused' | null; lands?: string | null; speak?: string | null; typed?: string | null; newPerDay?: number | null; retention?: number | null }) => {
     db.prepare('insert or ignore into tag_meta (tag) values (?)').run(tag)
+    if (patch.retention !== undefined) db.prepare('update tag_meta set retention = ? where tag = ?').run(typeof patch.retention === 'number' && patch.retention >= 0.7 && patch.retention <= 0.99 ? patch.retention : null, tag)
     if (patch.typed !== undefined) db.prepare('update tag_meta set typed = ? where tag = ?').run(['exact', 'meaning'].includes(patch.typed ?? '') ? patch.typed : null, tag)
     if (patch.deck !== undefined) db.prepare('update tag_meta set deck = ? where tag = ?').run(patch.deck ? 1 : 0, tag)
     if (patch.newPerDay !== undefined) db.prepare('update tag_meta set new_per_day = ? where tag = ?').run(Number.isInteger(patch.newPerDay) && patch.newPerDay! >= 0 ? patch.newPerDay : null, tag)
@@ -4669,6 +4684,8 @@ export function registerHaligtree(): void {
 
 /** Today's review queue, set once the handlers are registered; the badge counts it too. */
 let reviewQueue: () => unknown[] = () => []
+/** For a card's row, its deck's own retention, or null for the one in Settings. */
+let retentionOf: () => (row: Record<string, unknown>) => number | null = () => () => null
 let quizCard: (id: string) => Record<string, unknown> | null = () => null
 /** The cards due now, in Review's order, for the Feed's quiz posts. */
 export const dueCards = (): { id: string }[] => reviewQueue() as { id: string }[]

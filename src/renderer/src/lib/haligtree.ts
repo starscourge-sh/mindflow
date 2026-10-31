@@ -408,12 +408,12 @@ export const haligtree = {
   reviewLoad: (days: number) => call<number[]>('review:load', days),
   tags: () => call<{ tag: string; count: number; later: number; color: string | null; action: boolean; examAt: string | null; priority?: 'maintaining' | 'paused' | null; lands?: string | null }[]>('tags'),
   tagMeta: () => call<{ tag: string; color: string | null; action: number; backdrop: 'colour' | 'picture' | 'sketch' | null; homeHidden: number }[]>('tag:meta'),
-  setTag: (tag: string, patch: { deck?: boolean; homeHidden?: boolean; backdrop?: 'colour' | 'picture' | 'sketch' | null; color?: string | null; action?: boolean; aliasOf?: string | null; examAt?: string | null; priority?: 'maintaining' | 'paused' | null; lands?: string | null; speak?: string | null; typed?: 'exact' | 'meaning' | null; newPerDay?: number | null }) => call('tag:set', tag, patch),
+  setTag: (tag: string, patch: { deck?: boolean; homeHidden?: boolean; backdrop?: 'colour' | 'picture' | 'sketch' | null; color?: string | null; action?: boolean; aliasOf?: string | null; examAt?: string | null; priority?: 'maintaining' | 'paused' | null; lands?: string | null; speak?: string | null; typed?: 'exact' | 'meaning' | null; newPerDay?: number | null; retention?: number | null }) => call('tag:set', tag, patch),
   /** Each tag whose answers are read aloud, and its language. */
   tagSpeak: () => call<Record<string, string>>('tag:speak'),
   /** What a review setting costs over the next 30 days of your own cards: reviews and minutes a day, and the reviews a day at 90%. */
   reviewCost: (newPerDay: number, retention: number) => call<{ reviews: number; minutes: number; usual: number }>('review:cost', newPerDay, retention),
-  tagStudy: () => call<{ typed: Record<string, 'exact' | 'meaning'>; newPerDay: Record<string, number> }>('tag:study'),
+  tagStudy: () => call<{ typed: Record<string, 'exact' | 'meaning'>; newPerDay: Record<string, number>; retention: Record<string, number> }>('tag:study'),
   exams: () => call<Exam[]>('exams'),
   history: (id: string) => call<{ reviews: { at: string; grade: number; ms?: number | null }[]; dueAt: string | null }>('review:history', id),
   source: (id: string) => call<{ type: string; id: string; title: string; body: unknown } | null>('review:source', id),

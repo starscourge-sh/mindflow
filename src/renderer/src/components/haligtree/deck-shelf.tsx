@@ -49,7 +49,7 @@ export function DeckShelf({ onOpen, onStudy, onPaste }: { onOpen: (type: string,
   const [allTags, setAllTags] = useState(false)
   const shelves = useLive(() => call<Shelf[]>('decks:list'), null as Shelf[] | null, [], ['item'])
   const own = useOwnDecks()
-  const study = useLive(haligtree.tagStudy, { typed: {}, newPerDay: {} } as Awaited<ReturnType<typeof haligtree.tagStudy>>, [], ['item'])
+  const study = useLive(haligtree.tagStudy, { typed: {}, newPerDay: {}, retention: {} } as Awaited<ReturnType<typeof haligtree.tagStudy>>, [], ['item'])
   if (unloaded(shelves) || !own) return <div />
   const newDeck = (inside?: string): void => void makeDeck(inside)
   // The most due first. With many, the decks you made and the tags with cards in Review lead; the rest wait behind a fold.
@@ -239,8 +239,10 @@ function Links({ deck, onDone }: { deck: string; onDone: () => void }): React.JS
 }
 
 /** A deck's review settings, from its menu: its own new cards a day and how its typed answers are checked (the tag's own, as on its page). */
-function deckSettings(tag: string, study: { typed: Record<string, string>; newPerDay: Record<string, number> }): Section[] {
+function deckSettings(tag: string, study: { typed: Record<string, string>; newPerDay: Record<string, number>; retention: Record<string, number> }): Section[] {
   const perDay = study.newPerDay[tag]
+  const keep = study.retention[tag]
+  const setKeep = (to: number | null): void => void haligtree.setTag(tag, { retention: to }).then(() => (chime('settled'), quietly(() => void haligtree.setTag(tag, { retention: keep ?? null }))))
   const typed = study.typed[tag] ?? ''
   const setPerDay = (to: number | null): void => void haligtree.setTag(tag, { newPerDay: to }).then(() => (chime('settled'), quietly(() => void haligtree.setTag(tag, { newPerDay: perDay ?? null }))))
   const setTyped = (to: 'exact' | 'meaning' | null): void => void haligtree.setTag(tag, { typed: to }).then(() => (chime('settled'), quietly(() => void haligtree.setTag(tag, { typed: (typed || null) as 'exact' | 'meaning' | null }))))
@@ -250,6 +252,11 @@ function deckSettings(tag: string, study: { typed: Record<string, string>; newPe
       // Its own number: dragged sideways, stepped with the arrows, or typed (a sum too: +5, 20*2).
       { label: 'Its own', field: <ScrubField label={`New cards a day for ${tag}`} min={0} max={999} value={perDay ?? 10} onChange={(n) => void haligtree.setTag(tag, { newPerDay: n })} className={SCRUB} /> },
       { label: 'None', hint: 'Only reviews: no new cards start', on: perDay === 0, set: (on: boolean) => void (on && setPerDay(0)) }
+    ] },
+    // Anki's desired retention per deck: a language seen more often, an old exam's deck less.
+    { label: 'How much to remember', items: [
+      { label: 'As in Settings', on: keep === undefined, set: (on: boolean) => void (on && setKeep(null)) },
+      { label: 'Its own', hint: 'Higher brings its cards back sooner and more often', field: <span className="flex items-center gap-0.5"><ScrubField label={`How much to remember of ${tag}`} min={70} max={99} value={Math.round((keep ?? 0.9) * 100)} onChange={(n) => void haligtree.setTag(tag, { retention: n / 100 })} className={SCRUB} />%</span> }
     ] },
     { label: 'How typed answers are checked', items: [
       { label: 'Usual', hint: 'An accent or unit left out is part wrong; a slip of a letter can count; capitals do not', on: !typed, set: (on: boolean) => void (on && setTyped(null)) },
@@ -265,7 +272,7 @@ function deckSettings(tag: string, study: { typed: Record<string, string>; newPe
  * actions. An empty one says how to fill it, with both ways.
  */
 function OwnDeckShelf({ deck, inside, onStudy, onPaste, onNew }: { deck: OwnDeck; inside: OwnDeck[]; onStudy: (tag: string) => void; onPaste: (deck: string, one?: boolean) => void; onNew: (inside?: string) => void }): React.JSX.Element {
-  const study = useLive(haligtree.tagStudy, { typed: {}, newPerDay: {} } as Awaited<ReturnType<typeof haligtree.tagStudy>>, [], ['item'])
+  const study = useLive(haligtree.tagStudy, { typed: {}, newPerDay: {}, retention: {} } as Awaited<ReturnType<typeof haligtree.tagStudy>>, [], ['item'])
   const menu = (tag: string): Section[] => [
     ...deckSettings(tag, study),
     { items: [
