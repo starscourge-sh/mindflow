@@ -28,6 +28,7 @@ import {
   ContextMenuTrigger
 } from '@/components/ui/context-menu'
 import { call } from '@/lib/haligtree'
+import { touch } from '@/lib/open-today'
 import { keepWebPlace, webPlaces } from '@/lib/note-place'
 import { said } from '@/lib/host'
 import './pdf.css'
@@ -75,6 +76,11 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
   // the whole window, so two articles side by side would otherwise draw over each other's.
   const names = `web${useId().replace(/[^a-zA-Z0-9]/g, '')}`
 
+  // Opened: into Recent, in the sidebar and ⌘K, as a note or a PDF is when it opens.
+  useEffect(() => {
+    touch('web', href)
+    void call('home:opened', 'web', href)
+  }, [href])
   // Where you were: kept as you read (and leave), put back once the article is drawn tall enough to hold it.
   const placed = useRef(false)
   useEffect(() => {

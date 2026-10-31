@@ -94,7 +94,7 @@ import { onboarding, playWelcome, tryWelcome } from '@/lib/onboarding'
 import { DayView } from '@/components/haligtree/day-view'
 import { MonthPage, SCALE_VIEW, WeekPage, YearPage, mondayOf, type Scale } from '@/components/haligtree/periods-view'
 import { RecentPanel } from '@/components/haligtree/recent-panel'
-import { openedIcon, type Opened } from '@/components/haligtree/recent-island'
+import { OpenedIcon, type Opened } from '@/components/haligtree/recent-island'
 import { Passes, openPass } from '@/components/haligtree/pass'
 import { noteActions } from '@/lib/notes'
 import { headingIn } from '@/lib/capture-links'
@@ -2130,12 +2130,11 @@ export function Home(): React.JSX.Element {
                   <div data-side-recent>
                     {heading(recentGroup, recentOpen, setRecentOpen)}
                     <Unfold open={recentOpen}><Branches current={rows.findIndex((one) => one.id === view.focus)} className="ml-5 flex flex-col gap-px">{rows.map((one) => {
-                      const Icon = openedIcon(one)
                       return (
                         <button key={one.id} type="button" data-side-row data-private={one.private ? '' : undefined} data-side-recent-row={one.id} aria-current={one.id === view.focus ? 'page' : undefined}
                           onClick={() => open(one.type, one.id)}
                           className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-2 py-1.5 text-foreground/80">
-                          <Icon className="size-4 shrink-0 text-muted-foreground" />
+                          <OpenedIcon one={one} className="size-4 shrink-0 text-muted-foreground" />
                           <span className="private-text min-w-0 flex-1 truncate text-left">{one.title || 'Untitled'}</span>
                         </button>
                       )

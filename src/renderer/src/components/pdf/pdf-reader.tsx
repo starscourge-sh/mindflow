@@ -8,6 +8,7 @@ import { saveAttachment } from "@/extensions/image-drop"
 import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from "@/components/ui/context-menu"
 import { Roll } from "@/lib/roll"
 import { call } from "@/lib/haligtree"
+import { touch } from "@/lib/open-today"
 import { host, said } from "@/lib/host"
 import { canSplit, keysHere, usePane } from "@/lib/split"
 import { chime } from "@/lib/sound"
@@ -526,6 +527,11 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     if (doc && !start) void call<{ page: number } | null>("pdf:place", src).then((place) => place && place.page > 1 && go(place.page))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc, start])
+  // Opened: into Recent, in the sidebar and ⌘K, as a note is when it opens.
+  useEffect(() => {
+    touch("pdf", pdfFocus(src, name))
+    void call("home:opened", "pdf", pdfFocus(src, name))
+  }, [src, name])
   // The page you are on, kept as you read: the next time it opens there.
   useEffect(() => {
     if (doc) void call("pdf:read", src, page, doc.numPages)

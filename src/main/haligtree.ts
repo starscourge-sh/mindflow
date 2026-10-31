@@ -4800,8 +4800,22 @@ export function registerHome(): void {
     const capture = db.prepare(`select id, 'capture' as type, ${LABEL} as title, kind, private from captures where id = ? and status != 'discarded' and archived_at is null`)
     const nugget = db.prepare(`select id, tier as type, coalesce(nullif(title, ''), label('', body)) as title, kind, private from nuggets where id = ? and archived_at is null and superseded_by is null and tier not in ('card')`)
     const found: { id: string; type: string; title: string; kind: string | null; private: number }[] = []
+    // A PDF opened in the reader, kept as its pane's `src|name`: named by the title it carries once read, else its file name.
+    const pdf = (focus: string): (typeof found)[number] => {
+      const at = focus.indexOf('|')
+      const [src, name] = at < 0 ? [focus, ''] : [focus.slice(0, at), focus.slice(at + 1)]
+      const title = (db.prepare("select title from pdf_titles where src = ?").get(src) as { title: string } | undefined)?.title
+      return { id: focus, type: 'pdf', title: title || name.replace(/\.pdf$/i, '') || 'PDF', kind: null, private: 0 }
+    }
+    // A web page opened in the reader, by its link: named by the article kept of it, else its site.
+    const web = (href: string): (typeof found)[number] => {
+      const title = (db.prepare('select title from web_articles where href = ?').get(href) as { title: string } | undefined)?.title
+      let site = 'Article'
+      try { site = new URL(href).hostname.replace(/^www\./, '') } catch { /* not a link: "Article" */ }
+      return { id: href, type: 'web', title: title || site, kind: null, private: 0 }
+    }
     for (const open of db.prepare('select id, type from note_opens order by at desc limit 40').all() as { id: string; type: string }[]) {
-      const row = (open.type === 'capture' ? capture : nugget).get(open.id) as (typeof found)[number] | undefined
+      const row = open.type === 'pdf' ? pdf(open.id) : open.type === 'web' ? web(open.id) : ((open.type === 'capture' ? capture : nugget).get(open.id) as (typeof found)[number] | undefined)
       if (row) found.push(row)
       if (found.length >= want) break
     }

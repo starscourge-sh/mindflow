@@ -122,6 +122,33 @@ try {
   const crossAfter = await tintUnder(2)
   const crossBands = await h.evaluate(() => document.querySelectorAll('.pdf-reader .pdf-page[data-page="2"] .pdf-mark').length)
   check('words picked across a line end are drawn as a highlight', crossBands >= 2 && crossAfter - crossBefore > 15, JSON.stringify({ crossBands, crossBefore, crossAfter }))
+
+  // Opened in the reader, the PDF is in the sidebar's Recent with its cover, and in ⌘K's Recent; a click reopens it where you left it.
+  await h.fill('.pdf-reader-page-field', '4'); await h.keyboard.press('Enter'); await wait(1200)
+  await c.send('article', id); await wait(1500)
+  const recentRow = await h.evaluate(() => {
+    const row = [...document.querySelectorAll('[data-side-recent-row]')].find((one) => /Law Book/.test(one.textContent))
+    return row ? { text: row.textContent.trim(), cover: !!row.querySelector('img'), cursor: getComputedStyle(row).cursor } : null
+  })
+  check('the PDF is in the sidebar\'s Recent, with its cover', recentRow?.cover === true, JSON.stringify(recentRow))
+  const recentBox = h.locator('[data-side-recent]')
+  if (await recentBox.count()) { await recentBox.scrollIntoViewIfNeeded(); await c.both(`${SHOTS}/pdf-clarity-recent`, recentBox) }
+  if (recentRow) {
+    await h.click('[data-side-recent-row]:has-text("Law Book")')
+    await h.waitForSelector('.pdf-reader .pdf-page .textLayer span', { timeout: 15000 }).catch(() => {})
+    await wait(1500)
+    const at = await h.evaluate(() => document.querySelector('.pdf-reader-page-field')?.value)
+    check('clicking it in Recent reopens it at the page last read', at === '4', String(at))
+  }
+  await h.keyboard.press('Meta+k'); await wait(800)
+  const palette = await h.evaluate(() => {
+    const head = [...document.querySelectorAll('div.pt-3.pb-1')].find((one) => one.textContent.trim() === 'Recent')
+    let text = ''
+    for (let at = head?.nextElementSibling; at && !at.matches('div.pt-3.pb-1'); at = at.nextElementSibling) text += ` ${at.textContent}`
+    return text
+  })
+  check('⌘K lists the PDF under Recent', /Law Book|law-book/.test(palette), palette.slice(0, 200))
+  await h.keyboard.press('Escape'); await wait(300)
 } catch (e) {
   check('ran without throwing', false, String(e.stack ?? e))
 } finally {
