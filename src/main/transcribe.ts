@@ -61,6 +61,9 @@ export async function transcribe(src: string, wav?: Uint8Array, locale?: string)
     }
     const lines = await run([file, locale || app.getLocale()])
     const error = lines.find((one) => one.error)?.error as { code: string; message: string } | undefined
+    // Apple's own words for a Mac with Siri and Dictation off say what, not what to do.
+    if (error && /siri and dictation are disabled/i.test(error.message))
+      return { error: { code: 'denied', message: 'Speech recognition needs Dictation on: turn it on in System Settings, under Keyboard, then Dictation' } }
     if (error) return { error }
     const done = lines.find((one) => one.done)?.done as { text: string; onDevice: boolean } | undefined
     if (!done) return { error: { code: 'failed', message: 'The words could not be made out. Try again' } }

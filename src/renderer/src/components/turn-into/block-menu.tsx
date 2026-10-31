@@ -483,8 +483,9 @@ export function BlockMenu({
         {captionable && matches("Caption") ? (
           <DropdownMenuItem asChild>
             <button type="button" onClick={() => at(() => startCaption(editor, editor.state.selection.from))}>
-              <MenuGlyph label={thing?.attrs.caption ? "Edit caption" : "Add a caption"} />
-              <span className="tiptap-slash-menu-title">{thing?.attrs.caption ? "Edit caption" : "Add a caption"}</span>
+              {/* A video's are its captions, said so; a picture's or an embed's, a caption. */}
+              <MenuGlyph label={kindName === "Video" ? "Captions" : thing?.attrs.caption ? "Edit caption" : "Add a caption"} />
+              <span className="tiptap-slash-menu-title">{kindName === "Video" ? "Captions" : thing?.attrs.caption ? "Edit caption" : "Add a caption"}</span>
             </button>
           </DropdownMenuItem>
         ) : null}
