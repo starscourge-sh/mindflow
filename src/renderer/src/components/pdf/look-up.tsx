@@ -6,23 +6,13 @@ import { chime } from "@/lib/sound"
 import { said } from "@/lib/host"
 import { FLOAT } from "@/lib/float"
 import { cn } from "@/lib/cn"
+import { Orb } from "@/components/haligtree/orb"
 import type { Answer } from "../../../../main/define"
 
 type Wiki = { title: string; description: string; extract: string; url: string; picture?: string | null } | { missing: true } | { offline: true } | null
 
 /** Where the words were looked up: said on the Lookup kept, with a link back to the very place. */
 export type LookedUpIn = { where: string; link: string; sentence?: string; /** The note it was looked up in, when it was: the Lookup points back to it. */ origin?: string | null }
-
-/** Lines of grey where words are coming: calm, the card's own size, nothing that says "loading". */
-function Waiting({ lines }: { lines: number[] }): React.JSX.Element {
-  return (
-    <div className="look-up-waiting" aria-label="Looking it up">
-      {lines.map((width, at) => (
-        <span key={at} style={{ width: `${width}%` }} />
-      ))}
-    </div>
-  )
-}
 
 /**
  * Picked words looked up where they sit, as a reader's Look Up is: the word
@@ -101,7 +91,7 @@ export function LookUpCard({ words, at, from, onClose }: { words: string; at: { 
       <h3 className="look-up-headword">{found || !page ? words : page.title}</h3>
       {one &&
         (meaning === "looking" ? (
-          <Waiting lines={[30, 92, 70]} />
+          <p className="look-up-waiting"><Orb state="searching" label="Opening the dictionary…" /></p>
         ) : found ? (
           <div className="look-up-dictionary" data-look="dictionary">
             {found.part && <p className="look-up-part">{found.part}</p>}
@@ -115,7 +105,7 @@ export function LookUpCard({ words, at, from, onClose }: { words: string; at: { 
         ))}
       <hr className="look-up-rule" />
       {wiki === "looking" ? (
-        <Waiting lines={[55, 100, 96, 80]} />
+        <p className="look-up-waiting"><Orb state="searching" label="Asking Wikipedia…" /></p>
       ) : page ? (
         <div className="look-up-wiki" data-look="wikipedia">
           {/* Offline, a picture that cannot load is left out, never shown broken. */}
