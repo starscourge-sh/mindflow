@@ -68,7 +68,7 @@ function BookCard({ one, picked, onPick, onOpen }: { one: Book; picked: boolean;
   const read = percent(one)
   return (
     <button type="button" role="option" aria-selected={picked} data-book={one.src} className={`pdf-book${picked ? " is-picked" : ""}`} onClick={onPick} onDoubleClick={onOpen} onKeyDown={(event) => event.key === "Enter" && onOpen()}>
-      <span className="pdf-book-cover">
+      <span className="pdf-book-cover" data-pdf-peek={one.src} data-pdf-peek-name={one.name}>
         {cover?.image ? <img src={cover.image} alt="" draggable={false} /> : <span className="pdf-book-blank"><BookOpen className="size-6" /></span>}
         {read !== null && (
           <span className="pdf-book-progress" aria-label={`Read ${read}%`}>
@@ -146,7 +146,7 @@ function ReadingCard({ one }: { one: Book }): React.JSX.Element {
   const read = percent(one) ?? 0
   return (
     <button type="button" className="continue-book" data-book={one.src} onClick={() => (chime("open"), openPdf(one.src, one.name, one.page ?? undefined))}>
-      <span className="continue-book-cover">{cover?.image ? <img src={cover.image} alt="" draggable={false} /> : <span className="pdf-book-blank" />}</span>
+      <span className="continue-book-cover" data-pdf-peek={one.src} data-pdf-peek-name={one.name} data-pdf-peek-page={one.page ?? undefined}>{cover?.image ? <img src={cover.image} alt="" draggable={false} /> : <span className="pdf-book-blank" />}</span>
       <span className="continue-book-words">
         <span className="continue-book-title">{titleOf(one)}</span>
         <span className="continue-book-where">

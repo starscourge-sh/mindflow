@@ -369,7 +369,7 @@ function PdfBlock(props: NodeViewProps): React.JSX.Element {
       <div className="tiptap-attachment-card" data-drag-handle="">
         <FileText className="tiptap-attachment-icon" />
         <span className="tiptap-attachment-body">
-          <span className="tiptap-attachment-name">{name || "PDF"}</span>
+          <span className="tiptap-attachment-name" data-pdf-peek={src} data-pdf-peek-name={name}>{name || "PDF"}</span>
           <span className="tiptap-attachment-size">
             {[pages ? `${pages} ${pages === 1 ? "page" : "pages"}` : "", readableSize(size)].filter(Boolean).join(" · ")}
           </span>

@@ -36,6 +36,7 @@ delete (window as { showOpenFilePicker?: unknown }).showOpenFilePicker
 import { Component, StrictMode, type ReactNode } from 'react'
 import { applyTheme, currentTheme } from './lib/theme'
 import { TitleTips } from './components/ui/title-tips'
+import { PdfPeek } from './components/pdf/pdf-peek'
 import { createRoot } from 'react-dom/client'
 import { MotionConfig } from 'motion/react'
 import { stillTransforms } from './lib/motion'
@@ -132,6 +133,8 @@ export function start(page: ReactNode): void {
             {page}
             {/* Every element's title as the app's own tip, never the system's grey box. */}
             <TitleTips />
+            {/* A PDF named anywhere previews its pages on hover, scrubbed with the pointer. */}
+            <PdfPeek />
           </TooltipProvider>
         </Broken>
       </MotionConfig>

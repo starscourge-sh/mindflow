@@ -127,7 +127,7 @@ function Tile({ one, onOpen }: { one: Media; onOpen: () => void }): React.JSX.El
   ]
   return (
     <RowMenu items={items}>
-      <button type="button" data-media={one.kind} data-src={one.src} data-note={`${one.type}:${one.id}`} onClick={onOpen} className={tileClass(false, false, false)}>
+      <button type="button" data-media={one.kind} data-src={one.src} data-note={`${one.type}:${one.id}`} data-pdf-peek={one.kind === 'pdf' ? one.src : undefined} data-pdf-peek-name={one.kind === 'pdf' ? one.name : undefined} onClick={onOpen} className={tileClass(false, false, false)}>
         <Face one={one} cover={one.kind === 'pdf' ? (cover === undefined ? undefined : cover?.image ?? '') : undefined} />
         <span className="flex min-w-0 flex-col gap-0.5 px-2.5 pt-2 pb-2.5">
           <span className={`truncate text-sm font-medium ${one.private ? 'private-text' : ''}`}>{label}</span>

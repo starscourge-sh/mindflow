@@ -54,7 +54,7 @@ function marks(doc: ProseMirrorNode): DecorationSet {
   // Times and pages are links only when the note has the video or PDF they open.
   let video = false
   doc.descendants((node) => (video ||= node.type.name === "youtube", !video))
-  const pdf = !!pdfIn(doc)
+  const pdf = pdfIn(doc)
   doc.descendants((node, pos) => {
     if (node.type.name === "codeBlock") return false
     if (!node.isTextblock) return true
@@ -74,7 +74,7 @@ function marks(doc: ProseMirrorNode): DecorationSet {
       if (pdf)
         for (const match of child.text!.matchAll(PAGE)) {
           const from = pos + 1 + offset + match.index!
-          found.push(Decoration.inline(from, from + match[0].length, { class: "mf-time-link mf-page-link", "data-page": match[1], "data-title-tip": "Open the note's PDF at this page" }))
+          found.push(Decoration.inline(from, from + match[0].length, { class: "mf-time-link mf-page-link", "data-page": match[1], "data-pdf-peek": pdf.src, "data-pdf-peek-name": pdf.name, "data-pdf-peek-page": match[1] }))
         }
     })
     return false

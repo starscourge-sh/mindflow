@@ -709,7 +709,7 @@ try {
   check('6 marks words "Card later", and the bar counts them', await h.evaluate(() => document.querySelector('[data-card-later-count]')?.textContent === '1'), await h.evaluate(() => document.querySelector('[data-card-later-count]')?.textContent ?? 'none'))
   const laterLook = await h.evaluate(() => {
     const band = document.querySelector('.pdf-reader .pdf-mark.is-later')
-    return band && { background: getComputedStyle(band).backgroundColor, underline: getComputedStyle(band).borderBottomStyle, tick: !!document.querySelector(`.pdf-reader .pdf-later-tick[data-mark="${band.dataset.mark}"]`) }
+    return band && { background: getComputedStyle(band).backgroundColor, underline: getComputedStyle(band).backgroundImage.includes('repeating-linear-gradient') ? 'dashed' : 'none', tick: !!document.querySelector(`.pdf-reader .pdf-later-tick[data-mark="${band.dataset.mark}"]`) }
   })
   check('"Card later" is a dashed underline and a margin tick, never a band of colour like a highlight or a match', laterLook?.underline === 'dashed' && laterLook.tick && /rgba\(0, 0, 0, 0\)|transparent/.test(laterLook.background), JSON.stringify(laterLook))
   await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-later-mark.png` })
@@ -729,6 +729,30 @@ try {
   await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-card-dark.png` })
   await h.keyboard.press('Escape'); await wait(300)
   await c.look('light')
+  // A PDF named in a note previews its pages on hover: the cover first, the pointer across the card turns them, a click opens that page.
+  for (const theme of ['light', 'dark']) {
+    await c.look(theme); await wait(300)
+    const name = h.locator('.tiptap-attachment-name[data-pdf-peek]').first()
+    if (!(await name.count())) { check('a note shows the PDF to hover', false, 'no PDF block on screen'); break }
+    await name.scrollIntoViewIfNeeded(); await h.mouse.move(0, 0); await wait(200)
+    await name.hover(); await wait(900)
+    const shown = await h.evaluate(() => ({ card: !!document.querySelector('[data-pdf-peek-card] img'), corner: document.querySelector('[data-pdf-peek-page]')?.textContent?.trim() }))
+    if (theme === 'light') check('hovering a PDF shows its cover at once, "1 / 3" in the corner', shown.card && shown.corner === '1 / 3', JSON.stringify(shown))
+    const face = await h.evaluate(() => { const r = document.querySelector('[data-pdf-peek-card] [role="button"]').getBoundingClientRect(); return { left: r.left, top: r.top, width: r.width, height: r.height } })
+    // Up onto the card, then across it to the last third: page 3.
+    await h.mouse.move(face.left + face.width * 0.1, face.top + face.height + 4, { steps: 2 })
+    await h.mouse.move(face.left + face.width * 0.1, face.top + face.height / 2, { steps: 4 })
+    await h.mouse.move(face.left + face.width * 0.9, face.top + face.height / 2, { steps: 8 }); await wait(900)
+    await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-peek-${theme}.png` })
+    const scrubbed = await h.evaluate(() => ({ corner: document.querySelector('[data-pdf-peek-page]')?.textContent?.trim(), drawn: !!document.querySelector('[data-pdf-peek-card] img') }))
+    if (theme === 'light') check('moving across the card turns to page 3, its picture drawn', scrubbed.corner === '3 / 3' && scrubbed.drawn, JSON.stringify(scrubbed))
+    if (theme === 'dark') break
+    const opened = await h.evaluate(() => { window.__peekOpened = null; window.addEventListener('haligtree:pdf', (event) => (window.__peekOpened = event.detail.page), { once: true }) })
+    void opened
+    await h.mouse.down(); await h.mouse.up(); await wait(900)
+    check('a click opens the reader at the page on show', await h.evaluate(() => window.__peekOpened === 3 && !document.querySelector('[data-pdf-peek-card]')), String(await h.evaluate(() => window.__peekOpened)))
+  }
+  await h.mouse.move(0, 0); await c.look('light')
 } catch (error) {
   check('ran without throwing', false, String(error?.stack ?? error))
 } finally {
