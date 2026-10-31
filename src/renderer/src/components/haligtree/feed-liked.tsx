@@ -249,6 +249,14 @@ function WeekStrip({ weeks, onWeek }: { weeks: LikedSide['weeks']; onWeek: (star
           return <span key={one.start} className="relative h-4 min-w-0 flex-1">{first && <span className="absolute left-0 whitespace-nowrap">{month.format('MMM')}</span>}</span>
         })}
       </div>
+      {/* The year on its own line, once where the strip starts and again under each January, so a month name never runs into it. */}
+      <div aria-hidden data-liked-years className="flex gap-[2px] text-meta font-medium text-foreground/70">
+        {weeks.map((one, at) => {
+          const month = dayjs(one.start).add(3, 'day')
+          const year = at === 0 || month.year() !== dayjs(weeks[at - 1].start).add(3, 'day').year()
+          return <span key={one.start} className="relative h-4 min-w-0 flex-1">{year && <span className="absolute left-0 whitespace-nowrap">{month.format('YYYY')}</span>}</span>
+        })}
+      </div>
     </section>
   )
 }

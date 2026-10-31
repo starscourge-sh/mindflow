@@ -433,7 +433,8 @@ export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joine
 }): React.JSX.Element | null {
   const quote = post.kind === 'quote'
   const account = (quote && post.who) || 'You'
-  const context = contextOf(post)
+  // In Liked, nothing over a post says it is old or unwanted: the like is what it is there for.
+  const context = onUnlike ? null : contextOf(post)
   const thumb = useThumb(post.type === 'day' ? '' : post.id)
   const picture = thumb && !/\.(mp4|m4v|mov|webm)$/i.test(thumb) ? thumb : undefined
   const [broken, setBroken] = useState(false)
@@ -550,7 +551,7 @@ export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joine
               <time dateTime={post.made} className="shrink-0 text-muted-foreground tabular-nums">{written(post.made)}</time>
             )}
             {/* Less of this, as X and Substack hide a post: a quiet × at its top right, held in the line's height. */}
-            {post.type !== 'day' && !preview && (
+            {post.type !== 'day' && !preview && !onUnlike && (
               <Tip label={REACTIONS[3].tip}>
                 <button type="button" data-feed-reaction="less" aria-pressed={chosen === 'less'} aria-label="Less of this" onClick={() => choose('less')}
                   className={cn('-my-1.5 -mr-1.5 ml-auto flex size-7 shrink-0 items-center justify-center self-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/[0.06] hover:text-foreground', chosen === 'less' && 'text-primary hover:text-primary')}>
