@@ -29,6 +29,7 @@ import { landPromoted } from './lib/promote'
 import { CapturesView, keepInbox } from './components/haligtree/captures-view'
 import { sources, type SourceSummary } from '@/lib/sources'
 import { HomeView } from './components/haligtree/home-view'
+import { LAST_PLACE } from './components/haligtree/resume-cards'
 import { ItemsView } from './components/haligtree/items-view'
 import { startQuestion } from './components/haligtree/questions-view'
 import { GoalsView, startGoal } from './components/haligtree/goals-view'
@@ -192,7 +193,7 @@ const followCramped = (change: () => void): (() => void) => {
 }
 const useCramped = (): boolean => useSyncExternalStore(followCramped, () => matchMedia(CRAMPED).matches)
 
-// --- split view: each pane's trail, kept across launches while split
+// --- the panes: each one's trail, kept across launches (one pane or several), so launch reopens what was open
 
 type Trail = { views: View[]; at: number }
 type PaneState = { key: string; trail: Trail; width?: PaneWidth }
@@ -259,9 +260,11 @@ function loadSplit(): SplitState {
   try {
     const kept = JSON.parse(localStorage.getItem(SPLIT) ?? 'null') as SplitState | null
     const fine = (pane: PaneState): boolean => typeof pane?.key === 'string' && Array.isArray(pane.trail?.views) && pane.trail.views.every((one) => typeof one?.id === 'string') && pane.trail.at >= 0 && pane.trail.at < pane.trail.views.length
-    if (kept && Array.isArray(kept.panes) && kept.panes.length > 1 && kept.panes.every(fine)) {
+    // One pane or several: launch opens what was open, each pane on the page it was on (a day's page on today's).
+    if (kept && Array.isArray(kept.panes) && kept.panes.length > 0 && kept.panes.every(fine)) {
       const sizes = Array.isArray(kept.sizes) && kept.sizes.length === kept.panes.length && kept.sizes.every((one) => one > 0) ? kept.sizes : kept.panes.map(() => 1 / kept.panes.length)
-      return { panes: kept.panes.map((pane) => ({ ...pane, trail: { ...pane.trail, views: pane.trail.views.map(landing) } })), front: kept.panes.some((one) => one.key === kept.front) ? kept.front : kept.panes[0].key, sizes }
+      const today = (view: View): View => (DATED.includes(view.id) ? { ...view, focus: undefined } : view)
+      return { panes: kept.panes.map((pane) => ({ ...pane, trail: { ...pane.trail, views: pane.trail.views.map(landing).map(today) } })), front: kept.panes.some((one) => one.key === kept.front) ? kept.front : kept.panes[0].key, sizes }
     }
   } catch {
     // Nothing kept, or nothing readable: one pane on the Day page.
@@ -294,7 +297,6 @@ function loadKept(): KeptSplit[] {
 }
 function saveSplit(split: SplitState): void {
   try {
-    if (split.panes.length < 2) return localStorage.removeItem(SPLIT)
     localStorage.setItem(SPLIT, JSON.stringify(bareSplit(split)))
   } catch {
     // Kept for this run only.
@@ -338,6 +340,16 @@ export function Home(): React.JSX.Element {
   const frontRef = useRef(split.front)
   frontRef.current = split.front
   const front = split.panes.find((one) => one.key === split.front) ?? split.panes[0]
+  // What was closed, newest last, for ⇧⌘T as in a browser: a pane closed, or a note left for another page.
+  const closed = useRef<({ pane: PaneState; at: number } | { view: View })[]>([])
+  const leftFrom = useRef<View | null>(null)
+  {
+    const here = (split.panes.find((one) => one.key === split.front) ?? split.panes[0]).trail
+    const now = here.views[here.at]
+    const was = leftFrom.current
+    if (was && was.focus && holdsNotes(was.id) && (was.id !== now.id || was.focus !== now.focus)) closed.current = [...closed.current.slice(-19), { view: { id: was.id, focus: was.focus, tab: was.tab, folder: was.folder } }]
+    leftFrom.current = now
+  }
   const trail = front.trail
   const view = trail.views[trail.at]
   // The usage counts (lib/usage.ts): each move to another page counts that page
@@ -604,6 +616,7 @@ export function Home(): React.JSX.Element {
     // A pane folded away, paper and all.
     chime('fold')
     paper('fold')
+    closed.current = [...closed.current.slice(-19), { pane: now.panes[at], at }]
     let panes = now.panes.filter((one) => one.key !== key)
     // On its own again, a page follows Page width in Settings.
     if (panes.length === 1) panes = panes.map((one) => ({ ...one, width: undefined }))
@@ -615,6 +628,19 @@ export function Home(): React.JSX.Element {
     quietly(() => setSplit(now))
     lastFocus.current.delete(key)
     toFront(next)
+  }
+  /** ⇧⌘T: the last pane closed comes back where it was, or the last note left opens again. */
+  const reopen = (): void => {
+    const last = closed.current.pop()
+    if (!last) return void (chime('nope'), toast('Nothing closed to bring back', undefined, 'info'))
+    chime('open')
+    if ('view' in last) return setView(last.view)
+    const now = splitRef.current
+    const at = Math.min(last.at, now.panes.length)
+    const pane = { ...last.pane, key: fresh().key }
+    const panes = [...now.panes.slice(0, at), pane, ...now.panes.slice(at)]
+    setSplit({ ...now, panes, front: pane.key, sizes: panes.map(() => 1 / panes.length) })
+    toFront(pane.key)
   }
   /** ⌘K's Pane to the left or right: the keys move, and it says which pane has them now. */
   const paneSaid = (by: -1 | 1): void => {
@@ -1087,6 +1113,11 @@ export function Home(): React.JSX.Element {
         event.preventDefault()
         return makeNew()
       }
+      // ⇧⌘T, as in a browser: the last pane closed, or the last note left, open again.
+      if (event.metaKey && event.shiftKey && !event.altKey && event.key.toLowerCase() === 't') {
+        event.preventDefault()
+        return reopen()
+      }
       // ⇧⌘Y: Recent beside the page, or away again.
       if (event.metaKey && event.shiftKey && event.key.toLowerCase() === 'y') {
         event.preventDefault()
@@ -1287,6 +1318,16 @@ export function Home(): React.JSX.Element {
   }
   // A place in the app (Settings, Gems) is named by itself, with no kind: "Page" is a piece of writing.
   const paneName = (view: View): PaneName => noteIn(view)?.name ?? { title: labelOf(view) || APP_NAME, icon: PanelsTopLeft }
+  // The one thing you were last in (a note, a book, an article), for Home's line after a long absence (resume-cards.tsx).
+  const lastName = view.focus && (view.id === 'pdf' || view.id === 'web' || holdsNotes(view.id)) ? paneName(view).title : null
+  useEffect(() => {
+    if (!lastName || lastName === APP_NAME || !view.focus) return
+    try {
+      localStorage.setItem(LAST_PLACE, JSON.stringify({ view: { id: view.id, focus: view.focus, tab: view.tab, folder: view.folder }, title: lastName, at: Date.now() }))
+    } catch {
+      // Kept for this run only.
+    }
+  }, [view.id, view.focus, lastName]) // eslint-disable-line react-hooks/exhaustive-deps
   /** Lay a pinned layout out again: each pane a fresh trail on its page. */
   const openLayout = (views: View[], sizes: number[]): void => {
     chime('slide')
@@ -1577,6 +1618,7 @@ export function Home(): React.JSX.Element {
               splitFront()
               toast(`Split: ${paneName(view).title} is on the right too. ⌃W closes it`)
             } },
+            { label: 'Reopen what you closed', hint: 'The last pane closed, or the last note left', keys: '⇧⌘T', cue: null, run: reopen },
             ...(split.panes.length > 1 ? [
               { label: 'Close this pane', keys: '⌃W', cue: null, run: () => closePane() },
               { label: 'Even out panes', hint: 'Each the same width', cue: null, run: evenPanes },

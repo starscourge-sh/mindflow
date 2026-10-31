@@ -9,6 +9,7 @@ import { onlyWordsChanged } from "@/lib/tiptap-utils"
 import type { Node as ProseMirrorNode, ResolvedPos } from "@tiptap/pm/model"
 import { EditorContent, EditorContext, useEditor } from "@tiptap/react"
 import { followPdfLink } from "@/components/pdf/pdf-reader"
+import { useNotePlace } from "@/lib/note-place"
 
 // --- Tiptap Core Extensions ---
 import { StarterKit } from "@tiptap/starter-kit"
@@ -1646,6 +1647,8 @@ function Surface({
   // Known by its id while open, so a heading link to this same document lands
   // here rather than waiting for an editor that will never mount.
   useEffect(() => (documentId != null && editor ? showingDocument(String(documentId), editor) : undefined), [editor, documentId])
+  // A note opens where you were in it: its scroll and caret, kept as you leave it (note-place.ts).
+  useNotePlace(editor, documentId != null ? String(documentId) : null, shape === "document")
 
   // The first line, watched against the window rather than the scroller: in
   // the box the document scrolls itself, in a page its column does, and only
