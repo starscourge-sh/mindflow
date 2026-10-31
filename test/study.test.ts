@@ -1,7 +1,7 @@
 // Run with: node --test test/study.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { LEECH_AT, bucketOf, closeness, daysInARow, fitFirstDays, isEquation, isLeech, keyWords, lineCard, lineCardsIn, matchLineCards, mentions, minutesFor, suggestGrade, termLines } from '../src/main/study.ts'
+import { LEECH_AT, bucketOf, closeness, daysInARow, fitFirstDays, isEquation, isLeech, keyWords, lineCard, lineCardsIn, matchLineCards, mentions, minutesFor, suggestGrade, termLines, wordsIn } from '../src/main/study.ts'
 
 test('a line with :: between words is a card', () => {
   assert.deepEqual(lineCard('Capital of Peru :: Lima'), { question: 'Capital of Peru', answer: 'Lima' })
@@ -161,4 +161,11 @@ test('a pasted list of equations is not cut into terms', () => {
   assert.equal(isEquation('a - b = c'), true)
   assert.equal(isEquation('Force - F = ma'), false)
   assert.equal(isEquation('\\frac{a}{b} - c = 0'), true)
+})
+
+test("a note's words, code left out, are where its cards' tags come from", () => {
+  const doc = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Cells #biology' }] }, { type: 'codeBlock', content: [{ type: 'text', text: '#include <x>' }] }, { type: 'paragraph', content: [{ type: 'text', text: '#hex', marks: [{ type: 'code' }] }] }] }
+  assert.equal(wordsIn(doc).includes('#biology'), true)
+  assert.equal(wordsIn(doc).includes('#include') || wordsIn(doc).includes('#hex'), false)
+  assert.equal(wordsIn('Notes #law\n```\n#not\n```').includes('#not'), false)
 })

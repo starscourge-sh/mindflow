@@ -80,6 +80,14 @@ export function lineCardsIn(body: unknown): LineCard[] {
   return found
 }
 
+/** A note's words, code left out (a "#include" is no tag): what its #tags are read from. */
+export function wordsIn(body: unknown): string {
+  if (typeof body === 'string') return body.replace(/```[\s\S]*?(?:```|$)|`[^`\n]+`/g, '')
+  const walk = (node: Node): string =>
+    node.type === 'codeBlock' || node.marks?.some((one) => one.type === 'code') ? '' : (node.text ?? (node.content ?? []).map(walk).join('\n'))
+  return body ? walk(body as Node) : ''
+}
+
 /**
  * Lines matched to the cards a note already has, so a card keeps its
  * schedule while its line is edited. Same question first; then what is left
