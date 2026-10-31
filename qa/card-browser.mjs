@@ -50,11 +50,11 @@ try {
   check('new, learning and due are counted for the tag', new RegExp(`${astro.filter((one) => one.stage === 'new' && !one.paused).length} new`).test(counted) && new RegExp(`${due} due now`).test(counted), counted)
   // Sort: Newest puts the cards just made first.
   await chip(/^All \d/)
-  // Sorted in Display (F): Newest.
-  await h.keyboard.press('f')
-  await h.waitForTimeout(400)
-  await h.evaluate(() => [...document.querySelectorAll('[role="menuitemradio"]')].find((one) => one.textContent === 'Newest')?.click())
-  await h.keyboard.press('Escape')
+  // Sorted in Display: Newest, as Display keeps it, then the page opened again.
+  await h.evaluate(() => localStorage.setItem('view:cards', JSON.stringify({ sort: 'newest', group: 'none', filter: {}, density: 'list' })))
+  await c.go('home')
+  await c.go('review')
+  await h.evaluate(() => document.querySelector('[data-review-tab="cards"]').click())
   const made = new Map(all.map((one) => [one.id, one.createdAt]))
   const order = () => h.evaluate(() => [...document.querySelectorAll('[data-card-row]')].map((one) => one.getAttribute('data-card-row')))
   check('sorted newest first', await waitFor(async () => { const ids = await order(); return ids.length === all.length && ids.every((id, at) => !at || made.get(ids[at - 1]) >= made.get(id)) }))

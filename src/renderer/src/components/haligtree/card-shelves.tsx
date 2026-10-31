@@ -50,22 +50,26 @@ export function Cover({ name, tint, className = '' }: { name: string; tint: stri
   )
 }
 
-/** A quiet line figure for a card with no picture: waves or rings, by the card, in its tag's colour. */
-function Figure({ id, tint }: { id: string; tint: string }): React.JSX.Element {
+/**
+ * A quiet line figure for a card with no picture, in its tag's colour: one of
+ * six families (a grid, arcs, waves, rings, steps, dots), picked and shaped by
+ * the card itself, so a shelf of cards never repeats the same drawing.
+ */
+export function Figure({ id, tint }: { id: string; tint: string }): React.JSX.Element {
   const n = seed(id)
-  const rings = n % 3 === 0
-  const lines = 9 + (n % 6)
+  const family = n % 6
+  const count = 6 + ((n >> 3) % 6)
+  const shift = (n >> 7) % 30
+  const lines: React.ReactNode[] = []
+  if (family === 0) for (let at = 0; at <= count; at++) lines.push(<line key={`v${at}`} x1={10 + at * (80 / count)} y1="5" x2={10 + at * (80 / count) + shift / 3} y2="45" />, <line key={`h${at}`} x1="10" y1={5 + at * (40 / count)} x2="90" y2={5 + at * (40 / count)} />)
+  else if (family === 1) for (let at = 0; at < count; at++) lines.push(<path key={at} d={`M ${10 + at * 4} 48 A ${36 - at * 3} ${36 - at * 3} 0 0 1 ${82 - at * 2} 48`} />)
+  else if (family === 2) for (let at = 0; at < count + 3; at++) { const y = 6 + at * (38 / (count + 3)); const bend = 4 + ((n >> at) % 14); lines.push(<path key={at} d={`M0 ${y} C 30 ${y - bend}, 60 ${y + bend}, 100 ${y}`} />) }
+  else if (family === 3) for (let at = 0; at < count + 2; at++) lines.push(<circle key={at} cx={30 + shift} cy="25" r={2.5 + at * 2.6} />)
+  else if (family === 4) { let d = 'M 8 44'; for (let at = 0; at < count; at++) d += ` h ${84 / count} v ${-((((n >> at) % 5) + 2) * 1.2)}`; for (let at = 0; at < 4; at++) lines.push(<path key={at} d={d} transform={`translate(0 ${-at * 3})`} />) }
+  else for (let row = 0; row < 6; row++) for (let col = 0; col < 14; col++) { const r = 0.4 + (((n >> ((row + col) % 20)) % 4) * 0.35); lines.push(<circle key={`${row}-${col}`} cx={8 + col * 6.4} cy={8 + row * 6.8} r={r} fill={tint} stroke="none" />) }
   return (
-    <svg viewBox="0 0 100 50" aria-hidden className="h-full w-full" preserveAspectRatio="xMidYMid meet">
-      <g fill="none" stroke={tint} strokeWidth="0.6" opacity="0.75">
-        {rings
-          ? Array.from({ length: lines }, (_, at) => <circle key={at} cx={35 + (n % 30)} cy="25" r={3 + at * 2.4} />)
-          : Array.from({ length: lines }, (_, at) => {
-              const y = 6 + at * (38 / lines)
-              const bend = 6 + ((n >> at) % 12)
-              return <path key={at} d={`M0 ${y} C 30 ${y - bend}, 60 ${y + bend}, 100 ${y}`} />
-            })}
-      </g>
+    <svg viewBox="0 0 100 50" aria-hidden data-figure={family} className="h-full w-full" preserveAspectRatio="xMidYMid meet">
+      <g fill="none" stroke={tint} strokeWidth="0.6" opacity="0.8">{lines}</g>
     </svg>
   )
 }
@@ -113,7 +117,7 @@ const STAGE_TINT: Record<string, string> = { new: 'var(--tt-color-text-blue)', l
  * to its answer; ⌘- and ⇧-click pick it. Only a known card (remembered after
  * 15 days) carries a sheen: its reward, and nothing else shines.
  */
-export function Poster({ card, over, onTurn, picked, onPick, question, answer, size = 'md' }: {
+export function Poster({ card, over, onTurn, picked, onPick, question, answer, size = 'md', ledge = false }: {
   card: BrowsedCard
   over: boolean
   onTurn: (over: boolean) => void
@@ -122,13 +126,15 @@ export function Poster({ card, over, onTurn, picked, onPick, question, answer, s
   question: React.ReactNode
   answer: string
   size?: 'sm' | 'md' | 'lg'
+  /** Standing on a shelf: a band of bare paper at its foot for the glass ledge, its words above it. */
+  ledge?: boolean
 }): React.JSX.Element {
   const tint = cardTint(card)
   const lean = useLean()
   const stage = card.known ? 'known' : card.stage
   const where = [card.source, card.at].filter(Boolean).join(', ')
   const face = (side: 'front' | 'back', children: React.ReactNode): React.JSX.Element => (
-    <div data-card-face={side} className={`mf-poster relative flex aspect-[4/5] w-full min-w-0 flex-col overflow-hidden rounded-lg ${size === 'lg' ? 'p-6' : 'p-4'} ${picked ? 'ring-2 ring-[var(--tt-brand-color-400)]' : ''}`} style={{ '--tint': tint } as React.CSSProperties}>
+    <div data-card-face={side} className={`mf-poster relative flex aspect-[4/5] w-full min-w-0 flex-col overflow-hidden rounded-lg ${size === 'lg' ? 'p-6' : ledge ? 'p-4 pb-12' : 'p-4'} ${picked ? 'ring-2 ring-[var(--tt-brand-color-400)]' : ''}`} style={{ '--tint': tint } as React.CSSProperties}>
       {children}
       <div className="mt-auto flex items-end justify-between gap-2 pt-2 text-[11px] leading-tight text-foreground/70">
         <span className="min-w-0 truncate">{where || (card.tags[0] ? `#${card.tags[0]}` : '')}</span>
@@ -173,6 +179,8 @@ const Screws = (): React.JSX.Element => (
  * due on it. Pointed at, the fan opens and its cards come round in turn.
  */
 export function Pocket({ name, cards, onOpen }: { name: string; cards: BrowsedCard[]; onOpen: () => void }): React.JSX.Element {
+  // The tags as written that this pocket holds (#learn holds #learn-haligtree), said on hover.
+  const held = [...new Set(cards.map((one) => one.tags.find((tag) => `#${tag.split('-')[0]}` === name)).filter(Boolean))].map((tag) => `#${tag}`)
   const tint = groupTint(name)
   const [turn, setTurn] = useState(0)
   const [hover, setHover] = useState(false)
@@ -184,21 +192,26 @@ export function Pocket({ name, cards, onOpen }: { name: string; cards: BrowsedCa
     return () => clearInterval(every)
   }, [hover, shown.length])
   const due = cards.filter((one) => !one.paused && one.dueAt && Date.parse(one.dueAt) <= Date.now()).length
-  const fan = [-11, -4, 4, 11]
+  const fan = [-8, -3, 3, 8]
   return (
     <button type="button" data-pocket={name} onClick={() => (chime('open'), onOpen())} onPointerEnter={() => setHover(true)} onPointerLeave={() => (setHover(false), setTurn(0))}
+      title={held.length && held.join(' ') !== name ? `${name}: ${held.slice(0, 8).join(', ')}${held.length > 8 ? '…' : ''}` : undefined}
       className="group/pocket flex flex-col items-center gap-2 rounded-xl p-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
-      <div className="relative h-52 w-full max-w-[15rem]">
+      <div className="relative h-52 w-full max-w-[15rem] [overflow-x:clip]">
         {/* The cover at the back, then up to three of its own cards, fanned. */}
-        <div className="mf-fan absolute inset-x-12 top-1 h-40 overflow-hidden rounded-md shadow-sm" style={{ '--fan': `${fan[0]}deg`, '--fan-x': '-12%', zIndex: 1 } as React.CSSProperties}>
+        <div className="mf-fan absolute inset-x-12 top-1 h-40 overflow-hidden rounded-md shadow-sm" style={{ '--fan': `${fan[0]}deg`, '--fan-x': '-8%', zIndex: 1 } as React.CSSProperties}>
           <Cover name={name} tint={tint} className="h-full w-full" />
         </div>
         {shown.slice(0, 3).map((card, at) => {
           const order = (at + turn) % Math.min(3, shown.length)
+          // Only the card in front shows its words; those behind show their drawing, so no clipped half-words.
+          const front = order === Math.min(3, shown.length) - 1
           return (
-            <div key={card.id} className="mf-fan mf-poster absolute inset-x-12 top-3 flex h-40 flex-col gap-1 overflow-hidden rounded-md p-2.5 shadow-sm" style={{ '--tint': cardTint(card), '--fan': `${fan[order + 1]}deg`, '--fan-x': `${(order - 1) * 11}%`, zIndex: 2 + order } as React.CSSProperties}>
-              <span className="line-clamp-4 font-heading text-[11px] font-semibold leading-snug text-foreground">{card.prompt.replace(/!\[[^\]]*\]\([^)]*\)/g, '').trim()}</span>
-              {card.picture && <img src={card.picture} alt="" onError={(event) => (event.currentTarget.hidden = true)} className="mt-auto max-h-14 w-full rounded-sm object-cover" />}
+            <div key={card.id} data-fan-front={front || undefined} className="mf-fan mf-poster absolute inset-x-12 top-3 flex h-40 flex-col gap-1 overflow-hidden rounded-md p-2.5 shadow-sm" style={{ '--tint': cardTint(card), '--fan': `${fan[order + 1]}deg`, '--fan-x': `${(order - 1) * 8}%`, zIndex: 2 + order } as React.CSSProperties}>
+              {front
+                ? <span className="line-clamp-4 font-heading text-[11px] font-semibold leading-snug text-foreground">{card.prompt.replace(/!\[[^\]]*\]\([^)]*\)/g, '').trim()}</span>
+                : <div className="h-14 opacity-70"><Figure id={card.id} tint={cardTint(card)} /></div>}
+              {front && card.picture && <img src={card.picture} alt="" onError={(event) => (event.currentTarget.hidden = true)} className="mt-auto max-h-14 w-full rounded-sm object-cover" />}
             </div>
           )
         })}
@@ -251,16 +264,18 @@ export function Shelf({ name, count, onOpen, children }: { name: string; count: 
  * click on one) bring the next to the middle, Space turns it over.
  */
 export function FlipThrough({ cards, render, at, onAt }: { cards: BrowsedCard[]; render: (card: BrowsedCard, centre: boolean) => React.ReactNode; at: number; onAt: (at: number) => void }): React.JSX.Element {
-  const near = cards.map((card, n) => ({ card, n })).filter(({ n }) => Math.abs(n - at) <= 5)
+  // Two a side, a clear gap between each; the next one out is there only to fade in from nothing.
+  const near = cards.map((card, n) => ({ card, n })).filter(({ n }) => Math.abs(n - at) <= 3)
   return (
     <div data-flip-through className="relative flex h-[30rem] items-center justify-center overflow-hidden [perspective:1400px]">
       {near.map(({ card, n }) => {
         const off = n - at
         const side = Math.sign(off)
-        const transform = off === 0 ? 'translateX(0) translateZ(0) rotateY(0deg)' : `translateX(${side * (11 + Math.abs(off) * 5.5)}rem) translateZ(-${120 + Math.abs(off) * 40}px) rotateY(${-side * 52}deg)`
+        const away = Math.abs(off)
+        const transform = off === 0 ? 'translateX(0) translateZ(0) rotateY(0deg)' : `translateX(${side * (8 + away * 7.5)}rem) translateZ(-${100 + away * 60}px) rotateY(${-side * 48}deg)`
         return (
           <div key={card.id} data-flip-at={off} onClickCapture={(event) => off !== 0 && (event.stopPropagation(), chime('tap'), onAt(n))}
-            className="mf-flow absolute w-64" style={{ transform, zIndex: 100 - Math.abs(off), opacity: Math.max(0, 1 - Math.abs(off) * 0.18) }}>
+            aria-hidden={away > 2 || undefined} className={`mf-flow absolute w-64 ${away > 2 ? 'invisible' : ''}`} style={{ transform, zIndex: 100 - away, opacity: away > 2 ? 0 : 1 - away * 0.3 }}>
             {render(card, off === 0)}
           </div>
         )
