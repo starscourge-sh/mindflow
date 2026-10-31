@@ -2949,6 +2949,53 @@ export function registerHaligtree(): void {
       .map((row) => ({ id: row.id, src: /!\[[^\]]*\]\(((?:haligtree|mindflow):\/\/assets\/[^)\s]+)\)/.exec(row.prompt)?.[1] ?? '', who: row.attribution }))
       // One tile per picture: a painting asked twice (Artist?, Title?) shows once.
       .filter((one, at, all) => one.src && all.findIndex((other) => other.src === one.src) === at))
+  // Which of a deck's own fields are links: its maker (each card's who, a Sources page each) and its kinds (#tags), and every field it has to choose from.
+  handle('decks:links', (deck: string) => {
+    const rows = db.prepare(`select fields from nuggets where (deck = ? or deck like ? || '::%') and fields like '%"_anki"%' limit 200`).all(deck, deck) as { fields: string }[]
+    const names = new Set<string>()
+    let who: string | null = null
+    let kinds: string[] = []
+    for (const [at, row] of rows.entries()) {
+      const anki = (JSON.parse(row.fields) as { _anki?: { fields: Record<string, string>; who: string | null; kinds: string[] } })._anki
+      if (!anki) continue
+      for (const name of Object.keys(anki.fields)) names.add(name)
+      if (!at) (who = anki.who, (kinds = anki.kinds))
+    }
+    return { fields: [...names], who, kinds }
+  })
+  // A wrong guess changed: every card of the deck takes its who from the chosen field (or none), and its kind #tags from the chosen fields, the old ones taken off.
+  handle('decks:relink', (deck: string, who: string | null, kinds: string[]) => {
+    const rows = db.prepare(`select id, body, fields from nuggets where (deck = ? or deck like ? || '::%') and fields like '%"_anki"%'`).all(deck, deck) as { id: string; body: string | null; fields: string }[]
+    const word = (name: string): string => name.toLowerCase().split('::').map((part) => part.trim().replace(/[^\p{L}\p{M}\p{N}_-]+/gu, '-').replace(/^-+|-+$/g, '')).filter(Boolean).join('-')
+    const save = db.prepare('update nuggets set attribution = ?, body = ?, fields = ?, updated_at = ? where id = ?')
+    const at = now()
+    db.exec('begin')
+    try {
+      for (const row of rows) {
+        const kept = JSON.parse(row.fields) as { _anki: { fields: Record<string, string>; who: string | null; kinds: string[]; tags: string[] } } & Record<string, unknown>
+        const anki = kept._anki
+        const tags = kinds.map((name) => (anki.fields[name] ?? '').trim()).filter((value) => value && value.length <= 40 && !/\d|[,;/]/.test(value)).map(word)
+        let body = JSON.parse(row.body ?? 'null') as unknown
+        // Only words still as imported (Markdown) have their tag line changed here; a card since edited keeps its words.
+        if (typeof body === 'string') {
+          const lines = body.split('\n')
+          const last = lines.length - 1
+          if (/^#\S/.test(lines[last] ?? '')) {
+            const had = lines[last].split(/\s+/).filter((one) => !anki.tags.includes(one.replace(/^#/, '')))
+            lines[last] = [...new Set([...had, ...tags.map((tag) => `#${tag}`)])].join(' ')
+          }
+          body = lines.join('\n')
+        }
+        const name = who ? (anki.fields[who] ?? '').trim().slice(0, 120) || null : null
+        save.run(name, JSON.stringify(body), JSON.stringify({ ...kept, _anki: { ...anki, who, kinds, tags } }), at, row.id)
+      }
+      db.exec('commit')
+    } catch (error) {
+      db.exec('rollback')
+      throw error
+    }
+    return write(rows.length)
+  })
   // Start a held deck, or one topic of it (a deck name, or a top name for all of it): its cards join Review as new.
   handle('decks:start', (deck: string, on: boolean) => {
     const where = "(deck = ? or deck like ? || '::%')"

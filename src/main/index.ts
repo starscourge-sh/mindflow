@@ -3393,6 +3393,9 @@ async function importFiles(dropped?: string[]): Promise<void> {
           if (filePaths.length === 1) (deckFrom = deckName, lines.push(parts.join(', ')))
           else lines.push(`${deckName}: ${parts.join(', ')}`)
           if (got.held) lines.push(`${num(got.held)} new ${got.held === 1 ? 'card waits' : 'cards wait'}, held: start each topic from Review › Decks when you study it`)
+          // Which of the deck's fields became links, said so a wrong guess is caught: changed from the deck on Review › Decks.
+          const linkedBy = [got.links.who.size && `“${[...got.links.who].join('”, “')}” became each card’s who, a Sources page each`, got.links.kinds.size && `“${[...got.links.kinds].join('”, “')}” became #tags`].filter(Boolean)
+          if (linkedBy.length) lines.push(`Linked from the deck’s own fields: ${linkedBy.join('; ')}. Wrong guess? “Links” on the deck in Review › Decks changes it.`)
           if (got.updated) lines.push(`${num(got.updated)} ${got.updated === 1 ? 'card was' : 'cards were'} changed by this newer version, keeping your progress`)
           if (got.paused) lines.push(`${num(got.paused)} ${got.paused === 1 ? 'card was' : 'cards were'} suspended in Anki: paused here too, out of Review until you bring ${got.paused === 1 ? 'it' : 'them'} back`)
           if (got.already) lines.push(`${num(got.already)} ${got.already === 1 ? 'card was' : 'cards were'} already here, from an earlier import`)

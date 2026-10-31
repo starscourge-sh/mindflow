@@ -70,5 +70,22 @@ try {
   // An artist from the deck is a Sources page; a movement is a tag.
   const pages = await h.evaluate(() => window.api.haligtree('sources').then((all) => all.filter((one) => /Ernst|Rubens|Monet|Picasso|Rembrandt/.test(one.name)).map((one) => `${one.name} (${one.count})`)).catch((e) => String(e)))
   console.log('sources:', JSON.stringify(pages)?.slice(0, 300))
+  // The Map's Sources view: the deck's artists joined to the deck, no node per card.
+  const graph = await h.evaluate(() => window.api.haligtree('sources:graph'))
+  const deckNode = graph.nodes.find((one) => one.title === 'Great Works of Art')
+  console.log('map:', graph.nodes.length, 'nodes;', graph.nodes.filter((one) => one.kind === 'person').length, 'people; deck node links:', deckNode?.links, '; Picasso:', !!graph.nodes.find((one) => one.title === 'Pablo Picasso'))
+  await h.evaluate(() => localStorage.setItem('mapMode', 'sources')); await go('map'); await wait(4000)
+  await h.screenshot({ path: join(shots, 'map-sources.png') })
+  // Study a deck, and its links changed.
+  await go('review'); await wait(1200)
+  await h.evaluate(() => document.querySelector('[data-review-tab="decks"]')?.click()); await wait(1200)
+  console.log('buttons:', await h.evaluate(() => [...document.querySelectorAll('[data-deck] button')].map((one) => one.textContent.trim()).join(' / ')))
+  await h.evaluate(() => document.querySelector('[data-deck-links]')?.click()); await wait(1500)
+  console.log('links panel:', (await h.evaluate(() => document.querySelector('[data-deck-links-panel]')?.innerText ?? '')).replace(/\n+/g, ' | '))
+  await h.screenshot({ path: join(shots, 'deck-links.png') })
+  await h.evaluate(() => [...document.querySelectorAll('[data-deck-links-panel] button')].find((one) => one.textContent.trim() === 'Cancel')?.click())
+  await h.evaluate(() => [...document.querySelectorAll('[data-deck]')].find((one) => /Art of War/.test(one.textContent))?.querySelector('[data-deck-study]')?.click()); await wait(2500)
+  console.log('study Art of War:', (await h.evaluate(() => document.querySelector('[data-review-tabs]')?.closest('section, main, div')?.parentElement?.innerText ?? '')).slice(0, 200).replace(/\n+/g, ' | '))
+  await h.screenshot({ path: join(shots, 'deck-study.png') })
   console.log('errors:', c.errors.slice(0, 5))
 } catch (e) { console.log('RUN FAILED', e.message.split('\n')[0]) } finally { await c.close?.() }

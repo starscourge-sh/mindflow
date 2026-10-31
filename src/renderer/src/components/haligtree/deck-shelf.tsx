@@ -4,6 +4,7 @@ import { call, unloaded, useLive } from '@/lib/haligtree'
 import { num } from '../../../../main/dates'
 import { Empty, toast } from './ui'
 import { Button } from '@/components/ui/button'
+import { Chip } from './display'
 
 type Topic = { deck: string; label: string; cards: number; held: number }
 export type Shelf = { name: string; cover: string | null; sample: string; pictures: number; cards: number; fresh: number; due: number; held: number; shown: boolean; topics: Topic[] }
@@ -32,6 +33,7 @@ export function startDeck(deck: string, label: string, on: boolean): void {
  */
 export function DeckShelf({ onOpen, onStudy }: { onOpen: (type: string, id: string) => void; /** Study a deck's or topic's tag in Today. */ onStudy: (tag: string) => void }): React.JSX.Element {
   const [gallery, setGallery] = useState<string | null>(null)
+  const [linking, setLinking] = useState<string | null>(null)
   const shelves = useLive(() => call<Shelf[]>('decks:list'), null as Shelf[] | null, [], ['item'])
   if (unloaded(shelves)) return <div />
   if (!shelves?.length)
@@ -95,6 +97,8 @@ export function DeckShelf({ onOpen, onStudy }: { onOpen: (type: string, id: stri
               <Button variant="ghost" size="sm" className="cursor-pointer" data-deck-gems aria-pressed={shelf.shown} onClick={() => show(shelf)}>
                 {shelf.shown ? 'Keep out of Gems' : 'Show in Gems'}
               </Button>
+              <Button variant="ghost" size="sm" className="cursor-pointer" data-deck-links aria-expanded={linking === shelf.name}
+                onClick={() => (chime(linking === shelf.name ? 'fold' : 'open'), setLinking(linking === shelf.name ? null : shelf.name))}>Links</Button>
               {shelf.pictures > 0 && (
                 <Button variant="ghost" size="sm" className="cursor-pointer" data-deck-gallery aria-expanded={gallery === shelf.name}
                   onClick={() => (chime(gallery === shelf.name ? 'fold' : 'open'), setGallery(gallery === shelf.name ? null : shelf.name))}>
@@ -102,6 +106,7 @@ export function DeckShelf({ onOpen, onStudy }: { onOpen: (type: string, id: stri
                 </Button>
               )}
             </div>
+            {linking === shelf.name && <Links deck={shelf.name} onDone={() => setLinking(null)} />}
             {gallery === shelf.name && <Gallery deck={shelf.name} onOpen={onOpen} />}
           </div>
         </section>
@@ -125,5 +130,49 @@ function Gallery({ deck, onOpen }: { deck: string; onOpen: (type: string, id: st
         </li>
       ))}
     </ul>
+  )
+}
+
+/**
+ * Which of a deck's own fields are links, changed when the import guessed
+ * wrong: the field that names who made each thing (each a Sources page) and
+ * the fields whose values become #tags (a movement, a period).
+ */
+function Links({ deck, onDone }: { deck: string; onDone: () => void }): React.JSX.Element {
+  const links = useLive(() => call<{ fields: string[]; who: string | null; kinds: string[] }>('decks:links', deck), null as { fields: string[]; who: string | null; kinds: string[] } | null, [deck])
+  const [who, setWho] = useState<string | null | undefined>(undefined)
+  const [kinds, setKinds] = useState<string[] | undefined>(undefined)
+  if (unloaded(links) || !links) return <div className="h-16" />
+  const pickedWho = who === undefined ? links.who : who
+  const pickedKinds = kinds ?? links.kinds
+  if (!links.fields.length) return <p className="text-sm text-muted-foreground">This deck came in before its fields were kept: import it again to choose its links.</p>
+  const apply = (): void =>
+    void call<number>('decks:relink', deck, pickedWho, pickedKinds).then((n) => {
+      chime('noted')
+      toast(`${deck}: links changed on ${num(n)} ${n === 1 ? 'card' : 'cards'}`, () => void call('decks:relink', deck, links.who, links.kinds).then(() => chime('undo')))
+      onDone()
+    })
+  return (
+    <div data-deck-links-panel className="mt-1 grid gap-3 rounded-lg border border-foreground/10 bg-background p-3">
+      <div className="grid gap-1.5">
+        <p className="text-sm text-foreground"><b className="font-semibold">Who made it</b>: each card’s who, a Sources page each</p>
+        <div data-links-who className="flex flex-wrap gap-1 text-xs">
+          <Chip on={!pickedWho} onClick={() => (chime('tap'), setWho(null))}>None</Chip>
+          {links.fields.map((name) => <Chip key={name} on={pickedWho === name} onClick={() => (chime('tap'), setWho(name))}>{name}</Chip>)}
+        </div>
+      </div>
+      <div className="grid gap-1.5">
+        <p className="text-sm text-foreground"><b className="font-semibold">Tags from</b>: each value a #tag, so the deck meets your own notes</p>
+        <div data-links-kinds className="flex flex-wrap gap-1 text-xs">
+          {links.fields.map((name) => (
+            <Chip key={name} on={pickedKinds.includes(name)} onClick={() => (chime('tap'), setKinds(pickedKinds.includes(name) ? pickedKinds.filter((one) => one !== name) : [...pickedKinds, name]))}>{name}</Chip>
+          ))}
+        </div>
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button variant="ghost" size="sm" className="cursor-pointer" onClick={() => (chime('fold'), onDone())}>Cancel</Button>
+        <Button size="sm" className="cursor-pointer" data-links-apply onClick={apply}>Change links</Button>
+      </div>
+    </div>
   )
 }
