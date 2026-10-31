@@ -36,7 +36,7 @@ const groups = () => h.evaluate((menu) => [...document.querySelectorAll(`${menu}
 const rows = () => h.evaluate((menu) => [...document.querySelectorAll(`${menu} [data-clicked]`)].map((one) => one.dataset.clicked), MENU)
 const menuUp = () => h.locator(MENU).first().isVisible().catch(() => false)
 const escape = async () => { await h.keyboard.press('Escape'); await wait(300) }
-const rightClick = async (selector) => { await h.locator(selector).first().click({ button: 'right' }); await wait(500) }
+const rightClick = async (selector) => { const one = h.locator(selector).first(); await one.scrollIntoViewIfNeeded(); const box = await one.boundingBox(); await h.mouse.click(box.x + box.width / 2, box.y + box.height / 2, { button: 'right' }); await wait(500) }
 const pick = async (data) => { await h.locator(`${MENU} [data-clicked="${data}"]`).first().click(); await wait(600) }
 
 try {
@@ -187,6 +187,48 @@ try {
   await h.screenshot({ path: `${SHOTS}/words-light.png` })
   await pick('card')
   check('"Make a card from it" writes a card line under it', (await text()).includes('breach of duty :: '))
+
+  // 5b. The other kinds: a tag, a formula, a "[m:ss]", a video, a web link kept.
+  const answer = async (typed) => { await wait(500); await h.keyboard.press('Meta+a'); await h.keyboard.type(typed); await h.keyboard.press('Enter'); await wait(600) }
+  await h.$eval(ED, (el) => el.editor.commands.insertContentAt(1, [
+    { type: 'youtube', attrs: { src: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ' } },
+    { type: 'paragraph', content: [{ type: 'text', text: 'Area is ' }, { type: 'inlineMath', attrs: { latex: 'x^2' } }, { type: 'text', text: ' here.' }] },
+    { type: 'paragraph', content: [{ type: 'text', text: '[1:30] the lecture on duty' }] },
+    { type: 'paragraph', content: [{ type: 'text', text: 'the bar site', marks: [{ type: 'link', attrs: { href: 'https://example.net/bar' } }] }] },
+  ]))
+  await wait(800)
+  await rightClick(`${ED} .tiptap-token[data-token="tag"]`)
+  await wait(300)
+  const tagGroups = await groups()
+  check('tag: the tag group comes before the block (a spelling fix may lead)', tagGroups.includes('#ctxprobe') && tagGroups.indexOf('#ctxprobe') < tagGroups.indexOf('Block'), JSON.stringify(tagGroups))
+  await pick('copy-tag')
+  check('tag: "Copy tag" copies it', (await clipboard()) === '#ctxprobe', await clipboard())
+  await rightClick(`${ED} .tiptap-token[data-token="tag"]`)
+  await pick('open-tag')
+  check('tag: "Open #ctxprobe" opens its page', await h.locator('h1', { hasText: 'ctxprobe' }).first().isVisible().catch(() => false))
+  await send('capture', id); await h.locator(ED).waitFor({ timeout: 10000 }); await wait(1200)
+  const MATH = `${ED} [data-type="inline-math"]`
+  await rightClick(MATH)
+  check('formula: the first group is the formula', (await groups())[0] === 'Formula', JSON.stringify(await groups()))
+  await pick('copy-latex')
+  check('formula: "Copy as LaTeX" copies $x^2$', (await clipboard()) === '$x^2$', await clipboard())
+  await rightClick(MATH)
+  await pick('edit-formula')
+  await answer('y^3')
+  check('formula: "Edit formula…" changes it', (await text()).includes('y^3'), '')
+  await rightClick(`${ED} .mf-time-link[data-seconds]`)
+  check('time: the first group is the time', (await groups())[0] === 'Time 1:30', JSON.stringify(await groups()))
+  check('time: play from it, copy it', JSON.stringify(await rows()) === '["play","copy-time"]', JSON.stringify(await rows()))
+  await pick('copy-time')
+  check('time: "Copy the time" copies [1:30]', (await clipboard()) === '[1:30]', await clipboard())
+  await rightClick(`${ED} [data-youtube-video]`)
+  check('video: the first group is the video, with its address', (await groups())[0] === 'Video' && (await rows()).includes('copy-address'), JSON.stringify(await groups()))
+  await escape()
+  await rightClick(`${ED} a[href="https://example.net/bar"]`)
+  await pick('keep-link')
+  await wait(800)
+  const kept = await h.evaluate(async () => (await window.api.captures.cards()).some((one) => one.kind === 'link' && JSON.stringify(one.body ?? '').includes('example.net/bar')))
+  check('web link: "Keep the link" keeps it in the Inbox as a link', kept)
 
   // 6. Dark: the same menu, drawn in the dark theme.
   await h.keyboard.press('Meta+z')

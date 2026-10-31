@@ -180,7 +180,8 @@ export const LineCards = Extension.create({
           // video in the note is told, and comes into view.
           handleClick: (view, _pos, event) => {
             const time = (event.target as HTMLElement | null)?.closest?.<HTMLElement>(".mf-time-link")
-            if (!time) return false
+            // A right-click is for the time's menu (turn-into/clicked.tsx): it never plays or opens.
+            if (!time || event.button !== 0) return false
             if (time.dataset.page) {
               const pdf = pdfIn(view.state.doc)
               if (!pdf) return false

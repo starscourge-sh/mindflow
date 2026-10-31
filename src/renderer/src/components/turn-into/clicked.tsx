@@ -33,6 +33,11 @@ export type Clicked =
   | { kind: "web"; from: number; to: number; href: string }
   | { kind: "pdf"; from: number | null; to: number | null; href: string | null; src: string; name: string; page: number }
   | { kind: "words"; from: number; to: number; words: string }
+  | { kind: "tag"; tag: string }
+  | { kind: "formula"; pos: number; latex: string }
+  | { kind: "time"; seconds: number; text: string }
+  | { kind: "picture"; src: string }
+  | { kind: "video"; src: string }
 
 /** A link into one of the book's PDFs: `haligtree://assets/….pdf#page=3&name=…`. */
 const PDF_LINK = /^((?:haligtree|mindflow):\/\/assets\/[^#?]+\.pdf)(?:#(.*))?$/i
@@ -78,6 +83,17 @@ export function clickedAt(editor: Editor, event: MouseEvent): Clicked | null {
   const tagged = target?.closest<HTMLElement>("[data-pdf-peek]")
   if (tagged?.dataset.pdfPeek && view.dom.contains(tagged))
     return { kind: "pdf", from: null, to: null, href: null, src: tagged.dataset.pdfPeek, name: tagged.dataset.pdfPeekName ?? "", page: Number(tagged.dataset.pdfPeekPage) || 1 }
+  // A "[m:ss]" in a line: plays the note's video from there.
+  const time = target?.closest<HTMLElement>(".mf-time-link[data-seconds]")
+  if (time && view.dom.contains(time)) return { kind: "time", seconds: Number(time.dataset.seconds) || 0, text: (time.textContent ?? "").replace(/[[\]]/g, "") }
+  const chip = target?.closest<HTMLElement>('.tiptap-token[data-token="tag"]')
+  if (chip && view.dom.contains(chip)) return { kind: "tag", tag: (chip.textContent ?? "").replace(/^#/, "").trim() }
+  // A formula, a picture or a video: the node under the pointer.
+  const atom = view.posAtCoords({ left: event.clientX, top: event.clientY })?.inside ?? -1
+  const node = atom >= 0 ? editor.state.doc.nodeAt(atom) : null
+  if (node && /^(inline|block)Math$/.test(node.type.name)) return { kind: "formula", pos: atom, latex: String(node.attrs.latex ?? "") }
+  if (node?.type.name === "image" && node.attrs.src && target?.closest("img")) return { kind: "picture", src: String(node.attrs.src) }
+  if (node?.type.name === "youtube" && node.attrs.src) return { kind: "video", src: String(node.attrs.src) }
   // Words picked, and the click on them: what you do with words comes first.
   const { selection } = editor.state
   if (selection instanceof TextSelection && !selection.empty) {
@@ -95,6 +111,11 @@ export function clickedName(clicked: Clicked): string {
   if (clicked.kind === "note") return "Link to a note"
   if (clicked.kind === "web") return "Link"
   if (clicked.kind === "pdf") return `PDF, page ${clicked.page}`
+  if (clicked.kind === "tag") return `#${clicked.tag}`
+  if (clicked.kind === "formula") return "Formula"
+  if (clicked.kind === "time") return `Time ${clicked.text}`
+  if (clicked.kind === "picture") return "Picture"
+  if (clicked.kind === "video") return "Video"
   return "Picked words"
 }
 
@@ -165,6 +186,13 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
       { label: "Open in the browser", data: "browser", run: () => void window.open(href) },
       isWebPage(href) && { label: "Read it here", hint: "In the reader", data: "read", run: () => openArticle(href) },
       { label: "Copy address", data: "copy-address", run: () => copyText(href, "Address copied") },
+      {
+        label: "Keep the link",
+        hint: "In the Inbox, with its card",
+        data: "keep-link",
+        run: () => void window.api.captures.create({ kind: "link", body: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: href, marks: [{ type: "link", attrs: { href } }] }] }] }, markdown: href } as never)
+          .then((id: string) => (chime("noted"), said("Kept in the Inbox"), void import("@/lib/link-card").then(({ cardUp }) => window.api.captures.get(id).then((one) => one && cardUp(one as never)))), () => said("Could not keep it", false)),
+      },
       { label: "Edit link", edits: true, data: "edit-link", run: () => (pick(editor, from, to), editor.view.dom.dispatchEvent(new CustomEvent("mf:edit-link", { bubbles: true }))) },
       { label: "Remove link", edits: true, hint: "Keeps the words", data: "unlink", run: () => (pick(editor, from, to), removeLink(editor)) },
     ]
@@ -194,6 +222,54 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
       linked && { label: "Remove link", edits: true, hint: "Keeps the words", data: "unlink", run: () => (pick(editor, from!, to!), removeLink(editor)) },
     ]
     return lines.filter((one): one is Line => !!one && (!one.edits || editor.isEditable))
+  }
+  if (clicked.kind === "tag") {
+    const { tag } = clicked
+    const lines: Array<Line | false> = [
+      { label: `Open #${tag}`, data: "open-tag", run: () => void window.dispatchEvent(new CustomEvent("haligtree:open", { detail: { type: "tag", id: tag } })) },
+      canSplit() && { label: "Open to the side", data: "aside", run: () => openAside("tag", tag) },
+      canSplit() && { label: `Search for #${tag}`, data: "search", run: () => void window.dispatchEvent(new CustomEvent("haligtree:search", { detail: { words: `#${tag}` } })) },
+      { label: "Copy tag", data: "copy-tag", run: () => copyText(`#${tag}`, `Copied #${tag}`) },
+    ]
+    return lines.filter((one): one is Line => !!one)
+  }
+  if (clicked.kind === "formula") {
+    const { pos, latex } = clicked
+    return [
+      {
+        label: "Edit formula…",
+        edits: true,
+        data: "edit-formula",
+        run: () => void ask("The formula, in LaTeX", latex, undefined, latex).then((typed) => {
+          const next = typed?.trim()
+          const node = editor.state.doc.nodeAt(pos)
+          if (!next || next === latex || !node || !/Math$/.test(node.type.name)) return
+          editor.chain().focus().command(({ tr }) => (tr.setNodeMarkup(pos, undefined, { ...node.attrs, latex: next }), true)).run()
+          chime("noted")
+        }),
+      },
+      { label: "Copy as LaTeX", data: "copy-latex", run: () => copyText(`$${latex}$`, "Formula copied as LaTeX") },
+    ].filter((one) => !one.edits || editor.isEditable)
+  }
+  if (clicked.kind === "time") {
+    const { seconds, text } = clicked
+    const video = editor.view.dom.querySelector<HTMLElement>("[data-youtube-video]")
+    const lines: Array<Line | false> = [
+      !!video && { label: `Play from ${text}`, data: "play", run: () => (window.dispatchEvent(new CustomEvent("haligtree:video-at", { detail: { seconds, video } })), video.scrollIntoView({ block: "center" })) },
+      { label: "Copy the time", data: "copy-time", run: () => copyText(`[${text}]`, `Copied [${text}]`) },
+    ]
+    return lines.filter((one): one is Line => !!one)
+  }
+  if (clicked.kind === "picture" || clicked.kind === "video") {
+    const { src } = clicked
+    const own = /^(haligtree|mindflow):\/\/assets\//.test(src)
+    const lines: Array<Line | false> = [
+      own && !!host().openFile && { label: "Open in the default app", data: "default-app", run: () => void host().openFile?.(src) },
+      own && !!host().showFile && { label: "Show in Finder", data: "finder", run: () => void host().showFile?.(src) },
+      !own && { label: clicked.kind === "video" ? "Open in the browser" : "Open the picture's address", data: "browser", run: () => void window.open(src) },
+      !own && { label: "Copy address", data: "copy-address", run: () => copyText(src, "Address copied") },
+    ]
+    return lines.filter((one): one is Line => !!one)
   }
   const { from, to, words } = clicked
   const lines: Array<Line | false> = [
