@@ -917,13 +917,17 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
     // The question it had before, back with Undo: a blank never costs the old one.
     const before = item.prompt ?? null
     const list = listItemCount(body, words)
-    setBlankNotes([
-      made.unit ? `Blanked the number and kept “${made.unit}” showing: the unit is the cue.` : '',
-      made.article ? `“${made.article}” went inside the blank: it would give the answer away.` : '',
-      list ? `This is one item of a list of ${list}. Blanked one at a time, items teach their place in the list, not the idea: ask for the whole list, or why each belongs.` : ''
-    ].filter(Boolean))
+    // One line per blank, naming it, so a second blank's note never hides the first's.
+    const said = [
+      made.unit ? `the number is blanked and “${made.unit}” stays showing as the cue` : '',
+      made.article ? `“${made.article}” went inside the blank, as it would give the answer away` : '',
+      list ? `it is one item of a list of ${list}: blanked one at a time, items teach their place in the list, not the idea, so ask for the whole list, or why each belongs` : ''
+    ].filter(Boolean)
+    const note = said.length ? `“${made.blanked}”: ${said.join('; ')}.` : ''
+    const notesBefore = blankNotes
+    setBlankNotes((was) => [...(had ? was : []), ...(note ? [note] : [])])
     setPrompt(made.prompt)
-    void haligtree.saveItem(item.id, { prompt: made.prompt }).then(() => toast(had ? 'One more blank on this card' : 'A fill-in-the-blank card: Review will ask it', () => (setPrompt(before ?? ''), setBlankNotes([]), void haligtree.saveItem(item.id, { prompt: before }))))
+    void haligtree.saveItem(item.id, { prompt: made.prompt }).then(() => toast(had ? 'One more blank on this card' : 'A fill-in-the-blank card: Review will ask it', () => (setPrompt(before ?? ''), setBlankNotes(notesBefore), void haligtree.saveItem(item.id, { prompt: before }))))
   }
   const savePrompt = (): void => {
     if ((item.prompt ?? '') === prompt.trim()) return
