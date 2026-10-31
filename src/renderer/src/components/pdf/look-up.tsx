@@ -20,7 +20,7 @@ export type LookedUpIn = { where: string; link: string; sentence?: string; /** T
  * names under a hairline. One "Keep" keeps both together as a Lookup, said
  * where it was looked up; then "Why keep this?" asks one line, in place.
  */
-export function LookUpCard({ words, at, from, onClose }: { words: string; at: { x: number; y: number }; from: LookedUpIn; onClose: () => void }): React.JSX.Element {
+export function LookUpCard({ words, at, from, range, onClose }: { words: string; at: { x: number; y: number }; from: LookedUpIn; /** Where the words sit on the page; else the words picked as the card opens. */ range?: Spot; onClose: () => void }): React.JSX.Element {
   const one = /^\p{L}[\p{L}'-]{1,40}$/u.test(words)
   const [meaning, setMeaning] = useState<Answer | "looking">(one ? "looking" : null)
   const [wiki, setWiki] = useState<Wiki | "looking">("looking")
@@ -30,6 +30,7 @@ export function LookUpCard({ words, at, from, onClose }: { words: string; at: { 
   const card = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
   useLayoutEffect(() => setWidth(card.current?.offsetWidth ?? 0), [])
+  useLooked(range)
   useEffect(() => {
     let live = true
     if (one) void call<Answer>("define", words).then((answer) => live && setMeaning(answer), () => live && setMeaning({ offline: true }))
@@ -37,11 +38,16 @@ export function LookUpCard({ words, at, from, onClose }: { words: string; at: { 
     return () => void (live = false)
   }, [words, one])
   useEffect(() => {
+    // Esc puts the card away before the page under it hears the key (a note would take it as its own);
+    // in "Why keep this?" it only ends the asking, as the field says.
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key === "Escape" && !event.defaultPrevented) (event.preventDefault(), onClose())
+      if (event.key !== "Escape" || event.defaultPrevented || (event.target instanceof Element && event.target.closest(".look-up input"))) return
+      event.preventDefault()
+      event.stopPropagation()
+      onClose()
     }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
+    window.addEventListener("keydown", onKey, true)
+    return () => window.removeEventListener("keydown", onKey, true)
   }, [onClose])
 
   const found = meaning !== "looking" && meaning && "found" in meaning ? meaning.found : null
@@ -160,8 +166,35 @@ export function LookUpCard({ words, at, from, onClose }: { words: string; at: { 
   )
 }
 
+/**
+ * The looked-up words stay marked where they sit while the card is open, in
+ * the selection's colour, drawn over the page by the browser (a custom
+ * highlight), so the note, the PDF and the article are never changed. Picking
+ * "Why keep this?" moves the selection away; the mark stays. It goes with the card.
+ */
+function useLooked(range?: Spot): void {
+  useLayoutEffect(() => {
+    const picked = window.getSelection()
+    const find = typeof range === "function" ? range : null
+    const at = find ? find() : ((range as Range | null | undefined) ?? (picked && picked.rangeCount && !picked.isCollapsed ? picked.getRangeAt(0).cloneRange() : null))
+    if (!at || typeof Highlight === "undefined") return
+    const paint = (one: Range): void => void CSS.highlights.set("look-up", new Highlight(one))
+    paint(at)
+    // A note's editor may draw the line again (a menu closing, a save): the words are found again in what it drew.
+    const root = find ? (at.commonAncestorContainer instanceof Element ? at.commonAncestorContainer : at.commonAncestorContainer.parentElement)?.closest(".ProseMirror") : null
+    const redrawn = root ? new MutationObserver(() => { const now = find!(); if (now) paint(now) }) : null
+    if (root) redrawn!.observe(root, { childList: true, subtree: true, characterData: true })
+    return () => (redrawn?.disconnect(), void CSS.highlights.delete("look-up"))
+    // Taken once, as the card opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+}
+
 /** Look Up opened anywhere: the words, where on screen, and where they were read. Shown by the one card (LookUpHost). */
-type LookUpAsk = { words: string; x: number; y: number; from: LookedUpIn }
+/** Where looked-up words sit: a range, or (in a note's editor, which may draw the line again) a way to find it each time. */
+export type Spot = Range | (() => Range | null) | null
+
+type LookUpAsk = { words: string; x: number; y: number; from: LookedUpIn; range?: Spot }
 
 /** Look the words up in the one Look Up card, from a note, Review or anywhere words can be picked. */
 export const lookUp = (ask: LookUpAsk): void => void window.dispatchEvent(new CustomEvent<LookUpAsk>("haligtree:look-up", { detail: ask }))
@@ -185,7 +218,7 @@ export function LookUpHost(): React.JSX.Element | null {
   if (!ask) return null
   return (
     <div className="look-up-layer" data-look-up-host>
-      <LookUpCard key={`${ask.words}|${ask.x}|${ask.y}`} words={ask.words} at={{ x: Math.min(ask.x, innerWidth - 180), y: Math.max(8, Math.min(ask.y, innerHeight - 470)) }} from={ask.from} onClose={() => setAsk(null)} />
+      <LookUpCard key={`${ask.words}|${ask.x}|${ask.y}`} words={ask.words} at={{ x: Math.min(ask.x, innerWidth - 180), y: Math.max(8, Math.min(ask.y, innerHeight - 470)) }} from={ask.from} range={ask.range} onClose={() => setAsk(null)} />
     </div>
   )
 }

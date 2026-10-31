@@ -17,7 +17,21 @@ export function lookUpIn(editor: Editor, from: number, to: number, words: string
   const end = editor.view.coordsAtPos(to)
   const start = editor.view.coordsAtPos(from)
   const sentence = editor.state.doc.resolve(from).parent.textContent.trim()
-  lookUp({ words: words.replace(/\s+/g, " ").trim(), x: (start.left + end.right) / 2, y: end.bottom, from: { where: "", link: "", sentence: sentence && sentence !== words ? sentence : undefined, origin } })
+  // The words' own place in the page, found again whenever the editor draws the line anew, so they stay marked while the card is open.
+  const range = (): Range | null => {
+    if (editor.isDestroyed) return null
+    try {
+      const at = document.createRange()
+      const a = editor.view.domAtPos(from)
+      const b = editor.view.domAtPos(to)
+      at.setStart(a.node, a.offset)
+      at.setEnd(b.node, b.offset)
+      return at.collapsed ? null : at
+    } catch {
+      return null
+    }
+  }
+  lookUp({ range,  words: words.replace(/\s+/g, " ").trim(), x: (start.left + end.right) / 2, y: end.bottom, from: { where: "", link: "", sentence: sentence && sentence !== words ? sentence : undefined, origin } })
 }
 import { canSplit, openAside } from "@/lib/split"
 import { openApart } from "@/lib/apart"

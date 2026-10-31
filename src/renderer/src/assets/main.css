@@ -2536,3 +2536,7 @@ html[data-tuck-open="left"] .mf-card { border-top-right-radius: 0; border-bottom
 :root[data-motion='off'] :is(.mf-lean, .mf-fan, .mf-flow) { transition: none; }
 /* A shelf's ledge is clearer than a pocket's front: the cards' feet, their source and when they are due, read through it. */
 .mf-ledge { background: linear-gradient(160deg, rgb(255 255 255 / 0.3), transparent 40%), color-mix(in oklab, var(--tint) 38%, transparent); }
+/* The looked-up words, marked where they sit for as long as the Look Up card is open: the selection's own colour, a quiet band. */
+::highlight(look-up) {
+  background-color: color-mix(in srgb, var(--tt-brand-color-400, #c08a2e) 30%, transparent);
+}
