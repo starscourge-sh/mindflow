@@ -797,6 +797,20 @@ try {
     check('a click opens the reader at the page on show', await h.evaluate(() => window.__peekOpened === 3 && !document.querySelector('[data-pdf-peek-card]')), String(await h.evaluate(() => window.__peekOpened)))
   }
   await h.mouse.move(0, 0); await c.look('light')
+  // The pages turn along the PDF's own name too, no need to reach the card: left edge the first page, right edge the last; a press opens the page on show.
+  {
+    const name = h.locator('.tiptap-attachment-name[data-pdf-peek]').first()
+    await name.scrollIntoViewIfNeeded(); await wait(200)
+    const box = await name.boundingBox()
+    await h.mouse.move(box.x + 2, box.y + box.height / 2, { steps: 2 }); await wait(900)
+    const start = await h.evaluate(() => document.querySelector('[data-pdf-peek-page]')?.textContent?.trim())
+    await h.mouse.move(box.x + box.width - 2, box.y + box.height / 2, { steps: 10 }); await wait(900)
+    const end = await h.evaluate(() => document.querySelector('[data-pdf-peek-page]')?.textContent?.trim())
+    await h.evaluate(() => { window.__alongOpened = null; window.addEventListener('haligtree:pdf', (event) => (window.__alongOpened = event.detail.page), { once: true }) })
+    await h.mouse.down(); await h.mouse.up(); await wait(900)
+    check('moving along the PDF\'s name turns its pages (1 / 3 at the left, 3 / 3 at the right), and a press opens that page', start === '1 / 3' && end === '3 / 3' && (await h.evaluate(() => window.__alongOpened)) === 3, JSON.stringify({ start, end, opened: await h.evaluate(() => window.__alongOpened) }))
+    await h.mouse.move(0, 0)
+  }
 } catch (error) {
   check('ran without throwing', false, String(error?.stack ?? error))
 } finally {

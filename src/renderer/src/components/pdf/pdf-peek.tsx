@@ -56,7 +56,7 @@ function pdfAt(element: Element | null): (Named & { target: HTMLElement }) | nul
   return { target: link, src: found[1], name: hash.get("name") ?? "", first: Number(hash.get("page")) || 1 }
 }
 
-type Peek = { src: string; name: string; x: number; top: number; bottom: number; count: number; page: number; image: string | null; ratio: number }
+type Peek = { src: string; name: string; x: number; top: number; bottom: number; count: number; first: number; page: number; image: string | null; ratio: number }
 
 /**
  * A PDF's pages, previewed where it is pointed at: any element carrying
@@ -90,7 +90,7 @@ export function PdfPeek(): React.JSX.Element | null {
           probe.src = cover.image
         })
         if (on.current !== target) return
-        setPeek({ src, name, x: r.left + r.width / 2, top: r.top, bottom: r.bottom, count: doc.numPages, page: first, image: first === 1 ? (cover?.image ?? null) : null, ratio })
+        setPeek({ src, name, x: r.left + r.width / 2, top: r.top, bottom: r.bottom, count: doc.numPages, first, page: first, image: first === 1 ? (cover?.image ?? null) : null, ratio })
         if (first !== 1) void turn(src, first)
       })
     }
@@ -106,17 +106,46 @@ export function PdfPeek(): React.JSX.Element | null {
       away()
     }
     const away = (): void => ((on.current = null), setPeek(null))
+    // Along the link's own words the pages turn too, no need to move onto the
+    // card: its left edge is the link's own page (or the cover), its right the last.
+    const along = (event: PointerEvent): void => {
+      const target = on.current
+      const now = shown.current
+      if (!target || !now || !target.contains(event.target as Node)) return
+      const r = target.getBoundingClientRect()
+      const page = Math.min(now.count, Math.max(now.first, now.first + Math.floor(((event.clientX - r.left) / r.width) * (now.count - now.first + 1))))
+      if (page !== now.page) void turn(now.src, page)
+    }
+    // A click on it, the pages turned, opens the page on show (a link's own
+    // page opens as it always has). Pressed rather than clicked, so a note's
+    // caret and its own link rule never see it.
+    const press = (event: PointerEvent): void => {
+      const target = on.current
+      const now = shown.current
+      if (!target || !now || event.button !== 0 || !target.contains(event.target as Node) || now.page === now.first) return
+      event.preventDefault()
+      event.stopPropagation()
+      openPdf(now.src, now.name, now.page)
+      away()
+    }
     addEventListener("pointerover", over, true)
     addEventListener("pointerout", out, true)
+    addEventListener("pointermove", along, true)
+    addEventListener("pointerdown", press, true)
     addEventListener("keydown", away, true)
     addEventListener("blur", away)
     return () => {
       removeEventListener("pointerover", over, true)
       removeEventListener("pointerout", out, true)
+      removeEventListener("pointermove", along, true)
+      removeEventListener("pointerdown", press, true)
       removeEventListener("keydown", away, true)
       removeEventListener("blur", away)
     }
   }, [])
+  // The card as it is now, for the listeners above, which are made once.
+  const shown = React.useRef<Peek | null>(null)
+  shown.current = peek
 
   /** The page on show: its picture once drawn, the last one staying until then, so the card never jumps. */
   const turn = async (src: string, page: number): Promise<void> => {
