@@ -42,10 +42,10 @@ export type ReadActions = {
   copy: () => void
   /** The words looked up where they sit: the dictionary and Wikipedia. */
   lookUp: () => void
-  /** A card whose answer is the picked words: the question is asked where they were. */
-  card?: () => void
-  /** A fill-in-the-blank card: the sentence round the words, the words blanked. */
-  blank?: () => void
+  /** A card whose answer is the picked words: the question is asked where they were. A study card, in Review only; `gem` (⌥ held): kept as a gem too. */
+  card?: (gem?: boolean) => void
+  /** A fill-in-the-blank card: the sentence round the words, the words blanked. `gem` as for `card`. */
+  blank?: (gem?: boolean) => void
 }
 
 /** What "Card later" does, said on its swatch wherever it shows. */
@@ -147,13 +147,13 @@ export function ReadBar({ at, actions }: { at: { x: number; y: number; bottom?: 
             <span className="tiptap-button-text">Keep</span>
           </Button>
           {actions.card && (
-            <Button data-style="ghost" aria-label="Card" title="Make a card: these words answer it  C" onClick={actions.card}>
+            <Button data-style="ghost" aria-label="Card" title="Make a card: these words answer it  C  (in Review only; ⌥C keeps it as a gem too)" onClick={(event) => actions.card?.(event.altKey)}>
               <SquareStack className="tiptap-button-icon" />
               <span className="tiptap-button-text">Card</span>
             </Button>
           )}
           {actions.blank && (
-            <Button data-style="ghost" aria-label="Blank" title="Fill-in-the-blank card from the sentence  ⇧C" onClick={actions.blank}>
+            <Button data-style="ghost" aria-label="Blank" title="Fill-in-the-blank card from the sentence  ⇧C  (in Review only; ⌥⇧C keeps it as a gem too)" onClick={(event) => actions.blank?.(event.altKey)}>
               <SquareDashed className="tiptap-button-icon" />
             </Button>
           )}
@@ -178,12 +178,14 @@ export function readKey(event: KeyboardEvent, actions: ReadActions): boolean {
   const field = event.target instanceof HTMLElement && event.target.closest("input, textarea, [contenteditable=true]")
   if (field) return false
   if (event.metaKey && event.shiftKey && !event.altKey && !event.ctrlKey && event.code === "KeyC") return actions.copy(), true
-  if (event.shiftKey && !event.metaKey && !event.ctrlKey && !event.altKey && event.code === "KeyC" && actions.blank) return actions.blank(), true
+  if (event.shiftKey && !event.metaKey && !event.ctrlKey && event.code === "KeyC" && actions.blank) return actions.blank(event.altKey), true
+  // ⌥C: the card kept as a gem as well.
+  if (event.altKey && !event.shiftKey && !event.metaKey && !event.ctrlKey && event.code === "KeyC" && actions.card) return actions.card(true), true
   if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return false
   if (event.code === "KeyH") return actions.highlight(lastColor()), true
   if (event.code === "KeyK") return actions.keep(), true
   if (event.code === "KeyL") return actions.lookUp(), true
-  if (event.code === "KeyC" && actions.card) return actions.card(), true
+  if (event.code === "KeyC" && actions.card) return actions.card(false), true
   const digit = /^Digit([1-6])$/.exec(event.code)
   if (digit) return actions.highlight(MARK_COLORS[Number(digit[1]) - 1].id), true
   return false
@@ -207,14 +209,14 @@ export function PickedMenu({ actions }: { actions: ReadActions }): React.JSX.Ele
         <ContextMenuShortcut>K</ContextMenuShortcut>
       </ContextMenuItem>
       {actions.card && (
-        <ContextMenuItem onSelect={actions.card}>
+        <ContextMenuItem onSelect={() => actions.card?.()}>
           <SquareStack />
           Make a card
           <ContextMenuShortcut>C</ContextMenuShortcut>
         </ContextMenuItem>
       )}
       {actions.blank && (
-        <ContextMenuItem onSelect={actions.blank}>
+        <ContextMenuItem onSelect={() => actions.blank?.()}>
           <SquareDashed />
           Fill-in-the-blank card
           <ContextMenuShortcut>⇧C</ContextMenuShortcut>

@@ -246,8 +246,9 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [article?.title, article?.site])
   /** A card from this article: the answer with "Article title, Site" linked under it. */
-  const cardOf = async (prompt: string, answer: string): Promise<void> => {
-    const id = await call<string>('nugget:from', `${answer}\n\n[${whereFrom().replace(/[[\]]/g, '\\$&')}](${articleLink(href, '')})`, { attribution: byline() || null, medium: whereFrom(), kind: 'quote' })
+  const cardOf = async (prompt: string, answer: string, gem = false): Promise<void> => {
+    // A study card (Review only), unless ⌥ was held or Settings keeps reading cards as gems.
+    const id = await call<string>('nugget:from', `${answer}\n\n[${whereFrom().replace(/[[\]]/g, '\\$&')}](${articleLink(href, '')})`, { attribution: byline() || null, medium: whereFrom(), kind: 'quote', card: { gem } })
     // Named by its question, as a card is in every list and in ⌘K.
     await call('item:save', id, { prompt, title: prompt })
     const count = cardsHere + 1
@@ -256,22 +257,22 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     said(count > 15 ? `Card made: ${count} from this source. Most people keep 10 to 15 from an hour; the best ones are enough` : `Card made: ${count} from this source`, true, { type: "nugget", id, title: prompt })
   }
   // C: the question asked where the words were; Return makes the card.
-  const [carding, setCarding] = useState<{ quote: string; x: number; y: number; bottom?: number } | null>(null)
+  const [carding, setCarding] = useState<{ quote: string; x: number; y: number; bottom?: number; gem?: boolean } | null>(null)
   const actions: ReadActions = {
     highlight: (color) => (rememberColor(color), void mark(color, false)),
     keep: () => void mark(lastColor(), true),
     copy: () => picked && void copyCited(picked.quote),
-    card: () => {
+    card: (gem) => {
       if (!picked) return
-      setCarding({ quote: picked.quote.replace(/\s+/g, ' ').trim(), x: picked.x, y: picked.y, bottom: picked.bottom })
+      setCarding({ quote: picked.quote.replace(/\s+/g, ' ').trim(), x: picked.x, y: picked.y, bottom: picked.bottom, gem })
       setPicked(null)
       chime('open')
     },
-    blank: () => {
+    blank: (gem) => {
       if (!picked) return
       const words = picked.quote.replace(/\s+/g, ' ').trim()
       const sentence = sentenceHere(picked.quote)
-      void cardOf(sentence !== words && sentence.includes(words) ? sentence.replace(words, '_____') : `_____ (${whereFrom()})`, sentence.includes(words) ? sentence : words)
+      void cardOf(sentence !== words && sentence.includes(words) ? sentence.replace(words, '_____') : `_____ (${whereFrom()})`, sentence.includes(words) ? sentence : words, gem)
       getSelection()?.removeAllRanges()
       setPicked(null)
     },
@@ -653,7 +654,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
               <WhyAfter
                 at={carding}
                 ask={{ kept: `Answer: ${carding.quote.length > 28 ? `${carding.quote.slice(0, 27)}…` : carding.quote}`, label: "The card's question", placeholder: 'The question these words answer' }}
-                onSave={(question) => void cardOf(question, carding.quote)}
+                onSave={(question) => void cardOf(question, carding.quote, carding.gem)}
                 onDone={() => (getSelection()?.removeAllRanges(), setCarding(null))}
               />
             )}

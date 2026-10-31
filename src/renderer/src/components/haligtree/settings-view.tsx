@@ -1107,6 +1107,8 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
             below={<div className="mt-3"><Chips options={['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((label, n) => ({ id: String((n + 1) % 7), label }))}
               on={(id) => (settings.lighterDays ?? []).includes(Number(id))}
               pick={(id) => { const day = Number(id); const was = settings.lighterDays ?? []; set({ lighterDays: was.includes(day) ? was.filter((one) => one !== day) : [...was, day].sort() }) }} /></div>} />
+          <Setting title="Cards made while reading" note="A card made in a PDF or an article (C, Snip, the second read), or with Ask another way or Paste cards." more="Study only: it comes up in Review and nowhere else. Also keep as gems: it is in Gems, the Feed and Home as well. Hold ⌥ as you make one to keep that one as a gem too; any card's menu moves it either way." keywords="cards made while reading study only gems keep as gem flashcards pdf article snip card later feed home"
+            below={<Choices label="Cards made while reading" options={readCardChoices} on={(id) => id === (settings.readCards ?? 'study')} pick={(id) => set({ readCards: id as 'study' | 'gem' })} />} />
           <Setting title="Grades" note="How you answer once a card is turned over." more="Two is what most people end up using: Forgot when you hesitated at all, Got it when it came. With two, the keys 2 and 4 still give Hard and Easy, as in Anki." keywords="grade buttons again hard good easy forgot got it two four anki"
             below={<Choices label="Grades" options={gradeChoices} on={(id) => id === String(settings.grades ?? 2)} pick={(id) => set({ grades: Number(id) as 2 | 4 })} />} />
           <Setting title="Review reminder" note="A reminder at the time you pick, when cards are due." more="A small card in the corner, like “12 cards, about 6 minutes” (a Mac notification when the screen is locked). Clicking it opens Review. Once a day, never in quiet hours or safe mode. Miss a day and nothing is owed: the cards wait." keywords="review reminder notification study time daily">
@@ -1462,6 +1464,15 @@ function CapTuning(): React.JSX.Element | null {
 }
 
 /** The two ways to answer a card, each shown as its buttons. */
+/** Where a card made while reading shows, drawn as the places it goes: Review alone, or Gems, the Feed and Home too. */
+const readCardChoices = ([['study', 'Study only', ['Review']], ['gem', 'Also keep as gems', ['Review', 'Gems', 'Feed', 'Home']]] as const).map(([id, label, places]) => ({
+  id, label, show: (
+    <span className="flex h-full w-full flex-wrap content-center items-center justify-center gap-1 px-2">
+      {places.map((place) => <span key={place} className="flex h-6 items-center rounded border px-1.5 text-[0.6rem] font-semibold text-muted-foreground">{place}</span>)}
+    </span>
+  )
+}))
+
 const gradeChoices = ([['2', 'Two', [['Forgot', 'var(--tt-color-text-red)'], ['Got it', 'var(--tt-color-text-green)']]], ['4', 'Four', [['Again', 'var(--tt-color-text-red)'], ['Hard', 'var(--tt-color-text-orange)'], ['Good', 'var(--tt-color-text-green)'], ['Easy', 'var(--tt-color-text-blue)']]]] as const).map(([id, label, buttons]) => ({
   id, label, show: (
     <span className="flex h-full w-full items-center gap-1 px-2">

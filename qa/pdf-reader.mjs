@@ -709,7 +709,8 @@ try {
     getSelection().removeAllRanges()
     getSelection().addRange(range)
   }, [page, words])
-  const cardsFromBook = async () => (await v('items', 'nugget')).filter((one) => one.medium === 'The Probe Book' && one.prompt)
+  // Study cards since 31 Oct (Review only, tier 'card'); ⌥ or the setting keeps them as gems too.
+  const cardsFromBook = async () => [...(await v('items', 'card')), ...(await v('items', 'nugget'))].filter((one) => one.medium === 'The Probe Book' && one.prompt)
   await pickOn(2, 'worth keeping'); await wait(500)
   check('picked words offer Card', await h.evaluate(() => !!document.querySelector('.pdf-keep-bar button[aria-label="Card"]')), '')
   await h.keyboard.press('c'); await wait(400)

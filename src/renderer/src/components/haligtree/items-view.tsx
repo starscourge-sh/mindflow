@@ -38,6 +38,7 @@ import { usePicking } from '@/lib/pick-range'
 import { binItem, moveToBin, useCameBack } from '@/lib/to-bin'
 import { ShowInListContext, useShowInList } from '@/lib/show-in-list'
 import { useSameWords } from '@/lib/same-words'
+import { canMoveTier, moveTier } from './gem-or-card'
 import { Empty, focusField, Island, Page, Prop, Props, Remembered, refuse, quietly, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, Typed, showTopTitle, Pressed, askClearWho, Rolling } from './ui'
 import { Term } from './term'
 import { AGES, Chips, Display, FilterChips, arrange, period, useView, type Density, type Facet, type View } from './display'
@@ -1048,6 +1049,15 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
                 void haligtree.saveItem(item.id, { prompt: question }).then(() =>
                   toast('In Review now: it comes back as a new card', () => (setPrompt(''), void haligtree.saveItem(item.id, { prompt: null }))))
               }} />
+            )}
+            {/* A gem that is also tested says so, under its words; a study card (made while reading) is in Review only. One click either way. */}
+            {item.prompt && canMoveTier(item) && (
+              <div data-gem-or-card={item.tier} className="note-column mt-3 flex items-center gap-2 text-body text-muted-foreground">
+                <span className="whitespace-nowrap">{item.tier === 'card' ? 'A study card: in Review only' : 'Also in Review'}</span>
+                <Prop tip={item.tier === 'card' ? 'In Gems, the Feed and Home too, and still in Review' : 'In Review only: out of Gems, the Feed and Home'} onClick={() => moveTier(item.id, item.tier === 'card' ? 'nugget' : 'card')}>
+                  {item.tier === 'card' ? 'Keep as a gem' : 'Study only'}
+                </Prop>
+              </div>
             )}
             <PageThoughts id={item.id} />
             {later && <Mentions id={item.id} onOpen={onOpen} />}

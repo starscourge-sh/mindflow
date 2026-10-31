@@ -37,6 +37,7 @@ import { LearnMode } from './learn-mode'
 import { isLeech, minutesFor, thingsIn, typedCheck, type Strictness } from '../../../../main/study'
 import { Star } from 'lucide-react'
 import { RowMenu, copyLinkItem, type RowItem } from './row-menu'
+import { tierItem } from './gem-or-card'
 import { binItem } from '@/lib/to-bin'
 import { AnotherWay } from './another-way'
 import { cardPerNumber } from './blank-panel'
@@ -418,6 +419,11 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
     copyLinkItem(`nugget:${card.id}`, card.prompt || card.title || 'Card'),
     { label: 'Ask another way', hint: 'A new card keeping its context, source and tags', keys: 'A', run: () => (chime('open'), setAsking(card.id)) },
     { label: 'Pause', hint: 'Out of Review until you bring it back', run: () => setAside(card, true, () => drop(card.id)) },
+    // A study card kept as a gem as well, or a gem tested here made study only: it stays in Review either way.
+    ...(() => {
+      const move = tierItem(card, () => setQueue((cards) => cards && cards.map((one) => (one.id === card.id ? { ...one, tier: one.tier === 'card' ? 'nugget' : 'card' } : one))))
+      return move ? [move] : []
+    })(),
     'separator',
     binItem([{ type: 'nugget', id: card.id }], () => drop(card.id))
   ] : []

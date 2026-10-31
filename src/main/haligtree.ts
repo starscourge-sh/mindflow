@@ -378,6 +378,9 @@ const DEFAULTS = {
   lighterDays: [] as number[],
   // Two grades out of the box (Forgot, Got it), or Anki's four.
   grades: 2 as 2 | 4,
+  // A card made while reading (C, Snip, the second read, Ask another way, Paste cards) is a study card,
+  // in Review only; 'gem' keeps it as a gem as well, back in Gems, the Feed, Home and hints.
+  readCards: 'study' as 'study' | 'gem',
   quietStart: '22:00',
   quietEnd: '07:00',
   safeMode: false,
@@ -1339,6 +1342,8 @@ export function registerHaligtree(): void {
   // Above zero while a batch writes many: each one's telling is left to the batch's one.
   let quiet = 0
   const write = <T>(result: T, what?: Change): T => (quiet || changed(what), result)
+  /** The tier a card made while reading is kept in: a study card, or a gem when ⌥ was held or Settings says so. */
+  const cardTier = (gem = false): 'card' | 'nugget' => (gem || settings().readCards === 'gem' ? 'nugget' : 'card')
 
   // --- settings and privacy
   handle('settings', () => settings())
@@ -2262,16 +2267,27 @@ export function registerHaligtree(): void {
   })
   // A nugget from selected words: the excerpt, with the note it came from and
   // that note's source carried down.
-  handle('nugget:from', (text: string, origin: { captureId?: string; attribution?: string | null; medium?: string | null; passage?: string | null; kind?: 'note' | 'quote' }) => {
+  handle('nugget:from', (text: string, origin: { captureId?: string; attribution?: string | null; medium?: string | null; passage?: string | null; kind?: 'note' | 'quote'; /** Made as a card while reading; `gem`: ⌥ held, kept as a gem too. */ card?: { gem?: boolean } }) => {
     const id = randomUUID()
     const attribution = origin.attribution !== undefined ? origin.attribution : (origin.captureId ? (db.prepare('select attribution from captures where id = ?').get(origin.captureId) as { attribution: string | null } | undefined)?.attribution : null)
     db.prepare("insert into nuggets (id, capture_id, kind, title, body, attribution, medium, passage, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
       .run(id, origin.captureId ?? null, origin.kind === 'quote' ? 'quote' : 'note', cut(text.split('\n')[0], 160), JSON.stringify(text), attribution?.trim() || null, origin.medium?.trim() || null, origin.passage?.trim() || null, now(), now())
+    if (origin.card && cardTier(origin.card.gem) === 'card') db.prepare("update nuggets set tier = 'card' where id = ?").run(id)
     resolveWaiting(linkOf('nuggets', id))
     // A long quote (what was an excerpt) is a container: once something is
     // pulled out of it, it has done its job. A short one is the line itself.
     if (origin.captureId) db.prepare("update captures set status = 'promoted' where id = ? and kind = 'quote' and status = 'open' and (kind_was = 'excerpt' or length(words(id, body)) > 600)").run(origin.captureId)
     return write(id)
+  })
+  // A gem or a study card, one click either way and nothing lost: 'card' is in Review only (out of Gems,
+  // the Feed, Home and hints, as a deck's cards are); 'nugget' is a gem again. Says what it was, for Undo.
+  // A card a note's own "question :: answer" line keeps is left alone: the note owns it.
+  handle('item:tier', (id: string, tier: unknown) => {
+    if (tier !== 'card' && tier !== 'nugget') return write(null)
+    const row = db.prepare("select tier from nuggets where id = ? and tier in ('nugget', 'card') and line_of is null").get(id) as { tier: string } | undefined
+    if (!row) return write(null)
+    db.prepare('update nuggets set tier = ?, updated_at = ? where id = ?').run(tier, now(), id)
+    return write(row.tier, { kind: 'item', id })
   })
   // Taken back straight after: words lifted out of a note as a capture or an
   // idea (Undo on its toast). Called only with what that lift just made; a
@@ -2279,7 +2295,7 @@ export function registerHaligtree(): void {
   handle('lifted:undo', (type: 'capture' | 'nugget', id: string) => {
     if (type === 'capture') db.prepare('delete from captures where id = ?').run(id)
     else {
-      const row = db.prepare("select capture_id from nuggets where id = ? and tier = 'nugget'").get(id) as { capture_id: string | null } | undefined
+      const row = db.prepare("select capture_id from nuggets where id = ? and tier in ('nugget', 'card') and line_of is null").get(id) as { capture_id: string | null } | undefined
       if (!row) return write(false)
       db.prepare('delete from glosses where item_id = ?').run(id)
       db.prepare('delete from nuggets where id = ?').run(id)
@@ -2829,14 +2845,14 @@ export function registerHaligtree(): void {
   handle('cards:list', (pairs: { term: string; meaning: string }[]) => {
     const ids = (pairs ?? []).filter((one) => one.term?.trim() && one.meaning?.trim()).map(({ term, meaning }) => {
       const id = randomUUID()
-      db.prepare("insert into nuggets (id, kind, title, body, prompt, created_at, updated_at) values (?, 'note', ?, ?, ?, ?, ?)")
-        .run(id, cut(term.trim(), 160), JSON.stringify(meaning.trim()), term.trim(), now(), now())
+      db.prepare("insert into nuggets (id, tier, kind, title, body, prompt, created_at, updated_at) values (?, ?, 'note', ?, ?, ?, ?, ?)")
+        .run(id, cardTier(), cut(term.trim(), 160), JSON.stringify(meaning.trim()), term.trim(), now(), now())
       return id
     })
     return write(ids)
   })
   handle('cards:list:undo', (ids: string[]) => {
-    for (const id of ids ?? []) db.prepare("delete from nuggets where id = ? and tier = 'nugget' and state is null").run(id)
+    for (const id of ids ?? []) db.prepare("delete from nuggets where id = ? and tier in ('nugget', 'card') and line_of is null and state is null").run(id)
     return write(true)
   })
 
@@ -3161,12 +3177,12 @@ export function registerHaligtree(): void {
     const tags = tagsIn(`${old.title} ${plain(JSON.parse(old.body ?? 'null'))}`).filter((tag) => !said.includes(tag))
     const words = body && typeof body === 'object' ? body : [answer.trim(), tags.map((tag) => `#${tag}`).join(' ')].filter(Boolean).join('\n\n')
     const fresh = randomUUID()
-    db.prepare("insert into nuggets (id, capture_id, kind, title, body, prompt, attribution, medium, passage, context, private, origins, created_at, updated_at) values (?, ?, 'note', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-      .run(fresh, old.capture_id, cut(question.trim(), 160), JSON.stringify(words), question.trim(), old.attribution, old.medium, old.passage, old.context, old.private, JSON.stringify([id]), now(), now())
+    db.prepare("insert into nuggets (id, tier, capture_id, kind, title, body, prompt, attribution, medium, passage, context, private, origins, created_at, updated_at) values (?, ?, ?, 'note', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+      .run(fresh, cardTier(), old.capture_id, cut(question.trim(), 160), JSON.stringify(words), question.trim(), old.attribution, old.medium, old.passage, old.context, old.private, JSON.stringify([id]), now(), now())
     return write(fresh)
   })
   handle('review:unsplit', (id: string, fresh: string, was: string | null) => {
-    db.prepare("delete from nuggets where id = ? and tier = 'nugget' and state is null").run(fresh)
+    db.prepare("delete from nuggets where id = ? and tier in ('nugget', 'card') and line_of is null and state is null").run(fresh)
     db.prepare('update nuggets set prompt = ? where id = ?').run(was, id)
     return write(true)
   })

@@ -35,7 +35,7 @@ export type BinPeek = { type: string; id: string; title: string; kind: string; b
 
 export type Item = {
   id: string
-  /** A card is a "question :: answer" line written in a note (lineOf says which). */
+  /** A card is a "question :: answer" line written in a note (lineOf says which), or a study card made while reading: in Review only. */
   tier: 'nugget' | 'article' | 'question' | 'goal' | 'card' | 'deck'
   kind: string
   title: string

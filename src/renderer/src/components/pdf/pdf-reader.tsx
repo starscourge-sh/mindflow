@@ -333,9 +333,10 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     void call<{ medium: string | null; prompt: string | null }[]>("items", "nugget").then((all) => setCardsHere(all.filter((one) => one.medium === title && one.prompt).length))
   }, [title])
   /** A card from this page: the answer with the book and page under it, so Review's "From" line opens the page. */
-  const cardOf = async (prompt: string, answer: string, page: number, quiet = false): Promise<void> => {
+  const cardOf = async (prompt: string, answer: string, page: number, quiet = false, gem = false): Promise<void> => {
     const { author, where } = await whereFrom(page)
-    const id = await call<string>("nugget:from", `${answer}\n\n[${where}](${pdfLink(src, name, page, "")})`, { attribution: author || null, medium: title, passage: `p. ${page}`, kind: "quote" })
+    // A study card (Review only), unless ⌥ was held or Settings keeps reading cards as gems.
+    const id = await call<string>("nugget:from", `${answer}\n\n[${where}](${pdfLink(src, name, page, "")})`, { attribution: author || null, medium: title, passage: `p. ${page}`, kind: "quote", card: { gem } })
     // Named by its question, as a card is in every list and in ⌘K: a snip's first line is its picture, never a name.
     await call("item:save", id, { prompt, title: prompt })
     const count = cardsHere + 1
@@ -399,7 +400,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     return () => window.removeEventListener("keydown", onKey)
   })
   // C: the question asked where the words were; Return makes the card.
-  const [carding, setCarding] = useState<{ page: number; quote: string; x: number; y: number; bottom?: number; markId?: string } | null>(null)
+  const [carding, setCarding] = useState<{ page: number; quote: string; x: number; y: number; bottom?: number; markId?: string; gem?: boolean } | null>(null)
   // The second read: every passage marked "Card later", one after another,
   // each asking for its card's question where it is; Return makes the card and
   // the passage becomes a plain highlight, Esc ends the walk.
@@ -426,18 +427,18 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
       setLooking({ words: picked.quote, x: picked.x, y: picked.y + 24, from: { where: `${title}, p. ${picked.page}`, link: pdfLink(src, name, picked.page, ""), sentence: sentenceOf(picked) } })
       chime("open")
     },
-    card: () => {
+    card: (gem) => {
       if (!picked) return
-      setCarding({ page: picked.page, quote: picked.quote, x: picked.x, y: picked.y, bottom: picked.bottom })
+      setCarding({ page: picked.page, quote: picked.quote, x: picked.x, y: picked.y, bottom: picked.bottom, gem })
       setPicked(null)
       chime("open")
     },
-    blank: () => {
+    blank: (gem) => {
       if (!picked) return
       const sentence = sentenceOf(picked)
       // The words blanked in their sentence; a sentence the words are not in (picked across two) asks them plainly.
       const asked = sentence.includes(picked.quote) && sentence !== picked.quote ? sentence.replace(picked.quote, "_____") : `_____ (${title}, p. ${picked.page})`
-      void cardOf(asked, sentence.includes(picked.quote) ? sentence : picked.quote, picked.page)
+      void cardOf(asked, sentence.includes(picked.quote) ? sentence : picked.quote, picked.page, false, gem)
       getSelection()?.removeAllRanges()
       setPicked(null)
     },
@@ -707,7 +708,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
               <div className="pdf-keep-bar" style={{ left: snipped.x, top: Math.max(8, snipped.y - 48) }} onMouseDown={(event) => event.preventDefault()}>
                 <Toolbar variant="floating">
                   <ToolbarGroup>
-                    <Button data-style="ghost" aria-label="Card" title="A card that shows this snip as its answer  C" onClick={() => (setCarding({ page: snipped.page, quote: `![](${snipped.src})`, x: snipped.x, y: snipped.y }), setSnipped(null))}>
+                    <Button data-style="ghost" aria-label="Card" title="A card that shows this snip as its answer  C  (in Review only; ⌥-click keeps it as a gem too)" onClick={(event) => (setCarding({ page: snipped.page, quote: `![](${snipped.src})`, x: snipped.x, y: snipped.y, gem: event.altKey }), setSnipped(null))}>
                       <SquareStack className="tiptap-button-icon" />
                       <span className="tiptap-button-text">Card</span>
                     </Button>
@@ -725,7 +726,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
                 at={carding}
                 ask={{ kept: carding.quote.startsWith("![](") ? "Answer: the snip" : `Answer: ${carding.quote.length > 28 ? `${carding.quote.slice(0, 27)}…` : carding.quote}`, label: "The card's question", placeholder: carding.quote.startsWith("![](") ? "The question this snip answers" : "The question these words answer" }}
                 onSave={(question) => {
-                  void cardOf(question, carding.quote, carding.page, !!walking)
+                  void cardOf(question, carding.quote, carding.page, !!walking, carding.gem)
                   const one = marks.find((each) => each.id === carding.markId)
                   if (one) (madeOne.current = true, void change(one, { color: null }))
                 }}
