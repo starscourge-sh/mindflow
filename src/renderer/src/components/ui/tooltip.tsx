@@ -23,6 +23,8 @@ function TooltipProvider({
 // while it is open, and a tip already showing goes when one opens.
 const OPENED = '[data-state="open"]:is([role="menu"],[role="dialog"],[role="alertdialog"],[role="listbox"],[data-slot="popover-content"],[data-slot="sheet-content"])'
 const covered = (trigger: Element | null): boolean => [...document.querySelectorAll(OPENED)].some((one) => !trigger || !one.contains(trigger))
+/** What shows a card on hover (note-preview.tsx, pdf-peek.tsx): no tip over it as well. */
+export const CARDED = '[data-note-hover][data-note], a.tiptap-note-link[data-note], [data-pdf-peek]'
 let watching = false
 const watchOpened = (): void => {
   if (watching) return
@@ -58,6 +60,8 @@ function Tooltip({
   const open = given ?? own
   const change = (next: boolean): void => {
     if (next && covered(trigger.current)) return
+    // One hover shows one thing: where a card shows (a note's, a person's, a PDF's), the card says it and no tip opens too.
+    if (next && trigger.current?.closest(CARDED)) return
     setOwn(next)
     onOpenChange?.(next)
   }

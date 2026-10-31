@@ -2,6 +2,7 @@ import * as React from 'react'
 import { FLOAT } from '@/lib/float'
 import { cn } from '@/lib/cn'
 import { onScrollAway } from '@/lib/scroll-away'
+import { CARDED } from './tooltip'
 
 /** Whether an element, or any box in it, hides part of its words (an ellipsis or a clamped line). */
 const cutShort = (element: Element): boolean =>
@@ -50,7 +51,8 @@ export function TitleTips(): React.JSX.Element | null {
       if (said !== null) unseen(target, () => (target.setAttribute('data-title-tip', said), target.removeAttribute('title')))
       const text = target.getAttribute('data-title-tip')?.trim()
       hide()
-      if (!text) return
+      // One hover shows one thing: a card there says it, so no tip too.
+      if (!text || target.closest(CARDED)) return
       // Words showing in full get no tip that only says them again; cut short, they do.
       const shown = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement ? target.value : target.textContent
       if (text === shown?.trim() && !cutShort(target)) return
