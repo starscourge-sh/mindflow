@@ -677,7 +677,8 @@ export function Tags({ tags, max = 3, alone = false, go = true }: { tags: string
           return cut.includes(tag) ? <Tip key={tag} label={<>#{tag}</>}>{word}</Tip> : word
         }
         // A tag looks like a link, so it is one: its page, never the row it sits in,
-        // and never the start of a drag.
+        // and never the start of a drag. Under the pointer it lights in its own colour
+        // and underlines, so it never reads as the row's own highlight.
         const hold = (event: React.SyntheticEvent): void => event.stopPropagation()
         return (
           // A rest shows the tag's card (note-preview.tsx), as a tag does everywhere.
@@ -685,7 +686,7 @@ export function Tags({ tags, max = 3, alone = false, go = true }: { tags: string
               onPointerDown={hold} onMouseDown={hold}
               onClick={(event) => (event.stopPropagation(), event.preventDefault(), openTag(tag, event.altKey))}
               onKeyDown={(event) => { if (event.key !== 'Enter' && event.key !== ' ') return; event.stopPropagation(); event.preventDefault(); openTag(tag) }}
-              className="-my-1 min-w-0 max-w-[10rem] shrink cursor-pointer truncate rounded px-0.5 py-1 transition-colors duration-80 hover:bg-accent/70 focus-visible:bg-accent/70 focus-visible:outline-none" style={color}>#{tag}</span>
+              className="-my-1 min-w-0 max-w-[10rem] shrink cursor-pointer truncate rounded px-0.5 py-1 decoration-1 underline-offset-2 transition-colors duration-80 hover:bg-[color-mix(in_oklab,var(--tag-ink)_18%,transparent)] hover:underline focus-visible:bg-[color-mix(in_oklab,var(--tag-ink)_18%,transparent)] focus-visible:outline-none" style={{ ...color, '--tag-ink': color.color } as React.CSSProperties}>#{tag}</span>
         )
       })}
       {rest.length > 0 && (

@@ -34,6 +34,7 @@ import { Inbox } from 'lucide-react'
 import { MonthPlan } from './month-plan'
 import { exampleIdeas, exampleInbox, exampleQuestions, exampleTasks } from '@/lib/examples'
 import { Signed } from './signature'
+import { hoverNote } from './note-preview'
 import { byKeys, spring, still, useFirstVisit } from '@/lib/motion'
 import { Highlight, useChosen, useFluidHover, Weighted } from './glide'
 import { KindBack, backLine, type Returning } from './kind-back'
@@ -972,7 +973,9 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
           )}
 
           {tagRows.map(({ tag: name, color, cards }) => (
-            <Row key={name} title={<>More like <span style={{ color: tagColour(name, color) }}>#{name}</span></>} onAll={() => onView('tags', name)}
+            <Row key={name} title={<>More like <button type="button" data-home-tag={name} {...hoverNote('tag', name)} onClick={() => (chime('page'), onView('tags', name))}
+              className="rounded px-0.5 decoration-1 underline-offset-4 transition-colors duration-80 hover:bg-[color-mix(in_oklab,var(--tag-ink)_18%,transparent)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+              style={{ color: tagColour(name, color), '--tag-ink': tagColour(name, color) } as React.CSSProperties}>#{name}</button></>} onAll={() => onView('tags', name)}
               menu={[{ label: `Hide #${name} from Home`, hint: 'Another tag takes its place. Bring it back from the tag’s own page.', run: () => void haligtree.setTag(name, { homeHidden: true }).then(() => toast(`#${name} is off Home`, () => void haligtree.setTag(name, { homeHidden: false }))) }]}>
               {cards.map((card, at) => <RowCard key={`${card.type}:${card.id}`} card={card} list={cards} at={at} actions={actions} />)}
             </Row>
