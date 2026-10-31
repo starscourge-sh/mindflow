@@ -3361,6 +3361,9 @@ async function importFiles(dropped?: string[]): Promise<void> {
           lines.push(`${name}: ${parts.join(', ')}`)
           if (got.paused) lines.push(`${num(got.paused)} ${got.paused === 1 ? 'card was' : 'cards were'} suspended in Anki: paused here too, out of Review until you bring ${got.paused === 1 ? 'it' : 'them'} back`)
           if (got.already) lines.push(`${num(got.already)} ${got.already === 1 ? 'card was' : 'cards were'} already here, from an earlier import`)
+          // Coming from Anki: what each thing is called here, once, under the counts.
+          lines.push('Coming from Anki? A deck is a #tag here (Biology::Cells is #biology-cells), each card a gem with its question, and the Browser is Review › All cards.')
+          lines.push('More shared decks are at ankiweb.net/shared/decks: download a .apkg and drop it on this window.')
           if (got.skipped) lines.push(`${num(got.skipped)} ${got.skipped === 1 ? 'card' : 'cards'} left out: picture-hiding cards, or a side with nothing on it`)
           continue
         }

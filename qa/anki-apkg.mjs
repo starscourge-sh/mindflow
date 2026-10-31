@@ -93,6 +93,7 @@ try {
   check('and it keeps its schedule: due in the future, not new', !!history?.dueAt && Date.parse(history.dueAt) > Date.now() + day, history?.dueAt)
   const notice = await h.evaluate(() => document.querySelector('[data-import-done]')?.textContent ?? '')
   check('the notice counts what came in', /^8 cards are in/.test(notice) && /8 cards from 2 decks/.test(notice) && /1 picture/.test(notice) && /1 sound/.test(notice), notice)
+  check('the notice says what Anki\'s words are here, and where shared decks are', /Coming from Anki\? A deck is a #tag here/.test(notice) && /Review › All cards/.test(notice) && /ankiweb\.net\/shared\/decks/.test(notice), notice)
   await h.screenshot({ path: join(process.env.QA_SHOTS ?? dir, 'anki-apkg-notice.png') })
   await h.keyboard.press('Escape')
   await waitFor(() => h.evaluate(() => !document.querySelector('[data-import-done]')))
