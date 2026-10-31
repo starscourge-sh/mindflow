@@ -43,6 +43,9 @@ try {
   await chip('#astrophysics')
   const astro = all.filter((one) => one.tags.some((tag) => tag === 'astrophysics' || tag.startsWith('astrophysics-')))
   check('a tag narrows to its cards and those under it', await waitFor(async () => (await rows()).length === astro.length && (await rows()).some((one) => one.includes('event horizon'))), `${(await rows()).length} vs ${astro.length}`)
+  const counted = await h.evaluate(() => document.querySelector('[data-card-counts]')?.textContent ?? '')
+  const due = astro.filter((one) => !one.paused && one.dueAt && Date.parse(one.dueAt) <= Date.now()).length
+  check('new, learning and due are counted for the tag', new RegExp(`${astro.filter((one) => one.stage === 'new' && !one.paused).length} new`).test(counted) && new RegExp(`${due} due now`).test(counted), counted)
   // Sort: Newest puts the cards just made first.
   await chip(/^All \d/)
   await chip('Newest')

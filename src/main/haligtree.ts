@@ -2805,12 +2805,14 @@ export function registerHaligtree(): void {
       where coalesce(prompt, '') != '' and archived_at is null and binned_at is null and superseded_by is null`).all() as { id: string; prompt: string; title: string | null; body: string | null; state: string | null; dueAt: string | null; createdAt: string; suspended: number }[])
       .map((row) => {
         const answer = plain(JSON.parse(row.body ?? 'null'))
-        const card = row.state ? (JSON.parse(row.state) as { difficulty?: number; reps?: number }) : null
+        const card = row.state ? (JSON.parse(row.state) as { difficulty?: number; reps?: number; state?: number }) : null
         return {
           id: row.id, prompt: row.prompt, title: row.title ?? '', answer: answer.replace(/\s+/g, ' ').trim().slice(0, 240),
           tags: tagsIn(`${row.title ?? ''} ${row.prompt} ${answer}`), dueAt: row.dueAt, createdAt: row.createdAt, paused: !!row.suspended,
           // How hard it has been, 1 to 10 (FSRS's difficulty); a card never reviewed has none yet.
-          difficulty: card?.difficulty ?? null, reviews: card?.reps ?? 0
+          difficulty: card?.difficulty ?? null, reviews: card?.reps ?? 0,
+          // Where it stands, in the words Anki users know: new, still being learnt (or relearnt after a miss), or learnt.
+          stage: !card ? 'new' : card.state === 1 || card.state === 3 ? 'learning' : 'learnt'
         }
       }))
   // A tag put on, or taken off, several cards at once: in the answer's words, where a card's tags live.

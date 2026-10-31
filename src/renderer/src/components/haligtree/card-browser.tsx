@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 
 /** One card as the browser lists it (haligtree.ts `cards:all`). */
-export type BrowsedCard = { id: string; prompt: string; title: string; answer: string; tags: string[]; dueAt: string | null; createdAt: string; paused: boolean; difficulty: number | null; reviews: number }
+export type BrowsedCard = { id: string; prompt: string; title: string; answer: string; tags: string[]; dueAt: string | null; createdAt: string; paused: boolean; difficulty: number | null; reviews: number; stage: 'new' | 'learning' | 'learnt' }
 
 type Sort = 'due' | 'added' | 'hard'
 const SORTS: { id: Sort; label: string }[] = [
@@ -31,8 +31,11 @@ const ORDER: Record<Sort, (a: BrowsedCard, b: BrowsedCard) => number> = {
 function dueSaid(card: BrowsedCard): string {
   if (card.paused) return 'paused'
   if (!card.dueAt) return 'new'
-  const days = Math.round((Date.parse(card.dueAt) - Date.now()) / 86400000)
-  return days <= 0 ? 'due now' : days === 1 ? 'tomorrow' : `in ${num(days)} days`
+  const at = Date.parse(card.dueAt)
+  if (at <= Date.now()) return 'due now'
+  // Counted in whole days from today, as the counts above count "due now".
+  const days = Math.round((new Date(at).setHours(0, 0, 0, 0) - new Date().setHours(0, 0, 0, 0)) / 86400000)
+  return days === 0 ? 'later today' : days === 1 ? 'tomorrow' : `in ${num(days)} days`
 }
 
 /** A tag, and the tags under it: #biology takes in #biology-cells. */
@@ -110,7 +113,13 @@ export function CardBrowser({ onOpen, pasting: pastingFirst = false }: { onOpen:
         </div>
       )}
       {several.bar}
-      <p className="text-xs text-muted-foreground">{num(shown.length)} of {num(cards.length)} cards</p>
+      {/* New, learning and due, as Anki users count a deck: for what is on show (a tag picked, or all). */}
+      <p data-card-counts className="flex flex-wrap gap-x-4 text-sm">
+        <span><strong className="font-semibold text-[var(--tt-color-text-blue)] tabular-nums">{num(shown.filter((one) => one.stage === 'new' && !one.paused).length)}</strong> new</span>
+        <span><strong className="font-semibold text-[var(--tt-color-text-orange)] tabular-nums">{num(shown.filter((one) => one.stage === 'learning' && !one.paused).length)}</strong> learning</span>
+        <span><strong className="font-semibold text-[var(--tt-color-text-green)] tabular-nums">{num(shown.filter((one) => one.dueAt && Date.parse(one.dueAt) <= Date.now() && !one.paused).length)}</strong> due now</span>
+        <span className="text-muted-foreground">{num(shown.length)} of {num(cards.length)} cards{tag ? ` with #${tag}` : ''}</span>
+      </p>
       <ul className="flex flex-col">
         {shown.map((card) => {
           const on = several.picked({ type: 'nugget', id: card.id })
