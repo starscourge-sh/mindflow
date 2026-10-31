@@ -154,23 +154,21 @@ export function registerPdfHighlights(): void {
     })
   })
   // Words looked up on Wikipedia: its free summary of the article they name (CC BY-SA, said with its link), asked from here so no page talks to the internet itself.
+  // Each answer is kept here by the words asked, so a word looked up again opens at once and offline;
+  // one more than 30 days old is shown as kept and asked again behind it.
+  db.exec('create table if not exists wiki_answers (term text primary key, answer text not null, at text not null)')
+  const askWiki = async (term: string): Promise<unknown> => {
+    const answer = await wikiOnline(term)
+    if (answer && !('offline' in answer)) db.prepare('insert or replace into wiki_answers (term, answer, at) values (?, ?, ?)').run(term.toLowerCase(), JSON.stringify(answer), new Date().toISOString())
+    return answer
+  }
   ipcMain.handle('haligtree:wiki', async (_event, raw: unknown) => {
     const term = typeof raw === 'string' ? raw.replace(/\s+/g, ' ').trim() : ''
     if (!term || term.length > 120) return null
-    const base = (process.env.HALIGTREE_USER_DATA && process.env.HALIGTREE_QA_WIKI) || 'https://en.wikipedia.org/api/rest_v1/page/summary/'
-    try {
-      const url = `${base}${encodeURIComponent(term.replace(/ /g, '_'))}?redirect=true`
-      const response = base.startsWith('http://127.0.0.1') ? await fetch(url, { signal: AbortSignal.timeout(5000) }) : await fetchOutside(url, { signal: AbortSignal.timeout(5000), headers: { 'Api-User-Agent': 'Haligtree (a commonplace book)' } })
-      if (response.status === 404) return { missing: true }
-      if (!response.ok) return { offline: true }
-      const page = (await response.json()) as { type?: string; title?: string; description?: string; extract?: string; thumbnail?: { source?: string }; content_urls?: { desktop?: { page?: string } } }
-      if (!page.extract || page.type === 'disambiguation') return { missing: true }
-      // The article's lead picture, only when it lives on Wikimedia Commons (freely licensed); an English-only file can be fair use.
-      const picture = page.thumbnail?.source && /^https:\/\/upload\.wikimedia\.org\/wikipedia\/commons\//.test(page.thumbnail.source) ? page.thumbnail.source : null
-      return { title: page.title ?? term, description: page.description ?? '', extract: page.extract, picture, url: page.content_urls?.desktop?.page ?? `https://en.wikipedia.org/wiki/${encodeURIComponent(term.replace(/ /g, '_'))}` }
-    } catch {
-      return { offline: true }
-    }
+    const row = db.prepare('select answer, at from wiki_answers where term = ?').get(term.toLowerCase()) as { answer: string; at: string } | undefined
+    if (!row) return askWiki(term)
+    if (Date.now() - Date.parse(row.at) > 30 * 86_400_000) void askWiki(term)
+    return JSON.parse(row.answer)
   })
   // The title read out of a PDF as it opens, kept so search finds it by that.
   db.exec(TITLES)
@@ -180,4 +178,22 @@ export function registerPdfHighlights(): void {
     db.prepare('insert or replace into pdf_titles (src, title) values (?, ?)').run(src, title.trim())
     return true
   })
+}
+
+/** Wikipedia's summary of the article the words name, asked now: found, missing, or offline. */
+async function wikiOnline(term: string): Promise<{ missing: true } | { offline: true } | { title: string; description: string; extract: string; picture: string | null; url: string }> {
+  const base = (process.env.HALIGTREE_USER_DATA && process.env.HALIGTREE_QA_WIKI) || 'https://en.wikipedia.org/api/rest_v1/page/summary/'
+  try {
+    const url = `${base}${encodeURIComponent(term.replace(/ /g, '_'))}?redirect=true`
+    const response = base.startsWith('http://127.0.0.1') ? await fetch(url, { signal: AbortSignal.timeout(5000) }) : await fetchOutside(url, { signal: AbortSignal.timeout(5000), headers: { 'Api-User-Agent': 'Haligtree (a commonplace book)' } })
+    if (response.status === 404) return { missing: true }
+    if (!response.ok) return { offline: true }
+    const page = (await response.json()) as { type?: string; title?: string; description?: string; extract?: string; thumbnail?: { source?: string }; content_urls?: { desktop?: { page?: string } } }
+    if (!page.extract || page.type === 'disambiguation') return { missing: true }
+    // The article's lead picture, only when it lives on Wikimedia Commons (freely licensed); an English-only file can be fair use.
+    const picture = page.thumbnail?.source && /^https:\/\/upload\.wikimedia\.org\/wikipedia\/commons\//.test(page.thumbnail.source) ? page.thumbnail.source : null
+    return { title: page.title ?? term, description: page.description ?? '', extract: page.extract, picture, url: page.content_urls?.desktop?.page ?? `https://en.wikipedia.org/wiki/${encodeURIComponent(term.replace(/ /g, '_'))}` }
+  } catch {
+    return { offline: true }
+  }
 }

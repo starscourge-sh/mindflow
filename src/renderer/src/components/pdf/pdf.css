@@ -1092,6 +1092,28 @@
   overflow-wrap: anywhere;
 }
 
+/* Already in your library: one quiet line under the headword, a link to it. */
+.look-up-known {
+  align-self: flex-start;
+  margin-top: -0.125rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--mf-muted);
+  font: inherit;
+  font-size: 0.8125rem;
+  text-align: left;
+  cursor: pointer;
+  transition: color 120ms ease-out;
+}
+
+.look-up-known:hover,
+.look-up-known:focus-visible {
+  color: var(--tt-brand-color-500, #c08a2e);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .look-up-dictionary {
   display: flex;
   flex-direction: column;

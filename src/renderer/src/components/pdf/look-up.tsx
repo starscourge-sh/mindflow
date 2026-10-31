@@ -7,7 +7,17 @@ import { said } from "@/lib/host"
 import { FLOAT } from "@/lib/float"
 import { cn } from "@/lib/cn"
 import { Orb } from "@/components/haligtree/orb"
+import { canSplit, openAside } from "@/lib/split"
 import type { Answer } from "../../../../main/define"
+
+/** The word already in your library: its Lookup (since when), else a gem by that name. */
+type Known = { type: "capture" | "nugget"; id: string; title: string; since: string } | null
+
+/** "12 Oct", with the year when it is not this one. */
+const dayOf = (at: string): string => {
+  const day = new Date(at)
+  return day.toLocaleDateString("en-GB", { day: "numeric", month: "short", ...(day.getFullYear() === new Date().getFullYear() ? {} : { year: "numeric" }) })
+}
 
 type Wiki = { title: string; description: string; extract: string; url: string; picture?: string | null } | { missing: true } | { offline: true } | null
 
@@ -52,9 +62,34 @@ export function LookUpCard({ words, at, from, range, onClose }: { words: string;
 
   const found = meaning !== "looking" && meaning && "found" in meaning ? meaning.found : null
   const page = wiki !== "looking" && wiki && "extract" in wiki ? wiki : null
+  // Already in your library: said under the headword, and Keep adds this place to it rather than a second Lookup.
+  const [known, setKnown] = useState<Known>(null)
+  const pageTitle = page?.title
+  useEffect(() => {
+    let live = true
+    void call<Known>("word:known", [words, ...(pageTitle ? [pageTitle] : [])]).then((one) => live && setKnown(one))
+    return () => void (live = false)
+  }, [words, pageTitle])
+  const lookup = known?.type === "capture" ? known : null
+
+  /** Seen again somewhere new: where, and the sentence round it, added to the same Lookup (the commonplace book's moment). */
+  const addPlace = async (id: string): Promise<void> => {
+    const had = await window.api.captures.get(id)
+    const body = (had?.body ?? { type: "doc", content: [] }) as { type: string; content?: unknown[] }
+    const text = (value: string, link?: string): Record<string, unknown> => ({ type: "text", text: value, ...(link ? { marks: [{ type: "link", attrs: { href: link } }] } : {}) })
+    const place = [
+      { type: "paragraph", content: [text(`Met again ${dayOf(new Date().toISOString())}`), ...(from.where ? [text(" in "), text(from.where, from.link || undefined)] : [])] },
+      ...(from.sentence ? [{ type: "blockquote", content: [{ type: "paragraph", content: [text(from.sentence)] }] }] : []),
+    ]
+    await window.api.captures.save(id, { body: { ...body, content: [...(body.content ?? []), ...place] } })
+    setKept({ id, asking: true })
+    chime("saved")
+    said(`This place added to “${known!.title}”`, true, { type: "capture", id, title: known!.title })
+  }
 
   /** Kept as one Lookup: the word, its meaning and Wikipedia's summary together, where it was looked up (and the sentence round it). */
   const keep = async (): Promise<void> => {
+    if (lookup) return addPlace(lookup.id)
     // Neither knows it (a question, a name): kept as asked, to answer when you find it.
     if (!found && !page) {
       const id = await window.api.captures.create({ kind: "word", body: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: words }] }] }, markdown: words, ...(from.origin ? { origin: from.origin } : {}) })
@@ -95,6 +130,19 @@ export function LookUpCard({ words, at, from, range, onClose }: { words: string;
     >
       {/* The word itself, as a dictionary prints it. */}
       <h3 className="look-up-headword">{found || !page ? words : page.title}</h3>
+      {known && !kept && (
+        // A link to it, as rows open: click in the page, ⌥-click to the side.
+        <button
+          type="button"
+          className="look-up-known"
+          data-look-known={known.type}
+          // No tip: one over the headword would hide the word it is about.
+          aria-label={canSplit() ? "Open it. ⌥-click opens it to the side" : "Open it"}
+          onClick={(event) => (event.altKey && canSplit() ? openAside(known.type, known.id) : window.api.openInHome(known.type, known.id), onClose())}
+        >
+          {known.type === "capture" ? `In your Lookups since ${dayOf(known.since)}` : "Kept as a gem"}
+        </button>
+      )}
       {one &&
         (meaning === "looking" ? (
           <p className="look-up-waiting"><Orb state="searching" label="Opening the dictionary…" /></p>
@@ -153,7 +201,7 @@ export function LookUpCard({ words, at, from, range, onClose }: { words: string;
           </span>
         ) : (
           <button type="button" className="look-up-keep" data-look-keep disabled={!!kept || meaning === "looking" || wiki === "looking"} onClick={() => void keep()}>
-            {kept ? "Kept in Lookups" : "Keep"}
+            {kept ? (lookup && lookup.id === kept.id ? "Place added" : "Kept in Lookups") : lookup ? "Add this place" : known ? "Keep again" : "Keep"}
           </button>
         )}
         {page && (

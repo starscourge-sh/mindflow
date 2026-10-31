@@ -72,6 +72,11 @@ async function nearest(word: string): Promise<string[]> {
 export function registerDefine(): void {
   const db = database()
   db.exec('create table if not exists word_meanings (word text primary key, answer text not null, at text not null)')
+  /** A kept meaning more than 30 days old: answered from the kept one, asked again behind it. */
+  const stale = (word: string): boolean => {
+    const row = db.prepare('select at from word_meanings where word = ?').get(word) as { at: string } | undefined
+    return !!row && Date.now() - Date.parse(row.at) > 30 * 86_400_000
+  }
   const kept = (word: string): Answer | undefined => {
     const row = db.prepare('select answer, at from word_meanings where word = ?').get(word) as { answer: string; at: string } | undefined
     if (!row) return undefined
@@ -83,9 +88,9 @@ export function registerDefine(): void {
   const keep = (word: string, answer: Answer): void =>
     void db.prepare('insert or replace into word_meanings (word, answer, at) values (?, ?, ?)').run(word, JSON.stringify(answer), new Date().toISOString())
 
-  /** The dictionary's answer for one spelling: found, not known (404), or no answer at all. */
-  const ask = async (word: string): Promise<Answer> => {
-    const known = kept(word)
+  /** The dictionary's answer for one spelling: found, not known (404), or no answer at all. `fresh`: past what is kept. */
+  const ask = async (word: string, fresh = false): Promise<Answer> => {
+    const known = fresh ? undefined : kept(word)
     if (known && !('miss' in known)) return known
     if (MAC) {
       const entry = readMac(await macLookUp(word))
@@ -112,6 +117,8 @@ export function registerDefine(): void {
     const word = typeof raw === 'string' ? raw.trim().toLowerCase() : ''
     if (!WORD.test(word)) return null
     const known = kept(word)
+    // Kept: answered at once, offline too; an old one is asked again quietly and the new answer kept for next time.
+    if (known && 'found' in known && stale(word)) void ask(word, true)
     if (known) return known
     const answer = await ask(word)
     if (answer && 'found' in answer) return answer
@@ -132,6 +139,17 @@ export function registerDefine(): void {
     const none: Answer = { miss: true, fix: null }
     keep(word, none)
     return none
+  })
+
+  // Whether a word is in your library already: a Lookup of it (and since when), else a gem by that name.
+  ipcMain.handle('haligtree:word:known', (_event, raw: unknown) => {
+    const names = (Array.isArray(raw) ? raw : [raw]).filter((one): one is string => typeof one === 'string' && !!one.trim()).map((one) => one.trim().toLowerCase())
+    if (!names.length) return null
+    const marks = names.map(() => '?').join(', ')
+    const lookup = db.prepare(`select id, title, captured_at as since from captures where kind = 'word' and status != 'discarded' and lower(trim(title)) in (${marks}) order by captured_at limit 1`).get(...names) as { id: string; title: string; since: string } | undefined
+    if (lookup) return { type: 'capture', ...lookup }
+    const gem = db.prepare(`select id, title, created_at as since from nuggets where tier = 'nugget' and binned_at is null and lower(trim(title)) in (${marks}) order by created_at limit 1`).get(...names) as { id: string; title: string; since: string } | undefined
+    return gem ? { type: 'nugget', ...gem } : null
   })
 
   // The whole entry in the Dictionary app, from the meaning's right-click menu.
