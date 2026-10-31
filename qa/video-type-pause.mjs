@@ -65,6 +65,26 @@ try {
   await h.keyboard.press('Alt+KeyK'); await wait(300)
   check('video file: ⌥K plays again', !(await file()).paused, '')
   await h.keyboard.press('Alt+KeyK'); await wait(200)
+  // A stored file answers a range with just those bytes, which is what lets the video seek at all.
+  const part = await h.evaluate(async (src) => { const r = await fetch(src, { headers: { range: 'bytes=10-19' } }); return { status: r.status, range: r.headers.get('content-range'), length: (await r.arrayBuffer()).byteLength } }, src)
+  check('video file: a range of its bytes comes back as just that range (206)', part.status === 206 && part.length === 10 && /^bytes 10-19\//.test(part.range ?? ''), JSON.stringify(part))
+  const seek = await h.evaluate(() => new Promise((done) => { const f = document.querySelector('[data-open] video.tiptap-attachment-video'); f.addEventListener('seeked', () => done(f.currentTime), { once: true }); f.currentTime = 30 }))
+  await wait(300)
+  check('video file: seeking to 30s lands at 30s and stays', Math.abs(seek - 30) < 1 && Math.abs((await file()).time - 30) < 2, `${seek} then ${(await file()).time}`)
+  // A recording's seek bar asks the same of the same store: the clip's own bytes kept as a .m4a.
+  const voice = await h.evaluate((b) => window.api.saveFile('talk.m4a', new Uint8Array(b)), bytes)
+  const said = await v('article:new')
+  await v('item:save', said, { title: 'A talk', body: { type: 'doc', content: [{ type: 'attachment', attrs: { src: voice, name: 'talk.m4a', size: bytes.length } }, p('')] } })
+  await c.send('article', said); await wait(1500)
+  const heard = await h.evaluate(() => new Promise((done) => {
+    const block = document.querySelector('[data-open] .tiptap-attachment.is-audio'); const audio = block?.querySelector('audio'); const bar = block?.querySelector('input[type=range]')
+    if (!audio || !bar) return done({ found: false })
+    const go = () => { audio.addEventListener('seeked', () => setTimeout(() => done({ found: true, at: audio.currentTime }), 300), { once: true })
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(bar, '30'); bar.dispatchEvent(new Event('input', { bubbles: true })) }
+    if (audio.readyState >= 1) return go()
+    audio.addEventListener('loadedmetadata', go, { once: true }); audio.preload = 'metadata'; audio.load()
+  }))
+  check('recording: its seek bar moved to 30s plays from 30s', heard.found && Math.abs(heard.at - 30) < 1.5, JSON.stringify(heard))
 
   // 2. A YouTube block, its player stubbed.
   const yt = await v('article:new')

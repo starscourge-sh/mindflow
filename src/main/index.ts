@@ -3858,6 +3858,33 @@ app.whenReady().then(() => {
   const first = fromCli(process.argv)
   if (first) captureText(first)
 
+  /**
+   * A file from disk, a range of it answered as a web server would: 206 Partial
+   * Content, saying which bytes of how many. Chromium's own file loader sends the
+   * bytes asked for but calls them 200 and says no Content-Range, and a video or
+   * recording given that cannot seek: asked for 0:30, it starts again at 0.
+   */
+  const servedFile = async (path: string, request: Request): Promise<Response> => {
+    const asked = /^bytes=(\d*)-(\d*)$/.exec(request.headers.get('range') ?? '')
+    if (!asked || (!asked[1] && !asked[2])) {
+      const whole = await net.fetch(pathToFileURL(path).toString())
+      const headers = new Headers(whole.headers)
+      headers.set('accept-ranges', 'bytes')
+      return new Response(whole.body, { status: whole.status, headers })
+    }
+    const { size } = await stat(path)
+    // "bytes=-500" is the last 500 bytes; an end past the file is the file's end.
+    const start = asked[1] ? Number(asked[1]) : Math.max(0, size - Number(asked[2]))
+    const end = asked[1] && asked[2] ? Math.min(Number(asked[2]), size - 1) : size - 1
+    if (start >= size || start > end) return new Response(null, { status: 416, headers: { 'content-range': `bytes */${size}` } })
+    const part = await net.fetch(pathToFileURL(path).toString(), { headers: { range: `bytes=${start}-${end}` } })
+    const headers = new Headers(part.headers)
+    headers.set('accept-ranges', 'bytes')
+    headers.set('content-range', `bytes ${start}-${end}/${size}`)
+    headers.set('content-length', String(end - start + 1))
+    return new Response(part.body, { status: 206, statusText: 'Partial Content', headers })
+  }
+
   // Serve the asset store. The pathname is the only thing trusted: anything
   // with a separator in it is refused, so a crafted src cannot walk the disk.
   // Both names: see registerSchemesAsPrivileged above.
@@ -3889,9 +3916,8 @@ app.whenReady().then(() => {
         if (name.endsWith('.svg')) {
           return new Response(await readFile(path), { headers: { 'content-type': 'image/svg+xml', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; img-src data:", 'x-content-type-options': 'nosniff' } })
         }
-        // The range asked for is passed on, so a clip can loop and seek.
-        const range = request.headers.get('range')
-        const file = await net.fetch(pathToFileURL(path).toString(), range ? { headers: { range } } : undefined)
+        // A range answered as 206, so a clip can loop and seek.
+        const file = await servedFile(path, request)
         // Open to the app's own pages, so a recording can be listened to as it plays (Media's moving waveform reads
         // its loudness through Web Audio, which hears only silence from a file another origin has not opened to it).
         const headers = new Headers(file.headers)
@@ -3910,7 +3936,7 @@ app.whenReady().then(() => {
     try {
       // Awaited inside the try: a missing asset rejects, and letting that
       // escape prints a stack instead of the 404 the line above returns.
-      return await net.fetch(pathToFileURL(join(assetsDir(), name)).toString())
+      return await servedFile(join(assetsDir(), name), request)
     } catch {
       return new Response('not found', { status: 404 })
     }
