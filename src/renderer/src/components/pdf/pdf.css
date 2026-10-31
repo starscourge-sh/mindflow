@@ -148,11 +148,18 @@
   white-space: nowrap;
 }
 
+/* The title takes its own width first (up to two thirds of the bar): the tools
+   beside it fold into "More" before it is ever cut short. */
 .pdf-reader-heading {
   display: flex;
-  flex: 1;
+  flex: 0 1 auto;
   flex-direction: column;
-  min-width: 0;
+  min-width: min(10rem, 40%);
+  max-width: 66%;
+}
+
+.pdf-reader-bar button {
+  cursor: pointer;
 }
 
 /* Snip: a layer over the pages while snipping, and the rectangle being dragged. */
@@ -237,16 +244,14 @@
 
 /* Paper pages: the white of the page becomes the app's own warm paper, the
    ink stays ink, and a picture only takes the faint warmth a printed one would. */
-.pdf-reader.is-paper .pdf-page {
+/* The same in the reader and in a PDF shown in a note, so one page never reads two ways. */
+:is(.pdf-reader, .tiptap-attachment.is-pdf).is-paper .pdf-page {
   background: #f4ecdb;
-}
-
-.pdf-reader.is-paper .pdf-canvas {
-  mix-blend-mode: multiply;
-}
-
-.pdf-reader.is-paper .pdf-page {
   isolation: isolate;
+}
+
+:is(.pdf-reader, .tiptap-attachment.is-pdf).is-paper .pdf-canvas {
+  mix-blend-mode: multiply;
 }
 
 /* Fit width means a reading width, as a note's column: a wide pane never blows a page up past it. */
@@ -288,6 +293,12 @@
 .pdf-keep-bar {
   position: absolute;
   z-index: 5;
+  /* Never wider than the pane it floats in: in a narrow one its buttons go onto a second row. */
+  max-width: calc(100% - 1rem);
+}
+
+.pdf-keep-bar > [role="toolbar"] {
+  flex-wrap: wrap;
 }
 
 .pdf-keep-bar button {

@@ -139,7 +139,7 @@ function useListWidth(): [string, React.JSX.Element] {
  * than they need: then they wait behind one ⋯ button, in the same order.
  * Measured on the line itself, so it follows the pane, not the window.
  */
-function FitActions({ children, keep, room }: { children: ReactNode; /** Never folded behind ⋯: a list's search, a box to type in, not a menu line. */ keep?: ReactNode; /** What sets the line's width (the list narrowed beside a note): measured again, at once, when it changes. */ room?: unknown }): React.JSX.Element {
+export function FitActions({ children, keep, room }: { children: ReactNode; /** Never folded behind ⋯: a list's search, a box to type in, not a menu line. */ keep?: ReactNode; /** What sets the line's width (the list narrowed beside a note): measured again, at once, when it changes. */ room?: unknown }): React.JSX.Element {
   const line = useRef<HTMLDivElement>(null)
   // The width they took the last time they were all on the line.
   const need = useRef(0)

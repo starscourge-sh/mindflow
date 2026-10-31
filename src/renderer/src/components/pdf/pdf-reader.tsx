@@ -18,6 +18,8 @@ import { LookUpCard, type LookedUpIn } from "./look-up"
 import { usePdfCover } from "./pdf-cover"
 import { showDetails, useDetailsShown } from "@/lib/reading"
 import { PdfPages, offsetsIn, pdfAuthor, pdfTitle, type PdfMark } from "./pdf-pages"
+import { FitActions } from "@/components/haligtree/ui"
+import { usePaperPages } from "./paper"
 
 /** The zoom steps, as Preview's: fit width is 1. */
 const ZOOMS = [0.5, 0.67, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3]
@@ -116,7 +118,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   const [zoom, setZoom] = useState(1)
   const [page, setPage] = useState(start ?? 1)
   const [typed, setTyped] = useState<string | null>(null)
-  const [paper, setPaper] = useState(() => localStorage.getItem("pdf-paper") === "1")
+  const [paper, setPaper] = usePaperPages()
   const [marks, setMarks] = useState<PdfMark[]>([])
   const [flash] = useState(() => {
     const mark = flashNext
@@ -580,7 +582,8 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           />
           <span className="pdf-reader-of"> / {doc?.numPages ?? "…"}</span>
         </span>
-        <span className="pdf-reader-tools">
+        {/* The title wins the room: in a narrow pane the tools wait behind "More", in the same order. */}
+        <FitActions room={doc?.numPages}>
           <Button data-style="ghost" aria-label="Sidebar" title="Pages and outline" data-active-state={rail ? "on" : "off"} onClick={() => showRail(rail ? null : "pages")}>
             <PanelLeft className="tiptap-button-icon" />
           </Button>
@@ -614,13 +617,12 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
             title={paper ? "White pages" : "Paper pages: easier on the eyes, pictures kept true"}
             data-active-state={paper ? "on" : "off"}
             onClick={() => {
-              localStorage.setItem("pdf-paper", paper ? "0" : "1")
               setPaper(!paper)
             }}
           >
             <ScrollText className="tiptap-button-icon" />
           </Button>
-        </span>
+        </FitActions>
       </div>
       {finding && (
         <div className="tiptap-find-bar pdf-find-bar">

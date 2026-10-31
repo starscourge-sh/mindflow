@@ -14,6 +14,7 @@ import { Roll } from "@/lib/roll"
 import { host } from "@/lib/host"
 import { PdfPages, pdfTitle } from "@/components/pdf/pdf-pages"
 import { learnTitle, openPdf } from "@/components/pdf/pdf-reader"
+import { usePaperPages } from "@/components/pdf/paper"
 import { canSplit } from "@/lib/split"
 import { isNodeSelected } from "@/extensions/selected-nodes"
 import { startCaption } from "@/extensions/caption"
@@ -362,10 +363,12 @@ function PdfBlock(props: NodeViewProps): React.JSX.Element {
   const selected = isNodeSelected(props)
   const scroller = useRef<HTMLDivElement>(null)
   const [pages, setPages] = useState(0)
+  // Its pages look as the reader's do: white, or "Paper pages" when that is on.
+  const [paper] = usePaperPages()
   // Full size in a pane of the main window; a note's own window has no panes, so the system's viewer there.
   const open = (): void => (canSplit() ? openPdf(src, name) : void host().openFile?.(src))
   return (
-    <NodeViewWrapper className={`tiptap-attachment is-pdf${selected ? " is-selected" : ""}`}>
+    <NodeViewWrapper className={`tiptap-attachment is-pdf${selected ? " is-selected" : ""}${paper ? " is-paper" : ""}`}>
       <div className="tiptap-attachment-card" data-drag-handle="">
         <FileText className="tiptap-attachment-icon" />
         <span className="tiptap-attachment-body">

@@ -62,16 +62,26 @@ const { check, done } = checks()
 const c = await sandbox({ width: 1400, height: 900 })
 const { h, v } = c
 const wait = (ms) => h.waitForTimeout(ms)
+/** A reader tool by its name, as a person reaches it: on the bar, or behind "More" when a narrow pane folds the tools away. */
+const tool = async (label) => {
+  const shown = h.locator(`.pdf-reader .pdf-reader-bar button[aria-label="${label}"]:visible`).first()
+  if (await shown.count()) return shown.click()
+  // "More" stays open after a pick, as a menu of buttons does: opened only when it is shut.
+  if (!(await h.locator(`[data-radix-popper-content-wrapper] button[aria-label="${label}"]`).count())) {
+    await h.click('.pdf-reader .pdf-reader-bar button[aria-label="More"]'); await wait(300)
+  }
+  await h.click(`[data-radix-popper-content-wrapper] button[aria-label="${label}"]`)
+}
 /** The page's words a floating field covers: none, when it is placed right. */
-const hiddenWords = () => h.evaluate(() => {
-  const field = document.querySelector('.pdf-reader .pdf-why')?.getBoundingClientRect()
+const hiddenWords = (selector = '.pdf-reader .pdf-why') => h.evaluate((selector) => {
+  const field = document.querySelector(selector)?.getBoundingClientRect()
   if (!field) return ['no field']
   return [...document.querySelectorAll('.pdf-reader .textLayer span')].filter((one) => {
     if (!one.textContent.trim() || one.querySelector('span')) return false
     const r = one.getBoundingClientRect()
     return r.width && r.left < field.right && r.right > field.left && r.top < field.bottom && r.bottom > field.top
   }).map((one) => one.textContent)
-})
+}, selector)
 const errors = []
 h.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 h.on('pageerror', (e) => errors.push(String(e)))
@@ -483,10 +493,10 @@ try {
   await h.evaluate((href) => document.querySelector('[data-open] .tiptap').editor.chain().focus('end').insertContent(`<p><a href="${href}">back to the book</a></p>`).run(), link)
   await wait(400)
   const linkBox = await h.evaluate(() => { const r = [...document.querySelectorAll('[data-open] .tiptap a')].find((one) => one.textContent === 'back to the book').getBoundingClientRect(); return { x: r.left + 10, y: r.top + r.height / 2 } })
-  // Pointed at, the link shows the book: its cover, its title and the page, not its stored address.
+  // Pointed at, the link shows the book in the app's one PDF preview, open at the page it lands on, never its stored address.
   await h.mouse.move(linkBox.x, linkBox.y); await wait(1200)
-  const hover = await h.evaluate(() => { const card = document.querySelector('.tiptap-link-preview.is-pdf'); return card ? { title: card.querySelector('.tiptap-link-preview-pdf-title')?.textContent, page: card.querySelector('.tiptap-link-preview-pdf-page')?.textContent, cover: !!card.querySelector('img')?.src.startsWith('data:image') } : null })
-  check('a PDF link pointed at shows its cover, title and page', hover?.title === 'The Probe Book' && hover.page === 'PDF, page 3' && hover.cover, JSON.stringify(hover))
+  const hover = await h.evaluate(() => ({ corner: document.querySelector('[data-pdf-peek-card] [data-pdf-peek-page]')?.textContent?.trim(), page: !!document.querySelector('[data-pdf-peek-card] img')?.src.startsWith('data:image'), address: !!document.querySelector('.tiptap-link-preview') }))
+  check('a PDF link pointed at previews the book at its page (3 / 3), not its address', hover.corner === '3 / 3' && hover.page && !hover.address, JSON.stringify(hover))
   await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-link-hover.png` })
   await h.keyboard.down('Meta'); await h.mouse.click(linkBox.x, linkBox.y); await h.keyboard.up('Meta')
   await h.waitForSelector('.pdf-reader .pdf-mark', { timeout: 10000 }).catch(() => {})
@@ -685,7 +695,7 @@ try {
   check('⇧C makes a fill-in-the-blank card from the sentence alone, not the heading above it', blank?.prompt === 'A _____ sentence worth keeping on page 2.', JSON.stringify(blank?.prompt))
   check('the count of cards from this source is said', /Card made: 2 from this source/.test(await h.evaluate(() => document.body.textContent)), '')
   // Snip: drag a rectangle over the page's figure (the orange square), make it a card's answer, or keep it as a gem.
-  await h.click('.pdf-reader button[aria-label="Snip"]'); await wait(300)
+  await tool('Snip'); await wait(300)
   check('Snip turns on a layer to drag over the pages', await h.evaluate(() => !!document.querySelector('[data-pdf-snip]')), '')
   const figure = await h.evaluate(() => {
     const page = document.querySelector('.pdf-reader .pdf-page[data-page="2"]')
@@ -695,8 +705,10 @@ try {
   })
   await wait(400)
   await h.mouse.move(figure.x, figure.y); await h.mouse.down()
-  await h.mouse.move(figure.x + figure.w, figure.y + figure.h, { steps: 6 }); await h.mouse.up(); await wait(1200)
-  check('a dragged rectangle is cut out and offers Card and Keep', await h.evaluate(() => !!document.querySelector('.pdf-keep-bar button[aria-label="Card"]') && !!document.querySelector('.pdf-keep-bar button[aria-label="Keep"]') && !document.querySelector('[data-pdf-snip]')), '')
+  await h.mouse.move(figure.x + figure.w, figure.y + figure.h, { steps: 6 }); await h.mouse.up()
+  // The cut is saved as a picture before Card and Keep show: waited for, not timed, as a loaded machine takes longer.
+  const snipped = await h.waitForFunction(() => !!document.querySelector('.pdf-keep-bar button[aria-label="Card"]') && !!document.querySelector('.pdf-keep-bar button[aria-label="Keep"]') && !document.querySelector('[data-pdf-snip]'), null, { timeout: 10000 }).then(() => true, () => false)
+  check('a dragged rectangle is cut out and offers Card and Keep', snipped, JSON.stringify(await h.evaluate(() => ({ layer: !!document.querySelector('[data-pdf-snip]'), box: !!document.querySelector('.pdf-snip-box'), bars: [...document.querySelectorAll('.pdf-keep-bar button')].map((one) => one.getAttribute('aria-label')), toast: document.querySelector('[role="status"]')?.textContent }))))
   await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-snip.png` })
   await h.click('.pdf-keep-bar button[aria-label="Card"]'); await wait(400)
   await h.keyboard.type('What does figure 1 show?'); await h.keyboard.press('Enter'); await wait(900)
@@ -713,7 +725,7 @@ try {
   })
   check('"Card later" is a dashed underline and a margin tick, never a band of colour like a highlight or a match', laterLook?.underline === 'dashed' && laterLook.tick && /rgba\(0, 0, 0, 0\)|transparent/.test(laterLook.background), JSON.stringify(laterLook))
   await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-later-mark.png` })
-  await h.click('.pdf-reader button[aria-label="Card later"]'); await wait(800)
+  await tool('Card later'); await wait(800)
   check('the walk goes to the passage and asks its question, focused', await h.evaluate(() => document.activeElement?.getAttribute('aria-label') === "The card's question" && document.querySelector('.pdf-reader-page-field')?.value === '3'), await h.evaluate(() => document.querySelector('.pdf-reader-page-field')?.value))
   await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-card-later.png` })
   await h.keyboard.type('Where is the quiet sentence on the last page?'); await h.keyboard.press('Enter'); await wait(1000)
@@ -721,10 +733,14 @@ try {
   const laterMarks = (await v('pdf:highlights', pdfSrc)).filter((one) => one.color === 'later')
   check('Return makes its card, the passage becomes a plain highlight, and the walk ends with what it made', !!laterCard && laterMarks.length === 0 && /Second read done: 1 card made/.test(await h.evaluate(() => document.body.textContent)) && !(await h.evaluate(() => !!document.querySelector('.pdf-reader button[aria-label="Card later"]'))), JSON.stringify({ card: !!laterCard, left: laterMarks.length }))
   // In the dark: the card's question field beside its sibling, the bar over picked words.
+  const titled = await h.evaluate(() => { const t = document.querySelector('.pdf-reader .pdf-reader-title'); return { whole: t.scrollWidth <= t.clientWidth + 1, text: t.textContent, more: !!document.querySelector('.pdf-reader .pdf-reader-bar button[aria-label="More"]'), pane: Math.round(document.querySelector('.pdf-reader').getBoundingClientRect().width) } })
+  check('in a half-width pane the title is whole; the tools wait behind "More"', titled.whole && titled.more, JSON.stringify(titled))
   await c.look('dark'); await wait(500)
   await h.evaluate(() => document.querySelector('.pdf-reader .pdf-page[data-page="2"]').scrollIntoView({ block: 'start' })); await wait(600)
   await pickOn(2, 'worth keeping'); await wait(500)
   await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-bar-dark.png` })
+  const barFits = await h.evaluate(() => { const bar = document.querySelector('.pdf-reader .pdf-keep-bar')?.getBoundingClientRect(); const pane = document.querySelector('.pdf-reader .pdf-reader-scroll')?.getBoundingClientRect(); return bar && pane ? { inside: bar.left >= pane.left - 1 && bar.right <= pane.right + 1, bar: [Math.round(bar.left), Math.round(bar.right)], pane: [Math.round(pane.left), Math.round(pane.right)] } : null })
+  check('in a half-width pane the bar over picked words stays inside the pane and hides no words', !!barFits?.inside && (await hiddenWords('.pdf-reader .pdf-keep-bar')).length === 0, JSON.stringify({ barFits, hidden: await hiddenWords('.pdf-reader .pdf-keep-bar') }))
   await h.keyboard.press('c'); await wait(400)
   await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-card-dark.png` })
   await h.keyboard.press('Escape'); await wait(300)
@@ -746,7 +762,17 @@ try {
     await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-peek-${theme}.png` })
     const scrubbed = await h.evaluate(() => ({ corner: document.querySelector('[data-pdf-peek-page]')?.textContent?.trim(), drawn: !!document.querySelector('[data-pdf-peek-card] img') }))
     if (theme === 'light') check('moving across the card turns to page 3, its picture drawn', scrubbed.corner === '3 / 3' && scrubbed.drawn, JSON.stringify(scrubbed))
-    if (theme === 'dark') break
+    if (theme === 'dark') {
+      // One page look in both places: "Paper pages" turned on in the reader turns the PDF in the note to paper too, and back.
+      await h.mouse.move(0, 0); await wait(200)
+      await tool('Paper pages'); await wait(500)
+      const looks = await h.evaluate(() => ({ reader: getComputedStyle(document.querySelector('.pdf-reader .pdf-page')).backgroundColor, note: getComputedStyle(document.querySelector('.tiptap-attachment.is-pdf .pdf-page')).backgroundColor }))
+      await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-paper-both-dark.png` })
+      await tool('White pages'); await wait(400)
+      const white = await h.evaluate(() => getComputedStyle(document.querySelector('.tiptap-attachment.is-pdf .pdf-page')).backgroundColor)
+      check('"Paper pages" in the reader turns the PDF in the note to the same paper, and back to white', looks.reader === 'rgb(244, 236, 219)' && looks.note === looks.reader && white === 'rgb(255, 255, 255)', JSON.stringify({ ...looks, white }))
+      break
+    }
     const opened = await h.evaluate(() => { window.__peekOpened = null; window.addEventListener('haligtree:pdf', (event) => (window.__peekOpened = event.detail.page), { once: true }) })
     void opened
     await h.mouse.down(); await h.mouse.up(); await wait(900)

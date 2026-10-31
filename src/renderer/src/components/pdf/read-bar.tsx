@@ -66,16 +66,50 @@ function Swatch({ color, on, later = false }: { color: string; on: boolean; /** 
  * in the colour last used, the other colours beside it, then "Keep" as a gem
  * and "Copy" with the book and page. Each shows its key.
  */
-export function ReadBar({ at, actions }: { at: { x: number; y: number }; actions: ReadActions }): React.JSX.Element {
-  const bar = useRef<HTMLDivElement>(null)
+/**
+ * Where a bar or a field floats over the picked words: centred on them and
+ * kept inside the pane (a half-width pane cut the bar off at its edge), above
+ * them unless that would hide words there (a heading, the line before), then
+ * under the picked line, so the words round the picked ones stay in sight.
+ */
+function usePlaced(box: React.RefObject<HTMLDivElement | null>, at: { x: number; y: number; bottom?: number }): React.CSSProperties {
   const [width, setWidth] = useState(0)
-  useLayoutEffect(() => setWidth(bar.current?.offsetWidth ?? 0), [])
+  const [room, setRoom] = useState(Infinity)
+  const [below, setBelow] = useState(false)
+  useLayoutEffect(() => {
+    const el = box.current
+    if (!el) return
+    setWidth(el.offsetWidth)
+    setRoom(el.parentElement?.clientWidth ?? Infinity)
+  }, [box])
+  useLayoutEffect(() => {
+    const el = box.current
+    if (!el || !width || at.bottom === undefined) return
+    const r = el.getBoundingClientRect()
+    // The words it would sit on: a PDF's text pieces, an article's lines (measured as drawn, line by line).
+    const hides = [...(el.parentElement?.querySelectorAll(".textLayer span, .web-reader-body :is(p, li, h1, h2, h3, h4, h5, h6, blockquote, figcaption, td)") ?? [])].some((one) => {
+      if (!one.textContent?.trim() || one.querySelector(".textLayer span, p")) return false
+      const range = document.createRange()
+      range.selectNodeContents(one)
+      return [...range.getClientRects()].some((line) => line.width && line.left < r.right && line.right > r.left && line.top < r.bottom && line.bottom > r.top)
+    })
+    setBelow(hides)
+  }, [box, width, at.x, at.y, at.bottom])
+  return {
+    left: Math.max(8, Math.min(at.x - width / 2, room - width - 8)),
+    top: below && at.bottom !== undefined ? at.bottom + 8 : Math.max(8, at.y - 48),
+  }
+}
+
+export function ReadBar({ at, actions }: { at: { x: number; y: number; bottom?: number }; actions: ReadActions }): React.JSX.Element {
+  const bar = useRef<HTMLDivElement>(null)
+  const place = usePlaced(bar, at)
   const now = lastColor()
   return (
     <div
       ref={bar}
       className="pdf-keep-bar"
-      style={{ left: Math.max(8, at.x - width / 2), top: Math.max(8, at.y - 48) }}
+      style={place}
       // The words stay picked while the bar is pressed.
       onMouseDown={(event) => event.preventDefault()}
     >
@@ -238,28 +272,10 @@ function ColourRow({ on, onPick }: { on: string | null | undefined; onPick: (col
  */
 export function WhyAfter({ at, onSave, onDone, ask }: { at: { x: number; y: number; /** Where the picked words' last line ends: the field goes under it when the line above holds words. */ bottom?: number }; onSave: (why: string) => void; onDone: () => void; /** Asked for a card's question instead: what it says, and the line that says what is kept. */ ask?: { kept: string; label: string; placeholder: string } }): React.JSX.Element {
   const box = useRef<HTMLDivElement>(null)
-  const [width, setWidth] = useState(0)
-  // Above the picked words, unless it would hide words there (a heading, the
-  // line before): then under them, so the words round the picked ones stay in sight.
-  const [below, setBelow] = useState(false)
-  useLayoutEffect(() => {
-    const el = box.current
-    if (!el) return
-    setWidth(el.offsetWidth)
-    if (at.bottom === undefined) return
-    const r = el.getBoundingClientRect()
-    // The words it would sit on: a PDF's text pieces, an article's lines (measured as drawn, line by line).
-    const hides = [...(el.parentElement?.querySelectorAll(".textLayer span, .web-reader-body :is(p, li, h1, h2, h3, h4, h5, h6, blockquote, figcaption, td)") ?? [])].some((one) => {
-      if (!one.textContent?.trim() || one.querySelector(".textLayer span, p")) return false
-      const range = document.createRange()
-      range.selectNodeContents(one)
-      return [...range.getClientRects()].some((line) => line.width && line.left < r.right && line.right > r.left && line.top < r.bottom && line.bottom > r.top)
-    })
-    setBelow(hides)
-  }, [at.bottom])
+  const place = usePlaced(box, at)
   const [why, setWhy] = useState("")
   return (
-    <div ref={box} className="pdf-keep-bar pdf-why" style={{ left: Math.max(8, at.x - width / 2), top: below && at.bottom !== undefined ? at.bottom + 8 : Math.max(8, at.y - 48) }}>
+    <div ref={box} className="pdf-keep-bar pdf-why" style={place}>
       <Toolbar variant="floating">
         <span className="pdf-why-kept">
           {ask ? <SquareStack className="tiptap-button-icon" /> : <Gem className="tiptap-button-icon" />}

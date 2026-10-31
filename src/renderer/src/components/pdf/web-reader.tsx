@@ -19,6 +19,7 @@ import { cue } from '@/lib/cues'
 import { articleLink, openArticle, takeArticleFlash } from './pdf-reader'
 import { LookUpCard, type LookedUpIn } from './look-up'
 import { MARK_COLORS, MarkMenu, PickedMenu, ReadBar, WhyAfter, cited, lastColor, markCss, readKey, rememberColor, type MarkColor, type ReadActions } from './read-bar'
+import { usePaperPages } from './paper'
 import { offsetsIn, rangeOf, type PdfMark } from './pdf-pages'
 import {
   ContextMenu,
@@ -66,7 +67,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
   const [article, setArticle] = useState<Article | null>(null)
   const [failed, setFailed] = useState<string | null>(null)
   const [size, setSize] = useState(1)
-  const [paper, setPaper] = useState(() => localStorage.getItem('pdf-paper') === '1')
+  const [paper, setPaper] = usePaperPages()
   const pane = usePane()
   // This reader's own highlight names: the browser keeps one list per name for
   // the whole window, so two articles side by side would otherwise draw over each other's.
@@ -485,7 +486,6 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
             title={paper ? 'White pages' : 'Paper pages: easier on the eyes, pictures kept true'}
             data-active-state={paper ? 'on' : 'off'}
             onClick={() => {
-              localStorage.setItem('pdf-paper', paper ? '0' : '1')
               setPaper(!paper)
             }}
           >
