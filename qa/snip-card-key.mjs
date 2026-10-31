@@ -33,7 +33,7 @@ const capturing = () => electron.evaluate(() => { const asked = globalThis.qaPro
 const hidePrompt = async () => (await h.evaluate(() => window.api.hidePrompt()), await h.bringToFront(), await h.waitForTimeout(300))
 const question = () => h.evaluate(() => document.activeElement?.getAttribute('aria-label') === "The card's question")
 /** The tip shown over a control, as its words, its keycap and its quieter line. */
-const tipOver = async (selector) => {
+const tipOver = async (selector, shot) => {
   await h.hover(selector); await wait(900)
   const tip = await h.evaluate(() => {
     const box = document.querySelector('[data-title-tips], [data-slot="tooltip-content"]:not([data-state="closed"])')
@@ -41,6 +41,7 @@ const tipOver = async (selector) => {
     const head = box.querySelector('[data-tip-text] > span:first-child')
     return { words: head?.querySelector(':scope > span')?.textContent ?? box.textContent, key: box.querySelector('[data-tip-key]')?.textContent ?? '', keyLast: head?.lastElementChild?.matches('[data-tip-key]') ?? false, more: box.querySelector('[data-tip-more]')?.textContent ?? '' }
   })
+  if (shot) await c.both(`${shots}/${shot}`)
   await h.mouse.move(5, 450); await wait(300)
   return tip
 }
@@ -95,8 +96,7 @@ try {
 
   // 1. A snip: its Card tip, then C.
   check('a snip offers Card and Keep', await snipFigure(), '')
-  const tip = await tipOver('.pdf-keep-bar button[aria-label="Card"]')
-  await h.screenshot({ path: `${shots}/snip-card-tip.png` })
+  const tip = await tipOver('.pdf-keep-bar button[aria-label="Card"]', 'snip-card-tip')
   check('the snip\'s Card tip is one short line: "Make a card of this snip"', tip?.words === 'Make a card of this snip', JSON.stringify(tip))
   check('…its key C in a keycap at the end, not in the sentence', tip?.key === 'C' && tip.keyLast && !/ C /.test(tip.words), JSON.stringify(tip))
   check('…the Review-only and ⌥C detail on a quieter line under it', /Review only/.test(tip?.more ?? '') && /⌥C/.test(tip?.more ?? ''), JSON.stringify(tip))
