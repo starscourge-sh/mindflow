@@ -114,7 +114,7 @@ import { NavContext, type Nav, type Step } from '@/lib/nav'
 import { SplitPanes, type PaneApi } from '@/components/haligtree/panes'
 import { SplitDrop, type Carried, type Side } from '@/components/haligtree/split-drop'
 import { rowOf } from '@/components/haligtree/row-card'
-import { PairRow, pinLayout, sameLayout, unpinLayout, usePinnedLayouts, type PaneName } from '@/components/haligtree/split-pairs'
+import { PairRow, pinLayout, sameLayout, short, unpinLayout, usePinnedLayouts, type PaneName } from '@/components/haligtree/split-pairs'
 import type { BookRef } from '@/lib/books'
 import type { RowItem } from '@/components/haligtree/row-menu'
 import { asideClick, asideItem, keepTitle, setPaneNotes, setPanes, spendAsideClick, titleOf, type PaneWidth } from '@/lib/split'
@@ -1436,7 +1436,8 @@ export function Home(): React.JSX.Element {
       notes.length > 0 && { label: 'Open in new window', run: () => notes.forEach((note) => openApart(note.type, note.id)) },
       notes.length > 0 && 'separator',
       notes.length > 0 && { heading: 'Notes' },
-      ...notes.map((note): RowItem => ({ label: note.name.title, icon: <note.name.icon className="size-3.5 shrink-0" style={{ color: note.name.tint }} />, items: own(note) })),
+      // Cut short, as the pane lines above are: a whole quote stretched the menu across the page.
+      ...notes.map((note): RowItem => ({ label: short(note.name.title), icon: <note.name.icon className="size-3.5 shrink-0" style={{ color: note.name.tint }} />, items: own(note) })),
       live && !row && 'separator',
       live && !row && { label: 'Close pane', keys: '⌃W', run: () => closePane(key) },
       live && !row && { label: 'Close other panes', run: () => separate(key) }

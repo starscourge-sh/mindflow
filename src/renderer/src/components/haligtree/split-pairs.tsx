@@ -57,7 +57,9 @@ export const unpinLayout = (id: string): void => {
 export type PaneName = { title: string; icon: ComponentType<{ className?: string; style?: CSSProperties }>; tint?: string; private?: boolean; /** What it is, said on the pair's card: "Quote", "Page"; none for a place in the app. */ kind?: string }
 
 /** A pane's name in a menu line: whole, or cut at a word with "…" so the line never runs on. */
-const short = (title: string): string => (title.length > 32 ? `${cut(title, 30).replace(/\s+\S*$/, '')}…` : title)
+export const short = (title: string): string => (title.length > 32 ? `${cut(title, 30).replace(/\s+\S*$/, '')}…` : title)
+/** A pane's name inside a menu line, in curly quotes: a quote that already carries its own marks is not wrapped twice. */
+const quoted = (title: string): string => (/^["“'‘]/.test(title) ? short(title) : `“${short(title)}”`)
 
 /**
  * The pair's row, Dia's way: ONE row with each pane's icon and name side by
@@ -88,9 +90,9 @@ export function PairRow({ names, live, isPinned, narrow, menu, onOpen, onClose, 
 }): React.JSX.Element {
   const [renaming, setRenaming] = useState(false)
   const items: RowItem[] = [
-    ...(onAlone ? names.map((one, index): RowItem => ({ label: `Open “${short(one.title)}” alone`, icon: <one.icon className="size-3.5 shrink-0" style={{ color: one.tint }} />, run: () => onAlone(index) })) : []),
+    ...(onAlone ? names.map((one, index): RowItem => ({ label: `Open ${quoted(one.title)} alone`, icon: <one.icon className="size-3.5 shrink-0" style={{ color: one.tint }} />, run: () => onAlone(index) })) : []),
     'separator',
-    ...(onClose ? names.map((one, index): RowItem => ({ label: `Close “${short(one.title)}”`, run: () => onClose(index) })) : []),
+    ...(onClose ? names.map((one, index): RowItem => ({ label: `Close ${quoted(one.title)}`, run: () => onClose(index) })) : []),
     'separator',
     onRename && { label: 'Rename…', run: () => void setTimeout(() => setRenaming(true), 120) },
     // A plain ✕ either way: a kept split let go from the list goes nowhere near the Bin.
