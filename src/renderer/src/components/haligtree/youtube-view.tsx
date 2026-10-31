@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react"
 import { Play } from "lucide-react"
 
@@ -21,14 +21,16 @@ function videoId(src: string): string | null {
  * when you press play. With no picture (offline, or a video taken down) it
  * still says what it is, and offline it says why it cannot play.
  */
-export function YoutubeView({ node }: NodeViewProps): React.JSX.Element {
+export function YoutubeView({ node, editor, getPos }: NodeViewProps): React.JSX.Element {
   const src = String(node.attrs.src ?? "")
   const id = videoId(src)
   const title = typeof node.attrs.title === "string" && node.attrs.title ? node.attrs.title : null
   const [playing, setPlaying] = useState(false)
   const [noPicture, setNoPicture] = useState(!id)
   const [offline, setOffline] = useState(false)
-  const start = Number(node.attrs.start) || 0
+  // A time clicked in the note ("[13:03]", extensions/line-cards.ts) plays from there.
+  const [from, setFrom] = useState<number | null>(null)
+  const start = from ?? (Number(node.attrs.start) || 0)
   const player = id ? `https://www.youtube-nocookie.com/embed/${id}?autoplay=1${start ? `&start=${start}` : ""}` : src
   const watch = id ? `https://www.youtube.com/watch?v=${id}${start ? `&t=${start}s` : ""}` : src
   const play = (): void => {
@@ -36,10 +38,22 @@ export function YoutubeView({ node }: NodeViewProps): React.JSX.Element {
     setOffline(false)
     setPlaying(true)
   }
+  useEffect(() => {
+    const onTime = (event: Event): void => {
+      const { seconds, video } = (event as CustomEvent<{ seconds: number; video: Element }>).detail
+      const at = getPos()
+      const mine = typeof at === "number" ? editor.view.nodeDOM(at) : null
+      if (!mine || !(mine === video || (mine as Element).contains?.(video))) return
+      setFrom(seconds)
+      play()
+    }
+    window.addEventListener("haligtree:video-at", onTime)
+    return () => window.removeEventListener("haligtree:video-at", onTime)
+  })
   return (
-    <NodeViewWrapper data-youtube-video="" data-state={playing ? "playing" : offline ? "offline" : noPicture ? "no-picture" : "ready"}>
+    <NodeViewWrapper data-youtube-video="" data-from={from ?? undefined} data-state={playing ? "playing" : offline ? "offline" : noPicture ? "no-picture" : "ready"}>
       {playing ? (
-        <iframe src={player} title={title ?? "YouTube video"} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen />
+        <iframe key={player} src={player} title={title ?? "YouTube video"} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen />
       ) : (
         <div className="mf-video-face" contentEditable={false}>
           {!noPicture && <img src={`https://img.youtube.com/vi/${id}/hqdefault.jpg`} alt="" draggable={false} onError={() => setNoPicture(true)} />}

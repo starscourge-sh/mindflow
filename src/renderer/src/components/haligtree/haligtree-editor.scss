@@ -3888,6 +3888,16 @@ html[data-motion="off"] .tiptap.ProseMirror.haligtree-editor .mf-contents-landed
 
 // A line written as "question :: answer" is a review card: a small card at
 // its end says so (extensions/line-cards.ts). Muted, never a button.
+/* A video time in a line, "[13:03]": a link that plays the note's video from there. */
+.tiptap.ProseMirror.haligtree-editor .mf-time-link {
+  color: var(--tt-brand-color-500, currentColor);
+  font-variant-numeric: tabular-nums;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+
 .tiptap.ProseMirror.haligtree-editor .mf-line-card {
   display: inline-flex;
   vertical-align: -0.12em;

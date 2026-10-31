@@ -7,6 +7,7 @@ import { toast } from "@/components/haligtree/ui"
 import { isList, readLines, tasksOf, tasksSaid, worthSorting } from "../../../main/day-lines"
 import { APP_NAME } from '../../../main/name'
 import { cardListOf } from "../../../main/card-lists"
+import { termLines } from "../../../main/study"
 
 /**
  * A to-do in a note that is a task too: it carries the task's id, and the
@@ -132,8 +133,9 @@ export const LinkedTasks = Extension.create<{ origin: () => string | null; box: 
         handlePaste: (view, event) => {
           const text = event.clipboardData?.getData("text/plain") ?? ""
           // In quick capture made a Todo, what Create will make is said under the box instead.
-          // A list of cards lands as cards (extensions/line-cards.ts), not offered as tasks.
-          if (!editor.isEditable || !isList(text) || (inBox() && boxKind.todo) || cardListOf(text)) return false
+          // A list of cards lands as cards, and a "term - meaning" list is
+          // offered as cards (extensions/line-cards.ts): neither as tasks.
+          if (!editor.isEditable || !isList(text) || (inBox() && boxKind.todo) || cardListOf(text) || termLines(text).length) return false
           ;(editor.storage as unknown as Record<string, { pasted: number }>).linkedTasks.pasted = Date.now()
           const from = view.state.selection.from
           // After the paste has landed: offered, never done for you.

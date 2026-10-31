@@ -141,7 +141,10 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
   }
   const alive = useAlive()
   const surface = useSurface()
-  const asked = card ? masked(card.prompt ?? '', answer) : ''
+  // A video time on a note's card ("[13:03] What does...") says where it is
+  // from, not what is asked: it leaves the question for the "From" line.
+  const timeOn = card?.lineOf ? (/\[((?:\d{1,2}:)?\d{1,2}:[0-5]\d)\]/.exec(card.prompt ?? '')?.[1] ?? null) : null
+  const asked = card ? masked(card.prompt ?? '', answer).replace(timeOn ? /\s*\[(?:\d{1,2}:)?\d{1,2}:[0-5]\d\]\s*/g : /$^/, ' ').trim() : ''
 
   const reveal = (): void => {
     setOver(true)
@@ -282,7 +285,7 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
   const drop = (id: string): void => setQueue((cards) => cards && cards.filter((one) => one.id !== id))
   const cardMenu: RowItem[] = card ? [
     { label: 'Open', run: () => (chime('open'), window.api.openInHome('nugget', card.id)) },
-    copyLinkItem(`nugget:${card.id}`, card.title || card.prompt || 'Card'),
+    copyLinkItem(`nugget:${card.id}`, card.prompt || card.title || 'Card'),
     { label: 'Pause', hint: 'Out of Review until you bring it back', run: () => setAside(card, true, () => drop(card.id)) },
     'separator',
     binItem([{ type: 'nugget', id: card.id }], () => drop(card.id))
@@ -459,7 +462,7 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
       >
         {lineCard && (
           <p data-line-from className="-mb-4 flex items-center gap-1.5 text-sm text-muted-foreground">
-            <span className="min-w-0 truncate">From <span {...(lineFrom ? hoverNote(lineFrom.type, lineFrom.id, { kind: lineFrom.kind }) : {})} className="text-foreground">{lineFrom?.title || 'a note'}</span>, a line written as a card.</span>
+            <span className="min-w-0 truncate">From <span {...(lineFrom ? hoverNote(lineFrom.type, lineFrom.id, { kind: lineFrom.kind }) : {})} className="text-foreground">{lineFrom?.title ? <WithPictures text={titleWithFormulas(lineFrom.title, lineCard.prompt, textOf(lineCard.body))} small /> : 'a note'}</span>{timeOn && <>, at <span data-line-time className="text-foreground tabular-nums">{timeOn}</span> in its video</>}, a line written as a card.</span>
             <span className="shrink-0">Open it at the line</span>
           </p>
         )}
@@ -914,6 +917,20 @@ function Origin({ id, quote, attribution, where, year, said }: { id: string; quo
 type Source = { type: string; id: string; title: string; body: unknown; needles: string[] }
 
 /** The words a cloze blanked, found by what stands either side of the blank. */
+/**
+ * A note named by its first line keeps that line's words but not its `$`s
+ * ("x^2"): the card's own question, which has them, puts them back where its
+ * words open the title, so the "From" line draws the formula.
+ */
+function titleWithFormulas(title: string, prompt: string | null, answer: string): string {
+  for (const line of [`${prompt ?? ''} :: ${answer.trim()}`, prompt ?? '']) {
+    if (!line.includes('$')) continue
+    const bare = line.replace(/\$([^$\n]+)\$/g, '$1')
+    if (title.startsWith(bare)) return line + title.slice(bare.length)
+  }
+  return title
+}
+
 function answerOf(prompt: string | null, body: unknown): string | null {
   if (!prompt?.includes('_____')) return null
   const flat = (text: string): string => text.replace(/\s+/g, ' ').trim()

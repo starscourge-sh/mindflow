@@ -29,12 +29,25 @@ const lineText = (block: ProseMirrorNode): string => {
   return text
 }
 
+/** A video time written in a line: [13:03] or [1:02:45]. */
+export const TIME = /\[((?:\d{1,2}:)?\d{1,2}:[0-5]\d)\]/g
+/** "1:02:45" as seconds. */
+export const secondsOf = (time: string): number => time.split(":").reduce((all, part) => all * 60 + Number(part), 0)
+
 function marks(doc: ProseMirrorNode): DecorationSet {
   const found: Decoration[] = []
   doc.descendants((node, pos) => {
     if (node.type.name === "codeBlock") return false
     if (!node.isTextblock) return true
     if (lineCard(lineText(node))) found.push(Decoration.widget(pos + node.nodeSize - 1, mark, { side: 1, key: "line-card", ignoreSelection: true }))
+    // A time in a line, "[13:03]", plays the note's video from there.
+    node.forEach((child, offset) => {
+      if (!child.isText || child.marks.some((one) => one.type.name === "code")) return
+      for (const match of child.text!.matchAll(TIME)) {
+        const from = pos + 1 + offset + match.index!
+        found.push(Decoration.inline(from, from + match[0].length, { class: "mf-time-link", "data-seconds": String(secondsOf(match[1])), title: "Play the note's video from here" }))
+      }
+    })
     return false
   })
   return DecorationSet.create(doc, found)
@@ -109,6 +122,17 @@ export const LineCards = Extension.create({
         },
         props: {
           decorations: (state) => key.getState(state),
+          // A click on a time plays the note's own video from it: the first
+          // video in the note is told, and comes into view.
+          handleClick: (view, _pos, event) => {
+            const time = (event.target as HTMLElement | null)?.closest?.<HTMLElement>(".mf-time-link")
+            if (!time) return false
+            const video = view.dom.querySelector<HTMLElement>("[data-youtube-video]")
+            if (!video) return false
+            window.dispatchEvent(new CustomEvent("haligtree:video-at", { detail: { seconds: Number(time.dataset.seconds), video } }))
+            video.scrollIntoView({ block: "center", behavior: "smooth" })
+            return true
+          },
           // A pasted list of "term - meaning" lines goes in as it is, and a
           // toast offers to make each one a card.
           handlePaste: (view, event) => {
@@ -117,8 +141,22 @@ export const LineCards = Extension.create({
             // Lines copied from a note already read as cards: they paste as they are.
             if (list && !(list.separator === " :: " && event.clipboardData?.getData("text/html"))) return pasteCards(view, list), true
             const pairs = termLines(plain)
-            if (pairs.length) setTimeout(() => offerCards(pairs), 300)
+            if (pairs.length) offerCards(pairs)
             return false
+          },
+          // A .csv or .tsv dropped on a note is read as a card list, as if pasted
+          // where it was dropped; one that is not two columns says so.
+          handleDrop: (view, event) => {
+            const file = [...(event.dataTransfer?.files ?? [])].find((one) => /\.(csv|tsv)$/i.test(one.name))
+            if (!file) return false
+            const at = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos
+            void file.text().then((text) => {
+              const list = cardListOf(text)
+              if (!list) return void window.dispatchEvent(new CustomEvent("haligtree:toast", { detail: { text: `${file.name} does not read as cards: one card a row, the question then the answer`, tone: "info" } }))
+              if (at !== undefined) view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(Math.min(at, view.state.doc.content.size)))))
+              pasteCards(view, list)
+            })
+            return true
           },
         },
       }),

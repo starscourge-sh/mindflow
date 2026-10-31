@@ -30,7 +30,7 @@ try {
   await v('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false })
   await h.reload()
   await h.waitForTimeout(2000)
-  const body = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Cell biology' }] }, { type: 'paragraph' }] }
+  const body = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Cell biology #biology' }] }, { type: 'paragraph' }] }
   const id = await h.evaluate((body) => window.api.captures.create({ body }), body)
   await c.send('capture', id)
   await waitFor(() => h.evaluate(() => !!document.querySelector('.ProseMirror')))
@@ -57,19 +57,36 @@ try {
   await paste('| Name | Year |\n|---|---|\n| Monet | 1872 |')
   await h.waitForTimeout(600)
   check('a Markdown table is not made into cards', (await lines()).filter((one) => one.includes(' :: ')).length === 3, JSON.stringify(await lines()))
+  // A .tsv dropped on the note reads in the same way, where it was dropped.
+  await h.evaluate(() => {
+    const data = new DataTransfer()
+    data.items.add(new File(['Front\tBack\ngolgi\tpackages proteins\nlysosome\tbreaks things down'], 'cells.tsv', { type: 'text/tab-separated-values' }))
+    const box = [...document.querySelectorAll('.ProseMirror p')].at(-1).getBoundingClientRect()
+    document.querySelector('.ProseMirror').dispatchEvent(new DragEvent('drop', { dataTransfer: data, bubbles: true, cancelable: true, clientX: box.right - 2, clientY: box.top + box.height / 2 }))
+  })
+  check('a dropped .tsv lands as card lines', await waitFor(async () => (await lines()).filter((one) => one.includes(' :: ')).length === 5), JSON.stringify(await lines()))
   // Saved, the lines are the note's own cards.
   await h.keyboard.press('Meta+s')
-  check('the pasted lines become the note\'s cards', await waitFor(async () => (await cardsOf(id)).length === 3, 10000), JSON.stringify((await cardsOf(id)).map((one) => one.prompt)))
+  check('the pasted lines become the note\'s cards', await waitFor(async () => (await cardsOf(id)).length === 5, 10000), JSON.stringify((await cardsOf(id)).map((one) => one.prompt)))
+  // The note's #tag goes on each of its cards, so studying #biology asks them.
+  const tagged = (await v('cards:all')).filter((one) => ['mitochondria', 'ribosome', 'nucleus'].includes(one.prompt))
+  check('each card carries the note\'s #tags', tagged.length === 3 && tagged.every((one) => one.tags.includes('biology')), JSON.stringify(tagged.map((one) => one.tags)))
 
-  // A maths line: a stored formula keeps it, and Review draws it.
-  const maths = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'What is the derivative of ' }, { type: 'inlineMath', attrs: { latex: 'x^2' } }, { type: 'text', text: '? :: ' }, { type: 'inlineMath', attrs: { latex: '2x' } }] }] }
+  // A maths line from a lecture video: a stored formula keeps it, and Review draws it; its time plays the video there.
+  const maths = { type: 'doc', content: [{ type: 'youtube', attrs: { src: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' } }, { type: 'paragraph', content: [{ type: 'text', text: '[0:42] What is the derivative of ' }, { type: 'inlineMath', attrs: { latex: 'x^2' } }, { type: 'text', text: '? :: ' }, { type: 'inlineMath', attrs: { latex: '2x' } }] }] }
   const mathsId = await h.evaluate((body) => window.api.captures.create({ body }), maths)
   const [card] = await cardsOf(mathsId)
-  check('a line with formulas is a card, formulas kept', card?.prompt === 'What is the derivative of $x^2$?', JSON.stringify(card?.prompt))
+  check('a line with formulas is a card, formulas kept', card?.prompt === '[0:42] What is the derivative of $x^2$?', JSON.stringify(card?.prompt))
   await c.send('capture', mathsId)
   check('its card mark shows in the note', await waitFor(() => h.evaluate(() => document.querySelectorAll('.mf-line-card').length === 1)))
+  check('the time in the line is a link', await waitFor(() => h.evaluate(() => document.querySelector('.mf-time-link')?.textContent === '[0:42]')))
+  await h.evaluate(() => document.querySelector('.mf-time-link').dispatchEvent(new MouseEvent('mousedown', { bubbles: true })))
+  await h.click('.mf-time-link')
+  check('clicking it plays the note\'s video from 0:42', await waitFor(() => h.evaluate(() => document.querySelector('[data-youtube-video]')?.dataset.from === '42' && !!document.querySelector('[data-youtube-video] iframe[src*="start=42"]'))), await h.evaluate(() => document.querySelector('[data-youtube-video]')?.outerHTML.slice(0, 200)))
   await v('cards:pause', (await cardsOf(id)).map((one) => one.id), true); await h.waitForTimeout(600)
   await c.go('review')
+  check('the "From" line draws the note\'s formulas too, not "x^2"', await waitFor(() => h.evaluate(() => !!document.querySelector('[data-line-from] .katex') && !document.querySelector('[data-line-from]')?.textContent?.includes('of x^2?'))), await h.evaluate(() => document.querySelector('[data-line-from]')?.textContent))
+  check('in Review the time leaves the question and sits on the "From" line', await waitFor(() => h.evaluate(() => !document.querySelector('h2')?.textContent?.includes('[0:42]') && document.querySelector('[data-line-time]')?.textContent === '0:42')), await h.evaluate(() => document.querySelector('[data-line-from]')?.textContent))
   check('Review draws the formula in the question', await waitFor(() => h.evaluate(() => [...document.querySelectorAll('h2 .katex')].length > 0)), await h.evaluate(() => document.querySelector('h2')?.textContent))
   if (shots) {
     for (const theme of ['paper', 'dark']) {

@@ -263,6 +263,8 @@ export const ImageDrop = Extension.create<ImageDropOptions>({
               void window.api.importDecks(decks)
               return true
             }
+            // A .csv or .tsv is a card list, read in where it lands (extensions/line-cards.ts).
+            if ([...(event.dataTransfer?.files ?? [])].some((file) => /\.(csv|tsv)$/i.test(file.name))) return false
             const { images, rest } = sort(event.dataTransfer)
             const href = images.length ? "" : linked(event.dataTransfer)
             if (!images.length && !href && !rest.length) return false
