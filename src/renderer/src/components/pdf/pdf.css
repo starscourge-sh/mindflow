@@ -479,8 +479,16 @@
 }
 
 .pdf-swatch.is-later {
-  background: repeating-linear-gradient(90deg, currentColor 0 3px, transparent 3px 5px) left bottom / 100% 2px no-repeat;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 0;
+  background: none;
   box-shadow: none;
+}
+
+.pdf-swatch.is-later svg {
+  width: 1rem;
+  height: 1rem;
 }
 
 /* Search matches in violet, a colour no highlight uses: a find is never mistaken for a yellow highlight. */

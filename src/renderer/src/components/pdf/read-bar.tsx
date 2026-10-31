@@ -48,8 +48,21 @@ export type ReadActions = {
   blank?: () => void
 }
 
+/** What "Card later" does, said on its swatch wherever it shows. */
+export const LATER_TIP = "Card later: make a card on the second read"
+
 /** A swatch: a round of the colour, ticked when it is the one in use. */
 function Swatch({ color, on, later = false }: { color: string; on: boolean; /** "Card later": drawn as its dashed underline, not a colour. */ later?: boolean }): React.JSX.Element {
+  // "Card later" is not a colour: a little card over the dashed underline it leaves in the page, filled when it is the one in use.
+  if (later)
+    return (
+      <span aria-hidden className="pdf-swatch is-later" style={{ color }}>
+        <svg viewBox="0 0 16 16">
+          <rect x="3" y="2.25" width="10" height="7.5" rx="1.75" fill={on ? "currentColor" : "none"} fillOpacity={on ? 0.35 : undefined} stroke="currentColor" strokeWidth="1.4" />
+          <path d="M1.5 13.5h13" fill="none" stroke="currentColor" strokeWidth="1.6" strokeDasharray="2.4 1.6" strokeLinecap="butt" />
+        </svg>
+      </span>
+    )
   return (
     <span aria-hidden className={`pdf-swatch${later ? " is-later" : ""}`} style={later ? { color } : { background: color }}>
       {on && (
@@ -121,7 +134,7 @@ export function ReadBar({ at, actions }: { at: { x: number; y: number; bottom?: 
           </Button>
           <span className="pdf-swatches" role="group" aria-label="Highlight in a colour">
             {MARK_COLORS.map((one, index) => (
-              <button key={one.label} type="button" className="pdf-swatch-button" aria-label={`Highlight ${one.label.toLowerCase()}`} title={`${one.label}  ${index + 1}`} onClick={() => actions.highlight(one.id)}>
+              <button key={one.label} type="button" className="pdf-swatch-button" aria-label={one.id === "later" ? LATER_TIP : `Highlight ${one.label.toLowerCase()}`} title={one.id === "later" ? `${LATER_TIP}  ${index + 1}` : `${one.label}  ${index + 1}`} onClick={() => actions.highlight(one.id)}>
                 <Swatch color={one.css} on={one.id === now} later={one.id === "later"} />
               </button>
             ))}
@@ -256,7 +269,7 @@ function ColourRow({ on, onPick }: { on: string | null | undefined; onPick: (col
   return (
     <div role="group" aria-label="Highlight colour" className="flex items-center gap-1 px-1.5 py-1">
       {MARK_COLORS.map((one) => (
-        <ContextMenuItem key={one.label} aria-label={one.label} aria-checked={one.id === on} role="menuitemradio" onSelect={() => onPick(one.id)} className="flex size-6 items-center justify-center rounded-md p-0 focus:bg-accent">
+        <ContextMenuItem key={one.label} aria-label={one.id === "later" ? LATER_TIP : one.label} title={one.id === "later" ? `${LATER_TIP}  6` : one.label} aria-checked={one.id === on} role="menuitemradio" onSelect={() => onPick(one.id)} className="flex size-6 items-center justify-center rounded-md p-0 focus:bg-accent">
           <Swatch color={one.css} on={one.id === on} later={one.id === "later"} />
         </ContextMenuItem>
       ))}
