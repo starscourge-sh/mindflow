@@ -99,7 +99,7 @@ export function setStyle(style: Style): void {
 }
 
 
-/** The one last chosen, or the default (GitHub). */
+/** The one last chosen, or the default (Paper). */
 export function currentTheme(): Theme {
   // Brutal was briefly a pair of themes; it is a style now, worn over Paper or GitHub.
   const old = localStorage.getItem("theme")

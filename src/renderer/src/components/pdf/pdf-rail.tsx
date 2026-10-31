@@ -228,7 +228,7 @@ function PdfOutline({ outline, hereAt, list, onGo }: { outline: OutlineRow[]; he
         <Weighted on={here} className="min-w-0 *:line-clamp-2 *:whitespace-normal *:break-words">{item.title}</Weighted>
         {kids.length > 0 && (
           <span data-outline-fold role="button" aria-label={open ? "Fold" : "Unfold"} aria-expanded={open}
-            className="-mx-0.5 grid h-5 shrink-0 cursor-pointer place-items-center rounded-sm p-0.5 text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
+            className="-mx-0.5 grid h-5 shrink-0 cursor-pointer place-items-center rounded-md p-0.5 text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
             onClick={(event) => (event.stopPropagation(), fold(at, open))}>
             <ChevronRight aria-hidden className={`size-3 transition-[rotate] duration-80 ${open ? "rotate-90" : ""}`} />
           </span>

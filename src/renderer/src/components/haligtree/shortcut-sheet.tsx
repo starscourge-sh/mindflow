@@ -184,7 +184,7 @@ export function KeysEditor({ search = '' }: { search?: string }): React.JSX.Elem
                   type="button"
                   aria-pressed={only === id}
                   onClick={() => (click('soft'), setOnly(id))}
-                  className={`flex items-center gap-1.5 rounded-sm px-2.5 py-1 whitespace-nowrap transition-colors ${only === id ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                  className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 whitespace-nowrap transition-colors ${only === id ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                 >
                   {label}
                   {id !== 'all' && counts[id] > 0 && (

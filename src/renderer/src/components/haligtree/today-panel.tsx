@@ -275,7 +275,7 @@ const TaskRow = memo(function TaskRow({ task, act, scope, room, rank, open, curs
       // Done by a key, it simply goes; by a click it slides off the way a tick sends it.
       variants={{ gone: () => (byKeys() ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, transform: shift('translateX(16px)'), transition: { duration: 0.16, ease: EASE } }) }}
       exit="gone"
-      className={`group group/item relative flex flex-wrap items-start gap-2 rounded-sm px-2 py-1.5 pr-8 hover:bg-accent/50 ${picked ? PICKED_ROW : open ? "bg-accent" : cursor ? "bg-accent/50" : ""}`}
+      className={`group group/item relative flex flex-wrap items-start gap-2 rounded-md px-2 py-1.5 pr-8 hover:bg-accent/50 ${picked ? PICKED_ROW : open ? "bg-accent" : cursor ? "bg-accent/50" : ""}`}
     >
       {rank !== undefined && <span className="mt-px flex w-2.5 shrink-0 justify-center">{rank > 0 && <ThreeMark n={rank} />}</span>}
       <Tip label="Complete">

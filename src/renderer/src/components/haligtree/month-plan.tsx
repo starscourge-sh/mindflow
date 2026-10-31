@@ -334,7 +334,7 @@ function Cell({ day, lines, today, outside, count, caught, flags, adding, onAdd,
         <span className="min-w-0 flex-1" onClick={() => (chime('tap'), onAdd())} />
         <Tip label={`Add a task for ${day.format('ddd D MMM')}`}>
           <button type="button" data-day-add aria-label={`Add a task for ${day.format('dddd D MMMM')}`} onClick={() => (chime('tap'), onAdd())}
-            className="flex size-5 shrink-0 items-center justify-center rounded-sm text-foreground opacity-0 transition-opacity group-hover/day:opacity-100 hover:bg-accent focus-visible:opacity-100">
+            className="flex size-5 shrink-0 items-center justify-center rounded-md text-foreground opacity-0 transition-opacity group-hover/day:opacity-100 hover:bg-accent focus-visible:opacity-100">
             <Plus className="size-3.5" />
           </button>
         </Tip>

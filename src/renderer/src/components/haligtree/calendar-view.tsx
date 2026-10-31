@@ -887,7 +887,7 @@ function Grid({ days, tasks, marks, onHead, onPoint, calendars, ...props }: { da
           <span className="text-meta font-medium whitespace-nowrap text-foreground/70">All-day</span>
           <Tip label={folded ? 'Show the whole lane' : 'Fold the lane to one line'}>
             <button type="button" data-cal-allday-fold aria-expanded={!folded} aria-label={folded ? 'Show the whole all-day lane' : 'Fold the all-day lane'} onClick={fold}
-              className="flex size-6 items-center justify-center rounded-sm text-foreground/70 outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
+              className="flex size-6 items-center justify-center rounded-md text-foreground/70 outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
               <ChevronDown className={`size-3.5 transition-transform duration-150 motion-reduce:transition-none ${folded ? '-rotate-90' : ''}`} />
             </button>
           </Tip>

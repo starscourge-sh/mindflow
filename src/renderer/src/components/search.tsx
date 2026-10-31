@@ -392,14 +392,14 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
           {/* mf-more: faded at an edge while there is more past it; the scroll
               padding keeps a row the arrows reach clear of that fade. */}
           <div ref={rows} className={`mf-more relative isolate min-h-0 min-w-0 flex-1 scroll-pt-8 scroll-pb-12 overflow-y-auto p-2 ${shown ? 'w-1/2 flex-none' : ''}`}>
-            <Highlight spot={lit.spot} snap={lit.snap} className="rounded-sm bg-accent" />
+            <Highlight spot={lit.spot} snap={lit.snap} className="rounded-md bg-accent" />
             {choosing ? <>
               <div className="px-2 pt-1 pb-1 text-xs text-muted-foreground">{choosing.action.label.replace(/…$/, '')}</div>
               {choices.map((one, index) => (
                 <button
                   key={one.label}
                   type="button"
-                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left"
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left"
                   data-choice-at={index === choiceAt || undefined}
                   onMouseMove={(event) => realMove(event) && setChoiceAt(index)}
                   onClick={() => choose(one)}
@@ -414,7 +414,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
                 <button
                   key={one}
                   type="button"
-                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left"
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left"
                   data-theme-at={index === themeAt || undefined}
                   // Only a mouse that really moves: a repaint under a resting
                   // cursor would otherwise pull the highlight back to it.
@@ -434,7 +434,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
               {acting.length > 0 && index === (keepFirst ? keeping.length : 0) && <div className={`px-2 pb-1 text-xs text-muted-foreground ${index ? 'pt-3' : 'pt-1'}`}>Actions</div>}
               <button
                 type="button"
-                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left"
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left"
                 data-search-at={index === at || undefined}
                 onMouseMove={(event) => realMove(event) && setAt(index)}
                 onClick={() => run(one)}
@@ -475,7 +475,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
                   <RowMenu items={menus ? live.current.menuOf(capture) : []}>
                   <button
                     type="button"
-                    className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left ${PICKED_MARK}`}
+                    className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left ${PICKED_MARK}`}
                     data-search-at={on || undefined}
                     onMouseMove={(event) => realMove(event) && setAt(live.current.doing + index)}
                     data-row

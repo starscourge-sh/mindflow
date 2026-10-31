@@ -40,7 +40,7 @@ function HueMark({ id, hue, onPicked }: { id: string; hue: Hue | null; onPicked:
       <PopoverTrigger asChild>
         <span role="button" tabIndex={-1} data-book-mark={id} aria-label="Change its colour" title="Change colour" onPointerDown={hold} onMouseDown={hold}
           onClick={(event) => (event.stopPropagation(), event.preventDefault(), setOpen(!open))}
-          className="grid size-5 shrink-0 place-items-center rounded-sm transition-colors hover:bg-foreground/10"><HueDot hue={hue} /></span>
+          className="grid size-5 shrink-0 place-items-center rounded-md transition-colors hover:bg-foreground/10"><HueDot hue={hue} /></span>
       </PopoverTrigger>
       <PopoverContent align="start" className="z-[70] w-auto p-2" onPointerDown={hold} onMouseDown={hold} onClick={hold} onKeyDown={hold}>
         <HueDots id={id} value={hue} onPicked={(next) => (setOpen(false), onPicked(next))} />

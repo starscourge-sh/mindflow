@@ -157,7 +157,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                 data-cursor={index === cursor || undefined}
                 onClick={() => setChosen(tag)}
                 onPointerEnter={() => prefetchTag(tag)}
-                className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left transition-colors hover:bg-accent/50 ${chosen === tag ? 'bg-accent' : index === cursor ? 'bg-accent/50' : ''}`}
+                className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent/50 ${chosen === tag ? 'bg-accent' : index === cursor ? 'bg-accent/50' : ''}`}
               >
                 <TagColourPick tag={tag} color={color} />
                 {/* A tag that does something wears its mark beside its name, in its own colour, its words in the tip:
@@ -348,7 +348,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                   // ⌘-click and ⇧-click pick as Finder does; ⌥⌘-click: a note in a window of its own; a task opens where tasks live.
                   onClick={(event) => (event.metaKey && event.altKey && item.type !== 'task' ? openApart(item.type, item.id) : several.click(event, item) || onOpen(item.type, item.id))}
                   data-private={item.private ? '' : undefined}
-                  className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left hover:bg-accent/60 ${PICKED_MARK}`}
+                  className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent/60 ${PICKED_MARK}`}
                 >
                   <Icon className="size-4 shrink-0 text-muted-foreground" />
                   <span className="flex min-w-0 flex-1 items-center gap-1.5">
