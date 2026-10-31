@@ -10,6 +10,7 @@ import { HaligtreeEditor } from '../haligtree'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ProgressBar } from './progress-bar'
+import { WithPictures } from './with-pictures'
 import { Kbd, toast, typing } from './ui'
 import { TAG } from '../../../../main/tag-words'
 import { clip } from '../../../../main/clip'
@@ -116,7 +117,7 @@ export function LearnMode({ onDone }: { onDone: () => void }): React.JSX.Element
         <>
           <div className="rounded-lg border bg-accent/30 px-5 py-6">
             <p className="text-xs text-muted-foreground">{step.kind === 'choice' ? 'Pick the answer' : 'Write the answer'}</p>
-            <h2 className="mt-1 font-heading text-title font-semibold tracking-[-0.018em] text-balance">{step.card.prompt}</h2>
+            <h2 className="mt-1 font-heading text-title font-semibold tracking-[-0.018em] text-balance"><WithPictures text={step.card.prompt ?? ''} /></h2>
           </div>
           {step.kind === 'choice' ? (
             <div className="grid gap-2" data-choices>

@@ -491,6 +491,8 @@ const api = {
   gather: (): void => ipcRenderer.send('welcome:gather'),
   /** The menu bar's importers, from a window: an Obsidian vault, or files (Readwise, Kindle and the rest). */
   importFrom: (what: 'vault' | 'files' | 'apple-notes', from?: string | null): Promise<void> => ipcRenderer.invoke('import:run', what, from),
+  /** Anki decks (.apkg) dropped on a note: imported as cards, not attached. */
+  importDecks: (files: File[]): Promise<void> => ipcRenderer.invoke('import:decks', files.map((file) => webUtils.getPathForFile(file))),
   /** The menu bar's restore, from a window: pick a day's copy, and the app starts again on it. */
   restoreBackup: (): Promise<void> => ipcRenderer.invoke('backup:restore'),
   /** The answer to Haligtree's own "Go back to this copy?" sheet. */

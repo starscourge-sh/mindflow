@@ -79,9 +79,11 @@ export function ImportProgress(): React.JSX.Element {
   )
 }
 
-/** "1,240 notes are in.", "1 note is in.", or, when everything was here already, says so. */
-const headline = (done: ImportDone): string =>
-  done.made === 0 ? 'Nothing new came in.' : `${num(done.made)} ${done.made === 1 ? 'note is' : 'notes are'} in.`
+/** "1,240 notes are in.", "1 note is in.", "412 cards are in." for Anki alone, or, when everything was here already, says so. */
+const headline = (done: ImportDone): string => {
+  const what = done.gems === done.made ? ['card is', 'cards are'] : ['note is', 'notes are']
+  return done.made === 0 ? 'Nothing new came in.' : `${num(done.made)} ${done.made === 1 ? what[0] : what[1]} in.`
+}
 
 /** What came with them, in one sentence, leaving out what there was none of. */
 const withThem = (done: ImportDone): string => {

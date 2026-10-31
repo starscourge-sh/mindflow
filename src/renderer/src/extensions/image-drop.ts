@@ -256,6 +256,13 @@ export const ImageDrop = Extension.create<ImageDropOptions>({
             // A block of this note being moved or copied (a picture dragged
             // out and back in included): ProseMirror's own drop, not a new file.
             if (view.dragging) return false
+            // An Anki deck is cards to import, wherever it is dropped.
+            const decks = [...(event.dataTransfer?.files ?? [])].filter((file) => /\.apkg$/i.test(file.name))
+            if (decks.length) {
+              event.preventDefault()
+              void window.api.importDecks(decks)
+              return true
+            }
             const { images, rest } = sort(event.dataTransfer)
             const href = images.length ? "" : linked(event.dataTransfer)
             if (!images.length && !href && !rest.length) return false

@@ -46,6 +46,7 @@ import iconBronze from '../../resources/icon-bronze.png?asset'
 import iconGold from '../../resources/icon-gold.png?asset'
 import { registerUsage, type Via } from './usage'
 import { resolveWaiting, resolveWithin } from './renames'
+import { importApkg } from './anki-apkg'
 import { alreadyImported, captureText, changed, rescueDrawing, database, shutDatabase, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, whenChanged, dropDuplicateTags, setImporting, type Imported } from './captures'
 import { isPrivateFile, looksPrivate } from './import'
 import { warmChrono } from './lazy/chrono'
@@ -653,6 +654,8 @@ function guard(win: BrowserWindow): void {
   // it, and nothing here is saved.
   page.on('will-navigate', (event, url) => {
     if (url !== page.getURL()) event.preventDefault()
+    // An Anki deck dropped anywhere outside a note is imported.
+    if (url.startsWith('file:') && /\.apkg$/i.test(url)) void importFiles([fileURLToPath(url)])
   })
 
   // Editor content reaches this through window.open, so file: and whatever else
@@ -3331,12 +3334,12 @@ async function restore(): Promise<void> {
  * CSV or JSON file, or Kindle's clippings, is highlights; any other text file
  * is Anki's plain-text export, cards to be tested on.
  */
-async function importFiles(): Promise<void> {
-  const { filePaths } = await dialog.showOpenDialog({
+async function importFiles(dropped?: string[]): Promise<void> {
+  const filePaths = dropped ?? (await dialog.showOpenDialog({
     title: SANDBOX ? 'Import into the sandbox' : BOOK ? `Import into ${nameOf(here())}` : 'Import',
     properties: ['openFile', 'multiSelections'],
-    filters: [{ name: 'Markdown, bookmarks, highlights (Readwise, Kindle) or Anki cards', extensions: ['md', 'html', 'htm', 'csv', 'json', 'txt'] }]
-  })
+    filters: [{ name: 'Markdown, bookmarks, highlights (Readwise, Kindle) or Anki cards and decks', extensions: ['md', 'html', 'htm', 'csv', 'json', 'txt', 'apkg'] }]
+  })).filePaths
   const lines: string[] = []
   // The beam turns in every window while the files are read in.
   let total = 0
@@ -3348,6 +3351,18 @@ async function importFiles(): Promise<void> {
       const name = basename(path)
       // One file that cannot be read is said so, and the rest still come in.
       try {
+        // An Anki deck package: cards with their pictures, sounds and schedules.
+        if (/\.apkg$/i.test(name)) {
+          const got = await importApkg(path)
+          total += got.cards
+          gems += got.cards
+          const parts = [`${num(got.cards)} ${got.cards === 1 ? 'card' : 'cards'} from ${num(got.decks)} ${got.decks === 1 ? 'deck' : 'decks'}`,
+            got.pictures && `${num(got.pictures)} ${got.pictures === 1 ? 'picture' : 'pictures'}`, got.sounds && `${num(got.sounds)} ${got.sounds === 1 ? 'sound' : 'sounds'}`].filter(Boolean)
+          lines.push(`${name}: ${parts.join(', ')}`)
+          if (got.already) lines.push(`${num(got.already)} ${got.already === 1 ? 'card was' : 'cards were'} already here, from an earlier import`)
+          if (got.skipped) lines.push(`${num(got.skipped)} ${got.skipped === 1 ? 'card' : 'cards'} left out: picture-hiding cards, or a side with nothing on it`)
+          continue
+        }
         const text = await readFile(path, 'utf8')
         // A picture or a program renamed .md is not words to keep.
         if (text.includes('\u0000')) {
@@ -3961,6 +3976,8 @@ app.whenReady().then(() => {
   ipcMain.on('prompt:hide', () => void (prompt?.isVisible() && hideWindow(prompt)))
   // The first-run step and Settings import the way the menu bar does.
   // From the vault picker too: one of the vaults it showed, or null for the folder dialog.
+  ipcMain.handle('import:decks', (_event, paths: unknown) =>
+    Array.isArray(paths) ? importFiles(paths.filter((path): path is string => typeof path === 'string' && /\.apkg$/i.test(path))) : undefined)
   ipcMain.handle('import:run', async (_event, what: unknown, from?: unknown) => {
     if (what === 'apple-notes') return inHome('haligtree:import-folders', { from: 'Apple Notes' })
     if (what !== 'vault') return importFiles()

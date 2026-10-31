@@ -916,7 +916,7 @@ const cardOf = (state: string | null): Card => {
 }
 // The plan's learning steps, ten minutes then a day, and fuzz so cards learnt
 // together spread over the days around their due date instead of landing at once.
-const scheduler = (): ReturnType<typeof fsrs> =>
+export const scheduler = (): ReturnType<typeof fsrs> =>
   fsrs(generatorParameters({ request_retention: settings().retention, learning_steps: ['10m', '1d'], enable_fuzz: true, w: weights() }))
 /** The scheduler's parameters: its defaults, with how long a new card lasts fitted to you once Settings has done it. */
 const weights = (): number[] => {

@@ -27,6 +27,7 @@
     "chrono-node": "^2.10.2",
     "dayjs": "^1.11.23",
     "entities": "^6.0.1",
+    "fflate": "0.8.2",
     "image-size": "^2.0.4",
     "linkedom": "0.18.13",
     "papaparse": "^5.7.0",

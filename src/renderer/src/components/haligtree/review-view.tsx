@@ -31,6 +31,7 @@ import { Signed } from './signature'
 import { canSplit, openAside, useHere } from '@/lib/split'
 import { FocusChips, HowItDecides, RoundLine, Slipping, StrugglingShelf, openLine, setAside, type Round } from './study'
 import { onboarding } from '@/lib/onboarding'
+import { WithPictures } from './with-pictures'
 import { LearnMode } from './learn-mode'
 import { closeness, isLeech, suggestGrade } from '../../../../main/study'
 import { Star } from 'lucide-react'
@@ -503,7 +504,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
                 }}
                 className={`rounded-md font-heading ${compact ? 'text-xl' : 'text-title'} font-semibold tracking-[-0.018em] text-balance outline-none focus-visible:ring-1 focus-visible:ring-ring`}
               >
-                {editing ? card.prompt : asked}
+                {editing ? card.prompt : <WithPictures text={asked} />}
               </h2>
             </div>
           }
@@ -515,7 +516,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
               {/* The answer sits at the box's edge, not in a page's wide margins. */}
               <div className="h-full rounded-lg border bg-accent/30 [--mf-padding:0.625rem_1rem_0.625rem_1.25rem] [&_.tiptap-word-count]:hidden">
                 {/* What it answers, small at the top: the question is on the other side now. */}
-                <p className="px-5 pt-3 text-xs text-muted-foreground">{asked}</p>
+                <p className="px-5 pt-3 text-xs text-muted-foreground"><WithPictures text={asked} small /></p>
                 <HaligtreeEditor
                   defaultContent={(card.body as JSONContent | string | null) ?? ''}
                   readOnly
