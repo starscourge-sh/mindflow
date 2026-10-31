@@ -143,10 +143,15 @@ const takeFocus = (): string | null => ((id) => ((asked = null), id))(asked)
  * scroll left to the page around it. `focus` lights a note up and brings it
  * close once drawn.
  */
-export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, replay, className, children }: {
+export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly, replay, className, children }: {
   map: Graph
-  onOpen: (type: string, id: string) => void
+  /** `aside`: ⌥ was held, to open it beside. */
+  onOpen: (type: string, id: string, aside?: boolean) => void
   centre?: string
+  /** One dot besides the middle drawn as the one you are on: a note on its book's map. */
+  you?: string
+  /** A line more for a dot's hover card, by its id ("p. 12"). */
+  about?: Record<string, string>
   fit?: React.RefObject<() => void>
   /** Glide to a note and light it, as a find does; false when it is not on the map. */
   fly?: React.RefObject<(id: string) => boolean>
@@ -203,8 +208,8 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, replay, cla
     if (!el || !frame || !map.nodes.length) return
     const context = el.getContext('2d')!
     const dots: Dot[] = map.nodes.map((node) => {
-      const r = node.id === centre ? 8 : Math.round(radius(node.links, small) * 2) / 2
-      return { ...node, r, rings: ringsOf(node.links, small), px: 0, py: 0, ...placed.current.get(node.id), ...(node.id === centre ? { fx: 0, fy: 0 } : {}) }
+      const r = node.id === centre ? 8 : node.id === you ? 6.5 : Math.round(radius(node.links, small) * 2) / 2
+      return { ...node, r, rings: node.id === you ? 1 : ringsOf(node.links, small), px: 0, py: 0, ...placed.current.get(node.id), ...(node.id === centre ? { fx: 0, fy: 0 } : {}) }
     })
     const byId = new Map(dots.map((dot) => [dot.id, dot]))
     const lines: Line[] = map.edges.map(([a, b, weight]) => ({ source: byId.get(a)!, target: byId.get(b)!, weight: weight ?? 1 }))
@@ -241,7 +246,7 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, replay, cla
       dark = 0.2126 * r + 0.7152 * g + 0.0722 * b < 128
       sprites.clear()
     }
-    const tokenOf = (dot: Dot): string => (dot === middle ? 'var(--tt-brand-color-400)' : tintOf(dot))
+    const tokenOf = (dot: Dot): string => (dot === middle || dot.id === you ? 'var(--tt-brand-color-400)' : tintOf(dot))
     // A colour (with lighter and darker steps kept for whatever wants them).
     const shadesOf = (token: string): Shades => {
       let found = shades.get(token)
@@ -1004,7 +1009,7 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, replay, cla
           chime('open')
           // A PDF or a kept article opens in the reader, in the main window, wherever its dot is.
           if (dot.type === 'pdf' || dot.type === 'web') window.api.openInHome(dot.type, dot.id)
-          else onOpen(dot.type === 'capture' ? 'capture' : dot.type, dot.id)
+          else onOpen(dot.type === 'capture' ? 'capture' : dot.type, dot.id, event.altKey)
         }
       }
       point(hit(event), event)
@@ -1062,7 +1067,7 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, replay, cla
       el.removeEventListener('pointerleave', leave)
       el.removeEventListener('wheel', wheel)
     }
-  }, [map, centre]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [map, centre, you]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const kind = hover && kindOf(hover.dot.kind)
   return (
@@ -1072,8 +1077,9 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, replay, cla
         <div ref={card} data-map-tip data-private={hover.dot.private ? '' : undefined} className={cn('pointer-events-none invisible absolute z-10 flex flex-col gap-0.5 rounded-md bg-popover px-2.5 py-1.5 text-xs text-popover-foreground shadow-[0_6px_20px_-6px_rgb(0_0_0/0.5)]', small ? 'max-w-[13rem]' : 'max-w-xs')}>
           <span className="private-text truncate font-medium">{hover.dot.title || 'Untitled'}</span>
           <span className="flex items-center gap-1.5 text-muted-foreground">
-            <span className="size-2 rounded-full" style={{ background: hover.dot.id === centre ? 'var(--tt-brand-color-400)' : tintOf(hover.dot) }} />
-            {hover.dot.id === centre ? (hover.dot.type === 'pdf' ? 'This book' : 'This note') : hover.dot.kind === 'person' ? 'Person' : hover.dot.kind === 'source' ? 'Source' : hover.dot.kind === 'pdf' ? 'PDF' : hover.dot.kind === 'web' ? 'Web article' : kind?.label ?? 'Note'}{hover.dot.tag ? ` · #${hover.dot.tag}` : ''} · {hover.dot.links} {hover.dot.links === 1 ? 'link' : 'links'}
+            <span className="size-2 rounded-full" style={{ background: hover.dot.id === centre || hover.dot.id === you ? 'var(--tt-brand-color-400)' : tintOf(hover.dot) }} />
+            {about?.[hover.dot.id] ? `${about[hover.dot.id]} · ` : ''}
+            {hover.dot.id === you ? 'This note' : hover.dot.id === centre ? (hover.dot.type === 'pdf' ? 'This book' : 'This note') : hover.dot.kind === 'person' ? 'Person' : hover.dot.kind === 'source' ? 'Source' : hover.dot.kind === 'pdf' ? 'PDF' : hover.dot.kind === 'web' ? 'Web article' : kind?.label ?? 'Note'}{hover.dot.tag ? ` · #${hover.dot.tag}` : ''} · {hover.dot.links} {hover.dot.links === 1 ? 'link' : 'links'}
           </span>
         </div>
       )}

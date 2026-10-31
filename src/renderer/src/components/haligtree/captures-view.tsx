@@ -1,6 +1,7 @@
 import { notePowers } from './note-powers'
 import { PropertyStrip } from './property-strip'
 import { SimilarNotes } from './similar-notes'
+import { SameBook, pdfIn } from '@/components/pdf/same-book'
 import { propertySorts } from '@/lib/property-sorts'
 import { ReadsIn } from '@/lib/reads-in'
 import { cloneElement, startTransition, useEffect, useRef, useState } from 'react'
@@ -903,7 +904,9 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
   useOpenNote({ table: 'captures', type: 'capture', id: capture.id, kind: capture.kind, archived: !!capture.archivedAt })
   // Its lineage, its map and the notes like it come the frame after the note's words.
   const later = useAfterFirstPaint()
-  const reopen = (): void => void window.api.captures.save(capture.id, { status: 'open' }).then(() => chime('undo'))
+  // A PDF its words link into: its book's map, with this note lit among the others from it.
+  const pdfOfNote = useLive(() => window.api.captures.get(capture.id).then((one) => pdfIn(one?.body)), null as ReturnType<typeof pdfIn>, [capture.id])
+  const reopen =(): void => void window.api.captures.save(capture.id, { status: 'open' }).then(() => chime('undo'))
   const [who, setWho] = useState(capture.attribution ?? '')
   const [where, setWhere] = useState(capture.medium ?? '')
   useEffect(() => {
@@ -1023,6 +1026,7 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
       <GlossTimeline id={capture.id} />
       {later && <Lineage id={capture.id} onOpen={onOpen} />}
       {later && <LocalGraph id={capture.id} title={capture.label} onOpen={onOpen} />}
+      {later && pdfOfNote && <SameBook pdf={pdfOfNote} here={capture.id} title={capture.medium?.trim() || undefined} />}
       {later && <SimilarNotes id={capture.id} onOpen={onOpen} />}
       {later && <RecentIsland id={capture.id} onOpen={onOpen} />}
       <Island compact title="Details">

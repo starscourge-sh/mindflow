@@ -1,46 +1,19 @@
-import { useEffect, useMemo, useState } from "react"
-import { call } from "@/lib/haligtree"
+import { useMemo } from "react"
 import { chime } from "@/lib/sound"
-import { notes, type MapEdge } from "@/lib/notes"
 import { openApart } from "@/lib/apart"
-import { asideItem, openAside } from "@/lib/split"
+import { asideItem } from "@/lib/split"
 import { RowMenu, copyLinkItem, type RowItem } from "@/components/haligtree/row-menu"
 import { Tip } from "@/components/haligtree/ui"
-import { GraphCanvas, type Graph } from "@/components/haligtree/graph-canvas"
+import { open, pagesOf, useBookGraph, type Cited } from "./same-book"
+export { useCited, type Cited } from "./same-book"
+import { GraphCanvas } from "@/components/haligtree/graph-canvas"
 import { MARK_COLORS, markCss } from "./read-bar"
 import { openPdf } from "./pdf-reader"
-
-/** A note, gem or card that holds a book or links into it: the pages it links to, in order, and the line it does it in. */
-export type Cited = { type: string; id: string; title: string; at: string; pages: number[]; line: string }
-
-/** Every note, gem and card that holds or links into a book, in page order through it; read again when `again` changes. */
-export function useCited(src: string, again?: unknown): Cited[] {
-  const [cited, setCited] = useState<Cited[]>([])
-  useEffect(() => {
-    let live = true
-    const load = (): void => void call<Cited[]>("pdf:cited", src).then((rows) => live && setCited(rows))
-    load()
-    const stop = window.api.captures.onChange(load)
-    return () => {
-      live = false
-      stop()
-    }
-  }, [src, again])
-  return cited
-}
 
 /** Notes and gems: what "In your notes" lists. Cards show on the page bar alone. */
 export const inNotes = (cited: Cited[]): Cited[] => cited.filter((one) => one.type !== "card" && one.type !== "deck")
 
 const kindOf = (type: string): string => (type === "capture" ? "Note" : type === "card" ? "Card" : type === "question" ? "Question" : "Gem")
-const pagesOf = (pages: number[]): string => (!pages.length ? "Holds it" : pages.length === 1 ? `p. ${pages[0]}` : pages.length === 2 ? `pp. ${pages[0]}, ${pages[1]}` : `pp. ${pages[0]}, ${pages[1]} +${pages.length - 2}`)
-
-const open = (one: Pick<Cited, "type" | "id">, aside: boolean): void => {
-  chime("page")
-  if (aside) openAside(one.type, one.id)
-  else window.dispatchEvent(new CustomEvent("haligtree:open", { detail: { type: one.type, id: one.id } }))
-}
-
 /**
  * "In your notes": every note and gem that links into the book, in page order
  * through it, each with its kind, the page it links to and the line it does it
@@ -149,38 +122,16 @@ export function PageBar({ src, name, pages, page, cited, marks, onPage }: { src:
  */
 export function BookMap({ src, title, cited }: { src: string; title: string; cited: Cited[] }): React.JSX.Element | null {
   const around = inNotes(cited)
-  const [all, setAll] = useState<Awaited<ReturnType<typeof notes.map>> | null>(null)
-  const ids = around.map((one) => one.id).join(" ")
-  useEffect(() => {
-    let live = true
-    if (ids) void notes.map().then((map) => live && setAll(map))
-    return () => void (live = false)
-  }, [ids])
-  const graph = useMemo<(Graph & { among: number }) | null>(() => {
-    if (!around.length) return null
-    const known = new Map(all?.nodes.map((node) => [node.id, node]) ?? [])
-    const here = new Set(around.map((one) => one.id))
-    const edges: MapEdge[] = around.map((one) => [src, one.id, Math.max(1, one.pages.length)])
-    const among = (all?.edges ?? []).filter(([a, b]) => a !== src && b !== src && here.has(a) && here.has(b))
-    return {
-      nodes: [
-        { type: "pdf", id: src, title, kind: "pdf", links: around.length },
-        ...around.map((one) => ({ type: one.type, id: one.id, title: one.title || "Untitled", kind: known.get(one.id)?.kind ?? "note", links: known.get(one.id)?.links ?? 1, tag: known.get(one.id)?.tag, tint: known.get(one.id)?.tint })),
-      ],
-      edges: [...edges, ...among],
-      alone: 0,
-      among: among.length,
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [all, ids, src, title])
+  const graph = useBookGraph(src, title, around)
   if (!graph) return null
   const n = around.length
   return (
     <figure className="book-map" data-book-map data-nodes={graph.nodes.length} data-lines={graph.edges.length}>
-      <GraphCanvas map={graph} centre={src} onOpen={(type, id) => open({ type, id }, false)} className="h-[180px]" />
+      <GraphCanvas map={graph} centre={src} onOpen={(type, id, aside) => open({ type, id }, !!aside)} className="h-[180px]" />
       <figcaption className="book-map-says">
         {n} {n === 1 ? "note links" : "notes link"} to this book{graph.among ? `; ${graph.among} ${graph.among === 1 ? "link joins them" : "links join them"} to each other` : ""}.
       </figcaption>
     </figure>
   )
 }
+

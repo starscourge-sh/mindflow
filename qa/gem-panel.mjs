@@ -146,6 +146,47 @@ try {
   await h.keyboard.press('Meta+A'); await h.keyboard.type('Nobody'); await h.keyboard.press('Escape'); await wait(700)
   check('Esc leaves it as it was', (await v('item', gem)).attribution === 'Dee Kay', String((await v('item', gem)).attribution))
 
+  // "From the same book": the book's map, this gem lit, its siblings around it.
+  // Two more gems from the book (pp. 1 and 3); the page the PDF was dropped into holds it too.
+  await v('nugget:from', `First words.\n\n[The Probe Book, p. 1](${src}#page=1&mark=&name=probe-book.pdf)`, { medium: 'The Probe Book', passage: 'p. 1', kind: 'quote' })
+  await v('nugget:from', `Last words.\n\n[The Probe Book, p. 3](${src}#page=3&mark=&name=probe-book.pdf)`, { medium: 'The Probe Book', passage: 'p. 3', kind: 'quote' })
+  await openDetails(gem); await wait(1200)
+  check('"From the same book" is there for a gem from a PDF', (await groups())['From the same book'] !== undefined, JSON.stringify(await groups()))
+  check('and starts folded', (await groups())['From the same book'] === false, JSON.stringify(await groups()))
+  await h.locator('[data-details-group="From the same book"] button[aria-expanded]').click(); await wait(1800)
+  const same = await h.evaluate(() => ({ others: document.querySelector('[data-same-book]')?.dataset.others, says: document.querySelector('[data-same-book-says]')?.textContent }))
+  check('it counts the siblings: the two gems and the page holding the PDF', same.others === '3' && /^3 others from The Probe Book, pages 1 to 3$/.test(same.says ?? ''), JSON.stringify(same))
+  await h.locator('[data-details-group="From the same book"]').scrollIntoViewIfNeeded(); await wait(600)
+  const sameBox = await h.evaluate(() => { const r = document.querySelector('[data-details-group="From the same book"]').getBoundingClientRect(); return { x: r.left - 4, y: r.top - 4, width: r.width + 8, height: r.height + 8 } })
+  for (const name of ['light', 'dark']) { await c.look(name); await wait(500); await h.screenshot({ path: `${shots}/gem-panel-same-book-${name}.png`, clip: sameBox }) }
+  await c.look('light'); await wait(500)
+  // A sibling's dot pointed at says its title and page; a click opens it.
+  const dots = await h.evaluate(() => {
+    const canvas = document.querySelector('[data-same-book] canvas')
+    const { width, height } = canvas
+    const data = canvas.getContext('2d').getImageData(0, 0, width, height).data
+    const dpr = devicePixelRatio, rect = canvas.getBoundingClientRect(), found = []
+    for (let y = 4; y < height - 4; y += 4) for (let x = 4; x < width - 4; x += 4) if (data[(y * width + x) * 4 + 3] > 250) found.push([rect.left + x / dpr, rect.top + y / dpr])
+    return found
+  })
+  let tipped = '', clicked = false
+  for (const [x, y] of dots.filter((_, i) => i % Math.max(1, Math.floor(dots.length / 60)) === 0)) {
+    await h.mouse.move(x, y); await wait(60)
+    const words = await h.evaluate(() => document.querySelector('[data-map-tip]')?.textContent ?? '')
+    if (!/Last words/.test(words)) continue
+    tipped = words
+    await listen()
+    await h.evaluate(() => window.addEventListener('haligtree:open', (event) => window.__heard.push({ name: 'open', detail: event.detail }), { once: true, capture: true }))
+    await h.mouse.click(x, y); await wait(1200)
+    clicked = (await heard()).some((one) => one.name === 'open' && one.detail?.type === 'nugget')
+    break
+  }
+  check('a sibling pointed at says its title and page', /Last words/.test(tipped) && /p\. 3/.test(tipped), tipped)
+  check('a click on a sibling opens it', clicked, '')
+  await openDetails(bare)
+  check('a gem from no PDF has no "From the same book"', (await groups())['From the same book'] === undefined, JSON.stringify(await groups()))
+  await openDetails(gem)
+
   // Light and dark.
   await h.mouse.move(5, 5); await wait(300)
   const panel = h.locator('[data-details-group="Where it came from"]').first()
@@ -164,7 +205,7 @@ try {
   check('an island opened by hand stays open where it is empty', (await groups()).Why === true, JSON.stringify(await groups()))
   await openDetails(gem)
   check('an island folded by hand stays folded where it holds something', (await groups()).Context === false, JSON.stringify(await groups()))
-} finally {
+} catch (error) { console.log(String(error).slice(0, 300), c.errors.slice(-3).join("\n")) } finally {
   await c.close()
 }
 done()
