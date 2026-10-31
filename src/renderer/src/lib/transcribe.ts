@@ -134,6 +134,9 @@ export async function transcribe(editor: Editor, src: string): Promise<void> {
   }
 }
 
+/** The recording's transcript as its lines' words ("[0:12] …"), for its Transcript tab. */
+export const transcriptOf = (editor: Editor, src: string): string[] => wordsAfter(editor, src)?.lines.map((line) => line.textContent) ?? []
+
 /** The recording has its words under it already: the line after it starts with a time. */
 export const hasWords = (editor: Editor, src: string): boolean => {
   return !!wordsAfter(editor, src)?.lines.length

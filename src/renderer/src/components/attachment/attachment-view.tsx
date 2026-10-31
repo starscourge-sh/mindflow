@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import { NodeViewWrapper, useEditorState, type NodeViewProps } from "@tiptap/react"
 import { NodeSelection } from "@tiptap/pm/state"
 import { AlignCenter, AlignLeft, AlignRight, AudioLines, Columns2, ListTree, MoveHorizontal, MoveVertical, PanelLeft, Pause, PictureInPicture2, Play, RectangleVertical, RotateCcw, ScrollText } from "lucide-react"
@@ -21,7 +21,9 @@ import type { PDFDocumentProxy } from "pdfjs-dist"
 import { chime } from "@/lib/sound"
 import { canSplit } from "@/lib/split"
 import { isNodeSelected } from "@/extensions/selected-nodes"
-import { hasWords, isTranscribing, onTranscribing, transcribe } from "@/lib/transcribe"
+import { hasWords, isTranscribing, onTranscribing, transcribe, transcriptOf } from "@/lib/transcribe"
+import { bubblesOf } from "@/lib/bubbles"
+import { playAt } from "@/extensions/line-cards"
 import { Orb } from "@/components/haligtree/orb"
 import { FileText as File, FileText, Fit as Maximize, Volume2, VolumeX } from "@/components/ui/icons"
 
@@ -33,8 +35,8 @@ import { FileText as File, FileText, Fit as Maximize, Volume2, VolumeX } from "@
 export function soundTitle(name: string | null | undefined, seconds: number | null): string {
   const said = /^voice note\b/i.test(name ?? "") || !name ? "Voice note" : name.replace(/\.[a-z0-9]{2,5}$/i, "")
   if (!seconds) return said
-  const whole = Math.floor(seconds)
-  return `${said} · ${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`
+  // Past an hour, 2:00:00, never "120:00".
+  return `${said} · ${clock(seconds)}`
 }
 
 /** 57.3 KB, not 58624. Binary units, because that is what a file manager shows. */
@@ -479,6 +481,8 @@ function AudioBlock(props: NodeViewProps): React.JSX.Element {
     return () => window.removeEventListener("haligtree:transcribe-page", run)
   }, [src]) // eslint-disable-line react-hooks/exhaustive-deps
   const worded = hasWords(props.editor, src)
+  // With words: two tabs under the card, your own writing as it is, or the transcript as speech bubbles.
+  const [tab, setTab] = useState<"thoughts" | "transcript">("thoughts")
   const noWords = !listening && !worded && props.editor.isEditable ? (
     <>
       <span>No transcript</span>
@@ -505,6 +509,21 @@ function AudioBlock(props: NodeViewProps): React.JSX.Element {
           the card, with the way to get them, never a silent nothing. Inside a
           lone card's row it widened the name and pushed the player onto a second
           line; in a run of recordings it sits on the row, beside the name (CSS). */}
+      {worded && !listening && (
+        <div data-voice-tabs contentEditable={false} className="flex flex-col gap-2 pt-1.5">
+          <div role="tablist" className="flex items-center gap-1 text-xs">
+            {(["thoughts", "transcript"] as const).map((one) => (
+              <button key={one} type="button" role="tab" aria-selected={tab === one} data-voice-tab={one} onMouseDown={(event) => event.preventDefault()} onClick={() => setTab(one)}
+                className="cursor-pointer rounded-full px-2.5 py-0.5 text-muted-foreground transition-colors hover:text-foreground aria-selected:bg-accent aria-selected:text-foreground active:scale-[0.97]">
+                {one === "thoughts" ? "My thoughts" : "Transcript"}
+              </button>
+            ))}
+          </div>
+          {/* The bubbles take the plain lines' place while they show: the same words are never on the page twice. */}
+          {tab === "transcript" && <style>{`.ProseMirror [data-words-of="${CSS.escape(src)}"] { display: none; }`}</style>}
+          {tab === "transcript" && <Bubbles lines={transcriptOf(props.editor, src)} play={(at) => playAt(props.editor.view.dom as HTMLElement, src, at)} />}
+        </div>
+      )}
       {noWords && <div data-no-words="under" contentEditable={false} className="flex items-center gap-1.5 px-1 pt-1 text-xs text-muted-foreground">{noWords}</div>}
     </NodeViewWrapper>
   )
@@ -682,5 +701,36 @@ export function AttachmentView(props: NodeViewProps): React.JSX.Element {
         </button>
       </div>
     </NodeViewWrapper>
+  )
+}
+
+/** Shown a page at a time: 300 bubbles stay quick, the rest one press away. */
+const PAGE = 60
+
+/**
+ * A transcript as speech bubbles (lib/bubbles.ts): split where the speaker
+ * paused, each with its time, which plays the recording from there.
+ */
+function Bubbles({ lines, play }: { lines: string[]; play: (at: number) => void }): React.JSX.Element {
+  const key = lines.join("\n")
+  const bubbles = useMemo(() => bubblesOf(key ? key.split("\n") : []), [key])
+  const [shown, setShown] = useState(PAGE)
+  const left = bubbles.length - shown
+  return (
+    <div data-bubbles className="mf-more flex max-h-80 flex-col items-start gap-1.5 overflow-y-auto pr-1">
+      {bubbles.slice(0, shown).map((one, i) => (
+        <button key={i} type="button" data-bubble onMouseDown={(event) => event.preventDefault()} onClick={() => one.at !== null && play(one.at)}
+          className="max-w-[85%] cursor-pointer rounded-2xl rounded-tl-md bg-muted/70 px-3 py-1.5 text-left text-control transition-colors hover:bg-muted active:scale-[0.99]">
+          {one.at !== null && <span className="mr-1.5 text-xs tabular-nums text-muted-foreground">{clock(one.at)}</span>}
+          {one.text}
+        </button>
+      ))}
+      {left > 0 && (
+        <button type="button" data-more-bubbles onMouseDown={(event) => event.preventDefault()} onClick={() => setShown((now) => now + PAGE)}
+          className="cursor-pointer rounded-full px-2.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+          Show {Math.min(PAGE, left)} more ({left} left)
+        </button>
+      )}
+    </div>
   )
 }

@@ -66,7 +66,7 @@ function marks(doc: ProseMirrorNode): DecorationSet {
     if (isAudio(node)) return void (audio = String(node.attrs.src))
     if (!node.isTextblock) return true
     // A transcript's line, starting with its time: quiet, under its recording.
-    if (audio && /^\[(?:\d{1,2}:)?\d{1,2}:[0-5]\d\]/.test(node.textContent)) found.push(Decoration.node(pos, pos + node.nodeSize, { class: "mf-transcript-line" }))
+    if (audio && /^\[(?:\d{1,2}:)?\d{1,2}:[0-5]\d\]/.test(node.textContent)) found.push(Decoration.node(pos, pos + node.nodeSize, { class: "mf-transcript-line", "data-words-of": audio }))
     if (lineCard(lineText(node))) found.push(Decoration.widget(pos + node.nodeSize - 1, mark, { side: 1, key: "line-card", ignoreSelection: true }))
     // A time in a line, "[13:03]", plays the note's video from there; "(p. 14)" opens its PDF at that page.
     // Their tip is given as `data-title-tip`, never `title`: the app's tips
