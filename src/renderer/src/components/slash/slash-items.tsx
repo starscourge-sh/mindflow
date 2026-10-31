@@ -5,6 +5,7 @@ import { isInTable } from '@tiptap/pm/tables'
 import { isValidYoutubeUrl } from '@tiptap/extension-youtube'
 
 import { saveAttachment } from '@/extensions/image-drop'
+import { MicIcon, recordInto } from '@/components/haligtree/voice-note'
 import { FileText } from '@/components/ui/icons'
 import { EXPORTS, exportDocument } from '@/lib/export'
 import { host, said } from '@/lib/host'
@@ -263,6 +264,14 @@ export const slashItems: SlashItem[] = [
     hint: 'attach',
     icon: <Paperclip />,
     run: (editor) => attachFile(editor)
+  },
+  {
+    title: 'Record',
+    group: 'Media',
+    keywords: ['voice', 'audio', 'microphone', 'mic', 'dictate', 'sound'],
+    hint: 'a voice note',
+    icon: <MicIcon />,
+    run: (editor) => void recordInto(editor)
   },
   {
     title: 'PDF',

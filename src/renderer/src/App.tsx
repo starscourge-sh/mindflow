@@ -97,6 +97,7 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable"
 import { Tip, Pressed, untoast } from '@/components/haligtree/ui'
+import { MicIcon, recordAsCapture, recordInto } from '@/components/haligtree/voice-note'
 import { Celebrations } from '@/components/haligtree/celebrate'
 import { Mentions } from '@/components/haligtree/mentions'
 import { Switch } from '@/components/ui/switch'
@@ -1752,6 +1753,7 @@ export default function App(): React.JSX.Element {
           // Everything the box can do, by name and key, as Raycast's ⌘K lists it.
           actions={searching === 'notes' ? [] : [
             { label: 'New capture', keys: '⌘N', run: () => startOver() },
+            { label: 'Record a voice note', hint: 'Kept as a new capture', cue: null, run: () => void recordAsCapture((id) => openAny('capture', id)) },
             { label: 'New question', cue: null, run: () => void startQuestion(openAny) },
             { label: panel ? 'Hide the side panel' : 'Show the side panel', keys: '⌘\\', cue: null, run: () => (setPanel(!panel), quietly(() => setPanel(panel))) },
             ...TABS.map((one, index) => ({ label: `Go to ${({ inbox: 'Inbox', today: 'Tasks', review: 'Review', kept: 'Saved', recent: 'Recent' } as Record<string, string>)[one] ?? one}`, keys: `⌃${index + 1}`, run: () => {
@@ -2167,6 +2169,17 @@ export default function App(): React.JSX.Element {
               )}
               {/* The camera: a whole screen or just an area, as a picture in the note (shot-button.tsx). Out of the way of the first capture's lesson, whose word sits where it is. */}
               {!locked && <span data-lesson="hide" data-under-toast className="inline-flex"><ShotButton onShot={(area) => void attachScreenshot(area)} /></span>}
+              {/* The microphone, beside the camera and in its look: a voice note, kept in the note where the caret is. */}
+              {!locked && (
+                <span data-lesson="hide" data-under-toast className="inline-flex">
+                  <Tip label="Record a voice note">
+                    <button type="button" aria-label="Record a voice note" data-record-button onClick={() => (chime('tap'), editorRef.current && void recordInto(editorRef.current))}
+                      className="relative flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full border border-border text-foreground outline-none transition-[color,background-color,border-color,scale] duration-150 ease-out hover:bg-input/50 active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-ring/30 dark:bg-input/30">
+                      <MicIcon className="size-[15px]" />
+                    </button>
+                  </Tip>
+                </span>
+              )}
               <span className="flex-1" />
               {/* In the sandbox, said here too: a practice box, not your own. */}
               <span data-under-toast className="inline-flex"><SandboxChip /></span>

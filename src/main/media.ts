@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron'
+import { app, ipcMain, systemPreferences } from 'electron'
 import { LABEL, database } from './captures'
 import { dayName } from './dates'
 
@@ -34,7 +34,7 @@ export type Media = {
 type Doc = { type?: string; text?: string; attrs?: Record<string, unknown>; content?: Doc[] }
 
 const STORED = /^(haligtree|mindflow):\/\/assets\/[a-f0-9]{64}\.[a-z0-9]+$/
-const AUDIO = /\.(mp3|m4a|wav|ogg|aac|flac)$/i
+const AUDIO = /\.(mp3|m4a|weba|wav|ogg|aac|flac)$/i
 
 /** What a stored file is, by its ending; null for one Media does not show (a video, a document). */
 export function kindOf(node: 'image' | 'attachment', src: string, name: string): MediaKind | null {
@@ -106,6 +106,16 @@ function mediaIn(body: string | null): Omit<Media, 'type' | 'id' | 'title' | 'pr
 const read = new Map<string, { body: string; found: Omit<Media, 'type' | 'id' | 'title' | 'private' | 'at'>[] }>()
 
 export function registerMedia(): void {
+  // Before a voice note: macOS asks once, with the sentence in electron-builder.yml, and remembers.
+  // True when the microphone may be used; elsewhere than a Mac, Chromium asks for itself.
+  ipcMain.handle('haligtree:mic:ask', async () => {
+    // Chromium's stand-in microphone (a probe's) is no device of the Mac's: nothing to ask.
+    if (process.platform !== 'darwin' || app.commandLine.hasSwitch('use-fake-device-for-media-stream')) return true
+    const now = systemPreferences.getMediaAccessStatus('microphone')
+    if (now === 'granted') return true
+    if (now === 'denied' || now === 'restricted') return false
+    return systemPreferences.askForMediaAccess('microphone')
+  })
   ipcMain.handle('haligtree:media:list', () => {
     const db = database()
     // Only bodies that point into the store are read at all.

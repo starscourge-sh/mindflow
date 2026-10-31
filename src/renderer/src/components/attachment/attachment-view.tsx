@@ -396,7 +396,7 @@ export function AttachmentView(props: NodeViewProps): React.JSX.Element {
   const { src, name, size } = props.node.attrs
   const selected = isNodeSelected(props)
   if (/\.(mp4|m4v|mov|webm)$/i.test(name)) return <VideoBlock {...props} />
-  if (/\.(mp3|m4a|wav|ogg|aac|flac)$/i.test(name)) return <AudioBlock {...props} />
+  if (/\.(mp3|m4a|weba|wav|ogg|aac|flac)$/i.test(name)) return <AudioBlock {...props} />
   if (/\.pdf$/i.test(name)) return <PdfBlock {...props} />
 
   return (

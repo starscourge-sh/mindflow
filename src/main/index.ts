@@ -3722,11 +3722,11 @@ app.whenReady().then(() => {
   // "Error 153"), and Haligtree's pages are files. Say where it is shown from.
   session.defaultSession.webRequest.onBeforeSendHeaders({ urls: ['https://www.youtube-nocookie.com/*', 'https://www.youtube.com/embed/*'] }, (details, done) =>
     done({ requestHeaders: { ...details.requestHeaders, Referer: 'https://haligtree.app/' } }))
-  // Haligtree never listens, and the built app has no microphone sentence for the
-  // Mac to show (electron-builder.yml), so a page asking for sound is told no
-  // here rather than reaching macOS. The camera (a selfie) still goes through.
-  session.defaultSession.setPermissionRequestHandler((_wc, permission, allow, details) =>
-    allow(!(permission === 'media' && 'mediaTypes' in details && details.mediaTypes?.includes('audio'))))
+  // The microphone only for a voice note, which asks macOS first (media.ts,
+  // `mic:ask`, with the sentence in electron-builder.yml); the camera for a
+  // selfie. Only Haligtree's own pages: a web page shown inside never gets either.
+  session.defaultSession.setPermissionRequestHandler((wc, permission, allow) =>
+    allow(permission !== 'media' || /^(file|http:\/\/localhost)/.test(wc.getURL())))
   registerCaptures()
   registerImportConversion()
   // Notes imported before front-matter tags stopped coming in twice: tidied as it starts, a no-op once done.

@@ -31,10 +31,10 @@ mac:
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   # A plain map, so each key lands at the top of Info.plist where macOS reads it.
-  # Haligtree never listens or uses Bluetooth, so Electron's own defaults for those
-  # are taken out (null removes a key) and the Mac never asks for them.
+  # Haligtree listens only while you record a voice note, and never uses Bluetooth, so
+  # Electron's own defaults for the rest are taken out (null removes a key) and the Mac never asks for them.
   extendInfo:
-    NSMicrophoneUsageDescription: null
+    NSMicrophoneUsageDescription: Haligtree uses the microphone only while you record a voice note. The recording is kept in your notes on this Mac and sent nowhere.
     NSAudioCaptureUsageDescription: null
     NSBluetoothAlwaysUsageDescription: null
     NSBluetoothPeripheralUsageDescription: null
