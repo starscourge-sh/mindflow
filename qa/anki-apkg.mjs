@@ -120,6 +120,20 @@ try {
   const shelf = await h.evaluate(() => document.querySelector('[data-deck-shelf]')?.innerText ?? '')
   check('Review › Decks shows the deck, its cover and its counts', /Biology/.test(shelf) && /8 cards/.test(shelf) && await h.evaluate(() => !!document.querySelector('[data-deck] img')), shelf)
   await c.both(join(process.env.QA_SHOTS ?? dir, 'anki-apkg-decks'))
+  // Your own decks and the shared one in one picture: the last of yours over the shared shelf, light and dark.
+  for (const [theme, said] of [['paper', 'light'], ['dark', 'dark']]) {
+    await c.theme(theme)
+    await c.go('review')
+    await h.evaluate(() => document.querySelector('[data-review-tab="decks"]')?.click())
+    await waitFor(() => h.evaluate(() => !!document.querySelector('[data-deck]:not([data-own-deck])')))
+    await h.evaluate(() => document.querySelector('[data-deck]:not([data-own-deck])')?.scrollIntoView({ block: 'center' }))
+    await h.waitForTimeout(900)
+    await h.screenshot({ path: join(process.env.QA_SHOTS ?? dir, `decks-own-and-shared-${said}.png`) })
+  }
+  await c.theme('paper')
+  await c.go('review')
+  await h.evaluate(() => document.querySelector('[data-review-tab="decks"]')?.click())
+  await waitFor(() => h.evaluate(() => !!document.querySelector('[data-deck-gems]')))
   await h.evaluate(() => document.querySelector('[data-deck-gems]')?.click())
   check('"Show in Gems" brings them into Gems', await waitFor(async () => (await inGems()) === 2))
   await waitFor(() => h.evaluate(() => document.querySelector('[data-deck-gems]')?.textContent === 'Keep out of Gems'))
