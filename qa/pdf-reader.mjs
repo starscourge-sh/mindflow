@@ -287,11 +287,19 @@ try {
     return { band: !!one, page: one?.closest('.pdf-page')?.dataset.page }
   })
   check('the kept words are marked on their page', kept.band && kept.page === '3', JSON.stringify(kept))
+  // Kept, it asks "Why keep this?" right there, focused: Return keeps the reason as the gem's own thought.
+  const whyShown = await h.evaluate(() => document.activeElement?.classList.contains('pdf-why-field') ?? false)
+  check('after Keep, "Why keep this?" is there and focused', whyShown, '')
+  await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-why.png` })
+  await h.keyboard.type('the line for chapter two'); await h.keyboard.press('Enter'); await wait(500)
+  check('Return closes it', await h.evaluate(() => !document.querySelector('.pdf-why-field')), '')
   const marks = await v('pdf:highlights', pdfSrc)
   check('the highlight is saved with its page and words', marks.length === 1 && marks[0].page === 3 && marks[0].quote === 'quiet sentence worth keeping', JSON.stringify(marks))
   const gem = marks[0]?.gemId ? await v('item', marks[0].gemId) : null
   const body = JSON.stringify(gem?.body ?? '')
   check('Keep made a gem holding the quote', /quiet sentence worth keeping/.test(body), body.slice(0, 200))
+  const gemWhy = (await v('glosses', marks[0]?.gemId)).map((one) => one.body)
+  check('the reason is kept as the gem\'s thought', gemWhy.includes('the line for chapter two'), JSON.stringify(gemWhy))
   // The book is the gem's source and the page its place, never a person called "The Probe Book, p. 3"; it is a quote.
   check('the gem names the book as its source and the page as its place', gem?.medium === 'The Probe Book' && gem?.passage === 'p. 3' && !gem?.attribution && gem?.kind === 'quote', JSON.stringify({ medium: gem?.medium, passage: gem?.passage, attribution: gem?.attribution, kind: gem?.kind }))
   check('the gem links back to the page and mark', body.includes(`#page=3&mark=${marks[0]?.id}`), body.slice(0, 300))
@@ -397,7 +405,9 @@ try {
   const lookedUp = await h.evaluate(async () => (await window.api.captures.find('quiet')).filter((one) => one.type === 'capture').map((one) => one.label))
   check('Save keeps it as a Lookup', lookedUp.some((one) => /^Quiet/.test(one)), JSON.stringify(lookedUp))
   const keptBody = await h.evaluate(async () => { const found = (await window.api.captures.find('quiet')).find((one) => one.type === 'capture' && /^Quiet/.test(one.label)); return found ? JSON.stringify((await window.api.captures.get(found.id))?.body ?? '') : '' })
-  check('with why, the sentence round the words, and where it was looked up', /for the essay on silence/.test(keptBody) && /A quiet sentence worth keeping/.test(keptBody) && /Looked up in/.test(keptBody) && /The Probe Book, p. 3/.test(keptBody), keptBody.slice(0, 300))
+  check('with the sentence round the words and where it was looked up', /A quiet sentence worth keeping/.test(keptBody) && /Looked up in/.test(keptBody) && /The Probe Book, p. 3/.test(keptBody), keptBody.slice(0, 300))
+  const lookupWhy = await h.evaluate(async () => { const found = (await window.api.captures.find('quiet')).find((one) => one.type === 'capture' && /^Quiet/.test(one.label)); return found ? (await window.api.haligtree('glosses', found.id)).map((one) => one.body) : [] })
+  check('and why, as its own thought', lookupWhy.includes('for the essay on silence'), JSON.stringify(lookupWhy))
   await h.keyboard.press('Escape'); await wait(300)
   check('Esc puts the card away', await h.evaluate(() => !document.querySelector('.look-up')), '')
   await h.evaluate(() => getSelection().removeAllRanges())

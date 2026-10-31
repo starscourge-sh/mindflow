@@ -9,7 +9,7 @@ import { host, said } from "@/lib/host"
 import { canSplit, keysHere, usePane } from "@/lib/split"
 import { chime } from "@/lib/sound"
 import { cue } from "@/lib/cues"
-import { MarkMenu, PickedMenu, ReadBar, cited, lastColor, readKey, rememberColor, type MarkColor, type ReadActions } from "./read-bar"
+import { MarkMenu, PickedMenu, ReadBar, WhyAfter, cited, lastColor, readKey, rememberColor, type MarkColor, type ReadActions } from "./read-bar"
 import { PdfRail, PdfThumb, type RailTab } from "./pdf-rail"
 import { ReadDetails } from "./pdf-details"
 import { LookUpCard, type LookedUpIn } from "./look-up"
@@ -282,6 +282,8 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     // The book is the gem's source and the page its place; its author, when the file names one, who said it.
     return call<string>("nugget:from", `${mark.quote}\n\n[${where}](${pdfLink(src, name, mark.page, mark.id)})`, { attribution: author || null, medium: title, passage: `p. ${mark.page}`, kind: "quote" })
   }
+  // Just kept as a gem: "Why keep this?" where the words were, for its gem.
+  const [whyFor, setWhyFor] = useState<{ id: string; x: number; y: number } | null>(null)
   /** The picked words marked in a colour; kept as a gem too when asked. */
   const mark = async (color: MarkColor, gem: boolean): Promise<void> => {
     if (!picked) return
@@ -289,6 +291,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     const gemId = gem ? await gemOf({ id, page: picked.page, quote: picked.quote }) : null
     await call("pdf:highlight", src, { id, page: picked.page, quote: picked.quote, start: picked.start, end: picked.end, gemId, color })
     setMarks((all) => [...all, { id, page: picked.page, quote: picked.quote, start: picked.start, end: picked.end, gemId, color }])
+    if (gemId) setWhyFor({ id: gemId, x: picked.x, y: picked.y })
     getSelection()?.removeAllRanges()
     setPicked(null)
     chime("saved")
@@ -333,7 +336,12 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     setMarks((all) => all.map((each) => (each.id === one.id ? { ...each, ...to } : each)))
   }
   const keepMark = async (one: PdfMark): Promise<void> => {
-    await change(one, { gemId: await gemOf(one) })
+    const gemId = await gemOf(one)
+    await change(one, { gemId })
+    // "Why keep this?" over the highlight itself.
+    const band = scroller.current?.querySelector<HTMLElement>(`.pdf-mark[data-mark="${one.id}"]`)?.getBoundingClientRect()
+    const frame = scroller.current?.getBoundingClientRect()
+    if (band && frame && scroller.current) setWhyFor({ id: gemId, x: band.left + band.width / 2 - frame.left, y: band.top - frame.top + scroller.current.scrollTop })
     chime("saved")
     said("Kept as a gem")
   }
@@ -551,7 +559,8 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
                 })
               }}
             />
-            {picked && !looking && <ReadBar at={picked} actions={actions} />}
+            {picked && !looking && !whyFor && <ReadBar at={picked} actions={actions} />}
+            {whyFor && <WhyAfter at={whyFor} onSave={(why) => void call("gloss", whyFor.id, why).then(() => said("Why kept with the gem"))} onDone={() => setWhyFor(null)} />}
             {looking && <LookUpCard words={looking.words} at={looking} from={looking.from} onClose={() => setLooking(null)} />}
           </div>
         </ContextMenuTrigger>

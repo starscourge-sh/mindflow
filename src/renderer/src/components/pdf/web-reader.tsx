@@ -18,7 +18,7 @@ import { chime } from '@/lib/sound'
 import { cue } from '@/lib/cues'
 import { articleLink, openArticle, takeArticleFlash } from './pdf-reader'
 import { LookUpCard, type LookedUpIn } from './look-up'
-import { MARK_COLORS, MarkMenu, PickedMenu, ReadBar, cited, lastColor, markCss, readKey, rememberColor, type MarkColor, type ReadActions } from './read-bar'
+import { MARK_COLORS, MarkMenu, PickedMenu, ReadBar, WhyAfter, cited, lastColor, markCss, readKey, rememberColor, type MarkColor, type ReadActions } from './read-bar'
 import { offsetsIn, rangeOf, type PdfMark } from './pdf-pages'
 import {
   ContextMenu,
@@ -150,6 +150,8 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
       // The article is the gem's source; its byline, when it has one, who said it.
       { attribution: byline() || null, medium: whereFrom(), kind: 'quote' }
     )
+  // Just kept as a gem: "Why keep this?" where the words were, for its gem.
+  const [whyFor, setWhyFor] = useState<{ id: string; x: number; y: number } | null>(null)
   /** The picked words marked in a colour; kept as a gem too when asked. */
   const mark = async (color: MarkColor, gem: boolean): Promise<void> => {
     if (!picked || !article) return
@@ -168,6 +170,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     }
     await call('pdf:highlight', href, made)
     setMarks((all) => [...all, made])
+    if (gemId) setWhyFor({ id: gemId, x: picked.x, y: picked.y })
     getSelection()?.removeAllRanges()
     setPicked(null)
     chime('saved')
@@ -209,7 +212,12 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     setMarks((all) => all.map((each) => (each.id === one.id ? { ...each, ...to } : each)))
   }
   const keepMark = async (one: PdfMark): Promise<void> => {
-    await change(one, { gemId: await gemOf({ id: one.id, quote: one.quote.replace(/\s+/g, ' ').trim() }) })
+    const gemId = await gemOf({ id: one.id, quote: one.quote.replace(/\s+/g, ' ').trim() })
+    await change(one, { gemId })
+    // "Why keep this?" over the highlight itself.
+    const band = drawn.current.find((each) => each.mark.id === one.id)?.range.getBoundingClientRect()
+    const frame = scroller.current?.getBoundingClientRect()
+    if (band && frame && scroller.current) setWhyFor({ id: gemId, x: band.left + band.width / 2 - frame.left, y: band.top - frame.top + scroller.current.scrollTop })
     chime('saved')
     said('Kept as a gem')
   }
@@ -553,7 +561,10 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
                 </>
               )}
             </article>
-            {picked && !looking && <ReadBar at={picked} actions={actions} />}
+            {picked && !looking && !whyFor && <ReadBar at={picked} actions={actions} />}
+            {whyFor && (
+              <WhyAfter at={whyFor} onSave={(why) => void call('gloss', whyFor.id, why).then(() => said('Why kept with the gem'))} onDone={() => setWhyFor(null)} />
+            )}
             {looking && (
               <LookUpCard words={looking.words} at={looking} from={looking.from} onClose={() => setLooking(null)} />
             )}

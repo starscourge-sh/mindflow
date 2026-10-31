@@ -23,6 +23,9 @@ export function LookUpCard({ words, at, from, onClose }: { words: string; at: { 
   const [wiki, setWiki] = useState<Wiki | "looking">("looking")
   const [why, setWhy] = useState("")
   const [kept, setKept] = useState<string | null>(null)
+  // The Save last pointed at: Enter in "Why?" saves that one.
+  const [aim, setAim] = useState<"dictionary" | "wikipedia" | null>(null)
+  const whyField = useRef<HTMLInputElement>(null)
   const card = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
   useLayoutEffect(() => setWidth(card.current?.offsetWidth ?? 0), [])
@@ -51,7 +54,6 @@ export function LookUpCard({ words, at, from, onClose }: { words: string; at: { 
       type: "doc",
       content: [
         { type: "paragraph", content: [text(word)] },
-        ...(why.trim() ? [{ type: "paragraph", content: [text(`Why: ${why.trim()}`)] }] : []),
         ...(from.sentence ? [{ type: "blockquote", content: [{ type: "paragraph", content: [text(from.sentence)] }] }] : []),
         { type: "paragraph", content: [text("Looked up in "), text(from.where, from.link)] },
         ...(page ? [{ type: "paragraph", content: [text("From "), text("Wikipedia", page.url), text(", CC BY-SA")] }] : []),
@@ -60,6 +62,8 @@ export function LookUpCard({ words, at, from, onClose }: { words: string; at: { 
     const id = await window.api.captures.create({ kind: "word", title: word, body, medium: from.where })
     await notes.setField("captures", id, "definition", found ? found.definition : page!.extract)
     if (found?.example) await notes.setField("captures", id, "example", found.example)
+    // Why it was kept: a line of its own beside it, as any thought on a note is.
+    if (why.trim()) await call("gloss", id, why.trim())
     setKept(what)
     chime("saved")
     said(`“${word}” kept in Lookups`)
@@ -74,6 +78,22 @@ export function LookUpCard({ words, at, from, onClose }: { words: string; at: { 
           <X className="size-3.5" />
         </button>
       </div>
+      <input
+        ref={whyField}
+        className="look-up-why"
+        type="text"
+        placeholder="Why look it up? (optional, kept with what you save)"
+        aria-label="Why"
+        value={why}
+        onChange={(event) => setWhy(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key !== "Enter") return
+          event.preventDefault()
+          const can = (what: "dictionary" | "wikipedia"): boolean => (what === "wikipedia" ? wiki !== "looking" && !!wiki && "extract" in wiki : meaning !== "looking" && !!meaning && "found" in meaning)
+          const pick = aim && can(aim) ? aim : can("dictionary") ? "dictionary" : can("wikipedia") ? "wikipedia" : null
+          if (pick) void save(pick)
+        }}
+      />
       {one && (
         <section className="look-up-section" data-look="dictionary">
           <h4 className="look-up-label">Dictionary</h4>
@@ -86,7 +106,7 @@ export function LookUpCard({ words, at, from, onClose }: { words: string; at: { 
                 {meaning.found.definition}
               </p>
               {meaning.found.example && <p className="look-up-example">“{meaning.found.example}”</p>}
-              <button type="button" className="look-up-save" disabled={kept === "dictionary"} onClick={() => void save("dictionary")}>
+              <button type="button" className="look-up-save" disabled={kept === "dictionary"} onPointerEnter={() => (setAim("dictionary"), whyField.current?.focus())} onClick={() => void save("dictionary")} title="Save  ↵ in “Why?”">
                 {kept === "dictionary" ? "Kept in Lookups" : "Save"}
               </button>
             </>
@@ -109,7 +129,7 @@ export function LookUpCard({ words, at, from, onClose }: { words: string; at: { 
             </p>
             <p className="look-up-extract">{wiki.extract}</p>
             <div className="look-up-row">
-              <button type="button" className="look-up-save" disabled={kept === "wikipedia"} onClick={() => void save("wikipedia")}>
+              <button type="button" className="look-up-save" disabled={kept === "wikipedia"} onPointerEnter={() => (setAim("wikipedia"), whyField.current?.focus())} onClick={() => void save("wikipedia")} title="Save  ↵ in “Why?”">
                 {kept === "wikipedia" ? "Kept in Lookups" : "Save"}
               </button>
               <a className="look-up-link" href={wiki.url} target="_blank" rel="noopener noreferrer">
@@ -124,7 +144,6 @@ export function LookUpCard({ words, at, from, onClose }: { words: string; at: { 
           <p className="look-up-quiet">Wikipedia has no article by that name.</p>
         )}
       </section>
-      <input className="look-up-why" type="text" placeholder="Why? (optional, kept with what you save)" aria-label="Why" value={why} onChange={(event) => setWhy(event.target.value)} />
     </div>
   )
 }

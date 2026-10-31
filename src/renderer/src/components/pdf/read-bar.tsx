@@ -194,3 +194,46 @@ function ColourRow({ on, onPick }: { on: string | null | undefined; onPick: (col
     </div>
   )
 }
+
+/**
+ * Right after words are kept as a gem, where they were: "Why keep this?" on
+ * one line, focused, so a reason costs a few words and a Return. Esc, or
+ * clicking away, leaves it unsaid: the book, page and words are kept anyway.
+ * The reason is the gem's own thought, as any line written on a gem is.
+ */
+export function WhyAfter({ at, onSave, onDone }: { at: { x: number; y: number }; onSave: (why: string) => void; onDone: () => void }): React.JSX.Element {
+  const box = useRef<HTMLDivElement>(null)
+  const [width, setWidth] = useState(0)
+  useLayoutEffect(() => setWidth(box.current?.offsetWidth ?? 0), [])
+  const [why, setWhy] = useState("")
+  return (
+    <div ref={box} className="pdf-keep-bar pdf-why" style={{ left: Math.max(8, at.x - width / 2), top: Math.max(8, at.y - 48) }}>
+      <Toolbar variant="floating">
+        <span className="pdf-why-kept">
+          <Gem className="tiptap-button-icon" />
+          Kept
+        </span>
+        <input
+          autoFocus
+          className="pdf-why-field"
+          type="text"
+          aria-label="Why keep this"
+          placeholder="Why keep this? (optional)"
+          value={why}
+          onChange={(event) => setWhy(event.target.value)}
+          onBlur={onDone}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault()
+              if (why.trim()) onSave(why.trim())
+              onDone()
+            } else if (event.key === "Escape") {
+              event.preventDefault()
+              onDone()
+            }
+          }}
+        />
+      </Toolbar>
+    </div>
+  )
+}
