@@ -31,7 +31,7 @@ export function AnotherWay({ card, onClose }: { card: Due; onClose: () => void }
       setQuestion('')
       setAnswer('')
       ask.current?.focus()
-      toast('A new card on the same thing: it comes up as a new card', () => void haligtree.unlift('nugget', fresh).then(() => setMade((n) => Math.max(0, n - 1))))
+      toast('Card made: it comes up in Review as a new one', () => void haligtree.unlift('nugget', fresh).then(() => setMade((n) => Math.max(0, n - 1))), 'success', undefined, { type: 'nugget', id: fresh, title: question })
     })
   }
   const keys = (event: React.KeyboardEvent<HTMLTextAreaElement>, next?: () => void): void => {

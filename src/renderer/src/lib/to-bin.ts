@@ -84,7 +84,7 @@ export async function moveToBin(refs: BinRef[], onUndo?: () => void): Promise<nu
     void Promise.all(undos.map((one) => one())).then(() => (onUndo?.(), window.dispatchEvent(new CustomEvent('haligtree:came-back', { detail: going.map((one) => one.id) }))))
   }
   last = { ids: going.map((one) => one.id), undo, at: Date.now(), page: pageInFront() }
-  toast(`${saidOf(going.length)}${extra ? `: ${extra}` : ''}`, undo, 'success', seeTheBin)
+  toast(`${saidOf(going.length)}${extra ? `: ${extra}` : ''}`, undo, 'success', seeTheBin, { type: 'view', id: 'discarded' })
   return going.length
 }
 

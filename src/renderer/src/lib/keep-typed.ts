@@ -21,12 +21,12 @@ export async function keepTyped(as: Keep, text: string, open: (type: string, id:
   if (as === 'question') {
     const id = await haligtree.newQuestion(text)
     chime('hold')
-    toast('Kept as a question: add clues as they come', () => void haligtree.dropQuestion(id).then(() => back?.(text)))
+    toast('Kept as a question: add clues as they come', () => void haligtree.dropQuestion(id).then(() => back?.(text)), 'success', undefined, { type: 'question', id, title: text })
     return open('question', id)
   }
   const id = await window.api.captures.create({ kind: 'note', body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] } })
   chime('noted')
   // Undone, it goes to the Bin like any note let go, never lost by a slip.
-  toast('Kept as a note in your Inbox', () => void window.api.captures.save(id, { status: 'discarded' }).then(() => back?.(text)))
+  toast('Kept in the Inbox', () => void window.api.captures.save(id, { status: 'discarded' }).then(() => back?.(text)), 'success', undefined, { type: 'capture', id, title: text })
   open('capture', id)
 }

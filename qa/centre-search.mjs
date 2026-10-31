@@ -113,7 +113,7 @@ try {
   check('Enter keeps it as a note in the Inbox', note?.status === 'open' && note?.kind === 'note', note ? `${note.kind} ${note.status}` : 'none')
   const opened = await h.evaluate(() => [...document.querySelectorAll('.tiptap.ProseMirror')].some((one) => one.textContent?.includes('xqzv plover nothing')))
   check('and opens it to write more', opened)
-  const toastSaid = await h.evaluate(() => document.body.textContent?.includes('Kept as a note in your Inbox'))
+  const toastSaid = await h.evaluate(() => document.body.textContent?.includes('Kept in the Inbox'))
   check('and says so, with Undo', toastSaid)
 
   await keepAs('zzqv ring the plumber', 1)

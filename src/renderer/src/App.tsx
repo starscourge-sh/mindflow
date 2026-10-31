@@ -2074,7 +2074,7 @@ export default function App(): React.JSX.Element {
                 }}
                 onNewQuestion={(name) => void haligtree.newQuestion(name).then((id) => {
                   chime('hold')
-                  toast(`Saved as a question: ${quoted(name, 36)}`, () => void haligtree.dropQuestion(id))
+                  toast(`Kept as a question: ${quoted(name, 36)}`, () => void haligtree.dropQuestion(id), 'success', undefined, { type: 'question', id, title: name })
                 })}
               />
             )}

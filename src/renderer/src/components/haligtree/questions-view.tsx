@@ -57,7 +57,7 @@ export async function startQuestion(open: (type: string, id: string) => void): P
   if (!title) return
   const id = await haligtree.newQuestion(title)
   chime('hold')
-  toast('Saved as a question: add clues as they come', () => void haligtree.dropQuestion(id))
+  toast('Kept as a question: add clues as they come', () => void haligtree.dropQuestion(id), 'success', undefined, { type: 'question', id, title })
   open('question', id)
 }
 

@@ -62,7 +62,7 @@ export async function makeTask(
   chime(made.also?.length ? 'promote' : made.existed ? 'nope' : 'noted')
   const words = made.said ? `Made ${made.said}${joinedSaid(joined)}` : taskSaid(made, typeof said === 'function' ? await said(made) : said)
   toast(words, () => void Promise.all(all.map((one) => haligtree.unmakeTask(one.id, one.existed, links, reopen))).then(() => onUndo?.()), 'success',
-    made.also?.length ? undefined : { label: 'Open', key: 'O', run: () => window.api.openInHome('task', made.id) })
+    made.also?.length ? undefined : { label: 'Open', key: 'O', run: () => window.api.openInHome('task', made.id) }, made.also?.length ? undefined : { type: 'task', id: made.id })
   return made
 }
 /** ". 2 were already on your list, so they joined those tasks", or nothing. */

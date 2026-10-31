@@ -64,7 +64,7 @@ export function LookUpCard({ words, at, from, onClose }: { words: string; at: { 
       const id = await window.api.captures.create({ kind: "word", body: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: words }] }] }, markdown: words, ...(from.origin ? { origin: from.origin } : {}) })
       setKept({ id, asking: true })
       chime("saved")
-      return said("Kept in Lookups, asked: write the answer when you find it")
+      return said("Kept in Lookups, asked: write the answer when you find it", true, { type: "capture", id, title: words })
     }
     const word = found ? words : page!.title
     const text = (value: string, link?: string): Record<string, unknown> => ({ type: "text", text: value, ...(link ? { marks: [{ type: "link", attrs: { href: link } }] } : {}) })
@@ -83,7 +83,7 @@ export function LookUpCard({ words, at, from, onClose }: { words: string; at: { 
     if (found?.example) await notes.setField("captures", id, "example", found.example)
     setKept({ id, asking: true })
     chime("saved")
-    said(`“${word}” kept in Lookups`)
+    said(`Kept in Lookups: “${word}”`, true, { type: "capture", id, title: word })
   }
   const done = (): void => setKept((now) => now && { ...now, asking: false })
 
