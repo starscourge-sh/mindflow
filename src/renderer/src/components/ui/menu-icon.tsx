@@ -7,7 +7,7 @@ import {
   Library, Lightbulb, Link, List, ListChecks, ListStart, Lock, LockOpen, LogOut, Map as MapIcon, Maximize2, MessageCircleQuestion, MessageSquare, Minimize2, Monitor,
   MonitorUp, MoveRight, NotebookText, Palette, Scissors, Pause, Play, Scale, PanelLeft, PanelRight, Pencil, Pin, PinOff, Plus, Quote, Repeat, RotateCcw, Search, Settings, Shapes, Shield,
   ShieldCheck, Smile, Snowflake, Sparkles, SquareCheck, SquareKanban, SquarePen, Star, StickyNote, Sun, Tag, Target, Timer, Trash2, Type, Undo2, Ungroup, Upload,
-  ThumbsDown, ThumbsUp, User, Video, Volume2, VolumeX, WandSparkles, Wrench, X, Zap, PenLine, SpellCheck, type LucideIcon
+  ThumbsDown, ThumbsUp, Unlink, User, Video, Volume2, VolumeX, WandSparkles, Wrench, X, Zap, PenLine, SpellCheck, type LucideIcon
 } from 'lucide-react'
 
 /**
@@ -19,6 +19,8 @@ import {
 const RULES: [RegExp, LucideIcon][] = [
   // A picture's quick look (Space), and its caption: the words under it.
   [/^look$/i, Eye],
+  // A link taken off its words: the words stay, so never the Bin's can.
+  [/^remove link/i, Unlink],
   [/^turn it into/i, WandSparkles],
   // Menu lines that once fell back to the dot while the lines beside them had a drawing.
   [/^pause$/i, Pause],

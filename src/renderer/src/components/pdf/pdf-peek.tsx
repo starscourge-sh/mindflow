@@ -1,6 +1,7 @@
 import * as React from "react"
 import { FLOAT } from "@/lib/float"
 import { cn } from "@/lib/cn"
+import { hideForMenus, menuShowing } from "@/lib/menu-showing"
 import { pdfCover } from "./pdf-cover"
 import { loadPdf } from "./pdf-pages"
 import { openPdf } from "./pdf-reader"
@@ -95,6 +96,8 @@ export function PdfPeek(): React.JSX.Element | null {
       })
     }
     const over = (event: PointerEvent): void => {
+      // Never over a menu: one open is what is being read (lib/menu-showing.ts).
+      if (menuShowing()) return
       const found = pdfAt(event.target as Element | null)
       if (found && found.target !== on.current && !card.current?.contains(found.target)) show(found.target, found)
     }
@@ -134,7 +137,9 @@ export function PdfPeek(): React.JSX.Element | null {
     addEventListener("pointerdown", press, true)
     addEventListener("keydown", away, true)
     addEventListener("blur", away)
+    const stop = hideForMenus(away)
     return () => {
+      stop()
       removeEventListener("pointerover", over, true)
       removeEventListener("pointerout", out, true)
       removeEventListener("pointermove", along, true)

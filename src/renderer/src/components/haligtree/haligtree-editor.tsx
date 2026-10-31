@@ -228,6 +228,8 @@ import { TableMenu } from "@/components/table/table-menu"
 import { TableControls } from "@/components/table/table-controls"
 import { BlockMenu, type BlockTarget } from "@/components/turn-into/block-menu"
 import { SpellingMenu, misspeltAt, type Misspelling } from "@/components/turn-into/spelling"
+import { clickedAt, type Clicked } from "@/components/turn-into/clicked"
+import { hideForMenus, menuShowing } from "@/lib/menu-showing"
 import { SpellPill } from "@/components/turn-into/spell-pill"
 import { WordCount } from "@/components/count/word-count"
 import { WordAim } from "@/components/count/word-aim"
@@ -843,6 +845,8 @@ function Surface({
   const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null)
   // A right-click on a misspelt word, whose suggestions head that menu.
   const [spelling, setSpelling] = useState<Misspelling | null>(null)
+  /** What a right-click landed on (a link, a PDF, picked words): its lines lead the menu. */
+  const [clicked, setClicked] = useState<Clicked | null>(null)
   // The plugin hides its handle by writing inline `visibility`, instantly, from
   // several different paths. Watching that one attribute catches all of them -
   // listening to `onNodeChange` alone left the handle stuck on screen. We turn
@@ -1567,6 +1571,7 @@ function Surface({
       blockTarget.current = { pos, name: node.type.name, level: headingRank(node) ?? undefined }
       setMenuAt({ x: event.clientX, y: event.clientY })
       setSpelling(misspeltAt(editor, event.clientX, event.clientY))
+      setClicked(clickedAt(editor, event))
       setTimeout(() => setMenuOpen(true))
     }
     // Capture, so this runs before the handle's own listener further down.
@@ -1892,6 +1897,7 @@ function Surface({
               onClick={() => {
                 setMenuAt(null)
                 setSpelling(null)
+                setClicked(null)
                 setMenuOpen(true)
               }}
             >
@@ -1902,6 +1908,7 @@ function Surface({
               editor={editor}
               targetRef={blockTarget}
               spelling={spelling}
+              clicked={clicked}
               at={menuAt}
               open={menuOpen}
               onOpenChange={setMenuOpen}
@@ -2009,7 +2016,8 @@ function LinkPreview({ editor }: { editor: Editor | null }): React.JSX.Element |
 
     const show = (event: Event): void => {
       const anchor = (event.target as HTMLElement | null)?.closest?.("a[href]")
-      if (!(anchor instanceof HTMLAnchorElement)) return hide()
+      // Never over a menu: one open is what is being read (lib/menu-showing.ts).
+      if (!(anchor instanceof HTMLAnchorElement) || menuShowing()) return hide()
 
       const box = anchor.getBoundingClientRect()
       setLink({
@@ -2027,8 +2035,10 @@ function LinkPreview({ editor }: { editor: Editor | null }): React.JSX.Element |
     // Capture, because the thing that scrolls is inside the editor rather than
     // the window, and a box pinned to the viewport would be left behind.
     window.addEventListener("scroll", hide, true)
+    const stop = hideForMenus(hide)
 
     return () => {
+      stop()
       root.removeEventListener("pointerover", show)
       root.removeEventListener("pointerleave", hide)
       window.removeEventListener("scroll", hide, true)

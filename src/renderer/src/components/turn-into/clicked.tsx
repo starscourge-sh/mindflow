@@ -1,0 +1,231 @@
+import { getMarkRange, type Editor } from "@tiptap/core"
+import { TextSelection } from "@tiptap/pm/state"
+
+import { DropdownMenuItem } from "@/components/tiptap-ui-primitive/dropdown-menu"
+import { MenuGlyph } from "@/components/ui/menu-icon"
+import { removeLink } from "@/components/haligtree/link-editor"
+import { copyLink } from "@/components/haligtree/row-menu"
+import { ask } from "@/components/haligtree/ui"
+import { openPdf } from "@/components/pdf/pdf-reader"
+import { isWebPage, openArticle } from "@/components/pdf/web-reader"
+import { haligtree } from "@/lib/haligtree"
+import { host, said } from "@/lib/host"
+import { saveLookup } from "@/lib/lookups"
+import { canSplit, openAside } from "@/lib/split"
+import { openApart } from "@/lib/apart"
+import { chime } from "@/lib/sound"
+
+/**
+ * What a right-click landed on, read once at the click: its own lines go at
+ * the top of the block menu, above "Turn into" and the block's lines, as a
+ * right-click anywhere else in a Mac app puts the clicked thing first.
+ */
+export type Clicked =
+  | { kind: "note"; pos: number; id: string; label: string; heading: string; text: string }
+  | { kind: "web"; from: number; to: number; href: string }
+  | { kind: "pdf"; from: number | null; to: number | null; href: string | null; src: string; name: string; page: number }
+  | { kind: "words"; from: number; to: number; words: string }
+
+/** A link into one of the book's PDFs: `haligtree://assets/….pdf#page=3&name=…`. */
+const PDF_LINK = /^((?:haligtree|mindflow):\/\/assets\/[^#?]+\.pdf)(?:#(.*))?$/i
+
+/** The link mark's whole run around `pos`, as one range. */
+function linkRange(editor: Editor, pos: number): { from: number; to: number } | null {
+  const type = editor.schema.marks.link
+  if (!type) return null
+  for (const at of [pos, pos + 1]) {
+    if (at < 0 || at > editor.state.doc.content.size) continue
+    const range = getMarkRange(editor.state.doc.resolve(at), type)
+    if (range) return range
+  }
+  return null
+}
+
+/** Read what is under the pointer of a right-click: a link, a PDF, or the words picked. Null for a plain line. */
+export function clickedAt(editor: Editor, event: MouseEvent): Clicked | null {
+  const target = event.target instanceof Element ? event.target : null
+  const view = editor.view
+  const note = target?.closest<HTMLElement>("a[data-note]")
+  if (note && view.dom.contains(note)) {
+    const pos = view.posAtDOM(note, 0) - 1
+    const found = [pos, pos + 1].find((at) => editor.state.doc.nodeAt(at)?.type.name === "noteLink")
+    const node = found == null ? null : editor.state.doc.nodeAt(found)
+    if (node && found != null) {
+      const { id, label, heading, text } = node.attrs as Record<string, string>
+      return { kind: "note", pos: found, id: id ?? "", label: label ?? "", heading: heading ?? "", text: text ?? "" }
+    }
+  }
+  const anchor = target?.closest<HTMLAnchorElement>("a[href]")
+  if (anchor && view.dom.contains(anchor)) {
+    const href = anchor.getAttribute("href") ?? ""
+    const range = linkRange(editor, view.posAtDOM(anchor, 0))
+    const pdf = PDF_LINK.exec(href)
+    if (pdf) {
+      const hash = new URLSearchParams(pdf[2] ?? "")
+      return { kind: "pdf", from: range?.from ?? null, to: range?.to ?? null, href, src: pdf[1], name: hash.get("name") ?? "", page: Number(hash.get("page")) || 1 }
+    }
+    if (range && href) return { kind: "web", ...range, href }
+  }
+  // A PDF shown in the note (its block, or a "(p. N)" drawn over the words): the same file lines.
+  const tagged = target?.closest<HTMLElement>("[data-pdf-peek]")
+  if (tagged?.dataset.pdfPeek && view.dom.contains(tagged))
+    return { kind: "pdf", from: null, to: null, href: null, src: tagged.dataset.pdfPeek, name: tagged.dataset.pdfPeekName ?? "", page: Number(tagged.dataset.pdfPeekPage) || 1 }
+  // Words picked, and the click on them: what you do with words comes first.
+  const { selection } = editor.state
+  if (selection instanceof TextSelection && !selection.empty) {
+    const at = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos
+    if (at != null && at >= selection.from && at <= selection.to) {
+      const words = editor.state.doc.textBetween(selection.from, selection.to, " ").trim()
+      if (words) return { kind: "words", from: selection.from, to: selection.to, words }
+    }
+  }
+  return null
+}
+
+/** The heading over the clicked thing's lines: what it is, in a few words. */
+export function clickedName(clicked: Clicked): string {
+  if (clicked.kind === "note") return "Link to a note"
+  if (clicked.kind === "web") return "Link"
+  if (clicked.kind === "pdf") return `PDF, page ${clicked.page}`
+  return "Picked words"
+}
+
+type Line = { label: string; run: () => void; hint?: string; data?: string }
+
+/** A note link's id as the app keeps it: `tier:id` for most, a bare id for a capture. */
+const split = (link: string): [string, string] =>
+  link.includes(":") ? [link.slice(0, link.indexOf(":")), link.slice(link.indexOf(":") + 1)] : ["capture", link]
+
+const cut = (words: string, most = 40): string => (words.length > most ? `${words.slice(0, most).trim()}…` : words)
+
+/** Put words on the clipboard and say so. */
+const copyText = (text: string, done: string): void =>
+  void navigator.clipboard.writeText(text).then(() => (chime("copy"), said(done)), () => said("Could not copy it", false))
+
+/** A link's words picked, so the link box and "Remove link" act on it as on the caret's. */
+const pick = (editor: Editor, from: number, to: number): void => void editor.chain().focus().setTextSelection({ from, to }).run()
+
+/** The lines for what was clicked, in the order a person reaches for them. */
+export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
+  if (clicked.kind === "note") {
+    const { id, label, heading, pos } = clicked
+    const [type, key] = split(id)
+    const own = !["task", "person", "tag", "event", "day", "pdf", "web"].includes(type)
+    const open = editor.extensionManager.extensions.find((one) => one.name === "noteLink")?.options.onOpenNote as ((id: string, heading?: string) => void) | undefined
+    const shown = clicked.text || label
+    const lines: Array<Line | false> = [
+      !!id && !!open && { label: "Open", data: "open", run: () => open(id, heading || undefined) },
+      !!id && canSplit() && { label: "Open to the side", data: "aside", run: () => openAside(type, key) },
+      !!id && own && { label: "Open in a new window", data: "apart", run: () => openApart(type, key) },
+      !!id && { label: "Copy link", data: "copy-link", run: () => copyLink(id, label) },
+      !!id && type !== "capture" && own && {
+        label: "Rename…",
+        data: "rename",
+        run: () => void ask("A new name", label, undefined, label).then((name) => {
+          const next = name?.trim()
+          if (!next || next === label) return
+          void haligtree.saveItem(key, { title: next }).then(() => chime("noted"))
+        }),
+      },
+      {
+        label: "Edit link text…",
+        data: "edit-text",
+        run: () => void ask("What the link says", label, undefined, shown).then((words) => {
+          if (words === null) return
+          const node = editor.state.doc.nodeAt(pos)
+          if (node?.type.name !== "noteLink") return
+          editor.chain().focus().command(({ tr }) => (tr.setNodeMarkup(pos, undefined, { ...node.attrs, text: words.trim() === label ? "" : words.trim() }), true)).run()
+        }),
+      },
+      {
+        label: "Remove link",
+        hint: "Keeps the words",
+        data: "unlink",
+        run: () => {
+          const node = editor.state.doc.nodeAt(pos)
+          if (node?.type.name !== "noteLink") return
+          chime("fold")
+          editor.chain().focus().insertContentAt({ from: pos, to: pos + node.nodeSize }, shown || "Untitled").run()
+        },
+      },
+    ]
+    return lines.filter((one): one is Line => !!one)
+  }
+  if (clicked.kind === "web") {
+    const { href, from, to } = clicked
+    const lines: Array<Line | false> = [
+      { label: "Open in the browser", data: "browser", run: () => void window.open(href) },
+      isWebPage(href) && { label: "Read it here", hint: "In the reader", data: "read", run: () => openArticle(href) },
+      { label: "Copy address", data: "copy-address", run: () => copyText(href, "Address copied") },
+      { label: "Edit link", data: "edit-link", run: () => (pick(editor, from, to), editor.view.dom.dispatchEvent(new CustomEvent("mf:edit-link", { bubbles: true }))) },
+      { label: "Remove link", hint: "Keeps the words", data: "unlink", run: () => (pick(editor, from, to), removeLink(editor)) },
+    ]
+    return lines.filter((one): one is Line => !!one)
+  }
+  if (clicked.kind === "pdf") {
+    const { src, name, page, from, to, href } = clicked
+    const linked = from != null && to != null
+    const lines: Array<Line | false> = [
+      { label: `Open at page ${page}`, data: "open-page", run: () => openPdf(src, name, page) },
+      canSplit() && { label: "Open to the side", data: "aside", run: () => openPdf(src, name, page, undefined, true) },
+      { label: "Copy link to this page", data: "copy-page", run: () => copyText(`${src}#page=${page}${name ? `&name=${encodeURIComponent(name)}` : ""}`, `Link to page ${page} copied: paste it in any note`) },
+      linked && !!href && {
+        label: "Change page…",
+        data: "change-page",
+        run: () => void ask("Which page should it open at?", String(page), undefined, String(page)).then((typed) => {
+          const next = Math.round(Number(typed))
+          if (!typed || !Number.isFinite(next) || next < 1 || next === page || from == null || to == null) return
+          const hash = new URLSearchParams(PDF_LINK.exec(href)?.[2] ?? "")
+          hash.set("page", String(next))
+          editor.chain().focus().setTextSelection({ from, to }).extendMarkRange("link").updateAttributes("link", { href: `${src}#${hash.toString()}` }).setTextSelection(to).run()
+          chime("noted")
+        }),
+      },
+      !!host().openFile && { label: "Open in the default app", data: "default-app", run: () => void host().openFile?.(src) },
+      !!host().showFile && { label: "Show in Finder", data: "finder", run: () => void host().showFile?.(src) },
+      linked && { label: "Remove link", hint: "Keeps the words", data: "unlink", run: () => (pick(editor, from!, to!), removeLink(editor)) },
+    ]
+    return lines.filter((one): one is Line => !!one)
+  }
+  const { from, to, words } = clicked
+  const lines: Array<Line | false> = [
+    { label: "Look up", hint: "Kept in Lookups", data: "look-up", run: () => void saveLookup(words).then((id) => said(id ? `Kept in Lookups: “${cut(words)}”` : "Could not keep it", !!id)) },
+    canSplit() && { label: `Search for “${cut(words, 24)}”`, data: "search", run: () => void window.dispatchEvent(new CustomEvent("haligtree:search", { detail: { words } })) },
+    {
+      label: "Make a card from it",
+      hint: "A new line: these words, then ::",
+      data: "card",
+      run: () => {
+        const $to = editor.state.doc.resolve(to)
+        const after = $to.after($to.depth)
+        const line = `${words.replace(/\s+/g, " ")} :: `
+        editor.chain().focus().insertContentAt(after, { type: "paragraph", content: [{ type: "text", text: line }] }).setTextSelection(after + 1 + line.length).run()
+        chime("noted")
+      },
+    },
+    editor.isEditable && editor.extensionManager.extensions.some((one) => one.name === "highlight") && { label: "Highlight", data: "highlight", run: () => void editor.chain().focus().setTextSelection({ from, to }).toggleHighlight().run() },
+    { label: "Copy", data: "copy-words", run: () => (editor.chain().focus().setTextSelection({ from, to }).run(), document.execCommand("copy")) },
+    editor.isEditable && { label: "Cut", data: "cut-words", run: () => (editor.chain().focus().setTextSelection({ from, to }).run(), document.execCommand("cut")) },
+  ]
+  return lines.filter((one): one is Line => !!one)
+}
+
+/** The clicked thing's lines, drawn as the block menu draws its own. */
+export function ClickedRows({ editor, clicked, matches, onDone }: { editor: Editor; clicked: Clicked; matches: (label: string) => boolean; onDone: () => void }): React.JSX.Element {
+  return (
+    <>
+      <div className="tiptap-slash-menu-group" data-clicked-group={clicked.kind}>{clickedName(clicked)}</div>
+      {clickedLines(editor, clicked)
+        .filter((line) => matches(line.label))
+        .map((line) => (
+          <DropdownMenuItem key={line.label} asChild>
+            <button type="button" data-clicked={line.data} onClick={() => (onDone(), line.run())}>
+              <MenuGlyph label={line.label} />
+              <span className="tiptap-slash-menu-title">{line.label}</span>
+              {line.hint ? <span className="tiptap-slash-menu-hint">{line.hint}</span> : null}
+            </button>
+          </DropdownMenuItem>
+        ))}
+    </>
+  )
+}

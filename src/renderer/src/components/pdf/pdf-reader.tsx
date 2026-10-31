@@ -25,9 +25,9 @@ import { usePaperPages } from "./paper"
 const ZOOMS = [0.5, 0.67, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3]
 
 /** Where a PDF opens full size: `haligtree:pdf`, read by the main window, which opens it in a pane. */
-export const openPdf = (src: string, name: string, page?: number, mark?: string): void => {
+export const openPdf = (src: string, name: string, page?: number, mark?: string, aside = false): void => {
   flashNext = mark ?? null
-  window.dispatchEvent(new CustomEvent("haligtree:pdf", { detail: { src, name, page } }))
+  window.dispatchEvent(new CustomEvent("haligtree:pdf", { detail: { src, name, page, aside } }))
 }
 /** The mark a gem's link came back to: flashed by the reader that opens next. */
 let flashNext: string | null = null

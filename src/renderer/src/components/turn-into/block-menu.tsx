@@ -28,6 +28,7 @@ import { useShowLine } from "@/lib/show-in-list"
 import { BLOCK_TYPES, nameBlock } from "@/extensions/block-ids"
 import { haligtree } from "@/lib/haligtree"
 import { isWebPage, openArticle } from "@/components/pdf/web-reader"
+import { ClickedRows, type Clicked } from "./clicked"
 
 /**
  * What belongs to the whole table rather than to a row or a column.
@@ -67,6 +68,7 @@ export function BlockMenu({
   onOpenChange,
   at: point,
   spelling,
+  clicked,
   documentId,
 }: {
   editor: Editor
@@ -78,6 +80,8 @@ export function BlockMenu({
   at?: { x: number; y: number } | null
   /** A right-click on a misspelt word: its suggestions come first. */
   spelling?: Misspelling | null
+  /** A right-click on a link, a PDF or picked words: its own lines come first, the block's under them. */
+  clicked?: Clicked | null
   /** The note this editor shows (`capture-…`, `item-…`), for a link to one of its lines. */
   documentId?: string | number | null
 }) {
@@ -299,6 +303,16 @@ export function BlockMenu({
       .run()
   }
 
+  const conversionRows = conversions.map((item) => (
+    <DropdownMenuItem key={item.title} asChild>
+      <button type="button" onClick={() => at(() => item.run(editor, ""))}>
+        {item.icon}
+        <span className="tiptap-slash-menu-title">{item.title}</span>
+        {item.hint ? <span className="tiptap-slash-menu-hint">{item.hint}</span> : null}
+      </button>
+    </DropdownMenuItem>
+  ))
+
   return (
     <DropdownMenu
       modal={false}
@@ -378,25 +392,29 @@ export function BlockMenu({
         <div className="tiptap-block-menu-list mf-more">
         {spelling && !term ? <SpellingRows editor={editor} spelling={spelling} /> : null}
 
-        {convertible && !term ? (
+        {/* What the click landed on first; the block's lines after, so nothing is lost. */}
+        {clicked ? <ClickedRows editor={editor} clicked={clicked} matches={matches} onDone={() => onOpenChange(false)} /> : null}
+
+        {convertible && !term && !clicked ? (
           <div className="tiptap-slash-menu-group">Turn into</div>
         ) : null}
-
-        {convertible
-          ? conversions.map((item) => (
-              <DropdownMenuItem key={item.title} asChild>
-                <button type="button" onClick={() => at(() => item.run(editor, ""))}>
-                  {item.icon}
-                  <span className="tiptap-slash-menu-title">{item.title}</span>
-                  {item.hint ? (
-                    <span className="tiptap-slash-menu-hint">{item.hint}</span>
-                  ) : null}
-                </button>
-              </DropdownMenuItem>
-            ))
-          : null}
+        {convertible && (!clicked || term) ? conversionRows : null}
 
         {term ? null : <div className="tiptap-slash-menu-group">Block</div>}
+
+        {/* Under a clicked thing the block's conversions fold into one line, as a submenu. */}
+        {convertible && clicked && !term ? (
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger data-turn-into-sub>
+              <MenuGlyph label="Turn it into" />
+              <span className="tiptap-slash-menu-title">Turn into</span>
+              <span className="tiptap-slash-menu-hint">&rsaquo;</span>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="tiptap-block-menu tiptap-block-menu-sub">
+              <div className="tiptap-block-menu-list mf-more">{conversionRows}</div>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        ) : null}
 
         {/* A divider's two looks, each offered on the other. */}
         {rule && matches(rule.label) ? (

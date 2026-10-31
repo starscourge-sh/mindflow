@@ -674,9 +674,10 @@ export function Home(): React.JSX.Element {
   // A PDF opened full size (a note's PDF block, a gem's link back): a step in the pane in front, or beside it on ⌥-click.
   useEffect(() => {
     const onPdf = (event: Event): void => {
-      const { src, name, page } = (event as CustomEvent<{ src: string; name: string; page?: number }>).detail
+      const { src, name, page, aside } = (event as CustomEvent<{ src: string; name: string; page?: number; aside?: boolean }>).detail
       const step: View = { id: 'pdf', focus: pdfFocus(src, name), tab: page ? String(page) : undefined }
-      const side = asideClick()
+      // "Open to the side" from a right-click asks for the side as ⌥-click does.
+      const side = aside || asideClick()
       if (side) spendAsideClick()
       chime('page')
       if (side) asideRef.current(step)
@@ -704,6 +705,15 @@ export function Home(): React.JSX.Element {
     const onTitle = (): void => pdfTitled((n) => n + 1)
     window.addEventListener('haligtree:pdf-title', onTitle)
     return () => window.removeEventListener('haligtree:pdf-title', onTitle)
+  }, [])
+  // "Search for …" from a right-click on picked words: ⌘K, opened on them.
+  useEffect(() => {
+    const onSearch = (event: Event): void => {
+      setSearchFor((event as CustomEvent<{ words: string }>).detail.words)
+      setSearching('all')
+    }
+    window.addEventListener('haligtree:search', onSearch)
+    return () => window.removeEventListener('haligtree:search', onSearch)
   }, [])
   // One thing opened by name from a surface with no `onOpen` of its own (a PDF's mark opening its gem).
   useEffect(() => {
