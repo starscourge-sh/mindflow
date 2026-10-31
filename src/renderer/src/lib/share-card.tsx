@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 
 import { Button } from '@/components/ui/button'
 import { refuse, toast } from '@/components/haligtree/ui'
+import { FLOAT } from '@/lib/float'
 import { chime } from '@/lib/sound'
 import { UNATTRIBUTED } from '@/lib/sources'
 import { APP_NAME } from '../../../main/name'
@@ -177,8 +178,8 @@ function CardSheet({ quote, onClose }: { quote: CardQuote; onClose: () => void }
   }
   return (
     <div data-share-card className="fixed inset-0 z-[1000] grid place-items-center bg-black/40 animate-in fade-in-0 duration-150" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <div role="dialog" aria-label="Share as card" className="flex max-h-[calc(100vh-48px)] w-[440px] max-w-[calc(100vw-24px)] flex-col gap-4 rounded-2xl border border-border bg-popover p-5 text-popover-foreground shadow-lg animate-in zoom-in-95 duration-200">
-        <div className="text-base font-semibold text-foreground">Share as card</div>
+      <div role="dialog" aria-label="Share as card" className={`flex max-h-[calc(100vh-48px)] w-[440px] max-w-[calc(100vw-24px)] flex-col gap-4 rounded-xl p-5 ${FLOAT} animate-in zoom-in-95 duration-200`}>
+        <h2 className="font-serif text-xl leading-tight font-semibold text-foreground">Share as card</h2>
         <div className="grid min-h-0 place-items-center">
           <canvas ref={canvas} data-card-canvas className="max-h-[56vh] max-w-full rounded-lg border border-border object-contain" style={{ aspectRatio: `${SIZES[size].width} / ${SIZES[size].height}` }} />
         </div>
