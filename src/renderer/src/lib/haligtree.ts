@@ -124,6 +124,8 @@ export type Recap = {
   kinds: { kind: string; n: number }[]
   /** The same for the month or year before, when anything was caught in it. */
   before: { label: string; kinds: { kind: string; n: number }[] } | null
+  /** A month's study, for "Your month". */
+  study?: { seconds: number; checked: number; recalled: number; newCards: number; days: { day: string; n: number }[]; longest: { title: string; days: number } | null; book: { src: string; title: string } | null; line: string | null } | null
 }
 
 export type Task = {

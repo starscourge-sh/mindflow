@@ -91,7 +91,7 @@ function StudyCards({ studied, week }: { studied: Studied; week: number }): Reac
           chips={week > 0 ? <Chip>{`${num(week)} of the last 7 days`}</Chip> : undefined}
           side={<Switch options={[{ id: 'month', label: '30 days' }, { id: 'year', label: 'Year' }]} value={span} pick={setSpan} />}
           hovered={onReviews} point={week > 0 ? `You reviewed on ${num(week)} of the last 7 days.` : 'Each dot is a day, the darker the more cards.'}>
-          <DotMatrix key={span} days={days} say={reviewsSaid} onHover={sayReviews} />
+          <DotMatrix key={span} days={days} say={reviewsSaid} onHover={sayReviews} columns={span === 'month' ? 2 : 7} dot={span === 'month' ? 26 : 14} />
           <Ends left={span === 'month' ? '30 days ago' : 'a year ago'} right="today" />
         </MonoCard>
       </div>

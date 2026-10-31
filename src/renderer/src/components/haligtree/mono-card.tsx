@@ -84,18 +84,18 @@ export function useHover(): [string | null, (said: string | null) => void] {
  * Dot-matrix days: one round dot per day in columns of weeks, the darker the
  * more. The dots fill in, oldest first, unless motion is off.
  */
-export function DotMatrix({ days, say, onHover, columns = 7 }: { days: { day: string; n: number }[]; say: (day: { day: string; n: number }) => string; onHover: (said: string | null) => void; columns?: number }): React.JSX.Element {
+export function DotMatrix({ days, say, onHover, columns = 7, dot = 14 }: { days: { day: string; n: number }[]; say: (day: { day: string; n: number }) => string; onHover: (said: string | null) => void; /** Rows: 7 for a year of weeks, fewer for a month in one wide band. */ columns?: number; /** The widest a dot may grow, in px. */ dot?: number }): React.JSX.Element {
   const still = useStillness()
   const most = Math.max(1, ...days.map((one) => one.n))
   const tone = (n: number): number => (n === 0 ? 0.08 : 0.3 + 0.7 * Math.min(1, n / most))
   return (
-    <div data-mono-dots className="grid gap-[3px]" style={{ gridTemplateColumns: `repeat(${Math.ceil(days.length / columns)}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${columns}, auto)`, gridAutoFlow: 'column' }} onPointerLeave={() => onHover(null)}>
+    <div data-mono-dots className="grid gap-1" style={{ gridTemplateColumns: `repeat(${Math.ceil(days.length / columns)}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${columns}, auto)`, gridAutoFlow: 'column' }} onPointerLeave={() => onHover(null)}>
       {days.map((one, at) => (
         <motion.span key={one.day} data-day={one.day} data-n={one.n} data-say={say(one)}
           onPointerEnter={() => onHover(say(one))}
           initial={still ? false : { opacity: 0, scale: 0.4 }} animate={{ opacity: tone(one.n), scale: 1 }} whileHover={{ scale: 1.3 }}
           transition={{ duration: 0.25, ease: EASE, delay: still ? 0 : Math.min(0.6, at * 0.008) }}
-          className="aspect-square w-full cursor-default rounded-full" style={{ background: INK, maxWidth: 14, justifySelf: 'center' }} />
+          className="aspect-square w-full cursor-default rounded-full" style={{ background: INK, maxWidth: dot, justifySelf: 'center' }} />
       ))}
     </div>
   )

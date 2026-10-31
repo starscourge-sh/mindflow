@@ -14,7 +14,7 @@ import { smallPicture, thumbsRead, useThumb } from '@/lib/notes'
 import { useDecoded } from '@/lib/decoded'
 import { openApart } from '@/lib/apart'
 import { backSaid, placed, taskName } from '@/lib/tasks'
-import { dayKey, num, startOfDay } from '../../../../main/dates'
+import { dayKey, dayjs, num, startOfDay } from '../../../../main/dates'
 import { quoted } from '../../../../main/clip'
 import { splitTags, unloaded, unread, useLive, haligtree, whenInLine, type Pin as Pinned, type Settings, type Task } from '@/lib/haligtree'
 import { useKept } from '@/lib/nav'
@@ -879,6 +879,8 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
       </NowSlot>
       {/* On Home: the month, once turned on in Settings, and what waits in the Inbox. */}
       <div data-home-plan className="page-column relative flex w-full flex-col gap-6 px-5 pt-4 @[44rem]/page:px-8">
+        {/* The first week of a month: last month, card by card, Wrapped's way. */}
+        {dayjs().date() <= 7 && <p data-home-your-month className="text-body text-foreground/80"><button type="button" className="cursor-pointer font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60" onClick={() => (chime('slide'), onView('stats', 'yourmonth'))}>Your {dayjs().subtract(1, 'month').format('MMMM')} is ready</button>, card by card.</p>}
         {settings?.homeTimeGone === true && <TimeGone heading={<Heading title="Time gone" />} />}
         {settings?.homeCalendar === true && <MonthPlan tasks={tasks} onDay={(day) => onView('day', day)} onOpen={onOpen} onWeek={(monday) => onView('weekpage', monday)} onMonth={(month) => onView('monthpage', month)} />}
         <div className="grid gap-x-8 gap-y-6 @[44rem]/page:grid-cols-[minmax(0,1fr)_auto]">

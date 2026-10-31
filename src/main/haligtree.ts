@@ -2908,7 +2908,7 @@ export function registerHaligtree(): void {
     const sources = [...from].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, n]) => ({ name: name || 'Typed in', n }))
     // Twelve weeks, oldest first: known cards at the end of each week (first known on the review that proved it) beside every card made by then.
     const weekEnds = Array.from({ length: 12 }, (_, at) => startOfDay((at - 11) * 7 + 1))
-    const knownAt = (db.prepare(`select min(reviewed_at) at from (select item_id, reviewed_at, grade, julianday(reviewed_at) - julianday(lag(reviewed_at) over (partition by item_id order by reviewed_at)) gap from review_log) where grade > 1 and gap >= 15 group by item_id`).all() as { at: string }[]).map((row) => Date.parse(row.at))
+    const knownAt = (db.prepare(`select min(reviewed_at) at from (select item_id, reviewed_at, grade, julianday(reviewed_at) - julianday(lag(reviewed_at) over (partition by item_id order by reviewed_at)) gap from review_log) where grade > 1 and gap >= 15 and item_id in (select id from nuggets where coalesce(prompt, '') != '' and archived_at is null and binned_at is null) group by item_id`).all() as { at: string }[]).map((row) => Date.parse(row.at))
     const growth = weekEnds.map((end) => ({ end: new Date(end - 1).toISOString().slice(0, 10), known: knownAt.filter((at) => at < end).length, made: live.filter((row) => Date.parse(row.at) < end).length }))
     // Notes and gems kept in each of the last six months, oldest first.
     const months = Array.from({ length: 6 }, (_, at) => dayjs().startOf('month').subtract(5 - at, 'month'))

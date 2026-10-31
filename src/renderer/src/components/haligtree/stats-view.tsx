@@ -15,6 +15,7 @@ import { chime } from '@/lib/sound'
 import { Recap } from './recap-view'
 import { FocusSections, GoalSection, HabitSections, TagSection, timeSaid } from './focus-stats'
 import { MonthReflect } from './reflect-view'
+import { YourMonth } from './your-month'
 import { PracticeStats } from './practices-view'
 import { PageContents } from './page-contents'
 import { Chips } from './display'
@@ -83,10 +84,10 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
   // The month or the year, Wrapped's way, over the page; from here or ⌘K.
   // The column, for the contents beside it to read.
   const [column, setColumn] = useState<HTMLDivElement | null>(null)
-  const [recap, setRecap] = useState<'month' | 'year' | null>(asked === 'month' || asked === 'year' ? asked : null)
+  const [recap, setRecap] = useState<'month' | 'year' | 'cards' | null>(asked === 'month' || asked === 'year' ? asked : asked === 'yourmonth' ? 'cards' : null)
   // Which page of Stats: the few parts that matter most, or the rest by the month or the year. Asked for a recap, its page.
-  const [part, setPart] = useState<Part>(asked === 'month' || asked === 'year' ? asked : 'now')
-  const wrap = (period: 'month' | 'year'): void => {
+  const [part, setPart] = useState<Part>(asked === 'month' || asked === 'year' ? asked : asked === 'yourmonth' ? 'month' : 'now')
+  const wrap = (period: 'month' | 'year' | 'cards'): void => {
     chime('slide')
     setRecap(period)
   }
@@ -116,6 +117,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
     {/* The month is told back in sentences; the year keeps its pages, Wrapped's way. */}
     {recap === 'month' && <MonthReflect onClose={() => (chime('fold'), setRecap(null))} />}
     {recap === 'year' && <Recap period={recap} onClose={() => (chime('fold'), setRecap(null))} />}
+    {recap === 'cards' && <YourMonth onClose={() => (chime('fold'), setRecap(null))} />}
     <Page title="Stats" beside={(box) => <PageContents key={part} page={column} scroller={box} label="Sections on this page" />} lead={
       // Four or five parts at a glance; the rest a chip away, by the month and by the year. On the
       // bar's left, where every page keeps its tabs, in one place whichever is picked.
@@ -151,7 +153,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
 
         </> : part === 'month' ? <>
         {/* The month told back in sentences, over the page. */}
-        <p data-stats-recap className="mt-6 text-body text-foreground/80">The last few weeks, part by part. <button type="button" className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60" onClick={() => wrap('month')}>Tell me my month</button></p>
+        <p data-stats-recap className="mt-6 text-body text-foreground/80">The last few weeks, part by part. <button type="button" className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60" onClick={() => wrap('month')}>Tell me my month</button> or <button type="button" data-your-month-open className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60" onClick={() => wrap('cards')}>see it card by card</button></p>
         <Section title="Today" big={{ value: stats.day.captured, label: stats.day.captured === 1 ? 'thing noted down' : 'things noted down' }}>
           <p>
             {today.length ? (
