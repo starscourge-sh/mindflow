@@ -305,6 +305,31 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   }
   // Words looked up: the card under them, until Esc or a click away.
   const [looking, setLooking] = useState<{ words: string; x: number; y: number; from: LookedUpIn } | null>(null)
+  /** The sentence round picked words, from the page's own text. */
+  const sentenceOf = (at: { page: number; start: number; end: number }): string => {
+    const text = pageTexts.current.get(at.page) ?? document.querySelector(`.pdf-page[data-page="${at.page}"] .textLayer`)?.textContent ?? ""
+    const from = Math.max(0, text.lastIndexOf(".", at.start) + 1)
+    const to = text.indexOf(".", at.end)
+    return text.slice(from, to < 0 ? undefined : to + 1).replace(/\s+/g, " ").trim()
+  }
+  // Cards made from this PDF, all told: most people keep 10 to 15 from an
+  // hour of reading, so past 15 the count says so, gently.
+  const [cardsHere, setCardsHere] = useState(0)
+  useEffect(() => {
+    void call<{ medium: string | null; prompt: string | null }[]>("items", "nugget").then((all) => setCardsHere(all.filter((one) => one.medium === title && one.prompt).length))
+  }, [title])
+  /** A card from this page: the answer with the book and page under it, so Review's "From" line opens the page. */
+  const cardOf = async (prompt: string, answer: string, page: number): Promise<void> => {
+    const { author, where } = await whereFrom(page)
+    const id = await call<string>("nugget:from", `${answer}\n\n[${where}](${pdfLink(src, name, page, "")})`, { attribution: author || null, medium: title, passage: `p. ${page}`, kind: "quote" })
+    await call("item:save", id, { prompt })
+    const count = cardsHere + 1
+    setCardsHere(count)
+    chime("saved")
+    said(count > 15 ? `Card made: ${count} from this source. Most people keep 10 to 15 from an hour; the best ones are enough` : `Card made: ${count} from this source`)
+  }
+  // C: the question asked where the words were; Return makes the card.
+  const [carding, setCarding] = useState<{ page: number; quote: string; x: number; y: number } | null>(null)
   const actions: ReadActions = {
     highlight: (color) => (rememberColor(color), void mark(color, false)),
     keep: () => void mark(lastColor(), true),
@@ -312,12 +337,23 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     lookUp: () => {
       if (!picked) return
       // The sentence round the words, kept with what is saved so it says why at a glance.
-      const text = pageTexts.current.get(picked.page) ?? document.querySelector(`.pdf-page[data-page="${picked.page}"] .textLayer`)?.textContent ?? ""
-      const from = Math.max(0, text.lastIndexOf(".", picked.start) + 1)
-      const to = text.indexOf(".", picked.end)
-      const sentence = text.slice(from, to < 0 ? undefined : to + 1).replace(/\s+/g, " ").trim()
-      setLooking({ words: picked.quote, x: picked.x, y: picked.y + 24, from: { where: `${title}, p. ${picked.page}`, link: pdfLink(src, name, picked.page, ""), sentence } })
+      setLooking({ words: picked.quote, x: picked.x, y: picked.y + 24, from: { where: `${title}, p. ${picked.page}`, link: pdfLink(src, name, picked.page, ""), sentence: sentenceOf(picked) } })
       chime("open")
+    },
+    card: () => {
+      if (!picked) return
+      setCarding({ page: picked.page, quote: picked.quote, x: picked.x, y: picked.y })
+      setPicked(null)
+      chime("open")
+    },
+    blank: () => {
+      if (!picked) return
+      const sentence = sentenceOf(picked)
+      // The words blanked in their sentence; a sentence the words are not in (picked across two) asks them plainly.
+      const asked = sentence.includes(picked.quote) && sentence !== picked.quote ? sentence.replace(picked.quote, "_____") : `_____ (${title}, p. ${picked.page})`
+      void cardOf(asked, sentence.includes(picked.quote) ? sentence : picked.quote, picked.page)
+      getSelection()?.removeAllRanges()
+      setPicked(null)
     },
   }
   // The bar's keys, while words are picked here.
@@ -567,7 +603,15 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
                 })
               }}
             />
-            {picked && !looking && !whyFor && <ReadBar at={picked} actions={actions} />}
+            {picked && !looking && !whyFor && !carding && <ReadBar at={picked} actions={actions} />}
+            {carding && (
+              <WhyAfter
+                at={carding}
+                ask={{ kept: `Answer: ${carding.quote.length > 28 ? `${carding.quote.slice(0, 27)}…` : carding.quote}`, label: "The card's question", placeholder: "The question these words answer" }}
+                onSave={(question) => void cardOf(question, carding.quote, carding.page)}
+                onDone={() => (getSelection()?.removeAllRanges(), setCarding(null))}
+              />
+            )}
             {whyFor && <WhyAfter at={whyFor} onSave={(why) => void call("gloss", whyFor.id, why).then(() => said("Why kept with the gem"))} onDone={() => setWhyFor(null)} />}
             {looking && <LookUpCard words={looking.words} at={looking} from={looking.from} onClose={() => setLooking(null)} />}
           </div>

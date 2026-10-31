@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "react"
-import { BookOpenText, Gem, Highlighter, Quote, Trash2 } from "lucide-react"
+import { BookOpenText, Gem, Highlighter, Quote, SquareDashed, SquareStack, Trash2 } from "lucide-react"
 import { Button } from "@/components/tiptap-ui-primitive/button"
 import { Toolbar, ToolbarGroup, ToolbarSeparator } from "@/components/tiptap-ui-primitive/toolbar"
 import { ContextMenuItem, ContextMenuSeparator, ContextMenuShortcut } from "@/components/ui/context-menu"
@@ -38,6 +38,10 @@ export type ReadActions = {
   copy: () => void
   /** The words looked up where they sit: the dictionary and Wikipedia. */
   lookUp: () => void
+  /** A card whose answer is the picked words: the question is asked where they were. */
+  card?: () => void
+  /** A fill-in-the-blank card: the sentence round the words, the words blanked. */
+  blank?: () => void
 }
 
 /** A swatch: a round of the colour, ticked when it is the one in use. */
@@ -91,6 +95,17 @@ export function ReadBar({ at, actions }: { at: { x: number; y: number }; actions
             <Gem className="tiptap-button-icon" />
             <span className="tiptap-button-text">Keep</span>
           </Button>
+          {actions.card && (
+            <Button data-style="ghost" aria-label="Card" title="Make a card: these words answer it  C" onClick={actions.card}>
+              <SquareStack className="tiptap-button-icon" />
+              <span className="tiptap-button-text">Card</span>
+            </Button>
+          )}
+          {actions.blank && (
+            <Button data-style="ghost" aria-label="Blank" title="Fill-in-the-blank card from the sentence  ⇧C" onClick={actions.blank}>
+              <SquareDashed className="tiptap-button-icon" />
+            </Button>
+          )}
           <Button data-style="ghost" aria-label="Look up" title="Look up  L" onClick={actions.lookUp}>
             <BookOpenText className="tiptap-button-icon" />
           </Button>
@@ -112,10 +127,12 @@ export function readKey(event: KeyboardEvent, actions: ReadActions): boolean {
   const field = event.target instanceof HTMLElement && event.target.closest("input, textarea, [contenteditable=true]")
   if (field) return false
   if (event.metaKey && event.shiftKey && !event.altKey && !event.ctrlKey && event.code === "KeyC") return actions.copy(), true
+  if (event.shiftKey && !event.metaKey && !event.ctrlKey && !event.altKey && event.code === "KeyC" && actions.blank) return actions.blank(), true
   if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return false
   if (event.code === "KeyH") return actions.highlight(lastColor()), true
   if (event.code === "KeyK") return actions.keep(), true
   if (event.code === "KeyL") return actions.lookUp(), true
+  if (event.code === "KeyC" && actions.card) return actions.card(), true
   const digit = /^Digit([1-5])$/.exec(event.code)
   if (digit) return actions.highlight(MARK_COLORS[Number(digit[1]) - 1].id), true
   return false
@@ -138,6 +155,20 @@ export function PickedMenu({ actions }: { actions: ReadActions }): React.JSX.Ele
         Keep as a gem
         <ContextMenuShortcut>K</ContextMenuShortcut>
       </ContextMenuItem>
+      {actions.card && (
+        <ContextMenuItem onSelect={actions.card}>
+          <SquareStack />
+          Make a card
+          <ContextMenuShortcut>C</ContextMenuShortcut>
+        </ContextMenuItem>
+      )}
+      {actions.blank && (
+        <ContextMenuItem onSelect={actions.blank}>
+          <SquareDashed />
+          Fill-in-the-blank card
+          <ContextMenuShortcut>⇧C</ContextMenuShortcut>
+        </ContextMenuItem>
+      )}
       <ContextMenuItem onSelect={actions.lookUp}>
         <BookOpenText />
         Look up
@@ -201,7 +232,7 @@ function ColourRow({ on, onPick }: { on: string | null | undefined; onPick: (col
  * clicking away, leaves it unsaid: the book, page and words are kept anyway.
  * The reason is the gem's own thought, as any line written on a gem is.
  */
-export function WhyAfter({ at, onSave, onDone }: { at: { x: number; y: number }; onSave: (why: string) => void; onDone: () => void }): React.JSX.Element {
+export function WhyAfter({ at, onSave, onDone, ask }: { at: { x: number; y: number }; onSave: (why: string) => void; onDone: () => void; /** Asked for a card's question instead: what it says, and the line that says what is kept. */ ask?: { kept: string; label: string; placeholder: string } }): React.JSX.Element {
   const box = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
   useLayoutEffect(() => setWidth(box.current?.offsetWidth ?? 0), [])
@@ -210,15 +241,15 @@ export function WhyAfter({ at, onSave, onDone }: { at: { x: number; y: number };
     <div ref={box} className="pdf-keep-bar pdf-why" style={{ left: Math.max(8, at.x - width / 2), top: Math.max(8, at.y - 48) }}>
       <Toolbar variant="floating">
         <span className="pdf-why-kept">
-          <Gem className="tiptap-button-icon" />
-          Kept
+          {ask ? <SquareStack className="tiptap-button-icon" /> : <Gem className="tiptap-button-icon" />}
+          {ask?.kept ?? "Kept"}
         </span>
         <input
           autoFocus
           className="pdf-why-field"
           type="text"
-          aria-label="Why keep this"
-          placeholder="Why keep this? (optional)"
+          aria-label={ask?.label ?? "Why keep this"}
+          placeholder={ask?.placeholder ?? "Why keep this? (optional)"}
           value={why}
           onChange={(event) => setWhy(event.target.value)}
           onBlur={onDone}

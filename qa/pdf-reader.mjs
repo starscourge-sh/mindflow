@@ -647,6 +647,31 @@ try {
   await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/home-continue-reading.png` })
   await h.click('[data-continue-reading] .continue-book'); await wait(1500)
   check('a click opens the book at that page', await h.evaluate(() => document.querySelector('.pdf-reader-page-field')?.value) === '2', await h.evaluate(() => document.querySelector('.pdf-reader-page-field')?.value))
+  // Cards straight from the page: C asks the question where the words were; ⇧C blanks them in their sentence.
+  const pickOn = (page, words) => h.evaluate(([page, words]) => {
+    const span = [...document.querySelectorAll(`.pdf-reader .pdf-page[data-page="${page}"] .textLayer span`)].find((one) => one.textContent.includes(words))
+    const at = span.textContent.indexOf(words)
+    const range = document.createRange()
+    range.setStart(span.firstChild, at)
+    range.setEnd(span.firstChild, at + words.length)
+    getSelection().removeAllRanges()
+    getSelection().addRange(range)
+  }, [page, words])
+  const cardsFromBook = async () => (await v('items', 'nugget')).filter((one) => one.medium === 'The Probe Book' && one.prompt)
+  await pickOn(2, 'worth keeping'); await wait(500)
+  check('picked words offer Card', await h.evaluate(() => !!document.querySelector('.pdf-keep-bar button[aria-label="Card"]')), '')
+  await h.keyboard.press('c'); await wait(400)
+  check('C opens the question field where the words were, focused', await h.evaluate(() => document.activeElement?.getAttribute('aria-label') === "The card's question"), '')
+  await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-card.png` })
+  await h.keyboard.type('What is the sentence on page 2 worth?'); await h.keyboard.press('Enter'); await wait(900)
+  const asked = (await cardsFromBook()).find((one) => one.prompt === 'What is the sentence on page 2 worth?')
+  const askedBody = asked ? JSON.stringify((await v('item', asked.id))?.body ?? '') : ''
+  check('Return makes a card: the words answer it, with the book and page', !!askedBody && /worth keeping/.test(askedBody) && asked.passage === 'p. 2' && askedBody.includes('#page=2'), askedBody)
+  await pickOn(2, 'quiet'); await wait(500)
+  await h.keyboard.press('Shift+C'); await wait(900)
+  const blank = (await cardsFromBook()).find((one) => one.prompt?.includes('_____'))
+  check('⇧C makes a fill-in-the-blank card from the sentence', !!blank?.prompt?.endsWith('A _____ sentence worth keeping on page 2.'), JSON.stringify(blank?.prompt))
+  check('the count of cards from this source is said', /Card made: 2 from this source/.test(await h.evaluate(() => document.body.textContent)), '')
 } catch (error) {
   check('ran without throwing', false, String(error?.stack ?? error))
 } finally {
