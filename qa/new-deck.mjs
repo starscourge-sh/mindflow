@@ -78,6 +78,8 @@ try {
   check('3. the empty deck is a pocket in All cards', await waitFor(() => has('[data-pocket-empty="zymurgy"]')))
   check('3. it says "Paste cards or make one"', /Paste cards or make one/.test(await h.evaluate(() => document.querySelector('[data-pocket-empty="zymurgy"]')?.textContent ?? '')))
   await shot('decks-pockets', async () => { await cards('small'); await waitFor(() => has('[data-pocket-empty]')); await waitFor(() => h.evaluate(() => !document.querySelector('[data-home], [data-view="home"]') && document.getAnimations().every((one) => one.playState !== 'running' || one.effect?.getTiming().iterations === Infinity)), 4000); await h.waitForTimeout(800) })
+  // The theme put back reloads the page: back to the pockets first.
+  await cards('small'); await waitFor(() => has('[data-pocket-empty="zymurgy"] [data-pocket-paste]'))
   await h.evaluate(() => document.querySelector('[data-pocket-empty="zymurgy"] [data-pocket-paste]').click())
   check('3. its Paste cards opens aimed at the deck', await waitFor(async () => (await h.evaluate(() => document.querySelector('[data-paste-deck]')?.value)) === 'zymurgy'))
   await h.locator('[data-paste-text]').fill('What is zymurgy? | The study of fermentation')
