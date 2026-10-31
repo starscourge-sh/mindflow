@@ -121,19 +121,37 @@ export function registerPdfHighlights(): void {
   // kept beside the file in the book's store (named so no clean-up of unused
   // files ever counts it), so every card shows it at once after that.
   db.exec('create table if not exists pdf_covers (src text primary key, file text not null)')
+  // What the cover's drawing read out of the file: its author and how many pages it has.
+  const coverColumns = (db.prepare('pragma table_info(pdf_covers)').all() as { name: string }[]).map((one) => one.name)
+  if (!coverColumns.includes('author')) db.exec("alter table pdf_covers add column author text not null default ''")
+  if (!coverColumns.includes('pages')) db.exec('alter table pdf_covers add column pages integer')
   ipcMain.handle('haligtree:pdf:cover', async (_event, src: unknown) => {
     const row = db.prepare('select c.file, t.title from pdf_covers c left join pdf_titles t on t.src = c.src where c.src = ?').get(String(src)) as { file: string; title: string | null } | undefined
     const image = row ? await readFile(join(assetsDir(), row.file)).catch(() => null) : null
     return image ? { image: `data:image/jpeg;base64,${image.toString('base64')}`, title: row?.title ?? null } : null
   })
-  ipcMain.handle('haligtree:pdf:cover:set', async (_event, src: unknown, image: unknown) => {
+  ipcMain.handle('haligtree:pdf:cover:set', async (_event, src: unknown, image: unknown, about: unknown) => {
+    const { author, pages } = (about ?? {}) as { author?: string; pages?: number }
     const name = /assets\/([a-f0-9]{64})\.pdf$/i.exec(String(src))?.[1]
     const data = /^data:image\/jpeg;base64,(.+)$/.exec(String(image))?.[1]
     if (!name || !data) return false
     const file = `${name}.cover.jpg`
     await writeFile(join(assetsDir(), file), Buffer.from(data, 'base64'))
-    db.prepare('insert or replace into pdf_covers (src, file) values (?, ?)').run(String(src), file)
+    db.prepare('insert or replace into pdf_covers (src, file, author, pages) values (?, ?, ?, ?)').run(String(src), file, String(author ?? ''), Number.isInteger(pages) ? pages! : null)
     return true
+  })
+  // The library: every PDF kept, once each, with what its card and inspector say: title, author,
+  // pages, where you are, when you last read it, how many highlights and how many notes hold it.
+  ipcMain.handle('haligtree:pdf:library', () => {
+    const reading = new Map((db.prepare('select src, page, pages, read_at as readAt from pdf_reading').all() as { src: string; page: number; pages: number; readAt: string }[]).map((one) => [one.src, one]))
+    const marks = new Map((db.prepare('select src, count(*) as n from pdf_highlights group by src').all() as { src: string; n: number }[]).map((one) => [one.src, one.n]))
+    const covers = new Map((db.prepare('select src, author, pages from pdf_covers').all() as { src: string; author: string; pages: number | null }[]).map((one) => [one.src, one]))
+    return pdfsToFind(db).map((one) => {
+      const src = one.id.slice(0, one.id.indexOf('|'))
+      const read = reading.get(src)
+      const cover = covers.get(src)
+      return { src, name: one.id.slice(one.id.indexOf('|') + 1), title: one.label, author: cover?.author ?? '', pages: read?.pages ?? cover?.pages ?? null, page: read?.page ?? null, readAt: read?.readAt ?? null, addedAt: one.capturedAt, highlights: marks.get(src) ?? 0 }
+    })
   })
   // Words looked up on Wikipedia: its free summary of the article they name (CC BY-SA, said with its link), asked from here so no page talks to the internet itself.
   ipcMain.handle('haligtree:wiki', async (_event, raw: unknown) => {

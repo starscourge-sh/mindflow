@@ -5,6 +5,7 @@ import { call, unloaded, useLive } from '@/lib/haligtree'
 import { smallPicture } from '@/lib/notes'
 import { headingIn } from '@/lib/capture-links'
 import { usePdfCover } from '@/components/pdf/pdf-cover'
+import { PdfLibrary } from '@/components/pdf/pdf-library'
 import { canSplit, openAside } from '@/lib/split'
 import { chime } from '@/lib/sound'
 import { still } from '@/lib/motion'
@@ -76,7 +77,10 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
               <Chip key={one.id} on={kind === one.id} onClick={() => (chime(kind === one.id ? 'off' : 'on'), setKind(kind === one.id ? 'all' : one.id))} mark={<one.icon className="size-3.5" />}>{one.label}</Chip>
             ))}
           </div>
-          {shown.length ? (
+          {/* PDFs as a library: a shelf of covers, each book once, with an inspector. */}
+          {kind === 'pdf' ? (
+            <PdfLibrary query={query} />
+          ) : shown.length ? (
             <VirtualList items={lines} keyOf={(line) => line.key} holds={(line, key) => line.tiles.some((one) => `${one.type}:${one.id}:${one.src}` === key)} estimate={TILE * 0.75 + 52 + GAP} rowClass="">
               {(line) => (
                 <div className="grid" style={{ gridTemplateColumns: `repeat(${across}, minmax(0, 1fr))`, gap: GAP, paddingBottom: GAP }}>

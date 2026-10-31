@@ -77,6 +77,9 @@ try {
   const garden = await make([para('Garden plans'), para('Tomatoes by the fence'), { type: 'image', attrs: { src: png } }, para('Water them at dusk')])
   const cats = await make([para('Cat moments'), { type: 'image', attrs: { src: gif } }, para('Paste below')])
   await make([para('Flat papers'), { type: 'attachment', attrs: { src: pdf, name: 'Lease.pdf', size: PDF.length } }])
+  // A book as it comes off the web, its file name full of a site's tags.
+  const book = await h.evaluate((bytes) => window.api.saveFile('18 - The Law Book (z-lib.org).pdf', new Uint8Array(bytes)), [...PDF, ...Buffer.from('% another book\n')])
+  await make([para('Reading pile'), { type: 'attachment', attrs: { src: book, name: '18 - The Law Book (z-lib.org).pdf', size: PDF.length } }])
   await make([para('Morning walk'), { type: 'attachment', attrs: { src: wav, name: 'Birdsong.wav', size: WAV.length } }])
   // A gem kept from the PDF, still in Markdown: its link back ("Lease, p. 1") is a place in the book, not a second PDF.
   await h.evaluate((src) => window.api.haligtree('nugget:from', `A line from the lease\n\n[Lease, p. 1](${src}#page=1&mark=probe&name=Lease.pdf)`, { kind: 'quote', medium: 'Lease', passage: 'p. 1' }), pdf)
@@ -112,6 +115,19 @@ try {
   check('"Audio" leaves only recordings', audio.length >= 1 && audio.every((one) => one.kind === 'audio'), JSON.stringify(audio.map((one) => one.kind)))
   await chip('Audio'); await wait(500)
   check('pressed again, "Audio" shows every kind', (await tiles()).length === all.length)
+
+  // "PDFs" is a library: each book once as its cover, its name made readable, and an inspector for the one picked.
+  await chip('PDFs'); await wait(1500)
+  const shelf = await h.evaluate(() => ({ books: [...document.querySelectorAll('[data-library] .pdf-book')].map((one) => one.querySelector('.pdf-book-title')?.textContent), covers: document.querySelectorAll('[data-library] .pdf-book-cover img').length, inspector: document.querySelector('.pdf-inspector .pdf-inspector-title')?.textContent, open: document.querySelector('.pdf-inspector-open')?.textContent }))
+  check('"PDFs" shows a shelf of covers, one per book', shelf.books.length === 2 && shelf.covers === 2, JSON.stringify(shelf))
+  check('a file name like "18 - The Law Book (z-lib.org).pdf" reads "The Law Book"', shelf.books.includes('The Law Book'), JSON.stringify(shelf.books))
+  check('the inspector shows the book picked, with a way to open it', !!shelf.inspector && shelf.open === 'Open', JSON.stringify(shelf))
+  await shot(h, 'media-library')
+  await h.locator('[data-library] .pdf-book', { hasText: 'Lease' }).click(); await wait(400)
+  check('a click picks a book for the inspector', await h.evaluate(() => document.querySelector('.pdf-inspector-title')?.textContent) === 'Lease', '')
+  await h.locator('.pdf-inspector-open').click(); await wait(1500)
+  check('"Open" opens it in the reader', await h.evaluate(() => !!document.querySelector('.pdf-reader')), '')
+  await go('media'); await wait(1200)
 
   // A click: the note opens on the picture, picked.
   await h.locator(`[data-media][data-src="${png}"]`).click(); await wait(1800)

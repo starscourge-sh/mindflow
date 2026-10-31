@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { call } from "@/lib/haligtree"
-import { loadPdf, pdfTitle } from "./pdf-pages"
+import { loadPdf, pdfAuthor, pdfTitle } from "./pdf-pages"
 import { learnTitle } from "./pdf-reader"
 
 /** A PDF's cover and its own title, as every card of it shows them. */
@@ -39,7 +39,7 @@ export function pdfCover(src: string, name = ""): Promise<PdfCover | null> {
       const image = canvas.toDataURL("image/jpeg", 0.82)
       const title = await pdfTitle(doc, name)
       learnTitle(src, title)
-      void call("pdf:cover:set", src, image)
+      void call("pdf:cover:set", src, image, { author: await pdfAuthor(doc), pages: doc.numPages })
       return { image, title }
     })().catch(() => null)
     covers.set(src, made)
