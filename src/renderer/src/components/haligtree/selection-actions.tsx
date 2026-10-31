@@ -7,7 +7,7 @@ import { ShortcutDisplay } from '@/components/tiptap-ui-primitive/button/button'
 import { makeTask } from '@/lib/tasks'
 import { lineTasksSaid, linesIn, makeLineTasks } from '@/lib/line-tasks'
 import { makeLineCaptures } from '@/lib/line-captures'
-import { saveLookup } from '@/lib/lookups'
+import { lookUpIn } from '@/components/turn-into/clicked'
 import { host, keepAsIs, once, reword, type Origin } from './reword'
 import { markKept } from '@/extensions/kept'
 import { Bookmark, Camera, Gem, Inbox, ListTodo } from '@/components/ui/icons'
@@ -169,11 +169,11 @@ function LinesButton({ editor, origin, button }: { editor: Editor; origin: Origi
     <Tooltip delay={200}>
       <TooltipTrigger asChild>
         <button type="button" className={button} aria-label="Look up" data-look-up
-          onClick={() => void saveLookup(words, origin.captureId)}>
+          onClick={() => lookUpIn(editor, from, to, words, origin.captureId)}>
           <Bookmark /> <span className="tiptap-button-text">Look up</span>
         </button>
       </TooltipTrigger>
-      <TooltipContent>Look it up later<span className="block opacity-70">Kept in Lookups as asked; a word the dictionary knows comes back answered</span></TooltipContent>
+      <TooltipContent>Look it up<span className="block opacity-70">Its meaning and Wikipedia, here; Keep puts it in Lookups, a question kept as asked</span></TooltipContent>
     </Tooltip>
   )
 }

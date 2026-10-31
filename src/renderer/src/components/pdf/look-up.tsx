@@ -11,7 +11,7 @@ import type { Answer } from "../../../../main/define"
 type Wiki = { title: string; description: string; extract: string; url: string; picture?: string | null } | { missing: true } | { offline: true } | null
 
 /** Where the words were looked up: said on the Lookup kept, with a link back to the very place. */
-export type LookedUpIn = { where: string; link: string; sentence?: string }
+export type LookedUpIn = { where: string; link: string; sentence?: string; /** The note it was looked up in, when it was: the Lookup points back to it. */ origin?: string | null }
 
 /** Lines of grey where words are coming: calm, the card's own size, nothing that says "loading". */
 function Waiting({ lines }: { lines: number[] }): React.JSX.Element {
@@ -59,7 +59,13 @@ export function LookUpCard({ words, at, from, onClose }: { words: string; at: { 
 
   /** Kept as one Lookup: the word, its meaning and Wikipedia's summary together, where it was looked up (and the sentence round it). */
   const keep = async (): Promise<void> => {
-    if (!found && !page) return
+    // Neither knows it (a question, a name): kept as asked, to answer when you find it.
+    if (!found && !page) {
+      const id = await window.api.captures.create({ kind: "word", body: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: words }] }] }, markdown: words, ...(from.origin ? { origin: from.origin } : {}) })
+      setKept({ id, asking: true })
+      chime("saved")
+      return said("Kept in Lookups, asked: write the answer when you find it")
+    }
     const word = found ? words : page!.title
     const text = (value: string, link?: string): Record<string, unknown> => ({ type: "text", text: value, ...(link ? { marks: [{ type: "link", attrs: { href: link } }] } : {}) })
     const body = {
@@ -68,11 +74,11 @@ export function LookUpCard({ words, at, from, onClose }: { words: string; at: { 
         { type: "paragraph", content: [text(word)] },
         ...(from.sentence ? [{ type: "blockquote", content: [{ type: "paragraph", content: [text(from.sentence)] }] }] : []),
         ...(found && page ? [{ type: "paragraph", content: [text(page.extract)] }] : []),
-        { type: "paragraph", content: [text("Looked up in "), text(from.where, from.link)] },
+        ...(from.where ? [{ type: "paragraph", content: [text("Looked up in "), text(from.where, from.link || undefined)] }] : []),
         ...(page ? [{ type: "paragraph", content: [text("From "), text("Wikipedia", page.url), text(", CC BY-SA")] }] : []),
       ],
     }
-    const id = await window.api.captures.create({ kind: "word", title: word, body, medium: from.where })
+    const id = await window.api.captures.create({ kind: "word", title: word, body, medium: from.where || undefined, ...(from.origin ? { origin: from.origin } : {}) })
     await notes.setField("captures", id, "definition", found ? found.definition : page!.extract)
     if (found?.example) await notes.setField("captures", id, "example", found.example)
     setKept({ id, asking: true })
@@ -112,7 +118,8 @@ export function LookUpCard({ words, at, from, onClose }: { words: string; at: { 
         <Waiting lines={[55, 100, 96, 80]} />
       ) : page ? (
         <div className="look-up-wiki" data-look="wikipedia">
-          {page.picture && <img className="look-up-picture" src={page.picture} alt="" draggable={false} />}
+          {/* Offline, a picture that cannot load is left out, never shown broken. */}
+          {page.picture && <img className="look-up-picture" src={page.picture} alt="" draggable={false} onError={(event) => (event.currentTarget.hidden = true)} />}
           <p className="look-up-title">
             {page.title}
             {page.description && <span className="look-up-description"> {page.description}</span>}
@@ -149,7 +156,7 @@ export function LookUpCard({ words, at, from, onClose }: { words: string; at: { 
             />
           </span>
         ) : (
-          <button type="button" className="look-up-keep" data-look-keep disabled={!!kept || (!found && !page)} onClick={() => void keep()}>
+          <button type="button" className="look-up-keep" data-look-keep disabled={!!kept || meaning === "looking" || wiki === "looking"} onClick={() => void keep()}>
             {kept ? "Kept in Lookups" : "Keep"}
           </button>
         )}
@@ -159,6 +166,36 @@ export function LookUpCard({ words, at, from, onClose }: { words: string; at: { 
           </a>
         )}
       </div>
+    </div>
+  )
+}
+
+/** Look Up opened anywhere: the words, where on screen, and where they were read. Shown by the one card (LookUpHost). */
+type LookUpAsk = { words: string; x: number; y: number; from: LookedUpIn }
+
+/** Look the words up in the one Look Up card, from a note, Review or anywhere words can be picked. */
+export const lookUp = (ask: LookUpAsk): void => void window.dispatchEvent(new CustomEvent<LookUpAsk>("haligtree:look-up", { detail: ask }))
+
+/**
+ * The Look Up card for every place that is not a reader (which shows its own
+ * in its pages): a note's right-click and selection bar, Review. Mounted once;
+ * over everything, where it was asked; Esc or a press away puts it away.
+ */
+export function LookUpHost(): React.JSX.Element | null {
+  const [ask, setAsk] = useState<LookUpAsk | null>(null)
+  useEffect(() => {
+    const open = (event: Event): void => setAsk((event as CustomEvent<LookUpAsk>).detail)
+    const away = (event: PointerEvent): void => {
+      if (!(event.target as Element | null)?.closest?.(".look-up")) setAsk(null)
+    }
+    window.addEventListener("haligtree:look-up", open)
+    window.addEventListener("pointerdown", away, true)
+    return () => (window.removeEventListener("haligtree:look-up", open), window.removeEventListener("pointerdown", away, true))
+  }, [])
+  if (!ask) return null
+  return (
+    <div className="look-up-layer" data-look-up-host>
+      <LookUpCard key={`${ask.words}|${ask.x}|${ask.y}`} words={ask.words} at={{ x: Math.min(ask.x, innerWidth - 180), y: Math.max(8, Math.min(ask.y, innerHeight - 470)) }} from={ask.from} onClose={() => setAsk(null)} />
     </div>
   )
 }

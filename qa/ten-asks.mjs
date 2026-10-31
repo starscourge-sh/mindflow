@@ -148,7 +148,12 @@ try {
   const look = h.locator('[data-look-up]:visible')
   check('6. one word picked: the bar offers "Look up"', (await look.count()) > 0)
   if (await look.count()) {
-    await look.first().click(); await wait(2000)
+    // The one Look Up card opens under the word; Keep keeps it, the why skipped with Esc.
+    await look.first().click()
+    await h.waitForSelector('[data-look-up-host] [data-look-keep]:not([disabled])', { timeout: 10000 }).catch(() => {})
+    check('6. Look up opens the Look Up card in the note', (await h.locator('[data-look-up-host] .look-up').count()) === 1)
+    await h.click('[data-look-up-host] [data-look-keep]').catch(() => {}); await wait(800)
+    await h.keyboard.press('Escape'); await wait(1200)
     const saved = (await list()).find((one) => one.label === 'petrichor' && one.lookup === 'answered' && one.id !== word?.id)
     const meaning = saved ? await v('notes:fields', 'captures', saved.id) : {}
     check('6. the definition becomes a saved lookup, answered', !!saved && /pleasant smell/.test(meaning.definition ?? ''), JSON.stringify(meaning))

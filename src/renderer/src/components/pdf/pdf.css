@@ -917,6 +917,18 @@
   animation: look-up-in 160ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* Outside a reader (a note, Review): the same card, over everything, where it was asked. */
+.look-up-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  pointer-events: none;
+}
+
+.look-up-layer .look-up {
+  pointer-events: auto;
+}
+
 @keyframes look-up-in {
   from { opacity: 0; transform: translateY(-4px) scale(0.98); }
 }

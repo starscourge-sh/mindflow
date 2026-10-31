@@ -10,7 +10,15 @@ import { openPdf } from "@/components/pdf/pdf-reader"
 import { isWebPage, openArticle } from "@/components/pdf/web-reader"
 import { haligtree } from "@/lib/haligtree"
 import { host, said } from "@/lib/host"
-import { saveLookup } from "@/lib/lookups"
+import { lookUp } from "@/components/pdf/look-up"
+
+/** Picked words looked up in the one Look Up card, under them, with the line they sit in kept beside the Lookup. */
+export function lookUpIn(editor: Editor, from: number, to: number, words: string, origin?: string | null): void {
+  const end = editor.view.coordsAtPos(to)
+  const start = editor.view.coordsAtPos(from)
+  const sentence = editor.state.doc.resolve(from).parent.textContent.trim()
+  lookUp({ words: words.replace(/\s+/g, " ").trim(), x: (start.left + end.right) / 2, y: end.bottom, from: { where: "", link: "", sentence: sentence && sentence !== words ? sentence : undefined, origin } })
+}
 import { canSplit, openAside } from "@/lib/split"
 import { openApart } from "@/lib/apart"
 import { chime } from "@/lib/sound"
@@ -189,7 +197,8 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
   }
   const { from, to, words } = clicked
   const lines: Array<Line | false> = [
-    { label: "Look up", hint: "Kept in Lookups", data: "look-up", run: () => void saveLookup(words).then((id) => said(id ? `Kept in Lookups: “${cut(words)}”` : "Could not keep it", !!id)) },
+    // The one Look Up card, under the words: the meaning and Wikipedia, kept with one press.
+    { label: "Look up", hint: "Meaning and Wikipedia", data: "look-up", run: () => lookUpIn(editor, from, to, words) },
     canSplit() && { label: `Search for “${cut(words, 24)}”`, data: "search", run: () => void window.dispatchEvent(new CustomEvent("haligtree:search", { detail: { words } })) },
     {
       label: "Make a card from it",
