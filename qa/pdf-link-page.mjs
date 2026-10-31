@@ -38,6 +38,13 @@ try {
   await v('item:save', gem, { body })
   await c.send('nugget', gem); await wait(1500)
   check('a gem\'s page says the page too', (await pageAfter(h)).page === ' · p. 12', JSON.stringify(await pageAfter(h)))
+  // Read-through: the note read from the reading queue.
+  await v('queue:add', [id])
+  await c.go('queue'); await wait(800)
+  await h.locator('button', { hasText: 'Start reading' }).first().click().catch(() => {}); await wait(1500)
+  check('read-through says the page too', (await pageAfter(h)).page === ' · p. 12', JSON.stringify(await pageAfter(h)))
+  if (shots) await h.screenshot({ path: `${shots}/link-page-read-through.png` })
+  await h.keyboard.press('Escape'); await wait(500)
   // Quick capture.
   await c.page.evaluate(() => window.api.showPrompt()); await c.page.waitForTimeout(900)
   await c.page.evaluate((href) => document.querySelector('.tiptap').editor.commands.insertContent(`<p>See <a href="${href}">The Law Book</a></p>`), HREF).catch(() => {})
