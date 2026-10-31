@@ -1442,7 +1442,11 @@ function Surface({
         // Not an edit: nothing to undo back to, and nothing to save.
         try {
           const doc = instance.schema.nodeFromJSON(markdownToDocument(instance, defaultContent))
-          instance.view.dispatch(instance.state.tr.replaceWith(0, instance.state.doc.content.size, doc.content).setMeta("addToHistory", false).setMeta("preventUpdate", true))
+          // The selection starts at the start, as it does for words given as a
+          // document: mapped through the replace it would land at the end, and
+          // on a picture there it is a node selection, drawn as a ring on it.
+          const tr = instance.state.tr.replaceWith(0, instance.state.doc.content.size, doc.content)
+          instance.view.dispatch(tr.setSelection(PMSelection.atStart(tr.doc)).setMeta("addToHistory", false).setMeta("preventUpdate", true))
         } catch {
           instance.commands.setContent(defaultContent, { contentType: "markdown", emitUpdate: false })
         }
