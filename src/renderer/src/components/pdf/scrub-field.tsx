@@ -7,8 +7,8 @@ export const SCRUB = "h-8 w-14 cursor-ew-resize rounded-md border border-input b
 
 /** The quickest a step's tick repeats: a fast scrub is a soft patter, never a buzz. */
 const TICK_GAP = 45
-/** How far two fingers travel for one step: a mouse wheel's notch is a step of its own. */
-const WHEEL_STEP = 24
+/** How far two fingers travel for one step: a Mac mouse wheel's notch (Chromium's 40px), so a notch is one step. */
+const WHEEL_STEP = 40
 
 /**
  * A typed sum, worked out: "20*2" is 40, and one that starts with a sign
@@ -70,14 +70,10 @@ export function ScrubField({ value, max, onChange, label = "Page", min = 1, clas
       // The larger of the two ways (⇧ turns a mouse's wheel sideways), in pixels.
       const raw = Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? event.deltaY : event.deltaX
       const by = event.deltaMode === 1 ? raw * 16 : event.deltaMode === 2 ? raw * 400 : raw
-      // A mouse wheel's notch (Chromium's 120 a notch) is one step, however far the system throws it.
-      const wheelDelta = (event as WheelEvent & { wheelDelta?: number }).wheelDelta ?? 0
-      let steps = wheelDelta && wheelDelta % 120 === 0 ? -Math.sign(wheelDelta) * Math.min(3, Math.abs(wheelDelta) / 120) : 0
-      if (!steps) {
-        one.rest += by
-        steps = Math.trunc(one.rest / WHEEL_STEP)
-        one.rest -= steps * WHEEL_STEP
-      }
+      // Kept until it makes a whole step: a slow glide steps evenly, a fling further, and nothing is lost between.
+      one.rest += by
+      const steps = Math.trunc(one.rest / WHEEL_STEP)
+      one.rest -= steps * WHEEL_STEP
       if (steps) one.land(one.value + steps * (event.shiftKey ? 10 : 1), null)
     }
     el.addEventListener("wheel", onWheel, { passive: false })

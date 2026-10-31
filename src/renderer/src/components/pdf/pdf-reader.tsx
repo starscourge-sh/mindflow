@@ -129,6 +129,8 @@ export const fromPdfFocus = (focus: string): { src: string; name: string } => {
  */
 export function PdfReader({ src, name, page: start, onPage }: { src: string; name: string; page?: number; onPage?: (page: number) => void }): React.JSX.Element {
   const scroller = useRef<HTMLDivElement>(null)
+  /** The pages last moved by a hand (two fingers, a wheel, the scroll bar, a key), not by opening, a restore, a jump or a zoom. */
+  const byHandScroll = useRef(false)
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null)
   const [title, setTitle] = useState(() => pdfName(src, name))
   const [zoom, setZoom] = useState(1)
@@ -543,6 +545,8 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     const n = Math.min(Math.max(1, Math.round(to)), doc.numPages)
     scroller.current?.querySelector<HTMLElement>(`.pdf-page[data-page="${n}"]`)?.scrollIntoView({ block: "start" })
     setPage(n)
+    // A jump is not reading: no taps until a hand scrolls again.
+    byHandScroll.current = false
     // Kept as the pane's page, so Back from anywhere comes back to it.
     if (n !== start) onPage?.(n)
   }
@@ -588,6 +592,8 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   const anchor = useRef<{ page: number; fx: number; fy: number; x: number; y: number; from: number } | null>(null)
   const [zoomed, setZoomed] = useState(0)
   const zoomTo = (next: number, at?: { x: number; y: number }, from = next): void => {
+    // The pages kept round a point as they grow are no reading: no taps.
+    byHandScroll.current = false
     const box = scroller.current
     if (!box) return setZoom(next)
     const frame = box.getBoundingClientRect()
@@ -720,7 +726,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
       setPage(at)
       onPage?.(at)
       // Each page coming into place taps the trackpad (a fling's in-between pages fold into one); its ends and chapters, firmly.
-      stepTap(at, 1, doc?.numPages ?? 1, chapters)
+      if (byHandScroll.current) stepTap(at, 1, doc?.numPages ?? 1, chapters)
     }
   }
 
@@ -825,6 +831,9 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
             ref={scroller}
             className="pdf-reader-scroll"
             onScroll={onScroll}
+            onWheel={(event) => void (byHandScroll.current = !event.ctrlKey && !event.metaKey)}
+            onPointerDown={() => void (byHandScroll.current = true)}
+            onKeyDown={() => void (byHandScroll.current = true)}
             onDoubleClick={toggleZoom}
             // A mark has its menu, picked words theirs: anywhere else a right click does nothing here.
             onContextMenu={(event) => {

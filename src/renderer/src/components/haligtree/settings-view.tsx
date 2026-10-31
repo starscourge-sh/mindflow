@@ -860,6 +860,9 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
               set({ sounds })
             }} />
           </Setting>
+          <Setting title="Haptic taps" note="A light tap on a Force Touch trackpad as a number steps, a slider clicks into place or a page comes into view." keywords="haptic haptics force touch trackpad tap vibration feel feedback">
+            <Switch checked={settings.haptics} onCheckedChange={(haptics) => set({ haptics })} />
+          </Setting>
           {/* Shown with sounds off too, greyed, so a search still finds them. */}
           <Setting off={!settings.sounds && 'Turn “Sounds” on to change this.'} title="Volume" note="How loud every sound is; let go of the slider to hear it.">
             <SettingSlider disabled={!settings.sounds} min={0} max={1} step={0.05} value={settings.volume} onSave={(volume) => set({ volume })} sample={(volume) => (setVolume(volume), chime('tap'))} />

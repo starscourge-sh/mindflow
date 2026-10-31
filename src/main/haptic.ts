@@ -1,4 +1,5 @@
 import hapticFile from '../../resources/haptic.node?asset&asarUnpack'
+import { setting } from './captures'
 
 /**
  * A firm tap on a Force Touch trackpad (native/haptic.mm), the Mac's level-change
@@ -16,6 +17,8 @@ export let taps = 0
 export const tapKinds: Array<'align' | 'level'> = []
 export function tap(kind: 'align' | 'level' = 'align'): void {
   if (process.platform !== 'darwin') return
+  // "Haptic taps" off in Settings: none at all, played or counted.
+  if (!setting('haptics', true)) return
   if (tapper === undefined && !process.env.HALIGTREE_QA_AWAY) {
     try {
       const module = { exports: {} as { tap?: (kind: number) => void } }

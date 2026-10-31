@@ -320,6 +320,8 @@ const DEFAULTS = {
   fullWidth: false,
   // The small sounds on complete, promote and grade.
   sounds: true,
+  // A light tap on a Force Touch trackpad as a value steps or a page comes into place.
+  haptics: true,
   // How loud they are, from silent to full.
   volume: 1,
   // A clock ticking while a focus session runs (never in a break), and how
