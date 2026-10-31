@@ -72,7 +72,52 @@ try {
   await turn()
   const four = await h.evaluate(() => [...document.querySelectorAll('[data-grades] button')].map((b) => b.innerText.split('\n')[0]))
   check('four buttons: Again, Hard, Good, Easy', JSON.stringify(four) === '["Again","Hard","Good","Easy"]', JSON.stringify(four))
-  check('nothing went wrong on the page', !c.errors.length, c.errors.slice(0, 2).join(' | '))
+  // A typed answer says the one thing that is off: an accent, a slip of a letter.
+  await v('settings:set', { grades: 2, newPerDay: 500 })
+  const bat = await v('nugget:from', 'murciélago', {})
+  await v('item:save', bat, { prompt: 'Spanish for bat?' })
+  const cell = await v('nugget:from', 'mitochondria', {})
+  await v('item:save', cell, { prompt: 'Where in a cell is ATP made?' })
+  // Only these two in today's queue: every other card set aside for the check.
+  for (const one of await v('items', 'nugget')) if (one.prompt && one.id !== bat && one.id !== cell) await v('item:save', one.id, { suspended: true })
+  const ours = (await v('review:queue')).map((one) => one.prompt)
+  check('the two typed cards are in the queue', ours.includes('Spanish for bat?') && ours.includes('Where in a cell is ATP made?'), JSON.stringify(ours))
+  await c.go('home')
+  await c.go('review')
+  const reach = async (prompt) => {
+    for (let i = 0; i < 10; i++) {
+      await waitFor(async () => (await asked()).length > 3)
+      if ((await asked()).includes(prompt)) return true
+      await turn()
+      const was = await asked()
+      await h.keyboard.press('3')
+      await waitFor(async () => (await asked()) !== was)
+    }
+    return false
+  }
+  const typeIn = async (words) => {
+    await h.locator('textarea').first().fill(words)
+    await h.locator('textarea').first().press('Meta+Enter')
+    return waitFor(() => h.evaluate(() => !!document.querySelector('[data-typed]')))
+  }
+  for (const [prompt, typed, said] of [['Spanish for bat?', 'murcielago', /Right apart from the accent: murciélago/], ['Where in a cell is ATP made?', 'mitochondira', /Close: you wrote mitochondira, it is mitochondria\./]]) {
+    if (!(await reach(prompt))) { check(`reached “${prompt}”`, false); continue }
+    await typeIn(typed)
+    const line = await h.evaluate(() => document.querySelector('[data-typed]')?.innerText ?? '')
+    check(`typed “${typed}” is told what is off`, said.test(line), line.replace(/\s+/g, ' '))
+    if (typed === 'murcielago') {
+      check('a missing accent never suggests Easy', !/suggests Easy/.test(line) && /suggests Got it/.test(line))
+      await h.locator('[data-typed]').screenshot({ path: `${shots}/review-core-typed-accent.png` })
+      await h.evaluate(() => document.activeElement?.blur())
+      await h.keyboard.press('3')
+    } else {
+      check('a close slip offers “Count it as Got it”', (await h.locator('[data-typed-count]').innerText()) === 'Count it as Got it')
+      await c.both(`${shots}/review-core-typed-close`)
+      await h.locator('[data-typed-count]').click()
+      check('one click grades it Got it', await waitFor(async () => (await v('review:history', cell)).reviews.at(-1)?.grade === 3))
+    }
+  }
+  check('nothing went wrong on the page',!c.errors.length, c.errors.slice(0, 2).join(' | '))
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])
 } finally {
