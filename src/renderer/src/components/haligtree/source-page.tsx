@@ -1,6 +1,6 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { hoverNote } from './note-preview'
-import { BookOpen, FileText, Library, Quote, User } from 'lucide-react'
+import { ArrowUpRight, BookOpen, FileText, Library, Quote, User } from 'lucide-react'
 import { Camera, Fit } from '@/components/ui/icons'
 import { openLook } from '@/components/image/image-look'
 
@@ -8,12 +8,15 @@ import { Button } from '@/components/ui/button'
 import { kindOf } from '@/components/capture-kinds/capture-kind-picker'
 import { chime } from '@/lib/sound'
 import { unloaded, useLive, haligtree } from '@/lib/haligtree'
-import { UNATTRIBUTED, VOICE_SAID, VOICE_TINT, askRename, openSource, pageRef, readFocus, sources, type SourceField, type SourceItem, type SourceSummary, type Voice } from '@/lib/sources'
+import { UNATTRIBUTED, VOICE_TINT, askRename, openSource, pageRef, readFocus, sources, type SourceField, type SourceItem, type SourceSummary, type Voice } from '@/lib/sources'
 import { Avatar } from './avatar'
 import { NoteList, type Entry } from './note-list'
 import { Example } from './example'
 import { Display, useView } from './display'
-import { Count, Empty, Page, Tip, ask, askSure, toast, typing } from './ui'
+import { Count, Empty, Page, Tip, ask, askSure, openTag, quietly, toast, typing } from './ui'
+import { RowMenu } from './row-menu'
+import { withoutTags } from '../../../../main/tag-words'
+import { firstSentences, sameTitle, useWiki } from '@/lib/wiki'
 import { personKey } from '../../../../main/names'
 import { useSelectAll } from '@/lib/select-all'
 import { usePicking } from '@/lib/pick-range'
@@ -237,34 +240,13 @@ function Fact({ value, placeholder, label, onSave }: { value: string; placeholde
 
 /**
  * A person's page head, like an artist's page: their photo (or their shape),
- * their name, one plain line of what they did and when they lived, and what
- * you wrote about them as the bio, three lines until “Read more”. Every part
- * is changed where it is: click or drop on the photo, type in the line or the bio.
+ * their name, and one plain line of what they did and when they lived. Every
+ * part is changed where it is: click or drop on the photo, type in the line.
  */
-function PersonHead({ page, name, thoughts, setThoughts, onOpenPerson }: { page: SourcePage | null; name: string; thoughts: string; setThoughts: (text: string) => void; onOpenPerson: (name: string) => void }): React.JSX.Element {
+function PersonHead({ page, name }: { page: SourcePage | null; name: string }): React.JSX.Element {
   const photo = useAvatar(name)
-  const [open, setOpen] = useState(false)
-  const [long, setLong] = useState(false)
   const [over, setOver] = useState(false)
-  const near = useLive(() => sources.near(name), [] as Awaited<ReturnType<typeof sources.near>>, [name, page?.items.length])
   const facts = (patch: Partial<SourceFacts>): void => void sources.facts('attribution', name, patch).then(() => chime('noted'))
-  const items = page?.items ?? []
-  const theirs = items.filter((one) => one.voice === 'theirs').length
-  const cite = items.length - theirs
-  const last = items.reduce<string | null>((latest, one) => (!latest || one.at > latest ? one.at : latest), null)
-  const counts = [theirs && `${plural(theirs, 'of their words', 'of their words')}`, cite && `${plural(cite, 'note cites them', 'notes cite them')}`, last && `last added ${ago(last)}`].filter(Boolean)
-  const bioBox = useRef<HTMLTextAreaElement>(null)
-  // Cut only when it runs past three lines; measured while cut, so opening it keeps “Show less”.
-  useLayoutEffect(() => {
-    const box = bioBox.current
-    if (!box || open) return
-    // Its whole height, for a moment, against the three lines it is cut to (a sized-to-fit field reports no overflow).
-    const cut = box.clientHeight
-    box.style.maxHeight = 'none'
-    const whole = box.clientHeight
-    box.style.maxHeight = ''
-    setLong(whole > cut + 2)
-  }, [thoughts, open])
   return (
     <header data-person-head className="px-5 pt-8">
       <div className="flex items-start gap-5">
@@ -318,39 +300,176 @@ function PersonHead({ page, name, thoughts, setThoughts, onOpenPerson }: { page:
           </p>
         </div>
       </div>
-      <div className="relative mt-4">
-        <textarea data-thoughts value={thoughts} rows={1} placeholder={`What you make of ${name}, in your own words`} ref={bioBox}
-          onChange={(event) => setThoughts(event.target.value)}
-          onFocus={() => setOpen(true)}
-          onBlur={() => thoughts !== (page?.thoughts ?? '') && void sources.set('attribution', name, thoughts).then(() => chime('noted'))}
-          style={{ maskImage: !open && long ? 'linear-gradient(to bottom, black 45%, transparent calc(100% - 0.5rem))' : undefined }}
-          className={`block w-full resize-none overflow-hidden rounded-md bg-transparent px-2 py-2 -mx-2 ${open ? '' : 'max-h-[calc(3lh+1rem)]'} text-body leading-relaxed outline-none [field-sizing:content] placeholder:text-foreground/60 hover:bg-accent/50 focus:bg-accent/50`} />
-        {(long || open) && thoughts.trim() && (
-          <button type="button" data-read-more onClick={() => (chime(open ? 'fold' : 'open'), setOpen(!open))} className="-ml-1 mt-0.5 rounded-md px-1 py-0.5 text-body font-medium text-foreground hover:bg-accent">
-            {open ? 'Show less' : 'Read more'}
-          </button>
-        )}
-      </div>
-      {counts.length > 0 && <p data-person-counts className="mt-3 text-body text-foreground">{counts.join(' · ')}</p>}
-      {near.length > 0 && (
-        <section data-also-in className="mt-5">
-          <h3 className="mb-2 text-heading font-semibold">Also in your book</h3>
-          <div className="flex flex-wrap gap-4">
-            {near.map((one) => (
-              <button key={one.name} type="button" data-also-person={one.name} onClick={() => (chime('page'), onOpenPerson(one.name))}
-                className="group flex w-20 flex-col items-center gap-1.5 rounded-lg p-1 text-center focus-visible:ring-2 focus-visible:ring-ring">
-                <Avatar name={one.name} size={56} className="transition-transform duration-150 group-hover:scale-105" />
-                <span {...hoverNote('person', one.name)} className="line-clamp-2 text-control text-foreground">{one.name}</span>
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
     </header>
   )
 }
 
-/** A note on a source page: its words, coloured by whose words they are, and its page reference. */
+/** A section of the portrait page: its heading in the app's own style, no stripe, no count. */
+function Section({ name, title, children }: { name: string; title: string; children: React.ReactNode }): React.JSX.Element {
+  return (
+    <section data-portrait={name} className="mt-8 px-5">
+      <h3 className="mb-2 text-heading font-semibold">{title}</h3>
+      {children}
+    </section>
+  )
+}
+
+/**
+ * A line or two about them, under the name. The first time the page opens it
+ * is filled from Wikipedia's summary (its first two sentences, said "From
+ * Wikipedia" with a link: CC BY-SA asks for the credit) and kept here, so it
+ * reads offline. Typed over, your words replace it and the credit goes. Never
+ * found (offline, or no article by that name): nothing, and a quiet way to write one.
+ */
+function Bio({ field, name, page }: { field: SourceField; name: string; page: SourcePage | null }): React.JSX.Element | null {
+  const asked = !page || !!page.bioAt
+  const wiki = useWiki(asked ? null : name)
+  useEffect(() => {
+    if (!page || page.bioAt || (wiki.state !== 'found' && wiki.state !== 'missing')) return
+    // Only the article by that very name: "Mum" is not the article about mothers.
+    const fits = !!wiki.page && sameTitle(wiki.page.title, name)
+    void sources.bio(field, name, fits ? firstSentences(wiki.page!.extract) : '', fits ? wiki.page!.url : '')
+  }, [wiki.state, wiki.page, page, field, name])
+  const [text, setText] = useState(page?.bio ?? '')
+  const [writing, setWriting] = useState(false)
+  useEffect(() => setText(page?.bio ?? ''), [page?.bio])
+  if (!page) return null
+  const save = (): void => {
+    setWriting(false)
+    const typed = text.replace(/\s+/g, ' ').trim()
+    if (typed === page.bio.trim()) return
+    const was = { bio: page.bio, url: page.bioUrl }
+    void sources.bio(field, name, typed, '').then(() => (chime('noted'), quietly(() => void sources.bio(field, name, was.bio, was.url))))
+  }
+  if (!page.bio && !writing) return (
+    <button type="button" data-bio-add onClick={() => (chime('tap'), setWriting(true))}
+      className="mt-4 ml-4 rounded-md px-1 py-0.5 text-body text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+      {field === 'attribution' ? 'Add a line about them' : 'Add a line about it'}
+    </button>
+  )
+  return (
+    <div data-bio className="mt-4 px-5">
+      <textarea data-bio-text value={text} rows={1} autoFocus={writing} aria-label={field === 'attribution' ? 'About them' : 'About it'}
+        placeholder={field === 'attribution' ? 'A line about them' : 'A line about it'}
+        onChange={(event) => setText(event.target.value)} onBlur={save}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' && !event.shiftKey) (event.preventDefault(), event.currentTarget.blur())
+          if (event.key === 'Escape') (event.preventDefault(), event.stopPropagation(), setText(page.bio), setWriting(false), event.currentTarget.blur())
+        }}
+        className="-mx-2 block w-[calc(100%+1rem)] resize-none rounded-md bg-transparent px-2 py-1 text-heading leading-relaxed text-pretty outline-none [field-sizing:content] placeholder:text-foreground/55 hover:bg-accent/50 focus:bg-accent/50" />
+      {page.bioUrl && text === page.bio && (
+        <a data-bio-credit href={page.bioUrl} target="_blank" rel="noopener noreferrer" title="Text from Wikipedia, CC BY-SA"
+          className="mt-0.5 inline-flex items-center gap-0.5 rounded-sm text-meta text-muted-foreground hover:text-foreground hover:underline hover:underline-offset-2">
+          From Wikipedia <ArrowUpRight className="size-3" />
+        </a>
+      )}
+    </div>
+  )
+}
+
+/** A quote's words, without quotation marks of their own: the page sets its own. */
+const bare = (text: string): string => withoutTags(text).replace(/\s+/g, ' ').trim().replace(/^["“”‘’']+|["“”‘’']+$/g, '').trim()
+
+/**
+ * Their words as quotes: each in quotation marks, with where and when it is
+ * from under it; click opens it, right-click offers the rest.
+ */
+function Quotes({ field, name, page, items, onOpen }: { field: SourceField; name: string; page: SourcePage; items: SourceItem[]; onOpen: (item: SourceItem) => void }): React.JSX.Element {
+  return (
+    <ul data-quotes className="-mx-3 flex flex-col gap-1">
+      {items.map((item) => {
+        const from = field === 'attribution' ? item.medium?.trim() : item.attribution?.trim()
+        const year = field === 'attribution' ? (item.medium ? page.years[personKey(item.medium)] : '') : page.born
+        const ref = item.location ? (isPage(item.location) ? `p. ${item.location}` : item.location) : ''
+        const under = [from, ref, year].filter(Boolean).join(' · ')
+        return (
+          <li key={item.id}>
+            <RowMenu items={[{ label: 'Open', run: () => onOpen(item) }, { label: `Take off “${name}”`, run: () => void setSource(item, field, null).then(() => toast(`No longer from ${name}`, () => void setSource(item, field, name))) }]}>
+              <button type="button" data-quote={item.id} onClick={() => onOpen(item)}
+                className="block w-full rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring">
+                <blockquote className="pl-[0.45em] -indent-[0.45em] text-heading leading-relaxed text-foreground text-pretty">
+                  <span aria-hidden>“</span>{bare(item.label)}<span aria-hidden>”</span>
+                </blockquote>
+                {under && <p data-quote-from className="mt-1 pl-[0.45em] text-control text-muted-foreground">{under}</p>}
+              </button>
+            </RowMenu>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+/** What you make of them: shown once written; until then a quiet line to start. */
+function Thoughts({ field, name, page }: { field: SourceField; name: string; page: SourcePage }): React.JSX.Element {
+  const [text, setText] = useState(page.thoughts)
+  const [writing, setWriting] = useState(false)
+  useEffect(() => setText(page.thoughts), [page.thoughts])
+  if (!page.thoughts.trim() && !writing) return (
+    <button type="button" data-thoughts-add onClick={() => (chime('tap'), setWriting(true))}
+      className="mt-8 ml-4 rounded-md px-1 py-0.5 text-body text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">Add your thoughts</button>
+  )
+  return (
+    <Section name="thoughts" title="Your thoughts">
+      <textarea data-thoughts value={text} rows={2} autoFocus={writing} placeholder={`What you make of ${field === 'attribution' ? 'them' : 'it'}, in your own words`}
+        onChange={(event) => setText(event.target.value)}
+        onBlur={() => (setWriting(false), text !== page.thoughts && void sources.set(field, name, text).then(() => chime('noted')))}
+        onKeyDown={(event) => event.key === 'Escape' && (event.preventDefault(), event.stopPropagation(), setText(page.thoughts), event.currentTarget.blur())}
+        className="-mx-2 block w-[calc(100%+1rem)] resize-none rounded-md bg-transparent px-2 py-1 text-body leading-relaxed outline-none [field-sizing:content] placeholder:text-foreground/55 hover:bg-accent/50 focus:bg-accent/50" />
+    </Section>
+  )
+}
+
+/** What connects to them: the tags their notes carry, the other side's pages, and people quoted alongside them. */
+function Connections({ field, name, page }: { field: SourceField; name: string; page: SourcePage }): React.JSX.Element | null {
+  const near = useLive(() => (field === 'attribution' ? sources.near(name) : Promise.resolve([])), [] as Awaited<ReturnType<typeof sources.near>>, [name, field, page.items.length])
+  if (!page.tags.length && !page.links.length && !near.length) return null
+  const row = 'grid grid-cols-[8rem_1fr] items-baseline gap-3 py-1'
+  const label = 'text-control text-muted-foreground'
+  return (
+    <Section name="connects" title={field === 'attribution' ? 'What connects to them' : 'What connects to it'}>
+      {page.tags.length > 0 && (
+        <div data-connect="tags" className={row}>
+          <span className={label}>Tags</span>
+          <span className="-ml-1 flex flex-wrap gap-x-1 gap-y-0.5">
+            {page.tags.map((one) => (
+              <button key={one.tag} type="button" data-connect-tag={one.tag} {...hoverNote('tag', one.tag)} onClick={(event) => (chime('page'), openTag(one.tag, event.altKey))}
+                className="rounded-md px-1 py-0.5 text-body text-foreground hover:bg-accent">#{one.tag}</button>
+            ))}
+          </span>
+        </div>
+      )}
+      {page.links.length > 0 && (
+        <div data-connect={field === 'attribution' ? 'sources' : 'people'} className={row}>
+          <span className={label}>{field === 'attribution' ? 'Found in' : 'People in it'}</span>
+          <span className="-ml-1 flex flex-wrap gap-x-1 gap-y-0.5">
+            {page.links.map((one) => (
+              <button key={one.name} type="button" data-connect-page={one.name} onClick={() => (chime('page'), openSource(one.field, one.name))}
+                className="flex items-center gap-1.5 rounded-md px-1 py-0.5 text-body text-foreground hover:bg-accent">
+                {one.field === 'attribution' ? <Avatar name={one.name} size={16} /> : <Library className="size-3.5 shrink-0 text-muted-foreground" />}{one.name}
+              </button>
+            ))}
+          </span>
+        </div>
+      )}
+      {near.length > 0 && (
+        <div data-connect="alongside" className={row}>
+          <span className={label}>Quoted alongside</span>
+          <span className="-ml-1 flex flex-wrap gap-x-1 gap-y-0.5">
+            {near.map((one) => (
+              <button key={one.name} type="button" data-also-person={one.name} {...hoverNote('person', one.name)} onClick={() => (chime('page'), openSource('attribution', one.name))}
+                className="flex items-center gap-1.5 rounded-md px-1 py-0.5 text-body text-foreground hover:bg-accent">
+                <Avatar name={one.name} size={16} />{one.name}
+              </button>
+            ))}
+          </span>
+        </div>
+      )}
+    </Section>
+  )
+}
+
+/** A note on a source page: its words, and its page reference, said in your voice. */
 const entryOf = (item: SourceItem): Entry => {
   const kind = kindOf(item.kind)
   const ref = pageRef(item.location) ?? pageRef(item.label)
@@ -363,20 +482,21 @@ const entryOf = (item: SourceItem): Entry => {
     tint: kind.tint,
     voice: item.voice,
     wrap: true,
-    sub: [ref && (ref.direct ? `p${ref.page}, word for word` : `(p${ref.page}), in my words`), item.status, item.rating ? '★'.repeat(item.rating) : null].filter(Boolean).join(' · ') || undefined
+    sub: [ref && (ref.direct ? `p. ${ref.page}, word for word` : `p. ${ref.page}, in your words`), item.status, item.rating ? '★'.repeat(item.rating) : null].filter(Boolean).join(' · ') || undefined
   }
 }
 
+/** "12 March 2024". */
+const dayFull = (at: string): string => new Date(at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+
 /**
- * One person's or one source's page: everything with that who or where,
- * the source's own words apart from yours. Quotes first, grouped; then what
- * you understood they said; then your own thoughts, kept in their own section.
+ * One person's or one source's page, as a portrait: who they are and a line
+ * about them, their words as quotes, what you make of them, what connects to
+ * them, and when you first met them. Said to you throughout.
  */
 export function SourcePageView({ focus, onOpen }: { focus?: string; onOpen: (type: string, id: string) => void }): React.JSX.Element {
   const which = readFocus(focus)
   const page = useLive(() => (which ? sources.page(which.field, which.name) : Promise.resolve(null)), null, [focus])
-  const [thoughts, setThoughts] = useState('')
-  useEffect(() => setThoughts(page?.thoughts ?? ''), [page?.name, page?.thoughts])
   const voices = useMemo(() => {
     const by: Record<Voice, SourceItem[]> = { theirs: [], understood: [], mine: [] }
     for (const item of page?.items ?? []) by[item.voice].push(item)
@@ -384,49 +504,49 @@ export function SourcePageView({ focus, onOpen }: { focus?: string; onOpen: (typ
   }, [page])
   if (!which) return <Page title="Source"><div className="page-column"><Empty title="No such page">Pick a person or a source from the Sources page.</Empty></div></Page>
   const name = page?.name ?? which.name
-  const Icon = FIELD_SAID[which.field].icon
+  const field = which.field
+  const Icon = FIELD_SAID[field].icon
   const open = (item: SourceItem): void => (chime('open'), onOpen(item.type, item.id))
-  const section = (voice: Voice, empty: string): React.JSX.Element => (
-    <section data-voice-section={voice} className="mt-6">
-      <h3 className="mb-1 flex items-center gap-2 px-5 text-heading font-semibold">
-        <span aria-hidden className="h-4 w-1 rounded-full" style={{ background: VOICE_TINT[voice] }} />
-        {voice === 'theirs' ? 'Their words' : voice === 'understood' ? 'What I understood' : VOICE_SAID.mine}
-        {voices[voice].length > 0 && <Count n={voices[voice].length} className="text-control font-normal text-muted-foreground" />}
-      </h3>
-      {voices[voice].length ? (
-        <NoteList groups={[['', voices[voice].map((item) => ({ ...entryOf(item), menu: [{ label: 'Open', run: () => open(item) }, { label: `Take off “${name}”`, run: () => void setSource(item, which.field, null).then(() => toast(`No longer from ${name}`, () => void setSource(item, which.field, name))) }] }))]]}
-          density="list" table="nuggets" cursor={-1} onPick={(id) => open(voices[voice].find((one) => one.id === id)!)} className="mx-3" />
-      ) : <p className="px-5 py-1 text-control text-muted-foreground">{empty}</p>}
-    </section>
-  )
+  const yours = [...voices.understood, ...voices.mine]
+  const first = page?.items.reduce<string | null>((oldest, one) => (!oldest || one.at < oldest ? one.at : oldest), null)
   return (
     <Page title={name} count={page?.items.length ?? 0} unit={['note', 'notes']}>
-      <div className="page-column pb-16" data-source-page={which.field}>
-        {which.field === 'attribution' ? <PersonHead page={page} name={name} thoughts={thoughts} setThoughts={setThoughts} onOpenPerson={(other) => openSource('attribution', other)} /> : (
+      <div className="page-column pb-16" data-source-page={field}>
+        {field === 'attribution' ? <PersonHead page={page} name={name} /> : (
         <div className="flex items-center gap-3 px-5 pt-8">
           <Icon className="size-8 text-muted-foreground" />
           <div className="min-w-0">
-            <p className="text-control text-muted-foreground">{FIELD_SAID[which.field].one}</p>
-            <SourceName field={which.field} name={name} />
+            <p className="text-control text-muted-foreground">{FIELD_SAID[field].one}</p>
+            <SourceName field={field} name={name} />
             <SourceLine page={page} name={name} />
           </div>
         </div>
         )}
-        <FoundThrough page={page} />
-        {section('theirs', 'No quotes from here yet. A quote with this as its who or where shows up here.')}
-        {section('understood', 'Nothing yet. A gem from here, or words ending in a page in brackets like (p131), shows up here.')}
-        {/* Your own words about the source, apart from theirs: the gloss. */}
-        {which.field === 'medium' && <section data-my-thoughts className="mt-6 px-5">
-          <h3 className="mb-1 flex items-center gap-2 text-heading font-semibold">
-            <span aria-hidden className="h-4 w-1 rounded-full" style={{ background: VOICE_TINT.mine }} />
-            My thoughts
-          </h3>
-          <textarea data-thoughts value={thoughts} rows={3} placeholder={`What you make of ${name}, in your own words`}
-            onChange={(event) => setThoughts(event.target.value)}
-            onBlur={() => thoughts !== (page?.thoughts ?? '') && void sources.set(which.field, name, thoughts).then(() => chime('noted'))}
-            className="block w-full resize-none rounded-md bg-accent/50 px-3 py-2 text-body outline-none [field-sizing:content] placeholder:text-foreground/60 focus:bg-accent" />
-        </section>}
-        {voices.mine.length > 0 && section('mine', '')}
+        <Bio key={`${field}:${name}`} field={field} name={name} page={page} />
+        {page && (
+          <>
+            {voices.theirs.length > 0 && (
+              <Section name="words" title={field === 'attribution' ? 'Their words' : 'Words from it'}>
+                <Quotes field={field} name={name} page={page} items={voices.theirs} onOpen={open} />
+              </Section>
+            )}
+            {yours.length > 0 && (
+              <Section name="yours" title={field === 'attribution' ? 'Your notes on them' : 'Your notes on it'}>
+                <NoteList groups={[['', yours.map((item) => ({ ...entryOf(item), menu: [{ label: 'Open', run: () => open(item) }, { label: `Take off “${name}”`, run: () => void setSource(item, field, null).then(() => toast(`No longer from ${name}`, () => void setSource(item, field, name))) }] }))]]}
+                  density="list" table="nuggets" cursor={-1} onPick={(id) => open(yours.find((one) => one.id === id)!)} className="-mx-2" />
+              </Section>
+            )}
+            {!page.items.length && <p className="mt-8 px-5 text-body text-muted-foreground">{field === 'attribution' ? `Nothing from ${name} yet. A note that says ${name} said it shows here.` : `Nothing from ${name} yet. A note that says it came from here shows here.`}</p>}
+            <Thoughts key={`t:${field}:${name}`} field={field} name={name} page={page} />
+            <Connections field={field} name={name} page={page} />
+            <FoundThrough page={page} />
+            {first && (
+              <Section name="first-met" title={field === 'attribution' ? 'When you first met them' : 'When you first met it'}>
+                <p data-first-met className="text-body text-foreground">{dayFull(first)}, {ago(first)}</p>
+              </Section>
+            )}
+          </>
+        )}
       </div>
     </Page>
   )
@@ -460,8 +580,8 @@ function SourceLine({ page, name }: { page: SourcePage | null; name: string }): 
 function FoundThrough({ page }: { page: SourcePage | null }): React.JSX.Element | null {
   if (!page?.found.length) return null
   return (
-    <section data-found-through className="mt-6 px-5">
-      <h3 className="mb-1 text-heading font-semibold">Found through it</h3>
+    <section data-found-through className="mt-8 px-5">
+      <h3 className="mb-2 text-heading font-semibold">Found through it</h3>
       <ul className="-mx-1.5 flex flex-col">
         {page.found.map((one) => {
           const Icon = FIELD_SAID[one.field].icon

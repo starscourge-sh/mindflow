@@ -22,6 +22,8 @@ export const sources = {
     await Promise.all(list.map((one) => call<boolean>('source:drop', one.field, one.name)))
     return () => void Promise.all(list.map((one, at) => call<boolean>('source:set', one.field, one.name, had[at]?.thoughts ?? '')))
   },
+  /** A line or two about them: Wikipedia's with its url, or your own words with none. */
+  bio: (field: SourceField, name: string, bio: string, url = '') => call<boolean>('source:bio', field, name, bio, url),
   facts: (field: SourceField, name: string, facts: Partial<SourceFacts>) => call<boolean>('source:facts', field, name, facts),
   /** Rename everywhere, or be told whose the name is first; `merge` goes ahead into them. */
   rename: (field: SourceField, from: string, to: string, merge = false) => call<RenameResult>('source:rename', field, from, to, merge),

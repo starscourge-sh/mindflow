@@ -31,20 +31,13 @@ try {
   check(await h.locator('[data-person-photo="picture"] img').count() === 1, 'Jane Austen wears her portrait')
   const line = await h.locator('[data-person-line] input').evaluateAll((all) => all.map((one) => one.value))
   check(line.join('|') === 'Novelist|1775|1817', `her line reads Novelist · 1775 to 1817 (${line.join('|')})`)
-  const rows = await h.locator('[data-voice-section="theirs"] [data-row]').allTextContents()
-  check(rows.filter((one) => one.startsWith('In vain have I struggled')).length === 1, '“In vain have I struggled” is listed once')
-  const bio = h.locator('[data-thoughts]')
-  const short = await bio.evaluate((one) => one.clientHeight)
+  const rows = await h.locator('[data-portrait="words"] [data-quote]').allTextContents()
+  check(rows.filter((one) => one.startsWith('“In vain have I struggled')).length === 1, '“In vain have I struggled” is listed once, as a quote')
+  // Her thoughts, written, show whole under their own heading.
+  check(await h.locator('[data-portrait="thoughts"] [data-thoughts]').count() === 1, 'your thoughts on her show, written')
   if (shots) await h.screenshot({ path: `${shots}/jane-austen-light.png` })
-  check(await h.locator('[data-read-more]').textContent() === 'Read more', 'a long bio is cut, with “Read more”')
-  await h.locator('[data-read-more]').click()
-  await h.waitForTimeout(300)
-  check((await bio.evaluate((one) => one.clientHeight)) > short && (await h.locator('[data-read-more]').textContent()) === 'Show less', '“Read more” shows it all, then “Show less”')
-  await h.locator('[data-read-more]').click()
-  // 3. Counts in plain words, normal size.
-  const counts = await h.locator('[data-person-counts]').textContent()
-  check(/^5 of their words · \d+ notes? cites? them · last added /.test(counts), `counts: ${counts}`)
-  check(await h.locator('[data-person-counts]').evaluate((one) => parseFloat(getComputedStyle(one).fontSize)) >= 13, 'counts are normal size')
+  // 3. One count, said once: in the page's head, never again on the page.
+  check(await h.locator('[data-person-counts]').count() === 0, 'no second count line on the page')
   // 4. Also in your book.
   const faces = await h.locator('[data-also-person]').evaluateAll((all) => all.map((one) => one.dataset.alsoPerson))
   check(faces.length > 0 && faces.length <= 6 && faces.includes('Mary Shelley'), `also in your book: ${faces.join(', ')}`)

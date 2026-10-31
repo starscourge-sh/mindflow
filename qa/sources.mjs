@@ -35,9 +35,10 @@ try {
   await h.locator('[data-row]', { hasText: 'Ada Example' }).first().click()
   await h.waitForTimeout(900)
   check(await h.locator('[data-source-name]').textContent() === 'Ada Example', 'clicking a person opens their page')
-  check(await h.locator('[data-voice-section="theirs"] [data-row]').count() === 1, 'their words: the quote, grouped')
-  check(await h.locator('[data-voice-section="understood"] [data-row]').count() === 1, 'what I understood: the sourced gem')
-  // 4. My thoughts, kept apart.
+  check(await h.locator('[data-portrait="words"] [data-quote]').count() === 1, 'their words: the quote, as a quote')
+  check(await h.locator('[data-portrait="yours"] [data-row]').count() === 1, 'your notes on them: the sourced gem')
+  // 4. My thoughts, kept apart: asked for, then written.
+  await h.locator('[data-thoughts-add]').click()
   await h.locator('[data-thoughts]').fill('I think she is right about stories')
   await h.locator('[data-source-name]').click()
   await h.waitForTimeout(500)

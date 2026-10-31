@@ -6,6 +6,7 @@ import { LABEL, atomically, changed, database } from './captures'
 import { renamePerson } from './link-rename'
 import { personKey } from './names'
 import { voiceOf, type Voice } from './voice'
+import { tagsIn } from './tag-words'
 
 /**
  * Sources and people as pages. A who (attribution) or a where (medium) stays
@@ -31,7 +32,13 @@ export type SourceSummary = { field: SourceField; name: string; count: number; q
 export type SourceFacts = { what: string; born: string; died: string; via: string }
 /** A page named by its field and name: what a "via" links to, and what "Found through it" lists. */
 export type SourceRef = { field: SourceField; name: string }
-export type SourcePage = { field: SourceField; name: string; thoughts: string; items: SourceItem[]; viaPage: SourceRef | null; found: SourceRef[] } & SourceFacts
+export type SourcePage = { field: SourceField; name: string; thoughts: string; items: SourceItem[]; viaPage: SourceRef | null; found: SourceRef[]
+  /** A line or two about them: Wikipedia's (with `bioUrl`, its credit) or your own (no url). `bioAt` is set once filled or written, so it is not asked again. */
+  bio: string; bioUrl: string; bioAt: string
+  /** What connects to them: the tags their notes carry, and the other side's pages (a person's sources, a source's people), most first. */
+  tags: { tag: string; n: number }[]; links: SourceRef[]
+  /** Each source's year, by its key, for the line under a quote. */
+  years: Record<string, string> } & SourceFacts
 /** The small card in a note's margin: the source it cites, who wrote it, and the rest of its line. */
 export type SourceCard = { field: SourceField; name: string; author: string; what: string; born: string; died: string; via: string; viaPage: SourceRef | null }
 /** Beside a page being written: the people it names (their own words, newest first) and word gems sharing its tags. */
@@ -56,7 +63,7 @@ export function registerSources(): void {
   const db = database()
   db.exec('create table if not exists source_pages (field text not null, key text not null, name text not null, thoughts text not null default \'\', updated_at text not null, primary key (field, key))')
   const had = new Set((db.prepare('pragma table_info(source_pages)').all() as { name: string }[]).map((one) => one.name))
-  for (const column of ['what', 'born', 'died', 'via']) if (!had.has(column)) db.exec(`alter table source_pages add column ${column} text not null default ''`)
+  for (const column of ['what', 'born', 'died', 'via', 'bio', 'bio_url', 'bio_at']) if (!had.has(column)) db.exec(`alter table source_pages add column ${column} text not null default ''`)
 
   /** Every note that has a who or a where, with what lists need to show it. */
   const everything = (): (SourceItem & { private: number })[] => {
@@ -89,8 +96,8 @@ export function registerSources(): void {
     return [...counts].sort((a, b) => b[1] - a[1] || caps(b[0]) - caps(a[0]))[0][0]
   }
 
-  const pages = (): ({ field: SourceField; key: string; name: string; thoughts: string; updated_at: string } & SourceFacts)[] =>
-    db.prepare('select field, key, name, thoughts, what, born, died, via, updated_at from source_pages').all() as never
+  const pages = (): ({ field: SourceField; key: string; name: string; thoughts: string; bio: string; bioUrl: string; bioAt: string; updated_at: string } & SourceFacts)[] =>
+    db.prepare('select field, key, name, thoughts, what, born, died, via, bio, bio_url as bioUrl, bio_at as bioAt, updated_at from source_pages').all() as never
 
   /**
    * The page a "via" names, when one goes by that name: a source first, then a
@@ -137,8 +144,28 @@ export function registerSources(): void {
     const via = page?.via ?? ''
     // Every other page found through this one: its "via" names it.
     const found = all.filter((one) => one.via && personKey(one.via) === key && !(one.field === field && one.key === key)).map((one) => ({ field: one.field, name: one.name }))
+    // The tags their notes carry, read from each note's words.
+    const counts = new Map<string, number>()
+    const read = (table: string, ids: string[]): void => {
+      if (!ids.length) return
+      for (const row of db.prepare(`select title, body from ${table} where id in (${ids.map(() => '?').join(',')})`).all(...ids) as { title: string | null; body: string | null }[])
+        for (const tag of tagsIn(`${row.title ?? ''} ${(row.body ?? '').replace(/["{}[\]:,]/g, ' ')}`)) counts.set(tag, (counts.get(tag) ?? 0) + 1)
+    }
+    read('captures', items.filter((one) => one.type === 'capture').map((one) => one.id))
+    read('nuggets', items.filter((one) => one.type !== 'capture').map((one) => one.id))
+    const tags = [...counts].filter(([tag]) => tag !== 'bit').map(([tag, n]) => ({ tag, n })).sort((a, b) => b.n - a.n || a.tag.localeCompare(b.tag)).slice(0, 8)
+    // The other side: a person's sources, a source's people.
+    const other: SourceField = field === 'attribution' ? 'medium' : 'attribution'
+    const sides = new Map<string, string[]>()
+    for (const one of items) {
+      const value = one[other]?.trim()
+      if (value) sides.set(personKey(value), [...(sides.get(personKey(value)) ?? []), value])
+    }
+    const links = [...sides.values()].sort((a, b) => b.length - a.length).slice(0, 8).map((names) => ({ field: other, name: spelt(names) }))
+    const years: Record<string, string> = {}
+    for (const one of all) if (one.field === 'medium' && one.born) years[one.key] = one.born
     return { field, name: items.length ? spelt(items.map((one) => one[field]!)) : page?.name ?? name.trim(), thoughts: page?.thoughts ?? '', what: page?.what ?? '', born: page?.born ?? '', died: page?.died ?? '', via,
-      viaPage: via ? viaPageOf(via, everything(), all) : null, found, items }
+      viaPage: via ? viaPageOf(via, everything(), all) : null, found, items, bio: page?.bio ?? '', bioUrl: page?.bioUrl ?? '', bioAt: page?.bioAt ?? '', tags, links, years }
   })
 
   // The card in a note's margin: its source (or, with none, who said it) and that page's line.
@@ -160,6 +187,16 @@ export function registerSources(): void {
     const was = pages().find((one) => one.field === field && one.key === personKey(name))
     db.prepare('insert into source_pages (field, key, name, thoughts, updated_at) values (?, ?, ?, ?, ?) on conflict(field, key) do update set thoughts = excluded.thoughts, updated_at = excluded.updated_at')
       .run(field, personKey(name), name.trim(), typeof thoughts === 'string' ? thoughts : was?.thoughts ?? '', new Date().toISOString())
+    changed()
+    return true
+  })
+
+  // A line or two about them: Wikipedia's, kept here so it reads offline, or your own words in its place (no url).
+  ipcMain.handle('haligtree:source:bio', (_event, field: unknown, name: unknown, bio: unknown, url: unknown) => {
+    if (!isField(field) || typeof name !== 'string' || !personKey(name) || typeof bio !== 'string') return false
+    const was = pages().find((one) => one.field === field && one.key === personKey(name))
+    db.prepare('insert into source_pages (field, key, name, thoughts, bio, bio_url, bio_at, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?) on conflict(field, key) do update set bio = excluded.bio, bio_url = excluded.bio_url, bio_at = excluded.bio_at')
+      .run(field, personKey(name), name.trim(), was?.thoughts ?? '', bio.trim().slice(0, 1200), typeof url === 'string' ? url : '', new Date().toISOString(), new Date().toISOString())
     changed()
     return true
   })
