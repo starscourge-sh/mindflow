@@ -55,7 +55,11 @@ try {
   // Things left part way, for Home's "Continue reading".
   await h.evaluate(() => {
     localStorage.setItem('capture-draft', JSON.stringify({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Ring the framer about the Rothko print' }] }] }))
-    localStorage.setItem('web-places', JSON.stringify({ 'https://example.com/long-read': { top: 2400, share: 0.42, at: Date.now(), title: 'The Long Read About Bridges' } }))
+    const picture = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="300" height="400"><rect width="300" height="400" fill="#4b6b8a"/><circle cx="150" cy="160" r="70" fill="#e8c27a"/></svg>')}`
+    localStorage.setItem('web-places', JSON.stringify({
+      'https://example.com/long-read': { top: 2400, share: 0.42, at: Date.now(), title: 'The Long Read About Bridges' },
+      'https://example.org/with-a-picture': { top: 900, share: 0.2, at: Date.now() - 1000, title: 'A Read With a Picture', picture }
+    }))
   })
   // A book part way through too, so the new cards sit in the same row as a book's: a PDF dropped in a note, read to page 2.
   const pdf = await PDFDocument.create()
@@ -116,6 +120,16 @@ try {
     return { kind: one.getAttribute('data-resume') ?? 'book', h: Math.round(box.height), radius: getComputedStyle(one).borderRadius, title: `${title.fontSize} ${title.fontWeight}`, where: where.fontSize }
   }))
   console.log(JSON.stringify(looks))
+  // Each cover in the app's own look: a picture of its own, or the grain cover (a picture inside it), never a bare grey square.
+  const covers = await h.evaluate(() => [...document.querySelectorAll('[data-continue-reading] .continue-book')].map((one) => ({
+    kind: one.getAttribute('data-resume') ?? 'book', title: one.querySelector('.continue-book-title')?.textContent,
+    top: Math.round(one.querySelector('.continue-book-title').getBoundingClientRect().top - one.getBoundingClientRect().top),
+    picture: !!one.querySelector('.continue-book-cover > img'), grain: !!one.querySelector('.continue-book-cover > [aria-hidden]:not(svg)')
+  })))
+  console.log(JSON.stringify(covers))
+  check('(tiles) every new card wears a cover: its own picture or the grain cover', covers.filter((one) => one.kind !== 'book').every((one) => one.picture || one.grain), JSON.stringify(covers))
+  check('(tiles) an article with a lead picture shows it', covers.some((one) => one.title === 'A Read With a Picture' && one.picture))
+  check('(line-up) every title in the row sits at the same height, bar or not', new Set(covers.map((one) => one.top)).size === 1, JSON.stringify(covers.map((one) => `${one.kind}:${one.top}`)))
   const book = looks.find((one) => one.kind === 'book')
   check('(3) the new cards match a book\'s card: height, corners and type', !!book && looks.filter((one) => one.kind !== 'book').every((one) => Math.abs(one.h - book.h) <= 2 && one.radius === book.radius && one.title === book.title && one.where === book.where), JSON.stringify(looks))
   const row = await h.$('[data-continue-reading]')

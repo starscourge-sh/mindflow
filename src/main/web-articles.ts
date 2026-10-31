@@ -121,6 +121,21 @@ export function registerWebArticles(keep: (src: string) => Promise<string>): voi
 
   const kept = (href: string): Article | null =>
     (db.prepare('select id, href, title, byline, site, published, html, saved_at as savedAt from web_articles where href = ?').get(href) as Article | undefined) ?? null
+  // A site's own icon, for an article's card in Home's "Continue reading": asked once a run per site, from here so a
+  // site with none (most answer 404) is simply none, and the card keeps its grain cover.
+  const icons = new Map<string, Promise<string | null>>()
+  ipcMain.handle('haligtree:web:icon', (_event, href: unknown) => {
+    const at = typeof href === 'string' ? URL.parse(href) : null
+    if (!at || !/^https?:$/.test(at.protocol)) return null
+    if (!icons.has(at.origin))
+      icons.set(at.origin, fetchOutside(`${at.origin}/favicon.ico`).then(async (response) => {
+        const type = response.headers.get('content-type') ?? ''
+        if (!response.ok || !/^image\//.test(type)) return null
+        const bytes = Buffer.from(await response.arrayBuffer())
+        return bytes.length ? `data:${type.split(';')[0]};base64,${bytes.toString('base64')}` : null
+      }).catch(() => null))
+    return icons.get(at.origin)!
+  })
   // A page read once is read from the book after that: offline, or after the site changes, it reads as it did.
   ipcMain.handle('article-fetch', async (_event, href: unknown) => {
     if (typeof href !== 'string' || !/^https?:\/\//i.test(href)) return { error: WHY.notPage }

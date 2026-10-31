@@ -105,7 +105,7 @@ export function useNotePlace(editor: Editor | null, id: string | null, on: boole
  * read), with its title and when, so it reopens there and joins Home's
  * "Continue reading" beside the books. The last 100 are kept.
  */
-export type WebPlace = { top: number; share: number; at: number; title: string }
+export type WebPlace = { top: number; share: number; at: number; title: string; /** Its lead picture, for its card in Continue reading. */ picture?: string | null }
 const WEB = 'web-places'
 
 export const webPlaces = (): Record<string, WebPlace> => {

@@ -1,10 +1,21 @@
 import { useEffect, useState } from 'react'
-import { Globe, Layers, PenLine } from 'lucide-react'
 import { call, useLive } from '@/lib/haligtree'
 import { chime } from '@/lib/sound'
 import { articlesOnTheGo } from '@/lib/note-place'
 import { openArticle } from '@/components/pdf/pdf-reader'
 import { num } from '../../../../main/dates'
+import { kindOf } from '@/components/capture-kinds/capture-kind-picker'
+import { GrainFill, onPaper, useNoteCover } from './grain'
+import { SECTIONS } from './places'
+import type { Shelf } from './deck-shelf'
+
+/** Each card's kind: its colour and icon from the app's own sets (Review's place, a note, a link). */
+const REVIEW = SECTIONS.find((one) => one.id === 'review')!
+const KINDS = {
+  review: { tint: 'var(--tt-color-text-purple)', Icon: REVIEW.icon },
+  draft: { tint: kindOf('note').tint, Icon: kindOf('note').icon },
+  article: { tint: kindOf('link').tint, Icon: kindOf('link').icon }
+} as const
 
 type Sitting = { done: number; left: number; last: string | null }
 
@@ -33,18 +44,47 @@ function draftWords(): string {
   }
 }
 
-function Card({ icon, title, where, onOpen, data, share }: { icon: React.ReactNode; title: string; where: string; onOpen: () => void; data: string; /** How far through, 0 to 1, drawn as a book's track is. */ share?: number }): React.JSX.Element {
+/**
+ * A card's cover in the book's own shape: a picture of its own when it has
+ * one (an article's lead picture, the deck's cover), else Home's grain cover
+ * tinted its kind's colour with its icon (or the site's icon) faint on it, as
+ * Home's tiles draw a note with no picture.
+ */
+function Cover({ kind, seed, picture, icon }: { kind: keyof typeof KINDS; seed: string; picture?: string | null; /** A small mark of its own, drawn where the kind's icon would be: a site's icon. */ icon?: string | null }): React.JSX.Element {
+  const { tint, Icon } = KINDS[kind]
+  const cover = useNoteCover(seed)
+  const [broken, setBroken] = useState<string[]>([])
+  const shown = (src?: string | null): src is string => !!src && !broken.includes(src)
+  const lose = (src: string) => () => setBroken((was) => [...was, src])
+  if (shown(picture)) return <span className="continue-book-cover"><img src={picture} alt="" draggable={false} onError={lose(picture)} /></span>
+  const mark = shown(icon)
+    ? <img src={icon} alt="" draggable={false} onError={lose(icon)} className="relative rounded-[3px]" style={{ width: 18, height: 18, objectFit: 'contain' }} />
+    : <Icon className="relative size-4 text-white/70 drop-shadow-[0_1px_2px_rgb(0_0_0/0.35)]" style={cover?.paper ? onPaper(tint) : undefined} aria-hidden />
+  return (
+    <span className="continue-book-cover continue-book-mark relative" style={cover ? undefined : { background: `color-mix(in oklab, ${tint} 16%, transparent)`, color: tint }}>
+      {cover && <GrainFill cover={cover} tint={tint} shade={cover.paper ? 'all' : 'none'} />}
+      {cover || shown(icon) ? mark : <Icon className="size-4" aria-hidden />}
+    </span>
+  )
+}
+
+/** An article's cover: its lead picture, else its site's own icon on the grain, asked of main (web-articles.ts). */
+function ArticleCover({ href, picture }: { href: string; picture?: string | null }): React.JSX.Element {
+  const icon = useLive(() => (picture ? Promise.resolve(null) : call<string | null>('web:icon', href)), null as string | null, [href, picture])
+  return <Cover kind="article" seed={href} picture={picture} icon={icon} />
+}
+
+function Card({ cover, title, where, onOpen, data, share }: { cover: React.ReactNode; title: string; where: string; onOpen: () => void; data: string; /** How far through, 0 to 1, drawn as a book's track is. */ share?: number }): React.JSX.Element {
   return (
     <button type="button" className="continue-book" data-resume={data} onClick={() => (chime('open'), onOpen())}>
-      <span className="continue-book-cover continue-book-mark">{icon}</span>
+      {cover}
       <span className="continue-book-words">
         <span className="continue-book-title">{title}</span>
         <span className="continue-book-where">{where}</span>
-        {share !== undefined && (
-          <span className="continue-book-track">
-            <span style={{ width: `${Math.round(share * 100)}%` }} />
-          </span>
-        )}
+        {/* The track's room kept when there is none, so every title in the row sits on one line. */}
+        <span className="continue-book-track" style={share === undefined ? { visibility: 'hidden' } : undefined}>
+          <span style={{ width: `${Math.round((share ?? 0) * 100)}%` }} />
+        </span>
       </span>
     </button>
   )
@@ -66,17 +106,20 @@ export function useResumeCards(onView: (id: string) => void): React.ReactNode[] 
     return () => window.removeEventListener('storage', onStorage)
   }, [])
   const articles = articlesOnTheGo().slice(0, 3)
+  // The Review card wears a deck's own cover when a deck has cards waiting.
+  const shelves = useLive(() => call<Shelf[]>('decks:list'), [] as Shelf[], [], ['item'])
+  const deckCover = shelves.find((one) => one.cover && (one.due > 0 || one.fresh > 0))?.cover ?? null
   return [
     sitting.done > 0 && sitting.left > 0 && (
-      <Card key="review" data="review" icon={<Layers className="size-5" />} title={`${num(sitting.left)} ${sitting.left === 1 ? 'card' : 'cards'} left in Review`}
+      <Card key="review" data="review" cover={<Cover kind="review" seed="review" picture={deckCover} />} title={`${num(sitting.left)} ${sitting.left === 1 ? 'card' : 'cards'} left in Review`}
         where={`${num(sitting.done)} done ${partOfDay(sitting.last)}`} share={sitting.done / (sitting.done + sitting.left)} onOpen={() => onView('review')} />
     ),
     draft && (
-      <Card key="draft" data="draft" icon={<PenLine className="size-5" />} title={draft.length > 60 ? `${draft.slice(0, 60).trim()}…` : draft}
+      <Card key="draft" data="draft" cover={<Cover kind="draft" seed={`draft-${draft.slice(0, 20)}`} />} title={draft.length > 60 ? `${draft.slice(0, 60).trim()}…` : draft}
         where="A draft in quick capture" onOpen={() => window.api.showPrompt()} />
     ),
     ...articles.map((one) => (
-      <Card key={one.href} data="article" icon={<Globe className="size-5" />} title={one.title}
+      <Card key={one.href} data="article" cover={<ArticleCover href={one.href} picture={one.picture} />} title={one.title}
         where={`${Math.round(one.share * 100)}% read · ${URL.parse(one.href)?.hostname.replace(/^www\./, '') ?? 'Article'}`} share={one.share} onOpen={() => openArticle(one.href)} />
     ))
   ].filter(Boolean) as React.ReactNode[]

@@ -96,7 +96,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     box.addEventListener('pointerdown', stop)
     const save = (): void => {
       const room = Math.max(1, box.scrollHeight - box.clientHeight)
-      if (top > 0) keepWebPlace(href, { top, share: Math.min(1, top / room), at: Date.now(), title: article.title || articleName(href) })
+      if (top > 0) keepWebPlace(href, { top, share: Math.min(1, top / room), at: Date.now(), title: article.title || articleName(href), picture: [...(body.current?.querySelectorAll('img') ?? [])].find((one) => one.naturalWidth >= 200)?.src ?? null })
     }
     window.addEventListener('pagehide', save)
     return () => {
