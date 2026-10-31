@@ -322,7 +322,7 @@ function OwnDeckShelf({ deck, inside, onStudy, onPaste, onNew }: { deck: OwnDeck
 
 /** The ⋯ menu's sections as a right-click menu: each labelled part a line opening its choices beside it, the one in use ticked. */
 const rowItems = (sections: Section[]): RowItem[] => sections.flatMap((section): RowItem[] => {
-  const lines = section.items.flatMap((item): MenuItem[] => typeof item === 'string' || 'more' in item ? [] : [
+  const lines = section.items.flatMap((item): MenuItem[] => typeof item === 'string' || 'more' in item || 'field' in item ? [] : [
     'set' in item ? { label: item.label, hint: item.hint, run: () => item.set(true), trail: item.on ? <Check className="size-3.5" /> : undefined } : { label: item.label, hint: item.hint, run: item.run, danger: /^Delete/.test(item.label) }
   ])
   return section.label ? [{ label: section.label, items: lines }] : ['separator', ...lines]
