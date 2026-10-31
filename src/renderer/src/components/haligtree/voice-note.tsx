@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { Mic, Square } from 'lucide-react'
+import { Mic, Square, X } from 'lucide-react'
 
 import { saveAttachment } from '@/extensions/image-drop'
-import { Button } from '@/components/ui/button'
 import { refuse } from '@/components/haligtree/ui'
 import { chime } from '@/lib/sound'
 
@@ -17,9 +16,9 @@ const KINDS = [
 const clock = (seconds: number): string => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`
 
 /**
- * Record a voice note: the microphone asked for (macOS once), then a card at
+ * Record a voice note: the microphone asked for (macOS once), then a pill at
  * the bottom of the window with the sound's level as it comes in, the time,
- * and Stop. Esc or “Cancel” throws it away. Resolves with the recording as a
+ * and a red Stop. Esc or × throws it away. Resolves with the recording as a
  * file, or null when cancelled or the microphone is not allowed.
  */
 export async function recordVoice(): Promise<File | null> {
@@ -99,7 +98,9 @@ function Recorder({ stream, onDone }: { stream: MediaStream; onDone: (file: File
     chime('windup')
     const started = performance.now()
 
-    // The level as it comes in: bars along the card, newest on the right, in the text colour.
+    // The level as it comes in, as the Mac's dictation draws it: thin bars
+    // from the middle out, tallest in the middle and tapering to the ends,
+    // where the pill's mask fades them away.
     const ears = new AudioContext()
     const analyser = ears.createAnalyser()
     analyser.fftSize = 256
@@ -122,15 +123,19 @@ function Recorder({ stream, onDone }: { stream: MediaStream; onDone: (file: File
       const c = el.getContext('2d')!
       c.clearRect(0, 0, width, height)
       c.fillStyle = getComputedStyle(el).color
-      const bar = 3 * ratio, gap = 2 * ratio
-      const count = Math.floor(width / (bar + gap))
-      const shown = levels.slice(-count)
-      shown.forEach((level, index) => {
-        const tall = Math.max(2 * ratio, Math.min(1, level * 2.5) * height)
-        c.beginPath()
-        c.roundRect(width - (shown.length - index) * (bar + gap), (height - tall) / 2, bar, tall, bar / 2)
-        c.fill()
-      })
+      const bar = 2 * ratio, gap = 3 * ratio
+      const half = Math.floor(width / 2 / (bar + gap))
+      // The newest level in the middle, older ones moving out to both sides.
+      for (let step = 0; step < half; step += 1) {
+        const level = levels[levels.length - 1 - step] ?? 0
+        const taper = Math.cos((step / half) * (Math.PI / 2))
+        const tall = Math.max(2 * ratio, Math.min(1, level * 3) * height * (0.35 + 0.65 * taper))
+        for (const side of [1, -1]) {
+          c.beginPath()
+          c.roundRect(width / 2 + side * step * (bar + gap) - bar / 2, (height - tall) / 2, bar, tall, bar / 2)
+          c.fill()
+        }
+      }
     }
     draw()
     const onKey = (event: KeyboardEvent): void => {
@@ -160,20 +165,18 @@ function Recorder({ stream, onDone }: { stream: MediaStream; onDone: (file: File
 
   return (
     <div role="dialog" aria-label="Recording a voice note" data-voice-recorder
-      className="fixed bottom-28 left-1/2 z-[1000] flex w-[420px] max-w-[calc(100vw-24px)] -translate-x-1/2 items-center gap-3 rounded-2xl border border-border bg-popover py-2.5 pr-2.5 pl-4 text-popover-foreground shadow-lg animate-in fade-in-0 slide-in-from-bottom-2 duration-200">
-      <span className="relative flex size-2.5 shrink-0" aria-hidden>
-        <span className="absolute inline-flex size-full animate-ping rounded-full opacity-60" style={{ background: 'var(--tt-color-text-red)' }} />
-        <span className="relative inline-flex size-2.5 rounded-full" style={{ background: 'var(--tt-color-text-red)' }} />
-      </span>
-      <canvas ref={canvas} data-voice-level className="h-7 min-w-0 flex-1 text-foreground/70" />
-      <span data-voice-time className="w-10 shrink-0 text-right text-control tabular-nums text-foreground">{clock(seconds)}</span>
-      <button type="button" onClick={cancel} className="shrink-0 cursor-pointer rounded-lg px-2 py-1.5 text-control text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-[0.97]">
-        Cancel <kbd className="ml-1 rounded border border-border px-1 text-[11px]">Esc</kbd>
+      className="fixed bottom-28 left-1/2 z-[1000] flex w-[340px] max-w-[calc(100vw-24px)] -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-popover py-1.5 pr-1.5 pl-2 text-popover-foreground shadow-lg animate-in fade-in-0 slide-in-from-bottom-2 duration-200">
+      {/* Plain titles: the recorder has a root of its own, outside the tips' provider; the app's title tips draw them. */}
+      <button type="button" aria-label="Cancel" title="Throw it away  Esc" onClick={cancel} className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-[0.95]">
+        <X className="size-3.5" />
       </button>
-      {/* The app's own main button, in the theme's accent, as “Copy” and “Create” are. */}
-      <Button aria-label="Stop and keep" onClick={() => stop(true)} className="shrink-0 text-control">
-        <Square className="size-3 fill-current" /> Stop
-      </Button>
+      {/* Faded at both ends, as the level fades in from nothing. */}
+      <canvas ref={canvas} data-voice-level className="h-6 min-w-0 flex-1 text-foreground/75 [mask-image:linear-gradient(90deg,transparent,#000_28%,#000_72%,transparent)]" />
+      <span data-voice-time className="shrink-0 text-control tabular-nums text-muted-foreground">{clock(seconds)}</span>
+      <button type="button" aria-label="Stop and keep" title="Stop and keep it" onClick={() => stop(true)}
+          className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full text-white transition-transform active:scale-[0.95]" style={{ background: 'var(--tt-color-text-red)' }}>
+        <Square className="size-2.5 fill-current" />
+      </button>
     </div>
   )
 }
