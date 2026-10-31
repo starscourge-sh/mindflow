@@ -1002,7 +1002,9 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, replay, cla
         sim.alphaTarget(0).alpha(Math.min(sim.alpha(), 0.1))
         if (!moved) {
           chime('open')
-          onOpen(dot.type === 'capture' ? 'capture' : dot.type, dot.id)
+          // A PDF or a kept article opens in the reader, in the main window, wherever its dot is.
+          if (dot.type === 'pdf' || dot.type === 'web') window.api.openInHome(dot.type, dot.id)
+          else onOpen(dot.type === 'capture' ? 'capture' : dot.type, dot.id)
         }
       }
       point(hit(event), event)
@@ -1071,7 +1073,7 @@ export function GraphCanvas({ map, onOpen, centre, fit: fitRef, fly, replay, cla
           <span className="private-text truncate font-medium">{hover.dot.title || 'Untitled'}</span>
           <span className="flex items-center gap-1.5 text-muted-foreground">
             <span className="size-2 rounded-full" style={{ background: hover.dot.id === centre ? 'var(--tt-brand-color-400)' : tintOf(hover.dot) }} />
-            {hover.dot.id === centre ? 'This note' : hover.dot.kind === 'person' ? 'Person' : hover.dot.kind === 'source' ? 'Source' : kind?.label ?? 'Note'}{hover.dot.tag ? ` · #${hover.dot.tag}` : ''} · {hover.dot.links} {hover.dot.links === 1 ? 'link' : 'links'}
+            {hover.dot.id === centre ? 'This note' : hover.dot.kind === 'person' ? 'Person' : hover.dot.kind === 'source' ? 'Source' : hover.dot.kind === 'pdf' ? 'PDF' : hover.dot.kind === 'web' ? 'Web article' : kind?.label ?? 'Note'}{hover.dot.tag ? ` · #${hover.dot.tag}` : ''} · {hover.dot.links} {hover.dot.links === 1 ? 'link' : 'links'}
           </span>
         </div>
       )}

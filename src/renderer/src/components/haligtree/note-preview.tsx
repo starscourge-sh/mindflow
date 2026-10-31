@@ -151,6 +151,8 @@ export function NotePreview(): React.JSX.Element | null {
               latest: read.slice(0, 3).map((note) => withoutTags(note.title || note.label || '').replace(/\s+/g, ' ').trim() || 'Untitled')
             }
           })
+          // A PDF or a kept article: its title, and what a click does.
+          : type === 'pdf' || type === 'web' ? haligtree.linkTitle(raw).then((found) => found && { title: found.title, body: type === 'pdf' ? 'A PDF, read in the reader.' : 'A web article you kept, read in the reader.', private: false, picture: null })
           : type === 'task' ? haligtree.task(id).then((found) => found && { title: found.title, body: found.notes, private: false })
           : type === 'capture'
           ? window.api.captures.get(id).then((found) => found && { title: found.label || found.title || '', body: found.body, private: !!found.private })
@@ -182,10 +184,10 @@ export function NotePreview(): React.JSX.Element | null {
             lost: !!block && !line,
             text: cut(text, 420),
             kind,
-            aside: !binned && !['task', 'person', 'tag'].includes(type),
+            aside: !binned && !['task', 'person', 'tag', 'pdf', 'web'].includes(type),
             type,
             id,
-            queue: !binned && !['task', 'person', 'tag', 'goal'].includes(type),
+            queue: !binned && !['task', 'person', 'tag', 'goal', 'pdf', 'web'].includes(type),
             gem: found.gem,
             binned,
             row,

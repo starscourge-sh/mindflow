@@ -334,7 +334,7 @@ export function LinkField({ label, placeholder, ghost, does, value, onSave, onOp
       <Link2 className="size-4 shrink-0" />
       <span className="w-16 shrink-0 truncate text-meta">{label}</span>
       {value ? (
-        <button type="button" data-private={target?.private ? '' : undefined} onClick={() => target && onOpen && (chime('tap'), onOpen(target.type, target.id))}
+        <button type="button" data-private={target?.private ? '' : undefined} onClick={() => target && (target.type === 'pdf' || target.type === 'web' ? (chime('tap'), window.api.openInHome(target.type, target.id)) : onOpen && (chime('tap'), onOpen(target.type, target.id)))}
           className="private-text min-w-0 flex-1 truncate text-left text-control text-foreground underline decoration-foreground/25 underline-offset-2 hover:decoration-foreground">
           {name}
         </button>
@@ -362,8 +362,8 @@ export function LinkField({ label, placeholder, ghost, does, value, onSave, onOp
           onOpen={(type, id) => {
             setPicking(false)
             if (type === 'task') return refuse('A task cannot be linked here. Pick a day or a note')
-            if (type === 'pdf') return refuse('A PDF cannot be linked here. Pick a day or a note')
-            onSave(type === 'capture' ? id : `${type}:${id}`)
+            // A PDF by its address alone, as an @ link holds it (lib/capture-links.tsx).
+            onSave(type === 'capture' ? id : `${type}:${type === 'pdf' ? id.split('|')[0] : id}`)
           }}
         />,
         document.body

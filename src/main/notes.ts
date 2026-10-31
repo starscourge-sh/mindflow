@@ -14,6 +14,7 @@ const RISE = 14
 import { tagsIn } from './tag-words'
 import { cut } from './clip'
 import { NOTE_KEY } from './name'
+import { fileLink } from './pdf-highlights'
 
 /**
  * What a note carries beyond its words, for captures and nuggets alike: its
@@ -387,6 +388,9 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
   type Node = { type: string; id: string; title: string; private: number }
   const nodeOf = (link: string): Node | undefined => {
     const [kind, id] = link.includes(':') ? link.split(':') : ['capture', link]
+    // A PDF or a kept article: its own dot, opened in the reader.
+    const file = kind === 'pdf' || kind === 'web' ? fileLink(db, link) : undefined
+    if (file) return { ...file, private: 0 }
     return (kind === 'capture'
       ? db.prepare(`select 'capture' as type, id, ${LABEL} as title, private from captures where id = ?`).get(id)
       : db.prepare("select tier as type, id, coalesce(nullif(title, ''), label('', body)) as title, private from nuggets where id = ?").get(id)) as Node | undefined
@@ -418,12 +422,22 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
       ...db.prepare("select tier as type, id, coalesce(nullif(title, ''), label('', body)) as title, kind, body, coalesce((select captured_at from captures c where c.id = nuggets.capture_id), created_at) as at from nuggets where private = 0 and tier != 'card'").all()
     ] as (Node & { kind: string; body: string | null; at: string })[]
     const known = new Set(rows.map((row) => row.id))
+    // A PDF or a kept article linked from a note is on the map too, as a dot of its own, once.
+    const files = new Map<string, ReturnType<typeof fileLink>>()
+    const fileOf = (link: string, at: string): ReturnType<typeof fileLink> => {
+      if (!files.has(link)) {
+        const file = fileLink(db, link)
+        files.set(link, file)
+        if (file) (rows.push({ type: file.type, id: file.id, title: file.title, kind: file.type, body: null, at, private: 0 }), known.add(file.id))
+      }
+      return files.get(link)
+    }
     // Each pair once, weighed by how often either one links to the other.
     const pairs = new Map<string, [string, string, number]>()
-    for (const row of rows)
+    for (const row of [...rows])
       for (const [link, times] of mentionsIn(row.body)) {
-        // A link names its note as `id` or `tier:id`.
-        const to = link.includes(':') ? link.split(':')[1] : link
+        // A link names its note as `id` or `tier:id`; a file as `pdf:` or `web:` and its address.
+        const to = /^(pdf|web):/.test(link) ? (fileOf(link, row.at)?.id ?? '') : link.includes(':') ? link.split(':')[1] : link
         if (to === row.id || !known.has(to)) continue
         const [a, b] = row.id < to ? [row.id, to] : [to, row.id]
         const pair = pairs.get(`${a} ${b}`)

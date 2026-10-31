@@ -5,6 +5,7 @@ import { dayjs } from './dates'
 import { tagsIn } from './tag-words'
 import { plain } from './haligtree'
 import { linkOf, resolveWaiting } from './renames'
+import { fileLink } from './pdf-highlights'
 
 /**
  * Looking back over stretches of time, and the small things that make a note
@@ -177,6 +178,10 @@ export function registerPeriods(): void {
   // --- where a link leads, for a field that holds one: its name and kind
   handle('link:title', (link: string) => {
     const [type, id] = String(link ?? '').includes(':') ? String(link).split(':') : ['capture', String(link ?? '')]
+    if (type === 'pdf' || type === 'web') {
+      const file = fileLink(db, String(link))
+      return file ? { ...file, kind: file.type, private: 0 } : null
+    }
     if (type === 'day') return { type, id, title: id, kind: 'day' }
     if (type === 'capture') return db.prepare(`select 'capture' as type, id, ${LABEL} as title, kind, private from captures where id = ?`).get(id) ?? null
     if (type === 'task') return db.prepare("select 'task' as type, id, title, 'todo' as kind, 0 as private from tasks where id = ?").get(id) ?? null

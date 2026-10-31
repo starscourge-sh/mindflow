@@ -161,6 +161,9 @@ export function markdown(value: unknown, nameOf: (id: string) => string | undefi
   // they differ, so it opens in Obsidian or any other Markdown tool.
   // A heading it lands on follows a #, a line #^ and its name, as Obsidian has them.
   const link = (id: string, label: string, at = ''): string => {
+    // A PDF or a kept article is a file or a page, not a note: a plain link to it, as an attachment is written.
+    const file = /^(pdf|web):(.+)$/.exec(id)
+    if (file) return `[${label}](${file[2]})`
     const name = nameOf(id.replace(/^[a-z]+:/, ''))
     return name ? (name === label ? `[[${name}${at}]]` : `[[${name}${at}|${label}]]`) : `[[${label}${at}]]`
   }

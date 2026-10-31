@@ -1,6 +1,6 @@
 import { seeTheBin } from './to-bin'
 import { via } from './usage'
-import { CalendarDays, CircleArrowUp, CircleCheck, CircleDashed, CircleX, FileText, Flag, Gem, Hash, ListChecks, Orbit, UserRound, Sun } from 'lucide-react'
+import { BookOpen, CalendarDays, CircleArrowUp, CircleCheck, CircleDashed, CircleX, FileText, Flag, Gem, Hash, ListChecks, Orbit, UserRound, Sun } from 'lucide-react'
 
 import { Avatar } from '@/components/haligtree/avatar'
 import { ask, askQuestion, refuse, toast } from '@/components/haligtree/ui'
@@ -177,6 +177,9 @@ export const linkKinds = (): Record<string, LinkKind & { group: string }> => (ki
   task: { label: 'Task', group: 'Tasks', icon: ListChecks, color: 'green' },
   event: { label: 'Event', group: 'Events', icon: CalendarDays, color: 'blue' },
   day: { label: 'Day', group: 'Journal', icon: Sun, color: 'orange' },
+  // Read in the reader, never edited: a link opens it there, on the page you left.
+  pdf: { label: 'PDF', group: 'PDFs', icon: FileText, color: 'red' },
+  web: { label: 'Web article', group: 'Web articles', icon: BookOpen, color: 'blue' },
   person: { label: 'Person', group: 'People', icon: UserRound, color: 'blue' },
   tag: { label: 'Tag', group: 'Tags', icon: Hash, color: 'gray' }
 })
@@ -193,8 +196,8 @@ setLinkKinds({
   find: (ids) => window.api.haligtree<Record<string, string>>('notes:kinds', ids.filter((id) => !id.includes(':'))),
   // A new window of its own, for the notes that can have one.
   aside: (link) => {
-    const [type, id] = link.includes(':') ? link.split(':') : ['capture', link]
-    if (['task', 'person', 'tag', 'event', 'day'].includes(type)) return false
+    const [type, id] = link.includes(':') ? [link.slice(0, link.indexOf(':')), link.slice(link.indexOf(':') + 1)] : ['capture', link]
+    if (['task', 'person', 'tag', 'event', 'day', 'pdf', 'web'].includes(type)) return false
     openApart(type, id)
     return true
   },
@@ -205,6 +208,7 @@ setLinkKinds({
 
 /** What a link points at, as stored: a capture's body, or a gem's, an article's or a question's. */
 async function bodyOf(link: string): Promise<unknown> {
+  if (/^(pdf|web):/.test(link)) return null
   const [type, id] = link.includes(':') ? [link.slice(0, link.indexOf(':')), link.slice(link.indexOf(':') + 1)] : ['capture', link]
   return type === 'capture' ? (await window.api.captures.get(id))?.body : (await haligtree.item(id))?.body
 }
@@ -227,13 +231,14 @@ if (typeof window !== 'undefined' && !(window as { linksRenamedHeard?: boolean }
 /** What `@` offers in any editor that can link captures. */
 export async function findCaptures(query: string): Promise<NoteSuggestion[]> {
   const words = query.trim().toLowerCase()
-  const [captures, items, tasks, people, tags] = await Promise.all([
+  const [captures, items, tasks, people, tags, files] = await Promise.all([
     window.api.captures.search(query),
     haligtree.findItems(query),
     haligtree.tasks().catch(() => []),
-    // Names and tags only once something is typed: the open menu stays short.
+    // Names, tags and files only once something is typed: the open menu stays short.
     words ? haligtree.values('attribution').catch(() => []) : [],
-    words ? readTags().catch(() => []) : []
+    words ? readTags().catch(() => []) : [],
+    words ? window.api.captures.find(query).then((found) => found.filter((one) => one.type === 'pdf' || one.type === 'web')).catch(() => []) : []
   ])
   const rows = [
     ...captures.map((capture) => row(capture.kind in linkKinds() ? capture.kind : 'note', { id: capture.id, label: capture.label || 'Untitled', key: captureKey(capture.number) })),
@@ -242,6 +247,8 @@ export async function findCaptures(query: string): Promise<NoteSuggestion[]> {
     // Open ones first, as the list already has them.
     ...tasks.filter((task) => task.title.toLowerCase().includes(words)).slice(0, 4)
       .map((task) => row('task', { id: `task:${task.id}`, label: task.title || 'Untitled', key: `T-${task.number}` })),
+    // A PDF by its address alone (search's id adds the name it came under after a bar, which a link cannot hold); an article by its link.
+    ...files.slice(0, 4).map((file) => row(file.type, { id: `${file.type}:${file.type === 'pdf' ? file.id.split('|')[0] : file.id}`, label: file.label || 'Untitled' })),
     // Who your quotes are from: a link opens every note by them.
     ...people.filter((name) => name.toLowerCase().includes(words)).slice(0, 3).map((name) => ({ ...row('person', { id: `person:${name}`, label: name }), icon: <Avatar name={name} size={16} /> })),
     ...tags.filter(({ tag }) => tag.includes(words.replace(/^#/, ''))).slice(0, 3).map(({ tag, color }) => ({ ...row('tag', { id: `tag:${tag}`, label: `#${tag}` }), icon: <TagIcon tag={tag} color={color} /> }))
@@ -257,6 +264,8 @@ export async function findCaptures(query: string): Promise<NoteSuggestion[]> {
 
 /** The headings in what an @ link points at, for `@Note#` to offer. */
 export async function findHeadings(link: string): Promise<string[]> {
+  // A PDF or a kept article has no headings a link can land on.
+  if (/^(pdf|web):/.test(link)) return []
   const [type, id] = link.includes(':') ? link.split(':') : ['capture', link]
   const body = type === 'capture' ? (await window.api.captures.get(id))?.body : (await haligtree.item(id))?.body
   return headingsIn(body as JSONContent | string | null)
@@ -271,7 +280,8 @@ export const follow = (link: string, open: (type: string, id: string) => void, h
   via('link')
   const [type, id] = link.includes(':') ? [link.slice(0, link.indexOf(':')), link.slice(link.indexOf(':') + 1)] : ['capture', link]
   // A person or a tag is a place in the main window, not a note: its tag page, or a search for their name.
-  if (type === 'person' || type === 'tag') return window.api.openInHome(type, id)
+  // A PDF or a kept article opens in the reader there, wherever the link is.
+  if (type === 'person' || type === 'tag' || type === 'pdf' || type === 'web') return window.api.openInHome(type, id)
   if (type === 'capture') return void keptAs(id).then((to) => {
     open(to.type, to.id)
     if (heading) headingIn(to.type, to.id, heading)
