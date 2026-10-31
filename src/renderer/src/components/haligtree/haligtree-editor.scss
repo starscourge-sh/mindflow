@@ -3866,6 +3866,14 @@ html[data-motion="off"] .tiptap.ProseMirror.haligtree-editor .mf-contents-landed
   mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z'/><path d='M14 2v4a2 2 0 0 0 2 2h4'/><path d='M10 9H8M16 13H8M16 17H8'/></svg>") center / contain no-repeat;
 }
 
+/* The page a PDF link lands on, after its words: quiet, part of the link's line, never part of the link. */
+.tiptap.ProseMirror.haligtree-editor .mf-pdf-link-page {
+  color: var(--mf-muted);
+  font-size: 0.9em;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
 /* A video time in a line, "[13:03]": a link that plays the note's video from there. */
 .tiptap.ProseMirror.haligtree-editor .mf-time-link {
   color: var(--tt-brand-color-500, currentColor);

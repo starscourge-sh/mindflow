@@ -77,9 +77,34 @@ function marks(doc: ProseMirrorNode): DecorationSet {
           found.push(Decoration.inline(from, from + match[0].length, { class: "mf-time-link mf-page-link", "data-page": match[1], "data-pdf-peek": pdf.src, "data-pdf-peek-name": pdf.name, "data-pdf-peek-page": match[1] }))
         }
     })
+    // A link into a PDF page says the page after its words ("The Law Book · p. 12"),
+    // drawn beside the link, never written into it; a link already ending in its page says it once.
+    let words = ""
+    node.forEach((child, offset) => {
+      const href = child.marks.find((one) => one.type.name === "link")?.attrs.href
+      const at = typeof href === "string" ? PDF_PAGE.exec(href) : null
+      const next = node.childCount > 0 && offset + child.nodeSize < node.content.size ? node.childAfter(offset + child.nodeSize).node : null
+      if (!at || !child.isText) return void (words = "")
+      words += child.text
+      if (next?.marks.some((one) => one.type.name === "link" && one.attrs.href === href)) return
+      if (!new RegExp(`p\\.?\\s*${at[1]}\\W*$`).test(words.trim())) found.push(Decoration.widget(pos + 1 + offset + child.nodeSize, pageAfter(at[1]), { side: 1, marks: [], key: `pdf-page-${at[1]}`, ignoreSelection: true }))
+      words = ""
+    })
     return false
   })
   return DecorationSet.create(doc, found)
+}
+
+/** A link into a page of one of the book's PDFs: `haligtree://assets/….pdf#page=12…`. */
+const PDF_PAGE = /^(?:haligtree|mindflow):\/\/assets\/[^#?]+\.pdf#(?:.*&)?page=(\d+)/i
+
+/** " · p. 12", quiet, after a PDF link's words. */
+const pageAfter = (page: string) => (): HTMLElement => {
+  const span = document.createElement("span")
+  span.className = "mf-pdf-link-page"
+  span.contentEditable = "false"
+  span.textContent = ` · p. ${page}`
+  return span
 }
 
 /** The toast after a pasted list: Make 12 cards, then Undo. Said the way every toast is (components/haligtree/ui.tsx). */
