@@ -9,31 +9,80 @@ import { openPdf } from "./pdf-reader"
 /** How wide the card draws a page: small, as the card is, and sharp on a Retina screen. */
 const CARD = 132
 /** Pages already drawn for the card, kept for the window's life: scrubbing back is instant. */
-const pages = new Map<string, Promise<string | null>>()
+const drawn = new Map<string, string | null>()
+/** The page wanted most now, and pages to draw while nothing is wanted (a ladder across the book). */
+let wantedNow: { src: string; page: number } | null = null
+const ladder: { src: string; page: number }[] = []
+const waiting = new Map<string, ((image: string | null) => void)[]>()
+let drawing = false
 
-/** One page of a PDF as a small picture, drawn the first time it is asked for. */
+/** One page drawn small. Only ever one at a time: pdf.js would otherwise queue every page the pointer passed. */
+async function draw(src: string, page: number): Promise<string | null> {
+  const doc = await loadPdf(src)
+  const one = await doc.getPage(page)
+  const flat = one.getViewport({ scale: 1 })
+  const viewport = one.getViewport({ scale: (CARD * 2) / flat.width })
+  const canvas = document.createElement("canvas")
+  canvas.width = Math.round(viewport.width)
+  canvas.height = Math.round(viewport.height)
+  const ink = canvas.getContext("2d")
+  if (!ink) return null
+  ink.fillStyle = "#fff"
+  ink.fillRect(0, 0, canvas.width, canvas.height)
+  await one.render({ canvasContext: ink, viewport, canvas }).promise
+  return canvas.toDataURL("image/jpeg", 0.8)
+}
+
+/** The one drawing lane: the page wanted now first (pages passed on the way are skipped), then the ladder. */
+async function pump(): Promise<void> {
+  if (drawing) return
+  drawing = true
+  try {
+    for (;;) {
+      const next = wantedNow && !drawn.has(`${wantedNow.src}#${wantedNow.page}`) ? wantedNow : ladder.shift()
+      if (!next) break
+      const key = `${next.src}#${next.page}`
+      if (drawn.has(key)) continue
+      const image = await draw(next.src, next.page).catch(() => null)
+      drawn.set(key, image)
+      for (const done of waiting.get(key) ?? []) done(image)
+      waiting.delete(key)
+    }
+  } finally {
+    drawing = false
+  }
+}
+
+/** One page of a PDF as a small picture: at once if drawn, else when the lane reaches it (it goes to the front). */
 function pageImage(src: string, page: number): Promise<string | null> {
   const key = `${src}#${page}`
-  let made = pages.get(key)
-  if (!made) {
-    made = (async () => {
-      const doc = await loadPdf(src)
-      const one = await doc.getPage(page)
-      const flat = one.getViewport({ scale: 1 })
-      const viewport = one.getViewport({ scale: (CARD * 2) / flat.width })
-      const canvas = document.createElement("canvas")
-      canvas.width = Math.round(viewport.width)
-      canvas.height = Math.round(viewport.height)
-      const ink = canvas.getContext("2d")
-      if (!ink) return null
-      ink.fillStyle = "#fff"
-      ink.fillRect(0, 0, canvas.width, canvas.height)
-      await one.render({ canvasContext: ink, viewport, canvas }).promise
-      return canvas.toDataURL("image/jpeg", 0.8)
-    })().catch(() => null)
-    pages.set(key, made)
-  }
+  if (drawn.has(key)) return Promise.resolve(drawn.get(key)!)
+  wantedNow = { src, page }
+  const made = new Promise<string | null>((done) => waiting.set(key, [...(waiting.get(key) ?? []), done]))
+  void pump()
   return made
+}
+
+/** The nearest page already drawn, shown while the one asked for is drawn, so the card moves with the pointer. */
+function nearestDrawn(src: string, page: number, count: number): string | null {
+  for (let step = 1; step < count; step += 1) {
+    for (const at of [page - step, page + step]) {
+      const image = at >= 1 && at <= count ? drawn.get(`${src}#${at}`) : undefined
+      if (image) return image
+    }
+  }
+  return null
+}
+
+/** On first sight of a book, a ladder of pages across it is drawn in turn, so a sweep anywhere lands near one. */
+function climb(src: string, count: number, from: number): void {
+  if (ladder.some((one) => one.src === src)) return
+  const rungs = Math.min(count, 24)
+  for (let k = 0; k < rungs; k += 1) {
+    const page = Math.max(1, Math.min(count, Math.round(from + (k / rungs) * (count - from + 1)) || 1))
+    if (!drawn.has(`${src}#${page}`)) ladder.push({ src, page })
+  }
+  void pump()
 }
 
 /** A PDF named by what is pointed at: its file, its name and the page to start on. */
@@ -98,6 +147,7 @@ export function PdfPeek(): React.JSX.Element | null {
         })
         if (on.current !== target) return
         setPeek({ src, name, x: t.left + t.width / 2, top: r.top, bottom: r.bottom, count: doc.numPages, first, page: first, image: first === 1 ? (cover?.image ?? null) : null, ratio })
+        climb(src, doc.numPages, first)
         if (first !== 1) void turn(src, first)
       })
     }
@@ -161,7 +211,8 @@ export function PdfPeek(): React.JSX.Element | null {
   /** The page on show: its picture once drawn, the last one staying until then, so the card never jumps. */
   const turn = async (src: string, page: number): Promise<void> => {
     wanted.current = page
-    setPeek((now) => (now && now.src === src ? { ...now, page } : now))
+    // The nearest page already drawn stands in, so the picture follows the pointer even before this one is drawn.
+    setPeek((now) => (now && now.src === src ? { ...now, page, image: page === 1 ? now.image : (drawn.get(`${src}#${page}`) ?? nearestDrawn(src, page, now.count) ?? now.image) } : now))
     const image = page === 1 ? ((await pdfCover(src))?.image ?? null) : await pageImage(src, page)
     if (wanted.current !== page) return
     setPeek((now) => (now && now.src === src && now.page === page ? { ...now, image } : now))
