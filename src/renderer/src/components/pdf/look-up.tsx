@@ -1,31 +1,42 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
-import { ExternalLink, X } from "lucide-react"
+import { ArrowUpRight, Gem } from "lucide-react"
 import { call } from "@/lib/haligtree"
 import { notes } from "@/lib/notes"
 import { chime } from "@/lib/sound"
 import { said } from "@/lib/host"
+import { FLOAT } from "@/lib/float"
+import { cn } from "@/lib/cn"
 import type { Answer } from "../../../../main/define"
 
-type Wiki = { title: string; description: string; extract: string; url: string } | { missing: true } | { offline: true } | null
+type Wiki = { title: string; description: string; extract: string; url: string; picture?: string | null } | { missing: true } | { offline: true } | null
 
 /** Where the words were looked up: said on the Lookup kept, with a link back to the very place. */
 export type LookedUpIn = { where: string; link: string; sentence?: string }
 
+/** Lines of grey where words are coming: calm, the card's own size, nothing that says "loading". */
+function Waiting({ lines }: { lines: number[] }): React.JSX.Element {
+  return (
+    <div className="look-up-waiting" aria-label="Looking it up">
+      {lines.map((width, at) => (
+        <span key={at} style={{ width: `${width}%` }} />
+      ))}
+    </div>
+  )
+}
+
 /**
- * Picked words looked up where they sit: the dictionary's meaning (the Mac's
- * own first, for one word) and Wikipedia's summary of the article they name,
- * with its link and licence. Either can be kept as a Lookup, with a line on
- * why if you like, and always where it was looked up.
+ * Picked words looked up where they sit, as a reader's Look Up is: the word
+ * as a headword with its meaning, then Wikipedia's summary of the article it
+ * names under a hairline. One "Keep" keeps both together as a Lookup, said
+ * where it was looked up; then "Why keep this?" asks one line, in place.
  */
 export function LookUpCard({ words, at, from, onClose }: { words: string; at: { x: number; y: number }; from: LookedUpIn; onClose: () => void }): React.JSX.Element {
   const one = /^\p{L}[\p{L}'-]{1,40}$/u.test(words)
   const [meaning, setMeaning] = useState<Answer | "looking">(one ? "looking" : null)
   const [wiki, setWiki] = useState<Wiki | "looking">("looking")
+  // Kept: the Lookup made, and whether its "why" is still being asked.
+  const [kept, setKept] = useState<{ id: string; asking: boolean } | null>(null)
   const [why, setWhy] = useState("")
-  const [kept, setKept] = useState<string | null>(null)
-  // The Save last pointed at: Enter in "Why?" saves that one.
-  const [aim, setAim] = useState<"dictionary" | "wikipedia" | null>(null)
-  const whyField = useRef<HTMLInputElement>(null)
   const card = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
   useLayoutEffect(() => setWidth(card.current?.offsetWidth ?? 0), [])
@@ -37,16 +48,17 @@ export function LookUpCard({ words, at, from, onClose }: { words: string; at: { 
   }, [words, one])
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key === "Escape") (event.preventDefault(), onClose())
+      if (event.key === "Escape" && !event.defaultPrevented) (event.preventDefault(), onClose())
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
   }, [onClose])
 
-  /** Kept as a Lookup: the word, its meaning, where it was looked up (and the sentence round it), and why, if you said. */
-  const save = async (what: "dictionary" | "wikipedia"): Promise<void> => {
-    const found = what === "dictionary" && meaning !== "looking" && meaning && "found" in meaning ? meaning.found : null
-    const page = what === "wikipedia" && wiki !== "looking" && wiki && "extract" in wiki ? wiki : null
+  const found = meaning !== "looking" && meaning && "found" in meaning ? meaning.found : null
+  const page = wiki !== "looking" && wiki && "extract" in wiki ? wiki : null
+
+  /** Kept as one Lookup: the word, its meaning and Wikipedia's summary together, where it was looked up (and the sentence round it). */
+  const keep = async (): Promise<void> => {
     if (!found && !page) return
     const word = found ? words : page!.title
     const text = (value: string, link?: string): Record<string, unknown> => ({ type: "text", text: value, ...(link ? { marks: [{ type: "link", attrs: { href: link } }] } : {}) })
@@ -55,6 +67,7 @@ export function LookUpCard({ words, at, from, onClose }: { words: string; at: { 
       content: [
         { type: "paragraph", content: [text(word)] },
         ...(from.sentence ? [{ type: "blockquote", content: [{ type: "paragraph", content: [text(from.sentence)] }] }] : []),
+        ...(found && page ? [{ type: "paragraph", content: [text(page.extract)] }] : []),
         { type: "paragraph", content: [text("Looked up in "), text(from.where, from.link)] },
         ...(page ? [{ type: "paragraph", content: [text("From "), text("Wikipedia", page.url), text(", CC BY-SA")] }] : []),
       ],
@@ -62,88 +75,90 @@ export function LookUpCard({ words, at, from, onClose }: { words: string; at: { 
     const id = await window.api.captures.create({ kind: "word", title: word, body, medium: from.where })
     await notes.setField("captures", id, "definition", found ? found.definition : page!.extract)
     if (found?.example) await notes.setField("captures", id, "example", found.example)
-    // Why it was kept: a line of its own beside it, as any thought on a note is.
-    if (why.trim()) await call("gloss", id, why.trim())
-    setKept(what)
+    setKept({ id, asking: true })
     chime("saved")
     said(`“${word}” kept in Lookups`)
   }
+  const done = (): void => setKept((now) => now && { ...now, asking: false })
 
   const left = Math.max(8, at.x - width / 2)
   return (
-    <div ref={card} className="look-up" role="dialog" aria-label={`Look up “${words}”`} style={{ left, top: at.y + 8 }} onMouseDown={(event) => event.target instanceof HTMLInputElement || event.preventDefault()}>
-      <div className="look-up-head">
-        <span className="look-up-words">{words}</span>
-        <button type="button" className="look-up-close" aria-label="Close" title="Close  Esc" onClick={onClose}>
-          <X className="size-3.5" />
-        </button>
-      </div>
-      <input
-        ref={whyField}
-        className="look-up-why"
-        type="text"
-        placeholder="Why look it up? (optional, kept with what you save)"
-        aria-label="Why"
-        value={why}
-        onChange={(event) => setWhy(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key !== "Enter") return
-          event.preventDefault()
-          const can = (what: "dictionary" | "wikipedia"): boolean => (what === "wikipedia" ? wiki !== "looking" && !!wiki && "extract" in wiki : meaning !== "looking" && !!meaning && "found" in meaning)
-          const pick = aim && can(aim) ? aim : can("dictionary") ? "dictionary" : can("wikipedia") ? "wikipedia" : null
-          if (pick) void save(pick)
-        }}
-      />
-      {one && (
-        <section className="look-up-section" data-look="dictionary">
-          <h4 className="look-up-label">Dictionary</h4>
-          {meaning === "looking" ? (
-            <p className="look-up-quiet">Looking it up…</p>
-          ) : meaning && "found" in meaning ? (
-            <>
-              <p className="look-up-meaning">
-                {meaning.found.part && <em className="look-up-part">{meaning.found.part} </em>}
-                {meaning.found.definition}
-              </p>
-              {meaning.found.example && <p className="look-up-example">“{meaning.found.example}”</p>}
-              <button type="button" className="look-up-save" disabled={kept === "dictionary"} onPointerEnter={() => (setAim("dictionary"), whyField.current?.focus())} onClick={() => void save("dictionary")} title="Save  ↵ in “Why?”">
-                {kept === "dictionary" ? "Kept in Lookups" : "Save"}
-              </button>
-            </>
-          ) : meaning && "offline" in meaning ? (
-            <p className="look-up-quiet">You are offline, so the dictionary could not be asked.</p>
-          ) : (
-            <p className="look-up-quiet">{meaning && "miss" in meaning && meaning.fix ? `Not found. Did you mean “${meaning.fix}”?` : "The dictionary does not know this word."}</p>
-          )}
-        </section>
-      )}
-      <section className="look-up-section" data-look="wikipedia">
-        <h4 className="look-up-label">Wikipedia</h4>
-        {wiki === "looking" ? (
-          <p className="look-up-quiet">Looking it up…</p>
-        ) : wiki && "extract" in wiki ? (
-          <>
-            <p className="look-up-title">
-              {wiki.title}
-              {wiki.description && <span className="look-up-description"> · {wiki.description}</span>}
-            </p>
-            <p className="look-up-extract">{wiki.extract}</p>
-            <div className="look-up-row">
-              <button type="button" className="look-up-save" disabled={kept === "wikipedia"} onPointerEnter={() => (setAim("wikipedia"), whyField.current?.focus())} onClick={() => void save("wikipedia")} title="Save  ↵ in “Why?”">
-                {kept === "wikipedia" ? "Kept in Lookups" : "Save"}
-              </button>
-              <a className="look-up-link" href={wiki.url} target="_blank" rel="noopener noreferrer">
-                Read on Wikipedia <ExternalLink className="size-3" />
-              </a>
-            </div>
-            <p className="look-up-licence">Text from Wikipedia, CC BY-SA.</p>
-          </>
-        ) : wiki && "offline" in wiki ? (
-          <p className="look-up-quiet">You are offline, so Wikipedia could not be asked.</p>
+    <div
+      ref={card}
+      className={cn("look-up", FLOAT)}
+      role="dialog"
+      aria-label={`Look up “${words}”`}
+      style={{ left, top: at.y + 8 }}
+      onMouseDown={(event) => event.target instanceof HTMLInputElement || event.preventDefault()}
+    >
+      {/* The word itself, as a dictionary prints it. */}
+      <h3 className="look-up-headword">{found || !page ? words : page.title}</h3>
+      {one &&
+        (meaning === "looking" ? (
+          <Waiting lines={[30, 92, 70]} />
+        ) : found ? (
+          <div className="look-up-dictionary" data-look="dictionary">
+            {found.part && <p className="look-up-part">{found.part}</p>}
+            <p className="look-up-meaning">{found.definition}</p>
+            {found.example && <p className="look-up-example">{found.example}</p>}
+          </div>
         ) : (
-          <p className="look-up-quiet">Wikipedia has no article by that name.</p>
+          <p className="look-up-quiet" data-look="dictionary">
+            {meaning && "offline" in meaning ? "Offline: the dictionary can't be asked now." : meaning && "miss" in meaning && meaning.fix ? `Not in the dictionary. Did you mean “${meaning.fix}”?` : "Not in the dictionary."}
+          </p>
+        ))}
+      <hr className="look-up-rule" />
+      {wiki === "looking" ? (
+        <Waiting lines={[55, 100, 96, 80]} />
+      ) : page ? (
+        <div className="look-up-wiki" data-look="wikipedia">
+          {page.picture && <img className="look-up-picture" src={page.picture} alt="" draggable={false} />}
+          <p className="look-up-title">
+            {page.title}
+            {page.description && <span className="look-up-description"> {page.description}</span>}
+          </p>
+          <p className="look-up-extract">{page.extract}</p>
+        </div>
+      ) : (
+        <p className="look-up-quiet" data-look="wikipedia">{wiki && "offline" in wiki ? "Offline: Wikipedia can't be asked now." : "No Wikipedia article by that name."}</p>
+      )}
+      <div className="look-up-foot">
+        {kept?.asking ? (
+          // Kept: why, in one line, as the reader asks it after "Keep" (Enter saves, Esc skips).
+          <span className="look-up-kept">
+            <Gem className="size-3.5" />
+            <input
+              autoFocus
+              className="look-up-why"
+              type="text"
+              aria-label="Why keep this"
+              placeholder="Why keep this?"
+              value={why}
+              onChange={(event) => setWhy(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault()
+                  if (why.trim()) void call("gloss", kept.id, why.trim()).then(() => said("Why kept with the Lookup"))
+                  done()
+                } else if (event.key === "Escape") {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  done()
+                }
+              }}
+            />
+          </span>
+        ) : (
+          <button type="button" className="look-up-keep" data-look-keep disabled={!!kept || (!found && !page)} onClick={() => void keep()}>
+            {kept ? "Kept in Lookups" : "Keep"}
+          </button>
         )}
-      </section>
+        {page && (
+          <a className="look-up-link" href={page.url} target="_blank" rel="noopener noreferrer" title="Text from Wikipedia, CC BY-SA">
+            Wikipedia <ArrowUpRight className="size-3" />
+          </a>
+        )}
+      </div>
     </div>
   )
 }

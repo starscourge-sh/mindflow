@@ -163,9 +163,11 @@ export function registerPdfHighlights(): void {
       const response = base.startsWith('http://127.0.0.1') ? await fetch(url, { signal: AbortSignal.timeout(5000) }) : await fetchOutside(url, { signal: AbortSignal.timeout(5000), headers: { 'Api-User-Agent': 'Haligtree (a commonplace book)' } })
       if (response.status === 404) return { missing: true }
       if (!response.ok) return { offline: true }
-      const page = (await response.json()) as { type?: string; title?: string; description?: string; extract?: string; content_urls?: { desktop?: { page?: string } } }
+      const page = (await response.json()) as { type?: string; title?: string; description?: string; extract?: string; thumbnail?: { source?: string }; content_urls?: { desktop?: { page?: string } } }
       if (!page.extract || page.type === 'disambiguation') return { missing: true }
-      return { title: page.title ?? term, description: page.description ?? '', extract: page.extract, url: page.content_urls?.desktop?.page ?? `https://en.wikipedia.org/wiki/${encodeURIComponent(term.replace(/ /g, '_'))}` }
+      // The article's lead picture, only when it lives on Wikimedia Commons (freely licensed); an English-only file can be fair use.
+      const picture = page.thumbnail?.source && /^https:\/\/upload\.wikimedia\.org\/wikipedia\/commons\//.test(page.thumbnail.source) ? page.thumbnail.source : null
+      return { title: page.title ?? term, description: page.description ?? '', extract: page.extract, picture, url: page.content_urls?.desktop?.page ?? `https://en.wikipedia.org/wiki/${encodeURIComponent(term.replace(/ /g, '_'))}` }
     } catch {
       return { offline: true }
     }

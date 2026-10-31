@@ -898,23 +898,22 @@
   color: var(--mf-muted);
 }
 
-/* Words looked up: a card under them in the app's own floating look, the dictionary over Wikipedia. */
+/* Words looked up, as a reader's Look Up is: the word as a headword, its
+   meaning in reading type, Wikipedia under a hairline, one quiet row to keep
+   it. The app's one floating material (lib/float.ts) and the peek cards' radius. */
 .look-up {
   position: absolute;
   z-index: 6;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  width: 22rem;
-  max-height: 26rem;
-  padding: 0.75rem 0.875rem 0.875rem;
+  gap: 0.5rem;
+  width: 21rem;
+  max-height: 28rem;
+  padding: 0.875rem 1rem 0.625rem;
   overflow-y: auto;
-  border: 1px solid var(--tt-border-color);
   border-radius: 0.75rem;
-  background-color: var(--tt-card-bg-color, var(--background));
-  box-shadow: var(--mf-panel-shadow, 0 8px 24px rgba(0, 0, 0, 0.18));
   font-size: 0.875rem;
-  line-height: 1.45;
+  line-height: 1.5;
   animation: look-up-in 160ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -926,104 +925,131 @@
   .look-up { animation: none; }
 }
 
-.look-up-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
+.look-up p {
+  margin: 0;
 }
 
-.look-up-words {
-  font-size: 1.0625rem;
+.look-up-headword {
+  margin: 0;
+  font-family: var(--font-heading, Fraunces, Georgia, serif);
+  font-size: 1.375rem;
   font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
 }
 
-.look-up-close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: 0.375rem;
-  color: var(--mf-muted);
-  cursor: pointer;
-}
-
-.look-up-close:hover {
-  background-color: var(--mf-surface);
-  color: var(--foreground);
-}
-
-.look-up-section {
+.look-up-dictionary {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
 }
 
-.look-up-label {
-  margin: 0;
+.look-up-part {
   color: var(--mf-muted);
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  font-size: 0.8125rem;
+  font-style: italic;
 }
 
-.look-up-meaning,
-.look-up-title,
-.look-up-extract,
-.look-up-example,
-.look-up-quiet,
-.look-up-licence {
-  margin: 0;
+.look-up-example {
+  color: var(--mf-muted);
+  font-style: italic;
 }
 
-.look-up-part,
-.look-up-description,
-.look-up-example,
-.look-up-quiet,
-.look-up-licence {
+.look-up-quiet {
   color: var(--mf-muted);
+}
+
+.look-up-rule {
+  width: 100%;
+  margin: 0.25rem 0;
+  border: 0;
+  border-top: 1px solid var(--tt-border-color);
+}
+
+.look-up-wiki {
+  display: flow-root;
+}
+
+/* The article's lead picture, small and to the side, as Books shows it. */
+.look-up-picture {
+  float: right;
+  width: 4rem;
+  height: 4rem;
+  margin: 0.125rem 0 0.25rem 0.75rem;
+  border-radius: 0.5rem;
+  object-fit: cover;
+  box-shadow: 0 0 0 1px var(--tt-border-color);
 }
 
 .look-up-title {
+  font-family: var(--font-heading, Fraunces, Georgia, serif);
+  font-size: 1rem;
   font-weight: 600;
 }
 
 .look-up-description {
+  color: var(--mf-muted);
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-size: 0.8125rem;
   font-weight: 400;
 }
 
-.look-up-extract {
+.look-up .look-up-extract {
   display: -webkit-box;
+  margin-top: 0.125rem;
   overflow: hidden;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 6;
+  -webkit-line-clamp: 5;
 }
 
-.look-up-licence {
-  font-size: 0.75rem;
+/* Calm grey lines where words are coming. */
+.look-up-waiting {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding-block: 0.25rem;
 }
 
-.look-up-row {
+.look-up-waiting span {
+  height: 0.6rem;
+  border-radius: 999px;
+  background-color: color-mix(in srgb, var(--foreground) 8%, transparent);
+  animation: look-up-wait 1.4s ease-in-out infinite;
+}
+
+@keyframes look-up-wait {
+  50% { opacity: 0.5; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .look-up-waiting span { animation: none; }
+}
+
+/* One quiet row: Keep on the left, the source on the right. */
+.look-up-foot {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 0.75rem;
+  min-height: 1.75rem;
+  margin-top: 0.125rem;
 }
 
-.look-up-save {
-  align-self: flex-start;
-  padding: 0.2rem 0.6rem;
+.look-up-keep {
+  margin-left: -0.5rem;
+  padding: 0.2rem 0.5rem;
   border-radius: 0.375rem;
-  background-color: var(--mf-surface);
+  color: var(--foreground);
   font-weight: 500;
   cursor: pointer;
 }
 
-.look-up-save:hover:not(:disabled) {
-  background-color: color-mix(in srgb, var(--tt-brand-color-500, #c08a2e) 18%, var(--mf-surface));
+.look-up-keep:hover:not(:disabled) {
+  background-color: var(--mf-surface);
 }
 
-.look-up-save:disabled {
+.look-up-keep:disabled {
   color: var(--mf-muted);
   cursor: default;
 }
@@ -1031,24 +1057,36 @@
 .look-up-link {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  color: var(--tt-brand-color-500, #c08a2e);
+  gap: 0.125rem;
+  color: var(--mf-muted);
+  font-size: 0.8125rem;
+  text-decoration: none;
   cursor: pointer;
 }
 
-.look-up-why {
-  width: 100%;
-  padding: 0.3rem 0.5rem;
-  border: 1px solid var(--tt-border-color);
-  border-radius: 0.375rem;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  outline: none;
+.look-up-link:hover {
+  color: var(--foreground);
 }
 
-.look-up-why:focus {
-  border-color: var(--tt-brand-color-500, #c08a2e);
+/* "Why keep this?" in place of Keep, as the reader asks it. */
+.look-up-kept {
+  display: inline-flex;
+  flex: 1;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--mf-muted);
+}
+
+.look-up-why {
+  flex: 1;
+  min-width: 0;
+  padding: 0.25rem 0.5rem;
+  border: 0;
+  border-radius: 0.375rem;
+  background: var(--mf-surface);
+  color: var(--foreground);
+  font: inherit;
+  outline: none;
 }
 
 /* "Why keep this?" right where the words were kept: one line, in the bar's own look. */
