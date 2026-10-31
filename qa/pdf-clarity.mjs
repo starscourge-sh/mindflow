@@ -76,7 +76,27 @@ try {
     document.querySelector(sel).editor.state.doc.descendants((node) => void (node.type.name === 'attachment' && (src = node.attrs.src)))
     return src
   }, EDITOR)
+  // A PDF link in a note: hovering turns the preview's pages, but a click opens the link's own page; a click on the card opens the page it shows.
+  await h.evaluate(([sel, src]) => {
+    const ed = document.querySelector(sel).editor
+    ed.commands.insertContentAt(ed.state.doc.content.size, { type: 'paragraph', content: [{ type: 'text', text: 'The Law Book, p. 2', marks: [{ type: 'link', attrs: { href: `${src}#page=2&name=law-book.pdf` } }] }] })
+  }, [EDITOR, pdfSrc])
+  await wait(600)
+  const link = h.locator(`${EDITOR} a[href*="page=2"]`).first()
+  await link.scrollIntoViewIfNeeded()
+  const lb = await link.boundingBox()
+  await h.mouse.move(lb.x + 2, lb.y + lb.height / 2, { steps: 2 }); await wait(900)
+  await h.mouse.move(lb.x + lb.width - 2, lb.y + lb.height / 2, { steps: 10 }); await wait(900)
+  const corner = await h.evaluate(() => document.querySelector('[data-pdf-peek-page]')?.textContent?.trim())
+  await h.evaluate(() => { window.__opened = null; window.addEventListener('haligtree:pdf', (event) => (window.__opened = event.detail.page ?? 'own'), { once: true }) })
+  await h.mouse.click(lb.x + lb.width - 2, lb.y + lb.height / 2); await wait(900)
+  const clicked = await h.evaluate(() => window.__opened)
+  check('hovering a PDF link turns the preview past its page', corner && corner !== '2 / 6', String(corner))
+  check('a click on a PDF link opens its own page, not the page the hover turned to', clicked === 2, JSON.stringify({ corner, clicked }))
+  await h.keyboard.press('Meta+BracketLeft'); await wait(1500)
   await h.click('.is-pdf button[aria-label="Open law-book.pdf"]')
+  await h.waitForSelector('.pdf-reader .pdf-page .textLayer span', { timeout: 15000 }).catch(() => {})
+  await h.fill('.pdf-reader-page-field', '1'); await h.keyboard.press('Enter')
   await h.waitForSelector('.pdf-reader .pdf-page[data-page="1"] .textLayer span', { timeout: 15000 }).catch(() => {})
   await wait(800)
 

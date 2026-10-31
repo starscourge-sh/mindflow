@@ -753,23 +753,23 @@ try {
   const snipCard = (await cardsFromBook()).find((one) => one.prompt === 'What does figure 1 show?')
   const snipBody = snipCard ? JSON.stringify((await v('item', snipCard.id))?.body ?? '') : ''
   check('the snip is the card\'s answer: a picture, with the book and page', /!\[\]\(haligtree:\/\/assets\/[^)]+\.png\)/.test(snipBody) && snipBody.includes('#page=2') && snipCard?.passage === 'p. 2', snipBody.slice(0, 200))
-  // "Card later": words marked in its colour (key 6) on the first read; the second-read walk asks for each one's card.
+  // "Mark for a card": words marked in its colour (key 6) on the first read; "Make your marked cards" asks for each one's card.
   await pickOn(3, 'on page 3'); await wait(500)
   await h.keyboard.press('6'); await wait(700)
-  check('6 marks words "Card later", and the bar counts them', await h.evaluate(() => document.querySelector('[data-card-later-count]')?.textContent === '1'), await h.evaluate(() => document.querySelector('[data-card-later-count]')?.textContent ?? 'none'))
+  check('6 marks words "Mark for a card", and the bar counts them', await h.evaluate(() => document.querySelector('[data-card-later-count]')?.textContent === '1'), await h.evaluate(() => document.querySelector('[data-card-later-count]')?.textContent ?? 'none'))
   const laterLook = await h.evaluate(() => {
     const band = document.querySelector('.pdf-reader .pdf-mark.is-later')
     return band && { background: getComputedStyle(band).backgroundColor, underline: getComputedStyle(band).backgroundImage.includes('repeating-linear-gradient') ? 'dashed' : 'none', tick: !!document.querySelector(`.pdf-reader .pdf-later-tick[data-mark="${band.dataset.mark}"]`) }
   })
-  check('"Card later" is a dashed underline and a margin tick, never a band of colour like a highlight or a match', laterLook?.underline === 'dashed' && laterLook.tick && /rgba\(0, 0, 0, 0\)|transparent/.test(laterLook.background), JSON.stringify(laterLook))
+  check('"Mark for a card" is a dashed underline and a margin tick, never a band of colour like a highlight or a match', laterLook?.underline === 'dashed' && laterLook.tick && /rgba\(0, 0, 0, 0\)|transparent/.test(laterLook.background), JSON.stringify(laterLook))
   await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-later-mark.png` })
-  await tool('Card later'); await wait(800)
+  await tool('Make your marked cards'); await wait(800)
   check('the walk goes to the passage and asks its question, focused', await h.evaluate(() => document.activeElement?.getAttribute('aria-label') === "The card's question" && document.querySelector('.pdf-reader-page-field')?.value === '3'), await h.evaluate(() => document.querySelector('.pdf-reader-page-field')?.value))
   await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-card-later.png` })
   await h.keyboard.type('Where is the quiet sentence on the last page?'); await h.keyboard.press('Enter'); await wait(1000)
   const laterCard = (await cardsFromBook()).find((one) => one.prompt === 'Where is the quiet sentence on the last page?')
   const laterMarks = (await v('pdf:highlights', pdfSrc)).filter((one) => one.color === 'later')
-  check('Return makes its card, the passage becomes a plain highlight, and the walk ends with what it made', !!laterCard && laterMarks.length === 0 && /Second read done: 1 card made/.test(await h.evaluate(() => document.body.textContent)) && !(await h.evaluate(() => !!document.querySelector('.pdf-reader button[aria-label="Card later"]'))), JSON.stringify({ card: !!laterCard, left: laterMarks.length }))
+  check('Return makes its card, the passage becomes a plain highlight, and the walk ends with what it made', !!laterCard && laterMarks.length === 0 && /Marked cards made: 1 card/.test(await h.evaluate(() => document.body.textContent)) && !(await h.evaluate(() => !!document.querySelector('.pdf-reader button[aria-label="Mark for a card"]'))), JSON.stringify({ card: !!laterCard, left: laterMarks.length }))
   // In the dark: the card's question field beside its sibling, the bar over picked words.
   const titled = await h.evaluate(() => { const t = document.querySelector('.pdf-reader .pdf-reader-title'); return { whole: t.scrollWidth <= t.clientWidth + 1, text: t.textContent, more: !!document.querySelector('.pdf-reader .pdf-reader-bar button[aria-label="More"]'), pane: Math.round(document.querySelector('.pdf-reader').getBoundingClientRect().width) } })
   check('in a half-width pane the title is whole; the tools wait behind "More"', titled.whole && titled.more, JSON.stringify(titled))
@@ -817,7 +817,7 @@ try {
     check('a click opens the reader at the page on show', await h.evaluate(() => window.__peekOpened === 3 && !document.querySelector('[data-pdf-peek-card]')), String(await h.evaluate(() => window.__peekOpened)))
   }
   await h.mouse.move(0, 0); await c.look('light')
-  // The pages turn along the PDF's own name too, no need to reach the card: left edge the first page, right edge the last; a press opens the page on show.
+  // The pages turn along the PDF's own name too, no need to reach the card: left edge the first page, right edge the last; a click on the name opens its own page.
   {
     const name = h.locator('.tiptap-attachment-name[data-pdf-peek]').first()
     await name.scrollIntoViewIfNeeded(); await wait(200)
@@ -826,9 +826,11 @@ try {
     const start = await h.evaluate(() => document.querySelector('[data-pdf-peek-page]')?.textContent?.trim())
     await h.mouse.move(box.x + box.width - 2, box.y + box.height / 2, { steps: 10 }); await wait(900)
     const end = await h.evaluate(() => document.querySelector('[data-pdf-peek-page]')?.textContent?.trim())
-    await h.evaluate(() => { window.__alongOpened = null; window.addEventListener('haligtree:pdf', (event) => (window.__alongOpened = event.detail.page), { once: true }) })
+    await h.evaluate(() => { window.__alongOpened = null; window.addEventListener('haligtree:pdf', (event) => (window.__alongOpened = event.detail.page ?? 'own'), { once: true }) })
     await h.mouse.down(); await h.mouse.up(); await wait(900)
-    check('moving along the PDF\'s name turns its pages (1 / 3 at the left, 3 / 3 at the right), and a press opens that page', start === '1 / 3' && end === '3 / 3' && (await h.evaluate(() => window.__alongOpened)) === 3, JSON.stringify({ start, end, opened: await h.evaluate(() => window.__alongOpened) }))
+    // A click on the name itself opens the book where it was left, never the page the hover turned to: that page opens from the card.
+    const opened = await h.evaluate(() => window.__alongOpened)
+    check('moving along the PDF\'s name turns its pages (1 / 3 at the left, 3 / 3 at the right), and a click on the name opens its own page, not the turned one', start === '1 / 3' && end === '3 / 3' && opened !== null && opened !== 3, JSON.stringify({ start, end, opened }))
     await h.mouse.move(0, 0)
   }
 } catch (error) {

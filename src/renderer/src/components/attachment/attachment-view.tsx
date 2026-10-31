@@ -552,6 +552,7 @@ function PdfBlock(props: NodeViewProps): React.JSX.Element {
     return () => el.removeEventListener("mf:pdf-view", hear)
   })
   // Full size in a pane of the main window; a note's own window has no panes, so the system's viewer there.
+  // At the page last read in the block, never the page a hover over its name or cover turned to (that page opens from the preview card).
   const open = (): void => (canSplit() ? openPdf(src, name, page > 1 ? page : undefined) : void host().openFile?.(src))
   const tool = (label: string, on: boolean, run: () => void, icon: React.ReactNode, title = label): React.JSX.Element => (
     <Button data-style="ghost" aria-label={label} title={title} data-active-state={on ? "on" : "off"} onClick={(event) => (event.stopPropagation(), run())}>{icon}</Button>
@@ -569,13 +570,13 @@ function PdfBlock(props: NodeViewProps): React.JSX.Element {
       {/* The book as the reader's Details shows it: its cover, its own title in the serif, and the file under it. */}
       <div className="tiptap-attachment-card tiptap-pdf-card" data-drag-handle="">
         {/* A background, not an <img>: a picture in the note is a picture block, this is the book's face. */}
-        <span aria-hidden className="tiptap-pdf-cover" data-pdf-peek={src} data-pdf-peek-name={name} style={cover ? { backgroundImage: `url("${cover.image}")` } : undefined}>
+        <span aria-hidden className="tiptap-pdf-cover cursor-pointer" data-pdf-peek={src} data-pdf-peek-name={name} onClick={(event) => (event.stopPropagation(), open())} style={cover ? { backgroundImage: `url("${cover.image}")` } : undefined}>
           {!cover && <FileText className="tiptap-attachment-icon" />}
         </span>
         <span className="tiptap-attachment-body">
           <span className="tiptap-pdf-title">{cover?.title ?? (String(name ?? "").replace(/\.pdf$/i, "") || "PDF")}</span>
           <span className="tiptap-pdf-file">
-            <span className="tiptap-attachment-name" data-pdf-peek={src} data-pdf-peek-name={name}>{name || "PDF"}</span>
+            <span className="tiptap-attachment-name cursor-pointer" data-pdf-peek={src} data-pdf-peek-name={name} onClick={(event) => (event.stopPropagation(), open())}>{name || "PDF"}</span>
             <span className="tiptap-attachment-size">
               {[pages ? `${pages} ${pages === 1 ? "page" : "pages"}` : "", readableSize(size)].filter(Boolean).join(" · ")}
             </span>

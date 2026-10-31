@@ -113,8 +113,8 @@ type Peek = { src: string; name: string; x: number; top: number; bottom: number;
  * A PDF's pages, previewed where it is pointed at: any element carrying
  * `data-pdf-peek` (its file) shows a small card above it, the cover first
  * (kept, so it is there at once). Moving the pointer across the card turns
- * the pages, "8 / 17" in its corner; leaving it hides it, and a click opens
- * the reader at the page on show. Mounted once, as the tips are, so every
+ * the pages, "8 / 17" in its corner; leaving it hides it. A click on the card
+ * opens the reader at the page on show; a click on the link opens its own page. Mounted once, as the tips are, so every
  * surface that names a PDF (a note's PDF and "(p. N)", Media, the library,
  * link cards, ⌘K) gets it by carrying the attribute.
  */
@@ -178,22 +178,11 @@ export function PdfPeek(): React.JSX.Element | null {
       const page = Math.min(now.count, Math.max(now.first, now.first + Math.floor(((event.clientX - r.left) / r.width) * (now.count - now.first + 1))))
       if (page !== now.page) void turn(now.src, page)
     }
-    // A click on it, the pages turned, opens the page on show (a link's own
-    // page opens as it always has). Pressed rather than clicked, so a note's
-    // caret and its own link rule never see it.
-    const press = (event: PointerEvent): void => {
-      const target = on.current
-      const now = shown.current
-      if (!target || !now || event.button !== 0 || !target.contains(event.target as Node) || now.page === now.first) return
-      event.preventDefault()
-      event.stopPropagation()
-      openPdf(now.src, now.name, now.page)
-      away()
-    }
+    // A click on the link itself opens at its own page (or where you left the book), never the page the
+    // pointer happened to turn to on the way: that page opens from a click on the card, which names it.
     addEventListener("pointerover", over, true)
     addEventListener("pointerout", out, true)
     addEventListener("pointermove", along, true)
-    addEventListener("pointerdown", press, true)
     addEventListener("keydown", away, true)
     addEventListener("blur", away)
     const stop = hideForMenus(away)
@@ -202,7 +191,6 @@ export function PdfPeek(): React.JSX.Element | null {
       removeEventListener("pointerover", over, true)
       removeEventListener("pointerout", out, true)
       removeEventListener("pointermove", along, true)
-      removeEventListener("pointerdown", press, true)
       removeEventListener("keydown", away, true)
       removeEventListener("blur", away)
     }
