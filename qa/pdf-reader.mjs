@@ -62,6 +62,16 @@ const { check, done } = checks()
 const c = await sandbox({ width: 1400, height: 900 })
 const { h, v } = c
 const wait = (ms) => h.waitForTimeout(ms)
+/** The page's words a floating field covers: none, when it is placed right. */
+const hiddenWords = () => h.evaluate(() => {
+  const field = document.querySelector('.pdf-reader .pdf-why')?.getBoundingClientRect()
+  if (!field) return ['no field']
+  return [...document.querySelectorAll('.pdf-reader .textLayer span')].filter((one) => {
+    if (!one.textContent.trim() || one.querySelector('span')) return false
+    const r = one.getBoundingClientRect()
+    return r.width && r.left < field.right && r.right > field.left && r.top < field.bottom && r.bottom > field.top
+  }).map((one) => one.textContent)
+})
 const errors = []
 h.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 h.on('pageerror', (e) => errors.push(String(e)))
@@ -292,6 +302,7 @@ try {
   // Kept, it asks "Why keep this?" right there, focused: Return keeps the reason as the gem's own thought.
   const whyShown = await h.evaluate(() => document.activeElement?.classList.contains('pdf-why-field') ?? false)
   check('after Keep, "Why keep this?" is there and focused', whyShown, '')
+  check('"Why keep this?" hides none of the page\'s words', (await hiddenWords()).length === 0, JSON.stringify(await hiddenWords()))
   await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-why.png` })
   await h.keyboard.type('the line for chapter two'); await h.keyboard.press('Enter'); await wait(500)
   check('Return closes it', await h.evaluate(() => !document.querySelector('.pdf-why-field')), '')
@@ -662,6 +673,7 @@ try {
   check('picked words offer Card', await h.evaluate(() => !!document.querySelector('.pdf-keep-bar button[aria-label="Card"]')), '')
   await h.keyboard.press('c'); await wait(400)
   check('C opens the question field where the words were, focused', await h.evaluate(() => document.activeElement?.getAttribute('aria-label') === "The card's question"), '')
+  check('the question field hides none of the page\'s words (it goes under the line when the line above has words)', (await hiddenWords()).length === 0, JSON.stringify(await hiddenWords()))
   await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-card.png` })
   await h.keyboard.type('What is the sentence on page 2 worth?'); await h.keyboard.press('Enter'); await wait(900)
   const asked = (await cardsFromBook()).find((one) => one.prompt === 'What is the sentence on page 2 worth?')
@@ -695,6 +707,12 @@ try {
   await pickOn(3, 'on page 3'); await wait(500)
   await h.keyboard.press('6'); await wait(700)
   check('6 marks words "Card later", and the bar counts them', await h.evaluate(() => document.querySelector('[data-card-later-count]')?.textContent === '1'), await h.evaluate(() => document.querySelector('[data-card-later-count]')?.textContent ?? 'none'))
+  const laterLook = await h.evaluate(() => {
+    const band = document.querySelector('.pdf-reader .pdf-mark.is-later')
+    return band && { background: getComputedStyle(band).backgroundColor, underline: getComputedStyle(band).borderBottomStyle, tick: !!document.querySelector(`.pdf-reader .pdf-later-tick[data-mark="${band.dataset.mark}"]`) }
+  })
+  check('"Card later" is a dashed underline and a margin tick, never a band of colour like a highlight or a match', laterLook?.underline === 'dashed' && laterLook.tick && /rgba\(0, 0, 0, 0\)|transparent/.test(laterLook.background), JSON.stringify(laterLook))
+  await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-later-mark.png` })
   await h.click('.pdf-reader button[aria-label="Card later"]'); await wait(800)
   check('the walk goes to the passage and asks its question, focused', await h.evaluate(() => document.activeElement?.getAttribute('aria-label') === "The card's question" && document.querySelector('.pdf-reader-page-field')?.value === '3'), await h.evaluate(() => document.querySelector('.pdf-reader-page-field')?.value))
   await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-card-later.png` })
@@ -704,6 +722,7 @@ try {
   check('Return makes its card, the passage becomes a plain highlight, and the walk ends with what it made', !!laterCard && laterMarks.length === 0 && /Second read done: 1 card made/.test(await h.evaluate(() => document.body.textContent)) && !(await h.evaluate(() => !!document.querySelector('.pdf-reader button[aria-label="Card later"]'))), JSON.stringify({ card: !!laterCard, left: laterMarks.length }))
   // In the dark: the card's question field beside its sibling, the bar over picked words.
   await c.look('dark'); await wait(500)
+  await h.evaluate(() => document.querySelector('.pdf-reader .pdf-page[data-page="2"]').scrollIntoView({ block: 'start' })); await wait(600)
   await pickOn(2, 'worth keeping'); await wait(500)
   await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-bar-dark.png` })
   await h.keyboard.press('c'); await wait(400)

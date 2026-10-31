@@ -16,7 +16,9 @@ export const MARK_COLORS = [
   { id: "blue", label: "Blue", css: "#3b8fe0" },
   { id: "pink", label: "Pink", css: "#e0569a" },
   // Words to make a card of on the second read: the "Card later" walk asks for each.
-  { id: "later", label: "Card later", css: "#8a6fd1" },
+  // Not a colour: a dashed underline in the book's colour and a tick in the
+  // margin, so it is never taken for a highlight or a search match (violet).
+  { id: "later", label: "Card later", css: "var(--tt-brand-color-500, #c08a2e)" },
 ] as const
 export type MarkColor = (typeof MARK_COLORS)[number]["id"]
 
@@ -47,9 +49,9 @@ export type ReadActions = {
 }
 
 /** A swatch: a round of the colour, ticked when it is the one in use. */
-function Swatch({ color, on }: { color: string; on: boolean }): React.JSX.Element {
+function Swatch({ color, on, later = false }: { color: string; on: boolean; /** "Card later": drawn as its dashed underline, not a colour. */ later?: boolean }): React.JSX.Element {
   return (
-    <span aria-hidden className="pdf-swatch" style={{ background: color }}>
+    <span aria-hidden className={`pdf-swatch${later ? " is-later" : ""}`} style={later ? { color } : { background: color }}>
       {on && (
         <svg viewBox="0 0 12 12">
           <path d="M2.5 6.2 5 8.5l4.5-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -86,7 +88,7 @@ export function ReadBar({ at, actions }: { at: { x: number; y: number }; actions
           <span className="pdf-swatches" role="group" aria-label="Highlight in a colour">
             {MARK_COLORS.map((one, index) => (
               <button key={one.label} type="button" className="pdf-swatch-button" aria-label={`Highlight ${one.label.toLowerCase()}`} title={`${one.label}  ${index + 1}`} onClick={() => actions.highlight(one.id)}>
-                <Swatch color={one.css} on={one.id === now} />
+                <Swatch color={one.css} on={one.id === now} later={one.id === "later"} />
               </button>
             ))}
           </span>
@@ -221,7 +223,7 @@ function ColourRow({ on, onPick }: { on: string | null | undefined; onPick: (col
     <div role="group" aria-label="Highlight colour" className="flex items-center gap-1 px-1.5 py-1">
       {MARK_COLORS.map((one) => (
         <ContextMenuItem key={one.label} aria-label={one.label} aria-checked={one.id === on} role="menuitemradio" onSelect={() => onPick(one.id)} className="flex size-6 items-center justify-center rounded-md p-0 focus:bg-accent">
-          <Swatch color={one.css} on={one.id === on} />
+          <Swatch color={one.css} on={one.id === on} later={one.id === "later"} />
         </ContextMenuItem>
       ))}
     </div>
@@ -234,13 +236,30 @@ function ColourRow({ on, onPick }: { on: string | null | undefined; onPick: (col
  * clicking away, leaves it unsaid: the book, page and words are kept anyway.
  * The reason is the gem's own thought, as any line written on a gem is.
  */
-export function WhyAfter({ at, onSave, onDone, ask }: { at: { x: number; y: number }; onSave: (why: string) => void; onDone: () => void; /** Asked for a card's question instead: what it says, and the line that says what is kept. */ ask?: { kept: string; label: string; placeholder: string } }): React.JSX.Element {
+export function WhyAfter({ at, onSave, onDone, ask }: { at: { x: number; y: number; /** Where the picked words' last line ends: the field goes under it when the line above holds words. */ bottom?: number }; onSave: (why: string) => void; onDone: () => void; /** Asked for a card's question instead: what it says, and the line that says what is kept. */ ask?: { kept: string; label: string; placeholder: string } }): React.JSX.Element {
   const box = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
-  useLayoutEffect(() => setWidth(box.current?.offsetWidth ?? 0), [])
+  // Above the picked words, unless it would hide words there (a heading, the
+  // line before): then under them, so the words round the picked ones stay in sight.
+  const [below, setBelow] = useState(false)
+  useLayoutEffect(() => {
+    const el = box.current
+    if (!el) return
+    setWidth(el.offsetWidth)
+    if (at.bottom === undefined) return
+    const r = el.getBoundingClientRect()
+    // The words it would sit on: a PDF's text pieces, an article's lines (measured as drawn, line by line).
+    const hides = [...(el.parentElement?.querySelectorAll(".textLayer span, .web-reader-body :is(p, li, h1, h2, h3, h4, h5, h6, blockquote, figcaption, td)") ?? [])].some((one) => {
+      if (!one.textContent?.trim() || one.querySelector(".textLayer span, p")) return false
+      const range = document.createRange()
+      range.selectNodeContents(one)
+      return [...range.getClientRects()].some((line) => line.width && line.left < r.right && line.right > r.left && line.top < r.bottom && line.bottom > r.top)
+    })
+    setBelow(hides)
+  }, [at.bottom])
   const [why, setWhy] = useState("")
   return (
-    <div ref={box} className="pdf-keep-bar pdf-why" style={{ left: Math.max(8, at.x - width / 2), top: Math.max(8, at.y - 48) }}>
+    <div ref={box} className="pdf-keep-bar pdf-why" style={{ left: Math.max(8, at.x - width / 2), top: below && at.bottom !== undefined ? at.bottom + 8 : Math.max(8, at.y - 48) }}>
       <Toolbar variant="floating">
         <span className="pdf-why-kept">
           {ask ? <SquareStack className="tiptap-button-icon" /> : <Gem className="tiptap-button-icon" />}

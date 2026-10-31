@@ -108,6 +108,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     suffix: string
     x: number
     y: number
+    bottom: number
   } | null>(null)
   useEffect(() => {
     const onChange = (): void => {
@@ -132,7 +133,8 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
         prefix: text.slice(Math.max(0, start - 32), start),
         suffix: text.slice(end, end + 32),
         x: rect.left + rect.width / 2 - frame.left,
-        y: rect.top - frame.top + box.scrollTop
+        y: rect.top - frame.top + box.scrollTop,
+        bottom: rect.bottom - frame.top + box.scrollTop
       })
     }
     document.addEventListener('selectionchange', onChange)
@@ -151,7 +153,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
       { attribution: byline() || null, medium: whereFrom(), kind: 'quote' }
     )
   // Just kept as a gem: "Why keep this?" where the words were, for its gem.
-  const [whyFor, setWhyFor] = useState<{ id: string; x: number; y: number } | null>(null)
+  const [whyFor, setWhyFor] = useState<{ id: string; x: number; y: number; bottom?: number } | null>(null)
   /** The picked words marked in a colour; kept as a gem too when asked. */
   const mark = async (color: MarkColor, gem: boolean): Promise<void> => {
     if (!picked || !article) return
@@ -170,7 +172,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     }
     await call('pdf:highlight', href, made)
     setMarks((all) => [...all, made])
-    if (gemId) setWhyFor({ id: gemId, x: picked.x, y: picked.y })
+    if (gemId) setWhyFor({ id: gemId, x: picked.x, y: picked.y, bottom: picked.bottom })
     getSelection()?.removeAllRanges()
     setPicked(null)
     chime('saved')
@@ -214,14 +216,14 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     said(count > 15 ? `Card made: ${count} from this source. Most people keep 10 to 15 from an hour; the best ones are enough` : `Card made: ${count} from this source`)
   }
   // C: the question asked where the words were; Return makes the card.
-  const [carding, setCarding] = useState<{ quote: string; x: number; y: number } | null>(null)
+  const [carding, setCarding] = useState<{ quote: string; x: number; y: number; bottom?: number } | null>(null)
   const actions: ReadActions = {
     highlight: (color) => (rememberColor(color), void mark(color, false)),
     keep: () => void mark(lastColor(), true),
     copy: () => picked && void copyCited(picked.quote),
     card: () => {
       if (!picked) return
-      setCarding({ quote: picked.quote.replace(/\s+/g, ' ').trim(), x: picked.x, y: picked.y })
+      setCarding({ quote: picked.quote.replace(/\s+/g, ' ').trim(), x: picked.x, y: picked.y, bottom: picked.bottom })
       setPicked(null)
       chime('open')
     },
@@ -263,7 +265,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     // "Why keep this?" over the highlight itself.
     const band = drawn.current.find((each) => each.mark.id === one.id)?.range.getBoundingClientRect()
     const frame = scroller.current?.getBoundingClientRect()
-    if (band && frame && scroller.current) setWhyFor({ id: gemId, x: band.left + band.width / 2 - frame.left, y: band.top - frame.top + scroller.current.scrollTop })
+    if (band && frame && scroller.current) setWhyFor({ id: gemId, x: band.left + band.width / 2 - frame.left, y: band.top - frame.top + scroller.current.scrollTop, bottom: band.bottom - frame.top + scroller.current.scrollTop })
     chime('saved')
     said('Kept as a gem')
   }
@@ -417,7 +419,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
 
   return (
     <div className={`pdf-reader web-reader${paper ? ' is-paper' : ''}`}>
-      <style>{MARK_COLORS.map((one) => tint(markName(names, one.id), 28, one.css)).join('') + tint(`${names}-found`, 22, '#8b5cf6') + tint(`${names}-found-now`, 45, '#8b5cf6') + tint(`${names}-flash`, 55)}</style>
+      <style>{MARK_COLORS.map((one) => (one.id === "later" ? `::highlight(${markName(names, one.id)}) { text-decoration: underline dashed var(--tt-brand-color-500, #c08a2e) 2px; text-underline-offset: 3px }` : tint(markName(names, one.id), 28, one.css))).join('') + tint(`${names}-found`, 22, '#8b5cf6') + tint(`${names}-found-now`, 45, '#8b5cf6') + tint(`${names}-flash`, 55)}</style>
       <div className="pdf-reader-bar">
         <span className="pdf-reader-title" title={title}>
           {title}

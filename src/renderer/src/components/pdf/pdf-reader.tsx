@@ -124,7 +124,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     return mark
   })
   // The words picked on one page, and where to show "Keep" over them.
-  const [picked, setPicked] = useState<{ page: number; quote: string; start: number; end: number; x: number; y: number } | null>(null)
+  const [picked, setPicked] = useState<{ page: number; quote: string; start: number; end: number; x: number; y: number; bottom: number } | null>(null)
   // ⌘F: the words looked for, every place they are, and the one on show.
   const [finding, setFinding] = useState(false)
   const [found, setFound] = useState<PdfMark[]>([])
@@ -267,7 +267,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
       const { start, end } = offsetsIn(layer, range)
       const rect = range.getBoundingClientRect()
       const frame = box.getBoundingClientRect()
-      setPicked({ page: Number(sheet.dataset.page), quote, start, end, x: rect.left + rect.width / 2 - frame.left, y: rect.top - frame.top + box.scrollTop })
+      setPicked({ page: Number(sheet.dataset.page), quote, start, end, x: rect.left + rect.width / 2 - frame.left, y: rect.top - frame.top + box.scrollTop, bottom: rect.bottom - frame.top + box.scrollTop })
     }
     document.addEventListener("selectionchange", onChange)
     return () => document.removeEventListener("selectionchange", onChange)
@@ -285,7 +285,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     return call<string>("nugget:from", `${mark.quote}\n\n[${where}](${pdfLink(src, name, mark.page, mark.id)})`, { attribution: author || null, medium: title, passage: `p. ${mark.page}`, kind: "quote" })
   }
   // Just kept as a gem: "Why keep this?" where the words were, for its gem.
-  const [whyFor, setWhyFor] = useState<{ id: string; x: number; y: number } | null>(null)
+  const [whyFor, setWhyFor] = useState<{ id: string; x: number; y: number; bottom?: number } | null>(null)
   /** The picked words marked in a colour; kept as a gem too when asked. */
   const mark = async (color: MarkColor, gem: boolean): Promise<void> => {
     if (!picked) return
@@ -293,7 +293,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     const gemId = gem ? await gemOf({ id, page: picked.page, quote: picked.quote }) : null
     await call("pdf:highlight", src, { id, page: picked.page, quote: picked.quote, start: picked.start, end: picked.end, gemId, color })
     setMarks((all) => [...all, { id, page: picked.page, quote: picked.quote, start: picked.start, end: picked.end, gemId, color }])
-    if (gemId) setWhyFor({ id: gemId, x: picked.x, y: picked.y })
+    if (gemId) setWhyFor({ id: gemId, x: picked.x, y: picked.y, bottom: picked.bottom })
     getSelection()?.removeAllRanges()
     setPicked(null)
     chime("saved")
@@ -408,7 +408,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     return () => window.removeEventListener("keydown", onKey)
   })
   // C: the question asked where the words were; Return makes the card.
-  const [carding, setCarding] = useState<{ page: number; quote: string; x: number; y: number; markId?: string } | null>(null)
+  const [carding, setCarding] = useState<{ page: number; quote: string; x: number; y: number; bottom?: number; markId?: string } | null>(null)
   // The second read: every passage marked "Card later", one after another,
   // each asking for its card's question where it is; Return makes the card and
   // the passage becomes a plain highlight, Esc ends the walk.
@@ -437,7 +437,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     },
     card: () => {
       if (!picked) return
-      setCarding({ page: picked.page, quote: picked.quote, x: picked.x, y: picked.y })
+      setCarding({ page: picked.page, quote: picked.quote, x: picked.x, y: picked.y, bottom: picked.bottom })
       setPicked(null)
       chime("open")
     },
@@ -472,7 +472,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     // "Why keep this?" over the highlight itself.
     const band = scroller.current?.querySelector<HTMLElement>(`.pdf-mark[data-mark="${one.id}"]`)?.getBoundingClientRect()
     const frame = scroller.current?.getBoundingClientRect()
-    if (band && frame && scroller.current) setWhyFor({ id: gemId, x: band.left + band.width / 2 - frame.left, y: band.top - frame.top + scroller.current.scrollTop })
+    if (band && frame && scroller.current) setWhyFor({ id: gemId, x: band.left + band.width / 2 - frame.left, y: band.top - frame.top + scroller.current.scrollTop, bottom: band.bottom - frame.top + scroller.current.scrollTop })
     chime("saved")
     said("Kept as a gem")
   }
