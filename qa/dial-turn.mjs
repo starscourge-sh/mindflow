@@ -12,6 +12,8 @@ const { h, go, errors, close, electron } = c
 const taps = () => electron.evaluate(() => globalThis.haligtreeTaps?.() ?? -1)
 try {
   await go('settings')
+  // The dial is in Settings' "Appearance" section, which is not the one that shows first.
+  await h.click('[data-section="Appearance"]')
   await h.waitForTimeout(800)
   const dial = h.locator('[role="slider"][aria-label="Theme"]').first()
   await dial.scrollIntoViewIfNeeded()
