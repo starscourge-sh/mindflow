@@ -3117,6 +3117,21 @@ export function registerHaligtree(): void {
       .run(fresh, cut(question.trim(), 160), JSON.stringify(words), question.trim(), old.attribution, old.private, JSON.stringify([id]), now(), now())
     return write({ fresh, was })
   })
+  // "Ask another way": a new card on the same thing, from a new angle. It keeps
+  // the last card's context, source (who said it, where, the passage, the note
+  // it was lifted from) and #tags, so only the new question and answer are written.
+  handle('review:another', (id: string, question: string, answer: string) => {
+    const old = db.prepare('select title, body, capture_id, attribution, medium, passage, context, private from nuggets where id = ?').get(id) as
+      { title: string; body: string; capture_id: string | null; attribution: string | null; medium: string | null; passage: string | null; context: string | null; private: number } | undefined
+    if (!old || !String(question ?? '').trim() || !String(answer ?? '').trim()) return write(null)
+    const said = tagsIn(answer)
+    const tags = tagsIn(`${old.title} ${plain(JSON.parse(old.body ?? 'null'))}`).filter((tag) => !said.includes(tag))
+    const words = [answer.trim(), tags.map((tag) => `#${tag}`).join(' ')].filter(Boolean).join('\n\n')
+    const fresh = randomUUID()
+    db.prepare("insert into nuggets (id, capture_id, kind, title, body, prompt, attribution, medium, passage, context, private, origins, created_at, updated_at) values (?, ?, 'note', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+      .run(fresh, old.capture_id, cut(question.trim(), 160), JSON.stringify(words), question.trim(), old.attribution, old.medium, old.passage, old.context, old.private, JSON.stringify([id]), now(), now())
+    return write(fresh)
+  })
   handle('review:unsplit', (id: string, fresh: string, was: string | null) => {
     db.prepare("delete from nuggets where id = ? and tier = 'nugget' and state is null").run(fresh)
     db.prepare('update nuggets set prompt = ? where id = ?').run(was, id)

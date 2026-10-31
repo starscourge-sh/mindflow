@@ -137,6 +137,8 @@ export const POWERS: Power[] = [
     show: { view: 'review', text: 'Type in the box under the question, then ⌘↵.' } },
   { id: 'practisetag', group: 'Remembering', name: 'Practise without counting', tryIt: 'Open a tag and choose “Practise”.', line: 'Go through a tag’s cards one after another, the answer on Space, with nothing graded or scheduled.', keys: ['Space', 'J', 'K'],
     show: { view: 'tags', at: ROW, text: 'Open a tag and choose “Practise” at the top.' } },
+  { id: 'anotherway', group: 'Remembering', name: 'Ask another way', tryIt: 'Press A on a card in Review.', line: 'One topic asked from many angles: A opens a new card under the one in front that keeps its context, source and #tags, so you write only the new question and its answer.', keys: ['A'],
+    show: { view: 'review', at: '[data-review-card]', text: 'Press A on the card in front: the new card keeps its context, source and tags.' } },
   { id: 'star', group: 'Remembering', name: 'Star a card', tryIt: 'Press S on a card in Review.', line: 'Press S on a card in Review to star it, and “Starred” under “Practise” gives those cards a round of their own.', keys: ['S'],
     show: { view: 'review', at: '[data-practise]', text: '“Starred” is the last round under “Practise”. S stars the card in front.' }, used: (s) => s.items.some((item) => !!item.starredAt && item.tier !== 'goal') },
   { id: 'howitdecides', group: 'Remembering', name: 'How it decides', tryIt: 'Turn a card over in Review and open “How it decides”.', line: 'Under the grades, a fold says in plain words what Review aims for and why this card comes back when it does.',

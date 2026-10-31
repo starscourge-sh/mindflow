@@ -24,8 +24,8 @@ try {
   check('Review shows a card', await face.count() === 1)
   await face.click({ button: 'right' }); await wait(400)
   const shown = await menu()
-  check('right-click opens its menu: Open, Copy link, Pause, a rule, Move to the Bin',
-    JSON.stringify(shown.kids.map((one) => one.replace(/⌫$/, ''))) === JSON.stringify(['Open', 'Copy link', 'Pause', '---', 'Move to the Bin']), JSON.stringify(shown.kids))
+  check('right-click opens its menu: Open, Copy link, Ask another way, Pause, a rule, Move to the Bin',
+    JSON.stringify(shown.kids.map((one) => one.replace(/(⌫|(?<=way)A)$/, ''))) === JSON.stringify(['Open', 'Copy link', 'Ask another way', 'Pause', '---', 'Move to the Bin']), JSON.stringify(shown.kids))
   check('the Bin line has the trash icon', shown.icon)
   await h.keyboard.press('Escape'); await wait(300)
   await h.locator('[data-review-more]').click(); await wait(400)

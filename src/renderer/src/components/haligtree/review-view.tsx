@@ -38,6 +38,7 @@ import { isLeech, minutesFor, thingsIn, typedCheck, type Strictness } from '../.
 import { Star } from 'lucide-react'
 import { RowMenu, copyLinkItem, type RowItem } from './row-menu'
 import { binItem } from '@/lib/to-bin'
+import { AnotherWay } from './another-way'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import { InkLine } from './ink-line'
@@ -107,6 +108,8 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
   const [, setStars] = useState(0)
   // The card that keeps slipping, held up after its miss until you say what to do with it.
   const [slipping, setSlipping] = useState<{ card: Due; splitting: boolean } | null>(null)
+  // A: "Ask another way" open under this card (its id), closed by moving on.
+  const [asking, setAsking] = useState<string | null>(null)
   const heading = useRef<HTMLHeadingElement>(null)
   const fresh = (cards: Due[], bucket: Round | null): void => {
     setQueue(cards)
@@ -318,6 +321,7 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
   const cardMenu: RowItem[] = card ? [
     { label: 'Open', run: () => (chime('open'), window.api.openInHome('nugget', card.id)) },
     copyLinkItem(`nugget:${card.id}`, card.prompt || card.title || 'Card'),
+    { label: 'Ask another way', hint: 'A new card keeping its context, source and tags', keys: 'A', run: () => (chime('open'), setAsking(card.id)) },
     { label: 'Pause', hint: 'Out of Review until you bring it back', run: () => setAside(card, true, () => drop(card.id)) },
     'separator',
     binItem([{ type: 'nugget', id: card.id }], () => drop(card.id))
@@ -390,6 +394,12 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
         setEditing(true)
         setEditAsked((n) => n + 1)
         return
+      }
+      // A: a new card on the same thing, keeping this one's context, source and tags.
+      if (event.key === 'a' && card) {
+        event.preventDefault()
+        chime('open')
+        return setAsking(card.id)
       }
       // The answer read aloud again.
       if (event.key === 'p' && shown) sayAgain()
@@ -606,6 +616,7 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
         />
         </div>
         </RowMenu>
+        {asking === card.id && <AnotherWay card={card} onClose={() => (chime('fold'), setAsking(null))} />}
         {isLeech(card.lapses) && (
           <p className="-mt-3 text-sm text-[var(--tt-color-text-orange)]">
             <Typed text={`Forgotten ${card.lapses} times. Rewrite the question above rather than drilling it: click it to edit.`} step={28} delay={300} />

@@ -473,6 +473,8 @@ export const haligtree = {
   /** This card asks something narrower, and the rest becomes a new card; `unsplit` takes it back. */
   split: (id: string, narrower: string, question: string, answer: string) => call<{ fresh: string; was: string | null } | null>('review:split', id, narrower, question, answer),
   unsplit: (id: string, fresh: string, was: string | null) => call('review:unsplit', id, fresh, was),
+  /** "Ask another way": a new card keeping this one's context, source and #tags; gives back its id. */
+  another: (id: string, question: string, answer: string) => call<string | null>('review:another', id, question, answer),
   /** The gems a blurt left out, brought forward in Review; how many moved. */
   blurtSooner: (ids: string[]) => call<number>('blurt:sooner', ids),
   /** A blurt kept on today's page; gives back the day. */
