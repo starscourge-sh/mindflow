@@ -233,11 +233,38 @@ export function PdfPages({
     return () => watch.disconnect()
   }, [doc, scroller, laidOut])
 
-  if (failed) return <div className="pdf-pages is-failed">This PDF could not be read.</div>
   // Two a row share the width, less the gap between them; fit height never lets a page outgrow the width either.
   const across = spread ? (width - GAP) / 2 - 1 : width
   const wide = size && width ? across / size.w : 0
   const scale = (fit === "height" && size && tall > 0 ? Math.min(wide, tall / size.h) : wide) * zoom
+
+  // The page at the top of the view, and how far down it: kept as you scroll,
+  // and put back when the pages change size (a pane gliding open, the rail
+  // squeezing), so the place you read never drifts to pages not yet drawn.
+  const place = useRef<{ page: number; f: number } | null>(null)
+  useEffect(() => {
+    const view = scroller?.current ?? box.current?.parentElement
+    if (!view) return
+    const note = (): void => {
+      const top = view.getBoundingClientRect().top
+      for (const sheet of box.current?.querySelectorAll<HTMLElement>(".pdf-page") ?? []) {
+        const r = sheet.getBoundingClientRect()
+        if (r.bottom > top) return void (place.current = { page: Number(sheet.dataset.page), f: (top - r.top) / r.height })
+      }
+    }
+    view.addEventListener("scroll", note, { passive: true })
+    return () => view.removeEventListener("scroll", note)
+  }, [scroller, laidOut])
+  useLayoutEffect(() => {
+    const view = scroller?.current ?? box.current?.parentElement
+    const kept = place.current
+    const sheet = kept && box.current?.querySelector<HTMLElement>(`.pdf-page[data-page="${kept.page}"]`)
+    if (!view || !kept || !sheet) return
+    const r = sheet.getBoundingClientRect()
+    view.scrollTop += r.top + kept.f * r.height - view.getBoundingClientRect().top
+  }, [scale, scroller])
+
+  if (failed) return <div className="pdf-pages is-failed">This PDF could not be read.</div>
   return (
     <div ref={box} className={`pdf-pages${spread ? " is-spread" : ""}`} data-fit={fit}>
       {doc && scale > 0 &&

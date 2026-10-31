@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import type { PDFDocumentProxy } from "pdfjs-dist"
 import { ChevronDown, ChevronUp, Gem, Minus, PanelLeft, PanelRight, Plus, Scissors, ScrollText, Search, SquareStack, X } from "lucide-react"
 import { Button } from "@/components/tiptap-ui-primitive/button"
@@ -12,7 +12,7 @@ import { canSplit, keysHere, usePane } from "@/lib/split"
 import { chime } from "@/lib/sound"
 import { cue } from "@/lib/cues"
 import { MarkMenu, PickedMenu, ReadBar, WhyAfter, cited, lastColor, readKey, rememberColor, type MarkColor, type ReadActions } from "./read-bar"
-import { PdfSide, chapterAt, usePdfOutline, type RailTab } from "./pdf-rail"
+import { NARROW, PdfSide, chapterAt, railWidth, usePdfOutline, type RailTab } from "./pdf-rail"
 import { ReadDetails } from "./pdf-details"
 import { LookUpCard, type LookedUpIn } from "./look-up"
 import { usePdfCover } from "./pdf-cover"
@@ -20,6 +20,14 @@ import { showDetails, useDetailsShown } from "@/lib/reading"
 import { PdfPages, offsetsIn, pdfAuthor, pdfTitle, type PdfMark } from "./pdf-pages"
 import { FitActions } from "@/components/haligtree/ui"
 import { usePaperPages } from "./paper"
+import { ScrubField } from "./scrub-field"
+import { still } from "@/lib/motion"
+
+/** A page column this wide reads comfortably; below it the rail squeezes, below `TIGHT` it folds away. */
+const COMFY = 520
+const TIGHT = 420
+/** The pages' padding either side (pdf.css, .pdf-reader-scroll). */
+const PAD = 48
 
 /** The zoom steps, as Preview's: fit width is 1. */
 const ZOOMS = [0.5, 0.67, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3]
@@ -122,7 +130,6 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   const [title, setTitle] = useState(() => pdfName(src, name))
   const [zoom, setZoom] = useState(1)
   const [page, setPage] = useState(start ?? 1)
-  const [typed, setTyped] = useState<string | null>(null)
   const [paper, setPaper] = usePaperPages()
   const [marks, setMarks] = useState<PdfMark[]>([])
   const [flash] = useState(() => {
@@ -203,6 +210,26 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     localStorage.setItem("pdf-rail", tab ?? "")
     setRail(tab)
   }
+  // A narrow pane (half of a split) gives the pages the room: past a
+  // comfortable reading width the rail squeezes to its narrowest, and past a
+  // tight one it folds away, coming back as the pane widens. Opened, closed
+  // or dragged by hand, the rail stays as it was left, in this reader.
+  const body = useRef<HTMLDivElement>(null)
+  const [room, setRoom] = useState(Infinity)
+  const [byHand, setByHand] = useState(false)
+  useLayoutEffect(() => {
+    const el = body.current
+    if (!el) return
+    // The room the rail and the pages share: the body less Details, so the rail's own width never feeds back.
+    const measure = (): void => setRoom(el.clientWidth - (el.querySelector<HTMLElement>(":scope > .read-details")?.offsetWidth ?? 0))
+    const watch = new ResizeObserver(measure)
+    watch.observe(el)
+    if (scroller.current) watch.observe(scroller.current)
+    return () => watch.disconnect()
+  }, [])
+  const squeeze: "full" | "narrow" | "folded" = byHand ? "full" : room - railWidth() - PAD < COMFY ? (room - NARROW - PAD < TIGHT ? "folded" : "narrow") : "full"
+  const railShown = squeeze === "folded" ? null : rail
+  const toggleRail = (): void => (setByHand(true), showRail(railShown ? null : rail ?? "pages"))
   const [lit, setLit] = useState<string | null>(null)
   const goToMark = (one: PdfMark): void => {
     go(one.page)
@@ -503,18 +530,130 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   }, [doc, src, page])
 
   const step = (by: number): void => {
-    const at = ZOOMS.findIndex((one) => one >= zoom - 0.001)
-    const next = ZOOMS[Math.min(Math.max(0, (at < 0 ? ZOOMS.length - 1 : at) + by), ZOOMS.length - 1)]
+    // From a pinched zoom (1.37) the next step up is 1.5, down 1.25.
+    const next = by > 0 ? ZOOMS.find((one) => one > zoom + 0.001) : [...ZOOMS].reverse().find((one) => one < zoom - 0.001)
     // At its smallest or largest: the "nope" a note's text size gives at its ends.
-    if (next === zoom) return chime("nope")
+    if (next === undefined) return chime("nope")
+    zoomTo(next)
+  }
+
+  // Zoom kept where you look: the point under the pointer (or the middle of
+  // the pages, from the keys and buttons) stays put as the pages grow.
+  const chip = useRef<HTMLDivElement>(null)
+  const chipOff = useRef(0)
+  const showChip = (value: number): void => {
+    const el = chip.current
+    if (!el) return
+    el.textContent = Math.abs(value - 1) < 0.005 ? "Fit" : `${Math.round(value * 100)}%`
+    el.dataset.shown = ""
+    window.clearTimeout(chipOff.current)
+    // A chip has no end of its own: it says the zoom while it changes, and goes once it rests.
+    chipOff.current = window.setTimeout(() => delete el.dataset.shown, 900)
+  }
+  const anchor = useRef<{ page: number; fx: number; fy: number; x: number; y: number; from: number } | null>(null)
+  const [zoomed, setZoomed] = useState(0)
+  const zoomTo = (next: number, at?: { x: number; y: number }, from = next): void => {
+    const box = scroller.current
+    if (!box) return setZoom(next)
+    const frame = box.getBoundingClientRect()
+    const x = at?.x ?? frame.left + box.clientWidth / 2
+    const y = at?.y ?? frame.top + box.clientHeight / 2
+    // The sheet nearest the point and where on it the point is, read as drawn now (a pinch's stretch included).
+    let best: { page: number; fx: number; fy: number; d: number } | null = null
+    for (const sheet of box.querySelectorAll<HTMLElement>(".pdf-page")) {
+      const r = sheet.getBoundingClientRect()
+      if (r.bottom < frame.top || r.top > frame.bottom) continue
+      const d = Math.max(0, r.top - y, y - r.bottom)
+      if (!best || d < best.d) best = { page: Number(sheet.dataset.page), fx: (x - r.left) / r.width, fy: (y - r.top) / r.height, d }
+    }
+    anchor.current = best && { page: best.page, fx: best.fx, fy: best.fy, x, y, from: from / next }
     setZoom(next)
+    setZoomed((n) => n + 1)
+    showChip(next)
+  }
+  useLayoutEffect(() => {
+    const box = scroller.current
+    const one = anchor.current
+    anchor.current = null
+    const pages = box?.querySelector<HTMLElement>(".pdf-pages")
+    if (!box || !pages) return
+    pages.style.transform = ""
+    const sheet = one && box.querySelector<HTMLElement>(`.pdf-page[data-page="${one.page}"]`)
+    if (!one || !sheet) return
+    const r = sheet.getBoundingClientRect()
+    box.scrollLeft += r.left + one.fx * r.width - one.x
+    box.scrollTop += r.top + one.fy * r.height - one.y
+    // Past the end of the zoom: the stretch springs back to it, round the same point.
+    if (Math.abs(one.from - 1) > 0.002 && !still()) {
+      const p = pages.getBoundingClientRect()
+      pages.style.transformOrigin = `${one.x - p.left}px ${one.y - p.top}px`
+      pages.animate([{ transform: `scale(${one.from})` }, { transform: "scale(1)" }], { duration: 380, easing: "cubic-bezier(0.34, 1.4, 0.64, 1)" })
+    }
+  }, [zoomed])
+  const zoomNow = useRef(zoom)
+  zoomNow.current = zoom
+  const zoomToNow = useRef(zoomTo)
+  zoomToNow.current = zoomTo
+  // Pinch on a trackpad (a wheel with ctrl, as Chromium tells it) and ⌘ or ctrl
+  // with a mouse wheel: the pages stretch as one picture under the fingers,
+  // then are drawn again, sharp, at the zoom they came to rest at. Past the
+  // smallest or largest they give a little, and spring back on letting go.
+  useEffect(() => {
+    const box = scroller.current
+    if (!box) return
+    let pinch: { base: number; raw: number; x: number; y: number; rest: number } | null = null
+    const MIN = ZOOMS[0]
+    const MAX = ZOOMS[ZOOMS.length - 1]
+    const clamp = (n: number): number => Math.min(MAX, Math.max(MIN, n))
+    const give = (n: number): number => (still() ? clamp(n) : n > MAX ? MAX * (n / MAX) ** 0.25 : n < MIN ? MIN * (n / MIN) ** 0.25 : n)
+    const settle = (): void => {
+      const one = pinch
+      pinch = null
+      if (one) zoomToNow.current(clamp(one.raw), { x: one.x, y: one.y }, give(one.raw))
+    }
+    const onWheel = (event: WheelEvent): void => {
+      if (!event.ctrlKey && !event.metaKey) return
+      event.preventDefault()
+      const pages = box.querySelector<HTMLElement>(".pdf-pages")
+      if (!pages) return
+      if (!pinch) {
+        const r = pages.getBoundingClientRect()
+        pinch = { base: zoomNow.current, raw: zoomNow.current, x: event.clientX, y: event.clientY, rest: 0 }
+        pages.style.transformOrigin = `${event.clientX - r.left}px ${event.clientY - r.top}px`
+      }
+      const dy = event.deltaMode === 1 ? event.deltaY * 33 : event.deltaY
+      // A mouse wheel's notch (about 100) a fifth larger or smaller; a pinch's small steps in proportion.
+      pinch.raw = Math.min(MAX * 3, Math.max(MIN / 3, pinch.raw * Math.exp(-dy * (Math.abs(dy) >= 40 ? 0.002 : 0.01))))
+      const shown = give(pinch.raw)
+      pages.style.transform = `scale(${shown / pinch.base})`
+      showChip(shown)
+      // A wheel never says it has ended: a pause is the end of the gesture.
+      window.clearTimeout(pinch.rest)
+      pinch.rest = window.setTimeout(settle, 160)
+    }
+    box.addEventListener("wheel", onWheel, { passive: false })
+    return () => box.removeEventListener("wheel", onWheel)
+    // showChip reads only a ref.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  /** Double-click a page: from Fit to its actual size (twice Fit when that is about the same), else back to Fit, round the click. */
+  const toggleZoom = (event: React.MouseEvent): void => {
+    const target = event.target as HTMLElement
+    const sheet = target.closest<HTMLElement>(".pdf-page")
+    // A double-click on words picks a word, as everywhere.
+    if (!sheet || snipping || target.closest(".textLayer span")) return
+    const scale = parseFloat(sheet.style.getPropertyValue("--total-scale-factor")) || zoom
+    const actual = 96 / 72 / (scale / zoom)
+    const next = Math.abs(zoom - 1) > 0.01 ? 1 : Math.min(ZOOMS[ZOOMS.length - 1], Math.abs(actual - 1) < 0.1 ? 2 : actual)
+    getSelection()?.removeAllRanges()
+    zoomTo(next, { x: event.clientX, y: event.clientY })
   }
   // ⌘+ ⌘− ⌘0 while this reader is in the pane in front: its own zoom, not the
   // app's size. The menu's keys are offered here first (preload), and the
   // page's own key handler steps aside once this one has taken them.
   const pane = usePane()
   useEffect(() => {
-    const zoomBy = (way: number): void => (way === 0 ? setZoom(1) : step(way))
+    const zoomBy = (way: number): void => (way === 0 ? zoomTo(1) : step(way))
     const onMenu = (event: Event): void => {
       if (!keysHere(pane)) return
       event.preventDefault()
@@ -554,32 +693,19 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   const chapter = hereAt >= 0 ? outline[hereAt].title : ""
 
   return (
-    <div className={`pdf-reader${paper ? " is-paper" : ""}`}>
+    <div className={`pdf-reader${paper ? " is-paper" : ""}`} data-zoom={zoom}>
       <div className="pdf-reader-bar">
         <span className="pdf-reader-heading" title={chapter ? `${title}: ${chapter}` : title}>
           <span className="pdf-reader-title">{title}</span>
           {chapter && <span data-pdf-chapter className="pdf-reader-chapter">{chapter}</span>}
         </span>
         <span className="pdf-reader-page">
-          <input
-            aria-label="Page"
-            className="pdf-reader-page-field"
-            value={typed ?? String(page)}
-            onFocus={(event) => (setTyped(String(page)), event.currentTarget.select())}
-            onChange={(event) => setTyped(event.target.value.replace(/\D/g, ""))}
-            onBlur={() => setTyped(null)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                go(Number(typed) || page)
-                event.currentTarget.blur()
-              } else if (event.key === "Escape") event.currentTarget.blur()
-            }}
-          />
+          <ScrubField value={page} max={doc?.numPages ?? 1} onChange={go} />
           <span className="pdf-reader-of"> / {doc?.numPages ?? "…"}</span>
         </span>
         {/* The title wins the room: in a narrow pane the tools wait behind "More", in the same order. */}
         <FitActions room={doc?.numPages}>
-          <Button data-style="ghost" aria-label="Sidebar" title="Pages and outline" data-active-state={rail ? "on" : "off"} onClick={() => showRail(rail ? null : "pages")}>
+          <Button data-style="ghost" aria-label="Sidebar" title="Pages and outline" data-active-state={railShown ? "on" : "off"} onClick={toggleRail}>
             <PanelLeft className="tiptap-button-icon" />
           </Button>
           <Button data-style="ghost" aria-label="Details" title={detailsOut ? "Hide details" : "Details"} data-active-state={detailsOut ? "on" : "off"} onClick={() => (chime(detailsOut ? "fold" : "slide"), showDetails(!detailsOut, pane))}>
@@ -600,7 +726,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           <Button data-style="ghost" aria-label="Smaller" title="Smaller  ⌘−" onClick={() => step(-1)}>
             <Minus className="tiptap-button-icon" />
           </Button>
-          <Button data-style="ghost" aria-label="Fit width" title="Fit width  ⌘0" onClick={() => setZoom(1)}>
+          <Button data-style="ghost" aria-label="Fit width" title="Fit width  ⌘0" onClick={() => zoomTo(1)}>
             <span className="tiptap-button-text"><Roll text={zoom === 1 ? "Fit" : `${Math.round(zoom * 100)}%`} /></span>
           </Button>
           <Button data-style="ghost" aria-label="Larger" title="Larger  ⌘+" onClick={() => step(1)}>
@@ -651,9 +777,10 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           </div>
         </div>
       )}
-      <div className="pdf-reader-body">
-      {rail && doc && (
-        <PdfSide doc={doc} page={page} outline={outline} tab={rail} onTab={showRail} onGo={go} />
+      <div ref={chip} className="pdf-zoom-chip" aria-hidden />
+      <div ref={body} className="pdf-reader-body" data-rail-squeeze={squeeze}>
+      {railShown && doc && (
+        <PdfSide doc={doc} page={page} outline={outline} tab={railShown} onTab={showRail} onGo={go} narrow={squeeze === "narrow"} onDrag={() => setByHand(true)} />
       )}
       <ContextMenu>
         <ContextMenuTrigger asChild>
@@ -661,6 +788,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
             ref={scroller}
             className="pdf-reader-scroll"
             onScroll={onScroll}
+            onDoubleClick={toggleZoom}
             // A mark has its menu, picked words theirs: anywhere else a right click does nothing here.
             onContextMenu={(event) => {
               const band = [...(scroller.current?.querySelectorAll<HTMLElement>(".pdf-mark") ?? [])].find((one) => {

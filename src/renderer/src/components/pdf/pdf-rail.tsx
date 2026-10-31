@@ -10,7 +10,7 @@ import type { PDFDocumentProxy } from "pdfjs-dist"
 export type RailTab = "pages" | "outline"
 
 /** The rail's width, as you last dragged it: between a narrow column of pages and a wide list. */
-const NARROW = 152
+export const NARROW = 152
 const WIDE = 360
 export const railWidth = (): number => Math.min(WIDE, Math.max(NARROW, Number(localStorage.getItem("pdf-rail-width")) || 200))
 
@@ -19,11 +19,14 @@ export const railWidth = (): number => Math.min(WIDE, Math.max(NARROW, Number(lo
  * Skim. Its tabs along the top, its list under them, and its right edge
  * dragged to make it wider or narrower, remembered for every PDF.
  */
-export function PdfRail({ tab, tabs, onTab, children }: { tab: RailTab; tabs: { id: RailTab; label: string }[]; onTab: (tab: RailTab) => void; children: React.ReactNode }): React.JSX.Element {
-  const [width, setWidth] = useState(railWidth)
+export function PdfRail({ tab, tabs, onTab, narrow, onDrag, children }: { tab: RailTab; tabs: { id: RailTab; label: string }[]; onTab: (tab: RailTab) => void; narrow?: boolean; onDrag?: () => void; children: React.ReactNode }): React.JSX.Element {
+  const [own, setWidth] = useState(railWidth)
+  // A narrow pane squeezes it to its narrowest on its own (pdf-reader.tsx); a drag is a choice that wins.
+  const width = narrow ? NARROW : own
   const [list, setList] = useState<HTMLDivElement | null>(null)
   const drag = (event: React.PointerEvent<HTMLDivElement>): void => {
     event.preventDefault()
+    onDrag?.()
     const from = event.clientX - width
     const handle = event.currentTarget
     handle.setPointerCapture(event.pointerId)
@@ -37,7 +40,7 @@ export function PdfRail({ tab, tabs, onTab, children }: { tab: RailTab; tabs: { 
     handle.addEventListener("pointerup", up, { once: true })
   }
   return (
-    <aside className="pdf-rail" style={{ width }} aria-label="Sidebar">
+    <aside className="pdf-rail" data-narrow={narrow ? "" : undefined} style={{ width }} aria-label="Sidebar">
       <div className="pdf-rail-tabs" role="tablist">
         {tabs.map((one) => (
           <button key={one.id} type="button" role="tab" aria-selected={one.id === tab} className="pdf-rail-tab" onClick={() => onTab(one.id)}>
@@ -154,7 +157,7 @@ export const chapterAt = (outline: OutlineRow[], page: number): number =>
  * The rail with its lists: the pages small, or the outline with the chapter
  * you are in lit. One for the reader and for a PDF shown in a note.
  */
-export function PdfSide({ doc, page, outline, tab, onTab, onGo }: { doc: PDFDocumentProxy; page: number; outline: OutlineRow[]; tab: RailTab; onTab: (tab: RailTab) => void; onGo: (page: number) => void }): React.JSX.Element {
+export function PdfSide({ doc, page, outline, tab, onTab, onGo, narrow, onDrag }: { doc: PDFDocumentProxy; page: number; outline: OutlineRow[]; tab: RailTab; onTab: (tab: RailTab) => void; onGo: (page: number) => void; narrow?: boolean; onDrag?: () => void }): React.JSX.Element {
   const hereAt = chapterAt(outline, page)
   const shown = tab === "outline" && !outline.length ? "pages" : tab
   // The chapter lit comes into view in the rail, as Preview's does.
@@ -163,7 +166,7 @@ export function PdfSide({ doc, page, outline, tab, onTab, onGo }: { doc: PDFDocu
     list.current?.querySelector<HTMLElement>("[data-outline-row][aria-current]")?.scrollIntoView({ block: "nearest" })
   }, [hereAt, shown])
   return (
-    <PdfRail tab={shown} tabs={[{ id: "pages", label: "Pages" }, ...(outline.length ? [{ id: "outline" as const, label: "Outline" }] : [])]} onTab={onTab}>
+    <PdfRail tab={shown} tabs={[{ id: "pages", label: "Pages" }, ...(outline.length ? [{ id: "outline" as const, label: "Outline" }] : [])]} onTab={onTab} narrow={narrow} onDrag={onDrag}>
       {shown === "pages" && Array.from({ length: doc.numPages }, (_, index) => <PdfThumb key={index} doc={doc} page={index + 1} here={index + 1 === page} onGo={() => onGo(index + 1)} />)}
       {shown === "outline" && <PdfOutline outline={outline} hereAt={hereAt} list={list} onGo={onGo} />}
     </PdfRail>
