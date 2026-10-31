@@ -363,7 +363,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
 
   return (
     <div className={`pdf-reader web-reader${paper ? ' is-paper' : ''}`}>
-      <style>{MARK_COLORS.map((one) => tint(markName(names, one.id), 28, one.css)).join('') + tint(`${names}-found`, 25) + tint(`${names}-found-now`, 55) + tint(`${names}-flash`, 55)}</style>
+      <style>{MARK_COLORS.map((one) => tint(markName(names, one.id), 28, one.css)).join('') + tint(`${names}-found`, 22, '#8b5cf6') + tint(`${names}-found-now`, 45, '#8b5cf6') + tint(`${names}-flash`, 55)}</style>
       <div className="pdf-reader-bar">
         <span className="pdf-reader-title" title={title}>
           {title}
