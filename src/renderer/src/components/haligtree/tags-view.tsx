@@ -286,7 +286,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
             {/* Its own new cards a day, under the book's: a big deck under one tag never crowds out the rest. */}
             <span data-tag-new className="flex flex-wrap items-center gap-1.5 text-xs">
               <span className="whitespace-nowrap font-medium text-foreground">New cards a day:</span>
-              <Chips options={[{ id: '', label: 'As in Settings' }, ...['5', '10', '20'].map((n) => ({ id: n, label: n })), { id: '0', label: 'None' }]}
+              <Chips options={[{ id: '', label: 'As in Settings' }, ...[...new Set(['5', '10', '20', ...(study.newPerDay[chosen] ? [String(study.newPerDay[chosen])] : [])])].sort((a, b) => Number(a) - Number(b)).map((n) => ({ id: n, label: n })), { id: '0', label: 'None' }]}
                 on={(id) => id === String(study.newPerDay[chosen] ?? '')}
                 pick={(id) => { const was = study.newPerDay[chosen] ?? null; void haligtree.setTag(chosen, { newPerDay: id === '' ? null : Number(id) }).then(() => (chime('settled'), quietly(() => void haligtree.setTag(chosen, { newPerDay: was })))) }} />
             </span>

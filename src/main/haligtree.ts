@@ -21,7 +21,7 @@ import { celebrateAfter, goalPassed, watches, type MomentKind } from './celebrat
 import type { MomentSource } from './moment-source'
 import { keepPins, warmGiphy } from './giphy'
 import { daysBetween, daysLeft, leftSaid } from './goal-days'
-import { LEECH_AT, balancedDay, bucketOf, daysInARow, fitFirstDays, minutesFor, shuffleNew, struggling, type Bucket } from './study'
+import { LEECH_AT, balancedDay, bucketOf, withinTagLimits, daysInARow, fitFirstDays, minutesFor, shuffleNew, struggling, type Bucket } from './study'
 import { syncLineCards } from './line-cards'
 import { busy } from './busy'
 import { LEARN_DECK, LEARN_EARLIER, LEARN_TAG } from './learn-deck'
@@ -2667,17 +2667,8 @@ export function registerHaligtree(): void {
       const words = typeof row.body === 'string' ? (() => { try { return plain(JSON.parse(row.body as string)) } catch { return row.body as string } })() : ''
       return tagsIn(`${row.title ?? ''} ${row.prompt ?? ''} ${words}`)
     }
-    const limitsOf = (row: Record<string, unknown>): string[] => { const tags = tagsOf(row); return [...tagNew.keys()].filter((limit) => tags.some((tag) => tag === limit || tag.startsWith(`${limit}-`))) }
-    const startedToday = new Map<string, number>()
-    if (tagNew.size) for (const one of tested) if (metToday.has(one.row.id as string)) for (const limit of limitsOf(one.row)) startedToday.set(limit, (startedToday.get(limit) ?? 0) + 1)
-    const fresh = [...mine, ...unseen.filter((one) => !one.exam && shared(one))]
-      .filter((one) => {
-        if (!tagNew.size) return true
-        const limits = limitsOf(one.row)
-        if (limits.some((limit) => (startedToday.get(limit) ?? 0) >= tagNew.get(limit)!)) return false
-        for (const limit of limits) startedToday.set(limit, (startedToday.get(limit) ?? 0) + 1)
-        return true
-      })
+    const startedToday = tagNew.size ? tested.filter((one) => metToday.has(one.row.id as string)).map((one) => tagsOf(one.row)) : []
+    const fresh = withinTagLimits([...mine, ...unseen.filter((one) => !one.exam && shared(one))], (one) => (tagNew.size ? tagsOf(one.row) : []), tagNew, startedToday)
       .slice(0, Math.max(0, newPerDay - (done.fresh ?? 0)))
     // What a goal you are working toward is about comes first: the same cards, only their order.
     const queue = [...examDue, ...examFresh, ...otherDue, ...fresh]

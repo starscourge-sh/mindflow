@@ -48,7 +48,8 @@ export function StudySection({ example }: { example: boolean }): React.JSX.Eleme
       </p>
       {/* The honest ones: known means remembered across 15 days, not just seen. */}
       <p data-study-honest>
-        <N>{num(studied.known)}</N> of your <N>{plural(studied.cards, 'card', 'cards')}</N> are known: remembered after a gap of 15 days or more.
+        {studied.known ? <><N>{num(studied.known)}</N> of your <N>{plural(studied.cards, 'card', 'cards')}</N> {studied.known === 1 ? 'is' : 'are'} known: remembered after a gap of 15 days or more.</>
+          : <>None of your <N>{plural(studied.cards, 'card', 'cards')}</N> is known yet: a card counts once you remember it after a gap of 15 days or more.</>}
         {studied.seconds !== null && <> A card takes you about <N>{plural(studied.seconds, 'second', 'seconds')}</N>.</>}
         {studied.days.of > 0 && <> You reviewed on <N>{`${Math.round((studied.days.reviewed / studied.days.of) * 100)}%`}</N> of days since you began ({num(studied.days.reviewed)} of {num(studied.days.of)}).</>}
       </p>

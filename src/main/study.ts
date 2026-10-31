@@ -278,6 +278,24 @@ export function thingsIn(answer: string): number {
 }
 
 /**
+ * New cards kept within each tag's own new cards a day: `limits` by tag (a
+ * tag under it, #art-baroque under #art, counts toward it), `started` the
+ * tags of each card already started today. Cards with no limited tag pass.
+ */
+export function withinTagLimits<T>(cards: T[], tagsOf: (card: T) => string[], limits: Map<string, number>, started: string[][] = []): T[] {
+  if (!limits.size) return cards
+  const under = (tags: string[]): string[] => [...limits.keys()].filter((limit) => tags.some((tag) => tag === limit || tag.startsWith(`${limit}-`)))
+  const used = new Map<string, number>()
+  for (const tags of started) for (const limit of under(tags)) used.set(limit, (used.get(limit) ?? 0) + 1)
+  return cards.filter((card) => {
+    const mine = under(tagsOf(card))
+    if (mine.some((limit) => (used.get(limit) ?? 0) >= limits.get(limit)!)) return false
+    for (const limit of mine) used.set(limit, (used.get(limit) ?? 0) + 1)
+    return true
+  })
+}
+
+/**
  * "term - meaning" lines, as pasted from a glossary or a vocabulary list:
  * a dash, en dash, colon or equals sign between the two, each side short.
  * Empty unless at least three lines read that way and most of the list does.

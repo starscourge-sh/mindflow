@@ -1,7 +1,7 @@
 // Run with: node --test test/study.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { balancedDay, bucketOf, closeness, daysInARow, fitFirstDays, isEquation, isLeech, keyWords, LEECH_AT, lineCard, lineCardsIn, matchLineCards, mentions, minutesFor, shuffleNew, suggestGrade, termLines, thingsIn, typedCheck, wordsIn } from '../src/main/study.ts'
+import { balancedDay, bucketOf, closeness, daysInARow, fitFirstDays, isEquation, isLeech, keyWords, LEECH_AT, lineCard, lineCardsIn, matchLineCards, mentions, minutesFor, shuffleNew, suggestGrade, termLines, thingsIn, typedCheck, withinTagLimits, wordsIn } from '../src/main/study.ts'
 
 test('a line with :: between words is a card', () => {
   assert.deepEqual(lineCard('Capital of Peru :: Lima'), { question: 'Capital of Peru', answer: 'Lima' })
@@ -234,4 +234,17 @@ test('an answer counts the things it asks you to recall', () => {
   // A sentence with commas is one thing.
   assert.equal(thingsIn('Because, as Ebbinghaus found in 1885, memory fades fast at first and then slowly'), 1)
   assert.equal(thingsIn('Lima'), 1)
+})
+
+test('a tag with its own new cards a day starts no more than that', () => {
+  const cards = [...Array.from({ length: 8 }, (_, n) => ({ id: `art${n}`, tags: n % 2 ? ['art-baroque'] : ['art'] })), { id: 'phys', tags: ['physics'] }, { id: 'both', tags: ['art', 'physics'] }]
+  const limits = new Map([['art', 3]])
+  const kept = withinTagLimits(cards, (card) => card.tags, limits)
+  // 3 from #art (#art-baroque counts toward it), and the #physics card still comes.
+  assert.deepEqual(kept.map((card) => card.id), ['art0', 'art1', 'art2', 'phys'])
+  // 2 started earlier today: only 1 more.
+  assert.deepEqual(withinTagLimits(cards, (card) => card.tags, limits, [['art'], ['art-baroque']]).map((card) => card.id), ['art0', 'phys'])
+  // None: no new #art cards at all; no limits: everything.
+  assert.deepEqual(withinTagLimits(cards, (card) => card.tags, new Map([['art', 0]])).map((card) => card.id), ['phys'])
+  assert.equal(withinTagLimits(cards, (card) => card.tags, new Map()).length, 10)
 })
