@@ -21,7 +21,7 @@ import { celebrateAfter, goalPassed, watches, type MomentKind } from './celebrat
 import type { MomentSource } from './moment-source'
 import { keepPins, warmGiphy } from './giphy'
 import { daysBetween, daysLeft, leftSaid } from './goal-days'
-import { LEECH_AT, bucketOf, daysInARow, fitFirstDays, minutesFor, struggling, type Bucket } from './study'
+import { LEECH_AT, bucketOf, daysInARow, fitFirstDays, minutesFor, shuffleNew, struggling, type Bucket } from './study'
 import { syncLineCards } from './line-cards'
 import { busy } from './busy'
 import { LEARN_DECK, LEARN_EARLIER, LEARN_TAG } from './learn-deck'
@@ -2642,7 +2642,9 @@ export function registerHaligtree(): void {
     // Your own cards first: a big imported deck never holds back the ones
     // you wrote from today's reading.
     const shared = (one: { row: Record<string, unknown> }): boolean => String(one.row.origin ?? '').startsWith('anki:')
-    const fresh = [...unseen.filter((one) => !one.exam && !shared(one)), ...unseen.filter((one) => !one.exam && shared(one))]
+    // Yours shuffled, siblings apart; an imported deck keeps its own order (a frequency list stays in frequency order).
+    const mine = shuffleNew(unseen.filter((one) => !one.exam && !shared(one)).map((one) => ({ ...one, id: String(one.row.id), group: (one.row.lineOf as string | null) ?? null })), dayKey())
+    const fresh = [...mine, ...unseen.filter((one) => !one.exam && shared(one))]
       .slice(0, Math.max(0, newPerDay - (done.fresh ?? 0)))
     // What a goal you are working toward is about comes first: the same cards, only their order.
     const queue = [...examDue, ...examFresh, ...otherDue, ...fresh]

@@ -1,7 +1,7 @@
 // Run with: node --test test/study.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { LEECH_AT, bucketOf, closeness, daysInARow, fitFirstDays, isEquation, isLeech, keyWords, lineCard, lineCardsIn, matchLineCards, mentions, minutesFor, suggestGrade, termLines, wordsIn } from '../src/main/study.ts'
+import { bucketOf, closeness, daysInARow, fitFirstDays, isEquation, isLeech, keyWords, LEECH_AT, lineCard, lineCardsIn, matchLineCards, mentions, minutesFor, shuffleNew, suggestGrade, termLines, wordsIn } from '../src/main/study.ts'
 
 test('a line with :: between words is a card', () => {
   assert.deepEqual(lineCard('Capital of Peru :: Lima'), { question: 'Capital of Peru', answer: 'Lima' })
@@ -161,6 +161,19 @@ test('a pasted list of equations is not cut into terms', () => {
   assert.equal(isEquation('a - b = c'), true)
   assert.equal(isEquation('Force - F = ma'), false)
   assert.equal(isEquation('\\frac{a}{b} - c = 0'), true)
+test('new cards you wrote are shuffled, the same all day, siblings at least 5 apart', () => {
+  // A 12-line list from one note and 12 single cards from elsewhere.
+  const cards = [...Array.from({ length: 12 }, (_, n) => ({ id: `list${n}`, group: 'list' })), ...Array.from({ length: 12 }, (_, n) => ({ id: `one${n}`, group: `note${n}` }))]
+  const day = shuffleNew(cards, '2026-10-31')
+  assert.equal(day.length, 24)
+  assert.deepEqual(shuffleNew(cards, '2026-10-31').map((one) => one.id), day.map((one) => one.id))
+  assert.notDeepEqual(day.map((one) => one.id), cards.map((one) => one.id))
+  const at = day.flatMap((one, n) => (one.group === 'list' ? [n] : []))
+  // 12 siblings in 24 places cannot all be 5 apart: the first ones are, and none is ever next to another.
+  for (let n = 1; n < 4; n++) assert.ok(at[n] - at[n - 1] >= 5, `${at}`)
+  for (let n = 1; n < at.length; n++) assert.ok(at[n] - at[n - 1] >= 1)
+  // A list on its own, with nothing to mix in, still comes, all of it.
+  assert.equal(shuffleNew(cards.slice(0, 12), '2026-10-31').length, 12)
 })
 
 test("a note's words, code left out, are where its cards' tags come from", () => {

@@ -258,6 +258,33 @@ export function daysInARow(days: string[], today: string): { run: number; banked
 }
 
 /**
+ * New cards you wrote, shuffled, so a list learned in order is not learned
+ * as its order: card 7 recalled because card 6 came first. The same order
+ * all day (seeded by the day, so a session and its count agree), and two
+ * cards from one note at least `apart` places apart, so one card never
+ * gives away the next. Cards with no note (group null) mix freely.
+ */
+export function shuffleNew<T extends { id: string; group: string | null }>(cards: T[], day: string, apart = 5): T[] {
+  const seed = (text: string): number => {
+    let hash = 2166136261
+    for (const char of day + text) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619)
+    return hash >>> 0
+  }
+  const waiting = [...cards].sort((a, b) => seed(a.id) - seed(b.id))
+  const out: T[] = []
+  const lastAt = new Map<string, number>()
+  while (waiting.length) {
+    // The first that keeps its note's cards far enough apart; when none can, the one whose sibling is furthest back.
+    let pick = waiting.findIndex((one) => !one.group || (lastAt.get(one.group) ?? -Infinity) <= out.length - apart)
+    if (pick < 0) pick = waiting.reduce((best, one, at) => ((lastAt.get(one.group!) ?? 0) < (lastAt.get(waiting[best].group!) ?? 0) ? at : best), 0)
+    const [one] = waiting.splice(pick, 1)
+    if (one.group) lastAt.set(one.group, out.length)
+    out.push(one)
+  }
+  return out
+}
+
+/**
  * How long a new card lasts after its first grade, fitted to your own
  * reviews: for each first grade (Again to Easy), the stability that best
  * explains whether the next look, a day or more later, was remembered.
