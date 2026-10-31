@@ -23,9 +23,11 @@ const setView = (patch) => h.evaluate((patch) => {
 const open = async () => {
   await c.go('review')
   await h.evaluate(() => document.querySelector('[data-review-tab="cards"]')?.click())
-  await waitFor(() => h.evaluate(() => !!document.querySelector('[data-card-list] [data-pick]')))
+  await waitFor(() => h.evaluate(() => !!document.querySelector('[data-card-list] [data-pick]')), 15000)
 }
-const reopen = async (patch) => { await setView(patch); await c.go('home'); await open() }
+// Home first, and only once the old list has gone: on a busy machine the page it leaves can still be on
+// screen, and its rows were read as the new order (a sort or filter one step behind).
+const reopen = async (patch) => { await setView(patch); await c.go('home'); await waitFor(() => h.evaluate(() => !document.querySelector('[data-card-list]')), 15000); await open() }
 const shot = async (name, again) => {
   if (!shots) return
   for (const [theme, said] of [['paper', 'light'], ['dark', 'dark']]) {

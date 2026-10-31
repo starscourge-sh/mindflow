@@ -53,6 +53,7 @@ try {
   // Sorted in Display: Newest, as Display keeps it, then the page opened again.
   await h.evaluate(() => localStorage.setItem('view:cards', JSON.stringify({ sort: 'newest', group: 'none', filter: {}, density: 'list' })))
   await c.go('home')
+  await waitFor(() => h.evaluate(() => !document.querySelector('[data-card-browser]')), 15000)
   await c.go('review')
   await h.evaluate(() => document.querySelector('[data-review-tab="cards"]').click())
   const made = new Map(all.map((one) => [one.id, one.createdAt]))
@@ -87,6 +88,7 @@ try {
   check('⌫ sends a picked card to the Bin', await waitFor(async () => !(await call('cards:all')).some((one) => one.id === zebra.id)))
   // From ⌘K.
   await c.go('home')
+  await waitFor(() => h.evaluate(() => !document.querySelector('[data-card-browser]')), 15000)
   await h.keyboard.press('Meta+k')
   await h.waitForTimeout(500)
   await h.keyboard.type('Browse all cards', { delay: 15 })
