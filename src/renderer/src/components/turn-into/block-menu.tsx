@@ -78,8 +78,13 @@ export function BlockMenu({
   targetRef: { current: BlockTarget | null }
   open: boolean
   onOpenChange: (open: boolean) => void
-  /** Where a right-click happened: the menu opens there, not at the grip. */
-  at?: { x: number; y: number } | null
+  /**
+   * Where a right-click happened: the menu opens there, not at the grip. With
+   * a size, it is a whole block drawn by its own view (a recording, a
+   * picture): the menu opens under it, or above it when the window is short,
+   * and never over its title and controls.
+   */
+  at?: { x: number; y: number; width?: number; height?: number } | null
   /** A right-click on a misspelt word: its suggestions come first. */
   spelling?: Misspelling | null
   /** A right-click on a link, a PDF or picked words: its own lines come first, the block's under them. */
@@ -380,13 +385,15 @@ export function BlockMenu({
             const box = (node.offsetParent ?? document.body).getBoundingClientRect()
             node.style.left = `${point.x - box.left}px`
             node.style.top = `${point.y - box.top}px`
+            node.style.width = point.width ? `${point.width}px` : ""
+            node.style.height = point.height ? `${point.height}px` : ""
           }}
         />
       </DropdownMenuTrigger>
 
       <DropdownMenuContent
         align="start"
-        side="right"
+        side={point?.height ? "bottom" : "right"}
         className="tiptap-block-menu"
         // Closing hands focus back to the anchor by default, which took it
         // straight out of a caption just opened from here (an empty caption

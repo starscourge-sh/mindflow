@@ -849,7 +849,7 @@ function Surface({
   const blockTarget = useRef<BlockTarget | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   // A right-click's spot, so its menu opens under the pointer; the grip's opens at the grip.
-  const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null)
+  const [menuAt, setMenuAt] = useState<{ x: number; y: number; width?: number; height?: number } | null>(null)
   // A right-click on a misspelt word, whose suggestions head that menu.
   const [spelling, setSpelling] = useState<Misspelling | null>(null)
   /** What a right-click landed on (a link, a PDF, picked words): its lines lead the menu. */
@@ -1604,11 +1604,27 @@ function Surface({
     // Not on a locked note, whose menu would still delete, nor inside a drawing,
     // which has a menu of its own. Inside a table it is the table's menu, as
     // with the grip: a cell's line pulled out on its own breaks the table.
+    const atomUnder = (target: Node): number | null => {
+      let at: number | null = null
+      editor.state.doc.descendants((node, pos) => {
+        if (at !== null) return false
+        const drawn = editor.view.nodeDOM(pos)
+        if (!(drawn instanceof HTMLElement) || !drawn.contains(target)) return false
+        // Blocks only: an inline atom (a note link) keeps its own menu, from the click.
+        if (node.isAtom && node.isBlock) at = pos
+        return !node.isAtom
+      })
+      return at
+    }
     const onContext = (event: MouseEvent): void => {
       // Locked: no block lines, but a link or picked words still get theirs.
       if (!editor.isEditable) return void openClicked(event)
       if ((event.target as HTMLElement).closest(".tiptap-excalidraw-canvas")) return
-      const found = editor.view.posAtCoords({ left: event.clientX, top: event.clientY })
+      // A whole block drawn by its own view (a recording, a picture, a file)
+      // is found from what was clicked: near its edges the coordinates name
+      // the text beside it or nothing, and the note's own menu took the click.
+      const atom = atomUnder(event.target as Node)
+      const found = atom === null ? editor.view.posAtCoords({ left: event.clientX, top: event.clientY }) : { inside: atom }
       if (!found || found.inside < 0) return
       const $at = editor.state.doc.resolve(found.inside)
       let pos = found.inside
@@ -1633,7 +1649,10 @@ function Surface({
       if (!node) return
       event.preventDefault()
       blockTarget.current = { pos, name: node.type.name, level: headingRank(node) ?? undefined }
-      setMenuAt({ x: event.clientX, y: event.clientY })
+      // A whole block (a recording, a picture): the menu beside it, not over its own controls.
+      const drawn = atom === null ? null : editor.view.nodeDOM(atom)
+      const edge = drawn instanceof HTMLElement ? drawn.getBoundingClientRect() : null
+      setMenuAt(edge ? { x: edge.left, y: edge.top, width: edge.width, height: edge.height } : { x: event.clientX, y: event.clientY })
       setSpelling(misspeltAt(editor, event.clientX, event.clientY))
       setClicked(clickedAt(editor, event))
       setTimeout(() => setMenuOpen(true))

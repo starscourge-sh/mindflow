@@ -1259,6 +1259,9 @@
   display: block;
   width: 0;
   height: 0;
+  // Sized to a whole block when the menu opens beside one (block-menu.tsx):
+  // it only marks the place, so clicks go through it to the block under it.
+  pointer-events: none;
 }
 
 // Capped as Notion caps its menu: never more than about 60% of the window,

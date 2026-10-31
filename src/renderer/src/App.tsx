@@ -2039,11 +2039,14 @@ export default function App(): React.JSX.Element {
               key={editing?.id ?? round}
               data-recording={recording || undefined}
               className="flex min-h-0 flex-1 flex-col"
-              // A right click on the note away from its lines (each line has its
-              // own menu, which takes the click first) opens what the gear menu
-              // has for this note. A field keeps the system's own menu.
+              // A right click on the note away from its lines opens what the gear
+              // menu has for this note. A field keeps the system's own menu.
+              // Anything in the writing is the editor's own (its block menu):
+              // a block drawn by React (a recording, a picture) hands React this
+              // event before the editor hears it, so it is left alone by place,
+              // not by whether the editor has taken it yet.
               onContextMenu={(event) => {
-                if (event.defaultPrevented || !noteSection.items.length || (event.target as Element).closest('input, textarea, button, a, .tiptap-excalidraw-canvas')) return
+                if (event.defaultPrevented || !noteSection.items.length || (event.target as Element).closest('input, textarea, button, a, .tiptap-excalidraw-canvas, .ProseMirror')) return
                 event.preventDefault()
                 setNoteMenuAt({ x: event.clientX, y: event.clientY })
               }}
