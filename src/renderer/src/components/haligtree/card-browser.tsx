@@ -283,7 +283,8 @@ function EditCard({ card, tint, onDone }: { card: BrowsedCard; tint: string; onD
  */
 export function CardBrowser({ onOpen, pasting: pastingFirst = false }: { onOpen: (type: string, id: string) => void; /** Open with "Paste cards" out (⌘K). */ pasting?: boolean }): React.JSX.Element {
   const [pasting, setPasting] = useState(pastingFirst)
-  const cards = useLive(() => call<BrowsedCard[]>('cards:all'), null as BrowsedCard[] | null, [], ['item'])
+  // Marked for the probes and the Performance panel: how long the cards take to come, and to be drawn (card-shelves.tsx).
+  const cards = useLive(() => (performance.mark('cards:asked'), call<BrowsedCard[]>('cards:all').then((all) => (performance.mark('cards:came'), all))), null as BrowsedCard[] | null, [], ['item'])
   const [query, setQuery] = useState('')
   const [tag, setTag] = useState<string | null>(null)
   const [view, setView] = useView('cards', { sort: 'due', group: 'none' })
@@ -576,7 +577,7 @@ export function CardBrowser({ onOpen, pasting: pastingFirst = false }: { onOpen:
   const allOver = shown.length > 0 && shown.every((card) => over.has(card.id))
 
   return (
-    <div data-card-browser data-density={density} className="flex flex-col gap-3 px-5 pt-5 pb-10">
+    <div data-card-browser data-density={density} data-group={view.group} className="flex flex-col gap-3 px-5 pt-5 pb-10">
       <div className="flex flex-wrap items-center gap-2">
         <div className="min-w-56 flex-1"><ListSearch value={query} onChange={setQuery} onDone={() => {}} placeholder="Search cards" /></div>
         {(density === 'grid' || opened) && !flowing && (

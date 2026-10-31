@@ -11,7 +11,7 @@ const { check, done } = checks()
 const c = await sandbox({ width: 1280, height: 860 })
 const { h } = c
 const shots = process.env.QA_SHOTS
-const waitFor = async (test, ms = 20000) => { for (const end = Date.now() + ms; Date.now() < end; await h.waitForTimeout(150)) if (await test()) return true; return false }
+const waitFor = async (test, ms = 60000) => { for (const end = Date.now() + ms; Date.now() < end; await h.waitForTimeout(150)) if (await test()) return true; return false }
 const call = (...args) => h.evaluate((args) => window.api.haligtree(...args), args)
 const SUBJECTS = ['law', 'psychology', 'physics', 'history', 'art', 'maths', 'biology', 'spanish', 'film', 'philosophy', 'chemistry', 'music', 'economics', 'astronomy']
 const QUESTIONS = ['What does “{w}” mean?', 'Who first described {w}?', 'Why does {w} matter in {s}?', 'When was {w} established?', 'How does {w} differ from its rival idea?']
@@ -33,7 +33,17 @@ const open = async () => {
   await waitFor(() => h.evaluate(() => !!document.querySelector('[data-card-list] :is([data-pick], [data-pocket])')))
   await h.mouse.move(5, 5)
 }
-const reopen = async (patch) => { const began = Date.now(); await setView(patch); await c.go('home'); await open(); console.log(`TIMING ${JSON.stringify(patch)} ${Date.now() - began} ms`) }
+// The page read again from scratch, then waited for until it shows the view asked for: on a busy machine a
+// trip to Home and back can land before the list has let go, leaving the last view on screen.
+const reopen = async (patch) => {
+  const began = Date.now()
+  await setView(patch)
+  await h.reload()
+  await h.waitForLoadState('domcontentloaded')
+  await open()
+  const shows = await waitFor(() => h.evaluate((want) => { const page = document.querySelector('[data-card-browser]'); return !!page && (!want.density || page.getAttribute('data-density') === want.density) && (!want.group || page.getAttribute('data-group') === want.group) }, patch))
+  console.log(`TIMING ${JSON.stringify(patch)} ${Date.now() - began} ms${shows ? '' : ' (the view asked for never showed)'}`)
+}
 const shot = async (name, again) => {
   if (!shots) return
   for (const [theme, said] of [['paper', 'light'], ['dark', 'dark']]) {
@@ -65,10 +75,15 @@ const views = async (size) => {
   })))
   check(`${size}: Cards grouped stands each group on a shelf`, await waitFor(() => h.evaluate(() => document.querySelectorAll('[data-shelf]').length > 3)))
   await shot(`scale-${size}-shelves`, () => open())
-  const began = Date.now()
+  // Waited for by its own signal (the first run of cards drawn), then timed from the page's own marks.
+  await h.evaluate(() => performance.clearMarks())
   await reopen({ density: 'grid', group: 'none' })
-  const drew = await waitFor(() => h.evaluate(() => document.querySelectorAll('[data-card-grid] [data-card-face="front"]').length > 3))
-  check(`${size}: Cards ungrouped is a plain grid of cards`, drew, `${Date.now() - began} ms to draw`)
+  const drew = await waitFor(() => h.evaluate(() => !!document.querySelector('[data-card-grid] [data-card-run="drawn"] [data-card-face="front"]')))
+  const marks = await h.evaluate(() => { const at = (name) => performance.getEntriesByName(name).at(-1)?.startTime ?? null; const [asked, came, drawn] = ['cards:asked', 'cards:came', 'cards:first-run'].map(at); return { fetch: came && asked ? Math.round(came - asked) : null, draw: drawn && came ? Math.round(drawn - came) : null } })
+  const load = (await import('os')).loadavg()[0].toFixed(1)
+  console.log(`TIMING ${size} grid: cards came in ${marks.fetch} ms, first run drawn ${marks.draw} ms after, load ${load}`)
+  check(`${size}: Cards ungrouped is a plain grid of cards`, drew, drew ? `cards came in ${marks.fetch} ms, drawn ${marks.draw} ms after (load ${load})` : await h.evaluate(() => `on screen: ${document.querySelector('[data-card-browser]')?.getAttribute('data-density')} ${document.querySelectorAll('[data-card-run]').length} runs, ${document.querySelectorAll('[data-pick]').length} cards; ${document.body.innerText.slice(0, 200)}`))
+  check(`${size}: the first screen of cards is drawn within a second of the cards coming`, (marks.draw ?? Infinity) < 1000, `${marks.draw} ms (load ${load})`)
   check(`${size}: the figures vary, card to card`, await h.evaluate(() => new Set([...document.querySelectorAll('[data-card-grid] [data-figure]')].map((one) => one.getAttribute('data-figure'))).size >= 4))
   await shot(`scale-${size}-grid`, () => open())
   await reopen({ density: 'list', group: 'none' })

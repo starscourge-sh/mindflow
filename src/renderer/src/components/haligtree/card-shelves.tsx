@@ -326,6 +326,10 @@ function Run({ first, usual, className, draw }: { first: boolean; usual: React.R
     watch.observe(node)
     return () => watch.disconnect()
   }, [])
+  // The first run on screen, marked once drawn: the moment the page shows cards.
+  useEffect(() => {
+    if (first && near) performance.mark('cards:first-run')
+  }, [first, near])
   // Measured once drawn, so the space it leaves when away is its own.
   useEffect(() => {
     if (near && box.current?.offsetHeight) usual.current = box.current.offsetHeight
