@@ -7,6 +7,9 @@ import { Button } from '@/components/ui/button'
 
 import { SEPARATORS, cardsOf, guessSeparator, headingsOf, listLines as lines, type Separator } from '../../../../main/card-lists'
 
+/** One card a line, or two: the second asks the back first (a word and its meaning, a symptom and its disease). */
+const WAYS = [{ id: 'one', label: 'Front first' }, { id: 'both', label: 'Both ways', tip: 'Two cards a line: front first and back first. Never both on one day' }] as const
+
 /** A deck or tag as a #tag: "Spanish::Verbs" or "spanish verbs" becomes #spanish-verbs. */
 const tagOf = (words: string): string =>
   words.trim().toLowerCase().replace(/^#/, '').split(/::|\//).map((part) => part.replace(/[^\p{L}\p{M}\p{N}_-]+/gu, '-').replace(/^-+|-+$/g, '')).filter(Boolean).join('-')
@@ -22,6 +25,8 @@ export function PasteCards({ onClose, deck: aimed }: { onClose: () => void; /** 
   const [chosen, setChosen] = useState<Separator | null>(null)
   const [deck, setDeck] = useState(aimed ?? '')
   const [tags, setTags] = useState('')
+  // Anki's "Basic (and reversed card)": each line asked front first and back first, one of the two a day.
+  const [both, setBoth] = useState(false)
   const separator = chosen ?? guessSeparator(text)
   const cards = cardsOf(text, separator)
   const headings = headingsOf(text, separator)
@@ -30,7 +35,7 @@ export function PasteCards({ onClose, deck: aimed }: { onClose: () => void; /** 
   const marks = [tagOf(deck), ...tags.split(/[\s,]+/).map(tagOf)].filter(Boolean)
   const add = (): void => {
     if (!cards.length) return
-    const tagged = cards.map(({ term, meaning }) => ({ term, meaning: marks.length ? `${meaning}\n\n${marks.map((one) => `#${one}`).join(' ')}` : meaning }))
+    const tagged = cards.map(({ term, meaning }) => ({ term, meaning: marks.length ? `${meaning}\n\n${marks.map((one) => `#${one}`).join(' ')}` : meaning, both }))
     void window.api.haligtree<string[]>('cards:list', tagged).then((ids) => {
       chime('noted')
       toast(`${ids.length === 1 ? 'Card made' : `${num(ids.length)} cards made`}${marks.length ? ` in ${deck.trim() ? 'the deck ' : ''}#${marks[0]}` : ''}`, () => void window.api.haligtree('cards:list:undo', ids).then(() => chime('undo')), 'success', undefined, ids.length === 1 ? { type: 'nugget', id: ids[0], title: tagged[0].term } : undefined)
@@ -62,6 +67,8 @@ export function PasteCards({ onClose, deck: aimed }: { onClose: () => void; /** 
         <span className="text-foreground/70">Split at</span>
         <Chips options={SEPARATORS} on={(id) => id === separator} pick={(id) => setChosen(id as Separator)} />
         {!chosen && text.trim() && <span className="text-foreground/70">found on its own</span>}
+        <span className="ml-2 text-foreground/70">Ask</span>
+        <span data-paste-ways><Chips options={WAYS} on={(id) => (id === 'both') === both} pick={(id) => setBoth(id === 'both')} /></span>
         {headings && <span data-paste-headings className="text-foreground/70">The first line names the columns, so it is not a card</span>}
         {threes > 0 && <span data-paste-threes className="text-foreground/70">{num(threes)} {threes === 1 ? 'line splits' : 'lines split'} in three or more: split at the first, the rest kept on the back</span>}
       </div>
@@ -87,7 +94,7 @@ export function PasteCards({ onClose, deck: aimed }: { onClose: () => void; /** 
           {skipped > 0 ? `${marks.length ? '. ' : ''}${num(skipped)} ${skipped === 1 ? 'line has no back and stays' : 'lines have no back and stay'} out` : ''}
         </span>
         <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
-        <Button size="sm" data-paste-add disabled={!cards.length} onClick={add}>{cards.length ? `Add ${num(cards.length)} ${cards.length === 1 ? 'card' : 'cards'}` : 'Add cards'}</Button>
+        <Button size="sm" data-paste-add disabled={!cards.length} onClick={add}>{cards.length ? `Add ${num(cards.length * (both ? 2 : 1))} ${cards.length * (both ? 2 : 1) === 1 ? 'card' : 'cards'}` : 'Add cards'}</Button>
       </div>
     </section>
   )

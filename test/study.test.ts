@@ -250,3 +250,14 @@ test('a tag with its own new cards a day starts no more than that', () => {
   assert.deepEqual(withinTagLimits(cards, (card) => card.tags, new Map([['art', 0]])).map((card) => card.id), ['phys'])
   assert.equal(withinTagLimits(cards, (card) => card.tags, new Map()).length, 10)
 })
+
+test('siblings: an Anki note\'s cards and a both-ways pair share a note; one of a note a day', async () => {
+  const { siblingsOf, burySiblings } = await import('../src/main/study.ts')
+  assert.equal(siblingsOf('anki:Ab1:0'), 'anki:Ab1')
+  assert.equal(siblingsOf('anki:Ab1:1'), 'anki:Ab1')
+  assert.equal(siblingsOf('pair:x9:1'), 'pair:x9')
+  assert.equal(siblingsOf('anki:1745387328294'), null)
+  assert.equal(siblingsOf(null), null)
+  const cards = [{ id: 'a', o: 'anki:n:0' }, { id: 'b', o: null }, { id: 'c', o: 'anki:n:1' }, { id: 'd', o: 'pair:p:0' }, { id: 'e', o: 'pair:q:1' }]
+  assert.deepEqual(burySiblings(cards, (one) => siblingsOf(one.o), new Set(['pair:q'])).map((one) => one.id), ['a', 'b', 'd'])
+})

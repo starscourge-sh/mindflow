@@ -397,3 +397,30 @@ export function fitFirstDays(pairs: { first: number; days: number; recalled: boo
     return Math.round(best * 1000) / 1000
   })
 }
+
+/**
+ * The note a card shares with other cards, as Anki's siblings: the two cards
+ * of a "both ways" pair here (`pair:<id>:<side>`), or the cards of one Anki
+ * note, its reversed side or its other blanks (`anki:<note>:<card>`). Null
+ * for a card on its own.
+ */
+export const siblingsOf = (origin: string | null | undefined): string | null => {
+  const match = /^(anki|pair):([^:]+):\d+$/.exec(origin ?? '')
+  return match ? `${match[1]}:${match[2]}` : null
+}
+
+/**
+ * One card of a note a day, as Anki buries siblings: the first of each note
+ * in `cards` stays, the others wait for tomorrow, and a note met today
+ * (`metToday`) shows none again. Order is kept.
+ */
+export function burySiblings<T>(cards: T[], noteOf: (card: T) => string | null, metToday: Set<string>): T[] {
+  const taken = new Set(metToday)
+  return cards.filter((card) => {
+    const note = noteOf(card)
+    if (!note) return true
+    if (taken.has(note)) return false
+    taken.add(note)
+    return true
+  })
+}

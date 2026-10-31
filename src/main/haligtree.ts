@@ -22,7 +22,7 @@ import { celebrateAfter, goalPassed, watches, type MomentKind } from './celebrat
 import type { MomentSource } from './moment-source'
 import { keepPins, warmGiphy } from './giphy'
 import { daysBetween, daysLeft, leftSaid } from './goal-days'
-import { LEECH_AT, balancedDay, bucketOf, thingsIn, withinTagLimits, daysInARow, fitFirstDays, minutesFor, shuffleNew, struggling, type Bucket } from './study'
+import { LEECH_AT, balancedDay, bucketOf, thingsIn, withinTagLimits, daysInARow, fitFirstDays, minutesFor, shuffleNew, struggling, siblingsOf, burySiblings, type Bucket } from './study'
 import { syncLineCards } from './line-cards'
 import { busy } from './busy'
 import { LEARN_DECK, LEARN_EARLIER, LEARN_TAG } from './learn-deck'
@@ -2716,7 +2716,10 @@ export function registerHaligtree(): void {
     const fresh = withinTagLimits([...mine, ...unseen.filter((one) => !one.exam && shared(one))], (one) => (tagNew.size ? tagsOf(one.row) : []), tagNew, startedToday)
       .slice(0, Math.max(0, newPerDay - (done.fresh ?? 0)))
     // What a goal you are working toward is about comes first: the same cards, only their order.
-    const queue = [...examDue, ...examFresh, ...otherDue, ...fresh]
+    // One card of a note a day (Anki's bury siblings): a reversed pair or one note's blanks never come back to back.
+    const notesMet = new Set((db.prepare("select distinct n.source as origin from review_log l join nuggets n on n.id = l.item_id where l.reviewed_at >= ? and n.source != ''").all(today) as { origin: string }[])
+      .map((row) => siblingsOf(row.origin)).filter((one): one is string => !!one))
+    const queue = burySiblings([...examDue, ...examFresh, ...otherDue, ...fresh], (one) => siblingsOf(one.row.origin as string | null), notesMet)
     const lift = goalLift()
     const up = lift ? new Set(queue.filter((one) => lift(one.row))) : null
     const lifted = up ? [...queue.filter((one) => up.has(one)), ...queue.filter((one) => !up.has(one))] : queue
@@ -2867,12 +2870,22 @@ export function registerHaligtree(): void {
   })
 
   // --- a pasted list of "term - meaning" lines, made into cards at once
-  handle('cards:list', (pairs: { term: string; meaning: string }[]) => {
-    const ids = (pairs ?? []).filter((one) => one.term?.trim() && one.meaning?.trim()).map(({ term, meaning }) => {
+  // `both`: asked both ways, as Anki's "Basic (and reversed card)": a second card asks the back first,
+  // the pair one note's siblings (one of them a day), the #tags on both answers.
+  handle('cards:list', (pairs: { term: string; meaning: string; both?: boolean }[]) => {
+    const insert = (term: string, meaning: string, source: string | null): string => {
       const id = randomUUID()
-      db.prepare("insert into nuggets (id, tier, kind, title, body, prompt, created_at, updated_at) values (?, ?, 'note', ?, ?, ?, ?, ?)")
-        .run(id, cardTier(), cut(term.trim(), 160), JSON.stringify(meaning.trim()), term.trim(), now(), now())
+      db.prepare("insert into nuggets (id, tier, kind, title, body, prompt, source, created_at, updated_at) values (?, ?, 'note', ?, ?, ?, ?, ?, ?)")
+        .run(id, cardTier(), cut(term.trim(), 160), JSON.stringify(meaning.trim()), term.trim(), source ?? '', now(), now())
       return id
+    }
+    const ids = (pairs ?? []).filter((one) => one.term?.trim() && one.meaning?.trim()).flatMap(({ term, meaning, both }) => {
+      if (!both) return [insert(term, meaning, null)]
+      // The answer's last line of #tags stays a tag line on each side.
+      const [, words, tags] = /^([\s\S]*?)(?:\n\n((?:#\S+\s*)+))?$/.exec(meaning.trim()) ?? [null, meaning.trim(), '']
+      const note = randomUUID()
+      const back = words.trim()
+      return [insert(term, meaning, `pair:${note}:0`), insert(back, tags ? `${term.trim()}\n\n${tags.trim()}` : term.trim(), `pair:${note}:1`)]
     })
     return write(ids)
   })
@@ -3141,7 +3154,7 @@ export function registerHaligtree(): void {
   const practice = (): { row: Record<string, unknown>; bucket: Bucket; recall: number; since: number }[] => {
     const { retention } = settings()
     const risk = scheduler()
-    const rows = db.prepare(`select ${ITEM}, body, state, (select grade from review_log where item_id = nuggets.id order by reviewed_at desc limit 1) as last,
+    const rows = db.prepare(`select ${ITEM}, body, state, source as origin, (select grade from review_log where item_id = nuggets.id order by reviewed_at desc limit 1) as last,
         (select body from glosses where item_id = nuggets.id and author = 'user' order by created_at desc limit 1) as gloss
       from nuggets where coalesce(prompt, '') != '' and suspended = 0 and archived_at is null and superseded_by is null`).all() as Record<string, unknown>[]
     return rows.map((row) => {
@@ -3181,9 +3194,10 @@ export function registerHaligtree(): void {
       const alias = new Map((db.prepare('select tag, alias_of from tag_meta where alias_of is not null').all() as { tag: string; alias_of: string }[]).map((row) => [row.tag, row.alias_of]))
       const under = (one: string): boolean => (alias.get(one) ?? one) === tag || one.startsWith(`${tag}-`)
       const due = (one: Practised): number => (one.row.dueAt && Date.parse(String(one.row.dueAt)) <= Date.now() ? Date.parse(String(one.row.dueAt)) : Infinity)
-      return practice()
+      // One card of a note in a round too: a both-ways pair never asks itself back.
+      return burySiblings(practice()
         .filter((one) => tagsIn(`${one.row.title ?? ''} ${one.row.prompt ?? ''} ${plain(JSON.parse((one.row.body as string) ?? 'null'))}`).some(under))
-        .sort((a, b) => due(a) - due(b) || a.recall - b.recall)
+        .sort((a, b) => due(a) - due(b) || a.recall - b.recall), (one) => siblingsOf(one.row.origin as string | null), new Set())
         .slice(0, TAG_ROUND)
         .map(({ row }) => ({ ...body(row), state: undefined, exam: exam(row)?.tag ?? null, intervals: preview(row.state as string | null, (when) => capped(when, exam(row))) }))
     }
@@ -3191,7 +3205,7 @@ export function registerHaligtree(): void {
     const mine = bucket === 'starred'
       ? practice().filter((one) => one.row.starredAt).sort((a, b) => String(b.row.starredAt).localeCompare(String(a.row.starredAt)))
       : practice().filter((one) => one.bucket === bucket).sort(ROUND_ORDER[bucket as Bucket])
-    return mine.slice(0, ROUND).map(({ row }) => ({
+    return burySiblings(mine, (one) => siblingsOf(one.row.origin as string | null), new Set()).slice(0, ROUND).map(({ row }) => ({
       ...body(row), state: undefined, exam: exam(row)?.tag ?? null, intervals: preview(row.state as string | null, (when) => capped(when, exam(row)))
     }))
   })
