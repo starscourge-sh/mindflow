@@ -9,7 +9,7 @@ import { cue } from "@/lib/cues"
 /**
  * Math as you type, the way Soulver and Apple's Math Notes do it.
  *
- * A line ending in `=` gets its answer drawn after it, faint, and Tab writes it
+ * A line ending in `=` gets its answer drawn after it, faint, and Tab or → writes it
  * in. A line like `lunch = 25` names a number for the lines below it, so
  * `lunch * 2 =` answers 50. Names belong to the note: each one is worked out
  * from the top every time, so there is nothing to keep in step.
@@ -119,10 +119,23 @@ function inCall(before: string): boolean {
   return open.at(-1) ?? false
 }
 
+/** A time written the short way, `3h` or `1.5 h`: the rest of the line reads `m` as minutes, not metres. */
+const HOURS = /\d\s?h(?![A-Za-z])/
+
+/** `3h 20m + 45m`: hours, minutes and seconds the short way, in the words mathjs reads, each `3h 20m` one amount. */
+function times(text: string): string {
+  if (!HOURS.test(text)) return text
+  return text
+    .replace(/(\d+(?:\.\d+)?)\s?h(?![A-Za-z])\s*/g, "$1 hour ")
+    .replace(/(\d+(?:\.\d+)?)\s?m(?![A-Za-z])\s*/g, "$1 minute ")
+    .replace(/(\d+(?:\.\d+)?)\s?s(?![A-Za-z])\s*/g, "$1 second ")
+    .replace(/\d+(?:\.\d+)? (?:hour|minute|second)(?:\s+\d+(?:\.\d+)? (?:hour|minute|second))+/g, (run) => `(${run.replace(/(\w)\s+(?=\d)/g, "$1 + ")})`)
+}
+
 /** What people type, in the shape mathjs reads. */
 function prepare(text: string): string {
   return (
-    text
+    times(text)
       // `1,000 + 1`: commas in threes are a thousands mark, except in a call
       // like `max(1,000)`, where they part the arguments.
       .replace(/(?<![\w.,])\d{1,3}(?:,\d{3})+(?![\w,])/g, (found: string, at: number, all: string) =>
@@ -173,6 +186,13 @@ function show(result: unknown): string | null {
       // with no sign of its own, `CHF`, keeps its space.
       const narrow = as("narrowSymbol")
       return shown.includes(unit) && !narrow.includes(unit) ? narrow.replace(/(\p{L})\s(?=\d)/u, "$1") : shown
+    }
+    // A time reads as a clock would say it: `4h 5m`, not `4.0833 hour`.
+    if (/^(h|hour|hours|min|minute|minutes|s|second|seconds)$/.test(unit)) {
+      const seconds = Math.round(result.toNumber("s"))
+      const parts = [[Math.floor(seconds / 3600), "h"], [Math.floor((seconds % 3600) / 60), "m"], [seconds % 60, "s"]] as const
+      const said = parts.filter(([n]) => n).map(([n, sign]) => `${n}${sign}`).join(" ")
+      return said || "0m"
     }
     return `${number(value)} ${unit}`
   }
@@ -248,7 +268,7 @@ function answers(doc: ProseMirrorNode): DecorationSet {
           const span = document.createElement("span")
           span.className = "mf-calc-ghost"
           span.contentEditable = "false"
-          span.title = "Tab writes it in"
+          span.title = "Tab or → writes it in"
           span.textContent = shown
           return span
         }
@@ -270,7 +290,7 @@ function answers(doc: ProseMirrorNode): DecorationSet {
   return DecorationSet.create(doc, found)
 }
 
-/** Tab, with the caret at the end of a line that has an answer: write it in. */
+/** Tab or →, with the caret at the end of a line that has an answer: write it in. */
 function accept(view: EditorView, state: EditorState): boolean {
   const { selection } = state
   if (!selection.empty || !view.editable) return false
@@ -305,7 +325,7 @@ export const Calc = Extension.create({
         props: {
           decorations: (state) => key.getState(state),
           handleKeyDown: (view, event) => {
-            if (event.key !== "Tab" || event.shiftKey || event.metaKey || event.ctrlKey || event.altKey) return false
+            if ((event.key !== "Tab" && event.key !== "ArrowRight") || event.shiftKey || event.metaKey || event.ctrlKey || event.altKey) return false
             if (!accept(view, view.state)) return false
             event.preventDefault()
             return true

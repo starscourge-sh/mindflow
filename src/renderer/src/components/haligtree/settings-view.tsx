@@ -812,7 +812,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
         </Group>
 
         <Group section="Writing" title="As you write">
-          <Setting title="Math as you type" note="End a line with = to see its answer, and Tab writes it in." more="lunch = 25 names a number for the lines below, and units and money work too: 5 km in mi, $40 * 3 in EUR.">
+          <Setting title="Math as you type" note="End a line with = to see its answer, and Tab or → writes it in." more="lunch = 25 names a number for the lines below, and units, time and money work too: 5 km in mi, 3h 20m + 45m, $40 * 3 in EUR.">
             <Switch checked={settings.calc} onCheckedChange={(calc) => set({ calc })} />
           </Setting>
           <Setting title="Fold headings" note="Click the arrow beside a heading to fold away what is under it." more="Up to the next heading as big, and nothing in the note changes; ⌥⌘[ folds the one you are in." keywords="fold collapse heading section outline hide">
