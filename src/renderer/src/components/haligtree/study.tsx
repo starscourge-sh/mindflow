@@ -199,7 +199,7 @@ export function Slipping({ card, splitting, onRewrite, onSplit, onAside, onKeep,
 }
 
 /** Split: this card asks something narrower, and the rest becomes a new card with its own answer. */
-function SplitForm({ card, onDone, onCancel }: { card: Item; onDone: () => void; onCancel: () => void }): React.JSX.Element {
+export function SplitForm({ card, onDone, onCancel }: { card: Item; onDone: () => void; onCancel: () => void }): React.JSX.Element {
   const [narrower, setNarrower] = useState(card.prompt ?? '')
   const [question, setQuestion] = useState('')
   const [answer, setAnswer] = useState('')

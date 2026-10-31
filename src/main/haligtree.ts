@@ -2872,9 +2872,15 @@ export function registerHaligtree(): void {
     // Known (remembered across 15 days or more) and the seconds a card takes, each review counted as 60 at most.
     const known = new Set((db.prepare(`select distinct item_id as id from (select item_id, grade, julianday(reviewed_at) - julianday(lag(reviewed_at) over (partition by item_id order by reviewed_at)) gap from review_log) where grade > 1 and gap >= 15`).all() as { id: string }[]).map((row) => row.id))
     const pace = new Map((db.prepare('select item_id as id, avg(min(ms, 60000)) ms, count(ms) n from review_log where ms is not null group by item_id').all() as { id: string; ms: number; n: number }[]).filter((row) => row.n >= 2).map((row) => [row.id, Math.round(row.ms / 1000)]))
-    return (db.prepare(`select id, prompt, title, body, state, due_at as dueAt, created_at as createdAt, suspended from nuggets
-      where coalesce(prompt, '') != '' and archived_at is null and binned_at is null and superseded_by is null`).all() as { id: string; prompt: string; title: string | null; body: string | null; state: string | null; dueAt: string | null; createdAt: string; suspended: number }[])
+    // Forgotten after being learnt: each Again on a card seen before.
+    const lapses = new Map((db.prepare('select item_id as id, count(*) n from review_log where grade = 1 and first = 0 group by item_id').all() as { id: string; n: number }[]).map((row) => [row.id, row.n]))
+    return (db.prepare(`select id, prompt, title, body, state, due_at as dueAt, created_at as createdAt, suspended, medium, passage, deck, line_of as lineOf from nuggets
+      where coalesce(prompt, '') != '' and archived_at is null and binned_at is null and superseded_by is null`).all() as { id: string; prompt: string; title: string | null; body: string | null; state: string | null; dueAt: string | null; createdAt: string; suspended: number; medium: string | null; passage: string | null; deck: string | null; lineOf: string | null }[])
       .map((row) => {
+        // The first picture on the card, for its face in the grid.
+        const picture = /!\[[^\]]*\]\(([^)\s]+)\)|"src":"([^"]+)"/.exec(`${row.prompt} ${row.body ?? ''}`)
+        // Where it was made: a page of a PDF, a line of a note, a shared deck, or typed.
+        const made = row.deck ? 'deck' : /haligtree:\/\/pdf|"pdf"/.test(row.body ?? '') || /^p\. ?\d/.test(row.passage ?? '') ? 'pdf' : row.lineOf ? 'line' : 'typed'
         // As words: a snip's picture and its "Title, p. N" link read as what they are, never as Markdown.
         const answer = cardWords(row.body ?? 'null')
         const pictured = /!\[[^\]]*\]\(|"type":"image"/.test(row.body ?? '')
@@ -2886,7 +2892,10 @@ export function registerHaligtree(): void {
           difficulty: card?.difficulty ?? null, reviews: card?.reps ?? 0,
           // Where it stands, in the words Anki users know: new, still being learnt (or relearnt after a miss), or learnt.
           stage: !card ? 'new' : card.state === 1 || card.state === 3 ? 'learning' : 'learnt',
-          known: known.has(row.id), things: thingsIn(answer), seconds: pace.get(row.id) ?? null
+          known: known.has(row.id), things: thingsIn(answer), seconds: pace.get(row.id) ?? null,
+          lapses: lapses.get(row.id) ?? 0, leech: (lapses.get(row.id) ?? 0) >= LEECH_AT,
+          // The book or video it came from, and where in it ("p. 3", "12:40").
+          source: row.deck || row.medium || '', at: row.deck ? '' : row.passage ?? '', made, picture: picture ? picture[1] ?? picture[2] : null
         }
       })
   })
@@ -2917,6 +2926,16 @@ export function registerHaligtree(): void {
   })
   handle('cards:retag:undo', (before: { id: string; body: string | null }[]) => {
     for (const one of before ?? []) db.prepare('update nuggets set body = ?, updated_at = ? where id = ?').run(one.body, now(), one.id)
+    return write(true)
+  })
+  // Progress forgotten: back to a new card, asked as new. What it was is handed back, for Undo.
+  handle('cards:reset', (ids: string[]) => {
+    const before = (ids ?? []).map((id) => db.prepare('select id, state, due_at as dueAt from nuggets where id = ?').get(id) as { id: string; state: string | null; dueAt: string | null } | undefined).filter(Boolean)
+    for (const one of before) db.prepare('update nuggets set state = null, due_at = null where id = ?').run(one!.id)
+    return write(before)
+  })
+  handle('cards:reset:undo', (before: { id: string; state: string | null; dueAt: string | null }[]) => {
+    for (const one of before ?? []) db.prepare('update nuggets set state = ?, due_at = ? where id = ?').run(one.state, one.dueAt, one.id)
     return write(true)
   })
   // Several paused or brought back at once.

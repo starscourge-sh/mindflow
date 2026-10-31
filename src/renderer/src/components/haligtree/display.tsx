@@ -420,7 +420,7 @@ const DISPLAY_ASKED = 'haligtree:display'
 /** Open the Display of the page in front, from a menu line where it has no button of its own. */
 export const openDisplay = (): void => void window.dispatchEvent(new CustomEvent(DISPLAY_ASKED))
 
-export function Display<T>({ view, onChange, facets, sorts: given, groups: offered = [], defaults = {}, compact = false, density, onDensity, densities = DENSITIES.map((one) => one.id), count, hidden = false, sortNote, items }: {
+export function Display<T>({ view, onChange, facets, sorts: given, groups: offered = [], defaults = {}, compact = false, density, onDensity, densities = DENSITIES.map((one) => one.id), names = {}, count, hidden = false, sortNote, items }: {
   /** No button of its own: opened by F, or from a page's ⋯ (openDisplay), as a sheet from the right. */
   hidden?: boolean
   /** Icon only, where the row beside it needs the room. */
@@ -444,8 +444,10 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
   onDensity?: (density: Density) => void
   /** Which views this list can be drawn as, when not all four. */
   densities?: Density[]
+  /** A view's own name on this list: All cards calls its grid "Cards". */
+  names?: Partial<Record<Density, string>>
 }): React.JSX.Element | null {
-  const views = DENSITIES.filter((one) => densities.includes(one.id))
+  const views = DENSITIES.filter((one) => densities.includes(one.id)).map((one) => ({ ...one, label: names[one.id] ?? one.label }))
   const few = count !== undefined && count < 2
   const sorts = few ? [] : given
   const groups = few ? [] : offered
