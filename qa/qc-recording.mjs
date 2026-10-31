@@ -35,6 +35,8 @@ const levelShape = () => page.evaluate(() => {
 })
 // Light or dark in the box itself, in place, so what is open stays open.
 const look = (name) => page.evaluate((n) => { localStorage.setItem('theme', n === 'light' ? 'paper' : 'dark'); window.dispatchEvent(new StorageEvent('storage', { key: 'theme' })) }, name)
+// The box focused before a picture: unfocused, the window wears its dimming veil and every shot reads grey.
+const focusBox = () => c.electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => !w.webContents.getURL().includes('view=home') && w.isVisible())?.focus())
 const record = async () => {
   await page.click('[data-record-button]')
   await page.waitForSelector('[data-voice-recorder]', { timeout: 6000 }).catch(() => {})
@@ -49,7 +51,7 @@ try {
     localStorage.setItem('capture-draft-at', String(Date.now() - 3 * 3600_000))
   })
   await reopen()
-  for (const name of ['light', 'dark']) { await look(name); await wait(400); await page.screenshot({ path: `${shots}/qc-recording-idle-${name}.png` }) }
+  for (const name of ['light', 'dark']) { await look(name); await focusBox(); await wait(400); await page.screenshot({ path: `${shots}/qc-recording-idle-${name}.png` }) }
   await look('light')
 
   // The side panel shut, as in the user's box: with it open the box keeps the panel's full height.
@@ -111,7 +113,7 @@ try {
     tabbed.push(await page.evaluate(() => !!document.activeElement?.closest('[data-while-recording]')))
   }
   check('Tab skips the dimmed buttons', tabbed.every((on) => !on), JSON.stringify(tabbed))
-  for (const name of ['light', 'dark']) { await look(name); await wait(400); await page.screenshot({ path: `${shots}/qc-recording-live-${name}.png` }) }
+  for (const name of ['light', 'dark']) { await look(name); await focusBox(); await wait(400); await page.screenshot({ path: `${shots}/qc-recording-live-${name}.png` }) }
   // The shrink glides one way: every frame as tall as the last or shorter, never a bounce.
   const heights = await page.evaluate(() => window.__heights)
   const bounces = heights.filter((h, i) => i && h > heights[i - 1]).length
@@ -124,7 +126,7 @@ try {
   await wait(1200)
   const late = await page.evaluate(() => document.querySelector('[data-voice-time]')?.textContent)
   check('two hours in, the time reads 2:00:0x', /^2:00:0\d$/.test(late ?? ''), String(late))
-  for (const name of ['light', 'dark']) { await look(name); await wait(400); await page.screenshot({ path: `${shots}/qc-recording-2h-${name}.png` }) }
+  for (const name of ['light', 'dark']) { await look(name); await focusBox(); await wait(400); await page.screenshot({ path: `${shots}/qc-recording-2h-${name}.png` }) }
   await look('light')
   await look('light')
 
