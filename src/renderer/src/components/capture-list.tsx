@@ -25,6 +25,7 @@ import { age, dayjs, dayKey, daysSince, num, whenInLine } from '../../../main/da
 import { EyeOff, Bookmark as Pin } from '@/components/ui/icons'
 import type { IslandState } from './haligtree/islands'
 import { pictureItems } from '@/lib/note-picture'
+import { cardItem } from '@/lib/share-card'
 
 /** One property out of a capture's fields, or null. */
 export const fieldOf = (fields: string | null | undefined, key: string): string | null => {
@@ -169,7 +170,9 @@ export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void)
     { label: 'Copy text', run: () => copy(capture.label) },
     { label: 'Save attachments…', hint: 'Its pictures and files, to a folder', run: () => void saveAttachments([{ table: 'captures', id: capture.id }]) },
     copyToBookItem([{ table: 'captures', id: capture.id }]),
-    ...pictureItems(`capture-${capture.id}`, capture.label)
+    ...pictureItems(`capture-${capture.id}`, capture.label),
+    // A quote waiting in the Inbox can go out as a card too: its line, who said it and where.
+    ...(capture.kind === 'quote' ? [cardItem({ body: () => window.api.captures.get(capture.id).then((one) => one?.body), title: capture.label, attribution: capture.attribution, medium: capture.medium })] : [])
   ] },
   // Housekeeping last, as on every card's menu.
   capture.status !== 'discarded' && 'separator',

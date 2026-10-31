@@ -85,6 +85,7 @@ import { queueMenu } from '@/lib/reading-queue'
 import { Apart } from '@/lib/apart'
 import { loud } from '@/lib/loud'
 import { pictureItems } from '@/lib/note-picture'
+import { cardItem } from '@/lib/share-card'
 import { ArchiveRestore, BookOpen, Brain, Download, Eye, EyeOff, FileText, History, Layers, Bookmark as Pin, Quote, Repeat as RefreshCw, TriangleAlert, X } from '@/components/ui/icons'
 import { menuOpen } from '@/lib/menu-keys'
 
@@ -807,7 +808,9 @@ const itemMenu = (item: Item): (MenuItem | { label: string; items: RowItem[] })[
     { label: 'Save attachments…', hint: 'Its pictures and files, to a folder', run: () => void saveAttachments([{ table: 'nuggets', id: item.id }]) },
     copyToBookItem([{ table: 'nuggets', id: item.id }]),
     { label: 'Copy title', run: () => copy(item.title) },
-    ...pictureItems(`item-${item.id}`, item.title)
+    ...pictureItems(`item-${item.id}`, item.title),
+    // A gem as a card to post: its words, who said them and where.
+    ...(item.tier === 'nugget' ? [cardItem({ ...item, body: () => haligtree.item(item.id).then((one) => one?.body) })] : [])
   ] }
 ]
 

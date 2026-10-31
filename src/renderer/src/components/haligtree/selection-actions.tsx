@@ -11,9 +11,10 @@ import { saveLookup } from '@/lib/lookups'
 import { host, keepAsIs, once, reword, type Origin } from './reword'
 import { markKept } from '@/extensions/kept'
 import { Bookmark, Camera, Gem, Inbox, ListTodo } from '@/components/ui/icons'
-import { FileOutput, Repeat2 } from 'lucide-react'
+import { FileOutput, Quote, Repeat2 } from 'lucide-react'
 import { turnIntoPage } from '@/lib/turn-into-page'
 import { pickedBlocks, sharePicture } from '@/lib/note-picture'
+import { shareAsCard } from '@/lib/share-card'
 
 /** The bar's own tooltip: what a click does, its keys, and the quick way past the card. */
 function Tip({ does, keys, children }: { does: string; keys: string; children: React.ReactElement }): React.JSX.Element {
@@ -103,6 +104,15 @@ export function selectionActions(origin: Origin, { reading = false }: { reading?
           </Tooltip>
           </>}
           <CopyAsImage editor={editor} />
+          <Tooltip delay={200}>
+            <TooltipTrigger asChild>
+              <button type="button" className={button} aria-label="Share as card" data-share-card-button
+                onClick={() => shareAsCard({ words: words(), who: origin.attribution })}>
+                <Quote /> <span className="tiptap-button-text">Card</span>
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Share as card<span className="block opacity-70">These words as a quote card to post, square or story</span></TooltipContent>
+          </Tooltip>
         </ToolbarGroup>
       </>
     )
