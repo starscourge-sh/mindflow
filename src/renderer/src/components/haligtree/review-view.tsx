@@ -32,6 +32,7 @@ import { canSplit, openAside, useHere } from '@/lib/split'
 import { FocusChips, HowItDecides, RoundLine, Slipping, StrugglingShelf, openLine, setAside, type Round } from './study'
 import { onboarding } from '@/lib/onboarding'
 import { WithPictures } from './with-pictures'
+import { languageOf, sayAgain, speak } from '@/lib/read-aloud'
 import { LearnMode } from './learn-mode'
 import { closeness, isLeech, suggestGrade } from '../../../../main/study'
 import { Star } from 'lucide-react'
@@ -107,6 +108,7 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
   // What the line over the card, the shelf under it and the ending are drawn from, read here too (each read is
   // kept, so they start on it): drawn before, "2 days in a row" came a beat late and pushed the card down.
   const counts = useLive(haligtree.buckets, null as Record<Round, number> | null, [], ['item'])
+  const speaking = useLive(haligtree.tagSpeak, {} as Record<string, string>, [], ['item'])
   const days = useLive(haligtree.daysInARow, null as { run: number; banked: number } | null, [], ['item'])
   const slipping_ = useLive(haligtree.slipping, [] as Item[], [], ['item'])
   const inboxLeft = useLive(inboxOpen, null as number | null, [], undefined, 'review-inbox')
@@ -138,6 +140,9 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
     if (shown) return
     fold()
     setShown(true)
+    // A tag set to read its answers aloud: the answer said as it shows.
+    const language = card && languageOf(`${card.title ?? ''} ${card.prompt ?? ''} ${textOf(card.body)}`, speaking)
+    if (card && language) speak(textOf(card.body), language)
     // Out of the box, so 1 to 4 grade straight away.
     ;(document.activeElement as HTMLElement | null)?.blur()
   }
@@ -326,6 +331,8 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
       }
       if (['1', '2', '3', '4'].includes(event.key)) grade(Number(event.key) as 1 | 2 | 3 | 4)
       if (event.key === 'b') bury()
+      // The answer read aloud again.
+      if (event.key === 'p' && shown) sayAgain()
       if (event.key === 's' && card) {
         event.preventDefault()
         star()

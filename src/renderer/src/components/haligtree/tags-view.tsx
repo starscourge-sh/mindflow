@@ -38,6 +38,7 @@ import { dayMonth } from '../../../../main/dates'
 import { TAG_DOES } from '../capture-kinds/kind-fields'
 import { Blurt } from './study'
 import { PractiseTag } from './learn-mode'
+import { LANGUAGES, preview } from '@/lib/read-aloud'
 import { Chips } from './display'
 import { exampleTags } from '@/lib/examples'
 import { ListSearch } from './note-list'
@@ -103,6 +104,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
   const topics = query ? tags.filter((one) => tagFound(one.tag, query)) : tags
   const [cursor, setCursor] = useListKeys(example ? 0 : topics.length, { onOpen: (index) => setChosen(topics[index].tag) })
   const top = topics[0]?.count ?? 1
+  const speaking = useLive(haligtree.tagSpeak, {} as Record<string, string>, [], ['item'])
   const current = tags.find((one) => one.tag === chosen)
   // How ready each tag with an exam date is, for the open tag's bar.
   const exams = useLive(haligtree.exams, [] as Awaited<ReturnType<typeof haligtree.exams>>)
@@ -262,6 +264,12 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                 on={(id) => id === ((current && 'priority' in current ? current.priority : null) ?? 'learning')}
                 pick={(id) => { const was = (current && 'priority' in current ? current.priority : null) ?? null; void haligtree.setTag(chosen, { priority: id === 'learning' ? null : (id as 'maintaining' | 'paused') }).then(() =>
                   (chime('settled'), quietly(() => void haligtree.setTag(chosen, { priority: was as 'maintaining' | 'paused' | null }))))}} />
+            </span>
+            {/* Its answers read aloud as they show in Review, by the Mac's own voice for the language: choosing one says a line in it. */}
+            <span data-tag-speak className="flex flex-wrap items-center gap-1.5 text-xs">
+              <span className="whitespace-nowrap font-medium text-foreground">Read the back aloud:</span>
+              <Chips options={LANGUAGES} on={(id) => id === (speaking[chosen] ?? '')}
+                pick={(id) => { const was = speaking[chosen] ?? null; void haligtree.setTag(chosen, { speak: id || null }).then(() => (id && preview(id), quietly(() => void haligtree.setTag(chosen, { speak: was })))) }} />
             </span>
             {/* An alias: this tag counts as another without the words changing. */}
             <TagEntry

@@ -1181,6 +1181,8 @@ export function registerHaligtree(): void {
   column('tag_meta', 'backdrop text')
   // Kept off Home's "More like" rows: the person asked never to see this tag's row there.
   column('tag_meta', 'home_hidden integer not null default 0')
+  // The language a tag's answers are read aloud in when they show ("es", "ja"), or null for silent.
+  column('tag_meta', 'speak text')
   // Why the answer is so, one line under it in review.
   column('nuggets', 'why text')
   // A question held open: when it was settled, and how ('answered' or 'let go').
@@ -3687,9 +3689,12 @@ export function registerHaligtree(): void {
     const meta = new Map((db.prepare('select tag, color, action, exam_at, priority, lands from tag_meta').all() as { tag: string; color: string | null; action: number; exam_at: string | null; priority: string | null; lands: string | null }[]).map((row) => [row.tag, row]))
     return [...counts].map(([tag, { count, later }]) => ({ tag, count, later, color: meta.get(tag)?.color ?? null, action: !!meta.get(tag)?.action, examAt: meta.get(tag)?.exam_at ?? null, priority: meta.get(tag)?.priority ?? null, lands: meta.get(tag)?.lands ?? null })).sort((a, b) => b.count - a.count || b.later - a.later)
   })
+  // Each tag whose answers are read aloud, and in what language.
+  handle('tag:speak', () => Object.fromEntries((db.prepare('select tag, speak from tag_meta where speak is not null').all() as { tag: string; speak: string }[]).map((row) => [row.tag, row.speak])))
   handle('tag:meta', () => db.prepare('select tag, color, action, backdrop, home_hidden as homeHidden from tag_meta').all())
-  handle('tag:set', (tag: string, patch: { homeHidden?: boolean; backdrop?: string | null; color?: string | null; action?: boolean; aliasOf?: string | null; examAt?: string | null; priority?: 'maintaining' | 'paused' | null; lands?: string | null }) => {
+  handle('tag:set', (tag: string, patch: { homeHidden?: boolean; backdrop?: string | null; color?: string | null; action?: boolean; aliasOf?: string | null; examAt?: string | null; priority?: 'maintaining' | 'paused' | null; lands?: string | null; speak?: string | null }) => {
     db.prepare('insert or ignore into tag_meta (tag) values (?)').run(tag)
+    if (patch.speak !== undefined) db.prepare('update tag_meta set speak = ? where tag = ?').run(/^[a-z]{2,3}(-[A-Z]{2})?$/.test(patch.speak ?? '') ? patch.speak : null, tag)
     if (patch.lands !== undefined) db.prepare('update tag_meta set lands = ? where tag = ?').run(/^\d{1,3}$/.test(patch.lands ?? '') ? patch.lands : null, tag)
     if (patch.priority !== undefined) db.prepare('update tag_meta set priority = ? where tag = ?').run(['maintaining', 'paused'].includes(patch.priority ?? '') ? patch.priority : null, tag)
     if (patch.examAt !== undefined) db.prepare('update tag_meta set exam_at = ? where tag = ?').run(patch.examAt, tag)
