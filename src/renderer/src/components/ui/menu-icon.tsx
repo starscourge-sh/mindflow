@@ -2,7 +2,7 @@ import { Children, type ReactNode } from 'react'
 import {
   AlarmClock, AppWindow, Archive, ArchiveRestore, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ArrowUpDown, Ban, Bell, Braces, BookCopy, BookOpen, Bookmark, Brain, Calendar,
   CalendarClock, CalendarDays, CalendarPlus, CalendarX, Camera, CameraOff, ChartBar, CheckCheck, ChevronsDownUp, ChevronsUpDown, CircleCheck, CircleOff,
-  CircleX, Clipboard, Clock, Columns2, Copy, CopyPlus, Dice5, DoorOpen, Dot, Download, Eraser, ExternalLink, Eye, EyeOff, FilePlus, FileText, Files, Flag,
+  CircleX, Clipboard, Clock, Folder, Columns2, Copy, CopyPlus, Dice5, DoorOpen, Dot, Download, Eraser, ExternalLink, Eye, EyeOff, FilePlus, FileText, Files, Flag,
   FolderInput, FolderMinus, FolderPlus, Footprints, Gift, GraduationCap, Hash, History, Hourglass, House, Image, Inbox, Keyboard, LayoutGrid,
   Library, Lightbulb, Link, List, ListChecks, ListStart, Lock, LockOpen, LogOut, Map as MapIcon, Maximize2, MessageCircleQuestion, MessageSquare, Minimize2, Monitor,
   MonitorUp, MoveRight, NotebookText, Palette, Scissors, Pause, Play, Scale, PanelLeft, PanelRight, Pencil, Pin, PinOff, Plus, Quote, Repeat, RotateCcw, Search, Settings, Shapes, Shield,
@@ -21,6 +21,8 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^look$/i, Eye],
   // A link taken off its words: the words stay, so never the Bin's can.
   [/^remove link/i, Unlink],
+  // A file shown where it sits: the folder, never the eye of "Show".
+  [/in finder$/i, Folder],
   [/^turn it into/i, WandSparkles],
   // Menu lines that once fell back to the dot while the lines beside them had a drawing.
   [/^pause$/i, Pause],

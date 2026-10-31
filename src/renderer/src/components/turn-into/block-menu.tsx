@@ -361,6 +361,7 @@ export function BlockMenu({
           ref={input}
           type="text"
           placeholder="Filter…"
+          data-quiet={point && !query ? "" : undefined}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={(event) => {

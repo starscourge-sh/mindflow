@@ -17,6 +17,7 @@ import { cut } from '../../../../main/clip'
 import { withoutTags } from '../../../../main/tag-words'
 import { sources } from '@/lib/sources'
 import { avatarOf } from '@/lib/people'
+import { hideForMenus, menuShowing } from '@/lib/menu-showing'
 
 /** The first picture in a stored body, for its card: an image node, or Markdown's ![](src). */
 const pictureIn = (body: unknown): string | null => {
@@ -96,6 +97,8 @@ export function NotePreview(): React.JSX.Element | null {
     const onOver = (event: MouseEvent): void => {
       // On the card itself: it stays, so its buttons can be reached.
       if ((event.target as Element | null)?.closest?.('[data-note-preview]')) return void clearTimeout(leaving)
+      // Never over a menu: one open is what is being read (lib/menu-showing.ts).
+      if (menuShowing()) return void (clearTimeout(timer), (over = null))
       // An @ link in a note, or a row's title that offers the same card (the Bin's: data-note-hover).
       const link = (event.target as Element | null)?.closest?.('a.tiptap-note-link[data-note], [data-note-hover][data-note]') ?? null
       // Still on the same link: the card stays. Still off every link: its leaving keeps running (a move here once put
@@ -205,7 +208,10 @@ export function NotePreview(): React.JSX.Element | null {
       }, Date.now() < warmTill ? 0 : 500)
     }
     document.addEventListener('mousemove', onOver)
+    // Not on a key: the card has keys of its own (Esc puts it away).
+    const stop = hideForMenus(() => (clearTimeout(timer), (over = null), setShown(null)), { keys: false })
     return () => {
+      stop()
       clearTimeout(timer)
       clearTimeout(leaving)
       document.removeEventListener('mousemove', onOver)

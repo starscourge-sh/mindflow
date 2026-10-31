@@ -510,7 +510,8 @@
   border-radius: var(--radius-lg, 0.625rem);
   // Opaque on purpose. The window behind it is transparent, so a panel with no
   // background of its own shows the document through it, and then the desktop.
-  background-color: var(--tt-card-bg-color);
+  // The right-click menu's own fill (lib/float.ts, bg-popover), so the two never read as two greys.
+  background-color: var(--popover);
   // A hairline border carries the edge. The four-layer drop shadow this used to
   // have reads as a smudge now the window behind it is frosted rather than
   // solid, so it is one soft layer for depth and nothing more. The host can set
@@ -1180,6 +1181,18 @@
       background-color: var(--accent);
     }
   }
+}
+
+// Opened by a right-click, the menu shows no filter box until something is
+// typed: it still holds the focus, so typing filters, as a Mac menu does.
+.tiptap-block-menu input[data-quiet] {
+  position: absolute;
+  width: 1px;
+  height: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
 // The row Enter would take, while the filter box still holds the focus. An
