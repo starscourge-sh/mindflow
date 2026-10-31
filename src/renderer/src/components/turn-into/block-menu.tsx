@@ -127,7 +127,8 @@ export function BlockMenu({
    */
   useEffect(() => {
     const rows = input.current?.parentElement?.querySelectorAll<HTMLElement>('[role="menuitem"]')
-    rows?.forEach((row, index) => row.toggleAttribute("data-first", index === 0))
+    // Only once something is typed: opened by the mouse, no row looks picked before a key is pressed.
+    rows?.forEach((row, index) => row.toggleAttribute("data-first", !!query && index === 0))
   })
 
   /** The row Enter takes: the first one still showing, whatever kind it is. */
@@ -337,6 +338,24 @@ export function BlockMenu({
     </DropdownMenuItem>
   ))
 
+  /**
+   * Under a clicked thing (a link, a PDF page, a picture), the block's own lines fold into one "Block ›" row:
+   * the menu is about what was clicked, and the line it sits in is one step away. A filter shows them all, flat.
+   */
+  const underClicked = (rows: React.ReactNode): React.ReactNode =>
+    clicked && !term ? (
+      <DropdownMenuSub>
+        <DropdownMenuSubTrigger data-block-sub>
+          <MenuGlyph label="Block" />
+          <span className="tiptap-slash-menu-title">{kindName ?? "Block"}</span>
+          <span className="tiptap-slash-menu-hint">&rsaquo;</span>
+        </DropdownMenuSubTrigger>
+        <DropdownMenuSubContent className="tiptap-block-menu tiptap-block-menu-sub">
+          <div className="tiptap-block-menu-list mf-more">{rows}</div>
+        </DropdownMenuSubContent>
+      </DropdownMenuSub>
+    ) : rows
+
   return (
     <DropdownMenu
       modal={false}
@@ -421,7 +440,7 @@ export function BlockMenu({
         {clicked ? <ClickedRows editor={editor} clicked={clicked} matches={matches} onDone={() => onOpenChange(false)} /> : null}
 
         {/* A note with no block handles (read-only, a card, a sticky): the clicked thing's lines alone. */}
-        {clickedOnly ? null : (<>
+        {clickedOnly ? null : underClicked(<>
         {convertible && !term && !clicked ? (
           <div className="tiptap-slash-menu-group">Turn into</div>
         ) : null}

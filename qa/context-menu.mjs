@@ -94,7 +94,8 @@ try {
   const pdfRows = await rows()
   check('PDF link: the first group is the PDF, "PDF, page 2"', pdfGroups[0] === 'PDF, page 2', JSON.stringify(pdfGroups))
   check('PDF link: open at page, copy page link, default app, Finder, remove', ['open-page', 'copy-page', 'default-app', 'finder', 'unlink'].every((one) => pdfRows.includes(one)), JSON.stringify(pdfRows))
-  check('PDF link: "Turn into" is folded into one line under it', (await h.locator(`${MENU} [data-turn-into-sub]`).count()) === 1)
+  // The block's own rows (Turn into among them) fold into one "Block ›" row: the menu is about the link.
+  check('PDF link: the block\'s rows are folded into one "Block ›" line under it', (await h.locator(`${MENU} [data-block-sub]`).count()) === 1 && (await h.locator(`${MENU} [data-turn-into-sub]`).count()) === 0)
   const filter = await h.evaluate((menu) => { const box = document.querySelector(`${menu} input`); return { quiet: box?.hasAttribute('data-quiet'), height: box?.getBoundingClientRect().height, focused: document.activeElement === box } }, MENU)
   check('a right-click menu shows no "Filter…" box, yet holds the keys', filter.quiet && filter.height === 0 && filter.focused, JSON.stringify(filter))
   await h.keyboard.type('finder')
@@ -209,7 +210,7 @@ try {
   await wait(300)
   const tagGroups = await groups()
   await h.screenshot({ path: `${SHOTS}/tag-light.png` })
-  check('tag: the tag group comes before the block (a spelling fix may lead)', tagGroups.includes('#ctxprobe') && tagGroups.indexOf('#ctxprobe') < tagGroups.indexOf('Block'), JSON.stringify(tagGroups))
+  check('tag: the tag group leads, the block folded under "Block ›" (a spelling fix may lead)', tagGroups.includes('#ctxprobe') && (await h.locator(`${MENU} [data-block-sub]`).count()) === 1, JSON.stringify(tagGroups))
   await pick('copy-tag')
   check('tag: "Copy tag" copies it', (await clipboard()) === '#ctxprobe', await clipboard())
   await rightClick(`${ED} .tiptap-token[data-token="tag"]`)
