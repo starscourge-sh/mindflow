@@ -1,5 +1,22 @@
 import type { Editor } from "@tiptap/core"
-import type { Transaction } from "@tiptap/pm/state"
+import type { EditorState, Transaction } from "@tiptap/pm/state"
+
+/**
+ * Whether the caret is inside a mark being typed: a suggestion list open
+ * ("/", "@", "#", ":", "[[", "![["), or a `[[` not yet closed. What follows
+ * the mark is a name being looked up, not a word to spell, so nothing else
+ * offers to finish it (spell-pill.tsx).
+ */
+export function inTrigger(state: EditorState): boolean {
+  const open = state.plugins.some((plugin) => {
+    const one = plugin.getState(state) as { active?: unknown; decorationId?: unknown } | undefined
+    return !!one && typeof one === "object" && "decorationId" in one && one.active === true
+  })
+  if (open) return true
+  const { $head } = state.selection
+  const before = $head.parent.textBetween(0, $head.parentOffset, undefined, " ")
+  return /\[\[[^\]]*$|(^|\s)[@#/:]\S*$/.test(before)
+}
 
 type Shown = { editor: Editor; query: string; transaction: Transaction }
 

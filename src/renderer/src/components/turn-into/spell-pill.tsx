@@ -5,7 +5,8 @@ import type { Editor } from "@tiptap/react"
 import { Kbd } from "@/components/ui/kbd"
 import { spellFixes } from "@/lib/grammar"
 import { misspeltAt, wordAt, type Misspelling } from "./spelling"
-import { useEditorDom } from '@/lib/editor-dom'
+import { useEditorDom } from "@/lib/editor-dom"
+import { inTrigger } from "@/lib/typed-suggestion"
 
 /** A pause this long and you are no longer typing: the suggestion may come. */
 const TYPING = 1200
@@ -79,7 +80,8 @@ export function SpellPill({ editor }: { editor: Editor | null }): React.JSX.Elem
       frame = requestAnimationFrame(() => {
         if (editor.isDestroyed) return
         const { selection } = editor.state
-        if (typing || !editor.isFocused || !selection.empty || !document.hasFocus()) return setHint(null)
+        // A name being looked up after `[[`, `@`, `#` or `/` is not a word to spell: the list there finishes it.
+        if (typing || !editor.isFocused || !selection.empty || !document.hasFocus() || inTrigger(editor.state)) return setHint(null)
         const at = editor.view.coordsAtPos(selection.head)
         // Placed on the window itself, over everything: inside the editor's box it was cut off on the last line.
         const from = { left: 0, top: 0 }
@@ -100,7 +102,7 @@ export function SpellPill({ editor }: { editor: Editor | null }): React.JSX.Elem
           asked = ask
           void spellFixes(here.word).then((fixes) => {
             const now = editor.state.selection
-            if (gone || ask !== asked || typing || !fixes.length || editor.isDestroyed || !now.empty || now.head < here.from || now.head > here.to || editor.state.doc.textBetween(here.from, here.to) !== here.word) return
+            if (gone || ask !== asked || typing || inTrigger(editor.state) || !fixes.length || editor.isDestroyed || !now.empty || now.head < here.from || now.head > here.to || editor.state.doc.textBetween(here.from, here.to) !== here.word) return
             // The whole word there now, not only its start: an answer for "feelin" never lands on "feeling".
             const coords = editor.view.coordsAtPos(now.head)
             if (wordAt(editor, coords.left - 1, (coords.top + coords.bottom) / 2)?.word !== here.word) return
