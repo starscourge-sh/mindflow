@@ -70,15 +70,17 @@ export function DeckShelf({ onOpen, onStudy }: { onOpen: (type: string, id: stri
               {shelf.held > 0 && <> · <b className="font-semibold">{num(shelf.held)} held</b> until you start them</>}
             </p>
             {shelf.topics.length > 1 && (
-              <ul data-deck-topics className="flex flex-wrap gap-1.5">
+              // Its topics as a short list of rows, the way a sidebar lists them: the name, its count, and its own two actions.
+              <ul data-deck-topics className="grid max-w-md divide-y divide-foreground/[0.07]">
                 {shelf.topics.map((topic) => (
-                  <li key={topic.deck} className="flex items-center gap-1 rounded-full border border-foreground/10 bg-background py-0.5 pr-0.5 pl-3 text-control">
-                    <span>{topic.label}</span>
+                  <li key={topic.deck} className="flex items-center gap-1 py-1 text-control">
+                    <span className="min-w-0 flex-1 truncate text-foreground">{topic.label}</span>
+                    <span className="pr-1 text-sm text-muted-foreground tabular-nums">{cards(topic.cards)}</span>
                     {topic.held < topic.cards && (
-                      <Button variant="ghost" size="sm" className="h-6 cursor-pointer rounded-full px-2.5" data-topic-study={topic.deck}
+                      <Button variant="ghost" size="sm" className="h-7 cursor-pointer px-2.5" data-topic-study={topic.deck}
                         onClick={() => (chime('riffle'), onStudy(deckTag(topic.deck)))}>Study</Button>
                     )}
-                    <Button variant="ghost" size="sm" className="h-6 cursor-pointer rounded-full px-2.5" data-topic-start={topic.deck}
+                    <Button variant="ghost" size="sm" className="h-7 cursor-pointer px-2.5" data-topic-start={topic.deck}
                       onClick={() => startDeck(topic.deck, topic.label, topic.held > 0)}>
                       {topic.held > 0 ? `Start ${num(topic.held)}` : 'Hold'}
                     </Button>
