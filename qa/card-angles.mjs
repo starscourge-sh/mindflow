@@ -34,6 +34,8 @@ const { check, done } = checks()
 const c = await sandbox({ width: 1300, height: 950 })
 const { h, v, go, both } = c
 const wait = (ms) => h.waitForTimeout(ms)
+// Gems and study cards both: a card made in Review is a study card unless Settings keeps them as gems too.
+const allCards = async () => [...await v('items', 'nugget'), ...await v('items', 'card')]
 // A picture pasted where the focus is (or on the window), as ⌘V of a copied picture does.
 const paste = (base64, selector) => h.evaluate(([data, at]) => {
   const bytes = Uint8Array.from(atob(data), (ch) => ch.charCodeAt(0))
@@ -85,14 +87,14 @@ try {
   const front = (await v('review:queue'))[0]
   await v('item:save', front.id, { context: 'Kept context: the bigger story' })
   await go('inbox'); await go('review'); await wait(1500)
-  const before = (await v('items', 'nugget')).length
+  const before = (await allCards()).length
   await h.keyboard.press('a'); await wait(500)
   check('A opens "Ask another way" under the card', await h.locator('[data-another-way]').isVisible())
-  check('it says what the new card keeps', /keeps its context/.test(await h.locator('[data-another-way]').textContent()))
+  check('it says what the new card keeps', /keeps what is behind the answer/.test(await h.locator('[data-another-way]').textContent()))
   if (shots) await both(`${shots}/another-way`)
   await h.keyboard.type('A narrower side question?'); await h.keyboard.press('Enter')
   await h.keyboard.type('Its answer #probeangle'); await h.keyboard.press('Enter'); await wait(900)
-  const after = await v('items', 'nugget')
+  const after = await allCards()
   check('a new card is made', after.length === before + 1, `${before} → ${after.length}`)
   const made = after.find((one) => one.prompt === 'A narrower side question?')
   const full = made && await item(made.id)
@@ -174,14 +176,14 @@ try {
   check('"an" goes inside the blank', /The heart is _____\.$/.test((await item(list)).prompt), (await item(list)).prompt)
   const notes = await h.locator('[data-blank-panel]:visible').textContent()
   check('both blanks keep their notes', /list of 3/.test(notes) && /“an” went inside/.test(notes), notes.slice(0, 160))
-  const count = (await v('items', 'nugget')).length
+  const count = (await allCards()).length
   await details()
   if (shots) await h.screenshot({ path: `${shots}/before-apart.png` })
   await h.locator('[data-blank-panel]:visible button[aria-label="Ask apart"]').click({ timeout: 5000 }); await wait(1200)
-  check('asked apart: a card for each blank', (await v('items', 'nugget')).length === count + 1)
+  check('asked apart: a card for each blank', (await allCards()).length === count + 1)
   const left = await h.locator('[data-blank-panel]:visible').textContent().catch(() => '')
   check('asked apart, this card shows only its own blank\'s note', /^fibrinogen.*one item of a list/.test(left) && !/an organ/.test(left), left.slice(0, 120))
-  const apart = (await v('items', 'nugget')).find((one) => one.prompt === 'The plasma proteins are albumin, fibrinogen and globulins. The heart is _____.')
+  const apart = (await allCards()).find((one) => one.prompt === 'The plasma proteins are albumin, fibrinogen and globulins. The heart is _____.')
   const apartBody = apart && (await item(apart.id)).body
   check('the card asked apart keeps the answer as the gem has it, not plain text', apartBody?.type === 'doc', JSON.stringify(apartBody ?? null).slice(0, 60))
   check('this card keeps the first blank, the second filled in', /fibrinogen/.test((await item(list)).prompt) === false && /an organ/.test((await item(list)).prompt), (await item(list)).prompt)
@@ -193,10 +195,10 @@ try {
   await details()
   const ask = h.locator('textarea[aria-label="A question this answers"]:visible')
   await ask.fill('Surfactant is made by {{c1::type 2 cells::which cells}} and taken up by {{c2::macrophages}}')
-  const n = (await v('items', 'nugget')).length
+  const n = (await allCards()).length
   // Left, as a click elsewhere leaves it (a window in the back never moves its focus).
   await ask.evaluate((el) => el.dispatchEvent(new FocusEvent('focusout', { bubbles: true }))); await wait(1500)
-  check('typed c1 and c2 make a card each', (await v('items', 'nugget')).length === n + 1)
+  check('typed c1 and c2 make a card each', (await allCards()).length === n + 1)
   check('lists show the typed blank as a gap, never its answer', await h.evaluate(() => { const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT); const out = []; for (let n = w.nextNode(); n; n = w.nextNode()) if (n.textContent.includes('{{c1::') && !n.parentElement.closest('textarea, input')) out.push(n.parentElement.outerHTML.slice(0, 120)); return out }).then((out) => (out.length ? console.log(out) : 0, out.length === 0)))
   check('this one keeps c1, c2 written out', (await item(typed)).prompt === 'Surfactant is made by {{c1::type 2 cells::which cells}} and taken up by macrophages', (await item(typed)).prompt)
   await go('review'); await wait(1500)

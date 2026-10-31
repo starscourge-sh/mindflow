@@ -6,6 +6,7 @@ import { Empty, ask, askSure, openTag, quietly, refuse, toast } from './ui'
 import { Button } from '@/components/ui/button'
 import { Chip } from './display'
 import { OptionsMenu, type Section } from './options-menu'
+import { SCRUB, ScrubField } from '../pdf/scrub-field'
 import { Tree, treeOf } from './branches'
 import { GroupCover } from './group-cover'
 import { groupTint } from './card-shelves'
@@ -246,7 +247,8 @@ function deckSettings(tag: string, study: { typed: Record<string, string>; newPe
   return [
     { label: 'New cards a day', items: [
       { label: 'As in Settings', on: perDay === undefined, set: (on: boolean) => void (on && setPerDay(null)) },
-      ...[5, 10, 20].map((n) => ({ label: String(n), on: perDay === n, set: (on: boolean) => void (on && setPerDay(n)) })),
+      // Its own number: dragged sideways, stepped with the arrows, or typed (a sum too: +5, 20*2).
+      { label: 'Its own', field: <ScrubField label={`New cards a day for ${tag}`} min={0} max={999} value={perDay ?? 10} onChange={(n) => void haligtree.setTag(tag, { newPerDay: n })} className={SCRUB} /> },
       { label: 'None', hint: 'Only reviews: no new cards start', on: perDay === 0, set: (on: boolean) => void (on && setPerDay(0)) }
     ] },
     { label: 'How typed answers are checked', items: [

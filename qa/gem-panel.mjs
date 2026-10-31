@@ -239,9 +239,11 @@ try {
   // A person's own choice wins: "Behind the answer" opened on the bare gem stays open, and folded on the full one stays folded.
   await h.locator('[data-details-group="Behind the answer"] button[aria-expanded]').click(); await wait(400)
   await openDetails(gem)
-  await h.locator('[data-details-group="Behind the answer"] button[aria-expanded]').click(); await wait(400)
   await openDetails(bare)
   check('an island opened by hand stays open where it is empty', (await groups())['Behind the answer'] === true, JSON.stringify(await groups()))
+  await openDetails(gem)
+  await h.locator('[data-details-group="Behind the answer"] button[aria-expanded]').click(); await wait(400)
+  await openDetails(bare)
   await openDetails(gem)
   check('an island folded by hand stays folded where it holds something', (await groups())['Behind the answer'] === false, JSON.stringify(await groups()))
 } catch (error) { console.log(String(error).slice(0, 300), c.errors.slice(-3).join("\n")) } finally {

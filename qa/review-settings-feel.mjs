@@ -21,8 +21,8 @@ const cost = () => h.evaluate(() => {
 try {
   await v('settings:set', { sounds: false, hintRate: 0, newPerDay: 10, retention: 0.9 })
   await v('onboarding:set', { newsSeen: true, pageHints: false })
-  // A seeded deck: 120 new cards waiting, and 20 already seen once.
-  for (let n = 0; n < 140; n++) {
+  // A seeded deck: 580 new cards waiting (more than a month of new cards at 15 a day), and 20 already seen once.
+  for (let n = 0; n < 600; n++) {
     const id = await v('nugget:from', `Fact number ${n} is ${n * 7}.`, {})
     await v('item:save', id, { title: `What is fact ${n}?`, prompt: `What is fact ${n}?` })
     if (n < 20) await v('review:grade', id, 3, 6000)
@@ -33,6 +33,7 @@ try {
   const box = h.locator('input[aria-label="New cards a day"]')
   await box.scrollIntoViewIfNeeded(); await wait(300)
   check('"New cards a day" is a scrub field', (await box.getAttribute('data-scrub-field')) !== null)
+  check('the scrub field shows the sideways-drag cursor', (await box.evaluate((el) => getComputedStyle(el).cursor)) === 'ew-resize', await box.evaluate((el) => getComputedStyle(el).cursor))
   check('"How much to remember" is a scrub field', (await h.locator('input[aria-label="How much to remember"][data-scrub-field]').count()) === 1)
   await wait(1200)
   const before = await cost()

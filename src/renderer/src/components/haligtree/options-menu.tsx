@@ -1,4 +1,4 @@
-import { useState, type ComponentProps } from 'react'
+import { useState, type ComponentProps, type ReactNode } from 'react'
 import { chime, soundOn, step } from '@/lib/sound'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
@@ -34,7 +34,9 @@ export type Action = { label: string; hint?: string; keys?: string; run: () => v
  * switches, drawn where they stand in the list. Defined once, so the gear
  * menu and a right click on the note show the same items in the same words.
  */
-export type Section = { label?: string; items: (Option | Action | More | 'sounds' | 'theme')[] }
+export type Section = { label?: string; items: (Option | Action | More | Field | 'sounds' | 'theme')[] }
+/** A control that lives in the menu itself (a number to drag or type), on a row with its name. Its keys stay its own. */
+export type Field = { label: string; field: ReactNode }
 /** Rarely changed items folded into one line that opens to the side, so the menu fits a short window. */
 export type More = { label: string; more: (Option | Action)[] }
 
@@ -127,6 +129,11 @@ function MenuSections({ sections }: { sections: Section[] }): React.JSX.Element 
           {section.items.map((one) =>
             one === 'sounds' ? <SoundsItem key="sounds" />
             : one === 'theme' ? <ThemeItem key="theme" />
+            : 'field' in one ? (
+              <div key={one.label} data-menu-field className="flex items-center justify-between gap-3 px-2 py-1 text-control" onKeyDown={(event) => event.stopPropagation()}>
+                <span>{one.label}</span>{one.field}
+              </div>
+            )
             : 'more' in one ? (
               // How many are switched on, said beside it, so a change made in there is not out of sight.
               <DropdownMenuSub key={one.label}>

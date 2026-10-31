@@ -218,7 +218,6 @@ function GroupIsland({ title, section, query, bare, children }: { title: string;
   )
 }
 
-const field = 'h-8 tabular-nums'
 
 /**
  * What a review setting costs, said while it moves: the next 30 days of your
@@ -369,31 +368,8 @@ function ControlsSample(): React.JSX.Element {
 
 /** A number box that saves a number, never the empty field you pass through on the way to one. */
 function NumberSetting({ value, onSave, label }: { value: number; onSave: (value: number) => void; label: string }): React.JSX.Element {
-  const [text, setText] = useState(String(value))
-  // While you type, the box is yours; a save coming back must not undo a key.
-  const typing = useRef(false)
-  useEffect(() => void (!typing.current && setText(String(value))), [value])
-  const valid = (raw: string): boolean => raw.trim() !== '' && Number.isFinite(Number(raw)) && Number(raw) >= 0
-  return (
-    <Input
-      type="number"
-      min={0}
-      aria-label={label}
-      // Haligtree's own field: no system spin arrows (the arrow keys still step it).
-      className={`${field} w-16 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
-      value={text}
-      onChange={(event) => {
-        setText(event.target.value)
-        if (valid(event.target.value)) onSave(Number(event.target.value))
-      }}
-      // Left empty, it goes back to what is saved.
-      onFocus={() => void (typing.current = true)}
-      onBlur={() => {
-        typing.current = false
-        if (!valid(text)) setText(String(value))
-      }}
-    />
-  )
+  // Every number in Settings is the one scrub field: drag sideways, ↑ ↓, click to type, sums too (+5, 20*2).
+  return <ScrubField label={label} min={0} max={9999} value={value} onChange={onSave} className={SCRUB} />
 }
 
 /** Said on a bubble setting while the session timer shows in the note alone: it has no bubble to change until it does. */
