@@ -2712,6 +2712,12 @@ export function registerHaligtree(): void {
   })
   // The same cards a session would start with, exam sweep and limits included.
   handle('review:counts', () => reviewQueue().length)
+  // A sitting left part way today: how many were done, how many wait, and when the last was answered (Home's "Continue reading").
+  handle('review:sitting', () => {
+    const since = new Date(startOfDay()).toISOString()
+    const done = db.prepare('select count(*) n, max(reviewed_at) last from review_log where reviewed_at >= ?').get(since) as { n: number; last: string | null }
+    return { done: done.n, left: done.n ? reviewQueue().length : 0, last: done.last }
+  })
   // Only a graded review moves a schedule: not opening, not searching.
   handle('review:grade', (id: string, grade: Grade, ms: number) => {
     const row = db.prepare(`select ${ITEM}, body, state from nuggets where id = ?`).get(id) as Record<string, unknown> & { state: string | null }

@@ -122,17 +122,18 @@ function Inspector({ one, onOpen }: { one: Book; onOpen: () => void }): React.JS
  * first, each its cover, title and how far you are, opening at your page.
  * Nothing at all when there is no book on the go.
  */
-export function ContinueReading({ heading }: { heading: (count: number) => React.ReactNode }): React.JSX.Element | null {
+export function ContinueReading({ heading, extra = [] }: { heading: (count: number) => React.ReactNode; /** Other things left part way (an article, a Review sitting, a draft), drawn first. */ extra?: React.ReactNode[] }): React.JSX.Element | null {
   const all = useLive(readLibrary, [] as Book[])
   const going = all
     .filter((one) => one.readAt && one.page && one.pages && one.page < one.pages)
     .sort((a, b) => b.readAt!.localeCompare(a.readAt!))
     .slice(0, 4)
-  if (!going.length) return null
+  if (!going.length && !extra.length) return null
   return (
     <section className="flex flex-col gap-3 px-5 @[44rem]/page:px-8" data-continue-reading>
-      {heading(going.length)}
+      {heading(going.length + extra.length)}
       <div className="continue-reading">
+        {extra}
         {going.map((one) => (
           <ReadingCard key={one.src} one={one} />
         ))}

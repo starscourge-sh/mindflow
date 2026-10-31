@@ -1326,6 +1326,16 @@
   box-shadow: 0 0 0 1px var(--tt-border-color), 0 2px 6px rgb(0 0 0 / 0.1);
 }
 
+.continue-book-cover.continue-book-mark {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border-radius: 0.5rem;
+  background-color: var(--mf-surface);
+  box-shadow: none;
+  color: var(--mf-muted);
+}
+
 .continue-book-cover img {
   width: 100%;
   height: 100%;

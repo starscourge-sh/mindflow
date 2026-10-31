@@ -1,5 +1,6 @@
 import { Lean } from './lean'
 import { ContinueReading } from '@/components/pdf/pdf-library'
+import { useResumeCards, WelcomeBack } from './resume-cards'
 import { useReadsIn } from '@/lib/reads-in'
 import { TimeGone } from './time-gone'
 import { Children, isValidElement, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
@@ -654,6 +655,8 @@ function BookOpened({ opened }: { opened: Opened }): React.JSX.Element {
 }
 
 export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string) => void; onView: (id: string, focus?: string) => void }): React.JSX.Element {
+  // Left part way: a Review sitting, a quick capture draft, articles (beside the books in Continue reading).
+  const resume = useResumeCards(onView)
   const data = useLive(home, NONE, [], ['capture', 'item'])
   const { opened, fresh } = useOpened()
   // Opened by pointer, the shelves come in top down, 20ms apart; by G H, or
@@ -845,6 +848,8 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
       <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[20rem] transition-[background-color] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]"
         style={{ backgroundColor: band ?? 'transparent', maskImage: 'linear-gradient(to bottom, black 0%, black 20%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 20%, transparent 100%)' }} />
       {opened && <BookOpened opened={opened} />}
+      {/* Back after a long absence: the one thing you were last in, one click back. */}
+      <WelcomeBack onOpen={onOpen} onView={onView} />
       {/* Open goals, quiet, above everything else, unless put away (Settings, “Goals at the top”, or right-click a goal). */}
       <GoalStrip onOpen={(type, id) => (type === 'view' ? onView(id) : onOpen(type, id))} className="page-column relative w-full px-3 pt-3 @[44rem]/page:px-6" />
       {/* Now: the one card that fits the moment on top, the rest behind "2
@@ -915,7 +920,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
           {feature && <Feature card={feature.card} line={feature.line} actions={actions} />}
 
           {/* The books part way through: each opens at the page you left it. */}
-          <ContinueReading heading={() => <Heading title="Continue reading" onAll={() => onView('media')} />} />
+          <ContinueReading extra={resume} heading={() => <Heading title="Continue reading" onAll={() => onView('media')} />} />
 
           {(nextUp.length > 0 || questions.length > 0) && (
             <div className="grid gap-x-6 gap-y-8 px-3 @[44rem]/page:grid-cols-2 @[44rem]/page:px-6">

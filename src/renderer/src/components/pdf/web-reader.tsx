@@ -27,6 +27,7 @@ import {
   ContextMenuTrigger
 } from '@/components/ui/context-menu'
 import { call } from '@/lib/haligtree'
+import { keepWebPlace, webPlaces } from '@/lib/note-place'
 import { said } from '@/lib/host'
 import './pdf.css'
 
@@ -73,10 +74,47 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
   // the whole window, so two articles side by side would otherwise draw over each other's.
   const names = `web${useId().replace(/[^a-zA-Z0-9]/g, '')}`
 
+  // Where you were: kept as you read (and leave), put back once the article is drawn tall enough to hold it.
+  const placed = useRef(false)
+  useEffect(() => {
+    const box = scroller.current
+    if (!box || !article) return
+    const kept = webPlaces()[href]
+    placed.current = !kept || !!takenFlash.current
+    const put = (): void => {
+      if (placed.current || !kept) return
+      if (box.scrollHeight - box.clientHeight >= kept.top - 1) (box.scrollTop = kept.top, (placed.current = true))
+    }
+    put()
+    const grows = new ResizeObserver(put)
+    if (body.current) grows.observe(body.current)
+    const stop = (): void => void (placed.current = true)
+    let top = box.scrollTop
+    const onScroll = (): void => void (top = box.scrollTop)
+    box.addEventListener('scroll', onScroll, { passive: true })
+    box.addEventListener('wheel', stop, { passive: true })
+    box.addEventListener('pointerdown', stop)
+    const save = (): void => {
+      const room = Math.max(1, box.scrollHeight - box.clientHeight)
+      if (top > 0) keepWebPlace(href, { top, share: Math.min(1, top / room), at: Date.now(), title: article.title || articleName(href) })
+    }
+    window.addEventListener('pagehide', save)
+    return () => {
+      save()
+      grows.disconnect()
+      box.removeEventListener('scroll', onScroll)
+      box.removeEventListener('wheel', stop)
+      box.removeEventListener('pointerdown', stop)
+      window.removeEventListener('pagehide', save)
+    }
+  }, [article, href])
+
   // Highlights, kept in the PDF reader's store under the page's link: each found
   // again by its offsets, else by its words and those around them.
   const [marks, setMarks] = useState<PdfMark[]>([])
   const [flash, setFlash] = useState<string | null>(() => takeArticleFlash())
+  // Opened on a highlight (a gem's link back): that wins over where you were.
+  const takenFlash = useRef(flash)
   const [hit, setHit] = useState<PdfMark | null>(null)
   const drawn = useRef<{ mark: PdfMark; range: Range }[]>([])
   useEffect(() => {
