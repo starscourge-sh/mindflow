@@ -1895,7 +1895,13 @@ export function Tip({ label: given, offset, side, children }: { label: ReactNode
   // Its keys as you press them now, if you changed them in Settings.
   useKeyChanges()
   const label = typeof given === 'string' ? withKeys(given) : given
-  if (!label) return children
+  // No words is a tip that stays shut, never the control bare: the control must
+  // keep the same parents whether its tip has words or not. A tip that went
+  // quiet as a menu opened (a folder's row, while its menu is up) dropped the
+  // tooltip around it, so React made the row, and the right-click menu's
+  // trigger inside it, anew; the new trigger had forgotten the pointer and the
+  // menu opened at 0,0, the window's corner (qa/menu-anchor.mjs).
+  if (!label) return <Tipped label="" offset={offset} side={side}>{children}</Tipped>
   // A plain-text tip names an icon-only button, so it can be read out, not
   // only hovered. A button with words of its own keeps them as its name.
   const worded = Children.toArray(children.props.children).some((child) => typeof child === 'string' || typeof child === 'number')
@@ -1917,9 +1923,12 @@ function Tipped({ label, offset, side, children }: { label: ReactNode; offset?: 
   const trigger = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
   const place = useContext(TipPlace)
+  // Words gone while it is up (a menu opened from its control): it shuts, and says so.
+  useEffect(() => void (!label && open && (setOpen(false), place.onShow?.(false))), [label, open, place])
   // Kept as it closes, so the tip fades out with its words still in it.
   const [shown, setShown] = useState<ReactNode>(label)
   const onOpenChange = (next: boolean): void => {
+    if (next && !label) return
     place.onShow?.(next)
     if (!next || typeof label !== 'string') return (setShown(next ? label : shown), setOpen(next))
     const seen = (trigger.current?.innerText ?? '').replace(/\s+/g, ' ').trim().toLowerCase()
@@ -1932,7 +1941,7 @@ function Tipped({ label, offset, side, children }: { label: ReactNode; offset?: 
     setOpen(true)
   }
   return (
-    <Tooltip open={open} onOpenChange={onOpenChange}>
+    <Tooltip open={open && !!label} onOpenChange={onOpenChange}>
       <TooltipTrigger asChild ref={trigger}>{children}</TooltipTrigger>
       <TooltipContent sideOffset={offset} side={side ?? place.side} {...(place.clearTop || place.inset ? { collisionPadding: { top: place.clearTop ?? place.inset ?? 8, right: place.inset ?? 8, bottom: place.inset ?? 4, left: place.inset ?? 8 } } : {})}>{shown}</TooltipContent>
     </Tooltip>
