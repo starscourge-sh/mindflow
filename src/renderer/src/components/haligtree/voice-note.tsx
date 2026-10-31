@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { Mic, Square } from 'lucide-react'
 
 import { saveAttachment } from '@/extensions/image-drop'
+import { Button } from '@/components/ui/button'
 import { refuse } from '@/components/haligtree/ui'
 import { chime } from '@/lib/sound'
 
@@ -169,10 +170,10 @@ function Recorder({ stream, onDone }: { stream: MediaStream; onDone: (file: File
       <button type="button" onClick={cancel} className="shrink-0 cursor-pointer rounded-lg px-2 py-1.5 text-control text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-[0.97]">
         Cancel <kbd className="ml-1 rounded border border-border px-1 text-[11px]">Esc</kbd>
       </button>
-      <button type="button" aria-label="Stop and keep" onClick={() => stop(true)}
-        className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg bg-foreground px-2.5 py-1.5 text-control text-background transition-transform active:scale-[0.97]">
+      {/* The app's own main button, in the theme's accent, as “Copy” and “Create” are. */}
+      <Button aria-label="Stop and keep" onClick={() => stop(true)} className="shrink-0 text-control">
         <Square className="size-3 fill-current" /> Stop
-      </button>
+      </Button>
     </div>
   )
 }
