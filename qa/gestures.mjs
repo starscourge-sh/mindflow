@@ -96,9 +96,10 @@ async function surface(name, w, root, open, { click = true, rows: only, emptied,
     check(`${name}: emptied into the Bin, no “Inbox zero”, it says they are in the Bin`, !seen.zero && seen.said, seen.zero || !seen.said ? JSON.stringify(seen) : '')
   }
   // ⌘Z brings them back.
-  await w.keyboard.press('Meta+z'); await w.waitForTimeout(1100)
-  s = await read(w, root)
-  row.push(`⌘Z:${s.rows.includes(first) ? 'back' : 'not back'}`)
+  await w.keyboard.press('Meta+z')
+  const z0 = Date.now()
+  do { await w.waitForTimeout(300); s = await read(w, root) } while (!s.rows.includes(first) && Date.now() - z0 < 5000)
+  row.push(`⌘Z:${s.rows.includes(first) ? `back in ${Date.now() - z0}ms` : 'not back'}`)
   check(`${name}: ⌘Z brings them back`, s.rows.includes(first))
   // Esc clears (a celebration that came up over the page takes the first one).
   if (await w.evaluate(() => !!document.querySelector('[data-celebration] > *'))) { await w.keyboard.press('Escape'); await w.waitForTimeout(500) }
