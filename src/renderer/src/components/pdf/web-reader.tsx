@@ -222,7 +222,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     getSelection()?.removeAllRanges()
     setPicked(null)
     chime('saved')
-    said(gem ? 'Kept as a gem' : 'Highlighted', true, gemId ? { type: 'nugget', id: gemId, title: picked.quote } : undefined)
+    said(gem ? 'Kept as a gem' : color === 'later' ? 'Marked for a card' : 'Highlighted', true, gemId ? { type: 'nugget', id: gemId, title: picked.quote } : undefined)
   }
   const copyCited = async (quote: string): Promise<void> => {
     await navigator.clipboard.writeText(cited(quote.replace(/\s+/g, ' ').trim(), [byline(), whereFrom()].filter(Boolean).join(', ')))
@@ -332,7 +332,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     await call('pdf:unhighlight', mark.id)
     setMarks((all) => all.filter((one) => one.id !== mark.id))
     chime('away')
-    said('Highlight removed')
+    said(mark.color === 'later' ? 'Card mark removed' : 'Highlight removed')
   }
 
   useEffect(() => {

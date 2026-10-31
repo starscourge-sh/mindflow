@@ -15,10 +15,10 @@ export const MARK_COLORS = [
   { id: "green", label: "Green", css: "#3fae5a" },
   { id: "blue", label: "Blue", css: "#3b8fe0" },
   { id: "pink", label: "Pink", css: "#e0569a" },
-  // Words to make a card of on the second read: the "Card later" walk asks for each.
+  // Words marked to turn into cards later: "Make your marked cards" asks for each.
   // Not a colour: a dashed underline in the book's colour and a tick in the
   // margin, so it is never taken for a highlight or a search match (violet).
-  { id: "later", label: "Card later", css: "var(--tt-brand-color-500, #c08a2e)" },
+  { id: "later", label: "Mark for a card", css: "var(--tt-brand-color-500, #c08a2e)" },
 ] as const
 export type MarkColor = (typeof MARK_COLORS)[number]["id"]
 
@@ -48,12 +48,12 @@ export type ReadActions = {
   blank?: (gem?: boolean) => void
 }
 
-/** What "Card later" does, said on its swatch wherever it shows. */
-export const LATER_TIP = "Card later: make a card on the second read"
+/** What "Mark for a card" does, said on its swatch wherever it shows. */
+export const LATER_TIP = "Mark for a card: mark words to turn into cards later, all at once"
 
 /** A swatch: a round of the colour, ticked when it is the one in use. */
-function Swatch({ color, on, later = false }: { color: string; on: boolean; /** "Card later": drawn as its dashed underline, not a colour. */ later?: boolean }): React.JSX.Element {
-  // "Card later" is not a colour: a little card over the dashed underline it leaves in the page, filled when it is the one in use.
+function Swatch({ color, on, later = false }: { color: string; on: boolean; /** "Mark for a card": drawn as its dashed underline, not a colour. */ later?: boolean }): React.JSX.Element {
+  // "Mark for a card" is not a colour: a little card over the dashed underline it leaves in the page, filled when it is the one in use.
   if (later)
     return (
       <span aria-hidden className="pdf-swatch is-later" style={{ color }}>
@@ -171,7 +171,7 @@ export function ReadBar({ at, actions }: { at: { x: number; y: number; bottom?: 
 
 /**
  * The keys the bar shows, while words are picked in this reader: H
- * highlights in the last colour, 1 to 6 in each colour (6 is "Card later"), K keeps a gem, ⇧⌘C
+ * highlights in the last colour, 1 to 6 in each colour (6 is "Mark for a card"), K keeps a gem, ⇧⌘C
  * copies with the citation. Says whether the key was one.
  */
 export function readKey(event: KeyboardEvent, actions: ReadActions): boolean {
@@ -260,7 +260,7 @@ export function MarkMenu({ color, gem, onColor, onKeep, onOpenGem, onCopy, onRem
       <ContextMenuSeparator />
       <ContextMenuItem variant="destructive" onSelect={onRemove}>
         <Trash2 />
-        Remove highlight
+        {color === "later" ? "Remove the card mark" : "Remove highlight"}
       </ContextMenuItem>
     </>
   )

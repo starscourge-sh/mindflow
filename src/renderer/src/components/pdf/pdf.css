@@ -462,7 +462,7 @@
   cursor: pointer;
 }
 
-/* "Card later": no band of colour (that is a highlight, or a find), a dashed
+/* "Mark for a card": no band of colour (that is a highlight, or a find), a dashed
    underline in the book's colour and a tick in the page's margin by its first line. */
 .pdf-mark.is-later {
   /* The dashed underline is the band's own picture along its foot, never a one-sided border. */

@@ -119,7 +119,7 @@ function paintMarks(sheet: HTMLElement, marks: PdfMark[], flash: string | null |
       if (mark.color) band.style.setProperty("--mark", markCss(mark.color))
       Object.assign(band.style, { left: `${rect.left - box.left}px`, top: `${rect.top - box.top}px`, width: `${rect.width}px`, height: `${rect.height}px` })
       paint.append(band)
-      // "Card later" is an underline and a tick in the margin by its first line, never a band of colour.
+      // "Mark for a card" is an underline and a tick in the margin by its first line, never a band of colour.
       if (mark.color === "later") {
         band.classList.add("is-later")
         if (!paint.querySelector(`.pdf-later-tick[data-mark="${mark.id}"]`)) {

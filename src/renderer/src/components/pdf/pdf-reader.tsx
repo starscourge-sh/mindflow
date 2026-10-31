@@ -306,7 +306,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     getSelection()?.removeAllRanges()
     setPicked(null)
     chime("saved")
-    said(gem ? "Kept as a gem" : "Highlighted", true, gemId ? { type: "nugget", id: gemId, title: picked.quote } : undefined)
+    said(gem ? "Kept as a gem" : color === "later" ? "Marked for a card" : "Highlighted", true, gemId ? { type: "nugget", id: gemId, title: picked.quote } : undefined)
   }
   const copyCited = async (quote: string, page: number): Promise<void> => {
     const { author, where } = await whereFrom(page)
@@ -443,7 +443,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     if (event.code === "KeyK" && !event.altKey) return (void keepSnip(snipped), true)
     return false
   } : null)
-  // The second read: every passage marked "Card later", one after another,
+  // "Make your marked cards": every passage marked for a card, one after another,
   // each asking for its card's question where it is; Return makes the card and
   // the passage becomes a plain highlight, Esc ends the walk.
   const [walking, setWalking] = useState(0)
@@ -452,7 +452,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     if (!next) {
       setWalking(0)
       setCarding(null)
-      return void said(made ? `Second read done: ${made} ${made === 1 ? "card" : "cards"} made` : "Second read ended")
+      return void said(made ? `Marked cards made: ${made} ${made === 1 ? "card" : "cards"}` : "Stopped making marked cards")
     }
     go(next.page)
     madeOne.current = false
@@ -508,7 +508,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     await call("pdf:unhighlight", mark.id)
     setMarks((all) => all.filter((one) => one.id !== mark.id))
     chime("away")
-    said("Highlight removed")
+    said(mark.color === "later" ? "Card mark removed" : "Highlight removed")
   }
 
   const go = (to: number): void => {
@@ -720,7 +720,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
             <PanelRight className="tiptap-button-icon" />
           </Button>
           {marks.some((one) => one.color === "later") && (
-            <Button data-style="ghost" aria-label="Card later" title="Second read: make a card of each passage marked Card later" data-active-state={walking ? "on" : "off"} onClick={() => (setWalking(1), walkTo(marks.find((one) => one.color === "later"), 0))}>
+            <Button data-style="ghost" aria-label="Make your marked cards" title="Make your marked cards: a card from each passage you marked, one after another" data-active-state={walking ? "on" : "off"} onClick={() => (setWalking(1), walkTo(marks.find((one) => one.color === "later"), 0))}>
               <SquareStack className="tiptap-button-icon" />
               <span className="tiptap-button-text" data-card-later-count>{marks.filter((one) => one.color === "later").length}</span>
             </Button>

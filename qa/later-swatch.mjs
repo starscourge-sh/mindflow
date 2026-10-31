@@ -1,4 +1,4 @@
-// The read bar's "Card later" swatch says what it is: a little card over the
+// The read bar's "Mark for a card" swatch says what it is: a little card over the
 // dashed underline it leaves, a tip with its key, the hand, and the same box
 // as the colour swatches beside it.
 //
@@ -19,9 +19,9 @@ try {
   await openProbePdf(c)
   await pickInPdf(h, 2, 7); await wait(500)
   const later = h.locator('.pdf-keep-bar .pdf-swatch-button:has(.is-later)')
-  check('the bar shows the "Card later" swatch', (await later.count()) === 1, '')
+  check('the bar shows the "Mark for a card" swatch', (await later.count()) === 1, '')
   const tip = await later.getAttribute('title')
-  check('its tip says what it does and its key', tip === 'Card later: make a card on the second read  6', tip)
+  check('its tip says what it does and its key', tip === 'Mark for a card: mark words to turn into cards later, all at once  6', tip)
   await later.hover(); await wait(200)
   check('it shows the hand', (await later.evaluate((one) => getComputedStyle(one).cursor)) === 'pointer', '')
   const glyph = await later.evaluate((one) => ({ rect: !!one.querySelector('svg rect'), dashed: one.querySelector('svg path')?.getAttribute('stroke-dasharray') ?? '' }))
@@ -39,13 +39,13 @@ try {
   await pickInPdf(h, 2, 7); await wait(400)
   await h.keyboard.press('6'); await wait(800)
   const marks = await h.evaluate(() => document.querySelectorAll('.pdf-reader .pdf-mark.is-later').length)
-  check('6 marks the picked words "Card later"', marks > 0, String(marks))
+  check('6 marks the picked words "Mark for a card"', marks > 0, String(marks))
   // The right-click's swatch row says the same.
   await pickInPdf(h, 9, 17); await wait(300)
   const at = await h.evaluate(() => { const r = getSelection().getRangeAt(0).getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })
   await h.mouse.click(at.x, at.y, { button: 'right' }); await wait(500)
   const menuTip = await h.evaluate(() => document.querySelector('[role="menuitemradio"] .is-later')?.closest('[role="menuitemradio"]')?.getAttribute('title') ?? '')
-  check('the right-click swatch row gives it the same tip', menuTip.startsWith('Card later: make a card on the second read'), menuTip)
+  check('the right-click swatch row gives it the same tip', menuTip.startsWith('Mark for a card: mark words to turn into cards later, all at once'), menuTip)
   await h.keyboard.press('Escape')
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])

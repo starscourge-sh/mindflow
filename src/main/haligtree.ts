@@ -379,7 +379,7 @@ const DEFAULTS = {
   lighterDays: [] as number[],
   // Two grades out of the box (Forgot, Got it), or Anki's four.
   grades: 2 as 2 | 4,
-  // A card made while reading (C, Snip, the second read, Ask another way, Paste cards) is a study card,
+  // A card made while reading (C, Snip, Make your marked cards, Ask another way, Paste cards) is a study card,
   // in Review only; 'gem' keeps it as a gem as well, back in Gems, the Feed, Home and hints.
   readCards: 'study' as 'study' | 'gem',
   quietStart: '22:00',
