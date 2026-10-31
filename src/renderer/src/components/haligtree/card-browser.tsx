@@ -14,6 +14,7 @@ import { usePickMixed } from './pick-mixed'
 import { RowMenu, type RowItem } from './row-menu'
 import { WithPictures } from './with-pictures'
 import { PasteCards } from './paste-cards'
+import { NewCard } from './new-card'
 import { SplitForm } from './study'
 import { AnotherWay } from './another-way'
 import { EmptyPocket, FlipThrough, Pocket, Poster, Shelf, Windowed, groupTint } from './card-shelves'
@@ -458,7 +459,11 @@ export function CardBrowser({ onOpen, aim }: { onOpen: (type: string, id: string
     return () => window.removeEventListener('keydown', onKey)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   if (!cards) return <div />
-  const paste = pasting ? <PasteCards key={`${aimed?.deck}:${aimed?.one}`} deck={aimed?.deck ?? undefined} one={aimed?.one} onClose={() => (chime('fold'), setPasting(false), setAimed(null))} /> : null
+  // "Make a card" (a deck's, a pocket's, ⌘K's "New card in"): the two-field card; otherwise the paste box.
+  const closePaste = (): void => (chime('fold'), setPasting(false), setAimed(null))
+  const paste = !pasting ? null : aimed?.one
+    ? <NewCard key={`one:${aimed.deck}`} deck={aimed.deck ?? undefined} onClose={closePaste} />
+    : <PasteCards key={`${aimed?.deck}`} deck={aimed?.deck ?? undefined} onClose={closePaste} />
   // The decks made by hand that hold no card yet, under no other pocket: each its own, with the ways to fill it.
   const emptyPockets = made
     .filter((deck) => !made.some((up) => deck.startsWith(`${up}-`)) && !tags.some((one) => under([one], deck)) && !groups.some(([name]) => name === `#${deck.split('-')[0]}`))

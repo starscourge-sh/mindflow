@@ -17,7 +17,7 @@ const tagOf = (words: string): string =>
  * type, and a deck and tags go on every card. A .txt or .csv dropped on the
  * box reads in too. Adding them is one step with one Undo.
  */
-export function PasteCards({ onClose, deck: aimed, one = false }: { onClose: () => void; /** The deck the cards go in, filled in. */ deck?: string; /** For one card, typed: the heading and example say so. */ one?: boolean }): React.JSX.Element {
+export function PasteCards({ onClose, deck: aimed }: { onClose: () => void; /** The deck the cards go in, filled in. */ deck?: string }): React.JSX.Element {
   const [text, setText] = useState('')
   const [chosen, setChosen] = useState<Separator | null>(null)
   const [deck, setDeck] = useState(aimed ?? '')
@@ -43,12 +43,12 @@ export function PasteCards({ onClose, deck: aimed, one = false }: { onClose: () 
     // lines written straight onto ruled paper, and the cards they make laid out below.
     <section data-paste-cards className="mf-index-card flex flex-col gap-3 px-5 pt-4 pb-3">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h3 className="flex-1 font-heading text-heading font-semibold">{one ? `New card${aimed ? ` in #${tagOf(aimed)}` : ''}` : aimed ? `Paste cards into #${tagOf(aimed)}` : 'Paste cards'}</h3>
-        <span className="text-control text-foreground/70">{one ? 'The question, a bar, then the answer; another line makes another card' : 'One card a line, front then back, or drop a .txt, .csv or .tsv here'}</span>
+        <h3 className="flex-1 font-heading text-heading font-semibold">{aimed ? `Paste cards into #${tagOf(aimed)}` : 'Paste cards'}</h3>
+        <span className="text-control text-foreground/70">One card a line, front then back, or drop a .txt, .csv or .tsv here</span>
       </div>
       <div aria-hidden className="mf-index-rule" />
       <textarea data-paste-text autoFocus value={text} onChange={(event) => setText(event.target.value)} rows={5}
-        placeholder={one ? 'What does a mitochondrion do? | Makes the cell’s energy' : 'What does GPT stand for? | Generative Pre-trained Transformer\nhola | hello'}
+        placeholder={'What does GPT stand for? | Generative Pre-trained Transformer\nhola | hello'}
         onDragOver={(event) => event.preventDefault()}
         onDrop={(event) => {
           const file = [...event.dataTransfer.files].find((one) => /\.(txt|csv|tsv)$/i.test(one.name))
