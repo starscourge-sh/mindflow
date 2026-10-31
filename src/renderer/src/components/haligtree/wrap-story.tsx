@@ -276,7 +276,7 @@ export function WrapOffer(): React.JSX.Element | null {
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
           <p className="font-heading text-heading font-semibold text-foreground">Your {name}, wrapped</p>
-          <p className="mt-0.5 text-body text-foreground/85">{name} is over. A few cards on what it held: what you caught, your focus, planned against did.</p>
+          <p className="mt-0.5 text-body text-foreground/85">{name} is over. A few cards on what it held: what you caught, where your focus went, and what you planned against what you did.</p>
         </div>
         <Tip label="Not now"><button type="button" aria-label="Not now" onClick={close} className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"><X className="size-3.5" /></button></Tip>
       </div>
@@ -284,7 +284,7 @@ export function WrapOffer(): React.JSX.Element | null {
         <Button size="sm" data-wrap-open onClick={() => (setOffer(null), openWrap(`month:${offer}`))}>Open</Button>
         <Button size="sm" variant="ghost" onClick={close}>Not now</Button>
         <span className="flex-1" />
-        <button type="button" onClick={never} className="text-control text-foreground/75 underline-offset-2 hover:text-foreground hover:underline">Don't offer these</button>
+        <Button size="sm" variant="ghost" onClick={never} className="text-muted-foreground">Don't offer these</Button>
       </div>
     </motion.aside>}
     </AnimatePresence>
