@@ -23,7 +23,7 @@ import { SlashPeek } from "./slash-peek"
 const REST = 450
 
 const SlashList = forwardRef(function SlashList(
-  { items, command, query }: SuggestionProps<SlashItem>,
+  { items, command, query, editor, range }: SuggestionProps<SlashItem>,
   ref: ForwardedRef<SuggestionListHandle>
 ) {
   const [selected, setSelected] = useState(0)
@@ -93,11 +93,12 @@ const SlashList = forwardRef(function SlashList(
           value={value}
           onChange={(event) => setValue(event.target.value)}
           onKeyDown={(event) => {
-            // Escape goes back to the list rather than closing the menu, which
-            // would tear out the element holding the focus.
+            // Escape gives up, as it does in the ![[ list: the "/bookmark" goes
+            // and the caret is back in the words, so the menu closes with nothing left behind.
             if (event.key === "Escape") {
+              event.preventDefault()
               event.stopPropagation()
-              setPending(null)
+              editor.chain().focus().deleteRange(range).run()
               return
             }
             if (event.key !== "Enter" || !value.trim()) return

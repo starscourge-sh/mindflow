@@ -80,6 +80,9 @@ try {
   check('"/note" is gone once picked', !(await words(h, sel)).includes('/note'), await words(h, sel))
   await h.keyboard.type('youtu', { delay: 40 }); await wait(900)
   const typed = await menu(h)
+  // The question's words start where the rows' words do (their icon's left edge).
+  const edges = await h.evaluate(() => { const box = [...document.querySelectorAll('.tiptap-suggestion-popup .tiptap-slash-menu')].pop(); const ask = box?.querySelector('.tiptap-slash-menu-ask'); const row = box?.querySelector('button svg'); if (!ask || !row) return null; const range = document.createRange(); range.selectNodeContents(ask); return { ask: Math.round(range.getBoundingClientRect().left), row: Math.round(row.getBoundingClientRect().left) } })
+  check('the question lines up with the rows', edges && Math.abs(edges.ask - edges.row) <= 1, JSON.stringify(edges))
   check('typing narrows it to the YouTube note, the question still showing', typed?.ask === 'Show which note here?' && typed.rows[0]?.text === 'YouTube ideas', JSON.stringify(typed))
   if (shots) await c.both(`${shots}/embed-picker`)
   await h.keyboard.press('Escape'); await wait(500)
@@ -120,7 +123,8 @@ try {
     const label = await h.evaluate(() => document.querySelector('[data-slash-prompt] .tiptap-slash-menu-ask')?.textContent ?? null)
     check(`${query} keeps its question "${ask}" over the box while typing`, label === ask, String(label))
     if (shots && query === '/youtube') await c.both(`${shots}/slash-youtube`)
-    await h.keyboard.press('Escape'); await wait(200); await h.keyboard.press('Escape'); await wait(300)
+    await h.keyboard.press('Escape'); await wait(500)
+    check(`${query}: Esc takes "${query}" away and closes the box, as in the ![[ list`, !(await words(h, sel)).includes(query) && !(await h.evaluate(() => !!document.querySelector('[data-slash-prompt]'))), await words(h, sel))
   }
 
   await embedRound('a note', h, sel)
