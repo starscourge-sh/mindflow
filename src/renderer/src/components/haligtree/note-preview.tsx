@@ -198,8 +198,8 @@ export function NotePreview(): React.JSX.Element | null {
             anchor: link,
             picture: found.picture !== undefined ? found.picture : binned ? null : pictureIn(found.body),
             lead: found.lead,
-            // A tag in a note's words edits on ⌥-click; anywhere else that click opens it beside.
-            foot: type === 'tag' ? (link.classList.contains('tiptap-token') ? 'Click to open its page, ⌥-click to edit it' : `Click to open its page${canSplit() ? ', ⌥-click to open it to the side' : ''}`) : undefined,
+            // A tag, in a note's words or anywhere else, opens as a link does.
+            foot: type === 'tag' ? `Click to open${canSplit() ? ', ⌥-click to the side' : ''}` : undefined,
             tally: found.tally,
             latest: found.latest
           })
@@ -347,7 +347,7 @@ export function NotePreview(): React.JSX.Element | null {
       {/* The foot only when it has something to say: a row's own title has no "Click to open" and no actions. */}
       {(shown.binned || !shown.row || shown.foot || shown.el || (shown.aside && canSplit()) || shown.queue) && (
       <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 border-t pt-2 text-xs text-muted-foreground">
-        {(shown.binned || !shown.row || shown.foot) && <span className="basis-full">{shown.binned ? 'In the Bin. Click the row to look inside, or Space to see it large.' : shown.foot ? shown.foot : `Click to open${shown.aside ? ', ⌘-click for its own window' : ''}`}</span>}
+        {(shown.binned || !shown.row || shown.foot) && <span className="basis-full">{shown.binned ? 'In the Bin. Click the row to look inside, or Space to see it large.' : shown.foot ? shown.foot : `Click to open${canSplit() ? ', ⌥-click to the side' : ''}${shown.aside ? ', ⌘-click for its own window' : ''}`}</span>}
         {/* A link to one line: the line itself shown here instead, live. */}
         {shown.el && (
           <button type="button" data-show-line-here onClick={() => (showLineHere(shown.el!), setShown(null))} className={ACT}>Show the line here</button>

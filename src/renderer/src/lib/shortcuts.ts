@@ -46,6 +46,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Getting around', keys: '⌘\\', does: 'Split: a new pane to the right, to open anything in (Esc closes it while empty)', where: 'Main window' },
   { group: 'Getting around', keys: '⌘\\', does: 'Show or hide the side panel', where: 'Quick capture' },
   { group: 'Getting around', keys: '⌥⌘\\', does: 'Split: the page again, in a pane beside it', where: 'Main window' },
+  { group: 'Getting around', keys: '⌘', does: 'A link, tag, time or page in a note opens on a plain click; ⌘-click opens a note in a window of its own (to edit a link, click beside it, arrow in, or right-click and “Edit link”)', where: 'Both windows' },
   { group: 'Getting around', keys: '⌥', does: '⌥-click a link, row or card: open it to the side, in a pane of its own', where: 'Main window' },
   { group: 'Getting around', keys: '⌥↵', does: 'In search: open the result to the side', where: 'Main window' },
   { group: 'Getting around', keys: '⌃H', does: 'Split: the pane to the left takes the keys (while split)', where: 'Main window' },

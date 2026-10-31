@@ -86,7 +86,7 @@ try {
     const one = await read()
     check('inline #tag: the card names the tag', one.title === '#cardz', one.title)
     check('inline #tag: says how many', /^\d+ notes$/.test(one.count ?? ''), one.count)
-    check('inline #tag: says what a click does', one.text.includes('⌥-click to edit'), one.text)
+    check('inline #tag: says what a click does', one.text.includes('Click to open, ⌥-click to the side'), one.text)
   } else check('inline #tag: there', false)
 } finally {
   await c.close()

@@ -317,19 +317,20 @@ export const Tokens = Extension.create<{
           /**
            * Following a tag.
            *
-           * A plain click on a tag opens it, as in Obsidian. It is decided on
-           * the press, from where the caret was before it: by the time a click
-           * finishes, the press itself has already moved the caret into the
-           * tag, so asking then always found it "inside" and nothing opened.
+           * A plain click on a tag opens it, as in Obsidian; ⌥-click opens it
+           * to the side, as a link does. It is decided on the press, from
+           * where the caret was before it: by the time a click finishes, the
+           * press itself has already moved the caret into the tag, so asking
+           * then always found it "inside" and nothing opened.
            *
-           * Two clicks edit instead: ⌥-click places the caret in the tag, and
-           * so does a click on the tag the caret is already inside (arrowed in
-           * to fix a typo). The press is held back from the editor, so opening
-           * a tag never moves the caret or vim's cursor.
+           * To edit one, arrow into it (or click just beside it): a click on
+           * the tag the caret is already inside then places the caret, to fix
+           * a typo. The press is held back from the editor, so opening a tag
+           * never moves the caret or vim's cursor.
            */
           handleDOMEvents: {
             mousedown: (view, event) => {
-              if (!onClick || event.button !== 0 || event.altKey) return false
+              if (!onClick || event.button !== 0 || event.shiftKey) return false
               const chip = (event.target as Element | null)?.closest?.('.tiptap-token[data-token="tag"]')
               if (!chip || !view.dom.contains(chip)) return false
               const at = view.posAtDOM(chip, 0)

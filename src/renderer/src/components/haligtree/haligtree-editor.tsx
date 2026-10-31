@@ -8,7 +8,8 @@ import { NodeSelection, Selection as PMSelection, type EditorState, type Transac
 import { onlyWordsChanged } from "@/lib/tiptap-utils"
 import type { Node as ProseMirrorNode, ResolvedPos } from "@tiptap/pm/model"
 import { EditorContent, EditorContext, useEditor } from "@tiptap/react"
-import { followPdfLink } from "@/components/pdf/pdf-reader"
+import { followPdfLink, openArticle } from "@/components/pdf/pdf-reader"
+import { canSplit } from "@/lib/split"
 import { useNotePlace } from "@/lib/note-place"
 
 // --- Tiptap Core Extensions ---
@@ -1139,23 +1140,27 @@ function Surface({
         }
         return new Slice(content, slice.openStart, slice.openEnd)
       },
-      // Mod-click opens a link. A plain click belongs to the caret, because
-      // the text is there to be edited - the same rule a tag follows.
-      // `openOnClick` is off on the extension for exactly that reason, and it
-      // has no setting for "only with a modifier". Where nothing can be edited
-      // (a card's answer in Review), there is no caret to place: a plain click
-      // follows the link, as a link anywhere else does.
+      // A plain click opens a link, as in Obsidian and Notion: in the browser,
+      // or the PDF reader for a PDF's. ⌥-click opens it to the side (a web
+      // page in the reader beside this one), ⌘-click in a window of its own,
+      // which for a web page is the browser's. Editing stays a click away:
+      // a click beside the link, or the arrow keys, puts the caret in it; a
+      // drag across it picks it (ProseMirror only calls this for a click that
+      // did not move); a right-click gives "Edit link". `openOnClick` is off
+      // on the extension because it has no ⌥ or ⌘ of its own.
       handleClick: (view, _pos, event) => {
-        // A right-click (or ⌃-click) is for the link's menu: it never follows the link.
-        if (event.button !== 0 || (event.ctrlKey && !event.metaKey)) return false
-        if (!(event.metaKey || event.ctrlKey) && view.editable) return false
+        // A right-click (or ⌃-click) is for the link's menu, ⇧-click stretches the selection: neither follows it.
+        if (event.button !== 0 || event.shiftKey || (event.ctrlKey && !event.metaKey)) return false
         const href = (event.target as HTMLElement | null)
           ?.closest("a[href]")
           ?.getAttribute("href")
-        if (!href) return false
+        if (!href || !view.dom.contains(event.target as Node)) return false
 
-        // A PDF's link opens the reader; setWindowOpenHandler in main sends the rest to the real browser.
-        if (!followPdfLink(href)) window.open(href, "_blank", "noopener")
+        // A PDF's link opens the reader (beside, on ⌥-click); a web page on ⌥-click opens in the reader beside.
+        if (followPdfLink(href)) return true
+        if (event.altKey && !event.metaKey && canSplit() && /^https?:/i.test(href)) return openArticle(href), true
+        // setWindowOpenHandler in main sends the rest to the real browser.
+        window.open(href, "_blank", "noopener")
         return true
       },
       // A list pasted into an empty bullet takes that bullet's place.
@@ -1216,6 +1221,8 @@ function Surface({
         link: has("link") && {
           openOnClick: false,
           enableClickSelection: true,
+          // What a click does, said on a rest (components/ui/title-tips.tsx); a link given a title says that instead.
+          HTMLAttributes: { "data-title-tip": canSplit() ? "Click to open, ⌥-click to the side" : "Click to open" },
           // A stored file can be linked to: a gem keeps its way back into a PDF so.
           protocols: ["haligtree", "mindflow"],
           // Only words that really are an address: "haligtree.app", never "the.re" (link-tidy.ts).

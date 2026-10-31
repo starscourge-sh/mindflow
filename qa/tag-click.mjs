@@ -2,8 +2,8 @@
 // a capture in the Inbox, a note in Notes, a note in a window of its own, and
 // the box. Each with vim on and off, with the caret elsewhere and with it on
 // the tag's own line, on a tag coloured on the Tags page and on one that is not.
-// Then the two clicks that edit instead: ⌥-click, and a click on the tag the
-// caret is already inside.
+// Then ⌥-click, which opens it to the side as a link does (on its own where
+// there is no side), and a click on the tag the caret is already inside, which edits.
 //
 //   npx electron-vite build --outDir out-tags
 //   QA_ARGS=--sandbox QA_ENTRY=out-tags/main/index.js node qa/tag-click.mjs
@@ -156,7 +156,7 @@ for (const [name, start] of Object.entries(surfaces)) {
         if (name === 'box') await s.reset()
       }
     }
-    // The two clicks that edit: neither opens, and the caret lands in the tag.
+    // ⌥-click opens it to the side (on its own where there is no side); a click with the caret already inside edits.
     for (const kind of ['alt', 'inside']) {
       await setVim(s.win, vim)
       if (name !== 'box' && name !== 'window') await s.reset()
@@ -165,12 +165,13 @@ for (const [name, start] of Object.entries(surfaces)) {
       if (kind === 'inside') await place(s.win, s.scope, 'inside')
       else await place(s.win, s.scope, 'elsewhere')
       await press(s.win, tag(s.win, s.scope, 0), { alt: kind === 'alt' })
-      const at = await selection(s.win, s.scope)
+      const at = await selection(s.win, s.scope).catch(() => -1)
       const opened = await s.opened('boom')
-      const title = await tag(s.win, s.scope, 0).getAttribute('title').catch(() => null)
-      check(!opened && at >= 18 && at <= 23, `${name}, vim ${vim ? 'on' : 'off'}: ${kind === 'alt' ? '⌥-click' : 'click with the caret inside'} edits (caret ${at}, opened ${opened})`)
-      if (kind === 'alt' && !vim) check(/⌥-click to edit/.test(title ?? ''), `${name}: tooltip says so ("${title}")`)
-      if (name === 'box' && opened) await s.reset()
+      const beside = await h.evaluate(() => document.querySelectorAll('[data-pane]').length > 1)
+      if (kind === 'alt') check(opened || beside, `${name}, vim ${vim ? 'on' : 'off'}: ⌥-click opens it${beside ? ' to the side' : ''} (opened ${opened}, beside ${beside})`)
+      else check(!opened && at >= 18 && at <= 23, `${name}, vim ${vim ? 'on' : 'off'}: click with the caret inside edits (caret ${at}, opened ${opened})`)
+      for (let i = 0; i < 3 && (await h.evaluate(() => document.querySelectorAll('[data-pane]').length > 1)); i++) { await h.keyboard.press('Control+w'); await h.waitForTimeout(400) }
+      if (name === 'box' && (opened || beside)) await s.reset()
     }
   }
   if (name === 'window') await s.win.close().catch(() => {})

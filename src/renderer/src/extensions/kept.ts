@@ -258,7 +258,8 @@ export const Kept = Mark.create({
       },
       props: {
         decorations: (state) => KEY.getState(state)?.set,
-        // ⌘-click on kept words opens what they became, as a link does.
+        // The words stay words, for the caret: their mark opens on a plain click,
+        // and ⌘-click on the words themselves opens what they became.
         handleClick: (view, pos, event) => {
           if (!event.metaKey) return false
           const mark = keptAt(view.state.doc, pos)

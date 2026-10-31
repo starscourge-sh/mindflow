@@ -3596,11 +3596,12 @@ body > div[dir][style*="-10000px"] > .tableWrapper {
   }
 }
 
-// A link is something you can open, so it says so. Mod-click is what actually
-// opens it - a plain click belongs to the caret, because the text is there to
-// be edited - but the hand is the only hint that there is anything to open.
+// A link is something you can open, so it says so: a plain click opens it.
+// A press that moves picks words from it, as from any words, rather than
+// picking the link up to drag it away.
 .tiptap.ProseMirror.haligtree-editor a[href] {
   cursor: pointer;
+  -webkit-user-drag: none;
 }
 
 // A link that leaves Haligtree carries a small arrow up and out after its last

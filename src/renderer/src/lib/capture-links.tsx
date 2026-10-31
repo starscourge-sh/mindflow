@@ -9,6 +9,7 @@ import { lift, shred, type Home } from '@/lib/fly-home'
 import { readTags, setLinkKinds, showHeading, type LinkKind, type NoteSuggestion } from '@/extensions/note-link'
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { openApart } from '@/lib/apart'
+import { asideClick, canSplit, openAside, spendAsideClick } from '@/lib/split'
 import { headingsIn } from '@/components/toc/headings'
 import { linesIn } from '../../../main/blocks'
 import type { JSONContent } from '@tiptap/core'
@@ -279,14 +280,18 @@ export const follow = (link: string, open: (type: string, id: string) => void, h
   // Found by a link, for the usage counts.
   via('link')
   const [type, id] = link.includes(':') ? [link.slice(0, link.indexOf(':')), link.slice(link.indexOf(':') + 1)] : ['capture', link]
+  // ⌥-clicked: to the side, as everywhere. Read now, from the click, before a capture's lookup waits.
+  const side = asideClick() && canSplit() && type !== 'person'
+  if (side) spendAsideClick()
+  const go = side ? openAside : open
   // A person or a tag is a place in the main window, not a note: its tag page, or a search for their name.
   // A PDF or a kept article opens in the reader there, wherever the link is.
-  if (type === 'person' || type === 'tag' || type === 'pdf' || type === 'web') return window.api.openInHome(type, id)
+  if (type === 'person' || type === 'tag' || type === 'pdf' || type === 'web') return side ? openAside(type, id) : window.api.openInHome(type, id)
   if (type === 'capture') return void keptAs(id).then((to) => {
-    open(to.type, to.id)
+    go(to.type, to.id)
     if (heading) headingIn(to.type, to.id, heading)
   })
-  open(type, id)
+  go(type, id)
   if (heading) headingIn(type, id, heading)
 }
 
