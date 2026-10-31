@@ -123,9 +123,14 @@ try {
 
   // Cards: a grid of real flashcards.
   await reopen({ density: 'grid' })
-  check('cards view draws a card for each', await h.evaluate(() => document.querySelectorAll('[data-card-grid] [data-card-face="front"]').length) === all.length)
+  // Drawn where you look: the first run of 24 at once, the rest as you scroll to them.
+  const fronts = await h.evaluate(() => document.querySelectorAll('[data-card-grid] [data-card-face="front"]').length)
+  check('cards view draws the cards in sight', fronts >= Math.min(all.length, 24) && fronts <= all.length, `${fronts} of ${all.length}`)
+  await h.locator('[data-card-browser] input').first().fill('Venetian')
+  await waitFor(() => h.evaluate(() => document.querySelectorAll('[data-card-grid] [data-pick]').length === 1))
   check('a snip\'s picture is on its face', await h.evaluate((id) => !!document.querySelector(`[data-pick="nugget:${id}"] [data-card-face="front"] img`), p3))
   check('its source at the foot', await h.evaluate((id) => /The Law Book, p\. 3/.test(document.querySelector(`[data-pick="nugget:${id}"] [data-card-face="front"]`)?.textContent ?? ''), p3))
+  await h.locator('[data-card-browser] input').first().fill('')
   await h.mouse.move(5, 5)
   await shot('all-cards-cards', async () => { await open(); await h.mouse.move(5, 5) })
   // Keys: J moves, Space turns one, ⇧Space turns them all.

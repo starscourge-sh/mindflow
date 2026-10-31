@@ -16,7 +16,7 @@ import { WithPictures } from './with-pictures'
 import { PasteCards } from './paste-cards'
 import { SplitForm } from './study'
 import { AnotherWay } from './another-way'
-import { FlipThrough, Pocket, Poster, Shelf, groupTint } from './card-shelves'
+import { FlipThrough, Pocket, Poster, Shelf, Windowed, groupTint } from './card-shelves'
 import { Empty, Tip, toast, typing } from './ui'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -282,8 +282,6 @@ export function CardBrowser({ onOpen, pasting: pastingFirst = false }: { onOpen:
   const [flowAt, setFlowAt] = useState(0)
   // A few hundred drawn at a time: a book of 5,000 cards opens at once, and shows more as asked.
   const [limit, setLimit] = useState(200)
-  // Cards are drawn 60 at a time: each is a turning, leaning picture, where a row is a line of words.
-  const step = density === 'grid' || opened ? 60 : 200
   const [editing, setEditing] = useState<string | null>(null)
   const [fixing, setFixing] = useState<{ id: string; how: 'split' | 'another'; card?: Due } | null>(null)
   const [tagging, setTagging] = useState('')
@@ -544,18 +542,18 @@ export function CardBrowser({ onOpen, pasting: pastingFirst = false }: { onOpen:
     <div key={card.id} data-card-row={card.id} className="contents">
       {editing === card.id
         ? <div className={density === 'grid' ? 'col-span-full' : ''}><EditCard card={card} tint={tintOf(card)} onDone={() => { setEditing(null); requestAnimationFrame(() => list.current?.querySelector<HTMLElement>(`[data-pick="nugget:${card.id}"]`)?.focus()) }} /></div>
-        : <RowMenu items={menu(card)}>{density === 'grid' || opened ? <div className="min-w-0">{poster(card)}</div> : row(card)}</RowMenu>}
+        : <RowMenu items={() => menu(card)}>{density === 'grid' || opened ? <div className="min-w-0">{poster(card)}</div> : row(card)}</RowMenu>}
       {fixer(card)}
     </div>
   )
-  const drawn2 = Math.min(limit, step === 60 ? Math.max(60, limit - 140) : limit)
-  const more = (list: BrowsedCard[]): React.JSX.Element | null => list.length <= drawn2 ? null : (
-    <button type="button" data-card-more onClick={() => (chime('open'), setLimit(drawn2 + step + (step === 60 ? 140 : 0)))} className="mt-3 w-full rounded-md py-2 text-control font-medium text-foreground/80 hover:bg-accent/50 hover:text-foreground">
-      Show {num(Math.min(step, list.length - drawn2))} more <span className="font-normal text-foreground/60">of {num(list.length - drawn2)}</span>
+  const more = (list: BrowsedCard[]): React.JSX.Element | null => list.length <= limit ? null : (
+    <button type="button" data-card-more onClick={() => (chime('open'), setLimit(limit + 200))} className="mt-3 w-full rounded-md py-2 text-control font-medium text-foreground/80 hover:bg-accent/50 hover:text-foreground">
+      Show {num(Math.min(200, list.length - limit))} more <span className="font-normal text-foreground/60">of {num(list.length - limit)}</span>
     </button>
   )
+  // The grid of cards is drawn where you are looking (and a screen either side), however many thousand it holds.
   const body = (list: BrowsedCard[]): React.JSX.Element => density === 'grid' || opened
-    ? <><div data-card-grid className="grid grid-cols-[repeat(auto-fill,minmax(12.5rem,1fr))] items-start gap-5 p-1">{list.slice(0, drawn2).map(cell)}</div>{more(list)}</>
+    ? <div data-card-grid><Windowed items={list} render={cell} className="grid grid-cols-[repeat(auto-fill,minmax(12.5rem,1fr))] items-start gap-5 p-1" /></div>
     : <><div className={`flex flex-col ${density === 'compact' ? 'text-xs' : ''}`}>{list.slice(0, limit).map(cell)}</div>{more(list)}</>
   const head = density === 'compact' && (
     <div aria-hidden className="grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_6.5rem_5rem_8rem] gap-x-3 border-b px-3 pb-1 text-xs font-medium text-muted-foreground">
@@ -622,7 +620,7 @@ export function CardBrowser({ onOpen, pasting: pastingFirst = false }: { onOpen:
                 <Chips options={[{ id: 'cards', label: 'Cards' }, { id: 'flow', label: 'Flip through' }]} on={(id) => (id === 'flow') === flowing} pick={(id) => (chime('tap'), setFlowing(id === 'flow'), setFlowAt(0))} />
               </div>
               {flowing
-                ? <FlipThrough cards={inGroup} at={Math.min(flowAt, inGroup.length - 1)} onAt={setFlowAt} render={(card) => <RowMenu items={menu(card)}><div>{poster(card, 'lg')}</div></RowMenu>} />
+                ? <FlipThrough cards={inGroup} at={Math.min(flowAt, inGroup.length - 1)} onAt={setFlowAt} render={(card) => <RowMenu items={() => menu(card)}><div>{poster(card, 'lg')}</div></RowMenu>} />
                 : body(inGroup)}
             </div>
           ) : density === 'small' ? (
@@ -634,7 +632,7 @@ export function CardBrowser({ onOpen, pasting: pastingFirst = false }: { onOpen:
             // Shelves: a group's cards standing behind a glass ledge in its colour; a long one ends in a card that opens the rest.
             groups.map(([name, one]) => (
               <Shelf key={name} name={name} count={one.length} onOpen={() => (chime('open'), setOpened(name))}>
-                {one.slice(0, 24).map((card) => <div key={card.id} data-card-row={card.id} className="w-48">{editing === card.id ? <EditCard card={card} tint={tintOf(card)} onDone={() => setEditing(null)} /> : <RowMenu items={menu(card)}><div>{poster(card, 'md', true)}</div></RowMenu>}</div>)}
+                {one.slice(0, 24).map((card) => <div key={card.id} data-card-row={card.id} className="w-48">{editing === card.id ? <EditCard card={card} tint={tintOf(card)} onDone={() => setEditing(null)} /> : <RowMenu items={() => menu(card)}><div>{poster(card, 'md', true)}</div></RowMenu>}</div>)}
                 {one.length > 24 && (
                   <button type="button" data-shelf-more onClick={() => (chime('open'), setOpened(name))} className="mf-poster flex aspect-[4/5] w-48 flex-col items-center justify-center gap-1 rounded-lg font-heading text-heading font-semibold text-foreground" style={{ '--tint': groupTint(name) } as React.CSSProperties}>
                     +{num(one.length - 24)}<span className="font-sans text-control font-normal text-foreground/70">more, open the group</span>

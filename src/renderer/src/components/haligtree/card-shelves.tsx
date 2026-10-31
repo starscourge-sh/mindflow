@@ -238,12 +238,22 @@ export function Shelf({ name, count, onOpen, children }: { name: string; count: 
   const row = useSideways()
   const box = useRef<HTMLDivElement | null>(null)
   const tint = groupTint(name)
+  // Its cards are made only while the shelf is within two screens of sight: 300 shelves cost 300 headings, not 7,000 cards.
+  const shelf = useRef<HTMLElement | null>(null)
+  const [near, setNear] = useState(false)
+  useEffect(() => {
+    const node = shelf.current
+    if (!node) return
+    const watch = new IntersectionObserver(([entry]) => setNear(entry.isIntersecting), { rootMargin: '200% 0px' })
+    watch.observe(node)
+    return () => watch.disconnect()
+  }, [])
   const slide = (way: 1 | -1): void => {
     chime('tap')
     box.current?.scrollBy({ left: way * box.current.clientWidth * 0.8, behavior: still() ? 'auto' : 'smooth' })
   }
   return (
-    <section data-shelf={name} className="mf-shelf mt-6 first:mt-1">
+    <section ref={shelf} data-shelf={name} className="mt-6 first:mt-1">
       <header className="mb-2 flex items-baseline gap-3 px-1">
         <button type="button" onClick={onOpen} className="min-w-0 truncate font-heading text-heading font-semibold text-foreground hover:underline">{name}</button>
         <span className="ml-auto shrink-0 text-control text-foreground/60 tabular-nums">{num(count)} {count === 1 ? 'card' : 'cards'}</span>
@@ -251,7 +261,7 @@ export function Shelf({ name, count, onOpen, children }: { name: string; count: 
         <button type="button" aria-label="On along" disabled={!row.edges.right} onClick={() => slide(1)} className="rounded p-1 text-foreground/70 hover:bg-accent disabled:opacity-30"><ChevronRight className="size-4" /></button>
       </header>
       <div className="relative">
-        <div ref={(node) => { box.current = node; row.ref(node) }} style={row.style} className={`${row.className} flex gap-4 px-4 pt-2 pb-2`}>{children}</div>
+        <div ref={(node) => { box.current = node; row.ref(node) }} style={row.style} className={`${row.className} flex min-h-[19rem] gap-4 px-4 pt-2 pb-2`}>{near ? children : null}</div>
         <div aria-hidden className="mf-glass mf-ledge pointer-events-none absolute inset-x-0 bottom-0 h-12 rounded-xl" style={{ '--tint': tint } as React.CSSProperties}><Screws /></div>
       </div>
     </section>
@@ -272,15 +282,57 @@ export function FlipThrough({ cards, render, at, onAt }: { cards: BrowsedCard[];
         const off = n - at
         const side = Math.sign(off)
         const away = Math.abs(off)
-        const transform = off === 0 ? 'translateX(0) translateZ(0) rotateY(0deg)' : `translateX(${side * (8 + away * 7.5)}rem) translateZ(-${100 + away * 60}px) rotateY(${-side * 48}deg)`
+        const transform = off === 0 ? 'translateX(0) translateZ(0) rotateY(0deg)' : `translateX(${side * (6 + away * 9.5)}rem) translateZ(-${100 + away * 60}px) rotateY(${-side * 48}deg)`
         return (
           <div key={card.id} data-flip-at={off} onClickCapture={(event) => off !== 0 && (event.stopPropagation(), chime('tap'), onAt(n))}
-            aria-hidden={away > 2 || undefined} className={`mf-flow absolute w-64 ${away > 2 ? 'invisible' : ''}`} style={{ transform, zIndex: 100 - away, opacity: away > 2 ? 0 : 1 - away * 0.3 }}>
+            aria-hidden={away > 2 || undefined} className={`mf-flow absolute w-64 ${away > 2 ? 'invisible' : ''}`} style={{ transform, zIndex: 100 - away, opacity: away > 2 ? 0 : 1 }}>
             {render(card, off === 0)}
+            {/* Further out, further into the page's own colour: a solid veil, never see-through text. */}
+            {away > 0 && <span aria-hidden className="pointer-events-none absolute inset-0 rounded-lg bg-background" style={{ opacity: away * 0.28 }} />}
           </div>
         )
       })}
       <div className="pointer-events-none absolute inset-x-0 bottom-2 text-center text-control text-foreground/70 tabular-nums">{num(at + 1)} of {num(cards.length)} · ← → to move, Space turns it over</div>
+    </div>
+  )
+}
+
+/**
+ * A long run of cards drawn only near the screen: cut into runs of 24, each
+ * drawn while within a screen's height of what shows and kept, when away, as
+ * an empty space of the height it last had. So a book of 5,000 cards scrolls as
+ * one grid while only a few dozen cards exist at once.
+ */
+export function Windowed<T>({ items, render, className }: { items: T[]; render: (item: T) => React.ReactNode; className: string }): React.JSX.Element {
+  const runs: T[][] = []
+  for (let at = 0; at < items.length; at += 24) runs.push(items.slice(at, at + 24))
+  // The height a drawn run took, for the runs not yet drawn.
+  const usual = useRef(1200)
+  // Each run's cards are made only when it is near: a far run costs one empty box.
+  return <>{runs.map((run, at) => <Run key={at} first={at === 0} usual={usual} className={className} draw={() => run.map(render)} />)}</>
+}
+
+function Run({ first, usual, className, draw }: { first: boolean; usual: React.RefObject<number>; className: string; draw: () => React.ReactNode }): React.JSX.Element {
+  const box = useRef<HTMLDivElement | null>(null)
+  const [near, setNear] = useState(first)
+  const [height, setHeight] = useState<number | null>(null)
+  useEffect(() => {
+    const node = box.current
+    if (!node) return
+    const watch = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting && node.offsetHeight) setHeight(node.offsetHeight)
+      setNear(entry.isIntersecting)
+    }, { rootMargin: '200% 0px' })
+    watch.observe(node)
+    return () => watch.disconnect()
+  }, [])
+  // Measured once drawn, so the space it leaves when away is its own.
+  useEffect(() => {
+    if (near && box.current?.offsetHeight) usual.current = box.current.offsetHeight
+  })
+  return (
+    <div ref={box} data-card-run={near ? 'drawn' : 'away'} className={near ? className : undefined} style={near ? undefined : { height: height ?? usual.current }}>
+      {near ? draw() : null}
     </div>
   )
 }

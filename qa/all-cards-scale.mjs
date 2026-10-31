@@ -33,7 +33,7 @@ const open = async () => {
   await waitFor(() => h.evaluate(() => !!document.querySelector('[data-card-list] :is([data-pick], [data-pocket])')))
   await h.mouse.move(5, 5)
 }
-const reopen = async (patch) => { await setView(patch); await c.go('home'); await open() }
+const reopen = async (patch) => { const began = Date.now(); await setView(patch); await c.go('home'); await open(); console.log(`TIMING ${JSON.stringify(patch)} ${Date.now() - began} ms`) }
 const shot = async (name, again) => {
   if (!shots) return
   for (const [theme, said] of [['paper', 'light'], ['dark', 'dark']]) {
