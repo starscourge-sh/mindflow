@@ -155,6 +155,27 @@
   min-width: 0;
 }
 
+/* Snip: a layer over the pages while snipping, and the rectangle being dragged. */
+.pdf-reader-scroll:has(.pdf-snip-layer) {
+  position: relative;
+}
+
+.pdf-snip-layer {
+  position: absolute;
+  inset: 0 0 auto 0;
+  z-index: 20;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.pdf-snip-box {
+  position: absolute;
+  border: 1.5px solid var(--tt-brand-color-500, #c08a2e);
+  border-radius: 0.25rem;
+  background: color-mix(in srgb, var(--tt-brand-color-500, #c08a2e) 12%, transparent);
+  pointer-events: none;
+}
+
 /* The chapter you are in, under the title, from the PDF's outline. */
 .pdf-reader-chapter {
   display: block;

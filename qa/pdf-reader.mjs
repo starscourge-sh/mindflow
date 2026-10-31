@@ -672,6 +672,25 @@ try {
   const blank = (await cardsFromBook()).find((one) => one.prompt?.includes('_____'))
   check('⇧C makes a fill-in-the-blank card from the sentence alone, not the heading above it', blank?.prompt === 'A _____ sentence worth keeping on page 2.', JSON.stringify(blank?.prompt))
   check('the count of cards from this source is said', /Card made: 2 from this source/.test(await h.evaluate(() => document.body.textContent)), '')
+  // Snip: drag a rectangle over the page's figure (the orange square), make it a card's answer, or keep it as a gem.
+  await h.click('.pdf-reader button[aria-label="Snip"]'); await wait(300)
+  check('Snip turns on a layer to drag over the pages', await h.evaluate(() => !!document.querySelector('[data-pdf-snip]')), '')
+  const figure = await h.evaluate(() => {
+    const page = document.querySelector('.pdf-reader .pdf-page[data-page="2"]')
+    page.scrollIntoView({ block: 'start' })
+    const r = page.getBoundingClientRect()
+    return { x: r.left + r.width * 0.12, y: r.top + r.height * 0.55, w: r.width * 0.2, h: r.height * 0.15 }
+  })
+  await wait(400)
+  await h.mouse.move(figure.x, figure.y); await h.mouse.down()
+  await h.mouse.move(figure.x + figure.w, figure.y + figure.h, { steps: 6 }); await h.mouse.up(); await wait(1200)
+  check('a dragged rectangle is cut out and offers Card and Keep', await h.evaluate(() => !!document.querySelector('.pdf-keep-bar button[aria-label="Card"]') && !!document.querySelector('.pdf-keep-bar button[aria-label="Keep"]') && !document.querySelector('[data-pdf-snip]')), '')
+  await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-snip.png` })
+  await h.click('.pdf-keep-bar button[aria-label="Card"]'); await wait(400)
+  await h.keyboard.type('What does figure 1 show?'); await h.keyboard.press('Enter'); await wait(900)
+  const snipCard = (await cardsFromBook()).find((one) => one.prompt === 'What does figure 1 show?')
+  const snipBody = snipCard ? JSON.stringify((await v('item', snipCard.id))?.body ?? '') : ''
+  check('the snip is the card\'s answer: a picture, with the book and page', /!\[\]\(haligtree:\/\/assets\/[^)]+\.png\)/.test(snipBody) && snipBody.includes('#page=2') && snipCard?.passage === 'p. 2', snipBody.slice(0, 200))
 } catch (error) {
   check('ran without throwing', false, String(error?.stack ?? error))
 } finally {

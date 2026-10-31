@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react"
 import type { PDFDocumentProxy } from "pdfjs-dist"
-import { ChevronDown, ChevronUp, Minus, PanelLeft, PanelRight, Plus, ScrollText, Search, X } from "lucide-react"
+import { ChevronDown, ChevronUp, Gem, Minus, PanelLeft, PanelRight, Plus, Scissors, ScrollText, Search, SquareStack, X } from "lucide-react"
 import { Button } from "@/components/tiptap-ui-primitive/button"
+import { Toolbar, ToolbarGroup } from "@/components/tiptap-ui-primitive/toolbar"
+import { saveAttachment } from "@/extensions/image-drop"
 import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from "@/components/ui/context-menu"
 import { Roll } from "@/lib/roll"
 import { call } from "@/lib/haligtree"
@@ -352,6 +354,59 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     chime("saved")
     said(count > 15 ? `Card made: ${count} from this source. Most people keep 10 to 15 from an hour; the best ones are enough` : `Card made: ${count} from this source`)
   }
+  // Snip: a rectangle dragged over a page (a figure, a typeset equation, a
+  // table) cut out as a picture, then made a card's answer or kept as a gem.
+  const [snipping, setSnipping] = useState(false)
+  const [snip, setSnip] = useState<{ x: number; y: number; w: number; h: number; from?: { x: number; y: number } } | null>(null)
+  const [snipped, setSnipped] = useState<{ src: string; page: number; x: number; y: number } | null>(null)
+  /** A pointer's place in the pages' own scrolling space, where the floating bars are placed. */
+  const within = (event: { clientX: number; clientY: number }): { x: number; y: number } => {
+    const frame = scroller.current!.getBoundingClientRect()
+    return { x: event.clientX - frame.left + scroller.current!.scrollLeft, y: event.clientY - frame.top + scroller.current!.scrollTop }
+  }
+  /** The rectangle cut from the page it sits on, at the page's full drawn sharpness, saved with the book's other pictures. */
+  const cut = async (box: { x: number; y: number; w: number; h: number }): Promise<void> => {
+    const frame = scroller.current!.getBoundingClientRect()
+    const left = box.x + frame.left - scroller.current!.scrollLeft
+    const top = box.y + frame.top - scroller.current!.scrollTop
+    const sheet = [...scroller.current!.querySelectorAll<HTMLElement>(".pdf-page[data-page]")].find((one) => {
+      const r = one.getBoundingClientRect()
+      return left + box.w / 2 >= r.left && left + box.w / 2 <= r.right && top + box.h / 2 >= r.top && top + box.h / 2 <= r.bottom
+    })
+    const canvas = sheet?.querySelector<HTMLCanvasElement>("canvas")
+    setSnip(null)
+    if (!sheet || !canvas) return said("Snip on a page: drag over a figure or an equation")
+    const drawn = canvas.getBoundingClientRect()
+    const scale = canvas.width / drawn.width
+    const out = document.createElement("canvas")
+    out.width = Math.max(1, Math.round(box.w * scale))
+    out.height = Math.max(1, Math.round(box.h * scale))
+    out.getContext("2d")!.drawImage(canvas, (left - drawn.left) * scale, (top - drawn.top) * scale, out.width, out.height, 0, 0, out.width, out.height)
+    const blob = await new Promise<Blob | null>((done) => out.toBlob(done, "image/png"))
+    if (!blob) return
+    const page = Number(sheet.dataset.page)
+    const { src: saved } = await saveAttachment(new File([blob], `${title} p${page} snip.png`, { type: "image/png" }))
+    setSnipping(false)
+    setSnipped({ src: saved, page, x: box.x + box.w / 2 - 70, y: box.y })
+    chime("saved")
+  }
+  /** The snip kept as a gem: the picture, the book and page under it, linked back. */
+  const keepSnip = async (one: { src: string; page: number }): Promise<void> => {
+    const { author, where } = await whereFrom(one.page)
+    await call<string>("nugget:from", `![](${one.src})\n\n[${where}](${pdfLink(src, name, one.page, "")})`, { attribution: author || null, medium: title, passage: `p. ${one.page}`, kind: "quote" })
+    setSnipped(null)
+    chime("saved")
+    said("Snip kept as a gem")
+  }
+  // Esc leaves snipping, and drops a snip not yet used.
+  useEffect(() => {
+    if (!snipping && !snipped) return
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === "Escape" && keysHere(pane)) (setSnipping(false), setSnip(null), setSnipped(null))
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  })
   // C: the question asked where the words were; Return makes the card.
   const [carding, setCarding] = useState<{ page: number; quote: string; x: number; y: number } | null>(null)
   const actions: ReadActions = {
@@ -516,6 +571,9 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           <Button data-style="ghost" aria-label="Details" title={detailsOut ? "Hide details" : "Details"} data-active-state={detailsOut ? "on" : "off"} onClick={() => (chime(detailsOut ? "fold" : "slide"), showDetails(!detailsOut, pane))}>
             <PanelRight className="tiptap-button-icon" />
           </Button>
+          <Button data-style="ghost" aria-label="Snip" title="Snip a figure or an equation onto a card: drag over it" data-active-state={snipping ? "on" : "off"} onClick={() => (setSnipping(!snipping), setSnip(null), setSnipped(null))}>
+            <Scissors className="tiptap-button-icon" />
+          </Button>
           <Button data-style="ghost" aria-label="Find" title="Find  ⌘F" data-active-state={finding ? "on" : "off"} onClick={() => (finding ? closeFind() : (setFinding(true), requestAnimationFrame(() => findField.current?.focus())))}>
             <Search className="tiptap-button-icon" />
           </Button>
@@ -627,11 +685,49 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
                 })
               }}
             />
+            {snipping && (
+              <div
+                data-pdf-snip
+                className="pdf-snip-layer"
+                style={{ height: scroller.current?.scrollHeight }}
+                onPointerDown={(event) => {
+                  if (event.button !== 0) return
+                  event.currentTarget.setPointerCapture(event.pointerId)
+                  const at = within(event)
+                  setSnip({ x: at.x, y: at.y, w: 0, h: 0, from: at })
+                  setSnipped(null)
+                }}
+                onPointerMove={(event) => {
+                  if (!snip?.from || !event.buttons) return
+                  const at = within(event)
+                  setSnip({ ...snip, x: Math.min(at.x, snip.from.x), y: Math.min(at.y, snip.from.y), w: Math.abs(at.x - snip.from.x), h: Math.abs(at.y - snip.from.y) })
+                }}
+                onPointerUp={() => snip && snip.w > 6 && snip.h > 6 ? void cut(snip) : setSnip(null)}
+              >
+                {snip && <div className="pdf-snip-box" style={{ left: snip.x, top: snip.y, width: snip.w, height: snip.h }} />}
+              </div>
+            )}
+            {snipped && !carding && (
+              <div className="pdf-keep-bar" style={{ left: snipped.x, top: Math.max(8, snipped.y - 48) }} onMouseDown={(event) => event.preventDefault()}>
+                <Toolbar variant="floating">
+                  <ToolbarGroup>
+                    <Button data-style="ghost" aria-label="Card" title="A card that shows this snip as its answer  C" onClick={() => (setCarding({ page: snipped.page, quote: `![](${snipped.src})`, x: snipped.x, y: snipped.y }), setSnipped(null))}>
+                      <SquareStack className="tiptap-button-icon" />
+                      <span className="tiptap-button-text">Card</span>
+                    </Button>
+                    <Button data-style="ghost" aria-label="Keep" title="Keep the snip as a gem  K" onClick={() => void keepSnip(snipped)}>
+                      <Gem className="tiptap-button-icon" />
+                      <span className="tiptap-button-text">Keep</span>
+                    </Button>
+                  </ToolbarGroup>
+                </Toolbar>
+              </div>
+            )}
             {picked && !looking && !whyFor && !carding && <ReadBar at={picked} actions={actions} />}
             {carding && (
               <WhyAfter
                 at={carding}
-                ask={{ kept: `Answer: ${carding.quote.length > 28 ? `${carding.quote.slice(0, 27)}…` : carding.quote}`, label: "The card's question", placeholder: "The question these words answer" }}
+                ask={{ kept: carding.quote.startsWith("![](") ? "Answer: the snip" : `Answer: ${carding.quote.length > 28 ? `${carding.quote.slice(0, 27)}…` : carding.quote}`, label: "The card's question", placeholder: carding.quote.startsWith("![](") ? "The question this snip answers" : "The question these words answer" }}
                 onSave={(question) => void cardOf(question, carding.quote, carding.page)}
                 onDone={() => (getSelection()?.removeAllRanges(), setCarding(null))}
               />
