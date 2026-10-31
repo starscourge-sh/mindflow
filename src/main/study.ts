@@ -243,6 +243,27 @@ export function typedCheck(typed: string, answer: string, how: Strictness = 'usu
 }
 
 /**
+ * The day a card comes back, moved a little to even out heavy days (Anki's
+ * load balancer): for a gap of 3 days or more, any day within 5% of it (at
+ * least 1, at most 4 days either side) may be picked, the one with the
+ * fewest cards due; a lighter day (a weekday the person chose) is avoided
+ * when another is in reach. `load` says how many are due on a day; days are
+ * counted from today, 0 being today.
+ */
+export function balancedDay(days: number, load: (day: number) => number, lighter: (day: number) => boolean = () => false): number {
+  if (days < 3) return days
+  const reach = Math.min(4, Math.max(1, Math.round(days * 0.05)))
+  let best = days
+  let bestScore = Infinity
+  for (let day = days - reach; day <= days + reach; day++) {
+    // Lighter days count as full; nearer the planned day wins a tie.
+    const score = (lighter(day) ? 1e6 : 0) + load(day) * 10 + Math.abs(day - days)
+    if (score < bestScore) (best = day), (bestScore = score)
+  }
+  return best
+}
+
+/**
  * "term - meaning" lines, as pasted from a glossary or a vocabulary list:
  * a dash, en dash, colon or equals sign between the two, each side short.
  * Empty unless at least three lines read that way and most of the list does.

@@ -34,7 +34,7 @@ import { onboarding } from '@/lib/onboarding'
 import { WithPictures } from './with-pictures'
 import { languageOf, sayAgain, speak } from '@/lib/read-aloud'
 import { LearnMode } from './learn-mode'
-import { isLeech, typedCheck, type Strictness } from '../../../../main/study'
+import { isLeech, minutesFor, typedCheck, type Strictness } from '../../../../main/study'
 import { Star } from 'lucide-react'
 import { RowMenu, copyLinkItem, type RowItem } from './row-menu'
 import { binItem } from '@/lib/to-bin'
@@ -453,7 +453,12 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
       {/* One card at a time in the middle of the page, never a narrow card with an empty half beside it. */}
       <div className="page-sheet mx-auto w-full">
       {/* One quiet line over the card: where you are, and practice, new cards and exams folded into it. */}
-      {round ? <><RoundLine round={round} onLeave={leaveRound} /><Through at={at} total={queue.length} /></> : <TopLine at={at} total={queue.length} exams={exams} onPick={startRound} onLearn={() => setLearning(true)} />}
+      {round ? <><RoundLine round={round} onLeave={leaveRound} /><Through at={at} total={queue.length} /></> : <TopLine at={at} total={queue.length} exams={exams} onPick={startRound} onLearn={() => setLearning(true)} onTrim={(cards) => {
+        // The queue is most at risk first: the first ones that fit the time are the ones to do now.
+        chime('settled')
+        setQueue((all) => all && all.slice(0, at + cards))
+        toast(`${num(cards)} cards, about 25 minutes, most at risk first. The rest wait for later today or tomorrow.`)
+      }} />}
       {missed && (
         <p className="px-5 pt-3 -mb-1 text-xs text-muted-foreground">
           <Typed text="Missed that one? Reread where it came from:" step={28} delay={100} />
@@ -713,7 +718,12 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
  * hover), the new cards to learn and Practise, which unfolds the rounds.
  * The card under it is the hero.
  */
-function TopLine({ at, total, exams, onPick, onLearn }: { at: number; total: number; exams: Exam[]; onPick: (bucket: Round) => void; onLearn: () => void }): React.JSX.Element {
+function TopLine({ at, total, exams, onPick, onLearn, onTrim }: { at: number; total: number; exams: Exam[]; onPick: (bucket: Round) => void; onLearn: () => void; /** Keep only as many cards as fit 25 minutes. */ onTrim: (cards: number) => void }): React.JSX.Element {
+  const pace = useLive(haligtree.reviewPace, null as number | null, [], ['item'])
+  const left = total - at
+  const minutes = minutesFor(left, pace)
+  const each = pace && pace > 3000 ? Math.min(pace, 60000) : 30000
+  const fits = Math.max(1, Math.floor((25 * 60000) / each))
   const counts = useLive(haligtree.buckets, null as Record<Round, number> | null, [], ['item'])
   const days = useLive(haligtree.daysInARow, null as { run: number; banked: number } | null, [], ['item'])
   const [practising, setPractising] = useState(false)
@@ -733,8 +743,13 @@ function TopLine({ at, total, exams, onPick, onLearn }: { at: number; total: num
             </Tip>
           ))}
         </span>
-        <Through at={at} total={total} />
+        <Through at={at} total={total} minutes={minutes} />
         <span className="flex flex-wrap items-center justify-start gap-1 @lg:justify-end">
+          {minutes > 30 && left > fits && (
+            <Tip label={`A long day: the ${num(fits)} most at risk of fading first, about 25 minutes. The rest wait.`}>
+              <button type="button" data-do-25 onClick={() => onTrim(fits)} className={quiet}>Do 25 minutes now</button>
+            </Tip>
+          )}
           {fresh > 0 && (
             <Tip label={`${num(fresh)} new ${fresh === 1 ? 'card' : 'cards'}: learn them in a guided round before they join the schedule`}>
               <button type="button" data-learn-new onClick={() => (chime('open'), onLearn())} className={quiet}>
@@ -755,7 +770,7 @@ function TopLine({ at, total, exams, onPick, onLearn }: { at: number; total: num
 }
 
 /** Where you are in today's cards: "1 of 3", with a dot for each card while they fit on one line. */
-function Through({ at, total }: { at: number; total: number }): React.JSX.Element {
+function Through({ at, total, minutes }: { at: number; total: number; /** About how long the cards left take, at your own pace. */ minutes?: number }): React.JSX.Element {
   return (
     <div data-through className="flex items-center justify-center gap-3 text-xs text-muted-foreground tabular-nums">
       {total <= 12 ? (
@@ -770,6 +785,7 @@ function Through({ at, total }: { at: number; total: number }): React.JSX.Elemen
         </span>
       )}
       <Rolling text={`${num(at + 1)} of ${num(total)}`} by="word" />
+      {minutes !== undefined && <span data-minutes-left className="text-foreground/80">about {num(minutes)} {minutes === 1 ? 'minute' : 'minutes'} left</span>}
     </div>
   )
 }

@@ -21,7 +21,7 @@ import { celebrateAfter, goalPassed, watches, type MomentKind } from './celebrat
 import type { MomentSource } from './moment-source'
 import { keepPins, warmGiphy } from './giphy'
 import { daysBetween, daysLeft, leftSaid } from './goal-days'
-import { LEECH_AT, bucketOf, daysInARow, fitFirstDays, minutesFor, shuffleNew, struggling, type Bucket } from './study'
+import { LEECH_AT, balancedDay, bucketOf, daysInARow, fitFirstDays, minutesFor, shuffleNew, struggling, type Bucket } from './study'
 import { syncLineCards } from './line-cards'
 import { busy } from './busy'
 import { LEARN_DECK, LEARN_EARLIER, LEARN_TAG } from './learn-deck'
@@ -374,6 +374,8 @@ const DEFAULTS = {
   // No limit on reviews: a capped review waits past its day and fades. Fewer
   // new cards is the lever; 0 here means no limit.
   reviewsPerDay: 0,
+  // Weekdays (0 Sunday to 6 Saturday) kept lighter: cards due then move to a nearby day when they can.
+  lighterDays: [] as number[],
   // Two grades out of the box (Forgot, Got it), or Anki's four.
   grades: 2 as 2 | 4,
   quietStart: '22:00',
@@ -2562,6 +2564,8 @@ export function registerHaligtree(): void {
     return { cap: tuned ? Math.floor(newPerDay / 2) : newPerDay, tuned, behind }
   }
   handle('review:tuning', newCap)
+  // How long a card takes you, from your last 200 reviews, each counted as 60 seconds at most (a card left open is not a slow card).
+  handle('review:pace', () => (db.prepare('select avg(min(ms, 60000)) as ms from (select ms from review_log where ms is not null order by reviewed_at desc limit 200)').get() as { ms: number | null }).ms)
   /**
    * Whether a card is about a goal under way (begun, not yet closed): it
    * shares a tag with the goal's name or its logs, links to the goal, or is
@@ -2712,6 +2716,14 @@ export function registerHaligtree(): void {
     const row = db.prepare(`select ${ITEM}, body, state from nuggets where id = ?`).get(id) as Record<string, unknown> & { state: string | null }
     const before = db.prepare('select state, due_at, edited_since_review from nuggets where id = ?').get(id) as { state: string | null; due_at: string | null; edited_since_review: number }
     const { card } = scheduler().next(cardOf(row.state), new Date(), grade)
+    // Heavy days spread out: a card coming back in 3 days or more lands on
+    // the lightest day near its own, and off a lighter weekday if one is set.
+    const days = Math.round((card.due.getTime() - startOfDay()) / 86400000)
+    const dueOn = db.prepare('select count(*) n from nuggets where due_at >= ? and due_at < ? and suspended = 0 and archived_at is null')
+    const { lighterDays } = settings()
+    const moved = balancedDay(days, (day) => (dueOn.get(new Date(startOfDay(day)).toISOString(), new Date(startOfDay(day + 1)).toISOString()) as { n: number }).n,
+      (day) => lighterDays.includes(new Date(startOfDay(day)).getDay()))
+    if (moved !== days) card.due = new Date(card.due.getTime() + (moved - days) * 86400000)
     // The card keeps its own schedule; only the day it is asked for is
     // brought inside an exam's date.
     const due = capped(card.due, examOf()(row))
@@ -4462,7 +4474,7 @@ function remindNow(): string | null {
   const cards = reviewQueue().length
   if (!cards) return null
   db.prepare("insert or replace into nudges (key, day) values ('review-reminder', ?)").run(day)
-  const ms = (db.prepare('select avg(ms) as ms from (select ms from review_log where ms is not null order by reviewed_at desc limit 200)').get() as { ms: number | null }).ms
+  const ms = (db.prepare('select avg(min(ms, 60000)) as ms from (select ms from review_log where ms is not null order by reviewed_at desc limit 200)').get() as { ms: number | null }).ms
   const time = minutesFor(cards, ms)
   const text = `${num(cards)} ${cards === 1 ? 'card' : 'cards'}, about ${num(time)} ${time === 1 ? 'minute' : 'minutes'}`
   // Haligtree's card, with Review now and In an hour; left alone, it asks once more in an hour.

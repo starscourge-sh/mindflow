@@ -1,7 +1,7 @@
 // Run with: node --test test/study.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { bucketOf, closeness, daysInARow, fitFirstDays, isEquation, isLeech, keyWords, LEECH_AT, lineCard, lineCardsIn, matchLineCards, mentions, minutesFor, shuffleNew, suggestGrade, termLines, typedCheck, wordsIn } from '../src/main/study.ts'
+import { balancedDay, bucketOf, closeness, daysInARow, fitFirstDays, isEquation, isLeech, keyWords, LEECH_AT, lineCard, lineCardsIn, matchLineCards, mentions, minutesFor, shuffleNew, suggestGrade, termLines, typedCheck, wordsIn } from '../src/main/study.ts'
 
 test('a line with :: between words is a card', () => {
   assert.deepEqual(lineCard('Capital of Peru :: Lima'), { question: 'Capital of Peru', answer: 'Lima' })
@@ -211,4 +211,18 @@ test('a tag can make typed answers exact or check only the meaning', () => {
   assert.deepEqual(typedCheck('Dvorak', 'Dvořák', 'meaning'), { score: 1, grade: 4, said: null, close: false })
   assert.equal(typedCheck('Tchaikovksy', 'Tchaikovsky', 'meaning').grade, 4)
   assert.equal(typedCheck('9.8', '9.8 m/s²', 'meaning').grade, 3)
+})
+
+test('a card coming back in 3 days or more lands on the lightest day in reach', () => {
+  const load = (day: number): number => ({ 19: 80, 20: 120, 21: 40 } as Record<number, number>)[day] ?? 60
+  // 20 days: 1 day either side; 21 has the fewest.
+  assert.equal(balancedDay(20, load), 21)
+  // Short gaps are kept as they are.
+  assert.equal(balancedDay(2, () => 0), 2)
+  // A lighter day is skipped when another is in reach, even if emptier.
+  assert.equal(balancedDay(20, load, (day) => day === 21), 19)
+  // Within reach only: 100 days moves at most 4.
+  const moved = balancedDay(100, (day) => (day === 104 ? 0 : 50))
+  assert.equal(moved, 104)
+  assert.equal(balancedDay(100, (day) => (day === 106 ? 0 : 50)), 100)
 })

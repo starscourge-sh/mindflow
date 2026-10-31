@@ -1103,6 +1103,10 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
             <Switch checked={settings.reviewsPerDay > 0} onCheckedChange={(on) => set({ reviewsPerDay: on ? Math.max(200, settings.newPerDay * 10) : 0 })} />
           </Setting>
           <CapTuning />
+          <Setting title="Lighter days" note="Cards coming back in 3 days or more move to a nearby day, off the days you pick." more="Every card is also put on the lightest day near its own, so no day piles up. Only by a day or so, and only as far as 5% of its gap: none is put off for long." keywords="load balance balancer easy days weekend lighter spread heavy days"
+            below={<div className="mt-3"><Chips options={['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((label, n) => ({ id: String((n + 1) % 7), label }))}
+              on={(id) => (settings.lighterDays ?? []).includes(Number(id))}
+              pick={(id) => { const day = Number(id); const was = settings.lighterDays ?? []; set({ lighterDays: was.includes(day) ? was.filter((one) => one !== day) : [...was, day].sort() }) }} /></div>} />
           <Setting title="Grades" note="How you answer once a card is turned over." more="Two is what most people end up using: Forgot when you hesitated at all, Got it when it came. With two, the keys 2 and 4 still give Hard and Easy, as in Anki." keywords="grade buttons again hard good easy forgot got it two four anki"
             below={<Choices label="Grades" options={gradeChoices} on={(id) => id === String(settings.grades ?? 2)} pick={(id) => set({ grades: Number(id) as 2 | 4 })} />} />
           <Setting title="Review reminder" note="A reminder at the time you pick, when cards are due." more="A small card in the corner, like “12 cards, about 6 minutes” (a Mac notification when the screen is locked). Clicking it opens Review. Once a day, never in quiet hours or safe mode. Miss a day and nothing is owed: the cards wait." keywords="review reminder notification study time daily">
