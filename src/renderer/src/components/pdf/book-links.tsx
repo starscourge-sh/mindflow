@@ -14,7 +14,7 @@ import { openPdf } from "./pdf-reader"
 /** Notes and gems: what "In your notes" lists. Cards show on the page bar alone. */
 export const inNotes = (cited: Cited[]): Cited[] => cited.filter((one) => one.type !== "card" && one.type !== "deck")
 
-const kindOf = (type: string): string => (type === "capture" ? "Note" : type === "card" ? "Card" : type === "question" ? "Question" : "Gem")
+const kindOf = (type: string): string => ({ capture: "Note", article: "Writing", card: "Card", question: "Question" })[type] ?? "Gem"
 
 /** A stretch of the book a long list folds by: a chapter from its outline, or a run of pages. */
 export type Part = { key: string; title: string; from: number }

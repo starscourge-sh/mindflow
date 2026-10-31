@@ -107,7 +107,19 @@ try {
   for (let n = 0; n < 200; n++) {
     const page = 1 + ((n * 37) % PAGES)
     const title = n % 9 === 0 ? `A long note title about ${sentence(n, 14)}` : `On ${sentence(n, 4)}`
-    await v('item:save', await v('article:new'), { title, body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: sentence(n, 8) + ' ' }, { type: 'text', text: `The Law Book, p. ${page}`, marks: [{ type: 'link', attrs: { href: `${src}#page=${page}` } }] }] }] } })
+    await v('item:save', await v('article:new'), { title, body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: sentence(n, 8) + ' ' }, { type: 'noteLink', attrs: { id, label: 'Reading The Law', key: '' } }, { type: 'text', text: ' ' }, { type: 'text', text: `The Law Book, p. ${page}`, marks: [{ type: 'link', attrs: { href: `${src}#page=${page}` } }] }] }] } })
+  }
+
+  // The note that holds the book, linked from all 200: its mentions draw only the rows in view.
+  if (!process.env.SKIP_MENTIONS) {
+    await c.send('article', id); await wait(2000)
+    const fold = h.locator('section[data-chrome] button:has-text("Mentions")').first()
+    if (await fold.count() && !(await h.locator('section[data-chrome] h3:has-text("linked mention")').count())) await fold.click()
+    await wait(800)
+    const said = await h.evaluate(() => ({ heading: [...document.querySelectorAll('section[data-chrome] h3')].map((one) => one.textContent).join(' | '), rows: document.querySelectorAll('section[data-chrome] [data-row]').length }))
+    check('200 linked mentions under the note: only the rows in view are drawn (under 80)', /200 linked mentions/.test(said.heading) && said.rows > 0 && said.rows <= 80, JSON.stringify(said))
+    await h.evaluate(() => document.querySelector('section[data-chrome] h3')?.scrollIntoView({ block: 'start' })); await wait(600)
+    await c.both(`${SHOT}-mentions`)
   }
 
   let have = []
@@ -132,6 +144,26 @@ try {
     check(`${size} highlights: the page bar draws at most 120 marks`, seen.ticks <= 120, String(seen.ticks))
     await c.both(`${SHOT}-${size}`)
     if (size === 500) {
+      // Quiet words read at 4.5:1 or better on the panel, in Paper and in Dark; every block starts on one left edge.
+      for (const theme of ['light', 'dark']) {
+        await c.look(theme)
+        const m = await h.evaluate(() => {
+          const ctx = Object.assign(document.createElement('canvas'), { width: 1, height: 1 }).getContext('2d', { willReadFrequently: true })
+          const rgb = (css) => { ctx.clearRect(0, 0, 1, 1); ctx.fillStyle = css; ctx.fillRect(0, 0, 1, 1); return [...ctx.getImageData(0, 0, 1, 1).data].slice(0, 3) }
+          const lum = ([r, g, b]) => { const f = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4 }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b) }
+          const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return Math.round(((x + 0.05) / (y + 0.05)) * 100) / 100 }
+          const d = document.querySelector('.read-details')
+          const bg = rgb(getComputedStyle(d).backgroundColor)
+          const of = (sel) => { const el = d.querySelector(sel); return el ? ratio(rgb(getComputedStyle(el).color), bg) : null }
+          const left = (sel) => { const el = d.querySelector(sel); return el ? Math.round(el.getBoundingClientRect().left) : null }
+          return { page: of('.read-details-mark-page'), count: of('.read-details-count'), part: of('.read-details-part'), ends: of('.book-bar-ends'), kind: of('.book-cited-kind'), line: of('.book-cited-line'), edges: { title: left('.read-details-head'), bar: left('.book-bar'), heading: left('.read-details-heading'), find: left('.read-details-find'), part: left('.read-details-part'), row: left('.read-details-mark'), note: left('.book-cited-row') } }
+        })
+        console.log(theme, JSON.stringify(m))
+        check(`${theme}: page numbers, counts, chapter names, bar ends and note lines reach 4.5:1`, ['page', 'count', 'part', 'ends', 'kind', 'line'].every((k) => m[k] === null || m[k] >= 4.5), JSON.stringify(m))
+        const lefts = Object.values(m.edges).filter((one) => one !== null)
+        check(`${theme}: every block starts on one left edge (within 2px)`, Math.max(...lefts) - Math.min(...lefts) <= 2, JSON.stringify(m.edges))
+      }
+      await c.look('light')
       await h.evaluate(() => { const d = document.querySelector('.read-details'); d.scrollTop = d.scrollHeight / 2 })
       await wait(800)
       check('500 highlights: scrolled down, "Back to top" shows', !!(await h.$('.read-details-frame button[aria-label="Back to top"]')))
