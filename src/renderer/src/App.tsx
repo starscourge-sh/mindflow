@@ -2259,7 +2259,7 @@ export default function App(): React.JSX.Element {
               {/* What matters first is the writing and Create; every other
                   switch is in here, each keeping its own key. */}
               {/* A kind other than Note stays in sight while the rest fades as you type. */}
-              <span data-under-toast data-zen-keep={kind !== 'note' || undefined} data-while-recording={recording ? 'dim' : undefined} className="inline-flex"><CaptureKindPicker
+              <span data-under-toast data-zen-keep={kind !== 'note' || undefined} data-while-recording={recording ? 'dim' : undefined} inert={recording} className="inline-flex"><CaptureKindPicker
                 suggested={!chosen && kind !== 'note' && !lesson}
                 value={kind}
                 onChange={pick}
@@ -2274,10 +2274,10 @@ export default function App(): React.JSX.Element {
                 </span>
               )}
               {/* The camera: a whole screen or just an area, as a picture in the note (shot-button.tsx). Out of the way of the first capture's lesson, whose word sits where it is. */}
-              {!locked && <span data-lesson="hide" data-under-toast data-while-recording={recording ? 'dim' : undefined} className="inline-flex"><ShotButton onShot={(area) => void attachScreenshot(area)} /></span>}
+              {!locked && <span data-lesson="hide" data-under-toast data-while-recording={recording ? 'dim' : undefined} inert={recording} className="inline-flex"><ShotButton onShot={(area) => void attachScreenshot(area)} /></span>}
               {/* The microphone, beside the camera and in its look: a voice note, kept in the note where the caret is. */}
               {!locked && (
-                <span data-lesson="hide" data-under-toast data-while-recording={recording ? 'dim' : undefined} className="inline-flex">
+                <span data-lesson="hide" data-under-toast data-while-recording={recording ? 'dim' : undefined} inert={recording} className="inline-flex">
                   <Tip label="Record a voice note">
                     <button type="button" aria-label="Record a voice note" data-record-button onClick={() => (chime('tap'), editorRef.current && void recordInto(editorRef.current, recordSlot.current))}
                       className="relative flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full border border-border text-foreground outline-none transition-[color,background-color,border-color,scale] duration-150 ease-out hover:bg-input/50 active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-ring/30 dark:bg-input/30">
@@ -2292,7 +2292,7 @@ export default function App(): React.JSX.Element {
               {/* Beside Create, as in Linear: on, a save keeps the box open for the next one. */}
               {!editing && (
                 <Tip label="Keep quick capture open after each save  ⌥C">
-                <label data-lesson="hide" data-under-toast data-while-recording={recording ? 'dim' : undefined} className="mr-2 flex shrink-0 cursor-pointer items-center gap-2 text-control whitespace-nowrap text-muted-foreground">
+                <label data-lesson="hide" data-under-toast data-while-recording={recording ? 'dim' : undefined} inert={recording} className="mr-2 flex shrink-0 cursor-pointer items-center gap-2 text-control whitespace-nowrap text-muted-foreground">
                   <Switch size="sm" checked={createMore} onCheckedChange={setCreateMore} aria-label="Create more" />
                   {/* A short row (Check back's day beside it): the switch alone, its name in its tip, so Create is never cut off. */}
                   <span className="@max-[24rem]/row:sr-only">Create more</span>

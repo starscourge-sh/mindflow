@@ -33,6 +33,8 @@ const levelShape = () => page.evaluate(() => {
   }
   return { tallest: Math.max(...cols), sum: cols.reduce((a, b) => a + b, 0), height }
 })
+// Light or dark in the box itself, in place, so what is open stays open.
+const look = (name) => page.evaluate((n) => { localStorage.setItem('theme', n === 'light' ? 'paper' : 'dark'); window.dispatchEvent(new StorageEvent('storage', { key: 'theme' })) }, name)
 const record = async () => {
   await page.click('[data-record-button]')
   await page.waitForSelector('[data-voice-recorder]', { timeout: 6000 }).catch(() => {})
@@ -47,8 +49,8 @@ try {
     localStorage.setItem('capture-draft-at', String(Date.now() - 3 * 3600_000))
   })
   await reopen()
-  for (const name of ['light', 'dark']) { await c.look(name); await wait(300); await page.screenshot({ path: `${shots}/qc-recording-idle-${name}.png` }) }
-  await c.look('light')
+  for (const name of ['light', 'dark']) { await look(name); await wait(400); await page.screenshot({ path: `${shots}/qc-recording-idle-${name}.png` }) }
+  await look('light')
 
   await record()
   check('the recorder opens', !!(await page.$('[data-voice-recorder]')))
@@ -75,16 +77,24 @@ try {
   check('…and the "Still to keep" chip sits under it, on the text column', layout.chipBelow === true, JSON.stringify(layout))
   const row = await page.evaluate(() => ({
     create: document.querySelector('[data-create]')?.textContent.replace(/\s+/g, ' ').trim(),
-    dimmed: [...document.querySelectorAll('[data-record-button], [data-capture-kind-trigger], [aria-label="Create more"]')].map((el) => {
+    dimmed: [...document.querySelectorAll('[data-record-button], [data-kind-chip], [aria-label="Take a screenshot"], [aria-label="Create more"]')].map((el) => {
       let o = 1
       for (let n = el; n; n = n.parentElement) o *= Number(getComputedStyle(n).opacity)
-      return Math.round(o * 100) / 100
+      return { o: Math.round(o * 100) / 100, inert: !!el.closest('[inert]') }
     })
   }))
   check('Create reads "Stop and keep ⌘↵"', (row.create ?? '').replace(/\s+/g, '').startsWith('SSttooppaannddkkeeeepp') || /^Stop and keep ⌘↵$/.test(row.create ?? ''), String(row.create))
-  check('the other buttons in the row are dimmed', row.dimmed.length >= 2 && row.dimmed.every((o) => o < 0.5), JSON.stringify(row.dimmed))
-  for (const name of ['light', 'dark']) { await c.look(name); await wait(300); await page.screenshot({ path: `${shots}/qc-recording-live-${name}.png` }) }
-  await c.look('light')
+  check('the kind, camera, mic and Create more are dimmed and out of reach', row.dimmed.length === 4 && row.dimmed.every((one) => one.o < 0.5 && one.inert), JSON.stringify(row.dimmed))
+  // Tab walks past them: from Cancel, never onto a dimmed one.
+  await page.focus('[data-voice-recorder] button[aria-label="Cancel"]')
+  const tabbed = []
+  for (let i = 0; i < 6; i += 1) {
+    await page.keyboard.press('Tab')
+    tabbed.push(await page.evaluate(() => !!document.activeElement?.closest('[data-while-recording]')))
+  }
+  check('Tab skips the dimmed buttons', tabbed.every((on) => !on), JSON.stringify(tabbed))
+  for (const name of ['light', 'dark']) { await look(name); await wait(400); await page.screenshot({ path: `${shots}/qc-recording-live-${name}.png` }) }
+  await look('light')
 
   await page.keyboard.press('Escape'); await wait(800)
   const afterEsc = { recorder: !!(await page.$('[data-voice-recorder]')), audio: await audios(), open: await page.evaluate(() => document.visibilityState) }
