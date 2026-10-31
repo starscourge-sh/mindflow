@@ -226,7 +226,9 @@ const turnsPage = (view: View): boolean => !!view.focus && holdsNotes(view.id) &
 /** Where one thing opens: a view by name, a day's page, or a note or task in its section. */
 const stepOf = (type: string, id: string): View =>
   // A Writing or Gems folder: "article:<group>" or "nugget:<group>", its list opened inside it.
-  type === 'folder' ? { id: id.startsWith('article:') ? 'articles' : 'nuggets', folder: id.slice(id.indexOf(':') + 1) }
+  // One tag's cards studied in Review.
+  type === 'study' ? { id: 'review', focus: id }
+  : type === 'folder' ? { id: id.startsWith('article:') ? 'articles' : 'nuggets', folder: id.slice(id.indexOf(':') + 1) }
   : type === 'view' ? { id } : type === 'pdf' || type === 'web' ? { id: type, focus: id } : type === 'day' ? { id: 'day', focus: id } : type === 'event' ? { id: 'calendar', focus: `event:${id}` } : { id: type === 'capture' ? 'all' : type === 'task' ? 'upcoming' : `${type}s`, focus: id }
 /** Pages that show one day, week, month or year: with no focus, or a focus in the present one, they are on now. */
 const DATED = ['day', 'weekpage', 'monthpage', 'yearpage']
@@ -891,6 +893,8 @@ export function Home(): React.JSX.Element {
   // ⌘K's Abandon session, while one runs.
   const abandonAction = useAbandonAction()
   const practiceActions = usePracticeActions()
+  // The tags whose cards ⌘K offers to study.
+  const cardTags = useLive(haligtree.cardTags, null as string[] | null, [], ['item'])
   // Seen in screen recordings or not: all at once here, each kind of window on its own in Settings.
   const recordable = allRecorded(settings?.inRecordings)
   const [typewriter, setTypewriter] = useStoredFlag('typewriter')
@@ -1402,7 +1406,7 @@ export function Home(): React.JSX.Element {
         ) : kind(view) ? (
           <CapturesView title={kind(view)!.label} keep={(capture) => capture.kind === kind(view)!.id && capture.status !== 'discarded'} focus={view.focus} onOpen={go} />
         ) : view.id === 'review' ? (
-          <ReviewView />
+          <ReviewView key={view.focus ?? ''} tag={view.focus} />
         ) : view.id === 'today' || view.id === 'upcoming' || view.id === 'routines' || view.id === 'later' || view.id === 'alltasks' ? (
           <TasksView mode={view.id} focus={view.focus} onOpen={go} />
         ) : view.id === 'calendar' ? (
@@ -1597,6 +1601,8 @@ export function Home(): React.JSX.Element {
             } },
             ...abandonAction,
             ...practiceActions,
+            // Study one tag's cards, scheduled as in any review.
+            ...(cardTags ?? []).map((tag) => ({ label: `Study #${tag}`, hint: 'Its cards in Review, with the tags under it', cue: null, run: () => setView({ id: 'review', focus: tag }) })),
             { label: 'Keyboard shortcuts', keys: '?', cue: null, run: () => window.dispatchEvent(new CustomEvent('haligtree:shortcuts')) },
             { label: 'Clear unused pictures…', cue: null, run: () => window.dispatchEvent(new CustomEvent('haligtree:unused')) },
             ...themeActions((text, undo) => toast(text, undo)),

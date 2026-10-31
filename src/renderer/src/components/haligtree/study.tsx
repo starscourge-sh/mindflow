@@ -47,7 +47,7 @@ export function FocusChips({ round, onPick, onLearn }: { round: Round | null; on
         options={rounds.map((one) => ({ id: one.id, label: `${one.label} ${num(counts[one.id])}` }))}
         on={(id) => id === round}
         pick={(id) => {
-          const bucket = id as Round
+          const bucket = id as Bucket | 'starred'
           if (!counts[bucket]) return refuse(bucket === 'starred' ? 'No starred cards yet: press S on a card in Review' : `Nothing in “${BUCKETS.find((one) => one.id === bucket)?.label}” right now`, 'info')
           onPick(bucket)
         }}
@@ -69,7 +69,8 @@ export function FocusChips({ round, onPick, onLearn }: { round: Round | null; on
 }
 
 /** A practice round: one of the five buckets, or the cards you starred. */
-export type Round = Bucket | 'starred'
+/** A practice round: a bucket, the starred cards, or one tag ("#biology") and the tags under it. */
+export type Round = Bucket | 'starred' | `#${string}`
 
 /** Days as you would say them: "9 days", "3 hours", "20 minutes". */
 const span = (days: number): string =>
@@ -139,8 +140,8 @@ export function RoundLine({ round, onLeave }: { round: Round; onLeave: () => voi
   return (
     <div className="flex items-center gap-3 px-5 pt-4 text-sm">
       <p className="flex-1">
-        <strong className="font-semibold">{round === 'starred' ? 'Starred' : BUCKETS.find((one) => one.id === round)?.label}.</strong>{' '}
-        <span className="text-muted-foreground">An extra round. Nothing moves unless you grade it.</span>
+        <strong className="font-semibold">{round === 'starred' ? 'Starred' : round.startsWith('#') ? `Studying ${round}` : BUCKETS.find((one) => one.id === round)?.label}.</strong>{' '}
+        <span className="text-muted-foreground">{round.startsWith('#') ? 'With the tags under it, due cards first. Each grade counts.' : 'An extra round. Nothing moves unless you grade it.'}</span>
       </p>
       <Button variant="ghost" size="sm" onClick={onLeave}>Back to today’s cards</Button>
     </div>

@@ -2760,6 +2760,14 @@ export function registerHaligtree(): void {
     return write(true)
   })
 
+  // --- the tags on cards in Review, for ⌘K's "Study #tag"
+  handle('cards:tags', () => {
+    const count = new Map<string, number>()
+    for (const row of db.prepare(`select title, prompt, body from nuggets where coalesce(prompt, '') != '' and suspended = 0 and archived_at is null and superseded_by is null`).all() as { title: string | null; prompt: string; body: string | null }[])
+      for (const tag of tagsIn(`${row.title ?? ''} ${row.prompt} ${plain(JSON.parse(row.body ?? 'null'))}`)) count.set(tag, (count.get(tag) ?? 0) + 1)
+    return [...count].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([tag]) => tag)
+  })
+
   // --- practise a tag without counting: its cards, in order, nothing scheduled
   handle('tag:cards', (tag: string) => {
     const alias = new Map((db.prepare('select tag, alias_of from tag_meta where alias_of is not null').all() as { tag: string; alias_of: string }[]).map((row) => [row.tag, row.alias_of]))
@@ -2814,12 +2822,27 @@ export function registerHaligtree(): void {
     new: (a, b) => String(a.row.createdAt).localeCompare(String(b.row.createdAt))
   }
   const ROUND = 10
-  handle('review:round', (bucket: Bucket | 'starred') => {
-    if (bucket !== 'starred' && !ROUND_ORDER[bucket]) return []
+  // A tag's round can be a whole deck's day: more than a bucket's ten.
+  const TAG_ROUND = 50
+  handle('review:round', (bucket: Bucket | 'starred' | `#${string}`) => {
     const exam = examOf()
+    // One tag and the tags under it (#biology brings #biology-cells, as an Anki deck's levels come in):
+    // its cards due now first, soonest due first, then the least sure. Graded, they move as any card does.
+    if (bucket.startsWith('#')) {
+      const tag = bucket.slice(1).toLowerCase()
+      const alias = new Map((db.prepare('select tag, alias_of from tag_meta where alias_of is not null').all() as { tag: string; alias_of: string }[]).map((row) => [row.tag, row.alias_of]))
+      const under = (one: string): boolean => (alias.get(one) ?? one) === tag || one.startsWith(`${tag}-`)
+      const due = (one: Practised): number => (one.row.dueAt && Date.parse(String(one.row.dueAt)) <= Date.now() ? Date.parse(String(one.row.dueAt)) : Infinity)
+      return practice()
+        .filter((one) => tagsIn(`${one.row.title ?? ''} ${one.row.prompt ?? ''} ${plain(JSON.parse((one.row.body as string) ?? 'null'))}`).some(under))
+        .sort((a, b) => due(a) - due(b) || a.recall - b.recall)
+        .slice(0, TAG_ROUND)
+        .map(({ row }) => ({ ...body(row), state: undefined, exam: exam(row)?.tag ?? null, intervals: preview(row.state as string | null, (when) => capped(when, exam(row))) }))
+    }
+    if (bucket !== 'starred' && !ROUND_ORDER[bucket as Bucket]) return []
     const mine = bucket === 'starred'
       ? practice().filter((one) => one.row.starredAt).sort((a, b) => String(b.row.starredAt).localeCompare(String(a.row.starredAt)))
-      : practice().filter((one) => one.bucket === bucket).sort(ROUND_ORDER[bucket])
+      : practice().filter((one) => one.bucket === bucket).sort(ROUND_ORDER[bucket as Bucket])
     return mine.slice(0, ROUND).map(({ row }) => ({
       ...body(row), state: undefined, exam: exam(row)?.tag ?? null, intervals: preview(row.state as string | null, (when) => capped(when, exam(row)))
     }))

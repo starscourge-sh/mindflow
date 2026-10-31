@@ -441,7 +441,7 @@ export const haligtree = {
   /** How many cards each practice round holds now. */
   buckets: () => call<Record<Bucket | 'starred', number>>('review:buckets'),
   /** A short extra round of one kind of card, from all your gems, or the starred ones. */
-  round: (bucket: Bucket | 'starred') => call<Due[]>('review:round', bucket),
+  round: (bucket: Bucket | 'starred' | `#${string}`) => call<Due[]>('review:round', bucket),
   /** A star on a card, or off. */
   star: (id: string, on: boolean) => call<boolean>('review:star', id, on),
   /** What Review knows about a card, to say how it decides when it comes back. */
@@ -454,6 +454,8 @@ export const haligtree = {
   fitState: () => call<{ reviews: number; after: number; fitted: number[] | null }>('review:fit:state'),
   fit: () => call<{ fitted: number[]; pairs: number; defaults: number[] } | null>('review:fit'),
   /** A tag's cards, to practise without counting. */
+  /** Every tag on a card that is not paused, the most cards first: what ⌘K offers to study. */
+  cardTags: () => call<string[]>('cards:tags'),
   tagCards: (tag: string) => call<(Item & { body: unknown })[]>('tag:cards', tag),
   /** Gems missed again and again, paused or not. */
   slipping: () => call<Item[]>('review:slipping'),

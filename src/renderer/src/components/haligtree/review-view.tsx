@@ -60,7 +60,8 @@ export const GRADES = [
 /** How many captures wait in the Inbox: the ending's "Next" line. */
 const inboxOpen = (): Promise<number> => window.api.captures.list().then((all) => all.filter((one) => one.status === 'open' && !one.archivedAt).length)
 
-export function ReviewView({ compact = false }: { compact?: boolean }): React.JSX.Element {
+/** `tag`: open on a round of that tag's cards (and the tags under it), from its page or ⌘K's "Study #tag". */
+export function ReviewView({ compact = false, tag }: { compact?: boolean; tag?: string }): React.JSX.Element {
   const [queue, setQueue] = useState<Due[] | null>(null)
   const [reviewed, setReviewed] = useState<Set<string>>(new Set())
   const [at, setAt] = useState(0)
@@ -72,7 +73,7 @@ export function ReviewView({ compact = false }: { compact?: boolean }): React.JS
   const [said, setSaid] = useState('')
   const started = useRef(Date.now())
   // The beam turns while the day's cards are worked out, should that be slow.
-  useEffect(() => void working(haligtree.queue()).then(setQueue), [])
+  useEffect(() => void working(tag ? haligtree.round(`#${tag}`) : haligtree.queue()).then((cards) => (tag ? fresh(cards, `#${tag}`) : setQueue(cards))), [tag])
   // A practice round from the chips above: its own short queue, then back to today's.
   const [round, setRound] = useState<Round | null>(null)
   // Learn mode over the new cards, in place of the queue until it is left.
