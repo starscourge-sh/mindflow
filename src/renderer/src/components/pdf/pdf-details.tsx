@@ -91,7 +91,7 @@ export function ReadDetails({ src, name, cover, title, author, pages, page, chap
             {used.length > 1 && (
               <div className="read-details-colours" role="group" aria-label="Show one colour">
                 {used.map((one) => (
-                  <button key={one.label} type="button" aria-label={`${one.label}: ${one.count}`} aria-pressed={colour === one.id} className="read-details-colour" onClick={() => setColour(colour === one.id ? undefined : one.id)}>
+                  <button key={one.label} type="button" aria-label={one.label} aria-pressed={colour === one.id} className="read-details-colour" onClick={() => setColour(colour === one.id ? undefined : one.id)}>
                     <span aria-hidden className={`pdf-swatch${one.id === "later" ? " is-later" : ""}`} style={{ background: one.css }} />
                     <span className="read-details-colour-count">{one.count.toLocaleString()}</span>
                   </button>
