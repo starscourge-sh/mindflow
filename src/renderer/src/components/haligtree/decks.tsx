@@ -33,7 +33,7 @@ export async function makeDeck(inside?: string): Promise<string | null> {
   return tag
 }
 
-export type OwnDeck = { tag: string; /** The last part of its name, said under its parent. */ label: string; depth: number; cards: number; fresh: number; due: number; sample: string }
+export type OwnDeck = { tag: string; /** Made as a deck (New deck), not only a tag that holds cards. */ made: boolean; /** Its cards that come up in Review: not paused. */ active: number; /** The last part of its name, said under its parent. */ label: string; depth: number; cards: number; fresh: number; due: number; sample: string }
 
 /**
  * Your own decks as a tree, a parent before the decks inside it: every tag on
@@ -49,7 +49,7 @@ export function ownDecks(cards: BrowsedCard[], made: string[]): OwnDeck[] {
     const held = mine.filter((card) => inDeck(card.tags, tag))
     const up = parentOf(tag)
     return {
-      tag, label: up ? tag.slice(up.length + 1) : tag, depth: depthOf(tag), cards: held.length,
+      tag, made: made.includes(tag), active: held.filter((one) => !one.paused).length, label: up ? tag.slice(up.length + 1) : tag, depth: depthOf(tag), cards: held.length,
       fresh: held.filter((one) => one.stage === 'new' && !one.paused).length,
       due: held.filter((one) => !one.paused && one.dueAt && Date.parse(one.dueAt) <= now).length,
       sample: held[0]?.prompt.replace(/!\[[^\]]*\]\([^)]*\)/g, '').trim() ?? ''

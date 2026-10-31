@@ -2,14 +2,16 @@ import { useState } from 'react'
 import { chime } from '@/lib/sound'
 import { call, haligtree, unloaded, useLive } from '@/lib/haligtree'
 import { num } from '../../../../main/dates'
-import { Empty, openTag, quietly, toast } from './ui'
+import { Empty, ask, askSure, openTag, quietly, refuse, toast } from './ui'
 import { Button } from '@/components/ui/button'
 import { Chip } from './display'
 import { OptionsMenu, type Section } from './options-menu'
 import { Tree, treeOf } from './branches'
-import { cardsSaid, makeDeck, useOwnDecks, type OwnDeck } from './decks'
 import { GroupCover } from './group-cover'
 import { groupTint } from './card-shelves'
+import { RowMenu, type MenuItem, type RowItem } from './row-menu'
+import { Check } from 'lucide-react'
+import { cardsSaid, deckTagOf, makeDeck, useOwnDecks, type OwnDeck } from './decks'
 
 type Topic = { deck: string; label: string; cards: number; held: number }
 export type Shelf = { name: string; cover: string | null; sample: string; pictures: number; cards: number; fresh: number; due: number; held: number; shown: boolean; topics: Topic[] }
@@ -36,13 +38,22 @@ export function startDeck(deck: string, label: string, on: boolean): void {
  * started when you study it. Their cards stay out of Gems, Media, Feed, hints
  * and Home unless "Show in Gems" is on, so your own never drown.
  */
+/** Past this many decks of your own, only those made as decks or with cards in Review show before the fold. */
+const MANY = 8
+
 export function DeckShelf({ onOpen, onStudy, onPaste }: { onOpen: (type: string, id: string) => void; /** Study a deck's or topic's tag in Today. */ onStudy: (tag: string) => void; /** Paste cards into a deck, or make one card in it, in All cards. */ onPaste: (deck: string | null, one?: boolean) => void }): React.JSX.Element {
   const [gallery, setGallery] = useState<string | null>(null)
   const [linking, setLinking] = useState<string | null>(null)
+  const [allTags, setAllTags] = useState(false)
   const shelves = useLive(() => call<Shelf[]>('decks:list'), null as Shelf[] | null, [], ['item'])
   const own = useOwnDecks()
   if (unloaded(shelves) || !own) return <div />
   const newDeck = (inside?: string): void => void makeDeck(inside)
+  // The most due first. With many, the decks you made and the tags with cards in Review lead; the rest wait behind a fold.
+  const tops = own.filter((deck) => deck.depth === 0).sort((a, b) => b.due - a.due || b.cards - a.cards || a.tag.localeCompare(b.tag))
+  const many = tops.length > MANY
+  const shown = many ? tops.filter((deck) => deck.made || deck.active > 0) : tops
+  const folded = tops.filter((deck) => !shown.includes(deck))
   if (!shelves?.length && !own.length)
     return (
       <Empty title="No decks yet" action={
@@ -67,7 +78,16 @@ export function DeckShelf({ onOpen, onStudy, onPaste }: { onOpen: (type: string,
         <p className="flex-1 text-sm text-muted-foreground">A deck is a tag your cards share. Shared decks keep their own shelf, out of Gems.</p>
         <Button size="sm" className="cursor-pointer" data-deck-new onClick={() => (chime('open'), newDeck())}>New deck</Button>
       </div>
-      {own.filter((deck) => deck.depth === 0).map((deck) => (
+      {shown.map((deck) => (
+        <OwnDeckShelf key={deck.tag} deck={deck} inside={own.filter((one) => one.tag.startsWith(`${deck.tag}-`))} onStudy={onStudy} onPaste={onPaste} onNew={newDeck} />
+      ))}
+      {folded.length > 0 && (
+        <button type="button" data-deck-fold aria-expanded={allTags} onClick={() => (chime(allTags ? 'fold' : 'open'), setAllTags(!allTags))}
+          className="cursor-pointer justify-self-start rounded-md px-2 py-1 text-control font-medium text-foreground/80 hover:bg-accent/50 hover:text-foreground">
+          {allTags ? 'Hide the other tags' : `Show all tags with cards (${num(folded.length)} more)`}
+        </button>
+      )}
+      {allTags && folded.map((deck) => (
         <OwnDeckShelf key={deck.tag} deck={deck} inside={own.filter((one) => one.tag.startsWith(`${deck.tag}-`))} onStudy={onStudy} onPaste={onPaste} onNew={newDeck} />
       ))}
       {(shelves ?? []).map((shelf) => (
@@ -230,10 +250,13 @@ function OwnDeckShelf({ deck, inside, onStudy, onPaste, onNew }: { deck: OwnDeck
     ...deckSettings(tag, study),
     { items: [
       { label: 'New deck inside', run: () => onNew(tag) },
-      { label: 'Open its page', hint: 'Its notes, gems and cards, on the tag’s page', run: () => openTag(tag) }
+      { label: 'Open its page', hint: 'Its notes, gems and cards, on the tag’s page', run: () => openTag(tag) },
+      { label: 'Rename deck…', run: () => void renameDeck(tag) },
+      { label: 'Delete deck…', hint: 'Its cards are kept', run: () => void deleteDeck(tag) }
     ] }
   ]
   return (
+    <RowMenu items={() => rowItems(menu(deck.tag))}>
     <section data-deck={`#${deck.tag}`} data-own-deck={deck.tag} className="flex gap-4 rounded-xl border border-foreground/10 bg-accent/25 p-4">
       {/* Its cover drawn from its #tag, the one its pocket wears in All cards; faded while it has no cards. */}
       <GroupCover name={`#${deck.tag}`} tint={groupTint(`#${deck.tag}`)} label={null} className={`size-24 shrink-0 rounded-lg shadow-sm ${deck.cards ? '' : 'opacity-60'}`} />
@@ -253,7 +276,8 @@ function OwnDeckShelf({ deck, inside, onStudy, onPaste, onNew }: { deck: OwnDeck
           // The decks inside it, hung off the one trunk every nested list in the app uses.
           <div data-deck-inside className="max-w-md pl-2">
             <Tree nodes={treeOf(inside, (one) => one.depth)} here={-1} className="pl-3" row={({ item: one }) => (
-              <div key={one.tag} data-deck-child={one.tag} className="flex items-center gap-1 py-0.5 text-control">
+              <RowMenu key={one.tag} items={() => rowItems(menu(one.tag))}>
+              <div data-deck-child={one.tag} onContextMenu={(event) => event.stopPropagation()} className="flex items-center gap-1 py-0.5 text-control">
                 <span title={`#${one.tag}`} className="min-w-0 flex-1 truncate text-foreground">{one.label}</span>
                 <span className="pr-1 text-sm text-muted-foreground tabular-nums">{one.cards ? cardsSaid(one.cards) : 'empty'}</span>
                 {one.cards > 0
@@ -261,6 +285,7 @@ function OwnDeckShelf({ deck, inside, onStudy, onPaste, onNew }: { deck: OwnDeck
                   : <Button variant="ghost" size="sm" className="h-7 cursor-pointer px-2.5" data-child-paste={one.tag} onClick={() => (chime('open'), onPaste(one.tag))}>Paste cards</Button>}
                 <OptionsMenu sections={menu(one.tag)} label="Deck options" side="bottom" align="end" className="size-7 cursor-pointer" />
               </div>
+              </RowMenu>
             )} />
           </div>
         )}
@@ -271,5 +296,36 @@ function OwnDeckShelf({ deck, inside, onStudy, onPaste, onNew }: { deck: OwnDeck
         </div>
       </div>
     </section>
+    </RowMenu>
   )
+}
+
+/** The ⋯ menu's sections as a right-click menu: each labelled part a line opening its choices beside it, the one in use ticked. */
+const rowItems = (sections: Section[]): RowItem[] => sections.flatMap((section): RowItem[] => {
+  const lines = section.items.flatMap((item): MenuItem[] => typeof item === 'string' || 'more' in item ? [] : [
+    'set' in item ? { label: item.label, hint: item.hint, run: () => item.set(true), trail: item.on ? <Check className="size-3.5" /> : undefined } : { label: item.label, hint: item.hint, run: item.run, danger: /^Delete/.test(item.label) }
+  ])
+  return section.label ? [{ label: section.label, items: lines }] : ['separator', ...lines]
+})
+
+/** Rename a deck: the tag is renamed everywhere it is written, with Undo. */
+async function renameDeck(tag: string): Promise<void> {
+  const words = await ask(`Rename the deck #${tag}`, 'Its new name', undefined, tag)
+  const to = words && deckTagOf(words)
+  if (!to || to === tag) return
+  const done = await haligtree.renameTag(tag, to)
+  if (!done) return refuse('That name cannot be a deck')
+  chime('noted')
+  toast(`The deck #${tag} is #${done} now`, () => void haligtree.undoRenameTag().then(() => chime('undo')))
+}
+
+/** Delete a deck: the tag comes off its cards, which stay, with Undo. */
+async function deleteDeck(tag: string): Promise<void> {
+  const holding = (await call<{ id: string; tags: string[] }[]>('cards:all')).filter((card) => card.tags.includes(tag)).map((card) => card.id)
+  const sure = await askSure(`Delete the deck #${tag}?`, holding.length ? `The #${tag} tag comes off its ${cardsSaid(holding.length)}. The cards themselves are kept, in All cards.` : 'It holds no cards. Nothing else changes.', 'Delete deck')
+  if (!sure) return
+  const before = holding.length ? await call<{ id: string; body: string | null }[]>('cards:retag', holding, tag, false) : []
+  await haligtree.setTag(tag, { deck: false })
+  chime('fold')
+  toast(`The deck #${tag} is gone; its ${cardsSaid(holding.length)} kept`, () => void Promise.all([call('cards:retag:undo', before), haligtree.setTag(tag, { deck: true })]).then(() => chime('undo')))
 }
