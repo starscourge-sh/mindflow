@@ -14,9 +14,9 @@ import { usePickMixed } from './pick-mixed'
 import { RowMenu, type RowItem } from './row-menu'
 import { WithPictures } from './with-pictures'
 import { PasteCards } from './paste-cards'
-import { Flip } from './review-view'
 import { SplitForm } from './study'
 import { AnotherWay } from './another-way'
+import { FlipThrough, Pocket, Poster, Shelf, groupTint } from './card-shelves'
 import { Empty, Tip, toast, typing } from './ui'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -148,9 +148,9 @@ function answerShown(card: BrowsedCard): string {
   const quoted = /[“"]([^”"]{2,80})[”"]/.exec(card.prompt)?.[1]
   for (const term of [quoted, card.title, card.prompt.replace(/\?$/, '')].filter(Boolean) as string[]) {
     const lead = new RegExp(`^${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*[:\u2013\u2014-]\\s*`, 'i')
-    if (lead.test(answer)) return answer.replace(lead, '').replace(/^\p{Ll}/u, (one) => one.toUpperCase())
+    if (lead.test(answer)) return answer.replace(lead, '').replace(/^\p{Ll}/u, (one) => one.toUpperCase()).replace(/(^|\s)#[\p{L}\p{N}_-]+/gu, '').trim()
   }
-  return answer
+  return answer.replace(/(^|\s)#[\p{L}\p{N}_-]+/gu, '').trim()
 }
 
 /** A tag, and the tags under it: #biology takes in #biology-cells. */
@@ -176,8 +176,8 @@ function DueAhead({ cards }: { cards: BrowsedCard[] }): React.JSX.Element | null
   return (
     <Tip label={said}>
       <span data-due-ahead={total} aria-label={said} className="flex items-center gap-1.5 text-xs font-normal text-muted-foreground">
-        <svg width={60} height={14} viewBox="0 0 60 14" aria-hidden className="text-foreground/55">
-          {days.map((n, at) => <rect key={at} x={at * 2} y={14 - Math.max(n ? 2 : 1, (n / most) * 14)} width={1.4} height={Math.max(n ? 2 : 1, (n / most) * 14)} fill="currentColor" opacity={n ? (at === peak ? 1 : 0.7) : 0.2} />)}
+        <svg width={60} height={14} viewBox="0 0 60 14" aria-hidden className="text-foreground/80">
+          {days.map((n, at) => <rect key={at} x={at * 2} y={14 - Math.max(n ? 2 : 1, (n / most) * 14)} width={1.4} height={Math.max(n ? 2 : 1, (n / most) * 14)} fill="currentColor" opacity={n ? (at === peak ? 1 : 0.75) : 0.3} />)}
         </svg>
         <span className="tabular-nums">{num(total)} in 30 days</span>
       </span>
@@ -240,10 +240,10 @@ function EditCard({ card, tint, onDone }: { card: BrowsedCard; tint: string; onD
     <div ref={box} data-card-editing={card.id} onClick={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}
       // Clicked away, it is kept, as a row edited in Things is.
       onBlur={(event) => !box.current?.contains(event.relatedTarget as Node | null) && event.relatedTarget && keep()}
-      className="relative my-1 flex flex-col gap-1 rounded-lg border border-l-[3px] bg-background px-4 pt-3 pb-2.5 shadow-sm" style={{ borderLeftColor: tint }}>
+      className="mf-index-card relative my-1 flex flex-col gap-1 px-4 pt-3 pb-2.5">
       <input autoFocus data-card-edit aria-label="Question" value={prompt} onChange={(event) => setPrompt(event.target.value)} onKeyDown={keys}
-        className="w-full bg-transparent text-body font-medium leading-snug outline-none placeholder:text-muted-foreground" placeholder="The question" />
-      <div aria-hidden className="my-1 border-t border-dashed" />
+        className="w-full bg-transparent font-heading text-heading font-semibold leading-snug outline-none placeholder:text-muted-foreground" placeholder="The question" />
+      <div aria-hidden className="mf-index-rule my-1" />
       <div data-card-edit-answer className="min-h-12 [--mf-padding:0] [&_.haligtree-editor]:!text-[length:calc(0.875rem*var(--mf-text-scale,1))] [&_.tiptap-word-count]:hidden">
         {body !== undefined && <HaligtreeEditor defaultContent={(body as never) ?? ''} toolbar={{ fixed: false }} handles={false} outline={false} search={false} vim={false} autofocus={false}
           onReady={(one) => (editor.current = one)} onKeyDown={(event) => keys(event)} />}
@@ -251,7 +251,9 @@ function EditCard({ card, tint, onDone }: { card: BrowsedCard; tint: string; onD
       <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
         {card.made !== 'deck' && <input data-card-edit-source aria-label="Source" value={source} onChange={(event) => setSource(event.target.value)} onKeyDown={keys}
           placeholder="Source: a book or video" className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted-foreground/70" />}
-        <span className="ml-auto shrink-0">#tags go in the answer · ↩ keep · esc drop</span>
+        <Tip label="#tags are written in the answer. Enter keeps, ⇧Enter a new line, Esc drops">
+          <span className="ml-auto flex shrink-0 items-center gap-1.5 text-muted-foreground/70"><span aria-hidden className="size-1.5 rounded-full" style={{ background: tint }} />↩ keep</span>
+        </Tip>
       </div>
     </div>
   )
@@ -272,13 +274,19 @@ export function CardBrowser({ onOpen, pasting: pastingFirst = false }: { onOpen:
   const [query, setQuery] = useState('')
   const [tag, setTag] = useState<string | null>(null)
   const [view, setView] = useView('cards', { sort: 'due', group: 'none' })
-  const density: Density = view.density ?? 'list'
+  // Pockets first: the whole book at a glance, one pocket a deck or tag.
+  const density: Density = view.density ?? 'small'
+  // A group opened from its pocket or its shelf, and whether it is being flipped through.
+  const [opened, setOpened] = useState<string | null>(null)
+  const [flowing, setFlowing] = useState(false)
+  const [flowAt, setFlowAt] = useState(0)
+  // A few hundred drawn at a time: a book of 5,000 cards opens at once, and shows more as asked.
+  const [limit, setLimit] = useState(200)
   const [editing, setEditing] = useState<string | null>(null)
   const [fixing, setFixing] = useState<{ id: string; how: 'split' | 'another'; card?: Due } | null>(null)
   const [tagging, setTagging] = useState('')
   // Turned over in the grid: by hand, by Space, or all at once.
   const [over, setOver] = useState<Set<string>>(new Set())
-  const [hovered, setHovered] = useState<string | null>(null)
   const list = useRef<HTMLDivElement>(null)
   const here = useHere()
   // The tags on cards, the most used first: the top ones as chips.
@@ -291,7 +299,7 @@ export function CardBrowser({ onOpen, pasting: pastingFirst = false }: { onOpen:
   const facets: Facet<BrowsedCard>[] = [
     { key: 'stage', label: 'Stage', options: STAGES.map(({ id, label }) => ({ id, label })), test: (card, id) => stageOf(card) === id },
     { key: 'due', label: 'Due', options: DUES.map((id) => ({ id, label: id })), test: (card, id) => dueBand(card) === id },
-    { key: 'tag', label: 'Tag', options: tags.slice(0, 20).map((one) => ({ id: one, label: `#${one}` })), test: (card, id) => under(card.tags, id) },
+    { key: 'tag', label: 'Tag', options: tags.map((one) => ({ id: one, label: `#${one}`, tint: groupTint(one) })), test: (card, id) => under(card.tags, id) },
     { key: 'source', label: 'Source', options: sources.map((one) => ({ id: one, label: one })), test: (card, id) => card.source === id },
     { key: 'needs', label: 'Needs work', options: NEEDS, test: (card, id) => needs(card).includes(id) },
     { key: 'paused', label: 'Paused', options: [{ id: 'paused', label: 'Paused' }, { id: 'active', label: 'Not paused' }], test: (card, id) => card.paused === (id === 'paused') },
@@ -303,7 +311,8 @@ export function CardBrowser({ onOpen, pasting: pastingFirst = false }: { onOpen:
     .filter((card) => !words || `${card.prompt} ${card.answer} ${card.source} ${card.tags.map((one) => `#${one}`).join(' ')}`.toLowerCase().includes(words))
   const [[, ordered]] = arrange(found, view, facets, ORDER)
   // Cut into groups, each in its own order; a book's cards in page order whatever the sort, as a book is read.
-  const grouping = GROUPING[view.group]
+  // Pockets are always of something: by deck or tag unless another grouping is chosen.
+  const grouping = GROUPING[view.group] ?? (density === 'small' ? GROUPING.deck : undefined)
   const groups: [string, BrowsedCard[]][] = useMemo(() => {
     if (!grouping) return [['', ordered]]
     const out = new Map<string, BrowsedCard[]>()
@@ -312,9 +321,10 @@ export function CardBrowser({ onOpen, pasting: pastingFirst = false }: { onOpen:
     const rank = (entry: [string, BrowsedCard[]]): number | string => grouping.rank(entry[0], entry[1])
     return [...out].sort((a, b) => { const [x, y] = [rank(a), rank(b)]; return typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y)) })
   }, [ordered, grouping, view.group, view.sort]) // eslint-disable-line react-hooks/exhaustive-deps
-  const island = useIslands('cards', !!grouping && view.islands !== false)
+  const island = useIslands('cards', !!grouping && view.islands !== false && (density === 'list' || density === 'compact'))
   const { groups: drawn, islands } = island(groups)
-  const shown = drawn.flatMap(([, one]) => one)
+  const inGroup = opened ? groups.find(([name]) => name === opened)?.[1] ?? null : null
+  const shown = inGroup ?? drawn.flatMap(([, one]) => one)
   const several = usePickMixed(ordered.map((card) => ({ type: 'nugget', id: card.id, title: card.prompt })), { here })
   const picked = ordered.filter((card) => several.picked({ type: 'nugget', id: card.id }))
   const pause = (ids: string[], on: boolean): void => void call('cards:pause', ids, on).then(() => {
@@ -365,8 +375,8 @@ export function CardBrowser({ onOpen, pasting: pastingFirst = false }: { onOpen:
   // The keys, as the Anki Browser and the app's lists have them: arrows and
   // J/K move, Space turns a card over (⇧Space, every card), Enter opens, E edits.
   // ⌘A, x, ⌫ and Esc come from picking (usePickMixed), on the card with the focus.
-  const now = useRef({ shown, density, turnAll, editing })
-  now.current = { shown, density, turnAll, editing }
+  const now = useRef({ shown, density, turnAll, editing, flowing, flowAt, opened })
+  now.current = { shown, density, turnAll, editing, flowing, flowAt, opened }
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (!here() || typing() || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
@@ -375,7 +385,18 @@ export function CardBrowser({ onOpen, pasting: pastingFirst = false }: { onOpen:
       const items = [...box.querySelectorAll<HTMLElement>('[data-pick]')]
       const at = items.findIndex((one) => one.contains(document.activeElement))
       const card = at >= 0 ? now.current.shown.find((one) => `nugget:${one.id}` === items[at].dataset.pick) : undefined
-      const grid = now.current.density === 'grid'
+      // Flip through: ← and → bring the next card to the middle, Space turns it over.
+      if (now.current.flowing && now.current.opened) {
+        const centre = now.current.shown[now.current.flowAt]
+        if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+          event.preventDefault()
+          chime('tap')
+          return setFlowAt(Math.max(0, Math.min(now.current.shown.length - 1, now.current.flowAt + (event.key === 'ArrowRight' ? 1 : -1))))
+        }
+        if (event.key === ' ' && centre) return (event.preventDefault(), chime('tap'), turn(centre.id))
+        if (event.key === 'Enter' && centre) return (event.preventDefault(), chime('open'), onOpen('nugget', centre.id))
+      }
+      const grid = now.current.density === 'grid' || !!now.current.opened
       const go = (to: number): void => {
         const next = items[Math.max(0, Math.min(items.length - 1, to))]
         next?.focus()
@@ -462,7 +483,6 @@ export function CardBrowser({ onOpen, pasting: pastingFirst = false }: { onOpen:
     </div>
   )
   const pick = (card: BrowsedCard) => ({ type: 'nugget', id: card.id })
-  const where = (card: BrowsedCard): string => [card.source, card.at].filter(Boolean).join(', ')
 
   const row = (card: BrowsedCard): React.JSX.Element => {
     const on = several.picked(pick(card))
@@ -507,47 +527,27 @@ export function CardBrowser({ onOpen, pasting: pastingFirst = false }: { onOpen:
     )
   }
 
-  // A real flashcard: the question face up, the answer on its back, its stage colour down its edge.
-  const flash = (card: BrowsedCard): React.JSX.Element => {
-    const on = several.picked(pick(card))
-    const turned = over.has(card.id) !== (hovered === card.id)
-    const face = (side: 'front' | 'back', children: React.ReactNode): React.JSX.Element => (
-      <div data-card-face={side} className={`relative flex h-full min-h-40 flex-col gap-2 overflow-hidden rounded-lg border border-l-[3px] bg-background px-4 pt-3.5 pb-3 ${on ? 'ring-2 ring-[var(--tt-brand-color-400)]' : ''}`} style={{ borderLeftColor: tintOf(card) }}>
-        {children}
-        <div className="mt-auto flex items-end justify-between gap-2 pt-1 text-xs text-muted-foreground">
-          <span className="min-w-0 truncate">{where(card) || card.tags.slice(0, 2).map((one) => `#${one}`).join(' ')}</span>
-          <span className={`shrink-0 tabular-nums ${dueSaid(card) === 'due now' ? 'text-foreground' : ''}`}>{dueSaid(card)}</span>
-        </div>
-      </div>
-    )
-    return (
-      <div data-pick={`nugget:${card.id}`} tabIndex={0} role="button" aria-selected={on} aria-label={card.prompt} data-turned={turned || undefined}
-        className={`h-full rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring ${card.paused ? 'opacity-60' : ''}`}
-        onPointerEnter={() => setHovered(card.id)} onPointerLeave={() => setHovered(null)}
-        // ⌘- and ⇧-click pick, as everywhere; a plain click turns it over (Flip).
-        onPointerUpCapture={(event) => (event.metaKey || event.shiftKey) && (event.stopPropagation(), several.click(event, pick(card)))}>
-        <Flip over={turned} onTurn={(to) => (chime('tap'), turn(card.id, hovered === card.id ? !to : to))}
-          front={face('front', <>
-            {card.picture && <img src={card.picture} alt="" className="max-h-28 w-full rounded object-contain" />}
-            <span className="flex items-start gap-1.5">{question(card, 'line-clamp-4 flex-1 text-body font-medium leading-snug')}{mark(card)}</span>
-            {fixes(card)}
-          </>)}
-          back={face('back', <p className="line-clamp-6 text-sm leading-relaxed text-foreground/90">{answerShown(card) || 'No answer yet'}</p>)} />
-      </div>
-    )
-  }
+  const poster = (card: BrowsedCard, size: 'sm' | 'md' | 'lg' = 'md'): React.JSX.Element => (
+    <Poster card={card} size={size} over={over.has(card.id)} onTurn={(to) => turn(card.id, to)} picked={several.picked(pick(card))}
+      onPick={(event) => several.click(event, pick(card))} question={question(card)} answer={answerShown(card)} />
+  )
 
   const cell = (card: BrowsedCard): React.JSX.Element => (
     <div key={card.id} data-card-row={card.id} className="contents">
       {editing === card.id
         ? <div className={density === 'grid' ? 'col-span-full' : ''}><EditCard card={card} tint={tintOf(card)} onDone={() => { setEditing(null); requestAnimationFrame(() => list.current?.querySelector<HTMLElement>(`[data-pick="nugget:${card.id}"]`)?.focus()) }} /></div>
-        : <RowMenu items={menu(card)}>{density === 'grid' ? <div className="h-full">{flash(card)}</div> : row(card)}</RowMenu>}
+        : <RowMenu items={menu(card)}>{density === 'grid' || opened ? <div className="min-w-0">{poster(card)}</div> : row(card)}</RowMenu>}
       {fixer(card)}
     </div>
   )
-  const body = (list: BrowsedCard[]): React.JSX.Element => density === 'grid'
-    ? <div data-card-grid className="grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-3 p-1">{list.map(cell)}</div>
-    : <div className={`flex flex-col ${density === 'compact' ? 'text-xs' : ''}`}>{list.map(cell)}</div>
+  const more = (list: BrowsedCard[]): React.JSX.Element | null => list.length <= limit ? null : (
+    <button type="button" data-card-more onClick={() => (chime('open'), setLimit(limit + 200))} className="mt-3 w-full rounded-md py-2 text-control font-medium text-foreground/80 hover:bg-accent/50 hover:text-foreground">
+      Show {num(Math.min(200, list.length - limit))} more <span className="font-normal text-foreground/60">of {num(list.length - limit)}</span>
+    </button>
+  )
+  const body = (list: BrowsedCard[]): React.JSX.Element => density === 'grid' || opened
+    ? <><div data-card-grid className="grid grid-cols-[repeat(auto-fill,minmax(12.5rem,1fr))] items-start gap-5 p-1">{list.slice(0, limit).map(cell)}</div>{more(list)}</>
+    : <><div className={`flex flex-col ${density === 'compact' ? 'text-xs' : ''}`}>{list.slice(0, limit).map(cell)}</div>{more(list)}</>
   const head = density === 'compact' && (
     <div aria-hidden className="grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_6.5rem_5rem_8rem] gap-x-3 border-b px-3 pb-1 text-xs font-medium text-muted-foreground">
       <span>Question</span><span>Answer</span><span className="text-right">Due</span><span>Stage</span><span className="text-right">Tags</span>
@@ -559,7 +559,7 @@ export function CardBrowser({ onOpen, pasting: pastingFirst = false }: { onOpen:
     <div data-card-browser data-density={density} className="flex flex-col gap-3 px-5 pt-5 pb-10">
       <div className="flex flex-wrap items-center gap-2">
         <div className="min-w-56 flex-1"><ListSearch value={query} onChange={setQuery} onDone={() => {}} placeholder="Search cards" /></div>
-        {density === 'grid' && (
+        {(density === 'grid' || opened) && !flowing && (
           <Tip label="Turn every card on show over, to test yourself  ⇧Space">
             <Button variant="ghost" size="sm" data-turn-all aria-pressed={allOver} onClick={turnAll}>{allOver ? 'All face up' : 'Turn all over'}</Button>
           </Tip>
@@ -567,10 +567,11 @@ export function CardBrowser({ onOpen, pasting: pastingFirst = false }: { onOpen:
         <Button variant="ghost" size="sm" data-paste-open aria-expanded={pasting} onClick={() => (chime(pasting ? 'fold' : 'open'), setPasting(!pasting))}>Paste cards</Button>
         <Display view={view} onChange={setView} facets={facets} items={cards} count={cards.length} sorts={SORTS} groups={GROUPS}
           sortNote={view.group === 'source' ? 'Within each book or video, cards go in page or time order.' : undefined}
-          density={density} onDensity={(next) => setView({ ...view, density: next })} densities={['compact', 'list', 'grid']} names={{ grid: 'Cards' }} />
+          density={density} onDensity={(next) => setView({ ...view, density: next })} densities={['small', 'grid', 'list', 'compact']} names={{ small: 'Pockets', grid: 'Cards' }} />
       </div>
       {paste}
-      <Chips options={[{ id: '', label: `All ${num(cards.length)}` }, ...tags.slice(0, 12).map((one) => ({ id: one, label: `#${one}` }))]} on={(id) => (tag ?? '') === id} pick={(id) => setTag(id || null)} />
+      {/* One line of the most used tags, sliding sideways, never wrapping; every tag is in Display's Tag filter, and each is a pocket. */}
+      <Chips sideways className="" options={[{ id: '', label: `All ${num(cards.length)}` }, ...tags.slice(0, 12).map((one) => ({ id: one, label: `#${one}` }))]} on={(id) => (tag ?? '') === id} pick={(id) => (setTag(id || null), setOpened(null))} />
       {several.count > 0 && (
         <div data-card-picked className="flex flex-wrap items-center gap-2 rounded-lg border bg-accent/30 px-3 py-2 text-sm">
           <span className="font-medium">{num(several.count)} picked</span>
@@ -600,6 +601,38 @@ export function CardBrowser({ onOpen, pasting: pastingFirst = false }: { onOpen:
         </Empty>
       ) : (
         <div ref={list} data-card-list>
+          {opened && inGroup ? (
+            // One group, opened: its cards, or flipped through one at a time.
+            <div data-card-opened={opened}>
+              <div className="mb-3 flex flex-wrap items-center gap-3">
+                <button type="button" data-card-back onClick={() => (chime('fold'), setOpened(null), setFlowing(false))} className="rounded-md px-1.5 py-1 text-control text-foreground/70 hover:bg-accent hover:text-foreground">‹ All cards</button>
+                <h2 className="font-heading text-title font-semibold text-foreground">{opened}</h2>
+                <span className="text-control text-foreground/60 tabular-nums">{num(inGroup.length)} {inGroup.length === 1 ? 'card' : 'cards'}</span>
+                <span className="flex-1" />
+                <Chips options={[{ id: 'cards', label: 'Cards' }, { id: 'flow', label: 'Flip through' }]} on={(id) => (id === 'flow') === flowing} pick={(id) => (chime('tap'), setFlowing(id === 'flow'), setFlowAt(0))} />
+              </div>
+              {flowing
+                ? <FlipThrough cards={inGroup} at={Math.min(flowAt, inGroup.length - 1)} onAt={setFlowAt} render={(card) => <RowMenu items={menu(card)}><div>{poster(card, 'lg')}</div></RowMenu>} />
+                : body(inGroup)}
+            </div>
+          ) : density === 'small' ? (
+            // Pockets: one a deck or tag, its own cards fanned out of the top.
+            <div data-card-pockets className="grid grid-cols-[repeat(auto-fill,minmax(12.5rem,1fr))] gap-x-4 gap-y-6">
+              {groups.map(([name, one]) => <Pocket key={name} name={name} cards={one} onOpen={() => (setOpened(name), setFlowing(false))} />)}
+            </div>
+          ) : density === 'grid' && grouping ? (
+            // Shelves: a group's cards standing behind a glass ledge in its colour; a long one ends in a card that opens the rest.
+            groups.map(([name, one]) => (
+              <Shelf key={name} name={name} count={one.length} onOpen={() => (chime('open'), setOpened(name))}>
+                {one.slice(0, 24).map((card) => <div key={card.id} data-card-row={card.id} className="w-48">{editing === card.id ? <EditCard card={card} tint={tintOf(card)} onDone={() => setEditing(null)} /> : <RowMenu items={menu(card)}><div>{poster(card)}</div></RowMenu>}</div>)}
+                {one.length > 24 && (
+                  <button type="button" data-shelf-more onClick={() => (chime('open'), setOpened(name))} className="mf-poster flex aspect-[4/5] w-48 flex-col items-center justify-center gap-1 rounded-lg font-heading text-heading font-semibold text-foreground" style={{ '--tint': groupTint(name) } as React.CSSProperties}>
+                    +{num(one.length - 24)}<span className="font-sans text-control font-normal text-foreground/70">more, open the group</span>
+                  </button>
+                )}
+              </Shelf>
+            ))
+          ) : <>
           {head}
           {drawn.map(([name, one]) => {
             const whole = groups.find(([key]) => key === name)?.[1] ?? one
@@ -614,6 +647,7 @@ export function CardBrowser({ onOpen, pasting: pastingFirst = false }: { onOpen:
                 </section>
               )
           })}
+          </>}
         </div>
       )}
     </div>

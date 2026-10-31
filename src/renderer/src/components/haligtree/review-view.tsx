@@ -1469,7 +1469,7 @@ export function Flip({ over, onTurn, front, back }: { over: boolean; onTurn: (ov
   })
   return (
     <div
-      className="grid cursor-pointer [perspective:1400px]"
+      className="grid cursor-pointer grid-cols-[minmax(0,1fr)] [perspective:1400px]"
       onPointerDown={(event) => {
         if (event.button !== 0 || own(event.target)) return
         grip.current = { x: event.clientX, base: aim.current, moved: false, width: event.currentTarget.offsetWidth, trail: [] }
@@ -1516,7 +1516,7 @@ export function Flip({ over, onTurn, front, back }: { over: boolean; onTurn: (ov
         grip.current = null
       }}
     >
-      <motion.div className="grid [transform-style:preserve-3d] [grid-area:1/1]" style={flat ? undefined : { rotateY: turn }}>
+      <motion.div className="grid min-w-0 grid-cols-[minmax(0,1fr)] [transform-style:preserve-3d] [grid-area:1/1]" style={flat ? undefined : { rotateY: turn }}>
         <div {...face(!over)}>{front}</div>
         <div {...face(over)} style={flat ? undefined : { transform: 'rotateY(180deg)' }}>{back}</div>
       </motion.div>

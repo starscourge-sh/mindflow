@@ -72,6 +72,7 @@ try {
   }
   for (const [sort, fine] of Object.entries(orders)) {
     await reopen({ sort })
+    await waitFor(async () => { const now = await ids(); return now.length === all.length && now.every((id, at) => !at || fine(by.get(now[at - 1]), by.get(id))) })
     const now = await ids()
     check(`ordered by ${sort}`, now.length === all.length && now.every((id, at) => !at || fine(by.get(now[at - 1]), by.get(id))), now.map((id) => by.get(id).prompt.slice(0, 12)).join(' | '))
   }
@@ -164,11 +165,11 @@ try {
   await h.evaluate((id) => document.querySelector(`[data-pick="nugget:${id}"]`)?.focus(), dot)
   await h.keyboard.press('e')
   check('E opens it again', await waitFor(() => h.evaluate(() => !!document.querySelector('[data-card-editing] .ProseMirror'))), await h.evaluate(() => `${document.activeElement?.tagName} ${document.activeElement?.dataset?.pick}`))
-  await h.locator('[data-card-editing] .ProseMirror').click()
+  await h.locator('[data-card-editing] .ProseMirror').focus()
   await h.keyboard.press('Meta+a')
   await h.keyboard.type('A number from two vectors')
   await h.keyboard.press('Enter')
-  check('the answer is edited in the app\'s editor and kept with Enter', await waitFor(async () => /A number from two vectors/.test((await call('cards:all')).find((x) => x.id === dot)?.answer ?? '')))
+  check('the answer is edited in the app\'s editor and kept with Enter', await waitFor(async () => /A number from two vectors/.test((await call('cards:all')).find((x) => x.id === dot)?.answer ?? '')), JSON.stringify([(await call('cards:all')).find((x) => x.id === dot)?.answer, await h.evaluate(() => [!!document.querySelector('[data-card-editing]'), document.activeElement?.className?.slice?.(0, 50), document.querySelector('[data-card-editing] .ProseMirror')?.textContent])]))
   await h.evaluate((id) => document.querySelector(`[data-pick="nugget:${id}"]`)?.focus(), dot)
   await h.keyboard.press('e')
   await waitFor(() => h.evaluate(() => !!document.querySelector('[data-card-edit]')))

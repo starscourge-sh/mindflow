@@ -30,6 +30,8 @@ const shot = async (name, again) => {
 try {
   await call('cards:list', [{ term: 'What is an event horizon?', meaning: 'The edge past which nothing comes back #astrophysics-holes' }, { term: 'Zebra question', meaning: 'Zebra answer #zoo' }])
   const all = await call('cards:all')
+  // The list view: All cards opens on its pockets.
+  await h.evaluate(() => localStorage.setItem('view:cards', JSON.stringify({ sort: 'due', group: 'none', filter: {}, density: 'list' })))
   await c.go('review')
   await shot('review-today', () => c.go('review'))
   await h.evaluate(() => document.querySelector('[data-review-tab="cards"]').click())
