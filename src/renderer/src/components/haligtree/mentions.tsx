@@ -14,7 +14,7 @@ import { asideItem, canSplit, openAside } from '@/lib/split'
 import { RowMenu, copyLinkItem, type RowItem } from './row-menu'
 import { unloaded, unread, haligtree } from '@/lib/haligtree'
 import { Thumb } from './note-extras'
-import { Count, Tags, Tip, quietly, refuse } from './ui'
+import { Count, Tags, Tip, VirtualList, quietly, refuse } from './ui'
 import { taskName } from '@/lib/tasks'
 import { Tilt } from './tilt'
 import { ChevronLeft, ChevronRight } from '@/components/ui/icons'
@@ -150,7 +150,7 @@ export function Mentions({ id, onOpen, compact = false }: {
       {found.linked.length > 0 && (
         <>
           <h3 className="mb-1 px-2 text-meta text-muted-foreground">{found.linked.length} linked {found.linked.length === 1 ? 'mention' : 'mentions'}</h3>
-          {found.linked.map((one) => row(one))}
+          <Rows list={found.linked} row={row} />
         </>
       )}
       {found.unlinked.length > 0 && (
@@ -159,7 +159,7 @@ export function Mentions({ id, onOpen, compact = false }: {
             <ChevronRight className={`size-3 transition-transform ${unfolded ? 'rotate-90' : ''}`} />
             {found.unlinked.length} unlinked {found.unlinked.length === 1 ? 'mention' : 'mentions'}
           </button>
-          {unfolded && found.unlinked.map((one) => row(one, () => haligtree.linkMention(one.type, one.id, id)))}
+          {unfolded && <Rows list={found.unlinked} row={(one) => row(one, () => haligtree.linkMention(one.type, one.id, id))} />}
         </>
       )}
       {/* The other way: what this note links to, and the notes it names
@@ -167,7 +167,7 @@ export function Mentions({ id, onOpen, compact = false }: {
       {found.out.length > 0 && (
         <>
           <h3 className="mt-3 mb-1 px-2 text-meta text-muted-foreground">{found.out.length} {found.out.length === 1 ? 'link' : 'links'} out</h3>
-          {found.out.map((one) => row(one))}
+          <Rows list={found.out} row={row} />
         </>
       )}
       {found.named.length > 0 && (
@@ -178,12 +178,17 @@ export function Mentions({ id, onOpen, compact = false }: {
           </button>
           {/* No Link button here: this note is open and being written, so its words
               change under the editor's feet. @ links them in place. */}
-          {namedOpen && found.named.map((one) => row(one))}
+          {namedOpen && <Rows list={found.named} row={row} />}
         </>
       )}
       {related.length > 0 && <RelatedRow cards={related} onOpen={onOpen} />}
     </section>
   )
+}
+
+/** One kind of mention, drawn only where it is in view: a note named by hundreds stays quick to open. */
+function Rows({ list, row }: { list: Found['linked']; row: (one: Found['linked'][number]) => React.JSX.Element }): React.JSX.Element {
+  return <VirtualList items={list} keyOf={(one) => `${one.type}:${one.id}`} estimate={52} rowClass="">{(one) => row(one)}</VirtualList>
 }
 
 /**
