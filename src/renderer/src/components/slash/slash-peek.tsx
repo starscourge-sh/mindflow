@@ -1,6 +1,10 @@
 import type { ReactNode, RefObject } from 'react'
 import { ChevronDown, FileDown, Image as ImageIcon, Paperclip, Play } from 'lucide-react'
 import { BesidePeek, MCard, MCheck, MLines, PeekCard, tinted } from '@/components/haligtree/peek'
+import { Tree, treeOf } from '@/components/haligtree/branches'
+
+/** The headings the Table of contents peek shows, each with its depth. */
+const PEEK_HEADINGS: [string, number][] = [['Why Hamlet waits', 0], ['The ghost', 1], ['The play within the play', 1], ['Too late', 0]]
 
 /**
  * Beside the `/` menu, the block under the pointer or the keys: a small
@@ -77,7 +81,14 @@ const PEEKS: Record<string, BlockPeek> = {
   Callout: { text: '**Make writing stand out.** A note set apart, with an icon of its own.', art: () => (<div className="flex gap-2 rounded-md px-2 py-1.5" style={{ backgroundColor: 'color-mix(in oklab, var(--tt-color-text-yellow) 14%, transparent)' }}><span className="text-[13px] leading-none">💡</span><p className={serif}>Fear is the mind-killer. Name it out loud, and it gets smaller.</p></div>) },
   'Two columns': { text: '**Put two blocks side by side.** Each column holds anything a note can.', art: () => (<div className="grid grid-cols-2 gap-2"><div><div className="mb-0.5 font-semibold">Book</div><Para>Paul's thoughts in italics, page after page.</Para></div><div><div className="mb-0.5 font-semibold">Film</div><Para>Whispers, and a face that says it all.</Para></div></div>) },
   'Three columns': { text: '**Put three blocks side by side.** Good for comparing.', art: () => (<div className="grid grid-cols-3 gap-1.5">{[['Greek', 'Rulers'], ['Demotic', 'Daily life'], ['Hieroglyphs', 'Priests']].map(([name, who]) => <div key={name}><div className="mb-0.5 font-semibold">{name}</div><Para>{who}</Para></div>)}</div>) },
-  'Table of contents': { text: "**A list of the note's headings, each one a link.** It keeps itself up to date.", art: () => (<div className="border-l-2 border-foreground/15 pl-2">{[['Why Hamlet waits', 0], ['The ghost', 1], ['The play within the play', 1], ['Too late', 0]].map(([one, depth]) => <div key={one as string} className="py-px text-muted-foreground underline decoration-foreground/20 underline-offset-2" style={{ paddingLeft: `${(depth as number) * 10}px` }}>{one as string}</div>)}</div>) },
+  'Table of contents': { text: "**A list of the note's headings, each one a link.** It keeps itself up to date.", art: () => (
+    // The block's own tree, as the note draws it: each level hung off a thin trunk.
+    <div data-peek-contents>
+      <div className="mb-0.5 text-muted-foreground/80">Contents</div>
+      <Tree nodes={treeOf(PEEK_HEADINGS, ([, depth]) => depth)} here={-1} className="ml-2.5 flex flex-col"
+        row={({ at, item: [one, depth] }) => <div key={at} className={`py-0.5 pl-1.5 ${depth ? 'text-muted-foreground' : 'font-medium text-foreground/85'}`}>{one}</div>} />
+    </div>
+  ) },
   Table: { text: '**Add simple rows and columns.** Drag a corner to add more.', art: () => <Grid /> },
   Image: { text: '**Add a picture from your disk or the web.** Drop or paste one in, too.', art: () => (<><div className="grid h-[5.5rem] place-items-center rounded-md" style={{ background: 'linear-gradient(135deg, color-mix(in oklab, var(--tt-color-text-orange) 30%, var(--background)), color-mix(in oklab, var(--tt-color-text-blue) 30%, var(--background)))' }}><ImageIcon className="size-5 text-foreground/50" /></div><div className="mt-1 text-center text-[9.5px] text-muted-foreground">Lake Geneva, where Frankenstein began</div></>) },
   File: { text: '**Attach any file to the note.** It opens with a click.', art: () => (<><Para>The essay brief, and my first draft:</Para>{[['essay-brief.pdf', '240 KB'], ['why-hamlet-waits.docx', '1.2 MB']].map(([name, size]) => <MCard key={name} className="mb-1 flex items-center gap-1.5 py-1"><Paperclip className="size-3 text-muted-foreground" /><span className="flex-1 truncate">{name}</span><span className="text-[9px] text-muted-foreground">{size}</span></MCard>)}</>) },
