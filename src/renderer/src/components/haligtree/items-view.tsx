@@ -1053,10 +1053,14 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
             {/* A gem that is also tested says so, under its words; a study card (made while reading) is in Review only. One click either way. */}
             {item.prompt && canMoveTier(item) && (
               <div data-gem-or-card={item.tier} className="note-column mt-3 flex items-center gap-2 text-body text-muted-foreground">
-                <span className="whitespace-nowrap">{item.tier === 'card' ? 'A study card: in Review only' : 'Also in Review'}</span>
-                <Prop tip={item.tier === 'card' ? 'In Gems, the Feed and Home too, and still in Review' : 'In Review only: out of Gems, the Feed and Home'} onClick={() => moveTier(item.id, item.tier === 'card' ? 'nugget' : 'card')}>
-                  {item.tier === 'card' ? 'Keep as a gem' : 'Study only'}
-                </Prop>
+                <span className="whitespace-nowrap text-foreground">{item.tier === 'card' ? 'A study card: in Review only' : 'Also in Review'}</span>
+                {/* A small button, sized to its words: never a field-wide bar, which reads as something to type in. */}
+                <Tip label={item.tier === 'card' ? 'In Gems, the Feed and Home too, and still in Review' : 'In Review only: out of Gems, the Feed and Home'}>
+                  <button type="button" data-gem-or-card-switch onClick={() => moveTier(item.id, item.tier === 'card' ? 'nugget' : 'card')}
+                    className="inline-flex h-7 shrink-0 cursor-pointer items-center rounded-md px-2 text-control font-medium text-foreground/80 transition-colors duration-80 hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 active:scale-[0.97]">
+                    {item.tier === 'card' ? 'Keep as a gem' : 'Study only'}
+                  </button>
+                </Tip>
               </div>
             )}
             <PageThoughts id={item.id} />

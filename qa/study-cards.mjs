@@ -83,6 +83,11 @@ try {
   await c.send('nugget', gem.id); await wait(1500)
   const line = await h.evaluate(() => document.querySelector('[data-gem-or-card]')?.textContent ?? '')
   check('a tested gem\'s page says "Also in Review" and offers "Study only"', /Also in Review/.test(line) && /Study only/.test(line), line || String(await h.evaluate((id) => !!document.querySelector(`[data-open="${id}"]`), gem.id)))
+  // The switch is a button sized to its words, never a field-wide bar.
+  const switchBox = await h.evaluate(() => { const b = document.querySelector('[data-gem-or-card-switch]'); const row = b?.closest('[data-gem-or-card]'); return b && row ? { button: b.getBoundingClientRect().width, row: row.getBoundingClientRect().width, cursor: getComputedStyle(b).cursor } : null })
+  check('"Study only" is a small button, not a field-wide bar, with the hand cursor', !!switchBox && switchBox.button < switchBox.row * 0.4 && switchBox.cursor === 'pointer', JSON.stringify(switchBox))
+  await h.locator('[data-gem-or-card-switch]').hover().catch(() => {}); await h.waitForTimeout(600)
+  await c.both?.(`${process.env.QA_SHOTS ?? '/tmp'}/study-only-switch`)
   await h.screenshot({ path: `${shots}/study-cards-gem-page.png` })
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])
