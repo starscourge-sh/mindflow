@@ -75,6 +75,9 @@ export const takeArticleFlash = (): string | null => {
 /** A link back into an article, as a gem keeps it: the page's link and the mark. */
 export const articleLink = (href: string, mark: string): string => `haligtree://article?href=${encodeURIComponent(href)}&mark=${mark}`
 
+/** A link to a PDF anywhere: one kept in the book (with its page and mark) or one on the web. */
+export const isPdfHref = (href: string | null | undefined): boolean => (!!href && /^(?:haligtree|mindflow):\/\/assets\/[^#?]+\.pdf(?:[#?]|$)/i.test(href)) || isWebPdf(href)
+
 /** A link to a PDF on the web: its path ends in `.pdf`. */
 export const isWebPdf = (href: string | null | undefined): boolean => !!href && /^https?:\/\/[^?#]+\.pdf(?:[?#]|$)/i.test(href)
 

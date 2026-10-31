@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react"
 import { createPortal } from "react-dom"
-import type { Attributes, Extensions, JSONContent } from "@tiptap/core"
+import { Extension, type Attributes, type Extensions, type JSONContent } from "@tiptap/core"
 import { Fragment, Slice } from "@tiptap/pm/model"
 import { NodeSelection, Selection as PMSelection, type EditorState, type Transaction } from "@tiptap/pm/state"
 import { onlyWordsChanged } from "@/lib/tiptap-utils"
 import type { Node as ProseMirrorNode, ResolvedPos } from "@tiptap/pm/model"
 import { EditorContent, EditorContext, useEditor } from "@tiptap/react"
-import { followPdfLink, openArticle } from "@/components/pdf/pdf-reader"
+import { followPdfLink, isPdfHref, openArticle } from "@/components/pdf/pdf-reader"
 import { canSplit } from "@/lib/split"
 import { useNotePlace } from "@/lib/note-place"
 
@@ -1221,8 +1221,6 @@ function Surface({
         link: has("link") && {
           openOnClick: false,
           enableClickSelection: true,
-          // What a click does, said on a rest (components/ui/title-tips.tsx); a link given a title says that instead.
-          HTMLAttributes: { "data-title-tip": canSplit() ? "Click to open, ⌥-click to the side" : "Click to open" },
           // A stored file can be linked to: a gem keeps its way back into a PDF so.
           protocols: ["haligtree", "mindflow"],
           // Only words that really are an address: "haligtree.app", never "the.re" (link-tidy.ts).
@@ -1230,6 +1228,23 @@ function Surface({
         },
       }),
       ...(shape === "line" ? [Document.extend({ content: "paragraph" })] : []),
+      // What a click on a link does, said on a rest (components/ui/title-tips.tsx); a link given a title says that instead.
+      // A PDF's link says nothing: its page preview on hover already shows what it is, and the side is in its menu.
+      Extension.create({
+        name: "linkTip",
+        addGlobalAttributes: () => [
+          {
+            types: ["link"],
+            attributes: {
+              tip: {
+                default: null,
+                parseHTML: () => null,
+                renderHTML: (attrs) => (isPdfHref(attrs.href) ? {} : { "data-title-tip": canSplit() ? "Click to open, ⌥-click to the side" : "Click to open" }),
+              },
+            },
+          },
+        ],
+      }),
       HorizontalRule,
       // Not on a line. There is nothing to align a one line title against, and
       // registering it hands Mod-Shift-r and its siblings a title to push to
