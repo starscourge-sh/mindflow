@@ -552,6 +552,8 @@ const DEFAULTS = {
   countIn: true,
   // A voice note turned into words on this Mac as soon as it is kept (main/transcribe.ts). Off to start.
   transcribeAsYouRecord: false,
+  // A transcript's ums, uhs and doubled words taken out by rules (lib/fillers.ts); the words as said stay one Undo away. On to start.
+  tidyTranscripts: true,
   // Talk to type: hold a key in any text field and what you say is typed at the caret (main/dictation.ts).
   talkToType: true,
   // The key held (or tapped, with talkTaps) to talk: ⌥Space, or the right-hand ⌥ alone.

@@ -4,6 +4,7 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 import { refuse, toast } from "@/components/haligtree/ui"
 import { haligtree } from "@/lib/haligtree"
 import { chime } from "@/lib/sound"
+import { tidySpeech } from "@/lib/fillers"
 
 /**
  * A voice note into words (main/transcribe.ts, on this Mac). The words land
@@ -104,11 +105,21 @@ export async function transcribe(editor: Editor, src: string): Promise<void> {
     if (!had) return
     if (!result.segments.length) return refuse("No words were heard in this recording", "info")
     const { schema } = editor.state
-    const lines = result.segments.map((one) => schema.nodes.paragraph.create(null, schema.text(`[${clock(one.start)}] ${one.text}`)))
+    const line = (one: Segment, text: string): ProseMirrorNode => schema.nodes.paragraph.create(null, schema.text(`[${clock(one.start)}] ${text}`))
+    // Ums, uhs and doubled words out, by rules (Settings, "Tidy transcripts"); the words as said kept for Undo.
+    const tidy = (await haligtree.settings()).tidyTranscripts !== false
+    const said = result.segments.map((one) => line(one, one.text))
+    const lines = tidy ? result.segments.map((one) => line(one, tidySpeech(one.text))) : said
+    const tidied = lines.some((one, i) => one.textContent !== said[i].textContent)
     editor.view.dispatch(editor.state.tr.replaceWith(had.from, had.to, lines).scrollIntoView())
     chime("saved")
     const count = result.segments.length === 1 ? "A line" : `${result.segments.length} lines`
-    if (!had.lines.length) return toast(`${count} of words, under the recording. A time plays it from there`, undefined, "success")
+    // Undo here puts back the words exactly as said, wherever the note has moved since.
+    const asSaid = (): void => {
+      const now = wordsAfter(editor, src)
+      if (now && !editor.isDestroyed) editor.view.dispatch(editor.state.tr.replaceWith(now.from, now.to, said))
+    }
+    if (!had.lines.length) return toast(tidied ? `${count} of words under the recording, without the ums and repeats. Undo keeps them as said` : `${count} of words, under the recording. A time plays it from there`, tidied ? asSaid : undefined, "success")
     // Transcribed again: the words it had are put back by Undo, wherever the note has moved since.
     const undo = (): void => {
       const now = wordsAfter(editor, src)

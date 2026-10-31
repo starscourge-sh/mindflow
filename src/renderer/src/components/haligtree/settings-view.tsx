@@ -74,7 +74,7 @@ import { Lead, plain } from './lead'
 import { backedUpAgo, chooseBackupFolder } from '@/lib/backups'
 import { ThemeDial } from './theme-dial'
 import { TimeField } from './time-field'
-import { BarWordsSample, BlurSample, CentredSample, DayHintsSample, FoldSample, TypePauseSample, SpellSample, HomeMonthSample, TimeGoneSample, TitleTopSample, TypewriterSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, StirSample, TempusSample, ThemeFileGuide, TuckSample, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, highlightChoices, paperChoices, pictureSizeChoices, tagLookChoices, IconColourSample, menuIconChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices, TranscribeSample, TalkSample } from './settings-show'
+import { BarWordsSample, BlurSample, CentredSample, DayHintsSample, FoldSample, TypePauseSample, SpellSample, HomeMonthSample, TimeGoneSample, TitleTopSample, TypewriterSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, StirSample, TempusSample, ThemeFileGuide, TuckSample, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, highlightChoices, paperChoices, pictureSizeChoices, tagLookChoices, IconColourSample, menuIconChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices, TranscribeSample, TalkSample, TidySample } from './settings-show'
 import { BookOpen as BookHeart, Brain, HardDrive, CircleHelp as LifeBuoy, ListTodo as ListChecks, Camera as Mountain, Brush as Palette, Pencil as PenLine, Search as SearchIcon, Sparkles, Volume2, X } from '@/components/ui/icons'
 import { APP_NAME } from '../../../../main/name'
 
@@ -1217,6 +1217,10 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
           <Setting title="Transcribe voice notes as you record them" note="A recording's words are written under it as soon as you keep it, each line with its time." more="Made on this Mac by its own speech recognition; nothing is sent anywhere. Off, “Transcribe” on a recording (its cc button, its right-click menu, or ⌘K) does it when you ask." keywords="voice note recording audio transcribe transcript words speech dictation text speech recognition captions"
             below={<TranscribeSample on={settings.transcribeAsYouRecord === true} />}>
             <Switch checked={settings.transcribeAsYouRecord === true} onCheckedChange={(transcribeAsYouRecord) => set({ transcribeAsYouRecord })} />
+          </Setting>
+          <Setting title="Tidy transcripts" note="A transcript leaves out the ums, uhs and words said twice; the rest stays exactly as you said it." more="By plain rules on this Mac, no AI. When a recording is first written out, Undo on its notice puts the words back exactly as said." keywords="transcript tidy filler um uh repeated words clean speech voice note"
+            below={<TidySample on={settings.tidyTranscripts !== false} />}>
+            <Switch checked={settings.tidyTranscripts !== false} onCheckedChange={(tidyTranscripts) => set({ tidyTranscripts })} />
           </Setting>
         </Group>
 

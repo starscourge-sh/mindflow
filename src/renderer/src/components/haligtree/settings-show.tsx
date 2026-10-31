@@ -1,4 +1,5 @@
 import { AudioLines, Camera, CircleCheck, FileOutput, Gem, Inbox, Repeat2 } from 'lucide-react'
+import { tidySpeech } from '@/lib/fillers'
 import { Orb } from './orb'
 import { PlaceIcon, SECTIONS } from './places'
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
@@ -909,6 +910,24 @@ export function TranscribeSample({ on }: { on: boolean }): React.JSX.Element {
         ))}
       </div>
       <Button variant="outline" size="sm" onClick={play} disabled={stage === 'listening'}>{on ? 'Record one' : 'Keep one'}</Button>
+    </div>
+  )
+}
+
+/**
+ * "Tidy transcripts", shown: one line as it was said, and (on) the same line
+ * as it is kept, the ums and the doubled word gone; off, as said.
+ */
+const SAID_LINE = 'Um, so the the Venetian statute, uh, came first, you know.'
+export function TidySample({ on }: { on: boolean }): React.JSX.Element {
+  return (
+    <div data-preview="tidy" className="mt-3 flex w-80 max-w-full flex-col gap-1.5 rounded-lg border border-border/60 bg-background p-3 text-control">
+      <p className="text-xs text-muted-foreground">As said</p>
+      <p className="text-muted-foreground">{SAID_LINE}</p>
+      <p className="mt-1 text-xs text-muted-foreground">Kept in the note</p>
+      <motion.p key={String(on)} data-tidy-kept initial={still() ? false : { opacity: 0, y: 3 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
+        {on ? tidySpeech(SAID_LINE) : SAID_LINE}
+      </motion.p>
     </div>
   )
 }
