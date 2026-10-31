@@ -1033,6 +1033,7 @@ const ours = (win: BrowserWindow): boolean => {
 const stickyFile = (): string => join(app.getPath('userData'), 'stickies.json')
 // Hidden: put away on its own ("Hide this one") until the stickies are next shown.
 // Tint: its paper's colour from its right-click menu (STICKY_TINTS); plain when none.
+// Bounds: the card's own frame, not its window's, so a card made again as glass (no room round it) or paper (room round it) stays put.
 type Stuck = { type: string; id: string; bounds?: Electron.Rectangle; hidden?: boolean; tint?: string }
 let stuck: Stuck[] = []
 const keepStuck = (): void => void writeWhole(stickyFile(), JSON.stringify(stuck)).catch(() => undefined)
@@ -1092,6 +1093,12 @@ ipcMain.on('window:solid', (event, solid: unknown) => {
   const win = BrowserWindow.fromId(id)
   return win && through.has(win) ? !!through.get(win) : null
 }
+
+/** A sticky's card, on the screen: what is kept as its place. */
+const cardFrame = (key: string, win: BrowserWindow): Electron.Rectangle => cardOf(win.getBounds(), insetOf(key))
+/** The window that draws a card at this frame, with the room round it its material keeps. */
+const windowAround = (card: Electron.Rectangle, inset: Inset): Electron.Rectangle =>
+  ({ x: card.x - inset.left, y: card.y - inset.top, width: card.width + inset.left + inset.right, height: card.height + inset.top + inset.bottom })
 
 /** Stickies waiting to come in: each 40ms after the last one really did, so a busy moment never lands two at once. */
 const arrivals: (() => void)[] = []
@@ -1237,7 +1244,7 @@ function takeDownSticky(win: BrowserWindow | null, title: string): void {
   if (!win || !key) return
   const [type, ...rest] = key.split(':')
   const id = rest.join(':')
-  takenDown = { type, id, bounds: win.getBounds(), tint: stuckAs(key)?.tint, title, until: Date.now() + TAKEN_FOR }
+  takenDown = { type, id, bounds: cardFrame(key, win), tint: stuckAs(key)?.tint, title, until: Date.now() + TAKEN_FOR }
   stick(type, id, false)
   const seen = (one: BrowserWindow | null | undefined): one is BrowserWindow => !!one && !one.isDestroyed() && one.isVisible()
   const voice = [home, prompt].find(seen)
@@ -1354,8 +1361,9 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   // A goal's card and the goals together keep their own size.
   const fixed = type === 'goal' || type === 'goals'
   // A saved place keeps the card itself on a screen: paper's clear room round it may hang past the edge.
-  const place = bounds
-    ? cardInView({ ...bounds, ...stickySize(fixed ? size.width : bounds.width, fixed ? size.height : bounds.height, bounds) }, insetOf(key), screen.getDisplayMatching(bounds).workArea)
+  const frame = bounds && windowAround(bounds, insetOf(key))
+  const place = frame
+    ? cardInView({ ...frame, ...stickySize(fixed ? size.width : frame.width, fixed ? size.height : frame.height, frame) }, insetOf(key), screen.getDisplayMatching(frame).workArea)
     : freeSpot(workArea, size.width, size.height, insetOf(key))
   const win = new BrowserWindow({
     ...place,
@@ -1409,7 +1417,7 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     // Peeking, the window is a tab at the edge: the card's own place is kept as it was.
     if (peeking.has(key) || openedAt.has(key)) return
     const one = stuck.find((each) => `${each.type}:${each.id}` === key)
-    if (one && !win.isDestroyed()) one.bounds = win.getBounds()
+    if (one && !win.isDestroyed()) one.bounds = cardFrame(key, win)
     keepStuck()
   }
   // Picked up by your hand: the page lifts the card (a deeper shadow; paper
@@ -1503,7 +1511,7 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   stickies.set(key, win)
   for (const event of ['show', 'hide', 'closed'] as const) win.on(event as 'show', tellStickiesOut)
   tellStickiesOut()
-  if (!stuck.some((one) => `${one.type}:${one.id}` === key)) stuck.push({ type, id, bounds: place })
+  if (!stuck.some((one) => `${one.type}:${one.id}` === key)) stuck.push({ type, id, bounds: cardOf(place, insetOf(key)) })
   keepStuck()
   guard(win)
   // Its place in line, so neighbours lean opposite ways.
@@ -2342,7 +2350,7 @@ function gatherStickies(): void {
     placed.set(win, { x: bounds.x, y: bounds.y })
     win.setPosition(bounds.x, bounds.y)
     const one = stuckAs(key)
-    if (one) one.bounds = win.getBounds()
+    if (one) one.bounds = cardFrame(key, win)
     arriveSticky(win)
   }
   keepStuck()
@@ -2387,7 +2395,7 @@ function moveStickies(moves: [string, BrowserWindow, { x: number; y: number }][]
     const land = (): void => {
       if (win.isDestroyed()) return
       const one = stuckAs(key)
-      if (one) (one.bounds = win.getBounds()), keepStuck()
+      if (one) (one.bounds = cardFrame(key, win)), keepStuck()
     }
     const go = (): void => {
       if (win.isDestroyed()) return
@@ -4504,12 +4512,9 @@ app.whenReady().then(() => {
     for (const [key, win] of [...stickies]) {
       if (win.isDestroyed() || builtGlass.get(key) === glass) continue
       const [type, ...rest] = key.split(':')
-      const at = win.getBounds()
       // The card stays where it was, the same size: as paper it has room round it, as glass none.
-      const was = insetOf(key)
+      const at = cardFrame(key, win)
       builtGlass.set(key, glass)
-      const now = insetOf(key)
-      Object.assign(at, { x: at.x + was.left - now.left, y: at.y + was.top - now.top, width: at.width - was.left - was.right + now.left + now.right, height: at.height - was.top - was.bottom + now.top + now.bottom })
       // The old one fades out as the new one fades in where it was: one card changing its material, not a blink.
       stickies.delete(key)
       fadeOutSticky(win)
@@ -4610,7 +4615,7 @@ app.whenReady().then(() => {
       const { x, y } = cardInView(now, insetOf(key), screen.getDisplayMatching(now).workArea)
       if (x !== now.x || y !== now.y) return moveStickies([[key, win, { x, y }]], false)
       const one = stuckAs(key)
-      if (one) (one.bounds = now), keepStuck()
+      if (one) (one.bounds = cardOf(now, insetOf(key))), keepStuck()
     }
     if (stillness() || (exact.width === at.width && exact.height === at.height)) return (win.setBounds({ ...at, ...exact }), keep())
     tween(200, (t) => {
