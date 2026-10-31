@@ -1,4 +1,5 @@
 import { click } from './sound'
+import { detent as feel } from './haptics'
 
 /**
  * Guiding the hand to where it means to land, the way the theme dial does:
@@ -18,15 +19,6 @@ export function falloff(distance: number, reach: number): number {
 /** `value`, or `at` when it is within `reach` of it: a detent that holds a little either side. */
 export function detent(value: number, at: number, reach: number): number {
   return Math.abs(value - at) <= reach ? at : value
-}
-
-/** The trackpad taps too (main/haptic.ts), never closer than 60ms, so a fast drag never buzzes. */
-let felt = 0
-function feel(): void {
-  const now = performance.now()
-  if (now - felt < 60) return
-  felt = now
-  ;(window as { api?: { tap?: () => void } }).api?.tap?.()
 }
 
 /**

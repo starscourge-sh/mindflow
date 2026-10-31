@@ -3,6 +3,7 @@ import { Monitor, SquareDashed, X } from 'lucide-react'
 import CameraIcon from '@/components/ui/camera-icon'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import { Tip } from '@/components/haligtree/ui'
+import { edge } from '@/lib/haptics'
 import { chime } from '@/lib/sound'
 import { still } from '@/lib/motion'
 import { cn } from '@/lib/cn'
@@ -56,10 +57,10 @@ export function ShotButton({ onShot }: { onShot: (area: boolean) => void }): Rea
   const toggle = (on: boolean): void => {
     if (on === open) return
     // A tap under the finger as the two choices fan out, and again on the one taken (the trackpad's own, haptic.ts).
-    if (on && root.current) (chime('slide'), window.api.tapHard?.(), setAt(0), setWhere(spots(root.current)))
+    if (on && root.current) (chime('slide'), edge(), setAt(0), setWhere(spots(root.current)))
     setOpen(on)
   }
-  const pick = (area: boolean): void => (window.api.tapHard?.(), setOpen(false), onShot(area))
+  const pick = (area: boolean): void => (edge(), setOpen(false), onShot(area))
   // What is in their way steps back while they are open.
   useEffect(() => {
     if (!open || !root.current) return

@@ -12,6 +12,8 @@ import hapticFile from '../../resources/haptic.node?asset&asarUnpack'
 let tapper: ((kind: number) => void) | null | undefined
 /** How many taps were asked for: what the stickies' probe reads. */
 export let taps = 0
+/** Each tap's kind, in order: what the scrub probe reads (tests never play one). */
+export const tapKinds: Array<'align' | 'level'> = []
 export function tap(kind: 'align' | 'level' = 'align'): void {
   if (process.platform !== 'darwin') return
   if (tapper === undefined && !process.env.HALIGTREE_QA_AWAY) {
@@ -24,6 +26,7 @@ export function tap(kind: 'align' | 'level' = 'align'): void {
     }
   }
   taps += 1
+  if (tapKinds.push(kind) > 500) tapKinds.shift()
   // Tests count the taps and never play one (HALIGTREE_QA_AWAY).
   if (process.env.HALIGTREE_QA_AWAY) return
   // Always the firmer of the Mac's taps (its level change): the alignment tap was too light to feel (the user asked

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, animate, motion, useMotionValue, useTransform, type MotionValue } from 'motion/react'
 import { allThemes, applyTheme, currentTheme, isLight, themeName, type Theme } from '@/lib/theme'
 import { chime, click, step } from '@/lib/sound'
+import { edge } from '@/lib/haptics'
 import { falloff } from '@/lib/proximity'
 import { Swatch } from '@/components/theme/theme-picker'
 import { Rolling } from './ui'
@@ -63,7 +64,7 @@ export function ThemeDial({ size = 200, big = false, calm = false, wear = (theme
     const i = wrap(raw)
     if (i === at && by === 0) return
     // Felt as well as heard: a firm tap under the finger at every stop, the way a real dial clicks.
-    window.api.tapHard?.()
+    edge()
     if (heard === 'tick') {
       click('tick')
       if (!still()) animate(bump, [1.45, 1], { type: 'spring', bounce: 0.3, duration: 0.3 })
@@ -92,7 +93,7 @@ export function ThemeDial({ size = 200, big = false, calm = false, wear = (theme
       let passing = here()
       const off = turn.on('change', (deg) => {
         const now = Math.round(-deg / per)
-        if (now !== passing && now !== raw) (click('tick'), window.api.tapHard?.())
+        if (now !== passing && now !== raw) (click('tick'), edge())
         passing = now
       })
       void run.then(off, off)

@@ -1,4 +1,5 @@
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import { stepTap } from "@/lib/haptics"
 import { chime } from "@/lib/sound"
 
 /** A number you drag sideways to change (ScrubField), drawn as Haligtree"s own field. */
@@ -6,6 +7,8 @@ export const SCRUB = "h-8 w-14 cursor-ew-resize rounded-md border border-input b
 
 /** The quickest a step's tick repeats: a fast scrub is a soft patter, never a buzz. */
 const TICK_GAP = 45
+/** How far two fingers travel for one step: a mouse wheel's notch is a step of its own. */
+const WHEEL_STEP = 24
 
 /**
  * A typed sum, worked out: "20*2" is 40, and one that starts with a sign
@@ -30,21 +33,56 @@ export async function typedSum(typed: string, value: number): Promise<number | n
  * across it to scrub (the further from where you pressed, the faster; ⇧ ten
  * times as fast, ⌥ fine), let go to land. A plain click types a number, or a
  * sum ("+5", "20*2"), instead, and ↑ ↓ step while it has the keys (⇧ by ten).
+ * Two fingers (or a mouse wheel) over it step it too, either way, ⇧ by ten,
+ * and the page behind stays put. Each step taps the trackpad lightly; the
+ * first and last, any of `marks` (a chapter's start), and the value it
+ * showed as you came to it, firmly.
  */
-export function ScrubField({ value, max, onChange, label = "Page", min = 1, className = "pdf-reader-page-field" }: { value: number; max: number; onChange: (n: number) => void; label?: string; min?: number; className?: string }): React.JSX.Element {
+export function ScrubField({ value, max, onChange, label = "Page", min = 1, className = "pdf-reader-page-field", marks }: { value: number; max: number; onChange: (n: number) => void; label?: string; min?: number; className?: string; marks?: ReadonlySet<number> }): React.JSX.Element {
   const field = useRef<HTMLInputElement>(null)
   const [typed, setTyped] = useState<string | null>(null)
+  /** The page shown as the pointer came over the field: the page you came from, felt firmly on the way back. */
+  const origin = useRef(value)
   const press = useRef<{ x: number; last: number; from: number; at: number; moved: boolean; tickAt: number } | null>(null)
   const to = (n: number): number => Math.min(Math.max(min, Math.round(n)), Math.max(min, max))
   const land = (n: number, tick: { tickAt: number } | null): void => {
     const next = to(n)
     if (next === value) return
     onChange(next)
+    stepTap(next, min, Math.max(min, max), next === origin.current ? new Set([next]) : marks)
     if (!tick || performance.now() - tick.tickAt > TICK_GAP) {
       chime("tick")
       if (tick) tick.tickAt = performance.now()
     }
   }
+  // The wheel a step at a time; the one listener reads this render's value and landing through a ref.
+  const wheel = useRef({ land, value, rest: 0 })
+  wheel.current.land = land
+  wheel.current.value = value
+  useEffect(() => {
+    const el = field.current
+    if (!el) return
+    const onWheel = (event: WheelEvent): void => {
+      // ⌘ or a pinch (ctrl) is the reader's zoom: let it through.
+      if (event.metaKey || event.ctrlKey) return
+      event.preventDefault()
+      const one = wheel.current
+      // The larger of the two ways (⇧ turns a mouse's wheel sideways), in pixels.
+      const raw = Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? event.deltaY : event.deltaX
+      const by = event.deltaMode === 1 ? raw * 16 : event.deltaMode === 2 ? raw * 400 : raw
+      // A mouse wheel's notch (Chromium's 120 a notch) is one step, however far the system throws it.
+      const wheelDelta = (event as WheelEvent & { wheelDelta?: number }).wheelDelta ?? 0
+      let steps = wheelDelta && wheelDelta % 120 === 0 ? -Math.sign(wheelDelta) * Math.min(3, Math.abs(wheelDelta) / 120) : 0
+      if (!steps) {
+        one.rest += by
+        steps = Math.trunc(one.rest / WHEEL_STEP)
+        one.rest -= steps * WHEEL_STEP
+      }
+      if (steps) one.land(one.value + steps * (event.shiftKey ? 10 : 1), null)
+    }
+    el.addEventListener("wheel", onWheel, { passive: false })
+    return () => el.removeEventListener("wheel", onWheel)
+  }, [])
   const done = (): void => {
     press.current = null
     delete document.documentElement.dataset.scrubbing
@@ -89,6 +127,7 @@ export function ScrubField({ value, max, onChange, label = "Page", min = 1, clas
       }}
       onPointerCancel={done}
       onLostPointerCapture={() => press.current && done()}
+      onPointerEnter={() => (origin.current = value)}
       onFocus={(event) => (setTyped(String(value)), event.currentTarget.select())}
       onChange={(event) => setTyped(event.target.value.replace(/[^\d.+\-*/×÷() ]/g, ""))}
       onBlur={() => setTyped(null)}

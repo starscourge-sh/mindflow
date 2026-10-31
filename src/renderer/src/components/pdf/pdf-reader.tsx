@@ -1,4 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { stepTap } from "@/lib/haptics"
 import { useToolKeys } from "@/lib/tool-keys"
 import type { PDFDocumentProxy } from "pdfjs-dist"
 import { ChevronDown, ChevronUp, Gem, Minus, PanelLeft, PanelRight, Plus, Scissors, ScrollText, Search, SquareStack, X } from "lucide-react"
@@ -197,6 +198,8 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
 
   // The PDF's own outline, if it has one: each entry's title, depth and page (pdf-rail.tsx).
   const outline = usePdfOutline(doc)
+  /** The pages a chapter starts on: felt firmly as you scroll or scrub onto one. */
+  const chapters = useMemo(() => new Set(outline.map((one) => one.page)), [outline])
 
   // Every highlight in the book, in page order, beside the pages: a click goes to it and lights it.
   // Details at the right, shown and hidden with a note's (the same button, and ⇧⌘B).
@@ -716,6 +719,8 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     if (at !== page) {
       setPage(at)
       onPage?.(at)
+      // Each page coming into place taps the trackpad (a fling's in-between pages fold into one); its ends and chapters, firmly.
+      stepTap(at, 1, doc?.numPages ?? 1, chapters)
     }
   }
 
@@ -732,7 +737,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           {chapter && <span data-pdf-chapter className="pdf-reader-chapter">{chapter}</span>}
         </span>
         <span className="pdf-reader-page">
-          <ScrubField value={page} max={doc?.numPages ?? 1} onChange={go} />
+          <ScrubField value={page} max={doc?.numPages ?? 1} onChange={go} marks={chapters} />
           <span className="pdf-reader-of"> / {doc?.numPages ?? "…"}</span>
         </span>
         {/* The title wins the room: in a narrow pane the tools wait behind "More", in the same order. */}
