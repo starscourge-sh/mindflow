@@ -4106,3 +4106,18 @@ html[data-motion="off"] .tiptap.ProseMirror :is(.mf-kept, .mf-kept-icon button) 
     max-width: $width;
   }
 }
+
+/* A voice note's words under it (lib/transcribe.ts): quieter than the note's own, each line led by its time. */
+.tiptap.ProseMirror.haligtree-editor .mf-transcript-line {
+  opacity: 0.72;
+  font-size: 0.94em;
+}
+.tiptap.ProseMirror.haligtree-editor .mf-transcript-line .mf-time-link {
+  margin-right: 0.15em;
+}
+
+/* "Listening…" under a recording while its words are made out. */
+.tiptap-attachment-listening {
+  display: flex;
+  margin-top: 0.5rem;
+}

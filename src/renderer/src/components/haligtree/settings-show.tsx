@@ -1,4 +1,5 @@
-import { Camera, CircleCheck, FileOutput, Gem, Inbox, Repeat2 } from 'lucide-react'
+import { AudioLines, Camera, CircleCheck, FileOutput, Gem, Inbox, Repeat2 } from 'lucide-react'
+import { Orb } from './orb'
 import { PlaceIcon, SECTIONS } from './places'
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { motion } from 'motion/react'
@@ -852,3 +853,54 @@ export const meaningChoices = [
   { id: 'word-kind', label: 'Only for Word', show: <OneWordBox meaning chip /> },
   { id: 'off', label: 'Never', show: <OneWordBox meaning={false} /> }
 ]
+
+// --- Voice notes ------------------------------------------------------------------
+
+const SAID = [
+  { at: '0:00', words: 'Pick up eggs on the way home.' },
+  { at: '0:03', words: 'And call Mum about Sunday.' }
+]
+
+/**
+ * "Transcribe voice notes as you record them", shown: a recording just kept,
+ * then (on) the Orb listening and its words coming in under it, each line
+ * led by its time, as a note shows them. Off, the recording stays as it is.
+ */
+export function TranscribeSample({ on }: { on: boolean }): React.JSX.Element {
+  const [stage, setStage] = useState<'kept' | 'listening' | 'words'>(on ? 'words' : 'kept')
+  // The value last seen: it plays only on a real change, never on a first run.
+  const last = useRef(on)
+  const play = (): void => {
+    chime('saved')
+    setStage(on ? 'listening' : 'kept')
+  }
+  useEffect(() => {
+    if (last.current === on) return
+    last.current = on
+    setStage(on ? 'listening' : 'kept')
+  }, [on])
+  // The listening lasts a moment, then the words arrive.
+  useEffect(() => {
+    if (stage !== 'listening') return
+    const next = setTimeout(() => (chime('noted'), setStage('words')), 1400)
+    return () => clearTimeout(next)
+  }, [stage])
+  return (
+    <div data-preview="transcribe" className="mt-3 flex flex-wrap items-start gap-3">
+      <div className="flex w-72 max-w-full flex-col gap-2 rounded-lg border border-border/60 bg-background p-3">
+        <div className="flex items-center gap-2 rounded-md bg-muted/60 px-2.5 py-2 text-control">
+          <AudioLines className="size-4 shrink-0 text-muted-foreground" />
+          <span className="truncate">Voice note 31 Oct 15.51</span>
+        </div>
+        {stage === 'listening' && <Orb state="listening" label="Listening…" />}
+        {stage === 'words' && SAID.map((line, i) => (
+          <motion.p key={line.at} initial={still() ? false : { opacity: 0, y: 4, filter: 'blur(3px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }} transition={{ delay: i * 0.35, duration: 0.35 }}
+            className="text-control text-muted-foreground">
+            <span className="mr-1 text-[var(--tt-brand-color-500)] underline decoration-current/35 underline-offset-2 tabular-nums">[{line.at}]</span>{line.words}
+          </motion.p>
+        ))}
+      </div>
+      <Button variant="outline" size="sm" onClick={play} disabled={stage === 'listening'}>{on ? 'Record one' : 'Keep one'}</Button>
+    </div>
+  )
+}

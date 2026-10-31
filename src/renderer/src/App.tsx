@@ -98,6 +98,7 @@ import {
 } from "@/components/ui/resizable"
 import { Tip, Pressed, untoast } from '@/components/haligtree/ui'
 import { MicIcon, recordAsCapture, recordInto } from '@/components/haligtree/voice-note'
+import { recordingsWithoutWords, transcribePage } from '@/lib/transcribe'
 import { Celebrations } from '@/components/haligtree/celebrate'
 import { Mentions } from '@/components/haligtree/mentions'
 import { Switch } from '@/components/ui/switch'
@@ -1754,6 +1755,7 @@ export default function App(): React.JSX.Element {
           actions={searching === 'notes' ? [] : [
             { label: 'New capture', keys: '⌘N', run: () => startOver() },
             { label: 'Record a voice note', hint: 'Kept as a new capture', cue: null, run: () => void recordAsCapture((id) => openAny('capture', id)) },
+            ...(recordingsWithoutWords() ? [{ label: 'Transcribe the voice notes', hint: 'Their words under each, on this Mac', cue: null, run: transcribePage }] : []),
             { label: 'New question', cue: null, run: () => void startQuestion(openAny) },
             { label: panel ? 'Hide the side panel' : 'Show the side panel', keys: '⌘\\', cue: null, run: () => (setPanel(!panel), quietly(() => setPanel(panel))) },
             ...TABS.map((one, index) => ({ label: `Go to ${({ inbox: 'Inbox', today: 'Tasks', review: 'Review', kept: 'Saved', recent: 'Recent' } as Record<string, string>)[one] ?? one}`, keys: `⌃${index + 1}`, run: () => {

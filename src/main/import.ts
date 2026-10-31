@@ -243,7 +243,8 @@ export function firstLine(body: unknown): string {
   let tags = ''
   for (const block of body ? textBlocks(body as Node) : []) {
     for (const one of wordsOf(block).split('\n')) {
-      const line = one.trim()
+      // A transcript's time ("[0:00] Pick up eggs") is not a name: a voice note is named by its first words.
+      const line = one.trim().replace(/^\[(?:\d{1,2}:)?\d{1,2}:[0-5]\d\]\s*/, '')
       if (!line) continue
       if (!line.replace(new RegExp(`(?:^|\\s)#${TAG_HERE}(?:/${TAG_HERE})*`, 'gu'), '').trim()) {
         tags ||= line

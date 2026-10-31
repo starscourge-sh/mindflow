@@ -11,6 +11,7 @@ import { isWebPage, openArticle } from "@/components/pdf/web-reader"
 import { haligtree } from "@/lib/haligtree"
 import { host, said } from "@/lib/host"
 import { lookUp } from "@/components/pdf/look-up"
+import { playAt } from "@/extensions/line-cards"
 
 /** Picked words looked up in the one Look Up card, under them, with the line they sit in kept beside the Lookup. */
 export function lookUpIn(editor: Editor, from: number, to: number, words: string, origin?: string | null): void {
@@ -49,7 +50,7 @@ export type Clicked =
   | { kind: "words"; from: number; to: number; words: string }
   | { kind: "tag"; tag: string }
   | { kind: "formula"; pos: number; latex: string }
-  | { kind: "time"; seconds: number; text: string }
+  | { kind: "time"; seconds: number; text: string; audio?: string }
   | { kind: "picture"; src: string }
   | { kind: "video"; src: string }
 
@@ -104,7 +105,7 @@ export function clickedAt(editor: Editor, event: MouseEvent): Clicked | null {
     return { kind: "pdf", from: null, to: null, href: null, src: tagged.dataset.pdfPeek, name: tagged.dataset.pdfPeekName ?? "", page: Number(tagged.dataset.pdfPeekPage) || 1 }
   // A "[m:ss]" in a line: plays the note's video from there.
   const time = target?.closest<HTMLElement>(".mf-time-link[data-seconds]")
-  if (time && view.dom.contains(time)) return { kind: "time", seconds: Number(time.dataset.seconds) || 0, text: (time.textContent ?? "").replace(/[[\]]/g, "") }
+  if (time && view.dom.contains(time)) return { kind: "time", seconds: Number(time.dataset.seconds) || 0, text: (time.textContent ?? "").replace(/[[\]]/g, ""), audio: time.dataset.audio }
   const chip = target?.closest<HTMLElement>('.tiptap-token[data-token="tag"]')
   if (chip && view.dom.contains(chip)) return { kind: "tag", tag: (chip.textContent ?? "").replace(/^#/, "").trim() }
   // A formula, a picture or a video: the node under the pointer.
@@ -289,10 +290,11 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
     ].filter((one) => !one.edits || editor.isEditable)
   }
   if (clicked.kind === "time") {
-    const { seconds, text } = clicked
+    const { seconds, text, audio } = clicked
     const video = editor.view.dom.querySelector<HTMLElement>("[data-youtube-video]")
     const lines: Array<Line | false> = [
-      !!video && { label: `Play from ${text}`, data: "play", run: () => (window.dispatchEvent(new CustomEvent("haligtree:video-at", { detail: { seconds, video } })), video.scrollIntoView({ block: "center" })) },
+      !!audio && { label: `Play from ${text}`, data: "play", run: () => void playAt(editor.view.dom, audio, seconds) },
+      !audio && !!video && { label: `Play from ${text}`, data: "play", run: () => (window.dispatchEvent(new CustomEvent("haligtree:video-at", { detail: { seconds, video } })), video.scrollIntoView({ block: "center" })) },
       { label: "Copy the time", data: "copy-time", run: () => copyText(`[${text}]`, `Copied [${text}]`) },
     ]
     return lines.filter((one): one is Line => !!one)

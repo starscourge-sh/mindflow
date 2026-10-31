@@ -10,6 +10,8 @@ interface AttachmentAttributes {
   name: string
   /** Bytes, kept as a number so the card can format it however it likes. */
   size: number
+  /** A recording to turn into words once it shows (lib/transcribe.ts). */
+  transcribe?: boolean
 }
 
 declare module "@tiptap/core" {
@@ -67,6 +69,14 @@ export const Attachment = Node.create({
         default: null,
         parseHTML: (element) => element.getAttribute("data-width"),
         renderHTML: ({ width }) => (width ? { "data-width": width } : {}),
+      },
+      // A recording just kept, to be turned into words as soon as its block is
+      // on the page (Settings' "Transcribe voice notes as you record them"),
+      // in whatever window opens it. Cleared as it starts.
+      transcribe: {
+        default: false,
+        rendered: false,
+        parseHTML: () => false,
       },
     }
   },

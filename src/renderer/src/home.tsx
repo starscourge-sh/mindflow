@@ -67,6 +67,7 @@ import { Button } from '@/components/ui/button'
 import { allRecorded, recordAll } from './lib/recordings'
 import { Tip, showTopTitle, useTopTitle, Pressed, useEscapeLeavesEditor } from '@/components/haligtree/ui'
 import { recordAsCapture } from '@/components/haligtree/voice-note'
+import { recordingsWithoutWords, transcribePage } from '@/lib/transcribe'
 import { Celebrations, tryCelebration } from '@/components/haligtree/celebrate'
 import MagnifierIcon from '@/components/ui/magnifier-icon'
 import GearIcon from '@/components/ui/gear-icon'
@@ -1562,6 +1563,7 @@ export function Home(): React.JSX.Element {
             ...(quiet ? [{ label: 'Show everything', hint: 'Every page in the sidebar again', cue: null, run: () => void call('return:show-all').then(() => chime('unshelve')) }] : []),
             { label: 'New capture', keys: 'C', run: () => window.api.showPrompt() },
             { label: 'Record a voice note', hint: 'Kept as a new capture', cue: null, run: () => void recordAsCapture((id) => open('capture', id)) },
+            ...(recordingsWithoutWords() ? [{ label: 'Transcribe the voice notes', hint: 'Their words under each, on this Mac', cue: null, run: transcribePage }] : []),
             { label: 'New question', cue: null, run: () => void startQuestion(open) },
             { label: 'New goal', cue: null, run: () => void startGoal(open) },
             // One action for every open goal's beacon, then a short list: each goal, and the two settings it is not on.

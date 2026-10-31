@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleIdentifier</key>
+  <string>com.starskourge.haligtree.transcribe</string>
+  <key>CFBundleName</key>
+  <string>Haligtree</string>
+  <key>NSSpeechRecognitionUsageDescription</key>
+  <string>Haligtree turns your voice notes into words on this Mac, only when you ask. Nothing is sent anywhere.</string>
+</dict>
+</plist>

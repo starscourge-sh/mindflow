@@ -18,6 +18,7 @@ import {
 import { slashItems } from "@/components/slash/slash-items"
 import { lookAtSelected } from "@/components/image/image-look"
 import { startCaption } from "@/extensions/caption"
+import { isAudio, transcribe } from "@/lib/transcribe"
 import { BLOCK_COLORS, COLORABLE } from "@/extensions/block-color"
 import { host, said } from "@/lib/host"
 import { listDirection } from "@/lib/menu-keys"
@@ -185,7 +186,9 @@ export function BlockMenu({
         ? { label: "Plain line", variant: null }
         : { label: "Ribbon", variant: "ribbon" }
       : null
-  const captionable =!!thing && ["image", "youtube", "attachment"].includes(thing.type.name)
+  // A recording has no caption shown: its words, written under it, are what it offers instead.
+  const recording = isAudio(thing)
+  const captionable =!!thing && !recording && ["image", "youtube", "attachment"].includes(thing.type.name)
   /** A card's address. Opened through `window.open`, which the app hands to the browser. */
   const href: string | undefined = thing?.attrs.href || undefined
 
@@ -448,6 +451,14 @@ export function BlockMenu({
               <MenuGlyph label="Look" />
               <span className="tiptap-slash-menu-title">Look</span>
               <span className="tiptap-slash-menu-hint">Space</span>
+            </button>
+          </DropdownMenuItem>
+        ) : null}
+        {recording && editor.isEditable && matches("Transcribe") ? (
+          <DropdownMenuItem asChild>
+            <button type="button" data-transcribe onClick={() => at(() => void transcribe(editor, String(thing?.attrs.src ?? "")))}>
+              <MenuGlyph label="Transcribe" />
+              <span className="tiptap-slash-menu-title">Transcribe</span>
             </button>
           </DropdownMenuItem>
         ) : null}

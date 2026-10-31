@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react"
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react"
 import { AlignCenter, AlignLeft, AlignRight, AudioLines, Captions, Columns2, ListTree, MoveHorizontal, MoveVertical, PanelLeft, Pause, PictureInPicture2, Play, RectangleVertical, RotateCcw, ScrollText } from "lucide-react"
 import { AliveIcon } from "@/components/ui/alive-icon"
@@ -22,6 +22,8 @@ import { chime } from "@/lib/sound"
 import { canSplit } from "@/lib/split"
 import { isNodeSelected } from "@/extensions/selected-nodes"
 import { startCaption } from "@/extensions/caption"
+import { hasWords, isTranscribing, onTranscribing, transcribe } from "@/lib/transcribe"
+import { Orb } from "@/components/haligtree/orb"
 import { FileText as File, FileText, Fit as Maximize, Volume2, VolumeX } from "@/components/ui/icons"
 
 /** 57.3 KB, not 58624. Binary units, because that is what a file manager shows. */
@@ -303,9 +305,16 @@ function MediaToolbar({ props, sized }: { props: NodeViewProps; sized: boolean }
           {size ? <span className="tiptap-media-size">{readableSize(size)}</span> : null}
         </span>
         <ToolbarGroup>
-          <Button data-style="ghost" aria-label="Caption" data-active-state={props.node.attrs.caption ? "on" : "off"} onClick={() => { const at = props.getPos(); if (at != null) startCaption(props.editor, at) }}>
-            <Captions className="tiptap-button-icon" />
-          </Button>
+          {sized ? (
+            <Button data-style="ghost" aria-label="Caption" data-active-state={props.node.attrs.caption ? "on" : "off"} onClick={() => { const at = props.getPos(); if (at != null) startCaption(props.editor, at) }}>
+              <Captions className="tiptap-button-icon" />
+            </Button>
+          ) : (
+            // A recording has no caption: its cc is its words, written under it.
+            <Button data-style="ghost" aria-label="Transcribe" data-transcribe onClick={() => void transcribe(props.editor, src)}>
+              <Captions className="tiptap-button-icon" />
+            </Button>
+          )}
           <Button data-style="ghost" aria-label={`Open ${name}`} onClick={() => void host().openFile?.(src)}>
             <AliveIcon icon={ExternalLinkIcon} size={16} className="tiptap-button-icon" />
           </Button>
@@ -342,8 +351,22 @@ function AudioBlock(props: NodeViewProps): React.JSX.Element {
   const { src, name, size } = props.node.attrs
   const selected = isNodeSelected(props)
   const { ref, controls, playing, state } = useMedia(false)
+  const listening = useSyncExternalStore(onTranscribing, () => isTranscribing(src))
+  // Kept with "Transcribe voice notes as you record them" on: its words start as it first shows, once.
+  useEffect(() => {
+    if (!props.node.attrs.transcribe || !props.editor.isEditable) return
+    props.updateAttributes({ transcribe: false })
+    void transcribe(props.editor, src)
+  }, [props.node.attrs.transcribe]) // eslint-disable-line react-hooks/exhaustive-deps
+  // ⌘K's "Transcribe the voice notes": each recording on show without its words.
+  useEffect(() => {
+    const run = (): void => void (props.editor.isEditable && !hasWords(props.editor, src) && transcribe(props.editor, src))
+    window.addEventListener("haligtree:transcribe-page", run)
+    return () => window.removeEventListener("haligtree:transcribe-page", run)
+  }, [src]) // eslint-disable-line react-hooks/exhaustive-deps
+  const worded = hasWords(props.editor, src)
   return (
-    <NodeViewWrapper className={`tiptap-attachment is-audio${selected ? " is-selected" : ""}${playing ? " is-playing" : ""}`} data-state={state}>
+    <NodeViewWrapper className={`tiptap-attachment is-audio${selected ? " is-selected" : ""}${playing ? " is-playing" : ""}`} data-state={state} data-words={worded ? "" : undefined}>
       <audio ref={ref as React.RefObject<HTMLAudioElement>} src={src} preload="metadata" />
       <div className="tiptap-attachment-card">
         <AudioLines className="tiptap-attachment-icon" />
@@ -353,6 +376,7 @@ function AudioBlock(props: NodeViewProps): React.JSX.Element {
         </span>
         {controls}
       </div>
+      {listening && <span className="tiptap-attachment-listening" contentEditable={false}><Orb state="listening" label="Listening…" /></span>}
       {selected && props.editor.isEditable && <MediaToolbar props={props} sized={false} />}
     </NodeViewWrapper>
   )

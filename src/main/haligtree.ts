@@ -545,6 +545,8 @@ const DEFAULTS = {
   // The five-second rule: a session counts 5, 4, 3, 2, 1 with a tick before its clock starts.
   // On to start; anyone who turned it off keeps their own saved choice.
   countIn: true,
+  // A voice note turned into words on this Mac as soon as it is kept (main/transcribe.ts). Off to start.
+  transcribeAsYouRecord: false,
   // After a break runs out, the session before it starts again by itself, with no click. Off to start.
   autoNextRound: false,
   // The Mac going to sleep in a session: finished there, counted up to that

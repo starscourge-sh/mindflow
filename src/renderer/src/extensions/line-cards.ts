@@ -6,6 +6,7 @@ import { Fragment, Slice, type Node as ProseMirrorNode } from "@tiptap/pm/model"
 import { lineCard, termLines } from "../../../main/study"
 import { cardListOf } from "../../../main/card-lists"
 import { openPdf } from "@/components/pdf/pdf-reader"
+import { isAudio } from "@/lib/transcribe"
 import { num } from "../../../main/dates"
 
 /** A small card, drawn: what marks a line that Review asks you. */
@@ -55,9 +56,14 @@ function marks(doc: ProseMirrorNode): DecorationSet {
   let video = false
   doc.descendants((node) => (video ||= node.type.name === "youtube", !video))
   const pdf = pdfIn(doc)
+  // The last recording above a line: a time under it plays that recording, as a transcript's times do (lib/transcribe.ts).
+  let audio: string | null = null
   doc.descendants((node, pos) => {
     if (node.type.name === "codeBlock") return false
+    if (isAudio(node)) return void (audio = String(node.attrs.src))
     if (!node.isTextblock) return true
+    // A transcript's line, starting with its time: quiet, under its recording.
+    if (audio && /^\[(?:\d{1,2}:)?\d{1,2}:[0-5]\d\]/.test(node.textContent)) found.push(Decoration.node(pos, pos + node.nodeSize, { class: "mf-transcript-line" }))
     if (lineCard(lineText(node))) found.push(Decoration.widget(pos + node.nodeSize - 1, mark, { side: 1, key: "line-card", ignoreSelection: true }))
     // A time in a line, "[13:03]", plays the note's video from there; "(p. 14)" opens its PDF at that page.
     // Their tip is given as `data-title-tip`, never `title`: the app's tips
@@ -66,10 +72,12 @@ function marks(doc: ProseMirrorNode): DecorationSet {
     // span under the pointer was gone before the click reached it.
     node.forEach((child, offset) => {
       if (!child.isText || child.marks.some((one) => one.type.name === "code")) return
-      if (video)
+      if (audio || video)
         for (const match of child.text!.matchAll(TIME)) {
           const from = pos + 1 + offset + match.index!
-          found.push(Decoration.inline(from, from + match[0].length, { class: "mf-time-link", "data-seconds": String(secondsOf(match[1])), "data-title-tip": "Play the note's video from here" }))
+          found.push(Decoration.inline(from, from + match[0].length, audio
+            ? { class: "mf-time-link", "data-seconds": String(secondsOf(match[1])), "data-audio": audio, "data-title-tip": "Play the recording from here" }
+            : { class: "mf-time-link", "data-seconds": String(secondsOf(match[1])), "data-title-tip": "Play the note's video from here" }))
         }
       if (pdf)
         for (const match of child.text!.matchAll(PAGE)) {
@@ -93,6 +101,16 @@ function marks(doc: ProseMirrorNode): DecorationSet {
     return false
   })
   return DecorationSet.create(doc, found)
+}
+
+/** Play a recording in the note from a time: its block comes into view. False when it is not there. */
+export function playAt(root: HTMLElement, src: string, seconds: number): boolean {
+  const audio = [...root.querySelectorAll<HTMLAudioElement>(".tiptap-attachment.is-audio audio")].find((one) => one.getAttribute("src") === src)
+  if (!audio) return false
+  audio.currentTime = seconds
+  void audio.play()
+  audio.closest(".tiptap-attachment")?.scrollIntoView({ block: "nearest", behavior: "smooth" })
+  return true
 }
 
 /** A link into a page of one of the book's PDFs: `haligtree://assets/….pdf#page=12…`. */
@@ -188,6 +206,7 @@ export const LineCards = Extension.create({
               openPdf(pdf.src, pdf.name, Number(time.dataset.page))
               return true
             }
+            if (time.dataset.audio) return playAt(view.dom, time.dataset.audio, Number(time.dataset.seconds))
             const video = view.dom.querySelector<HTMLElement>("[data-youtube-video]")
             if (!video) return false
             window.dispatchEvent(new CustomEvent("haligtree:video-at", { detail: { seconds: Number(time.dataset.seconds), video } }))

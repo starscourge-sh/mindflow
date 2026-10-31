@@ -6,6 +6,7 @@ import { saveAttachment } from '@/extensions/image-drop'
 import { refuse } from '@/components/haligtree/ui'
 import { chime } from '@/lib/sound'
 import { FLOAT } from '@/lib/float'
+import { wantsWords } from '@/lib/transcribe'
 
 /** The kinds a recording can be kept as, the first the recorder makes: `.m4a` plays anywhere, `.weba` is Chromium's own. */
 const KINDS = [
@@ -49,11 +50,11 @@ export async function recordVoice(): Promise<File | null> {
 }
 
 /** Record, then keep it where the caret is in this editor. */
-export async function recordInto(editor: { chain: () => { focus: () => { setAttachment: (attrs: { src: string; name: string; size: number }) => { run: () => boolean } } } }): Promise<void> {
+export async function recordInto(editor: { chain: () => { focus: () => { setAttachment: (attrs: { src: string; name: string; size: number; transcribe?: boolean }) => { run: () => boolean } } } }): Promise<void> {
   const file = await recordVoice()
   if (!file) return
   try {
-    editor.chain().focus().setAttachment(await saveAttachment(file)).run()
+    editor.chain().focus().setAttachment({ ...(await saveAttachment(file)), transcribe: await wantsWords() }).run()
     chime('saved')
   } catch {
     refuse('The recording could not be kept. Try again')
@@ -65,7 +66,7 @@ export async function recordAsCapture(open: (id: string) => void): Promise<void>
   const file = await recordVoice()
   if (!file) return
   try {
-    const attrs = await saveAttachment(file)
+    const attrs = { ...(await saveAttachment(file)), transcribe: await wantsWords() }
     const id = await window.api.captures.create({ kind: 'note', body: { type: 'doc', content: [{ type: 'attachment', attrs }, { type: 'paragraph' }] } })
     if (!id) return refuse('The recording could not be kept. Try again')
     chime('saved')
