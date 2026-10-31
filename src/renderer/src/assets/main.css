@@ -299,7 +299,7 @@
    (macOS's frost filled the whole window, room and all, so it is gone), with crisp rounded corners and the
    app's one soft shadow: warm ink on light pages, black and fuller on dark ones. */
 html[data-overhang] #root {
-  padding: var(--mf-room);
+  padding: var(--mf-room-top) var(--mf-room) var(--mf-room);
 }
 html[data-overhang] .app-container {
   --mf-window-tint: 100%;
@@ -322,13 +322,13 @@ html.dark[data-overhang] .app-container {
    the note's name stay in the card. Always there: they live outside the card,
    so the pointer reaching them is no longer "in the window". */
 html[data-overhang] [data-drag-strip] {
-  top: var(--mf-room);
+  top: var(--mf-room-top);
   left: var(--mf-room);
   right: var(--mf-room);
 }
 html[data-overhang] .mf-top {
   position: fixed;
-  top: calc(var(--mf-room) - 40px);
+  top: calc(var(--mf-room-top) - 40px);
   right: var(--mf-room);
   gap: 8px;
   transform: none !important;

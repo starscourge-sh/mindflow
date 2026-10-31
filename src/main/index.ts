@@ -567,7 +567,8 @@ function toggleWindow(): void {
 type Room = { left: number; top: number; right: number; bottom: number }
 const rooms = new WeakMap<BrowserWindow, Room>()
 /** The room the box keeps round its card on every side: its controls above it (Spotlight's way), a menu's foot and its shadow. */
-const BOX_ROOM = 48
+// Taller above: the controls sit there, and each one's tip opens above it, clear of the card.
+const BOX_ROOM: Room = { left: 48, top: 88, right: 48, bottom: 48 }
 const evenRoom = (px: number): Room => ({ left: px, top: px, right: px, bottom: px })
 function overhang(win: BrowserWindow, room: Room): void {
   const real = { getBounds: win.getBounds.bind(win), setBounds: win.setBounds.bind(win) }
@@ -590,17 +591,28 @@ function overhang(win: BrowserWindow, room: Room): void {
   win.getSize = () => [card().width, card().height]
   win.setSize = (width: number, height: number, animate?: boolean) => put({ width, height }, animate)
   // A card's limits are the window's less its room (none set stays none).
+  // A card's limits are kept as the card's, and the window's set from them with the room as it is now: more room
+  // below for a menu still fits under a box held at its tallest (qa/box-menu-fit.mjs).
   const setMin = win.setMinimumSize.bind(win)
   const setMax = win.setMaximumSize.bind(win)
   const grown = (size: number, by: number): number => (size > 0 ? size + by : size)
-  win.setMinimumSize = (width: number, height: number) => setMin(grown(width, around().left + around().right), grown(height, around().top + around().bottom))
-  win.setMaximumSize = (width: number, height: number) => setMax(grown(width, around().left + around().right), grown(height, around().top + around().bottom))
+  const limits = { min: [0, 0], max: [0, 0] }
+  const apply = (): void => {
+    const r = around()
+    setMin(grown(limits.min[0], r.left + r.right), grown(limits.min[1], r.top + r.bottom))
+    setMax(grown(limits.max[0], r.left + r.right), grown(limits.max[1], r.top + r.bottom))
+  }
+  win.setMinimumSize = (width: number, height: number) => ((limits.min = [width, height]), apply())
+  win.setMaximumSize = (width: number, height: number) => ((limits.max = [width, height]), apply())
+  relimit.set(win, apply)
 }
+/** Each overhung window's limits set again for its room as it is now. */
+const relimit = new WeakMap<BrowserWindow, () => void>()
 // A page asks once, as it loads, how much room its window keeps round the card (0: the window is the card).
 // Asked of main, not passed on the command line: a renderer process can be shared, and its arguments with it.
 ipcMain.on('window:room', (event) => {
   const win = BrowserWindow.fromWebContents(event.sender)
-  event.returnValue = (win && rooms.get(win)?.left) || 0
+  event.returnValue = (win && rooms.get(win)) || evenRoom(0)
 })
 /** More (or less) room round a window's card, the card staying exactly where it is. */
 function setRoom(win: BrowserWindow, room: Room): void {
@@ -608,6 +620,7 @@ function setRoom(win: BrowserWindow, room: Room): void {
   if (!was || (was.left === room.left && was.top === room.top && was.right === room.right && was.bottom === room.bottom)) return
   const card = win.getBounds()
   rooms.set(win, { ...room })
+  relimit.get(win)?.()
   win.setBounds(card)
 }
 
@@ -2753,7 +2766,7 @@ function createWindow(): void {
   protect(mainWindow)
   // From here every size and place is the card's; the window keeps BOX_ROOM round it, clicks passing through there.
   const first = mainWindow.getBounds()
-  overhang(mainWindow, evenRoom(BOX_ROOM))
+  overhang(mainWindow, BOX_ROOM)
   mainWindow.setBounds(first)
   passThrough(mainWindow, true)
 
@@ -4204,7 +4217,9 @@ app.whenReady().then(() => {
   const surfaces = new WeakMap<BrowserWindow, string | null>()
   ipcMain.on('window:surface', (event, color: unknown) => {
     const win = BrowserWindow.fromWebContents(event.sender)
-    if (!win || win !== prompt || win.isDestroyed()) return
+    // Drawn as a card in clear room (overhang): the card paints its own surface, and the window stays see-through
+    // round it whatever the theme; a backing colour or frost here filled the room too.
+    if (!win || win !== prompt || win.isDestroyed() || rooms.has(win)) return
     const next = typeof color === 'string' && /^#[0-9a-f]{6}$/i.test(color) ? color : null
     if (surfaces.has(win) && surfaces.get(win) === next) return
     surfaces.set(win, next)
@@ -4826,8 +4841,8 @@ app.whenReady().then(() => {
     const card = boundsOf(win)
     const { workArea } = screen.getDisplayMatching(card)
     // Off the screen's foot the room would hide the pop-up: the box grows instead (window:fit), as before.
-    if (want && card.y + card.height + BOX_ROOM + want > workArea.y + workArea.height) return false
-    setRoom(win, { ...evenRoom(BOX_ROOM), bottom: BOX_ROOM + want })
+    if (want && card.y + card.height + BOX_ROOM.bottom + want > workArea.y + workArea.height) return false
+    setRoom(win, { ...BOX_ROOM, bottom: BOX_ROOM.bottom + want })
     return true
   })
   ipcMain.on('window:fit', (event, height: unknown, snap: unknown) => {

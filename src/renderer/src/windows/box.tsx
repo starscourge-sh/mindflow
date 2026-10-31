@@ -14,8 +14,9 @@ start(<App />)
 // Quick capture is a card inside a larger see-through window (main's overhang): the page draws the card inside
 // the room, its menus may hang past the card's edge into it, and clicks on the empty room pass to the app behind.
 // A note's own window (the same page) has no room and is left as it is.
-if (window.api.room) {
+if (window.api.room.left) {
   document.documentElement.dataset.overhang = ''
-  document.documentElement.style.setProperty('--mf-room', `${window.api.room}px`)
+  document.documentElement.style.setProperty('--mf-room', `${window.api.room.left}px`)
+  document.documentElement.style.setProperty('--mf-room-top', `${window.api.room.top}px`)
   clearRoom()
 }

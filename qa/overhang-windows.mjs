@@ -23,12 +23,24 @@ const c = await sandbox()
  * captured, laid over a stand-in desktop (a QA run's windows are kept unseen),
  * so the room round the card shows what is behind it.
  */
-async function shots(name) {
+async function shots(name, themes = ['paper', 'light', 'dark']) {
   const { writeFileSync, mkdirSync } = await import('fs')
   mkdirSync(process.env.QA_SHOTS, { recursive: true })
-  for (const theme of ['paper', 'dark']) {
+  for (const theme of themes) {
     await c.page.evaluate((n) => (localStorage.setItem('theme', n), window.dispatchEvent(new StorageEvent('storage', { key: 'theme' }))), theme)
-    await new Promise((r) => setTimeout(r, 700))
+    await new Promise((r) => setTimeout(r, 900))
+    // Its siblings in the same theme: the main window's header buttons, and a sticky.
+    if (name === 'menu') {
+      const sib = await c.electron.evaluate(async ({ BrowserWindow }) => {
+        const wins = BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed())
+        const home = wins.find((w) => w.webContents.getURL().includes('view=home'))
+        const sticky = wins.find((w) => w.webContents.getURL().includes('view=sticky'))
+        const grab = async (w) => (w ? (await w.webContents.capturePage()).toPNG().toString('base64') : null)
+        return { home: await grab(home), sticky: await grab(sticky) }
+      })
+      if (sib.home) writeFileSync(`${process.env.QA_SHOTS}/sibling-main-window-${theme}.png`, Buffer.from(sib.home, 'base64'))
+      if (sib.sticky) writeFileSync(`${process.env.QA_SHOTS}/sibling-sticky-${theme}.png`, Buffer.from(sib.sticky, 'base64'))
+    }
     for (const desk of ['bright', 'dark']) {
       const png = await c.electron.evaluate(async ({ BrowserWindow }, [url, desk]) => {
         const w = BrowserWindow.getAllWindows().find((one) => one.webContents.getURL() === url)
@@ -173,15 +185,16 @@ try {
   await box.evaluate(() => window.api.showPrompt())
   await wait(1200)
   let at = await boxWin()
-  const ROOM = await box.evaluate(() => window.api.room)
+  const RM = await box.evaluate(() => window.api.room)
+  const ROOM = RM.left
   const drawn = await box.evaluate(() => {
     const r = document.querySelector('.app-container').getBoundingClientRect()
     const root = getComputedStyle(document.getElementById('root'))
     return { x: r.x, y: r.y, width: r.width, height: r.height, innerWidth, innerHeight, dataRoom: document.documentElement.hasAttribute('data-overhang'), pad: root.paddingTop, html: getComputedStyle(document.documentElement).backgroundColor, body: getComputedStyle(document.body).backgroundColor }
   })
-  check('quick capture: the page is told the room round its card', ROOM > 0 && drawn.dataRoom, JSON.stringify({ ROOM, drawn }))
-  check('quick capture: the window is larger than its card, by the room on every side', at.real.width === at.card.width + 2 * ROOM && at.real.height === at.card.height + 2 * ROOM && at.card.x - at.real.x === ROOM, JSON.stringify(at))
-  check('quick capture: the page draws the card where main says it is', Math.round(drawn.x) === ROOM && Math.round(drawn.y) === ROOM && Math.round(drawn.width) === at.card.width && Math.round(drawn.height) === at.card.height, JSON.stringify(drawn))
+  check('quick capture: the page is told the room round its card', ROOM > 0 && RM.top > ROOM && drawn.dataRoom, JSON.stringify({ RM, drawn }))
+  check('quick capture: the window is larger than its card, by the room on every side', at.real.width === at.card.width + RM.left + RM.right && at.real.height === at.card.height + RM.top + RM.bottom && at.card.x - at.real.x === RM.left && at.card.y - at.real.y === RM.top, JSON.stringify(at))
+  check('quick capture: the page draws the card where main says it is', Math.round(drawn.x) === RM.left && Math.round(drawn.y) === RM.top && Math.round(drawn.width) === at.card.width && Math.round(drawn.height) === at.card.height, JSON.stringify(drawn))
   check('quick capture: the room is see-through (nothing painted behind the card)', /rgba\(0, 0, 0, 0\)|transparent/.test(drawn.html) && /rgba\(0, 0, 0, 0\)|transparent/.test(drawn.body), JSON.stringify(drawn))
   // The window's controls, Spotlight's way: outside the card, above its top right, each its own round surface.
   const orbs = await box.evaluate(() => {
@@ -193,6 +206,19 @@ try {
     })
   })
   check('quick capture: its controls sit above the card, outside it, all one height', orbs.length >= 3 && orbs.every((one) => one.above && one.h === orbs[0].h && one.opacity === '1'), JSON.stringify(orbs))
+  for (const [n, one] of orbs.entries()) {
+    await box.mouse.move(Math.round((one.left + one.right) / 2), Math.round((one.top + one.bottom) / 2))
+    await wait(1100)
+    const seen = await box.evaluate(() => {
+      const card = document.querySelector('.app-container').getBoundingClientRect()
+      const tips = [...document.querySelectorAll('[data-radix-popper-content-wrapper], [data-hover-card]')].filter((one) => one.getBoundingClientRect().height > 0)
+      return { n: tips.length, words: tips.map((one) => one.textContent.trim().slice(0, 60)), clear: tips.every((one) => one.getBoundingClientRect().bottom <= card.top) }
+    })
+    check(`quick capture: pointing at control ${n + 1} (${one.label.slice(0, 24)}) shows one tip, clear of the card`, seen.n === 1 && seen.clear, JSON.stringify(seen))
+    if (process.env.QA_SHOTS && n === 1) await shots(`hover-${n + 1}`, ['paper'])
+  }
+  await box.mouse.move(Math.round(drawn.x + drawn.width / 2), Math.round(drawn.y + drawn.height / 2))
+  await wait(400)
   const gaps = orbs.slice(1).map((one, i) => one.left - orbs[i].right)
   check('quick capture: an even gap between them', gaps.every((gap) => gap === gaps[0]), JSON.stringify(gaps))
   check('quick capture: each is round and shows the hand', orbs.every((one) => one.radius === '999px' && one.cursor === 'pointer'), JSON.stringify(orbs.map((one) => [one.radius, one.cursor])))
@@ -235,10 +261,33 @@ try {
   check('quick capture: the card keeps its size while the menu is open', open.card.height === short.card.height && open.card.y === short.card.y, JSON.stringify({ short: short.card, open: open.card }))
   check('quick capture: the menu may hang past the card\'s foot into the room', !!menu && (menu.bottom > menu.cardBottom || short.card.height >= 600), JSON.stringify(menu))
   if (process.env.QA_SHOTS) await shots('menu')
+  await c.page.evaluate(() => (localStorage.setItem('theme', 'paper'), window.dispatchEvent(new StorageEvent('storage', { key: 'theme' }))))
   await box.keyboard.press('Escape')
   await wait(500)
   const closed = await boxWin()
-  check('quick capture: the menu closed, the room below goes back to the rest', closed.real.height === closed.card.height + 2 * ROOM, JSON.stringify(closed))
+  check('quick capture: the menu closed, the room below goes back to the rest', closed.real.height === closed.card.height + RM.top + RM.bottom, JSON.stringify(closed))
+
+  // A truly short box: side panel shut, the box as short as its writing, the Actions menu opened.
+  await box.locator('[aria-label="Hide the side panel"]').first().click()
+  await wait(1200)
+  const shortBox = await boxWin()
+  await box.locator('.mf-pill [aria-haspopup="menu"]').first().click()
+  await wait(1000)
+  const shortOpen = await boxWin()
+  const shortMenu = await box.evaluate(() => {
+    const m = document.querySelector('[role=menu]')
+    if (!m) return null
+    const r = m.getBoundingClientRect()
+    const card = document.querySelector('.app-container').getBoundingClientRect()
+    return { top: Math.round(r.top), bottom: Math.round(r.bottom), cardBottom: Math.round(card.bottom), h: innerHeight }
+  })
+  check('a short box (panel shut): the box is short', shortBox.card.height < 600, JSON.stringify(shortBox.card))
+  check('a short box: its Actions menu opens whole, the card keeping its size', !!shortMenu && shortMenu.top >= 0 && shortMenu.bottom <= shortMenu.h && shortOpen.card.height === shortBox.card.height, JSON.stringify({ shortMenu, shortBox: shortBox.card, shortOpen: shortOpen.card }))
+  if (process.env.QA_SHOTS) await shots('short-menu')
+  await box.keyboard.press('Escape')
+  await wait(500)
+  await box.locator('[aria-label="Show the side panel"]').first().click()
+  await wait(1000)
 
   // At scale: many pinned notes, the chip still one line and clear of the buttons.
   if (process.env.QA_SHOTS) {
