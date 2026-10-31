@@ -11,6 +11,7 @@ import { GroupCover } from './group-cover'
 import { groupTint } from './card-shelves'
 import { RowMenu, type MenuItem, type RowItem } from './row-menu'
 import { Check } from 'lucide-react'
+import { moveToBin } from '@/lib/to-bin'
 import { cardsSaid, deckTagOf, makeDeck, useOwnDecks, type OwnDeck } from './decks'
 
 type Topic = { deck: string; label: string; cards: number; held: number }
@@ -47,6 +48,7 @@ export function DeckShelf({ onOpen, onStudy, onPaste }: { onOpen: (type: string,
   const [allTags, setAllTags] = useState(false)
   const shelves = useLive(() => call<Shelf[]>('decks:list'), null as Shelf[] | null, [], ['item'])
   const own = useOwnDecks()
+  const study = useLive(haligtree.tagStudy, { typed: {}, newPerDay: {} } as Awaited<ReturnType<typeof haligtree.tagStudy>>, [], ['item'])
   if (unloaded(shelves) || !own) return <div />
   const newDeck = (inside?: string): void => void makeDeck(inside)
   // The most due first. With many, the decks you made and the tags with cards in Review lead; the rest wait behind a fold.
@@ -66,6 +68,17 @@ export function DeckShelf({ onOpen, onStudy, onPaste }: { onOpen: (type: string,
         A deck is a tag your cards share. Make one, or paste cards.
       </Empty>
     )
+  // A shared deck's menu, the same as one of your own: its review settings, then what its buttons do, and Delete, which takes the imported deck away.
+  const sharedMenu = (shelf: Shelf): Section[] => [
+    ...deckSettings(deckTag(shelf.name), study),
+    { items: [
+      ...(shelf.held < shelf.cards ? [{ label: 'Study', run: () => (chime('riffle'), onStudy(deckTag(shelf.name))) }] : []),
+      { label: shelf.held > 0 ? 'Start the held cards' : 'Hold new cards', run: () => startDeck(shelf.name, shelf.name, shelf.held > 0) },
+      { label: shelf.shown ? 'Keep out of Gems' : 'Show in Gems', run: () => show(shelf) },
+      { label: 'Links…', run: () => (chime('open'), setLinking(shelf.name)) },
+      { label: 'Delete deck…', hint: 'Takes the imported deck away, to the Bin', run: () => void removeShared(shelf) }
+    ] }
+  ]
   const show = (shelf: Shelf): void =>
     void call<number>('decks:show', shelf.name, !shelf.shown).then(() => {
       chime(shelf.shown ? 'fold' : 'noted')
@@ -91,7 +104,8 @@ export function DeckShelf({ onOpen, onStudy, onPaste }: { onOpen: (type: string,
         <OwnDeckShelf key={deck.tag} deck={deck} inside={own.filter((one) => one.tag.startsWith(`${deck.tag}-`))} onStudy={onStudy} onPaste={onPaste} onNew={newDeck} />
       ))}
       {(shelves ?? []).map((shelf) => (
-        <section key={shelf.name} data-deck={shelf.name} className="flex gap-4 rounded-xl border border-foreground/10 bg-accent/25 p-4">
+        <RowMenu key={shelf.name} items={() => rowItems(sharedMenu(shelf))}>
+        <section data-deck={shelf.name} className="flex gap-4 rounded-xl border border-foreground/10 bg-accent/25 p-4">
           {shelf.cover ? (
             <img src={shelf.cover} alt="" className="size-24 shrink-0 rounded-lg object-cover" />
           ) : (
@@ -101,7 +115,10 @@ export function DeckShelf({ onOpen, onStudy, onPaste }: { onOpen: (type: string,
           )}
           <div className="grid min-w-0 flex-1 content-start gap-2">
             {/* One line, however long the deck's name: the whole of it shows on hover. */}
-            <h3 title={shelf.name} className="truncate font-serif text-lg leading-tight text-foreground">{shelf.name}</h3>
+            <div className="flex items-center gap-2">
+              <h3 title={shelf.name} className="min-w-0 flex-1 truncate font-serif text-lg leading-tight text-foreground">{shelf.name}</h3>
+              <OptionsMenu sections={sharedMenu(shelf)} label="Deck options" side="bottom" align="end" className="cursor-pointer" />
+            </div>
             {/* The counts that matter on their own line, in the body's size: new, due today, and held. */}
             <p data-deck-counts className="text-sm text-foreground tabular-nums">
               {cards(shelf.cards)}
@@ -110,10 +127,10 @@ export function DeckShelf({ onOpen, onStudy, onPaste }: { onOpen: (type: string,
               {shelf.held > 0 && <> · <b className="font-semibold">{num(shelf.held)} held</b> until you start them</>}
             </p>
             {shelf.topics.length > 1 && (
-              // Its topics as a short list of rows, the way a sidebar lists them: the name, its count, and its own two actions.
-              <ul data-deck-topics className="grid max-w-md divide-y divide-foreground/[0.07]">
-                {shelf.topics.map((topic) => (
-                  <li key={topic.deck} className="flex items-center gap-1 py-1 text-control">
+              // Its topics hung off the one trunk every nested list in the app uses, as your own decks' are: the name, its count, and its own two actions.
+              <div data-deck-topics className="max-w-md pl-2">
+                <Tree here={-1} className="pl-3" nodes={treeOf([...shelf.topics].sort((a, b) => a.deck.localeCompare(b.deck)), (topic) => topic.deck.split('::').length)} row={({ item: topic }) => (
+                  <div key={topic.deck} className="flex items-center gap-1 py-0.5 text-control">
                     <span className="min-w-0 flex-1 truncate text-foreground">{topic.label}</span>
                     <span className="pr-1 text-sm text-muted-foreground tabular-nums">{cards(topic.cards)}</span>
                     {topic.held < topic.cards && (
@@ -124,9 +141,9 @@ export function DeckShelf({ onOpen, onStudy, onPaste }: { onOpen: (type: string,
                       onClick={() => startDeck(topic.deck, topic.label, topic.held > 0)}>
                       {topic.held > 0 ? `Start ${num(topic.held)}` : 'Hold'}
                     </Button>
-                  </li>
-                ))}
-              </ul>
+                  </div>
+                )} />
+              </div>
             )}
             <div className="flex flex-wrap gap-2 pt-1">
               {/* Study what is started; start what is held. The deck-wide button says it is for all of it, the topics' each their count. */}
@@ -152,6 +169,7 @@ export function DeckShelf({ onOpen, onStudy, onPaste }: { onOpen: (type: string,
             {gallery === shelf.name && <Gallery deck={shelf.name} onOpen={onOpen} />}
           </div>
         </section>
+        </RowMenu>
       ))}
     </div>
   )
@@ -328,4 +346,12 @@ async function deleteDeck(tag: string): Promise<void> {
   await haligtree.setTag(tag, { deck: false })
   chime('fold')
   toast(`The deck #${tag} is gone; its ${cardsSaid(holding.length)} kept`, () => void Promise.all([call('cards:retag:undo', before), haligtree.setTag(tag, { deck: true })]).then(() => chime('undo')))
+}
+
+/** Delete an imported deck: asked first, then all its cards go to the Bin together, with one Undo. */
+async function removeShared(shelf: Shelf): Promise<void> {
+  const ids = await call<string[]>('decks:cards', shelf.name)
+  const sure = await askSure(`Delete the deck ${shelf.name}?`, `This removes the imported deck: its ${cardsSaid(ids.length)} go to the Bin, with their progress. Undo, or the Bin, brings them back. Your own decks and cards stay as they are.`, 'Delete deck')
+  if (!sure) return
+  await moveToBin(ids.map((id) => ({ type: 'nugget', id })))
 }

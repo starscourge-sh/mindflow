@@ -3098,6 +3098,9 @@ export function registerHaligtree(): void {
     for (const id of ids) db.prepare('update nuggets set held = ?, suspended = ? where id = ?').run(on ? 0 : 1, on ? 0 : 1, id)
     return write(ids.length)
   })
+  // An imported deck's cards, every one (held, paused or not): what "Delete deck" sends to the Bin.
+  handle('decks:cards', (deck: string) =>
+    (db.prepare("select id from nuggets where (deck = ? or deck like ? || '::%') and binned_at is null and archived_at is null").all(deck, deck) as { id: string }[]).map((row) => row.id))
   // "Show in Gems": a deck's cards among your own (Gems, Feed, hints, Home), or back on their shelf.
   handle('decks:show', (deck: string, on: boolean) =>
     write(db.prepare(`update nuggets set tier = ? where (deck = ? or deck like ? || '::%') and tier in ('deck', 'nugget')`).run(on ? 'nugget' : 'deck', deck, deck).changes))

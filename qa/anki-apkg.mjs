@@ -176,6 +176,25 @@ try {
     await h.evaluate(async () => (await window.api.haligtree('items', 'deck')).find((one) => (one.prompt ?? '').startsWith('Packed question')).prompt)
   check('a packed (.anki21b) export comes in, its picture unpacked and kept', /haligtree:\/\/assets\/[a-f0-9]{64}\.png/.test(packedCard || ''), packedCard)
   check('importing the same deck again from File adds nothing twice', (await gems()).length === 8, `${(await gems()).length}`)
+
+  // The shared shelf matches your own decks: its topics on the app's tree, a ⋯ menu, and a right-click with Delete deck.
+  await c.go('review')
+  await h.evaluate(() => document.querySelector('[data-review-tab="decks"]')?.click())
+  await waitFor(() => h.evaluate(() => !!document.querySelector('[data-deck="Biology"]')))
+  check('the shared deck\'s topics hang off the tree', await h.evaluate(() => !!document.querySelector('[data-deck="Biology"] [data-deck-topics] svg path')))
+  check('the shared deck has a ⋯ menu', await h.evaluate(() => !!document.querySelector('[data-deck="Biology"] button[aria-label="Deck options"]')))
+  await h.locator('[data-deck="Biology"] h3').click({ button: 'right' })
+  await h.waitForTimeout(400)
+  const right = await h.evaluate(() => [...document.querySelectorAll('[role="menuitem"]')].map((one) => one.textContent ?? '').join(' | '))
+  check('right-click has its settings and Delete deck', ['New cards a day', 'Show in Gems', 'Delete deck…'].every((one) => right.includes(one)) || ['New cards a day', 'Keep out of Gems', 'Delete deck…'].every((one) => right.includes(one)), right)
+  await h.locator('[role="menuitem"]', { hasText: 'Delete deck…' }).first().click()
+  check('Delete asks first, saying it removes the imported deck', await waitFor(() => h.evaluate(() => /removes the imported deck/.test(document.querySelector('[data-sure]')?.textContent ?? ''))))
+  await h.evaluate(() => document.querySelector('[data-sure-yes]').click())
+  const left = () => h.evaluate(async () => (await window.api.haligtree('decks:list')).some((one) => one.name === 'Biology'))
+  check('Delete takes the imported deck away', await waitFor(async () => !(await left())))
+  await h.evaluate(() => document.activeElement?.blur())
+  await h.keyboard.press('Meta+z')
+  check('Undo brings it back', await waitFor(left))
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])
 } finally {
