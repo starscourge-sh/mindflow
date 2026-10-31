@@ -4051,7 +4051,8 @@ export function registerHaligtree(): void {
   handle('tag:rename', (from: string, to: string) => {
     const clean = to.trim().replace(/^#/, '').toLowerCase()
     if (!isTagWord(clean) || clean === from) return null
-    const pattern = tagWritten(from, '(^|\\s|")')
+    // After a line break kept in a card's JSON body ("…\n\n#kiln") too, as Paste cards and Make a card write the deck.
+    const pattern = tagWritten(from, '(^|\\s|"|\\\\n)')
     const rows: { table: string; text: string; id: string; was: string }[] = []
     for (const [table, text] of [['captures', 'body'], ['nuggets', 'body'], ['tasks', 'notes'], ['captures', 'title'], ['nuggets', 'title'], ['tasks', 'title']]) {
       for (const row of db.prepare(`select id, ${text} as v from ${table} where ${text} like ?`).all(`%#${from}%`) as { id: string; v: string }[]) {
