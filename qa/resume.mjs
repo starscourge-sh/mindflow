@@ -4,6 +4,7 @@
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox node qa/resume.mjs
 import { join } from 'path'
 import { tmpdir } from 'os'
+import { PDFDocument, StandardFonts } from 'pdf-lib'
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
@@ -56,6 +57,28 @@ try {
     localStorage.setItem('capture-draft', JSON.stringify({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Ring the framer about the Rothko print' }] }] }))
     localStorage.setItem('web-places', JSON.stringify({ 'https://example.com/long-read': { top: 2400, share: 0.42, at: Date.now(), title: 'The Long Read About Bridges' } }))
   })
+  // A book part way through too, so the new cards sit in the same row as a book's: a PDF dropped in a note, read to page 2.
+  const pdf = await PDFDocument.create()
+  pdf.setTitle('A Field Guide to Bridges')
+  const font = await pdf.embedFont(StandardFonts.Helvetica)
+  for (let n = 1; n <= 4; n++) pdf.addPage([400, 560]).drawText(`Page ${n}`, { x: 40, y: 500, size: 18, font })
+  const bytes = [...await pdf.save()]
+  const holder = await v('article:new')
+  await v('item:save', holder, { title: 'With a book', body: { type: 'doc', content: [{ type: 'paragraph' }] } })
+  await send('article', holder); await wait(1400)
+  await h.evaluate((bytes) => {
+    const ed = document.querySelector('[data-open] .tiptap').editor
+    const data = new DataTransfer()
+    data.items.add(new File([new Uint8Array(bytes)], 'bridges.pdf', { type: 'application/pdf' }))
+    const box = ed.view.dom.getBoundingClientRect()
+    ed.view.dom.dispatchEvent(new DragEvent('drop', { dataTransfer: data, bubbles: true, cancelable: true, clientX: box.left + 20, clientY: box.top + 10 }))
+  }, bytes)
+  await h.waitForSelector('.tiptap-attachment.is-pdf', { timeout: 15000 }).catch(() => {})
+  await wait(1500)
+  const books = await v('pdf:library')
+  if (books[0]) await v('pdf:read', books[0].src, 2, 4)
+  // Back in the long note, so it stays the last thing you were in.
+  await send('article', long.id); await wait(1500)
   const queue = await v('review:queue')
   if (queue[0]) await v('review:grade', queue[0].id, 3, 4000)
   // Review counts the day: after a card graded before this sitting, the line over the card starts past 1.
@@ -74,13 +97,44 @@ try {
   check('(mento 4) a typed answer survives leaving Review and coming back', typed === 'half a thought about bridges', typed)
   const roundAfter = await h.evaluate(() => /Back to today/.test(document.body.innerText))
   check('(mento 4) the practice round is still on when you come back', roundAfter, roundBefore)
+  // Stats leads with the week too.
+  await h.evaluate(() => document.querySelector('[data-review-tab="stats"]')?.click()); await wait(2000)
+  const weekLine = await h.evaluate(() => ({ days: document.querySelector('[data-study-week]')?.getAttribute('data-study-week'), text: document.querySelector('[data-study-week]')?.innerText ?? '' }))
+  check('(mento 9) Stats says how many of the last 7 days were reviewed', /^[1-7]$/.test(weekLine.days ?? '') && /reviewed: one day off cannot break that/.test(weekLine.text), JSON.stringify(weekLine))
   await go('home'); await wait(2500)
   const cards = await h.evaluate(() => [...document.querySelectorAll('[data-resume]')].map((one) => `${one.getAttribute('data-resume')}: ${one.textContent}`))
   console.log(cards.join('\n'))
-  check('(3) Continue reading offers the Review sitting left today', cards.some((one) => /^review: \d+ cards? left from this (morning|afternoon|evening)/.test(one)), cards.join(' | '))
+  check('(3) Continue reading offers the Review sitting left today', cards.some((one) => /^review: \d+ cards? left in Review\d+ done this (morning|afternoon|evening)/.test(one)), cards.join(' | '))
   check('(3) and the quick capture draft', cards.some((one) => /^draft: Ring the framer/.test(one)))
   check('(3) and the article part read', cards.some((one) => /^article: The Long Read About Bridges42% read/.test(one)))
+  // The cards beside a book's: the same height, type and corners, light and dark.
+  await h.evaluate(() => document.querySelector('[data-continue-reading]')?.scrollIntoView({ block: 'center' })); await wait(600)
+  const looks = await h.evaluate(() => [...document.querySelectorAll('[data-continue-reading] .continue-book')].map((one) => {
+    const box = one.getBoundingClientRect()
+    const title = getComputedStyle(one.querySelector('.continue-book-title'))
+    const where = getComputedStyle(one.querySelector('.continue-book-where'))
+    return { kind: one.getAttribute('data-resume') ?? 'book', h: Math.round(box.height), radius: getComputedStyle(one).borderRadius, title: `${title.fontSize} ${title.fontWeight}`, where: where.fontSize }
+  }))
+  console.log(JSON.stringify(looks))
+  const book = looks.find((one) => one.kind === 'book')
+  check('(3) the new cards match a book\'s card: height, corners and type', !!book && looks.filter((one) => one.kind !== 'book').every((one) => Math.abs(one.h - book.h) <= 2 && one.radius === book.radius && one.title === book.title && one.where === book.where), JSON.stringify(looks))
+  const row = await h.$('[data-continue-reading]')
+  for (const name of ['light', 'dark']) { await c.look(name); await row?.screenshot({ path: join(shots, `resume-continue-${name}.png`) }) }
+  await c.look('light')
   await both(join(shots, 'resume-home'))
+  // Every card due graded, Review left and come back to: the day's work is still said.
+  await h.evaluate(() => document.querySelector('[data-review-tab="today"]')?.click()); await wait(800)
+  await h.evaluate(() => localStorage.removeItem('review-left'))
+  for (let pass = 0; pass < 6; pass++) {
+    const due = await v('review:queue')
+    if (!due.length) break
+    for (const one of due) await v('review:grade', one.id, 3, 3000)
+  }
+  await go('inbox'); await wait(800)
+  await go('review'); await wait(2500)
+  const finished = await h.evaluate(() => document.querySelector('[data-review-finished]')?.textContent ?? '')
+  check('(mento 2) coming back after the day\'s cards says "Done for today" with the count', /^Done for today/.test(finished) && /\d+ cards? this (morning|afternoon|evening)/.test(finished), finished.slice(0, 160))
+  await both(join(shots, 'resume-done-today'))
   // Back after a long absence: the top line names what you were last in.
   // Leaving marks the time seen, so the gap is set as the page starts again.
   await h.addInitScript(() => localStorage.setItem('last-seen', String(Date.now() - 9 * 3600 * 1000)))
