@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { TIP } from '@/lib/float'
-import { forceCenter, forceCollide, forceLink, forceManyBody, forceSimulation, forceX, forceY, type Simulation, type SimulationLinkDatum, type SimulationNodeDatum } from 'd3-force'
+import { forceCenter, forceCollide, forceLink, forceManyBody, forceSimulation, forceX, forceY, type ForceLink, type ForceManyBody, type ForceX, type ForceY, type Simulation, type SimulationLinkDatum, type SimulationNodeDatum } from 'd3-force'
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import type { MapNode, NoteMap } from '@/lib/notes'
 import { notes } from '@/lib/notes'
@@ -12,10 +12,14 @@ import { clip } from '../../../../main/clip'
 import { still } from '@/lib/motion'
 import { emojiIcons } from '@/lib/icon-style'
 import { wornStyle, type Style } from '@/lib/theme'
+import { hueTint, MAP_LOOK, type MapLook } from '@/lib/map-look'
 
 /** `px`, `py`: where it is drawn this frame, a breath away from where it sits. `rings`: one per band of links. */
-type Dot = MapNode & SimulationNodeDatum & { r: number; rings: number; px: number; py: number; private?: boolean }
-type Line = SimulationLinkDatum<Dot> & { source: Dot; target: Dot; weight: number }
+type Dot = MapNode & SimulationNodeDatum & { r: number; r0: number; rings: number; px: number; py: number; private?: boolean }
+/** `way`: which way the link runs (1: source to target, 2: back, 3: both), for arrows. */
+type Line = SimulationLinkDatum<Dot> & { source: Dot; target: Dot; weight: number; way: number }
+/** What the Map's settings change on a drawn map: its look and its layout. */
+export type CanvasLook = Pick<MapLook, 'names' | 'dotSize' | 'lineSize' | 'arrows' | 'centre' | 'push' | 'linkPull' | 'linkLength'>
 type View = { x: number; y: number; k: number }
 /** A dot on the map, with whether its title is kept out of sight. */
 export type GraphNode = MapNode & { private?: boolean }
@@ -36,7 +40,7 @@ export const NOTE_TINT = 'color-mix(in oklab, var(--muted-foreground) 62%, var(-
  * never a loud violet). The kind is told by its icon, close up or pointed at.
  */
 export const tintOf = (node: Pick<MapNode, 'tag' | 'tint'>): string =>
-  node.tag ? `color-mix(in oklab, var(--tt-color-text-${node.tint ?? spread(node.tag)}) 62%, var(--muted-foreground))` : NOTE_TINT
+  node.tag ? hueTint(node.tint ?? spread(node.tag)) : NOTE_TINT
 
 // Each kind's icon as lines on a 24-square, for drawing inside a dot.
 const ICONS: Record<string, string> = {
@@ -144,7 +148,7 @@ const takeFocus = (): string | null => ((id) => ((asked = null), id))(asked)
  * scroll left to the page around it. `focus` lights a note up and brings it
  * close once drawn.
  */
-export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly, replay, className, children }: {
+export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly, replay, look, paint, className, children }: {
   map: Graph
   /** `aside`: ⌥ was held, to open it beside. */
   onOpen: (type: string, id: string, aside?: boolean) => void
@@ -159,6 +163,10 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
   /** Show the map as it grew: `at` counts the dots in, in `replayOrder`, the last one fading in over `REPLAY_FADE`
    * of them; a link shows once both ends are there. Null shows it whole again. */
   replay?: React.RefObject<(at: number | null) => void>
+  /** The Map's settings for its look and layout, applied to the drawn map as they change. */
+  look?: CanvasLook
+  /** A dot's colour from the Map's colour groups, else its tag's. */
+  paint?: (node: MapNode) => string | undefined
   className?: string
   children?: React.ReactNode
 }): React.JSX.Element {
@@ -202,6 +210,20 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
   // How far the replay has come, kept across reloads of the data: the map built again for a new link carries on
   // from the same moment. (The bar's own effect runs before this one rebuilds, so it cannot be told again.)
   const replayAt = useRef<number | null>(null)
+  // The settings, read by the drawing as it goes; told of a change, it retunes the layout or repaints without
+  // building the map again.
+  const tuned = useRef<CanvasLook>({ ...MAP_LOOK, ...look })
+  const painted = useRef(paint)
+  const retune = useRef<() => void>(() => undefined)
+  const repaint = useRef<() => void>(() => undefined)
+  useEffect(() => {
+    tuned.current = { ...MAP_LOOK, ...look }
+    retune.current()
+  }, [look])
+  useEffect(() => {
+    painted.current = paint
+    repaint.current()
+  }, [paint])
 
   useEffect(() => {
     const el = canvas.current
@@ -209,11 +231,12 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
     if (!el || !frame || !map.nodes.length) return
     const context = el.getContext('2d')!
     const dots: Dot[] = map.nodes.map((node) => {
-      const r = node.id === centre ? 8 : node.id === you ? 6.5 : Math.round(radius(node.links, small) * 2) / 2
-      return { ...node, r, rings: node.id === you ? 1 : ringsOf(node.links, small), px: 0, py: 0, ...placed.current.get(node.id), ...(node.id === centre ? { fx: 0, fy: 0 } : {}) }
+      const r0 = node.id === centre ? 8 : node.id === you ? 6.5 : Math.round(radius(node.links, small) * 2) / 2
+      const r = small ? r0 : Math.round(r0 * tuned.current.dotSize * 2) / 2
+      return { ...node, r, r0, rings: node.id === you ? 1 : ringsOf(node.links, small), px: 0, py: 0, ...placed.current.get(node.id), ...(node.id === centre ? { fx: 0, fy: 0 } : {}) }
     })
     const byId = new Map(dots.map((dot) => [dot.id, dot]))
-    const lines: Line[] = map.edges.map(([a, b, weight]) => ({ source: byId.get(a)!, target: byId.get(b)!, weight: weight ?? 1 }))
+    const lines: Line[] = map.edges.map(([a, b, weight, way]) => ({ source: byId.get(a)!, target: byId.get(b)!, weight: weight ?? 1, way: way ?? 0 }))
     const near = new Map<string, Set<string>>(dots.map((dot) => [dot.id, new Set()]))
     for (const [a, b] of map.edges) (near.get(a)!.add(b), near.get(b)!.add(a))
     const middle = centre ? byId.get(centre) : undefined
@@ -232,11 +255,12 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
     // --- colours, read again whenever the theme changes
     type Shades = { base: string; light: string; rim: string; ring: string }
     let shades = new Map<string, Shades>()
-    let edge = '', lit = '', ring = '', text = '', quiet = '', font = '', style: Style = 'soft', brutal = false, dark = false
+    let edge = '', lit = '', arrow = '', ring = '', text = '', quiet = '', font = '', style: Style = 'soft', brutal = false, dark = false
     const colours = (): void => {
       shades = new Map()
       edge = resolve('color-mix(in oklab, var(--foreground) 13%, transparent)')
       lit = resolve('color-mix(in oklab, var(--foreground) 68%, transparent)')
+      arrow = resolve('color-mix(in oklab, var(--foreground) 32%, transparent)')
       ring = resolve('var(--background)')
       text = resolve('var(--foreground)')
       quiet = resolve('color-mix(in oklab, var(--foreground) 72%, var(--background))')
@@ -247,7 +271,7 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
       dark = 0.2126 * r + 0.7152 * g + 0.0722 * b < 128
       sprites.clear()
     }
-    const tokenOf = (dot: Dot): string => (dot === middle || dot.id === you ? 'var(--tt-brand-color-400)' : tintOf(dot))
+    const tokenOf = (dot: Dot): string => (dot === middle || dot.id === you ? 'var(--tt-brand-color-400)' : painted.current?.(dot) ?? tintOf(dot))
     // A colour (with lighter and darker steps kept for whatever wants them).
     const shadesOf = (token: string): Shades => {
       let found = shades.get(token)
@@ -514,8 +538,21 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
       path.moveTo(x0, y0)
       path.quadraticCurveTo((x0 + x1) / 2 - (y1 - y0) * 0.12, (y0 + y1) / 2 + (x1 - x0) * 0.12, x1, y1)
     }
+    // An arrow's head on a link's curve, its tip on the edge of the dot it points to.
+    const arrowAt = (line: Line, toTarget: boolean, size: number): void => {
+      const { px: x0, py: y0 } = line.source, { px: x1, py: y1 } = line.target
+      const cx = (x0 + x1) / 2 - (y1 - y0) * 0.12, cy = (y0 + y1) / 2 + (x1 - x0) * 0.12
+      const end = toTarget ? line.target : line.source
+      const dx = end.px - cx, dy = end.py - cy, long = Math.hypot(dx, dy) || 1
+      const ux = dx / long, uy = dy / long
+      const tipX = end.px - ux * end.r, tipY = end.py - uy * end.r
+      context.moveTo(tipX, tipY)
+      context.lineTo(tipX - ux * size - uy * size * 0.55, tipY - uy * size + ux * size * 0.55)
+      context.lineTo(tipX - ux * size + uy * size * 0.55, tipY - uy * size - ux * size * 0.55)
+      context.closePath()
+    }
     // Thicker the more often the two link: once, twice, three times or more.
-    const thickness = (line: Line): number => [0.75, 1.15, 1.6][Math.min(3, line.weight) - 1]
+    const thickness = (line: Line): number => [0.75, 1.15, 1.6][Math.min(3, line.weight) - 1] * (small ? 1 : tuned.current.lineSize)
 
     // How much of a dot's icon shows: none on a small dot, all once it is 20px across or more on the screen, eased
     // between; a lit dot (pointed at, or a neighbour) shows it from smaller, as the light comes in.
@@ -594,6 +631,21 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
         context.setLineDash([])
         context.lineDashOffset = 0
       }
+      // "Arrows": a small head where each link lands, so which note points to which shows.
+      if (tuned.current.arrows && !small) {
+        const size = 5 / view.k
+        for (const line of lines) {
+          if (!line.way) continue
+          const hot = !!shown && (line.source === shown || line.target === shown)
+          context.globalAlpha = hot ? amount * (growing ? seen(shown!, now) : 1) : faded * Math.min(alpha(line.source), alpha(line.target))
+          if (!context.globalAlpha) continue
+          context.fillStyle = hot ? lit : arrow
+          context.beginPath()
+          if (line.way & 1) arrowAt(line, true, size)
+          if (line.way & 2) arrowAt(line, false, size)
+          context.fill()
+        }
+      }
       // Each dot stamped from its chip, made at about this zoom.
       const scale = 2 ** (Math.round(Math.log2(view.k * dpr) * 4) / 4)
       // Faded dots first, so the lit ones sit over them; the note itself last of all.
@@ -639,7 +691,7 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
         const list: Dot[] = []
         for (const dot of ranked) {
           if (list.length >= 80) break
-          if (inFrame(dot) && (dot.rings || dot.r * view.k >= 9) && got(dot) > 0) list.push(dot)
+          if (inFrame(dot) && (dot.rings || dot.r * view.k >= tuned.current.names) && got(dot) > 0) list.push(dot)
         }
         return list
       }
@@ -811,6 +863,40 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
       })
     // A note's own map is held on its note, not on the middle of its dots.
     if (!middle) sim.force('center', forceCenter(0, 0))
+    // The Map's "Layout" settings: how hard dots are pulled to the middle, pushed apart, and held by their links.
+    const collide = (): void => void sim.force('collide', forceCollide<Dot>((dot) => dot.r + dot.rings * ringGap + (small ? 1.5 : 2)))
+    const forces = (): void => {
+      if (small) return
+      const t = tuned.current
+      ;(sim.force('link') as ForceLink<Dot, Line>).distance((line) => t.linkLength + line.source.r + line.target.r).strength(t.linkPull)
+      ;(sim.force('charge') as ForceManyBody<Dot>).strength((dot) => (-40 - dot.r * 6) * t.push)
+      ;(sim.force('x') as ForceX<Dot>).strength(t.centre)
+      ;(sim.force('y') as ForceY<Dot>).strength(t.centre)
+    }
+    forces()
+    // A little heat, so the dots move to the new settings (or, with motion off, a few steps taken out of sight).
+    const settle = (heat: number): void => {
+      if (!still()) return void sim.alpha(Math.max(sim.alpha(), heat)).restart()
+      sim.alpha(heat)
+      const until = performance.now() + 80
+      while (sim.alpha() > sim.alphaMin() && performance.now() < until) sim.tick()
+      washes = null
+      redraw()
+    }
+    let laid = JSON.stringify([tuned.current.dotSize, tuned.current.centre, tuned.current.push, tuned.current.linkPull, tuned.current.linkLength])
+    retune.current = () => {
+      const t = tuned.current, now = JSON.stringify([t.dotSize, t.centre, t.push, t.linkPull, t.linkLength])
+      if (now !== laid && !small) {
+        laid = now
+        for (const dot of dots) dot.r = Math.round(dot.r0 * t.dotSize * 2) / 2
+        collide()
+        forces()
+        sim.nodes(sim.nodes())
+        settle(0.3)
+      }
+      redraw()
+    }
+    repaint.current = () => ((washes = null), redraw())
     const fresh = dots.filter((dot) => !placed.current.has(dot.id))
     if (still() || !fresh.length) {
       sim.stop()
@@ -871,6 +957,12 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
     // How many dots are in, for a probe and a screen reader; said again when the map is built anew mid-replay.
     const told = (): void => void (el.dataset.replayed = cut === null ? '' : String(dots.filter((dot) => got(dot) >= 1).length))
     told()
+    // For a probe: every dot, where it sits, its colour, and whether the layout holds it now.
+    el.dataset.dots = String(dots.length)
+    ;(el as HTMLCanvasElement & { mapDots?: () => unknown[] }).mapDots = () => {
+      const held = new Set(sim.nodes())
+      return dots.map((dot) => ({ id: dot.id, title: dot.title, x: dot.x, y: dot.y, r: dot.r, colour: shadesOf(tokenOf(dot)).base, held: held.has(dot), rank: rank.get(dot) }))
+    }
     if (fly) fly.current = (id: string) => {
       const dot = byId.get(id)
       if (!dot || !width) return false
@@ -1051,6 +1143,7 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
       // as React's trial run in development does), the next draw fades in again.
       if (!arrive.size) for (const dot of dots) placed.current.set(dot.id, { x: dot.x!, y: dot.y! })
       cancelAnimationFrame(asked)
+      retune.current = repaint.current = () => undefined
       gone = true
       clearInterval(beat)
       sight.disconnect()
@@ -1078,7 +1171,7 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
         <div ref={card} data-map-tip data-private={hover.dot.private ? '' : undefined} className={cn(`pointer-events-none invisible absolute z-10 flex flex-col gap-0.5 ${TIP}`, small ? 'max-w-[13rem]' : 'max-w-xs')}>
           <span className="private-text truncate font-medium">{hover.dot.title || 'Untitled'}</span>
           <span className="flex items-center gap-1.5 text-muted-foreground">
-            <span className="size-2 rounded-full" style={{ background: hover.dot.id === centre || hover.dot.id === you ? 'var(--tt-brand-color-400)' : tintOf(hover.dot) }} />
+            <span className="size-2 rounded-full" style={{ background: hover.dot.id === centre || hover.dot.id === you ? 'var(--tt-brand-color-400)' : paint?.(hover.dot) ?? tintOf(hover.dot) }} />
             {about?.[hover.dot.id] ? `${about[hover.dot.id]} · ` : ''}
             {hover.dot.id === you ? 'This note' : hover.dot.id === centre ? (hover.dot.type === 'pdf' ? 'This book' : 'This note') : hover.dot.kind === 'person' ? 'Person' : hover.dot.kind === 'source' ? 'Source' : hover.dot.kind === 'pdf' ? 'PDF' : hover.dot.kind === 'web' ? 'Web article' : kind?.label ?? (hover.dot.type === 'nugget' ? 'Gem' : hover.dot.type === 'card' ? 'Card' : hover.dot.type === 'article' ? 'Page' : 'Note')}{hover.dot.tag ? ` · #${hover.dot.tag}` : ''} · {hover.dot.links} {hover.dot.links === 1 ? 'link' : 'links'}
           </span>

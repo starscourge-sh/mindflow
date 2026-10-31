@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
-import { notes, type NoteMap } from '@/lib/notes'
+import { notes, type MapNode, type NoteMap } from '@/lib/notes'
 import { realMove } from '@/lib/real-move'
 import { GraphCanvas, KIND_EMOJI, NOTE_TINT, REPLAY_FADE, kindOf, replayOrder, tintOf } from './graph-canvas'
 import { useEmojiIcons } from '@/lib/icon-style'
-import { useLive } from '@/lib/haligtree'
+import { haligtree, useLive, type Settings } from '@/lib/haligtree'
+import { autoGroups, groupHue, hueTint, lookOf, shownMap, type MapLook } from '@/lib/map-look'
+import { MapPanel } from './map-panel'
 import { exampleMap } from '@/lib/examples'
 import { Example } from './example'
 import { chime } from '@/lib/sound'
@@ -13,6 +15,8 @@ import { FLOAT } from '@/lib/float'
 import { Empty, Rolling, Tip, TypedMark } from './ui'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { History, Palette, Pause, Play, Search as SearchIcon, Unlink, X } from 'lucide-react'
+import GearIcon from '@/components/ui/gear-icon'
+import { AliveIcon } from '@/components/ui/alive-icon'
 import { Slider } from '@/components/ui/slider'
 import { still } from '@/lib/motion'
 import { Fit } from '@/components/ui/icons'
@@ -89,7 +93,37 @@ function LinkMap({ onOpen, modes }: { onOpen: (type: string, id: string) => void
   // No links yet: a made-up map of a few books shows what it draws, dimmed and out of reach.
   const example = !!real && !real.nodes.length
   const examples = useMemo(exampleMap, [])
-  const map = example ? examples : real
+  // The Map's own settings (the gear): kept in the library's settings, followed here at once as they change.
+  const settings = useLive(haligtree.settings, null as Settings | null)
+  const [look, setLook] = useState<MapLook | null>(null)
+  const saved = settings ? lookOf(settings.mapLook as Partial<MapLook> | undefined) : null
+  const now = look ?? saved ?? lookOf(null)
+  const [panel, setPanel] = useState(false)
+  const change = (patch: Partial<MapLook>, save = true): void => {
+    const next = { ...now, ...patch }
+    setLook(next)
+    if (save) void haligtree.setSettings({ mapLook: next })
+  }
+  const map = useMemo(() => (example ? examples : real ? shownMap(real, now) : null), [example, examples, real, now.tags, now.files, now.pictures, now.hideLonely, now.search]) // eslint-disable-line react-hooks/exhaustive-deps
+  // The colour groups as the panel shows them: the saved ones, or until one is edited the automatic tag colours.
+  const groups = useMemo(() => now.groups ?? autoGroups(real?.nodes ?? []), [now.groups, real])
+  const paint = useCallback((node: MapNode): string | undefined => {
+    if (!now.groups) return undefined
+    const hue = groupHue(node, now.groups)
+    return hue ? hueTint(hue) : NOTE_TINT
+  }, [now.groups])
+  const canvasLook = useMemo(() => ({ names: now.names, dotSize: now.dotSize, lineSize: now.lineSize, arrows: now.arrows, centre: now.centre, push: now.push, linkPull: now.linkPull, linkLength: now.linkLength }),
+    [now.names, now.dotSize, now.lineSize, now.arrows, now.centre, now.push, now.linkPull, now.linkLength])
+  // A tag's dot opens its tag; a picture's, the note it is in.
+  const open = (type: string, id: string): void => {
+    if (type === 'tag') return onOpen('tag', id.slice(4))
+    if (type === 'picture') {
+      const from = map?.nodes.find((node) => node.id === id)?.from
+      const note = [...(real?.nodes ?? []), ...(real?.lonely ?? [])].find((node) => node.id === from)
+      return note ? onOpen(note.type, note.id) : undefined
+    }
+    onOpen(type, id)
+  }
   const fit = useRef<() => void>(() => undefined)
   const fly = useRef<(id: string) => boolean>(() => false)
   const replay = useRef<(at: number | null) => void>(() => undefined)
@@ -109,7 +143,10 @@ function LinkMap({ onOpen, modes }: { onOpen: (type: string, id: string) => void
     return { kinds: CAPTURE_TYPES.filter((type) => seen.has(type.id)), tags: [...tagged].sort((a, b) => b[1].count - a[1].count).slice(0, 6), untagged }
   }, [map])
 
-  const count = map?.nodes.length ?? 0
+  // Whether there is a map at all (the settings may still narrow it to nothing), and how many dots show.
+  const count = (example ? examples.nodes.length : real?.nodes.length) ?? 0
+  // Notes only: a tag's or a picture's dot is not a note.
+  const dots = map?.nodes.filter((node) => node.type !== 'tag' && node.type !== 'picture').length ?? 0
   // A calm key, as a printed map's: two groups, each a short word then its marks, never broken across lines.
   // Wide, one quiet line with a hairline between the groups; in the "Key" popover, each group a small table.
   const legend = (stacked: boolean): React.JSX.Element => {
@@ -119,7 +156,7 @@ function LinkMap({ onOpen, modes }: { onOpen: (type: string, id: string) => void
         <div className={stacked ? 'grid grid-cols-2 gap-x-4 gap-y-1' : 'flex items-center gap-3'}>{items}</div>
       </div>
     )
-    const tagItems = [
+    const tagItems = now.groups ? now.groups.filter((one) => one.query.trim()).slice(0, 6).map((one, n) => <span key={n} className="flex min-w-0 items-center gap-1.5"><span className="size-2 shrink-0 rounded-full" style={{ background: hueTint(one.colour) }} /><span className="truncate">{one.query}</span></span>) : [
       ...tags.map(([tag, { tint }]) => <span key={tag} className="flex min-w-0 items-center gap-1.5"><span className="size-2 shrink-0 rounded-full" style={{ background: tint }} /><span className="truncate">#{tag}</span></span>),
       ...(untagged ? [<span key=" none" className="flex items-center gap-1.5"><span className="size-2 shrink-0 rounded-full" style={{ background: NOTE_TINT }} />No tag</span>] : [])
     ]
@@ -129,7 +166,7 @@ function LinkMap({ onOpen, modes }: { onOpen: (type: string, id: string) => void
     })
     return (
       <>
-        {group('Colour: tag', tagItems)}
+        {group(now.groups ? 'Colour: group' : 'Colour: tag', tagItems)}
         {stacked && <span aria-hidden className="h-px bg-border" />}
         {group('Icon: kind', kindItems)}
       </>
@@ -140,7 +177,7 @@ function LinkMap({ onOpen, modes }: { onOpen: (type: string, id: string) => void
       {/* Like every page, the line goes when it has nothing to count. */}
       {count && !example ? <header className="@container flex h-10 shrink-0 items-center gap-2 border-b px-5 text-muted-foreground">
         <span className="shrink-0">{modes}</span>
-        <span className="min-w-0 truncate whitespace-nowrap tabular-nums"><Rolling text={count} /> linked {count === 1 ? 'note' : 'notes'}</span>
+        <span className="min-w-0 truncate whitespace-nowrap tabular-nums"><Rolling text={dots} /> {now.hideLonely ? 'linked ' : ''}{dots === 1 ? 'note' : 'notes'}</span>
         <span className="hidden whitespace-nowrap tabular-nums @2xl:inline">· <Rolling text={map!.edges.length} /> {map!.edges.length === 1 ? 'link' : 'links'}</span>
         <div className="ml-auto flex shrink-0 items-center gap-1">
           <Tip label="Replay how the map grew">
@@ -153,15 +190,19 @@ function LinkMap({ onOpen, modes }: { onOpen: (type: string, id: string) => void
           <Tip label="Fit the map">
             <Button variant="ghost" size="icon-sm" onClick={() => (chime('tap'), fit.current())}><Fit className="size-3.5" /></Button>
           </Tip>
+          <Tip label="Map settings">
+            <Button data-map-settings variant="ghost" size="icon-sm" aria-pressed={panel} className={panel ? 'bg-accent text-foreground' : ''}
+              onClick={() => (chime(panel ? 'fold' : 'open'), setPanel(!panel))}><AliveIcon icon={GearIcon} size={14} /></Button>
+          </Tip>
         </div>
       </header> : null}
       {count ? (
         <Example on={example} flush className="min-h-0 flex-1" tryIt={<>type <TypedMark>@</TypedMark> in any note and pick another one. The two show up here as dots, joined by a line.</>}>
-        <GraphCanvas map={map!} onOpen={onOpen} fit={fit} fly={fly} replay={replay} className="flex-1">
+        {dots ? <GraphCanvas map={map!} onOpen={open} fit={fit} fly={fly} replay={replay} look={example ? undefined : canvasLook} paint={example ? undefined : paint} className="flex-1">
           {replaying && !example && <Replay nodes={map!.nodes} show={replay} onClose={() => (chime('off'), setReplaying(false))} />}
           {/* The map's foot, one row that never lays one part over another: the key on the left (folded into
               one "Key" button when the map is narrow), the notes left off on the right. */}
-          <div data-map-foot className="@container/foot pointer-events-none absolute inset-x-4 bottom-3 flex items-end justify-between gap-3">
+          <div data-map-foot className="@container/foot pointer-events-none absolute inset-x-4 bottom-3 flex items-end justify-between gap-3" style={panel && !example ? { right: 'calc(18rem + 1.5rem)' } : undefined}>
             {/* What the colours and icons mean: the colour is the tag, the icon the kind. */}
             <div data-map-key className="hidden min-w-0 grid-cols-[auto_auto] items-center gap-x-3 gap-y-1 rounded-lg border bg-background px-3 py-1.5 text-meta text-muted-foreground @[52rem]/foot:grid">{legend(false)}</div>
             <Popover onOpenChange={(open) => open && chime('open')}>
@@ -175,7 +216,14 @@ function LinkMap({ onOpen, modes }: { onOpen: (type: string, id: string) => void
             {/* The notes left off, one click away: each opens, ready for an @ to put it on the map. */}
             {map!.alone && !example ? <Lonely count={map!.alone} notes={map!.lonely ?? []} onOpen={onOpen} /> : null}
           </div>
-        </GraphCanvas>
+          {panel && !example && <MapPanel look={now} groups={groups} onChange={change} onClose={() => (chime('fold'), setPanel(false))} />}
+        </GraphCanvas> : (
+          // Narrowed to nothing by the settings: said so, with the panel still there to widen it.
+          <div data-map-none className="relative flex flex-1 items-center justify-center text-muted-foreground">
+            <p className="text-body">No notes on the map match {now.search.trim() ? <>“{now.search.trim()}”</> : 'these settings'}.</p>
+            {panel && <MapPanel look={now} groups={groups} onChange={change} onClose={() => (chime('fold'), setPanel(false))} />}
+          </div>
+        )}
         </Example>
       ) : !map ? null : (
         <div className="page-column">
@@ -229,7 +277,8 @@ function Replay({ nodes, show, onClose }: { nodes: NoteMap['nodes']; show: React
   // Esc stops it, before anything else on the page hears the key.
   useEffect(() => {
     const key = (event: KeyboardEvent): void => {
-      if (event.key !== 'Escape') return
+      // The Map's settings panel, when open, is the layer on top: Esc closes it first.
+      if (event.key !== 'Escape' || document.querySelector('[data-map-panel]')) return
       event.preventDefault()
       event.stopPropagation()
       onClose()
@@ -363,7 +412,7 @@ function Lonely({ count, notes: list, onOpen }: { count: number; notes: NonNulla
       <PopoverContent align="end" side="top" className="w-80 gap-0 p-0 text-control">
         <p className="border-b px-3 py-2 text-foreground">Open one and type <TypedMark>@</TypedMark> to link it to another note. Linked, it joins the map.</p>
         <ul className="max-h-72 overflow-y-auto p-1">
-          {list.map((one) => {
+          {list.slice(0, 300).map((one) => {
             const kind = kindOf(one.kind) ?? CAPTURE_TYPES[0]
             const Icon = kind.icon
             return (
@@ -377,7 +426,7 @@ function Lonely({ count, notes: list, onOpen }: { count: number; notes: NonNulla
             )
           })}
           {/* The rest are not a dead end: as these get linked, the next ones take their place. */}
-          {count > list.length && <li className="px-2 py-1.5 text-muted-foreground">And {count - list.length} more. As you link these, the next ones show here.</li>}
+          {count > Math.min(300, list.length) && <li className="px-2 py-1.5 text-muted-foreground">And {count - Math.min(300, list.length)} more. As you link these, the next ones show here.</li>}
         </ul>
       </PopoverContent>
     </Popover>

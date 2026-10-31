@@ -25,14 +25,19 @@ export type MapNode = {
   type: string; id: string; title: string; kind: string; links: number
   /** Its main tag, and that tag's colour on the map: the Tags page's, else one no other tag there has. */
   tag?: string; tint?: string
-  /** The first picture in it. */
+  /** The first picture in it, and every one (for "Pictures as dots"). */
   picture?: string
+  pictures?: string[]
+  /** All its tags, for "Tags as dots" and the Map's colour groups. */
+  tags?: string[]
+  /** A picture's dot: the note it is in, opened when it is clicked. */
+  from?: string
   /** When it was caught (a gem: when its note was), for the Map's replay. */
   at?: string
 }
-/** Two linked notes, and how many times either links to the other. */
-export type MapEdge = [string, string, number?]
-export type NoteMap = { nodes: MapNode[]; edges: MapEdge[]; alone: number; /** The notes left off for having no links (the first 300). */ lonely?: Omit<MapNode, 'links'>[] }
+/** Two linked notes, how many times either links to the other, and which way (1: first to second, 2: back, 3: both). */
+export type MapEdge = [string, string, number?, number?]
+export type NoteMap = { nodes: MapNode[]; edges: MapEdge[]; alone: number; /** The notes left off for having no links. */ lonely?: MapNode[] }
 export type Version = { id: number; savedAt: string; size: number }
 export type DayEntry = { type: string; id: string; title: string; kind?: string; status?: string; private: number; /** When it happened that day; a dated task's time. */ at?: string | null; allDay?: number }
 export type Day = { day: string; exists: boolean; body: unknown; reviewed: boolean; captured: DayEntry[]; resolved: DayEntry[]; studied: DayEntry[]; done: DayEntry[]; /** Tasks planned for or due by the day. */ dated?: DayEntry[] }

@@ -684,6 +684,8 @@ const DEFAULTS = {
  * defaults above, and the few saved only once chosen, with no row until then.
  */
 export type Settings = typeof DEFAULTS & {
+  /** The Map's own settings (its gear): what it shows, its colours, its look and its layout. See map-look.ts. */
+  mapLook?: Record<string, unknown>
   /** “I have N minutes”: the length last asked for. */
   fitMinutes?: number
   /** The playbook, “How I work”: the piece of writing it is. */
