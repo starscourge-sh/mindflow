@@ -3,6 +3,7 @@ import { ChevronRight } from "lucide-react"
 import { Tree, treeOf, type TreeNode } from "@/components/haligtree/branches"
 import { Highlight, useChosen, useFluidHover, Weighted } from "@/components/haligtree/glide"
 import { spring } from "@/lib/motion"
+import { BackToTop } from "@/components/haligtree/ui"
 import type { PDFDocumentProxy } from "pdfjs-dist"
 
 /** Which list the rail shows: the pages small, or the PDF's own outline. Highlights are in Details. */
@@ -20,6 +21,7 @@ export const railWidth = (): number => Math.min(WIDE, Math.max(NARROW, Number(lo
  */
 export function PdfRail({ tab, tabs, onTab, children }: { tab: RailTab; tabs: { id: RailTab; label: string }[]; onTab: (tab: RailTab) => void; children: React.ReactNode }): React.JSX.Element {
   const [width, setWidth] = useState(railWidth)
+  const [list, setList] = useState<HTMLDivElement | null>(null)
   const drag = (event: React.PointerEvent<HTMLDivElement>): void => {
     event.preventDefault()
     const from = event.clientX - width
@@ -43,9 +45,11 @@ export function PdfRail({ tab, tabs, onTab, children }: { tab: RailTab; tabs: { 
           </button>
         ))}
       </div>
-      <div className="pdf-rail-list" role="tabpanel">
+      {/* A long list fades at the edge where there is more, and offers the way back up, as every list does. */}
+      <div ref={setList} className="pdf-rail-list mf-more" role="tabpanel">
         {children}
       </div>
+      <BackToTop target={list} />
       <div className="pdf-rail-edge" role="separator" aria-orientation="vertical" aria-label="Sidebar width" onPointerDown={drag} />
     </aside>
   )

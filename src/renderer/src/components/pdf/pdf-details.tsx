@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { Search } from "lucide-react"
 import { call } from "@/lib/haligtree"
+import { BackToTop } from "@/components/haligtree/ui"
 import { MARK_COLORS, markCss } from "./read-bar"
 import type { PdfMark } from "./pdf-pages"
 
@@ -32,6 +33,7 @@ export function ReadDetails({ src, cover, title, author, pages, page, marks, lit
     return () => void (live = false)
   }, [src, marks.length])
   const [words, setWords] = useState("")
+  const [box, setBox] = useState<HTMLElement | null>(null)
   const [colour, setColour] = useState<string | null | undefined>(undefined)
   const shown = useMemo(() => {
     const look = words.trim().toLowerCase()
@@ -42,7 +44,9 @@ export function ReadDetails({ src, cover, title, author, pages, page, marks, lit
   const used = MARK_COLORS.filter((one) => marks.some((mark) => (mark.color ?? null) === one.id))
   const read = pages && page ? Math.round((page / pages) * 100) : null
   return (
-    <aside className="read-details" aria-label="Details">
+    // A frame that does not scroll, for the way back up to sit on; the panel scrolls inside it, its edges fading where there is more.
+    <div className="read-details-frame">
+    <aside ref={setBox} className="read-details mf-more" aria-label="Details">
       <div className="read-details-head">
         {cover && <img src={cover} alt="" draggable={false} className="read-details-cover" />}
         <div className="read-details-what">
@@ -115,5 +119,7 @@ export function ReadDetails({ src, cover, title, author, pages, page, marks, lit
         )}
       </section>
     </aside>
+    <BackToTop target={box} />
+    </div>
   )
 }
