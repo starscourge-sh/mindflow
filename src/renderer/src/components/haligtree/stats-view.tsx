@@ -7,6 +7,7 @@ import { useFocusTools, useLive, haligtree, type Stats } from '@/lib/haligtree'
 import { exampleStats } from '@/lib/examples'
 import { GoalPreview, ReadyMoment, useReady } from './goal-preview'
 import { DaysHeatmap } from './days-heatmap'
+import { StudySection } from './study-stats'
 import { WritingSection } from './writing-stats'
 import { Count, Island, Page, Rolling } from './ui'
 import { Tip } from '@/components/haligtree/ui'
@@ -129,6 +130,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
         <ReadsIn key={part} className="contents">
         {part === 'now' ? <>
         <WritingSection example={example} />
+        <StudySection example={example} />
 
         <Section title="This week" big={{ value: stats.week, label: stats.week === 1 ? 'thing noted down' : 'things noted down' }}>
           <p>

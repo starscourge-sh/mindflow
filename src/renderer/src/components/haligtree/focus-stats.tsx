@@ -40,7 +40,7 @@ const SAID: Record<Outcome, string> = { finished: 'ran its full length', early: 
  * stub so the day is still there. `peak` labels the tallest bar with how much
  * it stands for, so the heights read without pointing at each one.
  */
-function Bars({ values, tips, tint, className, highlight, peak }: { values: number[]; tips: string[]; tint?: (index: number) => string; className?: string; highlight?: number; peak?: (value: number) => string }): React.JSX.Element {
+export function Bars({ values, tips, tint, className, highlight, peak }: { values: number[]; tips: string[]; tint?: (index: number) => string; className?: string; highlight?: number; peak?: (value: number) => string }): React.JSX.Element {
   const max = Math.max(1, ...values)
   const top = values.indexOf(Math.max(...values))
   const at = ((top + 0.5) / Math.max(1, values.length)) * 100
