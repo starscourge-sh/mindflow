@@ -18,7 +18,7 @@ const { check, done } = checks()
 const dir = mkdtempSync(join(tmpdir(), 'apkg-'))
 const sqlite = join(dir, 'collection.anki2')
 const tables = (anki) => anki.exec(`create table col (id integer primary key, models text, decks text);
-  create table notes (id integer primary key, mid integer, tags text, flds text);
+  create table notes (id integer primary key, guid text, mid integer, tags text, flds text);
   create table cards (id integer primary key, nid integer, did integer, ord integer, queue integer);
   create table revlog (id integer primary key, cid integer, ease integer, ivl integer, time integer, type integer);`)
 const anki = new DatabaseSync(sqlite)
@@ -36,7 +36,7 @@ const notes = [
   [t0 + 4, 10, '', 'Name this part<div><img src="mito.png"></div>', 'Mitochondrion'],
   [t0 + 5, 10, '', 'Paused question', 'Suspended in Anki']
 ]
-for (const [id, mid, tags, ...fields] of notes) anki.prepare('insert into notes values (?, ?, ?, ?)').run(id, mid, tags, fields.join('\x1f'))
+for (const [id, mid, tags, ...fields] of notes) anki.prepare("insert into notes values (?, ?, ?, ?, ?)").run(id, `g${id}`, mid, tags, fields.join("\x1f"))
 const cards = [[100, t0, 2, 0], [101, t0 + 1, 1, 0], [102, t0 + 1, 1, 1], [103, t0 + 2, 1, 0], [104, t0 + 2, 1, 1], [105, t0 + 3, 1, 0], [106, t0 + 4, 1, 0], [107, t0 + 5, 1, 0, -1]]
 for (const card of cards) anki.prepare('insert into cards values (?, ?, ?, ?, ?)').run(...card.concat(card.length < 5 ? [0] : []))
 // Card 100 was learnt a month ago and remembered three times since.
@@ -53,7 +53,7 @@ const packedSqlite = join(dir, 'packed.sqlite')
 const packed = new DatabaseSync(packedSqlite)
 tables(packed)
 packed.prepare('insert into col values (1, ?, ?)').run(JSON.stringify({ 10: { name: 'Basic', type: 0 } }), JSON.stringify({ 3: { name: 'Packed deck' } }))
-packed.prepare('insert into notes values (?, 10, ?, ?)').run(t0 + 9, '', 'Packed question<img src="dot.png">\x1fPacked answer')
+packed.prepare("insert into notes values (?, ?, 10, ?, ?)").run(t0 + 9, "packed1", '', 'Packed question<img src="dot.png">\x1fPacked answer')
 packed.prepare('insert into cards values (900, ?, 3, 0, 0)').run(t0 + 9)
 packed.close()
 const field = (number, bytes) => Buffer.concat([Buffer.from([(number << 3) | 2, bytes.length]), bytes])
@@ -72,6 +72,11 @@ const importOnce = (path = file) => electron.evaluate(async ({ dialog, Menu }, p
 const gems = () => h.evaluate(async () => Promise.all((await window.api.haligtree('items', 'nugget')).filter((one) => /^(What powers|chat$|cat$|The .*_____|Hear it|Name this|Paused question)/.test(one.prompt ?? '')).map(async (one) => ({ id: one.id, prompt: one.prompt, body: JSON.stringify((await window.api.haligtree('item', one.id))?.body ?? '') }))))
 const waitFor = async (test, ms = 8000) => { for (const end = Date.now() + ms; Date.now() < end; await h.waitForTimeout(150)) if (await test()) return true; return false }
 try {
+  // A deck with past reviews asks first: "Start these fresh" is the default; this is the person's own export, so the reviews are kept.
+  await electron.evaluate(({ dialog }) => {
+    globalThis.asked = []
+    dialog.showMessageBox = async (...args) => { const options = args.at(-1); globalThis.asked.push(options); return { response: options.buttons.indexOf('Keep the reviews'), checkboxChecked: false } }
+  })
   // Dropped on the window outside a note: the window would open the file, and imports it instead.
   await h.evaluate((url) => { location.href = url }, `file://${file}`)
   await waitFor(async () => (await gems()).length >= 8)
@@ -89,10 +94,12 @@ try {
   const sound = all.find((one) => one.prompt.startsWith('Hear it'))
   check('a sound is kept and linked, on the answer side', !!sound && sound.prompt === 'Hear it' && /\[bell\.mp3\]\(haligtree:\/\/assets\/[a-f0-9]{64}\.mp3\)/.test(sound.body), sound?.body)
   const history = basic && await h.evaluate((id) => window.api.haligtree('review:history', id), basic.id)
+  const questions = await electron.evaluate(() => globalThis.asked.map((one) => `${one.message} [${one.buttons.join(' / ')}]`))
+  check('a downloaded deck with reviews asks, "Start these fresh" first', questions.length === 1 && /past reviews for 2 cards \[Start these fresh \/ Keep the reviews\]/.test(questions[0]), JSON.stringify(questions))
   check('its four past reviews came with it', history?.reviews.length === 4, JSON.stringify(history?.reviews))
   check('and it keeps its schedule: due in the future, not new', !!history?.dueAt && Date.parse(history.dueAt) > Date.now() + day, history?.dueAt)
   const notice = await h.evaluate(() => document.querySelector('[data-import-done]')?.textContent ?? '')
-  check('the notice counts what came in', /^8 cards are in/.test(notice) && /8 cards from 2 decks/.test(notice) && /1 picture/.test(notice) && /1 sound/.test(notice), notice)
+  check('the notice counts what came in', /^8 cards are in/.test(notice) && /From Biology: Cells/.test(notice) && /8 cards, 1 picture/.test(notice) && /A card as Review asks it/.test(notice) && !/Biology\.apkg/.test(notice) && /1 picture/.test(notice) && /1 sound/.test(notice), notice)
   check('the notice says what Anki\'s words are here, and where shared decks are', /Coming from Anki\? A deck is a #tag here/.test(notice) && /Review › All cards/.test(notice) && /ankiweb\.net\/shared\/decks/.test(notice), notice)
   await h.screenshot({ path: join(process.env.QA_SHOTS ?? dir, 'anki-apkg-notice.png') })
   await h.keyboard.press('Escape')

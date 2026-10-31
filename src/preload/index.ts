@@ -396,8 +396,8 @@ const api = {
     return () => ipcRenderer.off('work:busy', relay)
   },
   /** How far an import has got, for the main window's chip; null once it is over. */
-  onImportProgress: (listen: (at: { done: number; total: number; what: 'notes' | 'pictures' | 'files'; stop?: boolean } | null) => void): (() => void) => {
-    const relay = (_event: unknown, at: { done: number; total: number; what: 'notes' | 'pictures' | 'files'; stop?: boolean } | null): void => listen(at)
+  onImportProgress: (listen: (at: { done: number; total: number; what: 'notes' | 'pictures' | 'cards' | 'files'; stop?: boolean } | null) => void): (() => void) => {
+    const relay = (_event: unknown, at: { done: number; total: number; what: 'notes' | 'pictures' | 'cards' | 'files'; stop?: boolean } | null): void => listen(at)
     ipcRenderer.on('import:progress', relay)
     return () => ipcRenderer.off('import:progress', relay)
   },

@@ -11,7 +11,7 @@ import { Orb } from './orb'
 import { Rolling } from './ui'
 import { hoverNote } from './note-preview'
 
-type Progress = { done: number; total: number; what: 'notes' | 'pictures' | 'files'; stop?: boolean }
+type Progress = { done: number; total: number; what: 'notes' | 'pictures' | 'cards' | 'files'; stop?: boolean }
 
 /** What an import says it did, sent by main once it is over (main/index.ts). */
 type ImportDone = {
@@ -34,6 +34,7 @@ type ImportDone = {
 const WORDS: Record<Progress['what'], string> = {
   notes: 'Bringing in your notes…',
   pictures: 'Bringing in the pictures…',
+  cards: 'Making the cards…',
   files: 'Reading the files…'
 }
 

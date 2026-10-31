@@ -655,7 +655,7 @@ function guard(win: BrowserWindow): void {
   page.on('will-navigate', (event, url) => {
     if (url !== page.getURL()) event.preventDefault()
     // An Anki deck dropped anywhere outside a note is imported.
-    if (url.startsWith('file:') && /\.apkg$/i.test(url)) void importFiles([fileURLToPath(url)])
+    if (url.startsWith('file:') && /\.(apkg|colpkg)$/i.test(url)) void importFiles([fileURLToPath(url)])
   })
 
   // Editor content reaches this through window.open, so file: and whatever else
@@ -2903,7 +2903,7 @@ async function importVault(given?: string, picked?: string | null): Promise<void
  * the one it is on, so the last is "241 of 241"); null when over.
  */
 let importToldAt = 0
-function importProgress(at: { done: number; total: number; what: 'notes' | 'pictures' | 'files'; /** It can be stopped from the chip. */ stop?: boolean } | null): void {
+function importProgress(at: { done: number; total: number; what: 'notes' | 'pictures' | 'cards' | 'files'; /** It can be stopped from the chip. */ stop?: boolean } | null): void {
   const now = Date.now()
   if (at && at.done > 0 && at.done < at.total && now - importToldAt < 120) return
   importToldAt = now
@@ -3338,12 +3338,13 @@ async function importFiles(dropped?: string[]): Promise<void> {
   const filePaths = dropped ?? (await dialog.showOpenDialog({
     title: SANDBOX ? 'Import into the sandbox' : BOOK ? `Import into ${nameOf(here())}` : 'Import',
     properties: ['openFile', 'multiSelections'],
-    filters: [{ name: 'Markdown, bookmarks, highlights (Readwise, Kindle) or Anki cards and decks', extensions: ['md', 'html', 'htm', 'csv', 'json', 'txt', 'apkg'] }]
+    filters: [{ name: 'Markdown, bookmarks, highlights (Readwise, Kindle) or Anki cards and decks', extensions: ['md', 'html', 'htm', 'csv', 'json', 'txt', 'apkg', 'colpkg'] }]
   })).filePaths
   const lines: string[] = []
   // The beam turns in every window while the files are read in.
   let total = 0
   let inbox = 0
+  let deckFrom = ''
   let gems = 0
   await busy(async () => {
     for (const [at, path] of filePaths.entries()) {
@@ -3352,19 +3353,47 @@ async function importFiles(dropped?: string[]): Promise<void> {
       // One file that cannot be read is said so, and the rest still come in.
       try {
         // An Anki deck package: cards with their pictures, sounds and schedules.
-        if (/\.apkg$/i.test(name)) {
-          const got = await importApkg(path)
+        if (/\.(apkg|colpkg)$/i.test(name)) {
+          // A whole collection (.colpkg) is your own: its reviews are yours. A shared deck's are a stranger's: fresh by default, as Anki does.
+          const own = /\.colpkg$/i.test(name)
+          const got = await importApkg(path, {
+            progress: (done, all, what) => importProgress({ done, total: all, what }),
+            choose: async ({ reviewed, names }) => {
+              const buttons = own ? ['Keep the reviews', 'Start these fresh'] : ['Start these fresh', 'Keep the reviews']
+              const options = {
+                type: 'question' as const,
+                buttons,
+                defaultId: 0,
+                cancelId: 0,
+                message: `${names.join('; ') || name} comes with past reviews for ${num(reviewed)} ${reviewed === 1 ? 'card' : 'cards'}`,
+                detail: own
+                  ? 'This is a whole Anki collection, so the reviews are yours: kept, every card keeps its place in the schedule.'
+                  : 'A downloaded deck carries whoever made it’s reviews. Fresh, the cards start new, paced to you. Keep them only if this deck is your own export.'
+              }
+              const { response } = await (home && !home.isDestroyed() ? dialog.showMessageBox(home, options) : dialog.showMessageBox(options))
+              return { keepReviews: buttons[response] === 'Keep the reviews' }
+            }
+          })
           total += got.cards
           gems += got.cards
-          const parts = [`${num(got.cards)} ${got.cards === 1 ? 'card' : 'cards'} from ${num(got.decks)} ${got.decks === 1 ? 'deck' : 'decks'}`,
+          const parts = [`${num(got.cards)} ${got.cards === 1 ? 'card' : 'cards'}`,
             got.pictures && `${num(got.pictures)} ${got.pictures === 1 ? 'picture' : 'pictures'}`, got.sounds && `${num(got.sounds)} ${got.sounds === 1 ? 'sound' : 'sounds'}`].filter(Boolean)
-          lines.push(`${name}: ${parts.join(', ')}`)
+          // Named as the deck calls itself, not by its file: "Great Works of Art: Artists, Titles".
+          const deckName = got.names.join('; ') || name.replace(/\.(apkg|colpkg)$/i, '').replace(/_/g, ' ')
+          // One deck: its name heads the notice ("From Great Works of Art: Artists, Titles"), said once.
+          if (filePaths.length === 1) (deckFrom = deckName, lines.push(parts.join(', ')))
+          else lines.push(`${deckName}: ${parts.join(', ')}`)
+          if (got.updated) lines.push(`${num(got.updated)} ${got.updated === 1 ? 'card was' : 'cards were'} changed by this newer version, keeping your progress`)
           if (got.paused) lines.push(`${num(got.paused)} ${got.paused === 1 ? 'card was' : 'cards were'} suspended in Anki: paused here too, out of Review until you bring ${got.paused === 1 ? 'it' : 'them'} back`)
           if (got.already) lines.push(`${num(got.already)} ${got.already === 1 ? 'card was' : 'cards were'} already here, from an earlier import`)
-          // Coming from Anki: what each thing is called here, once, under the counts.
-          lines.push('Coming from Anki? A deck is a #tag here (Biology::Cells is #biology-cells), each card a gem with its question, and the Browser is Review › All cards.')
-          lines.push('More shared decks are at ankiweb.net/shared/decks: download a .apkg and drop it on this window.')
           if (got.skipped) lines.push(`${num(got.skipped)} ${got.skipped === 1 ? 'card' : 'cards'} left out: picture-hiding cards, or a side with nothing on it`)
+          // One card as Review will ask it, so what came in is seen before it is studied.
+          if (got.sample) lines.push(`A card as Review asks it: “${got.sample.question.replace(/!\[\]\([^)]*\)/g, '[picture]').replace(/\s+/g, ' ').trim().slice(0, 90)}” Answer: “${got.sample.answer.replace(/!\[\]\([^)]*\)/g, '[picture]').replace(/\s+/g, ' ').trim().slice(0, 90)}”`)
+          // Coming from Anki: what each thing is called here, once under the counts however many decks came in.
+          if (!lines.some((line) => line.startsWith('Coming from Anki?'))) {
+            lines.push('Coming from Anki? A deck is a #tag here (Biology::Cells is #biology-cells), each card a gem with its question, and the Browser is Review › All cards.')
+            lines.push('More shared decks are at ankiweb.net/shared/decks: download a .apkg and drop it on this window.')
+          }
           continue
         }
         const text = await readFile(path, 'utf8')
@@ -3399,7 +3428,7 @@ async function importFiles(dropped?: string[]): Promise<void> {
   // Some of them: "1 is", "4 are".
   const some = (n: number): string => (n === total ? (total === 1 ? 'It is' : 'They are') : `${num(n)} ${n === 1 ? 'is' : 'are'}`)
   const went = [inbox ? `${some(inbox)} in your Inbox.` : '', gems ? `${some(gems)} in Gems, as cards to review.` : ''].filter(Boolean)
-  if (lines.length) inHome('haligtree:import-done', { from: filePaths.length === 1 ? basename(filePaths[0]) : `${num(filePaths.length)} files`, made: total, inbox, gems, notes: [...went, ...lines] })
+  if (lines.length) inHome('haligtree:import-done', { from: deckFrom || (filePaths.length === 1 ? basename(filePaths[0]) : `${num(filePaths.length)} files`), made: total, inbox, gems, notes: [...went, ...lines] })
 }
 
 /**
@@ -3983,7 +4012,7 @@ app.whenReady().then(() => {
   // The first-run step and Settings import the way the menu bar does.
   // From the vault picker too: one of the vaults it showed, or null for the folder dialog.
   ipcMain.handle('import:decks', (_event, paths: unknown) =>
-    Array.isArray(paths) ? importFiles(paths.filter((path): path is string => typeof path === 'string' && /\.apkg$/i.test(path))) : undefined)
+    Array.isArray(paths) ? importFiles(paths.filter((path): path is string => typeof path === 'string' && /\.(apkg|colpkg)$/i.test(path))) : undefined)
   ipcMain.handle('import:run', async (_event, what: unknown, from?: unknown) => {
     if (what === 'apple-notes') return inHome('haligtree:import-folders', { from: 'Apple Notes' })
     if (what !== 'vault') return importFiles()
