@@ -4,6 +4,7 @@ import type { Editor } from "@tiptap/react"
 
 import { OPEN, headingsOf, land, type Heading } from "@/components/toc/headings"
 import { cue } from "@/lib/cues"
+import { Tree, treeOf } from "@/components/haligtree/branches"
 
 type Outline = { headings: { level: number; text: string }[]; active: number }
 
@@ -173,18 +174,24 @@ export function TableOfContents({ editor, shown = true }: { editor: Editor | nul
       }}
     >
       <div className="tiptap-toc-list mf-more">
-      {headings.map((heading, index) => (
-        <Entry
-          key={index}
-          index={index}
-          level={heading.level}
-          text={heading.text}
-          active={index === active}
-          keyed={index === keyed}
-          lit={index === lit ? activeRef : undefined}
-          onGo={goRef}
-        />
-      ))}
+      {/* Open, each level hangs off a thin trunk as the sidebar's trees do, the way down to the heading you are under lit. */}
+      <Tree
+        nodes={treeOf(headings, (heading) => heading.level)}
+        here={active}
+        className="tiptap-toc-level"
+        row={({ at: index, item: heading }) => (
+          <Entry
+            key={index}
+            index={index}
+            level={heading.level}
+            text={heading.text}
+            active={index === active}
+            keyed={index === keyed}
+            lit={index === lit ? activeRef : undefined}
+            onGo={goRef}
+          />
+        )}
+      />
       </div>
     </nav>
   )

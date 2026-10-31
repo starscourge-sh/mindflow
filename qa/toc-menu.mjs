@@ -55,7 +55,8 @@ try {
         longLines: Math.round(text(rows[0]).getBoundingClientRect().height / parseFloat(getComputedStyle(text(rows[0])).lineHeight)), clipped: text(rows[0]).scrollWidth > text(rows[0]).clientWidth, title: rows[0].title,
         activeColor: getComputedStyle(text(active)).color, activeWeight: getComputedStyle(text(active)).fontWeight, cursor, fg,
         weights: [1, 2, 3].map((n) => getComputedStyle(text(lvl(n))).fontWeight), opacities: [1, 2, 3].map((n) => getComputedStyle(text(lvl(n))).opacity),
-        indents: [1, 2, 3].map((n) => Math.round(parseFloat(getComputedStyle(text(lvl(n))).paddingLeft))),
+        indents: [1, 2, 3].map((n) => Math.round(text(lvl(n)).getBoundingClientRect().left)),
+        trunks: document.querySelectorAll('.tiptap-toc .tiptap-toc-level > svg').length,
         fade: list ? { scrolls: list.scrollHeight > list.clientHeight + 1, more: parseFloat(getComputedStyle(list).getPropertyValue('--mf-more')) } : null
       }
     })
@@ -66,7 +67,7 @@ try {
     check(`${theme}: a row pointed at has the menu's highlight and the hand`, got.hover === accent && got.hand === 'pointer', `${got.hover} vs ${accent}, ${got.hand}`)
     check(`${theme}: a long heading stays on one line, cut with its full words on hover`, got.longLines === 1 && got.clipped && got.title.startsWith('PART 1'), JSON.stringify({ lines: got.longLines, clipped: got.clipped }))
     check(`${theme}: the heading you are under is in full weight, not the cursor colour`, got.activeColor === got.fg && got.activeColor !== got.cursor && Number(got.activeWeight) >= 600, JSON.stringify({ c: got.activeColor, cursor: got.cursor, w: got.activeWeight }))
-    check(`${theme}: levels by indent only`, new Set(got.opacities).size === 1 && got.indents[0] < got.indents[1] && got.indents[1] < got.indents[2], JSON.stringify({ w: got.weights, o: got.opacities, i: got.indents }))
+    check(`${theme}: levels step in under the heading above, off a trunk as the sidebar draws them`, new Set(got.opacities).size === 1 && got.trunks > 1 && got.indents[0] < got.indents[1] && got.indents[1] < got.indents[2], JSON.stringify({ w: got.weights, o: got.opacities, i: got.indents }))
     check(`${theme}: a long outline scrolls in the card, fading at the foot`, got.fade?.scrolls && got.fade.more > 10, JSON.stringify(got.fade))
     if (SHOT) await h.screenshot({ path: `${SHOT}/toc-${theme}.png` })
     await h.mouse.move(10, 400); await wait(300)

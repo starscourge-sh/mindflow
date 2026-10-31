@@ -722,6 +722,34 @@
   overscroll-behavior: contain;
 }
 
+// Each level of headings (Branches): shut, the rules stack flush at the right
+// with no trunk; open, each level steps in under the heading above it and
+// hangs off a thin trunk, as the sidebar's trees do.
+.tiptap-toc-level {
+  display: flex;
+  flex-direction: column;
+
+  & > svg {
+    display: none;
+  }
+
+  .tiptap-toc:hover &,
+  .tiptap-toc[data-open] &,
+  .mf-page-toc[data-wide] & {
+    margin-left: 1rem;
+
+    & > svg {
+      display: block;
+    }
+  }
+
+  .tiptap-toc:hover .tiptap-toc-list > &,
+  .tiptap-toc[data-open] .tiptap-toc-list > &,
+  .mf-page-toc[data-wide] .tiptap-toc-list > & {
+    margin-left: 0.625rem;
+  }
+}
+
 .tiptap-toc-item {
   --toc-indent: 0rem;
   pointer-events: auto;
@@ -796,7 +824,7 @@
 .tiptap-toc-text {
   display: none;
   min-width: 0;
-  padding: 0.25rem 0.5rem 0.25rem calc(0.5rem + var(--toc-indent));
+  padding: 0.25rem 0.5rem;
   width: 100%;
   font-size: var(--text-control);
   line-height: var(--text-control--line-height);

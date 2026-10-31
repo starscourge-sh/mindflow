@@ -56,3 +56,41 @@ export function Branches({ current, bare, className, children }: { current: numb
     </div>
   )
 }
+
+/** An entry of a list that nests, with the entries under it; `at` is its place in the flat list. */
+export type TreeNode<T> = { at: number; item: T; kids: TreeNode<T>[] }
+
+/** A flat list, each entry with its depth (or heading level), back into a tree: an entry holds every deeper one after it. */
+export function treeOf<T>(items: T[], depth: (item: T) => number): TreeNode<T>[] {
+  const top: TreeNode<T>[] = []
+  const path: TreeNode<T>[] = []
+  items.forEach((item, at) => {
+    const node: TreeNode<T> = { at, item, kids: [] }
+    while (path.length && depth(path[path.length - 1].item) >= depth(item)) path.pop()
+    ;(path.length ? path[path.length - 1].kids : top).push(node)
+    path.push(node)
+  })
+  return top
+}
+
+const holds = <T,>(node: TreeNode<T>, at: number): boolean => node.at === at || node.kids.some((one) => holds(one, at))
+
+/**
+ * A whole tree drawn the one way the app draws nesting: each level its own
+ * Branches, stepped in under the row above it, the way down to the entry at
+ * `here` lit. `open` says whether an entry's own are showing (all, if not given).
+ */
+export function Tree<T>({ nodes, here, row, open, className }: { nodes: TreeNode<T>[]; here: number; row: (node: TreeNode<T>) => ReactNode; open?: (node: TreeNode<T>) => boolean; className?: string }): React.JSX.Element {
+  return (
+    <Branches current={nodes.findIndex((one) => holds(one, here))} className={className}>
+      {nodes.flatMap((node) => [
+        row(node),
+        node.kids.length > 0 && (open?.(node) ?? true) && (
+          <div key={`${node.at}:in`} data-no-twig="">
+            <Tree nodes={node.kids} here={here} row={row} open={open} className={className} />
+          </div>
+        )
+      ])}
+    </Branches>
+  )
+}

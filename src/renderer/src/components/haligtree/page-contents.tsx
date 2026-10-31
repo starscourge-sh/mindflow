@@ -5,6 +5,7 @@ import '@/components/haligtree/haligtree-editor.scss'
 import './page-contents.css'
 import { cue } from '@/lib/cues'
 import { glideTo } from './ui'
+import { Tree, treeOf } from './branches'
 
 /** A row: its name, and, for a group that has one, a few words after it ("2 of 9"). */
 type Entry = { level: 1 | 2; text: string; note?: string }
@@ -228,7 +229,8 @@ export function PageContents({ page, scroller, label }: { page: HTMLElement | nu
       }}
     >
       <div className="tiptap-toc-list mf-more">
-      {entries.map((entry, index) => (
+      {/* Open, the settings hang off a thin trunk under their group, as the sidebar's trees do. */}
+      <Tree nodes={treeOf(entries, (entry) => entry.level)} here={active} className="tiptap-toc-level" row={({ at: index, item: entry }) => (
         <button
           key={`${entry.level}:${entry.text}:${index}`}
           id={`${id}-${index}`}
@@ -249,7 +251,7 @@ export function PageContents({ page, scroller, label }: { page: HTMLElement | nu
             {entry.note && <span className="mf-page-toc-note"> {entry.note}</span>}
           </span>
         </button>
-      ))}
+      )} />
       </div>
     </nav>
   )

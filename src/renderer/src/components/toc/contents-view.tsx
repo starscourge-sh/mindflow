@@ -8,7 +8,7 @@ import { jumpTo } from "@/extensions/contents-block"
 import { cue } from "@/lib/cues"
 import { onlyWordsChanged } from "@/lib/tiptap-utils"
 import { ChevronRight as Chevron } from "@/components/ui/icons"
-import { Branches } from "@/components/haligtree/branches"
+import { Tree, treeOf } from "@/components/haligtree/branches"
 
 type Row = { level: number; text: string }
 
@@ -39,20 +39,6 @@ function nest(rows: Row[]): Nested[] {
 }
 
 type Nested = Row & { depth: number; number: string }
-type Node = { at: number; row: Nested; kids: Node[] }
-
-/** The rows as a tree: each holds the deeper ones after it. */
-function treeOf(rows: Nested[]): Node[] {
-  const top: Node[] = []
-  const path: Node[] = []
-  rows.forEach((row, at) => {
-    const node: Node = { at, row, kids: [] }
-    while (path.length && path[path.length - 1].row.depth >= row.depth) path.pop()
-    ;(path.length ? path[path.length - 1].kids : top).push(node)
-    path.push(node)
-  })
-  return top
-}
 
 /** Up and down move between the rows and the title; Escape hands the block back to the editor. */
 function step(event: React.KeyboardEvent<HTMLElement>, back: () => void): void {
@@ -150,28 +136,26 @@ export function ContentsView({ editor, node, getPos, updateAttributes }: NodeVie
       {!collapsed &&
         (rows.length ? (
           <div className="mf-contents-list">
-            {(function level(nodes: Node[]): React.JSX.Element {
-              // Each level hung off a thin trunk from the row above it, as the sidebar's trees are.
-              return (
-                <Branches current={-1} className="mf-contents-level">
-                  {nodes.flatMap(({ at, row, kids }) => [
-                    <button
-                      key={at}
-                      type="button"
-                      className="mf-contents-entry"
-                      data-level={row.level}
-                      title={row.text}
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => go(at)}
-                    >
-                      {numbered && <span className="mf-contents-number">{row.number}</span>}
-                      <span className="mf-contents-text">{row.text}</span>
-                    </button>,
-                    kids.length > 0 && <div key={`${at}:in`} data-no-twig="">{level(kids)}</div>,
-                  ])}
-                </Branches>
-              )
-            })(treeOf(nest(rows)))}
+            {/* Each level hung off a thin trunk from the row above it, as the sidebar's trees are. */}
+            <Tree
+              nodes={treeOf(nest(rows), (row) => row.depth)}
+              here={-1}
+              className="mf-contents-level"
+              row={({ at, item }) => (
+                <button
+                  key={at}
+                  type="button"
+                  className="mf-contents-entry"
+                  data-level={item.level}
+                  title={item.text}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => go(at)}
+                >
+                  {numbered && <span className="mf-contents-number">{item.number}</span>}
+                  <span className="mf-contents-text">{item.text}</span>
+                </button>
+              )}
+            />
           </div>
         ) : (
           <p className="mf-contents-empty">Add headings and they'll show here.</p>

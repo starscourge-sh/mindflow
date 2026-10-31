@@ -167,6 +167,22 @@ try {
   let landed = ''
   for (let i = 0; i < 30 && !landed; i++) { await wait(100); landed = await h.evaluate(() => document.querySelector('.mf-contents-landed')?.textContent ?? '') }
   check('Contents block: a row still goes to its heading', /Statute$/.test(landed), landed)
+
+  // The note's own outline at the right edge: shut, its rules with no trunk; open, the same tree, lit to the heading you are under.
+  const shut = await readTree('.note-pane .tiptap-toc', '.tiptap-toc-item')
+  check('note outline shut: the rules alone, no trunk drawn', shut?.rows.length === 5 && (await h.evaluate(() => [...document.querySelectorAll('.note-pane .tiptap-toc .tiptap-toc-level > svg')].every((one) => getComputedStyle(one).display === 'none'))), JSON.stringify({ rows: shut?.rows.length }))
+  await h.locator('.note-pane .tiptap-toc').first().hover(); await wait(700)
+  const margin = await readTree('.note-pane .tiptap-toc', '.tiptap-toc-item')
+  const [ms, mc, mst, mco, mh] = margin?.rows ?? []
+  check('note outline open: the headings as a tree, the way down to "Statute" lit', margin?.trunks === 3 && mc.left > ms.left && mst.left === mc.left && mco.left === ms.left && mh.left === mc.left && margin.lit === 2, JSON.stringify({ trunks: margin?.trunks, lit: margin?.lit, lefts: margin?.rows.map((one) => one.left) }))
+  await both(`${SHOTS}/note-outline-open`)
+  await h.mouse.move(5, 5)
+
+  // Settings' contents beside the page: its groups and their settings, the same tree.
+  await c.go('settings'); await wait(1200)
+  const settings = await readTree('.mf-page-toc', '.tiptap-toc-item')
+  check('Settings contents: each group\'s settings hang off a trunk under it', settings?.trunks === 2 && settings.rows.length === 2, JSON.stringify({ trunks: settings?.trunks, rows: settings?.rows.length }))
+  await both(`${SHOTS}/settings-contents`)
 } catch (error) {
   check('ran to the end', false, String(error?.stack ?? error))
 } finally {
