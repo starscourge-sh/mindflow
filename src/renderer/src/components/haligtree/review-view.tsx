@@ -34,7 +34,7 @@ import { onboarding } from '@/lib/onboarding'
 import { WithPictures } from './with-pictures'
 import { languageOf, sayAgain, speak } from '@/lib/read-aloud'
 import { LearnMode } from './learn-mode'
-import { isLeech, typedCheck } from '../../../../main/study'
+import { isLeech, typedCheck, type Strictness } from '../../../../main/study'
 import { Star } from 'lucide-react'
 import { RowMenu, copyLinkItem, type RowItem } from './row-menu'
 import { binItem } from '@/lib/to-bin'
@@ -126,6 +126,8 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
   // kept, so they start on it): drawn before, "2 days in a row" came a beat late and pushed the card down.
   const counts = useLive(haligtree.buckets, null as Record<Round, number> | null, [], ['item'])
   const speaking = useLive(haligtree.tagSpeak, {} as Record<string, string>, [], ['item'])
+  // How strictly each tag's typed answers are checked, set on the tag's page.
+  const tagStudy = useLive(haligtree.tagStudy, { typed: {}, newPerDay: {} } as Awaited<ReturnType<typeof haligtree.tagStudy>>, [], ['item'])
   const days = useLive(haligtree.daysInARow, null as { run: number; banked: number } | null, [], ['item'])
   const slipping_ = useLive(haligtree.slipping, [] as Item[], [], ['item'])
   const inboxLeft = useLive(inboxOpen, null as number | null, [], undefined, 'review-inbox')
@@ -308,7 +310,9 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
     binItem([{ type: 'nugget', id: card.id }], () => drop(card.id))
   ] : []
   // The typed answer, set against the real one once it is shown: how close, and the grade that suggests.
-  const checked = shown && said.trim() && card ? typedCheck(said, answer ?? textOf(card.body)) : null
+  // The first of the card's tags with a rule for typed answers (a tag under it counts too), the way its language is found.
+  const strictness = card ? (languageOf(`${card.title ?? ''} ${card.prompt ?? ''} ${textOf(card.body)}`, tagStudy.typed) ?? 'usual') as Strictness : 'usual'
+  const checked = shown && said.trim() && card ? typedCheck(said, answer ?? textOf(card.body), strictness) : null
   const typedScore = checked?.score ?? null
   const { grades, two, name: gradeName } = useGrades()
   // With two grades, Hard and Easy are both Got it: the suggestion is one of the buttons there.

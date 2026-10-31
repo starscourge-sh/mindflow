@@ -208,29 +208,38 @@ export function suggestGrade(score: number): 1 | 2 | 3 | 4 {
 }
 
 /**
+ * How strictly a tag's typed answers are checked. Usual: an accent or a unit
+ * left out is part wrong, a slip of a letter can count, capitals do not.
+ * Exact: every mark counts, capitals too (a formula, a chemical symbol, a
+ * case name). Meaning: accents and slips pass (a name in history, a term).
+ */
+export type Strictness = 'usual' | 'exact' | 'meaning'
+
+/**
  * A typed answer checked the way a careful teacher would, for any subject:
  * the score from `closeness`, then the one thing that is off said in words.
- * An accent or a unit left out is part wrong, so it never suggests Easy; a
- * slip of a letter or two in a long word is close, and can count as Good.
- * Capitals do not count. Null `said` when there is nothing to add.
+ * Null `said` when there is nothing to add.
  */
-export function typedCheck(typed: string, answer: string): { score: number; grade: 1 | 2 | 3 | 4; said: string | null; close: boolean } {
+export function typedCheck(typed: string, answer: string, how: Strictness = 'usual'): { score: number; grade: 1 | 2 | 3 | 4; said: string | null; close: boolean } {
   const score = closeness(typed, answer)
   const words = (text: string): string => text.trim().replace(/\s+/g, ' ').replace(/[.!?;,]+$/, '')
   const a = words(typed)
   const b = words(answer)
   const bare = (text: string): string => text.normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
   const grade = suggestGrade(score)
-  if (!a || !b || b.split(' ').length > 3) return { score, grade, said: null, close: false }
-  if (a === b) return { score, grade, said: null, close: false }
-  if (a.toLowerCase() === b.toLowerCase()) return { score, grade, said: null, close: false }
-  if (bare(a).toLowerCase() === bare(b).toLowerCase()) return { score, grade: 3, said: `Right apart from the accent: ${b}`, close: false }
+  const none = { score, grade, said: null, close: false }
+  if (!a || !b || b.split(' ').length > 3 || a === b) return none
+  const exact = how === 'exact'
+  const off = (said: string, usual: 1 | 2 | 3 | 4, meaning: 1 | 2 | 3 | 4, close = false): ReturnType<typeof typedCheck> =>
+    exact ? { score, grade: 1, said: `${said.replace(/[.:]?$/, '')}. Exact counts here.`, close: false } : { score, grade: how === 'meaning' ? meaning : usual, said, close }
+  if (a.toLowerCase() === b.toLowerCase()) return exact ? off(`Right apart from capitals: ${b}`, 4, 4) : none
+  if (bare(a).toLowerCase() === bare(b).toLowerCase()) return how === 'meaning' ? { score, grade: 4, said: null, close: false } : off(`Right apart from the accent: ${b}`, 3, 4)
   // A number with its unit: the number right and the unit left out.
   const unit = b.match(/^(-?[\d.,]+)\s*(\S.*)$/)
-  if (unit && a.replace(/\s+/g, '') === unit[1]) return { score, grade: 2, said: `Right number, but the unit is missing: ${b}`, close: false }
+  if (unit && a.replace(/\s+/g, '') === unit[1]) return off(`Right number, but the unit is missing: ${b}`, 2, 3)
   // A slip of a letter or two in a word of five or more.
-  if (b.length >= 5 && score >= 0.75 && grade < 4) return { score, grade: 3, said: `Close: you wrote ${a}, it is ${b}.`, close: true }
-  return { score, grade, said: null, close: false }
+  if (b.length >= 5 && score >= 0.75 && grade < 4) return off(`Close: you wrote ${a}, it is ${b}.`, 3, 4, how === 'usual')
+  return none
 }
 
 /**

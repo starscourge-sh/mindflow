@@ -1187,6 +1187,9 @@ export function registerHaligtree(): void {
   column('tag_meta', 'home_hidden integer not null default 0')
   // The language a tag's answers are read aloud in when they show ("es", "ja"), or null for silent.
   column('tag_meta', 'speak text')
+  // How strictly its typed answers are checked (exact, meaning; usual when empty), and its own new cards a day.
+  column('tag_meta', 'typed text')
+  column('tag_meta', 'new_per_day integer')
   // Why the answer is so, one line under it in review.
   column('nuggets', 'why text')
   // A question held open: when it was settled, and how ('answered' or 'let go').
@@ -2644,7 +2647,23 @@ export function registerHaligtree(): void {
     const shared = (one: { row: Record<string, unknown> }): boolean => String(one.row.origin ?? '').startsWith('anki:')
     // Yours shuffled, siblings apart; an imported deck keeps its own order (a frequency list stays in frequency order).
     const mine = shuffleNew(unseen.filter((one) => !one.exam && !shared(one)).map((one) => ({ ...one, id: String(one.row.id), group: (one.row.lineOf as string | null) ?? null })), dayKey())
+    // A tag with its own new cards a day takes no more than that (a tag under it counts toward it too).
+    const tagNew = new Map((db.prepare('select tag, new_per_day as n from tag_meta where new_per_day is not null').all() as { tag: string; n: number }[]).map((row) => [row.tag, row.n]))
+    const tagsOf = (row: Record<string, unknown>): string[] => {
+      const words = typeof row.body === 'string' ? (() => { try { return plain(JSON.parse(row.body as string)) } catch { return row.body as string } })() : ''
+      return tagsIn(`${row.title ?? ''} ${row.prompt ?? ''} ${words}`)
+    }
+    const limitsOf = (row: Record<string, unknown>): string[] => { const tags = tagsOf(row); return [...tagNew.keys()].filter((limit) => tags.some((tag) => tag === limit || tag.startsWith(`${limit}-`))) }
+    const startedToday = new Map<string, number>()
+    if (tagNew.size) for (const one of tested) if (metToday.has(one.row.id as string)) for (const limit of limitsOf(one.row)) startedToday.set(limit, (startedToday.get(limit) ?? 0) + 1)
     const fresh = [...mine, ...unseen.filter((one) => !one.exam && shared(one))]
+      .filter((one) => {
+        if (!tagNew.size) return true
+        const limits = limitsOf(one.row)
+        if (limits.some((limit) => (startedToday.get(limit) ?? 0) >= tagNew.get(limit)!)) return false
+        for (const limit of limits) startedToday.set(limit, (startedToday.get(limit) ?? 0) + 1)
+        return true
+      })
       .slice(0, Math.max(0, newPerDay - (done.fresh ?? 0)))
     // What a goal you are working toward is about comes first: the same cards, only their order.
     const queue = [...examDue, ...examFresh, ...otherDue, ...fresh]
@@ -3746,9 +3765,19 @@ export function registerHaligtree(): void {
   })
   // Each tag whose answers are read aloud, and in what language.
   handle('tag:speak', () => Object.fromEntries((db.prepare('select tag, speak from tag_meta where speak is not null').all() as { tag: string; speak: string }[]).map((row) => [row.tag, row.speak])))
+  // How each tag's typed answers are checked, and the tags with their own new cards a day.
+  handle('tag:study', () => {
+    const rows = db.prepare('select tag, typed, new_per_day as newPerDay from tag_meta where typed is not null or new_per_day is not null').all() as { tag: string; typed: string | null; newPerDay: number | null }[]
+    return {
+      typed: Object.fromEntries(rows.filter((row) => row.typed).map((row) => [row.tag, row.typed])) as Record<string, 'exact' | 'meaning'>,
+      newPerDay: Object.fromEntries(rows.filter((row) => row.newPerDay !== null).map((row) => [row.tag, row.newPerDay])) as Record<string, number>
+    }
+  })
   handle('tag:meta', () => db.prepare('select tag, color, action, backdrop, home_hidden as homeHidden from tag_meta').all())
-  handle('tag:set', (tag: string, patch: { homeHidden?: boolean; backdrop?: string | null; color?: string | null; action?: boolean; aliasOf?: string | null; examAt?: string | null; priority?: 'maintaining' | 'paused' | null; lands?: string | null; speak?: string | null }) => {
+  handle('tag:set', (tag: string, patch: { homeHidden?: boolean; backdrop?: string | null; color?: string | null; action?: boolean; aliasOf?: string | null; examAt?: string | null; priority?: 'maintaining' | 'paused' | null; lands?: string | null; speak?: string | null; typed?: string | null; newPerDay?: number | null }) => {
     db.prepare('insert or ignore into tag_meta (tag) values (?)').run(tag)
+    if (patch.typed !== undefined) db.prepare('update tag_meta set typed = ? where tag = ?').run(['exact', 'meaning'].includes(patch.typed ?? '') ? patch.typed : null, tag)
+    if (patch.newPerDay !== undefined) db.prepare('update tag_meta set new_per_day = ? where tag = ?').run(Number.isInteger(patch.newPerDay) && patch.newPerDay! >= 0 ? patch.newPerDay : null, tag)
     if (patch.speak !== undefined) db.prepare('update tag_meta set speak = ? where tag = ?').run(/^[a-z]{2,3}(-[A-Z]{2})?$/.test(patch.speak ?? '') ? patch.speak : null, tag)
     if (patch.lands !== undefined) db.prepare('update tag_meta set lands = ? where tag = ?').run(/^\d{1,3}$/.test(patch.lands ?? '') ? patch.lands : null, tag)
     if (patch.priority !== undefined) db.prepare('update tag_meta set priority = ? where tag = ?').run(['maintaining', 'paused'].includes(patch.priority ?? '') ? patch.priority : null, tag)

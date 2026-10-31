@@ -105,6 +105,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
   const [cursor, setCursor] = useListKeys(example ? 0 : topics.length, { onOpen: (index) => setChosen(topics[index].tag) })
   const top = topics[0]?.count ?? 1
   const speaking = useLive(haligtree.tagSpeak, {} as Record<string, string>, [], ['item'])
+  const study = useLive(haligtree.tagStudy, { typed: {}, newPerDay: {} } as Awaited<ReturnType<typeof haligtree.tagStudy>>, [], ['item'])
   const current = tags.find((one) => one.tag === chosen)
   // How ready each tag with an exam date is, for the open tag's bar.
   const exams = useLive(haligtree.exams, [] as Awaited<ReturnType<typeof haligtree.exams>>)
@@ -270,6 +271,24 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
               <span className="whitespace-nowrap font-medium text-foreground">Read the back aloud:</span>
               <Chips options={LANGUAGES} on={(id) => id === (speaking[chosen] ?? '')}
                 pick={(id) => { const was = speaking[chosen] ?? null; void haligtree.setTag(chosen, { speak: id || null }).then(() => (id && preview(id), quietly(() => void haligtree.setTag(chosen, { speak: was })))) }} />
+            </span>
+            {/* How its typed answers are checked in Review: the test should ask for exactly what you will need. */}
+            <span data-tag-typed className="flex flex-wrap items-center gap-1.5 text-xs">
+              <span className="whitespace-nowrap font-medium text-foreground">Typed answers:</span>
+              <Chips options={[
+                { id: '', label: 'Usual', tip: 'An accent or unit left out is part wrong; a slip of a letter can count; capitals do not' },
+                { id: 'exact', label: 'Exact', tip: 'Every mark counts, capitals too: formulas, symbols, case names' },
+                { id: 'meaning', label: 'Meaning', tip: 'Accents and small slips pass: names, terms, dates in words' }
+              ]}
+                on={(id) => id === (study.typed[chosen] ?? '')}
+                pick={(id) => { const was = study.typed[chosen] ?? null; void haligtree.setTag(chosen, { typed: (id || null) as 'exact' | 'meaning' | null }).then(() => (chime('settled'), quietly(() => void haligtree.setTag(chosen, { typed: was })))) }} />
+            </span>
+            {/* Its own new cards a day, under the book's: a big deck under one tag never crowds out the rest. */}
+            <span data-tag-new className="flex flex-wrap items-center gap-1.5 text-xs">
+              <span className="whitespace-nowrap font-medium text-foreground">New cards a day:</span>
+              <Chips options={[{ id: '', label: 'As in Settings' }, ...['5', '10', '20'].map((n) => ({ id: n, label: n })), { id: '0', label: 'None' }]}
+                on={(id) => id === String(study.newPerDay[chosen] ?? '')}
+                pick={(id) => { const was = study.newPerDay[chosen] ?? null; void haligtree.setTag(chosen, { newPerDay: id === '' ? null : Number(id) }).then(() => (chime('settled'), quietly(() => void haligtree.setTag(chosen, { newPerDay: was })))) }} />
             </span>
             {/* An alias: this tag counts as another without the words changing. */}
             <TagEntry

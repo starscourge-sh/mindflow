@@ -200,3 +200,15 @@ test('a typed answer says the one thing that is off, for any subject', () => {
   // Exactly right says nothing more.
   assert.deepEqual(typedCheck('Hastings', 'Hastings'), { score: 1, grade: 4, said: null, close: false })
 })
+
+test('a tag can make typed answers exact or check only the meaning', () => {
+  // Exact: chemistry symbols, formulas, case names. Any mark off is Forgot.
+  assert.equal(typedCheck('co2', 'CO2', 'exact').grade, 1)
+  assert.equal(typedCheck('co2', 'CO2', 'exact').said, 'Right apart from capitals: CO2. Exact counts here.')
+  assert.equal(typedCheck('murcielago', 'murciélago', 'exact').grade, 1)
+  assert.equal(typedCheck('mitochondira', 'mitochondria', 'exact').close, false)
+  // Meaning: a name in history; accents and slips pass.
+  assert.deepEqual(typedCheck('Dvorak', 'Dvořák', 'meaning'), { score: 1, grade: 4, said: null, close: false })
+  assert.equal(typedCheck('Tchaikovksy', 'Tchaikovsky', 'meaning').grade, 4)
+  assert.equal(typedCheck('9.8', '9.8 m/s²', 'meaning').grade, 3)
+})
