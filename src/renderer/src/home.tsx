@@ -84,6 +84,7 @@ import { Tour } from '@/components/haligtree/tour'
 import { SandboxHost, SandboxPill } from '@/components/haligtree/sandbox'
 import { SANDBOX, enterSandbox, leaveSandbox, resetSandbox } from '@/lib/sandbox'
 import { askBook } from '@/lib/books'
+import { makeDeck, useMadeDecks } from './components/haligtree/decks'
 import { BookName, askNewBook } from '@/components/haligtree/books'
 import { Welcome } from '@/components/haligtree/welcome'
 import { PageHint } from '@/components/haligtree/page-hint'
@@ -937,6 +938,9 @@ export function Home(): React.JSX.Element {
   const practiceActions = usePracticeActions()
   // The tags whose cards ⌘K offers to study.
   const cardTags = useLive(haligtree.cardTags, null as string[] | null, [], ['item'])
+  // Every deck of yours (a tag that holds cards, or one made by hand): ⌘K makes a card in any of them.
+  const madeDecks = useMadeDecks()
+  const deckTags = [...new Set([...(cardTags ?? []), ...madeDecks])]
   // Seen in screen recordings or not: all at once here, each kind of window on its own in Settings.
   const recordable = allRecorded(settings?.inRecordings)
   const [typewriter, setTypewriter] = useStoredFlag('typewriter')
@@ -1672,7 +1676,9 @@ export function Home(): React.JSX.Element {
             ...abandonAction,
             ...practiceActions,
             { label: 'Study stats', hint: 'Reviews a day, how often you remember, what falls due', cue: null, run: () => setView({ id: 'review', focus: ':stats' }) },
-            { label: 'Decks', hint: 'Shared Anki decks on their own shelf: start a topic, hold, show in Gems', cue: null, run: () => setView({ id: 'review', focus: ':decks' }) },
+            { label: 'Decks', hint: 'Your decks, and shared Anki decks on their own shelf', cue: null, run: () => setView({ id: 'review', focus: ':decks' }) },
+            { label: 'New deck', hint: 'A deck is a tag your cards share: name it, then paste cards or make one', cue: null, run: () => (setView({ id: 'review', focus: ':decks' }), void makeDeck()) },
+            ...deckTags.map((tag) => ({ label: `New card in #${tag}`, hint: 'Type the question and its answer, in Review', cue: null, run: () => setView({ id: 'review', focus: `:new:${tag}` }) })),
             { label: 'Paste cards', hint: 'A list, one card a line: front | back', cue: null, run: () => setView({ id: 'review', focus: ':paste' }) },
             { label: 'Liked', hint: 'Every post you hearted, newest first, week by week', cue: null, run: () => (setView({ id: 'feed', focus: ':liked' }), showLiked()) },
             { label: 'Browse all cards', hint: 'Search, sort, pause and tag them, in Review', cue: null, run: () => setView({ id: 'review', focus: ':cards' }) },
