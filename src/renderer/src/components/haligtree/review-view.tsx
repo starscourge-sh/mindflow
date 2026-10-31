@@ -1229,7 +1229,8 @@ function Why({ card }: { card: Due }): React.JSX.Element {
       defaultValue={again}
       autoFocus={!!again}
       onFocus={(event) => event.currentTarget.setSelectionRange(event.currentTarget.value.length, event.currentTarget.value.length)}
-      className="h-8 text-sm"
+      // A ruled line written on in the serif, as the typed answer above it: not a grey box.
+      className="h-9 rounded-none border-0 border-b border-dashed border-foreground/20 bg-transparent px-0.5 font-serif text-body shadow-none placeholder:font-sans placeholder:text-sm placeholder:italic placeholder:text-muted-foreground focus-visible:border-foreground/40 focus-visible:ring-0 dark:bg-transparent"
       // Opened to change it and left as it was: it stays saved and shown.
       onBlur={(event) => { if (again && event.currentTarget.value.trim() === again) { card.why = again; setWhy(again) } }}
       onKeyDown={(event) => {
