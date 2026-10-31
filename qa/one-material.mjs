@@ -111,12 +111,15 @@ try {
       check(`${t} the panel shadow is the warm ink at 16% and 32%, not black`, got.light && !black(got.panel) && first === 0.16 && second === 0.32, got.panel)
     }
     const ring = (shadow) => shadow.replace(got.panel, '').trim()
-    check(`${t} the tiptap menu casts the panel shadow and the ring`, got.ttMenu.shadow.includes(got.panel) && got.ttMenu.shadow === got.float, got.ttMenu.shadow)
-    check(`${t} the tiptap submenu casts the panel shadow and the ring`, got.ttSub === got.float, got.ttSub)
+    // The same layers in any order, Tailwind's empty placeholder layers left out.
+    const layers = (shadow) => shadow.split(/,(?![^(]*\))/).map((one) => one.trim()).filter((one) => !one.startsWith('rgba(0, 0, 0, 0) 0px 0px 0px 0px')).sort().join(' | ')
+    const same = (x, y) => layers(x) === layers(y)
+    check(`${t} the tiptap menu casts the panel shadow and the ring`, same(got.ttMenu.shadow, got.float), got.ttMenu.shadow)
+    check(`${t} the tiptap submenu casts the panel shadow and the ring`, same(got.ttSub, got.float), got.ttSub)
     check(`${t} the tiptap card casts the panel shadow`, got.ttCard.includes(got.panel), got.ttCard)
     check(`${t} the tiptap floating toolbar casts the panel shadow`, got.ttBar.includes(got.panel), got.ttBar)
-    check(`${t} the tiptap tooltip casts the panel shadow and the ring`, got.ttTip.shadow === got.float, got.ttTip.shadow)
-    check(`${t} the hover card (CARD) is the same material as FLOAT`, got.card.shadow === got.float, `${got.card.shadow} vs ${got.float}`)
+    check(`${t} the tiptap tooltip casts the panel shadow and the ring`, same(got.ttTip.shadow, got.float), got.ttTip.shadow)
+    check(`${t} the hover card (CARD) is the same material as FLOAT`, same(got.card.shadow, got.float), `${got.card.shadow} vs ${got.float}`)
     check(`${t} FLOAT is the panel shadow and one ring`, got.float.includes(got.panel) && ring(got.float).length > 0, ring(got.float))
     if (theme !== 'paper') continue
     check('radius-sm is 4px', got.sm === '4px', got.sm)
