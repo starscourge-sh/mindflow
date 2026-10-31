@@ -303,8 +303,8 @@ export async function importApkg(path: string, steps: Steps = {}): Promise<ApkgC
       const db = database()
       const seen = db.prepare('select 1 from nuggets where source = ?')
       const before = db.prepare('select id, body, prompt from nuggets where source = ?')
-      const add = db.prepare("insert into nuggets (id, kind, tier, deck, held, title, body, prompt, source, state, due_at, suspended, created_at, updated_at, attribution) values (?, 'note', 'deck', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-      const update = db.prepare('update nuggets set title = ?, body = ?, prompt = ?, updated_at = ?, attribution = coalesce(?, attribution) where id = ?')
+      const add = db.prepare("insert into nuggets (id, kind, tier, deck, held, title, body, prompt, source, state, due_at, suspended, created_at, updated_at, attribution, medium) values (?, 'note', 'deck', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+      const update = db.prepare('update nuggets set title = ?, body = ?, prompt = ?, updated_at = ?, attribution = coalesce(?, attribution), medium = coalesce(?, medium) where id = ?')
       const log = db.prepare('insert into review_log (item_id, grade, reviewed_at, ms, first) values (?, ?, ?, ?, ?)')
       const reviewsOf = source.prepare('select id, ease, time, type from revlog where cid = ? order by id')
       const usedDecks = new Set<number>()
@@ -358,6 +358,9 @@ export async function importApkg(path: string, steps: Steps = {}): Promise<ApkgC
           const sounds = [...front.matchAll(/(?<!!)\[[^\]]*\]\(haligtree:\/\/assets\/[^)]+\)/g)].map((match) => match[0])
           if (sounds.length) [front, back] = [front.replace(/(?<!!)\[[^\]]*\]\(haligtree:\/\/assets\/[^)]+\)/g, '').trim() || 'Listen', `${back}\n\n${sounds.join('\n')}`]
           const deck = decks.get(String(card.did)) ?? ''
+          // The deck it sits in here, and its shelf (the top deck): the card's "where", so the deck is a Sources page and joins its artists on the Map.
+          const home = deck && deck !== 'Default' ? deck : used[0]?.split('::')[0] ?? 'Anki'
+          const shelf = home.split('::')[0].trim()
           // Who made it (an artist, an author) is the card's "who": a Sources page gathers every card of theirs beside your own notes.
           const whoField = model.fields.find((name) => WHO_FIELD.test(name.trim()) && wordsOf(values.get(name) ?? '', media))
           const who = whoField ? cut(wordsOf(values.get(whoField) ?? '', media).replace(/\s+/g, ' '), 120) : null
@@ -374,7 +377,7 @@ export async function importApkg(path: string, steps: Steps = {}): Promise<ApkgC
           if (earlier) {
             // The same again: nothing to do. A newer version: its words change, its place in the schedule stays.
             if (earlier.body === JSON.stringify(body) && earlier.prompt === front) counts.already += 1
-            else (update.run(title, JSON.stringify(body), front, now, who, earlier.id), (counts.updated += 1))
+            else (update.run(title, JSON.stringify(body), front, now, who, shelf, earlier.id), (counts.updated += 1))
             continue
           }
           // Its past reviews, replayed only when the person keeps them: the schedule it had, carried over.
@@ -389,7 +392,7 @@ export async function importApkg(path: string, steps: Steps = {}): Promise<ApkgC
           // A big deck's new cards wait, held, until their topic is started from Review's Decks shelf.
           const held = choice.hold && !state && card.queue !== -1 ? 1 : 0
           if (held) counts.held += 1
-          add.run(id, deck && deck !== 'Default' ? deck : used[0]?.split('::')[0] ?? 'Anki', held, title, JSON.stringify(body), front, key, state ? JSON.stringify(state) : null, state ? state.due.toISOString() : null, card.queue === -1 || held ? 1 : 0, now, now, who)
+          add.run(id, home, held, title, JSON.stringify(body), front, key, state ? JSON.stringify(state) : null, state ? state.due.toISOString() : null, card.queue === -1 || held ? 1 : 0, now, now, who, shelf)
           // Suspended in Anki (queue -1): paused here, out of Review until brought back.
           if (card.queue === -1) counts.paused += 1
           counts.cards += 1

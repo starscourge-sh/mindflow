@@ -63,9 +63,9 @@ export function registerSources(): void {
     const rows = [
       ...db.prepare(`select 'capture' as type, id, kind, ${LABEL} as label, attribution, medium, fields, private, captured_at as at from captures
         where status != 'discarded' and kind != 'task' and id not in (select capture_id from nuggets where capture_id is not null) and (coalesce(trim(attribution), '') != '' or coalesce(trim(medium), '') != '')`).all(),
-      ...db.prepare(`select case when tier = 'deck' then 'nugget' else tier end as type, id, kind, coalesce(nullif(title, ''), label('', body)) as label, attribution, medium, fields, private, created_at as at from nuggets
+      ...db.prepare(`select case when tier = 'deck' then 'nugget' else tier end as type, id, kind, coalesce(nullif(title, ''), label('', body)) as label, attribution, medium, fields, private, created_at as at, tier = 'deck' as deck from nuggets
         where tier != 'card' and binned_at is null and (coalesce(trim(attribution), '') != '' or coalesce(trim(medium), '') != '')`).all()
-    ] as { type: string; id: string; kind: string; label: string; attribution: string | null; medium: string | null; fields: string | null; private: number; at: string }[]
+    ] as { type: string; id: string; kind: string; label: string; attribution: string | null; medium: string | null; fields: string | null; private: number; at: string; deck?: number }[]
     return rows.map(({ fields, ...row }) => {
       let kept: Record<string, unknown> = {}
       try {
@@ -366,14 +366,16 @@ export function registerSources(): void {
       edges.set(pair, (edges.get(pair) ?? 0) + 1)
     }
     for (const item of items) {
-      nodes.set(item.id, { type: item.type, id: item.id, title: item.label, private: !!item.private, kind: item.kind, links: 0 })
+      // A shared deck's card is not a node of its own (1,448 paintings would bury your notes): its who joins its deck, its where, directly.
+      const card = !!(item as { deck?: number }).deck
+      if (!card) nodes.set(item.id, { type: item.type, id: item.id, title: item.label, private: !!item.private, kind: item.kind, links: 0 })
       const ends: string[] = []
       for (const field of FIELDS) {
         const value = item[field]?.trim()
         if (!value) continue
         const id = `${field === 'attribution' ? 'who' : 'where'}:${personKey(value)}`
         if (!nodes.has(id)) nodes.set(id, { type: 'source', id, title: value, kind: field === 'attribution' ? 'person' : 'source', links: 0 })
-        link(item.id, id)
+        if (!card) link(item.id, id)
         ends.push(id)
       }
       if (ends.length === 2) link(ends[0], ends[1])
