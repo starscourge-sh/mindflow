@@ -148,6 +148,13 @@
   white-space: nowrap;
 }
 
+.pdf-reader-heading {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
 /* The chapter you are in, under the title, from the PDF's outline. */
 .pdf-reader-chapter {
   display: block;

@@ -428,8 +428,8 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   return (
     <div className={`pdf-reader${paper ? " is-paper" : ""}`}>
       <div className="pdf-reader-bar">
-        <span className="pdf-reader-title" title={chapter ? `${title}: ${chapter}` : title}>
-          {title}
+        <span className="pdf-reader-heading" title={chapter ? `${title}: ${chapter}` : title}>
+          <span className="pdf-reader-title">{title}</span>
           {chapter && <span data-pdf-chapter className="pdf-reader-chapter">{chapter}</span>}
         </span>
         <span className="pdf-reader-page">
