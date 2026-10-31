@@ -49,6 +49,23 @@ try {
   }, EDITOR)
   check('the voice note is in the box', !!box, box ? JSON.stringify(box) : await page.evaluate((sel) => document.querySelector(sel)?.innerHTML.slice(0, 300) ?? 'no editor', EDITOR))
   if (!box) throw new Error('no voice note')
+  // The lone word above the recording is looked up: whatever it shows never covers
+  // the empty line's "Write a thought…" or the recording's card.
+  await wait(2500)
+  const cover = await page.evaluate((sel) => {
+    const meets = (a, b) => a.width && b.width && a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
+    const placeholder = document.querySelector(`${sel} > p.is-empty`)?.getBoundingClientRect()
+    const card = document.querySelector(`${sel} .tiptap-attachment-card`).getBoundingClientRect()
+    const shown = [...document.querySelectorAll('[data-define]')].filter((el) => getComputedStyle(el).visibility !== 'hidden')
+    return shown.map((el) => {
+      const inner = [...el.querySelectorAll('*')].map((one) => one.getBoundingClientRect()).filter((r) => r.width)
+      return { define: el.dataset.define, onPlaceholder: !!placeholder && inner.some((r) => meets(r, placeholder)), onCard: inner.some((r) => meets(r, card)) }
+    })
+  }, EDITOR)
+  check('the word\'s lookup never covers "Write a thought…" or the recording', cover.every((one) => !one.onPlaceholder && !one.onCard), JSON.stringify(cover))
+  // A recording with no words under it says so, with the way to get them.
+  const words = await page.evaluate((sel) => document.querySelector(`${sel} .tiptap-attachment.is-audio [data-no-words]`)?.innerText.replace(/\s+/g, ' ').trim() ?? null, EDITOR)
+  check('a recording without words says "No transcript · Transcribe"', words === 'No transcript · Transcribe', String(words))
   // The header's top right: the "pinned" chip and the window's pill, one shape.
   const header = await page.evaluate(() => {
     const look = (el) => { if (!el) return null; const s = getComputedStyle(el); return { h: Math.round(el.getBoundingClientRect().height), border: s.borderTopWidth + ' ' + s.borderTopColor, fill: s.backgroundColor, radius: s.borderTopLeftRadius } }
@@ -94,6 +111,16 @@ try {
     }
     await shut()
   }
+  // Ten recordings in a row, at scale: a screenshot each way, and each card's height.
+  await page.evaluate((sel) => {
+    const editor = document.querySelector(sel).editor
+    const one = (i) => ({ type: 'attachment', attrs: { src: 'haligtree://assets/' + String(i).repeat(64).slice(0, 64) + '.m4a', name: `Voice note 31 Oct 9.${10 + i}.m4a`, size: 935731, duration: 20 + i * 7 } })
+    editor.commands.setContent({ type: 'doc', content: [...Array.from({ length: 10 }, (_, i) => one(i)), { type: 'paragraph' }] })
+  }, EDITOR)
+  await boxSize(760, 900); await wait(800)
+  const stack = await page.evaluate((sel) => [...document.querySelectorAll(`${sel} .tiptap-attachment.is-audio`)].map((el) => Math.round(el.getBoundingClientRect().height)), EDITOR)
+  check('ten recordings show as ten cards', stack.length === 10, JSON.stringify(stack))
+  for (const on of [false, true]) { await dark(on); await wait(500); await page.screenshot({ path: `${shots}/voice-ten-${on ? 'dark' : 'light'}.png` }) }
 } catch (error) {
   check('ran without throwing', false, String(error?.stack ?? error))
 } finally {

@@ -489,6 +489,19 @@ function AudioBlock(props: NodeViewProps): React.JSX.Element {
         {controls}
       </div>
       {listening && <Listening length={length} />}
+      {/* No words under it and none on their way: said in one quiet line under
+          the card, with the way to get them, never a silent nothing. Inside the
+          card's own row it widened the name and pushed the player onto a second line. */}
+      {!listening && !worded && props.editor.isEditable && (
+        <div data-no-words contentEditable={false} className="flex items-center gap-1.5 px-1 pt-1 text-xs text-muted-foreground">
+          <span>No transcript</span>
+          <span aria-hidden>·</span>
+          <button type="button" data-transcribe onMouseDown={(event) => event.preventDefault()} onClick={() => void transcribe(props.editor, src)}
+            className="cursor-pointer rounded-sm font-medium text-foreground/80 underline-offset-2 transition-colors hover:text-foreground hover:underline active:scale-[0.97]">
+            Transcribe
+          </button>
+        </div>
+      )}
     </NodeViewWrapper>
   )
 }
