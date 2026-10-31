@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { hoverNote } from './note-preview'
-import { BookOpen, FileText, Quote, User } from 'lucide-react'
+import { BookOpen, FileText, Library, Quote, User } from 'lucide-react'
 import { Camera, Fit } from '@/components/ui/icons'
 import { openLook } from '@/components/image/image-look'
 
@@ -44,12 +44,13 @@ function SourceLinks({ who, where }: { who?: string | null; where?: string | nul
   return (
     <div className="flex flex-wrap gap-1 px-1 py-1">
       {links.map(({ field, name }) => {
-        const Icon = FIELD_SAID[field].icon
         return (
           <button key={field} type="button" data-open-source={field} onClick={() => (chime('page'), openSource(field, name))}
             className="flex max-w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-control text-foreground transition-colors hover:bg-accent">
-            {field === 'attribution' ? <Avatar name={name} size={14} /> : <Icon className="size-3.5 shrink-0" />}
-            <span className="truncate">Open {name}’s page</span>
+            {/* A shelf, not an open book: it opens what you kept from it, not the book to read. */}
+            {field === 'attribution' ? <Avatar name={name} size={14} /> : <Library className="size-3.5 shrink-0" />}
+            {/* Says what it opens: everything kept from them, never the book or PDF itself (its own link above opens that). */}
+            <span className="truncate">{field === 'attribution' ? `Everything by ${name}` : `Everything from ${name}`}</span>
           </button>
         )
       })}
@@ -433,7 +434,7 @@ function SourceLine({ page, name }: { page: SourcePage | null; name: string }): 
       <Fact label="Via" placeholder="where you found it" value={page?.via ?? ''} onSave={(next) => facts({ via: next })} />
       {via && (
         <button type="button" data-via-open onClick={() => (chime('page'), openSource(via.field, via.name))}
-          className="ml-1 rounded-md px-1 py-0.5 text-control text-foreground hover:bg-accent">Open {via.name}’s page</button>
+          className="ml-1 rounded-md px-1 py-0.5 text-control text-foreground hover:bg-accent">{via.field === 'attribution' ? `Everything by ${via.name}` : `Everything from ${via.name}`}</button>
       )}
     </p>
   )
