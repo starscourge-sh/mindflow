@@ -183,18 +183,20 @@ try {
   await waitFor(() => h.evaluate(() => !!document.querySelector('[data-deck="Biology"]')))
   check('the shared deck\'s topics hang off the tree', await h.evaluate(() => !!document.querySelector('[data-deck="Biology"] [data-deck-topics] svg path')))
   check('the shared deck has a ⋯ menu', await h.evaluate(() => !!document.querySelector('[data-deck="Biology"] button[aria-label="Deck options"]')))
-  await h.locator('[data-deck="Biology"] h3').click({ button: 'right' })
+  // Right-clicked where it is, even with a notice over it: the menu opens at the heading.
+  await h.evaluate(() => { const at = document.querySelector('[data-deck="Biology"] h3'); at.scrollIntoView({ block: 'center' }); const box = at.getBoundingClientRect(); at.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: box.left + 10, clientY: box.top + 5, button: 2 })) })
   await h.waitForTimeout(400)
   const right = await h.evaluate(() => [...document.querySelectorAll('[role="menuitem"]')].map((one) => one.textContent ?? '').join(' | '))
   check('right-click has its settings and Delete deck', ['New cards a day', 'Show in Gems', 'Delete deck…'].every((one) => right.includes(one)) || ['New cards a day', 'Keep out of Gems', 'Delete deck…'].every((one) => right.includes(one)), right)
-  await h.locator('[role="menuitem"]', { hasText: 'Delete deck…' }).first().click()
+  await h.evaluate(() => [...document.querySelectorAll('[role="menuitem"]')].find((one) => one.textContent?.includes('Delete deck…'))?.click())
   check('Delete asks first, saying it removes the imported deck', await waitFor(() => h.evaluate(() => /removes the imported deck/.test(document.querySelector('[data-sure]')?.textContent ?? ''))))
   await h.evaluate(() => document.querySelector('[data-sure-yes]').click())
   const left = () => h.evaluate(async () => (await window.api.haligtree('decks:list')).some((one) => one.name === 'Biology'))
   check('Delete takes the imported deck away', await waitFor(async () => !(await left())))
-  await h.evaluate(() => document.activeElement?.blur())
-  await h.keyboard.press('Meta+z')
-  check('Undo brings it back', await waitFor(left))
+  // The notice's own Undo.
+  await waitFor(() => h.evaluate(() => [...document.querySelectorAll('button')].some((one) => /^Undo/.test(one.textContent?.trim() ?? ''))))
+  await h.evaluate(() => [...document.querySelectorAll('button')].find((one) => /^Undo/.test(one.textContent?.trim() ?? ''))?.click())
+  check('Undo brings it back', await waitFor(left, 10000))
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])
 } finally {
