@@ -194,22 +194,24 @@ function PdfOutline({ outline, hereAt, list, onGo }: { outline: OutlineRow[]; he
       else next.delete(at)
       return next
     })
+  // A row of two lines takes its branch at its first line, as a row of one does: half a line under its top padding.
+  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
   const row = ({ at, item, kids }: TreeNode<OutlineRow>): React.JSX.Element => {
     const open = !folded.has(at)
     const here = at === hereAt
     return (
-      <button key={at} type="button" data-outline-row aria-current={here ? "location" : undefined} title={item.title}
+      <button key={at} type="button" data-outline-row data-twig-top={rem} aria-current={here ? "location" : undefined} title={item.title}
         onClick={() => onGo(item.page)}
-        className={`flex min-w-0 items-center gap-2.5 rounded-md px-2 py-1.5 text-left ${here ? "text-foreground" : "text-foreground/80"}`}>
-        <Weighted on={here} className="min-w-0">{item.title}</Weighted>
+        className={`flex min-w-0 items-start gap-2.5 rounded-md px-2 py-1.5 text-left ${here ? "text-foreground" : "text-foreground/80"}`}>
+        <Weighted on={here} className="min-w-0 *:line-clamp-2 *:whitespace-normal *:break-words">{item.title}</Weighted>
         {kids.length > 0 && (
           <span data-outline-fold role="button" aria-label={open ? "Fold" : "Unfold"} aria-expanded={open}
-            className="-m-0.5 grid shrink-0 cursor-pointer place-items-center rounded-sm p-0.5 text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
+            className="-mx-0.5 grid h-5 shrink-0 cursor-pointer place-items-center rounded-sm p-0.5 text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
             onClick={(event) => (event.stopPropagation(), fold(at, open))}>
             <ChevronRight aria-hidden className={`size-3 transition-[rotate] duration-80 ${open ? "rotate-90" : ""}`} />
           </span>
         )}
-        <span className="ml-auto shrink-0 pl-1 text-xs tabular-nums text-muted-foreground">{item.page}</span>
+        <span className="ml-auto shrink-0 pl-1 text-xs leading-5 tabular-nums text-muted-foreground">{item.page}</span>
       </button>
     )
   }

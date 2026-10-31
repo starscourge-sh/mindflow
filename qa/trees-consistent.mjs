@@ -66,7 +66,7 @@ const readTree = (scope, rowSel) => h.evaluate(([scope, rowSel]) => {
     const r = one.getBoundingClientRect()
     const page = one.lastElementChild?.getBoundingClientRect()
     const words = one.querySelector('span span:last-child') ?? one
-    return { font: getComputedStyle(one).fontSize + '/' + getComputedStyle(one).lineHeight + ' pad ' + getComputedStyle(one).paddingTop, title: one.getAttribute('title') ?? one.getAttribute('data-title-tip'), h: Math.round(r.height * 10) / 10, left: Math.round(r.left), pageRight: page && Math.round(page.right), cut: words.scrollWidth > words.clientWidth + 1, here: one.hasAttribute('aria-current'), nums: page && getComputedStyle(one.lastElementChild).fontVariantNumeric }
+    return { font: getComputedStyle(one).fontSize + '/' + getComputedStyle(one).lineHeight + ' pad ' + getComputedStyle(one).paddingTop, title: one.getAttribute('title') ?? one.getAttribute('data-title-tip'), h: Math.round(r.height * 10) / 10, left: Math.round(r.left), pageRight: page && Math.round(page.right), cut: words.scrollWidth > words.clientWidth + 1 || words.scrollHeight > words.clientHeight + 1, lines: Math.round(words.getBoundingClientRect().height / parseFloat(getComputedStyle(words).lineHeight)), here: one.hasAttribute('aria-current'), nums: page && getComputedStyle(one.lastElementChild).fontVariantNumeric }
   })
   const svgs = [...root.querySelectorAll('svg.pointer-events-none.absolute')].filter((one) => one.querySelector('path'))
   const lit = svgs.flatMap((one) => [...one.querySelectorAll('path[stroke="var(--primary)"]')]).filter((one) => (one.getAttribute('stroke-dasharray') ?? '').startsWith('1')).length
@@ -105,7 +105,7 @@ try {
   await h.locator(`${BLOCK} .pdf-rail [role="tab"]:has-text("Outline")`).click(); await wait(700)
   const inNote = await readTree(`${BLOCK} .pdf-outline`, '[data-outline-row]')
   check('note PDF block: the outline is a tree, a trunk for the chapters and one under each chapter with sections', inNote?.rows.length === 5 && inNote.trunks === 3, JSON.stringify(inNote))
-  check('note PDF block: its rows are as tall as the sidebar\'s', inNote?.rows.every((one) => Math.abs(one.h - sideRow) <= 0.5), JSON.stringify({ sideRow, rows: inNote?.rows.map((one) => one.h) }))
+  check('note PDF block: its one-line rows are as tall as the sidebar\'s', inNote?.rows.filter((one) => one.lines === 1).length >= 3 && inNote.rows.filter((one) => one.lines === 1).every((one) => Math.abs(one.h - sideRow) <= 0.5), JSON.stringify({ sideRow, rows: inNote?.rows.map((one) => [one.h, one.lines]) }))
   await both(`${SHOTS}/note-pdf-outline`)
 
   // The reader: the same tree, the way to the chapter you are in lit.
@@ -120,9 +120,10 @@ try {
   check('reader: five entries in their order', JSON.stringify(reader?.rows.map((one) => one.title)) === JSON.stringify(['Part one: the old law', 'Custom', 'Statute', LONG, 'Courts']), JSON.stringify(reader?.rows.map((one) => one.title)))
   check('reader: sections step in under their chapter, off a trunk of their own', reader?.trunks === 3 && custom.left > part.left && statute.left === custom.left && courts.left === custom.left && law.left === part.left, JSON.stringify(reader?.rows.map((one) => one.left)))
   check('reader: the section you are in is chosen, and the way down to it lit (chapter, then section)', statute?.here && reader.rows.filter((one) => one.here).length === 1 && reader.lit === 2, JSON.stringify({ here: reader?.rows.filter((one) => one.here).map((one) => one.title), lit: reader?.lit }))
-  check('reader: rows as tall as the sidebar\'s', reader?.rows.every((one) => Math.abs(one.h - sideRow) <= 0.5), JSON.stringify({ sideRow, rows: reader?.rows.map((one) => one.h) }))
+  check('reader: a one-line row is as tall as the sidebar\'s', reader?.rows.filter((one) => one.lines === 1).length >= 3 && reader.rows.filter((one) => one.lines === 1).every((one) => Math.abs(one.h - sideRow) <= 0.5), JSON.stringify({ sideRow, rows: reader?.rows.map((one) => [one.h, one.lines]) }))
+  check('reader: a title too long for one line wraps to a second before it is cut, read in full ("Part one: the old law")', part?.lines === 2 && !part.cut, JSON.stringify(part))
   check('reader: page numbers in one right-aligned column, tabular', new Set(reader?.rows.map((one) => one.pageRight)).size === 1 && reader.rows.every((one) => /tabular-nums/.test(one.nums)), JSON.stringify(reader?.rows.map((one) => [one.pageRight, one.nums])))
-  check('reader: the long chapter title is cut short and carries its whole title for the tip', law?.cut && law.title === LONG, JSON.stringify(law))
+  check('reader: a title longer than two lines is cut after its second, and carries its whole title for the tip', law?.cut && law.lines === 2 && law.title === LONG, JSON.stringify(law))
   // The tip itself: the app's own, with the whole title.
   await h.locator(`.pdf-reader [data-outline-row][title="${LONG}"]`).hover(); await wait(1400)
   const tip = await h.evaluate(() => [...document.querySelectorAll('[role="tooltip"], [data-title-tip-shown]')].map((one) => one.textContent).join('|'))
