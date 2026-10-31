@@ -162,7 +162,7 @@ try {
   await run('Year: a month opened', async () => { await go('yearpage') }, () => click('[class*="@container/page"] button[aria-current="date"]'))
 
   await run("Today's page: a row of the day's brief", async () => { await go('day') }, () => click('[class*="@container/page"] li button[class*="group/row"]'))
-  // ⌘K's "Your month, wrapped" is a story over the page, not a step: Esc puts it away and the page is as it was.
+  // ⌘K's "Your month in notes, wrapped" is a story over the page, not a step: Esc puts it away and the page is as it was.
   {
     await side('Inbox'); await row(0)
     const was = await state()

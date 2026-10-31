@@ -443,13 +443,13 @@ try {
     check('book', 'and its stars are kept', Number((await v('notes:fields', 'captures', one.id)).rating) === 4)
   }
 
-  // --- wrapped: ⌘K, Your month, wrapped
+  // --- wrapped: ⌘K, Your month in notes, wrapped
   {
     await c.go('home')
-    await command('Your month, wrapped')
+    await command('Your month in notes, wrapped')
     await wait(2500)
     const said = await h.evaluate(() => document.querySelector('.\\@container\\/page')?.textContent ?? '')
-    check('wrapped', '⌘K plays Your month, wrapped, over Stats', (await h.evaluate(() => new URL(location.href).searchParams.get('view'))) !== null && /caught|captured|capture/i.test(said), said.slice(0, 120))
+    check('wrapped', '⌘K plays Your month in notes, wrapped, over Stats', (await h.evaluate(() => new URL(location.href).searchParams.get('view'))) !== null && /caught|captured|capture/i.test(said), said.slice(0, 120))
     // The story's slides, from what they are made of: caught, the busiest day, the books finished.
     const recap = await v('recap', 'year')
     check('wrapped', 'it plays what you caught, your busiest day and the books you finished', recap.captures > 0 && !!recap.busiestDay && (recap.books ?? []).some((book) => book.finished), JSON.stringify({ captured: recap.captures, busiest: recap.busiestDay, books: (recap.books ?? []).filter((book) => book.finished).map((book) => book.title) }))

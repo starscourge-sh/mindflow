@@ -201,8 +201,8 @@ export const POWERS: Power[] = [
     show: { view: 'settings', settings: 'What comes back to you', find: 'Weekly digest', at: '[data-setting]', text: 'On by default; turn it off here.' } },
   { id: 'book', group: 'Seeing your year', name: '#book: stars and a takeaway', tryIt: 'Tag a note #book, then give it stars under “Details” at the top right.', line: 'Tag a note #book to give it a reading status, a rating out of five and what you will keep from it.',
     show: { view: 'tags', find: '#book', at: ROW, text: 'Notes tagged #book get a status, stars and a takeaway.' }, used: (s) => s.rated },
-  { id: 'wrapped', group: 'Seeing your year', name: 'Your month and year, wrapped', tryIt: 'Press ⌘K and choose “Your month, wrapped”.', line: 'What you caught, your busiest day, the books you finished, played back like a story.',
-    show: { view: 'stats', text: 'Stats, and ⌘K for “Your month, wrapped”.' } },
+  { id: 'wrapped', group: 'Seeing your year', name: 'Your month and year, wrapped', tryIt: 'Press ⌘K and choose “Your month in notes, wrapped”.', line: 'What you caught, your busiest day, the books you finished, played back like a story.',
+    show: { view: 'stats', text: 'Stats, and ⌘K for “Your month in notes, wrapped”.' } },
   { id: 'map', group: 'Seeing your year', name: 'A map of what links to what', tryIt: 'Open the map and click a dot.', line: 'Every note you have linked, drawn as dots and lines.', keys: ['G X'],
     show: { view: 'map', text: 'Drag to move around. Click a dot to open it.' } },
 

@@ -1827,7 +1827,7 @@ export default function App(): React.JSX.Element {
             { label: 'Settings', keys: '⌘,', run: () => window.api.openInHome('view', 'settings') },
             // The recap opens in the main window, over Stats.
             // The month's story, as Home's ⌘K has it: the month before until the 7th.
-            { label: 'Your month, wrapped', run: () => window.api.openInHome('wrap', `month:${(dayjs().date() < 7 ? dayjs().subtract(1, 'month') : dayjs()).format('YYYY-MM')}`) },
+            { label: 'Your month in notes, wrapped', run: () => window.api.openInHome('wrap', `month:${(dayjs().date() < 7 ? dayjs().subtract(1, 'month') : dayjs()).format('YYYY-MM')}`) },
             { label: 'Your year, wrapped', run: () => window.api.openInHome('recap', 'year') }
           ]}
           onClose={() => {

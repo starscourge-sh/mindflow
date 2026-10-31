@@ -293,7 +293,7 @@ export function WrapOffer(): React.JSX.Element | null {
 
 /** The Settings row's own words, so they read the same as the offer. */
 export const WRAP_SETTING: { title: string; note: string; more: string } = {
-  title: 'Your month, wrapped',
+  title: 'Your month in notes, wrapped',
   note: `After a month ends, the first time you open ${APP_NAME} it offers that month as a few cards, once.`,
   more: `What you captured most, your busiest day, focus hours, planned against did, gems kept, your longest run and what went well. The Sunday notification opens the week's. ${num(MOST)} cards at most; nothing leaves this Mac.`
 }

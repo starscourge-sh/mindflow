@@ -129,7 +129,7 @@ try {
     { open: () => press('Meta+k'), before: () => is(() => !!document.querySelector('[role="dialog"]')), check: () => is(() => !document.querySelector('[role="dialog"]')) })
   await run('?: Escape closes the shortcut sheet', async () => { await side('Inbox'); await blur() },
     { open: () => press('Shift+Slash'), before: () => is(() => !!document.querySelector('[role="dialog"][aria-label="Keyboard shortcuts"]')), check: () => is(() => !document.querySelector('[role="dialog"][aria-label="Keyboard shortcuts"]')) })
-  await run('Your month, wrapped: Escape closes it', async () => { await go('stats'); await blur() }, {
+  await run('Your month in notes, wrapped: Escape closes it', async () => { await go('stats'); await blur() }, {
     open: async () => { await press('Meta+k'); await h.keyboard.type('month, wrapped', { delay: 40 }); await wait(900); await h.keyboard.press('Enter'); await wait(1500) },
     // The month's wrap is the story of cards now (wrap-story.tsx), "September, wrapped".
     before: () => is(() => !!document.querySelector('[role="dialog"][data-wrap-story]')), check: () => is(() => !document.querySelector('[role="dialog"][data-wrap-story]'))
