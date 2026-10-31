@@ -1090,9 +1090,17 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
             <SettingSlider min={0.8} max={0.97} step={0.01} rest={0.9} value={settings.retention} onSave={(retention) => set({ retention })} />
             <span className={SLIDER_VALUE}><Rolling text={`${Math.round(settings.retention * 100)}%`} /></span>
           </Setting>
-          <Setting title="Daily limits" note="New cards and reviews a day, so each day's reviews stay finishable." more="An uncapped day becomes a wall you stop opening. Cards for a tag with an exam date are paced by the date instead.">
+          <Setting title="New cards a day" note="Fewer new cards is how to make a day lighter: each new card brings about 10 reviews over the next month." more="Your own cards come before an imported deck's, so a big deck never holds back what you wrote today. Cards for a tag with an exam date are paced by the date instead." keywords="daily limits new cards a day">
             <NumberSetting label="New cards a day" value={settings.newPerDay} onSave={(newPerDay) => set({ newPerDay })} /> new
-            <NumberSetting label="Reviews a day" value={settings.reviewsPerDay} onSave={(reviewsPerDay) => set({ reviewsPerDay })} /> reviews
+          </Setting>
+          <Setting title="Limit reviews a day" note="Off: every card due today comes today." more="A capped review waits past its day and fades, so the next one is harder. Lower new cards instead." keywords="daily limits reviews a day cap maximum"
+            below={settings.reviewsPerDay > 0 && settings.reviewsPerDay < settings.newPerDay * 10 ? (
+              <p data-review-cap-low className="mt-3 text-body leading-relaxed text-[var(--tt-color-text-orange)]">
+                {settings.reviewsPerDay} reviews is under 10 times your {settings.newPerDay} new cards. Keep it at {settings.newPerDay * 10} or more, or cards will pile up past their day.
+              </p>
+            ) : undefined}>
+            {settings.reviewsPerDay > 0 && <><NumberSetting label="Reviews a day" value={settings.reviewsPerDay} onSave={(reviewsPerDay) => set({ reviewsPerDay: Math.max(1, reviewsPerDay) })} /> reviews</>}
+            <Switch checked={settings.reviewsPerDay > 0} onCheckedChange={(on) => set({ reviewsPerDay: on ? Math.max(200, settings.newPerDay * 10) : 0 })} />
           </Setting>
           <CapTuning />
           <Setting title="Review reminder" note="A reminder at the time you pick, when cards are due." more="A small card in the corner, like “12 cards, about 6 minutes” (a Mac notification when the screen is locked). Clicking it opens Review. Once a day, never in quiet hours or safe mode. Miss a day and nothing is owed: the cards wait." keywords="review reminder notification study time daily">
@@ -1442,7 +1450,7 @@ function CapTuning(): React.JSX.Element | null {
   if (!tuning?.tuned) return null
   return (
     <p className="px-4 py-3 text-meta leading-relaxed text-[var(--tt-color-text-orange)]">
-      {tuning.behind} reviews are more than a day overdue, more than a day's limit, so new items are halved to {tuning.cap} a day. It goes back up once the queue is being finished.
+      {tuning.behind} reviews are more than a day overdue, so new cards are halved to {tuning.cap} a day. It goes back up once the queue is being finished.
     </p>
   )
 }

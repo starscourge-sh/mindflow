@@ -371,7 +371,9 @@ const DEFAULTS = {
   rotCount: 2,
   retention: 0.9,
   newPerDay: 10,
-  reviewsPerDay: 50,
+  // No limit on reviews: a capped review waits past its day and fades. Fewer
+  // new cards is the lever; 0 here means no limit.
+  reviewsPerDay: 0,
   quietStart: '22:00',
   quietEnd: '07:00',
   safeMode: false,
@@ -2550,7 +2552,8 @@ export function registerHaligtree(): void {
     const { newPerDay, reviewsPerDay } = settings()
     const behind = (db.prepare(`select count(*) n from nuggets where coalesce(prompt, '') != '' and suspended = 0 and archived_at is null and state is not null and due_at <= ?`)
       .get(ago(1)) as { n: number }).n
-    const tuned = behind > reviewsPerDay
+    // With no limit on reviews, behind means more than ten days' worth of new cards.
+    const tuned = behind > (reviewsPerDay || newPerDay * 10)
     return { cap: tuned ? Math.floor(newPerDay / 2) : newPerDay, tuned, behind }
   }
   handle('review:tuning', newCap)
@@ -2595,7 +2598,7 @@ export function registerHaligtree(): void {
     // Everything tested, so a card with an exam ahead can be called in for the
     // last look even when its own schedule would wait past the date.
     const tested = (db
-      .prepare(`select ${ITEM}, body, state, (select body from glosses where item_id = nuggets.id and author = 'user' order by created_at desc limit 1) as gloss
+      .prepare(`select ${ITEM}, body, state, source as origin, (select body from glosses where item_id = nuggets.id and author = 'user' order by created_at desc limit 1) as gloss
         from nuggets where coalesce(prompt, '') != '' and suspended = 0 and archived_at is null`)
       .all() as Record<string, unknown>[])
       .map((row) => ({ row, exam: exam(row) }))
@@ -2619,7 +2622,7 @@ export function registerHaligtree(): void {
       // Nearest exam first, then most at risk.
       .sort((a, b) => nearest(a, b) || a.recall - b.recall)
     // Cards with an exam ahead are not held back by the daily limit: the date is.
-    const room = Math.max(0, reviewsPerDay - (done.old ?? 0))
+    const room = reviewsPerDay ? Math.max(0, reviewsPerDay - (done.old ?? 0)) : Infinity
     const examDue = due.filter((one) => one.exam)
     const otherDue = due.filter((one) => !one.exam).slice(0, Math.max(0, room - examDue.length))
     // New cards with an exam are paced: an even share a day of what is unseen,
@@ -2634,7 +2637,11 @@ export function registerHaligtree(): void {
       const days = Math.max(1, Math.ceil(dayjs(one.sweep).diff(dayjs(), 'day', true)))
       return mine.slice(0, Math.max(0, Math.ceil((mine.length + met) / days) - met))
     })
-    const fresh = unseen.filter((one) => !one.exam).slice(0, Math.max(0, newPerDay - (done.fresh ?? 0)))
+    // Your own cards first: a big imported deck never holds back the ones
+    // you wrote from today's reading.
+    const shared = (one: { row: Record<string, unknown> }): boolean => String(one.row.origin ?? '').startsWith('anki:')
+    const fresh = [...unseen.filter((one) => !one.exam && !shared(one)), ...unseen.filter((one) => !one.exam && shared(one))]
+      .slice(0, Math.max(0, newPerDay - (done.fresh ?? 0)))
     // What a goal you are working toward is about comes first: the same cards, only their order.
     const queue = [...examDue, ...examFresh, ...otherDue, ...fresh]
     const lift = goalLift()
