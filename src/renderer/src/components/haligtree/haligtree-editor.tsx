@@ -863,6 +863,21 @@ function Surface({
     window.addEventListener("keydown", key, true)
     return () => (window.removeEventListener("pointerdown", away, true), window.removeEventListener("keydown", key, true))
   }, [lookAt])
+  /** The menu of a clicked thing's lines alone, where there is no block to act on. */
+  const [clickedOpen, setClickedOpen] = useState(false)
+  const noBlock = useRef<BlockTarget | null>(null)
+  /** Open that menu if the right-click landed on a link, a PDF or picked words; says whether it did. */
+  const openClicked = (event: MouseEvent): boolean => {
+    const found = editor ? clickedAt(editor, event) : null
+    if (!found || !editor) return false
+    event.preventDefault()
+    setMenuAt({ x: event.clientX, y: event.clientY })
+    setClicked(found)
+    setSpelling(null)
+    // A tick later, as the block menu: the click is still moving focus, which the menu would read as a click away.
+    setTimeout(() => setClickedOpen(true))
+    return true
+  }
   // The plugin hides its handle by writing inline `visibility`, instantly, from
   // several different paths. Watching that one attribute catches all of them -
   // listening to `onNodeChange` alone left the handle stuck on screen. We turn
@@ -1131,6 +1146,8 @@ function Surface({
       // (a card's answer in Review), there is no caret to place: a plain click
       // follows the link, as a link anywhere else does.
       handleClick: (view, _pos, event) => {
+        // A right-click (or ⌃-click) is for the link's menu: it never follows the link.
+        if (event.button !== 0 || (event.ctrlKey && !event.metaKey)) return false
         if (!(event.metaKey || event.ctrlKey) && view.editable) return false
         const href = (event.target as HTMLElement | null)
           ?.closest("a[href]")
@@ -1559,7 +1576,9 @@ function Surface({
     // which has a menu of its own. Inside a table it is the table's menu, as
     // with the grip: a cell's line pulled out on its own breaks the table.
     const onContext = (event: MouseEvent): void => {
-      if (!editor.isEditable || (event.target as HTMLElement).closest(".tiptap-excalidraw-canvas")) return
+      // Locked: no block lines, but a link or picked words still get theirs.
+      if (!editor.isEditable) return void openClicked(event)
+      if ((event.target as HTMLElement).closest(".tiptap-excalidraw-canvas")) return
       const found = editor.view.posAtCoords({ left: event.clientX, top: event.clientY })
       if (!found || found.inside < 0) return
       const $at = editor.state.doc.resolve(found.inside)
@@ -1599,11 +1618,13 @@ function Surface({
     }
   }, [page, editor, handles])
 
-  // Without handles there is no block menu, so a misspelt word gets one of
-  // its own; anywhere else the right-click is left alone.
+  // Without handles there is no block menu, so a link or picked words get a
+  // menu of their own lines, and a misspelt word its fixes; anywhere else the
+  // right-click is left alone.
   useEffect(() => {
     if (!editor || handles) return
     const onContext = (event: MouseEvent): void => {
+      if (openClicked(event)) return
       const found = misspeltAt(editor, event.clientX, event.clientY)
       if (!found) {
         // Picked words (a card's answer in Review, any page without the block
@@ -1974,6 +1995,7 @@ function Surface({
         {editor && <TaskLinkMenu editor={editor} />}
         {/* A misspelt word's likely fix, under it on a pause; Tab takes it. In every page you write in. */}
         {shape === "document" && !readOnly && !quietSpelling && <SpellPill editor={editor} />}
+        {editor && <BlockMenu editor={editor} targetRef={noBlock} clicked={clicked} clickedOnly at={menuAt} open={clickedOpen} onOpenChange={setClickedOpen} documentId={documentId} />}
         {!handles && editor && <SpellingMenu editor={editor} spelling={spelling} at={menuAt} onClose={() => setSpelling(null)} />}
 
         {/* How much is written, quietly in the corner of a document. */}

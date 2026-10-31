@@ -98,7 +98,7 @@ export function clickedName(clicked: Clicked): string {
   return "Picked words"
 }
 
-type Line = { label: string; run: () => void; hint?: string; data?: string }
+type Line = { label: string; run: () => void; hint?: string; data?: string; edits?: boolean }
 
 /** A note link's id as the app keeps it: `tier:id` for most, a bare id for a capture. */
 const split = (link: string): [string, string] =>
@@ -127,7 +127,7 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
       !!id && own && { label: "Open in a new window", data: "apart", run: () => openApart(type, key) },
       !!id && { label: "Copy link", data: "copy-link", run: () => copyLink(id, label) },
       !!id && type !== "capture" && own && {
-        label: "Rename…",
+        label: "Rename…", edits: true,
         data: "rename",
         run: () => void ask("A new name", label, undefined, label).then((name) => {
           const next = name?.trim()
@@ -136,7 +136,7 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
         }),
       },
       {
-        label: "Edit link text…",
+        label: "Edit link text…", edits: true,
         data: "edit-text",
         run: () => void ask("What the link says", label, undefined, shown).then((words) => {
           if (words === null) return
@@ -146,7 +146,7 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
         }),
       },
       {
-        label: "Remove link",
+        label: "Remove link", edits: true,
         hint: "Keeps the words",
         data: "unlink",
         run: () => {
@@ -157,7 +157,7 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
         },
       },
     ]
-    return lines.filter((one): one is Line => !!one)
+    return lines.filter((one): one is Line => !!one && (!one.edits || editor.isEditable))
   }
   if (clicked.kind === "web") {
     const { href, from, to } = clicked
@@ -165,10 +165,10 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
       { label: "Open in the browser", data: "browser", run: () => void window.open(href) },
       isWebPage(href) && { label: "Read it here", hint: "In the reader", data: "read", run: () => openArticle(href) },
       { label: "Copy address", data: "copy-address", run: () => copyText(href, "Address copied") },
-      { label: "Edit link", data: "edit-link", run: () => (pick(editor, from, to), editor.view.dom.dispatchEvent(new CustomEvent("mf:edit-link", { bubbles: true }))) },
-      { label: "Remove link", hint: "Keeps the words", data: "unlink", run: () => (pick(editor, from, to), removeLink(editor)) },
+      { label: "Edit link", edits: true, data: "edit-link", run: () => (pick(editor, from, to), editor.view.dom.dispatchEvent(new CustomEvent("mf:edit-link", { bubbles: true }))) },
+      { label: "Remove link", edits: true, hint: "Keeps the words", data: "unlink", run: () => (pick(editor, from, to), removeLink(editor)) },
     ]
-    return lines.filter((one): one is Line => !!one)
+    return lines.filter((one): one is Line => !!one && (!one.edits || editor.isEditable))
   }
   if (clicked.kind === "pdf") {
     const { src, name, page, from, to, href } = clicked
@@ -178,7 +178,7 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
       canSplit() && { label: "Open to the side", data: "aside", run: () => openPdf(src, name, page, undefined, true) },
       { label: "Copy link to this page", data: "copy-page", run: () => copyText(`${src}#page=${page}${name ? `&name=${encodeURIComponent(name)}` : ""}`, `Link to page ${page} copied: paste it in any note`) },
       linked && !!href && {
-        label: "Change page…",
+        label: "Change page…", edits: true,
         data: "change-page",
         run: () => void ask("Which page should it open at?", String(page), undefined, String(page)).then((typed) => {
           const next = Math.round(Number(typed))
@@ -191,9 +191,9 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
       },
       !!host().openFile && { label: "Open in the default app", data: "default-app", run: () => void host().openFile?.(src) },
       !!host().showFile && { label: "Show in Finder", data: "finder", run: () => void host().showFile?.(src) },
-      linked && { label: "Remove link", hint: "Keeps the words", data: "unlink", run: () => (pick(editor, from!, to!), removeLink(editor)) },
+      linked && { label: "Remove link", edits: true, hint: "Keeps the words", data: "unlink", run: () => (pick(editor, from!, to!), removeLink(editor)) },
     ]
-    return lines.filter((one): one is Line => !!one)
+    return lines.filter((one): one is Line => !!one && (!one.edits || editor.isEditable))
   }
   const { from, to, words } = clicked
   const lines: Array<Line | false> = [
@@ -201,7 +201,7 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
     { label: "Look up", hint: "Meaning and Wikipedia", data: "look-up", run: () => lookUpIn(editor, from, to, words) },
     canSplit() && { label: `Search for “${cut(words, 24)}”`, data: "search", run: () => void window.dispatchEvent(new CustomEvent("haligtree:search", { detail: { words } })) },
     {
-      label: "Make a card from it",
+      label: "Make a card from it", edits: true,
       hint: "A new line: these words, then ::",
       data: "card",
       run: () => {
@@ -216,7 +216,7 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
     { label: "Copy", data: "copy-words", run: () => (editor.chain().focus().setTextSelection({ from, to }).run(), document.execCommand("copy")) },
     editor.isEditable && { label: "Cut", data: "cut-words", run: () => (editor.chain().focus().setTextSelection({ from, to }).run(), document.execCommand("cut")) },
   ]
-  return lines.filter((one): one is Line => !!one)
+  return lines.filter((one): one is Line => !!one && (!one.edits || editor.isEditable))
 }
 
 /** The clicked thing's lines, drawn as the block menu draws its own. */

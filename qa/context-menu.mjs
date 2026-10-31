@@ -201,6 +201,34 @@ try {
   check('dark: the PDF link menu opens with its group first', (await groups())[0] === 'PDF, page 3', JSON.stringify(await groups()))
   await h.screenshot({ path: `${SHOTS}/pdf-link-dark.png` })
   await escape()
+
+  // 7. A locked note (read-only): the link's own lines, nothing that edits, no block lines.
+  await h.$eval(ED, (el) => el.editor.setEditable(false))
+  await wait(300)
+  await rightClick(".note-pane .ProseMirror a[href*=\"page=3\"]")
+  const lockedGroups = await groups()
+  const lockedRows = await rows()
+  check('locked note: a PDF link still gets its own menu, and only that', JSON.stringify(lockedGroups) === '["PDF, page 3"]', JSON.stringify(lockedGroups))
+  check('locked note: nothing that edits (no change page, no remove)', lockedRows.includes('open-page') && !lockedRows.includes('change-page') && !lockedRows.includes('unlink'), JSON.stringify(lockedRows))
+  await h.screenshot({ path: `${SHOTS}/locked-dark.png` })
+  await pick('copy-page')
+  check('locked note: "Copy link to this page" works', (await clipboard()).includes('#page=3'), await clipboard())
+  await h.$eval(".note-pane .ProseMirror", (el) => el.editor.setEditable(true))
+  check('locked note: a right-click never follows the link', (await h.locator('.pdf-reader').count()) === 0)
+
+  // 8. A note with no block handles: Read through, from the Inbox (the newest note first).
+  await h.$eval(ED, (el) => el.editor.commands.insertContentAt(1, { type: 'paragraph', content: [{ type: 'text', text: 'the statute', marks: [{ type: 'link', attrs: { href: 'https://example.org/statute' } }] }] }))
+  await wait(1200)
+  await c.go('inbox'); await wait(800)
+  await h.keyboard.press('Meta+Shift+r'); await wait(1500)
+  const READ = '.mf-read .ProseMirror a[href="https://example.org/statute"]'
+  check('read through: the note with the link is on show', (await h.locator(READ).count()) > 0)
+  await rightClick(READ)
+  const readGroups = await groups()
+  check('read through (no handles): a web link gets its own menu, and only that', JSON.stringify(readGroups) === '["Link"]', JSON.stringify(readGroups))
+  await h.screenshot({ path: `${SHOTS}/read-through-dark.png` })
+  await pick('copy-address')
+  check('read through: "Copy address" copies it', (await clipboard()) === 'https://example.org/statute', await clipboard())
 } catch (error) {
   check('probe ran to the end', false, String(error?.stack ?? error))
 } finally {

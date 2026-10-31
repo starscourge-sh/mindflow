@@ -69,6 +69,7 @@ export function BlockMenu({
   at: point,
   spelling,
   clicked,
+  clickedOnly = false,
   documentId,
 }: {
   editor: Editor
@@ -82,6 +83,8 @@ export function BlockMenu({
   spelling?: Misspelling | null
   /** A right-click on a link, a PDF or picked words: its own lines come first, the block's under them. */
   clicked?: Clicked | null
+  /** Only the clicked thing's lines: where there is no block to act on (no handles, or read-only). */
+  clickedOnly?: boolean
   /** The note this editor shows (`capture-…`, `item-…`), for a link to one of its lines. */
   documentId?: string | number | null
 }) {
@@ -395,6 +398,8 @@ export function BlockMenu({
         {/* What the click landed on first; the block's lines after, so nothing is lost. */}
         {clicked ? <ClickedRows editor={editor} clicked={clicked} matches={matches} onDone={() => onOpenChange(false)} /> : null}
 
+        {/* A note with no block handles (read-only, a card, a sticky): the clicked thing's lines alone. */}
+        {clickedOnly ? null : (<>
         {convertible && !term && !clicked ? (
           <div className="tiptap-slash-menu-group">Turn into</div>
         ) : null}
@@ -620,6 +625,7 @@ export function BlockMenu({
             </button>
           </DropdownMenuItem>
         ) : null}
+        </>)}
         </div>
 
         {/* As Notion ends its menu: the way out, always in sight under the list. */}
