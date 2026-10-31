@@ -1,7 +1,7 @@
 {
   "name": "haligtree",
   "productName": "Haligtree",
-  "version": "0.4.0-beta.58",
+  "version": "0.4.0-beta.60",
   "description": "Haligtree, a commonplace book for the Mac",
   "main": "./out/main/index.js",
   "author": "example.com",
