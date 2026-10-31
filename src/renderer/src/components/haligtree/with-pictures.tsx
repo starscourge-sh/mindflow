@@ -1,11 +1,34 @@
-/** A question's words with its pictures (an Anki card's, written `![](haligtree://assets/...)`) drawn in place. */
+import { useLayoutEffect, useRef } from 'react'
+import katex from '@/lib/shims/katex'
+import 'katex/dist/katex.min.css'
+
+/** A `$...$` formula in a line, by the editor's own rule (extensions/math.ts): "$20 and $500" stays money. */
+const FORMULA = /\$(?![\s$])((?:\\\$|[^$\n])*?[^\s\\$])\$(?!\d)/
+
+/** One formula, drawn as the editor draws it. */
+function Formula({ latex }: { latex: string }): React.JSX.Element {
+  const at = useRef<HTMLSpanElement>(null)
+  useLayoutEffect(() => {
+    if (at.current) katex.render(latex, at.current, { throwOnError: true })
+  }, [latex])
+  return <span ref={at} data-type="inline-math" data-formula={latex} />
+}
+
+/** Words with their formulas drawn in place. */
+function WithFormulas({ text }: { text: string }): React.JSX.Element {
+  const parts = text.split(new RegExp(FORMULA.source, 'g'))
+  if (parts.length === 1) return <>{text}</>
+  return <>{parts.map((part, at) => (at % 2 ? <Formula key={at} latex={part} /> : part))}</>
+}
+
+/** A question's words with its pictures (an Anki card's, written `![](haligtree://assets/...)`) and formulas (`$x^2$`) drawn in place. */
 export function WithPictures({ text, small = false }: { text: string; small?: boolean }): React.JSX.Element {
   const parts = text.split(/!\[[^\]]*\]\((haligtree:\/\/assets\/[^)\s]+)\)/)
-  if (parts.length === 1) return <>{text}</>
+  if (parts.length === 1) return <WithFormulas text={text} />
   return (
     <>
       {parts.map((part, at) =>
-        at % 2 ? <img key={at} src={part} alt="" className={`${small ? 'my-1 max-h-12' : 'my-2 max-h-64'} block max-w-full rounded-md`} /> : part.trim() && <span key={at} className="whitespace-pre-line">{part.trim()}</span>
+        at % 2 ? <img key={at} src={part} alt="" className={`${small ? 'my-1 max-h-12' : 'my-2 max-h-64'} block max-w-full rounded-md`} /> : part.trim() && <span key={at} className="whitespace-pre-line"><WithFormulas text={part.trim()} /></span>
       )}
     </>
   )

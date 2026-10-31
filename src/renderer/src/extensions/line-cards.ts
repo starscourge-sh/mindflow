@@ -17,12 +17,23 @@ const mark = (): HTMLElement => {
   return span
 }
 
+/** A line's words as the main process reads them (study.ts lineCardsIn): a formula as `$...$`, code in backticks. */
+const lineText = (block: ProseMirrorNode): string => {
+  let text = ""
+  block.forEach((node) => {
+    if (node.type.name === "inlineMath") text += `$${node.attrs.latex ?? ""}$`
+    else if (node.isText) text += node.marks.some((one) => one.type.name === "code") ? `\`${node.text}\`` : node.text
+    else text += node.textContent
+  })
+  return text
+}
+
 function marks(doc: ProseMirrorNode): DecorationSet {
   const found: Decoration[] = []
   doc.descendants((node, pos) => {
     if (node.type.name === "codeBlock") return false
     if (!node.isTextblock) return true
-    if (lineCard(node.textContent)) found.push(Decoration.widget(pos + node.nodeSize - 1, mark, { side: 1, key: "line-card", ignoreSelection: true }))
+    if (lineCard(lineText(node))) found.push(Decoration.widget(pos + node.nodeSize - 1, mark, { side: 1, key: "line-card", ignoreSelection: true }))
     return false
   })
   return DecorationSet.create(doc, found)

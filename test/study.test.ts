@@ -1,7 +1,7 @@
 // Run with: node --test test/study.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { LEECH_AT, bucketOf, closeness, daysInARow, fitFirstDays, isLeech, keyWords, lineCard, lineCardsIn, matchLineCards, mentions, minutesFor, suggestGrade, termLines } from '../src/main/study.ts'
+import { LEECH_AT, bucketOf, closeness, daysInARow, fitFirstDays, isEquation, isLeech, keyWords, lineCard, lineCardsIn, matchLineCards, mentions, minutesFor, suggestGrade, termLines } from '../src/main/study.ts'
 
 test('a line with :: between words is a card', () => {
   assert.deepEqual(lineCard('Capital of Peru :: Lima'), { question: 'Capital of Peru', answer: 'Lima' })
@@ -135,4 +135,30 @@ test('fitting how long a first grade lasts', () => {
   // Too few to say: the defaults stay.
   assert.equal(fitted[0], 0.2)
   assert.equal(fitted[3], 15)
+})
+
+test('formulas survive in card lines, in a stored note and in Markdown', () => {
+  const doc = { type: 'doc', content: [
+    { type: 'paragraph', content: [{ type: 'text', text: 'What is the derivative of ' }, { type: 'inlineMath', attrs: { latex: 'x^2' } }, { type: 'text', text: '? :: ' }, { type: 'inlineMath', attrs: { latex: '2x' } }] },
+    { type: 'paragraph', content: [{ type: 'text', text: 'Integral of ' }, { type: 'inlineMath', attrs: { latex: '\\int_0^1 x\\,dx' } }, { type: 'text', text: ' :: ' }, { type: 'inlineMath', attrs: { latex: '\\frac{1}{2}' } }] }
+  ] }
+  assert.deepEqual(lineCardsIn(doc), [{ question: 'What is the derivative of $x^2$?', answer: '$2x$' }, { question: 'Integral of $\\int_0^1 x\\,dx$', answer: '$\\frac{1}{2}$' }])
+  assert.deepEqual(lineCard('Speed of light $c$ :: $3 \\times 10^8$ m/s'), { question: 'Speed of light $c$', answer: '$3 \\times 10^8$ m/s' })
+})
+
+test('lines that are not cards stay text: ratios, :: in code or a formula', () => {
+  assert.equal(lineCard('hot : cold :: up : down'), null)
+  assert.equal(lineCard('`map :: (a -> b) -> [a] -> [b]`'), null)
+  assert.equal(lineCard('$a :: b$ in a proportion'), null)
+  const doc = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'map :: (a -> b)', marks: [{ type: 'code' }] }] }] }
+  assert.deepEqual(lineCardsIn(doc), [])
+  // A card whose question shows code keeps it, and still splits outside it.
+  assert.deepEqual(lineCard('What does `std::move` do? :: Casts to an rvalue'), { question: 'What does `std::move` do?', answer: 'Casts to an rvalue' })
+})
+
+test('a pasted list of equations is not cut into terms', () => {
+  assert.deepEqual(termLines('a - b = c\nx^2 - 4 = 0\n2y - 1 = 5'), [])
+  assert.equal(isEquation('a - b = c'), true)
+  assert.equal(isEquation('Force - F = ma'), false)
+  assert.equal(isEquation('\\frac{a}{b} - c = 0'), true)
 })

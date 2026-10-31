@@ -20,14 +20,30 @@ type LineCard = { question: string; answer: string }
  * need words. Null for any other line.
  */
 export function lineCard(line: string): LineCard | null {
-  const match = /^(.*?\S)\s+::\s+(\S.*)$/.exec(line.trim())
+  const whole = line.trim()
+  // A :: inside `inline code` or a $formula$ is part of it, never the split:
+  // the spans are blanked out to find the split, then the line is cut there.
+  const blanked = whole.replace(SHIELDED, (span) => '\u0000'.repeat(span.length))
+  const match = /^(.*?\S)\s+::\s+(\S.*)$/.exec(blanked)
   if (!match) return null
-  const question = match[1].replace(/^[-*+]\s+|^\d+[.)]\s+|^\[[ x]\]\s+/i, '').trim()
-  const answer = match[2].trim()
+  const question = whole.slice(0, match[1].length).replace(/^[-*+]\s+|^\d+[.)]\s+|^\[[ x]\]\s+/i, '').trim()
+  const answer = whole.slice(whole.length - match[2].length).trim()
+  // "hot : cold :: up : down" is a ratio, an analogy written out, not a card.
+  if (/\s:\s/.test(question) && /\s:\s/.test(answer)) return null
   return question && answer ? { question, answer } : null
 }
 
-type Node = { type?: string; text?: string; content?: Node[] }
+/** Spans whose :: belongs to them: `inline code` and $formulas$. */
+const SHIELDED = /`[^`\n]+`|\$[^$\n]+\$/g
+
+/**
+ * A line that is an equation, not a term and its meaning: "a - b = c" or
+ * "x^2 - 4 = 0". It has an = and no word of three letters or more outside a
+ * formula's own commands (\frac, \sqrt), so "Force - F = ma" is still a card.
+ */
+export const isEquation = (line: string): boolean => /=/.test(line) && !/\p{L}{3,}/u.test(line.replace(/\\[a-z]+/gi, ''))
+
+type Node = { type?: string; text?: string; content?: Node[]; attrs?: { latex?: string }; marks?: { type?: string }[] }
 
 /**
  * Every card line in a note, in order: a stored editor document, or plain
@@ -47,7 +63,14 @@ export function lineCardsIn(body: unknown): LineCard[] {
     }
     return found
   }
-  const text = (node: Node): string => node.text ?? (node.content ?? []).map(text).join('')
+  // A formula is written back as `$...$` and code as `...`, so the card keeps
+  // its maths (Review draws it) and a :: inside either is not the split.
+  const text = (node: Node): string =>
+    node.type === 'inlineMath'
+      ? `$${node.attrs?.latex ?? ''}$`
+      : node.text !== undefined
+        ? node.marks?.some((one) => one.type === 'code') ? `\`${node.text}\`` : node.text
+        : (node.content ?? []).map(text).join('')
   const walk = (node: Node | null | undefined): void => {
     if (!node || node.type === 'codeBlock') return
     if (node.type === 'paragraph' || node.type === 'heading') return add(text(node))
@@ -185,7 +208,7 @@ export function termLines(text: string): { term: string; meaning: string }[] {
   const lines = text.split('\n').map((line) => line.trim()).filter(Boolean)
   const found = lines.flatMap((line) => {
     const match = /^(?:[-*•]\s+|\d+[.)]\s+)?(.{1,60}?)(?:\s+[-–—=]|\s*:)\s+(.{1,300})$/.exec(line)
-    return match && !/::/.test(line) ? [{ term: match[1].trim(), meaning: match[2].trim() }] : []
+    return match && !/::/.test(line) && !isEquation(line) ? [{ term: match[1].trim(), meaning: match[2].trim() }] : []
   })
   return found.length >= 3 && found.length >= lines.length * 0.7 ? found : []
 }
