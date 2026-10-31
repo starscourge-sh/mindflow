@@ -30,7 +30,12 @@ const list = () => h.evaluate(async () => { const got = await window.api.capture
 const byName = async (name) => (await list()).find((one) => (one.label || one.title) === name)
 const json = () => h.$eval(ED + ':not(.note-embed-body *)', (el) => el.editor.getJSON())
 const open = async (id) => { await send('capture', id); await wait(1400); await h.locator(ED).first().waitFor({ timeout: 8000 }) }
-const end = () => h.$eval(ED, (el) => el.editor.chain().focus('end').run())
+// TipTap gives the editor the keys a frame later when it does not have them yet:
+// typing before then lands nowhere, so wait until the editor holds them.
+const end = async () => {
+  await h.$eval(ED, (el) => el.editor.chain().focus('end').run())
+  await h.waitForFunction((sel) => document.querySelector(sel)?.contains(document.activeElement), ED, { timeout: 3000 }).catch(() => {})
+}
 const linksIn = (node, out = []) => { if (node?.marks?.some((m) => m.type === 'link')) out.push({ text: node.text, href: node.marks.find((m) => m.type === 'link').attrs.href }); node?.content?.forEach((one) => linksIn(one, out)); return out }
 const noteLinks = (node, out = []) => { if (node?.type === 'noteLink') out.push(node.attrs); node?.content?.forEach((one) => noteLinks(one, out)); return out }
 const toasts = () => h.evaluate(() => [...document.querySelectorAll('[data-sonner-toast], [role=status][aria-live]')].map((one) => one.textContent.replace(/\s+/g, ' ').trim()).filter(Boolean).join(' | '))
