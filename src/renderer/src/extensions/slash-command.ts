@@ -25,7 +25,7 @@ export interface SlashItem {
   turnInto?: boolean
   /** Only offered where this holds. Absent means everywhere. */
   when?: (editor: Editor) => boolean
-  /** Placeholder for the value to collect before running, if one is needed. */
+  /** The question asked, over a box, for a value to collect before running, if one is needed. */
   prompt?: string
   /** Filled in by the menu when the item asked for a value. */
   value?: string

@@ -83,11 +83,13 @@ const SlashList = forwardRef(function SlashList(
 
   if (pending) {
     return (
-      <div className="tiptap-slash-menu">
+      <div className="tiptap-slash-menu" data-slash-prompt>
+        {/* The question stays over the box as you type: as a placeholder it went with the first letter. */}
+        <div className="tiptap-slash-menu-ask">{pending.prompt}</div>
         <input
           autoFocus
           type="text"
-          placeholder={pending.prompt}
+          placeholder="Paste a link"
           value={value}
           onChange={(event) => setValue(event.target.value)}
           onKeyDown={(event) => {
