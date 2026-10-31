@@ -403,7 +403,7 @@ export const haligtree = {
   reviewLoad: (days: number) => call<number[]>('review:load', days),
   tags: () => call<{ tag: string; count: number; later: number; color: string | null; action: boolean; examAt: string | null; priority?: 'maintaining' | 'paused' | null; lands?: string | null }[]>('tags'),
   tagMeta: () => call<{ tag: string; color: string | null; action: number; backdrop: 'colour' | 'picture' | 'sketch' | null; homeHidden: number }[]>('tag:meta'),
-  setTag: (tag: string, patch: { homeHidden?: boolean; backdrop?: 'colour' | 'picture' | 'sketch' | null; color?: string | null; action?: boolean; aliasOf?: string | null; examAt?: string | null; priority?: 'maintaining' | 'paused' | null; lands?: string | null; speak?: string | null; typed?: 'exact' | 'meaning' | null; newPerDay?: number | null }) => call('tag:set', tag, patch),
+  setTag: (tag: string, patch: { deck?: boolean; homeHidden?: boolean; backdrop?: 'colour' | 'picture' | 'sketch' | null; color?: string | null; action?: boolean; aliasOf?: string | null; examAt?: string | null; priority?: 'maintaining' | 'paused' | null; lands?: string | null; speak?: string | null; typed?: 'exact' | 'meaning' | null; newPerDay?: number | null }) => call('tag:set', tag, patch),
   /** Each tag whose answers are read aloud, and its language. */
   tagSpeak: () => call<Record<string, string>>('tag:speak'),
   tagStudy: () => call<{ typed: Record<string, 'exact' | 'meaning'>; newPerDay: Record<string, number> }>('tag:study'),
@@ -469,6 +469,7 @@ export const haligtree = {
   /** A tag's cards, to practise without counting. */
   /** Every tag on a card that is not paused, the most cards first: what ⌘K offers to study. */
   cardTags: () => call<string[]>('cards:tags'),
+  madeDecks: () => call<string[]>('decks:made'),
   tagCards: (tag: string) => call<(Item & { body: unknown })[]>('tag:cards', tag),
   /** Gems missed again and again, paused or not. */
   slipping: () => call<Item[]>('review:slipping'),

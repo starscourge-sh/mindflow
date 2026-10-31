@@ -9,7 +9,7 @@ import { SEPARATORS, cardsOf, guessSeparator, headingsOf, listLines as lines, ty
 
 /** A deck or tag as a #tag: "Spanish::Verbs" or "spanish verbs" becomes #spanish-verbs. */
 const tagOf = (words: string): string =>
-  words.trim().toLowerCase().replace(/^#/, '').split('::').map((part) => part.replace(/[^\p{L}\p{M}\p{N}_-]+/gu, '-').replace(/^-+|-+$/g, '')).filter(Boolean).join('-')
+  words.trim().toLowerCase().replace(/^#/, '').split(/::|\//).map((part) => part.replace(/[^\p{L}\p{M}\p{N}_-]+/gu, '-').replace(/^-+|-+$/g, '')).filter(Boolean).join('-')
 
 /**
  * Paste cards straight in, one a line: the separator is found on its own
@@ -17,10 +17,10 @@ const tagOf = (words: string): string =>
  * type, and a deck and tags go on every card. A .txt or .csv dropped on the
  * box reads in too. Adding them is one step with one Undo.
  */
-export function PasteCards({ onClose }: { onClose: () => void }): React.JSX.Element {
+export function PasteCards({ onClose, deck: aimed, one = false }: { onClose: () => void; /** The deck the cards go in, filled in. */ deck?: string; /** For one card, typed: the heading and example say so. */ one?: boolean }): React.JSX.Element {
   const [text, setText] = useState('')
   const [chosen, setChosen] = useState<Separator | null>(null)
-  const [deck, setDeck] = useState('')
+  const [deck, setDeck] = useState(aimed ?? '')
   const [tags, setTags] = useState('')
   const separator = chosen ?? guessSeparator(text)
   const cards = cardsOf(text, separator)
@@ -33,7 +33,7 @@ export function PasteCards({ onClose }: { onClose: () => void }): React.JSX.Elem
     const tagged = cards.map(({ term, meaning }) => ({ term, meaning: marks.length ? `${meaning}\n\n${marks.map((one) => `#${one}`).join(' ')}` : meaning }))
     void window.api.haligtree<string[]>('cards:list', tagged).then((ids) => {
       chime('noted')
-      toast(`${ids.length === 1 ? 'Card made' : `${num(ids.length)} cards made`}${marks.length ? ` in #${marks[0]}` : ''}`, () => void window.api.haligtree('cards:list:undo', ids).then(() => chime('undo')), 'success', undefined, ids.length === 1 ? { type: 'nugget', id: ids[0], title: tagged[0].term } : undefined)
+      toast(`${ids.length === 1 ? 'Card made' : `${num(ids.length)} cards made`}${marks.length ? ` in ${deck.trim() ? 'the deck ' : ''}#${marks[0]}` : ''}`, () => void window.api.haligtree('cards:list:undo', ids).then(() => chime('undo')), 'success', undefined, ids.length === 1 ? { type: 'nugget', id: ids[0], title: tagged[0].term } : undefined)
       setText('')
       onClose()
     })
@@ -43,12 +43,12 @@ export function PasteCards({ onClose }: { onClose: () => void }): React.JSX.Elem
     // lines written straight onto ruled paper, and the cards they make laid out below.
     <section data-paste-cards className="mf-index-card flex flex-col gap-3 px-5 pt-4 pb-3">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h3 className="flex-1 font-heading text-heading font-semibold">Paste cards</h3>
-        <span className="text-control text-foreground/70">One card a line, front then back, or drop a .txt, .csv or .tsv here</span>
+        <h3 className="flex-1 font-heading text-heading font-semibold">{one ? `New card${aimed ? ` in #${tagOf(aimed)}` : ''}` : aimed ? `Paste cards into #${tagOf(aimed)}` : 'Paste cards'}</h3>
+        <span className="text-control text-foreground/70">{one ? 'The question, a bar, then the answer; another line makes another card' : 'One card a line, front then back, or drop a .txt, .csv or .tsv here'}</span>
       </div>
       <div aria-hidden className="mf-index-rule" />
       <textarea data-paste-text autoFocus value={text} onChange={(event) => setText(event.target.value)} rows={5}
-        placeholder={'What does GPT stand for? | Generative Pre-trained Transformer\nhola | hello'}
+        placeholder={one ? 'What does a mitochondrion do? | Makes the cell’s energy' : 'What does GPT stand for? | Generative Pre-trained Transformer\nhola | hello'}
         onDragOver={(event) => event.preventDefault()}
         onDrop={(event) => {
           const file = [...event.dataTransfer.files].find((one) => /\.(txt|csv|tsv)$/i.test(one.name))

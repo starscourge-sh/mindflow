@@ -1203,6 +1203,8 @@ export function registerHaligtree(): void {
   // How strictly its typed answers are checked (exact, meaning; usual when empty), and its own new cards a day.
   column('tag_meta', 'typed text')
   column('tag_meta', 'new_per_day integer')
+  // A deck made by hand in Review (New deck): shown as a deck before it holds a card.
+  column('tag_meta', 'deck integer not null default 0')
   // Why the answer is so, one line under it in review.
   column('nuggets', 'why text')
   // A question held open: when it was settled, and how ('answered' or 'let go').
@@ -3990,10 +3992,13 @@ export function registerHaligtree(): void {
       newPerDay: Object.fromEntries(rows.filter((row) => row.newPerDay !== null).map((row) => [row.tag, row.newPerDay])) as Record<string, number>
     }
   })
+  // The decks made by hand in Review, held or not by cards yet.
+  handle('decks:made', () => (db.prepare('select tag from tag_meta where deck = 1 order by tag').all() as { tag: string }[]).map((row) => row.tag))
   handle('tag:meta', () => db.prepare('select tag, color, action, backdrop, home_hidden as homeHidden from tag_meta').all())
-  handle('tag:set', (tag: string, patch: { homeHidden?: boolean; backdrop?: string | null; color?: string | null; action?: boolean; aliasOf?: string | null; examAt?: string | null; priority?: 'maintaining' | 'paused' | null; lands?: string | null; speak?: string | null; typed?: string | null; newPerDay?: number | null }) => {
+  handle('tag:set', (tag: string, patch: { deck?: boolean; homeHidden?: boolean; backdrop?: string | null; color?: string | null; action?: boolean; aliasOf?: string | null; examAt?: string | null; priority?: 'maintaining' | 'paused' | null; lands?: string | null; speak?: string | null; typed?: string | null; newPerDay?: number | null }) => {
     db.prepare('insert or ignore into tag_meta (tag) values (?)').run(tag)
     if (patch.typed !== undefined) db.prepare('update tag_meta set typed = ? where tag = ?').run(['exact', 'meaning'].includes(patch.typed ?? '') ? patch.typed : null, tag)
+    if (patch.deck !== undefined) db.prepare('update tag_meta set deck = ? where tag = ?').run(patch.deck ? 1 : 0, tag)
     if (patch.newPerDay !== undefined) db.prepare('update tag_meta set new_per_day = ? where tag = ?').run(Number.isInteger(patch.newPerDay) && patch.newPerDay! >= 0 ? patch.newPerDay : null, tag)
     if (patch.speak !== undefined) db.prepare('update tag_meta set speak = ? where tag = ?').run(/^[a-z]{2,3}(-[A-Z]{2})?$/.test(patch.speak ?? '') ? patch.speak : null, tag)
     if (patch.lands !== undefined) db.prepare('update tag_meta set lands = ? where tag = ?').run(/^\d{1,3}$/.test(patch.lands ?? '') ? patch.lands : null, tag)

@@ -1,10 +1,13 @@
 import { useState } from 'react'
 import { chime } from '@/lib/sound'
-import { call, unloaded, useLive } from '@/lib/haligtree'
+import { call, haligtree, unloaded, useLive } from '@/lib/haligtree'
 import { num } from '../../../../main/dates'
-import { Empty, toast } from './ui'
+import { Empty, openTag, quietly, toast } from './ui'
 import { Button } from '@/components/ui/button'
 import { Chip } from './display'
+import { OptionsMenu, type Section } from './options-menu'
+import { Tree, treeOf } from './branches'
+import { cardsSaid, makeDeck, useOwnDecks, type OwnDeck } from './decks'
 
 type Topic = { deck: string; label: string; cards: number; held: number }
 export type Shelf = { name: string; cover: string | null; sample: string; pictures: number; cards: number; fresh: number; due: number; held: number; shown: boolean; topics: Topic[] }
@@ -31,15 +34,23 @@ export function startDeck(deck: string, label: string, on: boolean): void {
  * started when you study it. Their cards stay out of Gems, Media, Feed, hints
  * and Home unless "Show in Gems" is on, so your own never drown.
  */
-export function DeckShelf({ onOpen, onStudy }: { onOpen: (type: string, id: string) => void; /** Study a deck's or topic's tag in Today. */ onStudy: (tag: string) => void }): React.JSX.Element {
+export function DeckShelf({ onOpen, onStudy, onPaste }: { onOpen: (type: string, id: string) => void; /** Study a deck's or topic's tag in Today. */ onStudy: (tag: string) => void; /** Paste cards into a deck, or make one card in it, in All cards. */ onPaste: (deck: string | null, one?: boolean) => void }): React.JSX.Element {
   const [gallery, setGallery] = useState<string | null>(null)
   const [linking, setLinking] = useState<string | null>(null)
   const shelves = useLive(() => call<Shelf[]>('decks:list'), null as Shelf[] | null, [], ['item'])
-  if (unloaded(shelves)) return <div />
-  if (!shelves?.length)
+  const own = useOwnDecks()
+  if (unloaded(shelves) || !own) return <div />
+  const newDeck = (inside?: string): void => void makeDeck(inside)
+  if (!shelves?.length && !own.length)
     return (
-      <Empty title="No decks yet">
-        An Anki deck (.apkg) dropped on this window, or brought in from File › Import, sits here on its own shelf, out of Gems, with its cards started a topic at a time.
+      <Empty title="No decks yet" action={
+        <span className="flex flex-wrap items-center gap-2">
+          <Button size="sm" className="cursor-pointer" data-deck-new onClick={() => (chime('open'), newDeck())}>New deck</Button>
+          <Button variant="ghost" size="sm" className="cursor-pointer" data-deck-paste onClick={() => (chime('open'), onPaste(null))}>Paste cards</Button>
+          <Button variant="ghost" size="sm" className="cursor-pointer" data-deck-import onClick={() => (chime('open'), void window.api.importFrom('files'))}>Import an Anki deck</Button>
+        </span>
+      }>
+        A deck is a tag your cards share. Make one, or paste cards.
       </Empty>
     )
   const show = (shelf: Shelf): void =>
@@ -49,7 +60,15 @@ export function DeckShelf({ onOpen, onStudy }: { onOpen: (type: string, id: stri
     })
   return (
     <div data-deck-shelf className="grid gap-3 px-5 pt-4 pb-20">
-      {shelves.map((shelf) => (
+      {/* Your own decks and the shared ones in one list, in one look: a deck is a tag your cards share. */}
+      <div className="flex items-center gap-3">
+        <p className="flex-1 text-sm text-muted-foreground">A deck is a tag your cards share. Shared decks keep their own shelf, out of Gems.</p>
+        <Button size="sm" className="cursor-pointer" data-deck-new onClick={() => (chime('open'), newDeck())}>New deck</Button>
+      </div>
+      {own.filter((deck) => deck.depth === 0).map((deck) => (
+        <OwnDeckShelf key={deck.tag} deck={deck} inside={own.filter((one) => one.tag.startsWith(`${deck.tag}-`))} onStudy={onStudy} onPaste={onPaste} onNew={newDeck} />
+      ))}
+      {(shelves ?? []).map((shelf) => (
         <section key={shelf.name} data-deck={shelf.name} className="flex gap-4 rounded-xl border border-foreground/10 bg-accent/25 p-4">
           {shelf.cover ? (
             <img src={shelf.cover} alt="" className="size-24 shrink-0 rounded-lg object-cover" />
@@ -176,5 +195,81 @@ function Links({ deck, onDone }: { deck: string; onDone: () => void }): React.JS
         <Button size="sm" className="cursor-pointer" data-links-apply onClick={apply}>Change links</Button>
       </div>
     </div>
+  )
+}
+
+/** A deck's review settings, from its menu: its own new cards a day and how its typed answers are checked (the tag's own, as on its page). */
+function deckSettings(tag: string, study: { typed: Record<string, string>; newPerDay: Record<string, number> }): Section[] {
+  const perDay = study.newPerDay[tag]
+  const typed = study.typed[tag] ?? ''
+  const setPerDay = (to: number | null): void => void haligtree.setTag(tag, { newPerDay: to }).then(() => (chime('settled'), quietly(() => void haligtree.setTag(tag, { newPerDay: perDay ?? null }))))
+  const setTyped = (to: 'exact' | 'meaning' | null): void => void haligtree.setTag(tag, { typed: to }).then(() => (chime('settled'), quietly(() => void haligtree.setTag(tag, { typed: (typed || null) as 'exact' | 'meaning' | null }))))
+  return [
+    { label: 'New cards a day', items: [
+      { label: 'As in Settings', on: perDay === undefined, set: (on: boolean) => void (on && setPerDay(null)) },
+      ...[5, 10, 20].map((n) => ({ label: String(n), on: perDay === n, set: (on: boolean) => void (on && setPerDay(n)) })),
+      { label: 'None', hint: 'Only reviews: no new cards start', on: perDay === 0, set: (on: boolean) => void (on && setPerDay(0)) }
+    ] },
+    { label: 'How typed answers are checked', items: [
+      { label: 'Usual', hint: 'An accent or unit left out is part wrong; a slip of a letter can count; capitals do not', on: !typed, set: (on: boolean) => void (on && setTyped(null)) },
+      { label: 'Exact', hint: 'Every mark counts, capitals too: formulas, symbols, case names', on: typed === 'exact', set: (on: boolean) => void (on && setTyped('exact')) },
+      { label: 'Meaning', hint: 'Accents and small slips pass: names, terms, dates in words', on: typed === 'meaning', set: (on: boolean) => void (on && setTyped('meaning')) }
+    ] }
+  ]
+}
+
+/**
+ * One of your own decks, on a shelf in the same look as a shared deck's: a
+ * card of it as the cover, its counts, the decks inside it as rows, and its
+ * actions. An empty one says how to fill it, with both ways.
+ */
+function OwnDeckShelf({ deck, inside, onStudy, onPaste, onNew }: { deck: OwnDeck; inside: OwnDeck[]; onStudy: (tag: string) => void; onPaste: (deck: string, one?: boolean) => void; onNew: (inside?: string) => void }): React.JSX.Element {
+  const study = useLive(haligtree.tagStudy, { typed: {}, newPerDay: {} } as Awaited<ReturnType<typeof haligtree.tagStudy>>, [], ['item'])
+  const menu = (tag: string): Section[] => [
+    ...deckSettings(tag, study),
+    { items: [
+      { label: 'New deck inside', run: () => onNew(tag) },
+      { label: 'Open its page', hint: 'Its notes, gems and cards, on the tag’s page', run: () => openTag(tag) }
+    ] }
+  ]
+  return (
+    <section data-deck={`#${deck.tag}`} data-own-deck={deck.tag} className="flex gap-4 rounded-xl border border-foreground/10 bg-accent/25 p-4">
+      <span aria-hidden data-deck-cover-card className={`grid size-24 shrink-0 place-items-center overflow-hidden rounded-lg border bg-background p-2 text-center font-serif text-sm leading-snug shadow-sm [overflow-wrap:anywhere] ${deck.cards ? 'border-foreground/10 text-foreground' : 'border-dashed border-foreground/20 text-muted-foreground'}`}>
+        <span className="line-clamp-4">{deck.sample || 'Empty'}</span>
+      </span>
+      <div className="grid min-w-0 flex-1 content-start gap-2">
+        <div className="flex items-center gap-2">
+          <h3 title={`#${deck.tag}`} className="min-w-0 flex-1 truncate font-serif text-lg leading-tight text-foreground">{deck.label}</h3>
+          <OptionsMenu sections={menu(deck.tag)} label="Deck options" side="bottom" align="end" className="cursor-pointer" />
+        </div>
+        <p data-deck-counts className="text-sm text-foreground tabular-nums">
+          {deck.cards ? <>
+            {cardsSaid(deck.cards)}
+            {deck.fresh > 0 && <> · {num(deck.fresh)} new</>}
+            {deck.due > 0 && <> · {num(deck.due)} due</>}
+          </> : <span data-deck-empty>Empty. Paste cards or make one.</span>}
+        </p>
+        {inside.length > 0 && (
+          // The decks inside it, hung off the one trunk every nested list in the app uses.
+          <div data-deck-inside className="max-w-md pl-2">
+            <Tree nodes={treeOf(inside, (one) => one.depth)} here={-1} className="pl-3" row={({ item: one }) => (
+              <div key={one.tag} data-deck-child={one.tag} className="flex items-center gap-1 py-0.5 text-control">
+                <span title={`#${one.tag}`} className="min-w-0 flex-1 truncate text-foreground">{one.label}</span>
+                <span className="pr-1 text-sm text-muted-foreground tabular-nums">{one.cards ? cardsSaid(one.cards) : 'empty'}</span>
+                {one.cards > 0
+                  ? <Button variant="ghost" size="sm" className="h-7 cursor-pointer px-2.5" data-child-study={one.tag} onClick={() => (chime('riffle'), onStudy(one.tag))}>Study</Button>
+                  : <Button variant="ghost" size="sm" className="h-7 cursor-pointer px-2.5" data-child-paste={one.tag} onClick={() => (chime('open'), onPaste(one.tag))}>Paste cards</Button>}
+                <OptionsMenu sections={menu(one.tag)} label="Deck options" side="bottom" align="end" className="size-7 cursor-pointer" />
+              </div>
+            )} />
+          </div>
+        )}
+        <div className="flex flex-wrap gap-2 pt-1">
+          {deck.cards > 0 && <Button size="sm" className="cursor-pointer" data-deck-study onClick={() => (chime('riffle'), onStudy(deck.tag))}>Study</Button>}
+          <Button size="sm" variant={deck.cards ? 'ghost' : 'default'} className="cursor-pointer" data-deck-paste onClick={() => (chime('open'), onPaste(deck.tag))}>Paste cards</Button>
+          <Button variant="ghost" size="sm" className="cursor-pointer" data-deck-make onClick={() => (chime('open'), onPaste(deck.tag, true))}>Make a card</Button>
+        </div>
+      </div>
+    </section>
   )
 }

@@ -230,6 +230,34 @@ export function Pocket({ name, cards, onOpen }: { name: string; cards: BrowsedCa
 }
 
 /**
+ * A deck made by hand with no cards yet, as a pocket in the same look: its
+ * cover behind the glass, no cards fanned, and the two ways to fill it.
+ */
+export function EmptyPocket({ deck, onPaste }: { deck: string; /** Paste cards into it, or (one) make a single card. */ onPaste: (one: boolean) => void }): React.JSX.Element {
+  const name = `#${deck}`
+  const tint = groupTint(name)
+  return (
+    <div data-pocket={name} data-pocket-empty={deck} className="flex flex-col items-center gap-2 rounded-xl p-2">
+      <div className="relative h-52 w-full max-w-[15rem] [overflow-x:clip]">
+        <div className="absolute inset-x-12 top-1 h-40 overflow-hidden rounded-md opacity-60 shadow-sm"><Cover name={name} tint={tint} className="h-full w-full" /></div>
+        <div className="mf-glass absolute inset-x-0 bottom-0 z-10 flex h-[46%] flex-col items-center justify-center gap-1.5 rounded-xl px-4" style={{ '--tint': tint } as React.CSSProperties}>
+          <Screws />
+          <span className="text-control text-foreground">Paste cards or make one</span>
+          <span className="flex gap-1.5">
+            <button type="button" data-pocket-paste onClick={() => (chime('open'), onPaste(false))} className="cursor-pointer rounded-md bg-background/85 px-2 py-0.5 text-xs font-medium text-foreground hover:bg-background">Paste cards</button>
+            <button type="button" data-pocket-make onClick={() => (chime('open'), onPaste(true))} className="cursor-pointer rounded-md bg-background/85 px-2 py-0.5 text-xs font-medium text-foreground hover:bg-background">Make one</button>
+          </span>
+        </div>
+      </div>
+      <span className="flex max-w-full items-baseline gap-1.5 text-control">
+        <span className="truncate font-medium text-foreground">{name}</span>
+        <span className="shrink-0 text-foreground/60">· empty deck</span>
+      </span>
+    </div>
+  )
+}
+
+/**
  * A group as a shelf: its name and count, ‹ › to slide along, and its cards
  * standing behind a glass ledge in its colour. A long group shows its first
  * cards and a last one that opens the rest.
