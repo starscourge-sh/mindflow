@@ -72,8 +72,8 @@ try {
     await win.waitForTimeout(1300)
   }
   const NOTE = '.ProseMirror a[data-note]'
-  const WEB = '.ProseMirror a[href^="https://example.com/essay"]'
-  const PDF = '.ProseMirror a[href*="probe-paper.pdf"]'
+  const WEB = '.ProseMirror p a[href^="https://example.com/essay"]'
+  const PDF = '.ProseMirror p a[href*="probe-paper.pdf"]'
   const TIME = '.ProseMirror .mf-time-link:not(.mf-page-link)'
   const PAGE = '.ProseMirror .mf-page-link'
   const TAG = '.ProseMirror .tiptap-token[data-token="tag"]'
