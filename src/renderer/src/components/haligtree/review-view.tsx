@@ -128,6 +128,7 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
     setCameBack(false)
     setLast(null)
     started.current = Date.now()
+    undos.current = []
   }
   const startRound = (bucket: Round): void => void working(haligtree.round(bucket)).then((cards) => (chime('riffle'), fresh(cards, bucket)))
   const leaveRound = (): void => void working(haligtree.queue()).then((cards) => (chime('fold'), fresh(cards, null)))
@@ -195,6 +196,8 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
   // A picture pasted (⌘V) or dropped while the answer shows: under the answer
   // at once, no editor to open and no leaving the queue, with Undo.
   const pictureOnAnswer = (file: File): void => {
+  // What ⌘Z takes back here, newest last: a grade (Review's `last`) or a picture put on an answer.
+  const undos = useRef<({ grade: true } | { undo: () => void; done: () => boolean })[]>([])
     const on = card
     if (!on) return
     void file.arrayBuffer().then((bytes) => window.api.saveImage(file.type, new Uint8Array(bytes))).then((src) => {
@@ -207,10 +210,17 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
         void haligtree.saveItem(on.id, { body })
       }
       put(after)
-      // ⌘Z now takes back the picture, the latest thing done, not the grade before it.
-      setLast(null)
+      // On Review's own undo list, after any grade: ⌘Z takes the picture off
+      // first, the next ⌘Z the grade. Run once, from the toast or the key.
+      let done = false
+      const undo = (): void => {
+        if (done) return
+        done = true
+        put(before)
+      }
+      undos.current.push({ undo, done: () => done })
       chime('added')
-      toast('Picture added to the answer', () => put(before))
+      toast('Picture added to the answer', undo)
     })
   }
   useEffect(() => {
@@ -248,6 +258,7 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
   const grade = (value: 1 | 2 | 3 | 4): void => {
     if (!card || !shown) return
     if (!round) setLast({ card, at, said, grade: value, reviewed: !!card.reviewed, lapses: card.lapses, counted: reviewed.has(card.id) })
+    if (!round) undos.current.push({ grade: true })
     setMissed(null)
     // What you typed before turning it over is kept, as a dated thought on the card.
     if (said.trim()) void keepGloss(card.id, said)
@@ -299,6 +310,7 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
     if (round) chime('later')
     else {
       setLast({ card, at, said, grade: null, reviewed: !!card.reviewed, lapses: card.lapses, counted: reviewed.has(card.id) })
+      undos.current.push({ grade: true })
       void haligtree.bury(card.id).then(() => (chime('later'), toast('Back tomorrow')))
     }
     setShown(false)
@@ -376,10 +388,23 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
     const onKey = (event: KeyboardEvent): void => {
       if (!here()) return
       // ⌘Z: the last grade or Not today taken back, the card in front again.
-      if (event.metaKey && !event.shiftKey && event.key === 'z' && last && !typing() && !source) {
-        event.preventDefault()
-        event.stopPropagation()
-        return undoLast()
+      if (event.metaKey && !event.shiftKey && event.key === 'z' && !typing() && !source) {
+        // Newest first: a picture taken off already (by its toast) is passed over.
+        const stack = undos.current
+        // A grade already taken back (by its button) is passed over too.
+        const spent = (one: (typeof stack)[number]): boolean => ('undo' in one ? one.done() : !last)
+        while (stack.length && spent(stack[stack.length - 1])) stack.pop()
+        const top = stack.pop()
+        if (top && 'undo' in top) {
+          event.preventDefault()
+          event.stopPropagation()
+          return top.undo()
+        }
+        if (last) {
+          event.preventDefault()
+          event.stopPropagation()
+          return undoLast()
+        }
       }
       if (event.metaKey || event.ctrlKey) return
       // Before the window's own Escape, which would hide the box.
