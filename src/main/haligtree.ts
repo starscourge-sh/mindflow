@@ -3579,7 +3579,9 @@ export function registerHaligtree(): void {
     const days = Array.from({ length: start.daysInMonth() }, (_, at) => { const day = start.add(at, 'day').format('YYYY-MM-DD'); return { day, n: perDay.get(day) ?? 0 } })
     const longest = db.prepare(`select coalesce(nullif(n.title, ''), label('', n.body)) as title, g.gap from (select item_id, grade, reviewed_at, julianday(reviewed_at) - julianday(lag(reviewed_at) over (partition by item_id order by reviewed_at)) gap from review_log) g
       join nuggets n on n.id = g.item_id where g.grade > 1 and g.gap is not null and g.reviewed_at >= ? and g.reviewed_at < ? and n.private = 0 order by g.gap desc limit 1`).get(since, until) as { title: string; gap: number } | undefined
-    const newCards = (db.prepare("select count(*) n from nuggets where coalesce(prompt, '') != '' and binned_at is null and superseded_by is null and created_at >= ? and created_at < ?").get(since, until) as { n: number }).n
+    // Cards made in the month counted to its end, not to this moment: a card stamped a second ahead of
+    // the clock (as the sandbox lays its cards down) would otherwise come and go between two reads.
+    const newCards = (db.prepare("select count(*) n from nuggets where coalesce(prompt, '') != '' and binned_at is null and superseded_by is null and created_at >= ? and created_at < ?").get(since, start.add(1, 'month').toISOString()) as { n: number }).n
     const book = db.prepare('select r.src, coalesce(t.title, r.src) as title from pdf_reading r left join pdf_titles t on t.src = r.src where r.read_at >= ? and r.read_at < ? order by r.page desc limit 1').get(since, until) as { src: string; title: string } | undefined
     // One line you wrote that month, the longest plain sentence of a note of your own (no quote, nothing private).
     const lines = (db.prepare("select body from captures where kind != 'quote' and private = 0 and status != 'discarded' and captured_at >= ? and captured_at < ?").all(since, until) as { body: string | null }[])
