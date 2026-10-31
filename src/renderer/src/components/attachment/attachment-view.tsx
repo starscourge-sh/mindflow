@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react"
-import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react"
+import { NodeViewWrapper, useEditorState, type NodeViewProps } from "@tiptap/react"
+import { NodeSelection } from "@tiptap/pm/state"
 import { AlignCenter, AlignLeft, AlignRight, AudioLines, Captions, Columns2, ListTree, MoveHorizontal, MoveVertical, PanelLeft, Pause, PictureInPicture2, Play, RectangleVertical, RotateCcw, ScrollText } from "lucide-react"
 import { AliveIcon } from "@/components/ui/alive-icon"
 import DownloadIcon from "@/components/ui/download-icon"
@@ -270,10 +271,13 @@ function useMedia(video: boolean, known: number | null, learn: (seconds: number)
  */
 function MediaToolbar({ props, sized }: { props: NodeViewProps; sized: boolean }): React.JSX.Element {
   const { src, name, size, width, align } = props.node.attrs
-  // Over the top by default, as a picture's; under the block when something
-  // covers that spot (a pager, the window's top), the way the picture's flips.
+  // Over the top by default, as a picture's; under the block when another
+  // block's player or file card is in that spot (a picture's edge may be
+  // covered: its own toolbar sits inside its top, never there) (two recordings one under the other), or
+  // something covers it (a pager, the window's top); over its own block's top
+  // edge when there is a player on both sides.
   const bar = useRef<HTMLSpanElement>(null)
-  const [below, setBelow] = useState(false)
+  const [place, setPlace] = useState<"above" | "below" | "inside">("above")
   // Centred on a small video in a narrow pane it would hang off a side: nudged
   // back inside whatever clips it.
   const [nudge, setNudge] = useState(0)
@@ -282,19 +286,33 @@ function MediaToolbar({ props, sized }: { props: NodeViewProps; sized: boolean }
     const el = bar.current
     if (!el) return
     // The node view mounts before it is on the page, so this waits for the
-    // first real size, and measures again as the buttons settle in.
-    let placed = false
+    // first real size, and measures again as the buttons settle in and as the
+    // blocks around it move (one deleted, one added).
     let nudged = 0
     let full = 0
+    const root = props.editor.view.dom
     const fit = (): void => {
       const box = el.getBoundingClientRect()
-      if (!el.isConnected || !box.width) return
-      if (!placed) {
-        placed = true
-        const hit = document.elementFromPoint(box.left + box.width / 2, box.top + 2)
-        if (box.top < 0 || !hit || !el.contains(hit)) setBelow(true)
+      const own = el.parentElement
+      const tall = el.firstElementChild?.getBoundingClientRect().height ?? 0
+      if (!el.isConnected || !box.width || !own || !tall) return
+      const block = own.getBoundingClientRect()
+      const spots = {
+        above: { top: block.top - 8 - tall, bottom: block.top - 8 },
+        below: { top: block.bottom + 8, bottom: block.bottom + 8 + tall },
       }
-      let clip = el.parentElement
+      // Measured from the block, not from where the bar is now, so it never
+      // flips back and forth.
+      const others = [...root.querySelectorAll<HTMLElement>(".tiptap-attachment, iframe")].filter((one) => !own.contains(one) && !one.contains(own))
+      const clashes = (spot: { top: number; bottom: number }): boolean =>
+        others.some((one) => {
+          const them = one.getBoundingClientRect()
+          return them.width > 0 && them.top < spot.bottom && them.bottom > spot.top && them.left < box.right && them.right > box.left
+        })
+      const hit = document.elementFromPoint(box.left + box.width / 2, spots.above.top + 2)
+      const covered = spots.above.top < 0 || !hit || !(root.contains(hit) || el.contains(hit) || hit.contains(root))
+      setPlace(!covered && !clashes(spots.above) ? "above" : !clashes(spots.below) ? "below" : "inside")
+      let clip: HTMLElement | null = el.parentElement
       while (clip && getComputedStyle(clip).overflowX === "visible") clip = clip.parentElement
       const edge = clip?.getBoundingClientRect() ?? { left: 0, right: innerWidth }
       // Wider than the pane even so: it drops the file's name, which the
@@ -309,12 +327,14 @@ function MediaToolbar({ props, sized }: { props: NodeViewProps; sized: boolean }
     }
     const watch = new ResizeObserver(fit)
     watch.observe(el)
-    // The block it sits on resizes too, as the video's own size loads.
+    // The block it sits on resizes too, as the video's own size loads, and
+    // the note as blocks around it come and go.
     if (el.parentElement) watch.observe(el.parentElement)
+    watch.observe(root)
     return () => watch.disconnect()
-  }, [])
+  }, [props.editor])
   return (
-    <span ref={bar} className={`tiptap-media-toolbar${below ? " is-below" : ""}${tight ? " is-tight" : ""}`} style={nudge ? { transform: `translateX(calc(-50% + ${nudge}px))` } : undefined} contentEditable={false} onMouseDown={(event) => event.preventDefault()}>
+    <span ref={bar} data-media-toolbar="" className={`tiptap-media-toolbar is-${place}${tight ? " is-tight" : ""}`} style={nudge ? { transform: `translateX(calc(-50% + ${nudge}px))` } : undefined} contentEditable={false} onMouseDown={(event) => event.preventDefault()}>
       <Toolbar variant="floating">
         {sized && (
           <>
@@ -367,6 +387,25 @@ function MediaToolbar({ props, sized }: { props: NodeViewProps; sized: boolean }
 }
 
 /**
+ * Whether this block's toolbar shows: one at a time in a note. The picked
+ * block's (clicked, so it is the whole selection: a block caught in a longer
+ * selection is outlined but offers no toolbar), or else the one under the
+ * pointer while nothing is picked. Read from the editor's own selection, so
+ * it goes the moment the selection moves off the block.
+ */
+function useToolbarShown(props: NodeViewProps): { shown: boolean; hover: Pick<React.HTMLAttributes<HTMLElement>, "onPointerEnter" | "onPointerLeave"> } {
+  const [hovered, setHovered] = useState(false)
+  const picked = useEditorState({
+    editor: props.editor,
+    selector: ({ editor }) => editor.state.selection instanceof NodeSelection,
+  })
+  return {
+    shown: props.editor.isEditable && (props.selected || (hovered && !picked)),
+    hover: { onPointerEnter: () => setHovered(true), onPointerLeave: () => setHovered(false) },
+  }
+}
+
+/**
  * The length a recording or video shows before it plays: the one kept on the
  * block, and once found for one without (see useMedia), kept there, outside
  * Undo, as a fact about the file rather than an edit.
@@ -402,14 +441,15 @@ function useLength(props: NodeViewProps, audio = false): [number | null, (second
 function VideoBlock(props: NodeViewProps): React.JSX.Element {
   const { src, name, width, align } = props.node.attrs
   const selected = isNodeSelected(props)
+  const { shown, hover } = useToolbarShown(props)
   const { ref, frame, controls, toggle, playing, state } = useMedia(true, ...useLength(props))
   return (
-    <NodeViewWrapper className={`tiptap-attachment is-video${selected ? " is-selected" : ""}${playing ? " is-playing" : ""}`} data-state={state} data-align={align ?? undefined} style={{ width: width ?? undefined }}>
+    <NodeViewWrapper className={`tiptap-attachment is-video${selected ? " is-selected" : ""}${playing ? " is-playing" : ""}`} data-state={state} data-align={align ?? undefined} style={{ width: width ?? undefined }} {...hover}>
       <span ref={frame} className="tiptap-video-frame">
         <video ref={ref as React.RefObject<HTMLVideoElement>} className="tiptap-attachment-video" src={src} preload="metadata" title={name} onClick={toggle} playsInline />
         {controls}
       </span>
-      {selected && props.editor.isEditable && <MediaToolbar props={props} sized />}
+      {shown && <MediaToolbar props={props} sized />}
     </NodeViewWrapper>
   )
 }
@@ -418,6 +458,7 @@ function VideoBlock(props: NodeViewProps): React.JSX.Element {
 function AudioBlock(props: NodeViewProps): React.JSX.Element {
   const { src, name, size } = props.node.attrs
   const selected = isNodeSelected(props)
+  const { shown, hover } = useToolbarShown(props)
   const { ref, controls, playing, state } = useMedia(false, ...useLength(props, true))
   const listening = useSyncExternalStore(onTranscribing, () => isTranscribing(src))
   // Kept with "Transcribe voice notes as you record them" on: its words start as it first shows, once.
@@ -434,7 +475,7 @@ function AudioBlock(props: NodeViewProps): React.JSX.Element {
   }, [src]) // eslint-disable-line react-hooks/exhaustive-deps
   const worded = hasWords(props.editor, src)
   return (
-    <NodeViewWrapper className={`tiptap-attachment is-audio${selected ? " is-selected" : ""}${playing ? " is-playing" : ""}`} data-state={state} data-words={worded ? "" : undefined}>
+    <NodeViewWrapper className={`tiptap-attachment is-audio${selected ? " is-selected" : ""}${playing ? " is-playing" : ""}`} data-state={state} data-words={worded ? "" : undefined} {...hover}>
       <audio ref={ref as React.RefObject<HTMLAudioElement>} src={src} preload="metadata" />
       <div className="tiptap-attachment-card">
         <AudioLines className="tiptap-attachment-icon" />
@@ -445,7 +486,7 @@ function AudioBlock(props: NodeViewProps): React.JSX.Element {
         {controls}
       </div>
       {listening && <span className="tiptap-attachment-listening" contentEditable={false}><Orb state="listening" label="Listening…" /></span>}
-      {selected && props.editor.isEditable && <MediaToolbar props={props} sized={false} />}
+      {shown && <MediaToolbar props={props} sized={false} />}
     </NodeViewWrapper>
   )
 }
