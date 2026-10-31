@@ -523,7 +523,7 @@ const GlossaryDemo: Demo = ({ live }) => {
 
 // ---------------------------------------------------------------- Remembering
 
-const GRADES = ['Again', 'Hard', 'Good', 'Easy']
+const GRADES = ['Forgot', 'Got it']
 const ReviewDemo: Demo = ({ live }) => {
   const at = useSteps([1400, 1100, 2000], live, 2)
   return (
@@ -534,10 +534,10 @@ const ReviewDemo: Demo = ({ live }) => {
           <div className="pt-1.5 text-meta text-muted-foreground">How small a mass must be squeezed to become a black hole.</div>
         </motion.div>
       </div>
-      <div className="grid grid-cols-4 gap-1">
+      <div className="grid grid-cols-2 gap-1">
         {GRADES.map((grade) => (
-          <span key={grade} className={`flex flex-col items-center rounded-md border py-1 text-meta transition-colors duration-200 ${at === 2 && grade === 'Good' ? 'border-transparent bg-primary text-primary-foreground' : 'text-muted-foreground'}`}>
-            {grade}<span className="text-[0.625rem] opacity-70">{({ Again: '1m', Hard: '2d', Good: '4d', Easy: '9d' } as Record<string, string>)[grade]}</span>
+          <span key={grade} className={`flex flex-col items-center rounded-md border py-1 text-meta transition-colors duration-200 ${at === 2 && grade === 'Got it' ? 'border-transparent bg-primary text-primary-foreground' : 'text-muted-foreground'}`}>
+            <span className="font-medium">{({ Forgot: 'in 10 min', 'Got it': 'in 4 days' } as Record<string, string>)[grade]}</span><span className="text-[0.625rem] opacity-70">{grade}</span>
           </span>
         ))}
       </div>

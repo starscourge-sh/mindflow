@@ -71,9 +71,9 @@ const PEEKS: Record<string, PagePeek> = {
         <div className="my-1 border-t border-dashed border-foreground/15" />
         <div className="line-clamp-2 text-muted-foreground">{exampleCard.answer}</div>
       </MCard>
-      <div className="grid grid-cols-4 gap-1">
-        {[['Again', 'red'], ['Hard', 'orange'], ['Good', 'green'], ['Easy', 'blue']].map(([word, tint], n) => (
-          <span key={word} className="flex items-center justify-center gap-1 rounded border border-foreground/10 py-0.5 text-[9px]"><span style={tinted(tint)}>{n + 1}</span>{word}</span>
+      <div className="grid grid-cols-2 gap-1">
+        {[['Forgot', 'red', 1], ['Got it', 'green', 3]].map(([word, tint, key]) => (
+          <span key={word} className="flex items-center justify-center gap-1 rounded border border-foreground/10 py-0.5 text-[9px]"><span style={tinted(String(tint))}>{key}</span>{word}</span>
         ))}
       </div>
     </>)

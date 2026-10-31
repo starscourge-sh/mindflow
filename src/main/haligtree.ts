@@ -374,6 +374,8 @@ const DEFAULTS = {
   // No limit on reviews: a capped review waits past its day and fades. Fewer
   // new cards is the lever; 0 here means no limit.
   reviewsPerDay: 0,
+  // Two grades out of the box (Forgot, Got it), or Anki's four.
+  grades: 2 as 2 | 4,
   quietStart: '22:00',
   quietEnd: '07:00',
   safeMode: false,

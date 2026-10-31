@@ -9,7 +9,7 @@ import { chime, type Cue } from '@/lib/sound'
 import { cn } from '@/lib/cn'
 import { ago, dayjs, num } from '../../../../main/dates'
 import type { Feed, FeedPost, FeedSide, PollAnswer, Reaction } from '../../../../main/feed'
-import { GRADES } from './review-view'
+import { useGrades } from './review-view'
 import { backIn } from '@/lib/back-in'
 import { openSource, sources, type SourceSummary } from '@/lib/sources'
 import { Kbd, Page, Tip, jumpTo, openTag, quietly, toast } from './ui'
@@ -731,6 +731,7 @@ function QuizPost({ post, onOpen }: { post: FeedPost; onOpen: () => void }): Rea
   const [graded, setGraded] = useState(quiz.graded)
   // The dates each grade promised when asked: a grade reschedules the card, and the buttons keep saying what they said.
   const [intervals] = useState(quiz.intervals)
+  const { grades, two, name: gradeName } = useGrades()
   const started = useRef(Date.now())
   const reveal = (): void => (chime('reveal'), setShown(true))
   const grade = (value: 1 | 2 | 3 | 4): void => {
@@ -751,8 +752,8 @@ function QuizPost({ post, onOpen }: { post: FeedPost; onOpen: () => void }): Rea
           {shown ? (
             <>
               <p data-feed-quiz-answer className="line-clamp-[8] rounded-lg border bg-accent/25 px-4 py-3 text-body leading-relaxed whitespace-pre-line [overflow-wrap:anywhere] text-foreground">{quiz.answer}</p>
-              <div className="grid max-w-[28rem] grid-cols-4 gap-2">
-                {GRADES.map(({ grade: value, label, hint, tone }) => (
+              <div className={cn('grid max-w-[28rem] gap-2', two ? 'grid-cols-2' : 'grid-cols-4')}>
+                {grades.map(({ grade: value, label, hint, tone }) => (
                   <Tip key={value} label={`${hint}: back ${backIn(intervals[value])}`}>
                     <button type="button" data-feed-grade={value} disabled={!!graded && graded.grade !== value} aria-pressed={graded?.grade === value} onClick={() => grade(value)}
                       style={{ '--tone': tone } as React.CSSProperties}
@@ -765,7 +766,7 @@ function QuizPost({ post, onOpen }: { post: FeedPost; onOpen: () => void }): Rea
                 ))}
               </div>
               <p data-feed-quiz-said className="min-h-5 text-control text-muted-foreground">
-                {graded ? `Graded “${GRADES[graded.grade - 1].label}”, as Review would: back ${backIn(graded.due)}.` : 'How did it feel? It counts as a review.'}
+                {graded ? `Graded “${gradeName(graded.grade)}”, as Review would: back ${backIn(graded.due)}.` : 'How did it feel? It counts as a review.'}
                 {' '}<OpenLink onOpen={onOpen}>Open the card</OpenLink>
               </p>
             </>

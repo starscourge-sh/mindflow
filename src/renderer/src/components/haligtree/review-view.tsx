@@ -11,10 +11,10 @@ import { Unfold } from './glide'
 import { HaligtreeEditor } from '../haligtree'
 import { textOf } from '../rot-cards'
 import { chime, fold } from '@/lib/sound'
-import { interval, unloaded, haligtree, when, whenInLine, type Due, type Exam, type Item, useLive } from '@/lib/haligtree'
+import { interval, unloaded, haligtree, when, whenInLine, type Due, type Exam, type Item, type Settings, useLive } from '@/lib/haligtree'
 import { exampleCard } from '@/lib/examples'
 import { Example } from './example'
-import { Book, Empty, Page, Rolling, toast, Typed, typing, refuse, quietly } from './ui'
+import { Book, Empty, Kbd, Page, Rolling, toast, Typed, typing, refuse, quietly } from './ui'
 import { ProgressBar } from './progress-bar'
 import { working } from './beam'
 import { Input } from '@/components/ui/input'
@@ -51,6 +51,23 @@ export const GRADES = [
   { grade: 3, label: 'Good', hint: 'Normal effort', tone: 'var(--tt-color-text-green)' },
   { grade: 4, label: 'Easy', hint: 'Instant', tone: 'var(--tt-color-text-blue)' }
 ] as const
+
+type GradeShape = { grade: 1 | 2 | 3 | 4; label: string; hint: string; tone: string }
+/**
+ * Two grades, the default: Forgot on any hesitation, Got it when it came.
+ * They are Again and Good underneath, and the keys 2 and 4 still give Hard
+ * and Easy for anyone with Anki in their fingers.
+ */
+const TWO: readonly GradeShape[] = [
+  { grade: 1, label: 'Forgot', hint: 'It did not come, or you hesitated', tone: 'var(--tt-color-text-red)' },
+  { grade: 3, label: 'Got it', hint: 'It came', tone: 'var(--tt-color-text-green)' }
+]
+/** The grades the person chose in Settings, two or four, and each grade's name in that set. */
+export function useGrades(): { grades: readonly GradeShape[]; two: boolean; name: (grade: number) => string } {
+  const settings = useLive(haligtree.settings, null as Settings | null)
+  const two = (settings?.grades ?? 2) === 2
+  return { grades: two ? TWO : GRADES, two, name: (grade) => (two ? ['Forgot', 'Hard', 'Got it', 'Easy'] : ['Again', 'Hard', 'Good', 'Easy'])[grade - 1] }
+}
 
 /**
  * The review session, the one surface allowed a definition of done. One card:
@@ -292,7 +309,9 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
   ] : []
   // The typed answer, set against the real one once it is shown: how close, and the grade that suggests.
   const typedScore = shown && said.trim() && card ? closeness(said, answer ?? textOf(card.body)) : null
-  const suggested = typedScore === null ? null : suggestGrade(typedScore)
+  const { grades, two, name: gradeName } = useGrades()
+  // With two grades, Hard and Easy are both Got it: the suggestion is one of the buttons there.
+  const suggested = typedScore === null ? null : two ? (suggestGrade(typedScore) === 1 ? 1 : 3) : suggestGrade(typedScore)
   // Split, only the pane in front answers keys.
   const here = useHere()
   useEffect(() => {
@@ -571,7 +590,7 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
             {said.trim() && suggested && (
               <div data-typed className="-mb-2 flex flex-col gap-1 text-sm">
                 <p className="whitespace-pre-line text-muted-foreground">You wrote: {said}</p>
-                <p><strong className="font-semibold" style={{ color: GRADES[suggested - 1].tone }}>About {Math.round((typedScore ?? 0) * 100)}% the same: that suggests {GRADES[suggested - 1].label}.</strong> <span className="text-muted-foreground">Kept as a thought on the card when you grade it.</span></p>
+                <p><strong className="font-semibold" style={{ color: GRADES[suggested - 1].tone }}>About {Math.round((typedScore ?? 0) * 100)}% the same: that suggests {gradeName(suggested)}.</strong> <span className="text-muted-foreground">Kept as a thought on the card when you grade it.</span></p>
               </div>
             )}
             {/* Context: what makes the answer learnable, shown only after it, or
@@ -602,8 +621,8 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
                 so the Why field above is the only field under the answer. */}
             <GlossLine id={card.id} latest={!!card.why} quiet className="-mt-3" />
             {/* The key shows where there is room for it; in a narrow panel the time comes first. */}
-            <div className="@container grid grid-cols-4 gap-2">
-              {GRADES.map(({ grade: value, label, hint, tone }) => (
+            <div data-grades={grades.length} className={`@container grid gap-2 ${two ? 'grid-cols-2' : 'grid-cols-4'}`}>
+              {grades.map(({ grade: value, label, hint, tone }) => (
                 <Tip key={value} label={`${hint}: back ${backIn(card.intervals[value])}`}>
                 <button
                   type="button"
@@ -616,8 +635,18 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
                   // "in 10 min" never runs out of its button into the next one.
                   className="relative flex min-h-12 w-full min-w-0 flex-col items-center justify-center rounded-md border px-2 py-1.5 text-control transition-colors hover:border-[color-mix(in_srgb,var(--tone)_45%,var(--border))] hover:bg-[color-mix(in_srgb,var(--tone)_10%,transparent)] data-[suggested]:border-[color-mix(in_srgb,var(--tone)_60%,var(--border))] data-[suggested]:bg-[color-mix(in_srgb,var(--tone)_10%,transparent)]"
                 >
-                  <span className="font-semibold" style={{ color: tone }}>{label}</span>
-                  <span className="max-w-full truncate text-xs text-muted-foreground tabular-nums">{backIn(card.intervals[value])}</span>
+                  {two ? (
+                    // With two, when it comes back is the big line: that is what the choice decides.
+                    <>
+                      <span className="max-w-full truncate text-body font-semibold tabular-nums text-foreground">{backIn(card.intervals[value])}</span>
+                      <span className="text-xs font-medium" style={{ color: tone }}>{label} <Kbd>{value}</Kbd></span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-semibold" style={{ color: tone }}>{label}</span>
+                      <span className="max-w-full truncate text-xs text-muted-foreground tabular-nums">{backIn(card.intervals[value])}</span>
+                    </>
+                  )}
                 </button>
                 </Tip>
               ))}
@@ -654,7 +683,7 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
             </Button>
             {last && (
               <Button variant="ghost" size="sm" data-undo-grade onClick={undoLast} className="text-muted-foreground">
-                {last.grade ? `Undo “${['Again', 'Hard', 'Good', 'Easy'][last.grade - 1]}”` : 'Undo “Not today”'}
+                {last.grade ? `Undo “${gradeName(last.grade)}”` : 'Undo “Not today”'}
               </Button>
             )}
           </div>
@@ -866,6 +895,7 @@ function Finished({ count, total, later = 0, compact, onPick, onLearn, ids = [] 
 /** A card as Review shows it once turned over: the question, the answer, and the four grades with when each brings it back. */
 function ExampleCard(): React.JSX.Element {
   const back = ['in 10 min', 'in 2 days', 'in 4 days', 'in 9 days']
+  const { grades, two } = useGrades()
   return (
     <div className="flex flex-col gap-4 px-5 py-6">
       <div className="rounded-lg border bg-accent/30 px-5 py-6">
@@ -875,11 +905,11 @@ function ExampleCard(): React.JSX.Element {
         <p className="text-xs text-muted-foreground">From {exampleCard.from}</p>
         <p className="mt-1.5 leading-relaxed">{exampleCard.answer}</p>
       </div>
-      <div className="@container grid grid-cols-4 gap-2">
-        {GRADES.map(({ grade, label, tone }, at) => (
+      <div className={`@container grid gap-2 ${two ? 'grid-cols-2' : 'grid-cols-4'}`}>
+        {grades.map(({ grade, label, tone }) => (
           <span key={grade} className="flex min-h-12 min-w-0 flex-col items-center justify-center rounded-md border px-2 py-1.5 text-control">
-            <span className="font-semibold" style={{ color: tone }}>{label}</span>
-            <span className="max-w-full truncate text-xs text-muted-foreground tabular-nums">{back[at]}</span>
+            {two ? <span className="text-body font-semibold tabular-nums">{back[grade - 1]}</span> : <span className="font-semibold" style={{ color: tone }}>{label}</span>}
+            <span className="max-w-full truncate text-xs tabular-nums" style={two ? { color: tone } : undefined}>{two ? label : back[grade - 1]}</span>
           </span>
         ))}
       </div>

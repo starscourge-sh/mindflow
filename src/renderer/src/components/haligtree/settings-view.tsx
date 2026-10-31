@@ -1103,6 +1103,8 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
             <Switch checked={settings.reviewsPerDay > 0} onCheckedChange={(on) => set({ reviewsPerDay: on ? Math.max(200, settings.newPerDay * 10) : 0 })} />
           </Setting>
           <CapTuning />
+          <Setting title="Grades" note="How you answer once a card is turned over." more="Two is what most people end up using: Forgot when you hesitated at all, Got it when it came. With two, the keys 2 and 4 still give Hard and Easy, as in Anki." keywords="grade buttons again hard good easy forgot got it two four anki"
+            below={<Choices label="Grades" options={gradeChoices} on={(id) => id === String(settings.grades ?? 2)} pick={(id) => set({ grades: Number(id) as 2 | 4 })} />} />
           <Setting title="Review reminder" note="A reminder at the time you pick, when cards are due." more="A small card in the corner, like “12 cards, about 6 minutes” (a Mac notification when the screen is locked). Clicking it opens Review. Once a day, never in quiet hours or safe mode. Miss a day and nothing is owed: the cards wait." keywords="review reminder notification study time daily">
             {settings.reviewReminder && (
               <TimeField label="Reminder time" value={settings.reviewReminder} onChange={(reviewReminder) => set({ reviewReminder })} />
@@ -1454,6 +1456,15 @@ function CapTuning(): React.JSX.Element | null {
     </p>
   )
 }
+
+/** The two ways to answer a card, each shown as its buttons. */
+const gradeChoices = ([['2', 'Two', [['Forgot', 'var(--tt-color-text-red)'], ['Got it', 'var(--tt-color-text-green)']]], ['4', 'Four', [['Again', 'var(--tt-color-text-red)'], ['Hard', 'var(--tt-color-text-orange)'], ['Good', 'var(--tt-color-text-green)'], ['Easy', 'var(--tt-color-text-blue)']]]] as const).map(([id, label, buttons]) => ({
+  id, label, show: (
+    <span className="flex h-full w-full items-center gap-1 px-2">
+      {buttons.map(([word, tone]) => <span key={word} className="flex h-9 min-w-0 flex-1 items-center justify-center truncate rounded border px-1 text-center text-[0.6rem] font-semibold" style={{ color: tone }}>{word}</span>)}
+    </span>
+  )
+}))
 
 /** Said out loud when the app has turned the hints down itself, and why. */
 function HintTuning(): React.JSX.Element | null {

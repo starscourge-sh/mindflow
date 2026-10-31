@@ -25,7 +25,7 @@ export const LIFECYCLE = 'Catch it in the Inbox, keep the best as gems, write it
 
 const HINTS: Record<string, string> = {
   inbox: `**Everything you catch waits here.** ${LIFECYCLE} In “Go through…”, “Tidy” tags them once a day; once a week, “Decide” what to keep.`,
-  review: '**Cards come back as you start to forget them.** Space turns one over; 1 to 4 says how well you knew it.',
+  review: '**Cards come back as you start to forget them.** Space turns one over; 1 if it did not come, 3 if it did.',
   day: '**A page a day, a week, a month and a year.** Write a line, and what you caught, finished and reviewed gathers underneath; Day, Week, Month and Year switch between them.',
   today: `**Type a task the way you would say it.** ${APP_NAME} reads the when in ‘call Mum friday 6pm’. The same tasks are in your Journal and the Calendar.`,
   questions: '**Your questions, as pages in Writing.** Add clues as they turn up; “Answered” turns them into writing, oldest first.',
