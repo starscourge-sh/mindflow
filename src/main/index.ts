@@ -2903,7 +2903,7 @@ async function importVault(given?: string, picked?: string | null): Promise<void
  * the one it is on, so the last is "241 of 241"); null when over.
  */
 let importToldAt = 0
-function importProgress(at: { done: number; total: number; what: 'notes' | 'pictures' | 'cards' | 'files'; /** It can be stopped from the chip. */ stop?: boolean } | null): void {
+function importProgress(at: { done: number; total: number; what: 'notes' | 'opening' | 'pictures' | 'cards' | 'files'; /** It can be stopped from the chip. */ stop?: boolean } | null): void {
   const now = Date.now()
   if (at && at.done > 0 && at.done < at.total && now - importToldAt < 120) return
   importToldAt = now

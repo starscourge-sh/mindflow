@@ -11,7 +11,7 @@ import { Orb } from './orb'
 import { Rolling } from './ui'
 import { hoverNote } from './note-preview'
 
-type Progress = { done: number; total: number; what: 'notes' | 'pictures' | 'cards' | 'files'; stop?: boolean }
+type Progress = { done: number; total: number; what: 'notes' | 'opening' | 'pictures' | 'cards' | 'files'; stop?: boolean }
 
 /** What an import says it did, sent by main once it is over (main/index.ts). */
 type ImportDone = {
@@ -35,6 +35,7 @@ type ImportDone = {
 
 const WORDS: Record<Progress['what'], string> = {
   notes: 'Bringing in your notes…',
+  opening: 'Opening the deck…',
   pictures: 'Bringing in the pictures…',
   cards: 'Making the cards…',
   files: 'Reading the files…'
@@ -65,7 +66,7 @@ export function ImportProgress(): React.JSX.Element {
         >
           <Orb state="working" />
           <span className="font-medium text-foreground">{WORDS[at.what]}</span>
-          <span className="text-foreground tabular-nums"><Rolling text={at.done} /> of {num(at.total)}</span>
+          <span className="text-foreground tabular-nums"><Rolling text={at.done} /> of {num(at.total)}{at.what === 'opening' ? ' MB' : ''}</span>
           {/* Apple Notes and a vault's folders can be stopped: what is in stays, filed as it would be. */}
           {at.stop && (
             <button type="button" data-import-stop="" onClick={() => (chime('off'), void window.api.haligtree('notes-import:stop'))}

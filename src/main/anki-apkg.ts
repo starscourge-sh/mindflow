@@ -4,7 +4,7 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { DatabaseSync } from 'node:sqlite'
 import { zstdDecompressSync } from 'zlib'
-import { unzipSync } from 'fflate'
+import { Unzip, UnzipInflate } from 'fflate'
 import { createEmptyCard, type Card, type Grade } from 'ts-fsrs'
 import { changed, database } from './captures'
 import { scheduler } from './haligtree'
@@ -38,7 +38,7 @@ type Steps = {
   /** Asked once the deck is read, before anything is kept. */
   choose?: (ask: ApkgAsk) => Promise<ApkgChoice>
   /** How far it has got: pictures first, then cards. */
-  progress?: (done: number, total: number, what: 'pictures' | 'cards') => void
+  progress?: (done: number, total: number, what: 'opening' | 'pictures' | 'cards') => void
 }
 
 const PICTURE = /\.(png|jpe?g|gif|webp|svg|avif|bmp)$/i
@@ -88,6 +88,37 @@ function mediaNames(bytes: Uint8Array): string[] {
     names.push(Buffer.from(entry.subarray(inner, inner + size)).toString('utf8'))
   }
   return names
+}
+
+/**
+ * A package's files, unpacked a few megabytes at a time so the window stays
+ * live and says how far it has got: a 240 MB deck takes seconds to open.
+ * `report` is told the megabytes read of the whole.
+ */
+async function unpackedFiles(path: string, report?: (done: number, total: number) => void): Promise<Record<string, Uint8Array>> {
+  const bytes = await readFile(path)
+  const files: Record<string, Uint8Array> = {}
+  let failed: Error | null = null
+  const unzip = new Unzip((file) => {
+    const parts: Uint8Array[] = []
+    file.ondata = (error, chunk, final) => {
+      if (error) return void (failed ??= error)
+      parts.push(chunk)
+      if (final) files[file.name] = parts.length === 1 ? parts[0] : Buffer.concat(parts)
+    }
+    file.start()
+  })
+  unzip.register(UnzipInflate)
+  const STEP = 4 * 1024 * 1024
+  const megabytes = (n: number): number => Math.max(1, Math.round(n / 1024 / 1024))
+  for (let at = 0; at < bytes.length; at += STEP) {
+    unzip.push(bytes.subarray(at, at + STEP), at + STEP >= bytes.length)
+    if (failed) throw failed
+    report?.(megabytes(Math.min(at + STEP, bytes.length)), megabytes(bytes.length))
+    // A turn for the window between pieces: the progress line moves as it goes.
+    await new Promise((done) => setImmediate(done))
+  }
+  return files
 }
 
 /** Words for a tag here: lower case, "::" levels joined by "-", spaces as "-". */
@@ -206,7 +237,7 @@ const deckNames = (full: string[]): string[] => {
  * the card's place in it) and keeps their progress here.
  */
 export async function importApkg(path: string, steps: Steps = {}): Promise<ApkgCounts> {
-  const files = unzipSync(new Uint8Array(await readFile(path)))
+  const files = await unpackedFiles(path, (done, total) => steps.progress?.(done, total, 'opening'))
   const collection = files['collection.anki21b'] ?? files['collection.anki21'] ?? files['collection.anki2']
   if (!collection) throw new Error('it holds no Anki collection')
   const folder = await mkdtemp(join(tmpdir(), 'haligtree-apkg-'))
