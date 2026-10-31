@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { DndContext, DragOverlay, useDndMonitor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent, type DragMoveEvent, type DragStartEvent, type DropAnimation, type Modifier } from '@dnd-kit/core'
 import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { motion } from 'motion/react'
-import { spring, still } from '@/lib/motion'
+import { EASING, spring, still } from '@/lib/motion'
 import { chime } from '@/lib/sound'
 import { slotTicker } from '@/lib/proximity'
 
@@ -227,7 +227,7 @@ function Row({ id, className, children }: { id: string; className?: string; chil
   const axis = useContext(Axis)
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
     id,
-    transition: still() ? null : { duration: 220, easing: 'cubic-bezier(0.2, 0.9, 0.3, 1)' }
+    transition: still() ? null : { duration: 220, easing: EASING }
   })
   return (
     <div

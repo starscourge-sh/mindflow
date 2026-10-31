@@ -1940,7 +1940,7 @@ function BreakLine({ first, still }: { first: string; still: boolean }): React.J
     const soon = setTimeout(() => (next(), (turn = setInterval(next, 8000))), 4500)
     return () => (clearTimeout(soon), clearInterval(turn))
   }, [first, still])
-  return <span key={line} data-break-line className="block truncate" style={still ? undefined : { animation: 'mf-break-line 420ms cubic-bezier(0.23, 1, 0.32, 1)' }}>{line}</span>
+  return <span key={line} data-break-line className="block truncate" style={still ? undefined : { animation: 'mf-break-line 420ms var(--mf-ease)' }}>{line}</span>
 }
 
 /**

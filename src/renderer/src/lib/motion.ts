@@ -26,6 +26,9 @@ import { positionalKeys, type MotionProps, type TargetAndTransition, type Transi
 /** The one curve the app moves on, the same as `--mf-ease` in CSS. */
 export const EASE = [0.16, 1, 0.3, 1] as const
 
+/** The same curve as a CSS easing string, for the Web Animations API and inline styles. */
+export const EASING = `cubic-bezier(${EASE.join(', ')})`
+
 /** Reduce motion is on: things still fade, but nothing moves or grows. */
 const reduced = (): boolean => matchMedia('(prefers-reduced-motion: reduce)').matches
 

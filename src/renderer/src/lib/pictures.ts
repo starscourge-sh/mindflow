@@ -1,5 +1,5 @@
 import { thumbHashToAverageRGBA, thumbHashToDataURL } from "thumbhash"
-import { still } from "@/lib/motion"
+import { EASING, still } from "@/lib/motion"
 
 /**
  * A stored picture keeps its place before it has loaded, and shows a soft blur
@@ -147,7 +147,7 @@ export function holdPlace(img: HTMLImageElement, soon = false): void {
     // The picture itself is drawn as the background for the fade, over its
     // blur, and is let through once the fade is done: the same pixels, so the
     // hand-over cannot be seen.
-    fade = img.animate([{ backgroundImage: blur }, { backgroundImage: `url(${JSON.stringify(img.currentSrc || img.src)})` }], { duration: 180, easing: "cubic-bezier(0, 0, 0.2, 1)", fill: "forwards" })
+    fade = img.animate([{ backgroundImage: blur }, { backgroundImage: `url(${JSON.stringify(img.currentSrc || img.src)})` }], { duration: 180, easing: EASING, fill: "forwards" })
     fade.finished.then(done, done)
   }
   img.addEventListener("load", () => void img.decode().then(shown, done), { once: true })

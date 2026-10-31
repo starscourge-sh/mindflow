@@ -23,7 +23,7 @@ import { Overlay, SETTLE, snapshot } from './sortable'
 import { Count, Tip, refuse, toast, untoast, whyFailed } from './ui'
 import { useHere } from '@/lib/split'
 import { Check, ChevronDown, ChevronRight, Search, X } from '@/components/ui/icons'
-import { still } from '@/lib/motion'
+import { EASING, still } from '@/lib/motion'
 
 /**
  * A note seen as a board: each heading a list, side by side, each item under
@@ -821,7 +821,7 @@ function LaneBox({ id, title, count, folded, here, onFold, menu, children }: {
   menu: ReactNode
   children: ReactNode
 }): React.JSX.Element {
-  const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({ id, transition: still() ? null : { duration: 220, easing: 'cubic-bezier(0.2, 0.9, 0.3, 1)' } })
+  const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({ id, transition: still() ? null : { duration: 220, easing: EASING } })
   // An empty list still takes a card dropped on it.
   const { setNodeRef: dropRef } = useDroppable({ id: `${id}:drop`, data: { lane: id } })
   const style = { transform: transform ? `translate3d(${Math.round(transform.x)}px, 0, 0)` : undefined, transition, opacity: isDragging ? 0.4 : undefined }
@@ -882,7 +882,7 @@ function CardBox({ id, editor, card, here, editing, disabled, onPick, onTick, on
   menu: (close: () => void) => ReactNode
 }): React.JSX.Element {
   const [menuOpen, setMenuOpen] = useState(false)
-  const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({ id, disabled, transition: still() ? null : { duration: 220, easing: 'cubic-bezier(0.2, 0.9, 0.3, 1)' } })
+  const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({ id, disabled, transition: still() ? null : { duration: 220, easing: EASING } })
   const task = card.node.type.name === 'taskItem'
   const checked = !!card.node.attrs.checked
   // A task's words sit in its second part, after the box the board draws itself.

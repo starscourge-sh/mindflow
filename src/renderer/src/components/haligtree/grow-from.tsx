@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { TINT_HUE } from './sticky-note'
-import { still } from '@/lib/motion'
+import { EASING, still } from '@/lib/motion'
 
 type Rect = { x: number; y: number; width: number; height: number }
 
@@ -21,7 +21,7 @@ function flash(pane: HTMLElement | null): void {
   const line = pane && titleIn(pane)
   line?.animate(
     [{ backgroundColor: 'color-mix(in oklab, var(--tt-color-text-yellow) 28%, transparent)', borderRadius: '6px' }, { backgroundColor: 'transparent', borderRadius: '6px' }],
-    { duration: 1100, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' }
+    { duration: 1100, easing: EASING }
   )
 }
 
@@ -100,7 +100,7 @@ function run(host: HTMLDivElement, grow: { from: Rect; title: string; tint?: str
   const grown = card.animate([
     { transform: `translate(${from.x}px, ${from.y}px) scale(${sx}, ${sy})`, borderRadius: `${round / sx}px / ${round / sy}px` },
     { transform: `translate(${to.x}px, ${to.y}px) scale(1, 1)`, borderRadius: '12px' }
-  ], { duration: 280, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'forwards' })
+  ], { duration: 280, easing: EASING, fill: 'forwards' })
   title.style.transformOrigin = '0 0'
   title.animate([{ opacity: 1, transform: `scale(${1 / sx}, ${1 / sy})` }, { opacity: 0, offset: 0.5 }, { opacity: 0, transform: 'scale(1, 1)' }], { duration: 280, fill: 'forwards' })
   void grown.finished.then(() => {

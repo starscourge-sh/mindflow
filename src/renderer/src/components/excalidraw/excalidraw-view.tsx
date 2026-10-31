@@ -14,7 +14,7 @@ import { Tip } from '@/components/haligtree/ui'
 import { working } from '@/components/haligtree/beam'
 import type { ExcalidrawElement, NonDeleted } from '@excalidraw/excalidraw/element/types'
 import { Check, Pencil as PencilRuler } from '@/components/ui/icons'
-import { still } from '@/lib/motion'
+import { EASING, still } from '@/lib/motion'
 
 /** As the main window's toolbar draws its buttons. */
 const BUTTON = 'flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground'
@@ -87,7 +87,7 @@ export function ExcalidrawView(props: NodeViewProps): React.JSX.Element {
         },
         { transformOrigin: 'top left', transform: 'none' }
       ],
-      { duration: 220, easing: 'cubic-bezier(0.2, 0, 0, 1)' }
+      { duration: 220, easing: EASING }
     )
 
     // Excalidraw sizes its canvas from the box it is in, and a scaled box

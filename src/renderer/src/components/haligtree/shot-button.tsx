@@ -94,7 +94,7 @@ export function ShotButton({ onShot }: { onShot: (area: boolean) => void }): Rea
       ? 'opacity 150ms ease-out'
       : open
         ? `transform 280ms cubic-bezier(.3,1.35,.6,1) ${index * 40}ms, opacity 160ms ease-out ${index * 40}ms, scale 150ms ease-out, border-color 150ms ease`
-        : 'transform 150ms cubic-bezier(0.23, 1, 0.32, 1), opacity 120ms ease-out, scale 150ms ease-out, border-color 150ms ease'
+        : 'transform 150ms var(--mf-ease), opacity 120ms ease-out, scale 150ms ease-out, border-color 150ms ease'
   })
   return (
     <span ref={root} data-shot-button data-open={open || undefined} className="relative inline-flex shrink-0" style={{ width: SIZE, height: SIZE }} onKeyDownCapture={keys}>

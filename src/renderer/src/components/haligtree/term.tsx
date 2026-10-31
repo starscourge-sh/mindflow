@@ -118,7 +118,7 @@ export function WordNotes(): React.JSX.Element {
           tabIndex={-1}
           data-word-note
           // From the word, on the strong ease-out, quick: a note handed over, not a page arriving.
-          className="w-[22rem] gap-0 p-4 text-body duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] data-[state=open]:zoom-in-[0.96] data-[state=closed]:zoom-out-[0.96]"
+          className="w-[22rem] gap-0 p-4 text-body duration-200 ease-(--mf-ease) data-[state=open]:zoom-in-[0.96] data-[state=closed]:zoom-out-[0.96]"
         >
           <Note id={shown.id} turn={turn} />
         </PopoverContent>

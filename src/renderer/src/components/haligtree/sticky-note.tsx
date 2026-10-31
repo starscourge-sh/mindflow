@@ -28,7 +28,7 @@ import { Frost } from './frost'
 import { Signed } from './signature'
 import { cut } from '../../../../main/clip'
 import { X } from '@/components/ui/icons'
-import { still } from '@/lib/motion'
+import { EASING, still } from '@/lib/motion'
 import { APP_NAME } from '../../../../main/name'
 import { num } from '../../../../main/dates'
 
@@ -218,7 +218,7 @@ export const PAPER: CSSProperties = GLASS
  * One lift for both, 240ms on one curve, the same as a glass window's own rise (LIFT_MS in main/sticky-place.ts).
  * Picked up by your hand (data-held), it lifts further: paper straightens with a deeper shadow, glass's words rise a little more.
  */
-export const CARD = GLASS ? 'mf-card group relative flex h-full flex-col rounded-[10px] text-control text-foreground [&>*]:transition-transform [&>*]:duration-240 [&>*]:ease-[cubic-bezier(0.22,1,0.36,1)] hover:[&>*]:-translate-y-0.5 data-held:[&>*]:-translate-y-1! motion-reduce:[&>*]:transition-none' : 'mf-card group relative flex h-full rotate-(--tilt) flex-col rounded-lg border text-control text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.14),0_4px_10px_-2px_rgb(0_0_0/0.16)] transition-[rotate,scale,box-shadow] duration-240 ease-[cubic-bezier(0.22,1,0.36,1)] hover:scale-102 hover:rotate-0 hover:shadow-[0_2px_4px_rgb(0_0_0/0.12),0_10px_18px_-4px_rgb(0_0_0/0.24)] data-held:scale-103! data-held:rotate-0! data-held:shadow-[0_4px_8px_rgb(0_0_0/0.14),0_18px_30px_-6px_rgb(0_0_0/0.3)]! motion-reduce:transition-none'
+export const CARD = GLASS ? 'mf-card group relative flex h-full flex-col rounded-[10px] text-control text-foreground [&>*]:transition-transform [&>*]:duration-240 [&>*]:ease-(--mf-ease) hover:[&>*]:-translate-y-0.5 data-held:[&>*]:-translate-y-1! motion-reduce:[&>*]:transition-none' : 'mf-card group relative flex h-full rotate-(--tilt) flex-col rounded-lg border text-control text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.14),0_4px_10px_-2px_rgb(0_0_0/0.16)] transition-[rotate,scale,box-shadow] duration-240 ease-(--mf-ease) hover:scale-102 hover:rotate-0 hover:shadow-[0_2px_4px_rgb(0_0_0/0.12),0_10px_18px_-4px_rgb(0_0_0/0.24)] data-held:scale-103! data-held:rotate-0! data-held:shadow-[0_4px_8px_rgb(0_0_0/0.14),0_18px_30px_-6px_rgb(0_0_0/0.3)]! motion-reduce:transition-none'
 
 /**
  * Told now and then to stir (see main), the card lifts a little and settles,
@@ -287,7 +287,7 @@ export function useStickyMotion(card: RefObject<HTMLElement | null>, tilt: numbe
     paintTint(new URLSearchParams(location.search).get('tint'))
     // As kept now, in case it changed since the window was made (a reload).
     void window.api.stickyTint().then(paintTint)
-    document.documentElement.style.transition = still() ? '' : '--mf-paper-tint 360ms cubic-bezier(0.22, 1, 0.36, 1)'
+    document.documentElement.style.transition = still() ? '' : '--mf-paper-tint 360ms var(--mf-ease)'
     return window.api.onStickyMotion((what, value) => {
       const el = card.current
       if (what === 'tint') return (paper('slide'), paintTint(String(value)))
@@ -297,7 +297,7 @@ export function useStickyMotion(card: RefObject<HTMLElement | null>, tilt: numbe
         el.toggleAttribute('data-held', Boolean(value))
         if (value) return
         paper('tap')
-        if (!still()) el.animate([{ transform: 'scale(0.985)' }, { transform: 'none' }], { duration: 120, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', composite: 'add' })
+        if (!still()) el.animate([{ transform: 'scale(0.985)' }, { transform: 'none' }], { duration: 120, easing: EASING, composite: 'add' })
         return
       }
       if (still()) return
@@ -305,7 +305,7 @@ export function useStickyMotion(card: RefObject<HTMLElement | null>, tilt: numbe
         el.animate([{ transform: `rotate(${-lean * 1.5}deg)` }, { transform: `rotate(${lean}deg)`, offset: 0.55 }, { transform: 'none' }], { duration: 420, easing: 'cubic-bezier(0.3, 0.7, 0.4, 1)', composite: 'add' })
       if (what === 'peel')
         // Out on the strong ease-out, as the window under it lifts (peelSticky in main).
-        el.animate([{ transform: 'none' }, { transform: `translateY(-10px) rotate(${lean * 3}deg)` }], { duration: 160, easing: 'cubic-bezier(0.23, 1, 0.32, 1)', fill: 'forwards', composite: 'add' })
+        el.animate([{ transform: 'none' }, { transform: `translateY(-10px) rotate(${lean * 3}deg)` }], { duration: 160, easing: EASING, fill: 'forwards', composite: 'add' })
     })
   }, [card, tilt])
 }

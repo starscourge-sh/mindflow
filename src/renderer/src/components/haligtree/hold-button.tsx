@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'motion/react'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/cn'
-import { EASE, still } from '@/lib/motion'
+import { EASING, EASE, still } from '@/lib/motion'
 import { chime, holding } from '@/lib/sound'
 import { FLOAT } from '@/lib/float'
 import { Tip } from './ui'
@@ -103,7 +103,7 @@ export function HoldButton({ onHold, hint, done, cue = null, variant = 'outline'
   const stop = (): void => {
     if (held || !run.current) return
     hush('early')
-    sweep(0, still() ? 0 : 200, 'cubic-bezier(0.23, 1, 0.32, 1)')
+    sweep(0, still() ? 0 : 200, EASING)
   }
   // A release, not a pointer wandering off: too soon is a click, and gets the note.
   const release = (): void => {

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 
 import { SANDBOX, enterSandbox, gatherCarry, leaveSandbox, saberOn } from './sandbox'
 import { haligtree } from './haligtree'
-import { still } from '@/lib/motion'
+import { EASING, still } from '@/lib/motion'
 import { num } from '../../../main/dates'
 
 /**
@@ -54,7 +54,7 @@ export function washTo(hue: Hue | null, always = false): void {
   band.setAttribute('aria-hidden', 'true')
   band.style.setProperty('--wash', hueVar(hue))
   document.body.appendChild(band)
-  const sweep = band.animate([{ transform: 'translateX(-100%)' }, { transform: 'translateX(0)' }], { duration: 300, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'forwards' })
+  const sweep = band.animate([{ transform: 'translateX(-100%)' }, { transform: 'translateX(0)' }], { duration: 300, easing: EASING, fill: 'forwards' })
   setTimeout(() => wear(hue), 150)
   void sweep.finished.then(() => band.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 240, easing: 'ease-out', fill: 'forwards' }).finished).catch(() => undefined).finally(() => band.remove())
 }

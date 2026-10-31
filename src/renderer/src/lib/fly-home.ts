@@ -11,6 +11,7 @@
 export type Home = 'nugget' | 'task' | 'capture' | 'question'
 
 import { byKeys, still } from './motion'
+import { EASING } from '@/lib/motion'
 
 /** The app's curves (STANDARDS): out for what arrives or leaves, in-out for what travels on screen. */
 const OUT = 'cubic-bezier(0.16, 1, 0.3, 1)'
@@ -180,7 +181,7 @@ export function liftFrom(from: HTMLElement | null, home: Home): (() => void) | u
         { transform: 'translate(0px, 0px) scale(1, 1)', borderRadius: '8px' },
         { transform: `translate(${cx - SQUARE / 2 - box.left}px, ${cy - SQUARE / 2 - box.top}px) scale(${sx}, ${sy})`, borderRadius: `${7 / sx}px / ${7 / sy}px` }
       ],
-      { duration: 110, easing: 'cubic-bezier(0.32, 0.72, 0, 1)', fill: 'forwards' }
+      { duration: 110, easing: EASING, fill: 'forwards' }
     )
     void fold.finished
       .then(() => {
@@ -255,7 +256,7 @@ export function shredFrom(from: HTMLElement | null): (() => void) | undefined {
       // comes apart, curling its own way and falling faster as it goes.
       void strip.animate(
         [
-          { transform: 'translateY(0) rotate(0deg)', opacity: 1, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' },
+          { transform: 'translateY(0) rotate(0deg)', opacity: 1, easing: EASING },
           { transform: `translateY(${Math.min(10, box.height * 0.15)}px) rotate(0deg)`, opacity: 1, offset: 0.2, easing: IN_OUT },
           { transform: `translateY(${fall * 0.45}px) rotate(${turn * 0.6}deg) skewY(${turn * 0.3}deg)`, opacity: 1, offset: 0.65, easing: 'linear' },
           { transform: `translateY(${fall}px) rotate(${turn}deg) skewY(${turn * 0.5}deg)`, opacity: 0 }
@@ -303,7 +304,7 @@ export function crumpleFrom(from: HTMLElement | null): (() => void) | undefined 
     picture.animate([{ filter: 'blur(0px)', opacity: 1 }, { filter: 'blur(1.5px)', opacity: 0.55 }], { duration: 120, easing: OUT, fill: 'forwards' })
     void sheet.animate(
       [
-        { clipPath: `polygon(${flat})`, transform: 'rotate(0deg) scale(1, 1)', boxShadow: 'inset 0 0 0 rgb(0 0 0 / 0)', opacity: 1, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' },
+        { clipPath: `polygon(${flat})`, transform: 'rotate(0deg) scale(1, 1)', boxShadow: 'inset 0 0 0 rgb(0 0 0 / 0)', opacity: 1, easing: EASING },
         { clipPath: `polygon(${ball})`, transform: `rotate(${turn}deg) scale(${across}, ${down})`, boxShadow: `inset 0 0 ${size * 0.5}px rgb(0 0 0 / 0.32)`, opacity: 1, offset: 0.4, easing: IN_OUT },
         { clipPath: `polygon(${ball})`, transform: `translate(${turn > 0 ? 70 : -70}px, ${Math.min(size, 48) * 0.6 + 120}px) rotate(${turn * 6}deg) scale(${across * 0.9}, ${down * 0.9})`, boxShadow: `inset 0 0 ${size * 0.5}px rgb(0 0 0 / 0.32)`, opacity: 0 }
       ],

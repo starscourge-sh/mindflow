@@ -1764,7 +1764,7 @@ export function Home(): React.JSX.Element {
       // Peeking, it slides out over the page and back by a CSS transition (an ease-out of its own, 200ms);
       // with Motion off or Reduce motion it only fades. Docked, the wrapper is not there at all.
       <div data-sidebar-peek={sidebar ? undefined : peekIn ? 'in' : 'out'}
-        className={sidebar ? 'contents' : `absolute inset-y-2 z-50 flex rounded-xl bg-background shadow-(--mf-panel-shadow) transition-[opacity,transform] duration-200 ease-[cubic-bezier(.22,1,.36,1)] motion-reduce:!transform-none [:root[data-motion=off]_&]:!transform-none ${right ? 'right-2' : 'left-2'} ${peekIn ? 'translate-x-0 opacity-100' : `opacity-0 ${right ? 'translate-x-6' : '-translate-x-6'}`}`}
+        className={sidebar ? 'contents' : `absolute inset-y-2 z-50 flex rounded-xl bg-background shadow-(--mf-panel-shadow) transition-[opacity,transform] duration-200 ease-(--mf-ease) motion-reduce:!transform-none [:root[data-motion=off]_&]:!transform-none ${right ? 'right-2' : 'left-2'} ${peekIn ? 'translate-x-0 opacity-100' : `opacity-0 ${right ? 'translate-x-6' : '-translate-x-6'}`}`}
         onPointerEnter={sidebar ? undefined : () => setPeek(true)} onPointerLeave={sidebar ? undefined : () => setPeek(false)}>
       {/* Customize opens beside the whole sidebar, just under the window's top bar, so it never hides the bar nor runs off the window. */}
       <Popover open={customizing} onOpenChange={setCustomizing}>

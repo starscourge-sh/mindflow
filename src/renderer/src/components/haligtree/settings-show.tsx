@@ -6,7 +6,7 @@ import { motion } from 'motion/react'
 import { BorderBeam } from 'border-beam'
 import { allThemes, applyTheme, currentTheme, themeName, type Theme } from '@/lib/theme'
 import { chime, step } from '@/lib/sound'
-import { still } from '@/lib/motion'
+import { EASING, still } from '@/lib/motion'
 import { useAlive, useSurface } from '@/lib/use-alive'
 import { Weighted } from './glide'
 import { ProgressBar, type BarStyle } from './progress-bar'
@@ -501,7 +501,7 @@ export function MotionSample({ on }: { on: boolean }): React.JSX.Element {
     const still = !on || matchMedia('(prefers-reduced-motion: reduce)').matches
     if (still) return
     ;[...(cards.current?.children ?? [])].forEach((card, index) =>
-      (card as HTMLElement).animate([{ opacity: 0, transform: 'translateY(8px) scale(0.97)' }, { opacity: 1, transform: 'none' }], { duration: 320, delay: index * 70, easing: 'cubic-bezier(0.23, 1, 0.32, 1)', fill: 'backwards' }))
+      (card as HTMLElement).animate([{ opacity: 0, transform: 'translateY(8px) scale(0.97)' }, { opacity: 1, transform: 'none' }], { duration: 320, delay: index * 70, easing: EASING, fill: 'backwards' }))
   }
   useEffect(play, [on]) // eslint-disable-line react-hooks/exhaustive-deps
   return (

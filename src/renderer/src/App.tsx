@@ -366,7 +366,7 @@ const Header = ({ panel, drawn, onPanel, onNew, menu, nav, title, aside }: {
             beside an empty space. */}
         {/* In turn, never on top of each other: coming in, the chip steps
             aside and then the pill fades in; going out, the pill fades first. */}
-        <span ref={top} className="mf-top relative flex items-center transition-transform duration-[240ms] ease-[cubic-bezier(0.165,0.84,0.44,1)] motion-reduce:transition-none" style={{ transform: panel ? 'translateX(4rem)' : 'translateX(0rem)' }}>
+        <span ref={top} className="mf-top relative flex items-center transition-transform duration-[240ms] ease-(--mf-ease) motion-reduce:transition-none" style={{ transform: panel ? 'translateX(4rem)' : 'translateX(0rem)' }}>
         {aside && <span data-aside className="transition-transform delay-150 duration-150 ease-(--mf-ease) motion-reduce:transition-none [.mf-top:has([data-state=open])_&]:-translate-x-[calc(4.625rem+0.375rem)] [.mf-top:has([data-state=open])_&]:delay-0 [.pointer-in_&]:-translate-x-[calc(4.625rem+0.375rem)] [.pointer-in_&]:delay-0">{aside}</span>}
         <span
           data-zen-target

@@ -165,7 +165,7 @@ function RoundRead({ onRead, className = '' }: { onRead: () => void; className?:
       <button
         type="button"
         onClick={(event) => (event.stopPropagation(), onRead())}
-        className={`flex size-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_6px_14px_-6px_rgb(0_0_0/0.45)] transition-[opacity,translate,scale] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] motion-safe:hover:scale-[1.04] active:scale-[0.95] ${className}`}
+        className={`flex size-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_6px_14px_-6px_rgb(0_0_0/0.45)] transition-[opacity,translate,scale] duration-200 ease-(--mf-ease) motion-safe:hover:scale-[1.04] active:scale-[0.95] ${className}`}
       >
         <BookOpen className="size-3.5" />
       </button>
@@ -262,7 +262,7 @@ function RowCard({ card, list, at, actions }: { card: Card; list: Card[]; at: nu
           data-nav
           data-private={card.private ? '' : undefined}
           data-picked={actions.picked?.(card) || undefined} data-drag-open={`${card.type}:${card.id}`} onClick={(event) => actions.open(card, event)}
-          className={`flex w-full flex-col text-left outline-none transition-[background-color,scale] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] focus-visible:ring-2 focus-visible:ring-ring/50 active:scale-[0.985] ${picture ? 'gap-2 rounded-xl bg-foreground/[0.04] p-1.5 hover:bg-foreground/[0.07]' : 'min-h-[7.5rem] gap-1.5 overflow-hidden rounded-xl bg-foreground/[0.04] p-3.5 hover:bg-foreground/[0.07]'}`}
+          className={`flex w-full flex-col text-left outline-none transition-[background-color,scale] duration-200 ease-(--mf-ease) focus-visible:ring-2 focus-visible:ring-ring/50 active:scale-[0.985] ${picture ? 'gap-2 rounded-xl bg-foreground/[0.04] p-1.5 hover:bg-foreground/[0.07]' : 'min-h-[7.5rem] gap-1.5 overflow-hidden rounded-xl bg-foreground/[0.04] p-3.5 hover:bg-foreground/[0.07]'}`}
         >
           {picture ? (
             <>
@@ -498,7 +498,7 @@ function Feature({ card, line, actions }: { card: Card; line: string; actions: A
           {picture && (
             <Tilt className="shrink-0 rounded-lg">
             <button type="button" tabIndex={-1} data-picked={actions.picked?.(card) || undefined} data-drag-open={`${card.type}:${card.id}`} onClick={(event) => actions.open(card, event)} aria-label={`Open ${nameOf(card)}`}
-              className="aspect-square w-20 shrink-0 overflow-hidden rounded-lg shadow-[0_10px_30px_-10px_rgb(0_0_0/0.5)] transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] motion-safe:hover:scale-[1.02] active:scale-[0.98] @[44rem]/page:w-28">
+              className="aspect-square w-20 shrink-0 overflow-hidden rounded-lg shadow-[0_10px_30px_-10px_rgb(0_0_0/0.5)] transition-transform duration-200 ease-(--mf-ease) motion-safe:hover:scale-[1.02] active:scale-[0.98] @[44rem]/page:w-28">
               {real ? <Picture src={src!} onBroken={() => setBroken(true)} /> : grain && (
                 <span className="relative flex size-full items-center justify-center">
                   <GrainFill cover={grain} tint={tint} shade={grain.paper ? 'all' : 'none'} />
@@ -845,7 +845,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
         </div>
       )}
       {/* The band: the colour of the tile you point at, run down behind the top and faded into the page. */}
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[20rem] transition-[background-color] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]"
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[20rem] transition-[background-color] duration-500 ease-(--mf-ease)"
         style={{ backgroundColor: band ?? 'transparent', maskImage: 'linear-gradient(to bottom, black 0%, black 20%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 20%, transparent 100%)' }} />
       {opened && <BookOpened opened={opened} />}
       {/* Back after a long absence: the one thing you were last in, one click back. */}

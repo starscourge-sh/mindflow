@@ -16,7 +16,7 @@ import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { chime, click } from '@/lib/sound'
 import { slotTicker } from '@/lib/proximity'
 import { archive } from '@/lib/notes'
-import { spring as springs, still } from '@/lib/motion'
+import { EASING, spring as springs, still } from '@/lib/motion'
 import { GROUP_COLORS, groups, tintOf } from '@/lib/groups'
 import { KEY, groupOf, groupsAround, isGroup, type How, type Layout } from '@/lib/group-layout'
 import { cn } from '@/lib/cn'
@@ -101,7 +101,7 @@ const collide: CollisionDetection = (args) => {
   return hit.length ? hit : closestCenter(args)
 }
 /** Emil's ease-out, the curve everything here settles on. */
-const OUT = 'cubic-bezier(0.23, 1, 0.32, 1)'
+const OUT = EASING
 const INDENT = 0
 /** How long the pointer rests on a row's middle before letting go there would make a new folder: a plain drag across rows only moves. */
 const DWELL = 550
