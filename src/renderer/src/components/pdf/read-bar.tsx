@@ -15,6 +15,8 @@ export const MARK_COLORS = [
   { id: "green", label: "Green", css: "#3fae5a" },
   { id: "blue", label: "Blue", css: "#3b8fe0" },
   { id: "pink", label: "Pink", css: "#e0569a" },
+  // Words to make a card of on the second read: the "Card later" walk asks for each.
+  { id: "later", label: "Card later", css: "#8a6fd1" },
 ] as const
 export type MarkColor = (typeof MARK_COLORS)[number]["id"]
 
@@ -120,7 +122,7 @@ export function ReadBar({ at, actions }: { at: { x: number; y: number }; actions
 
 /**
  * The keys the bar shows, while words are picked in this reader: H
- * highlights in the last colour, 1 to 5 in each colour, K keeps a gem, ⇧⌘C
+ * highlights in the last colour, 1 to 6 in each colour (6 is "Card later"), K keeps a gem, ⇧⌘C
  * copies with the citation. Says whether the key was one.
  */
 export function readKey(event: KeyboardEvent, actions: ReadActions): boolean {
@@ -133,7 +135,7 @@ export function readKey(event: KeyboardEvent, actions: ReadActions): boolean {
   if (event.code === "KeyK") return actions.keep(), true
   if (event.code === "KeyL") return actions.lookUp(), true
   if (event.code === "KeyC" && actions.card) return actions.card(), true
-  const digit = /^Digit([1-5])$/.exec(event.code)
+  const digit = /^Digit([1-6])$/.exec(event.code)
   if (digit) return actions.highlight(MARK_COLORS[Number(digit[1]) - 1].id), true
   return false
 }

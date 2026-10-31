@@ -691,6 +691,25 @@ try {
   const snipCard = (await cardsFromBook()).find((one) => one.prompt === 'What does figure 1 show?')
   const snipBody = snipCard ? JSON.stringify((await v('item', snipCard.id))?.body ?? '') : ''
   check('the snip is the card\'s answer: a picture, with the book and page', /!\[\]\(haligtree:\/\/assets\/[^)]+\.png\)/.test(snipBody) && snipBody.includes('#page=2') && snipCard?.passage === 'p. 2', snipBody.slice(0, 200))
+  // "Card later": words marked in its colour (key 6) on the first read; the second-read walk asks for each one's card.
+  await pickOn(3, 'on page 3'); await wait(500)
+  await h.keyboard.press('6'); await wait(700)
+  check('6 marks words "Card later", and the bar counts them', await h.evaluate(() => document.querySelector('[data-card-later-count]')?.textContent === '1'), await h.evaluate(() => document.querySelector('[data-card-later-count]')?.textContent ?? 'none'))
+  await h.click('.pdf-reader button[aria-label="Card later"]'); await wait(800)
+  check('the walk goes to the passage and asks its question, focused', await h.evaluate(() => document.activeElement?.getAttribute('aria-label') === "The card's question" && document.querySelector('.pdf-reader-page-field')?.value === '3'), await h.evaluate(() => document.querySelector('.pdf-reader-page-field')?.value))
+  await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-card-later.png` })
+  await h.keyboard.type('Where is the quiet sentence on the last page?'); await h.keyboard.press('Enter'); await wait(1000)
+  const laterCard = (await cardsFromBook()).find((one) => one.prompt === 'Where is the quiet sentence on the last page?')
+  const laterMarks = (await v('pdf:highlights', pdfSrc)).filter((one) => one.color === 'later')
+  check('Return makes its card, the passage becomes a plain highlight, and the walk ends with what it made', !!laterCard && laterMarks.length === 0 && /Second read done: 1 card made/.test(await h.evaluate(() => document.body.textContent)) && !(await h.evaluate(() => !!document.querySelector('.pdf-reader button[aria-label="Card later"]'))), JSON.stringify({ card: !!laterCard, left: laterMarks.length }))
+  // In the dark: the card's question field beside its sibling, the bar over picked words.
+  await c.look('dark'); await wait(500)
+  await pickOn(2, 'worth keeping'); await wait(500)
+  await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-bar-dark.png` })
+  await h.keyboard.press('c'); await wait(400)
+  await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-card-dark.png` })
+  await h.keyboard.press('Escape'); await wait(300)
+  await c.look('light')
 } catch (error) {
   check('ran without throwing', false, String(error?.stack ?? error))
 } finally {

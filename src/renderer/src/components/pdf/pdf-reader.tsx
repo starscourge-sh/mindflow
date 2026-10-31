@@ -345,14 +345,14 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     void call<{ medium: string | null; prompt: string | null }[]>("items", "nugget").then((all) => setCardsHere(all.filter((one) => one.medium === title && one.prompt).length))
   }, [title])
   /** A card from this page: the answer with the book and page under it, so Review's "From" line opens the page. */
-  const cardOf = async (prompt: string, answer: string, page: number): Promise<void> => {
+  const cardOf = async (prompt: string, answer: string, page: number, quiet = false): Promise<void> => {
     const { author, where } = await whereFrom(page)
     const id = await call<string>("nugget:from", `${answer}\n\n[${where}](${pdfLink(src, name, page, "")})`, { attribution: author || null, medium: title, passage: `p. ${page}`, kind: "quote" })
     await call("item:save", id, { prompt })
     const count = cardsHere + 1
     setCardsHere(count)
     chime("saved")
-    said(count > 15 ? `Card made: ${count} from this source. Most people keep 10 to 15 from an hour; the best ones are enough` : `Card made: ${count} from this source`)
+    if (!quiet) said(count > 15 ? `Card made: ${count} from this source. Most people keep 10 to 15 from an hour; the best ones are enough` : `Card made: ${count} from this source`)
   }
   // Snip: a rectangle dragged over a page (a figure, a typeset equation, a
   // table) cut out as a picture, then made a card's answer or kept as a gem.
@@ -408,7 +408,23 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     return () => window.removeEventListener("keydown", onKey)
   })
   // C: the question asked where the words were; Return makes the card.
-  const [carding, setCarding] = useState<{ page: number; quote: string; x: number; y: number } | null>(null)
+  const [carding, setCarding] = useState<{ page: number; quote: string; x: number; y: number; markId?: string } | null>(null)
+  // The second read: every passage marked "Card later", one after another,
+  // each asking for its card's question where it is; Return makes the card and
+  // the passage becomes a plain highlight, Esc ends the walk.
+  const [walking, setWalking] = useState(0)
+  const madeOne = useRef(false)
+  const walkTo = (next: PdfMark | undefined, made: number): void => {
+    if (!next) {
+      setWalking(0)
+      setCarding(null)
+      return void said(made ? `Second read done: ${made} ${made === 1 ? "card" : "cards"} made` : "Second read ended")
+    }
+    go(next.page)
+    madeOne.current = false
+    const box = scroller.current
+    setCarding({ page: next.page, quote: next.quote, markId: next.id, x: Math.max(8, (box?.clientWidth ?? 600) / 2 - 160), y: (box?.scrollTop ?? 0) + 72 })
+  }
   const actions: ReadActions = {
     highlight: (color) => (rememberColor(color), void mark(color, false)),
     keep: () => void mark(lastColor(), true),
@@ -571,6 +587,12 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           <Button data-style="ghost" aria-label="Details" title={detailsOut ? "Hide details" : "Details"} data-active-state={detailsOut ? "on" : "off"} onClick={() => (chime(detailsOut ? "fold" : "slide"), showDetails(!detailsOut, pane))}>
             <PanelRight className="tiptap-button-icon" />
           </Button>
+          {marks.some((one) => one.color === "later") && (
+            <Button data-style="ghost" aria-label="Card later" title="Second read: make a card of each passage marked Card later" data-active-state={walking ? "on" : "off"} onClick={() => (setWalking(1), walkTo(marks.find((one) => one.color === "later"), 0))}>
+              <SquareStack className="tiptap-button-icon" />
+              <span className="tiptap-button-text" data-card-later-count>{marks.filter((one) => one.color === "later").length}</span>
+            </Button>
+          )}
           <Button data-style="ghost" aria-label="Snip" title="Snip a figure or an equation onto a card: drag over it" data-active-state={snipping ? "on" : "off"} onClick={() => (setSnipping(!snipping), setSnip(null), setSnipped(null))}>
             <Scissors className="tiptap-button-icon" />
           </Button>
@@ -728,8 +750,19 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
               <WhyAfter
                 at={carding}
                 ask={{ kept: carding.quote.startsWith("![](") ? "Answer: the snip" : `Answer: ${carding.quote.length > 28 ? `${carding.quote.slice(0, 27)}…` : carding.quote}`, label: "The card's question", placeholder: carding.quote.startsWith("![](") ? "The question this snip answers" : "The question these words answer" }}
-                onSave={(question) => void cardOf(question, carding.quote, carding.page)}
-                onDone={() => (getSelection()?.removeAllRanges(), setCarding(null))}
+                onSave={(question) => {
+                  void cardOf(question, carding.quote, carding.page, !!walking)
+                  const one = marks.find((each) => each.id === carding.markId)
+                  if (one) (madeOne.current = true, void change(one, { color: null }))
+                }}
+                onDone={() => {
+                  getSelection()?.removeAllRanges()
+                  if (!walking || !carding.markId) return setCarding(null)
+                  // Made: on to the next passage. Esc or a click away: the walk ends here.
+                  if (!madeOne.current) return walkTo(undefined, walking - 1)
+                  setWalking(walking + 1)
+                  walkTo(marks.find((each) => each.color === "later" && each.id !== carding.markId), walking)
+                }}
               />
             )}
             {whyFor && <WhyAfter at={whyFor} onSave={(why) => void call("gloss", whyFor.id, why).then(() => said("Why kept with the gem"))} onDone={() => setWhyFor(null)} />}
