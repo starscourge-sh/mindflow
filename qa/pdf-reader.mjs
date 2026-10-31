@@ -563,6 +563,24 @@ try {
   const row = await h.evaluate(() => [...document.querySelectorAll('[data-drag-open^="pdf:"]')].map((one) => one.textContent.trim()))
   check('⌘K lists the PDF under its title', row.some((one) => one.includes('The Probe Book')), JSON.stringify(row))
   await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-search.png` })
+  // Its row previews the pages on hover, as everywhere a PDF is named: the cover, then across the card to the last page.
+  const rowName = h.locator('[data-drag-open^="pdf:"] [data-pdf-peek]').first()
+  check('the ⌘K row carries the PDF preview', (await rowName.count()) === 1, '')
+  if (await rowName.count()) {
+    await rowName.hover(); await wait(1000)
+    const rowPeek = await h.evaluate(() => document.querySelector('[data-pdf-peek-card] [data-pdf-peek-page]')?.textContent?.trim())
+    const face = await h.evaluate(() => { const r = document.querySelector('[data-pdf-peek-card] [role="button"]')?.getBoundingClientRect(); return r && { left: r.left, top: r.top, width: r.width, height: r.height } })
+    if (face) {
+      const below = face.top > (await rowName.boundingBox()).y
+      await h.mouse.move(face.left + face.width * 0.1, below ? face.top - 4 : face.top + face.height + 4, { steps: 2 })
+      await h.mouse.move(face.left + face.width * 0.1, face.top + face.height / 2, { steps: 4 })
+      await h.mouse.move(face.left + face.width * 0.9, face.top + face.height / 2, { steps: 8 }); await wait(800)
+    }
+    const rowEnd = await h.evaluate(() => document.querySelector('[data-pdf-peek-card] [data-pdf-peek-page]')?.textContent?.trim())
+    await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-search-peek.png` })
+    check('hovering the ⌘K row shows the cover, and the pointer across it turns to the last page', rowPeek === '1 / 3' && rowEnd === '3 / 3', JSON.stringify({ rowPeek, rowEnd }))
+    await h.mouse.move(0, 0); await wait(300)
+  }
   await h.click('[data-drag-open^="pdf:"]'); await wait(300)
   await h.waitForSelector('.pdf-reader .pdf-page[data-page="1"] canvas', { timeout: 10000 }).catch(() => {})
   check('picking it opens it in the reader', await h.evaluate(() => document.querySelector('.pdf-reader-title')?.textContent) === 'The Probe Book', '')
