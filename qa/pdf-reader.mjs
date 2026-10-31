@@ -421,6 +421,11 @@ try {
   await wait(800)
   const side = await h.evaluate(() => ({ reader: !!document.querySelector('.pdf-reader'), note: !!document.querySelector('.tiptap-attachment.is-pdf') }))
   check('⌥-click Open puts the PDF beside the note', side.reader && side.note, JSON.stringify(side))
+  // Opened again with no page of its own, it opens where you last read it.
+  await wait(800)
+  const place = await v('pdf:place', pdfSrc)
+  check('the page last read is kept with the page count', place?.page === 3 && place.pages === 3, JSON.stringify(place))
+  check('and opened again, the PDF opens at that page', await h.evaluate(() => document.querySelector('.pdf-reader-page-field')?.value) === '3', await h.evaluate(() => document.querySelector('.pdf-reader-page-field')?.value))
   await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-beside-note.png` })
   const white2 = await whiteUnderWords()
   check('beside the reader, the block shows no band behind its words', white2 > 0.5, String(white2))

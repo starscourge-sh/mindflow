@@ -329,8 +329,14 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   // Back and Forward bring a page back too; the page you scroll to is kept, so it never jumps.
   useEffect(() => {
     if (doc && start && start !== page) go(start)
+    // Opened with no page of its own: where you last left it.
+    if (doc && !start) void call<{ page: number } | null>("pdf:place", src).then((place) => place && place.page > 1 && go(place.page))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc, start])
+  // The page you are on, kept as you read: the next time it opens there.
+  useEffect(() => {
+    if (doc) void call("pdf:read", src, page, doc.numPages)
+  }, [doc, src, page])
 
   const step = (by: number): void => {
     const at = ZOOMS.findIndex((one) => one >= zoom - 0.001)

@@ -95,6 +95,15 @@ export function registerPdfHighlights(): void {
       .run(...sets.map(([, value]) => (typeof value === 'string' && value ? value : null)), String(id)).changes > 0
   })
   ipcMain.handle('haligtree:pdf:unhighlight', (_event, id: unknown) => db.prepare('delete from pdf_highlights where id = ?').run(String(id)).changes > 0)
+  // Where each PDF was last read: its page, how many it has, and when, so it opens where you left it.
+  db.exec('create table if not exists pdf_reading (src text primary key, page integer not null, pages integer not null, read_at text not null)')
+  ipcMain.handle('haligtree:pdf:place', (_event, src: unknown) =>
+    db.prepare('select page, pages, read_at as readAt from pdf_reading where src = ?').get(String(src)) ?? null)
+  ipcMain.handle('haligtree:pdf:read', (_event, src: unknown, page: unknown, pages: unknown) => {
+    if (typeof src !== 'string' || !Number.isInteger(page) || !Number.isInteger(pages) || (page as number) < 1) return false
+    db.prepare('insert or replace into pdf_reading (src, page, pages, read_at) values (?, ?, ?, ?)').run(src, page as number, pages as number, new Date().toISOString())
+    return true
+  })
   // The title read out of a PDF as it opens, kept so search finds it by that.
   db.exec(TITLES)
   ipcMain.handle('haligtree:pdf:title', (_event, src: unknown, title: unknown) => {
