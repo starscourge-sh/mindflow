@@ -38,12 +38,12 @@ export const cardTint = (card: BrowsedCard): string => groupTint(card.tags[0] ??
 export function Cover({ name, tint, className = '' }: { name: string; tint: string; className?: string }): React.JSX.Element {
   const n = seed(name)
   const letters = name.replace(/^#/, '').replace(/[^\p{L}\p{N}]/gu, '').slice(0, 2) || '?'
-  const arcs = Array.from({ length: 3 }, (_, at) => ({ x: (n >> (at * 5)) % 100, y: (n >> (at * 7 + 3)) % 140, r: 18 + ((n >> (at * 3)) % 34) }))
+  const arcs = Array.from({ length: 3 }, (_, at) => ({ x: (n >>> (at * 5)) % 100, y: (n >>> (at * 7 + 3)) % 140, r: 18 + ((n >>> (at * 3)) % 34) }))
   return (
     <svg viewBox="0 0 100 140" preserveAspectRatio="xMidYMid slice" aria-hidden className={className} style={{ background: `color-mix(in oklab, ${tint} 78%, black)` }}>
       <g fill="none" stroke={`color-mix(in oklab, ${tint} 55%, white)`} strokeWidth="2.2" strokeDasharray={n % 2 ? '7 4' : undefined}>
         {arcs.map((arc, at) => <circle key={at} cx={arc.x} cy={arc.y} r={arc.r} />)}
-        <line x1="0" y1={(n % 60) + 40} x2="100" y2={((n >> 4) % 60) + 40} />
+        <line x1="0" y1={(n % 60) + 40} x2="100" y2={((n >>> 4) % 60) + 40} />
       </g>
       <text x="6" y="132" fontSize="78" fontWeight="700" fill="none" stroke={`color-mix(in oklab, ${tint} 40%, white)`} strokeWidth="1.6" style={{ fontFamily: 'var(--font-heading, serif)' }}>{letters}</text>
     </svg>
@@ -58,15 +58,15 @@ export function Cover({ name, tint, className = '' }: { name: string; tint: stri
 export function Figure({ id, tint }: { id: string; tint: string }): React.JSX.Element {
   const n = seed(id)
   const family = n % 6
-  const count = 6 + ((n >> 3) % 6)
-  const shift = (n >> 7) % 30
+  const count = 6 + ((n >>> 3) % 6)
+  const shift = (n >>> 7) % 30
   const lines: React.ReactNode[] = []
   if (family === 0) for (let at = 0; at <= count; at++) lines.push(<line key={`v${at}`} x1={10 + at * (80 / count)} y1="5" x2={10 + at * (80 / count) + shift / 3} y2="45" />, <line key={`h${at}`} x1="10" y1={5 + at * (40 / count)} x2="90" y2={5 + at * (40 / count)} />)
   else if (family === 1) for (let at = 0; at < count; at++) lines.push(<path key={at} d={`M ${10 + at * 4} 48 A ${36 - at * 3} ${36 - at * 3} 0 0 1 ${82 - at * 2} 48`} />)
-  else if (family === 2) for (let at = 0; at < count + 3; at++) { const y = 6 + at * (38 / (count + 3)); const bend = 4 + ((n >> at) % 14); lines.push(<path key={at} d={`M0 ${y} C 30 ${y - bend}, 60 ${y + bend}, 100 ${y}`} />) }
+  else if (family === 2) for (let at = 0; at < count + 3; at++) { const y = 6 + at * (38 / (count + 3)); const bend = 4 + ((n >>> at) % 14); lines.push(<path key={at} d={`M0 ${y} C 30 ${y - bend}, 60 ${y + bend}, 100 ${y}`} />) }
   else if (family === 3) for (let at = 0; at < count + 2; at++) lines.push(<circle key={at} cx={30 + shift} cy="25" r={2.5 + at * 2.6} />)
-  else if (family === 4) { let d = 'M 8 44'; for (let at = 0; at < count; at++) d += ` h ${84 / count} v ${-((((n >> at) % 5) + 2) * 1.2)}`; for (let at = 0; at < 4; at++) lines.push(<path key={at} d={d} transform={`translate(0 ${-at * 3})`} />) }
-  else for (let row = 0; row < 6; row++) for (let col = 0; col < 14; col++) { const r = 0.4 + (((n >> ((row + col) % 20)) % 4) * 0.35); lines.push(<circle key={`${row}-${col}`} cx={8 + col * 6.4} cy={8 + row * 6.8} r={r} fill={tint} stroke="none" />) }
+  else if (family === 4) { let d = 'M 8 44'; for (let at = 0; at < count; at++) d += ` h ${84 / count} v ${-((((n >>> at) % 5) + 2) * 1.2)}`; for (let at = 0; at < 4; at++) lines.push(<path key={at} d={d} transform={`translate(0 ${-at * 3})`} />) }
+  else for (let row = 0; row < 6; row++) for (let col = 0; col < 14; col++) { const r = 0.4 + (((n >>> ((row + col) % 20)) % 4) * 0.35); lines.push(<circle key={`${row}-${col}`} cx={8 + col * 6.4} cy={8 + row * 6.8} r={r} fill={tint} stroke="none" />) }
   return (
     <svg viewBox="0 0 100 50" aria-hidden data-figure={family} className="h-full w-full" preserveAspectRatio="xMidYMid meet">
       <g fill="none" stroke={tint} strokeWidth="0.6" opacity="0.8">{lines}</g>
