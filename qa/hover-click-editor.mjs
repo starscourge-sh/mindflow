@@ -64,9 +64,22 @@ try {
       window.__reached = false
       window.addEventListener('pointerdown', (event) => (window.__reached ||= el.contains(event.target)), { capture: true, once: true })
     })
-    // Over it first, as a hand on a mouse is, then the press.
-    await target.hover(); await h.waitForTimeout(700)
-    await target.click({ timeout: 5000 }).catch(() => {})
+    // Over it first, as a hand on a mouse is, then the press, aimed at what is
+    // drawn there (a formula's own box is wider than its glyphs, so its middle
+    // is not always ink), as a person aims.
+    const spot = await target.evaluate((el) => {
+      const r = el.getBoundingClientRect()
+      for (let dx = 0.5; dx > 0.05; dx -= 0.1)
+        for (const x of [r.left + r.width * dx, r.right - r.width * dx]) {
+          const y = r.top + r.height / 2
+          const hit = document.elementFromPoint(x, y)
+          if (hit && el.contains(hit)) return [x, y]
+        }
+      return null
+    })
+    if (!spot) { missed.push(`${kind}: nothing of it under the pointer`); continue }
+    await h.mouse.move(spot[0], spot[1], { steps: 4 }); await h.waitForTimeout(700)
+    await h.mouse.down(); await h.mouse.up()
     await h.waitForTimeout(300)
     if (!(await h.evaluate(() => window.__reached))) missed.push(kind)
     await h.keyboard.press('Escape')
