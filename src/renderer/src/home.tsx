@@ -16,6 +16,7 @@ import { chime, chimedWithin, pageTurn, paper, soundOn, tickedWithin, turnedNow 
 import { peekRead, readOnPress, whenRead } from './lib/early-read'
 import { WarmEditor } from './components/haligtree/warm-editor'
 import { PageSwap } from './components/haligtree/page-swap'
+import { isCollecting, startCollect, stopCollect } from '@/extensions/collect'
 import { foldEverything } from './extensions/heading-fold'
 import { NotePreview } from './components/haligtree/note-preview'
 import { TASK_KIND } from './components/haligtree/everything'
@@ -1648,6 +1649,9 @@ export function Home(): React.JSX.Element {
             ] : []),
             { label: 'Fold every heading', cue: null, run: () => void (foldEverything(true) ? quietly(() => void foldEverything(false)) : refuse('No headings to fold in the note in front')) },
             { label: 'Unfold every heading', cue: null, run: () => void (foldEverything(false) ? quietly(() => void foldEverything(true)) : refuse('No headings to unfold in the note in front')) },
+            isCollecting()
+              ? { label: 'Stop collecting what I copy', keys: '⎋', cue: null, run: stopCollect }
+              : { label: 'Collect what I copy', hint: 'Everything you copy on this Mac lands in the note in front', cue: null, run: () => void (startCollect() || refuse('Open a note to collect into')) },
             { label: typewriter ? 'Turn typewriter scrolling off' : 'Turn typewriter scrolling on', cue: typewriter ? 'off' : 'on', run: () => (setTypewriter(!typewriter), toast(typewriter ? 'Typewriter scrolling off' : 'Typewriter scrolling on', () => setTypewriter(typewriter))) },
             { label: settings?.sounds ? 'Turn sounds off' : 'Turn sounds on', cue: null, run: () => {
               soundOn(!settings?.sounds)

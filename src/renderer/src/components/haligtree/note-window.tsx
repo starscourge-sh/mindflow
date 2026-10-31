@@ -21,6 +21,7 @@ import { SECTIONS } from './places'
 import { ShortcutSheet } from './shortcut-sheet'
 import { WordNotes } from './term'
 import { foldEverything } from '@/extensions/heading-fold'
+import { isCollecting, startCollect, stopCollect } from '@/extensions/collect'
 import { themeActions } from '@/lib/theme'
 import { chime } from '@/lib/sound'
 import { toast, typing } from './ui'
@@ -90,6 +91,9 @@ export function NoteWindow({ link }: { link: string }): React.JSX.Element {
               ...SECTIONS.map((section) => ({ label: `Go to ${section.label}`, run: () => window.api.openInHome('view', section.id) })),
               { label: 'Fold every heading', cue: null, run: () => void (foldEverything(true) || chime('nope')) },
               { label: 'Unfold every heading', cue: null, run: () => void (foldEverything(false) || chime('nope')) },
+              isCollecting()
+                ? { label: 'Stop collecting what I copy', keys: '⎋', cue: null, run: stopCollect }
+                : { label: 'Collect what I copy', hint: 'Everything you copy on this Mac lands in this note', cue: null, run: () => void (startCollect() || chime('nope')) },
               { label: 'Keyboard shortcuts', keys: '?', run: () => window.dispatchEvent(new CustomEvent('haligtree:shortcuts')) },
               ...themeActions((text, undo) => toast(text, undo)),
               { label: 'Settings', keys: '⌘,', run: () => window.api.openInHome('view', 'settings') },

@@ -46,6 +46,10 @@ export type EditorCue =
   /** Out into its own window or full screen, or back. */
   | "media-window"
   | "media-window-close"
+  /** Collecting what you copy began, or ended; a copy came in. */
+  | "collect-start"
+  | "collect-stop"
+  | "collect-item"
 
 let play: (cue: EditorCue, n?: number) => void = () => {}
 

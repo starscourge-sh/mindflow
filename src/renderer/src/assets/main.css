@@ -1239,6 +1239,8 @@ input[type='number']::-webkit-outer-spin-button {
 }
 .mf-glow-done { --glow: var(--tt-color-text-green, #3c8a5c); }
 .mf-glow-cancel { --glow: var(--tt-color-text-orange, #d9822b); }
+/* A copy arriving while a note collects what you copy: the window's own edge, in the accent, quicker. */
+.mf-glow-collect { --glow: var(--primary); z-index: 60; border-radius: 10px; animation-duration: 1.1s; }
 @keyframes mf-glow {
   0% { opacity: 0; }
   25% { opacity: 1; }

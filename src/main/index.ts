@@ -74,6 +74,7 @@ import type { Nudge } from './nudge'
 import { firstRun, isWelcoming, keepWindowBeforeWelcome, noteChord, welcomeBoxSpot, windowBeforeWelcome, pretendTaken, registerOnboarding, whenWelcoming, whereTray } from './onboarding'
 import { registerUnused } from './unused'
 import { registerMedia } from './media'
+import { registerCollect } from './collect'
 import { registerTranscribe } from './transcribe'
 import { registerDictation } from './dictation'
 import { registerPeople } from './people'
@@ -3840,6 +3841,7 @@ app.whenReady().then(() => {
   registerOnboarding()
   registerUnused()
   registerMedia()
+  registerCollect()
   registerTranscribe()
   registerDictation()
   registerObsidian()

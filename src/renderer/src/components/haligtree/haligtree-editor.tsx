@@ -79,6 +79,7 @@ import { Attachment } from "@/extensions/attachment"
 import { ExcalidrawDiagram } from "@/extensions/excalidraw"
 import { ContentsBlock } from "@/extensions/contents-block"
 import { Calc } from "@/extensions/calc"
+import { Collect, CollectPill } from "@/extensions/collect"
 import { markdownToDocument } from "@/lib/markdown-doc"
 import { LongDocument } from "@/extensions/long-document"
 import { Typewriter } from "@/extensions/typewriter"
@@ -354,7 +355,7 @@ export interface HaligtreeEditorProps {
    */
   outline?: boolean
   /**
-   * Math as you type: a line ending in `=` shows its answer, Tab writes it in.
+   * Math as you type: a line ending in `=` shows its answer, Tab or → writes it in.
    * The page's own switch covers every editor at once - see `setCalc`; this
    * leaves one editor out of it.
    *
@@ -1452,6 +1453,8 @@ function Surface({
       ...(shape === "document" ? [HeadingFold.configure({ id: foldKey ?? (documentId != null ? String(documentId) : null) })] : []),
       ...(shape === "document" ? [OutlineKeys] : []),
       ...((math ?? shape === "document") ? [Calc] : []),
+      // Collect what you copy: only a whole note can take copies in.
+      ...(shape === "document" ? [Collect] : []),
       ImageDrop,
       DragOut,
       BlockColor,
@@ -1884,6 +1887,7 @@ function Surface({
 
         <ImageMenu editor={editor} />
         <ImageLook editor={editor} />
+        <CollectPill editor={editor} />
 
         {shape === "document" && <TableOfContents editor={editor} shown={outline} />}
         <TableControls editor={editor} />

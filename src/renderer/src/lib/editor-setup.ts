@@ -39,7 +39,10 @@ const CUES: Record<EditorCue, Cue | 'step'> = {
   'media-replay': 'rewind',
   'media-speed': 'step',
   'media-window': 'window',
-  'media-window-close': 'fold'
+  'media-window-close': 'fold',
+  'collect-start': 'on',
+  'collect-stop': 'off',
+  'collect-item': 'noted'
 }
 
 /** The fonts a note can be written in, besides any the Mac has. */

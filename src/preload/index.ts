@@ -38,6 +38,8 @@ let listed: { rows: CaptureMeta[]; version: number } | null = null
 // A note opened in a window of its own, told by the main process to every
 // other window, which closes it there: two editors on one note would each
 // save over the other's words.
+ipcRenderer.on('collect:item', (_event, copied: unknown) => window.dispatchEvent(new CustomEvent('haligtree:collect-item', { detail: copied })))
+ipcRenderer.on('collect:state', (_event, on: boolean) => window.dispatchEvent(new CustomEvent('haligtree:collect-state', { detail: on })))
 ipcRenderer.on('notes:opened-apart', (_event, id: string) => window.dispatchEvent(new CustomEvent('haligtree:opened-apart', { detail: id })))
 // A note moving between the main window and its own (lib/apart.ts): its window
 // closed, a caret carried in, or asked to go back home.
@@ -144,6 +146,8 @@ const api = {
 
   /** The picture on the system clipboard, read by the system rather than from a pasted file that may not open. */
   clipboardImage: (): Promise<{ mime: string; bytes: Uint8Array } | null> => ipcRenderer.invoke('clipboard-image'),
+  /** Collect what you copy anywhere on the Mac into this window's note (main/collect.ts). */
+  collect: { start: (): Promise<boolean> => ipcRenderer.invoke('collect:start'), stop: (): Promise<void> => ipcRenderer.invoke('collect:stop') },
   /** The names of files copied in Finder, if the clipboard holds any: asked at once, as a paste decides there and then. */
   copiedFileNames: (): string[] => ipcRenderer.sendSync('clipboard:file-names') ?? [],
   /** The files copied in Finder, read. */
