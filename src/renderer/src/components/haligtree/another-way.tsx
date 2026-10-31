@@ -1,6 +1,5 @@
 import { useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
 import { haligtree, type Due } from '@/lib/haligtree'
 import { chime } from '@/lib/sound'
 import { Kbd, refuse, toast } from './ui'
@@ -13,6 +12,9 @@ import { Kbd, refuse, toast } from './ui'
  * so only a question and its answer are written; the box stays open for the
  * next angle, and says how many were made.
  */
+/** Written straight onto the card: no box, so the faint italic line stays while the caret is in it and says where. */
+const FIELD = 'field-sizing-content w-full resize-none bg-transparent text-foreground outline-none placeholder:italic placeholder:font-normal placeholder:text-muted-foreground'
+
 export function AnotherWay({ card, onClose }: { card: Due; onClose: () => void }): React.JSX.Element {
   const [question, setQuestion] = useState('')
   const [answer, setAnswer] = useState('')
@@ -41,18 +43,21 @@ export function AnotherWay({ card, onClose }: { card: Due; onClose: () => void }
     else save()
   }
   return (
-    <section data-another-way className="-mt-2 flex flex-col gap-2 rounded-lg border px-4 py-3">
-      <p className="text-body font-medium text-foreground">Ask another way</p>
-      <p className="-mt-1.5 text-sm text-muted-foreground">
+    // A second card under the one asked, in its look: the new question written
+    // where a question sits (the serif, no box), its answer under a fold.
+    <section data-another-way className="-mt-2 flex flex-col gap-3 rounded-lg border bg-accent/30 px-5 pt-4 pb-3">
+      <p className="text-sm text-foreground/80">
+        <b className="font-semibold text-foreground">Ask another way.</b>{' '}
         {kept.length ? `The new card keeps ${kept.join(', ').replace(/, ([^,]*)$/, ' and $1')}: write only the question and its answer.` : 'A new question on the same thing: one topic from many angles is how it sticks.'}
       </p>
-      <Textarea ref={ask} autoFocus rows={1} value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={(event) => keys(event, () => document.querySelector<HTMLTextAreaElement>('[data-another-answer]')?.focus())}
-        placeholder="The new question, from another angle" aria-label="New question" data-another-question className="min-h-0 resize-none text-body" />
-      <Textarea rows={2} value={answer} onChange={(event) => setAnswer(event.target.value)} onKeyDown={(event) => keys(event)}
-        placeholder="Its answer" aria-label="Its answer" data-another-answer className="resize-none text-body" />
-      <div className="flex items-center gap-2">
-        <Button size="sm" data-another-save onClick={save}>Make the card</Button>
-        <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={onClose}>{made ? 'Done' : 'Cancel'}</Button>
+      <textarea ref={ask} autoFocus rows={1} value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={(event) => keys(event, () => document.querySelector<HTMLTextAreaElement>('[data-another-answer]')?.focus())}
+        placeholder="The new question, from another angle" aria-label="New question" data-another-question className={`${FIELD} font-serif text-2xl leading-snug font-semibold`} />
+      <div aria-hidden className="border-t border-dashed border-foreground/15" />
+      <textarea rows={2} value={answer} onChange={(event) => setAnswer(event.target.value)} onKeyDown={(event) => keys(event)}
+        placeholder="Its answer" aria-label="Its answer" data-another-answer className={`${FIELD} text-body leading-relaxed`} />
+      <div className="flex items-center gap-2 pt-1">
+        <Button size="sm" className="cursor-pointer" data-another-save onClick={save}>Make the card</Button>
+        <Button variant="ghost" size="sm" className="cursor-pointer text-muted-foreground" onClick={onClose}>{made ? 'Done' : 'Cancel'}</Button>
         <span data-another-made className="ml-auto text-sm text-muted-foreground tabular-nums">
           {made ? `${made} new ${made === 1 ? 'angle' : 'angles'} on this` : <>↵ next field, <Kbd>Esc</Kbd> closes</>}
         </span>
