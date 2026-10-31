@@ -3,7 +3,7 @@
 //  2. dump mode: many lines picked, a capture each, kind and tags read from each line, one Undo
 //  3. a link named after its page offers to be named after its topic, the page's title kept as its source
 //  4. `[[New name]]` makes no page until it is opened; words picked and `[` `[` wrap into a link
-//  5. the kind list puts the kinds you use most and lately first, each keeping its number
+//  5. the kind list keeps one order (Note, Task, Quote, Word, Link, Check back), each with its number, however much one is used
 //  6. a Word is a lookup: asked until answered, waiting in Lookups; "Look up" on a picked word saves it
 //  7. a change of kind keeps the old kind's fields out of sight and brings them back
 //  8. "Share with a new page" makes the words a page of their own, still shown in place and editable there
@@ -270,14 +270,18 @@ try {
   }
 
   // --- 5. the kind list by use -------------------------------------------------
-  for (let i = 0; i < 25; i++) await make({ kind: 'experiment', body: doc(`Probe try ${i}`) })
+  // Experiment and Decision are one kind now, Check back (a date, then a question
+  // back to you): the last kind in the list, number 6, so the one to climb.
+  for (let i = 0; i < 25; i++) await make({ kind: 'checkback', body: doc(`Probe try ${i}`) })
   await page.evaluate(() => window.api.showPrompt()); await page.waitForTimeout(700)
   await page.locator('[data-kind-chip]').first().click(); await page.waitForTimeout(800)
   const rows = await page.evaluate(() => [...document.querySelectorAll('[cmdk-item]')].map((one) => one.innerText.replace(/\s+/g, ' ').trim()))
-  // The sandbox's many notes keep Note first; the experiments just made pass every other kind.
-  const at = rows.findIndex((one) => /^Experiment/.test(one))
-  check('5. the kinds used most and lately come first: Experiment passes Task, Quote, Word, Link and Decision', at >= 0 && at <= 1 && rows.slice(at + 1).every((one) => !/^Note/.test(one)), rows.map((one) => one.split(' ')[0]).join(' / '))
-  check('5. it keeps its own number, 7', /7$/.test(rows[at] ?? ''), rows[at])
+  // Since 34b16e29 kinds keep one order everywhere (kindRank), never reordered by use:
+  // twenty-five check-backs later the list still reads Note, Task, Quote, Word, Link, Check back.
+  const at = rows.findIndex((one) => /^Check back/.test(one))
+  const order = rows.map((one) => (/^Check back/.test(one) ? 'Check back' : one.split(' ')[0]))
+  check('5. the kinds keep their one order however much one is used: Note, Task, Quote, Word, Link, Check back', JSON.stringify(order) === JSON.stringify(['Note', 'Task', 'Quote', 'Word', 'Link', 'Check back']), order.join(' / '))
+  check('5. it keeps its own number, 6', /6$/.test(rows[at] ?? ''), rows[at])
   await page.keyboard.press('Escape'); await page.waitForTimeout(200); await page.keyboard.press('Escape')
 
   const real = errors.filter((e) => !/favicon|net::ERR|Failed to load resource/.test(e))
