@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 
 /** One card as the browser lists it (haligtree.ts `cards:all`). */
-export type BrowsedCard = { id: string; prompt: string; title: string; answer: string; tags: string[]; dueAt: string | null; createdAt: string; paused: boolean; difficulty: number | null; reviews: number; stage: 'new' | 'learning' | 'learnt' }
+export type BrowsedCard = { id: string; prompt: string; title: string; answer: string; tags: string[]; dueAt: string | null; createdAt: string; paused: boolean; difficulty: number | null; reviews: number; stage: 'new' | 'learning' | 'learnt'; /** Remembered across a gap of 15 days or more. */ known: boolean; /** Things the answer asks for; past 4 it is too big. */ things: number; /** Seconds it takes you, from 2 or more timed reviews. */ seconds: number | null }
 
 type Sort = 'due' | 'added' | 'hard'
 const SORTS: { id: Sort; label: string }[] = [
@@ -118,6 +118,7 @@ export function CardBrowser({ onOpen, pasting: pastingFirst = false }: { onOpen:
         <span><strong className="font-semibold text-[var(--tt-color-text-blue)] tabular-nums">{num(shown.filter((one) => one.stage === 'new' && !one.paused).length)}</strong> new</span>
         <span><strong className="font-semibold text-[var(--tt-color-text-orange)] tabular-nums">{num(shown.filter((one) => one.stage === 'learning' && !one.paused).length)}</strong> learning</span>
         <span><strong className="font-semibold text-[var(--tt-color-text-green)] tabular-nums">{num(shown.filter((one) => one.dueAt && Date.parse(one.dueAt) <= Date.now() && !one.paused).length)}</strong> due now</span>
+        <span data-card-known><strong className="font-semibold text-[var(--tt-color-text-purple)] tabular-nums">{num(shown.filter((one) => one.known).length)}</strong> known <span className="text-muted-foreground">(remembered after 15 days or more)</span></span>
         <span className="text-muted-foreground">{num(shown.length)} of {num(cards.length)} cards{tag ? ` with #${tag}` : ''}</span>
       </p>
       <ul className="flex flex-col">
@@ -149,7 +150,12 @@ export function CardBrowser({ onOpen, pasting: pastingFirst = false }: { onOpen:
                     <span className="min-w-0 truncate text-sm font-medium"><WithPictures text={card.prompt.replace(/!\[[^\]]*\]\([^)]*\)/g, '').trim() || card.prompt} small /></span>
                   )}
                   <span className={`text-right text-xs tabular-nums ${dueSaid(card) === 'due now' ? 'text-foreground' : 'text-muted-foreground'}`}>{dueSaid(card)}</span>
-                  <span className="min-w-0 truncate text-xs text-muted-foreground">{card.answer || 'No answer yet'}</span>
+                  <span className="min-w-0 truncate text-xs text-muted-foreground">
+                    {/* Too big, said where it is seen: more than 4 things, or 40 seconds or more each time. */}
+                    {(card.things > 4 || (card.seconds ?? 0) >= 40) && <span data-card-big className="mr-1.5 font-medium text-[var(--tt-color-text-orange)]">{card.things > 4 ? `${num(card.things)} things, split it?` : `${num(card.seconds!)} s each, split it?`}</span>}
+                    {card.known && <span data-card-known-mark className="mr-1.5 font-medium text-[var(--tt-color-text-purple)]">known</span>}
+                    {card.answer || 'No answer yet'}
+                  </span>
                   <span className="truncate text-right text-xs text-muted-foreground">{card.tags.slice(0, 2).map((one) => `#${one}`).join(' ')}</span>
                 </div>
               </RowMenu>

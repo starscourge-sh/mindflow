@@ -21,7 +21,7 @@ import { celebrateAfter, goalPassed, watches, type MomentKind } from './celebrat
 import type { MomentSource } from './moment-source'
 import { keepPins, warmGiphy } from './giphy'
 import { daysBetween, daysLeft, leftSaid } from './goal-days'
-import { LEECH_AT, balancedDay, bucketOf, withinTagLimits, daysInARow, fitFirstDays, minutesFor, shuffleNew, struggling, type Bucket } from './study'
+import { LEECH_AT, balancedDay, bucketOf, thingsIn, withinTagLimits, daysInARow, fitFirstDays, minutesFor, shuffleNew, struggling, type Bucket } from './study'
 import { syncLineCards } from './line-cards'
 import { busy } from './busy'
 import { LEARN_DECK, LEARN_EARLIER, LEARN_TAG } from './learn-deck'
@@ -2858,8 +2858,11 @@ export function registerHaligtree(): void {
   })
 
   // --- the card browser: every card, with what it is filtered and sorted by
-  handle('cards:all', () =>
-    (db.prepare(`select id, prompt, title, body, state, due_at as dueAt, created_at as createdAt, suspended from nuggets
+  handle('cards:all', () => {
+    // Known (remembered across 15 days or more) and the seconds a card takes, each review counted as 60 at most.
+    const known = new Set((db.prepare(`select distinct item_id as id from (select item_id, grade, julianday(reviewed_at) - julianday(lag(reviewed_at) over (partition by item_id order by reviewed_at)) gap from review_log) where grade > 1 and gap >= 15`).all() as { id: string }[]).map((row) => row.id))
+    const pace = new Map((db.prepare('select item_id as id, avg(min(ms, 60000)) ms, count(ms) n from review_log where ms is not null group by item_id').all() as { id: string; ms: number; n: number }[]).filter((row) => row.n >= 2).map((row) => [row.id, Math.round(row.ms / 1000)]))
+    return (db.prepare(`select id, prompt, title, body, state, due_at as dueAt, created_at as createdAt, suspended from nuggets
       where coalesce(prompt, '') != '' and archived_at is null and binned_at is null and superseded_by is null`).all() as { id: string; prompt: string; title: string | null; body: string | null; state: string | null; dueAt: string | null; createdAt: string; suspended: number }[])
       .map((row) => {
         const answer = plain(JSON.parse(row.body ?? 'null'))
@@ -2870,9 +2873,11 @@ export function registerHaligtree(): void {
           // How hard it has been, 1 to 10 (FSRS's difficulty); a card never reviewed has none yet.
           difficulty: card?.difficulty ?? null, reviews: card?.reps ?? 0,
           // Where it stands, in the words Anki users know: new, still being learnt (or relearnt after a miss), or learnt.
-          stage: !card ? 'new' : card.state === 1 || card.state === 3 ? 'learning' : 'learnt'
+          stage: !card ? 'new' : card.state === 1 || card.state === 3 ? 'learning' : 'learnt',
+          known: known.has(row.id), things: thingsIn(answer), seconds: pace.get(row.id) ?? null
         }
-      }))
+      })
+  })
   // A tag put on, or taken off, several cards at once: in the answer's words, where a card's tags live.
   // What each answer was is handed back, for one Undo.
   handle('cards:retag', (ids: string[], tag: string, on: boolean) => {

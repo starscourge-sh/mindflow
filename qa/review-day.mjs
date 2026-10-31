@@ -70,6 +70,14 @@ try {
   await h.locator('[data-study-honest]').scrollIntoViewIfNeeded()
   await c.both(`${shots}/review-day-stats`)
 
+  // 5b. The card browser says the same: how many are known, and which cards are too big.
+  await v('cards:list', [{ term: 'The planets in order', meaning: 'Mercury, Venus, Earth, Mars, Jupiter, Saturn #qaplanets' }])
+  await h.evaluate(() => document.querySelector('[data-review-tab="cards"]')?.click())
+  check('"All cards" counts the known ones', await waitFor(() => h.evaluate(() => /known \(remembered after 15 days or more\)/.test(document.querySelector('[data-card-known]')?.textContent ?? ''))))
+  check('a six-item answer is marked "6 things, split it?"', await waitFor(() => h.evaluate(() => [...document.querySelectorAll('[data-card-big]')].some((one) => one.textContent === '6 things, split it?'))))
+  await h.locator('[data-card-big]').first().scrollIntoViewIfNeeded()
+  await c.both(`${shots}/review-day-browser`)
+
   // 6. The end of a short sitting: seconds a card (and the longest-kept card when there is one).
   for (const one of await v('items', 'nugget')) if (one.prompt && !/^(Speed of light|Planck constant)$/.test(one.prompt)) await v('item:save', one.id, { suspended: true })
   await fresh()
