@@ -34,7 +34,7 @@ import { onboarding } from '@/lib/onboarding'
 import { WithPictures } from './with-pictures'
 import { languageOf, sayAgain, speak } from '@/lib/read-aloud'
 import { LearnMode } from './learn-mode'
-import { closeness, isLeech, suggestGrade } from '../../../../main/study'
+import { isLeech, typedCheck } from '../../../../main/study'
 import { Star } from 'lucide-react'
 import { RowMenu, copyLinkItem, type RowItem } from './row-menu'
 import { binItem } from '@/lib/to-bin'
@@ -308,10 +308,11 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
     binItem([{ type: 'nugget', id: card.id }], () => drop(card.id))
   ] : []
   // The typed answer, set against the real one once it is shown: how close, and the grade that suggests.
-  const typedScore = shown && said.trim() && card ? closeness(said, answer ?? textOf(card.body)) : null
+  const checked = shown && said.trim() && card ? typedCheck(said, answer ?? textOf(card.body)) : null
+  const typedScore = checked?.score ?? null
   const { grades, two, name: gradeName } = useGrades()
   // With two grades, Hard and Easy are both Got it: the suggestion is one of the buttons there.
-  const suggested = typedScore === null ? null : two ? (suggestGrade(typedScore) === 1 ? 1 : 3) : suggestGrade(typedScore)
+  const suggested = typedScore === null ? null : two ? (checked!.grade === 1 ? 1 : 3) : checked!.grade
   // Split, only the pane in front answers keys.
   const here = useHere()
   useEffect(() => {
@@ -591,6 +592,12 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
               <div data-typed className="-mb-2 flex flex-col gap-1 text-sm">
                 <p className="whitespace-pre-line text-muted-foreground">You wrote: {said}</p>
                 <p><strong className="font-semibold" style={{ color: GRADES[suggested - 1].tone }}>About {Math.round((typedScore ?? 0) * 100)}% the same: that suggests {gradeName(suggested)}.</strong> <span className="text-muted-foreground">Kept as a thought on the card when you grade it.</span></p>
+                {checked?.said && (
+                  <p data-typed-said className="flex flex-wrap items-center gap-2 text-body font-medium text-foreground">
+                    {checked.said}
+                    {checked.close && <Button variant="outline" size="sm" data-typed-count onClick={() => grade(3)}>Count it as {gradeName(3)}</Button>}
+                  </p>
+                )}
               </div>
             )}
             {/* Context: what makes the answer learnable, shown only after it, or

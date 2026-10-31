@@ -1,7 +1,7 @@
 // Run with: node --test test/study.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { bucketOf, closeness, daysInARow, fitFirstDays, isEquation, isLeech, keyWords, LEECH_AT, lineCard, lineCardsIn, matchLineCards, mentions, minutesFor, shuffleNew, suggestGrade, termLines, wordsIn } from '../src/main/study.ts'
+import { bucketOf, closeness, daysInARow, fitFirstDays, isEquation, isLeech, keyWords, LEECH_AT, lineCard, lineCardsIn, matchLineCards, mentions, minutesFor, shuffleNew, suggestGrade, termLines, typedCheck, wordsIn } from '../src/main/study.ts'
 
 test('a line with :: between words is a card', () => {
   assert.deepEqual(lineCard('Capital of Peru :: Lima'), { question: 'Capital of Peru', answer: 'Lima' })
@@ -161,6 +161,8 @@ test('a pasted list of equations is not cut into terms', () => {
   assert.equal(isEquation('a - b = c'), true)
   assert.equal(isEquation('Force - F = ma'), false)
   assert.equal(isEquation('\\frac{a}{b} - c = 0'), true)
+})
+
 test('new cards you wrote are shuffled, the same all day, siblings at least 5 apart', () => {
   // A 12-line list from one note and 12 single cards from elsewhere.
   const cards = [...Array.from({ length: 12 }, (_, n) => ({ id: `list${n}`, group: 'list' })), ...Array.from({ length: 12 }, (_, n) => ({ id: `one${n}`, group: `note${n}` }))]
@@ -181,4 +183,20 @@ test("a note's words, code left out, are where its cards' tags come from", () =>
   assert.equal(wordsIn(doc).includes('#biology'), true)
   assert.equal(wordsIn(doc).includes('#include') || wordsIn(doc).includes('#hex'), false)
   assert.equal(wordsIn('Notes #law\n```\n#not\n```').includes('#not'), false)
+test('a typed answer says the one thing that is off, for any subject', () => {
+  // An accent left out is part wrong: never Easy.
+  assert.deepEqual(typedCheck('murcielago', 'murciélago'), { score: 1, grade: 3, said: 'Right apart from the accent: murciélago', close: false })
+  assert.equal(typedCheck('Dvorak', 'Dvořák').grade, 3)
+  // Capitals do not count.
+  assert.equal(typedCheck('paris', 'Paris').grade, 4)
+  assert.equal(typedCheck('paris', 'Paris').said, null)
+  // A unit left out: the number right, Hard.
+  assert.deepEqual(typedCheck('9.8', '9.8 m/s²'), { score: typedCheck('9.8', '9.8 m/s²').score, grade: 2, said: 'Right number, but the unit is missing: 9.8 m/s²', close: false })
+  // A slip of a letter in a long word: close, counted as Good if you like.
+  const slip = typedCheck('mitochondira', 'mitochondria')
+  assert.equal(slip.close, true)
+  assert.equal(slip.grade, 3)
+  assert.equal(slip.said, 'Close: you wrote mitochondira, it is mitochondria.')
+  // Exactly right says nothing more.
+  assert.deepEqual(typedCheck('Hastings', 'Hastings'), { score: 1, grade: 4, said: null, close: false })
 })

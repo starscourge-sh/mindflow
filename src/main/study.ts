@@ -208,6 +208,32 @@ export function suggestGrade(score: number): 1 | 2 | 3 | 4 {
 }
 
 /**
+ * A typed answer checked the way a careful teacher would, for any subject:
+ * the score from `closeness`, then the one thing that is off said in words.
+ * An accent or a unit left out is part wrong, so it never suggests Easy; a
+ * slip of a letter or two in a long word is close, and can count as Good.
+ * Capitals do not count. Null `said` when there is nothing to add.
+ */
+export function typedCheck(typed: string, answer: string): { score: number; grade: 1 | 2 | 3 | 4; said: string | null; close: boolean } {
+  const score = closeness(typed, answer)
+  const words = (text: string): string => text.trim().replace(/\s+/g, ' ').replace(/[.!?;,]+$/, '')
+  const a = words(typed)
+  const b = words(answer)
+  const bare = (text: string): string => text.normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+  const grade = suggestGrade(score)
+  if (!a || !b || b.split(' ').length > 3) return { score, grade, said: null, close: false }
+  if (a === b) return { score, grade, said: null, close: false }
+  if (a.toLowerCase() === b.toLowerCase()) return { score, grade, said: null, close: false }
+  if (bare(a).toLowerCase() === bare(b).toLowerCase()) return { score, grade: 3, said: `Right apart from the accent: ${b}`, close: false }
+  // A number with its unit: the number right and the unit left out.
+  const unit = b.match(/^(-?[\d.,]+)\s*(\S.*)$/)
+  if (unit && a.replace(/\s+/g, '') === unit[1]) return { score, grade: 2, said: `Right number, but the unit is missing: ${b}`, close: false }
+  // A slip of a letter or two in a word of five or more.
+  if (b.length >= 5 && score >= 0.75 && grade < 4) return { score, grade: 3, said: `Close: you wrote ${a}, it is ${b}.`, close: true }
+  return { score, grade, said: null, close: false }
+}
+
+/**
  * "term - meaning" lines, as pasted from a glossary or a vocabulary list:
  * a dash, en dash, colon or equals sign between the two, each side short.
  * Empty unless at least three lines read that way and most of the list does.
