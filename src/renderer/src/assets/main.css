@@ -1344,25 +1344,19 @@ input[type='number']::-webkit-outer-spin-button {
   to { opacity: 1; transform: none; }
 }
 
-/* An orb with words for a real wait, in a chip (the libraries.dev orbs
-   pill). The words shimmer: a copy of them laid on top, painted with a
-   band of the page's ink that sweeps across the muted letters
-   (transitions.dev's t-shimmer). Both colours are the theme's, so it reads
-   in light and dark alike; still with Motion off. */
-/* In the components layer, so a class where it is used (a toast's surface)
-   can change it. */
+/* An orb with words for a real wait, bare, in place: no chip around it
+   (the user liked the orb, not the pill). The words shimmer: a copy of them
+   laid on top, painted with a band of the page's ink that sweeps across the
+   muted letters (transitions.dev's t-shimmer). Both colours are the theme's,
+   so it reads in light and dark alike; still with Motion off. A floating one
+   (import-done's toast) gives itself its own surface. */
 @layer components {
 .mf-orb-pill {
   display: inline-flex;
   flex: none;
   align-items: center;
   gap: 6px;
-  /* A toast's height, so a wait and the answer that replaces it are one size. */
-  height: 32px;
-  padding: 0 12px 0 6px;
-  border-radius: 999px;
-  background: var(--card);
-  box-shadow: inset 0 0 0 1px var(--border);
+  min-height: 20px;
   font-size: 13px;
   line-height: 14px;
   white-space: nowrap;

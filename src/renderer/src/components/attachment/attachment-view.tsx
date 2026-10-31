@@ -435,6 +435,29 @@ function VideoBlock(props: NodeViewProps): React.JSX.Element {
   )
 }
 
+/** "0:12", the way the player writes a time. */
+const mmss = (seconds: number): string => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`
+
+/**
+ * Under a recording while its words are made out: the orb and how long it
+ * has listened against the recording's length ("Listening… 0:12 of 0:56"),
+ * a second at a time, so a long one is never a silent wait.
+ */
+function Listening({ length }: { length: number | null }): React.JSX.Element {
+  const [since] = useState(() => Date.now())
+  const [now, setNow] = useState(since)
+  useEffect(() => {
+    const tick = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(tick)
+  }, [])
+  const heard = (now - since) / 1000
+  return (
+    <span className="tiptap-attachment-listening" data-listening-clock={mmss(heard)} contentEditable={false}>
+      <Orb state="listening" label={`Listening… ${mmss(heard)}${length ? ` of ${mmss(length)}` : ""}`} />
+    </span>
+  )
+}
+
 /** A recording: its name over the same controls, in a card like a file's. */
 function AudioBlock(props: NodeViewProps): React.JSX.Element {
   const { src, name } = props.node.attrs
@@ -465,7 +488,7 @@ function AudioBlock(props: NodeViewProps): React.JSX.Element {
         </span>
         {controls}
       </div>
-      {listening && <span className="tiptap-attachment-listening" contentEditable={false}><Orb state="listening" label="Listening…" /></span>}
+      {listening && <Listening length={length} />}
     </NodeViewWrapper>
   )
 }
