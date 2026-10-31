@@ -2892,7 +2892,32 @@ export function registerHaligtree(): void {
     const first = (db.prepare('select min(reviewed_at) at from review_log').get() as { at: string | null }).at
     const span = first ? Math.min(365, Math.floor((startOfDay(1) - startOfDay(0, new Date(first))) / 86400000)) : 0
     const reviewedDays = [...perDay.keys()].filter((key) => key >= local(day(1 - span))).length
-    return { month, year: Object.fromEntries(perDay), checked: kept.n, recalled: kept.recalled, due, known, cards, seconds: pace ? Math.round(pace / 1000) : null, days: { reviewed: reviewedDays, of: span } }
+    // Minutes spent reviewing each of the last 30 days, each review counted as 60 seconds at most.
+    const spentOn = new Map<string, number>()
+    for (const row of db.prepare('select reviewed_at as at, min(ms, 60000) ms from review_log where ms is not null and reviewed_at >= ?').all(day(-29)) as { at: string; ms: number }[]) spentOn.set(local(row.at), (spentOn.get(local(row.at)) ?? 0) + row.ms / 60000)
+    const minutes = month.map((one) => Math.round((spentOn.get(one.day) ?? 0) * 10) / 10)
+    // Every card by where it stands (new, still being learnt, learnt) and by where it came from.
+    const live = db.prepare(`select state, coalesce(nullif(deck, ''), nullif(medium, ''), '') as source, created_at as at from nuggets where coalesce(prompt, '') != '' and archived_at is null and binned_at is null and superseded_by is null`).all() as { state: string | null; source: string; at: string }[]
+    const stages = { new: 0, learning: 0, learnt: 0 }
+    const from = new Map<string, number>()
+    for (const row of live) {
+      const card = row.state ? (JSON.parse(row.state) as { state?: number }) : null
+      stages[!card ? 'new' : card.state === 1 || card.state === 3 ? 'learning' : 'learnt'] += 1
+      from.set(row.source, (from.get(row.source) ?? 0) + 1)
+    }
+    const sources = [...from].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, n]) => ({ name: name || 'Typed in', n }))
+    // Twelve weeks, oldest first: known cards at the end of each week (first known on the review that proved it) beside every card made by then.
+    const weekEnds = Array.from({ length: 12 }, (_, at) => startOfDay((at - 11) * 7 + 1))
+    const knownAt = (db.prepare(`select min(reviewed_at) at from (select item_id, reviewed_at, grade, julianday(reviewed_at) - julianday(lag(reviewed_at) over (partition by item_id order by reviewed_at)) gap from review_log) where grade > 1 and gap >= 15 group by item_id`).all() as { at: string }[]).map((row) => Date.parse(row.at))
+    const growth = weekEnds.map((end) => ({ end: new Date(end - 1).toISOString().slice(0, 10), known: knownAt.filter((at) => at < end).length, made: live.filter((row) => Date.parse(row.at) < end).length }))
+    // Notes and gems kept in each of the last six months, oldest first.
+    const months = Array.from({ length: 6 }, (_, at) => dayjs().startOf('month').subtract(5 - at, 'month'))
+    const keptIn = months.map((start) => ({
+      month: start.format('YYYY-MM'),
+      notes: (db.prepare("select count(*) n from captures where status != 'discarded' and captured_at >= ? and captured_at < ?").get(start.toISOString(), start.add(1, 'month').toISOString()) as { n: number }).n,
+      gems: (db.prepare("select count(*) n from nuggets where binned_at is null and superseded_by is null and tier != 'goal' and created_at >= ? and created_at < ?").get(start.toISOString(), start.add(1, 'month').toISOString()) as { n: number }).n
+    }))
+    return { month, year: Object.fromEntries(perDay), checked: kept.n, recalled: kept.recalled, due, known, cards, seconds: pace ? Math.round(pace / 1000) : null, days: { reviewed: reviewedDays, of: span }, minutes, stages, sources, growth, kept: keptIn }
   })
 
   // --- the card browser: every card, with what it is filtered and sorted by
@@ -3534,6 +3559,28 @@ export function registerHaligtree(): void {
 
   // --- the recap, Wrapped's way: a month or a year in what you did here
   // `from`: one week, month or year asked for by a day in it (a wrap offered for a month gone by, the Sunday digest's week).
+  // The month's study for "Your month": time and retention, new cards, each day's reviews, the card
+  // still known after the longest gap, the book read most and one line in your own words.
+  type StudyMonth = { seconds: number; checked: number; recalled: number; newCards: number; days: { day: string; n: number }[]; longest: { title: string; days: number } | null; book: { src: string; title: string } | null; line: string | null }
+  const studyIn = (since: string, until: string, start: dayjs.Dayjs): StudyMonth => {
+    const kept = db.prepare('select count(*) as n, coalesce(sum(grade > 1), 0) as recalled, coalesce(sum(min(coalesce(ms, 0), 60000)), 0) as ms from review_log where reviewed_at >= ? and reviewed_at < ?').get(since, until) as { n: number; recalled: number; ms: number }
+    const seen = db.prepare('select count(*) as n, coalesce(sum(grade > 1), 0) as recalled from review_log where first = 0 and reviewed_at >= ? and reviewed_at < ?').get(since, until) as { n: number; recalled: number }
+    const perDay = new Map((db.prepare("select date(reviewed_at, 'localtime') as day, count(*) n from review_log where reviewed_at >= ? and reviewed_at < ? group by day").all(since, until) as { day: string; n: number }[]).map((row) => [row.day, row.n]))
+    const days = Array.from({ length: start.daysInMonth() }, (_, at) => { const day = start.add(at, 'day').format('YYYY-MM-DD'); return { day, n: perDay.get(day) ?? 0 } })
+    const longest = db.prepare(`select coalesce(nullif(n.title, ''), label('', n.body)) as title, g.gap from (select item_id, grade, reviewed_at, julianday(reviewed_at) - julianday(lag(reviewed_at) over (partition by item_id order by reviewed_at)) gap from review_log) g
+      join nuggets n on n.id = g.item_id where g.grade > 1 and g.gap is not null and g.reviewed_at >= ? and g.reviewed_at < ? and n.private = 0 order by g.gap desc limit 1`).get(since, until) as { title: string; gap: number } | undefined
+    const newCards = (db.prepare("select count(*) n from nuggets where coalesce(prompt, '') != '' and binned_at is null and superseded_by is null and created_at >= ? and created_at < ?").get(since, until) as { n: number }).n
+    const book = db.prepare('select r.src, coalesce(t.title, r.src) as title from pdf_reading r left join pdf_titles t on t.src = r.src where r.read_at >= ? and r.read_at < ? order by r.page desc limit 1').get(since, until) as { src: string; title: string } | undefined
+    // One line you wrote that month, the longest plain sentence of a note of your own (no quote, nothing private).
+    const lines = (db.prepare("select body from captures where kind != 'quote' and private = 0 and status != 'discarded' and captured_at >= ? and captured_at < ?").all(since, until) as { body: string | null }[])
+      .flatMap((row) => plain(JSON.parse(row.body ?? 'null')).split(/(?<=[.!?])\s+|\n+/)).map((one) => one.trim()).filter((one) => one.length >= 24 && one.length <= 160 && !/[#@[\]]/.test(one))
+    return {
+      seconds: Math.round(kept.ms / 1000), checked: seen.n, recalled: seen.recalled, newCards, days,
+      longest: longest ? { title: longest.title, days: Math.round(longest.gap) } : null,
+      book: book ? { src: book.src, title: book.title.replace(/^.*\//, '').replace(/\.pdf$/i, '') } : null,
+      line: lines.sort((a, b) => b.length - a.length)[0] ?? null
+    }
+  }
   handle('recap', (period: 'week' | 'month' | 'year', from?: string) => {
     let start = dayjs(from && dayjs(from).isValid() ? from : undefined).startOf(period)
     let end = from && start.add(1, period).isBefore(dayjs()) ? start.add(1, period) : dayjs()
@@ -3595,7 +3642,9 @@ export function registerHaligtree(): void {
       kinds: byKind.all(since, until) as { kind: string; n: number }[],
       before: kindsBefore.length ? { label: before.format(period === 'year' ? 'YYYY' : period === 'week' ? '[the week of] D MMMM' : 'MMMM YYYY'), kinds: kindsBefore } : null,
       // The days anything was reviewed on: a habit, counted, never a streak to keep.
-      reviewDays: (db.prepare("select count(distinct date(reviewed_at, 'localtime')) n from review_log where reviewed_at >= ? and reviewed_at < ?").get(since, until) as { n: number }).n
+      reviewDays: (db.prepare("select count(distinct date(reviewed_at, 'localtime')) n from review_log where reviewed_at >= ? and reviewed_at < ?").get(since, until) as { n: number }).n,
+      // For "Your month", card by card: the study side of the month.
+      study: period === 'month' ? studyIn(since, until, start) : null
     }
   })
 
