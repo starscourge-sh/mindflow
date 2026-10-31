@@ -949,8 +949,35 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
       fittedOnce = true
       if (shown && !drag) ((focus = null), fade(0))
     }
+    // The replay grows the map as Obsidian's "Animate" does: the layout holds only the dots that have arrived, each
+    // new one put beside the first of its links already there (or in the middle), and a little heat, so the others
+    // make room for it. Back in time, the later ones leave the layout. Every arrival in a frame goes in at once.
+    const order = replayOrder(dots)
+    let count = dots.length
+    const grow = (want: number, place: boolean): void => {
+      const n = Math.max(0, Math.min(dots.length, want))
+      if (n === count) return
+      if (place) for (let at = count; at < n; at++) {
+        const dot = order[at]
+        let by: Dot | undefined
+        for (const id of near.get(dot.id)!) if (rank.get(byId.get(id)!)! < at && (by = byId.get(id))) break
+        const turn = at * 2.39996, gap = (by ? by.r : 0) + dot.r + 6
+        dot.x = (by?.x ?? 0) + Math.cos(turn) * gap
+        dot.y = (by?.y ?? 0) + Math.sin(turn) * gap
+        dot.vx = dot.vy = 0
+      }
+      const grew = n > count
+      count = n
+      const inside = n === dots.length ? dots : order.slice(0, n)
+      sim.nodes(inside)
+      ;(sim.force('link') as ForceLink<Dot, Line>).links(n === dots.length ? lines : lines.filter((line) => rank.get(line.source)! < n && rank.get(line.target)! < n))
+      settle(grew ? 0.18 : 0.08)
+    }
+    // Built again mid-replay (new data): the dots already in stay where they are.
+    if (cut !== null) grow(Math.ceil(cut), false)
     if (replay) replay.current = (at) => {
       cut = replayAt.current = at
+      grow(at === null ? dots.length : Math.ceil(at), at !== null)
       told()
       redraw()
     }
