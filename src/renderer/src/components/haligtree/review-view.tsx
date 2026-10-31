@@ -90,6 +90,13 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
   // Explain it back: your own words first, then the answer beside them.
   const [said, setSaid] = useState('')
   const started = useRef(Date.now())
+  // Someone who typed their answer to the last card types the next one too:
+  // its box takes the keys the moment it arrives, so the first letters never
+  // fall on Review's single-letter keys (B would put the new card off).
+  // Someone who did not type keeps Space, 1 to 4 and the rest.
+  const typer = useRef(false)
+  const box = useRef<HTMLTextAreaElement | null>(null)
+  useEffect(() => { if (typer.current) box.current?.focus() }, [at])
   // The beam turns while the day's cards are worked out, should that be slow.
   useEffect(() => void working(tag ? haligtree.round(`#${tag}`) : haligtree.queue()).then((cards) => (tag ? fresh(cards, `#${tag}`) : setQueue(cards))), [tag])
   // A practice round from the chips above: its own short queue, then back to today's.
@@ -206,6 +213,7 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
     // What you typed before turning it over is kept, as a dated thought on the card.
     if (said.trim()) void keepGloss(card.id, said)
     void haligtree.grade(card.id, value, Date.now() - started.current)
+    typer.current = !!said.trim()
     // Easy the first time it is seen: maybe it was never worth a card. Asked, never decided for you.
     if (value === 4 && !card.reviewed && !round) {
       const easy = card
@@ -369,7 +377,11 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
         if (shown && !over) turnTo(true)
         else reveal()
       }
-      if (['1', '2', '3', '4'].includes(event.key)) grade(Number(event.key) as 1 | 2 | 3 | 4)
+      // The grade key is used up here: its digit is never typed into the next card's box, which may take the keys at once.
+      if (['1', '2', '3', '4'].includes(event.key)) {
+        event.preventDefault()
+        grade(Number(event.key) as 1 | 2 | 3 | 4)
+      }
       if (event.key === 'b') bury()
       // E: rewrite the question right here, without leaving Review (Enter keeps it, Esc leaves it as it was).
       if (event.key === 'e' && card && !event.metaKey) {
@@ -678,6 +690,7 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
         ) : (
           <>
           <Textarea
+            ref={box}
             value={said}
             onChange={(event) => setSaid(event.target.value)}
             onKeyDown={(event) => {
