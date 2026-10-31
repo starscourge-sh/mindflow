@@ -229,7 +229,10 @@ import { TableMenu } from "@/components/table/table-menu"
 import { TableControls } from "@/components/table/table-controls"
 import { BlockMenu, type BlockTarget } from "@/components/turn-into/block-menu"
 import { SpellingMenu, misspeltAt, type Misspelling } from "@/components/turn-into/spelling"
-import { clickedAt, type Clicked } from "@/components/turn-into/clicked"
+import { clickedAt, lookUpIn, type Clicked } from "@/components/turn-into/clicked"
+import { BookOpenText } from "lucide-react"
+import { FLOAT } from "@/lib/float"
+import { cn } from "@/lib/cn"
 import { hideForMenus, menuShowing } from "@/lib/menu-showing"
 import { SpellPill } from "@/components/turn-into/spell-pill"
 import { WordCount } from "@/components/count/word-count"
@@ -848,6 +851,18 @@ function Surface({
   const [spelling, setSpelling] = useState<Misspelling | null>(null)
   /** What a right-click landed on (a link, a PDF, picked words): its lines lead the menu. */
   const [clicked, setClicked] = useState<Clicked | null>(null)
+  // A right-click on picked words where there is no block menu: "Look up" alone.
+  const [lookAt, setLookAt] = useState<{ x: number; y: number; from: number; to: number; words: string } | null>(null)
+  useEffect(() => {
+    if (!lookAt) return
+    const away = (event: Event): void => {
+      if (!(event.target as Element | null)?.closest?.("[data-look-menu]")) setLookAt(null)
+    }
+    const key = (event: KeyboardEvent): void => void (event.key === "Escape" && setLookAt(null))
+    window.addEventListener("pointerdown", away, true)
+    window.addEventListener("keydown", key, true)
+    return () => (window.removeEventListener("pointerdown", away, true), window.removeEventListener("keydown", key, true))
+  }, [lookAt])
   // The plugin hides its handle by writing inline `visibility`, instantly, from
   // several different paths. Watching that one attribute catches all of them -
   // listening to `onNodeChange` alone left the handle stuck on screen. We turn
@@ -1590,7 +1605,16 @@ function Surface({
     if (!editor || handles) return
     const onContext = (event: MouseEvent): void => {
       const found = misspeltAt(editor, event.clientX, event.clientY)
-      if (!found) return
+      if (!found) {
+        // Picked words (a card's answer in Review, any page without the block
+        // menu): one row, "Look up", the same Look Up card as everywhere.
+        const { from, to, empty } = editor.state.selection
+        const words = empty ? "" : editor.state.doc.textBetween(from, to, " ").trim()
+        if (!words || words.length > 200) return
+        event.preventDefault()
+        setLookAt({ x: event.clientX, y: event.clientY, from, to, words })
+        return
+      }
       event.preventDefault()
       setMenuAt({ x: event.clientX, y: event.clientY })
       setSpelling(found)
@@ -1990,6 +2014,15 @@ function Surface({
             )}
             </div>
           </div>
+        )}
+        {lookAt && editor && createPortal(
+          <div data-look-menu role="menu" className={cn(FLOAT, "fixed z-[95] min-w-36 rounded-lg p-1 text-sm")} style={{ left: lookAt.x, top: lookAt.y }}>
+            <button type="button" role="menuitem" autoFocus className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left outline-none hover:bg-accent focus-visible:bg-accent"
+              onClick={() => (lookUpIn(editor, lookAt.from, lookAt.to, lookAt.words), setLookAt(null))}>
+              <BookOpenText className="size-4 text-muted-foreground" /> Look up
+            </button>
+          </div>,
+          document.body,
         )}
       </EditorContext.Provider>
     </div>
