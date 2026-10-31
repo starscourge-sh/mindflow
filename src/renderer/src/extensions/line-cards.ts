@@ -5,6 +5,7 @@ import { Fragment, Slice, type Node as ProseMirrorNode } from "@tiptap/pm/model"
 
 import { lineCard, termLines } from "../../../main/study"
 import { cardListOf } from "../../../main/card-lists"
+import { openPdf } from "@/components/pdf/pdf-reader"
 import { num } from "../../../main/dates"
 
 /** A small card, drawn: what marks a line that Review asks you. */
@@ -34,19 +35,43 @@ export const TIME = /\[((?:\d{1,2}:)?\d{1,2}:[0-5]\d)\]/g
 /** "1:02:45" as seconds. */
 export const secondsOf = (time: string): number => time.split(":").reduce((all, part) => all * 60 + Number(part), 0)
 
+/** A page cited in a line: (p. 14) or (p 14). */
+const PAGE = /\(p\.? ?(\d{1,4})\)/g
+
+/** The note's first PDF, which "(p. 14)" in its lines opens. */
+const pdfIn = (doc: ProseMirrorNode): { src: string; name: string } | null => {
+  let found: { src: string; name: string } | null = null
+  doc.descendants((node) => {
+    if (found) return false
+    if (node.type.name === "attachment" && /\.pdf$/i.test(String(node.attrs.name ?? ""))) found = { src: String(node.attrs.src), name: String(node.attrs.name) }
+    return !found
+  })
+  return found
+}
+
 function marks(doc: ProseMirrorNode): DecorationSet {
   const found: Decoration[] = []
+  // Times and pages are links only when the note has the video or PDF they open.
+  let video = false
+  doc.descendants((node) => (video ||= node.type.name === "youtube", !video))
+  const pdf = !!pdfIn(doc)
   doc.descendants((node, pos) => {
     if (node.type.name === "codeBlock") return false
     if (!node.isTextblock) return true
     if (lineCard(lineText(node))) found.push(Decoration.widget(pos + node.nodeSize - 1, mark, { side: 1, key: "line-card", ignoreSelection: true }))
-    // A time in a line, "[13:03]", plays the note's video from there.
+    // A time in a line, "[13:03]", plays the note's video from there; "(p. 14)" opens its PDF at that page.
     node.forEach((child, offset) => {
       if (!child.isText || child.marks.some((one) => one.type.name === "code")) return
-      for (const match of child.text!.matchAll(TIME)) {
-        const from = pos + 1 + offset + match.index!
-        found.push(Decoration.inline(from, from + match[0].length, { class: "mf-time-link", "data-seconds": String(secondsOf(match[1])), title: "Play the note's video from here" }))
-      }
+      if (video)
+        for (const match of child.text!.matchAll(TIME)) {
+          const from = pos + 1 + offset + match.index!
+          found.push(Decoration.inline(from, from + match[0].length, { class: "mf-time-link", "data-seconds": String(secondsOf(match[1])), title: "Play the note's video from here" }))
+        }
+      if (pdf)
+        for (const match of child.text!.matchAll(PAGE)) {
+          const from = pos + 1 + offset + match.index!
+          found.push(Decoration.inline(from, from + match[0].length, { class: "mf-time-link mf-page-link", "data-page": match[1], title: "Open the note's PDF at this page" }))
+        }
     })
     return false
   })
@@ -127,6 +152,12 @@ export const LineCards = Extension.create({
           handleClick: (view, _pos, event) => {
             const time = (event.target as HTMLElement | null)?.closest?.<HTMLElement>(".mf-time-link")
             if (!time) return false
+            if (time.dataset.page) {
+              const pdf = pdfIn(view.state.doc)
+              if (!pdf) return false
+              openPdf(pdf.src, pdf.name, Number(time.dataset.page))
+              return true
+            }
             const video = view.dom.querySelector<HTMLElement>("[data-youtube-video]")
             if (!video) return false
             window.dispatchEvent(new CustomEvent("haligtree:video-at", { detail: { seconds: Number(time.dataset.seconds), video } }))

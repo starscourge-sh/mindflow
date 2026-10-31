@@ -90,6 +90,22 @@ try {
     for (const type of ['mousedown', 'mouseup', 'click']) time.dispatchEvent(new MouseEvent(type, at))
   })
   check('clicking it plays the note\'s video from 0:42', await waitFor(() => h.evaluate(() => document.querySelector('[data-youtube-video]')?.dataset.from === '42' && !!document.querySelector('[data-youtube-video] iframe[src*="start=42"]'))), await h.evaluate(() => document.querySelector('[data-youtube-video]')?.outerHTML.slice(0, 200)))
+  // "(p. 2)" in a note with a PDF opens that PDF at page 2; with no PDF it stays words.
+  const reading = { type: 'doc', content: [{ type: 'attachment', attrs: { src: 'haligtree://assets/probe-paper.pdf', name: 'Probe paper.pdf' } }, { type: 'paragraph', content: [{ type: 'text', text: 'Working memory holds about four things (p. 2)' }] }] }
+  const readingId = await h.evaluate((body) => window.api.captures.create({ body }), reading)
+  await c.send('capture', readingId)
+  check('a page cited in a note with a PDF is a link', await waitFor(() => h.evaluate(() => document.querySelector('.mf-page-link')?.textContent === '(p. 2)')))
+  await h.evaluate(() => {
+    window.__opened = null
+    window.addEventListener('haligtree:pdf', (event) => (window.__opened = event.detail), { once: true })
+    const page = document.querySelector('.mf-page-link')
+    const box = page.getBoundingClientRect()
+    const at = { bubbles: true, cancelable: true, clientX: box.left + 5, clientY: box.top + 5, button: 0, detail: 1, view: window }
+    for (const type of ['mousedown', 'mouseup', 'click']) page.dispatchEvent(new MouseEvent(type, at))
+  })
+  check('clicking it opens the note\'s PDF at that page', await waitFor(() => h.evaluate(() => window.__opened?.page === 2 && window.__opened?.src === 'haligtree://assets/probe-paper.pdf')), JSON.stringify(await h.evaluate(() => window.__opened)))
+  await c.send('capture', id)
+  check('with no video or PDF in the note, nothing is drawn as a link', await waitFor(() => h.evaluate(() => !!document.querySelector('.mf-line-card') && !document.querySelector('.mf-time-link'))))
   await v('cards:pause', (await cardsOf(id)).map((one) => one.id), true); await h.waitForTimeout(600)
   await c.go('review')
   check('the "From" line draws the note\'s formulas too, not "x^2"', await waitFor(() => h.evaluate(() => !!document.querySelector('[data-line-from] .katex') && !document.querySelector('[data-line-from]')?.textContent?.includes('of x^2?'))), await h.evaluate(() => document.querySelector('[data-line-from]')?.textContent))
