@@ -50,7 +50,7 @@ export function Section({ title, big, children }: { title: string; big?: { value
         <div key={index} className="space-y-3 px-4 py-3 leading-relaxed text-muted-foreground">
           {index === 0 && big && (
             <p className="flex items-baseline gap-2 pt-1">
-              <span className="text-[2rem] leading-none font-semibold tracking-tight text-foreground tabular-nums"><Rolling text={big.value} /></span>
+              <span className="font-serif text-[2.25rem] leading-none font-semibold text-foreground tabular-nums"><Rolling text={big.value} /></span>
               <span className="text-sm">{big.label}</span>
             </p>
           )}
