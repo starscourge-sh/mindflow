@@ -1312,6 +1312,12 @@
   font-size: var(--text-control);
   font-weight: 500;
   color: var(--foreground);
+
+  // Over a list of rows (the ![[ list), its left edge on the rows' own: the
+  // list is already inset, and a row starts 0.5rem in from it.
+  .tiptap-slash-menu-list & {
+    padding-inline: 0.5rem;
+  }
 }
 
 .tiptap-slash-menu-title {
