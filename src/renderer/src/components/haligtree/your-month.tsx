@@ -25,7 +25,7 @@ function RollUp({ n, still }: { n: number; still: boolean }): React.JSX.Element 
 
 /** Days studied, said kindly: never a streak to lose, only what was done. */
 const daysSaid = (days: number, of: number): string =>
-  days === 0 ? 'A month of other things. The cards will wait.' : days >= of - 1 ? 'Nearly every day. That is a habit now.' : days >= of / 2 ? 'More days than not.' : days >= 4 ? 'About once a week, and it adds up.' : 'A few days, and each one counts.'
+  days === 0 ? 'A month of other things. The cards will wait.' : days >= of - 1 ? 'Nearly every day. That is a habit now.' : days >= of / 2 ? 'More days than not.' : days >= 8 ? 'A few days most weeks, and it adds up.' : days >= 4 ? 'About once a week, and it adds up.' : 'A few days, and each one counts.'
 
 type Card = { id: string; picture: ReactNode; line: string }
 
