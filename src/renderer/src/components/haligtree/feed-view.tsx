@@ -27,6 +27,8 @@ import { QueuedProvider, ReadLaterButton } from './read-later'
 import { drawCard, xText, type CardPost } from '@/lib/feed-card'
 import { LOOKABLE, lookAtPicture } from '@/components/image/image-look'
 import { openAside } from '@/lib/split'
+import { FeedLiked } from './feed-liked'
+import { RowMenu } from './row-menu'
 
 /**
  * The Feed: the day's twenty or so of your own things, as posts in a
@@ -58,10 +60,10 @@ const SAMPLE_POSTS: FeedPost[] = ([
 const react = (post: FeedPost, reaction: Reaction | null): Promise<Reaction | null> => call<Reaction | null>('feed:react', `${post.type}:${post.id}`, reaction)
 
 const KIND_WORD: Record<FeedPost['type'], string> = { nugget: 'Gem', capture: 'Note', article: 'Page', question: 'Question', day: 'Journal', poll: 'Poll', quiz: 'Quiz card' }
-const kindWord = (post: { kind: string; type: FeedPost['type'] }): string => (post.kind === 'quote' ? 'Quote' : KIND_WORD[post.type])
+export const kindWord = (post: { kind: string; type: FeedPost['type'] }): string => (post.kind === 'quote' ? 'Quote' : KIND_WORD[post.type])
 
 /** A date: "4 Mar", with the year once it is not this year's, or always (`years`) in a thread that spans years. */
-const written = (at: string, years = false): string => {
+export const written = (at: string, years = false): string => {
   const when = dayjs(at)
   return when.format(!years && when.year() === dayjs().year() ? 'D MMM' : 'D MMM YYYY')
 }
@@ -146,11 +148,12 @@ const scrollerOf = (node: HTMLElement | null): HTMLElement | null => {
 
 /** Which tab the Feed was left on, for the next time it opens. */
 const TAB = 'feedTab'
-type FeedTab = 'notes' | 'reading'
-const FEED_TABS: { value: FeedTab; label: string }[] = [{ value: 'notes', label: 'Notes' }, { value: 'reading', label: 'Reading' }]
+type FeedTab = 'notes' | 'reading' | 'liked'
+const FEED_TABS: { value: FeedTab; label: string }[] = [{ value: 'notes', label: 'Notes' }, { value: 'reading', label: 'Reading' }, { value: 'liked', label: 'Liked' }]
 const keptTab = (): FeedTab => {
   try {
-    return localStorage.getItem(TAB) === 'reading' ? 'reading' : 'notes'
+    const kept = localStorage.getItem(TAB)
+    return kept === 'reading' || kept === 'liked' ? kept : 'notes'
   } catch {
     return 'notes'
   }
@@ -221,8 +224,17 @@ export function TodaysFeedCard({ onView }: { onView: (id: string) => void }): Re
   )
 }
 
-export function FeedView({ onOpen }: { onOpen: (type: string, id: string) => void }): React.JSX.Element {
-  const [tab, setTab] = useState<FeedTab>(keptTab)
+/** Every way to Liked (the heart's menu, ⌘K) says so with this, and the Feed turns to it. */
+export const showLiked = (): void => void window.dispatchEvent(new CustomEvent('haligtree:feed-liked'))
+
+export function FeedView({ onOpen, focus }: { onOpen: (type: string, id: string) => void; /** ":liked" opens on Liked (⌘K). */ focus?: string }): React.JSX.Element {
+  const [tab, setTab] = useState<FeedTab>(() => (focus === ':liked' ? 'liked' : keptTab()))
+  useEffect(() => void (focus === ':liked' && setTab('liked')), [focus])
+  useEffect(() => {
+    const liked = (): void => setTab('liked')
+    window.addEventListener('haligtree:feed-liked', liked)
+    return () => window.removeEventListener('haligtree:feed-liked', liked)
+  }, [])
   const choose = (next: FeedTab): void => {
     setTab(next)
     try {
@@ -246,7 +258,7 @@ export function FeedView({ onOpen }: { onOpen: (type: string, id: string) => voi
       )}
     </div>
   )
-  return <QueuedProvider>{tab === 'reading' ? <FeedReading tabs={tabs} onOpen={onOpen} /> : <FeedNotes tabs={tabs} onOpen={onOpen} pages={pages} />}</QueuedProvider>
+  return <QueuedProvider>{tab === 'reading' ? <FeedReading tabs={tabs} onOpen={onOpen} /> : tab === 'liked' ? <FeedLiked tabs={tabs} onOpen={onOpen} /> : <FeedNotes tabs={tabs} onOpen={onOpen} pages={pages} />}</QueuedProvider>
 }
 
 function FeedNotes({ onOpen, tabs, pages }: { onOpen: (type: string, id: string) => void; tabs: React.ReactNode; pages: boolean }): React.JSX.Element {
@@ -403,7 +415,7 @@ function Thread({ post, onBack, onOpen, onOpenOther }: { post: FeedPost; onBack:
   )
 }
 
-function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = false, preview = false }: {
+export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = false, preview = false, likedLine, onUnlike }: {
   post: FeedPost
   onOpen: () => void
   onOpenOther: (type: string, id: string) => void
@@ -414,6 +426,10 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
   preview?: boolean
   /** A thread follows, so a line runs down from its picture. */
   joined?: boolean
+  /** In Liked: when you liked it, said first under it ("Liked 3 days ago"). */
+  likedLine?: string
+  /** In Liked: the heart takes it out of the list, with Undo. */
+  onUnlike?: () => void
 }): React.JSX.Element | null {
   const quote = post.kind === 'quote'
   const account = (quote && post.who) || 'You'
@@ -493,7 +509,7 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
   }
 
   const history = [
-    chosen && chosen !== 'less' && REACTIONS.find((one) => one.value === chosen)!.said,
+    likedLine ?? (chosen && chosen !== 'less' && REACTIONS.find((one) => one.value === chosen)!.said),
     // Its likes over time, never anyone else's: today's counts at once.
     Math.max(post.liked, chosen === 'like' ? 1 : 0) >= 2 && `liked ${num(Math.max(post.liked, chosen === 'like' ? 1 : 0))} times`,
     post.seenTimes >= 2 && `seen ${num(post.seenTimes)} times`
@@ -632,14 +648,17 @@ function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = fal
             </Tip>
             {post.type !== 'day' && post.type !== 'poll' && post.type !== 'quiz' && <ReadLaterButton id={post.id} />}
             {/* The like, where the thumb looks for it (a Journal day too: liked, it comes back sooner); the rest are in ⋯. Chosen, it fills in red and nothing moves. */}
-            {(
-              <Tip label={REACTIONS[0].tip}>
-                <button type="button" data-feed-reaction="like" aria-pressed={chosen === 'like'} aria-label="Like" onClick={() => choose('like')}
-                  className={cn('flex size-7 items-center justify-center rounded-md transition-colors hover:bg-foreground/[0.06] hover:text-foreground', chosen === 'like' && 'text-[var(--tt-color-text-red)] hover:text-[var(--tt-color-text-red)]')}>
-                  <Heart className="size-4" fill={chosen === 'like' ? 'currentColor' : 'none'} />
-                </button>
-              </Tip>
-            )}
+            {/* Right-clicked, the heart's own menu: like or unlike, and every post you liked. */}
+            <RowMenu items={[{ id: 'like', label: chosen === 'like' ? 'Unlike' : 'Like', icon: <Heart className="size-4" />, run: () => (onUnlike ? onUnlike() : choose('like')) }, { id: 'see-liked', label: 'See everything you liked', hint: 'Liked, in the Feed', icon: <ArrowUpRight className="size-4" />, run: () => (chime('page'), showLiked()) }]}>
+              <span className="flex">
+                <Tip label={onUnlike ? 'Unlike: take it out of Liked' : REACTIONS[0].tip}>
+                  <button type="button" data-feed-reaction="like" aria-pressed={chosen === 'like'} aria-label={onUnlike ? 'Unlike' : 'Like'} onClick={() => (onUnlike ? onUnlike() : choose('like'))}
+                    className={cn('flex size-7 items-center justify-center rounded-md transition-colors hover:bg-foreground/[0.06] hover:text-foreground', chosen === 'like' && 'text-[var(--tt-color-text-red)] hover:text-[var(--tt-color-text-red)]')}>
+                    <Heart className="size-4" fill={chosen === 'like' ? 'currentColor' : 'none'} />
+                  </button>
+                </Tip>
+              </span>
+            </RowMenu>
             <span className="flex-1" />
             <MenuButton small label="More" name="post" items={menu} />
           </div>
@@ -956,7 +975,7 @@ function SideColumn(): React.JSX.Element | null {
   )
 }
 
-function SideCard({ name, title, children }: { name: string; title: string; children: React.ReactNode }): React.JSX.Element {
+export function SideCard({ name, title, children }: { name: string; title: string; children: React.ReactNode }): React.JSX.Element {
   return (
     <section data-feed-side-card={name} className="mf-island rounded-lg border bg-accent/25 p-1">
       <h2 className="px-2 pt-1.5 pb-1 text-control font-semibold text-foreground">{title}</h2>

@@ -41,7 +41,7 @@ import { StatsView } from './components/haligtree/stats-view'
 import { PracticesView } from './components/haligtree/practices-view'
 import { usePracticeActions } from '@/lib/practices'
 import { MapView } from './components/haligtree/map-view'
-import { FeedView } from './components/haligtree/feed-view'
+import { FeedView, showLiked } from './components/haligtree/feed-view'
 import { PowersView } from './components/haligtree/powers-view'
 import { TagsView } from './components/haligtree/tags-view'
 import { SideFolders, newFolder } from './components/haligtree/side-folders'
@@ -1500,7 +1500,7 @@ export function Home(): React.JSX.Element {
         ) : view.id === 'whatsnew' ? (
           <WhatsNewPage focus={view.focus} onView={(id, focus) => setView({ id, focus }, key)} />
         ) : view.id === 'feed' ? (
-          <FeedView onOpen={go} />
+          <FeedView onOpen={go} focus={view.focus} />
         ) : view.id === 'powers' ? (
           <PowersView onView={(id, focus) => setView({ id, focus }, key)} />
         ) : (
@@ -1665,6 +1665,7 @@ export function Home(): React.JSX.Element {
             { label: 'Study stats', hint: 'Reviews a day, how often you remember, what falls due', cue: null, run: () => setView({ id: 'review', focus: ':stats' }) },
             { label: 'Decks', hint: 'Shared Anki decks on their own shelf: start a topic, hold, show in Gems', cue: null, run: () => setView({ id: 'review', focus: ':decks' }) },
             { label: 'Paste cards', hint: 'A list, one card a line: front | back', cue: null, run: () => setView({ id: 'review', focus: ':paste' }) },
+            { label: 'Liked', hint: 'Every post you hearted, newest first, week by week', cue: null, run: () => (setView({ id: 'feed', focus: ':liked' }), showLiked()) },
             { label: 'Browse all cards', hint: 'Search, sort, pause and tag them, in Review', cue: null, run: () => setView({ id: 'review', focus: ':cards' }) },
             // Study one tag's cards, scheduled as in any review.
             ...(cardTags ?? []).map((tag) => ({ label: `Study #${tag}`, hint: 'Its cards in Review, with the tags under it', cue: null, run: () => setView({ id: 'review', focus: tag }) })),

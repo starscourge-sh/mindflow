@@ -96,6 +96,10 @@ const PACE = 230
 const ESSAY = 150
 export type Feed = { day: string; posts: FeedPost[]; safe: boolean }
 /** The Feed's side column: who and what has gone quiet, and the tags you wrote most this week. Never anything about other people. */
+/** A post in Liked: the day you last liked it, and how many times in all. */
+export type LikedPost = FeedPost & { likedOn: string; likes: number }
+/** Liked's strip and side: likes per week over the last year (Monday first), what you keep liking, and a year ago today. */
+export type LikedSide = { total: number; notes: number; weeks: { start: string; n: number }[]; tags: { tag: string; n: number }[]; sources: { name: string; n: number }[]; yearAgo: LikedPost[]; yearAgoExact: boolean }
 export type FeedSide = { quiet: { kind: 'source' | 'tag'; name: string; last: string }[]; week: { tag: string; n: number }[] }
 
 const SIZE = 24
@@ -701,6 +705,96 @@ export function registerFeed(): void {
     changed({ kind: table === 'captures' ? 'capture' : 'item', id })
     return reaction
   })
+
+
+  // --- Liked: every post you hearted, newest like first, a page at a time; the weeks over the last year; what you keep liking.
+  /** A liked note by its key, read on its own: the Feed's pool leaves out what has rested or been shown, Liked shows all but the private and binned. */
+  const likedRow = (key: string): Row | undefined => {
+    const [type, id] = split(key)
+    if (type === 'day') return db.prepare("select 'day' as type, day as id, 'day' as kind, day as title, body, null as who, day as made, null as visited, 1 as weight from day_pages where day = ?").get(id) as Row | undefined
+    if (type === 'capture') return db.prepare(`select 'capture' as type, id, kind, ${LABEL} as title, body, attribution as who, captured_at as made, surfaced_at as visited, surfacing_weight as weight, (imported_at is not null) as archive from captures where id = ? and private = 0 and status != 'discarded'`).get(id) as Row | undefined
+    if (type === 'nugget' || type === 'question' || type === 'article') return db.prepare(`select ? as type, id, kind, coalesce(nullif(title, ''), label('', body)) as title, body, attribution as who, created_at as made, last_visited_at as visited, surfacing_weight as weight from nuggets where id = ? and private = 0 and binned_at is null and superseded_by is null`).get(type, id) as Row | undefined
+    return undefined
+  }
+  const likedPost = (row: Row, likes: number): FeedPost => {
+    const gloss = (db.prepare('select body, created_at as at from glosses where item_id = ? order by created_at desc limit 1').get(row.id) as { body: string; at: string } | undefined) ?? null
+    const span = db.prepare('select count(*) as n, min(created_at) as first from glosses where item_id = ?').get(row.id) as { n: number; first: string | null }
+    return {
+      type: row.type, id: row.id, kind: row.kind, title: row.title, text: words(row), who: row.who?.trim() || null, made: row.made, seen: null,
+      gloss: row.type === 'question' ? null : gloss, clue: row.type === 'question' ? (gloss?.body ?? null) : null, react: 'like', replies: span.n, firstReply: span.first,
+      seenTimes: 0, faded: 0, liked: Math.max(likes, row.type === 'day' ? 0 : likedSteps(row.weight)), tags: tagsOfRow(row).filter((tag) => tag !== 'bit' && tag !== LEARN_TAG).slice(0, 3), restack: null, links: linksOf(row.body ?? '')
+    }
+  }
+  /** Each liked note once, at its newest like; `n` its likes in all. */
+  const LIKED = "select key, max(day) as day, count(*) as n from feed_reacts where reaction = 'like' group by key order by max(day) desc, max(rowid) desc"
+  ipcMain.handle('haligtree:feed:liked', (_event, offset: number, limit: number): { posts: LikedPost[]; more: boolean } => {
+    if (gate().blackout) return { posts: [], more: false }
+    const rows = db.prepare(`${LIKED} limit ? offset ?`).all(limit + 1, offset) as { key: string; day: string; n: number }[]
+    const posts = rows.slice(0, limit).flatMap((one): LikedPost[] => {
+      const row = likedRow(one.key)
+      if (!row || (row.type !== 'day' && /(^|\s)#bit\b/i.test(`${row.title} ${row.body ?? ''}`))) return []
+      return [{ ...likedPost(row, one.n), likedOn: one.day, likes: one.n }]
+    })
+    return { posts, more: rows.length > limit }
+  })
+  /** Where in the list a week starts: how many notes were last liked after it. */
+  ipcMain.handle('haligtree:feed:liked-at', (_event, end: string): number =>
+    (db.prepare(`select count(*) as n from (${LIKED}) where day >= ?`).get(end) as { n: number }).n)
+  ipcMain.handle('haligtree:feed:liked-side', (): LikedSide => {
+    const none: LikedSide = { total: 0, notes: 0, weeks: [], tags: [], sources: [], yearAgo: [], yearAgoExact: false }
+    if (gate().blackout) return none
+    const all = db.prepare("select key, day from feed_reacts where reaction = 'like'").all() as { key: string; day: string }[]
+    if (!all.length) return none
+    // Fifty-two weeks, Monday first, the newest last.
+    const monday = dayjs().subtract((dayjs().day() + 6) % 7, 'day').startOf('day')
+    const weeks = Array.from({ length: 52 }, (_, at) => ({ start: dayKey(monday.subtract(51 - at, 'week')), n: 0 }))
+    for (const one of all) {
+      const day = dayjs(one.day).startOf('day')
+      const at = 51 - Math.round(monday.diff(day.subtract((day.day() + 6) % 7, 'day'), 'day') / 7)
+      if (at >= 0 && at < 52) weeks[at].n += 1
+    }
+    // What you keep liking: tags and sources across every liked note, each note counted once.
+    const keys = [...new Set(all.map((one) => one.key))]
+    const tags = new Map<string, number>()
+    const sources = new Map<string, { name: string; n: number }>()
+    for (const key of keys) {
+      const row = likedRow(key)
+      if (!row || row.type === 'day') continue
+      for (const tag of tagsOfRow(row)) if (tag !== 'bit' && tag !== LEARN_TAG) tags.set(tag, (tags.get(tag) ?? 0) + 1)
+      const who = row.who?.trim()
+      if (who) sources.set(who.toLowerCase(), { name: sources.get(who.toLowerCase())?.name ?? who, n: (sources.get(who.toLowerCase())?.n ?? 0) + 1 })
+    }
+    // A year ago today, or else that week: what you liked then, back in front of you.
+    const then = dayjs().subtract(1, 'year')
+    const near = (db.prepare("select key, day from feed_reacts where reaction = 'like' and day between ? and ? order by abs(julianday(day) - julianday(?)), rowid desc").all(dayKey(then.subtract(3, 'day')), dayKey(then.add(3, 'day')), dayKey(then)) as { key: string; day: string }[])
+    const yearAgo = near.flatMap((one): LikedPost[] => { const row = likedRow(one.key); return row ? [{ ...likedPost(row, 1), likedOn: one.day, likes: 1 }] : [] }).slice(0, 2)
+    return {
+      total: all.length, notes: keys.length, weeks,
+      tags: [...tags].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 5).map(([tag, n]) => ({ tag, n })),
+      sources: [...sources.values()].filter((one) => one.n >= 2).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name)).slice(0, 3),
+      yearAgo, yearAgoExact: yearAgo.some((one) => one.likedOn === dayKey(then))
+    }
+  })
+  // Unliked in Liked: every like of it goes and its pull back comes off; Undo puts each like and the pull back as they were.
+  ipcMain.handle('haligtree:feed:unlike', (_event, key: string): { rows: { day: string; was: string | null }[]; weight: number | null } => {
+    const [type, id] = split(key)
+    const table = tableOf(type)
+    const weight = table ? ((db.prepare(`select surfacing_weight as w from ${table} where id = ?`).get(id) as { w: number } | undefined)?.w ?? null) : null
+    const rows = db.prepare("select day, was from feed_reacts where key = ? and reaction = 'like' order by day desc").all(key) as { day: string; was: string | null }[]
+    for (const one of rows) undoReact(one.day, key)
+    changed({ kind: table === 'captures' ? 'capture' : 'item', id })
+    return { rows, weight }
+  })
+  ipcMain.handle('haligtree:feed:relike', (_event, key: string, kept: { rows: { day: string; was: string | null }[]; weight: number | null }): boolean => {
+    const [type, id] = split(key)
+    const table = tableOf(type)
+    for (const one of kept.rows) db.prepare("insert or replace into feed_reacts (day, key, reaction, was) values (?, ?, 'like', ?)").run(one.day, key, one.was)
+    if (table && kept.weight !== null) db.prepare(`update ${table} set surfacing_weight = ? where id = ?`).run(kept.weight, id)
+    changed({ kind: table === 'captures' ? 'capture' : 'item', id })
+    return true
+  })
+  // A probe's way to lay down likes over years in a sandbox; never there outside a test run.
+  if (process.env.HALIGTREE_QA_AWAY) (globalThis as { qaFeedSql?: unknown }).qaFeedSql = (sql: string, ...args: (string | number | null)[]) => (/^\s*select/i.test(sql) ? db.prepare(sql).all(...args) : db.prepare(sql).run(...args))
 
   // How far it has faded, for a note's own details; and "Show as before", which takes every fade back.
   ipcMain.handle('haligtree:feed:faded', (_event, type: string, id: string): number => {
