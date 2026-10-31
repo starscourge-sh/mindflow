@@ -2875,10 +2875,12 @@ export function registerHaligtree(): void {
     return (db.prepare(`select id, prompt, title, body, state, due_at as dueAt, created_at as createdAt, suspended from nuggets
       where coalesce(prompt, '') != '' and archived_at is null and binned_at is null and superseded_by is null`).all() as { id: string; prompt: string; title: string | null; body: string | null; state: string | null; dueAt: string | null; createdAt: string; suspended: number }[])
       .map((row) => {
-        const answer = plain(JSON.parse(row.body ?? 'null'))
+        // As words: a snip's picture and its "Title, p. N" link read as what they are, never as Markdown.
+        const answer = cardWords(row.body ?? 'null')
+        const pictured = /!\[[^\]]*\]\(|"type":"image"/.test(row.body ?? '')
         const card = row.state ? (JSON.parse(row.state) as { difficulty?: number; reps?: number; state?: number }) : null
         return {
-          id: row.id, prompt: row.prompt, title: row.title ?? '', answer: answer.replace(/\s+/g, ' ').trim().slice(0, 240),
+          id: row.id, prompt: row.prompt, title: row.title ?? '', answer: `${pictured ? 'Picture · ' : ''}${answer.replace(/\s+/g, ' ').trim()}`.replace(/ · $/, '').slice(0, 240),
           tags: tagsIn(`${row.title ?? ''} ${row.prompt} ${answer}`), dueAt: row.dueAt, createdAt: row.createdAt, paused: !!row.suspended,
           // How hard it has been, 1 to 10 (FSRS's difficulty); a card never reviewed has none yet.
           difficulty: card?.difficulty ?? null, reviews: card?.reps ?? 0,
