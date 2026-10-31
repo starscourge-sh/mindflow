@@ -419,7 +419,7 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
     { label: 'Open', run: () => (chime('open'), window.api.openInHome('nugget', card.id)) },
     copyLinkItem(`nugget:${card.id}`, card.prompt || card.title || 'Card'),
     { label: 'Ask another way', hint: 'A new card keeping its context, source and tags', keys: 'A', run: () => (chime('open'), setAsking(card.id)) },
-    { label: 'Pause', hint: 'Out of Review until you bring it back', run: () => setAside(card, true, () => drop(card.id)) },
+    { label: 'Pause', hint: 'Out of Review until you bring it back', keys: '@', run: () => setAside(card, true, () => drop(card.id)) },
     // A study card kept as a gem as well, or a gem tested here made study only: it stays in Review either way.
     ...(() => {
       const move = tierItem(card, () => setQueue((cards) => cards && cards.map((one) => (one.id === card.id ? { ...one, tier: one.tier === 'card' ? 'nugget' : 'card' } : one))))
@@ -501,7 +501,15 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
         event.preventDefault()
         grade(Number(event.key) as 1 | 2 | 3 | 4)
       }
-      if (event.key === 'b') bury()
+      // Anki's keys too, for hands that learnt them there: - (or =) buries, * marks, @ (or !) suspends.
+      if (event.key === 'b' || event.key === '-' || event.key === '=') {
+        event.preventDefault()
+        bury()
+      }
+      if ((event.key === '@' || event.key === '!') && card) {
+        event.preventDefault()
+        return setAside(card, true, () => drop(card.id))
+      }
       // E: rewrite the question right here, without leaving Review (Enter keeps it, Esc leaves it as it was).
       if (event.key === 'e' && card && !event.metaKey) {
         event.preventDefault()
@@ -518,7 +526,7 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
       }
       // The answer read aloud again.
       if (event.key === 'p' && shown) sayAgain()
-      if (event.key === 's' && card) {
+      if ((event.key === 's' || event.key === '*') && card) {
         event.preventDefault()
         star()
       }
