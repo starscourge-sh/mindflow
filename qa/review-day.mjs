@@ -74,7 +74,8 @@ try {
   await v('cards:list', [{ term: 'The planets in order', meaning: 'Mercury, Venus, Earth, Mars, Jupiter, Saturn #qaplanets' }])
   await h.evaluate(() => document.querySelector('[data-review-tab="cards"]')?.click())
   check('"All cards" counts the known ones', await waitFor(() => h.evaluate(() => /known \(remembered after 15 days or more\)/.test(document.querySelector('[data-card-known]')?.textContent ?? ''))))
-  check('a six-item answer is marked "6 things, split it?"', await waitFor(() => h.evaluate(() => [...document.querySelectorAll('[data-card-big]')].some((one) => one.textContent === '6 things, split it?'))))
+  // Marked by an icon now, its words in its label: "asks for 6 things (more than 4)".
+  check('a six-item answer is marked as asking for 6 things', await waitFor(() => h.evaluate(() => [...document.querySelectorAll('[data-card-big]')].some((one) => /asks for 6 things/.test(one.getAttribute('aria-label') ?? '')))), await h.evaluate(() => [...document.querySelectorAll('[data-card-big]')].map((one) => one.getAttribute('aria-label')).join(' | ')))
   await h.locator('[data-card-big]').first().scrollIntoViewIfNeeded()
   await c.both(`${shots}/review-day-browser`)
 
