@@ -62,7 +62,10 @@ try {
       await h.locator('[data-note-preview]').waitFor({ timeout: 4000 }).catch(() => {})
       check('an @ link\'s card has nothing to press in it', await h.locator('[data-note-preview]').count() === 1 && await h.locator('[data-note-preview] button').count() === 0)
     }
-    await link.click({ button: 'right', position: { x: 8, y: box.height / 2 } })
+    // On the link's first line, where the pointer is: a link that wraps has a box wider than its words, and its
+    // corner can be the paragraph beside it.
+    await h.mouse.down({ button: 'right' }); await h.mouse.up({ button: 'right' })
+    await wait(300)
     if (i === 0) {
       const lines = (await h.locator('[role="menu"]').last().locator('[role^="menuitem"]').allInnerTexts().catch(() => [])).map((one) => one.trim().split('\n')[0])
       check('its right-click menu holds what the card once did', ['Open to the side', 'Add to queue', 'Read next'].every((one) => lines.includes(one)), lines.join(' | '))
