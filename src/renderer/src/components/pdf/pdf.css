@@ -1217,21 +1217,34 @@
   align-items: center;
   gap: 0.375rem;
   padding-inline: 0.5rem 0.25rem;
-  color: var(--mf-muted);
+  color: color-mix(in oklab, var(--foreground) 80%, transparent);
   font-size: 0.875rem;
   white-space: nowrap;
 }
 
+/* The question or the reason written straight on the bar, on a ruled line in the serif, as on a card: never a grey box. */
 .pdf-why-field {
-  width: 16rem;
-  padding: 0.3rem 0.5rem;
+  width: 17rem;
+  margin-inline: 0.25rem;
+  padding: 0.25rem 0.125rem;
   border: 0;
-  border-radius: 0.375rem;
-  background: var(--mf-surface);
-  color: inherit;
-  font: inherit;
-  font-size: 0.875rem;
+  border-bottom: 1px dashed color-mix(in oklab, var(--foreground) 22%, transparent);
+  border-radius: 0;
+  background: transparent;
+  color: var(--foreground);
+  font-family: var(--font-heading, Fraunces, Georgia, serif);
+  font-size: 0.9375rem;
   outline: none;
+  transition: border-color 120ms ease-out;
+}
+
+.pdf-why-field::placeholder {
+  color: var(--mf-muted);
+  font-style: italic;
+}
+
+.pdf-why-field:focus {
+  border-bottom-color: color-mix(in oklab, var(--foreground) 40%, transparent);
 }
 
 /* The library: a shelf of covers at the left, the picked book's inspector at the right. */
