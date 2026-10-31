@@ -165,9 +165,11 @@ try {
   await h.locator('[data-pair-row="live"]').click({ button: 'right' })
   await wait(400)
   const pairMenu = await h.locator('[role="menu"]').last().innerText()
-  for (const words of ['Pin the layout', 'Separate', 'Duplicate the layout', 'Copy to book', 'Open in new window', 'Notes', 'Close pane', 'Close other panes']) {
-    check(`the pair's menu has ${words}`, pairMenu.includes(words))
+  // The row's menu does what its card once offered: each pane alone or closed, Rename…, Close the split; said once each.
+  for (const words of ['Alone', 'Close “', 'Rename…', 'Close the split', 'Pin the layout', 'Duplicate the layout', 'Copy to book', 'Open in new window', 'Notes']) {
+    check(`the pair's menu has ${words}`, words === 'Alone' ? (pairMenu.match(/^Open “.+” alone$/gm) ?? []).length >= 2 : pairMenu.includes(words))
   }
+  for (const words of ['Separate', 'Close pane', 'Close other panes']) check(`the pair's row menu no longer repeats ${words}`, !new RegExp(`^${words}$`, 'm').test(pairMenu))
   const pairIcons = await h.locator('[role="menu"]').last().locator('[role^="menuitem"]').evaluateAll((all) => all.filter((one) => !one.querySelector('svg')).map((one) => one.textContent))
   check('every line of the pair\'s menu has an icon', pairIcons.length === 0, pairIcons.join(' | '))
   // A note's own actions, one level in.

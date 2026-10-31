@@ -26,6 +26,17 @@ function PdfCoverIcon({ one, className }: { one: Opened; className?: string }): 
   )
 }
 
+const covers = new Map<string, React.ComponentType<{ className?: string }>>()
+/** A PDF's cover as a plain icon (a split's pane on a PDF), one per book, so it is never drawn anew. */
+export const pdfDrawing = (id: string): React.ComponentType<{ className?: string }> => {
+  const made = covers.get(id)
+  if (made) return made
+  const one: Opened = { id, type: 'pdf', title: '', kind: null, private: 0 }
+  const Cover = ({ className }: { className?: string }): React.JSX.Element => <PdfCoverIcon one={one} className={className} />
+  covers.set(id, Cover)
+  return Cover
+}
+
 /** What a recently opened row shows before its name: a PDF's cover, else its kind's drawing. */
 export function OpenedIcon({ one, className }: { one: Opened; className?: string }): React.JSX.Element {
   if (one.type === 'pdf') return <PdfCoverIcon one={one} className={className} />

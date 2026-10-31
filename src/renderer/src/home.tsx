@@ -6,7 +6,7 @@ import { TagColourPick } from './components/haligtree/tag-colour-pick'
 import { themeActions } from '@/lib/theme'
 import { useAbandonAction } from '@/lib/abandon'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
-import { ChevronsDownUp, ChevronsUpDown, FileText, PanelsTopLeft, Plus } from 'lucide-react'
+import { BookOpen, ChevronsDownUp, ChevronsUpDown, FileText, PanelsTopLeft, Plus, Settings as SettingsLine } from 'lucide-react'
 import CameraIcon from '@/components/ui/camera-icon'
 import CameraOffIcon from '@/components/ui/camera-off-icon'
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -94,13 +94,13 @@ import { onboarding, playWelcome, tryWelcome } from '@/lib/onboarding'
 import { DayView } from '@/components/haligtree/day-view'
 import { MonthPage, SCALE_VIEW, WeekPage, YearPage, mondayOf, type Scale } from '@/components/haligtree/periods-view'
 import { RecentPanel } from '@/components/haligtree/recent-panel'
-import { OpenedIcon, type Opened } from '@/components/haligtree/recent-island'
+import { OpenedIcon, pdfDrawing, type Opened } from '@/components/haligtree/recent-island'
 import { Passes, openPass } from '@/components/haligtree/pass'
 import { noteActions } from '@/lib/notes'
 import { headingIn } from '@/lib/capture-links'
 import { openApart } from '@/lib/apart'
 import { MediaView } from '@/components/haligtree/media-view'
-import { G_ALIASES, JOURNAL_SCALES, OFF_SIDEBAR, startPageOf, PlaceIcon, SECTIONS, SIDE_GROUPS, ShowList, showGroup, type Place, TASK_PAGES, dropInBlock, dropOrder, orderItems, risen, litRow, showWords, sidebarParts, useInOrder, useOrder, useSections, useShown } from '@/components/haligtree/places'
+import { G_ALIASES, JOURNAL_SCALES, OFF_SIDEBAR, startPageOf, PlaceIcon, SECTIONS, SIDE_GROUPS, ShowList, showGroup, type Place, placeDrawing, TASK_PAGES, dropInBlock, dropOrder, orderItems, risen, litRow, showWords, sidebarParts, useInOrder, useOrder, useSections, useShown } from '@/components/haligtree/places'
 import { BlockList, SortableList, SortableRow } from '@/components/haligtree/sortable'
 import { pageTravel } from '@/lib/page-travel'
 import { Branches } from '@/components/haligtree/branches'
@@ -227,6 +227,8 @@ const selectedInNote = (): boolean => {
   const picked = getSelection()
   return !!editor && !!picked && !picked.isCollapsed && !!picked.anchorNode && editor.contains(picked.anchorNode)
 }
+/** Settings as a place: the gear its button at the sidebar's foot draws, for a pane on it. */
+const SETTINGS_PLACE: Place = { id: 'settings', label: 'Settings', icon: SettingsLine, alive: GearIcon, emoji: '⚙️', tint: 'gray' }
 const holdsNotes = (id: string): boolean => !['pick', 'home', 'day', 'weekpage', 'monthpage', 'yearpage', 'tags', 'sources', 'source', 'stats', 'map', 'feed', 'powers', 'whatsnew', 'settings', 'review', 'queue', 'calendar', 'practices', 'kind:practice', 'pdf', 'web'].includes(id)
 /** A step onto a note (not a task, a day or an event): the page that shows it turns, as a book's does. */
 const turnsPage = (view: View): boolean => !!view.focus && holdsNotes(view.id) && !['today', 'tomorrow', 'upcoming', 'routines', 'later', 'alltasks', 'goals', 'week', 'matrix', 'discarded'].includes(view.id)
@@ -1312,6 +1314,21 @@ export function Home(): React.JSX.Element {
     lookups: (capture) => capture.kind === 'word' && capture.status !== 'discarded' && capture.status !== 'question' && !capture.archivedAt
   }
 
+  /**
+   * A page's icon, the one the sidebar draws for it: its place's (Home's house,
+   * Tasks' list, the Journal's sun for its Week, Month and Year), a kind's own, the
+   * gear for Settings, a PDF's cover, the open book for a page read in the reader.
+   */
+  const pageLook = (view: View): Pick<PaneName, 'icon' | 'tint' | 'kind'> => {
+    if (view.id === 'pdf') return { icon: pdfDrawing(view.focus ?? ''), kind: 'PDF' }
+    if (view.id === 'web') return { icon: BookOpen, kind: 'Web page' }
+    if (view.id === 'settings') return { icon: placeDrawing(SETTINGS_PLACE) }
+    const owned = kind(view)
+    if (owned) return { icon: owned.icon, tint: owned.tint }
+    const place = [...JOURNAL_SCALES, ...SECTIONS].find((one) => one.id === view.id) ?? SECTIONS.find((one) => one.id === litRow(view.id === 'source' ? 'sources' : view.id))
+    return place ? { icon: placeDrawing(place), tint: `var(--mf-icon-tint, var(--tt-color-text-${place.tint}))` } : { icon: PanelsTopLeft }
+  }
+
   // --- split pairs: the panes as one row in Pinned, and the menu they share (split-pairs.tsx)
   const layouts = usePinnedLayouts()
   /** The note a step has open: where it lives, its name and kind; null for a page with none. */
@@ -1337,7 +1354,7 @@ export function Home(): React.JSX.Element {
     return task ? { type: 'task', id: task.id, name: { title: taskName(task.title).text || 'Untitled', icon: TASK_KIND.icon, tint: TASK_KIND.tint, kind: 'Task' } } : null
   }
   // A place in the app (Settings, Gems) is named by itself, with no kind: "Page" is a piece of writing.
-  const paneName = (view: View): PaneName => noteIn(view)?.name ?? { title: labelOf(view) || APP_NAME, icon: PanelsTopLeft }
+  const paneName = (view: View): PaneName => noteIn(view)?.name ?? { title: labelOf(view) || APP_NAME, ...pageLook(view) }
   // The one thing you were last in (a note, a book, an article), for Home's line after a long absence (resume-cards.tsx).
   const lastName = view.focus && (view.id === 'pdf' || view.id === 'web' || holdsNotes(view.id)) ? paneName(view).title : null
   useEffect(() => {
@@ -1388,7 +1405,7 @@ export function Home(): React.JSX.Element {
    * the page's name in the top bar, a pane's tab), Dia's menu for a split
    * with what Haligtree has: its layout, the notes in it, and its panes.
    */
-  const pairMenu = (views: View[], live: { key?: string } | null, pinnedId?: string): RowItem[] => {
+  const pairMenu = (views: View[], live: { key?: string } | null, pinnedId?: string, row = false): RowItem[] => {
     const notes = views.map(noteIn).filter((one): one is NonNullable<ReturnType<typeof noteIn>> => !!one)
     const refs: BookRef[] = notes.filter((one) => one.type !== 'task').map((one) => ({ table: one.type === 'capture' ? 'captures' : 'nuggets', id: one.id }))
     const sizes = live ? splitRef.current.sizes : layouts.find((one) => one.id === pinnedId)?.sizes ?? []
@@ -1410,7 +1427,8 @@ export function Home(): React.JSX.Element {
     return [
       pinned ? { label: 'Unpin the layout', run: () => unpinLayout(pinned) } : { label: 'Pin the layout', run: () => pinLayout(views, sizes) },
       'separator',
-      live ? { label: 'Separate', run: () => separate(key) } : { label: 'Open the layout', run: () => openLayout(views, sizes) },
+      // The sidebar's row has its own lines for each pane and for the split ("Close the split"): not said twice.
+      live ? !row && { label: 'Separate', run: () => separate(key) } : { label: 'Open the layout', run: () => openLayout(views, sizes) },
       { label: 'Duplicate the layout', run: () => (pinLayout(views, sizes), toast('Duplicated: a copy of the layout is pinned')) },
       'separator',
       targets.length > 0 && { label: 'Move to group', items: targets.map((one) => ({ label: one.label, icon: one.icon, run: () => moveAll(one.label) })) },
@@ -1419,9 +1437,9 @@ export function Home(): React.JSX.Element {
       notes.length > 0 && 'separator',
       notes.length > 0 && { heading: 'Notes' },
       ...notes.map((note): RowItem => ({ label: note.name.title, icon: <note.name.icon className="size-3.5 shrink-0" style={{ color: note.name.tint }} />, items: own(note) })),
-      live && 'separator',
-      live && { label: 'Close pane', keys: '⌃W', run: () => closePane(key) },
-      live && { label: 'Close other panes', run: () => separate(key) }
+      live && !row && 'separator',
+      live && !row && { label: 'Close pane', keys: '⌃W', run: () => closePane(key) },
+      live && !row && { label: 'Close other panes', run: () => separate(key) }
     ]
   }
 
@@ -2052,9 +2070,16 @@ export function Home(): React.JSX.Element {
                         if (live) setSplit((now) => ({ ...now, id: now.id ?? `s${Date.now().toString(36)}${made++}`, name: name || undefined }))
                         else setKept((list) => list.map((one) => (one.id === pair.id ? { ...one, name: name || undefined } : one)))
                       }
-                      return <PairRow key={pair.id} live={live} isPinned={false} narrow={narrow} names={views.map(paneName)} menu={pairMenu(views, live ? {} : null)} name={pair.name} onAlone={(index) => openAlone(views[index])}
+                      return <PairRow key={pair.id} live={live} isPinned={false} narrow={narrow} names={views.map(paneName)} menu={pairMenu(views, live ? {} : null, undefined, true)} name={pair.name} onAlone={(index) => openAlone(views[index])}
                         onRename={rename}
-                        onForget={() => (live ? separate(split.front) : (chime('fold'), forgetPair(pair.id)))}
+                        forgetLabel={live ? 'Close the split' : 'Remove from “Side by side”'}
+                        onForget={() => {
+                          if (live) return separate(split.front)
+                          const was = keptRef.current
+                          chime('fold')
+                          forgetPair(pair.id)
+                          quietly(() => setKept(was))
+                        }}
                         onOpen={(index) => (live ? (chime('tap'), index >= 0 && toFront(split.panes[index].key)) : backTo(pair.id, index >= 0 ? index : undefined))}
                         onClose={(index) => {
                           if (live) return closePane(split.panes[index].key)
@@ -2085,7 +2110,8 @@ export function Home(): React.JSX.Element {
                 <Unfold open={pinsOpen || narrow}><Branches current={(() => { const at = pins.findIndex((pin) => pin.id === view.focus); return at < 0 ? -1 : layouts.length + at })()} bare={narrow} className={`flex flex-col gap-px ${narrow ? '' : 'ml-5'}`}>{[
                   ...layouts.map((one) => {
                     const live = split.panes.length > 1 && sameLayout(one.views, split.panes.map((pane) => pane.trail.views[pane.trail.at]))
-                    return <PairRow key={one.id} live={live} isPinned narrow={narrow} names={one.views.map(paneName)} menu={pairMenu(one.views, live ? {} : null, one.id)} onAlone={(index) => openAlone(one.views[index])}
+                    return <PairRow key={one.id} live={live} isPinned narrow={narrow} names={one.views.map(paneName)} menu={pairMenu(one.views, live ? {} : null, one.id, true)} onAlone={(index) => openAlone(one.views[index])}
+                      onForget={live ? () => separate(split.front) : undefined}
                       onOpen={(index) => (live ? (chime('tap'), toFront(split.panes[index].key)) : openLayout(one.views, one.sizes))}
                       onClose={live ? (index) => closePane(split.panes[index].key) : undefined} />
                   }),

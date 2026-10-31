@@ -56,13 +56,13 @@ export function PeekCard({ art, text, keys, fit = false, whole = false }: { art:
  * delay), the way tooltips do. A pointer at rest while the list moves under
  * it opens nothing (lib/real-move.ts), and nor does one carrying something.
  */
-export function Peek({ art, text, keys, children }: { art: () => ReactNode; text: string; keys?: string; children: ReactElement }): React.JSX.Element {
+export function Peek({ art, text, keys, off = false, children }: { art: () => ReactNode; text: string; keys?: string; /** Not now: its row is being typed in (a name being changed). */ off?: boolean; children: ReactElement }): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const trigger = useRef<HTMLButtonElement>(null)
   // Only for a resting pointer: Tab through the sidebar moves on without a
   // large card opening over the page at each stop (the row says its own name).
   return (
-    <Tooltip open={open} onOpenChange={(next) => setOpen(next && !carrying() && !previewsOff() && !!trigger.current?.matches(':hover'))} delayDuration={450} disableHoverableContent>
+    <Tooltip open={open} onOpenChange={(next) => setOpen(next && !off && !carrying() && !previewsOff() && !!trigger.current?.matches(':hover'))} delayDuration={450} disableHoverableContent>
       <TooltipTrigger asChild ref={trigger} onPointerMove={(event) => {
         if (!realMove(event) || event.buttons || carrying()) event.preventDefault()
       }}>{children}</TooltipTrigger>

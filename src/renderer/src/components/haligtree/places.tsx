@@ -314,6 +314,25 @@ export function PlaceIcon({ place, full }: { place: Place; full?: boolean }): Re
   return place.alive ? <AliveIcon icon={place.alive} size={16} className={className} style={style} /> : <place.icon className={className} style={style} />
 }
 
+type Drawing = ComponentType<{ className?: string; style?: CSSProperties }>
+const drawings = new Map<string, Drawing>()
+/**
+ * A place's drawing as a plain icon, sized and coloured by whoever draws it: the
+ * one its sidebar row shows (its emoji under "Icons: Emoji", its moving drawing
+ * where it has one), for a page named among notes (a split's panes). One per place, so it is never drawn anew.
+ */
+export const placeDrawing = (place: Place): Drawing => {
+  const made = drawings.get(place.id)
+  if (made) return made
+  const Drawn: Drawing = ({ className, style }) => {
+    const emoji = useEmojiIcons()
+    if (emoji && place.emoji) return <span aria-hidden style={style} className={`mf-emoji-icon flex items-center justify-center text-[0.8125rem] leading-none ${className ?? ''}`}>{place.emoji}</span>
+    return place.alive ? <AliveIcon icon={place.alive} size={/\bsize-4\b/.test(className ?? '') ? 16 : 14} className={className} style={style} /> : <place.icon className={className} style={style} />
+  }
+  drawings.set(place.id, Drawn)
+  return Drawn
+}
+
 /**
  * Each place with a switch to show or hide it, saved as you flick it: the
  * sidebar's Customize and Settings both use this. Off means not in the
