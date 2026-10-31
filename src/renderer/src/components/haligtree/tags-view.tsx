@@ -297,7 +297,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
               )}
             </span>
             {/* How much of it to remember, its own, as Anki's desired retention per deck: the same as its deck menu. */}
-            <span data-tag-keep className="flex flex-wrap items-center gap-1.5 text-xs">
+            <span data-tag-keep className="flex basis-full flex-wrap items-center gap-1.5 text-xs">
               <span className="whitespace-nowrap font-medium text-foreground">How much to remember:</span>
               <Chips options={[{ id: '', label: 'As in Settings' }, { id: 'own', label: 'Its own', tip: 'Higher brings its cards back sooner and more often' }]}
                 on={(id) => (id === 'own') === (study.retention?.[chosen] !== undefined)}

@@ -1,13 +1,13 @@
 import { useRef, useState, type ReactElement, type ReactNode } from 'react'
 
-import { Tip, refuse, toast } from './ui'
+import { refuse, toast } from './ui'
 import { chime } from '@/lib/sound'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuLabel, ContextMenuSeparator, ContextMenuShortcut, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { keyFor } from '@/lib/keys'
 import { noteLinkText } from '@/lib/capture-links'
 
 /** One line of a right-click menu, a line that opens a few more beside it, or a rule between groups. */
-export type MenuItem = { label: string; /** What it means, as a tip to its right: the label stays a short name. */ hint?: string; run: () => void; keys?: string; danger?: boolean; icon?: ReactNode; trail?: ReactNode; /** A name for it on the page (data-menu-item), for a probe. */ id?: string
+export type MenuItem = { label: string; /** What it means, on a quiet line under the name: the label stays a short name. */ hint?: string; run: () => void; keys?: string; danger?: boolean; icon?: ReactNode; trail?: ReactNode; /** A name for it on the page (data-menu-item), for a probe. */ id?: string
   /** About the whole list or picking in it, not the thing right-clicked (Select, Select all, every goal on a sticky): never in an item's menu, only in the list's own. */
   about?: 'list'
   /** Whether it can run here, read as the menu opens: false leaves it out, so a menu never offers what then refuses. */
@@ -96,14 +96,13 @@ const lines = (items: Shown[]): React.ReactNode =>
         <ContextMenuSubContent className="w-52">{lines(item.items.filter(Boolean) as Shown[])}</ContextMenuSubContent>
       </ContextMenuSub>
     ) : (
-      <Tip key={item.label} label={item.hint} side="right">
-      <ContextMenuItem variant={item.danger ? 'destructive' : 'default'} onSelect={item.run}>
+      // Its hint on a quiet second line under its name, never a tip: a menu row shows no floating surface.
+      <ContextMenuItem key={item.label} variant={item.danger ? 'destructive' : 'default'} onSelect={item.run}>
         {item.icon}
-        {item.label}
+        {item.hint ? <span className="flex min-w-0 flex-col"><span>{item.label}</span><span data-menu-hint className="max-w-64 text-xs leading-snug whitespace-normal text-muted-foreground">{item.hint}</span></span> : item.label}
         {item.trail}
         {item.keys && keyFor(item.keys) && <ContextMenuShortcut>{keyFor(item.keys)}</ContextMenuShortcut>}
       </ContextMenuItem>
-      </Tip>
     )
   )
 

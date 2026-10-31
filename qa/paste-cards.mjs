@@ -12,7 +12,8 @@ const { h } = c
 const shots = process.env.QA_SHOTS
 const waitFor = async (test, ms = 8000) => { for (const end = Date.now() + ms; Date.now() < end; await h.waitForTimeout(150)) if (await test()) return true; return false }
 const call = (...args) => h.evaluate((args) => window.api.haligtree(...args), args)
-const preview = () => h.evaluate(() => [...document.querySelectorAll('[data-paste-preview] tbody tr')].map((row) => [...row.querySelectorAll('td')].map((cell) => cell.textContent)))
+// The cards it will make, laid out as cards: each one's front, then its back.
+const preview = () => h.evaluate(() => [...document.querySelectorAll('[data-paste-preview] > div')].map((card) => [...card.querySelectorAll(':scope > span')].map((side) => side.textContent)))
 const pressed = () => h.evaluate(() => document.querySelector('[data-paste-cards] button[aria-pressed="true"]')?.getAttribute('aria-label'))
 const chip = (label) => h.evaluate((label) => [...document.querySelectorAll('[data-paste-cards] button[aria-pressed]')].find((one) => one.getAttribute('aria-label') === label)?.click(), label)
 const shot = async (name, again) => {
@@ -69,7 +70,7 @@ try {
   check('a dropped .txt reads in, split at tabs', await waitFor(async () => (await pressed()) === 'Tab' && (await preview()).length === 2), JSON.stringify(await preview()))
   // A spreadsheet's first row of column names is not a card: it names the columns.
   await h.locator('[data-paste-text]').fill('English,Spanish\nhouse,casa\nbook,libro')
-  check('a first row of column names is read as headings, not a card', await waitFor(async () => (await preview()).length === 2 && (await h.evaluate(() => [...document.querySelectorAll('[data-paste-preview] th')].map((one) => one.textContent).join('/'))) === 'English/Spanish' && await h.evaluate(() => !!document.querySelector('[data-paste-headings]'))), JSON.stringify(await preview()))
+  check('a first row of column names is read as headings, not a card', await waitFor(async () => (await preview()).length === 2 && await h.evaluate(() => !!document.querySelector('[data-paste-headings]'))), JSON.stringify(await preview()))
   // From ⌘K.
   await c.go('home')
   await h.keyboard.press('Meta+k')

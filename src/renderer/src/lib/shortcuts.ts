@@ -240,7 +240,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Review', keys: '4', does: 'Easy, with two grades or four', where: 'Review' },
   { group: 'Review', keys: 'B', does: 'Not today (- or =, as in Anki)', where: 'Review' },
   { group: 'Review', keys: 'E', does: 'Rewrite the question right there (Enter keeps it)', where: 'Review' },
-  { group: 'Review', keys: 'P', does: 'Once the answer shows: hear it again', where: 'Review' },
+  { group: 'Review', keys: 'P', does: 'On a card read aloud (its deck has a language): hear the answer again', where: 'Review' },
   { group: 'Review', keys: '@', does: 'Pause the card: out of Review until you bring it back (! too, as in Anki)', where: 'Review' },
   { group: 'Review', keys: '⌫', does: 'Move the card to the Bin', where: 'Review' },
   { group: 'Review', keys: '⌘Z', does: 'Take back the last grade or Not today', where: 'Review' },

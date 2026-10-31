@@ -256,7 +256,7 @@ function deckSettings(tag: string, study: { typed: Record<string, string>; newPe
     // Anki's desired retention per deck: a language seen more often, an old exam's deck less.
     { label: 'How much to remember', items: [
       { label: 'As in Settings', on: keep === undefined, set: (on: boolean) => void (on && setKeep(null)) },
-      { label: 'Its own', hint: 'Higher brings its cards back sooner and more often', field: <span className="flex items-center gap-0.5"><ScrubField label={`How much to remember of ${tag}`} min={70} max={99} value={Math.round((keep ?? 0.9) * 100)} onChange={(n) => void haligtree.setTag(tag, { retention: n / 100 })} className={SCRUB} />%</span> }
+      { label: 'Its own', field: <span className="flex items-center gap-0.5"><ScrubField label={`How much to remember of ${tag}`} min={70} max={99} value={Math.round((keep ?? 0.9) * 100)} onChange={(n) => void haligtree.setTag(tag, { retention: n / 100 })} className={SCRUB} />%</span> }
     ] },
     { label: 'How typed answers are checked', items: [
       { label: 'Usual', hint: 'An accent or unit left out is part wrong; a slip of a letter can count; capitals do not', on: !typed, set: (on: boolean) => void (on && setTyped(null)) },

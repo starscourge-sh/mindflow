@@ -92,28 +92,25 @@ function ThemeItem(): React.JSX.Element {
   )
 }
 
-/** A line with more to say than its short name: the rest as a tip, to its right. */
-const Hinted = ({ hint, children }: { hint?: string; children: React.ReactElement<{ 'aria-label'?: string; children?: React.ReactNode }> }): React.JSX.Element => (hint ? <Tip label={hint} side="right">{children}</Tip> : children)
+/** A line with more to say than its short name: the rest on a quiet second line under it, never a tip (a menu row shows no floating surface). */
+const Named = ({ label, hint }: { label: string; hint?: string }): React.JSX.Element =>
+  hint ? <span className="flex min-w-0 flex-col"><span>{label}</span><span data-menu-hint className="max-w-64 text-xs leading-snug whitespace-normal text-muted-foreground">{hint}</span></span> : <>{label}</>
 
-/** One switch or action, as every part of the menu draws it, its hint as a tip. */
+/** One switch or action, as every part of the menu draws it, its hint under its name. */
 function Item({ one }: { one: Option | Action }): React.JSX.Element {
   return 'on' in one ? (
-    <Hinted hint={one.hint}>
     <DropdownMenuCheckboxItem checked={one.on} onCheckedChange={one.set} onSelect={(event) => event.preventDefault()}>
       {/* Its own drawing in the menu's one icon place, at the line's start, as every menu has it. */}
       {one.icon && <AliveIcon key={String(one.on)} icon={one.icon} size={14} className="text-muted-foreground" />}
-      {one.label}
+      <Named label={one.label} hint={one.hint} />
       {one.keys && keyFor(one.keys) && <DropdownMenuShortcut>{keyFor(one.keys)}</DropdownMenuShortcut>}
     </DropdownMenuCheckboxItem>
-    </Hinted>
   ) : (
     // Room on the right like the tickable rows, so every shortcut lines up.
-    <Hinted hint={one.hint}>
     <DropdownMenuItem onSelect={one.run} className="pr-8">
-      {one.label}
+      <Named label={one.label} hint={one.hint} />
       {one.keys && keyFor(one.keys) && <DropdownMenuShortcut>{keyFor(one.keys)}</DropdownMenuShortcut>}
     </DropdownMenuItem>
-    </Hinted>
   )
 }
 
