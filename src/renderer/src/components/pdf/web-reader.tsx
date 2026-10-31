@@ -143,7 +143,8 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     const gemId = await call<string>(
       'nugget:from',
       `${picked.quote}\n\n[${where.replace(/[[\]]/g, '\\$&')}](${articleLink(href, id)})`,
-      { attribution: where }
+      // The article is the gem's source; its byline, when it has one, who said it.
+      { attribution: article.byline?.replace(/^by\s+/i, '') || null, medium: where, kind: 'quote' }
     )
     const mark: PdfMark = {
       id,

@@ -10,7 +10,7 @@ import { host, said } from "@/lib/host"
 import { canSplit, keysHere, usePane } from "@/lib/split"
 import { chime } from "@/lib/sound"
 import { cue } from "@/lib/cues"
-import { PdfPages, offsetsIn, pdfTitle, type PdfMark } from "./pdf-pages"
+import { PdfPages, offsetsIn, pdfAuthor, pdfTitle, type PdfMark } from "./pdf-pages"
 
 /** The zoom steps, as Preview's: fit width is 1. */
 const ZOOMS = [0.5, 0.67, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3]
@@ -219,7 +219,8 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
       const range = chosen.getRangeAt(0)
       const layer = (range.startContainer.parentElement ?? null)?.closest(".textLayer")
       const sheet = layer?.closest<HTMLElement>(".pdf-page")
-      const quote = range.toString().replace(/\s+/g, " ").trim()
+      // The selection's own words, not the range's: across a line end pdf.js puts a line break, which only the selection reads as a space ("the nature", never "thenature").
+      const quote = chosen.toString().replace(/\s+/g, " ").trim()
       if (!layer || !sheet || !box.contains(sheet) || !layer.contains(range.endContainer) || !quote) return setPicked(null)
       const { start, end } = offsetsIn(layer, range)
       const rect = range.getBoundingClientRect()
@@ -235,7 +236,9 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     if (!picked) return
     const id = crypto.randomUUID()
     const where = `${title}, p. ${picked.page}`
-    const gemId = await call<string>("nugget:from", `${picked.quote}\n\n[${where}](${pdfLink(src, name, picked.page, id)})`, { attribution: where })
+    // The book is the gem's source and the page its place; its author, when the file names one, who said it.
+    const author = doc ? await pdfAuthor(doc) : ""
+    const gemId = await call<string>("nugget:from", `${picked.quote}\n\n[${where}](${pdfLink(src, name, picked.page, id)})`, { attribution: author || null, medium: title, passage: `p. ${picked.page}`, kind: "quote" })
     await call("pdf:highlight", src, { id, page: picked.page, quote: picked.quote, start: picked.start, end: picked.end, gemId })
     setMarks((all) => [...all, { id, page: picked.page, quote: picked.quote, start: picked.start, end: picked.end, gemId }])
     getSelection()?.removeAllRanges()

@@ -17,6 +17,12 @@ try {
       <button id="qa-whole" class="tiptap-toc-item" title="How to Run"><span class="tiptap-toc-rule"></span><span class="tiptap-toc-text">How to Run</span></button>
       <button id="qa-cut" title="3. PROJECT 1: Movie Recommender System" style="width:120px"><span style="display:block;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">3. PROJECT 1: Movie Recommender System</span></button>
       <button id="qa-more" title="Opens the note in a window of its own">Open</button>`
+    const edge = document.createElement('button')
+    edge.id = 'qa-edge'
+    edge.title = 'Paper pages'
+    edge.textContent = 'P'
+    edge.style.cssText = `position:fixed;top:120px;left:${innerWidth - 22}px;z-index:200;width:20px`
+    document.body.append(edge)
     document.body.append(box)
   })
   const tipOn = async (id) => {
@@ -31,6 +37,9 @@ try {
   check('a heading shown in full gets no tip', whole === null, String(whole))
   const cut = await tipOn('qa-cut')
   check('a heading cut short gets its whole name as a tip', cut === '3. PROJECT 1: Movie Recommender System', String(cut))
+  await tipOn('qa-edge')
+  const edge = await h.evaluate(() => { const r = document.querySelector('[data-title-tips]')?.getBoundingClientRect(); return r && { left: r.left, right: r.right, height: r.height, width: innerWidth } })
+  check('a tip at the window edge stays whole, on one line, inside the window', !!edge && edge.right <= edge.width && edge.left >= 0 && edge.height < 40, JSON.stringify(edge))
   const more = await tipOn('qa-more')
   check('a tip that says something new still shows', more === 'Opens the note in a window of its own', String(more))
 } catch (error) {

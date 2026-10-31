@@ -227,6 +227,22 @@ try {
   check('the page gone to is drawn', /3:drawn/.test(drawnNow), drawnNow)
   check('typing a page goes there', onPage.field === '3' && onPage.top < 60, JSON.stringify(onPage))
   await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-pane.png` })
+  // Words picked across a line end keep the space between them ("the nature", never "thenature"): Keep reads the selection's words, as here.
+  const across = await h.evaluate(() => {
+    const spans = [...document.querySelectorAll('.pdf-reader .pdf-page[data-page="3"] .textLayer span')]
+    const title = spans.find((one) => /probe book/.test(one.textContent))?.firstChild
+    const line = spans.find((one) => /quiet sentence/.test(one.textContent))?.firstChild
+    if (!title || !line) return null
+    const range = document.createRange()
+    range.setStart(title, title.textContent.length - 4)
+    range.setEnd(line, 7)
+    getSelection().removeAllRanges()
+    getSelection().addRange(range)
+    const said = getSelection().toString().replace(/\s+/g, ' ').trim()
+    getSelection().removeAllRanges()
+    return said
+  })
+  check('words picked across a line end keep their space', across === 'book A quiet', String(across))
   // Highlight to gem: words picked on page 3 offer "Keep"; Keep makes a gem with the quote, the book and the page.
   await h.evaluate(() => {
     const span = [...document.querySelectorAll('.pdf-reader .pdf-page[data-page="3"] .textLayer span')].find((one) => /quiet sentence/.test(one.textContent))
@@ -250,7 +266,8 @@ try {
   const gem = marks[0]?.gemId ? await v('item', marks[0].gemId) : null
   const body = JSON.stringify(gem?.body ?? '')
   check('Keep made a gem holding the quote', /quiet sentence worth keeping/.test(body), body.slice(0, 200))
-  check('the gem names the book and page', gem?.attribution === 'The Probe Book, p. 3', String(gem?.attribution))
+  // The book is the gem's source and the page its place, never a person called "The Probe Book, p. 3"; it is a quote.
+  check('the gem names the book as its source and the page as its place', gem?.medium === 'The Probe Book' && gem?.passage === 'p. 3' && !gem?.attribution && gem?.kind === 'quote', JSON.stringify({ medium: gem?.medium, passage: gem?.passage, attribution: gem?.attribution, kind: gem?.kind }))
   check('the gem links back to the page and mark', body.includes(`#page=3&mark=${marks[0]?.id}`), body.slice(0, 300))
   // Zoomed in, the mark is drawn again over the same words.
   await h.click('.pdf-reader button[aria-label="Larger"]'); await wait(1200)

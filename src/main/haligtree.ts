@@ -2063,6 +2063,11 @@ export function registerHaligtree(): void {
   column('nuggets', 'binned_was text')
   // The exact words a gem was lifted from, as selected, so its card can show them and find them in the note.
   column('nuggets', 'passage text')
+  // Words kept from a PDF once named the book and page as the gem's person ("The Law Book, p. 12"): the book is its source, the page its place.
+  for (const gem of db.prepare("select id, attribution from nuggets where medium is null and body like '%#page=%&mark=%' and attribution like '%, p. %'").all() as { id: string; attribution: string }[]) {
+    const [, book, page] = gem.attribution.match(/^(.*), p\. (\d+)$/) ?? []
+    if (book) db.prepare("update nuggets set kind = 'quote', medium = ?, passage = coalesce(passage, ?), attribution = null where id = ?").run(book, `p. ${page}`, gem.id)
+  }
   // Brought in from Apple Notes or Obsidian and not yet kept, tagged, moved or binned (note-imports.ts).
   column('nuggets', 'unsorted integer not null default 0')
   // A goal in the Bin takes its desktop card with it at once.
@@ -2216,11 +2221,11 @@ export function registerHaligtree(): void {
   })
   // A nugget from selected words: the excerpt, with the note it came from and
   // that note's source carried down.
-  handle('nugget:from', (text: string, origin: { captureId?: string; attribution?: string | null; passage?: string | null }) => {
+  handle('nugget:from', (text: string, origin: { captureId?: string; attribution?: string | null; medium?: string | null; passage?: string | null; kind?: 'note' | 'quote' }) => {
     const id = randomUUID()
-    const attribution = origin.attribution ?? (origin.captureId ? (db.prepare('select attribution from captures where id = ?').get(origin.captureId) as { attribution: string | null } | undefined)?.attribution : null)
-    db.prepare("insert into nuggets (id, capture_id, kind, title, body, attribution, passage, created_at, updated_at) values (?, ?, 'note', ?, ?, ?, ?, ?, ?)")
-      .run(id, origin.captureId ?? null, cut(text.split('\n')[0], 160), JSON.stringify(text), attribution ?? null, origin.passage?.trim() || null, now(), now())
+    const attribution = origin.attribution !== undefined ? origin.attribution : (origin.captureId ? (db.prepare('select attribution from captures where id = ?').get(origin.captureId) as { attribution: string | null } | undefined)?.attribution : null)
+    db.prepare("insert into nuggets (id, capture_id, kind, title, body, attribution, medium, passage, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+      .run(id, origin.captureId ?? null, origin.kind === 'quote' ? 'quote' : 'note', cut(text.split('\n')[0], 160), JSON.stringify(text), attribution?.trim() || null, origin.medium?.trim() || null, origin.passage?.trim() || null, now(), now())
     resolveWaiting(linkOf('nuggets', id))
     // A long quote (what was an excerpt) is a container: once something is
     // pulled out of it, it has done its job. A short one is the line itself.

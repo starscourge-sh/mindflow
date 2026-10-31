@@ -30,6 +30,12 @@ export async function pdfTitle(doc: PDFDocumentProxy, name: string): Promise<str
   return title || name.replace(/\.pdf$/i, "")
 }
 
+/** Who wrote it, as the file says, or nothing. */
+export async function pdfAuthor(doc: PDFDocumentProxy): Promise<string> {
+  const meta = await doc.getMetadata().catch(() => null)
+  return (meta?.info as { Author?: string } | undefined)?.Author?.trim() ?? ""
+}
+
 /** Words kept from a page: where on its text they start and end, and the words themselves. */
 export type PdfMark = { id: string; page: number; quote: string; start: number; end: number; prefix?: string; suffix?: string; gemId?: string | null }
 

@@ -150,7 +150,8 @@ try {
   const gem = marks[0]?.gemId ? await v('item', marks[0].gemId) : null
   const body = JSON.stringify(gem?.body ?? '')
   check('the gem holds the quote', /quiet sentence worth keeping/.test(body), body.slice(0, 200))
-  check('its source is "Article title, Site"', gem?.attribution === 'The Garden Essay, Probe Times', String(gem?.attribution))
+  // The article is the gem's source and its byline who said it; it is a quote.
+  check('its source is "Article title, Site", by its author', gem?.medium === 'The Garden Essay, Probe Times' && gem?.attribution === 'Ada Probe' && gem?.kind === 'quote', JSON.stringify({ medium: gem?.medium, attribution: gem?.attribution, kind: gem?.kind }))
   check('it links back to the article and mark', body.includes(`haligtree://article?href=${encodeURIComponent(`${SITE}/article`)}&mark=${marks[0]?.id}`), body.slice(0, 400))
   check('the highlight is drawn', (await drawnIn()).join() === '1', JSON.stringify(await drawnIn()))
   check('Keep left the words as they were drawn (nothing rebuilt them)', await h.evaluate(() => window.__firstWords === document.querySelector('.web-reader-body p')?.firstChild), '')
