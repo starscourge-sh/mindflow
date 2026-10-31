@@ -165,12 +165,13 @@ try {
   // --- 7. a change of kind keeps the fields -----------------------------------
   const w = await make({ kind: 'word', body: doc('lacuna') })
   await v('notes:fields:set', 'captures', w, 'definition', 'A gap where something is missing')
-  // The renderer sends the keys the new kind has room for: a note has the tag fields only.
+  // Since properties came in (42aa4c5b), a change of kind never hides a field: the
+  // definition stays the note's own, a property it shows, nothing held aside.
   await v('notes:kind', 'captures', w, 'note', ['status', 'rating', 'takeaway'])
   const asNote = await v('notes:fields', 'captures', w)
-  check('7. made a note: the definition is not deleted, only held out of sight', !asNote.definition && asNote._kept?.definition === 'A gap where something is missing', JSON.stringify(asNote))
+  check('7. made a note: the definition is kept as its own, nothing held aside', asNote.definition === 'A gap where something is missing' && !asNote._kept, JSON.stringify(asNote))
   await open(w)
-  check('7. and not shown among its properties', !/_kept|A gap where something is missing/.test(await h.evaluate(() => document.body.innerText)))
+  check('7. and shown among its properties', /A gap where something is missing/.test(await h.evaluate(() => document.body.innerText)) && !/_kept/.test(await h.evaluate(() => document.body.innerText)))
   await v('notes:kind', 'captures', w, 'word', ['definition', 'example', 'language', 'status', 'rating', 'takeaway'])
   const back = await v('notes:fields', 'captures', w)
   check('7. back to a word: the definition comes back', back.definition === 'A gap where something is missing' && !back._kept, JSON.stringify(back))
