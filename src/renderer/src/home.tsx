@@ -1701,6 +1701,7 @@ export function Home(): React.JSX.Element {
             // The recap, Wrapped's way, over Stats.
             { label: 'Your month, wrapped', hint: 'A few cards on the month', cue: null, run: () => openWrap(monthToWrap()) },
             { label: 'Your week, wrapped', hint: 'A few cards on this week', cue: null, run: () => openWrap(`week:${dayKey(dayjs().startOf('week'))}`) },
+            { label: 'Your month, card by card', hint: 'Reviews, days studied, your book and one line of your own', run: () => setView({ id: 'stats', focus: 'yourmonth', nonce: Date.now() }) },
             { label: 'Your year, wrapped', run: () => setView({ id: 'stats', focus: 'year', nonce: Date.now() }) }
           // Each one says it came from ⌘K, for the usage counts.
           ] satisfies Action[]).map((one) => ({ ...one, run: () => (via('palette'), one.run()) }))}

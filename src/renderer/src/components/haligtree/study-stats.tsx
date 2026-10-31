@@ -38,6 +38,7 @@ export function StudySection({ example }: { example: boolean }): React.JSX.Eleme
   const retention = studied.checked ? Math.round((studied.recalled / studied.checked) * 100) : null
   const coming = studied.due.reduce((sum, one) => sum + one, 0)
   return (
+    <>
     <Section title="Remembering" big={{ value: retention === null ? '–' : `${retention}%`, label: 'of cards remembered, last 30 days' }}>
       <p data-study-said data-reviews={reviews}>
         In the last 30 days you reviewed <N>{plural(reviews, 'card', 'cards')}</N>
@@ -52,8 +53,10 @@ export function StudySection({ example }: { example: boolean }): React.JSX.Eleme
         {studied.seconds !== null && <> A card takes you about <N>{plural(studied.seconds, 'second', 'seconds')}</N>.</>}
         {studied.days.of > 0 && <> You reviewed on <N>{`${Math.round((studied.days.reviewed / studied.days.of) * 100)}%`}</N> of days since you began ({num(studied.days.reviewed)} of {num(studied.days.of)}).</>}
       </p>
-      <StudyCards studied={studied} week={week} />
     </Section>
+    {/* The cards on the page itself, under the sentences, never a box inside a box. */}
+    <div className="mt-3"><StudyCards studied={studied} week={week} /></div>
+    </>
   )
 }
 
@@ -77,8 +80,9 @@ function StudyCards({ studied, week }: { studied: Studied; week: number }): Reac
   const yearDays = Array.from({ length: 52 * 7 }, (_, at) => { const day = dayjs().subtract(52 * 7 - 1 - at, 'day').format('YYYY-MM-DD'); return { day, n: studied.year[day] ?? 0 } })
   const days = span === 'month' ? studied.month.map((one) => ({ day: one.day, n: one.reviews })) : yearDays
   const yearTotal = yearDays.reduce((sum, one) => sum + one.n, 0)
-  const minutes = studied.minutes.reduce((sum, one) => sum + one, 0)
-  const studiedDays = studied.minutes.filter(Boolean).length
+  const [range, setRange] = useState<'week' | 'month'>('month')
+  const shownMinutes = studied.minutes.map((n, at) => ({ day: studied.month[at].day, n })).slice(range === 'week' ? -7 : 0)
+  const studiedDays = shownMinutes.filter((one) => one.n).length
   const coming = studied.due.reduce((sum, one) => sum + one, 0)
   const last = studied.growth[studied.growth.length - 1]
   const firstKnown = studied.growth[0]?.known ?? 0
@@ -99,10 +103,11 @@ function StudyCards({ studied, week }: { studied: Studied; week: number }): Reac
         point={retention === null ? 'Once you see a card a second time, this says how well it stays.' : `You remembered ${num(studied.recalled)} of ${num(studied.checked)} cards you had seen before, in 30 days.`}>
         <Arc percent={retention ?? 0} label={retention === null ? 'nothing to measure yet' : `${num(studied.recalled)} of ${num(studied.checked)}`} />
       </MonoCard>
-      <MonoCard name="minutes" title="Minutes reviewing each day" value={Math.round(minutes)} unit="minutes in 30 days" chips={studiedDays ? <Chip>{plural(studiedDays, 'day', 'days')}</Chip> : undefined}
+      <MonoCard name="minutes" title="Minutes reviewing each day" value={Math.round(shownMinutes.reduce((sum, one) => sum + one.n, 0))} unit={`minutes in ${range === 'week' ? '7' : '30'} days`} chips={studiedDays ? <Chip>{plural(studiedDays, 'day', 'days')}</Chip> : undefined}
+        side={<Switch options={[{ id: 'week', label: '7 days' }, { id: 'month', label: '30 days' }]} value={range} pick={setRange} />}
         hovered={onMinutes} point={studied.seconds !== null ? `A card takes you about ${plural(studied.seconds, 'second', 'seconds')}.` : 'Time is counted from the next review on.'}>
-        <PillBars values={studied.minutes} say={(at) => `${studied.minutes[at] ? `${num(Math.round(studied.minutes[at]))} min` : 'none'}, ${dayWords(studied.month[at].day)}`} onHover={sayMinutes} className="h-16" />
-        <Ends left="30 days ago" right="today" />
+        <PillBars values={shownMinutes.map((one) => one.n)} keys={shownMinutes.map((one) => one.day)} say={(at) => `${shownMinutes[at].n ? `${num(Math.round(shownMinutes[at].n))} min` : 'none'}, ${dayWords(shownMinutes[at].day)}`} onHover={sayMinutes} className="h-16" />
+        <Ends left={range === 'week' ? '7 days ago' : '30 days ago'} right="today" />
       </MonoCard>
       <MonoCard name="known" title="Cards you know" value={studied.known} unit={`of ${plural(studied.cards, 'card', 'cards')}`} chips={last && last.known > firstKnown ? <Chip>{`+${num(last.known - firstKnown)} in 12 weeks`}</Chip> : undefined}
         hovered={onKnown} point="Known means remembered after a gap of 15 days or more. The dashed line is every card you have made.">

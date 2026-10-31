@@ -6,7 +6,7 @@ import { shareAsCard } from '@/lib/share-card'
 import { chime } from '@/lib/sound'
 import { Button } from '@/components/ui/button'
 import { Kbd } from './ui'
-import { DotMatrix } from './mono-card'
+import { Arc, DotMatrix } from './mono-card'
 import { dayjs, num, plural } from '../../../../main/dates'
 
 const EASE = [0.16, 1, 0.3, 1] as const
@@ -52,9 +52,9 @@ export function YourMonth({ onClose }: { onClose: () => void }): React.JSX.Eleme
   )
   const cards: Card[] = !data || !study ? [] : [
     { id: 'reviews', picture: big(data.reviews, data.reviews === 1 ? 'card reviewed' : 'cards reviewed'), line: data.reviews ? `That is ${plural(data.reviews, 'card', 'cards')} turned over in ${name}.` : 'No reviews this month. Your cards kept their place.' },
-    { id: 'days', picture: <div className="w-full max-w-md"><div className="mb-4">{big(data.reviewDays, data.reviewDays === 1 ? 'day you studied' : 'days you studied')}</div><DotMatrix days={study.days} columns={2} dot={28} say={(one) => `${plural(one.n, 'review', 'reviews')}, ${dayjs(one.day).format('ddd D MMM')}`} onHover={sayDay} /><p className="mt-2 h-5 text-sm text-muted-foreground">{onDay}</p></div>, line: daysSaid(data.reviewDays, study.days.length) },
+    { id: 'days', picture: <div className="w-[min(36rem,80vw)]"><div className="mb-6">{big(data.reviewDays, data.reviewDays === 1 ? 'day you studied' : 'days you studied')}</div><DotMatrix days={study.days} columns={2} dot={28} say={(one) => `${plural(one.n, 'review', 'reviews')}, ${dayjs(one.day).format('ddd D MMM')}`} onHover={sayDay} /><p className="mt-2 h-5 text-sm text-muted-foreground">{onDay}</p></div>, line: daysSaid(data.reviewDays, study.days.length) },
     { id: 'hours', picture: big(study.seconds >= 3600 ? Math.round(study.seconds / 3600) : Math.round(study.seconds / 60), study.seconds >= 3600 ? 'hours with your cards' : 'minutes with your cards'), line: 'Time well spent, a few minutes at a time.' },
-    { id: 'retention', picture: big(study.checked ? Math.round((study.recalled / study.checked) * 100) : 0, '% remembered'), line: study.checked ? `You remembered ${num(study.recalled)} of ${num(study.checked)} cards you had seen before.` : 'Once a card comes back, this says how well it stayed.' },
+    { id: 'retention', picture: <div className="w-[min(26rem,70vw)]"><Arc percent={study.checked ? Math.round((study.recalled / study.checked) * 100) : 0} label="" className="max-w-none" /><div className="-mt-[22%] font-serif text-[clamp(3rem,10vw,5.5rem)] leading-none font-semibold text-foreground tabular-nums"><RollUp n={study.checked ? Math.round((study.recalled / study.checked) * 100) : 0} still={still} />%</div><div className="mt-3 text-heading text-muted-foreground">remembered</div></div>, line: study.checked ? `You remembered ${num(study.recalled)} of ${num(study.checked)} cards you had seen before.` : 'Once a card comes back, this says how well it stayed.' },
     { id: 'new', picture: big(study.newCards, study.newCards === 1 ? 'new card' : 'new cards'), line: study.newCards ? 'New things you chose to keep.' : 'No new cards: a month for what you already have.' },
     ...(study.book ? [{ id: 'book', picture: cover ? <img src={cover} alt="" className="max-h-[42vh] rounded-md shadow-lg" /> : <div className="font-serif text-4xl text-foreground">{study.book.title}</div>, line: `The book you read most: ${study.book.title}.` }] : []),
     ...(data.tags[0] ? [{ id: 'tag', picture: <div className="font-serif text-[clamp(3rem,10vw,6rem)] leading-none font-semibold text-foreground">#{data.tags[0].name}</div>, line: `The tag you kept most, on ${plural(data.tags[0].n, 'note', 'notes')}.` }] : []),
