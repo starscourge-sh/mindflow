@@ -120,16 +120,16 @@ const surfaces = {
   async box() {
     await page.evaluate(() => window.api.haligtree && localStorage.clear())
     await fill(page, 'body')
-    const opened = async (name) => { const values = await page.evaluate(() => [...document.querySelectorAll('input')].map((one) => one.value)); if (process.env.DEBUG) console.log('inputs', values); return values.some((one) => one.trim() === `#${name}`) }
-    // Search closed again: Escape from its own field.
+    // A tag opens its page in the main window, as a note link from the box does.
+    const opened = (name) => onTagPage(name)
+    // The main window off the tag page again, and the box back in front.
     const reset = async () => {
-      for (let i = 0; i < 3; i++) {
-        const open = await page.evaluate(() => { const field = [...document.querySelectorAll('input')].find((one) => one.value.startsWith('#')); field?.focus(); return !!field })
-        if (!open) return
-        await page.keyboard.press('Escape')
-        await page.waitForTimeout(400)
-      }
+      await go('home')
+      await electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => !/[?&](view|note)=/.test(w.webContents.getURL()))?.show())
+      await page.waitForTimeout(500)
+      await page.mouse.move(4, 4)
     }
+    await reset()
     return { win: page, scope: 'body', opened, reset }
   }
 }

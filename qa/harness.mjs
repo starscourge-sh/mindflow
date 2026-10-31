@@ -67,9 +67,6 @@ export async function open() {
   // window put away, not quit), so a plain kill can leave it stuck exiting.
   // However the run ends (done, failed, interrupted), it is killed outright.
   const child = app.process()
-  // A plain click opens a web link: no run ever sends one to the real browser.
-  // A probe that counts what was opened puts its own stand-in over this one.
-  await app.evaluate(({ shell }) => { shell.openExternal = async () => undefined }).catch(() => {})
   // A tiling window manager (AeroSpace) would tile the test windows into the
   // workspace in use: float each of this run's windows as it appears, so the
   // app can park it past the screen's edge.

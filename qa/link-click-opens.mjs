@@ -168,6 +168,19 @@ try {
   await h.keyboard.press('Escape'); await wait(300)
   // The tip on a rest says what a click does.
   check('note: a web link says “Click to open, ⌥-click to the side”', (await h.locator(WEB).first().getAttribute('data-title-tip')) === 'Click to open, ⌥-click to the side')
+  // The tip on a rest, and a note link's card, in light and dark.
+  if (SHOT) {
+    for (const [name, selector] of [['tip-web', WEB], ['tip-note', NOTE], ['tip-tag', TAG]]) {
+      for (const look of ['light', 'dark']) {
+        await c.look(look)
+        const r = await h.locator(selector).first().evaluate((el) => { const one = el.getClientRects()[0]; return [one.left + 8, one.top + one.height / 2] })
+        await h.mouse.move(4, 4); await wait(300)
+        await h.mouse.move(r[0], r[1], { steps: 3 }); await wait(1600)
+        await h.screenshot({ path: `${SHOT}/${name}-${look}.png` })
+      }
+      await h.mouse.move(4, 4); await c.look('light')
+    }
+  }
 
   // --- in quick capture -------------------------------------------------------------------
   await electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => !/[?&](view|note)=/.test(w.webContents.getURL()))?.show())
@@ -186,7 +199,8 @@ try {
   }
   const boxText = () => box.evaluate(() => [...document.querySelectorAll('.ProseMirror')].map((one) => one.textContent).join(' | '))
   await reshow(); await fillBox()
-  if (SHOT) await box.screenshot({ path: `${SHOT}/quick-capture.png` })
+  // The box may sit parked out of sight, where it draws nothing to take a picture of: the picture is a bonus, never a failure.
+  if (SHOT) await box.screenshot({ path: `${SHOT}/link-click-quick-capture.png`, timeout: 5000 }).catch(() => {})
   await press(box, NOTE)
   check('quick capture: a click on a note link opens the note', (await boxText()).includes('Working memory holds'), await boxText())
   await reshow(); await fillBox(); was = await opened(); await press(box, WEB)
