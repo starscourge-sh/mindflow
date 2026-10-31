@@ -58,10 +58,37 @@ export function offsetsIn(layer: Element, range: Range): { start: number; end: n
   return { start, end: start + range.toString().length }
 }
 
+/**
+ * A page's words between two offsets as the eye reads them. The page's text
+ * runs one line into the next with no space (pdf.js ends a line with a `<br>`,
+ * which holds no text), so each line end inside is read as a space: "the
+ * nature", never "thenature". Every place that takes words off a page by
+ * offsets reads them here.
+ */
+export function wordsIn(layer: Element, start: number, end: number): string {
+  const walk = document.createTreeWalker(layer, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT)
+  let words = ""
+  let seen = 0
+  for (let node = walk.nextNode(); node && seen < end; node = walk.nextNode()) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const data = (node as Text).data
+      words += data.slice(Math.max(0, start - seen), Math.max(0, end - seen))
+      seen += data.length
+    } else if ((node as Element).tagName === "BR" && seen > start) words += " "
+  }
+  return words.replace(/\s+/g, " ").trim()
+}
+
 /** The range a mark covers on a drawn page; found again by its words if the offsets no longer match. */
 export function rangeOf(layer: Element, mark: PdfMark): Range | null {
-  const nodes = textNodes(layer)
-  const text = nodes.map((node) => node.data).join("")
+  const at = offsetsOf(layer, mark)
+  if (!at) return null
+  return rangeAt(textNodes(layer), at.start, at.end)
+}
+
+/** Where a mark's words sit on a drawn page's text, by its offsets, else found again by its words. */
+function offsetsOf(layer: Element, mark: PdfMark): { start: number; end: number } | null {
+  const text = textNodes(layer).map((node) => node.data).join("")
   let { start, end } = mark
   // The quote is kept as the selection reads, its spaces evened out and a line end read as a space, while
   // the page's own text runs lines together with no space between: compared without spaces, they agree.
@@ -80,6 +107,11 @@ export function rangeOf(layer: Element, mark: PdfMark): Range | null {
     if (from < 0) return null
     ;[start, end] = [at[from], at[from + quote.length - 1] + 1]
   }
+  return { start, end }
+}
+
+/** A range over a page's text from one offset to another. */
+function rangeAt(nodes: Text[], start: number, end: number): Range | null {
   const range = document.createRange()
   let seen = 0
   let placed = false
@@ -99,16 +131,23 @@ export function rangeOf(layer: Element, mark: PdfMark): Range | null {
 }
 
 /** The page's marks, drawn as soft bands under its words, measured fresh at the zoom it is drawn at. */
-function paintMarks(sheet: HTMLElement, marks: PdfMark[], flash: string | null | undefined): void {
+function paintMarks(sheet: HTMLElement, marks: PdfMark[], flash: string | null | undefined, onWords?: (mark: PdfMark, quote: string) => void): void {
   sheet.querySelector(".pdf-marks")?.remove()
   const layer = sheet.querySelector(".textLayer")
   if (!layer || !marks.length) return
   const box = sheet.getBoundingClientRect()
   const paint = document.createElement("div")
   paint.className = "pdf-marks"
+  const nodes = textNodes(layer)
   for (const mark of marks) {
-    const range = rangeOf(layer, mark)
-    if (!range) continue
+    const at = offsetsOf(layer, mark)
+    const range = at && rangeAt(nodes, at.start, at.end)
+    if (!at || !range) continue
+    // Kept before line ends were read as spaces ("thenature"): its words as the page has them, put right in the store.
+    if (onWords && !mark.id.startsWith("find:")) {
+      const words = wordsIn(layer, at.start, at.end)
+      if (words !== mark.quote && words.replace(/\s+/g, "") === mark.quote.replace(/\s+/g, "")) onWords(mark, words)
+    }
     for (const rect of range.getClientRects()) {
       if (!rect.width || !rect.height) continue
       const band = document.createElement("div")
@@ -157,6 +196,7 @@ export function PdfPages({
   land,
   fit = "width",
   spread = false,
+  onWords,
 }: {
   src: string
   zoom?: number
@@ -173,6 +213,8 @@ export function PdfPages({
   fit?: "width" | "height"
   /** Two pages side by side, as a book lies open. */
   spread?: boolean
+  /** A kept mark whose words the drawn page reads with spaces its quote lacks: put it right. */
+  onWords?: (mark: PdfMark, quote: string) => void
 }): React.JSX.Element {
   const box = useRef<HTMLDivElement>(null)
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null)
@@ -281,21 +323,21 @@ export function PdfPages({
     <div ref={box} className={`pdf-pages${spread ? " is-spread" : ""}`} data-fit={fit}>
       {doc && scale > 0 &&
         Array.from({ length: doc.numPages }, (_, index) => (
-          <PdfPage key={index + 1} doc={doc} page={index + 1} scale={scale} guess={size!} rank={shown.get(index + 1)} marks={marks.filter((mark) => mark.page === index + 1)} flash={flash} />
+          <PdfPage key={index + 1} doc={doc} page={index + 1} scale={scale} guess={size!} rank={shown.get(index + 1)} marks={marks.filter((mark) => mark.page === index + 1)} flash={flash} onWords={onWords} />
         ))}
     </div>
   )
 }
 
 /** One sheet: its size always, its picture and words only while near the view. */
-function PdfPage({ doc, page, scale, guess, rank, marks, flash }: { doc: PDFDocumentProxy; page: number; scale: number; guess: { w: number; h: number }; rank?: number; marks: PdfMark[]; flash?: string | null }): React.JSX.Element {
+function PdfPage({ doc, page, scale, guess, rank, marks, flash, onWords }: { doc: PDFDocumentProxy; page: number; scale: number; guess: { w: number; h: number }; rank?: number; marks: PdfMark[]; flash?: string | null; onWords?: (mark: PdfMark, quote: string) => void }): React.JSX.Element {
   const sheet = useRef<HTMLDivElement>(null)
   const [own, setOwn] = useState<{ w: number; h: number } | null>(null)
   // The words on this page are laid out: marks can be measured against them.
   const [worded, setWorded] = useState(0)
   const key = marks.map((mark) => `${mark.id}:${mark.color ?? ""}`).join(" ")
   useEffect(() => {
-    if (sheet.current && worded) paintMarks(sheet.current, marks, flash)
+    if (sheet.current && worded) paintMarks(sheet.current, marks, flash, onWords)
     // Marks are compared by their ids and colours: a new array with the same ones is no change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [worded, key, flash])

@@ -20,7 +20,7 @@ import { ReadDetails } from "./pdf-details"
 import { LookUpCard, type LookedUpIn } from "./look-up"
 import { usePdfCover } from "./pdf-cover"
 import { showDetails, useDetailsShown } from "@/lib/reading"
-import { PdfPages, offsetsIn, pdfAuthor, pdfTitle, type PdfMark } from "./pdf-pages"
+import { PdfPages, offsetsIn, pdfAuthor, pdfTitle, wordsIn, type PdfMark } from "./pdf-pages"
 import { FitActions } from "@/components/haligtree/ui"
 import { usePaperPages } from "./paper"
 import { ScrubField } from "./scrub-field"
@@ -530,7 +530,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     const inside = picked.start >= one.start && picked.end <= one.end
     return inside
       ? { onTrim: () => void to(picked.start, picked.end, picked.quote) }
-      : { onExtend: () => { const start = Math.min(one.start, picked.start); const end = Math.max(one.end, picked.end); void to(start, end, text.slice(start, end)) } }
+      : { onExtend: () => { const start = Math.min(one.start, picked.start); const end = Math.max(one.end, picked.end); void to(start, end, layer ? wordsIn(layer, start, end) : text.slice(start, end)) } }
   }
 
   const remove = async (mark: PdfMark): Promise<void> => {
@@ -853,6 +853,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
               marks={found.length ? [...marks, ...found] : marks}
               flash={found.length ? found[at]?.id : lit ?? flash}
               land={start}
+              onWords={(one, quote) => void call("pdf:mark", one.id, { quote, start: one.start, end: one.end }).then(() => setMarks((all) => all.map((each) => (each.id === one.id ? { ...each, quote } : each))))}
               onLoad={(loaded) => {
                 setDoc(loaded)
                 void pdfTitle(loaded, name).then((read) => {
@@ -940,7 +941,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           {picked && <PickedMenu actions={actions} />}
         </ContextMenuContent>
       </ContextMenu>
-      {detailsOut && <ReadDetails src={src} name={name} onPage={go} cover={cover?.image} title={title} author={author} pages={doc?.numPages} page={page} marks={marks} lit={lit} onMark={goToMark} onGather={() => void gather()} />}
+      {detailsOut && <ReadDetails src={src} name={name} onPage={go} chapters={outline} cover={cover?.image} title={title} author={author} pages={doc?.numPages} page={page} marks={marks} lit={lit} onMark={goToMark} onGather={() => void gather()} />}
       </div>
     </div>
   )
