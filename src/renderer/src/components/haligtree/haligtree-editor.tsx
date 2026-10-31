@@ -249,7 +249,7 @@ import { BlockIds } from "@/extensions/block-ids"
 import { LinkTidy, looksLikeAddress } from "@/extensions/link-tidy"
 import { LinkButtons, LinkEditor } from "./link-editor"
 import { NoteEmbed } from "@/extensions/note-embed"
-import { noteLinkRenderer, tagRenderer, wikiRenderer } from "@/components/note-link/note-link-menu"
+import { embedRenderer, noteLinkRenderer, tagRenderer, wikiRenderer } from "@/components/note-link/note-link-menu"
 import { ImageMenu } from "@/components/image/image-menu"
 import { ImageLook } from "@/components/image/image-look"
 import { holdPlace } from "@/lib/pictures"
@@ -1373,6 +1373,7 @@ function Surface({
         render: noteLinkRenderer,
         tagRender: tagRenderer,
         wikiRender: wikiRenderer,
+        embedRender: embedRenderer,
       }),
       // Another note shown here whole, live and editable at its source (transclusion).
       NoteEmbed,

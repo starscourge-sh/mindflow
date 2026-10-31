@@ -36,7 +36,9 @@ type SuggestionList<I> = ForwardRefExoticComponent<
  */
 export function createSuggestionRenderer<I>(
   List: SuggestionList<I>,
-  pluginKey: PluginKey = SuggestionPluginKey
+  pluginKey: PluginKey = SuggestionPluginKey,
+  /** Escape takes what was typed with it too: `![[name` is an unfinished block, not words. */
+  { dropOnEscape = false }: { dropOnEscape?: boolean } = {}
 ): NonNullable<SuggestionOptions<I>["render"]> {
   return () => {
     let renderer: ReactRenderer<SuggestionListHandle> | null = null
@@ -77,7 +79,7 @@ export function createSuggestionRenderer<I>(
       const { editor } = renderer
       const { view } = editor
       const state = pluginKey.getState(view.state)
-      if (state?.range && !state.query) editor.chain().focus().deleteRange(state.range).run()
+      if (state?.range && (!state.query || dropOnEscape)) editor.chain().focus().deleteRange(state.range).run()
 
       // Tells the plugin to stand down, so it stops matching the query behind
       // the popup; that in turn fires `onExit` and tears this down.

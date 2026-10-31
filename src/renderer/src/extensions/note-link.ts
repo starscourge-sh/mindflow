@@ -36,6 +36,8 @@ export interface NoteSuggestion {
   blockIndex?: number
   /** That line's words, as the link shows them. */
   blockText?: string
+  /** No note by this name: the row offers to make one, said as such, never done silently. */
+  make?: boolean
 }
 
 /** One kind of thing a link can point at: how it is named and drawn. */
@@ -235,6 +237,8 @@ interface NoteLinkOptions {
   tagRender?: SuggestionOptions<NoteSuggestion>["render"]
   /** The same for the `[[` menu, for the same reason. */
   wikiRender?: SuggestionOptions<NoteSuggestion>["render"]
+  /** The same for the `![[` menu, which embeds the note picked rather than linking it. */
+  embedRender?: SuggestionOptions<NoteSuggestion>["render"]
 }
 
 /**
@@ -338,6 +342,9 @@ function blockAtIndex(editor: Editor, index: number): string | null {
 export const noteLinkPluginKey = new PluginKey("noteLink")
 export const tagPluginKey = new PluginKey("tagSuggest")
 export const wikiPluginKey = new PluginKey("wikiSuggest")
+export const embedPluginKey = new PluginKey("embedSuggest")
+/** The question the `![[` menu asks, over its rows. */
+export const EMBED_ASK = "Show which note here?"
 
 /**
  * A link to another note, typed with `@`.
@@ -560,7 +567,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
   },
 
   addProseMirrorPlugins() {
-    const { findNotes, onOpenNote, findHeadings, render, tagRender, wikiRender } = this.options
+    const { findNotes, onOpenNote, findHeadings, render, tagRender, wikiRender, embedRender } = this.options
     const editor = this.editor
 
     /**
@@ -662,6 +669,49 @@ export const NoteLink = Node.create<NoteLinkOptions>({
         command: insertLink,
         render: wikiRender ?? render,
       }),
+
+      // `![[`, Obsidian's embed: the same notes as `[[`, but the one picked is
+      // shown here whole (note-embed.ts). A name with no note offers to make
+      // one, as a row that says so; nothing is made unless it is picked.
+      ...(this.editor.schema.nodes.noteEmbed
+        ? [
+            Suggestion<NoteSuggestion>({
+              editor: this.editor,
+              char: "![[",
+              pluginKey: embedPluginKey,
+              decorationClass: "tiptap-slash-token",
+              shouldShow: typedOnly(({ query }) => !/^\s/.test(query)),
+              allowSpaces: true,
+              allowedPrefixes: null,
+              allow: ({ state, range }) => !state.doc.textBetween(range.from, range.to, "", "").includes("]]"),
+              items: async ({ query }) => {
+                const name = query.trim()
+                // Notes only: a person, a tag or a task has no page to show.
+                const found = (await findNotes(name)).filter((one) => one.id && !one.id.includes(":")).slice(0, 12)
+                const rows: NoteSuggestion[] = found.map((one) => ({ ...one, group: EMBED_ASK }))
+                if (name && !found.some((one) => one.label.trim().toLowerCase() === name.toLowerCase())) rows.push({ id: "", label: name, make: true, group: EMBED_ASK })
+                return rows
+              },
+              command: ({ editor, range, props }) => {
+                const embed = { type: "noteEmbed", attrs: { id: props.id, label: props.label } }
+                // On a line of its own, the line becomes the embed; mid-line, it goes after the words.
+                const $from = editor.state.doc.resolve(range.from)
+                const whole = $from.parent.isTextblock && $from.parentOffset === 0 && range.to >= $from.end()
+                editor.chain().focus().insertContentAt(whole ? { from: $from.before(), to: $from.after() } : range, embed).run()
+                if (!props.make) return
+                void noteNamed(props.label, findNotes).then((note) => {
+                  if (!note || editor.isDestroyed) return
+                  const tr = editor.state.tr
+                  editor.state.doc.descendants((one, pos) => {
+                    if (one.type.name === "noteEmbed" && !one.attrs.id && one.attrs.label === props.label) tr.setNodeMarkup(pos, undefined, { ...one.attrs, id: note.id, label: note.label })
+                  })
+                  if (tr.docChanged) editor.view.dispatch(tr.setMeta("addToHistory", false))
+                })
+              },
+              render: embedRender ?? render,
+            }),
+          ]
+        : []),
 
       // `#` offers the tags already in use, most used first, so one is reused
       // rather than spelt a new way. It writes plain text: a tag is a word.

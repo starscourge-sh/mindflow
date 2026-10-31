@@ -1,4 +1,4 @@
-import { Columns2, Columns3, FileStack as EmbedIcon, TableOfContents as ContentsIcon, Minus as DividerIcon, Sigma as SigmaIcon, Table as TableIcon, Paperclip, SquarePlay as VideoIcon } from 'lucide-react'
+import { Columns2, Columns3, FileStack as EmbedIcon, Link2 as LinkIcon, TableOfContents as ContentsIcon, Minus as DividerIcon, Sigma as SigmaIcon, Table as TableIcon, Paperclip, SquarePlay as VideoIcon } from 'lucide-react'
 
 import type { Editor } from '@tiptap/core'
 import { isInTable } from '@tiptap/pm/tables'
@@ -300,16 +300,26 @@ export const slashItems: SlashItem[] = [
     // to draw in rather than asking where to put it first.
     run: (editor) => editor.chain().focus().insertContent({ type: 'excalidraw' }).run()
   },
+  // Both write the mark you could have typed, so the same note list opens as
+  // for `[[` and `![[`, matching as you type, with Enter taking the first.
+  // A link first: what "/note" most often means is pointing at another note.
+  {
+    title: 'Link to a note',
+    group: 'Media',
+    hint: '[[name]]',
+    keywords: ['link', 'note', 'page', 'mention', 'wikilink', 'backlink'],
+    icon: <LinkIcon />,
+    run: (editor) => void editor.chain().focus().insertContent('[[').run()
+  },
   {
     title: 'Embed a note',
     group: 'Media',
     hint: '![[name]]',
     keywords: ['embed', 'transclude', 'transclusion', 'note', 'page', 'show'],
     icon: <EmbedIcon />,
-    prompt: 'Name of the note to show here',
-    // Shown whole and live: edited here, it is edited where it lives. A name with no note makes one, empty.
+    // Shown whole and live: edited here, it is edited where it lives.
     when: (editor) => !!editor.schema.nodes.noteEmbed,
-    run: (editor, name) => void editor.chain().focus().insertNoteEmbed({ id: '', label: name.trim() }).run()
+    run: (editor) => void editor.chain().focus().insertContent('![[').run()
   },
   {
     title: 'Bookmark',
@@ -317,7 +327,7 @@ export const slashItems: SlashItem[] = [
     hint: 'link card',
     keywords: ['link', 'bookmark', 'card', 'url', 'embed'],
     icon: <BookmarkIcon />,
-    prompt: 'Paste a link',
+    prompt: 'Show which link as a card?',
     // A card is only a card if something can say what the link is about.
     when: () => Boolean(host().fetchLinkMetadata),
     run: (editor, href) => linkCard(editor, href)
@@ -328,7 +338,7 @@ export const slashItems: SlashItem[] = [
     hint: 'video player',
     keywords: ['video', 'embed', 'youtube'],
     icon: <VideoIcon />,
-    prompt: 'Paste a YouTube link',
+    prompt: 'Play which YouTube video?',
     run: (editor, href) => {
       // A card for anything that is not a video, rather than nothing at all.
       // The two are separate entries so a video can be either.

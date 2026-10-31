@@ -1305,6 +1305,15 @@
   color: var(--mf-muted);
 }
 
+// The question a menu asks before it can go on ("Show which note here?"):
+// in the words' own colour and size, not a quiet group heading.
+.tiptap-slash-menu-ask {
+  padding: 0.5rem 0.75rem 0.25rem;
+  font-size: var(--text-control);
+  font-weight: 500;
+  color: var(--foreground);
+}
+
 .tiptap-slash-menu-title {
   flex: 1;
   min-width: 0;

@@ -5,7 +5,9 @@ import {
   createSuggestionRenderer,
   type SuggestionListHandle,
 } from "@/components/suggestion/suggestion-renderer"
-import { linkKind, noteLinkPluginKey, tagPluginKey, wikiPluginKey, type NoteSuggestion } from "@/extensions/note-link"
+import { FilePlus } from "lucide-react"
+
+import { EMBED_ASK, embedPluginKey, linkKind, noteLinkPluginKey, tagPluginKey, wikiPluginKey, type NoteSuggestion } from "@/extensions/note-link"
 import { listDirection, step, revealRow } from "@/lib/menu-keys"
 import { realMove } from "@/lib/real-move"
 import { TagIcon } from "@/components/haligtree/tag-icon"
@@ -46,20 +48,21 @@ export const NoteList = forwardRef<SuggestionListHandle, Pick<SuggestionProps<No
           {items.map((item, index) => (
             <Fragment key={`${item.id}#${item.heading ?? ""}#${item.blockIndex ?? ""}`}>
               {item.group && item.group !== items[index - 1]?.group ? (
-                <div className="tiptap-slash-menu-group">{item.group}</div>
+                <div className={item.group === EMBED_ASK ? "tiptap-slash-menu-ask" : "tiptap-slash-menu-group"}>{item.group}</div>
               ) : null}
               <button
                 type="button"
                 ref={index === selected ? selectedRef : undefined}
+                data-make={item.make || undefined}
                 className={index === selected ? "is-selected" : undefined}
                 onMouseMove={(event) => realMove(event) && setSelected(index)}
                 onClick={() => command(item)}
               >
                 {/* A heading row is the heading: its note is the group above. */}
-                {item.heading || item.blockText ? null : item.icon ?? (item.group === 'Tags' ? <TagIcon tag={item.id} tint={item.tint} className="size-4" /> : null)}
+                {item.make ? <FilePlus /> : item.heading || item.blockText ? null : item.icon ?? (item.group === 'Tags' ? <TagIcon tag={item.id} tint={item.tint} className="size-4" /> : null)}
                 {item.key && !item.heading && !item.blockText ? <span className="tiptap-note-link-key">{item.key}</span> : null}
                 <span {...(item.id && !item.heading && item.group !== "Tags" ? hoverNote(item.id.includes(":") ? item.id.slice(0, item.id.indexOf(":")) : "capture", item.id.includes(":") ? item.id.slice(item.id.indexOf(":") + 1) : item.id) : {})} className="tiptap-slash-menu-title tiptap-note-link-title" style={item.tint ? { color: item.tint } : undefined}>
-                  {item.heading ? `# ${item.heading}` : item.blockText ? `¶ ${item.blockText}` : item.label || "Untitled"}
+                  {item.make ? `Make a new note \u201c${item.label}\u201d` : item.heading ? `# ${item.heading}` : item.blockText ? `¶ ${item.blockText}` : item.label || "Untitled"}
                 </span>
                 {/* A tag's name first, how often it is used quietly at the end. */}
                 {item.hint ? <span className="ml-auto pl-3 text-xs tabular-nums text-muted-foreground">{item.hint}</span> : null}
@@ -77,3 +80,5 @@ export const NoteList = forwardRef<SuggestionListHandle, Pick<SuggestionProps<No
 export const noteLinkRenderer = createSuggestionRenderer(NoteList, noteLinkPluginKey)
 export const tagRenderer = createSuggestionRenderer(NoteList, tagPluginKey)
 export const wikiRenderer = createSuggestionRenderer(NoteList, wikiPluginKey)
+// `![[`: Escape takes the unfinished `![[name` with it, as it would a lone `/`.
+export const embedRenderer = createSuggestionRenderer(NoteList, embedPluginKey, { dropOnEscape: true })
