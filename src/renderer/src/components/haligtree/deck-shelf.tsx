@@ -8,6 +8,10 @@ import { Button } from '@/components/ui/button'
 type Topic = { deck: string; label: string; cards: number; held: number }
 export type Shelf = { name: string; cover: string | null; sample: string; pictures: number; cards: number; fresh: number; due: number; held: number; shown: boolean; topics: Topic[] }
 
+/** A deck's #tag, as the import made it: "Great Works of Art::Artists" is great-works-of-art-artists. */
+export const deckTag = (name: string): string =>
+  name.toLowerCase().split('::').map((part) => part.trim().replace(/[^\p{L}\p{M}\p{N}_-]+/gu, '-').replace(/^-+|-+$/g, '')).filter(Boolean).join('-')
+
 const cards = (n: number): string => `${num(n)} ${n === 1 ? 'card' : 'cards'}`
 
 /** Start a held deck or topic, or hold it again, with Undo; starting says to meet the material first. */
@@ -26,7 +30,7 @@ export function startDeck(deck: string, label: string, on: boolean): void {
  * started when you study it. Their cards stay out of Gems, Media, Feed, hints
  * and Home unless "Show in Gems" is on, so your own never drown.
  */
-export function DeckShelf({ onOpen }: { onOpen: (type: string, id: string) => void }): React.JSX.Element {
+export function DeckShelf({ onOpen, onStudy }: { onOpen: (type: string, id: string) => void; /** Study a deck's or topic's tag in Today. */ onStudy: (tag: string) => void }): React.JSX.Element {
   const [gallery, setGallery] = useState<string | null>(null)
   const shelves = useLive(() => call<Shelf[]>('decks:list'), null as Shelf[] | null, [], ['item'])
   if (unloaded(shelves)) return <div />
@@ -68,18 +72,25 @@ export function DeckShelf({ onOpen }: { onOpen: (type: string, id: string) => vo
                 {shelf.topics.map((topic) => (
                   <li key={topic.deck} className="flex items-center gap-1 rounded-full border border-foreground/10 bg-background py-0.5 pr-0.5 pl-3 text-control">
                     <span>{topic.label}</span>
-                    <span className="text-muted-foreground tabular-nums">{num(topic.cards)}</span>
+                    {topic.held < topic.cards && (
+                      <Button variant="ghost" size="sm" className="h-6 cursor-pointer rounded-full px-2.5" data-topic-study={topic.deck}
+                        onClick={() => (chime('riffle'), onStudy(deckTag(topic.deck)))}>Study</Button>
+                    )}
                     <Button variant="ghost" size="sm" className="h-6 cursor-pointer rounded-full px-2.5" data-topic-start={topic.deck}
                       onClick={() => startDeck(topic.deck, topic.label, topic.held > 0)}>
-                      {topic.held > 0 ? 'Start' : 'Hold'}
+                      {topic.held > 0 ? `Start ${num(topic.held)}` : 'Hold'}
                     </Button>
                   </li>
                 ))}
               </ul>
             )}
             <div className="flex flex-wrap gap-2 pt-1">
-              <Button size="sm" variant={shelf.held > 0 ? 'default' : 'ghost'} className="cursor-pointer" data-deck-start onClick={() => startDeck(shelf.name, shelf.name, shelf.held > 0)}>
-                {shelf.held > 0 ? (shelf.held === shelf.cards ? 'Start' : 'Start the rest') : 'Hold new cards'}
+              {/* Study what is started; start what is held. The deck-wide button says it is for all of it, the topics' each their count. */}
+              {shelf.held < shelf.cards && (
+                <Button size="sm" className="cursor-pointer" data-deck-study onClick={() => (chime('riffle'), onStudy(deckTag(shelf.name)))}>Study</Button>
+              )}
+              <Button size="sm" variant={shelf.held > 0 && shelf.held === shelf.cards ? 'default' : 'ghost'} className="cursor-pointer" data-deck-start onClick={() => startDeck(shelf.name, shelf.name, shelf.held > 0)}>
+                {shelf.held > 0 ? (shelf.held === shelf.cards ? 'Start all' : 'Start the rest') : 'Hold new cards'}
               </Button>
               <Button variant="ghost" size="sm" className="cursor-pointer" data-deck-gems aria-pressed={shelf.shown} onClick={() => show(shelf)}>
                 {shelf.shown ? 'Keep out of Gems' : 'Show in Gems'}
