@@ -352,10 +352,9 @@
 /* "Card later": no band of colour (that is a highlight, or a find), a dashed
    underline in the book's colour and a tick in the page's margin by its first line. */
 .pdf-mark.is-later {
-  background: none;
+  /* The dashed underline is the band's own picture along its foot, never a one-sided border. */
+  background: repeating-linear-gradient(90deg, var(--tt-brand-color-500, #c08a2e) 0 4px, transparent 4px 7px) left bottom / 100% 2px no-repeat;
   mix-blend-mode: normal;
-  border-radius: 0;
-  border-bottom: 2px dashed var(--tt-brand-color-500, #c08a2e);
 }
 
 .pdf-later-tick {
@@ -367,11 +366,8 @@
 }
 
 .pdf-swatch.is-later {
-  background: none;
+  background: repeating-linear-gradient(90deg, currentColor 0 3px, transparent 3px 5px) left bottom / 100% 2px no-repeat;
   box-shadow: none;
-  border-bottom: 2px dashed currentColor;
-  border-radius: 0;
-  height: 0.6rem;
 }
 
 /* Search matches in violet, a colour no highlight uses: a find is never mistaken for a yellow highlight. */
