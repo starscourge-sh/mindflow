@@ -3,9 +3,10 @@
 //    where speech recognition is not allowed or not on this Mac, a plain sentence saying so.
 // 2. In the app: "Transcribe" (the recording's cc button) writes the words under it as lines led by
 //    their time, a time plays the recording from there, the right-click menu and ⌘K offer it, and a
-//    voice note made as its own capture is named by its first words. Where the Mac will not make
-//    the words, the friendly message is checked, then the words are given by a stand-in for main's
-//    handler, so the rest is checked all the same.
+//    voice note made as its own capture is named by its first words. The friendly message where the
+//    Mac will not make the words is checked every run, by a handler that refuses as main does; where
+//    the helper cannot make them here, a stand-in for main's handler gives the words, so the rest is
+//    checked all the same.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox node qa/transcribe.mjs
 import { execFileSync } from 'node:child_process'
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
@@ -64,6 +65,18 @@ const standIn = () => electron.evaluate(({ ipcMain }, segments) => {
   ipcMain.removeHandler('haligtree:transcribe')
   ipcMain.handle('haligtree:transcribe', () => new Promise((resolve) => setTimeout(() => resolve({ segments, text: segments.map((one) => one.text).join(' '), onDevice: true }), 1500)))
 }, FAKE)
+/** Main's handler set aside, and one that refuses as main does where speech recognition is not allowed. */
+const refusing = () => electron.evaluate(({ ipcMain }) => {
+  globalThis.qaTranscribe = ipcMain._invokeHandlers?.get('haligtree:transcribe')
+  ipcMain.removeHandler('haligtree:transcribe')
+  ipcMain.handle('haligtree:transcribe', () => ({ error: { code: 'denied', message: 'Haligtree may not use speech recognition. Allow it in System Settings, under Privacy & Security, then Speech Recognition' } }))
+})
+/** Main's own handler back, after the refusal. */
+const restore = () => electron.evaluate(({ ipcMain }) => {
+  ipcMain.removeHandler('haligtree:transcribe')
+  if (globalThis.qaTranscribe) ipcMain._invokeHandlers.set('haligtree:transcribe', globalThis.qaTranscribe)
+  return !!globalThis.qaTranscribe
+})
 const undoButton = () => h.locator('button', { hasText: /^Undo/ }).last()
 /** Its block menu (a right-click on it), then its "Transcribe": no toolbar shows on a recording. */
 const transcribeFromMenu = async () => {
@@ -84,13 +97,17 @@ try {
   await h.click(`${EDITOR} .tiptap-attachment.is-audio .tiptap-attachment-name`, { button: 'right', force: true }); await wait(500)
   check('the recording\'s menu offers “Transcribe” first, under “Voice note”', await h.evaluate(() => document.querySelector('.tiptap-block-menu [data-kind-heading]')?.textContent === 'Voice note' && document.querySelector('.tiptap-block-menu [role=menuitem]')?.hasAttribute('data-transcribe')), '')
   await h.keyboard.press('Escape'); await wait(300)
-  if (!real) {
+  // The "will not" path forced every run, whatever this Mac allows: main's handler, for this one press, says what
+  // main says when speech recognition is not allowed (src/main/transcribe.ts), so the toast is checked the same way
+  // here and on a Mac where the helper works inside the app but not outside it. Main's own handler comes back after.
+  await refusing()
+  {
     await transcribeFromMenu()
     await h.waitForFunction(() => /speech recognition/i.test(document.body.innerText), null, { timeout: 15000 }).catch(() => {})
     const said = await toastSays()
     check('Transcribe where the Mac will not: a plain toast says why', /speech recognition/i.test(said) && /System Settings/.test(said), said)
     check('…and nothing is written', !/\[0:00\]/.test(textOf(await doc())), '')
-    await standIn()
+    if (!real || !(await restore())) await standIn()
   }
   await transcribeFromMenu()
   const orb = await h.waitForSelector('.tiptap-attachment-listening', { timeout: 4000 }).then(() => true, () => false)
