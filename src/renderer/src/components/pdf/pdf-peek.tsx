@@ -73,12 +73,18 @@ export function PdfPeek(): React.JSX.Element | null {
   const card = React.useRef<HTMLDivElement>(null)
   const on = React.useRef<Element | null>(null)
   const wanted = React.useRef(0)
+  /** What the card is placed against: a PDF's whole card in a note, else the link itself. */
+  const around = React.useRef<Element | null>(null)
 
   React.useEffect(() => {
 
     const show = (target: HTMLElement, { src, name, first }: Named): void => {
-      const r = target.getBoundingClientRect()
+      // A PDF's card in a note: above or below the whole card, never over its title; elsewhere the link itself.
+      const anchor = target.closest<HTMLElement>(".tiptap-pdf-card") ?? target
+      const r = anchor.getBoundingClientRect()
+      const t = target.getBoundingClientRect()
       on.current = target
+      around.current = anchor
       void pdfCover(src, name).then(async (cover) => {
         if (on.current !== target) return
         const doc = await loadPdf(src).catch(() => null)
@@ -91,7 +97,7 @@ export function PdfPeek(): React.JSX.Element | null {
           probe.src = cover.image
         })
         if (on.current !== target) return
-        setPeek({ src, name, x: r.left + r.width / 2, top: r.top, bottom: r.bottom, count: doc.numPages, first, page: first, image: first === 1 ? (cover?.image ?? null) : null, ratio })
+        setPeek({ src, name, x: t.left + t.width / 2, top: r.top, bottom: r.bottom, count: doc.numPages, first, page: first, image: first === 1 ? (cover?.image ?? null) : null, ratio })
         if (first !== 1) void turn(src, first)
       })
     }
@@ -105,7 +111,7 @@ export function PdfPeek(): React.JSX.Element | null {
       if (!on.current) return
       const next = event.relatedTarget as Node | null
       // The card reaches down to the link (a clear strip between), so the pointer crosses straight onto it.
-      if (next && (on.current.contains(next) || card.current?.contains(next))) return
+      if (next && (on.current.contains(next) || around.current?.contains(next) || card.current?.contains(next))) return
       away()
     }
     const away = (): void => ((on.current = null), setPeek(null))
