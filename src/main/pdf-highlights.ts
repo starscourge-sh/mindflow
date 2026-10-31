@@ -135,11 +135,15 @@ export function registerPdfHighlights(): void {
   })
   // A mark changed after it was made: its colour, the gem it became, its note.
   ipcMain.handle('haligtree:pdf:mark', (_event, id: unknown, change: unknown) => {
-    const given = (change ?? {}) as { color?: string | null; gemId?: string | null; note?: string | null }
+    const given = (change ?? {}) as { color?: string | null; gemId?: string | null; note?: string | null; quote?: string; start?: number; end?: number }
     const sets = Object.entries({ color: given.color, gem_id: given.gemId, note: given.note }).filter(([, value]) => value !== undefined)
-    if (!sets.length) return false
-    return db.prepare(`update pdf_highlights set ${sets.map(([name]) => `${name} = ?`).join(', ')} where id = ?`)
-      .run(...sets.map(([, value]) => (typeof value === 'string' && value ? value : null)), String(id)).changes > 0
+    // Its words moved (extended, or cut to part of them): the words and where they sit on the page, together.
+    const moved = typeof given.quote === 'string' && given.quote.trim() && Number.isInteger(given.start) && Number.isInteger(given.end) && given.end! > given.start!
+    if (!sets.length && !moved) return false
+    const values: (string | number | null)[] = sets.map(([, value]) => (typeof value === 'string' && value ? value : null))
+    const names = sets.map(([name]) => `${name} = ?`)
+    if (moved) (names.push('quote = ?', 'start = ?', 'end = ?'), values.push(given.quote!.trim(), given.start!, given.end!))
+    return db.prepare(`update pdf_highlights set ${names.join(', ')} where id = ?`).run(...values, String(id)).changes > 0
   })
   ipcMain.handle('haligtree:pdf:unhighlight', (_event, id: unknown) => db.prepare('delete from pdf_highlights where id = ?').run(String(id)).changes > 0)
   // Where each PDF was last read: its page, how many it has, and when, so it opens where you left it.

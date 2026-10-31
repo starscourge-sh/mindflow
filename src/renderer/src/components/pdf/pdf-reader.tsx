@@ -5,7 +5,7 @@ import { ChevronDown, ChevronUp, Gem, Minus, PanelLeft, PanelRight, Plus, Scisso
 import { Button } from "@/components/tiptap-ui-primitive/button"
 import { Toolbar, ToolbarGroup } from "@/components/tiptap-ui-primitive/toolbar"
 import { saveAttachment } from "@/extensions/image-drop"
-import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from "@/components/ui/context-menu"
+import { ContextMenu, ContextMenuContent, ContextMenuSeparator, ContextMenuTrigger } from "@/components/ui/context-menu"
 import { Roll } from "@/lib/roll"
 import { call } from "@/lib/haligtree"
 import { touch } from "@/lib/open-today"
@@ -504,6 +504,30 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     said("Kept as a gem", true, { type: "nugget", id: gemId, title: one.quote })
   }
 
+  /**
+   * Words picked over part of a highlight on its page: "Extend the highlight" when they reach past it,
+   * "Keep just these words" when they sit inside it. The highlight keeps its id, colour and gem.
+   */
+  const reshape = (one: PdfMark): { onExtend?: () => void; onTrim?: () => void } => {
+    if (!picked || picked.page !== one.page || picked.end <= one.start || picked.start >= one.end) return {}
+    if (picked.start === one.start && picked.end === one.end) return {}
+    const layer = document.querySelector(`.pdf-reader .pdf-page[data-page="${one.page}"] .textLayer`)
+    const to = async (start: number, end: number, words: string): Promise<void> => {
+      const quote = words.replace(/\s+/g, " ").trim()
+      await call("pdf:mark", one.id, { start, end, quote })
+      setMarks((all) => all.map((each) => (each.id === one.id ? { ...each, start, end, quote, prefix: "", suffix: "" } : each)))
+      getSelection()?.removeAllRanges()
+      setPicked(null)
+      chime("saved")
+      said(end - start > one.end - one.start ? "Highlight extended" : "Highlight cut to the words picked")
+    }
+    const text = layer?.textContent ?? ""
+    const inside = picked.start >= one.start && picked.end <= one.end
+    return inside
+      ? { onTrim: () => void to(picked.start, picked.end, picked.quote) }
+      : { onExtend: () => { const start = Math.min(one.start, picked.start); const end = Math.max(one.end, picked.end); void to(start, end, text.slice(start, end)) } }
+  }
+
   const remove = async (mark: PdfMark): Promise<void> => {
     await call("pdf:unhighlight", mark.id)
     setMarks((all) => all.filter((one) => one.id !== mark.id))
@@ -894,10 +918,12 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
               onOpenGem={() => window.dispatchEvent(new CustomEvent("haligtree:open", { detail: { type: "nugget", id: hit.gemId } }))}
               onCopy={() => void copyCited(hit.quote, hit.page)}
               onRemove={() => void remove(hit)}
+              {...reshape(hit)}
             />
-          ) : (
-            picked && <PickedMenu actions={actions} />
-          )}
+          ) : null}
+          {/* Words picked over a highlight: its own rows first, then what can be done with the words picked. */}
+          {hit && picked && <ContextMenuSeparator />}
+          {picked && <PickedMenu actions={actions} />}
         </ContextMenuContent>
       </ContextMenu>
       {detailsOut && <ReadDetails src={src} name={name} onPage={go} cover={cover?.image} title={title} author={author} pages={doc?.numPages} page={page} marks={marks} lit={lit} onMark={goToMark} onGather={() => void gather()} />}

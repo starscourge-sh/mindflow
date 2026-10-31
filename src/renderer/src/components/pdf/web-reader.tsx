@@ -25,6 +25,7 @@ import { offsetsIn, rangeOf, type PdfMark } from './pdf-pages'
 import {
   ContextMenu,
   ContextMenuContent,
+  ContextMenuSeparator,
   ContextMenuTrigger
 } from '@/components/ui/context-menu'
 import { call } from '@/lib/haligtree'
@@ -680,9 +681,10 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
               onCopy={() => void copyCited(hit.quote)}
               onRemove={() => void remove(hit)}
             />
-          ) : (
-            picked && <PickedMenu actions={actions} />
-          )}
+          ) : null}
+          {/* Words picked over a highlight: its own rows first, then what can be done with the words picked. */}
+          {hit && picked && <ContextMenuSeparator />}
+          {picked && <PickedMenu actions={actions} />}
         </ContextMenuContent>
       </ContextMenu>
     </div>

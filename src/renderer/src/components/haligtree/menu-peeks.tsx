@@ -10,7 +10,7 @@ import { APP_NAME } from '../../../../main/name'
  * its own with `data-peek`.
  */
 
-type MenuPeekEntry = { text: string; art: () => ReactNode; keys?: string; /** Drawn to fit, so not faded at its foot. */ whole?: boolean }
+export type MenuPeekEntry = { text: string; art: () => ReactNode; keys?: string; /** Drawn to fit, so not faded at its foot. */ whole?: boolean }
 
 /** A small switch, drawn. */
 const Toggle = ({ on }: { on: boolean }): React.JSX.Element => (
@@ -186,7 +186,7 @@ const PEEKS: Record<string, MenuPeekEntry> = {
  * has been highlighted a moment, then swaps at once as you move. Nothing
  * while something is being carried.
  */
-export function MenuPeek(): React.JSX.Element {
+export function MenuPeek({ entries = PEEKS }: { /** Another menu's own cards (the readers' menu on picked words); the Haligtree menu's when not given. */ entries?: Record<string, MenuPeekEntry> } = {}): React.JSX.Element {
   const probe = useRef<HTMLSpanElement>(null)
   const [id, setId] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
@@ -206,7 +206,7 @@ export function MenuPeek(): React.JSX.Element {
     return () => clearTimeout(timer)
   }, [id, ready])
   useEffect(() => void (ready && id && (seen.current = true)))
-  const peek = ready && id && !carrying() && !previewsOff() ? PEEKS[id] : undefined
+  const peek = ready && id && !carrying() && !previewsOff() ? entries[id] : undefined
   return (<>
     <span ref={probe} hidden />
     {peek && (

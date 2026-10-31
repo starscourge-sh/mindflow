@@ -85,6 +85,21 @@ try {
   const link = h.locator(`${EDITOR} a[href*="page=2"]`).first()
   await link.scrollIntoViewIfNeeded()
   const lb = await link.boundingBox()
+  // Right-click on the link: its own rows, the block's folded into one "Block ›" row, and no row looks picked before a key is pressed.
+  await h.mouse.click(lb.x + lb.width / 2, lb.y + lb.height / 2, { button: 'right' }); await wait(700)
+  const linkMenu = await h.evaluate(() => {
+    const menu = document.querySelector('.tiptap-block-menu')
+    const top = menu ? [...menu.querySelectorAll(':scope .tiptap-block-menu-list > [role="menuitem"], :scope .tiptap-block-menu-list > * > [role="menuitem"]')].map((one) => one.textContent.trim()) : []
+    const lit = menu ? [...menu.querySelectorAll('[role="menuitem"]')].filter((one) => getComputedStyle(one).backgroundColor !== 'rgba(0, 0, 0, 0)' && getComputedStyle(one).backgroundColor !== 'transparent').map((one) => one.textContent.trim()) : []
+    const dead = menu ? [...menu.querySelectorAll('[role="menuitem"][data-disabled], [role="menuitem"][aria-disabled="true"]')].filter((one) => !one.title).map((one) => one.textContent.trim()) : []
+    return { top, sub: !!menu?.querySelector('[data-block-sub]'), lit, dead }
+  })
+  check('right-click on a PDF link folds the block\'s rows behind "Block ›"', linkMenu.sub && !linkMenu.top.some((one) => /Copy link to this line|Duplicate|Delete/.test(one)), JSON.stringify(linkMenu))
+  check('opened by the mouse, no row looks picked', linkMenu.lit.length === 0, JSON.stringify(linkMenu.lit))
+  check('no greyed row without a reason in its tip', linkMenu.dead.length === 0, JSON.stringify(linkMenu.dead))
+  await c.both(`${SHOTS}/pdf-clarity-link-menu`)
+  await h.keyboard.press('Escape'); await wait(400)
+  await h.mouse.move(0, 0); await wait(300)
   await h.mouse.move(lb.x + 2, lb.y + lb.height / 2, { steps: 2 }); await wait(900)
   await h.mouse.move(lb.x + lb.width - 2, lb.y + lb.height / 2, { steps: 10 }); await wait(900)
   const corner = await h.evaluate(() => document.querySelector('[data-pdf-peek-page]')?.textContent?.trim())
@@ -110,6 +125,22 @@ try {
   check('a highlight is saved', saved.length === 1, JSON.stringify(saved))
   check('a highlight stays drawn on its words (colour under them)', bands > 0 && after - before > 15, JSON.stringify({ bands, before, after }))
   await h.screenshot({ path: `${SHOTS}/pdf-clarity-highlight.png` })
+  // Words picked reaching past a highlight: its menu offers "Extend the highlight", then the picked words' own rows.
+  await pick(1, 0, 'Genocide is an attempt to destroy'.length); await wait(400)
+  const onMark = await h.evaluate(() => { const r = document.querySelector('.pdf-reader .pdf-page[data-page="1"] .pdf-mark').getBoundingClientRect(); return { x: r.left + 6, y: r.top + r.height / 2 } })
+  await h.mouse.click(onMark.x, onMark.y, { button: 'right' }); await wait(500)
+  const overMark = await h.evaluate(() => [...document.querySelectorAll('[role="menu"] [role="menuitem"]')].map((one) => one.textContent.trim()))
+  check('over a highlight, picked words offer "Extend the highlight", then their own rows', overMark[0] === 'Extend the highlight' && overMark.some((one) => one.startsWith('Make a card')) && overMark.some((one) => one.startsWith('Remove highlight')), JSON.stringify(overMark))
+  await c.both(`${SHOTS}/pdf-clarity-menu-over-highlight`)
+  await h.click('[role="menuitem"]:has-text("Extend the highlight")'); await wait(800)
+  const grown = (await v('pdf:highlights', pdfSrc)).find((one) => one.page === 1)
+  check('"Extend the highlight" grows it to the words picked', grown?.quote === 'Genocide is an attempt to destroy', JSON.stringify(grown))
+  await pick(1, 0, 'Genocide'.length); await wait(400)
+  await h.mouse.click(onMark.x, onMark.y, { button: 'right' }); await wait(500)
+  check('words inside a highlight offer "Keep just these words"', await h.evaluate(() => [...document.querySelectorAll('[role="menu"] [role="menuitem"]')].some((one) => one.textContent.trim() === 'Keep just these words')), '')
+  await h.click('[role="menuitem"]:has-text("Keep just these words")'); await wait(800)
+  const cut = (await v('pdf:highlights', pdfSrc)).find((one) => one.page === 1)
+  check('"Keep just these words" cuts it to them', cut?.quote === 'Genocide', JSON.stringify(cut))
   // In the dark, on a page scrolled to, in a colour: still drawn, and still drawn once the page is scrolled away and back.
   await c.look('dark')
   await h.fill('.pdf-reader-page-field', '3'); await h.keyboard.press('Enter'); await wait(1200)
@@ -150,6 +181,10 @@ try {
   await h.mouse.click(wb.x, wb.y, { button: 'right' }); await wait(500)
   const rows = await h.evaluate(() => [...document.querySelectorAll('[role="menu"] [role="menuitem"]')].map((one) => one.textContent.trim()))
   check('the menu on picked words offers every action, Mark for a card and Copy included', ['Highlight', 'Keep as a gem', 'Make a card', 'Fill-in-the-blank card', 'Mark for a card', 'Look up', 'Copy with citation', 'Copy'].every((one) => rows.some((row) => row.startsWith(one))), JSON.stringify(rows))
+  // Pointed at, a row shows its preview beside the menu, as the slash menu does.
+  await h.hover('[role="menu"] [role="menuitem"][data-peek="blank"]'); await wait(900)
+  const peek = await h.evaluate(() => document.querySelector('[data-menu-peek]')?.textContent ?? '')
+  check('pointing at "Fill-in-the-blank card" shows its preview with the blank', /blanked out/.test(peek) && /Genocide is an attempt to/.test(peek), peek.slice(0, 160))
   await c.both(`${SHOTS}/pdf-clarity-menu`)
   await h.keyboard.press('Escape'); await wait(300)
 

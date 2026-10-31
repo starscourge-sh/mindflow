@@ -2,6 +2,8 @@ import { useLayoutEffect, useRef, useState } from "react"
 import { BookOpenText, Copy, Gem, Highlighter, Quote, SquareDashed, SquareStack, Trash2 } from "lucide-react"
 import { Toolbar } from "@/components/tiptap-ui-primitive/toolbar"
 import { ContextMenuItem, ContextMenuSeparator, ContextMenuShortcut } from "@/components/ui/context-menu"
+import { MenuPeek, type MenuPeekEntry } from "@/components/haligtree/menu-peeks"
+import { MCard } from "@/components/haligtree/peek"
 
 /**
  * A highlight's colours, as readers keep them (Apple Books, Zotero,
@@ -135,54 +137,76 @@ export function readKey(event: KeyboardEvent, actions: ReadActions): boolean {
   return false
 }
 
+/** The words every reader preview shows, before and after. */
+const SAID = "Genocide is an attempt to destroy a people, in whole or in part."
+const lit = (color: string): React.CSSProperties => ({ backgroundColor: `color-mix(in oklab, ${color} 32%, transparent)`, borderRadius: 2 })
+const Before = ({ children }: { children: React.ReactNode }): React.JSX.Element => <p className="font-serif text-[11px] leading-snug">{children}</p>
+const Arrow = (): React.JSX.Element => <div className="my-1 text-center text-[10px] text-muted-foreground">↓</div>
+
+/**
+ * The right-click menu's previews on picked words, as the slash menu has: a
+ * tiny drawing of the words before and after, and one line on what it does.
+ */
+const READ_PEEKS: Record<string, MenuPeekEntry> = {
+  highlight: { text: "**The words get a colour that stays on the page.** H uses the last colour; 1 to 5 pick one.", whole: true, art: () => (<><Before>{SAID}</Before><Arrow /><Before><span style={lit("var(--tt-color-text-yellow)")}>Genocide is an attempt</span> to destroy a people, in whole or in part.</Before></>) },
+  keep: { text: "**The words become a gem, with the book and page they came from.** It comes back in Home and the Feed.", whole: true, art: () => (<MCard><p className="font-serif text-[11px] leading-snug">“Genocide is an attempt to destroy a people.”</p><p className="mt-1 text-[9.5px] text-muted-foreground">The Law Book, p. 82</p></MCard>) },
+  card: { text: "**A question you write, with these words as its answer.** It comes up in Review.", whole: true, art: () => (<MCard><p className="text-[9px] text-muted-foreground">Question</p><p className="text-[10.5px] font-semibold">What is genocide?</p><div className="my-1 h-px bg-foreground/10" /><p className="text-[9px] text-muted-foreground">Answer</p><p className="font-serif text-[10.5px]">An attempt to destroy a people</p></MCard>) },
+  blank: { text: "**The words blanked out of their sentence: a card that asks you to fill them in.**", whole: true, art: () => (<MCard><p className="font-serif text-[11px] leading-snug">Genocide is an attempt to <span className="inline-block w-12 border-b border-foreground/60 align-baseline" /> in whole or in part.</p><p className="mt-1 text-[9.5px] text-muted-foreground">Answer: destroy a people</p></MCard>) },
+  later: { text: "**Mark words to turn into cards later, all at once.** “Make your marked cards” asks for each one.", whole: true, art: () => (<Before>Genocide is an attempt <span className="border-b border-dashed" style={{ borderColor: "var(--tt-brand-color-500, #c08a2e)" }}>to destroy a people</span>, in whole or in part.</Before>) },
+  lookUp: { text: "**What the words mean, from the dictionary and Wikipedia,** under them on the page.", whole: true, art: () => (<><Before><span style={lit("var(--tt-color-text-blue)")}>Genocide</span> is an attempt…</Before><MCard className="mt-1"><p className="text-[10.5px] font-semibold">genocide <span className="font-normal italic text-muted-foreground">noun</span></p><p className="text-[10px]">The deliberate killing of a large number of people from one nation or group.</p></MCard></>) },
+  cite: { text: "**Copied with where they came from,** ready to paste into an essay.", whole: true, art: () => (<MCard><p className="font-serif text-[11px] leading-snug">“Genocide is an attempt to destroy a people” (The Law Book, p. 82)</p></MCard>) },
+  copy: { text: "**Just the words, copied as they are.**", whole: true, art: () => (<MCard><p className="font-serif text-[11px] leading-snug">Genocide is an attempt to destroy a people</p></MCard>) },
+}
+
 /** The right click's rows on picked words: everything that can be done with them, each with its key. */
 export function PickedMenu({ actions }: { actions: ReadActions }): React.JSX.Element {
   const now = lastColor()
   return (
     <>
-      <ContextMenuItem onSelect={() => actions.highlight(now)}>
+      <MenuPeek entries={READ_PEEKS} />
+      <ContextMenuItem data-peek="highlight" onSelect={() => actions.highlight(now)}>
         <Highlighter style={{ color: markCss(now) }} />
         Highlight
         <ContextMenuShortcut>H</ContextMenuShortcut>
       </ContextMenuItem>
       <ColourRow on={undefined} onPick={actions.highlight} />
       <ContextMenuSeparator />
-      <ContextMenuItem onSelect={actions.keep}>
+      <ContextMenuItem data-peek="keep" onSelect={actions.keep}>
         <Gem />
         Keep as a gem
         <ContextMenuShortcut>K</ContextMenuShortcut>
       </ContextMenuItem>
       {actions.card && (
-        <ContextMenuItem onSelect={() => actions.card?.()} title="A study card, in Review only; ⌥C keeps it as a gem too">
+        <ContextMenuItem data-peek="card" onSelect={() => actions.card?.()} title="A study card, in Review only; ⌥C keeps it as a gem too">
           <SquareStack />
           Make a card
           <ContextMenuShortcut>C</ContextMenuShortcut>
         </ContextMenuItem>
       )}
       {actions.blank && (
-        <ContextMenuItem onSelect={() => actions.blank?.()} title="The words blanked out of their sentence, in Review only; ⌥⇧C keeps it as a gem too">
+        <ContextMenuItem data-peek="blank" onSelect={() => actions.blank?.()} title="The words blanked out of their sentence, in Review only; ⌥⇧C keeps it as a gem too">
           <SquareDashed />
           Fill-in-the-blank card
           <ContextMenuShortcut>⇧C</ContextMenuShortcut>
         </ContextMenuItem>
       )}
-      <ContextMenuItem onSelect={() => actions.highlight("later")} title={LATER_TIP}>
+      <ContextMenuItem data-peek="later" onSelect={() => actions.highlight("later")} title={LATER_TIP}>
         <SquareStack />
         Mark for a card
         <ContextMenuShortcut>6</ContextMenuShortcut>
       </ContextMenuItem>
-      <ContextMenuItem onSelect={actions.lookUp}>
+      <ContextMenuItem data-peek="lookUp" onSelect={actions.lookUp}>
         <BookOpenText />
         Look up
         <ContextMenuShortcut>L</ContextMenuShortcut>
       </ContextMenuItem>
-      <ContextMenuItem onSelect={actions.copy}>
+      <ContextMenuItem data-peek="cite" onSelect={actions.copy}>
         <Quote />
         Copy with citation
         <ContextMenuShortcut>⇧⌘C</ContextMenuShortcut>
       </ContextMenuItem>
       <ContextMenuSeparator />
-      <ContextMenuItem onSelect={() => void navigator.clipboard.writeText(getSelection()?.toString() ?? "")}>
+      <ContextMenuItem data-peek="copy" onSelect={() => void navigator.clipboard.writeText(getSelection()?.toString() ?? "")}>
         <Copy />
         Copy
         <ContextMenuShortcut>⌘C</ContextMenuShortcut>
@@ -192,9 +216,22 @@ export function PickedMenu({ actions }: { actions: ReadActions }): React.JSX.Ele
 }
 
 /** The right click's rows on a highlight: its colour, its gem (made or opened), copy, remove. */
-export function MarkMenu({ color, gem, onColor, onKeep, onOpenGem, onCopy, onRemove }: { color: string | null | undefined; gem: boolean; onColor: (color: MarkColor) => void; onKeep: () => void; onOpenGem: () => void; onCopy: () => void; onRemove: () => void }): React.JSX.Element {
+export function MarkMenu({ color, gem, onColor, onKeep, onOpenGem, onCopy, onRemove, onExtend, onTrim }: { color: string | null | undefined; gem: boolean; onColor: (color: MarkColor) => void; onKeep: () => void; onOpenGem: () => void; onCopy: () => void; onRemove: () => void; /** Words picked reaching past it: the highlight grown to hold them. */ onExtend?: () => void; /** Words picked inside it: the highlight cut to those words alone. */ onTrim?: () => void }): React.JSX.Element {
   return (
     <>
+      {onExtend && (
+        <ContextMenuItem onSelect={onExtend} title="The highlight grows to hold the words you picked">
+          <Highlighter />
+          Extend the highlight
+        </ContextMenuItem>
+      )}
+      {onTrim && (
+        <ContextMenuItem onSelect={onTrim} title="The highlight shrinks to the words you picked">
+          <Highlighter />
+          Keep just these words
+        </ContextMenuItem>
+      )}
+      {(onExtend || onTrim) && <ContextMenuSeparator />}
       <ColourRow on={color ?? null} onPick={onColor} />
       <ContextMenuSeparator />
       {gem ? (
