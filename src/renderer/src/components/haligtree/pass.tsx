@@ -388,7 +388,7 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
               </p>
               <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
                 {next && <Button data-pass-next variant="outline" size="lg" onClick={() => (chime('tap'), next.run())}>{next.said}</Button>}
-                <Button variant="ghost" size="sm" onClick={onClose}>Close</Button>
+                <Button variant="ghost" size={next ? "lg" : "sm"} onClick={onClose}>Close</Button>
               </div>
             </div>
           ) : item && (
