@@ -16,7 +16,8 @@ import { WithPictures } from './with-pictures'
 import { PasteCards } from './paste-cards'
 import { SplitForm } from './study'
 import { AnotherWay } from './another-way'
-import { FlipThrough, Pocket, Poster, Shelf, Windowed, groupTint } from './card-shelves'
+import { EmptyPocket, FlipThrough, Pocket, Poster, Shelf, Windowed, groupTint } from './card-shelves'
+import { makeDeck, useMadeDecks } from './decks'
 import { Empty, Tip, toast, typing } from './ui'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -79,7 +80,7 @@ function spot(card: BrowsedCard): number {
 const pageOf = (card: BrowsedCard): number | null => (/\d:\d/.test(card.at) ? null : /\d+/.exec(card.at) ? Number(/\d+/.exec(card.at)![0]) : null)
 
 /** The deck it came in, or its first tag: what a person means by "which deck". */
-const deckOf = (card: BrowsedCard): string => (card.made === 'deck' ? card.source : card.tags[0] ? `#${card.tags[0].split('-')[0]}` : 'No tag')
+const deckOf = (card: BrowsedCard): string => (card.made === 'deck' ? card.source : card.tags[0] ? `#${card.tags[0].split('-')[0]}` : 'No deck')
 
 const SORTS: Choice[] = [
   { id: 'due', label: 'Due soonest' },
@@ -108,7 +109,7 @@ const ORDER: Record<string, (a: BrowsedCard, b: BrowsedCard) => number> = {
 
 const GROUPS: Choice[] = [
   { id: 'none', label: 'None' },
-  { id: 'deck', label: 'Deck or tag' },
+  { id: 'deck', label: 'Deck' },
   { id: 'source', label: 'Source' },
   { id: 'stage', label: 'Stage' },
   { id: 'due', label: 'When due' },
@@ -119,7 +120,7 @@ const GROUPS: Choice[] = [
 const month = (iso: string): string => new Date(iso).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
 /** Each grouping: what a card's group is called, and the order the groups go in. */
 const GROUPING: Record<string, { of: (card: BrowsedCard) => string; rank: (name: string, list: BrowsedCard[]) => number | string }> = {
-  deck: { of: deckOf, rank: (name, list) => (name === 'No tag' ? 1e9 : -list.length) },
+  deck: { of: deckOf, rank: (name, list) => (name === 'No deck' ? 1e9 : -list.length) },
   source: { of: (card) => card.source || 'No source', rank: (name) => `${Number(name === 'No source')}${name.toLowerCase()}` },
   stage: { of: (card) => STAGES.find((one) => one.id === stageOf(card))!.label, rank: (name) => STAGES.findIndex((one) => one.label === name) },
   due: { of: dueBand, rank: (name) => DUES.indexOf(name) },
@@ -281,8 +282,11 @@ function EditCard({ card, tint, onDone }: { card: BrowsedCard; tint: string; onD
  * have cards; a card that needs work offers its fix in place. Picked cards
  * (⇧-click, x, ⌘A) are paused, tagged or untagged together, or sent to the Bin.
  */
-export function CardBrowser({ onOpen, pasting: pastingFirst = false }: { onOpen: (type: string, id: string) => void; /** Open with "Paste cards" out (⌘K). */ pasting?: boolean }): React.JSX.Element {
-  const [pasting, setPasting] = useState(pastingFirst)
+export function CardBrowser({ onOpen, aim }: { onOpen: (type: string, id: string) => void; /** Open with "Paste cards" out (⌘K), aimed at a deck, or for one card in it. */ aim?: { deck: string | null; one: boolean } | null }): React.JSX.Element {
+  const [pasting, setPasting] = useState(!!aim)
+  const [aimed, setAimed] = useState(aim ?? null)
+  // The decks made by hand: an empty one is a pocket of its own, saying how to fill it.
+  const made = useMadeDecks()
   // Marked for the probes and the Performance panel: how long the cards take to come, and to be drawn (card-shelves.tsx).
   const cards = useLive(() => (performance.mark('cards:asked'), call<BrowsedCard[]>('cards:all').then((all) => (performance.mark('cards:came'), all))), null as BrowsedCard[] | null, [], ['item'])
   const [query, setQuery] = useState('')
@@ -319,7 +323,7 @@ export function CardBrowser({ onOpen, pasting: pastingFirst = false }: { onOpen:
   const facets: Facet<BrowsedCard>[] = [
     { key: 'stage', label: 'Stage', options: STAGES.map(({ id, label }) => ({ id, label })), test: (card, id) => stageOf(card) === id },
     { key: 'due', label: 'Due', options: DUES.map((id) => ({ id, label: id })), test: (card, id) => dueBand(card) === id },
-    { key: 'tag', label: 'Tag', options: tags.map((one) => ({ id: one, label: `#${one}`, tint: groupTint(one) })), test: (card, id) => under(card.tags, id) },
+    { key: 'tag', label: 'Deck', options: tags.map((one) => ({ id: one, label: `#${one}`, tint: groupTint(one) })), test: (card, id) => under(card.tags, id) },
     { key: 'source', label: 'Source', options: sources.map((one) => ({ id: one, label: one })), test: (card, id) => card.source === id },
     { key: 'needs', label: 'Needs work', options: NEEDS, test: (card, id) => needs(card).includes(id) },
     { key: 'paused', label: 'Paused', options: [{ id: 'paused', label: 'Paused' }, { id: 'active', label: 'Not paused' }], test: (card, id) => card.paused === (id === 'paused') },
@@ -357,18 +361,25 @@ export function CardBrowser({ onOpen, pasting: pastingFirst = false }: { onOpen:
     void call<{ id: string; body: string | null }[]>('cards:retag', ids, word, on).then((before) => {
       chime(on ? 'noted' : 'fold')
       setTagging('')
-      toast(`#${word} ${on ? 'on' : 'off'} ${num(before.length)} ${before.length === 1 ? 'card' : 'cards'}`, () => void call('cards:retag:undo', before).then(() => chime('undo')))
+      toast(`${num(before.length)} ${before.length === 1 ? 'card' : 'cards'} ${on ? 'added to' : 'taken out of'} the deck #${word}`, () => void call('cards:retag:undo', before).then(() => chime('undo')))
     })
   }
-  // Moved to a deck or tag: the new one on, the card's others off, one Undo for both.
-  const move = (card: BrowsedCard, word: string): void => void (async () => {
+  // Moved to a deck: the new one on, each card's others off, one Undo for all of it.
+  const move = (moving: BrowsedCard[], word: string): void => void (async () => {
     const before = new Map<string, string | null>()
     const keepFirst = (rows: { id: string; body: string | null }[]): void => rows.forEach((one) => !before.has(one.id) && before.set(one.id, one.body))
-    keepFirst(await call<{ id: string; body: string | null }[]>('cards:retag', [card.id], word, true))
-    for (const old of card.tags.filter((one) => one !== word)) keepFirst(await call<{ id: string; body: string | null }[]>('cards:retag', [card.id], old, false))
+    keepFirst(await call<{ id: string; body: string | null }[]>('cards:retag', moving.map((card) => card.id), word, true))
+    for (const card of moving) for (const old of card.tags.filter((one) => one !== word)) keepFirst(await call<{ id: string; body: string | null }[]>('cards:retag', [card.id], old, false))
     chime('noted')
-    toast(`Moved to #${word}`, () => void call('cards:retag:undo', [...before].map(([id, body]) => ({ id, body }))).then(() => chime('undo')))
+    several.clear()
+    toast(`${moving.length === 1 ? 'Moved' : `${num(moving.length)} cards moved`} to the deck #${word}`, () => void call('cards:retag:undo', [...before].map(([id, body]) => ({ id, body }))).then(() => chime('undo')))
   })()
+  // "Move to deck…": a new deck first, named in place, then the decks there are.
+  const moveItem = (moving: BrowsedCard[]): RowItem => ({ label: moving.length > 1 ? `Move ${num(moving.length)} to deck…` : 'Move to deck…', items: [
+    { label: 'New deck…', run: () => void makeDeck().then((word) => word && move(moving, word)) },
+    'separator',
+    ...[...new Set([...tags, ...made])].filter((one) => !moving.every((card) => card.tags.length === 1 && card.tags[0] === one)).slice(0, 12).map((one) => ({ label: `#${one}`, run: () => move(moving, one) }))
+  ] })
   // Back to new, as if never reviewed; Undo puts its progress back.
   const reset = (ids: string[]): void => void call<{ id: string; state: string | null; dueAt: string | null }[]>('cards:reset', ids).then((before) => {
     chime('fold')
@@ -447,15 +458,20 @@ export function CardBrowser({ onOpen, pasting: pastingFirst = false }: { onOpen:
     return () => window.removeEventListener('keydown', onKey)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   if (!cards) return <div />
-  const paste = pasting ? <PasteCards onClose={() => (chime('fold'), setPasting(false))} /> : null
+  const paste = pasting ? <PasteCards key={`${aimed?.deck}:${aimed?.one}`} deck={aimed?.deck ?? undefined} one={aimed?.one} onClose={() => (chime('fold'), setPasting(false), setAimed(null))} /> : null
+  // The decks made by hand that hold no card yet, under no other pocket: each its own, with the ways to fill it.
+  const emptyPockets = made
+    .filter((deck) => !made.some((up) => deck.startsWith(`${up}-`)) && !tags.some((one) => under([one], deck)) && !groups.some(([name]) => name === `#${deck.split('-')[0]}`))
+    .map((deck) => <EmptyPocket key={deck} deck={deck} onPaste={(one) => (setAimed({ deck, one }), setPasting(true))} />)
   if (!cards.length)
     return (
       <div className="flex flex-col gap-3 px-5 pt-5 pb-10">
+        {!pasting && emptyPockets.length > 0 && <div data-card-pockets className="grid grid-cols-[repeat(auto-fill,minmax(12.5rem,1fr))] gap-x-4 gap-y-6">{emptyPockets}</div>}
         {paste ?? <Empty title="No cards yet" action={<Button size="sm" data-paste-open onClick={() => (chime('open'), setPasting(true))}>Paste cards</Button>}>Paste a list of cards, write the question a gem answers under “Review”, or import an Anki deck from File › Import.</Empty>}
       </div>
     )
 
-  const menu = (card: BrowsedCard): RowItem[] => several.menu({ type: 'nugget', id: card.id }) ?? [
+  const menu = (card: BrowsedCard): RowItem[] => (several.menu({ type: 'nugget', id: card.id }) && [moveItem(picked), 'separator', ...several.menu({ type: 'nugget', id: card.id })!]) || [
     { label: 'Edit', keys: 'E', run: () => setEditing(card.id) },
     { label: 'Open', keys: '↩', run: () => onOpen('nugget', card.id) },
     canSplit() && { label: 'Open to the side', run: () => openAside('nugget', card.id) },
@@ -465,7 +481,7 @@ export function CardBrowser({ onOpen, pasting: pastingFirst = false }: { onOpen:
     { label: 'Split in two', run: () => fix(card, 'split') },
     { label: card.paused ? 'Bring back' : 'Pause', run: () => pause([card.id], !card.paused) },
     card.reviews > 0 && { label: 'Reset progress', run: () => reset([card.id]) },
-    tags.length > 0 && { label: 'Move to deck or tag', items: tags.filter((one) => !(card.tags.length === 1 && card.tags[0] === one)).slice(0, 12).map((one) => ({ label: `#${one}`, run: () => move(card, one) })) },
+    moveItem([card]),
     { label: 'Copy', run: () => copy(card) },
     'separator',
     binItem([{ type: 'nugget', id: card.id }]),
@@ -571,7 +587,7 @@ export function CardBrowser({ onOpen, pasting: pastingFirst = false }: { onOpen:
     : <><div className={`flex flex-col ${density === 'compact' ? 'text-xs' : ''}`}>{list.slice(0, limit).map(cell)}</div>{more(list)}</>
   const head = density === 'compact' && (
     <div aria-hidden className="grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_6.5rem_5rem_8rem] gap-x-3 border-b px-3 pb-1 text-xs font-medium text-muted-foreground">
-      <span>Question</span><span>Answer</span><span className="text-right">Due</span><span>Stage</span><span className="text-right">Tags</span>
+      <span>Question</span><span>Answer</span><span className="text-right">Due</span><span>Stage</span><span className="text-right">Decks</span>
     </div>
   )
   const allOver = shown.length > 0 && shown.every((card) => over.has(card.id))
@@ -600,10 +616,10 @@ export function CardBrowser({ onOpen, pasting: pastingFirst = false }: { onOpen:
           <Button variant="ghost" size="sm" data-cards-pause onClick={() => pause(picked.map((one) => one.id), !picked.every((one) => one.paused))}>
             {picked.every((one) => one.paused) ? 'Bring back' : 'Pause'}
           </Button>
-          <Input value={tagging} onChange={(event) => setTagging(event.target.value)} placeholder="#tag" className="h-7 w-32 text-sm"
+          <Input value={tagging} onChange={(event) => setTagging(event.target.value)} placeholder="#deck" className="h-7 w-32 text-sm"
             onKeyDown={(event) => event.key === 'Enter' && (event.preventDefault(), retag(picked.map((one) => one.id), true))} />
-          <Button variant="ghost" size="sm" data-cards-tag onClick={() => retag(picked.map((one) => one.id), true)}>Add tag</Button>
-          <Button variant="ghost" size="sm" data-cards-untag onClick={() => retag(picked.map((one) => one.id), false)}>Take tag off</Button>
+          <Button variant="ghost" size="sm" data-cards-tag onClick={() => retag(picked.map((one) => one.id), true)}>Add to deck</Button>
+          <Button variant="ghost" size="sm" data-cards-untag onClick={() => retag(picked.map((one) => one.id), false)}>Take out of deck</Button>
           <span className="flex-1" />
           <span className="text-xs text-muted-foreground">⌫ to the Bin, Esc to let go</span>
         </div>
@@ -615,7 +631,7 @@ export function CardBrowser({ onOpen, pasting: pastingFirst = false }: { onOpen:
         <span><strong className="font-semibold text-[var(--tt-color-text-orange)] tabular-nums">{num(ordered.filter((one) => one.stage === 'learning' && !one.paused).length)}</strong> learning</span>
         <span><strong className="font-semibold text-[var(--tt-color-text-green)] tabular-nums">{num(ordered.filter((one) => one.dueAt && Date.parse(one.dueAt) <= Date.now() && !one.paused).length)}</strong> due now</span>
         <span data-card-known><strong className="font-semibold text-[var(--tt-color-text-purple)] tabular-nums">{num(ordered.filter((one) => one.known).length)}</strong> known <span className="text-muted-foreground">(remembered after 15 days or more)</span></span>
-        <span className="text-muted-foreground">{num(ordered.length)} of {num(cards.length)} cards{tag ? ` with #${tag}` : ''}</span>
+        <span className="text-muted-foreground">{num(ordered.length)} of {num(cards.length)} cards{tag ? ` in the deck #${tag}` : ''}</span>
       </p>
       {!ordered.length ? (
         <Empty title="No card matches" action={<button type="button" onClick={() => (chime('undo'), setQuery(''), setTag(null), setView({ ...view, filter: {} }))} className="text-control font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">Clear the filters</button>}>
@@ -641,6 +657,8 @@ export function CardBrowser({ onOpen, pasting: pastingFirst = false }: { onOpen:
             // Pockets: one a deck or tag, its own cards fanned out of the top.
             <div data-card-pockets className="grid grid-cols-[repeat(auto-fill,minmax(12.5rem,1fr))] gap-x-4 gap-y-6">
               {groups.map(([name, one]) => <Pocket key={name} name={name} cards={one} onOpen={() => (setOpened(name), setFlowing(false))} />)}
+              {/* A deck made by hand and still empty: its own pocket, with the two ways to fill it. */}
+              {!view.group || view.group === 'none' || view.group === 'deck' ? emptyPockets : null}
             </div>
           ) : density === 'grid' && grouping ? (
             // Shelves: a group's cards standing behind a glass ledge in its colour; a long one ends in a card that opens the rest.

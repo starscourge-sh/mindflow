@@ -153,7 +153,7 @@ try {
   await h.locator(`[data-pick="nugget:${leech}"]`).click({ button: 'right' })
   await h.waitForTimeout(400)
   const lines = await h.evaluate(() => [...document.querySelectorAll('[role="menuitem"]')].map((one) => one.textContent ?? '').join(' | '))
-  check('the row menu has every way', ['Edit', 'Open', 'Ask another way', 'Split in two', 'Pause', 'Reset progress', 'Move to deck or tag', 'Copy', 'Move to the Bin'].every((word) => lines.includes(word)), lines)
+  check('the row menu has every way', ['Edit', 'Open', 'Ask another way', 'Split in two', 'Pause', 'Reset progress', 'Move to deck…', 'Copy', 'Move to the Bin'].every((word) => lines.includes(word)), lines)
   await h.keyboard.press('Escape')
 
   // Edit in place: E opens the card, question and answer both, no form box.
