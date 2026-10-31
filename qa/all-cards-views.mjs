@@ -160,7 +160,7 @@ try {
   await shot('all-cards-edit-before', () => open())
   await h.evaluate((id) => document.querySelector(`[data-pick="nugget:${id}"]`)?.focus(), dot)
   await h.keyboard.press('e')
-  check('E opens the card to edit in place', await waitFor(() => h.evaluate(() => !!document.querySelector('[data-card-editing] [data-card-edit-answer] .ProseMirror'))))
+  check('E opens the card to edit in place', await waitFor(() => h.evaluate(() => !!document.querySelector('[data-card-editing] [data-card-edit-answer] .ProseMirror'))), await h.evaluate(() => JSON.stringify({ active: `${document.activeElement?.tagName} ${document.activeElement?.getAttribute('data-pick') ?? document.activeElement?.className?.slice?.(0, 40)}`, editing: !!document.querySelector('[data-card-editing]'), dialogs: [...document.querySelectorAll('[role="dialog"], [role="menu"]')].map((one) => `${one.getAttribute('role')} ${one.getAttribute('data-state')} ${one.className.slice(0, 30)}`), body: document.body.style.pointerEvents })))
   await shot('all-cards-edit-after', async () => { await open(); await h.evaluate((id) => document.querySelector(`[data-pick="nugget:${id}"]`)?.focus(), dot); await h.keyboard.press('e'); await waitFor(() => h.evaluate(() => !!document.querySelector('[data-card-editing] .ProseMirror'))) })
   await h.locator('[data-card-edit]').fill('What is the dot product?')
   await h.locator('[data-card-edit-source]').fill('Linear Algebra Done Right')

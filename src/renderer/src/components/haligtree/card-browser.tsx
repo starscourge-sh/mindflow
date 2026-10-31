@@ -231,6 +231,21 @@ function EditCard({ card, tint, onDone }: { card: BrowsedCard; tint: string; onD
     onDone()
   }
   const drop = (): void => (chime('fold'), onDone())
+  // Clicked away, it is kept, as a row edited in Things is. A click, not a blur:
+  // focus moved by something else (a closing menu handing focus back to its row)
+  // must not end the edit under the person's hands.
+  const keepNow = useRef(keep)
+  keepNow.current = keep
+  useEffect(() => {
+    const away = (event: PointerEvent): void => {
+      const target = event.target as Element | null
+      // Its own parts, and what it opens (the editor's menus and tips, in portals), are not away.
+      if (!target || box.current?.contains(target) || target.closest?.('[data-radix-popper-content-wrapper], [role="menu"], [role="dialog"], .tippy-box')) return
+      keepNow.current()
+    }
+    document.addEventListener('pointerdown', away, true)
+    return () => document.removeEventListener('pointerdown', away, true)
+  }, [])
   const keys = (event: React.KeyboardEvent | KeyboardEvent): boolean => {
     if (event.key === 'Escape') return (event.preventDefault(), event.stopPropagation(), drop(), true)
     if (event.key === 'Enter' && !event.shiftKey && !('nativeEvent' in event ? event.nativeEvent : event).isComposing) return (event.preventDefault(), event.stopPropagation(), keep(), true)
@@ -238,8 +253,6 @@ function EditCard({ card, tint, onDone }: { card: BrowsedCard; tint: string; onD
   }
   return (
     <div ref={box} data-card-editing={card.id} onClick={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}
-      // Clicked away, it is kept, as a row edited in Things is.
-      onBlur={(event) => !box.current?.contains(event.relatedTarget as Node | null) && event.relatedTarget && keep()}
       className="mf-index-card relative my-1 flex flex-col gap-1 px-4 pt-3 pb-2.5">
       <input autoFocus data-card-edit aria-label="Question" value={prompt} onChange={(event) => setPrompt(event.target.value)} onKeyDown={keys}
         className="w-full bg-transparent font-heading text-heading font-semibold leading-snug outline-none placeholder:text-muted-foreground" placeholder="The question" />
