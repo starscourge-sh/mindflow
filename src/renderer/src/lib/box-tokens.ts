@@ -6,7 +6,7 @@ import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
 
 import type { BlockColor } from '@/extensions/block-color'
 import type { Item } from '@/lib/haligtree'
-import { readTask, readySaid, PRIORITY_NAMES, bucketOf, datesIn, type Span } from '../../../main/task-words'
+import { isTranscriptLine, readTask, readySaid, PRIORITY_NAMES, bucketOf, datesIn, type Span } from '../../../main/task-words'
 import { isProse, kindOf } from '../../../main/import'
 import { dayKey, dayMonth } from '../../../main/dates'
 import { short } from '@/lib/clock'
@@ -189,6 +189,8 @@ const reads = new Map<string, Read>()
  * lands on the calendar at its hour. A question stays a note.
  */
 export function boxGuess(text: string, now = new Date()): CaptureType | null {
+  // A transcript's line ("[0:03] …") is something said, never a task to do.
+  if (isTranscriptLine(text)) return null
   const guessed = kindOf(text) as CaptureType | null
   if (guessed || /\?\s*$/.test(text) || isProse(text)) return guessed
   const read = readTask(text, now)

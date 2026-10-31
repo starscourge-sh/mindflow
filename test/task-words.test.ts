@@ -254,3 +254,11 @@ test('"now" in a sentence is no time', () => {
   assert.equal(readTask('you now have a good understanding', new Date('2026-10-29T12:00:00')).due, null)
   assert.equal(readTask('call mum now', new Date('2026-10-29T12:00:00')).title, 'call mum now')
 })
+
+test('a place in a recording is never a time, a day or a task', () => {
+  const now = new Date('2026-10-31T18:00:00')
+  for (const line of ['[0:03] So I was thinking about the plan', '[1:12] call mom about it', '[12:45] then we went on', 'jump to 1:02:15 in the talk', 'Read chapter (p. 12) of the book', 'Update to version 2.10 soon'])
+    assert.equal(readTask(line, now).due, null, line)
+  assert.equal(readTask('[0:03] call mom about it', now).title.startsWith('[0:03]'), true)
+  assert.notEqual(readTask('Meeting at 10:30 today', now).due, null)
+})

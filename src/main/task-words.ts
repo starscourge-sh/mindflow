@@ -84,10 +84,19 @@ type DateFound = { index: number; text: string; date: Date; start: ParsedCompone
 /** Where each #tag sits in the words: a name, never a when (#tomorrow, #daily). */
 const tagSpans = (text: string): { from: number; to: number }[] =>
   [...text.matchAll(/(?<![\p{L}\p{N}_])#[\p{L}\p{N}_-]+/gu)].map((one) => ({ from: one.index, to: one.index + one[0].length }))
+/**
+ * A place in a recording, never a time of day: "[0:03]" and "[1:02:15]" (the
+ * links a transcript's lines start with) and any "1:02:15" with seconds.
+ */
+export const STAMP = /\[\d{1,2}(?::\d{2}){1,2}\]|(?<![\d:])\d{1,2}:\d{2}:\d{2}(?![\d:])/g
+export const stampSpans = (text: string): { from: number; to: number }[] =>
+  [...text.matchAll(STAMP)].map((one) => ({ from: one.index, to: one.index + one[0].length }))
+/** A transcript's line: it starts at a place in its recording. */
+export const isTranscriptLine = (text: string): boolean => /^\s*\[\d{1,2}(?::\d{2}){1,2}\]/.test(text)
 
 export function datesIn(text: string, at = new Date()): DateFound[] {
   const { fixed, starts, ends, edits } = mend(text)
-  const tags = tagSpans(text)
+  const tags = [...tagSpans(text), ...stampSpans(text)]
   return chrono.en.GB.parse(fixed, at, { forwardDate: true }).filter((found) => {
     const [from, to] = [starts[found.index], ends[found.index + found.text.length - 1]]
     // "you now have" is no time: "now" alone is how people talk, never when a task is for.
@@ -306,7 +315,7 @@ export function readTask(text: string, at = new Date(), plain: { from: number; t
   // Words you said to keep as plain text: covered while reading, so nothing
   // is taken from them, and put back for the title.
   // A #tag is a name, never a when: "#daily" tags the task, it does not repeat it.
-  const kept = [...plain, ...tagSpans(text)].filter((one) => one.from >= 0 && one.to <= text.length && one.from < one.to)
+  const kept = [...plain, ...tagSpans(text), ...stampSpans(text)].filter((one) => one.from >= 0 && one.to <= text.length && one.from < one.to)
   let rest = kept.reduce((words, one) => words.slice(0, one.from) + '\uE000'.repeat(one.to - one.from) + words.slice(one.to), text)
   const spans: Span[] = []
   const take = (from: number, to: number, kind: Span['kind'], more: Pick<Span, 'guess' | 'week'> = {}): void => {
