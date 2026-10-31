@@ -120,6 +120,14 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
   // The question shows unmasked while you edit it, so the mask is never saved.
   const [editing, setEditing] = useState(false)
   const [rewrites, setRewrites] = useState(0)
+  // E pressed: the question focused with all its words picked, after it is drawn unmasked.
+  const [editAsked, setEditAsked] = useState(0)
+  useEffect(() => {
+    const h = heading.current
+    if (!editAsked || !h) return
+    h.focus()
+    getSelection()?.selectAllChildren(h)
+  }, [editAsked])
   // A cloze's answer, and the question with every other place it appears
   // blanked too: a title or a line that repeats it gives it away.
   const answer = card ? answerOf(card.prompt, card.body) : null
@@ -331,6 +339,14 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
       }
       if (['1', '2', '3', '4'].includes(event.key)) grade(Number(event.key) as 1 | 2 | 3 | 4)
       if (event.key === 'b') bury()
+      // E: rewrite the question right here, without leaving Review (Enter keeps it, Esc leaves it as it was).
+      if (event.key === 'e' && card && !event.metaKey) {
+        event.preventDefault()
+        // Unmasked first, then focused with its words picked, once React has drawn them (the effect below).
+        setEditing(true)
+        setEditAsked((n) => n + 1)
+        return
+      }
       // The answer read aloud again.
       if (event.key === 'p' && shown) sayAgain()
       if (event.key === 's' && card) {
