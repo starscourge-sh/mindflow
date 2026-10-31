@@ -763,6 +763,17 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
               ) : undefined} />
             {/* A meeting note says which event it is for, on its own line over its words. */}
             <EventSource id={open.id} onOpen={onOpen} />
+            {/* A lookup that did not satisfy: said on the page itself, not only in the folded details. */}
+            {meta.kind === 'word' && meta.status === 'open' && (
+              <p data-chrome data-keep-asking-line className="note-column mb-1 flex flex-wrap items-center gap-1 text-control text-muted-foreground">
+                <Orbit className="size-3.5 shrink-0" />
+                Not what you were after?
+                <Tip label="An open question, with what you looked up as its first clue">
+                  <button type="button" data-keep-asking onClick={() => void keepAsking(open.id)}
+                    className="rounded-md px-1 py-0.5 font-medium text-foreground/85 transition-colors hover:bg-accent hover:text-foreground">Keep asking</button>
+                </Tip>
+              </p>
+            )}
             {past ? (
               <HaligtreeEditor
                 key={`past-${open.id}-${past.key}`}
@@ -1000,7 +1011,7 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
         {capture.status === 'open' && (
           <>
             {capture.kind === 'word'
-              ? <Prop icon={Orbit} tip="Not answered yet: an open question, with what you looked up as its first clue" onClick={() => void keepAsking(capture.id)}><span data-keep-asking>Keep asking</span></Prop>
+              ? <Prop icon={Orbit} tip="Not answered yet: an open question, with what you looked up as its first clue" onClick={() => void keepAsking(capture.id)}><span data-keep-asking-prop>Keep asking</span></Prop>
               : <Prop icon={Orbit} tip="Something you keep thinking about. It collects clues, and is never tested" onClick={() => void exit(capture.id, 'question')}>Start an open question from this</Prop>}
             <Prop icon={Paperclip} tip="Files this note under a question you already have" onClick={() => void addToQuestion(capture.id)}>Add as a clue to a question…</Prop>
             {/* The questions kept in view, one click each, while you tidy. */}

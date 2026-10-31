@@ -39,7 +39,7 @@ let base
 const theme = async (one) => { base = await h.evaluate(([t, was]) => { const r = document.documentElement; was ??= r.className; r.className = t === 'dark' ? 'dark' : was.replace(/dark/, ''); return was }, [one, base]); await wait(300) }
 const questions = () => v('items', 'question')
 /** A Questions filter, picked as a click would: the chip whose words they are, in the list on show. */
-const tab = (name) => h.locator('[data-question-filter] button:visible').nth(['Looked up', 'Open', 'Answered'].indexOf(name)).click({ timeout: 5000 })
+const tab = (name) => h.locator('[data-question-filter] button:visible').nth(['Looked up', 'Open', 'Answered', 'Words'].indexOf(name)).click({ timeout: 5000 })
 
 try {
   const word = await h.evaluate((p) => window.api.captures.create(p), { kind: 'word', title: 'Probe hubris', body: doc('Probe hubris'), markdown: 'Probe hubris' })
@@ -61,6 +61,16 @@ try {
   await tab('Looked up')
   await wait(900)
   check('5. "Looked up" goes back', await h.locator('[data-question-filter="looked"]').isVisible())
+  // Words: the vocabulary you are learning, the word gems.
+  await tab('Words')
+  await wait(1200)
+  const learning = (await v('items', 'nugget')).filter((one) => one.kind === 'word')
+  const shownWords = await h.locator('[data-row]:visible').evaluateAll((all) => all.map((one) => one.dataset.id).filter(Boolean))
+  check('5a. it counts them as words', (await h.evaluate(() => document.body.innerText)).includes(`${learning.length} ${learning.length === 1 ? 'word' : 'words'}`))
+  check('5b. "Words" lists the word gems you are learning, and only them', learning.length >= 1 && shownWords.length === learning.length && learning.every((one) => shownWords.includes(one.id)), `${shownWords.length} shown, ${learning.length} word gems`)
+  await shot('questions-words-light')
+  await tab('Looked up')
+  await wait(900)
 
   // Keep asking: an open question, its words the first clue.
   const had = (await questions()).length
@@ -77,6 +87,17 @@ try {
   const full = made && await v('item', made.id)
   check('7. with what was looked up as its first clue', !!full && full.glosses.length === 1 && /hubris/i.test(full.glosses[0].body), JSON.stringify(full?.glosses))
   check('8. the lookup itself is kept (no data deleted)', !!(await h.evaluate((id) => window.api.captures.get(id), word)))
+
+  // Keep asking is on a lookup's own page too, not only in its folded details.
+  const second = await h.evaluate((p) => window.api.captures.create(p), { kind: 'word', title: 'Probe sprezzatura', body: doc('Probe sprezzatura'), markdown: 'Probe sprezzatura' })
+  await send('capture', second)
+  await wait(1500)
+  check('8b. a lookup\'s page says "Keep asking" in sight', await h.locator('[data-keep-asking]:visible').count() === 1)
+  await shot('lookup-keep-asking-light')
+  await h.locator('[data-keep-asking]:visible').click()
+  await wait(1500)
+  const kept = (await questions()).find((one) => /sprezzatura/i.test(one.title))
+  check('8c. and it makes an open question', !!kept && !kept.closedAt)
 
   // A new question is offered a first clue; Use this keeps it.
   const ask = async (title) => { const id = await v('question:new', title); await send('question', id); await wait(1500); return id }
