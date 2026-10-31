@@ -233,6 +233,30 @@ try {
   await h.screenshot({ path: `${shots}/web-link-back.png` })
   await net({ blocked: false })
 
+  // Cards straight from an article: C asks the question where the words were; ⇧C blanks them in their sentence.
+  const pickWords = (words) => h.evaluate((words) => {
+    const p = [...document.querySelectorAll('.web-reader-body p')].find((one) => one.textContent.includes(words))
+    const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT)
+    let text = walker.nextNode()
+    while (text && !text.data.includes(words)) text = walker.nextNode()
+    const at = text.data.indexOf(words)
+    const range = document.createRange()
+    range.setStart(text, at)
+    range.setEnd(text, at + words.length)
+    getSelection().removeAllRanges()
+    getSelection().addRange(range)
+  }, words)
+  const articleCards = async () => (await v('items', 'nugget')).filter((one) => /The Garden Essay/.test(one.medium ?? '') && one.prompt)
+  await pickWords('in the middle'); await wait(500)
+  check('picked words in an article offer Card', await h.evaluate(() => !!document.querySelector('.web-reader .pdf-keep-bar button[aria-label="Card"]')), '')
+  await h.keyboard.press('c'); await wait(400)
+  check('C opens the question field, focused', await h.evaluate(() => document.activeElement?.getAttribute('aria-label') === "The card's question"), '')
+  await h.keyboard.type('Where does the quiet sentence sit?'); await h.keyboard.press('Enter'); await wait(900)
+  check('Return makes a card from the article', (await articleCards()).some((one) => one.prompt === 'Where does the quiet sentence sit?'), JSON.stringify((await articleCards()).map((one) => one.prompt)))
+  await pickWords('worth keeping'); await wait(500)
+  await h.keyboard.press('Shift+C'); await wait(900)
+  const webBlank = (await articleCards()).find((one) => one.prompt?.includes('_____'))
+  check('⇧C blanks the words in their own sentence, nothing from the heading', webBlank?.prompt === 'A quiet sentence _____ sits here, in the middle of the essay.', JSON.stringify(webBlank?.prompt))
   // Two articles side by side: each keeps its own highlights.
   await v('item:save', note, { title: 'Reading list', body: { type: 'doc', content: [
     { type: 'bookmark', attrs: { href: `${SITE}/article`, title: 'The Garden Essay', site: 'Probe Times' } },

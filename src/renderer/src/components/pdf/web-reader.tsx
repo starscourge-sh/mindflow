@@ -183,10 +183,56 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
   }
   // Words looked up: the card under them, until Esc or a click away.
   const [looking, setLooking] = useState<{ words: string; x: number; y: number; from: LookedUpIn } | null>(null)
+  /** The sentence round the picked words, inside their own paragraph, so a heading above is never taken in. */
+  const sentenceHere = (quote: string): string => {
+    const chosen = getSelection()
+    const node = chosen?.rangeCount ? chosen.getRangeAt(0).startContainer : null
+    const block = (node instanceof Element ? node : node?.parentElement)?.closest('p, li, blockquote, h1, h2, h3, h4, h5, h6, td, dd, figcaption')
+    const text = (block?.textContent ?? '').replace(/\s+/g, ' ')
+    const words = quote.replace(/\s+/g, ' ').trim()
+    const at = text.indexOf(words)
+    if (at < 0) return words
+    let from = 0
+    for (const match of text.slice(0, at).matchAll(/[.!?]\s/g)) from = match.index! + 1
+    const end = /[.!?](?=\s|$)/.exec(text.slice(at + words.length))
+    return text.slice(from, end ? at + words.length + end.index + 1 : undefined).trim()
+  }
+  // Cards made from this article, all told: past 15 the count says most people keep 10 to 15 from an hour.
+  const [cardsHere, setCardsHere] = useState(0)
+  useEffect(() => {
+    const where = whereFrom()
+    if (where) void call<{ medium: string | null; prompt: string | null }[]>('items', 'nugget').then((all) => setCardsHere(all.filter((one) => one.medium === where && one.prompt).length))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [article?.title, article?.site])
+  /** A card from this article: the answer with "Article title, Site" linked under it. */
+  const cardOf = async (prompt: string, answer: string): Promise<void> => {
+    const id = await call<string>('nugget:from', `${answer}\n\n[${whereFrom().replace(/[[\]]/g, '\\$&')}](${articleLink(href, '')})`, { attribution: byline() || null, medium: whereFrom(), kind: 'quote' })
+    await call('item:save', id, { prompt })
+    const count = cardsHere + 1
+    setCardsHere(count)
+    chime('saved')
+    said(count > 15 ? `Card made: ${count} from this source. Most people keep 10 to 15 from an hour; the best ones are enough` : `Card made: ${count} from this source`)
+  }
+  // C: the question asked where the words were; Return makes the card.
+  const [carding, setCarding] = useState<{ quote: string; x: number; y: number } | null>(null)
   const actions: ReadActions = {
     highlight: (color) => (rememberColor(color), void mark(color, false)),
     keep: () => void mark(lastColor(), true),
     copy: () => picked && void copyCited(picked.quote),
+    card: () => {
+      if (!picked) return
+      setCarding({ quote: picked.quote.replace(/\s+/g, ' ').trim(), x: picked.x, y: picked.y })
+      setPicked(null)
+      chime('open')
+    },
+    blank: () => {
+      if (!picked) return
+      const words = picked.quote.replace(/\s+/g, ' ').trim()
+      const sentence = sentenceHere(picked.quote)
+      void cardOf(sentence !== words && sentence.includes(words) ? sentence.replace(words, '_____') : `_____ (${whereFrom()})`, sentence.includes(words) ? sentence : words)
+      getSelection()?.removeAllRanges()
+      setPicked(null)
+    },
     lookUp: () => {
       if (!picked) return
       const text = body.current?.textContent ?? ''
@@ -561,7 +607,15 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
                 </>
               )}
             </article>
-            {picked && !looking && !whyFor && <ReadBar at={picked} actions={actions} />}
+            {picked && !looking && !whyFor && !carding && <ReadBar at={picked} actions={actions} />}
+            {carding && (
+              <WhyAfter
+                at={carding}
+                ask={{ kept: `Answer: ${carding.quote.length > 28 ? `${carding.quote.slice(0, 27)}…` : carding.quote}`, label: "The card's question", placeholder: 'The question these words answer' }}
+                onSave={(question) => void cardOf(question, carding.quote)}
+                onDone={() => (getSelection()?.removeAllRanges(), setCarding(null))}
+              />
+            )}
             {whyFor && (
               <WhyAfter at={whyFor} onSave={(why) => void call('gloss', whyFor.id, why).then(() => said('Why kept with the gem'))} onDone={() => setWhyFor(null)} />
             )}
