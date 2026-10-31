@@ -61,16 +61,17 @@ const covers = (within) => h.evaluate((within) => [...document.querySelectorAll(
   const stop = one.querySelector('svg:last-of-type stop')
   return { name: one.getAttribute('data-group-cover'), drawn: one.getAttribute('data-cover'), tint, stop: stop ? getComputedStyle(stop).stopColor : null, page: getComputedStyle(one).backgroundColor, shapes: one.querySelectorAll('svg[data-shape] mask > *').length }
 }), within)
+// Shown once, then each theme painted in place (no reload), so the run stays short on a busy machine.
 const both = async (name, again) => {
   const seen = {}
-  for (const [theme, said] of [['paper', 'light'], ['dark', 'dark']]) {
-    await c.theme(theme)
-    await again()
+  await again()
+  for (const [theme, said] of [['light', 'light'], ['dark', 'dark']]) {
+    await c.look(theme)
     await h.waitForTimeout(600)
     if (shots) await h.screenshot({ path: join(shots, `${name}-${said}.png`) })
     seen[said] = await covers('body')
   }
-  await c.theme('paper')
+  await c.look('light')
   return seen
 }
 const tinted = (list) => list.length > 0 && list.every((one) => one.stop === one.tint && one.shapes > 0)
@@ -83,17 +84,21 @@ try {
   await openCards({ density: 'small', group: 'none', filter: {} })
   const second = await covers('[data-pocket]')
   const pockets = await h.evaluate(() => document.querySelectorAll('[data-pocket]').length)
-  check('14: every pocket wears a drawn cover', first.length > 0 && first.length === pockets, `${first.length} covers, ${pockets} pockets`)
+  const fronts = await h.evaluate(() => [...document.querySelectorAll('[data-pocket]')].filter((one) => { const glass = one.querySelector('.mf-glass')?.getBoundingClientRect(); const shape = one.querySelector('.mf-glass [data-group-cover] svg[data-shape]')?.getBoundingClientRect(); return !!glass && !!shape && shape.width > 20 && shape.right > glass.left && shape.left < glass.right }).length)
+  check('14: every pocket wears a drawn cover', new Set(first.map((one) => one.name)).size === pockets, `${new Set(first.map((one) => one.name)).size} named covers, ${pockets} pockets`)
+  check('14: every pocket\'s glass front shows its cover\'s shapes', fronts === pockets, `${fronts} of ${pockets}`)
+  check('a pocket\'s back and front are the same cover', first.every((one) => first.filter((other) => other.name === one.name).every((other) => other.drawn === one.drawn)))
   check('the same name draws the same cover on a second render', first.length > 0 && first.every((one) => second.find((again) => again.name === one.name)?.drawn === one.drawn), JSON.stringify(first.slice(0, 3)))
-  check('14: no two names share a cover', new Set(first.map((one) => one.drawn)).size === first.length, first.map((one) => `${one.name} ${one.drawn}`).join(', '))
+  const named = [...new Map(first.map((one) => [one.name, one])).values()]
+  check('14: no two names share a cover', new Set(named.map((one) => one.drawn)).size === named.length, first.map((one) => `${one.name} ${one.drawn}`).join(', '))
   const pocketsSeen = await both('covers-14-pockets', () => openCards({ density: 'small', group: 'none', filter: {} }))
   check('light: each cover is drawn in its group\'s own colour', tinted(pocketsSeen.light), JSON.stringify(pocketsSeen.light.slice(0, 2)))
   check('dark: each cover is drawn in its group\'s own colour', tinted(pocketsSeen.dark), JSON.stringify(pocketsSeen.dark.slice(0, 2)))
   check('light and dark lay it on their own page (paper, then charcoal)', pocketsSeen.light[0]?.page !== pocketsSeen.dark[0]?.page, `${pocketsSeen.light[0]?.page} / ${pocketsSeen.dark[0]?.page}`)
   // Shelves.
   await openCards({ density: 'grid', group: 'deck' })
-  const shelves = await h.evaluate(() => [...document.querySelectorAll('[data-shelf]')].map((one) => !!one.querySelector('[data-group-cover]')))
-  check('14: every shelf wears its cover', shelves.length > 3 && shelves.every(Boolean), `${shelves.filter(Boolean).length} of ${shelves.length}`)
+  const shelves = await h.evaluate(() => [...document.querySelectorAll('[data-shelf]')].map((one) => { const tile = one.querySelector('header [data-group-cover]')?.getBoundingClientRect(); return !!tile && tile.width >= 44 && tile.width <= 52 }))
+  check('14: every shelf wears its cover as a tile about 48px', shelves.length > 3 && shelves.every(Boolean), `${shelves.filter(Boolean).length} of ${shelves.length}`)
   await both('covers-14-shelves', () => openCards({ density: 'grid', group: 'deck' }))
   // A deck with no pictures on Review › Decks.
   await h.evaluate((url) => { location.href = url }, `file://${deckFile}`)
@@ -106,8 +111,12 @@ try {
     await h.evaluate(() => document.querySelector('[data-review-tab="decks"]')?.click())
     await waitFor(() => h.evaluate(() => !!document.querySelector('[data-deck="Geography"]')))
   }
+  await call('tag:set', 'zymurgy', { deck: true })
   await openDecks()
+  await waitFor(() => h.evaluate(() => !!document.querySelector('[data-own-deck="zymurgy"]')))
   const deck = await covers('[data-deck="Geography"]')
+  const own = await covers('[data-own-deck="zymurgy"]')
+  check('Decks: a deck made by hand wears its drawn cover, the one its pocket wears', own.length === 1 && tinted(own) && own[0].name === '#zymurgy', JSON.stringify(own))
   check('Decks: a deck with no pictures wears its drawn cover, in its colour', deck.length === 1 && tinted(deck), JSON.stringify(deck))
   await both('covers-decks', openDecks)
   // Your month's tag card.
