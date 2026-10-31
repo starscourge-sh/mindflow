@@ -3,6 +3,7 @@ import {
   ChevronDown,
   ChevronUp,
   ExternalLink,
+  Highlighter,
   Minus,
   Plus,
   ScrollText,
@@ -16,7 +17,7 @@ import { keysHere, usePane } from '@/lib/split'
 import { chime } from '@/lib/sound'
 import { cue } from '@/lib/cues'
 import { articleLink, openArticle, takeArticleFlash } from './pdf-reader'
-import { MARK_COLORS, MarkMenu, PickedMenu, ReadBar, cited, lastColor, readKey, rememberColor, type MarkColor, type ReadActions } from './read-bar'
+import { MARK_COLORS, MarkMenu, PickedMenu, ReadBar, cited, lastColor, markCss, readKey, rememberColor, type MarkColor, type ReadActions } from './read-bar'
 import { offsetsIn, rangeOf, type PdfMark } from './pdf-pages'
 import {
   ContextMenu,
@@ -200,6 +201,24 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     chime('saved')
     said('Kept as a gem')
   }
+  // Every highlight in the article, in reading order: a click brings it into view, lit.
+  const [showMarks, setShowMarks] = useState(false)
+  /** Every highlight gathered into one new note, in reading order, each with a link back to it. */
+  const gather = async (): Promise<void> => {
+    const sorted = [...marks].sort((a, b) => a.start - b.start)
+    if (!sorted.length) return
+    const body = {
+      type: 'doc',
+      content: sorted.flatMap((one) => [
+        { type: 'blockquote', content: [{ type: 'paragraph', content: [{ type: 'text', text: one.quote.replace(/\s+/g, ' ').trim() }] }] },
+        { type: 'paragraph', content: [{ type: 'text', text: whereFrom() || href, marks: [{ type: 'link', attrs: { href: articleLink(href, one.id) } }] }] }
+      ])
+    }
+    const id = await window.api.captures.create({ kind: 'note', title: `Highlights from ${article?.title ?? whereFrom()}`, body })
+    chime('saved')
+    said(`${sorted.length} highlight${sorted.length === 1 ? '' : 's'} gathered into a note`)
+    window.dispatchEvent(new CustomEvent('haligtree:open', { detail: { type: 'capture', id } }))
+  }
   const remove = async (mark: PdfMark): Promise<void> => {
     await call('pdf:unhighlight', mark.id)
     setMarks((all) => all.filter((one) => one.id !== mark.id))
@@ -338,6 +357,17 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
           {title}
         </span>
         <span className="pdf-reader-tools">
+          {marks.length > 0 && (
+            <Button
+              data-style="ghost"
+              aria-label="Highlights"
+              title="Highlights"
+              data-active-state={showMarks ? 'on' : 'off'}
+              onClick={() => setShowMarks(!showMarks)}
+            >
+              <Highlighter className="tiptap-button-icon" />
+            </Button>
+          )}
           <Button
             data-style="ghost"
             aria-label="Open the page in your browser"
@@ -395,6 +425,26 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
           </Button>
         </span>
       </div>
+      {showMarks && marks.length > 0 && (
+        <nav className="pdf-outline pdf-marks-list" aria-label="Highlights">
+          {[...marks]
+            .sort((a, b) => a.start - b.start)
+            .map((one) => (
+              <button
+                key={one.id}
+                type="button"
+                className={`pdf-outline-row${one.id === flash ? ' is-here' : ''}`}
+                onClick={() => setFlash(one.id)}
+              >
+                <span aria-hidden className="pdf-swatch" style={{ background: markCss(one.color) }} />
+                <span className="pdf-outline-title">{one.quote.replace(/\s+/g, ' ').trim()}</span>
+              </button>
+            ))}
+          <button type="button" className="pdf-outline-row pdf-gather" onClick={() => void gather()}>
+            Gather into a note
+          </button>
+        </nav>
+      )}
       {finding && (
         <div className="tiptap-find-bar pdf-find-bar">
           <div className="tiptap-find-bar-row">

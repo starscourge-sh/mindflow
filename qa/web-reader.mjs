@@ -206,6 +206,12 @@ try {
   await h.click('[role="menuitem"]:has-text("Keep as a gem")'); await wait(900)
   webMarks = await v('pdf:highlights', `${SITE}/article`)
   const sitsGem = webMarks.find((one) => one.id === blue?.id)?.gemId ? await v('item', webMarks.find((one) => one.id === blue?.id).gemId) : null
+  await h.click('.web-reader button[aria-label="Highlights"]'); await wait(400)
+  const webListed = await h.evaluate(() => [...document.querySelectorAll('.web-reader .pdf-marks-list .pdf-outline-title')].map((one) => one.textContent))
+  check('"Highlights" lists the article\'s highlights in reading order', JSON.stringify(webListed) === JSON.stringify(['quiet sentence worth keeping', 'sits here']), JSON.stringify(webListed))
+  await h.click('.web-reader .pdf-marks-list .pdf-outline-row:has-text("sits here")'); await wait(500)
+  check('a row lights its highlight', (await drawnIn('flash')).join() === '1', JSON.stringify(await drawnIn('flash')))
+  await h.click('.web-reader button[aria-label="Highlights"]'); await wait(300)
   check('"Keep as a gem" makes its gem, sourced as Keep does', sitsGem?.medium === 'The Garden Essay, Probe Times' && sitsGem?.attribution === 'Ada Probe' && JSON.stringify(sitsGem?.body).includes('sits here'), JSON.stringify({ medium: sitsGem?.medium, attribution: sitsGem?.attribution }))
 
   // ⌘K finds the article by its title.
