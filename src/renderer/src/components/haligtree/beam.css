@@ -39,6 +39,10 @@
 .mf-beam[data-beam='error'] { --mf-beam-color: var(--tt-color-text-red); animation-name: mf-beam-flicker; }
 .mf-beam[data-beam='warm'] { --mf-beam-color: var(--tt-color-text-orange, #d9822b); animation: mf-beam-flash 1.2s var(--mf-ease) forwards; }
 .mf-beam[data-beam='warm']::before { animation: mf-beam-turn 1.2s cubic-bezier(0.3, 0.6, 0.3, 1) forwards; }
+/* Recording: the whole edge, no travelling light, breathing slowly in red. */
+.mf-beam[data-beam='recording'] { --mf-beam-color: var(--tt-color-text-red); padding: 2px; animation: mf-beam-in 0.3s var(--mf-ease) forwards, mf-beam-breathe 2.4s ease-in-out 0.3s infinite; }
+.mf-beam[data-beam='recording']::before { background: var(--mf-beam-color); }
+@keyframes mf-beam-breathe { 0%, 100% { opacity: 0.55; } 50% { opacity: 0.2; } }
 @keyframes mf-beam-turn { from { transform: rotate(0turn); } to { transform: rotate(1turn); } }
 @keyframes mf-beam-in { to { opacity: 0.55; } }
 @keyframes mf-beam-flash { 0% { opacity: 0; } 15% { opacity: 0.9; } 70% { opacity: 0.7; } 100% { opacity: 0; } }

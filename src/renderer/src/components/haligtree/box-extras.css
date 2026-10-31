@@ -80,3 +80,10 @@
   transition-duration: 150ms;
 }
 :root[data-zen-hide] [data-zen-row]:not(:hover) > :not([data-zen-keep]):not(:has([data-state=open], [aria-expanded=true])) { pointer-events: none !important; }
+
+/* A voice note recording in quick capture (voice-note.tsx): the box is about the
+   recording. Its writing and what hangs under it step aside (kept, only hidden);
+   the leftover chip stays under the recorder, on the text column. In the row
+   below, everything but Create (now "Stop and keep") dims and rests. */
+[data-recording] > :not([data-recorder-slot], [data-leftover-row]) { display: none; }
+[data-while-recording='dim'] { opacity: 0.35; pointer-events: none; transition: opacity 150ms var(--mf-ease, ease-out); }

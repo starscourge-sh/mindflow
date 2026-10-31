@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { byKeys } from '@/lib/motion'
+import { useRecording } from '@/lib/recording'
 
 import './beam.css'
 
@@ -13,7 +14,8 @@ import './beam.css'
  * work never flickers it. An answer (`beam`) sends it once round in its
  * colour: green for done, blue for news, amber for careful, a red flicker for
  * not done, warm orange when a timer lights. Nothing at rest, and nothing at
- * all with Motion off or Reduce motion on (beam.css).
+ * all with Motion off or Reduce motion on (beam.css). While a voice note
+ * records, the whole edge breathes a soft red, as a camera's light says it is on.
  */
 type BeamFlash = 'success' | 'info' | 'warning' | 'error' | 'warm'
 /** Kept for the old name: a toast's tone, or nothing. */
@@ -63,6 +65,7 @@ export function Beam(): React.JSX.Element | null {
   const [main, setMain] = useState(0)
   const [late, setLate] = useState(false)
   const [shown, setShown] = useState(true)
+  const recording = useRecording()
   useEffect(() => {
     const onFlash = (event: Event): void => setFlash((now) => ({ tone: (event as CustomEvent<BeamFlash>).detail, key: (now?.key ?? 0) + 1 }))
     const onWait = (event: Event): void => setHere((event as CustomEvent<number>).detail)
@@ -98,7 +101,7 @@ export function Beam(): React.JSX.Element | null {
   }, [flash])
   if (!shown) return null
   // A sweep wins for the moment it runs; then the wait, if any, comes back.
-  const state = flash ? flash.tone : waiting && late ? 'working' : null
+  const state = flash ? flash.tone : recording ? 'recording' : waiting && late ? 'working' : null
   if (!state) return null
-  return <div aria-hidden key={flash ? `f${flash.key}` : 'wait'} data-beam={state} className="mf-beam" />
+  return <div aria-hidden key={flash ? `f${flash.key}` : state} data-beam={state} className="mf-beam" />
 }

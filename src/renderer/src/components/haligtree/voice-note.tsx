@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
+import type { Editor } from '@tiptap/core'
+import { NodeSelection } from '@tiptap/pm/state'
 import { Mic, Square, X } from 'lucide-react'
 
 import { saveAttachment } from '@/extensions/image-drop'
@@ -7,6 +9,8 @@ import { refuse } from '@/components/haligtree/ui'
 import { chime } from '@/lib/sound'
 import { FLOAT } from '@/lib/float'
 import { wantsWords } from '@/lib/transcribe'
+import { setRecording } from '@/lib/recording'
+import { cn } from '@/lib/cn'
 
 /** The kinds a recording can be kept as, the first the recorder makes: `.m4a` plays anywhere, `.weba` is Chromium's own. */
 const KINDS = [
@@ -23,9 +27,10 @@ const clock = (seconds: number): string => `${Math.floor(seconds / 60)}:${String
  * and a red Stop. Esc or × throws it away. Resolves with the recording as a
  * file and its length in seconds (the file itself does not say: a recorder
  * writes no length into it), or null when cancelled or the microphone is not
- * allowed.
+ * allowed. Given a `slot` (quick capture's writing area), the recorder takes
+ * that place instead, large and calm, rather than floating over the page.
  */
-export async function recordVoice(): Promise<Recording | null> {
+export async function recordVoice(slot?: HTMLElement | null): Promise<Recording | null> {
   if (!(await window.api.haligtree<boolean>('mic:ask'))) {
     refuse('Haligtree may not use the microphone. Allow it in System Settings, under Privacy & Security, then Microphone')
     return null
@@ -38,7 +43,7 @@ export async function recordVoice(): Promise<Recording | null> {
     return null
   }
   const host = document.createElement('div')
-  document.body.appendChild(host)
+  ;(slot ?? document.body).appendChild(host)
   const root = createRoot(host)
   return new Promise((resolve) => {
     const finish = (kept: Recording | null): void => {
@@ -47,16 +52,20 @@ export async function recordVoice(): Promise<Recording | null> {
       host.remove()
       resolve(kept)
     }
-    root.render(<Recorder stream={stream} onDone={finish} />)
+    root.render(<Recorder stream={stream} onDone={finish} inline={!!slot} />)
   })
 }
 
 /** Record, then keep it where the caret is in this editor. */
-export async function recordInto(editor: { chain: () => { focus: () => { setAttachment: (attrs: { src: string; name: string; size: number; transcribe?: boolean; duration?: number }) => { run: () => boolean } } } }): Promise<void> {
-  const kept = await recordVoice()
+export async function recordInto(editor: Editor, slot?: HTMLElement | null): Promise<void> {
+  const kept = await recordVoice(slot)
   if (!kept) return
   try {
-    editor.chain().focus().setAttachment({ ...(await saveAttachment(kept.file)), duration: kept.seconds, transcribe: await wantsWords() }).run()
+    // A block picked (the last recording, just kept) is stepped past, not replaced: two in a row keep both.
+    const { selection } = editor.state
+    const chain = editor.chain().focus()
+    if (selection instanceof NodeSelection) chain.setTextSelection(selection.to)
+    chain.setAttachment({ ...(await saveAttachment(kept.file)), duration: kept.seconds, transcribe: await wantsWords() }).run()
     chime('saved')
   } catch {
     refuse('The recording could not be kept. Try again')
@@ -84,7 +93,7 @@ export interface Recording {
   seconds: number
 }
 
-function Recorder({ stream, onDone }: { stream: MediaStream; onDone: (kept: Recording | null) => void }): React.JSX.Element {
+function Recorder({ stream, onDone, inline }: { stream: MediaStream; onDone: (kept: Recording | null) => void; inline?: boolean }): React.JSX.Element {
   const canvas = useRef<HTMLCanvasElement>(null)
   const recorder = useRef<MediaRecorder | null>(null)
   const [seconds, setSeconds] = useState(0)
@@ -116,6 +125,9 @@ function Recorder({ stream, onDone }: { stream: MediaStream; onDone: (kept: Reco
     // from the middle out, tallest in the middle and tapering to the ends,
     // where the pill's mask fades them away.
     const ears = new AudioContext()
+    // Made after the microphone was asked for, the click that asked may be too
+    // long ago to let it run: suspended, it hears nothing and the level lies flat.
+    void ears.resume()
     const analyser = ears.createAnalyser()
     analyser.fftSize = 256
     ears.createMediaStreamSource(stream).connect(analyser)
@@ -152,14 +164,19 @@ function Recorder({ stream, onDone }: { stream: MediaStream; onDone: (kept: Reco
       }
     }
     draw()
+    // Esc throws it away; ⌘↵ stops and keeps it, as quick capture's Create says while it records.
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key !== 'Escape') return
+      const keep = event.key === 'Enter' && event.metaKey
+      if (event.key !== 'Escape' && !keep) return
       event.preventDefault()
       event.stopPropagation()
-      cancel()
+      if (keep) stop(true)
+      else cancel()
     }
     window.addEventListener('keydown', onKey, true)
+    setRecording({ stop: (keep) => (keep ? stop(true) : cancel()) })
     return () => {
+      setRecording(null)
       cancelAnimationFrame(frame)
       window.removeEventListener('keydown', onKey, true)
       void ears.close()
@@ -177,21 +194,48 @@ function Recorder({ stream, onDone }: { stream: MediaStream; onDone: (kept: Reco
   }
   const cancel = (): void => (chime('away'), stop(false))
 
+  const cancelButton = (
+    // Plain titles: the recorder has a root of its own, outside the tips' provider; the app's title tips draw them.
+    <button type="button" aria-label="Cancel" title="Throw it away  Esc" onClick={cancel}
+      className={cn('flex shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-[color,background-color,scale] duration-150 hover:bg-accent hover:text-foreground active:scale-[0.97]', inline ? 'h-8 gap-1.5 px-3 text-control' : 'size-7')}>
+      <X className="size-3.5" />{inline && 'Cancel'}
+    </button>
+  )
+  // The time with a small red light before it, the one sign of "on air" every recorder shares.
+  const time = (
+    <span className="flex shrink-0 items-center gap-1.5 text-control tabular-nums text-muted-foreground">
+      <span aria-hidden className="size-1.5 rounded-full bg-[var(--tt-color-text-red)] motion-safe:animate-pulse" />
+      <span data-voice-time>{clock(seconds)}</span>
+    </span>
+  )
+  const stopButton = (
+    <button type="button" aria-label="Stop and keep" title="Stop and keep it  ⌘↵" onClick={() => stop(true)}
+      className={cn('flex shrink-0 cursor-pointer items-center justify-center rounded-full text-white transition-transform duration-150 active:scale-[0.97]', inline ? 'size-9' : 'size-7')} style={{ background: 'var(--tt-color-text-red)' }}>
+      <Square className={cn('fill-current', inline ? 'size-3' : 'size-2.5')} />
+    </button>
+  )
+  // Faded at both ends, as the level fades in from nothing.
+  const level = <canvas ref={canvas} data-voice-level className={cn('min-w-0 text-foreground/75 [mask-image:linear-gradient(90deg,transparent,#000_28%,#000_72%,transparent)]', inline ? 'h-14 w-full' : 'h-6 flex-1')} />
+
+  // In quick capture: the writing area itself, given over to the recording.
+  // No box (a writing surface has none): the level wide across the text
+  // column, then Cancel, the time and Stop on one centred line under it.
+  if (inline)
+    return (
+      <div role="dialog" aria-label="Recording a voice note" data-voice-recorder data-inline
+        className="flex flex-col items-center gap-3 py-4 animate-in fade-in-0 duration-200">
+        {level}
+        <div className="flex items-center gap-4">{cancelButton}{time}{stopButton}</div>
+      </div>
+    )
   return (
     <div role="dialog" aria-label="Recording a voice note" data-voice-recorder
       // The app's one floating material (lib/float.ts), as the Look Up card and the page peek wear it.
       className={`fixed bottom-28 left-1/2 z-[1000] flex w-[340px] max-w-[calc(100vw-24px)] -translate-x-1/2 items-center gap-2 rounded-full py-1.5 pr-1.5 pl-2 ${FLOAT} animate-in fade-in-0 slide-in-from-bottom-2 duration-200`}>
-      {/* Plain titles: the recorder has a root of its own, outside the tips' provider; the app's title tips draw them. */}
-      <button type="button" aria-label="Cancel" title="Throw it away  Esc" onClick={cancel} className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-[0.95]">
-        <X className="size-3.5" />
-      </button>
-      {/* Faded at both ends, as the level fades in from nothing. */}
-      <canvas ref={canvas} data-voice-level className="h-6 min-w-0 flex-1 text-foreground/75 [mask-image:linear-gradient(90deg,transparent,#000_28%,#000_72%,transparent)]" />
-      <span data-voice-time className="shrink-0 text-control tabular-nums text-muted-foreground">{clock(seconds)}</span>
-      <button type="button" aria-label="Stop and keep" title="Stop and keep it" onClick={() => stop(true)}
-          className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full text-white transition-transform active:scale-[0.95]" style={{ background: 'var(--tt-color-text-red)' }}>
-        <Square className="size-2.5 fill-current" />
-      </button>
+      {cancelButton}
+      {level}
+      {time}
+      {stopButton}
     </div>
   )
 }
