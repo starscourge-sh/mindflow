@@ -161,7 +161,7 @@ const putDraft = (doc: unknown): void => {
 /**
  * A draft untouched this long is a leftover, not what you came to write: the
  * box opens empty with the caret in it, and the leftover waits in a small
- * "Still to keep" chip under the writing line, one click from coming back.
+ * "Unsaved from earlier" chip under the writing line, one click from coming back.
  */
 const LEFTOVER_AFTER = 60 * 60_000
 const readLeftover = (): JSONContent | null => {
@@ -2120,8 +2120,11 @@ export default function App(): React.JSX.Element {
                 <Tip label="Put it back in quick capture to finish or keep">
                   <button type="button" data-leftover onMouseDown={(event) => event.preventDefault()} onClick={leftoverBack}
                     className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-accent/60 px-2.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-[0.97]">
-                    <span className="shrink-0">Still to keep:</span>
+                    {/* What it is, then what a click does, in words: "Still to keep" left a newcomer guessing at both. */}
+                    <span className="shrink-0">Unsaved from earlier:</span>
                     <span className="truncate text-foreground/80">{leftoverName(leftover)}</span>
+                    <span aria-hidden className="text-muted-foreground/60">·</span>
+                    <span className="shrink-0 font-medium text-foreground">Bring it back</span>
                   </button>
                 </Tip>
               </div>

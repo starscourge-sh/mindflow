@@ -38,7 +38,7 @@ try {
     chip: document.querySelector('[data-leftover]')?.innerText.replace(/\s+/g, ' ').trim() ?? null,
   }), EDITOR)
   check('a draft left hours ago: the box opens empty, the caret in the writing line', state.empty && state.caret, JSON.stringify(state))
-  check('…and the leftover is a small "Still to keep" chip named by its length', state.chip === 'Still to keep: Voice note · 0:56', String(state.chip))
+  check('…and the leftover is a small "Unsaved from earlier" chip named by its length, saying what a click does', state.chip === 'Unsaved from earlier: Voice note · 0:56 · Bring it back', String(state.chip))
   await page.screenshot({ path: `${shots}/quick-capture-leftover-light.png` })
   await page.click('[data-leftover]'); await page.waitForTimeout(600)
   const back = await page.evaluate((sel) => ({ audio: !!document.querySelector(`${sel} .tiptap-attachment.is-audio`), chip: !!document.querySelector('[data-leftover]') }), EDITOR)
