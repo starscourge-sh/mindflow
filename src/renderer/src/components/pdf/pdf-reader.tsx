@@ -318,12 +318,14 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     // in, and a paragraph's line ends are not walls.
     let low = 0
     let high = text.length
+    let spans: { from: number; to: number; size: string; top: number }[] = []
     if (layer) {
       const pieces = [...layer.querySelectorAll<HTMLElement>(":scope > span, :scope > .markedContent > span")].filter((one) => !one.querySelector("span"))
       let offset = 0
-      const spans = pieces.map((one) => ({ from: offset, to: (offset += one.textContent?.length ?? 0), size: one.style.fontSize || getComputedStyle(one).fontSize }))
+      spans = pieces.map((one) => ({ from: offset, to: (offset += one.textContent?.length ?? 0), size: one.style.fontSize || getComputedStyle(one).fontSize, top: Math.round(one.getBoundingClientRect().top) }))
+      if (offset !== text.length) spans = []
       const here = spans.findIndex((one) => at.start >= one.from && at.start < one.to)
-      if (here >= 0 && offset === text.length) {
+      if (here >= 0) {
         let first = here
         let last = here
         while (first > 0 && spans[first - 1].size === spans[here].size) first--
@@ -338,7 +340,18 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     ends.lastIndex = 0
     const after = ends.exec(text.slice(at.end, high))
     const to = after ? at.end + after.index + 1 : high
-    return text.slice(from, to).replace(/\s+/g, " ").trim()
+    // The page's text runs its lines together ("limit is" + "about" read
+    // "isabout"): a line that starts lower than the one before gets its space back.
+    let words = ""
+    let line = Number.NaN
+    for (const one of spans.length ? spans : [{ from: 0, to: text.length, size: "", top: 0 }]) {
+      if (one.to <= from || one.from >= to) continue
+      const part = text.slice(Math.max(from, one.from), Math.min(to, one.to))
+      if (words && one.top !== line && !/\s$/.test(words) && !/^\s/.test(part)) words += " "
+      words += part
+      line = one.top
+    }
+    return words.replace(/\s+/g, " ").trim()
   }
   // Cards made from this PDF, all told: most people keep 10 to 15 from an
   // hour of reading, so past 15 the count says so, gently.
@@ -350,7 +363,8 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   const cardOf = async (prompt: string, answer: string, page: number, quiet = false): Promise<void> => {
     const { author, where } = await whereFrom(page)
     const id = await call<string>("nugget:from", `${answer}\n\n[${where}](${pdfLink(src, name, page, "")})`, { attribution: author || null, medium: title, passage: `p. ${page}`, kind: "quote" })
-    await call("item:save", id, { prompt })
+    // Named by its question, as a card is in every list and in ⌘K: a snip's first line is its picture, never a name.
+    await call("item:save", id, { prompt, title: prompt })
     const count = cardsHere + 1
     setCardsHere(count)
     chime("saved")
@@ -395,7 +409,9 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   /** The snip kept as a gem: the picture, the book and page under it, linked back. */
   const keepSnip = async (one: { src: string; page: number }): Promise<void> => {
     const { author, where } = await whereFrom(one.page)
-    await call<string>("nugget:from", `![](${one.src})\n\n[${where}](${pdfLink(src, name, one.page, "")})`, { attribution: author || null, medium: title, passage: `p. ${one.page}`, kind: "quote" })
+    const gem = await call<string>("nugget:from", `![](${one.src})\n\n[${where}](${pdfLink(src, name, one.page, "")})`, { attribution: author || null, medium: title, passage: `p. ${one.page}`, kind: "quote" })
+    // Named for what it is, a figure from this page: its first line is the picture, which no list can show as a name.
+    await call("item:save", gem, { title: `Snip from ${where}` })
     setSnipped(null)
     chime("saved")
     said("Snip kept as a gem")

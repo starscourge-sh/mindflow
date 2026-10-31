@@ -210,7 +210,8 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
   /** A card from this article: the answer with "Article title, Site" linked under it. */
   const cardOf = async (prompt: string, answer: string): Promise<void> => {
     const id = await call<string>('nugget:from', `${answer}\n\n[${whereFrom().replace(/[[\]]/g, '\\$&')}](${articleLink(href, '')})`, { attribution: byline() || null, medium: whereFrom(), kind: 'quote' })
-    await call('item:save', id, { prompt })
+    // Named by its question, as a card is in every list and in ⌘K.
+    await call('item:save', id, { prompt, title: prompt })
     const count = cardsHere + 1
     setCardsHere(count)
     chime('saved')
