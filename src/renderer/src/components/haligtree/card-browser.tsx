@@ -572,7 +572,7 @@ export function CardBrowser({ onOpen, aim }: { onOpen: (type: string, id: string
     <div key={card.id} data-card-row={card.id} className="contents">
       {editing === card.id
         ? <div className={density === 'grid' ? 'col-span-full' : ''}><EditCard card={card} tint={tintOf(card)} onDone={() => { setEditing(null); requestAnimationFrame(() => list.current?.querySelector<HTMLElement>(`[data-pick="nugget:${card.id}"]`)?.focus()) }} /></div>
-        : <RowMenu items={() => menu(card)}>{density === 'grid' || opened ? <div className="min-w-0">{poster(card)}</div> : row(card)}</RowMenu>}
+        : <RowMenu items={() => menu(card)}>{density === 'grid' || opened ? <div className="relative min-w-0">{poster(card)}{/* A card too big, slow or often forgotten is marked on its poster too, as in a list. */}{mark(card) && <span className="pointer-events-auto absolute top-2 right-2 z-10">{mark(card)}</span>}</div> : row(card)}</RowMenu>}
       {fixer(card)}
     </div>
   )
