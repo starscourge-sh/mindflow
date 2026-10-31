@@ -906,7 +906,7 @@ type ToastAction = { label: string; key: string; run: () => void }
 /** What a toast means, so its colour and mark say it too: done, only news, careful, or not done. */
 type ToastTone = 'success' | 'info' | 'warning' | 'error'
 /** What a toast tells of (a card made, a gem kept, the Bin), so its words open it. `title` lets its menu copy a link. */
-export type Made = { type: string; id: string; title?: string }
+export type Made = { type: string; id: string; title?: string; /** Where in it to land: the ids a Bin toast moved there. */ at?: string }
 /**
  * Say what an action did, briefly, with a way back. The answer to "did that
  * work?" and the plan's undo-everywhere in one: three seconds, then gone.
@@ -920,7 +920,7 @@ export const toast = (text: string, undo?: () => void, tone: ToastTone = 'succes
 /** Open what a toast made: in the main window's page, or to the side (⌥-click), as rows open. */
 const openMade = (made: Made, aside = false): void => {
   if (aside && canSplit()) return openAside(made.type, made.id)
-  window.api.openInHome(made.type, made.id)
+  window.api.openInHome(made.type, made.id, made.at)
 }
 /** A toast's right click: the lines every row's menu has for opening it, from the same helpers. */
 const madeMenu = (made: Made, done: () => void): RowItem[] => {

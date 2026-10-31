@@ -81,7 +81,8 @@ try {
   const said = await h.evaluate((sel) => ({ text: document.querySelector(sel)?.textContent, made: document.querySelector(sel)?.getAttribute('data-toast-made'), cursor: document.querySelector(sel) && getComputedStyle(document.querySelector(sel)).cursor }), TOAST)
   check('making a card says "Card made" and carries the card', /^Card made/.test(said.text ?? '') && said.made === `nugget:${one?.id}`, JSON.stringify(said))
   check('its words show the hand', said.cursor === 'pointer', said.cursor)
-  await c.both(`${SHOTS}/toast-rest`)
+  // At rest, one picture before the pointer holds it (a toast with no Undo is up 3.2 seconds); dark at rest with the next card.
+  await h.screenshot({ path: `${SHOTS}/toast-rest-light.png` })
   await h.hover(TOAST); await wait(250)
   check('pointed at, its words are underlined', await h.evaluate((sel) => getComputedStyle(document.querySelector(sel)).textDecorationLine.includes('underline'), TOAST), '')
   await c.both(`${SHOTS}/toast-hover`)
@@ -93,7 +94,11 @@ try {
 
   // 2. ⌥-click opens it to the side.
   const before = await panes()
+  await c.look('dark')
   await card('What is worth keeping, two?')
+  await h.screenshot({ path: `${SHOTS}/toast-rest-dark.png` })
+  await h.hover(TOAST)
+  await c.look('light')
   await h.click(TOAST, { modifiers: ['Alt'] }); await wait(1500)
   check('⌥-click opens the card to the side', (await panes()) === before + 1 && (await shown('What is worth keeping, two?')) && !!(await h.$('.pdf-reader')), `${before} → ${await panes()}`)
 
@@ -136,11 +141,15 @@ try {
   check('the Bin toast carries the Bin', /^Moved to the Bin/.test(bin.text ?? '') && bin.made === 'view:discarded', JSON.stringify(bin))
   await h.click(TOAST); await wait(1200)
   check('a click opens the Bin, the note in it', (await shown('A note for the Bin')) && !!(await h.$('[data-page="discarded"]')), await h.evaluate(() => [...document.querySelectorAll('[data-page]')].map((one) => one.getAttribute('data-page')).join()))
+  const landed = await h.evaluate((id) => { const row = document.querySelector(`[data-bin-row][data-id="${id}"]`); const r = row?.getBoundingClientRect(); return { picked: row?.hasAttribute('data-picked'), seen: !!r && r.top >= 0 && r.bottom <= innerHeight } }, capture)
+  check('the Bin opens with the binned note picked, in view', landed.picked && landed.seen, JSON.stringify(landed))
+  await h.keyboard.press('Escape'); await wait(300)
 
   // 6. Kept in the Inbox, from a link's "Keep the link": the toast opens the capture.
   const noteId = await v('article:new')
   await v('item:save', noteId, { title: 'With a link', body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'toast site', marks: [{ type: 'link', attrs: { href: 'https://example.com/toast' } }] }] }] } })
   await c.send('article', noteId); await wait(1400)
+  await h.waitForSelector(`${EDITOR} a`, { timeout: 5000 }).catch(async () => console.log('open now:', await h.evaluate(() => [...document.querySelectorAll('[data-page]')].map((one) => one.getAttribute('data-page')).join())))
   await h.click(`${EDITOR} a`, { button: 'right' }); await wait(500)
   await h.click('[data-menu-item="keep-link"], [role="menuitem"]:has-text("Keep the link")').catch(() => {})
   await h.waitForSelector(TOAST, { timeout: 4000 }).catch(() => {})
@@ -150,6 +159,12 @@ try {
     await h.click(TOAST); await wait(1500)
     check('a click opens the kept link in the Inbox', await h.evaluate((id) => [...document.querySelectorAll('[data-open]')].some((one) => one.getAttribute('data-open') === id), link.made.slice('capture:'.length)), await h.evaluate(() => [...document.querySelectorAll('[data-open], [data-page]')].map((one) => one.getAttribute('data-open') ?? one.getAttribute('data-page')).join()))
   }
+  // The sibling: a sidebar row's right-click menu, the same menu and the same open-row mark.
+  await c.go('home')
+  await h.locator('text=Inbox >> visible=true').first().click({ button: 'right' })
+  await wait(500)
+  await c.both(`${SHOTS}/sidebar-menu`)
+  await h.keyboard.press('Escape')
   console.log('shots:', `${SHOTS}/toast-{rest,hover,menu}-{light,dark}.png`)
 } catch (error) {
   check('the probe ran to the end', false, String(error).slice(0, 400))

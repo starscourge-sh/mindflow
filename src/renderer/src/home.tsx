@@ -1243,6 +1243,8 @@ export function Home(): React.JSX.Element {
     if (type === 'view' && (id === 'tidy' || id === 'decide')) openPass(id)
     // Review on one of its pages (":decks" from an import's notice).
     else if (type === 'view' && id === 'review' && heading?.startsWith(':')) setView({ id, focus: heading })
+    // The Bin at what was just put there (a "Moved to the Bin" toast's click).
+    else if (type === 'view' && id === 'discarded' && heading) setView({ id, focus: heading, nonce: Date.now() })
     else if (type === 'view') (setView({ id }), heading && landOnGroup(heading))
     else if (type === 'recap') setView({ id: 'stats', focus: id, nonce: Date.now() })
     // A wrap, from the Sunday notification or quick capture's menu: the story over the page.
@@ -1448,7 +1450,7 @@ export function Home(): React.JSX.Element {
         ) : view.id === 'home' ? (
           <HomeView onOpen={(type, id) => (via('home'), go(type, id))} onView={(id, focus) => (via('home'), setView({ id, focus }, key))} />
         ) : view.id === 'discarded' ? (
-          <BinView onOpen={go} />
+          <BinView onOpen={go} focus={view.focus} />
         ) : view.id === 'inbox' || view.id === 'archived' || view.id === 'lookups' ? (
           <CapturesView title={SECTIONS.find((section) => section.id === view.id)!.label} keep={keep[view.id]} focus={view.focus} onOpen={go} archived={view.id === 'archived'} inbox={view.id === 'inbox'} />
         ) : view.id === 'day' ? (

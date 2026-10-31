@@ -45,7 +45,7 @@ const LINK_KIND: Record<string, string> = { nugget: 'idea' }
 
 const KIND_SAID: Record<string, string> = { capture: 'Capture', task: 'Task', nugget: 'Gem', article: 'Page', question: 'Question', goal: 'Goal', card: 'Card', event: 'Event', calendar: 'Calendar', practice: 'Practice' }
 
-export function BinView({ onOpen }: { onOpen?: (type: string, id: string) => void }): React.JSX.Element {
+export function BinView({ onOpen, focus }: { onOpen?: (type: string, id: string) => void; /** Ids just binned (a toast's click), picked and shown once they are here. */ focus?: string }): React.JSX.Element {
   const binned = useLive(haligtree.bin, [] as Binned[])
   // Sorted and filtered as every list is, from Display: newest binned first to start.
   const [view, setView] = useView('bin', { sort: 'newest', group: 'none' })
@@ -78,6 +78,18 @@ export function BinView({ onOpen }: { onOpen?: (type: string, id: string) => voi
     const later = setTimeout(() => document.querySelector<HTMLButtonElement>('[data-bin-ask] button')?.focus({ preventScroll: true }), 250)
     return () => clearTimeout(later)
   }, [asking])
+  // Come from a "Moved to the Bin" toast: what went is picked, the keys on the first of it, in view.
+  const landed = useRef<string | null>(null)
+  useEffect(() => {
+    if (!focus || landed.current === focus) return
+    const ids = focus.split(',')
+    const at = shown.findIndex((one) => ids.includes(one.id))
+    if (at < 0) return
+    landed.current = focus
+    setPicked(shown.filter((one) => ids.includes(one.id)).map(keyOf))
+    setCursor(at)
+    document.querySelector(`[data-bin-row][data-id="${CSS.escape(shown[at].id)}"]`)?.scrollIntoView({ block: 'nearest' })
+  })
   const [cursor, setCursor] = useListKeys(shown.length, { onOpen: (index) => restore(shown[index]), onExtend: (from, to) => picking.extend(shown[from] && keyOf(shown[from]), keyOf(shown[to])) })
   // What is inside: beside the list after a click, large over the page on Space. Both follow the cursor.
   const [looking, setLooking] = useState(false)
