@@ -24,6 +24,8 @@ const boxSize = (w, hh) => electron.evaluate(({ BrowserWindow }, [w, hh]) => {
   win?.setBounds({ width: w, height: hh })
 }, [w, hh])
 const dark = (on) => page.evaluate((on) => { localStorage.setItem('theme', on ? 'dark' : 'paper'); window.dispatchEvent(new StorageEvent('storage', { key: 'theme' })) }, on)
+// The box focused before a picture: unfocused, the window wears its dimming veil and every shot reads grey.
+const focusBox = () => c.electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => !w.webContents.getURL().includes('view=home') && w.isVisible())?.focus())
 const menus = () => page.evaluate(() => ({
   block: [...document.querySelectorAll('.tiptap-block-menu[data-state="open"]')].length,
   note: [...document.querySelectorAll('[role="menu"]:not(.tiptap-block-menu)')].filter((m) => m.getBoundingClientRect().height > 0).length,
@@ -38,6 +40,8 @@ try {
     localStorage.setItem('capture-draft', JSON.stringify({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'ihekfw' }] }, { type: 'attachment', attrs: { src: 'haligtree://assets/' + 'a'.repeat(64) + '.m4a', name: 'Voice note 31 Oct 9.12.m4a', size: 935731, duration: 56.4 } }, { type: 'paragraph' }] }))
     localStorage.setItem('capture-draft-at', String(Date.now() - 3 * 3600_000))
   })
+  // The word's lookup never answers: its "Looking up" orb stays on screen for the check below.
+  await electron.evaluate(({ ipcMain }) => { ipcMain.removeHandler('haligtree:define'); ipcMain.handle('haligtree:define', () => new Promise(() => {})) })
   // Left hours ago, it waits in the "Still to keep" chip: one click puts it back in the box.
   await reopen()
   await page.click('[data-leftover]'); await wait(600)
@@ -56,15 +60,17 @@ try {
     const meets = (a, b) => a.width && b.width && a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
     const placeholder = document.querySelector(`${sel} > p.is-empty`)?.getBoundingClientRect()
     const card = document.querySelector(`${sel} .tiptap-attachment-card`).getBoundingClientRect()
-    const shown = [...document.querySelectorAll('[data-define]')].filter((el) => getComputedStyle(el).visibility !== 'hidden')
-    return shown.map((el) => {
+    const all = [...document.querySelectorAll('[data-define]')]
+    const shown = all.filter((el) => getComputedStyle(el).visibility !== 'hidden')
+    return { looking: all.some((el) => el.dataset.define === 'looking'), shown: shown.map((el) => {
       const inner = [...el.querySelectorAll('*')].map((one) => one.getBoundingClientRect()).filter((r) => r.width)
       return { define: el.dataset.define, onPlaceholder: !!placeholder && inner.some((r) => meets(r, placeholder)), onCard: inner.some((r) => meets(r, card)) }
-    })
+    }) }
   }, EDITOR)
-  check('the word\'s lookup never covers "Write a thought…" or the recording', cover.every((one) => !one.onPlaceholder && !one.onCard), JSON.stringify(cover))
+  // Whether the lookup is on screen here depends on timing (it waits for a pause, then 300ms): not checked on its own.
+  check('…and never covers "Write a thought…" or the recording', cover.shown.every((one) => !one.onPlaceholder && !one.onCard), JSON.stringify(cover))
   // A recording with no words under it says so, with the way to get them.
-  const words = await page.evaluate((sel) => document.querySelector(`${sel} .tiptap-attachment.is-audio [data-no-words]`)?.innerText.replace(/\s+/g, ' ').trim() ?? null, EDITOR)
+  const words = await page.evaluate((sel) => [...document.querySelectorAll(`${sel} .tiptap-attachment.is-audio [data-no-words]`)].find((el) => el.offsetParent)?.innerText.replace(/\s+/g, ' ').trim() ?? null, EDITOR)
   check('a recording without words says "No transcript · Transcribe"', words === 'No transcript · Transcribe', String(words))
   // The header's top right: the "pinned" chip and the window's pill, one shape.
   const header = await page.evaluate(() => {
@@ -117,10 +123,27 @@ try {
     const one = (i) => ({ type: 'attachment', attrs: { src: 'haligtree://assets/' + String(i).repeat(64).slice(0, 64) + '.m4a', name: `Voice note 31 Oct 9.${10 + i}.m4a`, size: 935731, duration: 20 + i * 7 } })
     editor.commands.setContent({ type: 'doc', content: [...Array.from({ length: 10 }, (_, i) => one(i)), { type: 'paragraph' }] })
   }, EDITOR)
-  await boxSize(760, 900); await wait(800)
-  const stack = await page.evaluate((sel) => [...document.querySelectorAll(`${sel} .tiptap-attachment.is-audio`)].map((el) => Math.round(el.getBoundingClientRect().height)), EDITOR)
-  check('ten recordings show as ten cards', stack.length === 10, JSON.stringify(stack))
-  for (const on of [false, true]) { await dark(on); await wait(500); await page.screenshot({ path: `${shots}/voice-ten-${on ? 'dark' : 'light'}.png` }) }
+  await boxSize(760, 600); await wait(800)
+  const stack = await page.evaluate((sel) => {
+    const rows = [...document.querySelectorAll(`${sel} .tiptap-attachment.is-audio`)]
+    const foot = document.querySelector('[data-create]').getBoundingClientRect().top
+    const last = rows.at(-1).getBoundingClientRect()
+    const shown = (el) => !!el && getComputedStyle(el).display !== 'none'
+    return {
+      rows: rows.length,
+      heights: [...new Set(rows.map((el) => Math.round(el.getBoundingClientRect().height)))],
+      lastBottom: Math.round(last.bottom), foot: Math.round(foot),
+      gaps: rows.slice(1).map((el, i) => Math.round(el.getBoundingClientRect().top - rows[i].getBoundingClientRect().bottom)),
+      speedShown: rows.filter((el) => shown(el.querySelector('.tiptap-media-speed'))).length,
+      words: rows.filter((el) => shown(el.querySelector('[data-no-words="row"]'))).length,
+      cut: rows.filter((el) => { const n = el.querySelector('.tiptap-attachment-name'); return n.scrollWidth > n.clientWidth + 1 }).length,
+      spill: rows.filter((el) => { const edge = el.querySelector('.tiptap-attachment-card').getBoundingClientRect().right; return [...el.querySelectorAll('.tiptap-attachment-card *')].some((k) => k.getBoundingClientRect().width && k.getBoundingClientRect().right > edge + 1) }).length
+    }
+  }, EDITOR)
+  check('ten recordings in a row are one list that fits quick capture at 600 tall', stack.rows === 10 && stack.lastBottom <= stack.foot && stack.gaps.every((g) => g <= 1), JSON.stringify(stack))
+  check('…each row says its transcript state, and no row shows speed until it plays', stack.words === 10 && stack.speedShown === 0, JSON.stringify(stack))
+  check('…no name cut short, nothing past the card\'s edge', stack.cut === 0 && stack.spill === 0, JSON.stringify(stack))
+  for (const on of [false, true]) { await dark(on); await focusBox(); await wait(500); await page.screenshot({ path: `${shots}/voice-ten-${on ? 'dark' : 'light'}.png` }) }
 } catch (error) {
   check('ran without throwing', false, String(error?.stack ?? error))
 } finally {

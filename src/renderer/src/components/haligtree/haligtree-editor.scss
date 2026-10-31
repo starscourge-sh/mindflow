@@ -4196,3 +4196,80 @@ html[data-motion="off"] .tiptap.ProseMirror :is(.mf-kept, .mf-kept-icon button) 
   display: flex;
   margin-top: 0.5rem;
 }
+
+// Recordings side by side are one list in one frame, as Voice Memos lists
+// them: a row each (its glyph, name and length, its transcript state, play and
+// the bar), the speed and the sound only on the row that plays. Ten fit in
+// quick capture's fitted box. A lone recording keeps its own card.
+$run-first: '.react-renderer:has(> .tiptap-attachment.is-audio):has(+ .react-renderer > .tiptap-attachment.is-audio)';
+$run-next: '.react-renderer:has(> .tiptap-attachment.is-audio) + .react-renderer:has(> .tiptap-attachment.is-audio)';
+
+.tiptap-attachment-words {
+  display: none;
+}
+
+#{$run-first},
+#{$run-next} {
+  > .tiptap-attachment.is-audio {
+    .tiptap-attachment-card {
+      flex-wrap: nowrap;
+      gap: 0.625rem;
+      padding: 0.125rem 0.75rem;
+    }
+
+    .tiptap-attachment-icon {
+      width: 1rem;
+      height: 1rem;
+    }
+
+    .tiptap-attachment-body {
+      flex-direction: row;
+      align-items: baseline;
+      gap: 0.625rem;
+      white-space: nowrap;
+    }
+
+    .tiptap-attachment-words {
+      display: inline-flex;
+    }
+
+    [data-no-words="under"] {
+      display: none;
+    }
+
+    .tiptap-media-controls {
+      flex: 1 1 8rem;
+      min-width: 0;
+    }
+
+    // The name keeps its length whole ("Voice note · 0:20"); so the row's own
+    // time, which says it again, shows only while it plays, and never spills
+    // past the card.
+    .tiptap-attachment-body {
+      flex: none;
+    }
+
+    &:not(.is-playing) :is(.tiptap-media-speed, .tiptap-media-volume, .tiptap-media-time) {
+      display: none;
+    }
+  }
+}
+
+#{$run-first} > .tiptap-attachment.is-audio {
+  margin-bottom: 0;
+
+  .tiptap-attachment-card {
+    border-bottom-right-radius: 0;
+    border-bottom-left-radius: 0;
+  }
+}
+
+#{$run-next} > .tiptap-attachment.is-audio {
+  margin-top: 0;
+
+  .tiptap-attachment-card {
+    border-top: 0;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+  }
+}

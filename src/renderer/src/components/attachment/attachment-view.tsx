@@ -250,6 +250,7 @@ function useMedia(video: boolean, known: number | null, learn: (seconds: number)
       </button>
       <button
         type="button"
+        className="tiptap-media-volume"
         aria-label={muted ? "Sound on" : "Sound off"}
         title={muted ? "Sound on" : "Sound off"}
         onClick={() => {
@@ -478,6 +479,16 @@ function AudioBlock(props: NodeViewProps): React.JSX.Element {
     return () => window.removeEventListener("haligtree:transcribe-page", run)
   }, [src]) // eslint-disable-line react-hooks/exhaustive-deps
   const worded = hasWords(props.editor, src)
+  const noWords = !listening && !worded && props.editor.isEditable ? (
+    <>
+      <span>No transcript</span>
+      <span aria-hidden>·</span>
+      <button type="button" data-transcribe onMouseDown={(event) => event.preventDefault()} onClick={() => void transcribe(props.editor, src)}
+        className="cursor-pointer rounded-sm font-medium text-foreground/80 underline-offset-2 transition-colors hover:text-foreground hover:underline active:scale-[0.97]">
+        Transcribe
+      </button>
+    </>
+  ) : null
   return (
     <NodeViewWrapper className={`tiptap-attachment is-audio${selected ? " is-selected" : ""}${playing ? " is-playing" : ""}`} data-state={state} data-words={worded ? "" : undefined}>
       <audio ref={ref as React.RefObject<HTMLAudioElement>} src={src} preload="metadata" />
@@ -485,23 +496,16 @@ function AudioBlock(props: NodeViewProps): React.JSX.Element {
         <AudioLines className="tiptap-attachment-icon" />
         <span className="tiptap-attachment-body">
           <span className="tiptap-attachment-name" title={name || undefined}>{soundTitle(name, length)}</span>
+          {noWords && <span data-no-words="row" className="tiptap-attachment-words items-center gap-1.5 text-xs text-muted-foreground">{noWords}</span>}
         </span>
         {controls}
       </div>
       {listening && <Listening length={length} />}
       {/* No words under it and none on their way: said in one quiet line under
-          the card, with the way to get them, never a silent nothing. Inside the
-          card's own row it widened the name and pushed the player onto a second line. */}
-      {!listening && !worded && props.editor.isEditable && (
-        <div data-no-words contentEditable={false} className="flex items-center gap-1.5 px-1 pt-1 text-xs text-muted-foreground">
-          <span>No transcript</span>
-          <span aria-hidden>·</span>
-          <button type="button" data-transcribe onMouseDown={(event) => event.preventDefault()} onClick={() => void transcribe(props.editor, src)}
-            className="cursor-pointer rounded-sm font-medium text-foreground/80 underline-offset-2 transition-colors hover:text-foreground hover:underline active:scale-[0.97]">
-            Transcribe
-          </button>
-        </div>
-      )}
+          the card, with the way to get them, never a silent nothing. Inside a
+          lone card's row it widened the name and pushed the player onto a second
+          line; in a run of recordings it sits on the row, beside the name (CSS). */}
+      {noWords && <div data-no-words="under" contentEditable={false} className="flex items-center gap-1.5 px-1 pt-1 text-xs text-muted-foreground">{noWords}</div>}
     </NodeViewWrapper>
   )
 }
