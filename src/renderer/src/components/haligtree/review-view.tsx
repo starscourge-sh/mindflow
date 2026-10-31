@@ -39,6 +39,8 @@ import { Star } from 'lucide-react'
 import { RowMenu, copyLinkItem, type RowItem } from './row-menu'
 import { binItem } from '@/lib/to-bin'
 import { AnotherWay } from './another-way'
+import { pictureIn, withPicture } from '@/lib/answer-picture'
+import { answersOf } from '@/lib/blanks'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import { InkLine } from './ink-line'
@@ -108,6 +110,8 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
   const [, setStars] = useState(0)
   // The card that keeps slipping, held up after its miss until you say what to do with it.
   const [slipping, setSlipping] = useState<{ card: Due; splitting: boolean } | null>(null)
+  // Pictures put on the answer here: the answer drawn again with each (its key).
+  const [pictured, setPictured] = useState(0)
   // A: "Ask another way" open under this card (its id), closed by moving on.
   const [asking, setAsking] = useState<string | null>(null)
   const heading = useRef<HTMLHeadingElement>(null)
@@ -188,6 +192,38 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
   }
   // The last grade or Not today, for ⌘Z: the card, where it stood, and what it changed here.
   const [last, setLast] = useState<{ card: Due; at: number; said: string; grade: 1 | 2 | 3 | 4 | null; reviewed: boolean; lapses: number; counted: boolean } | null>(null)
+  // A picture pasted (⌘V) or dropped while the answer shows: under the answer
+  // at once, no editor to open and no leaving the queue, with Undo.
+  const pictureOnAnswer = (file: File): void => {
+    const on = card
+    if (!on) return
+    void file.arrayBuffer().then((bytes) => window.api.saveImage(file.type, new Uint8Array(bytes))).then((src) => {
+      if (!src) return refuse('That kind of picture cannot be kept: try a PNG or JPEG')
+      const before = on.body
+      const after = withPicture(before, src)
+      const put = (body: unknown): void => {
+        on.body = body
+        setPictured((n) => n + 1)
+        void haligtree.saveItem(on.id, { body })
+      }
+      put(after)
+      // ⌘Z now takes back the picture, the latest thing done, not the grade before it.
+      setLast(null)
+      chime('added')
+      toast('Picture added to the answer', () => put(before))
+    })
+  }
+  useEffect(() => {
+    const onPaste = (event: ClipboardEvent): void => {
+      if (!here() || !shown || !card || typing() || source) return
+      const file = pictureIn(event.clipboardData)
+      if (!file) return
+      event.preventDefault()
+      pictureOnAnswer(file)
+    }
+    window.addEventListener('paste', onPaste)
+    return () => window.removeEventListener('paste', onPaste)
+  })
   const undoLast = (): void => {
     if (!last) return
     const was = last
@@ -597,10 +633,18 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
             // lost: there its stroke is drawn stronger, to a soft graphite arc.
             <BorderBeam size="md" colorVariant="mono" strength={0.5} style={surface === 'light' ? ({ '--beam-stroke-opacity': 12 } as React.CSSProperties) : undefined} duration={5} theme={surface} active={alive && over} borderRadius={8} className="h-full">
               {/* The answer sits at the box's edge, not in a page's wide margins. */}
-              <div className="h-full rounded-lg border bg-accent/30 [--mf-padding:0.625rem_1rem_0.625rem_1.25rem] [&_.tiptap-word-count]:hidden">
+              <div data-answer-side className="h-full rounded-lg border bg-accent/30 [--mf-padding:0.625rem_1rem_0.625rem_1.25rem] [&_.tiptap-word-count]:hidden"
+                onDragOver={(event) => pictureIn(event.dataTransfer) !== null || [...event.dataTransfer.items].some((one) => one.type.startsWith('image/')) ? event.preventDefault() : undefined}
+                onDrop={(event) => {
+                  const file = pictureIn(event.dataTransfer)
+                  if (!file) return
+                  event.preventDefault()
+                  pictureOnAnswer(file)
+                }}>
                 {/* What it answers, small at the top: the question is on the other side now. */}
                 <p className="px-5 pt-3 text-xs text-muted-foreground"><WithPictures text={asked} small /></p>
                 <HaligtreeEditor
+                  key={pictured}
                   defaultContent={(card.body as JSONContent | string | null) ?? ''}
                   readOnly
                   toolbar={false}
@@ -639,7 +683,7 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
             )}
             {/* Context: what makes the answer learnable, shown only after it, or
                 it would give the prompt away. */}
-            {card.context && <p className="-mt-2 text-sm leading-relaxed whitespace-pre-line text-muted-foreground">{card.context}</p>}
+            {card.context && <div data-card-context className="-mt-2 text-sm leading-relaxed text-muted-foreground"><WithPictures text={card.context} /></div>}
             <Why card={card} />
             {/* Where it came from, which a flashcard app never knows. */}
             <Origin id={card.id} quote={card.kind === 'quote'} attribution={card.attribution} where={card.medium} year={fieldOf(card.fields, 'year')} said={`${card.prompt ?? ''}\n${textOf(card.body)}`} />
@@ -1022,24 +1066,19 @@ function titleWithFormulas(title: string, prompt: string | null, answer: string)
   return title
 }
 
+/** A cloze's answer, its blanks' answers in order when it has several ("25, 13, 3"). */
 function answerOf(prompt: string | null, body: unknown): string | null {
-  if (!prompt?.includes('_____')) return null
-  const flat = (text: string): string => text.replace(/\s+/g, ' ').trim()
-  const text = flat(textOf(body))
-  const [before, after = ''] = flat(prompt).split('_____')
-  const head = before.slice(-30)
-  const start = text.indexOf(head)
-  if (start < 0) return null
-  const from = start + head.length
-  const to = after.trim() ? text.indexOf(after.slice(0, 30).trim(), from) : text.length
-  const found = to < 0 ? '' : text.slice(from, to).trim()
-  return found && found.length <= 200 ? found : null
+  return answersOf(prompt, textOf(body))?.join(', ') ?? null
 }
 
-/** The question with the answer blanked wherever else it appears. */
+/** The question with each answer blanked wherever else it appears. */
 function masked(prompt: string, answer: string | null): string {
-  if (!answer || answer.length < 2) return prompt
-  return prompt.replace(new RegExp(answer.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '_____')
+  let out = prompt
+  for (const one of answer?.split(', ') ?? []) {
+    if (one.length < 2) continue
+    out = out.replace(new RegExp(one.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '_____')
+  }
+  return out
 }
 
 /**

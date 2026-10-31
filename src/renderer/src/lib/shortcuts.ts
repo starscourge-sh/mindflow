@@ -243,6 +243,8 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Review', keys: '3', does: 'A card that keeps slipping: pause it', where: 'Review' },
   { group: 'Review', keys: 'Esc', does: 'A card that keeps slipping: keep going', where: 'Review' },
   { group: 'Review', keys: 'S', does: 'Star the card, or take its star off', where: 'Review' },
+  { group: 'Review', keys: 'A', does: 'Ask another way: a new card keeping this one\u2019s context, source and tags', where: 'Review' },
+  { group: 'Review', keys: '⌘V', does: 'Once the answer shows: paste a picture onto the answer', where: 'Review' },
   { group: 'Review', keys: '1', does: 'Learn mode: pick an answer (1 to 4)', where: 'Review' },
   { group: 'Review', keys: '↵', does: 'Learn mode: check a written answer, then go on', where: 'Review' },
   { group: 'Review', keys: 'Space', does: 'Practising a tag: show the answer, then the next card', where: 'Tags' },

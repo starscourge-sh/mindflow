@@ -1,3 +1,6 @@
+import { BlankPanel } from './blank-panel'
+import { BLANK, addBlank, listItemCount } from '@/lib/blanks'
+import { ContextField } from './context-field'
 import { notePowers } from './note-powers'
 import { hoverNote } from './note-preview'
 import { PropertyStrip } from './property-strip'
@@ -898,16 +901,29 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
   // A cloze: the words you selected, blanked. Two keystrokes and no writing,
   // the cheapest way to make something testable, and right for a name or a
   // number; anything with a "because" in it is better as a question.
+  // Picked again with a blank already there, it is one more blank on the same
+  // card; a number keeps its unit outside, an "a" or "an" goes in, and an
+  // item of a list says what blanking it teaches (lib/blanks.ts).
+  const [blankNotes, setBlankNotes] = useState<string[]>([])
   const cloze = (): void => {
     const view = editor.current
     const { from, to } = view?.state.selection ?? { from: 0, to: 0 }
     const words = view?.state.doc.textBetween(from, to).trim()
     if (!view || !words) return refuse('Select the words to blank out first')
-    const text = view.getText().replace(words, '_____')
+    const body = view.getText()
+    const had = prompt.includes(BLANK) ? prompt : null
+    const made = addBlank(had ?? body, words)
+    if (!made) return refuse(had ? 'Those words are already blanked, or the question no longer has them' : 'Select the words to blank out first')
     // The question it had before, back with Undo: a blank never costs the old one.
     const before = item.prompt ?? null
-    setPrompt(text)
-    void haligtree.saveItem(item.id, { prompt: text }).then(() => toast('A fill-in-the-blank card: Review will ask it', () => (setPrompt(before ?? ''), void haligtree.saveItem(item.id, { prompt: before }))))
+    const list = listItemCount(body, words)
+    setBlankNotes([
+      made.unit ? `Blanked the number and kept “${made.unit}” showing: the unit is the cue.` : '',
+      made.article ? `“${made.article}” went inside the blank: it would give the answer away.` : '',
+      list ? `This is one item of a list of ${list}. Blanked one at a time, items teach their place in the list, not the idea: ask for the whole list, or why each belongs.` : ''
+    ].filter(Boolean))
+    setPrompt(made.prompt)
+    void haligtree.saveItem(item.id, { prompt: made.prompt }).then(() => toast(had ? 'One more blank on this card' : 'A fill-in-the-blank card: Review will ask it', () => (setPrompt(before ?? ''), setBlankNotes([]), void haligtree.saveItem(item.id, { prompt: before }))))
   }
   const savePrompt = (): void => {
     if ((item.prompt ?? '') === prompt.trim()) return
@@ -1093,8 +1109,12 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
           />
           </Does>
           <Tip label="Select a few words in the note first. They become a blank you fill in when it comes up in Review">
-            <div><Prop icon={SquareDashed} onClick={cloze}>Blank the selected words</Prop></div>
+            <div><Prop icon={SquareDashed} onClick={cloze}>{prompt.includes(BLANK) ? 'Blank more of the selected words' : 'Blank the selected words'}</Prop></div>
           </Tip>
+          {prompt.includes(BLANK) && editor.current && (
+            <BlankPanel key={prompt} id={item.id} prompt={prompt} text={editor.current.getText()} notes={blankNotes}
+              onPrompt={(next) => (setPrompt(next), void haligtree.saveItem(item.id, { prompt: next }))} />
+          )}
           {item.dueAt && <Prop icon={Calendar}>Next review {whenInLine(item.dueAt, false)}</Prop>}
           {!!item.reviewed && <div className="px-2 py-1.5 text-muted-foreground"><ReviewHistory id={item.id} /></div>}
           {item.lapses >= 4 && (
@@ -1121,15 +1141,7 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
           <>
             <Island compact title="Context">
               <Does does="What makes the answer make sense. Shown after the answer in Review" set={!!item.context}>
-              <Textarea
-                defaultValue={item.context ?? ''}
-                onBlur={(event) => void haligtree.saveItem(item.id, { context: event.target.value.trim() || null })}
-                rows={2}
-                placeholder="What makes the answer make sense"
-                data-ghost-field={item.context ? undefined : ""}
-                aria-label="Context"
-                className={`resize-none text-control ${GHOST}`}
-              />
+              <ContextField id={item.id} value={item.context} className={`resize-none text-control ${GHOST}`} />
               </Does>
             </Island>
             <Island compact title="Why">

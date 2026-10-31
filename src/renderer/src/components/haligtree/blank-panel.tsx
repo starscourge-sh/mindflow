@@ -1,0 +1,65 @@
+import { useState } from 'react'
+import { Input } from '@/components/ui/input'
+import { haligtree } from '@/lib/haligtree'
+import { chime } from '@/lib/sound'
+import { BLANK, addsUp, answersOf, blanksIn, onlyBlank } from '@/lib/blanks'
+import { Chips } from './display'
+import { refuse, toast } from './ui'
+
+/** A blank's hint written into the question: "_____ (how many mL)", or the bare blank again. */
+function withHint(prompt: string, which: number, hint: string): string {
+  let n = -1
+  return prompt.replace(/_____(?: \([^)\n]{1,80}\))?/g, (gap) => (++n === which ? (hint.trim() ? `${BLANK} (${hint.trim()})` : BLANK) : gap))
+}
+
+/**
+ * Under a fill-in-the-blank card's question, on the gem's page: each blank
+ * with its answer and a hint you can write inside it, and with two or more,
+ * whether they are asked together (one card) or apart (a card each). Numbers
+ * that add up are asked together, with the reason; `notes` are what the last
+ * blank did (a unit kept outside, an "an" taken in, an item of a list).
+ */
+export function BlankPanel({ id, prompt, text, notes, onPrompt }: { id: string; prompt: string; text: string; notes: string[]; onPrompt: (next: string) => void }): React.JSX.Element | null {
+  const blanks = blanksIn(prompt)
+  const answers = answersOf(prompt, text)
+  const [split, setSplit] = useState(false)
+  if (!blanks.length) return null
+  const reason = blanks.length > 1 && answers ? addsUp(answers, text) : null
+  const apart = (): void => {
+    if (!answers || answers.length !== blanks.length) return refuse('The note has changed since these blanks were made: blank them again')
+    const questions = blanks.map((_, n) => onlyBlank(prompt, answers, n))
+    const before = prompt
+    setSplit(true)
+    void Promise.all(questions.slice(1).map((question) => haligtree.another(id, question, text))).then((made) => {
+      onPrompt(questions[0])
+      chime('separate')
+      toast(`Asked apart: ${blanks.length} cards, one blank each`, () => {
+        for (const one of made) if (one) void haligtree.unlift('nugget', one)
+        onPrompt(before)
+        setSplit(false)
+      })
+    })
+  }
+  return (
+    <div data-blank-panel className="flex flex-col gap-2 px-2 py-1.5">
+      {notes.map((note) => <p key={note} data-blank-note className="text-sm leading-relaxed text-[var(--tt-color-text-orange)]">{note}</p>)}
+      {blanks.map((blank, n) => (
+        <label key={n} className="flex flex-col gap-1 text-sm">
+          <span className="text-muted-foreground">{blanks.length > 1 ? `Blank ${n + 1}: ` : 'Answer: '}<span className="text-foreground">{answers?.[n] ?? 'not found in the note'}</span></span>
+          <Input data-blank-hint defaultValue={blank.hint ?? ''} placeholder="A hint inside the blank, if it needs one"
+            onBlur={(event) => event.target.value.trim() !== (blank.hint ?? '') && onPrompt(withHint(prompt, n, event.target.value))}
+            onKeyDown={(event) => event.key === 'Enter' && event.currentTarget.blur()}
+            className="h-8 text-sm" aria-label={`Hint for blank ${n + 1}`} />
+        </label>
+      ))}
+      {blanks.length > 1 && !split && (
+        <div className="flex flex-col gap-1.5">
+          <Chips options={[{ id: 'together', label: 'Ask together' }, { id: 'apart', label: 'Ask apart' }]} on={(choice) => choice === 'together'} pick={(choice) => choice === 'apart' && apart()} />
+          <p data-blank-reason className="text-sm text-muted-foreground">
+            {reason ?? 'Together: one card, every blank at once. Apart: a card each, the others filled in, so you only redo the one you miss.'}
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}

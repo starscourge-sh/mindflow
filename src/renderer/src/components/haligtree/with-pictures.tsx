@@ -17,8 +17,26 @@ function Formula({ latex }: { latex: string }): React.JSX.Element {
 /** Words with their formulas drawn in place. */
 function WithFormulas({ text }: { text: string }): React.JSX.Element {
   const parts = text.split(new RegExp(FORMULA.source, 'g'))
+  if (parts.length === 1) return <WithBlanks text={text} />
+  return <>{parts.map((part, at) => (at % 2 ? <Formula key={at} latex={part} /> : <WithBlanks key={at} text={part} />))}</>
+}
+
+/**
+ * A fill-in-the-blank's gaps drawn as gaps, a hint ("_____ (how many mL)")
+ * written small and grey inside its gap, so it reads as part of the blank.
+ */
+function WithBlanks({ text }: { text: string }): React.JSX.Element {
+  const parts = text.split(/_____(?: \(([^)\n]{1,80})\))?/)
   if (parts.length === 1) return <>{text}</>
-  return <>{parts.map((part, at) => (at % 2 ? <Formula key={at} latex={part} /> : part))}</>
+  return (
+    <>
+      {parts.map((part, at) =>
+        at % 2 ? (
+          <span key={at} data-blank className="mx-0.5 inline-block min-w-[3.5em] border-b-2 border-current/35 px-1 text-center align-baseline text-[0.6em] leading-none font-normal text-muted-foreground">{part ?? '\u00a0'}</span>
+        ) : part
+      )}
+    </>
+  )
 }
 
 /** A question's words with its pictures (an Anki card's, written `![](haligtree://assets/...)`) and formulas (`$x^2$`) drawn in place. */
