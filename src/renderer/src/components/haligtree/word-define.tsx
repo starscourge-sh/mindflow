@@ -191,8 +191,13 @@ export function DefineGhost({ definition, onKeep, onHide, onFix, picked = false,
     if (!el || !prose) return
     const surface = prose.parentElement!
     const place = (): void => {
-      const last = [...prose.children].filter((line) => line.textContent?.trim()).at(-1)
-      if (!last) return
+      // Only under the word when it is the writing's last line: it lies over
+      // the room kept below that line. With a block after it (a recording kept
+      // under the word), that room is the next block and the empty line's
+      // "Write a thought…", which it covered: then it shows nowhere.
+      const said = definition?.word.trim().toLowerCase()
+      const last = [...prose.children].filter((line) => line.textContent?.trim() || line.matches('.react-renderer')).at(-1)
+      if (!last || last.matches('.react-renderer') || !said || !last.textContent?.toLowerCase().includes(said)) return void (el.style.visibility = 'hidden')
       const word = last.getBoundingClientRect()
       const box = surface.getBoundingClientRect()
       el.style.top = `${Math.round(word.bottom - box.top + surface.scrollTop + 4)}px`
@@ -221,7 +226,8 @@ export function DefineGhost({ definition, onKeep, onHide, onFix, picked = false,
   if (definition.state === 'looking' && !late) return null
   // Inside the writing's own surface, lined up with its words. Hidden until
   // placed, so it is never seen anywhere but under the word.
-  const LINE = 'absolute inset-x-0 pr-[4.75rem]'
+  // Clicks pass through its empty width to whatever lies under it; its own words and buttons still take them.
+  const LINE = 'absolute inset-x-0 pr-[4.75rem] pointer-events-none [&>*]:pointer-events-auto'
   const hold = { visibility: 'hidden' } as const
   if (definition.state === 'looking') {
     return (
