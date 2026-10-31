@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react"
-import { AlignCenter, AlignLeft, AlignRight, AudioLines, Captions, Pause, PictureInPicture2, Play, RotateCcw } from "lucide-react"
+import { AlignCenter, AlignLeft, AlignRight, AudioLines, Captions, Columns2, ListTree, MoveHorizontal, MoveVertical, PanelLeft, Pause, PictureInPicture2, Play, RectangleVertical, RotateCcw, ScrollText } from "lucide-react"
 import { AliveIcon } from "@/components/ui/alive-icon"
 import DownloadIcon from "@/components/ui/download-icon"
 import ExternalLinkIcon from "@/components/ui/external-link-icon"
@@ -15,6 +15,9 @@ import { host } from "@/lib/host"
 import { PdfPages, pdfTitle } from "@/components/pdf/pdf-pages"
 import { learnTitle, openPdf } from "@/components/pdf/pdf-reader"
 import { usePaperPages } from "@/components/pdf/paper"
+import { PdfSide, usePdfOutline, type RailTab } from "@/components/pdf/pdf-rail"
+import type { PDFDocumentProxy } from "pdfjs-dist"
+import { chime } from "@/lib/sound"
 import { canSplit } from "@/lib/split"
 import { isNodeSelected } from "@/extensions/selected-nodes"
 import { startCaption } from "@/extensions/caption"
@@ -362,13 +365,69 @@ function PdfBlock(props: NodeViewProps): React.JSX.Element {
   const { src, name, size } = props.node.attrs
   const selected = isNodeSelected(props)
   const scroller = useRef<HTMLDivElement>(null)
-  const [pages, setPages] = useState(0)
-  // Its pages look as the reader's do: white, or "Paper pages" when that is on.
-  const [paper] = usePaperPages()
+  const block = useRef<HTMLDivElement>(null)
+  const [doc, setDoc] = useState<PDFDocumentProxy | null>(null)
+  const pages = doc?.numPages ?? 0
+  // Its pages look as the reader's do: white, or "Paper pages" when that is on (one setting for both).
+  const [paper, setPaper] = usePaperPages()
+  // How its pages sit, as you last left them for every PDF in a note.
+  const [fit, setFit] = useState<"width" | "height">(() => (localStorage.getItem("pdf-note-fit") === "height" ? "height" : "width"))
+  const [spread, setSpread] = useState(() => localStorage.getItem("pdf-note-spread") === "two")
+  const [rail, setRail] = useState<RailTab | null>(null)
+  const outline = usePdfOutline(doc)
+  const [page, setPage] = useState(1)
+  const fitTo = (next: "width" | "height"): void => (localStorage.setItem("pdf-note-fit", next), chime("tick"), setFit(next))
+  const spreadTo = (two: boolean): void => (localStorage.setItem("pdf-note-spread", two ? "two" : "one"), chime("tick"), setSpread(two))
+  const railTo = (tab: RailTab | null): void => (chime(tab ? "slide" : "fold"), setRail(tab))
+  // The page you are on: the first whose foot is below the top of the box.
+  useEffect(() => {
+    const box = scroller.current
+    if (!box || !doc) return
+    const read = (): void => {
+      const top = box.getBoundingClientRect().top
+      const sheet = [...box.querySelectorAll<HTMLElement>(".pdf-page")].find((one) => one.getBoundingClientRect().bottom > top + 24)
+      if (sheet) setPage(Number(sheet.dataset.page) || 1)
+    }
+    box.addEventListener("scroll", read, { passive: true })
+    return () => box.removeEventListener("scroll", read)
+  }, [doc])
+  const go = (to: number): void => {
+    const box = scroller.current
+    const sheet = box?.querySelector<HTMLElement>(`.pdf-page[data-page="${to}"]`)
+    if (!box || !sheet) return
+    box.scrollTop += sheet.getBoundingClientRect().top - box.getBoundingClientRect().top - 12
+    setPage(to)
+  }
+  // The same choices from the block's right-click menu (turn-into/clicked.tsx), told to this block.
+  useEffect(() => {
+    const el = block.current
+    if (!el) return
+    const hear = (event: Event): void => {
+      const what = (event as CustomEvent<string>).detail
+      if (what === "fit-width" || what === "fit-height") fitTo(what === "fit-width" ? "width" : "height")
+      if (what === "one" || what === "two") spreadTo(what === "two")
+      if (what === "paper") setPaper(!paper)
+      if (what === "pages" || what === "outline") railTo(what)
+      if (what === "no-rail") railTo(null)
+    }
+    el.addEventListener("mf:pdf-view", hear)
+    return () => el.removeEventListener("mf:pdf-view", hear)
+  })
   // Full size in a pane of the main window; a note's own window has no panes, so the system's viewer there.
-  const open = (): void => (canSplit() ? openPdf(src, name) : void host().openFile?.(src))
+  const open = (): void => (canSplit() ? openPdf(src, name, page > 1 ? page : undefined) : void host().openFile?.(src))
+  const tool = (label: string, on: boolean, run: () => void, icon: React.ReactNode, title = label): React.JSX.Element => (
+    <Button data-style="ghost" aria-label={label} title={title} data-active-state={on ? "on" : "off"} onClick={(event) => (event.stopPropagation(), run())}>{icon}</Button>
+  )
   return (
-    <NodeViewWrapper className={`tiptap-attachment is-pdf${selected ? " is-selected" : ""}${paper ? " is-paper" : ""}`}>
+    <NodeViewWrapper
+      ref={block}
+      className={`tiptap-attachment is-pdf${selected ? " is-selected" : ""}${paper ? " is-paper" : ""}`}
+      data-pdf-fit={fit}
+      data-pdf-spread={spread ? "two" : "one"}
+      data-pdf-rail={rail ?? ""}
+      data-pdf-page={page}
+      data-pdf-outline={outline.length ? "" : undefined}
+    >
       <div className="tiptap-attachment-card" data-drag-handle="">
         <FileText className="tiptap-attachment-icon" />
         <span className="tiptap-attachment-body">
@@ -384,8 +443,22 @@ function PdfBlock(props: NodeViewProps): React.JSX.Element {
           <AliveIcon icon={DownloadIcon} size={16} />
         </button>
       </div>
-      <div ref={scroller} className="tiptap-pdf-scroll" contentEditable={false} onMouseDown={(event) => event.stopPropagation()}>
-        <PdfPages src={src} scroller={scroller} onLoad={(doc) => (setPages(doc.numPages), void pdfTitle(doc, name).then((read) => learnTitle(src, read)))} />
+      {/* The reader's own view choices, in its own buttons: how the pages sit, their colour, and the rail beside them. */}
+      <div className="tiptap-pdf-bar" contentEditable={false} data-pdf-bar="" onMouseDown={(event) => event.stopPropagation()}>
+        {tool("Sidebar", !!rail, () => railTo(rail ? null : "pages"), <PanelLeft className="tiptap-button-icon" />, "Pages and outline")}
+        {outline.length > 0 && tool("Show this page in contents", rail === "outline", () => railTo("outline"), <ListTree className="tiptap-button-icon" />)}
+        <span className="tiptap-pdf-bar-gap" />
+        {tool("Fit width", fit === "width", () => fitTo("width"), <MoveHorizontal className="tiptap-button-icon" />)}
+        {tool("Fit height", fit === "height", () => fitTo("height"), <MoveVertical className="tiptap-button-icon" />, "Fit height: a whole page in view")}
+        {tool("One page", !spread, () => spreadTo(false), <RectangleVertical className="tiptap-button-icon" />)}
+        {tool("Two pages", spread, () => spreadTo(true), <Columns2 className="tiptap-button-icon" />, "Two pages side by side")}
+        {tool(paper ? "White pages" : "Paper pages", paper, () => setPaper(!paper), <ScrollText className="tiptap-button-icon" />, paper ? "White pages" : "Paper pages: easier on the eyes, pictures kept true")}
+      </div>
+      <div className="tiptap-pdf-body" contentEditable={false}>
+        {rail && doc && <PdfSide doc={doc} page={page} outline={outline} tab={rail} onTab={railTo} onGo={go} />}
+        <div ref={scroller} className="tiptap-pdf-scroll" onMouseDown={(event) => event.stopPropagation()}>
+          <PdfPages src={src} scroller={scroller} fit={fit} spread={spread} onLoad={(loaded) => (setDoc(loaded), void pdfTitle(loaded, name).then((read) => learnTitle(src, read)))} />
+        </div>
       </div>
     </NodeViewWrapper>
   )

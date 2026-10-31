@@ -31,7 +31,7 @@ import { chime } from "@/lib/sound"
 export type Clicked =
   | { kind: "note"; pos: number; id: string; label: string; heading: string; text: string }
   | { kind: "web"; from: number; to: number; href: string }
-  | { kind: "pdf"; from: number | null; to: number | null; href: string | null; src: string; name: string; page: number }
+  | { kind: "pdf"; from: number | null; to: number | null; href: string | null; src: string; name: string; page: number; block?: HTMLElement }
   | { kind: "words"; from: number; to: number; words: string }
   | { kind: "tag"; tag: string }
   | { kind: "formula"; pos: number; latex: string }
@@ -80,6 +80,11 @@ export function clickedAt(editor: Editor, event: MouseEvent): Clicked | null {
     if (range && href) return { kind: "web", ...range, href }
   }
   // A PDF shown in the note (its block, or a "(p. N)" drawn over the words): the same file lines.
+  // A PDF block anywhere (its card, its bar, its pages): the page on show, and its view choices.
+  const block = target?.closest<HTMLElement>(".tiptap-attachment.is-pdf")
+  const named = block?.querySelector<HTMLElement>("[data-pdf-peek]")
+  if (block && named?.dataset.pdfPeek && view.dom.contains(block))
+    return { kind: "pdf", from: null, to: null, href: null, src: named.dataset.pdfPeek, name: named.dataset.pdfPeekName ?? "", page: Number(block.dataset.pdfPage) || 1, block }
   const tagged = target?.closest<HTMLElement>("[data-pdf-peek]")
   if (tagged?.dataset.pdfPeek && view.dom.contains(tagged))
     return { kind: "pdf", from: null, to: null, href: null, src: tagged.dataset.pdfPeek, name: tagged.dataset.pdfPeekName ?? "", page: Number(tagged.dataset.pdfPeekPage) || 1 }
@@ -133,6 +138,23 @@ const copyText = (text: string, done: string): void =>
 
 /** A link's words picked, so the link box and "Remove link" act on it as on the caret's. */
 const pick = (editor: Editor, from: number, to: number): void => void editor.chain().focus().setTextSelection({ from, to }).run()
+
+/** A PDF block's view choices, the same as its bar's, each told to the block (attachment-view.tsx). */
+function viewLines(block?: HTMLElement): Line[] {
+  if (!block) return []
+  const tell = (what: string) => (): void => void block.dispatchEvent(new CustomEvent("mf:pdf-view", { detail: what }))
+  const height = block.dataset.pdfFit === "height"
+  const two = block.dataset.pdfSpread === "two"
+  const paper = block.classList.contains("is-paper")
+  const rail = block.dataset.pdfRail
+  return [
+    { label: height ? "Fit width" : "Fit height", data: height ? "fit-width" : "fit-height", run: tell(height ? "fit-width" : "fit-height") },
+    { label: two ? "One page" : "Two pages", data: two ? "one" : "two", run: tell(two ? "one" : "two") },
+    { label: paper ? "White pages" : "Paper pages", data: "paper", run: tell("paper") },
+    rail ? { label: "Hide the sidebar", data: "no-rail", run: tell("no-rail") } : { label: "Show pages in a sidebar", data: "pages", run: tell("pages") },
+    ...(block.hasAttribute("data-pdf-outline") ? [{ label: "Show this page in contents", data: "outline", run: tell("outline") }] : []),
+  ]
+}
 
 /** The lines for what was clicked, in the order a person reaches for them. */
 export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
@@ -220,6 +242,7 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
       !!host().openFile && { label: "Open in the default app", data: "default-app", run: () => void host().openFile?.(src) },
       !!host().showFile && { label: "Show in Finder", data: "finder", run: () => void host().showFile?.(src) },
       linked && { label: "Remove link", edits: true, hint: "Keeps the words", data: "unlink", run: () => (pick(editor, from!, to!), removeLink(editor)) },
+      ...viewLines(clicked.block),
     ]
     return lines.filter((one): one is Line => !!one && (!one.edits || editor.isEditable))
   }

@@ -8,6 +8,14 @@
   width: 100%;
 }
 
+/* Two pages side by side, as a book lies open: a row of two, rows one under another. */
+.pdf-pages.is-spread {
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+}
+
 .pdf-pages.is-failed {
   padding: 1rem;
   color: var(--mf-muted);
@@ -107,15 +115,47 @@
   margin-inline-start: 0;
 }
 
-.tiptap-pdf-scroll {
+/* The reader's view choices, in a bar of the reader's own look, between the card and the pages. */
+.tiptap-pdf-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--tt-border-color);
+  border-top: 0;
+  background-color: var(--mf-surface);
+}
+
+.tiptap-pdf-bar button {
+  cursor: pointer;
+}
+
+.tiptap-pdf-bar-gap {
+  flex: 1;
+}
+
+/* The rail beside the pages, as in the reader, inside the same frame. */
+.tiptap-pdf-body {
+  display: flex;
   max-height: 70vh;
-  padding: 0.75rem;
-  overflow-y: auto;
-  scrollbar-gutter: stable;
+  overflow: hidden;
   border: 1px solid var(--tt-border-color);
   border-top: 0;
   border-radius: 0 0 0.625rem 0.625rem;
   background-color: var(--mf-surface);
+}
+
+.tiptap-pdf-body .pdf-rail {
+  max-height: 70vh;
+}
+
+.tiptap-pdf-scroll {
+  flex: 1;
+  min-width: 0;
+  max-height: 70vh;
+  padding: 0.75rem;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 /* Full size, in a pane of its own. */

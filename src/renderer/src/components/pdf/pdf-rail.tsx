@@ -98,3 +98,75 @@ export function PdfThumb({ doc, page, here, onGo }: { doc: PDFDocumentProxy; pag
     </button>
   )
 }
+
+/** One entry of a PDF's own outline: its title, how deep it sits, and the page it starts on. */
+export type OutlineRow = { title: string; depth: number; page: number }
+
+/** A PDF's own outline, read once its document is loaded: none when it has none. */
+export function usePdfOutline(doc: PDFDocumentProxy | null): OutlineRow[] {
+  const [outline, setOutline] = useState<OutlineRow[]>([])
+  useEffect(() => {
+    if (!doc) return
+    let live = true
+    const pageOf = async (dest: unknown): Promise<number | null> => {
+      const explicit = typeof dest === "string" ? await doc.getDestination(dest) : dest
+      const ref = Array.isArray(explicit) ? explicit[0] : null
+      if (!ref) return null
+      return typeof ref === "number" ? ref + 1 : (await doc.getPageIndex(ref)) + 1
+    }
+    type Item = { title: string; dest: unknown; items: Item[] }
+    const flat = async (items: Item[], depth: number): Promise<OutlineRow[]> => {
+      const rows: OutlineRow[] = []
+      for (const item of items) {
+        const page = await pageOf(item.dest).catch(() => null)
+        if (page) rows.push({ title: item.title, depth, page })
+        rows.push(...(await flat(item.items ?? [], depth + 1)))
+      }
+      return rows
+    }
+    void doc.getOutline().then(async (items) => {
+      const rows = items ? await flat(items as Item[], 0) : []
+      if (live) setOutline(rows)
+    })
+    return () => {
+      live = false
+    }
+  }, [doc])
+  return outline
+}
+
+/**
+ * The chapter a page is in: the outline's latest entry that starts on or
+ * before it, so every page of a chapter lights it, not only its first.
+ */
+export const chapterAt = (outline: OutlineRow[], page: number): number =>
+  outline.reduce((at, row, index) => (row.page <= page && (at < 0 || row.page >= outline[at].page) ? index : at), -1)
+
+/**
+ * The rail with its lists: the pages small, or the outline with the chapter
+ * you are in lit. One for the reader and for a PDF shown in a note.
+ */
+export function PdfSide({ doc, page, outline, tab, onTab, onGo }: { doc: PDFDocumentProxy; page: number; outline: OutlineRow[]; tab: RailTab; onTab: (tab: RailTab) => void; onGo: (page: number) => void }): React.JSX.Element {
+  const hereAt = chapterAt(outline, page)
+  const shown = tab === "outline" && !outline.length ? "pages" : tab
+  // The chapter lit comes into view in the rail, as Preview's does.
+  const list = useRef<HTMLElement>(null)
+  useEffect(() => {
+    list.current?.querySelector<HTMLElement>(".pdf-outline-row.is-here")?.scrollIntoView({ block: "nearest" })
+  }, [hereAt, shown])
+  return (
+    <PdfRail tab={shown} tabs={[{ id: "pages", label: "Pages" }, ...(outline.length ? [{ id: "outline" as const, label: "Outline" }] : [])]} onTab={onTab}>
+      {shown === "pages" && Array.from({ length: doc.numPages }, (_, index) => <PdfThumb key={index} doc={doc} page={index + 1} here={index + 1 === page} onGo={() => onGo(index + 1)} />)}
+      {shown === "outline" && (
+        <nav ref={list} className="pdf-outline" aria-label="Outline">
+          {outline.map((row, index) => (
+            <button key={index} type="button" className={`pdf-outline-row${index === hereAt ? " is-here" : ""}`} style={{ paddingInlineStart: `${0.5 + row.depth * 0.75}rem` }} onClick={() => onGo(row.page)}>
+              <span className="pdf-outline-title">{row.title}</span>
+              <span className="pdf-outline-page">{row.page}</span>
+            </button>
+          ))}
+        </nav>
+      )}
+    </PdfRail>
+  )
+}

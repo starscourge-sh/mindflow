@@ -134,6 +134,9 @@ const AHEAD = 1
  * keep their place as empty sheets, so the scrollbar is true from the start.
  * Each drawn page has its words laid over it, so text can be selected.
  */
+/** The room between two pages side by side: the gap between pages one under another (pdf.css). */
+const GAP = 12
+
 export function PdfPages({
   src,
   zoom = 1,
@@ -142,6 +145,8 @@ export function PdfPages({
   marks = [],
   flash,
   land,
+  fit = "width",
+  spread = false,
 }: {
   src: string
   zoom?: number
@@ -154,6 +159,10 @@ export function PdfPages({
   flash?: string | null
   /** The page to open at, scrolled to once the sheets are laid out. */
   land?: number
+  /** A page as wide as the box, or as tall as what scrolls it (a whole page in view). */
+  fit?: "width" | "height"
+  /** Two pages side by side, as a book lies open. */
+  spread?: boolean
 }): React.JSX.Element {
   const box = useRef<HTMLDivElement>(null)
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null)
@@ -161,6 +170,7 @@ export function PdfPages({
   // Width and height of page 1 at scale 1: every sheet's size until its own is known.
   const [size, setSize] = useState<{ w: number; h: number } | null>(null)
   const [width, setWidth] = useState(0)
+  const [tall, setTall] = useState(0)
   const [shown, setShown] = useState<Set<number>>(new Set([1]))
 
   useEffect(() => {
@@ -184,10 +194,19 @@ export function PdfPages({
   useLayoutEffect(() => {
     const el = box.current
     if (!el) return
-    const watch = new ResizeObserver(() => setWidth(el.clientWidth))
+    // The height that matters for fitting a page is what scrolls it, less its padding. Its ref is not set yet
+    // while this runs (a parent's refs come after a child's layout effects), so it is found as the box around these pages.
+    const view = scroller?.current ?? el.parentElement ?? el
+    const measure = (): void => {
+      setWidth(el.clientWidth)
+      const pad = getComputedStyle(view)
+      setTall(view.clientHeight - parseFloat(pad.paddingTop || "0") - parseFloat(pad.paddingBottom || "0"))
+    }
+    const watch = new ResizeObserver(measure)
     watch.observe(el)
+    if (view !== el) watch.observe(view)
     return () => watch.disconnect()
-  }, [])
+  }, [scroller])
 
   // Which sheets are on show: drawn, with one either side. Watched once the
   // sheets exist, which needs both the document and the box's width.
@@ -215,9 +234,12 @@ export function PdfPages({
   }, [doc, scroller, laidOut])
 
   if (failed) return <div className="pdf-pages is-failed">This PDF could not be read.</div>
-  const scale = size && width ? (width / size.w) * zoom : 0
+  // Two a row share the width, less the gap between them; fit height never lets a page outgrow the width either.
+  const across = spread ? (width - GAP) / 2 - 1 : width
+  const wide = size && width ? across / size.w : 0
+  const scale = (fit === "height" && size && tall > 0 ? Math.min(wide, tall / size.h) : wide) * zoom
   return (
-    <div ref={box} className="pdf-pages">
+    <div ref={box} className={`pdf-pages${spread ? " is-spread" : ""}`} data-fit={fit}>
       {doc && scale > 0 &&
         Array.from({ length: doc.numPages }, (_, index) => (
           <PdfPage key={index + 1} doc={doc} page={index + 1} scale={scale} guess={size!} drawn={shown.has(index + 1)} marks={marks.filter((mark) => mark.page === index + 1)} flash={flash} />

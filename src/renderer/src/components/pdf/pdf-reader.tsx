@@ -12,7 +12,7 @@ import { canSplit, keysHere, usePane } from "@/lib/split"
 import { chime } from "@/lib/sound"
 import { cue } from "@/lib/cues"
 import { MarkMenu, PickedMenu, ReadBar, WhyAfter, cited, lastColor, readKey, rememberColor, type MarkColor, type ReadActions } from "./read-bar"
-import { PdfRail, PdfThumb, type RailTab } from "./pdf-rail"
+import { PdfSide, chapterAt, usePdfOutline, type RailTab } from "./pdf-rail"
 import { ReadDetails } from "./pdf-details"
 import { LookUpCard, type LookedUpIn } from "./look-up"
 import { usePdfCover } from "./pdf-cover"
@@ -181,35 +181,8 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     return () => window.removeEventListener("keydown", onKey, true)
   })
 
-  // The PDF's own outline, if it has one: each entry's title, depth and page.
-  const [outline, setOutline] = useState<{ title: string; depth: number; page: number }[]>([])
-  useEffect(() => {
-    if (!doc) return
-    let live = true
-    const pageOf = async (dest: unknown): Promise<number | null> => {
-      const explicit = typeof dest === "string" ? await doc.getDestination(dest) : dest
-      const ref = Array.isArray(explicit) ? explicit[0] : null
-      if (!ref) return null
-      return typeof ref === "number" ? ref + 1 : (await doc.getPageIndex(ref)) + 1
-    }
-    type Item = { title: string; dest: unknown; items: Item[] }
-    const flat = async (items: Item[], depth: number): Promise<{ title: string; depth: number; page: number }[]> => {
-      const rows: { title: string; depth: number; page: number }[] = []
-      for (const item of items) {
-        const page = await pageOf(item.dest).catch(() => null)
-        if (page) rows.push({ title: item.title, depth, page })
-        rows.push(...(await flat(item.items ?? [], depth + 1)))
-      }
-      return rows
-    }
-    void doc.getOutline().then(async (items) => {
-      const rows = items ? await flat(items as Item[], 0) : []
-      if (live) setOutline(rows)
-    })
-    return () => {
-      live = false
-    }
-  }, [doc])
+  // The PDF's own outline, if it has one: each entry's title, depth and page (pdf-rail.tsx).
+  const outline = usePdfOutline(doc)
 
   // Every highlight in the book, in page order, beside the pages: a click goes to it and lights it.
   // Details at the right, shown and hidden with a note's (the same button, and ⇧⌘B).
@@ -571,7 +544,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
 
   // The chapter you are in: the outline's latest entry that starts on or
   // before this page, so every page of a chapter lights it, not only its first.
-  const hereAt = outline.reduce((at, row, index) => (row.page <= page && (at < 0 || row.page >= outline[at].page) ? index : at), -1)
+  const hereAt = chapterAt(outline, page)
   const chapter = hereAt >= 0 ? outline[hereAt].title : ""
 
   return (
@@ -674,24 +647,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
       )}
       <div className="pdf-reader-body">
       {rail && doc && (
-        <PdfRail
-          tab={rail === "outline" && !outline.length ? "pages" : rail}
-          tabs={[{ id: "pages", label: "Pages" }, ...(outline.length ? [{ id: "outline" as const, label: "Outline" }] : [])]}
-          onTab={showRail}
-        >
-          {(rail === "pages" || (rail === "outline" && !outline.length)) &&
-            Array.from({ length: doc.numPages }, (_, index) => <PdfThumb key={index} doc={doc} page={index + 1} here={index + 1 === page} onGo={() => go(index + 1)} />)}
-          {rail === "outline" && outline.length > 0 && (
-            <nav className="pdf-outline" aria-label="Outline">
-              {outline.map((row, index) => (
-                <button key={index} type="button" className={`pdf-outline-row${index === hereAt ? " is-here" : ""}`} style={{ paddingInlineStart: `${0.5 + row.depth * 0.75}rem` }} onClick={() => go(row.page)}>
-                  <span className="pdf-outline-title">{row.title}</span>
-                  <span className="pdf-outline-page">{row.page}</span>
-                </button>
-              ))}
-            </nav>
-          )}
-        </PdfRail>
+        <PdfSide doc={doc} page={page} outline={outline} tab={rail} onTab={showRail} onGo={go} />
       )}
       <ContextMenu>
         <ContextMenuTrigger asChild>
