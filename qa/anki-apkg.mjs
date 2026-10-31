@@ -119,7 +119,7 @@ try {
   await waitFor(() => h.evaluate(() => !!document.querySelector('[data-deck-shelf]')))
   const shelf = await h.evaluate(() => document.querySelector('[data-deck-shelf]')?.innerText ?? '')
   check('Review › Decks shows the deck, its cover and its counts', /Biology/.test(shelf) && /8 cards/.test(shelf) && await h.evaluate(() => !!document.querySelector('[data-deck] img')), shelf)
-  await h.screenshot({ path: join(process.env.QA_SHOTS ?? dir, 'anki-apkg-decks.png') })
+  await c.both(join(process.env.QA_SHOTS ?? dir, 'anki-apkg-decks'))
   await h.evaluate(() => document.querySelector('[data-deck-gems]')?.click())
   check('"Show in Gems" brings them into Gems', await waitFor(async () => (await inGems()) === 2))
   await waitFor(() => h.evaluate(() => document.querySelector('[data-deck-gems]')?.textContent === 'Keep out of Gems'))

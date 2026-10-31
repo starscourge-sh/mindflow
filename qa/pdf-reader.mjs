@@ -451,7 +451,7 @@ try {
   check('its highlights are listed in page order', JSON.stringify(about?.marks) === JSON.stringify(['Page 3', 'of', 'quiet sentence worth keeping']), JSON.stringify(about?.marks))
   check('and the notes and gems that hold the book or link into it', about?.cited >= 2, JSON.stringify(about))
   check('Details sits beside the pages, never over them', about && about.detailsLeft >= about.pagesLeft - 1, JSON.stringify(about))
-  await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-details.png` })
+  await c.both(`${process.env.QA_SHOTS ?? '/tmp'}/pdf-details`)
   await h.fill('.read-details-find input', 'quiet'); await wait(300)
   check('finding in highlights narrows the list to those words', JSON.stringify(await h.evaluate(() => [...document.querySelectorAll('.read-details-mark-words')].map((one) => one.textContent))) === JSON.stringify(['quiet sentence worth keeping']), '')
   await h.fill('.read-details-find input', ''); await wait(200)
