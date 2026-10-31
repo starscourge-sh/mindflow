@@ -3359,6 +3359,7 @@ async function importFiles(dropped?: string[]): Promise<void> {
           const parts = [`${num(got.cards)} ${got.cards === 1 ? 'card' : 'cards'} from ${num(got.decks)} ${got.decks === 1 ? 'deck' : 'decks'}`,
             got.pictures && `${num(got.pictures)} ${got.pictures === 1 ? 'picture' : 'pictures'}`, got.sounds && `${num(got.sounds)} ${got.sounds === 1 ? 'sound' : 'sounds'}`].filter(Boolean)
           lines.push(`${name}: ${parts.join(', ')}`)
+          if (got.paused) lines.push(`${num(got.paused)} ${got.paused === 1 ? 'card was' : 'cards were'} suspended in Anki: paused here too, out of Review until you bring ${got.paused === 1 ? 'it' : 'them'} back`)
           if (got.already) lines.push(`${num(got.already)} ${got.already === 1 ? 'card was' : 'cards were'} already here, from an earlier import`)
           if (got.skipped) lines.push(`${num(got.skipped)} ${got.skipped === 1 ? 'card' : 'cards'} left out: picture-hiding cards, or a side with nothing on it`)
           continue

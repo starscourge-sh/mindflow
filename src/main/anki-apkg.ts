@@ -12,7 +12,7 @@ import { assetsDir, lookAhead } from './pictures'
 import { cut } from './clip'
 
 /** What one .apkg brought in, for the import's notice. */
-export type ApkgCounts = { cards: number; decks: number; pictures: number; sounds: number; skipped: number; already: number }
+export type ApkgCounts = { cards: number; decks: number; pictures: number; sounds: number; skipped: number; already: number; paused: number }
 
 const PICTURE = /\.(png|jpe?g|gif|webp|svg|avif|bmp)$/i
 
@@ -122,7 +122,7 @@ export async function importApkg(path: string): Promise<ApkgCounts> {
   const collection = files['collection.anki21b'] ?? files['collection.anki21'] ?? files['collection.anki2']
   if (!collection) throw new Error('it holds no Anki collection')
   const folder = await mkdtemp(join(tmpdir(), 'haligtree-apkg-'))
-  const counts: ApkgCounts = { cards: 0, decks: 0, pictures: 0, sounds: 0, skipped: 0, already: 0 }
+  const counts: ApkgCounts = { cards: 0, decks: 0, pictures: 0, sounds: 0, skipped: 0, already: 0, paused: 0 }
   try {
     const file = join(folder, 'collection.sqlite')
     await writeFile(file, unpacked(collection))
@@ -156,11 +156,11 @@ export async function importApkg(path: string): Promise<ApkgCounts> {
       const { models, decks } = shapesOf(source)
       const db = database()
       const seen = db.prepare('select 1 from nuggets where source = ?')
-      const add = db.prepare("insert into nuggets (id, kind, title, body, prompt, source, state, due_at, created_at, updated_at) values (?, 'note', ?, ?, ?, ?, ?, ?, ?, ?)")
+      const add = db.prepare("insert into nuggets (id, kind, title, body, prompt, source, state, due_at, suspended, created_at, updated_at) values (?, 'note', ?, ?, ?, ?, ?, ?, ?, ?, ?)")
       const log = db.prepare('insert into review_log (item_id, grade, reviewed_at, ms, first) values (?, ?, ?, ?, ?)')
       const reviewsOf = source.prepare('select id, ease, time, type from revlog where cid = ? order by id')
-      const cards = source.prepare('select c.id, c.ord, c.did, n.id as nid, n.mid, n.flds, n.tags from cards c join notes n on n.id = c.nid order by c.id').all() as
-        { id: number; ord: number; did: number; nid: number; mid: number; flds: string; tags: string }[]
+      const cards = source.prepare('select c.id, c.ord, c.did, c.queue, n.id as nid, n.mid, n.flds, n.tags from cards c join notes n on n.id = c.nid order by c.id').all() as
+        { id: number; ord: number; did: number; queue: number; nid: number; mid: number; flds: string; tags: string }[]
       const usedDecks = new Set<number>()
       db.exec('begin')
       try {
@@ -203,7 +203,9 @@ export async function importApkg(path: string): Promise<ApkgCounts> {
           const made = new Date(Math.min(card.nid, Date.now())).toISOString()
           const body = [back, tags.map((tag) => `#${tag}`).join(' ')].filter(Boolean).join('\n\n')
           add.run(id, cut(front.replace(/!\[\]\([^)]*\)/g, '').split('\n').find((line) => line.trim()) ?? 'Card', 160), JSON.stringify(body), front, `anki:${card.id}`,
-            state ? JSON.stringify(state) : null, state ? state.due.toISOString() : null, made, new Date().toISOString())
+            state ? JSON.stringify(state) : null, state ? state.due.toISOString() : null, card.queue === -1 ? 1 : 0, made, new Date().toISOString())
+          // Suspended in Anki (queue -1): paused here, out of Review until brought back.
+          if (card.queue === -1) counts.paused += 1
           counts.cards += 1
         }
         db.exec('commit')

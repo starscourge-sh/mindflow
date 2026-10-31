@@ -17,7 +17,9 @@ import { clip } from '../../../../main/clip'
 
 /** A card's answer as one short line, for a choice or a typed check. */
 const answerLine = (body: unknown): string => {
-  const text = textOf(body).replace(new RegExp(`#${TAG}`, 'gu'), '').replace(/\s+/g, ' ').trim()
+  // A picture or sound kept in the book is not words to pick: an Anki card's "[bell.mp3](haligtree://assets/...)" read as "bell.mp3".
+  const own = typeof body === 'string' ? body.replace(/!?\[[^\]]*\]\(haligtree:\/\/assets\/[^)]*\)/g, '') : body
+  const text = textOf(own).replace(new RegExp(`#${TAG}`, 'gu'), '').replace(/\s+/g, ' ').trim()
   return clip(text, 140)
 }
 
@@ -53,8 +55,12 @@ export function LearnMode({ onDone }: { onDone: () => void }): React.JSX.Element
   // The choices: the right answer and up to three others, in an order fixed for this step.
   const choices = useMemo(() => {
     if (!step || step.kind !== 'choice' || !cards) return []
-    const others = cards.filter((one) => one.id !== step.card.id).map((one) => answerLine(one.body)).filter(Boolean)
-    const pool = [answerLine(step.card.body), ...others.sort(() => Math.random() - 0.5).slice(0, 3)]
+    // Each choice once, and never the right answer again: two cards with the same answer (an Anki
+    // cloze note's blanks, a reversed pair) gave two buttons of the same words under one key, and
+    // the round stuck on them.
+    const right = answerLine(step.card.body)
+    const others = [...new Set(cards.filter((one) => one.id !== step.card.id).map((one) => answerLine(one.body)))].filter((one) => one && one !== right)
+    const pool = [right, ...others.sort(() => Math.random() - 0.5).slice(0, 3)]
     return pool.sort(() => Math.random() - 0.5)
   }, [step, cards])
 
