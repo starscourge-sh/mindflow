@@ -85,7 +85,7 @@ try {
   await h.screenshot({ path: `${SHOTS}/toast-rest-light.png` })
   await h.hover(TOAST); await wait(250)
   check('pointed at, its words are underlined', await h.evaluate((sel) => getComputedStyle(document.querySelector(sel)).textDecorationLine.includes('underline'), TOAST), '')
-  await c.both(`${SHOTS}/toast-hover`)
+  await h.screenshot({ path: `${SHOTS}/toast-hover-light.png` })
   // Hovering holds it past the 3.2 seconds it would have.
   await wait(4500)
   check('hovering keeps the toast up', !!(await h.$(TOAST)), '')
@@ -98,6 +98,8 @@ try {
   await card('What is worth keeping, two?')
   await h.screenshot({ path: `${SHOTS}/toast-rest-dark.png` })
   await h.hover(TOAST)
+  await wait(250)
+  await h.screenshot({ path: `${SHOTS}/toast-hover-dark.png` })
   await c.look('light')
   await h.click(TOAST, { modifiers: ['Alt'] }); await wait(1500)
   check('⌥-click opens the card to the side', (await panes()) === before + 1 && (await shown('What is worth keeping, two?')) && !!(await h.$('.pdf-reader')), `${before} → ${await panes()}`)
