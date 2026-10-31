@@ -1624,7 +1624,8 @@ function Surface({
   useEffect(() => {
     if (!editor || handles) return
     const onContext = (event: MouseEvent): void => {
-      if (openClicked(event)) return
+      // Picked words keep their own one-line "Look up" menu below; a link, a PDF, a tag or a time get theirs.
+      if (clickedAt(editor, event)?.kind !== "words" && openClicked(event)) return
       const found = misspeltAt(editor, event.clientX, event.clientY)
       if (!found) {
         // Picked words (a card's answer in Review, any page without the block
