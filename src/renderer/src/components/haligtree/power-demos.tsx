@@ -79,7 +79,7 @@ const Caret = ({ on = true }: { on?: boolean }): React.JSX.Element => <span aria
 /** The box, small: its rounded card and its words. */
 function Box({ text, caret = true, className = '', children }: { text: string; caret?: boolean; className?: string; children?: ReactNode }): React.JSX.Element {
   return (
-    <div className={`w-full max-w-[17rem] rounded-xl border bg-popover px-3 py-2 text-control leading-snug text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.08),0_6px_16px_-6px_rgb(0_0_0/0.18)] ${className}`}>
+    <div className={`w-full max-w-[17rem] rounded-xl border bg-popover px-3 py-2 text-control leading-snug text-foreground shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_8%,transparent),0_6px_16px_-6px_color-mix(in_oklab,var(--mf-shadow-ink)_18%,transparent)] ${className}`}>
       {/* Keyed by the length, the caret starts its blink over with each letter: solid while typing, as a real one is. */}
       {text ? <Said text={text} /> : <span className="text-muted-foreground">Write anything…</span>}<Caret key={text.length} on={caret} />
       {children}
@@ -158,7 +158,7 @@ const LetterDemo: Demo = ({ live }) => {
           </motion.div>
         )}
         {at === 2 && (
-          <motion.div key="back" {...rise} className="absolute inset-x-0 top-5 rounded-xl border bg-popover px-3 py-2.5 shadow-[0_6px_16px_-6px_rgb(0_0_0/0.25)]">
+          <motion.div key="back" {...rise} className="absolute inset-x-0 top-5 rounded-xl border bg-popover px-3 py-2.5 shadow-[0_6px_16px_-6px_color-mix(in_oklab,var(--mf-shadow-ink)_25%,transparent)]">
             <div className="text-control font-medium" style={{ color: 'var(--tt-color-text-purple)' }}>You wrote this a year ago</div>
             <div className="mt-1 text-control text-foreground">Will I still want the farm?</div>
           </motion.div>
@@ -187,7 +187,7 @@ const TimerDemo: Demo = ({ live }) => {
       <div className="h-10">
         <AnimatePresence>
           {at === 1 && (
-            <motion.div {...rise} className="flex h-10 items-center gap-2.5 rounded-full border bg-popover pr-3.5 pl-2 shadow-[0_6px_16px_-6px_rgb(0_0_0/0.25)]">
+            <motion.div {...rise} className="flex h-10 items-center gap-2.5 rounded-full border bg-popover pr-3.5 pl-2 shadow-[0_6px_16px_-6px_color-mix(in_oklab,var(--mf-shadow-ink)_25%,transparent)]">
               <svg viewBox="0 0 24 24" className="size-6 -rotate-90">
                 <circle cx="12" cy="12" r="9" fill="none" stroke="color-mix(in oklab, var(--foreground) 12%, transparent)" strokeWidth="2.5" />
                 <circle cx="12" cy="12" r="9" fill="none" stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round" strokeDasharray={56.5} strokeDashoffset={56.5 * (1 - share)} style={{ transition: 'stroke-dashoffset 900ms linear' }} />
@@ -294,7 +294,7 @@ const ComingBackDemo: Demo = ({ live }) => {
       ))}
       <AnimatePresence>
         {at === 2 && (
-          <motion.div key="card" className="absolute inset-x-0 top-3 rounded-xl border bg-popover px-3 py-2.5 shadow-[0_6px_16px_-6px_rgb(0_0_0/0.25)]"
+          <motion.div key="card" className="absolute inset-x-0 top-3 rounded-xl border bg-popover px-3 py-2.5 shadow-[0_6px_16px_-6px_color-mix(in_oklab,var(--mf-shadow-ink)_25%,transparent)]"
             initial={{ opacity: 0, transform: 'scale(0.97)', filter: 'blur(3px)' }} animate={{ opacity: 1, transform: 'scale(1)', filter: 'blur(0px)' }} exit={{ opacity: 0, filter: 'blur(2px)' }} transition={{ duration: 0.45, ease: EASE }}>
             <div className="flex items-center gap-1.5 text-meta" style={{ color: 'var(--tt-color-text-orange)' }}><Repeat className="size-3" /> You keep coming back to this</div>
             <div className="mt-1 text-control text-foreground">Walk after lunch</div>
@@ -377,7 +377,7 @@ const BoardDemo: Demo = ({ live }) => {
             <div key={list.head} className={board ? 'flex flex-col gap-1 rounded-lg bg-foreground/[0.05] p-1.5' : 'flex flex-col'}>
               <div className={board ? 'text-meta font-medium text-muted-foreground' : 'font-heading text-control font-semibold text-foreground'}>{list.head}</div>
               {list.cards.map((card) => (
-                <div key={card} className={board ? 'rounded-md border bg-background px-1.5 py-1 text-meta leading-tight text-foreground shadow-[0_1px_1px_rgb(0_0_0/0.06)]' : 'pl-3 text-meta text-muted-foreground before:mr-1.5 before:content-["•"]'}>{card}</div>
+                <div key={card} className={board ? 'rounded-md border bg-background px-1.5 py-1 text-meta leading-tight text-foreground shadow-[0_1px_1px_color-mix(in_oklab,var(--mf-shadow-ink)_6%,transparent)]' : 'pl-3 text-meta text-muted-foreground before:mr-1.5 before:content-["•"]'}>{card}</div>
               ))}
             </div>
           ))}
@@ -407,7 +407,7 @@ const VersionsDemo: Demo = ({ live }) => {
           {[0, 1, 2].map((i) => <span key={i} className="absolute top-1/2 size-1 -translate-1/2 rounded-full bg-foreground/30" style={{ left: `${100 - i * 50}%` }} />)}
           {/* A layer the track's size carries the knob, so its move is a transform (a percent of the track). */}
           <motion.span className="pointer-events-none absolute inset-0" initial={false} animate={{ transform: `translateX(${100 - v * 50}%)` }} transition={{ duration: 0.5, ease: EASE }}>
-            <span className="absolute top-1/2 left-0 size-3.5 -translate-1/2 rounded-full border bg-background shadow-[0_1px_3px_rgb(0_0_0/0.3)]" />
+            <span className="absolute top-1/2 left-0 size-3.5 -translate-1/2 rounded-full border bg-background shadow-[0_1px_3px_color-mix(in_oklab,var(--mf-shadow-ink)_30%,transparent)]" />
           </motion.span>
         </div>
         <span className="w-16 text-right text-meta text-muted-foreground"><Rolling text={VERSIONS[v].when} by="word" /></span>
@@ -547,7 +547,7 @@ const ReviewDemo: Demo = ({ live }) => {
 
 const ClozeDemo: Demo = ({ live }) => {
   const at = useSteps([1800, 2200], live, 1)
-  const face = 'flex h-20 flex-col justify-center rounded-xl border bg-background px-3.5 text-control text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.06)]'
+  const face = 'flex h-20 flex-col justify-center rounded-xl border bg-background px-3.5 text-control text-foreground shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_6%,transparent)]'
   return (
     <Col>
       <Flip over={at === 1} onTurn={() => {}}
@@ -688,7 +688,7 @@ const CheckBackDemo: Demo = ({ live }) => {
       </div>
       <AnimatePresence>
         {at === 2 && (
-          <motion.div key="back" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={spring.slow} className="rounded-xl border bg-popover px-3 py-2.5 shadow-[0_6px_16px_-6px_rgb(0_0_0/0.25)]">
+          <motion.div key="back" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={spring.slow} className="rounded-xl border bg-popover px-3 py-2.5 shadow-[0_6px_16px_-6px_color-mix(in_oklab,var(--mf-shadow-ink)_25%,transparent)]">
             <div className="text-meta" style={{ color: 'var(--tt-color-text-red)' }}>Check back today</div>
             <div className="mt-0.5 text-control text-foreground">Did the walk after lunch shrink the 3pm slump?</div>
             <div className="mt-2 flex gap-1.5"><span className="rounded-md bg-primary px-2 py-0.5 text-meta text-primary-foreground">Answer</span><span className="rounded-md border px-2 py-0.5 text-meta text-muted-foreground">Ask again in a week</span></div>
@@ -730,7 +730,7 @@ const PractiseItDemo: Demo = ({ live }) => {
       </div>
       <AnimatePresence>
         {at === 1 && (
-          <motion.div key="offer" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={spring.slow} className="rounded-xl border bg-popover px-3 py-2 text-meta shadow-[0_6px_16px_-6px_rgb(0_0_0/0.25)]">
+          <motion.div key="offer" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={spring.slow} className="rounded-xl border bg-popover px-3 py-2 text-meta shadow-[0_6px_16px_-6px_color-mix(in_oklab,var(--mf-shadow-ink)_25%,transparent)]">
             <span className="text-foreground">7:30 Spanish, 5 minutes?</span>
             <span className="ml-2 text-muted-foreground">Opens #spanish, then asks “What stuck?”</span>
           </motion.div>
@@ -768,7 +768,7 @@ const MatrixDemo: Demo = ({ live }) => {
           <div key={box.label} className="flex flex-col gap-1 rounded-lg border bg-background px-2 py-1 text-meta" style={{ color: `var(--tt-color-text-${box.tint})` }}>
             {box.label}
             {here === i && (
-              <motion.div layoutId="matrix-task" layout="position" transition={spring.slow} className="flex h-6 items-center gap-1.5 self-start rounded-md border bg-popover px-2 whitespace-nowrap text-foreground shadow-[0_2px_6px_-2px_rgb(0_0_0/0.25)]">
+              <motion.div layoutId="matrix-task" layout="position" transition={spring.slow} className="flex h-6 items-center gap-1.5 self-start rounded-md border bg-popover px-2 whitespace-nowrap text-foreground shadow-[0_2px_6px_-2px_color-mix(in_oklab,var(--mf-shadow-ink)_25%,transparent)]">
                 <Dot on={false} /> Pay rent
               </motion.div>
             )}
@@ -806,7 +806,7 @@ const FocusDemo: Demo = ({ live }) => {
     <Col className="items-center">
       <Row className="w-full rounded-lg border bg-background"><Dot on={false} /><span className="flex-1 truncate">Draft the repair plan</span>
         <span className={`rounded-md px-1.5 text-meta transition-colors ${at === 0 ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}>Focus</span></Row>
-      <div className={`flex h-10 w-56 items-center gap-2.5 rounded-full border bg-popover px-3 shadow-[0_6px_16px_-6px_rgb(0_0_0/0.25)] transition-opacity duration-300 ${at === 1 ? 'opacity-100' : 'opacity-0'}`}>
+      <div className={`flex h-10 w-56 items-center gap-2.5 rounded-full border bg-popover px-3 shadow-[0_6px_16px_-6px_color-mix(in_oklab,var(--mf-shadow-ink)_25%,transparent)] transition-opacity duration-300 ${at === 1 ? 'opacity-100' : 'opacity-0'}`}>
         <span className="min-w-0 flex-1 truncate text-control text-foreground">Draft the repair plan</span>
         <span className="text-control font-medium tabular-nums text-foreground">{clock(25 * 60000 - gone)}</span>
       </div>
@@ -821,7 +821,7 @@ const LaterDemo: Demo = ({ live }) => {
   return (
     <div className="relative flex w-full max-w-[17rem] flex-col gap-1">
       {SHELVES.map((shelf) => <div key={shelf} className="flex h-8 items-center rounded-lg border bg-background px-2.5 text-meta text-muted-foreground">{shelf}</div>)}
-      <motion.div className="absolute top-1 right-2 flex h-6 items-center gap-1.5 rounded-md border bg-popover px-2 text-meta text-foreground shadow-[0_2px_6px_-2px_rgb(0_0_0/0.25)]" initial={false}
+      <motion.div className="absolute top-1 right-2 flex h-6 items-center gap-1.5 rounded-md border bg-popover px-2 text-meta text-foreground shadow-[0_2px_6px_-2px_color-mix(in_oklab,var(--mf-shadow-ink)_25%,transparent)]" initial={false}
         animate={{ transform: `translateY(${at * 2.25}rem)` }} transition={spring.slow}>
         <Dot on={false} /> Learn to sail
       </motion.div>
@@ -958,7 +958,7 @@ const STICKY = ['Buy stamps', 'Call the bank', 'Post the letter']
 const StickiesDemo: Demo = ({ live }) => {
   const at = useSteps([900, 900, 900, 1600], live, 2)
   return (
-    <div className="relative mt-2 w-44 rotate-[-2deg] rounded-lg border px-3 pt-3.5 pb-2.5 text-control text-foreground shadow-[0_1px_2px_rgb(0_0_0/0.14),0_4px_10px_-2px_rgb(0_0_0/0.16)]"
+    <div className="relative mt-2 w-44 rotate-[-2deg] rounded-lg border px-3 pt-3.5 pb-2.5 text-control text-foreground shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent),0_4px_10px_-2px_color-mix(in_oklab,var(--mf-shadow-ink)_16%,transparent)]"
       style={{ background: 'linear-gradient(color-mix(in oklab, var(--tt-color-text-yellow) 7%, transparent), color-mix(in oklab, var(--tt-color-text-yellow) 7%, transparent)), var(--popover)' }}>
       <Tape />
       <div className="mb-1.5 font-heading font-semibold">Today</div>
@@ -998,7 +998,7 @@ const WindowDemo: Demo = ({ live }) => {
       </div>
       <AnimatePresence>
         {at === 2 && (
-          <motion.div key="win" className="absolute top-8 right-0 w-40 rounded-lg border bg-popover p-2 shadow-[0_10px_24px_-8px_rgb(0_0_0/0.35)]" initial={{ opacity: 0, scale: 0.95, y: 6 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0 }} transition={spring.slow}>
+          <motion.div key="win" className="absolute top-8 right-0 w-40 rounded-lg border bg-popover p-2 shadow-[0_10px_24px_-8px_color-mix(in_oklab,var(--mf-shadow-ink)_35%,transparent)]" initial={{ opacity: 0, scale: 0.95, y: 6 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0 }} transition={spring.slow}>
             <div className="mb-1.5 flex gap-1">{['red', 'yellow', 'green'].map((c) => <span key={c} className="size-1.5 rounded-full" style={{ background: `var(--tt-color-text-${c})` }} />)}</div>
             <div className="text-meta font-medium text-foreground">Raised beds</div>
             <div className="mt-1.5 flex flex-col gap-1"><Line w="90%" /><Line w="70%" /></div>
@@ -1016,7 +1016,7 @@ const SafeDemo: Demo = ({ live }) => {
   const safe = at === 1
   return (
     <Col className="items-center">
-      <div className={`w-full rounded-xl border bg-popover px-3 py-2.5 shadow-[0_6px_16px_-6px_rgb(0_0_0/0.25)] transition-opacity duration-500 ${safe ? 'opacity-0' : 'opacity-100'}`}>
+      <div className={`w-full rounded-xl border bg-popover px-3 py-2.5 shadow-[0_6px_16px_-6px_color-mix(in_oklab,var(--mf-shadow-ink)_25%,transparent)] transition-opacity duration-500 ${safe ? 'opacity-0' : 'opacity-100'}`}>
         <div className="text-meta text-muted-foreground">Coming back to you</div>
         <div className="mt-0.5 text-control text-foreground">Salary talk notes</div>
       </div>
@@ -1182,7 +1182,7 @@ const ReminderDemo: Demo = ({ live }) => {
     <Col>
       <AnimatePresence initial={false}>
         {at === 1 && (
-          <motion.div key="note" {...rise} className="rounded-xl border bg-popover px-3 py-2 shadow-[0_1px_2px_rgb(0_0_0/0.08),0_6px_16px_-6px_rgb(0_0_0/0.18)]">
+          <motion.div key="note" {...rise} className="rounded-xl border bg-popover px-3 py-2 shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_8%,transparent),0_6px_16px_-6px_color-mix(in_oklab,var(--mf-shadow-ink)_18%,transparent)]">
             <div className="flex items-center gap-1.5 text-control font-semibold text-foreground"><Bell className="size-3.5" /> Time to review</div>
             <div className="text-meta text-muted-foreground">12 cards, about 6 minutes</div>
           </motion.div>
@@ -1348,7 +1348,7 @@ const Ring = ({ share, tint = 'var(--primary)' }: { share: number; tint?: string
 )
 /** The pill that floats over your screen during a session. */
 const Pill = ({ children, className = '' }: { children: ReactNode; className?: string }): React.JSX.Element => (
-  <div className={`flex h-9 w-full items-center gap-2 rounded-full border bg-popover pr-3.5 pl-2 text-control shadow-[0_6px_16px_-6px_rgb(0_0_0/0.25)] ${className}`}>{children}</div>
+  <div className={`flex h-9 w-full items-center gap-2 rounded-full border bg-popover pr-3.5 pl-2 text-control shadow-[0_6px_16px_-6px_color-mix(in_oklab,var(--mf-shadow-ink)_25%,transparent)] ${className}`}>{children}</div>
 )
 
 const POMO = '4x25 essay'
@@ -1464,7 +1464,7 @@ const FrogDemo: Demo = ({ live }) => {
       <AnimatePresence>
         {at === 1 && (
           <motion.div key="menu" initial={{ opacity: 0, scale: 0.96, y: -4 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.18, ease: EASE }}
-            className="absolute top-[3.9rem] left-14 z-10 w-52 rounded-lg border bg-popover p-1 text-meta shadow-[0_8px_20px_-8px_rgb(0_0_0/0.35)]">
+            className="absolute top-[3.9rem] left-14 z-10 w-52 rounded-lg border bg-popover p-1 text-meta shadow-[0_8px_20px_-8px_color-mix(in_oklab,var(--mf-shadow-ink)_35%,transparent)]">
             <div className="rounded px-2 py-1 text-muted-foreground">Open</div>
             <div className="rounded bg-accent px-2 py-1 text-foreground">Do this first today</div>
           </motion.div>
@@ -1563,7 +1563,7 @@ const PickupDemo: Demo = ({ live }) => {
     <Col>
       <AnimatePresence mode="popLayout" initial={false}>
         {at < 2 ? (
-          <motion.div key="ask" {...rise} className="rounded-2xl border bg-popover px-3 py-2.5 shadow-[0_6px_16px_-6px_rgb(0_0_0/0.25)]">
+          <motion.div key="ask" {...rise} className="rounded-2xl border bg-popover px-3 py-2.5 shadow-[0_6px_16px_-6px_color-mix(in_oklab,var(--mf-shadow-ink)_25%,transparent)]">
             <div className="flex items-center gap-2 text-control text-foreground"><Ring share={1} /><span className="flex-1 font-medium">Reread Hamlet</span><span className="font-semibold" style={{ color: 'var(--tt-brand-color-400)' }}>Up</span></div>
             <div className="mt-2 flex h-7 items-center rounded-full border bg-[color-mix(in_oklab,var(--foreground)_4%,transparent)] px-3 text-meta">
               {at === 0 ? <span className="text-muted-foreground">Where do you pick up next time?</span> : <span className="text-foreground">{text}<Caret key={text.length} /></span>}
@@ -1644,7 +1644,7 @@ const MacCalendarDemo: Demo = ({ live }) => {
     <Col>
       <AnimatePresence mode="popLayout" initial={false}>
         {at === 0 ? (
-          <motion.div key="ask" {...rise} className="rounded-xl border bg-popover px-3 py-2.5 text-meta shadow-[0_6px_16px_-6px_rgb(0_0_0/0.25)]">
+          <motion.div key="ask" {...rise} className="rounded-xl border bg-popover px-3 py-2.5 text-meta shadow-[0_6px_16px_-6px_color-mix(in_oklab,var(--mf-shadow-ink)_25%,transparent)]">
             <div className="font-semibold text-foreground">“{APP_NAME}” would like to access your calendars.</div>
             <div className="mt-2 flex justify-end gap-1.5"><span className="rounded-md border px-2 py-0.5 text-muted-foreground">Don’t Allow</span><span className="rounded-md bg-primary px-2 py-0.5 text-primary-foreground">Allow</span></div>
           </motion.div>

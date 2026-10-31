@@ -193,7 +193,7 @@ export function MChip({ tint = 'gray', children, className = '' }: { tint?: stri
 
 /** A raised card inside the picture: a Review card, a tile. */
 export function MCard({ children, className = '', style }: { children: ReactNode; className?: string; style?: CSSProperties }): React.JSX.Element {
-  return <div className={`rounded-md border border-foreground/10 bg-card px-2 py-1.5 shadow-[0_2px_6px_-3px_rgb(0_0_0/0.3)] ${className}`} style={style}>{children}</div>
+  return <div className={`rounded-md border border-foreground/10 bg-card px-2 py-1.5 shadow-[0_2px_6px_-3px_color-mix(in_oklab,var(--mf-shadow-ink)_30%,transparent)] ${className}`} style={style}>{children}</div>
 }
 
 /** A line of grey bars standing in for text nobody needs to read. */

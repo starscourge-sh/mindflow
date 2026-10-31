@@ -165,7 +165,7 @@ function RoundRead({ onRead, className = '' }: { onRead: () => void; className?:
       <button
         type="button"
         onClick={(event) => (event.stopPropagation(), onRead())}
-        className={`flex size-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_6px_14px_-6px_rgb(0_0_0/0.45)] transition-[opacity,translate,scale] duration-200 ease-(--mf-ease) motion-safe:hover:scale-[1.04] active:scale-[0.95] ${className}`}
+        className={`flex size-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_6px_14px_-6px_color-mix(in_oklab,var(--mf-shadow-ink)_45%,transparent)] transition-[opacity,translate,scale] duration-200 ease-(--mf-ease) motion-safe:hover:scale-[1.04] active:scale-[0.95] ${className}`}
       >
         <BookOpen className="size-3.5" />
       </button>
@@ -225,7 +225,7 @@ function Tile({ card, pinned, actions, onHover }: { card: Card; pinned: boolean;
           className="flex h-12 w-full min-w-0 items-center gap-3 overflow-hidden rounded-md bg-foreground/[0.05] pr-10 text-left outline-none transition-colors duration-150 hover:bg-foreground/[0.09] focus-visible:bg-foreground/[0.09] focus-visible:ring-2 focus-visible:ring-ring/50"
         >
           {src && !broken
-            ? <span className="aspect-square h-full shrink-0 overflow-hidden rounded-l-md shadow-[2px_0_10px_-4px_rgb(0_0_0/0.3)]"><Picture src={src} onBroken={() => setBroken(true)} /></span>
+            ? <span className="aspect-square h-full shrink-0 overflow-hidden rounded-l-md shadow-[2px_0_10px_-4px_color-mix(in_oklab,var(--mf-shadow-ink)_30%,transparent)]"><Picture src={src} onBroken={() => setBroken(true)} /></span>
             : <KindMark card={card} className="aspect-square h-full shrink-0 rounded-l-md" />}
           <span className="private-text line-clamp-2 min-w-0 flex-1 text-control leading-tight font-medium [overflow-wrap:anywhere] text-foreground">{nameOf(card)}</span>
           {pinned && <Pin className="absolute right-3 size-3.5 text-muted-foreground transition-opacity group-focus-within/tile:opacity-0 group-hover/tile:opacity-0" aria-label="Pinned" />}
@@ -266,7 +266,7 @@ function RowCard({ card, list, at, actions }: { card: Card; list: Card[]; at: nu
         >
           {picture ? (
             <>
-              <span className="relative aspect-square w-full overflow-hidden rounded-lg shadow-[0_8px_24px_-12px_rgb(0_0_0/0.35)]">
+              <span className="relative aspect-square w-full overflow-hidden rounded-lg shadow-[0_8px_24px_-12px_color-mix(in_oklab,var(--mf-shadow-ink)_35%,transparent)]">
                 {real ? <Picture src={src!} onBroken={() => setBroken(true)} /> : grain && (
                   <>
                     <GrainFill cover={grain} tint={tintOf(card)} shade={wordsOf(card.excerpt) ? 'foot' : 'none'} />
@@ -498,7 +498,7 @@ function Feature({ card, line, actions }: { card: Card; line: string; actions: A
           {picture && (
             <Tilt className="shrink-0 rounded-lg">
             <button type="button" tabIndex={-1} data-picked={actions.picked?.(card) || undefined} data-drag-open={`${card.type}:${card.id}`} onClick={(event) => actions.open(card, event)} aria-label={`Open ${nameOf(card)}`}
-              className="aspect-square w-20 shrink-0 overflow-hidden rounded-lg shadow-[0_10px_30px_-10px_rgb(0_0_0/0.5)] transition-transform duration-200 ease-(--mf-ease) motion-safe:hover:scale-[1.02] active:scale-[0.98] @[44rem]/page:w-28">
+              className="aspect-square w-20 shrink-0 overflow-hidden rounded-lg shadow-[0_10px_30px_-10px_color-mix(in_oklab,var(--mf-shadow-ink)_50%,transparent)] transition-transform duration-200 ease-(--mf-ease) motion-safe:hover:scale-[1.02] active:scale-[0.98] @[44rem]/page:w-28">
               {real ? <Picture src={src!} onBroken={() => setBroken(true)} /> : grain && (
                 <span className="relative flex size-full items-center justify-center">
                   <GrainFill cover={grain} tint={tint} shade={grain.paper ? 'all' : 'none'} />
@@ -515,7 +515,7 @@ function Feature({ card, line, actions }: { card: Card; line: string; actions: A
             <Signed who={card.who} where={card.where} year={card.year} className="private-text text-control text-muted-foreground" />
             <div className="mt-2 flex items-center gap-1.5">
               <button type="button" data-nav data-drag-open={`${card.type}:${card.id}`} onClick={(event) => actions.open(card, event)}
-                className="flex h-8 items-center gap-1.5 rounded-full bg-primary px-3.5 text-control font-semibold text-primary-foreground shadow-[0_6px_16px_-8px_rgb(0_0_0/0.5)] outline-none transition-transform duration-150 motion-safe:hover:scale-[1.03] focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.97]">
+                className="flex h-8 items-center gap-1.5 rounded-full bg-primary px-3.5 text-control font-semibold text-primary-foreground shadow-[0_6px_16px_-8px_color-mix(in_oklab,var(--mf-shadow-ink)_50%,transparent)] outline-none transition-transform duration-150 motion-safe:hover:scale-[1.03] focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.97]">
                 Open <ArrowRight className="size-3.5" />
               </button>
               {readable(card) && (

@@ -136,7 +136,7 @@ export function ThoughtBar({ id, clue = false, className }: {
       onClick={(event) => event.stopPropagation()}
       className={cn('mf-composer relative z-10 mx-auto w-full max-w-[40rem] text-control', className)}
     >
-      <div className="group/composer overflow-hidden rounded-2xl border bg-popover text-popover-foreground shadow-[0_1px_2px_rgb(0_0_0/0.06),0_8px_24px_-10px_rgb(0_0_0/0.25)] transition-[border-color] duration-150 focus-within:border-foreground/25">
+      <div className="group/composer overflow-hidden rounded-2xl border bg-popover text-popover-foreground shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_6%,transparent),0_8px_24px_-10px_color-mix(in_oklab,var(--mf-shadow-ink)_25%,transparent)] transition-[border-color] duration-150 focus-within:border-foreground/25">
         {open && past.length > 0 && (
           <ol ref={list} aria-label={clue ? 'Clues so far' : 'Thoughts so far'} className="max-h-[min(18rem,40vh)] overflow-y-auto border-b px-2 py-2">
             {glosses.length > 20 && <li><ShowMore total={glosses.length} shown={past.length} few={20} onMore={showEarlier} onFewer={few.onFewer} /></li>}

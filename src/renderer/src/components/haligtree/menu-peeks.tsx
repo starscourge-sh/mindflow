@@ -60,7 +60,7 @@ function Stickies(): React.JSX.Element {
       {/* The screen, with the right middle where they go. */}
       <div className="absolute inset-0 rounded border border-foreground/10" />
       {notes.map(([words, tint, left, top, tilt], n) => (
-        <div key={words} className="mf-sticky-tidy absolute w-[5.5rem] rounded-sm px-1.5 py-1 text-[9px] leading-tight shadow-[0_2px_4px_-2px_rgb(0_0_0/0.4)]"
+        <div key={words} className="mf-sticky-tidy absolute w-[5.5rem] rounded-sm px-1.5 py-1 text-[9px] leading-tight shadow-[0_2px_4px_-2px_color-mix(in_oklab,var(--mf-shadow-ink)_40%,transparent)]"
           style={{
             backgroundColor: `color-mix(in oklab, var(--tt-color-text-${tint}) 30%, var(--background))`,
             '--from-left': `${left}cqw`, '--from-top': `${top}px`, '--from-tilt': `${tilt}deg`,

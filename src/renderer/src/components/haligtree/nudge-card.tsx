@@ -104,7 +104,7 @@ function Card({ nudge, onDone }: { nudge: Nudge; onDone: () => void }): React.JS
   })
   if (nudge.kind === 'blocked') return <Blocked nudge={nudge} wait={wait} act={act} />
   if (nudge.kind === 'practice') return (
-    <div {...wait} data-nudge-practice className="relative overflow-hidden rounded-[18px] border bg-popover px-3.5 py-3 shadow-[0_1px_2px_rgb(0_0_0/0.14),0_6px_18px_-4px_rgb(0_0_0/0.18)]">
+    <div {...wait} data-nudge-practice className="relative overflow-hidden rounded-[18px] border bg-popover px-3.5 py-3 shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent),0_6px_18px_-4px_color-mix(in_oklab,var(--mf-shadow-ink)_18%,transparent)]">
       <PracticeOfferCard offer={nudge.offer} compact onDone={onDone} />
     </div>
   )
@@ -113,7 +113,7 @@ function Card({ nudge, onDone }: { nudge: Nudge; onDone: () => void }): React.JS
   const words = nudge.kind === 'sticky' ? `“${taskName(nudge.title).text}” is hidden. ⌃⌥⌘N shows your stickies again, this one too` : nudge.kind === 'task' ? taskName(nudge.title).text : nudge.kind === 'review' ? nudge.text : nudge.sleptAt ? sleptSaid({ ...nudge, kind: nudge.breakOf ? 'break' : null }).join(', ') : `At ${clock(nudge.endedAt)}, while you were away${nudge.timer ? '' : `: “${taskName(nudge.goal).text}”`}`
   const seen = (): void => act(() => (nudge.kind === 'sticky' ? Promise.resolve() : nudge.kind === 'task' ? haligtree.alertSeen(nudge.id) : nudge.kind === 'review' ? haligtree.reviewSeen() : Promise.resolve()), 'fold')
   return (
-    <div {...wait} className="relative overflow-hidden rounded-[18px] border bg-popover px-3.5 pt-3 pb-3 shadow-[0_1px_2px_rgb(0_0_0/0.14),0_6px_18px_-4px_rgb(0_0_0/0.18)]">
+    <div {...wait} className="relative overflow-hidden rounded-[18px] border bg-popover px-3.5 pt-3 pb-3 shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent),0_6px_18px_-4px_color-mix(in_oklab,var(--mf-shadow-ink)_18%,transparent)]">
       <div className="flex items-start gap-2.5">
         <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_oklab,var(--tt-brand-color-400)_16%,var(--popover))] text-[var(--tt-brand-color-400)]">
           <AliveIcon icon={icon} size={15} play />
@@ -174,7 +174,7 @@ function Blocked({ nudge, wait, act }: { nudge: Extract<Nudge, { kind: 'blocked'
   })
   const words = allowed ? `“${nudge.site}” is allowed until ${clock(allowed)}, then blocked again` : `“${nudge.site}” is blocked until ${nudge.until ? clock(nudge.until) : 'this session ends'}`
   return (
-    <div {...wait} className="relative overflow-hidden rounded-[18px] border bg-popover px-3.5 pt-3 pb-3 shadow-[0_1px_2px_rgb(0_0_0/0.14),0_6px_18px_-4px_rgb(0_0_0/0.18)]">
+    <div {...wait} className="relative overflow-hidden rounded-[18px] border bg-popover px-3.5 pt-3 pb-3 shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent),0_6px_18px_-4px_color-mix(in_oklab,var(--mf-shadow-ink)_18%,transparent)]">
       <div className="flex items-start gap-2.5">
         <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_oklab,var(--tt-brand-color-400)_16%,var(--popover))] text-[var(--tt-brand-color-400)]">
           <AliveIcon icon={LockIcon} size={15} />

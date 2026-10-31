@@ -141,7 +141,7 @@ export function Proofread({ editor, ask = false }: { editor: Editor | null; /** 
   const run = typeof state === 'string' ? null : state
   const one = run?.list[run.at]
   const cap = (label: string): React.JSX.Element => <Kbd>{label}</Kbd>
-  const card = 'pointer-events-auto flex max-w-[40rem] flex-col gap-1.5 rounded-xl bg-popover px-4 py-3 text-body text-popover-foreground shadow-[0_8px_24px_-8px_rgb(0_0_0/0.3)] ring-1 ring-foreground/10'
+  const card = 'pointer-events-auto flex max-w-[40rem] flex-col gap-1.5 rounded-xl bg-popover px-4 py-3 text-body text-popover-foreground shadow-[0_8px_24px_-8px_color-mix(in_oklab,var(--mf-shadow-ink)_30%,transparent)] ring-1 ring-foreground/10'
   return createPortal(
     one && spot ? (
       <div data-proofing="one" role="status" style={{ left: spot.left, top: spot.top }} className={`fixed z-[70] ${card}`}>

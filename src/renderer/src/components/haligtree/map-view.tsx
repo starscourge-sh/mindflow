@@ -297,7 +297,7 @@ function Replay({ nodes, show, onClose }: { nodes: NoteMap['nodes']; show: React
     setPlaying(true)
   }
   return (
-    <div data-map-replay-bar className="pointer-events-auto absolute top-3 left-1/2 flex w-[min(34rem,calc(100%-2rem))] -translate-x-1/2 items-center gap-3 rounded-lg border bg-background py-1.5 pr-1.5 pl-2 text-control shadow-[0_8px_24px_-12px_rgb(0_0_0/0.3)]">
+    <div data-map-replay-bar className="pointer-events-auto absolute top-3 left-1/2 flex w-[min(34rem,calc(100%-2rem))] -translate-x-1/2 items-center gap-3 rounded-lg border bg-background py-1.5 pr-1.5 pl-2 text-control shadow-[0_8px_24px_-12px_color-mix(in_oklab,var(--mf-shadow-ink)_30%,transparent)]">
       <Tip label={playing ? 'Pause' : 'Play'}>
         <Button data-map-replay-play variant="ghost" size="icon-sm" onClick={toggle} aria-label={playing ? 'Pause' : 'Play'}>
           {playing ? <Pause className="size-3.5" /> : <Play className="size-3.5" />}

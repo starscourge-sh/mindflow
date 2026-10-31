@@ -341,7 +341,7 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
             <div className={`${CARD} px-4 pt-3 pb-4`}>
               <div className="flex items-start gap-3.5">
                 {/* A print from the book, set in first as the page is written: a small framed picture, as a postcard's stamp is. */}
-                <motion.div data-print={words.id} className="mt-0.5 shrink-0 -rotate-2 rounded-[3px] bg-white p-[3px] shadow-[0_1px_3px_rgb(0_0_0/0.25)]"
+                <motion.div data-print={words.id} className="mt-0.5 shrink-0 -rotate-2 rounded-[3px] bg-white p-[3px] shadow-[0_1px_3px_color-mix(in_oklab,var(--mf-shadow-ink)_25%,transparent)]"
                   initial={false} animate={{ opacity: shot.body >= 1 ? 1 : 0, scale: shot.body >= 1 ? 1 : 0.92 }} transition={fade}>
                   <img src={print.src} alt={`An illustration from ${words.book}`} draggable={false} className="block h-[clamp(4.25rem,11vh,6rem)] w-[clamp(3.4rem,8.8vh,4.8rem)] rounded-[1px] object-cover" style={{ objectPosition: print.focus }} />
                 </motion.div>

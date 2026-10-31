@@ -336,7 +336,7 @@ function PaneFrame({ pane, apis, split, front, hidden, head, least, menu, onClos
           className={`@container/page relative flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl border transition-[opacity,border-color,box-shadow] duration-150 ${
           !split ? '' : front
             // In a dark theme (every theme carries .dark; light ones add data-light) a shadow barely reads, so the key pane's surface is raised a step, as macOS lifts its key window.
-            ? 'border-foreground/12 bg-background shadow-[0_1px_2px_rgb(0_0_0/0.05),0_6px_18px_-6px_rgb(0_0_0/0.12)] [:root:not([data-light])_&]:[--background:color-mix(in_srgb,var(--mf-under)_94%,white)]'
+            ? 'border-foreground/12 bg-background shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_5%,transparent),0_6px_18px_-6px_color-mix(in_oklab,var(--mf-shadow-ink)_12%,transparent)] [:root:not([data-light])_&]:[--background:color-mix(in_srgb,var(--mf-under)_94%,white)]'
             : 'border-foreground/6 opacity-[0.94] [:root:not([data-light])_&]:opacity-[0.85] [&_header]:text-muted-foreground'}`}>
           <PaneContext.Provider value={pane.key}>
             <PaneWidthContext.Provider value={split ? width : null}>{pane.node}</PaneWidthContext.Provider>

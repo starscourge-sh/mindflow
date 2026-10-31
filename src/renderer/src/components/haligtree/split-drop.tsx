@@ -376,7 +376,7 @@ export function SplitDrop({ onDrop }: { onDrop: (carried: Carried, side: Side) =
           ))}
           {!bare && <motion.div
             data-split-card=""
-            className="absolute top-0 left-0 flex max-w-56 items-center gap-2 rounded-lg bg-foreground px-2.5 py-1.5 text-control text-background shadow-[0_10px_28px_-8px_rgb(0_0_0/0.45)]"
+            className="absolute top-0 left-0 flex max-w-56 items-center gap-2 rounded-lg bg-foreground px-2.5 py-1.5 text-control text-background shadow-[0_10px_28px_-8px_color-mix(in_oklab,var(--mf-shadow-ink)_45%,transparent)]"
             style={{ x: card.x, y: card.y, scale: cardScale, translateX: '-50%', translateY: '-50%' }}
           >
             {kind ? <kind.icon className="size-3.5 shrink-0" style={{ color: kind.tint }} /> : <Columns2 className="size-3.5 shrink-0 opacity-70" />}
@@ -400,7 +400,7 @@ function ZoneBox({ zone, hot, lean, grow }: { zone: Zone; hot: boolean; lean: Mo
       data-hot={hot ? '' : undefined}
       aria-label={label}
       // Dia's card: dark and solid on the page, a dashed edge just inside it; the edge takes the accent while it is the place.
-      className="absolute flex flex-col items-center justify-center gap-2.5 rounded-[22px] bg-[color-mix(in_oklab,var(--foreground)_88%,var(--background))] text-background shadow-[0_24px_60px_-24px_rgb(0_0_0/0.5)]"
+      className="absolute flex flex-col items-center justify-center gap-2.5 rounded-[22px] bg-[color-mix(in_oklab,var(--foreground)_88%,var(--background))] text-background shadow-[0_24px_60px_-24px_color-mix(in_oklab,var(--mf-shadow-ink)_50%,transparent)]"
       style={{ left: zone.left, top: zone.top, width: zone.width, height: zone.height, x: lean, scale: grow, transformOrigin: zone.side === 'left' ? 'left center' : 'right center' }}
       initial={{ opacity: 0, scale: 0.96 }}
       animate={{ opacity: 1, scale: 1 }}

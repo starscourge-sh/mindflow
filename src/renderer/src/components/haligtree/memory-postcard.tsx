@@ -58,7 +58,7 @@ export function MemoryPostcard({ at, seed, className = '', hold = true, children
       <div className="rounded-lg bg-background px-3 pt-3 pb-2.5">
         <div aria-hidden className="relative float-right -mt-1 -mr-0.5 mb-1 ml-3 h-14 w-[10.5rem]">
           {/* The stamp: gone, with its border, when there is no scene to put in it. */}
-          <div className="absolute top-0 right-0 h-[3.25rem] w-11 rotate-[4deg] rounded-[3px] bg-white p-[3px] shadow-[0_1px_3px_rgb(0_0_0/0.25)] [&:not(:has(*))]:hidden">
+          <div className="absolute top-0 right-0 h-[3.25rem] w-11 rotate-[4deg] rounded-[3px] bg-white p-[3px] shadow-[0_1px_3px_color-mix(in_oklab,var(--mf-shadow-ink)_25%,transparent)] [&:not(:has(*))]:hidden">
             <Stamp seed={seed}>
               <Scenery place="recap" seed={`memory:${seed}`} mood={['day', 'dusk', 'night', 'interior']} wide={false} soft className="relative size-full" rounded="rounded-[1px]" />
             </Stamp>

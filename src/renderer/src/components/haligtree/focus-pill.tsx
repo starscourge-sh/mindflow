@@ -228,7 +228,7 @@ function InAnotherBook({ focus, now, notch }: { focus: Elsewhere; now: number; n
 
 /** The bubble's one surface, whatever the stage: solid in every theme, so nothing behind shows through. */
 export const SOLID = 'linear-gradient(var(--popover), var(--popover)), linear-gradient(var(--background), var(--background))'
-export const SHADOW = 'shadow-[0_1px_2px_rgb(0_0_0/0.14),0_3px_8px_-2px_rgb(0_0_0/0.12)]'
+export const SHADOW = 'shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent),0_3px_8px_-2px_color-mix(in_oklab,var(--mf-shadow-ink)_12%,transparent)]'
 /** The time-up wash laid over the solid. */
 const TIMEUP_WASH = 'linear-gradient(color-mix(in oklab, var(--tt-brand-color-400) 14%, transparent), color-mix(in oklab, var(--tt-brand-color-400) 14%, transparent))'
 /** What the island last was, so the stage after it starts from the same shape and colour. */

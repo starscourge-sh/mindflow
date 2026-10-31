@@ -128,7 +128,7 @@ export function Cover({ src, colour, seed, children, caption = '' }: { src?: str
   const [broken, setBroken] = useState(false)
   const grain = useNoteCover(seed)
   useEffect(() => setBroken(false), [src])
-  const box = 'relative aspect-square w-24 shrink-0 overflow-hidden rounded-lg shadow-[0_10px_30px_-8px_rgb(0_0_0/0.45),0_2px_8px_rgb(0_0_0/0.18)] [container-type:inline-size] @[30rem]/band:w-32 @[44rem]/band:w-44 @[60rem]/band:w-52'
+  const box = 'relative aspect-square w-24 shrink-0 overflow-hidden rounded-lg shadow-[0_10px_30px_-8px_color-mix(in_oklab,var(--mf-shadow-ink)_45%,transparent),0_2px_8px_color-mix(in_oklab,var(--mf-shadow-ink)_18%,transparent)] [container-type:inline-size] @[30rem]/band:w-32 @[44rem]/band:w-44 @[60rem]/band:w-52'
   if (src && !broken) {
     const picture = <img src={src} alt="" draggable={false} onError={() => setBroken(true)} className="size-full object-cover" />
     return (
@@ -207,7 +207,7 @@ export function PlayButton({ label, onClick, icon: Icon = Read }: { label: strin
       <button
         type="button"
         onClick={onClick}
-        className="mr-1.5 flex h-9 shrink-0 items-center gap-2 rounded-full bg-primary px-4 text-control font-semibold text-primary-foreground shadow-[0_6px_16px_-8px_rgb(0_0_0/0.5)] transition-transform duration-150 ease-(--mf-ease) outline-none motion-safe:hover:scale-[1.03] focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.97]"
+        className="mr-1.5 flex h-9 shrink-0 items-center gap-2 rounded-full bg-primary px-4 text-control font-semibold text-primary-foreground shadow-[0_6px_16px_-8px_color-mix(in_oklab,var(--mf-shadow-ink)_50%,transparent)] transition-transform duration-150 ease-(--mf-ease) outline-none motion-safe:hover:scale-[1.03] focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.97]"
       >
         <Icon className="size-4" />
         {label.split('  ')[0]}

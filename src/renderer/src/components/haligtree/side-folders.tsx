@@ -167,7 +167,7 @@ export function SideFolders({ list, counted, open, shown, here, onOpen, onUnfold
       <div data-side-folders={list}>{top}</div>
       {/* The folder carried, as a row is carried in the list: lifted under the pointer, in the app's own look. */}
       {lifted && carried.x > 0 && createPortal(
-        <div aria-hidden data-folder-ghost={lifted.id} className="pointer-events-none fixed z-[80] flex items-center gap-2 rounded-md bg-background px-2.5 py-1 text-control shadow-[0_8px_24px_-6px_rgb(0_0_0/0.35)] ring-1 ring-foreground/10" style={{ left: carried.x + 10, top: carried.y - 14 }}>
+        <div aria-hidden data-folder-ghost={lifted.id} className="pointer-events-none fixed z-[80] flex items-center gap-2 rounded-md bg-background px-2.5 py-1 text-control shadow-[0_8px_24px_-6px_color-mix(in_oklab,var(--mf-shadow-ink)_35%,transparent)] ring-1 ring-foreground/10" style={{ left: carried.x + 10, top: carried.y - 14 }}>
           <GroupIcon icon={lifted.icon} color={lifted.color} className="size-3.5" />
           <span className="max-w-48 truncate">{lifted.name}</span>
         </div>,

@@ -394,7 +394,7 @@ export function Book({ size, seed, done = false, className = 'mb-3' }: { size: n
       animate={peek ? 'open' : 'shut'} whileHover={calm || done ? undefined : 'open'}>
       <div className="relative size-14 origin-top-left" style={{ scale: String(size / 56), perspective: 180 }}>
         {/* The page block, its edges showing at the foot and the open side. */}
-        <div className={`${page} shadow-[0_1px_2px_rgb(0_0_0/0.2)]`} style={{ background: paper }}>
+        <div className={`${page} shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_20%,transparent)]`} style={{ background: paper }}>
           {lines}
           <div className="absolute inset-y-[3px] right-[1px] w-[2px] border-r border-black/10" />
         </div>
@@ -409,7 +409,7 @@ export function Book({ size, seed, done = false, className = 'mb-3' }: { size: n
         {/* The ribbon, hanging from the foot near the spine. */}
         <div className="absolute top-[44px] left-[30px] h-[9px] w-[4px] rounded-b-[1px]" style={{ background: 'var(--tt-color-text-red)', clipPath: 'polygon(0 0, 100% 0, 100% 100%, 50% 75%, 0 100%)' }} />
         {/* The cover, hinged at the spine. */}
-        <motion.div className="absolute top-[6px] left-[10px] h-[44px] w-[37px] rounded-r-[4px] rounded-l-[2px] shadow-[inset_0_1px_0_rgb(255_255_255/0.25),0_2px_4px_rgb(0_0_0/0.18)]"
+        <motion.div className="absolute top-[6px] left-[10px] h-[44px] w-[37px] rounded-r-[4px] rounded-l-[2px] shadow-[inset_0_1px_0_rgb(255_255_255/0.25),0_2px_4px_color-mix(in_oklab,var(--mf-shadow-ink)_18%,transparent)]"
           style={{ background: cover, originX: 0 }}
           variants={{ shut: { rotateY: 0 }, open: { rotateY: -62 } }}
           initial={flipping ? { rotateY: -70 } : false} animate={flipping ? { rotateY: 0 } : undefined}
@@ -420,7 +420,7 @@ export function Book({ size, seed, done = false, className = 'mb-3' }: { size: n
         <div className="absolute top-[6px] left-[8px] h-[44px] w-[4px] rounded-l-[2px]" style={{ background: spine }} />
         {/* Done: a tick on the cover once it is shut. */}
         {done && (
-          <motion.div className="absolute right-[2px] bottom-[2px] flex size-[20px] items-center justify-center rounded-full shadow-[0_1px_3px_rgb(0_0_0/0.25)]"
+          <motion.div className="absolute right-[2px] bottom-[2px] flex size-[20px] items-center justify-center rounded-full shadow-[0_1px_3px_color-mix(in_oklab,var(--mf-shadow-ink)_25%,transparent)]"
             style={{ background: 'var(--tt-color-text-green)' }}
             initial={calm ? false : { transform: shift('scale(0.92)'), opacity: 0 }} animate={{ transform: 'scale(1)', opacity: 1 }} transition={{ ...spring, delay: calm ? 0 : 0.95 }}>
             <Check className="size-[13px] text-background" strokeWidth={3} />

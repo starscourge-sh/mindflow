@@ -759,7 +759,7 @@ function Ghost({ carried, bundles, many, aim, grab, dragY, dragX }: { carried: s
           {behind.map((one, at) => <Fanned key={one.id} entry={one} depth={at + 1} dragY={dragY} />).reverse()}
           <motion.div
             data-ghost=""
-            className={cn('relative flex items-center gap-2 rounded-md px-2.5 py-1.5 text-control shadow-[0_8px_24px_-6px_rgb(0_0_0/0.35)] ring-1 ring-foreground/10', behind.length ? 'bg-[color-mix(in_srgb,var(--background)_90%,white)] dark:bg-[color-mix(in_srgb,var(--background)_92%,white)]' : 'bg-background')}
+            className={cn('relative flex items-center gap-2 rounded-md px-2.5 py-1.5 text-control shadow-[0_8px_24px_-6px_color-mix(in_oklab,var(--mf-shadow-ink)_35%,transparent)] ring-1 ring-foreground/10', behind.length ? 'bg-[color-mix(in_srgb,var(--background)_90%,white)] dark:bg-[color-mix(in_srgb,var(--background)_92%,white)]' : 'bg-background')}
             initial={{ opacity: 0, scale: 0.94 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={still() ? { duration: 0 } : springs.moderate}
@@ -809,7 +809,7 @@ function Fanned({ entry, depth, dragY }: { entry: Entry; depth: number; dragY: M
       <motion.div
         aria-hidden
         data-fanned={depth}
-        className="absolute inset-0 flex items-center gap-2 overflow-hidden rounded-md bg-background px-2.5 py-1.5 text-control shadow-[0_6px_16px_-6px_rgb(0_0_0/0.3)] ring-1 ring-foreground/10"
+        className="absolute inset-0 flex items-center gap-2 overflow-hidden rounded-md bg-background px-2.5 py-1.5 text-control shadow-[0_6px_16px_-6px_color-mix(in_oklab,var(--mf-shadow-ink)_30%,transparent)] ring-1 ring-foreground/10"
         initial={calm ? false : { x: 0, y: 0, opacity: 0 }}
         // Each about a title's height up and a little to the left, so every title reads above the one before it.
         animate={{ x: -16 * depth, y: -28 * depth, opacity: 1 }}

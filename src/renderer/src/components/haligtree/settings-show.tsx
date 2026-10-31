@@ -482,7 +482,7 @@ export const linkChoices = [
       {/* A tall picture in a wide box: cropped to fill it, or whole with its own colours blurred either side. */}
       <span className="relative flex w-[52%] shrink-0 justify-center overflow-hidden bg-muted">
         {one.id === 'whole' && <img src={OTHER_PICTURE} alt="" draggable={false} className="absolute inset-0 size-full scale-125 object-cover opacity-70 blur-[6px]" />}
-        <img src={OTHER_PICTURE} alt="" draggable={false} className={`relative h-full object-cover ${one.id === 'fill' ? 'w-full object-[50%_30%]' : 'aspect-[3/4] w-auto shadow-[0_0_6px_rgb(0_0_0/0.25)]'}`} />
+        <img src={OTHER_PICTURE} alt="" draggable={false} className={`relative h-full object-cover ${one.id === 'fill' ? 'w-full object-[50%_30%]' : 'aspect-[3/4] w-auto shadow-[0_0_6px_color-mix(in_oklab,var(--mf-shadow-ink)_25%,transparent)]'}`} />
       </span>
       <span className="flex flex-1 flex-col justify-center gap-1 px-2">
         <span className="block h-[3px] w-[80%] rounded-full bg-foreground/60" />
@@ -669,7 +669,7 @@ const NOTE_LINES = (ink: string): React.JSX.Element => (
 /** A sticky on the desktop in each material: paper, frost (the picture blurred and whitened, leaning) or glass (blurred and dimmed, straight). */
 const Sticky = ({ made }: { made: 'paper' | 'frost' | 'glass' }): React.JSX.Element => (
   <span className="absolute inset-0" style={{ background: WALL }}>
-    <span className="absolute top-2.5 left-1/2 block h-11 w-14 -translate-x-1/2 overflow-hidden rounded-[5px] shadow-[0_4px_10px_-3px_rgb(0_0_0/0.4)]" style={{ transform: `translateX(-50%) rotate(${made === 'glass' ? 0 : -3}deg)`, background: made === 'paper' ? '#f6e7a6' : undefined }}>
+    <span className="absolute top-2.5 left-1/2 block h-11 w-14 -translate-x-1/2 overflow-hidden rounded-[5px] shadow-[0_4px_10px_-3px_color-mix(in_oklab,var(--mf-shadow-ink)_40%,transparent)]" style={{ transform: `translateX(-50%) rotate(${made === 'glass' ? 0 : -3}deg)`, background: made === 'paper' ? '#f6e7a6' : undefined }}>
       {made !== 'paper' && <span className="absolute -inset-4 blur-[7px]" style={{ background: WALL }} />}
       {made === 'frost' && <span className="absolute inset-0 bg-white/55" />}
       {made === 'glass' && <span className="absolute inset-0 bg-[rgb(20_20_28/0.38)] ring-1 ring-white/25 ring-inset" />}
@@ -696,7 +696,7 @@ export function StirSample({ on }: { on: boolean }): React.JSX.Element {
   }, [on, moving])
   return (
     <span data-preview="stir" onPointerEnter={() => on && moving && stir()} className="relative block h-9 w-16 overflow-hidden rounded-md border" style={{ background: WALL }}>
-      <span ref={note} className="absolute top-1.5 left-4 block h-6 w-8 rounded-[3px] bg-[#f6e7a6] shadow-[0_3px_6px_-2px_rgb(0_0_0/0.4)]" style={{ transform: 'rotate(-2deg)' }}>
+      <span ref={note} className="absolute top-1.5 left-4 block h-6 w-8 rounded-[3px] bg-[#f6e7a6] shadow-[0_3px_6px_-2px_color-mix(in_oklab,var(--mf-shadow-ink)_40%,transparent)]" style={{ transform: 'rotate(-2deg)' }}>
         <span className="block scale-75">{NOTE_LINES('rgb(40 34 25 / 0.55)')}</span>
       </span>
     </span>
@@ -714,7 +714,7 @@ export function TuckSample({ on }: { on: boolean }): React.JSX.Element {
     <span data-preview="tuck" onPointerEnter={() => (setOpen(true), on && chime('slide'))} onPointerLeave={() => setOpen(false)}
       className="relative block h-9 w-20 overflow-hidden rounded-md border" style={{ background: WALL }}>
       <span data-preview-card={out ? 'card' : 'tab'}
-        className="absolute top-1 right-1.5 flex h-7 w-11 items-start gap-1 rounded-[4px] bg-popover p-1 shadow-[0_3px_6px_-2px_rgb(0_0_0/0.4)] transition-transform duration-300 ease-(--mf-ease) motion-reduce:transition-none"
+        className="absolute top-1 right-1.5 flex h-7 w-11 items-start gap-1 rounded-[4px] bg-popover p-1 shadow-[0_3px_6px_-2px_color-mix(in_oklab,var(--mf-shadow-ink)_40%,transparent)] transition-transform duration-300 ease-(--mf-ease) motion-reduce:transition-none"
         style={{ transform: out ? 'translateX(0)' : 'translateX(calc(100% - 4px))' }}>
         <svg viewBox="0 0 10 10" className="size-2.5 shrink-0 -rotate-90" aria-hidden>
           <circle cx="5" cy="5" r="3.6" fill="none" stroke="currentColor" strokeOpacity={0.2} strokeWidth={1.6} />
