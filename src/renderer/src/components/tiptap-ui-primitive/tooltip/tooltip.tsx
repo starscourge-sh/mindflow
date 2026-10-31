@@ -3,8 +3,10 @@ import {
   createContext,
   forwardRef,
   isValidElement,
+  useCallback,
   useContext,
   useMemo,
+  useRef,
   useState,
   version,
 } from "react"
@@ -28,6 +30,7 @@ import {
 } from "@floating-ui/react"
 import "@/components/tiptap-ui-primitive/tooltip/tooltip.scss"
 import { roomFrom } from "@/lib/traffic-lights"
+import { inFloating } from "@/components/ui/tooltip"
 
 interface TooltipProviderProps {
   children: React.ReactNode
@@ -80,7 +83,10 @@ function useTooltip({
   const [uncontrolledOpen, setUncontrolledOpen] = useState<boolean>(initialOpen)
 
   const open = controlledOpen ?? uncontrolledOpen
-  const setOpen = setControlledOpen ?? setUncontrolledOpen
+  const setAny = setControlledOpen ?? setUncontrolledOpen
+  // One hover shows one thing: a button inside a menu, a popover or a card opens no tip over it.
+  const control = useRef<Element | null>(null)
+  const setOpen = useCallback((next: boolean) => void (!(next && inFloating(control.current)) && setAny(next)), [setAny])
 
   const data = useFloating({
     placement,
@@ -101,6 +107,7 @@ function useTooltip({
   })
 
   const context = data.context
+  control.current = data.refs.domReference.current as Element | null
 
   const hover = useHover(context, {
     mouseOnly: true,

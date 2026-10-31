@@ -25,6 +25,15 @@ const OPENED = '[data-state="open"]:is([role="menu"],[role="dialog"],[role="aler
 const covered = (trigger: Element | null): boolean => [...document.querySelectorAll(OPENED)].some((one) => !trigger || !one.contains(trigger))
 /** What shows a card on hover (note-preview.tsx, pdf-peek.tsx): no tip over it as well. */
 export const CARDED = '[data-note-hover][data-note], a.tiptap-note-link[data-note], [data-pdf-peek]'
+/**
+ * A floating surface: a menu, a list, a popover, a hover card, a row's
+ * preview. One hover shows one thing: inside one, no tip opens. A menu row's
+ * extra words go in the row or in its preview card (taste.md, "Hovers have
+ * two looks only").
+ */
+export const FLOATING = '[role="menu"], [role="listbox"], .tiptap-slash-menu, [data-slot="popover-content"], [data-radix-popper-content-wrapper], [data-note-preview], [data-menu-peek], [data-slash-peek]'
+/** Whether a tip on this control would open over a floating surface it sits in. */
+export const inFloating = (control: Element | null | undefined): boolean => !!control?.closest?.(FLOATING)
 let watching = false
 const watchOpened = (): void => {
   if (watching) return
@@ -53,8 +62,9 @@ function Tooltip({
   // A tip is read, never hovered: it shuts the moment the pointer leaves its
   // control, rather than staying while the pointer heads its way.
   disableHoverableContent = true,
+  card = false,
   ...props
-}: React.ComponentProps<typeof TooltipPrimitive.Root>) {
+}: React.ComponentProps<typeof TooltipPrimitive.Root> & { /** A preview card (peek.tsx), not a label: the one thing a hover inside a list may show. */ card?: boolean }) {
   const trigger = React.useRef<HTMLElement | null>(null)
   const [own, setOwn] = React.useState(defaultOpen)
   const open = given ?? own
@@ -62,6 +72,8 @@ function Tooltip({
     if (next && covered(trigger.current)) return
     // One hover shows one thing: where a card shows (a note's, a person's, a PDF's), the card says it and no tip opens too.
     if (next && trigger.current?.closest(CARDED)) return
+    // Nor inside a menu, a popover or a card: that surface is the one thing showing.
+    if (next && !card && inFloating(trigger.current)) return
     setOwn(next)
     onOpenChange?.(next)
   }

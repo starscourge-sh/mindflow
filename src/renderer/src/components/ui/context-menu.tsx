@@ -11,6 +11,9 @@ import { onlyRealMoves } from "@/lib/real-move"
 import { withMenuIcon } from "./menu-icon"
 import { ChevronRight as ChevronRightIcon } from '@/components/ui/icons'
 
+/** A menu row never shows a tip (one hover, one surface): its extra words go in the row or in its preview card. */
+type NoTip<P> = Omit<P, 'title'> & { title?: never }
+
 /** Clear of the window's edges, and of the title bar at the top, where the window's own buttons sit. */
 const MENU_ROOM = { top: 52, right: 12, bottom: 12, left: 12 }
 
@@ -147,7 +150,7 @@ function ContextMenuItem({
   onSelect,
   children,
   ...props
-}: React.ComponentProps<typeof ContextMenuPrimitive.Item> & {
+}: NoTip<React.ComponentProps<typeof ContextMenuPrimitive.Item>> & {
   inset?: boolean
   variant?: "default" | "destructive"
 }) {
@@ -174,7 +177,7 @@ function ContextMenuSubTrigger({
   inset,
   children,
   ...props
-}: React.ComponentProps<typeof ContextMenuPrimitive.SubTrigger> & {
+}: NoTip<React.ComponentProps<typeof ContextMenuPrimitive.SubTrigger>> & {
   inset?: boolean
 }) {
   return (

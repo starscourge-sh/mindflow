@@ -14,7 +14,7 @@ import { host, said } from "@/lib/host"
 import { canSplit, keysHere, usePane } from "@/lib/split"
 import { chime } from "@/lib/sound"
 import { cue } from "@/lib/cues"
-import { MarkMenu, PickedMenu, WhyAfter, cited, lastColor, readKey, rememberColor, type MarkColor, type ReadActions } from "./read-bar"
+import { MarkMenu, PickedMenu, WhyAfter, blankOf, cited, lastColor, readKey, rememberColor, type MarkColor, type Picked, type ReadActions } from "./read-bar"
 import { NARROW, PdfSide, chapterAt, railWidth, usePdfOutline, type RailTab } from "./pdf-rail"
 import { ReadDetails } from "./pdf-details"
 import { LookUpCard, type LookedUpIn } from "./look-up"
@@ -464,6 +464,8 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     const box = scroller.current
     setCarding({ page: next.page, quote: next.quote, markId: next.id, x: Math.max(8, (box?.clientWidth ?? 600) / 2 - 160), y: (box?.scrollTop ?? 0) + 72 })
   }
+  /** The picked words as the right-click menu's previews and the blank card read them. */
+  const pickedAbout = (at: { page: number; start: number; end: number; quote: string }): Picked => ({ words: at.quote, sentence: sentenceOf(at), where: `${title}, p. ${at.page}`, by: author })
   const actions: ReadActions = {
     highlight: (color) => (rememberColor(color), void mark(color, false)),
     keep: () => void mark(lastColor(), true),
@@ -482,10 +484,9 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     },
     blank: (gem) => {
       if (!picked) return
-      const sentence = sentenceOf(picked)
-      // The words blanked in their sentence; a sentence the words are not in (picked across two) asks them plainly.
-      const asked = sentence.includes(picked.quote) && sentence !== picked.quote ? sentence.replace(picked.quote, "_____") : `_____ (${title}, p. ${picked.page})`
-      void cardOf(asked, sentence.includes(picked.quote) ? sentence : picked.quote, picked.page, false, gem)
+      // The words blanked in their sentence, as the menu's preview showed them.
+      const { asked, answer } = blankOf(pickedAbout(picked))
+      void cardOf(asked, answer, picked.page, false, gem)
       getSelection()?.removeAllRanges()
       setPicked(null)
     },
@@ -933,12 +934,13 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
               onOpenGem={() => window.dispatchEvent(new CustomEvent("haligtree:open", { detail: { type: "nugget", id: hit.gemId } }))}
               onCopy={() => void copyCited(hit.quote, hit.page)}
               onRemove={() => void remove(hit)}
+              about={picked ? undefined : () => ({ words: hit.quote, sentence: hit.quote, where: `${title}, p. ${hit.page}`, by: author })}
               {...reshape(hit)}
             />
           ) : null}
           {/* Words picked over a highlight: its own rows first, then what can be done with the words picked. */}
           {hit && picked && <ContextMenuSeparator />}
-          {picked && <PickedMenu actions={actions} />}
+          {picked && <PickedMenu actions={actions} about={() => pickedAbout(picked)} />}
         </ContextMenuContent>
       </ContextMenu>
       {detailsOut && <ReadDetails src={src} name={name} onPage={go} chapters={outline} cover={cover?.image} title={title} author={author} pages={doc?.numPages} page={page} marks={marks} lit={lit} onMark={goToMark} onGather={() => void gather()} />}

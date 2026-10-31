@@ -11,6 +11,9 @@ import { onlyRealMoves } from "@/lib/real-move"
 import { withMenuIcon } from "./menu-icon"
 import { Check as CheckIcon, ChevronRight as ChevronRightIcon } from '@/components/ui/icons'
 
+/** A menu row never shows a tip (one hover, one surface): its extra words go in the row or in its preview card. */
+type NoTip<P> = Omit<P, 'title'> & { title?: never }
+
 /** Clear of the window's edges, and of the title bar at the top, where the window's own buttons sit. */
 const MENU_ROOM = { top: 52, right: 12, bottom: 12, left: 12 }
 
@@ -69,7 +72,7 @@ function DropdownMenuItem({
   onSelect,
   children,
   ...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.Item> & {
+}: NoTip<React.ComponentProps<typeof DropdownMenuPrimitive.Item>> & {
   inset?: boolean
   variant?: "default" | "destructive"
 }) {
@@ -98,7 +101,7 @@ function DropdownMenuCheckboxItem({
   inset,
   onCheckedChange,
   ...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.CheckboxItem> & {
+}: NoTip<React.ComponentProps<typeof DropdownMenuPrimitive.CheckboxItem>> & {
   inset?: boolean
 }) {
   return (
@@ -149,7 +152,7 @@ function DropdownMenuRadioItem({
   children,
   inset,
   ...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.RadioItem> & {
+}: NoTip<React.ComponentProps<typeof DropdownMenuPrimitive.RadioItem>> & {
   inset?: boolean
 }) {
   return (
@@ -237,7 +240,7 @@ function DropdownMenuSubTrigger({
   inset,
   children,
   ...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.SubTrigger> & {
+}: NoTip<React.ComponentProps<typeof DropdownMenuPrimitive.SubTrigger>> & {
   inset?: boolean
 }) {
   return (

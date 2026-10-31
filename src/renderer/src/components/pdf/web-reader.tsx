@@ -20,7 +20,7 @@ import { chime } from '@/lib/sound'
 import { cue } from '@/lib/cues'
 import { articleLink, openArticle, takeArticleFlash } from './pdf-reader'
 import { LookUpCard, type LookedUpIn } from './look-up'
-import { MARK_COLORS, MarkMenu, PickedMenu, WhyAfter, cited, lastColor, markCss, readKey, rememberColor, type MarkColor, type ReadActions } from './read-bar'
+import { MARK_COLORS, MarkMenu, PickedMenu, WhyAfter, blankOf, cited, lastColor, markCss, readKey, rememberColor, type MarkColor, type Picked, type ReadActions } from './read-bar'
 import { usePaperPages } from './paper'
 import { offsetsIn, rangeOf, type PdfMark } from './pdf-pages'
 import {
@@ -277,6 +277,8 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
   }
   // C: the question asked where the words were; Return makes the card.
   const [carding, setCarding] = useState<{ quote: string; x: number; y: number; bottom?: number; gem?: boolean } | null>(null)
+  /** The picked words as the right-click menu's previews and the blank card read them. */
+  const pickedAbout = (quote: string): Picked => ({ words: quote.replace(/\s+/g, ' ').trim(), sentence: sentenceHere(quote), where: whereFrom(), by: byline() })
   const actions: ReadActions = {
     highlight: (color) => (rememberColor(color), void mark(color, false)),
     keep: () => void mark(lastColor(), true),
@@ -289,9 +291,9 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     },
     blank: (gem) => {
       if (!picked) return
-      const words = picked.quote.replace(/\s+/g, ' ').trim()
-      const sentence = sentenceHere(picked.quote)
-      void cardOf(sentence !== words && sentence.includes(words) ? sentence.replace(words, '_____') : `_____ (${whereFrom()})`, sentence.includes(words) ? sentence : words, gem)
+      // The words blanked in their sentence, as the menu's preview showed them.
+      const { asked, answer } = blankOf(pickedAbout(picked.quote))
+      void cardOf(asked, answer, gem)
       getSelection()?.removeAllRanges()
       setPicked(null)
     },
@@ -691,11 +693,12 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
               }
               onCopy={() => void copyCited(hit.quote)}
               onRemove={() => void remove(hit)}
+              about={picked ? undefined : () => ({ words: hit.quote, sentence: hit.quote, where: whereFrom(), by: byline() })}
             />
           ) : null}
           {/* Words picked over a highlight: its own rows first, then what can be done with the words picked. */}
           {hit && picked && <ContextMenuSeparator />}
-          {picked && <PickedMenu actions={actions} />}
+          {picked && <PickedMenu actions={actions} about={() => pickedAbout(picked.quote)} />}
         </ContextMenuContent>
       </ContextMenu>
     </div>

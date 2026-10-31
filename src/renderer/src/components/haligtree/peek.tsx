@@ -30,14 +30,16 @@ export const carrying = (): boolean => {
 export const previewsOff = (): boolean => 'noPreviews' in document.documentElement.dataset
 
 /** The picture, the line and the keys; `text` is `**Lead.** The rest.` */
-export function PeekCard({ art, text, keys, fit = false, whole = false }: { art: ReactNode; text: string; keys?: string; /** As tall as the picture needs, up to the usual height: a block is often one line. */ fit?: boolean; /** A picture that fits whole: not faded at its foot. */ whole?: boolean }): React.JSX.Element {
+export function PeekCard({ art, text, keys, foot, fit = false, whole = false }: { /** Left out for a card of words alone: a menu row's longer meaning. */ art?: ReactNode; text: string; keys?: string; /** A quiet last line under the words: the other way to do it (⌥C keeps it as a gem too). */ foot?: ReactNode; /** As tall as the picture needs, up to the usual height: a block is often one line. */ fit?: boolean; /** A picture that fits whole: not faded at its foot. */ whole?: boolean }): React.JSX.Element {
   const { lead, rest } = splitLead(text)
   return (
     <div data-peek-card className="flex flex-col gap-0">
       {/* A picture of the thing, never a control: nothing in it can be reached. */}
-      <div aria-hidden inert className={`pointer-events-none relative ${fit ? 'max-h-[8.75rem] min-h-[4rem]' : 'h-[8.75rem]'} overflow-hidden rounded-lg border border-foreground/[0.08] bg-background px-3 py-2.5 text-[10.5px] leading-[1.4] text-foreground select-none ${whole ? '' : '[mask-image:linear-gradient(to_bottom,black_calc(100%-1.25rem),rgb(0_0_0/0.25))]'}`}>
-        {art}
-      </div>
+      {art !== undefined && (
+        <div aria-hidden inert className={`pointer-events-none relative ${fit ? 'max-h-[8.75rem] min-h-[4rem]' : 'h-[8.75rem]'} overflow-hidden rounded-lg border border-foreground/[0.08] bg-background px-3 py-2.5 text-[10.5px] leading-[1.4] text-foreground select-none ${whole ? '' : '[mask-image:linear-gradient(to_bottom,black_calc(100%-1.25rem),rgb(0_0_0/0.25))]'}`}>
+          {art}
+        </div>
+      )}
       <div className="flex items-end gap-2 px-1.5 pt-2 pb-1">
         <p className="min-w-0 flex-1 text-[13px] leading-snug text-foreground/75">
           {lead && <strong className="font-semibold text-foreground">{lead}</strong>}
@@ -46,6 +48,7 @@ export function PeekCard({ art, text, keys, fit = false, whole = false }: { art:
         </p>
         {keys && <span className="flex shrink-0 gap-0.5 pb-px"><Pressed keys={keys} /></span>}
       </div>
+      {foot && <p className="px-1.5 pb-1 text-[12px] leading-snug text-muted-foreground">{foot}</p>}
     </div>
   )
 }
@@ -62,7 +65,7 @@ export function Peek({ art, text, keys, off = false, children }: { art: () => Re
   // Only for a resting pointer: Tab through the sidebar moves on without a
   // large card opening over the page at each stop (the row says its own name).
   return (
-    <Tooltip open={open} onOpenChange={(next) => setOpen(next && !off && !carrying() && !previewsOff() && !!trigger.current?.matches(':hover'))} delayDuration={450} disableHoverableContent>
+    <Tooltip card open={open} onOpenChange={(next) => setOpen(next && !off && !carrying() && !previewsOff() && !!trigger.current?.matches(':hover'))} delayDuration={450} disableHoverableContent>
       <TooltipTrigger asChild ref={trigger} onPointerMove={(event) => {
         if (!realMove(event) || event.buttons || carrying()) event.preventDefault()
       }}>{children}</TooltipTrigger>

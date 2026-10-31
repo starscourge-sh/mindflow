@@ -10,7 +10,7 @@ import { APP_NAME } from '../../../../main/name'
  * its own with `data-peek`.
  */
 
-export type MenuPeekEntry = { text: string; art: () => ReactNode; keys?: string; /** Drawn to fit, so not faded at its foot. */ whole?: boolean }
+export type MenuPeekEntry = { text: string; /** Left out for a card of words alone. */ art?: () => ReactNode; keys?: string; /** A quiet last line under the words (peek.tsx). */ foot?: ReactNode; /** Drawn to fit, so not faded at its foot. */ whole?: boolean; /** As tall as its picture: a few lines of words leave no empty box. */ fit?: boolean }
 
 /** A small switch, drawn. */
 const Toggle = ({ on }: { on: boolean }): React.JSX.Element => (
@@ -211,8 +211,9 @@ export function MenuPeek({ entries = PEEKS }: { /** Another menu's own cards (th
     <span ref={probe} hidden />
     {peek && (
       <BesidePeek menu={() => probe.current?.closest<HTMLElement>('[role="menu"]') ?? null} row={(menu) => menu.querySelector('[data-highlighted]')} fresh={!seen.current}>
-        <PeekCard art={peek.art()} text={peek.text} keys={peek.keys} whole={peek.whole} />
+        <PeekCard art={peek.art?.()} text={peek.text} keys={peek.keys} foot={peek.foot} fit={peek.fit} whole={peek.whole} />
       </BesidePeek>
     )}
   </>)
 }
+
