@@ -40,7 +40,10 @@ try {
   check('the sheet opens with the card shown first', !!(await h.$('[data-share-card] [data-card-canvas]')), '')
   const square = await inked()
   check('square is 1080 by 1080 and drawn', square.width === 1080 && square.height === 1080 && square.colours > 3, JSON.stringify(square))
+  check('the card is signed "Haligtree" in the handwriting, its face loaded before it was drawn', await h.evaluate(() => document.fonts.check(`44px 'Haligtree Signature'`, 'Haligtree')), '')
   await h.screenshot({ path: `${shots}/share-card-square.png` })
+  // The card itself, as it will be sent: the signature at its foot.
+  await h.locator('[data-share-card] [data-card-canvas]').screenshot({ path: `${shots}/share-card-signed.png` })
   await h.click('[data-card-size="story"]'); await wait(500)
   const story = await inked()
   check('story is 1080 by 1920 and drawn', story.width === 1080 && story.height === 1920 && story.colours > 3, JSON.stringify(story))

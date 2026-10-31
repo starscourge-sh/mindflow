@@ -106,9 +106,12 @@ export async function drawCard(canvas: HTMLCanvasElement, quote: CardQuote, size
     ink.fillText(wrap(ink, from, column)[0] ?? '', pad, y)
   }
 
-  // Where it was kept, small, at the foot.
+  // Where it was kept, at the foot, signed in the app's handwriting as every "kept by" is (main.css,
+  // .mf-signature); with the marks off, in the app's own font. The face is asked for first, so the canvas never draws a stand-in.
   ink.fillStyle = quiet
-  ink.font = `500 30px ${text}`
+  const signed = document.documentElement.dataset.marks !== 'off'
+  if (signed) await document.fonts.load(`44px 'Haligtree Signature'`, APP_NAME).catch(() => [])
+  ink.font = signed ? `400 44px 'Haligtree Signature', ${heading}` : `500 30px ${text}`
   ink.textBaseline = 'alphabetic'
   ink.fillText(APP_NAME, width - pad - ink.measureText(APP_NAME).width, height - pad / 2 - 8)
 }
