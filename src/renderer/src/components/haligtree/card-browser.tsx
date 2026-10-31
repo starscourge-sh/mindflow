@@ -7,6 +7,7 @@ import { ListSearch } from './note-list'
 import { usePickMixed } from './pick-mixed'
 import { RowMenu } from './row-menu'
 import { WithPictures } from './with-pictures'
+import { PasteCards } from './paste-cards'
 import { Empty, toast } from './ui'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -43,7 +44,8 @@ const under = (tags: string[], tag: string): boolean => tags.some((one) => one =
  * row opens to edit its question in place; picked rows (⇧-click, x, ⌘A) are
  * paused, tagged or untagged together, or sent to the Bin with ⌫, each with Undo.
  */
-export function CardBrowser({ onOpen }: { onOpen: (type: string, id: string) => void }): React.JSX.Element {
+export function CardBrowser({ onOpen, pasting: pastingFirst = false }: { onOpen: (type: string, id: string) => void; /** Open with "Paste cards" out (⌘K). */ pasting?: boolean }): React.JSX.Element {
+  const [pasting, setPasting] = useState(pastingFirst)
   const cards = useLive(() => call<BrowsedCard[]>('cards:all'), null as BrowsedCard[] | null, [], ['item'])
   const [query, setQuery] = useState('')
   const [tag, setTag] = useState<string | null>(null)
@@ -77,14 +79,21 @@ export function CardBrowser({ onOpen }: { onOpen: (type: string, id: string) => 
     })
   }
   if (!cards) return <div />
+  const paste = pasting ? <PasteCards onClose={() => (chime('fold'), setPasting(false))} /> : null
   if (!cards.length)
-    return <Empty title="No cards yet">Write the question a gem answers, under “Review”, or import an Anki deck from File › Import.</Empty>
+    return (
+      <div className="flex flex-col gap-3 px-5 pt-5 pb-10">
+        {paste ?? <Empty title="No cards yet" action={<Button size="sm" data-paste-open onClick={() => (chime('open'), setPasting(true))}>Paste cards</Button>}>Paste a list of cards, write the question a gem answers under “Review”, or import an Anki deck from File › Import.</Empty>}
+      </div>
+    )
   return (
     <div data-card-browser className="flex flex-col gap-3 px-5 pt-5 pb-10">
       <div className="flex flex-wrap items-center gap-2">
         <div className="min-w-56 flex-1"><ListSearch value={query} onChange={setQuery} onDone={() => {}} placeholder="Search cards" /></div>
         <Chips options={SORTS} on={(id) => id === sort} pick={(id) => setSort(id as Sort)} />
+        <Button variant="ghost" size="sm" data-paste-open aria-expanded={pasting} onClick={() => (chime(pasting ? 'fold' : 'open'), setPasting(!pasting))}>Paste cards</Button>
       </div>
+      {paste}
       <Chips options={[{ id: '', label: `All ${num(cards.length)}` }, ...tags.map((one) => ({ id: one, label: `#${one}` }))]} on={(id) => (tag ?? '') === id} pick={(id) => setTag(id || null)} />
       {several.count > 0 && (
         <div data-card-picked className="flex flex-wrap items-center gap-2 rounded-lg border bg-accent/30 px-3 py-2 text-sm">

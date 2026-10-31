@@ -20,7 +20,7 @@ const TABS: { id: ReviewTab; label: string }[] = [
  * `focus` is a tag to study, or ":cards" to open on the browser (⌘K).
  */
 export function ReviewArea({ focus, onOpen }: { focus?: string; onOpen: (type: string, id: string) => void }): React.JSX.Element {
-  const [tab, setTab] = useState<ReviewTab>(focus === ':cards' ? 'cards' : focus === ':stats' ? 'stats' : 'today')
+  const [tab, setTab] = useState<ReviewTab>(focus === ':cards' || focus === ':paste' ? 'cards' : focus === ':stats' ? 'stats' : 'today')
   const tabs = (
     <span role="tablist" data-review-tabs className="flex h-8 items-center rounded-lg border border-foreground/10 bg-accent/40 p-0.5 text-control">
       {TABS.map((one) => (
@@ -36,7 +36,7 @@ export function ReviewArea({ focus, onOpen }: { focus?: string; onOpen: (type: s
   if (tab === 'cards')
     return (
       <Page title="Review" actions={tabs}>
-        <div className="page-sheet mx-auto w-full"><CardBrowser onOpen={onOpen} /></div>
+        <div className="page-sheet mx-auto w-full"><CardBrowser onOpen={onOpen} pasting={focus === ':paste'} /></div>
       </Page>
     )
   if (tab === 'stats')
