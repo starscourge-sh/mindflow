@@ -294,6 +294,93 @@
 .mf-on-accent {
   color: var(--pill-on-accent, oklch(from var(--tt-brand-color-400) clamp(0.2, (0.62 - l) * 1000, 1) clamp(0, (l - 0.62) * 1000, 0.02) 100));
 }
+/* Quick capture is a card inside a larger see-through window (main's overhang): the room round it holds the
+   card's own shadow and lets its menus hang past the card's edge. The card is solid, the theme's own page
+   (macOS's frost filled the whole window, room and all, so it is gone), with crisp rounded corners and the
+   app's one soft shadow: warm ink on light pages, black and fuller on dark ones. */
+html[data-overhang] #root {
+  padding: var(--mf-room);
+}
+html[data-overhang] .app-container {
+  --mf-window-tint: 100%;
+  border-radius: 14px;
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--foreground) 8%, transparent),
+    0 1px 2px color-mix(in oklab, var(--mf-shadow-ink) 16%, transparent),
+    0 12px 32px -6px color-mix(in oklab, var(--mf-shadow-ink) 32%, transparent);
+}
+html.dark[data-overhang] .app-container {
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--foreground) 10%, transparent),
+    0 1px 2px color-mix(in oklab, var(--mf-shadow-ink) 40%, transparent),
+    0 14px 36px -6px color-mix(in oklab, var(--mf-shadow-ink) 62%, transparent);
+}
+/* The box's controls, Spotlight's way (macOS 26): out of the card, above its
+   top right edge in the room round it, each its own round surface in the
+   card's material and hairline, all one height with even gaps. Icons only;
+   each says what it does in its one tip. The strip you drag by, the dots and
+   the note's name stay in the card. Always there: they live outside the card,
+   so the pointer reaching them is no longer "in the window". */
+html[data-overhang] [data-drag-strip] {
+  top: var(--mf-room);
+  left: var(--mf-room);
+  right: var(--mf-room);
+}
+html[data-overhang] .mf-top {
+  position: fixed;
+  top: calc(var(--mf-room) - 40px);
+  right: var(--mf-room);
+  gap: 8px;
+  transform: none !important;
+}
+html[data-overhang] .mf-top [data-aside] {
+  transform: none !important;
+  translate: none !important;
+}
+html[data-overhang] .mf-pill {
+  position: static;
+  gap: 8px;
+  padding: 0;
+  height: auto;
+  border: 0;
+  background: none;
+  overflow: visible;
+  opacity: 1 !important;
+}
+html[data-overhang] .mf-pill > * + * {
+  margin-left: 0;
+}
+html[data-overhang] .mf-pill > * + *::before {
+  display: none;
+}
+html[data-overhang] :is(.mf-pill button, [data-aside] > *) {
+  height: 32px;
+  min-width: 32px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--background);
+  cursor: pointer;
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--foreground) 10%, transparent),
+    0 1px 2px color-mix(in oklab, var(--mf-shadow-ink) 16%, transparent),
+    0 6px 16px -6px color-mix(in oklab, var(--mf-shadow-ink) 32%, transparent);
+  transition: background-color 120ms var(--mf-ease), scale 120ms var(--mf-ease);
+}
+html[data-overhang] .mf-pill button {
+  width: 32px;
+}
+html[data-overhang] :is(.mf-pill button, [data-aside] > *):hover {
+  background: color-mix(in oklab, var(--foreground) 7%, var(--background));
+}
+html[data-overhang] :is(.mf-pill button, [data-aside] > *):active {
+  scale: 0.97;
+}
+html.dark[data-overhang] :is(.mf-pill button, [data-aside] > *) {
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--foreground) 12%, transparent),
+    0 1px 2px color-mix(in oklab, var(--mf-shadow-ink) 40%, transparent),
+    0 6px 18px -6px color-mix(in oklab, var(--mf-shadow-ink) 62%, transparent);
+}
 /* Quick capture is a small box: its menus cast a lighter shadow and stop well
    short of its height, so "Turn into" or the kind picker never fill it. */
 html:has(.app-container):not([data-style]) {

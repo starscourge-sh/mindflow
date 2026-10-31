@@ -30,6 +30,11 @@ const POPS = [
   '[data-celebration]:not(:empty)'
 ].join(', ')
 
+/** The room main keeps round the box's card (its overhang); 0 in a window that is all card. */
+const ROOM = window.api.room
+/** The card's height: with room round it, the window is taller than the card by that room. */
+const cardHeight = (): number => (ROOM ? (document.querySelector<HTMLElement>('.app-container')?.offsetHeight ?? window.innerHeight) : window.innerHeight)
+
 /** How tall the window has to be to show the whole note without scrolling, two lines at least; null with no note in it. */
 function needed(column: HTMLElement | null): number | null {
   // A voice note recording in the writing's place (voice-note.tsx): the words
@@ -73,7 +78,7 @@ function needed(column: HTMLElement | null): number | null {
   const pad = getComputedStyle(scroller)
   const content = words + rest + (parseFloat(pad.paddingTop) || 0) + (parseFloat(pad.paddingBottom) || 0)
   // Everything around the note (the header, the fields, the footer) stays as it is.
-  return Math.ceil(window.innerHeight - scroller.clientHeight + content)
+  return Math.ceil(cardHeight() - scroller.clientHeight + content)
 }
 
 /**
@@ -95,10 +100,14 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, 
   const pillNow = useRef(pill)
   pillNow.current = pill
 
+  /** Room asked for below the card while a pop-up is open; and whether the screen had none, so the card grew instead. */
+  const below = useRef(0)
+  const grewForPop = useRef(false)
   const want = useCallback((): number => {
     const popped = document.querySelector(POPS)
     if (pillNow.current && !popped) return PILL
-    const height = fullNow.current || popped ? FULL : (needed(column.current) ?? FULL)
+    // With room round the card, a pop-up hangs past the card's foot rather than growing the card.
+    const height = fullNow.current || (popped && (!ROOM || grewForPop.current)) ? FULL : (needed(column.current) ?? FULL)
     return Math.min(FULL, Math.max(SHORT, height))
   }, [column])
 
@@ -119,7 +128,25 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, 
   const settling = useRef(false)
   const room = useCallback((): boolean => {
     const root = document.documentElement
-    const short = !held.current && !document.hidden && window.innerHeight < FULL - 1 && Boolean(document.querySelector(POPS))
+    const popped = Boolean(document.querySelector(POPS))
+    const card = cardHeight()
+    // Room round the card (main's overhang): a pop-up in a short box gets room below the card's foot, the window
+    // growing down while the card stays put; only where the screen has no room there does the card grow, as before.
+    if (ROOM && !held.current && !document.hidden) {
+      const ask = popped && !grewForPop.current && card < FULL - 1 ? Math.max(0, FULL - card - ROOM) : 0
+      if (!popped) grewForPop.current = false
+      if (ask !== below.current) {
+        below.current = ask
+        if (ask && !('growing' in root.dataset)) (root.dataset.growing = ''), setTimeout(() => delete root.dataset.growing, 500)
+        void window.api.roomBelow(ask).then((given) => {
+          if (!ask || given || below.current !== ask) return
+          grewForPop.current = true
+          below.current = 0
+          send(FULL, true)
+        })
+      }
+    }
+    const short = !ROOM && !held.current && !document.hidden && card < FULL - 1 && popped
     if (short) {
       // Never left hidden if the box cannot grow (no room on the screen).
       if (!('growing' in root.dataset)) setTimeout(() => delete root.dataset.growing, 500)
@@ -134,7 +161,8 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, 
       const still = (): void => {
         const pop = document.querySelector(POPS)
         const at = pop ? JSON.stringify(pop.getBoundingClientRect()) : ''
-        if (!pop || (at === last && window.innerHeight >= FULL - 1) || ++frames > 12) {
+        const roomy = cardHeight() >= FULL - 1 || (ROOM > 0 && window.innerHeight >= cardHeight() + 2 * ROOM + below.current - 1)
+        if (!pop || (at === last && roomy) || ++frames > 12) {
           settling.current = false
           return void delete root.dataset.growing
         }
@@ -190,7 +218,7 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, 
     editor.registerPlugin(new Plugin({ props: { handleScrollToSelection: () => {
       if (held.current) return false
       const height = want()
-      if (height <= window.innerHeight + 1) return false
+      if (height <= cardHeight() + 1) return false
       send(height)
       // Once it has grown, the caret is brought into view if it still needs it.
       setTimeout(() => !editor.isDestroyed && editor.commands.scrollIntoView(), 280)

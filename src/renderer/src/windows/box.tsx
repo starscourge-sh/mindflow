@@ -8,5 +8,14 @@ import '../assets/main.css'
 import 'slot-text/style.css'
 import App from '../App'
 import { start } from '../main'
+import { clearRoom } from '../lib/clear-room'
 
 start(<App />)
+// Quick capture is a card inside a larger see-through window (main's overhang): the page draws the card inside
+// the room, its menus may hang past the card's edge into it, and clicks on the empty room pass to the app behind.
+// A note's own window (the same page) has no room and is left as it is.
+if (window.api.room) {
+  document.documentElement.dataset.overhang = ''
+  document.documentElement.style.setProperty('--mf-room', `${window.api.room}px`)
+  clearRoom()
+}

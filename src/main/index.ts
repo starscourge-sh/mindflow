@@ -555,6 +555,62 @@ function toggleWindow(): void {
  * ours has run. Each kind of window has a page of its own (`pageFor`), so it
  * loads only its own code.
  */
+/**
+ * A window drawn larger than its card, iOS's way: the card is what you see and
+ * move, the clear room round it is where its menus, pills and chips may hang
+ * past the card's edge (and clicks pass through it, see passThrough). Once a
+ * window is given room, every size and place main reads or sets on it
+ * (getBounds, setBounds, getPosition, setPosition, getSize, setSize) is its
+ * card's: the window follows with the room round it. Its page's own frame
+ * (getContentBounds) stays the window's, as the page measures from there.
+ */
+type Room = { left: number; top: number; right: number; bottom: number }
+const rooms = new WeakMap<BrowserWindow, Room>()
+/** The room the box keeps round its card on every side: its controls above it (Spotlight's way), a menu's foot and its shadow. */
+const BOX_ROOM = 48
+const evenRoom = (px: number): Room => ({ left: px, top: px, right: px, bottom: px })
+function overhang(win: BrowserWindow, room: Room): void {
+  const real = { getBounds: win.getBounds.bind(win), setBounds: win.setBounds.bind(win) }
+  rooms.set(win, { ...room })
+  const around = (): Room => rooms.get(win) ?? evenRoom(0)
+  const card = (): Electron.Rectangle => {
+    const at = real.getBounds()
+    const r = around()
+    return { x: at.x + r.left, y: at.y + r.top, width: at.width - r.left - r.right, height: at.height - r.top - r.bottom }
+  }
+  const put = (next: Partial<Electron.Rectangle>, animate?: boolean): void => {
+    const to = { ...card(), ...next }
+    const r = around()
+    real.setBounds({ x: to.x - r.left, y: to.y - r.top, width: to.width + r.left + r.right, height: to.height + r.top + r.bottom }, animate)
+  }
+  win.getBounds = card
+  win.setBounds = put
+  win.getPosition = () => [card().x, card().y]
+  win.setPosition = (x: number, y: number, animate?: boolean) => put({ x, y }, animate)
+  win.getSize = () => [card().width, card().height]
+  win.setSize = (width: number, height: number, animate?: boolean) => put({ width, height }, animate)
+  // A card's limits are the window's less its room (none set stays none).
+  const setMin = win.setMinimumSize.bind(win)
+  const setMax = win.setMaximumSize.bind(win)
+  const grown = (size: number, by: number): number => (size > 0 ? size + by : size)
+  win.setMinimumSize = (width: number, height: number) => setMin(grown(width, around().left + around().right), grown(height, around().top + around().bottom))
+  win.setMaximumSize = (width: number, height: number) => setMax(grown(width, around().left + around().right), grown(height, around().top + around().bottom))
+}
+// A page asks once, as it loads, how much room its window keeps round the card (0: the window is the card).
+// Asked of main, not passed on the command line: a renderer process can be shared, and its arguments with it.
+ipcMain.on('window:room', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  event.returnValue = (win && rooms.get(win)?.left) || 0
+})
+/** More (or less) room round a window's card, the card staying exactly where it is. */
+function setRoom(win: BrowserWindow, room: Room): void {
+  const was = rooms.get(win)
+  if (!was || (was.left === room.left && was.top === room.top && was.right === room.right && was.bottom === room.bottom)) return
+  const card = win.getBounds()
+  rooms.set(win, { ...room })
+  win.setBounds(card)
+}
+
 function load(win: BrowserWindow, query = ''): void {
   // The sandbox says so in every window's address, the one thing a page knows before it runs.
   if (SANDBOX) query = `${query || '?'}${query ? '&' : ''}sandbox=1`
@@ -2669,9 +2725,14 @@ function createWindow(): void {
     closable: false,
     minimizable: false,
     fullscreenable: false,
-    vibrancy: 'under-window',
-    visualEffectState: 'active',
-    backgroundColor: 'rgba(0,0,0,0)',
+    // See-through and larger than the card it draws (overhang, below): the page
+    // paints the card, its surface, corners and shadow, and its menus may hang
+    // past the card's edge into the clear room round it. macOS's own frost and
+    // shadow would fill the whole window, room and all, so neither is used.
+    transparent: true,
+    hasShadow: false,
+    roundedCorners: false,
+    backgroundColor: '#00000000',
 
     show: false,
     alwaysOnTop: true,
@@ -2690,6 +2751,11 @@ function createWindow(): void {
   // so a call never shows what you are jotting. Honoured by older capture;
   // recorders on Apple's newer ScreenCaptureKit may still see it.
   protect(mainWindow)
+  // From here every size and place is the card's; the window keeps BOX_ROOM round it, clicks passing through there.
+  const first = mainWindow.getBounds()
+  overhang(mainWindow, evenRoom(BOX_ROOM))
+  mainWindow.setBounds(first)
+  passThrough(mainWindow, true)
 
   // the ready-to-show event on the BrowserWindow class will be emitted when the renderer process has rendered the page for the first time if the window has not been shown yet.
   // Showing the window after this event will have no visual flash:
@@ -2832,7 +2898,8 @@ app.on('browser-window-created', (_, win) => {
 if (process.env.HALIGTREE_USER_DATA && process.env.HALIGTREE_QA_AWAY) {
   const away = (win: BrowserWindow): void => {
     const { bounds } = screen.getPrimaryDisplay()
-    const [width, height] = win.getSize()
+    // The window's own size, not a card's inside it (overhang).
+    const [width, height] = proto.getSize.call(win)
     setBounds.call(win, { x: bounds.x + bounds.width - 6, y: bounds.y + 40, width, height })
     // Where the screen will not let it go past the edge, unseen and unclickable all the same.
     win.setOpacity(0)
@@ -4750,6 +4817,19 @@ app.whenReady().then(() => {
   // or comes back up, in the same glide. The panel and the expander keep
   // their full height whatever it says.
   // A pop-up waiting for room asks for it at once (snap): see fit-box.
+  // A pop-up (the "…" menu, a picker) open in a short box: the window grows its room below the card, so the
+  // pop-up hangs past the card's foot while the card stays as it is. Asked with 0 once it has closed.
+  ipcMain.handle('window:room-below', (event, extra: unknown) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win || win !== prompt || !rooms.has(win) || typeof extra !== 'number' || !Number.isFinite(extra)) return false
+    const want = Math.max(0, Math.round(extra))
+    const card = boundsOf(win)
+    const { workArea } = screen.getDisplayMatching(card)
+    // Off the screen's foot the room would hide the pop-up: the box grows instead (window:fit), as before.
+    if (want && card.y + card.height + BOX_ROOM + want > workArea.y + workArea.height) return false
+    setRoom(win, { ...evenRoom(BOX_ROOM), bottom: BOX_ROOM + want })
+    return true
+  })
   ipcMain.on('window:fit', (event, height: unknown, snap: unknown) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win || win !== prompt || typeof height !== 'number' || !Number.isFinite(height)) return

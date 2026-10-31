@@ -18,6 +18,34 @@ process.env.HALIGTREE_QA_VIRTUAL ??= '1'
 const { check, done } = checks()
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 const c = await sandbox()
+/**
+ * The box over a bright and a dark desktop, in Paper and Dark: its own page
+ * captured, laid over a stand-in desktop (a QA run's windows are kept unseen),
+ * so the room round the card shows what is behind it.
+ */
+async function shots(name) {
+  const { writeFileSync, mkdirSync } = await import('fs')
+  mkdirSync(process.env.QA_SHOTS, { recursive: true })
+  for (const theme of ['paper', 'dark']) {
+    await c.page.evaluate((n) => (localStorage.setItem('theme', n), window.dispatchEvent(new StorageEvent('storage', { key: 'theme' }))), theme)
+    await new Promise((r) => setTimeout(r, 700))
+    for (const desk of ['bright', 'dark']) {
+      const png = await c.electron.evaluate(async ({ BrowserWindow }, [url, desk]) => {
+        const w = BrowserWindow.getAllWindows().find((one) => one.webContents.getURL() === url)
+        const src = (await w.webContents.capturePage()).toDataURL()
+        const { width, height } = BrowserWindow.prototype.getBounds.call(w)
+        const back = desk === 'bright' ? 'linear-gradient(135deg,#f6f1e4,#cfe3f5 60%,#f3d9c7)' : 'linear-gradient(135deg,#1c2230,#3a2f45 60%,#14181f)'
+        const view = new BrowserWindow({ show: false, paintWhenInitiallyHidden: true, width, height, useContentSize: true })
+        try {
+          await view.loadURL('about:blank')
+          await view.webContents.executeJavaScript(`document.documentElement.innerHTML = ${JSON.stringify(`<body style="margin:0;background:${back}"><div style="position:absolute;left:24px;top:30px;font:14px -apple-system;color:${desk === 'bright' ? '#333' : '#ccd'}">Another app's window behind the box: lines of its text run under the room round the card.</div><img src="${src}" style="position:fixed;inset:0;width:100%;height:100%"></body>`)}; new Promise((r) => setTimeout(r, 300))`)
+          return (await view.webContents.capturePage()).toPNG().toString('base64')
+        } finally { view.destroy() }
+      }, [c.page.url(), desk])
+      writeFileSync(`${process.env.QA_SHOTS}/box-${name}-${theme}-on-${desk}.png`, Buffer.from(png, 'base64'))
+    }
+  }
+}
 const { electron, h, v } = c
 try {
   const stickyWins = () => electron.evaluate(({ BrowserWindow, screen }) => BrowserWindow.getAllWindows()
@@ -132,6 +160,96 @@ try {
   await pillMove(3, Math.round(pillBox.y + pillBox.height / 2))
   await wait(200)
   check('the pointer beside the pill: clicks pass to the app behind', (await through(pillId)) === true)
+
+  // Quick capture: a card inside a larger see-through window.
+  const box = c.page
+  const BOX = box.url()
+  const boxWin = () => electron.evaluate(({ BrowserWindow }, url) => {
+    const w = BrowserWindow.getAllWindows().find((one) => one.webContents.getURL() === url)
+    return { id: w.id, card: w.getBounds(), real: BrowserWindow.prototype.getBounds.call(w) }
+  }, BOX)
+  await v('settings:set', { hintRate: 0, motion: false })
+  for (let i = 0; i < 4; i++) await v('task:add', `Overhang task ${i + 1} today`, undefined, true)
+  await box.evaluate(() => window.api.showPrompt())
+  await wait(1200)
+  let at = await boxWin()
+  const ROOM = await box.evaluate(() => window.api.room)
+  const drawn = await box.evaluate(() => {
+    const r = document.querySelector('.app-container').getBoundingClientRect()
+    const root = getComputedStyle(document.getElementById('root'))
+    return { x: r.x, y: r.y, width: r.width, height: r.height, innerWidth, innerHeight, dataRoom: document.documentElement.hasAttribute('data-overhang'), pad: root.paddingTop, html: getComputedStyle(document.documentElement).backgroundColor, body: getComputedStyle(document.body).backgroundColor }
+  })
+  check('quick capture: the page is told the room round its card', ROOM > 0 && drawn.dataRoom, JSON.stringify({ ROOM, drawn }))
+  check('quick capture: the window is larger than its card, by the room on every side', at.real.width === at.card.width + 2 * ROOM && at.real.height === at.card.height + 2 * ROOM && at.card.x - at.real.x === ROOM, JSON.stringify(at))
+  check('quick capture: the page draws the card where main says it is', Math.round(drawn.x) === ROOM && Math.round(drawn.y) === ROOM && Math.round(drawn.width) === at.card.width && Math.round(drawn.height) === at.card.height, JSON.stringify(drawn))
+  check('quick capture: the room is see-through (nothing painted behind the card)', /rgba\(0, 0, 0, 0\)|transparent/.test(drawn.html) && /rgba\(0, 0, 0, 0\)|transparent/.test(drawn.body), JSON.stringify(drawn))
+  // The window's controls, Spotlight's way: outside the card, above its top right, each its own round surface.
+  const orbs = await box.evaluate(() => {
+    const card = document.querySelector('.app-container').getBoundingClientRect()
+    return [...document.querySelectorAll('.mf-pill button, [data-aside] > *')].map((one) => {
+      const r = one.getBoundingClientRect()
+      const st = getComputedStyle(one)
+      return { label: one.getAttribute('aria-label') ?? one.textContent.trim(), top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right), h: Math.round(r.height), radius: st.borderRadius, cursor: st.cursor, opacity: getComputedStyle(one.closest('.mf-pill') ?? one).opacity, above: r.bottom <= card.top - 4 }
+    })
+  })
+  check('quick capture: its controls sit above the card, outside it, all one height', orbs.length >= 3 && orbs.every((one) => one.above && one.h === orbs[0].h && one.opacity === '1'), JSON.stringify(orbs))
+  const gaps = orbs.slice(1).map((one, i) => one.left - orbs[i].right)
+  check('quick capture: an even gap between them', gaps.every((gap) => gap === gaps[0]), JSON.stringify(gaps))
+  check('quick capture: each is round and shows the hand', orbs.every((one) => one.radius === '999px' && one.cursor === 'pointer'), JSON.stringify(orbs.map((one) => [one.radius, one.cursor])))
+  const boxMove = (x, y) => electron.evaluate(({ BrowserWindow }, [id, x, y]) => BrowserWindow.fromId(id).webContents.sendInputEvent({ type: 'mouseMove', x, y }), [at.id, x, y])
+  await boxMove(Math.round(drawn.x + drawn.width / 2), Math.round(drawn.y + drawn.height / 2))
+  await wait(200)
+  check('quick capture: the pointer over the card, it takes clicks', (await through(at.id)) === false)
+  await boxMove(10, 10)
+  await wait(200)
+  check('quick capture: the pointer in the room round it, clicks pass to the app behind', (await through(at.id)) === true)
+  // Moved (a drag, a throw): the card goes where it is told, the window with it.
+  await electron.evaluate(({ BrowserWindow }, id) => { const w = BrowserWindow.fromId(id); const b = w.getBounds(); w.setPosition(b.x + 30, b.y + 20) }, at.id)
+  const moved = await boxWin()
+  check('quick capture: moved, the card lands where it was put, its room round it', moved.card.x === at.card.x + 30 && moved.card.y === at.card.y + 20 && moved.real.x === moved.card.x - ROOM, JSON.stringify(moved))
+  // Put away and summoned: back where it was left.
+  await box.evaluate(() => window.api.hidePrompt())
+  await wait(500)
+  await box.evaluate(() => window.api.showPrompt())
+  await wait(1000)
+  const again = await boxWin()
+  check('quick capture: put away and summoned, the card is back where it was left', again.card.x === moved.card.x && again.card.y === moved.card.y, JSON.stringify({ moved: moved.card, again: again.card }))
+  // A short box: a right-click menu for two tasks hangs past the card's foot, whole, the card staying as it is.
+  await box.locator('[data-home="task"]').first().click()
+  await wait(900)
+  const short = await boxWin()
+  const rows = box.locator('[data-row][data-id]')
+  const n = await rows.count()
+  for (const i of [n - 2, n - 1]) { await rows.nth(i).scrollIntoViewIfNeeded(); await rows.nth(i).click({ modifiers: ['Shift'] }); await wait(150) }
+  await rows.nth(n - 1).click({ button: 'right' })
+  await wait(900)
+  const open = await boxWin()
+  const menu = await box.evaluate(() => {
+    const m = document.querySelector('[role=menu]')
+    if (!m) return null
+    const r = m.getBoundingClientRect()
+    const card = document.querySelector('.app-container').getBoundingClientRect()
+    return { top: Math.round(r.top), bottom: Math.round(r.bottom), cardBottom: Math.round(card.bottom), h: innerHeight }
+  })
+  check('quick capture: a menu opens whole in the window', !!menu && menu.top >= 0 && menu.bottom <= menu.h, JSON.stringify(menu))
+  check('quick capture: the card keeps its size while the menu is open', open.card.height === short.card.height && open.card.y === short.card.y, JSON.stringify({ short: short.card, open: open.card }))
+  check('quick capture: the menu may hang past the card\'s foot into the room', !!menu && (menu.bottom > menu.cardBottom || short.card.height >= 600), JSON.stringify(menu))
+  if (process.env.QA_SHOTS) await shots('menu')
+  await box.keyboard.press('Escape')
+  await wait(500)
+  const closed = await boxWin()
+  check('quick capture: the menu closed, the room below goes back to the rest', closed.real.height === closed.card.height + 2 * ROOM, JSON.stringify(closed))
+
+  // At scale: many pinned notes, the chip still one line and clear of the buttons.
+  if (process.env.QA_SHOTS) {
+    await box.evaluate(() => { document.documentElement.dataset.qaPins = '' })
+    await box.evaluate(() => {
+      const chip = document.querySelector('[data-waiting] span')
+      if (chip) chip.textContent = '128 pinned'
+    })
+    await wait(300)
+    await shots('pins-128')
+  }
 } catch (error) {
   check('ran to the end', false, error.message.split('\n')[0])
 } finally {

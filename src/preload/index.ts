@@ -170,6 +170,10 @@ const api = {
   centreBox: (): void => ipcRenderer.send('window:centre'),
   /** The box's height as its writing needs it: it grows down to it, up to its full size. */
   fitBox: (height: number, snap = false): void => ipcRenderer.send('window:fit', height, snap),
+  /** The room main keeps round this window's card (quick capture's overhang), 0 for a window that is all card. */
+  room: Number(ipcRenderer.sendSync('window:room')) || 0,
+  /** Room below the card for a pop-up to hang into, the card staying put; false where the screen has none. */
+  roomBelow: (px: number): Promise<boolean> => ipcRenderer.invoke('window:room-below', px),
   /** The main window: fill the screen, or back to its compact size. */
   fillHome: (fill: boolean | 'toggle'): Promise<boolean> => ipcRenderer.invoke('home:fill', fill),
   /** Told whenever the main window fills the screen or comes back from it. */
