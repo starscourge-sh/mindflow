@@ -1107,9 +1107,11 @@ function Surface({
       // Mod-click opens a link. A plain click belongs to the caret, because
       // the text is there to be edited - the same rule a tag follows.
       // `openOnClick` is off on the extension for exactly that reason, and it
-      // has no setting for "only with a modifier".
-      handleClick: (_view, _pos, event) => {
-        if (!(event.metaKey || event.ctrlKey)) return false
+      // has no setting for "only with a modifier". Where nothing can be edited
+      // (a card's answer in Review), there is no caret to place: a plain click
+      // follows the link, as a link anywhere else does.
+      handleClick: (view, _pos, event) => {
+        if (!(event.metaKey || event.ctrlKey) && view.editable) return false
         const href = (event.target as HTMLElement | null)
           ?.closest("a[href]")
           ?.getAttribute("href")
