@@ -42,6 +42,33 @@ try {
   })
   check('the level is drawn as it records', live.inked > 50, JSON.stringify(live))
   check('the time counts up', /^0:0[1-9]$/.test(live.time), live.time)
+  // The level follows the voice up and lets go slowly: over two seconds of the
+  // stand-in microphone's beeps and the silence between, the newest bar never
+  // drops more than a fifth of the pill's height in one frame, and rests flat in silence.
+  const fall = await h.evaluate(async () => {
+    const canvas = document.querySelector('[data-voice-level]')
+    const middle = () => {
+      const { width, height } = canvas
+      const x = Math.floor(width / 2)
+      const data = canvas.getContext('2d').getImageData(x - 1, 0, 3, height).data
+      let n = 0
+      for (let y = 0; y < height; y += 1) if (data[(y * 3 + 1) * 4 + 3] > 0) n++
+      return n
+    }
+    const seen = []
+    const end = performance.now() + 2000
+    await new Promise((done) => { const step = () => { seen.push(middle()); performance.now() < end ? requestAnimationFrame(step) : done() }; requestAnimationFrame(step) })
+    const drops = seen.slice(1).map((n, i) => seen[i] - n)
+    return { frames: seen.length, height: canvas.height, worstDrop: Math.max(...drops), tallest: Math.max(...seen), lowest: Math.min(...seen) }
+  })
+  check('the level falls back smoothly, never snapping down', fall.tallest > fall.height * 0.3 && fall.worstDrop <= fall.height * 0.2, JSON.stringify(fall))
+  // One family with quick capture's round controls: their 32px height, the page's paper and a hairline.
+  const pill = await h.evaluate(() => {
+    const el = document.querySelector('[data-voice-recorder]')
+    const s = getComputedStyle(el)
+    return { h: Math.round(el.getBoundingClientRect().height), fill: s.backgroundColor, page: getComputedStyle(document.body).backgroundColor, ring: s.boxShadow.includes('0px 0px 0px 1px') }
+  })
+  check('the recorder pill is 32 tall, in the page\'s paper with a hairline', pill.h === 32 && pill.ring, JSON.stringify(pill))
   await h.screenshot({ path: `${shots}/audio-record-live.png` })
   await h.keyboard.press('Escape'); await wait(800)
   check('Esc closes the recorder', !(await h.$('[data-voice-recorder]')), '')

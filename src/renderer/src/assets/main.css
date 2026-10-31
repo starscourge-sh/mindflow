@@ -2666,3 +2666,15 @@ textarea[data-talking]::selection {
   background: transparent;
   color: var(--muted-foreground);
 }
+
+/* The voice note recorder's floating pill (voice-note.tsx): quick capture's
+   round controls' own surface, the page's paper, a hairline in the ink and a
+   soft shadow, at their 32px height, so the two read as one family. */
+.mf-voice-pill {
+  background: var(--background);
+  color: var(--foreground);
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--foreground) 10%, transparent),
+    0 1px 2px color-mix(in oklab, var(--mf-shadow-ink, #000) 16%, transparent),
+    0 6px 16px -6px color-mix(in oklab, var(--mf-shadow-ink, #000) 32%, transparent);
+}

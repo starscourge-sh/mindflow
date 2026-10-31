@@ -7,7 +7,6 @@ import { Mic, Square, X } from 'lucide-react'
 import { saveAttachment } from '@/extensions/image-drop'
 import { refuse } from '@/components/haligtree/ui'
 import { chime } from '@/lib/sound'
-import { FLOAT } from '@/lib/float'
 import { wantsWords } from '@/lib/transcribe'
 import { setRecording } from '@/lib/recording'
 import { cn } from '@/lib/cn'
@@ -20,6 +19,11 @@ const KINDS = [
 ]
 
 /** 0:42, 12:05, and past an hour 2:00:04, never "120:04". */
+/** Below this the microphone hears only the room; how fast the shown level follows the voice up, and lets go. */
+const HISS = 0.025
+const RISE = 0.55
+const FALL = 0.12
+
 const clock = (seconds: number): string => {
   const whole = Math.floor(seconds)
   const [h, m, s] = [Math.floor(whole / 3600), Math.floor((whole % 3600) / 60), whole % 60]
@@ -153,6 +157,9 @@ function Recorder({ stream, onDone, inline }: { stream: MediaStream; onDone: (ke
     ears.createMediaStreamSource(stream).connect(analyser)
     const samples = new Uint8Array(analyser.fftSize)
     const levels: number[] = []
+    // The level as shown: rises with the voice at once, falls back slowly, and
+    // under the room's own hiss rests flat, so silence never flickers.
+    let shown = 0
     let frame = 0
     const draw = (): void => {
       frame = requestAnimationFrame(draw)
@@ -162,7 +169,9 @@ function Recorder({ stream, onDone, inline }: { stream: MediaStream; onDone: (ke
       analyser.getByteTimeDomainData(samples)
       let peak = 0
       for (const one of samples) peak = Math.max(peak, Math.abs(one - 128) / 128)
-      levels.push(peak)
+      const heard = peak < HISS ? 0 : peak
+      shown += (heard - shown) * (heard > shown ? RISE : FALL)
+      levels.push(shown)
       const ratio = devicePixelRatio
       const width = el.clientWidth * ratio, height = el.clientHeight * ratio
       if (el.width !== width) (el.width = width, el.height = height)
@@ -252,7 +261,8 @@ function Recorder({ stream, onDone, inline }: { stream: MediaStream; onDone: (ke
   return (
     <div role="dialog" aria-label="Recording a voice note" data-voice-recorder
       // The app's one floating material (lib/float.ts), as the Look Up card and the page peek wear it.
-      className={`fixed bottom-28 left-1/2 z-[1000] flex w-[340px] max-w-[calc(100vw-24px)] -translate-x-1/2 items-center gap-2 rounded-full py-1.5 pr-1.5 pl-2 ${FLOAT} animate-in fade-in-0 slide-in-from-bottom-2 duration-200`}>
+      // One family with quick capture's round controls (mf-voice-pill, main.css): their paper, hairline and 32px height.
+      className="mf-voice-pill fixed bottom-28 left-1/2 z-[1000] flex h-[32px] w-[340px] max-w-[calc(100vw-24px)] -translate-x-1/2 items-center gap-2 rounded-full pr-0.5 pl-0.5 animate-in fade-in-0 slide-in-from-bottom-2 duration-200">
       {cancelButton}
       {level}
       {time}
